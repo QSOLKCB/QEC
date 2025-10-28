@@ -32,9 +32,9 @@ class TestMirrorReposScript:
     def test_dependency_check_function(self):
         """Test the dependency checking functionality."""
         # Test with existing command - should succeed
-        test_script_success = '''
+        test_script_success = f'''
         #!/bin/bash
-        source ''' + self.script_path + '''
+        source {self.script_path}
 
         # Test with existing command
         need echo
@@ -42,9 +42,9 @@ class TestMirrorReposScript:
         '''
 
         # Test with non-existent command - should fail
-        test_script_fail = '''
+        test_script_fail = f'''
         #!/bin/bash
-        source ''' + self.script_path + '''
+        source {self.script_path}
 
         # Test with non-existent command (should fail)
         need nonexistent_command_12345 2>/dev/null
@@ -80,9 +80,9 @@ class TestMirrorReposScript:
 
     def test_timestamp_function(self):
         """Test the timestamp function."""
-        test_script = '''
+        test_script = f'''
         #!/bin/bash
-        source ''' + self.script_path + '''
+        source {self.script_path}
         timestamp
         '''
 
@@ -104,9 +104,9 @@ class TestMirrorReposScript:
 
     def test_log_function(self):
         """Test the log function."""
-        test_script = '''
+        test_script = f'''
         #!/bin/bash
-        source ''' + self.script_path + '''
+        source {self.script_path}
         log "Test message"
         '''
 
@@ -132,10 +132,10 @@ class TestMirrorReposScript:
         env['DRY_RUN'] = '1'
 
         # Create a minimal test that checks DRY_RUN behavior
-        test_script = '''
+        test_script = f'''
         #!/bin/bash
         set -euo pipefail
-        source ''' + self.script_path + '''
+        source {self.script_path}
 
         # Test a simple log message
         log "Testing dry run mode"
@@ -158,9 +158,9 @@ class TestMirrorReposScript:
 
     def test_environment_variables(self):
         """Test that environment variables are properly handled."""
-        test_script = '''
+        test_script = f'''
         #!/bin/bash
-        source ''' + self.script_path + '''
+        source {self.script_path}
 
         echo "ORG_TEST: $ORG_TEST"
         echo "ORG_DEV: $ORG_DEV"

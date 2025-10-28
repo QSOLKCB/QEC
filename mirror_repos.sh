@@ -106,7 +106,7 @@ build_branch_merge() {
       git checkout -B BUILD build/DEV
     else
       log "[BUILD] Skip $repo (no TEST/DEV in fork)"
-      exit 0
+      return 0
     fi
 
     # merge the other branch if it exists

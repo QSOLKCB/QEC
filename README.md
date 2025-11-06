@@ -21,7 +21,7 @@ The dataset merges:
 This work extends concepts from *Spectral Algebraics* and *QAI-UFT* toward a measurable audio-physics framework.
 
 ---
-
+<pre>
 ## 📂 Contents
 
 Spectral-QEC-Benchmark-Set-v1/
@@ -48,10 +48,7 @@ Spectral-QEC-Benchmark-Set-v1/
 │
 ├── LICENSE.txt
 └── README.md
-
-yaml
-Copy code
-
+</pre>
 ---
 
 ## 🎧 Track Summaries

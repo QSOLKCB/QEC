@@ -4,7 +4,7 @@
 **Version:** 1.0 — November 2025  
 **License:** CC BY 4.0  
 **Repository:** [QSOLKCB/QEC](https://github.com/QSOLKCB/QEC)  
-**DOI:** _to be assigned by Zenodo_  
+**DOI:** [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17544621.svg)](https://doi.org/10.5281/zenodo.17544621)
 
 ---
 

@@ -3,13 +3,13 @@
 # 🎛️ Spectral QEC Benchmark Set v1
 
 ### Sonified Thresholds of Quantum Error Correction
-<pre>
-**Author:** Trent Slade (QSOL-IMC)
-**Version:** 1.1 — November 2025
-**License:** CC BY 4.0
-**Repository:** [https://github.com/QSOLKCB/QEC](https://github.com/QSOLKCB/QEC)
-**DOI:** [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17544621.svg)](https://doi.org/10.5281/zenodo.17544621)
-</pre>
+
+Author:** Trent Slade (QSOL-IMC)
+Version:** 1.1 — November 2025
+License:** CC BY 4.0
+Repository:** [https://github.com/QSOLKCB/QEC](https://github.com/QSOLKCB/QEC)
+DOI:** [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17544621.svg)](https://doi.org/10.5281/zenodo.17544621)
+
 ---
 
 ## 🧠 Overview

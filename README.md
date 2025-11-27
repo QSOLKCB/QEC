@@ -1,3 +1,8 @@
+# QEC v1.5 — Ququart Stabilizer Code + High-Density Geometry Layer  
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17742258.svg)](https://doi.org/10.5281/zenodo.17742258)
+![GitHub release (latest by tag)](https://img.shields.io/github/v/release/QSOLKCB/QEC?label=release)
+
+
 # QEC v1.5 — Ququart Stabilizer Code + High-Density Geometry Layer
 
 ## 🧬 What's New in v1.5

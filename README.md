@@ -42,7 +42,7 @@ Monte Carlo simulations now support “baseline vs geometry-prior” comparative
 The new module qudit_stabilizer.py supports qutrits, ququarts, and higher qudits.
 
 This expands the QSOL-IMC Spectral Algebraics program into the higher-dimensional qudit regime, where geometry and stabilizers co-operate as information-protective structures.
-</pre>
+<pre>
 📂 Contents
 Spectral-QEC-Benchmark-Set-v1.5/
 │

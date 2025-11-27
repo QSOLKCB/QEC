@@ -1,19 +1,8 @@
 """
-ququart_threshold_demo.py
+ququart_threshold_with_prior.py
 
-Empirical threshold-style scan for the 3-ququart [[3,1]]_4 code.
-
-Noise model:
-    - With probability p: apply a random X^±1 to a random site (1,2,3)
-    - With probability 1-p: no error
-
-We:
-    1. Encode a random logical state |j_L>, j in {0,1,2,3}
-    2. Apply noise
-    3. Attempt to decode single X^±1 errors
-    4. Check if we recovered the correct logical state
-
-This yields a logical error rate p_log as a function of p.
+Threshold-style scan for the 3-ququart [[3,1]]_4 code with and without
+a high-density lattice prior in logical amplitude space.
 """
 
 import os
@@ -25,15 +14,10 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from qec_ququart import QuquartRepetitionCode3
+from ququart_lattice_prior import QuquartLatticePrior
 
 
 def logical_index_from_state(code: QuquartRepetitionCode3, state, tol=1e-8):
-    """
-    Given a state, determine which logical |j_L> it matches,
-    or return None if not within tolerance.
-
-    This is crude but sufficient for the repetition structure.
-    """
     overlaps = []
     for j in range(4):
         basis = code.encode_logical(j)
@@ -47,9 +31,13 @@ def logical_index_from_state(code: QuquartRepetitionCode3, state, tol=1e-8):
     return None
 
 
-def run_threshold_scan(p_values, n_trials=5000, seed=1234):
+def run_threshold_scan(p_values, n_trials=5000, use_prior=False, seed=1234):
     rng = np.random.default_rng(seed)
     code = QuquartRepetitionCode3()
+
+    prior = None
+    if use_prior:
+        prior = QuquartLatticePrior(code, mode="d4", beta=2.0)
 
     p_log = []
 
@@ -61,40 +49,52 @@ def run_threshold_scan(p_values, n_trials=5000, seed=1234):
             j = rng.integers(0, 4)
             encoded = code.encode_logical(j)
 
-            # 2. Apply noise
+            # 2. Apply X-type noise
             noisy = encoded.copy()
             if rng.random() < p:
                 site = int(rng.integers(1, 4))  # 1,2,3
                 sign = rng.choice([1, -1])
                 noisy = code.apply_X_error(noisy, site=site, power=sign)
 
-            # 3. Decode
+            # 3. Optional geometric prior
+            if prior is not None:
+                noisy = prior.apply_prior(noisy)
+
+            # 4. Decode via stabilizer logic
             decoded, info = code.decode_X_single_error(noisy)
 
-            # 4. Check logical outcome
+            # 5. Check logical outcome
             j_hat = logical_index_from_state(code, decoded)
             if j_hat is None or j_hat != j:
                 errors += 1
 
         p_log.append(errors / n_trials)
-        print(f"p={p:.2e} -> p_log={p_log[-1]:.3e}")
+        label = "with prior" if use_prior else "baseline"
+        print(f"[{label}] p={p:.2e} -> p_log={p_log[-1]:.3e}")
 
     return np.array(p_values), np.array(p_log)
 
 
 def main():
     p_vals = np.logspace(-4, -1, 10)
-    p_phys, p_log = run_threshold_scan(p_vals, n_trials=3000)
+
+    # Baseline code
+    p_phys_0, p_log_0 = run_threshold_scan(p_vals, n_trials=3000, use_prior=False)
+
+    # With geometric lattice prior
+    p_phys_1, p_log_1 = run_threshold_scan(p_vals, n_trials=3000, use_prior=True)
 
     plt.figure(figsize=(7, 5))
-    plt.loglog(p_phys, p_log, "o-", label="[[3,1]]$_4$ ququart repetition code")
+    plt.loglog(p_phys_0, p_log_0, "o-", label="[[3,1]]$_4$ baseline")
+    plt.loglog(p_phys_1, p_log_1, "o-", label="[[3,1]]$_4$ + D4 lattice prior")
+
     plt.xlabel("Physical error rate p")
     plt.ylabel("Logical error rate p_log")
-    plt.title("Ququart [[3,1]]$_4$ Code – Threshold-style Scan")
+    plt.title("Ququart [[3,1]]$_4$ Code with High-Density Lattice Prior")
     plt.grid(True, which="both", ls="--", alpha=0.4)
     plt.legend()
 
-    out = "/tmp/ququart_threshold.png"
+    out = "/tmp/ququart_lattice_prior_threshold.png"
     plt.savefig(out, dpi=150, bbox_inches="tight")
     print(f"\nSaved plot to: {out}\n")
 

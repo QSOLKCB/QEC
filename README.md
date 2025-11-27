@@ -1,36 +1,50 @@
----
+🎛️ Spectral QEC Benchmark Set v1.5 — Ququart Geometry Expansion
+Sonified & Geometric Thresholds of Quantum Error Correction
 
-# 🎛️ Spectral QEC Benchmark Set v1
+Author: Trent Slade (QSOL-IMC)
+Version: 1.5 — November 2025 (Ququart Geometry Release)
+License: CC BY 4.0
+DOI:
 
-### Sonified Thresholds of Quantum Error Correction
+🧠 Overview
 
-Author:** Trent Slade (QSOL-IMC)
-Version:** 1.1 — November 2025
-License:** CC BY 4.0
-DOI:** [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17742258.svg)](https://doi.org/10.5281/zenodo.17742258)
+Version 1.5 introduces a major architectural upgrade to the QSOL-IMC Spectral QEC Benchmark Set:
 
----
+✔ Ququart (d = 4) Stabilizer Code
 
-## 🧠 Overview
+A full [[3,1]]₄ code using generalized Pauli operators 
+𝑋
+4
+X
+4
+	​
 
-**Spectral QEC Benchmark Set v1** merges *quantum error correction* with *spectral audio design*, converting stability curves into sonic behavior.
-Each audio track corresponds to a QEC model and uses real logical-error estimates to drive mix parameters such as compression, reverb, saturation, and stereo width.
+ and 
+𝑍
+4
+Z
+4
+	​
 
-The dataset integrates:
+, embedded into a dimension-agnostic stabilizer engine.
 
-* High-speed Steane [[7,1,3]] Monte Carlo (pure NumPy)
-* Threshold-walk sonification (p_phys → mix automation)
-* Spectral analyses and overlays
-* Full benchmark report + figures
+✔ High-Density Geometry Layer (D₄ / E8-inspired)
 
-This continues the QSOL-IMC *Spectral Algebraics* program, embedding physical structure directly into sound.
+Logical-amplitude vectors in ℝ⁴ undergo lattice projection (Z⁴ or D₄).
+This acts as a geometric pre-decoder, compressing noise before stabilizer decoding.
 
----
+✔ Geometry-Augmented Threshold Curves
 
-## 📂 Contents
+Monte Carlo simulations now support “baseline vs geometry-prior” comparative studies.
 
-```
-Spectral-QEC-Benchmark-Set-v1/
+✔ Full Qudit Engine (arbitrary d)
+
+The new module qudit_stabilizer.py supports qutrits, ququarts, and higher qudits.
+
+This expands the QSOL-IMC Spectral Algebraics program into the higher-dimensional qudit regime, where geometry and stabilizers co-operate as information-protective structures.
+
+📂 Contents
+Spectral-QEC-Benchmark-Set-v1.5/
 │
 ├── audio/
 │   ├── QSOL_Triplet_Polymeter – Producer Bounce.mp3
@@ -46,106 +60,232 @@ Spectral-QEC-Benchmark-Set-v1/
 │   ├── threshold_walk_automation.csv
 │   ├── automation_plot.png
 │   ├── QEC_vs_Audio_table.csv
-│   └── QEC_threshold_curves.png
+│   ├── QEC_threshold_curves.png
+│   ├── ququart_threshold.png
+│   └── ququart_lattice_prior_threshold.png
 │
 ├── qc_benchmark_data/
 │   ├── QEC_Benchmark_Report.pdf
 │   └── benchmark_table.csv
 │
 ├── src/
-│   └── steane_numpy_fast.py
+│   ├── steane_numpy_fast.py
+│   ├── qec_ququart.py
+│   ├── qudit_stabilizer.py
+│   └── ququart_lattice_prior.py
+│
+├── examples/
+│   ├── ququart_threshold_demo.py
+│   └── ququart_threshold_with_prior.py
 │
 ├── LICENSE.txt
 └── README.md
-```
 
----
+🧬 New in v1.5 — Ququart + Geometry Layer
+1. Ququart Stabilizer Code (d = 4)
 
-## 🎧 Track Summaries
+A true ℤ₄ stabilizer code:
 
-| Track                            | QEC Model / Concept            | Sonic Behavior                                                              |
-| -------------------------------- | ------------------------------ | --------------------------------------------------------------------------- |
-| **QSOL Triplet Polymeter**       | Steane [[7,1,3]] baseline      | Clean triad in E-minor (E≈165 Hz); tight, stable, low-noise harmonic field. |
-| **e8_triality**                  | Fusion-QEC / photonic triality | Lattice-stable overtone network; highly coherent reference tone.            |
-| **QEC Fault Lines Sonification** | Pseudo-threshold turbulence    | Compression + stereo widening scale with p_phys; rising spectral fog.       |
-| **Spectral Algebraics Live**     | Post-threshold collapse        | Dense overtone cloud; diffuse reverb; intentional decoherence aesthetic.    |
+Codewords: 
+∣
+𝑗
+𝐿
+⟩
+=
+∣
+𝑗
+,
+𝑗
+,
+𝑗
+⟩
+∣j
+L
+	​
 
----
+⟩=∣j,j,j⟩
 
-## ⚙️ Analysis Files
+Stabilizers:
 
-| File                              | Purpose                                                     |
-| --------------------------------- | ----------------------------------------------------------- |
-| **threshold_walk_automation.csv** | Mapping of p_phys → compression, reverb, tape saturation.   |
-| **automation_plot.png**           | Visualization of threshold-walk automation curves.          |
-| **QEC_vs_Audio_table.csv**        | Cross-correlation of spectral features vs logical error.    |
-| **QEC_Benchmark_Report.pdf**      | Full analytic write-up of stability and threshold behavior. |
+𝑆
+1
+=
+𝑍
+1
+𝑍
+2
+−
+1
+S
+1
+	​
 
----
+=Z
+1
+	​
 
-## 🔢 Threshold-Walk Mapping
+Z
+2
+−1
+	​
 
-| p_phys | Comp Ratio | Reverb Wet | Tape Drive |
-| ------ | ---------- | ---------- | ---------- |
-| 1e-6   | 1.2        | 0.12       | 0.0        |
-| 1e-5   | 1.3        | 0.16       | 0.05       |
-| 1e-4   | 1.6        | 0.30       | 0.20       |
-| 5e-4   | 1.7        | 0.38       | 0.35       |
-| 1e-3   | 1.8        | 0.45       | 0.50       |
-| 5e-3   | 2.0        | 0.62       | 0.70       |
-| 1e-2   | 2.5        | 0.80       | 1.00       |
 
-These traces approximate an auditory walk from *stable error correction* → *threshold turbulence* → *full decoherence*.
+𝑆
+2
+=
+𝑍
+2
+𝑍
+3
+−
+1
+S
+2
+	​
 
----
+=Z
+2
+	​
 
-## 🧩 QEC ↔ Audio Analogues
+Z
+3
+−1
+	​
 
-| Regime         | Physical Error Rate | Sonic Condition                                                  |
-| -------------- | ------------------- | ---------------------------------------------------------------- |
-| **Stable**     | < 1e-5              | Dry, precise, coherent; minimal spectral smear.                  |
-| **Transition** | 1e-5 → 1e-3         | Increasing density, compression, and harmonic pressure.          |
-| **Critical**   | > 1e-3              | Saturated, diffuse, stereo-wide; breakdown of structured motifs. |
 
----
+Logical operators:
 
-## 🧬 Simulation Engine (New)
+𝑋
+𝐿
+=
+𝑋
+1
+𝑋
+2
+𝑋
+3
+X
+L
+	​
 
-The repository now includes a **pure-NumPy**, fully vectorized Steane [[7,1,3]] simulator:
+=X
+1
+	​
 
-```
+X
+2
+	​
+
+X
+3
+	​
+
+
+𝑍
+𝐿
+=
+𝑍
+1
+Z
+L
+	​
+
+=Z
+1
+	​
+
+
+This demonstrates higher-dimensional QEC inside the QSOL-IMC framework.
+
+2. High-Density Lattice Geometry Layer
+
+The new module:
+
+src/ququart_lattice_prior.py
+
+
+projects logical amplitudes onto:
+
+Z⁴ (baseline)
+
+D₄ (dense — E8-surrogate)
+
+This geometric “snap-to-structure” prior:
+
+reduces effective noise
+
+sharpens logical amplitudes
+
+raises the effective QEC threshold
+
+acts as a geometry-driven pre-decoder
+
+This is the first demonstration of lattice geometry stabilizing a ququart code.
+
+3. Threshold Benchmarks (Baseline vs Geometry)
+
+New figures:
+
+ququart_threshold.png
+
+ququart_lattice_prior_threshold.png
+
+These compare:
+
+Raw ququart stabilizer performance
+
+Geometry-enhanced performance
+
+The D₄ prior exhibits lower logical error rates across the entire range.
+
+🎧 Track Summaries (unchanged from v1.1)
+Track	QEC Model / Concept	Sonic Behavior
+QSOL Triplet Polymeter	Steane [[7,1,3]] baseline	Clean triad in E-minor; tight and stable.
+e8_triality	Fusion-QEC / photonic triality	Lattice-stable overtone network; coherent reference tone.
+QEC Fault Lines Sonification	Pseudo-threshold turbulence	Rising noise mapped to compression & stereo width.
+Spectral Algebraics Live	Post-threshold collapse	Intentional decoherence aesthetic; thick spectral fog.
+🧩 QEC ↔ Audio Analogues
+Regime	Physical Error Rate	Sonic Condition
+Stable	< 1e-5	Coherent, clean, narrow-band.
+Transition	1e-5 → 1e-3	Pressure increase; spectral thickening; harmonic instability.
+Critical	> 1e-3	Saturated + diffuse; stereo blows open; motifs collapse.
+
+The ququart geometry layer allows exploration of new sonic QEC artifacts.
+
+⚙️ Simulation Engine
+Steane Fast Simulator
 src/steane_numpy_fast.py
-```
 
-Features:
+New: Ququart QEC Stack
+src/qec_ququart.py
+src/qudit_stabilizer.py
+src/ququart_lattice_prior.py
 
-* deterministic RNG
-* auto-derived Hamming decoder
-* no external quantum libraries
-* chunked or full-array Monte Carlo
-* baseline for all threshold-walk mappings
+New Example Scripts
+examples/ququart_threshold_demo.py
+examples/ququart_threshold_with_prior.py
 
-This replaces previous scripts and provides a clean foundation for further QEC sonification work.
 
----
+These provide:
 
-## 🧾 License
+deterministic Monte Carlo
+
+unified stabilizer formalism
+
+geometry-prior augmentation
+
+ququart benchmarking
+
+🧾 License
 
 Creative Commons Attribution 4.0 International (CC BY 4.0)
 
-You are free to share or adapt this material with attribution.
+🔖 Citation
 
----
+Slade, T. (2025). QSOLKCB/QEC: QEC v1.5 — Ququart Stabilizer Code + High-Density Geometry Layer (v1.5-ququart-geometry). Zenodo. https://doi.org/10.5281/zenodo.17742258
 
-## 🔖 Citation
+🏷️ Keywords
 
-> Slade, T. (2025). *Spectral QEC Benchmark Set v1 — Sonified Thresholds of Quantum Error Correction.* Zenodo. DOI to be assigned.
-
----
-
-## 🏷️ Keywords
-
-`quantum error correction` · `spectral algebraics` · `sonification` · `industrial electronic`
-`audio dataset` · `E-minor` · `QEC stability` · `physics-in-sound` · `QSOL-IMC`
-
----
+quantum error correction · ququart · qudit stabilizer ·
+D4 lattice · geometry layer · spectral algebraics ·
+sonification · QSOL-IMC · E8-inspired · threshold curves

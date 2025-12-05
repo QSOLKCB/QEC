@@ -10,11 +10,11 @@ Date of analysis: 2025-12-06
 
 ## Analytical Performance Estimates (depol. noise, 10⁴ shots)
 
-| Code / Tool                  | n (phys.) | Threshold est. | LER @ p=0.05 | Overhead | Decode time est. |
-|------------------------------|-----------|----------------|--------------|----------|------------------|
-| QEC ternary Golay d=5        | 11        | ~10–12 %       | 1.2 × 10⁻³   | 11:1     | ~150 ms          |
-| Surface code d=5 (PyMatching)| 25        | 0.7–1.0 %      | 8.5 × 10⁻⁴   | 25:1     ~45 ms           |
-| Steane [[7,1,3]] (qecsim)    | 7         | ~1.5 %         | 2.1 × 10⁻³   | 7:1      ~80 ms           |
+| Code / Tool                  | n (phys.) | Threshold est. | LER @ p=0.05   | Overhead | Decode time est. |
+|------------------------------|-----------|----------------|----------------|----------|------------------|
+| QEC ternary Golay d=5        | 11        | ~10–12 %       | 1.2 × 10⁻³     | 11:1     | ~150 ms          |
+| Surface code d=5 (PyMatching)| 25       | 0.7–1.0 %      | 8.5 × 10⁻⁴     | 25:1     | ~45 ms           |
+| Steane [[7,1,3]] (qecsim)    | 7         | ~1.5 %         | 2.1 × 10⁻³     | 7:1      | ~80 ms           |
 
 Derivation notes:
 - LER ≈ Σ_{j=3}^{11} \binom{11}{j} p^j (1-p)^{11-j} with +15 % phase penalty (GF(3))

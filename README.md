@@ -1,8 +1,7 @@
-QEC v2.0.0 — Multidimensional Stabilizer Stack + QLDPC + Golay-Class Logic
+# QEC v2.0.0 — Multidimensional Stabilizer Stack + QLDPC + Golay-Class Logic
 
-Release (GitHub): https://github.com/QSOLKCB/QEC/releases/tag/v2.0.0
-
-Concept DOI (Zenodo): https://doi.org/10.5281/zenodo.17742258
+[![GitHub release](https://img.shields.io/github/v/release/QSOLKCB/QEC?label=release)](https://github.com/QSOLKCB/QEC/releases/tag/v2.0.0)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18579786.svg)](https://doi.org/10.5281/zenodo.18579786)
 
 Overview
 

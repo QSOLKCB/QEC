@@ -118,6 +118,9 @@ E3 (52) - G3 (55) - B3 (59) - E4 (64) - G4 (67) - B4 (71) - E5 (76)
 - `!export [type]` - Export to MIDI
 - `!spectrum [rate]` - Compute Pauli spectrum
 - `!surface [rate]` - Generate surface syndromes
+- `!entropy [rate]` - Calculate von Neumann entropy
+- `!fidelity <rate1> <rate2>` - Calculate quantum fidelity
+- `!infomass [rate]` - Calculate information mass metrics
 
 **Configuration:**
 ```bash
@@ -127,9 +130,59 @@ export IRC_CHANNEL=#qec-sim
 export IRC_NICKNAME=QECBot
 ```
 
+### 6. Info-Mass-Gravity Module (`src/info_mass_gravity.py`)
+
+**Features:**
+- Von Neumann entropy and purity calculations
+- Mutual information and relative entropy
+- Information "mass" analogies (mass, density, center of mass)
+- Entanglement "force" and "potential" analogies
+- Information geometry (fidelity, Bures distance, trace distance)
+- Entanglement network visualization
+- Information curvature (Einstein-like equation)
+- Comprehensive information profiles
+
+**Key Classes:**
+- `InfoMassGravity`: Main calculator for all metrics
+
+**Information Theory:**
+- `von_neumann_entropy()`: S = -Tr(ρ log ρ)
+- `mutual_information()`: I(A:B) = S(A) + S(B) - S(AB)
+- `relative_entropy()`: S(ρ||σ) quantum KL divergence
+- `purity()`: P = Tr(ρ²)
+
+**Mass Analogies:**
+- `information_mass()`: m = k·S(ρ)·(1-P)
+- `information_density()`: ρ = m/V
+- `center_of_information_mass()`: Σ mᵢrᵢ / Σ mᵢ
+
+**Gravity Analogies:**
+- `entanglement_force()`: F = G·m_A·m_B·I(A:B)/r²
+- `information_potential()`: U = m·φ
+- `information_curvature()`: R ∝ 8πG·ρ_info
+- `gravitational_potential_energy()`: U = -Σ G·mᵢmⱼ/rᵢⱼ
+
+**Information Geometry:**
+- `fidelity()`: F(ρ,σ) overlap measure
+- `bures_distance()`: D_B = √(2(1-√F))
+- `trace_distance()`: D_tr = ½||ρ-σ||₁
+- `entanglement_network()`: Mutual information matrix
+
+**Demo Output Examples:**
+```
+Pure state |0⟩:
+  Entropy: 0.000000
+  Purity: 1.000000
+  Mass: 0.000000
+
+Bell state |Φ⁺⟩:
+  Mutual Information I(0:1): 2.000000
+  Entanglement force: 0.772574
+```
+
 ## Test Coverage
 
-Created 15 tests across 4 test modules:
+Created 32 tests across 5 test modules (17 new for info-mass-gravity):
 
 ### `tests/test_qec_steane.py`
 - Steane code initialization
@@ -138,6 +191,25 @@ Created 15 tests across 4 test modules:
 ### `tests/test_midi_export.py`
 - MIDI converter initialization
 - Error rate to tempo conversion
+
+### `tests/test_info_mass_gravity.py` (NEW)
+- InfoMassGravity initialization
+- Von Neumann entropy calculation
+- Purity measurement
+- Mutual information (product vs entangled states)
+- Information mass calculation
+- Information density scaling
+- Entanglement force (product vs Bell states)
+- Quantum fidelity (pure states)
+- Bures distance metric
+- Trace distance metric
+- Information profile generation
+- Entanglement network matrix
+- Center of information mass
+- Information curvature
+- Gravitational potential energy
+- Relative entropy
+- Information potential
 - Eigenvalue to velocity mapping
 - Arpeggio generation
 
@@ -153,7 +225,7 @@ Created 15 tests across 4 test modules:
 - Chatbot responses
 - Content moderation
 
-**All 15 tests pass ✓**
+**All 32 tests pass ✓** (15 original + 17 new for info-mass-gravity)
 
 ## Usage Examples
 
@@ -180,6 +252,7 @@ python src/qec_steane.py        # QEC simulations
 python src/midi_export.py       # MIDI export
 python src/irc_bot.py          # IRC bot
 python src/llm_integration.py   # LLM features
+python src/info_mass_gravity.py # Info-mass-gravity metrics
 ```
 
 ## Example Interactions
@@ -200,6 +273,15 @@ Bot: QEC note E4 (MIDI 64, velocity 80)
 
 User: !export threshold
 Bot: Exported threshold curve to MIDI: /tmp/qec_threshold.mid
+
+User: !entropy 0.01
+Bot: State entropy: S=0.0423 bits | Purity: P=0.9842 | Error rate: p=0.01
+
+User: !fidelity 0.0 0.01
+Bot: Fidelity: F=0.9856 | Bures distance: D_B=0.1698 | States: p₁=0.0, p₂=0.01
+
+User: !infomass 0.05
+Bot: Info metrics (p=0.05): Mass=0.0892 | Entropy=0.2145 | Purity=0.9456
 ```
 
 ## File Structure
@@ -212,10 +294,12 @@ fusion-qec-sim/
 │   ├── midi_export.py          # MIDI export (427 lines)
 │   ├── irc_bot.py             # IRC bot (405 lines)
 │   ├── llm_integration.py     # LLM integration (439 lines)
-│   └── integrated_bot.py      # Full integration (338 lines)
+│   ├── info_mass_gravity.py   # Info-mass-gravity (600+ lines) NEW
+│   └── integrated_bot.py      # Full integration (400+ lines)
 ├── tests/
 │   ├── test_qec_steane.py     # QEC tests
 │   ├── test_midi_export.py    # MIDI tests
+│   ├── test_info_mass_gravity.py # Info-mass-gravity tests NEW
 │   ├── test_irc_bot.py        # IRC tests
 │   └── test_llm_integration.py # LLM tests
 ├── examples/
@@ -275,6 +359,15 @@ Existing dependencies used:
 ✓ Comprehensive testing
 ✓ Full documentation
 
+### Info-Mass-Gravity (NEW)
+✓ Information theory measures (entropy, mutual information, purity)
+✓ Mass analogies (information mass, density, center of mass)
+✓ Gravity analogies (entanglement force, potential, curvature)
+✓ Information geometry (fidelity, Bures distance, trace distance)
+✓ Entanglement network visualization
+✓ IRC bot integration with new commands
+✓ Comprehensive test suite (17 tests)
+
 ## Ethical Considerations
 
 Implemented:
@@ -311,29 +404,52 @@ Created:
 - Rate limit: 1 msg/sec
 - LLM response: ~0.1s (mock)
 
+### Info-Mass-Gravity (NEW)
+- Entropy calculation: <0.01s
+- Fidelity calculation: <0.01s
+- Information profile: <0.01s
+- Entanglement network (3 qubits): ~0.05s
+
 ## Testing Results
 
 ```
 platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0
-collected 15 items
+collected 32 items
 
-tests/test_irc_bot.py::test_irc_bot_initialization PASSED        [  6%]
-tests/test_irc_bot.py::test_message_parsing PASSED               [ 13%]
-tests/test_irc_bot.py::test_qec_bot_commands PASSED              [ 20%]
-tests/test_irc_bot.py::test_command_execution PASSED             [ 26%]
-tests/test_llm_integration.py::test_rate_limiter PASSED          [ 33%]
-tests/test_llm_integration.py::test_mock_llm_provider PASSED     [ 40%]
-tests/test_llm_integration.py::test_llm_chatbot PASSED           [ 46%]
-tests/test_llm_integration.py::test_content_moderation PASSED    [ 53%]
-tests/test_midi_export.py::test_midi_converter_initialization PASSED  [ 60%]
-tests/test_midi_export.py::test_error_rate_to_tempo PASSED       [ 66%]
-tests/test_midi_export.py::test_eigenvalue_to_velocity PASSED    [ 73%]
-tests/test_midi_export.py::test_logical_error_to_arpeggio PASSED [ 80%]
-tests/test_qec_steane.py::test_steane_code_initialization PASSED [ 86%]
-tests/test_qec_steane.py::test_encode_logical_states PASSED      [ 93%]
+tests/test_info_mass_gravity.py::test_initialization PASSED      [  3%]
+tests/test_info_mass_gravity.py::test_von_neumann_entropy PASSED [  6%]
+tests/test_info_mass_gravity.py::test_purity PASSED              [  9%]
+tests/test_info_mass_gravity.py::test_mutual_information PASSED  [ 12%]
+tests/test_info_mass_gravity.py::test_information_mass PASSED    [ 15%]
+tests/test_info_mass_gravity.py::test_information_density PASSED [ 18%]
+tests/test_info_mass_gravity.py::test_entanglement_force PASSED  [ 21%]
+tests/test_info_mass_gravity.py::test_fidelity PASSED            [ 25%]
+tests/test_info_mass_gravity.py::test_bures_distance PASSED      [ 28%]
+tests/test_info_mass_gravity.py::test_trace_distance PASSED      [ 31%]
+tests/test_info_mass_gravity.py::test_information_profile PASSED [ 34%]
+tests/test_info_mass_gravity.py::test_entanglement_network PASSED [ 37%]
+tests/test_info_mass_gravity.py::test_center_of_information_mass PASSED [ 40%]
+tests/test_info_mass_gravity.py::test_information_curvature PASSED [ 43%]
+tests/test_info_mass_gravity.py::test_gravitational_potential_energy PASSED [ 46%]
+tests/test_info_mass_gravity.py::test_relative_entropy PASSED    [ 50%]
+tests/test_info_mass_gravity.py::test_information_potential PASSED [ 53%]
+tests/test_irc_bot.py::test_irc_bot_initialization PASSED        [ 56%]
+tests/test_irc_bot.py::test_message_parsing PASSED               [ 59%]
+tests/test_irc_bot.py::test_qec_bot_commands PASSED              [ 62%]
+tests/test_irc_bot.py::test_command_execution PASSED             [ 65%]
+tests/test_llm_integration.py::test_rate_limiter PASSED          [ 68%]
+tests/test_llm_integration.py::test_mock_llm_provider PASSED     [ 71%]
+tests/test_llm_integration.py::test_llm_chatbot PASSED           [ 75%]
+tests/test_llm_integration.py::test_content_moderation PASSED    [ 78%]
+tests/test_midi_export.py::test_midi_converter_initialization PASSED  [ 81%]
+tests/test_midi_export.py::test_error_rate_to_tempo PASSED       [ 84%]
+tests/test_midi_export.py::test_eigenvalue_to_velocity PASSED    [ 87%]
+tests/test_midi_export.py::test_logical_error_to_arpeggio PASSED [ 90%]
+tests/test_qec_steane.py::test_steane_code_initialization PASSED [ 93%]
+tests/test_qec_steane.py::test_encode_logical_states PASSED      [ 96%]
 tests/test_smoke.py::test_smoke PASSED                           [100%]
 
-15 passed in 0.87s
+32 passed in 0.89s
 ```
 
 ## Future Enhancements
@@ -347,6 +463,9 @@ Potential additions:
 - Advanced MIDI features (multiple instruments, dynamics)
 - Real-time syndrome tracking
 - WebSocket support for web clients
+- Visualization of information geometry (Bloch sphere trajectories)
+- Machine learning for optimal decoding using info-mass metrics
+- Integration with quantum hardware APIs
 
 ## Conclusion
 
@@ -355,8 +474,9 @@ Successfully implemented a comprehensive AI-powered IRC bot that:
 2. Exports simulation data to MIDI format
 3. Provides IRC chat interface
 4. Integrates LLM for conversational AI
-5. Includes full test coverage
-6. Provides extensive documentation
+5. **NEW: Info-mass-gravity module with physics-inspired quantum metrics**
+6. Includes full test coverage (32 tests, all passing)
+7. Provides extensive documentation
 7. Adheres to ethical use principles
 8. Maintains minimal, modular, clean code philosophy
 

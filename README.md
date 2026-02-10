@@ -1,6 +1,6 @@
 # QEC v2.0 — Ququart + Qutrit Golay + Quantum LDPC + High-Density Geometry Layer
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17742258.svg)](https://doi.org/10.5281/zenodo.17742258)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18579786.svg)](https://doi.org/10.5281/zenodo.18579786)
 ![GitHub release (latest by tag)](https://img.shields.io/github/v/release/QSOLKCB/QEC?label=release)
 
 ---
@@ -282,14 +282,14 @@ pytest tests/ -v
 ## 🔖 Citation (Updated)
 
 ```bibtex
-@software{slade_2025_qsolkcb,
-  author       = {Slade, T.},
-  title        = {QSOLKCB/QEC: QEC v2.0 — Ququart + Qutrit Golay + Quantum LDPC + Geometry Layer},
-  year         = {2025},
-  version      = {v2.0},
+@software{slade_claude_2026_qsolkcb,
+  author       = {Slade, Trent and Claude},
+  title        = {QSOLKCB/QEC: QEC v2.0.0 — QLDPC protograph CSS codes},
+  year         = {2026},
+  version      = {v2.0.0},
   publisher    = {Zenodo},
-  doi          = {10.5281/zenodo.17742258},
-  url          = {https://doi.org/10.5281/zenodo.17742258}
+  doi          = {10.5281/zenodo.18579786},
+  url          = {https://doi.org/10.5281/zenodo.18579786}
 }
 ```
 

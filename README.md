@@ -1,7 +1,8 @@
 QEC v2.0.0 — Multidimensional Stabilizer Stack + QLDPC + Golay-Class Logic
 
+Release (GitHub): https://github.com/QSOLKCB/QEC/releases/tag/v2.0.0
 
-
+Concept DOI (Zenodo): https://doi.org/10.5281/zenodo.17742258
 
 Overview
 
@@ -12,6 +13,7 @@ Version v2.0.0 marks a major architectural milestone. QEC now includes state-of-
 This release unifies finite-field QLDPC theory, non-binary stabilizers, and geometric decoding priors in a single framework.
 
 What’s New in v2.0.0
+
 Protograph-Based Quantum LDPC CSS Codes (NEW)
 
 New module: src/qec_qldpc_codes.py
@@ -21,23 +23,16 @@ This release adds a full implementation of quantum LDPC CSS codes built from ort
 Key properties:
 
 Protograph-based LDPC ensembles with column weight 2
-
 Shared circulant lifting per protograph edge
-
 CSS condition H_X · H_Z^T = 0 enforced structurally
-
 Deterministic, seeded construction
-
 Binary expansion via GF(2^e) lifting
-
 Honest benchmarking against the hashing bound as an asymptotic reference
 
 Supported predefined code rates:
 
 0.50
-
 0.60
-
 0.75
 
 Minimal usage example:
@@ -101,15 +96,10 @@ LDPC simulations include frame error rate versus physical error probability stud
 Core Simulation Stack
 
 src/qec_qldpc_codes.py
-
 src/qec_golay.py
-
 src/qec_ququart.py
-
 src/qudit_stabilizer.py
-
 src/ququart_lattice_prior.py
-
 src/steane_numpy_fast.py
 
 License

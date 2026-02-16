@@ -1,44 +1,52 @@
-# Changelog
+Changelog
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+[2.1.0] — 2026-02-16
+Added
 
-## [0.3.0] - 2025-10-11
-### Added
-- **Qiskit backend support** - Added `SteaneCodeQiskit` class for Qiskit-based simulations
-- Factory function `create_steane_code(backend)` for flexible backend selection
-- Runtime backend switching in IRC bot via `!backend` command
-- Environment variable `QEC_BACKEND` for configuring default backend
-- 13 new comprehensive tests for both QuTiP and Qiskit backends
-- `demo_backend_comparison()` function in `qec_steane.py` 
-- `examples/backend_comparison_demo.py` demonstrating dual backend usage
-- Dependencies: `qiskit>=0.45.0` and `qiskit-aer>=0.13.0`
+Additive lift invariant formalization for shared-circulant QLDPC CSS constructions
 
-### Changed
-- Updated `SteaneCode` class documentation to clarify QuTiP implementation
-- Enhanced `IntegratedQECBot.__init__()` to accept `backend` parameter
-- Modified `cmd_threshold()` to display current backend
-- Updated README.md, RELEASE_NOTES.md, and IRC_BOT_GUIDE.md with backend info
-- Enhanced IMPLEMENTATION_SUMMARY.md with Qiskit details
+Deterministic structured shift mapping
+s(i, j) = (r_i + c_j) mod L
 
-### Fixed
-- Import handling for Qiskit optional dependency (graceful fallback)
-- Type hints compatibility when Qiskit not installed
+Algebraic guarantee of lifted CSS orthogonality
 
-## [0.2.0] - 2024-MM-DD
-### Added
-- AI-powered IRC bot with QEC simulations
-- MIDI export capabilities
-- LLM integration for conversational AI
-- Comprehensive test suite
+Invariant enforcement via sparse-safe orthogonality checks
 
-## [0.1.0] - YYYY-MM-DD
-### Added
-- Initial public release placeholder
+Binary GF(2) rank computation without dense float conversion
 
+Expanded invariant test coverage (89/89 passing)
 
-[Unreleased]: https://github.com/multimodalas/fusion-qec-sim/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/multimodalas/fusion-qec-sim/releases/tag/v0.3.0
-[0.2.0]: https://github.com/multimodalas/fusion-qec-sim/releases/tag/v0.2.0
-[0.1.0]: https://github.com/multimodalas/fusion-qec-sim/releases/tag/v0.1.0
+Changed
+
+Replaced per-edge random lift tables with additive invariant lift structure
+
+Lift implementation is now deterministic, process-independent, and order-independent
+
+Orthogonality now follows structurally from base-matrix commutation
+
+Removed
+
+Probabilistic orthogonality edge-case behavior from prior lift implementation
+
+Notes
+
+No architectural changes from v2.0.0
+
+Structural invariant hardening release
+
+[2.0.0] — 2026-??-??
+Added
+
+Multidimensional stabilizer stack
+
+Protograph-based QLDPC CSS codes
+
+GF(2^e) finite-field lifting
+
+Ternary Golay [[11,1,5]]₃ implementation
+
+Ququart stabilizer and D4 lattice prior layer
+
+Deterministic seeded construction framework

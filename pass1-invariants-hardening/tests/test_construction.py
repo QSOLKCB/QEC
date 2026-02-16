@@ -203,13 +203,18 @@ class TestLiftTableDeterminism:
     def test_same_seed_same_table(self):
         t1 = SharedLiftTable(3, 6, 7, seed=42)
         t2 = SharedLiftTable(3, 6, 7, seed=42)
-        for key in t1._table:
-            assert t1[key] == t2[key]
+        for i in range(t1.rows):
+            for j in range(t1.cols):
+                assert t1[(i, j)] == t2[(i, j)]
 
     def test_different_seed_different_table(self):
         t1 = SharedLiftTable(3, 6, 7, seed=42)
         t2 = SharedLiftTable(3, 6, 7, seed=99)
-        differs = any(t1[key] != t2[key] for key in t1._table)
+        differs = any(
+            t1[(i, j)] != t2[(i, j)]
+            for i in range(t1.rows)
+            for j in range(t1.cols)
+        )
         assert differs
 
 

@@ -1,12 +1,28 @@
-"""Deterministic shared-circulant lifting.
+"""Deterministic shared-circulant lifting with additive shifts.
 
-A *SharedLiftTable* is an immutable mapping
+Shift structure
+---------------
+The shift for base-matrix entry (i, j) is computed as
 
-    edge_lifts[(i, j)]  →  circulant_shift   (int in [0, L))
+    s(i, j) = (row_shift[i] + col_shift[j]) mod L
 
-built **once** from a seeded RNG.  Both H_X and H_Z must reuse the
-same table — no independent sampling allowed.  This is what
-guarantees CSS orthogonality by construction.
+where ``row_shift`` and ``col_shift`` are deterministic arrays derived
+from the seed.  This **additive** structure is the key to preserving
+CSS orthogonality through lifting.
+
+Why additive shifts preserve orthogonality
+------------------------------------------
+The (i, k) block of  H_X @ H_Z^T  is
+
+    Σ_j  base_X[i,j] · base_Z[k,j] · P^{s(i,j) − s(k,j)}
+
+With additive shifts, s(i,j) − s(k,j) = row_shift[i] − row_shift[k],
+which is **constant over j**.  Factor it out:
+
+    P^{row_shift[i] − row_shift[k]}  ·  Σ_j  base_X[i,j] · base_Z[k,j] · I
+
+The scalar sum is exactly (base_X @ base_Z^T)[i,k].  For the bicycle
+construction this is 0 mod 2, so every block vanishes.
 
 ``lift_matrix`` expands a small *base matrix* (over {0, 1}) into the
 binary *lifted matrix* by replacing every 1-entry with a cyclic
@@ -18,11 +34,17 @@ from __future__ import annotations
 
 import numpy as np
 import scipy.sparse as sp
-from typing import Dict, Tuple
 
 
 class SharedLiftTable:
-    """Deterministic, immutable edge-lift mapping.
+    """Deterministic, immutable additive-shift lift mapping.
+
+    Shifts are computed as  s(i, j) = (row_shift[i] + col_shift[j]) mod L
+    where ``row_shift`` and ``col_shift`` are drawn once from a seeded RNG.
+
+    This additive structure guarantees that  s(i,j) − s(k,j)  is
+    independent of j, which is necessary and sufficient for lifted CSS
+    orthogonality to follow from base-matrix orthogonality.
 
     Parameters
     ----------
@@ -41,16 +63,12 @@ class SharedLiftTable:
         self.seed = seed
 
         rng = np.random.RandomState(seed)  # deterministic
-        self._table: Dict[Tuple[int, int], int] = {}
-        for i in range(rows):
-            for j in range(cols):
-                self._table[(i, j)] = int(rng.randint(0, L))
+        self._row_shift: np.ndarray = rng.randint(0, L, size=rows)
+        self._col_shift: np.ndarray = rng.randint(0, L, size=cols)
 
-    def __getitem__(self, key: Tuple[int, int]) -> int:
-        return self._table[key]
-
-    def items(self):
-        return self._table.items()
+    def __getitem__(self, key: tuple[int, int]) -> int:
+        i, j = key
+        return int((self._row_shift[i] + self._col_shift[j]) % self.L)
 
     def __repr__(self) -> str:
         return f"SharedLiftTable(rows={self.rows}, cols={self.cols}, L={self.L}, seed={self.seed})"
@@ -70,21 +88,20 @@ def _circulant_permutation(shift: int, L: int) -> sp.csr_matrix:
 def lift_matrix(
     base: np.ndarray,
     lift_table: SharedLiftTable,
-    row_offset: int = 0,
-    col_offset: int = 0,
 ) -> sp.csr_matrix:
     """Lift a binary base matrix into a sparse lifted matrix.
+
+    Each 1-entry at position (i, j) in the base matrix is replaced by
+    the L×L circulant permutation  P^{s(i,j)}  where the shift is
+    obtained from ``lift_table[(i, j)]``.  Each 0-entry becomes the
+    L×L zero block.
 
     Parameters
     ----------
     base : ndarray of shape (r, c)
         Binary base / protograph matrix with entries in {0, 1}.
     lift_table : SharedLiftTable
-        The shared edge-lift mapping.
-    row_offset, col_offset : int
-        Offsets into the lift table indices.  Useful when H_X and H_Z
-        use different rows of the same protograph but share the lift
-        table.
+        The shared additive-shift lift mapping.
 
     Returns
     -------
@@ -98,7 +115,7 @@ def lift_matrix(
         row_blocks: list[sp.csr_matrix] = []
         for j in range(c):
             if base[i, j]:
-                shift = lift_table[(i + row_offset, j + col_offset)]
+                shift = lift_table[(i, j)]
                 row_blocks.append(_circulant_permutation(shift, L))
             else:
                 row_blocks.append(sp.csr_matrix((L, L), dtype=np.int8))

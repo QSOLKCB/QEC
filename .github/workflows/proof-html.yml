@@ -1,0 +1,14 @@
+name: Proof HTML
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anishathalye/proof-html@v1.1.0
+        with:
+          directory: ./

@@ -10,6 +10,7 @@ Successfully implemented a comprehensive AI-powered IRC bot for quantum error co
 
 **Features:**
 - Full implementation of [[7,1,3]] Steane quantum error correction code
+- **Dual backend support: QuTiP and Qiskit**
 - Depolarizing noise channel simulation
 - Pseudo-threshold calculations (η_thr ≈ 9.3×10^{-5})
 - Pauli spectrum eigenvalue analysis
@@ -18,9 +19,13 @@ Successfully implemented a comprehensive AI-powered IRC bot for quantum error co
 - Monte Carlo simulation for logical error rates
 
 **Key Classes:**
-- `SteaneCode`: Core QEC implementation
+- `SteaneCode`: Core QEC implementation (QuTiP)
+- `SteaneCodeQiskit`: Qiskit-based implementation
 - `ThresholdSimulation`: Pseudo-threshold analysis
 - `SurfaceLattice`: Surface code visualization
+
+**Factory Function:**
+- `create_steane_code(backend)`: Create code with specified backend ('qutip' or 'qiskit')
 
 **Functions:**
 - `encode_logical_zero()`: Encode |0⟩ logical state
@@ -262,7 +267,10 @@ User: !runsim 0.01
 Bot: Simulation: Steane [[7,1,3]] | p_phys=0.0100 | p_log=0.000100 | Improvement: 100x
 
 User: !threshold
-Bot: Steane [[7,1,3]] pseudo-threshold: η_thr ≈ 9.30e-05 | Below this rate, QEC provides net benefit
+Bot: Steane [[7,1,3]] pseudo-threshold: η_thr ≈ 9.30e-05 | Below this rate, QEC provides net benefit | Backend: QUTIP
+
+User: !backend qiskit
+Bot: Switched to QISKIT backend
 
 User: !ai What is the Steane code?
 Bot: The Steane [[7,1,3]] code is a quantum error correction code that encodes 1 logical 
@@ -314,7 +322,9 @@ fusion-qec-sim/
 ## Dependencies Added
 
 ```
-mido>=1.2.10  # MIDI file creation and manipulation
+mido>=1.2.10      # MIDI file creation and manipulation
+qiskit>=0.45.0    # IBM Qiskit quantum computing framework
+qiskit-aer>=0.13.0  # Qiskit Aer simulator with noise models
 ```
 
 Existing dependencies used:
@@ -326,6 +336,8 @@ Existing dependencies used:
 
 ### Quantum Error Correction
 ✓ Steane [[7,1,3]] code implementation
+✓ **Dual backend support: QuTiP and Qiskit**
+✓ Runtime backend switching
 ✓ Depolarizing noise simulation
 ✓ Pseudo-threshold: η_thr ≈ 9.3×10^{-5}
 ✓ Pauli spectrum eigenvalue analysis

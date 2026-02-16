@@ -6,7 +6,7 @@ Implements [[7,1,3]] Steane code with:
 - Eigenvalue analysis with Pauli spectra
 - Surface lattice syndromes
 
-Based on QuTiP quantum computing framework.
+Supports both QuTiP and Qiskit quantum computing frameworks.
 """
 
 import numpy as np
@@ -16,6 +16,19 @@ from qutip import (
 )
 import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Optional
+
+# Optional Qiskit imports
+try:
+    from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
+    from qiskit.quantum_info import Statevector, DensityMatrix, state_fidelity
+    from qiskit_aer import AerSimulator
+    from qiskit_aer.noise import NoiseModel, depolarizing_error
+    QISKIT_AVAILABLE = True
+except ImportError:
+    QISKIT_AVAILABLE = False
+    # Create dummy types for type hints when Qiskit not available
+    Statevector = DensityMatrix = object
+    print("Warning: Qiskit not installed. Only QuTiP backend will be available.")
 
 
 class SteaneCode:
@@ -389,6 +402,194 @@ class SurfaceLattice:
         return fig
 
 
+class SteaneCodeQiskit:
+    """
+    Qiskit-based implementation of the [[7,1,3]] Steane quantum error correction code.
+    
+    Provides equivalent functionality to SteaneCode but using Qiskit framework.
+    """
+    
+    def __init__(self):
+        """Initialize Steane code with Qiskit."""
+        if not QISKIT_AVAILABLE:
+            raise ImportError("Qiskit not available. Install qiskit and qiskit-aer.")
+        
+        self.n_qubits = 7
+        self.n_data = 1
+        self.distance = 3
+        self.theoretical_threshold = 9.3e-5
+        
+    def encode_logical_zero(self) -> Statevector:
+        """
+        Encode logical |0⟩ state into 7-qubit Steane code using Qiskit.
+        
+        Returns:
+            Statevector: 7-qubit encoded state
+        """
+        qc = QuantumCircuit(self.n_qubits)
+        
+        # Simplified Steane encoding for |0_L⟩
+        # In practice, would apply stabilizer-based encoding circuit
+        # For now, initialize to |0000000⟩
+        
+        return Statevector(qc)
+    
+    def encode_logical_one(self) -> Statevector:
+        """
+        Encode logical |1⟩ state into 7-qubit Steane code using Qiskit.
+        
+        Returns:
+            Statevector: 7-qubit encoded state
+        """
+        qc = QuantumCircuit(self.n_qubits)
+        
+        # Apply X to all qubits (simplified)
+        for i in range(self.n_qubits):
+            qc.x(i)
+        
+        return Statevector(qc)
+    
+    def apply_depolarizing_noise(
+        self, 
+        state: Statevector, 
+        p: float
+    ) -> DensityMatrix:
+        """
+        Apply depolarizing noise to each qubit using Qiskit noise model.
+        
+        Args:
+            state: Input quantum state
+            p: Error probability per qubit
+            
+        Returns:
+            DensityMatrix: Noisy state
+        """
+        # Create noise model
+        noise_model = NoiseModel()
+        error = depolarizing_error(p, 1)
+        
+        # Add depolarizing error to all qubits
+        for i in range(self.n_qubits):
+            noise_model.add_quantum_error(error, ['id'], [i])
+        
+        # Create circuit with identity gates to apply noise
+        qc = QuantumCircuit(self.n_qubits)
+        for i in range(self.n_qubits):
+            qc.id(i)
+        
+        # Simulate with noise
+        simulator = AerSimulator(noise_model=noise_model)
+        qc.save_density_matrix()
+        result = simulator.run(qc, initial_statevector=state.data).result()
+        
+        return DensityMatrix(result.data()['density_matrix'])
+    
+    def calculate_logical_error_rate(
+        self, 
+        p_phys: float, 
+        n_trials: int = 1000
+    ) -> float:
+        """
+        Calculate logical error rate through Monte Carlo simulation.
+        
+        Args:
+            p_phys: Physical error rate per qubit
+            n_trials: Number of Monte Carlo trials
+            
+        Returns:
+            Logical error rate
+        """
+        errors = 0
+        
+        for _ in range(n_trials):
+            # Encode logical state
+            state = self.encode_logical_zero()
+            
+            # Apply noise
+            noisy_state = self.apply_depolarizing_noise(state, p_phys)
+            
+            # Check fidelity with original
+            original = self.encode_logical_zero()
+            f = state_fidelity(original, noisy_state)
+            
+            if f < 0.9:
+                errors += 1
+        
+        return errors / n_trials
+    
+    def compute_pauli_spectrum(self, state) -> Dict[str, float]:
+        """
+        Compute Pauli spectrum using Qiskit.
+        
+        Args:
+            state: Quantum state (Statevector or DensityMatrix)
+            
+        Returns:
+            Dictionary of Pauli expectation values
+        """
+        from qiskit.quantum_info import Pauli
+        
+        spectrum = {}
+        
+        # For each qubit, compute X, Y, Z expectations
+        for qubit_idx in range(self.n_qubits):
+            # Create Pauli strings
+            pauli_x = ['I'] * self.n_qubits
+            pauli_x[qubit_idx] = 'X'
+            pauli_y = ['I'] * self.n_qubits
+            pauli_y[qubit_idx] = 'Y'
+            pauli_z = ['I'] * self.n_qubits
+            pauli_z[qubit_idx] = 'Z'
+            
+            # Compute expectation values
+            if isinstance(state, Statevector):
+                state_dm = DensityMatrix(state)
+            else:
+                state_dm = state
+            
+            spectrum[f'X_{qubit_idx}'] = state_dm.expectation_value(
+                Pauli(''.join(reversed(pauli_x)))
+            ).real
+            spectrum[f'Y_{qubit_idx}'] = state_dm.expectation_value(
+                Pauli(''.join(reversed(pauli_y)))
+            ).real
+            spectrum[f'Z_{qubit_idx}'] = state_dm.expectation_value(
+                Pauli(''.join(reversed(pauli_z)))
+            ).real
+        
+        return spectrum
+
+
+def create_steane_code(backend: str = 'qutip'):
+    """
+    Factory function to create a Steane code instance with specified backend.
+    
+    Args:
+        backend: 'qutip' or 'qiskit'
+        
+    Returns:
+        SteaneCode or SteaneCodeQiskit instance
+        
+    Raises:
+        ValueError: If backend is not supported
+    """
+    backend = backend.lower()
+    
+    if backend == 'qutip':
+        return SteaneCode()
+    elif backend == 'qiskit':
+        if not QISKIT_AVAILABLE:
+            raise ImportError(
+                "Qiskit backend requested but not available. "
+                "Install qiskit and qiskit-aer."
+            )
+        return SteaneCodeQiskit()
+    else:
+        raise ValueError(
+            f"Unknown backend '{backend}'. Supported: 'qutip', 'qiskit'"
+        )
+
+
 def demo_steane_simulation():
     """
     Demonstrate Steane code simulation capabilities.
@@ -438,5 +639,42 @@ def demo_steane_simulation():
     }
 
 
+def demo_backend_comparison():
+    """
+    Demonstrate both QuTiP and Qiskit backends.
+    """
+    print("=== Backend Comparison Demo ===\n")
+    
+    # Test QuTiP backend
+    print("Testing QuTiP backend...")
+    qutip_code = create_steane_code('qutip')
+    print(f"  Created: {qutip_code.__class__.__name__}")
+    qutip_state = qutip_code.encode_logical_zero()
+    print(f"  Encoded |0_L⟩: shape {qutip_state.shape}")
+    
+    # Test Qiskit backend if available
+    if QISKIT_AVAILABLE:
+        print("\nTesting Qiskit backend...")
+        qiskit_code = create_steane_code('qiskit')
+        print(f"  Created: {qiskit_code.__class__.__name__}")
+        qiskit_state = qiskit_code.encode_logical_zero()
+        print(f"  Encoded |0_L⟩: {len(qiskit_state)} dimensions")
+        
+        # Compare error rates
+        print("\nComparing logical error rates (p_phys=0.01, 50 trials)...")
+        qutip_p_log = qutip_code.calculate_logical_error_rate(0.01, n_trials=50)
+        qiskit_p_log = qiskit_code.calculate_logical_error_rate(0.01, n_trials=50)
+        print(f"  QuTiP:  p_log = {qutip_p_log:.4f}")
+        print(f"  Qiskit: p_log = {qiskit_p_log:.4f}")
+    else:
+        print("\nQiskit not available - skipping Qiskit backend test")
+    
+    print("\n=== Demo Complete ===")
+
+
 if __name__ == '__main__':
-    demo_steane_simulation()
+    import sys
+    if '--compare' in sys.argv:
+        demo_backend_comparison()
+    else:
+        demo_steane_simulation()

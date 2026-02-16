@@ -251,7 +251,7 @@ class TestCirculantStructure:
 # ---------------------------------------------------------------
 class TestBaseMatrixCommutation:
     def test_base_matrix_commutation(self):
-        """(A @ B.T + B @ A.T) % 2 == 0 for circulant A, B across seeds."""
+        """(A @ B - B @ A) % 2 == 0 for circulant A, B across seeds."""
         from qldpc.css_code import _circulant_matrix
 
         for seed in range(30):
@@ -267,8 +267,8 @@ class TestBaseMatrixCommutation:
             A = _circulant_matrix(row_a)
             B = _circulant_matrix(row_b)
 
-            # AB^T + BA^T must vanish mod 2 because circulants commute.
-            product = (A @ B.T + B @ A.T) % 2
+            # AB = BA for circulants, so AB - BA ≡ 0 (mod 2).
+            product = (A @ B - B @ A) % 2
             assert not np.any(product), (
                 f"seed={seed}: circulant commutation failed"
             )

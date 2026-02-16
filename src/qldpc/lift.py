@@ -8,18 +8,42 @@ s in [0, P-1].  The critical invariant:
     they must reuse the SAME shift s via a shared LiftTable instance.
 
 Shifts use an additive structure: s(i, j) = (r_i + c_j) mod P, where
-r_i and c_j are per-row and per-column offsets sampled lazily from a
-seeded RNG.  This ensures that shift differences between rows are
-constant across columns, which is required for CSS orthogonality.
+r_i and c_j are per-row and per-column offsets derived from a pure
+deterministic hash of (seed, kind, index).  This ensures that shift
+differences between rows are constant across columns, which is required
+for CSS orthogonality.
 """
 
 from __future__ import annotations
 
+import hashlib
+import struct
+
 import numpy as np
 from scipy import sparse
-from typing import Dict, Tuple
+from typing import Dict
 
 from .field import GF2e
+
+
+def _offset(seed: int, kind: int, index: int, P: int) -> int:
+    """
+    Pure deterministic function: (seed, kind, index, P) -> int in [0, P).
+
+    Uses SHA-256 of the packed (seed, kind, index) triple.  The result
+    depends only on the inputs, not on call order or mutable state.
+    ``kind`` distinguishes rows (0) from columns (1).
+    """
+    digest = hashlib.sha256(
+        struct.pack(">qqq", seed, kind, index)
+    ).digest()
+    # Read first 8 bytes as unsigned 64-bit big-endian integer.
+    value = struct.unpack(">Q", digest[:8])[0]
+    return value % P
+
+
+_KIND_ROW = 0
+_KIND_COL = 1
 
 
 class LiftTable:
@@ -27,9 +51,10 @@ class LiftTable:
     Shared circulant lifting table with structured additive shifts.
 
     Shifts are computed as ``s(i, j) = (r_i + c_j) mod P``, where
-    ``r_i`` and ``c_j`` are per-row and per-column offsets sampled lazily
-    from a seeded RNG.  This additive structure ensures that the shift
-    difference between any two rows i, k is constant across all columns:
+    ``r_i`` and ``c_j`` are per-row and per-column offsets derived from
+    a pure deterministic hash of ``(seed, kind, index)``.  This additive
+    structure ensures that the shift difference between any two rows
+    i, k is constant across all columns:
 
         s(i, j) - s(k, j) = r_i - r_k   (independent of j)
 
@@ -39,35 +64,33 @@ class LiftTable:
     Both H_X and H_Z construction must use the SAME LiftTable instance
     so that shared protograph positions receive identical circulant shifts.
 
-    Thread safety
-    -------------
-    LiftTable is NOT thread-safe.  The lazy sampling writes to internal
-    dicts without locking.  H_X and H_Z must be assembled sequentially
-    using the same instance.
-
     Determinism
     -----------
-    Shift values are deterministic for a given seed AND traversal order.
-    The first call to ``get_shift`` with a previously unseen row index i
-    (or column index j) advances the internal RNG to sample that offset.
-    Determinism is guaranteed when the same ``(i, j)`` pairs are queried
-    in the same order across runs.
+    Offsets are computed by a pure function of ``(seed, index, P)`` with
+    no mutable RNG state.  Shifts are:
+
+    - Deterministic across traversal order (query order does not matter)
+    - Reproducible across runs and processes
+    - Thread-safe for concurrent reads
+
+    Results are cached for speed, but caching does not affect output
+    values.
 
     Parameters
     ----------
     P : int
         Circulant size (permutation matrices are P x P).
     seed : int
-        Deterministic random seed for offset sampling.
+        Deterministic seed used in the hash function.
     """
 
     def __init__(self, P: int, seed: int):
         if P < 1:
             raise ValueError(f"Circulant size P must be >= 1, got {P}")
         self._P = P
-        self._rng = np.random.default_rng(seed)
-        self._row_offsets: Dict[int, int] = {}
-        self._col_offsets: Dict[int, int] = {}
+        self._seed = seed
+        self._row_cache: Dict[int, int] = {}
+        self._col_cache: Dict[int, int] = {}
 
     @property
     def P(self) -> int:
@@ -78,25 +101,29 @@ class LiftTable:
         """
         Return the circulant shift for protograph position (i, j).
 
-        Computed as ``(r_i + c_j) mod P``.  Row offset ``r_i`` and column
-        offset ``c_j`` are sampled from the seeded RNG on first access
-        and cached for subsequent calls.
+        Computed as ``(r_i + c_j) mod P`` where ``r_i`` and ``c_j`` are
+        pure deterministic functions of ``(seed, index, P)``.  Cached
+        for speed; caching does not affect output values.
         """
-        if i not in self._row_offsets:
-            self._row_offsets[i] = int(self._rng.integers(0, self._P))
-        if j not in self._col_offsets:
-            self._col_offsets[j] = int(self._rng.integers(0, self._P))
-        return (self._row_offsets[i] + self._col_offsets[j]) % self._P
+        r = self._row_cache.get(i)
+        if r is None:
+            r = _offset(self._seed, _KIND_ROW, i, self._P)
+            self._row_cache[i] = r
+        c = self._col_cache.get(j)
+        if c is None:
+            c = _offset(self._seed, _KIND_COL, j, self._P)
+            self._col_cache[j] = c
+        return (r + c) % self._P
 
     def table_size(self) -> int:
         """Return the number of cached row + column offsets."""
-        return len(self._row_offsets) + len(self._col_offsets)
+        return len(self._row_cache) + len(self._col_cache)
 
     def __repr__(self) -> str:
         return (
             f"LiftTable(P={self._P}, "
-            f"rows={len(self._row_offsets)}, "
-            f"cols={len(self._col_offsets)})"
+            f"rows={len(self._row_cache)}, "
+            f"cols={len(self._col_cache)})"
         )
 
 

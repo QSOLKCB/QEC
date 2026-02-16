@@ -107,6 +107,30 @@ def test_additive_shift_structure():
             )
 
 
+def test_order_independent_shift_generation():
+    """Querying shifts in any order produces the same values."""
+    P = 19
+    seed = 55
+    pairs = [(0, 0), (3, 1), (1, 5), (7, 2), (0, 5), (3, 0), (10, 10)]
+
+    # Forward order.
+    t_fwd = LiftTable(P, seed)
+    shifts_fwd = {(i, j): t_fwd.get_shift(i, j) for i, j in pairs}
+
+    # Reversed order.
+    t_rev = LiftTable(P, seed)
+    shifts_rev = {(i, j): t_rev.get_shift(i, j) for i, j in reversed(pairs)}
+
+    assert shifts_fwd == shifts_rev, "Shifts depend on traversal order"
+
+    # Shuffled order (interleave odd/even indices).
+    shuffled = pairs[::2] + pairs[1::2]
+    t_shuf = LiftTable(P, seed)
+    shifts_shuf = {(i, j): t_shuf.get_shift(i, j) for i, j in shuffled}
+
+    assert shifts_fwd == shifts_shuf, "Shifts depend on traversal order (shuffled)"
+
+
 def test_invalid_lifttable_P_raises_value_error():
     """LiftTable constructor validates P and raises ValueError for invalid P."""
     with pytest.raises(ValueError):

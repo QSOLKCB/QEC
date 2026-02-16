@@ -1,210 +1,181 @@
 """
-CSS quantum LDPC code from protograph pair over GF(2^e).
+CSS code construction from a protograph pair over GF(2^e).
 
 Construction pipeline:
-    1. Build orthogonal protograph pair (B_X, B_Z) over GF(2^e)
-    2. Generate shared circulant lifting table
-    3. Lift to binary parity check matrices H_X, H_Z (sparse CSR)
-    4. Verify structural invariants (orthogonality, column weight)
-
-Parameters:
-    n  = e * P * L     physical qubits
-    k  = n - rank(H_X) - rank(H_Z)   logical qubits
-    R ~= 1 - 2J/L     code rate
+    1. Accept base matrices H_X_base, H_Z_base over GF(2^e)
+    2. Instantiate a shared LiftTable(P, seed)
+    3. For each nonzero entry a at position (i, j):
+       - Obtain shared circulant shift s = lift_table.get_shift(i, j)
+       - Build block = C(a) ⊗ π_s   (eP × eP sparse binary)
+    4. Assemble sparse H_X and H_Z in CSR format
+    5. Verify CSS orthogonality: (H_X @ H_Z^T) % 2 == 0
+       If violated, raise ConstructionInvariantError (no repair).
 """
 
 from __future__ import annotations
 
 import numpy as np
 from scipy import sparse
-from typing import Dict, Optional, Tuple
 
 from .field import GF2e
-from .protograph import ProtographPair, build_protograph_pair
-from .lift import LiftingTable, generate_lifting_table, lift_to_binary
-from .invariants import (
-    ConstructionInvariantError,
-    verify_css_orthogonality_sparse,
-    verify_column_weight,
-)
+from .invariants import ConstructionInvariantError
+from .lift import LiftTable, kron_companion_circulant
+
+
+class ProtographPair:
+    """
+    Pair of base parity-check matrices over GF(2^e).
+
+    Parameters
+    ----------
+    field : GF2e
+        Finite field for entry validation.
+    H_X_base : array_like
+        2D integer array with entries in [0, field.q).
+    H_Z_base : array_like
+        2D integer array with entries in [0, field.q).
+        Must have the same number of columns as H_X_base.
+    """
+
+    def __init__(
+        self,
+        field: GF2e,
+        H_X_base: np.ndarray,
+        H_Z_base: np.ndarray,
+    ):
+        H_X_base = np.asarray(H_X_base, dtype=np.int32)
+        H_Z_base = np.asarray(H_Z_base, dtype=np.int32)
+
+        if H_X_base.ndim != 2 or H_Z_base.ndim != 2:
+            raise ValueError("Base matrices must be 2D")
+
+        if H_X_base.shape[1] != H_Z_base.shape[1]:
+            raise ValueError(
+                f"Column count mismatch: H_X_base has {H_X_base.shape[1]}, "
+                f"H_Z_base has {H_Z_base.shape[1]}"
+            )
+
+        if np.any((H_X_base < 0) | (H_X_base >= field.q)):
+            raise ValueError(
+                f"H_X_base entries must be in [0, {field.q})"
+            )
+        if np.any((H_Z_base < 0) | (H_Z_base >= field.q)):
+            raise ValueError(
+                f"H_Z_base entries must be in [0, {field.q})"
+            )
+
+        self.field = field
+        self.H_X_base = H_X_base
+        self.H_Z_base = H_Z_base
 
 
 class CSSCode:
     """
     CSS quantum LDPC code from a protograph pair over GF(2^e).
 
-    All construction is deterministic given the same parameters + seed.
-    CSS orthogonality (H_X @ H_Z^T = 0 mod 2) is verified after
-    construction and raises ConstructionInvariantError on failure.
+    Construction is fully deterministic given the same parameters and seed.
+    CSS orthogonality (H_X @ H_Z^T = 0 mod 2) is verified after assembly;
+    failure raises ConstructionInvariantError with no repair attempt.
 
     Attributes
     ----------
     H_X : sparse.csr_matrix
-        X-type parity check matrix (detects Z errors).
+        X-type binary parity-check matrix.
     H_Z : sparse.csr_matrix
-        Z-type parity check matrix (detects X errors).
-    n : int
-        Number of physical qubits.
-    k : int
-        Number of logical qubits.
-    rate : float
-        Code rate k/n.
-    protograph : ProtographPair
-        The underlying protograph pair.
-    lifting_table : LiftingTable
-        The shared circulant lifting table.
+        Z-type binary parity-check matrix.
+    lift_table : LiftTable
+        The shared circulant lifting table used for both H_X and H_Z.
     """
 
     def __init__(
         self,
-        protograph: ProtographPair,
-        lifting_size: int = 32,
-        seed: int = 42,
-        target_col_weight: Optional[int] = None,
+        field: GF2e,
+        proto: ProtographPair,
+        P: int,
+        seed: int,
     ):
-        self.protograph = protograph
-        self.P = lifting_size
-        self.field = protograph.field
-        self.e = protograph.field.e
-        self.seed = seed
+        lift_table = LiftTable(P, seed)
 
-        # Generate shared lifting table (deterministic from seed).
-        self.lifting_table = generate_lifting_table(
-            protograph, lifting_size, seed
-        )
+        # Assemble binary matrices — H_X first so its get_shift calls
+        # populate the LiftTable before H_Z reuses the same entries.
+        H_X = _assemble_binary(field, proto.H_X_base, P, lift_table)
+        H_Z = _assemble_binary(field, proto.H_Z_base, P, lift_table)
 
-        # Lift to binary parity check matrices (sparse CSR).
-        self.H_X, self.H_Z = lift_to_binary(
-            protograph, self.lifting_table, self.field
-        )
+        # CSS orthogonality check: (H_X @ H_Z^T) % 2 must be all-zero.
+        product = H_X.astype(np.int32) @ H_Z.astype(np.int32).T
+        if sparse.issparse(product):
+            product = product.copy()
+            product.data = product.data % 2
+            product.eliminate_zeros()
+            orthogonal = product.nnz == 0
+        else:
+            orthogonal = bool(np.all(product % 2 == 0))
 
-        # --- Structural invariant: CSS orthogonality ---
-        if not verify_css_orthogonality_sparse(self.H_X, self.H_Z):
+        if not orthogonal:
             raise ConstructionInvariantError(
-                "H_X @ H_Z^T != 0 mod 2 -- CSS orthogonality violated. "
-                "This is a construction bug, not a recoverable condition."
+                "H_X @ H_Z^T != 0 mod 2 — CSS orthogonality violated. "
+                "This indicates the base matrices or lifting are incompatible."
             )
 
-        # --- Column weight constraint (if applicable) ---
-        if target_col_weight is not None:
-            if not verify_column_weight(self.H_X, target_col_weight):
-                raise ConstructionInvariantError(
-                    f"H_X column weight != {target_col_weight}. "
-                    f"Column weight constraint violated."
-                )
-            if not verify_column_weight(self.H_Z, target_col_weight):
-                raise ConstructionInvariantError(
-                    f"H_Z column weight != {target_col_weight}. "
-                    f"Column weight constraint violated."
-                )
-
-        self.n = self.H_X.shape[1]
-        self.m_X = self.H_X.shape[0]
-        self.m_Z = self.H_Z.shape[0]
-
-        # Rank computation for moderate sizes.
-        if self.n <= 20000:
-            H_X_dense = self.H_X.toarray().astype(np.float64)
-            H_Z_dense = self.H_Z.toarray().astype(np.float64)
-            rx = np.linalg.matrix_rank(H_X_dense)
-            rz = np.linalg.matrix_rank(H_Z_dense)
-            self.k = max(0, self.n - rx - rz)
-        else:
-            self.k = max(0, self.n - self.m_X - self.m_Z)
-
-        self.rate = self.k / self.n if self.n > 0 else 0.0
-
-    def syndrome_X(self, z_error: np.ndarray) -> np.ndarray:
-        """X-type syndrome from a Z-error pattern (length-n binary vector)."""
-        return np.asarray(
-            self.H_X.astype(np.int32) @ z_error.astype(np.int32)
-        ).ravel() % 2
-
-    def syndrome_Z(self, x_error: np.ndarray) -> np.ndarray:
-        """Z-type syndrome from an X-error pattern (length-n binary vector)."""
-        return np.asarray(
-            self.H_Z.astype(np.int32) @ x_error.astype(np.int32)
-        ).ravel() % 2
-
-    def __repr__(self) -> str:
-        return (
-            f"CSSCode(n={self.n}, k={self.k}, "
-            f"rate={self.rate:.4f}, "
-            f"J={self.protograph.J}, L={self.protograph.L}, "
-            f"P={self.P}, e={self.e})"
-        )
+        self.H_X = H_X
+        self.H_Z = H_Z
+        self.lift_table = lift_table
 
 
-# ── Pre-defined code configurations ──────────────────────────────────
-
-PREDEFINED_CODES: Dict[str, Dict] = {
-    "rate_0.50": {
-        "J": 1,
-        "L": 4,
-        "field_degree": 3,
-        "description": (
-            "Rate-1/2 protograph QLDPC code (J=1, L=4, GF(2^3)). "
-            "Komoto-Kasai 2025, Table I."
-        ),
-    },
-    "rate_0.60": {
-        "J": 2,
-        "L": 10,
-        "field_degree": 3,
-        "description": (
-            "Rate-3/5 protograph QLDPC code (J=2, L=10, GF(2^3)). "
-            "Komoto-Kasai 2025, Table I."
-        ),
-    },
-    "rate_0.75": {
-        "J": 1,
-        "L": 8,
-        "field_degree": 3,
-        "description": (
-            "Rate-3/4 protograph QLDPC code (J=1, L=8, GF(2^3)). "
-            "Komoto-Kasai 2025, Table I."
-        ),
-    },
-}
-
-
-def create_code(
-    name: str = "rate_0.50",
-    lifting_size: int = 32,
-    seed: int = 42,
-    target_col_weight: Optional[int] = None,
-) -> CSSCode:
+def _assemble_binary(
+    field: GF2e,
+    base: np.ndarray,
+    P: int,
+    lift_table: LiftTable,
+) -> sparse.csr_matrix:
     """
-    Instantiate a pre-defined quantum LDPC code.
+    Expand a base matrix over GF(2^e) into a binary sparse matrix.
+
+    Each nonzero entry a at position (i, j) becomes the eP × eP block
+    C(a) ⊗ π_s placed at block position (i, j), where s is obtained
+    from the shared lift_table.
 
     Parameters
     ----------
-    name : str
-        One of 'rate_0.50', 'rate_0.60', 'rate_0.75'.
-    lifting_size : int
-        Circulant permutation size P.
-    seed : int
-        Construction seed (deterministic).
-    target_col_weight : int or None
-        If set, verify binary column weight constraint.
+    field : GF2e
+        Finite field.
+    base : np.ndarray
+        m × n matrix of field elements (integers).
+    P : int
+        Circulant size.
+    lift_table : LiftTable
+        Shared lifting table.
 
     Returns
     -------
-    CSSCode
-        Fully constructed CSS code with verified invariants.
+    sparse.csr_matrix
+        Binary matrix of shape (m * e * P, n * e * P).
     """
-    if name not in PREDEFINED_CODES:
-        raise ValueError(
-            f"Unknown code '{name}'. Choose from {sorted(PREDEFINED_CODES)}"
-        )
-    cfg = PREDEFINED_CODES[name]
-    gf = GF2e(cfg["field_degree"])
-    proto = build_protograph_pair(
-        J=cfg["J"], L=cfg["L"], gf=gf, seed=seed
-    )
-    return CSSCode(
-        proto,
-        lifting_size=lifting_size,
-        seed=seed,
-        target_col_weight=target_col_weight,
+    m, n = base.shape
+    e = field.e
+    eP = e * P
+
+    block_rows = []
+    for i in range(m):
+        blocks = []
+        for j in range(n):
+            a = int(base[i, j])
+            if a == 0:
+                blocks.append(sparse.csr_matrix((eP, eP), dtype=np.uint8))
+            else:
+                s = lift_table.get_shift(i, j)
+                blocks.append(kron_companion_circulant(field, a, P, s))
+        block_rows.append(sparse.hstack(blocks, format="csr"))
+
+    return sparse.vstack(block_rows, format="csr").astype(np.uint8)
+
+
+# Backward-compat stubs so qldpc/__init__.py lazy imports don't crash.
+PREDEFINED_CODES = {}
+
+
+def create_code(*args, **kwargs):
+    raise NotImplementedError(
+        "create_code() has been removed. "
+        "Use CSSCode(field, proto, P, seed) directly."
     )

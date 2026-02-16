@@ -7,9 +7,10 @@ s in [0, P-1].  The critical invariant:
     If the same protograph position (i, j) is used by both H_X and H_Z,
     they must reuse the SAME shift s via a shared LiftTable instance.
 
-Shifts are sampled lazily: the first call to ``get_shift(i, j)`` draws
-from a seeded RNG and caches the result; subsequent calls return the
-cached value.  Determinism is guaranteed by the seed.
+Shifts use an additive structure: s(i, j) = (r_i + c_j) mod P, where
+r_i and c_j are per-row and per-column offsets sampled lazily from a
+seeded RNG.  This ensures that shift differences between rows are
+constant across columns, which is required for CSS orthogonality.
 """
 
 from __future__ import annotations
@@ -23,17 +24,41 @@ from .field import GF2e
 
 class LiftTable:
     """
-    Shared circulant lifting table with lazy per-edge shift sampling.
+    Shared circulant lifting table with structured additive shifts.
+
+    Shifts are computed as ``s(i, j) = (r_i + c_j) mod P``, where
+    ``r_i`` and ``c_j`` are per-row and per-column offsets sampled lazily
+    from a seeded RNG.  This additive structure ensures that the shift
+    difference between any two rows i, k is constant across all columns:
+
+        s(i, j) - s(k, j) = r_i - r_k   (independent of j)
+
+    which is required for CSS orthogonality to hold after binary
+    expansion of multi-row protographs with overlapping column support.
 
     Both H_X and H_Z construction must use the SAME LiftTable instance
     so that shared protograph positions receive identical circulant shifts.
+
+    Thread safety
+    -------------
+    LiftTable is NOT thread-safe.  The lazy sampling writes to internal
+    dicts without locking.  H_X and H_Z must be assembled sequentially
+    using the same instance.
+
+    Determinism
+    -----------
+    Shift values are deterministic for a given seed AND traversal order.
+    The first call to ``get_shift`` with a previously unseen row index i
+    (or column index j) advances the internal RNG to sample that offset.
+    Determinism is guaranteed when the same ``(i, j)`` pairs are queried
+    in the same order across runs.
 
     Parameters
     ----------
     P : int
         Circulant size (permutation matrices are P x P).
     seed : int
-        Deterministic random seed for shift sampling.
+        Deterministic random seed for offset sampling.
     """
 
     def __init__(self, P: int, seed: int):
@@ -41,7 +66,8 @@ class LiftTable:
             raise ValueError(f"Circulant size P must be >= 1, got {P}")
         self._P = P
         self._rng = np.random.default_rng(seed)
-        self._shifts: Dict[Tuple[int, int], int] = {}
+        self._row_offsets: Dict[int, int] = {}
+        self._col_offsets: Dict[int, int] = {}
 
     @property
     def P(self) -> int:
@@ -52,21 +78,26 @@ class LiftTable:
         """
         Return the circulant shift for protograph position (i, j).
 
-        On first call for a given (i, j), samples uniformly from [0, P)
-        using the seeded RNG and caches the result.  Subsequent calls
-        return the cached value.
+        Computed as ``(r_i + c_j) mod P``.  Row offset ``r_i`` and column
+        offset ``c_j`` are sampled from the seeded RNG on first access
+        and cached for subsequent calls.
         """
-        key = (i, j)
-        if key not in self._shifts:
-            self._shifts[key] = int(self._rng.integers(0, self._P))
-        return self._shifts[key]
+        if i not in self._row_offsets:
+            self._row_offsets[i] = int(self._rng.integers(0, self._P))
+        if j not in self._col_offsets:
+            self._col_offsets[j] = int(self._rng.integers(0, self._P))
+        return (self._row_offsets[i] + self._col_offsets[j]) % self._P
 
     def table_size(self) -> int:
-        """Return the number of (i, j) positions with cached shifts."""
-        return len(self._shifts)
+        """Return the number of cached row + column offsets."""
+        return len(self._row_offsets) + len(self._col_offsets)
 
     def __repr__(self) -> str:
-        return f"LiftTable(P={self._P}, cached={self.table_size()})"
+        return (
+            f"LiftTable(P={self._P}, "
+            f"rows={len(self._row_offsets)}, "
+            f"cols={len(self._col_offsets)})"
+        )
 
 
 def circulant_shift_matrix(P: int, s: int) -> sparse.csr_matrix:
@@ -79,15 +110,18 @@ def circulant_shift_matrix(P: int, s: int) -> sparse.csr_matrix:
     Parameters
     ----------
     P : int
-        Matrix dimension (circulant size).
+        Matrix dimension (circulant size).  Must be >= 1.
     s : int
-        Shift amount in [0, P).
+        Shift amount.  Reduced mod P internally, so values outside
+        [0, P) (including negative) are accepted.
 
     Returns
     -------
     scipy.sparse.csr_matrix
         P x P permutation matrix with dtype uint8.
     """
+    if P < 1:
+        raise ValueError(f"Circulant size P must be >= 1, got {P}")
     s = s % P
     rows = np.arange(P)
     cols = (rows - s) % P
@@ -111,7 +145,7 @@ def kron_companion_circulant(
     a : int
         Field element in [0, 2^e).
     P : int
-        Circulant size.
+        Circulant size.  Must be >= 1.
     s : int
         Circulant shift.
 
@@ -120,6 +154,9 @@ def kron_companion_circulant(
     scipy.sparse.csr_matrix
         Binary matrix of shape (eP, eP) with dtype uint8.
     """
+    if P < 1:
+        raise ValueError(f"Circulant size P must be >= 1, got {P}")
+
     e = field.e
     eP = e * P
 

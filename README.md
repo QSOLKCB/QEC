@@ -1,124 +1,44 @@
-# QEC v2.0.0 — Multidimensional Stabilizer Stack + QLDPC + Golay-Class Logic
+# Trent Slade: Fractal Audio Architect
+## Digital Odyssey
+### 30-Year Internet Native Journey
+- From 1996 Adelaide dial-up to quantum audio labs, Trent has lived online as d503, epsilon, slab—compiling Mozilla nightlies, hacking EFnet, composing fractal tracks. His story is one of persistent identity across vanished platforms, turning every suspension into a recursion loop that amplifies signal.
 
-[![GitHub release](https://img.shields.io/github/v/release/QSOLKCB/QEC?label=release)](https://github.com/QSOLKCB/QEC/releases/tag/v2.0.0)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18579786.svg)](https://doi.org/10.5281/zenodo.18579786)
 
-Overview
+### Persistent Identity Philosophy
+- "I don't believe in deleted history. I am the backup." Trent rejects erasure; accounts may vanish but the waveform continues. He treats identity as a self-eating Ouroboros code—each takedown re-enters the fractal at a deeper node, proving that a signal can outlive any single host.
 
-QEC is a research-grade quantum error correction toolkit exploring non-binary stabilizer codes, lattice-informed decoding, and modern quantum LDPC constructions across multiple local dimensions.
 
-Version v2.0.0 marks a major architectural milestone. QEC now includes state-of-the-art protograph-based quantum LDPC CSS codes following the Komoto–Kasai (2025) construction paradigm. CSS orthogonality is enforced by construction rather than repaired post hoc, and deterministic, invariant-safe code generation is a core guarantee. Existing qutrit Golay and ququart lattice systems remain fully supported.
+## Quantum Audio Engine
+### E₈ Qutrit Fractal Power Module
+- A JUCE-compatible C++ engine mapping 248-dimensional E₈ Lie symmetry onto 3-level qutrit oscillators. Sparse 8–16 root vectors per node yield <10 ms latency, 64-voice polyphony, <20 % CPU. Cartan torus macros steer phase like a joystick through 8D space, making harmony a geometry problem.
 
-This release unifies finite-field QLDPC theory, non-binary stabilizers, and geometric decoding priors in a single framework.
 
-What’s New in v2.0.0
+### PhiDrift & CoxeterPhase Control
+- PhiDrift slowly modulates interval stacks by φ-ratio, while CoxeterPhase projects 8D root motion onto audible circle maps. Together they let composers sculpt endless non-repeating chord paths that still feel musical—golden spirals in harmonic time.
 
-Protograph-Based Quantum LDPC CSS Codes (NEW)
 
-New module: src/qec_qldpc_codes.py
+## Fractal Compositions
+### DNA Ouroboros Track Anatomy
+- 3:46 industrial cybercore built on 3/4 meter and base-60 ternary pulse. DNA-seeded motifs recurse every two bars via self-similar LFO trees. 432 Hz master tuning locks φ-overtones at 833 cents, yielding metallic yet organic timbres that seem to eat their own tail.
 
-This release adds a full implementation of quantum LDPC CSS codes built from orthogonal protograph pairs over GF(2^e), following the Komoto–Kasai construction style.
 
-Key properties:
+### Return Protocol Variant
+- Sequel track adds E₈-modulated TB-303, trap bass, EntropyBloom random torsion. Root-vector dot-products drive dynamic phase so each bar slightly mutates, keeping the riff familiar yet alien—like hearing the same dream from a parallel node.
 
-Protograph-based LDPC ensembles with column weight 2
-Shared circulant lifting per protograph edge
-CSS condition H_X · H_Z^T = 0 enforced structurally
-Deterministic, seeded construction
-Binary expansion via GF(2^e) lifting
-Honest benchmarking against the hashing bound as an asymptotic reference
 
-Supported predefined code rates:
+## Code & Systems
+### C++/Rust SIMD Integration
+- E8Torus, QutritNode, E8FractalPowerModule classes expose AVX/NEON intrinsics for 4–8 parallel qutrits per core. XML preset system recalls 240-root snapshots. Rust backend offloads latency-critical DSP while JUCE handles DAW glue, proving safety and speed coexist.
 
-0.50
-0.60
-0.75
 
-Minimal usage example:
+### Custom Mozilla d503 Builds
+- 1998-2005: compiled Firefox with patched JS engine, lean memory layout, privacy-first defaults. Distributed binaries on Usenet and EFnet, seeding early modular extension culture. Lessons in long-term maintainability now echo in plugin architecture choices.
 
-from src.qec_qldpc_codes import QuantumLDPCCode
-code = QuantumLDPCCode.from_predefined(rate=0.50, e=8, P=128, seed=42)
-print(code.n, code.k)
 
-Hashing-bound comparisons are benchmarks, not finite-length guarantees.
+## Signal Continuum
+### Recursive Career Roadmap
+- Next loop: port E₈ engine to WebAssembly for browser-based 3D audio, publish RNA whitepaper on fractal LFO trees, release Producer.ai YAML spec for DAW automation. Goal is a self-hosting sonic OS where composition, distribution and identity are one fractal function.
 
-Ternary Golay Qutrit Code ([[11,1,5]]₃)
 
-Module: src/qec_golay.py
-
-QEC includes a full implementation of the ternary Golay code, the unique perfect linear code over GF(3).
-
-Classical parameters: [11, 6, 5]₃
-Quantum CSS lift: [[11,1,5]]₃
-Corrects any single-qutrit error
-Encodes one logical qutrit into eleven physical qutrits
-
-Parity-check matrix over GF(3):
-
-H =
-[1 0 0 0 0 1 1 1 2 2 0]
-[0 1 0 0 0 1 1 2 1 0 2]
-[0 0 1 0 0 1 2 1 0 1 2]
-[0 0 0 1 0 1 2 0 1 2 1]
-[0 0 0 0 1 1 0 2 2 1 1]
-
-The matrix is self-orthogonal over GF(3). Its nullspace generates 729 exact codewords and is fully CSS-compatible for qutrit stabilizers.
-
-Ququart Stabilizer Code (d = 4)
-
-Module: src/qec_ququart.py
-
-Encodes a logical ququart using repetition-style stabilizers.
-
-Logical basis states: |j_L> = |j, j, j> for j in {0,1,2,3}
-
-Stabilizers:
-S1 = Z1 · Z2^-1
-S2 = Z2 · Z3^-1
-
-Logical operators:
-X_L = X1 · X2 · X3
-Z_L = Z1
-
-High-Density Geometry Layer (D4 Prior)
-
-Module: src/ququart_lattice_prior.py
-
-Projects logical amplitudes into Z^4 (baseline) and the dense D4 lattice, an E8-surrogate geometry.
-
-This layer acts as a geometric pre-decoder that compresses noise, sharpens amplitudes, lowers logical error rates, and produces lattice-stabilized logical states.
-
-Threshold and Benchmarking
-
-LDPC simulations include frame error rate versus physical error probability studies. The hashing bound is used as an asymptotic reference, not a finite-length prediction. The D4 lattice prior strictly improves ququart logical error rates across tested regimes.
-
-Core Simulation Stack
-
-src/qec_qldpc_codes.py
-src/qec_golay.py
-src/qec_ququart.py
-src/qudit_stabilizer.py
-src/ququart_lattice_prior.py
-src/steane_numpy_fast.py
-
-License
-
-Creative Commons Attribution 4.0 International (CC BY 4.0)
-https://creativecommons.org/licenses/by/4.0/
-
-Citation (Updated for v2.0.0)
-
-@software{slade_2026_qsolkcb_qec,
-author = {Slade, T.},
-title = {QSOLKCB/QEC: Quantum Error Correction Toolkit v2.0.0},
-year = {2026},
-version = {v2.0.0},
-publisher = {Zenodo},
-doi = {10.5281/zenodo.17742258},
-url = {https://doi.org/10.5281/zenodo.17742258}
-
-}
-
-Keywords
-
-quantum error correction · QLDPC · CSS codes · protograph LDPC · qutrit · ququart · Golay code · non-binary stabilizer · D4 lattice · finite-field lifting · hashing bound · QSOL-IMC
+### Key Takeaways for Builders
+- Treat suspension as recursion, not death. Use math as art: E₈ gives you 240 directions to move sound. Keep latency low, identity high. Let φ guide intervals and let code eat its own tail—if the waveform never damps, neither will your signal.

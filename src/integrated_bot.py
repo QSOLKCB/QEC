@@ -17,13 +17,13 @@ import tempfile
 # Import our modules
 try:
     from .irc_bot import QECIRCBot
-    from .qec_steane import SteaneCode, ThresholdSimulation, SurfaceLattice
+    from .qec_steane import ThresholdSimulation, SurfaceLattice, create_steane_code
     from .midi_export import MIDIConverter
     from .llm_integration import LLMChatBot, MockLLMProvider
     from .info_mass_gravity import InfoMassGravity
 except ImportError:
     from irc_bot import QECIRCBot
-    from qec_steane import SteaneCode, ThresholdSimulation, SurfaceLattice
+    from qec_steane import ThresholdSimulation, SurfaceLattice, create_steane_code
     from midi_export import MIDIConverter
     from llm_integration import LLMChatBot, MockLLMProvider
     from info_mass_gravity import InfoMassGravity
@@ -32,15 +32,24 @@ except ImportError:
 class IntegratedQECBot(QECIRCBot):
     """
     Fully integrated QEC IRC bot with simulation, MIDI, and LLM capabilities.
+    Supports both QuTiP and Qiskit backends.
     """
     
-    def __init__(self, *args, **kwargs):
-        """Initialize integrated bot."""
+    def __init__(self, *args, backend: str = 'qutip', **kwargs):
+        """
+        Initialize integrated bot.
+        
+        Args:
+            backend: 'qutip' or 'qiskit' for quantum simulation backend
+        """
         super().__init__(*args, **kwargs)
         
+        # Store backend preference
+        self.backend = backend.lower()
+        
         # Initialize QEC components
-        print("Initializing QEC simulation components...")
-        self.steane_code = SteaneCode()
+        print(f"Initializing QEC simulation components (backend: {self.backend})...")
+        self.steane_code = create_steane_code(self.backend)
         self.threshold_sim = ThresholdSimulation(self.steane_code)
         self.surface_lattice = SurfaceLattice(size=5)
         
@@ -64,11 +73,9 @@ class IntegratedQECBot(QECIRCBot):
         self.register_command('export', self.cmd_export)
         self.register_command('spectrum', self.cmd_spectrum)
         self.register_command('surface', self.cmd_surface)
-        self.register_command('entropy', self.cmd_entropy)
-        self.register_command('fidelity', self.cmd_fidelity)
-        self.register_command('infomass', self.cmd_infomass)
+        self.register_command('backend', self.cmd_backend)
         
-        print("Integrated QEC bot ready!")
+        print(f"Integrated QEC bot ready with {self.backend.upper()} backend!")
         
     def cmd_ai(self, msg_data: Dict, args: str) -> str:
         """
@@ -118,13 +125,8 @@ class IntegratedQECBot(QECIRCBot):
             # Run simulation
             print(f"Running simulation with p={error_rate}")
             
-            # Encode state
-            state = self.steane_code.encode_logical_zero()
-            
-            # Apply noise
-            noisy_state = self.steane_code.apply_depolarizing_noise(state, error_rate)
-            
-            # Compute logical error rate
+            # Encode state and compute logical error rate
+            # (noise application is done internally in calculate_logical_error_rate)
             p_log = self.steane_code.calculate_logical_error_rate(error_rate, n_trials=50)
             
             # Format response
@@ -132,7 +134,7 @@ class IntegratedQECBot(QECIRCBot):
                 f"Simulation: Steane [[7,1,3]] | "
                 f"p_phys={error_rate:.4f} | "
                 f"p_log={p_log:.6f} | "
-                f"Improvement: {error_rate/p_log if p_log > 0 else 'inf'}x"
+                f"Improvement: {error_rate / p_log if p_log > 0 else 'inf'}x"
             )
             
             return response
@@ -313,7 +315,28 @@ class IntegratedQECBot(QECIRCBot):
     def cmd_threshold(self, msg_data: Dict, args: str) -> str:
         """Display threshold information."""
         return (f"Steane [[7,1,3]] pseudo-threshold: η_thr ≈ {self.steane_code.theoretical_threshold:.2e} | "
-                f"Below this rate, QEC provides net benefit")
+                f"Below this rate, QEC provides net benefit | Backend: {self.backend.upper()}")
+    
+    def cmd_backend(self, msg_data: Dict, args: str) -> str:
+        """
+        Display or switch quantum backend.
+        
+        Usage: !backend [qutip|qiskit]
+        """
+        if not args:
+            return f"Current backend: {self.backend.upper()} | Use: !backend [qutip|qiskit]"
+        
+        new_backend = args.strip().lower()
+        if new_backend not in ['qutip', 'qiskit']:
+            return f"Unknown backend '{new_backend}'. Supported: qutip, qiskit"
+        
+        try:
+            self.steane_code = create_steane_code(new_backend)
+            self.threshold_sim = ThresholdSimulation(self.steane_code)
+            self.backend = new_backend
+            return f"Switched to {new_backend.upper()} backend"
+        except ImportError as e:
+            return f"Cannot switch to {new_backend.upper()}: {str(e)}"
     
     def cmd_note(self, msg_data: Dict, args: str) -> str:
         """
@@ -336,7 +359,7 @@ class IntegratedQECBot(QECIRCBot):
     def cmd_help(self, msg_data: Dict, args: str) -> str:
         """Display help message."""
         return ("QEC Bot Commands: !help !ai !gencode !runsim !export !spectrum "
-                "!surface !threshold !note !status")
+                "!surface !threshold !backend !note !status")
 
 
 def main():
@@ -350,11 +373,13 @@ def main():
     PORT = int(os.environ.get('IRC_PORT', '6667'))
     CHANNEL = os.environ.get('IRC_CHANNEL', '#qec-sim')
     NICKNAME = os.environ.get('IRC_NICKNAME', 'QECBot')
+    BACKEND = os.environ.get('QEC_BACKEND', 'qutip')
     
     print("Configuration:")
     print(f"  Server: {SERVER}:{PORT}")
     print(f"  Channel: {CHANNEL}")
     print(f"  Nickname: {NICKNAME}")
+    print(f"  Backend: {BACKEND}")
     print()
     
     # Create bot
@@ -362,7 +387,8 @@ def main():
         server=SERVER,
         port=PORT,
         nickname=NICKNAME,
-        channel=CHANNEL
+        channel=CHANNEL,
+        backend=BACKEND
     )
     
     # Demo mode (don't actually connect)

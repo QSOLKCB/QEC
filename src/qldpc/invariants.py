@@ -44,6 +44,62 @@ def verify_css_orthogonality_dense(
     return bool(np.all(product == 0))
 
 
+def binary_rank(matrix: sparse.spmatrix) -> int:
+    """
+    Compute the rank of a binary matrix over GF(2).
+
+    Uses Gaussian elimination with XOR row operations, working directly
+    with sparse row structure.  Accepts CSR or COO input (converted to
+    CSR internally).  Intended for validation on small test cases.
+
+    Parameters
+    ----------
+    matrix : sparse.spmatrix
+        Binary sparse matrix (entries treated mod 2).
+
+    Returns
+    -------
+    int
+        Rank over GF(2).
+    """
+    # Work on a CSR copy so the original is untouched.
+    A = sparse.csr_matrix(matrix, copy=True)
+    A.data[:] = A.data % 2
+    A.eliminate_zeros()
+
+    m, n = A.shape
+    # Represent each row as a Python set of column indices where
+    # the entry is 1 (mod 2).  This is cheap for sparse rows.
+    rows: list[set[int] | None] = []
+    for i in range(m):
+        cols = set(A.indices[A.indptr[i]:A.indptr[i + 1]])
+        rows.append(cols if cols else None)
+
+    rank = 0
+    pivot_col_to_row: dict[int, int] = {}
+
+    for i in range(m):
+        if rows[i] is None:
+            continue
+        # Eliminate using already-chosen pivots.
+        for pc in sorted(pivot_col_to_row):
+            if pc in rows[i]:
+                rows[i] ^= rows[pivot_col_to_row[pc]]  # type: ignore[operator]
+                if not rows[i]:
+                    rows[i] = None
+                    break
+
+        if rows[i] is None:
+            continue
+
+        # Choose the smallest column index as pivot for this row.
+        pivot = min(rows[i])
+        pivot_col_to_row[pivot] = i
+        rank += 1
+
+    return rank
+
+
 def verify_column_weight(
     H: sparse.spmatrix, target_weight: int
 ) -> bool:

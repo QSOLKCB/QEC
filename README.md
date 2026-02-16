@@ -30,7 +30,7 @@ The QLDPC lifting layer now uses structured additive shifts:
 s(i, j) = (r_i + c_j) mod L
 
 
-This guarantees that:
+This guarantees:
 
 H_X · H_Z^T = 0 (mod 2)
 
@@ -92,22 +92,21 @@ print(code.n, code.k)
 
 Hashing-bound comparisons are benchmarks, not finite-length guarantees.
 
-Ternary Golay Qutrit Code ([[11,1,5]]_3)
+Ternary Golay Qutrit Code ([[11,1,5]]₃)
 
 Module: src/qec_golay.py
 
 Full implementation of the unique perfect ternary Golay code.
 
-Classical parameters: [11, 6, 5]_3
+Classical parameters: [11, 6, 5]₃
 
-Quantum CSS lift: [[11,1,5]]_3
+Quantum CSS lift: [[11,1,5]]₃
 
 Corrects any single-qutrit error
 
 Encodes one logical qutrit into eleven physical qutrits
 
-Parity-check matrix over GF(3):
-
+Parity-Check Matrix over GF(3)
 H =
 [1 0 0 0 0 1 1 1 2 2 0]
 [0 1 0 0 0 1 1 2 1 0 2]
@@ -116,9 +115,11 @@ H =
 [0 0 0 0 1 1 0 2 2 1 1]
 
 
-Self-orthogonal over GF(3).
-Nullspace generates 729 exact codewords.
-Fully CSS-compatible for qutrit stabilizers.
+Self-orthogonal over GF(3)
+
+Nullspace generates 729 exact codewords
+
+Fully CSS-compatible for qutrit stabilizers
 
 Ququart Stabilizer Code (d = 4)
 
@@ -127,7 +128,7 @@ Module: src/qec_ququart.py
 Encodes a logical ququart using repetition-style stabilizers.
 
 Logical Basis States
-|j_L> = |j, j, j>    for j in {0,1,2,3}
+|j_L> = |j, j, j>     for j ∈ {0,1,2,3}
 
 Stabilizers
 S1 = Z1 Z2^-1

@@ -8,7 +8,7 @@ QSOLKCB / QEC — Quantum Error Correction (QLDPC CSS Toolkit)
 &nbsp;&nbsp;
 ![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)
 
-Deterministic construction and decoding framework for QLDPC CSS codes with algebraic invariant guarantees and numerically stable belief propagation.
+Deterministic quantum error correction framework for QLDPC CSS codes with algebraic construction guarantees, numerically stable belief propagation, and modular decoder utilities.
 
 Release Lineage
 v2.3.0 — Decoder Utility Formalization and Stability Refinement

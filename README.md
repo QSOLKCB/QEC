@@ -15,21 +15,21 @@ v2.3.0 — Decoder Utility Formalization and Stability Refinement
 
 DOI: https://doi.org/10.5281/zenodo.18679878
 
-This release formalizes the decoder layer into standalone utilities while preserving full backward compatibility.
+This release formalizes the decoder layer into standalone utilities while preserving full backward compatibility with JointSPDecoder.
 
 Highlights
 
 Explicit detection → inference → correction separation
 
-Standalone bp_decode operating on per-variable LLR vectors
+Standalone bp_decode with per-variable LLR input
 
 Pauli-frame update abstraction (update_pauli_frame)
 
-Channel LLR modeling with optional bias weighting
+Channel LLR modeling with optional scalar or vector bias
 
-Input validation enforcing p ∈ (0, 1)
+Enforced input validation (p ∈ (0, 1))
 
-Micro-optimization of BP early-stop casting
+Reduced per-iteration overhead in BP early-stop logic
 
 101 / 101 tests passing
 
@@ -39,30 +39,32 @@ v2.2.0 — Belief Propagation Stability Hardening
 
 DOI: https://doi.org/10.5281/zenodo.18679203
 
-Released in parallel with the v2.3.0 refinement cycle.
+Numerical stability refinement of the sum-product decoder.
 
 Highlights
 
 Correct handling of degree-1 check nodes
 
-Prevented artificial LLR amplification from atanh(≈1)
+Eliminated artificial LLR amplification from atanh(≈1)
 
-Eliminated false confidence injection in sparse Tanner graphs
+Removed false confidence injection in sparse Tanner graphs
 
-Numerical stabilization of sum-product decoding
+Stabilized belief-propagation behavior under irregular parity structures
 
-No architectural changes. Decoder logic stability hardening only.
+No architectural changes. Decoder logic stabilization only.
 
 v2.1.0 — Additive Lift Invariant Hardening
 
 DOI: https://doi.org/10.5281/zenodo.18660270
 
-Highlights
+Transition from empirically stable lifting to algebraically guaranteed construction.
 
 Additive lift structure:
 
 s(i, j) = (r_i + c_j) mod L
 
+
+Highlights
 
 Algebraic guarantee of lifted CSS orthogonality
 
@@ -72,7 +74,7 @@ Deterministic seeded construction
 
 89 / 89 invariant tests passing
 
-Construction layer transitioned from empirically stable → structurally guaranteed.
+Construction layer transitioned from probabilistic behavior → structural invariance.
 
 v2.0.0 — Architectural Expansion
 
@@ -88,16 +90,24 @@ Ququart stabilizer + D4 lattice prior
 
 Deterministic construction framework
 
-Current System State
-
-With v2.3.0:
+Current System State (v2.3.0)
 
 Construction layer is algebraically enforced
 
 Decoder layer is numerically stable under sparse edge cases
 
-Detection, inference, and correction are modular and test-covered
+Detection, inference, and correction are modular and independently test-covered
 
 Fully deterministic seeded workflow
 
 101 total tests passing
+
+Architecture Overview
+Channel Model      → channel_llr
+Detection          → syndrome / detect
+Inference          → bp_decode / infer
+Correction         → update_pauli_frame
+Construction Layer → Additive invariant QLDPC CSS lift
+
+
+The framework separates algebraic construction guarantees from numerically stable belief-propagation decoding, enabling deterministic, test-covered workflows from channel modeling to Pauli-frame correction.

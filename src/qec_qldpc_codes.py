@@ -600,6 +600,239 @@ def depolarizing_channel(
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# Decoder Utilities — Pauli Frame, Syndrome, BP, Channel LLR
+# ═══════════════════════════════════════════════════════════════════════
+
+def update_pauli_frame(
+    frame: np.ndarray,
+    correction: np.ndarray,
+) -> np.ndarray:
+    """
+    Apply a correction to a Pauli frame via GF(2) addition (XOR).
+
+    Pure function: neither *frame* nor *correction* is mutated.
+
+    Args:
+        frame: Binary vector (length n) representing the current Pauli frame.
+        correction: Binary vector (length n) representing the correction to apply.
+
+    Returns:
+        New binary vector: frame XOR correction.
+
+    Raises:
+        ValueError: If inputs are not 1-D or have mismatched shapes.
+    """
+    frame = np.asarray(frame)
+    correction = np.asarray(correction)
+    if frame.ndim != 1 or correction.ndim != 1:
+        raise ValueError(
+            f"Both frame and correction must be 1-D arrays, "
+            f"got ndim={frame.ndim} and ndim={correction.ndim}"
+        )
+    if frame.shape[0] != correction.shape[0]:
+        raise ValueError(
+            f"Shape mismatch: frame has length {frame.shape[0]}, "
+            f"correction has length {correction.shape[0]}"
+        )
+    return (frame ^ correction).astype(np.uint8)
+
+
+def syndrome(H: np.ndarray, e: np.ndarray) -> np.ndarray:
+    """
+    Compute the binary syndrome s = H @ e (mod 2).
+
+    This is a standalone version of the syndrome computation performed by
+    :meth:`QuantumLDPCCode.syndrome_X` and :meth:`QuantumLDPCCode.syndrome_Z`.
+
+    Args:
+        H: Binary parity-check matrix, shape (m, n).
+        e: Binary error vector, length n.
+
+    Returns:
+        Binary syndrome vector of length m, dtype uint8.
+    """
+    return ((H.astype(np.int32) @ np.asarray(e).astype(np.int32)) % 2).astype(np.uint8)
+
+
+def bp_decode(
+    H: np.ndarray,
+    llr: np.ndarray,
+    max_iter: int = 50,
+    syndrome_vec: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, int]:
+    """
+    Standalone belief-propagation decoder for a binary parity-check matrix.
+
+    Runs sum-product BP using the tanh rule.  The algorithm is structurally
+    equivalent to :meth:`JointSPDecoder._bp_component` but operates on
+    pre-computed per-variable LLR values rather than a scalar error
+    probability.
+
+    Implementation mirrors JointSPDecoder._bp_component as of v2.2.0.
+
+    This function does NOT modify or replace ``_bp_component``.
+
+    Args:
+        H: Binary parity-check matrix, shape (m, n).
+        llr: Per-variable log-likelihood ratios, length n (or scalar broadcast).
+        max_iter: Maximum BP iterations.
+        syndrome_vec: Binary syndrome vector, length m.  Defaults to all-zeros.
+
+    Returns:
+        (correction, iterations):
+            correction — hard-decision binary vector, length n, dtype uint8.
+            iterations — number of BP iterations actually executed.
+    """
+    m, n = H.shape
+    eps = 1e-30
+
+    llr = np.broadcast_to(np.asarray(llr, dtype=np.float64), (n,)).copy()
+
+    if syndrome_vec is None:
+        syndrome_vec = np.zeros(m, dtype=np.uint8)
+    syndrome_vec = np.asarray(syndrome_vec, dtype=np.uint8)
+
+    c2v, v2c = _tanner_graph(H)
+
+    # Variable-to-check LLR messages (initialised to channel LLR per variable)
+    v2c_msg = np.zeros((n, m), dtype=np.float64)
+    for v in range(n):
+        for c in v2c[v]:
+            v2c_msg[v, c] = llr[v]
+
+    # Check-to-variable LLR messages
+    c2v_msg = np.zeros((m, n), dtype=np.float64)
+
+    hard = np.zeros(n, dtype=np.uint8)
+
+    for it in range(max_iter):
+        # ── check → variable ──
+        for c in range(m):
+            nbrs = c2v[c]
+            if len(nbrs) == 0:
+                continue
+            if len(nbrs) == 1:
+                c2v_msg[c, nbrs[0]] = 0.0
+                continue
+            tanhs = np.array([
+                np.tanh(np.clip(v2c_msg[v, c] / 2.0, -20.0, 20.0))
+                for v in nbrs
+            ])
+            prod_all = np.prod(tanhs)
+            sign = (-1.0) ** int(syndrome_vec[c])
+            for idx, v in enumerate(nbrs):
+                prod_excl = prod_all / (tanhs[idx] + eps)
+                prod_excl = np.clip(prod_excl, -1 + 1e-15, 1 - 1e-15)
+                c2v_msg[c, v] = sign * 2.0 * np.arctanh(prod_excl)
+
+        # ── variable → check + hard decision ──
+        for v in range(n):
+            nbrs = v2c[v]
+            total = llr[v] + sum(c2v_msg[c, v] for c in nbrs)
+            for c in nbrs:
+                v2c_msg[v, c] = total - c2v_msg[c, v]
+            hard[v] = 0 if total >= 0.0 else 1
+
+        # ── early stop ──
+        if np.array_equal(
+            (H.astype(np.int32) @ hard.astype(np.int32)) % 2,
+            syndrome_vec.astype(np.uint8),
+        ):
+            return hard, it + 1
+
+    return hard, max_iter
+
+
+def detect(H: np.ndarray, e: np.ndarray) -> np.ndarray:
+    """
+    Compute the error syndrome (thin wrapper over :func:`syndrome`).
+
+    Args:
+        H: Binary parity-check matrix, shape (m, n).
+        e: Binary error vector, length n.
+
+    Returns:
+        Binary syndrome vector, length m.
+    """
+    return syndrome(H, e)
+
+
+def infer(
+    H: np.ndarray,
+    llr: np.ndarray,
+    max_iter: int = 50,
+    syndrome_vec: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, int]:
+    """
+    Infer the most likely error pattern via belief propagation
+    (thin wrapper over :func:`bp_decode`).
+
+    Args:
+        H: Binary parity-check matrix, shape (m, n).
+        llr: Per-variable log-likelihood ratios, length n.
+        max_iter: Maximum BP iterations.
+        syndrome_vec: Binary syndrome vector, length m.  Defaults to all-zeros.
+
+    Returns:
+        (correction, iterations) — same as :func:`bp_decode`.
+    """
+    return bp_decode(H, llr, max_iter=max_iter, syndrome_vec=syndrome_vec)
+
+
+def channel_llr(
+    e: np.ndarray,
+    p: float,
+    bias: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """
+    Compute per-variable channel log-likelihood ratios for a binary error pattern.
+
+    The base LLR is ``log((1 - p + eps) / (p + eps))``, identical to the
+    inline computation in :meth:`JointSPDecoder._bp_component`.
+    Each element is then multiplied by ``(1 - 2*e[i])``, which flips the
+    sign for positions where an error is present.
+
+    Args:
+        e: Binary error vector of length n.
+        p: Channel error probability in (0, 1).
+        bias: Optional noise-bias multiplier.
+            - *None*  → uniform LLR (default, matches existing behavior).
+            - *scalar* (0-d or length-1 array, or Python float/int)
+              → multiply all LLRs by that scalar.
+            - *vector* (length n) → element-wise multiply.
+
+    Returns:
+        LLR vector of length n (float64).  Inputs are never mutated.
+
+    Raises:
+        ValueError: If bias is a vector whose length mismatches e.
+    """
+    e = np.asarray(e)
+    n = e.shape[0]
+    eps = 1e-30
+
+    base_llr = np.log((1.0 - p + eps) / (p + eps))
+    sign = (1 - 2 * e.astype(np.float64))
+    llr = base_llr * sign
+
+    if bias is not None:
+        bias = np.asarray(bias, dtype=np.float64)
+        if bias.ndim == 0:
+            llr = llr * float(bias)
+        elif bias.shape == (1,):
+            llr = llr * float(bias[0])
+        elif bias.shape == (n,):
+            llr = llr * bias
+        else:
+            raise ValueError(
+                f"bias shape {bias.shape} incompatible with error vector "
+                f"length {n}. Expected scalar, (1,), or ({n},)."
+            )
+
+    return llr
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # Hashing Bound
 # ═══════════════════════════════════════════════════════════════════════
 

@@ -692,6 +692,9 @@ def bp_decode(
         syndrome_vec = np.zeros(m, dtype=np.uint8)
     syndrome_vec = np.asarray(syndrome_vec, dtype=np.uint8)
 
+    H_int32 = H.astype(np.int32)
+    syndrome_uint8 = syndrome_vec.astype(np.uint8)
+
     c2v, v2c = _tanner_graph(H)
 
     # Variable-to-check LLR messages (initialised to channel LLR per variable)
@@ -735,8 +738,8 @@ def bp_decode(
 
         # ── early stop ──
         if np.array_equal(
-            (H.astype(np.int32) @ hard.astype(np.int32)) % 2,
-            syndrome_vec.astype(np.uint8),
+            (H_int32 @ hard.astype(np.int32)) % 2,
+            syndrome_uint8,
         ):
             return hard, it + 1
 
@@ -809,6 +812,8 @@ def channel_llr(
     """
     e = np.asarray(e)
     n = e.shape[0]
+    if not (0.0 < p < 1.0):
+        raise ValueError(f"p must be in (0, 1), got {p}")
     eps = 1e-30
 
     base_llr = np.log((1.0 - p + eps) / (p + eps))

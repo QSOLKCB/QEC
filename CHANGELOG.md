@@ -2,6 +2,43 @@ Changelog
 
 All notable changes to this project will be documented in this file.
 
+[2.2.0] — 2026-02-18
+Added
+
+Degree-1 check node handling in JointSPDecoder belief-propagation loop
+
+Explicit zero extrinsic message for single-neighbor check nodes
+
+Improved numerical stability of sum-product decoding on sparse Tanner graphs
+
+Changed
+
+Corrected check-to-variable message update rule in _bp_component:
+
+Degree-1 check nodes now return 0.0 (no extrinsic information)
+instead of falling through to the general tanh-product rule
+
+Prevents artificial LLR amplification from:
+arctanh(≈1) when product over empty neighbor set occurs
+
+Fixed
+
+Eliminated false confidence injection in BP decoding for degree-1 parity checks
+
+Resolved potential instability under very sparse or irregular parity structures
+
+Notes
+
+No changes to construction layer
+
+No changes to additive lift invariants
+
+No changes to CSS orthogonality logic
+
+All tests passing (65/65)
+
+Decoder stability hardening release
+
 [2.1.0] — 2026-02-16
 Added
 

@@ -524,6 +524,10 @@ class JointSPDecoder:
                 nbrs = c2v[c]
                 if len(nbrs) == 0:
                     continue
+                if len(nbrs) == 1:
+                    # Degree-1 check node provides no extrinsic information.
+                    c2v_msg[c, nbrs[0]] = 0.0
+                    continue
                 # Gather incoming tanh half-LLRs
                 tanhs = np.array([
                     np.tanh(np.clip(v2c_msg[v, c] / 2.0, -20.0, 20.0))

@@ -22,6 +22,12 @@ from .qec_qldpc_codes import (
     hashing_bound,
     hashing_bound_threshold,
     simulate_frame_error_rate as simulate_qldpc_fer,
+    update_pauli_frame,
+    syndrome,
+    bp_decode,
+    detect,
+    infer,
+    channel_llr,
 )
 from .midi_export import MIDIConverter
 from .irc_bot import IRCBot, QECIRCBot
@@ -47,4 +53,10 @@ __all__ = [
     'MockLLMProvider',
     'IntegratedQECBot',
     'InfoMassGravity',
+    'update_pauli_frame',
+    'syndrome',
+    'bp_decode',
+    'detect',
+    'infer',
+    'channel_llr',
 ]

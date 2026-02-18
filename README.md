@@ -1,4 +1,4 @@
-QSOLKCB / QEC — Quantum Error Correction (QLDPC CSS Construction & Decoder Toolkit)
+QSOLKCB / QEC — Quantum Error Correction (QLDPC CSS Toolkit)
 
 [![v2.3.0](https://img.shields.io/badge/version-v2.3.0-blue)](https://github.com/QSOLKCB/QEC/releases/tag/v2.3.0)
 [![DOI v2.3.0](https://zenodo.org/badge/DOI/10.5281/zenodo.18679878.svg)](https://doi.org/10.5281/zenodo.18679878)

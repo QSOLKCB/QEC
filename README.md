@@ -1,139 +1,137 @@
-QEC v2.1.0 — Invariant-Hardened Stabilizer Stack + QLDPC + Golay-Class Logic
+QSOLKCB / QEC — Quantum Error Correction (QLDPC CSS Toolkit)
 
-![Version](https://img.shields.io/badge/version-v2.1.0-blue)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18660270.svg)](https://doi.org/10.5281/zenodo.18660270)
+[![v2.3.0](https://img.shields.io/badge/version-v2.3.0-blue)](https://github.com/QSOLKCB/QEC/releases/tag/v2.3.0)
+[![DOI v2.3.0](https://zenodo.org/badge/DOI/10.5281/zenodo.18679878.svg)](https://doi.org/10.5281/zenodo.18679878)
+&nbsp;&nbsp;
+[![v2.2.0](https://img.shields.io/badge/version-v2.2.0-blue)](https://github.com/QSOLKCB/QEC/releases/tag/v2.2.0)
+[![DOI v2.2.0](https://zenodo.org/badge/DOI/10.5281/zenodo.18679203.svg)](https://doi.org/10.5281/zenodo.18679203)
+&nbsp;&nbsp;
 ![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)
 
-Overview
+Deterministic quantum error correction framework for QLDPC CSS codes with algebraic construction guarantees, numerically stable belief propagation, and modular decoder utilities.
 
-QEC is a research-grade quantum error correction toolkit exploring:
+Release Lineage
+v2.4.0 — Performance Hardening + Deterministic FER Harness
 
-Non-binary stabilizer codes
+Highlights
 
-Lattice-informed decoding
+Multi-mode BP decoder (sum_product, min_sum, norm_min_sum, offset_min_sum)
 
-Modern quantum LDPC constructions across multiple local dimensions
+Message damping and magnitude clipping
 
-Version v2.1.0 is an invariant-hardening release.
+OSD-0 post-processing for BP failure recovery
 
-It formalizes additive lift invariants for shared-circulant CSS constructions, providing algebraic guarantees of lifted orthogonality and eliminating prior probabilistic edge-case failures.
+Dict-based asymmetric channel bias in channel_llr
 
-All constructions are deterministic, seeded, and invariant-checked by design.
+Deterministic Monte Carlo FER simulation harness
 
-Existing qutrit Golay and ququart lattice systems remain fully supported.
+Optional FER plotting utility
 
-What’s New in v2.1.0
-Additive Lift Invariants (Hardening Update)
+Backward-compatible API (max_iter alias preserved)
 
-The QLDPC lifting layer now uses structured additive shifts:
+168 / 168 tests passing
+
+Construction layer remains algebraically guaranteed (v2.1.0).
+
+v2.3.0 — Decoder Utility Formalization and Stability Refinement
+
+DOI: https://doi.org/10.5281/zenodo.18679878
+
+This release formalizes the decoder layer into standalone utilities while preserving full backward compatibility with JointSPDecoder.
+
+Highlights
+
+Explicit detection → inference → correction separation
+
+Standalone bp_decode with per-variable LLR input
+
+Pauli-frame update abstraction (update_pauli_frame)
+
+Channel LLR modeling with optional scalar or vector bias
+
+Enforced input validation (p ∈ (0, 1))
+
+Reduced per-iteration overhead in BP early-stop logic
+
+101 / 101 tests passing
+
+Construction layer remains algebraically guaranteed (v2.1.0).
+
+v2.2.0 — Belief Propagation Stability Hardening
+
+DOI: https://doi.org/10.5281/zenodo.18679203
+
+Numerical stability refinement of the sum-product decoder.
+
+Highlights
+
+Correct handling of degree-1 check nodes
+
+Eliminated artificial LLR amplification from atanh(≈1)
+
+Removed false confidence injection in sparse Tanner graphs
+
+Stabilized belief-propagation behavior under irregular parity structures
+
+No architectural changes. Decoder logic stabilization only.
+
+v2.1.0 — Additive Lift Invariant Hardening
+
+DOI: https://doi.org/10.5281/zenodo.18660270
+
+Transition from empirically stable lifting to algebraically guaranteed construction.
+
+Additive lift structure:
 
 s(i, j) = (r_i + c_j) mod L
 
 
-This guarantees:
+Highlights
 
-H_X · H_Z^T = 0 (mod 2)
+Algebraic guarantee of lifted CSS orthogonality
 
+Sparse-safe GF(2) rank computation
 
-whenever base protograph matrices satisfy orthogonality.
+Deterministic seeded construction
 
-Why This Matters
+89 / 89 invariant tests passing
 
-No per-edge random lift tables
+Construction layer transitioned from probabilistic behavior → structural invariance.
 
-No post hoc orthogonality repair
+v2.0.0 — Architectural Expansion
 
-No probabilistic failure modes
+Initial multidimensional QLDPC CSS stack:
 
-CSS orthogonality follows algebraically
+Protograph-based construction
 
-Deterministic across processes
+GF(2^e) lifting
 
-This release moves the construction from empirically stable to mathematically enforced.
+Ternary Golay [[11,1,5]]₃
 
-No architectural changes from v2.0.0 — this is a structural invariant hardening release.
+Ququart stabilizer + D4 lattice prior
 
-Protograph-Based Quantum LDPC CSS Codes
+Deterministic construction framework
 
-Module: src/qec_qldpc_codes.py
+Current System State (v2.4.0)
 
-Implements quantum LDPC CSS codes built from orthogonal protograph pairs over GF(2^e), following the Komoto–Kasai (2025) construction paradigm.
+Construction layer is algebraically enforced
 
-Key Properties
+Decoder layer supports multi-mode BP with OSD-0 post-processing
 
-Protograph-based LDPC ensembles (column weight 2)
+Detection, inference, and correction are modular and independently test-covered
 
-Shared circulant lifting per protograph edge
+Deterministic FER simulation harness with seeded RNG
 
-Additive invariant lift structure
+Fully deterministic seeded workflow
 
-Deterministic, seeded construction
+168 total tests passing
 
-Binary expansion via GF(2^e) lifting
-
-Sparse-safe invariant enforcement
-
-Honest benchmarking against the hashing bound (asymptotic reference)
-
-Supported Predefined Code Rates
-
-0.50
-
-0.60
-
-0.75
-
-Minimal Usage Example
-from src.qec_qldpc_codes import QuantumLDPCCode
-
-code = QuantumLDPCCode.from_predefined(rate=0.50, e=8, P=128, seed=42)
-print(code.n, code.k)
+Architecture Overview
+Channel Model      → channel_llr
+Detection          → syndrome / detect
+Inference          → bp_decode / infer
+Correction         → update_pauli_frame
+Construction Layer → Additive invariant QLDPC CSS lift
 
 
-Hashing-bound comparisons are benchmarks, not finite-length guarantees.
-
-Ternary Golay Qutrit Code ([[11,1,5]]₃)
-
-Module: src/qec_golay.py
-
-Full implementation of the unique perfect ternary Golay code.
-
-Classical parameters: [11, 6, 5]₃
-
-Quantum CSS lift: [[11,1,5]]₃
-
-Corrects any single-qutrit error
-
-Encodes one logical qutrit into eleven physical qutrits
-
-Parity-Check Matrix over GF(3)
-H =
-[1 0 0 0 0 1 1 1 2 2 0]
-[0 1 0 0 0 1 1 2 1 0 2]
-[0 0 1 0 0 1 2 1 0 1 2]
-[0 0 0 1 0 1 2 0 1 2 1]
-[0 0 0 0 1 1 0 2 2 1 1]
-
-
-Self-orthogonal over GF(3)
-
-Nullspace generates 729 exact codewords
-
-Fully CSS-compatible for qutrit stabilizers
-
-Ququart Stabilizer Code (d = 4)
-
-Module: src/qec_ququart.py
-
-Encodes a logical ququart using repetition-style stabilizers.
-
-Logical Basis States
-|j_L> = |j, j, j>     for j ∈ {0,1,2,3}
-
-Stabilizers
-S1 = Z1 Z2^-1
-S2 = Z2 Z3^-1
-
-Logical Operators
-X_L = X1 X2 X3
-Z_L = Z1
+The framework separates algebraic construction guarantees from numerically stable belief-propagation decoding, enabling deterministic, test-covered workflows from channel modeling to Pauli-frame correction.

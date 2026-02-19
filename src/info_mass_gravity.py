@@ -11,10 +11,10 @@ These concepts provide intuitive visualizations and metrics for
 quantum error correction and entanglement structure.
 """
 
+from __future__ import annotations
+
 import numpy as np
 from typing import Dict, List, Tuple, Optional
-from qutip import Qobj, entropy_vn, entropy_mutual, ptrace, expect, qeye, tensor
-from qutip import sigmax, sigmay, sigmaz
 from scipy.spatial.distance import cdist
 from scipy.linalg import logm
 
@@ -43,6 +43,7 @@ class InfoMassGravity:
         Returns:
             Von Neumann entropy (0 for pure states, >0 for mixed)
         """
+        from qutip import entropy_vn
         if state.type == 'ket':
             # Pure state has zero entropy
             return 0.0
@@ -67,14 +68,15 @@ class InfoMassGravity:
         Returns:
             Mutual information (0 for product states, >0 for correlated)
         """
+        from qutip import ptrace, entropy_vn
         # Ensure state is density matrix
         if state.type == 'ket':
             state = state * state.dag()
-        
+
         # Calculate entropies
         rho_a = ptrace(state, subsystem_a)
         rho_b = ptrace(state, subsystem_b)
-        
+
         s_a = entropy_vn(rho_a, base=2)
         s_b = entropy_vn(rho_b, base=2)
         s_ab = entropy_vn(state, base=2)
@@ -224,9 +226,10 @@ class InfoMassGravity:
         Returns:
             Entanglement force (attractive, always >= 0)
         """
+        from qutip import ptrace
         # Get mutual information (entanglement measure)
         mutual_info = self.mutual_information(state, subsystem_a, subsystem_b)
-        
+
         # Get subsystem masses
         rho_a = ptrace(state, subsystem_a)
         rho_b = ptrace(state, subsystem_b)
@@ -260,6 +263,7 @@ class InfoMassGravity:
         
         # Default reference: maximally mixed state
         if reference_state is None:
+            from qutip import Qobj
             n_dims = state.shape[0]
             reference_state = Qobj(np.eye(n_dims) / n_dims)
         
@@ -514,6 +518,7 @@ def demo_info_mass_gravity():
     print("-" * 40)
     
     # Product state (no entanglement)
+    from qutip import tensor
     product = tensor(basis(2, 0), basis(2, 0))
     force_product = img.entanglement_force(product, [0], [1])
     print(f"Product state |00⟩:")

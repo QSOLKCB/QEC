@@ -47,6 +47,7 @@ class GF2e:
         self.e = e
         self.mod = _IRREDUCIBLE[e]
         self.order = 1 << e  # 2^e elements: 0 .. order-1
+        self.q = self.order  # compatibility alias for tests
 
         # Pre-compute log / exp tables for fast multiply & inverse.
         self._exp: list[int] = [0] * (2 * self.order)
@@ -63,6 +64,10 @@ class GF2e:
         # Extend exp table for easy modular lookup.
         for i in range(self.order - 1, 2 * self.order):
             self._exp[i] = self._exp[i - (self.order - 1)]
+
+        # Lazily initialized tables for compatibility with canonical API.
+        self._mul_table = None
+        self._inv_table = None
 
     # ------------------------------------------------------------------
     # Low-level carry-less multiply mod irreducible
@@ -110,3 +115,37 @@ class GF2e:
     def nonzero_elements(self) -> range:
         """Non-zero field elements 1 .. 2^e - 1."""
         return range(1, self.order)
+
+    @property
+    def mul_table(self):
+        """q x q multiplication table, computed lazily on first access."""
+        if self._mul_table is None:
+            import numpy as np
+            table = np.zeros((self.order, self.order), dtype=np.int32)
+            for a in range(self.order):
+                for b in range(self.order):
+                    table[a, b] = self.mul(a, b)
+            self._mul_table = table
+        return self._mul_table
+
+    @property
+    def inv_table(self):
+        """Table of multiplicative inverses, computed lazily on first access."""
+        if self._inv_table is None:
+            import numpy as np
+            table = np.zeros(self.order, dtype=np.int32)
+            for a in range(1, self.order):
+                table[a] = self.inv(a)
+            self._inv_table = table
+        return self._inv_table
+
+    def companion_matrix(self, element: int):
+        """e x e binary matrix representing multiplication by *element*."""
+        import numpy as np
+        mat = np.zeros((self.e, self.e), dtype=np.uint8)
+        for col in range(self.e):
+            basis_vec = 1 << col
+            product = self.mul(element, basis_vec)
+            for row in range(self.e):
+                mat[row, col] = (product >> row) & 1
+        return mat

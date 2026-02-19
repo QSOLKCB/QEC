@@ -14,7 +14,6 @@ from qutip import (
     basis, tensor, qeye, sigmax, sigmay, sigmaz,
     Qobj, fidelity, expect
 )
-import matplotlib.pyplot as plt
 from typing import List, Tuple, Dict, Optional
 
 # Optional Qiskit imports
@@ -282,18 +281,19 @@ class ThresholdSimulation:
         p_phys: np.ndarray,
         p_log: np.ndarray,
         save_path: Optional[str] = None
-    ) -> plt.Figure:
+    ):
         """
         Plot threshold curve showing physical vs logical error rates.
-        
+
         Args:
             p_phys: Physical error rates
             p_log: Logical error rates
             save_path: Optional path to save figure
-            
+
         Returns:
             matplotlib Figure object
         """
+        import matplotlib.pyplot as plt
         fig, ax = plt.subplots(figsize=(10, 6))
         
         # Plot physical error rate (flat line)
@@ -357,17 +357,18 @@ class SurfaceLattice:
         self,
         syndromes: np.ndarray,
         save_path: Optional[str] = None
-    ) -> plt.Figure:
+    ):
         """
         Visualize surface code syndromes.
-        
+
         Args:
             syndromes: 2D syndrome array
             save_path: Optional path to save figure
-            
+
         Returns:
             matplotlib Figure object
         """
+        import matplotlib.pyplot as plt
         fig, ax = plt.subplots(figsize=(8, 8))
         
         # Draw lattice

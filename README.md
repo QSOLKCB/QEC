@@ -11,6 +11,28 @@ QSOLKCB / QEC — Quantum Error Correction (QLDPC CSS Toolkit)
 Deterministic quantum error correction framework for QLDPC CSS codes with algebraic construction guarantees, numerically stable belief propagation, and modular decoder utilities.
 
 Release Lineage
+v2.4.0 — Performance Hardening + Deterministic FER Harness
+
+Highlights
+
+Multi-mode BP decoder (sum_product, min_sum, norm_min_sum, offset_min_sum)
+
+Message damping and magnitude clipping
+
+OSD-0 post-processing for BP failure recovery
+
+Dict-based asymmetric channel bias in channel_llr
+
+Deterministic Monte Carlo FER simulation harness
+
+Optional FER plotting utility
+
+Backward-compatible API (max_iter alias preserved)
+
+168 / 168 tests passing
+
+Construction layer remains algebraically guaranteed (v2.1.0).
+
 v2.3.0 — Decoder Utility Formalization and Stability Refinement
 
 DOI: https://doi.org/10.5281/zenodo.18679878
@@ -90,17 +112,19 @@ Ququart stabilizer + D4 lattice prior
 
 Deterministic construction framework
 
-Current System State (v2.3.0)
+Current System State (v2.4.0)
 
 Construction layer is algebraically enforced
 
-Decoder layer is numerically stable under sparse edge cases
+Decoder layer supports multi-mode BP with OSD-0 post-processing
 
 Detection, inference, and correction are modular and independently test-covered
 
+Deterministic FER simulation harness with seeded RNG
+
 Fully deterministic seeded workflow
 
-101 total tests passing
+168 total tests passing
 
 Architecture Overview
 Channel Model      → channel_llr

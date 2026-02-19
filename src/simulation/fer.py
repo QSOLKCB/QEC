@@ -45,6 +45,8 @@ def simulate_fer(H, decoder_config, noise_config, trials, seed=None):
                 }
             }
     """
+    if trials < 1:
+        raise ValueError(f"trials must be >= 1, got {trials}")
     rng = np.random.default_rng(seed)
     m, n = H.shape
 
@@ -117,6 +119,8 @@ def _json_safe(obj):
     """Convert numpy scalars/arrays to JSON-serializable Python types."""
     if isinstance(obj, np.ndarray):
         return obj.tolist()
+    if isinstance(obj, (np.bool_,)):
+        return bool(obj)
     if isinstance(obj, (np.integer,)):
         return int(obj)
     if isinstance(obj, (np.floating,)):

@@ -11,7 +11,7 @@ Components:
 - info_mass_gravity: Information-theoretic and physics-inspired metrics
 """
 
-__version__ = '1.0.0'
+__version__ = '2.4.0'
 
 from .qec_qldpc_codes import (
     QuantumLDPCCode,
@@ -28,6 +28,8 @@ from .qec_qldpc_codes import (
     infer,
     channel_llr,
 )
+from .decoder.osd import osd0
+from .simulation.fer import simulate_fer, save_results
 
 # Optional heavy-dependency modules are loaded on first attribute access
 # to avoid pulling in matplotlib/qutip/mido when only core decoder is needed.
@@ -77,4 +79,7 @@ __all__ = [
     'detect',
     'infer',
     'channel_llr',
+    'osd0',
+    'simulate_fer',
+    'save_results',
 ]

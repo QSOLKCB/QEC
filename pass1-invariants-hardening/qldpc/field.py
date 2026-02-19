@@ -65,6 +65,16 @@ class GF2e:
         for i in range(self.order - 1, 2 * self.order):
             self._exp[i] = self._exp[i - (self.order - 1)]
 
+        # Pre-compute mul / inv tables for compatibility with canonical API.
+        import numpy as np
+        self.mul_table = np.zeros((self.order, self.order), dtype=np.int32)
+        self.inv_table = np.zeros(self.order, dtype=np.int32)
+        for a in range(self.order):
+            for b in range(self.order):
+                self.mul_table[a, b] = self.mul(a, b)
+            if a != 0:
+                self.inv_table[a] = self.inv(a)
+
     # ------------------------------------------------------------------
     # Low-level carry-less multiply mod irreducible
     # ------------------------------------------------------------------
@@ -111,3 +121,14 @@ class GF2e:
     def nonzero_elements(self) -> range:
         """Non-zero field elements 1 .. 2^e - 1."""
         return range(1, self.order)
+
+    def companion_matrix(self, element: int):
+        """e x e binary matrix representing multiplication by *element*."""
+        import numpy as np
+        mat = np.zeros((self.e, self.e), dtype=np.uint8)
+        for col in range(self.e):
+            basis_vec = 1 << col
+            product = self.mul(element, basis_vec)
+            for row in range(self.e):
+                mat[row, col] = (product >> row) & 1
+        return mat

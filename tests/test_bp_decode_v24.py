@@ -222,7 +222,7 @@ class TestBpDecodeSchedule:
     def test_unsupported_schedule_raises(self, small_code):
         """Non-flooding schedule raises NotImplementedError."""
         llr = np.full(small_code.n, 10.0)
-        with pytest.raises(NotImplementedError, match="Schedule"):
+        with pytest.raises(NotImplementedError, match="schedule"):
             bp_decode(small_code.H_X, llr, schedule="serial")
 
 

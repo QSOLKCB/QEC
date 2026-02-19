@@ -716,7 +716,7 @@ def bp_decode(
         raise ValueError(f"mode must be one of {_BP_MODES}, got '{mode}'")
     if schedule != "flooding":
         raise NotImplementedError(
-            f"Schedule '{schedule}' not implemented; use 'flooding'"
+            f"schedule '{schedule}' not implemented; use 'flooding'"
         )
     if postprocess is not None and postprocess != "osd0":
         raise ValueError(f"Unknown postprocess: '{postprocess}'")

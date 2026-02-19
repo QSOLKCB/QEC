@@ -48,7 +48,7 @@ def simulate_fer(H, decoder_config, noise_config, trials, seed=None):
     if trials < 1:
         raise ValueError(f"trials must be >= 1, got {trials}")
     rng = np.random.default_rng(seed)
-    m, n = H.shape
+    _, n = H.shape
 
     p_grid = list(np.asarray(noise_config["p_grid"], dtype=np.float64))
     bias = noise_config.get("bias", None)

@@ -47,6 +47,7 @@ class GF2e:
         self.e = e
         self.mod = _IRREDUCIBLE[e]
         self.order = 1 << e  # 2^e elements: 0 .. order-1
+        self.q = self.order  # compatibility alias for tests
 
         # Pre-compute log / exp tables for fast multiply & inverse.
         self._exp: list[int] = [0] * (2 * self.order)

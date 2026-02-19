@@ -13,7 +13,6 @@ Components:
 
 __version__ = '1.0.0'
 
-from .qec_steane import SteaneCode, ThresholdSimulation, SurfaceLattice
 from .qec_qldpc_codes import (
     QuantumLDPCCode,
     JointSPDecoder,
@@ -29,11 +28,30 @@ from .qec_qldpc_codes import (
     infer,
     channel_llr,
 )
-from .midi_export import MIDIConverter
-from .irc_bot import IRCBot, QECIRCBot
-from .llm_integration import LLMChatBot, MockLLMProvider
-from .integrated_bot import IntegratedQECBot
-from .info_mass_gravity import InfoMassGravity
+
+# Optional heavy-dependency modules are loaded on first attribute access
+# to avoid pulling in matplotlib/qutip/mido when only core decoder is needed.
+_LAZY_IMPORTS = {
+    'SteaneCode': '.qec_steane',
+    'ThresholdSimulation': '.qec_steane',
+    'SurfaceLattice': '.qec_steane',
+    'MIDIConverter': '.midi_export',
+    'IRCBot': '.irc_bot',
+    'QECIRCBot': '.irc_bot',
+    'LLMChatBot': '.llm_integration',
+    'MockLLMProvider': '.llm_integration',
+    'IntegratedQECBot': '.integrated_bot',
+    'InfoMassGravity': '.info_mass_gravity',
+}
+
+
+def __getattr__(name):
+    if name in _LAZY_IMPORTS:
+        import importlib
+        mod = importlib.import_module(_LAZY_IMPORTS[name], __name__)
+        return getattr(mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     'SteaneCode',

@@ -65,15 +65,9 @@ class GF2e:
         for i in range(self.order - 1, 2 * self.order):
             self._exp[i] = self._exp[i - (self.order - 1)]
 
-        # Pre-compute mul / inv tables for compatibility with canonical API.
-        import numpy as np
-        self.mul_table = np.zeros((self.order, self.order), dtype=np.int32)
-        self.inv_table = np.zeros(self.order, dtype=np.int32)
-        for a in range(self.order):
-            for b in range(self.order):
-                self.mul_table[a, b] = self.mul(a, b)
-            if a != 0:
-                self.inv_table[a] = self.inv(a)
+        # Lazily initialized tables for compatibility with canonical API.
+        self._mul_table = None
+        self._inv_table = None
 
     # ------------------------------------------------------------------
     # Low-level carry-less multiply mod irreducible
@@ -121,6 +115,29 @@ class GF2e:
     def nonzero_elements(self) -> range:
         """Non-zero field elements 1 .. 2^e - 1."""
         return range(1, self.order)
+
+    @property
+    def mul_table(self):
+        """q x q multiplication table, computed lazily on first access."""
+        if self._mul_table is None:
+            import numpy as np
+            table = np.zeros((self.order, self.order), dtype=np.int32)
+            for a in range(self.order):
+                for b in range(self.order):
+                    table[a, b] = self.mul(a, b)
+            self._mul_table = table
+        return self._mul_table
+
+    @property
+    def inv_table(self):
+        """Table of multiplicative inverses, computed lazily on first access."""
+        if self._inv_table is None:
+            import numpy as np
+            table = np.zeros(self.order, dtype=np.int32)
+            for a in range(1, self.order):
+                table[a] = self.inv(a)
+            self._inv_table = table
+        return self._inv_table
 
     def companion_matrix(self, element: int):
         """e x e binary matrix representing multiplication by *element*."""

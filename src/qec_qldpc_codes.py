@@ -685,8 +685,10 @@ def bp_decode(
         mode: Check-node update rule.  One of ``"sum_product"``,
             ``"min_sum"``, ``"norm_min_sum"``, ``"offset_min_sum"``.
         damping: Damping factor in [0, 1).  ``0.0`` disables damping.
-        norm_factor: Normalisation factor for ``"norm_min_sum"`` mode, in (0, 1].
-        offset: Offset for ``"offset_min_sum"`` mode, >= 0.
+        norm_factor: Normalisation factor for ``"norm_min_sum"`` mode.
+            Must be in the interval (0.0, 1.0].
+        offset: Offset for ``"offset_min_sum"`` mode.
+            Must be >= 0.0.
         clip: If not None, clip check-to-variable message magnitudes to
             ``[-clip, clip]`` after each iteration.
         schedule: Message-passing schedule.  Currently only ``"flooding"``
@@ -720,6 +722,14 @@ def bp_decode(
         )
     if postprocess is not None and postprocess != "osd0":
         raise ValueError(f"Unknown postprocess: '{postprocess}'")
+
+    # ── numeric parameter validation ──
+    if not (0.0 < norm_factor <= 1.0):
+        raise ValueError(
+            f"norm_factor must be in the interval (0.0, 1.0], got {norm_factor}"
+        )
+    if offset < 0.0:
+        raise ValueError(f"offset must be >= 0.0, got {offset}")
 
     m, n = H.shape
     eps = 1e-30
@@ -971,12 +981,20 @@ def channel_llr(
                     f"Unexpected bias dict keys: {unexpected}. "
                     f"Expected subset of {valid_keys}"
                 )
-            bx = np.broadcast_to(
-                np.asarray(bias.get("x", 1.0), dtype=np.float64), (n,)
-            ).copy()
-            bz = np.broadcast_to(
-                np.asarray(bias.get("z", 1.0), dtype=np.float64), (n,)
-            ).copy()
+            def _validate_and_broadcast(component, name):
+                arr = np.asarray(component, dtype=np.float64)
+                if arr.ndim == 0:
+                    return np.full(n, float(arr))
+                if arr.shape == (1,):
+                    return np.full(n, float(arr[0]))
+                if arr.shape == (n,):
+                    return arr
+                raise ValueError(
+                    f"bias['{name}'] has shape {arr.shape}; "
+                    f"expected scalar, (1,), or ({n},)"
+                )
+            bx = _validate_and_broadcast(bias.get("x", 1.0), "x")
+            bz = _validate_and_broadcast(bias.get("z", 1.0), "z")
             llr = llr * bx * bz
         else:
             bias = np.asarray(bias, dtype=np.float64)

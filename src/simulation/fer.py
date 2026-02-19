@@ -57,7 +57,8 @@ def simulate_fer(H, decoder_config, noise_config, trials, seed=None):
     ber_list: list[float] = []
     mean_iters_list: list[float] = []
 
-    # Build a clean copy of decoder_config with only bp_decode keywords.
+    # Shallow copy of decoder_config.
+    # Invalid keys are intentionally rejected by bp_decode's kwargs validation.
     dc = dict(decoder_config) if decoder_config else {}
 
     for p in p_grid:

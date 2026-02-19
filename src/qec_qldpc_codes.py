@@ -24,7 +24,7 @@ where R = 1 - 2J/L (J = check rows, L = variable columns).
 from __future__ import annotations
 
 import numpy as np
-from typing import Tuple, Dict, List, Optional
+from typing import Tuple, Dict, List, Optional, Union
 from dataclasses import dataclass, field as dc_field
 
 
@@ -654,35 +654,73 @@ def syndrome(H: np.ndarray, e: np.ndarray) -> np.ndarray:
     return ((H.astype(np.int32) @ np.asarray(e).astype(np.int32)) % 2).astype(np.uint8)
 
 
+_BP_MODES = {"sum_product", "min_sum", "norm_min_sum", "offset_min_sum"}
+
+
 def bp_decode(
     H: np.ndarray,
     llr: np.ndarray,
-    max_iter: int = 50,
+    max_iters: int = 100,
+    mode: str = "sum_product",
+    damping: float = 0.0,
+    norm_factor: float = 0.75,
+    offset: float = 0.5,
+    clip: Optional[float] = None,
+    schedule: str = "flooding",
+    postprocess: Optional[str] = None,
+    seed: Optional[int] = None,
     syndrome_vec: Optional[np.ndarray] = None,
+    **kwargs,
 ) -> Tuple[np.ndarray, int]:
     """
     Standalone belief-propagation decoder for a binary parity-check matrix.
 
-    Runs sum-product BP using the tanh rule.  The algorithm is structurally
-    equivalent to :meth:`JointSPDecoder._bp_component` but operates on
-    pre-computed per-variable LLR values rather than a scalar error
-    probability.
-
-    Implementation mirrors JointSPDecoder._bp_component as of v2.2.0.
-
-    This function does NOT modify or replace ``_bp_component``.
+    Supports multiple check-node update rules, message damping,
+    magnitude clipping, and optional OSD-0 post-processing.
 
     Args:
         H: Binary parity-check matrix, shape (m, n).
         llr: Per-variable log-likelihood ratios, length n (or scalar broadcast).
-        max_iter: Maximum BP iterations.
+        max_iters: Maximum BP iterations (default 100).
+        mode: Check-node update rule.  One of ``"sum_product"``,
+            ``"min_sum"``, ``"norm_min_sum"``, ``"offset_min_sum"``.
+        damping: Damping factor in [0, 1).  ``0.0`` disables damping.
+        norm_factor: Normalisation factor for ``"norm_min_sum"`` mode, in (0, 1].
+        offset: Offset for ``"offset_min_sum"`` mode, >= 0.
+        clip: If not None, clip check-to-variable message magnitudes to
+            ``[-clip, clip]`` after each iteration.
+        schedule: Message-passing schedule.  Currently only ``"flooding"``
+            is implemented.
+        postprocess: Optional post-processing.  ``"osd0"`` applies order-0
+            Ordered Statistics Decoding when BP fails to converge.
+        seed: Unused; reserved for future stochastic post-processors.
         syndrome_vec: Binary syndrome vector, length m.  Defaults to all-zeros.
+        **kwargs: Accepts legacy ``max_iter`` keyword for backward
+            compatibility.
 
     Returns:
         (correction, iterations):
             correction — hard-decision binary vector, length n, dtype uint8.
             iterations — number of BP iterations actually executed.
     """
+    # ── backward compatibility: accept old ``max_iter`` keyword ──
+    if "max_iter" in kwargs:
+        if max_iters != 100:
+            raise TypeError("Cannot pass both max_iter and max_iters")
+        max_iters = kwargs.pop("max_iter")
+    if kwargs:
+        raise TypeError(f"Unexpected keyword arguments: {list(kwargs)}")
+
+    # ── parameter validation ──
+    if mode not in _BP_MODES:
+        raise ValueError(f"mode must be one of {_BP_MODES}, got '{mode}'")
+    if schedule != "flooding":
+        raise NotImplementedError(
+            f"Schedule '{schedule}' not implemented; use 'flooding'"
+        )
+    if postprocess is not None and postprocess != "osd0":
+        raise ValueError(f"Unknown postprocess: '{postprocess}'")
+
     m, n = H.shape
     eps = 1e-30
 
@@ -705,7 +743,13 @@ def bp_decode(
 
     hard = np.zeros(n, dtype=np.uint8)
 
-    for it in range(max_iter):
+    use_min_sum = mode in ("min_sum", "norm_min_sum", "offset_min_sum")
+
+    for it in range(max_iters):
+        # Save old messages for damping.
+        if damping > 0.0:
+            c2v_msg_old = c2v_msg.copy()
+
         # ── check → variable ──
         for c in range(m):
             nbrs = c2v[c]
@@ -714,16 +758,60 @@ def bp_decode(
             if len(nbrs) == 1:
                 c2v_msg[c, nbrs[0]] = 0.0
                 continue
-            tanhs = np.array([
-                np.tanh(np.clip(v2c_msg[v, c] / 2.0, -20.0, 20.0))
-                for v in nbrs
-            ])
-            prod_all = np.prod(tanhs)
-            sign = (-1.0) ** int(syndrome_vec[c])
-            for idx, v in enumerate(nbrs):
-                prod_excl = prod_all / (tanhs[idx] + eps)
-                prod_excl = np.clip(prod_excl, -1 + 1e-15, 1 - 1e-15)
-                c2v_msg[c, v] = sign * 2.0 * np.arctanh(prod_excl)
+
+            sign_s = (-1.0) ** int(syndrome_vec[c])
+
+            if use_min_sum:
+                # Gather signs and magnitudes.
+                incoming = np.array([v2c_msg[v, c] for v in nbrs])
+                signs = np.where(incoming == 0.0, 1.0, np.sign(incoming))
+                abs_vals = np.abs(incoming)
+                sign_prod_all = np.prod(signs) * sign_s
+
+                # Precompute first and second minimums for O(d_c) exclusion.
+                d = len(nbrs)
+                if d >= 2:
+                    idx_sorted = np.argpartition(abs_vals, 1)[:2]
+                    if abs_vals[idx_sorted[0]] <= abs_vals[idx_sorted[1]]:
+                        min1_idx, min2_idx = idx_sorted[0], idx_sorted[1]
+                    else:
+                        min1_idx, min2_idx = idx_sorted[1], idx_sorted[0]
+                    min1_val = abs_vals[min1_idx]
+                    min2_val = abs_vals[min2_idx]
+                else:
+                    min1_idx = 0
+                    min1_val = abs_vals[0]
+                    min2_val = 0.0
+
+                for idx, v in enumerate(nbrs):
+                    sign_excl = sign_prod_all * signs[idx]
+                    min_excl = min2_val if idx == min1_idx else min1_val
+
+                    if mode == "min_sum":
+                        c2v_msg[c, v] = sign_excl * min_excl
+                    elif mode == "norm_min_sum":
+                        c2v_msg[c, v] = norm_factor * sign_excl * min_excl
+                    else:  # offset_min_sum
+                        c2v_msg[c, v] = sign_excl * max(min_excl - offset, 0.0)
+            else:
+                # sum_product: tanh product rule.
+                tanhs = np.array([
+                    np.tanh(np.clip(v2c_msg[v, c] / 2.0, -20.0, 20.0))
+                    for v in nbrs
+                ])
+                prod_all = np.prod(tanhs)
+                for idx, v in enumerate(nbrs):
+                    prod_excl = prod_all / (tanhs[idx] + eps)
+                    prod_excl = np.clip(prod_excl, -1 + 1e-15, 1 - 1e-15)
+                    c2v_msg[c, v] = sign_s * 2.0 * np.arctanh(prod_excl)
+
+        # ── damping ──
+        if damping > 0.0:
+            c2v_msg = (1 - damping) * c2v_msg + damping * c2v_msg_old
+
+        # ── user-specified message clipping ──
+        if clip is not None:
+            c2v_msg = np.clip(c2v_msg, -clip, clip)
 
         # ── variable → check + hard decision ──
         for v in range(n):
@@ -738,9 +826,39 @@ def bp_decode(
             (H.astype(np.int32) @ hard.astype(np.int32)) % 2,
             syndrome_vec.astype(np.uint8),
         ):
-            return hard, it + 1
+            return _bp_postprocess(
+                H, llr, hard, it + 1, syndrome_vec, postprocess
+            )
 
-    return hard, max_iter
+    return _bp_postprocess(
+        H, llr, hard, max_iters, syndrome_vec, postprocess
+    )
+
+
+def _bp_postprocess(H, llr, hard, iters, syndrome_vec, postprocess):
+    """Apply optional post-processing after BP terminates."""
+    if postprocess != "osd0":
+        return hard, iters
+
+    bp_syn = (
+        (H.astype(np.int32) @ hard.astype(np.int32)) % 2
+    ).astype(np.uint8)
+
+    if np.array_equal(bp_syn, syndrome_vec):
+        # BP already converged — do not risk degradation.
+        return hard, iters
+
+    from .decoder.osd import osd0
+
+    hard_osd = osd0(H, llr, hard, syndrome_vec=syndrome_vec)
+    osd_syn = (
+        (H.astype(np.int32) @ hard_osd.astype(np.int32)) % 2
+    ).astype(np.uint8)
+
+    if np.array_equal(osd_syn, syndrome_vec):
+        return hard_osd, iters
+
+    return hard, iters
 
 
 def detect(H: np.ndarray, e: np.ndarray) -> np.ndarray:
@@ -760,7 +878,15 @@ def detect(H: np.ndarray, e: np.ndarray) -> np.ndarray:
 def infer(
     H: np.ndarray,
     llr: np.ndarray,
-    max_iter: int = 50,
+    max_iter: int = 100,
+    mode: str = "sum_product",
+    damping: float = 0.0,
+    norm_factor: float = 0.75,
+    offset: float = 0.5,
+    clip: Optional[float] = None,
+    schedule: str = "flooding",
+    postprocess: Optional[str] = None,
+    seed: Optional[int] = None,
     syndrome_vec: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, int]:
     """
@@ -771,18 +897,31 @@ def infer(
         H: Binary parity-check matrix, shape (m, n).
         llr: Per-variable log-likelihood ratios, length n.
         max_iter: Maximum BP iterations.
+        mode: Check-node update rule (see :func:`bp_decode`).
+        damping: Damping factor in [0, 1).
+        norm_factor: Normalisation factor for ``"norm_min_sum"``.
+        offset: Offset for ``"offset_min_sum"``.
+        clip: Message magnitude clipping bound.
+        schedule: Message-passing schedule (``"flooding"`` only).
+        postprocess: Optional post-processing (``"osd0"`` or None).
+        seed: Reserved for future use.
         syndrome_vec: Binary syndrome vector, length m.  Defaults to all-zeros.
 
     Returns:
         (correction, iterations) — same as :func:`bp_decode`.
     """
-    return bp_decode(H, llr, max_iter=max_iter, syndrome_vec=syndrome_vec)
+    return bp_decode(
+        H, llr, max_iters=max_iter, mode=mode, damping=damping,
+        norm_factor=norm_factor, offset=offset, clip=clip,
+        schedule=schedule, postprocess=postprocess, seed=seed,
+        syndrome_vec=syndrome_vec,
+    )
 
 
 def channel_llr(
     e: np.ndarray,
     p: float,
-    bias: Optional[np.ndarray] = None,
+    bias: Optional[Union[np.ndarray, dict]] = None,
 ) -> np.ndarray:
     """
     Compute per-variable channel log-likelihood ratios for a binary error pattern.
@@ -800,13 +939,21 @@ def channel_llr(
             - *scalar* (0-d or length-1 array, or Python float/int)
               → multiply all LLRs by that scalar.
             - *vector* (length n) → element-wise multiply.
+            - *dict* with keys ``"x"`` and/or ``"z"`` whose values are
+              scalars or length-n vectors.  The combined bias is the
+              element-wise product of the two components (missing keys
+              default to 1.0).
 
     Returns:
         LLR vector of length n (float64).  Inputs are never mutated.
 
     Raises:
-        ValueError: If bias is a vector whose length mismatches e.
+        ValueError: If *p* is not in (0, 1), bias shape mismatches,
+            or dict contains unexpected keys.
     """
+    if not (0.0 < p < 1.0):
+        raise ValueError(f"p must be in (0, 1), got {p}")
+
     e = np.asarray(e)
     n = e.shape[0]
     eps = 1e-30
@@ -816,18 +963,34 @@ def channel_llr(
     llr = base_llr * sign
 
     if bias is not None:
-        bias = np.asarray(bias, dtype=np.float64)
-        if bias.ndim == 0:
-            llr = llr * float(bias)
-        elif bias.shape == (1,):
-            llr = llr * float(bias[0])
-        elif bias.shape == (n,):
-            llr = llr * bias
+        if isinstance(bias, dict):
+            valid_keys = {"x", "z"}
+            unexpected = set(bias.keys()) - valid_keys
+            if unexpected:
+                raise ValueError(
+                    f"Unexpected bias dict keys: {unexpected}. "
+                    f"Expected subset of {valid_keys}"
+                )
+            bx = np.broadcast_to(
+                np.asarray(bias.get("x", 1.0), dtype=np.float64), (n,)
+            ).copy()
+            bz = np.broadcast_to(
+                np.asarray(bias.get("z", 1.0), dtype=np.float64), (n,)
+            ).copy()
+            llr = llr * bx * bz
         else:
-            raise ValueError(
-                f"bias shape {bias.shape} incompatible with error vector "
-                f"length {n}. Expected scalar, (1,), or ({n},)."
-            )
+            bias = np.asarray(bias, dtype=np.float64)
+            if bias.ndim == 0:
+                llr = llr * float(bias)
+            elif bias.shape == (1,):
+                llr = llr * float(bias[0])
+            elif bias.shape == (n,):
+                llr = llr * bias
+            else:
+                raise ValueError(
+                    f"bias shape {bias.shape} incompatible with error vector "
+                    f"length {n}. Expected scalar, (1,), or ({n},)."
+                )
 
     return llr
 

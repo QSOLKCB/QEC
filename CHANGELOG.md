@@ -1,9 +1,55 @@
-Changelog
+[Changelog
 
 All notable changes to this project will be documented in this file.
 
 The project follows semantic versioning.
 Each release reflects structural, numerical, or architectural maturity improvements in the QLDPC CSS construction and decoding stack.
+
+[2.5.0] — 2026-02-21
+
+Deterministic Statistical Rigor and Layered Decoding
+
+Added
+
+Wilson score confidence intervals for Monte Carlo FER simulations (`ci_method="wilson"`):
+- Continuity-corrected Wilson interval with configurable `alpha`.
+- `gamma >= 0.0` continuity correction factor (set `gamma=0` to disable correction).
+- Pure NumPy implementation; no new external dependencies.
+- Deterministic integer-grounded computation (no float reconstruction of counts).
+
+Deterministic early termination for FER simulations (`early_stop_epsilon`):
+- Stops trials once CI width falls below user-defined threshold.
+- Fully reproducible: identical seed and parameters yield identical termination points.
+- Reports `actual_trials` per noise level when enabled.
+
+Layered (serial) belief-propagation scheduling (`schedule="layered"`):
+- Incremental LLR updates with maintained belief invariants.
+- O(nnz(H)) per iteration.
+- Typically faster convergence than flooding.
+- Fully deterministic fixed check-node traversal order.
+
+Order-1 Ordered Statistics Decoding (`postprocess="osd1"`):
+- Extends OSD-0 with single least-reliable pivot bit flip.
+- Deterministic tie-breaking.
+- Preserves never-degrade guarantee.
+
+Changed
+
+Confidence interval validation semantics:
+- `gamma` now allowed to be `>= 0.0`.
+- `alpha` and `gamma` validation scoped to CI-enabled runs only.
+- Documentation aligned with actual contract.
+
+Internal Wilson CI implementation updated to use stored integer frame error counts directly (eliminates float-based reconstruction).
+
+Backward compatibility preserved:
+- All new features are opt-in.
+- Default parameters produce bit-identical output to v2.4.0.
+
+Verified
+
+247/247 core tests passing.
+No change in deterministic behavior for existing configurations.
 
 [2.3.0] — 2026-02-18
 
@@ -163,3 +209,4 @@ Integrated simulation and hashing bound tooling.
 Notes
 
 Major architectural rewrite establishing the construction and decoding foundation for subsequent invariant hardening and stability refinement releases.
+](https://github.com/QSOLKCB/QEC/releases/tag/v2.5.0)

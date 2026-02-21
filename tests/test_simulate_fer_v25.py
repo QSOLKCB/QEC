@@ -158,14 +158,14 @@ class TestSimulateFERWilsonCI:
                 ci_method="wilson", alpha=1.0,
             )
 
-    def test_gamma_nonpositive_raises(self, small_code):
-        """gamma=0 raises ValueError."""
+    def test_gamma_negative_raises(self, small_code):
+        """gamma=-1 raises ValueError."""
         dc = {"mode": "min_sum", "max_iters": 10}
         nc = {"p_grid": [0.01]}
         with pytest.raises(ValueError, match="gamma"):
             simulate_fer(
                 small_code.H_X, dc, nc, trials=10, seed=42,
-                ci_method="wilson", gamma=0.0,
+                ci_method="wilson", gamma=-1.0,
             )
 
 

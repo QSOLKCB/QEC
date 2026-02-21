@@ -127,7 +127,6 @@ class TestWilsonCI:
         assert w_99 > w_95
 
     def test_gamma_zero_no_correction(self):
-        """gamma=0 should give a meaningful interval (edge case)."""
-        # gamma > 0 is validated; use a small positive gamma.
-        lo, hi, w = _wilson_ci(50, 100, alpha=0.05, gamma=0.001)
+        """gamma=0 disables continuity correction; interval still valid."""
+        lo, hi, w = _wilson_ci(50, 100, alpha=0.05, gamma=0)
         assert 0.0 <= lo < hi <= 1.0

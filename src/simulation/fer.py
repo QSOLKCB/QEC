@@ -125,7 +125,8 @@ def simulate_fer(H, decoder_config, noise_config, trials, seed=None,
             Wilson score interval for each FER estimate.
         alpha: Significance level for the CI (default 0.05 → 95% CI).
         gamma: Continuity correction factor for the Wilson interval
-            (default 1.5).
+            (>= 0.0; default 1.5).  Set to 0 to disable continuity
+            correction.
         early_stop_epsilon: If set (float > 0), stop trials for a given *p*
             once the CI width falls below this threshold.  Requires
             ``ci_method`` to be set.
@@ -157,15 +158,16 @@ def simulate_fer(H, decoder_config, noise_config, trials, seed=None,
     if trials < 1:
         raise ValueError(f"trials must be >= 1, got {trials}")
 
-    # ── CI parameter validation ──
-    if ci_method is not None and ci_method != "wilson":
-        raise ValueError(
-            f"ci_method must be None or 'wilson', got '{ci_method}'"
-        )
-    if not (0.0 < alpha < 1.0):
-        raise ValueError(f"alpha must be in (0.0, 1.0), got {alpha}")
-    if gamma <= 0.0:
-        raise ValueError(f"gamma must be > 0.0, got {gamma}")
+    # ── CI parameter validation (only when CI is requested) ──
+    if ci_method is not None:
+        if ci_method != "wilson":
+            raise ValueError(
+                f"ci_method must be None or 'wilson', got '{ci_method}'"
+            )
+        if not (0.0 < alpha < 1.0):
+            raise ValueError(f"alpha must be in (0.0, 1.0), got {alpha}")
+        if gamma < 0.0:
+            raise ValueError(f"gamma must be >= 0.0, got {gamma}")
     if early_stop_epsilon is not None:
         if early_stop_epsilon <= 0.0:
             raise ValueError(

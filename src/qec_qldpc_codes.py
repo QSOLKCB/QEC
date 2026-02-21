@@ -655,6 +655,8 @@ def syndrome(H: np.ndarray, e: np.ndarray) -> np.ndarray:
 
 
 _BP_MODES = {"sum_product", "min_sum", "norm_min_sum", "offset_min_sum"}
+_BP_SCHEDULES = {"flooding", "layered"}
+_BP_POSTPROCESS = {None, "osd0", "osd1"}
 
 
 def bp_decode(
@@ -691,10 +693,14 @@ def bp_decode(
             Must be >= 0.0.
         clip: If not None, clip check-to-variable message magnitudes to
             ``[-clip, clip]`` after each iteration.
-        schedule: Message-passing schedule.  Currently only ``"flooding"``
-            is implemented.
+        schedule: Message-passing schedule.  ``"flooding"`` (default)
+            updates all check nodes then all variable nodes per iteration.
+            ``"layered"`` processes check nodes serially, updating beliefs
+            incrementally — typically converges in fewer iterations.
         postprocess: Optional post-processing.  ``"osd0"`` applies order-0
             Ordered Statistics Decoding when BP fails to converge.
+            ``"osd1"`` extends OSD-0 by testing a single least-reliable
+            bit flip.
         seed: Unused; reserved for future stochastic post-processors.
         syndrome_vec: Binary syndrome vector, length m.  Defaults to all-zeros.
         **kwargs: Accepts legacy ``max_iter`` keyword for backward
@@ -716,11 +722,11 @@ def bp_decode(
     # ── parameter validation ──
     if mode not in _BP_MODES:
         raise ValueError(f"mode must be one of {_BP_MODES}, got '{mode}'")
-    if schedule != "flooding":
+    if schedule not in _BP_SCHEDULES:
         raise NotImplementedError(
-            f"schedule '{schedule}' not implemented; use 'flooding'"
+            f"schedule '{schedule}' not implemented; use one of {_BP_SCHEDULES}"
         )
-    if postprocess is not None and postprocess != "osd0":
+    if postprocess not in _BP_POSTPROCESS:
         raise ValueError(f"Unknown postprocess: '{postprocess}'")
 
     # ── numeric parameter validation ──
@@ -755,99 +761,247 @@ def bp_decode(
 
     use_min_sum = mode in ("min_sum", "norm_min_sum", "offset_min_sum")
 
-    for it in range(max_iters):
-        # Save old messages for damping.
-        if damping > 0.0:
-            c2v_msg_old = c2v_msg.copy()
+    if schedule == "flooding":
+        # ══════════════════════════════════════════════════════════════
+        # Flooding schedule: update ALL check nodes, then ALL variable
+        # nodes, in separate sweeps.  This is the v2.4.0 default.
+        # ══════════════════════════════════════════════════════════════
+        for it in range(max_iters):
+            # Save old messages for damping.
+            if damping > 0.0:
+                c2v_msg_old = c2v_msg.copy()
 
-        # ── check → variable ──
-        for c in range(m):
-            nbrs = c2v[c]
-            if len(nbrs) == 0:
-                continue
-            if len(nbrs) == 1:
-                c2v_msg[c, nbrs[0]] = 0.0
-                continue
+            # ── check → variable ──
+            for c in range(m):
+                nbrs = c2v[c]
+                if len(nbrs) == 0:
+                    continue
+                if len(nbrs) == 1:
+                    c2v_msg[c, nbrs[0]] = 0.0
+                    continue
 
-            sign_s = (-1.0) ** int(syndrome_vec[c])
+                sign_s = (-1.0) ** int(syndrome_vec[c])
 
-            if use_min_sum:
-                # Gather signs and magnitudes.
-                incoming = np.array([v2c_msg[v, c] for v in nbrs])
-                signs = np.where(incoming == 0.0, 1.0, np.sign(incoming))
-                abs_vals = np.abs(incoming)
-                sign_prod_all = np.prod(signs) * sign_s
+                if use_min_sum:
+                    # Gather signs and magnitudes.
+                    incoming = np.array([v2c_msg[v, c] for v in nbrs])
+                    signs = np.where(incoming == 0.0, 1.0, np.sign(incoming))
+                    abs_vals = np.abs(incoming)
+                    sign_prod_all = np.prod(signs) * sign_s
 
-                # Precompute first and second minimums for O(d_c) exclusion.
-                d = len(nbrs)
-                if d >= 2:
-                    idx_sorted = np.argpartition(abs_vals, 1)[:2]
-                    if abs_vals[idx_sorted[0]] <= abs_vals[idx_sorted[1]]:
-                        min1_idx, min2_idx = idx_sorted[0], idx_sorted[1]
+                    # Precompute first and second minimums for O(d_c) exclusion.
+                    d = len(nbrs)
+                    if d >= 2:
+                        idx_sorted = np.argpartition(abs_vals, 1)[:2]
+                        if abs_vals[idx_sorted[0]] <= abs_vals[idx_sorted[1]]:
+                            min1_idx, min2_idx = idx_sorted[0], idx_sorted[1]
+                        else:
+                            min1_idx, min2_idx = idx_sorted[1], idx_sorted[0]
+                        min1_val = abs_vals[min1_idx]
+                        min2_val = abs_vals[min2_idx]
                     else:
-                        min1_idx, min2_idx = idx_sorted[1], idx_sorted[0]
-                    min1_val = abs_vals[min1_idx]
-                    min2_val = abs_vals[min2_idx]
+                        min1_idx = 0
+                        min1_val = abs_vals[0]
+                        min2_val = 0.0
+
+                    for idx, v in enumerate(nbrs):
+                        sign_excl = sign_prod_all * signs[idx]
+                        min_excl = min2_val if idx == min1_idx else min1_val
+
+                        if mode == "min_sum":
+                            c2v_msg[c, v] = sign_excl * min_excl
+                        elif mode == "norm_min_sum":
+                            c2v_msg[c, v] = norm_factor * sign_excl * min_excl
+                        else:  # offset_min_sum
+                            c2v_msg[c, v] = sign_excl * max(min_excl - offset, 0.0)
                 else:
-                    min1_idx = 0
-                    min1_val = abs_vals[0]
-                    min2_val = 0.0
+                    # sum_product: tanh product rule.
+                    tanhs = np.array([
+                        np.tanh(np.clip(v2c_msg[v, c] / 2.0, -20.0, 20.0))
+                        for v in nbrs
+                    ])
+                    prod_all = np.prod(tanhs)
+                    for idx, v in enumerate(nbrs):
+                        prod_excl = prod_all / (tanhs[idx] + eps)
+                        prod_excl = np.clip(prod_excl, -1 + 1e-15, 1 - 1e-15)
+                        c2v_msg[c, v] = sign_s * 2.0 * np.arctanh(prod_excl)
 
-                for idx, v in enumerate(nbrs):
-                    sign_excl = sign_prod_all * signs[idx]
-                    min_excl = min2_val if idx == min1_idx else min1_val
+            # ── damping ──
+            if damping > 0.0:
+                c2v_msg = (1 - damping) * c2v_msg + damping * c2v_msg_old
 
-                    if mode == "min_sum":
-                        c2v_msg[c, v] = sign_excl * min_excl
-                    elif mode == "norm_min_sum":
-                        c2v_msg[c, v] = norm_factor * sign_excl * min_excl
-                    else:  # offset_min_sum
-                        c2v_msg[c, v] = sign_excl * max(min_excl - offset, 0.0)
-            else:
-                # sum_product: tanh product rule.
-                tanhs = np.array([
-                    np.tanh(np.clip(v2c_msg[v, c] / 2.0, -20.0, 20.0))
-                    for v in nbrs
-                ])
-                prod_all = np.prod(tanhs)
-                for idx, v in enumerate(nbrs):
-                    prod_excl = prod_all / (tanhs[idx] + eps)
-                    prod_excl = np.clip(prod_excl, -1 + 1e-15, 1 - 1e-15)
-                    c2v_msg[c, v] = sign_s * 2.0 * np.arctanh(prod_excl)
+            # ── user-specified message clipping ──
+            if clip is not None:
+                c2v_msg = np.clip(c2v_msg, -clip, clip)
 
-        # ── damping ──
-        if damping > 0.0:
-            c2v_msg = (1 - damping) * c2v_msg + damping * c2v_msg_old
+            # ── variable → check + hard decision ──
+            for v in range(n):
+                nbrs = v2c[v]
+                total = llr[v] + sum(c2v_msg[c, v] for c in nbrs)
+                for c in nbrs:
+                    v2c_msg[v, c] = total - c2v_msg[c, v]
+                hard[v] = 0 if total >= 0.0 else 1
 
-        # ── user-specified message clipping ──
-        if clip is not None:
-            c2v_msg = np.clip(c2v_msg, -clip, clip)
+            # ── early stop ──
+            if np.array_equal(
+                (H.astype(np.int32) @ hard.astype(np.int32)) % 2,
+                syndrome_vec.astype(np.uint8),
+            ):
+                return _bp_postprocess(
+                    H, llr, hard, it + 1, syndrome_vec, postprocess
+                )
 
-        # ── variable → check + hard decision ──
-        for v in range(n):
-            nbrs = v2c[v]
-            total = llr[v] + sum(c2v_msg[c, v] for c in nbrs)
-            for c in nbrs:
-                v2c_msg[v, c] = total - c2v_msg[c, v]
-            hard[v] = 0 if total >= 0.0 else 1
+        return _bp_postprocess(
+            H, llr, hard, max_iters, syndrome_vec, postprocess
+        )
 
-        # ── early stop ──
-        if np.array_equal(
-            (H.astype(np.int32) @ hard.astype(np.int32)) % 2,
-            syndrome_vec.astype(np.uint8),
-        ):
-            return _bp_postprocess(
-                H, llr, hard, it + 1, syndrome_vec, postprocess
-            )
+    else:
+        # ══════════════════════════════════════════════════════════════
+        # Layered (serial) schedule: process check nodes one-by-one,
+        # updating variable beliefs incrementally.
+        #
+        # State:
+        #   L_total[v] = total belief for variable v.
+        #     Invariant: L_total[v] = llr[v] + sum_c c2v_msg[c, v]
+        #   c2v_msg[c, v] = check-to-variable messages (init 0.0).
+        #
+        # Per check node c:
+        #   1. v2c[v,c] = L_total[v] - c2v_msg[c,v]   (remove old c2v)
+        #   2. c2v_raw   = CheckNodeUpdate(v2c inputs)
+        #   3. c2v_new   = damp(c2v_raw, c2v_old)
+        #   4. c2v_new   = clip(c2v_new)
+        #   5. L_total[v] += c2v_new - c2v_msg[c,v]    (remove old, add new)
+        #   6. c2v_msg[c,v] = c2v_new
+        # ══════════════════════════════════════════════════════════════
 
-    return _bp_postprocess(
-        H, llr, hard, max_iters, syndrome_vec, postprocess
-    )
+        # Initialise total beliefs from channel LLRs.
+        # c2v_msg is already zero, so invariant L_total = llr + 0 holds.
+        L_total = llr.copy()
+
+        for it in range(max_iters):
+            for c in range(m):
+                nbrs = c2v[c]
+                if len(nbrs) == 0:
+                    continue
+
+                # ── Step 1: Derive v2c from L_total (no full-sum recompute) ──
+                # v2c[v,c] = L_total[v] - c2v_msg[c,v]
+                v2c_vals = np.array([L_total[v] - c2v_msg[c, v] for v in nbrs])
+
+                if len(nbrs) == 1:
+                    # Degree-1 check: c2v message is zero by convention.
+                    c2v_new_val = 0.0
+                    old_val = c2v_msg[c, nbrs[0]]
+                    if damping > 0.0:
+                        c2v_new_val = (1 - damping) * c2v_new_val + damping * old_val
+                    if clip is not None:
+                        c2v_new_val = np.clip(c2v_new_val, -clip, clip)
+                    # Step 5: Update L_total incrementally.
+                    L_total[nbrs[0]] += c2v_new_val - old_val
+                    c2v_msg[c, nbrs[0]] = c2v_new_val
+                    continue
+
+                sign_s = (-1.0) ** int(syndrome_vec[c])
+
+                # ── Step 2: Compute new c2v messages ──
+                if use_min_sum:
+                    signs = np.where(v2c_vals == 0.0, 1.0, np.sign(v2c_vals))
+                    abs_vals = np.abs(v2c_vals)
+                    sign_prod_all = np.prod(signs) * sign_s
+
+                    # Precompute first and second minimums.
+                    d = len(nbrs)
+                    if d >= 2:
+                        idx_sorted = np.argpartition(abs_vals, 1)[:2]
+                        if abs_vals[idx_sorted[0]] <= abs_vals[idx_sorted[1]]:
+                            min1_idx, min2_idx = idx_sorted[0], idx_sorted[1]
+                        else:
+                            min1_idx, min2_idx = idx_sorted[1], idx_sorted[0]
+                        min1_val = abs_vals[min1_idx]
+                        min2_val = abs_vals[min2_idx]
+                    else:
+                        min1_idx = 0
+                        min1_val = abs_vals[0]
+                        min2_val = 0.0
+
+                    for idx, v in enumerate(nbrs):
+                        sign_excl = sign_prod_all * signs[idx]
+                        min_excl = min2_val if idx == min1_idx else min1_val
+
+                        if mode == "min_sum":
+                            c2v_raw = sign_excl * min_excl
+                        elif mode == "norm_min_sum":
+                            c2v_raw = norm_factor * sign_excl * min_excl
+                        else:  # offset_min_sum
+                            c2v_raw = sign_excl * max(min_excl - offset, 0.0)
+
+                        # Step 3: Damping per-message.
+                        old_val = c2v_msg[c, v]
+                        if damping > 0.0:
+                            c2v_new_val = (1 - damping) * c2v_raw + damping * old_val
+                        else:
+                            c2v_new_val = c2v_raw
+
+                        # Step 4: Clipping per-message.
+                        if clip is not None:
+                            c2v_new_val = np.clip(c2v_new_val, -clip, clip)
+
+                        # Step 5: Update L_total incrementally.
+                        L_total[v] += c2v_new_val - old_val
+
+                        # Step 6: Store new c2v message.
+                        c2v_msg[c, v] = c2v_new_val
+                else:
+                    # sum_product: tanh product rule.
+                    tanhs = np.array([
+                        np.tanh(np.clip(val / 2.0, -20.0, 20.0))
+                        for val in v2c_vals
+                    ])
+                    prod_all = np.prod(tanhs)
+
+                    for idx, v in enumerate(nbrs):
+                        prod_excl = prod_all / (tanhs[idx] + eps)
+                        prod_excl = np.clip(prod_excl, -1 + 1e-15, 1 - 1e-15)
+                        c2v_raw = sign_s * 2.0 * np.arctanh(prod_excl)
+
+                        # Step 3: Damping per-message.
+                        old_val = c2v_msg[c, v]
+                        if damping > 0.0:
+                            c2v_new_val = (1 - damping) * c2v_raw + damping * old_val
+                        else:
+                            c2v_new_val = c2v_raw
+
+                        # Step 4: Clipping per-message.
+                        if clip is not None:
+                            c2v_new_val = np.clip(c2v_new_val, -clip, clip)
+
+                        # Step 5: Update L_total incrementally.
+                        L_total[v] += c2v_new_val - old_val
+
+                        # Step 6: Store new c2v message.
+                        c2v_msg[c, v] = c2v_new_val
+
+            # ── After all layers: compute hard decisions from L_total ──
+            for v in range(n):
+                hard[v] = 0 if L_total[v] >= 0.0 else 1
+
+            # ── early stop ──
+            if np.array_equal(
+                (H.astype(np.int32) @ hard.astype(np.int32)) % 2,
+                syndrome_vec.astype(np.uint8),
+            ):
+                return _bp_postprocess(
+                    H, llr, hard, it + 1, syndrome_vec, postprocess
+                )
+
+        return _bp_postprocess(
+            H, llr, hard, max_iters, syndrome_vec, postprocess
+        )
 
 
 def _bp_postprocess(H, llr, hard, iters, syndrome_vec, postprocess):
     """Apply optional post-processing after BP terminates."""
-    if postprocess != "osd0":
+    if postprocess not in ("osd0", "osd1"):
         return hard, iters
 
     bp_syn = (
@@ -858,15 +1012,19 @@ def _bp_postprocess(H, llr, hard, iters, syndrome_vec, postprocess):
         # BP already converged — do not risk degradation.
         return hard, iters
 
-    from .decoder.osd import osd0
+    if postprocess == "osd0":
+        from .decoder.osd import osd0
+        hard_pp = osd0(H, llr, hard, syndrome_vec=syndrome_vec)
+    else:  # "osd1"
+        from .decoder.osd import osd1
+        hard_pp = osd1(H, llr, hard, syndrome_vec=syndrome_vec)
 
-    hard_osd = osd0(H, llr, hard, syndrome_vec=syndrome_vec)
-    osd_syn = (
-        (H.astype(np.int32) @ hard_osd.astype(np.int32)) % 2
+    pp_syn = (
+        (H.astype(np.int32) @ hard_pp.astype(np.int32)) % 2
     ).astype(np.uint8)
 
-    if np.array_equal(osd_syn, syndrome_vec):
-        return hard_osd, iters
+    if np.array_equal(pp_syn, syndrome_vec):
+        return hard_pp, iters
 
     return hard, iters
 

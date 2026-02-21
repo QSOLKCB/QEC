@@ -186,6 +186,7 @@ def simulate_fer(H, decoder_config, noise_config, trials, seed=None,
     ber_list: list[float] = []
     mean_iters_list: list[float] = []
     actual_trials_list: list[int] = []
+    frame_errors_list: list[int] = []
 
     # Shallow copy of decoder_config.
     # Invalid keys are intentionally rejected by bp_decode's kwargs validation.
@@ -229,6 +230,7 @@ def simulate_fer(H, decoder_config, noise_config, trials, seed=None,
         ber_list.append(float(total_bit_errors) / (actual_trial_count * n))
         mean_iters_list.append(float(total_iters) / actual_trial_count)
         actual_trials_list.append(actual_trial_count)
+        frame_errors_list.append(frame_errors)
 
     # Ensure noise_config is JSON-safe (convert any numpy arrays).
     noise_safe = {
@@ -262,9 +264,8 @@ def simulate_fer(H, decoder_config, noise_config, trials, seed=None,
         ci_upper: list[float] = []
         ci_width: list[float] = []
         for i in range(len(p_grid)):
-            # Recover frame_errors from FER and actual_trials.
-            k = int(round(fer_list[i] * actual_trials_list[i]))
-            lo, hi, w = _wilson_ci(k, actual_trials_list[i], alpha, gamma)
+            # Use stored integer frame error count directly (no float reconstruction).
+            lo, hi, w = _wilson_ci(frame_errors_list[i], actual_trials_list[i], alpha, gamma)
             ci_lower.append(float(lo))
             ci_upper.append(float(hi))
             ci_width.append(float(w))

@@ -152,7 +152,10 @@ def run_benchmark(config: BenchmarkConfig) -> dict[str, Any]:
                 for _ in range(config.trials):
                     e = (sub_rng.random(n) < p).astype(np.uint8)
                     s = syndrome(H, e)
-                    llr = channel.compute_llr(p=p, n=n, error_vector=e)
+                    llr = channel.compute_llr(
+                        p=p, n=n, error_vector=e,
+                        H=H, syndrome_vec=s,
+                    )
 
                     dec_result = adapter.decode(
                         syndrome=s, llr=llr, error_vector=e,
@@ -200,7 +203,10 @@ def run_benchmark(config: BenchmarkConfig) -> dict[str, Any]:
                     rt_rng = np.random.default_rng(sub_seed)
                     e_rt = (rt_rng.random(n) < p).astype(np.uint8)
                     s_rt = syndrome(H, e_rt)
-                    llr_rt = channel.compute_llr(p=p, n=n, error_vector=e_rt)
+                    llr_rt = channel.compute_llr(
+                        p=p, n=n, error_vector=e_rt,
+                        H=H, syndrome_vec=s_rt,
+                    )
                     workload = {
                         "llr": llr_rt,
                         "syndrome": s_rt,

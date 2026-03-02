@@ -25,6 +25,7 @@ class ChannelModel:
         p: float,
         n: int,
         error_vector: np.ndarray | None = None,
+        **kwargs,
     ) -> np.ndarray:
         """Compute LLR vector for a given channel error probability.
 
@@ -37,6 +38,9 @@ class ChannelModel:
         error_vector : ndarray or None
             True error vector.  Required by oracle channels; ignored by
             syndrome-only channels.
+        **kwargs
+            Additional keyword arguments for extended channel models
+            (e.g. ``H``, ``syndrome_vec`` for structured channels).
 
         Returns
         -------

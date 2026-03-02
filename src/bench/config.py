@@ -97,7 +97,7 @@ class BenchmarkConfig:
         if isinstance(self.resource_model, dict):
             self.resource_model = ResourceModelConfig(**self.resource_model)
         # Validate channel_model.
-        _VALID_CHANNEL_MODELS = {"oracle", "bsc_syndrome"}
+        _VALID_CHANNEL_MODELS = {"oracle", "bsc_syndrome", "bsc_syndrome_structured"}
         if self.channel_model not in _VALID_CHANNEL_MODELS:
             raise ValueError(
                 f"channel_model must be one of {sorted(_VALID_CHANNEL_MODELS)}, "

@@ -26,6 +26,7 @@ class BSCSyndromeChannel(ChannelModel):
         p: float,
         n: int,
         error_vector: np.ndarray | None = None,
+        **kwargs,
     ) -> np.ndarray:
         self._validate_probability(p)
 

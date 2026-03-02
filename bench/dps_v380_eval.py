@@ -7,10 +7,12 @@ with full activation diagnostics to verify that structural interventions
 (RPC augmentation, geom_v1 schedule) are actually engaged.
 
 Modes:
-  A_baseline   — flooding, no structural
-  B_rpc_only   — flooding + RPC augmentation
-  C_degree_only — geom_v1, no structural
-  D_rpc_degree — geom_v1 + RPC augmentation
+  A_baseline        — flooding, no structural, bsc_syndrome
+  B_rpc_only        — flooding + RPC augmentation, bsc_syndrome
+  C_degree_only     — geom_v1, no structural, bsc_syndrome
+  D_rpc_degree      — geom_v1 + RPC augmentation, bsc_syndrome
+  E_structured_only — flooding, no structural, bsc_syndrome_structured
+  F_rpc_geom_struct — geom_v1 + RPC, bsc_syndrome_structured
 
 Diagnostics emitted per (mode, distance, p):
   - Schedule actually passed to bp_decode
@@ -61,16 +63,25 @@ TRIALS = 200
 MAX_ITERS = 50
 CHANNEL_MODEL = "bsc_syndrome"
 BP_MODE = "min_sum"
+STRUCTURED_KAPPA = 0.05  # Probe value for structured channel modes.
 
 RPC_CONFIG = StructuralConfig(
     rpc=RPCConfig(enabled=True, max_rows=10, w_min=2, w_max=50),
 )
 
 MODES = {
-    "A_baseline":    {"schedule": "flooding",  "structural": None},
-    "B_rpc_only":    {"schedule": "flooding",  "structural": RPC_CONFIG},
-    "C_degree_only": {"schedule": "geom_v1",   "structural": None},
-    "D_rpc_degree":  {"schedule": "geom_v1",   "structural": RPC_CONFIG},
+    "A_baseline":         {"schedule": "flooding", "structural": None,
+                           "channel": "bsc_syndrome"},
+    "B_rpc_only":         {"schedule": "flooding", "structural": RPC_CONFIG,
+                           "channel": "bsc_syndrome"},
+    "C_degree_only":      {"schedule": "geom_v1",  "structural": None,
+                           "channel": "bsc_syndrome"},
+    "D_rpc_degree":       {"schedule": "geom_v1",  "structural": RPC_CONFIG,
+                           "channel": "bsc_syndrome"},
+    "E_structured_only":  {"schedule": "flooding", "structural": None,
+                           "channel": "bsc_syndrome_structured"},
+    "F_rpc_geom_struct":  {"schedule": "geom_v1",  "structural": RPC_CONFIG,
+                           "channel": "bsc_syndrome_structured"},
 }
 
 
@@ -108,11 +119,11 @@ def _derive_subseed(distance: int, p: float) -> int:
 
 
 def pregenerate_instances() -> dict:
-    """Pre-generate all (distance, p) -> list of (error_vec, syndrome, llr).
+    """Pre-generate all (distance, p) -> list of (error_vec, syndrome).
 
     Shared across all modes so error realizations are identical.
+    LLR is computed per-mode since structured channels need H and s.
     """
-    channel = get_channel_model(CHANNEL_MODEL)
     instances = {}
 
     for d in DISTANCES:
@@ -128,8 +139,7 @@ def pregenerate_instances() -> dict:
             for _ in range(TRIALS):
                 e = (rng.random(n) < p).astype(np.uint8)
                 s = syndrome(H, e)
-                llr = channel.compute_llr(p=p, n=n, error_vector=e)
-                trials_data.append((e, s, llr))
+                trials_data.append((e, s))
 
             instances[(d, p)] = {"H": H, "n": n, "trials": trials_data}
 
@@ -144,12 +154,21 @@ def evaluate_mode(
     mode_name: str,
     schedule: str,
     structural_config: StructuralConfig | None,
+    channel_name: str,
     instances: dict,
 ) -> tuple[list[dict], list[dict]]:
     """Run DPS evaluation for one mode.
 
     Returns (result_records, activation_records).
     """
+    # Build channel — structured channel gets kappa parameter.
+    if channel_name == "bsc_syndrome_structured":
+        channel = get_channel_model(
+            channel_name, structured_kappa=STRUCTURED_KAPPA,
+        )
+    else:
+        channel = get_channel_model(channel_name)
+
     results = []
     activations = []
 
@@ -174,14 +193,21 @@ def evaluate_mode(
             # Diagnostic: checksums from first trial.
             first_H_checksum = None
             first_syn_checksum = None
+            first_llr_checksum = None
 
-            for t_idx, (e, s, llr) in enumerate(trials_data):
+            for t_idx, (e, s) in enumerate(trials_data):
                 # Track workload statistics.
                 sw = int(np.sum(s))
                 syndrome_weights.append(sw)
                 if sw == 0:
                     zero_syndrome_count += 1
                 error_weights.append(int(np.sum(e)))
+
+                # Compute LLR for this channel model.
+                llr = channel.compute_llr(
+                    p=p, n=n, error_vector=e,
+                    H=H, syndrome_vec=s,
+                )
 
                 # Apply RPC augmentation if enabled.
                 H_used = H
@@ -199,6 +225,7 @@ def evaluate_mode(
                 if t_idx == 0:
                     first_H_checksum = int(np.sum(H_used))
                     first_syn_checksum = int(np.sum(s_used))
+                    first_llr_checksum = round(float(np.sum(llr)), 4)
 
                 # Decode.
                 corr, iters = bp_decode(
@@ -245,6 +272,7 @@ def evaluate_mode(
                 "distance": d,
                 "p": p,
                 "schedule": schedule,
+                "channel": channel_name,
                 "rpc_enabled": (structural_config is not None
                                 and structural_config.rpc.enabled),
                 "added_rows_mean": round(mean_added, 2),
@@ -263,6 +291,7 @@ def evaluate_mode(
                 "fraction_iters_eq_1": round(frac_iters_eq_1, 4),
                 "H_checksum": first_H_checksum,
                 "syndrome_checksum": first_syn_checksum,
+                "llr_checksum": first_llr_checksum,
             })
 
     return results, activations
@@ -285,6 +314,7 @@ def print_activation_report(all_activations: dict[str, list[dict]]) -> None:
         for rec in records:
             print(f"\n    d={rec['distance']}, p={rec['p']}")
             print(f"      schedule:              {rec['schedule']}")
+            print(f"      channel:               {rec['channel']}")
             print(f"      rpc_enabled:           {rec['rpc_enabled']}")
             print(f"      added_rows:            "
                   f"mean={rec['added_rows_mean']}, "
@@ -300,6 +330,7 @@ def print_activation_report(all_activations: dict[str, list[dict]]) -> None:
             print(f"      fraction_iters_eq_1:   {rec['fraction_iters_eq_1']}")
             print(f"      H_checksum:            {rec['H_checksum']}")
             print(f"      syndrome_checksum:     {rec['syndrome_checksum']}")
+            print(f"      llr_checksum:          {rec['llr_checksum']}")
 
             # Warnings.
             if rec['rpc_enabled'] and rec['added_rows_max'] == 0:
@@ -319,10 +350,12 @@ def print_schedule_verification(all_activations: dict[str, list[dict]]) -> None:
     print("=" * 100)
 
     expected = {
-        "A_baseline":    "flooding",
-        "B_rpc_only":    "flooding",
-        "C_degree_only": "geom_v1",
-        "D_rpc_degree":  "geom_v1",
+        "A_baseline":        "flooding",
+        "B_rpc_only":        "flooding",
+        "C_degree_only":     "geom_v1",
+        "D_rpc_degree":      "geom_v1",
+        "E_structured_only": "flooding",
+        "F_rpc_geom_struct": "geom_v1",
     }
 
     all_ok = True
@@ -508,7 +541,7 @@ def print_diagnostic_summary(
     print("=" * 100)
 
     # 1. Check if RPC adds rows.
-    rpc_modes = ["B_rpc_only", "D_rpc_degree"]
+    rpc_modes = ["B_rpc_only", "D_rpc_degree", "F_rpc_geom_struct"]
     rpc_ever_adds = False
     for mode_name in rpc_modes:
         if mode_name in all_activations:
@@ -526,6 +559,7 @@ def print_diagnostic_summary(
     expected = {
         "A_baseline": "flooding", "B_rpc_only": "flooding",
         "C_degree_only": "geom_v1", "D_rpc_degree": "geom_v1",
+        "E_structured_only": "flooding", "F_rpc_geom_struct": "geom_v1",
     }
     for mode_name, exp in expected.items():
         if mode_name in all_activations:
@@ -618,6 +652,7 @@ def main() -> None:
     print(f"  channel={CHANNEL_MODEL}  bp_mode={BP_MODE}")
     print(f"  RPC: max_rows={RPC_CONFIG.rpc.max_rows}, "
           f"w_min={RPC_CONFIG.rpc.w_min}, w_max={RPC_CONFIG.rpc.w_max}")
+    print(f"  structured_kappa={STRUCTURED_KAPPA}")
 
     # Pre-generate all error instances (shared across modes).
     print("\n>>> Pre-generating error instances ...")
@@ -629,13 +664,19 @@ def main() -> None:
     all_activations: dict[str, list[dict]] = {}
 
     for mode_name, mode_cfg in sorted(MODES.items()):
+        ch_name = mode_cfg["channel"]
+        ch_label = ch_name
+        if ch_name == "bsc_syndrome_structured":
+            ch_label = f"{ch_name}(kappa={STRUCTURED_KAPPA})"
         print(f"\n>>> Evaluating {mode_name} "
               f"(schedule={mode_cfg['schedule']}, "
-              f"structural={'RPC' if mode_cfg['structural'] else 'none'}) ...")
+              f"structural={'RPC' if mode_cfg['structural'] else 'none'}, "
+              f"channel={ch_label}) ...")
         records, activations = evaluate_mode(
             mode_name,
             mode_cfg["schedule"],
             mode_cfg["structural"],
+            ch_name,
             instances,
         )
         all_results[mode_name] = records

@@ -25,6 +25,7 @@ class OracleChannel(ChannelModel):
         p: float,
         n: int,
         error_vector: np.ndarray | None = None,
+        **kwargs,
     ) -> np.ndarray:
         if error_vector is None:
             raise ValueError("Oracle channel requires error_vector.")

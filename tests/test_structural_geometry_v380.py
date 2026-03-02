@@ -396,3 +396,201 @@ class TestConfigConstruction:
         cfg = RPCConfig(enabled=True)
         with pytest.raises(AttributeError):
             cfg.enabled = False  # type: ignore[misc]
+
+
+# ───────────────────────────────────────────────────────────────────
+# Structured Syndrome Channel Tests
+# ───────────────────────────────────────────────────────────────────
+
+class TestBSCSyndromeStructured:
+    """Tests for bsc_syndrome_structured channel model."""
+
+    def test_kappa_zero_equivalence(self, small_code):
+        """kappa=0.0 produces bit-identical output to bsc_syndrome."""
+        from src.qec.channel import get_channel_model
+
+        H = small_code.H_X
+        n = H.shape[1]
+        rng = np.random.default_rng(42)
+        e = (rng.random(n) < 0.05).astype(np.uint8)
+        s = syndrome(H, e)
+
+        ch_plain = get_channel_model("bsc_syndrome")
+        ch_struct = get_channel_model(
+            "bsc_syndrome_structured", structured_kappa=0.0,
+        )
+
+        llr_plain = ch_plain.compute_llr(p=0.05, n=n, error_vector=e)
+        llr_struct = ch_struct.compute_llr(
+            p=0.05, n=n, error_vector=e, H=H, syndrome_vec=s,
+        )
+
+        np.testing.assert_array_equal(llr_plain, llr_struct)
+
+    def test_kappa_zero_decode_equivalence(self, small_code):
+        """Decode with kappa=0 structured channel matches bsc_syndrome decode."""
+        from src.qec.channel import get_channel_model
+
+        H = small_code.H_X
+        n = H.shape[1]
+        rng = np.random.default_rng(99)
+        e = (rng.random(n) < 0.05).astype(np.uint8)
+        s = syndrome(H, e)
+
+        ch_plain = get_channel_model("bsc_syndrome")
+        ch_struct = get_channel_model(
+            "bsc_syndrome_structured", structured_kappa=0.0,
+        )
+
+        llr_plain = ch_plain.compute_llr(p=0.05, n=n, error_vector=e)
+        llr_struct = ch_struct.compute_llr(
+            p=0.05, n=n, error_vector=e, H=H, syndrome_vec=s,
+        )
+
+        corr_plain, iters_plain = bp_decode(
+            H, llr_plain, max_iters=30, mode="min_sum",
+            schedule="flooding", syndrome_vec=s,
+        )
+        corr_struct, iters_struct = bp_decode(
+            H, llr_struct, max_iters=30, mode="min_sum",
+            schedule="flooding", syndrome_vec=s,
+        )
+
+        np.testing.assert_array_equal(corr_plain, corr_struct)
+        assert iters_plain == iters_struct
+
+    def test_determinism(self, small_code):
+        """Two runs with identical inputs produce identical LLR."""
+        from src.qec.channel import get_channel_model
+
+        H = small_code.H_X
+        n = H.shape[1]
+        rng = np.random.default_rng(42)
+        e = (rng.random(n) < 0.05).astype(np.uint8)
+        s = syndrome(H, e)
+
+        ch = get_channel_model(
+            "bsc_syndrome_structured", structured_kappa=0.05,
+        )
+
+        llr1 = ch.compute_llr(p=0.05, n=n, H=H, syndrome_vec=s)
+        llr2 = ch.compute_llr(p=0.05, n=n, H=H, syndrome_vec=s)
+
+        np.testing.assert_array_equal(llr1, llr2)
+
+    def test_determinism_decode(self, small_code):
+        """Two decode runs with structured channel produce identical results."""
+        from src.qec.channel import get_channel_model
+
+        H = small_code.H_X
+        n = H.shape[1]
+        rng = np.random.default_rng(42)
+        e = (rng.random(n) < 0.05).astype(np.uint8)
+        s = syndrome(H, e)
+
+        ch = get_channel_model(
+            "bsc_syndrome_structured", structured_kappa=0.05,
+        )
+        llr = ch.compute_llr(p=0.05, n=n, H=H, syndrome_vec=s)
+
+        corr1, iters1 = bp_decode(
+            H, llr, max_iters=30, mode="min_sum",
+            schedule="flooding", syndrome_vec=s,
+        )
+        corr2, iters2 = bp_decode(
+            H, llr, max_iters=30, mode="min_sum",
+            schedule="flooding", syndrome_vec=s,
+        )
+
+        np.testing.assert_array_equal(corr1, corr2)
+        assert iters1 == iters2
+
+    def test_smoke_nonzero_kappa(self, small_code):
+        """Structured channel with small kappa runs and returns valid correction."""
+        from src.qec.channel import get_channel_model
+
+        H = small_code.H_X
+        n = H.shape[1]
+        rng = np.random.default_rng(42)
+        e = (rng.random(n) < 0.05).astype(np.uint8)
+        s = syndrome(H, e)
+
+        ch = get_channel_model(
+            "bsc_syndrome_structured", structured_kappa=0.05,
+        )
+        llr = ch.compute_llr(p=0.05, n=n, H=H, syndrome_vec=s)
+
+        corr, iters = bp_decode(
+            H, llr, max_iters=50, mode="min_sum",
+            schedule="flooding", syndrome_vec=s,
+        )
+
+        assert corr.shape == (n,)
+        assert iters <= 50
+        assert set(np.unique(corr)).issubset({0, 1})
+
+    def test_nonzero_kappa_changes_llr(self, small_code):
+        """Non-zero kappa produces a different LLR than bsc_syndrome
+        when the syndrome is non-zero."""
+        from src.qec.channel import get_channel_model
+
+        H = small_code.H_X
+        n = H.shape[1]
+        rng = np.random.default_rng(42)
+        e = (rng.random(n) < 0.05).astype(np.uint8)
+        s = syndrome(H, e)
+
+        # Only test when syndrome is non-zero.
+        if np.sum(s) == 0:
+            pytest.skip("Need non-zero syndrome for this test.")
+
+        ch_plain = get_channel_model("bsc_syndrome")
+        ch_struct = get_channel_model(
+            "bsc_syndrome_structured", structured_kappa=0.1,
+        )
+
+        llr_plain = ch_plain.compute_llr(p=0.05, n=n)
+        llr_struct = ch_struct.compute_llr(
+            p=0.05, n=n, H=H, syndrome_vec=s,
+        )
+
+        # Should differ when kappa != 0 and syndrome != 0.
+        assert not np.array_equal(llr_plain, llr_struct)
+
+    def test_deg_norm_mode(self, small_code):
+        """deg_norm normalisation produces valid output."""
+        from src.qec.channel import get_channel_model
+
+        H = small_code.H_X
+        n = H.shape[1]
+        rng = np.random.default_rng(42)
+        e = (rng.random(n) < 0.05).astype(np.uint8)
+        s = syndrome(H, e)
+
+        ch = get_channel_model(
+            "bsc_syndrome_structured",
+            structured_kappa=0.1,
+            structured_norm="deg_norm",
+        )
+        llr = ch.compute_llr(p=0.05, n=n, H=H, syndrome_vec=s)
+
+        assert llr.shape == (n,)
+        assert np.all(np.isfinite(llr))
+
+    def test_invalid_norm_raises(self):
+        """Invalid structured_norm raises ValueError."""
+        from src.qec.channel.bsc_syndrome_structured import (
+            BSCSyndromeStructuredChannel,
+        )
+        with pytest.raises(ValueError, match="structured_norm"):
+            BSCSyndromeStructuredChannel(structured_norm="bad")
+
+    def test_missing_H_raises(self):
+        """kappa != 0 without H raises ValueError."""
+        from src.qec.channel import get_channel_model
+
+        ch = get_channel_model(
+            "bsc_syndrome_structured", structured_kappa=0.1,
+        )
+        with pytest.raises(ValueError, match="H and syndrome_vec"):
+            ch.compute_llr(p=0.05, n=10)

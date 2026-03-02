@@ -667,7 +667,7 @@ def syndrome(H: np.ndarray, e: np.ndarray) -> np.ndarray:
 
 _BP_MODES = {"sum_product", "min_sum", "norm_min_sum", "offset_min_sum",
              "improved_norm", "improved_offset", "min_sum_urw"}
-_BP_SCHEDULES = {"flooding", "layered", "residual", "hybrid_residual", "adaptive"}
+_BP_SCHEDULES = {"flooding", "layered", "residual", "hybrid_residual", "adaptive", "geom_v1"}
 _BP_POSTPROCESS = {None, "osd0", "osd1", "osd_cs", "guided_decimation", "mp_osd1", "mp_osd_cs"}
 
 
@@ -1611,6 +1611,143 @@ def bp_decode(
                     _L_total[v] = total
 
             # ── LLR history snapshot (flooding) ──
+            if llr_history > 0:
+                _hist_buf[_hist_idx % llr_history] = _L_total.copy()
+                _hist_idx += 1
+                _hist_count = min(_hist_count + 1, llr_history)
+
+            # ── early stop ──
+            if np.array_equal(
+                (H.astype(np.int32) @ hard.astype(np.int32)) % 2,
+                syndrome_vec.astype(np.uint8),
+            ):
+                pp_result = _bp_postprocess(
+                    H, llr, hard, it + 1, syndrome_vec, postprocess,
+                    osd_cs_lam=osd_cs_lam,
+                )
+                if llr_history > 0:
+                    if residual_metrics:
+                        return pp_result[0], pp_result[1], _assemble_history(_hist_buf, _hist_idx, _hist_count, llr_history), _res_metrics
+                    return pp_result[0], pp_result[1], _assemble_history(_hist_buf, _hist_idx, _hist_count, llr_history)
+                if residual_metrics:
+                    return pp_result[0], pp_result[1], _res_metrics
+                return pp_result
+
+        pp_result = _bp_postprocess(
+            H, llr, hard, max_iters, syndrome_vec, postprocess,
+            osd_cs_lam=osd_cs_lam,
+        )
+        if llr_history > 0:
+            if residual_metrics:
+                return pp_result[0], pp_result[1], _assemble_history(_hist_buf, _hist_idx, _hist_count, llr_history), _res_metrics
+            return pp_result[0], pp_result[1], _assemble_history(_hist_buf, _hist_idx, _hist_count, llr_history)
+        if residual_metrics:
+            return pp_result[0], pp_result[1], _res_metrics
+        return pp_result
+
+    elif schedule == "geom_v1":
+        # ══════════════════════════════════════════════════════════════
+        # Degree-rebalanced flooding schedule (v3.8.0).
+        #
+        # Identical to the flooding schedule except that check-to-variable
+        # messages are scaled by alpha_c[c] = 1/sqrt(d_c) where d_c is
+        # the degree of check node c.  This is a deterministic function
+        # of graph topology only.
+        #
+        # No adaptive logic.  No schedule mutation.  No URW.
+        # Stopping conditions are identical to flooding.
+        # ══════════════════════════════════════════════════════════════
+        from .qec.decoder.geom import compute_check_degree_scale
+        alpha_c = compute_check_degree_scale(c2v)
+
+        for it in range(max_iters):
+            # Save old messages for damping.
+            if damping > 0.0:
+                c2v_msg_old = c2v_msg.copy()
+
+            # ── check → variable (with degree-aware scaling) ──
+            for c in range(m):
+                nbrs = c2v[c]
+                if len(nbrs) == 0:
+                    continue
+                if len(nbrs) == 1:
+                    c2v_msg[c, nbrs[0]] = 0.0
+                    continue
+
+                sign_s = (-1.0) ** int(syndrome_vec[c])
+                scale = alpha_c[c]
+
+                if use_min_sum:
+                    # Gather signs and magnitudes.
+                    incoming = np.array([v2c_msg[v, c] for v in nbrs])
+                    signs = np.where(incoming == 0.0, 1.0, np.sign(incoming))
+                    abs_vals = np.abs(incoming)
+                    sign_prod_all = np.prod(signs) * sign_s
+
+                    # Precompute first and second minimums for O(d_c) exclusion.
+                    d = len(nbrs)
+                    if d >= 2:
+                        idx_sorted = np.argpartition(abs_vals, 1)[:2]
+                        if abs_vals[idx_sorted[0]] <= abs_vals[idx_sorted[1]]:
+                            min1_idx, min2_idx = idx_sorted[0], idx_sorted[1]
+                        else:
+                            min1_idx, min2_idx = idx_sorted[1], idx_sorted[0]
+                        min1_val = abs_vals[min1_idx]
+                        min2_val = abs_vals[min2_idx]
+                    else:
+                        min1_idx = 0
+                        min1_val = abs_vals[0]
+                        min2_val = 0.0
+
+                    for idx, v in enumerate(nbrs):
+                        sign_excl = sign_prod_all * signs[idx]
+                        min_excl = min2_val if idx == min1_idx else min1_val
+
+                        if mode == "min_sum":
+                            c2v_msg[c, v] = scale * sign_excl * min_excl
+                        elif mode == "norm_min_sum":
+                            c2v_msg[c, v] = scale * norm_factor * sign_excl * min_excl
+                        elif mode == "offset_min_sum":
+                            c2v_msg[c, v] = scale * sign_excl * max(min_excl - offset, 0.0)
+                        elif mode == "improved_norm":
+                            alpha = alpha1 if idx == min1_idx else alpha2
+                            c2v_msg[c, v] = scale * alpha * sign_excl * min_excl
+                        elif mode == "min_sum_urw":
+                            c2v_msg[c, v] = scale * urw_rho * sign_excl * min_excl
+                        else:  # improved_offset
+                            alpha = alpha1 if idx == min1_idx else alpha2
+                            c2v_msg[c, v] = scale * sign_excl * max(alpha * min_excl - offset, 0.0)
+                else:
+                    # sum_product: tanh product rule with degree scaling.
+                    tanhs = np.array([
+                        np.tanh(np.clip(v2c_msg[v, c] / 2.0, -20.0, 20.0))
+                        for v in nbrs
+                    ])
+                    prod_all = np.prod(tanhs)
+                    for idx, v in enumerate(nbrs):
+                        prod_excl = prod_all / (tanhs[idx] + eps)
+                        prod_excl = np.clip(prod_excl, -1 + 1e-15, 1 - 1e-15)
+                        c2v_msg[c, v] = scale * sign_s * 2.0 * np.arctanh(prod_excl)
+
+            # ── damping ──
+            if damping > 0.0:
+                c2v_msg = (1 - damping) * c2v_msg + damping * c2v_msg_old
+
+            # ── user-specified message clipping ──
+            if clip is not None:
+                c2v_msg = np.clip(c2v_msg, -clip, clip)
+
+            # ── variable → check + hard decision ──
+            for v in range(n):
+                nbrs = v2c[v]
+                total = llr[v] + sum(c2v_msg[c, v] for c in nbrs)
+                for c in nbrs:
+                    v2c_msg[v, c] = total - c2v_msg[c, v]
+                hard[v] = 0 if total >= 0.0 else 1
+                if llr_history > 0:
+                    _L_total[v] = total
+
+            # ── LLR history snapshot ──
             if llr_history > 0:
                 _hist_buf[_hist_idx % llr_history] = _L_total.copy()
                 _hist_idx += 1

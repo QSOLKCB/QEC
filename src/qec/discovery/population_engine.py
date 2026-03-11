@@ -283,14 +283,17 @@ class DiscoveryEngine:
 
         for i, parent in enumerate(parents):
             mut_seed = _derive_seed(gen_seed, f"mutate_{i}")
-            operator_idx = (self._generation + i) % 5
             operators = [
                 "spectral_edge_pressure",
                 "cycle_pressure",
                 "ace_repair",
                 "girth_preserving_rewire",
                 "expansion_driven_rewire",
+                "ipr_trapping_pressure",
+                "trapping_set_pressure",
+                "residual_guided",
             ]
+            operator_idx = (self._generation + i) % len(operators)
             operator = operators[operator_idx]
 
             H_mutated = apply_guided_mutation(

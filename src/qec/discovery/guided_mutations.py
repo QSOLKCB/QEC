@@ -1,7 +1,7 @@
 """
-v11.0.0 — Guided Mutation Operators.
+v11.1.0 — Guided Mutation Operators.
 
-Seven deterministic mutation operators guided by spectral and structural
+Eight deterministic mutation operators guided by spectral and structural
 analysis of the Tanner graph.
 
 Operators:
@@ -12,6 +12,7 @@ Operators:
   5. expansion_driven_rewire — improve neighbourhood expansion
   6. ipr_trapping_pressure — rewire high-IPR variable nodes (proto-trapping sets)
   7. trapping_set_pressure — break harmful local trapping-set structure
+  8. residual_guided — rewire edges from high-residual to low-residual variables
 
 Layer 3 — Discovery.
 Does not import or modify the decoder (Layer 1).
@@ -43,6 +44,7 @@ _OPERATORS = [
     "expansion_driven_rewire",
     "ipr_trapping_pressure",
     "trapping_set_pressure",
+    "residual_guided",
 ]
 
 
@@ -727,6 +729,104 @@ def trapping_set_pressure_mutation(
 
 
 # -----------------------------------------------------------
+# 8. Residual Guided Mutation
+# -----------------------------------------------------------
+
+
+def residual_guided_mutation(
+    H: np.ndarray,
+    *,
+    seed: int = 0,
+) -> np.ndarray:
+    """Rewire edges from high-residual to low-residual variable nodes.
+
+    Computes BP residual magnitudes per variable node using a short
+    min-sum BP run, then moves an edge from a high-residual variable
+    to a low-residual variable to redirect connectivity away from
+    unstable decoder regions.
+
+    Parameters
+    ----------
+    H : np.ndarray
+        Binary parity-check matrix, shape (m, n).
+    seed : int
+        Deterministic seed.
+
+    Returns
+    -------
+    np.ndarray
+        Mutated parity-check matrix with shape preserved.
+    """
+    from src.qec.analysis.bp_residuals import BPResidualAnalyzer
+
+    H_arr = np.asarray(H, dtype=np.float64)
+    m, n = H_arr.shape
+    H_out = H_arr.copy()
+
+    if m == 0 or n == 0:
+        return H_out
+
+    # Compute residual map
+    analyzer = BPResidualAnalyzer()
+    bp_seed = _derive_seed(seed, "residual_bp")
+    result = analyzer.compute_residual_map(H_arr, iterations=10, seed=bp_seed)
+    residual_map = result["residual_map"]
+
+    # Rank variable nodes by residual (descending = most unstable first)
+    ranked_high = sorted(
+        range(n),
+        key=lambda vi: (-round(residual_map[vi], _ROUND), vi),
+    )
+
+    # Rank variable nodes by residual (ascending = most stable first)
+    ranked_low = sorted(
+        range(n),
+        key=lambda vi: (round(residual_map[vi], _ROUND), vi),
+    )
+
+    # Top-k high-residual variables to consider
+    top_k = max(1, n // 4)
+
+    rng = np.random.RandomState(seed)
+
+    for vi_high in ranked_high[:top_k]:
+        # Find checks connected to this high-residual variable
+        checks = sorted(ci for ci in range(m) if H_out[ci, vi_high] != 0)
+        if not checks:
+            continue
+
+        # Safety: variable must keep at least degree 1
+        if H_out[:, vi_high].sum() <= 1:
+            continue
+
+        # Pick a check to disconnect from
+        ci_remove = checks[rng.randint(0, len(checks))]
+        if H_out[ci_remove].sum() <= 1:
+            continue
+
+        H_out[ci_remove, vi_high] = 0.0
+
+        # Try to reconnect to a low-residual variable
+        rewired = False
+        for vi_low in ranked_low:
+            if vi_low == vi_high:
+                continue
+            if H_out[ci_remove, vi_low] != 0.0:
+                continue
+            H_out[ci_remove, vi_low] = 1.0
+            rewired = True
+            break
+
+        if not rewired:
+            H_out[ci_remove, vi_high] = 1.0  # Restore
+            continue
+
+        return H_out
+
+    return H_out
+
+
+# -----------------------------------------------------------
 # Dispatcher
 # -----------------------------------------------------------
 
@@ -739,6 +839,7 @@ _OPERATOR_FUNCTIONS = {
     "expansion_driven_rewire": expansion_driven_rewire,
     "ipr_trapping_pressure": ipr_trapping_pressure_mutation,
     "trapping_set_pressure": trapping_set_pressure_mutation,
+    "residual_guided": residual_guided_mutation,
 }
 
 

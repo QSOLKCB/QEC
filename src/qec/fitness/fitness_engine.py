@@ -1,5 +1,5 @@
 """
-v11.2.0 — Fitness Engine.
+v11.3.0 — Fitness Engine.
 
 Computes weighted composite fitness scores from spectral metrics for
 LDPC/QLDPC parity-check matrices.  Supports caching by matrix hash.
@@ -9,6 +9,9 @@ BP stability score, and Jacobian instability penalty.
 
 v11.2 extension: adds Bethe Hessian stability score to decoder-aware
 composite fitness.
+
+v11.3 extension: adds absorbing-set risk and twisted-cycle fraction
+to decoder-aware composite fitness.
 
 Layer 3 — Fitness.
 Does not import or modify the decoder (Layer 1).
@@ -175,9 +178,12 @@ class FitnessEngine:
         }
 
     def _compute_decoder_aware_metrics(self, H: np.ndarray) -> dict[str, Any]:
-        """Compute decoder-aware metrics: trapping sets, BP stability, Jacobian, Bethe Hessian."""
+        """Compute decoder-aware metrics: trapping sets, BP stability, Jacobian, Bethe Hessian,
+        absorbing-set risk, cycle topology."""
         from src.qec.analysis.trapping_sets import TrappingSetDetector
         from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer
+        from src.qec.analysis.absorbing_sets import AbsorbingSetPredictor
+        from src.qec.analysis.cycle_topology import CycleTopologyAnalyzer
         from src.qec.decoder.stability_probe import BPStabilityProbe, estimate_bp_instability
 
         if self._trapping_detector is None:
@@ -196,6 +202,14 @@ class FitnessEngine:
         # Bethe Hessian stability
         bh_analyzer = BetheHessianAnalyzer()
         bh_result = bh_analyzer.compute_bethe_hessian_stability(H)
+
+        # Absorbing-set prediction (v11.3)
+        abs_predictor = AbsorbingSetPredictor()
+        abs_result = abs_predictor.predict(H)
+
+        # Cycle topology (v11.3)
+        ct_analyzer = CycleTopologyAnalyzer()
+        ct_result = ct_analyzer.analyze(H)
 
         # Trapping-set penalty: normalized total count scaled by min size
         total_ts = ts_result["total"]
@@ -222,6 +236,10 @@ class FitnessEngine:
             "jacobian_instability_penalty": jacobian_instability_penalty,
             "bethe_hessian_min_eigenvalue": bh_result["bethe_hessian_min_eigenvalue"],
             "bethe_hessian_stability_score": bh_result["bethe_hessian_stability_score"],
+            "absorbing_set_risk": abs_result["absorbing_set_risk"],
+            "num_candidate_absorbing_sets": abs_result["num_candidate_absorbing_sets"],
+            "min_candidate_absorbing_set_size": abs_result["min_candidate_size"],
+            "twisted_cycle_fraction": ct_result["twisted_cycle_fraction"],
         }
 
     def _compute_components(self, metrics: dict[str, Any]) -> dict[str, float]:
@@ -248,6 +266,12 @@ class FitnessEngine:
             components["trapping_set_penalty"] = w.get("trapping_set_penalty", -3.0) * ts_penalty
             components["jacobian_instability_penalty"] = w.get("jacobian_instability_penalty", -1.5) * jac_penalty
             components["bethe_hessian_stability"] = w.get("bethe_hessian_stability", 1.5) * bh_stability
+
+            # v11.3 absorbing-set and cycle topology components
+            abs_risk = metrics.get("absorbing_set_risk", 0.0)
+            twisted_frac = metrics.get("twisted_cycle_fraction", 0.0)
+            components["absorbing_set_risk"] = w.get("absorbing_set_risk", -2.0) * abs_risk
+            components["twisted_cycle_fraction"] = w.get("twisted_cycle_fraction", -1.0) * twisted_frac
 
         return components
 

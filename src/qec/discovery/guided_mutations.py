@@ -1,7 +1,7 @@
 """
-v11.2.0 — Guided Mutation Operators.
+v11.3.0 — Guided Mutation Operators.
 
-Eight deterministic mutation operators guided by spectral and structural
+Nine deterministic mutation operators guided by spectral and structural
 analysis of the Tanner graph.
 
 Operators:
@@ -13,10 +13,14 @@ Operators:
   6. ipr_trapping_pressure — rewire high-IPR variable nodes (proto-trapping sets)
   7. trapping_set_pressure — break harmful local trapping-set structure
   8. residual_guided — rewire edges from top-k high-residual to low-residual variables
+  9. absorbing_set_pressure — break predicted absorbing-set structure
 
 v11.2 upgrade: residual_guided_mutation now samples from top-k residual
 variables for improved mutation diversity.  Exports OPERATORS list for
 centralized registry.
+
+v11.3 upgrade: adds absorbing_set_pressure_mutation using NB eigenvector
+localization to identify and disrupt candidate absorbing sets.
 
 Layer 3 — Discovery.
 Does not import or modify the decoder (Layer 1).
@@ -49,6 +53,7 @@ _OPERATORS = [
     "ipr_trapping_pressure",
     "trapping_set_pressure",
     "residual_guided",
+    "absorbing_set_pressure",
 ]
 
 
@@ -854,11 +859,120 @@ def residual_guided_mutation(
 
 
 # -----------------------------------------------------------
+# 9. Absorbing Set Pressure
+# -----------------------------------------------------------
+
+
+def absorbing_set_pressure_mutation(
+    H: np.ndarray,
+    *,
+    seed: int = 0,
+) -> np.ndarray:
+    """Break predicted absorbing-set structure.
+
+    Runs the absorbing-set predictor, identifies the highest-risk
+    candidate set, selects the variable with highest localization
+    within that set, removes one edge safely, and reconnects outside
+    the candidate region.
+
+    Parameters
+    ----------
+    H : np.ndarray
+        Binary parity-check matrix, shape (m, n).
+    seed : int
+        Deterministic seed.
+
+    Returns
+    -------
+    np.ndarray
+        Mutated parity-check matrix with shape preserved.
+    """
+    from src.qec.analysis.absorbing_sets import AbsorbingSetPredictor
+
+    H_arr = np.asarray(H, dtype=np.float64)
+    m, n = H_arr.shape
+    H_out = H_arr.copy()
+
+    if m == 0 or n == 0:
+        return H_out
+
+    predictor = AbsorbingSetPredictor()
+    result = predictor.predict(H_arr)
+
+    candidates = result["candidate_sets"]
+    if not candidates:
+        return H_out
+
+    # Select highest-risk candidate set (already sorted by risk)
+    best_candidate = candidates[0]
+    candidate_vars = set(best_candidate["variables"])
+
+    if not candidate_vars:
+        return H_out
+
+    # Rank variables in candidate by localization score
+    # Use localized_variables from predictor for ordering
+    localized = result["localized_variables"]
+
+    # Pick variable with highest localization within candidate set
+    target_var = None
+    for vi in localized:
+        if vi in candidate_vars:
+            target_var = vi
+            break
+
+    if target_var is None:
+        # Fallback: first variable in candidate set
+        target_var = best_candidate["variables"][0]
+
+    # Find checks connected to target variable
+    checks = sorted(ci for ci in range(m) if H_out[ci, target_var] != 0)
+    if not checks:
+        return H_out
+
+    # Safety: variable must keep at least degree 1
+    if H_out[:, target_var].sum() <= 1:
+        return H_out
+
+    rng = np.random.RandomState(seed)
+
+    # Pick a check to disconnect from
+    ci_remove = checks[rng.randint(0, len(checks))]
+    if H_out[ci_remove].sum() <= 1:
+        return H_out
+
+    H_out[ci_remove, target_var] = 0.0
+
+    # Try to reconnect to a variable outside the candidate region
+    outside_vars = sorted(
+        vi for vi in range(n)
+        if vi not in candidate_vars and H_out[ci_remove, vi] == 0.0
+    )
+
+    if outside_vars:
+        new_vi = outside_vars[rng.randint(0, len(outside_vars))]
+        H_out[ci_remove, new_vi] = 1.0
+    else:
+        # Fallback: any non-edge in this check row
+        fallback = sorted(
+            vi for vi in range(n)
+            if H_out[ci_remove, vi] == 0.0 and vi != target_var
+        )
+        if fallback:
+            new_vi = fallback[rng.randint(0, len(fallback))]
+            H_out[ci_remove, new_vi] = 1.0
+        else:
+            H_out[ci_remove, target_var] = 1.0  # Restore
+
+    return H_out
+
+
+# -----------------------------------------------------------
 # Dispatcher
 # -----------------------------------------------------------
 
 
-# Centralized operator registry (v11.2.0).
+# Centralized operator registry (v11.3.0).
 # Import this list in other modules to prevent drift.
 OPERATORS = [
     spectral_edge_pressure_mutation,
@@ -869,6 +983,7 @@ OPERATORS = [
     ipr_trapping_pressure_mutation,
     trapping_set_pressure_mutation,
     residual_guided_mutation,
+    absorbing_set_pressure_mutation,
 ]
 
 
@@ -881,6 +996,7 @@ _OPERATOR_FUNCTIONS = {
     "ipr_trapping_pressure": ipr_trapping_pressure_mutation,
     "trapping_set_pressure": trapping_set_pressure_mutation,
     "residual_guided": residual_guided_mutation,
+    "absorbing_set_pressure": absorbing_set_pressure_mutation,
 }
 
 

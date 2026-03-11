@@ -281,7 +281,7 @@ class TestCentralizedOperators:
     """Tests for the centralized OPERATORS function list."""
 
     def test_operators_length(self):
-        assert len(OPERATORS) == 8
+        assert len(OPERATORS) == 9
 
     def test_operators_are_callable(self):
         for op in OPERATORS:

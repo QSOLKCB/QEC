@@ -74,6 +74,21 @@ def main() -> None:
         choices=["random", "peg"],
         help="Population initialization strategy (default: peg)",
     )
+    parser.add_argument(
+        "--no-decoder-aware",
+        action="store_false",
+        dest="decoder_aware",
+        default=True,
+        help="Disable decoder-aware fitness evaluation (enabled by default)",
+    )
+    parser.add_argument(
+        "--bp-trials", type=int, default=50,
+        help="Number of BP probe trials for decoder-aware mode (default: 50)",
+    )
+    parser.add_argument(
+        "--bp-iterations", type=int, default=10,
+        help="Max BP iterations per probe trial (default: 10)",
+    )
 
     args = parser.parse_args()
 
@@ -85,12 +100,16 @@ def main() -> None:
         "init_strategy": args.init_strategy,
     }
 
-    print(f"QLDPC Discovery Engine v10.2.0")
+    print(f"QLDPC Discovery Engine v11.0.0")
     print(f"  Spec: {spec}")
     print(f"  Population: {args.population}")
     print(f"  Generations: {args.generations}")
     print(f"  Seed: {args.seed}")
     print(f"  Init strategy: {args.init_strategy}")
+    print(f"  Decoder-aware: {args.decoder_aware}")
+    if args.decoder_aware:
+        print(f"  BP trials: {args.bp_trials}")
+        print(f"  BP iterations: {args.bp_iterations}")
     print(f"  Archive: {args.archive_path}")
     print()
 
@@ -103,6 +122,9 @@ def main() -> None:
         generations=args.generations,
         seed=args.seed,
         archive_path=args.archive_path,
+        decoder_aware=args.decoder_aware,
+        bp_trials=args.bp_trials,
+        bp_iterations=args.bp_iterations,
     )
 
     result = engine.run(spec)

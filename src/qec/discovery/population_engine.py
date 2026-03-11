@@ -1,9 +1,13 @@
 """
-v10.0.0 — Population Discovery Engine.
+v11.0.0 — Population Discovery Engine.
 
 Deterministic evolutionary search for high-performance LDPC/QLDPC
 parity-check matrices.  Uses tournament selection, elitism, and
 guided mutations with spectral fitness evaluation.
+
+v11 extension: optional decoder-aware mode incorporates trapping-set
+analysis, BP stability probes, and Jacobian spectral radius into
+fitness evaluation.
 
 Layer 3 — Discovery.
 Does not import or modify the decoder (Layer 1).
@@ -57,6 +61,12 @@ class DiscoveryEngine:
         Base seed for all deterministic derivation.
     archive_path : str
         Path for persistent archive storage.
+    decoder_aware : bool
+        Enable decoder-aware fitness evaluation (default False).
+    bp_trials : int
+        Number of BP probe trials when decoder-aware (default 50).
+    bp_iterations : int
+        Max BP iterations per probe trial (default 10).
     """
 
     def __init__(
@@ -65,12 +75,21 @@ class DiscoveryEngine:
         generations: int = 500,
         seed: int = 42,
         archive_path: str = "./discovery_archive",
+        decoder_aware: bool = False,
+        bp_trials: int = 50,
+        bp_iterations: int = 10,
     ) -> None:
         self.population_size = population_size
         self.generations = generations
         self.seed = seed
         self.archive_path = archive_path
-        self._fitness_engine = FitnessEngine()
+        self.decoder_aware = decoder_aware
+        self._fitness_engine = FitnessEngine(
+            decoder_aware=decoder_aware,
+            bp_trials=bp_trials,
+            bp_iterations=bp_iterations,
+            seed=seed,
+        )
         self._population: list[dict[str, Any]] = []
         self._archive: list[dict[str, Any]] = []
         self._generation: int = 0

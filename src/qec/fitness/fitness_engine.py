@@ -1,8 +1,11 @@
 """
-v10.0.0 — Fitness Engine.
+v11.0.0 — Fitness Engine.
 
 Computes weighted composite fitness scores from spectral metrics for
 LDPC/QLDPC parity-check matrices.  Supports caching by matrix hash.
+
+v11 extension: optional decoder-aware mode adds trapping-set penalty,
+BP stability score, and Jacobian instability penalty.
 
 Layer 3 — Fitness.
 Does not import or modify the decoder (Layer 1).
@@ -12,6 +15,7 @@ Fully deterministic: no randomness, no global state, no input mutation.
 from __future__ import annotations
 
 import hashlib
+import math
 from typing import Any
 
 import numpy as np
@@ -51,7 +55,14 @@ class FitnessEngine:
         Default weights are used if not provided.
     """
 
-    def __init__(self, weights: dict[str, float] | None = None) -> None:
+    def __init__(
+        self,
+        weights: dict[str, float] | None = None,
+        decoder_aware: bool = False,
+        bp_trials: int = 50,
+        bp_iterations: int = 10,
+        seed: int = 42,
+    ) -> None:
         self._weights = weights or {
             "girth": 3.0,
             "nbt_spectral_radius": -2.0,
@@ -60,7 +71,15 @@ class FitnessEngine:
             "cycle_density": -1.0,
             "sparsity": 0.5,
         }
+        self._decoder_aware = decoder_aware
+        self._bp_trials = bp_trials
+        self._bp_iterations = bp_iterations
+        self._seed = seed
         self._cache: dict[str, dict[str, Any]] = {}
+
+        # Lazy-initialize decoder-aware components
+        self._trapping_detector = None
+        self._bp_probe = None
 
     def evaluate(self, H: np.ndarray) -> dict[str, Any]:
         """Compute composite fitness for a parity-check matrix.
@@ -85,6 +104,11 @@ class FitnessEngine:
             return self._cache[h]
 
         metrics = self._compute_metrics(H_arr)
+
+        if self._decoder_aware:
+            da_metrics = self._compute_decoder_aware_metrics(H_arr)
+            metrics.update(da_metrics)
+
         components = self._compute_components(metrics)
         composite = sum(components.values())
 
@@ -147,6 +171,49 @@ class FitnessEngine:
             "max_ipr": ipr_result["max_ipr"],
         }
 
+    def _compute_decoder_aware_metrics(self, H: np.ndarray) -> dict[str, Any]:
+        """Compute decoder-aware metrics: trapping sets, BP stability, Jacobian."""
+        from src.qec.analysis.trapping_sets import TrappingSetDetector
+        from src.qec.decoder.stability_probe import BPStabilityProbe, estimate_bp_instability
+
+        if self._trapping_detector is None:
+            self._trapping_detector = TrappingSetDetector()
+        if self._bp_probe is None:
+            self._bp_probe = BPStabilityProbe(
+                trials=self._bp_trials,
+                iterations=self._bp_iterations,
+                seed=self._seed,
+            )
+
+        ts_result = self._trapping_detector.detect(H)
+        bp_result = self._bp_probe.probe(H)
+        jac_result = estimate_bp_instability(H, seed=self._seed)
+
+        # Trapping-set penalty: normalized total count scaled by min size
+        total_ts = ts_result["total"]
+        min_size = ts_result["min_size"]
+        n = H.shape[1]
+        if n > 0 and total_ts > 0:
+            trapping_set_penalty = total_ts / n * (1.0 / max(min_size, 1))
+        else:
+            trapping_set_penalty = 0.0
+
+        # Jacobian instability penalty: how much rho exceeds 1.0
+        jac_rho = jac_result["jacobian_spectral_radius_est"]
+        jacobian_instability_penalty = max(0.0, jac_rho - 1.0)
+
+        return {
+            "trapping_set_total": total_ts,
+            "trapping_set_min_size": min_size,
+            "trapping_set_penalty": trapping_set_penalty,
+            "bp_stability_score": bp_result["bp_stability_score"],
+            "divergence_rate": bp_result["divergence_rate"],
+            "stagnation_rate": bp_result["stagnation_rate"],
+            "oscillation_score": bp_result["oscillation_score"],
+            "jacobian_spectral_radius_est": jac_rho,
+            "jacobian_instability_penalty": jacobian_instability_penalty,
+        }
+
     def _compute_components(self, metrics: dict[str, Any]) -> dict[str, float]:
         """Compute weighted component scores from metrics."""
         w = self._weights
@@ -159,6 +226,16 @@ class FitnessEngine:
             "cycle_density": w.get("cycle_density", 0.0) * metrics["cycle_density"],
             "sparsity": w.get("sparsity", 0.0) * metrics["sparsity"],
         }
+
+        if self._decoder_aware:
+            # Decoder-aware components
+            bp_score = metrics.get("bp_stability_score", 1.0)
+            ts_penalty = metrics.get("trapping_set_penalty", 0.0)
+            jac_penalty = metrics.get("jacobian_instability_penalty", 0.0)
+
+            components["bp_stability"] = w.get("bp_stability", 2.0) * bp_score
+            components["trapping_set_penalty"] = w.get("trapping_set_penalty", -3.0) * ts_penalty
+            components["jacobian_instability_penalty"] = w.get("jacobian_instability_penalty", -1.5) * jac_penalty
 
         return components
 

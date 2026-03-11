@@ -1,7 +1,7 @@
 """
-v10.1.0 — Guided Mutation Operators.
+v11.0.0 — Guided Mutation Operators.
 
-Six deterministic mutation operators guided by spectral and structural
+Seven deterministic mutation operators guided by spectral and structural
 analysis of the Tanner graph.
 
 Operators:
@@ -11,6 +11,7 @@ Operators:
   4. girth_preserving_rewire — rewire without decreasing girth
   5. expansion_driven_rewire — improve neighbourhood expansion
   6. ipr_trapping_pressure — rewire high-IPR variable nodes (proto-trapping sets)
+  7. trapping_set_pressure — break harmful local trapping-set structure
 
 Layer 3 — Discovery.
 Does not import or modify the decoder (Layer 1).
@@ -41,6 +42,7 @@ _OPERATORS = [
     "girth_preserving_rewire",
     "expansion_driven_rewire",
     "ipr_trapping_pressure",
+    "trapping_set_pressure",
 ]
 
 
@@ -621,6 +623,110 @@ def ipr_trapping_pressure_mutation(
 
 
 # -----------------------------------------------------------
+# 7. Trapping Set Pressure
+# -----------------------------------------------------------
+
+
+def trapping_set_pressure_mutation(
+    H: np.ndarray,
+    *,
+    seed: int = 0,
+) -> np.ndarray:
+    """Break harmful local trapping-set structure.
+
+    Runs trapping-set detection, identifies variable nodes participating
+    in the most harmful (smallest) trapping sets, removes one safe edge
+    from such a variable, and reconnects to a variable outside the
+    trapping region.
+
+    Parameters
+    ----------
+    H : np.ndarray
+        Binary parity-check matrix, shape (m, n).
+    seed : int
+        Deterministic seed.
+
+    Returns
+    -------
+    np.ndarray
+        Mutated parity-check matrix with shape preserved.
+    """
+    from src.qec.analysis.trapping_sets import TrappingSetDetector
+
+    H_arr = np.asarray(H, dtype=np.float64)
+    m, n = H_arr.shape
+    H_out = H_arr.copy()
+
+    if m == 0 or n == 0:
+        return H_out
+
+    detector = TrappingSetDetector(max_a=6, max_b=4)
+    ts_result = detector.detect(H_arr)
+
+    participation = ts_result["variable_participation"]
+    if sum(participation) == 0:
+        return H_out
+
+    # Rank variables by participation count (descending), break ties by index
+    ranked_vars = sorted(
+        range(n),
+        key=lambda vi: (-participation[vi], vi),
+    )
+
+    # Identify trapping-region variables (those with nonzero participation)
+    trapping_region = set(vi for vi in range(n) if participation[vi] > 0)
+    outside_region = sorted(vi for vi in range(n) if participation[vi] == 0)
+
+    rng = np.random.RandomState(seed)
+
+    for vi_target in ranked_vars:
+        if participation[vi_target] == 0:
+            break
+
+        # Find checks connected to this variable
+        checks = sorted(ci for ci in range(m) if H_out[ci, vi_target] != 0)
+        if not checks:
+            continue
+
+        # Safety: variable must keep at least degree 1
+        if H_out[:, vi_target].sum() <= 1:
+            continue
+
+        # Pick a check to disconnect from
+        ci_remove = checks[rng.randint(0, len(checks))]
+        if H_out[ci_remove].sum() <= 1:
+            continue
+
+        H_out[ci_remove, vi_target] = 0.0
+
+        # Try to reconnect to a variable outside the trapping region
+        candidates = [
+            vi for vi in outside_region
+            if H_out[ci_remove, vi] == 0.0
+        ]
+
+        if candidates:
+            new_vi = candidates[rng.randint(0, len(candidates))]
+            H_out[ci_remove, new_vi] = 1.0
+        else:
+            # Fallback: any non-edge in this check row
+            fallback = sorted(
+                vi for vi in range(n)
+                if H_out[ci_remove, vi] == 0.0 and vi != vi_target
+            )
+            if fallback:
+                new_vi = fallback[rng.randint(0, len(fallback))]
+                H_out[ci_remove, new_vi] = 1.0
+            else:
+                H_out[ci_remove, vi_target] = 1.0  # Restore
+                continue
+
+        return H_out
+
+    return H_out
+
+
+# -----------------------------------------------------------
 # Dispatcher
 # -----------------------------------------------------------
 
@@ -632,6 +738,7 @@ _OPERATOR_FUNCTIONS = {
     "girth_preserving_rewire": girth_preserving_rewire,
     "expansion_driven_rewire": expansion_driven_rewire,
     "ipr_trapping_pressure": ipr_trapping_pressure_mutation,
+    "trapping_set_pressure": trapping_set_pressure_mutation,
 }
 
 

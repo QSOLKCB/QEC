@@ -1,10 +1,12 @@
 """
-Tests for v11.1.0 — Residual-Guided Mutation.
+Tests for v11.2.0 — Residual-Guided Mutation.
 
 Verifies:
   - BPResidualAnalyzer determinism and output format
   - residual_guided_mutation determinism, shape, edge count, no input mutation
+  - top-k node selection (v11.2 upgrade)
   - operator registration in _OPERATORS and dispatcher
+  - centralized OPERATORS list
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from src.qec.discovery.guided_mutations import (
     residual_guided_mutation,
     apply_guided_mutation,
     _OPERATORS,
+    OPERATORS,
 )
 
 
@@ -219,3 +222,74 @@ class TestResidualGuidedRegistration:
             op = _OPERATORS[gen % len(_OPERATORS)]
             operators_used.add(op)
         assert "residual_guided" in operators_used
+
+
+# -----------------------------------------------------------
+# v11.2.0 — Top-k selection tests
+# -----------------------------------------------------------
+
+
+class TestResidualGuidedTopK:
+    """Tests for the top-k residual variable selection (v11.2 upgrade)."""
+
+    def test_top_k_parameter_accepted(self):
+        """Verify the top_k parameter is accepted."""
+        H = _small_H()
+        H_out = residual_guided_mutation(H, seed=42, top_k=3)
+        assert H_out.shape == H.shape
+
+    def test_top_k_deterministic(self):
+        """Same top_k and seed produces identical results."""
+        H = _medium_H()
+        r1 = residual_guided_mutation(H, seed=42, top_k=3)
+        r2 = residual_guided_mutation(H, seed=42, top_k=3)
+        np.testing.assert_array_equal(r1, r2)
+
+    def test_top_k_shape_preserved(self):
+        H = _medium_H()
+        H_out = residual_guided_mutation(H, seed=42, top_k=2)
+        assert H_out.shape == H.shape
+
+    def test_top_k_edge_count_preserved(self):
+        H = _medium_H()
+        original_edges = H.sum()
+        H_out = residual_guided_mutation(H, seed=42, top_k=3)
+        assert H_out.sum() == original_edges
+
+    def test_top_k_one_is_valid(self):
+        """top_k=1 should still produce valid output."""
+        H = _small_H()
+        H_out = residual_guided_mutation(H, seed=42, top_k=1)
+        assert H_out.shape == H.shape
+        assert np.all((H_out == 0) | (H_out == 1))
+
+    def test_default_top_k_is_five(self):
+        """Default top_k should be min(5, n)."""
+        H = _medium_H()
+        # With n=8, default k=min(5,8)=5
+        r1 = residual_guided_mutation(H, seed=42)
+        r2 = residual_guided_mutation(H, seed=42, top_k=5)
+        np.testing.assert_array_equal(r1, r2)
+
+
+# -----------------------------------------------------------
+# v11.2.0 — Centralized OPERATORS list tests
+# -----------------------------------------------------------
+
+
+class TestCentralizedOperators:
+    """Tests for the centralized OPERATORS function list."""
+
+    def test_operators_length(self):
+        assert len(OPERATORS) == 8
+
+    def test_operators_are_callable(self):
+        for op in OPERATORS:
+            assert callable(op)
+
+    def test_operators_match_names(self):
+        """OPERATORS function list matches _OPERATORS name list."""
+        assert len(OPERATORS) == len(_OPERATORS)
+
+    def test_residual_guided_in_operators(self):
+        assert residual_guided_mutation in OPERATORS

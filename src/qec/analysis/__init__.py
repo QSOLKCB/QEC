@@ -10,7 +10,9 @@ Fully deterministic: no randomness, no global state, no input mutation.
 """
 
 from src.qec.analysis.trapping_sets import TrappingSetDetector
+from src.qec.analysis.bp_residuals import BPResidualAnalyzer
 
 __all__ = [
     "TrappingSetDetector",
+    "BPResidualAnalyzer",
 ]

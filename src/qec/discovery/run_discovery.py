@@ -35,7 +35,7 @@ from src.qec.utils.artifact_metadata import generate_run_metadata
 def main() -> None:
     """CLI entry point for the discovery engine."""
     parser = argparse.ArgumentParser(
-        description="QLDPC Deterministic Structure Discovery Engine v10.0.0",
+        description="QLDPC Deterministic Structure Discovery Engine v11.4.0",
     )
     parser.add_argument(
         "--population", type=int, default=50,
@@ -99,6 +99,23 @@ def main() -> None:
         default=False,
         help="Disable absorbing-set risk in fitness evaluation",
     )
+    parser.add_argument(
+        "--memetic-optimization",
+        action="store_true",
+        default=True,
+        dest="memetic_optimization",
+        help="Enable memetic local search optimization (default: enabled)",
+    )
+    parser.add_argument(
+        "--no-memetic-optimization",
+        action="store_false",
+        dest="memetic_optimization",
+        help="Disable memetic local search optimization",
+    )
+    parser.add_argument(
+        "--local-steps", type=int, default=10,
+        help="Maximum local optimization steps per individual (default: 10)",
+    )
 
     args = parser.parse_args()
 
@@ -110,7 +127,7 @@ def main() -> None:
         "init_strategy": args.init_strategy,
     }
 
-    print(f"QLDPC Discovery Engine v11.0.0")
+    print(f"QLDPC Discovery Engine v11.4.0")
     print(f"  Spec: {spec}")
     print(f"  Population: {args.population}")
     print(f"  Generations: {args.generations}")
@@ -120,6 +137,9 @@ def main() -> None:
     if args.decoder_aware:
         print(f"  BP trials: {args.bp_trials}")
         print(f"  BP iterations: {args.bp_iterations}")
+    print(f"  Memetic optimization: {args.memetic_optimization}")
+    if args.memetic_optimization:
+        print(f"  Local steps: {args.local_steps}")
     print(f"  Archive: {args.archive_path}")
     print()
 
@@ -135,6 +155,8 @@ def main() -> None:
         decoder_aware=args.decoder_aware,
         bp_trials=args.bp_trials,
         bp_iterations=args.bp_iterations,
+        memetic_optimization=args.memetic_optimization,
+        local_steps=args.local_steps,
     )
 
     result = engine.run(spec)

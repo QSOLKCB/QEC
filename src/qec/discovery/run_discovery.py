@@ -89,6 +89,16 @@ def main() -> None:
         "--bp-iterations", type=int, default=10,
         help="Max BP iterations per probe trial (default: 10)",
     )
+    parser.add_argument(
+        "--absorbing-set-max-size", type=int, default=6,
+        help="Maximum absorbing-set candidate size (default: 6)",
+    )
+    parser.add_argument(
+        "--disable-absorbing-set-risk",
+        action="store_true",
+        default=False,
+        help="Disable absorbing-set risk in fitness evaluation",
+    )
 
     args = parser.parse_args()
 

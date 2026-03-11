@@ -1,5 +1,5 @@
 """
-v11.2.0 — Population Discovery Engine.
+v11.4.0 — Population Discovery Engine.
 
 Deterministic evolutionary search for high-performance LDPC/QLDPC
 parity-check matrices.  Uses tournament selection, elitism, and
@@ -11,6 +11,9 @@ fitness evaluation.
 
 v11.2 extension: imports centralized OPERATORS list from guided_mutations
 to prevent operator list drift.
+
+v11.4 extension: optional memetic local search applied to top individuals
+after mutation, dramatically improving convergence.
 
 Layer 3 — Discovery.
 Does not import or modify the decoder (Layer 1).
@@ -27,6 +30,7 @@ import numpy as np
 
 from src.qec.fitness.fitness_engine import FitnessEngine
 from src.qec.discovery.guided_mutations import apply_guided_mutation, OPERATORS
+from src.qec.discovery.local_optimizer import LocalGraphOptimizer
 from src.qec.discovery.repair_operators import (
     repair_tanner_graph,
     validate_tanner_graph,
@@ -70,6 +74,10 @@ class DiscoveryEngine:
         Number of BP probe trials when decoder-aware (default 50).
     bp_iterations : int
         Max BP iterations per probe trial (default 10).
+    memetic_optimization : bool
+        Enable memetic local search on top individuals (default True).
+    local_steps : int
+        Maximum local optimization steps per individual (default 10).
     """
 
     def __init__(
@@ -81,12 +89,16 @@ class DiscoveryEngine:
         decoder_aware: bool = False,
         bp_trials: int = 50,
         bp_iterations: int = 10,
+        memetic_optimization: bool = True,
+        local_steps: int = 10,
     ) -> None:
         self.population_size = population_size
         self.generations = generations
         self.seed = seed
         self.archive_path = archive_path
         self.decoder_aware = decoder_aware
+        self.memetic_optimization = memetic_optimization
+        self.local_steps = local_steps
         self._fitness_engine = FitnessEngine(
             decoder_aware=decoder_aware,
             bp_trials=bp_trials,
@@ -143,6 +155,10 @@ class DiscoveryEngine:
 
             # Apply mutations
             children = self.apply_mutations(parents, gen_seed)
+
+            # Memetic local search on top individuals
+            if self.memetic_optimization and children:
+                children = self.apply_memetic_step(children, gen_seed)
 
             # Preserve elite
             self.preserve_elite(children)
@@ -321,6 +337,73 @@ class DiscoveryEngine:
                 "generation": self._generation,
             }
             children.append(child)
+
+        return children
+
+    def apply_memetic_step(
+        self,
+        children: list[dict[str, Any]],
+        gen_seed: int,
+    ) -> list[dict[str, Any]]:
+        """Apply local optimization to the top 20% of children.
+
+        Parameters
+        ----------
+        children : list[dict[str, Any]]
+            Child candidates after mutation.
+        gen_seed : int
+            Seed for this generation.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            Children with top individuals locally optimized.
+        """
+        if not children:
+            return children
+
+        # Evaluate unevaluated children first so we can rank them
+        for child in children:
+            if child["fitness"] is None:
+                result = self._fitness_engine.evaluate(child["H"])
+                child["fitness"] = result["composite"]
+                child["metrics"] = result["metrics"]
+
+        # Sort by fitness descending
+        ranked = sorted(
+            range(len(children)),
+            key=lambda i: (
+                -(children[i].get("fitness") or float("-inf")),
+                children[i].get("code_id", ""),
+            ),
+        )
+
+        # Apply local optimization to top 20%
+        n_optimize = max(1, len(children) // 5)
+        top_indices = set(ranked[:n_optimize])
+
+        for idx in sorted(top_indices):
+            child = children[idx]
+            memetic_seed = _derive_seed(gen_seed, f"memetic_{idx}")
+
+            optimizer = LocalGraphOptimizer(
+                max_steps=self.local_steps,
+                seed=memetic_seed,
+            )
+            H_optimized = optimizer.optimize(child["H"], self._fitness_engine)
+
+            # Accept only if optimization changed the matrix
+            if not np.array_equal(H_optimized, child["H"]):
+                new_result = self._fitness_engine.evaluate(H_optimized)
+                children[idx] = {
+                    "code_id": _matrix_id(H_optimized),
+                    "H": H_optimized,
+                    "fitness": new_result["composite"],
+                    "metrics": new_result["metrics"],
+                    "parent_id": child.get("code_id"),
+                    "operator": f"{child.get('operator', 'unknown')}+local",
+                    "generation": child.get("generation", self._generation),
+                }
 
         return children
 

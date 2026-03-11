@@ -1,5 +1,5 @@
 """
-v11.0.0 — Population Discovery Engine.
+v11.2.0 — Population Discovery Engine.
 
 Deterministic evolutionary search for high-performance LDPC/QLDPC
 parity-check matrices.  Uses tournament selection, elitism, and
@@ -8,6 +8,9 @@ guided mutations with spectral fitness evaluation.
 v11 extension: optional decoder-aware mode incorporates trapping-set
 analysis, BP stability probes, and Jacobian spectral radius into
 fitness evaluation.
+
+v11.2 extension: imports centralized OPERATORS list from guided_mutations
+to prevent operator list drift.
 
 Layer 3 — Discovery.
 Does not import or modify the decoder (Layer 1).
@@ -23,7 +26,7 @@ from typing import Any
 import numpy as np
 
 from src.qec.fitness.fitness_engine import FitnessEngine
-from src.qec.discovery.guided_mutations import apply_guided_mutation
+from src.qec.discovery.guided_mutations import apply_guided_mutation, OPERATORS
 from src.qec.discovery.repair_operators import (
     repair_tanner_graph,
     validate_tanner_graph,
@@ -281,18 +284,12 @@ class DiscoveryEngine:
         """
         children = []
 
+        # Use centralized operator name list from guided_mutations
+        from src.qec.discovery.guided_mutations import _OPERATORS
+        operators = _OPERATORS
+
         for i, parent in enumerate(parents):
             mut_seed = _derive_seed(gen_seed, f"mutate_{i}")
-            operators = [
-                "spectral_edge_pressure",
-                "cycle_pressure",
-                "ace_repair",
-                "girth_preserving_rewire",
-                "expansion_driven_rewire",
-                "ipr_trapping_pressure",
-                "trapping_set_pressure",
-                "residual_guided",
-            ]
             operator_idx = (self._generation + i) % len(operators)
             operator = operators[operator_idx]
 

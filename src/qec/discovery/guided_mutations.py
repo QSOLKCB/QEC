@@ -1,5 +1,5 @@
 """
-v11.1.0 — Guided Mutation Operators.
+v11.2.0 — Guided Mutation Operators.
 
 Eight deterministic mutation operators guided by spectral and structural
 analysis of the Tanner graph.
@@ -12,7 +12,11 @@ Operators:
   5. expansion_driven_rewire — improve neighbourhood expansion
   6. ipr_trapping_pressure — rewire high-IPR variable nodes (proto-trapping sets)
   7. trapping_set_pressure — break harmful local trapping-set structure
-  8. residual_guided — rewire edges from high-residual to low-residual variables
+  8. residual_guided — rewire edges from top-k high-residual to low-residual variables
+
+v11.2 upgrade: residual_guided_mutation now samples from top-k residual
+variables for improved mutation diversity.  Exports OPERATORS list for
+centralized registry.
 
 Layer 3 — Discovery.
 Does not import or modify the decoder (Layer 1).
@@ -737,13 +741,18 @@ def residual_guided_mutation(
     H: np.ndarray,
     *,
     seed: int = 0,
+    top_k: int | None = None,
 ) -> np.ndarray:
-    """Rewire edges from high-residual to low-residual variable nodes.
+    """Rewire edges from top-k high-residual to low-residual variable nodes.
 
     Computes BP residual magnitudes per variable node using a short
-    min-sum BP run, then moves an edge from a high-residual variable
-    to a low-residual variable to redirect connectivity away from
-    unstable decoder regions.
+    min-sum BP run, then selects from the top-k highest-residual
+    variables and moves an edge to a low-residual variable to redirect
+    connectivity away from unstable decoder regions.
+
+    v11.2 upgrade: samples from top-k residual variables (default k=5)
+    instead of iterating from the single maximum, improving mutation
+    diversity and search convergence.
 
     Parameters
     ----------
@@ -751,6 +760,9 @@ def residual_guided_mutation(
         Binary parity-check matrix, shape (m, n).
     seed : int
         Deterministic seed.
+    top_k : int or None
+        Number of top-residual variables to sample from.
+        Default: min(5, num_variables).
 
     Returns
     -------
@@ -784,30 +796,48 @@ def residual_guided_mutation(
         key=lambda vi: (round(residual_map[vi], _ROUND), vi),
     )
 
-    # Top-k high-residual variables to consider
-    top_k = max(1, n // 4)
+    # Top-k high-residual variables to sample from
+    k = top_k if top_k is not None else min(5, n)
+    high_nodes = ranked_high[:k]
+
+    # Bottom-k low-residual candidate targets
+    low_nodes = ranked_low[:k]
 
     rng = np.random.RandomState(seed)
 
-    for vi_high in ranked_high[:top_k]:
-        # Find checks connected to this high-residual variable
-        checks = sorted(ci for ci in range(m) if H_out[ci, vi_high] != 0)
-        if not checks:
+    # Select a random high-residual variable from top-k
+    idx = rng.randint(0, len(high_nodes))
+    vi_high = high_nodes[idx]
+
+    # Find checks connected to this high-residual variable
+    checks = sorted(ci for ci in range(m) if H_out[ci, vi_high] != 0)
+    if not checks:
+        return H_out
+
+    # Safety: variable must keep at least degree 1
+    if H_out[:, vi_high].sum() <= 1:
+        return H_out
+
+    # Pick a check to disconnect from
+    ci_remove = checks[rng.randint(0, len(checks))]
+    if H_out[ci_remove].sum() <= 1:
+        return H_out
+
+    H_out[ci_remove, vi_high] = 0.0
+
+    # Try to reconnect to a low-residual variable, preferring low_nodes
+    rewired = False
+    for vi_low in low_nodes:
+        if vi_low == vi_high:
             continue
-
-        # Safety: variable must keep at least degree 1
-        if H_out[:, vi_high].sum() <= 1:
+        if H_out[ci_remove, vi_low] != 0.0:
             continue
+        H_out[ci_remove, vi_low] = 1.0
+        rewired = True
+        break
 
-        # Pick a check to disconnect from
-        ci_remove = checks[rng.randint(0, len(checks))]
-        if H_out[ci_remove].sum() <= 1:
-            continue
-
-        H_out[ci_remove, vi_high] = 0.0
-
-        # Try to reconnect to a low-residual variable
-        rewired = False
+    if not rewired:
+        # Fallback: try any low-residual variable
         for vi_low in ranked_low:
             if vi_low == vi_high:
                 continue
@@ -817,11 +847,8 @@ def residual_guided_mutation(
             rewired = True
             break
 
-        if not rewired:
-            H_out[ci_remove, vi_high] = 1.0  # Restore
-            continue
-
-        return H_out
+    if not rewired:
+        H_out[ci_remove, vi_high] = 1.0  # Restore
 
     return H_out
 
@@ -829,6 +856,20 @@ def residual_guided_mutation(
 # -----------------------------------------------------------
 # Dispatcher
 # -----------------------------------------------------------
+
+
+# Centralized operator registry (v11.2.0).
+# Import this list in other modules to prevent drift.
+OPERATORS = [
+    spectral_edge_pressure_mutation,
+    cycle_pressure_mutation,
+    ace_repair_mutation,
+    girth_preserving_rewire,
+    expansion_driven_rewire,
+    ipr_trapping_pressure_mutation,
+    trapping_set_pressure_mutation,
+    residual_guided_mutation,
+]
 
 
 _OPERATOR_FUNCTIONS = {

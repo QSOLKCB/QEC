@@ -1,11 +1,14 @@
 """
-v11.0.0 — Fitness Engine.
+v11.2.0 — Fitness Engine.
 
 Computes weighted composite fitness scores from spectral metrics for
 LDPC/QLDPC parity-check matrices.  Supports caching by matrix hash.
 
 v11 extension: optional decoder-aware mode adds trapping-set penalty,
 BP stability score, and Jacobian instability penalty.
+
+v11.2 extension: adds Bethe Hessian stability score to decoder-aware
+composite fitness.
 
 Layer 3 — Fitness.
 Does not import or modify the decoder (Layer 1).
@@ -172,8 +175,9 @@ class FitnessEngine:
         }
 
     def _compute_decoder_aware_metrics(self, H: np.ndarray) -> dict[str, Any]:
-        """Compute decoder-aware metrics: trapping sets, BP stability, Jacobian."""
+        """Compute decoder-aware metrics: trapping sets, BP stability, Jacobian, Bethe Hessian."""
         from src.qec.analysis.trapping_sets import TrappingSetDetector
+        from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer
         from src.qec.decoder.stability_probe import BPStabilityProbe, estimate_bp_instability
 
         if self._trapping_detector is None:
@@ -188,6 +192,10 @@ class FitnessEngine:
         ts_result = self._trapping_detector.detect(H)
         bp_result = self._bp_probe.probe(H)
         jac_result = estimate_bp_instability(H, seed=self._seed)
+
+        # Bethe Hessian stability
+        bh_analyzer = BetheHessianAnalyzer()
+        bh_result = bh_analyzer.compute_bethe_hessian_stability(H)
 
         # Trapping-set penalty: normalized total count scaled by min size
         total_ts = ts_result["total"]
@@ -212,6 +220,8 @@ class FitnessEngine:
             "oscillation_score": bp_result["oscillation_score"],
             "jacobian_spectral_radius_est": jac_rho,
             "jacobian_instability_penalty": jacobian_instability_penalty,
+            "bethe_hessian_min_eigenvalue": bh_result["bethe_hessian_min_eigenvalue"],
+            "bethe_hessian_stability_score": bh_result["bethe_hessian_stability_score"],
         }
 
     def _compute_components(self, metrics: dict[str, Any]) -> dict[str, float]:
@@ -232,10 +242,12 @@ class FitnessEngine:
             bp_score = metrics.get("bp_stability_score", 1.0)
             ts_penalty = metrics.get("trapping_set_penalty", 0.0)
             jac_penalty = metrics.get("jacobian_instability_penalty", 0.0)
+            bh_stability = metrics.get("bethe_hessian_stability_score", 0.0)
 
             components["bp_stability"] = w.get("bp_stability", 2.0) * bp_score
             components["trapping_set_penalty"] = w.get("trapping_set_penalty", -3.0) * ts_penalty
             components["jacobian_instability_penalty"] = w.get("jacobian_instability_penalty", -1.5) * jac_penalty
+            components["bethe_hessian_stability"] = w.get("bethe_hessian_stability", 1.5) * bh_stability
 
         return components
 

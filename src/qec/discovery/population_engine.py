@@ -25,6 +25,7 @@ from src.qec.discovery.repair_operators import (
     validate_tanner_graph,
 )
 from src.qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
+from src.qec.generation.peg_generator import generate_peg_population
 
 
 _ROUND = 12
@@ -146,12 +147,20 @@ class DiscoveryEngine:
         Parameters
         ----------
         spec : dict[str, Any]
-            Graph generation specification.
+            Graph generation specification.  If ``init_strategy`` is
+            ``"peg"``, uses PEG-seeded generation.  Otherwise uses the
+            default random generator.
         """
         init_seed = _derive_seed(self.seed, "init_pop")
-        raw = generate_tanner_graph_candidates(
-            spec, self.population_size, base_seed=init_seed,
-        )
+
+        if spec.get("init_strategy") == "peg":
+            raw = generate_peg_population(
+                spec, self.population_size, base_seed=init_seed,
+            )
+        else:
+            raw = generate_tanner_graph_candidates(
+                spec, self.population_size, base_seed=init_seed,
+            )
 
         self._population = []
         for i, rc in enumerate(raw):

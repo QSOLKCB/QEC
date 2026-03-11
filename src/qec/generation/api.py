@@ -28,3 +28,9 @@ from src.qec.generation.export_generated_graph import (
 from src.qec.generation.deterministic_construction import (
     construct_deterministic_tanner_graph,
 )
+
+# ── v10.2.0: PEG-seeded spectral population initialization ────
+from src.qec.generation.peg_generator import (
+    generate_peg_tanner_graph,
+    generate_peg_population,
+)

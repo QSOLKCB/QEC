@@ -69,6 +69,11 @@ def main() -> None:
         "--check-degree", type=int, default=6,
         help="Target check node degree (default: 6)",
     )
+    parser.add_argument(
+        "--init-strategy", type=str, default="peg",
+        choices=["random", "peg"],
+        help="Population initialization strategy (default: peg)",
+    )
 
     args = parser.parse_args()
 
@@ -77,13 +82,15 @@ def main() -> None:
         "num_checks": args.num_checks,
         "variable_degree": args.variable_degree,
         "check_degree": args.check_degree,
+        "init_strategy": args.init_strategy,
     }
 
-    print(f"QLDPC Discovery Engine v10.0.0")
+    print(f"QLDPC Discovery Engine v10.2.0")
     print(f"  Spec: {spec}")
     print(f"  Population: {args.population}")
     print(f"  Generations: {args.generations}")
     print(f"  Seed: {args.seed}")
+    print(f"  Init strategy: {args.init_strategy}")
     print(f"  Archive: {args.archive_path}")
     print()
 

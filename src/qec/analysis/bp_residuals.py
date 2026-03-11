@@ -81,11 +81,14 @@ class BPResidualAnalyzer:
         # var_to_check[vi] = sorted list of check indices
         check_to_var: list[list[int]] = [[] for _ in range(m)]
         var_to_check: list[list[int]] = [[] for _ in range(n)]
-        for ci in range(m):
-            for vi in range(n):
-                if H_arr[ci, vi] != 0:
-                    check_to_var[ci].append(vi)
-                    var_to_check[vi].append(ci)
+
+        # Use NumPy to find all nonzero entries in H_arr to avoid an O(m·n)
+        # nested Python loop; this keeps the same complexity but pushes the
+        # per-entry scanning into optimized NumPy code.
+        rows, cols = np.nonzero(H_arr)
+        for ci, vi in zip(rows, cols):
+            check_to_var[ci].append(int(vi))
+            var_to_check[vi].append(int(ci))
 
         # Initialize messages: check-to-variable messages
         # msg_c2v[(ci, vi)] = message from check ci to variable vi

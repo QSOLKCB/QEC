@@ -1,320 +1,292 @@
 # QSOLKCB / QEC  
 ### Deterministic Quantum Error Correction Research Framework
 
-[![Release v5.4.0](https://img.shields.io/badge/release-v7.1.0-blue)](https://github.com/QSOLKCB/QEC/releases/tag/v7.1.0)
+[![Release v12.9.0](https://img.shields.io/badge/release-v12.9.0-blue)](https://github.com/QSOLKCB/QEC/releases/tag/v12.9.0)
 [![Research Framework](https://img.shields.io/badge/type-research%20framework-blue)]
 [![License: CC BY 4.0](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
-QEC is a **deterministic research framework for studying belief propagation decoding dynamics in QLDPC CSS quantum error correction codes**.
+QEC is a deterministic research framework for studying belief propagation dynamics, spectral structure, and Tanner graph evolution in LDPC / QLDPC codes.
 
-The system provides a controlled environment for investigating decoder behavior, attractor geometry, spectral structure of Tanner graphs, and decoding stability under reproducible experimental conditions.
+The system combines spectral diagnostics, failure-structure prediction, and graph mutation to explore how parity-check graphs influence decoding stability.
 
-Unlike typical simulation toolkits, QEC is designed as an **experimental platform for decoding research**, emphasizing deterministic execution, transparent algorithms, and reproducible benchmarks.
+Unlike typical simulation toolkits, QEC functions as a deterministic discovery engine and experimental laboratory for Tanner graph dynamics.
 
----
+Overview
 
-# Overview
+Belief propagation decoding on sparse parity-check graphs exhibits complex nonlinear dynamics, including:
 
-Belief propagation decoding on sparse parity-check graphs exhibits complex dynamical behavior including:
+trapping sets
 
-- trapping sets
-- oscillatory convergence
-- metastable states
-- incorrect fixed points
-- spectral fragility
+absorbing sets
 
-Understanding these phenomena requires controlled experiments where decoder behavior can be observed without stochastic noise or hidden heuristics.
+oscillatory convergence
 
-The QEC framework provides a deterministic infrastructure for performing these studies.
+metastable states
 
-Core capabilities include:
+incorrect fixed points
 
-- invariant-safe QLDPC CSS code construction
-- deterministic belief propagation decoding
-- structured decoder experimentation
-- spectral Tanner graph diagnostics
-- stability prediction and decoder control
-- reproducible FER / DPS benchmarking
+spectral fragility
 
-All components are engineered to maintain **byte-identical results across repeated runs**.
+Understanding these phenomena requires controlled experiments where decoder behavior and graph structure can be observed under reproducible conditions.
 
----
+The QEC framework provides this deterministic infrastructure.
 
-# Key Principles
+Recent versions extend the system into a graph discovery engine capable of evolving Tanner graphs using spectral signals and predicted decoding failure structures.
 
-The framework follows several strict design principles.
+Key Capabilities
+Deterministic Tanner Graph Discovery
 
-### Determinism
+The discovery engine evolves parity-check matrices using structural and spectral diagnostics.
 
-All algorithms are deterministic.
+Signals guiding graph mutation include:
 
-No stochastic elements are introduced unless explicitly controlled.  
-Repeated runs with identical inputs produce **identical outputs**.
+non-backtracking spectral radius
 
-### Experimental Transparency
+eigenvector localization (IPR)
 
-Decoder behavior is explicitly observable and measurable.
+trapping-set prediction
 
-Diagnostics operate outside the decoder core and never modify message passing.
+decoder residual dynamics
 
-### Architectural Separation
+cycle topology diagnostics
 
-The system is organized into clearly separated layers:
+This enables physics-informed graph evolution rather than stochastic search.
 
+LDPC / QLDPC Code Construction
 
-Diagnostics → Predictors → Controllers → Decoder → Benchmark Harness
+The framework provides deterministic tools for constructing parity-check matrices:
 
+PEG-style Tanner graph generation
 
-Each layer observes or steers the layer below it without violating its invariants.
+deterministic graph lifting
 
-### Reproducible Benchmarking
+parity-check validation
 
-All experiments are designed to support reproducible research results.
+CSS commutation verification
 
-If a result cannot be reproduced deterministically, it is not considered a baseline.
+reproducible graph transformations
 
----
+These tools support both classical LDPC and quantum CSS code research.
 
-# Core Capabilities
+Belief Propagation Decoding
 
-## Deterministic QLDPC CSS Construction
+Deterministic BP implementations include:
 
-The framework provides tools for constructing quantum LDPC CSS codes with invariant-safe parity-check matrices.
+sum-product
 
-Features include:
+min-sum
 
-- protograph-based constructions
-- deterministic lifting
-- parity-check validation
-- CSS commutation verification
-- reproducible structural transformations
+normalized min-sum
 
-These tools allow controlled experimentation with Tanner graph topology.
+offset min-sum
 
----
+Supported scheduling strategies:
 
-## Belief Propagation Decoding
+flooding
 
-Multiple deterministic BP variants are available:
+layered
 
-- sum-product
-- min-sum
-- normalized min-sum
-- offset min-sum
+residual
 
-Supported scheduling modes include:
+hybrid residual
 
-- flooding
-- layered
-- residual
-- hybrid residual
-- adaptive scheduling
+adaptive scheduling
 
-All schedules are implemented without stochastic elements.
+All implementations avoid hidden randomness.
 
----
+Spectral Tanner Graph Diagnostics
 
-## Deterministic Postprocessing
+The framework includes deterministic spectral analysis tools for Tanner graphs:
 
-Postprocessing algorithms refine BP corrections without altering message passing.
+non-backtracking spectral radius
 
-Available strategies include:
+Bethe-Hessian stability
 
-- Ordered statistics decoding (OSD)
-- combination-sweep OSD
-- posterior-guided OSD
-- BP-guided deterministic decimation
+eigenvector localization
 
-These methods remain deterministic and fully reproducible.
+inverse participation ratio (IPR)
 
----
+These diagnostics identify graph structures associated with decoding instability.
 
-## Spectral Tanner Graph Diagnostics
+Trapping-Set Prediction
 
-The framework provides deterministic spectral diagnostics for Tanner graphs.
+Recent versions introduce NB eigenvector trapping-set prediction.
 
-These diagnostics analyze structural properties of the parity-check matrix including:
+The predictor identifies graph regions likely to produce decoding failures using:
 
-- spectral radius
-- spectral gaps
-- eigenmode localization
-- inverse participation ratio (IPR)
+eigenvector localization
 
-Localization analysis identifies nodes associated with fragile spectral modes.
+non-backtracking flow
 
-These structural signals often correlate with decoding instability.
+structural clustering
 
----
+These signals enable mutation steering and instability detection before decoding runs.
 
-## BP Dynamics Diagnostics
+Spectral-Guided Mutation
 
-The toolkit includes a layered diagnostics stack for analyzing belief propagation behavior.
+The discovery engine includes mutation operators guided by structural diagnostics.
 
-Diagnostics measure properties such as:
+Mutation signals include:
 
-- belief oscillation
-- energy plateau dynamics
-- trapping-set persistence
-- basin switching
-- convergence regimes
+cycle pressure
 
-These measurements allow systematic investigation of the BP energy landscape.
+ACE repair
 
----
+spectral localization
 
-## Spectral-Guided Decoder Control (v7)
+residual cluster analysis
 
-The latest system introduces a **spectral-guided decoder control layer**.
+non-backtracking flow
 
-This experimental controller uses structural and dynamical diagnostics to steer decoder behavior.
+trapping-set pressure
 
-Control strategies include:
+These operators evolve Tanner graphs while preserving structural invariants.
 
-- predictor-guided scheduling
-- adaptive per-node damping
-- risk-aware decoding policies
+Spectral Basin Analysis
 
-The controller operates entirely outside the decoder core, preserving algorithmic invariants.
+The framework now supports visualization of spectral phase space during graph mutation.
 
----
+Metrics tracked include:
 
-# Benchmarking Framework
+spectral radius
 
-The repository includes a deterministic benchmarking harness for measuring decoder performance.
+eigenvector localization
+
+trapping-set risk
+
+mutation trajectory
+
+This allows researchers to study instability basins in Tanner graph space.
+
+Benchmarking Framework
+
+The repository includes deterministic benchmarking tools for measuring decoder performance.
 
 Experiments evaluate:
 
-- Frame Error Rate (FER)
-- Distance Performance Scaling (DPS)
-- decoding iteration counts
-- stability metrics
-- spectral control effectiveness
+Frame Error Rate (FER)
+
+decoding iteration counts
+
+spectral stability metrics
+
+mutation effectiveness
 
 All benchmark runs reuse identical deterministic error instances.
 
-This ensures fair comparisons between decoding strategies.
+This ensures fair comparisons across decoding strategies.
 
----
-
-# Architecture
+System Architecture
 
 The framework follows a layered experimental architecture.
 
+Tanner Graph Generation
+↓
+Structural Diagnostics
+↓
+Spectral Diagnostics
+↓
+Failure Structure Prediction
+↓
+Mutation Operators
+↓
+Memetic Local Optimization
+↓
+Evolutionary Search
+↓
+Discovery Archive
 
-Code Construction
-↓
-Channel Model
-↓
-Decoder Core
-↓
-Postprocessing
-↓
-Diagnostics
-↓
-Predictors
-↓
-Decoder Control
-↓
-Benchmark Harness
+Each layer observes or steers the layer below it without violating its invariants.
 
-
-Each layer is isolated to preserve reproducibility and interpretability.
-
-The decoder core remains the experimental object while diagnostics and controllers act as external instrumentation.
-
----
-
-# Determinism Guarantees
+Determinism Guarantees
 
 The system enforces strict deterministic execution.
 
-Key guarantees include:
+Key guarantees:
 
-- no hidden randomness
-- deterministic scheduling
-- deterministic perturbation experiments
-- stable JSON artifacts
-- identical outputs across repeated runs
+no hidden randomness
 
-Baseline decoder results remain unchanged when diagnostics are disabled.
+deterministic scheduling
 
----
+deterministic experiments
 
-# Research Applications
+reproducible JSON artifacts
 
-The QEC framework enables research into:
+identical results across repeated runs
 
-- belief propagation attractor geometry
-- trapping-set dynamics
-- spectral fragility of Tanner graphs
-- decoding stability prediction
-- distance performance scaling of QLDPC codes
-- structure-aware decoding strategies
+All randomness must use:
 
-The system is intended as a **research instrument** for studying inference dynamics in sparse graphical models used in quantum error correction.
+np.random.RandomState(seed)
 
----
+Same seed → identical outputs.
 
-# Installation
+Installation
 
 Install the repository in editable mode:
 
-```
 pip install -e .
-```
 
-For development (includes pytest):
+For development:
 
-```
 pip install -e .[dev]
-```
+Running Experiments
 
----
+Example experiment:
 
-# Running Experiments
+PYTHONPATH=. python experiments/trapping_risk_correlation.py
 
-Example benchmark execution:
+Example discovery experiment:
 
+PYTHONPATH=. python experiments/basin_steering_experiment.py
 
-PYTHONPATH=. python bench/dps_v381_eval.py
---trials 200
---distances 5 7
---p-values 0.03
+Experiments produce deterministic JSON artifacts for analysis.
 
+Documentation
 
-Additional experimental features can be enabled using CLI flags for diagnostics, predictors, and controller experiments.
+Important project documents:
 
----
+CLAUDE.md — Codex development guardrails
 
-# Repository Documentation
+CHANGELOG.md — release history
 
-Key project documentation includes:
+PROJECT_STATE.md — architecture snapshot
 
-- **PROJECT_STATE.md** — architecture snapshot
-- **ROADMAP.md** — long-term research direction
-- **CHANGELOG.md** — release history
-- **AUDIT_CHECKLIST.md** — pre-merge safety verification
+ROADMAP.md — long-term research direction
 
-These documents define the current system state and research trajectory.
+These documents describe the current system state and research trajectory.
 
----
+Research Applications
 
-# Design Philosophy
+The QEC framework enables research into:
 
-The project follows several guiding principles:
+belief propagation attractor geometry
 
-Small is beautiful.  
-Determinism is essential.  
+trapping-set dynamics
+
+spectral fragility of Tanner graphs
+
+decoding stability prediction
+
+LDPC / QLDPC code discovery
+
+structure-aware decoding strategies
+
+The system acts as a deterministic laboratory for inference dynamics in sparse graphical models.
+
+Design Philosophy
+
+The project follows several guiding principles.
+
+Small is beautiful.
+Determinism is essential.
 Transparent algorithms beat opaque heuristics.
 
 Negative results are data.
 
----
+Author
 
-# Author
-
-**Trent Slade**  
+Trent Slade
 QSOL-IMC
 
-ORCID  
+ORCID
 https://orcid.org/0009-0002-4515-9237

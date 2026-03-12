@@ -17,6 +17,7 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
+from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
 from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
 
 
@@ -218,6 +219,10 @@ class NonBacktrackingFlowAnalyzer:
             ipr = 0.0
         flow_localization = float(round(ipr, _ROUND))
 
+        nb_localization = EigenvectorLocalizationAnalyzer.compute_ipr(
+            variable_flow,
+        )
+
         result = {
             "directed_edge_flow": directed_edge_flow,
             "edge_flow": edge_flow,
@@ -226,6 +231,7 @@ class NonBacktrackingFlowAnalyzer:
             "max_flow": max_flow,
             "mean_flow": mean_flow,
             "flow_localization": flow_localization,
+            "nb_localization": nb_localization,
         }
 
         if residual_map is not None:

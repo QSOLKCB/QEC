@@ -4,7 +4,8 @@ v12.0.0 — Analysis subsystem.
 Provides trapping-set detection, BP residual analysis, Bethe Hessian
 stability estimation, absorbing-set prediction, cycle topology
 analysis, residual cluster detection, non-backtracking flow analysis,
-and constraint tension analysis for LDPC/QLDPC Tanner graphs.
+constraint tension analysis, and eigenvector localization (IPR)
+diagnostics for LDPC/QLDPC Tanner graphs.
 
 Layer 3 — Analysis.
 Does not import or modify the decoder (Layer 1).
@@ -19,6 +20,7 @@ from src.qec.analysis.cycle_topology import CycleTopologyAnalyzer
 from src.qec.analysis.residual_clusters import ResidualClusterAnalyzer
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 from src.qec.analysis.constraint_tension import ConstraintTensionAnalyzer
+from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
 from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
 
 __all__ = [
@@ -30,5 +32,6 @@ __all__ = [
     "ResidualClusterAnalyzer",
     "NonBacktrackingFlowAnalyzer",
     "ConstraintTensionAnalyzer",
+    "EigenvectorLocalizationAnalyzer",
     "FlowAlignmentAnalyzer",
 ]

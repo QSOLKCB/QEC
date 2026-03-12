@@ -370,13 +370,13 @@ Priority ordering for pre-v12.0.0:
 
 ### P2 — Nice to Have
 
-7. **Add mutation failure diagnostics**: Return a signal (e.g., `mutation_applied: bool`) when operators fall back to no-op.
+8. **Add mutation failure diagnostics**: Return a signal (e.g., `mutation_applied: bool`) when operators fall back to no-op.
 
-8. **Add edge-iteration optimization**: Replace `m × n` loops with `.nonzero()` iteration in NB matrix construction.
+9. **Add edge-iteration optimization**: Replace `m × n` loops with `.nonzero()` iteration in NB matrix construction.
 
-9. **Add integration test**: Verify population engine and discovery engine operator registries are aligned or intentionally different.
+10. **Add integration test**: Verify population engine and discovery engine operator registries are aligned or intentionally different.
 
-10. **Add test for ACE repair on graphs with degree-1 columns**: Exercise the edge-count bug fix.
+11. **Add test for ACE repair on graphs with degree-1 columns**: Exercise the edge-count bug fix.
 
 ---
 

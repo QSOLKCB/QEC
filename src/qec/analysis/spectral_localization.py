@@ -37,12 +37,12 @@ class SpectralLocalizationAnalyzer:
     def __init__(self, power_iterations: int = _POWER_ITER) -> None:
         self.power_iterations = power_iterations
 
-    def compute_pressure(self, H: np.ndarray) -> dict[str, Any]:
+    def compute_pressure(self, H: np.ndarray | scipy.sparse.spmatrix) -> dict[str, Any]:
         """Compute spectral pressure scores for variables and edges.
 
         Parameters
         ----------
-        H : np.ndarray
+        H : np.ndarray or scipy.sparse.spmatrix
             Binary parity-check matrix, shape (m, n).
 
         Returns
@@ -53,8 +53,12 @@ class SpectralLocalizationAnalyzer:
             max_pressure : float
             mean_pressure : float
         """
-        H_arr = np.asarray(H, dtype=np.float64)
-        m, n = H_arr.shape
+        if scipy.sparse.issparse(H):
+            H_csr = H.tocsr()
+            m, n = H_csr.shape
+        else:
+            H_arr = np.asarray(H, dtype=np.float64)
+            m, n = H_arr.shape
 
         if m == 0 or n == 0:
             return {
@@ -66,10 +70,18 @@ class SpectralLocalizationAnalyzer:
 
         # Collect undirected edges (ci, vi) sorted deterministically
         edges: list[tuple[int, int]] = []
-        for ci in range(m):
-            for vi in range(n):
-                if H_arr[ci, vi] != 0:
-                    edges.append((ci, vi))
+        if scipy.sparse.issparse(H):
+            for ci in range(m):
+                for vi in H_csr.indices[
+                    H_csr.indptr[ci] : H_csr.indptr[ci + 1]
+                ]:
+                    edges.append((ci, int(vi)))
+        else:
+            for ci in range(m):
+                for vi in range(n):
+                    if H_arr[ci, vi] != 0:
+                        edges.append((ci, vi))
+        edges.sort()
 
         num_edges = len(edges)
         if num_edges == 0:

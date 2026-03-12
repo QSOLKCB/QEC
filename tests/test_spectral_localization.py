@@ -15,6 +15,7 @@ import sys
 
 import numpy as np
 import pytest
+import scipy.sparse as sp
 
 _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
@@ -151,3 +152,70 @@ class TestSpectralLocalizationAnalyzer:
         result = analyzer.compute_pressure(H)
         # Variable pressure should be normalized to [0, 1]
         assert result["variable_pressure"].max() <= 1.0 + 1e-12
+
+
+class TestSpectralLocalizationSparseInput:
+    """Tests for sparse matrix input support."""
+
+    def test_sparse_dense_identical_small(self):
+        analyzer = SpectralLocalizationAnalyzer()
+        H_dense = _small_H()
+        H_sparse = sp.csr_matrix(H_dense)
+        r_dense = analyzer.compute_pressure(H_dense)
+        r_sparse = analyzer.compute_pressure(H_sparse)
+        np.testing.assert_array_equal(
+            r_dense["variable_pressure"],
+            r_sparse["variable_pressure"],
+        )
+        np.testing.assert_array_equal(
+            r_dense["edge_pressure"],
+            r_sparse["edge_pressure"],
+        )
+        assert r_dense["max_pressure"] == r_sparse["max_pressure"]
+        assert r_dense["mean_pressure"] == r_sparse["mean_pressure"]
+
+    def test_sparse_dense_identical_medium(self):
+        analyzer = SpectralLocalizationAnalyzer()
+        H_dense = _medium_H()
+        H_sparse = sp.csr_matrix(H_dense)
+        r_dense = analyzer.compute_pressure(H_dense)
+        r_sparse = analyzer.compute_pressure(H_sparse)
+        np.testing.assert_array_equal(
+            r_dense["variable_pressure"],
+            r_sparse["variable_pressure"],
+        )
+        np.testing.assert_array_equal(
+            r_dense["edge_pressure"],
+            r_sparse["edge_pressure"],
+        )
+
+    def test_sparse_csc_input(self):
+        analyzer = SpectralLocalizationAnalyzer()
+        H_dense = _small_H()
+        H_csc = sp.csc_matrix(H_dense)
+        r_dense = analyzer.compute_pressure(H_dense)
+        r_sparse = analyzer.compute_pressure(H_csc)
+        np.testing.assert_array_equal(
+            r_dense["variable_pressure"],
+            r_sparse["variable_pressure"],
+        )
+
+    def test_sparse_no_input_mutation(self):
+        analyzer = SpectralLocalizationAnalyzer()
+        H_sparse = sp.csr_matrix(_small_H())
+        data_copy = H_sparse.data.copy()
+        indices_copy = H_sparse.indices.copy()
+        indptr_copy = H_sparse.indptr.copy()
+        analyzer.compute_pressure(H_sparse)
+        np.testing.assert_array_equal(H_sparse.data, data_copy)
+        np.testing.assert_array_equal(H_sparse.indices, indices_copy)
+        np.testing.assert_array_equal(H_sparse.indptr, indptr_copy)
+
+    def test_sparse_deterministic(self):
+        analyzer = SpectralLocalizationAnalyzer()
+        H_sparse = sp.csr_matrix(_small_H())
+        r1 = analyzer.compute_pressure(H_sparse)
+        r2 = analyzer.compute_pressure(H_sparse)
+        np.testing.assert_array_equal(
+            r1["variable_pressure"], r2["variable_pressure"],
+        )

@@ -28,7 +28,6 @@ import numpy as np
 
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
-from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
 from src.qec.discovery.mutation_nb_guided import NBGuidedMutator
 from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.fitness.spectral_metrics import compute_girth_spectrum
@@ -113,11 +112,6 @@ def _compute_spectral_metrics(H: np.ndarray) -> dict[str, Any]:
     ipr_result = EigenvectorLocalizationAnalyzer.compute_ipr(
         flow["variable_flow"],
     )
-    alignment = FlowAlignmentAnalyzer().compute_alignment(
-        flow["variable_flow"],
-        flow["variable_flow"],
-    )
-
     girth_info = compute_girth_spectrum(H)
 
     return {
@@ -129,7 +123,6 @@ def _compute_spectral_metrics(H: np.ndarray) -> dict[str, Any]:
         "max_flow": round(float(flow["max_flow"]), _ROUND),
         "mean_flow": round(float(flow["mean_flow"]), _ROUND),
         "flow_localization": round(float(flow["flow_localization"]), _ROUND),
-        "flow_alignment": round(float(alignment["alignment_score"]), _ROUND),
     }
 
 
@@ -246,7 +239,6 @@ def run_single_trial(
     grad_metrics["mutations_applied"] = len(grad_log)
     grad_metrics["runtime"] = grad_runtime
     results["nb_gradient"] = grad_metrics
-    results["NB_gradient"] = dict(grad_metrics)
 
     return results
 
@@ -286,7 +278,7 @@ def run_ablation(
     dict
         Full experiment results with per-trial and averaged metrics.
     """
-    strategies = ["baseline", "random_swap", "nb_swap", "nb_ipr_swap", "NB_gradient"]
+    strategies = ["baseline", "random_swap", "nb_swap", "nb_ipr_swap", "nb_gradient"]
     trials: list[dict[str, Any]] = []
 
     for trial_idx in range(num_graphs):
@@ -301,7 +293,7 @@ def run_ablation(
     metric_keys = [
         "spectral_radius", "girth", "cycle_count_4", "cycle_count_6",
         "nb_ipr", "max_flow", "mean_flow", "flow_localization",
-        "FER", "mutations_applied", "flow_alignment", "runtime",
+        "FER", "mutations_applied", "runtime",
     ]
 
     averages: dict[str, dict[str, float]] = {}
@@ -327,8 +319,7 @@ def run_ablation(
         "random_swap": averages["random_swap"],
         "nb_swap": averages["nb_swap"],
         "nb_ipr_swap": averages["nb_ipr_swap"],
-        "nb_gradient": averages["NB_gradient"],
-        "NB_gradient": averages["NB_gradient"],
+        "nb_gradient": averages["nb_gradient"],
         "trials": trials,
     }
 

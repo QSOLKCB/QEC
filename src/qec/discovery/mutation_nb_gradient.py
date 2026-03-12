@@ -183,7 +183,7 @@ class NBGradientMutator:
         vi2: int,
         var_neighbors: dict[int, set[int]],
     ) -> bool:
-        shared_checks = var_neighbors.get(vi1, set()) & var_neighbors.get(vi2, set())
+        shared_checks = set(var_neighbors.get(vi1, set())) & set(var_neighbors.get(vi2, set()))
         shared_checks.discard(ci1)
         shared_checks.discard(ci2)
         return len(shared_checks) > 0

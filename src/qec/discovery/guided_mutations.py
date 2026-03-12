@@ -1,7 +1,7 @@
 """
-v11.6.0 — Guided Mutation Operators.
+v12.0.0 — Guided Mutation Operators.
 
-Eleven deterministic mutation operators guided by spectral and structural
+Twelve deterministic mutation operators guided by spectral and structural
 analysis of the Tanner graph.
 
 Operators:
@@ -17,6 +17,8 @@ Operators:
  10. residual_cluster — coordinated rewire of high-residual cluster basins
  11. spectral_localization — rewire high spectral-pressure edges via NB
      eigenvector localization
+ 12. nonbacktracking_flow — constraint-first shear-minimizing mutation via
+     NB flow analysis and constraint tension gating
 
 v11.2 upgrade: residual_guided_mutation now samples from top-k residual
 variables for improved mutation diversity.  Exports OPERATORS list for
@@ -31,6 +33,10 @@ to identify connected high-residual basins and apply coordinated rewiring.
 v11.6 upgrade: adds spectral_localization_mutation using
 SpectralLocalizationAnalyzer to identify and rewire structurally fragile
 edges via non-backtracking eigenvector pressure.
+
+v12.0 upgrade: adds nonbacktracking_flow_mutation using
+NonBacktrackingFlowAnalyzer and ConstraintTensionAnalyzer to apply
+constraint-first shear-minimizing edge rewiring gated by tension threshold.
 
 Layer 3 — Discovery.
 Does not import or modify the decoder (Layer 1).
@@ -66,6 +72,7 @@ _OPERATORS = [
     "absorbing_set_pressure",
     "residual_cluster",
     "spectral_localization",
+    "nonbacktracking_flow",
 ]
 
 
@@ -1232,11 +1239,115 @@ def spectral_localization_mutation(
 
 
 # -----------------------------------------------------------
+# 12. Non-Backtracking Flow Mutation
+# -----------------------------------------------------------
+
+
+def nonbacktracking_flow_mutation(
+    H: np.ndarray,
+    *,
+    seed: int = 0,
+    tension_threshold: float = 0.05,
+) -> np.ndarray:
+    """Constraint-first shear-minimizing mutation via NB flow analysis.
+
+    Uses ``NonBacktrackingFlowAnalyzer`` and ``ConstraintTensionAnalyzer``
+    to detect structural instability flow and apply a deterministic
+    shear-minimizing edge rewire only when constraint tension exceeds
+    the threshold.
+
+    v12.0 — lattice-gated correction: mutation occurs only when
+    structural instability (tension kappa) is significant.
+
+    Parameters
+    ----------
+    H : np.ndarray
+        Binary parity-check matrix, shape (m, n).
+    seed : int
+        Deterministic seed.
+    tension_threshold : float
+        Minimum constraint tension kappa to trigger mutation (default 0.05).
+
+    Returns
+    -------
+    np.ndarray
+        Mutated parity-check matrix with shape and edge count preserved.
+    """
+    from src.qec.analysis.nonbacktracking_flow import (
+        NonBacktrackingFlowAnalyzer,
+    )
+    from src.qec.analysis.constraint_tension import (
+        ConstraintTensionAnalyzer,
+    )
+
+    H_arr = np.asarray(H, dtype=np.float64)
+    m, n = H_arr.shape
+    H_out = H_arr.copy()
+
+    if m == 0 or n == 0:
+        return H_out
+
+    # Step 1: Compute flow.
+    flow_analyzer = NonBacktrackingFlowAnalyzer()
+    flow = flow_analyzer.compute_flow(H_arr)
+
+    # Step 2: Compute tension.
+    tension_analyzer = ConstraintTensionAnalyzer()
+    tension_result = tension_analyzer.compute_tension(H_arr, flow=flow)
+    kappa = tension_result["tension"]
+
+    # Step 3: Gate on tension threshold.
+    if kappa < tension_threshold:
+        return H_out
+
+    state_labels = tension_result["state_labels"]
+    variable_flow = flow["variable_flow"]
+
+    # Step 4: Identify highest-flow variable.
+    vi_high = int(np.argmax(variable_flow))
+
+    # Safety: variable must keep at least degree 1.
+    if H_out[:, vi_high].sum() <= 1:
+        return H_out
+
+    # Select a connected check node (first in sorted order for determinism).
+    checks = sorted(ci for ci in range(m) if H_out[ci, vi_high] != 0)
+    if not checks:
+        return H_out
+
+    ci_remove = checks[0]
+
+    # Safety: check must keep at least degree 1.
+    if H_out[ci_remove].sum() <= 1:
+        return H_out
+
+    # Remove edge.
+    H_out[ci_remove, vi_high] = 0.0
+
+    # Step 5: Reconnect to corrective variable.
+    rewired = False
+    for vi_low in range(n):
+        if state_labels[vi_low] != 2:  # Must be corrective
+            continue
+        if H_out[ci_remove, vi_low] != 0.0:  # No duplicate edges
+            continue
+        H_out[ci_remove, vi_low] = 1.0
+        rewired = True
+        break
+
+    if not rewired:
+        # No corrective candidate: restore original edge.
+        H_out[ci_remove, vi_high] = 1.0
+
+    return H_out
+
+
+# -----------------------------------------------------------
 # Dispatcher
 # -----------------------------------------------------------
 
 
-# Centralized operator registry (v11.6.0).
+# Centralized operator registry (v12.0.0).
 # Import this list in other modules to prevent drift.
 OPERATORS = [
     spectral_edge_pressure_mutation,
@@ -1250,6 +1361,7 @@ OPERATORS = [
     absorbing_set_pressure_mutation,
     residual_cluster_mutation,
     spectral_localization_mutation,
+    nonbacktracking_flow_mutation,
 ]
 
 
@@ -1265,6 +1377,7 @@ _OPERATOR_FUNCTIONS = {
     "absorbing_set_pressure": absorbing_set_pressure_mutation,
     "residual_cluster": residual_cluster_mutation,
     "spectral_localization": spectral_localization_mutation,
+    "nonbacktracking_flow": nonbacktracking_flow_mutation,
 }
 
 

@@ -55,6 +55,7 @@ class NonBacktrackingFlowAnalyzer:
         Returns
         -------
         dict
+            directed_edges : list[tuple[int, int]], sorted directed edge list
             directed_edge_flow : np.ndarray, shape (2*num_edges,)
             edge_flow : np.ndarray, shape (num_edges,)
             variable_flow : np.ndarray, shape (n,)
@@ -72,6 +73,7 @@ class NonBacktrackingFlowAnalyzer:
             m, n = H_arr.shape
 
         empty = {
+            "directed_edges": [],
             "directed_edge_flow": np.zeros(0, dtype=np.float64),
             "edge_flow": np.zeros(0, dtype=np.float64),
             "variable_flow": np.zeros(n, dtype=np.float64),
@@ -137,6 +139,7 @@ class NonBacktrackingFlowAnalyzer:
 
         if not rows:
             return {
+                "directed_edges": directed_edges,
                 "directed_edge_flow": np.zeros(num_de, dtype=np.float64),
                 "edge_flow": np.zeros(num_edges, dtype=np.float64),
                 "variable_flow": np.zeros(n, dtype=np.float64),
@@ -224,6 +227,7 @@ class NonBacktrackingFlowAnalyzer:
         )
 
         result = {
+            "directed_edges": directed_edges,
             "directed_edge_flow": directed_edge_flow,
             "edge_flow": edge_flow,
             "variable_flow": variable_flow,

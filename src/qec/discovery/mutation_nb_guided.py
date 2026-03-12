@@ -103,6 +103,9 @@ class NBGuidedMutator:
         else:
             H_arr = np.asarray(H, dtype=np.float64).copy()
 
+        if not self.enabled:
+            return H_arr, []
+
         m, n = H_arr.shape
         if m == 0 or n == 0:
             return H_arr, []
@@ -122,6 +125,7 @@ class NBGuidedMutator:
 
         scores = self._compute_edge_scores(
             H_arr, edges, directed_edge_flow,
+            flow["directed_edges"],
         )
 
         # Step 3: Rank edges deterministically.
@@ -135,6 +139,9 @@ class NBGuidedMutator:
         used_checks: set[int] = set()
         used_vars: set[int] = set()
 
+        # Precompute neighbor sets for efficient swap search.
+        check_neighbors, var_neighbors = self._build_neighbor_sets(H_new)
+
         for ci, vi in ranked:
             if len(mutations) >= k:
                 break
@@ -144,10 +151,12 @@ class NBGuidedMutator:
                 continue
 
             # Must keep at least one edge per row and column.
-            if H_new[ci].sum() <= 1 or H_new[:, vi].sum() <= 1:
+            if len(check_neighbors[ci]) <= 1 or len(var_neighbors[vi]) <= 1:
                 continue
 
-            swap = self._find_valid_rewire(H_new, ci, vi, m, n)
+            swap = self._find_valid_rewire(
+                H_new, ci, vi, check_neighbors, var_neighbors,
+            )
             if swap is None:
                 continue
 
@@ -162,6 +171,16 @@ class NBGuidedMutator:
             H_new[cj, vj] = 0.0
             H_new[ci, vj] = 1.0
             H_new[cj, vi] = 1.0
+
+            # Update neighbor sets to reflect the swap.
+            check_neighbors[ci].discard(vi)
+            check_neighbors[ci].add(vj)
+            check_neighbors[cj].discard(vj)
+            check_neighbors[cj].add(vi)
+            var_neighbors[vi].discard(ci)
+            var_neighbors[vi].add(cj)
+            var_neighbors[vj].discard(cj)
+            var_neighbors[vj].add(ci)
 
             mutations.append({
                 "removed_edge": (ci, vi),
@@ -180,42 +199,45 @@ class NBGuidedMutator:
     @staticmethod
     def _collect_edges(H: np.ndarray) -> list[tuple[int, int]]:
         """Collect (ci, vi) edges sorted deterministically."""
-        m, n = H.shape
-        edges: list[tuple[int, int]] = []
-        for ci in range(m):
-            for vi in range(n):
-                if H[ci, vi] != 0:
-                    edges.append((ci, vi))
-        return edges
+        coords = np.argwhere(H != 0)
+        # np.argwhere returns rows in lexicographic (ci, vi) order for
+        # a dense array, matching the required deterministic sort.
+        return [(int(r[0]), int(r[1])) for r in coords]
 
     def _compute_edge_scores(
         self,
         H: np.ndarray,
         edges: list[tuple[int, int]],
         directed_edge_flow: np.ndarray,
+        directed_edges: list[tuple[int, int]],
     ) -> dict[tuple[int, int], float]:
-        """Score each undirected edge by summed directed-edge magnitudes."""
+        """Score each undirected edge by summed directed-edge magnitudes.
+
+        ``directed_edges`` must be in the exact ordering used to produce
+        ``directed_edge_flow`` (from ``NonBacktrackingFlowAnalyzer``),
+        so we do not attempt to reconstruct that ordering here.
+        """
         m, n = H.shape
 
-        # Rebuild directed edge list matching NonBacktrackingFlowAnalyzer
-        # convention: sorted list of (src, dst) with variable nodes 0..n-1
-        # and check nodes n..n+m-1.
-        directed_edges: list[tuple[int, int]] = []
-        for ci, vi in edges:
-            directed_edges.append((vi, n + ci))
-            directed_edges.append((n + ci, vi))
-        directed_edges.sort()
+        if len(directed_edge_flow) != len(directed_edges):
+            raise ValueError(
+                f"Mismatch between directed_edge_flow "
+                f"(len={len(directed_edge_flow)}) and directed_edges "
+                f"(len={len(directed_edges)})"
+            )
 
-        de_index = {e: i for i, e in enumerate(directed_edges)}
+        de_index: dict[tuple[int, int], int] = {
+            e: i for i, e in enumerate(directed_edges)
+        }
 
         scores: dict[tuple[int, int], float] = {}
         for ci, vi in edges:
             j1 = de_index.get((vi, n + ci))
             j2 = de_index.get((n + ci, vi))
             s = 0.0
-            if j1 is not None and j1 < len(directed_edge_flow):
+            if j1 is not None:
                 s += abs(float(directed_edge_flow[j1]))
-            if j2 is not None and j2 < len(directed_edge_flow):
+            if j2 is not None:
                 s += abs(float(directed_edge_flow[j2]))
             scores[(ci, vi)] = round(s, self.precision)
 
@@ -232,13 +254,34 @@ class NBGuidedMutator:
             key=lambda e: (-scores.get(e, 0.0), e[0], e[1]),
         )
 
+    @staticmethod
+    def _build_neighbor_sets(
+        H: np.ndarray,
+    ) -> tuple[dict[int, set[int]], dict[int, set[int]]]:
+        """Build adjacency sets for checks and variables.
+
+        Returns
+        -------
+        check_neighbors : dict mapping check index -> set of variable indices
+        var_neighbors : dict mapping variable index -> set of check indices
+        """
+        m, n = H.shape
+        check_neighbors: dict[int, set[int]] = {ci: set() for ci in range(m)}
+        var_neighbors: dict[int, set[int]] = {vi: set() for vi in range(n)}
+        coords = np.argwhere(H != 0)
+        for r in coords:
+            ci, vi = int(r[0]), int(r[1])
+            check_neighbors[ci].add(vi)
+            var_neighbors[vi].add(ci)
+        return check_neighbors, var_neighbors
+
     def _find_valid_rewire(
         self,
         H: np.ndarray,
         ci: int,
         vi: int,
-        m: int,
-        n: int,
+        check_neighbors: dict[int, set[int]],
+        var_neighbors: dict[int, set[int]],
     ) -> tuple[int, int] | None:
         """Find a degree-preserving swap partner for edge (ci, vi).
 
@@ -246,19 +289,21 @@ class NBGuidedMutator:
             remove (ci, vi) and (cj, vj)
             add    (ci, vj) and (cj, vi)
         """
+        # Iterate over existing edges (cj, vj) as swap candidates.
+        # Use neighbor sets instead of scanning the full matrix.
+        m = len(check_neighbors)
         for cj in range(m):
             if cj == ci:
                 continue
-            for vj in range(n):
+            for vj in sorted(check_neighbors[cj]):
                 if vj == vi:
                     continue
-                if H[cj, vj] == 0:
-                    continue
-                if H[ci, vj] != 0 or H[cj, vi] != 0:
+                # Check that new edges don't already exist.
+                if vj in check_neighbors[ci] or vi in check_neighbors[cj]:
                     continue
 
                 if self.avoid_4cycles and self._creates_4cycle(
-                    H, ci, vj, cj, vi,
+                    ci, vj, cj, vi, var_neighbors,
                 ):
                     continue
 
@@ -268,17 +313,19 @@ class NBGuidedMutator:
 
     @staticmethod
     def _creates_4cycle(
-        H: np.ndarray,
         ci1: int,
         vi1: int,
         ci2: int,
         vi2: int,
+        var_neighbors: dict[int, set[int]],
     ) -> bool:
-        """Check whether adding edges (ci1,vi1) and (ci2,vi2) creates a 4-cycle."""
-        m, n = H.shape
-        for c in range(m):
-            if c == ci1 or c == ci2:
-                continue
-            if H[c, vi1] != 0 and H[c, vi2] != 0:
-                return True
-        return False
+        """Check whether adding edges (ci1,vi1) and (ci2,vi2) creates a 4-cycle.
+
+        A 4-cycle exists if there is any check c (other than ci1, ci2)
+        adjacent to both vi1 and vi2.
+        """
+        # Intersect the check neighbors of vi1 and vi2, excluding ci1 and ci2.
+        shared = var_neighbors.get(vi1, set()) & var_neighbors.get(vi2, set())
+        shared.discard(ci1)
+        shared.discard(ci2)
+        return len(shared) > 0

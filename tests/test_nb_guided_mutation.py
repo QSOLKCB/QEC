@@ -39,7 +39,7 @@ class TestDeterminism:
 
     def test_deterministic_output(self) -> None:
         H = _make_test_matrix()
-        mutator = NBGuidedMutator(k=2)
+        mutator = NBGuidedMutator(k=2, enabled=True)
 
         H1, log1 = mutator.mutate(H)
         H2, log2 = mutator.mutate(H)
@@ -53,7 +53,7 @@ class TestDeterminism:
 
     def test_deterministic_larger(self) -> None:
         H = _make_larger_matrix()
-        mutator = NBGuidedMutator(k=3)
+        mutator = NBGuidedMutator(k=3, enabled=True)
 
         H1, log1 = mutator.mutate(H)
         H2, log2 = mutator.mutate(H)
@@ -67,7 +67,7 @@ class TestValidTannerGraph:
 
     def test_bipartite_structure(self) -> None:
         H = _make_test_matrix()
-        mutator = NBGuidedMutator(k=2)
+        mutator = NBGuidedMutator(k=2, enabled=True)
         H_mut, _ = mutator.mutate(H)
 
         # All entries are 0 or 1.
@@ -75,7 +75,7 @@ class TestValidTannerGraph:
 
     def test_degrees_preserved(self) -> None:
         H = _make_test_matrix()
-        mutator = NBGuidedMutator(k=2)
+        mutator = NBGuidedMutator(k=2, enabled=True)
         H_mut, _ = mutator.mutate(H)
 
         # Row sums (check degrees) unchanged.
@@ -89,7 +89,7 @@ class TestValidTannerGraph:
 
     def test_degrees_preserved_larger(self) -> None:
         H = _make_larger_matrix()
-        mutator = NBGuidedMutator(k=3)
+        mutator = NBGuidedMutator(k=3, enabled=True)
         H_mut, _ = mutator.mutate(H)
 
         np.testing.assert_array_equal(
@@ -101,7 +101,7 @@ class TestValidTannerGraph:
 
     def test_no_duplicate_edges(self) -> None:
         H = _make_test_matrix()
-        mutator = NBGuidedMutator(k=2)
+        mutator = NBGuidedMutator(k=2, enabled=True)
         H_mut, _ = mutator.mutate(H)
 
         # No entry exceeds 1.
@@ -110,7 +110,7 @@ class TestValidTannerGraph:
     def test_no_input_mutation(self) -> None:
         H = _make_test_matrix()
         H_orig = H.copy()
-        mutator = NBGuidedMutator(k=2)
+        mutator = NBGuidedMutator(k=2, enabled=True)
         mutator.mutate(H)
 
         np.testing.assert_array_equal(H, H_orig)
@@ -121,13 +121,14 @@ class TestScoreRanking:
 
     def test_scores_descending(self) -> None:
         H = _make_test_matrix()
-        mutator = NBGuidedMutator(k=5)
+        mutator = NBGuidedMutator(k=5, enabled=True)
 
         edges = mutator._collect_edges(H)
         from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
         flow = NonBacktrackingFlowAnalyzer().compute_flow(H)
         scores = mutator._compute_edge_scores(
             H, edges, flow["directed_edge_flow"],
+            flow["directed_edges"],
         )
         ranked = mutator._rank_edges(edges, scores)
 
@@ -138,13 +139,14 @@ class TestScoreRanking:
 
     def test_lexicographic_tiebreak(self) -> None:
         H = _make_test_matrix()
-        mutator = NBGuidedMutator(k=5)
+        mutator = NBGuidedMutator(k=5, enabled=True)
 
         edges = mutator._collect_edges(H)
         from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
         flow = NonBacktrackingFlowAnalyzer().compute_flow(H)
         scores = mutator._compute_edge_scores(
             H, edges, flow["directed_edge_flow"],
+            flow["directed_edges"],
         )
         ranked = mutator._rank_edges(edges, scores)
 
@@ -161,7 +163,7 @@ class TestMutationLog:
 
     def test_log_fields(self) -> None:
         H = _make_larger_matrix()
-        mutator = NBGuidedMutator(k=2)
+        mutator = NBGuidedMutator(k=2, enabled=True)
         _, log = mutator.mutate(H)
 
         for entry in log:
@@ -175,7 +177,7 @@ class TestMutationLog:
     def test_log_length_respects_k(self) -> None:
         H = _make_larger_matrix()
         for k_val in [1, 2, 3]:
-            mutator = NBGuidedMutator(k=k_val)
+            mutator = NBGuidedMutator(k=k_val, enabled=True)
             _, log = mutator.mutate(H)
             assert len(log) <= k_val
 
@@ -186,7 +188,7 @@ class TestSparseInput:
     def test_sparse_produces_same_result(self) -> None:
         H = _make_larger_matrix()
         H_sp = scipy.sparse.csr_matrix(H)
-        mutator = NBGuidedMutator(k=2)
+        mutator = NBGuidedMutator(k=2, enabled=True)
 
         H_dense, log_dense = mutator.mutate(H)
         H_sparse, log_sparse = mutator.mutate(H_sp)
@@ -200,7 +202,7 @@ class TestEdgeCases:
 
     def test_empty_matrix(self) -> None:
         H = np.zeros((3, 6), dtype=np.float64)
-        mutator = NBGuidedMutator(k=2)
+        mutator = NBGuidedMutator(k=2, enabled=True)
         H_mut, log = mutator.mutate(H)
         np.testing.assert_array_equal(H_mut, H)
         assert log == []
@@ -214,9 +216,29 @@ class TestEdgeCases:
 
     def test_k_override(self) -> None:
         H = _make_larger_matrix()
-        mutator = NBGuidedMutator(k=5)
+        mutator = NBGuidedMutator(k=5, enabled=True)
         _, log = mutator.mutate(H, k=1)
         assert len(log) <= 1
+
+
+class TestEnabledFlag:
+    """The enabled flag must gate mutation behavior."""
+
+    def test_disabled_returns_unchanged(self) -> None:
+        H = _make_test_matrix()
+        mutator = NBGuidedMutator(k=2, enabled=False)
+        H_mut, log = mutator.mutate(H)
+
+        np.testing.assert_array_equal(H_mut, H)
+        assert log == []
+
+    def test_enabled_may_mutate(self) -> None:
+        H = _make_larger_matrix()
+        mutator = NBGuidedMutator(k=2, enabled=True)
+        H_mut, log = mutator.mutate(H)
+
+        # When enabled, mutation should produce changes (for this matrix).
+        assert len(log) > 0
 
 
 class TestPartitionSeparation:
@@ -230,7 +252,7 @@ class TestPartitionSeparation:
             [0, 1, 1],
             [1, 0, 1],
         ], dtype=np.float64)
-        mutator = NBGuidedMutator(k=3, avoid_4cycles=False)
+        mutator = NBGuidedMutator(k=3, avoid_4cycles=False, enabled=True)
         H_mut, log = mutator.mutate(H)
 
         # Degrees must still be preserved.

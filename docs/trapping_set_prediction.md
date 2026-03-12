@@ -15,7 +15,7 @@ Pipeline:
 ## Why this correlates with decoding failure
 
 Localized NB eigenvectors concentrate on fragile subgraphs where message passing tends to recirculate and stall.
-These regions are common precursors to trapping-set behaviour, which can increase FER under iterative decoding.
+These regions are common precursors to trapping-set behavior, which can increase FER under iterative decoding.
 
 ## Output signals
 

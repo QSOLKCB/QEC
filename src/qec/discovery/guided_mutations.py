@@ -1,7 +1,7 @@
 """
-v11.5.0 — Guided Mutation Operators.
+v11.6.0 — Guided Mutation Operators.
 
-Ten deterministic mutation operators guided by spectral and structural
+Eleven deterministic mutation operators guided by spectral and structural
 analysis of the Tanner graph.
 
 Operators:
@@ -15,6 +15,8 @@ Operators:
   8. residual_guided — rewire edges from top-k high-residual to low-residual variables
   9. absorbing_set_pressure — break predicted absorbing-set structure
  10. residual_cluster — coordinated rewire of high-residual cluster basins
+ 11. spectral_localization — rewire high spectral-pressure edges via NB
+     eigenvector localization
 
 v11.2 upgrade: residual_guided_mutation now samples from top-k residual
 variables for improved mutation diversity.  Exports OPERATORS list for
@@ -25,6 +27,10 @@ localization to identify and disrupt candidate absorbing sets.
 
 v11.5 upgrade: adds residual_cluster_mutation using ResidualClusterAnalyzer
 to identify connected high-residual basins and apply coordinated rewiring.
+
+v11.6 upgrade: adds spectral_localization_mutation using
+SpectralLocalizationAnalyzer to identify and rewire structurally fragile
+edges via non-backtracking eigenvector pressure.
 
 Layer 3 — Discovery.
 Does not import or modify the decoder (Layer 1).
@@ -59,6 +65,7 @@ _OPERATORS = [
     "residual_guided",
     "absorbing_set_pressure",
     "residual_cluster",
+    "spectral_localization",
 ]
 
 
@@ -1106,11 +1113,130 @@ def residual_cluster_mutation(
 
 
 # -----------------------------------------------------------
+# 11. Spectral Localization Mutation
+# -----------------------------------------------------------
+
+
+def spectral_localization_mutation(
+    H: np.ndarray,
+    *,
+    seed: int = 0,
+    max_rewires: int = 1,
+) -> np.ndarray:
+    """Rewire edges associated with high spectral pressure.
+
+    Uses ``SpectralLocalizationAnalyzer`` to compute non-backtracking
+    eigenvector pressure for each variable, then rewires edges from
+    high-pressure variables to low-pressure variables.
+
+    v11.6 — targets structurally fragile edges identified by spectral
+    localization analysis of the non-backtracking operator.
+
+    Parameters
+    ----------
+    H : np.ndarray
+        Binary parity-check matrix, shape (m, n).
+    seed : int
+        Deterministic seed.
+    max_rewires : int
+        Maximum number of edge rewires (default 1, max 2).
+
+    Returns
+    -------
+    np.ndarray
+        Mutated parity-check matrix with shape and edge count preserved.
+    """
+    from src.qec.analysis.spectral_localization import (
+        SpectralLocalizationAnalyzer,
+    )
+
+    H_arr = np.asarray(H, dtype=np.float64)
+    m, n = H_arr.shape
+    H_out = H_arr.copy()
+
+    if m == 0 or n == 0:
+        return H_out
+
+    max_rewires = min(max_rewires, 2)
+
+    # Compute spectral pressure
+    analyzer = SpectralLocalizationAnalyzer()
+    result = analyzer.compute_pressure(H_arr)
+    variable_pressure = result["variable_pressure"]
+
+    if result["max_pressure"] < 1e-15:
+        return H_out
+
+    # Rank variables by pressure descending (high pressure = fragile)
+    high_ranked = sorted(
+        range(n),
+        key=lambda vi: (-round(variable_pressure[vi], _ROUND), vi),
+    )
+
+    # Rank variables by pressure ascending (low pressure = stable)
+    low_ranked = sorted(
+        range(n),
+        key=lambda vi: (round(variable_pressure[vi], _ROUND), vi),
+    )
+
+    rng = np.random.RandomState(seed)
+    rewires_done = 0
+
+    for vi_high in high_ranked:
+        if rewires_done >= max_rewires:
+            break
+
+        # Find checks connected to this high-pressure variable
+        checks = sorted(ci for ci in range(m) if H_out[ci, vi_high] != 0)
+        if not checks:
+            continue
+
+        # Safety: variable must keep at least degree 1
+        if H_out[:, vi_high].sum() <= 1:
+            continue
+
+        # Pick a check to disconnect from
+        ci_remove = checks[rng.randint(0, len(checks))]
+        if H_out[ci_remove].sum() <= 1:
+            continue
+
+        H_out[ci_remove, vi_high] = 0.0
+
+        # Try to reconnect to a low-pressure variable
+        rewired = False
+        for vi_low in low_ranked:
+            if vi_low == vi_high:
+                continue
+            if H_out[ci_remove, vi_low] != 0.0:
+                continue
+            H_out[ci_remove, vi_low] = 1.0
+            rewired = True
+            break
+
+        if not rewired:
+            # Fallback: any non-edge in this check row
+            fallback = sorted(
+                vi for vi in range(n)
+                if H_out[ci_remove, vi] == 0.0 and vi != vi_high
+            )
+            if fallback:
+                new_vi = fallback[rng.randint(0, len(fallback))]
+                H_out[ci_remove, new_vi] = 1.0
+            else:
+                H_out[ci_remove, vi_high] = 1.0  # Restore
+                continue
+
+        rewires_done += 1
+
+    return H_out
+
+
+# -----------------------------------------------------------
 # Dispatcher
 # -----------------------------------------------------------
 
 
-# Centralized operator registry (v11.5.0).
+# Centralized operator registry (v11.6.0).
 # Import this list in other modules to prevent drift.
 OPERATORS = [
     spectral_edge_pressure_mutation,
@@ -1123,6 +1249,7 @@ OPERATORS = [
     residual_guided_mutation,
     absorbing_set_pressure_mutation,
     residual_cluster_mutation,
+    spectral_localization_mutation,
 ]
 
 
@@ -1137,6 +1264,7 @@ _OPERATOR_FUNCTIONS = {
     "residual_guided": residual_guided_mutation,
     "absorbing_set_pressure": absorbing_set_pressure_mutation,
     "residual_cluster": residual_cluster_mutation,
+    "spectral_localization": spectral_localization_mutation,
 }
 
 

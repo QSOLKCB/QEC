@@ -147,10 +147,10 @@ class TestResidualClusterOperatorRegistry:
         assert "residual_cluster" in _OPERATOR_FUNCTIONS
         assert _OPERATOR_FUNCTIONS["residual_cluster"] is residual_cluster_mutation
 
-    def test_operator_count_is_ten(self):
-        assert len(_OPERATORS) == 10
-        assert len(OPERATORS) == 10
-        assert len(_OPERATOR_FUNCTIONS) == 10
+    def test_operator_count_is_eleven(self):
+        assert len(_OPERATORS) == 11
+        assert len(OPERATORS) == 11
+        assert len(_OPERATOR_FUNCTIONS) == 11
 
     def test_dispatcher_by_name(self):
         H = _make_regular_H()
@@ -178,6 +178,7 @@ class TestResidualClusterOperatorRegistry:
             "residual_guided",
             "absorbing_set_pressure",
             "residual_cluster",
+            "spectral_localization",
         ]
         assert _OPERATORS == expected
 

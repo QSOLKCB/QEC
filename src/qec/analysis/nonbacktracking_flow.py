@@ -17,6 +17,8 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
+from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
+
 
 _POWER_ITER = 50
 _ROUND = 12
@@ -34,13 +36,20 @@ class NonBacktrackingFlowAnalyzer:
     def __init__(self, power_iterations: int = _POWER_ITER) -> None:
         self.power_iterations = power_iterations
 
-    def compute_flow(self, H: np.ndarray | scipy.sparse.spmatrix) -> dict[str, Any]:
+    def compute_flow(
+        self,
+        H: np.ndarray | scipy.sparse.spmatrix,
+        residual_map: np.ndarray | None = None,
+    ) -> dict[str, Any]:
         """Compute non-backtracking flow for variables and edges.
 
         Parameters
         ----------
         H : np.ndarray or scipy.sparse.spmatrix
             Binary parity-check matrix, shape (m, n).
+        residual_map : np.ndarray or None
+            Optional BP residual magnitude per variable node, shape (n,).
+            When provided, flow alignment diagnostics are included.
 
         Returns
         -------
@@ -52,6 +61,7 @@ class NonBacktrackingFlowAnalyzer:
             max_flow : float
             mean_flow : float
             flow_localization : float
+            flow_alignment : dict (only when residual_map is provided)
         """
         if scipy.sparse.issparse(H):
             H_csr = H.tocsr()
@@ -208,7 +218,7 @@ class NonBacktrackingFlowAnalyzer:
             ipr = 0.0
         flow_localization = float(round(ipr, _ROUND))
 
-        return {
+        result = {
             "directed_edge_flow": directed_edge_flow,
             "edge_flow": edge_flow,
             "variable_flow": variable_flow,
@@ -217,6 +227,15 @@ class NonBacktrackingFlowAnalyzer:
             "mean_flow": mean_flow,
             "flow_localization": flow_localization,
         }
+
+        if residual_map is not None:
+            alignment_analyzer = FlowAlignmentAnalyzer()
+            result["flow_alignment"] = alignment_analyzer.compute_alignment(
+                residual_map=residual_map,
+                variable_flow=variable_flow,
+            )
+
+        return result
 
     def _power_iteration(
         self, B: scipy.sparse.csr_matrix, size: int,

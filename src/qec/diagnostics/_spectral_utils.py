@@ -130,11 +130,14 @@ def compute_nb_dominant_eigenpair(graph, tol=1e-6):
 
     op, directed_edges = build_nb_operator(graph)
 
+    # Use deterministic initial vector for ARPACK reproducibility.
+    v0 = np.ones(op.shape[0], dtype=np.float64)
     vals, vecs = eigs(
         op,
         k=1,
         which="LR",
         tol=tol,
+        v0=v0,
     )
 
     spectral_radius = np.real(vals[0])

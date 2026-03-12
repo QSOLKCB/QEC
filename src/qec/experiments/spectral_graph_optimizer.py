@@ -32,9 +32,12 @@ import math
 from typing import Any
 
 import numpy as np
+import scipy.sparse
+import scipy.sparse.linalg
 
 from src.qec.diagnostics.non_backtracking_spectrum import (
     compute_non_backtracking_spectrum,
+    _build_sparse_nb_matrix,
 )
 from src.qec.diagnostics.nb_localization import (
     compute_nb_localization_metrics,
@@ -72,35 +75,18 @@ def _compute_nb_eigenvector(H: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         Directed edge list as (num_directed, 2) array.
     """
     H = np.asarray(H, dtype=np.float64)
-    m, n = H.shape
 
-    directed_edges: list[tuple[int, int]] = []
-    for ci in range(m):
-        for vi in range(n):
-            if H[ci, vi] != 0:
-                u = vi
-                w = n + ci
-                directed_edges.append((u, w))
-                directed_edges.append((w, u))
-
+    B_sparse, directed_edges = _build_sparse_nb_matrix(H)
     num_directed = len(directed_edges)
     if num_directed == 0:
         return np.array([]), np.array([])
 
-    # Build outgoing adjacency.
-    outgoing: dict[int, list[int]] = {}
-    for idx, (_u, v) in enumerate(directed_edges):
-        outgoing.setdefault(v, []).append(idx)
+    # Use dense eigensolver for deterministic eigenvectors.
+    # Sparse construction ensures O(|E|) build cost; dense eigensolver
+    # is needed because ARPACK eigs is non-deterministic for eigenvectors
+    # of non-symmetric matrices.
+    eigenvalues, eigenvectors = np.linalg.eig(B_sparse.toarray())
 
-    # Build NB matrix.
-    B = np.zeros((num_directed, num_directed), dtype=np.float64)
-    for idx_uv, (u, v) in enumerate(directed_edges):
-        for idx_vw in outgoing.get(v, []):
-            _, w = directed_edges[idx_vw]
-            if w != u:
-                B[idx_uv, idx_vw] = 1.0
-
-    eigenvalues, eigenvectors = np.linalg.eig(B)
     magnitudes = np.abs(eigenvalues)
 
     # Deterministic sort: magnitude descending, real desc, imag desc.

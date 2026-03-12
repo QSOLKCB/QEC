@@ -30,9 +30,12 @@ import math
 from typing import Any
 
 import numpy as np
+import scipy.sparse
+import scipy.sparse.linalg
 
 from src.qec.diagnostics.non_backtracking_spectrum import (
     compute_non_backtracking_spectrum,
+    _build_sparse_nb_matrix,
 )
 from src.qec.diagnostics.nb_localization import (
     compute_nb_localization_metrics,
@@ -69,35 +72,23 @@ def _compute_nb_eigenvector_for_sensitivity(
     H = np.asarray(H, dtype=np.float64)
     m, n = H.shape
 
-    # Build directed edges: for each H[ci, vi] != 0, create (vi, n+ci)
-    # and (n+ci, vi).  Order: iterate ci then vi for determinism.
-    directed_edges: list[tuple[int, int]] = []
-    undirected_edges: list[tuple[int, int]] = []
-    for ci in range(m):
-        for vi in range(n):
-            if H[ci, vi] != 0:
-                directed_edges.append((vi, n + ci))
-                directed_edges.append((n + ci, vi))
-                undirected_edges.append((vi, n + ci))
-
+    B_sparse, directed_edges = _build_sparse_nb_matrix(H)
     num_directed = len(directed_edges)
+
+    # Build undirected edges from directed pairs.
+    undirected_edges: list[tuple[int, int]] = []
+    for i in range(0, num_directed, 2):
+        undirected_edges.append(directed_edges[i])
+
     if num_directed == 0:
         return np.array([]), []
 
-    # Build outgoing adjacency for NB matrix construction.
-    outgoing: dict[int, list[int]] = {}
-    for idx, (_u, v) in enumerate(directed_edges):
-        outgoing.setdefault(v, []).append(idx)
+    # Use dense eigensolver for deterministic eigenvectors.
+    # Sparse construction ensures O(|E|) build cost; dense eigensolver
+    # is needed because ARPACK eigs is non-deterministic for eigenvectors
+    # of non-symmetric matrices.
+    eigenvalues, eigenvectors = np.linalg.eig(B_sparse.toarray())
 
-    # Build NB matrix.
-    B = np.zeros((num_directed, num_directed), dtype=np.float64)
-    for idx_uv, (u, v) in enumerate(directed_edges):
-        for idx_vw in outgoing.get(v, []):
-            _, w = directed_edges[idx_vw]
-            if w != u:
-                B[idx_uv, idx_vw] = 1.0
-
-    eigenvalues, eigenvectors = np.linalg.eig(B)
     magnitudes = np.abs(eigenvalues)
 
     # Deterministic sort: magnitude descending, real desc, imag desc.
@@ -218,23 +209,11 @@ def _compute_instability_score_for_H(H: np.ndarray) -> float:
     float
         Instability score rounded to 12 decimal places.
     """
-    from src.qec.experiments.spectral_instability_phase_map import (
-        compute_spectral_instability_score,
-    )
-
     H_arr = np.asarray(H, dtype=np.float64)
     m, n = H_arr.shape
 
     nb_result = compute_non_backtracking_spectrum(H_arr)
     spectral_radius = nb_result.get("spectral_radius", 0.0)
-
-    nb_eigs = nb_result.get("nb_eigenvalues", [])
-    if len(nb_eigs) >= 2:
-        mag_0 = math.sqrt(nb_eigs[0][0] ** 2 + nb_eigs[0][1] ** 2)
-        mag_1 = math.sqrt(nb_eigs[1][0] ** 2 + nb_eigs[1][1] ** 2)
-        spectral_gap = round(mag_0 - mag_1, _ROUND)
-    else:
-        spectral_gap = 0.0
 
     loc_result = compute_nb_localization_metrics(H_arr, num_leading_modes=1)
     ipr_score = loc_result.get("max_ipr", 0.0)
@@ -250,14 +229,13 @@ def _compute_instability_score_for_H(H: np.ndarray) -> float:
     else:
         instability_ratio = 0.0
 
-    score = compute_spectral_instability_score(
-        nb_spectral_radius=spectral_radius,
-        spectral_instability_ratio=instability_ratio,
-        ipr_localization_score=ipr_score,
-        cluster_risk_scores=[],
-        avg_variable_degree=avg_var_degree,
-        avg_check_degree=avg_chk_degree,
-    )
+    # Inline instability score computation (avoids importing from
+    # experiments layer, which would violate architectural layering).
+    # Weights match spectral_instability_phase_map.py constants.
+    norm_sr = max(0.0, min(1.0, spectral_radius / (avg_degree + 1.0))) if avg_degree > 0.0 else 0.0
+    ipr_loc = max(0.0, min(1.0, ipr_score))
+    ir_norm = max(0.0, min(1.0, instability_ratio / 2.0))
+    score = max(0.0, min(1.0, 0.35 * norm_sr + 0.25 * ipr_loc + 0.15 * ir_norm))
 
     return round(score, _ROUND)
 

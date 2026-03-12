@@ -27,6 +27,7 @@ Critical issues requiring attention before v12:
 - ACE repair operator has edge-count preservation bug
 - 1 architectural layer violation (diagnostics → experiments import)
 - 1 unseeded RNG in `src/qec_qldpc_codes.py`
+- 1 unwrapped ARPACK eigsh call in Bethe Hessian (determinism risk)
 
 ---
 
@@ -94,15 +95,30 @@ This creates a non-deterministic RNG when the optional `rng` parameter is `None`
 
 These all use `np.random.default_rng(seed)` with explicit seeds — correctly seeded. The `src/qec/` core uses `np.random.RandomState(seed)` consistently. The mixed API usage (`default_rng` vs `RandomState`) is not a bug but a consistency concern. Both are deterministic with seeds.
 
-### DET-3: Dense Eigensolver Determinism
+### DET-3: Unseeded ARPACK eigsh in Bethe Hessian (MEDIUM)
+
+**File:** `src/qec/analysis/bethe_hessian.py:103`
+
+```python
+eigenvalues = scipy.sparse.linalg.eigsh(
+    H_B_sparse,
+    k=k,
+    which="SA",
+    return_eigenvectors=False,
+)
+```
+
+ARPACK uses random initialization for convergence. This call does not use the `safe_eigsh` wrapper from `spectral_metrics.py`, which provides deterministic fallback. The `safe_eigsh` wrapper already exists and should be used here.
+
+### DET-4: Dense Eigensolver Determinism
 
 **Files:** All 5 files using `np.linalg.eig` / `np.linalg.eigvals` on NB matrices
 
 Dense eigensolvers are deterministic for the same input, so there is no correctness issue. However, the non-backtracking matrix is non-symmetric, and `np.linalg.eig` may produce eigenvector sign flips across platforms. The code uses lexicographic sorting by magnitude, real part, and imaginary part (deterministic tie-breaking), which mitigates this.
 
-### DET-4: Core `src/qec/` Determinism — EXCELLENT
+### DET-5: Core `src/qec/` Determinism — EXCELLENT
 
-All 38 uses of `np.random.RandomState` in `src/qec/` are properly seeded via SHA-256 sub-seed derivation. No use of `import random`, no use of `hash()`, and sorted iteration is applied consistently in analysis modules.
+All 38 uses of `np.random.RandomState` in `src/qec/` are properly seeded via SHA-256 sub-seed derivation. No use of `import random`, no use of `hash()`, and sorted iteration is applied consistently in analysis modules. Rounding precision is consistent at 12 decimal places (`_ROUND = 12`) across all modules.
 
 ---
 
@@ -266,15 +282,17 @@ residual_guided, absorbing_set_pressure, residual_cluster, spectral_localization
 
 ## 7. Test Coverage Gaps
 
-### 7.1 Existing Coverage (Strong)
+### 7.1 Existing Coverage (Strong — 2,928 test functions across 155 files)
 
-- Mutation determinism: `test_mutation_operators.py`, `test_guided_mutations.py` — verify same seed → same result
-- Mutation invariants: `test_mutation_operators.py` — verifies shape, edge count, degree preservation
-- Repair operators: `test_repair_operators.py` — validates repair pipeline
-- ACE repair: `test_ace_repair.py` — tests healthy graph unchanged
-- Local optimizer: `test_local_optimizer.py` — tests determinism and shape preservation
-- Discovery engine: `test_discovery_engine.py`, `test_population_discovery_engine.py`
-- Analysis modules: individual test files for each analyzer
+- **Mutation determinism:** `test_mutation_operators.py` (21 tests), `test_guided_mutations.py` (14 tests), `test_residual_guided_mutation.py` (33 tests), `test_spectral_localization_mutation.py` (16 tests), `test_trapping_mutation.py` (11 tests) — all verify same seed → same result
+- **Mutation invariants:** `test_mutation_operators.py` — shape, edge count, degree, binary, no-zero-row/col, input immutability
+- **Registry integration:** `test_residual_guided_mutation.py:200-296` — validates `_OPERATORS` membership, dispatch, and operator count (11)
+- **Repair operators:** `test_repair_operators.py` — validates repair pipeline
+- **ACE repair:** `test_ace_repair.py` — tests healthy graph unchanged (but only with degree ≥ 2 columns)
+- **Local optimizer:** `test_local_optimizer.py` — tests determinism and shape preservation
+- **Analyzer stability:** `test_bethe_hessian_analyzer.py` (14 tests), `test_safe_eigsh.py` (17 tests) — determinism and output format
+- **Canonicalization:** `test_canonicalize_fuzz_determinism.py` — 50-case fuzz testing for idempotence and roundtrip stability
+- **Discovery engine:** `test_discovery_engine.py`, `test_population_discovery_engine.py`
 
 ### 7.2 Missing Coverage (Gaps)
 
@@ -282,9 +300,14 @@ residual_guided, absorbing_set_pressure, residual_cluster, spectral_localization
 |-----|--------|----------|
 | No test for ACE repair with degree-1 columns that would trigger the edge-count bug | Masks BUG-1 | HIGH |
 | No test for QLDPC commutativity preservation after mutation | Masks missing validation | HIGH |
+| No cross-analyzer consistency tests (comparing results between different analyzers) | No validation that analyzers agree on stability ordering | HIGH |
+| No large-scale graph determinism tests (all tests use 3-8 row/col matrices) | Scale issues hidden | HIGH |
 | No test for mutation operators with fully-connected check rows (silent failure case) | Masks no-op mutations | MEDIUM |
-| No integration test verifying population engine + discovery engine use consistent operator schedules | Masks registry drift | MEDIUM |
-| No large-graph memory tests for NB spectrum computation | Would catch sparse safety violations | MEDIUM |
+| No integration test verifying population engine + discovery engine operator schedules | Masks registry drift | MEDIUM |
+| No floating-point drift accumulation tests (100+ sequential mutations) | Drift may accumulate | MEDIUM |
+| Edge count invariant tested inconsistently: some tests assert exact equality, others allow ±2 variance | Unclear which operators guarantee what | MEDIUM |
+| No systematic layer discipline enforcement (only spot-checks on specific files) | Partial layer audit | MEDIUM |
+| No sparse eigenvalue accuracy benchmarks (safe_eigsh vs dense reference) | Accuracy not validated | LOW |
 | No test for `sensitivity_map.py`'s lazy import from experiments layer | Would catch layer violation | LOW |
 
 ---
@@ -342,6 +365,8 @@ Priority ordering for pre-v12.0.0:
 5. **Seed the unseeded RNG** in `src/qec_qldpc_codes.py:604`: Add `seed` parameter or require explicit RNG.
 
 6. **Refactor Bethe Hessian to sparse construction** (`analysis/bethe_hessian.py:73`): Build adjacency from edge enumeration instead of dense `H^T @ H`.
+
+7. **Wrap Bethe Hessian eigsh call** (`analysis/bethe_hessian.py:103`): Replace direct `scipy.sparse.linalg.eigsh()` with `safe_eigsh()` wrapper for ARPACK determinism.
 
 ### P2 — Nice to Have
 

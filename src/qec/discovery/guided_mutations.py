@@ -1,7 +1,7 @@
 """
-v11.3.0 — Guided Mutation Operators.
+v11.5.0 — Guided Mutation Operators.
 
-Nine deterministic mutation operators guided by spectral and structural
+Ten deterministic mutation operators guided by spectral and structural
 analysis of the Tanner graph.
 
 Operators:
@@ -14,6 +14,7 @@ Operators:
   7. trapping_set_pressure — break harmful local trapping-set structure
   8. residual_guided — rewire edges from top-k high-residual to low-residual variables
   9. absorbing_set_pressure — break predicted absorbing-set structure
+ 10. residual_cluster — coordinated rewire of high-residual cluster basins
 
 v11.2 upgrade: residual_guided_mutation now samples from top-k residual
 variables for improved mutation diversity.  Exports OPERATORS list for
@@ -21,6 +22,9 @@ centralized registry.
 
 v11.3 upgrade: adds absorbing_set_pressure_mutation using NB eigenvector
 localization to identify and disrupt candidate absorbing sets.
+
+v11.5 upgrade: adds residual_cluster_mutation using ResidualClusterAnalyzer
+to identify connected high-residual basins and apply coordinated rewiring.
 
 Layer 3 — Discovery.
 Does not import or modify the decoder (Layer 1).
@@ -54,6 +58,7 @@ _OPERATORS = [
     "trapping_set_pressure",
     "residual_guided",
     "absorbing_set_pressure",
+    "residual_cluster",
 ]
 
 
@@ -968,11 +973,144 @@ def absorbing_set_pressure_mutation(
 
 
 # -----------------------------------------------------------
+# 10. Residual Cluster Mutation
+# -----------------------------------------------------------
+
+
+def residual_cluster_mutation(
+    H: np.ndarray,
+    *,
+    seed: int = 0,
+    max_cluster_rewires: int = 2,
+) -> np.ndarray:
+    """Coordinated rewire of a high-residual cluster basin.
+
+    Identifies connected clusters of high-residual variables using
+    ``ResidualClusterAnalyzer``, selects the highest-risk cluster,
+    and applies coordinated rewiring to move edges from cluster-
+    interior variables to low-residual variables outside the cluster.
+
+    v11.5 — targets entire unstable subgraphs rather than isolated
+    variables, reducing decoder failure reinforcement.
+
+    Parameters
+    ----------
+    H : np.ndarray
+        Binary parity-check matrix, shape (m, n).
+    seed : int
+        Deterministic seed.
+    max_cluster_rewires : int
+        Maximum number of edge rewires within the cluster (default 2).
+
+    Returns
+    -------
+    np.ndarray
+        Mutated parity-check matrix with shape and edge count preserved.
+    """
+    from src.qec.analysis.bp_residuals import BPResidualAnalyzer
+    from src.qec.analysis.residual_clusters import ResidualClusterAnalyzer
+
+    H_arr = np.asarray(H, dtype=np.float64)
+    m, n = H_arr.shape
+    H_out = H_arr.copy()
+
+    if m == 0 or n == 0:
+        return H_out
+
+    # Compute residual map
+    bp_analyzer = BPResidualAnalyzer()
+    bp_seed = _derive_seed(seed, "cluster_bp")
+    bp_result = bp_analyzer.compute_residual_map(H_arr, iterations=10, seed=bp_seed)
+    residual_map = bp_result["residual_map"]
+
+    # Find residual clusters
+    cluster_analyzer = ResidualClusterAnalyzer()
+    cluster_result = cluster_analyzer.find_clusters(
+        H_arr, residual_map=residual_map,
+    )
+
+    clusters = cluster_result["clusters"]
+    if not clusters:
+        return H_out
+
+    # Select highest-risk cluster (already sorted by risk)
+    target_cluster = clusters[0]
+    cluster_vars = set(target_cluster["variables"])
+
+    if not cluster_vars:
+        return H_out
+
+    # Rank variables inside cluster by residual (descending)
+    cluster_ranked = sorted(
+        target_cluster["variables"],
+        key=lambda vi: (-round(residual_map[vi], _ROUND), vi),
+    )
+
+    # Rank variables outside cluster by residual (ascending = stable)
+    outside_ranked = sorted(
+        [vi for vi in range(n) if vi not in cluster_vars],
+        key=lambda vi: (round(residual_map[vi], _ROUND), vi),
+    )
+
+    if not outside_ranked:
+        return H_out
+
+    rng = np.random.RandomState(seed)
+    rewires_done = 0
+
+    for vi_high in cluster_ranked:
+        if rewires_done >= max_cluster_rewires:
+            break
+
+        # Find checks connected to this high-residual variable
+        checks = sorted(ci for ci in range(m) if H_out[ci, vi_high] != 0)
+        if not checks:
+            continue
+
+        # Safety: variable must keep at least degree 1
+        if H_out[:, vi_high].sum() <= 1:
+            continue
+
+        # Pick a check to disconnect from
+        ci_remove = checks[rng.randint(0, len(checks))]
+        if H_out[ci_remove].sum() <= 1:
+            continue
+
+        H_out[ci_remove, vi_high] = 0.0
+
+        # Try to reconnect to a low-residual variable outside the cluster
+        rewired = False
+        for vi_low in outside_ranked:
+            if H_out[ci_remove, vi_low] != 0.0:
+                continue
+            H_out[ci_remove, vi_low] = 1.0
+            rewired = True
+            break
+
+        if not rewired:
+            # Fallback: any non-edge in this check row outside cluster
+            fallback = sorted(
+                vi for vi in range(n)
+                if H_out[ci_remove, vi] == 0.0 and vi != vi_high
+            )
+            if fallback:
+                new_vi = fallback[rng.randint(0, len(fallback))]
+                H_out[ci_remove, new_vi] = 1.0
+            else:
+                H_out[ci_remove, vi_high] = 1.0  # Restore
+                continue
+
+        rewires_done += 1
+
+    return H_out
+
+
+# -----------------------------------------------------------
 # Dispatcher
 # -----------------------------------------------------------
 
 
-# Centralized operator registry (v11.3.0).
+# Centralized operator registry (v11.5.0).
 # Import this list in other modules to prevent drift.
 OPERATORS = [
     spectral_edge_pressure_mutation,
@@ -984,6 +1122,7 @@ OPERATORS = [
     trapping_set_pressure_mutation,
     residual_guided_mutation,
     absorbing_set_pressure_mutation,
+    residual_cluster_mutation,
 ]
 
 
@@ -997,6 +1136,7 @@ _OPERATOR_FUNCTIONS = {
     "trapping_set_pressure": trapping_set_pressure_mutation,
     "residual_guided": residual_guided_mutation,
     "absorbing_set_pressure": absorbing_set_pressure_mutation,
+    "residual_cluster": residual_cluster_mutation,
 }
 
 

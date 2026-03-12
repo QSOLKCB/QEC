@@ -50,15 +50,6 @@ METRIC_ALIASES = {
     "runtime": "runtime",
 }
 
-_missing_aliases = [m for m in ABLATION_METRICS if m not in METRIC_ALIASES]
-_extra_aliases = [m for m in METRIC_ALIASES if m not in ABLATION_METRICS]
-if _missing_aliases or _extra_aliases:
-    raise ValueError(
-        "METRIC_ALIASES must match ABLATION_METRICS exactly; "
-        f"missing={_missing_aliases}, extra={_extra_aliases}",
-    )
-
-
 def _generate_random_H(
     m: int, n: int, row_weight: int, seed: int,
 ) -> np.ndarray:
@@ -297,6 +288,14 @@ def run_ablation(
     dict
         Full experiment results with per-trial and averaged metrics.
     """
+    _missing_aliases = [m for m in ABLATION_METRICS if m not in METRIC_ALIASES]
+    _extra_aliases = [m for m in METRIC_ALIASES if m not in ABLATION_METRICS]
+    if _missing_aliases or _extra_aliases:
+        raise ValueError(
+            "METRIC_ALIASES must match ABLATION_METRICS exactly; "
+            f"missing={_missing_aliases}, extra={_extra_aliases}",
+        )
+
     strategies = MUTATION_STRATEGIES
     trials: list[dict[str, Any]] = []
 

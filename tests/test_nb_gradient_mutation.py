@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import scipy.sparse
 
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
@@ -47,6 +48,12 @@ class TestGradientAnalyzer:
 
 
 class TestGradientMutator:
+    def test_flow_damping_alpha_validation(self) -> None:
+        with pytest.raises(ValueError, match="flow_damping_alpha must be between 0 and 1"):
+            NBGradientMutator(enabled=True, flow_damping=True, flow_damping_alpha=-0.1)
+        with pytest.raises(ValueError, match="flow_damping_alpha must be between 0 and 1"):
+            NBGradientMutator(enabled=True, flow_damping=True, flow_damping_alpha=1.1)
+
     def test_disabled_is_noop(self) -> None:
         H = _matrix()
         mut = NBGradientMutator(enabled=False)

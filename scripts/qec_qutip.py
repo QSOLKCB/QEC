@@ -7,8 +7,15 @@ import subprocess
 import sys
 
 
-# Static, repository-defined install command (no user-controlled input).
-INSTALL_CMD = (sys.executable, "-m", "pip", "install", "qutip>=5")
+# Static, repository-defined install command (no user-controlled input),
+# so there is no command-injection risk.
+INSTALL_CMD: tuple[str, ...] = (
+    sys.executable,
+    "-m",
+    "pip",
+    "install",
+    "qutip>=5",
+)
 
 
 def main() -> None:
@@ -23,7 +30,7 @@ def main() -> None:
         print("Installing QuTiP >=5...")
 
     try:
-        subprocess.check_call(INSTALL_CMD)
+        subprocess.check_call(INSTALL_CMD, shell=False)
 
         import qutip
         print(f"QuTiP successfully installed: {qutip.__version__}")

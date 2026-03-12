@@ -147,16 +147,7 @@ def compute_nb_dominant_eigenpair(graph, tol=1e-6):
         if n > 512:
             raise
 
-        edge_index = {e: i for i, e in enumerate(directed_edges)}
-        dense_nb = np.zeros((n, n), dtype=np.float64)
-        for i, (u, v) in enumerate(directed_edges):
-            for w in graph.neighbors(v):
-                if w == u:
-                    continue
-                j = edge_index.get((v, w))
-                if j is not None:
-                    dense_nb[j, i] += 1.0
-
+        dense_nb = op.matmat(np.eye(n, dtype=np.float64))
         vals_dense, vecs_dense = np.linalg.eig(dense_nb)
         idx = int(np.argmax(np.real(vals_dense)))
         vals = np.asarray([vals_dense[idx]], dtype=np.complex128)

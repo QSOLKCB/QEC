@@ -24,7 +24,13 @@ _ROUND = 12
 
 
 class NBGradientMutator:
-    """Deterministic instability-gradient guided mutation operator."""
+    """Deterministic instability-gradient guided mutation operator.
+
+    Parameters
+    ----------
+    flow_damping_alpha : float
+        Convex damping weight in [0.0, 1.0] used when ``flow_damping=True``.
+    """
 
     def __init__(
         self,
@@ -35,6 +41,9 @@ class NBGradientMutator:
         flow_damping_alpha: float = 0.5,
         precision: int = _ROUND,
     ) -> None:
+        if not (0.0 <= flow_damping_alpha <= 1.0):
+            raise ValueError("flow_damping_alpha must be between 0 and 1")
+
         self.enabled = enabled
         self.avoid_4cycles = avoid_4cycles
         self.flow_damping = flow_damping

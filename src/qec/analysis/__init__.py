@@ -19,6 +19,7 @@ from src.qec.analysis.cycle_topology import CycleTopologyAnalyzer
 from src.qec.analysis.residual_clusters import ResidualClusterAnalyzer
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 from src.qec.analysis.constraint_tension import ConstraintTensionAnalyzer
+from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
 
 __all__ = [
     "TrappingSetDetector",
@@ -29,4 +30,5 @@ __all__ = [
     "ResidualClusterAnalyzer",
     "NonBacktrackingFlowAnalyzer",
     "ConstraintTensionAnalyzer",
+    "FlowAlignmentAnalyzer",
 ]

@@ -112,10 +112,10 @@ class TestAbsorbingSetOperatorRegistration:
                 break
         assert found
 
-    def test_eleven_operators_registered(self):
-        assert len(_OPERATORS) == 11
-        assert len(OPERATORS) == 11
-        assert len(_OPERATOR_FUNCTIONS) == 11
+    def test_twelve_operators_registered(self):
+        assert len(_OPERATORS) == 12
+        assert len(OPERATORS) == 12
+        assert len(_OPERATOR_FUNCTIONS) == 12
 
 
 class TestFitnessIntegration:

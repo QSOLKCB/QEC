@@ -32,11 +32,13 @@ class NBGradientMutator:
         enabled: bool = False,
         avoid_4cycles: bool = True,
         flow_damping: bool = False,
+        flow_damping_alpha: float = 0.5,
         precision: int = _ROUND,
     ) -> None:
         self.enabled = enabled
         self.avoid_4cycles = avoid_4cycles
         self.flow_damping = flow_damping
+        self.flow_damping_alpha = flow_damping_alpha
         self.precision = precision
         self._analyzer = NBInstabilityGradientAnalyzer()
 
@@ -77,9 +79,10 @@ class NBGradientMutator:
             if self.flow_damping and prev_direction:
                 damped_direction: dict[tuple[int, int], float] = {}
                 for edge, value in gradient["gradient_direction"].items():
-                    prev_val = prev_direction.get(edge, value)
+                    prev_val = prev_direction.get(edge, 0.0)
                     damped_direction[edge] = round(
-                        0.5 * float(value) + 0.5 * float(prev_val),
+                        self.flow_damping_alpha * float(value)
+                        + (1.0 - self.flow_damping_alpha) * float(prev_val),
                         self.precision,
                     )
                 gradient["gradient_direction"] = damped_direction

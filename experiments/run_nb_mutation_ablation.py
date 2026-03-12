@@ -43,6 +43,21 @@ from src.qec.experiments.constants import ABLATION_METRICS, MUTATION_STRATEGIES
 
 _ROUND = 12
 
+METRIC_ALIASES = {
+    "fer": "FER",
+    "spectral_radius": "spectral_radius",
+    "ipr": "nb_ipr",
+    "runtime": "runtime",
+}
+
+_missing_aliases = [m for m in ABLATION_METRICS if m not in METRIC_ALIASES]
+_extra_aliases = [m for m in METRIC_ALIASES if m not in ABLATION_METRICS]
+if _missing_aliases or _extra_aliases:
+    raise ValueError(
+        "METRIC_ALIASES must match ABLATION_METRICS exactly; "
+        f"missing={_missing_aliases}, extra={_extra_aliases}",
+    )
+
 
 def _generate_random_H(
     m: int, n: int, row_weight: int, seed: int,
@@ -294,13 +309,7 @@ def run_ablation(
         trials.append(trial_result)
 
     # Compute averages per strategy.
-    metric_aliases = {
-        "fer": "FER",
-        "spectral_radius": "spectral_radius",
-        "ipr": "nb_ipr",
-        "runtime": "runtime",
-    }
-    metric_keys = [metric_aliases[name] for name in ABLATION_METRICS] + [
+    metric_keys = [METRIC_ALIASES[name] for name in ABLATION_METRICS] + [
         "girth", "cycle_count_4", "cycle_count_6",
         "max_flow", "mean_flow", "flow_localization",
         "mutations_applied",

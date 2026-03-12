@@ -1,9 +1,9 @@
 """
-v11.3.0 — Analysis subsystem.
+v11.5.0 — Analysis subsystem.
 
 Provides trapping-set detection, BP residual analysis, Bethe Hessian
-stability estimation, absorbing-set prediction, and cycle topology
-analysis for LDPC/QLDPC Tanner graphs.
+stability estimation, absorbing-set prediction, cycle topology
+analysis, and residual cluster detection for LDPC/QLDPC Tanner graphs.
 
 Layer 3 — Analysis.
 Does not import or modify the decoder (Layer 1).
@@ -15,6 +15,7 @@ from src.qec.analysis.bp_residuals import BPResidualAnalyzer
 from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer
 from src.qec.analysis.absorbing_sets import AbsorbingSetPredictor
 from src.qec.analysis.cycle_topology import CycleTopologyAnalyzer
+from src.qec.analysis.residual_clusters import ResidualClusterAnalyzer
 
 __all__ = [
     "TrappingSetDetector",
@@ -22,4 +23,5 @@ __all__ = [
     "BetheHessianAnalyzer",
     "AbsorbingSetPredictor",
     "CycleTopologyAnalyzer",
+    "ResidualClusterAnalyzer",
 ]

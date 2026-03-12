@@ -1,5 +1,5 @@
 """
-v11.4.0 — Local Graph Optimizer.
+v11.5.0 — Local Graph Optimizer.
 
 Performs deterministic local edge rewiring to improve Tanner graph fitness
 without changing code size.  Used as the local search component in
@@ -10,6 +10,7 @@ Operators:
   2. Residual hot-spot smoothing — rewire high-residual variable edges
   3. Cycle irregularity reduction — rewire edges in highest-twist cycles
   4. Bethe-Hessian stability improvement — rewire unstable-mode nodes
+  5. Residual cluster smoothing — improve cluster escape connectivity
 
 Layer 3 — Discovery.
 Does not import or modify the decoder (Layer 1).
@@ -29,6 +30,7 @@ from src.qec.analysis.absorbing_sets import AbsorbingSetPredictor
 from src.qec.analysis.bp_residuals import BPResidualAnalyzer
 from src.qec.analysis.cycle_topology import CycleTopologyAnalyzer
 from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer
+from src.qec.analysis.residual_clusters import ResidualClusterAnalyzer
 
 
 _DEFAULT_MAX_STEPS = 10
@@ -105,6 +107,7 @@ class LocalGraphOptimizer:
         self._residual_analyzer = BPResidualAnalyzer()
         self._cycle_analyzer = CycleTopologyAnalyzer()
         self._bethe_analyzer = BetheHessianAnalyzer()
+        self._cluster_analyzer = ResidualClusterAnalyzer()
 
     def optimize(
         self,
@@ -139,6 +142,7 @@ class LocalGraphOptimizer:
             self._residual_hotspot_smoothing,
             self._cycle_irregularity_reduction,
             self._bethe_hessian_improvement,
+            self._residual_cluster_smoothing,
         ]
 
         for step in range(self.max_steps):
@@ -390,6 +394,79 @@ class LocalGraphOptimizer:
             check_idx = checks[rng.randint(0, len(checks))]
 
             for var_low in low_participation:
+                if var_low == var_high:
+                    continue
+                result = _try_rewire(H, check_idx, var_high, check_idx, var_low)
+                if result is not None:
+                    candidates.append(result)
+                    break
+
+            if len(candidates) >= 3:
+                break
+
+        return candidates
+
+    def _residual_cluster_smoothing(
+        self,
+        H: np.ndarray,
+        seed: int,
+    ) -> list[np.ndarray]:
+        """Generate candidate rewires that improve cluster escape connectivity.
+
+        Identifies residual clusters and rewires edges from cluster-interior
+        variables to low-residual variables outside the cluster, improving
+        the graph's ability to escape decoder failure basins.
+        """
+        candidates: list[np.ndarray] = []
+        rng = np.random.RandomState(seed)
+
+        m, n = H.shape
+
+        # Compute residual map
+        residuals = self._residual_analyzer.compute_residual_map(
+            H, iterations=5, seed=seed,
+        )
+        residual_map = residuals.get("residual_map", np.array([]))
+
+        if len(residual_map) == 0 or len(residual_map) != n:
+            return candidates
+
+        # Find clusters
+        cluster_result = self._cluster_analyzer.find_clusters(
+            H, residual_map=residual_map,
+        )
+        clusters = cluster_result.get("clusters", [])
+
+        if not clusters:
+            return candidates
+
+        # Target the highest-risk cluster
+        target = clusters[0]
+        cluster_vars = set(target["variables"])
+
+        # Variables outside cluster, sorted by residual ascending
+        outside_vars = sorted(
+            [vi for vi in range(n) if vi not in cluster_vars],
+            key=lambda vi: residual_map[vi],
+        )
+
+        if not outside_vars:
+            return candidates
+
+        # Rank cluster variables by residual descending
+        cluster_ranked = sorted(
+            target["variables"],
+            key=lambda vi: -residual_map[vi],
+        )
+
+        for var_high in cluster_ranked[:3]:
+            checks = sorted(np.where(H[:, var_high] == 1)[0].tolist())
+            if len(checks) <= 1:
+                continue
+
+            check_idx = checks[rng.randint(0, len(checks))]
+
+            for var_low in outside_vars[:3]:
                 if var_low == var_high:
                     continue
                 result = _try_rewire(H, check_idx, var_high, check_idx, var_low)

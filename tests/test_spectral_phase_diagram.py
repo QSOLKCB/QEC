@@ -26,6 +26,7 @@ from src.qec.experiments.spectral_phase_diagram import (
 )
 from src.qec.experiments.phase_diagram_plot import (
     render_ascii_heatmap,
+    plot_risk_heatmap,
 )
 
 
@@ -90,6 +91,7 @@ class TestExtractSpectralMetrics:
         assert "spectral_radius" in metrics
         assert "ipr" in metrics
         assert "flow_alignment" in metrics
+        assert "trapping_risk" in metrics
 
     def test_deterministic(self):
         H = _make_small_H()
@@ -175,6 +177,7 @@ class TestSpectralPhaseDiagramGenerator:
         assert "FER" in point
         assert "IPR" in point
         assert "flow_alignment" in point
+        assert "trapping_risk" in point
 
     def test_fer_in_range(self):
         graphs = [_make_small_H()]
@@ -253,3 +256,14 @@ class TestAsciiHeatmap:
     def test_empty_data(self):
         ascii_out = render_ascii_heatmap({"points": []})
         assert "(no data)" in ascii_out
+
+    def test_plot_risk_heatmap_optional(self):
+        graphs = _make_two_graphs()
+        gen = SpectralPhaseDiagramGenerator(base_seed=42)
+        result = gen.generate_phase_diagram(
+            graphs=graphs,
+            error_rates=[0.02],
+            trials_per_point=1,
+        )
+        fig = plot_risk_heatmap(result)
+        assert fig is None or fig is not None

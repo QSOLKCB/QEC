@@ -18,6 +18,7 @@ import numpy as np
 import scipy.sparse
 
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
+from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
 
 
 _ROUND = 12
@@ -39,6 +40,7 @@ class NBGradientMutator:
         avoid_4cycles: bool = True,
         flow_damping: bool = False,
         flow_damping_alpha: float = 0.5,
+        avoid_predicted_trapping_sets: bool = False,
         precision: int = _ROUND,
     ) -> None:
         if not (0.0 <= flow_damping_alpha <= 1.0):
@@ -48,8 +50,10 @@ class NBGradientMutator:
         self.avoid_4cycles = avoid_4cycles
         self.flow_damping = flow_damping
         self.flow_damping_alpha = flow_damping_alpha
+        self.avoid_predicted_trapping_sets = avoid_predicted_trapping_sets
         self.precision = precision
         self._analyzer = NBInstabilityGradientAnalyzer()
+        self._trapping_predictor = NBTrappingSetPredictor(precision=precision)
 
     def mutate(
         self,
@@ -120,11 +124,27 @@ class NBGradientMutator:
         node_instability = gradient["node_instability"]
         gradient_direction = gradient["gradient_direction"]
 
+        predicted_node_instability: dict[int, float] = {}
+        if self.avoid_predicted_trapping_sets:
+            prediction = self._trapping_predictor.predict_trapping_regions(H)
+            predicted_node_instability = prediction["node_scores"]
+
         check_neighbors, var_neighbors = self._build_neighbors(H)
 
+        if self.avoid_predicted_trapping_sets:
+            adjusted_edge_scores = {
+                edge: round(
+                    float(score) / (1.0 + float(predicted_node_instability.get(edge[1], 0.0))),
+                    self.precision,
+                )
+                for edge, score in edge_scores.items()
+            }
+        else:
+            adjusted_edge_scores = edge_scores
+
         ranked_edges = sorted(
-            edge_scores,
-            key=lambda e: (-edge_scores[e], e[0], e[1]),
+            adjusted_edge_scores,
+            key=lambda e: (-adjusted_edge_scores[e], e[0], e[1]),
         )
 
         for ci, vi in ranked_edges:

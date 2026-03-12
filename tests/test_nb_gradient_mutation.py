@@ -197,6 +197,35 @@ class TestGradientMutator:
         assert captured[1][(0, 0)] == 1.0
         assert captured[1][(1, 1)] == 0.5
 
+
+
+    def test_avoid_predicted_trapping_sets_default_unchanged(self) -> None:
+        H = _matrix()
+        mut_default = NBGradientMutator(enabled=True, avoid_4cycles=True)
+        mut_explicit = NBGradientMutator(
+            enabled=True,
+            avoid_4cycles=True,
+            avoid_predicted_trapping_sets=False,
+        )
+
+        H_a, log_a = mut_default.mutate(H, steps=4)
+        H_b, log_b = mut_explicit.mutate(H, steps=4)
+        np.testing.assert_array_equal(H_a, H_b)
+        assert log_a == log_b
+
+    def test_avoid_predicted_trapping_sets_enabled_deterministic(self) -> None:
+        H = _matrix()
+        mut = NBGradientMutator(
+            enabled=True,
+            avoid_4cycles=True,
+            avoid_predicted_trapping_sets=True,
+        )
+
+        H1, log1 = mut.mutate(H, steps=4)
+        H2, log2 = mut.mutate(H, steps=4)
+        np.testing.assert_array_equal(H1, H2)
+        assert log1 == log2
+
     def test_sparse_input(self) -> None:
         H = _matrix()
         H_sp = scipy.sparse.csr_matrix(H)

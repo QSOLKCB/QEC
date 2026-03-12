@@ -16,6 +16,61 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import scipy.sparse
+import scipy.sparse.linalg
+
+
+def _build_sparse_nb_matrix(
+    H: np.ndarray,
+) -> tuple[scipy.sparse.csr_matrix, list[tuple[int, int]]]:
+    """Build the non-backtracking matrix as a sparse CSR matrix.
+
+    Parameters
+    ----------
+    H : np.ndarray
+        Binary parity-check matrix, shape (m, n).
+
+    Returns
+    -------
+    B : scipy.sparse.csr_matrix
+        Sparse NB matrix of shape (2|E|, 2|E|).
+    directed_edges : list[tuple[int, int]]
+        Directed edge list.
+    """
+    m, n = H.shape
+
+    # Build directed edge list using nonzero entries.
+    rows, cols = np.where(H != 0)
+    directed_edges: list[tuple[int, int]] = []
+    for ci, vi in zip(rows, cols):
+        directed_edges.append((int(vi), n + int(ci)))
+        directed_edges.append((n + int(ci), int(vi)))
+
+    num_directed = len(directed_edges)
+    if num_directed == 0:
+        return scipy.sparse.csr_matrix((0, 0), dtype=np.float64), []
+
+    # Build outgoing adjacency.
+    outgoing: dict[int, list[int]] = {}
+    for idx, (_u, v) in enumerate(directed_edges):
+        outgoing.setdefault(v, []).append(idx)
+
+    # Build sparse NB matrix via COO triplets.
+    nb_rows: list[int] = []
+    nb_cols: list[int] = []
+    for idx_uv, (u, v) in enumerate(directed_edges):
+        for idx_vw in outgoing.get(v, []):
+            _, w = directed_edges[idx_vw]
+            if w != u:
+                nb_rows.append(idx_uv)
+                nb_cols.append(idx_vw)
+
+    data = np.ones(len(nb_rows), dtype=np.float64)
+    B = scipy.sparse.csr_matrix(
+        (data, (nb_rows, nb_cols)),
+        shape=(num_directed, num_directed),
+    )
+    return B, directed_edges
 
 
 def compute_non_backtracking_spectrum(
@@ -42,23 +97,8 @@ def compute_non_backtracking_spectrum(
         - ``num_eigenvalues``: int, total number of eigenvalues
     """
     H = np.asarray(parity_check_matrix, dtype=np.float64)
-    m, n = H.shape
 
-    # ── Build Tanner graph bipartite adjacency ────────────────────
-    # Variable nodes: 0..n-1, check nodes: n..n+m-1
-    total_nodes = n + m
-
-    # Build directed edge list from undirected Tanner edges.
-    # Each undirected edge (u, v) produces two directed edges: u->v and v->u.
-    directed_edges: list[tuple[int, int]] = []
-    for ci in range(m):
-        for vi in range(n):
-            if H[ci, vi] != 0:
-                u = vi          # variable node index
-                w = n + ci      # check node index
-                directed_edges.append((u, w))
-                directed_edges.append((w, u))
-
+    B_sparse, directed_edges = _build_sparse_nb_matrix(H)
     num_directed = len(directed_edges)
 
     if num_directed == 0:
@@ -68,32 +108,27 @@ def compute_non_backtracking_spectrum(
             "num_eigenvalues": 0,
         }
 
-    # ── Index directed edges ──────────────────────────────────────
-    edge_to_idx: dict[tuple[int, int], int] = {}
-    for idx, edge in enumerate(directed_edges):
-        edge_to_idx[edge] = idx
-
-    # ── Build adjacency list for outgoing edges from each node ────
-    outgoing: dict[int, list[int]] = {}
-    for idx, (u, v) in enumerate(directed_edges):
-        if v not in outgoing:
-            outgoing[v] = []
-        outgoing[v].append(idx)
-
-    # ── Construct non-backtracking matrix B ───────────────────────
-    # B_{(u->v), (v->w)} = 1 if w != u
-    B = np.zeros((num_directed, num_directed), dtype=np.float64)
-
-    for idx_uv, (u, v) in enumerate(directed_edges):
-        # For all directed edges (v -> w) where w != u
-        for idx_vw in outgoing.get(v, []):
-            _, w = directed_edges[idx_vw]
-            if w != u:
-                B[idx_uv, idx_vw] = 1.0
-
     # ── Compute eigenvalues ───────────────────────────────────────
-    # Non-backtracking matrix is generally non-symmetric, so use eig.
-    eigenvalues = np.linalg.eigvals(B)
+    # Use dense eigensolver for determinism.  ARPACK eigs can produce
+    # non-deterministic eigenvalues at the ULP level even with fixed v0.
+    # Sparse construction (above) keeps build cost at O(|E|).
+    # Dense eigensolver is used up to 512 directed edges; above that,
+    # sparse with dense fallback.
+    k = min(6, num_directed - 2)
+    if k < 1 or num_directed <= 512:
+        eigenvalues = np.linalg.eigvals(B_sparse.toarray())
+    else:
+        try:
+            v0 = np.ones(num_directed, dtype=np.float64)
+            eigenvalues = scipy.sparse.linalg.eigs(
+                B_sparse,
+                k=k,
+                which="LM",
+                v0=v0,
+                return_eigenvectors=False,
+            )
+        except (scipy.sparse.linalg.ArpackNoConvergence, RuntimeError):
+            eigenvalues = np.linalg.eigvals(B_sparse.toarray())
 
     # Compute magnitudes.
     magnitudes = np.abs(eigenvalues)

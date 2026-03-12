@@ -12,6 +12,46 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[11.6.1] — 2026-03-12
+
+Audit Remediation Patch — P0/P1 Fixes
+
+Fixed
+
+- **ACE repair edge loss** (`discovery/ace_repair.py`): Two-phase rewire
+  prevents in-place mutation during iteration and validates targets before
+  moving edges. Edge count is now preserved as an invariant.
+
+- **Dense NB matrix construction** (`diagnostics/non_backtracking_spectrum.py`,
+  `diagnostics/nb_localization.py`, `diagnostics/sensitivity_map.py`,
+  `experiments/spectral_graph_optimizer.py`, `experiments/tanner_graph_repair.py`):
+  Replaced O(|E|²) dense Hashimoto matrix construction with sparse CSR via
+  COO triplets. Centralized in `_build_sparse_nb_matrix()` helper.
+
+- **Layer violation** (`diagnostics/sensitivity_map.py`): Removed import of
+  `compute_spectral_instability_score` from experiments layer. Instability
+  score computation inlined to preserve layer boundaries.
+
+- **Unseeded RNG** (`qec_qldpc_codes.py:604`): Changed
+  `np.random.default_rng()` to `np.random.default_rng(seed=0)` for
+  deterministic code generation.
+
+- **Dense Bethe Hessian** (`analysis/bethe_hessian.py`): Replaced dense
+  `H^T @ H` with sparse `H_sparse.T.dot(H_sparse)`. Bethe Hessian
+  constructed entirely via sparse operations.
+
+- **ARPACK non-determinism**: Added `v0=np.ones(n)` to all `eigsh`/`eigs`
+  calls for deterministic initial vectors. For eigenvector-dependent
+  computations (localization, sensitivity), use dense `np.linalg.eig` for
+  full determinism since ARPACK `eigs` produces non-deterministic
+  eigenvectors for non-symmetric matrices. Raised dense eigensolver
+  threshold to 512 directed edges for `compute_non_backtracking_spectrum`.
+
+Added
+
+- **QLDPC commutativity validation** (`discovery/repair_operators.py`):
+  `validate_qldpc_commutativity(H_x, H_z)` checks `H_x @ H_z^T == 0 (mod 2)`.
+
 [7.6.0] — 2026-03-10
 
 Deterministic Instability Sensitivity Maps & Optional Sensitivity-Based Preconditioner

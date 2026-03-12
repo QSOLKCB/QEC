@@ -35,6 +35,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import scipy.sparse
 
 
 # ── Graph utilities ──────────────────────────────────────────────────
@@ -616,7 +617,7 @@ def _baseline_only_result(
 
 def _build_nb_matrix_from_edges(
     edges: list[tuple[int, int]],
-) -> np.ndarray:
+) -> scipy.sparse.csr_matrix:
     """Build the non-backtracking (Hashimoto) matrix from an edge list.
 
     Each undirected edge (u, v) yields two directed edges: u->v and v->u.
@@ -631,8 +632,8 @@ def _build_nb_matrix_from_edges(
 
     Returns
     -------
-    np.ndarray
-        Non-backtracking matrix of shape (2*|E|, 2*|E|).
+    scipy.sparse.csr_matrix
+        Sparse non-backtracking matrix of shape (2*|E|, 2*|E|).
     """
     B, _, _, _ = _build_nb_context(edges)
     return B
@@ -641,15 +642,15 @@ def _build_nb_matrix_from_edges(
 def _build_nb_context(
     edges: list[tuple[int, int]],
 ) -> tuple[
-    np.ndarray,
+    scipy.sparse.csr_matrix,
     list[tuple[int, int]],
     dict[int, list[int]],
     dict[tuple[int, int], tuple[int, int]],
 ]:
     """Build the NB matrix with reusable indexing context.
 
-    Returns the NB matrix together with auxiliary structures that allow
-    efficient incremental updates when edges are swapped.
+    Returns the NB matrix as sparse CSR together with auxiliary structures
+    that allow efficient incremental updates when edges are swapped.
 
     Each undirected edge at position i in ``edges`` produces two
     directed edges at positions 2*i (forward) and 2*i+1 (reverse)
@@ -662,8 +663,8 @@ def _build_nb_context(
 
     Returns
     -------
-    B : np.ndarray
-        Non-backtracking matrix, shape (2*|E|, 2*|E|).
+    B : scipy.sparse.csr_matrix
+        Sparse non-backtracking matrix, shape (2*|E|, 2*|E|).
     directed : list[tuple[int, int]]
         Directed edge list (length 2*|E|).
     outgoing : dict[int, list[int]]
@@ -681,15 +682,13 @@ def _build_nb_context(
     num_directed = len(directed)
     if num_directed == 0:
         return (
-            np.zeros((0, 0), dtype=np.float64),
+            scipy.sparse.csr_matrix((0, 0), dtype=np.float64),
             directed,
             {},
             {},
         )
 
     # Build adjacency list for outgoing edges from each node.
-    # Matches v6.0 construction: outgoing[v] = indices of directed
-    # edges with destination v.
     outgoing: dict[int, list[int]] = {}
     for idx, (_u, v) in enumerate(directed):
         outgoing.setdefault(v, []).append(idx)
@@ -699,19 +698,27 @@ def _build_nb_context(
     for i, (u, v) in enumerate(edges):
         edge_to_directed[(u, v)] = (2 * i, 2 * i + 1)
 
-    # Construct B: B_{(u->v),(v->w)} = 1 if w != u.
-    B = np.zeros((num_directed, num_directed), dtype=np.float64)
+    # Construct sparse B: B_{(u->v),(v->w)} = 1 if w != u.
+    nb_rows: list[int] = []
+    nb_cols: list[int] = []
     for idx_uv, (u, v) in enumerate(directed):
         for idx_vw in outgoing.get(v, []):
             _, w = directed[idx_vw]
             if w != u:
-                B[idx_uv, idx_vw] = 1.0
+                nb_rows.append(idx_uv)
+                nb_cols.append(idx_vw)
+
+    data = np.ones(len(nb_rows), dtype=np.float64)
+    B = scipy.sparse.csr_matrix(
+        (data, (nb_rows, nb_cols)),
+        shape=(num_directed, num_directed),
+    )
 
     return B, directed, outgoing, edge_to_directed
 
 
 def _spectral_radius_power_iteration(
-    B: np.ndarray,
+    B: scipy.sparse.csr_matrix | np.ndarray,
     max_iters: int = 100,
     tol: float = 1e-10,
 ) -> float:
@@ -719,13 +726,12 @@ def _spectral_radius_power_iteration(
 
     Uses a fixed initial vector (ones) and deterministic iteration
     to approximate the largest eigenvalue magnitude without computing
-    the full spectrum.  Typically 5-20x faster than eigvals for the
-    NB matrices encountered in spectral graph optimization.
+    the full spectrum.  Works with both sparse and dense matrices.
 
     Parameters
     ----------
-    B : np.ndarray
-        Square matrix.
+    B : scipy.sparse.csr_matrix or np.ndarray
+        Square matrix (sparse or dense).
     max_iters : int
         Maximum number of iterations.
     tol : float
@@ -744,7 +750,7 @@ def _spectral_radius_power_iteration(
     last_lambda = 0.0
 
     for _ in range(max_iters):
-        y = B @ x
+        y = B.dot(x)
         norm = np.linalg.norm(y)
 
         if norm == 0:
@@ -753,7 +759,7 @@ def _spectral_radius_power_iteration(
         x = y / norm
 
         # Rayleigh quotient estimate
-        lam = abs(x @ (B @ x))
+        lam = abs(x @ B.dot(x))
 
         if abs(lam - last_lambda) < tol:
             return lam
@@ -766,7 +772,9 @@ def _spectral_radius_power_iteration(
     return float(last_lambda)
 
 
-def _spectral_radius_from_nb(B: np.ndarray) -> float:
+def _spectral_radius_from_nb(
+    B: scipy.sparse.csr_matrix | np.ndarray,
+) -> float:
     """Compute spectral radius from an NB matrix.
 
     Uses deterministic power iteration for speed, with a fallback to
@@ -774,8 +782,8 @@ def _spectral_radius_from_nb(B: np.ndarray) -> float:
 
     Parameters
     ----------
-    B : np.ndarray
-        Non-backtracking matrix.
+    B : scipy.sparse.csr_matrix or np.ndarray
+        Non-backtracking matrix (sparse or dense).
 
     Returns
     -------
@@ -789,14 +797,15 @@ def _spectral_radius_from_nb(B: np.ndarray) -> float:
     try:
         radius = _spectral_radius_power_iteration(B)
     except Exception:
-        eigenvalues = np.linalg.eigvals(B)
+        B_dense = B.toarray() if scipy.sparse.issparse(B) else B
+        eigenvalues = np.linalg.eigvals(B_dense)
         radius = float(np.max(np.abs(eigenvalues)))
 
     return round(radius, 12)
 
 
 def _spectral_score_with_swap(
-    B_base: np.ndarray,
+    B_base: scipy.sparse.csr_matrix,
     directed_base: list[tuple[int, int]],
     outgoing_base: dict[int, list[int]],
     edge_to_directed: dict[tuple[int, int], tuple[int, int]],
@@ -812,8 +821,8 @@ def _spectral_score_with_swap(
 
     Parameters
     ----------
-    B_base : np.ndarray
-        Baseline NB matrix.
+    B_base : scipy.sparse.csr_matrix
+        Baseline sparse NB matrix.
     directed_base : list[tuple[int, int]]
         Baseline directed edge list.
     outgoing_base : dict[int, list[int]]
@@ -847,8 +856,6 @@ def _spectral_score_with_swap(
     add_0 = (swap["add"][0][0], swap["add"][0][1])
     add_1 = (swap["add"][1][0], swap["add"][1][1])
 
-    # Undirected edge at position i: directed[2i] = (u,v), directed[2i+1] = (v,u).
-    # After swap, the same slots hold the new directed edges.
     new_at: dict[int, tuple[int, int]] = {
         fwd_0: (add_0[0], add_0[1]),
         rev_0: (add_0[1], add_0[0]),
@@ -873,8 +880,8 @@ def _spectral_score_with_swap(
             new_outgoing[old_dest].remove(a)
             new_outgoing.setdefault(new_dest, []).append(a)
 
-    # ── Incremental matrix update ────────────────────────────────
-    B = B_base.copy()
+    # ── Incremental sparse matrix update ─────────────────────────
+    B = B_base.tolil()
 
     # Zero out affected rows and columns.
     for a in affected:
@@ -882,7 +889,6 @@ def _spectral_score_with_swap(
         B[:, a] = 0.0
 
     # Recompute rows for affected indices.
-    # Row a: B[a, j] = 1 for j in outgoing[dest(a)] where dest(j) != source(a).
     for a in affected:
         u_a, v_a = new_at[a]
         for j in new_outgoing.get(v_a, []):
@@ -891,18 +897,16 @@ def _spectral_score_with_swap(
                 B[a, j] = 1.0
 
     # Recompute columns for affected indices.
-    # B[j, a] = 1 iff dest(a) == dest(j) and dest(a) != source(j).
-    # All j with dest(j) == dest(a) are in outgoing[dest(a)].
     for a in affected:
         _u_a, v_a = new_at[a]
         for j in new_outgoing.get(v_a, []):
             if j in affected_set:
-                continue  # Already set during row computation.
+                continue
             u_j = _directed(j)[0]
             if v_a != u_j:
                 B[j, a] = 1.0
 
-    return _spectral_radius_from_nb(B)
+    return _spectral_radius_from_nb(B.tocsr())
 
 
 def _power_iteration_spectral_radius(

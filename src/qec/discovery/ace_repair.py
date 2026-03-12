@@ -36,13 +36,36 @@ def repair_graph_with_ace_constraint(H: np.ndarray) -> np.ndarray:
     H_new = np.asarray(H, dtype=np.float64).copy()
     m, n = H_new.shape
 
+    # Collect candidate rewires before mutating, to avoid iteration
+    # order dependencies from in-place modification.
+    rewires: list[tuple[int, int]] = []
     for i in range(m):
         for j in range(n):
             if H_new[i, j] == 1:
                 degree = int(np.sum(H_new[:, j]))
                 if degree < 2:
-                    H_new[i, j] = 0.0
-                    new_j = (j + 1) % n
-                    H_new[i, new_j] = 1.0
+                    rewires.append((i, j))
+
+    for i, j in rewires:
+        # Guard: edge may have been affected by a prior rewire.
+        if H_new[i, j] != 1:
+            continue
+        if int(np.sum(H_new[:, j])) >= 2:
+            continue
+
+        # Find a valid target column: not already occupied in this row.
+        rewired = False
+        for offset in range(1, n):
+            new_j = (j + offset) % n
+            if H_new[i, new_j] == 0:
+                H_new[i, j] = 0.0
+                H_new[i, new_j] = 1.0
+                rewired = True
+                break
+
+        # If no valid target exists, restore original edge (preserve
+        # edge count invariant).
+        if not rewired:
+            pass  # Edge left in place — no valid target available.
 
     return H_new

@@ -19,6 +19,12 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import scipy.sparse
+import scipy.sparse.linalg
+
+from src.qec.diagnostics.non_backtracking_spectrum import (
+    _build_sparse_nb_matrix,
+)
 
 
 def _ipr(v: np.ndarray) -> float:
@@ -101,17 +107,8 @@ def compute_nb_localization_metrics(
     H = np.asarray(parity_check_matrix, dtype=np.float64)
     m, n = H.shape
 
-    # ── Build Tanner graph directed edge list ──────────────────────
-    # Variable nodes: 0..n-1, check nodes: n..n+m-1
-    directed_edges: list[tuple[int, int]] = []
-    for ci in range(m):
-        for vi in range(n):
-            if H[ci, vi] != 0:
-                u = vi          # variable node index
-                w = n + ci      # check node index
-                directed_edges.append((u, w))
-                directed_edges.append((w, u))
-
+    # ── Build sparse NB matrix ─────────────────────────────────────
+    B_sparse, directed_edges = _build_sparse_nb_matrix(H)
     num_directed = len(directed_edges)
 
     # ── Handle degenerate case ─────────────────────────────────────
@@ -131,28 +128,12 @@ def compute_nb_localization_metrics(
             "num_leading_modes": 0,
         }
 
-    # ── Index directed edges ───────────────────────────────────────
-    edge_to_idx: dict[tuple[int, int], int] = {}
-    for idx, edge in enumerate(directed_edges):
-        edge_to_idx[edge] = idx
-
-    # ── Build outgoing adjacency ───────────────────────────────────
-    outgoing: dict[int, list[int]] = {}
-    for idx, (u, v) in enumerate(directed_edges):
-        if v not in outgoing:
-            outgoing[v] = []
-        outgoing[v].append(idx)
-
-    # ── Construct non-backtracking matrix B ────────────────────────
-    B = np.zeros((num_directed, num_directed), dtype=np.float64)
-    for idx_uv, (u, v) in enumerate(directed_edges):
-        for idx_vw in outgoing.get(v, []):
-            _, w = directed_edges[idx_vw]
-            if w != u:
-                B[idx_uv, idx_vw] = 1.0
-
     # ── Compute eigenvalues and eigenvectors ───────────────────────
-    eigenvalues, eigenvectors = np.linalg.eig(B)
+    # Use dense eigensolver for deterministic eigenvectors.
+    # Sparse construction (above) ensures O(|E|) build cost;
+    # dense eigensolver is needed because ARPACK eigs produces
+    # non-deterministic eigenvectors for non-symmetric matrices.
+    eigenvalues, eigenvectors = np.linalg.eig(B_sparse.toarray())
     # eigenvectors[:, i] is the eigenvector for eigenvalues[i]
 
     magnitudes = np.abs(eigenvalues)

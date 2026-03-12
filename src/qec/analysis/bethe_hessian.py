@@ -65,18 +65,19 @@ class BetheHessianAnalyzer:
                 "bethe_hessian_stability_score": 0.0,
             }
 
-        # Build variable-node adjacency matrix A (n x n).
-        # Two variable nodes are adjacent if they share at least one check.
-        # A = H^T H with diagonal zeroed gives the variable-node adjacency
-        # (with weights = number of shared checks).  We binarize for the
-        # standard Bethe Hessian formulation.
-        HtH = H_arr.T @ H_arr
-        np.fill_diagonal(HtH, 0.0)
+        # Build variable-node adjacency matrix A (n x n) via sparse
+        # H^T @ H to avoid O(n^2) dense allocation.
+        H_sparse = scipy.sparse.csr_matrix(H_arr)
+        HtH_sparse = H_sparse.T.dot(H_sparse)
+        HtH_sparse.setdiag(0.0)
+        HtH_sparse.eliminate_zeros()
         # Binarize: adjacency is 0 or 1
-        A = (HtH > 0).astype(np.float64)
+        A_sparse = HtH_sparse.copy()
+        A_sparse.data[:] = np.where(A_sparse.data > 0, 1.0, 0.0)
+        A_sparse.eliminate_zeros()
 
-        # Node degree matrix D (diagonal)
-        degrees = A.sum(axis=1)
+        # Node degree vector
+        degrees = np.asarray(A_sparse.sum(axis=1)).ravel()
 
         # Estimate r = sqrt(average_degree - 1)
         avg_degree = float(degrees.mean())
@@ -85,12 +86,12 @@ class BetheHessianAnalyzer:
         else:
             r = float(np.sqrt(avg_degree - 1.0))
 
-        # Construct Bethe Hessian: H_B(r) = (r^2 - 1) I - r A + D
+        # Construct sparse Bethe Hessian: H_B(r) = (r^2 - 1) I - r A + D
         r2_minus_1 = r * r - 1.0
-        H_B = r2_minus_1 * np.eye(n, dtype=np.float64) - r * A + np.diag(degrees)
+        I_sparse = scipy.sparse.eye(n, dtype=np.float64, format="csr")
+        D_sparse = scipy.sparse.diags(degrees, format="csr")
+        H_B_sparse = r2_minus_1 * I_sparse - r * A_sparse + D_sparse
 
-        # Compute smallest eigenvalues using sparse eigensolver
-        H_B_sparse = scipy.sparse.csr_matrix(H_B)
         k = min(6, n - 1) if n > 2 else 1
 
         if k < 1:
@@ -100,15 +101,18 @@ class BetheHessianAnalyzer:
             }
 
         try:
+            # Use deterministic initial vector for ARPACK reproducibility.
+            v0 = np.ones(n, dtype=np.float64)
             eigenvalues = scipy.sparse.linalg.eigsh(
                 H_B_sparse,
                 k=k,
                 which="SA",  # smallest algebraic
                 return_eigenvectors=False,
+                v0=v0,
             )
         except (scipy.sparse.linalg.ArpackNoConvergence, RuntimeError):
             # Fallback: dense eigensolver for small matrices
-            eigenvalues = np.linalg.eigvalsh(H_B)
+            eigenvalues = np.linalg.eigvalsh(H_B_sparse.toarray())
 
         min_eigenvalue = round(float(np.min(eigenvalues)), _ROUND)
 

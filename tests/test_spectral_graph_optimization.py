@@ -180,7 +180,7 @@ class TestNBMatrixConstruction:
         B = _build_nb_matrix_from_edges([(0, 1)])
         assert B.shape == (2, 2)
         # v6.0-compatible construction: identity for single edge.
-        assert np.allclose(B, np.eye(2))
+        assert np.allclose(B.toarray(), np.eye(2))
 
     def test_triangle(self):
         """Triangle graph has correct NB matrix size."""
@@ -315,7 +315,7 @@ class TestIncrementalNBUpdate:
             B_base, directed, outgoing, edge_to_dir, candidates[0],
         )
 
-        np.testing.assert_array_equal(B_base, B_copy)
+        np.testing.assert_array_equal(B_base.toarray(), B_copy.toarray())
 
     def test_nb_context_returns_correct_shapes(self):
         """_build_nb_context returns correctly shaped structures."""
@@ -764,7 +764,7 @@ class TestPowerIterationCorrectness:
         edges = _extract_edges(H)
         B = _build_nb_matrix_from_edges(edges)
         rho_power = _spectral_radius_power_iteration(B)
-        eigvals = np.linalg.eigvals(B)
+        eigvals = np.linalg.eigvals(B.toarray())
         rho_eig = float(np.max(np.abs(eigvals)))
         assert abs(rho_power - rho_eig) < 1e-4
 

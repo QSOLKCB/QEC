@@ -601,7 +601,7 @@ def depolarizing_channel(
         (x_error, z_error)  — binary vectors of length n.
     """
     if rng is None:
-        rng = np.random.default_rng()
+        rng = np.random.default_rng(seed=0)
     probs = np.array([1.0 - p, p / 3.0, p / 3.0, p / 3.0])
     choices = rng.choice(4, size=n, p=probs)
 

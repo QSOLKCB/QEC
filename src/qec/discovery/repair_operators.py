@@ -209,6 +209,33 @@ def validate_tanner_graph(H: np.ndarray) -> dict[str, Any]:
     }
 
 
+def validate_qldpc_commutativity(
+    H_x: np.ndarray,
+    H_z: np.ndarray,
+) -> bool:
+    """Validate QLDPC stabilizer commutativity constraint.
+
+    Checks that H_x @ H_z^T == 0 (mod 2), which is required for
+    valid CSS-type QLDPC codes.
+
+    Parameters
+    ----------
+    H_x : np.ndarray
+        X-stabilizer parity-check matrix.
+    H_z : np.ndarray
+        Z-stabilizer parity-check matrix.
+
+    Returns
+    -------
+    bool
+        True if the commutativity constraint holds.
+    """
+    H_x_arr = np.asarray(H_x, dtype=np.float64)
+    H_z_arr = np.asarray(H_z, dtype=np.float64)
+    product = H_x_arr @ H_z_arr.T
+    return bool(np.all(product % 2 == 0))
+
+
 def repair_tanner_graph(
     H: np.ndarray,
     *,

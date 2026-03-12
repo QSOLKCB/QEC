@@ -122,6 +122,12 @@ QEC functionality. Install separately if needed:
 pip install qutip
 ```
 
+Or run the helper script:
+
+```
+python scripts/qec_qutip.py
+```
+
 ### Modules
 
 - `stabilizer_mapping.py` — Maps H rows to Pauli stabilizer operators

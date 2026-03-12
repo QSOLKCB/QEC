@@ -89,6 +89,35 @@ class TestGradientMutator:
         np.testing.assert_array_equal(H_flow_a, H_flow_b)
         assert log_a == log_b
 
+    def test_mutate_flow_default_matches_undamped_path(self) -> None:
+        H = _matrix()
+        mut_default = NBGradientMutator(enabled=True, avoid_4cycles=True)
+        mut_undamped = NBGradientMutator(
+            enabled=True,
+            avoid_4cycles=True,
+            flow_damping=False,
+        )
+
+        H_default, log_default = mut_default.mutate_flow(H, iterations=5)
+        H_undamped, log_undamped = mut_undamped.mutate_flow(H, iterations=5)
+
+        np.testing.assert_array_equal(H_default, H_undamped)
+        assert log_default == log_undamped
+
+    def test_mutate_flow_damped_is_deterministic(self) -> None:
+        H = _matrix()
+        mut = NBGradientMutator(
+            enabled=True,
+            avoid_4cycles=True,
+            flow_damping=True,
+        )
+
+        H_flow_a, log_a = mut.mutate_flow(H, iterations=6)
+        H_flow_b, log_b = mut.mutate_flow(H, iterations=6)
+
+        np.testing.assert_array_equal(H_flow_a, H_flow_b)
+        assert log_a == log_b
+
     def test_sparse_input(self) -> None:
         H = _matrix()
         H_sp = scipy.sparse.csr_matrix(H)

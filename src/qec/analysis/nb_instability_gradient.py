@@ -64,6 +64,8 @@ class NBInstabilityGradientAnalyzer:
             flow.get("directed_edge_flow", np.zeros(0, dtype=np.float64)),
             dtype=np.float64,
         )
+        if len(directed_edges) != len(directed_edge_flow):
+            raise ValueError("NB flow vector mismatch")
 
         edge_scores = self._compute_edge_scores(
             H_arr,

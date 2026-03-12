@@ -31,10 +31,12 @@ class NBGradientMutator:
         *,
         enabled: bool = False,
         avoid_4cycles: bool = True,
+        flow_damping: bool = False,
         precision: int = _ROUND,
     ) -> None:
         self.enabled = enabled
         self.avoid_4cycles = avoid_4cycles
+        self.flow_damping = flow_damping
         self.precision = precision
         self._analyzer = NBInstabilityGradientAnalyzer()
 
@@ -64,7 +66,31 @@ class NBGradientMutator:
         iterations: int = 10,
     ) -> tuple[np.ndarray, list[dict[str, Any]]]:
         """Simulate continuous topology evolution via minimal gradient steps."""
-        return self.mutate(H, steps=iterations)
+        H_new = self._to_dense_copy(H)
+        if not self.enabled or iterations <= 0:
+            return H_new, []
+
+        mutations: list[dict[str, Any]] = []
+        prev_direction: dict[tuple[int, int], float] = {}
+        for _ in range(iterations):
+            gradient = self._analyzer.compute_gradient(H_new)
+            if self.flow_damping and prev_direction:
+                damped_direction: dict[tuple[int, int], float] = {}
+                for edge, value in gradient["gradient_direction"].items():
+                    prev_val = prev_direction.get(edge, value)
+                    damped_direction[edge] = round(
+                        0.5 * float(value) + 0.5 * float(prev_val),
+                        self.precision,
+                    )
+                gradient["gradient_direction"] = damped_direction
+
+            step = self._apply_single_gradient_step(H_new, gradient)
+            if step is None:
+                break
+            mutations.append(step)
+            prev_direction = dict(gradient["gradient_direction"])
+
+        return H_new, mutations
 
     @staticmethod
     def _to_dense_copy(H: np.ndarray | scipy.sparse.spmatrix) -> np.ndarray:
@@ -183,7 +209,9 @@ class NBGradientMutator:
         vi2: int,
         var_neighbors: dict[int, set[int]],
     ) -> bool:
-        shared_checks = set(var_neighbors.get(vi1, set())) & set(var_neighbors.get(vi2, set()))
+        shared_checks = var_neighbors.get(vi1, set()).intersection(
+            var_neighbors.get(vi2, set()),
+        )
         shared_checks.discard(ci1)
         shared_checks.discard(ci2)
         return len(shared_checks) > 0

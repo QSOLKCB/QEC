@@ -22,9 +22,12 @@ from __future__ import annotations
 import hashlib
 import json
 import struct
+import sys
 from typing import Any
 
 import numpy as np
+
+sys.path.insert(0, ".")
 
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
@@ -35,6 +38,7 @@ from src.qec.experiments.spectral_phase_diagram import (
     _derive_seed,
     _run_decoder_trial,
 )
+from src.qec.experiments.constants import ABLATION_METRICS, MUTATION_STRATEGIES
 
 
 _ROUND = 12
@@ -278,7 +282,7 @@ def run_ablation(
     dict
         Full experiment results with per-trial and averaged metrics.
     """
-    strategies = ["baseline", "random_swap", "nb_swap", "nb_ipr_swap", "nb_gradient"]
+    strategies = MUTATION_STRATEGIES
     trials: list[dict[str, Any]] = []
 
     for trial_idx in range(num_graphs):
@@ -290,10 +294,16 @@ def run_ablation(
         trials.append(trial_result)
 
     # Compute averages per strategy.
-    metric_keys = [
-        "spectral_radius", "girth", "cycle_count_4", "cycle_count_6",
-        "nb_ipr", "max_flow", "mean_flow", "flow_localization",
-        "FER", "mutations_applied", "runtime",
+    metric_aliases = {
+        "fer": "FER",
+        "spectral_radius": "spectral_radius",
+        "ipr": "nb_ipr",
+        "runtime": "runtime",
+    }
+    metric_keys = [metric_aliases[name] for name in ABLATION_METRICS] + [
+        "girth", "cycle_count_4", "cycle_count_6",
+        "max_flow", "mean_flow", "flow_localization",
+        "mutations_applied",
     ]
 
     averages: dict[str, dict[str, float]] = {}

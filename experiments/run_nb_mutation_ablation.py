@@ -2,11 +2,12 @@
 """
 v12.5.0 — NB Mutation Ablation with Phase Diagram Analysis.
 
-Compares four mutation strategies on randomly generated Tanner graphs:
+Compares mutation strategies on randomly generated Tanner graphs:
   1. baseline (no mutation)
   2. random swap (degree-preserving random edge swap)
   3. NB swap (eigenvector-guided edge swap)
   4. NB x IPR swap (IPR-weighted eigenvector-guided edge swap)
+  5. NB gradient (instability-gradient guided edge swap)
 
 For each graph computes: spectral_radius, FER, girth, cycle_count.
 Produces FER improvement vs spectral_radius across strategies.
@@ -27,7 +28,9 @@ import numpy as np
 
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
+from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
 from src.qec.discovery.mutation_nb_guided import NBGuidedMutator
+from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.fitness.spectral_metrics import compute_girth_spectrum
 from src.qec.experiments.spectral_phase_diagram import (
     _derive_seed,
@@ -110,6 +113,10 @@ def _compute_spectral_metrics(H: np.ndarray) -> dict[str, Any]:
     ipr_result = EigenvectorLocalizationAnalyzer.compute_ipr(
         flow["variable_flow"],
     )
+    alignment = FlowAlignmentAnalyzer().compute_alignment(
+        flow["variable_flow"],
+        flow["variable_flow"],
+    )
 
     girth_info = compute_girth_spectrum(H)
 
@@ -122,6 +129,7 @@ def _compute_spectral_metrics(H: np.ndarray) -> dict[str, Any]:
         "max_flow": round(float(flow["max_flow"]), _ROUND),
         "mean_flow": round(float(flow["mean_flow"]), _ROUND),
         "flow_localization": round(float(flow["flow_localization"]), _ROUND),
+        "flow_alignment": round(float(alignment["alignment_score"]), _ROUND),
     }
 
 
@@ -150,7 +158,7 @@ def run_single_trial(
     fer_trials: int,
     trial_seed: int,
 ) -> dict[str, Any]:
-    """Run a single ablation trial comparing four strategies.
+    """Run a single ablation trial comparing mutation strategies.
 
     Parameters
     ----------
@@ -184,6 +192,7 @@ def run_single_trial(
         H_base, error_rate, fer_trials, fer_seed,
     )
     baseline_metrics["mutations_applied"] = 0
+    baseline_metrics["runtime"] = 0.0
     results["baseline"] = baseline_metrics
 
     # 2. Random swap.
@@ -197,6 +206,7 @@ def run_single_trial(
         H_rand, error_rate, fer_trials, fer_seed,
     )
     rand_metrics["mutations_applied"] = len(rand_log)
+    rand_metrics["runtime"] = 0.0
     results["random_swap"] = rand_metrics
 
     # 3. NB swap.
@@ -208,6 +218,7 @@ def run_single_trial(
         H_nb, error_rate, fer_trials, fer_seed,
     )
     nb_metrics["mutations_applied"] = len(nb_log)
+    nb_metrics["runtime"] = 0.0
     results["nb_swap"] = nb_metrics
 
     # 4. NB x IPR swap.
@@ -219,7 +230,23 @@ def run_single_trial(
         H_ipr, error_rate, fer_trials, fer_seed,
     )
     ipr_metrics["mutations_applied"] = len(ipr_log)
+    ipr_metrics["runtime"] = 0.0
     results["nb_ipr_swap"] = ipr_metrics
+
+
+    # 5. NB gradient swap.
+    mutator_grad = NBGradientMutator(enabled=True, avoid_4cycles=True)
+    H_grad, grad_log = mutator_grad.mutate(H_base, steps=k_mutations)
+    grad_runtime = 0.0
+    grad_metrics = _compute_spectral_metrics(H_grad)
+    fer_seed = _derive_seed(trial_seed, "nb_gradient_fer")
+    grad_metrics["FER"] = _compute_fer(
+        H_grad, error_rate, fer_trials, fer_seed,
+    )
+    grad_metrics["mutations_applied"] = len(grad_log)
+    grad_metrics["runtime"] = grad_runtime
+    results["nb_gradient"] = grad_metrics
+    results["NB_gradient"] = dict(grad_metrics)
 
     return results
 
@@ -259,7 +286,7 @@ def run_ablation(
     dict
         Full experiment results with per-trial and averaged metrics.
     """
-    strategies = ["baseline", "random_swap", "nb_swap", "nb_ipr_swap"]
+    strategies = ["baseline", "random_swap", "nb_swap", "nb_ipr_swap", "NB_gradient"]
     trials: list[dict[str, Any]] = []
 
     for trial_idx in range(num_graphs):
@@ -274,7 +301,7 @@ def run_ablation(
     metric_keys = [
         "spectral_radius", "girth", "cycle_count_4", "cycle_count_6",
         "nb_ipr", "max_flow", "mean_flow", "flow_localization",
-        "FER", "mutations_applied",
+        "FER", "mutations_applied", "flow_alignment", "runtime",
     ]
 
     averages: dict[str, dict[str, float]] = {}
@@ -300,6 +327,8 @@ def run_ablation(
         "random_swap": averages["random_swap"],
         "nb_swap": averages["nb_swap"],
         "nb_ipr_swap": averages["nb_ipr_swap"],
+        "nb_gradient": averages["NB_gradient"],
+        "NB_gradient": averages["NB_gradient"],
         "trials": trials,
     }
 

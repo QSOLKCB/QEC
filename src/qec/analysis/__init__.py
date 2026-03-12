@@ -22,6 +22,7 @@ from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 from src.qec.analysis.constraint_tension import ConstraintTensionAnalyzer
 from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
 from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
+from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
 
 __all__ = [
     "TrappingSetDetector",
@@ -34,4 +35,5 @@ __all__ = [
     "ConstraintTensionAnalyzer",
     "EigenvectorLocalizationAnalyzer",
     "FlowAlignmentAnalyzer",
+    "NBInstabilityGradientAnalyzer",
 ]

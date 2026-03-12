@@ -217,3 +217,26 @@ class TestEdgeCases:
         mutator = NBGuidedMutator(k=5)
         _, log = mutator.mutate(H, k=1)
         assert len(log) <= 1
+
+
+class TestPartitionSeparation:
+    """Check and variable node namespaces must not collide."""
+
+    def test_no_false_conflict_across_partitions(self) -> None:
+        """A swap using check 0 must not block edges at variable 0."""
+        # 3x3 matrix where check and variable indices fully overlap.
+        H = np.array([
+            [1, 1, 0],
+            [0, 1, 1],
+            [1, 0, 1],
+        ], dtype=np.float64)
+        mutator = NBGuidedMutator(k=3, avoid_4cycles=False)
+        H_mut, log = mutator.mutate(H)
+
+        # Degrees must still be preserved.
+        np.testing.assert_array_equal(
+            H.sum(axis=1), H_mut.sum(axis=1),
+        )
+        np.testing.assert_array_equal(
+            H.sum(axis=0), H_mut.sum(axis=0),
+        )

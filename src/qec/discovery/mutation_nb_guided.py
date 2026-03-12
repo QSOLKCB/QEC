@@ -128,16 +128,19 @@ class NBGuidedMutator:
         ranked = self._rank_edges(edges, scores)
 
         # Step 4: Greedy mutation selection with degree-preserving swaps.
+        # Track used check and variable nodes separately since they occupy
+        # different partitions of the bipartite graph.
         H_new = H_arr.copy()
         mutations: list[dict[str, Any]] = []
-        used_nodes: set[int] = set()
+        used_checks: set[int] = set()
+        used_vars: set[int] = set()
 
         for ci, vi in ranked:
             if len(mutations) >= k:
                 break
 
             # Skip if nodes already involved in a mutation.
-            if ci in used_nodes or vi in used_nodes:
+            if ci in used_checks or vi in used_vars:
                 continue
 
             # Must keep at least one edge per row and column.
@@ -149,7 +152,7 @@ class NBGuidedMutator:
                 continue
 
             cj, vj = swap
-            if cj in used_nodes or vj in used_nodes:
+            if cj in used_checks or vj in used_vars:
                 continue
 
             score = scores.get((ci, vi), 0.0)
@@ -165,7 +168,8 @@ class NBGuidedMutator:
                 "added_edge": (ci, vj),
                 "score": score,
             })
-            used_nodes.update({ci, vi, cj, vj})
+            used_checks.update({ci, cj})
+            used_vars.update({vi, vj})
 
         return H_new, mutations
 

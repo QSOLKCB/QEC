@@ -123,13 +123,24 @@ class NBTrappingSetPredictor:
         return np.asarray(H, dtype=np.float64).copy()
 
     @staticmethod
-    def _collect_edges(H: np.ndarray) -> list[tuple[int, int]]:
-        m, n = H.shape
-        edges: list[tuple[int, int]] = []
-        for ci in range(m):
-            for vi in range(n):
-                if H[ci, vi] != 0:
-                    edges.append((ci, vi))
+    def _collect_edges(H: np.ndarray | scipy.sparse.spmatrix) -> list[tuple[int, int]]:
+        """
+        Collect (check_index, variable_index) edges where H[check_index, variable_index] != 0.
+
+        For sparse inputs, iterate over the sparse structure directly to avoid
+        O(m·n) dense scans, making the complexity closer to O(nnz).
+        """
+        # Fast path for sparse matrices: iterate over non-zero structure only.
+        if scipy.sparse.issparse(H):
+            coo = H.tocoo()
+            edges = list(zip(coo.row.tolist(), coo.col.tolist()))
+            edges.sort()
+            return edges
+
+        # Dense (or array-like) path: use vectorized nonzero instead of nested loops.
+        H_arr = np.asarray(H)
+        nz_rows, nz_cols = H_arr.nonzero()
+        edges = list(zip(nz_rows.tolist(), nz_cols.tolist()))
         edges.sort()
         return edges
 

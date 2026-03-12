@@ -18,6 +18,7 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
+from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 
 
@@ -39,6 +40,10 @@ class NBGuidedMutator:
         Decimal places for score rounding before ranking (default 6).
     avoid_4cycles : bool
         If True, reject rewirings that create new 4-cycles (default True).
+    use_ipr_weight : bool
+        If True, multiply edge scores by the IPR of the NB eigenvector
+        (default False).  This experimental variant amplifies scores
+        when flow is localized.
     """
 
     def __init__(
@@ -48,11 +53,13 @@ class NBGuidedMutator:
         precision: int = _ROUND,
         avoid_4cycles: bool = True,
         enabled: bool = False,
+        use_ipr_weight: bool = False,
     ) -> None:
         self.k = k
         self.precision = precision
         self.avoid_4cycles = avoid_4cycles
         self.enabled = enabled
+        self.use_ipr_weight = use_ipr_weight
 
     @classmethod
     def from_config(cls, config: dict) -> "NBGuidedMutator":
@@ -70,6 +77,7 @@ class NBGuidedMutator:
             precision=nb.get("precision", _ROUND),
             avoid_4cycles=nb.get("avoid_4cycles", True),
             enabled=nb.get("enabled", False),
+            use_ipr_weight=nb.get("use_ipr_weight", False),
         )
 
     def mutate(
@@ -127,6 +135,17 @@ class NBGuidedMutator:
             H_arr, edges, directed_edge_flow,
             flow["directed_edges"],
         )
+
+        # Step 2b: Optional IPR weighting.
+        if self.use_ipr_weight:
+            ipr_result = EigenvectorLocalizationAnalyzer.compute_ipr(
+                flow.get("variable_flow", np.zeros(0)),
+            )
+            ipr_value = ipr_result["ipr"]
+            scores = {
+                edge: round(s * ipr_value, self.precision)
+                for edge, s in scores.items()
+            }
 
         # Step 3: Rank edges deterministically.
         ranked = self._rank_edges(edges, scores)

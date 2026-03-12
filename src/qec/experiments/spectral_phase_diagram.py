@@ -33,6 +33,7 @@ import numpy as np
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
 from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
+from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
 from src.qec.experiments.tanner_graph_repair import (
     _experimental_bp_flooding,
     _compute_syndrome,
@@ -80,10 +81,13 @@ def extract_spectral_metrics(H: np.ndarray) -> dict[str, Any]:
         flow["variable_flow"],
     )
 
+    trapping = NBTrappingSetPredictor().predict_trapping_regions(H_arr)
+
     return {
         "spectral_radius": round(float(flow["max_flow"]), _ROUND),
         "ipr": round(float(ipr_result["ipr"]), _ROUND),
         "flow_alignment": 0.0,
+        "trapping_risk": round(float(trapping["risk_score"]), _ROUND),
     }
 
 
@@ -118,10 +122,13 @@ def extract_spectral_metrics_with_residual(
     if "flow_alignment" in flow:
         alignment_score = float(flow["flow_alignment"]["alignment_score"])
 
+    trapping = NBTrappingSetPredictor().predict_trapping_regions(H_arr)
+
     return {
         "spectral_radius": round(float(flow["max_flow"]), _ROUND),
         "ipr": round(float(ipr_result["ipr"]), _ROUND),
         "flow_alignment": round(alignment_score, _ROUND),
+        "trapping_risk": round(float(trapping["risk_score"]), _ROUND),
     }
 
 
@@ -265,8 +272,11 @@ class SpectralPhaseDiagramGenerator:
                     "spectral_radius": metrics["spectral_radius"],
                     "error_rate": round(float(error_rate), _ROUND),
                     "FER": round(float(fer), _ROUND),
+                    "fer": round(float(fer), _ROUND),
                     "IPR": metrics["ipr"],
+                    "ipr": metrics["ipr"],
                     "flow_alignment": metrics["flow_alignment"],
+                    "trapping_risk": metrics["trapping_risk"],
                 })
 
         # Sort deterministically by (spectral_radius, error_rate).

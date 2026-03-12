@@ -146,7 +146,11 @@ class NBTrappingSetPredictor:
 
         adj: dict[int, set[int]] = {vi: set() for vi in candidate_nodes}
         for ci in range(m):
-            vars_on_check = [vi for vi in candidate_nodes if H[ci, vi] != 0]
+            # derive variable indices from non-zeros in H[ci] and intersect with candidate set
+            row_nz = np.flatnonzero(H[ci])
+            vars_on_check = [vi for vi in row_nz if vi in cand_set]
+            if len(vars_on_check) < 2:
+                continue
             vars_on_check.sort()
             for i, va in enumerate(vars_on_check):
                 for vb in vars_on_check[i + 1:]:

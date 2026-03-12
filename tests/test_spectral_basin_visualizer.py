@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import numpy as np
 
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
@@ -53,10 +54,43 @@ def test_trajectory_ascii_render() -> None:
     assert "iter   radius   IPR" in text
 
 
+def test_trajectory_ascii_render_empty() -> None:
+    text = render_trajectory_ascii([])
+    assert "Spectral Basin Trajectory" in text
+    assert "(no data)" in text
+
+
 def test_trajectory_plot_fallback_or_figure() -> None:
     trajectory = [{"iteration": 0, "spectral_radius": 1.0, "ipr": 0.1, "nb_energy": 1.0}]
     result = plot_trajectory_matplotlib(trajectory)
     assert isinstance(result, str) or hasattr(result, "savefig")
+
+
+def test_trajectory_plot_importerror_fallback(monkeypatch) -> None:
+    orig_import = builtins.__import__
+
+    def _import(name, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if name == "matplotlib.pyplot":
+            raise ImportError("forced for test")
+        return orig_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _import)
+
+    trajectory = [{"iteration": 0, "spectral_radius": 1.0, "ipr": 0.1, "nb_energy": 1.0}]
+    result = plot_trajectory_matplotlib(trajectory)
+    assert isinstance(result, str)
+    assert "Spectral Basin Trajectory" in result
+
+
+def test_trajectory_plot_empty_returns_figure_with_no_data() -> None:
+    fig = plot_trajectory_matplotlib([])
+    if isinstance(fig, str):
+        assert "(no data)" in fig
+        return
+
+    assert hasattr(fig, "axes")
+    assert fig.axes[0].get_title() == "Spectral Basin Trajectory"
+    assert any(text.get_text() == "(no data)" for text in fig.axes[0].texts)
 
 
 def test_nb_flow_mismatch_guard() -> None:

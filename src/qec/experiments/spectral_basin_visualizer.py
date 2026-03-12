@@ -26,12 +26,6 @@ class SpectralBasinVisualizer:
             flow_damping=True,
         )
 
-    @staticmethod
-    def _to_dense_copy(H: np.ndarray | scipy.sparse.spmatrix) -> np.ndarray:
-        if scipy.sparse.issparse(H):
-            return np.asarray(H.todense(), dtype=np.float64)
-        return np.asarray(H, dtype=np.float64).copy()
-
     def _compute_point(self, H: np.ndarray, iteration: int) -> dict[str, Any]:
         flow = self._flow_analyzer.compute_flow(H)
         ipr_result = EigenvectorLocalizationAnalyzer.compute_ipr(
@@ -56,7 +50,7 @@ class SpectralBasinVisualizer:
         iterations: int = 10,
     ) -> list[dict[str, Any]]:
         """Trace spectral trajectory under deterministic NB gradient mutation."""
-        H_current = self._to_dense_copy(H)
+        H_current = NBGradientMutator._to_dense_copy(H)
         trajectory = [self._compute_point(H_current, iteration=0)]
 
         if iterations <= 0:

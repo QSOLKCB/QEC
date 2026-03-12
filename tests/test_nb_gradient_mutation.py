@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import scipy.sparse
 
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
@@ -47,6 +48,12 @@ class TestGradientAnalyzer:
 
 
 class TestGradientMutator:
+    def test_flow_damping_alpha_validation(self) -> None:
+        with pytest.raises(ValueError, match="flow_damping_alpha must be between 0 and 1"):
+            NBGradientMutator(enabled=True, flow_damping=True, flow_damping_alpha=-0.1)
+        with pytest.raises(ValueError, match="flow_damping_alpha must be between 0 and 1"):
+            NBGradientMutator(enabled=True, flow_damping=True, flow_damping_alpha=1.1)
+
     def test_disabled_is_noop(self) -> None:
         H = _matrix()
         mut = NBGradientMutator(enabled=False)
@@ -89,6 +96,22 @@ class TestGradientMutator:
         np.testing.assert_array_equal(H_flow_a, H_flow_b)
         assert log_a == log_b
 
+    def test_mutate_flow_zero_iterations_is_noop(self) -> None:
+        H = _matrix()
+        mut = NBGradientMutator(enabled=True, avoid_4cycles=True)
+        H_new, log = mut.mutate_flow(H, iterations=0)
+
+        np.testing.assert_array_equal(H_new, H)
+        assert log == []
+
+    def test_mutate_flow_disabled_is_noop(self) -> None:
+        H = _matrix()
+        mut = NBGradientMutator(enabled=False, avoid_4cycles=True)
+        H_new, log = mut.mutate_flow(H, iterations=3)
+
+        np.testing.assert_array_equal(H_new, H)
+        assert log == []
+
     def test_mutate_flow_default_matches_undamped_path(self) -> None:
         H = _matrix()
         mut_default = NBGradientMutator(enabled=True, avoid_4cycles=True)
@@ -117,6 +140,62 @@ class TestGradientMutator:
 
         np.testing.assert_array_equal(H_flow_a, H_flow_b)
         assert log_a == log_b
+
+    def test_mutate_flow_damping_alpha_uses_zero_baseline_for_new_edges(self) -> None:
+        H = _matrix()
+        mut = NBGradientMutator(
+            enabled=True,
+            avoid_4cycles=True,
+            flow_damping=True,
+            flow_damping_alpha=0.5,
+        )
+
+        gradients = [
+            {
+                "edge_scores": {(0, 0): 1.0},
+                "node_instability": {0: 1.0, H.shape[0]: 0.0},
+                "gradient_direction": {(0, 0): 1.0},
+            },
+            {
+                "edge_scores": {(0, 0): 1.0},
+                "node_instability": {0: 1.0, H.shape[0]: 0.0},
+                "gradient_direction": {(0, 0): 1.0, (1, 1): 1.0},
+            },
+        ]
+
+        call_idx = {"i": 0}
+
+        def _gradient(_H: np.ndarray) -> dict[str, dict]:
+            idx = call_idx["i"]
+            call_idx["i"] += 1
+            return gradients[idx]
+
+        captured: list[dict[tuple[int, int], float]] = []
+
+        step_count = {"i": 0}
+
+        def _step(_H: np.ndarray, gradient: dict[str, dict]) -> dict | None:
+            captured.append(dict(gradient["gradient_direction"]))
+            step_count["i"] += 1
+            if step_count["i"] == 1:
+                return {
+                    "removed_edge": (0, 0),
+                    "added_edge": (0, 1),
+                    "partner_removed": (1, 1),
+                    "partner_added": (1, 0),
+                    "source_gradient": 1.0,
+                    "target_gradient": 0.0,
+                }
+            return None
+
+        mut._analyzer.compute_gradient = _gradient  # type: ignore[assignment]
+        mut._apply_single_gradient_step = _step  # type: ignore[assignment]
+
+        _, log = mut.mutate_flow(H, iterations=2)
+        assert len(log) == 1
+        assert len(captured) == 2
+        assert captured[1][(0, 0)] == 1.0
+        assert captured[1][(1, 1)] == 0.5
 
     def test_sparse_input(self) -> None:
         H = _matrix()

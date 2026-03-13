@@ -12,11 +12,13 @@ Fully deterministic: no randomness, no global state, no input mutation.
 from __future__ import annotations
 
 from typing import Any
+import warnings
 
 import numpy as np
 import scipy.sparse
 
 from src.qec.analysis.api import NBEigenmodeFlowAnalyzer, NBPerturbationScorer, detect_spectral_defects
+from src.qec.analysis.constants import MIN_EIGENVECTOR_NORM
 from src.qec.discovery.defect_guided_mutations import defect_guided_mutations
 
 
@@ -46,11 +48,15 @@ class NBEigenmodeMutation:
         self.hot_edges_limit = hot_edges_limit
         self.precision = precision
         self.early_exit_improvement_threshold = early_exit_improvement_threshold
-        if use_hybrid_perturbation_scoring is None:
-            self.use_nb_perturbation_scoring = use_nb_perturbation_scoring
-        else:
+        self.use_nb_perturbation_scoring = bool(use_nb_perturbation_scoring)
+        self.use_hybrid_perturbation_scoring = use_hybrid_perturbation_scoring
+        if use_hybrid_perturbation_scoring is not None:
+            warnings.warn(
+                "use_hybrid_perturbation_scoring is deprecated; use use_nb_perturbation_scoring",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             self.use_nb_perturbation_scoring = bool(use_hybrid_perturbation_scoring)
-        self.use_hybrid_perturbation_scoring = self.use_nb_perturbation_scoring
         self.top_k_exact_recheck = int(top_k_exact_recheck)
         self.use_pressure_weighting = use_pressure_weighting
         self.use_support_aware_heuristic = use_support_aware_heuristic
@@ -72,6 +78,9 @@ class NBEigenmodeMutation:
         self._analyzer = NBEigenmodeFlowAnalyzer(precision=precision)
         self._perturbation_scorer = NBPerturbationScorer(precision=precision)
 
+        self._cached_defects: list[Any] | None = None
+        self._cached_graph_hash: tuple[Any, ...] | None = None
+
     def mutate(
         self,
         H: np.ndarray | scipy.sparse.spmatrix,
@@ -91,7 +100,7 @@ class NBEigenmodeMutation:
             return H_new, []
 
         if self.use_defect_guided_scoring:
-            defects = detect_spectral_defects(H_new)
+            defects = self._get_cached_defects(H_new)
             if self.defect_scan_steps > 0:
                 defects = defects[: self.defect_scan_steps]
             guided_swaps = defect_guided_mutations(H_new, defects, swaps)
@@ -101,6 +110,23 @@ class NBEigenmodeMutation:
         if self.use_nb_perturbation_scoring:
             return self._mutate_hybrid(H_new, baseline["signature"], swaps)
         return self._mutate_exact(H_new, baseline["signature"], swaps)
+
+    def _graph_hash(self, H_new: np.ndarray) -> tuple[Any, ...]:
+        H_csr = scipy.sparse.csr_matrix(H_new, dtype=np.float64)
+        return (
+            tuple(int(x) for x in H_csr.shape),
+            tuple(int(x) for x in H_csr.indptr.tolist()),
+            tuple(int(x) for x in H_csr.indices.tolist()),
+        )
+
+    def _get_cached_defects(self, H_new: np.ndarray) -> list[Any]:
+        graph_hash = self._graph_hash(H_new)
+        if self._cached_graph_hash == graph_hash and self._cached_defects is not None:
+            return list(self._cached_defects)
+        defects = list(detect_spectral_defects(H_new))
+        self._cached_graph_hash = graph_hash
+        self._cached_defects = list(defects)
+        return defects
 
     def _mutate_exact(
         self,
@@ -162,7 +188,8 @@ class NBEigenmodeMutation:
         if self.use_support_aware_heuristic and u.size > 0:
             abs_u = np.abs(u)
             median_abs_u = float(np.median(abs_u))
-            support_indices = {int(i) for i, val in enumerate(abs_u) if float(val) > median_abs_u}
+            threshold = max(median_abs_u, MIN_EIGENVECTOR_NORM)
+            support_indices = {int(i) for i, val in enumerate(abs_u) if float(val) > threshold}
 
         ranked: list[tuple[tuple[float, int, int, int, int], tuple[int, int, int, int], float]] = []
         for swap in swaps:

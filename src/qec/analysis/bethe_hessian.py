@@ -114,14 +114,18 @@ def estimate_nishimori_temperature(H: np.ndarray) -> float:
     f1 = analyzer._lambda_min_from_adjacency(A_sparse, r1)
     f2 = analyzer._lambda_min_from_adjacency(A_sparse, r2)
 
-    coeff = np.polyfit(np.array([r0, r1, r2], dtype=np.float64), np.array([f0, f1, f2], dtype=np.float64), 2)
-    roots = np.roots(coeff)
-    roots_real = [float(x.real) for x in roots if abs(x.imag) < 1e-9 and x.real > 0.0]
-
-    if roots_real:
-        r = min(roots_real, key=lambda x: abs(x - r1))
+    coeffs = np.polyfit(np.array([r0, r1, r2], dtype=np.float64), np.array([f0, f1, f2], dtype=np.float64), 2)
+    if abs(float(coeffs[0])) < 1e-12:
+        r_left = min(r0, r2)
+        r_right = max(r0, r2)
+        r = (r_left + r_right) / 2.0
     else:
-        r = r1
+        roots = np.roots(coeffs)
+        roots_real = [float(x.real) for x in roots if abs(x.imag) < 1e-9 and x.real > 0.0]
+        if roots_real:
+            r = min(roots_real, key=lambda x: abs(x - r1))
+        else:
+            r = r1
 
     for _ in range(4):
         f = analyzer._lambda_min_from_adjacency(A_sparse, r)

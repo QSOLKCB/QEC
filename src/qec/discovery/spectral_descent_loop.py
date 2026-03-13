@@ -28,6 +28,25 @@ def _project_gradient_to_matrix_edges(
     return {key: projected[key] for key in sorted(projected)}
 
 
+def _dedupe_modes(modes: list[dict]) -> list[dict]:
+    seen: set[tuple[int, int]] = set()
+    out: list[dict] = []
+    for mode in sorted(
+        modes,
+        key=lambda mode: (
+            -float(mode.get("severity", 0.0)),
+            float(mode.get("eigenvalue", 0.0)),
+            int(mode.get("mode_index", 0)),
+        ),
+    ):
+        key = (int(mode.get("mode_index", 0)), int(mode.get("eigen_rank", 0)))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(mode)
+    return out
+
+
 def _apply_swap(H_csr: sp.csr_matrix, swap: dict) -> sp.csr_matrix:
     H_lil = H_csr.tolil(copy=True)
     for ci, vi in swap["remove"]:
@@ -64,16 +83,26 @@ def spectral_descent(
         if max_severity <= float(severity_threshold):
             break
 
-        selected = mode_scheduler.select_modes(modes, bh_modes=modes if dual_operator else None)
+        bh_modes = _dedupe_modes(list(modes)) if dual_operator else None
+        selected = mode_scheduler.select_modes(modes, bh_modes=bh_modes)
         if not selected:
             break
 
+        selected = _dedupe_modes(selected)
         eigvals = np.asarray([mode["eigenvalue"] for mode in selected], dtype=np.float64)
         eigvecs = np.column_stack([np.asarray(mode["eigenvector"], dtype=np.float64) for mode in selected])
         iprs = np.asarray([mode["ipr"] for mode in selected], dtype=np.float64)
 
+        if eigvals.size > 1:
+            eigvals_sorted = np.sort(eigvals)
+            degenerate = np.any(np.abs(np.diff(eigvals_sorted)) < 1e-6)
+            if degenerate:
+                for idx, mode in enumerate(selected):
+                    severity = float(mode.get("severity", 0.0))
+                    ipr_localization = float(mode.get("ipr", 0.0))
+                    mode["severity"] = float(severity * (1.0 + ipr_localization))
+
         adj_list = adjacency_list_from_H(H_curr)
-        G_edge = compute_ihara_bass_gradient(eigvals, eigvecs, iprs, adj_list, r)
         if dual_operator:
             G_edge = compute_ihara_bass_gradient(
                 eigvals,
@@ -86,9 +115,18 @@ def spectral_descent(
                 w_nb=float(w_nb),
                 w_bh=float(w_bh),
             )
+        else:
+            G_edge = compute_ihara_bass_gradient(
+                eigvals,
+                eigvecs,
+                iprs,
+                adj_list,
+                r,
+                dual_operator=False,
+            )
         G = _project_gradient_to_matrix_edges(G_edge, m)
 
-        swap = find_best_swap(H_curr, G, selected)
+        swap = find_best_swap(H_curr, G)
         if swap is None:
             break
 

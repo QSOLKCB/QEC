@@ -78,27 +78,32 @@ def compute_edge_energy_map(adjacency: np.ndarray | scipy.sparse.spmatrix, eigen
     Returns a stably sorted list of tuples ``(i, j, edge_energy)`` for all
     undirected edges with ``i < j`` and ``A[i, j] != 0``.
     """
-    if scipy.sparse.issparse(adjacency):
-        A = scipy.sparse.coo_matrix(adjacency.astype(np.float64))
-        rows = A.row
-        cols = A.col
+    A = scipy.sparse.coo_matrix(adjacency, dtype=np.float64)
+    if (A != A.T).nnz != 0:
+        A = ((A + A.T) != 0).astype(np.float64).tocoo()
     else:
-        A = np.asarray(adjacency, dtype=np.float64)
-        rows, cols = np.nonzero(A)
+        A = A.tocoo()
 
     v = np.asarray(eigenvector, dtype=np.float64).ravel()
-    power2 = np.abs(v) ** 2
+    if v.size == 0 or A.nnz == 0:
+        return []
 
-    edges: list[tuple[int, int, float]] = []
-    for i, j in zip(rows, cols):
-        ii = int(i)
-        jj = int(j)
-        if ii >= jj:
-            continue
-        if ii >= power2.size or jj >= power2.size:
-            continue
-        edge_energy = float(power2[ii] + power2[jj])
-        edges.append((ii, jj, round(edge_energy, _ROUND)))
+    row = A.row.astype(np.int64, copy=False)
+    col = A.col.astype(np.int64, copy=False)
+    valid = (row < col) & (row >= 0) & (col >= 0) & (row < v.size) & (col < v.size)
+    if not np.any(valid):
+        return []
 
-    edges.sort(key=lambda x: (x[0], x[1]))
-    return edges
+    row = row[valid]
+    col = col[valid]
+    edge_energy = v[row] * v[col]
+
+    order = np.lexsort((col, row))
+    row = row[order]
+    col = col[order]
+    edge_energy = edge_energy[order]
+
+    return [
+        (int(i), int(j), round(float(e), _ROUND))
+        for i, j, e in zip(row.tolist(), col.tolist(), edge_energy.tolist())
+    ]

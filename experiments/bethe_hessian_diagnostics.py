@@ -12,7 +12,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer
+from src.qec.analysis.api import BetheHessianAnalyzer, compute_bh_spectrum
 from src.qec.analysis.localization_metrics import (
     IPR,
     ParticipationEntropy,
@@ -36,14 +36,13 @@ def run() -> dict[str, float | int]:
     analyzer = BetheHessianAnalyzer()
     stability = analyzer.compute_bethe_hessian_stability(H)
 
-    A = analyzer._build_variable_adjacency(H)
-    degrees = np.asarray(A.sum(axis=1), dtype=np.float64).ravel()
-    avg_degree = float(degrees.mean()) if degrees.size else 0.0
-    r = 1.0 if avg_degree <= 1.0 else float(np.sqrt(avg_degree - 1.0))
+    bh = compute_bh_spectrum(H)
+    H_B = scipy.sparse.csr_matrix(bh["bethe_hessian"], dtype=np.float64).toarray()
+    H_sparse = scipy.sparse.csr_matrix(H, dtype=np.float64)
+    A = H_sparse.T.dot(H_sparse).tocsr()
+    A.setdiag(0.0)
+    A = ((A != 0).astype(np.float64)).tocsr()
 
-    I_sparse = scipy.sparse.eye(A.shape[0], dtype=np.float64, format="csr")
-    D_sparse = scipy.sparse.diags(degrees, dtype=np.float64, format="csr")
-    H_B = ((r * r - 1.0) * I_sparse - r * A + D_sparse).toarray()
     eigvals, eigvecs = np.linalg.eigh(H_B)
     idx = int(np.argmin(eigvals))
     v = eigvecs[:, idx]

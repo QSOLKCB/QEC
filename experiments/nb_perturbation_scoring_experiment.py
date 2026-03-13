@@ -11,8 +11,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
-from src.qec.analysis.nb_perturbation_scorer import NBPerturbationScorer
+from src.qec.analysis.api import NBEigenmodeFlowAnalyzer, NBPerturbationScorer, compute_nb_spectrum, enumerate_candidate_swaps
 from src.qec.discovery.mutation_nb_eigenmode import NBEigenmodeMutation
 
 
@@ -48,12 +47,11 @@ def _exact_total_delta(
 def main() -> None:
     H = _H()
     mutator = NBEigenmodeMutation(enabled=True)
-    check_neighbors, var_neighbors = mutator._build_neighbors(H)
     baseline = mutator._analyzer.analyze(H)
-    swaps = mutator._enumerate_swaps(H, baseline.get("hot_edges", []), check_neighbors, var_neighbors)
+    swaps = enumerate_candidate_swaps(H, baseline.get("hot_edges", []))
 
     scorer = NBPerturbationScorer()
-    spectrum = scorer.compute_nb_spectrum(H)
+    spectrum = compute_nb_spectrum(H)
 
     predicted_rank: list[tuple[tuple[float, int, int, int, int], tuple[int, int, int, int]]] = []
     exact_rank: list[tuple[tuple[float, int, int, int, int], tuple[int, int, int, int]]] = []

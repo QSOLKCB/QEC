@@ -7,11 +7,11 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
+from src.qec.analysis.constants import MIN_EIGENVECTOR_NORM, MIN_FOHPE_DENOM
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 
 
 _ROUND = 12
-_MIN_DENOM = 1e-15
 
 
 class NBPerturbationScorer:
@@ -56,7 +56,7 @@ class NBPerturbationScorer:
             }
 
         denom = np.vdot(v, u)
-        if not np.isfinite(float(np.abs(denom))) or float(np.abs(denom)) <= _MIN_DENOM:
+        if not np.isfinite(float(np.abs(denom))) or float(np.abs(denom)) < MIN_FOHPE_DENOM:
             return {
                 "valid_first_order": False,
                 "directed_edges": directed_edges,
@@ -114,7 +114,7 @@ class NBPerturbationScorer:
 
         if u.size == 0 or v.size == 0 or len(u) != len(v):
             return None
-        if not np.isfinite(denom) or abs(denom) <= _MIN_DENOM:
+        if not np.isfinite(denom) or abs(denom) < MIN_FOHPE_DENOM:
             return None
 
         removed = ((ci, vi), (cj, vj))
@@ -140,13 +140,13 @@ class NBPerturbationScorer:
         if not delta_terms:
             return None
 
-        numerator = 0.0
+        delta = 0.0
         for idx, coeff in delta_terms:
             if idx < 0 or idx >= len(u):
                 return None
-            numerator += coeff * float(v[idx]) * float(u[idx])
+            delta += coeff * float(v[idx]) * float(u[idx])
 
-        predicted_delta = numerator / denom
+        predicted_delta = delta / (denom + 1e-18)
 
         i = index.get((vi, n + ci))
         j = index.get((vj, n + cj))
@@ -163,7 +163,7 @@ class NBPerturbationScorer:
     @staticmethod
     def _l2_normalize(vec: np.ndarray) -> tuple[np.ndarray, bool]:
         norm = float(np.linalg.norm(vec, ord=2))
-        if not np.isfinite(norm) or norm <= _MIN_DENOM:
+        if not np.isfinite(norm) or norm <= MIN_EIGENVECTOR_NORM:
             return np.zeros(0, dtype=np.float64), False
         return np.asarray(vec / norm, dtype=np.float64), True
 

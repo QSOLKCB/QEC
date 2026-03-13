@@ -9,6 +9,39 @@ import scipy.linalg
 import scipy.sparse
 
 from src.qec.analysis.bethe_hessian_fast import BetheHessianBuilder
+from src.qec.analysis.bethe_hessian_utils import BetheHessianCache
+from src.qec.analysis.eigenmode_mutation import build_bethe_hessian as build_tanner_bethe_hessian
+
+
+@dataclass(frozen=True)
+class SpectralFrustrationConfig:
+    trap_threshold: float = 0.1
+    precision: int = 12
+
+
+@dataclass(frozen=True)
+class SpectralFrustrationResult:
+    frustration_score: float
+    negative_modes: int
+    max_ipr: float
+    transport_imbalance: float
+    trap_modes: tuple[np.ndarray, ...]
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SpectralFrustrationResult):
+            return False
+        if (
+            float(self.frustration_score) != float(other.frustration_score)
+            or int(self.negative_modes) != int(other.negative_modes)
+            or float(self.max_ipr) != float(other.max_ipr)
+            or float(self.transport_imbalance) != float(other.transport_imbalance)
+            or len(self.trap_modes) != len(other.trap_modes)
+        ):
+            return False
+        for a, b in zip(self.trap_modes, other.trap_modes):
+            if not np.array_equal(np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)):
+                return False
+        return True
 
 
 @dataclass(frozen=True)
@@ -107,138 +140,122 @@ def spectral_frustration_count(
 
 
 class SpectralFrustrationAnalyzer:
-    def __init__(self, config: SpectralFrustrationConfig | None = None, *, precision: int | None = None) -> None:
+    """Backwards-compatible deterministic class API for spectral frustration."""
+
+    def __init__(self, config: SpectralFrustrationConfig | None = None, *args, **kwargs):
+        precision = kwargs.get("precision")
         if config is None:
-            p = 12 if precision is None else int(precision)
-            self.config = SpectralFrustrationConfig(precision=p)
+            cfg_precision = int(precision) if precision is not None else 12
+            self.config = SpectralFrustrationConfig(precision=cfg_precision)
         else:
-            p = config.precision if precision is None else int(precision)
-            self.config = SpectralFrustrationConfig(
-                trap_threshold=float(config.trap_threshold),
-                r=float(config.r),
-                precision=p,
-                normalize_frustration=bool(config.normalize_frustration),
-            )
+            if precision is None:
+                self.config = config
+            else:
+                self.config = SpectralFrustrationConfig(
+                    trap_threshold=float(config.trap_threshold),
+                    precision=int(precision),
+                )
 
-    @staticmethod
-    def _tanner_adjacency(H: np.ndarray | scipy.sparse.spmatrix) -> np.ndarray:
-        H_arr = _to_dense_float64(H)
-        m, n = H_arr.shape
-        A = np.zeros((m + n, m + n), dtype=np.float64)
-        A[:m, m:] = H_arr
-        A[m:, :m] = H_arr.T
-        return A
-
-    @staticmethod
-    def _canonical_phase(v: np.ndarray) -> np.ndarray:
-        if v.size == 0:
-            return v
-        idx = int(np.argmax(np.abs(v)))
-        if v[idx] < 0.0:
-            return -v
-        return v
-
-    def extract_trap_modes(self, H: np.ndarray | scipy.sparse.spmatrix) -> tuple[np.ndarray, ...]:
-        H_arr = _to_dense_float64(H)
-        m, n = H_arr.shape
-        var_deg = np.sum(H_arr, axis=0, dtype=np.float64)
-        chk_deg = np.sum(H_arr, axis=1, dtype=np.float64)
-
-        mode = np.zeros(m + n, dtype=np.float64)
-        for vi in range(n):
-            d = float(var_deg[vi])
-            mode[vi] = 1.0 / d if d > 0.0 else 0.0
-        for ci in range(m):
-            d = float(chk_deg[ci])
-            mode[n + ci] = 1.0 / d if d > 0.0 else 0.0
-
-        norm = float(np.linalg.norm(mode))
-        if norm > 0.0:
-            mode /= norm
-        mode = self._canonical_phase(mode)
-        return (mode,)
-
-    def detect_trap_nodes(self, H: np.ndarray | scipy.sparse.spmatrix) -> list[int]:
-        H_arr = _to_dense_float64(H)
-        m, n = H_arr.shape
-        modes = self.extract_trap_modes(H_arr)
-        if not modes:
-            return []
-        amp = np.max(np.abs(np.vstack(modes)), axis=0)
-
-        A = self._tanner_adjacency(H_arr)
-        visited = np.zeros(A.shape[0], dtype=bool)
-        components: list[list[int]] = []
-        for start in range(A.shape[0]):
-            if visited[start]:
-                continue
-            stack = [start]
-            visited[start] = True
-            comp: list[int] = []
-            while stack:
-                u = stack.pop()
-                comp.append(int(u))
-                nbrs = np.nonzero(A[u])[0]
-                for v in sorted(int(x) for x in nbrs.tolist()):
-                    if not visited[v]:
-                        visited[v] = True
-                        stack.append(v)
-            components.append(sorted(comp))
-
-        ranked = sorted(
-            components,
-            key=lambda c: (-float(np.mean(amp[c])) if c else 0.0, c[0] if c else -1),
-        )
-        target = ranked[0] if ranked else []
-        target_amp = amp[target] if target else np.zeros(0, dtype=np.float64)
-        thresh = float(self.config.trap_threshold) * float(np.max(target_amp) if target_amp.size else 0.0)
-        nodes = [int(i) for i in target if float(amp[i]) >= thresh]
-        return sorted(nodes)
-
-    def compute_frustration(
-        self,
-        H: np.ndarray | scipy.sparse.spmatrix,
-        *,
-        flow_field: object | None = None,
-    ) -> SpectralFrustrationResult:
-        _ = flow_field
-        A = self._tanner_adjacency(H)
-        B = build_bethe_hessian(A, self.config.r)
-        neg = count_negative_modes(B)
-        modes = self.extract_trap_modes(H)
-
-        max_ipr = 0.0
-        for mode in modes:
-            p = np.abs(mode)
-            denom = float(np.sum(p))
-            if denom > 0.0:
-                q = p / denom
-                max_ipr = max(max_ipr, float(np.sum(q * q)))
-
-        nodes = self.detect_trap_nodes(H)
-        transport_imbalance = float(len(nodes)) / float(A.shape[0] if A.shape[0] else 1)
-        cycle_proxy = float(np.sum(_to_dense_float64(H), dtype=np.float64)) / float(_to_dense_float64(H).shape[0] + _to_dense_float64(H).shape[1])
-        frustration = float(neg) + max_ipr + transport_imbalance + cycle_proxy
-        if self.config.normalize_frustration and A.shape[0] > 0:
-            frustration /= float(A.shape[0])
-
-        p = self.config.precision
-        return SpectralFrustrationResult(
-            frustration_score=round(float(frustration), p),
-            negative_modes=int(neg),
-            max_ipr=round(float(max_ipr), p),
-            transport_imbalance=round(float(transport_imbalance), p),
-            trap_modes=tuple(np.asarray(m, dtype=np.float64).copy() for m in modes),
-        )
+    def compute(self, H, *args, **kwargs):
+        return spectral_frustration_count(H, *args, **kwargs)
 
     def evaluate(
         self,
         A: np.ndarray | scipy.sparse.spmatrix,
         *,
         r: float,
-        swaps: list[tuple[int, int, int, int]],
+        swaps: list[tuple[int, int, int, int]] | None = None,
         use_cache: bool = True,
-        flow_field: object | None = None,
     ) -> dict[str, object]:
-        _ = use_cache
-        return spectral_frustration_count(A, r=r, candidate_swaps=swaps, flow_field=flow_field)
+        sorted_swaps = sorted(swaps or [])
+        if not use_cache:
+            return spectral_frustration_count(A, r=r, candidate_swaps=sorted_swaps)
+
+        cache = BetheHessianCache(A, float(r))
+        baseline = count_negative_modes(cache.build())
+        trials: list[dict[str, object]] = []
+        for ci, vi, cj, vj in sorted_swaps:
+            cache_local = BetheHessianCache(A, float(r))
+            neg_modes = count_negative_modes(cache_local.update_for_swap(ci, vi, cj, vj))
+            trials.append({"swap": (ci, vi, cj, vj), "negative_modes": int(neg_modes)})
+        return {
+            "baseline_negative_modes": int(baseline),
+            "candidate_negative_modes": trials,
+        }
+
+    def extract_trap_modes(self, H: np.ndarray | scipy.sparse.spmatrix) -> tuple[np.ndarray, ...]:
+        B, _ = build_tanner_bethe_hessian(H)
+        B_arr = np.asarray(B.toarray(), dtype=np.float64)
+        if B_arr.size == 0:
+            return ()
+        vals, vecs = np.linalg.eigh(B_arr)
+        order = np.argsort(vals, kind="stable")
+        vals = vals[order]
+        vecs = vecs[:, order]
+
+        out: list[np.ndarray] = []
+        for idx in range(vals.shape[0]):
+            if float(vals[idx]) >= 0.0:
+                continue
+            v = np.asarray(vecs[:, idx], dtype=np.float64)
+            norm = float(np.linalg.norm(v))
+            if norm <= 1e-15:
+                continue
+            v = v / norm
+            pivot = int(np.argmax(np.abs(v))) if v.size else 0
+            if v.size and v[pivot] < 0.0:
+                v = -v
+            out.append(v)
+        return tuple(out)
+
+    def detect_trap_nodes(self, H: np.ndarray | scipy.sparse.spmatrix) -> tuple[int, ...]:
+        modes = self.extract_trap_modes(H)
+        if not modes:
+            return ()
+        v = np.abs(np.asarray(modes[0], dtype=np.float64))
+        vmax = float(v.max()) if v.size else 0.0
+        if vmax <= 1e-15:
+            return ()
+        threshold = float(self.config.trap_threshold) * vmax
+        nodes = tuple(int(i) for i in np.where(v >= threshold)[0].tolist())
+        return nodes
+
+    def compute_frustration(self, H: np.ndarray | scipy.sparse.spmatrix) -> SpectralFrustrationResult:
+        modes = self.extract_trap_modes(H)
+        if not modes:
+            return SpectralFrustrationResult(
+                frustration_score=0.0,
+                negative_modes=0,
+                max_ipr=0.0,
+                transport_imbalance=0.0,
+                trap_modes=(),
+            )
+
+        iprs: list[float] = []
+        for v in modes:
+            vv = np.asarray(v, dtype=np.float64)
+            p = np.square(np.abs(vv))
+            z = float(np.sum(p))
+            if z <= 1e-15:
+                iprs.append(0.0)
+                continue
+            p = p / z
+            iprs.append(float(np.sum(p * p)))
+        max_ipr = max(iprs) if iprs else 0.0
+
+        negative_modes = int(len(modes))
+        frustration_score = round(float(negative_modes * max_ipr), self.config.precision)
+
+        first = np.asarray(modes[0], dtype=np.float64)
+        pos_sum = float(np.sum(np.abs(first[first >= 0.0])))
+        neg_sum = float(np.sum(np.abs(first[first < 0.0])))
+        denom = pos_sum + neg_sum
+        transport_imbalance = 0.0 if denom <= 1e-15 else abs(pos_sum - neg_sum) / denom
+
+        return SpectralFrustrationResult(
+            frustration_score=frustration_score,
+            negative_modes=negative_modes,
+            max_ipr=round(float(max_ipr), self.config.precision),
+            transport_imbalance=round(float(transport_imbalance), self.config.precision),
+            trap_modes=tuple(np.asarray(v, dtype=np.float64) for v in modes),
+        )

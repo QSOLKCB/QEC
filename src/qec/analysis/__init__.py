@@ -25,6 +25,7 @@ from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
 from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
 from src.qec.analysis.basin_switch_detector import detect_basin_switch
+from src.qec.analysis.defect_catalog import SpectralDefect, detect_spectral_defects
 
 __all__ = [
     "TrappingSetDetector",
@@ -40,4 +41,6 @@ __all__ = [
     "NBInstabilityGradientAnalyzer",
     "NBEigenmodeFlowAnalyzer",
     "detect_basin_switch",
+    "SpectralDefect",
+    "detect_spectral_defects",
 ]

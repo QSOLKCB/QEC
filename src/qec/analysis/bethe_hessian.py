@@ -1,25 +1,3 @@
-"""
-v11.2.0 — Bethe Hessian Stability Analyzer.
-
-Estimates belief-propagation stability directly from Tanner graph structure
-using the Bethe Hessian operator.
-
-For graph adjacency matrix A and degree matrix D:
-
-    H_B(r) = (r^2 - 1) I - r A + D
-
-where r = sqrt(average_degree - 1).
-
-Interpretation of the smallest eigenvalue:
-    positive  → stable BP
-    near zero → marginal
-    negative  → unstable region
-
-Layer 3 — Analysis.
-Does not import or modify the decoder (Layer 1).
-Fully deterministic: no randomness, no global state, no input mutation.
-"""
-
 from __future__ import annotations
 
 import numpy as np
@@ -30,100 +8,114 @@ import scipy.sparse.linalg
 _ROUND = 12
 
 
+def _to_csr(H_pc: np.ndarray | scipy.sparse.spmatrix) -> scipy.sparse.csr_matrix:
+    if scipy.sparse.issparse(H_pc):
+        return H_pc.tocsr().astype(np.float64)
+    return scipy.sparse.csr_matrix(np.asarray(H_pc, dtype=np.float64))
+
+
+def _build_tanner_adjacency(H_pc: np.ndarray | scipy.sparse.spmatrix) -> tuple[scipy.sparse.csr_matrix, np.ndarray]:
+    H = _to_csr(H_pc)
+    m, n = H.shape
+    z_nn = scipy.sparse.csr_matrix((n, n), dtype=np.float64)
+    z_mm = scipy.sparse.csr_matrix((m, m), dtype=np.float64)
+    top = scipy.sparse.hstack([z_nn, H.T], format="csr")
+    bottom = scipy.sparse.hstack([H, z_mm], format="csr")
+    A = scipy.sparse.vstack([top, bottom], format="csr")
+    deg = np.asarray(A.sum(axis=1), dtype=np.float64).ravel()
+    return A, deg
+
+
+def build_bethe_hessian(
+    H_pc: np.ndarray | scipy.sparse.spmatrix,
+    r: float | None = None,
+) -> scipy.sparse.csr_matrix:
+    """Build sparse Bethe-Hessian matrix for Tanner graph bipartite adjacency."""
+    A, degrees = _build_tanner_adjacency(H_pc)
+    total = A.shape[0]
+    if total == 0:
+        return scipy.sparse.csr_matrix((0, 0), dtype=np.float64)
+
+    if r is None:
+        d_avg = float(np.mean(degrees)) if degrees.size > 0 else 0.0
+        r_used = float(np.sqrt(max(d_avg - 1.0, 0.0))) if d_avg > 1.0 else 1.0
+    else:
+        r_used = float(r)
+
+    I = scipy.sparse.eye(total, format="csr", dtype=np.float64)
+    D = scipy.sparse.diags(degrees, format="csr")
+    H_bh = (r_used * r_used - 1.0) * I - r_used * A + D
+    return H_bh.tocsr()
+
+
+def extract_negative_modes(
+    H_BH: np.ndarray | scipy.sparse.spmatrix,
+    k_max: int = 8,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Extract negative Bethe-Hessian eigenmodes using deterministic SA solve."""
+    if scipy.sparse.issparse(H_BH):
+        M = H_BH.tocsr().astype(np.float64)
+    else:
+        M = scipy.sparse.csr_matrix(np.asarray(H_BH, dtype=np.float64))
+
+    n = M.shape[0]
+    if n == 0:
+        return np.zeros(0, dtype=np.float64), np.zeros((0, 0), dtype=np.float64)
+
+    if n == 1:
+        val = float(M.toarray()[0, 0])
+        if val < 0.0:
+            return np.array([round(val, _ROUND)], dtype=np.float64), np.array([[1.0]], dtype=np.float64)
+        return np.zeros(0, dtype=np.float64), np.zeros((1, 0), dtype=np.float64)
+
+    k = max(1, min(int(k_max), n - 1))
+    v0 = np.ones(n, dtype=np.float64)
+    try:
+        evals, evecs = scipy.sparse.linalg.eigsh(M, k=k, which="SA", v0=v0)
+    except (scipy.sparse.linalg.ArpackNoConvergence, RuntimeError):
+        dense = np.asarray(M.toarray(), dtype=np.float64)
+        all_vals, all_vecs = np.linalg.eigh(dense)
+        idx = np.argsort(all_vals, kind="mergesort")
+        evals = all_vals[idx][:k]
+        evecs = all_vecs[:, idx][:, :k]
+
+    order = np.argsort(evals, kind="mergesort")
+    evals = np.asarray(evals[order], dtype=np.float64)
+    evecs = np.asarray(evecs[:, order], dtype=np.float64)
+
+    neg_mask = evals < 0.0
+    neg_vals = np.round(evals[neg_mask], _ROUND).astype(np.float64)
+    neg_vecs = np.asarray(evecs[:, neg_mask], dtype=np.float64)
+    return neg_vals, neg_vecs
+
+
 class BetheHessianAnalyzer:
-    """Estimate BP stability via the Bethe Hessian spectrum.
+    """Backward-compatible v11.2 analyzer API."""
 
-    The Bethe Hessian is constructed from the variable-node adjacency
-    matrix of the Tanner graph.  Its smallest eigenvalue indicates
-    whether BP fixed points are locally stable.
-    """
-
-    def compute_bethe_hessian_stability(
-        self,
-        H: np.ndarray,
-    ) -> dict[str, float]:
-        """Compute Bethe Hessian stability metrics.
-
-        Parameters
-        ----------
-        H : np.ndarray
-            Binary parity-check matrix, shape (m, n).
-
-        Returns
-        -------
-        dict[str, float]
-            Dictionary with keys:
-            - ``bethe_hessian_min_eigenvalue`` : float
-            - ``bethe_hessian_stability_score`` : float
-        """
+    def compute_bethe_hessian_stability(self, H: np.ndarray) -> dict[str, float]:
         H_arr = np.asarray(H, dtype=np.float64)
         m, n = H_arr.shape
-
         if m == 0 or n == 0 or H_arr.sum() == 0:
-            return {
-                "bethe_hessian_min_eigenvalue": 0.0,
-                "bethe_hessian_stability_score": 0.0,
-            }
+            return {"bethe_hessian_min_eigenvalue": 0.0, "bethe_hessian_stability_score": 0.0}
 
-        # Build variable-node adjacency matrix A (n x n) via sparse
-        # H^T @ H to avoid O(n^2) dense allocation.
-        H_sparse = scipy.sparse.csr_matrix(H_arr)
-        HtH_sparse = H_sparse.T.dot(H_sparse)
-        HtH_sparse.setdiag(0.0)
-        HtH_sparse.eliminate_zeros()
-        # Binarize: adjacency is 0 or 1
-        A_sparse = HtH_sparse.copy()
-        A_sparse.data[:] = np.where(A_sparse.data > 0, 1.0, 0.0)
-        A_sparse.eliminate_zeros()
-
-        # Node degree vector
-        degrees = np.asarray(A_sparse.sum(axis=1)).ravel()
-
-        # Estimate r = sqrt(average_degree - 1)
-        avg_degree = float(degrees.mean())
-        if avg_degree <= 1.0:
-            r = 1.0
+        H_bh = build_bethe_hessian(H_arr)
+        evals, _ = extract_negative_modes(H_bh, k_max=min(6, max(1, H_bh.shape[0] - 1)))
+        if evals.size > 0:
+            min_eigenvalue = float(evals[0])
         else:
-            r = float(np.sqrt(avg_degree - 1.0))
+            # need smallest algebraic even if non-negative
+            try:
+                val = scipy.sparse.linalg.eigsh(H_bh, k=1, which="SA", return_eigenvectors=False, v0=np.ones(H_bh.shape[0], dtype=np.float64))
+                min_eigenvalue = float(np.asarray(val, dtype=np.float64)[0])
+            except (scipy.sparse.linalg.ArpackNoConvergence, RuntimeError):
+                min_eigenvalue = float(np.min(np.linalg.eigvalsh(H_bh.toarray())))
+            min_eigenvalue = round(min_eigenvalue, _ROUND)
 
-        # Construct sparse Bethe Hessian: H_B(r) = (r^2 - 1) I - r A + D
-        r2_minus_1 = r * r - 1.0
-        I_sparse = scipy.sparse.eye(n, dtype=np.float64, format="csr")
-        D_sparse = scipy.sparse.diags(degrees, format="csr")
-        H_B_sparse = r2_minus_1 * I_sparse - r * A_sparse + D_sparse
-
-        k = min(6, n - 1) if n > 2 else 1
-
-        if k < 1:
-            return {
-                "bethe_hessian_min_eigenvalue": 0.0,
-                "bethe_hessian_stability_score": 0.0,
-            }
-
-        try:
-            # Use deterministic initial vector for ARPACK reproducibility.
-            v0 = np.ones(n, dtype=np.float64)
-            eigenvalues = scipy.sparse.linalg.eigsh(
-                H_B_sparse,
-                k=k,
-                which="SA",  # smallest algebraic
-                return_eigenvectors=False,
-                v0=v0,
-            )
-        except (scipy.sparse.linalg.ArpackNoConvergence, RuntimeError):
-            # Fallback: dense eigensolver for small matrices
-            eigenvalues = np.linalg.eigvalsh(H_B_sparse.toarray())
-
-        min_eigenvalue = round(float(np.min(eigenvalues)), _ROUND)
-
-        # Stability score: positive = stable, negative = unstable
-        # Normalize by r to make the score scale-invariant
-        if r > 0:
-            stability_score = round(min_eigenvalue / r, _ROUND)
-        else:
-            stability_score = round(min_eigenvalue, _ROUND)
-
+        _, degrees = _build_tanner_adjacency(H_arr)
+        avg_degree = float(np.mean(degrees)) if degrees.size else 0.0
+        r = float(np.sqrt(avg_degree - 1.0)) if avg_degree > 1.0 else 1.0
+        stability_score = round(min_eigenvalue / r, _ROUND) if r > 0 else round(min_eigenvalue, _ROUND)
         return {
-            "bethe_hessian_min_eigenvalue": min_eigenvalue,
+            "bethe_hessian_min_eigenvalue": round(float(min_eigenvalue), _ROUND),
             "bethe_hessian_stability_score": stability_score,
         }

@@ -137,3 +137,21 @@ def test_pressure_weighting_and_support_heuristic_affect_hybrid_ranking() -> Non
     out, log = mut.mutate(H)
     assert log
     assert log[0]["removed_edge"] == (0, 0)
+
+
+def test_defect_guided_hybrid_determinism() -> None:
+    H = np.array([
+        [1, 1, 0, 1, 0, 0],
+        [0, 1, 1, 0, 1, 0],
+        [1, 0, 1, 0, 0, 1],
+    ], dtype=np.float64)
+    mut = NBEigenmodeMutation(
+        enabled=True,
+        use_hybrid_perturbation_scoring=True,
+        use_defect_guided_scoring=True,
+        defect_scan_steps=2,
+    )
+    h1, l1 = mut.mutate(H)
+    h2, l2 = mut.mutate(H)
+    np.testing.assert_array_equal(h1, h2)
+    assert l1 == l2

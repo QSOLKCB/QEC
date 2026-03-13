@@ -18,6 +18,8 @@ import scipy.sparse
 
 from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
 from src.qec.analysis.nb_perturbation_scorer import NBPerturbationScorer
+from src.qec.analysis.defect_catalog import SpectralDefect, detect_spectral_defects
+from src.qec.discovery.defect_guided_mutations import defect_guided_mutations
 
 
 _ROUND = 12
@@ -37,6 +39,9 @@ class NBEigenmodeMutation:
         top_k_exact_recheck: int = 3,
         use_pressure_weighting: bool = False,
         use_support_aware_heuristic: bool = False,
+        use_defect_guided_scoring: bool = False,
+        defect_coupling_alpha: float = 1.0,
+        defect_scan_steps: int = 3,
     ) -> None:
         self.enabled = enabled
         self.hot_edges_limit = hot_edges_limit
@@ -46,6 +51,9 @@ class NBEigenmodeMutation:
         self.top_k_exact_recheck = int(top_k_exact_recheck)
         self.use_pressure_weighting = use_pressure_weighting
         self.use_support_aware_heuristic = use_support_aware_heuristic
+        self.use_defect_guided_scoring = bool(use_defect_guided_scoring)
+        self.defect_coupling_alpha = float(defect_coupling_alpha)
+        self.defect_scan_steps = int(defect_scan_steps)
 
         if self.early_exit_improvement_threshold is not None:
             threshold = float(self.early_exit_improvement_threshold)
@@ -75,8 +83,12 @@ class NBEigenmodeMutation:
         if not swaps:
             return H_new, []
 
+        if self.use_defect_guided_scoring:
+            defects = detect_spectral_defects(H_new, use_multiresolution_scan=True, scan_steps=self.defect_scan_steps)
+            swaps = defect_guided_mutations(H_new, defects, swaps)
         if self.use_hybrid_perturbation_scoring:
-            return self._mutate_hybrid(H_new, baseline["signature"], swaps)
+            defects = detect_spectral_defects(H_new, use_multiresolution_scan=True, scan_steps=self.defect_scan_steps) if self.use_defect_guided_scoring else []
+            return self._mutate_hybrid(H_new, baseline["signature"], swaps, defects=defects)
         return self._mutate_exact(H_new, baseline["signature"], swaps)
 
     def _mutate_exact(
@@ -84,6 +96,8 @@ class NBEigenmodeMutation:
         H_new: np.ndarray,
         baseline_signature: dict[str, float],
         swaps: list[tuple[int, int, int, int]],
+        *,
+        defects: list[SpectralDefect] | None = None,
     ) -> tuple[np.ndarray, list[dict[str, Any]]]:
         candidates: list[tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any]]] = []
         best_candidate: tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any]] | None = None
@@ -127,6 +141,8 @@ class NBEigenmodeMutation:
         H_new: np.ndarray,
         baseline_signature: dict[str, float],
         swaps: list[tuple[int, int, int, int]],
+        *,
+        defects: list[SpectralDefect] | None = None,
     ) -> tuple[np.ndarray, list[dict[str, Any]]]:
         # Hybrid pipeline:
         # NB spectrum -> FOHPE ranking -> exact top-k recheck -> deterministic mutate.
@@ -158,7 +174,11 @@ class NBEigenmodeMutation:
             if self.use_support_aware_heuristic and self._swap_touches_support(swap, spectrum, support_indices, H_new.shape[1]):
                 support_bonus = -0.1 * abs(predicted_delta)
 
-            final_score = round(weighted_delta + support_bonus, self.precision)
+            defect_proximity = 0.0
+            if defects:
+                defect_proximity = self._defect_proximity_for_swap(swap, defects)
+            enhanced_score = weighted_delta * (1.0 + self.defect_coupling_alpha * defect_proximity)
+            final_score = round(enhanced_score + support_bonus, self.precision)
             ci, vi, cj, vj = swap
             ranked.append(((final_score, ci, vi, cj, vj), swap, predicted_delta))
 
@@ -202,6 +222,20 @@ class NBEigenmodeMutation:
         if best_candidate is None:
             return H_new, []
         return self._apply_candidate(H_new, best_candidate)
+
+
+    @staticmethod
+    def _defect_proximity_for_swap(
+        swap: tuple[int, int, int, int],
+        defects: list[SpectralDefect],
+    ) -> float:
+        _, vi, _, vj = swap
+        proximity = 0.0
+        for defect in defects:
+            support = set(defect.support_nodes)
+            if int(vi) in support or int(vj) in support:
+                proximity += float(defect.severity)
+        return float(proximity)
 
     @staticmethod
     def _swap_touches_support(

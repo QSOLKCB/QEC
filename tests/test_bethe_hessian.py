@@ -101,3 +101,26 @@ class TestBetheHessian:
         H_copy = H.copy()
         compute_bethe_hessian(H)
         np.testing.assert_array_equal(H, H_copy)
+
+
+from src.qec.analysis.bethe_hessian import build_bethe_hessian, extract_negative_modes
+
+
+def test_analysis_bethe_hessian_build_and_extract_negative_modes() -> None:
+    H = np.array([[1, 1, 0], [0, 1, 1]], dtype=np.float64)
+    H_bh = build_bethe_hessian(H)
+    assert H_bh.shape == (5, 5)
+    vals, vecs = extract_negative_modes(H_bh, k_max=4)
+    assert vals.ndim == 1
+    assert vecs.shape[0] == 5
+    assert vecs.shape[1] == vals.size
+    assert np.all(vals < 0.0) if vals.size else True
+
+
+def test_analysis_bethe_hessian_determinism() -> None:
+    H = np.array([[1, 1, 0, 1], [0, 1, 1, 0]], dtype=np.float64)
+    H_bh = build_bethe_hessian(H)
+    v1, e1 = extract_negative_modes(H_bh, k_max=5)
+    v2, e2 = extract_negative_modes(H_bh, k_max=5)
+    np.testing.assert_allclose(v1, v2)
+    np.testing.assert_allclose(np.abs(e1), np.abs(e2))

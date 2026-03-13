@@ -18,6 +18,7 @@ import numpy as np
 import scipy.sparse
 
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
+from src.qec.analysis.nb_spectral_basin_steering import NBSpectralBasinSteering
 from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
 
 
@@ -41,6 +42,7 @@ class NBGradientMutator:
         flow_damping: bool = False,
         flow_damping_alpha: float = 0.5,
         avoid_predicted_trapping_sets: bool = False,
+        steer_spectral_basins: bool = False,
         precision: int = _ROUND,
     ) -> None:
         if not (0.0 <= flow_damping_alpha <= 1.0):
@@ -51,9 +53,11 @@ class NBGradientMutator:
         self.flow_damping = flow_damping
         self.flow_damping_alpha = flow_damping_alpha
         self.avoid_predicted_trapping_sets = avoid_predicted_trapping_sets
+        self.steer_spectral_basins = steer_spectral_basins
         self.precision = precision
         self._analyzer = NBInstabilityGradientAnalyzer()
         self._trapping_predictor = NBTrappingSetPredictor(precision=precision)
+        self._basin_steering = NBSpectralBasinSteering(precision=precision)
 
     def mutate(
         self,
@@ -127,7 +131,11 @@ class NBGradientMutator:
         predicted_node_instability: dict[int, float] = {}
         if self.avoid_predicted_trapping_sets:
             prediction = self._trapping_predictor.predict_trapping_regions(H)
-            predicted_node_instability = prediction["node_scores"]
+            candidate_sets = prediction.get("candidate_sets", [])
+            node_scores = prediction.get("node_scores", {})
+            for candidate in candidate_sets:
+                for node in candidate:
+                    predicted_node_instability[int(node)] = float(node_scores.get(node, 0.0))
 
         check_neighbors, var_neighbors = self._build_neighbors(H)
 
@@ -141,6 +149,14 @@ class NBGradientMutator:
             }
         else:
             adjusted_edge_scores = edge_scores
+
+        if self.steer_spectral_basins:
+            steering = self._basin_steering.compute_steering(H)
+            steering_score = float(steering["steering_score"])
+            adjusted_edge_scores = {
+                edge: round(float(score) / (1.0 + steering_score), self.precision)
+                for edge, score in adjusted_edge_scores.items()
+            }
 
         ranked_edges = sorted(
             adjusted_edge_scores,

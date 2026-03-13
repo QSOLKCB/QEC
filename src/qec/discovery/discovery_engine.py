@@ -98,6 +98,7 @@ def run_structure_discovery(
     archive_top_k: int = 5,
     target_variable_degree: int | None = None,
     target_check_degree: int | None = None,
+    use_nb_eigenmode_mutation: bool = False,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -133,6 +134,8 @@ def run_structure_discovery(
         Target variable degree for repair.
     target_check_degree : int or None
         Target check degree for repair.
+    use_nb_eigenmode_mutation : bool
+        Enable opt-in NB eigenmode mutation operator. Default False.
 
     Returns
     -------
@@ -226,7 +229,11 @@ def run_structure_discovery(
 
         # Mutate elites
         children: list[dict[str, Any]] = []
-        operator_name = get_operator_for_generation(gen)
+        operator_name = (
+            "nb_eigenmode_mutation"
+            if use_nb_eigenmode_mutation
+            else get_operator_for_generation(gen)
+        )
 
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")

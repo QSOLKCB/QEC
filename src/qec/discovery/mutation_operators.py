@@ -34,6 +34,7 @@ from src.qec.discovery.cycle_guided_mutation import (
 from src.qec.discovery.spectral_guided_mutation import (
     spectral_pressure_guided_mutation,
 )
+from src.qec.discovery.mutation_nb_eigenmode import nb_eigenmode_mutation
 
 
 _OPERATORS = [
@@ -412,6 +413,7 @@ _OPERATOR_FUNCTIONS = {
     "seeded_reconstruction": seeded_reconstruction,
     "cycle_guided_mutation": cycle_pressure_guided_mutation,
     "spectral_pressure_guided_mutation": spectral_pressure_guided_mutation,
+    "nb_eigenmode_mutation": nb_eigenmode_mutation,
 }
 
 

@@ -30,6 +30,7 @@ _MODULES = [
     "nb_eigenmode_flow",
     "basin_switch_detector",
     "basin_diagnostics",
+    "spectral_frustration",
 ]
 
 for mod in _MODULES:

@@ -22,6 +22,7 @@ from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyz
 from src.qec.analysis.nb_spectral_basin_steering import NBSpectralBasinSteering
 from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 from src.qec.discovery.spectral_beam_search import adaptive_beam_width, plan_two_step_swap
 
 
@@ -58,6 +59,10 @@ class NBGradientMutator:
         beam_diversity: bool = False,
         nb_alignment_bias: bool = False,
         eta_nb: float = 0.2,
+        frustration_guided: bool = False,
+        eta_frustration: float = 0.25,
+        frustration_eval_limit: int = 8,
+        track_trap_modes: bool = False,
         precision: int = _ROUND,
     ) -> None:
         if not (0.0 <= flow_damping_alpha <= 1.0):
@@ -81,11 +86,17 @@ class NBGradientMutator:
         self.beam_diversity = bool(beam_diversity)
         self.nb_alignment_bias = bool(nb_alignment_bias)
         self.eta_nb = float(eta_nb)
+        self.frustration_guided = bool(frustration_guided)
+        self.eta_frustration = float(eta_frustration)
+        self.frustration_eval_limit = max(1, int(frustration_eval_limit))
+        self.track_trap_modes = bool(track_trap_modes)
         self.precision = precision
         self._analyzer = NBInstabilityGradientAnalyzer()
         self._trapping_predictor = NBTrappingSetPredictor(precision=precision)
         self._basin_steering = NBSpectralBasinSteering(precision=precision)
         self._nb_flow = NonBacktrackingFlowAnalyzer()
+        self._frustration = SpectralFrustrationAnalyzer(precision=precision)
+        self._trap_modes: list[np.ndarray] = []
         self._energy_deltas: list[float] = []
         self._basin_depth_config = BasinDepthConfig(precision=precision)
 
@@ -219,9 +230,12 @@ class NBGradientMutator:
             adjusted_edge_scores=adjusted_edge_scores,
             nb_alignment_map=nb_alignment_map,
         )
+        if self.frustration_guided and candidates:
+            self._apply_frustration_guidance(H, candidates)
 
         if allow_beam and self._is_beam_activation_state(H, prediction):
             basin_depth = self._compute_current_basin_depth(H, prediction, flow_for_bias)
+            assert np.isfinite(basin_depth)
             effective_beam_width = self.beam_width
             if self.adaptive_beam:
                 effective_beam_width = adaptive_beam_width(
@@ -230,6 +244,8 @@ class NBGradientMutator:
                     beam_max=self.beam_max,
                     depth_scale=self.depth_scale,
                 )
+                assert effective_beam_width >= self.beam_min
+                assert effective_beam_width <= self.beam_max
             plan = plan_two_step_swap(
                 H,
                 enumerate_candidates=lambda graph: self._enumerate_swap_candidates(
@@ -328,6 +344,10 @@ class NBGradientMutator:
 
             candidates.sort(key=lambda x: (x[0], x[1], x[2]))
             grad_target, cj, vj = candidates[0]
+            alignment = (
+                nb_alignment_map.get((ci, vi), 0.0)
+                + nb_alignment_map.get((cj, vj), 0.0)
+            )
 
             candidate = {
                 "removed_edge": (ci, vi),
@@ -336,10 +356,9 @@ class NBGradientMutator:
                 "partner_added": (cj, vi),
                 "source_gradient": round(float(base_grad), self.precision),
                 "target_gradient": round(float(grad_target), self.precision),
-                "alignment": round(float(nb_alignment_map.get((ci, vi), 0.0) + nb_alignment_map.get((cj, vj), 0.0)), self.precision),
+                "alignment": round(float(alignment), self.precision),
                 "score": round(
-                    float(grad_target - base_grad)
-                    - (float(self.eta_nb) * float(nb_alignment_map.get((ci, vi), 0.0) + nb_alignment_map.get((cj, vj), 0.0))),
+                    float(grad_target - base_grad) - (float(self.eta_nb) * float(alignment)),
                     self.precision,
                 ),
                 "swap_index": len(all_candidates),
@@ -349,6 +368,38 @@ class NBGradientMutator:
             all_candidates.append(candidate)
 
         return all_candidates
+
+    def _apply_frustration_guidance(self, H: np.ndarray, candidates: list[dict[str, Any]]) -> None:
+        base = self._frustration.compute_frustration(H)
+        if self.track_trap_modes:
+            self._trap_modes = [np.asarray(mode, dtype=np.float64).copy() for mode in base.trap_modes]
+
+        ranked = sorted(candidates, key=lambda c: (float(c["score"]), int(c["swap_index"])))
+        eval_top_k = min(len(ranked), int(self.frustration_eval_limit))
+        evaluated: set[int] = set()
+        for cand in ranked[:eval_top_k]:
+            H_swap = self._apply_swap_to_copy(H, cand)
+            nxt = self._frustration.compute_frustration(H_swap)
+            delta_frustration = round(float(nxt.frustration_score - base.frustration_score), self.precision)
+            cand["frustration_before"] = round(float(base.frustration_score), self.precision)
+            cand["frustration_after"] = round(float(nxt.frustration_score), self.precision)
+            cand["delta_frustration"] = delta_frustration
+            cand["negative_modes"] = int(nxt.negative_modes)
+            cand["max_ipr"] = round(float(nxt.max_ipr), self.precision)
+            cand["score"] = round(float(cand["score"]) + float(self.eta_frustration) * delta_frustration, self.precision)
+            evaluated.add(int(cand["swap_index"]))
+
+        base_score = round(float(base.frustration_score), self.precision)
+        for cand in candidates:
+            if int(cand["swap_index"]) in evaluated:
+                continue
+            cand["frustration_before"] = base_score
+            cand["frustration_after"] = base_score
+            cand["delta_frustration"] = 0.0
+            cand["negative_modes"] = int(base.negative_modes)
+            cand["max_ipr"] = round(float(base.max_ipr), self.precision)
+
+        candidates.sort(key=lambda c: (float(c["score"]), int(c["swap_index"])))
 
     def _compute_nb_alignment_map(
         self,
@@ -390,8 +441,16 @@ class NBGradientMutator:
                 edge_reuse_rate = float(abs_flow.max()) / denom
 
         unstable_mode_persistence = 1.0 if float(pred.get("risk_score", pred.get("trapping_risk", 0.0))) > 0.0 else 0.0
-        energy_like = float(np.mean(np.abs(np.asarray(list(flow.get("variable_flow", [])), dtype=np.float64))))
+        variable_flow = np.asarray(list(flow.get("variable_flow", [])), dtype=np.float64)
+        if variable_flow.size == 0:
+            energy_like = 0.0
+        else:
+            energy_like = float(np.mean(np.abs(variable_flow)))
+        if not np.isfinite(energy_like):
+            energy_like = 0.0
         delta = round(float(energy_like), self.precision)
+        if not np.isfinite(delta):
+            delta = 0.0
         self._energy_deltas.append(delta)
         if len(self._energy_deltas) > 64:
             self._energy_deltas = self._energy_deltas[-64:]
@@ -437,6 +496,11 @@ class NBGradientMutator:
             "partner_added": candidate["partner_added"],
             "source_gradient": candidate["source_gradient"],
             "target_gradient": candidate["target_gradient"],
+            "frustration_before": round(float(candidate.get("frustration_before", 0.0)), self.precision),
+            "frustration_after": round(float(candidate.get("frustration_after", 0.0)), self.precision),
+            "delta_frustration": round(float(candidate.get("delta_frustration", 0.0)), self.precision),
+            "negative_modes": int(candidate.get("negative_modes", 0)),
+            "max_ipr": round(float(candidate.get("max_ipr", 0.0)), self.precision),
             "beam_search_used": plan is not None,
             "beam_width": int(beam_width_used) if plan is not None else 0,
             "planned_sequence_score": (

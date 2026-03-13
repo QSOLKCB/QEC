@@ -37,6 +37,7 @@ class NBFlowConfig:
     canonical_phase: bool = True
     use_left_right_pairing: bool = True
     bulk_radius_mode: str = "auto"
+    bulk_radius_value: float = 0.0
     precision: int = _ROUND
 
 
@@ -430,9 +431,17 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
         right = np.zeros((de, 0), dtype=np.complex128)
         left = np.zeros((de, 0), dtype=np.complex128)
         use_dense = de <= 2 or k >= de - 1
-        try:
-            if use_dense:
-                raise ValueError('dense_fallback')
+        if use_dense:
+            dense = B.toarray()
+            vals, vecs = np.linalg.eig(dense)
+            order = np.argsort(-np.abs(vals), kind='stable')
+            order = order[:k]
+            eigvals = vals[order]
+            right = vecs[:, order]
+            if self.config.use_left_right_pairing:
+                _, left_all = np.linalg.eig(dense.T)
+                left = left_all[:, order]
+        else:
             eigvals, right = scipy.sparse.linalg.eigs(
                 B,
                 k=k,
@@ -450,16 +459,6 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
                     maxiter=max(100, 5 * de),
                     tol=0.0,
                 )
-        except Exception:
-            dense = B.toarray()
-            vals, vecs = np.linalg.eig(dense)
-            order = np.argsort(-np.abs(vals), kind='stable')
-            order = order[:k]
-            eigvals = vals[order]
-            right = vecs[:, order]
-            if self.config.use_left_right_pairing:
-                _, left_all = np.linalg.eig(dense.T)
-                left = left_all[:, order]
 
         order = np.argsort(-np.abs(eigvals), kind='stable')
         eigvals = eigvals[order]
@@ -518,8 +517,11 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
             selected_modes=tuple(modes),
         )
 
-    @staticmethod
-    def _bulk_radius(H: np.ndarray | scipy.sparse.spmatrix) -> float:
+    def _bulk_radius(self, H: np.ndarray | scipy.sparse.spmatrix) -> float:
+        mode = str(self.config.bulk_radius_mode)
+        if mode == "fixed":
+            return float(max(self.config.bulk_radius_value, 0.0))
+
         H_csr = scipy.sparse.csr_matrix(H, dtype=np.float64)
         if H_csr.nnz == 0:
             return 0.0

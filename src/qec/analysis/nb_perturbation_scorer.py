@@ -11,6 +11,7 @@ from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 
 
 _ROUND = 12
+_MIN_DENOM = 1e-15
 
 
 class NBPerturbationScorer:
@@ -30,36 +31,48 @@ class NBPerturbationScorer:
         flow = self._flow.compute_flow(H_arr)
 
         directed_edges = flow.get("directed_edges", [])
+        index = {edge: i for i, edge in enumerate(directed_edges)}
         raw = np.asarray(flow.get("directed_edge_flow", np.zeros(0, dtype=np.float64)), dtype=np.float64)
         if m == 0 or n == 0 or len(directed_edges) == 0 or raw.size == 0:
             return {
                 "valid_first_order": False,
                 "directed_edges": directed_edges,
-                "index": {edge: i for i, edge in enumerate(directed_edges)},
+                "index": index,
                 "u": np.zeros(0, dtype=np.float64),
                 "v": np.zeros(0, dtype=np.float64),
+                "fohpe_denominator": 0.0,
             }
 
-        u = np.abs(raw).astype(np.float64, copy=False)
-        v = np.abs(raw).astype(np.float64, copy=True)
-
-        u, ok_u = self._l2_normalize(u)
-        v, ok_v = self._l2_normalize(v)
+        u, ok_u = self._l2_normalize(np.asarray(np.abs(raw), dtype=np.float64))
+        v, ok_v = self._l2_normalize(np.asarray(np.abs(raw), dtype=np.float64))
         if not ok_u or not ok_v:
             return {
                 "valid_first_order": False,
                 "directed_edges": directed_edges,
-                "index": {edge: i for i, edge in enumerate(directed_edges)},
+                "index": index,
                 "u": np.zeros(0, dtype=np.float64),
                 "v": np.zeros(0, dtype=np.float64),
+                "fohpe_denominator": 0.0,
+            }
+
+        denom = np.vdot(v, u)
+        if not np.isfinite(float(np.abs(denom))) or float(np.abs(denom)) <= _MIN_DENOM:
+            return {
+                "valid_first_order": False,
+                "directed_edges": directed_edges,
+                "index": index,
+                "u": np.zeros(0, dtype=np.float64),
+                "v": np.zeros(0, dtype=np.float64),
+                "fohpe_denominator": 0.0,
             }
 
         return {
             "valid_first_order": True,
             "directed_edges": directed_edges,
-            "index": {edge: i for i, edge in enumerate(directed_edges)},
+            "index": index,
             "u": u,
             "v": v,
+            "fohpe_denominator": float(np.real(denom)),
         }
 
     def predict_swap_delta(
@@ -67,23 +80,45 @@ class NBPerturbationScorer:
         H: np.ndarray | scipy.sparse.spmatrix,
         swap: tuple[int, int, int, int],
         spectrum: dict[str, Any],
-    ) -> dict[str, float | bool]:
+    ) -> dict[str, float | bool] | None:
         """Predict first-order perturbation delta and pressure for one swap."""
         if not bool(spectrum.get("valid_first_order", False)):
-            return {"valid_first_order": False, "predicted_delta": 0.0, "pressure": 0.0}
+            return None
 
         H_arr = self._to_dense_copy(H)
-        n = H_arr.shape[1]
+        m, n = H_arr.shape
+        ci, vi, cj, vj = swap
+        if (
+            ci < 0
+            or cj < 0
+            or vi < 0
+            or vj < 0
+            or ci >= m
+            or cj >= m
+            or vi >= n
+            or vj >= n
+            or ci == cj
+            or vi == vj
+        ):
+            return None
+
+        if H_arr[ci, vi] == 0.0 or H_arr[cj, vj] == 0.0:
+            return None
+        if H_arr[ci, vj] != 0.0 or H_arr[cj, vi] != 0.0:
+            return None
+
         index = spectrum.get("index", {})
         u = np.asarray(spectrum.get("u", np.zeros(0, dtype=np.float64)), dtype=np.float64)
         v = np.asarray(spectrum.get("v", np.zeros(0, dtype=np.float64)), dtype=np.float64)
+        denom = float(spectrum.get("fohpe_denominator", 0.0))
 
-        if u.size == 0 or v.size == 0:
-            return {"valid_first_order": False, "predicted_delta": 0.0, "pressure": 0.0}
+        if u.size == 0 or v.size == 0 or len(u) != len(v):
+            return None
+        if not np.isfinite(denom) or abs(denom) <= _MIN_DENOM:
+            return None
 
-        ci, vi, cj, vj = swap
-        removed = [(ci, vi), (cj, vj)]
-        added = [(ci, vj), (cj, vi)]
+        removed = ((ci, vi), (cj, vj))
+        added = ((ci, vj), (cj, vi))
 
         delta_terms: list[tuple[int, float]] = []
         for cix, vix in removed:
@@ -103,19 +138,21 @@ class NBPerturbationScorer:
                 delta_terms.append((int(j2), 1.0))
 
         if not delta_terms:
-            return {"valid_first_order": False, "predicted_delta": 0.0, "pressure": 0.0}
+            return None
 
-        predicted_delta = 0.0
+        numerator = 0.0
         for idx, coeff in delta_terms:
-            if idx >= len(u) or idx >= len(v):
-                return {"valid_first_order": False, "predicted_delta": 0.0, "pressure": 0.0}
-            predicted_delta += coeff * float(v[idx]) * float(u[idx])
+            if idx < 0 or idx >= len(u):
+                return None
+            numerator += coeff * float(v[idx]) * float(u[idx])
+
+        predicted_delta = numerator / denom
 
         i = index.get((vi, n + ci))
         j = index.get((vj, n + cj))
         pressure = 0.0
         if i is not None and j is not None and i < len(u) and j < len(v):
-            pressure = abs(float(u[i])) * abs(float(v[j]))
+            pressure = abs(float(u[int(i)])) * abs(float(v[int(j)]))
 
         return {
             "valid_first_order": True,
@@ -126,12 +163,14 @@ class NBPerturbationScorer:
     @staticmethod
     def _l2_normalize(vec: np.ndarray) -> tuple[np.ndarray, bool]:
         norm = float(np.linalg.norm(vec, ord=2))
-        if not np.isfinite(norm) or norm <= 1e-15:
+        if not np.isfinite(norm) or norm <= _MIN_DENOM:
             return np.zeros(0, dtype=np.float64), False
         return np.asarray(vec / norm, dtype=np.float64), True
 
     @staticmethod
     def _to_dense_copy(H: np.ndarray | scipy.sparse.spmatrix) -> np.ndarray:
+        if isinstance(H, np.ndarray) and H.dtype == np.float64:
+            return H
         if scipy.sparse.issparse(H):
-            return np.asarray(H.todense(), dtype=np.float64)
-        return np.asarray(H, dtype=np.float64).copy()
+            return np.asarray(H.toarray(), dtype=np.float64)
+        return np.asarray(H, dtype=np.float64)

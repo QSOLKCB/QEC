@@ -70,3 +70,34 @@ def test_determinism_repeated_inertia_counts() -> None:
 
     runs = [spectral_frustration_count(A, r, swaps) for _ in range(5)]
     assert all(run == runs[0] for run in runs[1:])
+
+
+def test_baseline_only_frustration_none_candidates() -> None:
+    A = _example_adjacency()
+    r = 1.7
+
+    result = spectral_frustration_count(A, r, candidate_swaps=None)
+
+    assert isinstance(result["baseline_negative_modes"], int)
+    assert result["candidate_negative_modes"] == []
+
+
+def test_baseline_only_frustration_empty_candidates() -> None:
+    A = _example_adjacency()
+    r = 1.7
+
+    result = spectral_frustration_count(A, r, candidate_swaps=[])
+
+    assert isinstance(result["baseline_negative_modes"], int)
+    assert result["candidate_negative_modes"] == []
+
+
+def test_swap_order_independence() -> None:
+    A = _example_adjacency()
+    r = 1.7
+    swaps = [(2, 5, 1, 4), (0, 3, 1, 5)]
+
+    forward = spectral_frustration_count(A, r, swaps)
+    reverse = spectral_frustration_count(A, r, list(reversed(swaps)))
+
+    assert forward == reverse

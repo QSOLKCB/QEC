@@ -122,9 +122,10 @@ class NonBacktrackingEigenvectorFlowOptimizer:
         var_neighbors = {vi: set(np.flatnonzero(H[:, vi] != 0).tolist()) for vi in range(n)}
         swaps: list[tuple[int, int, int, int]] = []
         all_vars = tuple(range(n))
+        var_set = set(all_vars)
         for ci in range(m):
-            ci_neighbors = check_neighbors[ci]
-            non_neighbor_vars = [vj for vj in all_vars if vj not in ci_neighbors]
+            ci_neighbors = set(check_neighbors[ci])
+            non_neighbor_vars = sorted(var_set - ci_neighbors)
             for vi in sorted(ci_neighbors):
                 if len(ci_neighbors) <= 1 or len(var_neighbors[vi]) <= 1:
                     continue

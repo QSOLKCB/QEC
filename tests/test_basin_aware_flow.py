@@ -126,3 +126,39 @@ def test_rank_candidates_respects_max_ipr_evaluations_zero() -> None:
     ranked = engine._rank_candidates(H, candidates, set())
     assert ranked
     assert ranked[0]["ipr_after"] == engine._evaluate_ipr(H)
+
+
+def test_rank_candidates_ipr_evaluated_only_for_top_k(monkeypatch) -> None:
+    call_counter = {"count": 0}
+
+    def fake_ipr(*_args, **_kwargs) -> float:
+        call_counter["count"] += 1
+        return 0.5
+
+    engine = BasinAwareSpectralFlow(
+        config=BasinAwareFlowConfig(
+            enabled=True,
+            max_ipr_evaluations=2,
+            escape_blacklist_size=0,
+        ),
+    )
+    monkeypatch.setattr(engine, "_evaluate_ipr", fake_ipr)
+
+    H = np.array(
+        [
+            [1, 0, 1, 0],
+            [0, 1, 0, 1],
+        ],
+        dtype=np.float64,
+    )
+
+    candidates = [
+        (0, 0, 1, 1),
+        (0, 0, 1, 3),
+        (0, 2, 1, 1),
+    ]
+
+    ranked = engine._rank_candidates(H, candidates, set())
+
+    assert ranked
+    assert call_counter["count"] == 3

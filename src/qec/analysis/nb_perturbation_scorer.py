@@ -146,7 +146,7 @@ class NBPerturbationScorer:
                 return None
             delta += coeff * float(v[idx]) * float(u[idx])
 
-        predicted_delta = delta / (denom + 1e-18)
+        predicted_delta = delta / denom
 
         i = index.get((vi, n + ci))
         j = index.get((vj, n + cj))

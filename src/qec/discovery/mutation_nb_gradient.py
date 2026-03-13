@@ -290,7 +290,10 @@ class NBGradientMutator:
         return all_candidates
 
     def _apply_swap_to_copy(self, H: np.ndarray, candidate: dict[str, Any]) -> np.ndarray:
-        H_new = np.asarray(H, dtype=np.float64).copy()
+        if isinstance(H, np.ndarray) and H.dtype == np.float64:
+            H_new = H.copy()
+        else:
+            H_new = np.array(H, dtype=np.float64, copy=True)
         for ci, vi in candidate["remove"]:
             H_new[int(ci), int(vi)] = 0.0
         for ci, vi in candidate["add"]:

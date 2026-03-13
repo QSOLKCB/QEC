@@ -30,6 +30,7 @@ _MODULES = [
     "nb_eigenmode_flow",
     "basin_switch_detector",
     "basin_diagnostics",
+    "bethe_hessian_fast",
     "spectral_frustration",
 ]
 

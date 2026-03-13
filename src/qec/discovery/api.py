@@ -26,6 +26,7 @@ from src.qec.discovery.adaptive_mutation_controller import (
     NonBacktrackingFlowMutator,
     NBGradientMutator,
 )
+from src.qec.discovery.nb_flow_mutation import NBFlowMutationConfig, NonBacktrackingFlowMutator
 
 __all__ = [
     "run_structure_discovery",
@@ -43,4 +44,6 @@ __all__ = [
     "AdaptiveMutationController",
     "NonBacktrackingFlowMutator",
     "NBGradientMutator",
+    "NBFlowMutationConfig",
+    "NonBacktrackingFlowMutator",
 ]

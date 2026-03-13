@@ -13,6 +13,10 @@ from src.qec.analysis.eigenmode_mutation import (
 )
 from src.qec.analysis.ihara_bass_gradient import compute_ihara_bass_gradient
 from src.qec.discovery.eigenmode_guided_swap import find_best_swap
+from src.qec.discovery.spectral_gradient_flow import (
+    SpectralGradientFlowConfig,
+    run_spectral_gradient_flow,
+)
 
 
 def _project_gradient_to_matrix_edges(
@@ -65,8 +69,14 @@ def spectral_descent(
     dual_operator: bool = False,
     w_nb: float = 1.0,
     w_bh: float = 0.5,
+    use_spectral_gradient_flow: bool = False,
+    spectral_gradient_config: SpectralGradientFlowConfig | None = None,
 ) -> sp.csr_matrix:
     """Deterministically optimize Tanner topology via spectral descent."""
+    if bool(use_spectral_gradient_flow):
+        H_opt, _ = run_spectral_gradient_flow(H, config=spectral_gradient_config)
+        return H_opt
+
     H_curr = sp.csr_matrix(H, dtype=np.float64)
     m, _ = H_curr.shape
     mode_scheduler = DefectScheduler(

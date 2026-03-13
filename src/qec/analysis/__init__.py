@@ -14,13 +14,14 @@ Fully deterministic: no randomness, no global state, no input mutation.
 
 from src.qec.analysis.trapping_sets import TrappingSetDetector
 from src.qec.analysis.bp_residuals import BPResidualAnalyzer
-from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer
+from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer, estimate_nishimori_temperature
 from src.qec.analysis.absorbing_sets import AbsorbingSetPredictor
 from src.qec.analysis.cycle_topology import CycleTopologyAnalyzer
 from src.qec.analysis.residual_clusters import ResidualClusterAnalyzer
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 from src.qec.analysis.constraint_tension import ConstraintTensionAnalyzer
 from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
+from src.qec.analysis.localization_metrics import IPR, ParticipationEntropy, SpectralInstabilityScore
 from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
 from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
@@ -30,12 +31,16 @@ __all__ = [
     "TrappingSetDetector",
     "BPResidualAnalyzer",
     "BetheHessianAnalyzer",
+    "estimate_nishimori_temperature",
     "AbsorbingSetPredictor",
     "CycleTopologyAnalyzer",
     "ResidualClusterAnalyzer",
     "NonBacktrackingFlowAnalyzer",
     "ConstraintTensionAnalyzer",
     "EigenvectorLocalizationAnalyzer",
+    "IPR",
+    "ParticipationEntropy",
+    "SpectralInstabilityScore",
     "FlowAlignmentAnalyzer",
     "NBInstabilityGradientAnalyzer",
     "NBEigenmodeFlowAnalyzer",

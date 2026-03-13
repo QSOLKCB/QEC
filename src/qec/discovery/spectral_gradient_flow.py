@@ -172,12 +172,16 @@ def run_spectral_gradient_flow(
             )
             for swap in swaps
         )
+        # Only evaluate expensive spectrum/girth computations on a small
+        # subset of the most promising swaps, as ranked by the cheap
+        # _estimate_swap_delta score.
+        top_k = min(len(scored), 32)
 
         best_swap: tuple[int, int, int, int] | None = None
         best_energy = energy
         current_girth = int(compute_girth_spectrum(H_curr.toarray())["girth"])
 
-        for _, swap in scored:
+        for _, swap in scored[:top_k]:
             H_next = _apply_swap(H_curr, swap)
             girth = int(compute_girth_spectrum(H_next.toarray())["girth"])
             if girth < int(cfg.min_girth):

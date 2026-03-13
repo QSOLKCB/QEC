@@ -27,6 +27,9 @@ class BasinAwareFlowConfig:
     escape_blacklist_size: int = 5
     escape_candidate_limit: int = 10
     eta_ipr: float = 0.1
+    max_ipr_evaluations: int = 10
+    max_row_candidates: int = 8
+    max_col_candidates: int = 8
     precision: int = 12
 
 
@@ -144,13 +147,18 @@ class BasinAwareSpectralFlow:
             "energy": round(energy, self.config.precision),
             "unstable_modes": int(unstable_modes),
             "flow": flow,
+            "flow_result": flow_result,
             "hot_edges": hot_edges,
-            "candidates": self._enumerate_swap_candidates(H),
+            "candidates": self._enumerate_swap_candidates(
+                H,
+                max_row_candidates=self.config.max_row_candidates,
+                max_col_candidates=self.config.max_col_candidates,
+            ),
         }
 
     @staticmethod
     def _public_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
-        out = {k: v for k, v in metrics.items() if k not in {"flow", "candidates"}}
+        out = {k: v for k, v in metrics.items() if k not in {"flow", "flow_result", "candidates"}}
         out["hot_edges"] = [tuple(edge) for edge in out.get("hot_edges", [])]
         return out
 
@@ -163,7 +171,7 @@ class BasinAwareSpectralFlow:
             edge
             for edge in sorted(metrics.get("hot_edges", []))[: self.config.escape_blacklist_size]
         }
-        limited = self._rank_candidates(H, candidates, blacklist)[: self.config.escape_candidate_limit]
+        limited = self._rank_candidates(H, candidates, blacklist, flow=metrics.get("flow_result"))[: self.config.escape_candidate_limit]
         if not limited:
             return H.copy(), {"action": "escape_noop"}
 
@@ -180,8 +188,10 @@ class BasinAwareSpectralFlow:
         H: np.ndarray,
         candidates: list[tuple[int, int, int, int]],
         blacklist: set[tuple[int, int]],
+        *,
+        flow: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        baseline = self._evaluate_ipr(H)
+        baseline = self._evaluate_ipr(H, flow=flow)
         ranked: list[dict[str, Any]] = []
         for ci, vi, cj, vj in sorted(candidates):
             if (ci, vi) in blacklist or (cj, vj) in blacklist:
@@ -190,29 +200,37 @@ class BasinAwareSpectralFlow:
             if not self._is_valid_swap(H, H_trial):
                 continue
             delta_flow = float(np.sum(H) - np.sum(H_trial))
-            ipr_after = self._evaluate_ipr(H_trial)
-            score = round(
-                float(delta_flow + self.config.eta_ipr * (ipr_after - baseline)),
-                self.config.precision,
-            )
-            ranked.append(
-                {
-                    "swap": (ci, vi, cj, vj),
-                    "score": score,
-                    "ipr_after": ipr_after,
-                },
-            )
+            score = round(float(delta_flow), self.config.precision)
+            ranked.append({"swap": (ci, vi, cj, vj), "score": score, "H_after": H_trial})
 
         ranked.sort(key=lambda item: (item["score"], item["swap"]))
+        top_k = min(len(ranked), max(0, int(self.config.max_ipr_evaluations)))
+        for item in ranked[:top_k]:
+            ipr_after = self._evaluate_ipr(item["H_after"])
+            item["ipr_after"] = ipr_after
+            item["score"] = round(
+                float(item["score"] + self.config.eta_ipr * (ipr_after - baseline)),
+                self.config.precision,
+            )
+        for item in ranked[top_k:]:
+            item["ipr_after"] = baseline
+        ranked.sort(key=lambda item: (item["score"], item["swap"]))
+        for item in ranked:
+            item.pop("H_after", None)
         return ranked
 
-    def _evaluate_ipr(self, H: np.ndarray) -> float:
-        flow = self._flow_analyzer.compute_flow(H)
-        edge_flow = np.asarray(flow.get("edge_flow", np.zeros(0, dtype=np.float64)), dtype=np.float64)
+    def _evaluate_ipr(self, H: np.ndarray, flow: dict[str, Any] | None = None) -> float:
+        flow_data = flow if flow is not None else self._flow_analyzer.compute_flow(H)
+        edge_flow = np.asarray(flow_data.get("edge_flow", np.zeros(0, dtype=np.float64)), dtype=np.float64)
         return self.diagnostics.compute_flow_ipr(edge_flow)
 
     @staticmethod
-    def _enumerate_swap_candidates(H: np.ndarray) -> list[tuple[int, int, int, int]]:
+    def _enumerate_swap_candidates(
+        H: np.ndarray,
+        *,
+        max_row_candidates: int = 8,
+        max_col_candidates: int = 8,
+    ) -> list[tuple[int, int, int, int]]:
         m, n = H.shape
         edges = [(int(ci), int(vi)) for ci, vi in np.argwhere(H != 0)]
         edges.sort()
@@ -227,6 +245,8 @@ class BasinAwareSpectralFlow:
         for vi in var_neighbors:
             var_neighbors[vi] = sorted(var_neighbors[vi])
 
+        row_counts: dict[int, int] = {ci: 0 for ci in range(m)}
+        col_counts: dict[int, int] = {vi: 0 for vi in range(n)}
         for ci, vi in edges:
             for vj in range(n):
                 if vj == vi or H[ci, vj] != 0:
@@ -236,7 +256,14 @@ class BasinAwareSpectralFlow:
                         continue
                     if H[cj, vi] != 0:
                         continue
-                    out.append((ci, vi, cj, vj))
+                    swap = (ci, vi, cj, vj)
+                    if row_counts[ci] >= max_row_candidates:
+                        continue
+                    if col_counts[vj] >= max_col_candidates:
+                        continue
+                    out.append(swap)
+                    row_counts[ci] += 1
+                    col_counts[vj] += 1
 
         out.sort()
         return out

@@ -33,7 +33,8 @@ class NBEigenmodeMutation:
         hot_edges_limit: int = 8,
         precision: int = _ROUND,
         early_exit_improvement_threshold: float | None = None,
-        use_hybrid_perturbation_scoring: bool = False,
+        use_nb_perturbation_scoring: bool = False,
+        use_hybrid_perturbation_scoring: bool | None = None,
         top_k_exact_recheck: int = 3,
         use_pressure_weighting: bool = False,
         use_support_aware_heuristic: bool = False,
@@ -42,7 +43,11 @@ class NBEigenmodeMutation:
         self.hot_edges_limit = hot_edges_limit
         self.precision = precision
         self.early_exit_improvement_threshold = early_exit_improvement_threshold
-        self.use_hybrid_perturbation_scoring = use_hybrid_perturbation_scoring
+        if use_hybrid_perturbation_scoring is None:
+            self.use_nb_perturbation_scoring = use_nb_perturbation_scoring
+        else:
+            self.use_nb_perturbation_scoring = bool(use_hybrid_perturbation_scoring)
+        self.use_hybrid_perturbation_scoring = self.use_nb_perturbation_scoring
         self.top_k_exact_recheck = int(top_k_exact_recheck)
         self.use_pressure_weighting = use_pressure_weighting
         self.use_support_aware_heuristic = use_support_aware_heuristic
@@ -51,7 +56,7 @@ class NBEigenmodeMutation:
             threshold = float(self.early_exit_improvement_threshold)
             if threshold < 0.0:
                 raise ValueError("early_exit_improvement_threshold must be non-negative")
-        if self.use_hybrid_perturbation_scoring and self.top_k_exact_recheck < 1:
+        if self.use_nb_perturbation_scoring and self.top_k_exact_recheck < 1:
             raise ValueError("top_k_exact_recheck must be >= 1")
 
         self._analyzer = NBEigenmodeFlowAnalyzer(precision=precision)
@@ -75,7 +80,7 @@ class NBEigenmodeMutation:
         if not swaps:
             return H_new, []
 
-        if self.use_hybrid_perturbation_scoring:
+        if self.use_nb_perturbation_scoring:
             return self._mutate_hybrid(H_new, baseline["signature"], swaps)
         return self._mutate_exact(H_new, baseline["signature"], swaps)
 
@@ -144,8 +149,8 @@ class NBEigenmodeMutation:
         ranked: list[tuple[tuple[float, int, int, int, int], tuple[int, int, int, int], float]] = []
         for swap in swaps:
             pred = self._perturbation_scorer.predict_swap_delta(H_new, swap, spectrum)
-            if not bool(pred.get("valid_first_order", False)):
-                return self._mutate_exact(H_new, baseline_signature, swaps)
+            if pred is None or not bool(pred.get("valid_first_order", False)):
+                continue
 
             predicted_delta = float(pred.get("predicted_delta", 0.0))
             pressure = float(pred.get("pressure", 0.0))
@@ -163,10 +168,11 @@ class NBEigenmodeMutation:
             ranked.append(((final_score, ci, vi, cj, vj), swap, predicted_delta))
 
         if not ranked:
-            return H_new, []
+            return self._mutate_exact(H_new, baseline_signature, swaps)
 
         ranked.sort(key=lambda item: item[0])
-        recheck = ranked[: self.top_k_exact_recheck]
+        shortlist_size = min(max(self.top_k_exact_recheck, 1), len(ranked))
+        recheck = ranked[:shortlist_size]
 
         best_candidate: tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any]] | None = None
         threshold = (
@@ -284,9 +290,11 @@ class NBEigenmodeMutation:
 
     @staticmethod
     def _to_dense_copy(H: np.ndarray | scipy.sparse.spmatrix) -> np.ndarray:
+        if isinstance(H, np.ndarray) and H.dtype == np.float64:
+            return H.copy()
         if scipy.sparse.issparse(H):
-            return np.asarray(H.todense(), dtype=np.float64)
-        return np.asarray(H, dtype=np.float64).copy()
+            return np.asarray(H.toarray(), dtype=np.float64)
+        return np.asarray(H, dtype=np.float64)
 
     @staticmethod
     def _build_neighbors(

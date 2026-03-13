@@ -57,6 +57,7 @@ class TestNBTrappingSetPredictor:
             "ipr": 0.0,
             "spectral_radius": 0.0,
             "risk_score": 0.0,
+            "trapping_risk": 0.0,
         }
 
     def test_rounding_precision(self) -> None:
@@ -82,3 +83,8 @@ class TestNBTrappingSetPredictor:
             assert result["risk_score"] == expected
         else:
             assert result["risk_score"] == 0.0
+
+
+def test_risk_score_alias_for_backward_compatibility() -> None:
+    result = NBTrappingSetPredictor().predict_trapping_regions(_matrix())
+    assert result["trapping_risk"] == result["risk_score"]

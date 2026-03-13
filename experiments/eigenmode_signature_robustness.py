@@ -12,6 +12,7 @@ if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
 from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
+from src.qec.discovery.swap_helpers import deterministic_two_edge_swap
 
 
 _FIELDS = [
@@ -43,34 +44,8 @@ def _graphs() -> list[np.ndarray]:
 
 
 def _bounded_deterministic_perturbation(H: np.ndarray) -> np.ndarray:
-    """Apply one lexicographically first valid degree-preserving 2-edge swap.
-
-    This is a neutral bounded perturbation (not objective-guided):
-    choose the first edge pair ((ci, vi), (cj, vj)) in lexicographic order
-    such that ci != cj, vi != vj, and cross edges are currently absent.
-    Then apply:
-      remove (ci, vi), (cj, vj)
-      add    (ci, vj), (cj, vi)
-    If no valid pair exists, return H unchanged.
-    """
-    H_arr = np.asarray(H, dtype=np.float64)
-    H_out = H_arr.copy()
-    coords = np.argwhere(H_arr != 0)
-    edges = [(int(ci), int(vi)) for ci, vi in coords]
-
-    for idx_a, (ci, vi) in enumerate(edges):
-        for cj, vj in edges[idx_a + 1:]:
-            if ci == cj or vi == vj:
-                continue
-            if H_out[ci, vj] != 0.0 or H_out[cj, vi] != 0.0:
-                continue
-            H_out[ci, vi] = 0.0
-            H_out[cj, vj] = 0.0
-            H_out[ci, vj] = 1.0
-            H_out[cj, vi] = 1.0
-            return H_out
-
-    return H_out
+    """Apply one lexicographically first valid degree-preserving 2-edge swap."""
+    return deterministic_two_edge_swap(H)
 
 
 def run() -> dict[str, dict[str, float]]:

@@ -64,3 +64,12 @@ def test_discovery_flag_enables_nb_eigenmode_operator() -> None:
         use_nb_eigenmode_mutation=True,
     )
     assert result["best_candidate"]["operator"] in {None, "nb_eigenmode_mutation"}
+
+
+def test_early_exit_threshold_is_opt_in_and_deterministic() -> None:
+    H = _H()
+    mut = NBEigenmodeMutation(enabled=True, early_exit_improvement_threshold=1e-6)
+    out1, log1 = mut.mutate(H)
+    out2, log2 = mut.mutate(H)
+    np.testing.assert_array_equal(out1, out2)
+    assert log1 == log2

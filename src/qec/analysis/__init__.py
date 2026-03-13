@@ -24,6 +24,7 @@ from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAna
 from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
 from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
+from src.qec.analysis.basin_switch_detector import detect_basin_switch
 
 __all__ = [
     "TrappingSetDetector",
@@ -38,4 +39,5 @@ __all__ = [
     "FlowAlignmentAnalyzer",
     "NBInstabilityGradientAnalyzer",
     "NBEigenmodeFlowAnalyzer",
+    "detect_basin_switch",
 ]

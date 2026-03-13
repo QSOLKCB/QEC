@@ -31,11 +31,13 @@ class NBEigenmodeMutation:
         enabled: bool = False,
         hot_edges_limit: int = 8,
         precision: int = _ROUND,
+        early_exit_improvement_threshold: float | None = None,
     ) -> None:
         self.enabled = enabled
         self.hot_edges_limit = hot_edges_limit
         self.precision = precision
-        self._analyzer = NBEigenmodeFlowAnalyzer()
+        self.early_exit_improvement_threshold = early_exit_improvement_threshold
+        self._analyzer = NBEigenmodeFlowAnalyzer(precision=precision)
 
     def mutate(
         self,
@@ -82,17 +84,30 @@ class NBEigenmodeMutation:
                         continue
 
                     candidates.append((key, (ci, vi, cj, vj), cand_sig))
+                    if (
+                        self.early_exit_improvement_threshold is not None
+                        and key[0] < -float(self.early_exit_improvement_threshold)
+                    ):
+                        candidates.sort(key=lambda item: (item[0], item[1]))
+                        return self._apply_candidate(H_new, candidates[0])
 
         if not candidates:
             return H_new, []
 
         candidates.sort(key=lambda item: (item[0], item[1]))
-        _, (ci, vi, cj, vj), sig = candidates[0]
+        return self._apply_candidate(H_new, candidates[0])
 
-        H_new[ci, vi] = 0.0
-        H_new[cj, vj] = 0.0
-        H_new[ci, vj] = 1.0
-        H_new[cj, vi] = 1.0
+    def _apply_candidate(
+        self,
+        H: np.ndarray,
+        candidate: tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any]],
+    ) -> tuple[np.ndarray, list[dict[str, Any]]]:
+        _, (ci, vi, cj, vj), sig = candidate
+
+        H[ci, vi] = 0.0
+        H[cj, vj] = 0.0
+        H[ci, vj] = 1.0
+        H[cj, vi] = 1.0
 
         mutation_log = [{
             "removed_edge": (ci, vi),
@@ -101,18 +116,18 @@ class NBEigenmodeMutation:
             "partner_added": (cj, vi),
             "signature": sig,
         }]
-        return H_new, mutation_log
+        return H, mutation_log
 
-    @staticmethod
     def _candidate_key(
+        self,
         before: dict[str, float],
         after: dict[str, float],
     ) -> tuple[float, ...]:
-        dr = round(after["spectral_radius"] - before["spectral_radius"], _ROUND)
-        di = round(after["mode_ipr"] - before["mode_ipr"], _ROUND)
-        ds = round(after["support_fraction"] - before["support_fraction"], _ROUND)
-        dt = round(after["topk_mass_fraction"] - before["topk_mass_fraction"], _ROUND)
-        total = round(dr + di + ds + dt, _ROUND)
+        dr = round(after["spectral_radius"] - before["spectral_radius"], self.precision)
+        di = round(after["mode_ipr"] - before["mode_ipr"], self.precision)
+        ds = round(after["support_fraction"] - before["support_fraction"], self.precision)
+        dt = round(after["topk_mass_fraction"] - before["topk_mass_fraction"], self.precision)
+        total = round(dr + di + ds + dt, self.precision)
         return (total, dr, di, ds, dt)
 
     @staticmethod

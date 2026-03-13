@@ -129,6 +129,7 @@ class NBGradientMutator:
         gradient_direction = gradient["gradient_direction"]
 
         predicted_node_instability: dict[int, float] = {}
+        prediction: dict[str, Any] | None = None
         if self.avoid_predicted_trapping_sets:
             prediction = self._trapping_predictor.predict_trapping_regions(H)
             candidate_sets = prediction.get("candidate_sets", [])
@@ -141,20 +142,17 @@ class NBGradientMutator:
 
         if self.avoid_predicted_trapping_sets:
             adjusted_edge_scores = {
-                edge: round(
-                    float(score) / (1.0 + float(predicted_node_instability.get(edge[1], 0.0))),
-                    self.precision,
-                )
+                edge: float(score) / (1.0 + float(predicted_node_instability.get(edge[1], 0.0)))
                 for edge, score in edge_scores.items()
             }
         else:
             adjusted_edge_scores = edge_scores
 
         if self.steer_spectral_basins:
-            steering = self._basin_steering.compute_steering(H)
+            steering = self._basin_steering.compute_steering(H, prediction=prediction)
             steering_score = float(steering["steering_score"])
             adjusted_edge_scores = {
-                edge: round(float(score) / (1.0 + steering_score), self.precision)
+                edge: float(score) / (1.0 + steering_score)
                 for edge, score in adjusted_edge_scores.items()
             }
 

@@ -31,9 +31,11 @@ class NBEigenmodeFlowAnalyzer:
         *,
         power_iterations: int = 50,
         support_threshold_ratio: float = 0.5,
+        precision: int = _ROUND,
     ) -> None:
         self._flow = NonBacktrackingFlowAnalyzer(power_iterations=power_iterations)
         self.support_threshold_ratio = support_threshold_ratio
+        self.precision = precision
 
     def analyze(
         self,
@@ -64,6 +66,7 @@ class NBEigenmodeFlowAnalyzer:
             edges=edges,
             directed_edges=directed_edges,
             directed_edge_flow=directed_edge_flow,
+            precision=self.precision,
         )
         ranked_edges = self._ranked_edges(edge_scores)
 
@@ -75,7 +78,7 @@ class NBEigenmodeFlowAnalyzer:
         k = max(1, int(np.ceil(np.sqrt(len(edges))))) if edges else 1
         topk_mass = sum(score for _, score in ranked_edges[:k])
 
-        if max_score <= 1e-15 or total_mass <= 1e-15:
+        if np.isclose(max_score, 0.0) or np.isclose(total_mass, 0.0):
             support_fraction = 0.0
             topk_mass_fraction = 0.0
         else:
@@ -88,10 +91,10 @@ class NBEigenmodeFlowAnalyzer:
         spectral_radius = float(compute_nbt_spectral_radius(H_arr))
 
         signature = {
-            "spectral_radius": round(spectral_radius, _ROUND),
-            "mode_ipr": round(mode_ipr, _ROUND),
-            "support_fraction": round(float(support_fraction), _ROUND),
-            "topk_mass_fraction": round(float(topk_mass_fraction), _ROUND),
+            "spectral_radius": round(spectral_radius, self.precision),
+            "mode_ipr": round(mode_ipr, self.precision),
+            "support_fraction": round(float(support_fraction), self.precision),
+            "topk_mass_fraction": round(float(topk_mass_fraction), self.precision),
         }
 
         return {
@@ -119,6 +122,7 @@ class NBEigenmodeFlowAnalyzer:
         edges: list[tuple[int, int]],
         directed_edges: list[tuple[int, int]],
         directed_edge_flow: np.ndarray,
+        precision: int,
     ) -> dict[tuple[int, int], float]:
         de_index = {edge: i for i, edge in enumerate(directed_edges)}
         scores: dict[tuple[int, int], float] = {}
@@ -130,7 +134,7 @@ class NBEigenmodeFlowAnalyzer:
                 score += abs(float(directed_edge_flow[j1]))
             if j2 is not None and j2 < len(directed_edge_flow):
                 score += abs(float(directed_edge_flow[j2]))
-            scores[(ci, vi)] = round(score, _ROUND)
+            scores[(ci, vi)] = round(score, precision)
         return scores
 
     @staticmethod

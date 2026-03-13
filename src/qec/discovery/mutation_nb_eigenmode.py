@@ -30,6 +30,8 @@ class NBEigenmodeMutation:
         precision: int = _ROUND,
         use_nb_perturbation_scoring: bool = False,
         top_k_exact_recheck: int = 8,
+        use_pressure_weighting: bool = True,
+        use_support_aware_heuristic: bool = False,
     ) -> None:
         if top_k_exact_recheck < 1:
             raise ValueError("top_k_exact_recheck must be >= 1")
@@ -38,6 +40,8 @@ class NBEigenmodeMutation:
         self.precision = precision
         self.use_nb_perturbation_scoring = use_nb_perturbation_scoring
         self.top_k_exact_recheck = top_k_exact_recheck
+        self.use_pressure_weighting = use_pressure_weighting
+        self.use_support_aware_heuristic = use_support_aware_heuristic
         self._analyzer = NBEigenmodeFlowAnalyzer()
         self._perturbation = NBPerturbationScorer()
 
@@ -99,8 +103,14 @@ class NBEigenmodeMutation:
             score = self._perturbation.score_swap(H, swap, base_state)
             if score is None or not score["valid_first_order"]:
                 continue
+            base_rank = float(score["predicted_delta"])
+            if self.use_pressure_weighting:
+                base_rank = float(score.get("weighted_delta", base_rank))
+            if self.use_support_aware_heuristic:
+                support_ref = float(baseline.get("signature", {}).get("support_fraction", 0.0))
+                base_rank = round(base_rank * (1.0 + support_ref), _ROUND)
             predicted.append((
-                float(score.get("weighted_delta", score["predicted_delta"])),
+                base_rank,
                 swap,
                 score,
             ))

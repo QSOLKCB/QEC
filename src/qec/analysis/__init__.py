@@ -24,7 +24,7 @@ from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAna
 from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
 from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
-from src.qec.analysis.nb_perturbation_scorer import NBPerturbationScorer
+from .nb_perturbation_scorer import NBPerturbationScorer
 
 __all__ = [
     "TrappingSetDetector",

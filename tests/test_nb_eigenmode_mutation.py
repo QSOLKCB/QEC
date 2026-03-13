@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import scipy.sparse
 
 from src.qec.discovery.mutation_nb_eigenmode import NBEigenmodeMutation
@@ -73,3 +74,8 @@ def test_early_exit_threshold_is_opt_in_and_deterministic() -> None:
     out2, log2 = mut.mutate(H)
     np.testing.assert_array_equal(out1, out2)
     assert log1 == log2
+
+
+def test_early_exit_threshold_validation() -> None:
+    with pytest.raises(ValueError, match="non-negative"):
+        NBEigenmodeMutation(enabled=True, early_exit_improvement_threshold=-1e-6)

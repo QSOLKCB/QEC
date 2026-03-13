@@ -37,6 +37,10 @@ class NBEigenmodeMutation:
         self.hot_edges_limit = hot_edges_limit
         self.precision = precision
         self.early_exit_improvement_threshold = early_exit_improvement_threshold
+        if self.early_exit_improvement_threshold is not None:
+            threshold = float(self.early_exit_improvement_threshold)
+            if threshold < 0.0:
+                raise ValueError("early_exit_improvement_threshold must be non-negative")
         self._analyzer = NBEigenmodeFlowAnalyzer(precision=precision)
 
     def mutate(
@@ -54,6 +58,12 @@ class NBEigenmodeMutation:
 
         check_neighbors, var_neighbors = self._build_neighbors(H_new)
         candidates: list[tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any]]] = []
+        best_candidate: tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any]] | None = None
+        threshold = (
+            float(self.early_exit_improvement_threshold)
+            if self.early_exit_improvement_threshold is not None
+            else None
+        )
 
         for ci, vi in hot_edges:
             if H_new[ci, vi] == 0:
@@ -83,13 +93,15 @@ class NBEigenmodeMutation:
                     if key[0] >= 0.0:
                         continue
 
-                    candidates.append((key, (ci, vi, cj, vj), cand_sig))
-                    if (
-                        self.early_exit_improvement_threshold is not None
-                        and key[0] < -float(self.early_exit_improvement_threshold)
-                    ):
-                        candidates.sort(key=lambda item: (item[0], item[1]))
-                        return self._apply_candidate(H_new, candidates[0])
+                    candidate = (key, (ci, vi, cj, vj), cand_sig)
+                    candidates.append(candidate)
+                    if best_candidate is None or (candidate[0], candidate[1]) < (best_candidate[0], best_candidate[1]):
+                        best_candidate = candidate
+
+                    # Sign convention: lower key[0] is better, so improvement magnitude is -key[0].
+                    # Early exit triggers when that magnitude strictly exceeds the threshold.
+                    if threshold is not None and key[0] < -threshold:
+                        return self._apply_candidate(H_new, best_candidate)
 
         if not candidates:
             return H_new, []

@@ -78,7 +78,7 @@ class NBEigenmodeFlowAnalyzer:
         k = max(1, int(np.ceil(np.sqrt(len(edges))))) if edges else 1
         topk_mass = sum(score for _, score in ranked_edges[:k])
 
-        if np.isclose(max_score, 0.0) or np.isclose(total_mass, 0.0):
+        if np.isclose(max_score, 0.0, atol=1e-15, rtol=0.0) or np.isclose(total_mass, 0.0, atol=1e-15, rtol=0.0):
             support_fraction = 0.0
             topk_mass_fraction = 0.0
         else:

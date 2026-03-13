@@ -11,6 +11,8 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 
+from src.qec.analysis.bethe_hessian_utils import build_bethe_hessian
+
 
 _ROUND = 12
 
@@ -35,10 +37,8 @@ class BetheHessianAnalyzer:
         n = int(A_sparse.shape[0])
         if n == 0:
             return 0.0
-        degrees = np.asarray(A_sparse.sum(axis=1), dtype=np.float64).ravel()
-        I_sparse = scipy.sparse.eye(n, dtype=np.float64, format="csr")
-        D_sparse = scipy.sparse.diags(degrees, dtype=np.float64, format="csr")
-        H_B_sparse = ((r * r - 1.0) * I_sparse - r * A_sparse + D_sparse).tocsr()
+        H_B_sparse, _, _ = build_bethe_hessian(A_sparse, r)
+        H_B_sparse = H_B_sparse.tocsr()
 
         if n == 1:
             return round(float(H_B_sparse[0, 0]), _ROUND)

@@ -27,7 +27,39 @@ def find_best_swap(
     G: dict[tuple[int, int], float],
     top_k_edges: int = 50,
     max_candidates: int = 1000,
+    *,
+    adaptive_beam: bool = False,
+    basin_diagnostics: dict[str, float] | None = None,
+    beam_min: int = 3,
+    beam_max: int = 10,
+    depth_scale: float = 3.0,
+    w1: float = 1.0,
+    w2: float = 1.0,
+    w3: float = 0.5,
+    w4: float = 0.5,
+    return_metadata: bool = False,
 ) -> dict | None:
+    if adaptive_beam:
+        from src.qec.discovery.spectral_beam_search import find_best_swap_with_adaptive_beam
+
+        swap, metadata = find_best_swap_with_adaptive_beam(
+            H,
+            G,
+            top_k_edges=top_k_edges,
+            max_candidates=max_candidates,
+            basin_diagnostics=basin_diagnostics,
+            beam_min=beam_min,
+            beam_max=beam_max,
+            depth_scale=depth_scale,
+            w1=w1,
+            w2=w2,
+            w3=w3,
+            w4=w4,
+        )
+        if return_metadata:
+            return {"swap": swap, "planner_metadata": metadata}
+        return swap
+
     H_csr = sp.csr_matrix(H, dtype=np.float64)
     m, n = H_csr.shape
 
@@ -73,11 +105,16 @@ def find_best_swap(
             break
 
     if best is None or best[0] <= 0.0:
+        if return_metadata:
+            return {"swap": None, "planner_metadata": {"basin_depth": 0.0, "beam_width": 0, "planner_depth": 1}}
         return None
 
     i1, j1, i2, j2 = best[1]
-    return {
+    swap = {
         "remove": ((i1, j1), (i2, j2)),
         "add": ((i1, j2), (i2, j1)),
         "delta": float(best[0]),
     }
+    if return_metadata:
+        return {"swap": swap, "planner_metadata": {"basin_depth": 0.0, "beam_width": 0, "planner_depth": 1}}
+    return swap

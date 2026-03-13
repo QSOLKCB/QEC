@@ -65,7 +65,17 @@ def spectral_descent(
     dual_operator: bool = False,
     w_nb: float = 1.0,
     w_bh: float = 0.5,
-) -> sp.csr_matrix:
+    adaptive_beam: bool = False,
+    basin_diagnostics: dict[str, float] | None = None,
+    beam_min: int = 3,
+    beam_max: int = 10,
+    depth_scale: float = 3.0,
+    basin_w1: float = 1.0,
+    basin_w2: float = 1.0,
+    basin_w3: float = 0.5,
+    basin_w4: float = 0.5,
+    return_metadata: bool = False,
+) -> sp.csr_matrix | tuple[sp.csr_matrix, list[dict[str, float | int]]]:
     """Deterministically optimize Tanner topology via spectral descent."""
     H_curr = sp.csr_matrix(H, dtype=np.float64)
     m, _ = H_curr.shape
@@ -73,6 +83,8 @@ def spectral_descent(
         strategy=scheduler,
         dual_operator_enabled=bool(dual_operator),
     )
+
+    planner_metadata: list[dict[str, float | int]] = []
 
     for _ in range(int(max_iter)):
         B, r = build_bethe_hessian(H_curr)
@@ -126,7 +138,26 @@ def spectral_descent(
             )
         G = _project_gradient_to_matrix_edges(G_edge, m)
 
-        swap = find_best_swap(H_curr, G)
+        swap_result = find_best_swap(
+            H_curr,
+            G,
+            adaptive_beam=adaptive_beam,
+            basin_diagnostics=basin_diagnostics,
+            beam_min=beam_min,
+            beam_max=beam_max,
+            depth_scale=depth_scale,
+            w1=basin_w1,
+            w2=basin_w2,
+            w3=basin_w3,
+            w4=basin_w4,
+            return_metadata=return_metadata,
+        )
+        if return_metadata:
+            assert isinstance(swap_result, dict)
+            swap = swap_result["swap"]
+            planner_metadata.append(dict(swap_result.get("planner_metadata", {})))
+        else:
+            swap = swap_result
         if swap is None:
             break
 
@@ -138,4 +169,6 @@ def spectral_descent(
             break
         H_curr = H_next
 
+    if return_metadata:
+        return H_curr, planner_metadata
     return H_curr

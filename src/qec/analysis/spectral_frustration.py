@@ -44,18 +44,57 @@ class SpectralFrustrationResult:
         return True
 
 
+@dataclass(frozen=True)
+class SpectralFrustrationConfig:
+    trap_threshold: float = 0.15
+    r: float = 1.5
+    precision: int = 12
+    normalize_frustration: bool = False
+
+
+@dataclass(frozen=True, eq=False)
+class SpectralFrustrationResult:
+    frustration_score: float
+    negative_modes: int
+    max_ipr: float
+    transport_imbalance: float
+    trap_modes: tuple[np.ndarray, ...]
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SpectralFrustrationResult):
+            return False
+        if (
+            self.frustration_score != other.frustration_score
+            or self.negative_modes != other.negative_modes
+            or self.max_ipr != other.max_ipr
+            or self.transport_imbalance != other.transport_imbalance
+            or len(self.trap_modes) != len(other.trap_modes)
+        ):
+            return False
+        return all(np.array_equal(a, b) for a, b in zip(self.trap_modes, other.trap_modes))
+
+def _to_dense_float64(A: np.ndarray | scipy.sparse.spmatrix) -> np.ndarray:
+    if isinstance(A, np.ndarray):
+        return np.asarray(A, dtype=np.float64)
+    return np.asarray(scipy.sparse.csr_matrix(A, dtype=np.float64).toarray(), dtype=np.float64)
+
+
 def build_bethe_hessian(A: np.ndarray | scipy.sparse.spmatrix, r: float) -> np.ndarray:
     """Construct Bethe-Hessian matrix ``H(r) = (r^2-1)I - rA + D``."""
-    A_arr = np.asarray(scipy.sparse.csr_matrix(A, dtype=np.float64).toarray(), dtype=np.float64)
+    A_arr = _to_dense_float64(A)
     r_f = float(r)
     I = np.eye(A_arr.shape[0], dtype=np.float64)
     D = np.diag(np.sum(A_arr, axis=1, dtype=np.float64)).astype(np.float64, copy=False)
-    return (r_f * r_f - 1.0) * I - r_f * A_arr + D
+    H = I.copy()
+    H *= (r_f * r_f - 1.0)
+    H -= r_f * A_arr
+    H += D
+    return H
 
 
 def apply_swap(A: np.ndarray | scipy.sparse.spmatrix, ci: int, vi: int, cj: int, vj: int) -> np.ndarray:
     """Apply deterministic 2-edge swap on a symmetric adjacency matrix copy."""
-    A_trial = np.asarray(scipy.sparse.csr_matrix(A, dtype=np.float64).toarray(), dtype=np.float64).copy()
+    A_trial = _to_dense_float64(A).copy()
     ci_i, vi_i, cj_i, vj_i = int(ci), int(vi), int(cj), int(vj)
 
     A_trial[ci_i, vi_i] = 0.0
@@ -72,7 +111,7 @@ def apply_swap(A: np.ndarray | scipy.sparse.spmatrix, ci: int, vi: int, cj: int,
 
 def count_negative_modes(H: np.ndarray | scipy.sparse.spmatrix) -> int:
     """Count negative modes using deterministic Sylvester inertia (LDL)."""
-    H_arr = np.asarray(scipy.sparse.csr_matrix(H, dtype=np.float64).toarray(), dtype=np.float64)
+    H_arr = _to_dense_float64(H)
     _, D, _ = scipy.linalg.ldl(H_arr, lower=True, hermitian=True)
     return int(np.sum(np.diag(D) < 0.0))
 
@@ -81,8 +120,10 @@ def spectral_frustration_count(
     A: np.ndarray | scipy.sparse.spmatrix,
     r: float,
     candidate_swaps: list[tuple[int, int, int, int]] | None = None,
+    flow_field: object | None = None,
 ) -> dict[str, object]:
     """Evaluate baseline and candidate frustration as negative-mode counts."""
+    _ = flow_field
     builder = BetheHessianBuilder(A, r)
     baseline = count_negative_modes(builder.build())
 

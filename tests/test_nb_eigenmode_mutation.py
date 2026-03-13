@@ -79,3 +79,61 @@ def test_early_exit_threshold_is_opt_in_and_deterministic() -> None:
 def test_early_exit_threshold_validation() -> None:
     with pytest.raises(ValueError, match="non-negative"):
         NBEigenmodeMutation(enabled=True, early_exit_improvement_threshold=-1e-6)
+
+
+def test_hybrid_top_k_exact_recheck_validation() -> None:
+    with pytest.raises(ValueError, match=">= 1"):
+        NBEigenmodeMutation(enabled=True, use_hybrid_perturbation_scoring=True, top_k_exact_recheck=0)
+
+
+def test_hybrid_fallback_on_invalid_first_order() -> None:
+    H = _H()
+    mut = NBEigenmodeMutation(enabled=True, use_hybrid_perturbation_scoring=True)
+
+    mut._perturbation_scorer.compute_nb_spectrum = lambda _H: {"valid_first_order": False}  # type: ignore[assignment]
+
+    out_hybrid, log_hybrid = mut.mutate(H)
+    out_exact, log_exact = NBEigenmodeMutation(enabled=True).mutate(H)
+
+    np.testing.assert_array_equal(out_hybrid, out_exact)
+    assert log_hybrid == log_exact
+
+
+def test_pressure_weighting_and_support_heuristic_affect_hybrid_ranking() -> None:
+    H = _H()
+    mut = NBEigenmodeMutation(
+        enabled=True,
+        use_hybrid_perturbation_scoring=True,
+        use_pressure_weighting=True,
+        use_support_aware_heuristic=True,
+        top_k_exact_recheck=1,
+    )
+
+    mut._enumerate_swaps = lambda *_args: [(0, 0, 1, 1), (0, 3, 1, 4)]  # type: ignore[assignment]
+    mut._perturbation_scorer.compute_nb_spectrum = lambda _H: {  # type: ignore[assignment]
+        "valid_first_order": True,
+        "u": np.array([0.8, 0.1, 0.7, 0.05], dtype=np.float64),
+        "v": np.array([0.8, 0.1, 0.7, 0.05], dtype=np.float64),
+        "index": {(0, 6): 0, (6, 0): 1, (1, 7): 2, (7, 1): 3, (3, 6): 1, (4, 7): 3},
+    }
+
+    def _pred(_H: np.ndarray, swap: tuple[int, int, int, int], _spectrum: dict) -> dict:
+        if swap == (0, 0, 1, 1):
+            return {"valid_first_order": True, "predicted_delta": -0.2, "pressure": 1.5}
+        return {"valid_first_order": True, "predicted_delta": -0.21, "pressure": 0.0}
+
+    mut._perturbation_scorer.predict_swap_delta = _pred  # type: ignore[assignment]
+
+    def _fake_analyze(Hcand: np.ndarray) -> dict:
+        if Hcand[0, 1] == 1.0 and Hcand[1, 0] == 1.0:
+            sig = {"spectral_radius": 0.9, "mode_ipr": 0.2, "support_fraction": 0.5, "topk_mass_fraction": 0.4}
+        else:
+            sig = {"spectral_radius": 1.0, "mode_ipr": 0.3, "support_fraction": 0.6, "topk_mass_fraction": 0.5}
+        return {"signature": sig, "hot_edges": [(0, 0), (0, 3)]}
+
+    base = {"signature": {"spectral_radius": 1.0, "mode_ipr": 0.3, "support_fraction": 0.6, "topk_mass_fraction": 0.5}, "hot_edges": [(0, 0), (0, 3)]}
+    mut._analyzer.analyze = lambda Hx: base if np.array_equal(Hx, H) else _fake_analyze(Hx)  # type: ignore[assignment]
+
+    out, log = mut.mutate(H)
+    assert log
+    assert log[0]["removed_edge"] == (0, 0)

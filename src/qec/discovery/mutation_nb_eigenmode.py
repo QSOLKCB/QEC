@@ -16,8 +16,8 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
-from src.qec.analysis.nb_perturbation_scorer import NBPerturbationScorer
+from src.qec.analysis.api import NBEigenmodeFlowAnalyzer, NBPerturbationScorer, detect_spectral_defects
+from src.qec.discovery.defect_guided_mutations import defect_guided_mutations
 
 
 _ROUND = 12
@@ -38,6 +38,9 @@ class NBEigenmodeMutation:
         top_k_exact_recheck: int = 3,
         use_pressure_weighting: bool = False,
         use_support_aware_heuristic: bool = False,
+        use_defect_guided_scoring: bool = False,
+        defect_coupling_alpha: float = 0.3,
+        defect_scan_steps: int = 1,
     ) -> None:
         self.enabled = enabled
         self.hot_edges_limit = hot_edges_limit
@@ -51,6 +54,9 @@ class NBEigenmodeMutation:
         self.top_k_exact_recheck = int(top_k_exact_recheck)
         self.use_pressure_weighting = use_pressure_weighting
         self.use_support_aware_heuristic = use_support_aware_heuristic
+        self.use_defect_guided_scoring = use_defect_guided_scoring
+        self.defect_coupling_alpha = float(defect_coupling_alpha)
+        self.defect_scan_steps = int(defect_scan_steps)
 
         if self.early_exit_improvement_threshold is not None:
             threshold = float(self.early_exit_improvement_threshold)
@@ -58,6 +64,10 @@ class NBEigenmodeMutation:
                 raise ValueError("early_exit_improvement_threshold must be non-negative")
         if self.use_nb_perturbation_scoring and self.top_k_exact_recheck < 1:
             raise ValueError("top_k_exact_recheck must be >= 1")
+        if self.use_defect_guided_scoring and not (0.0 <= self.defect_coupling_alpha <= 1.0):
+            raise ValueError("defect_coupling_alpha must be in [0, 1]")
+        if self.use_defect_guided_scoring and self.defect_scan_steps < 1:
+            raise ValueError("defect_scan_steps must be >= 1")
 
         self._analyzer = NBEigenmodeFlowAnalyzer(precision=precision)
         self._perturbation_scorer = NBPerturbationScorer(precision=precision)
@@ -79,6 +89,14 @@ class NBEigenmodeMutation:
         swaps = self._enumerate_swaps(H_new, hot_edges, check_neighbors, var_neighbors)
         if not swaps:
             return H_new, []
+
+        if self.use_defect_guided_scoring:
+            defects = detect_spectral_defects(H_new)
+            if self.defect_scan_steps > 0:
+                defects = defects[: self.defect_scan_steps]
+            guided_swaps = defect_guided_mutations(H_new, defects, swaps)
+            if guided_swaps:
+                swaps = self._blend_swap_order(swaps, guided_swaps)
 
         if self.use_nb_perturbation_scoring:
             return self._mutate_hybrid(H_new, baseline["signature"], swaps)
@@ -208,6 +226,32 @@ class NBEigenmodeMutation:
         if best_candidate is None:
             return H_new, []
         return self._apply_candidate(H_new, best_candidate)
+
+    def _blend_swap_order(
+        self,
+        base_swaps: list[tuple[int, int, int, int]],
+        guided_swaps: list[tuple[int, int, int, int]],
+    ) -> list[tuple[int, int, int, int]]:
+        if not guided_swaps:
+            return base_swaps
+        if self.defect_coupling_alpha <= 0.0:
+            return base_swaps
+        if self.defect_coupling_alpha >= 1.0:
+            return guided_swaps
+
+        base_index = {swap: idx for idx, swap in enumerate(base_swaps)}
+        guided_index = {swap: idx for idx, swap in enumerate(guided_swaps)}
+
+        blended: list[tuple[tuple[float, int, int, int, int], tuple[int, int, int, int]]] = []
+        for swap in base_swaps:
+            b = float(base_index.get(swap, len(base_swaps)))
+            g = float(guided_index.get(swap, len(guided_swaps)))
+            score = round((1.0 - self.defect_coupling_alpha) * b + self.defect_coupling_alpha * g, self.precision)
+            ci, vi, cj, vj = swap
+            blended.append(((score, int(b), ci, vi, cj, vj), swap))
+
+        blended.sort(key=lambda item: item[0])
+        return [swap for _, swap in blended]
 
     @staticmethod
     def _swap_touches_support(

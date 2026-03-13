@@ -235,6 +235,7 @@ class NBGradientMutator:
 
         if allow_beam and self._is_beam_activation_state(H, prediction):
             basin_depth = self._compute_current_basin_depth(H, prediction, flow_for_bias)
+            assert np.isfinite(basin_depth)
             effective_beam_width = self.beam_width
             if self.adaptive_beam:
                 effective_beam_width = adaptive_beam_width(
@@ -243,6 +244,8 @@ class NBGradientMutator:
                     beam_max=self.beam_max,
                     depth_scale=self.depth_scale,
                 )
+                assert effective_beam_width >= self.beam_min
+                assert effective_beam_width <= self.beam_max
             plan = plan_two_step_swap(
                 H,
                 enumerate_candidates=lambda graph: self._enumerate_swap_candidates(
@@ -341,6 +344,10 @@ class NBGradientMutator:
 
             candidates.sort(key=lambda x: (x[0], x[1], x[2]))
             grad_target, cj, vj = candidates[0]
+            alignment = (
+                nb_alignment_map.get((ci, vi), 0.0)
+                + nb_alignment_map.get((cj, vj), 0.0)
+            )
 
             candidate = {
                 "removed_edge": (ci, vi),
@@ -349,10 +356,9 @@ class NBGradientMutator:
                 "partner_added": (cj, vi),
                 "source_gradient": round(float(base_grad), self.precision),
                 "target_gradient": round(float(grad_target), self.precision),
-                "alignment": round(float(nb_alignment_map.get((ci, vi), 0.0) + nb_alignment_map.get((cj, vj), 0.0)), self.precision),
+                "alignment": round(float(alignment), self.precision),
                 "score": round(
-                    float(grad_target - base_grad)
-                    - (float(self.eta_nb) * float(nb_alignment_map.get((ci, vi), 0.0) + nb_alignment_map.get((cj, vj), 0.0))),
+                    float(grad_target - base_grad) - (float(self.eta_nb) * float(alignment)),
                     self.precision,
                 ),
                 "swap_index": len(all_candidates),
@@ -435,8 +441,16 @@ class NBGradientMutator:
                 edge_reuse_rate = float(abs_flow.max()) / denom
 
         unstable_mode_persistence = 1.0 if float(pred.get("risk_score", pred.get("trapping_risk", 0.0))) > 0.0 else 0.0
-        energy_like = float(np.mean(np.abs(np.asarray(list(flow.get("variable_flow", [])), dtype=np.float64))))
+        variable_flow = np.asarray(list(flow.get("variable_flow", [])), dtype=np.float64)
+        if variable_flow.size == 0:
+            energy_like = 0.0
+        else:
+            energy_like = float(np.mean(np.abs(variable_flow)))
+        if not np.isfinite(energy_like):
+            energy_like = 0.0
         delta = round(float(energy_like), self.precision)
+        if not np.isfinite(delta):
+            delta = 0.0
         self._energy_deltas.append(delta)
         if len(self._energy_deltas) > 64:
             self._energy_deltas = self._energy_deltas[-64:]

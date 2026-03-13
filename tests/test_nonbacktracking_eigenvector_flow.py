@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from unittest.mock import patch
 
 from src.qec.analysis.nonbacktracking_flow import (
     NBFlowConfig,
@@ -76,10 +77,15 @@ def test_validity_preservation_degree_and_binary() -> None:
 def test_hybrid_acceptance_rejects_when_bh_worsens() -> None:
     H = _toy_H()
     opt = NonBacktrackingEigenvectorFlowOptimizer(max_steps=1, min_girth=0, use_bh_acceptance=True)
-    # deterministic check: either accepted or BH-rejected, but if rejected reason is fixed
-    tr = opt.optimize(H)
-    if tr.steps:
-        assert tr.steps[0].reason in {"accepted", "bh_rejected", "flow_converged"}
+    with patch.object(opt, "_bh_value", side_effect=[0.0] + [1.0] * 128), patch.object(
+        opt,
+        "_delta_flow",
+        return_value=-1.0,
+    ):
+        tr = opt.optimize(H)
+    assert tr.steps
+    assert tr.steps[0].reason == "bh_rejected"
+    assert tr.termination_reason == "no_improving_swap"
 
 
 def test_trajectory_monotonic_deltaflow_for_accepted_steps() -> None:
@@ -101,3 +107,23 @@ def test_convergence_reason_enum() -> None:
         "flow_converged",
         "max_steps_reached",
     }
+
+
+def test_bulk_radius_mode_fixed_is_respected() -> None:
+    H = _toy_H()
+    analyzer = NonBacktrackingEigenvectorFlowAnalyzer(
+        config=NBFlowConfig(num_nb_eigenvalues=4, bulk_radius_mode="fixed", bulk_radius_value=0.25),
+    )
+    field = analyzer.build_flow_field(H)
+    assert field.bulk_radius == 0.25
+
+
+def test_bulk_radius_mode_unknown_falls_back_to_auto() -> None:
+    H = _toy_H()
+    auto_field = NonBacktrackingEigenvectorFlowAnalyzer(
+        config=NBFlowConfig(num_nb_eigenvalues=4, bulk_radius_mode="auto"),
+    ).build_flow_field(H)
+    unknown_field = NonBacktrackingEigenvectorFlowAnalyzer(
+        config=NBFlowConfig(num_nb_eigenvalues=4, bulk_radius_mode="unknown_mode"),
+    ).build_flow_field(H)
+    assert unknown_field.bulk_radius == auto_field.bulk_radius

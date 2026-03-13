@@ -97,3 +97,68 @@ def test_escape_swap_preserves_degrees_and_binary() -> None:
     assert np.all((out == 0.0) | (out == 1.0))
     assert np.array_equal(np.sum(H, axis=0), np.sum(out, axis=0))
     assert np.array_equal(np.sum(H, axis=1), np.sum(out, axis=1))
+
+
+def test_candidate_enumeration_pruning_is_deterministic() -> None:
+    H = np.array(
+        [
+            [1, 1, 0, 0],
+            [0, 1, 1, 0],
+            [1, 0, 0, 1],
+        ],
+        dtype=np.float64,
+    )
+    c1 = BasinAwareSpectralFlow._enumerate_swap_candidates(H, max_row_candidates=1, max_col_candidates=1)
+    c2 = BasinAwareSpectralFlow._enumerate_swap_candidates(H, max_row_candidates=1, max_col_candidates=1)
+    assert c1 == c2
+
+
+def test_rank_candidates_respects_max_ipr_evaluations_zero() -> None:
+    H = np.array(
+        [
+            [1, 0, 1],
+            [0, 1, 1],
+        ],
+        dtype=np.float64,
+    )
+    engine = BasinAwareSpectralFlow(config=BasinAwareFlowConfig(enabled=True, max_ipr_evaluations=0, escape_blacklist_size=0))
+    candidates = [(0, 0, 1, 1)]
+    ranked = engine._rank_candidates(H, candidates, set())
+    assert ranked
+    assert ranked[0]["ipr_after"] == engine._evaluate_ipr(H)
+
+
+def test_rank_candidates_ipr_evaluated_only_for_top_k(monkeypatch) -> None:
+    call_counter = {"count": 0}
+
+    def fake_ipr(*_args, **_kwargs) -> float:
+        call_counter["count"] += 1
+        return 0.5
+
+    engine = BasinAwareSpectralFlow(
+        config=BasinAwareFlowConfig(
+            enabled=True,
+            max_ipr_evaluations=2,
+            escape_blacklist_size=0,
+        ),
+    )
+    monkeypatch.setattr(engine, "_evaluate_ipr", fake_ipr)
+
+    H = np.array(
+        [
+            [1, 0, 1, 0],
+            [0, 1, 0, 1],
+        ],
+        dtype=np.float64,
+    )
+
+    candidates = [
+        (0, 0, 1, 1),
+        (0, 0, 1, 3),
+        (0, 2, 1, 1),
+    ]
+
+    ranked = engine._rank_candidates(H, candidates, set())
+
+    assert ranked
+    assert call_counter["count"] == 3

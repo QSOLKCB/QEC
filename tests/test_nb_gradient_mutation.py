@@ -236,3 +236,15 @@ class TestGradientMutator:
 
         np.testing.assert_array_equal(H_dense, H_sparse)
         assert log_dense == log_sparse
+
+
+def test_basin_depth_energy_delta_is_finite_for_empty_variable_flow() -> None:
+    H = _matrix()
+    mut = NBGradientMutator(enabled=True)
+    mut._trapping_predictor.predict_trapping_regions = lambda _H: {"ipr": 0.0, "risk_score": 0.0}  # type: ignore[assignment]
+    mut._nb_flow.compute_flow = lambda _H: {"edge_flow": np.zeros(0, dtype=np.float64), "variable_flow": []}  # type: ignore[assignment]
+
+    depth = mut._compute_current_basin_depth(H, prediction=None, flow_for_bias=None)
+    assert np.isfinite(depth)
+    assert mut._energy_deltas
+    assert np.isfinite(mut._energy_deltas[-1])

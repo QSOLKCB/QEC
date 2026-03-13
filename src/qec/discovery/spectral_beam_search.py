@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, Callable
 
 
@@ -19,12 +20,59 @@ def _candidate_sort_key(candidate: dict[str, Any]) -> tuple:
     )
 
 
+def adaptive_beam_width(
+    *,
+    basin_depth: float,
+    beam_min: int,
+    beam_max: int,
+    depth_scale: float,
+) -> int:
+    """Compute deterministic sigmoid-scaled beam width."""
+    lo = max(1, int(beam_min))
+    hi = max(lo, int(beam_max))
+    if hi == lo:
+        return lo
+    scaled = 1.0 / (1.0 + math.exp(-float(depth_scale) * float(basin_depth)))
+    width = lo + int(math.floor((hi - lo) * scaled))
+    return max(lo, min(hi, int(width)))
+
+
+def _swap_edges(candidate: dict[str, Any]) -> frozenset[tuple[int, int]]:
+    return frozenset((int(ci), int(vi)) for ci, vi in candidate.get("remove", ()))
+
+
+def select_beam_candidates(
+    candidates: list[dict[str, Any]],
+    *,
+    beam_width: int,
+    beam_diversity: bool,
+) -> list[dict[str, Any]]:
+    """Select first-step beam candidates with deterministic ordering and diversity guard."""
+    width = max(1, int(beam_width))
+    ranked = sorted(candidates, key=_candidate_sort_key)
+    if not beam_diversity:
+        return ranked[:width]
+
+    chosen: list[dict[str, Any]] = []
+    used_edges: set[tuple[int, int]] = set()
+    for candidate in ranked:
+        edges = _swap_edges(candidate)
+        if edges.intersection(used_edges):
+            continue
+        chosen.append(candidate)
+        used_edges.update(edges)
+        if len(chosen) >= width:
+            break
+    return chosen
+
+
 def plan_two_step_swap(
     H: Any,
     *,
     enumerate_candidates: Callable[[Any], list[dict[str, Any]]],
     apply_swap: Callable[[Any, dict[str, Any]], Any],
     beam_width: int = 5,
+    beam_diversity: bool = False,
     second_step_limit: int = 5,
     beam_score_weight: float = 1.0,
 ) -> dict[str, Any] | None:
@@ -38,7 +86,11 @@ def plan_two_step_swap(
     if not first_candidates:
         return None
 
-    first_ranked = sorted(first_candidates, key=_candidate_sort_key)[: max(1, int(beam_width))]
+    first_ranked = select_beam_candidates(
+        first_candidates,
+        beam_width=max(1, int(beam_width)),
+        beam_diversity=bool(beam_diversity),
+    )
 
     best_plan: dict[str, Any] | None = None
     for first in first_ranked:
@@ -77,4 +129,3 @@ def plan_two_step_swap(
             best_plan = candidate_plan
 
     return best_plan
-

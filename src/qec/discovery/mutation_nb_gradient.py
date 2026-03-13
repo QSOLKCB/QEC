@@ -17,10 +17,12 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
+from src.qec.analysis.basin_depth import BasinDepthConfig, compute_basin_depth
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
 from src.qec.analysis.nb_spectral_basin_steering import NBSpectralBasinSteering
 from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
-from src.qec.discovery.spectral_beam_search import plan_two_step_swap
+from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from src.qec.discovery.spectral_beam_search import adaptive_beam_width, plan_two_step_swap
 
 
 _ROUND = 12
@@ -49,6 +51,13 @@ class NBGradientMutator:
         second_step_limit: int = 5,
         beam_activation_states: tuple[str, ...] = ("metastable_plateau", "localized_trap"),
         beam_score_weight: float = 1.0,
+        adaptive_beam: bool = False,
+        beam_min: int = 3,
+        beam_max: int = 10,
+        depth_scale: float = 3.0,
+        beam_diversity: bool = False,
+        nb_alignment_bias: bool = False,
+        eta_nb: float = 0.2,
         precision: int = _ROUND,
     ) -> None:
         if not (0.0 <= flow_damping_alpha <= 1.0):
@@ -65,10 +74,20 @@ class NBGradientMutator:
         self.second_step_limit = max(1, int(second_step_limit))
         self.beam_activation_states = tuple(str(s) for s in beam_activation_states)
         self.beam_score_weight = float(beam_score_weight)
+        self.adaptive_beam = bool(adaptive_beam)
+        self.beam_min = max(1, int(beam_min))
+        self.beam_max = max(self.beam_min, int(beam_max))
+        self.depth_scale = float(depth_scale)
+        self.beam_diversity = bool(beam_diversity)
+        self.nb_alignment_bias = bool(nb_alignment_bias)
+        self.eta_nb = float(eta_nb)
         self.precision = precision
         self._analyzer = NBInstabilityGradientAnalyzer()
         self._trapping_predictor = NBTrappingSetPredictor(precision=precision)
         self._basin_steering = NBSpectralBasinSteering(precision=precision)
+        self._nb_flow = NonBacktrackingFlowAnalyzer()
+        self._energy_deltas: list[float] = []
+        self._basin_depth_config = BasinDepthConfig(precision=precision)
 
     def mutate(
         self,
@@ -80,6 +99,7 @@ class NBGradientMutator:
         if not self.enabled or steps <= 0:
             return H_new, []
 
+        self._energy_deltas = []
         mutations: list[dict[str, Any]] = []
         for _ in range(steps):
             gradient = self._analyzer.compute_gradient(H_new)
@@ -89,6 +109,8 @@ class NBGradientMutator:
             step.setdefault("beam_search_used", False)
             step.setdefault("beam_width", 0)
             step.setdefault("planned_sequence_score", None)
+            step.setdefault("planner_depth", 1)
+            step.setdefault("basin_depth", 0.0)
             mutations.append(step)
 
         return H_new, mutations
@@ -103,6 +125,7 @@ class NBGradientMutator:
         if not self.enabled or iterations <= 0:
             return H_new, []
 
+        self._energy_deltas = []
         mutations: list[dict[str, Any]] = []
         prev_direction: dict[tuple[int, int], float] = {}
         for _ in range(iterations):
@@ -131,6 +154,8 @@ class NBGradientMutator:
             step.setdefault("beam_search_used", False)
             step.setdefault("beam_width", 0)
             step.setdefault("planned_sequence_score", None)
+            step.setdefault("planner_depth", 1)
+            step.setdefault("basin_depth", 0.0)
             mutations.append(step)
             prev_direction = dict(gradient["gradient_direction"])
 
@@ -182,26 +207,54 @@ class NBGradientMutator:
                 for edge, score in adjusted_edge_scores.items()
             }
 
-        if allow_beam and self._is_beam_activation_state(H, prediction):
-            plan = plan_two_step_swap(
-                H,
-                enumerate_candidates=lambda graph: self._enumerate_swap_candidates(
-                    graph,
-                    self._analyzer.compute_gradient(graph),
-                ),
-                apply_swap=self._apply_swap_to_copy,
-                beam_width=self.beam_width,
-                second_step_limit=self.second_step_limit,
-                beam_score_weight=self.beam_score_weight,
-            )
-            if plan is not None:
-                return self._commit_swap(H, plan["first_swap"], plan)
+        flow_for_bias = self._nb_flow.compute_flow(H) if self.nb_alignment_bias else None
+        nb_alignment_map = self._compute_nb_alignment_map(
+            H,
+            flow_for_bias,
+        ) if self.nb_alignment_bias else {}
 
         candidates = self._enumerate_swap_candidates(
             H,
             gradient,
             adjusted_edge_scores=adjusted_edge_scores,
+            nb_alignment_map=nb_alignment_map,
         )
+
+        if allow_beam and self._is_beam_activation_state(H, prediction):
+            basin_depth = self._compute_current_basin_depth(H, prediction, flow_for_bias)
+            effective_beam_width = self.beam_width
+            if self.adaptive_beam:
+                effective_beam_width = adaptive_beam_width(
+                    basin_depth=float(basin_depth),
+                    beam_min=self.beam_min,
+                    beam_max=self.beam_max,
+                    depth_scale=self.depth_scale,
+                )
+            plan = plan_two_step_swap(
+                H,
+                enumerate_candidates=lambda graph: self._enumerate_swap_candidates(
+                    graph,
+                    self._analyzer.compute_gradient(graph),
+                    nb_alignment_map=(
+                        self._compute_nb_alignment_map(graph, self._nb_flow.compute_flow(graph))
+                        if self.nb_alignment_bias
+                        else {}
+                    ),
+                ),
+                apply_swap=self._apply_swap_to_copy,
+                beam_width=effective_beam_width,
+                beam_diversity=self.beam_diversity,
+                second_step_limit=self.second_step_limit,
+                beam_score_weight=self.beam_score_weight,
+            )
+            if plan is not None:
+                return self._commit_swap(
+                    H,
+                    plan["first_swap"],
+                    plan,
+                    beam_width_used=effective_beam_width,
+                    basin_depth=basin_depth,
+                )
         if not candidates:
             return None
         return self._commit_swap(H, candidates[0])
@@ -230,6 +283,7 @@ class NBGradientMutator:
         gradient: dict[str, Any],
         *,
         adjusted_edge_scores: dict[tuple[int, int], float] | None = None,
+        nb_alignment_map: dict[tuple[int, int], float] | None = None,
     ) -> list[dict[str, Any]]:
         m, n = H.shape
         edge_scores = gradient["edge_scores"]
@@ -237,6 +291,8 @@ class NBGradientMutator:
         gradient_direction = gradient["gradient_direction"]
         if adjusted_edge_scores is None:
             adjusted_edge_scores = edge_scores
+        if nb_alignment_map is None:
+            nb_alignment_map = {}
         check_neighbors, var_neighbors = self._build_neighbors(H)
 
         ranked_edges = sorted(adjusted_edge_scores, key=lambda e: (-adjusted_edge_scores[e], e[0], e[1]))
@@ -280,7 +336,12 @@ class NBGradientMutator:
                 "partner_added": (cj, vi),
                 "source_gradient": round(float(base_grad), self.precision),
                 "target_gradient": round(float(grad_target), self.precision),
-                "score": round(float(grad_target - base_grad), self.precision),
+                "alignment": round(float(nb_alignment_map.get((ci, vi), 0.0) + nb_alignment_map.get((cj, vj), 0.0)), self.precision),
+                "score": round(
+                    float(grad_target - base_grad)
+                    - (float(self.eta_nb) * float(nb_alignment_map.get((ci, vi), 0.0) + nb_alignment_map.get((cj, vj), 0.0))),
+                    self.precision,
+                ),
                 "swap_index": len(all_candidates),
                 "remove": ((ci, vi), (cj, vj)),
                 "add": ((ci, vj), (cj, vi)),
@@ -288,6 +349,61 @@ class NBGradientMutator:
             all_candidates.append(candidate)
 
         return all_candidates
+
+    def _compute_nb_alignment_map(
+        self,
+        H: np.ndarray,
+        flow: dict[str, Any],
+    ) -> dict[tuple[int, int], float]:
+        m, n = H.shape
+        directed_edges = flow.get("directed_edges", [])
+        directed_flow = np.asarray(flow.get("directed_edge_flow", np.zeros(0, dtype=np.float64)), dtype=np.float64)
+        if not directed_edges or directed_flow.size == 0:
+            return {}
+
+        edge_idx = {edge: i for i, edge in enumerate(directed_edges)}
+        alignment: dict[tuple[int, int], float] = {}
+        for ci, vi in sorted((int(a), int(b)) for a, b in np.argwhere(H != 0)):
+            idx_fwd = edge_idx.get((vi, n + ci))
+            idx_rev = edge_idx.get((n + ci, vi))
+            p_fwd = float(directed_flow[idx_fwd]) if idx_fwd is not None else 0.0
+            p_rev = float(directed_flow[idx_rev]) if idx_rev is not None else 0.0
+            alignment[(ci, vi)] = round(abs(p_fwd - p_rev), self.precision)
+        return alignment
+
+    def _compute_current_basin_depth(
+        self,
+        H: np.ndarray,
+        prediction: dict[str, Any] | None,
+        flow_for_bias: dict[str, Any] | None,
+    ) -> float:
+        pred = prediction if prediction is not None else self._trapping_predictor.predict_trapping_regions(H)
+        flow = flow_for_bias if flow_for_bias is not None else self._nb_flow.compute_flow(H)
+        flow_ipr = float(pred.get("ipr", 0.0))
+
+        edge_flow = np.asarray(flow.get("edge_flow", np.zeros(0, dtype=np.float64)), dtype=np.float64)
+        edge_reuse_rate = 0.0
+        if edge_flow.size > 0:
+            abs_flow = np.abs(edge_flow)
+            denom = float(abs_flow.sum())
+            if denom > 0.0:
+                edge_reuse_rate = float(abs_flow.max()) / denom
+
+        unstable_mode_persistence = 1.0 if float(pred.get("risk_score", pred.get("trapping_risk", 0.0))) > 0.0 else 0.0
+        energy_like = float(np.mean(np.abs(np.asarray(list(flow.get("variable_flow", [])), dtype=np.float64))))
+        delta = round(float(energy_like), self.precision)
+        self._energy_deltas.append(delta)
+        if len(self._energy_deltas) > 64:
+            self._energy_deltas = self._energy_deltas[-64:]
+
+        depth = compute_basin_depth(
+            flow_ipr=flow_ipr,
+            edge_reuse_rate=edge_reuse_rate,
+            unstable_mode_persistence=unstable_mode_persistence,
+            energy_deltas=self._energy_deltas,
+            config=self._basin_depth_config,
+        )
+        return float(depth["basin_depth"])
 
     def _apply_swap_to_copy(self, H: np.ndarray, candidate: dict[str, Any]) -> np.ndarray:
         if isinstance(H, np.ndarray) and H.dtype == np.float64:
@@ -305,6 +421,9 @@ class NBGradientMutator:
         H: np.ndarray,
         candidate: dict[str, Any],
         plan: dict[str, Any] | None = None,
+        *,
+        beam_width_used: int = 0,
+        basin_depth: float = 0.0,
     ) -> dict[str, Any]:
         for ci, vi in candidate["remove"]:
             H[int(ci), int(vi)] = 0.0
@@ -319,12 +438,14 @@ class NBGradientMutator:
             "source_gradient": candidate["source_gradient"],
             "target_gradient": candidate["target_gradient"],
             "beam_search_used": plan is not None,
-            "beam_width": self.beam_width if plan is not None else 0,
+            "beam_width": int(beam_width_used) if plan is not None else 0,
             "planned_sequence_score": (
                 round(float(plan["planned_sequence_score"]), self.precision)
                 if plan is not None
                 else None
             ),
+            "planner_depth": 2 if plan is not None else 1,
+            "basin_depth": round(float(basin_depth), self.precision) if plan is not None else 0.0,
         }
         return result
 

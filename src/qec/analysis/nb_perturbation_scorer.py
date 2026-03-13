@@ -75,12 +75,14 @@ class NBPerturbationScorer:
 
         u_vec = np.asarray(u_vec, dtype=np.complex128)
         v_vec = np.asarray(v_vec, dtype=np.complex128)
-        valid = bool(np.linalg.norm(u_vec) > _EPS and np.linalg.norm(v_vec) > _EPS)
+        denom = np.vdot(v_vec, u_vec)
+        valid = bool(np.linalg.norm(u_vec) > _EPS and np.linalg.norm(v_vec) > _EPS and abs(denom) > _EPS)
 
         return {
             "tracked_eigenvalue": round(float(lambda_right), _ROUND),
             "right_eigenvector": u_vec,
             "left_eigenvector": v_vec,
+            "fohpe_denominator": complex(denom),
             "directed_edges": directed_edges,
             "edge_index": {e: i for i, e in enumerate(directed_edges)},
             "out_map": out_map,
@@ -107,12 +109,15 @@ class NBPerturbationScorer:
         directed_edges = baseline_state.get("directed_edges", [])
         u_vec = baseline_state.get("right_eigenvector")
         v_vec = baseline_state.get("left_eigenvector")
+        denom = baseline_state.get("fohpe_denominator", None)
 
         if (
             not isinstance(edge_index, dict)
             or not isinstance(out_map_before, dict)
             or u_vec is None
             or v_vec is None
+            or denom is None
+            or abs(denom) <= _EPS
         ):
             return None
 
@@ -163,7 +168,7 @@ class NBPerturbationScorer:
             return None
 
         tracked = float(baseline_state.get("tracked_eigenvalue", 0.0))
-        predicted_delta = round(float(np.real(delta)), _ROUND)
+        predicted_delta = round(float(np.real(delta / denom)), _ROUND)
 
         i = edge_index.get((vi, H_arr.shape[1] + ci))
         j = edge_index.get((H_arr.shape[1] + cj, vj))
@@ -186,9 +191,13 @@ class NBPerturbationScorer:
 
     @staticmethod
     def _to_dense_copy(H: np.ndarray | scipy.sparse.spmatrix) -> np.ndarray:
+        if isinstance(H, np.ndarray):
+            if H.dtype == np.float64:
+                return H
+            return np.asarray(H, dtype=np.float64)
         if scipy.sparse.issparse(H):
-            return np.asarray(H.todense(), dtype=np.float64)
-        return np.asarray(H, dtype=np.float64).copy()
+            return np.asarray(H.toarray(), dtype=np.float64)
+        return np.asarray(H, dtype=np.float64)
 
     @staticmethod
     def _is_valid_swap(H: np.ndarray, ci: int, vi: int, cj: int, vj: int) -> bool:

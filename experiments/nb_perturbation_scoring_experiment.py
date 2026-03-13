@@ -53,7 +53,7 @@ def run() -> dict[str, float]:
         exact = []
         for idx, swap in enumerate(swaps):
             p = scorer.score_swap(H, swap, state)
-            if not p["valid_first_order"]:
+            if p is None or not p["valid_first_order"]:
                 continue
             ci, vi, cj, vj = swap
             Hc = H.copy()

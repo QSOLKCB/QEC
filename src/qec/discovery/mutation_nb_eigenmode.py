@@ -98,20 +98,18 @@ class NBEigenmodeMutation:
         for swap in swaps:
             score = self._perturbation.score_swap(H, swap, base_state)
             if score is None or not score["valid_first_order"]:
-                return self._exact_candidates(H, baseline, swaps, fallback_exact=True)
+                continue
             predicted.append((
                 float(score.get("weighted_delta", score["predicted_delta"])),
                 swap,
                 score,
             ))
 
-        if self.top_k_exact_recheck > len(predicted):
-            raise ValueError(
-                f"top_k_exact_recheck must satisfy 1 <= top_k_exact_recheck <= candidate_count ({len(predicted)})"
-            )
+        if not predicted:
+            return self._exact_candidates(H, baseline, swaps, fallback_exact=True)
 
         predicted.sort(key=lambda x: (x[0], x[1]))
-        top_k = self.top_k_exact_recheck
+        top_k = min(self.top_k_exact_recheck, len(predicted))
 
         out: list[tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any], dict[str, Any]]] = []
         for _, swap, pscore in predicted[:top_k]:

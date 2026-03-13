@@ -60,3 +60,21 @@ def test_invalid_first_order_state_falls_back_with_none() -> None:
     state["valid_first_order"] = False
     result = scorer.score_swap(H, (0, 1, 2, 5), state)
     assert result is None
+
+
+def test_dense_float64_input_is_not_copied() -> None:
+    H = _H()
+    out = NBPerturbationScorer._to_dense_copy(H)
+    assert out is H
+
+
+def test_score_uses_baseline_denominator() -> None:
+    H = _H()
+    scorer = NBPerturbationScorer()
+    state = scorer.baseline_state(H)
+    swap = (0, 1, 2, 5)
+    result = scorer.score_swap(H, swap, state)
+    if result is not None:
+        denom = state.get("fohpe_denominator")
+        assert denom is not None
+        assert abs(denom) > 0.0

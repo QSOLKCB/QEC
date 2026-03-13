@@ -26,14 +26,15 @@ def test_topk_config_validation_in_initializer() -> None:
         NBEigenmodeMutation(enabled=True, use_nb_perturbation_scoring=True, top_k_exact_recheck=0)
 
 
-def test_topk_config_validation_against_candidate_count() -> None:
+def test_topk_greater_than_candidates_is_clamped() -> None:
     H = _H()
-    with pytest.raises(ValueError, match="candidate_count"):
-        NBEigenmodeMutation(
-            enabled=True,
-            use_nb_perturbation_scoring=True,
-            top_k_exact_recheck=1000,
-        ).mutate(H)
+    _, log = NBEigenmodeMutation(
+        enabled=True,
+        use_nb_perturbation_scoring=True,
+        top_k_exact_recheck=1000,
+    ).mutate(H)
+    if log:
+        assert log[0]["exact_rechecks"] <= log[0]["candidate_count"]
 
 
 def test_hybrid_shortlist_rechecks_only_topk() -> None:

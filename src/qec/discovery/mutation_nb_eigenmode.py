@@ -17,6 +17,7 @@ import numpy as np
 import scipy.sparse
 
 from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
+from src.qec.analysis.nb_perturbation_scorer import NBPerturbationScorer
 
 
 _ROUND = 12
@@ -31,11 +32,30 @@ class NBEigenmodeMutation:
         enabled: bool = False,
         hot_edges_limit: int = 8,
         precision: int = _ROUND,
+        early_exit_improvement_threshold: float | None = None,
+        use_hybrid_perturbation_scoring: bool = False,
+        top_k_exact_recheck: int = 3,
+        use_pressure_weighting: bool = False,
+        use_support_aware_heuristic: bool = False,
     ) -> None:
         self.enabled = enabled
         self.hot_edges_limit = hot_edges_limit
         self.precision = precision
-        self._analyzer = NBEigenmodeFlowAnalyzer()
+        self.early_exit_improvement_threshold = early_exit_improvement_threshold
+        self.use_hybrid_perturbation_scoring = use_hybrid_perturbation_scoring
+        self.top_k_exact_recheck = int(top_k_exact_recheck)
+        self.use_pressure_weighting = use_pressure_weighting
+        self.use_support_aware_heuristic = use_support_aware_heuristic
+
+        if self.early_exit_improvement_threshold is not None:
+            threshold = float(self.early_exit_improvement_threshold)
+            if threshold < 0.0:
+                raise ValueError("early_exit_improvement_threshold must be non-negative")
+        if self.use_hybrid_perturbation_scoring and self.top_k_exact_recheck < 1:
+            raise ValueError("top_k_exact_recheck must be >= 1")
+
+        self._analyzer = NBEigenmodeFlowAnalyzer(precision=precision)
+        self._perturbation_scorer = NBPerturbationScorer(precision=precision)
 
     def mutate(
         self,
@@ -51,8 +71,165 @@ class NBEigenmodeMutation:
             return H_new, []
 
         check_neighbors, var_neighbors = self._build_neighbors(H_new)
-        candidates: list[tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any]]] = []
+        swaps = self._enumerate_swaps(H_new, hot_edges, check_neighbors, var_neighbors)
+        if not swaps:
+            return H_new, []
 
+        if self.use_hybrid_perturbation_scoring:
+            return self._mutate_hybrid(H_new, baseline["signature"], swaps)
+        return self._mutate_exact(H_new, baseline["signature"], swaps)
+
+    def _mutate_exact(
+        self,
+        H_new: np.ndarray,
+        baseline_signature: dict[str, float],
+        swaps: list[tuple[int, int, int, int]],
+    ) -> tuple[np.ndarray, list[dict[str, Any]]]:
+        candidates: list[tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any]]] = []
+        best_candidate: tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any]] | None = None
+        threshold = (
+            float(self.early_exit_improvement_threshold)
+            if self.early_exit_improvement_threshold is not None
+            else None
+        )
+
+        for swap in swaps:
+            ci, vi, cj, vj = swap
+            H_candidate = H_new.copy()
+            H_candidate[ci, vi] = 0.0
+            H_candidate[cj, vj] = 0.0
+            H_candidate[ci, vj] = 1.0
+            H_candidate[cj, vi] = 1.0
+
+            cand_sig = self._analyzer.analyze(H_candidate)["signature"]
+            key = self._candidate_key(baseline_signature, cand_sig)
+            if key[0] >= 0.0:
+                continue
+
+            candidate = (key, swap, cand_sig)
+            candidates.append(candidate)
+            if best_candidate is None or (candidate[0], candidate[1]) < (best_candidate[0], best_candidate[1]):
+                best_candidate = candidate
+
+            # Sign convention: lower key[0] is better, so improvement magnitude is -key[0].
+            # Early exit triggers when that magnitude strictly exceeds the threshold.
+            if threshold is not None and key[0] < -threshold:
+                return self._apply_candidate(H_new, best_candidate)
+
+        if not candidates:
+            return H_new, []
+
+        candidates.sort(key=lambda item: (item[0], item[1]))
+        return self._apply_candidate(H_new, candidates[0])
+
+    def _mutate_hybrid(
+        self,
+        H_new: np.ndarray,
+        baseline_signature: dict[str, float],
+        swaps: list[tuple[int, int, int, int]],
+    ) -> tuple[np.ndarray, list[dict[str, Any]]]:
+        # Hybrid pipeline:
+        # NB spectrum -> FOHPE ranking -> exact top-k recheck -> deterministic mutate.
+        spectrum = self._perturbation_scorer.compute_nb_spectrum(H_new)
+        if not bool(spectrum.get("valid_first_order", False)):
+            return self._mutate_exact(H_new, baseline_signature, swaps)
+
+        u = np.asarray(spectrum.get("u", np.zeros(0, dtype=np.float64)), dtype=np.float64)
+        support_indices: set[int] = set()
+        if self.use_support_aware_heuristic and u.size > 0:
+            abs_u = np.abs(u)
+            median_abs_u = float(np.median(abs_u))
+            support_indices = {int(i) for i, val in enumerate(abs_u) if float(val) > median_abs_u}
+
+        ranked: list[tuple[tuple[float, int, int, int, int], tuple[int, int, int, int], float]] = []
+        for swap in swaps:
+            pred = self._perturbation_scorer.predict_swap_delta(H_new, swap, spectrum)
+            if not bool(pred.get("valid_first_order", False)):
+                return self._mutate_exact(H_new, baseline_signature, swaps)
+
+            predicted_delta = float(pred.get("predicted_delta", 0.0))
+            pressure = float(pred.get("pressure", 0.0))
+
+            weighted_delta = predicted_delta
+            if self.use_pressure_weighting:
+                weighted_delta = predicted_delta * (1.0 + pressure)
+
+            support_bonus = 0.0
+            if self.use_support_aware_heuristic and self._swap_touches_support(swap, spectrum, support_indices, H_new.shape[1]):
+                support_bonus = -0.1 * abs(predicted_delta)
+
+            final_score = round(weighted_delta + support_bonus, self.precision)
+            ci, vi, cj, vj = swap
+            ranked.append(((final_score, ci, vi, cj, vj), swap, predicted_delta))
+
+        if not ranked:
+            return H_new, []
+
+        ranked.sort(key=lambda item: item[0])
+        recheck = ranked[: self.top_k_exact_recheck]
+
+        best_candidate: tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any]] | None = None
+        threshold = (
+            float(self.early_exit_improvement_threshold)
+            if self.early_exit_improvement_threshold is not None
+            else None
+        )
+
+        for _, swap, predicted_delta in recheck:
+            ci, vi, cj, vj = swap
+            H_candidate = H_new.copy()
+            H_candidate[ci, vi] = 0.0
+            H_candidate[cj, vj] = 0.0
+            H_candidate[ci, vj] = 1.0
+            H_candidate[cj, vi] = 1.0
+
+            cand_sig = self._analyzer.analyze(H_candidate)["signature"]
+            key = self._candidate_key(baseline_signature, cand_sig)
+            if key[0] >= 0.0:
+                continue
+
+            cand_sig = {
+                **cand_sig,
+                "predicted_delta": round(predicted_delta, self.precision),
+            }
+            candidate = (key, swap, cand_sig)
+            if best_candidate is None or (candidate[0], candidate[1]) < (best_candidate[0], best_candidate[1]):
+                best_candidate = candidate
+
+            if threshold is not None and key[0] < -threshold:
+                return self._apply_candidate(H_new, best_candidate)
+
+        if best_candidate is None:
+            return H_new, []
+        return self._apply_candidate(H_new, best_candidate)
+
+    @staticmethod
+    def _swap_touches_support(
+        swap: tuple[int, int, int, int],
+        spectrum: dict[str, Any],
+        support_indices: set[int],
+        n: int,
+    ) -> bool:
+        if not support_indices:
+            return False
+        ci, vi, cj, vj = swap
+        index = spectrum.get("index", {})
+        touching = [
+            index.get((vi, n + ci)),
+            index.get((n + ci, vi)),
+            index.get((vj, n + cj)),
+            index.get((n + cj, vj)),
+        ]
+        return any(idx is not None and int(idx) in support_indices for idx in touching)
+
+    @staticmethod
+    def _enumerate_swaps(
+        H_new: np.ndarray,
+        hot_edges: list[tuple[int, int]],
+        check_neighbors: dict[int, set[int]],
+        var_neighbors: dict[int, set[int]],
+    ) -> list[tuple[int, int, int, int]]:
+        swaps: list[tuple[int, int, int, int]] = []
         for ci, vi in hot_edges:
             if H_new[ci, vi] == 0:
                 continue
@@ -69,30 +246,20 @@ class NBEigenmodeMutation:
                         continue
                     if len(check_neighbors[cj]) <= 1:
                         continue
+                    swaps.append((ci, vi, cj, vj))
+        return swaps
 
-                    H_candidate = H_new.copy()
-                    H_candidate[ci, vi] = 0.0
-                    H_candidate[cj, vj] = 0.0
-                    H_candidate[ci, vj] = 1.0
-                    H_candidate[cj, vi] = 1.0
+    def _apply_candidate(
+        self,
+        H: np.ndarray,
+        candidate: tuple[tuple[float, ...], tuple[int, int, int, int], dict[str, Any]],
+    ) -> tuple[np.ndarray, list[dict[str, Any]]]:
+        _, (ci, vi, cj, vj), sig = candidate
 
-                    cand_sig = self._analyzer.analyze(H_candidate)["signature"]
-                    key = self._candidate_key(baseline["signature"], cand_sig)
-                    if key[0] >= 0.0:
-                        continue
-
-                    candidates.append((key, (ci, vi, cj, vj), cand_sig))
-
-        if not candidates:
-            return H_new, []
-
-        candidates.sort(key=lambda item: (item[0], item[1]))
-        _, (ci, vi, cj, vj), sig = candidates[0]
-
-        H_new[ci, vi] = 0.0
-        H_new[cj, vj] = 0.0
-        H_new[ci, vj] = 1.0
-        H_new[cj, vi] = 1.0
+        H[ci, vi] = 0.0
+        H[cj, vj] = 0.0
+        H[ci, vj] = 1.0
+        H[cj, vi] = 1.0
 
         mutation_log = [{
             "removed_edge": (ci, vi),
@@ -101,18 +268,18 @@ class NBEigenmodeMutation:
             "partner_added": (cj, vi),
             "signature": sig,
         }]
-        return H_new, mutation_log
+        return H, mutation_log
 
-    @staticmethod
     def _candidate_key(
+        self,
         before: dict[str, float],
         after: dict[str, float],
     ) -> tuple[float, ...]:
-        dr = round(after["spectral_radius"] - before["spectral_radius"], _ROUND)
-        di = round(after["mode_ipr"] - before["mode_ipr"], _ROUND)
-        ds = round(after["support_fraction"] - before["support_fraction"], _ROUND)
-        dt = round(after["topk_mass_fraction"] - before["topk_mass_fraction"], _ROUND)
-        total = round(dr + di + ds + dt, _ROUND)
+        dr = round(after["spectral_radius"] - before["spectral_radius"], self.precision)
+        di = round(after["mode_ipr"] - before["mode_ipr"], self.precision)
+        ds = round(after["support_fraction"] - before["support_fraction"], self.precision)
+        dt = round(after["topk_mass_fraction"] - before["topk_mass_fraction"], self.precision)
+        total = round(dr + di + ds + dt, self.precision)
         return (total, dr, di, ds, dt)
 
     @staticmethod

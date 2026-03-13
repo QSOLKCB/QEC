@@ -23,16 +23,19 @@ class NBSpectralBasinSteering:
     def compute_steering(
         self,
         H: np.ndarray | scipy.sparse.spmatrix,
+        prediction: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        prediction = self._predictor.predict_trapping_regions(H)
+        if prediction is None:
+            prediction = self._predictor.predict_trapping_regions(H)
         spectral_radius = round(float(prediction.get("spectral_radius", 0.0)), self.precision)
         ipr = round(float(prediction.get("ipr", 0.0)), self.precision)
-        trapping_risk = round(float(prediction.get("risk_score", 0.0)), self.precision)
-        steering_score = spectral_radius + ipr + (2.0 * trapping_risk)
+        risk_score = round(float(prediction.get("risk_score", 0.0)), self.precision)
+        steering_score = spectral_radius + ipr + (2.0 * risk_score)
 
         return {
             "spectral_radius": spectral_radius,
             "ipr": ipr,
-            "trapping_risk": trapping_risk,
+            "risk_score": risk_score,
+            "trapping_risk": risk_score,
             "steering_score": round(float(steering_score), self.precision),
         }

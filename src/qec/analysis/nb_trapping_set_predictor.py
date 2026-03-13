@@ -38,7 +38,7 @@ class NBTrappingSetPredictor:
 
         Returns rounded deterministic outputs with keys:
           node_scores, edge_scores, candidate_sets, ipr,
-          spectral_radius, risk_score.
+          spectral_radius, risk_score (and compatibility alias trapping_risk).
         """
         H_arr = self._to_dense_copy(H)
         m, n = H_arr.shape
@@ -52,6 +52,8 @@ class NBTrappingSetPredictor:
                 "ipr": 0.0,
                 "spectral_radius": 0.0,
                 "risk_score": 0.0,
+                # Backward-compatible alias; use "risk_score" in new call sites.
+                "trapping_risk": 0.0,
             }
 
         flow = self._flow_analyzer.compute_flow(H_arr)
@@ -117,6 +119,8 @@ class NBTrappingSetPredictor:
             "ipr": round(float(ipr), self.precision),
             "spectral_radius": spectral_radius,
             "risk_score": risk_score,
+            # Backward-compatible alias; use "risk_score" in new call sites.
+            "trapping_risk": risk_score,
         }
 
     def _compute_candidate_scores(

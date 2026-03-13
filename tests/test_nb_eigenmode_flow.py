@@ -50,3 +50,9 @@ def test_zero_signal_returns_zero_support_and_topk_mass() -> None:
     result = NBEigenmodeFlowAnalyzer().analyze(H)
     assert result["support_fraction"] == 0.0
     assert result["topk_mass_fraction"] == 0.0
+
+
+def test_precision_parameter_is_applied() -> None:
+    result = NBEigenmodeFlowAnalyzer(precision=6).analyze(_H())
+    assert all(abs(v - round(v, 6)) <= 1e-12 for v in result["signature"].values())
+    assert all(abs(v - round(v, 6)) <= 1e-12 for v in result["edge_scores"].values())

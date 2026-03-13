@@ -53,6 +53,7 @@ class TestNBTrappingSetPredictor:
             "node_scores": {},
             "edge_scores": {},
             "candidate_sets": [],
+            "candidate_scores": [],
             "ipr": 0.0,
             "spectral_radius": 0.0,
             "risk_score": 0.0,

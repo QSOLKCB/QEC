@@ -48,6 +48,7 @@ class NBTrappingSetPredictor:
                 "node_scores": {},
                 "edge_scores": {},
                 "candidate_sets": [],
+                "candidate_scores": [],
                 "ipr": 0.0,
                 "spectral_radius": 0.0,
                 "risk_score": 0.0,
@@ -95,6 +96,7 @@ class NBTrappingSetPredictor:
             if float(node_scores[vi]) > threshold
         )
         candidate_sets = self._cluster_candidate_variables(H_arr, candidate_nodes)
+        candidate_scores = self._compute_candidate_scores(candidate_sets, rounded_node_scores, ipr)
 
         if candidate_nodes:
             risk_raw = float(np.mean([node_scores[vi] for vi in candidate_nodes])) * float(ipr)
@@ -111,10 +113,30 @@ class NBTrappingSetPredictor:
             "node_scores": rounded_node_scores,
             "edge_scores": rounded_edge_scores,
             "candidate_sets": candidate_sets,
+            "candidate_scores": candidate_scores,
             "ipr": round(float(ipr), self.precision),
             "spectral_radius": spectral_radius,
             "risk_score": risk_score,
         }
+
+    def _compute_candidate_scores(
+        self,
+        candidate_sets: list[list[int]],
+        rounded_node_scores: dict[int, float],
+        ipr: float,
+    ) -> list[float]:
+        scores: list[float] = []
+        for candidate in candidate_sets:
+            if not candidate:
+                continue
+            node_values = [float(rounded_node_scores.get(vi, 0.0)) for vi in candidate]
+            if not node_values:
+                continue
+            mean_node = float(np.mean(node_values))
+            max_node = float(max(node_values))
+            candidate_score = mean_node + max_node + float(ipr)
+            scores.append(round(candidate_score, self.precision))
+        return scores
 
     @staticmethod
     def _to_dense_copy(H: np.ndarray | scipy.sparse.spmatrix) -> np.ndarray:

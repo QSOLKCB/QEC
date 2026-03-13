@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import warnings
 import scipy.sparse
 
 from src.qec.discovery.mutation_nb_eigenmode import NBEigenmodeMutation
@@ -137,3 +138,28 @@ def test_pressure_weighting_and_support_heuristic_affect_hybrid_ranking() -> Non
     out, log = mut.mutate(H)
     assert log
     assert log[0]["removed_edge"] == (0, 0)
+
+
+def test_defect_caching_reuses_previous_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.qec.discovery import mutation_nb_eigenmode as mod
+
+    H = _H()
+    mut = NBEigenmodeMutation(enabled=True, use_defect_guided_scoring=True)
+    calls = {"count": 0}
+
+    def _fake_detect(_H: np.ndarray) -> list:
+        calls["count"] += 1
+        return []
+
+    monkeypatch.setattr(mod, "detect_spectral_defects", _fake_detect)
+    mut.mutate(H)
+    mut.mutate(H)
+    assert calls["count"] == 1
+
+
+def test_deprecated_hybrid_flag_warns_and_maps() -> None:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        mut = NBEigenmodeMutation(enabled=True, use_hybrid_perturbation_scoring=True)
+    assert mut.use_nb_perturbation_scoring is True
+    assert any("deprecated" in str(item.message).lower() for item in caught)

@@ -9,11 +9,11 @@ from src.qec.analysis.api import SpectralDefect
 
 
 def defect_guided_mutations(
-    H_pc,
+    _H_pc,
     defects: list[SpectralDefect],
     candidate_swaps: list[tuple[int, int, int, int]],
 ) -> list[tuple[int, int, int, int]]:
-    del H_pc
+    del _H_pc
     if not defects or not candidate_swaps:
         return list(candidate_swaps)
 

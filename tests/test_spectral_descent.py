@@ -1,5 +1,6 @@
 import numpy as np
 
+from src.qec.analysis.bethe_hessian import estimate_nishimori_temperature
 from src.qec.analysis.eigenmode_mutation import build_bethe_hessian, extract_unstable_modes
 from src.qec.discovery.spectral_descent_loop import spectral_descent
 
@@ -60,4 +61,31 @@ def test_spectral_descent_dual_operator_is_deterministic() -> None:
     out1 = spectral_descent(H, max_iter=5, scheduler="aggregate", dual_operator=True)
     out2 = spectral_descent(H, max_iter=5, scheduler="aggregate", dual_operator=True)
 
+    assert np.array_equal(out1.toarray(), out2.toarray())
+
+
+def test_nishimori_estimation_linear_fallback(monkeypatch) -> None:
+    H = np.array([[1.0, 1.0], [1.0, 0.0]], dtype=np.float64)
+
+    values = iter([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+    def _fake_lambda(_self, _A, _r):
+        return float(next(values))
+
+    monkeypatch.setattr("src.qec.analysis.bethe_hessian.BetheHessianAnalyzer._lambda_min_from_adjacency", _fake_lambda)
+    r = estimate_nishimori_temperature(H)
+    assert r > 0.0
+
+
+def test_spectral_descent_dual_mode_dedup_is_deterministic() -> None:
+    H = np.array(
+        [
+            [1.0, 1.0, 0.0, 0.0],
+            [0.0, 1.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0, 1.0],
+        ],
+        dtype=np.float64,
+    )
+    out1 = spectral_descent(H, max_iter=4, scheduler="aggregate", dual_operator=True)
+    out2 = spectral_descent(H, max_iter=4, scheduler="aggregate", dual_operator=True)
     assert np.array_equal(out1.toarray(), out2.toarray())

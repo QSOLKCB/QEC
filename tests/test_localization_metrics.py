@@ -41,3 +41,14 @@ def test_edge_energy_map_deterministic_and_sparse_supported():
     assert m1 == m2
     assert m1[0][0:2] == (0, 1)
     assert m1[-1][0:2] == (2, 3)
+
+
+def test_edge_energy_map_enforces_symmetric_adjacency() -> None:
+    A = np.array([
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [0.0, 0.0, 0.0],
+    ], dtype=np.float64)
+    v = np.array([2.0, 3.0, 5.0], dtype=np.float64)
+    energies = compute_edge_energy_map(A, v)
+    assert energies == [(0, 1, 6.0), (1, 2, 15.0)]

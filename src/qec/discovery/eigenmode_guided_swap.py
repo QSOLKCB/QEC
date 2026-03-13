@@ -25,11 +25,9 @@ def score_2x2_swap(
 def find_best_swap(
     H: np.ndarray | sp.spmatrix,
     G: dict[tuple[int, int], float],
-    modes: list[dict],
     top_k_edges: int = 50,
     max_candidates: int = 1000,
 ) -> dict | None:
-    del modes
     H_csr = sp.csr_matrix(H, dtype=np.float64)
     m, n = H_csr.shape
 

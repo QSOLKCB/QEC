@@ -25,8 +25,8 @@ def extract_support_subgraph(
         }
 
     sub = H[:, support].tocsr()
-    check_degree = np.asarray(sub.sum(axis=1), dtype=np.float64).ravel()
-    check_nodes = [int(ci) for ci in np.flatnonzero(check_degree > 0.0)]
+    check_degree = np.asarray(sub.astype(np.int64).sum(axis=1), dtype=np.int64).ravel()
+    check_nodes = [int(ci) for ci in np.flatnonzero(check_degree > 0)]
     induced = sub[check_nodes, :].tocsr()
 
     return {
@@ -45,10 +45,11 @@ def compute_trapping_parameters(subgraph: dict[str, Any]) -> tuple[int, int]:
     if sub is None:
         return a, 0
 
-    sub_csr = scipy.sparse.csr_matrix(sub, dtype=np.float64)
+    sub_csr = scipy.sparse.csr_matrix(sub, dtype=np.int64)
     if sub_csr.shape[0] == 0:
         return a, 0
 
-    check_degree = np.asarray(sub_csr.sum(axis=1), dtype=np.float64).ravel()
-    b = int(np.sum(np.mod(check_degree, 2.0) > 0.0))
+    deg = np.asarray(sub_csr.astype(np.int64).sum(axis=1), dtype=np.int64).ravel()
+    odd_checks = np.count_nonzero(deg % 2)
+    b = int(odd_checks)
     return a, b

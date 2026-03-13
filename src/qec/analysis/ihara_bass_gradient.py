@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from src.qec.analysis.constants import MIN_EIGENVECTOR_NORM
+
 
 def compute_ipr(v: np.ndarray) -> float:
     vec = np.asarray(v, dtype=np.float64)
@@ -20,7 +22,10 @@ def compute_mode_edge_gradient(
     r: float,
 ) -> dict[tuple[int, int], float]:
     vec = np.asarray(v, dtype=np.float64)
+    vec_norm = float(np.linalg.norm(vec, ord=2))
     grad: dict[tuple[int, int], float] = {}
+    if not np.isfinite(vec_norm) or vec_norm <= MIN_EIGENVECTOR_NORM:
+        return grad
     for u, w in sorted(adj_list):
         key = (u, w) if u <= w else (w, u)
         grad[key] = float(-r * vec[u] * vec[w])

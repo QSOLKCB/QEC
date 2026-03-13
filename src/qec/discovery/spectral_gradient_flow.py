@@ -88,6 +88,12 @@ def _enumerate_candidate_swaps(
     top_edge_fraction: float,
     swap_budget: int,
 ) -> list[tuple[int, int, int, int]]:
+    if not (0.0 < float(top_edge_fraction) <= 1.0):
+        raise ValueError(
+            f"top_edge_fraction must be in the interval (0.0, 1.0], "
+            f"got {top_edge_fraction!r}"
+        )
+
     edges = _sorted_edges(H_csr)
     if len(edges) < 2:
         return []

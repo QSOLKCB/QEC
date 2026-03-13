@@ -20,6 +20,7 @@ from src.qec.discovery.cycle_pressure import compute_cycle_pressure
 from src.qec.discovery.ace_filter import compute_local_ace_score
 from src.qec.discovery.incremental_metrics import update_metrics_incrementally
 from src.qec.discovery.basin_aware_flow import BasinAwareFlowConfig, BasinAwareSpectralFlow
+from src.qec.discovery.nb_flow_mutation import NBFlowMutationConfig, NonBacktrackingFlowMutator
 
 __all__ = [
     "run_structure_discovery",
@@ -33,4 +34,6 @@ __all__ = [
     "update_metrics_incrementally",
     "BasinAwareFlowConfig",
     "BasinAwareSpectralFlow",
+    "NBFlowMutationConfig",
+    "NonBacktrackingFlowMutator",
 ]

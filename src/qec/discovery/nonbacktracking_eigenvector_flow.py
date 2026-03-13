@@ -80,19 +80,38 @@ class NonBacktrackingEigenvectorFlowOptimizer:
                 return NBFlowTrajectory(H_final=H_curr, steps=tuple(steps), termination_reason='no_improving_swap')
 
             ranked.sort(key=lambda item: item[0])
-            key, swap, delta, score, delta_bh = ranked[0]
-            del key
+            accepted = False
+            rejected_swap: tuple[int, int, int, int] | None = None
+            rejected_delta = 0.0
+            rejected_score = 0.0
 
-            if delta >= -self.flow_tol:
-                steps.append(NBFlowStepResult(step=step, accepted=False, swap=swap, delta_flow=round(float(delta), 12), combined_score=round(float(score), 12), reason='flow_converged'))
-                return NBFlowTrajectory(H_final=H_curr, steps=tuple(steps), termination_reason='flow_converged')
+            for _, swap, delta, score, delta_bh in ranked:
+                if delta >= -self.flow_tol:
+                    continue
+                if self.use_bh_acceptance and delta_bh > 0.0:
+                    if rejected_swap is None:
+                        rejected_swap = swap
+                        rejected_delta = delta
+                        rejected_score = score
+                    continue
 
-            if self.use_bh_acceptance and delta_bh > 0.0:
-                steps.append(NBFlowStepResult(step=step, accepted=False, swap=swap, delta_flow=round(float(delta), 12), combined_score=round(float(score), 12), reason='bh_rejected'))
+                H_curr = self._apply_swap(H_curr, swap)
+                steps.append(NBFlowStepResult(step=step, accepted=True, swap=swap, delta_flow=round(float(delta), 12), combined_score=round(float(score), 12), reason='accepted'))
+                accepted = True
+                break
+
+            if accepted:
+                continue
+
+            if rejected_swap is not None:
+                steps.append(NBFlowStepResult(step=step, accepted=False, swap=rejected_swap, delta_flow=round(float(rejected_delta), 12), combined_score=round(float(rejected_score), 12), reason='bh_rejected'))
                 return NBFlowTrajectory(H_final=H_curr, steps=tuple(steps), termination_reason='no_improving_swap')
 
-            H_curr = self._apply_swap(H_curr, swap)
-            steps.append(NBFlowStepResult(step=step, accepted=True, swap=swap, delta_flow=round(float(delta), 12), combined_score=round(float(score), 12), reason='accepted'))
+            fallback_swap = ranked[0][1]
+            fallback_delta = ranked[0][2]
+            fallback_score = ranked[0][3]
+            steps.append(NBFlowStepResult(step=step, accepted=False, swap=fallback_swap, delta_flow=round(float(fallback_delta), 12), combined_score=round(float(fallback_score), 12), reason='flow_converged'))
+            return NBFlowTrajectory(H_final=H_curr, steps=tuple(steps), termination_reason='flow_converged')
 
         return NBFlowTrajectory(H_final=H_curr, steps=tuple(steps), termination_reason='max_steps_reached')
 
@@ -102,12 +121,16 @@ class NonBacktrackingEigenvectorFlowOptimizer:
         check_neighbors = {ci: set(np.flatnonzero(H[ci] != 0).tolist()) for ci in range(m)}
         var_neighbors = {vi: set(np.flatnonzero(H[:, vi] != 0).tolist()) for vi in range(n)}
         swaps: list[tuple[int, int, int, int]] = []
+        all_vars = tuple(range(n))
+        var_set = set(all_vars)
         for ci in range(m):
-            for vi in sorted(check_neighbors[ci]):
-                if len(check_neighbors[ci]) <= 1 or len(var_neighbors[vi]) <= 1:
+            ci_neighbors = set(check_neighbors[ci])
+            non_neighbor_vars = sorted(var_set - ci_neighbors)
+            for vi in sorted(ci_neighbors):
+                if len(ci_neighbors) <= 1 or len(var_neighbors[vi]) <= 1:
                     continue
-                for vj in range(n):
-                    if vj == vi or H[ci, vj] != 0:
+                for vj in non_neighbor_vars:
+                    if vj == vi:
                         continue
                     for cj in sorted(var_neighbors[vj]):
                         if cj == ci or H[cj, vi] != 0 or len(check_neighbors[cj]) <= 1:

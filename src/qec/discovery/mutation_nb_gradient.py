@@ -21,7 +21,8 @@ from src.qec.analysis.basin_depth import BasinDepthConfig, compute_basin_depth
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
 from src.qec.analysis.nb_spectral_basin_steering import NBSpectralBasinSteering
 from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from src.qec.analysis.nonbacktracking_flow import NonBacktrackingEigenvectorFlowAnalyzer, NonBacktrackingFlowAnalyzer
+from src.qec.analysis.spectral_entropy import spectral_entropy
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 from src.qec.discovery.spectral_beam_search import adaptive_beam_width, plan_two_step_swap
 
@@ -62,6 +63,8 @@ class NBGradientMutator:
         eta_nb: float = 0.2,
         frustration_guided: bool = False,
         eta_frustration: float = 0.25,
+        enable_spectral_entropy: bool = False,
+        eta_entropy: float = 0.0,
         frustration_eval_limit: int = 8,
         track_trap_modes: bool = False,
         precision: int = _ROUND,
@@ -89,6 +92,8 @@ class NBGradientMutator:
         self.eta_nb = float(eta_nb)
         self.frustration_guided = bool(frustration_guided)
         self.eta_frustration = float(eta_frustration)
+        self.enable_spectral_entropy = bool(enable_spectral_entropy)
+        self.eta_entropy = float(eta_entropy)
         self.frustration_eval_limit = max(1, int(frustration_eval_limit))
         self.track_trap_modes = bool(track_trap_modes)
         self.precision = precision
@@ -97,6 +102,7 @@ class NBGradientMutator:
         self._basin_steering = NBSpectralBasinSteering(precision=precision)
         self._nb_flow = NonBacktrackingFlowAnalyzer()
         self._frustration = SpectralFrustrationAnalyzer(precision=precision)
+        self._nb_eigen = NonBacktrackingEigenvectorFlowAnalyzer()
         self._trap_modes: list[np.ndarray] = []
         self._energy_deltas: list[float] = []
         self._basin_depth_config = BasinDepthConfig(precision=precision)
@@ -233,6 +239,8 @@ class NBGradientMutator:
         )
         if self.frustration_guided and candidates:
             self._apply_frustration_guidance(H, candidates)
+        if self.enable_spectral_entropy and candidates:
+            self._apply_entropy_guidance(H, candidates)
 
         if allow_beam and self._is_beam_activation_state(H, prediction):
             basin_depth = self._compute_current_basin_depth(H, prediction, flow_for_bias)
@@ -408,6 +416,21 @@ class NBGradientMutator:
 
         candidates.sort(key=lambda c: (float(c["score"]), int(c["swap_index"])))
 
+    def _apply_entropy_guidance(self, H: np.ndarray, candidates: list[dict[str, Any]]) -> None:
+        base_vals, _ = self._nb_eigen.compute_modes(H)
+        entropy_before = spectral_entropy(base_vals, precision=self.precision)
+        for cand in candidates:
+            H_swap = self._apply_swap_to_copy(H, cand)
+            nxt_vals, _ = self._nb_eigen.compute_modes(H_swap)
+            entropy_after = spectral_entropy(nxt_vals, precision=self.precision)
+            delta_entropy = round(float(entropy_after - entropy_before), self.precision)
+            cand["spectral_entropy_before"] = entropy_before
+            cand["spectral_entropy_after"] = entropy_after
+            cand["delta_entropy"] = delta_entropy
+            cand["score"] = round(float(cand["score"]) + float(self.eta_entropy) * delta_entropy, self.precision)
+
+        candidates.sort(key=lambda c: (float(c["score"]), int(c["swap_index"])))
+
     def _compute_nb_alignment_map(
         self,
         H: np.ndarray,
@@ -508,6 +531,9 @@ class NBGradientMutator:
             "delta_frustration": round(float(candidate.get("delta_frustration", 0.0)), self.precision),
             "negative_modes": int(candidate.get("negative_modes", 0)),
             "max_ipr": round(float(candidate.get("max_ipr", 0.0)), self.precision),
+            "spectral_entropy_before": round(float(candidate.get("spectral_entropy_before", 0.0)), self.precision),
+            "spectral_entropy_after": round(float(candidate.get("spectral_entropy_after", 0.0)), self.precision),
+            "delta_entropy": round(float(candidate.get("delta_entropy", 0.0)), self.precision),
             "beam_search_used": plan is not None,
             "beam_width": int(beam_width_used) if plan is not None else 0,
             "planned_sequence_score": (

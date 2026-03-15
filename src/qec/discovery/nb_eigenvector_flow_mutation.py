@@ -6,9 +6,29 @@ from typing import Any
 
 import numpy as np
 
+from src.qec.spectral.nb_spectrum import compute_nb_spectral_gap
+
 _ROUND = 12
 
 
+def spectral_annealing_strength(gap):
+    """Deterministic monotonic scaling for spectral annealing."""
+    strength = 1.0 / (1.0 + gap)
+    return round(float(strength), 12)
+
+
+def _mutation_size(
+    *,
+    annealing: bool,
+    base_mutation_size: int,
+    nb_eigenvalues: np.ndarray | None,
+) -> tuple[int, float | None, float | None]:
+    if not annealing:
+        return 1, None, None
+    gap = compute_nb_spectral_gap(np.array([], dtype=np.float64) if nb_eigenvalues is None else nb_eigenvalues)
+    strength = spectral_annealing_strength(gap)
+    size = max(1, int(int(base_mutation_size) * strength))
+    return size, gap, strength
 def compute_ipr_localization(eigenvector: np.ndarray) -> float:
     """Compute deterministic inverse participation ratio (IPR) for an eigenvector."""
     v = np.asarray(eigenvector, dtype=np.float64)
@@ -83,6 +103,34 @@ class NBEigenvectorFlowMutator:
         graph: np.ndarray,
         nb_eigenvector: np.ndarray,
         *,
+        nb_eigenvalues: np.ndarray | None = None,
+        annealing: bool = False,
+        base_mutation_size: int = 4,
+        use_ipr_localization: bool = False,
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        """Mutate a binary parity-check matrix using the dominant NB eigenvector."""
+        flow = self.compute_flow(nb_eigenvector)
+        mutation_size, gap, strength = _mutation_size(
+            annealing=bool(annealing),
+            base_mutation_size=int(base_mutation_size),
+            nb_eigenvalues=None if nb_eigenvalues is None else np.asarray(nb_eigenvalues, dtype=np.complex128),
+        )
+        _ = bool(use_ipr_localization)
+        mutation_size = min(max(1, mutation_size), int(flow.size) if flow.size > 0 else 1)
+
+        order = np.argsort(-flow, kind="stable") if flow.size > 0 else np.array([], dtype=np.int64)
+        chosen = order[:mutation_size]
+        if chosen.size == 0:
+            chosen = np.array([self.select_edge(flow)], dtype=np.int64)
+        mutated = np.asarray(graph, dtype=np.float64).copy()
+        for edge_index in chosen:
+            mutated = self._mutate_edge(mutated, int(edge_index))
+
+        edge_index = int(chosen[0]) if chosen.size > 0 else -1
+        flow_strength = 0.0
+        if flow.size > 0 and edge_index >= 0:
+            flow_strength = round(float(flow[edge_index]), _ROUND)
+        meta = {
         use_ipr_localization: bool = True,
         localization_fraction: float = 0.1,
     ) -> tuple[np.ndarray, dict[str, Any]]:
@@ -106,6 +154,13 @@ class NBEigenvectorFlowMutator:
             "ipr_localization_score": ipr_score,
             "localization_edge_count": int(cluster.size if use_ipr_localization else flow.size),
         }
+        if annealing:
+            meta.update({
+                "nb_spectral_gap": 0.0 if gap is None else round(float(gap), _ROUND),
+                "annealing_strength": 1.0 if strength is None else round(float(strength), _ROUND),
+                "mutation_size": int(mutation_size),
+            })
+        return mutated, meta
 
     def _mutate_edge(self, graph: np.ndarray, edge_index: int) -> np.ndarray:
         """Deterministic edge rewiring for a binary parity-check matrix."""
@@ -147,3 +202,24 @@ class NBEigenvectorFlowMutator:
                 return g
 
         return g
+
+
+def nb_flow_mutation(
+    H_current: np.ndarray,
+    eigenvector: np.ndarray,
+    eigenvalues: np.ndarray | None = None,
+    *,
+    use_ipr_localization: bool = False,
+    annealing: bool = False,
+    base_mutation_size: int = 4,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """Functional wrapper for deterministic NB flow mutation."""
+    mutator = NBEigenvectorFlowMutator()
+    return mutator.mutate(
+        H_current,
+        eigenvector,
+        nb_eigenvalues=eigenvalues,
+        use_ipr_localization=use_ipr_localization,
+        annealing=annealing,
+        base_mutation_size=base_mutation_size,
+    )

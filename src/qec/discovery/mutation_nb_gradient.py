@@ -27,7 +27,7 @@ from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 from src.qec.analysis.spectral_diversity_memory import SpectralDiversityConfig, SpectralDiversityMemory
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 from src.qec.diagnostics.spectral_entropy import compute_spectral_entropy
-from src.qec.analysis.trap_memory import TrapMemoryConfig, TrapSubspaceMemory
+from src.qec.analysis.trap_memory import TrapMemoryConfig, TrapSubspaceMemory, canonicalize_subspace
 from src.qec.analysis.spectral_signature import compute_signature
 from src.qec.discovery.spectral_beam_search import adaptive_beam_width, plan_two_step_swap
 
@@ -120,7 +120,11 @@ class NBGradientMutator:
         self._frustration = SpectralFrustrationAnalyzer(precision=precision)
         self._nb_eigen = NonBacktrackingEigenvectorFlowAnalyzer()
         self._trap_modes: list[np.ndarray] = []
-        self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
+        self._trap_memory = TrapSubspaceMemory(
+            max_entries=int(self.trap_memory.max_entries),
+            max_subspace_dim=int(self.trap_memory.max_subspace_dim),
+            precision=int(self.trap_memory.precision),
+        )
         self._energy_deltas: list[float] = []
         self._mutation_step = 0
         self._basin_depth_config = BasinDepthConfig(precision=precision)
@@ -143,8 +147,12 @@ class NBGradientMutator:
 
         self._energy_deltas = []
         self._mutation_step = 0
-        if self.trap_memory_config.enabled:
-            self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
+        if self.trap_memory.enabled:
+            self._trap_memory = TrapSubspaceMemory(
+                max_entries=int(self.trap_memory.max_entries),
+                max_subspace_dim=int(self.trap_memory.max_subspace_dim),
+                precision=int(self.trap_memory.precision),
+            )
         mutations: list[dict[str, Any]] = []
         for _ in range(steps):
             gradient = self._analyzer.compute_gradient(H_new)
@@ -172,8 +180,12 @@ class NBGradientMutator:
 
         self._energy_deltas = []
         self._mutation_step = 0
-        if self.trap_memory_config.enabled:
-            self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
+        if self.trap_memory.enabled:
+            self._trap_memory = TrapSubspaceMemory(
+                max_entries=int(self.trap_memory.max_entries),
+                max_subspace_dim=int(self.trap_memory.max_subspace_dim),
+                precision=int(self.trap_memory.precision),
+            )
         mutations: list[dict[str, Any]] = []
         prev_direction: dict[tuple[int, int], float] = {}
         for _ in range(iterations):
@@ -423,7 +435,7 @@ class NBGradientMutator:
         base = self._frustration.compute_frustration(H)
         if self.track_trap_modes:
             self._trap_modes = [np.asarray(mode, dtype=np.float64).copy() for mode in base.trap_modes]
-        if self.trap_memory_config.enabled and self._is_strong_trap(base.max_ipr, base.trap_modes):
+        if self.trap_memory.enabled and self._is_strong_trap(base.max_ipr, base.trap_modes):
             base_vec = self._select_trap_vector(base.trap_modes)
             if base_vec is not None:
                 self._trap_memory.add(base_vec)
@@ -689,9 +701,11 @@ class NBGradientMutator:
             return None
         vectors: list[np.ndarray] = []
         for mode in trap_modes:
-            vec = TrapMemory.canonicalize(np.asarray(mode, dtype=np.float64))
-            if vec.size > 0 and float(np.linalg.norm(vec)) > 0.0:
-                vectors.append(vec)
+            subspace = canonicalize_subspace((np.asarray(mode, dtype=np.float64),), max_dim=1)
+            if subspace:
+                vec = subspace[0]
+                if vec.size > 0 and float(np.linalg.norm(vec)) > 0.0:
+                    vectors.append(vec)
         if not vectors:
             return None
         vectors.sort(key=lambda vec: tuple(float(x) for x in vec.tolist()))

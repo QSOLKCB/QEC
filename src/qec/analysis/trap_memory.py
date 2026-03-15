@@ -80,3 +80,7 @@ class TrapSubspaceMemory:
             if sim > best:
                 best = sim
         return float(np.round(np.float64(best), self.precision))
+
+
+# Backward compatibility alias
+TrapMemory = TrapSubspaceMemory

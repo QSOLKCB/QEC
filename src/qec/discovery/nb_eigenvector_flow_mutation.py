@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 
+from src.qec.analysis.spectral_trapping_sets import detect_localization_cluster, repair_trapping_set
 from src.qec.spectral.nb_spectrum import compute_nb_spectral_gap
 
 _ROUND = 12
@@ -85,8 +86,6 @@ class NBEigenvectorFlowMutator:
     def compute_flow(self, eigenvector: np.ndarray) -> np.ndarray:
         """Compute normalized edge-flow magnitude from NB eigenvector."""
         vec = np.asarray(eigenvector, dtype=np.float64)
-        if vec.ndim != 1:
-            vec = compute_multi_mode_flow(vec)
         flow = np.abs(vec).astype(np.float64)
         total = float(np.sum(flow, dtype=np.float64))
         if total <= 0.0:
@@ -132,18 +131,30 @@ class NBEigenvectorFlowMutator:
         graph: np.ndarray,
         nb_eigenvector: np.ndarray,
         *,
-        mode_index: int | None = None,
+        enable_spectral_trapping_repair: bool = False,
+        trapping_localization_fraction: float = 0.2,
     ) -> tuple[np.ndarray, dict[str, Any]]:
         """Mutate a binary parity-check matrix using the dominant NB eigenvector."""
-        flow = self.compute_flow(nb_eigenvector)
-        cluster = np.zeros(0, dtype=np.int64)
-        if use_ipr_localization:
-            cluster = select_localized_edges(flow, nb_eigenvector, top_fraction=localization_fraction)
-            edge_index = self.select_edge(flow, cluster)
-        else:
-            edge_index = self.select_edge(flow)
+        base_graph = np.asarray(graph, dtype=np.float64)
+        vec = np.asarray(nb_eigenvector, dtype=np.float64)
 
-        mutated = self._mutate_edge(graph, edge_index)
+        cluster_nodes = np.array([], dtype=np.int64)
+        repaired_graph = base_graph
+        repair_applied = False
+
+        if bool(enable_spectral_trapping_repair):
+            cluster_nodes = detect_localization_cluster(
+                vec,
+                threshold_fraction=float(trapping_localization_fraction),
+            )
+            if cluster_nodes.size > 0:
+                trial = repair_trapping_set(base_graph, cluster_nodes)
+                repair_applied = not np.array_equal(trial, base_graph)
+                repaired_graph = np.asarray(trial, dtype=np.float64)
+
+        flow = self.compute_flow(vec)
+        edge_index = self.select_edge(flow)
+        mutated = self._mutate_edge(repaired_graph, edge_index)
         flow_strength = 0.0
         if flow.size > 0 and edge_index >= 0:
             flow_strength = round(float(flow[edge_index]), _ROUND)
@@ -151,6 +162,8 @@ class NBEigenvectorFlowMutator:
         return mutated, {
             "flow_edge_index": int(edge_index),
             "flow_strength": flow_strength,
+            "spectral_cluster_size": int(cluster_nodes.size),
+            "trapping_repair_applied": bool(repair_applied),
             "mode_index": None if mode_index is None else int(mode_index),
         }
 

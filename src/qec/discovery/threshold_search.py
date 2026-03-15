@@ -12,11 +12,14 @@ import numpy as np
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingEigenvectorFlowAnalyzer
 from src.qec.analysis.bp_diagnostics import collect_bp_diagnostics
 from src.qec.analysis.spectral_entropy import spectral_entropy
+from src.qec.analysis.nb_threshold_predictor import predict_threshold_from_spectrum
+from src.qec.analysis.spectral_regression import SpectralThresholdModel, load_training_dataset
 from src.qec.analysis.threshold_predictor import predict_threshold_quality
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 from src.qec.analysis.trap_memory import TrapSubspaceMemory
 from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
 from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
+from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
 from src.qec.discovery.nonbacktracking_eigenvector_flow import NonBacktrackingEigenvectorFlowOptimizer
 from src.qec.experiments.stability_phase_diagram import run_stability_phase_diagram_experiment
 from src.utils.canonicalize import canonicalize
@@ -38,6 +41,11 @@ class SpectralSearchConfig:
     min_entropy_reject: float = 0.0
     max_negative_modes_reject: int = 1_000_000
     enable_bp_diagnostics: bool = False
+    enable_pareto: bool = False
+    enable_nb_predictor: bool = False
+    enable_learning: bool = False
+    min_predicted_threshold: float = 0.0
+    experiments_root: str = "experiments"
     min_predicted_threshold: float = 0.0
 
 
@@ -92,6 +100,11 @@ def run_spectral_threshold_search(
     trap_memory = TrapSubspaceMemory()
     orchestrator = PhaseDiagramOrchestrator()
     estimator = BPThresholdEstimator()
+    pareto = ParetoArchive() if cfg.enable_pareto else None
+    model = SpectralThresholdModel()
+    if cfg.enable_learning:
+        dataset = load_training_dataset(cfg.experiments_root)
+        model.fit(dataset)
 
     output_dir = Path(cfg.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -137,11 +150,31 @@ def run_spectral_threshold_search(
                 "source": source,
                 "nb_spectral_radius": round(float(nb.get("spectral_radius", 0.0)), _ROUND),
                 "bethe_hessian_negative_modes": int(fr.negative_modes),
+                "bethe_negative_mass": round(float(fr.negative_modes), _ROUND),
                 "ipr_localization": round(float(fr.max_ipr), _ROUND),
+                "flow_ipr": round(float(fr.max_ipr), _ROUND),
                 "spectral_entropy": round(float(entropy), _ROUND),
                 "trap_similarity": round(float(trap_similarity), _ROUND),
                 "mutations": ops_cand,
             }
+
+            predicted_threshold = None
+            if cfg.enable_nb_predictor:
+                pred = predict_threshold_from_spectrum(metrics)
+                metrics["nb_prediction_score"] = pred["prediction_score"]
+                metrics["nb_predicted_threshold"] = pred["predicted_threshold"]
+                predicted_threshold = float(pred["predicted_threshold"])
+
+            if cfg.enable_learning:
+                reg_pred = model.predict(metrics)
+                metrics["regression_predicted_threshold"] = round(float(reg_pred), _ROUND)
+                if predicted_threshold is None:
+                    predicted_threshold = float(reg_pred)
+                else:
+                    predicted_threshold = round(float((predicted_threshold + reg_pred) / 2.0), _ROUND)
+
+            if predicted_threshold is not None:
+                metrics["predicted_threshold"] = round(float(predicted_threshold), _ROUND)
             prediction = predict_threshold_quality(
                 spectral_radius=metrics["nb_spectral_radius"],
                 bethe_negative_mass=float(metrics["bethe_hessian_negative_modes"]),
@@ -157,6 +190,8 @@ def run_spectral_threshold_search(
                 or metrics["bethe_hessian_negative_modes"] > cfg.max_negative_modes_reject
                 or metrics["predicted_threshold"] < float(cfg.min_predicted_threshold)
             )
+            if predicted_threshold is not None and predicted_threshold < float(cfg.min_predicted_threshold):
+                rejected = True
             metrics["rejected"] = bool(rejected)
             candidate_metrics.append(metrics)
             if rejected:
@@ -189,6 +224,16 @@ def run_spectral_threshold_search(
                 "H": H_cand,
                 "metrics": metrics,
             })
+            if pareto is not None:
+                convergence_speed = 0.0
+                if "bp_iterations" in metrics:
+                    convergence_speed = round(1.0 / max(1.0, float(metrics["bp_iterations"])), _ROUND)
+                pm = ParetoMetrics(
+                    threshold=threshold,
+                    spectral_stability=round(1.0 - float(metrics["nb_spectral_radius"]), _ROUND),
+                    convergence_speed=convergence_speed,
+                )
+                pareto.add_candidate(pm, np.asarray(H_cand, dtype=np.float64))
 
         if ranked:
             ranked.sort(key=lambda r: (-r["threshold"], r["metrics"]["candidate_index"]))
@@ -221,6 +266,10 @@ def run_spectral_threshold_search(
 
     _write_canonical_json(output_dir / "search_history.json", {"history": history})
     _write_canonical_json(output_dir / "candidate_metrics.json", {"candidates": candidate_metrics})
+    if pareto is not None:
+        pareto.save_frontier(output_dir / "pareto_frontier.json")
+    if cfg.enable_learning:
+        model.save_model(output_dir / "spectral_threshold_model.json")
     if cfg.enable_bp_diagnostics:
         n_records = len(convergence_records)
         if n_records > 0:
@@ -260,4 +309,5 @@ class ThresholdSearchEngine:
         config: SpectralSearchConfig,
         output_dir: str | Path,
     ) -> dict[str, Any]:
-        return run_spectral_threshold_search(H_init, config, output_dir)
+        _ = output_dir
+        return run_spectral_threshold_search(H_init, config=config)

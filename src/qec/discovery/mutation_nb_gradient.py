@@ -23,6 +23,7 @@ from src.qec.analysis.nb_spectral_basin_steering import NBSpectralBasinSteering
 from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
+from src.qec.diagnostics.spectral_entropy import compute_spectral_entropy
 from src.qec.discovery.spectral_beam_search import adaptive_beam_width, plan_two_step_swap
 
 
@@ -64,6 +65,10 @@ class NBGradientMutator:
         eta_frustration: float = 0.25,
         frustration_eval_limit: int = 8,
         track_trap_modes: bool = False,
+        eta_entropy: float = 0.0,
+        enable_entropy_annealing: bool = False,
+        entropy_temperature_start: float = 1.0,
+        entropy_temperature_decay: float = 100.0,
         precision: int = _ROUND,
     ) -> None:
         if not (0.0 <= flow_damping_alpha <= 1.0):
@@ -91,6 +96,10 @@ class NBGradientMutator:
         self.eta_frustration = float(eta_frustration)
         self.frustration_eval_limit = max(1, int(frustration_eval_limit))
         self.track_trap_modes = bool(track_trap_modes)
+        self.eta_entropy = float(eta_entropy)
+        self.enable_entropy_annealing = bool(enable_entropy_annealing)
+        self.entropy_temperature_start = float(entropy_temperature_start)
+        self.entropy_temperature_decay = float(entropy_temperature_decay)
         self.precision = precision
         self._analyzer = NBInstabilityGradientAnalyzer()
         self._trapping_predictor = NBTrappingSetPredictor(precision=precision)
@@ -99,6 +108,7 @@ class NBGradientMutator:
         self._frustration = SpectralFrustrationAnalyzer(precision=precision)
         self._trap_modes: list[np.ndarray] = []
         self._energy_deltas: list[float] = []
+        self._mutation_step = 0
         self._basin_depth_config = BasinDepthConfig(precision=precision)
 
     def mutate(
@@ -112,6 +122,7 @@ class NBGradientMutator:
             return H_new, []
 
         self._energy_deltas = []
+        self._mutation_step = 0
         mutations: list[dict[str, Any]] = []
         for _ in range(steps):
             gradient = self._analyzer.compute_gradient(H_new)
@@ -138,6 +149,7 @@ class NBGradientMutator:
             return H_new, []
 
         self._energy_deltas = []
+        self._mutation_step = 0
         mutations: list[dict[str, Any]] = []
         prev_direction: dict[tuple[int, int], float] = {}
         for _ in range(iterations):
@@ -233,6 +245,8 @@ class NBGradientMutator:
         )
         if self.frustration_guided and candidates:
             self._apply_frustration_guidance(H, candidates)
+        if self.eta_entropy != 0.0 and candidates:
+            self._apply_entropy_guidance(H, candidates)
 
         if allow_beam and self._is_beam_activation_state(H, prediction):
             basin_depth = self._compute_current_basin_depth(H, prediction, flow_for_bias)
@@ -408,6 +422,31 @@ class NBGradientMutator:
 
         candidates.sort(key=lambda c: (float(c["score"]), int(c["swap_index"])))
 
+    def _entropy_temperature(self) -> float:
+        if not self.enable_entropy_annealing:
+            return 1.0
+
+        t = float(self._mutation_step)
+        tau = float(self.entropy_temperature_decay)
+        if tau <= 0.0:
+            return 0.0
+        return float(self.entropy_temperature_start * np.exp(-t / tau))
+
+    def _apply_entropy_guidance(self, H: np.ndarray, candidates: list[dict[str, Any]]) -> None:
+        entropy_before = float(compute_spectral_entropy(H))
+        temperature = self._entropy_temperature()
+        for cand in candidates:
+            H_swap = self._apply_swap_to_copy(H, cand)
+            entropy_after = float(compute_spectral_entropy(H_swap))
+            delta_entropy = entropy_after - entropy_before
+            entropy_bonus = temperature * self.eta_entropy * delta_entropy
+            score = float(cand["score"]) + float(entropy_bonus)
+            cand["entropy_temperature"] = round(float(temperature), self.precision)
+            cand["delta_entropy"] = round(float(delta_entropy), self.precision)
+            cand["score"] = round(float(score), self.precision)
+
+        candidates.sort(key=lambda c: (float(c["score"]), int(c["swap_index"])))
+
     def _compute_nb_alignment_map(
         self,
         H: np.ndarray,
@@ -517,7 +556,10 @@ class NBGradientMutator:
             ),
             "planner_depth": 2 if plan is not None else 1,
             "basin_depth": round(float(basin_depth), self.precision) if plan is not None else 0.0,
+            "entropy_temperature": round(float(candidate.get("entropy_temperature", 1.0)), self.precision),
+            "delta_entropy": round(float(candidate.get("delta_entropy", 0.0)), self.precision),
         }
+        self._mutation_step += 1
         return result
 
     def _find_partner_check(

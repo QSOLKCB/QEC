@@ -31,6 +31,9 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--enable-learning", action="store_true")
     search.add_argument("--enable-nb-flow-mutation", action="store_true")
     search.add_argument("--enable-multi-mode-nb-mutation", action="store_true")
+    search.add_argument("--multi-mode-k", type=int, default=3)
+    search.add_argument("--enable-spectral-mutation-memory", action="store_true")
+    search.add_argument("--memory-max-records", type=int, default=1000)
     search.add_argument("--nb-mutation-modes", type=int, default=3)
     search.add_argument("--enable-ipr-localized-nb-flow", action="store_true")
     search.add_argument("--enable-nb-spectral-annealing", action="store_true")
@@ -63,6 +66,9 @@ def main(argv: list[str] | None = None) -> int:
             enable_learning=bool(args.enable_learning),
             enable_nb_flow_mutation=bool(args.enable_nb_flow_mutation),
             enable_multi_mode_nb_mutation=bool(args.enable_multi_mode_nb_mutation),
+            multi_mode_k=int(args.multi_mode_k),
+            enable_spectral_mutation_memory=bool(args.enable_spectral_mutation_memory),
+            memory_max_records=int(args.memory_max_records),
             nb_mutation_modes=int(args.nb_mutation_modes),
             enable_ipr_localized_nb_flow=bool(args.enable_ipr_localized_nb_flow),
             enable_nb_spectral_annealing=bool(args.enable_nb_spectral_annealing),

@@ -60,3 +60,4 @@ from .experiment_hash import ExperimentHash, ExperimentRunner
 
 from .experiment_metadata import ExperimentMetadata, git_commit, repo_version
 from .experiment_runner import ExperimentRunner
+from .bp_threshold_estimator import BPThresholdEstimator

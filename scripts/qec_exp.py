@@ -34,6 +34,11 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--multi-mode-k", type=int, default=3)
     search.add_argument("--enable-spectral-mutation-memory", action="store_true")
     search.add_argument("--memory-max-records", type=int, default=1000)
+    search.add_argument("--nb-mutation-modes", type=int, default=3)
+    search.add_argument("--enable-ipr-localized-nb-flow", action="store_true")
+    search.add_argument("--enable-nb-spectral-annealing", action="store_true")
+    search.add_argument("--annealing-base-mutation-size", type=int, default=4)
+    search.add_argument("--ipr-localization-fraction", type=float, default=0.1)
     search.add_argument("--min-predicted-threshold", type=float, default=0.0)
     search.add_argument("--rank-by-prediction", action="store_true")
     search.add_argument("--max-bp-candidates", type=int, default=5)
@@ -64,6 +69,11 @@ def main(argv: list[str] | None = None) -> int:
             multi_mode_k=int(args.multi_mode_k),
             enable_spectral_mutation_memory=bool(args.enable_spectral_mutation_memory),
             memory_max_records=int(args.memory_max_records),
+            nb_mutation_modes=int(args.nb_mutation_modes),
+            enable_ipr_localized_nb_flow=bool(args.enable_ipr_localized_nb_flow),
+            enable_nb_spectral_annealing=bool(args.enable_nb_spectral_annealing),
+            annealing_base_mutation_size=int(args.annealing_base_mutation_size),
+            ipr_localization_fraction=float(args.ipr_localization_fraction),
             min_predicted_threshold=float(args.min_predicted_threshold),
             rank_by_prediction=bool(args.rank_by_prediction),
             max_bp_candidates=int(args.max_bp_candidates),

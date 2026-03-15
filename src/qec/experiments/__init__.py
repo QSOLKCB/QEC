@@ -66,3 +66,4 @@ from .phase_diagram_orchestrator import (
     generate_stability_heatmap,
     render_ascii_heatmap,
 )
+from .registry import ExperimentRegistry, register_experiment

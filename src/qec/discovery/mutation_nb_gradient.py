@@ -72,7 +72,6 @@ class NBGradientMutator:
         eta_entropy: float = 0.0,
         frustration_eval_limit: int = 8,
         track_trap_modes: bool = False,
-        eta_entropy: float = 0.0,
         enable_entropy_annealing: bool = False,
         entropy_temperature_start: float = 1.0,
         entropy_temperature_decay: float = 100.0,
@@ -655,8 +654,6 @@ class NBGradientMutator:
             "basin_depth": round(float(basin_depth), self.precision) if plan is not None else 0.0,
             "entropy_temperature": round(float(candidate.get("entropy_temperature", 1.0)), self.precision),
             "delta_entropy": round(float(candidate.get("delta_entropy", 0.0)), self.precision),
-        }
-        self._mutation_step += 1
             "spectral_signature": candidate.get("spectral_signature"),
             "spectral_distance": round(float(candidate.get("spectral_distance", 0.0)), self.precision),
             "novelty_score": round(float(candidate.get("novelty_score", 0.0)), self.precision),
@@ -665,6 +662,7 @@ class NBGradientMutator:
             "trap_penalty": round(float(candidate.get("trap_penalty", 0.0)), self.precision),
             "trap_memory_size": int(candidate.get("trap_memory_size", len(self._trap_memory))),
         }
+        self._mutation_step += 1
         if self.trap_memory.enabled:
             trap_modes = candidate.get("trap_modes")
             if trap_modes is None:

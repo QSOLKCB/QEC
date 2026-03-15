@@ -33,6 +33,7 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--enable-ipr-localized-nb-flow", action="store_true")
     search.add_argument("--enable-nb-spectral-annealing", action="store_true")
     search.add_argument("--annealing-base-mutation-size", type=int, default=4)
+    search.add_argument("--ipr-localization-fraction", type=float, default=0.1)
     search.add_argument("--min-predicted-threshold", type=float, default=0.0)
     search.add_argument("--rank-by-prediction", action="store_true")
     search.add_argument("--max-bp-candidates", type=int, default=5)
@@ -62,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
             enable_ipr_localized_nb_flow=bool(args.enable_ipr_localized_nb_flow),
             enable_nb_spectral_annealing=bool(args.enable_nb_spectral_annealing),
             annealing_base_mutation_size=int(args.annealing_base_mutation_size),
+            ipr_localization_fraction=float(args.ipr_localization_fraction),
             min_predicted_threshold=float(args.min_predicted_threshold),
             rank_by_prediction=bool(args.rank_by_prediction),
             max_bp_candidates=int(args.max_bp_candidates),

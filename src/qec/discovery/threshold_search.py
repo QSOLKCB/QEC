@@ -40,6 +40,7 @@ class SpectralSearchConfig:
     enable_ipr_localized_nb_flow: bool = False
     enable_nb_spectral_annealing: bool = False
     annealing_base_mutation_size: int = 4
+    ipr_localization_fraction: float = 0.1
     enable_adaptive_mutation: bool = True
     trap_similarity_reject: float = 0.999
     min_entropy_reject: float = 0.0
@@ -158,6 +159,11 @@ def run_spectral_threshold_search(
                 use_ipr_localization=cfg.enable_ipr_localized_nb_flow,
                 annealing=cfg.enable_nb_spectral_annealing,
                 base_mutation_size=cfg.annealing_base_mutation_size,
+            h_flow, flow_info = flow_mutator.mutate(
+                H_current,
+                leading_vector,
+                use_ipr_localization=bool(cfg.enable_ipr_localized_nb_flow),
+                localization_fraction=float(cfg.ipr_localization_fraction),
             )
             generated_with_meta.append((np.asarray(h_flow, dtype=np.float64), [], "nb_flow", flow_info))
 
@@ -188,6 +194,8 @@ def run_spectral_threshold_search(
                 "nb_spectral_gap": source_meta.get("nb_spectral_gap"),
                 "annealing_strength": source_meta.get("annealing_strength"),
                 "mutation_size": source_meta.get("mutation_size"),
+                "ipr_localization_score": source_meta.get("ipr_localization_score"),
+                "localization_edge_count": source_meta.get("localization_edge_count"),
                 "mutations": ops_cand,
             }
             metrics["spectral_radius"] = metrics["nb_spectral_radius"]

@@ -9,6 +9,7 @@ import numpy as np
 from src.qec.analysis.spectral_trapping_sets import detect_localization_cluster, repair_trapping_set
 from src.qec.spectral.nb_spectrum import compute_nb_spectral_gap
 from src.qec.discovery.mutation_context import MutationContext
+from src.qec.discovery.mutation_operator import MutationOperator
 
 _ROUND = 12
 
@@ -78,8 +79,10 @@ def select_localized_edges(
     return np.asarray(order[:k], dtype=np.int64)
 
 
-class NBEigenvectorFlowMutator:
+class NBEigenvectorFlowMutator(MutationOperator):
     """Deterministic mutation operator guided by NB eigenvector flow."""
+
+    name = "nb_flow"
 
     def __init__(
         self,
@@ -102,6 +105,16 @@ class NBEigenvectorFlowMutator:
         else:
             flow = flow / total
         return flow.astype(np.float64)
+
+    def score(
+        self,
+        graph: np.ndarray,
+        eigenvector: np.ndarray,
+        context: MutationContext,
+    ) -> float:
+        # simple spectral gradient estimate
+        radius = float(context.nb_spectral_radius)
+        return round(abs(radius), 12)
 
     def compute_multi_mode_flow(self, eigenvectors: np.ndarray, weights: np.ndarray) -> np.ndarray:
         """Compute deterministic weighted multi-mode NB flow."""

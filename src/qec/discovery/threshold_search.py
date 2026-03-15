@@ -31,11 +31,11 @@ from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
 from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
 from src.qec.discovery.mutation_context import MutationContext
+from src.qec.discovery.mutation_registry import MutationRegistry
 from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
 from src.qec.discovery.mutation_interface import BeamMutation, NBEigenvectorFlowMutation
 from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator, compute_multi_mode_flow
 from src.qec.spectral.nb_spectrum import select_unstable_nb_modes
-from src.qec.discovery.nb_eigenvector_flow_mutation import nb_flow_mutation
 from src.qec.experiments.stability_phase_diagram import run_stability_phase_diagram_experiment
 from src.utils.canonicalize import canonicalize
 
@@ -154,6 +154,8 @@ def run_spectral_threshold_search(
         enable_spectral_defect_atlas=bool(cfg.enable_spectral_defect_atlas),
         defect_atlas=atlas,
     )
+    registry = MutationRegistry()
+    registry.register(flow_mutator)
 
     best_threshold = -np.inf
     best_graph = H_current.copy()
@@ -196,12 +198,20 @@ def run_spectral_threshold_search(
                 enable_spectral_defect_atlas=bool(cfg.enable_spectral_defect_atlas),
                 nb_spectral_radius=round(float(base_nb.get("spectral_radius", 0.0)), _ROUND),
             )
-            h_flow, flow_info = flow_mutator.mutate(
+            for operator in registry.scored(
                 H_current,
                 leading_vector,
-                context=mutation_context,
-            )
-            generated_with_meta.append((np.asarray(h_flow, dtype=np.float64), [], "nb_flow", flow_info))
+                mutation_context,
+            ):
+                mutated_graph, meta = operator.mutate(
+                    H_current,
+                    leading_vector,
+                    context=mutation_context,
+                )
+                score = round(float(operator.score(H_current, leading_vector, mutation_context)), _ROUND)
+                meta["mutation_operator"] = operator.name
+                meta["mutation_score"] = score
+                generated_with_meta.append((np.asarray(mutated_graph, dtype=np.float64), [], operator.name, meta))
 
         candidate_pool: list[dict[str, Any]] = []
         for idx, (H_cand, ops_cand, source, source_meta) in enumerate(generated_with_meta):
@@ -253,6 +263,8 @@ def run_spectral_threshold_search(
                 "mutation_size": source_meta.get("mutation_size"),
                 "ipr_localization_score": source_meta.get("ipr_localization_score"),
                 "localization_edge_count": source_meta.get("localization_edge_count"),
+                "mutation_operator": source_meta.get("mutation_operator"),
+                "mutation_score": source_meta.get("mutation_score"),
                 "mutations": ops_cand,
             }
             metrics["spectral_radius"] = metrics["nb_spectral_radius"]

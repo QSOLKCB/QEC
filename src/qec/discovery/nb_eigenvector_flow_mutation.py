@@ -8,6 +8,7 @@ import numpy as np
 
 from src.qec.analysis.spectral_trapping_sets import detect_localization_cluster, repair_trapping_set
 from src.qec.spectral.nb_spectrum import compute_nb_spectral_gap
+from src.qec.discovery.mutation_context import MutationContext
 
 _ROUND = 12
 
@@ -129,23 +130,54 @@ class NBEigenvectorFlowMutator:
         f = np.asarray(flow, dtype=np.float64)
         if f.size == 0:
             return -1
-        if candidate_indices is None:
-            return int(np.argmax(f))
+        return int(np.argmax(f))
 
     def mutate(
         self,
         graph: np.ndarray,
         nb_eigenvector: np.ndarray,
         *,
-        context: dict[str, Any] | None = None,
+        context: MutationContext | dict[str, Any] | None = None,
+        nb_eigenvalues: np.ndarray | None = None,
+        use_ipr_localization: bool = False,
+        annealing: bool = False,
+        base_mutation_size: int = 4,
+        mode_index: int | None = None,
     ) -> tuple[np.ndarray, dict[str, Any]]:
         """Mutate a binary parity-check matrix using the dominant NB eigenvector."""
-        ctx = context or {}
-        atlas = ctx.get("spectral_defect_atlas", self.defect_atlas)
-        enable_atlas = bool(ctx.get("enable_spectral_defect_atlas", self.enable_spectral_defect_atlas))
+        if isinstance(context, MutationContext):
+            ctx = context
+        elif isinstance(context, dict):
+            ctx = MutationContext(
+                spectral_defect_atlas=context.get("spectral_defect_atlas"),
+                enable_spectral_defect_atlas=bool(context.get("enable_spectral_defect_atlas", False)),
+                nb_spectral_radius=round(float(context.get("nb_spectral_radius", 0.0)), _ROUND),
+            )
+        else:
+            ctx = MutationContext(
+                spectral_defect_atlas=self.defect_atlas,
+                enable_spectral_defect_atlas=self.enable_spectral_defect_atlas,
+            )
+
+        atlas = ctx.spectral_defect_atlas if ctx.spectral_defect_atlas is not None else self.defect_atlas
+        enable_atlas = bool(ctx.enable_spectral_defect_atlas)
 
         flow = self.compute_flow(nb_eigenvector)
-        edge_index = self.select_edge(flow)
+        cluster = np.arange(flow.size, dtype=np.int64)
+        if use_ipr_localization:
+            cluster = select_localized_edges(flow, nb_eigenvector)
+        if cluster.size > 0:
+            edge_index = int(cluster[int(np.argmax(flow[cluster]))])
+        else:
+            edge_index = self.select_edge(flow)
+
+        mutation_size, gap, strength = _mutation_size(
+            annealing=annealing,
+            base_mutation_size=base_mutation_size,
+            nb_eigenvalues=nb_eigenvalues,
+        )
+        ipr_score = compute_ipr_localization(nb_eigenvector)
+
         flow_strength = 0.0
         if flow.size > 0 and edge_index >= 0:
             flow_strength = round(float(flow[edge_index]), _ROUND)
@@ -179,7 +211,7 @@ class NBEigenvectorFlowMutator:
                     }
 
         mutated = self._mutate_edge(graph, edge_index)
-        return mutated, {
+        meta = {
             "flow_edge_index": int(edge_index),
             "flow_strength": flow_strength,
             "defect_signature": signature,

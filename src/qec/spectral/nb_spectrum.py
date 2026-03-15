@@ -1,4 +1,3 @@
-"""Deterministic NB spectral mode selection utilities."""
 """Deterministic non-backtracking spectrum helpers."""
 
 from __future__ import annotations

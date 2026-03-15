@@ -11,6 +11,21 @@ from src.qec.spectral.nb_spectrum import compute_nb_spectral_gap
 _ROUND = 12
 
 
+def compute_multi_mode_flow(eigenvectors: np.ndarray) -> np.ndarray:
+    """Combine multiple eigenmodes into one deterministic flow vector."""
+    v = np.asarray(eigenvectors, dtype=np.complex128)
+    if v.ndim == 1:
+        v = v.reshape((-1, 1))
+    if v.size == 0:
+        return np.zeros((0,), dtype=np.float64)
+
+    flow = np.sum(np.abs(v), axis=1, dtype=np.float64)
+    norm = float(np.linalg.norm(flow))
+    if norm == 0.0:
+        return np.asarray(flow, dtype=np.float64)
+
+    flow = flow / norm
+    return np.round(np.asarray(flow, dtype=np.float64), _ROUND)
 def spectral_annealing_strength(gap):
     """Deterministic monotonic scaling for spectral annealing."""
     strength = 1.0 / (1.0 + gap)
@@ -70,6 +85,8 @@ class NBEigenvectorFlowMutator:
     def compute_flow(self, eigenvector: np.ndarray) -> np.ndarray:
         """Compute normalized edge-flow magnitude from NB eigenvector."""
         vec = np.asarray(eigenvector, dtype=np.float64)
+        if vec.ndim != 1:
+            vec = compute_multi_mode_flow(vec)
         flow = np.abs(vec).astype(np.float64)
         total = float(np.sum(flow, dtype=np.float64))
         if total <= 0.0:

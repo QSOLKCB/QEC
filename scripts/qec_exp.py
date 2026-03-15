@@ -30,6 +30,8 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--enable-nb-predictor", action="store_true")
     search.add_argument("--enable-learning", action="store_true")
     search.add_argument("--enable-nb-flow-mutation", action="store_true")
+    search.add_argument("--enable-multi-mode-nb-mutation", action="store_true")
+    search.add_argument("--nb-mutation-modes", type=int, default=3)
     search.add_argument("--enable-ipr-localized-nb-flow", action="store_true")
     search.add_argument("--enable-nb-spectral-annealing", action="store_true")
     search.add_argument("--annealing-base-mutation-size", type=int, default=4)
@@ -60,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
             enable_nb_predictor=bool(args.enable_nb_predictor),
             enable_learning=bool(args.enable_learning),
             enable_nb_flow_mutation=bool(args.enable_nb_flow_mutation),
+            enable_multi_mode_nb_mutation=bool(args.enable_multi_mode_nb_mutation),
+            nb_mutation_modes=int(args.nb_mutation_modes),
             enable_ipr_localized_nb_flow=bool(args.enable_ipr_localized_nb_flow),
             enable_nb_spectral_annealing=bool(args.enable_nb_spectral_annealing),
             annealing_base_mutation_size=int(args.annealing_base_mutation_size),

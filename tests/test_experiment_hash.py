@@ -17,6 +17,7 @@ def test_deterministic_hash_identical_configs() -> None:
         python_version="3.12.0",
         numpy_version="2.0.0",
         scipy_version="1.13.0",
+        dirty_repo=False,
     )
     config = {"alpha": 1, "beta": {"x": 2, "y": [1, 2, 3]}}
 
@@ -34,12 +35,39 @@ def test_hash_sensitivity_config_change() -> None:
         python_version="3.12.0",
         numpy_version="2.0.0",
         scipy_version="1.13.0",
+        dirty_repo=False,
     )
 
     h1 = ExperimentHash.compute({"alpha": 1}, metadata=metadata)
     h2 = ExperimentHash.compute({"alpha": 2}, metadata=metadata)
 
     assert h1 != h2
+
+
+def test_hash_sensitivity_callable_and_dirty_repo() -> None:
+    base_metadata = ExperimentEnvironmentMetadata(
+        git_commit="abc",
+        repo_version="1.0.0",
+        python_version="3.12.0",
+        numpy_version="2.0.0",
+        scipy_version="1.13.0",
+        dirty_repo=False,
+    )
+    dirty_metadata = ExperimentEnvironmentMetadata(
+        git_commit="abc",
+        repo_version="1.0.0",
+        python_version="3.12.0",
+        numpy_version="2.0.0",
+        scipy_version="1.13.0",
+        dirty_repo=True,
+    )
+
+    h1 = ExperimentHash.compute({"alpha": 1}, experiment_callable="a:b", metadata=base_metadata)
+    h2 = ExperimentHash.compute({"alpha": 1}, experiment_callable="c:d", metadata=base_metadata)
+    h3 = ExperimentHash.compute({"alpha": 1}, experiment_callable="a:b", metadata=dirty_metadata)
+
+    assert h1 != h2
+    assert h1 != h3
 
 
 def test_cache_hit_skips_execution(tmp_path: Path) -> None:
@@ -89,7 +117,7 @@ def test_artifact_integrity_required_for_cache(tmp_path: Path) -> None:
     assert first["ok"] is True
     assert call_counter["count"] == 1
 
-    exp_hash = ExperimentHash.compute(config)
+    exp_hash = ExperimentHash.compute(config, experiment_callable=f"{execute.__module__}:{execute.__name__}")
     exp_dir = tmp_path / exp_hash
     (exp_dir / "results.json").unlink()
 
@@ -104,3 +132,19 @@ def test_artifact_integrity_required_for_cache(tmp_path: Path) -> None:
     with (exp_dir / "metadata.json").open("r", encoding="utf-8") as f:
         metadata = json.load(f)
     assert metadata["experiment_hash"] == exp_hash
+
+
+def test_metadata_contains_experiment_name(tmp_path: Path) -> None:
+    runner = ExperimentRunner(artifacts_root=tmp_path)
+    config = {"seed": 5, "experiment_name": "bp-threshold"}
+
+    def execute(spec: dict[str, object]) -> dict[str, object]:
+        return {"seed": spec["seed"]}
+
+    runner.run(config, execute)
+
+    exp_hash = ExperimentHash.compute(config)
+    with (tmp_path / exp_hash / "metadata.json").open("r", encoding="utf-8") as f:
+        metadata = json.load(f)
+
+    assert metadata["experiment_name"] == "bp-threshold"

@@ -17,11 +17,16 @@ from src.qec.analysis.spectral_regression import SpectralThresholdModel, load_tr
 from src.qec.analysis.threshold_predictor import predict_threshold_quality
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 from src.qec.analysis.trap_memory import TrapSubspaceMemory
+from src.qec.analysis.spectral_mutation_memory import SpectralMutationMemory
 from src.qec.analysis.predictor_recalibration import apply_recalibration, compute_recalibration_bias
 from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
 from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
 from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
+from src.qec.discovery.mutation_interface import BeamMutation, NBEigenvectorFlowMutation
+from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator, compute_multi_mode_flow
+from src.qec.spectral.nb_spectrum import select_unstable_nb_modes
+from src.qec.discovery.nb_eigenvector_flow_mutation import nb_flow_mutation
 from src.qec.experiments.stability_phase_diagram import run_stability_phase_diagram_experiment
 from src.utils.canonicalize import canonicalize
 
@@ -37,6 +42,15 @@ class SpectralSearchConfig:
     output_dir: str = "experiments/threshold_search"
     enable_beam_mutations: bool = True
     enable_nb_flow_mutation: bool = False
+    enable_multi_mode_nb_mutation: bool = False
+    multi_mode_k: int = 3
+    enable_spectral_mutation_memory: bool = False
+    memory_max_records: int = 1000
+    nb_mutation_modes: int = 3
+    enable_ipr_localized_nb_flow: bool = False
+    enable_nb_spectral_annealing: bool = False
+    annealing_base_mutation_size: int = 4
+    ipr_localization_fraction: float = 0.1
     enable_adaptive_mutation: bool = True
     trap_similarity_reject: float = 0.999
     min_entropy_reject: float = 0.0
@@ -47,7 +61,6 @@ class SpectralSearchConfig:
     enable_learning: bool = False
     min_predicted_threshold: float = 0.0
     experiments_root: str = "experiments"
-    min_predicted_threshold: float = 0.0
     rank_by_prediction: bool = False
     max_bp_candidates: int = 5
     enable_predictor_recalibration: bool = False
@@ -102,9 +115,12 @@ def run_spectral_threshold_search(
     mutator = NBGradientMutator(enabled=True, enable_spectral_beam_search=False)
     beam_mutator = NBGradientMutator(enabled=True, enable_spectral_beam_search=True)
     flow_mutator = NBEigenvectorFlowMutator()
+    beam_operator = BeamMutation(beam_mutator)
+    flow_operator = NBEigenvectorFlowMutation(flow_mutator)
     flow_analyzer = NonBacktrackingEigenvectorFlowAnalyzer()
     frustration = SpectralFrustrationAnalyzer()
     trap_memory = TrapSubspaceMemory()
+    mutation_memory = SpectralMutationMemory(max_records=int(cfg.memory_max_records))
     orchestrator = PhaseDiagramOrchestrator()
     estimator = BPThresholdEstimator()
     pareto = ParetoArchive() if cfg.enable_pareto else None
@@ -145,8 +161,13 @@ def run_spectral_threshold_search(
         generated_with_meta.append((np.asarray(h_mut, dtype=np.float64), ops, "nb_gradient", {}))
 
         if cfg.enable_beam_mutations:
-            h_beam, ops_beam = beam_mutator.mutate(H_current, steps=adaptive_steps)
-            generated_with_meta.append((np.asarray(h_beam, dtype=np.float64), ops_beam, "beam", {}))
+            generated_with_meta.append(
+                beam_operator.mutate(
+                    H_current,
+                    {},
+                    {"adaptive_steps": adaptive_steps},
+                ),
+            )
 
         if cfg.enable_nb_flow_mutation:
             base_nb = compute_nb_spectrum(H_current)
@@ -185,6 +206,15 @@ def run_spectral_threshold_search(
                 "flow_strength": source_meta.get("flow_strength"),
                 "spectral_cluster_size": int(source_meta.get("spectral_cluster_size", 0)),
                 "trapping_repair_applied": bool(source_meta.get("trapping_repair_applied", False)),
+                "mode_index": source_meta.get("mode_index"),
+                "mode_weights": source_meta.get("mode_weights"),
+                "nb_mutation_modes": source_meta.get("nb_mutation_modes"),
+                "multi_mode_flow_strength": source_meta.get("multi_mode_flow_strength"),
+                "nb_spectral_gap": source_meta.get("nb_spectral_gap"),
+                "annealing_strength": source_meta.get("annealing_strength"),
+                "mutation_size": source_meta.get("mutation_size"),
+                "ipr_localization_score": source_meta.get("ipr_localization_score"),
+                "localization_edge_count": source_meta.get("localization_edge_count"),
                 "mutations": ops_cand,
             }
             metrics["spectral_radius"] = metrics["nb_spectral_radius"]
@@ -287,6 +317,12 @@ def run_spectral_threshold_search(
                 "H": H_cand,
                 "metrics": metrics,
             })
+            if cfg.enable_spectral_mutation_memory and np.isfinite(best_threshold):
+                parent_threshold = float(best_threshold)
+                improvement = round(float(threshold) - parent_threshold, _ROUND)
+                mode_index = metrics.get("mode_index")
+                if mode_index is not None and int(mode_index) >= 0:
+                    mutation_memory.record(int(mode_index), improvement)
             if pareto is not None:
                 convergence_speed = 0.0
                 if "bp_iterations" in metrics:
@@ -339,6 +375,16 @@ def run_spectral_threshold_search(
             {
                 "bias_correction": round(float(predictor_bias), _ROUND),
                 "samples": int(len(prediction_history)),
+            },
+        )
+    if cfg.enable_spectral_mutation_memory:
+        weights = mutation_memory.compute_weights(max(1, int(cfg.multi_mode_k)))
+        _write_canonical_json(
+            output_dir / "spectral_mutation_memory.json",
+            {
+                "max_records": int(mutation_memory.max_records),
+                "records": list(mutation_memory.records),
+                "weights": [round(float(w), _ROUND) for w in weights.tolist()],
             },
         )
     if cfg.enable_bp_diagnostics:

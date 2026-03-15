@@ -39,6 +39,7 @@ def _ensure_bp_phase_diagram(experiment: str, artifacts_root: str) -> Path:
 
     exp_hash = ExperimentHash.compute(config)
     experiment_dir = Path(artifacts_root) / exp_hash
+    experiment_dir.mkdir(parents=True, exist_ok=True)
     phase_diagram_path = experiment_dir / "phase_diagram.json"
     if not phase_diagram_path.exists():
         serialized = json.dumps(_DEFAULT_PHASE_DIAGRAM, sort_keys=True, indent=2)

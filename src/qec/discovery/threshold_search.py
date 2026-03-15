@@ -20,7 +20,7 @@ from src.qec.analysis.trap_memory import TrapSubspaceMemory
 from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
 from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
-from src.qec.discovery.nonbacktracking_eigenvector_flow import NonBacktrackingEigenvectorFlowOptimizer
+from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
 from src.qec.experiments.stability_phase_diagram import run_stability_phase_diagram_experiment
 from src.utils.canonicalize import canonicalize
 
@@ -96,7 +96,7 @@ def run_spectral_threshold_search(
     H_current = np.asarray(H0, dtype=np.float64).copy()
     mutator = NBGradientMutator(enabled=True, enable_spectral_beam_search=False)
     beam_mutator = NBGradientMutator(enabled=True, enable_spectral_beam_search=True)
-    flow_optimizer = NonBacktrackingEigenvectorFlowOptimizer(max_steps=1)
+    flow_mutator = NBEigenvectorFlowMutator()
     flow_analyzer = NonBacktrackingEigenvectorFlowAnalyzer()
     frustration = SpectralFrustrationAnalyzer()
     trap_memory = TrapSubspaceMemory()
@@ -123,20 +123,22 @@ def run_spectral_threshold_search(
         if cfg.enable_adaptive_mutation and baseline.max_ipr > 0.3:
             adaptive_steps += 1
 
-        generated: list[tuple[np.ndarray, list[dict[str, Any]], str]] = []
+        generated_with_meta: list[tuple[np.ndarray, list[dict[str, Any]], str, dict[str, Any]]] = []
         h_mut, ops = mutator.mutate(H_current, steps=adaptive_steps)
-        generated.append((np.asarray(h_mut, dtype=np.float64), ops, "nb_gradient"))
+        generated_with_meta.append((np.asarray(h_mut, dtype=np.float64), ops, "nb_gradient", {}))
 
         if cfg.enable_beam_mutations:
             h_beam, ops_beam = beam_mutator.mutate(H_current, steps=adaptive_steps)
-            generated.append((np.asarray(h_beam, dtype=np.float64), ops_beam, "beam"))
+            generated_with_meta.append((np.asarray(h_beam, dtype=np.float64), ops_beam, "beam", {}))
 
         if cfg.enable_nb_flow_mutation:
-            traj = flow_optimizer.optimize(H_current)
-            generated.append((np.asarray(traj.H_final, dtype=np.float64), [], "nb_flow"))
+            base_nb = compute_nb_spectrum(H_current)
+            leading_vector = np.asarray(base_nb.get("eigenvector", np.array([], dtype=np.float64)), dtype=np.float64)
+            h_flow, flow_info = flow_mutator.mutate(H_current, leading_vector)
+            generated_with_meta.append((np.asarray(h_flow, dtype=np.float64), [], "nb_flow", flow_info))
 
         candidate_pool: list[dict[str, Any]] = []
-        for idx, (H_cand, ops_cand, source) in enumerate(generated):
+        for idx, (H_cand, ops_cand, source, source_meta) in enumerate(generated_with_meta):
             if not _is_degree_preserving(H_current, H_cand):
                 continue
 
@@ -157,6 +159,8 @@ def run_spectral_threshold_search(
                 "flow_ipr": round(float(fr.max_ipr), _ROUND),
                 "spectral_entropy": round(float(entropy), _ROUND),
                 "trap_similarity": round(float(trap_similarity), _ROUND),
+                "flow_edge_index": source_meta.get("flow_edge_index"),
+                "flow_strength": source_meta.get("flow_strength"),
                 "mutations": ops_cand,
             }
             metrics["spectral_radius"] = metrics["nb_spectral_radius"]

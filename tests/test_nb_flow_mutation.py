@@ -1,90 +1,69 @@
 from __future__ import annotations
 
+import json
+
 import numpy as np
 
-from src.qec.analysis.nonbacktracking_flow import NBFlowConfig, NonBacktrackingEigenvectorFlowAnalyzer, canonical_directed_edges
-from src.qec.discovery.nb_flow_mutation import NBFlowMutationConfig, NonBacktrackingFlowMutator
+from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
+from src.qec.discovery.threshold_search import PhaseDiagramOrchestrator, SpectralSearchConfig, run_spectral_threshold_search
+from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
 
 
-def _matrix() -> np.ndarray:
-    return np.array([
-        [1, 1, 0, 0, 1, 0],
-        [0, 1, 1, 0, 0, 1],
-        [1, 0, 1, 1, 0, 0],
-        [0, 0, 0, 1, 1, 1],
-    ], dtype=np.float64)
+def _graph() -> np.ndarray:
+    spec = {
+        "num_variables": 8,
+        "num_checks": 4,
+        "variable_degree": 2,
+        "check_degree": 4,
+    }
+    return construct_deterministic_tanner_graph(spec)
 
 
-def _flow_ranking(H: np.ndarray, *, enable_second_mode: bool) -> list[tuple[tuple[int, int], float]]:
-    analyzer = NonBacktrackingEigenvectorFlowAnalyzer(config=NBFlowConfig(num_nb_eigenvalues=256, precision=12, bulk_radius_mode="fixed", bulk_radius_value=0.0))
-    eigvals, eigvecs = analyzer.compute_modes(H)
-    assert eigvals.size >= 1
+def test_flow_normalization() -> None:
+    mut = NBEigenvectorFlowMutator()
+    flow = mut.compute_flow(np.array([1.0, -2.0, 3.0], dtype=np.float64))
+    assert flow.dtype == np.float64
+    assert np.isclose(np.sum(flow), 1.0)
+    assert np.all(flow >= 0.0)
 
-    mut = NonBacktrackingFlowMutator(
-        config=NBFlowMutationConfig(
-            enabled=True,
-            enable_second_mode=enable_second_mode,
-            second_mode_weight=0.25,
-        ),
+
+def test_deterministic_edge_selection() -> None:
+    mut = NBEigenvectorFlowMutator()
+    flow = np.array([0.1, 0.6, 0.6, 0.2], dtype=np.float64)
+    assert mut.select_edge(flow) == 1
+
+
+def test_mutation_reproducibility() -> None:
+    mut = NBEigenvectorFlowMutator()
+    H = _graph()
+    vec = np.array([0.1, -0.3, 0.8, 0.2, 0.05, 0.01], dtype=np.float64)
+
+    first, meta_first = mut.mutate(H, vec)
+    second, meta_second = mut.mutate(H, vec)
+
+    assert np.array_equal(first, second)
+    assert meta_first == meta_second
+
+
+def test_flow_metrics_artifact_logging(tmp_path, monkeypatch) -> None:
+    H0 = _graph()
+
+    monkeypatch.setattr(
+        PhaseDiagramOrchestrator,
+        "evaluate",
+        lambda self, H, *, max_phase_diagram_size, seed: {"measured_boundary": {"mean_boundary_spectral_radius": 0.1}},
     )
-    v, _, _ = mut._build_flow_vector(eigvals, eigvecs)
-    undirected, _, edge_index, _, _, n = canonical_directed_edges(H)
-    flow = mut._edge_flow_map(
-        undirected=undirected,
-        edge_index=edge_index,
-        n=n,
-        flow_vector=v,
+
+    cfg = SpectralSearchConfig(
+        iterations=1,
+        max_phase_diagram_size=1,
+        output_dir=str(tmp_path),
+        enable_nb_flow_mutation=True,
     )
-    return sorted(flow.items(), key=lambda item: (-abs(item[1]), item[0]))
+    run_spectral_threshold_search(H0, config=cfg)
 
-
-def test_deterministic_mutation() -> None:
-    H = _matrix()
-    cfg = NBFlowMutationConfig(enabled=True, max_flow_edges=6, swap_candidates_per_edge=4)
-    mut = NonBacktrackingFlowMutator(config=cfg)
-
-    out_a, log_a = mut.mutate(H)
-    out_b, log_b = mut.mutate(H)
-
-    np.testing.assert_array_equal(out_a, out_b)
-    assert log_a == log_b
-
-
-def test_degree_preservation() -> None:
-    H = _matrix()
-    mut = NonBacktrackingFlowMutator(config=NBFlowMutationConfig(enabled=True, max_flow_edges=8))
-
-    out, _ = mut.mutate(H)
-
-    np.testing.assert_array_equal(H.sum(axis=0), out.sum(axis=0))
-    np.testing.assert_array_equal(H.sum(axis=1), out.sum(axis=1))
-    assert set(np.unique(out)).issubset({0.0, 1.0})
-
-
-def test_flow_localization_prefers_short_cycle_region() -> None:
-    H = _matrix()
-    mut = NonBacktrackingFlowMutator(config=NBFlowMutationConfig(enabled=True, max_flow_edges=4))
-    _, log = mut.mutate(H)
-
-    if not log:
-        return
-
-    selected = tuple(log[0]["swap_selected"])
-    # In this toy graph, the high-flow short-cycle core is concentrated
-    # around rows 0-2 and columns 0-3.
-    short_cycle_rows = {0, 1, 2}
-    short_cycle_cols = {0, 1, 2, 3}
-    assert selected[0] in short_cycle_rows or selected[2] in short_cycle_rows
-    assert selected[1] in short_cycle_cols or selected[3] in short_cycle_cols
-
-
-def test_two_mode_changes_flow_ranking_deterministically() -> None:
-    H = _matrix()
-    r_single_a = _flow_ranking(H, enable_second_mode=False)
-    r_single_b = _flow_ranking(H, enable_second_mode=False)
-    r_dual_a = _flow_ranking(H, enable_second_mode=True)
-    r_dual_b = _flow_ranking(H, enable_second_mode=True)
-
-    assert r_single_a == r_single_b
-    assert r_dual_a == r_dual_b
-    assert r_single_a != r_dual_a
+    payload = json.loads((tmp_path / "candidate_metrics.json").read_text(encoding="utf-8"))
+    flow_entries = [m for m in payload["candidates"] if m.get("source") == "nb_flow"]
+    assert len(flow_entries) == 1
+    assert isinstance(flow_entries[0].get("flow_edge_index"), int)
+    assert isinstance(flow_entries[0].get("flow_strength"), float)

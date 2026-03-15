@@ -1,4 +1,5 @@
 """Deterministic NB spectral mode selection utilities."""
+"""Deterministic non-backtracking spectrum helpers."""
 
 from __future__ import annotations
 
@@ -22,3 +23,15 @@ def select_unstable_nb_modes(
     order = np.lexsort((np.arange(len(mags), dtype=np.int64), -mags))
     selected = order[: min(k, order.size)]
     return vecs[:, selected], vals[selected]
+_ROUND = 12
+
+
+def compute_nb_spectral_gap(eigenvalues):
+    """Return dominant non-backtracking spectral gap with deterministic rounding."""
+    ev = np.asarray(eigenvalues, dtype=np.complex128)
+    mags = np.abs(ev)
+    if len(mags) < 2:
+        return 0.0
+    order = np.argsort(-mags)
+    gap = float(mags[order[0]] - mags[order[1]])
+    return round(gap, _ROUND)

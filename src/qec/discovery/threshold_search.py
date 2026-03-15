@@ -23,6 +23,7 @@ from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
 from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator, compute_multi_mode_flow
 from src.qec.spectral.nb_spectrum import select_unstable_nb_modes
+from src.qec.discovery.nb_eigenvector_flow_mutation import nb_flow_mutation
 from src.qec.experiments.stability_phase_diagram import run_stability_phase_diagram_experiment
 from src.utils.canonicalize import canonicalize
 
@@ -40,6 +41,10 @@ class SpectralSearchConfig:
     enable_nb_flow_mutation: bool = False
     enable_multi_mode_nb_mutation: bool = False
     nb_mutation_modes: int = 3
+    enable_ipr_localized_nb_flow: bool = False
+    enable_nb_spectral_annealing: bool = False
+    annealing_base_mutation_size: int = 4
+    ipr_localization_fraction: float = 0.1
     enable_adaptive_mutation: bool = True
     trap_similarity_reject: float = 0.999
     min_entropy_reject: float = 0.0
@@ -102,7 +107,6 @@ def run_spectral_threshold_search(
     H_current = np.asarray(H0, dtype=np.float64).copy()
     mutator = NBGradientMutator(enabled=True, enable_spectral_beam_search=False)
     beam_mutator = NBGradientMutator(enabled=True, enable_spectral_beam_search=True)
-    flow_mutator = NBEigenvectorFlowMutator()
     flow_analyzer = NonBacktrackingEigenvectorFlowAnalyzer()
     frustration = SpectralFrustrationAnalyzer()
     trap_memory = TrapSubspaceMemory()
@@ -168,6 +172,19 @@ def run_spectral_threshold_search(
             h_flow, flow_info = flow_mutator.mutate(H_current, flow_input)
             flow_info["nb_mutation_modes"] = int(selected_mode_count)
             flow_info["multi_mode_flow_strength"] = round(float(multi_mode_strength), _ROUND)
+            h_flow, flow_info = nb_flow_mutation(
+                H_current,
+                leading_vector,
+                np.asarray(base_nb.get("eigenvalues", np.array([], dtype=np.complex128)), dtype=np.complex128),
+                use_ipr_localization=cfg.enable_ipr_localized_nb_flow,
+                annealing=cfg.enable_nb_spectral_annealing,
+                base_mutation_size=cfg.annealing_base_mutation_size,
+            h_flow, flow_info = flow_mutator.mutate(
+                H_current,
+                leading_vector,
+                use_ipr_localization=bool(cfg.enable_ipr_localized_nb_flow),
+                localization_fraction=float(cfg.ipr_localization_fraction),
+            )
             generated_with_meta.append((np.asarray(h_flow, dtype=np.float64), [], "nb_flow", flow_info))
 
         candidate_pool: list[dict[str, Any]] = []
@@ -196,6 +213,11 @@ def run_spectral_threshold_search(
                 "flow_strength": source_meta.get("flow_strength"),
                 "nb_mutation_modes": source_meta.get("nb_mutation_modes"),
                 "multi_mode_flow_strength": source_meta.get("multi_mode_flow_strength"),
+                "nb_spectral_gap": source_meta.get("nb_spectral_gap"),
+                "annealing_strength": source_meta.get("annealing_strength"),
+                "mutation_size": source_meta.get("mutation_size"),
+                "ipr_localization_score": source_meta.get("ipr_localization_score"),
+                "localization_edge_count": source_meta.get("localization_edge_count"),
                 "mutations": ops_cand,
             }
             metrics["spectral_radius"] = metrics["nb_spectral_radius"]

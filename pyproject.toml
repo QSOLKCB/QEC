@@ -24,4 +24,4 @@ dev = [
 testpaths = ["tests"]
 
 [project.scripts]
-qec-exp = "qec.experiments.cli:main"
+qec-exp = "src.qec.experiments.qec_exp_cli:main"

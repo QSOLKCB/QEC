@@ -20,6 +20,12 @@ from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 from src.qec.analysis.trap_memory import TrapSubspaceMemory
 from src.qec.analysis.spectral_mutation_memory import SpectralMutationMemory
 from src.qec.analysis.predictor_recalibration import apply_recalibration, compute_recalibration_bias
+from src.qec.analysis.spectral_phase_diagram_surrogate import (
+    PHASE_GRID,
+    SpectralPhaseDiagramSurrogate,
+    spectral_feature_vector,
+    surrogate_threshold,
+)
 from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
 from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
@@ -68,6 +74,7 @@ class SpectralSearchConfig:
     bp_evaluation_budget: int = 5
     enable_predictor_recalibration: bool = False
     recalibration_interval: int = 20
+    enable_phase_diagram_surrogate: bool = False
     enable_spectral_trapping_repair: bool = False
     trapping_localization_fraction: float = 0.2
 
@@ -128,6 +135,7 @@ def run_spectral_threshold_search(
     estimator = BPThresholdEstimator()
     pareto = ParetoArchive() if cfg.enable_pareto else None
     model = SpectralThresholdModel()
+    surrogate = SpectralPhaseDiagramSurrogate()
     phase_predictor = SpectralPhasePredictor()
     if cfg.enable_learning:
         dataset = load_training_dataset(cfg.experiments_root)
@@ -267,6 +275,13 @@ def run_spectral_threshold_search(
             if not cfg.enable_spectral_phase_predictor:
                 metrics["predicted_threshold"] = round(float(prediction.predicted_threshold), _ROUND)
             metrics["prediction_score"] = round(float(prediction.score), _ROUND)
+            if cfg.enable_phase_diagram_surrogate:
+                features = spectral_feature_vector(metrics)
+                phase_curve = surrogate.predict(features)
+                predicted_threshold = surrogate_threshold(PHASE_GRID, phase_curve)
+                metrics["spectral_phase_curve"] = [round(float(np.float64(x)), _ROUND) for x in phase_curve.tolist()]
+                metrics["surrogate_predicted_threshold"] = round(float(np.float64(predicted_threshold)), _ROUND)
+                metrics["predicted_threshold"] = round(float(np.float64(predicted_threshold)), _ROUND)
             if cfg.enable_predictor_recalibration:
                 corrected = apply_recalibration(metrics["predicted_threshold"], predictor_bias)
                 metrics["predicted_threshold"] = corrected

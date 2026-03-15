@@ -21,7 +21,7 @@ from src.qec.analysis.predictor_recalibration import apply_recalibration, comput
 from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
 from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
-from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
+from src.qec.discovery.nb_eigenvector_flow_mutation import nb_flow_mutation
 from src.qec.experiments.stability_phase_diagram import run_stability_phase_diagram_experiment
 from src.utils.canonicalize import canonicalize
 
@@ -37,6 +37,9 @@ class SpectralSearchConfig:
     output_dir: str = "experiments/threshold_search"
     enable_beam_mutations: bool = True
     enable_nb_flow_mutation: bool = False
+    enable_ipr_localized_nb_flow: bool = False
+    enable_nb_spectral_annealing: bool = False
+    annealing_base_mutation_size: int = 4
     enable_adaptive_mutation: bool = True
     trap_similarity_reject: float = 0.999
     min_entropy_reject: float = 0.0
@@ -99,7 +102,6 @@ def run_spectral_threshold_search(
     H_current = np.asarray(H0, dtype=np.float64).copy()
     mutator = NBGradientMutator(enabled=True, enable_spectral_beam_search=False)
     beam_mutator = NBGradientMutator(enabled=True, enable_spectral_beam_search=True)
-    flow_mutator = NBEigenvectorFlowMutator()
     flow_analyzer = NonBacktrackingEigenvectorFlowAnalyzer()
     frustration = SpectralFrustrationAnalyzer()
     trap_memory = TrapSubspaceMemory()
@@ -149,7 +151,14 @@ def run_spectral_threshold_search(
         if cfg.enable_nb_flow_mutation:
             base_nb = compute_nb_spectrum(H_current)
             leading_vector = np.asarray(base_nb.get("eigenvector", np.array([], dtype=np.float64)), dtype=np.float64)
-            h_flow, flow_info = flow_mutator.mutate(H_current, leading_vector)
+            h_flow, flow_info = nb_flow_mutation(
+                H_current,
+                leading_vector,
+                np.asarray(base_nb.get("eigenvalues", np.array([], dtype=np.complex128)), dtype=np.complex128),
+                use_ipr_localization=cfg.enable_ipr_localized_nb_flow,
+                annealing=cfg.enable_nb_spectral_annealing,
+                base_mutation_size=cfg.annealing_base_mutation_size,
+            )
             generated_with_meta.append((np.asarray(h_flow, dtype=np.float64), [], "nb_flow", flow_info))
 
         candidate_pool: list[dict[str, Any]] = []
@@ -176,6 +185,9 @@ def run_spectral_threshold_search(
                 "trap_similarity": round(float(trap_similarity), _ROUND),
                 "flow_edge_index": source_meta.get("flow_edge_index"),
                 "flow_strength": source_meta.get("flow_strength"),
+                "nb_spectral_gap": source_meta.get("nb_spectral_gap"),
+                "annealing_strength": source_meta.get("annealing_strength"),
+                "mutation_size": source_meta.get("mutation_size"),
                 "mutations": ops_cand,
             }
             metrics["spectral_radius"] = metrics["nb_spectral_radius"]

@@ -15,6 +15,7 @@ from src.qec.analysis.spectral_entropy import spectral_entropy
 from src.qec.analysis.nb_threshold_predictor import predict_threshold_from_spectrum
 from src.qec.analysis.spectral_regression import SpectralThresholdModel, load_training_dataset
 from src.qec.analysis.threshold_predictor import predict_threshold_quality
+from src.qec.analysis.spectral_phase_predictor import SpectralPhasePredictor, spectral_feature_vector
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 from src.qec.analysis.trap_memory import TrapSubspaceMemory
 from src.qec.analysis.spectral_mutation_memory import SpectralMutationMemory
@@ -63,6 +64,8 @@ class SpectralSearchConfig:
     experiments_root: str = "experiments"
     rank_by_prediction: bool = False
     max_bp_candidates: int = 5
+    enable_spectral_phase_predictor: bool = False
+    bp_evaluation_budget: int = 5
     enable_predictor_recalibration: bool = False
     recalibration_interval: int = 20
     enable_spectral_trapping_repair: bool = False
@@ -125,6 +128,7 @@ def run_spectral_threshold_search(
     estimator = BPThresholdEstimator()
     pareto = ParetoArchive() if cfg.enable_pareto else None
     model = SpectralThresholdModel()
+    phase_predictor = SpectralPhasePredictor()
     if cfg.enable_learning:
         dataset = load_training_dataset(cfg.experiments_root)
         model.fit(dataset)
@@ -191,6 +195,14 @@ def run_spectral_threshold_search(
             entropy = spectral_entropy(eigvals)
             trap_similarity = trap_memory.compute_similarity(fr.trap_modes)
 
+            bethe_min_eigenvalue = -round(float(fr.frustration_score), _ROUND)
+            bp_stability_score = 0.0
+            if float(nb.get("spectral_radius", 0.0)) > 0.0:
+                bp_stability_score = round(
+                    float(bethe_min_eigenvalue / float(nb.get("spectral_radius", 0.0))),
+                    _ROUND,
+                )
+
             metrics = {
                 "iteration": iteration,
                 "candidate_index": idx,
@@ -198,7 +210,10 @@ def run_spectral_threshold_search(
                 "nb_spectral_radius": round(float(nb.get("spectral_radius", 0.0)), _ROUND),
                 "bethe_hessian_negative_modes": int(fr.negative_modes),
                 "bethe_negative_mass": round(float(fr.negative_modes), _ROUND),
+                "bethe_min_eigenvalue": bethe_min_eigenvalue,
+                "bp_stability_score": bp_stability_score,
                 "ipr_localization": round(float(fr.max_ipr), _ROUND),
+                "ipr_localization_score": round(float(fr.max_ipr), _ROUND),
                 "flow_ipr": round(float(fr.max_ipr), _ROUND),
                 "spectral_entropy": round(float(entropy), _ROUND),
                 "trap_similarity": round(float(trap_similarity), _ROUND),
@@ -236,6 +251,12 @@ def run_spectral_threshold_search(
 
             if predicted_threshold is not None:
                 metrics["predicted_threshold"] = round(float(predicted_threshold), _ROUND)
+            if cfg.enable_spectral_phase_predictor:
+                features = spectral_feature_vector(metrics)
+                phase_prediction = phase_predictor.predict(features)
+                metrics["spectral_predicted_threshold"] = phase_prediction
+                metrics["predicted_threshold"] = phase_prediction
+
             prediction = predict_threshold_quality(
                 spectral_radius=metrics["nb_spectral_radius"],
                 bethe_negative_mass=float(metrics["bethe_hessian_negative_modes"]),
@@ -243,7 +264,8 @@ def run_spectral_threshold_search(
                 spectral_entropy_value=metrics["spectral_entropy"],
                 trap_similarity=metrics["trap_similarity"],
             )
-            metrics["predicted_threshold"] = round(float(prediction.predicted_threshold), _ROUND)
+            if not cfg.enable_spectral_phase_predictor:
+                metrics["predicted_threshold"] = round(float(prediction.predicted_threshold), _ROUND)
             metrics["prediction_score"] = round(float(prediction.score), _ROUND)
             if cfg.enable_predictor_recalibration:
                 corrected = apply_recalibration(metrics["predicted_threshold"], predictor_bias)
@@ -262,6 +284,7 @@ def run_spectral_threshold_search(
             if rejected:
                 continue
 
+            metrics["bp_evaluated"] = False
             candidate_pool.append({
                 "H": H_cand,
                 "metrics": metrics,
@@ -277,7 +300,21 @@ def run_spectral_threshold_search(
             )
             for rank, cand in enumerate(candidate_pool, start=1):
                 cand["metrics"]["prediction_rank"] = int(rank)
-            candidate_pool = candidate_pool[: max(1, int(cfg.max_bp_candidates))]
+            limit = int(cfg.max_bp_candidates)
+            if cfg.enable_spectral_phase_predictor:
+                limit = int(cfg.bp_evaluation_budget)
+            candidate_pool = candidate_pool[: max(1, limit)]
+        elif cfg.enable_spectral_phase_predictor:
+            candidate_pool.sort(
+                key=lambda c: (
+                    -float(c["metrics"].get("spectral_predicted_threshold", c["metrics"].get("predicted_threshold", 0.0))),
+                    -float(c["metrics"]["spectral_radius"]),
+                    int(c["metrics"]["candidate_index"]),
+                ),
+            )
+            for rank, cand in enumerate(candidate_pool, start=1):
+                cand["metrics"]["prediction_rank"] = int(rank)
+            candidate_pool = candidate_pool[: max(1, int(cfg.bp_evaluation_budget))]
         else:
             for cand in candidate_pool:
                 cand["metrics"]["prediction_rank"] = None
@@ -286,6 +323,7 @@ def run_spectral_threshold_search(
         for candidate in candidate_pool:
             H_cand = np.asarray(candidate["H"], dtype=np.float64)
             metrics = candidate["metrics"]
+            metrics["bp_evaluated"] = True
             idx = int(metrics["candidate_index"])
 
             phase = orchestrator.evaluate(

@@ -17,6 +17,7 @@ from src.qec.analysis.spectral_regression import SpectralThresholdModel, load_tr
 from src.qec.analysis.threshold_predictor import predict_threshold_quality
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 from src.qec.analysis.trap_memory import TrapSubspaceMemory
+from src.qec.analysis.predictor_recalibration import apply_recalibration, compute_recalibration_bias
 from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
 from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
@@ -49,6 +50,8 @@ class SpectralSearchConfig:
     min_predicted_threshold: float = 0.0
     rank_by_prediction: bool = False
     max_bp_candidates: int = 5
+    enable_predictor_recalibration: bool = False
+    recalibration_interval: int = 20
 
 
 class PhaseDiagramOrchestrator:
@@ -116,8 +119,20 @@ def run_spectral_threshold_search(
     history: list[dict[str, Any]] = []
     candidate_metrics: list[dict[str, Any]] = []
     convergence_records: list[dict[str, Any]] = []
+    prediction_history: list[float] = []
+    actual_history: list[float] = []
+    predictor_bias = 0.0
 
     for iteration in range(int(cfg.iterations)):
+        if (
+            cfg.enable_predictor_recalibration
+            and int(cfg.recalibration_interval) > 0
+            and iteration > 0
+            and iteration % int(cfg.recalibration_interval) == 0
+            and prediction_history
+        ):
+            predictor_bias = compute_recalibration_bias(prediction_history, actual_history)
+
         baseline = frustration.compute_frustration(H_current)
         adaptive_steps = 1
         if cfg.enable_adaptive_mutation and baseline.max_ipr > 0.3:
@@ -187,6 +202,10 @@ def run_spectral_threshold_search(
             )
             metrics["predicted_threshold"] = round(float(prediction.predicted_threshold), _ROUND)
             metrics["prediction_score"] = round(float(prediction.score), _ROUND)
+            if cfg.enable_predictor_recalibration:
+                corrected = apply_recalibration(metrics["predicted_threshold"], predictor_bias)
+                metrics["predicted_threshold"] = corrected
+                metrics["predictor_bias"] = round(float(predictor_bias), _ROUND)
             rejected = (
                 metrics["trap_similarity"] > cfg.trap_similarity_reject
                 or metrics["spectral_entropy"] < cfg.min_entropy_reject
@@ -232,6 +251,8 @@ def run_spectral_threshold_search(
                 seed=cfg.seed + iteration * 1024 + idx,
             )
             threshold = estimator.estimate(phase)
+            prediction_history.append(float(metrics["predicted_threshold"]))
+            actual_history.append(float(threshold))
             if cfg.enable_bp_diagnostics:
                 diagnostics = collect_bp_diagnostics({
                     "residuals": [
@@ -299,6 +320,14 @@ def run_spectral_threshold_search(
         pareto.save_frontier(output_dir / "pareto_frontier.json")
     if cfg.enable_learning:
         model.save_model(output_dir / "spectral_threshold_model.json")
+    if cfg.enable_predictor_recalibration:
+        _write_canonical_json(
+            output_dir / "predictor_recalibration.json",
+            {
+                "bias_correction": round(float(predictor_bias), _ROUND),
+                "samples": int(len(prediction_history)),
+            },
+        )
     if cfg.enable_bp_diagnostics:
         n_records = len(convergence_records)
         if n_records > 0:

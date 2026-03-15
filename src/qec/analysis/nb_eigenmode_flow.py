@@ -17,6 +17,7 @@ import numpy as np
 import scipy.sparse
 
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from src.qec.analysis.spectral_signature import with_entropy
 from src.qec.fitness.spectral_metrics import compute_nbt_spectral_radius
 
 
@@ -90,11 +91,21 @@ class NBEigenmodeFlowAnalyzer:
         mode_ipr = float(flow.get("flow_localization", 0.0))
         spectral_radius = float(compute_nbt_spectral_radius(H_arr))
 
+        nb_eigenvalues = np.asarray(flow.get("directed_edge_flow", np.zeros(0, dtype=np.float64)), dtype=np.float64)
+        signature_struct = with_entropy(
+            spectral_radius=spectral_radius,
+            mode_ipr=mode_ipr,
+            support_fraction=float(support_fraction),
+            topk_mass_fraction=float(topk_mass_fraction),
+            nb_eigenvalues=nb_eigenvalues,
+            precision=self.precision,
+        )
         signature = {
-            "spectral_radius": round(spectral_radius, self.precision),
-            "mode_ipr": round(mode_ipr, self.precision),
-            "support_fraction": round(float(support_fraction), self.precision),
-            "topk_mass_fraction": round(float(topk_mass_fraction), self.precision),
+            "spectral_radius": signature_struct.spectral_radius,
+            "mode_ipr": signature_struct.mode_ipr,
+            "support_fraction": signature_struct.support_fraction,
+            "topk_mass_fraction": signature_struct.topk_mass_fraction,
+            "spectral_entropy": signature_struct.spectral_entropy,
         }
 
         return {
@@ -154,6 +165,7 @@ class NBEigenmodeFlowAnalyzer:
             "mode_ipr": 0.0,
             "support_fraction": 0.0,
             "topk_mass_fraction": 0.0,
+            "spectral_entropy": 0.0,
         }
         return {
             **signature,

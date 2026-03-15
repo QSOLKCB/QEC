@@ -4,6 +4,7 @@ import json
 
 import numpy as np
 
+from src.qec.analysis.spectral_defect_atlas import SpectralDefectAtlas
 from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
 from src.qec.discovery.threshold_search import PhaseDiagramOrchestrator, SpectralSearchConfig, run_spectral_threshold_search
 from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
@@ -67,3 +68,27 @@ def test_flow_metrics_artifact_logging(tmp_path, monkeypatch) -> None:
     assert len(flow_entries) == 1
     assert isinstance(flow_entries[0].get("flow_edge_index"), int)
     assert isinstance(flow_entries[0].get("flow_strength"), float)
+
+
+def test_mutation_context_metadata_with_atlas() -> None:
+    H = _graph()
+    vec = np.array([0.4, -0.8, 0.2, 0.1, 0.05, 0.01], dtype=np.float64)
+    atlas = SpectralDefectAtlas(max_patterns=5)
+    sig = atlas.signature(vec)
+    atlas.record(sig, "flow_edge_2", 0.01)
+
+    mut = NBEigenvectorFlowMutator()
+    _, meta = mut.mutate(
+        H,
+        vec,
+        context={
+            "spectral_defect_atlas": atlas,
+            "enable_spectral_defect_atlas": True,
+            "nb_spectral_radius": 1.23,
+        },
+    )
+
+    assert meta["atlas_hit"] is True
+    assert isinstance(meta["defect_signature"], str)
+    assert isinstance(meta["atlas_pattern_index"], int)
+    assert meta["repair_action"] == "flow_edge_2"

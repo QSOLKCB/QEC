@@ -80,8 +80,14 @@ def select_localized_edges(
 class NBEigenvectorFlowMutator:
     """Deterministic mutation operator guided by NB eigenvector flow."""
 
-    def __init__(self) -> None:
-        pass
+    def __init__(
+        self,
+        *,
+        enable_spectral_defect_atlas: bool = False,
+        defect_atlas: Any | None = None,
+    ) -> None:
+        self.enable_spectral_defect_atlas = bool(enable_spectral_defect_atlas)
+        self.defect_atlas = defect_atlas
 
     def compute_flow(self, eigenvector: np.ndarray) -> np.ndarray:
         """Compute normalized edge-flow magnitude from NB eigenvector."""
@@ -131,58 +137,55 @@ class NBEigenvectorFlowMutator:
         graph: np.ndarray,
         nb_eigenvector: np.ndarray,
         *,
-        enable_spectral_trapping_repair: bool = False,
-        trapping_localization_fraction: float = 0.2,
+        context: dict[str, Any] | None = None,
     ) -> tuple[np.ndarray, dict[str, Any]]:
         """Mutate a binary parity-check matrix using the dominant NB eigenvector."""
-        base_graph = np.asarray(graph, dtype=np.float64)
-        vec = np.asarray(nb_eigenvector, dtype=np.float64)
+        ctx = context or {}
+        atlas = ctx.get("spectral_defect_atlas", self.defect_atlas)
+        enable_atlas = bool(ctx.get("enable_spectral_defect_atlas", self.enable_spectral_defect_atlas))
 
-        cluster_nodes = np.array([], dtype=np.int64)
-        repaired_graph = base_graph
-        repair_applied = False
-
-        if bool(enable_spectral_trapping_repair):
-            cluster_nodes = detect_localization_cluster(
-                vec,
-                threshold_fraction=float(trapping_localization_fraction),
-            )
-            if cluster_nodes.size > 0:
-                trial = repair_trapping_set(base_graph, cluster_nodes)
-                repair_applied = not np.array_equal(trial, base_graph)
-                repaired_graph = np.asarray(trial, dtype=np.float64)
-
-        flow = self.compute_flow(vec)
+        flow = self.compute_flow(nb_eigenvector)
         edge_index = self.select_edge(flow)
-        mutated = self._mutate_edge(repaired_graph, edge_index)
         flow_strength = 0.0
         if flow.size > 0 and edge_index >= 0:
             flow_strength = round(float(flow[edge_index]), _ROUND)
-        ipr_score = compute_ipr_localization(nb_eigenvector)
-        return mutated, {
-            "flow_edge_index": int(edge_index),
-            "flow_strength": flow_strength,
-            "spectral_cluster_size": int(cluster_nodes.size),
-            "trapping_repair_applied": bool(repair_applied),
-            "mode_index": None if mode_index is None else int(mode_index),
-        }
 
-    def mutate_with_flow(
-        self,
-        graph: np.ndarray,
-        flow: np.ndarray,
-        *,
-        mode_index: int | None = None,
-    ) -> tuple[np.ndarray, dict[str, Any]]:
-        """Mutate using pre-computed flow values."""
-        edge_index = self.select_edge(np.asarray(flow, dtype=np.float64))
+        signature = None
+        if enable_atlas and atlas is not None and hasattr(atlas, "signature"):
+            signature = str(atlas.signature(np.asarray(nb_eigenvector, dtype=np.float64)))
+
+        atlas_hit = False
+        atlas_pattern_index: int | None = None
+        repair_action = f"flow_edge_{int(edge_index)}"
+
+        if enable_atlas and atlas is not None and signature is not None and hasattr(atlas, "lookup"):
+            pattern = atlas.lookup(signature)
+            if pattern is not None:
+                repair_action = str(pattern.get("repair", repair_action))
+                repaired, repaired_index = self._apply_repair_action(graph, repair_action)
+                if repaired_index is not None:
+                    atlas_hit = True
+                    if "pattern_index" in pattern:
+                        atlas_pattern_index = int(pattern["pattern_index"])
+                    else:
+                        atlas_pattern_index = int(repaired_index)
+                    return repaired, {
+                        "flow_edge_index": int(repaired_index),
+                        "flow_strength": flow_strength,
+                        "defect_signature": signature,
+                        "atlas_hit": bool(atlas_hit),
+                        "atlas_pattern_index": int(atlas_pattern_index),
+                        "repair_action": repair_action,
+                    }
+
         mutated = self._mutate_edge(graph, edge_index)
-        flow_strength = 0.0
-        if flow.size > 0 and edge_index >= 0:
-            flow_strength = round(float(flow[edge_index]), _ROUND)
         return mutated, {
             "flow_edge_index": int(edge_index),
             "flow_strength": flow_strength,
+            "defect_signature": signature,
+            "atlas_hit": bool(atlas_hit),
+            "atlas_pattern_index": atlas_pattern_index,
+            "repair_action": repair_action,
             "mode_index": None if mode_index is None else int(mode_index),
             "ipr_localization_score": ipr_score,
             "localization_edge_count": int(cluster.size if use_ipr_localization else flow.size),
@@ -194,6 +197,17 @@ class NBEigenvectorFlowMutator:
                 "mutation_size": int(mutation_size),
             })
         return mutated, meta
+
+    def _apply_repair_action(self, graph: np.ndarray, repair_action: str) -> tuple[np.ndarray, int | None]:
+        if not isinstance(repair_action, str):
+            return np.asarray(graph, dtype=np.float64).copy(), None
+        if not repair_action.startswith("flow_edge_"):
+            return np.asarray(graph, dtype=np.float64).copy(), None
+        try:
+            edge_index = int(repair_action.split("flow_edge_", 1)[1])
+        except ValueError:
+            return np.asarray(graph, dtype=np.float64).copy(), None
+        return self._mutate_edge(graph, edge_index), int(edge_index)
 
     def _mutate_edge(self, graph: np.ndarray, edge_index: int) -> np.ndarray:
         """Deterministic edge rewiring for a binary parity-check matrix."""

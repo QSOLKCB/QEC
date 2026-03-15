@@ -8,10 +8,16 @@ import numpy as np
 import scipy.linalg
 import scipy.sparse
 
-from src.qec.analysis.bethe_hessian_utils import BetheHessianCache
+from src.qec.analysis.bethe_hessian_utils import BetheHessianCache, build_bethe_hessian as build_bh_cached
 from src.qec.analysis.eigenmode_mutation import build_bethe_hessian as build_tanner_bethe_hessian
 
 _ROUND = 12
+
+
+def _to_dense_float64(A: np.ndarray | scipy.sparse.spmatrix) -> np.ndarray:
+    if scipy.sparse.issparse(A):
+        return np.asarray(A.toarray(), dtype=np.float64)
+    return np.asarray(A, dtype=np.float64)
 
 
 def build_bethe_hessian(A: np.ndarray | scipy.sparse.spmatrix, r: float) -> np.ndarray:

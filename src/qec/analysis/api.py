@@ -38,6 +38,7 @@ _MODULES = [
     "basin_diagnostics",
     "bethe_hessian_fast",
     "spectral_frustration",
+    "trap_memory",
 ]
 
 for mod in _MODULES:

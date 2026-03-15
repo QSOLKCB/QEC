@@ -23,6 +23,7 @@ from src.qec.analysis.nb_spectral_basin_steering import NBSpectralBasinSteering
 from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
+from src.qec.analysis.trap_memory import TrapMemory, TrapMemoryConfig
 from src.qec.discovery.spectral_beam_search import adaptive_beam_width, plan_two_step_swap
 
 
@@ -64,6 +65,7 @@ class NBGradientMutator:
         eta_frustration: float = 0.25,
         frustration_eval_limit: int = 8,
         track_trap_modes: bool = False,
+        trap_memory_config: TrapMemoryConfig | None = None,
         precision: int = _ROUND,
     ) -> None:
         if not (0.0 <= flow_damping_alpha <= 1.0):
@@ -91,6 +93,7 @@ class NBGradientMutator:
         self.eta_frustration = float(eta_frustration)
         self.frustration_eval_limit = max(1, int(frustration_eval_limit))
         self.track_trap_modes = bool(track_trap_modes)
+        self.trap_memory_config = trap_memory_config or TrapMemoryConfig()
         self.precision = precision
         self._analyzer = NBInstabilityGradientAnalyzer()
         self._trapping_predictor = NBTrappingSetPredictor(precision=precision)
@@ -98,6 +101,7 @@ class NBGradientMutator:
         self._nb_flow = NonBacktrackingFlowAnalyzer()
         self._frustration = SpectralFrustrationAnalyzer(precision=precision)
         self._trap_modes: list[np.ndarray] = []
+        self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
         self._energy_deltas: list[float] = []
         self._basin_depth_config = BasinDepthConfig(precision=precision)
 
@@ -112,6 +116,8 @@ class NBGradientMutator:
             return H_new, []
 
         self._energy_deltas = []
+        if self.trap_memory_config.enabled:
+            self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
         mutations: list[dict[str, Any]] = []
         for _ in range(steps):
             gradient = self._analyzer.compute_gradient(H_new)
@@ -138,6 +144,8 @@ class NBGradientMutator:
             return H_new, []
 
         self._energy_deltas = []
+        if self.trap_memory_config.enabled:
+            self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
         mutations: list[dict[str, Any]] = []
         prev_direction: dict[tuple[int, int], float] = {}
         for _ in range(iterations):
@@ -379,7 +387,10 @@ class NBGradientMutator:
         base = self._frustration.compute_frustration(H)
         if self.track_trap_modes:
             self._trap_modes = [np.asarray(mode, dtype=np.float64).copy() for mode in base.trap_modes]
-            self._trap_modes = self._trap_modes[-MAX_TRAP_MODES:]
+        if self.trap_memory_config.enabled and self._is_strong_trap(base.max_ipr, base.trap_modes):
+            base_vec = self._select_trap_vector(base.trap_modes)
+            if base_vec is not None:
+                self._trap_memory.add(base_vec)
 
         ranked = sorted(candidates, key=lambda c: (float(c["score"]), int(c["swap_index"])))
         eval_top_k = min(len(ranked), int(self.frustration_eval_limit))
@@ -393,7 +404,23 @@ class NBGradientMutator:
             cand["delta_frustration"] = delta_frustration
             cand["negative_modes"] = int(nxt.negative_modes)
             cand["max_ipr"] = round(float(nxt.max_ipr), self.precision)
-            cand["score"] = round(float(cand["score"]) + float(self.eta_frustration) * delta_frustration, self.precision)
+            trap_similarity = 0.0
+            trap_penalty = 0.0
+            if self.trap_memory_config.enabled:
+                trap_vec = self._select_trap_vector(nxt.trap_modes)
+                if trap_vec is not None:
+                    trap_similarity = self._trap_memory.similarity(trap_vec)
+                    trap_penalty = float(self.trap_memory_config.eta_trap) * float(trap_similarity)
+                    cand["_trap_vector"] = trap_vec
+            cand["trap_similarity"] = round(float(trap_similarity), self.precision)
+            cand["trap_penalty"] = round(float(trap_penalty), self.precision)
+            cand["trap_memory_size"] = int(len(self._trap_memory.trap_vectors))
+            cand["score"] = round(
+                float(cand["score"])
+                + float(self.eta_frustration) * delta_frustration
+                - float(trap_penalty),
+                self.precision,
+            )
             evaluated.add(int(cand["swap_index"]))
 
         base_score = round(float(base.frustration_score), self.precision)
@@ -405,6 +432,9 @@ class NBGradientMutator:
             cand["delta_frustration"] = 0.0
             cand["negative_modes"] = int(base.negative_modes)
             cand["max_ipr"] = round(float(base.max_ipr), self.precision)
+            cand["trap_similarity"] = 0.0
+            cand["trap_penalty"] = 0.0
+            cand["trap_memory_size"] = int(len(self._trap_memory.trap_vectors)) if self.trap_memory_config.enabled else 0
 
         candidates.sort(key=lambda c: (float(c["score"]), int(c["swap_index"])))
 
@@ -508,6 +538,9 @@ class NBGradientMutator:
             "delta_frustration": round(float(candidate.get("delta_frustration", 0.0)), self.precision),
             "negative_modes": int(candidate.get("negative_modes", 0)),
             "max_ipr": round(float(candidate.get("max_ipr", 0.0)), self.precision),
+            "trap_similarity": round(float(candidate.get("trap_similarity", 0.0)), self.precision),
+            "trap_penalty": round(float(candidate.get("trap_penalty", 0.0)), self.precision),
+            "trap_memory_size": int(candidate.get("trap_memory_size", 0)),
             "beam_search_used": plan is not None,
             "beam_width": int(beam_width_used) if plan is not None else 0,
             "planned_sequence_score": (
@@ -518,7 +551,27 @@ class NBGradientMutator:
             "planner_depth": 2 if plan is not None else 1,
             "basin_depth": round(float(basin_depth), self.precision) if plan is not None else 0.0,
         }
+        if self.trap_memory_config.enabled and "_trap_vector" in candidate:
+            self._trap_memory.add(np.asarray(candidate["_trap_vector"], dtype=np.float64))
         return result
+
+    @staticmethod
+    def _is_strong_trap(max_ipr: float, trap_modes: tuple[np.ndarray, ...]) -> bool:
+        return bool(trap_modes) or float(max_ipr) >= 0.2
+
+    @staticmethod
+    def _select_trap_vector(trap_modes: tuple[np.ndarray, ...]) -> np.ndarray | None:
+        if not trap_modes:
+            return None
+        vectors: list[np.ndarray] = []
+        for mode in trap_modes:
+            vec = TrapMemory.canonicalize(np.asarray(mode, dtype=np.float64))
+            if vec.size > 0 and float(np.linalg.norm(vec)) > 0.0:
+                vectors.append(vec)
+        if not vectors:
+            return None
+        vectors.sort(key=lambda vec: tuple(float(x) for x in vec.tolist()))
+        return vectors[0]
 
     def _find_partner_check(
         self,

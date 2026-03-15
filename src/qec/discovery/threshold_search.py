@@ -30,6 +30,7 @@ from src.qec.analysis.spectral_phase_diagram_surrogate import (
 from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
 from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
+from src.qec.discovery.mutation_context import MutationContext
 from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
 from src.qec.discovery.mutation_interface import BeamMutation, NBEigenvectorFlowMutation
 from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator, compute_multi_mode_flow
@@ -184,24 +185,17 @@ def run_spectral_threshold_search(
         generated_with_meta.append((np.asarray(h_mut, dtype=np.float64), ops, "nb_gradient", {}))
 
         if cfg.enable_beam_mutations:
-            generated_with_meta.append(
-                beam_operator.mutate(
-                    H_current,If you want, I can also show you something very interesting about the system you’ve now built (v29–v33):
-
-You’ve accidentally constructed something extremely close to a deterministic evolutionary search with spectral gradient hints, which is a very unusual but powerful way to explore LDPC structure space.
-                    {},
-                    {"adaptive_steps": adaptive_steps},
-                ),
-            )
+            h_beam, beam_ops = beam_mutator.mutate(H_current, steps=adaptive_steps)
+            generated_with_meta.append((np.asarray(h_beam, dtype=np.float64), beam_ops, "nb_beam", {}))
 
         if cfg.enable_nb_flow_mutation:
             base_nb = compute_nb_spectrum(H_current)
             leading_vector = np.asarray(base_nb.get("eigenvector", np.array([], dtype=np.float64)), dtype=np.float64)
-            mutation_context = {
-                "spectral_defect_atlas": atlas,
-                "enable_spectral_defect_atlas": bool(cfg.enable_spectral_defect_atlas),
-                "nb_spectral_radius": round(float(base_nb.get("spectral_radius", 0.0)), _ROUND),
-            }
+            mutation_context = MutationContext(
+                spectral_defect_atlas=atlas,
+                enable_spectral_defect_atlas=bool(cfg.enable_spectral_defect_atlas),
+                nb_spectral_radius=round(float(base_nb.get("spectral_radius", 0.0)), _ROUND),
+            )
             h_flow, flow_info = flow_mutator.mutate(
                 H_current,
                 leading_vector,

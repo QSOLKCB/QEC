@@ -28,6 +28,7 @@ from src.qec.discovery.spectral_beam_search import adaptive_beam_width, plan_two
 
 
 _ROUND = 12
+MAX_TRAP_MODES = 32
 
 
 class NBGradientMutator:
@@ -318,6 +319,11 @@ class NBGradientMutator:
         if nb_alignment_map is None:
             nb_alignment_map = {}
         check_neighbors, var_neighbors = self._build_neighbors(H)
+        var_set = set(range(n))
+        non_neighbors = {
+            ci: sorted(var_set - check_neighbors[ci])
+            for ci in range(m)
+        }
 
         ranked_edges = sorted(adjusted_edge_scores, key=lambda e: (-adjusted_edge_scores[e], e[0], e[1]))
 
@@ -328,8 +334,8 @@ class NBGradientMutator:
 
             base_grad = gradient_direction.get((ci, vi), 0.0)
             candidates: list[tuple[float, int, int]] = []
-            for vj in range(n):
-                if vj == vi or H[ci, vj] != 0:
+            for vj in non_neighbors[ci]:
+                if vj == vi:
                     continue
 
                 grad_target = round(

@@ -9,6 +9,9 @@ import scipy.linalg
 import scipy.sparse
 
 from src.qec.analysis.bethe_hessian_utils import BetheHessianCache, build_bethe_hessian as build_bh_cached
+from src.qec.analysis.bethe_hessian_fast import BetheHessianBuilder
+from src.qec.analysis.bethe_hessian_utils import BetheHessianCache
+from src.qec.analysis.eigenmode_mutation import build_bethe_hessian as build_tanner_bethe_hessian
 
 
 @dataclass(frozen=True)
@@ -18,6 +21,11 @@ class SpectralFrustrationConfig:
 
 
 @dataclass(frozen=True, eq=False)
+    trap_threshold: float = 0.1
+    precision: int = 12
+
+
+@dataclass(frozen=True)
 class SpectralFrustrationResult:
     frustration_score: float
     negative_modes: int
@@ -39,6 +47,53 @@ class SpectralFrustrationResult:
         if len(self.trap_modes) != len(other.trap_modes):
             return False
         return all(np.array_equal(a, b) for a, b in zip(self.trap_modes, other.trap_modes))
+        if (
+            float(self.frustration_score) != float(other.frustration_score)
+            or int(self.negative_modes) != int(other.negative_modes)
+            or float(self.max_ipr) != float(other.max_ipr)
+            or float(self.transport_imbalance) != float(other.transport_imbalance)
+            or len(self.trap_modes) != len(other.trap_modes)
+        ):
+            return False
+        for a, b in zip(self.trap_modes, other.trap_modes):
+            if not np.array_equal(np.asarray(a, dtype=np.float64), np.asarray(b, dtype=np.float64)):
+                return False
+        return True
+
+
+@dataclass(frozen=True)
+class SpectralFrustrationConfig:
+    trap_threshold: float = 0.15
+    r: float = 1.5
+    precision: int = 12
+    normalize_frustration: bool = False
+
+
+@dataclass(frozen=True, eq=False)
+class SpectralFrustrationResult:
+    frustration_score: float
+    negative_modes: int
+    max_ipr: float
+    transport_imbalance: float
+    trap_modes: tuple[np.ndarray, ...]
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SpectralFrustrationResult):
+            return False
+        if (
+            self.frustration_score != other.frustration_score
+            or self.negative_modes != other.negative_modes
+            or self.max_ipr != other.max_ipr
+            or self.transport_imbalance != other.transport_imbalance
+            or len(self.trap_modes) != len(other.trap_modes)
+        ):
+            return False
+        return all(np.array_equal(a, b) for a, b in zip(self.trap_modes, other.trap_modes))
+
+def _to_dense_float64(A: np.ndarray | scipy.sparse.spmatrix) -> np.ndarray:
+    if isinstance(A, np.ndarray):
+        return np.asarray(A, dtype=np.float64)
+    return np.asarray(scipy.sparse.csr_matrix(A, dtype=np.float64).toarray(), dtype=np.float64)
 
 
 def build_bethe_hessian(A: np.ndarray | scipy.sparse.spmatrix, r: float) -> np.ndarray:
@@ -51,7 +106,7 @@ def build_bethe_hessian(A: np.ndarray | scipy.sparse.spmatrix, r: float) -> np.n
 
 def apply_swap(A: np.ndarray | scipy.sparse.spmatrix, ci: int, vi: int, cj: int, vj: int) -> np.ndarray:
     """Apply deterministic 2-edge swap on a symmetric adjacency matrix copy."""
-    A_trial = np.asarray(scipy.sparse.csr_matrix(A, dtype=np.float64).toarray(), dtype=np.float64).copy()
+    A_trial = _to_dense_float64(A).copy()
     ci_i, vi_i, cj_i, vj_i = int(ci), int(vi), int(cj), int(vj)
 
     A_trial[ci_i, vi_i] = 0.0
@@ -68,7 +123,7 @@ def apply_swap(A: np.ndarray | scipy.sparse.spmatrix, ci: int, vi: int, cj: int,
 
 def count_negative_modes(H: np.ndarray | scipy.sparse.spmatrix) -> int:
     """Count negative modes using deterministic Sylvester inertia (LDL)."""
-    H_arr = np.asarray(scipy.sparse.csr_matrix(H, dtype=np.float64).toarray(), dtype=np.float64)
+    H_arr = _to_dense_float64(H)
     _, D, _ = scipy.linalg.ldl(H_arr, lower=True, hermitian=True)
     return int(np.sum(np.diag(D) < 0.0))
 
@@ -211,6 +266,7 @@ def spectral_frustration_count(
     A: np.ndarray | scipy.sparse.spmatrix,
     r: float,
     candidate_swaps: list[tuple[int, int, int, int]] | None = None,
+    flow_field: object | None = None,
 ) -> dict[str, object]:
     """Evaluate baseline and candidate frustration as negative-mode counts."""
     analyzer = SpectralFrustrationAnalyzer()

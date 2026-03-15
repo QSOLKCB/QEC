@@ -52,6 +52,8 @@ class SpectralSearchConfig:
     max_bp_candidates: int = 5
     enable_predictor_recalibration: bool = False
     recalibration_interval: int = 20
+    enable_spectral_trapping_repair: bool = False
+    trapping_localization_fraction: float = 0.2
 
 
 class PhaseDiagramOrchestrator:
@@ -149,7 +151,12 @@ def run_spectral_threshold_search(
         if cfg.enable_nb_flow_mutation:
             base_nb = compute_nb_spectrum(H_current)
             leading_vector = np.asarray(base_nb.get("eigenvector", np.array([], dtype=np.float64)), dtype=np.float64)
-            h_flow, flow_info = flow_mutator.mutate(H_current, leading_vector)
+            h_flow, flow_info = flow_mutator.mutate(
+                H_current,
+                leading_vector,
+                enable_spectral_trapping_repair=bool(cfg.enable_spectral_trapping_repair),
+                trapping_localization_fraction=float(cfg.trapping_localization_fraction),
+            )
             generated_with_meta.append((np.asarray(h_flow, dtype=np.float64), [], "nb_flow", flow_info))
 
         candidate_pool: list[dict[str, Any]] = []
@@ -176,6 +183,8 @@ def run_spectral_threshold_search(
                 "trap_similarity": round(float(trap_similarity), _ROUND),
                 "flow_edge_index": source_meta.get("flow_edge_index"),
                 "flow_strength": source_meta.get("flow_strength"),
+                "spectral_cluster_size": int(source_meta.get("spectral_cluster_size", 0)),
+                "trapping_repair_applied": bool(source_meta.get("trapping_repair_applied", False)),
                 "mutations": ops_cand,
             }
             metrics["spectral_radius"] = metrics["nb_spectral_radius"]

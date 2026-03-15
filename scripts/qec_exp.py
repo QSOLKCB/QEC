@@ -35,6 +35,8 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--max-bp-candidates", type=int, default=5)
     search.add_argument("--enable-predictor-recalibration", action="store_true")
     search.add_argument("--recalibration-interval", type=int, default=20)
+    search.add_argument("--enable-spectral-trapping-repair", action="store_true")
+    search.add_argument("--trapping-localization-fraction", type=float, default=0.2)
 
     args = parser.parse_args(argv)
     if args.command == "spectral-search":
@@ -61,6 +63,8 @@ def main(argv: list[str] | None = None) -> int:
             max_bp_candidates=int(args.max_bp_candidates),
             enable_predictor_recalibration=bool(args.enable_predictor_recalibration),
             recalibration_interval=int(args.recalibration_interval),
+            enable_spectral_trapping_repair=bool(args.enable_spectral_trapping_repair),
+            trapping_localization_fraction=float(args.trapping_localization_fraction),
         )
         print("Starting spectral threshold search")
         result = run_spectral_threshold_search(H0, config=cfg)

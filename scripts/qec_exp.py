@@ -25,6 +25,7 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--max-phase-diagram-size", type=int, default=4)
     search.add_argument("--seed", type=int, default=0)
     search.add_argument("--output-dir", type=str, default="experiments/threshold_search")
+    search.add_argument("--enable-bp-diagnostics", action="store_true")
 
     args = parser.parse_args(argv)
     if args.command == "spectral-search":
@@ -41,12 +42,17 @@ def main(argv: list[str] | None = None) -> int:
             max_phase_diagram_size=args.max_phase_diagram_size,
             seed=args.seed,
             output_dir=args.output_dir,
+            enable_bp_diagnostics=bool(args.enable_bp_diagnostics),
         )
         print("Starting spectral threshold search")
         result = run_spectral_threshold_search(H0, config=cfg)
         for item in result["history"]:
             print(f"iteration {item['iteration'] + 1}")
-            print(f"candidate threshold = {item['threshold']}")
+            print(f"threshold = {item['threshold']}")
+            metrics = item.get("spectral_metrics") or {}
+            if "bp_iterations" in metrics:
+                print(f"bp iterations = {metrics['bp_iterations']}")
+                print(f"final residual = {metrics['bp_final_residual']}")
         return 0
 
     return 1

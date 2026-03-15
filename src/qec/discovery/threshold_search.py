@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingEigenvectorFlowAnalyzer
+from src.qec.analysis.bp_diagnostics import collect_bp_diagnostics
 from src.qec.analysis.spectral_entropy import spectral_entropy
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 from src.qec.analysis.trap_memory import TrapSubspaceMemory
@@ -35,6 +36,7 @@ class SpectralSearchConfig:
     trap_similarity_reject: float = 0.999
     min_entropy_reject: float = 0.0
     max_negative_modes_reject: int = 1_000_000
+    enable_bp_diagnostics: bool = False
 
 
 class PhaseDiagramOrchestrator:
@@ -61,7 +63,7 @@ class BPThresholdEstimator:
 
 def _write_canonical_json(path: Path, payload: Any) -> None:
     canonical = canonicalize(payload)
-    text = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+    text = json.dumps(canonical, sort_keys=True, indent=2)
     path.write_text(f"{text}\n", encoding="utf-8")
 
 
@@ -96,6 +98,7 @@ def run_spectral_threshold_search(
     best_graph = H_current.copy()
     history: list[dict[str, Any]] = []
     candidate_metrics: list[dict[str, Any]] = []
+    convergence_records: list[dict[str, Any]] = []
 
     for iteration in range(int(cfg.iterations)):
         baseline = frustration.compute_frustration(H_current)
@@ -153,6 +156,22 @@ def run_spectral_threshold_search(
                 seed=cfg.seed + iteration * 1024 + idx,
             )
             threshold = estimator.estimate(phase)
+            if cfg.enable_bp_diagnostics:
+                diagnostics = collect_bp_diagnostics({
+                    "residuals": [
+                        cell.get("mean_residual_norm", 0.0)
+                        for cell in phase.get("grid_results", [])
+                    ],
+                    "syndrome_weights": [],
+                })
+                metrics["bp_iterations"] = int(diagnostics.iterations_to_converge)
+                metrics["bp_converged"] = bool(diagnostics.converged)
+                metrics["bp_final_residual"] = round(float(diagnostics.final_residual), _ROUND)
+                convergence_records.append({
+                    "iterations": int(diagnostics.iterations_to_converge),
+                    "final_residual": round(float(diagnostics.final_residual), _ROUND),
+                    "converged": bool(diagnostics.converged),
+                })
             ranked.append({
                 "threshold": threshold,
                 "H": H_cand,
@@ -190,6 +209,27 @@ def run_spectral_threshold_search(
 
     _write_canonical_json(output_dir / "search_history.json", {"history": history})
     _write_canonical_json(output_dir / "candidate_metrics.json", {"candidates": candidate_metrics})
+    if cfg.enable_bp_diagnostics:
+        n_records = len(convergence_records)
+        if n_records > 0:
+            mean_iterations = sum(r["iterations"] for r in convergence_records) / n_records
+            max_iterations = max(r["iterations"] for r in convergence_records)
+            convergence_rate = sum(1 for r in convergence_records if r["converged"]) / n_records
+            mean_final_residual = sum(r["final_residual"] for r in convergence_records) / n_records
+        else:
+            mean_iterations = 0.0
+            max_iterations = 0
+            convergence_rate = 0.0
+            mean_final_residual = 0.0
+        _write_canonical_json(
+            output_dir / "convergence_summary.json",
+            {
+                "mean_iterations": round(float(mean_iterations), _ROUND),
+                "max_iterations": int(max_iterations),
+                "convergence_rate": round(float(convergence_rate), _ROUND),
+                "mean_final_residual": round(float(mean_final_residual), _ROUND),
+            },
+        )
 
     result = {
         "best_threshold": None if not np.isfinite(best_threshold) else round(float(best_threshold), _ROUND),

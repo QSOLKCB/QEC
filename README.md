@@ -1,75 +1,113 @@
 # QSOLKCB / QEC
-### Deterministic Spectral Discovery Framework for LDPC and QLDPC Tanner Graphs
+### Deterministic Spectral Discovery Engine for LDPC and QLDPC Tanner Graphs
 
-QEC is a deterministic research framework for analyzing belief-propagation dynamics,
-spectral fragility, and Tanner-graph structure in sparse graphical codes.
+QEC is a deterministic research framework for studying belief-propagation dynamics,
+spectral stability, and Tanner-graph structure in sparse graphical codes.
 
-[![Release v23.1.0](https://img.shields.io/badge/release-v23.1.0-blue)](https://github.com/QSOLKCB/QEC/releases/tag/v23.1.0)
+The system functions as a **spectral discovery engine** capable of evolving LDPC
+and QLDPC parity-check graphs using structural diagnostics, spectral signals,
+and deterministic mutation operators.
+
+Rather than relying on stochastic evolutionary search, QEC performs **fully
+deterministic graph exploration**, allowing Tanner graph discovery experiments
+to be reproduced exactly across machines and runs.
+
+[![Release v34.0.0](https://img.shields.io/badge/release-v34.0.0-blue)](https://github.com/QSOLKCB/QEC/releases/tag/v34.0.0)
 [![Research Framework](https://img.shields.io/badge/type-research%20framework-blue)]
 [![License: CC BY 4.0](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
-QEC
-Deterministic Spectral Discovery for LDPC / QLDPC Tanner Graphs
+## QEC
+### Deterministic Spectral Discovery for LDPC / QLDPC Tanner Graphs
 
-QEC is a deterministic research framework for studying belief-propagation dynamics and Tanner graph structure in classical LDPC and quantum QLDPC codes.
+QEC is a deterministic research framework for studying belief-propagation
+dynamics and Tanner graph structure in classical LDPC and quantum QLDPC codes.
 
-The system combines spectral diagnostics, decoding dynamics analysis, and deterministic graph mutation to explore how parity-check graph structure influences decoding stability.
+The framework combines:
 
-Unlike conventional LDPC simulation toolkits, QEC functions as a deterministic discovery engine capable of evolving Tanner graphs using spectral signals and predicted failure structures.
+- spectral diagnostics
+- decoding dynamics analysis
+- deterministic mutation operators
+- failure-structure prediction
 
-Why This Project Exists
+to explore how parity-check graph structure influences decoding stability.
 
-Belief propagation on sparse graphical models exhibits complex nonlinear behavior:
+Unlike traditional LDPC simulation toolkits, QEC acts as a **deterministic
+Tanner-graph discovery engine** capable of evolving graph structures guided by
+spectral signals and predicted decoding failures.
 
-trapping sets
+Recent versions introduce a **mutation plugin architecture** that allows new
+graph-evolution strategies to be added without modifying the core search
+pipeline.
 
-absorbing sets
+This architecture enables deterministic exploration of Tanner-graph design
+space using physics-inspired signals derived from belief-propagation dynamics.
 
-oscillatory convergence
+---
 
-metastable decoding states
+## Why This Project Exists
 
-incorrect fixed points
+Belief propagation on sparse graphical models exhibits complex nonlinear
+behavior including:
 
-spectral fragility
+- trapping sets
+- absorbing sets
+- oscillatory convergence
+- metastable decoding states
+- incorrect fixed points
+- spectral fragility
 
-These phenomena determine the error-floor behavior of LDPC and QLDPC codes, yet they remain difficult to analyze with traditional design methods.
+These phenomena strongly influence the **error-floor behavior of LDPC and QLDPC
+codes**, yet they remain difficult to analyze with traditional code-design
+approaches.
 
 QEC provides a deterministic experimental laboratory where researchers can:
 
-observe decoder dynamics
+- observe decoder dynamics
+- analyze spectral fragility
+- detect trapping structures
+- evolve Tanner graphs using spectral feedback signals
+- study the geometry of belief-propagation attractors
 
-analyze spectral fragility
+The system enables controlled experiments on how Tanner graph structure affects
+inference stability.
 
-detect trapping structures
+---
 
-evolve Tanner graphs guided by physics-inspired signals
+## How QEC Differs from Traditional LDPC Simulators
 
-Discovery Engine Overview
+Most LDPC software packages focus on **simulating decoder performance** for fixed code constructions.
 
-The core of QEC is a deterministic Tanner graph discovery engine.
+Typical toolkits provide:
 
-Initialize Tanner Graph
-        ↓
-Structural Diagnostics
-        ↓
-Spectral Diagnostics
-        ↓
-Failure Structure Prediction
-        ↓
-Mutation Candidate Generation
-        ↓
-Spectral Scoring
-        ↓
-Apply Best Mutation
-        ↓
-Repeat
+- Monte Carlo BER simulations  
+- decoder implementations  
+- code construction utilities  
+- performance benchmarking
 
-Over time the system evolves Tanner graphs toward improved decoding stability.
+QEC serves a different purpose.
+
+Instead of only simulating existing codes, QEC acts as a **deterministic discovery engine** that explores Tanner graph structure space.
+
+The system analyzes belief-propagation dynamics and uses spectral signals to guide deterministic mutations of parity-check graphs.
+
+This allows researchers to study:
+
+- how Tanner graph structure influences decoding stability  
+- how trapping structures emerge  
+- how spectral fragility predicts decoding failure  
+- how graph mutations can improve decoder behavior
+
+In this sense, QEC functions more like a **laboratory for Tanner graph evolution** than a traditional simulation toolkit.
+
+---
+
+## Discovery Engine Overview
+
+The core of QEC is a deterministic Tanner-graph discovery engine.
 
 System Architecture
 
-The framework follows a layered architecture:
+QEC follows a layered architecture where each stage analyzes or steers the layer below it while preserving deterministic invariants.
 
 Tanner Graph Generation
         ↓
@@ -79,7 +117,9 @@ Spectral Diagnostics
         ↓
 Failure Structure Prediction
         ↓
-Spectral Mutation Operators
+Mutation Plugin Registry
+        ↓
+Mutation Operators
         ↓
 Adaptive Mutation Controller
         ↓
@@ -87,11 +127,13 @@ Local Graph Optimization
         ↓
 Discovery Archive
 
-Each layer analyzes or steers the layer below it while preserving its invariants.
+Recent versions introduce a mutation plugin registry, allowing new Tanner-graph mutation algorithms to be added without modifying the core discovery engine.
+
+All mutation operators implement a shared interface and are executed in deterministic order based on spectral scoring signals.
 
 Spectral Signals Used for Discovery
 
-The discovery engine uses multiple structural and spectral diagnostics.
+The discovery engine relies on several structural and spectral diagnostics.
 
 Spectral Structure
 
@@ -105,6 +147,8 @@ spectral entropy
 
 spectral diversity
 
+These quantities describe the stability landscape of belief propagation on the Tanner graph.
+
 Structural Signals
 
 trapping-set prediction
@@ -115,6 +159,8 @@ ACE constraints
 
 residual decoding dynamics
 
+These signals characterize graph structures that destabilize belief propagation.
+
 Flow Diagnostics
 
 non-backtracking flow fields
@@ -123,25 +169,51 @@ cycle pressure
 
 spectral basin detection
 
-These signals allow physics-informed Tanner graph evolution.
+These diagnostics help guide mutation operators toward structurally meaningful graph modifications.
+
+Mutation System
+
+Modern versions of QEC implement Tanner-graph evolution through a deterministic mutation framework.
+
+The mutation system now consists of:
+
+MutationContext
+        ↓
+MutationRegistry
+        ↓
+MutationOperators
+        ↓
+Deterministic Spectral Scoring
+
+Mutation operators can include:
+
+non-backtracking eigenvector flow mutations
+
+trapping-set repair mutations
+
+spectral defect atlas reuse
+
+future structural mutation operators
+
+Operators are executed in deterministic order based on spectral signals such as the non-backtracking spectral radius.
+
+This allows multiple mutation strategies to compete within the same discovery pipeline.
 
 Exploration Control
 
-Modern versions include mechanisms preventing the optimizer from repeatedly rediscovering similar structures.
+To prevent the discovery engine from repeatedly rediscovering the same structures, QEC maintains deterministic exploration controls.
 
-Exploration tools include:
+These include:
 
-trap memory
+spectral mutation memory
 
-trap subspace memory
+spectral defect atlas reuse
 
-spectral diversity memory
+diversity-preserving mutation ordering
 
-entropy-guided exploration
+deterministic scoring of mutation operators
 
-temperature-annealed exploration
-
-These mechanisms encourage the discovery engine to explore new regions of Tanner graph space.
+These mechanisms encourage exploration of new regions of Tanner-graph space while maintaining reproducibility.
 
 Deterministic Experiment Design
 
@@ -165,6 +237,8 @@ np.random.RandomState(seed)
 
 Same seed → identical results.
 
+This property allows Tanner-graph discovery experiments to be reproduced exactly.
+
 Running Experiments
 
 Install the project:
@@ -176,18 +250,26 @@ For development tools:
 pip install -e .[dev]
 CLI Experiment System
 
-Experiments are executed through the deterministic CLI:
+Experiments are executed through the deterministic CLI.
 
-qec-exp
-Run a registered experiment
+Run a registered experiment:
+
 qec-exp run bp-threshold
-Generate a phase diagram
+
+Generate a phase diagram:
+
 qec-exp phase-diagram bp-threshold
-Estimate BP threshold
+
+Estimate BP threshold:
+
 qec-exp estimate-threshold bp-threshold
-Run spectral Tanner graph search
+
+Run spectral Tanner graph discovery:
+
 qec-exp spectral-search --iterations 10
-Enable BP convergence diagnostics
+
+Enable BP convergence diagnostics:
+
 qec-exp spectral-search --iterations 10 --enable-bp-diagnostics
 
 Experiments produce deterministic JSON artifacts for analysis.
@@ -196,7 +278,7 @@ Research Applications
 
 QEC enables research into:
 
-belief propagation attractor geometry
+belief-propagation attractor geometry
 
 trapping-set dynamics
 
@@ -208,7 +290,7 @@ LDPC / QLDPC code discovery
 
 structure-aware decoding strategies
 
-The system acts as a deterministic laboratory for inference dynamics in sparse graphical models.
+The system acts as a deterministic laboratory for studying inference dynamics in sparse graphical models.
 
 Project Documents
 
@@ -227,6 +309,7 @@ Determinism is essential.
 Transparent algorithms beat opaque heuristics.
 
 Negative results are data.
+
 Citation
 
 If you use this framework in research, please cite:

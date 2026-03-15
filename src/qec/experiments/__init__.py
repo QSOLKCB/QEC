@@ -56,6 +56,7 @@ from .stability_phase_diagram import (
     log_most_unstable_subgraph,
     track_repair_boundary_shift,
 )
+from .experiment_hash import ExperimentHash, ExperimentRunner
 
 from .experiment_metadata import ExperimentMetadata, git_commit, repo_version
 from .experiment_runner import ExperimentRunner

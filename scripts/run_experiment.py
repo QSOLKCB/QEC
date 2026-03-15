@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Run an opt-in deterministic experiment via ExperimentRunner."""
+"""Run deterministic experiment artifacts with optional parameter sweeps."""
 
 from __future__ import annotations
 
@@ -14,7 +14,8 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.experiments.experiment_runner import ExperimentRunner
+from src.qec.experiments.experiment_hash import ExperimentHash, ExperimentRunner
+from src.qec.experiments.parameter_sweep import run_parameter_sweep
 
 
 def _load_config(path: str) -> dict[str, Any]:
@@ -57,14 +58,29 @@ def main() -> int:
     args = parser.parse_args()
 
     config = _load_config(args.config)
-    function_path = config.get("function")
-    if not isinstance(function_path, str):
-        raise ValueError("Config must include string field 'function'")
+    if isinstance(config.get("sweep"), dict):
+        run_parameter_sweep(config)
+        return 0
 
-    fn = _resolve_function(function_path)
-    runner = ExperimentRunner(config)
-    result = runner.run(fn)
-    print(result["artifact_dir"])
+    callable_path = config.get("callable", config.get("function"))
+    if not isinstance(callable_path, str):
+        raise ValueError("Config must include string field 'callable' or 'function'")
+
+    fn = _resolve_function(callable_path)
+    artifacts_root = config.get("artifacts_root", config.get("output_root", "experiments"))
+    runner = ExperimentRunner(artifacts_root=artifacts_root)
+    run_config = {
+        key: value
+        for key, value in config.items()
+        if key not in {"callable", "function", "artifacts_root", "output_root"}
+    }
+    result = runner.run(run_config, fn)
+    exp_hash = ExperimentHash.compute(
+        run_config,
+        experiment_callable=f"{fn.__module__}:{fn.__name__}",
+    )
+    print(f"hash={exp_hash}")
+    print(json.dumps(result, sort_keys=True, indent=2))
     return 0
 
 

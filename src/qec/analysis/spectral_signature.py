@@ -1,45 +1,14 @@
-"""Deterministic spectral signatures for Tanner-graph diversity tracking."""
+"""Deterministic spectral signature helpers."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
-
-from src.qec.analysis.spectral_entropy import spectral_entropy
-
-
-@dataclass(frozen=True)
-class SpectralSignature:
-    """Compact deterministic spectral signature."""
-
-    spectral_radius: float
-    mode_ipr: float
-    support_fraction: float
-    topk_mass_fraction: float
-    spectral_entropy: float
-
-
-
-def with_entropy(
-    *,
-    spectral_radius: float,
-    mode_ipr: float,
-    support_fraction: float,
-    topk_mass_fraction: float,
-    nb_eigenvalues: np.ndarray,
-    precision: int = 12,
-) -> SpectralSignature:
-    """Build a signature with deterministic entropy rounding."""
-    return SpectralSignature(
-        spectral_radius=round(float(spectral_radius), precision),
-        mode_ipr=round(float(mode_ipr), precision),
-        support_fraction=round(float(support_fraction), precision),
-        topk_mass_fraction=round(float(topk_mass_fraction), precision),
-        spectral_entropy=spectral_entropy(nb_eigenvalues, precision=precision),
 import scipy.sparse
 
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from src.qec.analysis.spectral_entropy import spectral_entropy
 from src.qec.diagnostics.non_backtracking_spectrum import compute_non_backtracking_spectrum
 
 _ROUND = 12
@@ -47,13 +16,17 @@ _ROUND = 12
 
 @dataclass(frozen=True, eq=False)
 class SpectralSignature:
-    """Compact deterministic signature of a Tanner graph state."""
+    """Compact deterministic signature used by analysis and discovery layers."""
 
-    nb_spectrum: np.ndarray
-    bh_negative_modes: int
-    bh_energy: float
-    max_ipr: float
-
+    nb_spectrum: np.ndarray = field(default_factory=lambda: np.zeros((0,), dtype=np.float64))
+    bh_negative_modes: int = 0
+    bh_energy: float = 0.0
+    max_ipr: float = 0.0
+    spectral_radius: float = 0.0
+    mode_ipr: float = 0.0
+    support_fraction: float = 0.0
+    topk_mass_fraction: float = 0.0
+    spectral_entropy: float = 0.0
 
     @property
     def nb_spectrum_magnitudes(self) -> np.ndarray:
@@ -75,6 +48,11 @@ class SpectralSignature:
             and self.bh_negative_modes == other.bh_negative_modes
             and float(self.bh_energy) == float(other.bh_energy)
             and float(self.max_ipr) == float(other.max_ipr)
+            and float(self.spectral_radius) == float(other.spectral_radius)
+            and float(self.mode_ipr) == float(other.mode_ipr)
+            and float(self.support_fraction) == float(other.support_fraction)
+            and float(self.topk_mass_fraction) == float(other.topk_mass_fraction)
+            and float(self.spectral_entropy) == float(other.spectral_entropy)
         )
 
 
@@ -95,7 +73,31 @@ def _tanner_adjacency(H: np.ndarray) -> np.ndarray:
     return np.concatenate([top, bottom], axis=0)
 
 
-def compute_signature(H: np.ndarray | scipy.sparse.spmatrix, *, num_nb_values: int = 6, precision: int = _ROUND) -> SpectralSignature:
+def with_entropy(
+    *,
+    spectral_radius: float,
+    mode_ipr: float,
+    support_fraction: float,
+    topk_mass_fraction: float,
+    nb_eigenvalues: np.ndarray,
+    precision: int = _ROUND,
+) -> SpectralSignature:
+    """Build a deterministic entropy-based spectral signature."""
+    return SpectralSignature(
+        spectral_radius=_round64(spectral_radius, precision),
+        mode_ipr=_round64(mode_ipr, precision),
+        support_fraction=_round64(support_fraction, precision),
+        topk_mass_fraction=_round64(topk_mass_fraction, precision),
+        spectral_entropy=spectral_entropy(nb_eigenvalues, precision=precision),
+    )
+
+
+def compute_signature(
+    H: np.ndarray | scipy.sparse.spmatrix,
+    *,
+    num_nb_values: int = 6,
+    precision: int = _ROUND,
+) -> SpectralSignature:
     """Compute deterministic spectral signature for a parity-check matrix."""
     H_arr = _to_dense64(H)
 
@@ -106,6 +108,7 @@ def compute_signature(H: np.ndarray | scipy.sparse.spmatrix, *, num_nb_values: i
     else:
         complex_vals = eigvals[:, 0] + 1j * eigvals[:, 1]
         mags = np.abs(complex_vals).astype(np.float64, copy=False)
+
     k = max(1, int(num_nb_values))
     if mags.size >= k:
         nb_spectrum = mags[:k]

@@ -137,3 +137,16 @@ class SpectralTestSelector:
         module_tests = self.tests_for_modules(modules)
         direct_tests = self.changed_test_files(files)
         return sorted(set(module_tests).union(direct_tests))
+
+
+def module_name_from_path(path: str) -> str | None:
+    """Backward-compatible wrapper for module path mapping."""
+    return SpectralTestSelector.module_from_path(path)
+
+
+def select_tests_for_changed_files(
+    changed_files: list[str],
+    repo_root: str | Path | None = None,
+) -> list[str]:
+    """Backward-compatible wrapper for deterministic test selection."""
+    return SpectralTestSelector(repo_root=repo_root).select_tests(changed_files)

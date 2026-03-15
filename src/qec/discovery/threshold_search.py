@@ -21,7 +21,8 @@ from src.qec.analysis.predictor_recalibration import apply_recalibration, comput
 from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
 from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
-from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
+from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator, compute_multi_mode_flow
+from src.qec.spectral.nb_spectrum import select_unstable_nb_modes
 from src.qec.experiments.stability_phase_diagram import run_stability_phase_diagram_experiment
 from src.utils.canonicalize import canonicalize
 
@@ -37,6 +38,8 @@ class SpectralSearchConfig:
     output_dir: str = "experiments/threshold_search"
     enable_beam_mutations: bool = True
     enable_nb_flow_mutation: bool = False
+    enable_multi_mode_nb_mutation: bool = False
+    nb_mutation_modes: int = 3
     enable_adaptive_mutation: bool = True
     trap_similarity_reject: float = 0.999
     min_entropy_reject: float = 0.0
@@ -149,7 +152,22 @@ def run_spectral_threshold_search(
         if cfg.enable_nb_flow_mutation:
             base_nb = compute_nb_spectrum(H_current)
             leading_vector = np.asarray(base_nb.get("eigenvector", np.array([], dtype=np.float64)), dtype=np.float64)
-            h_flow, flow_info = flow_mutator.mutate(H_current, leading_vector)
+            flow_input: np.ndarray = leading_vector
+            selected_mode_count = 1
+            multi_mode_strength = 0.0
+            if cfg.enable_multi_mode_nb_mutation:
+                eigvals, eigvecs = flow_analyzer.compute_modes(H_current)
+                selected_vecs, selected_vals = select_unstable_nb_modes(
+                    eigvals,
+                    eigvecs,
+                    k_modes=int(cfg.nb_mutation_modes),
+                )
+                flow_input = compute_multi_mode_flow(selected_vecs)
+                selected_mode_count = int(max(1, int(cfg.nb_mutation_modes)))
+                multi_mode_strength = round(float(np.linalg.norm(flow_input)), _ROUND)
+            h_flow, flow_info = flow_mutator.mutate(H_current, flow_input)
+            flow_info["nb_mutation_modes"] = int(selected_mode_count)
+            flow_info["multi_mode_flow_strength"] = round(float(multi_mode_strength), _ROUND)
             generated_with_meta.append((np.asarray(h_flow, dtype=np.float64), [], "nb_flow", flow_info))
 
         candidate_pool: list[dict[str, Any]] = []
@@ -176,6 +194,8 @@ def run_spectral_threshold_search(
                 "trap_similarity": round(float(trap_similarity), _ROUND),
                 "flow_edge_index": source_meta.get("flow_edge_index"),
                 "flow_strength": source_meta.get("flow_strength"),
+                "nb_mutation_modes": source_meta.get("nb_mutation_modes"),
+                "multi_mode_flow_strength": source_meta.get("multi_mode_flow_strength"),
                 "mutations": ops_cand,
             }
             metrics["spectral_radius"] = metrics["nb_spectral_radius"]

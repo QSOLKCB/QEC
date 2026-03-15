@@ -1,5 +1,8 @@
-# QSOLKCB / QEC  
-### Deterministic Spectral Discovery Framework for LDPC / QLDPC Tanner Graphs
+# QSOLKCB / QEC
+### Deterministic Spectral Discovery Framework for LDPC and QLDPC Tanner Graphs
+
+QEC is a deterministic research framework for analyzing belief-propagation dynamics,
+spectral fragility, and Tanner-graph structure in sparse graphical codes.
 
 [![Release v23.1.0](https://img.shields.io/badge/release-v23.1.0-blue)](https://github.com/QSOLKCB/QEC/releases/tag/v23.1.0)
 [![Research Framework](https://img.shields.io/badge/type-research%20framework-blue)]

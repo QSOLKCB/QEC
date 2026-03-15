@@ -37,6 +37,8 @@ class SpectralSearchConfig:
     output_dir: str = "experiments/threshold_search"
     enable_beam_mutations: bool = True
     enable_nb_flow_mutation: bool = False
+    enable_ipr_localized_nb_flow: bool = False
+    ipr_localization_fraction: float = 0.1
     enable_adaptive_mutation: bool = True
     trap_similarity_reject: float = 0.999
     min_entropy_reject: float = 0.0
@@ -149,7 +151,12 @@ def run_spectral_threshold_search(
         if cfg.enable_nb_flow_mutation:
             base_nb = compute_nb_spectrum(H_current)
             leading_vector = np.asarray(base_nb.get("eigenvector", np.array([], dtype=np.float64)), dtype=np.float64)
-            h_flow, flow_info = flow_mutator.mutate(H_current, leading_vector)
+            h_flow, flow_info = flow_mutator.mutate(
+                H_current,
+                leading_vector,
+                use_ipr_localization=bool(cfg.enable_ipr_localized_nb_flow),
+                localization_fraction=float(cfg.ipr_localization_fraction),
+            )
             generated_with_meta.append((np.asarray(h_flow, dtype=np.float64), [], "nb_flow", flow_info))
 
         candidate_pool: list[dict[str, Any]] = []
@@ -176,6 +183,8 @@ def run_spectral_threshold_search(
                 "trap_similarity": round(float(trap_similarity), _ROUND),
                 "flow_edge_index": source_meta.get("flow_edge_index"),
                 "flow_strength": source_meta.get("flow_strength"),
+                "ipr_localization_score": source_meta.get("ipr_localization_score"),
+                "localization_edge_count": source_meta.get("localization_edge_count"),
                 "mutations": ops_cand,
             }
             metrics["spectral_radius"] = metrics["nb_spectral_radius"]

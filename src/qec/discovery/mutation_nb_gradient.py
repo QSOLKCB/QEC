@@ -21,12 +21,19 @@ from src.qec.analysis.basin_depth import BasinDepthConfig, compute_basin_depth
 from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
 from src.qec.analysis.nb_spectral_basin_steering import NBSpectralBasinSteering
 from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
+from src.qec.analysis.nonbacktracking_flow import NonBacktrackingEigenvectorFlowAnalyzer, NonBacktrackingFlowAnalyzer
+from src.qec.analysis.spectral_entropy import spectral_entropy
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from src.qec.analysis.spectral_diversity_memory import SpectralDiversityConfig, SpectralDiversityMemory
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
+from src.qec.diagnostics.spectral_entropy import compute_spectral_entropy
+from src.qec.analysis.trap_memory import TrapMemoryConfig, TrapSubspaceMemory
+from src.qec.analysis.spectral_signature import compute_signature
 from src.qec.discovery.spectral_beam_search import adaptive_beam_width, plan_two_step_swap
 
 
 _ROUND = 12
+MAX_TRAP_MODES = 32
 
 
 class NBGradientMutator:
@@ -61,8 +68,16 @@ class NBGradientMutator:
         eta_nb: float = 0.2,
         frustration_guided: bool = False,
         eta_frustration: float = 0.25,
+        enable_spectral_entropy: bool = False,
+        eta_entropy: float = 0.0,
         frustration_eval_limit: int = 8,
         track_trap_modes: bool = False,
+        eta_entropy: float = 0.0,
+        enable_entropy_annealing: bool = False,
+        entropy_temperature_start: float = 1.0,
+        entropy_temperature_decay: float = 100.0,
+        trap_memory: TrapMemoryConfig | None = None,
+        spectral_diversity: SpectralDiversityConfig | None = None,
         precision: int = _ROUND,
     ) -> None:
         if not (0.0 <= flow_damping_alpha <= 1.0):
@@ -88,17 +103,34 @@ class NBGradientMutator:
         self.eta_nb = float(eta_nb)
         self.frustration_guided = bool(frustration_guided)
         self.eta_frustration = float(eta_frustration)
+        self.enable_spectral_entropy = bool(enable_spectral_entropy)
+        self.eta_entropy = float(eta_entropy)
         self.frustration_eval_limit = max(1, int(frustration_eval_limit))
         self.track_trap_modes = bool(track_trap_modes)
+        self.eta_entropy = float(eta_entropy)
+        self.enable_entropy_annealing = bool(enable_entropy_annealing)
+        self.entropy_temperature_start = float(entropy_temperature_start)
+        self.entropy_temperature_decay = float(entropy_temperature_decay)
+        self.trap_memory = trap_memory if trap_memory is not None else TrapMemoryConfig()
+        self.spectral_diversity = spectral_diversity if spectral_diversity is not None else SpectralDiversityConfig()
         self.precision = precision
         self._analyzer = NBInstabilityGradientAnalyzer()
         self._trapping_predictor = NBTrappingSetPredictor(precision=precision)
         self._basin_steering = NBSpectralBasinSteering(precision=precision)
         self._nb_flow = NonBacktrackingFlowAnalyzer()
         self._frustration = SpectralFrustrationAnalyzer(precision=precision)
+        self._nb_eigen = NonBacktrackingEigenvectorFlowAnalyzer()
         self._trap_modes: list[np.ndarray] = []
+        self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
         self._energy_deltas: list[float] = []
+        self._mutation_step = 0
         self._basin_depth_config = BasinDepthConfig(precision=precision)
+        self._diversity_memory = SpectralDiversityMemory(max_entries=int(self.spectral_diversity.max_memory))
+        self._trap_memory = TrapSubspaceMemory(
+            max_entries=int(self.trap_memory.max_entries),
+            max_subspace_dim=int(self.trap_memory.max_subspace_dim),
+            precision=int(self.trap_memory.precision),
+        )
 
     def mutate(
         self,
@@ -111,6 +143,9 @@ class NBGradientMutator:
             return H_new, []
 
         self._energy_deltas = []
+        self._mutation_step = 0
+        if self.trap_memory_config.enabled:
+            self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
         mutations: list[dict[str, Any]] = []
         for _ in range(steps):
             gradient = self._analyzer.compute_gradient(H_new)
@@ -137,6 +172,9 @@ class NBGradientMutator:
             return H_new, []
 
         self._energy_deltas = []
+        self._mutation_step = 0
+        if self.trap_memory_config.enabled:
+            self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
         mutations: list[dict[str, Any]] = []
         prev_direction: dict[tuple[int, int], float] = {}
         for _ in range(iterations):
@@ -232,6 +270,14 @@ class NBGradientMutator:
         )
         if self.frustration_guided and candidates:
             self._apply_frustration_guidance(H, candidates)
+        if self.eta_entropy != 0.0 and candidates:
+            self._apply_entropy_guidance(H, candidates)
+        if self.enable_spectral_entropy and candidates:
+            self._apply_entropy_guidance(H, candidates)
+        if self.trap_memory.enabled and candidates:
+            self._apply_trap_memory_penalty(candidates)
+        if self.spectral_diversity.enabled and candidates:
+            self._apply_spectral_diversity_guidance(H, candidates)
 
         if allow_beam and self._is_beam_activation_state(H, prediction):
             basin_depth = self._compute_current_basin_depth(H, prediction, flow_for_bias)
@@ -310,6 +356,11 @@ class NBGradientMutator:
         if nb_alignment_map is None:
             nb_alignment_map = {}
         check_neighbors, var_neighbors = self._build_neighbors(H)
+        var_set = set(range(n))
+        non_neighbors = {
+            ci: sorted(var_set - check_neighbors[ci])
+            for ci in range(m)
+        }
 
         ranked_edges = sorted(adjusted_edge_scores, key=lambda e: (-adjusted_edge_scores[e], e[0], e[1]))
 
@@ -320,8 +371,8 @@ class NBGradientMutator:
 
             base_grad = gradient_direction.get((ci, vi), 0.0)
             candidates: list[tuple[float, int, int]] = []
-            for vj in range(n):
-                if vj == vi or H[ci, vj] != 0:
+            for vj in non_neighbors[ci]:
+                if vj == vi:
                     continue
 
                 grad_target = round(
@@ -373,6 +424,10 @@ class NBGradientMutator:
         base = self._frustration.compute_frustration(H)
         if self.track_trap_modes:
             self._trap_modes = [np.asarray(mode, dtype=np.float64).copy() for mode in base.trap_modes]
+        if self.trap_memory_config.enabled and self._is_strong_trap(base.max_ipr, base.trap_modes):
+            base_vec = self._select_trap_vector(base.trap_modes)
+            if base_vec is not None:
+                self._trap_memory.add(base_vec)
 
         ranked = sorted(candidates, key=lambda c: (float(c["score"]), int(c["swap_index"])))
         eval_top_k = min(len(ranked), int(self.frustration_eval_limit))
@@ -386,6 +441,7 @@ class NBGradientMutator:
             cand["delta_frustration"] = delta_frustration
             cand["negative_modes"] = int(nxt.negative_modes)
             cand["max_ipr"] = round(float(nxt.max_ipr), self.precision)
+            cand["trap_modes"] = tuple(np.asarray(mode, dtype=np.float64).copy() for mode in nxt.trap_modes[:3])
             cand["score"] = round(float(cand["score"]) + float(self.eta_frustration) * delta_frustration, self.precision)
             evaluated.add(int(cand["swap_index"]))
 
@@ -398,6 +454,87 @@ class NBGradientMutator:
             cand["delta_frustration"] = 0.0
             cand["negative_modes"] = int(base.negative_modes)
             cand["max_ipr"] = round(float(base.max_ipr), self.precision)
+            cand["trap_modes"] = tuple(np.asarray(mode, dtype=np.float64).copy() for mode in base.trap_modes[:3])
+
+        candidates.sort(key=lambda c: (float(c["score"]), int(c["swap_index"])))
+
+    def _apply_trap_memory_penalty(self, candidates: list[dict[str, Any]]) -> None:
+        for cand in candidates:
+            trap_modes = cand.get("trap_modes", tuple())
+            similarity = self._trap_memory.compute_similarity(trap_modes)
+            penalty = round(float(self.trap_memory.trap_penalty) * float(similarity), self.precision)
+            cand["trap_similarity"] = round(float(similarity), self.precision)
+            cand["trap_penalty"] = float(penalty)
+            cand["trap_memory_size"] = int(len(self._trap_memory))
+            cand["score"] = round(float(cand["score"]) + float(penalty), self.precision)
+        candidates.sort(key=lambda c: (float(c["score"]), int(c["swap_index"])))
+
+    def _apply_spectral_diversity_guidance(self, H: np.ndarray, candidates: list[dict[str, Any]]) -> None:
+        ranked = sorted(candidates, key=lambda c: (float(c["score"]), int(c["swap_index"])))
+        eval_top_k = min(len(ranked), int(self.frustration_eval_limit))
+        evaluated: set[int] = set()
+        for cand in ranked[:eval_top_k]:
+            H_swap = self._apply_swap_to_copy(H, cand)
+            signature = compute_signature(H_swap, precision=self.precision)
+            spectral_distance = self._diversity_memory.min_distance(signature, precision=self.precision)
+            novelty = self._diversity_memory.novelty_score(signature, precision=self.precision)
+            cand["spectral_signature"] = signature
+            cand["spectral_distance"] = round(float(spectral_distance), self.precision)
+            cand["novelty_score"] = round(float(novelty), self.precision)
+            cand["memory_size"] = int(len(self._diversity_memory))
+            cand["score"] = round(
+                float(cand["score"]) - float(self.spectral_diversity.eta_novelty) * float(novelty),
+                self.precision,
+            )
+            evaluated.add(int(cand["swap_index"]))
+
+        for cand in candidates:
+            if int(cand["swap_index"]) in evaluated:
+                continue
+            cand["spectral_signature"] = None
+            cand["spectral_distance"] = 0.0
+            cand["novelty_score"] = 0.0
+            cand["memory_size"] = int(len(self._diversity_memory))
+
+        candidates.sort(key=lambda c: (float(c["score"]), int(c["swap_index"])))
+
+    def _apply_entropy_guidance(self, H: np.ndarray, candidates: list[dict[str, Any]]) -> None:
+        base_vals, _ = self._nb_eigen.compute_modes(H)
+        entropy_before = spectral_entropy(base_vals, precision=self.precision)
+        for cand in candidates:
+            H_swap = self._apply_swap_to_copy(H, cand)
+            nxt_vals, _ = self._nb_eigen.compute_modes(H_swap)
+            entropy_after = spectral_entropy(nxt_vals, precision=self.precision)
+            delta_entropy = round(float(entropy_after - entropy_before), self.precision)
+            cand["spectral_entropy_before"] = entropy_before
+            cand["spectral_entropy_after"] = entropy_after
+            cand["delta_entropy"] = delta_entropy
+            cand["score"] = round(float(cand["score"]) + float(self.eta_entropy) * delta_entropy, self.precision)
+
+        candidates.sort(key=lambda c: (float(c["score"]), int(c["swap_index"])))
+
+    def _entropy_temperature(self) -> float:
+        if not self.enable_entropy_annealing:
+            return 1.0
+
+        t = float(self._mutation_step)
+        tau = float(self.entropy_temperature_decay)
+        if tau <= 0.0:
+            return 0.0
+        return float(self.entropy_temperature_start * np.exp(-t / tau))
+
+    def _apply_entropy_guidance(self, H: np.ndarray, candidates: list[dict[str, Any]]) -> None:
+        entropy_before = float(compute_spectral_entropy(H))
+        temperature = self._entropy_temperature()
+        for cand in candidates:
+            H_swap = self._apply_swap_to_copy(H, cand)
+            entropy_after = float(compute_spectral_entropy(H_swap))
+            delta_entropy = entropy_after - entropy_before
+            entropy_bonus = temperature * self.eta_entropy * delta_entropy
+            score = float(cand["score"]) + float(entropy_bonus)
+            cand["entropy_temperature"] = round(float(temperature), self.precision)
+            cand["delta_entropy"] = round(float(delta_entropy), self.precision)
+            cand["score"] = round(float(score), self.precision)
 
         candidates.sort(key=lambda c: (float(c["score"]), int(c["swap_index"])))
 
@@ -501,6 +638,12 @@ class NBGradientMutator:
             "delta_frustration": round(float(candidate.get("delta_frustration", 0.0)), self.precision),
             "negative_modes": int(candidate.get("negative_modes", 0)),
             "max_ipr": round(float(candidate.get("max_ipr", 0.0)), self.precision),
+            "spectral_entropy_before": round(float(candidate.get("spectral_entropy_before", 0.0)), self.precision),
+            "spectral_entropy_after": round(float(candidate.get("spectral_entropy_after", 0.0)), self.precision),
+            "delta_entropy": round(float(candidate.get("delta_entropy", 0.0)), self.precision),
+            "trap_similarity": round(float(candidate.get("trap_similarity", 0.0)), self.precision),
+            "trap_penalty": round(float(candidate.get("trap_penalty", 0.0)), self.precision),
+            "trap_memory_size": int(candidate.get("trap_memory_size", 0)),
             "beam_search_used": plan is not None,
             "beam_width": int(beam_width_used) if plan is not None else 0,
             "planned_sequence_score": (
@@ -510,8 +653,51 @@ class NBGradientMutator:
             ),
             "planner_depth": 2 if plan is not None else 1,
             "basin_depth": round(float(basin_depth), self.precision) if plan is not None else 0.0,
+            "entropy_temperature": round(float(candidate.get("entropy_temperature", 1.0)), self.precision),
+            "delta_entropy": round(float(candidate.get("delta_entropy", 0.0)), self.precision),
         }
+        self._mutation_step += 1
+            "spectral_signature": candidate.get("spectral_signature"),
+            "spectral_distance": round(float(candidate.get("spectral_distance", 0.0)), self.precision),
+            "novelty_score": round(float(candidate.get("novelty_score", 0.0)), self.precision),
+            "memory_size": int(candidate.get("memory_size", len(self._diversity_memory))),
+            "trap_similarity": round(float(candidate.get("trap_similarity", 0.0)), self.precision),
+            "trap_penalty": round(float(candidate.get("trap_penalty", 0.0)), self.precision),
+            "trap_memory_size": int(candidate.get("trap_memory_size", len(self._trap_memory))),
+        }
+        if self.trap_memory.enabled:
+            trap_modes = candidate.get("trap_modes")
+            if trap_modes is None:
+                trap_modes = tuple(np.asarray(mode, dtype=np.float64).copy() for mode in self._frustration.extract_trap_modes(H)[:3])
+            self._trap_memory.add(trap_modes)
+            result["trap_memory_size"] = int(len(self._trap_memory))
+
+        if self.spectral_diversity.enabled:
+            signature = candidate.get("spectral_signature")
+            if signature is None:
+                signature = compute_signature(H, precision=self.precision)
+                result["spectral_signature"] = signature
+            self._diversity_memory.add(signature)
+            result["memory_size"] = int(len(self._diversity_memory))
         return result
+
+    @staticmethod
+    def _is_strong_trap(max_ipr: float, trap_modes: tuple[np.ndarray, ...]) -> bool:
+        return bool(trap_modes) or float(max_ipr) >= 0.2
+
+    @staticmethod
+    def _select_trap_vector(trap_modes: tuple[np.ndarray, ...]) -> np.ndarray | None:
+        if not trap_modes:
+            return None
+        vectors: list[np.ndarray] = []
+        for mode in trap_modes:
+            vec = TrapMemory.canonicalize(np.asarray(mode, dtype=np.float64))
+            if vec.size > 0 and float(np.linalg.norm(vec)) > 0.0:
+                vectors.append(vec)
+        if not vectors:
+            return None
+        vectors.sort(key=lambda vec: tuple(float(x) for x in vec.tolist()))
+        return vectors[0]
 
     def _find_partner_check(
         self,

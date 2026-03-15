@@ -17,6 +17,7 @@ def test_signature_has_stable_field_order() -> None:
         "mode_ipr",
         "support_fraction",
         "topk_mass_fraction",
+        "spectral_entropy",
     ]
 
 

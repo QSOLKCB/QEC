@@ -1,87 +1,139 @@
+"""Deterministic spectral test selection utilities."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import subprocess
-
-from src.qec.dev.dependency_graph import DependencyGraph
-
-
-@dataclass(frozen=True)
-class SelectionResult:
-    changed_modules: tuple[str, ...]
-    affected_modules: tuple[str, ...]
-    selected_tests: tuple[str, ...]
+from pathlib import Path
+from typing import Iterable
 
 
-def detect_changed_files(repo_root: Path) -> list[str]:
-    commands = [
-        ["git", "diff", "--name-only", "HEAD"],
-        ["git", "diff", "--cached", "--name-only"],
-        ["git", "ls-files", "--others", "--exclude-standard"],
-    ]
-    changed: set[str] = set()
+class SpectralTestSelector:
+    """Select tests affected by modified source modules."""
 
-    for cmd in commands:
-        output = subprocess.check_output(cmd, cwd=repo_root, text=True)
-        for line in output.splitlines():
-            line = line.strip()
-            if line:
-                changed.add(line)
+    def __init__(self, repo_root: str | Path | None = None) -> None:
+        if repo_root is None:
+            self.repo_root = Path(__file__).resolve().parents[3]
+        else:
+            self.repo_root = Path(repo_root).resolve()
 
-    return sorted(changed)
+    def detect_changed_files(self) -> list[str]:
+        """Return changed repository files from git diff against HEAD."""
+        try:
+            output = subprocess.check_output(
+                ["git", "diff", "--name-only", "HEAD"],
+                cwd=self.repo_root,
+                text=True,
+            )
+        except Exception:
+            return []
 
+        changed: list[str] = []
+        for raw_path in output.splitlines():
+            path = raw_path.strip()
+            if not path:
+                continue
+            full_path = (self.repo_root / path).resolve()
+            if full_path.exists() and self.repo_root in full_path.parents:
+                changed.append(path)
+        return sorted(set(changed))
 
-def select_tests_for_changed_files(changed_files: list[str], repo_root: Path) -> SelectionResult:
-    changed_modules = sorted(
-        {
+    @staticmethod
+    def module_from_path(path: str) -> str | None:
+        """Map source file paths to dotted module names under ``src/qec``."""
+        if not path.endswith(".py"):
+            return None
+        normalized = path.replace("\\", "/")
+        if normalized.startswith("tests/"):
+            return None
+        if normalized.startswith("docs/"):
+            return None
+        if not normalized.startswith("src/qec/"):
+            return None
+        if normalized.endswith("/__init__.py"):
+            return None
+
+        rel = normalized[len("src/qec/") : -len(".py")]
+        if not rel:
+            return None
+        return rel.replace("/", ".")
+
+    def changed_modules(self, changed_files: list[str] | None = None) -> list[str]:
+        """Return sorted affected modules for changed source files."""
+        files = changed_files if changed_files is not None else self.detect_changed_files()
+        modules = {
             module
-            for changed_file in changed_files
-            for module in [module_name_from_path(changed_file)]
+            for module in (self.module_from_path(path) for path in files)
             if module is not None
         }
-    )
+        return sorted(modules)
 
-    if not changed_modules:
-        return SelectionResult((), (), ())
+    def tests_for_modules(self, modules: list[str]) -> list[str]:
+        """Return sorted test file paths affected by changed modules."""
+        tests_dir = self.repo_root / "tests"
+        if not tests_dir.exists():
+            return []
 
-    graph = DependencyGraph(repo_root / "src" / "qec")
-    graph.build()
-    affected_modules = graph.affected_modules(set(changed_modules))
+        candidates = sorted(
+            path.relative_to(self.repo_root).as_posix()
+            for path in tests_dir.glob("test_*.py")
+            if path.is_file()
+        )
 
-    selected_tests = sorted(
-        {
-            test_path
-            for module in affected_modules
-            for test_path in module_to_tests(module, repo_root)
-        }
-    )
+        selected: set[str] = set()
+        module_set = sorted(set(modules))
+        for module in sorted(set(modules)):
+            module_tokens = {
+                module.replace(".", "_"),
+                module.rsplit(".", maxsplit=1)[-1],
+            }
+            for test_path in candidates:
+                stem = Path(test_path).stem
+                if any(token in stem for token in module_tokens):
+                    selected.add(test_path)
 
-    return SelectionResult(
-        tuple(changed_modules),
-        tuple(sorted(affected_modules)),
-        tuple(selected_tests),
-    )
+        selected.update(self._tests_importing_modules(candidates, module_set))
 
+        return sorted(selected)
 
-def module_name_from_path(path_str: str) -> str | None:
-    path = Path(path_str)
-    if path.suffix != ".py":
-        return None
-    parts = path.parts
-    if len(parts) < 3 or parts[0] != "src" or parts[1] != "qec":
-        return None
+    def _tests_importing_modules(self, candidates: list[str], modules: Iterable[str]) -> list[str]:
+        selected: set[str] = set()
+        module_patterns = sorted(
+            {
+                pattern
+                for module in modules
+                for pattern in (module, f"src.qec.{module}")
+            }
+        )
+        if not module_patterns:
+            return []
 
-    module_parts = list(Path(*parts[2:]).with_suffix("").parts)
-    if module_parts and module_parts[-1] == "__init__":
-        module_parts = module_parts[:-1]
+        for test_path in candidates:
+            full_path = self.repo_root / test_path
+            try:
+                content = full_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if any(pattern in content for pattern in module_patterns):
+                selected.add(test_path)
+        return sorted(selected)
 
-    return ".".join(["src", "qec", *module_parts]) if module_parts else "src.qec"
+    def changed_test_files(self, changed_files: list[str]) -> list[str]:
+        """Return directly changed tests so test-only edits remain selectable."""
+        selected = [
+            path.replace("\\", "/")
+            for path in changed_files
+            if path.replace("\\", "/").startswith("tests/test_") and path.endswith(".py")
+        ]
+        return sorted(set(selected))
 
+    def select_tests(self, changed_files: list[str] | None = None) -> list[str]:
+        """Select tests affected by changed files.
 
-def module_to_tests(module_name: str, repo_root: Path) -> list[str]:
-    leaf = module_name.rsplit(".", 1)[-1]
-    candidate = Path("tests") / f"test_{leaf}.py"
-    if (repo_root / candidate).exists():
-        return [candidate.as_posix()]
-    return []
+        Returns an empty list when no mapping is found, allowing callers
+        to fall back to collecting the full test suite.
+        """
+        files = changed_files if changed_files is not None else self.detect_changed_files()
+        modules = self.changed_modules(files)
+        module_tests = self.tests_for_modules(modules)
+        direct_tests = self.changed_test_files(files)
+        return sorted(set(module_tests).union(direct_tests))

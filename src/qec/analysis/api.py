@@ -8,6 +8,12 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
+from .spectral_frustration import (
+    spectral_frustration_count,
+    SpectralFrustrationResult,
+    SpectralFrustrationAnalyzer,
+)
+
 _MODULES = [
     "bethe_hessian",
     "localization_metrics",
@@ -32,6 +38,8 @@ _MODULES = [
     "basin_diagnostics",
     "bethe_hessian_fast",
     "spectral_frustration",
+    "spectral_entropy",
+    "trap_memory",
 ]
 
 for mod in _MODULES:

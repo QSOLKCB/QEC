@@ -98,3 +98,32 @@ def test_trap_node_detection_from_localized_mode() -> None:
     mode = np.abs(modes[0][: H.shape[1]])
     top = np.argsort(-mode, kind="mergesort")[:2]
     assert tuple(int(i) for i in sorted(top.tolist())) == (0, 2)
+
+
+def test_entropy_bonus_is_opt_in_and_deterministic() -> None:
+    H = np.array([[1, 0, 1], [0, 1, 1]], dtype=np.float64)
+    gradient = _make_gradient()
+
+    base = NBGradientMutator(enabled=True, avoid_4cycles=False)
+    base._find_partner_check = lambda ci, vi, vj, *_: 1 if ci == 0 else 0  # type: ignore[assignment]
+    c0 = base._enumerate_swap_candidates(H, gradient)
+
+    ent = NBGradientMutator(
+        enabled=True,
+        avoid_4cycles=False,
+        enable_spectral_entropy=True,
+        eta_entropy=0.3,
+    )
+    ent._find_partner_check = lambda ci, vi, vj, *_: 1 if ci == 0 else 0  # type: ignore[assignment]
+    c1 = ent._enumerate_swap_candidates(H, gradient)
+    ent._apply_entropy_guidance(H, c1)
+    c2 = ent._enumerate_swap_candidates(H, gradient)
+    ent._apply_entropy_guidance(H, c2)
+
+    assert c1 == c2
+    for cand in c0:
+        assert "delta_entropy" not in cand
+    for cand in c1:
+        assert "spectral_entropy_before" in cand
+        assert "spectral_entropy_after" in cand
+        assert "delta_entropy" in cand

@@ -389,6 +389,68 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
     def __init__(self, config: NBFlowConfig | None = None) -> None:
         self.config = config or NBFlowConfig()
 
+    def compute_modes(
+        self,
+        H: np.ndarray | scipy.sparse.spmatrix,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return deterministically ordered unstable NB eigenmodes.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            (eigenvalues, eigenvectors) where eigenvectors has shape
+            ``(num_directed_edges, k)`` and columns correspond to returned
+            eigenvalues.
+        """
+        _, directed, edge_index, adj, _, _ = canonical_directed_edges(H)
+        de = len(directed)
+        if de == 0:
+            return np.zeros(0, dtype=np.complex128), np.zeros((0, 0), dtype=np.complex128)
+
+        rows: list[int] = []
+        cols: list[int] = []
+        for i, (u, v) in enumerate(directed):
+            for w in adj.get(v, ()):  # deterministic order
+                if w == u:
+                    continue
+                j = edge_index.get((v, w))
+                if j is not None:
+                    rows.append(j)
+                    cols.append(i)
+
+        if not rows:
+            return np.zeros(0, dtype=np.complex128), np.zeros((de, 0), dtype=np.complex128)
+
+        B = scipy.sparse.csr_matrix((np.ones(len(rows), dtype=np.float64), (rows, cols)), shape=(de, de))
+        k = int(min(max(1, self.config.num_nb_eigenvalues), max(1, de - 1)))
+        use_dense = de <= 2 or k >= de - 1
+        if use_dense:
+            vals, vecs = np.linalg.eig(B.toarray())
+        else:
+            vals, vecs = scipy.sparse.linalg.eigs(
+                B,
+                k=k,
+                which='LR',
+                v0=np.ones(de, dtype=np.float64),
+                maxiter=max(100, 5 * de),
+                tol=0.0,
+            )
+
+        order = np.argsort(-np.abs(vals), kind='stable')
+        vals = vals[order]
+        vecs = vecs[:, order]
+
+        bulk_radius = self._bulk_radius(H)
+        keep = [idx for idx, lam in enumerate(vals) if float(abs(lam)) > float(bulk_radius)]
+        if not keep:
+            return np.zeros(0, dtype=np.complex128), np.zeros((de, 0), dtype=np.complex128)
+
+        unstable_vals = vals[np.asarray(keep, dtype=np.int64)]
+        unstable_vecs = vecs[:, np.asarray(keep, dtype=np.int64)]
+        for idx in range(unstable_vecs.shape[1]):
+            unstable_vecs[:, idx] = normalize_mode_phase(unstable_vecs[:, idx])
+        return unstable_vals, unstable_vecs
+
     def build_flow_field(self, H: np.ndarray | scipy.sparse.spmatrix) -> EdgeFlowField:
         undirected, directed, edge_index, adj, m, n = canonical_directed_edges(H)
         de = len(directed)

@@ -35,6 +35,8 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--max-bp-candidates", type=int, default=5)
     search.add_argument("--enable-predictor-recalibration", action="store_true")
     search.add_argument("--recalibration-interval", type=int, default=20)
+    search.add_argument("--enable-spectral-defect-atlas", action="store_true")
+    search.add_argument("--atlas-max-patterns", type=int, default=500)
 
     args = parser.parse_args(argv)
     if args.command == "spectral-search":
@@ -61,6 +63,8 @@ def main(argv: list[str] | None = None) -> int:
             max_bp_candidates=int(args.max_bp_candidates),
             enable_predictor_recalibration=bool(args.enable_predictor_recalibration),
             recalibration_interval=int(args.recalibration_interval),
+            enable_spectral_defect_atlas=bool(args.enable_spectral_defect_atlas),
+            atlas_max_patterns=int(args.atlas_max_patterns),
         )
         print("Starting spectral threshold search")
         result = run_spectral_threshold_search(H0, config=cfg)

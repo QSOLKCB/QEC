@@ -12,6 +12,7 @@ import numpy as np
 from src.qec.analysis.nonbacktracking_flow import NonBacktrackingEigenvectorFlowAnalyzer
 from src.qec.analysis.bp_diagnostics import collect_bp_diagnostics
 from src.qec.analysis.spectral_entropy import spectral_entropy
+from src.qec.analysis.spectral_defect_atlas import SpectralDefectAtlas
 from src.qec.analysis.nb_threshold_predictor import predict_threshold_from_spectrum
 from src.qec.analysis.spectral_regression import SpectralThresholdModel, load_training_dataset
 from src.qec.analysis.threshold_predictor import predict_threshold_quality
@@ -52,6 +53,8 @@ class SpectralSearchConfig:
     max_bp_candidates: int = 5
     enable_predictor_recalibration: bool = False
     recalibration_interval: int = 20
+    enable_spectral_defect_atlas: bool = False
+    atlas_max_patterns: int = 500
 
 
 class PhaseDiagramOrchestrator:
@@ -99,7 +102,7 @@ def run_spectral_threshold_search(
     H_current = np.asarray(H0, dtype=np.float64).copy()
     mutator = NBGradientMutator(enabled=True, enable_spectral_beam_search=False)
     beam_mutator = NBGradientMutator(enabled=True, enable_spectral_beam_search=True)
-    flow_mutator = NBEigenvectorFlowMutator()
+    flow_mutator: NBEigenvectorFlowMutator | None = None
     flow_analyzer = NonBacktrackingEigenvectorFlowAnalyzer()
     frustration = SpectralFrustrationAnalyzer()
     trap_memory = TrapSubspaceMemory()
@@ -113,6 +116,15 @@ def run_spectral_threshold_search(
 
     output_dir = Path(cfg.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    atlas: SpectralDefectAtlas | None = None
+    if cfg.enable_spectral_defect_atlas:
+        atlas = SpectralDefectAtlas(max_patterns=int(cfg.atlas_max_patterns))
+        atlas.load_json(output_dir / "spectral_defect_atlas.json")
+
+    flow_mutator = NBEigenvectorFlowMutator(
+        enable_spectral_defect_atlas=bool(cfg.enable_spectral_defect_atlas),
+        defect_atlas=atlas,
+    )
 
     best_threshold = -np.inf
     best_graph = H_current.copy()
@@ -134,6 +146,7 @@ def run_spectral_threshold_search(
             predictor_bias = compute_recalibration_bias(prediction_history, actual_history)
 
         baseline = frustration.compute_frustration(H_current)
+
         adaptive_steps = 1
         if cfg.enable_adaptive_mutation and baseline.max_ipr > 0.3:
             adaptive_steps += 1
@@ -149,7 +162,16 @@ def run_spectral_threshold_search(
         if cfg.enable_nb_flow_mutation:
             base_nb = compute_nb_spectrum(H_current)
             leading_vector = np.asarray(base_nb.get("eigenvector", np.array([], dtype=np.float64)), dtype=np.float64)
-            h_flow, flow_info = flow_mutator.mutate(H_current, leading_vector)
+            mutation_context = {
+                "spectral_defect_atlas": atlas,
+                "enable_spectral_defect_atlas": bool(cfg.enable_spectral_defect_atlas),
+                "nb_spectral_radius": round(float(base_nb.get("spectral_radius", 0.0)), _ROUND),
+            }
+            h_flow, flow_info = flow_mutator.mutate(
+                H_current,
+                leading_vector,
+                context=mutation_context,
+            )
             generated_with_meta.append((np.asarray(h_flow, dtype=np.float64), [], "nb_flow", flow_info))
 
         candidate_pool: list[dict[str, Any]] = []
@@ -176,6 +198,10 @@ def run_spectral_threshold_search(
                 "trap_similarity": round(float(trap_similarity), _ROUND),
                 "flow_edge_index": source_meta.get("flow_edge_index"),
                 "flow_strength": source_meta.get("flow_strength"),
+                "defect_signature": source_meta.get("defect_signature"),
+                "atlas_hit": source_meta.get("atlas_hit"),
+                "atlas_pattern_index": source_meta.get("atlas_pattern_index"),
+                "repair_action": source_meta.get("repair_action"),
                 "mutations": ops_cand,
             }
             metrics["spectral_radius"] = metrics["nb_spectral_radius"]
@@ -292,6 +318,7 @@ def run_spectral_threshold_search(
         if ranked:
             ranked.sort(key=lambda r: (-r["threshold"], r["metrics"]["candidate_index"]))
             best_iter = ranked[0]
+            parent_threshold = best_threshold if np.isfinite(best_threshold) else 0.0
             H_current = best_iter["H"]
             if best_iter["threshold"] > best_threshold:
                 best_threshold = float(best_iter["threshold"])
@@ -310,6 +337,12 @@ def run_spectral_threshold_search(
                 "spectral_metrics": best_iter["metrics"],
                 "mutation_operations": best_iter["metrics"]["mutations"],
             })
+            if atlas is not None and best_iter["metrics"].get("source") == "nb_flow":
+                signature = best_iter["metrics"].get("defect_signature")
+                repair_action = best_iter["metrics"].get("repair_action")
+                if isinstance(signature, str) and isinstance(repair_action, str):
+                    improvement = float(best_iter["threshold"]) - float(parent_threshold)
+                    atlas.record(signature, repair_action, improvement)
         else:
             history.append({
                 "iteration": iteration,
@@ -332,6 +365,8 @@ def run_spectral_threshold_search(
                 "samples": int(len(prediction_history)),
             },
         )
+    if atlas is not None:
+        atlas.save_json(output_dir / "spectral_defect_atlas.json")
     if cfg.enable_bp_diagnostics:
         n_records = len(convergence_records)
         if n_records > 0:

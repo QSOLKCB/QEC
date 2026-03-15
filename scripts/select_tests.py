@@ -1,41 +1,35 @@
-#!/usr/bin/env python3
-"""Debug helper for coverage-aware changed-line test selection."""
-
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+SRC_PATH = REPO_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
 
-from src.qec.dev.coverage_data import CoverageAwareSelector, changed_lines
+from qec.dev.test_selection import SpectralTestSelector
 
 
 def main() -> int:
-    lines = sorted(changed_lines(repo_root=REPO_ROOT))
+    selector = SpectralTestSelector(repo_root=REPO_ROOT)
+    changed_files = selector.detect_changed_files()
+    changed_modules = selector.changed_modules(changed_files)
+    selected_tests = selector.select_tests(changed_files)
 
-    print("Changed lines:")
-    if not lines:
-        print("  (none)")
+    print("Changed modules:")
+    if changed_modules:
+        for module in changed_modules:
+            print(f"  {module}")
     else:
-        for path, line in lines:
-            print(f"  {path}:{line}")
+        print("(none)")
 
-    selector = CoverageAwareSelector(repo_root=REPO_ROOT)
-    tests = selector.select_tests()
-
-    if tests is None:
-        print("\nCoverage data unavailable; fallback selection should be used.")
-        return 0
-
-    print("\nTests covering changed lines:")
-    if not tests:
-        print("  (none)")
+    print("\nSelected tests:")
+    if selected_tests:
+        for test_path in selected_tests:
+            print(f"  {test_path}")
     else:
-        for test in tests:
-            print(f"  {test}")
+        print("(none; run full suite)")
 
     return 0
 

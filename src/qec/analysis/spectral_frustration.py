@@ -8,37 +8,23 @@ import numpy as np
 import scipy.linalg
 import scipy.sparse
 
-from src.qec.analysis.bethe_hessian_fast import BetheHessianBuilder
+from src.qec.analysis.bethe_hessian_utils import BetheHessianCache
 from src.qec.analysis.eigenmode_mutation import build_bethe_hessian as build_tanner_bethe_hessian
 
-
-@dataclass(frozen=True)
-class SpectralFrustrationConfig:
-    trap_threshold: float = 0.2
-    precision: int = 12
-
-
-@dataclass(frozen=True)
-class SpectralFrustrationResult:
-    frustration_score: float
-    negative_modes: int
-    max_ipr: float
-    transport_imbalance: float
-    trap_modes: tuple[tuple[float, ...], ...]
+_ROUND = 12
 
 
 def build_bethe_hessian(A: np.ndarray | scipy.sparse.spmatrix, r: float) -> np.ndarray:
     """Construct Bethe-Hessian matrix ``H(r) = (r^2-1)I - rA + D``."""
-    A_arr = np.asarray(scipy.sparse.csr_matrix(A, dtype=np.float64).toarray(), dtype=np.float64)
-    r_f = float(r)
-    I = np.eye(A_arr.shape[0], dtype=np.float64)
-    D = np.diag(np.sum(A_arr, axis=1, dtype=np.float64)).astype(np.float64, copy=False)
-    return (r_f * r_f - 1.0) * I - r_f * A_arr + D
+    H, _, _ = build_bh_cached(A, r)
+    if scipy.sparse.issparse(H):
+        return np.asarray(H.toarray(), dtype=np.float64)
+    return np.asarray(H, dtype=np.float64)
 
 
 def apply_swap(A: np.ndarray | scipy.sparse.spmatrix, ci: int, vi: int, cj: int, vj: int) -> np.ndarray:
     """Apply deterministic 2-edge swap on a symmetric adjacency matrix copy."""
-    A_trial = np.asarray(scipy.sparse.csr_matrix(A, dtype=np.float64).toarray(), dtype=np.float64).copy()
+    A_trial = _to_dense_float64(A).copy()
     ci_i, vi_i, cj_i, vj_i = int(ci), int(vi), int(cj), int(vj)
 
     A_trial[ci_i, vi_i] = 0.0
@@ -55,95 +41,91 @@ def apply_swap(A: np.ndarray | scipy.sparse.spmatrix, ci: int, vi: int, cj: int,
 
 def count_negative_modes(H: np.ndarray | scipy.sparse.spmatrix) -> int:
     """Count negative modes using deterministic Sylvester inertia (LDL)."""
-    H_arr = np.asarray(scipy.sparse.csr_matrix(H, dtype=np.float64).toarray(), dtype=np.float64)
+    H_arr = _to_dense_float64(H)
     _, D, _ = scipy.linalg.ldl(H_arr, lower=True, hermitian=True)
     return int(np.sum(np.diag(D) < 0.0))
 
 
-def spectral_frustration_count(
-    A: np.ndarray | scipy.sparse.spmatrix,
-    r: float,
-    candidate_swaps: list[tuple[int, int, int, int]] | None = None,
-) -> dict[str, object]:
-    """Evaluate baseline and candidate frustration as negative-mode counts."""
-    builder = BetheHessianBuilder(A, r)
-    baseline = count_negative_modes(builder.build())
+@dataclass(frozen=True)
+class SpectralFrustrationConfig:
+    trap_threshold: float = 0.1
+    precision: int = _ROUND
 
-    trials: list[dict[str, object]] = []
-    for ci, vi, cj, vj in sorted(candidate_swaps or []):
-        H_trial = builder.build_after_swap(ci, vi, cj, vj)
-        neg_modes = count_negative_modes(H_trial)
-        trials.append({"swap": (ci, vi, cj, vj), "negative_modes": int(neg_modes)})
 
-    return {
-        "baseline_negative_modes": int(baseline),
-        "candidate_negative_modes": trials,
-    }
+@dataclass(frozen=True, eq=False)
+class SpectralFrustrationResult:
+    frustration_score: float
+    negative_modes: int
+    max_ipr: float
+    transport_imbalance: float
+    trap_modes: tuple[np.ndarray, ...]
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SpectralFrustrationResult):
+            return False
+        if self.frustration_score != other.frustration_score:
+            return False
+        if self.negative_modes != other.negative_modes:
+            return False
+        if self.max_ipr != other.max_ipr:
+            return False
+        if self.transport_imbalance != other.transport_imbalance:
+            return False
+        if len(self.trap_modes) != len(other.trap_modes):
+            return False
+        return all(np.array_equal(a, b) for a, b in zip(self.trap_modes, other.trap_modes))
 
 
 class SpectralFrustrationAnalyzer:
-    """Deterministic helper for spectral frustration diagnostics."""
+    def __init__(self, config: SpectralFrustrationConfig | None = None, precision: int | None = None) -> None:
+        self.config = config if config is not None else SpectralFrustrationConfig()
+        self.precision = int(self.config.precision if precision is None else precision)
 
-    def __init__(
-        self,
-        config: SpectralFrustrationConfig | None = None,
-        *,
-        precision: int | None = None,
-    ) -> None:
-        cfg = config or SpectralFrustrationConfig()
-        if precision is not None:
-            cfg = SpectralFrustrationConfig(
-                trap_threshold=float(cfg.trap_threshold),
-                precision=int(precision),
-            )
-        self.config = cfg
-        self.precision = int(cfg.precision)
-
-    def extract_trap_modes(self, H: np.ndarray | scipy.sparse.spmatrix) -> tuple[tuple[float, ...], ...]:
+    def extract_trap_modes(self, H: np.ndarray | scipy.sparse.spmatrix) -> tuple[np.ndarray, ...]:
         B, _ = build_tanner_bethe_hessian(H)
-        vals, vecs = np.linalg.eigh(np.asarray(B.toarray(), dtype=np.float64))
-        neg_indices = [int(i) for i, val in enumerate(vals.tolist()) if float(val) < 0.0]
-        ordered = sorted(
-            (
-                np.asarray(vecs[:, idx], dtype=np.float64)
-                for idx in neg_indices
-            ),
-            key=lambda vec: tuple(float(x) for x in np.round(np.abs(vec), self.precision)),
-        )
-        return tuple(tuple(float(x) for x in vec.tolist()) for vec in ordered)
+        vals, vecs = np.linalg.eigh(B.toarray().astype(np.float64, copy=False))
+        neg_ids = np.where(vals < 0.0)[0]
+        if neg_ids.size == 0:
+            return tuple()
+        modes = [np.asarray(vecs[:, int(i)], dtype=np.float64).copy() for i in neg_ids.tolist()]
+        modes.sort(key=lambda v: (-float(np.max(np.abs(v))), -float(np.sum(v * v)), tuple(np.abs(v).tolist())))
+        return tuple(modes)
 
     def detect_trap_nodes(self, H: np.ndarray | scipy.sparse.spmatrix) -> list[int]:
         modes = self.extract_trap_modes(H)
         if not modes:
             return []
-        lead = np.abs(np.asarray(modes[0], dtype=np.float64))
-        if lead.size == 0:
-            return []
-        threshold = float(np.max(lead) * float(self.config.trap_threshold))
-        nodes = [int(idx) for idx, value in enumerate(lead.tolist()) if float(value) >= threshold]
-        return sorted(set(nodes))
+        mode = np.abs(np.asarray(modes[0], dtype=np.float64))
+        threshold = float(self.config.trap_threshold) * float(mode.max() if mode.size else 0.0)
+        nodes = [int(i) for i in np.where(mode >= threshold)[0].tolist()]
+        nodes.sort()
+        return nodes
 
     def compute_frustration(self, H: np.ndarray | scipy.sparse.spmatrix) -> SpectralFrustrationResult:
         B, _ = build_tanner_bethe_hessian(H)
-        B_dense = np.asarray(B.toarray(), dtype=np.float64)
-        negative_modes = count_negative_modes(B_dense)
-        modes = self.extract_trap_modes(H)
-        if modes:
-            ipr_values = [float(np.sum(np.asarray(mode, dtype=np.float64) ** 4)) for mode in modes]
-            max_ipr = float(max(ipr_values))
-            lead = np.abs(np.asarray(modes[0], dtype=np.float64))
-            transport_imbalance = float(np.max(lead) - float(np.mean(lead)))
-        else:
+        B_arr = np.asarray(B.toarray(), dtype=np.float64)
+        eigvals, eigvecs = np.linalg.eigh(B_arr)
+        eigvals = np.asarray(eigvals, dtype=np.float64)
+        neg_ids = np.where(eigvals < 0.0)[0]
+        negative_modes = int(neg_ids.size)
+        if negative_modes == 0:
             max_ipr = 0.0
-            transport_imbalance = 0.0
-        frustration_score = float(negative_modes) + max_ipr + transport_imbalance
-        p = self.precision
+            transport = 0.0
+            frustration = 0.0
+            trap_modes: tuple[np.ndarray, ...] = tuple()
+        else:
+            neg_vecs = np.asarray(eigvecs[:, neg_ids], dtype=np.float64)
+            iprs = np.sum(neg_vecs ** 4, axis=0, dtype=np.float64)
+            max_ipr = float(np.max(iprs)) if iprs.size else 0.0
+            frustration = float(np.sum(np.abs(eigvals[neg_ids]), dtype=np.float64))
+            transport = float(np.mean(np.abs(neg_vecs), dtype=np.float64))
+            trap_modes = tuple(np.asarray(neg_vecs[:, i], dtype=np.float64).copy() for i in range(neg_vecs.shape[1]))
         return SpectralFrustrationResult(
-            frustration_score=round(float(frustration_score), p),
-            negative_modes=int(negative_modes),
-            max_ipr=round(float(max_ipr), p),
-            transport_imbalance=round(float(transport_imbalance), p),
-            trap_modes=tuple(tuple(float(x) for x in np.asarray(mode, dtype=np.float64)) for mode in modes),
+            frustration_score=float(np.round(np.float64(frustration), self.precision)),
+            negative_modes=negative_modes,
+            max_ipr=float(np.round(np.float64(max_ipr), self.precision)),
+            transport_imbalance=float(np.round(np.float64(transport), self.precision)),
+            trap_modes=trap_modes,
         )
 
     def evaluate(
@@ -154,5 +136,30 @@ class SpectralFrustrationAnalyzer:
         swaps: list[tuple[int, int, int, int]] | None = None,
         use_cache: bool = True,
     ) -> dict[str, object]:
-        _ = use_cache
-        return spectral_frustration_count(A, r, candidate_swaps=swaps)
+        trials: list[dict[str, object]] = []
+        swap_list = sorted(swaps or [])
+        if use_cache:
+            baseline = count_negative_modes(BetheHessianCache(A, r).build())
+            for ci, vi, cj, vj in swap_list:
+                cache = BetheHessianCache(A, r)
+                H_trial = cache.update_for_swap(ci, vi, cj, vj)
+                trials.append({"swap": (ci, vi, cj, vj), "negative_modes": int(count_negative_modes(H_trial))})
+        else:
+            H_base = build_bethe_hessian(A, r)
+            baseline = count_negative_modes(H_base)
+            for ci, vi, cj, vj in swap_list:
+                H_trial = build_bethe_hessian(apply_swap(A, ci, vi, cj, vj), r)
+                trials.append({"swap": (ci, vi, cj, vj), "negative_modes": int(count_negative_modes(H_trial))})
+
+        return {"baseline_negative_modes": int(baseline), "candidate_negative_modes": trials}
+
+
+def spectral_frustration_count(
+    A: np.ndarray | scipy.sparse.spmatrix,
+    r: float,
+    candidate_swaps: list[tuple[int, int, int, int]] | None = None,
+    flow_field: object | None = None,
+) -> dict[str, object]:
+    """Evaluate baseline and candidate frustration as negative-mode counts."""
+    analyzer = SpectralFrustrationAnalyzer()
+    return analyzer.evaluate(A, r=r, swaps=candidate_swaps, use_cache=True)

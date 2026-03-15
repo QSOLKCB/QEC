@@ -16,13 +16,25 @@ from src.qec.analysis.spectral_defect_atlas import SpectralDefectAtlas
 from src.qec.analysis.nb_threshold_predictor import predict_threshold_from_spectrum
 from src.qec.analysis.spectral_regression import SpectralThresholdModel, load_training_dataset
 from src.qec.analysis.threshold_predictor import predict_threshold_quality
+from src.qec.analysis.spectral_phase_predictor import SpectralPhasePredictor, spectral_feature_vector
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 from src.qec.analysis.trap_memory import TrapSubspaceMemory
+from src.qec.analysis.spectral_mutation_memory import SpectralMutationMemory
 from src.qec.analysis.predictor_recalibration import apply_recalibration, compute_recalibration_bias
+from src.qec.analysis.spectral_phase_diagram_surrogate import (
+    PHASE_GRID,
+    SpectralPhaseDiagramSurrogate,
+    spectral_feature_vector,
+    surrogate_threshold,
+)
 from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
 from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
 from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
 from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
+from src.qec.discovery.mutation_interface import BeamMutation, NBEigenvectorFlowMutation
+from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator, compute_multi_mode_flow
+from src.qec.spectral.nb_spectrum import select_unstable_nb_modes
+from src.qec.discovery.nb_eigenvector_flow_mutation import nb_flow_mutation
 from src.qec.experiments.stability_phase_diagram import run_stability_phase_diagram_experiment
 from src.utils.canonicalize import canonicalize
 
@@ -38,6 +50,15 @@ class SpectralSearchConfig:
     output_dir: str = "experiments/threshold_search"
     enable_beam_mutations: bool = True
     enable_nb_flow_mutation: bool = False
+    enable_multi_mode_nb_mutation: bool = False
+    multi_mode_k: int = 3
+    enable_spectral_mutation_memory: bool = False
+    memory_max_records: int = 1000
+    nb_mutation_modes: int = 3
+    enable_ipr_localized_nb_flow: bool = False
+    enable_nb_spectral_annealing: bool = False
+    annealing_base_mutation_size: int = 4
+    ipr_localization_fraction: float = 0.1
     enable_adaptive_mutation: bool = True
     trap_similarity_reject: float = 0.999
     min_entropy_reject: float = 0.0
@@ -48,13 +69,17 @@ class SpectralSearchConfig:
     enable_learning: bool = False
     min_predicted_threshold: float = 0.0
     experiments_root: str = "experiments"
-    min_predicted_threshold: float = 0.0
     rank_by_prediction: bool = False
     max_bp_candidates: int = 5
+    enable_spectral_phase_predictor: bool = False
+    bp_evaluation_budget: int = 5
     enable_predictor_recalibration: bool = False
     recalibration_interval: int = 20
     enable_spectral_defect_atlas: bool = False
     atlas_max_patterns: int = 500
+    enable_phase_diagram_surrogate: bool = False
+    enable_spectral_trapping_repair: bool = False
+    trapping_localization_fraction: float = 0.2
 
 
 class PhaseDiagramOrchestrator:
@@ -106,10 +131,13 @@ def run_spectral_threshold_search(
     flow_analyzer = NonBacktrackingEigenvectorFlowAnalyzer()
     frustration = SpectralFrustrationAnalyzer()
     trap_memory = TrapSubspaceMemory()
+    mutation_memory = SpectralMutationMemory(max_records=int(cfg.memory_max_records))
     orchestrator = PhaseDiagramOrchestrator()
     estimator = BPThresholdEstimator()
     pareto = ParetoArchive() if cfg.enable_pareto else None
     model = SpectralThresholdModel()
+    surrogate = SpectralPhaseDiagramSurrogate()
+    phase_predictor = SpectralPhasePredictor()
     if cfg.enable_learning:
         dataset = load_training_dataset(cfg.experiments_root)
         model.fit(dataset)
@@ -156,8 +184,15 @@ def run_spectral_threshold_search(
         generated_with_meta.append((np.asarray(h_mut, dtype=np.float64), ops, "nb_gradient", {}))
 
         if cfg.enable_beam_mutations:
-            h_beam, ops_beam = beam_mutator.mutate(H_current, steps=adaptive_steps)
-            generated_with_meta.append((np.asarray(h_beam, dtype=np.float64), ops_beam, "beam", {}))
+            generated_with_meta.append(
+                beam_operator.mutate(
+                    H_current,If you want, I can also show you something very interesting about the system you’ve now built (v29–v33):
+
+You’ve accidentally constructed something extremely close to a deterministic evolutionary search with spectral gradient hints, which is a very unusual but powerful way to explore LDPC structure space.
+                    {},
+                    {"adaptive_steps": adaptive_steps},
+                ),
+            )
 
         if cfg.enable_nb_flow_mutation:
             base_nb = compute_nb_spectrum(H_current)
@@ -185,6 +220,14 @@ def run_spectral_threshold_search(
             entropy = spectral_entropy(eigvals)
             trap_similarity = trap_memory.compute_similarity(fr.trap_modes)
 
+            bethe_min_eigenvalue = -round(float(fr.frustration_score), _ROUND)
+            bp_stability_score = 0.0
+            if float(nb.get("spectral_radius", 0.0)) > 0.0:
+                bp_stability_score = round(
+                    float(bethe_min_eigenvalue / float(nb.get("spectral_radius", 0.0))),
+                    _ROUND,
+                )
+
             metrics = {
                 "iteration": iteration,
                 "candidate_index": idx,
@@ -192,7 +235,10 @@ def run_spectral_threshold_search(
                 "nb_spectral_radius": round(float(nb.get("spectral_radius", 0.0)), _ROUND),
                 "bethe_hessian_negative_modes": int(fr.negative_modes),
                 "bethe_negative_mass": round(float(fr.negative_modes), _ROUND),
+                "bethe_min_eigenvalue": bethe_min_eigenvalue,
+                "bp_stability_score": bp_stability_score,
                 "ipr_localization": round(float(fr.max_ipr), _ROUND),
+                "ipr_localization_score": round(float(fr.max_ipr), _ROUND),
                 "flow_ipr": round(float(fr.max_ipr), _ROUND),
                 "spectral_entropy": round(float(entropy), _ROUND),
                 "trap_similarity": round(float(trap_similarity), _ROUND),
@@ -202,6 +248,17 @@ def run_spectral_threshold_search(
                 "atlas_hit": source_meta.get("atlas_hit"),
                 "atlas_pattern_index": source_meta.get("atlas_pattern_index"),
                 "repair_action": source_meta.get("repair_action"),
+                "spectral_cluster_size": int(source_meta.get("spectral_cluster_size", 0)),
+                "trapping_repair_applied": bool(source_meta.get("trapping_repair_applied", False)),
+                "mode_index": source_meta.get("mode_index"),
+                "mode_weights": source_meta.get("mode_weights"),
+                "nb_mutation_modes": source_meta.get("nb_mutation_modes"),
+                "multi_mode_flow_strength": source_meta.get("multi_mode_flow_strength"),
+                "nb_spectral_gap": source_meta.get("nb_spectral_gap"),
+                "annealing_strength": source_meta.get("annealing_strength"),
+                "mutation_size": source_meta.get("mutation_size"),
+                "ipr_localization_score": source_meta.get("ipr_localization_score"),
+                "localization_edge_count": source_meta.get("localization_edge_count"),
                 "mutations": ops_cand,
             }
             metrics["spectral_radius"] = metrics["nb_spectral_radius"]
@@ -223,6 +280,12 @@ def run_spectral_threshold_search(
 
             if predicted_threshold is not None:
                 metrics["predicted_threshold"] = round(float(predicted_threshold), _ROUND)
+            if cfg.enable_spectral_phase_predictor:
+                features = spectral_feature_vector(metrics)
+                phase_prediction = phase_predictor.predict(features)
+                metrics["spectral_predicted_threshold"] = phase_prediction
+                metrics["predicted_threshold"] = phase_prediction
+
             prediction = predict_threshold_quality(
                 spectral_radius=metrics["nb_spectral_radius"],
                 bethe_negative_mass=float(metrics["bethe_hessian_negative_modes"]),
@@ -230,8 +293,16 @@ def run_spectral_threshold_search(
                 spectral_entropy_value=metrics["spectral_entropy"],
                 trap_similarity=metrics["trap_similarity"],
             )
-            metrics["predicted_threshold"] = round(float(prediction.predicted_threshold), _ROUND)
+            if not cfg.enable_spectral_phase_predictor:
+                metrics["predicted_threshold"] = round(float(prediction.predicted_threshold), _ROUND)
             metrics["prediction_score"] = round(float(prediction.score), _ROUND)
+            if cfg.enable_phase_diagram_surrogate:
+                features = spectral_feature_vector(metrics)
+                phase_curve = surrogate.predict(features)
+                predicted_threshold = surrogate_threshold(PHASE_GRID, phase_curve)
+                metrics["spectral_phase_curve"] = [round(float(np.float64(x)), _ROUND) for x in phase_curve.tolist()]
+                metrics["surrogate_predicted_threshold"] = round(float(np.float64(predicted_threshold)), _ROUND)
+                metrics["predicted_threshold"] = round(float(np.float64(predicted_threshold)), _ROUND)
             if cfg.enable_predictor_recalibration:
                 corrected = apply_recalibration(metrics["predicted_threshold"], predictor_bias)
                 metrics["predicted_threshold"] = corrected
@@ -249,6 +320,7 @@ def run_spectral_threshold_search(
             if rejected:
                 continue
 
+            metrics["bp_evaluated"] = False
             candidate_pool.append({
                 "H": H_cand,
                 "metrics": metrics,
@@ -264,7 +336,21 @@ def run_spectral_threshold_search(
             )
             for rank, cand in enumerate(candidate_pool, start=1):
                 cand["metrics"]["prediction_rank"] = int(rank)
-            candidate_pool = candidate_pool[: max(1, int(cfg.max_bp_candidates))]
+            limit = int(cfg.max_bp_candidates)
+            if cfg.enable_spectral_phase_predictor:
+                limit = int(cfg.bp_evaluation_budget)
+            candidate_pool = candidate_pool[: max(1, limit)]
+        elif cfg.enable_spectral_phase_predictor:
+            candidate_pool.sort(
+                key=lambda c: (
+                    -float(c["metrics"].get("spectral_predicted_threshold", c["metrics"].get("predicted_threshold", 0.0))),
+                    -float(c["metrics"]["spectral_radius"]),
+                    int(c["metrics"]["candidate_index"]),
+                ),
+            )
+            for rank, cand in enumerate(candidate_pool, start=1):
+                cand["metrics"]["prediction_rank"] = int(rank)
+            candidate_pool = candidate_pool[: max(1, int(cfg.bp_evaluation_budget))]
         else:
             for cand in candidate_pool:
                 cand["metrics"]["prediction_rank"] = None
@@ -273,6 +359,7 @@ def run_spectral_threshold_search(
         for candidate in candidate_pool:
             H_cand = np.asarray(candidate["H"], dtype=np.float64)
             metrics = candidate["metrics"]
+            metrics["bp_evaluated"] = True
             idx = int(metrics["candidate_index"])
 
             phase = orchestrator.evaluate(
@@ -304,6 +391,12 @@ def run_spectral_threshold_search(
                 "H": H_cand,
                 "metrics": metrics,
             })
+            if cfg.enable_spectral_mutation_memory and np.isfinite(best_threshold):
+                parent_threshold = float(best_threshold)
+                improvement = round(float(threshold) - parent_threshold, _ROUND)
+                mode_index = metrics.get("mode_index")
+                if mode_index is not None and int(mode_index) >= 0:
+                    mutation_memory.record(int(mode_index), improvement)
             if pareto is not None:
                 convergence_speed = 0.0
                 if "bp_iterations" in metrics:
@@ -367,6 +460,16 @@ def run_spectral_threshold_search(
         )
     if atlas is not None:
         atlas.save_json(output_dir / "spectral_defect_atlas.json")
+    if cfg.enable_spectral_mutation_memory:
+        weights = mutation_memory.compute_weights(max(1, int(cfg.multi_mode_k)))
+        _write_canonical_json(
+            output_dir / "spectral_mutation_memory.json",
+            {
+                "max_records": int(mutation_memory.max_records),
+                "records": list(mutation_memory.records),
+                "weights": [round(float(w), _ROUND) for w in weights.tolist()],
+            },
+        )
     if cfg.enable_bp_diagnostics:
         n_records = len(convergence_records)
         if n_records > 0:

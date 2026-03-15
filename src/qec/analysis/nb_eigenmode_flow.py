@@ -102,9 +102,9 @@ class NBEigenmodeFlowAnalyzer:
         )
         signature = {
             "spectral_radius": signature_struct.spectral_radius,
-            "mode_ipr": signature_struct.mode_ipr,
-            "support_fraction": signature_struct.support_fraction,
-            "topk_mass_fraction": signature_struct.topk_mass_fraction,
+            "mode_ipr": signature_struct.flow_ipr,
+            "support_fraction": round(float(support_fraction), self.precision),
+            "topk_mass_fraction": round(float(topk_mass_fraction), self.precision),
             "spectral_entropy": signature_struct.spectral_entropy,
         }
 

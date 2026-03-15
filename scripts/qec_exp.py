@@ -30,13 +30,27 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--enable-nb-predictor", action="store_true")
     search.add_argument("--enable-learning", action="store_true")
     search.add_argument("--enable-nb-flow-mutation", action="store_true")
+    search.add_argument("--enable-multi-mode-nb-mutation", action="store_true")
+    search.add_argument("--multi-mode-k", type=int, default=3)
+    search.add_argument("--enable-spectral-mutation-memory", action="store_true")
+    search.add_argument("--memory-max-records", type=int, default=1000)
+    search.add_argument("--nb-mutation-modes", type=int, default=3)
+    search.add_argument("--enable-ipr-localized-nb-flow", action="store_true")
+    search.add_argument("--enable-nb-spectral-annealing", action="store_true")
+    search.add_argument("--annealing-base-mutation-size", type=int, default=4)
+    search.add_argument("--ipr-localization-fraction", type=float, default=0.1)
     search.add_argument("--min-predicted-threshold", type=float, default=0.0)
     search.add_argument("--rank-by-prediction", action="store_true")
     search.add_argument("--max-bp-candidates", type=int, default=5)
+    search.add_argument("--enable-spectral-phase-predictor", action="store_true")
+    search.add_argument("--bp-evaluation-budget", type=int, default=5)
     search.add_argument("--enable-predictor-recalibration", action="store_true")
     search.add_argument("--recalibration-interval", type=int, default=20)
     search.add_argument("--enable-spectral-defect-atlas", action="store_true")
     search.add_argument("--atlas-max-patterns", type=int, default=500)
+    search.add_argument("--enable-phase-diagram-surrogate", action="store_true")
+    search.add_argument("--enable-spectral-trapping-repair", action="store_true")
+    search.add_argument("--trapping-localization-fraction", type=float, default=0.2)
 
     args = parser.parse_args(argv)
     if args.command == "spectral-search":
@@ -58,13 +72,27 @@ def main(argv: list[str] | None = None) -> int:
             enable_nb_predictor=bool(args.enable_nb_predictor),
             enable_learning=bool(args.enable_learning),
             enable_nb_flow_mutation=bool(args.enable_nb_flow_mutation),
+            enable_multi_mode_nb_mutation=bool(args.enable_multi_mode_nb_mutation),
+            multi_mode_k=int(args.multi_mode_k),
+            enable_spectral_mutation_memory=bool(args.enable_spectral_mutation_memory),
+            memory_max_records=int(args.memory_max_records),
+            nb_mutation_modes=int(args.nb_mutation_modes),
+            enable_ipr_localized_nb_flow=bool(args.enable_ipr_localized_nb_flow),
+            enable_nb_spectral_annealing=bool(args.enable_nb_spectral_annealing),
+            annealing_base_mutation_size=int(args.annealing_base_mutation_size),
+            ipr_localization_fraction=float(args.ipr_localization_fraction),
             min_predicted_threshold=float(args.min_predicted_threshold),
             rank_by_prediction=bool(args.rank_by_prediction),
             max_bp_candidates=int(args.max_bp_candidates),
+            enable_spectral_phase_predictor=bool(args.enable_spectral_phase_predictor),
+            bp_evaluation_budget=int(args.bp_evaluation_budget),
             enable_predictor_recalibration=bool(args.enable_predictor_recalibration),
             recalibration_interval=int(args.recalibration_interval),
             enable_spectral_defect_atlas=bool(args.enable_spectral_defect_atlas),
             atlas_max_patterns=int(args.atlas_max_patterns),
+            enable_phase_diagram_surrogate=bool(args.enable_phase_diagram_surrogate),
+            enable_spectral_trapping_repair=bool(args.enable_spectral_trapping_repair),
+            trapping_localization_fraction=float(args.trapping_localization_fraction),
         )
         print("Starting spectral threshold search")
         result = run_spectral_threshold_search(H0, config=cfg)

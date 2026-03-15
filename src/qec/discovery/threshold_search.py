@@ -237,3 +237,15 @@ def run_spectral_threshold_search(
         "output_dir": str(output_dir),
     }
     return canonicalize(result)
+
+
+class ThresholdSearchEngine:
+    """Backward-compatible engine wrapper for threshold search."""
+
+    @staticmethod
+    def run(
+        H_init: np.ndarray,
+        config: SpectralSearchConfig,
+        output_dir: str | Path,
+    ) -> dict[str, Any]:
+        return run_spectral_threshold_search(H_init, config, output_dir)

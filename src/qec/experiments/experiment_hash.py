@@ -144,6 +144,7 @@ class ExperimentRunner:
 
         experiment_dir.mkdir(parents=True, exist_ok=True)
         metadata = {
+            "experiment_name": config.get("experiment_name", "unknown"),
             "experiment_hash": experiment_hash,
             "git_commit": ExperimentHash._get_git_commit(),
             "repo_version": ExperimentHash._get_repo_version(),

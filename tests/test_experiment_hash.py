@@ -104,3 +104,19 @@ def test_artifact_integrity_required_for_cache(tmp_path: Path) -> None:
     with (exp_dir / "metadata.json").open("r", encoding="utf-8") as f:
         metadata = json.load(f)
     assert metadata["experiment_hash"] == exp_hash
+
+
+def test_metadata_contains_experiment_name(tmp_path: Path) -> None:
+    runner = ExperimentRunner(artifacts_root=tmp_path)
+    config = {"seed": 5, "experiment_name": "bp-threshold"}
+
+    def execute(spec: dict[str, object]) -> dict[str, object]:
+        return {"seed": spec["seed"]}
+
+    runner.run(config, execute)
+
+    exp_hash = ExperimentHash.compute(config)
+    with (tmp_path / exp_hash / "metadata.json").open("r", encoding="utf-8") as f:
+        metadata = json.load(f)
+
+    assert metadata["experiment_name"] == "bp-threshold"

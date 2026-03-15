@@ -27,6 +27,8 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--output-dir", type=str, default="experiments/threshold_search")
     search.add_argument("--enable-bp-diagnostics", action="store_true")
     search.add_argument("--min-predicted-threshold", type=float, default=0.0)
+    search.add_argument("--rank-by-prediction", action="store_true")
+    search.add_argument("--max-bp-candidates", type=int, default=5)
 
     args = parser.parse_args(argv)
     if args.command == "spectral-search":
@@ -45,6 +47,8 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=args.output_dir,
             enable_bp_diagnostics=bool(args.enable_bp_diagnostics),
             min_predicted_threshold=float(args.min_predicted_threshold),
+            rank_by_prediction=bool(args.rank_by_prediction),
+            max_bp_candidates=int(args.max_bp_candidates),
         )
         print("Starting spectral threshold search")
         result = run_spectral_threshold_search(H0, config=cfg)

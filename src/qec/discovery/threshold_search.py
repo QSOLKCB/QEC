@@ -39,6 +39,8 @@ class SpectralSearchConfig:
     max_negative_modes_reject: int = 1_000_000
     enable_bp_diagnostics: bool = False
     min_predicted_threshold: float = 0.0
+    rank_by_prediction: bool = False
+    max_bp_candidates: int = 5
 
 
 class PhaseDiagramOrchestrator:
@@ -120,7 +122,7 @@ def run_spectral_threshold_search(
             traj = flow_optimizer.optimize(H_current)
             generated.append((np.asarray(traj.H_final, dtype=np.float64), [], "nb_flow"))
 
-        ranked: list[dict[str, Any]] = []
+        candidate_pool: list[dict[str, Any]] = []
         for idx, (H_cand, ops_cand, source) in enumerate(generated):
             if not _is_degree_preserving(H_current, H_cand):
                 continue
@@ -142,6 +144,7 @@ def run_spectral_threshold_search(
                 "trap_similarity": round(float(trap_similarity), _ROUND),
                 "mutations": ops_cand,
             }
+            metrics["spectral_radius"] = metrics["nb_spectral_radius"]
             prediction = predict_threshold_quality(
                 spectral_radius=metrics["nb_spectral_radius"],
                 bethe_negative_mass=float(metrics["bethe_hessian_negative_modes"]),
@@ -161,6 +164,32 @@ def run_spectral_threshold_search(
             candidate_metrics.append(metrics)
             if rejected:
                 continue
+
+            candidate_pool.append({
+                "H": H_cand,
+                "metrics": metrics,
+            })
+
+        if cfg.rank_by_prediction:
+            candidate_pool.sort(
+                key=lambda c: (
+                    -float(c["metrics"]["predicted_threshold"]),
+                    -float(c["metrics"]["spectral_radius"]),
+                    int(c["metrics"]["candidate_index"]),
+                ),
+            )
+            for rank, cand in enumerate(candidate_pool, start=1):
+                cand["metrics"]["prediction_rank"] = int(rank)
+            candidate_pool = candidate_pool[: max(1, int(cfg.max_bp_candidates))]
+        else:
+            for cand in candidate_pool:
+                cand["metrics"]["prediction_rank"] = None
+
+        ranked: list[dict[str, Any]] = []
+        for candidate in candidate_pool:
+            H_cand = np.asarray(candidate["H"], dtype=np.float64)
+            metrics = candidate["metrics"]
+            idx = int(metrics["candidate_index"])
 
             phase = orchestrator.evaluate(
                 H_cand,

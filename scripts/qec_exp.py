@@ -30,6 +30,8 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--enable-nb-predictor", action="store_true")
     search.add_argument("--enable-learning", action="store_true")
     search.add_argument("--min-predicted-threshold", type=float, default=0.0)
+    search.add_argument("--rank-by-prediction", action="store_true")
+    search.add_argument("--max-bp-candidates", type=int, default=5)
 
     args = parser.parse_args(argv)
     if args.command == "spectral-search":
@@ -51,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
             enable_nb_predictor=bool(args.enable_nb_predictor),
             enable_learning=bool(args.enable_learning),
             min_predicted_threshold=float(args.min_predicted_threshold),
+            rank_by_prediction=bool(args.rank_by_prediction),
+            max_bp_candidates=int(args.max_bp_candidates),
         )
         print("Starting spectral threshold search")
         result = run_spectral_threshold_search(H0, config=cfg)

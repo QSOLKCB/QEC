@@ -30,6 +30,7 @@ from src.qec.discovery.spectral_beam_search import adaptive_beam_width, plan_two
 
 
 _ROUND = 12
+MAX_TRAP_MODES = 32
 
 
 class NBGradientMutator:
@@ -104,6 +105,7 @@ class NBGradientMutator:
         self._nb_flow = NonBacktrackingFlowAnalyzer()
         self._frustration = SpectralFrustrationAnalyzer(precision=precision)
         self._trap_modes: list[np.ndarray] = []
+        self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
         self._energy_deltas: list[float] = []
         self._basin_depth_config = BasinDepthConfig(precision=precision)
         self._diversity_memory = SpectralDiversityMemory(max_entries=int(self.spectral_diversity.max_memory))
@@ -124,6 +126,8 @@ class NBGradientMutator:
             return H_new, []
 
         self._energy_deltas = []
+        if self.trap_memory_config.enabled:
+            self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
         mutations: list[dict[str, Any]] = []
         for _ in range(steps):
             gradient = self._analyzer.compute_gradient(H_new)
@@ -150,6 +154,8 @@ class NBGradientMutator:
             return H_new, []
 
         self._energy_deltas = []
+        if self.trap_memory_config.enabled:
+            self._trap_memory = TrapMemory(max_traps=self.trap_memory_config.max_traps)
         mutations: list[dict[str, Any]] = []
         prev_direction: dict[tuple[int, int], float] = {}
         for _ in range(iterations):
@@ -327,6 +333,11 @@ class NBGradientMutator:
         if nb_alignment_map is None:
             nb_alignment_map = {}
         check_neighbors, var_neighbors = self._build_neighbors(H)
+        var_set = set(range(n))
+        non_neighbors = {
+            ci: sorted(var_set - check_neighbors[ci])
+            for ci in range(m)
+        }
 
         ranked_edges = sorted(adjusted_edge_scores, key=lambda e: (-adjusted_edge_scores[e], e[0], e[1]))
 
@@ -337,8 +348,8 @@ class NBGradientMutator:
 
             base_grad = gradient_direction.get((ci, vi), 0.0)
             candidates: list[tuple[float, int, int]] = []
-            for vj in range(n):
-                if vj == vi or H[ci, vj] != 0:
+            for vj in non_neighbors[ci]:
+                if vj == vi:
                     continue
 
                 grad_target = round(
@@ -390,6 +401,10 @@ class NBGradientMutator:
         base = self._frustration.compute_frustration(H)
         if self.track_trap_modes:
             self._trap_modes = [np.asarray(mode, dtype=np.float64).copy() for mode in base.trap_modes]
+        if self.trap_memory_config.enabled and self._is_strong_trap(base.max_ipr, base.trap_modes):
+            base_vec = self._select_trap_vector(base.trap_modes)
+            if base_vec is not None:
+                self._trap_memory.add(base_vec)
 
         ranked = sorted(candidates, key=lambda c: (float(c["score"]), int(c["swap_index"])))
         eval_top_k = min(len(ranked), int(self.frustration_eval_limit))
@@ -560,6 +575,9 @@ class NBGradientMutator:
             "delta_frustration": round(float(candidate.get("delta_frustration", 0.0)), self.precision),
             "negative_modes": int(candidate.get("negative_modes", 0)),
             "max_ipr": round(float(candidate.get("max_ipr", 0.0)), self.precision),
+            "trap_similarity": round(float(candidate.get("trap_similarity", 0.0)), self.precision),
+            "trap_penalty": round(float(candidate.get("trap_penalty", 0.0)), self.precision),
+            "trap_memory_size": int(candidate.get("trap_memory_size", 0)),
             "beam_search_used": plan is not None,
             "beam_width": int(beam_width_used) if plan is not None else 0,
             "planned_sequence_score": (
@@ -592,6 +610,24 @@ class NBGradientMutator:
             self._diversity_memory.add(signature)
             result["memory_size"] = int(len(self._diversity_memory))
         return result
+
+    @staticmethod
+    def _is_strong_trap(max_ipr: float, trap_modes: tuple[np.ndarray, ...]) -> bool:
+        return bool(trap_modes) or float(max_ipr) >= 0.2
+
+    @staticmethod
+    def _select_trap_vector(trap_modes: tuple[np.ndarray, ...]) -> np.ndarray | None:
+        if not trap_modes:
+            return None
+        vectors: list[np.ndarray] = []
+        for mode in trap_modes:
+            vec = TrapMemory.canonicalize(np.asarray(mode, dtype=np.float64))
+            if vec.size > 0 and float(np.linalg.norm(vec)) > 0.0:
+                vectors.append(vec)
+        if not vectors:
+            return None
+        vectors.sort(key=lambda vec: tuple(float(x) for x in vec.tolist()))
+        return vectors[0]
 
     def _find_partner_check(
         self,

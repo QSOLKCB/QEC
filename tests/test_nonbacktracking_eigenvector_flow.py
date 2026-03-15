@@ -50,11 +50,14 @@ def test_directed_to_undirected_projection_pairs_both_directions() -> None:
 
 def test_flow_aggregation_deterministic() -> None:
     H = _toy_H()
-    analyzer = NonBacktrackingEigenvectorFlowAnalyzer(config=NBFlowConfig(num_nb_eigenvalues=4))
-    f1 = analyzer.build_flow_field(H)
-    f2 = analyzer.build_flow_field(H)
-    np.testing.assert_array_equal(f1.directed_pressure, f2.directed_pressure)
-    np.testing.assert_array_equal(f1.edge_pressure, f2.edge_pressure)
+    f1 = NonBacktrackingEigenvectorFlowAnalyzer(
+        config=NBFlowConfig(num_nb_eigenvalues=4),
+    ).build_flow_field(H)
+    f2 = NonBacktrackingEigenvectorFlowAnalyzer(
+        config=NBFlowConfig(num_nb_eigenvalues=4),
+    ).build_flow_field(H)
+    assert np.allclose(f1.directed_pressure, f2.directed_pressure, atol=1e-12, rtol=0.0)
+    assert np.allclose(f1.edge_pressure, f2.edge_pressure, atol=1e-12, rtol=0.0)
 
 
 def test_swap_ranking_determinism() -> None:

@@ -14,6 +14,7 @@ from src.qec.analysis.bp_diagnostics import collect_bp_diagnostics
 from src.qec.analysis.spectral_entropy import spectral_entropy
 from src.qec.analysis.nb_threshold_predictor import predict_threshold_from_spectrum
 from src.qec.analysis.spectral_regression import SpectralThresholdModel, load_training_dataset
+from src.qec.analysis.threshold_predictor import predict_threshold_quality
 from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 from src.qec.analysis.trap_memory import TrapSubspaceMemory
 from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
@@ -45,6 +46,7 @@ class SpectralSearchConfig:
     enable_learning: bool = False
     min_predicted_threshold: float = 0.0
     experiments_root: str = "experiments"
+    min_predicted_threshold: float = 0.0
 
 
 class PhaseDiagramOrchestrator:
@@ -173,10 +175,20 @@ def run_spectral_threshold_search(
 
             if predicted_threshold is not None:
                 metrics["predicted_threshold"] = round(float(predicted_threshold), _ROUND)
+            prediction = predict_threshold_quality(
+                spectral_radius=metrics["nb_spectral_radius"],
+                bethe_negative_mass=float(metrics["bethe_hessian_negative_modes"]),
+                flow_ipr=metrics["ipr_localization"],
+                spectral_entropy_value=metrics["spectral_entropy"],
+                trap_similarity=metrics["trap_similarity"],
+            )
+            metrics["predicted_threshold"] = round(float(prediction.predicted_threshold), _ROUND)
+            metrics["prediction_score"] = round(float(prediction.score), _ROUND)
             rejected = (
                 metrics["trap_similarity"] > cfg.trap_similarity_reject
                 or metrics["spectral_entropy"] < cfg.min_entropy_reject
                 or metrics["bethe_hessian_negative_modes"] > cfg.max_negative_modes_reject
+                or metrics["predicted_threshold"] < float(cfg.min_predicted_threshold)
             )
             if predicted_threshold is not None and predicted_threshold < float(cfg.min_predicted_threshold):
                 rejected = True
@@ -261,21 +273,21 @@ def run_spectral_threshold_search(
     if cfg.enable_bp_diagnostics:
         n_records = len(convergence_records)
         if n_records > 0:
-            mean_iterations = sum(r["iterations"] for r in convergence_records) / n_records
-            max_iterations = max(r["iterations"] for r in convergence_records)
+            mean_bp_iterations = sum(r["iterations"] for r in convergence_records) / n_records
+            max_bp_iterations = max(r["iterations"] for r in convergence_records)
             convergence_rate = sum(1 for r in convergence_records if r["converged"]) / n_records
             mean_final_residual = sum(r["final_residual"] for r in convergence_records) / n_records
         else:
-            mean_iterations = 0.0
-            max_iterations = 0
+            mean_bp_iterations = 0.0
+            max_bp_iterations = 0
             convergence_rate = 0.0
             mean_final_residual = 0.0
         _write_canonical_json(
             output_dir / "convergence_summary.json",
             {
-                "mean_iterations": round(float(mean_iterations), _ROUND),
-                "max_iterations": int(max_iterations),
                 "convergence_rate": round(float(convergence_rate), _ROUND),
+                "max_bp_iterations": int(max_bp_iterations),
+                "mean_bp_iterations": round(float(mean_bp_iterations), _ROUND),
                 "mean_final_residual": round(float(mean_final_residual), _ROUND),
             },
         )

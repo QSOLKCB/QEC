@@ -145,7 +145,7 @@ def module_name_from_path(path: str) -> str | None:
 
 
 def select_tests_for_changed_files(
-    changed_files: list[str],
+    changed_files: list[str] | None = None,
     repo_root: str | Path | None = None,
 ) -> list[str]:
     """Backward-compatible wrapper for deterministic test selection."""

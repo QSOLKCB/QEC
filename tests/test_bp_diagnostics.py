@@ -70,9 +70,9 @@ def test_bp_diagnostics_artifacts_are_deterministic(tmp_path, monkeypatch) -> No
     summary = json.loads(summary_text)
     assert summary == {
         "convergence_rate": 1.0,
-        "max_iterations": 2,
+        "max_bp_iterations": 2,
+        "mean_bp_iterations": 2.0,
         "mean_final_residual": 1e-10,
-        "mean_iterations": 2.0,
     }
 
     run_spectral_threshold_search(H0, config=cfg)

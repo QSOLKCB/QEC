@@ -87,3 +87,27 @@ def test_artifact_determinism(tmp_path, monkeypatch):
 
     assert first == second
     assert json.loads(first) == json.loads(second)
+
+
+def test_prediction_metrics_and_rejection_gate(tmp_path, monkeypatch):
+    H0 = _small_graph()
+
+    monkeypatch.setattr(
+        PhaseDiagramOrchestrator,
+        "evaluate",
+        lambda self, H, *, max_phase_diagram_size, seed: {"measured_boundary": {"mean_boundary_spectral_radius": 0.045}},
+    )
+
+    cfg = SpectralSearchConfig(
+        iterations=1,
+        max_phase_diagram_size=1,
+        output_dir=str(tmp_path),
+        min_predicted_threshold=1.0,
+    )
+    run_spectral_threshold_search(H0, config=cfg)
+
+    payload = json.loads((tmp_path / "candidate_metrics.json").read_text(encoding="utf-8"))
+    metrics = payload["candidates"][0]
+    assert "predicted_threshold" in metrics
+    assert "prediction_score" in metrics
+    assert metrics["rejected"] is True

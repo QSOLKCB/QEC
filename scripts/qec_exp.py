@@ -26,6 +26,9 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--seed", type=int, default=0)
     search.add_argument("--output-dir", type=str, default="experiments/threshold_search")
     search.add_argument("--enable-bp-diagnostics", action="store_true")
+    search.add_argument("--enable-pareto", action="store_true")
+    search.add_argument("--enable-nb-predictor", action="store_true")
+    search.add_argument("--enable-learning", action="store_true")
     search.add_argument("--min-predicted-threshold", type=float, default=0.0)
     search.add_argument("--rank-by-prediction", action="store_true")
     search.add_argument("--max-bp-candidates", type=int, default=5)
@@ -46,6 +49,9 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed,
             output_dir=args.output_dir,
             enable_bp_diagnostics=bool(args.enable_bp_diagnostics),
+            enable_pareto=bool(args.enable_pareto),
+            enable_nb_predictor=bool(args.enable_nb_predictor),
+            enable_learning=bool(args.enable_learning),
             min_predicted_threshold=float(args.min_predicted_threshold),
             rank_by_prediction=bool(args.rank_by_prediction),
             max_bp_candidates=int(args.max_bp_candidates),

@@ -6,77 +6,45 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.information_gain import rank_candidates_by_information_gain
-from src.qec.analysis.landscape_gaps import detect_landscape_gaps
-from src.qec.discovery.experiment_targets import choose_experiment_target
 
-
-def schedule_autonomous_target(
-    memory: object,
-    frontier_spectra: list[np.ndarray | list[float]],
+def compute_combined_score(
+    exploration_score: float,
+    hypothesis_bias: float = 0.0,
     *,
-    strategy: str = "frontier",
-    novelty_weight: float = 0.5,
-    uncertainty_weight: float = 0.5,
-) -> dict[str, Any]:
-    """Select a deterministic target spectrum from candidate frontier spectra."""
-    candidates = [np.asarray(s, dtype=np.float64) for s in frontier_spectra]
+    strategy: str = "default",
+    hypothesis_weight: float = 0.5,
+) -> float:
+    """Compute deterministic combined candidate score."""
+    explore = np.float64(exploration_score)
+    bias = np.float64(hypothesis_bias)
+    weight = np.float64(min(max(float(np.float64(hypothesis_weight)), 0.0), 1.0))
+    if strategy == "hypothesis_guided":
+        return float(np.float64((np.float64(1.0) - weight) * explore + weight * bias))
+    return float(np.float64(explore))
+
+
+def select_best_candidate(
+    candidates: list[dict[str, Any]],
+    *,
+    strategy: str = "default",
+    hypothesis_weight: float = 0.5,
+) -> int:
+    """Select the best candidate index with deterministic tie-breaking."""
     if not candidates:
-        return {
-            "target_spectrum": None,
-            "information_gain_score": 0.0,
-            "novelty_score": 0.0,
-            "spectral_uncertainty": 0.0,
-            "strategy": str(strategy),
-        }
+        return -1
 
-    if strategy == "information_gain":
-        ranked = rank_candidates_by_information_gain(
-            candidates,
-            memory,
-            novelty_weight=novelty_weight,
-            uncertainty_weight=uncertainty_weight,
-        )
-        best = ranked[0]
-        return {
-            "target_spectrum": best["target_spectrum"],
-            "information_gain_score": float(best["information_gain_score"]),
-            "novelty_score": float(best["novelty_score"]),
-            "spectral_uncertainty": float(best["spectral_uncertainty"]),
-            "strategy": "information_gain",
-        }
-
-    first = candidates[0]
-    return {
-        "target_spectrum": first,
-        "information_gain_score": 0.0,
-        "novelty_score": 0.0,
-        "spectral_uncertainty": 0.0,
-        "strategy": str(strategy),
-    }
-
-
-
-def schedule_next_experiment(
-    archive,
-    landscape_model=None,
-    exploration_state=None,
-    gap_radius=None,
-    **kwargs,
-):
-    """Deterministically schedule a landscape exploration target."""
-    radius = 0.3 if gap_radius is None else float(gap_radius)
-    max_gaps = int(kwargs.get("max_gaps", 16))
-
-    gap_candidates = detect_landscape_gaps(archive, gap_radius=radius, max_gaps=max_gaps)
-    target = choose_experiment_target(gap_candidates)
-
-    return {
-        "target_spectrum": (
-            None
-            if target is None
-            else np.asarray(target, dtype=np.float64)
-        ),
-        "gap_count": int(len(gap_candidates)),
-        "strategy": "landscape_exploration",
-    }
+    scores = np.asarray(
+        [
+            compute_combined_score(
+                item.get("exploration_score", 0.0),
+                item.get("hypothesis_bias", 0.0),
+                strategy=strategy,
+                hypothesis_weight=hypothesis_weight,
+            )
+            for item in candidates
+        ],
+        dtype=np.float64,
+    )
+    indices = np.arange(scores.shape[0], dtype=np.int64)
+    order = np.lexsort((indices, -scores))
+    return int(order[0])

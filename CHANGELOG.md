@@ -4,31 +4,18 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
-[48.1.0] — Operator Learning Correctness Fix
-
-Fixes a correctness issue introduced in v48 where operator
-statistics could potentially be updated before improvement
-was computed.
-
-The discovery pipeline now strictly enforces:
-
-mutation → evaluation → improvement → operator stats update
-
-Added defensive validation and a monotonic improvement guard
-to stabilize adaptive operator learning.
-
-[47.0.0] — Bayesian Spectral Landscape Modeling
-[48.0.0] — Spectral Motif Learning & Adaptive Mutation Weighting
+[50.0.0] — Self-Reflective Spectral Discovery
 
 Added
 
-- Introduces deterministic motif extraction from successful Tanner-graph archive entries.
-- Adds spectral motif library support for storing/querying reusable motifs by spectral similarity.
-- Adds motif-guided mutation injection as an opt-in deterministic discovery feature.
-- Adds deterministic mutation-operator statistics and adaptive operator weighting by regional spectral similarity.
-- Integrates opt-in adaptive mutation and motif learning into the discovery engine with generation-level logging.
-- Adds motif/adaptive-weight artifact export fields to discovery experiment outputs.
-- Adds determinism regression tests for motif extraction, motif matching, operator weighting, and opt-in engine reproducibility.
+- Adds deterministic self-reflective analysis over discovery archives to compare successful vs unsuccessful candidates and estimate structural feature correlations.
+- Adds deterministic structural hypothesis generation and ranking from archive correlations.
+- Adds hypothesis-guided exploration bias and scheduler scoring support via opt-in `strategy="hypothesis_guided"` using weighted combined scoring.
+- Adds opt-in discovery engine self-reflection (`enable_self_reflection`, `reflection_interval`, `hypothesis_weight`) with reflective generation logging fields.
+- Adds deterministic spectral phase-boundary detection from landscape memory and reflective phase-boundary metrics.
+- Adds optional KD-like search-index reuse for landscape nearest-neighbor lookup (`reuse_landscape_kd_tree`) as a behavior-preserving performance optimization.
+- Adds reflective experiment artifact export fields (`hypothesis_list`, `hypothesis_rankings`, `reflection_metrics`) in JSON-safe form.
+- Adds deterministic regression tests for archive analysis, hypothesis generation/ranking, scheduler integration, phase boundaries, and reflective engine reproducibility.
 
 [41.0.0] — Adaptive Spectral Basin Exploration
 
@@ -162,17 +149,18 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
-[48.0.0] — Spectral Motif Learning & Adaptive Mutation Weighting
+[50.0.0] — Self-Reflective Spectral Discovery
 
 Added
 
-- Introduces deterministic motif extraction from successful Tanner-graph archive entries.
-- Adds spectral motif library support for storing/querying reusable motifs by spectral similarity.
-- Adds motif-guided mutation injection as an opt-in deterministic discovery feature.
-- Adds deterministic mutation-operator statistics and adaptive operator weighting by regional spectral similarity.
-- Integrates opt-in adaptive mutation and motif learning into the discovery engine with generation-level logging.
-- Adds motif/adaptive-weight artifact export fields to discovery experiment outputs.
-- Adds determinism regression tests for motif extraction, motif matching, operator weighting, and opt-in engine reproducibility.
+- Adds deterministic self-reflective analysis over discovery archives to compare successful vs unsuccessful candidates and estimate structural feature correlations.
+- Adds deterministic structural hypothesis generation and ranking from archive correlations.
+- Adds hypothesis-guided exploration bias and scheduler scoring support via opt-in `strategy="hypothesis_guided"` using weighted combined scoring.
+- Adds opt-in discovery engine self-reflection (`enable_self_reflection`, `reflection_interval`, `hypothesis_weight`) with reflective generation logging fields.
+- Adds deterministic spectral phase-boundary detection from landscape memory and reflective phase-boundary metrics.
+- Adds optional KD-like search-index reuse for landscape nearest-neighbor lookup (`reuse_landscape_kd_tree`) as a behavior-preserving performance optimization.
+- Adds reflective experiment artifact export fields (`hypothesis_list`, `hypothesis_rankings`, `reflection_metrics`) in JSON-safe form.
+- Adds deterministic regression tests for archive analysis, hypothesis generation/ranking, scheduler integration, phase boundaries, and reflective engine reproducibility.
 
 [41.0.0] — Adaptive Spectral Basin Exploration
 

@@ -35,6 +35,10 @@ def run_discovery_experiment(
     bayesian_length_scale: float = 1.0,
     bayesian_noise: float = 1e-6,
     output_path: str = "artifacts/discovery_run.json",
+    enable_self_reflection: bool = False,
+    reflection_interval: int = 50,
+    hypothesis_weight: float = 0.5,
+    reuse_landscape_kd_tree: bool = False,
     enable_information_gain_scheduler: bool = False,
     information_gain_novelty_weight: float = 0.5,
     information_gain_uncertainty_weight: float = 0.5,
@@ -72,6 +76,10 @@ def run_discovery_experiment(
         population_size=population_size,
         base_seed=base_seed,
         archive_top_k=archive_top_k,
+        enable_self_reflection=enable_self_reflection,
+        reflection_interval=reflection_interval,
+        hypothesis_weight=hypothesis_weight,
+        reuse_landscape_kd_tree=reuse_landscape_kd_tree,
         enable_bayesian_model=enable_bayesian_model,
         bayesian_length_scale=bayesian_length_scale,
         bayesian_noise=bayesian_noise,
@@ -134,20 +142,35 @@ def run_discovery_experiment(
 
     artifact = {
         "metadata": metadata,
-        "results": results_payload,
+        "results": {
+            "spec": {
+                "num_variables": spec["num_variables"],
+                "num_checks": spec["num_checks"],
+                "variable_degree": spec["variable_degree"],
+                "check_degree": spec["check_degree"],
+            },
+            "config": {
+                "num_generations": num_generations,
+                "population_size": population_size,
+                "base_seed": base_seed,
+                "archive_top_k": archive_top_k,
+                "enable_self_reflection": enable_self_reflection,
+                "reflection_interval": reflection_interval,
+                "hypothesis_weight": hypothesis_weight,
+                "reuse_landscape_kd_tree": reuse_landscape_kd_tree,
+            },
+            "best_candidate": result["best_candidate"],
+            "elite_history": result["elite_history"],
+            "archive_summary": result["archive_summary"],
+            "generation_summaries": result["generation_summaries"],
+        },
     }
 
-    for key in (
-        "agent_assignments",
-        "agent_spacing",
-        "cooperative_coverage",
-        "frontier_exploration_rate",
-        "agent_messages",
-        "coordination_state",
-        "agent_region_overlap",
-    ):
-        if key in result:
-            artifact["results"][key] = result[key]
+    if enable_self_reflection:
+        artifact["results"]["hypothesis_list"] = result.get("hypothesis_list", [])
+        artifact["results"]["hypothesis_rankings"] = result.get("hypothesis_rankings", [])
+        artifact["results"]["reflection_metrics"] = result.get("reflection_metrics", [])
+        artifact["phase_diagram"] = result.get("phase_diagram", {"regions": [], "phase_boundaries": []})
 
     artifact = canonicalize(artifact)
 

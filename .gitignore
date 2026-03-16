@@ -40,6 +40,9 @@ venv.bak/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# Artifacts
+artifacts/
+
 # pytest
 .pytest_cache/
 .coverage

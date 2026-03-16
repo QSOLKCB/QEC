@@ -64,6 +64,7 @@ def run_discovery_experiment(
     enable_phase_guided_discovery: bool = False,
     enable_phase_novelty_discovery: bool = False,
     enable_phase_characterization: bool = False,
+    enable_theory_synthesis: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -126,6 +127,7 @@ def run_discovery_experiment(
         enable_phase_guided_discovery=enable_phase_guided_discovery,
         enable_phase_novelty_discovery=enable_phase_novelty_discovery,
         enable_phase_characterization=enable_phase_characterization,
+        enable_theory_synthesis=enable_theory_synthesis,
     )
 
     metadata = collect_environment_metadata(
@@ -175,6 +177,7 @@ def run_discovery_experiment(
             "enable_phase_guided_discovery": enable_phase_guided_discovery,
             "enable_phase_novelty_discovery": enable_phase_novelty_discovery,
             "enable_phase_characterization": enable_phase_characterization,
+            "enable_theory_synthesis": enable_theory_synthesis,
         },
         "best_candidate": result["best_candidate"],
         "elite_history": result["elite_history"],

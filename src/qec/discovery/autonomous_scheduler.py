@@ -1,4 +1,4 @@
-"""Deterministic autonomous scheduler scoring helpers."""
+"""Deterministic autonomous scheduler with optional information-gain strategy."""
 
 from __future__ import annotations
 

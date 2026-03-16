@@ -5,6 +5,13 @@
 - Added opt-in autonomous experiment scheduler integrated into discovery engine.
 - Added deterministic FIFO experiment queue for scheduling workflows.
 - Added scheduling metrics utilities and scheduler artifact export fields.
+## [42.0.0] — Persistent Spectral Landscape Learning
+
+- Added persistent spectral landscape memory across experiments.
+- Added deterministic clustering of explored spectral regions.
+- Added JSON persistence helpers for landscape save/load.
+- Added novelty scoring helper for exploration guidance.
+- Added landscape coverage metric and discovery artifact export fields.
 
 ## [38.0.0] — Non-Backtracking Eigenmode Mutation
 

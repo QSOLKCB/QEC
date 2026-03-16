@@ -4,6 +4,48 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[41.0.0] — Adaptive Spectral Basin Exploration
+
+Added
+
+- Exploration state analyzer for deterministic classification of local optimization, stagnation, transitions, and global exploration phases.
+- Adaptive exploration policy for deterministic strategy selection across gradient optimization, non-backtracking eigenmode guidance, basin escape, and random exploration.
+- Opt-in discovery-engine integration via `enable_adaptive_exploration` and `exploration_window` with dynamic strategy routing.
+- Exploration metrics including basin switch rate, mean basin duration, and exploration entropy.
+- Adaptive escape strength scaled by basin persistence and deterministic early-exploration guard against premature escape use.
+- Escape success feedback tracking to reduce escape preference when escape outcomes are consistently ineffective.
+- Safe division and [0,1] clamping for `escape_success_rate` to prevent NaN/invalid probabilities during early runs.
+- Bounded adaptive escape scaling (max factor 3.0) for stable escape-step magnitude.
+- Deterministic strategy smoothing buffer to reduce rapid policy oscillation.
+- Improved float64 numeric stability guarantees for exploration metrics.
+- Exploration logging fields in generation summaries: `exploration_state`, `exploration_strategy`, `basin_switch_rate`, `exploration_entropy`, and `escape_success_rate`.
+- Determinism-focused tests for state detection, policy routing, adaptive scaling, guard/feedback behavior, and opt-in integration.
+[40.0.0] — Spectral Basin Escape Operators
+
+Added
+
+- Deterministic basin stagnation detection utilities.
+- Deterministic escape-direction estimation away from basin centers.
+- Basin escape mutation targets in spectral space.
+- Optional basin escape integration in discovery with escape-operator prioritization.
+- Basin escape event logging for trajectory transition analysis.
+- Improved escape direction estimation by biasing escapes toward nearest basin boundary.
+- Added escape outcome logging to support future adaptive escape learning.
+[39.0.0] — Spectral Basin Topology Mapping
+
+Added
+
+- Spectral basin identification utilities for deterministic trajectory clustering.
+- Basin transition detection helpers for identifying attraction-region switches.
+- Basin size statistics for topology characterization.
+- Optional discovery engine basin topology mapping integration.
+- Basin topology export support with optional phase-space projected basin centers.
+- Minor optimization: basin clustering now uses squared-distance comparison.
+- Improved scaling for large trajectories using vectorized distance checks.
+- Optimized basin clustering using incremental basin-center matrix.
+- Added small capacity preallocation to support large trajectories (100k+ points).
+- Removed repeated `np.vstack` allocations inside the clustering loop.
+
 [37.0.0] — Spectral Gradient Optimization
 
 Added
@@ -93,6 +135,23 @@ Changelog
 All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
+
+[41.0.0] — Adaptive Spectral Basin Exploration
+
+Added
+
+- Exploration state analyzer for deterministic classification of local optimization, stagnation, transitions, and global exploration phases.
+- Adaptive exploration policy for deterministic strategy selection across gradient optimization, non-backtracking eigenmode guidance, basin escape, and random exploration.
+- Opt-in discovery-engine integration via `enable_adaptive_exploration` and `exploration_window` with dynamic strategy routing.
+- Exploration metrics including basin switch rate, mean basin duration, and exploration entropy.
+- Adaptive escape strength scaled by basin persistence and deterministic early-exploration guard against premature escape use.
+- Escape success feedback tracking to reduce escape preference when escape outcomes are consistently ineffective.
+- Safe division and [0,1] clamping for `escape_success_rate` to prevent NaN/invalid probabilities during early runs.
+- Bounded adaptive escape scaling (max factor 3.0) for stable escape-step magnitude.
+- Deterministic strategy smoothing buffer to reduce rapid policy oscillation.
+- Improved float64 numeric stability guarantees for exploration metrics.
+- Exploration logging fields in generation summaries: `exploration_state`, `exploration_strategy`, `basin_switch_rate`, `exploration_entropy`, and `escape_success_rate`.
+- Determinism-focused tests for state detection, policy routing, adaptive scaling, guard/feedback behavior, and opt-in integration.
 
 [36.0.0] — Spectral Trajectory Recording & Phase-Space Analysis
 

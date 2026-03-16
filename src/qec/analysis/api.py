@@ -162,6 +162,28 @@ def map_ridges_to_basins(
     """Public wrapper for deterministic basin/ridge boundary mapping."""
     from src.qec.analysis.spectral_ridges import map_ridges_to_basins as _impl
     return _impl(ridges, basins)
+
+
+def compute_phase_novelty_score(vector: np.ndarray, known_phase_centroids: list[np.ndarray] | np.ndarray) -> float:
+    """Public wrapper for deterministic phase novelty scoring."""
+    from src.qec.discovery.phase_novelty_search import compute_phase_novelty_score as _impl
+    return _impl(vector, known_phase_centroids)
+
+
+def select_novel_phase_target(
+    candidate_vectors: list[np.ndarray] | np.ndarray,
+    known_phase_centroids: list[np.ndarray] | np.ndarray,
+) -> dict[str, np.ndarray]:
+    """Public wrapper for deterministic novelty-target selection."""
+    from src.qec.discovery.phase_novelty_search import select_novel_phase_target as _impl
+    return _impl(candidate_vectors, known_phase_centroids)
+
+
+def propose_phase_novelty_step(current_vector: np.ndarray, novelty_vector: np.ndarray) -> np.ndarray:
+    """Public wrapper for deterministic novelty-guided step proposal."""
+    from src.qec.discovery.phase_novelty_search import propose_phase_novelty_step as _impl
+    return _impl(current_vector, novelty_vector)
+
 def detect_spectral_basins(points: list[list[float]] | np.ndarray) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral basin detection."""
     from src.qec.analysis.spectral_basins import detect_spectral_basins as _impl

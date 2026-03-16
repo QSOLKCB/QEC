@@ -132,6 +132,12 @@ from src.qec.discovery.phase_guided_search import (
     select_phase_target,
     update_phase_visit_counts,
 )
+from src.qec.discovery.phase_novelty_search import (
+    compute_phase_novelty_score,
+    detect_new_phase,
+    propose_phase_novelty_step,
+    select_novel_phase_target,
+)
 from src.qec.analysis.discovery_archive_analyzer import analyze_discovery_archive
 from src.qec.analysis.hypothesis_generator import generate_structural_hypotheses
 from src.qec.analysis.hypothesis_ranking import rank_hypotheses
@@ -306,6 +312,9 @@ def run_structure_discovery(
     phase_map_interval: int = 500,
     enable_phase_guided_discovery: bool = False,
     phase_guidance_interval: int = 300,
+    enable_phase_novelty_discovery: bool = False,
+    phase_novelty_interval: int = 400,
+    phase_novelty_threshold: float = 0.5,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -461,6 +470,8 @@ def run_structure_discovery(
     latest_phase_map: dict[str, Any] = {"phase_regions": [], "phase_boundaries": [], "phase_adjacency": [], "trajectory_segments": []}
     phase_visit_counts: dict[int, int] = {}
     phase_guidance_targets: list[int] = []
+    novelty_scores: list[float] = []
+    novel_phase_candidates: list[list[float]] = []
     strategy_history: list[str] = []
     experiment_planner = (
         SpectralExperimentPlanner(
@@ -930,6 +941,54 @@ def run_structure_discovery(
                             phase_target,
                         )
 
+        phase_novelty_step = None
+        phase_novelty_score = None
+        novel_phase_detected = None
+        if enable_phase_novelty_discovery and elites:
+            interval = int(max(1, phase_novelty_interval))
+            if gen % interval == 0:
+                candidate_vectors = [
+                    _objective_spectrum(c.get("objectives", {})).astype(np.float64, copy=False)
+                    for c in elites
+                ]
+                known_phase_centroids: list[np.ndarray] = []
+                for rec in latest_phase_map.get("phase_regions", []):
+                    centroid = np.asarray(rec.get("centroid", []), dtype=np.float64).reshape(-1)
+                    if centroid.size > 0:
+                        known_phase_centroids.append(centroid)
+                for basin_id in sorted(basin_centers.keys()):
+                    known_phase_centroids.append(
+                        np.asarray(basin_centers[basin_id], dtype=np.float64).reshape(-1)
+                    )
+                if known_phase_centroids:
+                    novelty_target = select_novel_phase_target(
+                        candidate_vectors,
+                        known_phase_centroids,
+                    )
+                    novelty_vector = np.asarray(
+                        novelty_target.get("novelty_vector", []), dtype=np.float64,
+                    ).reshape(-1)
+                    if novelty_vector.size > 0:
+                        phase_novelty_step = propose_phase_novelty_step(
+                            _objective_spectrum(elites[0].get("objectives", {})),
+                            novelty_vector,
+                        )
+                        phase_novelty_score = compute_phase_novelty_score(
+                            novelty_vector,
+                            known_phase_centroids,
+                        )
+                        novelty_scores.append(float(np.float64(phase_novelty_score)))
+                        detection = detect_new_phase(
+                            novelty_vector,
+                            known_phase_centroids,
+                            threshold=phase_novelty_threshold,
+                        )
+                        novel_phase_detected = bool(detection.get("is_new_phase", False))
+                        if novel_phase_detected:
+                            novel_phase_candidates.append(
+                                novelty_vector.astype(np.float64, copy=False).tolist()
+                            )
+
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
 
@@ -950,6 +1009,8 @@ def run_structure_discovery(
                     )
             if phase_guidance_step is not None:
                 gradient_target_spectrum = np.asarray(phase_guidance_step, dtype=np.float64)
+            if phase_novelty_step is not None:
+                gradient_target_spectrum = np.asarray(phase_novelty_step, dtype=np.float64)
             routing = _route_exploration_targets(
                 exploration_strategy,
                 gradient_target=gradient_target_spectrum,
@@ -1431,6 +1492,8 @@ def run_structure_discovery(
                 current_phase_id=(current_phase_id if enable_phase_map_reconstruction else None),
                 current_phase_target=(current_phase_target if enable_phase_guided_discovery else None),
                 phase_guidance_step=(phase_guidance_step if enable_phase_guided_discovery else None),
+                phase_novelty_score=(phase_novelty_score if enable_phase_novelty_discovery else None),
+                novel_phase_detected=(novel_phase_detected if enable_phase_novelty_discovery else None),
             )
         )
         generation_summaries[-1]["operator_stats"] = summarize_operator_statistics(operator_stats)
@@ -1479,6 +1542,12 @@ def run_structure_discovery(
             int(k): int(v) for k, v in sorted(phase_visit_counts.items(), key=lambda item: int(item[0]))
         }
         result["phase_guidance_targets"] = [int(v) for v in phase_guidance_targets]
+    if enable_phase_novelty_discovery:
+        result["novel_phase_candidates"] = [
+            np.asarray(candidate, dtype=np.float64).tolist()
+            for candidate in novel_phase_candidates
+        ]
+        result["novelty_scores"] = [float(np.float64(v)) for v in novelty_scores]
 
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
@@ -1730,6 +1799,8 @@ def _build_generation_summary(
     current_phase_id: int | None = None,
     current_phase_target: int | None = None,
     phase_guidance_step: np.ndarray | None = None,
+    phase_novelty_score: float | None = None,
+    novel_phase_detected: bool | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -1838,6 +1909,10 @@ def _build_generation_summary(
         result["current_phase_target"] = int(current_phase_target)
     if phase_guidance_step is not None:
         result["phase_guidance_step"] = np.asarray(phase_guidance_step, dtype=np.float64).tolist()
+    if phase_novelty_score is not None:
+        result["phase_novelty_score"] = float(np.float64(phase_novelty_score))
+    if novel_phase_detected is not None:
+        result["novel_phase_detected"] = bool(novel_phase_detected)
     return result
 
 

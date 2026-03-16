@@ -1,4 +1,4 @@
-"""Deterministic autonomous scheduler with optional information-gain strategy."""
+"""Deterministic autonomous scheduler strategies for discovery targets."""
 
 from __future__ import annotations
 

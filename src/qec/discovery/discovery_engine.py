@@ -60,6 +60,8 @@ from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
 from src.qec.analysis.landscape_metrics import novelty_score as landscape_novelty_score, landscape_coverage
 from src.qec.analysis.spectral_basins import identify_spectral_basins
 from src.qec.discovery.autonomous_scheduler import schedule_autonomous_target
+from src.qec.discovery.experiment_planner import SpectralExperimentPlanner
+from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
 from src.qec.analysis.basin_transitions import detect_basin_transitions
 from src.qec.analysis.basin_statistics import basin_sizes
 from src.qec.analysis.basin_map_export import export_basin_map
@@ -221,6 +223,11 @@ def run_structure_discovery(
     enable_information_gain_scheduler: bool = False,
     information_gain_novelty_weight: float = 0.5,
     information_gain_uncertainty_weight: float = 0.5,
+    enable_experiment_planner: bool = False,
+    planner_uncertainty_threshold: float = 0.2,
+    planner_max_targets: int = 10,
+    enable_phase_diagram_3d: bool = False,
+    phase_diagram_3d_path: str | None = None,
     enable_phase_diagram: bool = False,
     phase_diagram_resolution: int = 50,
 ) -> dict[str, Any]:
@@ -371,6 +378,17 @@ def run_structure_discovery(
     signature_archive: list[tuple[float, ...]] = []
     basin_assignments: list[int] = []
     strategy_history: list[str] = []
+    experiment_planner = (
+        SpectralExperimentPlanner(
+            uncertainty_threshold=planner_uncertainty_threshold,
+            max_targets=planner_max_targets,
+        )
+        if enable_experiment_planner
+        else None
+    )
+    planner_iteration = 0
+    latest_uncertainty_map: dict[str, Any] | None = None
+    latest_phase_surface: dict[str, Any] | None = None
     escape_attempts = 0
     escape_successes = 0
     basin_centers: dict[int, np.ndarray] = {}
@@ -656,6 +674,8 @@ def run_structure_discovery(
         info_gain_selected_novelty = None
         info_gain_selected_uncertainty = None
         info_gain_selected_target = None
+        planned_experiment_targets = None
+        phase_uncertainty_score = None
         if enable_information_gain_scheduler and enable_landscape_learning and landscape_memory is not None:
             candidate_spectra = [
                 _objective_spectrum(c.get("objectives", {}))
@@ -675,6 +695,31 @@ def run_structure_discovery(
             info_gain_selected_score = float(np.float64(scheduled.get("information_gain_score", 0.0)))
             info_gain_selected_novelty = float(np.float64(scheduled.get("novelty_score", 0.0)))
             info_gain_selected_uncertainty = float(np.float64(scheduled.get("spectral_uncertainty", 0.0)))
+
+        if enable_experiment_planner and experiment_planner is not None:
+            planner_iteration += 1
+            candidate_spectra = [
+                _objective_spectrum(c.get("objectives", {}))
+                for c in elites
+            ]
+            if candidate_spectra:
+                spectra = np.asarray(candidate_spectra, dtype=np.float64)
+                phase_surface = {
+                    "grid_x": spectra[:, 0],
+                    "grid_y": spectra[:, 1],
+                    "grid_z": np.outer(spectra[:, 0], spectra[:, 1]).astype(np.float64, copy=False),
+                }
+                latest_phase_surface = phase_surface
+                plan = experiment_planner.plan_experiments(phase_surface, landscape_memory)
+                latest_uncertainty_map = plan.get("uncertainty_map")
+                planned_targets = [
+                    np.asarray(t, dtype=np.float64)
+                    for t in plan.get("planned_targets", [])
+                ]
+                planned_experiment_targets = planned_targets
+                phase_uncertainty_score = float(np.float64(plan.get("phase_uncertainty_score", 0.0)))
+                if planned_targets:
+                    gradient_target_spectrum = planned_targets[0]
 
         escape_triggered = False
         escape_direction = np.zeros_like(current_spectrum_best, dtype=np.float64)
@@ -1069,6 +1114,21 @@ def run_structure_discovery(
                     if enable_information_gain_scheduler
                     else None
                 ),
+                planned_experiment_targets=(
+                    planned_experiment_targets
+                    if enable_experiment_planner
+                    else None
+                ),
+                phase_uncertainty_score=(
+                    phase_uncertainty_score
+                    if enable_experiment_planner
+                    else None
+                ),
+                planner_iteration=(
+                    planner_iteration
+                    if enable_experiment_planner
+                    else None
+                ),
             )
         )
         generation_summaries[-1]["operator_stats"] = summarize_operator_statistics(operator_stats)
@@ -1099,6 +1159,44 @@ def run_structure_discovery(
     }
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
+    if enable_experiment_planner:
+        result["planner_iteration"] = int(planner_iteration)
+        if generation_summaries:
+            last_summary = generation_summaries[-1]
+            result["planned_experiment_targets"] = [
+                [float(np.float64(v)) for v in target]
+                for target in last_summary.get("planned_experiment_targets", [])
+            ]
+            result["phase_uncertainty_score"] = float(
+                np.float64(last_summary.get("phase_uncertainty_score", 0.0))
+            )
+        if latest_uncertainty_map is not None:
+            result["uncertainty_map"] = {
+                "grid_x": np.asarray(latest_uncertainty_map.get("grid_x", []), dtype=np.float64).tolist(),
+                "grid_y": np.asarray(latest_uncertainty_map.get("grid_y", []), dtype=np.float64).tolist(),
+                "uncertainty_map": np.asarray(
+                    latest_uncertainty_map.get("uncertainty_map", []), dtype=np.float64,
+                ).tolist(),
+            }
+    if enable_phase_diagram_3d and enable_experiment_planner and latest_phase_surface is not None:
+        resolved_phase_diagram_3d_path = (
+            str(phase_diagram_3d_path)
+            if phase_diagram_3d_path is not None
+            else "artifacts/phase_diagram_3d.png"
+        )
+        phase_diagram_artifact = generate_phase_surface_3d(
+            None,
+            latest_phase_surface,
+            resolved_phase_diagram_3d_path,
+            planned_targets=result.get("planned_experiment_targets"),
+        )
+        result["phase_diagram_3d_path"] = phase_diagram_artifact.get("surface_path")
+        result["phase_diagram_3d_num_targets"] = int(
+            phase_diagram_artifact.get("num_targets", 0)
+        )
+        result["phase_diagram_3d_target_points"] = phase_diagram_artifact.get(
+            "target_points", []
+        )
     if enable_cooperative_agents:
         result["agent_assignments"] = agent_assignment_history
         result["agent_spacing"] = [float(x) for x in agent_spacing_history]
@@ -1256,6 +1354,9 @@ def _build_generation_summary(
     spectral_uncertainty: float | None = None,
     novelty_score: float | None = None,
     selected_target_spectrum: np.ndarray | None = None,
+    planned_experiment_targets: list[np.ndarray] | None = None,
+    phase_uncertainty_score: float | None = None,
+    planner_iteration: int | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -1329,6 +1430,15 @@ def _build_generation_summary(
         result["selected_target_spectrum"] = np.asarray(
             selected_target_spectrum, dtype=np.float64,
         ).tolist()
+    if planned_experiment_targets is not None:
+        result["planned_experiment_targets"] = [
+            np.asarray(target, dtype=np.float64).tolist()
+            for target in planned_experiment_targets
+        ]
+    if phase_uncertainty_score is not None:
+        result["phase_uncertainty_score"] = float(np.float64(phase_uncertainty_score))
+    if planner_iteration is not None:
+        result["planner_iteration"] = int(planner_iteration)
     return result
 
 

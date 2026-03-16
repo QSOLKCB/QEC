@@ -46,6 +46,11 @@ def run_discovery_experiment(
     scheduler_gap_radius: float = 0.3,
     scheduler_max_gaps: int = 16,
     scheduler_queue=None,
+    enable_experiment_planner: bool = False,
+    planner_uncertainty_threshold: float = 0.2,
+    planner_max_targets: int = 10,
+    enable_phase_diagram_3d: bool = False,
+    phase_diagram_3d_path: str | None = None,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -90,6 +95,11 @@ def run_discovery_experiment(
         scheduler_gap_radius=scheduler_gap_radius,
         scheduler_max_gaps=scheduler_max_gaps,
         scheduler_queue=scheduler_queue,
+        enable_experiment_planner=enable_experiment_planner,
+        planner_uncertainty_threshold=planner_uncertainty_threshold,
+        planner_max_targets=planner_max_targets,
+        enable_phase_diagram_3d=enable_phase_diagram_3d,
+        phase_diagram_3d_path=phase_diagram_3d_path,
     )
 
     metadata = collect_environment_metadata(
@@ -121,6 +131,11 @@ def run_discovery_experiment(
             "enable_autonomous_scheduler": enable_autonomous_scheduler,
             "scheduler_gap_radius": scheduler_gap_radius,
             "scheduler_max_gaps": scheduler_max_gaps,
+            "enable_experiment_planner": enable_experiment_planner,
+            "planner_uncertainty_threshold": planner_uncertainty_threshold,
+            "planner_max_targets": planner_max_targets,
+            "enable_phase_diagram_3d": enable_phase_diagram_3d,
+            "phase_diagram_3d_path": phase_diagram_3d_path,
         },
         "best_candidate": result["best_candidate"],
         "elite_history": result["elite_history"],
@@ -138,6 +153,18 @@ def run_discovery_experiment(
         results_payload["landscape_gap_count"] = int(result.get("landscape_gap_count", 0))
         results_payload["scheduler_strategy"] = result.get(
             "scheduler_strategy", "landscape_exploration",
+        )
+    if enable_experiment_planner:
+        artifact_results["experiment_plan"] = {
+            "planner_iteration": int(result.get("planner_iteration", 0)),
+            "phase_uncertainty_score": float(result.get("phase_uncertainty_score", 0.0)),
+        }
+        artifact_results["uncertainty_map"] = result.get("uncertainty_map")
+        artifact_results["planned_targets"] = result.get("planned_experiment_targets", [])
+    if enable_phase_diagram_3d:
+        artifact_results["phase_diagram_3d_path"] = result.get("phase_diagram_3d_path")
+        artifact_results["phase_diagram_3d_num_targets"] = int(
+            result.get("phase_diagram_3d_num_targets", 0)
         )
 
     artifact = {

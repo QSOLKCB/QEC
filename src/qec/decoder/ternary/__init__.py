@@ -16,6 +16,12 @@ from .ternary_metrics import (
     compute_ternary_entropy,
     compute_ternary_conflict_density,
 )
+from .ternary_trapping import (
+    detect_zero_regions,
+    compute_frustration_index,
+    detect_persistent_zero_states,
+    estimate_trapping_indicator,
+)
 
 __all__ = [
     "encode_ternary",
@@ -26,4 +32,8 @@ __all__ = [
     "compute_ternary_stability",
     "compute_ternary_entropy",
     "compute_ternary_conflict_density",
+    "detect_zero_regions",
+    "compute_frustration_index",
+    "detect_persistent_zero_states",
+    "estimate_trapping_indicator",
 ]

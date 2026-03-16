@@ -70,6 +70,7 @@ def run_discovery_experiment(
     enable_conjecture_validation: bool = False,
     conjecture_validation_interval: int = 1200,
     enable_ternary_decoder: bool = False,
+    enable_ternary_trapping: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -280,6 +281,27 @@ def run_discovery_experiment(
             "entropy": float(_td_ent(td_msgs)),
             "conflict_density": float(_td_conf(td_msgs)),
         }
+
+    if enable_ternary_trapping and best_H is not None:
+        from src.qec.analysis.api import (
+            run_ternary_decoder as _run_td_trap,
+            detect_zero_regions as _zr,
+            compute_frustration_index as _fi,
+            estimate_trapping_indicator as _ti,
+        )
+        # Reuse ternary decoder results when available to avoid duplicate runs
+        if enable_ternary_decoder and "ternary_decoder_metrics" in artifact["results"]:
+            td_final = td_msgs
+        else:
+            td_recv = np.ones(best_H.shape[1], dtype=np.float64)
+            td_res = _run_td_trap(best_H, td_recv)
+            td_final = td_res["final_messages"]
+        regions = _zr(td_final)
+        artifact["results"]["ternary_trapping_regions"] = regions
+        artifact["results"]["ternary_frustration_index"] = float(_fi(td_final))
+        artifact["results"]["ternary_trapping_indicator"] = float(
+            _ti(td_final, best_H)
+        )
 
     artifact = canonicalize(artifact)
 

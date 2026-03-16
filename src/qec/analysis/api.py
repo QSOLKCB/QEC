@@ -366,6 +366,30 @@ def compute_ternary_conflict_density(messages: np.ndarray) -> np.float64:
     return _impl(messages)
 
 
+def detect_zero_regions(messages: np.ndarray) -> dict[str, Any]:
+    """Public wrapper for deterministic ternary zero-region detection."""
+    from src.qec.decoder.ternary.ternary_trapping import detect_zero_regions as _impl
+    return _impl(messages)
+
+
+def compute_frustration_index(messages: np.ndarray) -> np.float64:
+    """Public wrapper for deterministic ternary frustration index computation."""
+    from src.qec.decoder.ternary.ternary_trapping import compute_frustration_index as _impl
+    return _impl(messages)
+
+
+def detect_persistent_zero_states(history: list[np.ndarray]) -> list[int]:
+    """Public wrapper for deterministic persistent zero-state detection."""
+    from src.qec.decoder.ternary.ternary_trapping import detect_persistent_zero_states as _impl
+    return _impl(history)
+
+
+def estimate_trapping_indicator(messages: np.ndarray, parity_matrix: np.ndarray) -> np.float64:
+    """Public wrapper for deterministic trapping indicator estimation."""
+    from src.qec.decoder.ternary.ternary_trapping import estimate_trapping_indicator as _impl
+    return _impl(messages, parity_matrix)
+
+
 def construct_phase_map(
     basins: list[dict[str, Any]],
     ridges: list[dict[str, Any]],

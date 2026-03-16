@@ -71,6 +71,7 @@ def run_discovery_experiment(
     conjecture_validation_interval: int = 1200,
     enable_ternary_decoder: bool = False,
     enable_ternary_trapping: bool = False,
+    enable_decoder_rule_experiments: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -302,6 +303,40 @@ def run_discovery_experiment(
         artifact["results"]["ternary_trapping_indicator"] = float(
             _ti(td_final, best_H)
         )
+
+    if enable_decoder_rule_experiments and best_H is not None:
+        from src.qec.decoder.ternary.ternary_rule_variants import RULE_REGISTRY
+        from src.qec.decoder.ternary.ternary_rule_evaluator import evaluate_decoder_rule
+
+        td_recv_rules = np.ones(best_H.shape[1], dtype=np.float64)
+        decoder_rule_metrics: list[dict[str, Any]] = []
+        for rname in sorted(RULE_REGISTRY.keys()):
+            metrics = evaluate_decoder_rule(best_H, td_recv_rules, rname)
+            decoder_rule_metrics.append({
+                "rule_name": rname,
+                "stability": float(metrics["stability"]),
+                "entropy": float(metrics["entropy"]),
+                "conflict_density": float(metrics["conflict_density"]),
+                "trapping_indicator": float(metrics["trapping_indicator"]),
+            })
+
+        # Deterministic best-rule selection via lexsort:
+        # primary key: -stability (descending), secondary: rule_name (ascending)
+        rule_names = [m["rule_name"] for m in decoder_rule_metrics]
+        stabilities = [-m["stability"] for m in decoder_rule_metrics]
+        sort_order = np.lexsort((rule_names, stabilities))
+        best_idx = int(sort_order[0])
+        best_decoder_rule = decoder_rule_metrics[best_idx]["rule_name"]
+
+        rule_stability_scores = {
+            m["rule_name"]: m["stability"] for m in decoder_rule_metrics
+        }
+        # Sort for deterministic output
+        rule_stability_scores = dict(sorted(rule_stability_scores.items()))
+
+        artifact["results"]["decoder_rule_metrics"] = decoder_rule_metrics
+        artifact["results"]["best_decoder_rule"] = best_decoder_rule
+        artifact["results"]["rule_stability_scores"] = rule_stability_scores
 
     artifact = canonicalize(artifact)
 

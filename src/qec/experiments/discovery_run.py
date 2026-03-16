@@ -54,6 +54,8 @@ def run_discovery_experiment(
     enable_theory_extraction: bool = False,
     theory_extraction_interval: int = 200,
     max_conjectures: int = 10,
+    enable_theory_refinement: bool = False,
+    theory_refinement_interval: int = 200,
     enable_phase_trajectory: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
@@ -107,6 +109,8 @@ def run_discovery_experiment(
         enable_theory_extraction=enable_theory_extraction,
         theory_extraction_interval=theory_extraction_interval,
         max_conjectures=max_conjectures,
+        enable_theory_refinement=enable_theory_refinement,
+        theory_refinement_interval=theory_refinement_interval,
         enable_phase_trajectory=enable_phase_trajectory,
     )
 
@@ -147,6 +151,8 @@ def run_discovery_experiment(
             "enable_theory_extraction": enable_theory_extraction,
             "theory_extraction_interval": theory_extraction_interval,
             "max_conjectures": max_conjectures,
+            "enable_theory_refinement": enable_theory_refinement,
+            "theory_refinement_interval": theory_refinement_interval,
             "enable_phase_trajectory": enable_phase_trajectory,
         },
         "best_candidate": result["best_candidate"],

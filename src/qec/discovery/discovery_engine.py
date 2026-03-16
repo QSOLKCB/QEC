@@ -65,6 +65,13 @@ from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
 from src.qec.analysis.spectral_theory_dataset import build_theory_dataset
 from src.qec.analysis.spectral_theory_models import fit_theory_models
 from src.qec.analysis.spectral_conjectures import generate_conjectures, rank_conjectures
+from src.qec.analysis.spectral_conjecture_validation import validate_conjectures
+from src.qec.analysis.spectral_counterexamples import extract_counterexamples
+from src.qec.analysis.spectral_theory_memory import (
+    initialize_theory_memory,
+    summarize_theory_memory,
+    update_theory_memory,
+)
 from src.qec.analysis.basin_transitions import detect_basin_transitions
 from src.qec.analysis.basin_statistics import basin_sizes
 from src.qec.analysis.basin_map_export import export_basin_map
@@ -262,6 +269,10 @@ def run_structure_discovery(
     enable_theory_extraction: bool = False,
     theory_extraction_interval: int = 200,
     max_conjectures: int = 10,
+    enable_theory_refinement: bool = False,
+    theory_refinement_interval: int = 200,
+    conjecture_validation_tolerance: float = 0.15,
+    counterexample_error_threshold: float = 0.25,
     enable_phase_trajectory: bool = False,
     enable_phase_diagram: bool = False,
     phase_diagram_resolution: int = 50,
@@ -428,6 +439,9 @@ def run_structure_discovery(
     latest_theory_dataset: dict[str, Any] | None = None
     latest_ranked_conjectures: list[dict[str, Any]] = []
     theory_extraction_iteration: int = 0
+    theory_memory = initialize_theory_memory()
+    latest_conjecture_validations: list[dict[str, Any]] = []
+    latest_conjecture_counterexamples: list[dict[str, Any]] = []
     escape_attempts = 0
     escape_successes = 0
     basin_centers: dict[int, np.ndarray] = {}
@@ -510,6 +524,14 @@ def run_structure_discovery(
             spectrum0 = _objective_spectrum(best.get("objectives", {}))
             if spectrum0.shape[0] >= 3:
                 phase_trajectory_points.append([float(np.float64(spectrum0[0])), float(np.float64(spectrum0[1])), float(np.float64(spectrum0[2]))])
+
+
+    if enable_multi_agent_discovery:
+        coordinator = MultiAgentCoordinator()
+        for agent_id in range(int(max(0, num_agents))):
+            coordinator.register_agent(DiscoveryAgent(agent_id))
+        coordinator.assign_agents_to_regions(landscape_regions)
+        agents = coordinator.list_agents()
 
     # ── Main loop ──────────────────────────────────────────────────
     for gen in range(1, num_generations + 1):
@@ -843,6 +865,16 @@ def run_structure_discovery(
             scheduler_strategy = scheduled_experiment.get("strategy")
             detected_landscape_gap_count = int(scheduled_experiment.get("gap_count", 0))
 
+        child_candidates = [
+            {"candidate_id": f"gen{gen:04d}_child{ei:04d}", "elite_index": ei}
+            for ei in range(len(elites))
+        ]
+        ordered_child_candidates = sorted(child_candidates, key=lambda c: str(c["candidate_id"]))
+        child_agent_map: dict[int, DiscoveryAgent] = {}
+        if enable_multi_agent_discovery and agents:
+            for idx, child_candidate in enumerate(ordered_child_candidates):
+                child_agent_map[int(child_candidate["elite_index"])] = agents[idx % len(agents)]
+
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
 
@@ -1003,9 +1035,10 @@ def run_structure_discovery(
                 trajectory_recorder.record(np.append(current_spectrum, nb_eigenvalue))
 
             if enable_multi_agent_discovery and agents:
-                agent = agents[ei % len(agents)]
-                current_spectrum = _objective_spectrum(repaired_objectives)
-                agent.record(current_spectrum, region_id=agent.assigned_region)
+                agent = child_agent_map.get(ei)
+                if agent is not None:
+                    current_spectrum = _objective_spectrum(repaired_objectives)
+                    agent.record(current_spectrum, region_id=agent.assigned_region)
 
             # Diversity penalty
             child_sig = compute_structure_signature(H_repaired)
@@ -1035,7 +1068,7 @@ def run_structure_discovery(
                     repaired_spectrum, threshold=landscape_cluster_threshold,
                 )
 
-            child_id = f"gen{gen:04d}_child{ei:04d}"
+            child_id = next((c["candidate_id"] for c in ordered_child_candidates if int(c["elite_index"]) == ei), f"gen{gen:04d}_child{ei:04d}")
             child_state = make_search_state(
                 candidate_id=child_id,
                 generation=gen,
@@ -1125,6 +1158,38 @@ def run_structure_discovery(
                 latest_ranked_conjectures = rank_conjectures(generate_conjectures(fitted_models))
                 theory_extraction_iteration = int(gen)
 
+        if enable_theory_refinement and int(max(1, theory_refinement_interval)) > 0:
+            if gen % int(max(1, theory_refinement_interval)) == 0:
+                theory_dataset = build_theory_dataset(archive)
+                conjectures_for_validation = latest_ranked_conjectures
+                if not conjectures_for_validation:
+                    fitted_models = fit_theory_models(theory_dataset)
+                    conjectures_for_validation = rank_conjectures(generate_conjectures(fitted_models))
+                latest_conjecture_validations = validate_conjectures(
+                    conjectures_for_validation,
+                    theory_dataset,
+                    tolerance=conjecture_validation_tolerance,
+                )
+                latest_conjecture_counterexamples = []
+                for conjecture in conjectures_for_validation:
+                    latest_conjecture_counterexamples.extend(
+                        extract_counterexamples(
+                            conjecture,
+                            theory_dataset,
+                            error_threshold=counterexample_error_threshold,
+                        )
+                    )
+                latest_conjecture_counterexamples = sorted(
+                    latest_conjecture_counterexamples,
+                    key=lambda r: (str(r.get("conjecture_id", "")), str(r.get("counterexample_id", ""))),
+                )
+                theory_memory = update_theory_memory(
+                    theory_memory,
+                    conjectures_for_validation,
+                    latest_conjecture_validations,
+                    latest_conjecture_counterexamples,
+                )
+
         operator_weights = compute_adaptive_operator_weights(operator_stats)
         generation_summaries.append(
             _build_generation_summary(
@@ -1193,6 +1258,31 @@ def run_structure_discovery(
                     if enable_experiment_planner
                     else None
                 ),
+                num_validated_conjectures=(
+                    int(len(latest_conjecture_validations))
+                    if enable_theory_refinement
+                    else None
+                ),
+                num_supported_conjectures=(
+                    int(sum(1 for rec in summarize_theory_memory(theory_memory) if rec.get("status") == "supported"))
+                    if enable_theory_refinement
+                    else None
+                ),
+                num_fragile_conjectures=(
+                    int(sum(1 for rec in summarize_theory_memory(theory_memory) if rec.get("status") == "fragile"))
+                    if enable_theory_refinement
+                    else None
+                ),
+                num_rejected_conjectures=(
+                    int(sum(1 for rec in summarize_theory_memory(theory_memory) if rec.get("status") == "rejected"))
+                    if enable_theory_refinement
+                    else None
+                ),
+                mean_theory_support_score=(
+                    float(np.float64(np.mean([v.get("support_score", 0.0) for v in latest_conjecture_validations])))
+                    if enable_theory_refinement and latest_conjecture_validations
+                    else (0.0 if enable_theory_refinement else None)
+                ),
             )
         )
         generation_summaries[-1]["operator_stats"] = summarize_operator_statistics(operator_stats)
@@ -1205,7 +1295,7 @@ def run_structure_discovery(
     archive_summary = get_archive_summary(archive)
 
     if enable_multi_agent_discovery and agents:
-        for agent in agents:
+        for agent in sorted(agents, key=lambda a: int(a.agent_id)):
             for spectrum in agent.trajectory:
                 archive_summary.setdefault("shared_landscape_memory", []).append(
                     np.asarray(spectrum, dtype=np.float64).tolist()
@@ -1324,6 +1414,13 @@ def run_structure_discovery(
         result["best_conjecture_equation"] = str(limited[0].get("equation_string", "")) if limited else ""
         result["theory_extraction_iteration"] = int(theory_extraction_iteration)
 
+
+    if enable_theory_refinement:
+        result["theory_memory"] = theory_memory
+        result["theory_memory_summary"] = summarize_theory_memory(theory_memory)
+        result["conjecture_validations"] = latest_conjecture_validations
+        result["conjecture_counterexamples"] = latest_conjecture_counterexamples
+
     if enable_phase_diagram:
         phase_dataset = build_phase_diagram_dataset(archive)
         phase_grid = construct_phase_grid(
@@ -1439,6 +1536,11 @@ def _build_generation_summary(
     planned_experiment_targets: list[np.ndarray] | None = None,
     phase_uncertainty_score: float | None = None,
     planner_iteration: int | None = None,
+    num_validated_conjectures: int | None = None,
+    num_supported_conjectures: int | None = None,
+    num_fragile_conjectures: int | None = None,
+    num_rejected_conjectures: int | None = None,
+    mean_theory_support_score: float | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -1521,6 +1623,16 @@ def _build_generation_summary(
         result["phase_uncertainty_score"] = float(np.float64(phase_uncertainty_score))
     if planner_iteration is not None:
         result["planner_iteration"] = int(planner_iteration)
+    if num_validated_conjectures is not None:
+        result["num_validated_conjectures"] = int(num_validated_conjectures)
+    if num_supported_conjectures is not None:
+        result["num_supported_conjectures"] = int(num_supported_conjectures)
+    if num_fragile_conjectures is not None:
+        result["num_fragile_conjectures"] = int(num_fragile_conjectures)
+    if num_rejected_conjectures is not None:
+        result["num_rejected_conjectures"] = int(num_rejected_conjectures)
+    if mean_theory_support_score is not None:
+        result["mean_theory_support_score"] = float(np.float64(mean_theory_support_score))
     return result
 
 

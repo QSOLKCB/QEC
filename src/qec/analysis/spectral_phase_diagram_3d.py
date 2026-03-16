@@ -88,7 +88,11 @@ def generate_phase_surface_3d(
     trajectory = _normalize_trajectory(trajectory_points)
     X, Y, Z = _surface_to_mesh(surface_points)
 
-    if importlib.util.find_spec("matplotlib.pyplot") is None:
+    try:
+        _has_mpl = importlib.util.find_spec("matplotlib") is not None
+    except (ModuleNotFoundError, ValueError):
+        _has_mpl = False
+    if not _has_mpl:
         out.write_bytes(_FALLBACK_PNG_1X1)
         return {
             "surface_path": str(out),

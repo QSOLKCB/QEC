@@ -121,6 +121,7 @@ def render_ascii_heatmap(
 def plot_phase_diagram(
     phase_data: dict[str, Any],
     output_path: str | None = None,
+    metric: str = "FER",
 ) -> Any | None:
     """Plot a spectral instability phase diagram with matplotlib.
 
@@ -148,14 +149,21 @@ def plot_phase_diagram(
 
     sr = [p["spectral_radius"] for p in points]
     er = [p["error_rate"] for p in points]
-    fer = [p["FER"] for p in points]
+    values = [float(p.get(metric, 0.0)) for p in points]
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    scatter = ax.scatter(sr, er, c=fer, cmap="hot", vmin=0.0, vmax=1.0, s=40)
-    fig.colorbar(scatter, ax=ax, label="FER")
+    cmap = "hot" if metric == "FER" else "viridis"
+    vmax = 1.0 if metric == "FER" else (max(values) if values else 1.0)
+    if vmax <= 0.0:
+        vmax = 1.0
+    scatter = ax.scatter(sr, er, c=values, cmap=cmap, vmin=0.0, vmax=vmax, s=40)
+    fig.colorbar(scatter, ax=ax, label=metric)
     ax.set_xlabel("Spectral Radius")
     ax.set_ylabel("Error Rate")
-    ax.set_title("Spectral Instability Phase Diagram")
+    title = "Spectral Instability Phase Diagram"
+    if metric == "trapping_risk":
+        title = "Spectral Phase-Space Risk Heatmap"
+    ax.set_title(title)
 
     if output_path:
         fig.savefig(output_path, dpi=150, bbox_inches="tight")
@@ -164,3 +172,9 @@ def plot_phase_diagram(
         plt.close(fig)
 
     return fig
+
+
+
+def plot_risk_heatmap(phase_data: dict[str, Any], output_path: str | None = None) -> Any | None:
+    """Convenience wrapper for trapping-risk heatmap visualization."""
+    return plot_phase_diagram(phase_data, output_path=output_path, metric="trapping_risk")

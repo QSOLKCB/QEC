@@ -4,6 +4,143 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[50.0.0] — Self-Reflective Spectral Discovery
+
+Added
+
+- Adds deterministic self-reflective analysis over discovery archives to compare successful vs unsuccessful candidates and estimate structural feature correlations.
+- Adds deterministic structural hypothesis generation and ranking from archive correlations.
+- Adds hypothesis-guided exploration bias and scheduler scoring support via opt-in `strategy="hypothesis_guided"` using weighted combined scoring.
+- Adds opt-in discovery engine self-reflection (`enable_self_reflection`, `reflection_interval`, `hypothesis_weight`) with reflective generation logging fields.
+- Adds deterministic spectral phase-boundary detection from landscape memory and reflective phase-boundary metrics.
+- Adds optional KD-like search-index reuse for landscape nearest-neighbor lookup (`reuse_landscape_kd_tree`) as a behavior-preserving performance optimization.
+- Adds reflective experiment artifact export fields (`hypothesis_list`, `hypothesis_rankings`, `reflection_metrics`) in JSON-safe form.
+- Adds deterministic regression tests for archive analysis, hypothesis generation/ranking, scheduler integration, phase boundaries, and reflective engine reproducibility.
+
+[41.0.0] — Adaptive Spectral Basin Exploration
+
+Added
+
+- Exploration state analyzer for deterministic classification of local optimization, stagnation, transitions, and global exploration phases.
+- Adaptive exploration policy for deterministic strategy selection across gradient optimization, non-backtracking eigenmode guidance, basin escape, and random exploration.
+- Opt-in discovery-engine integration via `enable_adaptive_exploration` and `exploration_window` with dynamic strategy routing.
+- Exploration metrics including basin switch rate, mean basin duration, and exploration entropy.
+- Adaptive escape strength scaled by basin persistence and deterministic early-exploration guard against premature escape use.
+- Escape success feedback tracking to reduce escape preference when escape outcomes are consistently ineffective.
+- Safe division and [0,1] clamping for `escape_success_rate` to prevent NaN/invalid probabilities during early runs.
+- Bounded adaptive escape scaling (max factor 3.0) for stable escape-step magnitude.
+- Deterministic strategy smoothing buffer to reduce rapid policy oscillation.
+- Improved float64 numeric stability guarantees for exploration metrics.
+- Exploration logging fields in generation summaries: `exploration_state`, `exploration_strategy`, `basin_switch_rate`, `exploration_entropy`, and `escape_success_rate`.
+- Determinism-focused tests for state detection, policy routing, adaptive scaling, guard/feedback behavior, and opt-in integration.
+[40.0.0] — Spectral Basin Escape Operators
+
+Added
+
+- Deterministic basin stagnation detection utilities.
+- Deterministic escape-direction estimation away from basin centers.
+- Basin escape mutation targets in spectral space.
+- Optional basin escape integration in discovery with escape-operator prioritization.
+- Basin escape event logging for trajectory transition analysis.
+- Improved escape direction estimation by biasing escapes toward nearest basin boundary.
+- Added escape outcome logging to support future adaptive escape learning.
+[39.0.0] — Spectral Basin Topology Mapping
+
+Added
+
+- Spectral basin identification utilities for deterministic trajectory clustering.
+- Basin transition detection helpers for identifying attraction-region switches.
+- Basin size statistics for topology characterization.
+- Optional discovery engine basin topology mapping integration.
+- Basin topology export support with optional phase-space projected basin centers.
+- Minor optimization: basin clustering now uses squared-distance comparison.
+- Improved scaling for large trajectories using vectorized distance checks.
+- Optimized basin clustering using incremental basin-center matrix.
+- Added small capacity preallocation to support large trajectories (100k+ points).
+- Removed repeated `np.vstack` allocations inside the clustering loop.
+
+[37.0.0] — Spectral Gradient Optimization
+
+Added
+
+- Spectral gradient estimation utilities for deterministic trajectory-based direction inference.
+- Optional gradient-guided mutation target proposal hooks in discovery.
+- Trajectory compression support via configurable `save_every_n_steps` recording.
+- Smooth trajectory sonification with interpolated spectral glissandos.
+- Improved trajectory audio playback via `sonify_trajectory_smooth(...)`.
+
+[36.0.0] — Spectral Trajectory Recording & Phase-Space Analysis
+
+Added
+
+- Spectral trajectory recorder for discovery runs.
+- Deterministic logging of spectral feature vectors.
+- JSON export and replay utilities for spectral trajectories.
+- Sonification support for spectral trajectories.
+- Phase-space projection utilities for 2D/3D trajectory analysis.
+- Optional integration with deterministic experiment harness output.
+
+[35.2.0] — Spectral Sonification Tool
+
+Added spectral sonifier for converting spectral diagnostics into audio.
+
+Deterministic mapping of eigenvalues and localization metrics to sound.
+
+Optional CLI tool for artifact sonification.
+
+Intended for debugging and visualization of spectral dynamics.
+
+[35.1.0] — Deterministic Experiment Harness
+
+Added
+
+- Introduces a deterministic experiment harness for reproducible testing of discovery experiments.
+- Provides deterministic execution environment, experiment metadata capture, and reproducible experiment hashes.
+- Adds pytest fixture support for stable experiment tests without modifying discovery engine behavior.
+- Experiment hashes are now derived from experiment results and metadata.
+- Harness metadata timestamp is deterministic (seed-based).
+
+---
+[35.0.1] — Test Suite Stabilization
+
+Fix legacy test-suite failures unrelated to the v35 spectral
+discovery architecture.
+
+No changes were made to the discovery engine, mutation operators,
+or spectral diagnostics introduced in v35.0.0.
+
+Fixes include:
+- robust metadata handling in tests
+- spectral diversity test stabilization
+- dependency graph test corrections
+- threshold-search metadata fixes
+
+[35.0.0] — Spectral Geometry & Trust-Region Mutation Control
+
+Added
+
+- **Spectral mutation trust region** (`src/qec/discovery/mutation_trust_region.py`):
+  Introduces `SpectralTrustRegion` for bounding mutation step size in
+  spectral feature space using deterministic Euclidean distance.
+
+- **Spectral geometry metrics** (`src/qec/analysis/spectral_geometry.py`):
+  Adds lightweight deterministic helpers for spectral distance,
+  entropy, and trajectory diversity metrics.
+
+- **Basin switch detection upgrade** (`src/qec/discovery/basin_switch_detector.py`):
+  Adds a threshold-based detector for abrupt spectral-space transitions,
+  integrated as an opt-in feature in discovery-loop summaries.
+
+Updated
+
+- **Discovery loop integration** (`src/qec/discovery/discovery_engine.py`):
+  Adds opt-in trust-region mutation rejection and opt-in basin-switch
+  logging while preserving deterministic default behavior.
+
+- **Tests** (`tests/test_spectral_geometry.py`,
+  `tests/test_mutation_trust_region.py`): Adds deterministic coverage for
+  spectral distance, trust-region rejection, and basin-switch thresholds.
+
 ---
 
 Changelog
@@ -11,6 +148,47 @@ Changelog
 All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
+
+[50.0.0] — Self-Reflective Spectral Discovery
+
+Added
+
+- Adds deterministic self-reflective analysis over discovery archives to compare successful vs unsuccessful candidates and estimate structural feature correlations.
+- Adds deterministic structural hypothesis generation and ranking from archive correlations.
+- Adds hypothesis-guided exploration bias and scheduler scoring support via opt-in `strategy="hypothesis_guided"` using weighted combined scoring.
+- Adds opt-in discovery engine self-reflection (`enable_self_reflection`, `reflection_interval`, `hypothesis_weight`) with reflective generation logging fields.
+- Adds deterministic spectral phase-boundary detection from landscape memory and reflective phase-boundary metrics.
+- Adds optional KD-like search-index reuse for landscape nearest-neighbor lookup (`reuse_landscape_kd_tree`) as a behavior-preserving performance optimization.
+- Adds reflective experiment artifact export fields (`hypothesis_list`, `hypothesis_rankings`, `reflection_metrics`) in JSON-safe form.
+- Adds deterministic regression tests for archive analysis, hypothesis generation/ranking, scheduler integration, phase boundaries, and reflective engine reproducibility.
+
+[41.0.0] — Adaptive Spectral Basin Exploration
+
+Added
+
+- Exploration state analyzer for deterministic classification of local optimization, stagnation, transitions, and global exploration phases.
+- Adaptive exploration policy for deterministic strategy selection across gradient optimization, non-backtracking eigenmode guidance, basin escape, and random exploration.
+- Opt-in discovery-engine integration via `enable_adaptive_exploration` and `exploration_window` with dynamic strategy routing.
+- Exploration metrics including basin switch rate, mean basin duration, and exploration entropy.
+- Adaptive escape strength scaled by basin persistence and deterministic early-exploration guard against premature escape use.
+- Escape success feedback tracking to reduce escape preference when escape outcomes are consistently ineffective.
+- Safe division and [0,1] clamping for `escape_success_rate` to prevent NaN/invalid probabilities during early runs.
+- Bounded adaptive escape scaling (max factor 3.0) for stable escape-step magnitude.
+- Deterministic strategy smoothing buffer to reduce rapid policy oscillation.
+- Improved float64 numeric stability guarantees for exploration metrics.
+- Exploration logging fields in generation summaries: `exploration_state`, `exploration_strategy`, `basin_switch_rate`, `exploration_entropy`, and `escape_success_rate`.
+- Determinism-focused tests for state detection, policy routing, adaptive scaling, guard/feedback behavior, and opt-in integration.
+
+[36.0.0] — Spectral Trajectory Recording & Phase-Space Analysis
+
+Added
+
+- Spectral trajectory recorder for discovery runs.
+- Deterministic logging of spectral feature vectors.
+- JSON export and replay utilities for spectral trajectories.
+- Sonification support for spectral trajectories.
+- Phase-space projection utilities for 2D/3D trajectory analysis.
+- Optional integration with deterministic experiment harness output.
 
 [11.6.1] — 2026-03-12
 

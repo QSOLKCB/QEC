@@ -101,3 +101,29 @@ class TestBetheHessian:
         H_copy = H.copy()
         compute_bethe_hessian(H)
         np.testing.assert_array_equal(H, H_copy)
+
+from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer, estimate_nishimori_temperature
+
+
+class TestBetheHessianV132Analysis:
+    def test_smallest_eigenvalue_deterministic(self):
+        H = np.array([[1, 1, 0, 1], [0, 1, 1, 0], [1, 0, 1, 1]], dtype=np.float64)
+        analyzer = BetheHessianAnalyzer()
+        r = 1.2
+        v1 = analyzer.smallest_eigenvalue(H, r=r)
+        v2 = analyzer.smallest_eigenvalue(H, r=r)
+        assert v1 == v2
+
+    def test_sparse_support_matches_dense(self):
+        H = np.array([[1, 1, 0], [0, 1, 1]], dtype=np.float64)
+        analyzer = BetheHessianAnalyzer()
+        A = analyzer._build_variable_adjacency(H)
+        dense = A.toarray()
+        assert np.array_equal((dense > 0).astype(int), np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]], dtype=int))
+
+    def test_nishimori_temperature_deterministic(self):
+        H = np.array([[1, 1, 0, 1], [0, 1, 1, 0], [1, 0, 1, 1]], dtype=np.float64)
+        r1 = estimate_nishimori_temperature(H)
+        r2 = estimate_nishimori_temperature(H)
+        assert r1 == r2
+        assert r1 > 0.0

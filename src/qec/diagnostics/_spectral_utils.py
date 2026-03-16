@@ -11,7 +11,7 @@ This module must remain deterministic and memory-safe.
 from __future__ import annotations
 
 import numpy as np
-from scipy.sparse.linalg import LinearOperator, eigs
+from scipy.sparse.linalg import ArpackError, ArpackNoConvergence, LinearOperator, eigs
 
 
 # -----------------------------------------------------------
@@ -129,22 +129,37 @@ def compute_nb_dominant_eigenpair(graph, tol=1e-6):
     """
 
     op, directed_edges = build_nb_operator(graph)
+    n = op.shape[0]
+    if n == 0:
+        return 0.0, np.zeros(0, dtype=np.float64), directed_edges
 
     # Use deterministic initial vector for ARPACK reproducibility.
-    v0 = np.ones(op.shape[0], dtype=np.float64)
-    vals, vecs = eigs(
-        op,
-        k=1,
-        which="LR",
-        tol=tol,
-        v0=v0,
-    )
+    v0 = np.ones(n, dtype=np.float64)
+    try:
+        vals, vecs = eigs(
+            op,
+            k=1,
+            which="LR",
+            tol=tol,
+            v0=v0,
+        )
+    except (ArpackError, ArpackNoConvergence, ValueError, np.linalg.LinAlgError):
+        if n > 512:
+            raise
+
+        dense_nb = op.matmat(np.eye(n, dtype=np.float64))
+        vals_dense, vecs_dense = np.linalg.eig(dense_nb)
+        idx = int(np.argmax(np.real(vals_dense)))
+        vals = np.asarray([vals_dense[idx]], dtype=np.complex128)
+        vecs = np.asarray(vecs_dense[:, [idx]], dtype=np.complex128)
 
     spectral_radius = np.real(vals[0])
     eigenvector = np.real(vecs[:, 0])
 
     # normalize for stability
-    eigenvector /= np.linalg.norm(eigenvector)
+    norm = np.linalg.norm(eigenvector)
+    if norm > 0:
+        eigenvector /= norm
 
     return spectral_radius, eigenvector, directed_edges
 

@@ -102,6 +102,26 @@ class TestDiscoveryEngine:
         assert np.isfinite(c1)
         assert np.isfinite(c2)
 
+    def test_spectral_geometry_fields_opt_in(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_spectral_geometry=True,
+        )
+        assert "trajectory_arc_length" in result
+        assert "mean_trajectory_curvature" in result
+        assert "spectral_dispersion" in result
+
+    def test_spectral_geometry_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "trajectory_arc_length" not in result
+        assert "mean_trajectory_curvature" not in result
+        assert "spectral_dispersion" not in result
+
 
 class TestDiscoveryExperiment:
     """Tests for the discovery run experiment."""
@@ -194,3 +214,103 @@ class TestDiscoveryBenchmark:
                 r1["benchmark_results"]["results"][0]["best_composite_score"]
                 == r2["benchmark_results"]["results"][0]["best_composite_score"]
             )
+
+
+    def test_information_gain_fields_opt_in(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_landscape_learning=True,
+            enable_information_gain_scheduler=True,
+        )
+        summary = result["generation_summaries"][-1]
+        assert "information_gain_score" in summary
+        assert "spectral_uncertainty" in summary
+        assert "novelty_score" in summary
+        assert "selected_target_spectrum" in summary
+
+    def test_information_gain_fields_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        summary = result["generation_summaries"][-1]
+        assert "information_gain_score" not in summary
+        assert "spectral_uncertainty" not in summary
+        assert "novelty_score" not in summary
+        assert "selected_target_spectrum" not in summary
+
+
+    def test_experiment_planner_fields_opt_in(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_experiment_planner=True,
+            planner_uncertainty_threshold=0.01,
+            planner_max_targets=3,
+        )
+        summary = result["generation_summaries"][-1]
+        assert "planned_experiment_targets" in summary
+        assert "phase_uncertainty_score" in summary
+        assert "planner_iteration" in summary
+
+    def test_experiment_planner_fields_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        summary = result["generation_summaries"][-1]
+        assert "planned_experiment_targets" not in summary
+        assert "phase_uncertainty_score" not in summary
+        assert "planner_iteration" not in summary
+
+
+    def test_phase_diagram_3d_fields_opt_in(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_experiment_planner=True,
+            planner_uncertainty_threshold=0.01,
+            planner_max_targets=3,
+            enable_phase_diagram_3d=True,
+        )
+        assert "phase_diagram_3d_path" in result
+        assert "phase_diagram_3d_num_targets" in result
+
+    def test_phase_diagram_3d_fields_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "phase_diagram_3d_path" not in result
+        assert "phase_diagram_3d_num_targets" not in result
+
+
+    def test_theory_refinement_fields_opt_in(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_theory_extraction=True,
+            enable_theory_refinement=True,
+            theory_refinement_interval=1,
+        )
+        assert "theory_memory" in result
+        assert "theory_memory_summary" in result
+        assert "conjecture_validations" in result
+        assert "conjecture_counterexamples" in result
+
+    def test_theory_refinement_fields_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        summary = result["generation_summaries"][-1]
+        assert "num_validated_conjectures" not in summary
+        assert "num_supported_conjectures" not in summary
+        assert "num_fragile_conjectures" not in summary
+        assert "num_rejected_conjectures" not in summary
+        assert "mean_theory_support_score" not in summary

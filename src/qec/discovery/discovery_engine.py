@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import struct
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -48,10 +49,121 @@ from src.qec.discovery.diversity import (
     compute_structure_signature,
     compute_diversity_penalty,
 )
+from src.qec.discovery.basin_switch_detector import BasinSwitchDetector
+from src.qec.discovery.mutation_trust_region import SpectralTrustRegion
 from src.qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
+from src.qec.analysis.spectral_gradient import estimate_spectral_gradient
+from src.qec.analysis.basin_stagnation import detect_basin_stagnation
+from src.qec.analysis.basin_escape_direction import estimate_escape_direction
+from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
+from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
+from src.qec.analysis.landscape_metrics import novelty_score as landscape_novelty_score, landscape_coverage
+from src.qec.analysis.spectral_basins import identify_spectral_basins
+from src.qec.discovery.autonomous_scheduler import schedule_autonomous_target
+from src.qec.discovery.experiment_planner import SpectralExperimentPlanner
+from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
+from src.qec.analysis.spectral_theory_dataset import build_theory_dataset
+from src.qec.analysis.spectral_theory_models import fit_theory_models
+from src.qec.analysis.spectral_conjectures import generate_conjectures, rank_conjectures
+from src.qec.analysis.spectral_conjecture_validation import validate_conjectures
+from src.qec.analysis.spectral_counterexamples import extract_counterexamples
+from src.qec.analysis.spectral_theory_memory import (
+    initialize_theory_memory,
+    summarize_theory_memory,
+    update_theory_memory,
+)
+from src.qec.analysis.basin_transitions import detect_basin_transitions
+from src.qec.analysis.basin_statistics import basin_sizes
+from src.qec.analysis.basin_map_export import export_basin_map
+from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matrix
+from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
+from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
+from src.qec.discovery.spectral_gradient_mutation import propose_gradient_step
+from src.qec.discovery.cooperative_region_planner import plan_agent_targets
+from src.qec.discovery.agent_coordination import AgentCoordinationState
+from src.qec.discovery.agent_messages import AgentMessage, FRONTIER_EXPLORED, REGION_EXPLORED
+from src.qec.analysis.agent_spacing import enforce_agent_spacing
+from src.qec.analysis.cooperative_metrics import (
+    agent_region_overlap,
+    agent_spacing_distance,
+    cooperative_coverage,
+    frontier_exploration_rate,
+)
+from src.qec.analysis.spectral_frontiers import detect_spectral_frontiers
+from src.qec.discovery.discovery_agent import DiscoveryAgent
+from src.qec.discovery.multi_agent_coordinator import MultiAgentCoordinator
+from src.qec.discovery.autonomous_scheduler import schedule_next_experiment
+from src.qec.discovery.adaptive_operator_weights import compute_adaptive_operator_weights
+from src.qec.discovery.experiment_queue import ExperimentQueue
+from src.qec.analysis.exploration_state import analyze_exploration_state
+from src.qec.analysis.exploration_metrics import (
+    basin_switch_rate,
+    exploration_entropy,
+    mean_basin_duration,
+)
+from src.qec.analysis.spectral_dataset import build_spectral_dataset
+from src.qec.analysis.bayesian_landscape_model import BayesianSpectralModel
+from src.qec.analysis.expected_improvement import rank_candidates_bayesian
+from src.qec.analysis.spectral_phase_diagram import (
+    build_phase_diagram_dataset,
+    construct_phase_grid,
+    estimate_stability_surface,
+    detect_phase_boundaries,
+    generate_phase_heatmap,
+)
+from src.qec.discovery.exploration_policy import (
+    apply_escape_feedback_bias,
+    choose_exploration_strategy,
+)
+from src.qec.discovery.basin_escape_mutation import propose_escape_step
+from src.qec.analysis.discovery_archive_analyzer import analyze_discovery_archive
+from src.qec.analysis.hypothesis_generator import generate_structural_hypotheses
+from src.qec.analysis.hypothesis_ranking import rank_hypotheses
+from src.qec.discovery.hypothesis_guidance import compute_hypothesis_bias
+from src.qec.discovery.autonomous_scheduler import compute_combined_score
+from src.qec.analysis.spectral_phase_boundaries import detect_phase_boundaries
+from src.qec.analysis.spectral_geometry import (
+    trajectory_arc_length,
+    estimate_local_curvature,
+    estimate_basin_geometry,
+)
 
 
 _ROUND = 12
+
+
+def update_operator_success(operator_stats: dict[str, dict[str, float]], operator: str, improvement: float) -> dict[str, dict[str, float]]:
+    """Deterministically update per-operator success counters."""
+    key = str(operator)
+    rec = dict(operator_stats.get(key, {}))
+    trials = int(rec.get("trials", 0)) + 1
+    successes = int(rec.get("successes", 0)) + (1 if float(np.float64(improvement)) > 0.0 else 0)
+    rec["trials"] = trials
+    rec["successes"] = successes
+    rec["success_rate"] = float(np.float64(successes / max(trials, 1)))
+    operator_stats[key] = rec
+    return operator_stats
+
+
+
+def summarize_operator_statistics(operator_stats: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
+    """Return deterministic JSON-safe operator statistics summary."""
+    summary: dict[str, dict[str, float]] = {}
+    for name in sorted(operator_stats.keys()):
+        rec = operator_stats.get(name, {})
+        summary[str(name)] = {
+            "trials": float(np.float64(rec.get("trials", 0.0))),
+            "successes": float(np.float64(rec.get("successes", 0.0))),
+            "success_rate": float(np.float64(rec.get("success_rate", 0.0))),
+        }
+    return summary
+
+_ESCAPE_OPERATORS = [
+    "edge_swap",
+    "cycle_break",
+    "seeded_reconstruction",
+    "spectral_pressure_guided_mutation",
+]
 
 
 def _derive_seed(base_seed: int, label: str) -> int:
@@ -81,6 +193,8 @@ def _rank_candidates(
         return (
             0 if c.get("is_feasible", True) else 1,
             c.get("dominance_rank", 0),
+            0 if c.get("_hypothesis_guided_score") is not None else 1,
+            -float(c.get("_hypothesis_guided_score", 0.0)),
             obj.get("composite_score", float("inf")),
             -c.get("novelty", 0.0),
             c.get("candidate_id", ""),
@@ -98,6 +212,76 @@ def run_structure_discovery(
     archive_top_k: int = 5,
     target_variable_degree: int | None = None,
     target_check_degree: int | None = None,
+    use_nb_eigenmode_mutation: bool = False,
+    enable_nb_eigenmode_mutation: bool = False,
+    enable_spectral_trust_region: bool = False,
+    trust_region_radius: float = 0.25,
+    enable_basin_switch_detection: bool = False,
+    basin_switch_threshold: float = 0.5,
+    enable_spectral_trajectory: bool = False,
+    enable_spectral_geometry: bool = False,
+    trajectory_recorder: SpectralTrajectoryRecorder | None = None,
+    enable_spectral_gradient: bool = False,
+    gradient_step_size: float = 0.1,
+    enable_cooperative_agents: bool = False,
+    cooperative_min_distance: float = 0.3,
+    enable_frontier_guidance: bool = False,
+    frontier_distance_threshold: float = 0.5,
+    enable_multi_agent_discovery: bool = False,
+    num_agents: int = 4,
+    landscape_regions: list[list[float]] | None = None,
+    enable_autonomous_scheduler: bool = False,
+    scheduler_gap_radius: float = 0.3,
+    scheduler_max_gaps: int = 16,
+    scheduler_queue: ExperimentQueue | None = None,
+    enable_landscape_learning: bool = False,
+    landscape_memory: SpectralLandscapeMemory | None = None,
+    landscape_cluster_threshold: float = 0.25,
+    use_landscape_novelty_bias: bool = False,
+    landscape_novelty_weight: float = 0.0,
+    novelty_weight: float | None = None,
+    enable_adaptive_exploration: bool = False,
+    exploration_window: int = 10,
+    escape_base_step: float = 0.01,
+    early_exploration_rate_threshold: float = 0.5,
+    low_escape_success_threshold: float = 0.1,
+    enable_basin_escape: bool = False,
+    basin_escape_window: int = 10,
+    basin_escape_step: float = 0.3,
+    enable_basin_topology_mapping: bool = False,
+    basin_distance_threshold: float = 0.25,
+    enable_self_reflection: bool = False,
+    reflection_interval: int = 50,
+    hypothesis_weight: float = 0.5,
+    reuse_landscape_kd_tree: bool = False,
+    enable_adaptive_mutation: bool = False,
+    enable_curriculum_learning: bool = False,
+    enable_motif_clustering: bool = False,
+    enable_operator_stability_guard: bool = False,
+    enable_motif_learning: bool = False,
+    motif_library: SpectralMotifLibrary | None = None,
+    operator_learning_rate: float = 0.1,
+    enable_bayesian_model: bool = False,
+    bayesian_length_scale: float = 1.0,
+    bayesian_noise: float = 1e-6,
+    enable_information_gain_scheduler: bool = False,
+    information_gain_novelty_weight: float = 0.5,
+    information_gain_uncertainty_weight: float = 0.5,
+    enable_experiment_planner: bool = False,
+    planner_uncertainty_threshold: float = 0.2,
+    planner_max_targets: int = 10,
+    enable_phase_diagram_3d: bool = False,
+    phase_diagram_3d_path: str | None = None,
+    enable_theory_extraction: bool = False,
+    theory_extraction_interval: int = 200,
+    max_conjectures: int = 10,
+    enable_theory_refinement: bool = False,
+    theory_refinement_interval: int = 200,
+    conjecture_validation_tolerance: float = 0.15,
+    counterexample_error_threshold: float = 0.25,
+    enable_phase_trajectory: bool = False,
+    enable_phase_diagram: bool = False,
+    phase_diagram_resolution: int = 50,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -133,6 +317,51 @@ def run_structure_discovery(
         Target variable degree for repair.
     target_check_degree : int or None
         Target check degree for repair.
+    use_nb_eigenmode_mutation : bool
+        Enable opt-in NB eigenmode mutation operator. Default False.
+    enable_nb_eigenmode_mutation : bool
+        Enable opt-in NB eigenmode edge scoring for mutation bias. Default False.
+    enable_spectral_trust_region : bool
+        Enable opt-in spectral trust-region mutation rejection. Default False.
+    trust_region_radius : float
+        Trust-region spectral radius when enabled.
+    enable_basin_switch_detection : bool
+        Enable opt-in basin switch detection in discovery logs. Default False.
+    basin_switch_threshold : float
+        Spectral jump threshold for basin switch detection.
+    enable_spectral_trajectory : bool
+        Enable opt-in spectral trajectory recording. Default False.
+    trajectory_recorder : SpectralTrajectoryRecorder or None
+        Optional externally managed recorder for trajectory capture.
+    enable_multi_agent_discovery : bool
+        Enable opt-in multi-agent discovery coordination. Default False.
+    num_agents : int
+        Number of discovery agents when multi-agent mode is enabled.
+    landscape_regions : list[list[float]] or None
+        Optional spectral regions assigned to agents by index order.
+    enable_basin_topology_mapping : bool
+        Enable opt-in basin topology identification from trajectory history.
+    basin_distance_threshold : float
+        Distance threshold used for deterministic basin assignment.
+
+    enable_landscape_learning : bool
+        Enable opt-in persistent spectral landscape memory updates. Default False.
+    landscape_memory : SpectralLandscapeMemory or None
+        Optional externally managed spectral landscape memory.
+    landscape_cluster_threshold : float
+        Distance threshold for deterministic region clustering.
+    use_landscape_novelty_bias : bool
+        Backward-compatible alias that enables novelty bias when True.
+    landscape_novelty_weight : float
+        Legacy novelty weight alias. Default 0.0.
+    novelty_weight : float or None
+        Primary novelty weight used in ranking when landscape learning is enabled.
+    enable_information_gain_scheduler : bool
+        Enable opt-in information-gain scheduling from frontier spectra.
+    information_gain_novelty_weight : float
+        Novelty contribution weight for information-gain score.
+    information_gain_uncertainty_weight : float
+        Uncertainty contribution weight for information-gain score.
 
     Returns
     -------
@@ -148,6 +377,47 @@ def run_structure_discovery(
     if target_check_degree is None:
         target_check_degree = spec.get("check_degree")
 
+    trust_region = (
+        SpectralTrustRegion(radius=trust_region_radius)
+        if enable_spectral_trust_region
+        else None
+    )
+    basin_detector = (
+        BasinSwitchDetector(threshold=basin_switch_threshold)
+        if enable_basin_switch_detection
+        else None
+    )
+    if enable_spectral_trajectory and trajectory_recorder is None:
+        trajectory_recorder = SpectralTrajectoryRecorder()
+
+    if (enable_landscape_learning or enable_information_gain_scheduler) and landscape_memory is None:
+        landscape_memory = SpectralLandscapeMemory()
+    if enable_motif_learning and motif_library is None:
+        motif_library = SpectralMotifLibrary()
+
+    operator_stats: dict[str, dict[str, np.float64]] = {}
+    current_operator_weights: dict[str, float] = {}
+    selected_operator = ""
+    motif_used = False
+    motif_id: int | None = None
+
+    effective_novelty_weight = (
+        float(np.float64(landscape_novelty_weight))
+        if novelty_weight is None
+        else float(np.float64(novelty_weight))
+    )
+    if enable_basin_topology_mapping and not enable_spectral_trajectory and trajectory_recorder is None:
+        trajectory_recorder = SpectralTrajectoryRecorder()
+
+    bayesian_model = (
+        BayesianSpectralModel(
+            length_scale=bayesian_length_scale,
+            noise=bayesian_noise,
+        )
+        if enable_bayesian_model
+        else None
+    )
+
     # ── Step 1: Initialize population ──────────────────────────────
     init_seed = _derive_seed(base_seed, "init")
     raw_candidates = generate_tanner_graph_candidates(
@@ -158,6 +428,47 @@ def run_structure_discovery(
     elite_history: list[dict[str, Any]] = []
     generation_summaries: list[dict[str, Any]] = []
     signature_archive: list[tuple[float, ...]] = []
+    basin_assignments: list[int] = []
+    strategy_history: list[str] = []
+    experiment_planner = (
+        SpectralExperimentPlanner(
+            uncertainty_threshold=planner_uncertainty_threshold,
+            max_targets=planner_max_targets,
+        )
+        if enable_experiment_planner
+        else None
+    )
+    planner_iteration = 0
+    latest_uncertainty_map: dict[str, Any] | None = None
+    latest_phase_surface: dict[str, Any] | None = None
+    phase_trajectory_points: list[list[float]] = []
+    spectral_geometry_points: list[np.ndarray] = []
+    latest_theory_dataset: dict[str, Any] | None = None
+    latest_ranked_conjectures: list[dict[str, Any]] = []
+    theory_extraction_iteration: int = 0
+    theory_memory = initialize_theory_memory()
+    latest_conjecture_validations: list[dict[str, Any]] = []
+    latest_conjecture_counterexamples: list[dict[str, Any]] = []
+    escape_attempts = 0
+    escape_successes = 0
+    basin_centers: dict[int, np.ndarray] = {}
+    basin_counts: dict[int, int] = {}
+    basin_assignments: list[int] = []
+    basin_escape_events: list[dict[str, Any]] = []
+    active_hypotheses: list[dict[str, Any]] = []
+    hypothesis_rankings: list[dict[str, Any]] = []
+    reflection_metrics: list[dict[str, Any]] = []
+    phase_diagram: dict[str, Any] | None = None
+    operator_stats: dict[str, dict[str, float]] = {}
+    agent_assignment_history: list[dict[str, Any]] = []
+    agent_spacing_history: list[float] = []
+    cooperative_coverage_history: list[float] = []
+    frontier_exploration_rate_history: list[float] = []
+    agent_region_overlap_history: list[float] = []
+    agent_messages: list[dict[str, Any]] = []
+    coordination_state = AgentCoordinationState() if enable_cooperative_agents else None
+    agent_artifacts: list[dict[str, Any]] = []
+    agents: list[Any] = []
 
     # Build initial population as search states
     population: list[dict[str, Any]] = []
@@ -191,6 +502,13 @@ def run_structure_discovery(
     # Update archive with initial population
     archive = update_discovery_archive(archive, population)
 
+    bayesian_best_value = 0.0
+    if enable_bayesian_model and bayesian_model is not None:
+        X, y = build_spectral_dataset(archive)
+        bayesian_model.fit(X, y)
+        bayesian_best_value = float(np.max(y)) if y.size > 0 else 0.0
+        population = rank_candidates_bayesian(population, bayesian_model, bayesian_best_value)
+
     # Record generation 0
     best = population[0] if population else None
     if best:
@@ -200,15 +518,145 @@ def run_structure_discovery(
             "composite_score": best["objectives"].get("composite_score", 0.0),
             "instability_score": best["objectives"].get("instability_score", 0.0),
         })
-        generation_summaries.append(_make_generation_summary(0, population, archive))
+        generation_summaries.append(
+            _build_generation_summary(
+                0,
+                population,
+                archive,
+                bayesian_enabled=enable_bayesian_model,
+            )
+        )
+        basin_assignments.append(_candidate_basin_id(best))
+        if enable_spectral_geometry:
+            spectral_geometry_points.append(_objective_spectrum(best.get("objectives", {})))
+        if enable_phase_trajectory:
+            spectrum0 = _objective_spectrum(best.get("objectives", {}))
+            if spectrum0.shape[0] >= 3:
+                phase_trajectory_points.append([float(np.float64(spectrum0[0])), float(np.float64(spectrum0[1])), float(np.float64(spectrum0[2]))])
+
+
+    if enable_multi_agent_discovery:
+        coordinator = MultiAgentCoordinator()
+        for agent_id in range(int(max(0, num_agents))):
+            coordinator.register_agent(DiscoveryAgent(agent_id))
+        coordinator.assign_agents_to_regions(landscape_regions)
+        agents = coordinator.list_agents()
 
     # ── Main loop ──────────────────────────────────────────────────
     for gen in range(1, num_generations + 1):
         gen_seed = _derive_seed(base_seed, f"gen_{gen}")
 
+        reflection_iteration = None
+        if enable_self_reflection and int(max(1, reflection_interval)) > 0:
+            if gen % int(max(1, reflection_interval)) == 0:
+                reflection = analyze_discovery_archive(archive)
+                hypotheses = generate_structural_hypotheses(reflection["feature_correlations"])
+                ranked = rank_hypotheses(hypotheses)
+                active_hypotheses = ranked[:5]
+                hypothesis_rankings = ranked
+                reflection_iteration = int(gen)
+                metric_entry = {
+                    "generation": int(gen),
+                    "num_hypotheses": int(len(ranked)),
+                }
+                if landscape_memory is not None:
+                    phase_boundaries = detect_phase_boundaries(landscape_memory)
+                    motif_library_obj = locals().get("motif_library")
+                    curriculum_controller_obj = locals().get("curriculum_controller")
+                    motif_clusters = getattr(motif_library_obj, "clusters", [])
+                    curriculum_tiers = getattr(curriculum_controller_obj, "tiers", [])
+                    phase_diagram = {
+                        "regions": [],
+                        "phase_boundaries": phase_boundaries.get("phase_boundaries", [])
+                        if isinstance(phase_boundaries, dict)
+                        else phase_boundaries,
+                    }
+                    metric_entry["phase_boundary_count"] = int(len(phase_boundaries.get("phase_boundaries", [])))
+                    metric_entry["phase_diagram"] = phase_diagram
+                reflection_metrics.append(metric_entry)
+        if enable_bayesian_model and bayesian_model is not None:
+            X, y = build_spectral_dataset(archive)
+            bayesian_model.fit(X, y)
+            bayesian_best_value = float(np.max(y)) if y.size > 0 else 0.0
+            population = rank_candidates_bayesian(population, bayesian_model, bayesian_best_value)
+
         # Select elites for mutation (top half)
         n_elites = max(1, len(population) // 2)
         elites = population[:n_elites]
+
+        cooperative_assignments: dict[str, np.ndarray | None] = {}
+        frontier_assignments: dict[str, np.ndarray | None] = {}
+        frontier_regions: list[np.ndarray] = []
+        if enable_cooperative_agents:
+            agents = [
+                SimpleNamespace(agent_id=str(elite.get("candidate_id", f"agent_{idx}")))
+                for idx, elite in enumerate(elites)
+            ]
+            candidate_regions = [
+                _objective_spectrum(elite.get("objectives", {}))
+                for elite in elites
+            ]
+            memory = {
+                "region_centers": candidate_regions,
+                "candidate_regions": candidate_regions,
+            }
+            frontier_regions = detect_spectral_frontiers(memory, frontier_distance_threshold)
+            if enable_frontier_guidance and frontier_regions:
+                cooperative_assignments = plan_agent_targets(
+                    agents,
+                    {"region_centers": frontier_regions},
+                )
+                frontier_assignments = dict(cooperative_assignments)
+            else:
+                cooperative_assignments = plan_agent_targets(agents, memory)
+            cooperative_assignments = enforce_agent_spacing(
+                cooperative_assignments,
+                min_distance=cooperative_min_distance,
+            )
+            ordered_assignment = {
+                aid: (
+                    None
+                    if cooperative_assignments[aid] is None
+                    else np.asarray(
+                        cooperative_assignments[aid], dtype=np.float64,
+                    ).tolist()
+                )
+                for aid in sorted(cooperative_assignments.keys())
+            }
+            explored_regions = [
+                cooperative_assignments[aid]
+                for aid in sorted(cooperative_assignments.keys())
+                if cooperative_assignments[aid] is not None
+            ]
+            agent_assignment_history.append(ordered_assignment)
+            agent_spacing_history.append(float(agent_spacing_distance(cooperative_assignments)))
+            cooperative_coverage_history.append(
+                float(cooperative_coverage(explored_regions, candidate_regions)),
+            )
+            frontier_exploration_rate_history.append(
+                float(frontier_exploration_rate(explored_regions, frontier_regions)),
+            )
+            agent_region_overlap_history.append(float(agent_region_overlap(cooperative_assignments)))
+            if coordination_state is not None:
+                if frontier_assignments:
+                    coordination_state.record_frontier_assignments(gen, frontier_assignments)
+                for aid in sorted(cooperative_assignments.keys()):
+                    region = cooperative_assignments[aid]
+                    coordination_state.update_target(aid, region)
+                    if region is None:
+                        continue
+                    coordination_state.record_history(aid, region)
+                    message_type = REGION_EXPLORED
+                    if aid in frontier_assignments and frontier_assignments.get(aid) is not None:
+                        message_type = FRONTIER_EXPLORED
+                    message = AgentMessage(
+                        agent_id=aid,
+                        message_type=message_type,
+                        payload=np.asarray(region, dtype=np.float64).tolist(),
+                        generation=gen,
+                    ).to_dict()
+                    agent_messages.append(message)
+                    coordination_state.record_message(gen, message)
 
         # Detect spectral bad edges and cycle pressure on best
         best_H = elites[0]["H"]
@@ -224,20 +672,279 @@ def run_structure_discovery(
             )
         )
 
+        # Optional NB-eigenmode guidance from dominant non-backtracking mode.
+        nb_guide_edges: list[tuple[int, int]] = []
+        if enable_nb_eigenmode_mutation:
+            nb_guide_edges = _rank_tanner_edges_by_nb_mode(best_H)
+
+        gradient_target_spectrum = None
+        if enable_spectral_gradient and trajectory_recorder is not None:
+            current_spectrum = _objective_spectrum(elites[0].get("objectives", {}))
+            gradient = estimate_spectral_gradient(trajectory_recorder.as_array())
+            if gradient.shape == current_spectrum.shape:
+                gradient_target_spectrum = propose_gradient_step(
+                    current_spectrum,
+                    gradient,
+                    step=gradient_step_size,
+                )
+
+        exploration_state = "LOCAL_OPTIMIZATION"
+        exploration_strategy = "GRADIENT"
+        switch_rate_value = 0.0
+        entropy_value = 0.0
+        mean_duration_value = 0.0
+        escape_success_rate_value = 0.0
+        if enable_adaptive_exploration:
+            trajectory_data = (
+                trajectory_recorder.as_array()
+                if trajectory_recorder is not None
+                else np.zeros((0, 0), dtype=np.float64)
+            )
+            exploration_state = analyze_exploration_state(
+                trajectory_data,
+                basin_assignments,
+                window=exploration_window,
+            )
+            switch_rate_value = basin_switch_rate(basin_assignments, window=exploration_window)
+            entropy_value = exploration_entropy(basin_assignments)
+            mean_duration_value = mean_basin_duration(basin_assignments)
+            exploration_strategy = choose_exploration_strategy(exploration_state)
+
+            escape_success_rate_value = _safe_escape_success_rate(
+                escape_successes,
+                escape_attempts,
+            )
+            if switch_rate_value > float(early_exploration_rate_threshold):
+                if exploration_strategy == "ESCAPE":
+                    exploration_strategy = "GRADIENT"
+            if escape_attempts >= int(max(1, exploration_window)):
+                exploration_strategy = apply_escape_feedback_bias(
+                    exploration_strategy,
+                    escape_success_rate=escape_success_rate_value,
+                    low_success_threshold=low_escape_success_threshold,
+                )
+
+        escape_target = None
+        if gradient_target_spectrum is not None:
+            adaptive_escape_step = float(escape_base_step)
+            if enable_adaptive_exploration:
+                scale = 1.0 + float(mean_duration_value) / float(max(1, exploration_window))
+                scale = min(scale, 3.0)
+                adaptive_escape_step = float(escape_base_step) * float(scale)
+            escape_target = np.asarray(
+                gradient_target_spectrum,
+                dtype=np.float64,
+            ) + np.array(
+                [
+                    adaptive_escape_step,
+                    -adaptive_escape_step,
+                    adaptive_escape_step,
+                    adaptive_escape_step,
+                ],
+                dtype=np.float64,
+            )
+
+        strategy_history.append(str(exploration_strategy))
+        if len(strategy_history) > int(max(1, exploration_window)):
+            strategy_history.pop(0)
+        if strategy_history.count("ESCAPE") > int(max(1, exploration_window)) // 2:
+            exploration_strategy = "ESCAPE"
+        current_spectrum_best = _objective_spectrum(elites[0].get("objectives", {}))
+        current_basin = _assign_to_basin(current_spectrum_best, basin_centers)
+        basin_assignments.append(current_basin)
+        _update_basin_center(current_basin, current_spectrum_best, basin_centers, basin_counts)
+
+        info_gain_selected_score = None
+        info_gain_selected_novelty = None
+        info_gain_selected_uncertainty = None
+        info_gain_selected_target = None
+        planned_experiment_targets = None
+        phase_uncertainty_score = None
+        if enable_information_gain_scheduler and enable_landscape_learning and landscape_memory is not None:
+            candidate_spectra = [
+                _objective_spectrum(c.get("objectives", {}))
+                for c in elites
+            ]
+            scheduled = schedule_autonomous_target(
+                landscape_memory,
+                candidate_spectra,
+                strategy="information_gain",
+                novelty_weight=information_gain_novelty_weight,
+                uncertainty_weight=information_gain_uncertainty_weight,
+            )
+            selected_target = scheduled.get("target_spectrum")
+            if selected_target is not None:
+                gradient_target_spectrum = np.asarray(selected_target, dtype=np.float64)
+                info_gain_selected_target = gradient_target_spectrum
+            info_gain_selected_score = float(np.float64(scheduled.get("information_gain_score", 0.0)))
+            info_gain_selected_novelty = float(np.float64(scheduled.get("novelty_score", 0.0)))
+            info_gain_selected_uncertainty = float(np.float64(scheduled.get("spectral_uncertainty", 0.0)))
+
+        if enable_experiment_planner and experiment_planner is not None:
+            planner_iteration += 1
+            candidate_spectra = [
+                _objective_spectrum(c.get("objectives", {}))
+                for c in elites
+            ]
+            if candidate_spectra:
+                spectra = np.asarray(candidate_spectra, dtype=np.float64)
+                phase_surface = {
+                    "grid_x": spectra[:, 0],
+                    "grid_y": spectra[:, 1],
+                    "grid_z": np.outer(spectra[:, 0], spectra[:, 1]).astype(np.float64, copy=False),
+                }
+                latest_phase_surface = phase_surface
+                plan = experiment_planner.plan_experiments(phase_surface, landscape_memory)
+                latest_uncertainty_map = plan.get("uncertainty_map")
+                planned_targets = [
+                    np.asarray(t, dtype=np.float64)
+                    for t in plan.get("planned_targets", [])
+                ]
+                planned_experiment_targets = planned_targets
+                phase_uncertainty_score = float(np.float64(plan.get("phase_uncertainty_score", 0.0)))
+                if planned_targets:
+                    gradient_target_spectrum = planned_targets[0]
+
+        escape_triggered = False
+        escape_direction = np.zeros_like(current_spectrum_best, dtype=np.float64)
+        escape_target = None
+        escape_event: dict[str, Any] | None = None
+        if enable_basin_escape:
+            escape_triggered = detect_basin_stagnation(
+                basin_assignments,
+                window=basin_escape_window,
+            )
+            if escape_triggered:
+                basin_center = basin_centers.get(current_basin, current_spectrum_best)
+                other_centers = [
+                    center
+                    for basin_id, center in basin_centers.items()
+                    if int(basin_id) != int(current_basin)
+                ]
+                escape_direction = estimate_escape_direction(
+                    current_spectrum_best,
+                    basin_center,
+                    other_centers=other_centers,
+                )
+                escape_target = propose_escape_step(
+                    current_spectrum_best,
+                    escape_direction,
+                    step=basin_escape_step,
+                )
+                escape_event = {
+                    "step": int(gen),
+                    "basin_id": int(current_basin),
+                    "escape_direction": escape_direction.tolist(),
+                    "escape_target": escape_target.tolist(),
+                    "escape_norm": float(np.linalg.norm(escape_direction)),
+                    "escape_success": False,
+                }
+                basin_escape_events.append(escape_event)
+
         # Mutate elites
         children: list[dict[str, Any]] = []
-        operator_name = get_operator_for_generation(gen)
+        if use_nb_eigenmode_mutation:
+            operator_name = "nb_eigenmode_mutation"
+        elif escape_triggered:
+            operator_name = _ESCAPE_OPERATORS[gen % len(_ESCAPE_OPERATORS)]
+        elif enable_adaptive_mutation:
+            current_spectrum = _objective_spectrum(elites[0].get("objectives", {}))
+            regional_similarity = _compute_regional_similarity(operator_stats, current_spectrum)
+            current_operator_weights = compute_operator_weights(operator_stats, regional_similarity)
+            operator_name = deterministic_weighted_choice(current_operator_weights)
+        else:
+            operator_name = get_operator_for_generation(gen)
+        selected_operator = str(operator_name)
+        motif_used = False
+        motif_id = None
+
+        scheduled_generation_target = None
+        if enable_autonomous_scheduler:
+            landscape_memory = _PopulationLandscapeMemory(population)
+            scheduled_experiment = schedule_next_experiment(
+                landscape_memory,
+                gap_radius=scheduler_gap_radius,
+                max_gaps=scheduler_max_gaps,
+            )
+            scheduled_generation_target = scheduled_experiment.get("target_spectrum")
+            if scheduled_generation_target is not None and scheduler_queue_obj is not None:
+                scheduler_queue_obj.push(scheduled_generation_target)
+                scheduled_generation_target = scheduler_queue_obj.pop()
+            scheduled_target_spectrum = scheduled_generation_target
+            scheduler_strategy = scheduled_experiment.get("strategy")
+            detected_landscape_gap_count = int(scheduled_experiment.get("gap_count", 0))
+
+        child_candidates = [
+            {"candidate_id": f"gen{gen:04d}_child{ei:04d}", "elite_index": ei}
+            for ei in range(len(elites))
+        ]
+        ordered_child_candidates = sorted(child_candidates, key=lambda c: str(c["candidate_id"]))
+        child_agent_map: dict[int, DiscoveryAgent] = {}
+        if enable_multi_agent_discovery and agents:
+            for idx, child_candidate in enumerate(ordered_child_candidates):
+                child_agent_map[int(child_candidate["elite_index"])] = agents[idx % len(agents)]
 
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
+
+            gradient_target_spectrum = None
+            agent_id = str(elite.get("candidate_id", f"agent_{ei}"))
+            if enable_cooperative_agents and agent_id in cooperative_assignments:
+                assigned = cooperative_assignments[agent_id]
+                if assigned is not None:
+                    gradient_target_spectrum = np.asarray(assigned, dtype=np.float64)
+            if enable_spectral_gradient and trajectory_recorder is not None:
+                current_spectrum = _objective_spectrum(elite.get("objectives", {}))
+                gradient = estimate_spectral_gradient(trajectory_recorder.as_array())
+                if gradient.shape == current_spectrum.shape:
+                    gradient_target_spectrum = propose_gradient_step(
+                        current_spectrum,
+                        gradient,
+                        step=gradient_step_size,
+                    )
+            routing = _route_exploration_targets(
+                exploration_strategy,
+                gradient_target=gradient_target_spectrum,
+                nb_target_edges=nb_guide_edges,
+                escape_target=escape_target,
+                default_target_edges=guide_edges,
+            )
+            target_edges = routing["target_edges"]
+            target_spectrum = routing["target_spectrum"]
+
+            if escape_target is not None:
+                gradient_target_spectrum = escape_target
+
+            if scheduled_generation_target is not None:
+                gradient_target_spectrum = np.asarray(
+                    scheduled_generation_target, dtype=np.float64,
+                )
 
             H_mutated, op_used = mutate_tanner_graph(
                 elite["H"],
                 operator=operator_name,
                 generation=gen,
                 seed=mut_seed,
-                target_edges=guide_edges,
+                target_edges=target_edges,
+                target_spectrum=target_spectrum,
             )
+
+            if enable_motif_learning and motif_library is not None:
+                similar = motif_library.get_similar_motifs(_objective_spectrum(elite.get("objectives", {})), top_k=1)
+                chosen = similar[0] if similar else motif_library.sample_motif()
+                if chosen is not None:
+                    H_mutated = apply_motif_mutation(H_mutated, chosen)
+                    motif_used = True
+                    motif_id = int(chosen.get("motif_id", 0))
+                if enable_motif_clustering:
+                    cluster = motif_library.get_cluster(_objective_spectrum(elite.get("objectives", {})))
+                    if cluster is not None:
+                        current_spec = _objective_spectrum(elite.get("objectives", {}))
+                        centroid = np.asarray(cluster.get("centroid", []), dtype=np.float64).reshape(-1)
+                        if centroid.shape == current_spec.shape:
+                            distance = float(np.linalg.norm(current_spec - centroid))
+                            cluster_similarity = float(1.0 / (1.0 + distance))
+                            _ = cluster_similarity
 
             # Find mutated edges for ACE evaluation and incremental updates
             diff = np.abs(H_mutated - elite["H"])
@@ -267,7 +974,27 @@ def run_structure_discovery(
             child_objectives = compute_discovery_objectives(
                 H_mutated, seed=child_obj_seed,
             )
+            if trust_region is not None:
+                old_spectrum = _objective_spectrum(elite.get("objectives", {}))
+                new_spectrum = _objective_spectrum(child_objectives)
+                if not trust_region.allow(old_spectrum, new_spectrum):
+                    continue
             child_composite = child_objectives.get("composite_score", float("inf"))
+            if enable_adaptive_mutation:
+                improvement = float(parent_composite) - float(child_composite)
+                if enable_operator_stability_guard and not np.isfinite(improvement):
+                    improvement = 0.0
+                operator_stats = update_operator_success(operator_stats, op_used, improvement)
+                op_key = str(op_used)
+                rec = dict(operator_stats.get(op_key, {}))
+                current = _objective_spectrum(child_objectives)
+                prev_centroid = np.asarray(rec.get("regional_centroid", current), dtype=np.float64)
+                alpha = float(np.clip(np.float64(operator_learning_rate), 0.0, 1.0))
+                updated_centroid = (
+                    (1.0 - alpha) * prev_centroid + alpha * current
+                ).astype(np.float64, copy=False)
+                rec["regional_centroid"] = updated_centroid
+                operator_stats[op_key] = rec
 
             ace_result = ace_gate_mutation(
                 elite["H"],
@@ -296,6 +1023,32 @@ def run_structure_discovery(
                 H_repaired, seed=repair_obj_seed,
             )
 
+            parent_score = float(np.float64(parent_composite))
+            child_score = float(np.float64(repaired_objectives.get("composite_score", parent_score)))
+            improvement = float(np.float64(parent_score - child_score))
+            # IMPORTANT:
+            # Operator statistics must be updated only AFTER improvement
+            # is computed from evaluation results. Updating earlier biases
+            # adaptive mutation weighting and corrupts operator learning.
+            update_operator_success(operator_stats, op_used, improvement)
+
+            basin_switch = False
+            if basin_detector is not None:
+                prev_spectrum = _objective_spectrum(elite.get("objectives", {}))
+                repaired_spectrum = _objective_spectrum(repaired_objectives)
+                basin_switch = basin_detector.detect(prev_spectrum, repaired_spectrum)
+
+            if (enable_spectral_trajectory or enable_basin_topology_mapping) and trajectory_recorder is not None:
+                current_spectrum = _objective_spectrum(repaired_objectives)
+                nb_eigenvalue = _compute_nb_mode_magnitude(repaired_objectives, H_repaired)
+                trajectory_recorder.record(np.append(current_spectrum, nb_eigenvalue))
+
+            if enable_multi_agent_discovery and agents:
+                agent = child_agent_map.get(ei)
+                if agent is not None:
+                    current_spectrum = _objective_spectrum(repaired_objectives)
+                    agent.record(current_spectrum, region_id=agent.assigned_region)
+
             # Diversity penalty
             child_sig = compute_structure_signature(H_repaired)
             diversity_penalty = compute_diversity_penalty(
@@ -311,8 +1064,20 @@ def run_structure_discovery(
             archive_features = get_archive_features(archive)
             fv = extract_feature_vector(repaired_objectives)
             novelty = compute_novelty_score(fv, archive_features)
+            if (enable_landscape_learning or enable_information_gain_scheduler) and landscape_memory is not None:
+                repaired_spectrum = _objective_spectrum(repaired_objectives)
+                if use_landscape_novelty_bias or effective_novelty_weight != 0.0:
+                    novelty_bias = landscape_novelty_score(
+                        repaired_spectrum,
+                        landscape_memory,
+                        reuse_kd_tree=reuse_landscape_kd_tree,
+                    )
+                    novelty += effective_novelty_weight * novelty_bias
+                landscape_memory.add(
+                    repaired_spectrum, threshold=landscape_cluster_threshold,
+                )
 
-            child_id = f"gen{gen:04d}_child{ei:04d}"
+            child_id = next((c["candidate_id"] for c in ordered_child_candidates if int(c["elite_index"]) == ei), f"gen{gen:04d}_child{ei:04d}")
             child_state = make_search_state(
                 candidate_id=child_id,
                 generation=gen,
@@ -325,15 +1090,57 @@ def run_structure_discovery(
                 dominance_rank=0,
                 is_feasible=True,
             )
+            if enable_self_reflection and active_hypotheses:
+                spectrum = _objective_spectrum(repaired_objectives)
+                raw_bias = compute_hypothesis_bias(spectrum, active_hypotheses)
+                weighted_bias = float(np.float64(raw_bias * float(np.float64(hypothesis_weight))))
+                parent_score = float(np.float64(parent_composite))
+                child_score = float(np.float64(repaired_objectives.get("composite_score", parent_score)))
+                info_gain = float(np.float64(max(0.0, novelty)))
+                expected_improvement = float(np.float64(max(0.0, parent_score - child_score)))
+                exploration_score = float(np.float64(info_gain + expected_improvement))
+                scheduler_score = compute_combined_score(
+                    exploration_score,
+                    weighted_bias,
+                    strategy="hypothesis_guided",
+                    hypothesis_weight=hypothesis_weight,
+                )
+                child_state["_hypothesis_guided_score"] = scheduler_score
+                child_state["hypothesis_bias_score"] = weighted_bias
+            if basin_detector is not None:
+                child_state["basin_switch"] = basin_switch
+            if enable_adaptive_exploration:
+                child_state["exploration_state"] = exploration_state
+                child_state["exploration_strategy"] = exploration_strategy
+                if exploration_strategy == "ESCAPE":
+                    escape_attempts += 1
+                    if child_score < parent_score:
+                        escape_successes += 1
             children.append(child_state)
+
+        if escape_event is not None:
+            parent_score = float(elites[0]["objectives"].get("composite_score", float("inf")))
+            best_child_score = min(
+                (float(c["objectives"].get("composite_score", float("inf"))) for c in children),
+                default=float("inf"),
+            )
+            escape_event["escape_success"] = bool(best_child_score < parent_score)
 
         # Combine population: elites + children, re-rank, truncate
         combined = population + children
         combined = _rank_candidates(combined)
         population = combined[:population_size]
 
+        if enable_bayesian_model and bayesian_model is not None:
+            population = rank_candidates_bayesian(population, bayesian_model, bayesian_best_value)
+
         # Update archive
         archive = update_discovery_archive(archive, children)
+        if enable_motif_learning and motif_library is not None:
+            for motif in extract_spectral_motifs(archive):
+                motif_library.add_motif(motif)
+            if enable_motif_clustering:
+                motif_library.cluster_motifs()
 
         # Record generation
         best = population[0] if population else None
@@ -345,25 +1152,418 @@ def run_structure_discovery(
                 "instability_score": best["objectives"].get("instability_score", 0.0),
             })
 
-        generation_summaries.append(_make_generation_summary(gen, population, archive))
+        if best:
+            new_basin_id = _candidate_basin_id(best)
+            basin_assignments.append(new_basin_id)
+            if enable_spectral_geometry:
+                spectral_geometry_points.append(_objective_spectrum(best.get("objectives", {})))
+        if enable_phase_trajectory and best is not None:
+            spectrum_best = _objective_spectrum(best.get("objectives", {}))
+            if spectrum_best.shape[0] >= 3:
+                phase_trajectory_points.append([float(np.float64(spectrum_best[0])), float(np.float64(spectrum_best[1])), float(np.float64(spectrum_best[2]))])
+
+        if enable_theory_extraction and int(max(1, theory_extraction_interval)) > 0:
+            if gen % int(max(1, theory_extraction_interval)) == 0:
+                latest_theory_dataset = build_theory_dataset(archive)
+                fitted_models = fit_theory_models(latest_theory_dataset)
+                latest_ranked_conjectures = rank_conjectures(generate_conjectures(fitted_models))
+                theory_extraction_iteration = int(gen)
+
+        if enable_theory_refinement and int(max(1, theory_refinement_interval)) > 0:
+            if gen % int(max(1, theory_refinement_interval)) == 0:
+                theory_dataset = build_theory_dataset(archive)
+                conjectures_for_validation = latest_ranked_conjectures
+                if not conjectures_for_validation:
+                    fitted_models = fit_theory_models(theory_dataset)
+                    conjectures_for_validation = rank_conjectures(generate_conjectures(fitted_models))
+                latest_conjecture_validations = validate_conjectures(
+                    conjectures_for_validation,
+                    theory_dataset,
+                    tolerance=conjecture_validation_tolerance,
+                )
+                latest_conjecture_counterexamples = []
+                for conjecture in conjectures_for_validation:
+                    latest_conjecture_counterexamples.extend(
+                        extract_counterexamples(
+                            conjecture,
+                            theory_dataset,
+                            error_threshold=counterexample_error_threshold,
+                        )
+                    )
+                latest_conjecture_counterexamples = sorted(
+                    latest_conjecture_counterexamples,
+                    key=lambda r: (str(r.get("conjecture_id", "")), str(r.get("counterexample_id", ""))),
+                )
+                theory_memory = update_theory_memory(
+                    theory_memory,
+                    conjectures_for_validation,
+                    latest_conjecture_validations,
+                    latest_conjecture_counterexamples,
+                )
+
+        operator_weights = compute_adaptive_operator_weights(operator_stats)
+        generation_summaries.append(
+            _build_generation_summary(
+                gen,
+                population,
+                archive,
+                include_basin_switches=enable_basin_switch_detection,
+                exploration_state=(exploration_state if enable_adaptive_exploration else None),
+                exploration_strategy=(exploration_strategy if enable_adaptive_exploration else None),
+                basin_switch_rate_value=(switch_rate_value if enable_adaptive_exploration else None),
+                exploration_entropy_value=(entropy_value if enable_adaptive_exploration else None),
+                escape_success_rate_value=(
+                    _safe_escape_success_rate(escape_successes, escape_attempts)
+                    if enable_adaptive_exploration
+                    else None
+                ),
+                active_hypotheses=(active_hypotheses if enable_self_reflection else None),
+                hypothesis_bias_score=(
+                    float(population[0].get("hypothesis_bias_score", 0.0))
+                    if enable_self_reflection and population
+                    else None
+                ),
+                reflection_iteration=(reflection_iteration if enable_self_reflection else None),
+                operator_weights=(current_operator_weights if enable_adaptive_mutation else None),
+                selected_operator=(selected_operator if enable_adaptive_mutation else None),
+                motif_used=(motif_used if enable_adaptive_mutation else None),
+                motif_id=(motif_id if enable_adaptive_mutation else None),
+                operator_success_rate=(
+                    float(operator_stats.get(selected_operator, {}).get("success_rate", 0.0))
+                    if enable_adaptive_mutation
+                    else None
+                ),
+                bayesian_enabled=enable_bayesian_model,
+                information_gain_score=(
+                    info_gain_selected_score
+                    if enable_information_gain_scheduler
+                    else None
+                ),
+                spectral_uncertainty=(
+                    info_gain_selected_uncertainty
+                    if enable_information_gain_scheduler
+                    else None
+                ),
+                novelty_score=(
+                    info_gain_selected_novelty
+                    if enable_information_gain_scheduler
+                    else None
+                ),
+                selected_target_spectrum=(
+                    info_gain_selected_target
+                    if enable_information_gain_scheduler
+                    else None
+                ),
+                planned_experiment_targets=(
+                    planned_experiment_targets
+                    if enable_experiment_planner
+                    else None
+                ),
+                phase_uncertainty_score=(
+                    phase_uncertainty_score
+                    if enable_experiment_planner
+                    else None
+                ),
+                planner_iteration=(
+                    planner_iteration
+                    if enable_experiment_planner
+                    else None
+                ),
+                num_validated_conjectures=(
+                    int(len(latest_conjecture_validations))
+                    if enable_theory_refinement
+                    else None
+                ),
+                num_supported_conjectures=(
+                    int(sum(1 for rec in summarize_theory_memory(theory_memory) if rec.get("status") == "supported"))
+                    if enable_theory_refinement
+                    else None
+                ),
+                num_fragile_conjectures=(
+                    int(sum(1 for rec in summarize_theory_memory(theory_memory) if rec.get("status") == "fragile"))
+                    if enable_theory_refinement
+                    else None
+                ),
+                num_rejected_conjectures=(
+                    int(sum(1 for rec in summarize_theory_memory(theory_memory) if rec.get("status") == "rejected"))
+                    if enable_theory_refinement
+                    else None
+                ),
+                mean_theory_support_score=(
+                    float(np.float64(np.mean([v.get("support_score", 0.0) for v in latest_conjecture_validations])))
+                    if enable_theory_refinement and latest_conjecture_validations
+                    else (0.0 if enable_theory_refinement else None)
+                ),
+            )
+        )
+        generation_summaries[-1]["operator_stats"] = summarize_operator_statistics(operator_stats)
+        generation_summaries[-1]["operator_weights"] = {
+            op: float(w) for op, w in sorted(operator_weights.items(), key=lambda item: item[0])
+        }
 
     # ── Assemble result ────────────────────────────────────────────
     best_candidate = population[0] if population else None
     archive_summary = get_archive_summary(archive)
 
-    return {
+    if enable_multi_agent_discovery and agents:
+        for agent in sorted(agents, key=lambda a: int(a.agent_id)):
+            for spectrum in agent.trajectory:
+                archive_summary.setdefault("shared_landscape_memory", []).append(
+                    np.asarray(spectrum, dtype=np.float64).tolist()
+                )
+            agent_artifacts.append(agent.to_artifact())
+
+    result = {
         "best_candidate": _serialize_candidate(best_candidate) if best_candidate else None,
         "best_H": best_candidate["H"] if best_candidate else None,
         "elite_history": elite_history,
         "archive_summary": archive_summary,
         "generation_summaries": generation_summaries,
+        "operator_stats": summarize_operator_statistics(operator_stats),
+        "operator_weights": compute_adaptive_operator_weights(operator_stats),
     }
+    if enable_spectral_trajectory and trajectory_recorder is not None:
+        result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
+    if enable_spectral_geometry:
+        geometry_metrics = estimate_basin_geometry(spectral_geometry_points)
+        local_curvature = estimate_local_curvature(spectral_geometry_points)
+        result["trajectory_arc_length"] = float(
+            np.float64(trajectory_arc_length(spectral_geometry_points))
+        )
+        result["mean_trajectory_curvature"] = float(
+            np.float64(np.mean(np.asarray(local_curvature, dtype=np.float64)))
+        ) if local_curvature else 0.0
+        result["spectral_dispersion"] = float(
+            np.float64(geometry_metrics.get("spectral_dispersion", 0.0))
+        )
+    if enable_experiment_planner:
+        result["planner_iteration"] = int(planner_iteration)
+        if generation_summaries:
+            last_summary = generation_summaries[-1]
+            result["planned_experiment_targets"] = [
+                [float(np.float64(v)) for v in target]
+                for target in last_summary.get("planned_experiment_targets", [])
+            ]
+            result["phase_uncertainty_score"] = float(
+                np.float64(last_summary.get("phase_uncertainty_score", 0.0))
+            )
+        if latest_uncertainty_map is not None:
+            result["uncertainty_map"] = {
+                "grid_x": np.asarray(latest_uncertainty_map.get("grid_x", []), dtype=np.float64).tolist(),
+                "grid_y": np.asarray(latest_uncertainty_map.get("grid_y", []), dtype=np.float64).tolist(),
+                "uncertainty_map": np.asarray(
+                    latest_uncertainty_map.get("uncertainty_map", []), dtype=np.float64,
+                ).tolist(),
+            }
+    if (enable_phase_diagram_3d and enable_experiment_planner and latest_phase_surface is not None) or enable_phase_trajectory:
+        resolved_phase_diagram_3d_path = (
+            str(phase_diagram_3d_path)
+            if phase_diagram_3d_path is not None
+            else "artifacts/phase_diagram_3d.png"
+        )
+        phase_surface_input = latest_phase_surface if latest_phase_surface is not None else None
+        phase_trajectory_input = phase_trajectory_points if enable_phase_trajectory else result.get("planned_experiment_targets")
+        phase_diagram_artifact = generate_phase_surface_3d(
+            phase_surface_input,
+            phase_trajectory_input,
+            resolved_phase_diagram_3d_path,
+        )
+        result["phase_diagram_3d_path"] = phase_diagram_artifact.get("surface_path")
+        result["phase_diagram_3d_num_targets"] = int(
+            phase_diagram_artifact.get("num_targets", 0)
+        )
+        result["phase_diagram_3d_target_points"] = phase_diagram_artifact.get(
+            "target_points", []
+        )
+    if enable_phase_trajectory:
+        result["phase_diagram_trajectory_length"] = int(len(phase_trajectory_points))
+    if enable_cooperative_agents:
+        result["agent_assignments"] = agent_assignment_history
+        result["agent_spacing"] = [float(x) for x in agent_spacing_history]
+        result["cooperative_coverage"] = [float(x) for x in cooperative_coverage_history]
+        result["frontier_exploration_rate"] = [
+            float(x) for x in frontier_exploration_rate_history
+        ]
+        result["agent_messages"] = list(agent_messages)
+        result["coordination_state"] = (
+            coordination_state.snapshot() if coordination_state is not None else {}
+        )
+        result["agent_region_overlap"] = [float(x) for x in agent_region_overlap_history]
+    if enable_multi_agent_discovery:
+        result["agent_artifacts"] = agent_artifacts
+        result["num_agents"] = len(agents)
+    if enable_autonomous_scheduler:
+        result["scheduled_target_spectrum"] = (
+            None
+            if scheduled_target_spectrum is None
+            else np.asarray(scheduled_target_spectrum, dtype=np.float64).tolist()
+        )
+        result["landscape_gap_count"] = int(detected_landscape_gap_count)
+        result["scheduler_strategy"] = (
+            scheduler_strategy if scheduler_strategy is not None else "landscape_exploration"
+        )
+    if enable_landscape_learning and landscape_memory is not None:
+        result["spectral_landscape_regions"] = landscape_memory.centers().tolist()
+        result["landscape_coverage"] = landscape_coverage(landscape_memory)
+    if enable_basin_escape:
+        result["basin_escape_events"] = basin_escape_events
+    if enable_self_reflection:
+        result["hypothesis_list"] = active_hypotheses
+        result["hypothesis_rankings"] = hypothesis_rankings
+        result["reflection_metrics"] = reflection_metrics
+        result["phase_diagram"] = phase_diagram if phase_diagram is not None else {"regions": [], "phase_boundaries": []}
+    if enable_adaptive_mutation:
+        result["adaptive_operator_weights"] = current_operator_weights
+        result["operator_success_rates"] = {
+            op: float(stats.get("success_rate", 0.0))
+            for op, stats in sorted(operator_stats.items(), key=lambda item: item[0])
+        }
+    if enable_motif_learning and motif_library is not None:
+        result["motif_library_size"] = len(motif_library.motifs)
+        result["motifs_used"] = [int(m.get("motif_id", 0)) for m in motif_library.get_motifs()]
+
+    if enable_theory_extraction:
+        if latest_theory_dataset is None:
+            latest_theory_dataset = build_theory_dataset(archive)
+            fitted_models = fit_theory_models(latest_theory_dataset)
+            latest_ranked_conjectures = rank_conjectures(generate_conjectures(fitted_models))
+            theory_extraction_iteration = int(num_generations)
+        limited = [dict(c) for c in latest_ranked_conjectures[: int(max(0, max_conjectures))]]
+        result["spectral_conjectures"] = limited
+        result["conjecture_rankings"] = limited
+        result["theory_dataset_size"] = int(latest_theory_dataset.get("dataset_size", 0)) if latest_theory_dataset is not None else 0
+        result["num_conjectures"] = int(len(limited))
+        result["best_conjecture_score"] = float(np.float64(limited[0].get("ranking_score", 0.0))) if limited else 0.0
+        result["best_conjecture_equation"] = str(limited[0].get("equation_string", "")) if limited else ""
+        result["theory_extraction_iteration"] = int(theory_extraction_iteration)
 
 
-def _make_generation_summary(
+    if enable_theory_refinement:
+        result["theory_memory"] = theory_memory
+        result["theory_memory_summary"] = summarize_theory_memory(theory_memory)
+        result["conjecture_validations"] = latest_conjecture_validations
+        result["conjecture_counterexamples"] = latest_conjecture_counterexamples
+
+    if enable_phase_diagram:
+        phase_dataset = build_phase_diagram_dataset(archive)
+        phase_grid = construct_phase_grid(
+            phase_dataset,
+            grid_resolution=phase_diagram_resolution,
+        )
+        phase_surface = estimate_stability_surface(phase_dataset, phase_grid)
+        phase_boundaries = detect_phase_boundaries(landscape_memory)
+        phase_surface_with_boundaries = {
+            "grid_x": phase_surface["grid_x"],
+            "grid_y": phase_surface["grid_y"],
+            "phase_surface": phase_surface["phase_surface"],
+            "phase_boundaries": phase_boundaries,
+        }
+        heatmap_path = generate_phase_heatmap(phase_surface_with_boundaries)
+        result["phase_diagram_surface"] = phase_surface["phase_surface"].tolist()
+        result["phase_diagram_grid"] = {
+            "grid_x": phase_grid["grid_x"].tolist(),
+            "grid_y": phase_grid["grid_y"].tolist(),
+            "grid_z": phase_grid["grid_z"].tolist(),
+        }
+        result["phase_boundaries"] = phase_boundaries
+        result["phase_heatmap_path"] = heatmap_path
+
+    if enable_basin_topology_mapping and trajectory_recorder is not None:
+        trajectory = trajectory_recorder.as_array()
+        if trajectory.shape[0] > 0:
+            assignments, centers = identify_spectral_basins(
+                trajectory,
+                threshold=basin_distance_threshold,
+            )
+            transitions = detect_basin_transitions(assignments)
+            result["spectral_basin_topology"] = export_basin_map(
+                centers,
+                assignments,
+                transitions,
+                include_phase_space_projections=(trajectory.shape[1] >= 3),
+            )
+            result["spectral_basin_sizes"] = basin_sizes(assignments)
+        else:
+            empty_assignments = np.zeros((0,), dtype=np.int64)
+            empty_centers = np.zeros((0, 0), dtype=np.float64)
+            result["spectral_basin_topology"] = export_basin_map(
+                empty_centers,
+                empty_assignments,
+                [],
+                include_phase_space_projections=False,
+            )
+            result["spectral_basin_sizes"] = {}
+    return result
+
+
+def _assign_to_basin(
+    spectrum: np.ndarray,
+    basin_centers: dict[int, np.ndarray],
+) -> int:
+    """Assign spectrum to nearest center (or create basin 0 when empty)."""
+    if not basin_centers:
+        return 0
+    best_id = min(
+        basin_centers.keys(),
+        key=lambda b: (float(np.linalg.norm(spectrum - basin_centers[b])), int(b)),
+    )
+    distance = float(np.linalg.norm(spectrum - basin_centers[best_id]))
+    if distance > 0.25:
+        return int(max(basin_centers.keys()) + 1)
+    return int(best_id)
+
+
+def _update_basin_center(
+    basin_id: int,
+    spectrum: np.ndarray,
+    basin_centers: dict[int, np.ndarray],
+    basin_counts: dict[int, int],
+) -> None:
+    """Deterministically update running basin center mean."""
+    if basin_id not in basin_centers:
+        basin_centers[basin_id] = np.asarray(spectrum, dtype=np.float64)
+        basin_counts[basin_id] = 1
+        return
+
+    count = int(basin_counts.get(basin_id, 1))
+    center = np.asarray(basin_centers[basin_id], dtype=np.float64)
+    updated = (center * count + np.asarray(spectrum, dtype=np.float64)) / float(count + 1)
+    basin_centers[basin_id] = updated.astype(np.float64, copy=False)
+    basin_counts[basin_id] = count + 1
+
+
+def _build_generation_summary(
     generation: int,
     population: list[dict[str, Any]],
     archive: dict[str, Any],
+    *,
+    include_basin_switches: bool = False,
+    exploration_state: str | None = None,
+    exploration_strategy: str | None = None,
+    basin_switch_rate_value: float | None = None,
+    exploration_entropy_value: float | None = None,
+    escape_success_rate_value: float | None = None,
+    active_hypotheses: list[dict[str, Any]] | None = None,
+    hypothesis_bias_score: float | None = None,
+    reflection_iteration: int | None = None,
+    operator_weights: dict[str, float] | None = None,
+    selected_operator: str | None = None,
+    motif_used: bool | None = None,
+    motif_id: int | None = None,
+    operator_success_rate: float | None = None,
+    bayesian_enabled: bool = False,
+    information_gain_score: float | None = None,
+    spectral_uncertainty: float | None = None,
+    novelty_score: float | None = None,
+    selected_target_spectrum: np.ndarray | None = None,
+    planned_experiment_targets: list[np.ndarray] | None = None,
+    phase_uncertainty_score: float | None = None,
+    planner_iteration: int | None = None,
+    num_validated_conjectures: int | None = None,
+    num_supported_conjectures: int | None = None,
+    num_fragile_conjectures: int | None = None,
+    num_rejected_conjectures: int | None = None,
+    mean_theory_support_score: float | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -372,7 +1572,7 @@ def _make_generation_summary(
     best = population[0] if population else None
     summary = get_archive_summary(archive)
 
-    return {
+    result = {
         "generation": generation,
         "best_candidate_id": best["candidate_id"] if best else "",
         "best_composite_score": (
@@ -391,7 +1591,220 @@ def _make_generation_summary(
         "num_feasible": len(feasible),
         "num_novel": len(novel),
     }
+    if include_basin_switches:
+        result["basin_switches"] = int(
+            sum(1 for c in population if c.get("basin_switch", False))
+        )
+    if exploration_state is not None:
+        result["exploration_state"] = str(exploration_state)
+    if exploration_strategy is not None:
+        result["exploration_strategy"] = str(exploration_strategy)
+    if basin_switch_rate_value is not None:
+        result["basin_switch_rate"] = float(basin_switch_rate_value)
+    if exploration_entropy_value is not None:
+        result["exploration_entropy"] = float(exploration_entropy_value)
+    if escape_success_rate_value is not None:
+        result["escape_success_rate"] = float(escape_success_rate_value)
+    if active_hypotheses is not None:
+        result["active_hypotheses"] = [h.get("hypothesis_id", "") for h in active_hypotheses]
+    if hypothesis_bias_score is not None:
+        result["hypothesis_bias_score"] = float(np.float64(hypothesis_bias_score))
+    if reflection_iteration is not None:
+        result["reflection_iteration"] = int(reflection_iteration)
+    if operator_weights is not None:
+        result["operator_weights"] = {
+            str(k): float(v) for k, v in sorted(operator_weights.items(), key=lambda item: item[0])
+        }
+    if selected_operator is not None:
+        result["selected_operator"] = str(selected_operator)
+    if motif_used is not None:
+        result["motif_used"] = bool(motif_used)
+    if motif_id is not None:
+        result["motif_id"] = int(motif_id)
+    if operator_success_rate is not None:
+        result["operator_success_rate"] = float(operator_success_rate)
+    if bayesian_enabled and best is not None:
+        result["bayesian_prediction_mean"] = float(best.get("bayesian_prediction_mean", 0.0))
+        result["bayesian_prediction_uncertainty"] = float(best.get("bayesian_prediction_uncertainty", 0.0))
+        result["expected_improvement"] = float(best.get("expected_improvement", 0.0))
+    if information_gain_score is not None:
+        result["information_gain_score"] = float(information_gain_score)
+    if spectral_uncertainty is not None:
+        result["spectral_uncertainty"] = float(spectral_uncertainty)
+    if novelty_score is not None:
+        result["novelty_score"] = float(novelty_score)
+    if selected_target_spectrum is not None:
+        result["selected_target_spectrum"] = np.asarray(
+            selected_target_spectrum, dtype=np.float64,
+        ).tolist()
+    if planned_experiment_targets is not None:
+        result["planned_experiment_targets"] = [
+            np.asarray(target, dtype=np.float64).tolist()
+            for target in planned_experiment_targets
+        ]
+    if phase_uncertainty_score is not None:
+        result["phase_uncertainty_score"] = float(np.float64(phase_uncertainty_score))
+    if planner_iteration is not None:
+        result["planner_iteration"] = int(planner_iteration)
+    if num_validated_conjectures is not None:
+        result["num_validated_conjectures"] = int(num_validated_conjectures)
+    if num_supported_conjectures is not None:
+        result["num_supported_conjectures"] = int(num_supported_conjectures)
+    if num_fragile_conjectures is not None:
+        result["num_fragile_conjectures"] = int(num_fragile_conjectures)
+    if num_rejected_conjectures is not None:
+        result["num_rejected_conjectures"] = int(num_rejected_conjectures)
+    if mean_theory_support_score is not None:
+        result["mean_theory_support_score"] = float(np.float64(mean_theory_support_score))
+    return result
 
+
+_make_generation_summary = _build_generation_summary
+
+
+def _compute_regional_similarity(
+    operator_stats: dict[str, dict[str, np.float64]],
+    current_spectrum: np.ndarray,
+) -> dict[str, float]:
+    """Compute deterministic similarity scores to operator regional centroids."""
+    spectrum = np.asarray(current_spectrum, dtype=np.float64).reshape(-1)
+    similarity: dict[str, float] = {}
+    for op, rec in sorted(operator_stats.items(), key=lambda item: item[0]):
+        centroid = np.asarray(rec.get("regional_centroid", np.zeros_like(spectrum)), dtype=np.float64).reshape(-1)
+        if centroid.shape != spectrum.shape:
+            similarity[op] = 0.0
+            continue
+        dist = float(np.linalg.norm(spectrum - centroid))
+        similarity[op] = float(1.0 / (1.0 + dist))
+    return similarity
+
+
+
+def _build_tanner_adjacency(H: np.ndarray) -> np.ndarray:
+    """Build deterministic bipartite adjacency from parity-check matrix."""
+    H_arr = np.asarray(H, dtype=np.float64)
+    m, n = H_arr.shape
+    zero_mm = np.zeros((m, m), dtype=np.float64)
+    zero_nn = np.zeros((n, n), dtype=np.float64)
+    top = np.hstack((zero_mm, H_arr))
+    bottom = np.hstack((H_arr.T, zero_nn))
+    return np.vstack((top, bottom)).astype(np.float64, copy=False)
+
+
+def _rank_tanner_edges_by_nb_mode(H: np.ndarray) -> list[tuple[int, int]]:
+    """Rank Tanner edges by dominant NB eigenmode magnitude (stable order)."""
+    H_arr = np.asarray(H, dtype=np.float64)
+    m, n = H_arr.shape
+    if m == 0 or n == 0:
+        return []
+
+    adj = _build_tanner_adjacency(H_arr)
+    B, directed_edges = build_non_backtracking_matrix(adj)
+    if B.size == 0:
+        return []
+
+    _, eigvec = leading_nb_eigenmode(B)
+    edge_scores = score_edges_by_eigenmode(directed_edges, eigvec)
+
+    undirected_scores: dict[tuple[int, int], float] = {}
+    for (u, v), score in edge_scores.items():
+        if u < m and v >= m:
+            key = (int(u), int(v - m))
+        elif v < m and u >= m:
+            key = (int(v), int(u - m))
+        else:
+            continue
+        prev = undirected_scores.get(key, 0.0)
+        if score > prev:
+            undirected_scores[key] = float(score)
+
+    return [
+        edge
+        for edge, _ in sorted(
+            undirected_scores.items(),
+            key=lambda item: (-float(item[1]), item[0][0], item[0][1]),
+        )
+    ]
+
+
+def _compute_nb_mode_magnitude(objectives: dict[str, Any], H: np.ndarray) -> float:
+    """Compute deterministic NB dominant eigenvalue magnitude for trajectory."""
+    del objectives
+    adj = _build_tanner_adjacency(np.asarray(H, dtype=np.float64))
+    B, _ = build_non_backtracking_matrix(adj)
+    if B.size == 0:
+        return 0.0
+    eigval, _ = leading_nb_eigenmode(B)
+    return float(np.abs(eigval))
+
+
+class _PopulationLandscapeMemory:
+    """Minimal deterministic landscape memory view over current population."""
+
+    def __init__(self, population: list[dict[str, Any]]) -> None:
+        self._population = population
+
+    def centers(self) -> np.ndarray:
+        if not self._population:
+            return np.zeros((0, 0), dtype=np.float64)
+        centers = [
+            _objective_spectrum(state.get("objectives", {}))
+            for state in self._population
+        ]
+        return np.asarray(centers, dtype=np.float64)
+
+def _objective_spectrum(objectives: dict[str, Any]) -> np.ndarray:
+    """Build deterministic spectral feature vector for trust/basin checks."""
+    return np.asarray(
+        [
+            float(objectives.get("spectral_radius", 0.0)),
+            float(objectives.get("bethe_margin", 0.0)),
+            float(objectives.get("ipr_localization", 0.0)),
+            float(objectives.get("entropy", 0.0)),
+        ],
+        dtype=np.float64,
+    )
+
+
+
+def _candidate_basin_id(candidate: dict[str, Any]) -> int:
+    """Compute deterministic basin assignment from rounded objective signature."""
+    obj = candidate.get("objectives", {})
+    signature = (
+        round(float(obj.get("spectral_radius", 0.0)), 6),
+        round(float(obj.get("bethe_margin", 0.0)), 6),
+    )
+    data = repr(signature).encode("utf-8")
+    digest = hashlib.sha256(data).digest()
+    return int(int.from_bytes(digest[:8], "big") % (2**63 - 1))
+
+
+def _route_exploration_targets(
+    strategy: str,
+    *,
+    gradient_target: np.ndarray | None,
+    nb_target_edges: list[tuple[int, int]],
+    escape_target: np.ndarray | None,
+    default_target_edges: list[tuple[int, int]],
+) -> dict[str, Any]:
+    """Route strategy to deterministic mutation guidance targets."""
+    if strategy == "GRADIENT":
+        return {"target_edges": default_target_edges, "target_spectrum": gradient_target}
+    if strategy == "NB_EIGENMODE":
+        return {"target_edges": nb_target_edges if nb_target_edges else default_target_edges, "target_spectrum": None}
+    if strategy == "ESCAPE":
+        return {"target_edges": default_target_edges, "target_spectrum": escape_target}
+    return {"target_edges": None, "target_spectrum": None}
+
+
+def _safe_escape_success_rate(escape_successes: int, escape_attempts: int) -> float:
+    """Compute escape success-rate with deterministic safe division and clamp."""
+    rate = (
+        float(escape_successes) / float(escape_attempts)
+        if int(escape_attempts) > 0
+        else 0.0
+    )
+    return float(min(max(float(rate), 0.0), 1.0))
 
 def _serialize_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     """Convert a candidate to a JSON-safe dict (without H matrix)."""

@@ -22,3 +22,6 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[project.scripts]
+qec-exp = "scripts.qec_exp:main"

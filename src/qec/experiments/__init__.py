@@ -56,3 +56,15 @@ from .stability_phase_diagram import (
     log_most_unstable_subgraph,
     track_repair_boundary_shift,
 )
+from .experiment_hash import ExperimentHash, ExperimentRunner
+
+from .experiment_metadata import ExperimentMetadata, git_commit, repo_version
+from .experiment_runner import ExperimentRunner
+from .bp_threshold_estimator import BPThresholdEstimator
+
+from .phase_diagram_orchestrator import (
+    PhaseDiagramOrchestrator,
+    generate_stability_heatmap,
+    render_ascii_heatmap,
+)
+from .registry import ExperimentRegistry, register_experiment

@@ -12,10 +12,12 @@ Fully deterministic: no randomness, no global state, no input mutation.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 import scipy.sparse
+import scipy.sparse.linalg
 
 from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
 from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
@@ -23,6 +25,44 @@ from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
 
 _POWER_ITER = 50
 _ROUND = 12
+
+
+@dataclass(frozen=True)
+class NBFlowConfig:
+    """Configuration for deterministic v14.2.0 NB eigenvector flow."""
+
+    num_nb_eigenvalues: int = 16
+    mode_weight_beta: float = 1.0
+    alpha_loc: float = 0.1
+    canonical_phase: bool = True
+    use_left_right_pairing: bool = True
+    bulk_radius_mode: str = "auto"
+    bulk_radius_value: float = 0.0
+    precision: int = _ROUND
+
+
+@dataclass(frozen=True)
+class NBMode:
+    """Selected non-backtracking mode."""
+
+    eigenvalue: complex
+    right: np.ndarray
+    left: np.ndarray | None
+    ipr: float
+    weight: float
+
+
+@dataclass(frozen=True)
+class EdgeFlowField:
+    """Deterministic directed and undirected NB flow field."""
+
+    directed_edges: tuple[tuple[int, int], ...]
+    undirected_edges: tuple[tuple[int, int], ...]
+    directed_pressure: np.ndarray
+    edge_pressure: np.ndarray
+    edge_pressure_map: dict[tuple[int, int], float]
+    bulk_radius: float
+    selected_modes: tuple[NBMode, ...]
 
 
 class NonBacktrackingFlowAnalyzer:
@@ -260,3 +300,295 @@ class NonBacktrackingFlowAnalyzer:
                 return np.abs(x)
             x = y / norm_y
         return np.abs(x)
+
+
+
+def canonical_directed_edges(
+    H: np.ndarray | scipy.sparse.spmatrix,
+) -> tuple[
+    tuple[tuple[int, int], ...],
+    tuple[tuple[int, int], ...],
+    dict[tuple[int, int], int],
+    dict[int, tuple[int, ...]],
+    int,
+    int,
+]:
+    """Return deterministic undirected/directed Tanner edge ordering."""
+    H_csr = scipy.sparse.csr_matrix(H, dtype=np.float64)
+    m, n = H_csr.shape
+    undirected: list[tuple[int, int]] = []
+    for ci in range(m):
+        row = H_csr.indices[H_csr.indptr[ci]:H_csr.indptr[ci + 1]]
+        for vi in row:
+            undirected.append((ci, int(vi)))
+    undirected.sort()
+
+    directed: list[tuple[int, int]] = []
+    adj: dict[int, list[int]] = {}
+    for ci, vi in undirected:
+        u = int(vi)
+        c = int(n + ci)
+        directed.append((u, c))
+        directed.append((c, u))
+        adj.setdefault(u, []).append(c)
+        adj.setdefault(c, []).append(u)
+
+    for node, nbrs in list(adj.items()):
+        adj[node] = sorted(nbrs)
+    directed.sort()
+    index = {edge: i for i, edge in enumerate(directed)}
+    return tuple(undirected), tuple(directed), index, {k: tuple(v) for k, v in adj.items()}, m, n
+
+
+def normalize_mode_phase(vec: np.ndarray) -> np.ndarray:
+    """Deterministically fix sign/phase by dominant component."""
+    out = np.asarray(vec, dtype=np.complex128).copy()
+    if out.size == 0:
+        return out
+    magnitudes = np.abs(out)
+    max_mag = float(np.max(magnitudes))
+    if max_mag <= 1e-15:
+        return out
+    idxs = np.flatnonzero(np.isclose(magnitudes, max_mag, atol=0.0, rtol=0.0))
+    pivot = int(idxs[0])
+    ref = out[pivot]
+    if abs(ref) <= 1e-15:
+        return out
+    phase = np.angle(ref)
+    out = out * np.exp(-1j * phase)
+    if out[pivot].real < 0.0:
+        out = -out
+    return out
+
+
+
+
+def project_directed_pressure_to_undirected(
+    *,
+    undirected_edges: tuple[tuple[int, int], ...],
+    directed_index: dict[tuple[int, int], int],
+    n: int,
+    directed_pressure: np.ndarray,
+    precision: int = _ROUND,
+) -> tuple[np.ndarray, dict[tuple[int, int], float]]:
+    """Project directed-edge pressure p_(u->v) to Tanner undirected edges."""
+    edge_pressure = np.zeros(len(undirected_edges), dtype=np.float64)
+    edge_pressure_map: dict[tuple[int, int], float] = {}
+    for idx, (ci, vi) in enumerate(undirected_edges):
+        a = directed_index[(vi, n + ci)]
+        b = directed_index[(n + ci, vi)]
+        val = round(float(directed_pressure[a] + directed_pressure[b]), precision)
+        edge_pressure[idx] = val
+        edge_pressure_map[(ci, vi)] = val
+    return edge_pressure, edge_pressure_map
+
+
+class NonBacktrackingEigenvectorFlowAnalyzer:
+    """v14.2.0 deterministic NB eigenvector flow on directed Tanner edges."""
+
+    def __init__(self, config: NBFlowConfig | None = None) -> None:
+        self.config = config or NBFlowConfig()
+
+    def compute_modes(
+        self,
+        H: np.ndarray | scipy.sparse.spmatrix,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return deterministically ordered unstable NB eigenmodes.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            (eigenvalues, eigenvectors) where eigenvectors has shape
+            ``(num_directed_edges, k)`` and columns correspond to returned
+            eigenvalues.
+        """
+        _, directed, edge_index, adj, _, _ = canonical_directed_edges(H)
+        de = len(directed)
+        if de == 0:
+            return np.zeros(0, dtype=np.complex128), np.zeros((0, 0), dtype=np.complex128)
+
+        rows: list[int] = []
+        cols: list[int] = []
+        for i, (u, v) in enumerate(directed):
+            for w in adj.get(v, ()):  # deterministic order
+                if w == u:
+                    continue
+                j = edge_index.get((v, w))
+                if j is not None:
+                    rows.append(j)
+                    cols.append(i)
+
+        if not rows:
+            return np.zeros(0, dtype=np.complex128), np.zeros((de, 0), dtype=np.complex128)
+
+        B = scipy.sparse.csr_matrix((np.ones(len(rows), dtype=np.float64), (rows, cols)), shape=(de, de))
+        k = int(min(max(1, self.config.num_nb_eigenvalues), max(1, de - 1)))
+        use_dense = de <= 2 or k >= de - 1
+        if use_dense:
+            vals, vecs = np.linalg.eig(B.toarray())
+        else:
+            vals, vecs = scipy.sparse.linalg.eigs(
+                B,
+                k=k,
+                which='LR',
+                v0=np.ones(de, dtype=np.float64),
+                maxiter=max(100, 5 * de),
+                tol=0.0,
+            )
+
+        order = np.argsort(-np.abs(vals), kind='stable')
+        vals = vals[order]
+        vecs = vecs[:, order]
+
+        bulk_radius = self._bulk_radius(H)
+        keep = [idx for idx, lam in enumerate(vals) if float(abs(lam)) > float(bulk_radius)]
+        if not keep:
+            return np.zeros(0, dtype=np.complex128), np.zeros((de, 0), dtype=np.complex128)
+
+        unstable_vals = vals[np.asarray(keep, dtype=np.int64)]
+        unstable_vecs = vecs[:, np.asarray(keep, dtype=np.int64)]
+        for idx in range(unstable_vecs.shape[1]):
+            unstable_vecs[:, idx] = normalize_mode_phase(unstable_vecs[:, idx])
+        return unstable_vals, unstable_vecs
+
+    def build_flow_field(self, H: np.ndarray | scipy.sparse.spmatrix) -> EdgeFlowField:
+        undirected, directed, edge_index, adj, m, n = canonical_directed_edges(H)
+        de = len(directed)
+        if de == 0:
+            return EdgeFlowField(
+                directed_edges=directed,
+                undirected_edges=undirected,
+                directed_pressure=np.zeros(0, dtype=np.float64),
+                edge_pressure=np.zeros(0, dtype=np.float64),
+                edge_pressure_map={},
+                bulk_radius=0.0,
+                selected_modes=(),
+            )
+
+        rows: list[int] = []
+        cols: list[int] = []
+        for i, (u, v) in enumerate(directed):
+            for w in adj.get(v, ()):  # deterministic order
+                if w == u:
+                    continue
+                j = edge_index.get((v, w))
+                if j is not None:
+                    rows.append(j)
+                    cols.append(i)
+        if not rows:
+            return EdgeFlowField(
+                directed_edges=directed,
+                undirected_edges=undirected,
+                directed_pressure=np.zeros(de, dtype=np.float64),
+                edge_pressure=np.zeros(len(undirected), dtype=np.float64),
+                edge_pressure_map={edge: 0.0 for edge in undirected},
+                bulk_radius=0.0,
+                selected_modes=(),
+            )
+
+        B = scipy.sparse.csr_matrix((np.ones(len(rows), dtype=np.float64), (rows, cols)), shape=(de, de))
+
+        k = int(min(max(1, self.config.num_nb_eigenvalues), max(1, de - 1)))
+        eigvals = np.zeros(0, dtype=np.complex128)
+        right = np.zeros((de, 0), dtype=np.complex128)
+        left = np.zeros((de, 0), dtype=np.complex128)
+        use_dense = de <= 2 or k >= de - 1
+        if use_dense:
+            dense = B.toarray()
+            vals, vecs = np.linalg.eig(dense)
+            order = np.argsort(-np.abs(vals), kind='stable')
+            order = order[:k]
+            eigvals = vals[order]
+            right = vecs[:, order]
+            if self.config.use_left_right_pairing:
+                _, left_all = np.linalg.eig(dense.T)
+                left = left_all[:, order]
+        else:
+            eigvals, right = scipy.sparse.linalg.eigs(
+                B,
+                k=k,
+                which='LR',
+                v0=np.ones(de, dtype=np.float64),
+                maxiter=max(100, 5 * de),
+                tol=0.0,
+            )
+            if self.config.use_left_right_pairing:
+                _, left = scipy.sparse.linalg.eigs(
+                    B.transpose().tocsr(),
+                    k=k,
+                    which='LR',
+                    v0=np.ones(de, dtype=np.float64),
+                    maxiter=max(100, 5 * de),
+                    tol=0.0,
+                )
+
+        order = np.argsort(-np.abs(eigvals), kind='stable')
+        eigvals = eigvals[order]
+        right = right[:, order]
+        if left.shape[1] == right.shape[1]:
+            left = left[:, order]
+
+        bulk_radius = self._bulk_radius(H)
+
+        directed_pressure = np.zeros(de, dtype=np.float64)
+        modes: list[NBMode] = []
+        for idx in range(right.shape[1]):
+            lam = eigvals[idx]
+            rv = right[:, idx]
+            lv = left[:, idx] if left.shape[1] > idx else None
+            if self.config.canonical_phase:
+                rv = normalize_mode_phase(rv)
+                if lv is not None:
+                    lv = normalize_mode_phase(lv)
+            norm = float(np.linalg.norm(rv))
+            if norm <= 1e-15:
+                continue
+            rv = rv / norm
+            ipr = float(np.sum(np.abs(rv) ** 4))
+            outlier = max(0.0, float(abs(lam) - bulk_radius))
+            w = (outlier ** self.config.mode_weight_beta) / (1.0 + self.config.alpha_loc * ipr)
+            if w <= 0.0:
+                continue
+
+            if self.config.use_left_right_pairing and lv is not None and lv.shape == rv.shape:
+                denom = np.vdot(lv, rv)
+                if abs(denom) > 1e-15:
+                    lv = lv / denom
+                p_dir = np.real(np.conjugate(lv) * rv)
+                p_dir = np.abs(p_dir)
+            else:
+                p_dir = np.abs(rv) ** 2
+            directed_pressure += float(w) * np.asarray(p_dir, dtype=np.float64)
+            modes.append(NBMode(eigenvalue=lam, right=rv, left=lv, ipr=round(ipr, self.config.precision), weight=round(float(w), self.config.precision)))
+
+        edge_pressure, edge_pressure_map = project_directed_pressure_to_undirected(
+            undirected_edges=undirected,
+            directed_index=edge_index,
+            n=n,
+            directed_pressure=directed_pressure,
+            precision=self.config.precision,
+        )
+
+        return EdgeFlowField(
+            directed_edges=directed,
+            undirected_edges=undirected,
+            directed_pressure=np.asarray([round(float(x), self.config.precision) for x in directed_pressure], dtype=np.float64),
+            edge_pressure=edge_pressure,
+            edge_pressure_map=edge_pressure_map,
+            bulk_radius=round(float(bulk_radius), self.config.precision),
+            selected_modes=tuple(modes),
+        )
+
+    def _bulk_radius(self, H: np.ndarray | scipy.sparse.spmatrix) -> float:
+        mode = str(self.config.bulk_radius_mode)
+        if mode == "fixed":
+            return float(max(self.config.bulk_radius_value, 0.0))
+
+        H_csr = scipy.sparse.csr_matrix(H, dtype=np.float64)
+        if H_csr.nnz == 0:
+            return 0.0
+        row_deg = np.diff(H_csr.indptr).astype(np.float64)
+        col_deg = np.asarray(H_csr.sum(axis=0), dtype=np.float64).ravel()
+        c = float(np.mean(np.maximum(row_deg - 1.0, 0.0))) if row_deg.size else 0.0
+        v = float(np.mean(np.maximum(col_deg - 1.0, 0.0))) if col_deg.size else 0.0
+        return float(np.sqrt(max(c * v, 0.0)))

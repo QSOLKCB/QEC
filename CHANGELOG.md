@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[40.0.0] — Spectral Basin Escape Operators
+
+Added
+
+- Deterministic basin stagnation detection utilities.
+- Deterministic escape-direction estimation away from basin centers.
+- Basin escape mutation targets in spectral space.
+- Optional basin escape integration in discovery with escape-operator prioritization.
+- Basin escape event logging for trajectory transition analysis.
+- Improved escape direction estimation by biasing escapes toward nearest basin boundary.
+- Added escape outcome logging to support future adaptive escape learning.
 [39.0.0] — Spectral Basin Topology Mapping
 
 Added

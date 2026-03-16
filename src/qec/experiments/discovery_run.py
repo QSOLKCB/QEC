@@ -35,6 +35,13 @@ def run_discovery_experiment(
     bayesian_length_scale: float = 1.0,
     bayesian_noise: float = 1e-6,
     output_path: str = "artifacts/discovery_run.json",
+    enable_information_gain_scheduler: bool = False,
+    information_gain_novelty_weight: float = 0.5,
+    information_gain_uncertainty_weight: float = 0.5,
+    enable_autonomous_scheduler: bool = False,
+    scheduler_gap_radius: float = 0.3,
+    scheduler_max_gaps: int = 16,
+    scheduler_queue=None,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -68,6 +75,13 @@ def run_discovery_experiment(
         enable_bayesian_model=enable_bayesian_model,
         bayesian_length_scale=bayesian_length_scale,
         bayesian_noise=bayesian_noise,
+        enable_information_gain_scheduler=enable_information_gain_scheduler,
+        information_gain_novelty_weight=information_gain_novelty_weight,
+        information_gain_uncertainty_weight=information_gain_uncertainty_weight,
+        enable_autonomous_scheduler=enable_autonomous_scheduler,
+        scheduler_gap_radius=scheduler_gap_radius,
+        scheduler_max_gaps=scheduler_max_gaps,
+        scheduler_queue=scheduler_queue,
     )
 
     metadata = collect_environment_metadata(
@@ -84,30 +98,50 @@ def run_discovery_experiment(
         export_parity_check(best_H, os.path.join(artifact_dir, "best_graph.txt"))
         export_json_adjacency(best_H, os.path.join(artifact_dir, "best_graph.json"))
 
+    artifact_results = {
+        "spec": {
+            "num_variables": spec["num_variables"],
+            "num_checks": spec["num_checks"],
+            "variable_degree": spec["variable_degree"],
+            "check_degree": spec["check_degree"],
+        },
+        "config": {
+            "num_generations": num_generations,
+            "population_size": population_size,
+            "base_seed": base_seed,
+            "archive_top_k": archive_top_k,
+            "enable_autonomous_scheduler": enable_autonomous_scheduler,
+            "scheduler_gap_radius": scheduler_gap_radius,
+            "scheduler_max_gaps": scheduler_max_gaps,
+        },
+        "best_candidate": result["best_candidate"],
+        "elite_history": result["elite_history"],
+        "archive_summary": result["archive_summary"],
+        "generation_summaries": result["generation_summaries"],
+    }
+    if enable_autonomous_scheduler:
+        artifact_results["scheduled_target_spectrum"] = result.get("scheduled_target_spectrum")
+        artifact_results["landscape_gap_count"] = int(result.get("landscape_gap_count", 0))
+        artifact_results["scheduler_strategy"] = result.get(
+            "scheduler_strategy", "landscape_exploration",
+        )
+
     artifact = {
         "metadata": metadata,
-        "results": {
-            "spec": {
-                "num_variables": spec["num_variables"],
-                "num_checks": spec["num_checks"],
-                "variable_degree": spec["variable_degree"],
-                "check_degree": spec["check_degree"],
-            },
-            "config": {
-                "num_generations": num_generations,
-                "population_size": population_size,
-                "base_seed": base_seed,
-                "archive_top_k": archive_top_k,
-                "enable_bayesian_model": enable_bayesian_model,
-                "bayesian_length_scale": bayesian_length_scale,
-                "bayesian_noise": bayesian_noise,
-            },
-            "best_candidate": result["best_candidate"],
-            "elite_history": result["elite_history"],
-            "archive_summary": result["archive_summary"],
-            "generation_summaries": result["generation_summaries"],
-        },
+        "results": artifact_results,
     }
+
+    for key in (
+        "agent_assignments",
+        "agent_spacing",
+        "cooperative_coverage",
+        "frontier_exploration_rate",
+        "agent_messages",
+        "coordination_state",
+        "agent_region_overlap",
+    ):
+        if key in result:
+            artifact["results"][key] = result[key]
 
     artifact = canonicalize(artifact)
 

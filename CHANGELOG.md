@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[48.0.0] — Spectral Motif Learning & Adaptive Mutation Weighting
+
+Added
+
+- Introduces deterministic motif extraction from successful Tanner-graph archive entries.
+- Adds spectral motif library support for storing/querying reusable motifs by spectral similarity.
+- Adds motif-guided mutation injection as an opt-in deterministic discovery feature.
+- Adds deterministic mutation-operator statistics and adaptive operator weighting by regional spectral similarity.
+- Integrates opt-in adaptive mutation and motif learning into the discovery engine with generation-level logging.
+- Adds motif/adaptive-weight artifact export fields to discovery experiment outputs.
+- Adds determinism regression tests for motif extraction, motif matching, operator weighting, and opt-in engine reproducibility.
+
 [41.0.0] — Adaptive Spectral Basin Exploration
 
 Added
@@ -135,6 +147,18 @@ Changelog
 All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
+
+[48.0.0] — Spectral Motif Learning & Adaptive Mutation Weighting
+
+Added
+
+- Introduces deterministic motif extraction from successful Tanner-graph archive entries.
+- Adds spectral motif library support for storing/querying reusable motifs by spectral similarity.
+- Adds motif-guided mutation injection as an opt-in deterministic discovery feature.
+- Adds deterministic mutation-operator statistics and adaptive operator weighting by regional spectral similarity.
+- Integrates opt-in adaptive mutation and motif learning into the discovery engine with generation-level logging.
+- Adds motif/adaptive-weight artifact export fields to discovery experiment outputs.
+- Adds determinism regression tests for motif extraction, motif matching, operator weighting, and opt-in engine reproducibility.
 
 [41.0.0] — Adaptive Spectral Basin Exploration
 

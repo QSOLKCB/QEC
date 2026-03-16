@@ -78,26 +78,34 @@ def run_discovery_experiment(
         export_parity_check(best_H, os.path.join(artifact_dir, "best_graph.txt"))
         export_json_adjacency(best_H, os.path.join(artifact_dir, "best_graph.json"))
 
+    results_payload = {
+        "spec": {
+            "num_variables": spec["num_variables"],
+            "num_checks": spec["num_checks"],
+            "variable_degree": spec["variable_degree"],
+            "check_degree": spec["check_degree"],
+        },
+        "config": {
+            "num_generations": num_generations,
+            "population_size": population_size,
+            "base_seed": base_seed,
+            "archive_top_k": archive_top_k,
+        },
+        "best_candidate": result["best_candidate"],
+        "elite_history": result["elite_history"],
+        "archive_summary": result["archive_summary"],
+        "generation_summaries": result["generation_summaries"],
+    }
+    if "motif_library_size" in result:
+        results_payload["motif_library_size"] = result["motif_library_size"]
+        results_payload["motifs_used"] = result.get("motifs_used", [])
+    if "operator_success_rates" in result:
+        results_payload["operator_success_rates"] = result["operator_success_rates"]
+        results_payload["adaptive_operator_weights"] = result.get("adaptive_operator_weights", {})
+
     artifact = {
         "metadata": metadata,
-        "results": {
-            "spec": {
-                "num_variables": spec["num_variables"],
-                "num_checks": spec["num_checks"],
-                "variable_degree": spec["variable_degree"],
-                "check_degree": spec["check_degree"],
-            },
-            "config": {
-                "num_generations": num_generations,
-                "population_size": population_size,
-                "base_seed": base_seed,
-                "archive_top_k": archive_top_k,
-            },
-            "best_candidate": result["best_candidate"],
-            "elite_history": result["elite_history"],
-            "archive_summary": result["archive_summary"],
-            "generation_summaries": result["generation_summaries"],
-        },
+        "results": results_payload,
     }
 
     artifact = canonicalize(artifact)

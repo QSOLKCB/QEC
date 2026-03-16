@@ -76,6 +76,14 @@ from src.qec.discovery.exploration_policy import (
     choose_exploration_strategy,
 )
 from src.qec.discovery.basin_escape_mutation import propose_escape_step
+from src.qec.analysis.spectral_motif_extraction import extract_spectral_motifs
+from src.qec.discovery.motif_library import SpectralMotifLibrary
+from src.qec.discovery.motif_mutation import apply_motif_mutation
+from src.qec.analysis.operator_statistics import update_operator_success
+from src.qec.discovery.adaptive_operator_weights import (
+    compute_operator_weights,
+    deterministic_weighted_choice,
+)
 
 
 _ROUND = 12
@@ -157,6 +165,10 @@ def run_structure_discovery(
     basin_escape_step: float = 0.3,
     enable_basin_topology_mapping: bool = False,
     basin_distance_threshold: float = 0.25,
+    enable_adaptive_mutation: bool = False,
+    enable_motif_learning: bool = False,
+    motif_library: SpectralMotifLibrary | None = None,
+    operator_learning_rate: float = 0.1,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -255,6 +267,14 @@ def run_structure_discovery(
 
     if enable_landscape_learning and landscape_memory is None:
         landscape_memory = SpectralLandscapeMemory()
+    if enable_motif_learning and motif_library is None:
+        motif_library = SpectralMotifLibrary()
+
+    operator_stats: dict[str, dict[str, np.float64]] = {}
+    current_operator_weights: dict[str, float] = {}
+    selected_operator = ""
+    motif_used = False
+    motif_id: int | None = None
 
     effective_novelty_weight = (
         float(np.float64(landscape_novelty_weight))
@@ -473,8 +493,16 @@ def run_structure_discovery(
             operator_name = "nb_eigenmode_mutation"
         elif escape_triggered:
             operator_name = _ESCAPE_OPERATORS[gen % len(_ESCAPE_OPERATORS)]
+        elif enable_adaptive_mutation:
+            current_spectrum = _objective_spectrum(elites[0].get("objectives", {}))
+            regional_similarity = _compute_regional_similarity(operator_stats, current_spectrum)
+            current_operator_weights = compute_operator_weights(operator_stats, regional_similarity)
+            operator_name = deterministic_weighted_choice(current_operator_weights)
         else:
             operator_name = get_operator_for_generation(gen)
+        selected_operator = str(operator_name)
+        motif_used = False
+        motif_id = None
 
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
@@ -500,6 +528,14 @@ def run_structure_discovery(
                 target_edges=target_edges,
                 target_spectrum=target_spectrum,
             )
+
+            if enable_motif_learning and motif_library is not None:
+                similar = motif_library.get_similar_motifs(_objective_spectrum(elite.get("objectives", {})), top_k=1)
+                chosen = similar[0] if similar else motif_library.sample_motif()
+                if chosen is not None:
+                    H_mutated = apply_motif_mutation(H_mutated, chosen)
+                    motif_used = True
+                    motif_id = int(chosen.get("motif_id", 0))
 
             # Find mutated edges for ACE evaluation and incremental updates
             diff = np.abs(H_mutated - elite["H"])
@@ -535,6 +571,19 @@ def run_structure_discovery(
                 if not trust_region.allow(old_spectrum, new_spectrum):
                     continue
             child_composite = child_objectives.get("composite_score", float("inf"))
+            if enable_adaptive_mutation:
+                improvement = float(parent_composite) - float(child_composite)
+                operator_stats = update_operator_success(operator_stats, op_used, improvement)
+                op_key = str(op_used)
+                rec = dict(operator_stats.get(op_key, {}))
+                current = _objective_spectrum(child_objectives)
+                prev_centroid = np.asarray(rec.get("regional_centroid", current), dtype=np.float64)
+                alpha = float(np.clip(np.float64(operator_learning_rate), 0.0, 1.0))
+                updated_centroid = (
+                    (1.0 - alpha) * prev_centroid + alpha * current
+                ).astype(np.float64, copy=False)
+                rec["regional_centroid"] = updated_centroid
+                operator_stats[op_key] = rec
 
             ace_result = ace_gate_mutation(
                 elite["H"],
@@ -639,6 +688,9 @@ def run_structure_discovery(
 
         # Update archive
         archive = update_discovery_archive(archive, children)
+        if enable_motif_learning and motif_library is not None:
+            for motif in extract_spectral_motifs(archive):
+                motif_library.add_motif(motif)
 
         # Record generation
         best = population[0] if population else None
@@ -669,6 +721,15 @@ def run_structure_discovery(
                     if enable_adaptive_exploration
                     else None
                 ),
+                operator_weights=(current_operator_weights if enable_adaptive_mutation else None),
+                selected_operator=(selected_operator if enable_adaptive_mutation else None),
+                motif_used=(motif_used if enable_adaptive_mutation else None),
+                motif_id=(motif_id if enable_adaptive_mutation else None),
+                operator_success_rate=(
+                    float(operator_stats.get(selected_operator, {}).get("success_rate", 0.0))
+                    if enable_adaptive_mutation
+                    else None
+                ),
             )
         )
 
@@ -690,6 +751,15 @@ def run_structure_discovery(
         result["landscape_coverage"] = landscape_coverage(landscape_memory)
     if enable_basin_escape:
         result["basin_escape_events"] = basin_escape_events
+    if enable_adaptive_mutation:
+        result["adaptive_operator_weights"] = current_operator_weights
+        result["operator_success_rates"] = {
+            op: float(stats.get("success_rate", 0.0))
+            for op, stats in sorted(operator_stats.items(), key=lambda item: item[0])
+        }
+    if enable_motif_learning and motif_library is not None:
+        result["motif_library_size"] = len(motif_library.motifs)
+        result["motifs_used"] = [int(m.get("motif_id", 0)) for m in motif_library.get_motifs()]
 
     if enable_basin_topology_mapping and trajectory_recorder is not None:
         trajectory = trajectory_recorder.as_array()
@@ -766,6 +836,11 @@ def _make_generation_summary(
     basin_switch_rate_value: float | None = None,
     exploration_entropy_value: float | None = None,
     escape_success_rate_value: float | None = None,
+    operator_weights: dict[str, float] | None = None,
+    selected_operator: str | None = None,
+    motif_used: bool | None = None,
+    motif_id: int | None = None,
+    operator_success_rate: float | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -807,7 +882,37 @@ def _make_generation_summary(
         result["exploration_entropy"] = float(exploration_entropy_value)
     if escape_success_rate_value is not None:
         result["escape_success_rate"] = float(escape_success_rate_value)
+    if operator_weights is not None:
+        result["operator_weights"] = {
+            str(k): float(v) for k, v in sorted(operator_weights.items(), key=lambda item: item[0])
+        }
+    if selected_operator is not None:
+        result["selected_operator"] = str(selected_operator)
+    if motif_used is not None:
+        result["motif_used"] = bool(motif_used)
+    if motif_id is not None:
+        result["motif_id"] = int(motif_id)
+    if operator_success_rate is not None:
+        result["operator_success_rate"] = float(operator_success_rate)
     return result
+
+
+
+def _compute_regional_similarity(
+    operator_stats: dict[str, dict[str, np.float64]],
+    current_spectrum: np.ndarray,
+) -> dict[str, float]:
+    """Compute deterministic similarity scores to operator regional centroids."""
+    spectrum = np.asarray(current_spectrum, dtype=np.float64).reshape(-1)
+    similarity: dict[str, float] = {}
+    for op, rec in sorted(operator_stats.items(), key=lambda item: item[0]):
+        centroid = np.asarray(rec.get("regional_centroid", np.zeros_like(spectrum)), dtype=np.float64).reshape(-1)
+        if centroid.shape != spectrum.shape:
+            similarity[op] = 0.0
+            continue
+        dist = float(np.linalg.norm(spectrum - centroid))
+        similarity[op] = float(1.0 / (1.0 + dist))
+    return similarity
 
 
 

@@ -52,7 +52,13 @@ from src.qec.discovery.basin_switch_detector import BasinSwitchDetector
 from src.qec.discovery.mutation_trust_region import SpectralTrustRegion
 from src.qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
 from src.qec.analysis.spectral_gradient import estimate_spectral_gradient
+from src.qec.analysis.basin_stagnation import detect_basin_stagnation
+from src.qec.analysis.basin_escape_direction import estimate_escape_direction
 from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
+from src.qec.analysis.spectral_basins import identify_spectral_basins
+from src.qec.analysis.basin_transitions import detect_basin_transitions
+from src.qec.analysis.basin_statistics import basin_sizes
+from src.qec.analysis.basin_map_export import export_basin_map
 from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matrix
 from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
 from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
@@ -67,9 +73,16 @@ from src.qec.discovery.exploration_policy import (
     apply_escape_feedback_bias,
     choose_exploration_strategy,
 )
+from src.qec.discovery.basin_escape_mutation import propose_escape_step
 
 
 _ROUND = 12
+_ESCAPE_OPERATORS = [
+    "edge_swap",
+    "cycle_break",
+    "seeded_reconstruction",
+    "spectral_pressure_guided_mutation",
+]
 
 
 def _derive_seed(base_seed: int, label: str) -> int:
@@ -131,6 +144,11 @@ def run_structure_discovery(
     escape_base_step: float = 0.01,
     early_exploration_rate_threshold: float = 0.5,
     low_escape_success_threshold: float = 0.1,
+    enable_basin_escape: bool = False,
+    basin_escape_window: int = 10,
+    basin_escape_step: float = 0.3,
+    enable_basin_topology_mapping: bool = False,
+    basin_distance_threshold: float = 0.25,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -182,6 +200,10 @@ def run_structure_discovery(
         Enable opt-in spectral trajectory recording. Default False.
     trajectory_recorder : SpectralTrajectoryRecorder or None
         Optional externally managed recorder for trajectory capture.
+    enable_basin_topology_mapping : bool
+        Enable opt-in basin topology identification from trajectory history.
+    basin_distance_threshold : float
+        Distance threshold used for deterministic basin assignment.
 
     Returns
     -------
@@ -210,6 +232,9 @@ def run_structure_discovery(
     if enable_spectral_trajectory and trajectory_recorder is None:
         trajectory_recorder = SpectralTrajectoryRecorder()
 
+    if enable_basin_topology_mapping and not enable_spectral_trajectory and trajectory_recorder is None:
+        trajectory_recorder = SpectralTrajectoryRecorder()
+
     # ── Step 1: Initialize population ──────────────────────────────
     init_seed = _derive_seed(base_seed, "init")
     raw_candidates = generate_tanner_graph_candidates(
@@ -224,6 +249,10 @@ def run_structure_discovery(
     strategy_history: list[str] = []
     escape_attempts = 0
     escape_successes = 0
+    basin_centers: dict[int, np.ndarray] = {}
+    basin_counts: dict[int, int] = {}
+    basin_assignments: list[int] = []
+    basin_escape_events: list[dict[str, Any]] = []
 
     # Build initial population as search states
     population: list[dict[str, Any]] = []
@@ -368,14 +397,55 @@ def run_structure_discovery(
             strategy_history.pop(0)
         if strategy_history.count("ESCAPE") > int(max(1, exploration_window)) // 2:
             exploration_strategy = "ESCAPE"
+        current_spectrum_best = _objective_spectrum(elites[0].get("objectives", {}))
+        current_basin = _assign_to_basin(current_spectrum_best, basin_centers)
+        basin_assignments.append(current_basin)
+        _update_basin_center(current_basin, current_spectrum_best, basin_centers, basin_counts)
+
+        escape_triggered = False
+        escape_direction = np.zeros_like(current_spectrum_best, dtype=np.float64)
+        escape_target = None
+        escape_event: dict[str, Any] | None = None
+        if enable_basin_escape:
+            escape_triggered = detect_basin_stagnation(
+                basin_assignments,
+                window=basin_escape_window,
+            )
+            if escape_triggered:
+                basin_center = basin_centers.get(current_basin, current_spectrum_best)
+                other_centers = [
+                    center
+                    for basin_id, center in basin_centers.items()
+                    if int(basin_id) != int(current_basin)
+                ]
+                escape_direction = estimate_escape_direction(
+                    current_spectrum_best,
+                    basin_center,
+                    other_centers=other_centers,
+                )
+                escape_target = propose_escape_step(
+                    current_spectrum_best,
+                    escape_direction,
+                    step=basin_escape_step,
+                )
+                escape_event = {
+                    "step": int(gen),
+                    "basin_id": int(current_basin),
+                    "escape_direction": escape_direction.tolist(),
+                    "escape_target": escape_target.tolist(),
+                    "escape_norm": float(np.linalg.norm(escape_direction)),
+                    "escape_success": False,
+                }
+                basin_escape_events.append(escape_event)
 
         # Mutate elites
         children: list[dict[str, Any]] = []
-        operator_name = (
-            "nb_eigenmode_mutation"
-            if use_nb_eigenmode_mutation
-            else get_operator_for_generation(gen)
-        )
+        if use_nb_eigenmode_mutation:
+            operator_name = "nb_eigenmode_mutation"
+        elif escape_triggered:
+            operator_name = _ESCAPE_OPERATORS[gen % len(_ESCAPE_OPERATORS)]
+        else:
+            operator_name = get_operator_for_generation(gen)
 
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
@@ -389,6 +459,9 @@ def run_structure_discovery(
             )
             target_edges = routing["target_edges"]
             target_spectrum = routing["target_spectrum"]
+
+            if escape_target is not None:
+                gradient_target_spectrum = escape_target
 
             H_mutated, op_used = mutate_tanner_graph(
                 elite["H"],
@@ -467,7 +540,7 @@ def run_structure_discovery(
                 repaired_spectrum = _objective_spectrum(repaired_objectives)
                 basin_switch = basin_detector.detect(prev_spectrum, repaired_spectrum)
 
-            if enable_spectral_trajectory and trajectory_recorder is not None:
+            if (enable_spectral_trajectory or enable_basin_topology_mapping) and trajectory_recorder is not None:
                 current_spectrum = _objective_spectrum(repaired_objectives)
                 nb_eigenvalue = _compute_nb_mode_magnitude(repaired_objectives, H_repaired)
                 trajectory_recorder.record(np.append(current_spectrum, nb_eigenvalue))
@@ -513,6 +586,14 @@ def run_structure_discovery(
                     if child_score < parent_score:
                         escape_successes += 1
             children.append(child_state)
+
+        if escape_event is not None:
+            parent_score = float(elites[0]["objectives"].get("composite_score", float("inf")))
+            best_child_score = min(
+                (float(c["objectives"].get("composite_score", float("inf"))) for c in children),
+                default=float("inf"),
+            )
+            escape_event["escape_success"] = bool(best_child_score < parent_score)
 
         # Combine population: elites + children, re-rank, truncate
         combined = population + children
@@ -567,7 +648,71 @@ def run_structure_discovery(
     }
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
+    if enable_basin_escape:
+        result["basin_escape_events"] = basin_escape_events
+
+    if enable_basin_topology_mapping and trajectory_recorder is not None:
+        trajectory = trajectory_recorder.as_array()
+        if trajectory.shape[0] > 0:
+            assignments, centers = identify_spectral_basins(
+                trajectory,
+                threshold=basin_distance_threshold,
+            )
+            transitions = detect_basin_transitions(assignments)
+            result["spectral_basin_topology"] = export_basin_map(
+                centers,
+                assignments,
+                transitions,
+                include_phase_space_projections=(trajectory.shape[1] >= 3),
+            )
+            result["spectral_basin_sizes"] = basin_sizes(assignments)
+        else:
+            empty_assignments = np.zeros((0,), dtype=np.int64)
+            empty_centers = np.zeros((0, 0), dtype=np.float64)
+            result["spectral_basin_topology"] = export_basin_map(
+                empty_centers,
+                empty_assignments,
+                [],
+                include_phase_space_projections=False,
+            )
+            result["spectral_basin_sizes"] = {}
     return result
+
+
+def _assign_to_basin(
+    spectrum: np.ndarray,
+    basin_centers: dict[int, np.ndarray],
+) -> int:
+    """Assign spectrum to nearest center (or create basin 0 when empty)."""
+    if not basin_centers:
+        return 0
+    best_id = min(
+        basin_centers.keys(),
+        key=lambda b: (float(np.linalg.norm(spectrum - basin_centers[b])), int(b)),
+    )
+    distance = float(np.linalg.norm(spectrum - basin_centers[best_id]))
+    if distance > 0.25:
+        return int(max(basin_centers.keys()) + 1)
+    return int(best_id)
+
+
+def _update_basin_center(
+    basin_id: int,
+    spectrum: np.ndarray,
+    basin_centers: dict[int, np.ndarray],
+    basin_counts: dict[int, int],
+) -> None:
+    """Deterministically update running basin center mean."""
+    if basin_id not in basin_centers:
+        basin_centers[basin_id] = np.asarray(spectrum, dtype=np.float64)
+        basin_counts[basin_id] = 1
+        return
+
+    count = int(basin_counts.get(basin_id, 1))
+    center = np.asarray(basin_centers[basin_id], dtype=np.float64)
+    updated = (center * count + np.asarray(spectrum, dtype=np.float64)) / float(count + 1)
+    basin_centers[basin_id] = updated.astype(np.float64, copy=False)
+    basin_counts[basin_id] = count + 1
 
 
 def _make_generation_summary(

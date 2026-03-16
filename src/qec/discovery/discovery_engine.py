@@ -48,6 +48,8 @@ from src.qec.discovery.diversity import (
     compute_structure_signature,
     compute_diversity_penalty,
 )
+from src.qec.discovery.basin_switch_detector import BasinSwitchDetector
+from src.qec.discovery.mutation_trust_region import SpectralTrustRegion
 from src.qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
 
 
@@ -99,6 +101,10 @@ def run_structure_discovery(
     target_variable_degree: int | None = None,
     target_check_degree: int | None = None,
     use_nb_eigenmode_mutation: bool = False,
+    enable_spectral_trust_region: bool = False,
+    trust_region_radius: float = 0.25,
+    enable_basin_switch_detection: bool = False,
+    basin_switch_threshold: float = 0.5,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -136,6 +142,14 @@ def run_structure_discovery(
         Target check degree for repair.
     use_nb_eigenmode_mutation : bool
         Enable opt-in NB eigenmode mutation operator. Default False.
+    enable_spectral_trust_region : bool
+        Enable opt-in spectral trust-region mutation rejection. Default False.
+    trust_region_radius : float
+        Trust-region spectral radius when enabled.
+    enable_basin_switch_detection : bool
+        Enable opt-in basin switch detection in discovery logs. Default False.
+    basin_switch_threshold : float
+        Spectral jump threshold for basin switch detection.
 
     Returns
     -------
@@ -150,6 +164,17 @@ def run_structure_discovery(
         target_variable_degree = spec.get("variable_degree")
     if target_check_degree is None:
         target_check_degree = spec.get("check_degree")
+
+    trust_region = (
+        SpectralTrustRegion(radius=trust_region_radius)
+        if enable_spectral_trust_region
+        else None
+    )
+    basin_detector = (
+        BasinSwitchDetector(threshold=basin_switch_threshold)
+        if enable_basin_switch_detection
+        else None
+    )
 
     # ── Step 1: Initialize population ──────────────────────────────
     init_seed = _derive_seed(base_seed, "init")
@@ -274,6 +299,11 @@ def run_structure_discovery(
             child_objectives = compute_discovery_objectives(
                 H_mutated, seed=child_obj_seed,
             )
+            if trust_region is not None:
+                old_spectrum = _objective_spectrum(elite.get("objectives", {}))
+                new_spectrum = _objective_spectrum(child_objectives)
+                if not trust_region.allow(old_spectrum, new_spectrum):
+                    continue
             child_composite = child_objectives.get("composite_score", float("inf"))
 
             ace_result = ace_gate_mutation(
@@ -302,6 +332,12 @@ def run_structure_discovery(
             repaired_objectives = compute_discovery_objectives(
                 H_repaired, seed=repair_obj_seed,
             )
+
+            basin_switch = False
+            if basin_detector is not None:
+                prev_spectrum = _objective_spectrum(elite.get("objectives", {}))
+                repaired_spectrum = _objective_spectrum(repaired_objectives)
+                basin_switch = basin_detector.detect(prev_spectrum, repaired_spectrum)
 
             # Diversity penalty
             child_sig = compute_structure_signature(H_repaired)
@@ -332,6 +368,8 @@ def run_structure_discovery(
                 dominance_rank=0,
                 is_feasible=True,
             )
+            if basin_detector is not None:
+                child_state["basin_switch"] = basin_switch
             children.append(child_state)
 
         # Combine population: elites + children, re-rank, truncate
@@ -352,7 +390,14 @@ def run_structure_discovery(
                 "instability_score": best["objectives"].get("instability_score", 0.0),
             })
 
-        generation_summaries.append(_make_generation_summary(gen, population, archive))
+        generation_summaries.append(
+            _make_generation_summary(
+                gen,
+                population,
+                archive,
+                include_basin_switches=enable_basin_switch_detection,
+            )
+        )
 
     # ── Assemble result ────────────────────────────────────────────
     best_candidate = population[0] if population else None
@@ -371,6 +416,8 @@ def _make_generation_summary(
     generation: int,
     population: list[dict[str, Any]],
     archive: dict[str, Any],
+    *,
+    include_basin_switches: bool = False,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -379,7 +426,7 @@ def _make_generation_summary(
     best = population[0] if population else None
     summary = get_archive_summary(archive)
 
-    return {
+    result = {
         "generation": generation,
         "best_candidate_id": best["candidate_id"] if best else "",
         "best_composite_score": (
@@ -398,6 +445,24 @@ def _make_generation_summary(
         "num_feasible": len(feasible),
         "num_novel": len(novel),
     }
+    if include_basin_switches:
+        result["basin_switches"] = int(
+            sum(1 for c in population if c.get("basin_switch", False))
+        )
+    return result
+
+
+def _objective_spectrum(objectives: dict[str, Any]) -> np.ndarray:
+    """Build deterministic spectral feature vector for trust/basin checks."""
+    return np.asarray(
+        [
+            float(objectives.get("spectral_radius", 0.0)),
+            float(objectives.get("bethe_margin", 0.0)),
+            float(objectives.get("ipr_localization", 0.0)),
+            float(objectives.get("entropy", 0.0)),
+        ],
+        dtype=np.float64,
+    )
 
 
 def _serialize_candidate(candidate: dict[str, Any]) -> dict[str, Any]:

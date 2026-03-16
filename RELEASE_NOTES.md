@@ -1,3 +1,11 @@
+## [42.0.0] — Persistent Spectral Landscape Learning
+
+- Added persistent spectral landscape memory across experiments.
+- Added deterministic clustering of explored spectral regions.
+- Added JSON persistence helpers for landscape save/load.
+- Added novelty scoring helper for exploration guidance.
+- Added landscape coverage metric and discovery artifact export fields.
+
 ## [38.0.0] — Non-Backtracking Eigenmode Mutation
 
 - Added non-backtracking matrix utilities.

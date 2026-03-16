@@ -53,6 +53,8 @@ from src.qec.discovery.mutation_trust_region import SpectralTrustRegion
 from src.qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
 from src.qec.analysis.spectral_gradient import estimate_spectral_gradient
 from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
+from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
+from src.qec.analysis.landscape_metrics import novelty_score as landscape_novelty_score, landscape_coverage
 from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matrix
 from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
 from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
@@ -116,6 +118,12 @@ def run_structure_discovery(
     trajectory_recorder: SpectralTrajectoryRecorder | None = None,
     enable_spectral_gradient: bool = False,
     gradient_step_size: float = 0.1,
+    enable_landscape_learning: bool = False,
+    landscape_memory: SpectralLandscapeMemory | None = None,
+    landscape_cluster_threshold: float = 0.25,
+    use_landscape_novelty_bias: bool = False,
+    landscape_novelty_weight: float = 0.0,
+    novelty_weight: float | None = None,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -168,6 +176,19 @@ def run_structure_discovery(
     trajectory_recorder : SpectralTrajectoryRecorder or None
         Optional externally managed recorder for trajectory capture.
 
+    enable_landscape_learning : bool
+        Enable opt-in persistent spectral landscape memory updates. Default False.
+    landscape_memory : SpectralLandscapeMemory or None
+        Optional externally managed spectral landscape memory.
+    landscape_cluster_threshold : float
+        Distance threshold for deterministic region clustering.
+    use_landscape_novelty_bias : bool
+        Backward-compatible alias that enables novelty bias when True.
+    landscape_novelty_weight : float
+        Legacy novelty weight alias. Default 0.0.
+    novelty_weight : float or None
+        Primary novelty weight used in ranking when landscape learning is enabled.
+
     Returns
     -------
     dict[str, Any]
@@ -194,6 +215,15 @@ def run_structure_discovery(
     )
     if enable_spectral_trajectory and trajectory_recorder is None:
         trajectory_recorder = SpectralTrajectoryRecorder()
+
+    if enable_landscape_learning and landscape_memory is None:
+        landscape_memory = SpectralLandscapeMemory()
+
+    effective_novelty_weight = (
+        float(np.float64(landscape_novelty_weight))
+        if novelty_weight is None
+        else float(np.float64(novelty_weight))
+    )
 
     # ── Step 1: Initialize population ──────────────────────────────
     init_seed = _derive_seed(base_seed, "init")
@@ -395,6 +425,14 @@ def run_structure_discovery(
             archive_features = get_archive_features(archive)
             fv = extract_feature_vector(repaired_objectives)
             novelty = compute_novelty_score(fv, archive_features)
+            if enable_landscape_learning and landscape_memory is not None:
+                repaired_spectrum = _objective_spectrum(repaired_objectives)
+                if use_landscape_novelty_bias or effective_novelty_weight != 0.0:
+                    novelty_bias = landscape_novelty_score(repaired_spectrum, landscape_memory)
+                    novelty += effective_novelty_weight * novelty_bias
+                landscape_memory.add(
+                    repaired_spectrum, threshold=landscape_cluster_threshold,
+                )
 
             child_id = f"gen{gen:04d}_child{ei:04d}"
             child_state = make_search_state(
@@ -453,6 +491,9 @@ def run_structure_discovery(
     }
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
+    if enable_landscape_learning and landscape_memory is not None:
+        result["spectral_landscape_regions"] = landscape_memory.centers().tolist()
+        result["landscape_coverage"] = landscape_coverage(landscape_memory)
     return result
 
 

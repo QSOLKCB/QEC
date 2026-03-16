@@ -43,6 +43,13 @@ _MODULES = [
     "spectral_landscape_memory",
     "landscape_metrics",
     "landscape_io",
+    "exploration_state",
+    "exploration_metrics",
+    "spectral_basins",
+    "basin_transitions",
+    "basin_statistics",
+    "basin_map_export",
+    "spectral_phase_space",
 ]
 
 for mod in _MODULES:

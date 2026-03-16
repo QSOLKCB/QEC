@@ -52,16 +52,39 @@ from src.qec.discovery.basin_switch_detector import BasinSwitchDetector
 from src.qec.discovery.mutation_trust_region import SpectralTrustRegion
 from src.qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
 from src.qec.analysis.spectral_gradient import estimate_spectral_gradient
+from src.qec.analysis.basin_stagnation import detect_basin_stagnation
+from src.qec.analysis.basin_escape_direction import estimate_escape_direction
 from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
 from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
 from src.qec.analysis.landscape_metrics import novelty_score as landscape_novelty_score, landscape_coverage
+from src.qec.analysis.spectral_basins import identify_spectral_basins
+from src.qec.analysis.basin_transitions import detect_basin_transitions
+from src.qec.analysis.basin_statistics import basin_sizes
+from src.qec.analysis.basin_map_export import export_basin_map
 from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matrix
 from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
 from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
 from src.qec.discovery.spectral_gradient_mutation import propose_gradient_step
+from src.qec.analysis.exploration_state import analyze_exploration_state
+from src.qec.analysis.exploration_metrics import (
+    basin_switch_rate,
+    exploration_entropy,
+    mean_basin_duration,
+)
+from src.qec.discovery.exploration_policy import (
+    apply_escape_feedback_bias,
+    choose_exploration_strategy,
+)
+from src.qec.discovery.basin_escape_mutation import propose_escape_step
 
 
 _ROUND = 12
+_ESCAPE_OPERATORS = [
+    "edge_swap",
+    "cycle_break",
+    "seeded_reconstruction",
+    "spectral_pressure_guided_mutation",
+]
 
 
 def _derive_seed(base_seed: int, label: str) -> int:
@@ -124,6 +147,16 @@ def run_structure_discovery(
     use_landscape_novelty_bias: bool = False,
     landscape_novelty_weight: float = 0.0,
     novelty_weight: float | None = None,
+    enable_adaptive_exploration: bool = False,
+    exploration_window: int = 10,
+    escape_base_step: float = 0.01,
+    early_exploration_rate_threshold: float = 0.5,
+    low_escape_success_threshold: float = 0.1,
+    enable_basin_escape: bool = False,
+    basin_escape_window: int = 10,
+    basin_escape_step: float = 0.3,
+    enable_basin_topology_mapping: bool = False,
+    basin_distance_threshold: float = 0.25,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -175,6 +208,10 @@ def run_structure_discovery(
         Enable opt-in spectral trajectory recording. Default False.
     trajectory_recorder : SpectralTrajectoryRecorder or None
         Optional externally managed recorder for trajectory capture.
+    enable_basin_topology_mapping : bool
+        Enable opt-in basin topology identification from trajectory history.
+    basin_distance_threshold : float
+        Distance threshold used for deterministic basin assignment.
 
     enable_landscape_learning : bool
         Enable opt-in persistent spectral landscape memory updates. Default False.
@@ -224,6 +261,8 @@ def run_structure_discovery(
         if novelty_weight is None
         else float(np.float64(novelty_weight))
     )
+    if enable_basin_topology_mapping and not enable_spectral_trajectory and trajectory_recorder is None:
+        trajectory_recorder = SpectralTrajectoryRecorder()
 
     # ── Step 1: Initialize population ──────────────────────────────
     init_seed = _derive_seed(base_seed, "init")
@@ -235,6 +274,14 @@ def run_structure_discovery(
     elite_history: list[dict[str, Any]] = []
     generation_summaries: list[dict[str, Any]] = []
     signature_archive: list[tuple[float, ...]] = []
+    basin_assignments: list[int] = []
+    strategy_history: list[str] = []
+    escape_attempts = 0
+    escape_successes = 0
+    basin_centers: dict[int, np.ndarray] = {}
+    basin_counts: dict[int, int] = {}
+    basin_assignments: list[int] = []
+    basin_escape_events: list[dict[str, Any]] = []
 
     # Build initial population as search states
     population: list[dict[str, Any]] = []
@@ -278,6 +325,7 @@ def run_structure_discovery(
             "instability_score": best["objectives"].get("instability_score", 0.0),
         })
         generation_summaries.append(_make_generation_summary(0, population, archive))
+        basin_assignments.append(_candidate_basin_id(best))
 
     # ── Main loop ──────────────────────────────────────────────────
     for gen in range(1, num_generations + 1):
@@ -306,35 +354,151 @@ def run_structure_discovery(
         if enable_nb_eigenmode_mutation:
             nb_guide_edges = _rank_tanner_edges_by_nb_mode(best_H)
 
+        gradient_target_spectrum = None
+        if enable_spectral_gradient and trajectory_recorder is not None:
+            current_spectrum = _objective_spectrum(elites[0].get("objectives", {}))
+            gradient = estimate_spectral_gradient(trajectory_recorder.as_array())
+            if gradient.shape == current_spectrum.shape:
+                gradient_target_spectrum = propose_gradient_step(
+                    current_spectrum,
+                    gradient,
+                    step=gradient_step_size,
+                )
+
+        exploration_state = "LOCAL_OPTIMIZATION"
+        exploration_strategy = "GRADIENT"
+        switch_rate_value = 0.0
+        entropy_value = 0.0
+        mean_duration_value = 0.0
+        escape_success_rate_value = 0.0
+        if enable_adaptive_exploration:
+            trajectory_data = (
+                trajectory_recorder.as_array()
+                if trajectory_recorder is not None
+                else np.zeros((0, 0), dtype=np.float64)
+            )
+            exploration_state = analyze_exploration_state(
+                trajectory_data,
+                basin_assignments,
+                window=exploration_window,
+            )
+            switch_rate_value = basin_switch_rate(basin_assignments, window=exploration_window)
+            entropy_value = exploration_entropy(basin_assignments)
+            mean_duration_value = mean_basin_duration(basin_assignments)
+            exploration_strategy = choose_exploration_strategy(exploration_state)
+
+            escape_success_rate_value = _safe_escape_success_rate(
+                escape_successes,
+                escape_attempts,
+            )
+            if switch_rate_value > float(early_exploration_rate_threshold):
+                if exploration_strategy == "ESCAPE":
+                    exploration_strategy = "GRADIENT"
+            if escape_attempts >= int(max(1, exploration_window)):
+                exploration_strategy = apply_escape_feedback_bias(
+                    exploration_strategy,
+                    escape_success_rate=escape_success_rate_value,
+                    low_success_threshold=low_escape_success_threshold,
+                )
+
+        escape_target = None
+        if gradient_target_spectrum is not None:
+            adaptive_escape_step = float(escape_base_step)
+            if enable_adaptive_exploration:
+                scale = 1.0 + float(mean_duration_value) / float(max(1, exploration_window))
+                scale = min(scale, 3.0)
+                adaptive_escape_step = float(escape_base_step) * float(scale)
+            escape_target = np.asarray(
+                gradient_target_spectrum,
+                dtype=np.float64,
+            ) + np.array(
+                [
+                    adaptive_escape_step,
+                    -adaptive_escape_step,
+                    adaptive_escape_step,
+                    adaptive_escape_step,
+                ],
+                dtype=np.float64,
+            )
+
+        strategy_history.append(str(exploration_strategy))
+        if len(strategy_history) > int(max(1, exploration_window)):
+            strategy_history.pop(0)
+        if strategy_history.count("ESCAPE") > int(max(1, exploration_window)) // 2:
+            exploration_strategy = "ESCAPE"
+        current_spectrum_best = _objective_spectrum(elites[0].get("objectives", {}))
+        current_basin = _assign_to_basin(current_spectrum_best, basin_centers)
+        basin_assignments.append(current_basin)
+        _update_basin_center(current_basin, current_spectrum_best, basin_centers, basin_counts)
+
+        escape_triggered = False
+        escape_direction = np.zeros_like(current_spectrum_best, dtype=np.float64)
+        escape_target = None
+        escape_event: dict[str, Any] | None = None
+        if enable_basin_escape:
+            escape_triggered = detect_basin_stagnation(
+                basin_assignments,
+                window=basin_escape_window,
+            )
+            if escape_triggered:
+                basin_center = basin_centers.get(current_basin, current_spectrum_best)
+                other_centers = [
+                    center
+                    for basin_id, center in basin_centers.items()
+                    if int(basin_id) != int(current_basin)
+                ]
+                escape_direction = estimate_escape_direction(
+                    current_spectrum_best,
+                    basin_center,
+                    other_centers=other_centers,
+                )
+                escape_target = propose_escape_step(
+                    current_spectrum_best,
+                    escape_direction,
+                    step=basin_escape_step,
+                )
+                escape_event = {
+                    "step": int(gen),
+                    "basin_id": int(current_basin),
+                    "escape_direction": escape_direction.tolist(),
+                    "escape_target": escape_target.tolist(),
+                    "escape_norm": float(np.linalg.norm(escape_direction)),
+                    "escape_success": False,
+                }
+                basin_escape_events.append(escape_event)
+
         # Mutate elites
         children: list[dict[str, Any]] = []
-        operator_name = (
-            "nb_eigenmode_mutation"
-            if use_nb_eigenmode_mutation
-            else get_operator_for_generation(gen)
-        )
+        if use_nb_eigenmode_mutation:
+            operator_name = "nb_eigenmode_mutation"
+        elif escape_triggered:
+            operator_name = _ESCAPE_OPERATORS[gen % len(_ESCAPE_OPERATORS)]
+        else:
+            operator_name = get_operator_for_generation(gen)
 
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
 
-            gradient_target_spectrum = None
-            if enable_spectral_gradient and trajectory_recorder is not None:
-                current_spectrum = _objective_spectrum(elite.get("objectives", {}))
-                gradient = estimate_spectral_gradient(trajectory_recorder.as_array())
-                if gradient.shape == current_spectrum.shape:
-                    gradient_target_spectrum = propose_gradient_step(
-                        current_spectrum,
-                        gradient,
-                        step=gradient_step_size,
-                    )
+            routing = _route_exploration_targets(
+                exploration_strategy,
+                gradient_target=gradient_target_spectrum,
+                nb_target_edges=nb_guide_edges,
+                escape_target=escape_target,
+                default_target_edges=guide_edges,
+            )
+            target_edges = routing["target_edges"]
+            target_spectrum = routing["target_spectrum"]
+
+            if escape_target is not None:
+                gradient_target_spectrum = escape_target
 
             H_mutated, op_used = mutate_tanner_graph(
                 elite["H"],
                 operator=operator_name,
                 generation=gen,
                 seed=mut_seed,
-                target_edges=guide_edges,
-                target_spectrum=gradient_target_spectrum,
+                target_edges=target_edges,
+                target_spectrum=target_spectrum,
             )
 
             # Find mutated edges for ACE evaluation and incremental updates
@@ -405,7 +569,7 @@ def run_structure_discovery(
                 repaired_spectrum = _objective_spectrum(repaired_objectives)
                 basin_switch = basin_detector.detect(prev_spectrum, repaired_spectrum)
 
-            if enable_spectral_trajectory and trajectory_recorder is not None:
+            if (enable_spectral_trajectory or enable_basin_topology_mapping) and trajectory_recorder is not None:
                 current_spectrum = _objective_spectrum(repaired_objectives)
                 nb_eigenvalue = _compute_nb_mode_magnitude(repaired_objectives, H_repaired)
                 trajectory_recorder.record(np.append(current_spectrum, nb_eigenvalue))
@@ -449,7 +613,24 @@ def run_structure_discovery(
             )
             if basin_detector is not None:
                 child_state["basin_switch"] = basin_switch
+            if enable_adaptive_exploration:
+                child_state["exploration_state"] = exploration_state
+                child_state["exploration_strategy"] = exploration_strategy
+                if exploration_strategy == "ESCAPE":
+                    escape_attempts += 1
+                    parent_score = float(parent_composite)
+                    child_score = float(repaired_objectives.get("composite_score", parent_score))
+                    if child_score < parent_score:
+                        escape_successes += 1
             children.append(child_state)
+
+        if escape_event is not None:
+            parent_score = float(elites[0]["objectives"].get("composite_score", float("inf")))
+            best_child_score = min(
+                (float(c["objectives"].get("composite_score", float("inf"))) for c in children),
+                default=float("inf"),
+            )
+            escape_event["escape_success"] = bool(best_child_score < parent_score)
 
         # Combine population: elites + children, re-rank, truncate
         combined = population + children
@@ -469,12 +650,25 @@ def run_structure_discovery(
                 "instability_score": best["objectives"].get("instability_score", 0.0),
             })
 
+        if best:
+            new_basin_id = _candidate_basin_id(best)
+            basin_assignments.append(new_basin_id)
+
         generation_summaries.append(
             _make_generation_summary(
                 gen,
                 population,
                 archive,
                 include_basin_switches=enable_basin_switch_detection,
+                exploration_state=(exploration_state if enable_adaptive_exploration else None),
+                exploration_strategy=(exploration_strategy if enable_adaptive_exploration else None),
+                basin_switch_rate_value=(switch_rate_value if enable_adaptive_exploration else None),
+                exploration_entropy_value=(entropy_value if enable_adaptive_exploration else None),
+                escape_success_rate_value=(
+                    _safe_escape_success_rate(escape_successes, escape_attempts)
+                    if enable_adaptive_exploration
+                    else None
+                ),
             )
         )
 
@@ -494,7 +688,71 @@ def run_structure_discovery(
     if enable_landscape_learning and landscape_memory is not None:
         result["spectral_landscape_regions"] = landscape_memory.centers().tolist()
         result["landscape_coverage"] = landscape_coverage(landscape_memory)
+    if enable_basin_escape:
+        result["basin_escape_events"] = basin_escape_events
+
+    if enable_basin_topology_mapping and trajectory_recorder is not None:
+        trajectory = trajectory_recorder.as_array()
+        if trajectory.shape[0] > 0:
+            assignments, centers = identify_spectral_basins(
+                trajectory,
+                threshold=basin_distance_threshold,
+            )
+            transitions = detect_basin_transitions(assignments)
+            result["spectral_basin_topology"] = export_basin_map(
+                centers,
+                assignments,
+                transitions,
+                include_phase_space_projections=(trajectory.shape[1] >= 3),
+            )
+            result["spectral_basin_sizes"] = basin_sizes(assignments)
+        else:
+            empty_assignments = np.zeros((0,), dtype=np.int64)
+            empty_centers = np.zeros((0, 0), dtype=np.float64)
+            result["spectral_basin_topology"] = export_basin_map(
+                empty_centers,
+                empty_assignments,
+                [],
+                include_phase_space_projections=False,
+            )
+            result["spectral_basin_sizes"] = {}
     return result
+
+
+def _assign_to_basin(
+    spectrum: np.ndarray,
+    basin_centers: dict[int, np.ndarray],
+) -> int:
+    """Assign spectrum to nearest center (or create basin 0 when empty)."""
+    if not basin_centers:
+        return 0
+    best_id = min(
+        basin_centers.keys(),
+        key=lambda b: (float(np.linalg.norm(spectrum - basin_centers[b])), int(b)),
+    )
+    distance = float(np.linalg.norm(spectrum - basin_centers[best_id]))
+    if distance > 0.25:
+        return int(max(basin_centers.keys()) + 1)
+    return int(best_id)
+
+
+def _update_basin_center(
+    basin_id: int,
+    spectrum: np.ndarray,
+    basin_centers: dict[int, np.ndarray],
+    basin_counts: dict[int, int],
+) -> None:
+    """Deterministically update running basin center mean."""
+    if basin_id not in basin_centers:
+        basin_centers[basin_id] = np.asarray(spectrum, dtype=np.float64)
+        basin_counts[basin_id] = 1
+        return
+
+    count = int(basin_counts.get(basin_id, 1))
+    center = np.asarray(basin_centers[basin_id], dtype=np.float64)
+    updated = (center * count + np.asarray(spectrum, dtype=np.float64)) / float(count + 1)
+    basin_centers[basin_id] = updated.astype(np.float64, copy=False)
+    basin_counts[basin_id] = count + 1
 
 
 def _make_generation_summary(
@@ -503,6 +761,11 @@ def _make_generation_summary(
     archive: dict[str, Any],
     *,
     include_basin_switches: bool = False,
+    exploration_state: str | None = None,
+    exploration_strategy: str | None = None,
+    basin_switch_rate_value: float | None = None,
+    exploration_entropy_value: float | None = None,
+    escape_success_rate_value: float | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -534,6 +797,16 @@ def _make_generation_summary(
         result["basin_switches"] = int(
             sum(1 for c in population if c.get("basin_switch", False))
         )
+    if exploration_state is not None:
+        result["exploration_state"] = str(exploration_state)
+    if exploration_strategy is not None:
+        result["exploration_strategy"] = str(exploration_strategy)
+    if basin_switch_rate_value is not None:
+        result["basin_switch_rate"] = float(basin_switch_rate_value)
+    if exploration_entropy_value is not None:
+        result["exploration_entropy"] = float(exploration_entropy_value)
+    if escape_success_rate_value is not None:
+        result["escape_success_rate"] = float(escape_success_rate_value)
     return result
 
 
@@ -607,6 +880,46 @@ def _objective_spectrum(objectives: dict[str, Any]) -> np.ndarray:
         dtype=np.float64,
     )
 
+
+
+def _candidate_basin_id(candidate: dict[str, Any]) -> int:
+    """Compute deterministic basin assignment from rounded objective signature."""
+    obj = candidate.get("objectives", {})
+    signature = (
+        round(float(obj.get("spectral_radius", 0.0)), 6),
+        round(float(obj.get("bethe_margin", 0.0)), 6),
+    )
+    data = repr(signature).encode("utf-8")
+    digest = hashlib.sha256(data).digest()
+    return int(int.from_bytes(digest[:8], "big") % (2**63 - 1))
+
+
+def _route_exploration_targets(
+    strategy: str,
+    *,
+    gradient_target: np.ndarray | None,
+    nb_target_edges: list[tuple[int, int]],
+    escape_target: np.ndarray | None,
+    default_target_edges: list[tuple[int, int]],
+) -> dict[str, Any]:
+    """Route strategy to deterministic mutation guidance targets."""
+    if strategy == "GRADIENT":
+        return {"target_edges": default_target_edges, "target_spectrum": gradient_target}
+    if strategy == "NB_EIGENMODE":
+        return {"target_edges": nb_target_edges if nb_target_edges else default_target_edges, "target_spectrum": None}
+    if strategy == "ESCAPE":
+        return {"target_edges": default_target_edges, "target_spectrum": escape_target}
+    return {"target_edges": None, "target_spectrum": None}
+
+
+def _safe_escape_success_rate(escape_successes: int, escape_attempts: int) -> float:
+    """Compute escape success-rate with deterministic safe division and clamp."""
+    rate = (
+        float(escape_successes) / float(escape_attempts)
+        if int(escape_attempts) > 0
+        else 0.0
+    )
+    return float(min(max(float(rate), 0.0), 1.0))
 
 def _serialize_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     """Convert a candidate to a JSON-safe dict (without H matrix)."""

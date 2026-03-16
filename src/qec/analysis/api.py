@@ -59,6 +59,9 @@ _MODULES = [
     "spectral_theory_dataset",
     "spectral_theory_models",
     "spectral_conjectures",
+    "spectral_conjecture_validation",
+    "spectral_counterexamples",
+    "spectral_theory_memory",
 ]
 
 for mod in _MODULES:
@@ -91,6 +94,48 @@ def rank_conjectures(conjectures: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral conjecture ranking."""
     from src.qec.analysis.spectral_conjectures import rank_conjectures as _impl
     return _impl(conjectures)
+
+
+
+
+def validate_conjectures(conjectures: list[dict[str, Any]], dataset: dict[str, Any], tolerance: float = 0.15) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic conjecture validation."""
+    from src.qec.analysis.spectral_conjecture_validation import validate_conjectures as _impl
+    return _impl(conjectures, dataset, tolerance=tolerance)
+
+
+def extract_counterexamples(
+    conjecture: dict[str, Any],
+    dataset: dict[str, Any],
+    error_threshold: float,
+    max_counterexamples: int = 128,
+) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic counterexample extraction."""
+    from src.qec.analysis.spectral_counterexamples import extract_counterexamples as _impl
+    return _impl(conjecture, dataset, error_threshold=error_threshold, max_counterexamples=max_counterexamples)
+
+
+def initialize_theory_memory() -> dict[str, Any]:
+    """Public wrapper for deterministic theory memory initialization."""
+    from src.qec.analysis.spectral_theory_memory import initialize_theory_memory as _impl
+    return _impl()
+
+
+def update_theory_memory(
+    theory_memory: dict[str, Any],
+    conjectures: list[dict[str, Any]],
+    validations: list[dict[str, Any]],
+    counterexamples: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Public wrapper for deterministic theory memory updates."""
+    from src.qec.analysis.spectral_theory_memory import update_theory_memory as _impl
+    return _impl(theory_memory, conjectures, validations, counterexamples)
+
+
+def summarize_theory_memory(theory_memory: dict[str, Any]) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic theory memory summary generation."""
+    from src.qec.analysis.spectral_theory_memory import summarize_theory_memory as _impl
+    return _impl(theory_memory)
 
 
 def compute_nb_spectrum(

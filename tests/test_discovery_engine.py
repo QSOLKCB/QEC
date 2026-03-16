@@ -267,3 +267,30 @@ class TestDiscoveryBenchmark:
         result = run_structure_discovery(spec, num_generations=2, population_size=4)
         assert "phase_diagram_3d_path" not in result
         assert "phase_diagram_3d_num_targets" not in result
+
+
+    def test_theory_refinement_fields_opt_in(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_theory_extraction=True,
+            enable_theory_refinement=True,
+            theory_refinement_interval=1,
+        )
+        assert "theory_memory" in result
+        assert "theory_memory_summary" in result
+        assert "conjecture_validations" in result
+        assert "conjecture_counterexamples" in result
+
+    def test_theory_refinement_fields_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        summary = result["generation_summaries"][-1]
+        assert "num_validated_conjectures" not in summary
+        assert "num_supported_conjectures" not in summary
+        assert "num_fragile_conjectures" not in summary
+        assert "num_rejected_conjectures" not in summary
+        assert "mean_theory_support_score" not in summary

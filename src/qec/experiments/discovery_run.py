@@ -98,6 +98,7 @@ def run_discovery_experiment(
         export_parity_check(best_H, os.path.join(artifact_dir, "best_graph.txt"))
         export_json_adjacency(best_H, os.path.join(artifact_dir, "best_graph.json"))
 
+    results_payload = {
     artifact_results = {
         "spec": {
             "num_variables": spec["num_variables"],
@@ -119,6 +120,16 @@ def run_discovery_experiment(
         "archive_summary": result["archive_summary"],
         "generation_summaries": result["generation_summaries"],
     }
+    if "motif_library_size" in result:
+        results_payload["motif_library_size"] = result["motif_library_size"]
+        results_payload["motifs_used"] = result.get("motifs_used", [])
+    if "operator_success_rates" in result:
+        results_payload["operator_success_rates"] = result["operator_success_rates"]
+        results_payload["adaptive_operator_weights"] = result.get("adaptive_operator_weights", {})
+
+    artifact = {
+        "metadata": metadata,
+        "results": results_payload,
     if enable_autonomous_scheduler:
         artifact_results["scheduled_target_spectrum"] = result.get("scheduled_target_spectrum")
         artifact_results["landscape_gap_count"] = int(result.get("landscape_gap_count", 0))

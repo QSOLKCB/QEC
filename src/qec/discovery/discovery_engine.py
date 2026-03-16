@@ -65,6 +65,8 @@ from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matr
 from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
 from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
 from src.qec.discovery.spectral_gradient_mutation import propose_gradient_step
+from src.qec.discovery.autonomous_scheduler import schedule_next_experiment
+from src.qec.discovery.experiment_queue import ExperimentQueue
 from src.qec.analysis.exploration_state import analyze_exploration_state
 from src.qec.analysis.exploration_metrics import (
     basin_switch_rate,
@@ -141,6 +143,10 @@ def run_structure_discovery(
     trajectory_recorder: SpectralTrajectoryRecorder | None = None,
     enable_spectral_gradient: bool = False,
     gradient_step_size: float = 0.1,
+    enable_autonomous_scheduler: bool = False,
+    scheduler_gap_radius: float = 0.3,
+    scheduler_max_gaps: int = 16,
+    scheduler_queue: ExperimentQueue | None = None,
     enable_landscape_learning: bool = False,
     landscape_memory: SpectralLandscapeMemory | None = None,
     landscape_cluster_threshold: float = 0.25,
@@ -253,6 +259,12 @@ def run_structure_discovery(
     if enable_spectral_trajectory and trajectory_recorder is None:
         trajectory_recorder = SpectralTrajectoryRecorder()
 
+    scheduled_target_spectrum = None
+    scheduler_strategy = None
+    detected_landscape_gap_count = 0
+    scheduler_queue_obj = scheduler_queue
+    if enable_autonomous_scheduler and scheduler_queue_obj is None:
+        scheduler_queue_obj = ExperimentQueue(max_length=scheduler_max_gaps)
     if enable_landscape_learning and landscape_memory is None:
         landscape_memory = SpectralLandscapeMemory()
 
@@ -476,6 +488,22 @@ def run_structure_discovery(
         else:
             operator_name = get_operator_for_generation(gen)
 
+        scheduled_generation_target = None
+        if enable_autonomous_scheduler:
+            landscape_memory = _PopulationLandscapeMemory(population)
+            scheduled_experiment = schedule_next_experiment(
+                landscape_memory,
+                gap_radius=scheduler_gap_radius,
+                max_gaps=scheduler_max_gaps,
+            )
+            scheduled_generation_target = scheduled_experiment.get("target_spectrum")
+            if scheduled_generation_target is not None and scheduler_queue_obj is not None:
+                scheduler_queue_obj.push(scheduled_generation_target)
+                scheduled_generation_target = scheduler_queue_obj.pop()
+            scheduled_target_spectrum = scheduled_generation_target
+            scheduler_strategy = scheduled_experiment.get("strategy")
+            detected_landscape_gap_count = int(scheduled_experiment.get("gap_count", 0))
+
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
 
@@ -491,6 +519,11 @@ def run_structure_discovery(
 
             if escape_target is not None:
                 gradient_target_spectrum = escape_target
+
+            if scheduled_generation_target is not None:
+                gradient_target_spectrum = np.asarray(
+                    scheduled_generation_target, dtype=np.float64,
+                )
 
             H_mutated, op_used = mutate_tanner_graph(
                 elite["H"],
@@ -685,6 +718,16 @@ def run_structure_discovery(
     }
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
+    if enable_autonomous_scheduler:
+        result["scheduled_target_spectrum"] = (
+            None
+            if scheduled_target_spectrum is None
+            else np.asarray(scheduled_target_spectrum, dtype=np.float64).tolist()
+        )
+        result["landscape_gap_count"] = int(detected_landscape_gap_count)
+        result["scheduler_strategy"] = (
+            scheduler_strategy if scheduler_strategy is not None else "landscape_exploration"
+        )
     if enable_landscape_learning and landscape_memory is not None:
         result["spectral_landscape_regions"] = landscape_memory.centers().tolist()
         result["landscape_coverage"] = landscape_coverage(landscape_memory)
@@ -867,6 +910,22 @@ def _compute_nb_mode_magnitude(objectives: dict[str, Any], H: np.ndarray) -> flo
         return 0.0
     eigval, _ = leading_nb_eigenmode(B)
     return float(np.abs(eigval))
+
+
+class _PopulationLandscapeMemory:
+    """Minimal deterministic landscape memory view over current population."""
+
+    def __init__(self, population: list[dict[str, Any]]) -> None:
+        self._population = population
+
+    def centers(self) -> np.ndarray:
+        if not self._population:
+            return np.zeros((0, 0), dtype=np.float64)
+        centers = [
+            _objective_spectrum(state.get("objectives", {}))
+            for state in self._population
+        ]
+        return np.asarray(centers, dtype=np.float64)
 
 def _objective_spectrum(objectives: dict[str, Any]) -> np.ndarray:
     """Build deterministic spectral feature vector for trust/basin checks."""

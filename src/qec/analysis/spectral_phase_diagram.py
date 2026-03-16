@@ -279,3 +279,29 @@ def generate_phase_heatmap(
     fig.savefig(output_path)
     plt.close(fig)
     return output_path
+
+
+def generate_spectral_phase_diagram(
+    motif_clusters: list[dict[str, Any]],
+    curriculum_tiers: list[int] | list[float],
+    landscape_memory: Any,
+) -> dict[str, Any]:
+    """Generate deterministic phase-diagram regions and boundaries."""
+    tiers = [int(t) for t in curriculum_tiers]
+    regions: list[dict[str, Any]] = []
+    for idx, cluster in enumerate(sorted(motif_clusters, key=lambda c: tuple(np.asarray(c.get("centroid", []), dtype=np.float64).tolist()))):
+        centroid = np.asarray(cluster.get("centroid", []), dtype=np.float64).reshape(-1)
+        motif_ids = sorted(int(m) for m in cluster.get("motif_ids", []))
+        regions.append(
+            {
+                "region_id": int(idx),
+                "centroid": centroid.tolist(),
+                "motif_ids": motif_ids,
+                "tier": int(tiers[idx % len(tiers)]) if tiers else 0,
+            }
+        )
+
+    return {
+        "regions": regions,
+        "phase_boundaries": detect_phase_boundaries(landscape_memory),
+    }

@@ -51,6 +51,10 @@ def run_discovery_experiment(
     planner_max_targets: int = 10,
     enable_phase_diagram_3d: bool = False,
     phase_diagram_3d_path: str | None = None,
+    enable_theory_extraction: bool = False,
+    theory_extraction_interval: int = 200,
+    max_conjectures: int = 10,
+    enable_phase_trajectory: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -100,6 +104,10 @@ def run_discovery_experiment(
         planner_max_targets=planner_max_targets,
         enable_phase_diagram_3d=enable_phase_diagram_3d,
         phase_diagram_3d_path=phase_diagram_3d_path,
+        enable_theory_extraction=enable_theory_extraction,
+        theory_extraction_interval=theory_extraction_interval,
+        max_conjectures=max_conjectures,
+        enable_phase_trajectory=enable_phase_trajectory,
     )
 
     metadata = collect_environment_metadata(
@@ -136,6 +144,10 @@ def run_discovery_experiment(
             "planner_max_targets": planner_max_targets,
             "enable_phase_diagram_3d": enable_phase_diagram_3d,
             "phase_diagram_3d_path": phase_diagram_3d_path,
+            "enable_theory_extraction": enable_theory_extraction,
+            "theory_extraction_interval": theory_extraction_interval,
+            "max_conjectures": max_conjectures,
+            "enable_phase_trajectory": enable_phase_trajectory,
         },
         "best_candidate": result["best_candidate"],
         "elite_history": result["elite_history"],

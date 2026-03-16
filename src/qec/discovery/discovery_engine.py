@@ -58,6 +58,7 @@ from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
 from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
 from src.qec.analysis.landscape_metrics import novelty_score as landscape_novelty_score, landscape_coverage
 from src.qec.analysis.spectral_basins import identify_spectral_basins
+from src.qec.discovery.autonomous_scheduler import schedule_autonomous_target
 from src.qec.analysis.basin_transitions import detect_basin_transitions
 from src.qec.analysis.basin_statistics import basin_sizes
 from src.qec.analysis.basin_map_export import export_basin_map
@@ -157,6 +158,9 @@ def run_structure_discovery(
     basin_escape_step: float = 0.3,
     enable_basin_topology_mapping: bool = False,
     basin_distance_threshold: float = 0.25,
+    enable_information_gain_scheduler: bool = False,
+    information_gain_novelty_weight: float = 0.5,
+    information_gain_uncertainty_weight: float = 0.5,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -225,6 +229,12 @@ def run_structure_discovery(
         Legacy novelty weight alias. Default 0.0.
     novelty_weight : float or None
         Primary novelty weight used in ranking when landscape learning is enabled.
+    enable_information_gain_scheduler : bool
+        Enable opt-in information-gain scheduling from frontier spectra.
+    information_gain_novelty_weight : float
+        Novelty contribution weight for information-gain score.
+    information_gain_uncertainty_weight : float
+        Uncertainty contribution weight for information-gain score.
 
     Returns
     -------
@@ -253,7 +263,7 @@ def run_structure_discovery(
     if enable_spectral_trajectory and trajectory_recorder is None:
         trajectory_recorder = SpectralTrajectoryRecorder()
 
-    if enable_landscape_learning and landscape_memory is None:
+    if (enable_landscape_learning or enable_information_gain_scheduler) and landscape_memory is None:
         landscape_memory = SpectralLandscapeMemory()
 
     effective_novelty_weight = (
@@ -431,6 +441,30 @@ def run_structure_discovery(
         basin_assignments.append(current_basin)
         _update_basin_center(current_basin, current_spectrum_best, basin_centers, basin_counts)
 
+        info_gain_selected_score = None
+        info_gain_selected_novelty = None
+        info_gain_selected_uncertainty = None
+        info_gain_selected_target = None
+        if enable_information_gain_scheduler and enable_landscape_learning and landscape_memory is not None:
+            candidate_spectra = [
+                _objective_spectrum(c.get("objectives", {}))
+                for c in elites
+            ]
+            scheduled = schedule_autonomous_target(
+                landscape_memory,
+                candidate_spectra,
+                strategy="information_gain",
+                novelty_weight=information_gain_novelty_weight,
+                uncertainty_weight=information_gain_uncertainty_weight,
+            )
+            selected_target = scheduled.get("target_spectrum")
+            if selected_target is not None:
+                gradient_target_spectrum = np.asarray(selected_target, dtype=np.float64)
+                info_gain_selected_target = gradient_target_spectrum
+            info_gain_selected_score = float(np.float64(scheduled.get("information_gain_score", 0.0)))
+            info_gain_selected_novelty = float(np.float64(scheduled.get("novelty_score", 0.0)))
+            info_gain_selected_uncertainty = float(np.float64(scheduled.get("spectral_uncertainty", 0.0)))
+
         escape_triggered = False
         escape_direction = np.zeros_like(current_spectrum_best, dtype=np.float64)
         escape_target = None
@@ -589,9 +623,9 @@ def run_structure_discovery(
             archive_features = get_archive_features(archive)
             fv = extract_feature_vector(repaired_objectives)
             novelty = compute_novelty_score(fv, archive_features)
-            if enable_landscape_learning and landscape_memory is not None:
+            if (enable_landscape_learning or enable_information_gain_scheduler) and landscape_memory is not None:
                 repaired_spectrum = _objective_spectrum(repaired_objectives)
-                if use_landscape_novelty_bias or effective_novelty_weight != 0.0:
+                if enable_landscape_learning and (use_landscape_novelty_bias or effective_novelty_weight != 0.0):
                     novelty_bias = landscape_novelty_score(repaired_spectrum, landscape_memory)
                     novelty += effective_novelty_weight * novelty_bias
                 landscape_memory.add(
@@ -667,6 +701,26 @@ def run_structure_discovery(
                 escape_success_rate_value=(
                     _safe_escape_success_rate(escape_successes, escape_attempts)
                     if enable_adaptive_exploration
+                    else None
+                ),
+                information_gain_score=(
+                    info_gain_selected_score
+                    if enable_information_gain_scheduler
+                    else None
+                ),
+                spectral_uncertainty=(
+                    info_gain_selected_uncertainty
+                    if enable_information_gain_scheduler
+                    else None
+                ),
+                novelty_score=(
+                    info_gain_selected_novelty
+                    if enable_information_gain_scheduler
+                    else None
+                ),
+                selected_target_spectrum=(
+                    info_gain_selected_target
+                    if enable_information_gain_scheduler
                     else None
                 ),
             )
@@ -766,6 +820,10 @@ def _make_generation_summary(
     basin_switch_rate_value: float | None = None,
     exploration_entropy_value: float | None = None,
     escape_success_rate_value: float | None = None,
+    information_gain_score: float | None = None,
+    spectral_uncertainty: float | None = None,
+    novelty_score: float | None = None,
+    selected_target_spectrum: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -807,6 +865,16 @@ def _make_generation_summary(
         result["exploration_entropy"] = float(exploration_entropy_value)
     if escape_success_rate_value is not None:
         result["escape_success_rate"] = float(escape_success_rate_value)
+    if information_gain_score is not None:
+        result["information_gain_score"] = float(information_gain_score)
+    if spectral_uncertainty is not None:
+        result["spectral_uncertainty"] = float(spectral_uncertainty)
+    if novelty_score is not None:
+        result["novelty_score"] = float(novelty_score)
+    if selected_target_spectrum is not None:
+        result["selected_target_spectrum"] = np.asarray(
+            selected_target_spectrum, dtype=np.float64,
+        ).tolist()
     return result
 
 

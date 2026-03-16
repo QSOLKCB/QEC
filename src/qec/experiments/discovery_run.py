@@ -32,6 +32,9 @@ def run_discovery_experiment(
     base_seed: int = 0,
     archive_top_k: int = 5,
     output_path: str = "artifacts/discovery_run.json",
+    enable_information_gain_scheduler: bool = False,
+    information_gain_novelty_weight: float = 0.5,
+    information_gain_uncertainty_weight: float = 0.5,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -62,6 +65,9 @@ def run_discovery_experiment(
         population_size=population_size,
         base_seed=base_seed,
         archive_top_k=archive_top_k,
+        enable_information_gain_scheduler=enable_information_gain_scheduler,
+        information_gain_novelty_weight=information_gain_novelty_weight,
+        information_gain_uncertainty_weight=information_gain_uncertainty_weight,
     )
 
     metadata = collect_environment_metadata(
@@ -92,6 +98,9 @@ def run_discovery_experiment(
                 "population_size": population_size,
                 "base_seed": base_seed,
                 "archive_top_k": archive_top_k,
+                "enable_information_gain_scheduler": enable_information_gain_scheduler,
+                "information_gain_novelty_weight": information_gain_novelty_weight,
+                "information_gain_uncertainty_weight": information_gain_uncertainty_weight,
             },
             "best_candidate": result["best_candidate"],
             "elite_history": result["elite_history"],
@@ -99,6 +108,14 @@ def run_discovery_experiment(
             "generation_summaries": result["generation_summaries"],
         },
     }
+
+    if enable_information_gain_scheduler:
+        summaries = result.get("generation_summaries", [])
+        last = summaries[-1] if summaries else {}
+        artifact["results"]["information_gain_score"] = float(last.get("information_gain_score", 0.0))
+        artifact["results"]["spectral_uncertainty"] = float(last.get("spectral_uncertainty", 0.0))
+        artifact["results"]["novelty_score"] = float(last.get("novelty_score", 0.0))
+        artifact["results"]["selected_target_spectrum"] = list(last.get("selected_target_spectrum", []))
 
     artifact = canonicalize(artifact)
 

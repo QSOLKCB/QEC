@@ -58,6 +58,7 @@ def run_discovery_experiment(
     theory_refinement_interval: int = 200,
     enable_phase_trajectory: bool = False,
     enable_spectral_geometry: bool = False,
+    enable_basin_hopping: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -114,6 +115,7 @@ def run_discovery_experiment(
         theory_refinement_interval=theory_refinement_interval,
         enable_phase_trajectory=enable_phase_trajectory,
         enable_spectral_geometry=enable_spectral_geometry,
+        enable_basin_hopping=enable_basin_hopping,
     )
 
     metadata = collect_environment_metadata(
@@ -157,6 +159,7 @@ def run_discovery_experiment(
             "theory_refinement_interval": theory_refinement_interval,
             "enable_phase_trajectory": enable_phase_trajectory,
             "enable_spectral_geometry": enable_spectral_geometry,
+            "enable_basin_hopping": enable_basin_hopping,
         },
         "best_candidate": result["best_candidate"],
         "elite_history": result["elite_history"],

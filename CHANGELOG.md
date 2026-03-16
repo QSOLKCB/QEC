@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[44.0.0] — Multi-Agent Spectral Discovery
+
+Added
+
+- Discovery agent abstraction for opt-in multi-agent exploration.
+- Multi-agent coordinator for deterministic agent lifecycle management.
+- Deterministic spectral region assignment for agent targeting.
+- Opt-in multi-agent discovery execution in the discovery engine.
+- Shared landscape memory aggregation across all agents.
+- Agent exploration metrics and artifact logging fields (`agent_id`, `assigned_region`,
+  `agent_discovery_steps`, `agent_trajectory`).
+- Determinism-focused test coverage for agent creation, assignment, scheduling, and shared memory updates.
+
 [37.0.0] — Spectral Gradient Optimization
 
 Added
@@ -93,6 +106,19 @@ Changelog
 All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
+
+[44.0.0] — Multi-Agent Spectral Discovery
+
+Added
+
+- Discovery agent abstraction for opt-in multi-agent exploration.
+- Multi-agent coordinator for deterministic agent lifecycle management.
+- Deterministic spectral region assignment for agent targeting.
+- Opt-in multi-agent discovery execution in the discovery engine.
+- Shared landscape memory aggregation across all agents.
+- Agent exploration metrics and artifact logging fields (`agent_id`, `assigned_region`,
+  `agent_discovery_steps`, `agent_trajectory`).
+- Determinism-focused test coverage for agent creation, assignment, scheduling, and shared memory updates.
 
 [36.0.0] — Spectral Trajectory Recording & Phase-Space Analysis
 

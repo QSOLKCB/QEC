@@ -194,3 +194,29 @@ class TestDiscoveryBenchmark:
                 r1["benchmark_results"]["results"][0]["best_composite_score"]
                 == r2["benchmark_results"]["results"][0]["best_composite_score"]
             )
+
+
+    def test_information_gain_fields_opt_in(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_landscape_learning=True,
+            enable_information_gain_scheduler=True,
+        )
+        summary = result["generation_summaries"][-1]
+        assert "information_gain_score" in summary
+        assert "spectral_uncertainty" in summary
+        assert "novelty_score" in summary
+        assert "selected_target_spectrum" in summary
+
+    def test_information_gain_fields_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        summary = result["generation_summaries"][-1]
+        assert "information_gain_score" not in summary
+        assert "spectral_uncertainty" not in summary
+        assert "novelty_score" not in summary
+        assert "selected_target_spectrum" not in summary

@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[46.0.0] — Information-Gain Guided Exploration
+
+Added
+
+- Adds information-gain exploration for autonomous experiment scheduling.
+- The engine now prioritizes experiments that maximize expected knowledge about the spectral landscape.
+- Introduces deterministic spectral uncertainty estimation and information-gain candidate ranking.
+- Adds opt-in information-gain scheduler integration to the discovery engine and discovery run artifacts.
+- Exports `information_gain_score`, `selected_target_spectrum`, `spectral_uncertainty`, and `novelty_score` when information-gain mode is enabled.
+
 [45.0.0] — Cooperative Multi-Agent Spectral Exploration
 
 Added

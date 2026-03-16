@@ -7,6 +7,24 @@ from typing import Any
 import numpy as np
 
 from src.qec.analysis.information_gain import rank_candidates_by_information_gain
+from src.qec.analysis.landscape_gaps import detect_landscape_gaps
+from src.qec.discovery.experiment_targets import choose_experiment_target
+
+
+def schedule_next_experiment(
+    memory: object,
+    *,
+    gap_radius: float = 0.3,
+    max_gaps: int = 16,
+) -> dict[str, Any]:
+    """Schedule next deterministic target from landscape-gap exploration."""
+    gaps = detect_landscape_gaps(memory, gap_radius=float(gap_radius), max_gaps=int(max_gaps))
+    target = choose_experiment_target(gaps)
+    return {
+        "target_spectrum": None if target is None else np.asarray(target, dtype=np.float64),
+        "strategy": "landscape_exploration",
+        "gap_count": int(len(gaps)),
+    }
 
 
 def schedule_autonomous_target(

@@ -50,6 +50,7 @@ _MODULES = [
     "basin_statistics",
     "basin_map_export",
     "spectral_phase_space",
+    "spectral_phase_diagram",
 ]
 
 for mod in _MODULES:

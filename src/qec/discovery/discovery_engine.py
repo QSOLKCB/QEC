@@ -122,6 +122,11 @@ from src.qec.analysis.hypothesis_ranking import rank_hypotheses
 from src.qec.discovery.hypothesis_guidance import compute_hypothesis_bias
 from src.qec.discovery.autonomous_scheduler import compute_combined_score
 from src.qec.analysis.spectral_phase_boundaries import detect_phase_boundaries
+from src.qec.analysis.spectral_geometry import (
+    trajectory_arc_length,
+    estimate_local_curvature,
+    estimate_basin_geometry,
+)
 
 
 _ROUND = 12
@@ -214,6 +219,7 @@ def run_structure_discovery(
     enable_basin_switch_detection: bool = False,
     basin_switch_threshold: float = 0.5,
     enable_spectral_trajectory: bool = False,
+    enable_spectral_geometry: bool = False,
     trajectory_recorder: SpectralTrajectoryRecorder | None = None,
     enable_spectral_gradient: bool = False,
     gradient_step_size: float = 0.1,
@@ -436,6 +442,7 @@ def run_structure_discovery(
     latest_uncertainty_map: dict[str, Any] | None = None
     latest_phase_surface: dict[str, Any] | None = None
     phase_trajectory_points: list[list[float]] = []
+    spectral_geometry_points: list[np.ndarray] = []
     latest_theory_dataset: dict[str, Any] | None = None
     latest_ranked_conjectures: list[dict[str, Any]] = []
     theory_extraction_iteration: int = 0
@@ -520,6 +527,8 @@ def run_structure_discovery(
             )
         )
         basin_assignments.append(_candidate_basin_id(best))
+        if enable_spectral_geometry:
+            spectral_geometry_points.append(_objective_spectrum(best.get("objectives", {})))
         if enable_phase_trajectory:
             spectrum0 = _objective_spectrum(best.get("objectives", {}))
             if spectrum0.shape[0] >= 3:
@@ -1146,6 +1155,8 @@ def run_structure_discovery(
         if best:
             new_basin_id = _candidate_basin_id(best)
             basin_assignments.append(new_basin_id)
+            if enable_spectral_geometry:
+                spectral_geometry_points.append(_objective_spectrum(best.get("objectives", {})))
         if enable_phase_trajectory and best is not None:
             spectrum_best = _objective_spectrum(best.get("objectives", {}))
             if spectrum_best.shape[0] >= 3:
@@ -1313,6 +1324,18 @@ def run_structure_discovery(
     }
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
+    if enable_spectral_geometry:
+        geometry_metrics = estimate_basin_geometry(spectral_geometry_points)
+        local_curvature = estimate_local_curvature(spectral_geometry_points)
+        result["trajectory_arc_length"] = float(
+            np.float64(trajectory_arc_length(spectral_geometry_points))
+        )
+        result["mean_trajectory_curvature"] = float(
+            np.float64(np.mean(np.asarray(local_curvature, dtype=np.float64)))
+        ) if local_curvature else 0.0
+        result["spectral_dispersion"] = float(
+            np.float64(geometry_metrics.get("spectral_dispersion", 0.0))
+        )
     if enable_experiment_planner:
         result["planner_iteration"] = int(planner_iteration)
         if generation_summaries:

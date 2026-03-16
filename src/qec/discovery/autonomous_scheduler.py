@@ -7,6 +7,8 @@ from typing import Any
 import numpy as np
 
 from src.qec.analysis.information_gain import rank_candidates_by_information_gain
+from src.qec.analysis.landscape_gaps import detect_landscape_gaps
+from src.qec.discovery.experiment_targets import choose_experiment_target
 
 
 def schedule_autonomous_target(
@@ -59,16 +61,22 @@ def schedule_next_experiment(
     archive,
     landscape_model=None,
     exploration_state=None,
+    gap_radius=None,
+    **kwargs,
 ):
-    """
-    Deterministic placeholder for autonomous experiment scheduling.
+    """Deterministically schedule a landscape exploration target."""
+    radius = 0.3 if gap_radius is None else float(gap_radius)
+    max_gaps = int(kwargs.get("max_gaps", 16))
 
-    This stub exists to maintain repository import stability until the
-    autonomous scheduler module is fully implemented.
+    gap_candidates = detect_landscape_gaps(archive, gap_radius=radius, max_gaps=max_gaps)
+    target = choose_experiment_target(gap_candidates)
 
-    Returns
-    -------
-    None
-        Indicates that no scheduled experiment is produced.
-    """
-    return None
+    return {
+        "target_spectrum": (
+            None
+            if target is None
+            else np.asarray(target, dtype=np.float64)
+        ),
+        "gap_count": int(len(gap_candidates)),
+        "strategy": "landscape_exploration",
+    }

@@ -40,6 +40,8 @@ _MODULES = [
     "spectral_frustration",
     "spectral_entropy",
     "trap_memory",
+    "exploration_state",
+    "exploration_metrics",
 ]
 
 for mod in _MODULES:

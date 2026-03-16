@@ -4,48 +4,18 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
-[47.0.0] — Bayesian Spectral Landscape Modeling
+[48.0.0] — Spectral Motif Learning & Adaptive Mutation Weighting
 
 Added
 
-- Adds Bayesian modeling of the spectral landscape using a deterministic kernel regression model.
-- Adds opt-in Bayesian candidate prioritization via expected improvement in the discovery engine.
-- Adds deterministic spectral dataset extraction from archive history.
-- Adds deterministic generation-summary logging fields: `bayesian_prediction_mean`, `bayesian_prediction_uncertainty`, and `expected_improvement` when Bayesian mode is enabled.
-- Adds deterministic tests for dataset extraction, model prediction determinism, expected-improvement stability, Bayesian ranking reproducibility, and discovery integration determinism.
+- Introduces deterministic motif extraction from successful Tanner-graph archive entries.
+- Adds spectral motif library support for storing/querying reusable motifs by spectral similarity.
+- Adds motif-guided mutation injection as an opt-in deterministic discovery feature.
+- Adds deterministic mutation-operator statistics and adaptive operator weighting by regional spectral similarity.
+- Integrates opt-in adaptive mutation and motif learning into the discovery engine with generation-level logging.
+- Adds motif/adaptive-weight artifact export fields to discovery experiment outputs.
+- Adds determinism regression tests for motif extraction, motif matching, operator weighting, and opt-in engine reproducibility.
 
-[46.0.0] — Information-Gain Guided Exploration
-
-Added
-
-- Adds information-gain exploration for autonomous experiment scheduling.
-- The engine now prioritizes experiments that maximize expected knowledge about the spectral landscape.
-- Introduces deterministic spectral uncertainty estimation and information-gain candidate ranking.
-- Adds opt-in information-gain scheduler integration to the discovery engine and discovery run artifacts.
-- Exports `information_gain_score`, `selected_target_spectrum`, `spectral_uncertainty`, and `novelty_score` when information-gain mode is enabled.
-
-[45.0.0] — Cooperative Multi-Agent Spectral Exploration
-
-Added
-
-- Cooperative region planning for discovery agents.
-- Agent coordination state tracking for shared targets and explored regions.
-- Inter-agent spacing policies to reduce redundant spectral exploration.
-- Shared agent messaging primitives for cooperative discovery signals.
-- Cooperative exploration metrics and logging artifacts.
-- Frontier detection and frontier-guided cooperative targeting in spectral space.
-[44.0.0] — Multi-Agent Spectral Discovery
-
-Added
-
-- Discovery agent abstraction for opt-in multi-agent exploration.
-- Multi-agent coordinator for deterministic agent lifecycle management.
-- Deterministic spectral region assignment for agent targeting.
-- Opt-in multi-agent discovery execution in the discovery engine.
-- Shared landscape memory aggregation across all agents.
-- Agent exploration metrics and artifact logging fields (`agent_id`, `assigned_region`,
-  `agent_discovery_steps`, `agent_trajectory`).
-- Determinism-focused test coverage for agent creation, assignment, scheduling, and shared memory updates.
 [41.0.0] — Adaptive Spectral Basin Exploration
 
 Added
@@ -178,18 +148,18 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
-[44.0.0] — Multi-Agent Spectral Discovery
+[48.0.0] — Spectral Motif Learning & Adaptive Mutation Weighting
 
 Added
 
-- Discovery agent abstraction for opt-in multi-agent exploration.
-- Multi-agent coordinator for deterministic agent lifecycle management.
-- Deterministic spectral region assignment for agent targeting.
-- Opt-in multi-agent discovery execution in the discovery engine.
-- Shared landscape memory aggregation across all agents.
-- Agent exploration metrics and artifact logging fields (`agent_id`, `assigned_region`,
-  `agent_discovery_steps`, `agent_trajectory`).
-- Determinism-focused test coverage for agent creation, assignment, scheduling, and shared memory updates.
+- Introduces deterministic motif extraction from successful Tanner-graph archive entries.
+- Adds spectral motif library support for storing/querying reusable motifs by spectral similarity.
+- Adds motif-guided mutation injection as an opt-in deterministic discovery feature.
+- Adds deterministic mutation-operator statistics and adaptive operator weighting by regional spectral similarity.
+- Integrates opt-in adaptive mutation and motif learning into the discovery engine with generation-level logging.
+- Adds motif/adaptive-weight artifact export fields to discovery experiment outputs.
+- Adds determinism regression tests for motif extraction, motif matching, operator weighting, and opt-in engine reproducibility.
+
 [41.0.0] — Adaptive Spectral Basin Exploration
 
 Added

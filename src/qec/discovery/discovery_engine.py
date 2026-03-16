@@ -127,6 +127,11 @@ from src.qec.discovery.exploration_policy import (
     choose_exploration_strategy,
 )
 from src.qec.discovery.basin_escape_mutation import propose_escape_step
+from src.qec.discovery.phase_guided_search import (
+    propose_phase_guided_step,
+    select_phase_target,
+    update_phase_visit_counts,
+)
 from src.qec.analysis.discovery_archive_analyzer import analyze_discovery_archive
 from src.qec.analysis.hypothesis_generator import generate_structural_hypotheses
 from src.qec.analysis.hypothesis_ranking import rank_hypotheses
@@ -299,6 +304,8 @@ def run_structure_discovery(
     phase_diagram_resolution: int = 50,
     enable_phase_map_reconstruction: bool = False,
     phase_map_interval: int = 500,
+    enable_phase_guided_discovery: bool = False,
+    phase_guidance_interval: int = 300,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -452,6 +459,8 @@ def run_structure_discovery(
     latest_ridge_graph: dict[str, Any] = {"ridge_nodes": [], "ridge_edges": []}
     latest_basin_boundary_segments: list[dict[str, Any]] = []
     latest_phase_map: dict[str, Any] = {"phase_regions": [], "phase_boundaries": [], "phase_adjacency": [], "trajectory_segments": []}
+    phase_visit_counts: dict[int, int] = {}
+    phase_guidance_targets: list[int] = []
     strategy_history: list[str] = []
     experiment_planner = (
         SpectralExperimentPlanner(
@@ -906,6 +915,21 @@ def run_structure_discovery(
             for idx, child_candidate in enumerate(ordered_child_candidates):
                 child_agent_map[int(child_candidate["elite_index"])] = agents[idx % len(agents)]
 
+        phase_guidance_step = None
+        if enable_phase_guided_discovery and latest_phase_map.get("phase_regions"):
+            interval = int(max(1, phase_guidance_interval))
+            if gen % interval == 0:
+                phase_target = select_phase_target(latest_phase_map, phase_visit_counts)
+                target_phase_id = int(phase_target.get("target_phase_id", -1))
+                if target_phase_id >= 0:
+                    phase_guidance_targets.append(target_phase_id)
+                    if elites:
+                        phase_guidance_step = propose_phase_guided_step(
+                            _objective_spectrum(elites[0].get("objectives", {})),
+                            latest_phase_map,
+                            phase_target,
+                        )
+
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
 
@@ -924,6 +948,8 @@ def run_structure_discovery(
                         gradient,
                         step=gradient_step_size,
                     )
+            if phase_guidance_step is not None:
+                gradient_target_spectrum = np.asarray(phase_guidance_step, dtype=np.float64)
             routing = _route_exploration_targets(
                 exploration_strategy,
                 gradient_target=gradient_target_spectrum,
@@ -1267,6 +1293,7 @@ def run_structure_discovery(
 
         num_detected_phases = None
         current_phase_id = None
+        current_phase_target = None
         if enable_phase_map_reconstruction:
             current_phase_id = -1
             interval = int(max(1, phase_map_interval))
@@ -1296,6 +1323,12 @@ def run_structure_discovery(
                 if distances:
                     distances.sort(key=lambda item: (item[0], item[1]))
                     current_phase_id = int(distances[0][1])
+
+        if enable_phase_guided_discovery and current_phase_id is not None and current_phase_id >= 0:
+            phase_visit_counts = update_phase_visit_counts(current_phase_id, phase_visit_counts)
+
+        if enable_phase_guided_discovery and phase_guidance_targets:
+            current_phase_target = int(phase_guidance_targets[-1])
 
         operator_weights = compute_adaptive_operator_weights(operator_stats)
         generation_summaries.append(
@@ -1396,6 +1429,8 @@ def run_structure_discovery(
                 current_ridge_proximity=(current_ridge_proximity if enable_spectral_ridge_detection else None),
                 num_detected_phases=(num_detected_phases if enable_phase_map_reconstruction else None),
                 current_phase_id=(current_phase_id if enable_phase_map_reconstruction else None),
+                current_phase_target=(current_phase_target if enable_phase_guided_discovery else None),
+                phase_guidance_step=(phase_guidance_step if enable_phase_guided_discovery else None),
             )
         )
         generation_summaries[-1]["operator_stats"] = summarize_operator_statistics(operator_stats)
@@ -1439,6 +1474,11 @@ def run_structure_discovery(
         result["phase_regions"] = latest_phase_map.get("phase_regions", [])
         result["phase_boundaries"] = latest_phase_map.get("phase_boundaries", [])
         result["phase_adjacency"] = latest_phase_map.get("phase_adjacency", [])
+    if enable_phase_guided_discovery:
+        result["phase_visit_counts"] = {
+            int(k): int(v) for k, v in sorted(phase_visit_counts.items(), key=lambda item: int(item[0]))
+        }
+        result["phase_guidance_targets"] = [int(v) for v in phase_guidance_targets]
 
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
@@ -1688,6 +1728,8 @@ def _build_generation_summary(
     current_ridge_proximity: float | None = None,
     num_detected_phases: int | None = None,
     current_phase_id: int | None = None,
+    current_phase_target: int | None = None,
+    phase_guidance_step: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -1792,6 +1834,10 @@ def _build_generation_summary(
         result["num_detected_phases"] = int(num_detected_phases)
     if current_phase_id is not None:
         result["current_phase_id"] = int(current_phase_id)
+    if current_phase_target is not None:
+        result["current_phase_target"] = int(current_phase_target)
+    if phase_guidance_step is not None:
+        result["phase_guidance_step"] = np.asarray(phase_guidance_step, dtype=np.float64).tolist()
     return result
 
 

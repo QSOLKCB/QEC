@@ -26,7 +26,7 @@ def compute_ternary_stability(messages: np.ndarray) -> np.float64:
     np.float64
         Stability in [0.0, 1.0].
     """
-    arr = np.asarray(messages, dtype=np.int8)
+    arr = np.asarray(messages, dtype=np.int8).ravel()
     if arr.size == 0:
         return np.float64(0.0)
     decided = np.count_nonzero(arr)
@@ -50,7 +50,7 @@ def compute_ternary_entropy(messages: np.ndarray) -> np.float64:
     np.float64
         Normalized entropy in [0.0, 1.0].
     """
-    arr = np.asarray(messages, dtype=np.int8)
+    arr = np.asarray(messages, dtype=np.int8).ravel()
     if arr.size == 0:
         return np.float64(0.0)
 
@@ -88,7 +88,7 @@ def compute_ternary_conflict_density(messages: np.ndarray) -> np.float64:
     np.float64
         Conflict density in [0.0, 1.0].
     """
-    arr = np.asarray(messages, dtype=np.int8)
+    arr = np.asarray(messages, dtype=np.int8).ravel()
     if arr.size <= 1:
         return np.float64(0.0)
 

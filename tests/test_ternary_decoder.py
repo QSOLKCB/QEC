@@ -257,3 +257,56 @@ class TestTernaryMetrics:
         r1 = compute_ternary_conflict_density(msgs)
         r2 = compute_ternary_conflict_density(msgs)
         assert r1 == r2
+
+    # -----------------------------------------------------------------------
+    # Non-int8 dtype casting
+    # -----------------------------------------------------------------------
+
+    def test_stability_int32_input(self):
+        msgs_i8 = np.array([1, 0, -1, 1], dtype=np.int8)
+        msgs_i32 = np.array([1, 0, -1, 1], dtype=np.int32)
+        assert compute_ternary_stability(msgs_i32) == compute_ternary_stability(msgs_i8)
+
+    def test_stability_float64_input(self):
+        msgs_i8 = np.array([1, 0, -1, 1], dtype=np.int8)
+        msgs_f64 = np.array([1.0, 0.0, -1.0, 1.0], dtype=np.float64)
+        assert compute_ternary_stability(msgs_f64) == compute_ternary_stability(msgs_i8)
+
+    def test_entropy_int32_input(self):
+        msgs_i8 = np.array([1, 0, -1], dtype=np.int8)
+        msgs_i32 = np.array([1, 0, -1], dtype=np.int32)
+        assert compute_ternary_entropy(msgs_i32) == compute_ternary_entropy(msgs_i8)
+
+    def test_entropy_float64_input(self):
+        msgs_i8 = np.array([1, 0, -1], dtype=np.int8)
+        msgs_f64 = np.array([1.0, 0.0, -1.0], dtype=np.float64)
+        assert compute_ternary_entropy(msgs_f64) == compute_ternary_entropy(msgs_i8)
+
+    def test_conflict_density_int32_input(self):
+        msgs_i8 = np.array([1, -1, 1], dtype=np.int8)
+        msgs_i32 = np.array([1, -1, 1], dtype=np.int32)
+        assert compute_ternary_conflict_density(msgs_i32) == compute_ternary_conflict_density(msgs_i8)
+
+    def test_conflict_density_float64_input(self):
+        msgs_i8 = np.array([1, -1, 1], dtype=np.int8)
+        msgs_f64 = np.array([1.0, -1.0, 1.0], dtype=np.float64)
+        assert compute_ternary_conflict_density(msgs_f64) == compute_ternary_conflict_density(msgs_i8)
+
+    # -----------------------------------------------------------------------
+    # 2D input handling (flattened via np.asarray cast)
+    # -----------------------------------------------------------------------
+
+    def test_stability_2d_input(self):
+        msgs_1d = np.array([1, 0, -1, 1, 0, -1], dtype=np.int8)
+        msgs_2d = msgs_1d.reshape(2, 3)
+        assert compute_ternary_stability(msgs_2d) == compute_ternary_stability(msgs_1d)
+
+    def test_entropy_2d_input(self):
+        msgs_1d = np.array([1, 0, -1, 1, 0, -1], dtype=np.int8)
+        msgs_2d = msgs_1d.reshape(2, 3)
+        assert compute_ternary_entropy(msgs_2d) == compute_ternary_entropy(msgs_1d)
+
+    def test_conflict_density_2d_input(self):
+        msgs_1d = np.array([1, -1, 1, -1, 1, -1], dtype=np.int8)
+        msgs_2d = msgs_1d.reshape(2, 3)
+        assert compute_ternary_conflict_density(msgs_2d) == compute_ternary_conflict_density(msgs_1d)

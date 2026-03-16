@@ -264,8 +264,8 @@ def run_discovery_experiment(
         artifact["phase_diagram"] = result.get("phase_diagram", {"regions": [], "phase_boundaries": []})
 
     if enable_ternary_decoder and best_H is not None:
-        from src.qec.decoder.ternary.ternary_decoder import run_ternary_decoder as _run_td
-        from src.qec.decoder.ternary.ternary_metrics import (
+        from src.qec.analysis.api import (
+            run_ternary_decoder as _run_td,
             compute_ternary_stability as _td_stab,
             compute_ternary_entropy as _td_ent,
             compute_ternary_conflict_density as _td_conf,

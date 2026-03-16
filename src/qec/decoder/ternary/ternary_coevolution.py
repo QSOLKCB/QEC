@@ -60,6 +60,7 @@ def evaluate_graph_decoder_pair(
     metrics = evaluate_decoder_rule(
         parity_matrix, received, rule_name,
         max_iterations=max_iterations,
+        decoder_result=decoder_result,
     )
 
     return {

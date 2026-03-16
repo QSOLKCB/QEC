@@ -1,3 +1,11 @@
+## [43.0.0] — Autonomous Discovery Scheduling
+
+- Added deterministic spectral landscape gap detection for under-explored regions.
+- Added deterministic experiment target generation from discovered landscape gaps.
+- Added opt-in autonomous experiment scheduler integrated into discovery engine.
+- Added deterministic FIFO experiment queue for scheduling workflows.
+- Added scheduling metrics utilities and scheduler artifact export fields.
+
 ## [38.0.0] — Non-Backtracking Eigenmode Mutation
 
 - Added non-backtracking matrix utilities.

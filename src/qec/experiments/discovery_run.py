@@ -63,6 +63,7 @@ def run_discovery_experiment(
     enable_phase_map_reconstruction: bool = False,
     enable_phase_guided_discovery: bool = False,
     enable_phase_novelty_discovery: bool = False,
+    enable_phase_characterization: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -124,6 +125,7 @@ def run_discovery_experiment(
         enable_phase_map_reconstruction=enable_phase_map_reconstruction,
         enable_phase_guided_discovery=enable_phase_guided_discovery,
         enable_phase_novelty_discovery=enable_phase_novelty_discovery,
+        enable_phase_characterization=enable_phase_characterization,
     )
 
     metadata = collect_environment_metadata(
@@ -172,6 +174,7 @@ def run_discovery_experiment(
             "enable_phase_map_reconstruction": enable_phase_map_reconstruction,
             "enable_phase_guided_discovery": enable_phase_guided_discovery,
             "enable_phase_novelty_discovery": enable_phase_novelty_discovery,
+            "enable_phase_characterization": enable_phase_characterization,
         },
         "best_candidate": result["best_candidate"],
         "elite_history": result["elite_history"],
@@ -222,6 +225,7 @@ def run_discovery_experiment(
                 "hypothesis_weight": hypothesis_weight,
                 "reuse_landscape_kd_tree": reuse_landscape_kd_tree,
                 "enable_phase_novelty_discovery": enable_phase_novelty_discovery,
+                "enable_phase_characterization": enable_phase_characterization,
             },
             "best_candidate": result["best_candidate"],
             "elite_history": result["elite_history"],
@@ -236,6 +240,9 @@ def run_discovery_experiment(
     if enable_phase_novelty_discovery:
         artifact["results"]["novel_phase_candidates"] = result.get("novel_phase_candidates", [])
         artifact["results"]["novelty_scores"] = result.get("novelty_scores", [])
+    if enable_phase_characterization:
+        artifact["results"]["phase_profiles"] = result.get("phase_profiles", [])
+        artifact["results"]["phase_characterization_metrics"] = result.get("phase_characterization_metrics", [])
 
     if enable_self_reflection:
         artifact["results"]["hypothesis_list"] = result.get("hypothesis_list", [])

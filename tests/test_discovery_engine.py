@@ -263,6 +263,38 @@ class TestDiscoveryEngine:
         assert "phase_novelty_score" not in summary
         assert "novel_phase_detected" not in summary
 
+
+
+    def test_phase_characterization_opt_in_exports(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_basin_hopping=True,
+            basin_detection_interval=1,
+            enable_phase_novelty_discovery=True,
+            phase_novelty_interval=1,
+            phase_novelty_threshold=-1.0,
+            enable_phase_characterization=True,
+            phase_characterization_interval=1,
+        )
+        assert "phase_profiles" in result
+        assert "phase_characterization_metrics" in result
+        summary = result["generation_summaries"][-1]
+        assert "phase_characterized" in summary
+        if summary["phase_characterized"]:
+            assert "phase_label" in summary
+
+    def test_phase_characterization_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "phase_profiles" not in result
+        assert "phase_characterization_metrics" not in result
+        summary = result["generation_summaries"][-1]
+        assert "phase_characterized" not in summary
+        assert "phase_label" not in summary
     def test_phase_map_reconstruction_default_unchanged(self):
         spec = _default_spec()
         result = run_structure_discovery(spec, num_generations=2, population_size=4)

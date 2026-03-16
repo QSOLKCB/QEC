@@ -160,9 +160,6 @@ class TestRuleRegistry:
         keys = list(RULE_REGISTRY.keys())
         assert keys == sorted(keys)
 
-    def test_registry_size(self) -> None:
-        assert len(RULE_REGISTRY) == 4
-
     def test_registry_contains_all_rules(self) -> None:
         expected = {"majority", "damped_majority", "conflict_averse", "parity_pressure"}
         assert set(RULE_REGISTRY.keys()) == expected

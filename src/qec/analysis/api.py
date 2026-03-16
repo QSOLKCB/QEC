@@ -63,6 +63,7 @@ _MODULES = [
     "spectral_conjecture_validation",
     "spectral_counterexamples",
     "spectral_theory_memory",
+    "spectral_ridges",
 ]
 
 for mod in _MODULES:
@@ -139,6 +140,27 @@ def summarize_theory_memory(theory_memory: dict[str, Any]) -> list[dict[str, Any
     return _impl(theory_memory)
 
 
+
+
+def detect_spectral_ridges(points: list[list[float]] | np.ndarray) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral ridge detection."""
+    from src.qec.analysis.spectral_ridges import detect_spectral_ridges as _impl
+    return _impl(points)
+
+
+def build_ridge_graph(ridges: list[dict[str, Any]]) -> dict[str, Any]:
+    """Public wrapper for deterministic ridge-graph construction."""
+    from src.qec.analysis.spectral_ridges import build_ridge_graph as _impl
+    return _impl(ridges)
+
+
+def map_ridges_to_basins(
+    ridges: list[dict[str, Any]],
+    basins: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Public wrapper for deterministic basin/ridge boundary mapping."""
+    from src.qec.analysis.spectral_ridges import map_ridges_to_basins as _impl
+    return _impl(ridges, basins)
 def detect_spectral_basins(points: list[list[float]] | np.ndarray) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral basin detection."""
     from src.qec.analysis.spectral_basins import detect_spectral_basins as _impl

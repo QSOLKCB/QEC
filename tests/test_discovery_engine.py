@@ -141,6 +141,35 @@ class TestDiscoveryEngine:
         assert "current_basin_id" in summary
         assert "basin_hop_attempted" in summary
 
+
+    def test_spectral_ridge_detection_opt_in_exports(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_spectral_ridge_detection=True,
+            ridge_detection_interval=1,
+        )
+        assert "spectral_ridges" in result
+        assert "ridge_graph" in result
+        assert "basin_boundary_segments" in result
+
+        summary = result["generation_summaries"][-1]
+        assert "num_detected_ridges" in summary
+        assert "current_ridge_proximity" in summary
+
+    def test_spectral_ridge_detection_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "spectral_ridges" not in result
+        assert "ridge_graph" not in result
+        assert "basin_boundary_segments" not in result
+        summary = result["generation_summaries"][-1]
+        assert "num_detected_ridges" not in summary
+        assert "current_ridge_proximity" not in summary
+
     def test_basin_hopping_default_unchanged(self):
         spec = _default_spec()
         result = run_structure_discovery(spec, num_generations=2, population_size=4)

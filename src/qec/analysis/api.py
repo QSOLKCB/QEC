@@ -65,6 +65,7 @@ _MODULES = [
     "spectral_theory_memory",
     "spectral_ridges",
     "spectral_phase_map",
+    "phase_characterization",
 ]
 
 for mod in _MODULES:
@@ -184,6 +185,24 @@ def propose_phase_novelty_step(current_vector: np.ndarray, novelty_vector: np.nd
     from src.qec.discovery.phase_novelty_search import propose_phase_novelty_step as _impl
     return _impl(current_vector, novelty_vector)
 
+
+
+def compute_phase_metrics(graph: np.ndarray, spectrum: np.ndarray, decoder_stats: dict[str, Any] | None) -> dict[str, float]:
+    """Public wrapper for deterministic phase metric computation."""
+    from src.qec.analysis.phase_characterization import compute_phase_metrics as _impl
+    return _impl(graph, spectrum, decoder_stats)
+
+
+def classify_phase(metrics: dict[str, Any]) -> dict[str, str]:
+    """Public wrapper for deterministic phase classification."""
+    from src.qec.analysis.phase_characterization import classify_phase as _impl
+    return _impl(metrics)
+
+
+def build_phase_profile(phase_id: int, metrics: dict[str, Any], label: dict[str, Any] | str) -> dict[str, Any]:
+    """Public wrapper for deterministic phase profile construction."""
+    from src.qec.analysis.phase_characterization import build_phase_profile as _impl
+    return _impl(phase_id, metrics, label)
 def detect_spectral_basins(points: list[list[float]] | np.ndarray) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral basin detection."""
     from src.qec.analysis.spectral_basins import detect_spectral_basins as _impl

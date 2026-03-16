@@ -138,6 +138,11 @@ from src.qec.discovery.phase_novelty_search import (
     propose_phase_novelty_step,
     select_novel_phase_target,
 )
+from src.qec.analysis.phase_characterization import (
+    build_phase_profile,
+    classify_phase,
+    compute_phase_metrics,
+)
 from src.qec.analysis.discovery_archive_analyzer import analyze_discovery_archive
 from src.qec.analysis.hypothesis_generator import generate_structural_hypotheses
 from src.qec.analysis.hypothesis_ranking import rank_hypotheses
@@ -315,6 +320,8 @@ def run_structure_discovery(
     enable_phase_novelty_discovery: bool = False,
     phase_novelty_interval: int = 400,
     phase_novelty_threshold: float = 0.5,
+    enable_phase_characterization: bool = False,
+    phase_characterization_interval: int = 500,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -472,6 +479,8 @@ def run_structure_discovery(
     phase_guidance_targets: list[int] = []
     novelty_scores: list[float] = []
     novel_phase_candidates: list[list[float]] = []
+    phase_profiles: list[dict[str, Any]] = []
+    phase_characterization_metrics: list[dict[str, Any]] = []
     strategy_history: list[str] = []
     experiment_planner = (
         SpectralExperimentPlanner(
@@ -944,6 +953,8 @@ def run_structure_discovery(
         phase_novelty_step = None
         phase_novelty_score = None
         novel_phase_detected = None
+        phase_label = None
+        phase_characterized = False if enable_phase_characterization else None
         if enable_phase_novelty_discovery and elites:
             interval = int(max(1, phase_novelty_interval))
             if gen % interval == 0:
@@ -988,6 +999,22 @@ def run_structure_discovery(
                             novel_phase_candidates.append(
                                 novelty_vector.astype(np.float64, copy=False).tolist()
                             )
+                            if enable_phase_characterization and (gen % int(max(1, phase_characterization_interval)) == 0):
+                                phase_metrics = compute_phase_metrics(
+                                    elites[0].get("H"),
+                                    novelty_vector,
+                                    elites[0].get("objectives", {}),
+                                )
+                                label_record = classify_phase(phase_metrics)
+                                profile = build_phase_profile(
+                                    phase_id=len(phase_profiles),
+                                    metrics=phase_metrics,
+                                    label=label_record,
+                                )
+                                phase_characterization_metrics.append(phase_metrics)
+                                phase_profiles.append(profile)
+                                phase_label = str(label_record.get("phase_label", ""))
+                                phase_characterized = True
 
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
@@ -1494,6 +1521,8 @@ def run_structure_discovery(
                 phase_guidance_step=(phase_guidance_step if enable_phase_guided_discovery else None),
                 phase_novelty_score=(phase_novelty_score if enable_phase_novelty_discovery else None),
                 novel_phase_detected=(novel_phase_detected if enable_phase_novelty_discovery else None),
+                phase_label=(phase_label if enable_phase_characterization else None),
+                phase_characterized=(phase_characterized if enable_phase_characterization else None),
             )
         )
         generation_summaries[-1]["operator_stats"] = summarize_operator_statistics(operator_stats)
@@ -1548,6 +1577,9 @@ def run_structure_discovery(
             for candidate in novel_phase_candidates
         ]
         result["novelty_scores"] = [float(np.float64(v)) for v in novelty_scores]
+    if enable_phase_characterization:
+        result["phase_profiles"] = [dict(profile) for profile in phase_profiles]
+        result["phase_characterization_metrics"] = [dict(metrics) for metrics in phase_characterization_metrics]
 
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
@@ -1801,6 +1833,8 @@ def _build_generation_summary(
     phase_guidance_step: np.ndarray | None = None,
     phase_novelty_score: float | None = None,
     novel_phase_detected: bool | None = None,
+    phase_label: str | None = None,
+    phase_characterized: bool | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -1913,6 +1947,10 @@ def _build_generation_summary(
         result["phase_novelty_score"] = float(np.float64(phase_novelty_score))
     if novel_phase_detected is not None:
         result["novel_phase_detected"] = bool(novel_phase_detected)
+    if phase_label is not None:
+        result["phase_label"] = str(phase_label)
+    if phase_characterized is not None:
+        result["phase_characterized"] = bool(phase_characterized)
     return result
 
 

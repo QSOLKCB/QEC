@@ -65,6 +65,8 @@ from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matr
 from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
 from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
 from src.qec.discovery.spectral_gradient_mutation import propose_gradient_step
+from src.qec.discovery.discovery_agent import DiscoveryAgent
+from src.qec.discovery.multi_agent_coordinator import MultiAgentCoordinator
 from src.qec.discovery.autonomous_scheduler import schedule_next_experiment
 from src.qec.discovery.experiment_queue import ExperimentQueue
 from src.qec.analysis.exploration_state import analyze_exploration_state
@@ -143,6 +145,9 @@ def run_structure_discovery(
     trajectory_recorder: SpectralTrajectoryRecorder | None = None,
     enable_spectral_gradient: bool = False,
     gradient_step_size: float = 0.1,
+    enable_multi_agent_discovery: bool = False,
+    num_agents: int = 4,
+    landscape_regions: list[list[float]] | None = None,
     enable_autonomous_scheduler: bool = False,
     scheduler_gap_radius: float = 0.3,
     scheduler_max_gaps: int = 16,
@@ -214,6 +219,12 @@ def run_structure_discovery(
         Enable opt-in spectral trajectory recording. Default False.
     trajectory_recorder : SpectralTrajectoryRecorder or None
         Optional externally managed recorder for trajectory capture.
+    enable_multi_agent_discovery : bool
+        Enable opt-in multi-agent discovery coordination. Default False.
+    num_agents : int
+        Number of discovery agents when multi-agent mode is enabled.
+    landscape_regions : list[list[float]] or None
+        Optional spectral regions assigned to agents by index order.
     enable_basin_topology_mapping : bool
         Enable opt-in basin topology identification from trajectory history.
     basin_distance_threshold : float
@@ -259,6 +270,14 @@ def run_structure_discovery(
     if enable_spectral_trajectory and trajectory_recorder is None:
         trajectory_recorder = SpectralTrajectoryRecorder()
 
+    agents: list[DiscoveryAgent] = []
+    agent_artifacts: list[dict[str, Any]] = []
+    if enable_multi_agent_discovery:
+        coordinator = MultiAgentCoordinator()
+        for agent_idx in range(max(0, int(num_agents))):
+            coordinator.register_agent(DiscoveryAgent(agent_id=agent_idx))
+        coordinator.assign_agents_to_regions(landscape_regions)
+        agents = coordinator.list_agents()
     scheduled_target_spectrum = None
     scheduler_strategy = None
     detected_landscape_gap_count = 0
@@ -607,6 +626,11 @@ def run_structure_discovery(
                 nb_eigenvalue = _compute_nb_mode_magnitude(repaired_objectives, H_repaired)
                 trajectory_recorder.record(np.append(current_spectrum, nb_eigenvalue))
 
+            if enable_multi_agent_discovery and agents:
+                agent = agents[ei % len(agents)]
+                current_spectrum = _objective_spectrum(repaired_objectives)
+                agent.record(current_spectrum, region_id=agent.assigned_region)
+
             # Diversity penalty
             child_sig = compute_structure_signature(H_repaired)
             diversity_penalty = compute_diversity_penalty(
@@ -709,6 +733,14 @@ def run_structure_discovery(
     best_candidate = population[0] if population else None
     archive_summary = get_archive_summary(archive)
 
+    if enable_multi_agent_discovery and agents:
+        for agent in agents:
+            for spectrum in agent.trajectory:
+                archive_summary.setdefault("shared_landscape_memory", []).append(
+                    np.asarray(spectrum, dtype=np.float64).tolist()
+                )
+            agent_artifacts.append(agent.to_artifact())
+
     result = {
         "best_candidate": _serialize_candidate(best_candidate) if best_candidate else None,
         "best_H": best_candidate["H"] if best_candidate else None,
@@ -718,6 +750,9 @@ def run_structure_discovery(
     }
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
+    if enable_multi_agent_discovery:
+        result["agent_artifacts"] = agent_artifacts
+        result["num_agents"] = len(agents)
     if enable_autonomous_scheduler:
         result["scheduled_target_spectrum"] = (
             None

@@ -268,3 +268,19 @@ def render_phase_map(phase_map: dict[str, Any], output_path: str) -> dict[str, A
     """Public wrapper for deterministic phase-map rendering."""
     from src.qec.analysis.spectral_phase_map import render_phase_map as _impl
     return _impl(phase_map, output_path)
+
+
+def select_phase_target(phase_map: dict[str, Any], phase_visit_counts: dict[int, int]) -> dict[str, int]:
+    """Public wrapper for deterministic phase target selection."""
+    from src.qec.discovery.phase_guided_search import select_phase_target as _impl
+    return _impl(phase_map, phase_visit_counts)
+
+
+def propose_phase_guided_step(
+    current_vector: np.ndarray,
+    phase_map: dict[str, Any],
+    target_phase: dict[str, Any] | int,
+) -> np.ndarray:
+    """Public wrapper for deterministic phase-guided spectral step proposal."""
+    from src.qec.discovery.phase_guided_search import propose_phase_guided_step as _impl
+    return _impl(current_vector, phase_map, target_phase)

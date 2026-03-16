@@ -61,6 +61,7 @@ def run_discovery_experiment(
     enable_basin_hopping: bool = False,
     enable_spectral_ridge_detection: bool = False,
     enable_phase_map_reconstruction: bool = False,
+    enable_phase_guided_discovery: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -120,6 +121,7 @@ def run_discovery_experiment(
         enable_basin_hopping=enable_basin_hopping,
         enable_spectral_ridge_detection=enable_spectral_ridge_detection,
         enable_phase_map_reconstruction=enable_phase_map_reconstruction,
+        enable_phase_guided_discovery=enable_phase_guided_discovery,
     )
 
     metadata = collect_environment_metadata(
@@ -166,6 +168,7 @@ def run_discovery_experiment(
             "enable_basin_hopping": enable_basin_hopping,
             "enable_spectral_ridge_detection": enable_spectral_ridge_detection,
             "enable_phase_map_reconstruction": enable_phase_map_reconstruction,
+            "enable_phase_guided_discovery": enable_phase_guided_discovery,
         },
         "best_candidate": result["best_candidate"],
         "elite_history": result["elite_history"],
@@ -222,6 +225,10 @@ def run_discovery_experiment(
             "generation_summaries": result["generation_summaries"],
         },
     }
+
+    if enable_phase_guided_discovery:
+        artifact["results"]["phase_visit_counts"] = result.get("phase_visit_counts", {})
+        artifact["results"]["phase_guidance_targets"] = result.get("phase_guidance_targets", [])
 
     if enable_self_reflection:
         artifact["results"]["hypothesis_list"] = result.get("hypothesis_list", [])

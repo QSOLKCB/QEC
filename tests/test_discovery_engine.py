@@ -202,6 +202,39 @@ class TestDiscoveryEngine:
         assert "num_detected_phases" in summary
         assert "current_phase_id" in summary
 
+
+    def test_phase_guided_discovery_opt_in_exports(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_basin_hopping=True,
+            basin_detection_interval=1,
+            enable_spectral_ridge_detection=True,
+            ridge_detection_interval=1,
+            enable_phase_map_reconstruction=True,
+            phase_map_interval=1,
+            enable_phase_guided_discovery=True,
+            phase_guidance_interval=1,
+        )
+        assert "phase_visit_counts" in result
+        assert "phase_guidance_targets" in result
+        if result["phase_guidance_targets"]:
+            summary = result["generation_summaries"][-1]
+            assert "current_phase_target" in summary
+            assert "phase_guidance_step" in summary
+
+    def test_phase_guided_discovery_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "phase_visit_counts" not in result
+        assert "phase_guidance_targets" not in result
+        summary = result["generation_summaries"][-1]
+        assert "current_phase_target" not in summary
+        assert "phase_guidance_step" not in summary
+
     def test_phase_map_reconstruction_default_unchanged(self):
         spec = _default_spec()
         result = run_structure_discovery(spec, num_generations=2, population_size=4)

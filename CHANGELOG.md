@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[35.1.0] — Deterministic Experiment Harness
+
+Added
+
+- Introduces a deterministic experiment harness for reproducible testing of discovery experiments.
+- Provides deterministic execution environment, experiment metadata capture, and reproducible experiment hashes.
+- Adds pytest fixture support for stable experiment tests without modifying discovery engine behavior.
+- Experiment hashes are now derived from experiment results and metadata.
+- Harness metadata timestamp is deterministic (seed-based).
+
+---
+
 [35.0.0] — Spectral Geometry & Trust-Region Mutation Control
 
 Added

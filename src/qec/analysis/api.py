@@ -64,6 +64,7 @@ _MODULES = [
     "spectral_counterexamples",
     "spectral_theory_memory",
     "spectral_ridges",
+    "spectral_phase_map",
 ]
 
 for mod in _MODULES:
@@ -243,3 +244,27 @@ def enumerate_candidate_swaps(
 
 
 __all__ = [k for k in globals() if not k.startswith("_")]
+
+
+
+def construct_phase_map(
+    basins: list[dict[str, Any]],
+    ridges: list[dict[str, Any]],
+    phase_surface: dict[str, Any] | None,
+    trajectory: list[list[float]] | np.ndarray,
+) -> dict[str, Any]:
+    """Public wrapper for deterministic spectral phase-map construction."""
+    from src.qec.analysis.spectral_phase_map import construct_phase_map as _impl
+    return _impl(basins, ridges, phase_surface, trajectory)
+
+
+def label_phases(basins: list[dict[str, Any]], ridges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic phase labeling from basins/ridges."""
+    from src.qec.analysis.spectral_phase_map import label_phases as _impl
+    return _impl(basins, ridges)
+
+
+def render_phase_map(phase_map: dict[str, Any], output_path: str) -> dict[str, Any]:
+    """Public wrapper for deterministic phase-map rendering."""
+    from src.qec.analysis.spectral_phase_map import render_phase_map as _impl
+    return _impl(phase_map, output_path)

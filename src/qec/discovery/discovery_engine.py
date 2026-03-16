@@ -68,6 +68,7 @@ from src.qec.analysis.spectral_ridges import (
     build_ridge_graph,
     map_ridges_to_basins,
 )
+from src.qec.analysis.spectral_phase_map import construct_phase_map
 from src.qec.discovery.autonomous_scheduler import schedule_autonomous_target
 from src.qec.discovery.experiment_planner import SpectralExperimentPlanner
 from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
@@ -296,6 +297,8 @@ def run_structure_discovery(
     ridge_detection_interval: int = 200,
     enable_phase_diagram: bool = False,
     phase_diagram_resolution: int = 50,
+    enable_phase_map_reconstruction: bool = False,
+    phase_map_interval: int = 500,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -448,6 +451,7 @@ def run_structure_discovery(
     latest_spectral_ridges: list[dict[str, Any]] = []
     latest_ridge_graph: dict[str, Any] = {"ridge_nodes": [], "ridge_edges": []}
     latest_basin_boundary_segments: list[dict[str, Any]] = []
+    latest_phase_map: dict[str, Any] = {"phase_regions": [], "phase_boundaries": [], "phase_adjacency": [], "trajectory_segments": []}
     strategy_history: list[str] = []
     experiment_planner = (
         SpectralExperimentPlanner(
@@ -1261,6 +1265,38 @@ def run_structure_discovery(
             if current_ridge_proximity is None:
                 current_ridge_proximity = 0.0
 
+        num_detected_phases = None
+        current_phase_id = None
+        if enable_phase_map_reconstruction:
+            current_phase_id = -1
+            interval = int(max(1, phase_map_interval))
+            if gen % interval == 0:
+                trajectory_points: list[list[float]] = []
+                if enable_spectral_trajectory and trajectory_recorder is not None:
+                    trajectory_points = trajectory_recorder.as_array().astype(np.float64, copy=False).tolist()
+                elif enable_phase_trajectory:
+                    trajectory_points = [[float(np.float64(v)) for v in point] for point in phase_trajectory_points]
+                latest_phase_map = construct_phase_map(
+                    latest_spectral_basins,
+                    latest_spectral_ridges,
+                    latest_phase_surface,
+                    trajectory_points,
+                )
+            num_detected_phases = int(len(latest_phase_map.get("phase_regions", [])))
+            if best is not None and latest_phase_map.get("phase_regions"):
+                best_spectrum = _objective_spectrum(best.get("objectives", {})).astype(np.float64, copy=False)
+                distances: list[tuple[float, int]] = []
+                for rec in latest_phase_map.get("phase_regions", []):
+                    centroid = np.asarray(rec.get("centroid", []), dtype=np.float64).reshape(-1)
+                    if centroid.size == 0:
+                        continue
+                    k = min(best_spectrum.size, centroid.size)
+                    dist = float(np.float64(np.linalg.norm(best_spectrum[:k] - centroid[:k])))
+                    distances.append((dist, int(rec.get("phase_id", 0))))
+                if distances:
+                    distances.sort(key=lambda item: (item[0], item[1]))
+                    current_phase_id = int(distances[0][1])
+
         operator_weights = compute_adaptive_operator_weights(operator_stats)
         generation_summaries.append(
             _build_generation_summary(
@@ -1358,6 +1394,8 @@ def run_structure_discovery(
                 ),
                 num_detected_ridges=(num_detected_ridges if enable_spectral_ridge_detection else None),
                 current_ridge_proximity=(current_ridge_proximity if enable_spectral_ridge_detection else None),
+                num_detected_phases=(num_detected_phases if enable_phase_map_reconstruction else None),
+                current_phase_id=(current_phase_id if enable_phase_map_reconstruction else None),
             )
         )
         generation_summaries[-1]["operator_stats"] = summarize_operator_statistics(operator_stats)
@@ -1395,6 +1433,12 @@ def run_structure_discovery(
         result["spectral_ridges"] = latest_spectral_ridges
         result["ridge_graph"] = latest_ridge_graph
         result["basin_boundary_segments"] = latest_basin_boundary_segments
+
+    if enable_phase_map_reconstruction:
+        result["phase_map"] = latest_phase_map
+        result["phase_regions"] = latest_phase_map.get("phase_regions", [])
+        result["phase_boundaries"] = latest_phase_map.get("phase_boundaries", [])
+        result["phase_adjacency"] = latest_phase_map.get("phase_adjacency", [])
 
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
@@ -1642,6 +1686,8 @@ def _build_generation_summary(
     mean_theory_support_score: float | None = None,
     num_detected_ridges: int | None = None,
     current_ridge_proximity: float | None = None,
+    num_detected_phases: int | None = None,
+    current_phase_id: int | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -1742,6 +1788,10 @@ def _build_generation_summary(
         result["num_detected_ridges"] = int(num_detected_ridges)
     if current_ridge_proximity is not None:
         result["current_ridge_proximity"] = float(np.float64(current_ridge_proximity))
+    if num_detected_phases is not None:
+        result["num_detected_phases"] = int(num_detected_phases)
+    if current_phase_id is not None:
+        result["current_phase_id"] = int(current_phase_id)
     return result
 
 

@@ -65,6 +65,8 @@ def run_discovery_experiment(
     enable_phase_novelty_discovery: bool = False,
     enable_phase_characterization: bool = False,
     enable_theory_synthesis: bool = False,
+    enable_conjecture_validation: bool = False,
+    conjecture_validation_interval: int = 1200,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -128,6 +130,8 @@ def run_discovery_experiment(
         enable_phase_novelty_discovery=enable_phase_novelty_discovery,
         enable_phase_characterization=enable_phase_characterization,
         enable_theory_synthesis=enable_theory_synthesis,
+        enable_conjecture_validation=enable_conjecture_validation,
+        conjecture_validation_interval=conjecture_validation_interval,
     )
 
     metadata = collect_environment_metadata(
@@ -178,6 +182,8 @@ def run_discovery_experiment(
             "enable_phase_novelty_discovery": enable_phase_novelty_discovery,
             "enable_phase_characterization": enable_phase_characterization,
             "enable_theory_synthesis": enable_theory_synthesis,
+            "enable_conjecture_validation": enable_conjecture_validation,
+            "conjecture_validation_interval": conjecture_validation_interval,
         },
         "best_candidate": result["best_candidate"],
         "elite_history": result["elite_history"],

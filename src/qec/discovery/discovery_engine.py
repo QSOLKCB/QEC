@@ -148,6 +148,11 @@ from src.qec.analysis.theory_synthesis import (
     fit_spectral_models as fit_phase_spectral_models,
     generate_spectral_conjectures,
 )
+from src.qec.analysis.conjecture_validation import (
+    evaluate_conjecture as _evaluate_conjecture,
+    find_conjecture_counterexamples as _find_conjecture_counterexamples,
+    design_validation_experiment as _design_validation_experiment,
+)
 from src.qec.analysis.discovery_archive_analyzer import analyze_discovery_archive
 from src.qec.analysis.hypothesis_generator import generate_structural_hypotheses
 from src.qec.analysis.hypothesis_ranking import rank_hypotheses
@@ -329,6 +334,8 @@ def run_structure_discovery(
     phase_characterization_interval: int = 500,
     enable_theory_synthesis: bool = False,
     theory_synthesis_interval: int = 800,
+    enable_conjecture_validation: bool = False,
+    conjecture_validation_interval: int = 1200,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -510,6 +517,9 @@ def run_structure_discovery(
     latest_conjecture_counterexamples: list[dict[str, Any]] = []
     latest_spectral_theory_models: list[dict[str, Any]] = []
     latest_spectral_conjectures: list[dict[str, Any]] = []
+    conjecture_validation_results: list[dict[str, Any]] = []
+    conjecture_counterexamples: list[dict[str, Any]] = []
+    validation_experiment_targets: list[dict[str, Any]] = []
     escape_attempts = 0
     escape_successes = 0
     basin_centers: dict[int, np.ndarray] = {}
@@ -1357,6 +1367,31 @@ def run_structure_discovery(
                     [str(name) for name in phase_dataset.get("feature_names", [])],
                 )
 
+        if enable_conjecture_validation and int(max(1, conjecture_validation_interval)) > 0:
+            if gen % int(max(1, conjecture_validation_interval)) == 0 and phase_profiles:
+                conjectures_to_validate = latest_spectral_conjectures
+                if not conjectures_to_validate and latest_ranked_conjectures:
+                    conjectures_to_validate = latest_ranked_conjectures
+                if conjectures_to_validate:
+                    conjecture_validation_results = []
+                    for conj in conjectures_to_validate:
+                        for profile in phase_profiles:
+                            conjecture_validation_results.append(
+                                _evaluate_conjecture(conj, profile)
+                            )
+                    conjecture_counterexamples = []
+                    for conj in conjectures_to_validate:
+                        conjecture_counterexamples.extend(
+                            _find_conjecture_counterexamples(conj, phase_profiles)
+                        )
+                    conjecture_counterexamples = sorted(
+                        conjecture_counterexamples,
+                        key=lambda r: (-float(r.get("error", 0.0)), int(r.get("phase_id", 0))),
+                    )
+                    validation_experiment_targets = _design_validation_experiment(
+                        conjectures_to_validate[0], phase_profiles,
+                    )
+
         if enable_basin_hopping and best is not None:
             interval = int(max(1, basin_detection_interval))
             if gen % interval == 0:
@@ -1552,6 +1587,16 @@ def run_structure_discovery(
                     float(np.float64(latest_spectral_conjectures[0].get("fit_quality", 0.0)))
                     if enable_theory_synthesis and latest_spectral_conjectures
                     else (0.0 if enable_theory_synthesis else None)
+                ),
+                num_conjectures_tested=(
+                    int(len(conjecture_validation_results))
+                    if enable_conjecture_validation
+                    else None
+                ),
+                num_counterexamples_found=(
+                    int(len(conjecture_counterexamples))
+                    if enable_conjecture_validation
+                    else None
                 ),
             )
         )
@@ -1752,6 +1797,11 @@ def run_structure_discovery(
         result["conjecture_validations"] = latest_conjecture_validations
         result["conjecture_counterexamples"] = latest_conjecture_counterexamples
 
+    if enable_conjecture_validation:
+        result["conjecture_validation_results"] = [dict(r) for r in conjecture_validation_results]
+        result["conjecture_counterexamples_phase"] = [dict(r) for r in conjecture_counterexamples]
+        result["validation_experiment_targets"] = [dict(r) for r in validation_experiment_targets]
+
     if enable_phase_diagram:
         phase_dataset = build_phase_diagram_dataset(archive)
         phase_grid = construct_phase_grid(
@@ -1886,6 +1936,8 @@ def _build_generation_summary(
     phase_characterized: bool | None = None,
     num_generated_conjectures: int | None = None,
     best_conjecture_score: float | None = None,
+    num_conjectures_tested: int | None = None,
+    num_counterexamples_found: int | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -2006,6 +2058,10 @@ def _build_generation_summary(
         result["num_generated_conjectures"] = int(num_generated_conjectures)
     if best_conjecture_score is not None:
         result["best_conjecture_score"] = float(np.float64(best_conjecture_score))
+    if num_conjectures_tested is not None:
+        result["num_conjectures_tested"] = int(num_conjectures_tested)
+    if num_counterexamples_found is not None:
+        result["num_counterexamples_found"] = int(num_counterexamples_found)
     return result
 
 

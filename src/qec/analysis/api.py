@@ -67,6 +67,7 @@ _MODULES = [
     "spectral_phase_map",
     "phase_characterization",
     "theory_synthesis",
+    "conjecture_validation",
 ]
 
 for mod in _MODULES:
@@ -222,6 +223,33 @@ def generate_spectral_conjectures(models: list[dict[str, Any]], feature_names: l
     """Public wrapper for deterministic spectral conjecture synthesis."""
     from src.qec.analysis.theory_synthesis import generate_spectral_conjectures as _impl
     return _impl(models, feature_names)
+
+
+def evaluate_conjecture(conjecture: dict[str, Any], phase_profile: dict[str, Any]) -> dict[str, Any]:
+    """Public wrapper for deterministic conjecture evaluation against a phase profile."""
+    from src.qec.analysis.conjecture_validation import evaluate_conjecture as _impl
+    return _impl(conjecture, phase_profile)
+
+
+def find_conjecture_counterexamples(
+    conjecture: dict[str, Any],
+    phase_profiles: list[dict[str, Any]],
+    error_threshold: float = 0.1,
+    max_counterexamples: int = 128,
+) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic conjecture counterexample detection."""
+    from src.qec.analysis.conjecture_validation import find_conjecture_counterexamples as _impl
+    return _impl(conjecture, phase_profiles, error_threshold=error_threshold, max_counterexamples=max_counterexamples)
+
+
+def design_validation_experiment(
+    conjecture: dict[str, Any],
+    archive: list[dict[str, Any]],
+    num_targets: int = 8,
+) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic validation experiment design."""
+    from src.qec.analysis.conjecture_validation import design_validation_experiment as _impl
+    return _impl(conjecture, archive, num_targets=num_targets)
 
 
 def detect_spectral_basins(points: list[list[float]] | np.ndarray) -> list[dict[str, Any]]:

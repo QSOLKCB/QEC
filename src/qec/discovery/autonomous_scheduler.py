@@ -52,3 +52,23 @@ def schedule_autonomous_target(
         "spectral_uncertainty": 0.0,
         "strategy": str(strategy),
     }
+
+
+
+def schedule_next_experiment(
+    archive,
+    landscape_model=None,
+    exploration_state=None,
+):
+    """
+    Deterministic placeholder for autonomous experiment scheduling.
+
+    This stub exists to maintain repository import stability until the
+    autonomous scheduler module is fully implemented.
+
+    Returns
+    -------
+    None
+        Indicates that no scheduled experiment is produced.
+    """
+    return None

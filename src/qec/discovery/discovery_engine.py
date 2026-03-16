@@ -63,6 +63,16 @@ from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matr
 from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
 from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
 from src.qec.discovery.spectral_gradient_mutation import propose_gradient_step
+from src.qec.analysis.exploration_state import analyze_exploration_state
+from src.qec.analysis.exploration_metrics import (
+    basin_switch_rate,
+    exploration_entropy,
+    mean_basin_duration,
+)
+from src.qec.discovery.exploration_policy import (
+    apply_escape_feedback_bias,
+    choose_exploration_strategy,
+)
 from src.qec.discovery.basin_escape_mutation import propose_escape_step
 
 
@@ -129,6 +139,11 @@ def run_structure_discovery(
     trajectory_recorder: SpectralTrajectoryRecorder | None = None,
     enable_spectral_gradient: bool = False,
     gradient_step_size: float = 0.1,
+    enable_adaptive_exploration: bool = False,
+    exploration_window: int = 10,
+    escape_base_step: float = 0.01,
+    early_exploration_rate_threshold: float = 0.5,
+    low_escape_success_threshold: float = 0.1,
     enable_basin_escape: bool = False,
     basin_escape_window: int = 10,
     basin_escape_step: float = 0.3,
@@ -230,6 +245,10 @@ def run_structure_discovery(
     elite_history: list[dict[str, Any]] = []
     generation_summaries: list[dict[str, Any]] = []
     signature_archive: list[tuple[float, ...]] = []
+    basin_assignments: list[int] = []
+    strategy_history: list[str] = []
+    escape_attempts = 0
+    escape_successes = 0
     basin_centers: dict[int, np.ndarray] = {}
     basin_counts: dict[int, int] = {}
     basin_assignments: list[int] = []
@@ -277,6 +296,7 @@ def run_structure_discovery(
             "instability_score": best["objectives"].get("instability_score", 0.0),
         })
         generation_summaries.append(_make_generation_summary(0, population, archive))
+        basin_assignments.append(_candidate_basin_id(best))
 
     # ── Main loop ──────────────────────────────────────────────────
     for gen in range(1, num_generations + 1):
@@ -305,6 +325,78 @@ def run_structure_discovery(
         if enable_nb_eigenmode_mutation:
             nb_guide_edges = _rank_tanner_edges_by_nb_mode(best_H)
 
+        gradient_target_spectrum = None
+        if enable_spectral_gradient and trajectory_recorder is not None:
+            current_spectrum = _objective_spectrum(elites[0].get("objectives", {}))
+            gradient = estimate_spectral_gradient(trajectory_recorder.as_array())
+            if gradient.shape == current_spectrum.shape:
+                gradient_target_spectrum = propose_gradient_step(
+                    current_spectrum,
+                    gradient,
+                    step=gradient_step_size,
+                )
+
+        exploration_state = "LOCAL_OPTIMIZATION"
+        exploration_strategy = "GRADIENT"
+        switch_rate_value = 0.0
+        entropy_value = 0.0
+        mean_duration_value = 0.0
+        escape_success_rate_value = 0.0
+        if enable_adaptive_exploration:
+            trajectory_data = (
+                trajectory_recorder.as_array()
+                if trajectory_recorder is not None
+                else np.zeros((0, 0), dtype=np.float64)
+            )
+            exploration_state = analyze_exploration_state(
+                trajectory_data,
+                basin_assignments,
+                window=exploration_window,
+            )
+            switch_rate_value = basin_switch_rate(basin_assignments, window=exploration_window)
+            entropy_value = exploration_entropy(basin_assignments)
+            mean_duration_value = mean_basin_duration(basin_assignments)
+            exploration_strategy = choose_exploration_strategy(exploration_state)
+
+            escape_success_rate_value = _safe_escape_success_rate(
+                escape_successes,
+                escape_attempts,
+            )
+            if switch_rate_value > float(early_exploration_rate_threshold):
+                if exploration_strategy == "ESCAPE":
+                    exploration_strategy = "GRADIENT"
+            if escape_attempts >= int(max(1, exploration_window)):
+                exploration_strategy = apply_escape_feedback_bias(
+                    exploration_strategy,
+                    escape_success_rate=escape_success_rate_value,
+                    low_success_threshold=low_escape_success_threshold,
+                )
+
+        escape_target = None
+        if gradient_target_spectrum is not None:
+            adaptive_escape_step = float(escape_base_step)
+            if enable_adaptive_exploration:
+                scale = 1.0 + float(mean_duration_value) / float(max(1, exploration_window))
+                scale = min(scale, 3.0)
+                adaptive_escape_step = float(escape_base_step) * float(scale)
+            escape_target = np.asarray(
+                gradient_target_spectrum,
+                dtype=np.float64,
+            ) + np.array(
+                [
+                    adaptive_escape_step,
+                    -adaptive_escape_step,
+                    adaptive_escape_step,
+                    adaptive_escape_step,
+                ],
+                dtype=np.float64,
+            )
+
+        strategy_history.append(str(exploration_strategy))
+        if len(strategy_history) > int(max(1, exploration_window)):
+            strategy_history.pop(0)
+        if strategy_history.count("ESCAPE") > int(max(1, exploration_window)) // 2:
+            exploration_strategy = "ESCAPE"
         current_spectrum_best = _objective_spectrum(elites[0].get("objectives", {}))
         current_basin = _assign_to_basin(current_spectrum_best, basin_centers)
         basin_assignments.append(current_basin)
@@ -358,16 +450,15 @@ def run_structure_discovery(
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
 
-            gradient_target_spectrum = None
-            if enable_spectral_gradient and trajectory_recorder is not None:
-                current_spectrum = _objective_spectrum(elite.get("objectives", {}))
-                gradient = estimate_spectral_gradient(trajectory_recorder.as_array())
-                if gradient.shape == current_spectrum.shape:
-                    gradient_target_spectrum = propose_gradient_step(
-                        current_spectrum,
-                        gradient,
-                        step=gradient_step_size,
-                    )
+            routing = _route_exploration_targets(
+                exploration_strategy,
+                gradient_target=gradient_target_spectrum,
+                nb_target_edges=nb_guide_edges,
+                escape_target=escape_target,
+                default_target_edges=guide_edges,
+            )
+            target_edges = routing["target_edges"]
+            target_spectrum = routing["target_spectrum"]
 
             if escape_target is not None:
                 gradient_target_spectrum = escape_target
@@ -377,8 +468,8 @@ def run_structure_discovery(
                 operator=operator_name,
                 generation=gen,
                 seed=mut_seed,
-                target_edges=guide_edges,
-                target_spectrum=gradient_target_spectrum,
+                target_edges=target_edges,
+                target_spectrum=target_spectrum,
             )
 
             # Find mutated edges for ACE evaluation and incremental updates
@@ -485,6 +576,15 @@ def run_structure_discovery(
             )
             if basin_detector is not None:
                 child_state["basin_switch"] = basin_switch
+            if enable_adaptive_exploration:
+                child_state["exploration_state"] = exploration_state
+                child_state["exploration_strategy"] = exploration_strategy
+                if exploration_strategy == "ESCAPE":
+                    escape_attempts += 1
+                    parent_score = float(parent_composite)
+                    child_score = float(repaired_objectives.get("composite_score", parent_score))
+                    if child_score < parent_score:
+                        escape_successes += 1
             children.append(child_state)
 
         if escape_event is not None:
@@ -513,12 +613,25 @@ def run_structure_discovery(
                 "instability_score": best["objectives"].get("instability_score", 0.0),
             })
 
+        if best:
+            new_basin_id = _candidate_basin_id(best)
+            basin_assignments.append(new_basin_id)
+
         generation_summaries.append(
             _make_generation_summary(
                 gen,
                 population,
                 archive,
                 include_basin_switches=enable_basin_switch_detection,
+                exploration_state=(exploration_state if enable_adaptive_exploration else None),
+                exploration_strategy=(exploration_strategy if enable_adaptive_exploration else None),
+                basin_switch_rate_value=(switch_rate_value if enable_adaptive_exploration else None),
+                exploration_entropy_value=(entropy_value if enable_adaptive_exploration else None),
+                escape_success_rate_value=(
+                    _safe_escape_success_rate(escape_successes, escape_attempts)
+                    if enable_adaptive_exploration
+                    else None
+                ),
             )
         )
 
@@ -608,6 +721,11 @@ def _make_generation_summary(
     archive: dict[str, Any],
     *,
     include_basin_switches: bool = False,
+    exploration_state: str | None = None,
+    exploration_strategy: str | None = None,
+    basin_switch_rate_value: float | None = None,
+    exploration_entropy_value: float | None = None,
+    escape_success_rate_value: float | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -639,6 +757,16 @@ def _make_generation_summary(
         result["basin_switches"] = int(
             sum(1 for c in population if c.get("basin_switch", False))
         )
+    if exploration_state is not None:
+        result["exploration_state"] = str(exploration_state)
+    if exploration_strategy is not None:
+        result["exploration_strategy"] = str(exploration_strategy)
+    if basin_switch_rate_value is not None:
+        result["basin_switch_rate"] = float(basin_switch_rate_value)
+    if exploration_entropy_value is not None:
+        result["exploration_entropy"] = float(exploration_entropy_value)
+    if escape_success_rate_value is not None:
+        result["escape_success_rate"] = float(escape_success_rate_value)
     return result
 
 
@@ -712,6 +840,46 @@ def _objective_spectrum(objectives: dict[str, Any]) -> np.ndarray:
         dtype=np.float64,
     )
 
+
+
+def _candidate_basin_id(candidate: dict[str, Any]) -> int:
+    """Compute deterministic basin assignment from rounded objective signature."""
+    obj = candidate.get("objectives", {})
+    signature = (
+        round(float(obj.get("spectral_radius", 0.0)), 6),
+        round(float(obj.get("bethe_margin", 0.0)), 6),
+    )
+    data = repr(signature).encode("utf-8")
+    digest = hashlib.sha256(data).digest()
+    return int(int.from_bytes(digest[:8], "big") % (2**63 - 1))
+
+
+def _route_exploration_targets(
+    strategy: str,
+    *,
+    gradient_target: np.ndarray | None,
+    nb_target_edges: list[tuple[int, int]],
+    escape_target: np.ndarray | None,
+    default_target_edges: list[tuple[int, int]],
+) -> dict[str, Any]:
+    """Route strategy to deterministic mutation guidance targets."""
+    if strategy == "GRADIENT":
+        return {"target_edges": default_target_edges, "target_spectrum": gradient_target}
+    if strategy == "NB_EIGENMODE":
+        return {"target_edges": nb_target_edges if nb_target_edges else default_target_edges, "target_spectrum": None}
+    if strategy == "ESCAPE":
+        return {"target_edges": default_target_edges, "target_spectrum": escape_target}
+    return {"target_edges": None, "target_spectrum": None}
+
+
+def _safe_escape_success_rate(escape_successes: int, escape_attempts: int) -> float:
+    """Compute escape success-rate with deterministic safe division and clamp."""
+    rate = (
+        float(escape_successes) / float(escape_attempts)
+        if int(escape_attempts) > 0
+        else 0.0
+    )
+    return float(min(max(float(rate), 0.0), 1.0))
 
 def _serialize_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     """Convert a candidate to a JSON-safe dict (without H matrix)."""

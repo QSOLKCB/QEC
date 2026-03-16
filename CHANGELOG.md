@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[35.2.0] — Spectral Sonification Tool
+
+Added spectral sonifier for converting spectral diagnostics into audio.
+
+Deterministic mapping of eigenvalues and localization metrics to sound.
+
+Optional CLI tool for artifact sonification.
+
+Intended for debugging and visualization of spectral dynamics.
+
 [35.1.0] — Deterministic Experiment Harness
 
 Added

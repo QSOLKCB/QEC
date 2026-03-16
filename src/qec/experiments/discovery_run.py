@@ -99,7 +99,6 @@ def run_discovery_experiment(
         export_json_adjacency(best_H, os.path.join(artifact_dir, "best_graph.json"))
 
     results_payload = {
-    artifact_results = {
         "spec": {
             "num_variables": spec["num_variables"],
             "num_checks": spec["num_checks"],
@@ -126,20 +125,16 @@ def run_discovery_experiment(
     if "operator_success_rates" in result:
         results_payload["operator_success_rates"] = result["operator_success_rates"]
         results_payload["adaptive_operator_weights"] = result.get("adaptive_operator_weights", {})
-
-    artifact = {
-        "metadata": metadata,
-        "results": results_payload,
     if enable_autonomous_scheduler:
-        artifact_results["scheduled_target_spectrum"] = result.get("scheduled_target_spectrum")
-        artifact_results["landscape_gap_count"] = int(result.get("landscape_gap_count", 0))
-        artifact_results["scheduler_strategy"] = result.get(
+        results_payload["scheduled_target_spectrum"] = result.get("scheduled_target_spectrum")
+        results_payload["landscape_gap_count"] = int(result.get("landscape_gap_count", 0))
+        results_payload["scheduler_strategy"] = result.get(
             "scheduler_strategy", "landscape_exploration",
         )
 
     artifact = {
         "metadata": metadata,
-        "results": artifact_results,
+        "results": results_payload,
     }
 
     for key in (

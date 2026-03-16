@@ -14,6 +14,7 @@ class SpectralMotifLibrary:
         self.motifs: list[dict[str, Any]] = []
         self.motif_counts: dict[int, np.float64] = {}
         self.spectral_centroids: dict[int, np.ndarray] = {}
+        self.clusters: list[dict[str, Any]] = []
 
     def add_motif(self, motif: dict[str, Any]) -> None:
         self.add_motifs([motif])
@@ -45,6 +46,7 @@ class SpectralMotifLibrary:
             }
             for mid in sorted(self.spectral_centroids.keys())
         ]
+        self.clusters = []
 
     def get_motifs(self) -> list[dict[str, Any]]:
         return list(self.motifs)
@@ -89,6 +91,33 @@ class SpectralMotifLibrary:
             if int(motif["motif_id"]) == mid:
                 motif["frequency"] = int(round(float(self.motif_counts[mid])))
                 break
+        self.clusters = []
+
+    def cluster_motifs(self, k: int | None = None) -> list[dict[str, Any]]:
+        from src.qec.analysis.spectral_motif_clustering import cluster_spectral_motifs
+
+        self.clusters = cluster_spectral_motifs(self.motifs, k=k)
+        return list(self.clusters)
+
+    def get_cluster(self, spectrum: np.ndarray | list[float]) -> dict[str, Any] | None:
+        if not self.clusters:
+            self.cluster_motifs()
+        if not self.clusters:
+            return None
+
+        vec = np.asarray(spectrum, dtype=np.float64).reshape(-1)
+        scored: list[tuple[float, int, dict[str, Any]]] = []
+        for cluster in self.clusters:
+            centroid = np.asarray(cluster.get("centroid", []), dtype=np.float64).reshape(-1)
+            if centroid.shape != vec.shape:
+                continue
+            distance = float(np.linalg.norm(vec - centroid))
+            scored.append((distance, int(cluster.get("cluster_id", 0)), cluster))
+
+        if not scored:
+            return None
+        scored.sort(key=lambda item: (item[0], item[1]))
+        return scored[0][2]
 
     def sample_motif(self) -> dict[str, Any] | None:
         if not self.motifs:

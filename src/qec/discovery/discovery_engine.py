@@ -97,15 +97,14 @@ from src.qec.discovery.exploration_policy import (
 )
 from src.qec.discovery.basin_escape_mutation import propose_escape_step
 from src.qec.analysis.operator_statistics import summarize_operator_statistics, update_operator_success
-from src.qec.discovery.adaptive_operator_weights import compute_adaptive_operator_weights
-from src.qec.analysis.spectral_motif_extraction import extract_spectral_motifs
-from src.qec.discovery.motif_library import SpectralMotifLibrary
-from src.qec.discovery.motif_mutation import apply_motif_mutation
-from src.qec.analysis.operator_statistics import update_operator_success
 from src.qec.discovery.adaptive_operator_weights import (
+    compute_adaptive_operator_weights,
     compute_operator_weights,
     deterministic_weighted_choice,
 )
+from src.qec.analysis.spectral_motif_extraction import extract_spectral_motifs
+from src.qec.discovery.motif_library import SpectralMotifLibrary
+from src.qec.discovery.motif_mutation import apply_motif_mutation
 
 
 _ROUND = 12
@@ -199,6 +198,9 @@ def run_structure_discovery(
     enable_basin_topology_mapping: bool = False,
     basin_distance_threshold: float = 0.25,
     enable_adaptive_mutation: bool = False,
+    enable_curriculum_learning: bool = False,
+    enable_motif_clustering: bool = False,
+    enable_operator_stability_guard: bool = False,
     enable_motif_learning: bool = False,
     motif_library: SpectralMotifLibrary | None = None,
     operator_learning_rate: float = 0.1,
@@ -413,7 +415,7 @@ def run_structure_discovery(
             "instability_score": best["objectives"].get("instability_score", 0.0),
         })
         generation_summaries.append(
-            _make_generation_summary(
+            _build_generation_summary(
                 0,
                 population,
                 archive,
@@ -751,6 +753,15 @@ def run_structure_discovery(
                     H_mutated = apply_motif_mutation(H_mutated, chosen)
                     motif_used = True
                     motif_id = int(chosen.get("motif_id", 0))
+                if enable_motif_clustering:
+                    cluster = motif_library.get_cluster(_objective_spectrum(elite.get("objectives", {})))
+                    if cluster is not None:
+                        current_spec = _objective_spectrum(elite.get("objectives", {}))
+                        centroid = np.asarray(cluster.get("centroid", []), dtype=np.float64).reshape(-1)
+                        if centroid.shape == current_spec.shape:
+                            distance = float(np.linalg.norm(current_spec - centroid))
+                            cluster_similarity = float(1.0 / (1.0 + distance))
+                            _ = cluster_similarity
 
             # Find mutated edges for ACE evaluation and incremental updates
             diff = np.abs(H_mutated - elite["H"])
@@ -788,6 +799,8 @@ def run_structure_discovery(
             child_composite = child_objectives.get("composite_score", float("inf"))
             if enable_adaptive_mutation:
                 improvement = float(parent_composite) - float(child_composite)
+                if enable_operator_stability_guard and not np.isfinite(improvement):
+                    improvement = 0.0
                 operator_stats = update_operator_success(operator_stats, op_used, improvement)
                 op_key = str(op_used)
                 rec = dict(operator_stats.get(op_key, {}))
@@ -921,6 +934,8 @@ def run_structure_discovery(
         if enable_motif_learning and motif_library is not None:
             for motif in extract_spectral_motifs(archive):
                 motif_library.add_motif(motif)
+            if enable_motif_clustering:
+                motif_library.cluster_motifs()
 
         # Record generation
         best = population[0] if population else None
@@ -938,7 +953,7 @@ def run_structure_discovery(
 
         operator_weights = compute_adaptive_operator_weights(operator_stats)
         generation_summaries.append(
-            _make_generation_summary(
+            _build_generation_summary(
                 gen,
                 population,
                 archive,
@@ -959,6 +974,8 @@ def run_structure_discovery(
                 operator_success_rate=(
                     float(operator_stats.get(selected_operator, {}).get("success_rate", 0.0))
                     if enable_adaptive_mutation
+                    else None
+                ),
                 bayesian_enabled=enable_bayesian_model,
                 information_gain_score=(
                     info_gain_selected_score
@@ -983,7 +1000,9 @@ def run_structure_discovery(
             )
         )
         generation_summaries[-1]["operator_stats"] = summarize_operator_statistics(operator_stats)
-        generation_summaries[-1]["operator_weights"] = dict(operator_weights)
+        generation_summaries[-1]["operator_weights"] = {
+            op: float(w) for op, w in sorted(operator_weights.items(), key=lambda item: item[0])
+        }
 
     # ── Assemble result ────────────────────────────────────────────
     best_candidate = population[0] if population else None
@@ -1112,7 +1131,7 @@ def _update_basin_center(
     basin_counts[basin_id] = count + 1
 
 
-def _make_generation_summary(
+def _build_generation_summary(
     generation: int,
     population: list[dict[str, Any]],
     archive: dict[str, Any],
@@ -1202,6 +1221,8 @@ def _make_generation_summary(
         ).tolist()
     return result
 
+
+_make_generation_summary = _build_generation_summary
 
 
 def _compute_regional_similarity(

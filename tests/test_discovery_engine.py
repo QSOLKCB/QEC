@@ -220,3 +220,50 @@ class TestDiscoveryBenchmark:
         assert "spectral_uncertainty" not in summary
         assert "novelty_score" not in summary
         assert "selected_target_spectrum" not in summary
+
+
+    def test_experiment_planner_fields_opt_in(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_experiment_planner=True,
+            planner_uncertainty_threshold=0.01,
+            planner_max_targets=3,
+        )
+        summary = result["generation_summaries"][-1]
+        assert "planned_experiment_targets" in summary
+        assert "phase_uncertainty_score" in summary
+        assert "planner_iteration" in summary
+
+    def test_experiment_planner_fields_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        summary = result["generation_summaries"][-1]
+        assert "planned_experiment_targets" not in summary
+        assert "phase_uncertainty_score" not in summary
+        assert "planner_iteration" not in summary
+
+
+    def test_phase_diagram_3d_fields_opt_in(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_experiment_planner=True,
+            planner_uncertainty_threshold=0.01,
+            planner_max_targets=3,
+            enable_phase_diagram_3d=True,
+        )
+        assert "phase_diagram_3d_path" in result
+        assert "phase_diagram_3d_num_targets" in result
+
+    def test_phase_diagram_3d_fields_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "phase_diagram_3d_path" not in result
+        assert "phase_diagram_3d_num_targets" not in result

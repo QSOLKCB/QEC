@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[37.0.0] — Spectral Gradient Optimization
+
+Added
+
+- Spectral gradient estimation utilities for deterministic trajectory-based direction inference.
+- Optional gradient-guided mutation target proposal hooks in discovery.
+- Trajectory compression support via configurable `save_every_n_steps` recording.
+- Smooth trajectory sonification with interpolated spectral glissandos.
+- Improved trajectory audio playback via `sonify_trajectory_smooth(...)`.
+
 [36.0.0] — Spectral Trajectory Recording & Phase-Space Analysis
 
 Added

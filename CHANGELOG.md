@@ -4,6 +4,32 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[35.0.0] — Spectral Geometry & Trust-Region Mutation Control
+
+Added
+
+- **Spectral mutation trust region** (`src/qec/discovery/mutation_trust_region.py`):
+  Introduces `SpectralTrustRegion` for bounding mutation step size in
+  spectral feature space using deterministic Euclidean distance.
+
+- **Spectral geometry metrics** (`src/qec/analysis/spectral_geometry.py`):
+  Adds lightweight deterministic helpers for spectral distance,
+  entropy, and trajectory diversity metrics.
+
+- **Basin switch detection upgrade** (`src/qec/discovery/basin_switch_detector.py`):
+  Adds a threshold-based detector for abrupt spectral-space transitions,
+  integrated as an opt-in feature in discovery-loop summaries.
+
+Updated
+
+- **Discovery loop integration** (`src/qec/discovery/discovery_engine.py`):
+  Adds opt-in trust-region mutation rejection and opt-in basin-switch
+  logging while preserving deterministic default behavior.
+
+- **Tests** (`tests/test_spectral_geometry.py`,
+  `tests/test_mutation_trust_region.py`): Adds deterministic coverage for
+  spectral distance, trust-region rejection, and basin-switch thresholds.
+
 ---
 
 Changelog

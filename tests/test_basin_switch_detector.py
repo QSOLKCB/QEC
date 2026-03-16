@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from src.qec.analysis.basin_switch_detector import detect_basin_switch
+from src.qec.discovery.basin_switch_detector import BasinSwitchDetector
 
 
-def test_detects_metastable_switch() -> None:
-    prev_sig = {"spectral_radius": 1.2, "mode_ipr": 0.10}
-    new_sig = {"spectral_radius": 1.2000000001, "mode_ipr": 0.20}
-    assert detect_basin_switch(prev_sig, new_sig, spectral_radius_eps=1e-6, ipr_delta_threshold=0.05) == "metastable_switch"
+def test_no_basin_switch_when_distance_small() -> None:
+    detector = BasinSwitchDetector(threshold=0.5)
+    prev = [1.0, 0.2, 0.1]
+    new = [1.1, 0.25, 0.15]
+    assert detector.detect(prev, new) is False
 
 
-def test_detects_stable_transition() -> None:
-    prev_sig = {"spectral_radius": 1.2, "mode_ipr": 0.10}
-    new_sig = {"spectral_radius": 1.25, "mode_ipr": 0.12}
-    assert detect_basin_switch(prev_sig, new_sig) == "stable"
+def test_basin_switch_when_distance_large() -> None:
+    detector = BasinSwitchDetector(threshold=0.5)
+    prev = [1.0, 0.2, 0.1]
+    new = [2.0, 1.0, 0.8]
+    assert detector.detect(prev, new) is True

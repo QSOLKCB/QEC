@@ -119,6 +119,18 @@ def run_discovery_experiment(
         "results": artifact_results,
     }
 
+    for key in (
+        "agent_assignments",
+        "agent_spacing",
+        "cooperative_coverage",
+        "frontier_exploration_rate",
+        "agent_messages",
+        "coordination_state",
+        "agent_region_overlap",
+    ):
+        if key in result:
+            artifact["results"][key] = result[key]
+
     artifact = canonicalize(artifact)
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)

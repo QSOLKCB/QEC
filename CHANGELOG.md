@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[45.0.0] — Cooperative Multi-Agent Spectral Exploration
+
+Added
+
+- Cooperative region planning for discovery agents.
+- Agent coordination state tracking for shared targets and explored regions.
+- Inter-agent spacing policies to reduce redundant spectral exploration.
+- Shared agent messaging primitives for cooperative discovery signals.
+- Cooperative exploration metrics and logging artifacts.
+- Frontier detection and frontier-guided cooperative targeting in spectral space.
 [44.0.0] — Multi-Agent Spectral Discovery
 
 Added

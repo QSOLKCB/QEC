@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import struct
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -65,6 +66,17 @@ from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matr
 from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
 from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
 from src.qec.discovery.spectral_gradient_mutation import propose_gradient_step
+from src.qec.discovery.cooperative_region_planner import plan_agent_targets
+from src.qec.discovery.agent_coordination import AgentCoordinationState
+from src.qec.discovery.agent_messages import AgentMessage, FRONTIER_EXPLORED, REGION_EXPLORED
+from src.qec.analysis.agent_spacing import enforce_agent_spacing
+from src.qec.analysis.cooperative_metrics import (
+    agent_region_overlap,
+    agent_spacing_distance,
+    cooperative_coverage,
+    frontier_exploration_rate,
+)
+from src.qec.analysis.spectral_frontiers import detect_spectral_frontiers
 from src.qec.discovery.discovery_agent import DiscoveryAgent
 from src.qec.discovery.multi_agent_coordinator import MultiAgentCoordinator
 from src.qec.discovery.autonomous_scheduler import schedule_next_experiment
@@ -145,6 +157,10 @@ def run_structure_discovery(
     trajectory_recorder: SpectralTrajectoryRecorder | None = None,
     enable_spectral_gradient: bool = False,
     gradient_step_size: float = 0.1,
+    enable_cooperative_agents: bool = False,
+    cooperative_min_distance: float = 0.3,
+    enable_frontier_guidance: bool = False,
+    frontier_distance_threshold: float = 0.5,
     enable_multi_agent_discovery: bool = False,
     num_agents: int = 4,
     landscape_regions: list[list[float]] | None = None,
@@ -270,6 +286,13 @@ def run_structure_discovery(
     if enable_spectral_trajectory and trajectory_recorder is None:
         trajectory_recorder = SpectralTrajectoryRecorder()
 
+    coordination_state = AgentCoordinationState() if enable_cooperative_agents else None
+    agent_assignment_history: list[dict[str, list[float] | None]] = []
+    agent_spacing_history: list[float] = []
+    cooperative_coverage_history: list[float] = []
+    frontier_exploration_rate_history: list[float] = []
+    agent_region_overlap_history: list[float] = []
+    agent_messages: list[dict[str, Any]] = []
     agents: list[DiscoveryAgent] = []
     agent_artifacts: list[dict[str, Any]] = []
     if enable_multi_agent_discovery:
@@ -365,6 +388,80 @@ def run_structure_discovery(
         # Select elites for mutation (top half)
         n_elites = max(1, len(population) // 2)
         elites = population[:n_elites]
+
+        cooperative_assignments: dict[str, np.ndarray | None] = {}
+        frontier_assignments: dict[str, np.ndarray | None] = {}
+        frontier_regions: list[np.ndarray] = []
+        if enable_cooperative_agents:
+            agents = [
+                SimpleNamespace(agent_id=str(elite.get("candidate_id", f"agent_{idx}")))
+                for idx, elite in enumerate(elites)
+            ]
+            candidate_regions = [
+                _objective_spectrum(elite.get("objectives", {}))
+                for elite in elites
+            ]
+            memory = {
+                "region_centers": candidate_regions,
+                "candidate_regions": candidate_regions,
+            }
+            frontier_regions = detect_spectral_frontiers(memory, frontier_distance_threshold)
+            if enable_frontier_guidance and frontier_regions:
+                cooperative_assignments = plan_agent_targets(
+                    agents,
+                    {"region_centers": frontier_regions},
+                )
+                frontier_assignments = dict(cooperative_assignments)
+            else:
+                cooperative_assignments = plan_agent_targets(agents, memory)
+            cooperative_assignments = enforce_agent_spacing(
+                cooperative_assignments,
+                min_distance=cooperative_min_distance,
+            )
+            ordered_assignment = {
+                aid: (
+                    None
+                    if cooperative_assignments[aid] is None
+                    else np.asarray(
+                        cooperative_assignments[aid], dtype=np.float64,
+                    ).tolist()
+                )
+                for aid in sorted(cooperative_assignments.keys())
+            }
+            explored_regions = [
+                cooperative_assignments[aid]
+                for aid in sorted(cooperative_assignments.keys())
+                if cooperative_assignments[aid] is not None
+            ]
+            agent_assignment_history.append(ordered_assignment)
+            agent_spacing_history.append(float(agent_spacing_distance(cooperative_assignments)))
+            cooperative_coverage_history.append(
+                float(cooperative_coverage(explored_regions, candidate_regions)),
+            )
+            frontier_exploration_rate_history.append(
+                float(frontier_exploration_rate(explored_regions, frontier_regions)),
+            )
+            agent_region_overlap_history.append(float(agent_region_overlap(cooperative_assignments)))
+            if coordination_state is not None:
+                if frontier_assignments:
+                    coordination_state.record_frontier_assignments(gen, frontier_assignments)
+                for aid in sorted(cooperative_assignments.keys()):
+                    region = cooperative_assignments[aid]
+                    coordination_state.update_target(aid, region)
+                    if region is None:
+                        continue
+                    coordination_state.record_history(aid, region)
+                    message_type = REGION_EXPLORED
+                    if aid in frontier_assignments and frontier_assignments.get(aid) is not None:
+                        message_type = FRONTIER_EXPLORED
+                    message = AgentMessage(
+                        agent_id=aid,
+                        message_type=message_type,
+                        payload=np.asarray(region, dtype=np.float64).tolist(),
+                        generation=gen,
+                    ).to_dict()
+                    agent_messages.append(message)
+                    coordination_state.record_message(gen, message)
 
         # Detect spectral bad edges and cycle pressure on best
         best_H = elites[0]["H"]
@@ -526,6 +623,21 @@ def run_structure_discovery(
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
 
+            gradient_target_spectrum = None
+            agent_id = str(elite.get("candidate_id", f"agent_{ei}"))
+            if enable_cooperative_agents and agent_id in cooperative_assignments:
+                assigned = cooperative_assignments[agent_id]
+                if assigned is not None:
+                    gradient_target_spectrum = np.asarray(assigned, dtype=np.float64)
+            if enable_spectral_gradient and trajectory_recorder is not None:
+                current_spectrum = _objective_spectrum(elite.get("objectives", {}))
+                gradient = estimate_spectral_gradient(trajectory_recorder.as_array())
+                if gradient.shape == current_spectrum.shape:
+                    gradient_target_spectrum = propose_gradient_step(
+                        current_spectrum,
+                        gradient,
+                        step=gradient_step_size,
+                    )
             routing = _route_exploration_targets(
                 exploration_strategy,
                 gradient_target=gradient_target_spectrum,
@@ -750,6 +862,18 @@ def run_structure_discovery(
     }
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
+    if enable_cooperative_agents:
+        result["agent_assignments"] = agent_assignment_history
+        result["agent_spacing"] = [float(x) for x in agent_spacing_history]
+        result["cooperative_coverage"] = [float(x) for x in cooperative_coverage_history]
+        result["frontier_exploration_rate"] = [
+            float(x) for x in frontier_exploration_rate_history
+        ]
+        result["agent_messages"] = list(agent_messages)
+        result["coordination_state"] = (
+            coordination_state.snapshot() if coordination_state is not None else {}
+        )
+        result["agent_region_overlap"] = [float(x) for x in agent_region_overlap_history]
     if enable_multi_agent_discovery:
         result["agent_artifacts"] = agent_artifacts
         result["num_agents"] = len(agents)

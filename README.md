@@ -16,9 +16,10 @@ to be reproduced exactly across machines and runs.
 
 ## Project Overview
 
-QEC has evolved into a **spectral phase-space exploration system for Tanner graphs**.
+QEC has evolved into a **spectral phase-space exploration and theory generation
+system for Tanner graphs**.
 
-Recent versions of the framework introduce a layered discovery architecture capable of:
+Recent versions introduce a layered discovery architecture capable of:
 
 - detecting **spectral basins** in Tanner-graph space
 - identifying **phase boundaries via ridge detection**
@@ -26,9 +27,12 @@ Recent versions of the framework introduce a layered discovery architecture capa
 - tracing **discovery trajectories across phase space**
 - guiding exploration toward **under-explored phases**
 - actively searching for **entirely new spectral phases**
+- automatically **characterizing newly discovered phases**
+- synthesizing **analytic conjectures from phase data**
 
 This transforms the discovery engine from a mutation-based search system into a
-**deterministic experimental laboratory for Tanner-graph phase structure**.
+**deterministic experimental laboratory for Tanner-graph phase structure and
+decoding theory discovery**.
 
 The framework can now:
 
@@ -37,15 +41,19 @@ The framework can now:
 - reconstruct spectral phase diagrams
 - steer discovery toward unexplored structural regimes
 - detect candidate **new decoding phases**
+- characterize spectral regimes automatically
+- generate candidate **theoretical relationships between spectral metrics and decoding behavior**
 
 All experiments remain **fully deterministic**, ensuring exact reproducibility
 of discovery trajectories and experimental artifacts.
 
-[![Release v60.0.0](https://img.shields.io/badge/release-v60.0.0-blue)](https://github.com/QSOLKCB/QEC/releases/tag/v60.0.0)
+[![Release v62.0.0](https://img.shields.io/badge/release-v62.0.0-blue)](https://github.com/QSOLKCB/QEC/releases/tag/v62.0.0)
 [![Research Framework](https://img.shields.io/badge/type-research%20framework-blue)]
 [![License: CC BY 4.0](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
-## QEC
+---
+
+# QEC
 ### Deterministic Spectral Discovery for LDPC / QLDPC Tanner Graphs
 
 QEC is a deterministic research framework for studying belief-propagation
@@ -58,6 +66,8 @@ The framework combines:
 - deterministic mutation operators
 - spectral phase-space analysis
 - automated phase discovery
+- automated phase characterization
+- automated spectral conjecture synthesis
 
 to explore how parity-check graph structure influences decoding stability.
 
@@ -71,12 +81,10 @@ spectral phase diagrams and structural maps of decoding stability.
 
 ---
 
-## Discovery Engine Architecture
+# Discovery Engine Architecture
 
-The QEC discovery system now operates as a **layered spectral exploration
-engine**.
-
-System Architecture
+The QEC discovery system now operates as a **layered spectral exploration and
+theory synthesis engine**.
 
 
 Tanner Graph Generation
@@ -104,52 +112,59 @@ Phase Map Reconstruction
 Phase-Guided Exploration
 ↓
 Phase Novelty Discovery
+↓
+Phase Characterization
+↓
+Spectral Theory Synthesis
 
 
 This layered design allows the system to **first analyze the structure of
-Tanner-graph spectral space and then steer discovery through that landscape**.
+Tanner-graph spectral space, then explore it, and finally synthesize candidate
+theoretical explanations for the observed behavior**.
 
 ---
 
-## Spectral Phase-Space Analysis
+# Spectral Phase-Space Analysis
 
 Recent releases introduce tools for analyzing the geometry of Tanner-graph
 spectral space.
 
 These include:
 
-**Spectral Basins**
-
+### Spectral Basins
 Regions of spectral space where belief-propagation dynamics behave similarly.
 
-**Spectral Ridges**
-
+### Spectral Ridges
 High-curvature regions separating decoding regimes and phase boundaries.
 
-**Phase Map Reconstruction**
-
+### Phase Map Reconstruction
 Automatic reconstruction of phase diagrams describing decoding behavior across
 spectral space.
 
-**Discovery Trajectories**
-
+### Discovery Trajectories
 Tracking the path taken by the discovery engine through the spectral landscape.
 
-**Phase-Guided Discovery**
-
+### Phase-Guided Discovery
 Steering graph mutations toward under-explored decoding phases.
 
-**Phase Novelty Discovery**
-
+### Phase Novelty Discovery
 Searching for candidate Tanner-graph structures that lie outside previously
 observed spectral phases.
 
-Together these components allow QEC to function as a **phase exploration system
-for sparse graphical codes**.
+### Phase Characterization
+Automatic classification of discovered phases based on decoding behavior and
+spectral diagnostics.
+
+### Spectral Conjecture Synthesis
+Generation of candidate analytic relationships between spectral metrics and
+decoding performance across discovered phases.
+
+Together these components allow QEC to function as a **deterministic discovery
+system for Tanner-graph phase structure and decoding theory**.
 
 ---
 
-## Deterministic Experiment Design
+# Deterministic Experiment Design
 
 All experiments in QEC are strictly deterministic.
 
@@ -173,7 +188,7 @@ This property allows Tanner-graph discovery experiments to be reproduced exactly
 
 ---
 
-## Research Applications
+# Research Applications
 
 QEC enables research into:
 
@@ -184,13 +199,14 @@ QEC enables research into:
 - LDPC / QLDPC code discovery
 - phase-space structure of decoding dynamics
 - automated discovery of new Tanner-graph regimes
+- automated extraction of decoding-phase theory
 
 The system acts as a **deterministic experimental laboratory for studying
 inference dynamics in sparse graphical models**.
 
 ---
 
-## Project Documents
+# Project Documents
 
 Important project documents:
 
@@ -203,7 +219,7 @@ ROADMAP.md Long-term research direction
 
 ---
 
-## Design Philosophy
+# Design Philosophy
 
 The project follows several guiding principles.
 
@@ -215,7 +231,7 @@ Negative results are data.
 
 ---
 
-## Citation
+# Citation
 
 If you use this framework in research, please cite:
 
@@ -229,7 +245,7 @@ https://orcid.org/0009-0002-4515-9237
 
 ---
 
-## Author
+# Author
 
 Trent Slade  
 QSOL-IMC

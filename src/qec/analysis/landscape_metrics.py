@@ -10,6 +10,8 @@ from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
 def novelty_score(
     spectrum: np.ndarray | list[float],
     memory: SpectralLandscapeMemory,
+    *,
+    reuse_kd_tree: bool = False,
 ) -> float:
     """Compute normalized novelty from nearest-region squared distance."""
     spec = np.asarray(spectrum, dtype=np.float64)
@@ -17,10 +19,7 @@ def novelty_score(
         raise ValueError("spectrum must be 1D")
     if memory.region_count == 0:
         return 1.0
-    centers = memory.centers_array[: memory.region_count]
-    diff = centers - spec
-    dists2 = np.sum(diff * diff, axis=1)
-    min_distance2 = float(np.min(dists2))
+    min_distance2 = memory.nearest_distance2(spec, reuse_index=bool(reuse_kd_tree))
     return float(np.float64(min_distance2) / (np.float64(1.0) + np.float64(min_distance2)))
 
 

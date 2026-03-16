@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[50.0.0] — Self-Reflective Spectral Discovery
+
+Added
+
+- Adds deterministic self-reflective analysis over discovery archives to compare successful vs unsuccessful candidates and estimate structural feature correlations.
+- Adds deterministic structural hypothesis generation and ranking from archive correlations.
+- Adds hypothesis-guided exploration bias and scheduler scoring support via opt-in `strategy="hypothesis_guided"` using weighted combined scoring.
+- Adds opt-in discovery engine self-reflection (`enable_self_reflection`, `reflection_interval`, `hypothesis_weight`) with reflective generation logging fields.
+- Adds deterministic spectral phase-boundary detection from landscape memory and reflective phase-boundary metrics.
+- Adds optional KD-like search-index reuse for landscape nearest-neighbor lookup (`reuse_landscape_kd_tree`) as a behavior-preserving performance optimization.
+- Adds reflective experiment artifact export fields (`hypothesis_list`, `hypothesis_rankings`, `reflection_metrics`) in JSON-safe form.
+- Adds deterministic regression tests for archive analysis, hypothesis generation/ranking, scheduler integration, phase boundaries, and reflective engine reproducibility.
+
 [41.0.0] — Adaptive Spectral Basin Exploration
 
 Added
@@ -135,6 +148,19 @@ Changelog
 All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
+
+[50.0.0] — Self-Reflective Spectral Discovery
+
+Added
+
+- Adds deterministic self-reflective analysis over discovery archives to compare successful vs unsuccessful candidates and estimate structural feature correlations.
+- Adds deterministic structural hypothesis generation and ranking from archive correlations.
+- Adds hypothesis-guided exploration bias and scheduler scoring support via opt-in `strategy="hypothesis_guided"` using weighted combined scoring.
+- Adds opt-in discovery engine self-reflection (`enable_self_reflection`, `reflection_interval`, `hypothesis_weight`) with reflective generation logging fields.
+- Adds deterministic spectral phase-boundary detection from landscape memory and reflective phase-boundary metrics.
+- Adds optional KD-like search-index reuse for landscape nearest-neighbor lookup (`reuse_landscape_kd_tree`) as a behavior-preserving performance optimization.
+- Adds reflective experiment artifact export fields (`hypothesis_list`, `hypothesis_rankings`, `reflection_metrics`) in JSON-safe form.
+- Adds deterministic regression tests for archive analysis, hypothesis generation/ranking, scheduler integration, phase boundaries, and reflective engine reproducibility.
 
 [41.0.0] — Adaptive Spectral Basin Exploration
 

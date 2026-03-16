@@ -32,6 +32,10 @@ def run_discovery_experiment(
     base_seed: int = 0,
     archive_top_k: int = 5,
     output_path: str = "artifacts/discovery_run.json",
+    enable_self_reflection: bool = False,
+    reflection_interval: int = 50,
+    hypothesis_weight: float = 0.5,
+    reuse_landscape_kd_tree: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -62,6 +66,10 @@ def run_discovery_experiment(
         population_size=population_size,
         base_seed=base_seed,
         archive_top_k=archive_top_k,
+        enable_self_reflection=enable_self_reflection,
+        reflection_interval=reflection_interval,
+        hypothesis_weight=hypothesis_weight,
+        reuse_landscape_kd_tree=reuse_landscape_kd_tree,
     )
 
     metadata = collect_environment_metadata(
@@ -92,6 +100,10 @@ def run_discovery_experiment(
                 "population_size": population_size,
                 "base_seed": base_seed,
                 "archive_top_k": archive_top_k,
+                "enable_self_reflection": enable_self_reflection,
+                "reflection_interval": reflection_interval,
+                "hypothesis_weight": hypothesis_weight,
+                "reuse_landscape_kd_tree": reuse_landscape_kd_tree,
             },
             "best_candidate": result["best_candidate"],
             "elite_history": result["elite_history"],
@@ -99,6 +111,12 @@ def run_discovery_experiment(
             "generation_summaries": result["generation_summaries"],
         },
     }
+
+    if enable_self_reflection:
+        artifact["results"]["hypothesis_list"] = result.get("hypothesis_list", [])
+        artifact["results"]["hypothesis_rankings"] = result.get("hypothesis_rankings", [])
+        artifact["results"]["reflection_metrics"] = result.get("reflection_metrics", [])
+        artifact["phase_diagram"] = result.get("phase_diagram", {"regions": [], "phase_boundaries": []})
 
     artifact = canonicalize(artifact)
 

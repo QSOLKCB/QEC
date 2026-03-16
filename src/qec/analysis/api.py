@@ -40,6 +40,11 @@ _MODULES = [
     "spectral_frustration",
     "spectral_entropy",
     "trap_memory",
+    "spectral_basins",
+    "basin_transitions",
+    "basin_statistics",
+    "basin_map_export",
+    "spectral_phase_space",
 ]
 
 for mod in _MODULES:

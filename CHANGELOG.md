@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[39.0.0] — Spectral Basin Topology Mapping
+
+Added
+
+- Spectral basin identification utilities for deterministic trajectory clustering.
+- Basin transition detection helpers for identifying attraction-region switches.
+- Basin size statistics for topology characterization.
+- Optional discovery engine basin topology mapping integration.
+- Basin topology export support with optional phase-space projected basin centers.
+- Minor optimization: basin clustering now uses squared-distance comparison.
+- Improved scaling for large trajectories using vectorized distance checks.
+- Optimized basin clustering using incremental basin-center matrix.
+- Added small capacity preallocation to support large trajectories (100k+ points).
+- Removed repeated `np.vstack` allocations inside the clustering loop.
+
 [37.0.0] — Spectral Gradient Optimization
 
 Added

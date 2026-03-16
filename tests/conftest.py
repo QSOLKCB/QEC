@@ -8,7 +8,9 @@ collection instability.
 import random
 import os
 import numpy as np
+import pytest
 
+from src.qec.testing.experiment_harness import DeterministicExperimentHarness
 from src.qec.dev.test_selection import select_tests_for_changed_files
 
 
@@ -36,3 +38,8 @@ def pytest_collection_modifyitems(config, items):
     selected = {os.path.basename(path) for path in selected}
 
     items[:] = [item for item in items if item.fspath.basename in selected]
+
+
+@pytest.fixture
+def deterministic_harness():
+    return DeterministicExperimentHarness(seed=0)

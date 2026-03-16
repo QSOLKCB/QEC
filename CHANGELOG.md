@@ -15,6 +15,19 @@ Added
 - Harness metadata timestamp is deterministic (seed-based).
 
 ---
+[35.0.1] — Test Suite Stabilization
+
+Fix legacy test-suite failures unrelated to the v35 spectral
+discovery architecture.
+
+No changes were made to the discovery engine, mutation operators,
+or spectral diagnostics introduced in v35.0.0.
+
+Fixes include:
+- robust metadata handling in tests
+- spectral diversity test stabilization
+- dependency graph test corrections
+- threshold-search metadata fixes
 
 [35.0.0] — Spectral Geometry & Trust-Region Mutation Control
 

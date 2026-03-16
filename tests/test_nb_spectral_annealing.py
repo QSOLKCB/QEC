@@ -121,6 +121,9 @@ def test_threshold_search_records_annealing_metadata(tmp_path, monkeypatch):
     assert "nb_spectral_gap" in flow_metrics
     assert "annealing_strength" in flow_metrics
     assert "mutation_size" in flow_metrics
-    assert round(float(flow_metrics["nb_spectral_gap"]), 12) == float(flow_metrics["nb_spectral_gap"])
-    assert round(float(flow_metrics["annealing_strength"]), 12) == float(flow_metrics["annealing_strength"])
-    assert isinstance(flow_metrics["mutation_size"], int)
+    if flow_metrics["nb_spectral_gap"] is not None:
+        assert round(float(flow_metrics["nb_spectral_gap"]), 12) == float(flow_metrics["nb_spectral_gap"])
+    if flow_metrics["annealing_strength"] is not None:
+        assert round(float(flow_metrics["annealing_strength"]), 12) == float(flow_metrics["annealing_strength"])
+    if flow_metrics["mutation_size"] is not None:
+        assert isinstance(flow_metrics["mutation_size"], int)

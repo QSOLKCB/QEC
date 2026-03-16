@@ -73,14 +73,13 @@ def run_decoder_with_rule(
 
     channel = encode_ternary(received)
 
-    # Build adjacency
+    # Build adjacency using only non-zero entries of H
     check_to_vars: list[list[int]] = [[] for _ in range(m)]
     var_to_checks: list[list[int]] = [[] for _ in range(n)]
-    for ci in range(m):
-        for vi in range(n):
-            if H[ci, vi] != 0:
-                check_to_vars[ci].append(vi)
-                var_to_checks[vi].append(ci)
+    rows, cols = np.nonzero(H)
+    for ci, vi in zip(rows, cols):
+        check_to_vars[ci].append(vi)
+        var_to_checks[vi].append(ci)
 
     # Initialize variable-to-check messages from channel values
     v2c = np.zeros((m, n), dtype=np.int8)

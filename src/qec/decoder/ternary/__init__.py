@@ -22,6 +22,17 @@ from .ternary_trapping import (
     detect_persistent_zero_states,
     estimate_trapping_indicator,
 )
+from .ternary_rule_variants import (
+    majority_rule,
+    damped_majority_rule,
+    conflict_averse_rule,
+    parity_pressure_rule,
+    RULE_REGISTRY,
+)
+from .ternary_rule_evaluator import (
+    run_decoder_with_rule,
+    evaluate_decoder_rule,
+)
 
 __all__ = [
     "encode_ternary",
@@ -36,4 +47,11 @@ __all__ = [
     "compute_frustration_index",
     "detect_persistent_zero_states",
     "estimate_trapping_indicator",
+    "majority_rule",
+    "damped_majority_rule",
+    "conflict_averse_rule",
+    "parity_pressure_rule",
+    "RULE_REGISTRY",
+    "run_decoder_with_rule",
+    "evaluate_decoder_rule",
 ]

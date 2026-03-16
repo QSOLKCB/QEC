@@ -1,0 +1,183 @@
+"""
+Deterministic decoder rule evaluation for ternary message passing.
+
+Runs the ternary decoder with alternative update rules and computes
+stability, entropy, conflict, and trapping metrics for each rule.
+
+This module does not modify the existing BP decoder or ternary decoder.
+All operations are fully deterministic.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import numpy as np
+
+from .ternary_messages import encode_ternary
+from .ternary_update_rules import check_node_update
+from .ternary_metrics import (
+    compute_ternary_stability,
+    compute_ternary_entropy,
+    compute_ternary_conflict_density,
+)
+from .ternary_trapping import estimate_trapping_indicator
+from .ternary_rule_variants import RULE_REGISTRY
+
+
+def run_decoder_with_rule(
+    parity_matrix: np.ndarray,
+    received: np.ndarray,
+    rule_name: str,
+    *,
+    max_iterations: int = 20,
+) -> dict[str, Any]:
+    """Run the ternary decoder using a chosen rule variant.
+
+    Reuses the existing decoder infrastructure but substitutes the
+    variable node update with the specified rule from RULE_REGISTRY.
+
+    Parameters
+    ----------
+    parity_matrix : np.ndarray
+        Binary parity check matrix H of shape (m, n).
+    received : np.ndarray
+        Received values of shape (n,).  Encoded to ternary via sign.
+    rule_name : str
+        Name of the rule variant from RULE_REGISTRY.
+    max_iterations : int
+        Maximum number of decoding iterations.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary with keys:
+        - final_messages: np.ndarray of np.int8, shape (n,)
+        - iterations: int
+        - converged: bool
+
+    Raises
+    ------
+    ValueError
+        If rule_name is not in RULE_REGISTRY.
+    """
+    if rule_name not in RULE_REGISTRY:
+        raise ValueError(
+            f"Unknown rule '{rule_name}'. "
+            f"Available: {sorted(RULE_REGISTRY.keys())}"
+        )
+
+    rule_fn = RULE_REGISTRY[rule_name]
+    H = np.asarray(parity_matrix, dtype=np.float64)
+    m, n = H.shape
+
+    channel = encode_ternary(received)
+
+    # Build adjacency
+    check_to_vars: list[list[int]] = [[] for _ in range(m)]
+    var_to_checks: list[list[int]] = [[] for _ in range(n)]
+    for ci in range(m):
+        for vi in range(n):
+            if H[ci, vi] != 0:
+                check_to_vars[ci].append(vi)
+                var_to_checks[vi].append(ci)
+
+    # Initialize variable-to-check messages from channel values
+    v2c = np.zeros((m, n), dtype=np.int8)
+    for ci in range(m):
+        for vi in check_to_vars[ci]:
+            v2c[ci, vi] = channel[vi]
+
+    c2v = np.zeros((m, n), dtype=np.int8)
+
+    converged = False
+    iteration = 0
+
+    for iteration in range(1, max_iterations + 1):
+        prev_v2c = v2c.copy()
+
+        # Check node updates (unchanged — use standard check node rule)
+        for ci in range(m):
+            neighbors = check_to_vars[ci]
+            for vi in neighbors:
+                extrinsic = np.array(
+                    [v2c[ci, vj] for vj in neighbors if vj != vi],
+                    dtype=np.int8,
+                )
+                c2v[ci, vi] = check_node_update(extrinsic)
+
+        # Variable node updates using the selected rule variant
+        for vi in range(n):
+            neighbors = var_to_checks[vi]
+            for ci in neighbors:
+                extrinsic = np.array(
+                    [c2v[cj, vi] for cj in neighbors if cj != ci],
+                    dtype=np.int8,
+                )
+                # Combine extrinsic messages with channel value
+                combined = np.append(extrinsic, channel[vi]).astype(np.int8)
+                v2c[ci, vi] = rule_fn(combined)
+
+        if np.array_equal(v2c, prev_v2c):
+            converged = True
+            break
+
+    # Final decisions using the selected rule
+    final_messages = np.zeros(n, dtype=np.int8)
+    for vi in range(n):
+        neighbors = var_to_checks[vi]
+        incoming = np.array(
+            [c2v[ci, vi] for ci in neighbors],
+            dtype=np.int8,
+        )
+        combined = np.append(incoming, channel[vi]).astype(np.int8)
+        final_messages[vi] = rule_fn(combined)
+
+    return {
+        "final_messages": final_messages,
+        "iterations": iteration,
+        "converged": converged,
+    }
+
+
+def evaluate_decoder_rule(
+    parity_matrix: np.ndarray,
+    received: np.ndarray,
+    rule_name: str,
+    *,
+    max_iterations: int = 20,
+) -> dict[str, np.float64]:
+    """Evaluate a decoder rule variant and compute deterministic metrics.
+
+    Parameters
+    ----------
+    parity_matrix : np.ndarray
+        Binary parity check matrix H of shape (m, n).
+    received : np.ndarray
+        Received values of shape (n,).
+    rule_name : str
+        Name of the rule variant from RULE_REGISTRY.
+    max_iterations : int
+        Maximum number of decoding iterations.
+
+    Returns
+    -------
+    dict[str, np.float64]
+        Dictionary with keys:
+        - stability: np.float64
+        - entropy: np.float64
+        - conflict_density: np.float64
+        - trapping_indicator: np.float64
+    """
+    result = run_decoder_with_rule(
+        parity_matrix, received, rule_name,
+        max_iterations=max_iterations,
+    )
+    msgs = result["final_messages"]
+
+    return {
+        "stability": compute_ternary_stability(msgs),
+        "entropy": compute_ternary_entropy(msgs),
+        "conflict_density": compute_ternary_conflict_density(msgs),
+        "trapping_indicator": estimate_trapping_indicator(msgs, parity_matrix),
+    }

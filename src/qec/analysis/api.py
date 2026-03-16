@@ -390,6 +390,36 @@ def estimate_trapping_indicator(messages: np.ndarray, parity_matrix: np.ndarray)
     return _impl(messages, parity_matrix)
 
 
+def run_decoder_with_rule(
+    parity_matrix: np.ndarray,
+    received: np.ndarray,
+    rule_name: str,
+    *,
+    max_iterations: int = 20,
+) -> dict[str, Any]:
+    """Public wrapper for deterministic ternary decoder with rule variant."""
+    from src.qec.decoder.ternary.ternary_rule_evaluator import run_decoder_with_rule as _impl
+    return _impl(parity_matrix, received, rule_name, max_iterations=max_iterations)
+
+
+def evaluate_decoder_rule(
+    parity_matrix: np.ndarray,
+    received: np.ndarray,
+    rule_name: str,
+    *,
+    max_iterations: int = 20,
+) -> dict[str, np.float64]:
+    """Public wrapper for deterministic decoder rule evaluation."""
+    from src.qec.decoder.ternary.ternary_rule_evaluator import evaluate_decoder_rule as _impl
+    return _impl(parity_matrix, received, rule_name, max_iterations=max_iterations)
+
+
+def list_decoder_rules() -> list[str]:
+    """Public wrapper returning sorted list of available decoder rule names."""
+    from src.qec.decoder.ternary.ternary_rule_variants import RULE_REGISTRY
+    return sorted(RULE_REGISTRY.keys())
+
+
 def construct_phase_map(
     basins: list[dict[str, Any]],
     ridges: list[dict[str, Any]],

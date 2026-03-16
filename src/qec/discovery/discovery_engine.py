@@ -51,6 +51,7 @@ from src.qec.discovery.diversity import (
 from src.qec.discovery.basin_switch_detector import BasinSwitchDetector
 from src.qec.discovery.mutation_trust_region import SpectralTrustRegion
 from src.qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
+from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
 
 
 _ROUND = 12
@@ -105,6 +106,8 @@ def run_structure_discovery(
     trust_region_radius: float = 0.25,
     enable_basin_switch_detection: bool = False,
     basin_switch_threshold: float = 0.5,
+    enable_spectral_trajectory: bool = False,
+    trajectory_recorder: SpectralTrajectoryRecorder | None = None,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -150,6 +153,10 @@ def run_structure_discovery(
         Enable opt-in basin switch detection in discovery logs. Default False.
     basin_switch_threshold : float
         Spectral jump threshold for basin switch detection.
+    enable_spectral_trajectory : bool
+        Enable opt-in spectral trajectory recording. Default False.
+    trajectory_recorder : SpectralTrajectoryRecorder or None
+        Optional externally managed recorder for trajectory capture.
 
     Returns
     -------
@@ -175,6 +182,8 @@ def run_structure_discovery(
         if enable_basin_switch_detection
         else None
     )
+    if enable_spectral_trajectory and trajectory_recorder is None:
+        trajectory_recorder = SpectralTrajectoryRecorder()
 
     # ── Step 1: Initialize population ──────────────────────────────
     init_seed = _derive_seed(base_seed, "init")
@@ -339,6 +348,10 @@ def run_structure_discovery(
                 repaired_spectrum = _objective_spectrum(repaired_objectives)
                 basin_switch = basin_detector.detect(prev_spectrum, repaired_spectrum)
 
+            if enable_spectral_trajectory and trajectory_recorder is not None:
+                current_spectrum = _objective_spectrum(repaired_objectives)
+                trajectory_recorder.record(current_spectrum)
+
             # Diversity penalty
             child_sig = compute_structure_signature(H_repaired)
             diversity_penalty = compute_diversity_penalty(
@@ -403,13 +416,16 @@ def run_structure_discovery(
     best_candidate = population[0] if population else None
     archive_summary = get_archive_summary(archive)
 
-    return {
+    result = {
         "best_candidate": _serialize_candidate(best_candidate) if best_candidate else None,
         "best_H": best_candidate["H"] if best_candidate else None,
         "elite_history": elite_history,
         "archive_summary": archive_summary,
         "generation_summaries": generation_summaries,
     }
+    if enable_spectral_trajectory and trajectory_recorder is not None:
+        result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
+    return result
 
 
 def _make_generation_summary(

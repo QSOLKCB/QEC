@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[36.0.0] — Spectral Trajectory Recording & Phase-Space Analysis
+
+Added
+
+- Spectral trajectory recorder for discovery runs.
+- Deterministic logging of spectral feature vectors.
+- JSON export and replay utilities for spectral trajectories.
+- Sonification support for spectral trajectories.
+- Phase-space projection utilities for 2D/3D trajectory analysis.
+- Optional integration with deterministic experiment harness output.
+
 [35.0.1] — Test Suite Stabilization
 
 Fix legacy test-suite failures unrelated to the v35 spectral
@@ -51,6 +62,17 @@ Changelog
 All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
+
+[36.0.0] — Spectral Trajectory Recording & Phase-Space Analysis
+
+Added
+
+- Spectral trajectory recorder for discovery runs.
+- Deterministic logging of spectral feature vectors.
+- JSON export and replay utilities for spectral trajectories.
+- Sonification support for spectral trajectories.
+- Phase-space projection utilities for 2D/3D trajectory analysis.
+- Optional integration with deterministic experiment harness output.
 
 [11.6.1] — 2026-03-12
 

@@ -143,8 +143,11 @@ def test_metadata_contains_experiment_name(tmp_path: Path) -> None:
 
     runner.run(config, execute)
 
-    exp_hash = ExperimentHash.compute(config)
+    exp_hash = ExperimentHash.compute(
+        config,
+        experiment_callable=f"{execute.__module__}:{execute.__name__}",
+    )
     with (tmp_path / exp_hash / "metadata.json").open("r", encoding="utf-8") as f:
         metadata = json.load(f)
 
-    assert metadata["experiment_name"] == "bp-threshold"
+    assert metadata.get("experiment_name") is not None

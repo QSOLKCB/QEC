@@ -83,26 +83,13 @@ def conflict_averse_rule(messages: np.ndarray) -> np.int8:
 
 
 def parity_pressure_rule(messages: np.ndarray) -> np.int8:
-    """Uses parity pressure based on the sign of the sum.
+    """Parity pressure rule based on sign of the sum.
 
-    Parameters
-    ----------
-    messages : np.ndarray of np.int8
-        Incoming ternary messages with values in {-1, 0, +1}.
-
-    Returns
-    -------
-    np.int8
-        +1 if sum > 0, -1 if sum < 0, 0 if sum == 0.
+    This is functionally equivalent to majority_rule for ternary
+    messages in {-1, 0, +1}. Implemented as a thin wrapper to avoid
+    duplication and ambiguity between rules.
     """
-    arr = np.asarray(messages, dtype=np.int8).ravel()
-    total = np.sum(arr, dtype=np.int64)
-    if total > 0:
-        return np.int8(1)
-    elif total < 0:
-        return np.int8(-1)
-    else:
-        return np.int8(0)
+    return majority_rule(messages)
 
 
 # Deterministic rule registry with stable insertion order.

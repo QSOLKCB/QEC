@@ -31,6 +31,9 @@ def run_discovery_experiment(
     population_size: int = 8,
     base_seed: int = 0,
     archive_top_k: int = 5,
+    enable_bayesian_model: bool = False,
+    bayesian_length_scale: float = 1.0,
+    bayesian_noise: float = 1e-6,
     output_path: str = "artifacts/discovery_run.json",
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
@@ -62,6 +65,9 @@ def run_discovery_experiment(
         population_size=population_size,
         base_seed=base_seed,
         archive_top_k=archive_top_k,
+        enable_bayesian_model=enable_bayesian_model,
+        bayesian_length_scale=bayesian_length_scale,
+        bayesian_noise=bayesian_noise,
     )
 
     metadata = collect_environment_metadata(
@@ -92,6 +98,9 @@ def run_discovery_experiment(
                 "population_size": population_size,
                 "base_seed": base_seed,
                 "archive_top_k": archive_top_k,
+                "enable_bayesian_model": enable_bayesian_model,
+                "bayesian_length_scale": bayesian_length_scale,
+                "bayesian_noise": bayesian_noise,
             },
             "best_candidate": result["best_candidate"],
             "elite_history": result["elite_history"],

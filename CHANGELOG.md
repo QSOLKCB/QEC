@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[47.0.0] — Bayesian Spectral Landscape Modeling
+
+Added
+
+- Adds Bayesian modeling of the spectral landscape using a deterministic kernel regression model.
+- Adds opt-in Bayesian candidate prioritization via expected improvement in the discovery engine.
+- Adds deterministic spectral dataset extraction from archive history.
+- Adds deterministic generation-summary logging fields: `bayesian_prediction_mean`, `bayesian_prediction_uncertainty`, and `expected_improvement` when Bayesian mode is enabled.
+- Adds deterministic tests for dataset extraction, model prediction determinism, expected-improvement stability, Bayesian ranking reproducibility, and discovery integration determinism.
+
 [41.0.0] — Adaptive Spectral Basin Exploration
 
 Added

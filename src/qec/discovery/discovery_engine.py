@@ -71,6 +71,9 @@ from src.qec.analysis.exploration_metrics import (
     exploration_entropy,
     mean_basin_duration,
 )
+from src.qec.analysis.spectral_dataset import build_spectral_dataset
+from src.qec.analysis.bayesian_landscape_model import BayesianSpectralModel
+from src.qec.analysis.expected_improvement import rank_candidates_bayesian
 from src.qec.discovery.exploration_policy import (
     apply_escape_feedback_bias,
     choose_exploration_strategy,
@@ -157,6 +160,9 @@ def run_structure_discovery(
     basin_escape_step: float = 0.3,
     enable_basin_topology_mapping: bool = False,
     basin_distance_threshold: float = 0.25,
+    enable_bayesian_model: bool = False,
+    bayesian_length_scale: float = 1.0,
+    bayesian_noise: float = 1e-6,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -264,6 +270,15 @@ def run_structure_discovery(
     if enable_basin_topology_mapping and not enable_spectral_trajectory and trajectory_recorder is None:
         trajectory_recorder = SpectralTrajectoryRecorder()
 
+    bayesian_model = (
+        BayesianSpectralModel(
+            length_scale=bayesian_length_scale,
+            noise=bayesian_noise,
+        )
+        if enable_bayesian_model
+        else None
+    )
+
     # ── Step 1: Initialize population ──────────────────────────────
     init_seed = _derive_seed(base_seed, "init")
     raw_candidates = generate_tanner_graph_candidates(
@@ -315,6 +330,13 @@ def run_structure_discovery(
     # Update archive with initial population
     archive = update_discovery_archive(archive, population)
 
+    bayesian_best_value = 0.0
+    if enable_bayesian_model and bayesian_model is not None:
+        X, y = build_spectral_dataset(archive)
+        bayesian_model.fit(X, y)
+        bayesian_best_value = float(np.max(y)) if y.size > 0 else 0.0
+        population = rank_candidates_bayesian(population, bayesian_model, bayesian_best_value)
+
     # Record generation 0
     best = population[0] if population else None
     if best:
@@ -324,12 +346,25 @@ def run_structure_discovery(
             "composite_score": best["objectives"].get("composite_score", 0.0),
             "instability_score": best["objectives"].get("instability_score", 0.0),
         })
-        generation_summaries.append(_make_generation_summary(0, population, archive))
+        generation_summaries.append(
+            _make_generation_summary(
+                0,
+                population,
+                archive,
+                bayesian_enabled=enable_bayesian_model,
+            )
+        )
         basin_assignments.append(_candidate_basin_id(best))
 
     # ── Main loop ──────────────────────────────────────────────────
     for gen in range(1, num_generations + 1):
         gen_seed = _derive_seed(base_seed, f"gen_{gen}")
+
+        if enable_bayesian_model and bayesian_model is not None:
+            X, y = build_spectral_dataset(archive)
+            bayesian_model.fit(X, y)
+            bayesian_best_value = float(np.max(y)) if y.size > 0 else 0.0
+            population = rank_candidates_bayesian(population, bayesian_model, bayesian_best_value)
 
         # Select elites for mutation (top half)
         n_elites = max(1, len(population) // 2)
@@ -637,6 +672,9 @@ def run_structure_discovery(
         combined = _rank_candidates(combined)
         population = combined[:population_size]
 
+        if enable_bayesian_model and bayesian_model is not None:
+            population = rank_candidates_bayesian(population, bayesian_model, bayesian_best_value)
+
         # Update archive
         archive = update_discovery_archive(archive, children)
 
@@ -669,6 +707,7 @@ def run_structure_discovery(
                     if enable_adaptive_exploration
                     else None
                 ),
+                bayesian_enabled=enable_bayesian_model,
             )
         )
 
@@ -766,6 +805,7 @@ def _make_generation_summary(
     basin_switch_rate_value: float | None = None,
     exploration_entropy_value: float | None = None,
     escape_success_rate_value: float | None = None,
+    bayesian_enabled: bool = False,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -807,6 +847,10 @@ def _make_generation_summary(
         result["exploration_entropy"] = float(exploration_entropy_value)
     if escape_success_rate_value is not None:
         result["escape_success_rate"] = float(escape_success_rate_value)
+    if bayesian_enabled and best is not None:
+        result["bayesian_prediction_mean"] = float(best.get("bayesian_prediction_mean", 0.0))
+        result["bayesian_prediction_uncertainty"] = float(best.get("bayesian_prediction_uncertainty", 0.0))
+        result["expected_improvement"] = float(best.get("expected_improvement", 0.0))
     return result
 
 

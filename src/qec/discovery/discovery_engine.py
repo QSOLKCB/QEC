@@ -91,6 +91,13 @@ from src.qec.analysis.exploration_metrics import (
 from src.qec.analysis.spectral_dataset import build_spectral_dataset
 from src.qec.analysis.bayesian_landscape_model import BayesianSpectralModel
 from src.qec.analysis.expected_improvement import rank_candidates_bayesian
+from src.qec.analysis.spectral_phase_diagram import (
+    build_phase_diagram_dataset,
+    construct_phase_grid,
+    estimate_stability_surface,
+    detect_phase_boundaries,
+    generate_phase_heatmap,
+)
 from src.qec.discovery.exploration_policy import (
     apply_escape_feedback_bias,
     choose_exploration_strategy,
@@ -214,6 +221,8 @@ def run_structure_discovery(
     enable_information_gain_scheduler: bool = False,
     information_gain_novelty_weight: float = 0.5,
     information_gain_uncertainty_weight: float = 0.5,
+    enable_phase_diagram: bool = False,
+    phase_diagram_resolution: int = 50,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -1134,6 +1143,30 @@ def run_structure_discovery(
     if enable_motif_learning and motif_library is not None:
         result["motif_library_size"] = len(motif_library.motifs)
         result["motifs_used"] = [int(m.get("motif_id", 0)) for m in motif_library.get_motifs()]
+
+    if enable_phase_diagram:
+        phase_dataset = build_phase_diagram_dataset(archive)
+        phase_grid = construct_phase_grid(
+            phase_dataset,
+            grid_resolution=phase_diagram_resolution,
+        )
+        phase_surface = estimate_stability_surface(phase_dataset, phase_grid)
+        phase_boundaries = detect_phase_boundaries(landscape_memory)
+        phase_surface_with_boundaries = {
+            "grid_x": phase_surface["grid_x"],
+            "grid_y": phase_surface["grid_y"],
+            "phase_surface": phase_surface["phase_surface"],
+            "phase_boundaries": phase_boundaries,
+        }
+        heatmap_path = generate_phase_heatmap(phase_surface_with_boundaries)
+        result["phase_diagram_surface"] = phase_surface["phase_surface"].tolist()
+        result["phase_diagram_grid"] = {
+            "grid_x": phase_grid["grid_x"].tolist(),
+            "grid_y": phase_grid["grid_y"].tolist(),
+            "grid_z": phase_grid["grid_z"].tolist(),
+        }
+        result["phase_boundaries"] = phase_boundaries
+        result["phase_heatmap_path"] = heatmap_path
 
     if enable_basin_topology_mapping and trajectory_recorder is not None:
         trajectory = trajectory_recorder.as_array()

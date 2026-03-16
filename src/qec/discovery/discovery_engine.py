@@ -51,7 +51,9 @@ from src.qec.discovery.diversity import (
 from src.qec.discovery.basin_switch_detector import BasinSwitchDetector
 from src.qec.discovery.mutation_trust_region import SpectralTrustRegion
 from src.qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
+from src.qec.analysis.spectral_gradient import estimate_spectral_gradient
 from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
+from src.qec.discovery.spectral_gradient_mutation import propose_gradient_step
 
 
 _ROUND = 12
@@ -108,6 +110,8 @@ def run_structure_discovery(
     basin_switch_threshold: float = 0.5,
     enable_spectral_trajectory: bool = False,
     trajectory_recorder: SpectralTrajectoryRecorder | None = None,
+    enable_spectral_gradient: bool = False,
+    gradient_step_size: float = 0.1,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -272,12 +276,24 @@ def run_structure_discovery(
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
 
+            gradient_target_spectrum = None
+            if enable_spectral_gradient and trajectory_recorder is not None:
+                current_spectrum = _objective_spectrum(elite.get("objectives", {}))
+                gradient = estimate_spectral_gradient(trajectory_recorder.as_array())
+                if gradient.shape == current_spectrum.shape:
+                    gradient_target_spectrum = propose_gradient_step(
+                        current_spectrum,
+                        gradient,
+                        step=gradient_step_size,
+                    )
+
             H_mutated, op_used = mutate_tanner_graph(
                 elite["H"],
                 operator=operator_name,
                 generation=gen,
                 seed=mut_seed,
                 target_edges=guide_edges,
+                target_spectrum=gradient_target_spectrum,
             )
 
             # Find mutated edges for ACE evaluation and incremental updates

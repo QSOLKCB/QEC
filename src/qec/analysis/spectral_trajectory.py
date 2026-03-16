@@ -6,11 +6,18 @@ import numpy as np
 class SpectralTrajectoryRecorder:
     """Records spectral state vectors during discovery runs."""
 
-    def __init__(self):
+    def __init__(self, save_every_n_steps: int = 1):
+        save_every_n = int(save_every_n_steps)
+        if save_every_n < 1:
+            raise ValueError("save_every_n_steps must be >= 1")
+        self.save_every_n_steps = save_every_n
+        self.step_counter = 0
         self.history = []
 
     def record(self, spectrum):
-        self.history.append(np.asarray(spectrum, dtype=np.float64))
+        if self.step_counter % self.save_every_n_steps == 0:
+            self.history.append(np.asarray(spectrum, dtype=np.float64))
+        self.step_counter += 1
 
     def length(self):
         return len(self.history)

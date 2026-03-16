@@ -235,6 +235,34 @@ class TestDiscoveryEngine:
         assert "current_phase_target" not in summary
         assert "phase_guidance_step" not in summary
 
+
+    def test_phase_novelty_discovery_opt_in_exports(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_basin_hopping=True,
+            basin_detection_interval=1,
+            enable_phase_novelty_discovery=True,
+            phase_novelty_interval=1,
+        )
+        assert "novel_phase_candidates" in result
+        assert "novelty_scores" in result
+        summary = result["generation_summaries"][-1]
+        assert "phase_novelty_score" in summary
+        assert "novel_phase_detected" in summary
+
+    def test_phase_novelty_discovery_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "novel_phase_candidates" not in result
+        assert "novelty_scores" not in result
+        summary = result["generation_summaries"][-1]
+        assert "phase_novelty_score" not in summary
+        assert "novel_phase_detected" not in summary
+
     def test_phase_map_reconstruction_default_unchanged(self):
         spec = _default_spec()
         result = run_structure_discovery(spec, num_generations=2, population_size=4)

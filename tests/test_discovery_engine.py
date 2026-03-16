@@ -123,6 +123,190 @@ class TestDiscoveryEngine:
         assert "spectral_dispersion" not in result
 
 
+    def test_basin_hopping_opt_in_exports(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_basin_hopping=True,
+            basin_detection_interval=1,
+        )
+        assert "spectral_basins" in result
+        assert "basin_transition_graph" in result
+        assert "num_detected_basins" in result
+
+        summary = result["generation_summaries"][-1]
+        assert "current_basin_id" in summary
+        assert "basin_hop_attempted" in summary
+
+
+    def test_spectral_ridge_detection_opt_in_exports(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_spectral_ridge_detection=True,
+            ridge_detection_interval=1,
+        )
+        assert "spectral_ridges" in result
+        assert "ridge_graph" in result
+        assert "basin_boundary_segments" in result
+
+        summary = result["generation_summaries"][-1]
+        assert "num_detected_ridges" in summary
+        assert "current_ridge_proximity" in summary
+
+    def test_spectral_ridge_detection_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "spectral_ridges" not in result
+        assert "ridge_graph" not in result
+        assert "basin_boundary_segments" not in result
+        summary = result["generation_summaries"][-1]
+        assert "num_detected_ridges" not in summary
+        assert "current_ridge_proximity" not in summary
+
+    def test_basin_hopping_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "spectral_basins" not in result
+        assert "basin_transition_graph" not in result
+        summary = result["generation_summaries"][-1]
+        assert "current_basin_id" not in summary
+        assert "basin_hop_attempted" not in summary
+
+    def test_phase_map_reconstruction_opt_in_exports(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_basin_hopping=True,
+            basin_detection_interval=1,
+            enable_spectral_ridge_detection=True,
+            ridge_detection_interval=1,
+            enable_phase_map_reconstruction=True,
+            phase_map_interval=1,
+        )
+        assert "phase_map" in result
+        assert "phase_regions" in result
+        assert "phase_boundaries" in result
+        assert "phase_adjacency" in result
+
+        summary = result["generation_summaries"][-1]
+        assert "num_detected_phases" in summary
+        assert "current_phase_id" in summary
+
+
+    def test_phase_guided_discovery_opt_in_exports(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_basin_hopping=True,
+            basin_detection_interval=1,
+            enable_spectral_ridge_detection=True,
+            ridge_detection_interval=1,
+            enable_phase_map_reconstruction=True,
+            phase_map_interval=1,
+            enable_phase_guided_discovery=True,
+            phase_guidance_interval=1,
+        )
+        assert "phase_visit_counts" in result
+        assert "phase_guidance_targets" in result
+        if result["phase_guidance_targets"]:
+            summary = result["generation_summaries"][-1]
+            assert "current_phase_target" in summary
+            assert "phase_guidance_step" in summary
+
+    def test_phase_guided_discovery_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "phase_visit_counts" not in result
+        assert "phase_guidance_targets" not in result
+        summary = result["generation_summaries"][-1]
+        assert "current_phase_target" not in summary
+        assert "phase_guidance_step" not in summary
+
+
+    def test_phase_novelty_discovery_opt_in_exports(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_basin_hopping=True,
+            basin_detection_interval=1,
+            enable_phase_novelty_discovery=True,
+            phase_novelty_interval=1,
+        )
+        assert "novel_phase_candidates" in result
+        assert "novelty_scores" in result
+        summary = result["generation_summaries"][-1]
+        assert "phase_novelty_score" in summary
+        assert "novel_phase_detected" in summary
+
+    def test_phase_novelty_discovery_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "novel_phase_candidates" not in result
+        assert "novelty_scores" not in result
+        summary = result["generation_summaries"][-1]
+        assert "phase_novelty_score" not in summary
+        assert "novel_phase_detected" not in summary
+
+
+
+    def test_phase_characterization_opt_in_exports(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_basin_hopping=True,
+            basin_detection_interval=1,
+            enable_phase_novelty_discovery=True,
+            phase_novelty_interval=1,
+            phase_novelty_threshold=-1.0,
+            enable_phase_characterization=True,
+            phase_characterization_interval=1,
+        )
+        assert "phase_profiles" in result
+        assert "phase_characterization_metrics" in result
+        summary = result["generation_summaries"][-1]
+        assert "phase_characterized" in summary
+        if summary["phase_characterized"]:
+            assert "phase_label" in summary
+
+    def test_phase_characterization_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "phase_profiles" not in result
+        assert "phase_characterization_metrics" not in result
+        summary = result["generation_summaries"][-1]
+        assert "phase_characterized" not in summary
+        assert "phase_label" not in summary
+    def test_phase_map_reconstruction_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "phase_map" not in result
+        assert "phase_regions" not in result
+        assert "phase_boundaries" not in result
+        assert "phase_adjacency" not in result
+        summary = result["generation_summaries"][-1]
+        assert "num_detected_phases" not in summary
+        assert "current_phase_id" not in summary
+
+
 class TestDiscoveryExperiment:
     """Tests for the discovery run experiment."""
 

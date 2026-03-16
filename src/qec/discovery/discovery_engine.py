@@ -58,7 +58,17 @@ from src.qec.analysis.basin_escape_direction import estimate_escape_direction
 from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
 from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
 from src.qec.analysis.landscape_metrics import novelty_score as landscape_novelty_score, landscape_coverage
-from src.qec.analysis.spectral_basins import identify_spectral_basins
+from src.qec.analysis.spectral_basins import (
+    identify_spectral_basins,
+    detect_spectral_basins,
+    build_basin_transition_graph,
+)
+from src.qec.analysis.spectral_ridges import (
+    detect_spectral_ridges,
+    build_ridge_graph,
+    map_ridges_to_basins,
+)
+from src.qec.analysis.spectral_phase_map import construct_phase_map
 from src.qec.discovery.autonomous_scheduler import schedule_autonomous_target
 from src.qec.discovery.experiment_planner import SpectralExperimentPlanner
 from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
@@ -111,11 +121,38 @@ from src.qec.analysis.spectral_phase_diagram import (
     detect_phase_boundaries,
     generate_phase_heatmap,
 )
+from src.qec.discovery.basin_hopping import propose_basin_hop
 from src.qec.discovery.exploration_policy import (
     apply_escape_feedback_bias,
     choose_exploration_strategy,
 )
 from src.qec.discovery.basin_escape_mutation import propose_escape_step
+from src.qec.discovery.phase_guided_search import (
+    propose_phase_guided_step,
+    select_phase_target,
+    update_phase_visit_counts,
+)
+from src.qec.discovery.phase_novelty_search import (
+    compute_phase_novelty_score,
+    detect_new_phase,
+    propose_phase_novelty_step,
+    select_novel_phase_target,
+)
+from src.qec.analysis.phase_characterization import (
+    build_phase_profile,
+    classify_phase,
+    compute_phase_metrics,
+)
+from src.qec.analysis.theory_synthesis import (
+    build_phase_dataset,
+    fit_spectral_models as fit_phase_spectral_models,
+    generate_spectral_conjectures,
+)
+from src.qec.analysis.conjecture_validation import (
+    evaluate_conjecture as _evaluate_conjecture,
+    find_conjecture_counterexamples as _find_conjecture_counterexamples,
+    design_validation_experiment as _design_validation_experiment,
+)
 from src.qec.analysis.discovery_archive_analyzer import analyze_discovery_archive
 from src.qec.analysis.hypothesis_generator import generate_structural_hypotheses
 from src.qec.analysis.hypothesis_ranking import rank_hypotheses
@@ -280,8 +317,25 @@ def run_structure_discovery(
     conjecture_validation_tolerance: float = 0.15,
     counterexample_error_threshold: float = 0.25,
     enable_phase_trajectory: bool = False,
+    enable_basin_hopping: bool = False,
+    basin_detection_interval: int = 200,
+    enable_spectral_ridge_detection: bool = False,
+    ridge_detection_interval: int = 200,
     enable_phase_diagram: bool = False,
     phase_diagram_resolution: int = 50,
+    enable_phase_map_reconstruction: bool = False,
+    phase_map_interval: int = 500,
+    enable_phase_guided_discovery: bool = False,
+    phase_guidance_interval: int = 300,
+    enable_phase_novelty_discovery: bool = False,
+    phase_novelty_interval: int = 400,
+    phase_novelty_threshold: float = 0.5,
+    enable_phase_characterization: bool = False,
+    phase_characterization_interval: int = 500,
+    enable_theory_synthesis: bool = False,
+    theory_synthesis_interval: int = 800,
+    enable_conjecture_validation: bool = False,
+    conjecture_validation_interval: int = 1200,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -429,6 +483,18 @@ def run_structure_discovery(
     generation_summaries: list[dict[str, Any]] = []
     signature_archive: list[tuple[float, ...]] = []
     basin_assignments: list[int] = []
+    latest_spectral_basins: list[dict[str, Any]] = []
+    latest_basin_transition_graph: dict[str, Any] = {"basin_visit_counts": {}, "basin_transitions": []}
+    latest_spectral_ridges: list[dict[str, Any]] = []
+    latest_ridge_graph: dict[str, Any] = {"ridge_nodes": [], "ridge_edges": []}
+    latest_basin_boundary_segments: list[dict[str, Any]] = []
+    latest_phase_map: dict[str, Any] = {"phase_regions": [], "phase_boundaries": [], "phase_adjacency": [], "trajectory_segments": []}
+    phase_visit_counts: dict[int, int] = {}
+    phase_guidance_targets: list[int] = []
+    novelty_scores: list[float] = []
+    novel_phase_candidates: list[list[float]] = []
+    phase_profiles: list[dict[str, Any]] = []
+    phase_characterization_metrics: list[dict[str, Any]] = []
     strategy_history: list[str] = []
     experiment_planner = (
         SpectralExperimentPlanner(
@@ -449,11 +515,15 @@ def run_structure_discovery(
     theory_memory = initialize_theory_memory()
     latest_conjecture_validations: list[dict[str, Any]] = []
     latest_conjecture_counterexamples: list[dict[str, Any]] = []
+    latest_spectral_theory_models: list[dict[str, Any]] = []
+    latest_spectral_conjectures: list[dict[str, Any]] = []
+    conjecture_validation_results: list[dict[str, Any]] = []
+    conjecture_counterexamples: list[dict[str, Any]] = []
+    validation_experiment_targets: list[dict[str, Any]] = []
     escape_attempts = 0
     escape_successes = 0
     basin_centers: dict[int, np.ndarray] = {}
     basin_counts: dict[int, int] = {}
-    basin_assignments: list[int] = []
     basin_escape_events: list[dict[str, Any]] = []
     active_hypotheses: list[dict[str, Any]] = []
     hypothesis_rankings: list[dict[str, Any]] = []
@@ -884,6 +954,87 @@ def run_structure_discovery(
             for idx, child_candidate in enumerate(ordered_child_candidates):
                 child_agent_map[int(child_candidate["elite_index"])] = agents[idx % len(agents)]
 
+        phase_guidance_step = None
+        if enable_phase_guided_discovery and latest_phase_map.get("phase_regions"):
+            interval = int(max(1, phase_guidance_interval))
+            if gen % interval == 0:
+                phase_target = select_phase_target(latest_phase_map, phase_visit_counts)
+                target_phase_id = int(phase_target.get("target_phase_id", -1))
+                if target_phase_id >= 0:
+                    phase_guidance_targets.append(target_phase_id)
+                    if elites:
+                        phase_guidance_step = propose_phase_guided_step(
+                            _objective_spectrum(elites[0].get("objectives", {})),
+                            latest_phase_map,
+                            phase_target,
+                        )
+
+        phase_novelty_step = None
+        phase_novelty_score = None
+        novel_phase_detected = None
+        phase_label = None
+        phase_characterized = False if enable_phase_characterization else None
+        if enable_phase_novelty_discovery and elites:
+            interval = int(max(1, phase_novelty_interval))
+            if gen % interval == 0:
+                candidate_vectors = [
+                    _objective_spectrum(c.get("objectives", {})).astype(np.float64, copy=False)
+                    for c in elites
+                ]
+                known_phase_centroids: list[np.ndarray] = []
+                for rec in latest_phase_map.get("phase_regions", []):
+                    centroid = np.asarray(rec.get("centroid", []), dtype=np.float64).reshape(-1)
+                    if centroid.size > 0:
+                        known_phase_centroids.append(centroid)
+                for basin_id in sorted(basin_centers.keys()):
+                    known_phase_centroids.append(
+                        np.asarray(basin_centers[basin_id], dtype=np.float64).reshape(-1)
+                    )
+                if known_phase_centroids:
+                    novelty_target = select_novel_phase_target(
+                        candidate_vectors,
+                        known_phase_centroids,
+                    )
+                    novelty_vector = np.asarray(
+                        novelty_target.get("novelty_vector", []), dtype=np.float64,
+                    ).reshape(-1)
+                    if novelty_vector.size > 0:
+                        phase_novelty_step = propose_phase_novelty_step(
+                            _objective_spectrum(elites[0].get("objectives", {})),
+                            novelty_vector,
+                        )
+                        phase_novelty_score = compute_phase_novelty_score(
+                            novelty_vector,
+                            known_phase_centroids,
+                        )
+                        novelty_scores.append(float(np.float64(phase_novelty_score)))
+                        detection = detect_new_phase(
+                            novelty_vector,
+                            known_phase_centroids,
+                            threshold=phase_novelty_threshold,
+                        )
+                        novel_phase_detected = bool(detection.get("is_new_phase", False))
+                        if novel_phase_detected:
+                            novel_phase_candidates.append(
+                                novelty_vector.astype(np.float64, copy=False).tolist()
+                            )
+                            if enable_phase_characterization and (gen % int(max(1, phase_characterization_interval)) == 0):
+                                phase_metrics = compute_phase_metrics(
+                                    elites[0].get("H"),
+                                    novelty_vector,
+                                    elites[0].get("objectives", {}),
+                                )
+                                label_record = classify_phase(phase_metrics)
+                                profile = build_phase_profile(
+                                    phase_id=len(phase_profiles),
+                                    metrics=phase_metrics,
+                                    label=label_record,
+                                )
+                                phase_characterization_metrics.append(phase_metrics)
+                                phase_profiles.append(profile)
+                                phase_label = str(label_record.get("phase_label", ""))
+                                phase_characterized = True
+
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
 
@@ -902,6 +1053,10 @@ def run_structure_discovery(
                         gradient,
                         step=gradient_step_size,
                     )
+            if phase_guidance_step is not None:
+                gradient_target_spectrum = np.asarray(phase_guidance_step, dtype=np.float64)
+            if phase_novelty_step is not None:
+                gradient_target_spectrum = np.asarray(phase_novelty_step, dtype=np.float64)
             routing = _route_exploration_targets(
                 exploration_strategy,
                 gradient_target=gradient_target_spectrum,
@@ -1201,6 +1356,123 @@ def run_structure_discovery(
                     latest_conjecture_counterexamples,
                 )
 
+        if enable_theory_synthesis and int(max(1, theory_synthesis_interval)) > 0:
+            if gen % int(max(1, theory_synthesis_interval)) == 0 and phase_profiles:
+                phase_dataset = build_phase_dataset(phase_profiles)
+                latest_spectral_theory_models = fit_phase_spectral_models(
+                    phase_dataset.get("X"), phase_dataset.get("y"),
+                )
+                latest_spectral_conjectures = generate_spectral_conjectures(
+                    latest_spectral_theory_models,
+                    [str(name) for name in phase_dataset.get("feature_names", [])],
+                )
+
+        if enable_conjecture_validation and int(max(1, conjecture_validation_interval)) > 0:
+            if gen % int(max(1, conjecture_validation_interval)) == 0 and phase_profiles:
+                conjectures_to_validate = latest_spectral_conjectures
+                if not conjectures_to_validate and latest_ranked_conjectures:
+                    conjectures_to_validate = latest_ranked_conjectures
+                if conjectures_to_validate:
+                    conjecture_validation_results = []
+                    for conj in conjectures_to_validate:
+                        for profile in phase_profiles:
+                            conjecture_validation_results.append(
+                                _evaluate_conjecture(conj, profile)
+                            )
+                    conjecture_counterexamples = []
+                    for conj in conjectures_to_validate:
+                        conjecture_counterexamples.extend(
+                            _find_conjecture_counterexamples(conj, phase_profiles)
+                        )
+                    conjecture_counterexamples = sorted(
+                        conjecture_counterexamples,
+                        key=lambda r: (-float(r.get("error", 0.0)), int(r.get("phase_id", 0))),
+                    )
+                    validation_experiment_targets = _design_validation_experiment(
+                        conjectures_to_validate[0], phase_profiles,
+                    )
+
+        if enable_basin_hopping and best is not None:
+            interval = int(max(1, basin_detection_interval))
+            if gen % interval == 0:
+                spectra_points = [
+                    _objective_spectrum(c.get("objectives", {})).astype(np.float64)
+                    for c in archive.get("best_by_composite", [])
+                ]
+                if spectra_points:
+                    latest_spectral_basins = detect_spectral_basins(spectra_points)
+                    latest_basin_transition_graph = build_basin_transition_graph(spectra_points, latest_spectral_basins)
+                    _ = propose_basin_hop(
+                        _objective_spectrum(best.get("objectives", {})).astype(np.float64),
+                        latest_spectral_basins,
+                    )
+
+        num_detected_ridges = None
+        current_ridge_proximity = None
+        if enable_spectral_ridge_detection:
+            interval = int(max(1, ridge_detection_interval))
+            if gen % interval == 0:
+                spectra_points = [
+                    _objective_spectrum(c.get("objectives", {})).astype(np.float64)
+                    for c in archive.get("best_by_composite", [])
+                ]
+                if spectra_points:
+                    latest_spectral_ridges = detect_spectral_ridges(spectra_points)
+                    latest_ridge_graph = build_ridge_graph(latest_spectral_ridges)
+                    if enable_basin_hopping:
+                        latest_basin_boundary_segments = map_ridges_to_basins(
+                            latest_spectral_ridges, latest_spectral_basins,
+                        ).get("basin_boundary_segments", [])
+            num_detected_ridges = int(len(latest_spectral_ridges))
+            if best is not None and latest_spectral_ridges:
+                best_spectrum = _objective_spectrum(best.get("objectives", {})).astype(np.float64)
+                ridge_points = np.asarray([r.get("location", []) for r in latest_spectral_ridges], dtype=np.float64)
+                if ridge_points.ndim == 2 and ridge_points.shape[1] == best_spectrum.shape[0]:
+                    distances = np.linalg.norm(ridge_points - best_spectrum, axis=1).astype(np.float64, copy=False)
+                    if distances.size > 0:
+                        current_ridge_proximity = float(np.float64(np.min(distances)))
+            if current_ridge_proximity is None:
+                current_ridge_proximity = 0.0
+
+        num_detected_phases = None
+        current_phase_id = None
+        current_phase_target = None
+        if enable_phase_map_reconstruction:
+            current_phase_id = -1
+            interval = int(max(1, phase_map_interval))
+            if gen % interval == 0:
+                trajectory_points: list[list[float]] = []
+                if enable_spectral_trajectory and trajectory_recorder is not None:
+                    trajectory_points = trajectory_recorder.as_array().astype(np.float64, copy=False).tolist()
+                elif enable_phase_trajectory:
+                    trajectory_points = [[float(np.float64(v)) for v in point] for point in phase_trajectory_points]
+                latest_phase_map = construct_phase_map(
+                    latest_spectral_basins,
+                    latest_spectral_ridges,
+                    latest_phase_surface,
+                    trajectory_points,
+                )
+            num_detected_phases = int(len(latest_phase_map.get("phase_regions", [])))
+            if best is not None and latest_phase_map.get("phase_regions"):
+                best_spectrum = _objective_spectrum(best.get("objectives", {})).astype(np.float64, copy=False)
+                distances: list[tuple[float, int]] = []
+                for rec in latest_phase_map.get("phase_regions", []):
+                    centroid = np.asarray(rec.get("centroid", []), dtype=np.float64).reshape(-1)
+                    if centroid.size == 0:
+                        continue
+                    k = min(best_spectrum.size, centroid.size)
+                    dist = float(np.float64(np.linalg.norm(best_spectrum[:k] - centroid[:k])))
+                    distances.append((dist, int(rec.get("phase_id", 0))))
+                if distances:
+                    distances.sort(key=lambda item: (item[0], item[1]))
+                    current_phase_id = int(distances[0][1])
+
+        if enable_phase_guided_discovery and current_phase_id is not None and current_phase_id >= 0:
+            phase_visit_counts = update_phase_visit_counts(current_phase_id, phase_visit_counts)
+
+        if enable_phase_guided_discovery and phase_guidance_targets:
+            current_phase_target = int(phase_guidance_targets[-1])
+
         operator_weights = compute_adaptive_operator_weights(operator_stats)
         generation_summaries.append(
             _build_generation_summary(
@@ -1269,6 +1541,8 @@ def run_structure_discovery(
                     if enable_experiment_planner
                     else None
                 ),
+                current_basin_id=(int(basin_assignments[-1]) if (enable_basin_hopping and basin_assignments) else None),
+                basin_hop_attempted=(bool(enable_basin_hopping and int(max(1, basin_detection_interval)) > 0 and (gen % int(max(1, basin_detection_interval)) == 0)) if enable_basin_hopping else None),
                 num_validated_conjectures=(
                     int(len(latest_conjecture_validations))
                     if enable_theory_refinement
@@ -1293,6 +1567,36 @@ def run_structure_discovery(
                     float(np.float64(np.mean([v.get("support_score", 0.0) for v in latest_conjecture_validations])))
                     if enable_theory_refinement and latest_conjecture_validations
                     else (0.0 if enable_theory_refinement else None)
+                ),
+                num_detected_ridges=(num_detected_ridges if enable_spectral_ridge_detection else None),
+                current_ridge_proximity=(current_ridge_proximity if enable_spectral_ridge_detection else None),
+                num_detected_phases=(num_detected_phases if enable_phase_map_reconstruction else None),
+                current_phase_id=(current_phase_id if enable_phase_map_reconstruction else None),
+                current_phase_target=(current_phase_target if enable_phase_guided_discovery else None),
+                phase_guidance_step=(phase_guidance_step if enable_phase_guided_discovery else None),
+                phase_novelty_score=(phase_novelty_score if enable_phase_novelty_discovery else None),
+                novel_phase_detected=(novel_phase_detected if enable_phase_novelty_discovery else None),
+                phase_label=(phase_label if enable_phase_characterization else None),
+                phase_characterized=(phase_characterized if enable_phase_characterization else None),
+                num_generated_conjectures=(
+                    int(len(latest_spectral_conjectures))
+                    if enable_theory_synthesis
+                    else None
+                ),
+                best_conjecture_score=(
+                    float(np.float64(latest_spectral_conjectures[0].get("fit_quality", 0.0)))
+                    if enable_theory_synthesis and latest_spectral_conjectures
+                    else (0.0 if enable_theory_synthesis else None)
+                ),
+                num_conjectures_tested=(
+                    int(len(conjecture_validation_results))
+                    if enable_conjecture_validation
+                    else None
+                ),
+                num_counterexamples_found=(
+                    int(len(conjecture_counterexamples))
+                    if enable_conjecture_validation
+                    else None
                 ),
             )
         )
@@ -1322,6 +1626,55 @@ def run_structure_discovery(
         "operator_stats": summarize_operator_statistics(operator_stats),
         "operator_weights": compute_adaptive_operator_weights(operator_stats),
     }
+    if enable_basin_hopping:
+        result["spectral_basins"] = latest_spectral_basins
+        result["basin_transition_graph"] = latest_basin_transition_graph
+        result["num_detected_basins"] = int(len(latest_spectral_basins))
+
+    if enable_spectral_ridge_detection:
+        result["spectral_ridges"] = latest_spectral_ridges
+        result["ridge_graph"] = latest_ridge_graph
+        result["basin_boundary_segments"] = latest_basin_boundary_segments
+
+    if enable_phase_map_reconstruction:
+        result["phase_map"] = latest_phase_map
+        result["phase_regions"] = latest_phase_map.get("phase_regions", [])
+        result["phase_boundaries"] = latest_phase_map.get("phase_boundaries", [])
+        result["phase_adjacency"] = latest_phase_map.get("phase_adjacency", [])
+    if enable_phase_guided_discovery:
+        result["phase_visit_counts"] = {
+            int(k): int(v) for k, v in sorted(phase_visit_counts.items(), key=lambda item: int(item[0]))
+        }
+        result["phase_guidance_targets"] = [int(v) for v in phase_guidance_targets]
+    if enable_phase_novelty_discovery:
+        result["novel_phase_candidates"] = [
+            np.asarray(candidate, dtype=np.float64).tolist()
+            for candidate in novel_phase_candidates
+        ]
+        result["novelty_scores"] = [float(np.float64(v)) for v in novelty_scores]
+    if enable_phase_characterization:
+        result["phase_profiles"] = [dict(profile) for profile in phase_profiles]
+        result["phase_characterization_metrics"] = [dict(metrics) for metrics in phase_characterization_metrics]
+
+    if enable_theory_synthesis:
+        if not latest_spectral_conjectures and phase_profiles:
+            phase_dataset = build_phase_dataset(phase_profiles)
+            latest_spectral_theory_models = fit_phase_spectral_models(
+                phase_dataset.get("X"), phase_dataset.get("y"),
+            )
+            latest_spectral_conjectures = generate_spectral_conjectures(
+                latest_spectral_theory_models,
+                [str(name) for name in phase_dataset.get("feature_names", [])],
+            )
+        result["spectral_theory_models"] = [dict(model) for model in latest_spectral_theory_models]
+        result["spectral_conjectures"] = [dict(item) for item in latest_spectral_conjectures]
+        result["num_generated_conjectures"] = int(len(latest_spectral_conjectures))
+        result["best_conjecture_score"] = (
+            float(np.float64(latest_spectral_conjectures[0].get("fit_quality", 0.0)))
+            if latest_spectral_conjectures
+            else 0.0
+        )
+
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
     if enable_spectral_geometry:
@@ -1444,6 +1797,11 @@ def run_structure_discovery(
         result["conjecture_validations"] = latest_conjecture_validations
         result["conjecture_counterexamples"] = latest_conjecture_counterexamples
 
+    if enable_conjecture_validation:
+        result["conjecture_validation_results"] = [dict(r) for r in conjecture_validation_results]
+        result["conjecture_counterexamples_phase"] = [dict(r) for r in conjecture_counterexamples]
+        result["validation_experiment_targets"] = [dict(r) for r in validation_experiment_targets]
+
     if enable_phase_diagram:
         phase_dataset = build_phase_diagram_dataset(archive)
         phase_grid = construct_phase_grid(
@@ -1559,11 +1917,27 @@ def _build_generation_summary(
     planned_experiment_targets: list[np.ndarray] | None = None,
     phase_uncertainty_score: float | None = None,
     planner_iteration: int | None = None,
+    current_basin_id: int | None = None,
+    basin_hop_attempted: bool | None = None,
     num_validated_conjectures: int | None = None,
     num_supported_conjectures: int | None = None,
     num_fragile_conjectures: int | None = None,
     num_rejected_conjectures: int | None = None,
     mean_theory_support_score: float | None = None,
+    num_detected_ridges: int | None = None,
+    current_ridge_proximity: float | None = None,
+    num_detected_phases: int | None = None,
+    current_phase_id: int | None = None,
+    current_phase_target: int | None = None,
+    phase_guidance_step: np.ndarray | None = None,
+    phase_novelty_score: float | None = None,
+    novel_phase_detected: bool | None = None,
+    phase_label: str | None = None,
+    phase_characterized: bool | None = None,
+    num_generated_conjectures: int | None = None,
+    best_conjecture_score: float | None = None,
+    num_conjectures_tested: int | None = None,
+    num_counterexamples_found: int | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -1646,6 +2020,10 @@ def _build_generation_summary(
         result["phase_uncertainty_score"] = float(np.float64(phase_uncertainty_score))
     if planner_iteration is not None:
         result["planner_iteration"] = int(planner_iteration)
+    if current_basin_id is not None:
+        result["current_basin_id"] = int(current_basin_id)
+    if basin_hop_attempted is not None:
+        result["basin_hop_attempted"] = bool(basin_hop_attempted)
     if num_validated_conjectures is not None:
         result["num_validated_conjectures"] = int(num_validated_conjectures)
     if num_supported_conjectures is not None:
@@ -1656,6 +2034,34 @@ def _build_generation_summary(
         result["num_rejected_conjectures"] = int(num_rejected_conjectures)
     if mean_theory_support_score is not None:
         result["mean_theory_support_score"] = float(np.float64(mean_theory_support_score))
+    if num_detected_ridges is not None:
+        result["num_detected_ridges"] = int(num_detected_ridges)
+    if current_ridge_proximity is not None:
+        result["current_ridge_proximity"] = float(np.float64(current_ridge_proximity))
+    if num_detected_phases is not None:
+        result["num_detected_phases"] = int(num_detected_phases)
+    if current_phase_id is not None:
+        result["current_phase_id"] = int(current_phase_id)
+    if current_phase_target is not None:
+        result["current_phase_target"] = int(current_phase_target)
+    if phase_guidance_step is not None:
+        result["phase_guidance_step"] = np.asarray(phase_guidance_step, dtype=np.float64).tolist()
+    if phase_novelty_score is not None:
+        result["phase_novelty_score"] = float(np.float64(phase_novelty_score))
+    if novel_phase_detected is not None:
+        result["novel_phase_detected"] = bool(novel_phase_detected)
+    if phase_label is not None:
+        result["phase_label"] = str(phase_label)
+    if phase_characterized is not None:
+        result["phase_characterized"] = bool(phase_characterized)
+    if num_generated_conjectures is not None:
+        result["num_generated_conjectures"] = int(num_generated_conjectures)
+    if best_conjecture_score is not None:
+        result["best_conjecture_score"] = float(np.float64(best_conjecture_score))
+    if num_conjectures_tested is not None:
+        result["num_conjectures_tested"] = int(num_conjectures_tested)
+    if num_counterexamples_found is not None:
+        result["num_counterexamples_found"] = int(num_counterexamples_found)
     return result
 
 

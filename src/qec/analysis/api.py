@@ -63,6 +63,11 @@ _MODULES = [
     "spectral_conjecture_validation",
     "spectral_counterexamples",
     "spectral_theory_memory",
+    "spectral_ridges",
+    "spectral_phase_map",
+    "phase_characterization",
+    "theory_synthesis",
+    "conjecture_validation",
 ]
 
 for mod in _MODULES:
@@ -139,6 +144,129 @@ def summarize_theory_memory(theory_memory: dict[str, Any]) -> list[dict[str, Any
     return _impl(theory_memory)
 
 
+
+
+def detect_spectral_ridges(points: list[list[float]] | np.ndarray) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral ridge detection."""
+    from src.qec.analysis.spectral_ridges import detect_spectral_ridges as _impl
+    return _impl(points)
+
+
+def build_ridge_graph(ridges: list[dict[str, Any]]) -> dict[str, Any]:
+    """Public wrapper for deterministic ridge-graph construction."""
+    from src.qec.analysis.spectral_ridges import build_ridge_graph as _impl
+    return _impl(ridges)
+
+
+def map_ridges_to_basins(
+    ridges: list[dict[str, Any]],
+    basins: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Public wrapper for deterministic basin/ridge boundary mapping."""
+    from src.qec.analysis.spectral_ridges import map_ridges_to_basins as _impl
+    return _impl(ridges, basins)
+
+
+def compute_phase_novelty_score(vector: np.ndarray, known_phase_centroids: list[np.ndarray] | np.ndarray) -> float:
+    """Public wrapper for deterministic phase novelty scoring."""
+    from src.qec.discovery.phase_novelty_search import compute_phase_novelty_score as _impl
+    return _impl(vector, known_phase_centroids)
+
+
+def select_novel_phase_target(
+    candidate_vectors: list[np.ndarray] | np.ndarray,
+    known_phase_centroids: list[np.ndarray] | np.ndarray,
+) -> dict[str, np.ndarray]:
+    """Public wrapper for deterministic novelty-target selection."""
+    from src.qec.discovery.phase_novelty_search import select_novel_phase_target as _impl
+    return _impl(candidate_vectors, known_phase_centroids)
+
+
+def propose_phase_novelty_step(current_vector: np.ndarray, novelty_vector: np.ndarray) -> np.ndarray:
+    """Public wrapper for deterministic novelty-guided step proposal."""
+    from src.qec.discovery.phase_novelty_search import propose_phase_novelty_step as _impl
+    return _impl(current_vector, novelty_vector)
+
+
+
+def compute_phase_metrics(graph: np.ndarray, spectrum: np.ndarray, decoder_stats: dict[str, Any] | None) -> dict[str, float]:
+    """Public wrapper for deterministic phase metric computation."""
+    from src.qec.analysis.phase_characterization import compute_phase_metrics as _impl
+    return _impl(graph, spectrum, decoder_stats)
+
+
+def classify_phase(metrics: dict[str, Any]) -> dict[str, str]:
+    """Public wrapper for deterministic phase classification."""
+    from src.qec.analysis.phase_characterization import classify_phase as _impl
+    return _impl(metrics)
+
+
+def build_phase_profile(phase_id: int, metrics: dict[str, Any], label: dict[str, Any] | str) -> dict[str, Any]:
+    """Public wrapper for deterministic phase profile construction."""
+    from src.qec.analysis.phase_characterization import build_phase_profile as _impl
+    return _impl(phase_id, metrics, label)
+
+
+def build_phase_dataset(phase_profiles: Any) -> dict[str, Any]:
+    """Public wrapper for deterministic phase dataset extraction."""
+    from src.qec.analysis.theory_synthesis import build_phase_dataset as _impl
+    return _impl(phase_profiles)
+
+
+def fit_spectral_models(X: Any, y: Any) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral model fitting."""
+    from src.qec.analysis.theory_synthesis import fit_spectral_models as _impl
+    return _impl(X, y)
+
+
+def generate_spectral_conjectures(models: list[dict[str, Any]], feature_names: list[str]) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral conjecture synthesis."""
+    from src.qec.analysis.theory_synthesis import generate_spectral_conjectures as _impl
+    return _impl(models, feature_names)
+
+
+def evaluate_conjecture(conjecture: dict[str, Any], phase_profile: dict[str, Any]) -> dict[str, Any]:
+    """Public wrapper for deterministic conjecture evaluation against a phase profile."""
+    from src.qec.analysis.conjecture_validation import evaluate_conjecture as _impl
+    return _impl(conjecture, phase_profile)
+
+
+def find_conjecture_counterexamples(
+    conjecture: dict[str, Any],
+    phase_profiles: list[dict[str, Any]],
+    error_threshold: float = 0.1,
+    max_counterexamples: int = 128,
+) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic conjecture counterexample detection."""
+    from src.qec.analysis.conjecture_validation import find_conjecture_counterexamples as _impl
+    return _impl(conjecture, phase_profiles, error_threshold=error_threshold, max_counterexamples=max_counterexamples)
+
+
+def design_validation_experiment(
+    conjecture: dict[str, Any],
+    archive: list[dict[str, Any]],
+    num_targets: int = 8,
+) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic validation experiment design."""
+    from src.qec.analysis.conjecture_validation import design_validation_experiment as _impl
+    return _impl(conjecture, archive, num_targets=num_targets)
+
+
+def detect_spectral_basins(points: list[list[float]] | np.ndarray) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral basin detection."""
+    from src.qec.analysis.spectral_basins import detect_spectral_basins as _impl
+    return _impl(points)
+
+
+def build_basin_transition_graph(
+    trajectory: list[list[float]] | np.ndarray,
+    basins: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Public wrapper for deterministic basin transition graph construction."""
+    from src.qec.analysis.spectral_basins import build_basin_transition_graph as _impl
+    return _impl(trajectory, basins)
+
+
 def compute_nb_spectrum(
     H: np.ndarray | scipy.sparse.spmatrix,
     *,
@@ -206,3 +334,43 @@ def enumerate_candidate_swaps(
 
 
 __all__ = [k for k in globals() if not k.startswith("_")]
+
+
+
+def construct_phase_map(
+    basins: list[dict[str, Any]],
+    ridges: list[dict[str, Any]],
+    phase_surface: dict[str, Any] | None,
+    trajectory: list[list[float]] | np.ndarray,
+) -> dict[str, Any]:
+    """Public wrapper for deterministic spectral phase-map construction."""
+    from src.qec.analysis.spectral_phase_map import construct_phase_map as _impl
+    return _impl(basins, ridges, phase_surface, trajectory)
+
+
+def label_phases(basins: list[dict[str, Any]], ridges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic phase labeling from basins/ridges."""
+    from src.qec.analysis.spectral_phase_map import label_phases as _impl
+    return _impl(basins, ridges)
+
+
+def render_phase_map(phase_map: dict[str, Any], output_path: str) -> dict[str, Any]:
+    """Public wrapper for deterministic phase-map rendering."""
+    from src.qec.analysis.spectral_phase_map import render_phase_map as _impl
+    return _impl(phase_map, output_path)
+
+
+def select_phase_target(phase_map: dict[str, Any], phase_visit_counts: dict[int, int]) -> dict[str, int]:
+    """Public wrapper for deterministic phase target selection."""
+    from src.qec.discovery.phase_guided_search import select_phase_target as _impl
+    return _impl(phase_map, phase_visit_counts)
+
+
+def propose_phase_guided_step(
+    current_vector: np.ndarray,
+    phase_map: dict[str, Any],
+    target_phase: dict[str, Any] | int,
+) -> np.ndarray:
+    """Public wrapper for deterministic phase-guided spectral step proposal."""
+    from src.qec.discovery.phase_guided_search import propose_phase_guided_step as _impl
+    return _impl(current_vector, phase_map, target_phase)

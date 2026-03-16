@@ -229,7 +229,11 @@ def generate_phase_heatmap(
     output_path: str = "spectral_phase_diagram.png",
 ) -> str:
     """Generate deterministic spectral phase heatmap image artifact."""
-    if importlib.util.find_spec("matplotlib.pyplot") is None:
+    try:
+        _has_mpl = importlib.util.find_spec("matplotlib") is not None
+    except (ModuleNotFoundError, ValueError):
+        _has_mpl = False
+    if not _has_mpl:
         return _write_fallback_png(output_path)
 
     try:

@@ -17,7 +17,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
-    "pytest-repeat>=0.9"
+    "pytest-repeat>=0.9",
+    "matplotlib>=3.5"
 ]
 
 [tool.pytest.ini_options]

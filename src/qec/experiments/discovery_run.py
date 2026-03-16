@@ -58,6 +58,15 @@ def run_discovery_experiment(
     theory_refinement_interval: int = 200,
     enable_phase_trajectory: bool = False,
     enable_spectral_geometry: bool = False,
+    enable_basin_hopping: bool = False,
+    enable_spectral_ridge_detection: bool = False,
+    enable_phase_map_reconstruction: bool = False,
+    enable_phase_guided_discovery: bool = False,
+    enable_phase_novelty_discovery: bool = False,
+    enable_phase_characterization: bool = False,
+    enable_theory_synthesis: bool = False,
+    enable_conjecture_validation: bool = False,
+    conjecture_validation_interval: int = 1200,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -114,6 +123,15 @@ def run_discovery_experiment(
         theory_refinement_interval=theory_refinement_interval,
         enable_phase_trajectory=enable_phase_trajectory,
         enable_spectral_geometry=enable_spectral_geometry,
+        enable_basin_hopping=enable_basin_hopping,
+        enable_spectral_ridge_detection=enable_spectral_ridge_detection,
+        enable_phase_map_reconstruction=enable_phase_map_reconstruction,
+        enable_phase_guided_discovery=enable_phase_guided_discovery,
+        enable_phase_novelty_discovery=enable_phase_novelty_discovery,
+        enable_phase_characterization=enable_phase_characterization,
+        enable_theory_synthesis=enable_theory_synthesis,
+        enable_conjecture_validation=enable_conjecture_validation,
+        conjecture_validation_interval=conjecture_validation_interval,
     )
 
     metadata = collect_environment_metadata(
@@ -157,6 +175,15 @@ def run_discovery_experiment(
             "theory_refinement_interval": theory_refinement_interval,
             "enable_phase_trajectory": enable_phase_trajectory,
             "enable_spectral_geometry": enable_spectral_geometry,
+            "enable_basin_hopping": enable_basin_hopping,
+            "enable_spectral_ridge_detection": enable_spectral_ridge_detection,
+            "enable_phase_map_reconstruction": enable_phase_map_reconstruction,
+            "enable_phase_guided_discovery": enable_phase_guided_discovery,
+            "enable_phase_novelty_discovery": enable_phase_novelty_discovery,
+            "enable_phase_characterization": enable_phase_characterization,
+            "enable_theory_synthesis": enable_theory_synthesis,
+            "enable_conjecture_validation": enable_conjecture_validation,
+            "conjecture_validation_interval": conjecture_validation_interval,
         },
         "best_candidate": result["best_candidate"],
         "elite_history": result["elite_history"],
@@ -206,6 +233,8 @@ def run_discovery_experiment(
                 "reflection_interval": reflection_interval,
                 "hypothesis_weight": hypothesis_weight,
                 "reuse_landscape_kd_tree": reuse_landscape_kd_tree,
+                "enable_phase_novelty_discovery": enable_phase_novelty_discovery,
+                "enable_phase_characterization": enable_phase_characterization,
             },
             "best_candidate": result["best_candidate"],
             "elite_history": result["elite_history"],
@@ -213,6 +242,16 @@ def run_discovery_experiment(
             "generation_summaries": result["generation_summaries"],
         },
     }
+
+    if enable_phase_guided_discovery:
+        artifact["results"]["phase_visit_counts"] = result.get("phase_visit_counts", {})
+        artifact["results"]["phase_guidance_targets"] = result.get("phase_guidance_targets", [])
+    if enable_phase_novelty_discovery:
+        artifact["results"]["novel_phase_candidates"] = result.get("novel_phase_candidates", [])
+        artifact["results"]["novelty_scores"] = result.get("novelty_scores", [])
+    if enable_phase_characterization:
+        artifact["results"]["phase_profiles"] = result.get("phase_profiles", [])
+        artifact["results"]["phase_characterization_metrics"] = result.get("phase_characterization_metrics", [])
 
     if enable_self_reflection:
         artifact["results"]["hypothesis_list"] = result.get("hypothesis_list", [])

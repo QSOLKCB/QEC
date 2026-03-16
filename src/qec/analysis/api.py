@@ -56,6 +56,9 @@ _MODULES = [
     "hypothesis_ranking",
     "hypothesis_generator",
     "discovery_archive_analyzer",
+    "spectral_theory_dataset",
+    "spectral_theory_models",
+    "spectral_conjectures",
 ]
 
 for mod in _MODULES:
@@ -64,6 +67,30 @@ for mod in _MODULES:
     globals().update(
         {k: v for k, v in module.__dict__.items() if not k.startswith("_")}
     )
+
+
+def build_theory_dataset(archive: dict[str, Any]) -> dict[str, Any]:
+    """Public wrapper for deterministic spectral-theory dataset extraction."""
+    from src.qec.analysis.spectral_theory_dataset import build_theory_dataset as _impl
+    return _impl(archive)
+
+
+def fit_theory_models(dataset: dict[str, Any]) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral-theory model fitting."""
+    from src.qec.analysis.spectral_theory_models import fit_theory_models as _impl
+    return _impl(dataset)
+
+
+def generate_conjectures(fitted_models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral conjecture generation."""
+    from src.qec.analysis.spectral_conjectures import generate_conjectures as _impl
+    return _impl(fitted_models)
+
+
+def rank_conjectures(conjectures: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral conjecture ranking."""
+    from src.qec.analysis.spectral_conjectures import rank_conjectures as _impl
+    return _impl(conjectures)
 
 
 def compute_nb_spectrum(

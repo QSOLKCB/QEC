@@ -62,6 +62,9 @@ from src.qec.analysis.spectral_basins import identify_spectral_basins
 from src.qec.discovery.autonomous_scheduler import schedule_autonomous_target
 from src.qec.discovery.experiment_planner import SpectralExperimentPlanner
 from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
+from src.qec.analysis.spectral_theory_dataset import build_theory_dataset
+from src.qec.analysis.spectral_theory_models import fit_theory_models
+from src.qec.analysis.spectral_conjectures import generate_conjectures, rank_conjectures
 from src.qec.analysis.basin_transitions import detect_basin_transitions
 from src.qec.analysis.basin_statistics import basin_sizes
 from src.qec.analysis.basin_map_export import export_basin_map
@@ -83,6 +86,7 @@ from src.qec.analysis.spectral_frontiers import detect_spectral_frontiers
 from src.qec.discovery.discovery_agent import DiscoveryAgent
 from src.qec.discovery.multi_agent_coordinator import MultiAgentCoordinator
 from src.qec.discovery.autonomous_scheduler import schedule_next_experiment
+from src.qec.discovery.adaptive_operator_weights import compute_adaptive_operator_weights
 from src.qec.discovery.experiment_queue import ExperimentQueue
 from src.qec.analysis.exploration_state import analyze_exploration_state
 from src.qec.analysis.exploration_metrics import (
@@ -111,10 +115,37 @@ from src.qec.analysis.hypothesis_ranking import rank_hypotheses
 from src.qec.discovery.hypothesis_guidance import compute_hypothesis_bias
 from src.qec.discovery.autonomous_scheduler import compute_combined_score
 from src.qec.analysis.spectral_phase_boundaries import detect_phase_boundaries
-from src.qec.analysis.spectral_phase_diagram import generate_spectral_phase_diagram
 
 
 _ROUND = 12
+
+
+def update_operator_success(operator_stats: dict[str, dict[str, float]], operator: str, improvement: float) -> dict[str, dict[str, float]]:
+    """Deterministically update per-operator success counters."""
+    key = str(operator)
+    rec = dict(operator_stats.get(key, {}))
+    trials = int(rec.get("trials", 0)) + 1
+    successes = int(rec.get("successes", 0)) + (1 if float(np.float64(improvement)) > 0.0 else 0)
+    rec["trials"] = trials
+    rec["successes"] = successes
+    rec["success_rate"] = float(np.float64(successes / max(trials, 1)))
+    operator_stats[key] = rec
+    return operator_stats
+
+
+
+def summarize_operator_statistics(operator_stats: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
+    """Return deterministic JSON-safe operator statistics summary."""
+    summary: dict[str, dict[str, float]] = {}
+    for name in sorted(operator_stats.keys()):
+        rec = operator_stats.get(name, {})
+        summary[str(name)] = {
+            "trials": float(np.float64(rec.get("trials", 0.0))),
+            "successes": float(np.float64(rec.get("successes", 0.0))),
+            "success_rate": float(np.float64(rec.get("success_rate", 0.0))),
+        }
+    return summary
+
 _ESCAPE_OPERATORS = [
     "edge_swap",
     "cycle_break",
@@ -228,6 +259,10 @@ def run_structure_discovery(
     planner_max_targets: int = 10,
     enable_phase_diagram_3d: bool = False,
     phase_diagram_3d_path: str | None = None,
+    enable_theory_extraction: bool = False,
+    theory_extraction_interval: int = 200,
+    max_conjectures: int = 10,
+    enable_phase_trajectory: bool = False,
     enable_phase_diagram: bool = False,
     phase_diagram_resolution: int = 50,
 ) -> dict[str, Any]:
@@ -389,6 +424,10 @@ def run_structure_discovery(
     planner_iteration = 0
     latest_uncertainty_map: dict[str, Any] | None = None
     latest_phase_surface: dict[str, Any] | None = None
+    phase_trajectory_points: list[list[float]] = []
+    latest_theory_dataset: dict[str, Any] | None = None
+    latest_ranked_conjectures: list[dict[str, Any]] = []
+    theory_extraction_iteration: int = 0
     escape_attempts = 0
     escape_successes = 0
     basin_centers: dict[int, np.ndarray] = {}
@@ -400,6 +439,15 @@ def run_structure_discovery(
     reflection_metrics: list[dict[str, Any]] = []
     phase_diagram: dict[str, Any] | None = None
     operator_stats: dict[str, dict[str, float]] = {}
+    agent_assignment_history: list[dict[str, Any]] = []
+    agent_spacing_history: list[float] = []
+    cooperative_coverage_history: list[float] = []
+    frontier_exploration_rate_history: list[float] = []
+    agent_region_overlap_history: list[float] = []
+    agent_messages: list[dict[str, Any]] = []
+    coordination_state = AgentCoordinationState() if enable_cooperative_agents else None
+    agent_artifacts: list[dict[str, Any]] = []
+    agents: list[Any] = []
 
     # Build initial population as search states
     population: list[dict[str, Any]] = []
@@ -458,6 +506,10 @@ def run_structure_discovery(
             )
         )
         basin_assignments.append(_candidate_basin_id(best))
+        if enable_phase_trajectory:
+            spectrum0 = _objective_spectrum(best.get("objectives", {}))
+            if spectrum0.shape[0] >= 3:
+                phase_trajectory_points.append([float(np.float64(spectrum0[0])), float(np.float64(spectrum0[1])), float(np.float64(spectrum0[2]))])
 
     # ── Main loop ──────────────────────────────────────────────────
     for gen in range(1, num_generations + 1):
@@ -482,11 +534,12 @@ def run_structure_discovery(
                     curriculum_controller_obj = locals().get("curriculum_controller")
                     motif_clusters = getattr(motif_library_obj, "clusters", [])
                     curriculum_tiers = getattr(curriculum_controller_obj, "tiers", [])
-                    phase_diagram = generate_spectral_phase_diagram(
-                        motif_clusters,
-                        curriculum_tiers,
-                        landscape_memory,
-                    )
+                    phase_diagram = {
+                        "regions": [],
+                        "phase_boundaries": phase_boundaries.get("phase_boundaries", [])
+                        if isinstance(phase_boundaries, dict)
+                        else phase_boundaries,
+                    }
                     metric_entry["phase_boundary_count"] = int(len(phase_boundaries.get("phase_boundaries", [])))
                     metric_entry["phase_diagram"] = phase_diagram
                 reflection_metrics.append(metric_entry)
@@ -1060,6 +1113,17 @@ def run_structure_discovery(
         if best:
             new_basin_id = _candidate_basin_id(best)
             basin_assignments.append(new_basin_id)
+        if enable_phase_trajectory and best is not None:
+            spectrum_best = _objective_spectrum(best.get("objectives", {}))
+            if spectrum_best.shape[0] >= 3:
+                phase_trajectory_points.append([float(np.float64(spectrum_best[0])), float(np.float64(spectrum_best[1])), float(np.float64(spectrum_best[2]))])
+
+        if enable_theory_extraction and int(max(1, theory_extraction_interval)) > 0:
+            if gen % int(max(1, theory_extraction_interval)) == 0:
+                latest_theory_dataset = build_theory_dataset(archive)
+                fitted_models = fit_theory_models(latest_theory_dataset)
+                latest_ranked_conjectures = rank_conjectures(generate_conjectures(fitted_models))
+                theory_extraction_iteration = int(gen)
 
         operator_weights = compute_adaptive_operator_weights(operator_stats)
         generation_summaries.append(
@@ -1178,17 +1242,18 @@ def run_structure_discovery(
                     latest_uncertainty_map.get("uncertainty_map", []), dtype=np.float64,
                 ).tolist(),
             }
-    if enable_phase_diagram_3d and enable_experiment_planner and latest_phase_surface is not None:
+    if (enable_phase_diagram_3d and enable_experiment_planner and latest_phase_surface is not None) or enable_phase_trajectory:
         resolved_phase_diagram_3d_path = (
             str(phase_diagram_3d_path)
             if phase_diagram_3d_path is not None
             else "artifacts/phase_diagram_3d.png"
         )
+        phase_surface_input = latest_phase_surface if latest_phase_surface is not None else None
+        phase_trajectory_input = phase_trajectory_points if enable_phase_trajectory else result.get("planned_experiment_targets")
         phase_diagram_artifact = generate_phase_surface_3d(
-            None,
-            latest_phase_surface,
+            phase_surface_input,
+            phase_trajectory_input,
             resolved_phase_diagram_3d_path,
-            planned_targets=result.get("planned_experiment_targets"),
         )
         result["phase_diagram_3d_path"] = phase_diagram_artifact.get("surface_path")
         result["phase_diagram_3d_num_targets"] = int(
@@ -1197,6 +1262,8 @@ def run_structure_discovery(
         result["phase_diagram_3d_target_points"] = phase_diagram_artifact.get(
             "target_points", []
         )
+    if enable_phase_trajectory:
+        result["phase_diagram_trajectory_length"] = int(len(phase_trajectory_points))
     if enable_cooperative_agents:
         result["agent_assignments"] = agent_assignment_history
         result["agent_spacing"] = [float(x) for x in agent_spacing_history]
@@ -1241,6 +1308,21 @@ def run_structure_discovery(
     if enable_motif_learning and motif_library is not None:
         result["motif_library_size"] = len(motif_library.motifs)
         result["motifs_used"] = [int(m.get("motif_id", 0)) for m in motif_library.get_motifs()]
+
+    if enable_theory_extraction:
+        if latest_theory_dataset is None:
+            latest_theory_dataset = build_theory_dataset(archive)
+            fitted_models = fit_theory_models(latest_theory_dataset)
+            latest_ranked_conjectures = rank_conjectures(generate_conjectures(fitted_models))
+            theory_extraction_iteration = int(num_generations)
+        limited = [dict(c) for c in latest_ranked_conjectures[: int(max(0, max_conjectures))]]
+        result["spectral_conjectures"] = limited
+        result["conjecture_rankings"] = limited
+        result["theory_dataset_size"] = int(latest_theory_dataset.get("dataset_size", 0)) if latest_theory_dataset is not None else 0
+        result["num_conjectures"] = int(len(limited))
+        result["best_conjecture_score"] = float(np.float64(limited[0].get("ranking_score", 0.0))) if limited else 0.0
+        result["best_conjecture_equation"] = str(limited[0].get("equation_string", "")) if limited else ""
+        result["theory_extraction_iteration"] = int(theory_extraction_iteration)
 
     if enable_phase_diagram:
         phase_dataset = build_phase_diagram_dataset(archive)

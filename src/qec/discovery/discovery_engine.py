@@ -56,6 +56,8 @@ from src.qec.analysis.basin_stagnation import detect_basin_stagnation
 from src.qec.analysis.basin_escape_direction import estimate_escape_direction
 from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
 from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
+from src.qec.analysis.curriculum_regions import classify_region_difficulty
+from src.qec.analysis.curriculum_metrics import curriculum_success_rate
 from src.qec.analysis.landscape_metrics import novelty_score as landscape_novelty_score, landscape_coverage
 from src.qec.analysis.spectral_basins import identify_spectral_basins
 from src.qec.analysis.basin_transitions import detect_basin_transitions
@@ -76,6 +78,13 @@ from src.qec.discovery.exploration_policy import (
     choose_exploration_strategy,
 )
 from src.qec.discovery.basin_escape_mutation import propose_escape_step
+from src.qec.discovery.spectral_curriculum import SpectralCurriculumController
+from src.qec.discovery.autonomous_scheduler import schedule_candidate
+from src.qec.discovery.motif_library import MotifLibrary
+from src.qec.discovery.adaptive_operator_weights import (
+    compute_adaptive_operator_weights,
+    deterministic_weighted_choice,
+)
 
 
 _ROUND = 12
@@ -157,6 +166,11 @@ def run_structure_discovery(
     basin_escape_step: float = 0.3,
     enable_basin_topology_mapping: bool = False,
     basin_distance_threshold: float = 0.25,
+    enable_curriculum_learning: bool = False,
+    curriculum_success_threshold: float = 0.2,
+    curriculum_initial_tier: int = 0,
+    enable_motif_clustering: bool = False,
+    enable_operator_stability_guard: bool = True,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -282,6 +296,16 @@ def run_structure_discovery(
     basin_counts: dict[int, int] = {}
     basin_assignments: list[int] = []
     basin_escape_events: list[dict[str, Any]] = []
+    curriculum_controller = None
+    region_tiers: dict[str, list[int]] | None = None
+    curriculum_attempts = 0
+    curriculum_successes = 0
+    if enable_curriculum_learning:
+        curriculum_controller = SpectralCurriculumController(current_tier=int(curriculum_initial_tier))
+    motif_library = MotifLibrary() if enable_motif_clustering else None
+    motif_cluster_count = 0
+    cluster_frequencies: list[int] = []
+    cluster_centroids: list[list[float]] = []
 
     # Build initial population as search states
     population: list[dict[str, Any]] = []
@@ -315,6 +339,20 @@ def run_structure_discovery(
     # Update archive with initial population
     archive = update_discovery_archive(archive, population)
 
+    if enable_motif_clustering and motif_library is not None:
+        initial_motifs = [
+            {
+                "motif_id": int(i),
+                "spectrum": _objective_spectrum(state.get("objectives", {})),
+            }
+            for i, state in enumerate(population)
+        ]
+        motif_library.set_motifs(initial_motifs)
+        clusters = motif_library.cluster_motifs()
+        motif_cluster_count = int(len(clusters))
+        cluster_frequencies = [int(c.get("frequency", 0)) for c in clusters]
+        cluster_centroids = [np.asarray(c.get("centroid", []), dtype=np.float64).tolist() for c in clusters]
+
     # Record generation 0
     best = population[0] if population else None
     if best:
@@ -327,6 +365,16 @@ def run_structure_discovery(
         generation_summaries.append(_make_generation_summary(0, population, archive))
         basin_assignments.append(_candidate_basin_id(best))
 
+    if enable_curriculum_learning and landscape_memory is not None:
+        region_tiers = classify_region_difficulty(landscape_memory)
+        if "tier_2_hard" not in region_tiers and "tier_2_difficult" in region_tiers:
+            region_tiers = {
+                "tier_0_easy": list(region_tiers.get("tier_0_easy", [])),
+                "tier_1_intermediate": list(region_tiers.get("tier_1_intermediate", [])),
+                "tier_2_hard": list(region_tiers.get("tier_2_difficult", [])),
+                "tier_3_frontier": list(region_tiers.get("tier_3_frontier", [])),
+            }
+
     # ── Main loop ──────────────────────────────────────────────────
     for gen in range(1, num_generations + 1):
         gen_seed = _derive_seed(base_seed, f"gen_{gen}")
@@ -334,6 +382,39 @@ def run_structure_discovery(
         # Select elites for mutation (top half)
         n_elites = max(1, len(population) // 2)
         elites = population[:n_elites]
+
+        if enable_curriculum_learning and curriculum_controller is not None:
+            scheduler_candidates = [
+                {
+                    "candidate_id": str(c.get("candidate_id", "")),
+                    "region_index": _curriculum_region_index(
+                        _objective_spectrum(c.get("objectives", {})),
+                        landscape_memory,
+                    ),
+                    "spectrum": _objective_spectrum(c.get("objectives", {})),
+                    "bayesian_uncertainty": float(c.get("novelty", 0.0)),
+                    "objectives": c.get("objectives", {}),
+                }
+                for c in elites
+            ]
+            if region_tiers is None:
+                region_tiers = {
+                    "tier_0_easy": [0],
+                    "tier_1_intermediate": [1],
+                    "tier_2_hard": [2],
+                    "tier_3_frontier": [3],
+                }
+            selected = schedule_candidate(
+                scheduler_candidates,
+                strategy="curriculum_exploration",
+                curriculum_controller=curriculum_controller,
+                region_tiers=region_tiers,
+                memory=landscape_memory,
+                model=None,
+            )
+            if selected is not None:
+                selected_id = str(selected.get("candidate_id", ""))
+                elites = [c for c in elites if str(c.get("candidate_id", "")) == selected_id] or elites
 
         # Detect spectral bad edges and cycle pressure on best
         best_H = elites[0]["H"]
@@ -469,12 +550,50 @@ def run_structure_discovery(
 
         # Mutate elites
         children: list[dict[str, Any]] = []
+        motif_cluster_id_value = None
+        cluster_similarity_value = None
+        cluster_size_value = None
         if use_nb_eigenmode_mutation:
             operator_name = "nb_eigenmode_mutation"
         elif escape_triggered:
             operator_name = _ESCAPE_OPERATORS[gen % len(_ESCAPE_OPERATORS)]
         else:
             operator_name = get_operator_for_generation(gen)
+            if enable_motif_clustering and motif_library is not None:
+                current_spec = _objective_spectrum(elites[0].get("objectives", {}))
+                nearest_cluster = motif_library.get_cluster(current_spec)
+                if nearest_cluster is not None:
+                    motif_cluster_id_value = int(nearest_cluster.get("cluster_id", 0))
+                    centroid = np.asarray(nearest_cluster.get("centroid", current_spec), dtype=np.float64)
+                    distance = float(np.linalg.norm(current_spec - centroid))
+                    cluster_similarity_value = float(np.float64(1.0 / (1.0 + distance)))
+                    cluster_size_value = int(nearest_cluster.get("frequency", 0))
+
+                operator_candidates = [
+                    "edge_swap",
+                    "local_rewire",
+                    "cycle_break",
+                    "degree_preserving_rotation",
+                    "seeded_reconstruction",
+                    "cycle_guided_mutation",
+                    "spectral_pressure_guided_mutation",
+                ]
+                base_weights = np.full(len(operator_candidates), 1.0, dtype=np.float64)
+                success_rates = np.zeros(len(operator_candidates), dtype=np.float64)
+                if operator_name in operator_candidates:
+                    success_rates[operator_candidates.index(operator_name)] = np.float64(1.0)
+                weights = compute_adaptive_operator_weights(
+                    base_weights,
+                    success_rates,
+                    regional_similarity=0.0,
+                    cluster_similarity=(cluster_similarity_value if cluster_similarity_value is not None else 0.0),
+                    enable_stability_guard=enable_operator_stability_guard,
+                )
+                operator_name = deterministic_weighted_choice(
+                    operator_candidates,
+                    weights,
+                    seed=_derive_seed(gen_seed, "motif_cluster_operator"),
+                )
 
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
@@ -622,6 +741,10 @@ def run_structure_discovery(
                     child_score = float(repaired_objectives.get("composite_score", parent_score))
                     if child_score < parent_score:
                         escape_successes += 1
+            if enable_curriculum_learning:
+                curriculum_attempts += 1
+                if float(repaired_objectives.get("composite_score", float("inf"))) < float(parent_composite):
+                    curriculum_successes += 1
             children.append(child_state)
 
         if escape_event is not None:
@@ -654,6 +777,24 @@ def run_structure_discovery(
             new_basin_id = _candidate_basin_id(best)
             basin_assignments.append(new_basin_id)
 
+        curriculum_rate_value = None
+        curriculum_progress_value = None
+        curriculum_tier_value = None
+        curriculum_target_spectrum = None
+        if enable_curriculum_learning and curriculum_controller is not None:
+            rate = curriculum_success_rate(curriculum_successes, curriculum_attempts)
+            curriculum_controller.update_progress(
+                curriculum_successes,
+                curriculum_attempts,
+                curriculum_success_threshold,
+            )
+            curriculum_controller.advance_tier_if_ready(float(rate) >= float(curriculum_success_threshold))
+            curriculum_rate_value = float(curriculum_controller.tier_success_rate)
+            curriculum_progress_value = float(curriculum_controller.tier_progress)
+            curriculum_tier_value = int(curriculum_controller.current_tier)
+            if population:
+                curriculum_target_spectrum = _objective_spectrum(population[0].get("objectives", {})).tolist()
+
         generation_summaries.append(
             _make_generation_summary(
                 gen,
@@ -669,6 +810,13 @@ def run_structure_discovery(
                     if enable_adaptive_exploration
                     else None
                 ),
+                curriculum_tier=curriculum_tier_value,
+                curriculum_progress=curriculum_progress_value,
+                curriculum_success_rate_value=curriculum_rate_value,
+                curriculum_target_spectrum=curriculum_target_spectrum,
+                motif_cluster_id=motif_cluster_id_value,
+                cluster_similarity=cluster_similarity_value,
+                cluster_size=cluster_size_value,
             )
         )
 
@@ -690,6 +838,14 @@ def run_structure_discovery(
         result["landscape_coverage"] = landscape_coverage(landscape_memory)
     if enable_basin_escape:
         result["basin_escape_events"] = basin_escape_events
+    if enable_curriculum_learning and curriculum_controller is not None:
+        result["curriculum_tier"] = int(curriculum_controller.current_tier)
+        result["curriculum_progress"] = float(curriculum_controller.tier_progress)
+        result["curriculum_success_rate"] = float(curriculum_controller.tier_success_rate)
+    if enable_motif_clustering:
+        result["motif_cluster_count"] = int(motif_cluster_count)
+        result["cluster_frequencies"] = [int(x) for x in cluster_frequencies]
+        result["cluster_centroids"] = [[float(v) for v in row] for row in cluster_centroids]
 
     if enable_basin_topology_mapping and trajectory_recorder is not None:
         trajectory = trajectory_recorder.as_array()
@@ -766,6 +922,13 @@ def _make_generation_summary(
     basin_switch_rate_value: float | None = None,
     exploration_entropy_value: float | None = None,
     escape_success_rate_value: float | None = None,
+    curriculum_tier: int | None = None,
+    curriculum_progress: float | None = None,
+    curriculum_success_rate_value: float | None = None,
+    curriculum_target_spectrum: list[float] | None = None,
+    motif_cluster_id: int | None = None,
+    cluster_similarity: float | None = None,
+    cluster_size: int | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -807,6 +970,20 @@ def _make_generation_summary(
         result["exploration_entropy"] = float(exploration_entropy_value)
     if escape_success_rate_value is not None:
         result["escape_success_rate"] = float(escape_success_rate_value)
+    if curriculum_tier is not None:
+        result["curriculum_tier"] = int(curriculum_tier)
+    if curriculum_progress is not None:
+        result["curriculum_progress"] = float(curriculum_progress)
+    if curriculum_success_rate_value is not None:
+        result["curriculum_success_rate"] = float(curriculum_success_rate_value)
+    if curriculum_target_spectrum is not None:
+        result["curriculum_target_spectrum"] = [float(x) for x in curriculum_target_spectrum]
+    if motif_cluster_id is not None:
+        result["motif_cluster_id"] = int(motif_cluster_id)
+    if cluster_similarity is not None:
+        result["cluster_similarity"] = float(cluster_similarity)
+    if cluster_size is not None:
+        result["cluster_size"] = int(cluster_size)
     return result
 
 
@@ -911,6 +1088,24 @@ def _route_exploration_targets(
         return {"target_edges": default_target_edges, "target_spectrum": escape_target}
     return {"target_edges": None, "target_spectrum": None}
 
+
+
+def _curriculum_region_index(
+    spectrum: np.ndarray,
+    landscape_memory: SpectralLandscapeMemory | None,
+) -> int:
+    """Map a spectrum to deterministic landscape-region index."""
+    if landscape_memory is None:
+        return 0
+    centers = np.asarray(landscape_memory.centers(), dtype=np.float64)
+    spec = np.asarray(spectrum, dtype=np.float64)
+    if centers.ndim != 2 or centers.shape[0] == 0:
+        return 0
+    if centers.shape[1] != spec.shape[0]:
+        return 0
+    distances = np.linalg.norm(centers - spec[np.newaxis, :], axis=1)
+    order = np.lexsort((np.arange(distances.shape[0], dtype=np.int64), distances))
+    return int(order[0])
 
 def _safe_escape_success_rate(escape_successes: int, escape_attempts: int) -> float:
     """Compute escape success-rate with deterministic safe division and clamp."""

@@ -32,6 +32,11 @@ def run_discovery_experiment(
     base_seed: int = 0,
     archive_top_k: int = 5,
     output_path: str = "artifacts/discovery_run.json",
+    enable_curriculum_learning: bool = False,
+    curriculum_success_threshold: float = 0.2,
+    curriculum_initial_tier: int = 0,
+    enable_motif_clustering: bool = False,
+    enable_operator_stability_guard: bool = True,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -62,6 +67,11 @@ def run_discovery_experiment(
         population_size=population_size,
         base_seed=base_seed,
         archive_top_k=archive_top_k,
+        enable_curriculum_learning=enable_curriculum_learning,
+        curriculum_success_threshold=curriculum_success_threshold,
+        curriculum_initial_tier=curriculum_initial_tier,
+        enable_motif_clustering=enable_motif_clustering,
+        enable_operator_stability_guard=enable_operator_stability_guard,
     )
 
     metadata = collect_environment_metadata(
@@ -92,6 +102,11 @@ def run_discovery_experiment(
                 "population_size": population_size,
                 "base_seed": base_seed,
                 "archive_top_k": archive_top_k,
+                "enable_curriculum_learning": bool(enable_curriculum_learning),
+                "curriculum_success_threshold": float(curriculum_success_threshold),
+                "curriculum_initial_tier": int(curriculum_initial_tier),
+                "enable_motif_clustering": bool(enable_motif_clustering),
+                "enable_operator_stability_guard": bool(enable_operator_stability_guard),
             },
             "best_candidate": result["best_candidate"],
             "elite_history": result["elite_history"],
@@ -99,6 +114,19 @@ def run_discovery_experiment(
             "generation_summaries": result["generation_summaries"],
         },
     }
+
+
+    if enable_curriculum_learning:
+        artifact["results"]["curriculum_tier"] = int(result.get("curriculum_tier", curriculum_initial_tier))
+        artifact["results"]["curriculum_progress"] = float(result.get("curriculum_progress", 0.0))
+        artifact["results"]["curriculum_success_rate"] = float(result.get("curriculum_success_rate", 0.0))
+
+    if enable_motif_clustering:
+        artifact["results"]["motif_cluster_count"] = int(result.get("motif_cluster_count", 0))
+        artifact["results"]["cluster_frequencies"] = [int(v) for v in result.get("cluster_frequencies", [])]
+        artifact["results"]["cluster_centroids"] = [
+            [float(x) for x in row] for row in result.get("cluster_centroids", [])
+        ]
 
     artifact = canonicalize(artifact)
 

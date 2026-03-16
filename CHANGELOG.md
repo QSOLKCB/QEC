@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[49.0.0] — Spectral Curriculum Learning
+
+Added
+
+- Introduces curriculum-guided exploration where the engine progressively explores spectral regions from easy to frontier difficulty levels.
+- Deterministic spectral difficulty estimation combining instability, distance to successful regions, and model uncertainty.
+- Deterministic region-tier classification (`tier_0_easy` → `tier_3_frontier`) via quantiles.
+- Opt-in curriculum controller and scheduler strategy (`strategy="curriculum_exploration"`) for tier-filtered candidate selection.
+- Discovery-engine and experiment artifact integration for curriculum tier/progress/success-rate logging and export.
+- Determinism-focused tests for difficulty estimation, region classification, scheduler behavior, curriculum progression, and reproducibility.
+- Deterministic spectral motif clustering with centroid/frequency export for phase-region analysis.
+- Opt-in motif-cluster-aware operator weighting with deterministic stability guard (`epsilon=1e-6`) for long-run exploration robustness.
+
 [41.0.0] — Adaptive Spectral Basin Exploration
 
 Added

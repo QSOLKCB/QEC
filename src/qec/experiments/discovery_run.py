@@ -42,6 +42,9 @@ def run_discovery_experiment(
     scheduler_gap_radius: float = 0.3,
     scheduler_max_gaps: int = 16,
     scheduler_queue=None,
+    enable_theory_extraction: bool = False,
+    theory_extraction_interval: int = 200,
+    max_conjectures: int = 10,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -82,6 +85,9 @@ def run_discovery_experiment(
         scheduler_gap_radius=scheduler_gap_radius,
         scheduler_max_gaps=scheduler_max_gaps,
         scheduler_queue=scheduler_queue,
+        enable_theory_extraction=enable_theory_extraction,
+        theory_extraction_interval=theory_extraction_interval,
+        max_conjectures=max_conjectures,
     )
 
     metadata = collect_environment_metadata(
@@ -113,6 +119,9 @@ def run_discovery_experiment(
             "enable_autonomous_scheduler": enable_autonomous_scheduler,
             "scheduler_gap_radius": scheduler_gap_radius,
             "scheduler_max_gaps": scheduler_max_gaps,
+            "enable_theory_extraction": enable_theory_extraction,
+            "theory_extraction_interval": theory_extraction_interval,
+            "max_conjectures": max_conjectures,
         },
         "best_candidate": result["best_candidate"],
         "elite_history": result["elite_history"],
@@ -125,6 +134,11 @@ def run_discovery_experiment(
         artifact_results["scheduler_strategy"] = result.get(
             "scheduler_strategy", "landscape_exploration",
         )
+
+    if enable_theory_extraction:
+        artifact_results["spectral_conjectures"] = result.get("spectral_conjectures", [])
+        artifact_results["conjecture_rankings"] = result.get("conjecture_rankings", [])
+        artifact_results["theory_dataset_size"] = int(result.get("theory_dataset_size", 0))
 
     artifact = {
         "metadata": metadata,

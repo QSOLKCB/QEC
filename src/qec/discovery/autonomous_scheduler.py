@@ -52,3 +52,26 @@ def schedule_autonomous_target(
         "spectral_uncertainty": 0.0,
         "strategy": str(strategy),
     }
+
+
+def schedule_next_experiment(
+    memory: object,
+    *,
+    gap_radius: float = 0.3,
+    max_gaps: int = 16,
+) -> dict[str, Any]:
+    """Backward-compatible deterministic scheduler entry point."""
+    centers_fn = getattr(memory, "centers", None)
+    spectra = []
+    if callable(centers_fn):
+        centers = np.asarray(centers_fn(), dtype=np.float64)
+        if centers.ndim == 2 and centers.shape[0] > 0:
+            spectra = [centers[i] for i in range(centers.shape[0])]
+    scheduled = schedule_autonomous_target(memory, spectra, strategy="frontier")
+    target = scheduled.get("target_spectrum")
+    return {
+        "target_spectrum": target,
+        "strategy": "landscape_exploration",
+        "gap_count": int(min(max_gaps, len(spectra))),
+        "gap_radius": float(np.float64(gap_radius)),
+    }

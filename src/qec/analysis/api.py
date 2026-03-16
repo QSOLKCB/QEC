@@ -126,4 +126,32 @@ def enumerate_candidate_swaps(
     return swaps
 
 
+def build_theory_dataset(archive: dict[str, Any]) -> tuple[np.ndarray, np.ndarray]:
+    """Public wrapper for deterministic spectral theory dataset extraction."""
+    from src.qec.analysis.spectral_theory_dataset import build_theory_dataset as _impl
+
+    return _impl(archive)
+
+
+def fit_spectral_models(X: np.ndarray, y: np.ndarray) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral theory model fitting."""
+    from src.qec.analysis.spectral_theory_models import fit_theory_models
+
+    return fit_theory_models(X, y)
+
+
+def generate_spectral_conjectures(fitted_models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral conjecture generation."""
+    from src.qec.analysis.spectral_conjectures import generate_conjectures
+
+    return generate_conjectures(fitted_models)
+
+
+def rank_spectral_conjectures(conjectures: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral conjecture ranking."""
+    from src.qec.analysis.spectral_conjectures import rank_conjectures
+
+    return rank_conjectures(conjectures)
+
+
 __all__ = [k for k in globals() if not k.startswith("_")]

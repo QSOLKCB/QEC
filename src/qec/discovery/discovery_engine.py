@@ -89,6 +89,13 @@ from src.qec.analysis.exploration_metrics import (
     mean_basin_duration,
 )
 from src.qec.analysis.spectral_dataset import build_spectral_dataset
+from src.qec.analysis.spectral_theory_dataset import build_theory_dataset
+from src.qec.analysis.spectral_theory_models import fit_theory_models
+from src.qec.analysis.spectral_conjectures import (
+    generate_conjectures,
+    rank_conjectures,
+)
+from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
 from src.qec.analysis.bayesian_landscape_model import BayesianSpectralModel
 from src.qec.analysis.expected_improvement import rank_candidates_bayesian
 from src.qec.discovery.exploration_policy import (
@@ -194,6 +201,10 @@ def run_structure_discovery(
     enable_information_gain_scheduler: bool = False,
     information_gain_novelty_weight: float = 0.5,
     information_gain_uncertainty_weight: float = 0.5,
+    enable_theory_extraction: bool = False,
+    theory_extraction_interval: int = 200,
+    max_conjectures: int = 10,
+    enable_phase_trajectory: bool = False,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -313,6 +324,8 @@ def run_structure_discovery(
     if enable_basin_topology_mapping and not enable_spectral_trajectory and trajectory_recorder is None:
         trajectory_recorder = SpectralTrajectoryRecorder()
 
+    scheduler_queue_obj = scheduler_queue
+
     bayesian_model = (
         BayesianSpectralModel(
             length_scale=bayesian_length_scale,
@@ -340,6 +353,25 @@ def run_structure_discovery(
     basin_counts: dict[int, int] = {}
     basin_assignments: list[int] = []
     basin_escape_events: list[dict[str, Any]] = []
+    spectral_conjectures: list[dict[str, Any]] = []
+    conjecture_rankings: list[dict[str, Any]] = []
+    theory_dataset_size = 0
+    theory_extraction_iteration = -1
+
+    trajectory_points: list[np.ndarray] = []
+
+    agent_assignment_history: list[dict[str, Any]] = []
+    agent_spacing_history: list[float] = []
+    cooperative_coverage_history: list[float] = []
+    frontier_exploration_rate_history: list[float] = []
+    agent_region_overlap_history: list[float] = []
+    agent_messages: list[dict[str, Any]] = []
+    coordination_state = AgentCoordinationState() if enable_cooperative_agents else None
+    agent_artifacts: list[dict[str, Any]] = []
+    agents: list[Any] = []
+    scheduled_target_spectrum = None
+    scheduler_strategy = None
+    detected_landscape_gap_count = 0
 
     # Build initial population as search states
     population: list[dict[str, Any]] = []
@@ -395,9 +427,21 @@ def run_structure_discovery(
                 population,
                 archive,
                 bayesian_enabled=enable_bayesian_model,
+                num_conjectures=(0 if enable_theory_extraction else None),
+                best_conjecture_score=(0.0 if enable_theory_extraction else None),
+                theory_extraction_iteration=(theory_extraction_iteration if enable_theory_extraction else None),
             )
         )
         basin_assignments.append(_candidate_basin_id(best))
+        if enable_phase_trajectory:
+            trajectory_points.append(_objective_spectrum(best.get("objectives", {}))[:3].astype(np.float64, copy=False))
+
+    if enable_multi_agent_discovery:
+        multi_agent_coordinator = MultiAgentCoordinator()
+        agents = [DiscoveryAgent(agent_id=i) for i in range(int(max(1, num_agents)))]
+        for agent in agents:
+            multi_agent_coordinator.register_agent(agent)
+        multi_agent_coordinator.assign_agents_to_regions(landscape_regions)
 
     # ── Main loop ──────────────────────────────────────────────────
     for gen in range(1, num_generations + 1):
@@ -873,6 +917,8 @@ def run_structure_discovery(
         if best:
             new_basin_id = _candidate_basin_id(best)
             basin_assignments.append(new_basin_id)
+            if enable_phase_trajectory:
+                trajectory_points.append(_objective_spectrum(best.get("objectives", {}))[:3].astype(np.float64, copy=False))
 
         generation_summaries.append(
             _make_generation_summary(
@@ -910,8 +956,37 @@ def run_structure_discovery(
                     if enable_information_gain_scheduler
                     else None
                 ),
+                num_conjectures=(len(spectral_conjectures) if enable_theory_extraction else None),
+                best_conjecture_score=(
+                    float(conjecture_rankings[0].get("ranking_score", 0.0))
+                    if (enable_theory_extraction and conjecture_rankings)
+                    else (0.0 if enable_theory_extraction else None)
+                ),
+                theory_extraction_iteration=(theory_extraction_iteration if enable_theory_extraction else None),
             )
         )
+
+        if (
+            enable_theory_extraction
+            and int(theory_extraction_interval) > 0
+            and gen % int(theory_extraction_interval) == 0
+        ):
+            theory_X, theory_y = build_theory_dataset(archive)
+            theory_dataset_size = int(theory_X.shape[0])
+            fitted_models = fit_theory_models(theory_X, theory_y)
+            spectral_conjectures = generate_conjectures(fitted_models)
+            conjecture_rankings = rank_conjectures(spectral_conjectures)
+            if int(max_conjectures) >= 0:
+                spectral_conjectures = spectral_conjectures[: int(max_conjectures)]
+                conjecture_rankings = conjecture_rankings[: int(max_conjectures)]
+            theory_extraction_iteration = int(gen)
+            generation_summaries[-1]["num_conjectures"] = int(len(spectral_conjectures))
+            generation_summaries[-1]["best_conjecture_score"] = (
+                float(conjecture_rankings[0].get("ranking_score", 0.0))
+                if conjecture_rankings
+                else 0.0
+            )
+            generation_summaries[-1]["theory_extraction_iteration"] = int(theory_extraction_iteration)
 
     # ── Assemble result ────────────────────────────────────────────
     best_candidate = population[0] if population else None
@@ -964,6 +1039,25 @@ def run_structure_discovery(
         result["landscape_coverage"] = landscape_coverage(landscape_memory)
     if enable_basin_escape:
         result["basin_escape_events"] = basin_escape_events
+    if enable_phase_trajectory:
+        phase_result = generate_phase_surface_3d(trajectory_points, trajectory_points=trajectory_points)
+        result["phase_diagram_trajectory_length"] = int(phase_result.get("trajectory_length", 0))
+
+    if enable_theory_extraction:
+        result["spectral_conjectures"] = spectral_conjectures
+        result["conjecture_rankings"] = conjecture_rankings
+        result["theory_dataset_size"] = int(theory_dataset_size)
+        result["num_conjectures"] = int(len(spectral_conjectures))
+        result["best_conjecture_score"] = (
+            float(np.float64(conjecture_rankings[0].get("ranking_score", 0.0)))
+            if conjecture_rankings
+            else 0.0
+        )
+        result["best_conjecture_equation"] = (
+            str(conjecture_rankings[0].get("equation_string", ""))
+            if conjecture_rankings
+            else ""
+        )
 
     if enable_basin_topology_mapping and trajectory_recorder is not None:
         trajectory = trajectory_recorder.as_array()
@@ -1045,6 +1139,9 @@ def _make_generation_summary(
     spectral_uncertainty: float | None = None,
     novelty_score: float | None = None,
     selected_target_spectrum: np.ndarray | None = None,
+    num_conjectures: int | None = None,
+    best_conjecture_score: float | None = None,
+    theory_extraction_iteration: int | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -1100,6 +1197,12 @@ def _make_generation_summary(
         result["selected_target_spectrum"] = np.asarray(
             selected_target_spectrum, dtype=np.float64,
         ).tolist()
+    if num_conjectures is not None:
+        result["num_conjectures"] = int(num_conjectures)
+    if best_conjecture_score is not None:
+        result["best_conjecture_score"] = float(best_conjecture_score)
+    if theory_extraction_iteration is not None:
+        result["theory_extraction_iteration"] = int(theory_extraction_iteration)
     return result
 
 

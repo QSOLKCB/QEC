@@ -96,6 +96,8 @@ from src.qec.discovery.exploration_policy import (
     choose_exploration_strategy,
 )
 from src.qec.discovery.basin_escape_mutation import propose_escape_step
+from src.qec.analysis.operator_statistics import summarize_operator_statistics, update_operator_success
+from src.qec.discovery.adaptive_operator_weights import compute_adaptive_operator_weights
 from src.qec.analysis.spectral_motif_extraction import extract_spectral_motifs
 from src.qec.discovery.motif_library import SpectralMotifLibrary
 from src.qec.discovery.motif_mutation import apply_motif_mutation
@@ -360,6 +362,7 @@ def run_structure_discovery(
     basin_counts: dict[int, int] = {}
     basin_assignments: list[int] = []
     basin_escape_events: list[dict[str, Any]] = []
+    operator_stats: dict[str, dict[str, float]] = {}
 
     # Build initial population as search states
     population: list[dict[str, Any]] = []
@@ -824,6 +827,15 @@ def run_structure_discovery(
                 H_repaired, seed=repair_obj_seed,
             )
 
+            parent_score = float(np.float64(parent_composite))
+            child_score = float(np.float64(repaired_objectives.get("composite_score", parent_score)))
+            improvement = float(np.float64(parent_score - child_score))
+            # IMPORTANT:
+            # Operator statistics must be updated only AFTER improvement
+            # is computed from evaluation results. Updating earlier biases
+            # adaptive mutation weighting and corrupts operator learning.
+            update_operator_success(operator_stats, op_used, improvement)
+
             basin_switch = False
             if basin_detector is not None:
                 prev_spectrum = _objective_spectrum(elite.get("objectives", {}))
@@ -884,8 +896,6 @@ def run_structure_discovery(
                 child_state["exploration_strategy"] = exploration_strategy
                 if exploration_strategy == "ESCAPE":
                     escape_attempts += 1
-                    parent_score = float(parent_composite)
-                    child_score = float(repaired_objectives.get("composite_score", parent_score))
                     if child_score < parent_score:
                         escape_successes += 1
             children.append(child_state)
@@ -926,6 +936,7 @@ def run_structure_discovery(
             new_basin_id = _candidate_basin_id(best)
             basin_assignments.append(new_basin_id)
 
+        operator_weights = compute_adaptive_operator_weights(operator_stats)
         generation_summaries.append(
             _make_generation_summary(
                 gen,
@@ -971,6 +982,8 @@ def run_structure_discovery(
                 ),
             )
         )
+        generation_summaries[-1]["operator_stats"] = summarize_operator_statistics(operator_stats)
+        generation_summaries[-1]["operator_weights"] = dict(operator_weights)
 
     # ── Assemble result ────────────────────────────────────────────
     best_candidate = population[0] if population else None
@@ -990,6 +1003,8 @@ def run_structure_discovery(
         "elite_history": elite_history,
         "archive_summary": archive_summary,
         "generation_summaries": generation_summaries,
+        "operator_stats": summarize_operator_statistics(operator_stats),
+        "operator_weights": compute_adaptive_operator_weights(operator_stats),
     }
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()

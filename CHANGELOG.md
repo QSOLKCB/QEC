@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning (SemVer).
 
+[48.1.0] — Operator Learning Correctness Fix
+
+Fixes a correctness issue introduced in v48 where operator
+statistics could potentially be updated before improvement
+was computed.
+
+The discovery pipeline now strictly enforces:
+
+mutation → evaluation → improvement → operator stats update
+
+Added defensive validation and a monotonic improvement guard
+to stabilize adaptive operator learning.
+
+[47.0.0] — Bayesian Spectral Landscape Modeling
 [48.0.0] — Spectral Motif Learning & Adaptive Mutation Weighting
 
 Added

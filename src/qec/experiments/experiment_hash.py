@@ -183,10 +183,28 @@ class ExperimentRunner:
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         }
 
+        payload = self._maybe_wrap_trajectory_result(results, metadata, experiment_hash)
+
         self._write_json(config_path, config)
-        self._write_json(results_path, results)
+        self._write_json(results_path, payload)
         self._write_json(metadata_path, metadata)
-        return results
+        return payload
+
+
+    @staticmethod
+    def _maybe_wrap_trajectory_result(
+        results: dict[str, Any],
+        metadata: dict[str, Any],
+        experiment_hash: str,
+    ) -> dict[str, Any]:
+        if "spectral_trajectory" not in results:
+            return results
+        return {
+            "result": results,
+            "metadata": metadata,
+            "experiment_hash": experiment_hash,
+            "spectral_trajectory": results.get("spectral_trajectory", []),
+        }
 
     @staticmethod
     def _write_json(path: Path, payload: dict[str, Any]) -> None:

@@ -420,6 +420,18 @@ def list_decoder_rules() -> list[str]:
     return sorted(RULE_REGISTRY.keys())
 
 
+def get_extended_rule_registry() -> dict[str, Any]:
+    """Public wrapper returning merged base + mutated rule registry."""
+    from src.qec.decoder.ternary.ternary_rule_variants import get_extended_rule_registry as _impl
+    return _impl()
+
+
+def generate_mutated_rules() -> dict[str, Any]:
+    """Public wrapper returning deterministic dict of mutated rule variants."""
+    from src.qec.decoder.ternary.ternary_rule_mutations import generate_mutated_rules as _impl
+    return _impl()
+
+
 def construct_phase_map(
     basins: list[dict[str, Any]],
     ridges: list[dict[str, Any]],

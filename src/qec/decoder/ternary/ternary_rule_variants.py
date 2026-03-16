@@ -99,3 +99,22 @@ RULE_REGISTRY: OrderedDict[str, Callable[[np.ndarray], np.int8]] = OrderedDict([
     ("majority", majority_rule),
     ("parity_pressure", parity_pressure_rule),
 ])
+
+
+def get_extended_rule_registry() -> dict[str, Callable[[np.ndarray], np.int8]]:
+    """Return merged registry of base and mutated rules, sorted by key.
+
+    Does not modify RULE_REGISTRY.  Returns a new sorted dict containing
+    all base rules plus mutated rule variants.
+
+    Returns
+    -------
+    dict[str, Callable[[np.ndarray], np.int8]]
+        Merged registry with keys sorted lexicographically.
+    """
+    from .ternary_rule_mutations import generate_mutated_rules
+
+    base = dict(RULE_REGISTRY)
+    mutated = generate_mutated_rules()
+    merged = {**base, **mutated}
+    return dict(sorted(merged.items()))

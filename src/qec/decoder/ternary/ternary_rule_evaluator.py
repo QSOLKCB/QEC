@@ -22,7 +22,7 @@ from .ternary_metrics import (
     compute_ternary_conflict_density,
 )
 from .ternary_trapping import estimate_trapping_indicator
-from .ternary_rule_variants import RULE_REGISTRY
+from .ternary_rule_variants import RULE_REGISTRY, get_extended_rule_registry
 
 
 def run_decoder_with_rule(
@@ -61,13 +61,14 @@ def run_decoder_with_rule(
     ValueError
         If rule_name is not in RULE_REGISTRY.
     """
-    if rule_name not in RULE_REGISTRY:
+    extended = get_extended_rule_registry()
+    if rule_name not in extended:
         raise ValueError(
             f"Unknown rule '{rule_name}'. "
-            f"Available: {sorted(RULE_REGISTRY.keys())}"
+            f"Available: {sorted(extended.keys())}"
         )
 
-    rule_fn = RULE_REGISTRY[rule_name]
+    rule_fn = extended[rule_name]
     H = np.asarray(parity_matrix, dtype=np.float64)
     m, n = H.shape
 

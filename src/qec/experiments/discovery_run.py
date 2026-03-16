@@ -72,6 +72,7 @@ def run_discovery_experiment(
     enable_ternary_decoder: bool = False,
     enable_ternary_trapping: bool = False,
     enable_decoder_rule_experiments: bool = False,
+    enable_rule_mutation: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -337,6 +338,17 @@ def run_discovery_experiment(
         artifact["results"]["decoder_rule_metrics"] = decoder_rule_metrics
         artifact["results"]["best_decoder_rule"] = best_decoder_rule
         artifact["results"]["rule_stability_scores"] = rule_stability_scores
+
+    if enable_rule_mutation and best_H is not None:
+        from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
+
+        td_recv_mut = np.ones(best_H.shape[1], dtype=np.float64)
+        pop_result = evaluate_rule_population(
+            best_H, td_recv_mut, use_extended_rules=True,
+        )
+        artifact["results"]["decoder_rule_population_extended"] = pop_result["decoder_rule_population"]
+        artifact["results"]["best_decoder_rule_extended"] = pop_result["best_decoder_rule"]
+        artifact["results"]["num_rules_evaluated"] = pop_result["num_rules_evaluated"]
 
     artifact = canonicalize(artifact)
 

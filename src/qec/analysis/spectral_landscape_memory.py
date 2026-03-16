@@ -23,6 +23,7 @@ class SpectralLandscapeMemory:
         self.counts: list[int] = []
         if self.dim is not None:
             self.centers_array = np.zeros((self.capacity, self.dim), dtype=np.float64)
+        self._search_index: np.ndarray | None = None
 
     def _ensure_dim(self, spectrum: np.ndarray) -> None:
         if self.dim is None:
@@ -39,6 +40,7 @@ class SpectralLandscapeMemory:
         self.centers_array = new_array
 
     def _append_region(self, spectrum: np.ndarray) -> int:
+        self._search_index = None
         if self.region_count >= self.capacity:
             self._grow_capacity()
         idx = self.region_count
@@ -76,6 +78,32 @@ class SpectralLandscapeMemory:
             self.counts[idx] += 1
             return idx
         return self._append_region(spec)
+
+    def _ensure_search_index(self) -> np.ndarray:
+        """Build deterministic KD-like lexicographic center index for reuse."""
+        if self._search_index is not None:
+            return self._search_index
+        if self.region_count == 0:
+            self._search_index = np.zeros((0,), dtype=np.int64)
+            return self._search_index
+        centers = self.centers_array[: self.region_count]
+        keys = [np.arange(self.region_count, dtype=np.int64)]
+        for axis in range(max(0, centers.shape[1] - 1), -1, -1):
+            keys.append(centers[:, axis])
+        self._search_index = np.lexsort(tuple(keys)).astype(np.int64, copy=False)
+        return self._search_index
+
+    def nearest_distance2(self, spectrum: np.ndarray | list[float], *, reuse_index: bool = True) -> float:
+        """Return nearest-center squared distance (float64) with optional index reuse."""
+        spec = np.asarray(spectrum, dtype=np.float64)
+        if self.region_count == 0:
+            return 0.0
+        centers = self.centers_array[: self.region_count]
+        if reuse_index:
+            centers = centers[self._ensure_search_index()]
+        diff = centers - spec
+        dists2 = np.sum(diff * diff, axis=1, dtype=np.float64)
+        return float(np.float64(np.min(dists2)))
 
     def add(self, spectrum: np.ndarray | list[float], threshold: float = 0.25) -> int:
         """Backwards-compatible alias for clustering one spectrum."""

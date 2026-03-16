@@ -51,6 +51,11 @@ _MODULES = [
     "basin_map_export",
     "spectral_phase_space",
     "spectral_phase_diagram_3d",
+    "spectral_phase_boundaries",
+    "spectral_phase_diagram",
+    "hypothesis_ranking",
+    "hypothesis_generator",
+    "discovery_archive_analyzer",
 ]
 
 for mod in _MODULES:

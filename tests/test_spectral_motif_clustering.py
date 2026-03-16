@@ -98,3 +98,5 @@ def test_engine_reproducibility_with_motif_clustering() -> None:
     assert "motif_cluster_count" in r1
     assert "cluster_frequencies" in r1
     assert "cluster_centroids" in r1
+    assert any("selected_operator" in s for s in r1["generation_summaries"])
+    assert any("operator_success_rate" in s for s in r1["generation_summaries"])

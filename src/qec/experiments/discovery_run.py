@@ -37,6 +37,8 @@ def run_discovery_experiment(
     curriculum_initial_tier: int = 0,
     enable_motif_clustering: bool = False,
     enable_operator_stability_guard: bool = True,
+    enable_information_gain_scheduler: bool = False,
+    enable_autonomous_scheduler: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -72,6 +74,8 @@ def run_discovery_experiment(
         curriculum_initial_tier=curriculum_initial_tier,
         enable_motif_clustering=enable_motif_clustering,
         enable_operator_stability_guard=enable_operator_stability_guard,
+        enable_information_gain_scheduler=enable_information_gain_scheduler,
+        enable_autonomous_scheduler=enable_autonomous_scheduler,
     )
 
     metadata = collect_environment_metadata(
@@ -107,6 +111,8 @@ def run_discovery_experiment(
                 "curriculum_initial_tier": int(curriculum_initial_tier),
                 "enable_motif_clustering": bool(enable_motif_clustering),
                 "enable_operator_stability_guard": bool(enable_operator_stability_guard),
+                "enable_information_gain_scheduler": bool(enable_information_gain_scheduler),
+                "enable_autonomous_scheduler": bool(enable_autonomous_scheduler),
             },
             "best_candidate": result["best_candidate"],
             "elite_history": result["elite_history"],

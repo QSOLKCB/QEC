@@ -85,6 +85,7 @@ from src.qec.discovery.adaptive_operator_weights import (
     compute_adaptive_operator_weights,
     deterministic_weighted_choice,
 )
+from src.qec.analysis.operator_statistics import summarize_operator_statistics, update_operator_success
 
 
 _ROUND = 12
@@ -171,6 +172,10 @@ def run_structure_discovery(
     curriculum_initial_tier: int = 0,
     enable_motif_clustering: bool = False,
     enable_operator_stability_guard: bool = True,
+    enable_adaptive_mutation: bool = False,
+    enable_motif_learning: bool = False,
+    enable_information_gain_scheduler: bool = False,
+    enable_autonomous_scheduler: bool = False,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -306,6 +311,7 @@ def run_structure_discovery(
     motif_cluster_count = 0
     cluster_frequencies: list[int] = []
     cluster_centroids: list[list[float]] = []
+    operator_stats: dict[str, dict[str, int]] = {}
 
     # Build initial population as search states
     population: list[dict[str, Any]] = []
@@ -410,7 +416,6 @@ def run_structure_discovery(
                 curriculum_controller=curriculum_controller,
                 region_tiers=region_tiers,
                 memory=landscape_memory,
-                model=None,
             )
             if selected is not None:
                 selected_id = str(selected.get("candidate_id", ""))
@@ -553,6 +558,9 @@ def run_structure_discovery(
         motif_cluster_id_value = None
         cluster_similarity_value = None
         cluster_size_value = None
+        operator_weights_value: list[float] | None = None
+        selected_operator_value: str | None = None
+        operator_success_rate_value: float | None = None
         if use_nb_eigenmode_mutation:
             operator_name = "nb_eigenmode_mutation"
         elif escape_triggered:
@@ -589,11 +597,16 @@ def run_structure_discovery(
                     cluster_similarity=(cluster_similarity_value if cluster_similarity_value is not None else 0.0),
                     enable_stability_guard=enable_operator_stability_guard,
                 )
+                operator_weights_value = [float(x) for x in np.asarray(weights, dtype=np.float64).tolist()]
                 operator_name = deterministic_weighted_choice(
                     operator_candidates,
                     weights,
                     seed=_derive_seed(gen_seed, "motif_cluster_operator"),
                 )
+                selected_operator_value = str(operator_name)
+
+        if selected_operator_value is None:
+            selected_operator_value = str(operator_name)
 
         for ei, elite in enumerate(elites):
             mut_seed = _derive_seed(gen_seed, f"mutate_{ei}")
@@ -741,9 +754,13 @@ def run_structure_discovery(
                     child_score = float(repaired_objectives.get("composite_score", parent_score))
                     if child_score < parent_score:
                         escape_successes += 1
+            success_event = bool(float(repaired_objectives.get("composite_score", float("inf"))) < float(parent_composite))
+            operator_stats = update_operator_success(operator_stats, op_used, success_event)
+            operator_success_rate_value = summarize_operator_statistics(operator_stats, op_used)
+
             if enable_curriculum_learning:
                 curriculum_attempts += 1
-                if float(repaired_objectives.get("composite_score", float("inf"))) < float(parent_composite):
+                if success_event:
                     curriculum_successes += 1
             children.append(child_state)
 
@@ -817,6 +834,9 @@ def run_structure_discovery(
                 motif_cluster_id=motif_cluster_id_value,
                 cluster_similarity=cluster_similarity_value,
                 cluster_size=cluster_size_value,
+                operator_weights=operator_weights_value,
+                selected_operator=selected_operator_value,
+                operator_success_rate=operator_success_rate_value,
             )
         )
 
@@ -929,6 +949,9 @@ def _make_generation_summary(
     motif_cluster_id: int | None = None,
     cluster_similarity: float | None = None,
     cluster_size: int | None = None,
+    operator_weights: list[float] | None = None,
+    selected_operator: str | None = None,
+    operator_success_rate: float | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -984,6 +1007,12 @@ def _make_generation_summary(
         result["cluster_similarity"] = float(cluster_similarity)
     if cluster_size is not None:
         result["cluster_size"] = int(cluster_size)
+    if operator_weights is not None:
+        result["operator_weights"] = [float(x) for x in operator_weights]
+    if selected_operator is not None:
+        result["selected_operator"] = str(selected_operator)
+    if operator_success_rate is not None:
+        result["operator_success_rate"] = float(operator_success_rate)
     return result
 
 

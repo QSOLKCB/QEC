@@ -39,6 +39,7 @@ _MODULES = [
     "bethe_hessian_fast",
     "spectral_frustration",
     "spectral_entropy",
+    "spectral_geometry",
     "trap_memory",
     "spectral_landscape_memory",
     "landscape_metrics",

@@ -102,6 +102,26 @@ class TestDiscoveryEngine:
         assert np.isfinite(c1)
         assert np.isfinite(c2)
 
+    def test_spectral_geometry_fields_opt_in(self):
+        spec = _default_spec()
+        result = run_structure_discovery(
+            spec,
+            num_generations=2,
+            population_size=4,
+            base_seed=42,
+            enable_spectral_geometry=True,
+        )
+        assert "trajectory_arc_length" in result
+        assert "mean_trajectory_curvature" in result
+        assert "spectral_dispersion" in result
+
+    def test_spectral_geometry_default_unchanged(self):
+        spec = _default_spec()
+        result = run_structure_discovery(spec, num_generations=2, population_size=4)
+        assert "trajectory_arc_length" not in result
+        assert "mean_trajectory_curvature" not in result
+        assert "spectral_dispersion" not in result
+
 
 class TestDiscoveryExperiment:
     """Tests for the discovery run experiment."""

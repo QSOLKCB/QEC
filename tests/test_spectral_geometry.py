@@ -3,9 +3,10 @@ from __future__ import annotations
 import numpy as np
 
 from src.qec.analysis.spectral_geometry import (
+    estimate_basin_geometry,
+    estimate_local_curvature,
     spectral_distance,
-    spectral_diversity,
-    spectral_entropy,
+    trajectory_arc_length,
 )
 
 
@@ -15,25 +16,52 @@ def test_spectral_distance_euclidean() -> None:
     assert spectral_distance(a, b) == np.sqrt(17.0)
 
 
-def test_spectral_entropy_zero_sum() -> None:
-    assert spectral_entropy([0.0, 0.0, 0.0]) == 0.0
+def test_trajectory_arc_length_deterministic() -> None:
+    points = np.asarray(
+        [
+            [0.0, 0.0, 0.0],
+            [0.0, 3.0, 4.0],
+            [0.0, 6.0, 8.0],
+        ],
+        dtype=np.float64,
+    )
+    expected = np.float64(10.0)
+    assert trajectory_arc_length(points) == float(expected)
+    assert trajectory_arc_length(points) == float(expected)
 
 
-def test_spectral_diversity_mean_step_distance() -> None:
-    history = [
-        [0.0, 0.0, 0.0],
-        [0.0, 3.0, 4.0],
-        [0.0, 6.0, 8.0],
-    ]
-    assert spectral_diversity(history) == 5.0
+def test_local_curvature_deterministic() -> None:
+    points = np.asarray(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
+            [2.0, 1.0],
+        ],
+        dtype=np.float64,
+    )
+    curv1 = estimate_local_curvature(points)
+    curv2 = estimate_local_curvature(points)
+    assert curv1 == curv2
+    assert curv1 == [np.pi / 2.0, np.pi / 2.0]
 
 
-def test_spectral_geometry_determinism() -> None:
-    a = [0.1, -0.2, 0.3]
-    b = [0.3, -0.1, 0.0]
-    d1 = spectral_distance(a, b)
-    d2 = spectral_distance(a, b)
-    e1 = spectral_entropy(a)
-    e2 = spectral_entropy(a)
-    assert d1 == d2
-    assert e1 == e2
+def test_basin_geometry_metrics_reproducible() -> None:
+    points = np.asarray(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
+            [2.0, 1.0],
+        ],
+        dtype=np.float64,
+    )
+    m1 = estimate_basin_geometry(points)
+    m2 = estimate_basin_geometry(points)
+    assert m1 == m2
+    assert set(m1.keys()) == {
+        "basin_radius_estimate",
+        "mean_step_length",
+        "mean_curvature",
+        "spectral_dispersion",
+    }

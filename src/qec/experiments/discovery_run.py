@@ -14,6 +14,8 @@ import json
 import os
 from typing import Any
 
+import numpy as np
+
 from src.qec.discovery.discovery_engine import run_structure_discovery
 from src.qec.io.export_graph import (
     export_matrix_market,
@@ -67,6 +69,7 @@ def run_discovery_experiment(
     enable_theory_synthesis: bool = False,
     enable_conjecture_validation: bool = False,
     conjecture_validation_interval: int = 1200,
+    enable_ternary_decoder: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -235,6 +238,7 @@ def run_discovery_experiment(
                 "reuse_landscape_kd_tree": reuse_landscape_kd_tree,
                 "enable_phase_novelty_discovery": enable_phase_novelty_discovery,
                 "enable_phase_characterization": enable_phase_characterization,
+                "enable_ternary_decoder": enable_ternary_decoder,
             },
             "best_candidate": result["best_candidate"],
             "elite_history": result["elite_history"],
@@ -258,6 +262,24 @@ def run_discovery_experiment(
         artifact["results"]["hypothesis_rankings"] = result.get("hypothesis_rankings", [])
         artifact["results"]["reflection_metrics"] = result.get("reflection_metrics", [])
         artifact["phase_diagram"] = result.get("phase_diagram", {"regions": [], "phase_boundaries": []})
+
+    if enable_ternary_decoder and best_H is not None:
+        from src.qec.analysis.api import (
+            run_ternary_decoder as _run_td,
+            compute_ternary_stability as _td_stab,
+            compute_ternary_entropy as _td_ent,
+            compute_ternary_conflict_density as _td_conf,
+        )
+        td_received = np.ones(best_H.shape[1], dtype=np.float64)
+        td_result = _run_td(best_H, td_received)
+        td_msgs = td_result["final_messages"]
+        artifact["results"]["ternary_decoder_metrics"] = {
+            "iterations": td_result["iterations"],
+            "converged": td_result["converged"],
+            "stability": float(_td_stab(td_msgs)),
+            "entropy": float(_td_ent(td_msgs)),
+            "conflict_density": float(_td_conf(td_msgs)),
+        }
 
     artifact = canonicalize(artifact)
 

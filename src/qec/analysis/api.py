@@ -337,6 +337,35 @@ __all__ = [k for k in globals() if not k.startswith("_")]
 
 
 
+def run_ternary_decoder(
+    parity_matrix: np.ndarray,
+    received_vector: np.ndarray,
+    *,
+    max_iterations: int = 20,
+) -> dict[str, Any]:
+    """Public wrapper for deterministic ternary message-passing decoder."""
+    from src.qec.decoder.ternary.ternary_decoder import run_ternary_decoder as _impl
+    return _impl(parity_matrix, received_vector, max_iterations=max_iterations)
+
+
+def compute_ternary_stability(messages: np.ndarray) -> np.float64:
+    """Public wrapper for deterministic ternary stability computation."""
+    from src.qec.decoder.ternary.ternary_metrics import compute_ternary_stability as _impl
+    return _impl(messages)
+
+
+def compute_ternary_entropy(messages: np.ndarray) -> np.float64:
+    """Public wrapper for deterministic ternary entropy computation."""
+    from src.qec.decoder.ternary.ternary_metrics import compute_ternary_entropy as _impl
+    return _impl(messages)
+
+
+def compute_ternary_conflict_density(messages: np.ndarray) -> np.float64:
+    """Public wrapper for deterministic ternary conflict density computation."""
+    from src.qec.decoder.ternary.ternary_metrics import compute_ternary_conflict_density as _impl
+    return _impl(messages)
+
+
 def construct_phase_map(
     basins: list[dict[str, Any]],
     ridges: list[dict[str, Any]],

@@ -424,6 +424,7 @@ def mutate_tanner_graph(
     generation: int = 0,
     seed: int = 0,
     target_edges: list[tuple[int, int]] | None = None,
+    target_spectrum: np.ndarray | None = None,
 ) -> tuple[np.ndarray, str]:
     """Apply a mutation operator to a Tanner graph.
 
@@ -442,6 +443,9 @@ def mutate_tanner_graph(
         Deterministic seed.
     target_edges : list of (ci, vi) or None
         Priority edges for guided mutation.
+    target_spectrum : np.ndarray or None
+        Optional spectral target from gradient-guided steering.
+        Currently advisory and may be ignored by operators.
 
     Returns
     -------
@@ -456,6 +460,17 @@ def mutate_tanner_graph(
         raise ValueError(f"Unknown mutation operator: {operator}")
 
     H_arr = np.asarray(H, dtype=np.float64)
-    H_mutated = fn(H_arr, seed=seed, target_edges=target_edges)
+    if target_spectrum is None:
+        H_mutated = fn(H_arr, seed=seed, target_edges=target_edges)
+    else:
+        try:
+            H_mutated = fn(
+                H_arr,
+                seed=seed,
+                target_edges=target_edges,
+                target_spectrum=np.asarray(target_spectrum, dtype=np.float64),
+            )
+        except TypeError:
+            H_mutated = fn(H_arr, seed=seed, target_edges=target_edges)
 
     return H_mutated, operator

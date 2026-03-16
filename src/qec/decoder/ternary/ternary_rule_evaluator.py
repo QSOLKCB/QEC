@@ -108,13 +108,22 @@ def run_decoder_with_rule(
         # Variable node updates using the selected rule variant
         for vi in range(n):
             neighbors = var_to_checks[vi]
+            degree = len(neighbors)
+
+            # Reuse a single int8 buffer per variable node:
+            # first (degree - 1) entries are extrinsic, last entry is channel value
+            combined = np.empty(degree, dtype=np.int8)
+            combined[-1] = channel[vi]
+
             for ci in neighbors:
-                extrinsic = np.array(
-                    [c2v[cj, vi] for cj in neighbors if cj != ci],
-                    dtype=np.int8,
-                )
-                # Combine extrinsic messages with channel value
-                combined = np.append(extrinsic, channel[vi]).astype(np.int8)
+                # Fill extrinsic messages (all neighbors except ci) into combined[:-1]
+                idx = 0
+                for cj in neighbors:
+                    if cj == ci:
+                        continue
+                    combined[idx] = c2v[cj, vi]
+                    idx += 1
+
                 v2c[ci, vi] = rule_fn(combined)
 
         if np.array_equal(v2c, prev_v2c):

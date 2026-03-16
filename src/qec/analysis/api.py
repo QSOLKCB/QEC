@@ -420,6 +420,37 @@ def list_decoder_rules() -> list[str]:
     return sorted(RULE_REGISTRY.keys())
 
 
+def evaluate_graph_decoder_pair(
+    parity_matrix: np.ndarray,
+    received: np.ndarray,
+    rule_name: str,
+    *,
+    max_iterations: int = 20,
+) -> dict[str, Any]:
+    """Public wrapper for deterministic graph-decoder pair evaluation."""
+    from src.qec.decoder.ternary.ternary_coevolution import evaluate_graph_decoder_pair as _impl
+    return _impl(parity_matrix, received, rule_name, max_iterations=max_iterations)
+
+
+def evaluate_rule_population(
+    parity_matrix: np.ndarray,
+    received: np.ndarray,
+    *,
+    max_iterations: int = 20,
+) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic rule population evaluation."""
+    from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population as _impl
+    return _impl(parity_matrix, received, max_iterations=max_iterations)
+
+
+def select_best_rule(
+    rule_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Public wrapper for deterministic best rule selection."""
+    from src.qec.decoder.ternary.ternary_coevolution import select_best_rule as _impl
+    return _impl(rule_results)
+
+
 def construct_phase_map(
     basins: list[dict[str, Any]],
     ridges: list[dict[str, Any]],

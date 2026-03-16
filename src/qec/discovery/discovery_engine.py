@@ -63,6 +63,11 @@ from src.qec.analysis.spectral_basins import (
     detect_spectral_basins,
     build_basin_transition_graph,
 )
+from src.qec.analysis.spectral_ridges import (
+    detect_spectral_ridges,
+    build_ridge_graph,
+    map_ridges_to_basins,
+)
 from src.qec.discovery.autonomous_scheduler import schedule_autonomous_target
 from src.qec.discovery.experiment_planner import SpectralExperimentPlanner
 from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
@@ -287,6 +292,8 @@ def run_structure_discovery(
     enable_phase_trajectory: bool = False,
     enable_basin_hopping: bool = False,
     basin_detection_interval: int = 200,
+    enable_spectral_ridge_detection: bool = False,
+    ridge_detection_interval: int = 200,
     enable_phase_diagram: bool = False,
     phase_diagram_resolution: int = 50,
 ) -> dict[str, Any]:
@@ -438,6 +445,9 @@ def run_structure_discovery(
     basin_assignments: list[int] = []
     latest_spectral_basins: list[dict[str, Any]] = []
     latest_basin_transition_graph: dict[str, Any] = {"basin_visit_counts": {}, "basin_transitions": []}
+    latest_spectral_ridges: list[dict[str, Any]] = []
+    latest_ridge_graph: dict[str, Any] = {"ridge_nodes": [], "ridge_edges": []}
+    latest_basin_boundary_segments: list[dict[str, Any]] = []
     strategy_history: list[str] = []
     experiment_planner = (
         SpectralExperimentPlanner(
@@ -1224,6 +1234,33 @@ def run_structure_discovery(
                         latest_spectral_basins,
                     )
 
+        num_detected_ridges = None
+        current_ridge_proximity = None
+        if enable_spectral_ridge_detection:
+            interval = int(max(1, ridge_detection_interval))
+            if gen % interval == 0:
+                spectra_points = [
+                    _objective_spectrum(c.get("objectives", {})).astype(np.float64)
+                    for c in archive.get("best_by_composite", [])
+                ]
+                if spectra_points:
+                    latest_spectral_ridges = detect_spectral_ridges(spectra_points)
+                    latest_ridge_graph = build_ridge_graph(latest_spectral_ridges)
+                    if enable_basin_hopping:
+                        latest_basin_boundary_segments = map_ridges_to_basins(
+                            latest_spectral_ridges, latest_spectral_basins,
+                        ).get("basin_boundary_segments", [])
+            num_detected_ridges = int(len(latest_spectral_ridges))
+            if best is not None and latest_spectral_ridges:
+                best_spectrum = _objective_spectrum(best.get("objectives", {})).astype(np.float64)
+                ridge_points = np.asarray([r.get("location", []) for r in latest_spectral_ridges], dtype=np.float64)
+                if ridge_points.ndim == 2 and ridge_points.shape[1] == best_spectrum.shape[0]:
+                    distances = np.linalg.norm(ridge_points - best_spectrum, axis=1).astype(np.float64, copy=False)
+                    if distances.size > 0:
+                        current_ridge_proximity = float(np.float64(np.min(distances)))
+            if current_ridge_proximity is None:
+                current_ridge_proximity = 0.0
+
         operator_weights = compute_adaptive_operator_weights(operator_stats)
         generation_summaries.append(
             _build_generation_summary(
@@ -1319,6 +1356,8 @@ def run_structure_discovery(
                     if enable_theory_refinement and latest_conjecture_validations
                     else (0.0 if enable_theory_refinement else None)
                 ),
+                num_detected_ridges=(num_detected_ridges if enable_spectral_ridge_detection else None),
+                current_ridge_proximity=(current_ridge_proximity if enable_spectral_ridge_detection else None),
             )
         )
         generation_summaries[-1]["operator_stats"] = summarize_operator_statistics(operator_stats)
@@ -1351,6 +1390,11 @@ def run_structure_discovery(
         result["spectral_basins"] = latest_spectral_basins
         result["basin_transition_graph"] = latest_basin_transition_graph
         result["num_detected_basins"] = int(len(latest_spectral_basins))
+
+    if enable_spectral_ridge_detection:
+        result["spectral_ridges"] = latest_spectral_ridges
+        result["ridge_graph"] = latest_ridge_graph
+        result["basin_boundary_segments"] = latest_basin_boundary_segments
 
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
@@ -1596,6 +1640,8 @@ def _build_generation_summary(
     num_fragile_conjectures: int | None = None,
     num_rejected_conjectures: int | None = None,
     mean_theory_support_score: float | None = None,
+    num_detected_ridges: int | None = None,
+    current_ridge_proximity: float | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -1692,6 +1738,10 @@ def _build_generation_summary(
         result["num_rejected_conjectures"] = int(num_rejected_conjectures)
     if mean_theory_support_score is not None:
         result["mean_theory_support_score"] = float(np.float64(mean_theory_support_score))
+    if num_detected_ridges is not None:
+        result["num_detected_ridges"] = int(num_detected_ridges)
+    if current_ridge_proximity is not None:
+        result["current_ridge_proximity"] = float(np.float64(current_ridge_proximity))
     return result
 
 

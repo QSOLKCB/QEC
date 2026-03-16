@@ -59,6 +59,7 @@ def run_discovery_experiment(
     enable_phase_trajectory: bool = False,
     enable_spectral_geometry: bool = False,
     enable_basin_hopping: bool = False,
+    enable_spectral_ridge_detection: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -116,6 +117,7 @@ def run_discovery_experiment(
         enable_phase_trajectory=enable_phase_trajectory,
         enable_spectral_geometry=enable_spectral_geometry,
         enable_basin_hopping=enable_basin_hopping,
+        enable_spectral_ridge_detection=enable_spectral_ridge_detection,
     )
 
     metadata = collect_environment_metadata(
@@ -160,6 +162,7 @@ def run_discovery_experiment(
             "enable_phase_trajectory": enable_phase_trajectory,
             "enable_spectral_geometry": enable_spectral_geometry,
             "enable_basin_hopping": enable_basin_hopping,
+            "enable_spectral_ridge_detection": enable_spectral_ridge_detection,
         },
         "best_candidate": result["best_candidate"],
         "elite_history": result["elite_history"],

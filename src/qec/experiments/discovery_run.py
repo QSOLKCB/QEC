@@ -72,6 +72,7 @@ def run_discovery_experiment(
     enable_ternary_decoder: bool = False,
     enable_ternary_trapping: bool = False,
     enable_decoder_rule_experiments: bool = False,
+    enable_coevolution: bool = False,
 ) -> dict[str, Any]:
     """Run a discovery experiment and save the artifact.
 
@@ -337,6 +338,33 @@ def run_discovery_experiment(
         artifact["results"]["decoder_rule_metrics"] = decoder_rule_metrics
         artifact["results"]["best_decoder_rule"] = best_decoder_rule
         artifact["results"]["rule_stability_scores"] = rule_stability_scores
+
+    if enable_coevolution and best_H is not None:
+        from src.qec.decoder.ternary.ternary_coevolution import (
+            evaluate_rule_population,
+            select_best_rule,
+        )
+
+        coev_received = np.ones(best_H.shape[1], dtype=np.float64)
+        rule_results = evaluate_rule_population(best_H, coev_received)
+        best = select_best_rule(rule_results)
+
+        # Convert np.float64 values to float for JSON serialization
+        serializable_results = []
+        for r in rule_results:
+            serializable_results.append({
+                "rule_name": r["rule_name"],
+                "stability": float(r["stability"]),
+                "entropy": float(r["entropy"]),
+                "conflict_density": float(r["conflict_density"]),
+                "trapping_indicator": float(r["trapping_indicator"]),
+                "converged": r["converged"],
+                "iterations": r["iterations"],
+            })
+
+        artifact["results"]["decoder_rule_population"] = serializable_results
+        artifact["results"]["best_decoder_rule"] = best["best_rule"]
+        artifact["results"]["best_decoder_score"] = float(best["best_score"])
 
     artifact = canonicalize(artifact)
 

@@ -1,3 +1,11 @@
+## [38.0.0] — Non-Backtracking Eigenmode Mutation
+
+- Added non-backtracking matrix utilities.
+- Added leading eigenmode detection for Tanner graphs.
+- Added eigenmode-guided mutation scoring.
+- Added optional mutation operator guidance using spectral instability directions.
+- Added integration with spectral trajectory recording (`nb_eigenvalue` per step).
+
 ## v2.8.0 — Deterministic Scheduling & State-Aware Enhancements
 
 Belief Propagation decoder enhancements for QLDPC codes.

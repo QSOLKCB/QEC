@@ -53,6 +53,9 @@ from src.qec.discovery.mutation_trust_region import SpectralTrustRegion
 from src.qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
 from src.qec.analysis.spectral_gradient import estimate_spectral_gradient
 from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
+from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matrix
+from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
+from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
 from src.qec.discovery.spectral_gradient_mutation import propose_gradient_step
 
 
@@ -104,6 +107,7 @@ def run_structure_discovery(
     target_variable_degree: int | None = None,
     target_check_degree: int | None = None,
     use_nb_eigenmode_mutation: bool = False,
+    enable_nb_eigenmode_mutation: bool = False,
     enable_spectral_trust_region: bool = False,
     trust_region_radius: float = 0.25,
     enable_basin_switch_detection: bool = False,
@@ -149,6 +153,8 @@ def run_structure_discovery(
         Target check degree for repair.
     use_nb_eigenmode_mutation : bool
         Enable opt-in NB eigenmode mutation operator. Default False.
+    enable_nb_eigenmode_mutation : bool
+        Enable opt-in NB eigenmode edge scoring for mutation bias. Default False.
     enable_spectral_trust_region : bool
         Enable opt-in spectral trust-region mutation rejection. Default False.
     trust_region_radius : float
@@ -265,6 +271,11 @@ def run_structure_discovery(
             )
         )
 
+        # Optional NB-eigenmode guidance from dominant non-backtracking mode.
+        nb_guide_edges: list[tuple[int, int]] = []
+        if enable_nb_eigenmode_mutation:
+            nb_guide_edges = _rank_tanner_edges_by_nb_mode(best_H)
+
         # Mutate elites
         children: list[dict[str, Any]] = []
         operator_name = (
@@ -366,7 +377,8 @@ def run_structure_discovery(
 
             if enable_spectral_trajectory and trajectory_recorder is not None:
                 current_spectrum = _objective_spectrum(repaired_objectives)
-                trajectory_recorder.record(current_spectrum)
+                nb_eigenvalue = _compute_nb_mode_magnitude(repaired_objectives, H_repaired)
+                trajectory_recorder.record(np.append(current_spectrum, nb_eigenvalue))
 
             # Diversity penalty
             child_sig = compute_structure_signature(H_repaired)
@@ -483,6 +495,64 @@ def _make_generation_summary(
         )
     return result
 
+
+
+def _build_tanner_adjacency(H: np.ndarray) -> np.ndarray:
+    """Build deterministic bipartite adjacency from parity-check matrix."""
+    H_arr = np.asarray(H, dtype=np.float64)
+    m, n = H_arr.shape
+    zero_mm = np.zeros((m, m), dtype=np.float64)
+    zero_nn = np.zeros((n, n), dtype=np.float64)
+    top = np.hstack((zero_mm, H_arr))
+    bottom = np.hstack((H_arr.T, zero_nn))
+    return np.vstack((top, bottom)).astype(np.float64, copy=False)
+
+
+def _rank_tanner_edges_by_nb_mode(H: np.ndarray) -> list[tuple[int, int]]:
+    """Rank Tanner edges by dominant NB eigenmode magnitude (stable order)."""
+    H_arr = np.asarray(H, dtype=np.float64)
+    m, n = H_arr.shape
+    if m == 0 or n == 0:
+        return []
+
+    adj = _build_tanner_adjacency(H_arr)
+    B, directed_edges = build_non_backtracking_matrix(adj)
+    if B.size == 0:
+        return []
+
+    _, eigvec = leading_nb_eigenmode(B)
+    edge_scores = score_edges_by_eigenmode(directed_edges, eigvec)
+
+    undirected_scores: dict[tuple[int, int], float] = {}
+    for (u, v), score in edge_scores.items():
+        if u < m and v >= m:
+            key = (int(u), int(v - m))
+        elif v < m and u >= m:
+            key = (int(v), int(u - m))
+        else:
+            continue
+        prev = undirected_scores.get(key, 0.0)
+        if score > prev:
+            undirected_scores[key] = float(score)
+
+    return [
+        edge
+        for edge, _ in sorted(
+            undirected_scores.items(),
+            key=lambda item: (-float(item[1]), item[0][0], item[0][1]),
+        )
+    ]
+
+
+def _compute_nb_mode_magnitude(objectives: dict[str, Any], H: np.ndarray) -> float:
+    """Compute deterministic NB dominant eigenvalue magnitude for trajectory."""
+    del objectives
+    adj = _build_tanner_adjacency(np.asarray(H, dtype=np.float64))
+    B, _ = build_non_backtracking_matrix(adj)
+    if B.size == 0:
+        return 0.0
+    eigval, _ = leading_nb_eigenmode(B)
+    return float(np.abs(eigval))
 
 def _objective_spectrum(objectives: dict[str, Any]) -> np.ndarray:
     """Build deterministic spectral feature vector for trust/basin checks."""

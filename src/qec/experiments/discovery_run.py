@@ -289,9 +289,13 @@ def run_discovery_experiment(
             compute_frustration_index as _fi,
             estimate_trapping_indicator as _ti,
         )
-        td_recv = np.ones(best_H.shape[1], dtype=np.float64)
-        td_res = _run_td_trap(best_H, td_recv)
-        td_final = td_res["final_messages"]
+        # Reuse ternary decoder results when available to avoid duplicate runs
+        if enable_ternary_decoder and "ternary_decoder_metrics" in artifact["results"]:
+            td_final = td_msgs
+        else:
+            td_recv = np.ones(best_H.shape[1], dtype=np.float64)
+            td_res = _run_td_trap(best_H, td_recv)
+            td_final = td_res["final_messages"]
         regions = _zr(td_final)
         artifact["results"]["ternary_trapping_regions"] = regions
         artifact["results"]["ternary_frustration_index"] = float(_fi(td_final))

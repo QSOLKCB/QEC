@@ -49,14 +49,14 @@ def detect_zero_regions(messages: np.ndarray) -> dict[str, Any]:
                 rid = len(region_ids)
                 region_ids.append(rid)
                 region_sizes.append(len(current_region))
-                node_indices.append(sorted(current_region))
+                node_indices.append(list(current_region))
                 current_region = []
     # Flush last region
     if current_region:
         rid = len(region_ids)
         region_ids.append(rid)
         region_sizes.append(len(current_region))
-        node_indices.append(sorted(current_region))
+        node_indices.append(list(current_region))
 
     return {
         "region_ids": region_ids,
@@ -113,6 +113,10 @@ def detect_persistent_zero_states(history: list[np.ndarray]) -> list[int]:
 
     for snapshot in history[1:]:
         arr = np.asarray(snapshot, dtype=np.int8).ravel()
+        if arr.size != first.size:
+            raise ValueError(
+                "History snapshots must all have identical message lengths"
+            )
         persistent = persistent & (arr == 0)
 
     indices = sorted(int(i) for i in np.where(persistent)[0])
@@ -149,38 +153,43 @@ def estimate_trapping_indicator(
     H = np.asarray(parity_matrix, dtype=np.float64)
     m, n = H.shape
 
+    if arr.size == 0 or n != arr.size:
+        raise ValueError(
+            "messages length must match parity_matrix column count"
+        )
+
     # Signal 1: zero region density
-    if arr.size == 0:
-        zero_density = np.float64(0.0)
-    else:
-        zero_density = np.float64(int(np.sum(arr == 0)) / arr.size)
+    zero_density = np.float64(int(np.sum(arr == 0)) / arr.size)
 
     # Signal 2: conflict density (edges with sign disagreement)
-    conflict_count = 0
-    edge_count = 0
-    for ci in range(m):
-        vars_in_check = sorted(int(vi) for vi in range(n) if H[ci, vi] != 0)
-        for idx_a in range(len(vars_in_check)):
-            for idx_b in range(idx_a + 1, len(vars_in_check)):
-                va = vars_in_check[idx_a]
-                vb = vars_in_check[idx_b]
-                edge_count += 1
-                if arr[va] != 0 and arr[vb] != 0 and arr[va] != arr[vb]:
-                    conflict_count += 1
+    # For each check, count variable pairs where both are nonzero and disagree.
+    nonzero_mask = (arr != 0)
+    arr_f = arr.astype(np.float64)
+    # Per-check: number of nonzero variables connected
+    H_bin = (H != 0).astype(np.float64)
+    nz_per_check = H_bin @ nonzero_mask.astype(np.float64)  # (m,)
+    # Per-check: total variable pairs = deg*(deg-1)/2
+    deg_per_check = np.sum(H_bin, axis=1)  # (m,)
+    total_pairs = (deg_per_check * (deg_per_check - 1.0)) / 2.0
+    edge_count = int(np.sum(total_pairs))
+
     if edge_count == 0:
         conflict_density = np.float64(0.0)
     else:
+        # Sum of message values over nonzero-connected variables per check
+        nz_vals = arr_f * nonzero_mask.astype(np.float64)
+        s = H_bin @ nz_vals  # (m,) sum of nonzero messages per check
+        # Count of +1 and -1 per check
+        pos_count = H_bin @ (arr == 1).astype(np.float64)   # (m,)
+        neg_count = H_bin @ (arr == -1).astype(np.float64)  # (m,)
+        # Conflicting pairs per check = pos_count * neg_count
+        conflict_pairs = pos_count * neg_count
+        conflict_count = int(np.sum(conflict_pairs))
         conflict_density = np.float64(conflict_count / edge_count)
 
-    # Signal 3: unsatisfied check fraction
-    unsatisfied = 0
-    for ci in range(m):
-        check_sum = 0
-        for vi in range(n):
-            if H[ci, vi] != 0:
-                check_sum += int(arr[vi])
-        if check_sum != 0:
-            unsatisfied += 1
+    # Signal 3: unsatisfied check fraction via matrix-vector product
+    check_sums = H_bin @ arr_f  # (m,)
+    unsatisfied = int(np.sum(check_sums != 0.0))
     if m == 0:
         check_fraction = np.float64(0.0)
     else:

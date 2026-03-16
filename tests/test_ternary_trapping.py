@@ -189,6 +189,14 @@ class TestDetectPersistentZeroStates:
         r2 = detect_persistent_zero_states(h)
         assert r1 == r2
 
+    def test_mismatched_lengths_raises(self):
+        h = [
+            np.array([0, 1, 0], dtype=np.int8),
+            np.array([0, 1], dtype=np.int8),
+        ]
+        with pytest.raises(ValueError, match="identical message lengths"):
+            detect_persistent_zero_states(h)
+
 
 # ── estimate_trapping_indicator ──────────────────────────────────────
 
@@ -222,11 +230,17 @@ class TestEstimateTrappingIndicator:
         assert isinstance(ti, np.float64)
         assert ti > np.float64(0.0)
 
-    def test_empty_messages(self):
+    def test_empty_messages_raises(self):
         msgs = np.array([], dtype=np.int8)
         H = np.zeros((0, 0), dtype=np.float64)
-        ti = estimate_trapping_indicator(msgs, H)
-        assert ti == np.float64(0.0)
+        with pytest.raises(ValueError, match="messages length must match"):
+            estimate_trapping_indicator(msgs, H)
+
+    def test_shape_mismatch_raises(self):
+        msgs = np.array([1, 0, -1], dtype=np.int8)
+        H = np.array([[1, 1, 0, 0]], dtype=np.float64)
+        with pytest.raises(ValueError, match="messages length must match"):
+            estimate_trapping_indicator(msgs, H)
 
     def test_determinism(self):
         msgs = np.array([1, 0, -1, 0], dtype=np.int8)

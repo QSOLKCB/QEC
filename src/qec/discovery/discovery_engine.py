@@ -58,7 +58,11 @@ from src.qec.analysis.basin_escape_direction import estimate_escape_direction
 from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
 from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
 from src.qec.analysis.landscape_metrics import novelty_score as landscape_novelty_score, landscape_coverage
-from src.qec.analysis.spectral_basins import identify_spectral_basins
+from src.qec.analysis.spectral_basins import (
+    identify_spectral_basins,
+    detect_spectral_basins,
+    build_basin_transition_graph,
+)
 from src.qec.discovery.autonomous_scheduler import schedule_autonomous_target
 from src.qec.discovery.experiment_planner import SpectralExperimentPlanner
 from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
@@ -111,6 +115,7 @@ from src.qec.analysis.spectral_phase_diagram import (
     detect_phase_boundaries,
     generate_phase_heatmap,
 )
+from src.qec.discovery.basin_hopping import propose_basin_hop
 from src.qec.discovery.exploration_policy import (
     apply_escape_feedback_bias,
     choose_exploration_strategy,
@@ -280,6 +285,8 @@ def run_structure_discovery(
     conjecture_validation_tolerance: float = 0.15,
     counterexample_error_threshold: float = 0.25,
     enable_phase_trajectory: bool = False,
+    enable_basin_hopping: bool = False,
+    basin_detection_interval: int = 200,
     enable_phase_diagram: bool = False,
     phase_diagram_resolution: int = 50,
 ) -> dict[str, Any]:
@@ -429,6 +436,8 @@ def run_structure_discovery(
     generation_summaries: list[dict[str, Any]] = []
     signature_archive: list[tuple[float, ...]] = []
     basin_assignments: list[int] = []
+    latest_spectral_basins: list[dict[str, Any]] = []
+    latest_basin_transition_graph: dict[str, Any] = {"basin_visit_counts": {}, "basin_transitions": []}
     strategy_history: list[str] = []
     experiment_planner = (
         SpectralExperimentPlanner(
@@ -453,7 +462,6 @@ def run_structure_discovery(
     escape_successes = 0
     basin_centers: dict[int, np.ndarray] = {}
     basin_counts: dict[int, int] = {}
-    basin_assignments: list[int] = []
     basin_escape_events: list[dict[str, Any]] = []
     active_hypotheses: list[dict[str, Any]] = []
     hypothesis_rankings: list[dict[str, Any]] = []
@@ -1201,6 +1209,21 @@ def run_structure_discovery(
                     latest_conjecture_counterexamples,
                 )
 
+        if enable_basin_hopping and best is not None:
+            interval = int(max(1, basin_detection_interval))
+            if gen % interval == 0:
+                spectra_points = [
+                    _objective_spectrum(c.get("objectives", {})).astype(np.float64)
+                    for c in archive.get("best_by_composite", [])
+                ]
+                if spectra_points:
+                    latest_spectral_basins = detect_spectral_basins(spectra_points)
+                    latest_basin_transition_graph = build_basin_transition_graph(spectra_points, latest_spectral_basins)
+                    _ = propose_basin_hop(
+                        _objective_spectrum(best.get("objectives", {})).astype(np.float64),
+                        latest_spectral_basins,
+                    )
+
         operator_weights = compute_adaptive_operator_weights(operator_stats)
         generation_summaries.append(
             _build_generation_summary(
@@ -1269,6 +1292,8 @@ def run_structure_discovery(
                     if enable_experiment_planner
                     else None
                 ),
+                current_basin_id=(int(basin_assignments[-1]) if (enable_basin_hopping and basin_assignments) else None),
+                basin_hop_attempted=(bool(enable_basin_hopping and int(max(1, basin_detection_interval)) > 0 and (gen % int(max(1, basin_detection_interval)) == 0)) if enable_basin_hopping else None),
                 num_validated_conjectures=(
                     int(len(latest_conjecture_validations))
                     if enable_theory_refinement
@@ -1322,6 +1347,11 @@ def run_structure_discovery(
         "operator_stats": summarize_operator_statistics(operator_stats),
         "operator_weights": compute_adaptive_operator_weights(operator_stats),
     }
+    if enable_basin_hopping:
+        result["spectral_basins"] = latest_spectral_basins
+        result["basin_transition_graph"] = latest_basin_transition_graph
+        result["num_detected_basins"] = int(len(latest_spectral_basins))
+
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
     if enable_spectral_geometry:
@@ -1559,6 +1589,8 @@ def _build_generation_summary(
     planned_experiment_targets: list[np.ndarray] | None = None,
     phase_uncertainty_score: float | None = None,
     planner_iteration: int | None = None,
+    current_basin_id: int | None = None,
+    basin_hop_attempted: bool | None = None,
     num_validated_conjectures: int | None = None,
     num_supported_conjectures: int | None = None,
     num_fragile_conjectures: int | None = None,
@@ -1646,6 +1678,10 @@ def _build_generation_summary(
         result["phase_uncertainty_score"] = float(np.float64(phase_uncertainty_score))
     if planner_iteration is not None:
         result["planner_iteration"] = int(planner_iteration)
+    if current_basin_id is not None:
+        result["current_basin_id"] = int(current_basin_id)
+    if basin_hop_attempted is not None:
+        result["basin_hop_attempted"] = bool(basin_hop_attempted)
     if num_validated_conjectures is not None:
         result["num_validated_conjectures"] = int(num_validated_conjectures)
     if num_supported_conjectures is not None:

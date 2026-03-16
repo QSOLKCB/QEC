@@ -139,6 +139,21 @@ def summarize_theory_memory(theory_memory: dict[str, Any]) -> list[dict[str, Any
     return _impl(theory_memory)
 
 
+def detect_spectral_basins(points: list[list[float]] | np.ndarray) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral basin detection."""
+    from src.qec.analysis.spectral_basins import detect_spectral_basins as _impl
+    return _impl(points)
+
+
+def build_basin_transition_graph(
+    trajectory: list[list[float]] | np.ndarray,
+    basins: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Public wrapper for deterministic basin transition graph construction."""
+    from src.qec.analysis.spectral_basins import build_basin_transition_graph as _impl
+    return _impl(trajectory, basins)
+
+
 def compute_nb_spectrum(
     H: np.ndarray | scipy.sparse.spmatrix,
     *,

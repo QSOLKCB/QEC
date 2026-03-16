@@ -143,6 +143,11 @@ from src.qec.analysis.phase_characterization import (
     classify_phase,
     compute_phase_metrics,
 )
+from src.qec.analysis.theory_synthesis import (
+    build_phase_dataset,
+    fit_spectral_models as fit_phase_spectral_models,
+    generate_spectral_conjectures,
+)
 from src.qec.analysis.discovery_archive_analyzer import analyze_discovery_archive
 from src.qec.analysis.hypothesis_generator import generate_structural_hypotheses
 from src.qec.analysis.hypothesis_ranking import rank_hypotheses
@@ -322,6 +327,8 @@ def run_structure_discovery(
     phase_novelty_threshold: float = 0.5,
     enable_phase_characterization: bool = False,
     phase_characterization_interval: int = 500,
+    enable_theory_synthesis: bool = False,
+    theory_synthesis_interval: int = 800,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -501,6 +508,8 @@ def run_structure_discovery(
     theory_memory = initialize_theory_memory()
     latest_conjecture_validations: list[dict[str, Any]] = []
     latest_conjecture_counterexamples: list[dict[str, Any]] = []
+    latest_spectral_theory_models: list[dict[str, Any]] = []
+    latest_spectral_conjectures: list[dict[str, Any]] = []
     escape_attempts = 0
     escape_successes = 0
     basin_centers: dict[int, np.ndarray] = {}
@@ -1337,6 +1346,17 @@ def run_structure_discovery(
                     latest_conjecture_counterexamples,
                 )
 
+        if enable_theory_synthesis and int(max(1, theory_synthesis_interval)) > 0:
+            if gen % int(max(1, theory_synthesis_interval)) == 0 and phase_profiles:
+                phase_dataset = build_phase_dataset(phase_profiles)
+                latest_spectral_theory_models = fit_phase_spectral_models(
+                    phase_dataset.get("X"), phase_dataset.get("y"),
+                )
+                latest_spectral_conjectures = generate_spectral_conjectures(
+                    latest_spectral_theory_models,
+                    [str(name) for name in phase_dataset.get("feature_names", [])],
+                )
+
         if enable_basin_hopping and best is not None:
             interval = int(max(1, basin_detection_interval))
             if gen % interval == 0:
@@ -1523,6 +1543,16 @@ def run_structure_discovery(
                 novel_phase_detected=(novel_phase_detected if enable_phase_novelty_discovery else None),
                 phase_label=(phase_label if enable_phase_characterization else None),
                 phase_characterized=(phase_characterized if enable_phase_characterization else None),
+                num_generated_conjectures=(
+                    int(len(latest_spectral_conjectures))
+                    if enable_theory_synthesis
+                    else None
+                ),
+                best_conjecture_score=(
+                    float(np.float64(latest_spectral_conjectures[0].get("fit_quality", 0.0)))
+                    if enable_theory_synthesis and latest_spectral_conjectures
+                    else (0.0 if enable_theory_synthesis else None)
+                ),
             )
         )
         generation_summaries[-1]["operator_stats"] = summarize_operator_statistics(operator_stats)
@@ -1580,6 +1610,25 @@ def run_structure_discovery(
     if enable_phase_characterization:
         result["phase_profiles"] = [dict(profile) for profile in phase_profiles]
         result["phase_characterization_metrics"] = [dict(metrics) for metrics in phase_characterization_metrics]
+
+    if enable_theory_synthesis:
+        if not latest_spectral_conjectures and phase_profiles:
+            phase_dataset = build_phase_dataset(phase_profiles)
+            latest_spectral_theory_models = fit_phase_spectral_models(
+                phase_dataset.get("X"), phase_dataset.get("y"),
+            )
+            latest_spectral_conjectures = generate_spectral_conjectures(
+                latest_spectral_theory_models,
+                [str(name) for name in phase_dataset.get("feature_names", [])],
+            )
+        result["spectral_theory_models"] = [dict(model) for model in latest_spectral_theory_models]
+        result["spectral_conjectures"] = [dict(item) for item in latest_spectral_conjectures]
+        result["num_generated_conjectures"] = int(len(latest_spectral_conjectures))
+        result["best_conjecture_score"] = (
+            float(np.float64(latest_spectral_conjectures[0].get("fit_quality", 0.0)))
+            if latest_spectral_conjectures
+            else 0.0
+        )
 
     if enable_spectral_trajectory and trajectory_recorder is not None:
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
@@ -1835,6 +1884,8 @@ def _build_generation_summary(
     novel_phase_detected: bool | None = None,
     phase_label: str | None = None,
     phase_characterized: bool | None = None,
+    num_generated_conjectures: int | None = None,
+    best_conjecture_score: float | None = None,
 ) -> dict[str, Any]:
     """Produce a summary for one generation."""
     feasible = [c for c in population if c.get("is_feasible", True)]
@@ -1951,6 +2002,10 @@ def _build_generation_summary(
         result["phase_label"] = str(phase_label)
     if phase_characterized is not None:
         result["phase_characterized"] = bool(phase_characterized)
+    if num_generated_conjectures is not None:
+        result["num_generated_conjectures"] = int(num_generated_conjectures)
+    if best_conjecture_score is not None:
+        result["best_conjecture_score"] = float(np.float64(best_conjecture_score))
     return result
 
 

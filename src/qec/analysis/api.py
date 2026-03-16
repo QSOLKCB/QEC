@@ -66,6 +66,7 @@ _MODULES = [
     "spectral_ridges",
     "spectral_phase_map",
     "phase_characterization",
+    "theory_synthesis",
 ]
 
 for mod in _MODULES:
@@ -203,6 +204,26 @@ def build_phase_profile(phase_id: int, metrics: dict[str, Any], label: dict[str,
     """Public wrapper for deterministic phase profile construction."""
     from src.qec.analysis.phase_characterization import build_phase_profile as _impl
     return _impl(phase_id, metrics, label)
+
+
+def build_phase_dataset(phase_profiles: Any) -> dict[str, Any]:
+    """Public wrapper for deterministic phase dataset extraction."""
+    from src.qec.analysis.theory_synthesis import build_phase_dataset as _impl
+    return _impl(phase_profiles)
+
+
+def fit_spectral_models(X: Any, y: Any) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral model fitting."""
+    from src.qec.analysis.theory_synthesis import fit_spectral_models as _impl
+    return _impl(X, y)
+
+
+def generate_spectral_conjectures(models: list[dict[str, Any]], feature_names: list[str]) -> list[dict[str, Any]]:
+    """Public wrapper for deterministic spectral conjecture synthesis."""
+    from src.qec.analysis.theory_synthesis import generate_spectral_conjectures as _impl
+    return _impl(models, feature_names)
+
+
 def detect_spectral_basins(points: list[list[float]] | np.ndarray) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral basin detection."""
     from src.qec.analysis.spectral_basins import detect_spectral_basins as _impl

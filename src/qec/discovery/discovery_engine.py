@@ -55,6 +55,10 @@ from src.qec.analysis.spectral_gradient import estimate_spectral_gradient
 from src.qec.analysis.basin_stagnation import detect_basin_stagnation
 from src.qec.analysis.basin_escape_direction import estimate_escape_direction
 from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
+from src.qec.analysis.spectral_basins import identify_spectral_basins
+from src.qec.analysis.basin_transitions import detect_basin_transitions
+from src.qec.analysis.basin_statistics import basin_sizes
+from src.qec.analysis.basin_map_export import export_basin_map
 from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matrix
 from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
 from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
@@ -128,6 +132,8 @@ def run_structure_discovery(
     enable_basin_escape: bool = False,
     basin_escape_window: int = 10,
     basin_escape_step: float = 0.3,
+    enable_basin_topology_mapping: bool = False,
+    basin_distance_threshold: float = 0.25,
 ) -> dict[str, Any]:
     """Run the deterministic structure discovery engine.
 
@@ -179,6 +185,10 @@ def run_structure_discovery(
         Enable opt-in spectral trajectory recording. Default False.
     trajectory_recorder : SpectralTrajectoryRecorder or None
         Optional externally managed recorder for trajectory capture.
+    enable_basin_topology_mapping : bool
+        Enable opt-in basin topology identification from trajectory history.
+    basin_distance_threshold : float
+        Distance threshold used for deterministic basin assignment.
 
     Returns
     -------
@@ -205,6 +215,9 @@ def run_structure_discovery(
         else None
     )
     if enable_spectral_trajectory and trajectory_recorder is None:
+        trajectory_recorder = SpectralTrajectoryRecorder()
+
+    if enable_basin_topology_mapping and not enable_spectral_trajectory and trajectory_recorder is None:
         trajectory_recorder = SpectralTrajectoryRecorder()
 
     # ── Step 1: Initialize population ──────────────────────────────
@@ -436,7 +449,7 @@ def run_structure_discovery(
                 repaired_spectrum = _objective_spectrum(repaired_objectives)
                 basin_switch = basin_detector.detect(prev_spectrum, repaired_spectrum)
 
-            if enable_spectral_trajectory and trajectory_recorder is not None:
+            if (enable_spectral_trajectory or enable_basin_topology_mapping) and trajectory_recorder is not None:
                 current_spectrum = _objective_spectrum(repaired_objectives)
                 nb_eigenvalue = _compute_nb_mode_magnitude(repaired_objectives, H_repaired)
                 trajectory_recorder.record(np.append(current_spectrum, nb_eigenvalue))
@@ -524,6 +537,32 @@ def run_structure_discovery(
         result["spectral_trajectory"] = trajectory_recorder.as_array().tolist()
     if enable_basin_escape:
         result["basin_escape_events"] = basin_escape_events
+
+    if enable_basin_topology_mapping and trajectory_recorder is not None:
+        trajectory = trajectory_recorder.as_array()
+        if trajectory.shape[0] > 0:
+            assignments, centers = identify_spectral_basins(
+                trajectory,
+                threshold=basin_distance_threshold,
+            )
+            transitions = detect_basin_transitions(assignments)
+            result["spectral_basin_topology"] = export_basin_map(
+                centers,
+                assignments,
+                transitions,
+                include_phase_space_projections=(trajectory.shape[1] >= 3),
+            )
+            result["spectral_basin_sizes"] = basin_sizes(assignments)
+        else:
+            empty_assignments = np.zeros((0,), dtype=np.int64)
+            empty_centers = np.zeros((0, 0), dtype=np.float64)
+            result["spectral_basin_topology"] = export_basin_map(
+                empty_centers,
+                empty_assignments,
+                [],
+                include_phase_space_projections=False,
+            )
+            result["spectral_basin_sizes"] = {}
     return result
 
 

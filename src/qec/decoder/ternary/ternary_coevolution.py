@@ -141,11 +141,13 @@ def detect_state_cycle(
     history_hashes: list[str],
     current_hash: str,
     window: int = 5,
+    end_index: int | None = None,
 ) -> bool:
     """Detect repeated states (Markovian cycle).
 
     Returns True if ``current_hash`` appears in the last ``window``
-    entries of ``history_hashes``, indicating an oscillation.
+    entries of ``history_hashes`` (up to ``end_index``), indicating
+    an oscillation.
 
     Parameters
     ----------
@@ -155,11 +157,18 @@ def detect_state_cycle(
         Hash of the current state vector.
     window : int
         Number of recent entries to check for cycles.
+    end_index : int | None
+        Exclusive upper bound into *history_hashes*.  When provided the
+        lookup window is ``history_hashes[start:end_index]`` which avoids
+        copying the list.  ``None`` (default) uses the full list length.
     """
-    if len(history_hashes) == 0:
+    if not history_hashes:
         return False
-    k = min(window, len(history_hashes))
-    return current_hash in history_hashes[-k:]
+    if end_index is None:
+        end_index = len(history_hashes)
+    k = min(window, end_index)
+    start = max(0, end_index - k)
+    return current_hash in history_hashes[start:end_index]
 
 
 def early_exit_convergence(
@@ -219,8 +228,12 @@ def should_terminate(
     Returns True if execution should terminate.
     """
     # --- Markov cycle detection ---
-    if enable_markov and len(history_hashes) >= 2:
-        if detect_state_cycle(history_hashes[:-1], history_hashes[-1]):
+    if enable_markov and history_hashes:
+        if detect_state_cycle(
+            history_hashes,
+            history_hashes[-1],
+            end_index=len(history_hashes) - 1,
+        ):
             return True
 
     # --- Convergence detection ---
@@ -230,8 +243,10 @@ def should_terminate(
 
     # --- Curvature stabilization (optional) ---
     if enable_curvature:
-        if _curvature_metric(history) < curvature_tol:
-            return True
+        # require sufficient history to avoid premature termination
+        if len(history) >= 3:
+            if _curvature_metric(history) < curvature_tol:
+                return True
 
     return False
 

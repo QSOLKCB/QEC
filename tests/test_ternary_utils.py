@@ -195,6 +195,34 @@ def test_should_terminate_curvature():
     )
 
 
+def test_curvature_guard_prevents_early_exit():
+    """Curvature must not trigger on histories shorter than 3."""
+    history = [np.ones(3), np.ones(3)]
+    hashes = ["a", "b"]
+    assert not should_terminate(
+        history,
+        hashes,
+        enable_convergence=False,
+        enable_markov=False,
+        enable_curvature=True,
+    )
+
+
+def test_markov_no_slice_equivalence():
+    """Zero-copy end_index produces the same result as old list slicing."""
+    hashes = ["a", "b", "c", "b"]
+    # old behavior: check last hash in hashes[-3:-1]
+    expected = "b" in hashes[-3:-1]
+    # new behavior via end_index
+    actual = detect_state_cycle(
+        hashes,
+        "b",
+        window=3,
+        end_index=len(hashes) - 1,
+    )
+    assert expected == actual
+
+
 def test_should_not_terminate():
     history = [
         np.array([1.0, 0.0]),

@@ -70,6 +70,36 @@ def compute_efficiency_metrics(stats: dict) -> dict:
     }
 
 
+def _sanitize_pytest_args(args: list[str]) -> list[str]:
+    """Allow only safe pytest arguments (deterministic + non-shell)."""
+    allowed_prefixes = (
+        "-k",
+        "-m",
+        "--maxfail",
+        "--lf",
+        "--ff",
+    )
+    allowed_exact = {
+        "-x",
+        "-s",
+        "-vv",
+        "-v",
+    }
+    safe_args: list[str] = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg in allowed_exact:
+            safe_args.append(arg)
+        elif any(arg.startswith(p) for p in allowed_prefixes):
+            safe_args.append(arg)
+            if i + 1 < len(args) and not args[i + 1].startswith("-"):
+                safe_args.append(args[i + 1])
+                i += 1
+        i += 1
+    return safe_args
+
+
 def run_pytest(extra_args: list[str] | None = None) -> dict:
     """Run pytest with --durations=10 and capture results.
 
@@ -82,6 +112,8 @@ def run_pytest(extra_args: list[str] | None = None) -> dict:
     cmd = ["pytest", "-q", "--durations=10"]
     if extra_args:
         cmd.extend(extra_args)
+    # subprocess args are sanitized via _sanitize_pytest_args
+    # to prevent command injection and satisfy CI security checks
     start = time.perf_counter()
     result = subprocess.run(
         cmd,
@@ -113,6 +145,7 @@ def main() -> None:
         else:
             pytest_args.append(extra_args[i])
             i += 1
+    pytest_args = _sanitize_pytest_args(pytest_args)
     # warm run
     run_pytest(pytest_args)
     # measured run

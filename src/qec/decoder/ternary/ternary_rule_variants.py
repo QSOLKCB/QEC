@@ -107,6 +107,11 @@ def get_extended_rule_registry() -> dict[str, Callable[[np.ndarray], np.int8]]:
     Does not modify RULE_REGISTRY.  Returns a new sorted dict containing
     all base rules plus mutated rule variants.
 
+    Raises
+    ------
+    ValueError
+        If mutated rule names collide with base rule names.
+
     Returns
     -------
     dict[str, Callable[[np.ndarray], np.int8]]
@@ -116,5 +121,11 @@ def get_extended_rule_registry() -> dict[str, Callable[[np.ndarray], np.int8]]:
 
     base = dict(RULE_REGISTRY)
     mutated = generate_mutated_rules()
+    # Deterministic collision detection
+    overlap = set(base.keys()) & set(mutated.keys())
+    if overlap:
+        raise ValueError(
+            f"Mutated rule names collide with base rules: {sorted(overlap)}"
+        )
     merged = {**base, **mutated}
     return dict(sorted(merged.items()))

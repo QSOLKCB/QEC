@@ -224,6 +224,12 @@ class TestExtendedRuleRegistry:
         for name, fn in RULE_REGISTRY.items():
             assert ext[name] is fn, f"Base rule '{name}' was overwritten"
 
+    def test_no_rule_name_collisions(self) -> None:
+        """Base and mutated rule name sets must be disjoint."""
+        base = set(RULE_REGISTRY.keys())
+        mutated = set(generate_mutated_rules().keys())
+        assert base.isdisjoint(mutated)
+
     def test_base_registry_unchanged(self) -> None:
         """Calling get_extended_rule_registry must not modify RULE_REGISTRY."""
         keys_before = list(RULE_REGISTRY.keys())

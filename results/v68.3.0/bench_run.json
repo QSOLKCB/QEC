@@ -1,0 +1,57 @@
+{
+  "returncode": 0,
+  "runtime_seconds": 124.6679,
+  "stdout_tail": "18.75s call     tests/test_urw_dps_preview_v370.py::TestDeterminism::test_urw_benchmark_deterministic\n6.66s call     tests/test_channel_v313.py::TestBSCSyndromeFER::test_bsc_fer_increases_with_noise\n2.84s call     tests/test_qec_qldpc_codes.py::TestSimulation::test_fer_decreases_with_noise\n2.72s call     tests/test_landscape_metrics.py::TestHarnessLandscapeMetrics::test_landscape_deterministic\n2.71s call     tests/test_channel_v313.py::TestBSCSyndromeFER::test_bsc_nonzero_fer\n1.76s call     tests/test_urw_dps_preview_v370.py::TestGateCheck::test_rho1_matches_min_sum_under_bsc_syndrome\n1.36s call     tests/test_landscape_metrics.py::TestHarnessLandscapeMetrics::test_landscape_output_has_new_fields\n1.29s call     tests/test_dps_v381_harness.py::TestDeterminism::test_all_modes_deterministic\n1.21s call     tests/test_dps_v381_harness.py::TestFullEvaluation::test_evaluation_slopes_are_floats\n3810 passed, 5 skipped in 123.78s (0:02:03)",
+  "slow_tests": [
+    {
+      "test": "tests/test_urw_dps_preview_v370.py::TestURWDPSPreview::test_preview_sweep",
+      "duration": 45.86
+    },
+    {
+      "test": "tests/test_urw_dps_preview_v370.py::TestDeterminism::test_urw_benchmark_deterministic",
+      "duration": 18.75
+    },
+    {
+      "test": "tests/test_channel_v313.py::TestBSCSyndromeFER::test_bsc_fer_increases_with_noise",
+      "duration": 6.66
+    },
+    {
+      "test": "tests/test_qec_qldpc_codes.py::TestSimulation::test_fer_decreases_with_noise",
+      "duration": 2.84
+    },
+    {
+      "test": "tests/test_landscape_metrics.py::TestHarnessLandscapeMetrics::test_landscape_deterministic",
+      "duration": 2.72
+    },
+    {
+      "test": "tests/test_channel_v313.py::TestBSCSyndromeFER::test_bsc_nonzero_fer",
+      "duration": 2.71
+    },
+    {
+      "test": "tests/test_urw_dps_preview_v370.py::TestGateCheck::test_rho1_matches_min_sum_under_bsc_syndrome",
+      "duration": 1.76
+    },
+    {
+      "test": "tests/test_landscape_metrics.py::TestHarnessLandscapeMetrics::test_landscape_output_has_new_fields",
+      "duration": 1.36
+    },
+    {
+      "test": "tests/test_dps_v381_harness.py::TestDeterminism::test_all_modes_deterministic",
+      "duration": 1.29
+    },
+    {
+      "test": "tests/test_dps_v381_harness.py::TestFullEvaluation::test_evaluation_slopes_are_floats",
+      "duration": 1.21
+    }
+  ],
+  "termination_stats": {
+    "convergence": 0,
+    "markov": 0,
+    "curvature": 0
+  },
+  "efficiency_metrics": {
+    "early_exit_ratio": 0.0,
+    "markov_ratio": 0.0,
+    "curvature_ratio": 0.0
+  }
+}

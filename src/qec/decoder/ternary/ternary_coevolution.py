@@ -27,6 +27,28 @@ from .ternary_rule_variants import RULE_REGISTRY, get_extended_rule_registry
 from .ternary_rule_evaluator import run_decoder_with_rule, evaluate_decoder_rule
 
 
+# --- Termination signal counters (diagnostic only, no behaviour change) ---
+# NOTE: Intended for single-process deterministic benchmarking only.
+# Not thread-safe or multi-process safe.  Benchmark runner resets this
+# between runs.  Do NOT rely on this in concurrent contexts.
+_TERMINATION_STATS: dict[str, int] = {
+    "convergence": 0,
+    "markov": 0,
+    "curvature": 0,
+}
+
+
+def get_termination_stats() -> dict[str, int]:
+    """Return a copy of the current termination signal counters."""
+    return dict(_TERMINATION_STATS)
+
+
+def reset_termination_stats() -> None:
+    """Reset all termination signal counters to zero."""
+    for k in _TERMINATION_STATS:
+        _TERMINATION_STATS[k] = 0
+
+
 def evaluate_graph_decoder_pair(
     parity_matrix: np.ndarray,
     received: np.ndarray,
@@ -227,18 +249,20 @@ def should_terminate(
 
     Returns True if execution should terminate.
     """
-    # --- Markov cycle detection ---
+    # --- Markov cycle detection (checked first — original ordering) ---
     if enable_markov and history_hashes:
         if detect_state_cycle(
             history_hashes,
             history_hashes[-1],
             end_index=len(history_hashes) - 1,
         ):
+            _TERMINATION_STATS["markov"] += 1
             return True
 
     # --- Convergence detection ---
     if enable_convergence:
         if early_exit_convergence(history):
+            _TERMINATION_STATS["convergence"] += 1
             return True
 
     # --- Curvature stabilization (optional) ---
@@ -246,6 +270,7 @@ def should_terminate(
         # require sufficient history to avoid premature termination
         if len(history) >= 3:
             if _curvature_metric(history) < curvature_tol:
+                _TERMINATION_STATS["curvature"] += 1
                 return True
 
     return False

@@ -43,6 +43,8 @@ from .ternary_rule_evaluator import (
 from .ternary_coevolution import (
     evaluate_graph_decoder_pair,
     evaluate_rule_population,
+    get_termination_stats,
+    reset_termination_stats,
     select_best_rule,
 )
 from .ternary_rule_fitness import (
@@ -78,6 +80,8 @@ __all__ = [
     "evaluate_graph_decoder_pair",
     "evaluate_rule_population",
     "select_best_rule",
+    "get_termination_stats",
+    "reset_termination_stats",
     "compute_rule_fitness_metrics",
     "rank_rules_by_fitness",
 ]

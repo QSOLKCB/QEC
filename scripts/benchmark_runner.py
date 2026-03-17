@@ -124,8 +124,8 @@ def run_pytest(extra_args: list[str] | None = None) -> dict:
     cmd = [sys.executable, "-m", "pytest", "-q", "--durations=10", "tests/"]
     if extra_args:
         cmd.extend(extra_args)
-    # subprocess args are sanitized via _sanitize_pytest_args
-    # to prevent command injection and satisfy CI security checks
+    # SAFE: cmd is a list (no shell=True), arguments are sanitized via
+    # _sanitize_pytest_args, preventing command injection.
     print(f"[benchmark] python={sys.executable}", file=sys.stderr)
     start = time.perf_counter()
     result = subprocess.run(

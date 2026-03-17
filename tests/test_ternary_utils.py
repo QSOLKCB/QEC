@@ -19,6 +19,7 @@ from tests.utils import (
 from src.qec.decoder.ternary.ternary_coevolution import (
     early_exit_convergence,
     detect_state_cycle,
+    should_terminate,
 )
 
 
@@ -163,3 +164,42 @@ def test_markov_short_history_detects():
 def test_markov_empty_history():
     h = hashlib.sha256(np.ones(3).tobytes()).hexdigest()
     assert not detect_state_cycle([], h)
+
+
+# --- Unified termination controller tests ---
+
+def test_should_terminate_convergence():
+    x = np.ones(5)
+    history = [x, x.copy(), x.copy(), x.copy()]
+    hashes = ["a", "b", "c", "d"]
+    assert should_terminate(history, hashes, enable_markov=False)
+
+
+def test_should_terminate_markov():
+    x = np.ones(5)
+    history = [x, x]
+    hashes = ["a", "b", "a"]
+    assert should_terminate(history, hashes, enable_convergence=False)
+
+
+def test_should_terminate_curvature():
+    x = np.ones(5)
+    history = [x, x.copy(), x.copy()]
+    hashes = ["a", "b", "c"]
+    assert should_terminate(
+        history,
+        hashes,
+        enable_convergence=False,
+        enable_markov=False,
+        enable_curvature=True,
+    )
+
+
+def test_should_not_terminate():
+    history = [
+        np.array([1.0, 0.0]),
+        np.array([0.5, 0.5]),
+        np.array([0.2, 0.8]),
+    ]
+    hashes = ["a", "b", "c"]
+    assert not should_terminate(history, hashes)

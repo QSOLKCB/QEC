@@ -190,6 +190,52 @@ def early_exit_convergence(
     return bool(np.all(np.array(deltas, dtype=np.float64) < tol))
 
 
+def _curvature_metric(history: list[np.ndarray]) -> np.float64:
+    """Discrete second derivative (1, -2, 1) to detect curvature/instability."""
+    if len(history) < 3:
+        return np.float64(0.0)
+    x0 = history[-3]
+    x1 = history[-2]
+    x2 = history[-1]
+    return np.float64(np.linalg.norm(x2 - 2.0 * x1 + x0))
+
+
+def should_terminate(
+    history: list[np.ndarray],
+    history_hashes: list[str],
+    *,
+    enable_convergence: bool = True,
+    enable_markov: bool = True,
+    enable_curvature: bool = False,
+    curvature_tol: np.float64 = np.float64(1e-6),
+) -> bool:
+    """Unified deterministic termination controller.
+
+    Combines:
+    - convergence detection
+    - Markov cycle detection
+    - optional curvature stabilization
+
+    Returns True if execution should terminate.
+    """
+    # --- Markov cycle detection ---
+    if enable_markov and len(history_hashes) >= 2:
+        if detect_state_cycle(history_hashes[:-1], history_hashes[-1]):
+            return True
+
+    # --- Convergence detection ---
+    if enable_convergence:
+        if early_exit_convergence(history):
+            return True
+
+    # --- Curvature stabilization (optional) ---
+    if enable_curvature:
+        if _curvature_metric(history) < curvature_tol:
+            return True
+
+    return False
+
+
 def select_best_rule(
     rule_results: list[dict[str, Any]],
 ) -> dict[str, Any]:

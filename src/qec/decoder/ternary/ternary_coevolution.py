@@ -28,6 +28,9 @@ from .ternary_rule_evaluator import run_decoder_with_rule, evaluate_decoder_rule
 
 
 # --- Termination signal counters (diagnostic only, no behaviour change) ---
+# NOTE: Intended for single-process deterministic benchmarking only.
+# Not thread-safe or multi-process safe.  Benchmark runner resets this
+# between runs.  Do NOT rely on this in concurrent contexts.
 _TERMINATION_STATS: dict[str, int] = {
     "convergence": 0,
     "markov": 0,
@@ -246,13 +249,7 @@ def should_terminate(
 
     Returns True if execution should terminate.
     """
-    # --- Convergence detection ---
-    if enable_convergence:
-        if early_exit_convergence(history):
-            _TERMINATION_STATS["convergence"] += 1
-            return True
-
-    # --- Markov cycle detection ---
+    # --- Markov cycle detection (checked first — original ordering) ---
     if enable_markov and history_hashes:
         if detect_state_cycle(
             history_hashes,
@@ -260,6 +257,12 @@ def should_terminate(
             end_index=len(history_hashes) - 1,
         ):
             _TERMINATION_STATS["markov"] += 1
+            return True
+
+    # --- Convergence detection ---
+    if enable_convergence:
+        if early_exit_convergence(history):
+            _TERMINATION_STATS["convergence"] += 1
             return True
 
     # --- Curvature stabilization (optional) ---

@@ -70,12 +70,21 @@ def compute_efficiency_metrics(stats: dict) -> dict:
     }
 
 
-def run_pytest() -> dict:
-    """Run pytest with --durations=10 and capture results."""
+def run_pytest(extra_args: list[str] | None = None) -> dict:
+    """Run pytest with --durations=10 and capture results.
+
+    Parameters
+    ----------
+    extra_args : list[str] | None
+        Additional arguments forwarded to pytest (e.g. test paths, ``-k``).
+    """
     reset_termination_stats()
+    cmd = ["pytest", "-q", "--durations=10"]
+    if extra_args:
+        cmd.extend(extra_args)
     start = time.perf_counter()
     result = subprocess.run(
-        ["pytest", "-q", "--durations=10"],
+        cmd,
         capture_output=True,
         text=True,
     )
@@ -92,14 +101,25 @@ def run_pytest() -> dict:
 
 
 def main() -> None:
+    extra_args = sys.argv[1:]
+    # Separate output path flag from pytest args
+    out_path = None
+    pytest_args = []
+    i = 0
+    while i < len(extra_args):
+        if extra_args[i] == "-o" and i + 1 < len(extra_args):
+            out_path = Path(extra_args[i + 1])
+            i += 2
+        else:
+            pytest_args.append(extra_args[i])
+            i += 1
     # warm run
-    run_pytest()
+    run_pytest(pytest_args)
     # measured run
-    result = run_pytest()
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    out_path = Path(f"benchmark_v68_3_{timestamp}.json")
-    if len(sys.argv) > 1:
-        out_path = Path(sys.argv[1])
+    result = run_pytest(pytest_args)
+    if out_path is None:
+        timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        out_path = Path(f"benchmark_v68_3_{timestamp}.json")
     out_path.write_text(json.dumps(result, indent=2))
     print("Benchmark complete:")
     print(json.dumps(result, indent=2))

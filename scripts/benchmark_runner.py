@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import re
 import subprocess
 import sys
 import time
@@ -25,28 +26,37 @@ from src.qec.decoder.ternary.ternary_coevolution import (
 
 
 def extract_slowest_tests(output: str) -> list[dict]:
-    """Parse pytest --durations output for slow test entries."""
-    lines = output.splitlines()
-    slow_section = False
+    """Parse pytest --durations output robustly.
+
+    Tolerant to:
+    - call/setup/teardown entries
+    - minor formatting differences
+    - extra lines/noise in output
+    """
     results: list[dict] = []
-    for line in lines:
-        if "slowest durations" in line.lower():
-            slow_section = True
+    in_slow = False
+    for line in output.splitlines():
+        lower = line.lower()
+        # detect start of slow section
+        if "slowest" in lower and "duration" in lower:
+            in_slow = True
             continue
-        if slow_section:
-            if not line.strip():
-                break
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                try:
-                    duration = float(parts[0].rstrip("s"))
-                    test_name = parts[-1]
-                    results.append({
-                        "test": test_name,
-                        "duration": duration,
-                    })
-                except ValueError:
-                    continue
+        if not in_slow:
+            continue
+        stripped = line.strip()
+        # skip empty lines safely
+        if not stripped:
+            continue
+        # regex: match "<float>s <type> <test>"
+        m = re.match(r"^([\d.]+)s\s+(call|setup|teardown)?\s*(.+)$", stripped)
+        if m:
+            results.append({
+                "test": m.group(3).strip(),
+                "duration": float(m.group(1)),
+            })
+            continue
+        # DO NOT break — tolerate noise and continue scanning
+        continue
     return results
 
 
@@ -109,16 +119,19 @@ def run_pytest(extra_args: list[str] | None = None) -> dict:
         Additional arguments forwarded to pytest (e.g. test paths, ``-k``).
     """
     reset_termination_stats()
-    cmd = ["pytest", "-q", "--durations=10"]
+    # Use sys.executable to guarantee consistent interpreter
+    cmd = [sys.executable, "-m", "pytest", "-q", "--durations=10", "tests/"]
     if extra_args:
         cmd.extend(extra_args)
     # subprocess args are sanitized via _sanitize_pytest_args
     # to prevent command injection and satisfy CI security checks
+    print(f"[benchmark] python={sys.executable}")
     start = time.perf_counter()
     result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
+        check=False,
     )
     end = time.perf_counter()
     stats = get_termination_stats()

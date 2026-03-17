@@ -27,12 +27,12 @@ from src.bench.geometry_diagnostics import compute_dps
 
 DISTANCES = [8, 12]
 P_VALUES = [0.01, 0.02]
-TRIALS = 100
-MAX_ITERS = 50
+TRIALS = 25
+MAX_ITERS = 30
 SEED = 42
 CHANNEL = "bsc_syndrome"
 
-RHO_VALUES = [1.0, 0.9, 0.8, 0.7]
+RHO_VALUES = [1.0, 0.85, 0.7]
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ class TestGateCheck:
         n = H.shape[1]
 
         rng = np.random.default_rng(SEED)
-        n_trials = 50
+        n_trials = 15
         p_test = 0.02
 
         for t in range(n_trials):

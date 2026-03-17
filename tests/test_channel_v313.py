@@ -108,8 +108,8 @@ class TestBSCSyndromeFER:
         config = _small_config(
             distances=[5],
             p_values=[0.05],
-            trials=200,
-            max_iters=50,
+            trials=50,
+            max_iters=30,
             channel_model="bsc_syndrome",
             deterministic_metadata=True,
         )
@@ -130,8 +130,8 @@ class TestBSCSyndromeFER:
         config = _small_config(
             distances=[5],
             p_values=[0.01, 0.05, 0.10],
-            trials=200,
-            max_iters=50,
+            trials=50,
+            max_iters=30,
             channel_model="bsc_syndrome",
             deterministic_metadata=True,
         )

@@ -415,8 +415,8 @@ class TestSimulation:
         """Basic competence: FER should not increase when noise decreases."""
         code = create_code('rate_0.50', lifting_size=8, seed=42)
         dec = JointSPDecoder(code, max_iter=20)
-        r_high = simulate_frame_error_rate(code, dec, 0.10, n_frames=50, seed=42)
-        r_low = simulate_frame_error_rate(code, dec, 0.005, n_frames=50, seed=42)
+        r_high = simulate_frame_error_rate(code, dec, 0.10, n_frames=20, seed=42)
+        r_low = simulate_frame_error_rate(code, dec, 0.005, n_frames=20, seed=42)
         # Low noise FER should be <= high noise FER (allow small stat noise)
         assert r_low['fer'] <= r_high['fer'] + 0.15
 

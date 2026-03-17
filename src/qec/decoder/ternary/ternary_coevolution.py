@@ -23,7 +23,54 @@ from typing import Any
 import numpy as np
 
 from .ternary_rule_variants import RULE_REGISTRY, get_extended_rule_registry
-from .ternary_rule_evaluator import evaluate_decoder_rule
+from .ternary_rule_evaluator import run_decoder_with_rule, evaluate_decoder_rule
+
+
+def evaluate_graph_decoder_pair(
+    parity_matrix: np.ndarray,
+    received: np.ndarray,
+    rule_name: str,
+    *,
+    max_iterations: int = 20,
+) -> dict[str, Any]:
+    """Evaluate a single (graph, decoder rule) pair.
+
+    Runs the decoder and computes stability metrics in one call.
+
+    Parameters
+    ----------
+    parity_matrix : np.ndarray
+        Binary parity check matrix H of shape (m, n).
+    received : np.ndarray
+        Received values of shape (n,).
+    rule_name : str
+        Name of the rule variant.
+    max_iterations : int
+        Maximum number of decoding iterations.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary with keys: rule_name, stability, entropy,
+        conflict_density, trapping_indicator, converged, iterations.
+    """
+    decoder_result = run_decoder_with_rule(
+        parity_matrix, received, rule_name, max_iterations=max_iterations,
+    )
+    metrics = evaluate_decoder_rule(
+        parity_matrix, received, rule_name,
+        max_iterations=max_iterations,
+        decoder_result=decoder_result,
+    )
+    return {
+        "rule_name": rule_name,
+        "stability": float(metrics["stability"]),
+        "entropy": float(metrics["entropy"]),
+        "conflict_density": float(metrics["conflict_density"]),
+        "trapping_indicator": float(metrics["trapping_indicator"]),
+        "converged": decoder_result["converged"],
+        "iterations": int(decoder_result["iterations"]),
+    }
 
 
 def evaluate_rule_population(
@@ -46,10 +93,6 @@ def evaluate_rule_population(
     use_extended_rules : bool
         If True, evaluate the extended registry (base + mutated rules).
         If False, evaluate only RULE_REGISTRY.
-    rule_name : str
-        Name of the rule variant from RULE_REGISTRY.
-    max_iterations : int
-        Maximum number of decoding iterations.
 
     Returns
     -------
@@ -66,17 +109,11 @@ def evaluate_rule_population(
 
     population_metrics: list[dict[str, Any]] = []
     for rule_name in sorted(registry.keys()):
-        metrics = evaluate_decoder_rule(
+        entry = evaluate_graph_decoder_pair(
             parity_matrix, received, rule_name,
             max_iterations=max_iterations,
         )
-        population_metrics.append({
-            "rule_name": rule_name,
-            "stability": float(metrics["stability"]),
-            "entropy": float(metrics["entropy"]),
-            "conflict_density": float(metrics["conflict_density"]),
-            "trapping_indicator": float(metrics["trapping_indicator"]),
-        })
+        population_metrics.append(entry)
 
     # Deterministic best-rule selection via lexsort:
     # primary: -stability (descending), secondary: rule_name (ascending)
@@ -90,4 +127,33 @@ def evaluate_rule_population(
         "decoder_rule_population": population_metrics,
         "best_decoder_rule": best_rule,
         "num_rules_evaluated": len(population_metrics),
+    }
+
+
+def select_best_rule(
+    rule_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Select the best rule from a list of evaluation results.
+
+    Uses deterministic lexsort: primary key is -stability (descending),
+    secondary key is rule_name (ascending).
+
+    Parameters
+    ----------
+    rule_results : list[dict[str, Any]]
+        List of per-rule metric dicts, each containing at least
+        'rule_name' and 'stability'.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary with keys: best_rule (str), best_score (float).
+    """
+    rule_names = [m["rule_name"] for m in rule_results]
+    stabilities = [-m["stability"] for m in rule_results]
+    sort_order = np.lexsort((rule_names, stabilities))
+    best_idx = int(sort_order[0])
+    return {
+        "best_rule": rule_results[best_idx]["rule_name"],
+        "best_score": float(rule_results[best_idx]["stability"]),
     }

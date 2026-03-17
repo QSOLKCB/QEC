@@ -352,12 +352,13 @@ def run_discovery_experiment(
         artifact["results"]["num_rules_evaluated"] = pop_result["num_rules_evaluated"]
     if enable_coevolution and best_H is not None:
         from src.qec.decoder.ternary.ternary_coevolution import (
-            evaluate_rule_population,
+            evaluate_rule_population as _eval_pop,
             select_best_rule,
         )
 
         coev_received = np.ones(best_H.shape[1], dtype=np.float64)
-        rule_results = evaluate_rule_population(best_H, coev_received)
+        pop = _eval_pop(best_H, coev_received)
+        rule_results = pop["decoder_rule_population"]
         best = select_best_rule(rule_results)
 
         # Convert np.float64 values to float for JSON serialization

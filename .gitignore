@@ -62,6 +62,9 @@ dmypy.json
 # HTML files
 *.html
 
+# Benchmark output artifacts
+benchmark_v68_*.json
+
 # OS files
 .DS_Store
 Thumbs.db

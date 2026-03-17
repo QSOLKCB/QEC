@@ -34,6 +34,17 @@ CHANNEL = "bsc_syndrome"
 
 RHO_VALUES = [1.0, 0.85, 0.7]
 
+# Invariant:
+# URW(min_sum, rho=1.0) is algebraically identical to baseline min-sum.
+# Safe to reuse baseline results instead of recomputing.
+_BASELINE_RHO = 1.0
+
+
+def _is_baseline_equivalent_rho(rho: float) -> bool:
+    """Return True when *rho* produces results identical to plain min-sum."""
+    return rho == _BASELINE_RHO
+
+
 # Number of trials used for gate-check validation (separate from main TRIALS sweep)
 _RHO_GATE_CHECK_TRIALS = 15
 
@@ -156,7 +167,7 @@ class TestURWDPSPreview:
         all_wer: dict[float, dict] = {}
 
         for rho in RHO_VALUES:
-            if rho == 1.0:
+            if _is_baseline_equivalent_rho(rho):
                 wer = wer_base
                 dps = dps_base
             else:

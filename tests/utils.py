@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+from collections import OrderedDict
+from typing import Callable
+
 import numpy as np
 
 
@@ -11,6 +15,25 @@ def simple_parity_matrix() -> np.ndarray:
         [1, 1, 0, 1, 0],
         [0, 1, 1, 0, 1],
         [1, 0, 1, 1, 1],
+    ], dtype=np.float64)
+
+
+def minimal_parity_matrix_3x5() -> np.ndarray:
+    """Canonical minimal parity-check matrix (3x5) for fast structural tests."""
+    return np.array([
+        [1, 0, 1, 0, 1],
+        [0, 1, 1, 0, 1],
+        [1, 1, 0, 1, 0],
+    ], dtype=np.float64)
+
+
+def minimal_parity_matrix_4x6() -> np.ndarray:
+    """Slightly richer matrix for degeneracy / edge-case testing."""
+    return np.array([
+        [1, 0, 1, 0, 1, 0],
+        [0, 1, 1, 0, 0, 1],
+        [1, 1, 0, 1, 0, 0],
+        [0, 0, 1, 1, 1, 0],
     ], dtype=np.float64)
 
 
@@ -26,3 +49,62 @@ def received_vector(n: int = 5) -> np.ndarray:
     repeats = (n + len(base) - 1) // len(base)
     tiled = np.tile(base, repeats)
     return tiled[:n]
+
+
+# --- Ternary assertion layer ---
+
+def to_ternary(arr: np.ndarray) -> np.ndarray:
+    """Map values to ternary domain: +1 = correct, 0 = neutral, -1 = error."""
+    out = np.zeros_like(arr, dtype=np.int8)
+    out[arr > 0] = 1
+    out[arr < 0] = -1
+    return out
+
+
+def assert_no_ternary_errors(arr: np.ndarray) -> None:
+    """Fail if any -1 present in ternary mapping."""
+    tern = to_ternary(arr)
+    assert not np.any(tern == -1), "Detected ternary error state"
+
+
+def assert_strict_ternary_success(arr: np.ndarray) -> None:
+    """All values must map to +1 in ternary domain."""
+    tern = to_ternary(arr)
+    assert np.min(tern) == 1, "Not all entries are strictly valid"
+
+
+# --- Deterministic lightweight caching ---
+
+_MAX_CACHE_SIZE = 32  # small, deterministic bound
+
+_cache: OrderedDict[str, np.ndarray] = OrderedDict()
+
+
+def _stable_key(key: str) -> str:
+    """Generate stable hashed key to avoid collisions."""
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def deterministic_array_cache(key: str, arr_fn: Callable[[], np.ndarray]) -> np.ndarray:
+    """Bounded deterministic cache with LRU eviction.
+
+    Returns the same read-only cached array instance for a given key.
+    The underlying array is created once and reused across calls.
+    Evicts least-recently-used entries when size exceeds _MAX_CACHE_SIZE.
+    """
+    skey = _stable_key(key)
+
+    if skey in _cache:
+        _cache.move_to_end(skey)
+        return _cache[skey]
+
+    arr = arr_fn()
+    arr.setflags(write=False)
+
+    _cache[skey] = arr
+
+    # enforce bounded size (deterministic eviction)
+    if len(_cache) > _MAX_CACHE_SIZE:
+        _cache.popitem(last=False)
+
+    return arr

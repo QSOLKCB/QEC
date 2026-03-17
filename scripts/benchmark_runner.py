@@ -26,26 +26,38 @@ from src.qec.decoder.ternary.ternary_coevolution import (
 
 
 def extract_slowest_tests(output: str) -> list[dict]:
-    """Parse pytest --durations output for slow test entries."""
+    """Parse pytest --durations output robustly.
+
+    Tolerant to:
+    - call/setup/teardown entries
+    - minor formatting differences
+    - extra lines/noise in output
+    """
     results: list[dict] = []
     in_slow = False
     for line in output.splitlines():
         lower = line.lower()
+        # detect start of slow section
         if "slowest" in lower and "duration" in lower:
             in_slow = True
             continue
-        if in_slow:
-            stripped = line.strip()
-            if not stripped:
-                break
-            m = re.match(r"^([\d.]+)s\s+call\s+(.+)$", stripped)
-            if m:
-                results.append({
-                    "test": m.group(2).strip(),
-                    "duration": float(m.group(1)),
-                })
-            else:
-                break
+        if not in_slow:
+            continue
+        stripped = line.strip()
+        # skip empty lines safely
+        if not stripped:
+            continue
+        # regex: match "<float>s <type> <test>"
+        # duration format: one or more digits, optional single decimal part (e.g. 1, 1.2, 12.345)
+        m = re.match(r"^(\d+(?:\.\d+)?)s\s+(call|setup|teardown)?\s*(.+)$", stripped)
+        if m:
+            results.append({
+                "test": m.group(3).strip(),
+                "duration": float(m.group(1)),
+            })
+            continue
+        # DO NOT break — tolerate noise and continue scanning
+        continue
     return results
 
 
@@ -108,16 +120,19 @@ def run_pytest(extra_args: list[str] | None = None) -> dict:
         Additional arguments forwarded to pytest (e.g. test paths, ``-k``).
     """
     reset_termination_stats()
-    cmd = [sys.executable, "-m", "pytest", "-q", "--durations=10"]
+    # Use sys.executable to guarantee consistent interpreter
+    cmd = [sys.executable, "-m", "pytest", "-q", "--durations=10", "tests/"]
     if extra_args:
         cmd.extend(extra_args)
-    # subprocess args are sanitized via _sanitize_pytest_args
-    # to prevent command injection and satisfy CI security checks
+    # SAFE: cmd is a list (no shell=True), arguments are sanitized via
+    # _sanitize_pytest_args, preventing command injection.
+    print(f"[benchmark] python={sys.executable}", file=sys.stderr)
     start = time.perf_counter()
     result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
+        check=False,
     )
     end = time.perf_counter()
     stats = get_termination_stats()

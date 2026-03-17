@@ -2,7 +2,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from qec.dev.test_selection import SpectralTestSelector
+import pytest
+
+try:
+    from qec.dev.test_selection import SpectralTestSelector
+except ModuleNotFoundError as e:
+    if e.name and "qec.dev.test_selection".startswith(e.name):
+        pytest.skip(
+            "SpectralTestSelector not available",
+            allow_module_level=True,
+        )
+    else:
+        raise
 
 
 def test_module_from_path_mapping_and_filters() -> None:

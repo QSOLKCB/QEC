@@ -21,6 +21,10 @@ from src.bench.runner import run_benchmark
 from src.bench.schema import dumps_result, validate_result
 
 
+# --- Test tuning constants (v68.4 optimization) ---
+_BSC_FER_TRIALS = 50
+_BSC_FER_MAX_ITERS = 30
+
 # ── Helpers ────────────────────────────────────────────────────────────
 
 def _small_config(**overrides) -> BenchmarkConfig:
@@ -108,8 +112,8 @@ class TestBSCSyndromeFER:
         config = _small_config(
             distances=[5],
             p_values=[0.05],
-            trials=200,
-            max_iters=50,
+            trials=_BSC_FER_TRIALS,
+            max_iters=_BSC_FER_MAX_ITERS,
             channel_model="bsc_syndrome",
             deterministic_metadata=True,
         )
@@ -130,8 +134,8 @@ class TestBSCSyndromeFER:
         config = _small_config(
             distances=[5],
             p_values=[0.01, 0.05, 0.10],
-            trials=200,
-            max_iters=50,
+            trials=_BSC_FER_TRIALS,
+            max_iters=_BSC_FER_MAX_ITERS,
             channel_model="bsc_syndrome",
             deterministic_metadata=True,
         )

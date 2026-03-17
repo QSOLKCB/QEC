@@ -496,6 +496,10 @@ class TestLandscapeMetricsBaselineSafety:
 
 # ── Harness Integration ──────────────────────────────────────────
 
+_HARNESS_INSTANCES = 5
+_HARNESS_MAX_ITERS = 30
+
+
 class TestHarnessLandscapeMetrics:
 
     @pytest.fixture
@@ -506,11 +510,11 @@ class TestHarnessLandscapeMetrics:
         """With landscape enabled, classifications include v4.2.0 fields."""
         H = landscape_code.H_X
         rng = np.random.default_rng(99)
-        instances = _pre_generate_instances(H, 0.50, 5, rng)
+        instances = _pre_generate_instances(H, 0.50, _HARNESS_INSTANCES, rng)
 
         result = run_mode(
             "baseline", H, instances,
-            max_iters=30, enable_landscape=True,
+            max_iters=_HARNESS_MAX_ITERS, enable_landscape=True,
         )
 
         # Ensure this test always exercises the new landscape metrics.
@@ -534,10 +538,10 @@ class TestHarnessLandscapeMetrics:
         results = []
         for _ in range(2):
             rng = np.random.default_rng(99)
-            instances = _pre_generate_instances(H, 0.50, 5, rng)
+            instances = _pre_generate_instances(H, 0.50, _HARNESS_INSTANCES, rng)
             r = run_mode(
                 "baseline", H, instances,
-                max_iters=30, enable_landscape=True,
+                max_iters=_HARNESS_MAX_ITERS, enable_landscape=True,
             )
             results.append(r)
 

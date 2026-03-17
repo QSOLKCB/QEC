@@ -7,8 +7,8 @@ No new DPS logic.  No new slope calculation.  Configuration-driven only.
 Reduced grid for fast execution:
   - Distances: [8, 12]
   - Noise: p = [0.01, 0.02]
-  - Trials: 100
-  - Rho: [1.0, 0.9, 0.8, 0.7]
+  - Trials: 25
+  - Rho: [1.0, 0.85, 0.7]
 
 Run with:  pytest tests/test_urw_dps_preview_v370.py -v -s
 """
@@ -33,6 +33,8 @@ SEED = 42
 CHANNEL = "bsc_syndrome"
 
 RHO_VALUES = [1.0, 0.85, 0.7]
+
+GATE_CHECK_TRIALS = 15
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -83,10 +85,9 @@ class TestGateCheck:
         n = H.shape[1]
 
         rng = np.random.default_rng(SEED)
-        n_trials = 15
         p_test = 0.02
 
-        for t in range(n_trials):
+        for t in range(GATE_CHECK_TRIALS):
             e = (rng.random(n) < p_test).astype(np.uint8)
             s = syndrome(H, e)
             llr = channel.compute_llr(p=p_test, n=n, error_vector=e)

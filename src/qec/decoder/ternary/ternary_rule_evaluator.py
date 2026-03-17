@@ -155,6 +155,7 @@ def evaluate_decoder_rule(
     rule_name: str,
     *,
     max_iterations: int = 20,
+    decoder_result: dict[str, Any] | None = None,
 ) -> dict[str, np.float64]:
     """Evaluate a decoder rule variant and compute deterministic metrics.
 
@@ -168,6 +169,9 @@ def evaluate_decoder_rule(
         Name of the rule variant from RULE_REGISTRY.
     max_iterations : int
         Maximum number of decoding iterations.
+    decoder_result : dict[str, Any] | None
+        Pre-computed decoder output from run_decoder_with_rule.  When
+        provided the decoder is not executed again, avoiding redundant work.
 
     Returns
     -------
@@ -178,11 +182,12 @@ def evaluate_decoder_rule(
         - conflict_density: np.float64
         - trapping_indicator: np.float64
     """
-    result = run_decoder_with_rule(
-        parity_matrix, received, rule_name,
-        max_iterations=max_iterations,
-    )
-    msgs = result["final_messages"]
+    if decoder_result is None:
+        decoder_result = run_decoder_with_rule(
+            parity_matrix, received, rule_name,
+            max_iterations=max_iterations,
+        )
+    msgs = decoder_result["final_messages"]
 
     return {
         "stability": compute_ternary_stability(msgs),

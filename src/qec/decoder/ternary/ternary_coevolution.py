@@ -7,6 +7,13 @@ optional evaluation of extended (mutated) rule sets.
 
 This module does not modify the existing BP decoder or ternary decoder.
 All operations are fully deterministic.
+Deterministic co-evolution evaluation of Tanner graphs and decoder rules.
+
+Evaluates (Tanner graph, decoder rule) pairs to determine the best-performing
+decoder rule for a given graph structure.  This is evaluation-only co-evolution:
+it does not modify mutation operators or the discovery engine loop.
+
+All operations are fully deterministic with no hidden randomness.
 """
 
 from __future__ import annotations
@@ -39,6 +46,10 @@ def evaluate_rule_population(
     use_extended_rules : bool
         If True, evaluate the extended registry (base + mutated rules).
         If False, evaluate only RULE_REGISTRY.
+    rule_name : str
+        Name of the rule variant from RULE_REGISTRY.
+    max_iterations : int
+        Maximum number of decoding iterations.
 
     Returns
     -------

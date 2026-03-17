@@ -40,7 +40,11 @@ from .ternary_rule_evaluator import (
     run_decoder_with_rule,
     evaluate_decoder_rule,
 )
-from .ternary_coevolution import evaluate_rule_population
+from .ternary_coevolution import (
+    evaluate_graph_decoder_pair,
+    evaluate_rule_population,
+    select_best_rule,
+)
 
 __all__ = [
     "encode_ternary",
@@ -67,5 +71,7 @@ __all__ = [
     "generate_mutated_rules",
     "run_decoder_with_rule",
     "evaluate_decoder_rule",
+    "evaluate_graph_decoder_pair",
     "evaluate_rule_population",
+    "select_best_rule",
 ]

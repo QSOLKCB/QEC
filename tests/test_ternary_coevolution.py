@@ -3,6 +3,14 @@ Tests for deterministic co-evolution of ternary decoder rule populations.
 
 Covers base and extended population evaluation, determinism,
 metric structure, and best-rule selection stability.
+Tests for the deterministic co-evolution evaluation layer.
+
+Verifies:
+- Deterministic ordering of rule_results
+- Correct best rule selection
+- Reproducibility across runs
+- Integration with experiment runner
+- dtype correctness
 """
 
 from __future__ import annotations

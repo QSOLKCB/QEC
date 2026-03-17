@@ -28,6 +28,22 @@ from tests.utils import simple_parity_matrix, received_vector
 
 
 # ===========================================================================
+# Test received_vector utility
+# ===========================================================================
+
+def test_received_vector_length_and_determinism():
+    v3 = received_vector(3)
+    v5 = received_vector(5)
+    v7 = received_vector(7)
+    assert len(v3) == 3
+    assert len(v5) == 5
+    assert len(v7) == 7
+    # Deterministic prefix property
+    assert np.all(v5[:3] == v3)
+    assert np.all(v7[:5] == v5)
+
+
+# ===========================================================================
 # Test flip_zero_bias_rule
 # ===========================================================================
 

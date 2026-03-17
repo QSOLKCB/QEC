@@ -15,5 +15,14 @@ def simple_parity_matrix() -> np.ndarray:
 
 
 def received_vector(n: int = 5) -> np.ndarray:
-    """Return a simple deterministic received vector."""
-    return np.array([1.0, -1.0, 1.0, 0.0, -1.0], dtype=np.float64)[:n]
+    """Return a deterministic received vector of length n.
+
+    The vector is constructed by tiling a fixed base pattern, ensuring
+    consistent behavior for all n >= 1.
+    """
+    if n < 1:
+        raise ValueError("n must be >= 1")
+    base = np.array([1.0, -1.0, 1.0, 0.0, -1.0], dtype=np.float64)
+    repeats = (n + len(base) - 1) // len(base)
+    tiled = np.tile(base, repeats)
+    return tiled[:n]

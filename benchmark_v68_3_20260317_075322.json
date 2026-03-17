@@ -1,0 +1,57 @@
+{
+  "returncode": 0,
+  "runtime_seconds": 40.8938,
+  "stdout_tail": "2.10s call     tests/test_urw_dps_preview_v370.py::TestDeterminism::test_urw_benchmark_deterministic\n0.85s call     tests/test_dps_v381_harness.py::TestFullEvaluation::test_evaluation_slopes_are_floats\n0.83s call     tests/test_qec_qldpc_codes.py::TestSimulation::test_fer_decreases_with_noise\n0.77s call     tests/test_qec_exp_cli.py::test_estimate_threshold_cli_runs\n0.77s call     tests/test_channel_v313.py::TestBSCSyndromeFER::test_bsc_fer_increases_with_noise\n0.76s call     tests/test_dps_v381_harness.py::TestDeterminism::test_all_modes_deterministic\n0.72s call     tests/test_dps_v381_harness.py::TestFullEvaluation::test_evaluation_runs\n0.70s call     tests/test_cli_imports.py::TestCLIImports::test_harness_help_runs\n0.69s call     tests/test_cli_imports.py::TestCLIImports::test_harness_importable\n3779 passed, 8 skipped in 40.04s",
+  "slow_tests": [
+    {
+      "test": "tests/test_urw_dps_preview_v370.py::TestURWDPSPreview::test_preview_sweep",
+      "duration": 3.07
+    },
+    {
+      "test": "tests/test_urw_dps_preview_v370.py::TestDeterminism::test_urw_benchmark_deterministic",
+      "duration": 2.1
+    },
+    {
+      "test": "tests/test_dps_v381_harness.py::TestFullEvaluation::test_evaluation_slopes_are_floats",
+      "duration": 0.85
+    },
+    {
+      "test": "tests/test_qec_qldpc_codes.py::TestSimulation::test_fer_decreases_with_noise",
+      "duration": 0.83
+    },
+    {
+      "test": "tests/test_qec_exp_cli.py::test_estimate_threshold_cli_runs",
+      "duration": 0.77
+    },
+    {
+      "test": "tests/test_channel_v313.py::TestBSCSyndromeFER::test_bsc_fer_increases_with_noise",
+      "duration": 0.77
+    },
+    {
+      "test": "tests/test_dps_v381_harness.py::TestDeterminism::test_all_modes_deterministic",
+      "duration": 0.76
+    },
+    {
+      "test": "tests/test_dps_v381_harness.py::TestFullEvaluation::test_evaluation_runs",
+      "duration": 0.72
+    },
+    {
+      "test": "tests/test_cli_imports.py::TestCLIImports::test_harness_help_runs",
+      "duration": 0.7
+    },
+    {
+      "test": "tests/test_cli_imports.py::TestCLIImports::test_harness_importable",
+      "duration": 0.69
+    }
+  ],
+  "termination_stats": {
+    "convergence": 0,
+    "markov": 0,
+    "curvature": 0
+  },
+  "efficiency_metrics": {
+    "early_exit_ratio": 0.0,
+    "markov_ratio": 0.0,
+    "curvature_ratio": 0.0
+  }
+}

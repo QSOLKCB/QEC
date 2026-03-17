@@ -108,7 +108,7 @@ def run_pytest(extra_args: list[str] | None = None) -> dict:
         Additional arguments forwarded to pytest (e.g. test paths, ``-k``).
     """
     reset_termination_stats()
-    cmd = ["pytest", "-q", "--durations=10"]
+    cmd = [sys.executable, "-m", "pytest", "-q", "--durations=10"]
     if extra_args:
         cmd.extend(extra_args)
     # subprocess args are sanitized via _sanitize_pytest_args

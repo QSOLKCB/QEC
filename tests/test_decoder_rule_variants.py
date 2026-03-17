@@ -21,24 +21,7 @@ from src.qec.decoder.ternary.ternary_rule_evaluator import (
     run_decoder_with_rule,
     evaluate_decoder_rule,
 )
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _simple_parity_matrix() -> np.ndarray:
-    """Return a small parity check matrix for testing."""
-    return np.array([
-        [1, 1, 0, 1, 0],
-        [0, 1, 1, 0, 1],
-        [1, 0, 1, 1, 1],
-    ], dtype=np.float64)
-
-
-def _received_vector(n: int = 5) -> np.ndarray:
-    """Return a simple deterministic received vector."""
-    return np.array([1.0, -1.0, 1.0, 0.0, -1.0], dtype=np.float64)[:n]
+from tests.utils import simple_parity_matrix, received_vector
 
 
 # ===========================================================================
@@ -184,35 +167,35 @@ class TestRunDecoderWithRule:
     """Tests for run_decoder_with_rule."""
 
     def test_returns_required_keys(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = run_decoder_with_rule(H, r, "majority")
         assert "final_messages" in result
         assert "iterations" in result
         assert "converged" in result
 
     def test_final_messages_dtype(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = run_decoder_with_rule(H, r, "majority")
         assert result["final_messages"].dtype == np.int8
 
     def test_final_messages_shape(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = run_decoder_with_rule(H, r, "majority")
         assert result["final_messages"].shape == (H.shape[1],)
 
     def test_final_messages_ternary_values(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = run_decoder_with_rule(H, r, "majority")
         unique = set(result["final_messages"].tolist())
         assert unique.issubset({-1, 0, 1})
 
     def test_deterministic_across_calls(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         r1 = run_decoder_with_rule(H, r, "majority")
         r2 = run_decoder_with_rule(H, r, "majority")
         assert np.array_equal(r1["final_messages"], r2["final_messages"])
@@ -220,14 +203,14 @@ class TestRunDecoderWithRule:
         assert r1["converged"] == r2["converged"]
 
     def test_invalid_rule_raises(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         with pytest.raises(ValueError, match="Unknown rule"):
             run_decoder_with_rule(H, r, "nonexistent_rule")
 
     def test_all_rules_run(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         for name in RULE_REGISTRY:
             result = run_decoder_with_rule(H, r, name)
             assert result["final_messages"].dtype == np.int8
@@ -235,8 +218,8 @@ class TestRunDecoderWithRule:
             assert isinstance(result["converged"], (bool, np.bool_))
 
     def test_convergence_within_max_iterations(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = run_decoder_with_rule(H, r, "majority", max_iterations=50)
         assert result["iterations"] <= 50
 
@@ -245,8 +228,8 @@ class TestEvaluateDecoderRule:
     """Tests for evaluate_decoder_rule."""
 
     def test_returns_required_metrics(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         metrics = evaluate_decoder_rule(H, r, "majority")
         assert "stability" in metrics
         assert "entropy" in metrics
@@ -254,30 +237,30 @@ class TestEvaluateDecoderRule:
         assert "trapping_indicator" in metrics
 
     def test_metrics_dtype_float64(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         metrics = evaluate_decoder_rule(H, r, "majority")
         for key, val in metrics.items():
             assert isinstance(val, np.float64), f"Metric '{key}' is not np.float64"
 
     def test_metrics_bounded(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         metrics = evaluate_decoder_rule(H, r, "majority")
         for key, val in metrics.items():
             assert 0.0 <= float(val) <= 1.0, f"Metric '{key}' out of bounds: {val}"
 
     def test_deterministic_across_calls(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         m1 = evaluate_decoder_rule(H, r, "conflict_averse")
         m2 = evaluate_decoder_rule(H, r, "conflict_averse")
         for key in m1:
             assert m1[key] == m2[key], f"Metric '{key}' not deterministic"
 
     def test_all_rules_evaluable(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         for name in RULE_REGISTRY:
             metrics = evaluate_decoder_rule(H, r, name)
             assert len(metrics) == 4
@@ -292,8 +275,8 @@ class TestRuleComparison:
 
     def test_different_rules_may_differ(self) -> None:
         """Rules may produce different metrics — verify structure is consistent."""
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         all_metrics = {}
         for name in sorted(RULE_REGISTRY.keys()):
             all_metrics[name] = evaluate_decoder_rule(H, r, name)
@@ -302,8 +285,8 @@ class TestRuleComparison:
         assert len(keys_set) == 1
 
     def test_comparison_ordering_deterministic(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         results1 = []
         results2 = []
         for name in sorted(RULE_REGISTRY.keys()):
@@ -468,16 +451,16 @@ class TestAPIWrappers:
 
     def test_run_decoder_with_rule_wrapper(self) -> None:
         from src.qec.analysis.api import run_decoder_with_rule as api_run
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = api_run(H, r, "majority")
         assert "final_messages" in result
         assert result["final_messages"].dtype == np.int8
 
     def test_evaluate_decoder_rule_wrapper(self) -> None:
         from src.qec.analysis.api import evaluate_decoder_rule as api_eval
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         metrics = api_eval(H, r, "majority")
         assert "stability" in metrics
         assert isinstance(metrics["stability"], np.float64)

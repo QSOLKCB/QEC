@@ -30,14 +30,16 @@ def extract_slowest_tests(output: str) -> list[dict]:
     slow_section = False
     results: list[dict] = []
     for line in lines:
-        if "slowest durations" in line.lower():
+        if "slowest" in line.lower() and "durations" in line.lower():
             slow_section = True
             continue
         if slow_section:
             if not line.strip():
+                continue
+            if line.strip().startswith("="):
                 break
             parts = line.strip().split()
-            if len(parts) >= 2:
+            if len(parts) >= 3 and parts[1] == "call":
                 try:
                     duration = float(parts[0].rstrip("s"))
                     test_name = parts[-1]
@@ -47,6 +49,8 @@ def extract_slowest_tests(output: str) -> list[dict]:
                     })
                 except ValueError:
                     continue
+            else:
+                break
     return results
 
 
@@ -109,7 +113,7 @@ def run_pytest(extra_args: list[str] | None = None) -> dict:
         Additional arguments forwarded to pytest (e.g. test paths, ``-k``).
     """
     reset_termination_stats()
-    cmd = ["pytest", "-q", "--durations=10"]
+    cmd = [sys.executable, "-m", "pytest", "-q", "--durations=10"]
     if extra_args:
         cmd.extend(extra_args)
     # subprocess args are sanitized via _sanitize_pytest_args

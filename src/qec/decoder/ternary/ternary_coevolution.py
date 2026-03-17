@@ -130,6 +130,34 @@ def evaluate_rule_population(
     }
 
 
+def early_exit_convergence(
+    history: list[np.ndarray],
+    tol: np.float64 = np.float64(1e-6),
+    window: int = 3,
+) -> bool:
+    """Detect convergence via stability of recent states.
+
+    Returns True if the last ``window`` consecutive deltas are all
+    below ``tol``, indicating the iterative process has converged.
+
+    Parameters
+    ----------
+    history : list[np.ndarray]
+        Sequence of state vectors from successive iterations.
+    tol : np.float64
+        Convergence tolerance.
+    window : int
+        Number of consecutive stable deltas required.
+    """
+    if len(history) < window + 1:
+        return False
+    deltas = []
+    for i in range(-window, 0):
+        delta = np.linalg.norm(history[i] - history[i - 1])
+        deltas.append(delta)
+    return bool(np.all(np.array(deltas, dtype=np.float64) < tol))
+
+
 def select_best_rule(
     rule_results: list[dict[str, Any]],
 ) -> dict[str, Any]:

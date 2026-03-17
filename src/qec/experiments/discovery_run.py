@@ -350,6 +350,20 @@ def run_discovery_experiment(
         artifact["results"]["decoder_rule_population_extended"] = pop_result["decoder_rule_population"]
         artifact["results"]["best_decoder_rule_extended"] = pop_result["best_decoder_rule"]
         artifact["results"]["num_rules_evaluated"] = pop_result["num_rules_evaluated"]
+
+        from src.qec.decoder.ternary.ternary_rule_fitness import (
+            compute_rule_fitness_metrics as _compute_fitness,
+            rank_rules_by_fitness as _rank_fitness,
+        )
+        fitness = _compute_fitness(pop_result)
+        ranked = _rank_fitness(fitness)
+        artifact["results"]["rule_fitness_metrics"] = {
+            k: {mk: float(mv) for mk, mv in v.items()} for k, v in fitness.items()
+        }
+        artifact["results"]["ranked_decoder_rules"] = [
+            (name, {mk: float(mv) for mk, mv in m.items()}) for name, m in ranked
+        ]
+        artifact["results"]["best_decoder_rule_ranked"] = ranked[0][0] if ranked else ""
     if enable_coevolution and best_H is not None:
         from src.qec.decoder.ternary.ternary_coevolution import (
             evaluate_rule_population as _eval_pop,

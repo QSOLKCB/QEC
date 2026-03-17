@@ -461,6 +461,22 @@ def select_best_rule(
     return _impl(rule_results)
 
 
+def compute_rule_fitness_metrics(
+    results: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Public wrapper for deterministic per-rule fitness metric computation."""
+    from src.qec.decoder.ternary.ternary_rule_fitness import compute_rule_fitness_metrics as _impl
+    return _impl(results)
+
+
+def rank_rules_by_fitness(
+    metrics: dict[str, dict[str, Any]],
+) -> list[tuple[str, dict[str, Any]]]:
+    """Public wrapper for deterministic multi-objective rule ranking."""
+    from src.qec.decoder.ternary.ternary_rule_fitness import rank_rules_by_fitness as _impl
+    return _impl(metrics)
+
+
 def construct_phase_map(
     basins: list[dict[str, Any]],
     ridges: list[dict[str, Any]],

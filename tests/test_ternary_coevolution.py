@@ -23,24 +23,7 @@ from src.qec.decoder.ternary.ternary_rule_variants import (
     get_extended_rule_registry,
 )
 from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _simple_parity_matrix() -> np.ndarray:
-    """Return a small parity check matrix for testing."""
-    return np.array([
-        [1, 1, 0, 1, 0],
-        [0, 1, 1, 0, 1],
-        [1, 0, 1, 1, 1],
-    ], dtype=np.float64)
-
-
-def _received_vector(n: int = 5) -> np.ndarray:
-    """Return a simple deterministic received vector."""
-    return np.array([1.0, -1.0, 1.0, 0.0, -1.0], dtype=np.float64)[:n]
+from tests.utils import simple_parity_matrix, received_vector
 
 
 # ===========================================================================
@@ -51,27 +34,27 @@ class TestBasePopulation:
     """Tests for evaluate_rule_population with use_extended_rules=False."""
 
     def test_num_rules_matches_registry(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=False)
         assert result["num_rules_evaluated"] == len(RULE_REGISTRY)
 
     def test_best_rule_in_registry(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=False)
         assert result["best_decoder_rule"] in RULE_REGISTRY
 
     def test_population_has_all_base_rules(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=False)
         names = {e["rule_name"] for e in result["decoder_rule_population"]}
         assert names == set(RULE_REGISTRY.keys())
 
     def test_deterministic(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         r1 = evaluate_rule_population(H, r, use_extended_rules=False)
         r2 = evaluate_rule_population(H, r, use_extended_rules=False)
         assert r1["best_decoder_rule"] == r2["best_decoder_rule"]
@@ -86,36 +69,36 @@ class TestExtendedPopulation:
     """Tests for evaluate_rule_population with use_extended_rules=True."""
 
     def test_num_rules_matches_extended_registry(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
         ext = get_extended_rule_registry()
         assert result["num_rules_evaluated"] == len(ext)
 
     def test_best_rule_in_extended_registry(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
         ext = get_extended_rule_registry()
         assert result["best_decoder_rule"] in ext
 
     def test_population_has_all_extended_rules(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
         names = {e["rule_name"] for e in result["decoder_rule_population"]}
         ext = get_extended_rule_registry()
         assert names == set(ext.keys())
 
     def test_more_rules_than_base(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
         assert result["num_rules_evaluated"] > len(RULE_REGISTRY)
 
     def test_deterministic(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         r1 = evaluate_rule_population(H, r, use_extended_rules=True)
         r2 = evaluate_rule_population(H, r, use_extended_rules=True)
         assert r1["best_decoder_rule"] == r2["best_decoder_rule"]
@@ -131,8 +114,8 @@ class TestPopulationMetricStructure:
     """Tests for per-rule metric dict structure."""
 
     def test_required_keys(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
         for entry in result["decoder_rule_population"]:
             assert "rule_name" in entry
@@ -142,8 +125,8 @@ class TestPopulationMetricStructure:
             assert "trapping_indicator" in entry
 
     def test_metrics_are_float(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
         for entry in result["decoder_rule_population"]:
             assert isinstance(entry["stability"], float)
@@ -152,8 +135,8 @@ class TestPopulationMetricStructure:
             assert isinstance(entry["trapping_indicator"], float)
 
     def test_metrics_bounded(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
         for entry in result["decoder_rule_population"]:
             for key in ("stability", "entropy", "conflict_density", "trapping_indicator"):
@@ -162,8 +145,8 @@ class TestPopulationMetricStructure:
                 )
 
     def test_population_sorted_by_rule_name(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
         names = [e["rule_name"] for e in result["decoder_rule_population"]]
         assert names == sorted(names)
@@ -177,8 +160,8 @@ class TestBestRuleSelection:
     """Tests for deterministic best-rule selection via lexsort."""
 
     def test_best_rule_has_highest_stability(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
         best = result["best_decoder_rule"]
         best_stab = None
@@ -190,8 +173,8 @@ class TestBestRuleSelection:
         assert best_stab == max_stab
 
     def test_selection_stable_across_calls(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         results = [
             evaluate_rule_population(H, r, use_extended_rules=True)
             for _ in range(3)

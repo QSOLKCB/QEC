@@ -24,24 +24,23 @@ from src.qec.decoder.ternary.ternary_rule_evaluator import (
     run_decoder_with_rule,
     evaluate_decoder_rule,
 )
+from tests.utils import simple_parity_matrix, received_vector
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# Test received_vector utility
+# ===========================================================================
 
-def _simple_parity_matrix() -> np.ndarray:
-    """Return a small parity check matrix for testing."""
-    return np.array([
-        [1, 1, 0, 1, 0],
-        [0, 1, 1, 0, 1],
-        [1, 0, 1, 1, 1],
-    ], dtype=np.float64)
-
-
-def _received_vector(n: int = 5) -> np.ndarray:
-    """Return a simple deterministic received vector."""
-    return np.array([1.0, -1.0, 1.0, 0.0, -1.0], dtype=np.float64)[:n]
+def test_received_vector_length_and_determinism():
+    v3 = received_vector(3)
+    v5 = received_vector(5)
+    v7 = received_vector(7)
+    assert len(v3) == 3
+    assert len(v5) == 5
+    assert len(v7) == 7
+    # Deterministic prefix property
+    assert np.all(v5[:3] == v3)
+    assert np.all(v7[:5] == v5)
 
 
 # ===========================================================================
@@ -262,8 +261,8 @@ class TestExtendedEvaluation:
     """Tests for evaluating mutated rules through the evaluator."""
 
     def test_mutated_rules_run_in_evaluator(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         mutated = generate_mutated_rules()
         for name in mutated:
             result = run_decoder_with_rule(H, r, name)
@@ -271,8 +270,8 @@ class TestExtendedEvaluation:
             assert isinstance(result["iterations"], (int, np.integer))
 
     def test_mutated_rules_evaluate_metrics(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         mutated = generate_mutated_rules()
         for name in mutated:
             metrics = evaluate_decoder_rule(H, r, name)
@@ -282,23 +281,23 @@ class TestExtendedEvaluation:
             assert "trapping_indicator" in metrics
 
     def test_mutated_rule_metrics_dtype(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         metrics = evaluate_decoder_rule(H, r, "flip_zero_bias")
         for key, val in metrics.items():
             assert isinstance(val, np.float64), f"Metric '{key}' is not np.float64"
 
     def test_extended_evaluation_deterministic(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         m1 = evaluate_decoder_rule(H, r, "inverted_majority")
         m2 = evaluate_decoder_rule(H, r, "inverted_majority")
         for key in m1:
             assert m1[key] == m2[key], f"Metric '{key}' not deterministic"
 
     def test_metrics_bounded(self) -> None:
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         for name in generate_mutated_rules():
             metrics = evaluate_decoder_rule(H, r, name)
             for key, val in metrics.items():
@@ -316,16 +315,16 @@ class TestCoevolution:
 
     def test_base_population(self) -> None:
         from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=False)
         assert result["num_rules_evaluated"] == len(RULE_REGISTRY)
         assert result["best_decoder_rule"] in RULE_REGISTRY
 
     def test_extended_population(self) -> None:
         from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
         ext = get_extended_rule_registry()
         assert result["num_rules_evaluated"] == len(ext)
@@ -333,8 +332,8 @@ class TestCoevolution:
 
     def test_population_deterministic(self) -> None:
         from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         r1 = evaluate_rule_population(H, r, use_extended_rules=True)
         r2 = evaluate_rule_population(H, r, use_extended_rules=True)
         assert r1["best_decoder_rule"] == r2["best_decoder_rule"]
@@ -343,8 +342,8 @@ class TestCoevolution:
 
     def test_population_metrics_structure(self) -> None:
         from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
-        H = _simple_parity_matrix()
-        r = _received_vector()
+        H = simple_parity_matrix()
+        r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
         for entry in result["decoder_rule_population"]:
             assert "rule_name" in entry

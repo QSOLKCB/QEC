@@ -34,7 +34,8 @@ CHANNEL = "bsc_syndrome"
 
 RHO_VALUES = [1.0, 0.85, 0.7]
 
-GATE_CHECK_TRIALS = 15
+# Number of trials used for gate-check validation (separate from main TRIALS sweep)
+_RHO_GATE_CHECK_TRIALS = 15
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ class TestGateCheck:
         rng = np.random.default_rng(SEED)
         p_test = 0.02
 
-        for t in range(GATE_CHECK_TRIALS):
+        for t in range(_RHO_GATE_CHECK_TRIALS):
             e = (rng.random(n) < p_test).astype(np.uint8)
             s = syndrome(H, e)
             llr = channel.compute_llr(p=p_test, n=n, error_vector=e)

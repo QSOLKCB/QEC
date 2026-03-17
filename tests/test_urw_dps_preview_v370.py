@@ -34,6 +34,17 @@ CHANNEL = "bsc_syndrome"
 
 RHO_VALUES = [1.0, 0.85, 0.7]
 
+# Invariant:
+# URW(min_sum, rho=1.0) is algebraically identical to baseline min-sum.
+# Safe to reuse baseline results instead of recomputing.
+_BASELINE_RHO = 1.0
+
+
+def _is_baseline_equivalent_rho(rho: float) -> bool:
+    """Return True when *rho* produces results identical to plain min-sum."""
+    return rho == _BASELINE_RHO
+
+
 # Number of trials used for gate-check validation (separate from main TRIALS sweep)
 _RHO_GATE_CHECK_TRIALS = 15
 
@@ -150,20 +161,32 @@ class TestURWDPSPreview:
         self._print_dps(dps_base, "min_sum baseline")
 
         # ── URW sweep ──
+        # Gate check confirms min_sum == min_sum_urw(rho=1.0),
+        # so reuse baseline results for rho=1.0 to avoid a redundant run.
         all_dps: dict[float, list[dict]] = {}
         all_wer: dict[float, dict] = {}
 
         for rho in RHO_VALUES:
-            cfg = _make_config("min_sum_urw", urw_rho=rho)
-            res = run_benchmark(cfg)
-            wer = _extract_wer_table(res["results"])
-            dps = compute_dps(res["results"])
+            if _is_baseline_equivalent_rho(rho):
+                wer = wer_base
+                dps = dps_base
+            else:
+                cfg = _make_config("min_sum_urw", urw_rho=rho)
+                res = run_benchmark(cfg)
+                wer = _extract_wer_table(res["results"])
+                dps = compute_dps(res["results"])
             all_dps[rho] = dps
             all_wer[rho] = wer
 
             print(f"\n--- urw_rho={rho} ---")
             self._print_wer(wer, f"urw_rho={rho}")
             self._print_dps(dps, f"urw_rho={rho}")
+
+        # ── Precompute per-rho dps lookups (reused in summary + analysis) ──
+        all_dps_by_p: dict[float, dict[float, float]] = {
+            rho: {row["p"]: row["slope"] for row in all_dps[rho]}
+            for rho in RHO_VALUES
+        }
 
         # ── Summary table ──
         print("\n" + "=" * 70)
@@ -185,11 +208,9 @@ class TestURWDPSPreview:
 
         # URW rows.
         for rho in RHO_VALUES:
-            dps_by_p = {row["p"]: row for row in all_dps[rho]}
             print(f"  {rho:<6.2f}", end="")
             for p in P_VALUES:
-                row = dps_by_p.get(p)
-                s = row["slope"] if row else float("nan")
+                s = all_dps_by_p[rho].get(p, float("nan"))
                 print(f"  {s:<12.6f}", end="")
             any_inv = any(r["inverted"] for r in all_dps[rho])
             print(f"  {str(any_inv):<12}")
@@ -202,10 +223,9 @@ class TestURWDPSPreview:
         print()
 
         for rho in RHO_VALUES:
-            dps_by_p = {row["p"]: row["slope"] for row in all_dps[rho]}
             print(f"  {rho:<6.2f}", end="")
             for p in P_VALUES:
-                s_urw = dps_by_p.get(p, float("nan"))
+                s_urw = all_dps_by_p[rho].get(p, float("nan"))
                 s_base = dps_base_by_p.get(p, float("nan"))
                 delta = s_urw - s_base
                 print(f"  {delta:<+12.6f}", end="")
@@ -222,8 +242,7 @@ class TestURWDPSPreview:
             base_sign = 1 if base_slope > 0 else -1
             first_flip = None
             for rho in RHO_VALUES:
-                dps_map = {row["p"]: row["slope"] for row in all_dps[rho]}
-                s = dps_map.get(p, 0.0)
+                s = all_dps_by_p[rho].get(p, 0.0)
                 s_sign = 1 if s > 0 else -1
                 if s_sign != base_sign:
                     first_flip = rho
@@ -236,10 +255,8 @@ class TestURWDPSPreview:
         # Monotonic trend.
         print("\n  Monotonic trend check:")
         for p in P_VALUES:
-            slopes = []
-            for rho in RHO_VALUES:
-                dps_map = {row["p"]: row["slope"] for row in all_dps[rho]}
-                slopes.append(dps_map.get(p, float("nan")))
+            slopes = [all_dps_by_p[rho].get(p, float("nan"))
+                      for rho in RHO_VALUES]
             diffs = [slopes[i+1] - slopes[i] for i in range(len(slopes)-1)]
             all_inc = all(d >= 0 for d in diffs)
             all_dec = all(d <= 0 for d in diffs)

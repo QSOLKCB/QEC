@@ -1,4 +1,12 @@
 """
+Deterministic co-evolution of ternary decoder rule populations.
+
+Evaluates rule populations against a parity check matrix and received
+vector, producing deterministic metrics for each rule.  Supports
+optional evaluation of extended (mutated) rule sets.
+
+This module does not modify the existing BP decoder or ternary decoder.
+All operations are fully deterministic.
 Deterministic co-evolution evaluation of Tanner graphs and decoder rules.
 
 Evaluates (Tanner graph, decoder rule) pairs to determine the best-performing
@@ -14,7 +22,7 @@ from typing import Any
 
 import numpy as np
 
-from .ternary_rule_variants import RULE_REGISTRY
+from .ternary_rule_variants import RULE_REGISTRY, get_extended_rule_registry
 from .ternary_rule_evaluator import run_decoder_with_rule, evaluate_decoder_rule
 
 
@@ -25,10 +33,9 @@ def evaluate_graph_decoder_pair(
     *,
     max_iterations: int = 20,
 ) -> dict[str, Any]:
-    """Evaluate a single (Tanner graph, decoder rule) pair.
+    """Evaluate a single (graph, decoder rule) pair.
 
-    Runs the decoder with the specified rule and computes all diagnostic
-    metrics for the pairing.
+    Runs the decoder and computes stability metrics in one call.
 
     Parameters
     ----------
@@ -37,39 +44,31 @@ def evaluate_graph_decoder_pair(
     received : np.ndarray
         Received values of shape (n,).
     rule_name : str
-        Name of the rule variant from RULE_REGISTRY.
+        Name of the rule variant.
     max_iterations : int
         Maximum number of decoding iterations.
 
     Returns
     -------
     dict[str, Any]
-        Dictionary with keys:
-        - rule_name: str
-        - stability: np.float64
-        - entropy: np.float64
-        - conflict_density: np.float64
-        - trapping_indicator: np.float64
-        - converged: bool
-        - iterations: int
+        Dictionary with keys: rule_name, stability, entropy,
+        conflict_density, trapping_indicator, converged, iterations.
     """
     decoder_result = run_decoder_with_rule(
-        parity_matrix, received, rule_name,
-        max_iterations=max_iterations,
+        parity_matrix, received, rule_name, max_iterations=max_iterations,
     )
     metrics = evaluate_decoder_rule(
         parity_matrix, received, rule_name,
         max_iterations=max_iterations,
         decoder_result=decoder_result,
     )
-
     return {
-        "rule_name": str(rule_name),
-        "stability": np.float64(metrics["stability"]),
-        "entropy": np.float64(metrics["entropy"]),
-        "conflict_density": np.float64(metrics["conflict_density"]),
-        "trapping_indicator": np.float64(metrics["trapping_indicator"]),
-        "converged": bool(decoder_result["converged"]),
+        "rule_name": rule_name,
+        "stability": float(metrics["stability"]),
+        "entropy": float(metrics["entropy"]),
+        "conflict_density": float(metrics["conflict_density"]),
+        "trapping_indicator": float(metrics["trapping_indicator"]),
+        "converged": decoder_result["converged"],
         "iterations": int(decoder_result["iterations"]),
     }
 
@@ -79,11 +78,9 @@ def evaluate_rule_population(
     received: np.ndarray,
     *,
     max_iterations: int = 20,
-) -> list[dict[str, Any]]:
-    """Evaluate all decoder rules in RULE_REGISTRY against a graph.
-
-    Iterates over RULE_REGISTRY in deterministic order and evaluates
-    each rule on the given (parity_matrix, received) pair.
+    use_extended_rules: bool = False,
+) -> dict[str, Any]:
+    """Evaluate all rules in the population and select the best.
 
     Parameters
     ----------
@@ -92,65 +89,71 @@ def evaluate_rule_population(
     received : np.ndarray
         Received values of shape (n,).
     max_iterations : int
-        Maximum number of decoding iterations.
-
-    Returns
-    -------
-    list[dict[str, Any]]
-        List of evaluation dicts sorted by:
-        np.lexsort((rule_name ascending, -stability descending))
-    """
-    results: list[dict[str, Any]] = []
-    for rule_name in sorted(RULE_REGISTRY.keys()):
-        result = evaluate_graph_decoder_pair(
-            parity_matrix, received, rule_name,
-            max_iterations=max_iterations,
-        )
-        results.append(result)
-
-    # Deterministic sort: primary key = -stability (desc), secondary = rule_name (asc)
-    rule_names = [r["rule_name"] for r in results]
-    stabilities = [-float(r["stability"]) for r in results]
-    sort_order = np.lexsort((rule_names, stabilities))
-    sorted_results = [results[int(i)] for i in sort_order]
-
-    return sorted_results
-
-
-def select_best_rule(
-    rule_results: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """Deterministically select the best decoder rule from evaluation results.
-
-    Selection criteria:
-    - Primary: highest stability
-    - Tie-break: rule_name (lexicographic ascending)
-
-    Parameters
-    ----------
-    rule_results : list[dict[str, Any]]
-        List of evaluation dicts as returned by evaluate_rule_population.
+        Maximum number of decoding iterations per rule.
+    use_extended_rules : bool
+        If True, evaluate the extended registry (base + mutated rules).
+        If False, evaluate only RULE_REGISTRY.
 
     Returns
     -------
     dict[str, Any]
         Dictionary with keys:
-        - best_rule: str
-        - best_score: np.float64
+        - decoder_rule_population: list of per-rule metric dicts
+        - best_decoder_rule: str, name of the best rule
+        - num_rules_evaluated: int
     """
-    if not rule_results:
-        return {
-            "best_rule": "",
-            "best_score": np.float64(0.0),
-        }
+    if use_extended_rules:
+        registry = get_extended_rule_registry()
+    else:
+        registry = dict(RULE_REGISTRY)
 
-    # Re-apply deterministic sorting to ensure correctness
-    rule_names = [r["rule_name"] for r in rule_results]
-    stabilities = [-float(r["stability"]) for r in rule_results]
+    population_metrics: list[dict[str, Any]] = []
+    for rule_name in sorted(registry.keys()):
+        entry = evaluate_graph_decoder_pair(
+            parity_matrix, received, rule_name,
+            max_iterations=max_iterations,
+        )
+        population_metrics.append(entry)
+
+    # Deterministic best-rule selection via lexsort:
+    # primary: -stability (descending), secondary: rule_name (ascending)
+    rule_names = [m["rule_name"] for m in population_metrics]
+    stabilities = [-m["stability"] for m in population_metrics]
     sort_order = np.lexsort((rule_names, stabilities))
     best_idx = int(sort_order[0])
+    best_rule = population_metrics[best_idx]["rule_name"]
 
     return {
-        "best_rule": str(rule_results[best_idx]["rule_name"]),
-        "best_score": np.float64(rule_results[best_idx]["stability"]),
+        "decoder_rule_population": population_metrics,
+        "best_decoder_rule": best_rule,
+        "num_rules_evaluated": len(population_metrics),
+    }
+
+
+def select_best_rule(
+    rule_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Select the best rule from a list of evaluation results.
+
+    Uses deterministic lexsort: primary key is -stability (descending),
+    secondary key is rule_name (ascending).
+
+    Parameters
+    ----------
+    rule_results : list[dict[str, Any]]
+        List of per-rule metric dicts, each containing at least
+        'rule_name' and 'stability'.
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary with keys: best_rule (str), best_score (float).
+    """
+    rule_names = [m["rule_name"] for m in rule_results]
+    stabilities = [-m["stability"] for m in rule_results]
+    sort_order = np.lexsort((rule_names, stabilities))
+    best_idx = int(sort_order[0])
+    return {
+        "best_rule": rule_results[best_idx]["rule_name"],
+        "best_score": float(rule_results[best_idx]["stability"]),
     }

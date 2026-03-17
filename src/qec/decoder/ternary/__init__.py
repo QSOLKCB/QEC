@@ -28,6 +28,13 @@ from .ternary_rule_variants import (
     conflict_averse_rule,
     parity_pressure_rule,
     RULE_REGISTRY,
+    get_extended_rule_registry,
+)
+from .ternary_rule_mutations import (
+    flip_zero_bias_rule,
+    conservative_rule,
+    inverted_majority_rule,
+    generate_mutated_rules,
 )
 from .ternary_rule_evaluator import (
     run_decoder_with_rule,
@@ -57,6 +64,11 @@ __all__ = [
     "conflict_averse_rule",
     "parity_pressure_rule",
     "RULE_REGISTRY",
+    "get_extended_rule_registry",
+    "flip_zero_bias_rule",
+    "conservative_rule",
+    "inverted_majority_rule",
+    "generate_mutated_rules",
     "run_decoder_with_rule",
     "evaluate_decoder_rule",
     "evaluate_graph_decoder_pair",

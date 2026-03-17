@@ -43,12 +43,11 @@ def compute_rule_fitness_metrics(
     for entry in population:
         rule_name: str = entry["rule_name"]
 
-        # Core metrics
         convergence_rate = np.float64(float(entry["converged"]))
         failure_rate = np.float64(1.0) - convergence_rate
         mean_iterations = np.float64(entry["iterations"])
-        # NOTE: Stability metric is not yet defined for single-run evaluation.
-        # This placeholder is intentionally omitted to avoid misleading signals.
+        # NOTE: A stability metric is not currently computed; add one here once
+        # we have variance information over multiple runs or another useful proxy.
 
         rule_metrics: dict[str, np.float64] = {
             "convergence_rate": convergence_rate,

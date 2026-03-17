@@ -103,7 +103,11 @@ from src.qec.analysis.spectral_frontiers import detect_spectral_frontiers
 from src.qec.discovery.discovery_agent import DiscoveryAgent
 from src.qec.discovery.multi_agent_coordinator import MultiAgentCoordinator
 from src.qec.discovery.autonomous_scheduler import schedule_next_experiment
-from src.qec.discovery.adaptive_operator_weights import compute_adaptive_operator_weights
+from src.qec.discovery.adaptive_operator_weights import (
+    compute_adaptive_operator_weights,
+    compute_operator_weights,
+    deterministic_weighted_choice,
+)
 from src.qec.discovery.experiment_queue import ExperimentQueue
 from src.qec.analysis.exploration_state import analyze_exploration_state
 from src.qec.analysis.exploration_metrics import (
@@ -164,6 +168,9 @@ from src.qec.analysis.spectral_geometry import (
     estimate_local_curvature,
     estimate_basin_geometry,
 )
+from src.qec.discovery.motif_library import SpectralMotifLibrary
+from src.qec.analysis.spectral_motif_extraction import extract_spectral_motifs
+from src.qec.discovery.motif_mutation import apply_motif_mutation
 
 
 _ROUND = 12
@@ -921,7 +928,10 @@ def run_structure_discovery(
             current_spectrum = _objective_spectrum(elites[0].get("objectives", {}))
             regional_similarity = _compute_regional_similarity(operator_stats, current_spectrum)
             current_operator_weights = compute_operator_weights(operator_stats, regional_similarity)
-            operator_name = deterministic_weighted_choice(current_operator_weights)
+            if current_operator_weights:
+                operator_name = deterministic_weighted_choice(current_operator_weights)
+            else:
+                operator_name = get_operator_for_generation(gen)
         else:
             operator_name = get_operator_for_generation(gen)
         selected_operator = str(operator_name)

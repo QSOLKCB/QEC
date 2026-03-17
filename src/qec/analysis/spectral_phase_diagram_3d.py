@@ -33,8 +33,7 @@ def _normalize_trajectory(trajectory_points: Any) -> np.ndarray:
     x = np.asarray([r[0] for r in rows], dtype=np.float64)
     y = np.asarray([r[1] for r in rows], dtype=np.float64)
     z = np.asarray([r[2] for r in rows], dtype=np.float64)
-    idx = np.asarray([r[3] for r in rows], dtype=np.int64)
-    order = np.lexsort((idx,))
+    order = np.lexsort((z, y, x))
     return np.column_stack((x[order], y[order], z[order])).astype(np.float64, copy=False)
 
 

@@ -10,8 +10,18 @@ from src.qec.discovery.adaptive_operator_weights import (
     compute_operator_weights,
     deterministic_weighted_choice,
 )
+import src.qec.discovery.discovery_engine as discovery_engine
 from src.qec.discovery.discovery_engine import run_structure_discovery
 from src.qec.discovery.motif_library import SpectralMotifLibrary
+
+
+def _default_spec() -> dict[str, int]:
+    return {
+        "num_variables": 6,
+        "num_checks": 3,
+        "variable_degree": 2,
+        "check_degree": 4,
+    }
 
 
 def _archive_fixture() -> dict:
@@ -138,13 +148,13 @@ def test_operator_statistics_update_after_evaluation(monkeypatch) -> None:
     assert result_a["operator_weights"] == result_b["operator_weights"]
 
     for stats in result_a["operator_stats"].values():
-        attempts = float(np.float64(stats["attempts"]))
+        trials = float(np.float64(stats["trials"]))
         successes = float(np.float64(stats["successes"]))
-        total_improvement = float(np.float64(stats["total_improvement"]))
-        mean_improvement = float(np.float64(stats["mean_improvement"]))
-        assert attempts >= successes
-        assert np.isclose(mean_improvement, total_improvement / attempts)
-        assert mean_improvement >= 0.0
+        success_rate = float(np.float64(stats["success_rate"]))
+        assert trials >= successes
+        expected_rate = float(np.float64(successes / max(trials, 1.0)))
+        assert np.isclose(success_rate, expected_rate)
+        assert success_rate >= 0.0
 
 
 def test_operator_success_requires_improvement() -> None:
@@ -157,6 +167,7 @@ def test_operator_success_requires_improvement() -> None:
         assert "requires computed improvement" in str(exc)
     else:
         raise AssertionError("Expected ValueError for missing improvement")
+    spec = _default_spec()
     r1 = run_structure_discovery(
         spec,
         num_generations=2,

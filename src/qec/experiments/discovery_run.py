@@ -358,6 +358,9 @@ def run_discovery_experiment(
         from src.qec.decoder.ternary.ternary_rule_fitness import (
             compute_rule_fitness_metrics as _compute_fitness,
             rank_rules_by_fitness as _rank_fitness,
+            compute_multiobjective_fitness as _compute_mo_fitness,
+            project_fitness_score as _project_score,
+            rank_rules_multiobjective as _rank_mo,
         )
         fitness = _compute_fitness(pop_result)
         ranked = _rank_fitness(fitness)
@@ -368,6 +371,20 @@ def run_discovery_experiment(
             (name, _to_float_dict(metrics)) for name, metrics in ranked
         ]
         artifact["results"]["best_decoder_rule_ranked"] = ranked[0][0] if ranked else ""
+
+        fitness_vectors = _compute_mo_fitness(fitness)
+        fitness_scores = {
+            r: float(_project_score(fitness_vectors[r])) for r in fitness_vectors
+        }
+        ranked_multi = _rank_mo(fitness_vectors)
+        artifact["results"]["rule_fitness_vectors"] = {
+            k: _to_float_dict(v) for k, v in fitness_vectors.items()
+        }
+        artifact["results"]["rule_fitness_scores"] = fitness_scores
+        artifact["results"]["ranked_decoder_rules_multiobjective"] = [
+            (name, float(score)) for name, score in ranked_multi
+        ]
+        artifact["results"]["best_decoder_rule_multiobjective"] = ranked_multi[0][0] if ranked_multi else ""
     if enable_coevolution and best_H is not None:
         from src.qec.decoder.ternary.ternary_coevolution import (
             evaluate_rule_population as _eval_pop,

@@ -48,7 +48,8 @@ def extract_slowest_tests(output: str) -> list[dict]:
         if not stripped:
             continue
         # regex: match "<float>s <type> <test>"
-        m = re.match(r"^([\d.]+)s\s+(call|setup|teardown)?\s*(.+)$", stripped)
+        # duration format: one or more digits, optional single decimal part (e.g. 1, 1.2, 12.345)
+        m = re.match(r"^(\d+(?:\.\d+)?)s\s+(call|setup|teardown)?\s*(.+)$", stripped)
         if m:
             results.append({
                 "test": m.group(3).strip(),

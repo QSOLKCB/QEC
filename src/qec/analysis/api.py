@@ -514,3 +514,25 @@ def propose_phase_guided_step(
     """Public wrapper for deterministic phase-guided spectral step proposal."""
     from src.qec.discovery.phase_guided_search import propose_phase_guided_step as _impl
     return _impl(current_vector, phase_map, target_phase)
+
+
+def compute_multiobjective_fitness(
+    metrics: dict[str, dict[str, np.float64]],
+) -> dict[str, dict[str, np.float64]]:
+    """Public wrapper for diagnostics-aware multi-objective fitness vectors."""
+    from src.qec.decoder.ternary.ternary_rule_fitness import compute_multiobjective_fitness as _impl
+    return _impl(metrics)
+
+
+def project_fitness_score(f: dict[str, np.float64]) -> np.float64:
+    """Public wrapper for deterministic fitness score projection."""
+    from src.qec.decoder.ternary.ternary_rule_fitness import project_fitness_score as _impl
+    return _impl(f)
+
+
+def rank_rules_multiobjective(
+    fitness_vectors: dict[str, dict[str, np.float64]],
+) -> list[tuple[str, np.float64]]:
+    """Public wrapper for multi-objective rule ranking."""
+    from src.qec.decoder.ternary.ternary_rule_fitness import rank_rules_multiobjective as _impl
+    return _impl(fitness_vectors)

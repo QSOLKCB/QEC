@@ -112,3 +112,110 @@ def rank_rules_by_fitness(
     order = np.lexsort((rule_names, conf, iters, fail, conv))
 
     return [(str(rule_names[i]), dict(metrics[str(rule_names[i])])) for i in order]
+
+
+def compute_multiobjective_fitness(
+    metrics: dict[str, dict[str, np.float64]],
+) -> dict[str, dict[str, np.float64]]:
+    """Build diagnostics-aware fitness vectors from per-rule metrics.
+
+    Parameters
+    ----------
+    metrics : dict[str, dict[str, np.float64]]
+        Output of :func:`compute_rule_fitness_metrics`.
+
+    Returns
+    -------
+    dict[str, dict[str, np.float64]]
+        Mapping from rule name to multi-objective fitness vector.
+    """
+    vectors: dict[str, dict[str, np.float64]] = {}
+    for r in sorted(metrics.keys()):
+        m = metrics[r]
+        convergence_rate = np.float64(m.get("convergence_rate", np.float64(0.0)))
+        failure_rate = np.float64(m.get("failure_rate", np.float64(1.0)))
+        mean_iterations = np.float64(m.get("mean_iterations", np.float64(1.0)))
+
+        performance = np.float64(convergence_rate - failure_rate)
+        efficiency = np.float64(1.0 / (1.0 + float(mean_iterations)))
+
+        agreement = np.float64(m.get("stability", np.float64(0.0)))
+        entropy = np.float64(m.get("entropy", np.float64(0.0)))
+        conflict = np.float64(m.get("conflict_density", np.float64(np.inf)))
+        trapping = np.float64(m.get("trapping_indicator", np.float64(0.0)))
+
+        vectors[r] = {
+            "performance": np.float64(performance),
+            "efficiency": np.float64(efficiency),
+            "agreement": np.float64(agreement),
+            "entropy_penalty": np.float64(entropy),
+            "conflict_penalty": np.float64(conflict) if np.isfinite(conflict) else np.float64(0.0),
+            "trapping_penalty": np.float64(trapping),
+        }
+    return vectors
+
+
+def project_fitness_score(f: dict[str, np.float64]) -> np.float64:
+    """Project a fitness vector to a single deterministic scalar score.
+
+    Parameters
+    ----------
+    f : dict[str, np.float64]
+        Fitness vector from :func:`compute_multiobjective_fitness`.
+
+    Returns
+    -------
+    np.float64
+        Weighted projection score.
+    """
+    score = np.float64(
+        2.0 * float(f["performance"])
+        + 1.5 * float(f["efficiency"])
+        + 1.0 * float(f["agreement"])
+        - 1.5 * float(f["conflict_penalty"])
+        - 1.0 * float(f["trapping_penalty"])
+        - 0.5 * float(f["entropy_penalty"])
+    )
+    return np.float64(score)
+
+
+def rank_rules_multiobjective(
+    fitness_vectors: dict[str, dict[str, np.float64]],
+) -> list[tuple[str, np.float64]]:
+    """Rank rules by projected multi-objective fitness score.
+
+    Uses ``np.lexsort`` over (rule_name, conflict_penalty, performance, score)
+    for deterministic tie-breaking.
+
+    Parameters
+    ----------
+    fitness_vectors : dict[str, dict[str, np.float64]]
+        Output of :func:`compute_multiobjective_fitness`.
+
+    Returns
+    -------
+    list[tuple[str, np.float64]]
+        Rules sorted best-first with their projected scores.
+    """
+    if not fitness_vectors:
+        return []
+
+    rule_names = np.array(sorted(fitness_vectors.keys()), dtype=object)
+    scores = np.array(
+        [float(project_fitness_score(fitness_vectors[r])) for r in rule_names],
+        dtype=np.float64,
+    )
+    performance = np.array(
+        [float(fitness_vectors[r]["performance"]) for r in rule_names],
+        dtype=np.float64,
+    )
+    conflict = np.array(
+        [float(fitness_vectors[r]["conflict_penalty"]) for r in rule_names],
+        dtype=np.float64,
+    )
+
+    # lexsort: last key is primary. We want highest score first (negate),
+    # then highest performance (negate), then lowest conflict, then name.
+    order = np.lexsort((rule_names, conflict, -performance, -scores))
+
+    return [(str(rule_names[i]), np.float64(scores[i])) for i in order]

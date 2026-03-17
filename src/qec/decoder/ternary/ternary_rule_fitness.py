@@ -47,14 +47,13 @@ def compute_rule_fitness_metrics(
         convergence_rate = np.float64(float(entry["converged"]))
         failure_rate = np.float64(1.0) - convergence_rate
         mean_iterations = np.float64(entry["iterations"])
-        # Single run → variance = 0 → stability_score = 1.0
-        stability_score = np.float64(1.0 / (1.0 + 0.0))
+        # NOTE: Stability metric is not yet defined for single-run evaluation.
+        # This placeholder is intentionally omitted to avoid misleading signals.
 
         rule_metrics: dict[str, np.float64] = {
             "convergence_rate": convergence_rate,
             "failure_rate": failure_rate,
             "mean_iterations": mean_iterations,
-            "stability_score": stability_score,
         }
 
         # Passthrough secondary metrics
@@ -78,9 +77,8 @@ def rank_rules_by_fitness(
     1. highest ``convergence_rate``
     2. lowest ``failure_rate``
     3. lowest ``mean_iterations``
-    4. highest ``stability_score``
-    5. lowest ``conflict_density``
-    6. lexicographic ``rule_name``
+    4. lowest ``conflict_density``
+    5. lexicographic ``rule_name``
 
     Parameters
     ----------
@@ -106,15 +104,12 @@ def rank_rules_by_fitness(
     iters = np.array(
         [metrics[r]["mean_iterations"] for r in rule_names], dtype=np.float64
     )
-    stab = np.array(
-        [-metrics[r]["stability_score"] for r in rule_names], dtype=np.float64
-    )
     conf = np.array(
-        [metrics[r].get("conflict_density", np.float64(0.0)) for r in rule_names],
+        [metrics[r].get("conflict_density", np.float64(np.inf)) for r in rule_names],
         dtype=np.float64,
     )
 
     # np.lexsort sorts by last key first; rightmost column is primary.
-    order = np.lexsort((rule_names, conf, stab, iters, fail, conv))
+    order = np.lexsort((rule_names, conf, iters, fail, conv))
 
     return [(str(rule_names[i]), dict(metrics[str(rule_names[i])])) for i in order]

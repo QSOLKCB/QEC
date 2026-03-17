@@ -23,6 +23,10 @@ from src.qec.io.export_graph import (
     export_json_adjacency,
 )
 from src.qec.utils.reproducibility import collect_environment_metadata
+
+
+def _to_float_dict(d: dict) -> dict:
+    return {k: float(v) if isinstance(v, (np.floating, float)) else v for k, v in d.items()}
 from src.utils.canonicalize import canonicalize
 
 
@@ -358,10 +362,10 @@ def run_discovery_experiment(
         fitness = _compute_fitness(pop_result)
         ranked = _rank_fitness(fitness)
         artifact["results"]["rule_fitness_metrics"] = {
-            k: {mk: float(mv) for mk, mv in v.items()} for k, v in fitness.items()
+            k: _to_float_dict(v) for k, v in fitness.items()
         }
         artifact["results"]["ranked_decoder_rules"] = [
-            (name, {mk: float(mv) for mk, mv in m.items()}) for name, m in ranked
+            (name, _to_float_dict(metrics)) for name, metrics in ranked
         ]
         artifact["results"]["best_decoder_rule_ranked"] = ranked[0][0] if ranked else ""
     if enable_coevolution and best_H is not None:

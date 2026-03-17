@@ -55,7 +55,7 @@ class TestComputeRuleFitnessMetrics:
         metrics = compute_rule_fitness_metrics(results)
         core_keys = {
             "convergence_rate", "failure_rate",
-            "mean_iterations", "stability_score",
+            "mean_iterations",
         }
         for rule_metrics in metrics.values():
             assert core_keys.issubset(rule_metrics.keys())
@@ -93,11 +93,11 @@ class TestComputeRuleFitnessMetrics:
         for rule_metrics in metrics.values():
             assert rule_metrics["failure_rate"] == np.float64(1.0) - rule_metrics["convergence_rate"]
 
-    def test_stability_score_is_one_for_single_run(self) -> None:
+    def test_stability_score_not_present(self) -> None:
         results = _make_population_result()
         metrics = compute_rule_fitness_metrics(results)
         for rule_metrics in metrics.values():
-            assert rule_metrics["stability_score"] == np.float64(1.0)
+            assert "stability_score" not in rule_metrics
 
     def test_deterministic(self) -> None:
         results = _make_population_result()
@@ -171,21 +171,18 @@ class TestRankRulesByFitness:
                 "convergence_rate": np.float64(1.0),
                 "failure_rate": np.float64(0.0),
                 "mean_iterations": np.float64(5.0),
-                "stability_score": np.float64(1.0),
                 "conflict_density": np.float64(0.1),
             },
             "rule_a": {
                 "convergence_rate": np.float64(1.0),
                 "failure_rate": np.float64(0.0),
                 "mean_iterations": np.float64(5.0),
-                "stability_score": np.float64(1.0),
                 "conflict_density": np.float64(0.1),
             },
             "rule_c": {
                 "convergence_rate": np.float64(1.0),
                 "failure_rate": np.float64(0.0),
                 "mean_iterations": np.float64(5.0),
-                "stability_score": np.float64(1.0),
                 "conflict_density": np.float64(0.1),
             },
         }

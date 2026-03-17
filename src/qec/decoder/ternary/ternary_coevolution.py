@@ -19,7 +19,7 @@ All operations are fully deterministic with no hidden randomness.
 from __future__ import annotations
 
 import hashlib
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -138,7 +138,7 @@ def _state_hash(x: np.ndarray) -> str:
 
 
 def detect_state_cycle(
-    history_hashes: list[str],
+    history_hashes: Sequence[str],
     current_hash: str,
     window: int = 5,
     end_index: int | None = None,
@@ -151,7 +151,7 @@ def detect_state_cycle(
 
     Parameters
     ----------
-    history_hashes : list[str]
+    history_hashes : Sequence[str]
         SHA-256 hashes of previous state vectors.
     current_hash : str
         Hash of the current state vector.

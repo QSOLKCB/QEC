@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 
 import numpy as np
+import pytest
 
 from tests.utils import (
     _cache,
@@ -19,6 +20,13 @@ from src.qec.decoder.ternary.ternary_coevolution import (
     early_exit_convergence,
     detect_state_cycle,
 )
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    _cache.clear()
+    yield
+    _cache.clear()
 
 
 # --- Ternary mapping tests ---
@@ -146,6 +154,12 @@ def test_markov_no_cycle():
     assert not detect_state_cycle(hashes, current)
 
 
-def test_markov_insufficient_history():
+def test_markov_short_history_detects():
+    """With relaxed window, short histories can still detect cycles."""
     h = hashlib.sha256(np.ones(3).tobytes()).hexdigest()
-    assert not detect_state_cycle([h, h], h)
+    assert detect_state_cycle([h, h], h)
+
+
+def test_markov_empty_history():
+    h = hashlib.sha256(np.ones(3).tobytes()).hexdigest()
+    assert not detect_state_cycle([], h)

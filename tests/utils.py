@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections import OrderedDict
+from typing import Callable
 
 import numpy as np
 
@@ -84,10 +85,11 @@ def _stable_key(key: str) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
-def deterministic_array_cache(key: str, arr_fn: object) -> np.ndarray:
+def deterministic_array_cache(key: str, arr_fn: Callable[[], np.ndarray]) -> np.ndarray:
     """Bounded deterministic cache with LRU eviction.
 
-    Returns a read-only cached copy to prevent mutation.
+    Returns the same read-only cached array instance for a given key.
+    The underlying array is created once and reused across calls.
     Evicts least-recently-used entries when size exceeds _MAX_CACHE_SIZE.
     """
     skey = _stable_key(key)

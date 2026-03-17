@@ -133,7 +133,8 @@ def evaluate_rule_population(
 
 def _state_hash(x: np.ndarray) -> str:
     """Deterministic hash of state vector (float64 safe)."""
-    return hashlib.sha256(x.tobytes()).hexdigest()
+    x_c = np.ascontiguousarray(x)
+    return hashlib.sha256(x_c.tobytes()).hexdigest()
 
 
 def detect_state_cycle(
@@ -155,9 +156,10 @@ def detect_state_cycle(
     window : int
         Number of recent entries to check for cycles.
     """
-    if len(history_hashes) < window:
+    if len(history_hashes) == 0:
         return False
-    return current_hash in history_hashes[-window:]
+    k = min(window, len(history_hashes))
+    return current_hash in history_hashes[-k:]
 
 
 def early_exit_convergence(

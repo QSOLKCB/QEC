@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import re
 import subprocess
 import sys
 import time
@@ -26,29 +27,23 @@ from src.qec.decoder.ternary.ternary_coevolution import (
 
 def extract_slowest_tests(output: str) -> list[dict]:
     """Parse pytest --durations output for slow test entries."""
-    lines = output.splitlines()
-    slow_section = False
     results: list[dict] = []
-    for line in lines:
-        if "slowest" in line.lower() and "durations" in line.lower():
-            slow_section = True
+    in_slow = False
+    for line in output.splitlines():
+        lower = line.lower()
+        if "slowest" in lower and "duration" in lower:
+            in_slow = True
             continue
-        if slow_section:
-            if not line.strip():
-                continue
-            if line.strip().startswith("="):
+        if in_slow:
+            stripped = line.strip()
+            if not stripped:
                 break
-            parts = line.strip().split()
-            if len(parts) >= 3 and parts[1] == "call":
-                try:
-                    duration = float(parts[0].rstrip("s"))
-                    test_name = parts[-1]
-                    results.append({
-                        "test": test_name,
-                        "duration": duration,
-                    })
-                except ValueError:
-                    continue
+            m = re.match(r"^([\d.]+)s\s+call\s+(.+)$", stripped)
+            if m:
+                results.append({
+                    "test": m.group(2).strip(),
+                    "duration": float(m.group(1)),
+                })
             else:
                 break
     return results

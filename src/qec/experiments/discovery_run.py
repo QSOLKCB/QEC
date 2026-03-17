@@ -23,6 +23,10 @@ from src.qec.io.export_graph import (
     export_json_adjacency,
 )
 from src.qec.utils.reproducibility import collect_environment_metadata
+
+
+def _to_float_dict(d: dict) -> dict:
+    return {k: float(v) if isinstance(v, (np.floating, float)) else v for k, v in d.items()}
 from src.utils.canonicalize import canonicalize
 
 
@@ -350,6 +354,20 @@ def run_discovery_experiment(
         artifact["results"]["decoder_rule_population_extended"] = pop_result["decoder_rule_population"]
         artifact["results"]["best_decoder_rule_extended"] = pop_result["best_decoder_rule"]
         artifact["results"]["num_rules_evaluated"] = pop_result["num_rules_evaluated"]
+
+        from src.qec.decoder.ternary.ternary_rule_fitness import (
+            compute_rule_fitness_metrics as _compute_fitness,
+            rank_rules_by_fitness as _rank_fitness,
+        )
+        fitness = _compute_fitness(pop_result)
+        ranked = _rank_fitness(fitness)
+        artifact["results"]["rule_fitness_metrics"] = {
+            k: _to_float_dict(v) for k, v in fitness.items()
+        }
+        artifact["results"]["ranked_decoder_rules"] = [
+            (name, _to_float_dict(metrics)) for name, metrics in ranked
+        ]
+        artifact["results"]["best_decoder_rule_ranked"] = ranked[0][0] if ranked else ""
     if enable_coevolution and best_H is not None:
         from src.qec.decoder.ternary.ternary_coevolution import (
             evaluate_rule_population as _eval_pop,

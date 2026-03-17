@@ -45,6 +45,10 @@ from .ternary_coevolution import (
     evaluate_rule_population,
     select_best_rule,
 )
+from .ternary_rule_fitness import (
+    compute_rule_fitness_metrics,
+    rank_rules_by_fitness,
+)
 
 __all__ = [
     "encode_ternary",
@@ -74,4 +78,6 @@ __all__ = [
     "evaluate_graph_decoder_pair",
     "evaluate_rule_population",
     "select_best_rule",
+    "compute_rule_fitness_metrics",
+    "rank_rules_by_fitness",
 ]

@@ -168,24 +168,39 @@ def project_fitness_score(f: dict[str, np.float64]) -> np.float64:
     np.float64
         Weighted projection score.
     """
-    score = np.float64(
-        2.0 * float(f["performance"])
-        + 1.5 * float(f["efficiency"])
-        + 1.0 * float(f["agreement"])
-        - 1.5 * float(f["conflict_penalty"])
-        - 1.0 * float(f["trapping_penalty"])
-        - 0.5 * float(f["entropy_penalty"])
+    w_perf = np.float64(2.0)
+    w_eff = np.float64(1.5)
+    w_agree = np.float64(1.0)
+    w_conf = np.float64(1.5)
+    w_trap = np.float64(1.0)
+    w_ent = np.float64(0.5)
+    score = (
+        w_perf * f["performance"]
+        + w_eff * f["efficiency"]
+        + w_agree * f["agreement"]
+        - w_conf * f["conflict_penalty"]
+        - w_trap * f["trapping_penalty"]
+        - w_ent * f["entropy_penalty"]
     )
-    return np.float64(score)
+    return np.asarray(score, dtype=np.float64)[()]
 
 
 def rank_rules_multiobjective(
     fitness_vectors: dict[str, dict[str, np.float64]],
 ) -> list[tuple[str, np.float64]]:
-    """Rank rules by projected multi-objective fitness score.
+    """Deterministically rank rules using multi-objective fitness.
 
-    Uses ``np.lexsort`` over (rule_name, conflict_penalty, performance, score)
-    for deterministic tie-breaking.
+    Ordering is performed via ``np.lexsort`` with the following priority:
+
+    1. Highest projected fitness score (descending)
+    2. Highest performance (descending)
+    3. Lowest conflict_penalty (ascending)
+    4. Lexicographic rule_name (ascending)
+
+    Implementation detail:
+    - Negation is applied to score and performance to achieve descending
+      order using ``np.lexsort`` (which sorts ascending).
+    - rule_name is used as the final deterministic tie-breaker.
 
     Parameters
     ----------

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+
 import numpy as np
 
 from tests.utils import (
+    _cache,
     to_ternary,
     assert_no_ternary_errors,
     assert_strict_ternary_success,
@@ -12,7 +15,10 @@ from tests.utils import (
     minimal_parity_matrix_3x5,
     minimal_parity_matrix_4x6,
 )
-from src.qec.decoder.ternary.ternary_coevolution import early_exit_convergence
+from src.qec.decoder.ternary.ternary_coevolution import (
+    early_exit_convergence,
+    detect_state_cycle,
+)
 
 
 # --- Ternary mapping tests ---
@@ -109,3 +115,37 @@ def test_minimal_4x6_shape():
     H = minimal_parity_matrix_4x6()
     assert H.shape == (4, 6)
     assert H.dtype == np.float64
+
+
+# --- Bounded cache tests ---
+
+def test_cache_bound():
+    for i in range(40):
+        deterministic_array_cache(f"bound_test_{i}", minimal_parity_matrix_3x5)
+    assert len(_cache) <= 32
+
+
+# --- Markovian cycle detection tests ---
+
+def test_markov_cycle_detection():
+    x = np.ones(5)
+    y = np.zeros(5)
+
+    hashes = []
+    for state in [x, y, x, y, x]:
+        h = hashlib.sha256(state.tobytes()).hexdigest()
+        hashes.append(h)
+
+    assert detect_state_cycle(hashes, hashes[-1])
+
+
+def test_markov_no_cycle():
+    states = [np.array([float(i)]) for i in range(10)]
+    hashes = [hashlib.sha256(s.tobytes()).hexdigest() for s in states]
+    current = hashlib.sha256(np.array([99.0]).tobytes()).hexdigest()
+    assert not detect_state_cycle(hashes, current)
+
+
+def test_markov_insufficient_history():
+    h = hashlib.sha256(np.ones(3).tobytes()).hexdigest()
+    assert not detect_state_cycle([h, h], h)

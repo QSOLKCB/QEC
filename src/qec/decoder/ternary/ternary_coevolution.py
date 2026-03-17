@@ -18,6 +18,7 @@ All operations are fully deterministic with no hidden randomness.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 import numpy as np
@@ -128,6 +129,35 @@ def evaluate_rule_population(
         "best_decoder_rule": best_rule,
         "num_rules_evaluated": len(population_metrics),
     }
+
+
+def _state_hash(x: np.ndarray) -> str:
+    """Deterministic hash of state vector (float64 safe)."""
+    return hashlib.sha256(x.tobytes()).hexdigest()
+
+
+def detect_state_cycle(
+    history_hashes: list[str],
+    current_hash: str,
+    window: int = 5,
+) -> bool:
+    """Detect repeated states (Markovian cycle).
+
+    Returns True if ``current_hash`` appears in the last ``window``
+    entries of ``history_hashes``, indicating an oscillation.
+
+    Parameters
+    ----------
+    history_hashes : list[str]
+        SHA-256 hashes of previous state vectors.
+    current_hash : str
+        Hash of the current state vector.
+    window : int
+        Number of recent entries to check for cycles.
+    """
+    if len(history_hashes) < window:
+        return False
+    return current_hash in history_hashes[-window:]
 
 
 def early_exit_convergence(

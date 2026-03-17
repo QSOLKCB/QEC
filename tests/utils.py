@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+from collections import OrderedDict
+
 import numpy as np
 
 
@@ -71,17 +74,35 @@ def assert_strict_ternary_success(arr: np.ndarray) -> None:
 
 # --- Deterministic lightweight caching ---
 
-_cache: dict[str, np.ndarray] = {}
+_MAX_CACHE_SIZE = 32  # small, deterministic bound
+
+_cache: OrderedDict[str, np.ndarray] = OrderedDict()
+
+
+def _stable_key(key: str) -> str:
+    """Generate stable hashed key to avoid collisions."""
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
 def deterministic_array_cache(key: str, arr_fn: object) -> np.ndarray:
-    """Cache deterministic array-producing functions.
+    """Bounded deterministic cache with LRU eviction.
 
     Returns a read-only cached copy to prevent mutation.
+    Evicts least-recently-used entries when size exceeds _MAX_CACHE_SIZE.
     """
-    if key in _cache:
-        return _cache[key]
+    skey = _stable_key(key)
+
+    if skey in _cache:
+        _cache.move_to_end(skey)
+        return _cache[skey]
+
     arr = arr_fn()
     arr.setflags(write=False)
-    _cache[key] = arr
+
+    _cache[skey] = arr
+
+    # enforce bounded size (deterministic eviction)
+    if len(_cache) > _MAX_CACHE_SIZE:
+        _cache.popitem(last=False)
+
     return arr

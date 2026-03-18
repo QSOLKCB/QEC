@@ -854,8 +854,8 @@ class TestWindowSafety:
         assert 0.0 <= out["metrics"]["msi"] <= 1.0
         assert 0.0 <= out["metrics"]["gos"] <= 1.0
 
-    def test_cached_vs_uncached_with_asymmetric_windows(self):
-        """Pre-computed signs are per-vector, not per-window — safe."""
+    def test_asymmetric_windows_are_deterministic(self):
+        """Asymmetric metric windows produce deterministic metrics with cached signs."""
         llr = _make_oscillating_llr_trace(n_iters=25, period=2)
         energy = _make_flat_energy(n_iters=25)
         params = {
@@ -864,6 +864,8 @@ class TestWindowSafety:
             "gos_window": 15,
             "bti_window": 8,
         }
+        # Even when all metric windows are asymmetric, repeated cached evaluations
+        # must remain exactly deterministic.
         out1 = compute_bp_dynamics_metrics(llr, energy, params=params)
         out2 = compute_bp_dynamics_metrics(llr, energy, params=params)
         assert json.dumps(out1, sort_keys=True) == json.dumps(out2, sort_keys=True)

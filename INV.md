@@ -109,7 +109,7 @@ TestRedundancyElimination.
 - Passing pre-computed arrays from a different trace (guarded by length
   assertions).
 - A change to `np.where` semantics for float64 comparison (would require
-  numpy API break).
+  a NumPy API break).
 
 ### Limitations
 

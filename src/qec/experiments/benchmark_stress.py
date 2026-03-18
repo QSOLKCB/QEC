@@ -22,7 +22,7 @@ from src.qec.diagnostics.bp_dynamics import compute_bp_dynamics_metrics
 
 # ── Version / identity ───────────────────────────────────────────────
 
-_BENCHMARK_VERSION = "68.7.0"
+_BENCHMARK_VERSION = "68.7.1"
 
 
 def _git_short_hash() -> Optional[str]:
@@ -58,6 +58,98 @@ def _make_rng(master_seed: int, label: str) -> np.random.Generator:
     return np.random.Generator(
         np.random.PCG64(_derive_seed(master_seed, label))
     )
+
+
+# ── BP trace fidelity proxies ────────────────────────────────────────
+#
+# These are *not* quantum state fidelity.  They measure iteration-to-iteration
+# consistency of BP LLR traces as a proxy for convergence quality.
+
+_NORM_EPS = 1e-300  # float64-safe guard against division by zero
+
+
+def compute_mean_cosine_fidelity(llr_trace: list) -> Optional[float]:
+    """Mean cosine similarity between consecutive normalized LLR vectors.
+
+    Definition:
+        For consecutive vectors v_t, v_{t+1}:
+            cos(t) = dot(v_t, v_{t+1}) / (||v_t|| * ||v_{t+1}|| + eps)
+        Result = mean over all consecutive pairs.
+
+    Returns None if fewer than 2 iterations.
+    This is a BP trace fidelity proxy, not quantum state fidelity.
+    """
+    if len(llr_trace) < 2:
+        return None
+    cosines = []
+    for i in range(len(llr_trace) - 1):
+        v_t = np.asarray(llr_trace[i], dtype=np.float64).ravel()
+        v_next = np.asarray(llr_trace[i + 1], dtype=np.float64).ravel()
+        norm_t = np.linalg.norm(v_t)
+        norm_next = np.linalg.norm(v_next)
+        denom = norm_t * norm_next + _NORM_EPS
+        cosines.append(float(np.dot(v_t, v_next) / denom))
+    return float(np.mean(cosines))
+
+
+def compute_mean_sign_fidelity(llr_trace: list) -> Optional[float]:
+    """Mean sign agreement fraction between consecutive LLR vectors.
+
+    Definition:
+        For consecutive vectors v_t, v_{t+1}:
+            sign_agree(t) = fraction of coordinates where sign(v_t) == sign(v_{t+1})
+        sign(x) = +1 if x >= 0 else -1  (matches BP dynamics convention).
+        Result = mean over all consecutive pairs.
+
+    Returns None if fewer than 2 iterations.
+    This is a BP trace fidelity proxy, not quantum state fidelity.
+    """
+    if len(llr_trace) < 2:
+        return None
+    fractions = []
+    for i in range(len(llr_trace) - 1):
+        v_t = np.asarray(llr_trace[i], dtype=np.float64).ravel()
+        v_next = np.asarray(llr_trace[i + 1], dtype=np.float64).ravel()
+        # sign: +1 for >= 0, -1 for < 0 (consistent with bp_dynamics._sign)
+        s_t = np.where(v_t >= 0, 1, -1)
+        s_next = np.where(v_next >= 0, 1, -1)
+        fractions.append(float(np.mean(s_t == s_next)))
+    return float(np.mean(fractions))
+
+
+def compute_llr_stats(llr_trace: list) -> dict:
+    """Compute max and mean absolute LLR across the entire trace.
+
+    Returns dict with ``max_abs_llr`` and ``mean_abs_llr``.
+    Returns zeros if trace is empty.
+    """
+    if not llr_trace:
+        return {"max_abs_llr": 0.0, "mean_abs_llr": 0.0}
+    abs_vals = [np.abs(np.asarray(v, dtype=np.float64).ravel()) for v in llr_trace]
+    all_abs = np.concatenate(abs_vals)
+    return {
+        "max_abs_llr": float(np.max(all_abs)),
+        "mean_abs_llr": float(np.mean(all_abs)),
+    }
+
+
+def interpret_fidelity(
+    cosine: Optional[float], sign: Optional[float],
+) -> str:
+    """Deterministic interpretation of fidelity metrics.
+
+    Returns "high", "medium", or "low".
+    - high:   cosine >= 0.95 AND sign >= 0.90
+    - medium: cosine >= 0.70 AND sign >= 0.70
+    - low:    otherwise
+    """
+    if cosine is None or sign is None:
+        return "low"
+    if cosine >= 0.95 and sign >= 0.90:
+        return "high"
+    if cosine >= 0.70 and sign >= 0.70:
+        return "medium"
+    return "low"
 
 
 # ── Trace generators (deterministic) ────────────────────────────────
@@ -310,6 +402,10 @@ def run_single_benchmark(
 
     outcome = classify_outcome(result)
 
+    cosine_fid = compute_mean_cosine_fidelity(llr_trace)
+    sign_fid = compute_mean_sign_fidelity(llr_trace)
+    llr_stats = compute_llr_stats(llr_trace)
+
     return {
         "scenario": scenario_name,
         "seed": seed,
@@ -321,6 +417,72 @@ def run_single_benchmark(
         "metrics": result["metrics"],
         "evidence": result["evidence"],
         "params": params if params is not None else {},
+        "mean_cosine_fidelity": cosine_fid,
+        "mean_sign_fidelity": sign_fid,
+        "max_abs_llr": llr_stats["max_abs_llr"],
+        "mean_abs_llr": llr_stats["mean_abs_llr"],
+        "fidelity_interpretation": interpret_fidelity(cosine_fid, sign_fid),
+    }
+
+
+# ── Gap analysis ────────────────────────────────────────────────────
+
+def _compute_gap_analysis(runs: list[dict]) -> dict:
+    """Compute aggregate gap analysis from benchmark runs.
+
+    Deterministic: uses scenario name for tie-breaking (lexicographic).
+    """
+    if not runs:
+        return {}
+
+    # Slowest scenario (by wall time)
+    slowest = max(runs, key=lambda r: (r["wall_time_seconds"], r["scenario"]))
+
+    # Most unstable: prefer diverged > unstable > oscillatory > converged
+    instability_rank = {"diverged": 3, "unstable": 2, "oscillatory": 1, "converged": 0}
+    most_unstable = max(
+        runs,
+        key=lambda r: (instability_rank.get(r["outcome"], 0), r["scenario"]),
+    )
+
+    # Lowest / highest fidelity (by cosine, then sign, then name for ties)
+    runs_with_fidelity = [r for r in runs if r.get("mean_cosine_fidelity") is not None]
+    if runs_with_fidelity:
+        lowest_fid = min(
+            runs_with_fidelity,
+            key=lambda r: (r["mean_cosine_fidelity"], r["mean_sign_fidelity"], r["scenario"]),
+        )
+        highest_fid = max(
+            runs_with_fidelity,
+            key=lambda r: (r["mean_cosine_fidelity"], r["mean_sign_fidelity"], r["scenario"]),
+        )
+        lowest_fid_entry = {
+            "scenario": lowest_fid["scenario"],
+            "mean_cosine_fidelity": lowest_fid["mean_cosine_fidelity"],
+            "mean_sign_fidelity": lowest_fid["mean_sign_fidelity"],
+        }
+        highest_fid_entry = {
+            "scenario": highest_fid["scenario"],
+            "mean_cosine_fidelity": highest_fid["mean_cosine_fidelity"],
+            "mean_sign_fidelity": highest_fid["mean_sign_fidelity"],
+        }
+    else:
+        lowest_fid_entry = None
+        highest_fid_entry = None
+
+    return {
+        "total_scenarios": len(runs),
+        "slowest_scenario": {
+            "scenario": slowest["scenario"],
+            "wall_time_seconds": slowest["wall_time_seconds"],
+        },
+        "most_unstable_scenario": {
+            "scenario": most_unstable["scenario"],
+            "outcome": most_unstable["outcome"],
+            "regime": most_unstable["regime"],
+        },
+        "lowest_fidelity_scenario": lowest_fid_entry,
+        "highest_fidelity_scenario": highest_fid_entry,
     }
 
 
@@ -380,12 +542,16 @@ def run_benchmark_suite(
             outcome_counts.get(record["outcome"], 0) + 1
         )
 
+    # ── Gap analysis aggregate ─────────────────────────────────────
+    gap_analysis = _compute_gap_analysis(runs)
+
     artifact = {
         "benchmark_version": _BENCHMARK_VERSION,
         "master_seed": master_seed,
         "git_hash": _git_short_hash(),
         "n_scenarios": len(runs),
         "outcome_summary": outcome_counts,
+        "gap_analysis": gap_analysis,
         "runs": runs,
     }
     return artifact

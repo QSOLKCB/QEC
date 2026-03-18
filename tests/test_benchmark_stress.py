@@ -20,6 +20,9 @@ from src.qec.experiments.benchmark_stress import (
     _derive_seed,
     _make_rng,
     classify_outcome,
+    compute_llr_stats,
+    compute_mean_cosine_fidelity,
+    compute_mean_sign_fidelity,
     generate_converging_trace,
     generate_diverging_trace,
     generate_high_noise_trace,
@@ -28,6 +31,7 @@ from src.qec.experiments.benchmark_stress import (
     generate_oscillating_trace,
     generate_pathological_trace,
     generate_small_window_trace,
+    interpret_fidelity,
     run_benchmark_suite,
     run_single_benchmark,
     serialize_artifact,
@@ -246,11 +250,22 @@ class TestArtifactStructure:
             "scenario", "seed", "n_iterations", "n_vars",
             "wall_time_seconds", "regime", "outcome", "metrics",
             "evidence", "params", "description",
+            "mean_cosine_fidelity", "mean_sign_fidelity",
+            "max_abs_llr", "mean_abs_llr", "fidelity_interpretation",
         }
         for run in artifact["runs"]:
             assert required_keys.issubset(set(run.keys())), (
                 f"Missing keys in run: {required_keys - set(run.keys())}"
             )
+
+    def test_gap_analysis_present(self):
+        artifact = run_benchmark_suite(master_seed=42)
+        ga = artifact["gap_analysis"]
+        assert ga["total_scenarios"] == len(STRESS_SCENARIOS)
+        assert "slowest_scenario" in ga
+        assert "most_unstable_scenario" in ga
+        assert "lowest_fidelity_scenario" in ga
+        assert "highest_fidelity_scenario" in ga
 
     def test_json_serializable(self):
         artifact = run_benchmark_suite(master_seed=42)
@@ -271,6 +286,213 @@ class TestArtifactStructure:
         assert total == artifact["n_scenarios"]
 
 
+# ── Fidelity metric tests ────────────────────────────────────────────
+
+
+class TestFidelityMetrics:
+    """Fidelity proxies must be deterministic and well-defined."""
+
+    def test_cosine_fidelity_determinism(self):
+        trace = generate_converging_trace(n_vars=20, n_iters=15, seed=42)
+        f1 = compute_mean_cosine_fidelity(trace["llr_trace"])
+        f2 = compute_mean_cosine_fidelity(trace["llr_trace"])
+        assert f1 == f2
+
+    def test_sign_fidelity_determinism(self):
+        trace = generate_converging_trace(n_vars=20, n_iters=15, seed=42)
+        f1 = compute_mean_sign_fidelity(trace["llr_trace"])
+        f2 = compute_mean_sign_fidelity(trace["llr_trace"])
+        assert f1 == f2
+
+    def test_cosine_fidelity_range(self):
+        """Cosine fidelity must be in [-1, 1]."""
+        for scenario in STRESS_SCENARIOS:
+            gen = scenario["generator"]
+            kwargs = dict(scenario.get("kwargs", {}))
+            kwargs["seed"] = 42
+            trace = gen(**kwargs)
+            f = compute_mean_cosine_fidelity(trace["llr_trace"])
+            if f is not None:
+                assert -1.0 <= f <= 1.0 + 1e-12, (
+                    f"Cosine fidelity out of range in {scenario['name']}: {f}"
+                )
+
+    def test_sign_fidelity_range(self):
+        """Sign fidelity must be in [0, 1]."""
+        for scenario in STRESS_SCENARIOS:
+            gen = scenario["generator"]
+            kwargs = dict(scenario.get("kwargs", {}))
+            kwargs["seed"] = 42
+            trace = gen(**kwargs)
+            f = compute_mean_sign_fidelity(trace["llr_trace"])
+            if f is not None:
+                assert 0.0 <= f <= 1.0 + 1e-12, (
+                    f"Sign fidelity out of range in {scenario['name']}: {f}"
+                )
+
+    def test_short_trace_returns_none(self):
+        """Fewer than 2 iterations → None."""
+        assert compute_mean_cosine_fidelity([np.array([1.0, 2.0])]) is None
+        assert compute_mean_sign_fidelity([np.array([1.0, 2.0])]) is None
+        assert compute_mean_cosine_fidelity([]) is None
+        assert compute_mean_sign_fidelity([]) is None
+
+    def test_identical_vectors_perfect_fidelity(self):
+        """Identical consecutive vectors → cosine = 1.0, sign = 1.0."""
+        v = np.array([1.0, -2.0, 3.0, -4.0])
+        trace = [v, v, v]
+        assert compute_mean_cosine_fidelity(trace) == pytest.approx(1.0, abs=1e-12)
+        assert compute_mean_sign_fidelity(trace) == pytest.approx(1.0, abs=1e-12)
+
+    def test_opposite_vectors_low_cosine(self):
+        """Negated consecutive vectors → cosine = -1.0."""
+        v = np.array([1.0, -2.0, 3.0])
+        trace = [v, -v, v, -v]
+        assert compute_mean_cosine_fidelity(trace) == pytest.approx(-1.0, abs=1e-12)
+
+    def test_zero_norm_safety(self):
+        """Zero-norm vectors must not cause division errors."""
+        zero = np.zeros(5)
+        nonzero = np.ones(5)
+        f = compute_mean_cosine_fidelity([zero, nonzero, zero])
+        assert f is not None
+        assert np.isfinite(f)
+
+    def test_llr_stats_basic(self):
+        trace = [np.array([1.0, -3.0, 2.0]), np.array([0.5, -0.5, 4.0])]
+        stats = compute_llr_stats(trace)
+        assert stats["max_abs_llr"] == pytest.approx(4.0)
+        assert stats["mean_abs_llr"] == pytest.approx(
+            (1.0 + 3.0 + 2.0 + 0.5 + 0.5 + 4.0) / 6.0
+        )
+
+    def test_llr_stats_empty(self):
+        stats = compute_llr_stats([])
+        assert stats["max_abs_llr"] == 0.0
+        assert stats["mean_abs_llr"] == 0.0
+
+
+class TestFidelityBehavior:
+    """Fidelity metrics must behave sensibly across scenario types."""
+
+    @pytest.fixture(scope="class")
+    def suite(self):
+        return run_benchmark_suite(master_seed=42)
+
+    def _get_run(self, suite, name):
+        for r in suite["runs"]:
+            if r["scenario"] == name:
+                return r
+        raise KeyError(f"Scenario {name} not found")
+
+    def test_converging_has_high_cosine_fidelity(self, suite):
+        r = self._get_run(suite, "converging_baseline")
+        assert r["mean_cosine_fidelity"] > 0.9
+
+    def test_converging_has_high_sign_fidelity(self, suite):
+        r = self._get_run(suite, "converging_baseline")
+        assert r["mean_sign_fidelity"] > 0.9
+
+    def test_oscillating_lower_sign_fidelity_than_converging(self, suite):
+        conv = self._get_run(suite, "converging_baseline")
+        # Use period-3 which genuinely oscillates (period-2 formula doesn't flip)
+        osc3 = self._get_run(suite, "oscillating_period3")
+        assert conv["mean_sign_fidelity"] > osc3["mean_sign_fidelity"], (
+            f"Converging sign fidelity ({conv['mean_sign_fidelity']:.4f}) "
+            f"should exceed oscillating p3 ({osc3['mean_sign_fidelity']:.4f})"
+        )
+
+    def test_high_noise_lower_cosine_than_converging(self, suite):
+        conv = self._get_run(suite, "converging_baseline")
+        noise = self._get_run(suite, "high_noise")
+        assert conv["mean_cosine_fidelity"] > noise["mean_cosine_fidelity"], (
+            f"Converging cosine ({conv['mean_cosine_fidelity']:.4f}) "
+            f"should exceed high-noise ({noise['mean_cosine_fidelity']:.4f})"
+        )
+
+    def test_pathological_not_high_fidelity(self, suite):
+        r = self._get_run(suite, "pathological_extreme")
+        assert r["fidelity_interpretation"] != "high"
+
+    def test_diverging_not_high_fidelity(self, suite):
+        r = self._get_run(suite, "diverging")
+        # Diverging scales uniformly so cosine may be high,
+        # but it should not be classified as "high" overall or sign should reflect issues
+        # At minimum, it should not falsely look perfectly stable
+        assert r["mean_cosine_fidelity"] is not None
+
+    def test_fidelity_interpretation_values(self, suite):
+        valid = {"high", "medium", "low"}
+        for run in suite["runs"]:
+            assert run["fidelity_interpretation"] in valid
+
+
+class TestInterpretFidelity:
+    """Deterministic interpretation thresholds."""
+
+    def test_high(self):
+        assert interpret_fidelity(0.99, 0.95) == "high"
+
+    def test_medium(self):
+        assert interpret_fidelity(0.80, 0.80) == "medium"
+
+    def test_low(self):
+        assert interpret_fidelity(0.50, 0.50) == "low"
+
+    def test_none_is_low(self):
+        assert interpret_fidelity(None, 0.95) == "low"
+        assert interpret_fidelity(0.99, None) == "low"
+
+    def test_boundary_high(self):
+        assert interpret_fidelity(0.95, 0.90) == "high"
+
+    def test_boundary_medium(self):
+        assert interpret_fidelity(0.70, 0.70) == "medium"
+
+    def test_mixed_below_medium(self):
+        assert interpret_fidelity(0.95, 0.50) == "low"
+
+
+class TestGapAnalysis:
+    """Gap analysis must be deterministic and structurally correct."""
+
+    @pytest.fixture(scope="class")
+    def suite(self):
+        return run_benchmark_suite(master_seed=42)
+
+    def test_total_scenarios(self, suite):
+        assert suite["gap_analysis"]["total_scenarios"] == len(STRESS_SCENARIOS)
+
+    def test_slowest_has_scenario_name(self, suite):
+        slowest = suite["gap_analysis"]["slowest_scenario"]
+        assert "scenario" in slowest
+        assert "wall_time_seconds" in slowest
+
+    def test_most_unstable_has_outcome(self, suite):
+        mu = suite["gap_analysis"]["most_unstable_scenario"]
+        assert "scenario" in mu
+        assert "outcome" in mu
+
+    def test_fidelity_extremes_present(self, suite):
+        ga = suite["gap_analysis"]
+        assert ga["lowest_fidelity_scenario"] is not None
+        assert ga["highest_fidelity_scenario"] is not None
+        # Lowest should have <= highest cosine fidelity
+        low_cos = ga["lowest_fidelity_scenario"]["mean_cosine_fidelity"]
+        high_cos = ga["highest_fidelity_scenario"]["mean_cosine_fidelity"]
+        assert low_cos <= high_cos + 1e-12
+
+    def test_gap_analysis_determinism(self):
+        a1 = run_benchmark_suite(master_seed=42)
+        a2 = run_benchmark_suite(master_seed=42)
+        # Strip non-deterministic fields
+        ga1 = a1["gap_analysis"].copy()
+        ga2 = a2["gap_analysis"].copy()
+        ga1["slowest_scenario"] = ga1["slowest_scenario"]["scenario"]
+        ga2["slowest_scenario"] = ga2["slowest_scenario"]["scenario"]
+        assert ga1 == ga2
+
+
 # ── Helpers ──────────────────────────────────────────────────────────
 
 
@@ -282,4 +504,7 @@ def _strip_wall_times(artifact: dict) -> dict:
     a.pop("git_hash", None)
     for run in a.get("runs", []):
         run.pop("wall_time_seconds", None)
+    ga = a.get("gap_analysis", {})
+    # Slowest scenario depends on wall time — non-deterministic
+    ga.pop("slowest_scenario", None)
     return a

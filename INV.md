@@ -135,24 +135,24 @@ TestRedundancyElimination.
 Let `F = compute_bp_dynamics_metrics` be the public API function with
 input tuple `x = (llr_trace, energy_trace, correction_vectors, params)`.
 
-Define `bytes(x)` as the content-based key constructed by
-`_make_cache_key`: the concatenation of raw float64 bytes of all
-input arrays, packed energy bytes, correction vector bytes (or None),
-and the sorted effective parameter tuple.
+Define `cache_key(x)` as the content-based key constructed by
+`_make_cache_key(x)`: the tuple of concatenated raw float64 bytes of
+all input LLR arrays, `struct.pack`-ed energy bytes, correction vector
+bytes (or `None`), and the sorted effective parameter tuple.  See
+**Cache Key Construction** below for the precise definition.
 
 **Invariant statement (INV-003):**
 
 ```
-For any inputs x, y:
-    if bytes(x) == bytes(y)
-    then F(x) == F(y)
+For any inputs x and y, if the cache-key byte encoding of x equals
+that of y, then F(x) = F(y) under the current implementation.
 ```
 
-Where equality of outputs means byte-identical JSON serialization:
+More precisely: if `cache_key(x) == cache_key(y)` then
 `json.dumps(F(x), sort_keys=True) == json.dumps(F(y), sort_keys=True)`.
 
 **Consequence:** A module-level content-addressed cache can store
-results keyed by `bytes(x)`. Cache hits return a deep copy of the
+results keyed by `cache_key(x)`. Cache hits return a deep copy of the
 stored result, eliminating redundant computation across calls within
 the same process. Caller mutation of returned dicts cannot corrupt
 the cache because both storage and retrieval use `copy.deepcopy`.
@@ -225,7 +225,7 @@ No use of `id()` (memory-layout dependent).
 ### Proof of Correctness
 
 **Theorem.** For any inputs `x, y` to `compute_bp_dynamics_metrics`:
-if `bytes(x) == bytes(y)` then `F(x) == F(y)`.
+if `cache_key(x) == cache_key(y)` then `F(x) == F(y)`.
 
 **Proof.**
 
@@ -250,7 +250,8 @@ Therefore `F` uses only deterministic primitives. ∎
 **Step 2. Byte-level equivalence — identical bytes → identical
 normalized trace.**
 
-If `bytes(x) == bytes(y)`, then by construction of `_make_cache_key`:
+If `cache_key(x) == cache_key(y)`, then by construction of
+`_make_cache_key` each component is identical:
 - `llr_bytes(x) == llr_bytes(y)` — identical raw float64 bytes
 - `energy_bytes(x) == energy_bytes(y)` — identical packed floats
 - `cv_bytes(x) == cv_bytes(y)` — identical correction vector bytes
@@ -262,7 +263,7 @@ same raw bytes via `np.asarray(x, dtype=float64).ravel().tobytes()`,
 byte-identical keys guarantee that `_normalize_llr_trace` produces
 identical normalized arrays.
 
-Therefore: `bytes(x) == bytes(y)` → identical internal state. ∎
+Therefore: `cache_key(x) == cache_key(y)` → identical internal state. ∎
 
 **Step 3. Functional composition — pure steps compose purely.**
 
@@ -284,10 +285,10 @@ Therefore: identical internal state → identical output. ∎
 **Step 4. Cache correctness — stored value equals computed value.**
 
 On cache miss: `F(x)` is computed, `copy.deepcopy(result)` is stored
-in `_CROSS_CALL_CACHE[bytes(x)]`. The caller receives the original
+in `_CROSS_CALL_CACHE[cache_key(x)]`. The caller receives the original
 `result` object.
 
-On cache hit for `bytes(y) == bytes(x)`: `copy.deepcopy` of the stored
+On cache hit for `cache_key(y) == cache_key(x)`: `copy.deepcopy` of the stored
 value is returned. By Steps 1–3, the stored value equals `F(x)`, and
 `F(x) == F(y)`. The deep copy is structurally identical to the stored
 value. Therefore the returned value equals `F(y)`. ∎
@@ -302,7 +303,7 @@ value. Therefore the returned value equals `F(y)`. ∎
 Therefore: no external mutation path to cached data exists. ∎
 
 **Conclusion:** The cache correctly returns `F(y)` for any `y` where
-`bytes(y) == bytes(x)` for some previously computed `x`, and no
+`cache_key(y) == cache_key(x)` for some previously computed `x`, and no
 external mutation can corrupt cached values. Reuse is mathematically
 safe. ∎
 

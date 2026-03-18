@@ -17,6 +17,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+# ── Cross-call deterministic cache (INV-003) ────────────────────────
+# Content-addressed cache for compute_bp_dynamics_metrics results.
+# Safe because the function is pure and deterministic (INV-001).
+# Keys are derived from input content only (no id(), no hash()).
+# Module-level, single-process, not persisted.
+
+_CROSS_CALL_CACHE: Dict[tuple, dict] = {}
+_CROSS_CALL_CACHE_ENABLED: bool = True
+
 # ── Centralized defaults ─────────────────────────────────────────────
 
 DEFAULT_PARAMS: Dict[str, Any] = {
@@ -603,6 +612,45 @@ def classify_bp_regime(
     }
 
 
+# ── Cross-call cache helpers (INV-003) ────────────────────────────────
+
+
+def _make_cache_key(
+    llr_trace: list,
+    energy_trace: list,
+    correction_vectors: Optional[list],
+    effective_params: Dict[str, Any],
+) -> tuple:
+    """Build a deterministic content-based cache key.
+
+    Uses raw byte content of arrays — no Python hash(), no id().
+    """
+    # LLR trace: normalize then concatenate bytes
+    llr_parts: List[bytes] = []
+    for x in llr_trace:
+        arr = np.asarray(x, dtype=np.float64).ravel()
+        llr_parts.append(arr.tobytes())
+    llr_bytes = b"".join(llr_parts)
+
+    # Energy trace: pack as float64
+    energy_bytes = struct.pack(f">{len(energy_trace)}d", *energy_trace)
+
+    # Correction vectors
+    if correction_vectors is not None:
+        cv_parts: List[bytes] = []
+        for cv in correction_vectors:
+            arr = np.asarray(cv, dtype=np.float64).ravel()
+            cv_parts.append(arr.tobytes())
+        cv_bytes: Optional[bytes] = b"".join(cv_parts)
+    else:
+        cv_bytes = None
+
+    # Params: sorted tuple of items for deterministic ordering
+    frozen_params = tuple(sorted(effective_params.items()))
+
+    return (llr_bytes, energy_bytes, cv_bytes, frozen_params)
+
+
 # ── Public API ────────────────────────────────────────────────────────
 
 
@@ -636,6 +684,14 @@ def compute_bp_dynamics_metrics(
     p = dict(DEFAULT_PARAMS)
     if params is not None:
         p.update(params)
+
+    # ── Cross-call cache lookup (INV-003) ────────────────────────────
+    cache_key = None
+    if _CROSS_CALL_CACHE_ENABLED and llr_trace and energy_trace:
+        cache_key = _make_cache_key(llr_trace, energy_trace,
+                                    correction_vectors, p)
+        if cache_key in _CROSS_CALL_CACHE:
+            return _CROSS_CALL_CACHE[cache_key]
 
     # ── Trace length validation (fail-fast on mismatched inputs) ─────
     T_llr = len(llr_trace) if llr_trace else 0
@@ -707,8 +763,14 @@ def compute_bp_dynamics_metrics(
     # Classify regime
     classification = classify_bp_regime(metrics)
 
-    return {
+    result = {
         "metrics": metrics,
         "regime": classification["regime"],
         "evidence": classification["evidence"],
     }
+
+    # ── Cross-call cache store (INV-003) ─────────────────────────────
+    if cache_key is not None:
+        _CROSS_CALL_CACHE[cache_key] = result
+
+    return result

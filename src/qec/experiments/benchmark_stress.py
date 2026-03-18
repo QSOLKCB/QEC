@@ -87,7 +87,9 @@ def compute_mean_cosine_fidelity(llr_trace: list) -> Optional[float]:
         v_next = np.asarray(llr_trace[i + 1], dtype=np.float64).ravel()
         norm_t = np.linalg.norm(v_t)
         norm_next = np.linalg.norm(v_next)
-        denom = norm_t * norm_next + _NORM_EPS
+        norm_t = max(norm_t, _NORM_EPS)
+        norm_next = max(norm_next, _NORM_EPS)
+        denom = norm_t * norm_next
         cosines.append(float(np.dot(v_t, v_next) / denom))
     return float(np.mean(cosines))
 

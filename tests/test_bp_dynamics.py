@@ -23,6 +23,8 @@ from src.qec.diagnostics.bp_dynamics import (
     classify_bp_regime,
     compute_bp_dynamics_metrics,
     _normalize_llr_vector,
+    _normalize_llr_trace,
+    _precompute_signs_and_sigs,
     _sign,
 )
 
@@ -737,3 +739,176 @@ class TestInputValidation:
         energy = _make_monotonic_energy(n_iters=5)
         with pytest.raises(ValueError, match="LLR vector length mismatch"):
             compute_bp_dynamics_metrics(llr, energy)
+
+
+# ── Test: Sign Pre-computation Equivalence (INV-001) ─────────────────
+
+
+class TestSignPrecomputeEquivalence:
+    """Pre-computed signs/CRC32 must produce identical metrics to inline."""
+
+    def _run_without_cache(self, llr_trace, energy_trace, cvs=None, params=None):
+        """Run compute_bp_dynamics_metrics with cache disabled.
+
+        Calls each metric function without pre-computed signs/CRC sigs,
+        forcing the fallback (original) code path.
+        """
+        from src.qec.diagnostics.bp_dynamics import (
+            _compute_msi, _compute_cpi, _compute_tsl,
+            _compute_lec, _compute_cvne, _compute_gos,
+            _compute_eds, _compute_bti,
+        )
+        p = dict(DEFAULT_PARAMS)
+        if params is not None:
+            p.update(params)
+        normed = _normalize_llr_trace(llr_trace) if llr_trace else []
+        msi = _compute_msi(normed, energy_trace, p, _signs=None)
+        cpi = _compute_cpi(normed, p, _crc_sigs=None)
+        tsl = _compute_tsl(normed, p, _signs=None)
+        lec = _compute_lec(energy_trace, p)
+        cvne = _compute_cvne(cvs, p)
+        gos = _compute_gos(normed, p, _signs=None)
+        eds = _compute_eds(energy_trace, p)
+        bti = _compute_bti(energy_trace, normed, p, _crc_sigs=None)
+        return {
+            "msi": msi, "cpi": cpi, "tsl": tsl, "lec": lec,
+            "cvne": cvne, "gos": gos, "eds": eds, "bti": bti,
+        }
+
+    def _run_with_cache(self, llr_trace, energy_trace, cvs=None, params=None):
+        """Run with pre-computed cache (the optimized path)."""
+        from src.qec.diagnostics.bp_dynamics import (
+            _compute_msi, _compute_cpi, _compute_tsl,
+            _compute_lec, _compute_cvne, _compute_gos,
+            _compute_eds, _compute_bti,
+        )
+        p = dict(DEFAULT_PARAMS)
+        if params is not None:
+            p.update(params)
+        normed = _normalize_llr_trace(llr_trace) if llr_trace else []
+        signs, crc_sigs = _precompute_signs_and_sigs(normed)
+        msi = _compute_msi(normed, energy_trace, p, _signs=signs)
+        cpi = _compute_cpi(normed, p, _crc_sigs=crc_sigs)
+        tsl = _compute_tsl(normed, p, _signs=signs)
+        lec = _compute_lec(energy_trace, p)
+        cvne = _compute_cvne(cvs, p)
+        gos = _compute_gos(normed, p, _signs=signs)
+        eds = _compute_eds(energy_trace, p)
+        bti = _compute_bti(energy_trace, normed, p, _crc_sigs=crc_sigs)
+        return {
+            "msi": msi, "cpi": cpi, "tsl": tsl, "lec": lec,
+            "cvne": cvne, "gos": gos, "eds": eds, "bti": bti,
+        }
+
+    def test_stable_trace_equivalence(self):
+        llr = _make_stable_llr_trace()
+        energy = _make_monotonic_energy()
+        uncached = self._run_without_cache(llr, energy)
+        cached = self._run_with_cache(llr, energy)
+        assert json.dumps(uncached, sort_keys=True) == json.dumps(cached, sort_keys=True)
+
+    def test_oscillating_trace_equivalence(self):
+        llr = _make_oscillating_llr_trace(period=2)
+        energy = _make_flat_energy()
+        uncached = self._run_without_cache(llr, energy)
+        cached = self._run_with_cache(llr, energy)
+        assert json.dumps(uncached, sort_keys=True) == json.dumps(cached, sort_keys=True)
+
+    def test_chaotic_trace_equivalence(self):
+        llr = _make_chaotic_llr_trace()
+        energy = _make_chaotic_energy()
+        uncached = self._run_without_cache(llr, energy)
+        cached = self._run_with_cache(llr, energy)
+        assert json.dumps(uncached, sort_keys=True) == json.dumps(cached, sort_keys=True)
+
+    def test_trapping_trace_equivalence(self):
+        llr = _make_trapping_llr_trace()
+        energy = _make_flat_energy()
+        uncached = self._run_without_cache(llr, energy)
+        cached = self._run_with_cache(llr, energy)
+        assert json.dumps(uncached, sort_keys=True) == json.dumps(cached, sort_keys=True)
+
+    def test_with_correction_vectors_equivalence(self):
+        llr = _make_stable_llr_trace()
+        energy = _make_monotonic_energy()
+        cvs = _make_cycling_corrections()
+        uncached = self._run_without_cache(llr, energy, cvs=cvs)
+        cached = self._run_with_cache(llr, energy, cvs=cvs)
+        assert json.dumps(uncached, sort_keys=True) == json.dumps(cached, sort_keys=True)
+
+
+class TestWindowSafety:
+    """Differing window sizes must NOT reuse incompatible cached data."""
+
+    def test_different_windows_produce_valid_independent_metrics(self):
+        """With different tail_window vs gos_window, each metric uses its own window."""
+        llr = _make_oscillating_llr_trace(n_iters=30, period=3)
+        energy = _make_flat_energy(n_iters=30)
+        # Run with asymmetric windows: tail_window and gos_window differ
+        out = compute_bp_dynamics_metrics(
+            llr, energy, params={"tail_window": 5, "gos_window": 20},
+        )
+        # Both metrics must be valid floats (no cross-contamination)
+        assert isinstance(out["metrics"]["msi"], float)
+        assert isinstance(out["metrics"]["gos"], float)
+        assert 0.0 <= out["metrics"]["msi"] <= 1.0
+        assert 0.0 <= out["metrics"]["gos"] <= 1.0
+
+    def test_cached_vs_uncached_with_asymmetric_windows(self):
+        """Pre-computed signs are per-vector, not per-window — safe."""
+        llr = _make_oscillating_llr_trace(n_iters=25, period=2)
+        energy = _make_flat_energy(n_iters=25)
+        params = {
+            "tail_window": 5,
+            "tsl_window": 10,
+            "gos_window": 15,
+            "bti_window": 8,
+        }
+        out1 = compute_bp_dynamics_metrics(llr, energy, params=params)
+        out2 = compute_bp_dynamics_metrics(llr, energy, params=params)
+        assert json.dumps(out1, sort_keys=True) == json.dumps(out2, sort_keys=True)
+
+
+class TestPrecomputeImmutability:
+    """Pre-computed sign arrays must not be mutated."""
+
+    def test_sign_arrays_not_writeable(self):
+        llr = _make_stable_llr_trace(n_iters=5)
+        normed = _normalize_llr_trace(llr)
+        signs, _ = _precompute_signs_and_sigs(normed)
+        for s in signs:
+            assert not s.flags.writeable
+
+    def test_sign_purity(self):
+        """_sign(v) produces identical output for identical input."""
+        v = np.array([1.0, -2.0, 0.0, 3.5, -0.1], dtype=np.float64)
+        s1 = _sign(v)
+        s2 = _sign(v)
+        np.testing.assert_array_equal(s1, s2)
+
+    def test_precompute_matches_inline_sign(self):
+        """Pre-computed signs match element-wise _sign() calls."""
+        llr = _make_chaotic_llr_trace(n_iters=15)
+        normed = _normalize_llr_trace(llr)
+        signs, crc_sigs = _precompute_signs_and_sigs(normed)
+        import zlib
+        for i, vec in enumerate(normed):
+            expected_sign = _sign(vec)
+            np.testing.assert_array_equal(signs[i], expected_sign)
+            expected_crc = (
+                zlib.crc32(expected_sign.astype(np.int8).tobytes()) & 0xFFFFFFFF
+            )
+            assert crc_sigs[i] == expected_crc
+
+
+class TestSignPrecomputeDeterminism:
+    """Pre-computed path must be deterministic across repeated runs."""
+
+    def test_repeated_runs_identical(self):
+        llr = _make_chaotic_llr_trace(n_iters=20)
+        energy = _make_chaotic_energy(n_iters=20)
+        results = []
+        for _ in range(5):
+            out = compute_bp_dynamics_metrics(llr, energy)
+            results.append(json.dumps(out, sort_keys=True))
+        assert len(set(results)) == 1

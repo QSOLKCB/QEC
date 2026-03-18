@@ -1,91 +1,93 @@
 # QSOLKCB / QEC
-### Deterministic Spectral Discovery Engine for LDPC and QLDPC Tanner Graphs
 
-QEC is a deterministic research framework for studying belief-propagation dynamics,
-spectral stability, and Tanner-graph structure in sparse graphical codes.
+### Deterministic Invariant-Driven Discovery Engine for LDPC & QLDPC Tanner Graphs
 
-The system functions as a **spectral discovery engine** capable of evolving LDPC
-and QLDPC parity-check graphs using structural diagnostics, spectral signals,
-and deterministic mutation operators.
+[![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC?label=release)](https://github.com/QSOLKCB/QEC/releases/tag/v68.5.0)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19099503.svg)](https://doi.org/10.5281/zenodo.19099503)
+[![DOI](https://img.shields.io/badge/Authorea-10.22541%2Fau.177376131.17346095%2Fv1-blue)](https://doi.org/10.22541/au.177376131.17346095/v1)
+[![Type](https://img.shields.io/badge/type-deterministic%20research%20framework-blue)]()
+[![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
-Rather than relying on stochastic evolutionary search, QEC performs **fully
-deterministic graph exploration**, allowing Tanner-graph discovery experiments
-to be reproduced exactly across machines and runs.
+QEC is a deterministic research framework for studying belief-propagation (BP)
+dynamics, spectral structure, and Tanner-graph geometry in LDPC and QLDPC
+codes.
 
----
+The system functions as a **deterministic discovery engine and experimental
+laboratory**, combining spectral diagnostics, decoding dynamics, and formally
+validated invariants to explore how graph structure governs decoding behavior.
 
-## Project Overview
+Unlike traditional LDPC simulation toolkits, QEC emphasizes:
 
-QEC has evolved into a **spectral phase-space exploration and theory generation
-system for Tanner graphs**.
+* **determinism over stochastic search**
+* **invariants over heuristics**
+* **reproducibility over approximation**
 
-Recent versions introduce a layered discovery architecture capable of:
-
-- detecting **spectral basins** in Tanner-graph space
-- identifying **phase boundaries via ridge detection**
-- reconstructing **spectral phase diagrams**
-- tracing **discovery trajectories across phase space**
-- guiding exploration toward **under-explored phases**
-- actively searching for **entirely new spectral phases**
-- automatically **characterizing newly discovered phases**
-- synthesizing **analytic conjectures from phase data**
-
-This transforms the discovery engine from a mutation-based search system into a
-**deterministic experimental laboratory for Tanner-graph phase structure and
-decoding theory discovery**.
-
-The framework can now:
-
-- map decoding stability landscapes
-- analyze belief-propagation attractor geometry
-- reconstruct spectral phase diagrams
-- steer discovery toward unexplored structural regimes
-- detect candidate **new decoding phases**
-- characterize spectral regimes automatically
-- generate candidate **theoretical relationships between spectral metrics and decoding behavior**
-
-All experiments remain **fully deterministic**, ensuring exact reproducibility
-of discovery trajectories and experimental artifacts.
-
-[![Release v62.0.0](https://img.shields.io/badge/release-v62.0.0-blue)](https://github.com/QSOLKCB/QEC/releases/tag/v62.0.0)
-[![Research Framework](https://img.shields.io/badge/type-research%20framework-blue)]
-[![License: CC BY 4.0](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
+Every experiment, discovery trajectory, and diagnostic result is **bitwise
+reproducible**.
 
 ---
 
-# QEC
-### Deterministic Spectral Discovery for LDPC / QLDPC Tanner Graphs
+# 🧠 What Makes QEC Different
 
-QEC is a deterministic research framework for studying belief-propagation
-dynamics and Tanner graph structure in classical LDPC and quantum QLDPC codes.
+QEC is not just a simulator — it is a:
 
-The framework combines:
+> **Deterministic Tanner-Graph Discovery + Invariant Validation System**
 
-- spectral diagnostics
-- decoding dynamics analysis
-- deterministic mutation operators
-- spectral phase-space analysis
-- automated phase discovery
-- automated phase characterization
-- automated spectral conjecture synthesis
+The framework integrates three core capabilities:
 
-to explore how parity-check graph structure influences decoding stability.
+### 1. Spectral Discovery Engine
 
-Unlike traditional LDPC simulation toolkits, QEC acts as a **deterministic
-Tanner-graph discovery engine** capable of evolving graph structures guided by
-spectral signals and predicted decoding failures.
+* explores Tanner-graph space via deterministic mutation
+* detects spectral basins and phase boundaries
+* reconstructs phase diagrams of decoding behavior
 
-Modern versions extend this idea further by reconstructing the **phase geometry
-of Tanner-graph space**, allowing discovery runs to automatically produce
-spectral phase diagrams and structural maps of decoding stability.
+### 2. BP Dynamics Diagnostics
+
+* analyzes belief-propagation stability and attractor structure
+* measures oscillation, convergence, and instability regimes
+* links spectral signals to decoding outcomes
+
+### 3. Invariant-Driven Optimization (NEW)
+
+* discovers and validates structural invariants
+* eliminates redundant computation safely
+* preserves **bitwise identity** and deterministic execution
+
+Recent releases introduce **formally proven invariants** that transform runtime
+behavior without altering results.
 
 ---
 
-# Discovery Engine Architecture
+# 🔬 Invariant Framework (v68 Series)
 
-The QEC discovery system now operates as a **layered spectral exploration and
-theory synthesis engine**.
+QEC now includes a growing registry of formally validated invariants:
 
+### QSOL-BP-INV-001 — Algebraic Identity (v68.4.1)
+
+URW(min-sum, ρ = 1.0) ≡ baseline min-sum
+
+→ eliminates redundant decoder execution paths
+
+### QSOL-BP-INV-002 — Trace-Indexed Data Reuse (v68.5.0)
+
+sign(vᵢ), CRC(vᵢ) are pure functions of trace index
+
+→ eliminates redundant per-metric computation (75% reduction)
+
+These invariants are:
+
+* analytically justified
+* empirically validated
+* test-saturated
+* bitwise exact
+
+📄 Formal documents and DOIs are linked in Releases.
+
+---
+
+# ⚙️ Discovery Engine Architecture
+
+The system operates as a layered pipeline:
 
 Tanner Graph Generation
 ↓
@@ -93,7 +95,9 @@ Structural Diagnostics
 ↓
 Spectral Diagnostics
 ↓
-Failure Structure Prediction
+BP Dynamics Analysis
+↓
+Invariant Detection (NEW)
 ↓
 Mutation Plugin Registry
 ↓
@@ -117,135 +121,163 @@ Phase Characterization
 ↓
 Spectral Theory Synthesis
 
+This architecture enables QEC to:
 
-This layered design allows the system to **first analyze the structure of
-Tanner-graph spectral space, then explore it, and finally synthesize candidate
-theoretical explanations for the observed behavior**.
+* analyze structure
+* explore graph space
+* extract patterns
+* synthesize theory
 
 ---
 
-# Spectral Phase-Space Analysis
+# 🌌 Spectral Phase-Space Analysis
 
-Recent releases introduce tools for analyzing the geometry of Tanner-graph
-spectral space.
-
-These include:
+QEC reconstructs the geometry of Tanner-graph space through:
 
 ### Spectral Basins
-Regions of spectral space where belief-propagation dynamics behave similarly.
+
+Regions of similar decoding behavior
 
 ### Spectral Ridges
-High-curvature regions separating decoding regimes and phase boundaries.
 
-### Phase Map Reconstruction
-Automatic reconstruction of phase diagrams describing decoding behavior across
-spectral space.
+Phase boundaries separating decoding regimes
+
+### Phase Maps
+
+Global structure of decoding stability
 
 ### Discovery Trajectories
-Tracking the path taken by the discovery engine through the spectral landscape.
 
-### Phase-Guided Discovery
-Steering graph mutations toward under-explored decoding phases.
+Paths taken through spectral space
 
-### Phase Novelty Discovery
-Searching for candidate Tanner-graph structures that lie outside previously
-observed spectral phases.
+### Phase-Guided Exploration
+
+Directed search toward under-explored regimes
+
+### Phase Novelty Detection
+
+Identification of previously unseen graph structures
 
 ### Phase Characterization
-Automatic classification of discovered phases based on decoding behavior and
-spectral diagnostics.
+
+Automatic classification of decoding regimes
 
 ### Spectral Conjecture Synthesis
-Generation of candidate analytic relationships between spectral metrics and
-decoding performance across discovered phases.
 
-Together these components allow QEC to function as a **deterministic discovery
-system for Tanner-graph phase structure and decoding theory**.
+Extraction of candidate theoretical relationships
 
 ---
 
-# Deterministic Experiment Design
+# 🔁 Deterministic Experiment Design
 
-All experiments in QEC are strictly deterministic.
+QEC enforces strict determinism:
 
-The framework guarantees:
+* no hidden randomness
+* deterministic mutation ordering
+* deterministic decoder scheduling
+* reproducible experiment artifacts
+* identical outputs across runs
 
-- no hidden randomness
-- deterministic mutation ordering
-- deterministic decoder scheduling
-- reproducible experiment artifacts
-- identical results across repeated runs
+Randomness must be explicit:
 
-All randomness must be explicit:
-
-
+```python
 np.random.RandomState(seed)
-
+```
 
 Same seed → identical results.
 
-This property allows Tanner-graph discovery experiments to be reproduced exactly.
-
 ---
 
-# Research Applications
+# 📊 Research Applications
 
 QEC enables research into:
 
-- belief-propagation attractor geometry
-- trapping-set dynamics
-- spectral fragility of Tanner graphs
-- decoding stability prediction
-- LDPC / QLDPC code discovery
-- phase-space structure of decoding dynamics
-- automated discovery of new Tanner-graph regimes
-- automated extraction of decoding-phase theory
+* belief-propagation attractor geometry
+* trapping-set dynamics
+* spectral fragility of Tanner graphs
+* decoding stability prediction
+* LDPC / QLDPC code discovery
+* phase-space structure of decoding
+* invariant-driven optimization
+* reproducible computational systems
 
-The system acts as a **deterministic experimental laboratory for studying
-inference dynamics in sparse graphical models**.
+The framework acts as a:
 
----
-
-# Project Documents
-
-Important project documents:
-
-
-CLAUDE.md Development guardrails
-CHANGELOG.md Release history
-PROJECT_STATE.md Architecture snapshot
-ROADMAP.md Long-term research direction
-
+> **Deterministic experimental lab for inference dynamics in sparse graphical models**
 
 ---
 
-# Design Philosophy
+# 📁 Key Project Files
 
-The project follows several guiding principles.
+CLAUDE.md — Development guardrails
+CHANGELOG.md — Release history
+INV.md — Invariant registry
+PROJECT_STATE.md — Architecture snapshot
+ROADMAP.md — Research direction
 
-Small is beautiful.  
-Determinism is essential.  
-Transparent algorithms beat opaque heuristics.
+⚡ Quick Start
+### 1) Install (editable)
+```bash
+pip install -e .
+2) Run a minimal diagnostic
+from qec.diagnostics.bp_dynamics import compute_bp_dynamics_metrics
+
+llr_trace = [...]  # list/array of float64 vectors
+energy = [...]     # optional, same length as trace
+
+out = compute_bp_dynamics_metrics(llr_trace, energy)
+print(out["metrics"])  # MSI, CPI, TSL, GOS, BTI, ...
+3) Determinism (required)
+import numpy as np
+np.random.RandomState(0)  # explicit seed if randomness is used
+4) Reproduce release behavior
+git checkout v68.5.0
+pytest -q
+5) Invariants
+
+See INV.md for the invariant registry:
+
+INV-001 (v68.4.1): algebraic identity (URW ρ=1.0)
+
+INV-002 (v68.5.0): trace-indexed sign/CRC reuse
+
+Notes
+
+Bitwise deterministic under float64
+
+No hidden randomness
+
+Same input → identical output
+
+
+---
+
+# 🧭 Design Philosophy
+
+Small is beautiful.
+Determinism is essential.
+Invariants over heuristics.
+Transparent systems over opaque ones.
 
 Negative results are data.
 
 ---
 
-# Citation
+# 📚 Citation
 
-If you use this framework in research, please cite:
+If you use QEC in research, please cite:
 
-Trent Slade  
+Trent Slade
 QSOL-IMC
 
-**QEC: Deterministic Spectral Discovery Framework for Tanner Graph Dynamics**
+**QEC: Deterministic Invariant-Driven Discovery Framework for Tanner Graph Dynamics**
 
-ORCID  
-https://orcid.org/0009-0002-4515-9237
+ORCID
+[https://orcid.org/0009-0002-4515-9237](https://orcid.org/0009-0002-4515-9237)
 
 ---
 
-# Author
+# 👤 Author
 
-Trent Slade  
+Trent Slade
 QSOL-IMC

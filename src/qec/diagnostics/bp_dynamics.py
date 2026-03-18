@@ -11,11 +11,23 @@ No use of Python ``hash()`` (salted per process; forbidden).
 
 from __future__ import annotations
 
-import struct
+import copy
 import zlib
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+
+# ── Cross-call deterministic cache (INV-003) ────────────────────────
+# Content-addressed cache for compute_bp_dynamics_metrics results.
+# Safe because the function is pure and deterministic (INV-001).
+# Keys are derived from input content only (no id(), no hash()).
+# Module-level, single-process, not persisted.
+# Cache stores deep copies; returns deep copies — mutation-safe.
+
+_CROSS_CALL_CACHE: Dict[tuple, dict] = {}
+_CROSS_CALL_CACHE_ENABLED: bool = True
+_CACHE_HITS: int = 0
+_CACHE_MISSES: int = 0
 
 # ── Centralized defaults ─────────────────────────────────────────────
 
@@ -603,6 +615,56 @@ def classify_bp_regime(
     }
 
 
+# ── Cross-call cache helpers (INV-003) ────────────────────────────────
+
+
+def _normalize_param_value(v: Any) -> Any:
+    """Convert numpy scalar types to Python natives for deterministic cache keys."""
+    if isinstance(v, np.generic):
+        return v.item()
+    return v
+
+
+def _make_cache_key(
+    llr_trace: list,
+    energy_trace: list,
+    correction_vectors: Optional[list],
+    effective_params: Dict[str, Any],
+) -> tuple:
+    """Build a deterministic content-based cache key.
+
+    Uses raw byte content of arrays — no Python hash(), no id().
+    """
+    # LLR trace: normalize then concatenate bytes
+    llr_parts: List[bytes] = []
+    for x in llr_trace:
+        arr = np.asarray(x, dtype=np.float64).ravel()
+        llr_parts.append(arr.tobytes())
+    llr_bytes = b"".join(llr_parts)
+
+    # Energy trace: canonical float64 bytes (handles None)
+    if energy_trace is None or len(energy_trace) == 0:
+        energy_bytes = b""
+    else:
+        energy_bytes = np.asarray(energy_trace, dtype=np.float64).ravel().tobytes()
+
+    # Correction vectors: None ≡ [] (both produce b"")
+    if correction_vectors is not None and len(correction_vectors) > 0:
+        cv_parts: List[bytes] = []
+        for cv in correction_vectors:
+            cv_parts.append(np.asarray(cv, dtype=np.float64).ravel().tobytes())
+        cv_bytes: bytes = b"".join(cv_parts)
+    else:
+        cv_bytes = b""
+
+    # Params: sorted tuple of items with normalized values
+    frozen_params = tuple(
+        sorted((k, _normalize_param_value(v)) for k, v in effective_params.items())
+    )
+
+    return (llr_bytes, energy_bytes, cv_bytes, frozen_params)
+
+
 # ── Public API ────────────────────────────────────────────────────────
 
 
@@ -636,6 +698,16 @@ def compute_bp_dynamics_metrics(
     p = dict(DEFAULT_PARAMS)
     if params is not None:
         p.update(params)
+
+    # ── Cross-call cache lookup (INV-003) ────────────────────────────
+    global _CACHE_HITS, _CACHE_MISSES
+    cache_key = None
+    if _CROSS_CALL_CACHE_ENABLED and llr_trace and energy_trace:
+        cache_key = _make_cache_key(llr_trace, energy_trace,
+                                    correction_vectors, p)
+        if cache_key in _CROSS_CALL_CACHE:
+            _CACHE_HITS += 1
+            return copy.deepcopy(_CROSS_CALL_CACHE[cache_key])
 
     # ── Trace length validation (fail-fast on mismatched inputs) ─────
     T_llr = len(llr_trace) if llr_trace else 0
@@ -707,8 +779,15 @@ def compute_bp_dynamics_metrics(
     # Classify regime
     classification = classify_bp_regime(metrics)
 
-    return {
+    result = {
         "metrics": metrics,
         "regime": classification["regime"],
         "evidence": classification["evidence"],
     }
+
+    # ── Cross-call cache store (INV-003) ─────────────────────────────
+    if cache_key is not None:
+        _CROSS_CALL_CACHE[cache_key] = copy.deepcopy(result)
+        _CACHE_MISSES += 1
+
+    return result

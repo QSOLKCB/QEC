@@ -22,6 +22,7 @@ from src.qec.experiments.benchmark_stress import (
     classify_outcome,
     compute_llr_stats,
     compute_mean_cosine_fidelity,
+    compute_mean_quantum_fidelity,
     compute_mean_sign_fidelity,
     generate_converging_trace,
     generate_diverging_trace,
@@ -250,7 +251,7 @@ class TestArtifactStructure:
             "scenario", "seed", "n_iterations", "n_vars",
             "wall_time_seconds", "regime", "outcome", "metrics",
             "evidence", "params", "description",
-            "mean_cosine_fidelity", "mean_sign_fidelity",
+            "mean_cosine_fidelity", "mean_sign_fidelity", "mean_quantum_fidelity",
             "max_abs_llr", "mean_abs_llr", "fidelity_interpretation",
         }
         for run in artifact["runs"]:
@@ -370,6 +371,92 @@ class TestFidelityMetrics:
         stats = compute_llr_stats([])
         assert stats["max_abs_llr"] == 0.0
         assert stats["mean_abs_llr"] == 0.0
+
+
+class TestQuantumFidelity:
+    """Quantum-style fidelity proxy: (dot(psi_t, psi_{t+1}))^2."""
+
+    def test_determinism(self):
+        trace = generate_converging_trace(n_vars=20, n_iters=15, seed=42)
+        f1 = compute_mean_quantum_fidelity(trace["llr_trace"])
+        f2 = compute_mean_quantum_fidelity(trace["llr_trace"])
+        assert f1 == f2
+
+    def test_range_all_scenarios(self):
+        """Quantum fidelity must be in [0, 1] for all scenarios."""
+        for scenario in STRESS_SCENARIOS:
+            gen = scenario["generator"]
+            kwargs = dict(scenario.get("kwargs", {}))
+            kwargs["seed"] = 42
+            trace = gen(**kwargs)
+            f = compute_mean_quantum_fidelity(trace["llr_trace"])
+            if f is not None:
+                assert 0.0 - 1e-12 <= f <= 1.0 + 1e-12, (
+                    f"Quantum fidelity out of [0,1] in {scenario['name']}: {f}"
+                )
+
+    def test_identical_vectors(self):
+        """Identical consecutive vectors → quantum fidelity = 1.0."""
+        v = np.array([1.0, -2.0, 3.0, -4.0])
+        trace = [v, v, v]
+        assert compute_mean_quantum_fidelity(trace) == pytest.approx(1.0, abs=1e-12)
+
+    def test_opposite_vectors(self):
+        """Negated vectors: cosine = -1, but quantum fidelity = (-1)^2 = 1."""
+        v = np.array([1.0, -2.0, 3.0])
+        trace = [v, -v, v, -v]
+        assert compute_mean_quantum_fidelity(trace) == pytest.approx(1.0, abs=1e-12)
+
+    def test_orthogonal_vectors_low(self):
+        """Orthogonal consecutive vectors → quantum fidelity ≈ 0."""
+        e1 = np.array([1.0, 0.0, 0.0])
+        e2 = np.array([0.0, 1.0, 0.0])
+        e3 = np.array([0.0, 0.0, 1.0])
+        trace = [e1, e2, e3]
+        assert compute_mean_quantum_fidelity(trace) == pytest.approx(0.0, abs=1e-12)
+
+    def test_short_trace_returns_none(self):
+        assert compute_mean_quantum_fidelity([np.array([1.0])]) is None
+        assert compute_mean_quantum_fidelity([]) is None
+
+    def test_zero_norm_safety(self):
+        """Zero-norm vectors must not cause errors."""
+        zero = np.zeros(5)
+        nonzero = np.ones(5)
+        f = compute_mean_quantum_fidelity([zero, nonzero, zero])
+        assert f is not None
+        assert np.isfinite(f)
+
+    def test_oscillating_lower_than_baseline(self):
+        """Oscillating p3 should have lower quantum fidelity than converging."""
+        suite = run_benchmark_suite(master_seed=42)
+        runs = {r["scenario"]: r for r in suite["runs"]}
+        conv = runs["converging_baseline"]["mean_quantum_fidelity"]
+        osc3 = runs["oscillating_period3"]["mean_quantum_fidelity"]
+        assert conv > osc3, (
+            f"Converging quantum fidelity ({conv:.4f}) "
+            f"should exceed oscillating p3 ({osc3:.4f})"
+        )
+
+    def test_is_cosine_squared(self):
+        """Quantum fidelity ≈ cosine_fidelity^2 for positive cosine cases."""
+        trace = generate_converging_trace(n_vars=30, n_iters=20, seed=99)
+        cos_f = compute_mean_cosine_fidelity(trace["llr_trace"])
+        qf = compute_mean_quantum_fidelity(trace["llr_trace"])
+        # For traces where cosine is consistently near 1, quantum ≈ cos^2
+        # This is approximate since mean(x^2) != mean(x)^2
+        assert qf is not None
+        assert cos_f is not None
+        # Both should be close to 1 for converging traces
+        assert qf > 0.9
+        assert cos_f > 0.9
+
+    def test_in_artifact(self):
+        """mean_quantum_fidelity must appear in every run record."""
+        suite = run_benchmark_suite(master_seed=42)
+        for run in suite["runs"]:
+            assert "mean_quantum_fidelity" in run
+            assert run["mean_quantum_fidelity"] is not None or run["n_iterations"] < 2
 
 
 class TestFidelityBehavior:

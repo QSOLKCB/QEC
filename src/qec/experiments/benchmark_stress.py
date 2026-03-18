@@ -22,7 +22,7 @@ from src.qec.diagnostics.bp_dynamics import compute_bp_dynamics_metrics
 
 # ── Version / identity ───────────────────────────────────────────────
 
-_BENCHMARK_VERSION = "68.7.1"
+_BENCHMARK_VERSION = "68.7.2"
 
 
 def _git_short_hash() -> Optional[str]:
@@ -131,6 +131,37 @@ def compute_llr_stats(llr_trace: list) -> dict:
         "max_abs_llr": float(np.max(all_abs)),
         "mean_abs_llr": float(np.mean(all_abs)),
     }
+
+
+def compute_mean_quantum_fidelity(llr_trace: list) -> Optional[float]:
+    """Mean quantum-style fidelity between consecutive normalized LLR vectors.
+
+    Embeds each LLR vector into a Hilbert-style unit vector:
+        psi_t = v_t / (||v_t|| + eps)
+    Then computes:
+        F(t) = (dot(psi_t, psi_{t+1}))^2
+    Result = mean over all consecutive pairs.
+
+    IMPORTANT: This is NOT true quantum state fidelity.  It is a
+    Hilbert-space proxy derived from normalized LLR vectors.  It measures
+    squared directional overlap, not convergence quality.
+
+    Range: [0, 1].  F=1 means identical or anti-parallel directions;
+    F=0 means orthogonal directions.
+
+    Returns None if fewer than 2 iterations.
+    """
+    if len(llr_trace) < 2:
+        return None
+    fidelities = []
+    for i in range(len(llr_trace) - 1):
+        v_t = np.asarray(llr_trace[i], dtype=np.float64).ravel()
+        v_next = np.asarray(llr_trace[i + 1], dtype=np.float64).ravel()
+        norm_t = np.linalg.norm(v_t) + _NORM_EPS
+        norm_next = np.linalg.norm(v_next) + _NORM_EPS
+        overlap = float(np.dot(v_t, v_next) / (norm_t * norm_next))
+        fidelities.append(overlap * overlap)
+    return float(np.mean(fidelities))
 
 
 def interpret_fidelity(
@@ -404,6 +435,7 @@ def run_single_benchmark(
 
     cosine_fid = compute_mean_cosine_fidelity(llr_trace)
     sign_fid = compute_mean_sign_fidelity(llr_trace)
+    quantum_fid = compute_mean_quantum_fidelity(llr_trace)
     llr_stats = compute_llr_stats(llr_trace)
 
     return {
@@ -419,6 +451,7 @@ def run_single_benchmark(
         "params": params if params is not None else {},
         "mean_cosine_fidelity": cosine_fid,
         "mean_sign_fidelity": sign_fid,
+        "mean_quantum_fidelity": quantum_fid,
         "max_abs_llr": llr_stats["max_abs_llr"],
         "mean_abs_llr": llr_stats["mean_abs_llr"],
         "fidelity_interpretation": interpret_fidelity(cosine_fid, sign_fid),

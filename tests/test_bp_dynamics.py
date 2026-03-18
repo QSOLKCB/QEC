@@ -17,6 +17,8 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pytest
 
+import src.qec.diagnostics.bp_dynamics as _bp_mod
+
 from src.qec.diagnostics.bp_dynamics import (
     DEFAULT_PARAMS,
     DEFAULT_THRESHOLDS,
@@ -1327,14 +1329,15 @@ class TestCrossCallReuse:
         assert j1 == j2
 
     def test_cache_hit_after_first_call(self):
-        """Second call with same inputs hits cache (same object)."""
+        """Second call with same inputs hits cache (deep copy, not same object)."""
         llr = _make_stable_llr_trace()
         energy = _make_monotonic_energy()
         out1 = compute_bp_dynamics_metrics(llr, energy)
         assert len(_CROSS_CALL_CACHE) == 1
         out2 = compute_bp_dynamics_metrics(llr, energy)
-        # Cache hit: returns same dict object
-        assert out1 is out2
+        # Cache hit returns deep copy — different object, identical content
+        assert out1 is not out2
+        assert json.dumps(out1, sort_keys=True) == json.dumps(out2, sort_keys=True)
 
     def test_different_inputs_different_cache_entries(self):
         """Different inputs produce separate cache entries."""
@@ -1420,35 +1423,64 @@ class TestCacheTransparency:
 
 
 class TestCacheMutationSafety:
-    """Mutating a returned result must not corrupt cached data."""
+    """Mutating a returned result must not corrupt cached data.
+
+    Proves Step 5 of INV-003 proof: no external mutation path to
+    cached data exists (deep copy on both store and retrieval).
+    """
 
     def setup_method(self):
         _CROSS_CALL_CACHE.clear()
 
     def test_mutate_output_does_not_corrupt_cache(self):
-        """Modifying returned dict fields does not affect next cache hit."""
+        """CRITICAL: Mutating returned dict does NOT affect cached data."""
         llr = _make_stable_llr_trace()
         energy = _make_monotonic_energy()
 
         out1 = compute_bp_dynamics_metrics(llr, energy)
-        original_regime = out1["regime"]
         original_json = json.dumps(out1, sort_keys=True)
 
-        # Mutate the returned dict
+        # Aggressively mutate the returned dict
         out1["regime"] = "CORRUPTED"
         out1["metrics"]["msi"] = -999.0
+        out1["metrics"]["cpi_strength"] = -888.0
+        out1["evidence"]["rule"] = "CORRUPTED"
 
-        # Get from cache again — since we mutated the cached object,
-        # this verifies the test expectation about shared references
+        # Cache hit must return uncorrupted data (deep copy isolation)
         out2 = compute_bp_dynamics_metrics(llr, energy)
-        # out2 is the same object as out1 (cache returns stored ref)
-        # This is expected: the cache stores the reference.
-        # The invariant is that callers should not mutate results.
-        # We verify that fresh computation still works correctly.
-        _CROSS_CALL_CACHE.clear()
-        out3 = compute_bp_dynamics_metrics(llr, energy)
-        assert out3["regime"] == original_regime
-        assert json.dumps(out3, sort_keys=True) == original_json
+        assert json.dumps(out2, sort_keys=True) == original_json
+        assert out2["regime"] != "CORRUPTED"
+        assert out2["metrics"]["msi"] != -999.0
+
+    def test_mutate_nested_evidence_does_not_corrupt_cache(self):
+        """Mutation of nested evidence dict does not corrupt cache."""
+        llr = _make_oscillating_llr_trace()
+        energy = _make_flat_energy()
+
+        out1 = compute_bp_dynamics_metrics(llr, energy)
+        original_json = json.dumps(out1, sort_keys=True)
+
+        # Mutate deeply nested structure
+        out1["evidence"]["thresholds"]["cpi_period_max"] = -1.0
+        out1["evidence"]["comparisons"] = {"CORRUPTED": True}
+
+        # Cache must be unaffected
+        out2 = compute_bp_dynamics_metrics(llr, energy)
+        assert json.dumps(out2, sort_keys=True) == original_json
+
+    def test_first_call_result_isolated_from_cache(self):
+        """The first call's return value is independent of the cache copy."""
+        llr = _make_stable_llr_trace()
+        energy = _make_monotonic_energy()
+
+        out1 = compute_bp_dynamics_metrics(llr, energy)
+
+        # Verify the cached copy is a different object than out1
+        # (deep copy on store means the cache has its own copy)
+        assert len(_CROSS_CALL_CACHE) == 1
+        cached_value = next(iter(_CROSS_CALL_CACHE.values()))
+        assert out1 is not cached_value
+        assert out1["metrics"] is not cached_value["metrics"]
 
 
 class TestCacheDeterminism:
@@ -1555,3 +1587,112 @@ class TestCrossCallRedundancyElimination:
         # With cache: 2 full computations (one per distinct input)
         assert call_count["n"] == 2
         # Reduction: 20 → 2 = 90%
+
+
+class TestByteKeyEquivalence:
+    """Identical inputs constructed via different code paths must
+    produce the same cache key and therefore the same output.
+
+    Proves Step 2 of INV-003 proof: bytes(x) == bytes(y) when the
+    underlying float64 values are identical.
+    """
+
+    def setup_method(self):
+        _CROSS_CALL_CACHE.clear()
+
+    def test_list_vs_array_inputs_same_result(self):
+        """LLR trace built from lists vs numpy arrays → same output."""
+        n_iters, n_vars = 20, 10
+        # Path A: build from Python lists
+        llr_lists = [
+            [float(1.0 + 0.1 * t)] * n_vars for t in range(n_iters)
+        ]
+        # Path B: build from numpy arrays (same values)
+        llr_arrays = [
+            np.ones(n_vars, dtype=np.float64) * (1.0 + 0.1 * t)
+            for t in range(n_iters)
+        ]
+        energy = _make_monotonic_energy(n_iters=n_iters)
+
+        out_a = compute_bp_dynamics_metrics(llr_lists, energy)
+        out_b = compute_bp_dynamics_metrics(llr_arrays, energy)
+        assert json.dumps(out_a, sort_keys=True) == json.dumps(out_b, sort_keys=True)
+
+    def test_fresh_helper_calls_same_key(self):
+        """Two independent helper invocations produce same cache key."""
+        from src.qec.diagnostics.bp_dynamics import _make_cache_key
+
+        llr1 = _make_oscillating_llr_trace(n_iters=15, period=3)
+        energy1 = _make_flat_energy(n_iters=15)
+        llr2 = _make_oscillating_llr_trace(n_iters=15, period=3)
+        energy2 = _make_flat_energy(n_iters=15)
+
+        p = dict(DEFAULT_PARAMS)
+        key1 = _make_cache_key(llr1, energy1, None, p)
+        key2 = _make_cache_key(llr2, energy2, None, p)
+        assert key1 == key2
+
+
+class TestCacheHitConsistency:
+    """Repeated cache hits must return identical results every time."""
+
+    def setup_method(self):
+        _CROSS_CALL_CACHE.clear()
+
+    def test_ten_consecutive_hits_identical(self):
+        """10 consecutive calls return byte-identical JSON."""
+        llr = _make_stable_llr_trace()
+        energy = _make_monotonic_energy()
+        results = [
+            json.dumps(compute_bp_dynamics_metrics(llr, energy), sort_keys=True)
+            for _ in range(10)
+        ]
+        assert all(r == results[0] for r in results)
+
+    def test_interleaved_patterns_consistent(self):
+        """Interleaved calls to different inputs return correct results."""
+        llr_s = _make_stable_llr_trace()
+        energy_s = _make_monotonic_energy()
+        llr_o = _make_oscillating_llr_trace()
+        energy_o = _make_flat_energy()
+
+        ref_s = json.dumps(compute_bp_dynamics_metrics(llr_s, energy_s), sort_keys=True)
+        ref_o = json.dumps(compute_bp_dynamics_metrics(llr_o, energy_o), sort_keys=True)
+
+        # Interleave 5 rounds
+        for _ in range(5):
+            assert json.dumps(compute_bp_dynamics_metrics(llr_o, energy_o), sort_keys=True) == ref_o
+            assert json.dumps(compute_bp_dynamics_metrics(llr_s, energy_s), sort_keys=True) == ref_s
+
+
+class TestCacheCounters:
+    """Validate _CACHE_HITS and _CACHE_MISSES instrumentation."""
+
+    def setup_method(self):
+        _CROSS_CALL_CACHE.clear()
+        _bp_mod._CACHE_HITS = 0
+        _bp_mod._CACHE_MISSES = 0
+
+    def test_counters_track_hits_and_misses(self):
+        """Counters accurately reflect cache behavior."""
+        llr = _make_stable_llr_trace()
+        energy = _make_monotonic_energy()
+
+        compute_bp_dynamics_metrics(llr, energy)
+        assert _bp_mod._CACHE_MISSES == 1
+        assert _bp_mod._CACHE_HITS == 0
+
+        compute_bp_dynamics_metrics(llr, energy)
+        assert _bp_mod._CACHE_MISSES == 1
+        assert _bp_mod._CACHE_HITS == 1
+
+        compute_bp_dynamics_metrics(llr, energy)
+        assert _bp_mod._CACHE_MISSES == 1
+        assert _bp_mod._CACHE_HITS == 2
+
+        # Different input → new miss
+        llr2 = _make_oscillating_llr_trace()
+        energy2 = _make_flat_energy()
+        compute_bp_dynamics_metrics(llr2, energy2)
+        assert _bp_mod._CACHE_MISSES == 2
+        assert _bp_mod._CACHE_HITS == 2

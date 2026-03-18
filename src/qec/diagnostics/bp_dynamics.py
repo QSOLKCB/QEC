@@ -11,6 +11,7 @@ No use of Python ``hash()`` (salted per process; forbidden).
 
 from __future__ import annotations
 
+import copy
 import struct
 import zlib
 from typing import Any, Dict, List, Optional, Tuple
@@ -22,9 +23,12 @@ import numpy as np
 # Safe because the function is pure and deterministic (INV-001).
 # Keys are derived from input content only (no id(), no hash()).
 # Module-level, single-process, not persisted.
+# Cache stores deep copies; returns deep copies — mutation-safe.
 
 _CROSS_CALL_CACHE: Dict[tuple, dict] = {}
 _CROSS_CALL_CACHE_ENABLED: bool = True
+_CACHE_HITS: int = 0
+_CACHE_MISSES: int = 0
 
 # ── Centralized defaults ─────────────────────────────────────────────
 
@@ -686,12 +690,14 @@ def compute_bp_dynamics_metrics(
         p.update(params)
 
     # ── Cross-call cache lookup (INV-003) ────────────────────────────
+    global _CACHE_HITS, _CACHE_MISSES
     cache_key = None
     if _CROSS_CALL_CACHE_ENABLED and llr_trace and energy_trace:
         cache_key = _make_cache_key(llr_trace, energy_trace,
                                     correction_vectors, p)
         if cache_key in _CROSS_CALL_CACHE:
-            return _CROSS_CALL_CACHE[cache_key]
+            _CACHE_HITS += 1
+            return copy.deepcopy(_CROSS_CALL_CACHE[cache_key])
 
     # ── Trace length validation (fail-fast on mismatched inputs) ─────
     T_llr = len(llr_trace) if llr_trace else 0
@@ -771,6 +777,7 @@ def compute_bp_dynamics_metrics(
 
     # ── Cross-call cache store (INV-003) ─────────────────────────────
     if cache_key is not None:
-        _CROSS_CALL_CACHE[cache_key] = result
+        _CROSS_CALL_CACHE[cache_key] = copy.deepcopy(result)
+        _CACHE_MISSES += 1
 
     return result

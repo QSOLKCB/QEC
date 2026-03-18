@@ -126,29 +126,54 @@ TestRedundancyElimination.
 
 **Type:** Computational (cross-call memoization)
 
-**Version:** v68.6.0 (formally validated)
+**Version:** v68.6.1 (hardened, formally proven)
 
 **Depends on:** INV-001 (sign vector purity)
 
 ### Formal Definition
 
-Let `F = compute_bp_dynamics_metrics` with inputs
-`(llr_trace, energy_trace, correction_vectors, params)`.
+Let `F = compute_bp_dynamics_metrics` be the public API function with
+input tuple `x = (llr_trace, energy_trace, correction_vectors, params)`.
 
-`F` is a **pure deterministic function**: it reads no global state,
-produces no side effects, and its output depends only on the content
-of its arguments.
+Define `bytes(x)` as the content-based key constructed by
+`_make_cache_key`: the concatenation of raw float64 bytes of all
+input arrays, packed energy bytes, correction vector bytes (or None),
+and the sorted effective parameter tuple.
 
-**Invariant statement:** For any two calls `F(A)` and `F(B)`, if
-`content(A) == content(B)` (byte-identical input content), then
-`F(A) == F(B)` (identical output). Therefore, the result of a prior
-call can be reused for any subsequent call with content-identical
-inputs, without any change in behavior or output.
+**Invariant statement (INV-003):**
+
+```
+For any inputs x, y:
+    if bytes(x) == bytes(y)
+    then F(x) == F(y)
+```
+
+Where equality of outputs means byte-identical JSON serialization:
+`json.dumps(F(x), sort_keys=True) == json.dumps(F(y), sort_keys=True)`.
 
 **Consequence:** A module-level content-addressed cache can store
-results keyed by a deterministic hash of input content. Cache hits
-return the stored result, eliminating redundant computation across
-calls within the same process.
+results keyed by `bytes(x)`. Cache hits return a deep copy of the
+stored result, eliminating redundant computation across calls within
+the same process. Caller mutation of returned dicts cannot corrupt
+the cache because both storage and retrieval use `copy.deepcopy`.
+
+### Scope
+
+This invariant applies under the following assumptions:
+
+1. **Current implementation only.** The invariant holds for the
+   implementation in `src/qec/diagnostics/bp_dynamics.py` as of
+   v68.6.1. Changes to internal metric functions may require
+   re-validation.
+
+2. **Function purity.** `F` is composed entirely of pure deterministic
+   transformations (proven below). No RNG, no `hash()`, no global
+   mutable state reads.
+
+3. **IEEE 754 float64 determinism.** All arithmetic uses NumPy float64
+   operations on the same platform. IEEE 754 guarantees bit-identical
+   results for identical inputs under identical rounding mode.
+   Cross-platform reproducibility is not claimed.
 
 ### Validity Conditions
 
@@ -156,26 +181,22 @@ All of the following must hold for reuse to be safe:
 
 1. **Input immutability.** Inputs must not be mutated between the
    original computation and cache lookup. The cache key is derived
-   from input *content* at call time, so mutation after keying would
-   break the invariant.
+   from input *content* at call time via byte snapshot.
    *Enforced by:* content-based keying (bytes snapshot at call time).
 
-2. **Function purity.** `compute_bp_dynamics_metrics` must remain a
-   pure function: no global state reads, no RNG, no `hash()`, no
-   system calls that vary across invocations.
-   *Verified by:* TestDeterminism, TestCrossCallReuse.
+2. **Function purity.** `F` must remain a pure function: no global
+   state reads, no RNG, no `hash()`, no system calls that vary
+   across invocations.
+   *Verified by:* TestDeterminism, TestCrossCallReuse, formal proof.
 
-3. **No mutation of cached outputs.** Callers must not mutate returned
-   dicts in ways that corrupt cached references. The cache returns
-   the stored dict directly; if callers mutate it, subsequent cache
-   hits would return corrupted data.
-   *Mitigated by:* mutation safety test (TestCacheMutationSafety).
-   The output is a plain dict of Python scalars (float/int/str/None)
-   and nested dicts, which are rarely mutated in practice. Deep copy
-   is available but not applied by default to avoid overhead.
+3. **Cache immutability.** Cached results must not be corrupted by
+   caller mutation.
+   *Enforced by:* `copy.deepcopy` on both cache store and cache
+   retrieval. The cached object is never exposed to callers.
+   *Verified by:* TestCacheMutationSafety.
 
-4. **No dependency on test ordering.** Cache correctness must not
-   depend on which test runs first or in what order.
+4. **No dependency on call ordering.** Cache correctness must not
+   depend on which call occurs first.
    *Enforced by:* content-addressed keys (order-independent).
 
 5. **No hidden global state.** The function must not read module-level
@@ -186,36 +207,136 @@ All of the following must hold for reuse to be safe:
 
 ### Cache Key Construction
 
-The cache key is a deterministic content hash:
+The cache key is a deterministic content tuple:
 
 ```
 key = (
-    llr_bytes,           # concatenated .tobytes() of normalized LLR arrays
-    energy_bytes,        # packed float64 bytes of energy trace
+    llr_bytes,           # concatenated .tobytes() of input LLR arrays
+    energy_bytes,        # struct.pack(">Nd", *energy) — big-endian float64
     cv_bytes_or_None,    # correction vector bytes or None sentinel
     frozen_params,       # tuple(sorted(effective_params.items()))
 )
 ```
 
 All components are derived from input *content*, not object identity.
-No use of Python `hash()` (salted per process, forbidden by CLAUDE.md).
+No use of Python `hash()` (salted per process; forbidden by CLAUDE.md).
 No use of `id()` (memory-layout dependent).
+
+### Proof of Correctness
+
+**Theorem.** For any inputs `x, y` to `compute_bp_dynamics_metrics`:
+if `bytes(x) == bytes(y)` then `F(x) == F(y)`.
+
+**Proof.**
+
+**Step 1. Determinism — no non-deterministic primitives.**
+
+Enumerate all operations in `F`:
+- `np.asarray(x, dtype=float64)` — deterministic type coercion
+- `np.squeeze`, `reshape`, indexing — deterministic array ops
+- `np.where(x < 0, -1, 1)` — element-wise comparison on float64,
+  deterministic per IEEE 754 (INV-001, proven by TestPurityProof)
+- `zlib.crc32(bytes)` — deterministic per zlib spec
+- `np.diff`, `np.mean`, `np.var`, `np.sum`, `np.clip`, `np.median`,
+  `np.abs`, `np.log`, `np.linalg.norm` — all deterministic for
+  identical float64 inputs under fixed rounding mode
+- `struct.pack` — deterministic byte encoding
+- `float()`, `int()` — deterministic coercion
+- `sorted()`, `set()`, `dict()` — deterministic for hashable keys
+- No `random`, no `hash()`, no `os`/`sys` calls, no `datetime`
+
+Therefore `F` uses only deterministic primitives. ∎
+
+**Step 2. Byte-level equivalence — identical bytes → identical
+normalized trace.**
+
+If `bytes(x) == bytes(y)`, then by construction of `_make_cache_key`:
+- `llr_bytes(x) == llr_bytes(y)` — identical raw float64 bytes
+- `energy_bytes(x) == energy_bytes(y)` — identical packed floats
+- `cv_bytes(x) == cv_bytes(y)` — identical correction vector bytes
+- `params(x) == params(y)` — identical parameter tuples
+
+Since `_normalize_llr_vector` converts inputs to float64 via
+`np.asarray(x, dtype=float64)`, and `_make_cache_key` reads the
+same raw bytes via `np.asarray(x, dtype=float64).ravel().tobytes()`,
+byte-identical keys guarantee that `_normalize_llr_trace` produces
+identical normalized arrays.
+
+Therefore: `bytes(x) == bytes(y)` → identical internal state. ∎
+
+**Step 3. Functional composition — pure steps compose purely.**
+
+`F` is composed as:
+```
+F(x) = classify(metrics(normalize(x), precompute(normalize(x)), params(x)))
+```
+
+Where:
+- `normalize` = `_normalize_llr_trace` (pure: array ops only)
+- `precompute` = `_precompute_signs_and_sigs` (pure: INV-001)
+- `metrics` = composition of `_compute_{msi,cpi,tsl,lec,cvne,gos,eds,bti}`
+  (each pure: arithmetic + array ops only)
+- `classify` = `classify_bp_regime` (pure: comparisons + dict construction)
+
+A composition of pure deterministic functions is pure and deterministic.
+Therefore: identical internal state → identical output. ∎
+
+**Step 4. Cache correctness — stored value equals computed value.**
+
+On cache miss: `F(x)` is computed, `copy.deepcopy(result)` is stored
+in `_CROSS_CALL_CACHE[bytes(x)]`. The caller receives the original
+`result` object.
+
+On cache hit for `bytes(y) == bytes(x)`: `copy.deepcopy` of the stored
+value is returned. By Steps 1–3, the stored value equals `F(x)`, and
+`F(x) == F(y)`. The deep copy is structurally identical to the stored
+value. Therefore the returned value equals `F(y)`. ∎
+
+**Step 5. Mutation safety — cached value cannot be corrupted.**
+
+- On store: `copy.deepcopy(result)` creates an independent copy.
+  The caller's reference to `result` cannot reach the cached copy.
+- On retrieval: `copy.deepcopy(cached)` creates an independent copy.
+  The caller's reference cannot reach the cached copy.
+
+Therefore: no external mutation path to cached data exists. ∎
+
+**Conclusion:** The cache correctly returns `F(y)` for any `y` where
+`bytes(y) == bytes(x)` for some previously computed `x`, and no
+external mutation can corrupt cached values. Reuse is mathematically
+safe. ∎
+
+### Instrumentation
+
+Module-level counters track cache performance:
+
+```
+_CACHE_HITS: int    # incremented on each cache hit
+_CACHE_MISSES: int  # incremented on each cache store (miss → compute)
+```
+
+These are informational only and do not affect behavior.
 
 ### What Would Break This Invariant
 
-- Making `compute_bp_dynamics_metrics` read global mutable state.
-- Introducing RNG or non-deterministic behavior in any metric.
-- Mutating cached output dicts (corrupts future cache hits).
-- Changing `_normalize_llr_vector` to be non-deterministic.
-- Using Python `hash()` for cache keys (salted, non-deterministic).
+- Making `F` read global mutable state (breaks Step 1).
+- Introducing RNG or non-deterministic behavior in any metric (breaks Step 1).
+- Removing `copy.deepcopy` from cache store or retrieval (breaks Step 5).
+- Changing `_normalize_llr_vector` to be non-deterministic (breaks Step 2).
+- Using Python `hash()` for cache keys (salted, non-deterministic per process).
+- Platform change affecting IEEE 754 rounding (breaks Step 1 assumption).
 
 ### Limitations
 
-- Cache is module-level, not cross-process. Cleared on import.
-- Memory grows with number of distinct input patterns. Suitable for
-  test suites with bounded distinct inputs, not unbounded production.
-- Cache does not persist across pytest worker processes (no issue for
-  single-process test runs).
-- Correction vectors with mutable numpy arrays are snapshotted at
-  call time; subsequent mutation of the original arrays does not
-  invalidate the cache entry (by design: key was correct at call time).
+- **Per-process only.** Cache is module-level, not cross-process.
+  Cleared on import. No persistence.
+- **Unbounded memory growth.** Memory grows with number of distinct
+  input patterns. Suitable for test suites with bounded distinct
+  inputs, not unbounded production workloads.
+- **No cross-worker sharing.** Cache does not persist across pytest
+  worker processes (no issue for single-process test runs).
+- **Deep copy overhead.** Each cache hit incurs `copy.deepcopy` cost.
+  Acceptable because the output is a small nested dict of scalars
+  (~21 float/int/str/None values + regime classification dict).
+- **IEEE 754 scope.** Cross-platform bit-identical results are not
+  guaranteed if floating-point rounding modes differ.

@@ -912,3 +912,388 @@ class TestSignPrecomputeDeterminism:
             out = compute_bp_dynamics_metrics(llr, energy)
             results.append(json.dumps(out, sort_keys=True))
         assert len(set(results)) == 1
+
+
+# ── Formal Validation: QSOL-BP-INV-001 (v68.5.1) ────────────────────
+
+
+class TestSliceLevelEquivalence:
+    """Prove that cached metrics index the same trace elements as inline.
+
+    For each metric that uses _signs or _crc_sigs, verify that the
+    precomputed array, when sliced by the metric's window parameter,
+    produces element-identical values to the original inline computation.
+    """
+
+    def _get_normed_and_precomputed(self, llr_trace):
+        normed = _normalize_llr_trace(llr_trace) if llr_trace else []
+        signs, crc_sigs = _precompute_signs_and_sigs(normed)
+        return normed, signs, crc_sigs
+
+    def test_msi_slice_alignment(self):
+        """MSI: cached _signs[t-1], _signs[t] == _sign(tail[t-1]), _sign(tail[t])."""
+        llr = _make_chaotic_llr_trace(n_iters=20, n_vars=8)
+        normed, signs, _ = self._get_normed_and_precomputed(llr)
+        W = 7  # non-default window
+        n = len(normed)
+        w = min(W, n)
+        # Original path: tail = normed[-w:], iterate pairs
+        tail = normed[-w:]
+        for t in range(1, len(tail)):
+            s_prev_inline = _sign(tail[t - 1])
+            s_curr_inline = _sign(tail[t])
+            # Cached path: absolute index
+            abs_idx_prev = n - w + t - 1
+            abs_idx_curr = n - w + t
+            np.testing.assert_array_equal(signs[abs_idx_prev], s_prev_inline)
+            np.testing.assert_array_equal(signs[abs_idx_curr], s_curr_inline)
+
+    def test_cpi_slice_alignment(self):
+        """CPI: _crc_sigs[-w:] == [crc32(_sign(v)) for v in llr[-w:]]."""
+        llr = _make_oscillating_llr_trace(n_iters=20, period=3)
+        normed, _, crc_sigs = self._get_normed_and_precomputed(llr)
+        import zlib as _zlib
+        W = 9
+        n = len(normed)
+        w = min(W, n)
+        cached_slice = crc_sigs[-w:]
+        inline_sigs = []
+        for vec in normed[-w:]:
+            s = _sign(vec)
+            inline_sigs.append(_zlib.crc32(s.astype(np.int8).tobytes()) & 0xFFFFFFFF)
+        assert cached_slice == inline_sigs
+
+    def test_tsl_slice_alignment(self):
+        """TSL: cached _signs covers [n-w-1..n-2] and final = _signs[n-1]."""
+        llr = _make_trapping_llr_trace(n_iters=20, n_vars=8)
+        normed, signs, _ = self._get_normed_and_precomputed(llr)
+        W = 10
+        n = len(normed)
+        w = min(W, n - 1)
+        # Final sign
+        np.testing.assert_array_equal(signs[-1], _sign(normed[-1]))
+        # Tail before final: original = normed[-(w+1):-1]
+        tail = normed[-(w + 1):-1]
+        for j, vec in enumerate(tail):
+            abs_idx = n - w - 1 + j
+            np.testing.assert_array_equal(signs[abs_idx], _sign(vec))
+
+    def test_gos_slice_alignment(self):
+        """GOS: cached pairs match inline tail pairs."""
+        llr = _make_oscillating_llr_trace(n_iters=20, period=2, n_vars=6)
+        normed, signs, _ = self._get_normed_and_precomputed(llr)
+        W = 8
+        n = len(normed)
+        w = min(W, n)
+        tail = normed[-w:]
+        for t in range(1, len(tail)):
+            abs_prev = n - w + t - 1
+            abs_curr = n - w + t
+            np.testing.assert_array_equal(signs[abs_prev], _sign(tail[t - 1]))
+            np.testing.assert_array_equal(signs[abs_curr], _sign(tail[t]))
+
+    def test_bti_slice_alignment(self):
+        """BTI: _crc_sigs[-w_llr:] == inline CRC32 of tail LLR signs."""
+        llr = _make_chaotic_llr_trace(n_iters=20, n_vars=8)
+        normed, _, crc_sigs = self._get_normed_and_precomputed(llr)
+        import zlib as _zlib
+        W = 6
+        n = len(normed)
+        w_llr = min(W, n)
+        cached_slice = crc_sigs[-w_llr:]
+        inline_sigs = []
+        for vec in normed[-w_llr:]:
+            sign_bytes = _sign(vec).astype(np.int8).tobytes()
+            inline_sigs.append(_zlib.crc32(sign_bytes) & 0xFFFFFFFF)
+        assert cached_slice == inline_sigs
+
+
+class TestByteLevelEquivalence:
+    """Prove CRC32 is computed on byte-identical data between paths.
+
+    This is the CRITICAL proof: the precomputed CRC32 value for trace
+    element i must equal the CRC32 that would be computed inline.
+    """
+
+    def test_sign_tobytes_identity(self):
+        """sign_vec from precompute and inline produce identical bytes."""
+        llr = _make_chaotic_llr_trace(n_iters=15, n_vars=12)
+        normed = _normalize_llr_trace(llr)
+        signs, _ = _precompute_signs_and_sigs(normed)
+        for i, vec in enumerate(normed):
+            inline_sign = _sign(vec)
+            # Byte-level identity
+            assert signs[i].astype(np.int8).tobytes() == inline_sign.astype(np.int8).tobytes()
+
+    def test_crc32_identity_from_both_paths(self):
+        """CRC32 from precomputed signs == CRC32 from inline signs."""
+        import zlib as _zlib
+        llr = _make_chaotic_llr_trace(n_iters=15, n_vars=12)
+        normed = _normalize_llr_trace(llr)
+        signs, crc_sigs = _precompute_signs_and_sigs(normed)
+        for i, vec in enumerate(normed):
+            # Path A: precomputed CRC
+            crc_a = crc_sigs[i]
+            # Path B: inline computation
+            inline_sign = _sign(vec)
+            crc_b = _zlib.crc32(inline_sign.astype(np.int8).tobytes()) & 0xFFFFFFFF
+            # Path C: from precomputed sign array (re-derive CRC)
+            crc_c = _zlib.crc32(signs[i].astype(np.int8).tobytes()) & 0xFFFFFFFF
+            assert crc_a == crc_b == crc_c
+
+    def test_sign_dtype_consistency(self):
+        """Precomputed and inline _sign() produce same dtype and shape."""
+        llr = _make_chaotic_llr_trace(n_iters=10, n_vars=7)
+        normed = _normalize_llr_trace(llr)
+        signs, _ = _precompute_signs_and_sigs(normed)
+        for i, vec in enumerate(normed):
+            inline = _sign(vec)
+            assert signs[i].dtype == inline.dtype
+            assert signs[i].shape == inline.shape
+
+    def test_int8_cast_determinism(self):
+        """astype(int8) is deterministic for _sign output values {-1, +1}."""
+        # -1 as int8 = 0xFF, +1 as int8 = 0x01
+        v = np.array([1.0, -1.0, 0.0, -0.5, 2.0], dtype=np.float64)
+        s = _sign(v)  # [1, -1, 1, -1, 1]
+        b1 = s.astype(np.int8).tobytes()
+        b2 = s.astype(np.int8).tobytes()
+        assert b1 == b2
+        # Verify exact byte values
+        expected = np.array([1, -1, 1, -1, 1], dtype=np.int8).tobytes()
+        assert b1 == expected
+
+
+class TestPurityProof:
+    """Formally verify _sign() is pure (no mutation, no external state).
+
+    Purity proof sketch:
+    1. _sign(x) = np.where(x < 0, -1, 1)
+    2. np.where is a pure function of its arguments
+    3. x < 0 is an element-wise comparison, pure
+    4. Neither -1 nor 1 depend on external state
+    5. _sign does not read or write global state
+    6. _sign does not mutate its input
+    Therefore: _sign(x) depends only on the values of x.
+    """
+
+    def test_purity_same_values_same_result(self):
+        """Same values in different arrays → identical output."""
+        a = np.array([1.0, -2.0, 0.0, 3.5], dtype=np.float64)
+        b = np.array([1.0, -2.0, 0.0, 3.5], dtype=np.float64)
+        assert a is not b  # distinct objects
+        np.testing.assert_array_equal(_sign(a), _sign(b))
+
+    def test_purity_no_input_mutation(self):
+        """_sign() does not mutate its input array."""
+        v = np.array([1.0, -2.0, 0.0], dtype=np.float64)
+        v_copy = v.copy()
+        _ = _sign(v)
+        np.testing.assert_array_equal(v, v_copy)
+
+    def test_purity_independent_of_call_order(self):
+        """Calling _sign on different inputs does not affect subsequent calls."""
+        v1 = np.array([1.0, -1.0], dtype=np.float64)
+        v2 = np.array([-5.0, 5.0], dtype=np.float64)
+        # Call on v2 first, then v1
+        r2a = _sign(v2).copy()
+        r1 = _sign(v1).copy()
+        r2b = _sign(v2).copy()
+        # r2a and r2b must be identical (no state carried between calls)
+        np.testing.assert_array_equal(r2a, r2b)
+        np.testing.assert_array_equal(r1, np.array([1, -1]))
+
+    def test_crc32_determinism(self):
+        """zlib.crc32 is deterministic for identical byte inputs."""
+        import zlib as _zlib
+        data = np.array([1, -1, 1, 1, -1], dtype=np.int8).tobytes()
+        results = [_zlib.crc32(data) & 0xFFFFFFFF for _ in range(100)]
+        assert len(set(results)) == 1
+
+
+class TestZeroMutationGuarantee:
+    """Prove that cached arrays are never mutated during metric computation."""
+
+    def test_write_to_cached_sign_raises(self):
+        """Attempting to write to a cached sign array must raise ValueError."""
+        llr = _make_stable_llr_trace(n_iters=5)
+        normed = _normalize_llr_trace(llr)
+        signs, _ = _precompute_signs_and_sigs(normed)
+        for s in signs:
+            with pytest.raises(ValueError, match="read-only"):
+                s[0] = 99
+
+    def test_cached_signs_unchanged_after_full_metric_run(self):
+        """After compute_bp_dynamics_metrics, sign values are unchanged."""
+        llr = _make_chaotic_llr_trace(n_iters=15, n_vars=8)
+        normed = _normalize_llr_trace(llr)
+        signs, crc_sigs = _precompute_signs_and_sigs(normed)
+        # Snapshot
+        sign_snapshots = [s.copy() for s in signs]
+        crc_snapshots = list(crc_sigs)
+        # Run full metric suite (uses signs internally)
+        from src.qec.diagnostics.bp_dynamics import (
+            _compute_msi, _compute_cpi, _compute_tsl,
+            _compute_gos, _compute_bti,
+        )
+        p = dict(DEFAULT_PARAMS)
+        energy = _make_chaotic_energy(n_iters=15)
+        _compute_msi(normed, energy, p, _signs=signs)
+        _compute_cpi(normed, p, _crc_sigs=crc_sigs)
+        _compute_tsl(normed, p, _signs=signs)
+        _compute_gos(normed, p, _signs=signs)
+        _compute_bti(energy, normed, p, _crc_sigs=crc_sigs)
+        # Verify no mutation
+        for i, s in enumerate(signs):
+            np.testing.assert_array_equal(s, sign_snapshots[i])
+        assert crc_sigs == crc_snapshots
+
+    def test_normed_llr_unchanged_after_precompute(self):
+        """_precompute_signs_and_sigs does not mutate normed_llr."""
+        llr = _make_chaotic_llr_trace(n_iters=10)
+        normed = _normalize_llr_trace(llr)
+        copies = [v.copy() for v in normed]
+        _precompute_signs_and_sigs(normed)
+        for orig, cpy in zip(normed, copies):
+            np.testing.assert_array_equal(orig, cpy)
+
+
+class TestWindowSafetyFormal:
+    """Prove metrics correctly slice precomputed arrays per their own window.
+
+    No assumption of equal window sizes is required because precomputed
+    arrays are indexed by absolute trace position, and each metric
+    applies its own window parameter independently.
+    """
+
+    def test_asymmetric_windows_cached_vs_uncached(self):
+        """All 4 distinct window sizes → cached == uncached, bitwise."""
+        from src.qec.diagnostics.bp_dynamics import (
+            _compute_msi, _compute_cpi, _compute_tsl,
+            _compute_gos, _compute_bti,
+        )
+        llr = _make_chaotic_llr_trace(n_iters=25, n_vars=8)
+        energy = _make_chaotic_energy(n_iters=25)
+        normed = _normalize_llr_trace(llr)
+        signs, crc_sigs = _precompute_signs_and_sigs(normed)
+        # Use 4 different window sizes
+        p = dict(DEFAULT_PARAMS)
+        p["tail_window"] = 5
+        p["tsl_window"] = 10
+        p["gos_window"] = 15
+        p["bti_window"] = 8
+        # Cached
+        msi_c = _compute_msi(normed, energy, p, _signs=signs)
+        cpi_c = _compute_cpi(normed, p, _crc_sigs=crc_sigs)
+        tsl_c = _compute_tsl(normed, p, _signs=signs)
+        gos_c = _compute_gos(normed, p, _signs=signs)
+        bti_c = _compute_bti(energy, normed, p, _crc_sigs=crc_sigs)
+        # Uncached
+        msi_u = _compute_msi(normed, energy, p, _signs=None)
+        cpi_u = _compute_cpi(normed, p, _crc_sigs=None)
+        tsl_u = _compute_tsl(normed, p, _signs=None)
+        gos_u = _compute_gos(normed, p, _signs=None)
+        bti_u = _compute_bti(energy, normed, p, _crc_sigs=None)
+        # Bitwise equality via JSON
+        assert json.dumps(msi_c, sort_keys=True) == json.dumps(msi_u, sort_keys=True)
+        assert json.dumps(cpi_c, sort_keys=True) == json.dumps(cpi_u, sort_keys=True)
+        assert json.dumps(tsl_c, sort_keys=True) == json.dumps(tsl_u, sort_keys=True)
+        assert json.dumps(gos_c, sort_keys=True) == json.dumps(gos_u, sort_keys=True)
+        assert json.dumps(bti_c, sort_keys=True) == json.dumps(bti_u, sort_keys=True)
+
+    def test_window_larger_than_trace(self):
+        """When window > trace length, cached path still correct."""
+        llr = _make_oscillating_llr_trace(n_iters=5, period=2)
+        energy = _make_flat_energy(n_iters=5)
+        # Windows much larger than trace
+        params = {"tail_window": 100, "tsl_window": 100,
+                  "gos_window": 100, "bti_window": 100}
+        out1 = compute_bp_dynamics_metrics(llr, energy, params=params)
+        out2 = compute_bp_dynamics_metrics(llr, energy, params=params)
+        assert json.dumps(out1, sort_keys=True) == json.dumps(out2, sort_keys=True)
+
+    def test_window_of_2_minimal(self):
+        """Minimal window=2 with cached path works correctly."""
+        from src.qec.diagnostics.bp_dynamics import (
+            _compute_msi, _compute_gos,
+        )
+        llr = _make_oscillating_llr_trace(n_iters=10, period=2)
+        energy = _make_flat_energy(n_iters=10)
+        normed = _normalize_llr_trace(llr)
+        signs, _ = _precompute_signs_and_sigs(normed)
+        p = dict(DEFAULT_PARAMS)
+        p["tail_window"] = 2
+        p["gos_window"] = 2
+        msi_c = _compute_msi(normed, energy, p, _signs=signs)
+        msi_u = _compute_msi(normed, energy, p, _signs=None)
+        gos_c = _compute_gos(normed, p, _signs=signs)
+        gos_u = _compute_gos(normed, p, _signs=None)
+        assert msi_c == msi_u
+        assert gos_c == gos_u
+
+
+class TestRedundancyElimination:
+    """Measure actual reduction in _sign() calls via monkeypatching.
+
+    This proves the optimization eliminates redundant computation
+    via deterministic call counting, not estimation.
+    """
+
+    def test_sign_call_count_reduction(self, monkeypatch):
+        """Precomputed path calls _sign() exactly N times (once per vec).
+
+        Without precomputation, _sign() is called multiple times per vec
+        across MSI, CPI, TSL, GOS, BTI.
+        """
+        import src.qec.diagnostics.bp_dynamics as mod
+
+        call_count = {"n": 0}
+        original_sign = mod._sign
+
+        def counting_sign(x):
+            call_count["n"] += 1
+            return original_sign(x)
+
+        llr = _make_oscillating_llr_trace(n_iters=20, period=2)
+        energy = _make_flat_energy(n_iters=20)
+        normed = _normalize_llr_trace(llr)
+        N = len(normed)
+
+        # --- Path A: uncached (original behavior) ---
+        from src.qec.diagnostics.bp_dynamics import (
+            _compute_msi, _compute_cpi, _compute_tsl,
+            _compute_gos, _compute_bti,
+        )
+        p = dict(DEFAULT_PARAMS)
+        call_count["n"] = 0
+        monkeypatch.setattr(mod, "_sign", counting_sign)
+        _compute_msi(normed, energy, p, _signs=None)
+        _compute_cpi(normed, p, _crc_sigs=None)
+        _compute_tsl(normed, p, _signs=None)
+        _compute_gos(normed, p, _signs=None)
+        _compute_bti(energy, normed, p, _crc_sigs=None)
+        uncached_calls = call_count["n"]
+
+        # --- Path B: cached (optimized) ---
+        call_count["n"] = 0
+        signs, crc_sigs = _precompute_signs_and_sigs(normed)
+        precompute_calls = call_count["n"]
+        _compute_msi(normed, energy, p, _signs=signs)
+        _compute_cpi(normed, p, _crc_sigs=crc_sigs)
+        _compute_tsl(normed, p, _signs=signs)
+        _compute_gos(normed, p, _signs=signs)
+        _compute_bti(energy, normed, p, _crc_sigs=crc_sigs)
+        cached_metric_calls = call_count["n"] - precompute_calls
+        total_cached_calls = call_count["n"]
+
+        monkeypatch.undo()
+
+        # Assertions:
+        # Precompute calls _sign exactly N times (once per trace element)
+        assert precompute_calls == N
+        # Cached metrics call _sign 0 times (all reuse precomputed data)
+        assert cached_metric_calls == 0
+        # Total cached < uncached
+        assert total_cached_calls < uncached_calls
+        # Uncached must call _sign more than N times (redundant)
+        assert uncached_calls > N

@@ -12,7 +12,6 @@ No use of Python ``hash()`` (salted per process; forbidden).
 from __future__ import annotations
 
 import copy
-import struct
 import zlib
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -619,6 +618,13 @@ def classify_bp_regime(
 # ── Cross-call cache helpers (INV-003) ────────────────────────────────
 
 
+def _normalize_param_value(v: Any) -> Any:
+    """Convert numpy scalar types to Python natives for deterministic cache keys."""
+    if isinstance(v, np.generic):
+        return v.item()
+    return v
+
+
 def _make_cache_key(
     llr_trace: list,
     energy_trace: list,
@@ -636,21 +642,25 @@ def _make_cache_key(
         llr_parts.append(arr.tobytes())
     llr_bytes = b"".join(llr_parts)
 
-    # Energy trace: pack as float64
-    energy_bytes = struct.pack(f">{len(energy_trace)}d", *energy_trace)
+    # Energy trace: canonical float64 bytes (handles None)
+    if energy_trace is None or len(energy_trace) == 0:
+        energy_bytes = b""
+    else:
+        energy_bytes = np.asarray(energy_trace, dtype=np.float64).ravel().tobytes()
 
-    # Correction vectors
-    if correction_vectors is not None:
+    # Correction vectors: None ≡ [] (both produce b"")
+    if correction_vectors is not None and len(correction_vectors) > 0:
         cv_parts: List[bytes] = []
         for cv in correction_vectors:
-            arr = np.asarray(cv, dtype=np.float64).ravel()
-            cv_parts.append(arr.tobytes())
-        cv_bytes: Optional[bytes] = b"".join(cv_parts)
+            cv_parts.append(np.asarray(cv, dtype=np.float64).ravel().tobytes())
+        cv_bytes: bytes = b"".join(cv_parts)
     else:
-        cv_bytes = None
+        cv_bytes = b""
 
-    # Params: sorted tuple of items for deterministic ordering
-    frozen_params = tuple(sorted(effective_params.items()))
+    # Params: sorted tuple of items with normalized values
+    frozen_params = tuple(
+        sorted((k, _normalize_param_value(v)) for k, v in effective_params.items())
+    )
 
     return (llr_bytes, energy_bytes, cv_bytes, frozen_params)
 

@@ -24,6 +24,8 @@ from src.qec.diagnostics.bp_dynamics import (
     DEFAULT_THRESHOLDS,
     _CROSS_CALL_CACHE,
     _CROSS_CALL_CACHE_ENABLED,
+    _make_cache_key,
+    _normalize_param_value,
     classify_bp_regime,
     compute_bp_dynamics_metrics,
     _normalize_llr_vector,
@@ -1350,17 +1352,14 @@ class TestCrossCallReuse:
         assert len(_CROSS_CALL_CACHE) == 2
 
     def test_different_params_different_cache_entries(self):
-        """Same traces but different params → separate cache entries."""
+        """Same traces but different params → different cache keys."""
         llr = _make_stable_llr_trace()
         energy = _make_monotonic_energy()
-        out1 = compute_bp_dynamics_metrics(llr, energy, params={"tail_window": 5})
-        out2 = compute_bp_dynamics_metrics(llr, energy, params={"tail_window": 8})
-        assert len(_CROSS_CALL_CACHE) == 2
-        # Results may differ due to different window sizes
-        j1 = json.dumps(out1, sort_keys=True)
-        j2 = json.dumps(out2, sort_keys=True)
-        # Not necessarily equal — different params
-        assert isinstance(j1, str) and isinstance(j2, str)
+        p1 = dict(DEFAULT_PARAMS, tail_window=5)
+        p2 = dict(DEFAULT_PARAMS, tail_window=8)
+        key1 = _make_cache_key(llr, energy, None, p1)
+        key2 = _make_cache_key(llr, energy, None, p2)
+        assert key1 != key2
 
     def test_cross_helper_reuse(self):
         """Results from different helper-generated identical inputs match."""
@@ -1631,6 +1630,62 @@ class TestByteKeyEquivalence:
         key1 = _make_cache_key(llr1, energy1, None, p)
         key2 = _make_cache_key(llr2, energy2, None, p)
         assert key1 == key2
+
+
+class TestCorrectionVectorsCacheKey:
+    """Validate correction_vectors participation in cache key."""
+
+    def setup_method(self):
+        _CROSS_CALL_CACHE.clear()
+
+    def test_correction_vectors_affect_key(self):
+        """Same inputs except correction_vectors → different cache keys."""
+        llr = _make_stable_llr_trace()
+        energy = _make_monotonic_energy()
+        cvs = _make_cycling_corrections()
+        p = dict(DEFAULT_PARAMS)
+        key_none = _make_cache_key(llr, energy, None, p)
+        key_cvs = _make_cache_key(llr, energy, cvs, p)
+        assert key_none != key_cvs
+
+    def test_none_vs_empty_correction_vectors(self):
+        """None and [] produce SAME cache key."""
+        llr = _make_stable_llr_trace()
+        energy = _make_monotonic_energy()
+        p = dict(DEFAULT_PARAMS)
+        key_none = _make_cache_key(llr, energy, None, p)
+        key_empty = _make_cache_key(llr, energy, [], p)
+        assert key_none == key_empty
+
+
+class TestParamNormalization:
+    """Validate _normalize_param_value prevents silent key divergence."""
+
+    def test_numpy_scalar_normalized(self):
+        """np.float64(5.0) and Python 5.0 produce same normalized value."""
+        assert _normalize_param_value(np.float64(5.0)) == 5.0
+        assert type(_normalize_param_value(np.float64(5.0))) is float
+
+    def test_numpy_int_normalized(self):
+        """np.int64(12) normalizes to Python int."""
+        assert _normalize_param_value(np.int64(12)) == 12
+        assert type(_normalize_param_value(np.int64(12))) is int
+
+    def test_python_native_passthrough(self):
+        """Python native types pass through unchanged."""
+        assert _normalize_param_value(5.0) == 5.0
+        assert _normalize_param_value(12) == 12
+        assert _normalize_param_value("abc") == "abc"
+
+    def test_numpy_params_same_cache_key(self):
+        """Params with numpy scalars produce same key as Python natives."""
+        llr = _make_stable_llr_trace()
+        energy = _make_monotonic_energy()
+        p_native = dict(DEFAULT_PARAMS, tail_window=5)
+        p_numpy = dict(DEFAULT_PARAMS, tail_window=np.int64(5))
+        key_native = _make_cache_key(llr, energy, None, p_native)
+        key_numpy = _make_cache_key(llr, energy, None, p_numpy)
+        assert key_native == key_numpy
 
 
 class TestCacheHitConsistency:

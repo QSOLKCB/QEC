@@ -25,6 +25,7 @@ from src.qec.experiments.benchmark_stress import (
     apply_decoder_genome,
     build_experiment_table,
     build_pairwise_comparison,
+    build_pareto_frontier,
     classify_with_fallback,
     compute_dark_state_mask,
     compute_fidelity,
@@ -995,3 +996,181 @@ class TestPairwiseComparison:
         """build_pairwise_comparison raises on missing table."""
         with pytest.raises(ValueError, match="missing 'table'"):
             build_pairwise_comparison({})
+
+
+class TestParetoFrontier:
+    """Tests for Pareto frontier dominance filtering (v69.3.0)."""
+
+    def test_single_genome_pareto(self):
+        """Single genome is always on the Pareto frontier."""
+        result = run_benchmark_stress(n_vars=10, n_iters=8)
+        pareto = result["pareto"]
+        # Single genome → every scenario has exactly that genome
+        genome_id = result["scenarios"][0]["genome_id"]
+        for sc_name, _ in SCENARIOS:
+            assert sc_name in pareto
+            assert pareto[sc_name]["pareto_genomes"] == [genome_id]
+
+    def test_simple_dominance(self):
+        """Genome A strictly better than B → B excluded from Pareto."""
+        # Construct synthetic table: A has lower values in all metrics
+        synthetic_table = [
+            {
+                "genome_id": "aaa",
+                "scenario": "test_sc",
+                "version": "v1",
+                "base_seed_label": "test",
+                "n_vars": 10,
+                "n_iters_base": 8,
+                "metric_x": 1.0,
+                "metric_y": 2.0,
+            },
+            {
+                "genome_id": "bbb",
+                "scenario": "test_sc",
+                "version": "v1",
+                "base_seed_label": "test",
+                "n_vars": 10,
+                "n_iters_base": 8,
+                "metric_x": 3.0,
+                "metric_y": 5.0,
+            },
+        ]
+        # Comparisons: delta = bbb - aaa = positive → A dominates B
+        synthetic_comparisons = [
+            {
+                "genome_a": "aaa",
+                "genome_b": "bbb",
+                "scenario": "test_sc",
+                "metric_x_delta": 2.0,
+                "metric_y_delta": 3.0,
+            },
+        ]
+        result = {
+            "table": synthetic_table,
+            "comparisons": synthetic_comparisons,
+        }
+        pareto = build_pareto_frontier(result)
+        assert pareto["test_sc"]["pareto_genomes"] == ["aaa"]
+
+    def test_no_dominance_all_pareto(self):
+        """Genomes that trade off metrics → all remain on Pareto frontier."""
+        synthetic_table = [
+            {
+                "genome_id": "aaa",
+                "scenario": "test_sc",
+                "version": "v1",
+                "base_seed_label": "test",
+                "n_vars": 10,
+                "n_iters_base": 8,
+                "metric_x": 1.0,
+                "metric_y": 5.0,
+            },
+            {
+                "genome_id": "bbb",
+                "scenario": "test_sc",
+                "version": "v1",
+                "base_seed_label": "test",
+                "n_vars": 10,
+                "n_iters_base": 8,
+                "metric_x": 3.0,
+                "metric_y": 2.0,
+            },
+        ]
+        # delta_x = 2.0 (positive), delta_y = -3.0 (negative) → no dominance
+        synthetic_comparisons = [
+            {
+                "genome_a": "aaa",
+                "genome_b": "bbb",
+                "scenario": "test_sc",
+                "metric_x_delta": 2.0,
+                "metric_y_delta": -3.0,
+            },
+        ]
+        result = {
+            "table": synthetic_table,
+            "comparisons": synthetic_comparisons,
+        }
+        pareto = build_pareto_frontier(result)
+        assert pareto["test_sc"]["pareto_genomes"] == ["aaa", "bbb"]
+
+    def test_determinism(self):
+        """Repeated Pareto computation produces identical results."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+        ]
+        r1 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        r2 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        j1 = json.dumps(r1["pareto"], sort_keys=True)
+        j2 = json.dumps(r2["pareto"], sort_keys=True)
+        assert j1 == j2, "Pareto results are not deterministic"
+
+    def test_order_preserved(self):
+        """Pareto genome list preserves original table genome order."""
+        # Three genomes, none dominating → all in Pareto, order from table
+        synthetic_table = [
+            {
+                "genome_id": "ccc",
+                "scenario": "sc1",
+                "version": "v1",
+                "base_seed_label": "test",
+                "n_vars": 10,
+                "n_iters_base": 8,
+                "m1": 1.0,
+            },
+            {
+                "genome_id": "aaa",
+                "scenario": "sc1",
+                "version": "v1",
+                "base_seed_label": "test",
+                "n_vars": 10,
+                "n_iters_base": 8,
+                "m1": 2.0,
+            },
+            {
+                "genome_id": "bbb",
+                "scenario": "sc1",
+                "version": "v1",
+                "base_seed_label": "test",
+                "n_vars": 10,
+                "n_iters_base": 8,
+                "m1": 3.0,
+            },
+        ]
+        # Mixed deltas → no dominance
+        synthetic_comparisons = [
+            {
+                "genome_a": "ccc",
+                "genome_b": "aaa",
+                "scenario": "sc1",
+                "m1_delta": 1.0,
+                "m2_delta": -1.0,
+            },
+            {
+                "genome_a": "ccc",
+                "genome_b": "bbb",
+                "scenario": "sc1",
+                "m1_delta": 2.0,
+                "m2_delta": -2.0,
+            },
+            {
+                "genome_a": "aaa",
+                "genome_b": "bbb",
+                "scenario": "sc1",
+                "m1_delta": 1.0,
+                "m2_delta": -1.0,
+            },
+        ]
+        result = {
+            "table": synthetic_table,
+            "comparisons": synthetic_comparisons,
+        }
+        pareto = build_pareto_frontier(result)
+        # Order must match table order: ccc, aaa, bbb
+        assert pareto["sc1"]["pareto_genomes"] == ["ccc", "aaa", "bbb"]
+
+    def test_missing_comparisons_raises(self):
+        """Missing comparisons key raises ValueError."""
+        with pytest.raises(ValueError, match="missing 'comparisons'"):
+            build_pareto_frontier({"table": []})

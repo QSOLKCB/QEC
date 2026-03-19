@@ -14,13 +14,13 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from src.qec.diagnostics.bp_dynamics import compute_bp_dynamics_metrics
-from src.qec.modules.aggregation.table import build_experiment_table
-from src.qec.modules.common import _EXCLUDED_KEYS
-from src.qec.modules.comparisons.pairwise import build_pairwise_comparison
-from src.qec.modules.pareto.frontier import build_pareto_frontier
-from src.qec.modules.pipeline.pipeline import build_full_pipeline
-from src.qec.modules.scoring.scores import build_scores
+from qec.diagnostics.bp_dynamics import compute_bp_dynamics_metrics
+from qec.modules.aggregation.table import build_experiment_table
+from qec.modules.common import _EXCLUDED_KEYS
+from qec.modules.comparisons.pairwise import build_pairwise_comparison
+from qec.modules.pareto.frontier import build_pareto_frontier
+from qec.modules.pipeline.pipeline import build_full_pipeline
+from qec.modules.scoring.scores import build_scores
 
 
 # ── Deterministic seed derivation ────────────────────────────────────────

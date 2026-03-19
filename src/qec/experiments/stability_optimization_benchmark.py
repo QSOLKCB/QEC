@@ -18,12 +18,12 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_metrics import compute_spectral_metrics
-from src.qec.diagnostics.stability_optimizer import (
+from qec.diagnostics.spectral_metrics import compute_spectral_metrics
+from qec.diagnostics.stability_optimizer import (
     _stability_score,
     optimize_tanner_graph_stability,
 )
-from src.qec.diagnostics.critical_radius import estimate_critical_spectral_radius
+from qec.diagnostics.critical_radius import estimate_critical_spectral_radius
 
 
 _ROUND = 12

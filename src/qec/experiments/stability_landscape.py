@@ -19,8 +19,8 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_metrics import compute_spectral_metrics
-from src.qec.diagnostics.stability_predictor import predict_bp_stability
+from qec.diagnostics.spectral_metrics import compute_spectral_metrics
+from qec.diagnostics.stability_predictor import predict_bp_stability
 
 
 _ROUND = 12

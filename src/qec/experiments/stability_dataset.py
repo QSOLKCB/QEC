@@ -21,8 +21,8 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_metrics import compute_spectral_metrics
-from src.qec.experiments.tanner_graph_repair import (
+from qec.diagnostics.spectral_metrics import compute_spectral_metrics
+from qec.experiments.tanner_graph_repair import (
     _experimental_bp_flooding,
     _compute_syndrome,
 )

@@ -32,12 +32,12 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.sensitivity_map import (
+from qec.diagnostics.sensitivity_map import (
     compute_proxy_sensitivity_scores,
     compute_sensitivity_map,
     _compute_instability_score_for_H,
 )
-from src.qec.experiments.tanner_graph_repair import (
+from qec.experiments.tanner_graph_repair import (
     _extract_edges,
     _build_edge_set,
     _apply_swap,
@@ -197,7 +197,7 @@ def run_sensitivity_preconditioned_optimization(
                 candidates = sensitivity_weighted_candidates(proxy_scores)
             else:
                 # Fallback: use v7.5 gradient-based candidates.
-                from src.qec.experiments.spectral_graph_optimizer import (
+                from qec.experiments.spectral_graph_optimizer import (
                     _compute_spectral_edge_gradient,
                     _generate_guided_repair_candidates,
                 )
@@ -287,7 +287,7 @@ def run_sensitivity_preconditioned_optimization(
                 top_k_fraction=top_k_fraction,
             )
         else:
-            from src.qec.experiments.spectral_graph_optimizer import (
+            from qec.experiments.spectral_graph_optimizer import (
                 _compute_spectral_edge_gradient,
                 _generate_guided_repair_candidates,
             )

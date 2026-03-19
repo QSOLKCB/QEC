@@ -14,11 +14,11 @@ from typing import Any, Callable
 
 import numpy as np
 
-from src.qec.experiments.spectral_graph_optimizer import (
+from qec.experiments.spectral_graph_optimizer import (
     _compute_graph_instability_score,
     run_spectral_graph_optimization,
 )
-from src.qec.experiments.tanner_graph_repair import (
+from qec.experiments.tanner_graph_repair import (
     _extract_edges, _apply_swap, _edges_to_H,
 )
 

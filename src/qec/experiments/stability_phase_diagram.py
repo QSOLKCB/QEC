@@ -29,21 +29,21 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_nb import (
+from qec.diagnostics.spectral_nb import (
     _TannerGraph,
     _compute_eeec,
     _compute_sis,
     compute_nb_spectrum,
 )
-from src.qec.diagnostics._spectral_utils import compute_ipr
-from src.qec.diagnostics.spectral_incremental import (
+from qec.diagnostics._spectral_utils import compute_ipr
+from qec.diagnostics.spectral_incremental import (
     update_nb_eigenpair_incremental,
 )
-from src.qec.diagnostics.spectral_repair import (
+from qec.diagnostics.spectral_repair import (
     apply_repair_candidate,
     propose_repair_candidates,
 )
-from src.qec.experiments.tanner_graph_repair import (
+from qec.experiments.tanner_graph_repair import (
     _experimental_bp_flooding,
     _compute_syndrome,
 )
@@ -400,7 +400,7 @@ def log_most_unstable_subgraph(
     dict[str, Any]
         Dictionary with top unstable nodes and edges.
     """
-    from src.qec.diagnostics.nb_energy_heatmap import compute_nb_energy_heatmap
+    from qec.diagnostics.nb_energy_heatmap import compute_nb_energy_heatmap
 
     H_arr = np.asarray(H, dtype=np.float64)
     m, n = H_arr.shape

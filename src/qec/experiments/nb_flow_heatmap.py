@@ -15,7 +15,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 
 
 _ROUND = 12

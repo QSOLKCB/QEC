@@ -16,7 +16,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_heatmaps import (
+from qec.diagnostics.spectral_heatmaps import (
     compute_spectral_heatmaps,
     rank_variable_nodes_by_heat,
     rank_check_nodes_by_heat,

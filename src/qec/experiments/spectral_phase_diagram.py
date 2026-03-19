@@ -30,11 +30,11 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
-from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
-from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
-from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
-from src.qec.experiments.tanner_graph_repair import (
+from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
+from qec.analysis.flow_alignment import FlowAlignmentAnalyzer
+from qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
+from qec.experiments.tanner_graph_repair import (
     _experimental_bp_flooding,
     _compute_syndrome,
 )

@@ -19,13 +19,13 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.critical_radius import estimate_critical_spectral_radius
-from src.qec.diagnostics.spectral_critical_line import (
+from qec.diagnostics.critical_radius import estimate_critical_spectral_radius
+from qec.diagnostics.spectral_critical_line import (
     predict_spectral_critical_radius,
 )
-from src.qec.diagnostics.stability_boundary import estimate_stability_boundary
-from src.qec.diagnostics.stability_predictor import predict_bp_stability
-from src.qec.experiments.stability_dataset import build_stability_dataset
+from qec.diagnostics.stability_boundary import estimate_stability_boundary
+from qec.diagnostics.stability_predictor import predict_bp_stability
+from qec.experiments.stability_dataset import build_stability_dataset
 
 
 _ROUND = 12

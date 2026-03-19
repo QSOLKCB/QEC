@@ -212,7 +212,8 @@ class TestScoreAgainstTarget:
     def test_invalid_gets_worst_score(self):
         pair = {"alignment": "invalid", "compatibility": 0.0}
         spec = build_target_spec("stable")
-        assert score_against_target(pair, spec) == _WORST_SCORE
+        result = score_against_target(pair, spec)
+        assert result["score"] == _WORST_SCORE
 
     def test_class_match_bonus(self):
         spec = build_target_spec("stable")
@@ -232,7 +233,7 @@ class TestScoreAgainstTarget:
             "theta_phase": "unknown",
             "sequence_phase": "unknown",
         }
-        assert score_against_target(matched, spec) > score_against_target(unmatched, spec)
+        assert score_against_target(matched, spec)["score"] > score_against_target(unmatched, spec)["score"]
 
     def test_phase_match_bonus(self):
         spec = build_target_spec("stable")
@@ -252,7 +253,7 @@ class TestScoreAgainstTarget:
             "theta_phase": "unknown",
             "sequence_phase": "unknown",
         }
-        assert score_against_target(with_phase, spec) > score_against_target(without_phase, spec)
+        assert score_against_target(with_phase, spec)["score"] > score_against_target(without_phase, spec)["score"]
 
     def test_score_monotonicity_with_compatibility(self):
         """Higher compatibility → higher score (all else equal)."""
@@ -273,7 +274,7 @@ class TestScoreAgainstTarget:
             "theta_phase": "stable_region",
             "sequence_phase": "stable_region",
         }
-        assert score_against_target(high, spec) > score_against_target(low, spec)
+        assert score_against_target(high, spec)["score"] > score_against_target(low, spec)["score"]
 
 
 # ---------------------------------------------------------------------------
@@ -466,3 +467,121 @@ class TestRunHybridInverseDesign:
         )
         if result["top_k"]:
             assert result["best_pair"] == result["top_k"][0]
+
+
+# ---------------------------------------------------------------------------
+# Tests — Tie-Break & Score Geometry (v82.9.0)
+# ---------------------------------------------------------------------------
+
+
+class TestTieBreakAndScoreGeometry:
+    @pytest.fixture()
+    def _patch_uff(self, monkeypatch):
+        monkeypatch.setattr(
+            "qec.experiments.uff_bridge.run_uff_experiment", _fake_uff,
+        )
+
+    def test_tiebreak_determinism(self, _patch_uff):
+        """Same inputs produce identical ordering across runs."""
+        kwargs = dict(
+            target="stable",
+            theta_grid=[[1.0, 2.0, 0.5], [2.0, 3.0, 1.0]],
+            sequences=[0, 1, 2],
+            pipeline_fn=_fake_pipeline,
+            top_k=6,
+        )
+        r1 = run_hybrid_inverse_design(**kwargs)
+        r2 = run_hybrid_inverse_design(**kwargs)
+        assert r1["top_k"] == r2["top_k"]
+
+    def test_tie_on_score_resolves_by_compatibility(self, _patch_uff):
+        """When scores tie, higher compatibility comes first."""
+        result = run_hybrid_inverse_design(
+            "stable",
+            [[1.0, 2.0, 0.5], [2.0, 3.0, 1.0]],
+            [0, 1, 2],
+            pipeline_fn=_fake_pipeline,
+            top_k=6,
+        )
+        entries = result["top_k"]
+        for i in range(len(entries) - 1):
+            a, b = entries[i], entries[i + 1]
+            if a["score"] == b["score"]:
+                assert a["compatibility"] >= b["compatibility"]
+
+    def test_tie_resolves_lexicographically(self, _patch_uff):
+        """When score + compatibility tie, lexicographic (theta, seq) breaks it."""
+        result = run_hybrid_inverse_design(
+            "stable",
+            [[1.0, 2.0, 0.5], [1.0, 2.0, 0.5]],
+            [0, 0],
+            pipeline_fn=_fake_pipeline_stable,
+            top_k=4,
+        )
+        entries = result["top_k"]
+        for i in range(len(entries) - 1):
+            a, b = entries[i], entries[i + 1]
+            if a["score"] == b["score"] and a["compatibility"] == b["compatibility"]:
+                assert (tuple(a["theta"]), a["sequence"]) <= (tuple(b["theta"]), b["sequence"])
+
+    def test_score_decomposition_sums_correctly(self):
+        """base_score + class_bonus + phase_bonus == score."""
+        spec = build_target_spec("stable")
+        pair = {
+            "alignment": "aligned",
+            "compatibility": 0.7,
+            "theta_class": "stable",
+            "sequence_class": "stable",
+            "theta_phase": "stable_region",
+            "sequence_phase": "stable_region",
+        }
+        result = score_against_target(pair, spec)
+        expected = result["base_score"] + result["class_bonus"] + result["phase_bonus"]
+        assert abs(result["score"] - expected) < 1e-12
+
+    def test_normalized_score_in_range(self):
+        """normalized_score is in [0, 1]."""
+        spec = build_target_spec("stable")
+        pair = {
+            "alignment": "aligned",
+            "compatibility": 0.7,
+            "theta_class": "stable",
+            "sequence_class": "stable",
+            "theta_phase": "stable_region",
+            "sequence_phase": "stable_region",
+        }
+        result = score_against_target(pair, spec)
+        assert 0.0 <= result["normalized_score"] <= 1.0
+
+    def test_no_mutation_of_inputs(self):
+        """score_against_target does not mutate its inputs."""
+        spec = build_target_spec("stable")
+        pair = {
+            "alignment": "aligned",
+            "compatibility": 0.5,
+            "theta_class": "stable",
+            "sequence_class": "chaotic",
+            "theta_phase": "unknown",
+            "sequence_phase": "unknown",
+        }
+        pair_copy = copy.deepcopy(pair)
+        spec_copy = copy.deepcopy(spec)
+        score_against_target(pair, spec)
+        assert pair == pair_copy
+        assert spec == spec_copy
+
+    def test_entry_has_geometry_fields(self, _patch_uff):
+        """Each top_k entry includes score geometry keys."""
+        result = run_hybrid_inverse_design(
+            "stable", [[1.0, 2.0, 0.5]], [0], pipeline_fn=_fake_pipeline,
+        )
+        entry = result["top_k"][0]
+        for key in ("base_score", "class_bonus", "phase_bonus", "normalized_score"):
+            assert key in entry, f"Missing geometry key: {key}"
+
+    def test_invalid_normalized_score_is_zero(self):
+        """Invalid pairs have normalized_score == 0."""
+        spec = build_target_spec("stable")
+        pair = {"alignment": "invalid", "compatibility": 0.0}
+        result = score_against_target(pair, spec)
+        assert result["normalized_score"] == 0.0

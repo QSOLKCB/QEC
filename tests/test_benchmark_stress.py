@@ -20,9 +20,13 @@ from src.qec.experiments.benchmark_stress import (
     _derive_seed,
     _quantum_proxy,
     _sign_agreement,
+    apply_decoder_genome,
     classify_with_fallback,
     compute_dark_state_mask,
     compute_fidelity,
+    default_decoder_genome,
+    fingerprint_decoder_genome,
+    normalize_decoder_genome,
     results_to_json,
     run_benchmark_stress,
 )
@@ -286,7 +290,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v68.8.0"
+        assert parsed["version"] == "v68.9.2"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)
@@ -354,3 +358,240 @@ class TestDarkState:
         assert len(masks_a) == len(masks_b)
         for ma, mb in zip(masks_a, masks_b):
             np.testing.assert_array_equal(ma, mb)
+
+
+class TestDecoderGenome:
+    """Tests for the decoder genome abstraction (v68.9.0)."""
+
+    def test_default_genome_structure(self):
+        """Default genome has expected keys and deterministic values."""
+        g = default_decoder_genome()
+        assert g["alphabet"] == "binary"
+        assert g["clip_value"] is None
+        assert g["damping"] == 0.0
+        assert g["dark_skip"] is False
+        # Deterministic: repeated calls identical
+        assert default_decoder_genome() == g
+
+    def test_clipping_effect(self):
+        """Clipping bounds all values to [-clip_value, clip_value]."""
+        trace = [np.array([10.0, -20.0, 0.5, -0.3], dtype=np.float64)]
+        genome = default_decoder_genome()
+        genome["clip_value"] = 5.0
+        out = apply_decoder_genome(trace, genome)
+        assert len(out) == 1
+        assert float(np.max(out[0])) <= 5.0
+        assert float(np.min(out[0])) >= -5.0
+        # Values within range are unchanged
+        assert out[0][2] == pytest.approx(0.5)
+        assert out[0][3] == pytest.approx(-0.3)
+
+    def test_damping_effect(self):
+        """Damping moves v_t toward v_{t-1}."""
+        v0 = np.array([10.0, 0.0, -10.0], dtype=np.float64)
+        v1 = np.array([0.0, 10.0, 0.0], dtype=np.float64)
+        trace = [v0.copy(), v1.copy()]
+        genome = default_decoder_genome()
+        genome["damping"] = 0.5
+        out = apply_decoder_genome(trace, genome)
+        # v_t = 0.5 * v1 + 0.5 * v0
+        expected = 0.5 * v1 + 0.5 * v0
+        np.testing.assert_allclose(out[1], expected)
+        # v_0 unchanged
+        np.testing.assert_array_equal(out[0], v0)
+
+    def test_ternary_projection(self):
+        """Ternary projection maps all values to {-1, 0, +1}."""
+        trace = [np.array([5.0, -3.0, 0.0, 1e-13, -1e-13, 2.0], dtype=np.float64)]
+        genome = default_decoder_genome()
+        genome["alphabet"] = "ternary"
+        out = apply_decoder_genome(trace, genome)
+        allowed = {-1.0, 0.0, 1.0}
+        for val in out[0]:
+            assert float(val) in allowed
+        assert out[0][0] == 1.0   # positive
+        assert out[0][1] == -1.0  # negative
+        assert out[0][2] == 0.0   # exact zero
+        assert out[0][3] == 0.0   # tiny positive → 0
+        assert out[0][4] == 0.0   # tiny negative → 0
+        assert out[0][5] == 1.0   # positive
+
+    def test_dark_skip_freezes_nodes(self):
+        """Dark skip freezes dark-stable nodes to their previous value."""
+        # Construct trace where node 0 is dark-stable (constant)
+        # and node 1 changes
+        v0 = np.array([5.0, 1.0], dtype=np.float64)
+        v1 = np.array([5.0, -3.0], dtype=np.float64)  # node 0 same, node 1 changes
+        v2 = np.array([5.0, 7.0], dtype=np.float64)   # node 0 same, node 1 changes
+        trace = [v0.copy(), v1.copy(), v2.copy()]
+        genome = default_decoder_genome()
+        genome["dark_skip"] = True
+        out = apply_decoder_genome(trace, genome)
+        # Node 0 is dark-stable at t=1,2 → frozen to previous value
+        assert out[1][0] == pytest.approx(5.0)
+        assert out[2][0] == pytest.approx(5.0)
+        # Node 1 changes sign → not dark-stable → not frozen
+        assert out[1][1] == pytest.approx(-3.0)
+
+    def test_pipeline_accepts_genome(self):
+        """run_benchmark_suite with genome runs without error."""
+        genome = default_decoder_genome()
+        genome["clip_value"] = 3.0
+        genome["damping"] = 0.1
+        results = run_benchmark_stress(n_vars=10, n_iters=8, genome=genome)
+        assert results["n_scenarios"] == 9
+        for s in results["scenarios"]:
+            assert s["genome"] == genome
+            assert "genome_id" in s
+            assert isinstance(s["genome_id"], str)
+            assert len(s["genome_id"]) == 12
+            assert "metrics" in s
+            assert "regime" in s
+
+    def test_determinism_with_genome(self):
+        """Repeated runs with same genome produce identical results."""
+        genome = {"alphabet": "ternary", "clip_value": 2.0,
+                  "damping": 0.3, "dark_skip": True}
+        r1 = run_benchmark_stress(n_vars=10, n_iters=8, genome=genome)
+        r2 = run_benchmark_stress(n_vars=10, n_iters=8, genome=genome)
+        for s in r1["scenarios"]:
+            s.pop("timing", None)
+        for s in r2["scenarios"]:
+            s.pop("timing", None)
+        j1 = json.dumps(r1, sort_keys=True)
+        j2 = json.dumps(r2, sort_keys=True)
+        assert j1 == j2
+
+
+class TestGenomeHardening:
+    """Hardening tests for genome normalization, fingerprinting, and artifact safety (v68.9.1)."""
+
+    def test_genome_normalization_defaults(self):
+        """Partial genome fills missing defaults."""
+        g = normalize_decoder_genome({"damping": 0.5})
+        assert g["alphabet"] == "binary"
+        assert g["clip_value"] is None
+        assert g["damping"] == 0.5
+        assert g["dark_skip"] is False
+
+    def test_genome_normalization_none(self):
+        """None input returns full default genome."""
+        g = normalize_decoder_genome(None)
+        assert g == default_decoder_genome()
+
+    def test_invalid_genome_alphabet(self):
+        """Invalid alphabet is rejected."""
+        with pytest.raises(ValueError, match="Invalid alphabet"):
+            normalize_decoder_genome({"alphabet": "quaternary"})
+
+    def test_invalid_genome_damping_too_high(self):
+        """damping >= 1 is rejected."""
+        with pytest.raises(ValueError, match="damping"):
+            normalize_decoder_genome({"damping": 1.0})
+
+    def test_invalid_genome_damping_negative(self):
+        """Negative damping is rejected."""
+        with pytest.raises(ValueError, match="damping"):
+            normalize_decoder_genome({"damping": -0.1})
+
+    def test_invalid_genome_clip_value_negative(self):
+        """Negative clip_value is rejected."""
+        with pytest.raises(ValueError, match="clip_value"):
+            normalize_decoder_genome({"clip_value": -1.0})
+
+    def test_invalid_genome_unknown_key(self):
+        """Unknown key is rejected."""
+        with pytest.raises(ValueError, match="Unknown genome keys"):
+            normalize_decoder_genome({"alphabet": "binary", "bogus": 42})
+
+    def test_genome_fingerprint_deterministic(self):
+        """Same canonical genome gives same fingerprint."""
+        g = default_decoder_genome()
+        fp1 = fingerprint_decoder_genome(g)
+        fp2 = fingerprint_decoder_genome(g)
+        assert fp1 == fp2
+        assert len(fp1) == 12
+
+    def test_genome_fingerprint_equivalent_inputs(self):
+        """Equivalent dicts with different insertion order give same fingerprint after normalization."""
+        g1 = normalize_decoder_genome(
+            {"dark_skip": True, "alphabet": "ternary", "damping": 0.1, "clip_value": 5.0}
+        )
+        g2 = normalize_decoder_genome(
+            {"alphabet": "ternary", "clip_value": 5.0, "dark_skip": True, "damping": 0.1}
+        )
+        assert fingerprint_decoder_genome(g1) == fingerprint_decoder_genome(g2)
+
+    def test_output_contains_canonical_genome(self):
+        """Caller mutation after run does not affect stored genome."""
+        genome = {"alphabet": "ternary", "clip_value": 2.0,
+                  "damping": 0.3, "dark_skip": True}
+        results = run_benchmark_stress(n_vars=10, n_iters=8, genome=genome)
+        # Mutate the caller's dict
+        genome["damping"] = 0.99
+        genome["bogus_key"] = "injected"
+        # Stored genome must remain canonical and unaffected
+        for s in results["scenarios"]:
+            assert s["genome"]["damping"] == 0.3
+            assert "bogus_key" not in s["genome"]
+            assert s["genome"]["alphabet"] == "ternary"
+
+    def test_empty_trace_safe(self):
+        """apply_decoder_genome handles empty trace for all genome configs."""
+        genome = {"alphabet": "ternary", "clip_value": 1.0,
+                  "damping": 0.5, "dark_skip": True}
+        out = apply_decoder_genome([], genome)
+        assert out == []
+
+    def test_single_timestep_trace_safe(self):
+        """Single-timestep trace is handled safely (no damping/dark-skip crash)."""
+        v = np.array([3.0, -1.0, 0.0], dtype=np.float64)
+        genome = {"alphabet": "binary", "clip_value": 2.0,
+                  "damping": 0.5, "dark_skip": True}
+        out = apply_decoder_genome([v], genome)
+        assert len(out) == 1
+        # Clipping applied: 3.0 → 2.0
+        assert out[0][0] == pytest.approx(2.0)
+        assert out[0][1] == pytest.approx(-1.0)
+
+    def test_clip_value_zero(self):
+        """clip_value=0 is valid and zeros all values."""
+        v = np.array([5.0, -3.0, 0.1], dtype=np.float64)
+        genome = normalize_decoder_genome({"clip_value": 0.0})
+        out = apply_decoder_genome([v], genome)
+        np.testing.assert_array_equal(out[0], np.zeros(3, dtype=np.float64))
+
+    def test_apply_decoder_genome_non_mutating(self):
+        """apply_decoder_genome must not mutate input trace or its arrays."""
+        v0 = np.array([10.0, -5.0, 0.0], dtype=np.float64)
+        v1 = np.array([-2.0, 7.0, 3.0], dtype=np.float64)
+        v2 = np.array([1.0, -1.0, 4.0], dtype=np.float64)
+        trace = [v0.copy(), v1.copy(), v2.copy()]
+
+        # Preserve originals for comparison
+        orig_values = [arr.copy() for arr in trace]
+        orig_ids = [id(arr) for arr in trace]
+
+        genome = normalize_decoder_genome(
+            {"clip_value": 3.0, "damping": 0.4, "dark_skip": True}
+        )
+        out = apply_decoder_genome(trace, genome)
+
+        # Value invariants: original arrays unchanged
+        for i in range(len(trace)):
+            np.testing.assert_array_equal(
+                trace[i], orig_values[i],
+                err_msg=f"trace[{i}] was mutated in-place",
+            )
+
+        # Object invariants: output is a new list with new arrays
+        assert out is not trace
+        for i in range(len(out)):
+            assert out[i] is not trace[i], f"out[{i}] shares identity with trace[{i}]"
+
+        # Structural invariant: original list length unchanged
+        assert len(trace) == 3
+
+        # Original array identities unchanged (not replaced)
+        for i in range(len(trace)):
+            assert id(trace[i]) == orig_ids[i], f"trace[{i}] object was replaced"

@@ -3,7 +3,7 @@
 Generates 9 synthetic scenarios, runs them through the diagnostics pipeline,
 and produces deterministic JSON-serializable results with fidelity metrics.
 
-Version: v68.8.0
+Version: v68.9.2
 """
 
 import hashlib
@@ -315,6 +315,151 @@ def compute_fidelity(llr_trace: list) -> dict:
     }
 
 
+# ── Decoder genome ───────────────────────────────────────────────────────
+
+
+# Canonical key order for genome dicts — used by normalization and fingerprinting.
+_GENOME_KEYS = ("alphabet", "clip_value", "damping", "dark_skip")
+
+
+def default_decoder_genome() -> dict:
+    """Return the default decoder genome configuration.
+
+    A decoder genome is a deterministic configuration of decoding behavior,
+    applied as a lightweight transformation layer on LLR traces.
+    """
+    return {
+        "alphabet": "binary",
+        "clip_value": None,
+        "damping": 0.0,
+        "dark_skip": False,
+    }
+
+
+def normalize_decoder_genome(genome: Optional[dict]) -> dict:
+    """Normalize a genome dict to canonical form.
+
+    - Starts from defaults, overlays provided values.
+    - Rejects unknown keys.
+    - Validates types and ranges.
+    - Returns a new dict with plain Python JSON-safe types in fixed key order.
+    """
+    base = default_decoder_genome()
+    if genome is None:
+        return base
+
+    unknown = set(genome.keys()) - set(_GENOME_KEYS)
+    if unknown:
+        raise ValueError(f"Unknown genome keys: {sorted(unknown)}")
+
+    for key in _GENOME_KEYS:
+        if key in genome:
+            base[key] = genome[key]
+
+    # --- validate alphabet ---
+    if base["alphabet"] not in ("binary", "ternary"):
+        raise ValueError(
+            f"Invalid alphabet: {base['alphabet']!r}, must be 'binary' or 'ternary'"
+        )
+    base["alphabet"] = str(base["alphabet"])
+
+    # --- validate clip_value ---
+    cv = base["clip_value"]
+    if cv is not None:
+        try:
+            cv = float(cv)
+        except (TypeError, ValueError):
+            raise ValueError(f"Invalid clip_value: {base['clip_value']!r}")
+        if cv < 0:
+            raise ValueError(f"clip_value must be >= 0, got {cv}")
+        base["clip_value"] = cv
+
+    # --- validate damping ---
+    try:
+        d = float(base["damping"])
+    except (TypeError, ValueError):
+        raise ValueError(f"Invalid damping: {base['damping']!r}")
+    if not (0.0 <= d < 1.0):
+        raise ValueError(f"damping must be in [0, 1), got {d}")
+    base["damping"] = d
+
+    # --- validate dark_skip ---
+    base["dark_skip"] = bool(base["dark_skip"])
+
+    return base
+
+
+def fingerprint_decoder_genome(genome: dict) -> str:
+    """Return a short deterministic fingerprint for a canonical genome.
+
+    Uses compact JSON serialization (fixed key order) + SHA-256, first 12 hex chars.
+    The genome should be normalized first for stable results.
+    """
+    # Serialize in fixed key order (not sort_keys — we control order explicitly)
+    ordered = {k: genome[k] for k in _GENOME_KEYS}
+    payload = json.dumps(ordered, separators=(",", ":"), sort_keys=False)
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return digest[:12]
+
+
+def apply_decoder_genome(
+    llr_trace: List[np.ndarray],
+    genome: dict,
+) -> List[np.ndarray]:
+    """Apply genome transformations to an LLR trace.
+
+    Operator order is fixed and must not be reordered:
+        clipping → damping → dark_skip → ternary
+
+    The genome is normalized on entry — callers need not pre-normalize.
+    Returns a new list (input is not mutated).
+    """
+    if len(llr_trace) == 0:
+        return []
+
+    # Enforce canonical form: no .get() fallbacks, no hidden defaults
+    genome = normalize_decoder_genome(genome)
+    clip_value = genome["clip_value"]
+    damping = genome["damping"]
+    dark_skip = genome["dark_skip"]
+    alphabet = genome["alphabet"]
+
+    # Deep copy to float64 — input is never mutated
+    out = [np.array(v, dtype=np.float64) for v in llr_trace]
+
+    # Step 1: Clipping (clip_value=0 is valid → all values become 0)
+    if clip_value is not None:
+        for t in range(len(out)):
+            out[t] = np.clip(out[t], -clip_value, clip_value)
+
+    # Step 2: Damping — uses previous timestep only (t-1)
+    if damping > 0.0:
+        for t in range(1, len(out)):
+            out[t] = (1.0 - damping) * out[t] + damping * out[t - 1]
+
+    # Step 3: Dark skip — freeze dark-stable nodes to previous value.
+    # Mask source: compute_dark_state_mask on the *current* transformed trace
+    # (i.e. after clipping+damping), so the mask reflects the state that
+    # damping/clipping have already produced.
+    if dark_skip:
+        masks = compute_dark_state_mask(out)
+        for t in range(1, len(out)):
+            dark = masks[t]
+            if np.any(dark):
+                out[t][dark] = out[t - 1][dark]
+
+    # Step 4: Ternary projection (threshold ±1e-12)
+    if alphabet == "ternary":
+        for t in range(len(out)):
+            v = out[t]
+            result = np.zeros_like(v, dtype=np.float64)
+            result[v > 1e-12] = 1.0
+            result[v < -1e-12] = -1.0
+            out[t] = result
+
+    return out
+
+
 # ── Classification post-processing ──────────────────────────────────────
 
 
@@ -342,31 +487,46 @@ def run_single_benchmark(
     rng: np.random.Generator,
     n_vars: int,
     n_iters: int,
+    genome: Optional[dict] = None,
 ) -> dict:
     """Run one benchmark scenario and return metrics including dark-state fractions.
+
+    Parameters
+    ----------
+    genome : dict or None
+        Decoder genome configuration.  If None, uses default_decoder_genome().
 
     Returns
     -------
     dict
         Contains scenario metrics, regime, fidelity, dark-state fractions,
-        and timing information.
+        canonical genome, genome_id, and timing information.
     """
+    # Normalize and detach: caller mutations cannot affect stored result
+    canonical = normalize_decoder_genome(genome)
+    genome_id = fingerprint_decoder_genome(canonical)
+
     t_start = time.monotonic()
     scenario_data = generator_fn(rng, n_vars, n_iters)
     t_gen = time.monotonic() - t_start
 
+    # Apply genome transformation before diagnostics
+    transformed_trace = apply_decoder_genome(
+        scenario_data["llr_trace"], canonical,
+    )
+
     t_start = time.monotonic()
     diagnostics_result = compute_bp_dynamics_metrics(
-        llr_trace=scenario_data["llr_trace"],
+        llr_trace=transformed_trace,
         energy_trace=scenario_data["energy_trace"],
     )
     t_diag = time.monotonic() - t_start
 
-    fidelity = compute_fidelity(scenario_data["llr_trace"])
+    fidelity = compute_fidelity(transformed_trace)
     regime = classify_with_fallback(diagnostics_result["regime"])
 
     # Dark-state invariants
-    dark_masks = compute_dark_state_mask(scenario_data["llr_trace"])
+    dark_masks = compute_dark_state_mask(transformed_trace)
     dark_fracs = _dark_fractions(dark_masks)
     if len(dark_fracs) > 0:
         mean_dark_fraction = float(np.mean(dark_fracs))
@@ -378,11 +538,13 @@ def run_single_benchmark(
     return {
         "scenario": scenario_name,
         "n_vars": n_vars,
-        "n_iters": len(scenario_data["llr_trace"]),
+        "n_iters": len(transformed_trace),
         "regime": regime,
         "metrics": diagnostics_result["metrics"],
         "evidence": diagnostics_result["evidence"],
         "fidelity": fidelity,
+        "genome": canonical,
+        "genome_id": genome_id,
         "mean_dark_fraction": mean_dark_fraction,
         "final_dark_fraction": final_dark_fraction,
         "timing": {
@@ -398,7 +560,8 @@ def run_single_benchmark(
 def run_benchmark_stress(
     n_vars: int = 50,
     n_iters: int = 30,
-    base_seed_label: str = "benchmark_stress_v68.7.2",
+    base_seed_label: str = "benchmark_stress_v68.9.2",
+    genome: Optional[dict] = None,
 ) -> dict:
     """Run all 9 benchmark scenarios deterministically.
 
@@ -410,12 +573,14 @@ def run_benchmark_stress(
         Base number of iterations (some scenarios scale this).
     base_seed_label : str
         Label for SHA-256 seed derivation.
+    genome : dict or None
+        Decoder genome configuration.  If None, uses default_decoder_genome().
 
     Returns
     -------
     dict
         JSON-serializable results with scenario metrics, regimes,
-        fidelity, and timing.
+        fidelity, genome, and timing.
     """
     results = []
 
@@ -426,12 +591,13 @@ def run_benchmark_stress(
 
         result = run_single_benchmark(
             scenario_name, generator_fn, rng, n_vars, n_iters,
+            genome=genome,
         )
         result["seed"] = seed
         results.append(result)
 
     return {
-        "version": "v68.8.0",
+        "version": "v68.9.2",
         "base_seed_label": base_seed_label,
         "n_vars": n_vars,
         "n_iters_base": n_iters,

@@ -68,3 +68,8 @@ from .phase_diagram_orchestrator import (
     render_ascii_heatmap,
 )
 from .registry import ExperimentRegistry, register_experiment
+
+from .sequence_landscape import (
+    run_sequence_landscape,
+    classify_sequence,
+)

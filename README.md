@@ -2,7 +2,7 @@
 
 ### Deterministic Invariant-Driven Discovery Engine for LDPC & QLDPC Tanner Graphs
 
-[![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC?label=release)](https://github.com/QSOLKCB/QEC/releases/tag/v68.5.0)
+[![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC?label=release)](https://github.com/QSOLKCB/QEC/releases/tag/v84.0.0)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19099503.svg)](https://doi.org/10.5281/zenodo.19099503)
 [![DOI](https://img.shields.io/badge/Authorea-10.22541%2Fau.177376131.17346095%2Fv1-blue)](https://doi.org/10.22541/au.177376131.17346095/v1)
 [![Type](https://img.shields.io/badge/type-deterministic%20research%20framework-blue)]()

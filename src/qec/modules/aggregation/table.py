@@ -34,7 +34,12 @@ def build_experiment_table(result: dict) -> list:
         raise ValueError(f"Invalid result mode: {mode!r}")
 
     if mode == "sweep":
-        suites = result["results"]
+        try:
+            suites = result["results"]
+        except KeyError:
+            raise ValueError("Malformed sweep result: missing 'results' list") from None
+        if not isinstance(suites, list):
+            raise ValueError("Malformed sweep result: 'results' must be a list of suites")
     else:
         suites = [result]
 

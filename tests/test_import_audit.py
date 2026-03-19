@@ -1,6 +1,4 @@
-"""Import audit tests — prevent src.qec regression (v82.6.1)."""
-
-import pytest
+"""Import audit tests — prevent regressions (v82.6.2)."""
 
 
 def test_import_qec_root():
@@ -16,16 +14,13 @@ def test_import_diagnostics():
 
 
 def test_import_cross_domain():
-    # Verify the module resolves without 'src' prefix errors.
-    # Skip if a transitive native dependency (e.g. cryptography) is broken.
-    try:
-        from qec.experiments.cross_domain_mapper import run_cross_domain_mapping  # noqa: F401
-    except ModuleNotFoundError as exc:
-        if "src" in str(exc):
-            raise  # genuine import-path regression
-        pytest.skip(f"optional native dependency unavailable: {exc}")
-    except BaseException as exc:
-        # pyo3_runtime.PanicException inherits from BaseException
-        if "src" in str(exc):
-            raise
-        pytest.skip(f"optional native dependency unavailable: {exc}")
+    from qec.experiments.cross_domain_mapper import run_cross_domain_mapping  # noqa: F401
+
+
+def test_import_midi_cube_bridge():
+    from qec.experiments.midi_cube_bridge import run_midi_cube_experiment  # noqa: F401
+
+
+def test_execution_proof_guards_cryptography():
+    """execution_proof must import cleanly even when cryptography is broken."""
+    from qec.controller.execution_proof import _CRYPTO_AVAILABLE  # noqa: F401

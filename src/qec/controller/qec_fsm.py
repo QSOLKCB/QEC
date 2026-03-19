@@ -1,5 +1,5 @@
 """
-v80.0.0 — QEC FSM Controller (Deterministic Experiment Orchestrator).
+v80.0.1 — QEC FSM Controller (Deterministic Experiment Orchestrator).
 
 A finite state machine that orchestrates experiment execution through
 invariant-aware transitions.  Tracks system state across iterations and
@@ -128,11 +128,21 @@ class QECFSM:
 
         next_state, updated = handler(data)
 
+        if next_state == ACCEPT:
+            decision = "ACCEPT"
+        elif next_state == REJECT:
+            decision = "REJECT"
+        else:
+            decision = "CONTINUE"
+
         self.history.append({
             "from_state": state,
             "to_state": next_state,
             "stability_score": updated.get("stability_score"),
             "phase": updated.get("phase"),
+            "epsilon": self._config["epsilon"],
+            "reject_cycle": self._reject_count,
+            "decision": decision,
         })
 
         return next_state, updated
@@ -159,8 +169,24 @@ class QECFSM:
         steps = 0
 
         while self.state != TERMINATE and steps < max_steps:
-            self.state, working = self.step(self.state, working)
+            prev_state = self.state
+            self.state, working = self.step(prev_state, working)
             steps += 1
+            # Check convergence only after EVALUATE → ANALYZE (continue loop).
+            if (self.state == ANALYZE
+                    and prev_state == EVALUATE
+                    and _has_converged(self.history)):
+                self.history.append({
+                    "from_state": self.state,
+                    "to_state": TERMINATE,
+                    "stability_score": working.get("stability_score"),
+                    "phase": working.get("phase"),
+                    "epsilon": self._config["epsilon"],
+                    "reject_cycle": self._reject_count,
+                    "decision": "CONTINUE",
+                    "reason": "converged",
+                })
+                self.state = TERMINATE
 
         # If we ran out of steps without terminating, force terminate.
         if self.state != TERMINATE:
@@ -169,6 +195,9 @@ class QECFSM:
                 "to_state": TERMINATE,
                 "stability_score": working.get("stability_score"),
                 "phase": working.get("phase"),
+                "epsilon": self._config["epsilon"],
+                "reject_cycle": self._reject_count,
+                "decision": "CONTINUE",
                 "reason": "max_steps_reached",
             })
             self.state = TERMINATE
@@ -273,6 +302,27 @@ class QECFSM:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _has_converged(
+    history: List[Dict[str, Any]],
+    window: int = 3,
+    tolerance: float = 1e-6,
+) -> bool:
+    """Check if recent stability scores have converged.
+
+    Returns ``True`` when the last *window* entries that carry a non-None
+    ``stability_score`` all fall within *tolerance* of each other.
+    """
+    scores = [
+        e["stability_score"]
+        for e in history
+        if e.get("stability_score") is not None
+    ]
+    if len(scores) < window:
+        return False
+    recent = scores[-window:]
+    return (max(recent) - min(recent)) <= tolerance
+
 
 def _build_analysis_result(data: dict) -> dict:
     """Build a sonic-analysis-compatible result dict from FSM input data.

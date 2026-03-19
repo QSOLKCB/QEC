@@ -32,6 +32,7 @@ from qec.controller.qec_fsm import (
     _VALID_STATES,
     _DEFAULT_CONFIG,
     _build_analysis_result,
+    _has_converged,
 )
 
 
@@ -356,3 +357,130 @@ class TestValidStates:
     def test_state_strings(self) -> None:
         assert INIT == "INIT"
         assert TERMINATE == "TERMINATE"
+
+
+# ---------------------------------------------------------------------------
+# 11. Enriched history fields (v80.0.1)
+# ---------------------------------------------------------------------------
+
+class TestEnrichedHistory:
+    """Verify history entries include epsilon, reject_cycle, decision."""
+
+    def test_history_contains_epsilon(self, sample_data: dict) -> None:
+        fsm = QECFSM()
+        result = fsm.run(sample_data, max_steps=20)
+        for entry in result["history"]:
+            assert "epsilon" in entry
+            assert isinstance(entry["epsilon"], float)
+
+    def test_history_contains_reject_cycle(self, sample_data: dict) -> None:
+        fsm = QECFSM()
+        result = fsm.run(sample_data, max_steps=20)
+        for entry in result["history"]:
+            assert "reject_cycle" in entry
+            assert isinstance(entry["reject_cycle"], int)
+
+    def test_history_contains_decision(self, sample_data: dict) -> None:
+        fsm = QECFSM()
+        result = fsm.run(sample_data, max_steps=20)
+        for entry in result["history"]:
+            assert "decision" in entry
+            assert entry["decision"] in {"ACCEPT", "REJECT", "CONTINUE"}
+
+    def test_accept_decision_logged(self, sample_data: dict) -> None:
+        """An accepting run must have exactly one ACCEPT decision entry."""
+        fsm = QECFSM(config={"stability_threshold": 100.0})
+        result = fsm.run(sample_data, max_steps=20)
+        accept_entries = [e for e in result["history"] if e["decision"] == "ACCEPT"]
+        assert len(accept_entries) == 1
+
+    def test_reject_cycle_increments(self, sample_data: dict) -> None:
+        """reject_cycle must increase after each REJECT transition."""
+        fsm = QECFSM(config={
+            "stability_threshold": 0.0001,
+            "boundary_crossing_threshold": 0,
+            "max_reject_cycles": 3,
+        })
+        result = fsm.run(sample_data, max_steps=50)
+        reject_entries = [e for e in result["history"] if e["decision"] == "REJECT"]
+        cycles = [e["reject_cycle"] for e in reject_entries]
+        # Each reject should have a higher reject_cycle than the previous.
+        assert cycles == sorted(cycles)
+        assert len(cycles) > 0
+
+    def test_epsilon_tightens_on_reject(self, sample_data: dict) -> None:
+        """epsilon should halve after each reject cycle that retries."""
+        fsm = QECFSM(config={
+            "stability_threshold": 0.0001,
+            "boundary_crossing_threshold": 0,
+            "max_reject_cycles": 3,
+            "epsilon": 1e-3,
+        })
+        result = fsm.run(sample_data, max_steps=50)
+        # Find PERTURB entries (where epsilon is actually used).
+        perturb_entries = [
+            e for e in result["history"] if e["from_state"] == PERTURB
+        ]
+        if len(perturb_entries) >= 2:
+            # Second PERTURB should use smaller epsilon than first.
+            assert perturb_entries[1]["epsilon"] < perturb_entries[0]["epsilon"]
+
+
+# ---------------------------------------------------------------------------
+# 12. Convergence detection (v80.0.1)
+# ---------------------------------------------------------------------------
+
+class TestConvergence:
+    """Verify _has_converged helper and early termination."""
+
+    def test_converged_identical_scores(self) -> None:
+        history = [
+            {"stability_score": 0.5},
+            {"stability_score": 0.5},
+            {"stability_score": 0.5},
+        ]
+        assert _has_converged(history, window=3, tolerance=1e-6) is True
+
+    def test_not_converged_different_scores(self) -> None:
+        history = [
+            {"stability_score": 0.5},
+            {"stability_score": 1.0},
+            {"stability_score": 0.5},
+        ]
+        assert _has_converged(history, window=3, tolerance=1e-6) is False
+
+    def test_not_converged_too_few_entries(self) -> None:
+        history = [{"stability_score": 0.5}]
+        assert _has_converged(history, window=3) is False
+
+    def test_converged_within_tolerance(self) -> None:
+        history = [
+            {"stability_score": 1.0},
+            {"stability_score": 1.0 + 1e-8},
+            {"stability_score": 1.0 - 1e-8},
+        ]
+        assert _has_converged(history, window=3, tolerance=1e-6) is True
+
+    def test_none_scores_skipped(self) -> None:
+        history = [
+            {"stability_score": None},
+            {"stability_score": 0.5},
+            {"stability_score": None},
+            {"stability_score": 0.5},
+            {"stability_score": 0.5},
+        ]
+        assert _has_converged(history, window=3, tolerance=1e-6) is True
+
+    def test_early_termination_on_convergence(self, sample_data: dict) -> None:
+        """FSM that loops without accepting should eventually converge."""
+        # With stability_threshold=-1 nothing is accepted, so FSM loops.
+        # The stability scores will be identical each cycle → convergence.
+        fsm = QECFSM(config={
+            "stability_threshold": -1.0,
+            "boundary_crossing_threshold": 999,
+        })
+        result = fsm.run(sample_data, max_steps=50)
+        converge_entries = [
+            e for e in result["history"] if e.get("reason") == "converged"
+        ]
+        assert len(converge_entries) == 1

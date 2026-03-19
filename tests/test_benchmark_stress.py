@@ -10,7 +10,7 @@ Covers:
 - Pareto frontier
 - Scoring layer
 
-Version: v6.9.9.5
+Version: v70.0.0
 """
 
 import json
@@ -300,7 +300,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v6.9.9.5"
+        assert parsed["version"] == "v70.0.0"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)
@@ -1158,32 +1158,7 @@ class TestScoringLayer:
         j1 = json.dumps(r1["scores"], sort_keys=True)
         j2 = json.dumps(r2["scores"], sort_keys=True)
         assert j1 == j2, "Scores are not deterministic"
-Done. Here's a summary:
 
-**Files modified:**
-- `src/qec/experiments/benchmark_stress.py` — canonical pipeline rebuild
-- `tests/test_benchmark_stress.py` — complete test suite
-
-**What was implemented:**
-
-1. **`build_pareto_frontier`** (v69.3.1) — Identifies non-dominated genomes per scenario using numeric metrics. Enforces strict validation: unknown scenarios and missing numeric deltas both raise `ValueError`.
-
-2. **`build_scores`** (v69.9.4) — Min-max normalization of numeric-only metrics (NaN excluded), constant columns → 0.5, mean aggregation, ranking by score DESC with genome_id tie-break.
-
-3. **Complete pipeline:** `run_benchmark_stress` now produces:
-   ```
-   table → comparisons → pareto → scores
-   ```
-
-4. **Version updated to v6.9.9.5** across module docstring, result version, and seed label.
-
-**Guarantees confirmed:**
-- `_EXCLUDED_KEYS` used consistently across table, comparisons, pareto, scoring
-- Deterministic ordering throughout
-- No randomness, no silent fallbacks
-- 94 tests pass, 0 failures, 0 skips
-
-**Test classes (all 15 present):** TestDeterminism, TestOscillationFlips, TestSmallNVars, TestClassificationFallback, TestFidelityRanges, TestComputeFidelity, TestAllScenariosRun, TestJsonSerialization, TestDarkState, TestDecoderGenome, TestGenomeHardening, TestGenomeSweep, TestAggregationLayer, TestPairwiseComparison, TestParetoFrontier, TestScoringLayer.
     def test_missing_table_raises(self):
         """build_scores raises on missing table."""
         with pytest.raises(ValueError, match="missing 'table'"):
@@ -1231,3 +1206,289 @@ Done. Here's a summary:
         scores = build_scores(result)
         for s in scores:
             assert s["score"] == pytest.approx(0.5)
+
+
+class TestInvariantDiscovery:
+    """v70.0.0 — Invariant discovery engine.
+
+    Systematic audit of apply_decoder_genome operator pipeline.
+    Each test encodes either a proven invariant or a falsified candidate.
+    """
+
+    # ── Proven Invariant 1: Ternary Output Closure ──────────────────────
+    #
+    # Theorem: For any input trace and any genome with alphabet="ternary",
+    # every element of the output is in {-1.0, 0.0, 1.0}.
+    #
+    # Proof: Ternary projection is the last operator in the pipeline.
+    # For each timestep, a fresh zero array is created, then values >1e-12
+    # are set to 1.0 and values <-1e-12 are set to -1.0. These three
+    # conditions partition R, so the codomain is exactly {-1, 0, 1}. QED.
+
+    def test_proven_ternary_closure(self):
+        """Proven invariant: ternary output is always in {-1, 0, 1}."""
+        rng = np.random.Generator(np.random.PCG64(70_00_01))
+        trace = [rng.standard_normal(100).astype(np.float64) for _ in range(10)]
+        # Test with all other operators active simultaneously
+        genome = {"alphabet": "ternary", "clip_value": 3.0,
+                  "damping": 0.3, "dark_skip": True}
+        out = apply_decoder_genome(trace, genome)
+        allowed = {-1.0, 0.0, 1.0}
+        for t, arr in enumerate(out):
+            vals = set(np.unique(arr).tolist())
+            assert vals.issubset(allowed), (
+                f"t={t}: values {vals - allowed} outside {{-1, 0, 1}}"
+            )
+
+    # ── Proven Invariant 2: Ternary Projection Idempotence ─────────────
+    #
+    # Theorem: Let T denote the ternary projection operator (threshold
+    # ±1e-12). Then T(T(x)) = T(x) for all x in R^n.
+    #
+    # Proof: T(x) in {-1, 0, 1}^n. Then T(1.0) = 1.0 since 1.0 > 1e-12,
+    # T(-1.0) = -1.0 since -1.0 < -1e-12, T(0.0) = 0.0 since
+    # |0.0| <= 1e-12. QED.
+
+    def test_proven_ternary_idempotence(self):
+        """Proven invariant: ternary(ternary(x)) = ternary(x)."""
+        rng = np.random.Generator(np.random.PCG64(70_00_02))
+        trace = [rng.standard_normal(80).astype(np.float64) for _ in range(8)]
+        genome = {"alphabet": "ternary"}
+        out1 = apply_decoder_genome(trace, genome)
+        out2 = apply_decoder_genome(out1, genome)
+        for t in range(len(out1)):
+            np.testing.assert_array_equal(
+                out1[t], out2[t],
+                err_msg=f"Ternary not idempotent at t={t}",
+            )
+
+    # ── Proven Invariant 3: Clipping Boundedness (binary alphabet) ─────
+    #
+    # Theorem: For genome with alphabet="binary" and clip_value=c >= 0,
+    # every element of every output array is in [-c, c].
+    #
+    # Proof: (1) After clipping, all values in [-c, c].
+    # (2) Damping: out[t] = (1-d)*out[t] + d*out[t-1] with d in [0,1).
+    #     By induction (base: t=0 from clipping), convex combination of
+    #     values in [-c, c] remains in [-c, c].
+    # (3) Dark-skip replaces values with previous timestep values, also
+    #     in [-c, c] by induction.
+    # (4) No ternary projection (binary). QED.
+
+    def test_proven_clipping_boundedness_binary(self):
+        """Proven invariant: binary + clip => output in [-c, c]."""
+        rng = np.random.Generator(np.random.PCG64(70_00_03))
+        trace = [rng.standard_normal(100).astype(np.float64) * 1000
+                 for _ in range(15)]
+        for c in [0.01, 0.5, 1.0, 5.0, 100.0]:
+            genome = {"clip_value": c, "damping": 0.8, "dark_skip": True}
+            out = apply_decoder_genome(trace, genome)
+            for t, arr in enumerate(out):
+                assert np.all(arr >= -c - 1e-15), (
+                    f"c={c}, t={t}: min={np.min(arr)} < -{c}"
+                )
+                assert np.all(arr <= c + 1e-15), (
+                    f"c={c}, t={t}: max={np.max(arr)} > {c}"
+                )
+
+    # ── Proven Invariant 4: Clip-Zero Annihilation ─────────────────────
+    #
+    # Theorem: If clip_value=0, then apply_decoder_genome returns all-zero
+    # arrays regardless of input, damping, dark_skip, or alphabet.
+    #
+    # Proof: After clipping with c=0, all values are 0.
+    # Damping: convex combination of zeros is zero.
+    # Dark-skip: all nodes dark (sign(0)==sign(0), |0-0|=0<eps), freezes
+    #   to previous zeros. No-op.
+    # Ternary: |0| <= 1e-12, maps to 0. QED.
+
+    def test_proven_clip_zero_annihilation(self):
+        """Proven invariant: clip_value=0 => all-zero output."""
+        rng = np.random.Generator(np.random.PCG64(70_00_04))
+        trace = [rng.standard_normal(50).astype(np.float64) * 1e6
+                 for _ in range(10)]
+        for alphabet in ["binary", "ternary"]:
+            for damp in [0.0, 0.5, 0.99]:
+                for ds in [False, True]:
+                    genome = {"clip_value": 0.0, "alphabet": alphabet,
+                              "damping": damp, "dark_skip": ds}
+                    out = apply_decoder_genome(trace, genome)
+                    for t, arr in enumerate(out):
+                        assert np.all(arr == 0.0), (
+                            f"alphabet={alphabet}, damp={damp}, ds={ds}, "
+                            f"t={t}: non-zero values found"
+                        )
+
+    # ── Proven Invariant 5: Pipeline Idempotence (restricted families) ─
+    #
+    # Theorem: apply_decoder_genome is idempotent for these genome families:
+    #   (a) ternary-only: {alphabet:"ternary", clip:None, damp:0, ds:False}
+    #   (b) clip-only:    {alphabet:"binary", clip:c, damp:0, ds:False}
+    #   (c) ternary+dark_skip (no damping):
+    #       {alphabet:"ternary", clip:None, damp:0, ds:True}
+    #
+    # Proof sketch for each:
+    #   (a) First pass: ternary maps to {-1,0,1}. Second pass: ternary on
+    #       {-1,0,1} is identity (Invariant 2). QED.
+    #   (b) First pass: clips to [-c,c]. Second pass: values already in
+    #       [-c,c], np.clip is no-op. QED.
+    #   (c) First pass: dark_skip + ternary -> output in {-1,0,1}. Second
+    #       pass: dark_skip on {-1,0,1}: dark iff equal (diff=0<eps),
+    #       freeze to same value (no-op). Non-dark: diff>=1>eps, not
+    #       touched. Then ternary on {-1,0,1} is identity. QED.
+
+    def test_proven_idempotence_ternary_only(self):
+        """Proven invariant: ternary-only genome is idempotent."""
+        rng = np.random.Generator(np.random.PCG64(70_00_05))
+        trace = [rng.standard_normal(60).astype(np.float64) for _ in range(8)]
+        genome = {"alphabet": "ternary"}
+        out1 = apply_decoder_genome(trace, genome)
+        out2 = apply_decoder_genome(out1, genome)
+        for t in range(len(out1)):
+            np.testing.assert_array_equal(out1[t], out2[t])
+
+    def test_proven_idempotence_clip_only(self):
+        """Proven invariant: clip-only genome is idempotent."""
+        rng = np.random.Generator(np.random.PCG64(70_00_06))
+        trace = [rng.standard_normal(60).astype(np.float64) * 50
+                 for _ in range(8)]
+        for c in [0.1, 1.0, 5.0, 100.0]:
+            genome = {"clip_value": c}
+            out1 = apply_decoder_genome(trace, genome)
+            out2 = apply_decoder_genome(out1, genome)
+            for t in range(len(out1)):
+                np.testing.assert_array_equal(
+                    out1[t], out2[t],
+                    err_msg=f"clip_value={c}, t={t}",
+                )
+
+    def test_proven_idempotence_ternary_darkskip_nodamp(self):
+        """Proven invariant: ternary + dark_skip (no damping) is idempotent."""
+        rng = np.random.Generator(np.random.PCG64(70_00_07))
+        trace = [rng.standard_normal(60).astype(np.float64) for _ in range(8)]
+        genome = {"alphabet": "ternary", "dark_skip": True}
+        out1 = apply_decoder_genome(trace, genome)
+        out2 = apply_decoder_genome(out1, genome)
+        for t in range(len(out1)):
+            np.testing.assert_array_equal(out1[t], out2[t])
+
+    # ── Proven Invariant 6: Dark-Skip Cascade ──────────────────────────
+    #
+    # Theorem: In apply_decoder_genome with dark_skip=True and
+    # alphabet="binary", let v[0..T-1] be the post-clipping, post-damping
+    # trace. Let mask[t] be the dark-state mask computed on v.
+    # If mask[s][i] = True for all s in {1,...,t}, then
+    # out[t][i] = v[0][i].
+    #
+    # Proof: By induction on t.
+    # Base (t=1): mask[1][i]=True => out[1][i] = out[0][i] = v[0][i].
+    # Step: Assume out[k][i] = v[0][i] for all k <= t.
+    #   mask[t+1][i]=True => out[t+1][i] = out[t][i] = v[0][i]. QED.
+
+    def test_proven_dark_skip_cascade(self):
+        """Proven invariant: continuously-dark node freezes to initial value."""
+        # Node 0 is constant across the trace => dark at all t >= 1
+        trace = [np.array([5.0, float(i) * 10], dtype=np.float64)
+                 for i in range(6)]
+        genome = {"dark_skip": True}
+        out = apply_decoder_genome(trace, genome)
+        for t in range(len(out)):
+            assert out[t][0] == pytest.approx(5.0), (
+                f"t={t}: dark-cascade node got {out[t][0]}, expected 5.0"
+            )
+
+    # ── False Candidate: Clipping Boundedness with Ternary ─────────────
+    #
+    # Candidate: clip_value=c => output in [-c, c] (all alphabets).
+    # Counterexample: clip_value=0.5, alphabet="ternary", input=[1.0].
+    # After clipping: [0.5]. After ternary: 0.5 > 1e-12 => 1.0.
+    # 1.0 > 0.5. Candidate is FALSE.
+
+    def test_false_candidate_clipping_ternary_bound(self):
+        """False candidate: clip + ternary can exceed clip bounds."""
+        trace = [np.array([1.0], dtype=np.float64)]
+        genome = {"clip_value": 0.5, "alphabet": "ternary"}
+        out = apply_decoder_genome(trace, genome)
+        # The ternary output is 1.0, which exceeds clip_value=0.5
+        assert out[0][0] == pytest.approx(1.0)
+        assert out[0][0] > 0.5, "Counterexample: ternary exceeds clip bound"
+
+    # ── False Candidate: Idempotence with Damping ──────────────────────
+    #
+    # Candidate: apply_decoder_genome is idempotent for any genome.
+    # Counterexample: trace=[[0],[10]], damping=0.5.
+    # Pass 1: out[1] = 0.5*10 + 0.5*0 = 5.
+    # Pass 2: out'[1] = 0.5*5 + 0.5*0 = 2.5. Not equal. FALSE.
+
+    def test_false_candidate_idempotence_damping(self):
+        """False candidate: damping > 0 breaks idempotence."""
+        v0 = np.array([0.0], dtype=np.float64)
+        v1 = np.array([10.0], dtype=np.float64)
+        trace = [v0.copy(), v1.copy()]
+        genome = {"damping": 0.5}
+        out1 = apply_decoder_genome(trace, genome)
+        out2 = apply_decoder_genome(out1, genome)
+        # Pass 1: out[1] = 5.0, Pass 2: out[1] = 2.5
+        assert out1[1][0] == pytest.approx(5.0)
+        assert out2[1][0] == pytest.approx(2.5)
+        assert out1[1][0] != pytest.approx(out2[1][0]), (
+            "Counterexample: damping makes pipeline non-idempotent"
+        )
+
+    # ── False Candidate: Dark-State Universal Absorbing ────────────────
+    #
+    # Candidate: If node i is dark at timestep t, it is dark at t+1.
+    # Counterexample: trace = [[5.0], [5.0], [-5.0]].
+    # mask[1] = [True] (same sign, same value).
+    # mask[2] = [False] (sign flip). Dark at t=1 but not t=2. FALSE.
+
+    def test_false_candidate_dark_absorbing_universal(self):
+        """False candidate: dark at t does NOT guarantee dark at t+1."""
+        v0 = np.array([5.0], dtype=np.float64)
+        v1 = np.array([5.0], dtype=np.float64)
+        v2 = np.array([-5.0], dtype=np.float64)
+        masks = compute_dark_state_mask([v0, v1, v2])
+        assert masks[1][0] is np.bool_(True), "Node must be dark at t=1"
+        assert masks[2][0] is np.bool_(False), (
+            "Counterexample: node is NOT dark at t=2 despite being dark at t=1"
+        )
+
+    # ── Dark-State Invariant: Strongest Valid Claim ────────────────────
+    #
+    # Theorem (Dark-Skip Local Freeze): Within a single call to
+    # apply_decoder_genome with dark_skip=True, for each t >= 1 and
+    # node i, if mask[t][i] is True (computed on post-clipping,
+    # post-damping state), then the post-dark-skip value
+    # out[t][i] = out[t-1][i].
+    #
+    # This is a LOCAL operational rule, not an absorbing-state invariant.
+    # The mask is computed once before the dark-skip loop; modifications
+    # at earlier timesteps do NOT influence later masks.
+    #
+    # Proof: Direct from code (lines 487-490 of benchmark_stress.py).
+    # The loop sets out[t][dark] = out[t-1][dark] for each t where
+    # mask[t] has True entries. QED.
+
+    def test_proven_dark_skip_local_freeze(self):
+        """Proven invariant: dark-skip freezes dark nodes to previous value."""
+        rng = np.random.Generator(np.random.PCG64(70_00_08))
+        # Create a trace, apply clipping+damping manually, check dark-skip
+        trace = [rng.standard_normal(20).astype(np.float64) for _ in range(6)]
+        genome = {"dark_skip": True, "damping": 0.2, "clip_value": 5.0}
+
+        # Apply without dark_skip to get the pre-dark-skip state
+        genome_no_ds = {"dark_skip": False, "damping": 0.2, "clip_value": 5.0}
+        pre_ds = apply_decoder_genome(trace, genome_no_ds)
+        masks = compute_dark_state_mask(pre_ds)
+
+        # Apply with dark_skip
+        out = apply_decoder_genome(trace, genome)
+
+        # For dark nodes at each t, verify out[t][i] == out[t-1][i]
+        for t in range(1, len(out)):
+            dark = masks[t]
+            if np.any(dark):
+                np.testing.assert_array_equal(
+                    out[t][dark], out[t - 1][dark],
+                    err_msg=f"Dark-skip freeze violated at t={t}",
+                )

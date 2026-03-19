@@ -3,7 +3,7 @@
 Generates 9 synthetic scenarios, runs them through the diagnostics pipeline,
 and produces deterministic JSON-serializable results with fidelity metrics.
 
-Version: v6.9.9.5
+Version: v70.0.0
 """
 
 import hashlib
@@ -617,7 +617,7 @@ def _run_single_genome_suite(
         result["seed"] = seed
         results.append(result)
     return {
-        "version": "v6.9.9.5",
+        "version": "v70.0.0",
         "base_seed_label": base_seed_label,
         "n_vars": n_vars,
         "n_iters_base": n_iters,
@@ -629,7 +629,7 @@ def _run_single_genome_suite(
 def run_benchmark_stress(
     n_vars: int = 50,
     n_iters: int = 30,
-    base_seed_label: str = "benchmark_stress_v6.9.9.5",
+    base_seed_label: str = "benchmark_stress_v70.0.0",
     genome: Optional[dict] = None,
     genomes: Optional[List[dict]] = None,
 ) -> dict:
@@ -860,10 +860,6 @@ def build_pareto_frontier(result: dict) -> list:
         If ``result`` has no ``"table"`` key, if a comparison references an
         unknown scenario, or if a scenario has no valid numeric metrics.
     """
-        If ``result`` is missing ``"comparisons"`` or ``"table"``.
-    """
-    if "comparisons" not in result:
-        raise ValueError("Result dict missing 'comparisons' key")
     if "table" not in result:
         raise ValueError("Result dict missing 'table' key")
 

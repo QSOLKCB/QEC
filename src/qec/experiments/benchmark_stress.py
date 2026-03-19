@@ -3,7 +3,7 @@
 Generates 9 synthetic scenarios, runs them through the diagnostics pipeline,
 and produces deterministic JSON-serializable results with fidelity metrics.
 
-Version: v68.9.2
+Version: v69.0.1
 """
 
 import hashlib
@@ -402,6 +402,46 @@ def fingerprint_decoder_genome(genome: dict) -> str:
     return digest[:12]
 
 
+def _prepare_genome_list(
+    genome: Optional[dict] = None,
+    genomes: Optional[List[dict]] = None,
+) -> List[dict]:
+    """Validate and normalize genome inputs for single or sweep mode.
+
+    Rules:
+    - Exactly one of genome, genomes, or neither (default genome).
+    - If both provided → raise ValueError.
+    - Each genome is normalized via normalize_decoder_genome.
+    - Duplicate genome_ids → raise ValueError.
+    - Returns a list of canonical genome dicts.
+    """
+    if genome is not None and genomes is not None:
+        raise ValueError(
+            "Cannot provide both 'genome' and 'genomes'. Use one or neither."
+        )
+
+    if genomes is not None:
+        if not isinstance(genomes, list) or len(genomes) == 0:
+            raise ValueError("'genomes' must be a non-empty list of genome dicts.")
+        canonical_list = [normalize_decoder_genome(g) for g in genomes]
+    elif genome is not None:
+        canonical_list = [normalize_decoder_genome(genome)]
+    else:
+        canonical_list = [normalize_decoder_genome(None)]
+
+    # Enforce uniqueness by genome_id
+    seen_ids: Dict[str, int] = {}
+    for idx, g in enumerate(canonical_list):
+        gid = fingerprint_decoder_genome(g)
+        if gid in seen_ids:
+            raise ValueError(
+                f"Duplicate genome_id {gid!r} at indices {seen_ids[gid]} and {idx}."
+            )
+        seen_ids[gid] = idx
+
+    return canonical_list
+
+
 def apply_decoder_genome(
     llr_trace: List[np.ndarray],
     genome: dict,
@@ -557,11 +597,40 @@ def run_single_benchmark(
 # ── Main benchmark runner ────────────────────────────────────────────────
 
 
+def _run_single_genome_suite(
+    n_vars: int,
+    n_iters: int,
+    base_seed_label: str,
+    genome: dict,
+) -> dict:
+    """Run all scenarios for one canonical genome. Returns a single result dict."""
+    results = []
+    for scenario_name, generator_fn in SCENARIOS:
+        seed_label = f"{base_seed_label}:{scenario_name}"
+        seed = _derive_seed(seed_label)
+        rng = np.random.Generator(np.random.PCG64(seed))
+        result = run_single_benchmark(
+            scenario_name, generator_fn, rng, n_vars, n_iters,
+            genome=genome,
+        )
+        result["seed"] = seed
+        results.append(result)
+    return {
+        "version": "v69.0.1",
+        "base_seed_label": base_seed_label,
+        "n_vars": n_vars,
+        "n_iters_base": n_iters,
+        "n_scenarios": len(results),
+        "scenarios": results,
+    }
+
+
 def run_benchmark_stress(
     n_vars: int = 50,
     n_iters: int = 30,
-    base_seed_label: str = "benchmark_stress_v68.9.2",
+    base_seed_label: str = "benchmark_stress_v69.0.1",
     genome: Optional[dict] = None,
+    genomes: Optional[List[dict]] = None,
 ) -> dict:
     """Run all 9 benchmark scenarios deterministically.
 
@@ -575,34 +644,39 @@ def run_benchmark_stress(
         Label for SHA-256 seed derivation.
     genome : dict or None
         Decoder genome configuration.  If None, uses default_decoder_genome().
+    genomes : list[dict] or None
+        Multiple genome configurations for sweep mode.
+        Mutually exclusive with ``genome``.
 
     Returns
     -------
     dict
-        JSON-serializable results with scenario metrics, regimes,
-        fidelity, genome, and timing.
+        JSON-serializable results.  When a single genome is used,
+        returns the same structure as before (mode="single").
+        When multiple genomes are provided, returns
+        {"mode": "sweep", "results": [...]}.
     """
-    results = []
+    genome_list = _prepare_genome_list(genome, genomes)
 
-    for scenario_name, generator_fn in SCENARIOS:
-        seed_label = f"{base_seed_label}:{scenario_name}"
-        seed = _derive_seed(seed_label)
-        rng = np.random.Generator(np.random.PCG64(seed))
-
-        result = run_single_benchmark(
-            scenario_name, generator_fn, rng, n_vars, n_iters,
-            genome=genome,
+    if len(genome_list) == 1 and genomes is None:
+        # Single-genome mode: preserve exact v68.9.2 output structure
+        suite = _run_single_genome_suite(
+            n_vars, n_iters, base_seed_label, genome_list[0],
         )
-        result["seed"] = seed
-        results.append(result)
+        suite["mode"] = "single"
+        return suite
+
+    # Sweep mode: deterministic sequential iteration
+    sweep_results = []
+    for g in genome_list:
+        suite = _run_single_genome_suite(
+            n_vars, n_iters, base_seed_label, g,
+        )
+        sweep_results.append(suite)
 
     return {
-        "version": "v68.9.2",
-        "base_seed_label": base_seed_label,
-        "n_vars": n_vars,
-        "n_iters_base": n_iters,
-        "n_scenarios": len(results),
-        "scenarios": results,
+        "mode": "sweep",
+        "results": sweep_results,
     }
 
 

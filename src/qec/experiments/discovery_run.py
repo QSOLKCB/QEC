@@ -16,13 +16,13 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.io.export_graph import (
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.io.export_graph import (
     export_matrix_market,
     export_parity_check,
     export_json_adjacency,
 )
-from src.qec.utils.reproducibility import collect_environment_metadata
+from qec.utils.reproducibility import collect_environment_metadata
 
 
 def _to_float_dict(d: dict) -> dict:
@@ -272,7 +272,7 @@ def run_discovery_experiment(
         artifact["phase_diagram"] = result.get("phase_diagram", {"regions": [], "phase_boundaries": []})
 
     if enable_ternary_decoder and best_H is not None:
-        from src.qec.analysis.api import (
+        from qec.analysis.api import (
             run_ternary_decoder as _run_td,
             compute_ternary_stability as _td_stab,
             compute_ternary_entropy as _td_ent,
@@ -290,7 +290,7 @@ def run_discovery_experiment(
         }
 
     if enable_ternary_trapping and best_H is not None:
-        from src.qec.analysis.api import (
+        from qec.analysis.api import (
             run_ternary_decoder as _run_td_trap,
             detect_zero_regions as _zr,
             compute_frustration_index as _fi,
@@ -311,8 +311,8 @@ def run_discovery_experiment(
         )
 
     if enable_decoder_rule_experiments and best_H is not None:
-        from src.qec.decoder.ternary.ternary_rule_variants import RULE_REGISTRY
-        from src.qec.decoder.ternary.ternary_rule_evaluator import evaluate_decoder_rule
+        from qec.decoder.ternary.ternary_rule_variants import RULE_REGISTRY
+        from qec.decoder.ternary.ternary_rule_evaluator import evaluate_decoder_rule
 
         td_recv_rules = np.ones(best_H.shape[1], dtype=np.float64)
         decoder_rule_metrics: list[dict[str, Any]] = []
@@ -345,7 +345,7 @@ def run_discovery_experiment(
         artifact["results"]["rule_stability_scores"] = rule_stability_scores
 
     if enable_rule_mutation and best_H is not None:
-        from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
+        from qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
 
         td_recv_mut = np.ones(best_H.shape[1], dtype=np.float64)
         pop_result = evaluate_rule_population(
@@ -355,7 +355,7 @@ def run_discovery_experiment(
         artifact["results"]["best_decoder_rule_extended"] = pop_result["best_decoder_rule"]
         artifact["results"]["num_rules_evaluated"] = pop_result["num_rules_evaluated"]
 
-        from src.qec.decoder.ternary.ternary_rule_fitness import (
+        from qec.decoder.ternary.ternary_rule_fitness import (
             compute_rule_fitness_metrics as _compute_fitness,
             rank_rules_by_fitness as _rank_fitness,
             compute_multiobjective_fitness as _compute_mo_fitness,
@@ -386,7 +386,7 @@ def run_discovery_experiment(
         ]
         artifact["results"]["best_decoder_rule_multiobjective"] = ranked_multi[0][0] if ranked_multi else ""
     if enable_coevolution and best_H is not None:
-        from src.qec.decoder.ternary.ternary_coevolution import (
+        from qec.decoder.ternary.ternary_coevolution import (
             evaluate_rule_population as _eval_pop,
             select_best_rule,
         )

@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
+from qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
 
 
 _ROUND = 12

@@ -16,12 +16,12 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.generation.tanner_graph_generator import (
+from qec.generation.tanner_graph_generator import (
     _derive_seed,
     generate_tanner_graph_candidates,
 )
-from src.qec.generation.candidate_evaluation import evaluate_tanner_graph_candidate
-from src.qec.generation.candidate_ranking import rank_tanner_graph_candidates
+from qec.generation.candidate_evaluation import evaluate_tanner_graph_candidate
+from qec.generation.candidate_ranking import rank_tanner_graph_candidates
 from src.utils.canonicalize import canonicalize
 
 

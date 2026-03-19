@@ -16,8 +16,8 @@ import os
 import struct
 from typing import Any
 
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.utils.reproducibility import collect_environment_metadata
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.utils.reproducibility import collect_environment_metadata
 from src.utils.canonicalize import canonicalize
 
 

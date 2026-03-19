@@ -20,13 +20,13 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.critical_radius import estimate_critical_spectral_radius
-from src.qec.diagnostics.spectral_metrics import compute_spectral_metrics
-from src.qec.diagnostics.spectral_repair import (
+from qec.diagnostics.critical_radius import estimate_critical_spectral_radius
+from qec.diagnostics.spectral_metrics import compute_spectral_metrics
+from qec.diagnostics.spectral_repair import (
     apply_repair_candidate,
     propose_repair_candidates,
 )
-from src.qec.experiments.tanner_graph_repair import (
+from qec.experiments.tanner_graph_repair import (
     _experimental_bp_flooding,
     _compute_syndrome,
 )

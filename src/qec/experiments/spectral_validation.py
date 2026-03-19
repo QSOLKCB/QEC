@@ -23,14 +23,14 @@ from typing import Any
 import numpy as np
 from scipy import stats
 
-from src.qec.decoder.bp_decoder_reference import bp_decode
-from src.qec.diagnostics.spectral_nb import (
+from qec.decoder.bp_decoder_reference import bp_decode
+from qec.diagnostics.spectral_nb import (
     SPECTRAL_SCHEMA_VERSION,
     _TannerGraph,
     compute_nb_spectrum,
 )
-from src.qec.diagnostics._spectral_utils import build_directed_edges
-from src.qec.experiments.eeec_anomaly_scan import (
+from qec.diagnostics._spectral_utils import build_directed_edges
+from qec.experiments.eeec_anomaly_scan import (
     DEFAULT_EEEC_THRESHOLD,
     DEFAULT_IPR_THRESHOLD,
     DEFAULT_RADIUS_THRESHOLD,

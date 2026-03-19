@@ -18,11 +18,11 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.benchmark.benchmark_table import build_benchmark_table
-from src.qec.generation.tanner_graph_generator import (
+from qec.benchmark.benchmark_table import build_benchmark_table
+from qec.generation.tanner_graph_generator import (
     generate_tanner_graph_candidates,
 )
-from src.qec.utils.reproducibility import collect_environment_metadata
+from qec.utils.reproducibility import collect_environment_metadata
 from src.utils.canonicalize import canonicalize
 
 

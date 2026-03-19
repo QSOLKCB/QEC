@@ -18,12 +18,12 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
-from src.qec.diagnostics.spectral_repair import (
+from qec.diagnostics.spectral_nb import compute_nb_spectrum
+from qec.diagnostics.spectral_repair import (
     apply_repair_candidate,
     propose_repair_candidates,
 )
-from src.qec.diagnostics.spectral_incremental import (
+from qec.diagnostics.spectral_incremental import (
     detect_edge_swap,
     identify_affected_nb_edges,
     update_nb_eigenpair_incremental,
@@ -119,7 +119,7 @@ def run_incremental_spectral_benchmark(
     incr_ipr = float(np.sum(np.abs(incr_eigvec) ** 4) /
                       (np.sum(np.abs(incr_eigvec) ** 2) ** 2))
     incr_edge_energy = np.abs(incr_eigvec) ** 2
-    from src.qec.diagnostics.spectral_nb import _compute_eeec, _compute_sis
+    from qec.diagnostics.spectral_nb import _compute_eeec, _compute_sis
     incr_eeec = _compute_eeec(incr_edge_energy)
     sis_incremental = _compute_sis(
         incr_result["spectral_radius"], incr_ipr, incr_eeec,

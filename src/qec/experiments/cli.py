@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from src.qec.discovery.threshold_search import run_threshold_search
+from qec.discovery.threshold_search import run_threshold_search
 
 
 def _build_parser() -> argparse.ArgumentParser:

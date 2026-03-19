@@ -15,7 +15,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_repair import (
+from qec.diagnostics.spectral_repair import (
     propose_repair_candidates,
     select_best_repair,
 )

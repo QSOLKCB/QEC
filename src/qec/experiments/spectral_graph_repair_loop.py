@@ -37,7 +37,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.experiments.tanner_graph_repair import (
+from qec.experiments.tanner_graph_repair import (
     _extract_edges,
     _build_edge_set,
     _build_adjacency,
@@ -49,7 +49,7 @@ from src.qec.experiments.tanner_graph_repair import (
     _experimental_bp_flooding,
     _compute_syndrome,
 )
-from src.qec.experiments.spectral_instability_phase_map import (
+from qec.experiments.spectral_instability_phase_map import (
     compute_spectral_instability_score,
 )
 
@@ -230,7 +230,7 @@ def score_repair_candidate(
     H_repaired = _edges_to_H(repaired_edges, m, n)
 
     # Recompute NB spectral radius for repaired graph.
-    from src.qec.diagnostics.non_backtracking_spectrum import (
+    from qec.diagnostics.non_backtracking_spectrum import (
         compute_non_backtracking_spectrum,
     )
     nb_result = compute_non_backtracking_spectrum(H_repaired)
@@ -351,7 +351,7 @@ def _compute_instability_score_for_H(
     avg_check_degree: float,
 ) -> float:
     """Compute spectral instability score for a candidate parity matrix."""
-    from src.qec.diagnostics.non_backtracking_spectrum import (
+    from qec.diagnostics.non_backtracking_spectrum import (
         compute_non_backtracking_spectrum,
     )
     nb_result = compute_non_backtracking_spectrum(H_candidate)

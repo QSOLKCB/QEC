@@ -98,6 +98,47 @@ def summarize_transitions(transitions: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
+def extract_regimes(
+    results: List[Dict[str, Any]],
+    transitions: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Segment sweep results into phase regions between transitions.
+
+    Boundaries are drawn at each ``transition["to_index"]``.  The dominant
+    entry for each regime is its *first* result (deterministic, no voting).
+    """
+    n = len(results)
+    if n == 0:
+        return []
+
+    # Build boundary list: [0, t0_to, t1_to, ..., n]
+    boundaries = [0]
+    for t in transitions:
+        boundaries.append(t["to_index"])
+    boundaries.append(n)
+
+    regimes: List[Dict[str, Any]] = []
+    for k in range(len(boundaries) - 1):
+        start = boundaries[k]
+        end = boundaries[k + 1] - 1  # inclusive end index
+        length = end - start + 1
+        dominant = results[start]["best_pair"]
+        scores = [r["best_pair"].get("score", 0.0) for r in results[start:end + 1]]
+        compats = [r["best_pair"].get("compatibility", 0.0) for r in results[start:end + 1]]
+        regimes.append({
+            "start_index": start,
+            "end_index": end,
+            "length": length,
+            "dominant_theta": dominant.get("theta", []),
+            "dominant_sequence": dominant.get("sequence"),
+            "dominant_class": dominant.get("class"),
+            "dominant_phase": dominant.get("phase"),
+            "mean_score": sum(scores) / length,
+            "mean_compatibility": sum(compats) / length,
+        })
+    return regimes
+
+
 def run_target_sweep(
     targets: List[Union[str, Dict[str, Any]]],
     theta_grid: List[List[float]],
@@ -152,10 +193,12 @@ def run_target_sweep(
             "score_distribution": single["score_distribution"],
         })
 
+    transitions = detect_transitions(results)
     return {
         "n_targets": len(results),
         "targets": [r["target_spec"] for r in results],
         "results": results,
-        "transitions": detect_transitions(results),
-        "transition_summary": summarize_transitions(detect_transitions(results)),
+        "transitions": transitions,
+        "transition_summary": summarize_transitions(transitions),
+        "regimes": extract_regimes(results, transitions),
     }

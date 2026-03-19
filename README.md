@@ -1,283 +1,268 @@
-# QSOLKCB / QEC
-
-### Deterministic Invariant-Driven Discovery Engine for LDPC & QLDPC Tanner Graphs
+QSOLKCB / QEC
+Deterministic Invariant-Driven Discovery & Phase Analysis Engine for LDPC / QLDPC Tanner Graphs
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC?label=release)](https://github.com/QSOLKCB/QEC/releases/tag/v84.0.0)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19099503.svg)](https://doi.org/10.5281/zenodo.19099503)
-[![DOI](https://img.shields.io/badge/Authorea-10.22541%2Fau.177376131.17346095%2Fv1-blue)](https://doi.org/10.22541/au.177376131.17346095/v1)
-[![Type](https://img.shields.io/badge/type-deterministic%20research%20framework-blue)]()
+[![Authorea](https://img.shields.io/badge/Authorea-10.22541%2Fau.177376131.17346095%2Fv1-blue)](https://doi.org/10.22541/au.177376131.17346095/v1)
+
+[![Type](https://img.shields.io/badge/type-deterministic%20phase%20analysis%20framework-blue)]()
+[![Engine](https://img.shields.io/badge/engine-invariant--driven-lightblue)]()
+[![Determinism](https://img.shields.io/badge/determinism-bitwise%20reproducible-success)]()
+[![Architecture](https://img.shields.io/badge/architecture-inverse%20design%20%E2%86%92%20phase%20maps-purple)]()
+[![Mode](https://img.shields.io/badge/mode-no%20stochastic%20search-critical)]()
+
 [![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
-QEC is a deterministic research framework for studying belief-propagation (BP)
-dynamics, spectral structure, and Tanner-graph geometry in LDPC and QLDPC
-codes.
+QEC is a deterministic research framework for studying belief-propagation (BP) dynamics, spectral structure, and Tanner-graph geometry in LDPC and QLDPC codes.
 
-The system functions as a **deterministic discovery engine and experimental
-laboratory**, combining spectral diagnostics, decoding dynamics, and formally
-validated invariants to explore how graph structure governs decoding behavior.
+It functions as both:
 
-Unlike traditional LDPC simulation toolkits, QEC emphasizes:
+🧠 A deterministic discovery engine
+🌌 A phase-space analysis system for invariant behavior
 
-* **determinism over stochastic search**
-* **invariants over heuristics**
-* **reproducibility over approximation**
+The system now supports end-to-end invariant analysis:
 
-Every experiment, discovery trajectory, and diagnostic result is **bitwise
-reproducible**.
+target → candidate structures → ranking → transitions → regimes
 
----
+All results are bitwise reproducible.
 
-# 🧠 What Makes QEC Different
+🧠 What Makes QEC Different
 
 QEC is not just a simulator — it is a:
 
-> **Deterministic Tanner-Graph Discovery + Invariant Validation System**
+Deterministic Invariant Discovery + Phase Analysis System
 
-The framework integrates three core capabilities:
+Unlike traditional LDPC toolkits, QEC emphasizes:
 
-### 1. Spectral Discovery Engine
+determinism over stochastic search
 
-* explores Tanner-graph space via deterministic mutation
-* detects spectral basins and phase boundaries
-* reconstructs phase diagrams of decoding behavior
+invariants over heuristics
 
-### 2. BP Dynamics Diagnostics
+interpretability over optimization
 
-* analyzes belief-propagation stability and attractor structure
-* measures oscillation, convergence, and instability regimes
-* links spectral signals to decoding outcomes
+phase structure over raw metrics
 
-### 3. Invariant-Driven Optimization (NEW)
+🚀 Core Capabilities (v84)
 
-* discovers and validates structural invariants
-* eliminates redundant computation safely
-* preserves **bitwise identity** and deterministic execution
+QEC now operates as a complete analysis stack:
 
-Recent releases introduce **formally proven invariants** that transform runtime
-behavior without altering results.
+1. Hybrid Co-Design Engine (v82)
 
----
+evaluates joint (theta, sequence) configurations
 
-# 🔬 Invariant Framework (v68 Series)
+extracts invariant structure from decoding behavior
 
-QEC now includes a growing registry of formally validated invariants:
+supports deterministic hybrid scoring
 
-### QSOL-BP-INV-001 — Algebraic Identity (v68.4.1)
+2. Inverse Design Engine (v82.8)
+target_behavior → (theta, sequence)
 
-URW(min-sum, ρ = 1.0) ≡ baseline min-sum
+bounded candidate space
 
-→ eliminates redundant decoder execution paths
+deterministic ranking
 
-### QSOL-BP-INV-002 — Trace-Indexed Data Reuse (v68.5.0)
+invariant-aligned scoring
 
-sign(vᵢ), CRC(vᵢ) are pure functions of trace index
+3. Parametric Target System (v83.0)
 
-→ eliminates redundant per-metric computation (75% reduction)
+Targets are now programmable:
 
-These invariants are:
+{
+  "desired_class": "stable",
+  "min_stability": 0.8,
+  "weight_phase": 0.3
+}
 
-* analytically justified
-* empirically validated
-* test-saturated
-* bitwise exact
+→ transforms inverse design into an
 
-📄 Formal documents and DOIs are linked in Releases.
+invariant query language
 
----
+4. Target Sweep Engine (v83.1)
 
-# ⚙️ Discovery Engine Architecture
+evaluates multiple targets in a single run
 
-The system operates as a layered pipeline:
+enables exploration of intent space
 
-Tanner Graph Generation
+produces structured sweep datasets
+
+5. Phase Boundary Detection (v83.2)
+
+detects where dominant structures change
+
+identifies regime transitions
+
+6. Transition Metrics (v83.3)
+
+measures boundary strength
+
+distinguishes:
+
+class-driven transitions
+
+phase-driven transitions
+
+degenerate transitions
+
+7. Phase Map Summary (v83.4)
+
+compresses sweep into a phase signature:
+
+number of transitions
+
+strength of boundaries
+
+transition types
+
+8. Regime Extraction (v84.0)
+
+segments sweep into stable regions
+
+extracts:
+
+dominant structures
+
+dominant class/phase
+
+mean behavior
+
+→ completes the pipeline:
+
+🧠 Discrete Phase Diagram Construction (Deterministic)
+
+🌌 Phase-Space Analysis (Modern QEC)
+
+QEC now reconstructs invariant structure across intent space:
+
+Phase Boundaries
+
+Where dominant structures change
+
+Regimes
+
+Stable regions of consistent behavior
+
+Transition Strength
+
+Sharp vs smooth changes
+
+Degeneracy
+
+Multiple structures with identical score
+
+Phase Signatures
+
+Compact summaries of system behavior
+
+⚙️ System Architecture (v84)
+Target Specification (Parametric)
 ↓
-Structural Diagnostics
+Candidate Generation (Bounded)
 ↓
-Spectral Diagnostics
+Hybrid Co-Design Evaluation
 ↓
-BP Dynamics Analysis
+Invariant Scoring
 ↓
-Invariant Detection (NEW)
+Deterministic Ranking
 ↓
-Mutation Plugin Registry
+Target Sweep
 ↓
-Mutation Operators
+Transition Detection
 ↓
-Local Graph Optimization
+Transition Metrics
 ↓
-Discovery Archive
+Transition Summary
 ↓
-Spectral Basin Detection
+Regime Extraction
 ↓
-Spectral Ridge Detection
-↓
-Phase Map Reconstruction
-↓
-Phase-Guided Exploration
-↓
-Phase Novelty Discovery
-↓
-Phase Characterization
-↓
-Spectral Theory Synthesis
+Phase Structure
+🔁 Determinism Guarantees
 
-This architecture enables QEC to:
+QEC enforces strict reproducibility:
 
-* analyze structure
-* explore graph space
-* extract patterns
-* synthesize theory
+no hidden randomness
 
----
+deterministic ordering everywhere
 
-# 🌌 Spectral Phase-Space Analysis
+deterministic ranking (multi-key)
 
-QEC reconstructs the geometry of Tanner-graph space through:
+invariant-preserving transformations
 
-### Spectral Basins
-
-Regions of similar decoding behavior
-
-### Spectral Ridges
-
-Phase boundaries separating decoding regimes
-
-### Phase Maps
-
-Global structure of decoding stability
-
-### Discovery Trajectories
-
-Paths taken through spectral space
-
-### Phase-Guided Exploration
-
-Directed search toward under-explored regimes
-
-### Phase Novelty Detection
-
-Identification of previously unseen graph structures
-
-### Phase Characterization
-
-Automatic classification of decoding regimes
-
-### Spectral Conjecture Synthesis
-
-Extraction of candidate theoretical relationships
-
----
-
-# 🔁 Deterministic Experiment Design
-
-QEC enforces strict determinism:
-
-* no hidden randomness
-* deterministic mutation ordering
-* deterministic decoder scheduling
-* reproducible experiment artifacts
-* identical outputs across runs
+identical outputs across runs
 
 Randomness must be explicit:
 
-```python
 np.random.RandomState(seed)
-```
+🔬 Invariant Framework
 
-Same seed → identical results.
+QEC includes formally validated invariants:
 
----
+QSOL-BP-INV-001 — Algebraic Identity
 
-# 📊 Research Applications
+URW(min-sum, ρ = 1.0) ≡ baseline min-sum
 
-QEC enables research into:
+QSOL-BP-INV-002 — Trace-Indexed Data Reuse
 
-* belief-propagation attractor geometry
-* trapping-set dynamics
-* spectral fragility of Tanner graphs
-* decoding stability prediction
-* LDPC / QLDPC code discovery
-* phase-space structure of decoding
-* invariant-driven optimization
-* reproducible computational systems
+sign(vᵢ), CRC(vᵢ) are pure functions of trace index
 
-The framework acts as a:
+Properties:
 
-> **Deterministic experimental lab for inference dynamics in sparse graphical models**
+analytically justified
 
----
+empirically validated
 
-# 📁 Key Project Files
+test-saturated
 
-CLAUDE.md — Development guardrails
-CHANGELOG.md — Release history
-INV.md — Invariant registry
-PROJECT_STATE.md — Architecture snapshot
-ROADMAP.md — Research direction
+bitwise exact
+
+📊 Research Applications
+
+QEC now enables:
+
+phase diagram reconstruction of BP dynamics
+
+regime analysis in Tanner graph space
+
+invariant-driven code discovery
+
+decoding stability prediction
+
+trapping-set and attractor analysis
+
+deterministic inverse design
+
+reproducible computational experiments
 
 ⚡ Quick Start
-### 1) Install (editable)
-```bash
+Install
 pip install -e .
-2) Run a minimal diagnostic
+Minimal diagnostic
 from qec.diagnostics.bp_dynamics import compute_bp_dynamics_metrics
 
-llr_trace = [...]  # list/array of float64 vectors
-energy = [...]     # optional, same length as trace
-
 out = compute_bp_dynamics_metrics(llr_trace, energy)
-print(out["metrics"])  # MSI, CPI, TSL, GOS, BTI, ...
-3) Determinism (required)
+print(out["metrics"])
+Determinism
 import numpy as np
-np.random.RandomState(0)  # explicit seed if randomness is used
-4) Reproduce release behavior
-git checkout v68.5.0
-pytest -q
-5) Invariants
-
-See INV.md for the invariant registry:
-
-INV-001 (v68.4.1): algebraic identity (URW ρ=1.0)
-
-INV-002 (v68.5.0): trace-indexed sign/CRC reuse
-
-Notes
-
-Bitwise deterministic under float64
-
-No hidden randomness
-
-Same input → identical output
-
-
----
-
-# 🧭 Design Philosophy
+np.random.RandomState(0)
+🧠 Design Philosophy
 
 Small is beautiful.
 Determinism is essential.
 Invariants over heuristics.
-Transparent systems over opaque ones.
+Structure over noise.
 
-Negative results are data.
+If it cannot be reproduced, it is not a result.
 
----
-
-# 📚 Citation
-
-If you use QEC in research, please cite:
+📚 Citation
 
 Trent Slade
 QSOL-IMC
 
-**QEC: Deterministic Invariant-Driven Discovery Framework for Tanner Graph Dynamics**
+QEC: Deterministic Invariant-Driven Discovery & Phase Analysis Framework
 
 ORCID
-[https://orcid.org/0009-0002-4515-9237](https://orcid.org/0009-0002-4515-9237)
+https://orcid.org/0009-0002-4515-9237
 
----
-
-# 👤 Author
+👤 Author
 
 Trent Slade
 QSOL-IMC

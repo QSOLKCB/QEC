@@ -1461,8 +1461,8 @@ class TestInvariantDiscovery:
         v1 = np.array([5.0], dtype=np.float64)
         v2 = np.array([-5.0], dtype=np.float64)
         masks = compute_dark_state_mask([v0, v1, v2])
-        assert masks[1][0] is np.bool_(True), "Node must be dark at t=1"
-        assert masks[2][0] is np.bool_(False), (
+        assert bool(masks[1][0]), "Node must be dark at t=1"
+        assert not bool(masks[2][0]), (
             "Counterexample: node is NOT dark at t=2 despite being dark at t=1"
         )
 

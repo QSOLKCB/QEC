@@ -1,10 +1,13 @@
-"""Tests for the pipeline orchestration module (v71.0.1).
+"""Tests for the pipeline orchestration module (v71.0.2).
 
 Verifies that build_full_pipeline produces identical output to
-the inline pipeline it replaced.
+the inline pipeline it replaced, and enforces pipeline invariants.
 """
 
+import copy
 import json
+
+import pytest
 
 from src.qec.experiments.benchmark_stress import (
     _run_single_genome_suite,
@@ -89,3 +92,27 @@ class TestPipelineDeterminism:
         j1 = json.dumps(result1, sort_keys=True)
         j2 = json.dumps(result2, sort_keys=True)
         assert j1 == j2, "Pipeline is not deterministic"
+
+
+class TestPipelineInvariants:
+    """Pipeline invariant enforcement (v71.0.2)."""
+
+    def test_invalid_mode_raises(self):
+        """Invalid mode must raise ValueError."""
+        genome = normalize_decoder_genome(None)
+        suite = _run_single_genome_suite(10, 8, "benchmark_stress_v71.0.0", genome)
+        with pytest.raises(ValueError, match="Invalid pipeline mode"):
+            build_full_pipeline([suite], mode="bogus")
+
+    def test_empty_suites_raises(self):
+        """Empty suites list must raise ValueError."""
+        with pytest.raises(ValueError, match="non-empty"):
+            build_full_pipeline([], mode="single")
+
+    def test_input_immutability(self):
+        """Input suite dict must not be mutated by the pipeline."""
+        genome = normalize_decoder_genome(None)
+        suite = _run_single_genome_suite(10, 8, "benchmark_stress_v71.0.0", genome)
+        snapshot = copy.deepcopy(suite)
+        build_full_pipeline([suite], mode="single")
+        assert suite == snapshot, "Pipeline mutated the input suite dict"

@@ -23,6 +23,35 @@ from qec.experiments.hybrid_inverse_design import run_hybrid_inverse_design
 # ---------------------------------------------------------------------------
 
 
+def _best_pair_identity(best_pair: Dict[str, Any]) -> tuple:
+    """Extract deterministic identity key from a best_pair record."""
+    theta = best_pair.get("theta", [])
+    sequence = best_pair.get("sequence")
+    return (tuple(theta), sequence)
+
+
+def detect_transitions(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Detect phase boundaries where the best candidate changes.
+
+    Iterates consecutive result pairs and records transitions where the
+    best_pair identity (theta_tuple, sequence) differs.
+
+    Returns list of transition records with from/to index and best_pair info.
+    """
+    transitions: List[Dict[str, Any]] = []
+    for i in range(len(results) - 1):
+        id_a = _best_pair_identity(results[i].get("best_pair", {}))
+        id_b = _best_pair_identity(results[i + 1].get("best_pair", {}))
+        if id_a != id_b:
+            transitions.append({
+                "from_index": i,
+                "to_index": i + 1,
+                "from_best": results[i]["best_pair"],
+                "to_best": results[i + 1]["best_pair"],
+            })
+    return transitions
+
+
 def run_target_sweep(
     targets: List[Union[str, Dict[str, Any]]],
     theta_grid: List[List[float]],
@@ -81,4 +110,5 @@ def run_target_sweep(
         "n_targets": len(results),
         "targets": [r["target_spec"] for r in results],
         "results": results,
+        "transitions": detect_transitions(results),
     }

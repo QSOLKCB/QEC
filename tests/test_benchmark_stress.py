@@ -7,6 +7,10 @@ Covers:
 - Classification fallback to 'unstable'
 - Fidelity metric ranges
 - All 9 scenarios execute
+- Pareto frontier
+- Scoring layer
+
+Version: v6.9.9.5
 """
 
 import json
@@ -25,6 +29,8 @@ from src.qec.experiments.benchmark_stress import (
     apply_decoder_genome,
     build_experiment_table,
     build_pairwise_comparison,
+    build_pareto_frontier,
+    build_scores,
     classify_with_fallback,
     compute_dark_state_mask,
     compute_fidelity,
@@ -294,7 +300,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v69.2.1"
+        assert parsed["version"] == "v6.9.9.5"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)
@@ -995,3 +1001,208 @@ class TestPairwiseComparison:
         """build_pairwise_comparison raises on missing table."""
         with pytest.raises(ValueError, match="missing 'table'"):
             build_pairwise_comparison({})
+
+
+class TestParetoFrontier:
+    """Tests for Pareto frontier identification (v69.3.1)."""
+
+    def test_single_genome_all_pareto(self):
+        """Single genome is trivially Pareto-optimal in every scenario."""
+        result = run_benchmark_stress(n_vars=10, n_iters=8)
+        pareto = result["pareto"]
+        assert len(pareto) == len(SCENARIOS)
+        for entry in pareto:
+            assert len(entry["pareto_genomes"]) == 1
+
+    def test_pareto_present_in_result(self):
+        """run_benchmark_stress includes 'pareto' key."""
+        result = run_benchmark_stress(n_vars=10, n_iters=8)
+        assert "pareto" in result
+        assert isinstance(result["pareto"], list)
+
+    def test_sweep_pareto(self):
+        """Sweep with multiple genomes produces Pareto frontier per scenario."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+            {"alphabet": "ternary", "damping": 0.1},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        pareto = result["pareto"]
+        assert len(pareto) == len(SCENARIOS)
+        for entry in pareto:
+            assert "scenario" in entry
+            assert "pareto_genomes" in entry
+            # At least one genome must be Pareto-optimal
+            assert len(entry["pareto_genomes"]) >= 1
+            # All pareto genomes must be valid genome_ids from the table
+            table_gids = {r["genome_id"] for r in result["table"]}
+            for gid in entry["pareto_genomes"]:
+                assert gid in table_gids
+
+    def test_determinism(self):
+        """Repeated runs produce identical Pareto frontiers."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+        ]
+        r1 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        r2 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        j1 = json.dumps(r1["pareto"], sort_keys=True)
+        j2 = json.dumps(r2["pareto"], sort_keys=True)
+        assert j1 == j2, "Pareto frontiers are not deterministic"
+
+    def test_unknown_scenario_raises(self):
+        """Pareto frontier raises on unknown scenario in comparisons."""
+        result = {
+            "table": [
+                {"genome_id": "aaa", "scenario": "sc1", "version": "v1",
+                 "base_seed_label": "t", "n_vars": 10, "n_iters_base": 8,
+                 "metric_a": 1.0},
+            ],
+            "comparisons": [
+                {"scenario": "nonexistent", "genome_a": "aaa", "genome_b": "bbb"},
+            ],
+        }
+        with pytest.raises(ValueError, match="unknown scenario"):
+            build_pareto_frontier(result)
+
+    def test_no_numeric_metrics_raises(self):
+        """Pareto frontier raises when scenario has no numeric metrics."""
+        result = {
+            "table": [
+                {"genome_id": "aaa", "scenario": "sc1", "version": "v1",
+                 "base_seed_label": "t", "n_vars": "not_numeric",
+                 "n_iters_base": "not_numeric"},
+            ],
+        }
+        with pytest.raises(ValueError, match="no valid numeric deltas"):
+            build_pareto_frontier(result)
+
+    def test_missing_table_raises(self):
+        """Pareto frontier raises on missing table."""
+        with pytest.raises(ValueError, match="missing 'table'"):
+            build_pareto_frontier({})
+
+    def test_scenario_order_preserved(self):
+        """Pareto frontier preserves scenario order from the table."""
+        result = run_benchmark_stress(n_vars=10, n_iters=8)
+        pareto = result["pareto"]
+        scenario_names = [name for name, _ in SCENARIOS]
+        pareto_scenarios = [entry["scenario"] for entry in pareto]
+        assert pareto_scenarios == scenario_names
+
+
+class TestScoringLayer:
+    """Tests for the scoring layer (v69.9.4)."""
+
+    def test_single_genome_score_half(self):
+        """Single genome gets score 0.5 (all constant columns)."""
+        result = run_benchmark_stress(n_vars=10, n_iters=8)
+        scores = result["scores"]
+        assert len(scores) == 1
+        assert scores[0]["score"] == pytest.approx(0.5)
+        assert scores[0]["rank"] == 1
+
+    def test_scores_present_in_result(self):
+        """run_benchmark_stress includes 'scores' key."""
+        result = run_benchmark_stress(n_vars=10, n_iters=8)
+        assert "scores" in result
+        assert isinstance(result["scores"], list)
+
+    def test_sweep_scores(self):
+        """Sweep with multiple genomes produces ranked scores."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+            {"alphabet": "ternary", "damping": 0.1},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        scores = result["scores"]
+        assert len(scores) == 3
+        # Scores are in [0, 1]
+        for s in scores:
+            assert 0.0 <= s["score"] <= 1.0
+            assert "genome_id" in s
+            assert "rank" in s
+        # Ranks are 1, 2, 3
+        ranks = [s["rank"] for s in scores]
+        assert sorted(ranks) == [1, 2, 3]
+        # Scores are descending
+        for i in range(len(scores) - 1):
+            assert scores[i]["score"] >= scores[i + 1]["score"]
+
+    def test_ranking_descending_with_tiebreak(self):
+        """Scores are ranked descending; ties broken by genome_id ascending."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        scores = result["scores"]
+        assert len(scores) == 2
+        # First score >= second score
+        assert scores[0]["score"] >= scores[1]["score"]
+        # If equal scores, genome_id ascending
+        if scores[0]["score"] == scores[1]["score"]:
+            assert scores[0]["genome_id"] < scores[1]["genome_id"]
+
+    def test_determinism(self):
+        """Repeated runs produce identical scores."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+        ]
+        r1 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        r2 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        j1 = json.dumps(r1["scores"], sort_keys=True)
+        j2 = json.dumps(r2["scores"], sort_keys=True)
+        assert j1 == j2, "Scores are not deterministic"
+
+    def test_missing_table_raises(self):
+        """build_scores raises on missing table."""
+        with pytest.raises(ValueError, match="missing 'table'"):
+            build_scores({})
+
+    def test_empty_table(self):
+        """build_scores returns empty list for empty table."""
+        result = {"table": []}
+        scores = build_scores(result)
+        assert scores == []
+
+    def test_normalization_min_max(self):
+        """Min-max normalization produces 0.0 for min and 1.0 for max."""
+        # Build a synthetic table with two genomes and one metric
+        synthetic_table = [
+            {"genome_id": "aaa", "scenario": "sc1", "version": "v1",
+             "base_seed_label": "t", "n_vars": 10, "n_iters_base": 8,
+             "metric_a": 1.0},
+            {"genome_id": "bbb", "scenario": "sc1", "version": "v1",
+             "base_seed_label": "t", "n_vars": 10, "n_iters_base": 8,
+             "metric_a": 3.0},
+        ]
+        result = {"table": synthetic_table}
+        scores = build_scores(result)
+        assert len(scores) == 2
+        # Higher metric_a genome gets score 1.0, lower gets 0.0
+        score_map = {s["genome_id"]: s["score"] for s in scores}
+        assert score_map["bbb"] == pytest.approx(1.0)
+        assert score_map["aaa"] == pytest.approx(0.0)
+        # bbb ranked first
+        assert scores[0]["genome_id"] == "bbb"
+        assert scores[0]["rank"] == 1
+
+    def test_constant_column_maps_to_half(self):
+        """Constant metric column maps to 0.5 for all genomes."""
+        synthetic_table = [
+            {"genome_id": "aaa", "scenario": "sc1", "version": "v1",
+             "base_seed_label": "t", "n_vars": 10, "n_iters_base": 8,
+             "metric_a": 5.0},
+            {"genome_id": "bbb", "scenario": "sc1", "version": "v1",
+             "base_seed_label": "t", "n_vars": 10, "n_iters_base": 8,
+             "metric_a": 5.0},
+        ]
+        result = {"table": synthetic_table}
+        scores = build_scores(result)
+        for s in scores:
+            assert s["score"] == pytest.approx(0.5)

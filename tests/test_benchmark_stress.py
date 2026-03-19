@@ -722,7 +722,7 @@ class TestAggregationLayer:
         """Single-genome run produces rows == number of scenarios."""
         result = run_benchmark_stress(n_vars=10, n_iters=8)
         table = result["table"]
-        assert len(table) == 9  # 9 scenarios
+        assert len(table) == len(result["scenarios"])
         # Each row has required fields
         required = {"genome_id", "scenario", "version", "base_seed_label",
                      "n_vars", "n_iters_base"}

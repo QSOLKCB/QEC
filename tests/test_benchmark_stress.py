@@ -18,6 +18,7 @@ from src.qec.experiments.benchmark_stress import (
     SCENARIOS,
     _cosine_similarity,
     _derive_seed,
+    _prepare_genome_list,
     _quantum_proxy,
     _sign_agreement,
     apply_decoder_genome,
@@ -290,7 +291,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v68.9.2"
+        assert parsed["version"] == "v69.0.0"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)
@@ -595,3 +596,109 @@ class TestGenomeHardening:
         # Original array identities unchanged (not replaced)
         for i in range(len(trace)):
             assert id(trace[i]) == orig_ids[i], f"trace[{i}] object was replaced"
+
+
+class TestGenomeSweep:
+    """Tests for deterministic genome sweep evaluation (v69.0.0)."""
+
+    def test_single_vs_sweep_equivalence(self):
+        """Single genome via genome= vs genomes=[genome] produce equivalent results."""
+        genome = {"clip_value": 3.0, "damping": 0.2}
+        r_single = run_benchmark_stress(n_vars=10, n_iters=8, genome=genome)
+        r_sweep = run_benchmark_stress(n_vars=10, n_iters=8, genomes=[genome])
+
+        assert r_single["mode"] == "single"
+        assert r_sweep["mode"] == "sweep"
+        assert len(r_sweep["results"]) == 1
+
+        # Strip timing from both, then compare scenario data
+        sweep_inner = r_sweep["results"][0]
+        for s in r_single["scenarios"]:
+            s.pop("timing", None)
+        for s in sweep_inner["scenarios"]:
+            s.pop("timing", None)
+
+        # Core data must match
+        assert r_single["n_scenarios"] == sweep_inner["n_scenarios"]
+        j_single = json.dumps(r_single["scenarios"], sort_keys=True)
+        j_sweep = json.dumps(sweep_inner["scenarios"], sort_keys=True)
+        assert j_single == j_sweep
+
+    def test_multiple_genomes_run(self):
+        """Multiple distinct genomes all run and produce unique genome_ids."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+            {"alphabet": "ternary", "damping": 0.1},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+
+        assert result["mode"] == "sweep"
+        assert len(result["results"]) == 3
+
+        genome_ids = set()
+        for suite in result["results"]:
+            assert suite["n_scenarios"] == 9
+            # All scenarios in this suite share the same genome_id
+            ids_in_suite = {s["genome_id"] for s in suite["scenarios"]}
+            assert len(ids_in_suite) == 1
+            genome_ids.update(ids_in_suite)
+
+        # All three genomes have distinct ids
+        assert len(genome_ids) == 3
+
+    def test_duplicate_genomes_rejected(self):
+        """Providing the same genome twice raises ValueError."""
+        genome = {"clip_value": 2.0, "damping": 0.1}
+        with pytest.raises(ValueError, match="Duplicate genome_id"):
+            _prepare_genome_list(genomes=[genome, genome])
+
+    def test_invalid_dual_input_rejected(self):
+        """Providing both genome and genomes raises ValueError."""
+        with pytest.raises(ValueError, match="Cannot provide both"):
+            run_benchmark_stress(
+                n_vars=10, n_iters=8,
+                genome={"damping": 0.1},
+                genomes=[{"damping": 0.2}],
+            )
+
+    def test_determinism_of_sweep(self):
+        """Two identical sweep runs produce identical outputs."""
+        genomes = [
+            {"clip_value": 1.0},
+            {"clip_value": 5.0, "damping": 0.2},
+        ]
+        r1 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        r2 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+
+        # Strip timing
+        for suite in r1["results"]:
+            for s in suite["scenarios"]:
+                s.pop("timing", None)
+        for suite in r2["results"]:
+            for s in suite["scenarios"]:
+                s.pop("timing", None)
+
+        j1 = json.dumps(r1, sort_keys=True)
+        j2 = json.dumps(r2, sort_keys=True)
+        assert j1 == j2, "Sweep results are not deterministic"
+
+    def test_order_preserved(self):
+        """Input genome list order is preserved in results."""
+        g_a = {"clip_value": 1.0, "damping": 0.0}
+        g_b = {"clip_value": 5.0, "damping": 0.3}
+        g_c = {"alphabet": "ternary"}
+
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=[g_a, g_b, g_c])
+
+        canonical_a = normalize_decoder_genome(g_a)
+        canonical_b = normalize_decoder_genome(g_b)
+        canonical_c = normalize_decoder_genome(g_c)
+
+        id_a = fingerprint_decoder_genome(canonical_a)
+        id_b = fingerprint_decoder_genome(canonical_b)
+        id_c = fingerprint_decoder_genome(canonical_c)
+
+        assert result["results"][0]["scenarios"][0]["genome_id"] == id_a
+        assert result["results"][1]["scenarios"][0]["genome_id"] == id_b
+        assert result["results"][2]["scenarios"][0]["genome_id"] == id_c

@@ -16,6 +16,7 @@ import pytest
 
 from src.qec.experiments.benchmark_stress import (
     SCENARIOS,
+    _EXCLUDED_KEYS,
     _cosine_similarity,
     _derive_seed,
     _prepare_genome_list,
@@ -23,6 +24,7 @@ from src.qec.experiments.benchmark_stress import (
     _sign_agreement,
     apply_decoder_genome,
     build_experiment_table,
+    build_pairwise_comparison,
     classify_with_fallback,
     compute_dark_state_mask,
     compute_fidelity,
@@ -292,7 +294,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v69.1.1"
+        assert parsed["version"] == "v69.2.1"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)
@@ -834,3 +836,162 @@ class TestAggregationLayer:
         }
         with pytest.raises(ValueError, match="Metric key collision"):
             build_experiment_table(malformed)
+
+
+class TestPairwiseComparison:
+    """Tests for pairwise genome comparison (v69.2.0)."""
+
+    def test_pairwise_count(self):
+        """3 genomes × 9 scenarios → 3 pairs per scenario = 27 rows."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+            {"alphabet": "ternary", "damping": 0.1},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        comparisons = result["comparisons"]
+        n_scenarios = len(SCENARIOS)
+        n_pairs = 3  # C(3, 2)
+        assert len(comparisons) == n_scenarios * n_pairs
+
+    def test_single_genome_empty(self):
+        """Single genome produces no comparison pairs."""
+        result = run_benchmark_stress(n_vars=10, n_iters=8)
+        assert result["comparisons"] == []
+
+    def test_delta_correctness(self):
+        """Manually verify one metric delta is row_j[metric] - row_i[metric]."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        table = result["table"]
+        comparisons = result["comparisons"]
+
+        # First comparison should be for the first scenario
+        first_scenario = SCENARIOS[0][0]
+        # Find the two table rows for this scenario
+        scenario_rows = [r for r in table if r["scenario"] == first_scenario]
+        assert len(scenario_rows) == 2
+
+        # Find the matching comparison
+        comp = [c for c in comparisons if c["scenario"] == first_scenario]
+        assert len(comp) == 1
+        comp = comp[0]
+
+        assert comp["genome_a"] == scenario_rows[0]["genome_id"]
+        assert comp["genome_b"] == scenario_rows[1]["genome_id"]
+
+        # Check all numeric metric deltas using module-level _EXCLUDED_KEYS
+        for key in scenario_rows[0]:
+            if key in _EXCLUDED_KEYS:
+                continue
+            val_i = scenario_rows[0][key]
+            val_j = scenario_rows[1][key]
+            if isinstance(val_i, (int, float)) and isinstance(val_j, (int, float)):
+                expected_delta = val_j - val_i
+                assert comp[f"{key}_delta"] == pytest.approx(expected_delta), (
+                    f"Delta mismatch for {key}: got {comp[f'{key}_delta']}, "
+                    f"expected {expected_delta}"
+                )
+
+    def test_determinism(self):
+        """Repeated runs produce identical comparisons."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+        ]
+        r1 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        r2 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        j1 = json.dumps(r1["comparisons"], sort_keys=True)
+        j2 = json.dumps(r2["comparisons"], sort_keys=True)
+        assert j1 == j2, "Pairwise comparisons are not deterministic"
+
+    def test_order_preserved(self):
+        """Scenario and genome pair ordering is stable across comparisons."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+            {"alphabet": "ternary", "damping": 0.1},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        comparisons = result["comparisons"]
+
+        # Compute expected genome_ids in input order
+        canonical = [normalize_decoder_genome(g) for g in genomes]
+        gids = [fingerprint_decoder_genome(c) for c in canonical]
+
+        scenario_names = [name for name, _ in SCENARIOS]
+
+        # Expected pairs: (0,1), (0,2), (1,2) — i < j ordering
+        expected_pairs = [
+            (gids[0], gids[1]),
+            (gids[0], gids[2]),
+            (gids[1], gids[2]),
+        ]
+
+        # 3 pairs per scenario, in scenario order
+        idx = 0
+        for sc_name in scenario_names:
+            sc_comps = comparisons[idx:idx + 3]
+            assert len(sc_comps) == 3
+            for comp, (ga, gb) in zip(sc_comps, expected_pairs):
+                assert comp["scenario"] == sc_name
+                assert comp["genome_a"] == ga, (
+                    f"Expected genome_a={ga} for scenario={sc_name}, got {comp['genome_a']}"
+                )
+                assert comp["genome_b"] == gb, (
+                    f"Expected genome_b={gb} for scenario={sc_name}, got {comp['genome_b']}"
+                )
+            idx += 3
+
+    def test_non_numeric_fields_do_not_produce_delta_keys(self):
+        """Non-numeric fields (str, dict, None) must not appear as delta keys."""
+        synthetic_table = [
+            {
+                "genome_id": "aaa",
+                "scenario": "test_sc",
+                "version": "v1",
+                "base_seed_label": "test",
+                "n_vars": 10,
+                "n_iters_base": 8,
+                "metric_float": 1.5,
+                "metric_int": 3,
+                "metric_str": "hello",
+                "metric_dict": {"nested": True},
+                "metric_none": None,
+            },
+            {
+                "genome_id": "bbb",
+                "scenario": "test_sc",
+                "version": "v1",
+                "base_seed_label": "test",
+                "n_vars": 10,
+                "n_iters_base": 8,
+                "metric_float": 2.5,
+                "metric_int": 7,
+                "metric_str": "world",
+                "metric_dict": {"nested": False},
+                "metric_none": None,
+            },
+        ]
+        result = {"table": synthetic_table}
+        comps = build_pairwise_comparison(result)
+
+        assert len(comps) == 1
+        comp = comps[0]
+        # Numeric deltas present
+        assert "metric_float_delta" in comp
+        assert comp["metric_float_delta"] == pytest.approx(1.0)
+        assert "metric_int_delta" in comp
+        assert comp["metric_int_delta"] == 4
+        # Non-numeric fields must NOT produce delta keys
+        assert "metric_str_delta" not in comp
+        assert "metric_dict_delta" not in comp
+        assert "metric_none_delta" not in comp
+
+    def test_missing_table_raises(self):
+        """build_pairwise_comparison raises on missing table."""
+        with pytest.raises(ValueError, match="missing 'table'"):
+            build_pairwise_comparison({})

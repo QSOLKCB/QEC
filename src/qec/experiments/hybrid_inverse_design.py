@@ -15,7 +15,7 @@ Does not modify decoder internals.  Fully deterministic.  Read-only on inputs.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -40,31 +40,60 @@ _WORST_SCORE = -1e9  # Scores are higher-is-better; invalid gets worst
 # Step 1 — Target specification
 # ---------------------------------------------------------------------------
 
-def build_target_spec(target: str) -> Dict[str, Any]:
+_PARAMETRIC_DEFAULTS: Dict[str, Any] = {
+    "weight_class": 1.0,
+    "weight_phase": 0.2,
+    "weight_compatibility": 1.0,
+}
+
+
+def build_target_spec(target: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
     """Build a deterministic scoring specification for a target behavior.
 
     Parameters
     ----------
-    target : str
-        One of ``"stable"``, ``"fragile"``, ``"chaotic"``,
-        ``"boundary_rider"``.
+    target : str or dict
+        Either a string (``"stable"``, ``"fragile"``, ``"chaotic"``,
+        ``"boundary_rider"``) or a dict with at least ``desired_class``
+        and optional keys ``phase_preference``, ``min_stability``,
+        ``weight_class``, ``weight_phase``, ``weight_compatibility``.
 
     Returns
     -------
     dict
-        Scoring weights with keys: ``desired_class``,
-        ``phase_preference`` (optional), ``min_stability`` (optional).
+        Normalized scoring spec with all weight fields filled.
 
     Raises
     ------
     ValueError
-        If *target* is not a recognized behavior class.
+        If *target* is not a recognized behavior class or dict is invalid.
     """
-    if target not in _VALID_TARGETS:
+    if isinstance(target, str):
+        if target not in _VALID_TARGETS:
+            raise ValueError(
+                f"Unknown target {target!r}; valid: {sorted(_VALID_TARGETS)}"
+            )
+        base = dict(_TARGET_SPECS[target])
+        base.update(_PARAMETRIC_DEFAULTS)
+        return base
+
+    if not isinstance(target, dict):
         raise ValueError(
-            f"Unknown target {target!r}; valid: {sorted(_VALID_TARGETS)}"
+            f"target must be str or dict, got {type(target).__name__}"
         )
-    return _TARGET_SPECS[target]
+    desired = target.get("desired_class")
+    if desired is None or desired not in _VALID_TARGETS:
+        raise ValueError(
+            f"Invalid desired_class {desired!r}; valid: {sorted(_VALID_TARGETS)}"
+        )
+    # Build from canonical base then overlay user values
+    base = dict(_TARGET_SPECS[desired])
+    base.update(_PARAMETRIC_DEFAULTS)
+    for key in ("phase_preference", "min_stability",
+                "weight_class", "weight_phase", "weight_compatibility"):
+        if key in target:
+            base[key] = target[key]
+    return base
 
 
 _TARGET_SPECS: Dict[str, Dict[str, Any]] = {
@@ -158,6 +187,10 @@ def score_against_target(
             "normalized_score": 0.0,
         }
 
+    w_compat = target_spec.get("weight_compatibility", 1.0)
+    w_class = target_spec.get("weight_class", 1.0)
+    w_phase = target_spec.get("weight_phase", 0.2)
+
     base_score = pair_summary.get("compatibility", 0.0)
     class_bonus = 0.0
     phase_bonus = 0.0
@@ -174,19 +207,33 @@ def score_against_target(
     phase_pref = target_spec.get("phase_preference")
     if phase_pref is not None:
         if pair_summary.get("theta_phase") == phase_pref:
-            phase_bonus += 0.2
+            phase_bonus += 1.0
         if pair_summary.get("sequence_phase") == phase_pref:
-            phase_bonus += 0.2
+            phase_bonus += 1.0
 
-    total = base_score + class_bonus + phase_bonus
-    max_possible = 1.0 + 2.0 + 0.4  # compatibility + 2*class + 2*phase
+    weighted_base = w_compat * base_score
+    weighted_class = w_class * class_bonus
+    weighted_phase = w_phase * phase_bonus
+
+    total = weighted_base + weighted_class + weighted_phase
+
+    # min_stability constraint
+    min_stab = target_spec.get("min_stability")
+    if min_stab is not None:
+        stability = pair_summary.get("stability")
+        if stability is not None and stability < min_stab:
+            total = 0.0
+
+    max_possible = (w_compat * 1.0
+                    + w_class * 2.0
+                    + w_phase * 2.0)
     normalized = total / max_possible if max_possible > 0 else 0.0
 
     return {
         "score": total,
-        "base_score": base_score,
-        "class_bonus": class_bonus,
-        "phase_bonus": phase_bonus,
+        "base_score": weighted_base,
+        "class_bonus": weighted_class,
+        "phase_bonus": weighted_phase,
         "normalized_score": normalized,
     }
 
@@ -196,7 +243,7 @@ def score_against_target(
 # ---------------------------------------------------------------------------
 
 def run_hybrid_inverse_design(
-    target: str,
+    target: Union[str, Dict[str, Any]],
     theta_grid: List[List[float]],
     sequences: List[Any],
     *,
@@ -212,8 +259,8 @@ def run_hybrid_inverse_design(
 
     Parameters
     ----------
-    target : str
-        Target behavior class.
+    target : str or dict
+        Target behavior class (string) or parametric target spec (dict).
     theta_grid : list[list[float]]
         UFF parameter vectors.
     sequences : list
@@ -228,8 +275,8 @@ def run_hybrid_inverse_design(
     Returns
     -------
     dict
-        Result with keys: ``target``, ``n_candidates``, ``top_k``,
-        ``best_pair``, ``score_distribution``.
+        Result with keys: ``target``, ``target_spec``, ``n_candidates``,
+        ``top_k``, ``best_pair``, ``score_distribution``.
 
     Raises
     ------
@@ -237,19 +284,19 @@ def run_hybrid_inverse_design(
         If *target* is not a recognized behavior class or
         *pipeline_fn* is not provided.
     """
-    if target not in _VALID_TARGETS:
-        raise ValueError(
-            f"Unknown target {target!r}; valid: {sorted(_VALID_TARGETS)}"
-        )
+    # build_target_spec validates for both str and dict targets
+    target_spec = build_target_spec(target)
+
     if pipeline_fn is None:
         raise ValueError("pipeline_fn is required")
-
-    target_spec = build_target_spec(target)
     candidates = generate_hybrid_candidates(theta_grid, sequences)
+
+    target_label = target if isinstance(target, str) else target_spec["desired_class"]
 
     if not candidates:
         return {
-            "target": target,
+            "target": target_label,
+            "target_spec": target_spec,
             "n_candidates": 0,
             "top_k": [],
             "best_pair": {},
@@ -335,7 +382,8 @@ def run_hybrid_inverse_design(
     top_results = scored_entries[:top_k]
 
     return {
-        "target": target,
+        "target": target_label,
+        "target_spec": target_spec,
         "n_candidates": len(candidates),
         "top_k": top_results,
         "best_pair": top_results[0] if top_results else {},

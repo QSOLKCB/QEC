@@ -585,3 +585,162 @@ class TestTieBreakAndScoreGeometry:
         pair = {"alignment": "invalid", "compatibility": 0.0}
         result = score_against_target(pair, spec)
         assert result["normalized_score"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Tests — Parametric Target Specification (v83.0.0)
+# ---------------------------------------------------------------------------
+
+
+class TestParametricTargetSpec:
+    """Tests for parametric (dict) target specifications."""
+
+    def test_dict_target_same_as_string(self):
+        """Dict target with only desired_class matches string target."""
+        str_spec = build_target_spec("stable")
+        dict_spec = build_target_spec({"desired_class": "stable"})
+        assert str_spec == dict_spec
+
+    def test_dict_target_custom_weights(self):
+        """Dict target with custom weights fills defaults for missing keys."""
+        spec = build_target_spec({
+            "desired_class": "fragile",
+            "weight_class": 2.0,
+        })
+        assert spec["desired_class"] == "fragile"
+        assert spec["weight_class"] == 2.0
+        assert spec["weight_phase"] == 0.2  # default
+        assert spec["weight_compatibility"] == 1.0  # default
+        assert spec["phase_preference"] == "near_boundary"  # from base
+
+    def test_weight_scaling_affects_score(self):
+        """Changing weight_class scales class bonus deterministically."""
+        pair = {
+            "alignment": "aligned",
+            "compatibility": 0.5,
+            "theta_class": "stable",
+            "sequence_class": "stable",
+            "theta_phase": "unknown",
+            "sequence_phase": "unknown",
+        }
+        default_spec = build_target_spec("stable")
+        heavy_spec = build_target_spec({
+            "desired_class": "stable",
+            "weight_class": 3.0,
+        })
+        default_result = score_against_target(pair, default_spec)
+        heavy_result = score_against_target(pair, heavy_spec)
+        # Higher weight_class → higher score when class matches
+        assert heavy_result["score"] > default_result["score"]
+
+    def test_min_stability_filters(self):
+        """Pairs below min_stability get score zeroed."""
+        spec = build_target_spec({
+            "desired_class": "stable",
+            "min_stability": 0.8,
+        })
+        pair = {
+            "alignment": "aligned",
+            "compatibility": 0.9,
+            "theta_class": "stable",
+            "sequence_class": "stable",
+            "theta_phase": "stable_region",
+            "sequence_phase": "stable_region",
+            "stability": 0.5,  # below threshold
+        }
+        result = score_against_target(pair, spec)
+        assert result["score"] == 0.0
+
+    def test_min_stability_passes(self):
+        """Pairs at or above min_stability score normally."""
+        spec = build_target_spec({
+            "desired_class": "stable",
+            "min_stability": 0.8,
+        })
+        pair = {
+            "alignment": "aligned",
+            "compatibility": 0.9,
+            "theta_class": "stable",
+            "sequence_class": "stable",
+            "theta_phase": "stable_region",
+            "sequence_phase": "stable_region",
+            "stability": 0.9,
+        }
+        result = score_against_target(pair, spec)
+        assert result["score"] > 0.0
+
+    def test_missing_fields_auto_filled(self):
+        """Dict with only desired_class gets all defaults filled."""
+        spec = build_target_spec({"desired_class": "chaotic"})
+        assert "weight_class" in spec
+        assert "weight_phase" in spec
+        assert "weight_compatibility" in spec
+        assert "phase_preference" in spec
+        assert spec["phase_preference"] == "chaotic_transition"
+
+    def test_invalid_dict_target_raises(self):
+        """Dict without valid desired_class raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid desired_class"):
+            build_target_spec({"desired_class": "nonexistent"})
+
+    def test_invalid_type_raises(self):
+        """Non-str, non-dict target raises ValueError."""
+        with pytest.raises(ValueError, match="target must be str or dict"):
+            build_target_spec(42)
+
+    def test_no_mutation_of_input_dict(self):
+        """build_target_spec does not mutate the input dict."""
+        target = {"desired_class": "stable", "weight_class": 2.0}
+        target_copy = dict(target)
+        build_target_spec(target)
+        assert target == target_copy
+
+    def test_determinism_parametric(self):
+        """Parametric spec scoring is deterministic."""
+        spec = build_target_spec({
+            "desired_class": "stable",
+            "weight_class": 1.5,
+            "weight_phase": 0.5,
+            "min_stability": 0.3,
+        })
+        pair = {
+            "alignment": "aligned",
+            "compatibility": 0.7,
+            "theta_class": "stable",
+            "sequence_class": "fragile",
+            "theta_phase": "stable_region",
+            "sequence_phase": "unknown",
+            "stability": 0.8,
+        }
+        r1 = score_against_target(pair, spec)
+        r2 = score_against_target(pair, spec)
+        assert r1 == r2
+
+
+class TestTargetSpecEcho:
+    """Tests for target_spec echo in engine output."""
+
+    @pytest.fixture()
+    def _patch_uff(self, monkeypatch):
+        monkeypatch.setattr(
+            "qec.experiments.uff_bridge.run_uff_experiment", _fake_uff,
+        )
+
+    def test_string_target_echoes_spec(self, _patch_uff):
+        """String target run includes target_spec in output."""
+        result = run_hybrid_inverse_design(
+            "stable", [[1.0, 2.0, 0.5]], [0], pipeline_fn=_fake_pipeline,
+        )
+        assert "target_spec" in result
+        assert result["target_spec"]["desired_class"] == "stable"
+        assert "weight_class" in result["target_spec"]
+
+    def test_dict_target_echoes_spec(self, _patch_uff):
+        """Dict target run includes target_spec in output."""
+        target = {"desired_class": "fragile", "weight_class": 2.0}
+        result = run_hybrid_inverse_design(
+            target, [[1.0, 2.0, 0.5]], [0], pipeline_fn=_fake_pipeline,
+        )
+        assert result["target_spec"]["desired_class"] == "fragile"
+        assert result["target_spec"]["weight_class"] == 2.0
+        assert result["target"] == "fragile"

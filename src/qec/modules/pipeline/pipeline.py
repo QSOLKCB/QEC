@@ -66,6 +66,8 @@ def build_full_pipeline(
     validate_suites(mode, suites)
 
     # --- assemble result (non-mutating) ---
+    # Shallow copy is sufficient: pipeline stages read nested data
+    # but never mutate it.  See stage docstrings for contracts.
     if mode == "single":
         result = {**suites[0], "mode": "single"}
     else:

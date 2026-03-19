@@ -203,38 +203,52 @@ SCENARIOS = [
 # ── Dark-state detection ─────────────────────────────────────────────────
 
 
-_DARK_EPSILON: float = 1e-6
+_DARK_EPS: float = 1e-6
 
 
-def compute_dark_state_mask(llr_trace: List[np.ndarray]) -> List[np.ndarray]:
+def compute_dark_state_mask(
+    llr_trace: List[np.ndarray],
+    eps: float = _DARK_EPS,
+) -> List[np.ndarray]:
     """Compute per-timestep boolean masks of dark-stable nodes.
 
     A node *i* at iteration *t* is dark-stable iff:
       - sign(v_i^t) == sign(v_i^{t-1})
-      - abs(v_i^t - v_i^{t-1}) < epsilon
+      - abs(v_i^t - v_i^{t-1}) < eps
 
     Parameters
     ----------
     llr_trace : list[np.ndarray]
         LLR vectors per BP iteration (float64).
+    eps : float
+        Absolute tolerance for magnitude stability (default 1e-6).
 
     Returns
     -------
     list[np.ndarray]
         Boolean masks (same length / shapes as *llr_trace*).
-        First timestep is all-False.
+        First timestep (t=0) is all-False — no previous state exists.
     """
     if len(llr_trace) == 0:
         return []
 
+    # Fail fast on shape mismatch
+    ref_shape = llr_trace[0].shape
+    for idx, arr in enumerate(llr_trace):
+        assert arr.shape == ref_shape, (
+            f"llr_trace shape mismatch at index {idx}: "
+            f"expected {ref_shape}, got {arr.shape}"
+        )
+
+    # t=0: no previous state → all False
     masks: List[np.ndarray] = [
-        np.zeros(llr_trace[0].shape, dtype=np.bool_)
+        np.zeros(ref_shape, dtype=np.bool_)
     ]
     for t in range(1, len(llr_trace)):
         prev = np.asarray(llr_trace[t - 1], dtype=np.float64)
         curr = np.asarray(llr_trace[t], dtype=np.float64)
         same_sign = np.sign(prev) == np.sign(curr)
-        small_delta = np.abs(curr - prev) < _DARK_EPSILON
+        small_delta = np.abs(curr - prev) < eps
         masks.append(same_sign & small_delta)
     return masks
 

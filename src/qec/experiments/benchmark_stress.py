@@ -3,13 +3,14 @@
 Generates 9 synthetic scenarios, runs them through the diagnostics pipeline,
 and produces deterministic JSON-serializable results with fidelity metrics.
 
-Version: v69.1.1
+Version: v69.2.1
 """
 
 import hashlib
 import json
 import struct
 import time
+from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -616,7 +617,7 @@ def _run_single_genome_suite(
         result["seed"] = seed
         results.append(result)
     return {
-        "version": "v69.1.1",
+        "version": "v69.2.1",
         "base_seed_label": base_seed_label,
         "n_vars": n_vars,
         "n_iters_base": n_iters,
@@ -628,7 +629,7 @@ def _run_single_genome_suite(
 def run_benchmark_stress(
     n_vars: int = 50,
     n_iters: int = 30,
-    base_seed_label: str = "benchmark_stress_v69.1.1",
+    base_seed_label: str = "benchmark_stress_v69.2.1",
     genome: Optional[dict] = None,
     genomes: Optional[List[dict]] = None,
 ) -> dict:
@@ -687,6 +688,13 @@ def run_benchmark_stress(
 
 # ── Aggregation layer ────────────────────────────────────────────────────
 
+# Keys excluded from pairwise delta computation — single source of truth
+# shared by build_experiment_table (as reserved keys) and build_pairwise_comparison.
+_EXCLUDED_KEYS = frozenset({
+    "genome_id", "scenario", "version", "base_seed_label",
+    "n_vars", "n_iters_base",
+})
+
 
 def build_experiment_table(result: dict) -> list:
     """Convert benchmark result (single or sweep) into a flat list of row dicts.
@@ -720,11 +728,6 @@ def build_experiment_table(result: dict) -> list:
     else:
         suites = [result]
 
-    _RESERVED_KEYS = {
-        "genome_id", "scenario", "version", "base_seed_label",
-        "n_vars", "n_iters_base",
-    }
-
     rows: list = []
     for suite in suites:
         if "scenarios" not in suite or not isinstance(suite["scenarios"], list):
@@ -747,7 +750,7 @@ def build_experiment_table(result: dict) -> list:
             # Flatten metrics dict with collision guard
             metrics = scenario.get("metrics", {})
             if metrics:
-                overlap = _RESERVED_KEYS & metrics.keys()
+                overlap = _EXCLUDED_KEYS & metrics.keys()
                 if overlap:
                     raise ValueError(
                         f"Metric key collision with reserved keys: {sorted(overlap)}"
@@ -786,22 +789,15 @@ def build_pairwise_comparison(result: dict) -> list:
 
     table = result["table"]
 
-    # Non-metric keys excluded from delta computation
-    _EXCLUDED_KEYS = {
-        "genome_id", "scenario", "version", "base_seed_label",
-        "n_vars", "n_iters_base",
-    }
-
     # Group rows by scenario, preserving insertion order
-    scenario_groups: dict = {}
+    scenario_groups: dict = defaultdict(list)
     for row in table:
-        sc = row["scenario"]
-        if sc not in scenario_groups:
-            scenario_groups[sc] = []
-        scenario_groups[sc].append(row)
+        scenario_groups[row["scenario"]].append(row)
 
     comparisons: list = []
     for scenario, rows in scenario_groups.items():
+        if len(rows) < 2:
+            continue
         for i in range(len(rows)):
             for j in range(i + 1, len(rows)):
                 row_i = rows[i]

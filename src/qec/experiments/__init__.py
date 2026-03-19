@@ -73,3 +73,4 @@ from .sequence_landscape import (
     run_sequence_landscape,
     classify_sequence,
 )
+from .hybrid_target_sweep import run_target_sweep

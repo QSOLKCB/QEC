@@ -34,7 +34,10 @@ class TestExtractFeatures:
     def test_returns_all_keys(self) -> None:
         v = _default_v_circ(_R, _THETA)
         features = extract_features(_R, v)
-        assert set(features.keys()) == {"energy", "spread", "zcr", "centroid"}
+        assert set(features.keys()) == {
+            "energy", "spread", "zcr", "centroid",
+            "gradient_energy", "curvature",
+        }
 
     def test_finite_outputs(self) -> None:
         v = _default_v_circ(_R, _THETA)
@@ -52,6 +55,33 @@ class TestExtractFeatures:
         f1 = extract_features(_R, v)
         f2 = extract_features(_R, v)
         assert f1 == f2
+
+    def test_gradient_energy_present(self) -> None:
+        v = _default_v_circ(_R, _THETA)
+        features = extract_features(_R, v)
+        assert "gradient_energy" in features
+
+    def test_curvature_present(self) -> None:
+        v = _default_v_circ(_R, _THETA)
+        features = extract_features(_R, v)
+        assert "curvature" in features
+
+    def test_gradient_energy_finite(self) -> None:
+        v = _default_v_circ(_R, _THETA)
+        features = extract_features(_R, v)
+        assert np.isfinite(features["gradient_energy"])
+
+    def test_curvature_finite(self) -> None:
+        v = _default_v_circ(_R, _THETA)
+        features = extract_features(_R, v)
+        assert np.isfinite(features["curvature"])
+
+    def test_gradient_curvature_deterministic(self) -> None:
+        v = _default_v_circ(_R, _THETA)
+        f1 = extract_features(_R, v)
+        f2 = extract_features(_R, v)
+        assert f1["gradient_energy"] == f2["gradient_energy"]
+        assert f1["curvature"] == f2["curvature"]
 
     def test_no_input_mutation(self) -> None:
         v = _default_v_circ(_R, _THETA)

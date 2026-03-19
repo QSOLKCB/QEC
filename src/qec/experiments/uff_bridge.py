@@ -63,7 +63,8 @@ def extract_features(R: np.ndarray, v: np.ndarray) -> Dict[str, float]:
     Returns
     -------
     dict
-        ``energy``, ``spread``, ``zcr``, ``centroid``.
+        ``energy``, ``spread``, ``zcr``, ``centroid``,
+        ``gradient_energy``, ``curvature``.
     """
     energy = float(np.mean(v))
     spread = float(np.var(v))
@@ -73,11 +74,17 @@ def extract_features(R: np.ndarray, v: np.ndarray) -> Dict[str, float]:
     v_abs = np.abs(v)
     v_sum = float(np.sum(v_abs))
     centroid = float(np.sum(R * v_abs) / v_sum) if v_sum > 0.0 else 0.0
+    grad = np.gradient(v, R)
+    grad2 = np.gradient(grad, R)
+    gradient_energy = float(np.mean(np.abs(grad)))
+    curvature = float(np.mean(np.abs(grad2)))
     return {
         "energy": energy,
         "spread": spread,
         "zcr": zcr,
         "centroid": centroid,
+        "gradient_energy": gradient_energy,
+        "curvature": curvature,
     }
 
 

@@ -26,11 +26,11 @@ import numpy as np
 # Ensure project root is on path.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.qec_qldpc_codes import bp_decode, syndrome, create_code
-from src.qec.channel.bsc_syndrome import BSCSyndromeChannel
-from src.qec.diagnostics.bp_dynamics import compute_bp_dynamics_metrics
-from src.qec.diagnostics.bp_regime_trace import compute_bp_regime_trace
-from src.qec.diagnostics.bp_freeze_detection import compute_bp_freeze_detection
+from qec_qldpc_codes import bp_decode, syndrome, create_code
+from qec.channel.bsc_syndrome import BSCSyndromeChannel
+from qec.diagnostics.bp_dynamics import compute_bp_dynamics_metrics
+from qec.diagnostics.bp_regime_trace import compute_bp_regime_trace
+from qec.diagnostics.bp_freeze_detection import compute_bp_freeze_detection
 
 # BSC syndrome-only channel: uniform LLR, no sign leakage.
 _BSC_SYNDROME = BSCSyndromeChannel()

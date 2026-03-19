@@ -24,7 +24,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.spectral_nb import (
+from qec.diagnostics.spectral_nb import (
     SPECTRAL_SCHEMA_VERSION,
     _TannerGraph,
     _compute_eeec,
@@ -32,11 +32,11 @@ from src.qec.diagnostics.spectral_nb import (
     compute_edge_sensitivity_ranking,
     compute_nb_spectrum,
 )
-from src.qec.diagnostics._spectral_utils import (
+from qec.diagnostics._spectral_utils import (
     build_directed_edges,
     compute_ipr,
 )
-from src.qec.experiments.spectral_validation import (
+from qec.experiments.spectral_validation import (
     run_spectral_validation_experiment,
     serialize_artifact,
 )

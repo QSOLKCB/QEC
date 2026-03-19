@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.eigenmode_mutation import build_bethe_hessian
-from src.qec.analysis.spectral_frustration import (
+from qec.analysis.eigenmode_mutation import build_bethe_hessian
+from qec.analysis.spectral_frustration import (
     SpectralFrustrationAnalyzer,
     SpectralFrustrationConfig,
     count_negative_modes,
 )
-from src.qec.discovery.spectral_descent_loop import spectral_descent
+from qec.discovery.spectral_descent_loop import spectral_descent
 
 
 def _base_graph() -> np.ndarray:

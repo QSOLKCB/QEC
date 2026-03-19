@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.eigenmode_mutation import build_bethe_hessian
-from src.qec.analysis.spectral_energy import compute_bethe_hessian_spectrum
+from qec.analysis.eigenmode_mutation import build_bethe_hessian
+from qec.analysis.spectral_energy import compute_bethe_hessian_spectrum
 
 
 def test_spectral_energy_matches_dense_reference() -> None:

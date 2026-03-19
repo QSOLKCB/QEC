@@ -9,7 +9,7 @@ only for residual / hybrid_residual schedules.
 import numpy as np
 import pytest
 
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
 
 
 @pytest.fixture

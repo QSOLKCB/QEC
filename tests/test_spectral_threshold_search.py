@@ -4,13 +4,13 @@ import json
 
 import numpy as np
 
-from src.qec.discovery.threshold_search import (
+from qec.discovery.threshold_search import (
     BPThresholdEstimator,
     PhaseDiagramOrchestrator,
     SpectralSearchConfig,
     run_spectral_threshold_search,
 )
-from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
+from qec.generation.deterministic_construction import construct_deterministic_tanner_graph
 
 
 def _small_graph() -> np.ndarray:
@@ -44,7 +44,7 @@ def test_mutation_integration_uses_nbgradient(tmp_path, monkeypatch):
     H0 = _small_graph()
     calls = {"count": 0}
 
-    from src.qec.discovery import threshold_search as mod
+    from qec.discovery import threshold_search as mod
 
     def _spy_mutate(self, H, steps=1):
         calls["count"] += 1

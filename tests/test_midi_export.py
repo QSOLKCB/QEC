@@ -4,7 +4,7 @@ Tests for MIDI export module.
 
 import pytest
 import numpy as np
-from src.midi_export import MIDIConverter
+from midi_export import MIDIConverter
 
 
 def test_midi_converter_initialization():

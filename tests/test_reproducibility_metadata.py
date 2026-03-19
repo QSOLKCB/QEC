@@ -20,9 +20,9 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.utils.reproducibility import collect_environment_metadata
-from src.qec.experiments.discovery_run import run_discovery_experiment
-from src.qec.experiments.discovery_benchmark import run_discovery_benchmark
+from qec.utils.reproducibility import collect_environment_metadata
+from qec.experiments.discovery_run import run_discovery_experiment
+from qec.experiments.discovery_benchmark import run_discovery_benchmark
 
 
 _REQUIRED_METADATA_FIELDS = [

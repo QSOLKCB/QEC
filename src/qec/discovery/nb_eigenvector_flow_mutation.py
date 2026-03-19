@@ -6,10 +6,10 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.spectral_trapping_sets import detect_localization_cluster, repair_trapping_set
-from src.qec.spectral.nb_spectrum import compute_nb_spectral_gap
-from src.qec.discovery.mutation_context import MutationContext
-from src.qec.discovery.mutation_operator import MutationOperator
+from qec.analysis.spectral_trapping_sets import detect_localization_cluster, repair_trapping_set
+from qec.spectral.nb_spectrum import compute_nb_spectral_gap
+from qec.discovery.mutation_context import MutationContext
+from qec.discovery.mutation_operator import MutationOperator
 
 _ROUND = 12
 

@@ -6,7 +6,7 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
+from qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
 
 
 def save_landscape(memory: SpectralLandscapeMemory, path: str) -> None:

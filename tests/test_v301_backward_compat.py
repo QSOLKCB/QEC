@@ -15,9 +15,9 @@ import sys
 
 import pytest
 
-from src.bench.config import BenchmarkConfig, DecoderSpec
-from src.bench.runner import run_benchmark
-from src.bench.schema import (
+from bench.config import BenchmarkConfig, DecoderSpec
+from bench.runner import run_benchmark
+from bench.schema import (
     SCHEMA_VERSION,
     _SUPPORTED_SCHEMA_VERSIONS,
     canonicalize,

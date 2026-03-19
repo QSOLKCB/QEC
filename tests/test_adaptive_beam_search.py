@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.analysis.basin_depth import BasinDepthConfig, compute_basin_depth
-from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
-from src.qec.discovery.spectral_beam_search import adaptive_beam_width, select_beam_candidates
+from qec.analysis.basin_depth import BasinDepthConfig, compute_basin_depth
+from qec.discovery.mutation_nb_gradient import NBGradientMutator
+from qec.discovery.spectral_beam_search import adaptive_beam_width, select_beam_candidates
 
 
 def test_basin_depth_is_deterministic() -> None:

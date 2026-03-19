@@ -12,7 +12,7 @@ Covers:
 import numpy as np
 import pytest
 
-from src.qec.decoder.stability_probe import BPStabilityProbe, estimate_bp_instability
+from qec.decoder.stability_probe import BPStabilityProbe, estimate_bp_instability
 
 
 def _make_small_ldpc():

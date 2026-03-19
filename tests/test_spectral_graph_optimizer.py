@@ -24,7 +24,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.experiments.spectral_graph_optimizer import (
+from qec.experiments.spectral_graph_optimizer import (
     _compute_graph_instability_score,
     _compute_spectral_edge_gradient,
     _generate_guided_repair_candidates,
@@ -287,14 +287,14 @@ class TestDecoderSafety:
     """Optimizer module does NOT import src/qec/decoder/."""
 
     def test_no_decoder_import(self):
-        import src.qec.experiments.spectral_graph_optimizer as mod
+        import qec.experiments.spectral_graph_optimizer as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
-        assert "from src.qec_qldpc_codes" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source
+        assert "from qec_qldpc_codes" not in source
 
     def test_no_bp_decode_import(self):
-        import src.qec.experiments.spectral_graph_optimizer as mod
+        import qec.experiments.spectral_graph_optimizer as mod
         source = open(mod.__file__).read()
         assert "import bp_decode" not in source
 
@@ -385,7 +385,7 @@ class TestCandidateGeneration:
         candidates = _generate_guided_repair_candidates(
             H, gradient, max_candidates=10,
         )
-        from src.qec.experiments.tanner_graph_repair import (
+        from qec.experiments.tanner_graph_repair import (
             _extract_edges, _apply_swap,
         )
         edges = _extract_edges(H)
@@ -399,7 +399,7 @@ class TestCandidateGeneration:
         candidates = _generate_guided_repair_candidates(
             H, gradient, max_candidates=10,
         )
-        from src.qec.experiments.tanner_graph_repair import (
+        from qec.experiments.tanner_graph_repair import (
             _extract_edges, _apply_swap,
         )
         edges = _extract_edges(H)

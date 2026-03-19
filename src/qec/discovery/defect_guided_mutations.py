@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.api import SpectralDefect
+from qec.analysis.api import SpectralDefect
 
 
 

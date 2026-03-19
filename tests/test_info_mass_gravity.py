@@ -8,7 +8,7 @@ import numpy as np
 pytest.importorskip("qutip")
 
 from qutip import basis, bell_state, tensor, Qobj
-from src.info_mass_gravity import InfoMassGravity
+from info_mass_gravity import InfoMassGravity
 
 
 def test_initialization():

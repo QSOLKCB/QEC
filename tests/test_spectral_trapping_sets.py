@@ -13,7 +13,7 @@ import json
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.spectral_trapping_sets import (
+from qec.diagnostics.spectral_trapping_sets import (
     compute_spectral_trapping_sets,
 )
 

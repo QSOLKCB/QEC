@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.qec.analysis.spectral_geometry import spectral_distance
+from qec.analysis.spectral_geometry import spectral_distance
 
 
 class BasinSwitchDetector:

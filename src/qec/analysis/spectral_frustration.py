@@ -8,8 +8,8 @@ import numpy as np
 import scipy.linalg
 import scipy.sparse
 
-from src.qec.analysis.bethe_hessian_utils import BetheHessianCache, build_bethe_hessian as build_bh_cached
-from src.qec.analysis.eigenmode_mutation import build_bethe_hessian as build_tanner_bethe_hessian
+from qec.analysis.bethe_hessian_utils import BetheHessianCache, build_bethe_hessian as build_bh_cached
+from qec.analysis.eigenmode_mutation import build_bethe_hessian as build_tanner_bethe_hessian
 
 _ROUND = 12
 

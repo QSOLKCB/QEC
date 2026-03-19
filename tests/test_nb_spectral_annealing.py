@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.mutation_interface import NBEigenvectorFlowMutation
-from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
+from qec.discovery.mutation_interface import NBEigenvectorFlowMutation
+from qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
 
 
 def test_single_mode_path_remains_deterministic() -> None:
@@ -35,17 +35,17 @@ import json
 
 import numpy as np
 
-from src.qec.discovery.nb_eigenvector_flow_mutation import (
+from qec.discovery.nb_eigenvector_flow_mutation import (
     nb_flow_mutation,
     spectral_annealing_strength,
 )
-from src.qec.discovery.threshold_search import (
+from qec.discovery.threshold_search import (
     PhaseDiagramOrchestrator,
     SpectralSearchConfig,
     run_spectral_threshold_search,
 )
-from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
-from src.qec.spectral.nb_spectrum import compute_nb_spectral_gap
+from qec.generation.deterministic_construction import construct_deterministic_tanner_graph
+from qec.spectral.nb_spectrum import compute_nb_spectral_gap
 
 
 def _graph() -> np.ndarray:

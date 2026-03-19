@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_mutation_memory import SpectralMutationMemory
-from src.qec.discovery.mutation_interface import NBEigenvectorFlowMutation
-from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
+from qec.analysis.spectral_mutation_memory import SpectralMutationMemory
+from qec.discovery.mutation_interface import NBEigenvectorFlowMutation
+from qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
 
 
 def test_multi_mode_operator_uses_memory_weights() -> None:
@@ -46,10 +46,10 @@ import json
 
 import numpy as np
 
-from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator, compute_multi_mode_flow
-from src.qec.discovery.threshold_search import PhaseDiagramOrchestrator, SpectralSearchConfig, run_spectral_threshold_search
-from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
-from src.qec.spectral.nb_spectrum import select_unstable_nb_modes
+from qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator, compute_multi_mode_flow
+from qec.discovery.threshold_search import PhaseDiagramOrchestrator, SpectralSearchConfig, run_spectral_threshold_search
+from qec.generation.deterministic_construction import construct_deterministic_tanner_graph
+from qec.spectral.nb_spectrum import select_unstable_nb_modes
 
 
 def _graph() -> np.ndarray:

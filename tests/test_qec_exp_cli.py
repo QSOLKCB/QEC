@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from src.qec.experiments.experiment_hash import ExperimentHash
+from qec.experiments.experiment_hash import ExperimentHash
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 

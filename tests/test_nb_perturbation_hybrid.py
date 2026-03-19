@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.mutation_nb_eigenmode import NBEigenmodeMutation
+from qec.discovery.mutation_nb_eigenmode import NBEigenmodeMutation
 
 
 def _H() -> np.ndarray:

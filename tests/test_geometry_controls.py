@@ -13,9 +13,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
-from src.qec.decoder.rpc import RPCConfig, StructuralConfig
-from src.qec.channel.geometry import (
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec.decoder.rpc import RPCConfig, StructuralConfig
+from qec.channel.geometry import (
     centered_syndrome_field,
     syndrome_field,
     pseudo_prior_bias,

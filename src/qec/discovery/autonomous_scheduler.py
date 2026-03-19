@@ -6,9 +6,9 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.information_gain import rank_candidates_by_information_gain
-from src.qec.analysis.landscape_gaps import detect_landscape_gaps
-from src.qec.discovery.experiment_targets import choose_experiment_target
+from qec.analysis.information_gain import rank_candidates_by_information_gain
+from qec.analysis.landscape_gaps import detect_landscape_gaps
+from qec.discovery.experiment_targets import choose_experiment_target
 
 
 def schedule_next_experiment(

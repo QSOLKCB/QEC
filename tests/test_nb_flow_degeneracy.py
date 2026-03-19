@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.nb_flow_mutation import NBFlowMutationConfig, NonBacktrackingFlowMutator
+from qec.discovery.nb_flow_mutation import NBFlowMutationConfig, NonBacktrackingFlowMutator
 
 
 def _matrix() -> np.ndarray:

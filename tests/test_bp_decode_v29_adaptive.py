@@ -11,7 +11,7 @@ schedule="adaptive" implements a one-way checkpointed controller:
 import numpy as np
 import pytest
 
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
 
 
 # ── Fixtures ──

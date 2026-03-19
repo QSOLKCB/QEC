@@ -5,9 +5,9 @@ Tests for GF(2) utilities, OSD-0, OSD-1, and OSD-CS post-processing.
 import pytest
 import numpy as np
 
-from src.decoder.gf2 import gf2_row_echelon, binary_rank_dense
-from src.decoder.osd import osd0, osd1, osd_cs, _candidate_key
-from src.qec_qldpc_codes import (
+from decoder.gf2 import gf2_row_echelon, binary_rank_dense
+from decoder.osd import osd0, osd1, osd_cs, _candidate_key
+from qec_qldpc_codes import (
     bp_decode,
     syndrome,
     channel_llr,

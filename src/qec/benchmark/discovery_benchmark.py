@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.decoder.bp_decoder_reference import bp_decode
+from qec.decoder.bp_decoder_reference import bp_decode
 
 
 def _derive_seed(base_seed: int, label: str) -> int:

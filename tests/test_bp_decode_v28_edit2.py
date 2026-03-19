@@ -5,7 +5,7 @@ Tests for v2.8.0 Edit 2: improved_norm and improved_offset check-node modes.
 import numpy as np
 import pytest
 
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
 
 
 @pytest.fixture

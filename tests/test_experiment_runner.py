@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.qec.experiments.experiment_metadata import ExperimentMetadata, git_commit
-from src.qec.experiments.experiment_runner import ExperimentRunner
+from qec.experiments.experiment_metadata import ExperimentMetadata, git_commit
+from qec.experiments.experiment_runner import ExperimentRunner
 
 
 _REQUIRED_FIELDS = {

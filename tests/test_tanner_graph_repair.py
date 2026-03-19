@@ -25,7 +25,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.experiments.tanner_graph_repair import (
+from qec.experiments.tanner_graph_repair import (
     run_tanner_graph_repair_experiment,
     repair_score,
     _extract_edges,
@@ -544,11 +544,11 @@ class TestNoDecoderImport:
 
     def test_no_decoder_import(self):
         """Module does not import any decoder code."""
-        import src.qec.experiments.tanner_graph_repair as mod
+        import qec.experiments.tanner_graph_repair as mod
         source = open(mod.__file__).read()
         assert "import bp_decode" not in source
-        assert "from src.qec.decoder" not in source
-        assert "from src.qec_qldpc_codes" not in source
+        assert "from qec.decoder" not in source
+        assert "from qec_qldpc_codes" not in source
 
 
 class TestEndToEndWithV64:
@@ -556,16 +556,16 @@ class TestEndToEndWithV64:
 
     def test_full_pipeline(self):
         """Full pipeline: risk scoring → graph repair experiment."""
-        from src.qec.diagnostics.nb_localization import (
+        from qec.diagnostics.nb_localization import (
             compute_nb_localization_metrics,
         )
-        from src.qec.diagnostics.nb_trapping_candidates import (
+        from qec.diagnostics.nb_trapping_candidates import (
             compute_nb_trapping_candidates,
         )
-        from src.qec.diagnostics.spectral_bp_alignment import (
+        from qec.diagnostics.spectral_bp_alignment import (
             compute_spectral_bp_alignment,
         )
-        from src.qec.diagnostics.spectral_failure_risk import (
+        from qec.diagnostics.spectral_failure_risk import (
             compute_spectral_failure_risk,
         )
 

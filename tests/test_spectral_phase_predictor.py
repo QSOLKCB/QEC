@@ -4,8 +4,8 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.spectral_phase_predictor import SpectralPhasePredictor, spectral_feature_vector
-from src.qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
+from qec.analysis.spectral_phase_predictor import SpectralPhasePredictor, spectral_feature_vector
+from qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
 
 
 def test_predictor_is_deterministic() -> None:
@@ -30,7 +30,7 @@ def test_spectral_feature_vector_extraction() -> None:
 
 
 def test_phase_predictor_ranking_and_bp_budget(tmp_path, monkeypatch) -> None:
-    from src.qec.discovery import threshold_search as mod
+    from qec.discovery import threshold_search as mod
 
     H0 = np.array([[1.0, 1.0], [1.0, 1.0]], dtype=np.float64)
 

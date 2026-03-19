@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.spectral_descent_loop import spectral_descent
-from src.qec.discovery.spectral_gradient_flow import (
+from qec.discovery.spectral_descent_loop import spectral_descent
+from qec.discovery.spectral_gradient_flow import (
     SpectralGradientFlowConfig,
     run_spectral_gradient_flow,
 )

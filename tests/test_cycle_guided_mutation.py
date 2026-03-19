@@ -13,10 +13,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.discovery.cycle_guided_mutation import (
+from qec.discovery.cycle_guided_mutation import (
     cycle_pressure_guided_mutation,
 )
-from src.qec.discovery.mutation_operators import (
+from qec.discovery.mutation_operators import (
     _OPERATORS,
     _OPERATOR_FUNCTIONS,
     mutate_tanner_graph,

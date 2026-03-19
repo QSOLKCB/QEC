@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_basins import detect_spectral_basins
-from src.qec.analysis.spectral_ridges import (
+from qec.analysis.spectral_basins import detect_spectral_basins
+from qec.analysis.spectral_ridges import (
     build_ridge_graph,
     detect_spectral_ridges,
     map_ridges_to_basins,

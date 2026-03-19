@@ -18,13 +18,13 @@ import numpy as np
 import scipy.sparse
 from scipy.sparse.linalg import eigsh, eigs
 
-from src.qec.diagnostics._spectral_utils import (
+from qec.diagnostics._spectral_utils import (
     compute_ipr,
     compute_nb_dominant_eigenpair,
 )
-from src.qec.diagnostics.bethe_hessian_margin import compute_bethe_hessian_margin
-from src.qec.diagnostics.cycle_space_density import compute_cycle_space_density
-from src.qec.diagnostics.spectral_nb import _TannerGraph, _compute_eeec, _compute_sis
+from qec.diagnostics.bethe_hessian_margin import compute_bethe_hessian_margin
+from qec.diagnostics.cycle_space_density import compute_cycle_space_density
+from qec.diagnostics.spectral_nb import _TannerGraph, _compute_eeec, _compute_sis
 
 _ROUND = 12
 
@@ -228,7 +228,7 @@ def compute_spectral_metrics(H: np.ndarray) -> dict[str, Any]:
     sis = _compute_sis(spectral_radius, ipr, eeec)
 
     # ── Spectral gap (top-2 eigenvalues) ──────────────────────────
-    from src.qec.diagnostics._spectral_utils import build_nb_operator
+    from qec.diagnostics._spectral_utils import build_nb_operator
 
     op, _ = build_nb_operator(graph)
     n_edges = len(directed_edges)

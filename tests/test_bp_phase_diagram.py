@@ -16,7 +16,7 @@ from typing import Any, Dict, List
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.bp_phase_diagram import (
+from qec.diagnostics.bp_phase_diagram import (
     compute_bp_phase_diagram,
     DEFAULT_METASTABLE_THRESHOLD,
     RegimeTraceSummary,
@@ -457,7 +457,7 @@ class TestBenchIntegration:
     def test_run_mode_with_phase_diagram_flag(self):
         """Smoke test: run_mode accepts enable_bp_phase_diagram parameter."""
         from bench.dps_v381_eval import run_mode, _pre_generate_instances
-        from src.qec_qldpc_codes import create_code, syndrome, channel_llr
+        from qec_qldpc_codes import create_code, syndrome, channel_llr
 
         seed = 42
         distance = 3
@@ -483,7 +483,7 @@ class TestBenchIntegration:
     def test_compute_phase_diagram_from_bench_results(self):
         """Smoke test: compute_bp_phase_diagram works with bench-style data."""
         from bench.dps_v381_eval import run_mode, _pre_generate_instances
-        from src.qec_qldpc_codes import create_code
+        from qec_qldpc_codes import create_code
 
         seed = 42
         distance = 3

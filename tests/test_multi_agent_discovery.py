@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.agent_metrics import (
+from qec.analysis.agent_metrics import (
     agent_basin_switch_rate,
     agent_discovery_rate,
     agent_region_coverage,
 )
-from src.qec.analysis.region_assignment import assign_agents_to_regions
-from src.qec.discovery.discovery_agent import DiscoveryAgent
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.discovery.multi_agent_coordinator import MultiAgentCoordinator
+from qec.analysis.region_assignment import assign_agents_to_regions
+from qec.discovery.discovery_agent import DiscoveryAgent
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.multi_agent_coordinator import MultiAgentCoordinator
 
 
 def _default_spec() -> dict[str, int]:

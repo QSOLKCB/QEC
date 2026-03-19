@@ -25,14 +25,14 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.experiments.spectral_graph_repair_loop import (
+from qec.experiments.spectral_graph_repair_loop import (
     generate_repair_candidates,
     score_repair_candidate,
     select_best_repair,
     run_spectral_graph_repair_loop,
     compute_repair_loop_aggregate_metrics,
 )
-from src.qec.experiments.tanner_graph_repair import (
+from qec.experiments.tanner_graph_repair import (
     _extract_edges,
     _apply_swap,
     _edges_to_H,
@@ -503,14 +503,14 @@ class TestDecoderSafety:
     """No decoder imports or modifications."""
 
     def test_no_decoder_imports(self):
-        import src.qec.experiments.spectral_graph_repair_loop as module
+        import qec.experiments.spectral_graph_repair_loop as module
         source_file = module.__file__
         with open(source_file, "r") as f:
             source = f.read()
 
         # Must not import from decoder module.
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source
 
 
 # ── Test: Pipeline Integration ───────────────────────────────────────

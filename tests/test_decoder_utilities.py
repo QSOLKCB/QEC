@@ -6,7 +6,7 @@ and channel LLR with optional noise bias.
 import pytest
 import numpy as np
 
-from src.qec_qldpc_codes import (
+from qec_qldpc_codes import (
     update_pauli_frame,
     syndrome,
     bp_decode,

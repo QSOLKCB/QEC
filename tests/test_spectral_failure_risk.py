@@ -23,7 +23,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.spectral_failure_risk import (
+from qec.diagnostics.spectral_failure_risk import (
     compute_spectral_failure_risk,
 )
 
@@ -336,13 +336,13 @@ class TestCompatibilityWithV63:
 
     def test_end_to_end_with_full_pipeline(self):
         """Full pipeline: localization → trapping → alignment → risk."""
-        from src.qec.diagnostics.nb_localization import (
+        from qec.diagnostics.nb_localization import (
             compute_nb_localization_metrics,
         )
-        from src.qec.diagnostics.nb_trapping_candidates import (
+        from qec.diagnostics.nb_trapping_candidates import (
             compute_nb_trapping_candidates,
         )
-        from src.qec.diagnostics.spectral_bp_alignment import (
+        from qec.diagnostics.spectral_bp_alignment import (
             compute_spectral_bp_alignment,
         )
 
@@ -391,7 +391,7 @@ class TestNoDecoderImport:
 
     def test_no_decoder_import(self):
         """This module does not import any decoder code."""
-        import src.qec.diagnostics.spectral_failure_risk as mod
+        import qec.diagnostics.spectral_failure_risk as mod
         source = open(mod.__file__).read()
         assert "bp_decode" not in source
-        assert "from src.qec.decoder" not in source
+        assert "from qec.decoder" not in source

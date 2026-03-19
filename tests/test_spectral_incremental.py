@@ -27,19 +27,19 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
-from src.qec.diagnostics.spectral_repair import (
+from qec.diagnostics.spectral_nb import compute_nb_spectrum
+from qec.diagnostics.spectral_repair import (
     apply_repair_candidate,
     propose_repair_candidates,
 )
-from src.qec.diagnostics.spectral_incremental import (
+from qec.diagnostics.spectral_incremental import (
     detect_edge_swap,
     identify_affected_nb_edges,
     score_repair_candidate_incremental,
     update_nb_eigenpair_incremental,
     update_nb_eigenpair_localized,
 )
-from src.qec.experiments.incremental_spectral_benchmark import (
+from qec.experiments.incremental_spectral_benchmark import (
     run_incremental_spectral_benchmark,
     serialize_benchmark_artifact,
 )
@@ -313,8 +313,8 @@ class TestLocalizedUpdate:
         _, H_rep = _get_candidate_and_repaired(H)
 
         # Use all indices as affected — forces fallback
-        from src.qec.diagnostics.spectral_nb import _TannerGraph
-        from src.qec.diagnostics._spectral_utils import build_directed_edges
+        from qec.diagnostics.spectral_nb import _TannerGraph
+        from qec.diagnostics._spectral_utils import build_directed_edges
         graph = _TannerGraph(H_rep)
         all_indices = list(range(len(build_directed_edges(graph))))
 

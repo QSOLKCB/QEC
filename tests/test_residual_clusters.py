@@ -16,8 +16,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.analysis.residual_clusters import ResidualClusterAnalyzer
-from src.qec.analysis.bp_residuals import BPResidualAnalyzer
+from qec.analysis.residual_clusters import ResidualClusterAnalyzer
+from qec.analysis.bp_residuals import BPResidualAnalyzer
 
 
 def _make_regular_H(m: int = 6, n: int = 12, seed: int = 42) -> np.ndarray:
@@ -259,7 +259,7 @@ class TestResidualClusterImport:
     """Verify the analyzer is properly exported."""
 
     def test_import_from_analysis(self):
-        from src.qec.analysis import ResidualClusterAnalyzer as RCA
+        from qec.analysis import ResidualClusterAnalyzer as RCA
         assert RCA is not None
 
     def test_instance_creation(self):

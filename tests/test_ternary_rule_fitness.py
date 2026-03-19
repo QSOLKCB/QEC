@@ -15,8 +15,8 @@ import copy
 import numpy as np
 import pytest
 
-from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
-from src.qec.decoder.ternary.ternary_rule_fitness import (
+from qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
+from qec.decoder.ternary.ternary_rule_fitness import (
     compute_rule_fitness_metrics,
     rank_rules_by_fitness,
 )

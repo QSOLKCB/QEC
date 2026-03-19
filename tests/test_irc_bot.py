@@ -3,7 +3,7 @@ Tests for IRC bot module.
 """
 
 import pytest
-from src.irc_bot import IRCBot, QECIRCBot
+from irc_bot import IRCBot, QECIRCBot
 
 
 def test_irc_bot_initialization():

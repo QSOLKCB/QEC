@@ -9,35 +9,35 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingEigenvectorFlowAnalyzer
-from src.qec.analysis.bp_diagnostics import collect_bp_diagnostics
-from src.qec.analysis.spectral_entropy import spectral_entropy
-from src.qec.analysis.spectral_defect_atlas import SpectralDefectAtlas
-from src.qec.analysis.nb_threshold_predictor import predict_threshold_from_spectrum
-from src.qec.analysis.spectral_regression import SpectralThresholdModel, load_training_dataset
-from src.qec.analysis.threshold_predictor import predict_threshold_quality
-from src.qec.analysis.spectral_phase_predictor import SpectralPhasePredictor, spectral_feature_vector
-from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
-from src.qec.analysis.trap_memory import TrapSubspaceMemory
-from src.qec.analysis.spectral_mutation_memory import SpectralMutationMemory
-from src.qec.analysis.predictor_recalibration import apply_recalibration, compute_recalibration_bias
-from src.qec.analysis.spectral_phase_diagram_surrogate import (
+from qec.analysis.nonbacktracking_flow import NonBacktrackingEigenvectorFlowAnalyzer
+from qec.analysis.bp_diagnostics import collect_bp_diagnostics
+from qec.analysis.spectral_entropy import spectral_entropy
+from qec.analysis.spectral_defect_atlas import SpectralDefectAtlas
+from qec.analysis.nb_threshold_predictor import predict_threshold_from_spectrum
+from qec.analysis.spectral_regression import SpectralThresholdModel, load_training_dataset
+from qec.analysis.threshold_predictor import predict_threshold_quality
+from qec.analysis.spectral_phase_predictor import SpectralPhasePredictor, spectral_feature_vector
+from qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
+from qec.analysis.trap_memory import TrapSubspaceMemory
+from qec.analysis.spectral_mutation_memory import SpectralMutationMemory
+from qec.analysis.predictor_recalibration import apply_recalibration, compute_recalibration_bias
+from qec.analysis.spectral_phase_diagram_surrogate import (
     PHASE_GRID,
     SpectralPhaseDiagramSurrogate,
     spectral_feature_vector,
     surrogate_threshold,
 )
-from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
-from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
-from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
-from src.qec.discovery.mutation_context import MutationContext
-from src.qec.discovery.mutation_registry import MutationRegistry
-from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
-from src.qec.discovery.mutation_interface import BeamMutation, NBEigenvectorFlowMutation
-from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator, compute_multi_mode_flow
-from src.qec.spectral.nb_spectrum import select_unstable_nb_modes
-from src.qec.experiments.stability_phase_diagram import run_stability_phase_diagram_experiment
-from src.utils.canonicalize import canonicalize
+from qec.diagnostics.spectral_nb import compute_nb_spectrum
+from qec.discovery.mutation_nb_gradient import NBGradientMutator
+from qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
+from qec.discovery.mutation_context import MutationContext
+from qec.discovery.mutation_registry import MutationRegistry
+from qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
+from qec.discovery.mutation_interface import BeamMutation, NBEigenvectorFlowMutation
+from qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator, compute_multi_mode_flow
+from qec.spectral.nb_spectrum import select_unstable_nb_modes
+from qec.experiments.stability_phase_diagram import run_stability_phase_diagram_experiment
+from utils.canonicalize import canonicalize
 
 _ROUND = 12
 

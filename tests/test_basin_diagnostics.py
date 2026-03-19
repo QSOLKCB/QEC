@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.basin_diagnostics import BasinDiagnostics, BasinDiagnosticsConfig
+from qec.analysis.basin_diagnostics import BasinDiagnostics, BasinDiagnosticsConfig
 
 
 def test_basin_state_classification_sequence() -> None:

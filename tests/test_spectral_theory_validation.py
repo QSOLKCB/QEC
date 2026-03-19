@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from src.qec.analysis.spectral_conjecture_validation import validate_conjectures
-from src.qec.analysis.spectral_counterexamples import extract_counterexamples
-from src.qec.analysis.spectral_theory_memory import (
+from qec.analysis.spectral_conjecture_validation import validate_conjectures
+from qec.analysis.spectral_counterexamples import extract_counterexamples
+from qec.analysis.spectral_theory_memory import (
     initialize_theory_memory,
     summarize_theory_memory,
     update_theory_memory,
 )
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _dataset() -> dict:

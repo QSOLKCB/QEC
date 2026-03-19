@@ -23,7 +23,7 @@ from qec.generation.tanner_graph_generator import (
     generate_tanner_graph_candidates,
 )
 from qec.utils.reproducibility import collect_environment_metadata
-from src.utils.canonicalize import canonicalize
+from utils.canonicalize import canonicalize
 
 
 def _derive_seed(base_seed: int, label: str) -> int:

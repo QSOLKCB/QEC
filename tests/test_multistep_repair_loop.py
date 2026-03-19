@@ -24,13 +24,13 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.experiments.spectral_graph_repair_loop import (
+from qec.experiments.spectral_graph_repair_loop import (
     run_spectral_graph_repair_loop,
     _prune_branch,
     _generate_repair_sequences,
     _select_best_repair_sequence,
 )
-from src.qec.experiments.tanner_graph_repair import (
+from qec.experiments.tanner_graph_repair import (
     _extract_edges,
     _apply_swap,
     _edges_to_H,
@@ -394,11 +394,11 @@ class TestDecoderSafety:
     """No decoder imports or modifications."""
 
     def test_no_decoder_imports(self):
-        import src.qec.experiments.spectral_graph_repair_loop as module
+        import qec.experiments.spectral_graph_repair_loop as module
         with open(module.__file__, "r") as f:
             source = f.read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source
 
 
 # ── Test: Sequence Selection ─────────────────────────────────────────

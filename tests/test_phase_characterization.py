@@ -4,12 +4,12 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.phase_characterization import (
+from qec.analysis.phase_characterization import (
     build_phase_profile,
     classify_phase,
     compute_phase_metrics,
 )
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _spec() -> dict[str, int]:

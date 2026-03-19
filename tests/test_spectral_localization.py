@@ -21,7 +21,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.analysis.spectral_localization import SpectralLocalizationAnalyzer
+from qec.analysis.spectral_localization import SpectralLocalizationAnalyzer
 
 
 def _small_H():

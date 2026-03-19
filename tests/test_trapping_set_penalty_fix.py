@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
+from qec.discovery.mutation_nb_gradient import NBGradientMutator
 
 
 def _gradient() -> dict:

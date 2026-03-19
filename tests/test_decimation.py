@@ -5,8 +5,8 @@ Tests for the deterministic decimation module.
 import pytest
 import numpy as np
 
-from src.decoder.decimation import decimate, decimation_round, LLR_CLAMP_FACTOR
-from src.qec_qldpc_codes import (
+from decoder.decimation import decimate, decimation_round, LLR_CLAMP_FACTOR
+from qec_qldpc_codes import (
     bp_decode,
     syndrome,
     channel_llr,

@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pytest
 
-from src.qudit.spec import QuditSpec
+from qudit.spec import QuditSpec
 
 
 class TestQuditSpecDefaults:

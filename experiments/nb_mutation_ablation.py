@@ -25,10 +25,10 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
-from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
-from src.qec.discovery.mutation_nb_guided import NBGuidedMutator
-from src.qec.fitness.spectral_metrics import compute_girth_spectrum
+from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
+from qec.discovery.mutation_nb_guided import NBGuidedMutator
+from qec.fitness.spectral_metrics import compute_girth_spectrum
 
 
 def _derive_seed(master_seed: int, label: str) -> int:

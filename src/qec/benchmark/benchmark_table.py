@@ -17,8 +17,8 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.benchmark.discovery_benchmark import run_decoder_benchmark
-from src.qec.diagnostics.non_backtracking_spectrum import (
+from qec.benchmark.discovery_benchmark import run_decoder_benchmark
+from qec.diagnostics.non_backtracking_spectrum import (
     compute_non_backtracking_spectrum,
 )
 

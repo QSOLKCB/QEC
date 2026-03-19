@@ -14,7 +14,7 @@ import numpy as np
 from .base import DecoderAdapter
 from ..runtime import measure_runtime
 
-from src.qec.channel.geometry_post import apply_geometry_postprocessing
+from qec.channel.geometry_post import apply_geometry_postprocessing
 
 class BPAdapter(DecoderAdapter):
     """Adapter wrapping ``bp_decode`` for benchmark use.

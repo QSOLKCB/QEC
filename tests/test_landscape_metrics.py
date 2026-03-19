@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.energy_landscape import (
+from qec.diagnostics.energy_landscape import (
     _hamming_distance,
     compute_basin_stability_index,
     compute_attractor_distance,
@@ -23,7 +23,7 @@ from src.qec.diagnostics.energy_landscape import (
     compute_landscape_metrics,
     _ESCAPE_EPSILON_VALUES,
 )
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
 from bench.dps_v381_eval import (
     run_mode,
     _pre_generate_instances,

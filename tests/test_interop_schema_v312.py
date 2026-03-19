@@ -11,7 +11,7 @@ import copy
 
 import pytest
 
-from src.bench.schema import (
+from bench.schema import (
     validate_interop_record,
     SCHEMA_VERSION,
     INTEROP_SCHEMA_VERSION,

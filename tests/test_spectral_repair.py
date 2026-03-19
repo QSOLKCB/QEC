@@ -28,7 +28,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.spectral_repair import (
+from qec.diagnostics.spectral_repair import (
     _validate_candidate,
     apply_repair_candidate,
     propose_repair_candidates,
@@ -36,8 +36,8 @@ from src.qec.diagnostics.spectral_repair import (
     score_repair_candidate,
     select_best_repair,
 )
-from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
-from src.qec.experiments.spectral_repair_experiment import (
+from qec.diagnostics.spectral_nb import compute_nb_spectrum
+from qec.experiments.spectral_repair_experiment import (
     run_spectral_repair_experiment,
     serialize_repair_artifact,
 )

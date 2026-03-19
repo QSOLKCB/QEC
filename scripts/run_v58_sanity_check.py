@@ -28,15 +28,15 @@ if _repo_root not in sys.path:
 
 import numpy as np
 
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
-from src.qec.diagnostics.bp_phase_space import (
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec.diagnostics.bp_phase_space import (
     compute_bp_phase_space,
     compute_metastability_score,
 )
-from src.qec.diagnostics.ternary_decoder_topology import (
+from qec.diagnostics.ternary_decoder_topology import (
     compute_ternary_decoder_topology,
 )
-from src.qec.diagnostics.basin_probe import probe_local_ternary_basin
+from qec.diagnostics.basin_probe import probe_local_ternary_basin
 
 # ── Configuration ─────────────────────────────────────────────────────
 

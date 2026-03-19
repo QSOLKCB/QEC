@@ -27,7 +27,7 @@ from experiments.run_nb_mutation_ablation import (
     _compute_spectral_metrics,
     _compute_fer,
 )
-from src.qec.experiments.fer_vs_spectral_radius import (
+from qec.experiments.fer_vs_spectral_radius import (
     render_ascii_fer_vs_spectral_radius,
 )
 

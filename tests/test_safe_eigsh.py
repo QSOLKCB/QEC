@@ -13,7 +13,7 @@ from __future__ import annotations
 import numpy as np
 import scipy.sparse as sp
 
-from src.qec.diagnostics.spectral_metrics import safe_eigsh, safe_eigs
+from qec.diagnostics.spectral_metrics import safe_eigsh, safe_eigs
 
 
 # -----------------------------------------------------------

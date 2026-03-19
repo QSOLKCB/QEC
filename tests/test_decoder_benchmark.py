@@ -13,8 +13,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.benchmark.discovery_benchmark import run_decoder_benchmark
-from src.qec.benchmark.benchmark_table import build_benchmark_table
+from qec.benchmark.discovery_benchmark import run_decoder_benchmark
+from qec.benchmark.benchmark_table import build_benchmark_table
 
 
 def _make_simple_H() -> np.ndarray:

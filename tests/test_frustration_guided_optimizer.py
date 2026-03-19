@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer, SpectralFrustrationResult
-from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
+from qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer, SpectralFrustrationResult
+from qec.discovery.mutation_nb_gradient import NBGradientMutator
 
 
 class _StubFrustration:

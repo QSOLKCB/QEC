@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from src.utils.canonicalize import canonicalize
+from utils.canonicalize import canonicalize
 
 
 @dataclass(frozen=True)

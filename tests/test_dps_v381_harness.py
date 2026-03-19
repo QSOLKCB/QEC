@@ -12,8 +12,8 @@ Verifies:
 import numpy as np
 import pytest
 
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
-from src.qec.decoder.rpc import RPCConfig, StructuralConfig
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec.decoder.rpc import RPCConfig, StructuralConfig
 
 from bench.dps_v381_eval import (
     MODES,

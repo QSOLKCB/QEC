@@ -4,18 +4,18 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.agent_spacing import enforce_agent_spacing
-from src.qec.analysis.cooperative_metrics import (
+from qec.analysis.agent_spacing import enforce_agent_spacing
+from qec.analysis.cooperative_metrics import (
     agent_region_overlap,
     agent_spacing_distance,
     cooperative_coverage,
     frontier_exploration_rate,
 )
-from src.qec.analysis.spectral_frontiers import detect_spectral_frontiers
-from src.qec.discovery.agent_coordination import AgentCoordinationState
-from src.qec.discovery.agent_messages import AgentMessage, FRONTIER_EXPLORED, REGION_EXPLORED
-from src.qec.discovery.cooperative_region_planner import plan_agent_targets
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.analysis.spectral_frontiers import detect_spectral_frontiers
+from qec.discovery.agent_coordination import AgentCoordinationState
+from qec.discovery.agent_messages import AgentMessage, FRONTIER_EXPLORED, REGION_EXPLORED
+from qec.discovery.cooperative_region_planner import plan_agent_targets
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 class _Agent:

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.discovery.phase_novelty_search import (
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.phase_novelty_search import (
     compute_phase_novelty_score,
     detect_new_phase,
     propose_phase_novelty_step,

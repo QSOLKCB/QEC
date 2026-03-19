@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.qec.discovery.discovery_agent import DiscoveryAgent
+from qec.discovery.discovery_agent import DiscoveryAgent
 
 
 def assign_agents_to_regions(

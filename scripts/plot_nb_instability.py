@@ -26,7 +26,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
+from qec.diagnostics.spectral_nb import compute_nb_spectrum
 
 
 def plot_nb_instability(H: np.ndarray) -> None:

@@ -1,4 +1,4 @@
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def test_harness_reproducibility(deterministic_harness):

@@ -13,13 +13,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.decoder.ternary.ternary_messages import encode_ternary, decode_ternary
-from src.qec.decoder.ternary.ternary_update_rules import (
+from qec.decoder.ternary.ternary_messages import encode_ternary, decode_ternary
+from qec.decoder.ternary.ternary_update_rules import (
     variable_node_update,
     check_node_update,
 )
-from src.qec.decoder.ternary.ternary_decoder import run_ternary_decoder
-from src.qec.decoder.ternary.ternary_metrics import (
+from qec.decoder.ternary.ternary_decoder import run_ternary_decoder
+from qec.decoder.ternary.ternary_metrics import (
     compute_ternary_stability,
     compute_ternary_entropy,
     compute_ternary_conflict_density,

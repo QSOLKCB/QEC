@@ -19,8 +19,8 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 
-from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
-from src.qec.analysis.flow_alignment import FlowAlignmentAnalyzer
+from qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
+from qec.analysis.flow_alignment import FlowAlignmentAnalyzer
 
 
 _POWER_ITER = 50

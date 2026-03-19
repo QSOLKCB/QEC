@@ -8,7 +8,7 @@ Usage:
 import argparse
 import sys
 
-from src.qec.experiments.benchmark_stress import (
+from qec.experiments.benchmark_stress import (
     results_to_json,
     run_benchmark_stress,
 )

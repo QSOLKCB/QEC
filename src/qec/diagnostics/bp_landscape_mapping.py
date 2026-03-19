@@ -76,7 +76,7 @@ def _run_perturbed_decode_with_final_llr(
     and decodes.  Returns the fixed-point classification dict and the
     final LLR vector for attractor identification.
     """
-    from src.qec_qldpc_codes import bp_decode, syndrome
+    from qec_qldpc_codes import bp_decode, syndrome
 
     # Explicit copy — baseline inputs never modified in-place.
     llr_perturbed = np.array(llr, dtype=np.float64) + perturbation

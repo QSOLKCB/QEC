@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.discovery.novelty import extract_feature_vector
+from qec.discovery.novelty import extract_feature_vector
 
 
 _ROUND = 12

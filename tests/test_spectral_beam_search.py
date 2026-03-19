@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
-from src.qec.discovery.spectral_beam_search import plan_two_step_swap
+from qec.discovery.mutation_nb_gradient import NBGradientMutator
+from qec.discovery.spectral_beam_search import plan_two_step_swap
 
 
 def test_plan_two_step_swap_lookahead_beats_greedy() -> None:

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.decoder.ternary.ternary_rule_fitness import (
+from qec.decoder.ternary.ternary_rule_fitness import (
     compute_rule_fitness_metrics,
     rank_rules_by_fitness,
     compute_multiobjective_fitness,
@@ -174,7 +174,7 @@ def test_missing_diagnostics_safe_fallback() -> None:
 
 
 def test_api_wrappers() -> None:
-    from src.qec.analysis.api import (
+    from qec.analysis.api import (
         compute_multiobjective_fitness as api_mo,
         project_fitness_score as api_proj,
         rank_rules_multiobjective as api_rank,

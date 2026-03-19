@@ -3,7 +3,7 @@
 Version: v71.0.0
 """
 
-from src.qec.modules.common import _EXCLUDED_KEYS
+from qec.modules.common import _EXCLUDED_KEYS
 
 
 def build_experiment_table(result: dict) -> list:

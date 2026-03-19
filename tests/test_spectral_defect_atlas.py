@@ -4,9 +4,9 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.spectral_defect_atlas import SpectralDefectAtlas, defect_signature
-from src.qec.discovery.threshold_search import PhaseDiagramOrchestrator, SpectralSearchConfig, run_spectral_threshold_search
-from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
+from qec.analysis.spectral_defect_atlas import SpectralDefectAtlas, defect_signature
+from qec.discovery.threshold_search import PhaseDiagramOrchestrator, SpectralSearchConfig, run_spectral_threshold_search
+from qec.generation.deterministic_construction import construct_deterministic_tanner_graph
 
 
 def _small_graph() -> np.ndarray:
@@ -61,7 +61,7 @@ def test_repair_reuse_applies_existing_strategy(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr(PhaseDiagramOrchestrator, "evaluate", _fake_eval)
 
-    from src.qec.discovery import threshold_search as mod
+    from qec.discovery import threshold_search as mod
 
     def _reject_nb_gradient(self, H, steps=1):
         return np.zeros_like(np.asarray(H, dtype=np.float64)), [{"operator": "reject"}]

@@ -9,12 +9,12 @@ import json
 
 import pytest
 
-from src.qec.experiments.benchmark_stress import (
+from qec.experiments.benchmark_stress import (
     _run_single_genome_suite,
     normalize_decoder_genome,
     run_benchmark_stress,
 )
-from src.qec.modules.pipeline.pipeline import build_full_pipeline
+from qec.modules.pipeline.pipeline import build_full_pipeline
 
 
 class TestPipelineEquivalence:

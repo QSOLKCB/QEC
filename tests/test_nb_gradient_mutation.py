@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 import scipy.sparse
 
-from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
-from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
+from qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
+from qec.discovery.mutation_nb_gradient import NBGradientMutator
 
 
 def _matrix() -> np.ndarray:

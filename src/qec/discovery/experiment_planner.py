@@ -6,11 +6,11 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.experiment_targets import (
+from qec.analysis.experiment_targets import (
     detect_high_uncertainty_regions,
     generate_experiment_targets,
 )
-from src.qec.analysis.phase_diagram_uncertainty import estimate_phase_uncertainty
+from qec.analysis.phase_diagram_uncertainty import estimate_phase_uncertainty
 
 
 class SpectralExperimentPlanner:

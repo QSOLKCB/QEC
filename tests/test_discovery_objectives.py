@@ -20,7 +20,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.discovery.objectives import (
+from qec.discovery.objectives import (
     compute_discovery_objectives,
     compute_ipr_localization,
     compute_basin_switch_risk,

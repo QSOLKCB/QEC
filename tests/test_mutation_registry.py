@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.mutation_context import MutationContext
-from src.qec.discovery.mutation_operator import MutationOperator
-from src.qec.discovery.mutation_registry import MutationRegistry
+from qec.discovery.mutation_context import MutationContext
+from qec.discovery.mutation_operator import MutationOperator
+from qec.discovery.mutation_registry import MutationRegistry
 
 
 class _StubOperator(MutationOperator):

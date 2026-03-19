@@ -4,17 +4,17 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.discovery_archive_analyzer import analyze_discovery_archive
-from src.qec.analysis.hypothesis_generator import generate_structural_hypotheses
-from src.qec.analysis.hypothesis_ranking import rank_hypotheses
-from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
-from src.qec.analysis.spectral_phase_boundaries import detect_phase_boundaries
-from src.qec.discovery.archive import create_archive, update_discovery_archive
-from src.qec.discovery.autonomous_scheduler import (
+from qec.analysis.discovery_archive_analyzer import analyze_discovery_archive
+from qec.analysis.hypothesis_generator import generate_structural_hypotheses
+from qec.analysis.hypothesis_ranking import rank_hypotheses
+from qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
+from qec.analysis.spectral_phase_boundaries import detect_phase_boundaries
+from qec.discovery.archive import create_archive, update_discovery_archive
+from qec.discovery.autonomous_scheduler import (
     compute_combined_score,
     select_best_candidate,
 )
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _spec() -> dict[str, int]:

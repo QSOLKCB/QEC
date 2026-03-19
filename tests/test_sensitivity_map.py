@@ -23,7 +23,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.sensitivity_map import (
+from qec.diagnostics.sensitivity_map import (
     compute_proxy_sensitivity_scores,
     compute_measured_instability_deltas,
     compute_sensitivity_map,
@@ -276,15 +276,15 @@ class TestLayerSafety:
     """Sensitivity map module does NOT import decoder or bench."""
 
     def test_no_decoder_import(self):
-        import src.qec.diagnostics.sensitivity_map as mod
+        import qec.diagnostics.sensitivity_map as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source
 
     def test_no_bench_import(self):
-        import src.qec.diagnostics.sensitivity_map as mod
+        import qec.diagnostics.sensitivity_map as mod
         source = open(mod.__file__).read()
-        assert "from src.bench" not in source
+        assert "from bench" not in source
         assert "import src.bench" not in source
 
 

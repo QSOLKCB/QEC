@@ -3,7 +3,7 @@ Tests for LLM integration module.
 """
 
 import pytest
-from src.llm_integration import RateLimiter, MockLLMProvider, LLMChatBot
+from llm_integration import RateLimiter, MockLLMProvider, LLMChatBot
 
 
 def test_rate_limiter():

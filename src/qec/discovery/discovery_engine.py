@@ -21,156 +21,156 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.discovery.search_state import make_search_state
-from src.qec.discovery.objectives import compute_discovery_objectives
-from src.qec.discovery.mutation_operators import (
+from qec.discovery.search_state import make_search_state
+from qec.discovery.objectives import compute_discovery_objectives
+from qec.discovery.mutation_operators import (
     mutate_tanner_graph,
     get_operator_for_generation,
 )
-from src.qec.discovery.repair_operators import (
+from qec.discovery.repair_operators import (
     repair_tanner_graph,
     validate_tanner_graph,
 )
-from src.qec.discovery.novelty import (
+from qec.discovery.novelty import (
     extract_feature_vector,
     compute_novelty_score,
 )
-from src.qec.discovery.archive import (
+from qec.discovery.archive import (
     create_archive,
     update_discovery_archive,
     get_archive_features,
     get_archive_summary,
 )
-from src.qec.discovery.cycle_pressure import compute_cycle_pressure
-from src.qec.discovery.spectral_bad_edge import detect_bad_edges
-from src.qec.discovery.ace_filter import ace_gate_mutation, compute_local_ace_score
-from src.qec.discovery.incremental_metrics import update_metrics_incrementally
-from src.qec.discovery.diversity import (
+from qec.discovery.cycle_pressure import compute_cycle_pressure
+from qec.discovery.spectral_bad_edge import detect_bad_edges
+from qec.discovery.ace_filter import ace_gate_mutation, compute_local_ace_score
+from qec.discovery.incremental_metrics import update_metrics_incrementally
+from qec.discovery.diversity import (
     compute_structure_signature,
     compute_diversity_penalty,
 )
-from src.qec.discovery.basin_switch_detector import BasinSwitchDetector
-from src.qec.discovery.mutation_trust_region import SpectralTrustRegion
-from src.qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
-from src.qec.analysis.spectral_gradient import estimate_spectral_gradient
-from src.qec.analysis.basin_stagnation import detect_basin_stagnation
-from src.qec.analysis.basin_escape_direction import estimate_escape_direction
-from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
-from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
-from src.qec.analysis.landscape_metrics import novelty_score as landscape_novelty_score, landscape_coverage
-from src.qec.analysis.spectral_basins import (
+from qec.discovery.basin_switch_detector import BasinSwitchDetector
+from qec.discovery.mutation_trust_region import SpectralTrustRegion
+from qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
+from qec.analysis.spectral_gradient import estimate_spectral_gradient
+from qec.analysis.basin_stagnation import detect_basin_stagnation
+from qec.analysis.basin_escape_direction import estimate_escape_direction
+from qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
+from qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
+from qec.analysis.landscape_metrics import novelty_score as landscape_novelty_score, landscape_coverage
+from qec.analysis.spectral_basins import (
     identify_spectral_basins,
     detect_spectral_basins,
     build_basin_transition_graph,
 )
-from src.qec.analysis.spectral_ridges import (
+from qec.analysis.spectral_ridges import (
     detect_spectral_ridges,
     build_ridge_graph,
     map_ridges_to_basins,
 )
-from src.qec.analysis.spectral_phase_map import construct_phase_map
-from src.qec.discovery.autonomous_scheduler import schedule_autonomous_target
-from src.qec.discovery.experiment_planner import SpectralExperimentPlanner
-from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
-from src.qec.analysis.spectral_theory_dataset import build_theory_dataset
-from src.qec.analysis.spectral_theory_models import fit_theory_models
-from src.qec.analysis.spectral_conjectures import generate_conjectures, rank_conjectures
-from src.qec.analysis.spectral_conjecture_validation import validate_conjectures
-from src.qec.analysis.spectral_counterexamples import extract_counterexamples
-from src.qec.analysis.spectral_theory_memory import (
+from qec.analysis.spectral_phase_map import construct_phase_map
+from qec.discovery.autonomous_scheduler import schedule_autonomous_target
+from qec.discovery.experiment_planner import SpectralExperimentPlanner
+from qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
+from qec.analysis.spectral_theory_dataset import build_theory_dataset
+from qec.analysis.spectral_theory_models import fit_theory_models
+from qec.analysis.spectral_conjectures import generate_conjectures, rank_conjectures
+from qec.analysis.spectral_conjecture_validation import validate_conjectures
+from qec.analysis.spectral_counterexamples import extract_counterexamples
+from qec.analysis.spectral_theory_memory import (
     initialize_theory_memory,
     summarize_theory_memory,
     update_theory_memory,
 )
-from src.qec.analysis.basin_transitions import detect_basin_transitions
-from src.qec.analysis.basin_statistics import basin_sizes
-from src.qec.analysis.basin_map_export import export_basin_map
-from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matrix
-from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
-from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
-from src.qec.discovery.spectral_gradient_mutation import propose_gradient_step
-from src.qec.discovery.cooperative_region_planner import plan_agent_targets
-from src.qec.discovery.agent_coordination import AgentCoordinationState
-from src.qec.discovery.agent_messages import AgentMessage, FRONTIER_EXPLORED, REGION_EXPLORED
-from src.qec.analysis.agent_spacing import enforce_agent_spacing
-from src.qec.analysis.cooperative_metrics import (
+from qec.analysis.basin_transitions import detect_basin_transitions
+from qec.analysis.basin_statistics import basin_sizes
+from qec.analysis.basin_map_export import export_basin_map
+from qec.analysis.non_backtracking_matrix import build_non_backtracking_matrix
+from qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
+from qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
+from qec.discovery.spectral_gradient_mutation import propose_gradient_step
+from qec.discovery.cooperative_region_planner import plan_agent_targets
+from qec.discovery.agent_coordination import AgentCoordinationState
+from qec.discovery.agent_messages import AgentMessage, FRONTIER_EXPLORED, REGION_EXPLORED
+from qec.analysis.agent_spacing import enforce_agent_spacing
+from qec.analysis.cooperative_metrics import (
     agent_region_overlap,
     agent_spacing_distance,
     cooperative_coverage,
     frontier_exploration_rate,
 )
-from src.qec.analysis.spectral_frontiers import detect_spectral_frontiers
-from src.qec.discovery.discovery_agent import DiscoveryAgent
-from src.qec.discovery.multi_agent_coordinator import MultiAgentCoordinator
-from src.qec.discovery.autonomous_scheduler import schedule_next_experiment
-from src.qec.discovery.adaptive_operator_weights import (
+from qec.analysis.spectral_frontiers import detect_spectral_frontiers
+from qec.discovery.discovery_agent import DiscoveryAgent
+from qec.discovery.multi_agent_coordinator import MultiAgentCoordinator
+from qec.discovery.autonomous_scheduler import schedule_next_experiment
+from qec.discovery.adaptive_operator_weights import (
     compute_adaptive_operator_weights,
     compute_operator_weights,
     deterministic_weighted_choice,
 )
-from src.qec.discovery.experiment_queue import ExperimentQueue
-from src.qec.analysis.exploration_state import analyze_exploration_state
-from src.qec.analysis.exploration_metrics import (
+from qec.discovery.experiment_queue import ExperimentQueue
+from qec.analysis.exploration_state import analyze_exploration_state
+from qec.analysis.exploration_metrics import (
     basin_switch_rate,
     exploration_entropy,
     mean_basin_duration,
 )
-from src.qec.analysis.spectral_dataset import build_spectral_dataset
-from src.qec.analysis.bayesian_landscape_model import BayesianSpectralModel
-from src.qec.analysis.expected_improvement import rank_candidates_bayesian
-from src.qec.analysis.spectral_phase_diagram import (
+from qec.analysis.spectral_dataset import build_spectral_dataset
+from qec.analysis.bayesian_landscape_model import BayesianSpectralModel
+from qec.analysis.expected_improvement import rank_candidates_bayesian
+from qec.analysis.spectral_phase_diagram import (
     build_phase_diagram_dataset,
     construct_phase_grid,
     estimate_stability_surface,
     detect_phase_boundaries,
     generate_phase_heatmap,
 )
-from src.qec.discovery.basin_hopping import propose_basin_hop
-from src.qec.discovery.exploration_policy import (
+from qec.discovery.basin_hopping import propose_basin_hop
+from qec.discovery.exploration_policy import (
     apply_escape_feedback_bias,
     choose_exploration_strategy,
 )
-from src.qec.discovery.basin_escape_mutation import propose_escape_step
-from src.qec.discovery.phase_guided_search import (
+from qec.discovery.basin_escape_mutation import propose_escape_step
+from qec.discovery.phase_guided_search import (
     propose_phase_guided_step,
     select_phase_target,
     update_phase_visit_counts,
 )
-from src.qec.discovery.phase_novelty_search import (
+from qec.discovery.phase_novelty_search import (
     compute_phase_novelty_score,
     detect_new_phase,
     propose_phase_novelty_step,
     select_novel_phase_target,
 )
-from src.qec.analysis.phase_characterization import (
+from qec.analysis.phase_characterization import (
     build_phase_profile,
     classify_phase,
     compute_phase_metrics,
 )
-from src.qec.analysis.theory_synthesis import (
+from qec.analysis.theory_synthesis import (
     build_phase_dataset,
     fit_spectral_models as fit_phase_spectral_models,
     generate_spectral_conjectures,
 )
-from src.qec.analysis.conjecture_validation import (
+from qec.analysis.conjecture_validation import (
     evaluate_conjecture as _evaluate_conjecture,
     find_conjecture_counterexamples as _find_conjecture_counterexamples,
     design_validation_experiment as _design_validation_experiment,
 )
-from src.qec.analysis.discovery_archive_analyzer import analyze_discovery_archive
-from src.qec.analysis.hypothesis_generator import generate_structural_hypotheses
-from src.qec.analysis.hypothesis_ranking import rank_hypotheses
-from src.qec.discovery.hypothesis_guidance import compute_hypothesis_bias
-from src.qec.discovery.autonomous_scheduler import compute_combined_score
-from src.qec.analysis.spectral_phase_boundaries import detect_phase_boundaries
-from src.qec.analysis.spectral_geometry import (
+from qec.analysis.discovery_archive_analyzer import analyze_discovery_archive
+from qec.analysis.hypothesis_generator import generate_structural_hypotheses
+from qec.analysis.hypothesis_ranking import rank_hypotheses
+from qec.discovery.hypothesis_guidance import compute_hypothesis_bias
+from qec.discovery.autonomous_scheduler import compute_combined_score
+from qec.analysis.spectral_phase_boundaries import detect_phase_boundaries
+from qec.analysis.spectral_geometry import (
     trajectory_arc_length,
     estimate_local_curvature,
     estimate_basin_geometry,
 )
-from src.qec.discovery.motif_library import SpectralMotifLibrary
-from src.qec.analysis.spectral_motif_extraction import extract_spectral_motifs
-from src.qec.discovery.motif_mutation import apply_motif_mutation
+from qec.discovery.motif_library import SpectralMotifLibrary
+from qec.analysis.spectral_motif_extraction import extract_spectral_motifs
+from qec.discovery.motif_mutation import apply_motif_mutation
 
 
 _ROUND = 12

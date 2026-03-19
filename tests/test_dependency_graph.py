@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.qec.dev.dependency_graph import DependencyGraph
-from src.qec.dev.test_selection import module_name_from_path, select_tests_for_changed_files
+from qec.dev.dependency_graph import DependencyGraph
+from qec.dev.test_selection import module_name_from_path, select_tests_for_changed_files
 
 
 def _write(path: Path, content: str) -> None:
@@ -14,7 +14,7 @@ def _write(path: Path, content: str) -> None:
 def test_import_detection_and_reverse_dependency(tmp_path: Path) -> None:
     package_root = tmp_path / "src" / "qec"
     _write(package_root / "a.py", "")
-    _write(package_root / "b.py", "import src.qec.a\n")
+    _write(package_root / "b.py", "import qec.a\n")
 
     graph = DependencyGraph(package_root)
     graph.build()
@@ -26,8 +26,8 @@ def test_import_detection_and_reverse_dependency(tmp_path: Path) -> None:
 def test_dependency_closure_bfs_includes_indirect_dependents(tmp_path: Path) -> None:
     package_root = tmp_path / "src" / "qec"
     _write(package_root / "a.py", "")
-    _write(package_root / "b.py", "from src.qec import a\n")
-    _write(package_root / "c.py", "from src.qec import b\n")
+    _write(package_root / "b.py", "from qec import a\n")
+    _write(package_root / "c.py", "from qec import b\n")
 
     graph = DependencyGraph(package_root)
     graph.build()
@@ -38,7 +38,7 @@ def test_dependency_closure_bfs_includes_indirect_dependents(tmp_path: Path) -> 
 def test_graph_build_is_deterministic(tmp_path: Path) -> None:
     package_root = tmp_path / "src" / "qec"
     _write(package_root / "a.py", "")
-    _write(package_root / "b.py", "import src.qec.a\n")
+    _write(package_root / "b.py", "import qec.a\n")
 
     first = DependencyGraph(package_root)
     first.build()
@@ -56,7 +56,7 @@ def test_selector_includes_tests_for_dependent_modules(tmp_path: Path) -> None:
     _write(package_root / "analysis" / "spectral_frustration.py", "")
     _write(
         package_root / "discovery" / "nonbacktracking_flow_mutation.py",
-        "from src.qec.analysis import spectral_frustration\n",
+        "from qec.analysis import spectral_frustration\n",
     )
     _write(repo_root / "tests" / "test_spectral_frustration.py", "")
     _write(repo_root / "tests" / "test_nonbacktracking_flow_mutation.py", "")

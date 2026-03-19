@@ -21,7 +21,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.experiments.eeec_anomaly_scan import (
+from qec.experiments.eeec_anomaly_scan import (
     DEFAULT_EEEC_THRESHOLD,
     DEFAULT_IPR_THRESHOLD,
     DEFAULT_RADIUS_THRESHOLD,

@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_gradient import estimate_spectral_gradient
-from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
-from src.qec.analysis.trajectory_sonifier import (
+from qec.analysis.spectral_gradient import estimate_spectral_gradient
+from qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
+from qec.analysis.trajectory_sonifier import (
     interpolate_spectra,
     sonify_trajectory_smooth,
 )
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.discovery.spectral_gradient_mutation import propose_gradient_step
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.spectral_gradient_mutation import propose_gradient_step
 
 
 def _default_spec() -> dict[str, int]:

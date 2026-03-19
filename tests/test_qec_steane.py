@@ -7,7 +7,7 @@ import numpy as np
 
 pytest.importorskip("qutip")
 
-from src.qec_steane import SteaneCode, ThresholdSimulation, SurfaceLattice
+from qec_steane import SteaneCode, ThresholdSimulation, SurfaceLattice
 
 
 def test_steane_code_initialization():

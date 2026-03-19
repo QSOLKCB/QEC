@@ -1,11 +1,11 @@
 import numpy as np
 
-from src.qec.analysis.ihara_bass_gradient import (
+from qec.analysis.ihara_bass_gradient import (
     compute_ihara_bass_gradient,
     compute_ipr,
     compute_severity,
 )
-from src.qec.discovery.eigenmode_guided_swap import score_2x2_swap
+from qec.discovery.eigenmode_guided_swap import score_2x2_swap
 
 
 def test_ihara_gradient_is_deterministic() -> None:

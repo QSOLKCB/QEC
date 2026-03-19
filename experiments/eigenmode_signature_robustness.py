@@ -11,8 +11,8 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
-from src.qec.discovery.swap_helpers import deterministic_two_edge_swap
+from qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
+from qec.discovery.swap_helpers import deterministic_two_edge_swap
 
 
 _FIELDS = [

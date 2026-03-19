@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.energy_landscape import (
+from qec.diagnostics.energy_landscape import (
     _count_gradient_sign_flips,
     _trace_converged,
     _deterministic_sign,
@@ -20,7 +20,7 @@ from src.qec.diagnostics.energy_landscape import (
     detect_basin_switch,
     classify_energy_landscape,
 )
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
 from bench.dps_v381_eval import (
     run_mode,
     _pre_generate_instances,

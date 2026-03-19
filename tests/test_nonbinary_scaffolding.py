@@ -72,19 +72,19 @@ class TestInterfaceImports:
     """Interfaces can be imported and inspected."""
 
     def test_import_gfq_message_passer(self):
-        from src.nonbinary.interfaces import GFqMessagePasser
+        from nonbinary.interfaces import GFqMessagePasser
         assert GFqMessagePasser is not None
 
     def test_import_nonbinary_stabilizer_code(self):
-        from src.nonbinary.interfaces import NonbinaryStabilizerCode
+        from nonbinary.interfaces import NonbinaryStabilizerCode
         assert NonbinaryStabilizerCode is not None
 
     def test_import_qudit_syndrome_model(self):
-        from src.nonbinary.interfaces import QuditSyndromeModel
+        from nonbinary.interfaces import QuditSyndromeModel
         assert QuditSyndromeModel is not None
 
     def test_protocols_are_runtime_checkable(self):
-        from src.nonbinary.interfaces import (
+        from nonbinary.interfaces import (
             GFqMessagePasser,
             NonbinaryStabilizerCode,
             QuditSyndromeModel,
@@ -99,7 +99,7 @@ class TestPlaceholders:
     """Placeholder stubs must raise NotImplementedError."""
 
     def test_gfq_bp_decode_raises(self):
-        from src.nonbinary.placeholders import gfq_bp_decode
+        from nonbinary.placeholders import gfq_bp_decode
         with pytest.raises(NotImplementedError, match="not implemented"):
             gfq_bp_decode(
                 parity_check=None,
@@ -109,7 +109,7 @@ class TestPlaceholders:
             )
 
     def test_nonbinary_stabilizer_syndrome_raises(self):
-        from src.nonbinary.placeholders import nonbinary_stabilizer_syndrome
+        from nonbinary.placeholders import nonbinary_stabilizer_syndrome
         with pytest.raises(NotImplementedError, match="not implemented"):
             nonbinary_stabilizer_syndrome(
                 stabilizer_matrix=None,
@@ -118,6 +118,6 @@ class TestPlaceholders:
             )
 
     def test_qudit_error_sample_raises(self):
-        from src.nonbinary.placeholders import qudit_error_sample
+        from nonbinary.placeholders import qudit_error_sample
         with pytest.raises(NotImplementedError, match="not implemented"):
             qudit_error_sample(n=10, dimension=3, p=0.01)

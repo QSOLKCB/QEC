@@ -14,11 +14,11 @@ import json
 import numpy as np
 import pytest
 
-from src.qec_qldpc_codes import channel_llr
-from src.qec.channel import ChannelModel, OracleChannel, BSCSyndromeChannel
-from src.bench.config import BenchmarkConfig, DecoderSpec
-from src.bench.runner import run_benchmark
-from src.bench.schema import dumps_result, validate_result
+from qec_qldpc_codes import channel_llr
+from qec.channel import ChannelModel, OracleChannel, BSCSyndromeChannel
+from bench.config import BenchmarkConfig, DecoderSpec
+from bench.runner import run_benchmark
+from bench.schema import dumps_result, validate_result
 
 
 # --- Test tuning constants (v68.4 optimization) ---

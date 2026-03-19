@@ -28,15 +28,15 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.fitness.fitness_engine import FitnessEngine
-from src.qec.discovery.guided_mutations import apply_guided_mutation, OPERATORS
-from src.qec.discovery.local_optimizer import LocalGraphOptimizer
-from src.qec.discovery.repair_operators import (
+from qec.fitness.fitness_engine import FitnessEngine
+from qec.discovery.guided_mutations import apply_guided_mutation, OPERATORS
+from qec.discovery.local_optimizer import LocalGraphOptimizer
+from qec.discovery.repair_operators import (
     repair_tanner_graph,
     validate_tanner_graph,
 )
-from src.qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
-from src.qec.generation.peg_generator import generate_peg_population
+from qec.generation.tanner_graph_generator import generate_tanner_graph_candidates
+from qec.generation.peg_generator import generate_peg_population
 
 
 _ROUND = 12
@@ -301,7 +301,7 @@ class DiscoveryEngine:
         children = []
 
         # Use centralized operator name list from guided_mutations
-        from src.qec.discovery.guided_mutations import _OPERATORS
+        from qec.discovery.guided_mutations import _OPERATORS
         operators = _OPERATORS
 
         for i, parent in enumerate(parents):

@@ -17,7 +17,7 @@ import string
 
 import numpy as np
 
-from src.utils.canonicalize import canonicalize
+from utils.canonicalize import canonicalize
 
 # ---------------------------------------------------------------------------
 # Fixed seed — all randomness derives from this single seeded generator.

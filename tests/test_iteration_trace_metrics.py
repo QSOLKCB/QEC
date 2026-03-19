@@ -17,7 +17,7 @@ import copy
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.iteration_trace import (
+from qec.diagnostics.iteration_trace import (
     compute_belief_oscillation_index,
     compute_convergence_instability_score,
     compute_correction_vector_fluctuation,

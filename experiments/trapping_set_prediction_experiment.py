@@ -7,8 +7,8 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
-from src.qec.experiments.spectral_phase_diagram import (
+from qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
+from qec.experiments.spectral_phase_diagram import (
     _derive_seed,
     _run_decoder_trial,
 )

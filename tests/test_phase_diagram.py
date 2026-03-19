@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from src.qec.diagnostics.phase_diagram import (
+from qec.diagnostics.phase_diagram import (
     build_decoder_phase_diagram,
     make_phase_grid,
     _shannon_entropy,

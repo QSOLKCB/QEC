@@ -22,25 +22,25 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.generation.tanner_graph_generator import (
+from qec.generation.tanner_graph_generator import (
     generate_tanner_graph_candidates,
 )
-from src.qec.generation.candidate_evaluation import (
+from qec.generation.candidate_evaluation import (
     evaluate_tanner_graph_candidate,
 )
-from src.qec.generation.candidate_ranking import (
+from qec.generation.candidate_ranking import (
     rank_tanner_graph_candidates,
 )
-from src.qec.generation.export_generated_graph import (
+from qec.generation.export_generated_graph import (
     export_generated_graph,
 )
-from src.qec.generation.deterministic_construction import (
+from qec.generation.deterministic_construction import (
     construct_deterministic_tanner_graph,
 )
-from src.qec.experiments.generation_trajectory import (
+from qec.experiments.generation_trajectory import (
     run_generation_trajectory,
 )
-from src.qec.experiments.generation_benchmark import (
+from qec.experiments.generation_benchmark import (
     run_generation_benchmark,
 )
 

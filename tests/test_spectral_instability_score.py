@@ -9,7 +9,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.analysis.localization_metrics import SpectralInstabilityScore
+from qec.analysis.localization_metrics import SpectralInstabilityScore
 
 
 def test_sis_formula_deterministic():

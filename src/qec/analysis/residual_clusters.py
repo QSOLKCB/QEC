@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.bp_residuals import BPResidualAnalyzer
+from qec.analysis.bp_residuals import BPResidualAnalyzer
 
 
 class ResidualClusterAnalyzer:

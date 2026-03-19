@@ -11,7 +11,7 @@ Covers:
 import numpy as np
 import pytest
 
-from src.qec.fitness.fitness_engine import FitnessEngine
+from qec.fitness.fitness_engine import FitnessEngine
 
 
 def _make_small_ldpc():

@@ -8,11 +8,11 @@ from typing import Any, TYPE_CHECKING
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.basin_diagnostics import BasinDiagnostics, BasinDiagnosticsConfig
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
-from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
+from qec.analysis.basin_diagnostics import BasinDiagnostics, BasinDiagnosticsConfig
+from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
 if TYPE_CHECKING:
-    from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
+    from qec.discovery.mutation_nb_gradient import NBGradientMutator
 else:
     NBGradientMutator = Any
 
@@ -40,7 +40,7 @@ class NonBacktrackingFlowMutator:
 
     def __init__(self, *, precision: int = 12) -> None:
         self.precision = int(precision)
-        from src.qec.discovery.mutation_nb_gradient import NBGradientMutator as _NBGradientMutator
+        from qec.discovery.mutation_nb_gradient import NBGradientMutator as _NBGradientMutator
 
         self._mutator = _NBGradientMutator(enabled=True, precision=self.precision)
 
@@ -73,7 +73,7 @@ class AdaptiveMutationController:
             precision=self.config.precision,
         )
         if beam_mutator is None:
-            from src.qec.discovery.mutation_nb_gradient import NBGradientMutator as _NBGradientMutator
+            from qec.discovery.mutation_nb_gradient import NBGradientMutator as _NBGradientMutator
 
             self.beam_mutator = _NBGradientMutator(
                 enabled=True,

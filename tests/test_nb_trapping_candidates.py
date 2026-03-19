@@ -22,10 +22,10 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.nb_trapping_candidates import (
+from qec.diagnostics.nb_trapping_candidates import (
     compute_nb_trapping_candidates,
 )
-from src.qec.diagnostics.nb_localization import (
+from qec.diagnostics.nb_localization import (
     compute_nb_localization_metrics,
 )
 

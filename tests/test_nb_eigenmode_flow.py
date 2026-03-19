@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
+from qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
 
 
 def _H() -> np.ndarray:

@@ -3,13 +3,13 @@ from __future__ import annotations
 import builtins
 import numpy as np
 
-from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
-from src.qec.experiments.constants import ABLATION_METRICS, MUTATION_STRATEGIES
-from src.qec.experiments.mutation_trajectory_plot import (
+from qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
+from qec.experiments.constants import ABLATION_METRICS, MUTATION_STRATEGIES
+from qec.experiments.mutation_trajectory_plot import (
     plot_trajectory_matplotlib,
     render_trajectory_ascii,
 )
-from src.qec.experiments.spectral_basin_visualizer import SpectralBasinVisualizer
+from qec.experiments.spectral_basin_visualizer import SpectralBasinVisualizer
 
 
 def _matrix() -> np.ndarray:

@@ -24,7 +24,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.experiments.spectral_decoder_controller import (
+from qec.experiments.spectral_decoder_controller import (
     run_spectral_decoder_control_experiment,
     _extract_cluster_nodes,
     _experimental_bp_cluster_scheduled,
@@ -469,10 +469,10 @@ class TestClusterControlDecoderSafety:
 
     def test_no_decoder_import(self):
         """Module does not import any decoder code."""
-        import src.qec.experiments.spectral_decoder_controller as mod
+        import qec.experiments.spectral_decoder_controller as mod
         source = open(mod.__file__).read()
         assert "import bp_decode" not in source
-        assert "from src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
 
     def test_baseline_unchanged_when_disabled(self):
         """Baseline decode is identical with and without cluster control."""
@@ -548,19 +548,19 @@ class TestClusterControlPipeline:
 
     def test_full_pipeline_with_cluster_control(self):
         """Full pipeline: spectral diagnostics → predictor → cluster controller."""
-        from src.qec.diagnostics.nb_localization import (
+        from qec.diagnostics.nb_localization import (
             compute_nb_localization_metrics,
         )
-        from src.qec.diagnostics.nb_trapping_candidates import (
+        from qec.diagnostics.nb_trapping_candidates import (
             compute_nb_trapping_candidates,
         )
-        from src.qec.diagnostics.spectral_bp_alignment import (
+        from qec.diagnostics.spectral_bp_alignment import (
             compute_spectral_bp_alignment,
         )
-        from src.qec.diagnostics.spectral_failure_risk import (
+        from qec.diagnostics.spectral_failure_risk import (
             compute_spectral_failure_risk,
         )
-        from src.qec.diagnostics.bp_stability_predictor import (
+        from qec.diagnostics.bp_stability_predictor import (
             compute_bp_stability_prediction,
         )
 

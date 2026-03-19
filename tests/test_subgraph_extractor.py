@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.api import extract_support_subgraph
-from src.qec.analysis.subgraph_extractor import compute_trapping_parameters
+from qec.analysis.api import extract_support_subgraph
+from qec.analysis.subgraph_extractor import compute_trapping_parameters
 
 
 def test_compute_trapping_parameters_ab_counts_unsatisfied_checks() -> None:

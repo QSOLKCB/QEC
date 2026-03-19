@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.swap_helpers import deterministic_two_edge_swap
+from qec.discovery.swap_helpers import deterministic_two_edge_swap
 
 
 def test_deterministic_two_edge_swap_preserves_invariants() -> None:

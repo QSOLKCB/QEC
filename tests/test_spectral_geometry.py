@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_geometry import (
+from qec.analysis.spectral_geometry import (
     estimate_basin_geometry,
     estimate_local_curvature,
     spectral_distance,

@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.channel.geometry import (
+from qec.channel.geometry import (
     syndrome_field,
     centered_syndrome_field,
     pseudo_prior_bias,
@@ -139,7 +139,7 @@ class TestApplyPseudoPrior:
 class TestBaselineInvariance:
     def test_disabled_features_preserve_llr(self, small_system):
         """When no geometry features are enabled, the original LLR is used."""
-        from src.qec.decoder.rpc import StructuralConfig
+        from qec.decoder.rpc import StructuralConfig
         config = StructuralConfig()
         # Verify defaults
         assert config.centered_field is False
@@ -148,8 +148,8 @@ class TestBaselineInvariance:
 
     def test_decode_equivalence_when_features_disabled(self):
         """Decoder output is identical when geometry interventions are disabled."""
-        from src.qec.decoder.rpc import StructuralConfig
-        from src.qec_qldpc_codes import bp_decode, create_code, syndrome, channel_llr
+        from qec.decoder.rpc import StructuralConfig
+        from qec_qldpc_codes import bp_decode, create_code, syndrome, channel_llr
 
         code = create_code(name="rate_0.50", lifting_size=3, seed=42)
         H = code.H_X

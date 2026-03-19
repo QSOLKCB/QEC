@@ -11,7 +11,7 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 
-from src.qec.analysis.bethe_hessian_utils import build_bethe_hessian
+from qec.analysis.bethe_hessian_utils import build_bethe_hessian
 
 
 _ROUND = 12

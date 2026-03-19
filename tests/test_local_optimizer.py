@@ -21,8 +21,8 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.discovery.local_optimizer import LocalGraphOptimizer, _try_rewire
-from src.qec.fitness.fitness_engine import FitnessEngine
+from qec.discovery.local_optimizer import LocalGraphOptimizer, _try_rewire
+from qec.fitness.fitness_engine import FitnessEngine
 
 
 def _make_test_matrix():

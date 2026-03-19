@@ -4,13 +4,13 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.bayesian_landscape_model import BayesianSpectralModel
-from src.qec.analysis.expected_improvement import (
+from qec.analysis.bayesian_landscape_model import BayesianSpectralModel
+from qec.analysis.expected_improvement import (
     expected_improvement,
     rank_candidates_bayesian,
 )
-from src.qec.analysis.spectral_dataset import build_spectral_dataset
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.analysis.spectral_dataset import build_spectral_dataset
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _mock_archive() -> dict:

@@ -17,7 +17,7 @@ import json
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.bp_boundary_analysis import (
+from qec.diagnostics.bp_boundary_analysis import (
     compute_bp_boundary_analysis,
     generate_deterministic_directions,
     DEFAULT_PARAMS,

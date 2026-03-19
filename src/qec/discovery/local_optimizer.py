@@ -25,12 +25,12 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.fitness.fitness_engine import FitnessEngine
-from src.qec.analysis.absorbing_sets import AbsorbingSetPredictor
-from src.qec.analysis.bp_residuals import BPResidualAnalyzer
-from src.qec.analysis.cycle_topology import CycleTopologyAnalyzer
-from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer
-from src.qec.analysis.residual_clusters import ResidualClusterAnalyzer
+from qec.fitness.fitness_engine import FitnessEngine
+from qec.analysis.absorbing_sets import AbsorbingSetPredictor
+from qec.analysis.bp_residuals import BPResidualAnalyzer
+from qec.analysis.cycle_topology import CycleTopologyAnalyzer
+from qec.analysis.bethe_hessian import BetheHessianAnalyzer
+from qec.analysis.residual_clusters import ResidualClusterAnalyzer
 
 
 _DEFAULT_MAX_STEPS = 10

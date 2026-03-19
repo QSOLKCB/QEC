@@ -29,7 +29,7 @@ try:
     )
 
     _CRYPTO_AVAILABLE = True
-except Exception:  # pragma: no cover
+except BaseException:  # pragma: no cover  # pyo3 panics are BaseException
     pass
 
 # -- Step 1: Canonical proof payload ----------------------------------------

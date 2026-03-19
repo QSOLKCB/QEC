@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
+from qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
 
 
 def novelty_score(

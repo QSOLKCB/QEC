@@ -7,9 +7,9 @@ from dataclasses import dataclass
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer
-from src.qec.analysis.nonbacktracking_flow import EdgeFlowField, NBFlowConfig, NonBacktrackingEigenvectorFlowAnalyzer
-from src.qec.fitness.spectral_metrics import compute_girth_spectrum
+from qec.analysis.bethe_hessian import BetheHessianAnalyzer
+from qec.analysis.nonbacktracking_flow import EdgeFlowField, NBFlowConfig, NonBacktrackingEigenvectorFlowAnalyzer
+from qec.fitness.spectral_metrics import compute_girth_spectrum
 
 
 @dataclass(frozen=True)

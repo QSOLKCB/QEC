@@ -12,7 +12,7 @@ Covers:
 import numpy as np
 import pytest
 
-from src.qec.discovery.guided_mutations import (
+from qec.discovery.guided_mutations import (
     trapping_set_pressure_mutation,
     apply_guided_mutation,
     _OPERATORS,

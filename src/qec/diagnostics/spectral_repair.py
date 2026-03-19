@@ -24,15 +24,15 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_heatmaps import (
+from qec.diagnostics.spectral_heatmaps import (
     compute_spectral_heatmaps,
     rank_edges_by_heat,
 )
-from src.qec.diagnostics.spectral_nb import (
+from qec.diagnostics.spectral_nb import (
     _TannerGraph,
     compute_nb_spectrum,
 )
-from src.qec.diagnostics._spectral_utils import build_directed_edges
+from qec.diagnostics._spectral_utils import build_directed_edges
 
 
 _ROUND = 12

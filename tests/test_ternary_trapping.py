@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.decoder.ternary.ternary_trapping import (
+from qec.decoder.ternary.ternary_trapping import (
     detect_zero_regions,
     compute_frustration_index,
     detect_persistent_zero_states,
@@ -269,7 +269,7 @@ class TestIntegrationWithDecoder:
     """Integration tests using the ternary decoder."""
 
     def test_decoder_output_zero_regions(self):
-        from src.qec.decoder.ternary.ternary_decoder import run_ternary_decoder
+        from qec.decoder.ternary.ternary_decoder import run_ternary_decoder
 
         H = np.array([
             [1, 1, 0, 1],
@@ -286,7 +286,7 @@ class TestIntegrationWithDecoder:
         assert "node_indices" in regions
 
     def test_decoder_output_frustration(self):
-        from src.qec.decoder.ternary.ternary_decoder import run_ternary_decoder
+        from qec.decoder.ternary.ternary_decoder import run_ternary_decoder
 
         H = np.array([
             [1, 1, 0, 1],
@@ -302,7 +302,7 @@ class TestIntegrationWithDecoder:
         assert np.float64(0.0) <= fi <= np.float64(1.0)
 
     def test_decoder_output_trapping_indicator(self):
-        from src.qec.decoder.ternary.ternary_decoder import run_ternary_decoder
+        from qec.decoder.ternary.ternary_decoder import run_ternary_decoder
 
         H = np.array([
             [1, 1, 0, 1],
@@ -318,7 +318,7 @@ class TestIntegrationWithDecoder:
         assert np.float64(0.0) <= ti <= np.float64(1.0)
 
     def test_full_pipeline_determinism(self):
-        from src.qec.decoder.ternary.ternary_decoder import run_ternary_decoder
+        from qec.decoder.ternary.ternary_decoder import run_ternary_decoder
 
         H = np.array([
             [1, 1, 0, 1],
@@ -347,18 +347,18 @@ class TestAPIWrappers:
     """Test that the analysis API properly exposes trapping functions."""
 
     def test_api_detect_zero_regions(self):
-        from src.qec.analysis.api import detect_zero_regions as api_zr
+        from qec.analysis.api import detect_zero_regions as api_zr
         msgs = np.array([0, 1, 0, 0], dtype=np.int8)
         result = api_zr(msgs)
         assert result["region_ids"] == [0, 1]
 
     def test_api_compute_frustration_index(self):
-        from src.qec.analysis.api import compute_frustration_index as api_fi
+        from qec.analysis.api import compute_frustration_index as api_fi
         msgs = np.array([0, 0, 1, 1], dtype=np.int8)
         assert api_fi(msgs) == np.float64(0.5)
 
     def test_api_detect_persistent_zero_states(self):
-        from src.qec.analysis.api import detect_persistent_zero_states as api_pz
+        from qec.analysis.api import detect_persistent_zero_states as api_pz
         h = [
             np.array([0, 1, 0], dtype=np.int8),
             np.array([0, -1, 0], dtype=np.int8),
@@ -366,7 +366,7 @@ class TestAPIWrappers:
         assert api_pz(h) == [0, 2]
 
     def test_api_estimate_trapping_indicator(self):
-        from src.qec.analysis.api import estimate_trapping_indicator as api_ti
+        from qec.analysis.api import estimate_trapping_indicator as api_ti
         msgs = np.array([1, -1], dtype=np.int8)
         H = np.array([[1, 1]], dtype=np.float64)
         ti = api_ti(msgs, H)

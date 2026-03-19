@@ -6,16 +6,16 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.landscape_gaps import detect_landscape_gaps
-from src.qec.analysis.scheduling_metrics import (
+from qec.analysis.landscape_gaps import detect_landscape_gaps
+from qec.analysis.scheduling_metrics import (
     landscape_gap_count,
     mean_gap_distance,
     scheduled_experiment_targets,
 )
-from src.qec.discovery.autonomous_scheduler import schedule_next_experiment
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.discovery.experiment_queue import ExperimentQueue
-from src.qec.discovery.experiment_targets import choose_experiment_target
+from qec.discovery.autonomous_scheduler import schedule_next_experiment
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.experiment_queue import ExperimentQueue
+from qec.discovery.experiment_targets import choose_experiment_target
 
 
 class _Memory:

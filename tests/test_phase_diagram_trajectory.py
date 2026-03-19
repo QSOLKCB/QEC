@@ -5,8 +5,8 @@ from pathlib import Path
 
 import numpy as np
 
-from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _surface() -> dict[str, np.ndarray]:

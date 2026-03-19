@@ -4,8 +4,8 @@ import json
 
 import numpy as np
 
-from src.qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
-from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
+from qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
+from qec.generation.deterministic_construction import construct_deterministic_tanner_graph
 
 
 def _small_graph() -> np.ndarray:
@@ -19,7 +19,7 @@ def _small_graph() -> np.ndarray:
 
 
 def test_prediction_ranking_is_deterministic_and_limited(tmp_path, monkeypatch):
-    from src.qec.discovery import threshold_search as mod
+    from qec.discovery import threshold_search as mod
 
     H0 = _small_graph()
     eval_calls: list[int] = []
@@ -83,7 +83,7 @@ def test_prediction_ranking_is_deterministic_and_limited(tmp_path, monkeypatch):
 
 
 def test_prediction_fields_present_without_ranking(tmp_path, monkeypatch):
-    from src.qec.discovery import threshold_search as mod
+    from qec.discovery import threshold_search as mod
 
     H0 = _small_graph()
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.landscape_gaps import detect_landscape_gaps
+from qec.analysis.landscape_gaps import detect_landscape_gaps
 
 
 def _centers_from_memory(memory) -> np.ndarray:

@@ -11,7 +11,7 @@ Covers:
 import numpy as np
 import pytest
 
-from src.qec.analysis.cycle_topology import CycleTopologyAnalyzer
+from qec.analysis.cycle_topology import CycleTopologyAnalyzer
 
 
 def _make_small_ldpc():

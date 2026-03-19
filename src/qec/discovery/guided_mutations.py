@@ -51,7 +51,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.fitness.spectral_metrics import (
+from qec.fitness.spectral_metrics import (
     compute_nbt_spectral_radius,
     compute_girth_spectrum,
     compute_ace_spectrum,
@@ -681,7 +681,7 @@ def trapping_set_pressure_mutation(
     np.ndarray
         Mutated parity-check matrix with shape preserved.
     """
-    from src.qec.analysis.trapping_sets import TrappingSetDetector
+    from qec.analysis.trapping_sets import TrappingSetDetector
 
     H_arr = np.asarray(H, dtype=np.float64)
     m, n = H_arr.shape
@@ -793,7 +793,7 @@ def residual_guided_mutation(
     np.ndarray
         Mutated parity-check matrix with shape preserved.
     """
-    from src.qec.analysis.bp_residuals import BPResidualAnalyzer
+    from qec.analysis.bp_residuals import BPResidualAnalyzer
 
     H_arr = np.asarray(H, dtype=np.float64)
     m, n = H_arr.shape
@@ -906,7 +906,7 @@ def absorbing_set_pressure_mutation(
     np.ndarray
         Mutated parity-check matrix with shape preserved.
     """
-    from src.qec.analysis.absorbing_sets import AbsorbingSetPredictor
+    from qec.analysis.absorbing_sets import AbsorbingSetPredictor
 
     H_arr = np.asarray(H, dtype=np.float64)
     m, n = H_arr.shape
@@ -1021,8 +1021,8 @@ def residual_cluster_mutation(
     np.ndarray
         Mutated parity-check matrix with shape and edge count preserved.
     """
-    from src.qec.analysis.bp_residuals import BPResidualAnalyzer
-    from src.qec.analysis.residual_clusters import ResidualClusterAnalyzer
+    from qec.analysis.bp_residuals import BPResidualAnalyzer
+    from qec.analysis.residual_clusters import ResidualClusterAnalyzer
 
     H_arr = np.asarray(H, dtype=np.float64)
     m, n = H_arr.shape
@@ -1153,7 +1153,7 @@ def spectral_localization_mutation(
     np.ndarray
         Mutated parity-check matrix with shape and edge count preserved.
     """
-    from src.qec.analysis.spectral_localization import (
+    from qec.analysis.spectral_localization import (
         SpectralLocalizationAnalyzer,
     )
 
@@ -1273,10 +1273,10 @@ def nonbacktracking_flow_mutation(
     np.ndarray
         Mutated parity-check matrix with shape and edge count preserved.
     """
-    from src.qec.analysis.nonbacktracking_flow import (
+    from qec.analysis.nonbacktracking_flow import (
         NonBacktrackingFlowAnalyzer,
     )
-    from src.qec.analysis.constraint_tension import (
+    from qec.analysis.constraint_tension import (
         ConstraintTensionAnalyzer,
     )
 

@@ -81,7 +81,7 @@ def repo_version() -> str:
         return version
 
     try:
-        import src.qec as qec_package
+        import qec as qec_package
 
         package_version = getattr(qec_package, "__version__", None)
         if isinstance(package_version, str) and package_version:

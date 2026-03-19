@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from src.utils.canonicalize import canonicalize
+from utils.canonicalize import canonicalize
 
 
 _ROUND = 12

@@ -20,7 +20,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.discovery.guided_mutations import (
+from qec.discovery.guided_mutations import (
     spectral_edge_pressure_mutation,
     cycle_pressure_mutation,
     ace_repair_mutation,
@@ -135,7 +135,7 @@ class TestGirthPreservingRewire:
     """Tests specific to girth preserving rewire."""
 
     def test_girth_not_decreased(self):
-        from src.qec.fitness.spectral_metrics import compute_girth_spectrum
+        from qec.fitness.spectral_metrics import compute_girth_spectrum
         H = _small_H()
         original_girth = compute_girth_spectrum(H)["girth"]
         H_out = girth_preserving_rewire(H, seed=42)

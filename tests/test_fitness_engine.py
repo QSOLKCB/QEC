@@ -20,13 +20,13 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.fitness.spectral_metrics import (
+from qec.fitness.spectral_metrics import (
     compute_nbt_spectral_radius,
     compute_girth_spectrum,
     compute_ace_spectrum,
     estimate_eigenvector_ipr,
 )
-from src.qec.fitness.fitness_engine import FitnessEngine
+from qec.fitness.fitness_engine import FitnessEngine
 
 
 def _small_H():

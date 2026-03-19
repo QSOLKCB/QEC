@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_entropy import compute_spectral_entropy
+from qec.diagnostics.spectral_entropy import compute_spectral_entropy
 
 _ROUND = 12
 

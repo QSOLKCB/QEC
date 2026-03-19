@@ -16,7 +16,7 @@ from tests.utils import (
     minimal_parity_matrix_3x5,
     minimal_parity_matrix_4x6,
 )
-from src.qec.decoder.ternary.ternary_coevolution import (
+from qec.decoder.ternary.ternary_coevolution import (
     early_exit_convergence,
     detect_state_cycle,
     should_terminate,

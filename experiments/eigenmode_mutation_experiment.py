@@ -11,10 +11,10 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
-from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
-from src.qec.discovery.mutation_nb_eigenmode import NBEigenmodeMutation
-from src.qec.discovery.objectives import compute_discovery_objectives
+from qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
+from qec.discovery.mutation_nb_gradient import NBGradientMutator
+from qec.discovery.mutation_nb_eigenmode import NBEigenmodeMutation
+from qec.discovery.objectives import compute_discovery_objectives
 
 
 _FIELDS = ["spectral_radius", "mode_ipr", "support_fraction", "topk_mass_fraction"]

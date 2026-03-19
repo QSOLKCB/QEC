@@ -6,7 +6,7 @@ backward compatibility, and parameter validation.
 import pytest
 import numpy as np
 
-from src.qec_qldpc_codes import (
+from qec_qldpc_codes import (
     bp_decode,
     infer,
     syndrome,

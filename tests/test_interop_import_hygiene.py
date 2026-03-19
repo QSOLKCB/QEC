@@ -58,7 +58,7 @@ class TestCoreImportHygiene:
         """Importing bench schema must not import stim."""
         code = textwrap.dedent("""\
             import sys
-            from src.bench.schema import validate_result, dumps_result
+            from bench.schema import validate_result, dumps_result
             assert "stim" not in sys.modules, (
                 "stim was imported by bench.schema"
             )
@@ -75,7 +75,7 @@ class TestCoreImportHygiene:
         """Importing bench config must not import stim."""
         code = textwrap.dedent("""\
             import sys
-            from src.bench.config import BenchmarkConfig
+            from bench.config import BenchmarkConfig
             assert "stim" not in sys.modules, (
                 "stim was imported by bench.config"
             )
@@ -94,7 +94,7 @@ class TestMissingOptionalDeps:
 
     def test_interop_imports_module_loads(self):
         """bench/interop/imports.py must load without errors."""
-        from src.bench.interop.imports import HAS_STIM, HAS_PYMATCHING, tool_versions
+        from bench.interop.imports import HAS_STIM, HAS_PYMATCHING, tool_versions
         # We don't assert HAS_STIM is False because it might be installed
         # in some environments. We just verify the module loads.
         assert isinstance(HAS_STIM, bool)
@@ -116,8 +116,8 @@ class TestMissingOptionalDeps:
                 if "bench.interop" in key:
                     del sys.modules[key]
 
-            from src.bench.interop.imports import HAS_STIM
-            from src.bench.interop.runners import run_stim_pymatching_baseline
+            from bench.interop.imports import HAS_STIM
+            from bench.interop.runners import run_stim_pymatching_baseline
 
             result = run_stim_pymatching_baseline(
                 code_family="repetition",
@@ -139,7 +139,7 @@ class TestMissingOptionalDeps:
 
     def test_tool_versions_with_missing_deps(self):
         """tool_versions() returns None for missing tools."""
-        from src.bench.interop.imports import tool_versions
+        from bench.interop.imports import tool_versions
         tv = tool_versions()
         # If stim is not installed, version should be None
         # We can't guarantee it's missing, but we verify the structure
@@ -149,14 +149,14 @@ class TestMissingOptionalDeps:
 
     def test_require_stim_raises_when_absent(self):
         """require_stim() raises ImportError when stim is not installed."""
-        from src.bench.interop.imports import HAS_STIM, require_stim
+        from bench.interop.imports import HAS_STIM, require_stim
         if not HAS_STIM:
             with pytest.raises(ImportError, match="stim"):
                 require_stim("test operation")
 
     def test_require_pymatching_raises_when_absent(self):
         """require_pymatching() raises ImportError when pymatching is absent."""
-        from src.bench.interop.imports import HAS_PYMATCHING, require_pymatching
+        from bench.interop.imports import HAS_PYMATCHING, require_pymatching
         if not HAS_PYMATCHING:
             with pytest.raises(ImportError, match="pymatching"):
                 require_pymatching("test operation")

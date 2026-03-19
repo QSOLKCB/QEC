@@ -4,14 +4,14 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.exploration_metrics import (
+from qec.analysis.exploration_metrics import (
     basin_switch_rate,
     exploration_entropy,
     mean_basin_duration,
 )
-from src.qec.analysis.exploration_state import analyze_exploration_state
-from src.qec.discovery.discovery_engine import _route_exploration_targets, run_structure_discovery
-from src.qec.discovery.exploration_policy import (
+from qec.analysis.exploration_state import analyze_exploration_state
+from qec.discovery.discovery_engine import _route_exploration_targets, run_structure_discovery
+from qec.discovery.exploration_policy import (
     apply_early_exploration_guard,
     apply_escape_feedback_bias,
     choose_exploration_strategy,

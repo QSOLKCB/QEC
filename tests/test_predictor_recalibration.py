@@ -4,9 +4,9 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.predictor_recalibration import apply_recalibration, compute_recalibration_bias
-from src.qec.discovery.threshold_search import PhaseDiagramOrchestrator, SpectralSearchConfig, run_spectral_threshold_search
-from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
+from qec.analysis.predictor_recalibration import apply_recalibration, compute_recalibration_bias
+from qec.discovery.threshold_search import PhaseDiagramOrchestrator, SpectralSearchConfig, run_spectral_threshold_search
+from qec.generation.deterministic_construction import construct_deterministic_tanner_graph
 
 
 def _small_graph() -> np.ndarray:

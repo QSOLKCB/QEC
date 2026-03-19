@@ -5,7 +5,7 @@ import importlib.util
 
 import numpy as np
 
-from src.qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
+from qec.analysis.spectral_phase_diagram_3d import generate_phase_surface_3d
 
 
 def _phase_surface() -> dict[str, np.ndarray]:

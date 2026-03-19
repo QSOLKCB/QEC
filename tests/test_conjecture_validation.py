@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.analysis.conjecture_validation import (
+from qec.analysis.conjecture_validation import (
     evaluate_conjecture,
     find_conjecture_counterexamples,
     design_validation_experiment,
@@ -248,7 +248,7 @@ class TestDiscoveryEngineIntegration:
     """Tests for discovery engine integration with conjecture validation."""
 
     def test_conjecture_validation_disabled_by_default(self):
-        from src.qec.discovery.discovery_engine import run_structure_discovery
+        from qec.discovery.discovery_engine import run_structure_discovery
 
         spec = {
             "num_variables": 10,
@@ -264,7 +264,7 @@ class TestDiscoveryEngineIntegration:
         assert "validation_experiment_targets" not in result
 
     def test_conjecture_validation_opt_in(self):
-        from src.qec.discovery.discovery_engine import run_structure_discovery
+        from qec.discovery.discovery_engine import run_structure_discovery
 
         spec = {
             "num_variables": 10,
@@ -292,7 +292,7 @@ class TestDiscoveryEngineIntegration:
         assert isinstance(result["validation_experiment_targets"], list)
 
     def test_generation_summary_fields_present(self):
-        from src.qec.discovery.discovery_engine import run_structure_discovery
+        from qec.discovery.discovery_engine import run_structure_discovery
 
         spec = {
             "num_variables": 10,
@@ -317,7 +317,7 @@ class TestDiscoveryEngineIntegration:
         assert "num_counterexamples_found" in summary
 
     def test_generation_summary_fields_absent_when_disabled(self):
-        from src.qec.discovery.discovery_engine import run_structure_discovery
+        from qec.discovery.discovery_engine import run_structure_discovery
 
         spec = {
             "num_variables": 10,

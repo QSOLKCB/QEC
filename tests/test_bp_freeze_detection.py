@@ -17,7 +17,7 @@ from typing import Any, List
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.bp_freeze_detection import (
+from qec.diagnostics.bp_freeze_detection import (
     compute_bp_freeze_detection,
     DEFAULT_WINDOW,
     DEFAULT_FREEZE_THRESHOLD,

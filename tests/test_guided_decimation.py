@@ -17,14 +17,14 @@ Covers:
 import pytest
 import numpy as np
 
-from src.decoder.decimation import guided_decimation
-from src.qec_qldpc_codes import (
+from decoder.decimation import guided_decimation
+from qec_qldpc_codes import (
     bp_decode,
     syndrome,
     channel_llr,
     create_code,
 )
-from src.bench.adapters.bp import BPAdapter
+from bench.adapters.bp import BPAdapter
 
 
 # ─────────────────────────────────────────────────────────────────────

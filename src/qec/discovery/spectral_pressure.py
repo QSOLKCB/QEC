@@ -16,7 +16,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
+from qec.diagnostics.spectral_nb import compute_nb_spectrum
 
 
 def compute_spectral_mutation_pressure(

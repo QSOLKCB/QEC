@@ -17,7 +17,7 @@ import json
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.bp_fixed_point_analysis import (
+from qec.diagnostics.bp_fixed_point_analysis import (
     compute_bp_fixed_point_analysis,
     DEFAULT_ENERGY_STABILITY_WINDOW,
     DEFAULT_ENERGY_STABILITY_RTOL,

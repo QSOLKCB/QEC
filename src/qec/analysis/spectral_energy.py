@@ -8,7 +8,7 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigsh
 
-from src.qec.analysis.eigenmode_mutation import build_bethe_hessian
+from qec.analysis.eigenmode_mutation import build_bethe_hessian
 
 
 @dataclass(frozen=True)

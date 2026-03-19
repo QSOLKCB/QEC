@@ -7,8 +7,8 @@ import json
 import pytest
 import numpy as np
 
-from src.qec_qldpc_codes import create_code
-from src.simulation.fer import simulate_fer
+from qec_qldpc_codes import create_code
+from simulation.fer import simulate_fer
 
 
 @pytest.fixture

@@ -17,7 +17,7 @@ from unittest.mock import patch, MagicMock
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.bp_basin_analysis import (
+from qec.diagnostics.bp_basin_analysis import (
     compute_bp_basin_analysis,
     DEFAULT_EPS_VALUES,
     DEFAULT_PERTURBATION_PATTERNS,

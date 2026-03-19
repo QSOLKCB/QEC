@@ -23,7 +23,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.experiments.spectral_graph_design_rules import (
+from qec.experiments.spectral_graph_design_rules import (
     compute_spectral_design_score,
     compute_spectral_gap,
     detect_structural_risk_patterns,
@@ -394,8 +394,8 @@ class TestNoDecoderImport:
 
     def test_no_decoder_import(self):
         """This module does not import any decoder code."""
-        import src.qec.experiments.spectral_graph_design_rules as mod
+        import qec.experiments.spectral_graph_design_rules as mod
         source = open(mod.__file__).read()
         assert "bp_decode" not in source
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source

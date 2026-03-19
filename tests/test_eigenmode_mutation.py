@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.qec.analysis.eigenmode_mutation import (
+from qec.analysis.eigenmode_mutation import (
     adjacency_list_from_H,
     build_bethe_hessian,
     extract_unstable_modes,

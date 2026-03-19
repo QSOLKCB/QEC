@@ -20,7 +20,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.discovery.ace_repair import repair_graph_with_ace_constraint
+from qec.discovery.ace_repair import repair_graph_with_ace_constraint
 
 
 def _small_H():

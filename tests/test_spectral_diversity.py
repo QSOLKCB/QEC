@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.analysis.spectral_diversity_memory import SpectralDiversityConfig, SpectralDiversityMemory
-from src.qec.analysis.spectral_signature import SpectralSignature, compute_signature
-from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
+from qec.analysis.spectral_diversity_memory import SpectralDiversityConfig, SpectralDiversityMemory
+from qec.analysis.spectral_signature import SpectralSignature, compute_signature
+from qec.discovery.mutation_nb_gradient import NBGradientMutator
 
 
 def _h_base() -> np.ndarray:

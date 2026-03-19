@@ -5,7 +5,7 @@ Tests for v2.8.0 Edit 5: state-aware residual weighting.
 import numpy as np
 import pytest
 
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
 
 
 @pytest.fixture

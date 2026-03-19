@@ -27,7 +27,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics._spectral_utils import (
+from qec.diagnostics._spectral_utils import (
     build_directed_edges,
     compute_ipr,
     compute_nb_dominant_eigenpair,

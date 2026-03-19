@@ -29,16 +29,16 @@ import numpy as np
 
 sys.path.insert(0, ".")
 
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
-from src.qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
-from src.qec.discovery.mutation_nb_guided import NBGuidedMutator
-from src.qec.discovery.mutation_nb_gradient import NBGradientMutator
-from src.qec.fitness.spectral_metrics import compute_girth_spectrum
-from src.qec.experiments.spectral_phase_diagram import (
+from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from qec.analysis.eigenvector_localization import EigenvectorLocalizationAnalyzer
+from qec.discovery.mutation_nb_guided import NBGuidedMutator
+from qec.discovery.mutation_nb_gradient import NBGradientMutator
+from qec.fitness.spectral_metrics import compute_girth_spectrum
+from qec.experiments.spectral_phase_diagram import (
     _derive_seed,
     _run_decoder_trial,
 )
-from src.qec.experiments.constants import ABLATION_METRICS, MUTATION_STRATEGIES
+from qec.experiments.constants import ABLATION_METRICS, MUTATION_STRATEGIES
 
 
 _ROUND = 12

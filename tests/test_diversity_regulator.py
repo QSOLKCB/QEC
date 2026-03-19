@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.discovery.diversity import (
+from qec.discovery.diversity import (
     compute_structure_signature,
     compute_diversity_penalty,
 )

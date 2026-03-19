@@ -82,7 +82,7 @@ def test_select_tests_is_deterministic_across_runs(tmp_path: Path) -> None:
 def test_dependency_string_match_selects_test_file(tmp_path: Path) -> None:
     (tmp_path / "tests").mkdir(parents=True)
     (tmp_path / "tests" / "test_import_path_only.py").write_text(
-        "from src.qec.analysis.spectral_entropy import compute\n",
+        "from qec.analysis.spectral_entropy import compute\n",
         encoding="utf-8",
     )
     (tmp_path / "tests" / "test_unrelated.py").write_text("", encoding="utf-8")

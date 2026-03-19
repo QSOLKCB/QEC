@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.bethe_hessian_fast import BetheHessianBuilder
-from src.qec.analysis.spectral_frustration import (
+from qec.analysis.bethe_hessian_fast import BetheHessianBuilder
+from qec.analysis.spectral_frustration import (
     apply_swap,
     build_bethe_hessian,
     count_negative_modes,

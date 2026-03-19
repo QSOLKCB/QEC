@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_trapping_sets import (
+from qec.analysis.spectral_trapping_sets import (
     detect_localization_cluster,
     extract_trapping_subgraph,
     repair_trapping_set,
 )
-from src.qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
-from src.qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
+from qec.discovery.nb_eigenvector_flow_mutation import NBEigenvectorFlowMutator
+from qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
 
 
 def _matrix() -> np.ndarray:
@@ -52,7 +52,7 @@ def test_repair_trapping_set_is_deterministic_and_degree_preserving() -> None:
 
 
 def test_threshold_search_spectral_trapping_repair_integration(tmp_path, monkeypatch) -> None:
-    from src.qec.discovery import threshold_search as mod
+    from qec.discovery import threshold_search as mod
 
     H0 = _matrix()
 
@@ -98,7 +98,7 @@ def test_repair_stage_runs_inside_flow_mutator(monkeypatch) -> None:
     vec = np.array([0.2, 0.8, 0.1, 0.7], dtype=np.float64)
 
     calls = {"count": 0}
-    from src.qec.discovery import nb_eigenvector_flow_mutation as mod
+    from qec.discovery import nb_eigenvector_flow_mutation as mod
 
     def _spy_repair(graph, cluster_nodes):
         calls["count"] += 1

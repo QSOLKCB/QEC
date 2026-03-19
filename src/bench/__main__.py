@@ -75,7 +75,7 @@ def _run_phase_diagram(args) -> int:
     """Run the stability phase diagram experiment."""
     import numpy as np
 
-    from src.qec.experiments.stability_phase_diagram import (
+    from qec.experiments.stability_phase_diagram import (
         run_stability_phase_diagram_experiment,
         serialize_phase_diagram_artifact,
     )
@@ -83,7 +83,7 @@ def _run_phase_diagram(args) -> int:
     config = BenchmarkConfig.load(args.config)
 
     # Build H from config (use first code if available)
-    from src.qec_qldpc_codes import create_code
+    from qec_qldpc_codes import create_code
     code = create_code(
         config.code_name if hasattr(config, "code_name") else "steane",
         config.lifting_size if hasattr(config, "lifting_size") else 7,

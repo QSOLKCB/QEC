@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.landscape_io import load_landscape, save_landscape
-from src.qec.analysis.landscape_metrics import landscape_coverage, novelty_score
-from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory, cluster_regions
-from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.analysis.landscape_io import load_landscape, save_landscape
+from qec.analysis.landscape_metrics import landscape_coverage, novelty_score
+from qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory, cluster_regions
+from qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _default_spec() -> dict[str, int]:

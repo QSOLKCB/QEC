@@ -16,10 +16,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.diagnostics._spectral_utils import (
+from qec.diagnostics._spectral_utils import (
     compute_nb_dominant_eigenpair,
 )
-from src.qec.diagnostics.spectral_nb import _TannerGraph
+from qec.diagnostics.spectral_nb import _TannerGraph
 
 _ROUND = 12
 

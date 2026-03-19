@@ -11,7 +11,7 @@ from typing import Any, List
 
 import numpy as np
 
-from src.qec_qldpc_codes import bp_decode, syndrome
+from qec_qldpc_codes import bp_decode, syndrome
 
 
 # ── Energy Landscape Metrics ────────────────────────────────────────

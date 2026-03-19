@@ -33,11 +33,11 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 
-from src.qec.diagnostics.non_backtracking_spectrum import (
+from qec.diagnostics.non_backtracking_spectrum import (
     compute_non_backtracking_spectrum,
     _build_sparse_nb_matrix,
 )
-from src.qec.diagnostics.nb_localization import (
+from qec.diagnostics.nb_localization import (
     compute_nb_localization_metrics,
 )
 

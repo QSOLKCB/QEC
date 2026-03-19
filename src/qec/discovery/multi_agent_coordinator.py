@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from src.qec.analysis.region_assignment import assign_agents_to_regions
-from src.qec.discovery.discovery_agent import DiscoveryAgent
+from qec.analysis.region_assignment import assign_agents_to_regions
+from qec.discovery.discovery_agent import DiscoveryAgent
 
 
 class MultiAgentCoordinator:

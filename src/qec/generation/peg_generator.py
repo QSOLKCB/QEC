@@ -19,7 +19,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.fitness.spectral_metrics import (
+from qec.fitness.spectral_metrics import (
     compute_girth_spectrum,
     compute_nbt_spectral_radius,
     compute_ace_spectrum,

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.bethe_hessian_utils import BetheHessianCache, build_bethe_hessian
-from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer, count_negative_modes
+from qec.analysis.bethe_hessian_utils import BetheHessianCache, build_bethe_hessian
+from qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer, count_negative_modes
 
 
 def _adjacency() -> np.ndarray:

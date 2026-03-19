@@ -3,7 +3,7 @@
 Generates 9 synthetic scenarios, runs them through the diagnostics pipeline,
 and produces deterministic JSON-serializable results with fidelity metrics.
 
-Version: v69.0.1
+Version: v69.1.1
 """
 
 import hashlib
@@ -616,7 +616,7 @@ def _run_single_genome_suite(
         result["seed"] = seed
         results.append(result)
     return {
-        "version": "v69.0.1",
+        "version": "v69.1.1",
         "base_seed_label": base_seed_label,
         "n_vars": n_vars,
         "n_iters_base": n_iters,
@@ -628,7 +628,7 @@ def _run_single_genome_suite(
 def run_benchmark_stress(
     n_vars: int = 50,
     n_iters: int = 30,
-    base_seed_label: str = "benchmark_stress_v69.0.1",
+    base_seed_label: str = "benchmark_stress_v69.1.1",
     genome: Optional[dict] = None,
     genomes: Optional[List[dict]] = None,
 ) -> dict:
@@ -702,16 +702,32 @@ def build_experiment_table(result: dict) -> list:
     list[dict]
         Flat rows with genome_id, scenario, version, base_seed_label,
         n_vars, n_iters_base, and all flattened metric values.
+
+    Raises
+    ------
+    ValueError
+        If ``mode`` is not "single" or "sweep", if a suite is missing
+        ``scenarios``, or if a metric key collides with a reserved row key.
     """
-    mode = result.get("mode", "single")
+    mode = result.get("mode")
+    if mode not in ("single", "sweep"):
+        raise ValueError(f"Invalid result mode: {mode!r}")
 
     if mode == "sweep":
         suites = result["results"]
     else:
         suites = [result]
 
+    _RESERVED_KEYS = {
+        "genome_id", "scenario", "version", "base_seed_label",
+        "n_vars", "n_iters_base",
+    }
+
     rows: list = []
     for suite in suites:
+        if "scenarios" not in suite or not isinstance(suite["scenarios"], list):
+            raise ValueError("Malformed suite: missing or invalid 'scenarios'")
+
         version = suite.get("version", "")
         base_seed_label = suite.get("base_seed_label", "")
         n_vars = suite.get("n_vars")
@@ -726,9 +742,14 @@ def build_experiment_table(result: dict) -> list:
                 "n_vars": n_vars,
                 "n_iters_base": n_iters_base,
             }
-            # Flatten metrics dict
+            # Flatten metrics dict with collision guard
             metrics = scenario.get("metrics", {})
             if metrics:
+                overlap = _RESERVED_KEYS & metrics.keys()
+                if overlap:
+                    raise ValueError(
+                        f"Metric key collision with reserved keys: {sorted(overlap)}"
+                    )
                 for k, v in metrics.items():
                     row[k] = v
             rows.append(row)

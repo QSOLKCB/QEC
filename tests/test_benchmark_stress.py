@@ -292,7 +292,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v69.0.1"
+        assert parsed["version"] == "v69.1.1"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)
@@ -740,7 +740,9 @@ class TestAggregationLayer:
         ]
         result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
         table = result["table"]
-        assert len(table) == 3 * 9  # 3 genomes x 9 scenarios
+        scenarios_per_genome = len(result["results"][0]["scenarios"])
+        expected_rows = len(genomes) * scenarios_per_genome
+        assert len(table) == expected_rows
 
     def test_table_determinism(self):
         """Two identical runs produce identical tables."""
@@ -795,3 +797,40 @@ class TestAggregationLayer:
         for i, name in enumerate(scenario_names):
             assert table[9 + i]["genome_id"] == id_b
             assert table[9 + i]["scenario"] == name
+
+    def test_invalid_mode_rejected(self):
+        """build_experiment_table rejects result with invalid mode."""
+        with pytest.raises(ValueError, match="Invalid result mode"):
+            build_experiment_table({"mode": "bogus"})
+
+    def test_missing_mode_rejected(self):
+        """build_experiment_table rejects result without mode key."""
+        with pytest.raises(ValueError, match="Invalid result mode"):
+            build_experiment_table({"scenarios": []})
+
+    def test_missing_scenarios_rejected(self):
+        """build_experiment_table rejects suite with missing scenarios."""
+        with pytest.raises(ValueError, match="Malformed suite"):
+            build_experiment_table({"mode": "single"})
+
+    def test_invalid_scenarios_type_rejected(self):
+        """build_experiment_table rejects suite with non-list scenarios."""
+        with pytest.raises(ValueError, match="Malformed suite"):
+            build_experiment_table({"mode": "single", "scenarios": "not_a_list"})
+
+    def test_metric_key_collision_rejected(self):
+        """build_experiment_table rejects metrics that collide with reserved keys."""
+        malformed = {
+            "mode": "single",
+            "version": "test",
+            "base_seed_label": "test",
+            "n_vars": 10,
+            "n_iters_base": 8,
+            "scenarios": [{
+                "genome_id": "abc",
+                "scenario": "test",
+                "metrics": {"genome_id": 42},
+            }],
+        }
+        with pytest.raises(ValueError, match="Metric key collision"):
+            build_experiment_table(malformed)

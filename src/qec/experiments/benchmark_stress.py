@@ -3,7 +3,7 @@
 Generates 9 synthetic scenarios, runs them through the diagnostics pipeline,
 and produces deterministic JSON-serializable results with fidelity metrics.
 
-Version: v69.2.1
+Version: v69.3.1
 """
 
 import hashlib
@@ -617,7 +617,7 @@ def _run_single_genome_suite(
         result["seed"] = seed
         results.append(result)
     return {
-        "version": "v69.2.1",
+        "version": "v69.3.1",
         "base_seed_label": base_seed_label,
         "n_vars": n_vars,
         "n_iters_base": n_iters,
@@ -629,7 +629,7 @@ def _run_single_genome_suite(
 def run_benchmark_stress(
     n_vars: int = 50,
     n_iters: int = 30,
-    base_seed_label: str = "benchmark_stress_v69.2.1",
+    base_seed_label: str = "benchmark_stress_v69.3.1",
     genome: Optional[dict] = None,
     genomes: Optional[List[dict]] = None,
 ) -> dict:
@@ -667,6 +667,7 @@ def run_benchmark_stress(
         suite["mode"] = "single"
         suite["table"] = build_experiment_table(suite)
         suite["comparisons"] = build_pairwise_comparison(suite)
+        suite["pareto"] = build_pareto_frontier(suite)
         return suite
 
     # Sweep mode: deterministic sequential iteration
@@ -683,6 +684,7 @@ def run_benchmark_stress(
     }
     sweep_result["table"] = build_experiment_table(sweep_result)
     sweep_result["comparisons"] = build_pairwise_comparison(sweep_result)
+    sweep_result["pareto"] = build_pareto_frontier(sweep_result)
     return sweep_result
 
 
@@ -818,6 +820,104 @@ def build_pairwise_comparison(result: dict) -> list:
                 comparisons.append(comp)
 
     return comparisons
+
+
+def build_pareto_frontier(result: dict) -> dict:
+    """Compute non-dominated genomes per scenario using pairwise comparisons.
+
+    A genome A dominates B if all metric deltas (B - A) >= 0 and at least
+    one delta > 0.  Uses existing ``result["comparisons"]`` and
+    ``result["table"]`` — no additional computation.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_benchmark_stress``.  Must contain ``"comparisons"``
+        and ``"table"`` keys.
+
+    Returns
+    -------
+    dict
+        ``{scenario_name: {"pareto_genomes": [genome_id, ...]}}``
+        Genome order matches original table order.
+
+    Raises
+    ------
+    ValueError
+        If ``result`` is missing ``"comparisons"`` or ``"table"``.
+    """
+    if "comparisons" not in result:
+        raise ValueError("Result dict missing 'comparisons' key")
+    if "table" not in result:
+        raise ValueError("Result dict missing 'table' key")
+
+    table = result["table"]
+    comparisons = result["comparisons"]
+
+    # Step 1: collect ordered genomes per scenario (preserving table order)
+    scenario_genomes: dict = {}
+    for row in table:
+        sc = row["scenario"]
+        gid = row["genome_id"]
+        if sc not in scenario_genomes:
+            scenario_genomes[sc] = []
+        if gid not in scenario_genomes[sc]:
+            scenario_genomes[sc].append(gid)
+
+    # Step 2: initialize dominated sets
+    dominated: dict = {sc: set() for sc in scenario_genomes}
+
+    # Step 3: iterate comparisons and evaluate dominance
+    for comp in comparisons:
+        scenario = comp["scenario"]
+        if scenario not in scenario_genomes:
+            raise ValueError(
+                f"comparison references unknown scenario: {scenario!r}"
+            )
+        genome_a = comp["genome_a"]
+        genome_b = comp["genome_b"]
+
+        # Collect all valid numeric delta values (reject NaN)
+        delta_keys = [k for k in comp if k.endswith("_delta")]
+        valid_deltas = []
+        for k in delta_keys:
+            v = comp[k]
+            if isinstance(v, (int, float)) and not np.isnan(v):
+                valid_deltas.append(v)
+
+        if not valid_deltas and delta_keys:
+            raise ValueError(
+                f"comparison has no valid numeric deltas "
+                f"(scenario={scenario!r}, genome_a={genome_a!r}, "
+                f"genome_b={genome_b!r})"
+            )
+
+        if not valid_deltas:
+            continue
+
+        deltas = valid_deltas
+
+        all_ge_zero = all(d >= 0 for d in deltas)
+        any_gt_zero = any(d > 0 for d in deltas)
+        all_le_zero = all(d <= 0 for d in deltas)
+        any_lt_zero = any(d < 0 for d in deltas)
+
+        # Case 1: A dominates B (all deltas >= 0, at least one > 0)
+        if all_ge_zero and any_gt_zero:
+            dominated[scenario].add(genome_b)
+
+        # Case 2: B dominates A (all deltas <= 0, at least one < 0)
+        if all_le_zero and any_lt_zero:
+            dominated[scenario].add(genome_a)
+
+    # Step 4: build Pareto set preserving original genome order
+    pareto: dict = {}
+    for sc, all_genomes in scenario_genomes.items():
+        pareto[sc] = {
+            "pareto_genomes": [g for g in all_genomes if g not in dominated[sc]]
+        }
+
+    return pareto
 
 
 def results_to_json(results: dict) -> str:

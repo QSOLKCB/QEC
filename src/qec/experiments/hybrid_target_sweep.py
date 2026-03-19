@@ -67,6 +67,37 @@ def detect_transitions(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return transitions
 
 
+def summarize_transitions(transitions: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Aggregate transition metrics into a compact phase-map summary.
+
+    Pure deterministic aggregation — no side effects, no randomness.
+    """
+    n = len(transitions)
+    if n == 0:
+        return {
+            "n_transitions": 0,
+            "mean_delta_score": 0.0,
+            "max_delta_score": 0.0,
+            "mean_delta_compatibility": 0.0,
+            "max_delta_compatibility": 0.0,
+            "class_change_count": 0,
+            "phase_change_count": 0,
+            "degenerate_count": 0,
+        }
+    delta_scores = [t["delta_score"] for t in transitions]
+    delta_compats = [t["delta_compatibility"] for t in transitions]
+    return {
+        "n_transitions": n,
+        "mean_delta_score": sum(delta_scores) / n,
+        "max_delta_score": max(abs(d) for d in delta_scores),
+        "mean_delta_compatibility": sum(delta_compats) / n,
+        "max_delta_compatibility": max(abs(d) for d in delta_compats),
+        "class_change_count": sum(1 for t in transitions if t["class_change"]),
+        "phase_change_count": sum(1 for t in transitions if t["phase_change"]),
+        "degenerate_count": sum(1 for t in transitions if t["delta_score"] == 0.0),
+    }
+
+
 def run_target_sweep(
     targets: List[Union[str, Dict[str, Any]]],
     theta_grid: List[List[float]],
@@ -126,4 +157,5 @@ def run_target_sweep(
         "targets": [r["target_spec"] for r in results],
         "results": results,
         "transitions": detect_transitions(results),
+        "transition_summary": summarize_transitions(detect_transitions(results)),
     }

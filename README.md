@@ -13,60 +13,71 @@ Deterministic Invariant-Driven Discovery & Phase Analysis Engine for LDPC / QLDP
 
 [![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
-QEC is a deterministic research framework for studying belief-propagation (BP) dynamics, spectral structure, and Tanner-graph geometry in LDPC and QLDPC codes.
+QEC is a deterministic research framework for studying belief-propagation (BP)
+dynamics, spectral structure, and Tanner-graph geometry in LDPC and QLDPC
+codes.
 
 It functions as both:
 
-🧠 A deterministic discovery engine
-🌌 A phase-space analysis system for invariant behavior
+- 🧠 **A deterministic discovery engine**
+- 🌌 **A phase-space analysis system for invariant behavior**
 
-The system now supports end-to-end invariant analysis:
+The system now supports **end-to-end invariant analysis**:
+
 
 target → candidate structures → ranking → transitions → regimes
 
-All results are bitwise reproducible.
 
-🧠 What Makes QEC Different
+All results are **bitwise reproducible**.
+
+---
+
+# 🧠 What Makes QEC Different
 
 QEC is not just a simulator — it is a:
 
-Deterministic Invariant Discovery + Phase Analysis System
+> **Deterministic Invariant Discovery + Phase Analysis System**
 
 Unlike traditional LDPC toolkits, QEC emphasizes:
 
-determinism over stochastic search
+- determinism over stochastic search  
+- invariants over heuristics  
+- interpretability over optimization  
+- phase structure over raw metrics  
 
-invariants over heuristics
+---
 
-interpretability over optimization
-
-phase structure over raw metrics
-
-🚀 Core Capabilities (v84)
+# 🚀 Core Capabilities (v84)
 
 QEC now operates as a complete analysis stack:
 
-1. Hybrid Co-Design Engine (v82)
+---
 
-evaluates joint (theta, sequence) configurations
+## 1. Hybrid Co-Design Engine (v82)
 
-extracts invariant structure from decoding behavior
+- evaluates joint `(theta, sequence)` configurations  
+- extracts invariant structure from decoding behavior  
+- supports deterministic hybrid scoring  
 
-supports deterministic hybrid scoring
+---
 
-2. Inverse Design Engine (v82.8)
+## 2. Inverse Design Engine (v82.8)
+
+
 target_behavior → (theta, sequence)
 
-bounded candidate space
 
-deterministic ranking
+- bounded candidate space  
+- deterministic ranking  
+- invariant-aligned scoring  
 
-invariant-aligned scoring
+---
 
-3. Parametric Target System (v83.0)
+## 3. Parametric Target System (v83.0)
 
 Targets are now programmable:
 
+```python
 {
   "desired_class": "stable",
   "min_stability": 0.8,
@@ -74,7 +85,6 @@ Targets are now programmable:
 }
 
 → transforms inverse design into an
-
 invariant query language
 
 4. Target Sweep Engine (v83.1)
@@ -131,7 +141,7 @@ mean behavior
 
 🌌 Phase-Space Analysis (Modern QEC)
 
-QEC now reconstructs invariant structure across intent space:
+QEC reconstructs invariant structure across intent space:
 
 Phase Boundaries
 
@@ -191,6 +201,7 @@ identical outputs across runs
 
 Randomness must be explicit:
 
+import numpy as np
 np.random.RandomState(seed)
 🔬 Invariant Framework
 
@@ -216,7 +227,7 @@ bitwise exact
 
 📊 Research Applications
 
-QEC now enables:
+QEC enables:
 
 phase diagram reconstruction of BP dynamics
 

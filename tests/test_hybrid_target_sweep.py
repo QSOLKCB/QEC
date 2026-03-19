@@ -296,3 +296,105 @@ class TestDetectTransitions:
             {"best_pair": {"theta": [1.0], "sequence": 0, "score": 0.5}},
         ]
         assert detect_transitions(results) == []
+
+
+# ---------------------------------------------------------------------------
+# Transition metrics tests (v83.3)
+# ---------------------------------------------------------------------------
+
+
+class TestTransitionMetrics:
+    """Tests for v83.3.0 — transition metrics."""
+
+    @staticmethod
+    def _bp(score, compat, cls, phase, **extra):
+        bp = {
+            "theta": [score], "sequence": int(score * 10),
+            "score": score, "compatibility": compat,
+            "class": cls, "phase": phase,
+        }
+        bp.update(extra)
+        return bp
+
+    def test_delta_score(self):
+        """delta_score = to_score - from_score."""
+        results = [
+            {"best_pair": self._bp(0.3, 0.5, "A", "p1")},
+            {"best_pair": self._bp(0.8, 0.5, "B", "p1")},
+        ]
+        ts = detect_transitions(results)
+        assert ts[0]["delta_score"] == pytest.approx(0.5)
+
+    def test_delta_compatibility(self):
+        """delta_compatibility = to_compat - from_compat."""
+        results = [
+            {"best_pair": self._bp(0.1, 0.9, "A", "p1")},
+            {"best_pair": self._bp(0.2, 0.4, "B", "p1")},
+        ]
+        ts = detect_transitions(results)
+        assert ts[0]["delta_compatibility"] == pytest.approx(-0.5)
+
+    def test_class_change_true(self):
+        """class_change is True when classes differ."""
+        results = [
+            {"best_pair": self._bp(0.1, 0.5, "convergent", "p1")},
+            {"best_pair": self._bp(0.2, 0.5, "divergent", "p1")},
+        ]
+        ts = detect_transitions(results)
+        assert ts[0]["class_change"] is True
+
+    def test_phase_change_true(self):
+        """phase_change is True when phases differ."""
+        results = [
+            {"best_pair": self._bp(0.1, 0.5, "A", "stable")},
+            {"best_pair": self._bp(0.2, 0.5, "A", "chaotic")},
+        ]
+        ts = detect_transitions(results)
+        assert ts[0]["phase_change"] is True
+
+    def test_zero_deltas_when_identical_scores(self):
+        """Deltas are zero when score/compatibility match but identity differs."""
+        results = [
+            {"best_pair": self._bp(0.5, 0.7, "A", "p1")},
+            {"best_pair": self._bp(0.5, 0.7, "A", "p1")},  # same theta → no transition
+        ]
+        # Force different identity by giving different theta
+        results[1]["best_pair"]["theta"] = [0.6]
+        ts = detect_transitions(results)
+        assert len(ts) == 1
+        assert ts[0]["delta_score"] == pytest.approx(0.0)
+        assert ts[0]["delta_compatibility"] == pytest.approx(0.0)
+        assert ts[0]["class_change"] is False
+        assert ts[0]["phase_change"] is False
+
+    def test_multiple_transitions_metrics(self):
+        """Each transition in a multi-transition sweep has correct metrics."""
+        results = [
+            {"best_pair": self._bp(0.1, 0.2, "A", "p1")},
+            {"best_pair": self._bp(0.4, 0.6, "B", "p2")},
+            {"best_pair": self._bp(0.4, 0.6, "B", "p2")},  # no transition
+            {"best_pair": self._bp(0.9, 0.1, "C", "p3")},
+        ]
+        ts = detect_transitions(results)
+        assert len(ts) == 2
+        assert ts[0]["delta_score"] == pytest.approx(0.3)
+        assert ts[1]["delta_score"] == pytest.approx(0.5)
+        assert ts[0]["class_change"] is True
+        assert ts[1]["phase_change"] is True
+
+    def test_deterministic_metrics(self):
+        """Metrics are deterministic across calls."""
+        results = [
+            {"best_pair": self._bp(0.2, 0.3, "A", "p1")},
+            {"best_pair": self._bp(0.7, 0.8, "B", "p2")},
+        ]
+        assert detect_transitions(results) == detect_transitions(results)
+
+    def test_delta_normalized_score_present(self):
+        """delta_normalized_score included when both sides have it."""
+        results = [
+            {"best_pair": self._bp(0.1, 0.5, "A", "p1", normalized_score=0.3)},
+            {"best_pair": self._bp(0.2, 0.5, "B", "p1", normalized_score=0.9)},
+        ]
+        ts = detect_transitions(results)
+        assert ts[0]["delta_normalized_score"] == pytest.approx(0.6)

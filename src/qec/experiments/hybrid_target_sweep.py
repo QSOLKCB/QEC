@@ -43,12 +43,27 @@ def detect_transitions(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         id_a = _best_pair_identity(results[i].get("best_pair", {}))
         id_b = _best_pair_identity(results[i + 1].get("best_pair", {}))
         if id_a != id_b:
-            transitions.append({
+            from_best = results[i]["best_pair"]
+            to_best = results[i + 1]["best_pair"]
+            record: Dict[str, Any] = {
                 "from_index": i,
                 "to_index": i + 1,
-                "from_best": results[i]["best_pair"],
-                "to_best": results[i + 1]["best_pair"],
-            })
+                "from_best": from_best,
+                "to_best": to_best,
+                "delta_score": to_best.get("score", 0.0) - from_best.get("score", 0.0),
+                "delta_compatibility": (
+                    to_best.get("compatibility", 0.0)
+                    - from_best.get("compatibility", 0.0)
+                ),
+                "class_change": from_best.get("class") != to_best.get("class"),
+                "phase_change": from_best.get("phase") != to_best.get("phase"),
+            }
+            # Optional normalized score delta when both sides provide it.
+            if "normalized_score" in from_best and "normalized_score" in to_best:
+                record["delta_normalized_score"] = (
+                    to_best["normalized_score"] - from_best["normalized_score"]
+                )
+            transitions.append(record)
     return transitions
 
 

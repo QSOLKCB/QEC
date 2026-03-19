@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 import pytest
 
-from qec.experiments.hybrid_target_sweep import run_target_sweep
+from qec.experiments.hybrid_target_sweep import detect_transitions, run_target_sweep
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +214,7 @@ class TestTargetSweep:
             pipeline_fn=_fake_pipeline,
             top_k=2,
         )
-        assert set(result.keys()) == {"n_targets", "targets", "results"}
+        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions"}
         assert result["n_targets"] == 1
 
         entry = result["results"][0]
@@ -223,3 +223,76 @@ class TestTargetSweep:
         }
         assert isinstance(entry["top_k"], list)
         assert isinstance(entry["score_distribution"], list)
+
+    def test_transitions_in_output(self):
+        """Sweep output must include a transitions key."""
+        result = run_target_sweep(
+            targets=["stable", "chaotic"],
+            theta_grid=THETA_GRID,
+            sequences=SEQUENCES,
+            pipeline_fn=_fake_pipeline,
+        )
+        assert "transitions" in result
+        assert isinstance(result["transitions"], list)
+
+
+# ---------------------------------------------------------------------------
+# Phase boundary detection tests
+# ---------------------------------------------------------------------------
+
+
+class TestDetectTransitions:
+    """Tests for v83.2.0 — detect_transitions."""
+
+    def test_detects_transition_when_best_changes(self):
+        """A transition is recorded when best_pair identity differs."""
+        results = [
+            {"best_pair": {"theta": [1.0, 2.0], "sequence": 0}},
+            {"best_pair": {"theta": [3.0, 4.0], "sequence": 1}},
+        ]
+        ts = detect_transitions(results)
+        assert len(ts) == 1
+        assert ts[0]["from_index"] == 0
+        assert ts[0]["to_index"] == 1
+        assert ts[0]["from_best"] is results[0]["best_pair"]
+        assert ts[0]["to_best"] is results[1]["best_pair"]
+
+    def test_no_transition_when_identical(self):
+        """No transitions when all best_pairs share the same identity."""
+        bp = {"theta": [1.0, 2.0], "sequence": 5}
+        results = [{"best_pair": dict(bp)}, {"best_pair": dict(bp)}, {"best_pair": dict(bp)}]
+        assert detect_transitions(results) == []
+
+    def test_multiple_transitions(self):
+        """Multiple transitions are recorded across the sweep."""
+        results = [
+            {"best_pair": {"theta": [1.0], "sequence": 0}},
+            {"best_pair": {"theta": [2.0], "sequence": 1}},
+            {"best_pair": {"theta": [2.0], "sequence": 1}},
+            {"best_pair": {"theta": [3.0], "sequence": 2}},
+        ]
+        ts = detect_transitions(results)
+        assert len(ts) == 2
+        assert ts[0]["from_index"] == 0
+        assert ts[1]["from_index"] == 2
+
+    def test_single_target_no_transitions(self):
+        """A single result cannot produce any transitions."""
+        results = [{"best_pair": {"theta": [1.0], "sequence": 0}}]
+        assert detect_transitions(results) == []
+
+    def test_deterministic_output(self):
+        """detect_transitions is deterministic across calls."""
+        results = [
+            {"best_pair": {"theta": [1.0], "sequence": 0}},
+            {"best_pair": {"theta": [2.0], "sequence": 1}},
+        ]
+        assert detect_transitions(results) == detect_transitions(results)
+
+    def test_identity_uses_theta_and_sequence(self):
+        """Identity comparison uses (theta_tuple, sequence), not other fields."""
+        results = [
+            {"best_pair": {"theta": [1.0], "sequence": 0, "score": 0.9}},
+            {"best_pair": {"theta": [1.0], "sequence": 0, "score": 0.5}},
+        ]
+        assert detect_transitions(results) == []

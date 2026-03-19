@@ -3,19 +3,23 @@
 Generates 9 synthetic scenarios, runs them through the diagnostics pipeline,
 and produces deterministic JSON-serializable results with fidelity metrics.
 
-Version: v70.0.1
+Version: v71.0.0
 """
 
 import hashlib
 import json
 import struct
 import time
-from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 
 from src.qec.diagnostics.bp_dynamics import compute_bp_dynamics_metrics
+from src.qec.modules.aggregation.table import build_experiment_table
+from src.qec.modules.common import _EXCLUDED_KEYS
+from src.qec.modules.comparisons.pairwise import build_pairwise_comparison
+from src.qec.modules.pareto.frontier import build_pareto_frontier
+from src.qec.modules.scoring.scores import build_scores
 
 
 # ── Deterministic seed derivation ────────────────────────────────────────
@@ -617,7 +621,7 @@ def _run_single_genome_suite(
         result["seed"] = seed
         results.append(result)
     return {
-        "version": "v70.0.1",
+        "version": "v71.0.0",
         "base_seed_label": base_seed_label,
         "n_vars": n_vars,
         "n_iters_base": n_iters,
@@ -629,7 +633,7 @@ def _run_single_genome_suite(
 def run_benchmark_stress(
     n_vars: int = 50,
     n_iters: int = 30,
-    base_seed_label: str = "benchmark_stress_v70.0.1",
+    base_seed_label: str = "benchmark_stress_v71.0.0",
     genome: Optional[dict] = None,
     genomes: Optional[List[dict]] = None,
 ) -> dict:
@@ -689,338 +693,6 @@ def run_benchmark_stress(
     sweep_result["scores"] = build_scores(sweep_result)
     return sweep_result
 
-
-# ── Aggregation layer ────────────────────────────────────────────────────
-
-# Keys excluded from pairwise delta computation — single source of truth
-# shared by build_experiment_table (as reserved keys) and build_pairwise_comparison.
-_EXCLUDED_KEYS = frozenset({
-    "genome_id", "scenario", "version", "base_seed_label",
-    "n_vars", "n_iters_base",
-})
-
-
-def build_experiment_table(result: dict) -> list:
-    """Convert benchmark result (single or sweep) into a flat list of row dicts.
-
-    Each row corresponds to one (genome, scenario) pair with flattened metrics.
-    Input is not mutated.  Order follows genome order then scenario order.
-
-    Parameters
-    ----------
-    result : dict
-        Output of ``run_benchmark_stress`` (mode="single" or mode="sweep").
-
-    Returns
-    -------
-    list[dict]
-        Flat rows with genome_id, scenario, version, base_seed_label,
-        n_vars, n_iters_base, and all flattened metric values.
-
-    Raises
-    ------
-    ValueError
-        If ``mode`` is not "single" or "sweep", if a suite is missing
-        ``scenarios``, or if a metric key collides with a reserved row key.
-    """
-    mode = result.get("mode")
-    if mode not in ("single", "sweep"):
-        raise ValueError(f"Invalid result mode: {mode!r}")
-
-    if mode == "sweep":
-        suites = result["results"]
-    else:
-        suites = [result]
-
-    rows: list = []
-    for suite in suites:
-        if "scenarios" not in suite or not isinstance(suite["scenarios"], list):
-            raise ValueError("Malformed suite: missing or invalid 'scenarios'")
-
-        version = suite.get("version", "")
-        base_seed_label = suite.get("base_seed_label", "")
-        n_vars = suite.get("n_vars")
-        n_iters_base = suite.get("n_iters_base")
-
-        for scenario in suite["scenarios"]:
-            row: dict = {
-                "genome_id": scenario["genome_id"],
-                "scenario": scenario["scenario"],
-                "version": version,
-                "base_seed_label": base_seed_label,
-                "n_vars": n_vars,
-                "n_iters_base": n_iters_base,
-            }
-            # Flatten metrics dict with collision guard
-            metrics = scenario.get("metrics", {})
-            if metrics:
-                overlap = _EXCLUDED_KEYS & metrics.keys()
-                if overlap:
-                    raise ValueError(
-                        f"Metric key collision with reserved keys: {sorted(overlap)}"
-                    )
-                for k, v in metrics.items():
-                    row[k] = v
-            rows.append(row)
-
-    return rows
-
-
-def build_pairwise_comparison(result: dict) -> list:
-    """Compute pairwise metric deltas between genomes for each scenario.
-
-    For each scenario, iterates all ordered pairs (i, j) where i < j
-    and computes (row_j[metric] - row_i[metric]) for all numeric fields.
-
-    Parameters
-    ----------
-    result : dict
-        Output of ``run_benchmark_stress``.  Must contain ``"table"`` key.
-
-    Returns
-    -------
-    list[dict]
-        Each row: genome_a, genome_b, scenario, and ``<metric>_delta`` fields.
-        Deterministic ordering: scenario order preserved, genome order preserved.
-
-    Raises
-    ------
-    ValueError
-        If ``result`` has no ``"table"`` key.
-    """
-    if "table" not in result:
-        raise ValueError("Result dict missing 'table' key")
-
-    table = result["table"]
-
-    # Group rows by scenario, preserving insertion order
-    scenario_groups: dict = defaultdict(list)
-    for row in table:
-        scenario_groups[row["scenario"]].append(row)
-
-    comparisons: list = []
-    for scenario, rows in scenario_groups.items():
-        if len(rows) < 2:
-            continue
-        for i in range(len(rows)):
-            for j in range(i + 1, len(rows)):
-                row_i = rows[i]
-                row_j = rows[j]
-                comp: dict = {
-                    "genome_a": row_i["genome_id"],
-                    "genome_b": row_j["genome_id"],
-                    "scenario": scenario,
-                }
-                # Compute deltas for all numeric fields
-                for key in row_i:
-                    if key in _EXCLUDED_KEYS:
-                        continue
-                    val_i = row_i[key]
-                    val_j = row_j.get(key)
-                    if isinstance(val_i, (int, float)) and isinstance(val_j, (int, float)):
-                        comp[f"{key}_delta"] = val_j - val_i
-                comparisons.append(comp)
-
-    return comparisons
-
-
-def _is_finite_numeric(val) -> bool:
-    """Return True if val is a finite int or float (not NaN, not inf)."""
-    if not isinstance(val, (int, float)):
-        return False
-    if isinstance(val, bool):
-        return False
-    try:
-        return not (np.isnan(val) or np.isinf(val))
-    except (TypeError, ValueError):
-        return False
-
-
-def build_pareto_frontier(result: dict) -> list:
-    """Identify Pareto-optimal genomes per scenario based on numeric metrics.
-
-    For each scenario, a genome is Pareto-optimal (non-dominated) if no other
-    genome is at least as good on all numeric metrics and strictly better on
-    at least one.
-
-    Parameters
-    ----------
-    result : dict
-        Output of ``run_benchmark_stress``.  Must contain ``"table"`` key.
-
-    Returns
-    -------
-    list[dict]
-        Each entry: ``{"scenario": str, "pareto_genomes": list[str]}``.
-        Ordered by scenario appearance in the table.
-
-    Raises
-    ------
-    ValueError
-        If ``result`` has no ``"table"`` key, if a comparison references an
-        unknown scenario, or if a scenario has no valid numeric metrics.
-    """
-    if "table" not in result:
-        raise ValueError("Result dict missing 'table' key")
-
-    table = result["table"]
-
-    # Build scenario → rows mapping (preserving insertion order)
-    scenario_genomes: dict = {}
-    for row in table:
-        sc = row["scenario"]
-        if sc not in scenario_genomes:
-            scenario_genomes[sc] = []
-        scenario_genomes[sc].append(row)
-
-    # Validate that comparisons only reference known scenarios
-    for comp in result.get("comparisons", []):
-        if comp["scenario"] not in scenario_genomes:
-            raise ValueError("unknown scenario")
-
-    frontier: list = []
-    for scenario, rows in scenario_genomes.items():
-        # Identify numeric metric keys present and finite in all rows
-        numeric_keys = sorted(
-            k for k in rows[0]
-            if k not in _EXCLUDED_KEYS
-            and all(_is_finite_numeric(r.get(k)) for r in rows)
-        )
-
-        if not numeric_keys:
-            raise ValueError("no valid numeric deltas")
-
-        # Find non-dominated genomes
-        non_dominated: list = []
-        for i, row_i in enumerate(rows):
-            dominated = False
-            for j, row_j in enumerate(rows):
-                if i == j:
-                    continue
-                # row_j dominates row_i iff row_j >= row_i on all and > on at least one
-                all_geq = all(row_j[k] >= row_i[k] for k in numeric_keys)
-                any_gt = any(row_j[k] > row_i[k] for k in numeric_keys)
-                if all_geq and any_gt:
-                    dominated = True
-                    break
-            if not dominated:
-                non_dominated.append(row_i["genome_id"])
-
-        frontier.append({
-            "scenario": scenario,
-            "pareto_genomes": non_dominated,
-        })
-
-    return frontier
-
-
-def build_scores(result: dict) -> list:
-    """Compute normalized aggregate scores per genome and rank them.
-
-    Scoring pipeline:
-        1. Per genome, per metric: mean across scenarios (NaN excluded).
-        2. Min-max normalization per metric across genomes.
-           Constant columns → 0.5.
-        3. Aggregate: mean of normalized metric values.
-        4. Rank: score descending, genome_id ascending for tie-break.
-
-    Parameters
-    ----------
-    result : dict
-        Output of ``run_benchmark_stress``.  Must contain ``"table"`` key.
-
-    Returns
-    -------
-    list[dict]
-        Ranked list: ``{"genome_id": str, "score": float, "rank": int}``.
-
-    Raises
-    ------
-    ValueError
-        If ``result`` has no ``"table"`` key.
-    """
-    if "table" not in result:
-        raise ValueError("Result dict missing 'table' key")
-
-    table = result["table"]
-    if not table:
-        return []
-
-    # Collect genome_ids in order of first appearance
-    seen_genomes: dict = {}
-    for row in table:
-        gid = row["genome_id"]
-        if gid not in seen_genomes:
-            seen_genomes[gid] = []
-        seen_genomes[gid].append(row)
-
-    # Identify numeric metric keys across all rows (exclude NaN)
-    all_keys: set = set()
-    for row in table:
-        for key in row:
-            if key in _EXCLUDED_KEYS:
-                continue
-            if _is_finite_numeric(row[key]):
-                all_keys.add(key)
-    numeric_keys = sorted(all_keys)
-
-    if not numeric_keys:
-        return []
-
-    # Per-genome, per-metric: compute mean across scenarios (exclude NaN)
-    genome_agg: dict = {}
-    for gid, rows in seen_genomes.items():
-        agg: dict = {}
-        for key in numeric_keys:
-            values = [
-                r[key] for r in rows
-                if _is_finite_numeric(r.get(key))
-            ]
-            if values:
-                agg[key] = sum(values) / len(values)
-        genome_agg[gid] = agg
-
-    # Min-max normalization per metric across genomes
-    normalized: dict = {gid: {} for gid in genome_agg}
-    for key in numeric_keys:
-        values = [
-            genome_agg[gid][key]
-            for gid in genome_agg
-            if key in genome_agg[gid]
-        ]
-        if not values:
-            continue
-        min_val = min(values)
-        max_val = max(values)
-        for gid in genome_agg:
-            if key not in genome_agg[gid]:
-                continue
-            if max_val == min_val:
-                normalized[gid][key] = 0.5
-            else:
-                normalized[gid][key] = (
-                    (genome_agg[gid][key] - min_val) / (max_val - min_val)
-                )
-
-    # Aggregate: mean of normalized values
-    scores: list = []
-    for gid in seen_genomes:
-        norm_vals = list(normalized[gid].values())
-        if norm_vals:
-            score = sum(norm_vals) / len(norm_vals)
-        else:
-            score = 0.0
-        scores.append({
-            "genome_id": gid,
-            "score": score,
-        })
-
-    # Rank: score DESC, genome_id ASC for tie-break
-    scores.sort(key=lambda x: (-x["score"], x["genome_id"]))
-    for i, s in enumerate(scores):
-        s["rank"] = i + 1
-
-    return scores
 
 
 def results_to_json(results: dict) -> str:

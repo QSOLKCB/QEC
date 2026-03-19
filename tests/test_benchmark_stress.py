@@ -10,7 +10,7 @@ Covers:
 - Pareto frontier
 - Scoring layer
 
-Version: v70.0.1
+Version: v71.0.0
 """
 
 import json
@@ -20,17 +20,12 @@ import pytest
 
 from src.qec.experiments.benchmark_stress import (
     SCENARIOS,
-    _EXCLUDED_KEYS,
     _cosine_similarity,
     _derive_seed,
     _prepare_genome_list,
     _quantum_proxy,
     _sign_agreement,
     apply_decoder_genome,
-    build_experiment_table,
-    build_pairwise_comparison,
-    build_pareto_frontier,
-    build_scores,
     classify_with_fallback,
     compute_dark_state_mask,
     compute_fidelity,
@@ -40,6 +35,11 @@ from src.qec.experiments.benchmark_stress import (
     results_to_json,
     run_benchmark_stress,
 )
+from src.qec.modules.aggregation.table import build_experiment_table
+from src.qec.modules.common import _EXCLUDED_KEYS
+from src.qec.modules.comparisons.pairwise import build_pairwise_comparison
+from src.qec.modules.pareto.frontier import build_pareto_frontier
+from src.qec.modules.scoring.scores import build_scores
 
 
 class TestDeterminism:
@@ -300,7 +300,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v70.0.1"
+        assert parsed["version"] == "v71.0.0"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)

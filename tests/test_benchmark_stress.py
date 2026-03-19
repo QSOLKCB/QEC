@@ -23,6 +23,7 @@ from src.qec.experiments.benchmark_stress import (
     _sign_agreement,
     apply_decoder_genome,
     build_experiment_table,
+    build_pairwise_comparison,
     classify_with_fallback,
     compute_dark_state_mask,
     compute_fidelity,
@@ -834,3 +835,102 @@ class TestAggregationLayer:
         }
         with pytest.raises(ValueError, match="Metric key collision"):
             build_experiment_table(malformed)
+
+
+class TestPairwiseComparison:
+    """Tests for pairwise genome comparison (v69.2.0)."""
+
+    def test_pairwise_count(self):
+        """3 genomes × 9 scenarios → 3 pairs per scenario = 27 rows."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+            {"alphabet": "ternary", "damping": 0.1},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        comparisons = result["comparisons"]
+        n_scenarios = len(SCENARIOS)
+        n_pairs = 3  # C(3, 2)
+        assert len(comparisons) == n_scenarios * n_pairs
+
+    def test_single_genome_empty(self):
+        """Single genome produces no comparison pairs."""
+        result = run_benchmark_stress(n_vars=10, n_iters=8)
+        assert result["comparisons"] == []
+
+    def test_delta_correctness(self):
+        """Manually verify one metric delta is row_j[metric] - row_i[metric]."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        table = result["table"]
+        comparisons = result["comparisons"]
+
+        # First comparison should be for the first scenario
+        first_scenario = SCENARIOS[0][0]
+        # Find the two table rows for this scenario
+        scenario_rows = [r for r in table if r["scenario"] == first_scenario]
+        assert len(scenario_rows) == 2
+
+        # Find the matching comparison
+        comp = [c for c in comparisons if c["scenario"] == first_scenario]
+        assert len(comp) == 1
+        comp = comp[0]
+
+        assert comp["genome_a"] == scenario_rows[0]["genome_id"]
+        assert comp["genome_b"] == scenario_rows[1]["genome_id"]
+
+        # Check a numeric metric delta
+        _EXCLUDED = {"genome_id", "scenario", "version", "base_seed_label",
+                      "n_vars", "n_iters_base"}
+        for key in scenario_rows[0]:
+            if key in _EXCLUDED:
+                continue
+            val_i = scenario_rows[0][key]
+            val_j = scenario_rows[1][key]
+            if isinstance(val_i, (int, float)) and isinstance(val_j, (int, float)):
+                expected_delta = val_j - val_i
+                assert comp[f"{key}_delta"] == pytest.approx(expected_delta), (
+                    f"Delta mismatch for {key}: got {comp[f'{key}_delta']}, "
+                    f"expected {expected_delta}"
+                )
+
+    def test_determinism(self):
+        """Repeated runs produce identical comparisons."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+        ]
+        r1 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        r2 = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        j1 = json.dumps(r1["comparisons"], sort_keys=True)
+        j2 = json.dumps(r2["comparisons"], sort_keys=True)
+        assert j1 == j2, "Pairwise comparisons are not deterministic"
+
+    def test_order_preserved(self):
+        """Scenario and genome ordering is stable across comparisons."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+            {"alphabet": "ternary", "damping": 0.1},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        comparisons = result["comparisons"]
+
+        scenario_names = [name for name, _ in SCENARIOS]
+
+        # 3 pairs per scenario: (0,1), (0,2), (1,2)
+        idx = 0
+        for sc_name in scenario_names:
+            sc_comps = comparisons[idx:idx + 3]
+            assert len(sc_comps) == 3
+            for c in sc_comps:
+                assert c["scenario"] == sc_name
+            idx += 3
+
+    def test_missing_table_raises(self):
+        """build_pairwise_comparison raises on missing table."""
+        with pytest.raises(ValueError, match="missing 'table'"):
+            build_pairwise_comparison({})

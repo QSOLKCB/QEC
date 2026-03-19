@@ -291,7 +291,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v69.0.0"
+        assert parsed["version"] == "v69.0.1"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)
@@ -599,7 +599,7 @@ class TestGenomeHardening:
 
 
 class TestGenomeSweep:
-    """Tests for deterministic genome sweep evaluation (v69.0.0)."""
+    """Tests for deterministic genome sweep evaluation (v69.0.1)."""
 
     def test_single_vs_sweep_equivalence(self):
         """Single genome via genome= vs genomes=[genome] produce equivalent results."""
@@ -618,11 +618,21 @@ class TestGenomeSweep:
         for s in sweep_inner["scenarios"]:
             s.pop("timing", None)
 
+        # Metadata equivalence
+        assert r_single["version"] == sweep_inner["version"]
+        assert r_single["base_seed_label"] == sweep_inner["base_seed_label"]
+        assert r_single["n_vars"] == sweep_inner["n_vars"]
+        assert r_single["n_iters_base"] == sweep_inner["n_iters_base"]
+
         # Core data must match
         assert r_single["n_scenarios"] == sweep_inner["n_scenarios"]
         j_single = json.dumps(r_single["scenarios"], sort_keys=True)
         j_sweep = json.dumps(sweep_inner["scenarios"], sort_keys=True)
         assert j_single == j_sweep
+
+        # Genome identity equivalence
+        for s1, s2 in zip(r_single["scenarios"], sweep_inner["scenarios"]):
+            assert s1["genome_id"] == s2["genome_id"]
 
     def test_multiple_genomes_run(self):
         """Multiple distinct genomes all run and produce unique genome_ids."""

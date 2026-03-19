@@ -7,7 +7,11 @@ from typing import Any, Dict
 
 import pytest
 
-from qec.experiments.hybrid_target_sweep import detect_transitions, run_target_sweep
+from qec.experiments.hybrid_target_sweep import (
+    detect_transitions,
+    run_target_sweep,
+    summarize_transitions,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +218,7 @@ class TestTargetSweep:
             pipeline_fn=_fake_pipeline,
             top_k=2,
         )
-        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions"}
+        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary"}
         assert result["n_targets"] == 1
 
         entry = result["results"][0]
@@ -398,3 +402,107 @@ class TestTransitionMetrics:
         ]
         ts = detect_transitions(results)
         assert ts[0]["delta_normalized_score"] == pytest.approx(0.6)
+
+
+# ---------------------------------------------------------------------------
+# Transition summary tests (v83.4)
+# ---------------------------------------------------------------------------
+
+
+class TestSummarizeTransitions:
+    """Tests for v83.4.0 — summarize_transitions."""
+
+    @staticmethod
+    def _transition(delta_score, delta_compat, class_change, phase_change):
+        return {
+            "delta_score": delta_score,
+            "delta_compatibility": delta_compat,
+            "class_change": class_change,
+            "phase_change": phase_change,
+        }
+
+    def test_correct_counts(self):
+        ts = [
+            self._transition(0.3, 0.1, True, False),
+            self._transition(0.5, -0.2, False, True),
+            self._transition(0.0, 0.0, True, True),
+        ]
+        s = summarize_transitions(ts)
+        assert s["n_transitions"] == 3
+        assert s["class_change_count"] == 2
+        assert s["phase_change_count"] == 2
+
+    def test_mean_max_calculations(self):
+        ts = [
+            self._transition(0.2, -0.4, False, False),
+            self._transition(0.6, 0.2, False, False),
+        ]
+        s = summarize_transitions(ts)
+        assert s["mean_delta_score"] == pytest.approx(0.4)
+        assert s["max_delta_score"] == pytest.approx(0.6)
+        assert s["mean_delta_compatibility"] == pytest.approx(-0.1)
+        assert s["max_delta_compatibility"] == pytest.approx(0.4)
+
+    def test_degenerate_count(self):
+        ts = [
+            self._transition(0.0, 0.1, False, False),
+            self._transition(0.0, -0.3, True, False),
+            self._transition(0.5, 0.0, False, True),
+        ]
+        s = summarize_transitions(ts)
+        assert s["degenerate_count"] == 2
+
+    def test_empty_transitions(self):
+        s = summarize_transitions([])
+        assert s["n_transitions"] == 0
+        assert s["mean_delta_score"] == 0.0
+        assert s["max_delta_score"] == 0.0
+        assert s["mean_delta_compatibility"] == 0.0
+        assert s["max_delta_compatibility"] == 0.0
+        assert s["class_change_count"] == 0
+        assert s["phase_change_count"] == 0
+        assert s["degenerate_count"] == 0
+
+    def test_deterministic_output(self):
+        ts = [
+            self._transition(0.3, 0.1, True, False),
+            self._transition(0.5, -0.2, False, True),
+        ]
+        assert summarize_transitions(ts) == summarize_transitions(ts)
+
+    def test_single_transition(self):
+        ts = [self._transition(-0.7, 0.3, True, True)]
+        s = summarize_transitions(ts)
+        assert s["n_transitions"] == 1
+        assert s["mean_delta_score"] == pytest.approx(-0.7)
+        assert s["max_delta_score"] == pytest.approx(0.7)
+        assert s["class_change_count"] == 1
+        assert s["phase_change_count"] == 1
+        assert s["degenerate_count"] == 0
+
+
+class TestSummaryIntegration:
+    """Integration: transition_summary present in sweep output."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_uff(self, monkeypatch):
+        monkeypatch.setattr(
+            "qec.experiments.uff_bridge.run_uff_experiment", _fake_uff,
+        )
+
+    def test_summary_in_sweep_output(self):
+        result = run_target_sweep(
+            targets=["stable", "chaotic"],
+            theta_grid=THETA_GRID,
+            sequences=SEQUENCES,
+            pipeline_fn=_fake_pipeline,
+        )
+        assert "transition_summary" in result
+        s = result["transition_summary"]
+        assert s["n_transitions"] == len(result["transitions"])
+        expected_keys = {
+            "n_transitions", "mean_delta_score", "max_delta_score",
+            "mean_delta_compatibility", "max_delta_compatibility",
+            "class_change_count", "phase_change_count", "degenerate_count",
+        }
+        assert set(s.keys()) == expected_keys

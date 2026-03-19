@@ -37,11 +37,11 @@ def _make_converging_baseline(
     llr_trace = []
     energy_trace = []
     for t in range(n_iters):
-        decay = np.float64(0.9) ** np.float64(t)
-        noise = rng.standard_normal(n_vars).astype(np.float64) * np.float64(0.01) * decay
+        decay = 0.9 ** t
+        noise = rng.standard_normal(n_vars).astype(np.float64) * 0.01 * decay
         llr = base + noise * decay
         llr_trace.append(llr)
-        energy_trace.append(float(np.float64(10.0) * decay))
+        energy_trace.append(float(10.0 * decay))
     return {"llr_trace": llr_trace, "energy_trace": energy_trace}
 
 
@@ -52,9 +52,9 @@ def _make_high_noise(
     llr_trace = []
     energy_trace = []
     for t in range(n_iters):
-        llr = rng.standard_normal(n_vars).astype(np.float64) * np.float64(5.0)
+        llr = rng.standard_normal(n_vars).astype(np.float64) * 5.0
         llr_trace.append(llr)
-        energy_trace.append(float(np.float64(8.0) + rng.standard_normal() * np.float64(2.0)))
+        energy_trace.append(float(8.0 + rng.standard_normal() * 2.0))
     return {"llr_trace": llr_trace, "energy_trace": energy_trace}
 
 
@@ -67,9 +67,9 @@ def _make_oscillating_period3(
     energy_trace = []
     for t in range(n_iters):
         phase = t % 3
-        noise = rng.standard_normal(n_vars).astype(np.float64) * np.float64(0.01)
+        noise = rng.standard_normal(n_vars).astype(np.float64) * 0.01
         llr_trace.append(bases[phase] + noise)
-        energy_trace.append(float(np.float64(5.0) + np.float64(np.sin(np.float64(2.0) * np.float64(np.pi) * np.float64(t) / np.float64(3.0)))))
+        energy_trace.append(float(5.0 + np.sin(2.0 * np.pi * t / 3.0)))
     return {"llr_trace": llr_trace, "energy_trace": energy_trace}
 
 
@@ -82,14 +82,14 @@ def _make_oscillating_period2(
     """
     base = rng.standard_normal(n_vars).astype(np.float64)
     # Ensure base has nonzero magnitude for meaningful sign flips
-    base = base + np.float64(0.1) * np.sign(base)
+    base = base + 0.1 * np.sign(base)
     llr_trace = []
     energy_trace = []
     for t in range(n_iters):
-        sign = np.float64(1.0) if (t % 2 == 0) else np.float64(-1.0)
-        noise = rng.standard_normal(n_vars).astype(np.float64) * np.float64(0.001)
+        sign = 1.0 if (t % 2 == 0) else -1.0
+        noise = rng.standard_normal(n_vars).astype(np.float64) * 0.001
         llr_trace.append(sign * base + noise)
-        energy_trace.append(float(np.float64(5.0) + np.float64(0.5) * sign))
+        energy_trace.append(float(5.0 + 0.5 * sign))
     return {"llr_trace": llr_trace, "energy_trace": energy_trace}
 
 
@@ -102,10 +102,10 @@ def _make_long_iteration(
     llr_trace = []
     energy_trace = []
     for t in range(extended_iters):
-        decay = np.float64(0.98) ** np.float64(t)
-        noise = rng.standard_normal(n_vars).astype(np.float64) * np.float64(0.05) * decay
+        decay = 0.98 ** t
+        noise = rng.standard_normal(n_vars).astype(np.float64) * 0.05 * decay
         llr_trace.append(base + noise)
-        energy_trace.append(float(np.float64(10.0) * decay))
+        energy_trace.append(float(10.0 * decay))
     return {"llr_trace": llr_trace, "energy_trace": energy_trace}
 
 
@@ -118,7 +118,7 @@ def _make_small_window(
     for t in range(4):
         llr = rng.standard_normal(n_vars).astype(np.float64)
         llr_trace.append(llr)
-        energy_trace.append(float(np.float64(5.0) - np.float64(t)))
+        energy_trace.append(float(5.0 - t))
     return {"llr_trace": llr_trace, "energy_trace": energy_trace}
 
 
@@ -131,10 +131,10 @@ def _make_large_window(
     llr_trace = []
     energy_trace = []
     for t in range(extended_iters):
-        decay = np.float64(0.995) ** np.float64(t)
-        noise = rng.standard_normal(n_vars).astype(np.float64) * np.float64(0.02) * decay
+        decay = 0.995 ** t
+        noise = rng.standard_normal(n_vars).astype(np.float64) * 0.02 * decay
         llr_trace.append(base + noise)
-        energy_trace.append(float(np.float64(20.0) * decay))
+        energy_trace.append(float(20.0 * decay))
     return {"llr_trace": llr_trace, "energy_trace": energy_trace}
 
 
@@ -154,9 +154,9 @@ def _make_pathological_extreme(
     for t in range(n_iters):
         llr = np.zeros(n_vars, dtype=np.float64)
         # First quarter: extreme positive
-        llr[:quarter] = np.float64(1e6)
+        llr[:quarter] = 1e6
         # Second quarter: extreme negative
-        llr[quarter:2 * quarter] = np.float64(-1e6)
+        llr[quarter:2 * quarter] = -1e6
         # Middle region: random fill with size constraints
         size = max(0, n_vars - 2 * quarter)
         size = min(quarter, size)
@@ -166,7 +166,7 @@ def _make_pathological_extreme(
         if t % 2 == 1:
             llr = -llr
         llr_trace.append(llr)
-        energy_trace.append(float(np.float64(1e6) * (np.float64(-1.0) ** np.float64(t))))
+        energy_trace.append(float(1e6 * ((-1.0) ** t)))
     return {"llr_trace": llr_trace, "energy_trace": energy_trace}
 
 
@@ -178,10 +178,10 @@ def _make_diverging(
     llr_trace = []
     energy_trace = []
     for t in range(n_iters):
-        growth = np.float64(1.1) ** np.float64(t)
-        noise = rng.standard_normal(n_vars).astype(np.float64) * np.float64(0.1)
+        growth = 1.1 ** t
+        noise = rng.standard_normal(n_vars).astype(np.float64) * 0.1
         llr_trace.append(base * growth + noise)
-        energy_trace.append(float(np.float64(1.0) * growth))
+        energy_trace.append(float(1.0 * growth))
     return {"llr_trace": llr_trace, "energy_trace": energy_trace}
 
 
@@ -345,13 +345,15 @@ def run_benchmark_stress(
 
 
 def results_to_json(results: dict) -> str:
-    """Serialize results to deterministic JSON (sorted keys, 6-digit floats)."""
+    """Serialize results to deterministic JSON (sorted keys)."""
 
     def _default(obj: Any) -> Any:
         if isinstance(obj, (np.integer,)):
             return int(obj)
         if isinstance(obj, (np.floating,)):
             return float(obj)
+        if isinstance(obj, (np.bool_,)):
+            return bool(obj)
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         raise TypeError(f"Not JSON serializable: {type(obj)}")

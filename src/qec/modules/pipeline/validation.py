@@ -4,7 +4,7 @@ All validation logic for pipeline inputs is collected here.
 Each function is deterministic, side-effect free, and raises
 ``ValueError`` on invalid input.
 
-Version: v71.0.2
+Version: v71.0.3
 """
 
 _VALID_MODES = ("single", "sweep")

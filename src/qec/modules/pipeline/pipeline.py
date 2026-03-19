@@ -7,8 +7,10 @@ non-mutating unit:
 The pipeline never mutates its input dictionaries.  It constructs and
 returns a new result dict.
 
-Version: v71.0.2
+Version: v71.0.3
 """
+
+import os
 
 from src.qec.modules.aggregation.table import build_experiment_table
 from src.qec.modules.comparisons.pairwise import build_pairwise_comparison
@@ -20,6 +22,8 @@ from src.qec.modules.pipeline.validation import (
     validate_suites,
     validate_sweep_result,
 )
+
+_DEBUG_IMMUTABILITY = os.environ.get("QEC_DEBUG_IMMUTABILITY") == "1"
 
 
 def build_full_pipeline(
@@ -65,6 +69,11 @@ def build_full_pipeline(
     validate_mode(mode)
     validate_suites(mode, suites)
 
+    # --- dev-only immutability snapshot ---
+    if _DEBUG_IMMUTABILITY:
+        import copy
+        _before = copy.deepcopy(suites)
+
     # --- assemble result (non-mutating) ---
     # Shallow copy is sufficient: pipeline stages read nested data
     # but never mutate it.  See stage docstrings for contracts.
@@ -90,5 +99,9 @@ def build_full_pipeline(
 
     scores = build_scores(result)
     result["scores"] = scores
+
+    # --- dev-only immutability check ---
+    if _DEBUG_IMMUTABILITY:
+        assert suites == _before, "Pipeline mutated input suites!"
 
     return result

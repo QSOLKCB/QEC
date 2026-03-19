@@ -1,4 +1,4 @@
-"""v82.7.0 — Hybrid Co-Design Engine (theta + sequence together).
+"""v82.7.1 — Hybrid Co-Design Engine (theta + sequence together).
 
 Paired evaluation of UFF parameter vectors and deterministic sequences
 in a shared invariant space.  Runs both domains, fuses their invariant
@@ -28,8 +28,8 @@ from qec.experiments.uff_landscape import _extract_point_summary
 # Alignment thresholds
 # ---------------------------------------------------------------------------
 
-_ALIGNED_THRESHOLD = 2.0
-_NEAR_ALIGNED_THRESHOLD = 5.0
+ALIGN_THRESHOLD = 2.0
+NEAR_THRESHOLD = 5.0
 
 
 # ---------------------------------------------------------------------------
@@ -142,11 +142,13 @@ def score_hybrid_pair(summary: Dict[str, Any]) -> Dict[str, Any]:
         ``{"compatibility": float, "alignment": str}``
     """
     distance = float(summary["distance"])
+    assert distance >= 0.0
     compatibility = 1.0 / (1.0 + distance)
+    assert 0.0 <= compatibility <= 1.0
 
-    if distance <= _ALIGNED_THRESHOLD:
+    if distance <= ALIGN_THRESHOLD:
         alignment = "aligned"
-    elif distance <= _NEAR_ALIGNED_THRESHOLD:
+    elif distance <= NEAR_THRESHOLD:
         alignment = "near_aligned"
     else:
         alignment = "mismatched"
@@ -190,11 +192,6 @@ def run_hybrid_codesign(
     pairs: List[Dict[str, Any]] = []
     alignment_counts = {"aligned": 0, "near_aligned": 0, "mismatched": 0, "invalid": 0}
 
-    best_pair: Optional[Dict[str, Any]] = None
-    worst_pair: Optional[Dict[str, Any]] = None
-    best_compat = -1.0
-    worst_compat = 2.0
-
     for theta in theta_grid:
         for seq in sequences:
             raw = run_hybrid_pair(
@@ -222,26 +219,30 @@ def run_hybrid_codesign(
             else:
                 scored = {"compatibility": 0.0, "alignment": "invalid"}
 
+            theta_phase = summary["theta_summary"].get("phase", "unknown")
+            seq_phase = summary["sequence_summary"].get("phase", "unknown")
+            theta_class = classify_sequence(summary["theta_summary"])
+            seq_class = summary["sequence_summary"].get("class", "unknown")
+
             entry = {
                 "theta": list(theta),
                 "sequence": seq,
                 "distance": summary["distance"],
                 "compatibility": scored["compatibility"],
                 "alignment": scored["alignment"],
-                "theta_phase": summary["theta_summary"].get("phase", "unknown"),
-                "sequence_phase": summary["sequence_summary"].get("phase", "unknown"),
-                "theta_class": classify_sequence(summary["theta_summary"]),
-                "sequence_class": summary["sequence_summary"].get("class", "unknown"),
+                "theta_phase": theta_phase,
+                "sequence_phase": seq_phase,
+                "theta_class": theta_class,
+                "sequence_class": seq_class,
+                "phase_agreement": theta_phase == seq_phase,
+                "class_agreement": theta_class == seq_class,
             }
             pairs.append(entry)
             alignment_counts[scored["alignment"]] += 1
 
-            if scored["compatibility"] > best_compat:
-                best_compat = scored["compatibility"]
-                best_pair = entry
-            if scored["compatibility"] < worst_compat:
-                worst_compat = scored["compatibility"]
-                worst_pair = entry
+    valid_pairs = [p for p in pairs if p["alignment"] != "invalid"]
+    best_pair = max(valid_pairs, key=lambda p: p["compatibility"]) if valid_pairs else None
+    worst_pair = min(pairs, key=lambda p: p["compatibility"]) if pairs else None
 
     return {
         "n_pairs": len(pairs),

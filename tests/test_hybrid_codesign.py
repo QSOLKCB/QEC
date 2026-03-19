@@ -253,6 +253,7 @@ class TestRunHybridCodesign:
             "theta", "sequence", "distance", "compatibility",
             "alignment", "theta_phase", "sequence_phase",
             "theta_class", "sequence_class",
+            "phase_agreement", "class_agreement",
         }
         assert expected_keys <= set(entry.keys())
 
@@ -288,6 +289,21 @@ class TestRunHybridCodesign:
             [[1.0, 2.0, 0.5]], [0, 1], pipeline_fn=_fake_pipeline_invalid,
         )
         assert result["alignment_counts"]["invalid"] == 2
+
+    def test_best_pair_excludes_invalid(self, _patch_uff):
+        result = run_hybrid_codesign(
+            [[1.0, 2.0, 0.5]], [0], pipeline_fn=_fake_pipeline_invalid,
+        )
+        # All pairs invalid → best_pair should be empty
+        assert result["best_pair"] == {}
+
+    def test_phase_class_agreement_fields(self, _patch_uff):
+        result = run_hybrid_codesign(
+            [[1.0, 2.0, 0.5]], [0], pipeline_fn=_fake_pipeline,
+        )
+        entry = result["pairs"][0]
+        assert isinstance(entry["phase_agreement"], bool)
+        assert isinstance(entry["class_agreement"], bool)
 
     def test_requires_pipeline_fn(self):
         with pytest.raises(ValueError, match="pipeline_fn"):

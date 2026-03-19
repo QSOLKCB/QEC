@@ -1,9 +1,10 @@
 """
-v74.1.0 — Deterministic pairwise sonic comparison and classification.
+v74.2.0 — Deterministic pairwise sonic comparison and directional classification.
 
 Compares two sonic analysis result dictionaries (as produced by
-``sonic_analysis.analyse_file``) and computes spectral + structural deltas.
-Classifies the relationship between the two signals.
+``sonic_analysis.analyse_file``) and computes spectral + structural deltas
+plus derived ratio metrics.  Classifies the *nature* of the change between
+two signals using directional rules.
 
 Layer 5 — Experiments.
 Does not modify decoder internals.  Fully deterministic.  Read-only on inputs.
@@ -46,13 +47,52 @@ def compare_sonic_features(a: dict, b: dict) -> dict:
     zcr_delta = b["zero_crossing_rate"] - a["zero_crossing_rate"]
     fft_similarity = _fft_overlap_score(a["fft_top_peaks"], b["fft_top_peaks"])
 
+    # Derived ratio metrics (v74.2.0).
+    energy_ratio = _safe_ratio(b["rms_energy"], a["rms_energy"])
+    spread_ratio = _safe_ratio(b["spectral_spread_hz"], a["spectral_spread_hz"])
+    fft_peak_count_change = (
+        _count_significant_peaks(b["fft_top_peaks"])
+        - _count_significant_peaks(a["fft_top_peaks"])
+    )
+
     return {
         "energy_delta": float(energy_delta),
         "centroid_delta": float(centroid_delta),
         "spread_delta": float(spread_delta),
         "zcr_delta": float(zcr_delta),
         "fft_similarity": float(fft_similarity),
+        "energy_ratio": float(energy_ratio),
+        "spread_ratio": float(spread_ratio),
+        "fft_peak_count_change": int(fft_peak_count_change),
     }
+
+
+# ---------------------------------------------------------------------------
+# Derived Metric Helpers
+# ---------------------------------------------------------------------------
+
+def _safe_ratio(numerator: float, denominator: float) -> float:
+    """Return *numerator / denominator*, guarding against zero."""
+    if denominator == 0.0:
+        if numerator == 0.0:
+            return 1.0
+        return float("inf") if numerator > 0 else float("-inf")
+    return numerator / denominator
+
+
+def _count_significant_peaks(
+    peaks: List[Dict[str, float]],
+    *,
+    rel_threshold: float = 0.1,
+) -> int:
+    """Count FFT peaks whose magnitude exceeds *rel_threshold* of the max."""
+    if not peaks:
+        return 0
+    max_mag = max(p["magnitude"] for p in peaks)
+    if max_mag <= 0.0:
+        return 0
+    cutoff = max_mag * rel_threshold
+    return sum(1 for p in peaks if p["magnitude"] >= cutoff)
 
 
 # ---------------------------------------------------------------------------
@@ -104,24 +144,37 @@ def _fft_overlap_score(
 
 
 # ---------------------------------------------------------------------------
-# Classification
+# Directional Classification (v74.2.0)
 # ---------------------------------------------------------------------------
 
 # Thresholds — simple deterministic logic, no ML.
 _THRESHOLDS = {
-    "energy_abs": 0.02,       # absolute energy delta for "minimal"
+    # Stable: all deltas must be within these bounds.
+    "energy_abs": 0.02,
     "centroid_abs": 200.0,    # Hz
     "spread_abs": 150.0,      # Hz
     "zcr_abs": 0.02,
-    "fft_sim_high": 0.7,
-    "fft_sim_low": 0.3,
-    "energy_drop": -0.03,     # collapse: energy drops significantly
-    "energy_rise": 0.03,      # recovery: energy rises significantly
+    "fft_sim_stable": 0.7,
+    # Transition: structural reorganisation.
+    "fft_sim_transition": 0.2,
+    # Recovery: smooth re-concentration.
+    "fft_sim_recovery": 0.5,
 }
 
 
 def classify_comparison(metrics: dict) -> str:
-    """Classify the relationship between two compared signals.
+    """Classify the *nature* of the change between two compared signals.
+
+    Uses directional (signed) deltas and ratio metrics to distinguish:
+
+    * ``"stable"``    — minimal change across all metrics
+    * ``"transition"`` — complete structural reorganisation (very low FFT
+      similarity)
+    * ``"collapse"``  — energy drops while spectrum diffuses (spread
+      increases)
+    * ``"recovery"``  — spectrum re-concentrates (spread decreases, centroid
+      drops) with preserved FFT structure
+    * ``"divergent"`` — spectrum expands without energy loss
 
     Parameters
     ----------
@@ -131,42 +184,57 @@ def classify_comparison(metrics: dict) -> str:
     Returns
     -------
     str
-        One of: ``"stable"``, ``"divergent"``, ``"transition"``,
-        ``"collapse"``, ``"recovery"``.
+        One of the five classification labels above.
     """
     t = _THRESHOLDS
     ed = metrics["energy_delta"]
-    cd = abs(metrics["centroid_delta"])
-    sd = abs(metrics["spread_delta"])
-    zd = abs(metrics["zcr_delta"])
+    cd = metrics["centroid_delta"]       # signed
+    sd = metrics["spread_delta"]         # signed
+    zd = metrics["zcr_delta"]
     fs = metrics["fft_similarity"]
 
-    # Collapse: energy drops AND spectral simplification (spread narrows or
-    # FFT similarity drops)
-    if ed <= t["energy_drop"] and (sd > t["spread_abs"] or fs < t["fft_sim_low"]):
-        return "collapse"
-
-    # Recovery: energy rises AND structure returns (FFT similarity moderate+)
-    if ed >= t["energy_rise"] and fs >= t["fft_sim_low"]:
-        return "recovery"
-
-    # Stable: all deltas small, FFT similar
+    # ------------------------------------------------------------------
+    # 1. STABLE — very small deltas across all metrics
+    # ------------------------------------------------------------------
     if (abs(ed) <= t["energy_abs"]
-            and cd <= t["centroid_abs"]
-            and sd <= t["spread_abs"]
-            and zd <= t["zcr_abs"]
-            and fs >= t["fft_sim_high"]):
+            and abs(cd) <= t["centroid_abs"]
+            and abs(sd) <= t["spread_abs"]
+            and abs(zd) <= t["zcr_abs"]
+            and fs >= t["fft_sim_stable"]):
         return "stable"
 
-    # Transition: large structured change (multiple big deltas)
-    big_count = sum([
-        cd > t["centroid_abs"],
-        sd > t["spread_abs"],
-        zd > t["zcr_abs"],
-        fs < t["fft_sim_high"],
-    ])
-    if big_count >= 2:
+    # ------------------------------------------------------------------
+    # 2. TRANSITION — complete structural reorganisation
+    #    FFT peaks are entirely different; no directional signature.
+    # ------------------------------------------------------------------
+    if fs < t["fft_sim_transition"]:
         return "transition"
 
-    # Divergent: moderate change that doesn't fit above categories
-    return "divergent"
+    # ------------------------------------------------------------------
+    # 3. COLLAPSE — energy drops + spectral diffusion
+    #    Spread increases (signal loses coherence) while energy falls.
+    # ------------------------------------------------------------------
+    if ed < 0 and sd > t["spread_abs"]:
+        return "collapse"
+
+    # ------------------------------------------------------------------
+    # 4. RECOVERY — spectral re-concentration
+    #    Spread decreases and centroid drops (refocusing), with FFT
+    #    structure preserved.
+    # ------------------------------------------------------------------
+    if (sd < -t["spread_abs"]
+            and cd < 0
+            and fs >= t["fft_sim_recovery"]):
+        return "recovery"
+
+    # ------------------------------------------------------------------
+    # 5. DIVERGENT — spectrum expands without energy loss
+    #    Spread increases while energy is stable or rising.
+    # ------------------------------------------------------------------
+    if sd > t["spread_abs"] and ed >= 0:
+        return "divergent"
+
+    # ------------------------------------------------------------------
+    # Fallback — large change without clear directional signature.
+    # ------------------------------------------------------------------
+    return "transition"

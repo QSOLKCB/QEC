@@ -1,4 +1,4 @@
-"""Tests for sonic comparison and transition analysis (v74.1.0)."""
+"""Tests for sonic comparison and transition analysis (v74.2.0)."""
 
 from __future__ import annotations
 
@@ -117,14 +117,39 @@ class TestCompareSonicFeatures:
         b = _make_features(energy=0.0, centroid=0.0, spread=0.0, zcr=0.0)
         result = compare_sonic_features(a, b)
         for v in result.values():
-            assert math.isfinite(v)
+            if isinstance(v, float):
+                assert math.isfinite(v)
+            else:
+                assert isinstance(v, int)
 
     def test_output_keys(self):
         a = _make_features()
         result = compare_sonic_features(a, a)
         expected_keys = {"energy_delta", "centroid_delta", "spread_delta",
-                         "zcr_delta", "fft_similarity"}
+                         "zcr_delta", "fft_similarity",
+                         "energy_ratio", "spread_ratio",
+                         "fft_peak_count_change"}
         assert set(result.keys()) == expected_keys
+
+    def test_derived_ratios_identical(self):
+        a = _make_features()
+        result = compare_sonic_features(a, a)
+        assert result["energy_ratio"] == pytest.approx(1.0)
+        assert result["spread_ratio"] == pytest.approx(1.0)
+        assert result["fft_peak_count_change"] == 0
+
+    def test_derived_ratios_direction(self):
+        a = _make_features(energy=0.2, spread=400.0)
+        b = _make_features(energy=0.4, spread=800.0)
+        result = compare_sonic_features(a, b)
+        assert result["energy_ratio"] > 1.0
+        assert result["spread_ratio"] > 1.0
+
+    def test_safe_ratio_zero_energy(self):
+        a = _make_features(energy=0.0)
+        b = _make_features(energy=0.0)
+        result = compare_sonic_features(a, b)
+        assert math.isfinite(result["energy_ratio"])
 
 
 # ---------------------------------------------------------------------------
@@ -162,55 +187,75 @@ class TestFFTOverlapScore:
 # ---------------------------------------------------------------------------
 
 class TestClassifyComparison:
-    """Tests for transition classification."""
+    """Tests for directional transition classification (v74.2.0)."""
 
     def test_stable(self):
+        """All deltas small, high FFT similarity."""
         metrics = {
             "energy_delta": 0.0,
             "centroid_delta": 0.0,
             "spread_delta": 0.0,
             "zcr_delta": 0.0,
             "fft_similarity": 0.95,
+            "energy_ratio": 1.0,
+            "spread_ratio": 1.0,
+            "fft_peak_count_change": 0,
         }
         assert classify_comparison(metrics) == "stable"
 
-    def test_collapse(self):
+    def test_collapse_energy_drop_spread_increase(self):
+        """Energy drops + spread increases = spectral diffusion / collapse."""
         metrics = {
-            "energy_delta": -0.1,
-            "centroid_delta": -500.0,
-            "spread_delta": -300.0,
-            "zcr_delta": -0.05,
-            "fft_similarity": 0.1,
+            "energy_delta": -0.05,
+            "centroid_delta": 600.0,
+            "spread_delta": 400.0,
+            "zcr_delta": 0.01,
+            "fft_similarity": 0.8,
+            "energy_ratio": 0.8,
+            "spread_ratio": 1.5,
+            "fft_peak_count_change": -2,
         }
         assert classify_comparison(metrics) == "collapse"
 
-    def test_recovery(self):
+    def test_recovery_spread_decrease_centroid_drop(self):
+        """Spread decreases + centroid drops + high FFT = re-concentration."""
         metrics = {
-            "energy_delta": 0.1,
-            "centroid_delta": 200.0,
-            "spread_delta": 100.0,
-            "zcr_delta": 0.01,
-            "fft_similarity": 0.5,
+            "energy_delta": 0.01,
+            "centroid_delta": -400.0,
+            "spread_delta": -300.0,
+            "zcr_delta": -0.01,
+            "fft_similarity": 0.9,
+            "energy_ratio": 1.05,
+            "spread_ratio": 0.7,
+            "fft_peak_count_change": 2,
         }
         assert classify_comparison(metrics) == "recovery"
 
-    def test_transition(self):
+    def test_transition_low_fft_similarity(self):
+        """Very low FFT similarity = complete structural reorganisation."""
         metrics = {
             "energy_delta": 0.01,
-            "centroid_delta": 500.0,
-            "spread_delta": 300.0,
-            "zcr_delta": 0.05,
-            "fft_similarity": 0.4,
+            "centroid_delta": -500.0,
+            "spread_delta": -200.0,
+            "zcr_delta": -0.005,
+            "fft_similarity": 0.1,
+            "energy_ratio": 1.05,
+            "spread_ratio": 0.8,
+            "fft_peak_count_change": -3,
         }
         assert classify_comparison(metrics) == "transition"
 
-    def test_divergent(self):
+    def test_divergent_spread_increase_energy_stable(self):
+        """Spread increases while energy stable = divergent expansion."""
         metrics = {
-            "energy_delta": 0.01,
-            "centroid_delta": 300.0,
-            "spread_delta": 50.0,
+            "energy_delta": 0.005,
+            "centroid_delta": 400.0,
+            "spread_delta": 300.0,
             "zcr_delta": 0.005,
-            "fft_similarity": 0.8,
+            "fft_similarity": 0.9,
+            "energy_ratio": 1.02,
+            "spread_ratio": 1.4,
+            "fft_peak_count_change": 0,
         }
         assert classify_comparison(metrics) == "divergent"
 
@@ -220,6 +265,13 @@ class TestClassifyComparison:
         metrics = compare_sonic_features(a, b)
         label = classify_comparison(metrics)
         assert label in {"stable", "divergent", "transition", "collapse", "recovery"}
+
+    def test_classification_determinism(self):
+        a = _make_features(energy=0.3, spread=500.0)
+        b = _make_features(energy=0.1, spread=900.0)
+        m1 = compare_sonic_features(a, b)
+        m2 = compare_sonic_features(a, b)
+        assert classify_comparison(m1) == classify_comparison(m2)
 
 
 # ---------------------------------------------------------------------------
@@ -286,7 +338,8 @@ class TestAnalyzeSonicSequence:
             tr = result["transitions"][0]
             required_metric_keys = {"energy_delta", "centroid_delta",
                                     "spread_delta", "zcr_delta",
-                                    "fft_similarity"}
+                                    "fft_similarity", "energy_ratio",
+                                    "spread_ratio", "fft_peak_count_change"}
             assert set(tr["metrics"].keys()) == required_metric_keys
             assert tr["classification"] in {
                 "stable", "divergent", "transition", "collapse", "recovery"}
@@ -319,4 +372,7 @@ class TestRunSequenceAnalysis:
                 [w1, w2], output_dir=os.path.join(td, "out"))
             for tr in result["transitions"]:
                 for v in tr["metrics"].values():
-                    assert math.isfinite(v)
+                    if isinstance(v, float):
+                        assert math.isfinite(v)
+                    else:
+                        assert isinstance(v, int)

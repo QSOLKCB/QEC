@@ -1,5 +1,5 @@
 """
-v74.1.0 — Deterministic sequential sonic state-transition analysis.
+v74.2.0 — Deterministic sequential sonic state-transition analysis.
 
 Processes an ordered sequence of audio files, runs v74.0 analysis on each,
 compares consecutive pairs, and produces a structured transition report.

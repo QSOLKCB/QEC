@@ -664,6 +664,7 @@ def run_benchmark_stress(
             n_vars, n_iters, base_seed_label, genome_list[0],
         )
         suite["mode"] = "single"
+        suite["table"] = build_experiment_table(suite)
         return suite
 
     # Sweep mode: deterministic sequential iteration
@@ -674,10 +675,65 @@ def run_benchmark_stress(
         )
         sweep_results.append(suite)
 
-    return {
+    sweep_result = {
         "mode": "sweep",
         "results": sweep_results,
     }
+    sweep_result["table"] = build_experiment_table(sweep_result)
+    return sweep_result
+
+
+# ── Aggregation layer ────────────────────────────────────────────────────
+
+
+def build_experiment_table(result: dict) -> list:
+    """Convert benchmark result (single or sweep) into a flat list of row dicts.
+
+    Each row corresponds to one (genome, scenario) pair with flattened metrics.
+    Input is not mutated.  Order follows genome order then scenario order.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_benchmark_stress`` (mode="single" or mode="sweep").
+
+    Returns
+    -------
+    list[dict]
+        Flat rows with genome_id, scenario, version, base_seed_label,
+        n_vars, n_iters_base, and all flattened metric values.
+    """
+    mode = result.get("mode", "single")
+
+    if mode == "sweep":
+        suites = result["results"]
+    else:
+        suites = [result]
+
+    rows: list = []
+    for suite in suites:
+        version = suite.get("version", "")
+        base_seed_label = suite.get("base_seed_label", "")
+        n_vars = suite.get("n_vars")
+        n_iters_base = suite.get("n_iters_base")
+
+        for scenario in suite["scenarios"]:
+            row: dict = {
+                "genome_id": scenario["genome_id"],
+                "scenario": scenario["scenario"],
+                "version": version,
+                "base_seed_label": base_seed_label,
+                "n_vars": n_vars,
+                "n_iters_base": n_iters_base,
+            }
+            # Flatten metrics dict
+            metrics = scenario.get("metrics", {})
+            if metrics:
+                for k, v in metrics.items():
+                    row[k] = v
+            rows.append(row)
+
+    return rows
 
 
 def results_to_json(results: dict) -> str:

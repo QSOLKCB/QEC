@@ -22,6 +22,7 @@ from src.qec.experiments.benchmark_stress import (
     _quantum_proxy,
     _sign_agreement,
     apply_decoder_genome,
+    build_experiment_table,
     classify_with_fallback,
     compute_dark_state_mask,
     compute_fidelity,
@@ -712,3 +713,85 @@ class TestGenomeSweep:
         assert result["results"][0]["scenarios"][0]["genome_id"] == id_a
         assert result["results"][1]["scenarios"][0]["genome_id"] == id_b
         assert result["results"][2]["scenarios"][0]["genome_id"] == id_c
+
+
+class TestAggregationLayer:
+    """Tests for the aggregation layer — build_experiment_table (v69.1.0)."""
+
+    def test_single_table_shape(self):
+        """Single-genome run produces rows == number of scenarios."""
+        result = run_benchmark_stress(n_vars=10, n_iters=8)
+        table = result["table"]
+        assert len(table) == 9  # 9 scenarios
+        # Each row has required fields
+        required = {"genome_id", "scenario", "version", "base_seed_label",
+                     "n_vars", "n_iters_base"}
+        for row in table:
+            assert required.issubset(row.keys()), (
+                f"Missing fields: {required - row.keys()}"
+            )
+
+    def test_sweep_table_shape(self):
+        """Sweep with 3 genomes produces rows == genomes x scenarios."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+            {"alphabet": "ternary", "damping": 0.1},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        table = result["table"]
+        assert len(table) == 3 * 9  # 3 genomes x 9 scenarios
+
+    def test_table_determinism(self):
+        """Two identical runs produce identical tables."""
+        r1 = run_benchmark_stress(n_vars=10, n_iters=8)
+        r2 = run_benchmark_stress(n_vars=10, n_iters=8)
+        t1 = r1["table"]
+        t2 = r2["table"]
+        assert len(t1) == len(t2)
+        j1 = json.dumps(t1, sort_keys=True)
+        j2 = json.dumps(t2, sort_keys=True)
+        assert j1 == j2, "Tables are not deterministic across runs"
+
+    def test_table_matches_raw_results(self):
+        """Values in table match values in raw scenario results."""
+        result = run_benchmark_stress(n_vars=10, n_iters=8)
+        table = result["table"]
+        scenarios = result["scenarios"]
+        assert len(table) == len(scenarios)
+        for row, scenario in zip(table, scenarios):
+            assert row["genome_id"] == scenario["genome_id"]
+            assert row["scenario"] == scenario["scenario"]
+            assert row["n_vars"] == result["n_vars"]
+            # Check flattened metrics match
+            for k, v in scenario["metrics"].items():
+                assert row[k] == v, (
+                    f"Mismatch for {scenario['scenario']}.{k}: "
+                    f"table={row[k]} vs raw={v}"
+                )
+
+    def test_order_preserved(self):
+        """Genome and scenario order is preserved in table rows."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        table = result["table"]
+
+        canonical_a = normalize_decoder_genome(genomes[0])
+        canonical_b = normalize_decoder_genome(genomes[1])
+        id_a = fingerprint_decoder_genome(canonical_a)
+        id_b = fingerprint_decoder_genome(canonical_b)
+
+        scenario_names = [name for name, _ in SCENARIOS]
+
+        # First 9 rows: genome A, in scenario order
+        for i, name in enumerate(scenario_names):
+            assert table[i]["genome_id"] == id_a
+            assert table[i]["scenario"] == name
+
+        # Next 9 rows: genome B, in scenario order
+        for i, name in enumerate(scenario_names):
+            assert table[9 + i]["genome_id"] == id_b
+            assert table[9 + i]["scenario"] == name

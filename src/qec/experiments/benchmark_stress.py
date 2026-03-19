@@ -860,6 +860,10 @@ def build_pareto_frontier(result: dict) -> list:
         If ``result`` has no ``"table"`` key, if a comparison references an
         unknown scenario, or if a scenario has no valid numeric metrics.
     """
+        If ``result`` is missing ``"comparisons"`` or ``"table"``.
+    """
+    if "comparisons" not in result:
+        raise ValueError("Result dict missing 'comparisons' key")
     if "table" not in result:
         raise ValueError("Result dict missing 'table' key")
 

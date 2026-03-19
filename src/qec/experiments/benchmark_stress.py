@@ -3,7 +3,7 @@
 Generates 9 synthetic scenarios, runs them through the diagnostics pipeline,
 and produces deterministic JSON-serializable results with fidelity metrics.
 
-Version: v69.2.1
+Version: v69.3.1
 """
 
 import hashlib
@@ -617,7 +617,7 @@ def _run_single_genome_suite(
         result["seed"] = seed
         results.append(result)
     return {
-        "version": "v69.2.1",
+        "version": "v69.3.1",
         "base_seed_label": base_seed_label,
         "n_vars": n_vars,
         "n_iters_base": n_iters,
@@ -629,7 +629,7 @@ def _run_single_genome_suite(
 def run_benchmark_stress(
     n_vars: int = 50,
     n_iters: int = 30,
-    base_seed_label: str = "benchmark_stress_v69.2.1",
+    base_seed_label: str = "benchmark_stress_v69.3.1",
     genome: Optional[dict] = None,
     genomes: Optional[List[dict]] = None,
 ) -> dict:
@@ -870,17 +870,32 @@ def build_pareto_frontier(result: dict) -> dict:
     # Step 3: iterate comparisons and evaluate dominance
     for comp in comparisons:
         scenario = comp["scenario"]
+        if scenario not in scenario_genomes:
+            raise ValueError(
+                f"comparison references unknown scenario: {scenario!r}"
+            )
         genome_a = comp["genome_a"]
         genome_b = comp["genome_b"]
 
-        # Collect all delta values
-        deltas = []
-        for key, val in comp.items():
-            if key.endswith("_delta") and isinstance(val, (int, float)):
-                deltas.append(val)
+        # Collect all valid numeric delta values (reject NaN)
+        delta_keys = [k for k in comp if k.endswith("_delta")]
+        valid_deltas = []
+        for k in delta_keys:
+            v = comp[k]
+            if isinstance(v, (int, float)) and not np.isnan(v):
+                valid_deltas.append(v)
 
-        if not deltas:
+        if not valid_deltas and delta_keys:
+            raise ValueError(
+                f"comparison has no valid numeric deltas "
+                f"(scenario={scenario!r}, genome_a={genome_a!r}, "
+                f"genome_b={genome_b!r})"
+            )
+
+        if not valid_deltas:
             continue
+
+        deltas = valid_deltas
 
         all_ge_zero = all(d >= 0 for d in deltas)
         any_gt_zero = any(d > 0 for d in deltas)

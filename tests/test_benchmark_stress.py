@@ -295,7 +295,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v69.2.1"
+        assert parsed["version"] == "v69.3.1"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)
@@ -1179,3 +1179,58 @@ class TestParetoFrontier:
         """Missing comparisons key raises ValueError."""
         with pytest.raises(ValueError, match="missing 'comparisons'"):
             build_pareto_frontier({"table": []})
+
+    def test_unknown_scenario_rejected(self):
+        """Comparison referencing unknown scenario raises ValueError."""
+        genomes = [
+            {"clip_value": 1.0, "damping": 0.0},
+            {"clip_value": 5.0, "damping": 0.3},
+        ]
+        result = run_benchmark_stress(n_vars=10, n_iters=8, genomes=genomes)
+        bad = {
+            "table": result["table"],
+            "comparisons": [
+                {**result["comparisons"][0], "scenario": "nonexistent"}
+            ],
+        }
+        with pytest.raises(ValueError, match="unknown scenario"):
+            build_pareto_frontier(bad)
+
+    def test_no_numeric_deltas_rejected(self):
+        """Comparison with no valid numeric deltas raises ValueError."""
+        result = {
+            "table": [
+                {"scenario": "s1", "genome_id": "a"},
+                {"scenario": "s1", "genome_id": "b"},
+            ],
+            "comparisons": [
+                {
+                    "scenario": "s1",
+                    "genome_a": "a",
+                    "genome_b": "b",
+                    "foo_delta": "not_numeric",
+                    "bar_delta": None,
+                }
+            ],
+        }
+        with pytest.raises(ValueError, match="no valid numeric deltas"):
+            build_pareto_frontier(result)
+
+    def test_nan_deltas_rejected(self):
+        """Comparison with only NaN deltas raises ValueError."""
+        result = {
+            "table": [
+                {"scenario": "s1", "genome_id": "a"},
+                {"scenario": "s1", "genome_id": "b"},
+            ],
+            "comparisons": [
+                {
+                    "scenario": "s1",
+                    "genome_a": "a",
+                    "genome_b": "b",
+                    "metric_delta": float("nan"),
+                }
+            ],
+        }
+        with pytest.raises(ValueError, match="no valid numeric deltas"):
+            build_pareto_frontier(result)

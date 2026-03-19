@@ -184,7 +184,10 @@ def run_uff_experiment(
         merged_config.update(config)
 
     # --- Generate velocity curve ---
+    assert callable(v_circ_fn)
     v = v_circ_fn(R, theta)
+    assert hasattr(v, "shape")
+    assert len(v) == len(R)
 
     # --- Extract features ---
     features = extract_features(R, v)

@@ -172,3 +172,14 @@ class TestRunUffExperiment:
         theta_copy = list(theta)
         run_uff_experiment(theta)
         assert theta == theta_copy
+
+    def test_invalid_v_circ_fn(self) -> None:
+        with pytest.raises(AssertionError):
+            run_uff_experiment([1, 1, 1], v_circ_fn=123)
+
+    def test_bad_shape_v_circ_fn(self) -> None:
+        def bad_fn(R: np.ndarray, theta: list) -> list:
+            return [1, 2, 3]
+
+        with pytest.raises(AssertionError):
+            run_uff_experiment([1, 1, 1], v_circ_fn=bad_fn)

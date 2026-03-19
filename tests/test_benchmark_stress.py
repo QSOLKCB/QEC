@@ -20,9 +20,11 @@ from src.qec.experiments.benchmark_stress import (
     _derive_seed,
     _quantum_proxy,
     _sign_agreement,
+    apply_decoder_genome,
     classify_with_fallback,
     compute_dark_state_mask,
     compute_fidelity,
+    default_decoder_genome,
     results_to_json,
     run_benchmark_stress,
 )
@@ -286,7 +288,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v68.8.0"
+        assert parsed["version"] == "v68.9.0"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)
@@ -354,3 +356,103 @@ class TestDarkState:
         assert len(masks_a) == len(masks_b)
         for ma, mb in zip(masks_a, masks_b):
             np.testing.assert_array_equal(ma, mb)
+
+
+class TestDecoderGenome:
+    """Tests for the decoder genome abstraction (v68.9.0)."""
+
+    def test_default_genome_structure(self):
+        """Default genome has expected keys and deterministic values."""
+        g = default_decoder_genome()
+        assert g["alphabet"] == "binary"
+        assert g["clip_value"] is None
+        assert g["damping"] == 0.0
+        assert g["dark_skip"] is False
+        # Deterministic: repeated calls identical
+        assert default_decoder_genome() == g
+
+    def test_clipping_effect(self):
+        """Clipping bounds all values to [-clip_value, clip_value]."""
+        trace = [np.array([10.0, -20.0, 0.5, -0.3], dtype=np.float64)]
+        genome = default_decoder_genome()
+        genome["clip_value"] = 5.0
+        out = apply_decoder_genome(trace, genome)
+        assert len(out) == 1
+        assert float(np.max(out[0])) <= 5.0
+        assert float(np.min(out[0])) >= -5.0
+        # Values within range are unchanged
+        assert out[0][2] == pytest.approx(0.5)
+        assert out[0][3] == pytest.approx(-0.3)
+
+    def test_damping_effect(self):
+        """Damping moves v_t toward v_{t-1}."""
+        v0 = np.array([10.0, 0.0, -10.0], dtype=np.float64)
+        v1 = np.array([0.0, 10.0, 0.0], dtype=np.float64)
+        trace = [v0.copy(), v1.copy()]
+        genome = default_decoder_genome()
+        genome["damping"] = 0.5
+        out = apply_decoder_genome(trace, genome)
+        # v_t = 0.5 * v1 + 0.5 * v0
+        expected = 0.5 * v1 + 0.5 * v0
+        np.testing.assert_allclose(out[1], expected)
+        # v_0 unchanged
+        np.testing.assert_array_equal(out[0], v0)
+
+    def test_ternary_projection(self):
+        """Ternary projection maps all values to {-1, 0, +1}."""
+        trace = [np.array([5.0, -3.0, 0.0, 1e-13, -1e-13, 2.0], dtype=np.float64)]
+        genome = default_decoder_genome()
+        genome["alphabet"] = "ternary"
+        out = apply_decoder_genome(trace, genome)
+        allowed = {-1.0, 0.0, 1.0}
+        for val in out[0]:
+            assert float(val) in allowed
+        assert out[0][0] == 1.0   # positive
+        assert out[0][1] == -1.0  # negative
+        assert out[0][2] == 0.0   # exact zero
+        assert out[0][3] == 0.0   # tiny positive → 0
+        assert out[0][4] == 0.0   # tiny negative → 0
+        assert out[0][5] == 1.0   # positive
+
+    def test_dark_skip_freezes_nodes(self):
+        """Dark skip freezes dark-stable nodes to their previous value."""
+        # Construct trace where node 0 is dark-stable (constant)
+        # and node 1 changes
+        v0 = np.array([5.0, 1.0], dtype=np.float64)
+        v1 = np.array([5.0, -3.0], dtype=np.float64)  # node 0 same, node 1 changes
+        v2 = np.array([5.0, 7.0], dtype=np.float64)   # node 0 same, node 1 changes
+        trace = [v0.copy(), v1.copy(), v2.copy()]
+        genome = default_decoder_genome()
+        genome["dark_skip"] = True
+        out = apply_decoder_genome(trace, genome)
+        # Node 0 is dark-stable at t=1,2 → frozen to previous value
+        assert out[1][0] == pytest.approx(5.0)
+        assert out[2][0] == pytest.approx(5.0)
+        # Node 1 changes sign → not dark-stable → not frozen
+        assert out[1][1] == pytest.approx(-3.0)
+
+    def test_pipeline_accepts_genome(self):
+        """run_benchmark_suite with genome runs without error."""
+        genome = default_decoder_genome()
+        genome["clip_value"] = 3.0
+        genome["damping"] = 0.1
+        results = run_benchmark_stress(n_vars=10, n_iters=8, genome=genome)
+        assert results["n_scenarios"] == 9
+        for s in results["scenarios"]:
+            assert s["genome"] == genome
+            assert "metrics" in s
+            assert "regime" in s
+
+    def test_determinism_with_genome(self):
+        """Repeated runs with same genome produce identical results."""
+        genome = {"alphabet": "ternary", "clip_value": 2.0,
+                  "damping": 0.3, "dark_skip": True}
+        r1 = run_benchmark_stress(n_vars=10, n_iters=8, genome=genome)
+        r2 = run_benchmark_stress(n_vars=10, n_iters=8, genome=genome)
+        for s in r1["scenarios"]:
+            s.pop("timing", None)
+        for s in r2["scenarios"]:
+            s.pop("timing", None)
+        j1 = json.dumps(r1, sort_keys=True)
+        j2 = json.dumps(r2, sort_keys=True)
+        assert j1 == j2

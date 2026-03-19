@@ -3,7 +3,7 @@
 Generates 9 synthetic scenarios, runs them through the diagnostics pipeline,
 and produces deterministic JSON-serializable results with fidelity metrics.
 
-Version: v68.8.0
+Version: v68.9.0
 """
 
 import hashlib
@@ -315,6 +315,79 @@ def compute_fidelity(llr_trace: list) -> dict:
     }
 
 
+# ── Decoder genome ───────────────────────────────────────────────────────
+
+
+def default_decoder_genome() -> dict:
+    """Return the default decoder genome configuration.
+
+    A decoder genome is a deterministic configuration of decoding behavior,
+    applied as a lightweight transformation layer on LLR traces.
+    """
+    return {
+        "alphabet": "binary",
+        "clip_value": None,
+        "damping": 0.0,
+        "dark_skip": False,
+    }
+
+
+def apply_decoder_genome(
+    llr_trace: List[np.ndarray],
+    genome: dict,
+) -> List[np.ndarray]:
+    """Apply genome transformations to an LLR trace.
+
+    Operations applied in order:
+    1. Clipping (if clip_value is not None)
+    2. Damping (if damping > 0)
+    3. Dark skip (if dark_skip is True) — freeze dark-stable nodes
+    4. Ternary projection (if alphabet == "ternary")
+
+    Returns a new list (input is not mutated).
+    """
+    if len(llr_trace) == 0:
+        return []
+
+    clip_value = genome.get("clip_value", None)
+    damping = float(genome.get("damping", 0.0))
+    dark_skip = bool(genome.get("dark_skip", False))
+    alphabet = genome.get("alphabet", "binary")
+
+    # Deep copy to avoid mutation
+    out = [np.array(v, dtype=np.float64) for v in llr_trace]
+
+    # 1. Clipping
+    if clip_value is not None:
+        cv = float(clip_value)
+        for t in range(len(out)):
+            out[t] = np.clip(out[t], -cv, cv)
+
+    # 2. Damping: v_t = (1 - damping) * v_t + damping * v_{t-1}
+    if damping > 0.0:
+        for t in range(1, len(out)):
+            out[t] = (1.0 - damping) * out[t] + damping * out[t - 1]
+
+    # 3. Dark skip: freeze dark-stable nodes to previous value
+    if dark_skip:
+        masks = compute_dark_state_mask(out)
+        for t in range(1, len(out)):
+            dark = masks[t]
+            if np.any(dark):
+                out[t][dark] = out[t - 1][dark]
+
+    # 4. Ternary projection
+    if alphabet == "ternary":
+        for t in range(len(out)):
+            v = out[t]
+            result = np.zeros_like(v, dtype=np.float64)
+            result[v > 1e-12] = 1.0
+            result[v < -1e-12] = -1.0
+            out[t] = result
+
+    return out
+
+
 # ── Classification post-processing ──────────────────────────────────────
 
 
@@ -342,31 +415,45 @@ def run_single_benchmark(
     rng: np.random.Generator,
     n_vars: int,
     n_iters: int,
+    genome: Optional[dict] = None,
 ) -> dict:
     """Run one benchmark scenario and return metrics including dark-state fractions.
+
+    Parameters
+    ----------
+    genome : dict or None
+        Decoder genome configuration.  If None, uses default_decoder_genome().
 
     Returns
     -------
     dict
         Contains scenario metrics, regime, fidelity, dark-state fractions,
-        and timing information.
+        genome, and timing information.
     """
+    if genome is None:
+        genome = default_decoder_genome()
+
     t_start = time.monotonic()
     scenario_data = generator_fn(rng, n_vars, n_iters)
     t_gen = time.monotonic() - t_start
 
+    # Apply genome transformation before diagnostics
+    transformed_trace = apply_decoder_genome(
+        scenario_data["llr_trace"], genome,
+    )
+
     t_start = time.monotonic()
     diagnostics_result = compute_bp_dynamics_metrics(
-        llr_trace=scenario_data["llr_trace"],
+        llr_trace=transformed_trace,
         energy_trace=scenario_data["energy_trace"],
     )
     t_diag = time.monotonic() - t_start
 
-    fidelity = compute_fidelity(scenario_data["llr_trace"])
+    fidelity = compute_fidelity(transformed_trace)
     regime = classify_with_fallback(diagnostics_result["regime"])
 
     # Dark-state invariants
-    dark_masks = compute_dark_state_mask(scenario_data["llr_trace"])
+    dark_masks = compute_dark_state_mask(transformed_trace)
     dark_fracs = _dark_fractions(dark_masks)
     if len(dark_fracs) > 0:
         mean_dark_fraction = float(np.mean(dark_fracs))
@@ -378,11 +465,12 @@ def run_single_benchmark(
     return {
         "scenario": scenario_name,
         "n_vars": n_vars,
-        "n_iters": len(scenario_data["llr_trace"]),
+        "n_iters": len(transformed_trace),
         "regime": regime,
         "metrics": diagnostics_result["metrics"],
         "evidence": diagnostics_result["evidence"],
         "fidelity": fidelity,
+        "genome": genome,
         "mean_dark_fraction": mean_dark_fraction,
         "final_dark_fraction": final_dark_fraction,
         "timing": {
@@ -399,6 +487,7 @@ def run_benchmark_stress(
     n_vars: int = 50,
     n_iters: int = 30,
     base_seed_label: str = "benchmark_stress_v68.7.2",
+    genome: Optional[dict] = None,
 ) -> dict:
     """Run all 9 benchmark scenarios deterministically.
 
@@ -410,12 +499,14 @@ def run_benchmark_stress(
         Base number of iterations (some scenarios scale this).
     base_seed_label : str
         Label for SHA-256 seed derivation.
+    genome : dict or None
+        Decoder genome configuration.  If None, uses default_decoder_genome().
 
     Returns
     -------
     dict
         JSON-serializable results with scenario metrics, regimes,
-        fidelity, and timing.
+        fidelity, genome, and timing.
     """
     results = []
 
@@ -426,12 +517,13 @@ def run_benchmark_stress(
 
         result = run_single_benchmark(
             scenario_name, generator_fn, rng, n_vars, n_iters,
+            genome=genome,
         )
         result["seed"] = seed
         results.append(result)
 
     return {
-        "version": "v68.8.0",
+        "version": "v68.9.0",
         "base_seed_label": base_seed_label,
         "n_vars": n_vars,
         "n_iters_base": n_iters,

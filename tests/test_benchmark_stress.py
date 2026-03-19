@@ -21,6 +21,7 @@ from src.qec.experiments.benchmark_stress import (
     _quantum_proxy,
     _sign_agreement,
     classify_with_fallback,
+    compute_dark_state_mask,
     compute_fidelity,
     results_to_json,
     run_benchmark_stress,
@@ -285,7 +286,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v68.7.2"
+        assert parsed["version"] == "v68.8.0"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)
@@ -295,3 +296,61 @@ class TestJsonSerialization:
         # Re-serialize with sorted keys and compare
         json_str2 = json.dumps(parsed, sort_keys=True, indent=2)
         assert json_str == json_str2
+
+
+class TestDarkState:
+    """Tests for dark-state detection (v68.8.0)."""
+
+    def test_dark_state_basic(self):
+        """Constant vector trace → all dark after step 1."""
+        v = np.array([1.0, -2.0, 3.0], dtype=np.float64)
+        trace = [v.copy() for _ in range(5)]
+        masks = compute_dark_state_mask(trace)
+        assert len(masks) == 5
+        # First timestep: all False
+        assert not np.any(masks[0])
+        # All subsequent: all True (identical vectors)
+        for t in range(1, 5):
+            assert np.all(masks[t])
+
+    def test_dark_state_sign_flip(self):
+        """Alternating sign → no dark stability."""
+        v = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+        trace = [v if t % 2 == 0 else -v for t in range(6)]
+        masks = compute_dark_state_mask(trace)
+        # First timestep: all False by definition
+        assert not np.any(masks[0])
+        # All others: no node is dark-stable (signs flip)
+        for t in range(1, 6):
+            assert not np.any(masks[t])
+
+    def test_dark_state_small_variation(self):
+        """Small noise below epsilon → still dark-stable."""
+        v = np.array([10.0, -5.0, 3.0], dtype=np.float64)
+        tiny = 1e-8  # well below epsilon=1e-6
+        trace = [v, v + tiny, v + 2 * tiny, v + 3 * tiny]
+        masks = compute_dark_state_mask(trace)
+        assert not np.any(masks[0])
+        for t in range(1, 4):
+            assert np.all(masks[t])
+
+    def test_dark_fraction_range(self):
+        """Dark fractions in run_benchmark_stress are in [0, 1]."""
+        results = run_benchmark_stress(n_vars=20, n_iters=15)
+        for s in results["scenarios"]:
+            assert 0.0 <= s["mean_dark_fraction"] <= 1.0, (
+                f"{s['scenario']}: mean_dark_fraction={s['mean_dark_fraction']}"
+            )
+            assert 0.0 <= s["final_dark_fraction"] <= 1.0, (
+                f"{s['scenario']}: final_dark_fraction={s['final_dark_fraction']}"
+            )
+
+    def test_determinism(self):
+        """Repeated compute_dark_state_mask calls produce identical results."""
+        rng = np.random.Generator(np.random.PCG64(42))
+        trace = [rng.standard_normal(20).astype(np.float64) for _ in range(10)]
+        masks_a = compute_dark_state_mask(trace)
+        masks_b = compute_dark_state_mask(trace)
+        assert len(masks_a) == len(masks_b)
+        for ma, mb in zip(masks_a, masks_b):
+            np.testing.assert_array_equal(ma, mb)

@@ -9,6 +9,7 @@ import pytest
 
 from qec.experiments.hybrid_target_sweep import (
     detect_transitions,
+    extract_regimes,
     run_target_sweep,
     summarize_transitions,
 )
@@ -218,7 +219,7 @@ class TestTargetSweep:
             pipeline_fn=_fake_pipeline,
             top_k=2,
         )
-        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary"}
+        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary", "regimes"}
         assert result["n_targets"] == 1
 
         entry = result["results"][0]
@@ -506,3 +507,101 @@ class TestSummaryIntegration:
             "class_change_count", "phase_change_count", "degenerate_count",
         }
         assert set(s.keys()) == expected_keys
+
+
+# ---------------------------------------------------------------------------
+# Regime extraction tests (v84.0)
+# ---------------------------------------------------------------------------
+
+
+class TestExtractRegimes:
+    """Tests for v84.0.0 — extract_regimes."""
+
+    @staticmethod
+    def _bp(theta, seq, score=0.5, compat=0.5, cls="A", phase="p1"):
+        return {
+            "theta": theta, "sequence": seq,
+            "score": score, "compatibility": compat,
+            "class": cls, "phase": phase,
+        }
+
+    def test_correct_segmentation(self):
+        """Transitions at [2,5] with 7 results → 3 regimes."""
+        results = [{"best_pair": self._bp([i], i)} for i in range(7)]
+        transitions = [{"to_index": 2}, {"to_index": 5}]
+        regimes = extract_regimes(results, transitions)
+        assert len(regimes) == 3
+        assert regimes[0]["start_index"] == 0
+        assert regimes[0]["end_index"] == 1
+        assert regimes[1]["start_index"] == 2
+        assert regimes[1]["end_index"] == 4
+        assert regimes[2]["start_index"] == 5
+        assert regimes[2]["end_index"] == 6
+
+    def test_no_transitions_single_regime(self):
+        """No transitions → single regime spanning all results."""
+        results = [{"best_pair": self._bp([1.0], 0)} for _ in range(4)]
+        regimes = extract_regimes(results, [])
+        assert len(regimes) == 1
+        assert regimes[0]["start_index"] == 0
+        assert regimes[0]["end_index"] == 3
+        assert regimes[0]["length"] == 4
+
+    def test_single_result_single_regime(self):
+        """One result → one regime of length 1."""
+        results = [{"best_pair": self._bp([1.0], 0, score=0.7, compat=0.3)}]
+        regimes = extract_regimes(results, [])
+        assert len(regimes) == 1
+        assert regimes[0]["length"] == 1
+        assert regimes[0]["start_index"] == 0
+        assert regimes[0]["end_index"] == 0
+
+    def test_regime_lengths_correct(self):
+        """Regime lengths sum to total number of results."""
+        results = [{"best_pair": self._bp([i], i)} for i in range(10)]
+        transitions = [{"to_index": 3}, {"to_index": 7}]
+        regimes = extract_regimes(results, transitions)
+        assert sum(r["length"] for r in regimes) == 10
+        assert regimes[0]["length"] == 3
+        assert regimes[1]["length"] == 4
+        assert regimes[2]["length"] == 3
+
+    def test_dominant_fields_match_first_entry(self):
+        """Dominant fields come from the first result in each regime."""
+        results = [
+            {"best_pair": self._bp([1.0], 0, cls="X", phase="stable")},
+            {"best_pair": self._bp([2.0], 1, cls="Y", phase="chaotic")},
+            {"best_pair": self._bp([3.0], 2, cls="Z", phase="fragile")},
+        ]
+        transitions = [{"to_index": 1}, {"to_index": 2}]
+        regimes = extract_regimes(results, transitions)
+        assert regimes[0]["dominant_theta"] == [1.0]
+        assert regimes[0]["dominant_sequence"] == 0
+        assert regimes[0]["dominant_class"] == "X"
+        assert regimes[0]["dominant_phase"] == "stable"
+        assert regimes[1]["dominant_class"] == "Y"
+        assert regimes[2]["dominant_class"] == "Z"
+
+    def test_means_computed_correctly(self):
+        """mean_score and mean_compatibility are averaged over the regime."""
+        results = [
+            {"best_pair": self._bp([1.0], 0, score=0.2, compat=0.4)},
+            {"best_pair": self._bp([1.0], 0, score=0.6, compat=0.8)},
+            {"best_pair": self._bp([2.0], 1, score=0.9, compat=0.3)},
+        ]
+        transitions = [{"to_index": 2}]
+        regimes = extract_regimes(results, transitions)
+        assert regimes[0]["mean_score"] == pytest.approx(0.4)
+        assert regimes[0]["mean_compatibility"] == pytest.approx(0.6)
+        assert regimes[1]["mean_score"] == pytest.approx(0.9)
+        assert regimes[1]["mean_compatibility"] == pytest.approx(0.3)
+
+    def test_deterministic_output(self):
+        """extract_regimes is deterministic across calls."""
+        results = [{"best_pair": self._bp([i], i)} for i in range(5)]
+        transitions = [{"to_index": 2}]
+        assert extract_regimes(results, transitions) == extract_regimes(results, transitions)
+
+    def test_empty_results(self):
+        """Empty results → empty regimes."""
+        assert extract_regimes([], []) == []

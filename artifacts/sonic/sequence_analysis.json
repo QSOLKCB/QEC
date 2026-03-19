@@ -1,0 +1,73 @@
+{
+  "n_states": 5,
+  "transitions": [
+    {
+      "classification": "divergent",
+      "from": "QSOL 1_ Stable Invariant State.mp3",
+      "from_index": 0,
+      "metrics": {
+        "centroid_delta": 495.3825356090679,
+        "energy_delta": 0.003250728464152336,
+        "energy_ratio": 1.0251465131650848,
+        "fft_peak_count_change": 0,
+        "fft_similarity": 0.9796281802363562,
+        "spread_delta": 338.52187678276914,
+        "spread_ratio": 1.1010628323777383,
+        "zcr_delta": -0.0010163600358438774
+      },
+      "to": "QSOL 2_ Near-Boundary Instability.mp3",
+      "to_index": 1
+    },
+    {
+      "classification": "transition",
+      "from": "QSOL 2_ Near-Boundary Instability.mp3",
+      "from_index": 1,
+      "metrics": {
+        "centroid_delta": -447.2149368379728,
+        "energy_delta": 0.01826543014381954,
+        "energy_ratio": 1.137829139630366,
+        "fft_peak_count_change": 0,
+        "fft_similarity": 0.04984338606751197,
+        "spread_delta": -174.12494556426873,
+        "spread_ratio": 0.9527878675876229,
+        "zcr_delta": -0.0066253105825943535
+      },
+      "to": "QSOL 3_ Structural Transition.mp3",
+      "to_index": 2
+    },
+    {
+      "classification": "collapse",
+      "from": "QSOL 3_ Structural Transition.mp3",
+      "from_index": 2,
+      "metrics": {
+        "centroid_delta": 751.957298633065,
+        "energy_delta": -0.008363235691636495,
+        "energy_ratio": 0.9445363527047034,
+        "fft_peak_count_change": 0,
+        "fft_similarity": 0.9625148735530497,
+        "spread_delta": 593.5721587937096,
+        "spread_ratio": 1.1689156648183454,
+        "zcr_delta": 0.005591273529416126
+      },
+      "to": "QSOL 4_ Constraint Failure _ Collapse.mp3",
+      "to_index": 3
+    },
+    {
+      "classification": "recovery",
+      "from": "QSOL 4_ Constraint Failure _ Collapse.mp3",
+      "from_index": 3,
+      "metrics": {
+        "centroid_delta": -583.6310382240708,
+        "energy_delta": -0.0018122992154488982,
+        "energy_ratio": 0.9872753655684273,
+        "fft_peak_count_change": 0,
+        "fft_similarity": 0.9890406991462948,
+        "spread_delta": -346.3538431996776,
+        "spread_ratio": 0.9156794876531134,
+        "zcr_delta": -0.003168835269284069
+      },
+      "to": "QSOL 5_ Recovery _ Re-stabilization.mp3",
+      "to_index": 4
+    }
+  ]
+}

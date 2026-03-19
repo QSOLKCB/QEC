@@ -128,7 +128,7 @@ def generate_hybrid_candidates(
 def score_against_target(
     pair_summary: Dict[str, Any],
     target_spec: Dict[str, Any],
-) -> float:
+) -> Dict[str, float]:
     """Score a hybrid pair summary against a target specification.
 
     Higher score is better.  Invalid pairs receive ``_WORST_SCORE``.
@@ -144,32 +144,51 @@ def score_against_target(
 
     Returns
     -------
-    float
-        Scalar score (higher is better).
+    dict
+        Score decomposition with keys: ``score``, ``base_score``,
+        ``class_bonus``, ``phase_bonus``, ``normalized_score``.
     """
     # Invalid pairs get worst score
     if pair_summary.get("alignment") == "invalid":
-        return _WORST_SCORE
+        return {
+            "score": _WORST_SCORE,
+            "base_score": 0.0,
+            "class_bonus": 0.0,
+            "phase_bonus": 0.0,
+            "normalized_score": 0.0,
+        }
 
-    score = pair_summary.get("compatibility", 0.0)
+    base_score = pair_summary.get("compatibility", 0.0)
+    class_bonus = 0.0
+    phase_bonus = 0.0
 
     desired_class = target_spec["desired_class"]
 
     # Class match bonus — check both theta and sequence classes
     if pair_summary.get("theta_class") == desired_class:
-        score += 1.0
+        class_bonus += 1.0
     if pair_summary.get("sequence_class") == desired_class:
-        score += 1.0
+        class_bonus += 1.0
 
     # Phase preference bonus
     phase_pref = target_spec.get("phase_preference")
     if phase_pref is not None:
         if pair_summary.get("theta_phase") == phase_pref:
-            score += 0.2
+            phase_bonus += 0.2
         if pair_summary.get("sequence_phase") == phase_pref:
-            score += 0.2
+            phase_bonus += 0.2
 
-    return score
+    total = base_score + class_bonus + phase_bonus
+    max_possible = 1.0 + 2.0 + 0.4  # compatibility + 2*class + 2*phase
+    normalized = total / max_possible if max_possible > 0 else 0.0
+
+    return {
+        "score": total,
+        "base_score": base_score,
+        "class_bonus": class_bonus,
+        "phase_bonus": phase_bonus,
+        "normalized_score": normalized,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -286,12 +305,16 @@ def run_hybrid_inverse_design(
             "sequence_class": seq_class,
         }
 
-        target_score = score_against_target(pair_info, target_spec)
+        score_detail = score_against_target(pair_info, target_spec)
 
         entry = {
             "theta": list(theta),
             "sequence": seq,
-            "score": target_score,
+            "score": score_detail["score"],
+            "base_score": score_detail["base_score"],
+            "class_bonus": score_detail["class_bonus"],
+            "phase_bonus": score_detail["phase_bonus"],
+            "normalized_score": score_detail["normalized_score"],
             "compatibility": scored["compatibility"],
             "alignment": scored["alignment"],
             "class": theta_class,
@@ -299,8 +322,15 @@ def run_hybrid_inverse_design(
         }
         scored_entries.append(entry)
 
-    # Sort descending by score (higher is better), stable sort
-    scored_entries.sort(key=lambda x: x["score"], reverse=True)
+    # Deterministic sort: score desc, compatibility desc, lexicographic asc
+    scored_entries.sort(
+        key=lambda x: (
+            -x["score"],
+            -x["compatibility"],
+            tuple(x["theta"]),
+            x["sequence"],
+        ),
+    )
 
     top_results = scored_entries[:top_k]
 

@@ -3,7 +3,7 @@
 Generates 9 synthetic scenarios, runs them through the diagnostics pipeline,
 and produces deterministic JSON-serializable results with fidelity metrics.
 
-Version: v68.9.1
+Version: v68.9.2
 """
 
 import hashlib
@@ -411,24 +411,26 @@ def apply_decoder_genome(
     Operator order is fixed and must not be reordered:
         clipping → damping → dark_skip → ternary
 
+    The genome is normalized on entry — callers need not pre-normalize.
     Returns a new list (input is not mutated).
     """
     if len(llr_trace) == 0:
         return []
 
-    clip_value = genome.get("clip_value", None)
-    damping = float(genome.get("damping", 0.0))
-    dark_skip = bool(genome.get("dark_skip", False))
-    alphabet = genome.get("alphabet", "binary")
+    # Enforce canonical form: no .get() fallbacks, no hidden defaults
+    genome = normalize_decoder_genome(genome)
+    clip_value = genome["clip_value"]
+    damping = genome["damping"]
+    dark_skip = genome["dark_skip"]
+    alphabet = genome["alphabet"]
 
     # Deep copy to float64 — input is never mutated
     out = [np.array(v, dtype=np.float64) for v in llr_trace]
 
     # Step 1: Clipping (clip_value=0 is valid → all values become 0)
     if clip_value is not None:
-        cv = float(clip_value)
         for t in range(len(out)):
-            out[t] = np.clip(out[t], -cv, cv)
+            out[t] = np.clip(out[t], -clip_value, clip_value)
 
     # Step 2: Damping — uses previous timestep only (t-1)
     if damping > 0.0:
@@ -558,7 +560,7 @@ def run_single_benchmark(
 def run_benchmark_stress(
     n_vars: int = 50,
     n_iters: int = 30,
-    base_seed_label: str = "benchmark_stress_v68.7.2",
+    base_seed_label: str = "benchmark_stress_v68.9.2",
     genome: Optional[dict] = None,
 ) -> dict:
     """Run all 9 benchmark scenarios deterministically.
@@ -595,7 +597,7 @@ def run_benchmark_stress(
         results.append(result)
 
     return {
-        "version": "v68.9.1",
+        "version": "v68.9.2",
         "base_seed_label": base_seed_label,
         "n_vars": n_vars,
         "n_iters_base": n_iters,

@@ -290,7 +290,7 @@ class TestJsonSerialization:
         json_str = results_to_json(results)
         parsed = json.loads(json_str)
         assert parsed["n_scenarios"] == 9
-        assert parsed["version"] == "v68.9.1"
+        assert parsed["version"] == "v68.9.2"
 
     def test_json_sorted_keys(self):
         results = run_benchmark_stress(n_vars=10, n_iters=8)
@@ -560,3 +560,38 @@ class TestGenomeHardening:
         genome = normalize_decoder_genome({"clip_value": 0.0})
         out = apply_decoder_genome([v], genome)
         np.testing.assert_array_equal(out[0], np.zeros(3, dtype=np.float64))
+
+    def test_apply_decoder_genome_non_mutating(self):
+        """apply_decoder_genome must not mutate input trace or its arrays."""
+        v0 = np.array([10.0, -5.0, 0.0], dtype=np.float64)
+        v1 = np.array([-2.0, 7.0, 3.0], dtype=np.float64)
+        v2 = np.array([1.0, -1.0, 4.0], dtype=np.float64)
+        trace = [v0.copy(), v1.copy(), v2.copy()]
+
+        # Preserve originals for comparison
+        orig_values = [arr.copy() for arr in trace]
+        orig_ids = [id(arr) for arr in trace]
+
+        genome = normalize_decoder_genome(
+            {"clip_value": 3.0, "damping": 0.4, "dark_skip": True}
+        )
+        out = apply_decoder_genome(trace, genome)
+
+        # Value invariants: original arrays unchanged
+        for i in range(len(trace)):
+            np.testing.assert_array_equal(
+                trace[i], orig_values[i],
+                err_msg=f"trace[{i}] was mutated in-place",
+            )
+
+        # Object invariants: output is a new list with new arrays
+        assert out is not trace
+        for i in range(len(out)):
+            assert out[i] is not trace[i], f"out[{i}] shares identity with trace[{i}]"
+
+        # Structural invariant: original list length unchanged
+        assert len(trace) == 3
+
+        # Original array identities unchanged (not replaced)
+        for i in range(len(trace)):
+            assert id(trace[i]) == orig_ids[i], f"trace[{i}] object was replaced"

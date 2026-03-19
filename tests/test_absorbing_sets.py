@@ -12,7 +12,7 @@ Covers:
 import numpy as np
 import pytest
 
-from src.qec.analysis.absorbing_sets import AbsorbingSetPredictor
+from qec.analysis.absorbing_sets import AbsorbingSetPredictor
 
 
 def _make_small_ldpc():

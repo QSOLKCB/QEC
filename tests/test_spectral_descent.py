@@ -1,8 +1,8 @@
 import numpy as np
 
-from src.qec.analysis.bethe_hessian import estimate_nishimori_temperature
-from src.qec.analysis.eigenmode_mutation import build_bethe_hessian, extract_unstable_modes
-from src.qec.discovery.spectral_descent_loop import spectral_descent
+from qec.analysis.bethe_hessian import estimate_nishimori_temperature
+from qec.analysis.eigenmode_mutation import build_bethe_hessian, extract_unstable_modes
+from qec.discovery.spectral_descent_loop import spectral_descent
 
 
 def _max_severity(H: np.ndarray) -> float:

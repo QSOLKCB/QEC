@@ -21,13 +21,13 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics._spectral_utils import (
+from qec.diagnostics._spectral_utils import (
     build_directed_edges,
     build_nb_operator,
     compute_ipr,
     nb_matvec,
 )
-from src.qec.diagnostics.spectral_nb import (
+from qec.diagnostics.spectral_nb import (
     _TannerGraph,
     _compute_eeec,
     _compute_sis,
@@ -441,7 +441,7 @@ def score_repair_candidate_incremental(
         Score dictionary with original and repaired metrics,
         plus incremental solver metadata.
     """
-    from src.qec.diagnostics.spectral_repair import apply_repair_candidate
+    from qec.diagnostics.spectral_repair import apply_repair_candidate
 
     H_arr = np.asarray(H, dtype=np.float64)
 

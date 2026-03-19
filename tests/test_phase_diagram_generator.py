@@ -7,15 +7,15 @@ from unittest import mock
 
 import numpy as np
 
-from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
-from src.qec.analysis.spectral_phase_diagram import (
+from qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
+from qec.analysis.spectral_phase_diagram import (
     build_phase_diagram_dataset,
     construct_phase_grid,
     detect_phase_boundaries,
     estimate_stability_surface,
     generate_phase_heatmap,
 )
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _archive_fixture() -> dict:

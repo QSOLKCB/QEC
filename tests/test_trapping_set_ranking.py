@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
+from qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
 
 
 def test_candidate_scores_rounding_and_formula() -> None:

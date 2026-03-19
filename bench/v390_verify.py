@@ -21,10 +21,10 @@ from bench.dps_v381_eval import (
     DEFAULT_TRIALS, DEFAULT_MAX_ITERS, DEFAULT_BP_MODE,
     _pre_generate_instances,
 )
-from src.qec_qldpc_codes import (
+from qec_qldpc_codes import (
     bp_decode, syndrome, channel_llr, create_code,
 )
-from src.qec.decoder.rpc import StructuralConfig
+from qec.decoder.rpc import StructuralConfig
 
 
 # ──────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.api import detect_spectral_defects
+from qec.analysis.api import detect_spectral_defects
 
 
 def _sample_H() -> np.ndarray:

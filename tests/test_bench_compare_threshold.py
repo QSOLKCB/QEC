@@ -6,7 +6,7 @@ Uses small synthetic FER curves so tests are fast and deterministic.
 
 import pytest
 
-from src.bench.compare import (
+from bench.compare import (
     compute_threshold_table,
     compute_runtime_scaling,
     compute_iteration_histogram,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
+from qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
 
 
 def _matrix() -> np.ndarray:

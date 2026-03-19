@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
+from qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
 
 
 _ROUND = 12

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from src.qec.analysis.spectral_signature import SpectralSignature
+from qec.analysis.spectral_signature import SpectralSignature
 
 _ROUND = 12
 

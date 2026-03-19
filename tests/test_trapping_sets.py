@@ -12,7 +12,7 @@ Covers:
 import numpy as np
 import pytest
 
-from src.qec.analysis.trapping_sets import TrappingSetDetector
+from qec.analysis.trapping_sets import TrappingSetDetector
 
 
 def _make_small_ldpc():

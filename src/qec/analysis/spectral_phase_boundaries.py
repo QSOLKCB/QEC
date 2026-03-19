@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
+from qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
 
 
 def detect_phase_boundaries(memory: SpectralLandscapeMemory) -> dict[str, Any]:

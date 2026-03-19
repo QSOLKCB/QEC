@@ -5,20 +5,20 @@ from __future__ import annotations
 import numpy as np
 import scipy.sparse as sp
 
-from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer
-from src.qec.analysis.defect_scheduler import DefectScheduler
-from src.qec.analysis.eigenmode_mutation import (
+from qec.analysis.bethe_hessian import BetheHessianAnalyzer
+from qec.analysis.defect_scheduler import DefectScheduler
+from qec.analysis.eigenmode_mutation import (
     adjacency_list_from_H,
     build_bethe_hessian,
     extract_unstable_modes,
 )
-from src.qec.analysis.ihara_bass_gradient import compute_ihara_bass_gradient
-from src.qec.discovery.eigenmode_guided_swap import find_best_swap
-from src.qec.discovery.spectral_gradient_flow import (
+from qec.analysis.ihara_bass_gradient import compute_ihara_bass_gradient
+from qec.discovery.eigenmode_guided_swap import find_best_swap
+from qec.discovery.spectral_gradient_flow import (
     SpectralGradientFlowConfig,
     run_spectral_gradient_flow,
 )
-from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
+from qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
 
 
 def _project_gradient_to_matrix_edges(

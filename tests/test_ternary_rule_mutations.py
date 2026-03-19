@@ -10,17 +10,17 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.decoder.ternary.ternary_rule_mutations import (
+from qec.decoder.ternary.ternary_rule_mutations import (
     flip_zero_bias_rule,
     conservative_rule,
     inverted_majority_rule,
     generate_mutated_rules,
 )
-from src.qec.decoder.ternary.ternary_rule_variants import (
+from qec.decoder.ternary.ternary_rule_variants import (
     RULE_REGISTRY,
     get_extended_rule_registry,
 )
-from src.qec.decoder.ternary.ternary_rule_evaluator import (
+from qec.decoder.ternary.ternary_rule_evaluator import (
     run_decoder_with_rule,
     evaluate_decoder_rule,
 )
@@ -314,7 +314,7 @@ class TestCoevolution:
     """Tests for evaluate_rule_population."""
 
     def test_base_population(self) -> None:
-        from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
+        from qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
         H = simple_parity_matrix()
         r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=False)
@@ -322,7 +322,7 @@ class TestCoevolution:
         assert result["best_decoder_rule"] in RULE_REGISTRY
 
     def test_extended_population(self) -> None:
-        from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
+        from qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
         H = simple_parity_matrix()
         r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
@@ -331,7 +331,7 @@ class TestCoevolution:
         assert result["best_decoder_rule"] in ext
 
     def test_population_deterministic(self) -> None:
-        from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
+        from qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
         H = simple_parity_matrix()
         r = received_vector()
         r1 = evaluate_rule_population(H, r, use_extended_rules=True)
@@ -341,7 +341,7 @@ class TestCoevolution:
         assert r1["decoder_rule_population"] == r2["decoder_rule_population"]
 
     def test_population_metrics_structure(self) -> None:
-        from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
+        from qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
         H = simple_parity_matrix()
         r = received_vector()
         result = evaluate_rule_population(H, r, use_extended_rules=True)
@@ -361,7 +361,7 @@ class TestMutationAPIWrappers:
     """Tests for analysis API wrappers for mutation functions."""
 
     def test_get_extended_rule_registry_wrapper(self) -> None:
-        from src.qec.analysis.api import get_extended_rule_registry as api_ext
+        from qec.analysis.api import get_extended_rule_registry as api_ext
         ext = api_ext()
         assert isinstance(ext, dict)
         keys = list(ext.keys())
@@ -369,7 +369,7 @@ class TestMutationAPIWrappers:
         assert len(ext) > len(RULE_REGISTRY)
 
     def test_generate_mutated_rules_wrapper(self) -> None:
-        from src.qec.analysis.api import generate_mutated_rules as api_mut
+        from qec.analysis.api import generate_mutated_rules as api_mut
         rules = api_mut()
         assert isinstance(rules, dict)
         expected = {"conservative", "flip_zero_bias", "inverted_majority"}

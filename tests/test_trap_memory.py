@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.trap_memory import TrapSubspaceMemory, subspace_similarity
+from qec.analysis.trap_memory import TrapSubspaceMemory, subspace_similarity
 
 
 def test_trap_subspace_memory_rotation() -> None:

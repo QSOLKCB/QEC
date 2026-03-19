@@ -16,7 +16,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.discovery.ace_repair import repair_graph_with_ace_constraint
+from qec.discovery.ace_repair import repair_graph_with_ace_constraint
 
 
 _ROUND = 12

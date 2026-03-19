@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from src.qec.diagnostics.phase_boundary_analysis import (
+from qec.diagnostics.phase_boundary_analysis import (
     analyze_phase_boundaries,
     DEFAULT_ENTROPY_THRESHOLD,
     DEFAULT_BOUNDARY_FRACTION_THRESHOLD,

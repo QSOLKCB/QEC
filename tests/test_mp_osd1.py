@@ -14,14 +14,14 @@ Covers:
 import pytest
 import numpy as np
 
-from src.decoder.osd import mp_osd1_postprocess, osd0, osd1, osd_cs
-from src.qec_qldpc_codes import (
+from decoder.osd import mp_osd1_postprocess, osd0, osd1, osd_cs
+from qec_qldpc_codes import (
     bp_decode,
     syndrome,
     channel_llr,
     create_code,
 )
-from src.bench.adapters.bp import BPAdapter
+from bench.adapters.bp import BPAdapter
 
 
 # ─────────────────────────────────────────────────────────────────────

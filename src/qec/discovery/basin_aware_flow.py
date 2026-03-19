@@ -8,9 +8,9 @@ from typing import Any, Callable
 import numpy as np
 import scipy.sparse as sp
 
-from src.qec.analysis.basin_diagnostics import BasinDiagnostics, BasinDiagnosticsConfig
-from src.qec.analysis.eigenmode_mutation import build_bethe_hessian, extract_unstable_modes
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from qec.analysis.basin_diagnostics import BasinDiagnostics, BasinDiagnosticsConfig
+from qec.analysis.eigenmode_mutation import build_bethe_hessian, extract_unstable_modes
+from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 
 
 @dataclass(frozen=True)

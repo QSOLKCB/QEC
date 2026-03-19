@@ -16,12 +16,12 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_metrics import compute_spectral_metrics
-from src.qec.diagnostics._spectral_utils import (
+from qec.diagnostics.spectral_metrics import compute_spectral_metrics
+from qec.diagnostics._spectral_utils import (
     compute_ipr,
     compute_nb_dominant_eigenpair,
 )
-from src.qec.diagnostics.spectral_nb import _TannerGraph
+from qec.diagnostics.spectral_nb import _TannerGraph
 
 
 _ROUND = 12

@@ -20,7 +20,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.discovery.repair_operators import (
+from qec.discovery.repair_operators import (
     repair_degree_constraints,
     repair_duplicate_edges,
     repair_local_cycle_pressure,

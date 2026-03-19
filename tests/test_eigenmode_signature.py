@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from experiments.eigenmode_signature_robustness import _bounded_deterministic_perturbation
-from src.qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
+from qec.analysis.nb_eigenmode_flow import NBEigenmodeFlowAnalyzer
 
 
 def test_signature_has_stable_field_order() -> None:

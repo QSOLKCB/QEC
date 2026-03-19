@@ -107,7 +107,7 @@ def _sample_dataset():
 
 class TestStabilityDataset:
     def test_build_dataset_schema(self, tmp_path):
-        from src.qec.experiments.stability_dataset import build_stability_dataset
+        from qec.experiments.stability_dataset import build_stability_dataset
 
         graphs = [_small_H(), _another_H()]
         output_path = str(tmp_path / "dataset.json")
@@ -130,7 +130,7 @@ class TestStabilityDataset:
             assert obs["bp_converged"] in (0, 1)
 
     def test_dataset_artifact_saved(self, tmp_path):
-        from src.qec.experiments.stability_dataset import build_stability_dataset
+        from qec.experiments.stability_dataset import build_stability_dataset
 
         output_path = str(tmp_path / "dataset.json")
         build_stability_dataset(
@@ -143,7 +143,7 @@ class TestStabilityDataset:
         assert len(loaded) == 1
 
     def test_dataset_determinism(self, tmp_path):
-        from src.qec.experiments.stability_dataset import build_stability_dataset
+        from qec.experiments.stability_dataset import build_stability_dataset
 
         graphs = [_small_H(), _another_H()]
         path1 = str(tmp_path / "d1.json")
@@ -160,7 +160,7 @@ class TestStabilityDataset:
 
 class TestStabilityBoundary:
     def test_estimate_boundary_returns_valid_weights(self):
-        from src.qec.diagnostics.stability_boundary import (
+        from qec.diagnostics.stability_boundary import (
             estimate_stability_boundary,
         )
 
@@ -176,7 +176,7 @@ class TestStabilityBoundary:
         assert 0.0 <= result["accuracy"] <= 1.0
 
     def test_estimate_boundary_empty_dataset(self):
-        from src.qec.diagnostics.stability_boundary import (
+        from qec.diagnostics.stability_boundary import (
             estimate_stability_boundary,
         )
 
@@ -186,7 +186,7 @@ class TestStabilityBoundary:
         assert result["accuracy"] == 0.0
 
     def test_estimate_boundary_determinism(self):
-        from src.qec.diagnostics.stability_boundary import (
+        from qec.diagnostics.stability_boundary import (
             estimate_stability_boundary,
         )
 
@@ -201,7 +201,7 @@ class TestStabilityBoundary:
 
 class TestStabilityPredictor:
     def test_predict_bp_stability(self):
-        from src.qec.diagnostics.stability_predictor import predict_bp_stability
+        from qec.diagnostics.stability_predictor import predict_bp_stability
 
         boundary = {
             "weights": [0.1, 0.2, -0.1, -0.3, 0.5],
@@ -217,7 +217,7 @@ class TestStabilityPredictor:
         assert isinstance(result["predicted_converged"], bool)
 
     def test_predict_determinism(self):
-        from src.qec.diagnostics.stability_predictor import predict_bp_stability
+        from qec.diagnostics.stability_predictor import predict_bp_stability
 
         boundary = {"weights": [0.1, 0.2, -0.1, -0.3, 0.5], "bias": 0.0}
         r1 = predict_bp_stability(_small_H(), boundary)
@@ -230,7 +230,7 @@ class TestStabilityPredictor:
 
 class TestNBSignTrappingSets:
     def test_detect_returns_clusters(self):
-        from src.qec.diagnostics.nb_sign_trapping_sets import (
+        from qec.diagnostics.nb_sign_trapping_sets import (
             detect_nb_sign_trapping_sets,
         )
 
@@ -245,7 +245,7 @@ class TestNBSignTrappingSets:
             assert "mean_energy" in candidate
 
     def test_detect_determinism(self):
-        from src.qec.diagnostics.nb_sign_trapping_sets import (
+        from qec.diagnostics.nb_sign_trapping_sets import (
             detect_nb_sign_trapping_sets,
         )
 
@@ -259,7 +259,7 @@ class TestNBSignTrappingSets:
 
 class TestCriticalRadius:
     def test_estimate_critical_radius(self):
-        from src.qec.diagnostics.critical_radius import (
+        from qec.diagnostics.critical_radius import (
             estimate_critical_spectral_radius,
         )
 
@@ -273,7 +273,7 @@ class TestCriticalRadius:
         assert result["critical_radius"] > 0.0
 
     def test_critical_radius_empty_dataset(self):
-        from src.qec.diagnostics.critical_radius import (
+        from qec.diagnostics.critical_radius import (
             estimate_critical_spectral_radius,
         )
 
@@ -282,7 +282,7 @@ class TestCriticalRadius:
         assert result["transition_width"] == 0.0
 
     def test_critical_radius_all_converged(self):
-        from src.qec.diagnostics.critical_radius import (
+        from qec.diagnostics.critical_radius import (
             estimate_critical_spectral_radius,
         )
 
@@ -294,7 +294,7 @@ class TestCriticalRadius:
         assert result["transition_width"] == 0.0
 
     def test_critical_radius_all_failed(self):
-        from src.qec.diagnostics.critical_radius import (
+        from qec.diagnostics.critical_radius import (
             estimate_critical_spectral_radius,
         )
 
@@ -306,7 +306,7 @@ class TestCriticalRadius:
         assert result["transition_width"] == 0.0
 
     def test_critical_radius_midpoint(self):
-        from src.qec.diagnostics.critical_radius import (
+        from qec.diagnostics.critical_radius import (
             estimate_critical_spectral_radius,
         )
 
@@ -324,7 +324,7 @@ class TestCriticalRadius:
 
 class TestSpectralCriticalLine:
     def test_predict_spectral_critical_radius(self):
-        from src.qec.diagnostics.spectral_critical_line import (
+        from qec.diagnostics.spectral_critical_line import (
             predict_spectral_critical_radius,
         )
 
@@ -334,7 +334,7 @@ class TestSpectralCriticalLine:
         assert isinstance(result["predicted_critical_radius"], float)
 
     def test_spectral_critical_determinism(self):
-        from src.qec.diagnostics.spectral_critical_line import (
+        from qec.diagnostics.spectral_critical_line import (
             predict_spectral_critical_radius,
         )
 
@@ -348,7 +348,7 @@ class TestSpectralCriticalLine:
 
 class TestRepairStabilityTrajectory:
     def test_trajectory_schema(self, tmp_path):
-        from src.qec.experiments.repair_stability_trajectory import (
+        from qec.experiments.repair_stability_trajectory import (
             track_repair_stability_trajectory,
         )
 
@@ -368,7 +368,7 @@ class TestRepairStabilityTrajectory:
             assert "transition_width" in entry
 
     def test_trajectory_artifact_saved(self, tmp_path):
-        from src.qec.experiments.repair_stability_trajectory import (
+        from qec.experiments.repair_stability_trajectory import (
             track_repair_stability_trajectory,
         )
 
@@ -391,7 +391,7 @@ class TestRepairStabilityTrajectory:
 
 class TestASCIIBoundaryRendering:
     def test_render_ascii_stability_boundary(self):
-        from src.qec.experiments.stability_phase_diagram import (
+        from qec.experiments.stability_phase_diagram import (
             render_ascii_stability_boundary,
         )
 
@@ -426,7 +426,7 @@ class TestASCIIBoundaryRendering:
 
 class TestStabilityPredictionBenchmark:
     def test_benchmark_runs(self, tmp_path):
-        from src.qec.experiments.stability_prediction_benchmark import (
+        from qec.experiments.stability_prediction_benchmark import (
             run_stability_prediction_benchmark,
         )
 
@@ -445,7 +445,7 @@ class TestStabilityPredictionBenchmark:
         assert 0.0 <= result["accuracy"] <= 1.0
 
     def test_benchmark_artifact_saved(self, tmp_path):
-        from src.qec.experiments.stability_prediction_benchmark import (
+        from qec.experiments.stability_prediction_benchmark import (
             run_stability_prediction_benchmark,
         )
 
@@ -464,32 +464,32 @@ class TestStabilityPredictionBenchmark:
 
 class TestAPIIntegration:
     def test_estimate_stability_boundary_in_api(self):
-        from src.qec.diagnostics.api import estimate_stability_boundary
+        from qec.diagnostics.api import estimate_stability_boundary
 
         result = estimate_stability_boundary(_sample_dataset())
         assert "weights" in result
 
     def test_predict_bp_stability_in_api(self):
-        from src.qec.diagnostics.api import predict_bp_stability
+        from qec.diagnostics.api import predict_bp_stability
 
         boundary = {"weights": [0.1, 0.2, -0.1, -0.3, 0.5], "bias": 0.0}
         result = predict_bp_stability(_small_H(), boundary)
         assert "predicted_converged" in result
 
     def test_detect_nb_sign_trapping_sets_in_api(self):
-        from src.qec.diagnostics.api import detect_nb_sign_trapping_sets
+        from qec.diagnostics.api import detect_nb_sign_trapping_sets
 
         result = detect_nb_sign_trapping_sets(_small_H())
         assert "candidate_trapping_sets" in result
 
     def test_estimate_critical_spectral_radius_in_api(self):
-        from src.qec.diagnostics.api import estimate_critical_spectral_radius
+        from qec.diagnostics.api import estimate_critical_spectral_radius
 
         result = estimate_critical_spectral_radius(_sample_dataset())
         assert "critical_radius" in result
 
     def test_predict_spectral_critical_radius_in_api(self):
-        from src.qec.diagnostics.api import predict_spectral_critical_radius
+        from qec.diagnostics.api import predict_spectral_critical_radius
 
         result = predict_spectral_critical_radius(_small_H())
         assert "predicted_critical_radius" in result
@@ -500,31 +500,31 @@ class TestAPIIntegration:
 
 class TestLayerDiscipline:
     def test_stability_boundary_no_decoder_import(self):
-        import src.qec.diagnostics.stability_boundary as mod
+        import qec.diagnostics.stability_boundary as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source
 
     def test_stability_predictor_no_decoder_import(self):
-        import src.qec.diagnostics.stability_predictor as mod
+        import qec.diagnostics.stability_predictor as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source
 
     def test_nb_sign_trapping_sets_no_decoder_import(self):
-        import src.qec.diagnostics.nb_sign_trapping_sets as mod
+        import qec.diagnostics.nb_sign_trapping_sets as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source
 
     def test_critical_radius_no_decoder_import(self):
-        import src.qec.diagnostics.critical_radius as mod
+        import qec.diagnostics.critical_radius as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source
 
     def test_spectral_critical_line_no_decoder_import(self):
-        import src.qec.diagnostics.spectral_critical_line as mod
+        import qec.diagnostics.spectral_critical_line as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source

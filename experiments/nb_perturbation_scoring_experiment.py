@@ -11,8 +11,8 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.analysis.api import NBEigenmodeFlowAnalyzer, NBPerturbationScorer, compute_nb_spectrum, enumerate_candidate_swaps
-from src.qec.discovery.mutation_nb_eigenmode import NBEigenmodeMutation
+from qec.analysis.api import NBEigenmodeFlowAnalyzer, NBPerturbationScorer, compute_nb_spectrum, enumerate_candidate_swaps
+from qec.discovery.mutation_nb_eigenmode import NBEigenmodeMutation
 
 
 def _H() -> np.ndarray:

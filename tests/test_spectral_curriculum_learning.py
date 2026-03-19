@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _spec() -> dict[str, int]:

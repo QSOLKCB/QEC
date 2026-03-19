@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.spectral_pressure import (
+from qec.discovery.spectral_pressure import (
     compute_spectral_mutation_pressure,
 )
 

@@ -20,11 +20,11 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics._spectral_utils import (
+from qec.diagnostics._spectral_utils import (
     build_directed_edges,
     compute_nb_dominant_eigenpair,
 )
-from src.qec.diagnostics.spectral_nb import _TannerGraph
+from qec.diagnostics.spectral_nb import _TannerGraph
 
 
 _ROUND = 12

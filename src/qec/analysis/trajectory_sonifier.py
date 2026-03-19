@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.qec.analysis.spectral_sonifier import sonify_spectrum
+from qec.analysis.spectral_sonifier import sonify_spectrum
 
 
 def interpolate_spectra(a, b, steps: int = 16):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_basins import (
+from qec.analysis.spectral_basins import (
     build_basin_transition_graph,
     detect_spectral_basins,
 )

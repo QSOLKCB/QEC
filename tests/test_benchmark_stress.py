@@ -18,7 +18,7 @@ import json
 import numpy as np
 import pytest
 
-from src.qec.experiments.benchmark_stress import (
+from qec.experiments.benchmark_stress import (
     SCENARIOS,
     _cosine_similarity,
     _derive_seed,
@@ -35,11 +35,11 @@ from src.qec.experiments.benchmark_stress import (
     results_to_json,
     run_benchmark_stress,
 )
-from src.qec.modules.aggregation.table import build_experiment_table
-from src.qec.modules.common import _EXCLUDED_KEYS
-from src.qec.modules.comparisons.pairwise import build_pairwise_comparison
-from src.qec.modules.pareto.frontier import build_pareto_frontier
-from src.qec.modules.scoring.scores import build_scores
+from qec.modules.aggregation.table import build_experiment_table
+from qec.modules.common import _EXCLUDED_KEYS
+from qec.modules.comparisons.pairwise import build_pairwise_comparison
+from qec.modules.pareto.frontier import build_pareto_frontier
+from qec.modules.scoring.scores import build_scores
 
 
 class TestDeterminism:

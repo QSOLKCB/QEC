@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.qec.experiments.experiment_hash import ExperimentHash
-from src.qec.experiments.phase_diagram_orchestrator import (
+from qec.experiments.experiment_hash import ExperimentHash
+from qec.experiments.phase_diagram_orchestrator import (
     PhaseDiagramOrchestrator,
     generate_stability_heatmap,
 )

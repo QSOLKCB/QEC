@@ -22,9 +22,9 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.experiments.discovery_run import run_discovery_experiment
-from src.qec.experiments.discovery_benchmark import run_discovery_benchmark
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.experiments.discovery_run import run_discovery_experiment
+from qec.experiments.discovery_benchmark import run_discovery_benchmark
 
 
 def _default_spec():

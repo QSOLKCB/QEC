@@ -7,8 +7,8 @@ input config.  A v3.0.0 config must produce a v3.0.0-stamped result;
 a v3.0.1 config must produce a v3.0.1-stamped result.
 """
 
-from src.bench.config import BenchmarkConfig, DecoderSpec
-from src.bench.runner import run_benchmark
+from bench.config import BenchmarkConfig, DecoderSpec
+from bench.runner import run_benchmark
 
 
 def _minimal_config(schema_version: str) -> BenchmarkConfig:

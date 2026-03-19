@@ -22,7 +22,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.bethe_hessian import compute_bethe_hessian
+from qec.diagnostics.bethe_hessian import compute_bethe_hessian
 
 
 class TestBetheHessian:
@@ -102,7 +102,7 @@ class TestBetheHessian:
         compute_bethe_hessian(H)
         np.testing.assert_array_equal(H, H_copy)
 
-from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer, estimate_nishimori_temperature
+from qec.analysis.bethe_hessian import BetheHessianAnalyzer, estimate_nishimori_temperature
 
 
 class TestBetheHessianV132Analysis:

@@ -23,7 +23,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.experiments.spectral_optimizer_sanity_experiment import (
+from qec.experiments.spectral_optimizer_sanity_experiment import (
     run_spectral_optimizer_sanity_experiment,
     print_sanity_report,
     _predict_instability,

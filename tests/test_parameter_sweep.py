@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.qec.experiments.experiment_hash import ExperimentHash, ExperimentRunner
-from src.qec.experiments.parameter_sweep import generate_parameter_grid
+from qec.experiments.experiment_hash import ExperimentHash, ExperimentRunner
+from qec.experiments.parameter_sweep import generate_parameter_grid
 
 
 def test_generate_parameter_grid_is_deterministic() -> None:

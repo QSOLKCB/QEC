@@ -11,9 +11,9 @@ Covers:
 import numpy as np
 import pytest
 
-from src.bench.adapters.bp import BPAdapter
-from src.qec_qldpc_codes import create_code, channel_llr, syndrome
-from src.qec.decoder.rpc import RPCConfig, StructuralConfig
+from bench.adapters.bp import BPAdapter
+from qec_qldpc_codes import create_code, channel_llr, syndrome
+from qec.decoder.rpc import RPCConfig, StructuralConfig
 
 
 # ──────────────────────────────────────────────────────────────────

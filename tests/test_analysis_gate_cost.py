@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from src.analysis.gate_cost import estimate_gate_costs, compare_costs
+from analysis.gate_cost import estimate_gate_costs, compare_costs
 
 
 class TestEstimateGateCosts:

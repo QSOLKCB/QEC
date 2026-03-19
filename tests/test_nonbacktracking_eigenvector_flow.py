@@ -3,14 +3,14 @@ from __future__ import annotations
 import numpy as np
 from unittest.mock import patch
 
-from src.qec.analysis.nonbacktracking_flow import (
+from qec.analysis.nonbacktracking_flow import (
     NBFlowConfig,
     NonBacktrackingEigenvectorFlowAnalyzer,
     canonical_directed_edges,
     normalize_mode_phase,
     project_directed_pressure_to_undirected,
 )
-from src.qec.discovery.nonbacktracking_eigenvector_flow import (
+from qec.discovery.nonbacktracking_eigenvector_flow import (
     NonBacktrackingEigenvectorFlowOptimizer,
 )
 

@@ -17,7 +17,7 @@ import json
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.bp_barrier_analysis import (
+from qec.diagnostics.bp_barrier_analysis import (
     compute_bp_barrier_analysis,
     DEFAULT_EPS_VALUES,
     DEFAULT_PERTURBATION_PATTERNS,

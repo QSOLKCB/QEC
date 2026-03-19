@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.basin_hopping import propose_basin_hop
+from qec.discovery.basin_hopping import propose_basin_hop
 
 
 def _basins() -> list[dict[str, object]]:

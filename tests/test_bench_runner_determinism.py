@@ -9,9 +9,9 @@ import json
 
 import pytest
 
-from src.bench.config import BenchmarkConfig, DecoderSpec
-from src.bench.runner import run_benchmark
-from src.bench.schema import dumps_result, validate_result
+from bench.config import BenchmarkConfig, DecoderSpec
+from bench.runner import run_benchmark
+from bench.schema import dumps_result, validate_result
 
 
 def _small_config(**overrides) -> BenchmarkConfig:

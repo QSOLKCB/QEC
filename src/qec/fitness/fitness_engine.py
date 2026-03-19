@@ -26,7 +26,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.fitness.spectral_metrics import (
+from qec.fitness.spectral_metrics import (
     compute_nbt_spectral_radius,
     compute_girth_spectrum,
     compute_ace_spectrum,
@@ -180,11 +180,11 @@ class FitnessEngine:
     def _compute_decoder_aware_metrics(self, H: np.ndarray) -> dict[str, Any]:
         """Compute decoder-aware metrics: trapping sets, BP stability, Jacobian, Bethe Hessian,
         absorbing-set risk, cycle topology."""
-        from src.qec.analysis.trapping_sets import TrappingSetDetector
-        from src.qec.analysis.bethe_hessian import BetheHessianAnalyzer
-        from src.qec.analysis.absorbing_sets import AbsorbingSetPredictor
-        from src.qec.analysis.cycle_topology import CycleTopologyAnalyzer
-        from src.qec.decoder.stability_probe import BPStabilityProbe, estimate_bp_instability
+        from qec.analysis.trapping_sets import TrappingSetDetector
+        from qec.analysis.bethe_hessian import BetheHessianAnalyzer
+        from qec.analysis.absorbing_sets import AbsorbingSetPredictor
+        from qec.analysis.cycle_topology import CycleTopologyAnalyzer
+        from qec.decoder.stability_probe import BPStabilityProbe, estimate_bp_instability
 
         if self._trapping_detector is None:
             self._trapping_detector = TrappingSetDetector()

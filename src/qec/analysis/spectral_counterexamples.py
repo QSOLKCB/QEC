@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.spectral_conjecture_validation import _predict
+from qec.analysis.spectral_conjecture_validation import _predict
 
 
 _MAX_COUNTEREXAMPLES_PER_CONJECTURE = 128

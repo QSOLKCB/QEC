@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pytest
 
-from src.bench.schema import canonicalize
+from bench.schema import canonicalize
 
 
 class TestCanonicalizeNumpy:

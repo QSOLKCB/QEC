@@ -15,9 +15,9 @@ import json
 import numpy as np
 import pytest
 
-from src.bench.interop.serialize import canonical_json, artifact_hash, config_hash
-from src.bench.interop.runners import run_qec_native
-from src.bench.schema import validate_interop_record
+from bench.interop.serialize import canonical_json, artifact_hash, config_hash
+from bench.interop.runners import run_qec_native
+from bench.schema import validate_interop_record
 
 
 # ── Golden vector ────────────────────────────────────────────────────
@@ -206,8 +206,8 @@ class TestReportDeterminism:
 
     def test_report_double_run_identical(self):
         """Same suite result must produce identical report string."""
-        from src.bench.interop.baselines import run_baseline_suite
-        from src.bench.interop.report import generate_report
+        from bench.interop.baselines import run_baseline_suite
+        from bench.interop.report import generate_report
 
         kwargs = dict(
             native_distances=[3],

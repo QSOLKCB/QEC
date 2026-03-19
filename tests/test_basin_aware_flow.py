@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.basin_aware_flow import BasinAwareFlowConfig, BasinAwareSpectralFlow
+from qec.discovery.basin_aware_flow import BasinAwareFlowConfig, BasinAwareSpectralFlow
 
 
 def _descent_swap(H: np.ndarray) -> tuple[np.ndarray, dict[str, object]]:

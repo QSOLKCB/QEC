@@ -18,11 +18,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.decoder.ternary.ternary_rule_variants import (
+from qec.decoder.ternary.ternary_rule_variants import (
     RULE_REGISTRY,
     get_extended_rule_registry,
 )
-from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
+from qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
 from tests.utils import simple_parity_matrix, received_vector
 
 

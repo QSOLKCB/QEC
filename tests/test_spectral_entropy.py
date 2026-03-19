@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_entropy import spectral_entropy
+from qec.analysis.spectral_entropy import spectral_entropy
 
 
 def test_entropy_determinism_same_input_same_output() -> None:

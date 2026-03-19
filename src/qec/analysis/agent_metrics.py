@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.discovery_agent import DiscoveryAgent
+from qec.discovery.discovery_agent import DiscoveryAgent
 
 
 def agent_discovery_rate(agent: DiscoveryAgent) -> float:

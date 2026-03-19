@@ -6,9 +6,9 @@ Tests for v3.0.1 determinism hardening:
 
 import json
 
-from src.bench.config import BenchmarkConfig, DecoderSpec
-from src.bench.runner import run_benchmark, _derive_subseed
-from src.bench.schema import dumps_result
+from bench.config import BenchmarkConfig, DecoderSpec
+from bench.runner import run_benchmark, _derive_subseed
+from bench.schema import dumps_result
 
 
 # ── Issue 1: sub-seed independence ──────────────────────────────────

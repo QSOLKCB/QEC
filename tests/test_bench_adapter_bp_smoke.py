@@ -8,8 +8,8 @@ and produce a stable identity block.
 import numpy as np
 import pytest
 
-from src.bench.adapters.bp import BPAdapter
-from src.qec_qldpc_codes import create_code, channel_llr, syndrome
+from bench.adapters.bp import BPAdapter
+from qec_qldpc_codes import create_code, channel_llr, syndrome
 
 
 @pytest.fixture

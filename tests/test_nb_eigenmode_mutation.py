@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.non_backtracking_matrix import build_non_backtracking_matrix
-from src.qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
+from qec.analysis.non_backtracking_matrix import build_non_backtracking_matrix
+from qec.analysis.non_backtracking_spectrum import leading_nb_eigenmode
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.nb_eigenmode_mutation import score_edges_by_eigenmode
 
 
 def _default_spec() -> dict[str, int]:

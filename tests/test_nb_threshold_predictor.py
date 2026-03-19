@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.qec.analysis.nb_threshold_predictor import predict_threshold_from_spectrum
+from qec.analysis.nb_threshold_predictor import predict_threshold_from_spectrum
 
 
 def test_predictor_is_deterministic_and_bounded() -> None:

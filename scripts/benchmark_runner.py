@@ -19,7 +19,7 @@ import sys
 import time
 from pathlib import Path
 
-from src.qec.decoder.ternary.ternary_coevolution import (
+from qec.decoder.ternary.ternary_coevolution import (
     get_termination_stats,
     reset_termination_stats,
 )

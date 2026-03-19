@@ -19,11 +19,11 @@ import json
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.bp_phase_space import (
+from qec.diagnostics.bp_phase_space import (
     compute_bp_phase_space,
     compute_metastability_score,
 )
-from src.qec.diagnostics.ternary_decoder_topology import (
+from qec.diagnostics.ternary_decoder_topology import (
     compute_ternary_decoder_topology,
 )
 

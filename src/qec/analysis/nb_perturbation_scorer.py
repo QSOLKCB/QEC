@@ -7,8 +7,8 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.constants import MIN_EIGENVECTOR_NORM, MIN_FOHPE_DENOM
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from qec.analysis.constants import MIN_EIGENVECTOR_NORM, MIN_FOHPE_DENOM
+from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 
 
 _ROUND = 12

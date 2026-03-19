@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_phase_space import project_basin_centers_2d, project_basin_centers_3d
+from qec.analysis.spectral_phase_space import project_basin_centers_2d, project_basin_centers_3d
 
 
 def export_basin_map(

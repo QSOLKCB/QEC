@@ -49,7 +49,7 @@ def _run_perturbed_decode(
     Creates an explicit copy of the LLR vector, applies the perturbation,
     and decodes.  Returns the fixed-point classification dict.
     """
-    from src.qec_qldpc_codes import bp_decode, syndrome
+    from qec_qldpc_codes import bp_decode, syndrome
 
     # Explicit copy — baseline inputs never modified in-place.
     llr_perturbed = np.array(llr, dtype=np.float64) + perturbation

@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 
 # Import directly from the module to avoid pulling in qutip via __init__
-from src.qec_qldpc_codes import (
+from qec_qldpc_codes import (
     GF2e,
     ProtographPair,
     build_protograph_pair,

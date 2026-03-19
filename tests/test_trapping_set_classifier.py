@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.qec.analysis.api import classify_trapping_set
+from qec.analysis.api import classify_trapping_set
 
 
 def test_classifier_small_trapping_set() -> None:

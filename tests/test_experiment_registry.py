@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.qec.experiments.registry import ExperimentRegistry, DEFAULT_REGISTRY, discover_experiments
+from qec.experiments.registry import ExperimentRegistry, DEFAULT_REGISTRY, discover_experiments
 
 
 def test_registry_register_and_get() -> None:

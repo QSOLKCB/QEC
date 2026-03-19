@@ -21,16 +21,16 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.spectral_entropy import compute_spectral_entropy
-from src.qec.diagnostics.nb_spectral_gap import compute_nb_spectral_gap
-from src.qec.diagnostics.bethe_hessian_margin import compute_bethe_hessian_margin
-from src.qec.diagnostics.effective_support_dimension import (
+from qec.diagnostics.spectral_entropy import compute_spectral_entropy
+from qec.diagnostics.nb_spectral_gap import compute_nb_spectral_gap
+from qec.diagnostics.bethe_hessian_margin import compute_bethe_hessian_margin
+from qec.diagnostics.effective_support_dimension import (
     compute_effective_support_dimension,
 )
-from src.qec.diagnostics.spectral_curvature import compute_spectral_curvature
-from src.qec.diagnostics.cycle_space_density import compute_cycle_space_density
-from src.qec.diagnostics.spectral_metrics import compute_spectral_metrics
-from src.qec.diagnostics.stability_classifier import (
+from qec.diagnostics.spectral_curvature import compute_spectral_curvature
+from qec.diagnostics.cycle_space_density import compute_cycle_space_density
+from qec.diagnostics.spectral_metrics import compute_spectral_metrics
+from qec.diagnostics.stability_classifier import (
     classify_tanner_graph_stability,
     classify_from_parity_check,
 )

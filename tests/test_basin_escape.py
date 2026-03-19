@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.basin_escape_direction import estimate_escape_direction
-from src.qec.analysis.basin_stagnation import detect_basin_stagnation
-from src.qec.discovery.basin_escape_mutation import propose_escape_step
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.analysis.basin_escape_direction import estimate_escape_direction
+from qec.analysis.basin_stagnation import detect_basin_stagnation
+from qec.discovery.basin_escape_mutation import propose_escape_step
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _default_spec() -> dict[str, int]:

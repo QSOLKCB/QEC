@@ -28,13 +28,13 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.discovery.cycle_guided_mutation import (
+from qec.discovery.cycle_guided_mutation import (
     cycle_pressure_guided_mutation,
 )
-from src.qec.discovery.spectral_guided_mutation import (
+from qec.discovery.spectral_guided_mutation import (
     spectral_pressure_guided_mutation,
 )
-from src.qec.discovery.mutation_nb_eigenmode import nb_eigenmode_mutation
+from qec.discovery.mutation_nb_eigenmode import nb_eigenmode_mutation
 
 
 _OPERATORS = [

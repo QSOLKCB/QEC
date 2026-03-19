@@ -12,8 +12,8 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.analysis.api import BetheHessianAnalyzer, compute_bh_spectrum
-from src.qec.analysis.localization_metrics import (
+from qec.analysis.api import BetheHessianAnalyzer, compute_bh_spectrum
+from qec.analysis.localization_metrics import (
     IPR,
     ParticipationEntropy,
     SpectralInstabilityScore,

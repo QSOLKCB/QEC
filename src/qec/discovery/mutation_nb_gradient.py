@@ -17,19 +17,19 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.basin_depth import BasinDepthConfig, compute_basin_depth
-from src.qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
-from src.qec.analysis.nb_spectral_basin_steering import NBSpectralBasinSteering
-from src.qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingEigenvectorFlowAnalyzer, NonBacktrackingFlowAnalyzer
-from src.qec.analysis.spectral_entropy import spectral_entropy
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
-from src.qec.analysis.spectral_diversity_memory import SpectralDiversityConfig, SpectralDiversityMemory
-from src.qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
-from src.qec.diagnostics.spectral_entropy import compute_spectral_entropy
-from src.qec.analysis.trap_memory import TrapMemoryConfig, TrapSubspaceMemory, canonicalize_subspace
-from src.qec.analysis.spectral_signature import compute_signature
-from src.qec.discovery.spectral_beam_search import adaptive_beam_width, plan_two_step_swap
+from qec.analysis.basin_depth import BasinDepthConfig, compute_basin_depth
+from qec.analysis.nb_instability_gradient import NBInstabilityGradientAnalyzer
+from qec.analysis.nb_spectral_basin_steering import NBSpectralBasinSteering
+from qec.analysis.nb_trapping_set_predictor import NBTrappingSetPredictor
+from qec.analysis.nonbacktracking_flow import NonBacktrackingEigenvectorFlowAnalyzer, NonBacktrackingFlowAnalyzer
+from qec.analysis.spectral_entropy import spectral_entropy
+from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from qec.analysis.spectral_diversity_memory import SpectralDiversityConfig, SpectralDiversityMemory
+from qec.analysis.spectral_frustration import SpectralFrustrationAnalyzer
+from qec.diagnostics.spectral_entropy import compute_spectral_entropy
+from qec.analysis.trap_memory import TrapMemoryConfig, TrapSubspaceMemory, canonicalize_subspace
+from qec.analysis.spectral_signature import compute_signature
+from qec.discovery.spectral_beam_search import adaptive_beam_width, plan_two_step_swap
 
 
 _ROUND = 12

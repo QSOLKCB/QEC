@@ -4,15 +4,15 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.operator_statistics import update_operator_success
-from src.qec.analysis.spectral_motif_extraction import extract_spectral_motifs
-from src.qec.discovery.adaptive_operator_weights import (
+from qec.analysis.operator_statistics import update_operator_success
+from qec.analysis.spectral_motif_extraction import extract_spectral_motifs
+from qec.discovery.adaptive_operator_weights import (
     compute_operator_weights,
     deterministic_weighted_choice,
 )
-import src.qec.discovery.discovery_engine as discovery_engine
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.discovery.motif_library import SpectralMotifLibrary
+import qec.discovery.discovery_engine as discovery_engine
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.motif_library import SpectralMotifLibrary
 
 
 def _default_spec() -> dict[str, int]:
@@ -158,7 +158,7 @@ def test_operator_statistics_update_after_evaluation(monkeypatch) -> None:
 
 
 def test_operator_success_requires_improvement() -> None:
-    from src.qec.analysis.operator_statistics import update_operator_success
+    from qec.analysis.operator_statistics import update_operator_success
 
     stats = {}
     try:

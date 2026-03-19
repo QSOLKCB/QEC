@@ -4,17 +4,17 @@ import json
 
 import numpy as np
 
-from src.qec.discovery.nb_eigenvector_flow_mutation import (
+from qec.discovery.nb_eigenvector_flow_mutation import (
     NBEigenvectorFlowMutator,
     compute_ipr_localization,
     select_localized_edges,
 )
-from src.qec.discovery.threshold_search import (
+from qec.discovery.threshold_search import (
     PhaseDiagramOrchestrator,
     SpectralSearchConfig,
     run_spectral_threshold_search,
 )
-from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
+from qec.generation.deterministic_construction import construct_deterministic_tanner_graph
 
 
 ROUND = 12

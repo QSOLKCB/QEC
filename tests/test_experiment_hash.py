@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.qec.experiments.experiment_hash import (
+from qec.experiments.experiment_hash import (
     ExperimentEnvironmentMetadata,
     ExperimentHash,
     ExperimentRunner,

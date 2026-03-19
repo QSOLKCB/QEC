@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.qec.diagnostics.energy_landscape import (
+from qec.diagnostics.energy_landscape import (
     compute_energy_gradient,
     compute_energy_curvature,
     detect_plateau,

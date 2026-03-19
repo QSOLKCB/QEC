@@ -3,7 +3,7 @@
 import copy
 import math
 
-from src.qec.experiments.sonification_interpretation import (
+from qec.experiments.sonification_interpretation import (
     interpret_sonification_comparison,
 )
 

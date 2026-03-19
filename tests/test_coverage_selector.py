@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.qec.dev.coverage_data import (
+from qec.dev.coverage_data import (
     CoverageAwareSelector,
     CoverageDataLoader,
     changed_lines,

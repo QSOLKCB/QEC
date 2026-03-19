@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from src.qec.discovery.basin_switch_detector import BasinSwitchDetector
-from src.qec.discovery.mutation_trust_region import SpectralTrustRegion
+from qec.discovery.basin_switch_detector import BasinSwitchDetector
+from qec.discovery.mutation_trust_region import SpectralTrustRegion
 
 
 def test_trust_region_allows_within_radius() -> None:

@@ -27,7 +27,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.experiments.stability_phase_diagram import (
+from qec.experiments.stability_phase_diagram import (
     run_stability_phase_diagram_experiment,
     serialize_phase_diagram_artifact,
     detect_metastable_bp_oscillation,
@@ -40,11 +40,11 @@ from src.qec.experiments.stability_phase_diagram import (
     scale_ascii_phase_diagram,
     highlight_bp_critical_line,
 )
-from src.qec.diagnostics.nb_localization_detector import (
+from qec.diagnostics.nb_localization_detector import (
     detect_nb_eigenvector_localization,
 )
-from src.qec.diagnostics.nb_energy_heatmap import compute_nb_energy_heatmap
-from src.qec.diagnostics.nb_sign_pattern_detector import (
+from qec.diagnostics.nb_energy_heatmap import compute_nb_energy_heatmap
+from qec.diagnostics.nb_sign_pattern_detector import (
     detect_nb_sign_pattern_trapping_sets,
 )
 
@@ -324,7 +324,7 @@ class TestNBSignPatternDetector:
 
     def test_edge_count_consistency(self):
         H = _tiny_H()
-        from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
+        from qec.diagnostics.spectral_nb import compute_nb_spectrum
         spectrum = compute_nb_spectrum(H)
         n_edges = len(spectrum["eigenvector"])
 
@@ -525,8 +525,8 @@ class TestIncrementalConsistency:
     """Tests that incremental spectrum matches full recomputation."""
 
     def test_incremental_matches_full(self):
-        from src.qec.diagnostics.spectral_nb import compute_nb_spectrum
-        from src.qec.diagnostics.spectral_incremental import (
+        from qec.diagnostics.spectral_nb import compute_nb_spectrum
+        from qec.diagnostics.spectral_incremental import (
             update_nb_eigenpair_incremental,
         )
 
@@ -607,21 +607,21 @@ class TestNoDecoderImport:
     """Tests that new modules do not import decoder core."""
 
     def test_localization_detector_no_decoder(self):
-        import src.qec.diagnostics.nb_localization_detector as mod
+        import qec.diagnostics.nb_localization_detector as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
 
     def test_energy_heatmap_no_decoder(self):
-        import src.qec.diagnostics.nb_energy_heatmap as mod
+        import qec.diagnostics.nb_energy_heatmap as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
 
     def test_sign_pattern_no_decoder(self):
-        import src.qec.diagnostics.nb_sign_pattern_detector as mod
+        import qec.diagnostics.nb_sign_pattern_detector as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
 
     def test_experiment_no_decoder_core(self):
-        import src.qec.experiments.stability_phase_diagram as mod
+        import qec.experiments.stability_phase_diagram as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
+        assert "from qec.decoder" not in source

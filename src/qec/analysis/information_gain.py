@@ -6,8 +6,8 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.analysis.landscape_metrics import novelty_score as spectral_novelty_score
-from src.qec.analysis.spectral_uncertainty import estimate_spectral_uncertainty
+from qec.analysis.landscape_metrics import novelty_score as spectral_novelty_score
+from qec.analysis.spectral_uncertainty import estimate_spectral_uncertainty
 
 
 def information_gain_score(

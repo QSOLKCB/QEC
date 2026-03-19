@@ -12,7 +12,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.analysis.localization_metrics import IPR, ParticipationEntropy, compute_edge_energy_map
+from qec.analysis.localization_metrics import IPR, ParticipationEntropy, compute_edge_energy_map
 
 
 def test_ipr_uniform_vector():

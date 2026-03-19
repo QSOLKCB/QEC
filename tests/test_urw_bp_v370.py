@@ -13,7 +13,7 @@ Verifies:
 import numpy as np
 import pytest
 
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
 
 
 @pytest.fixture
@@ -276,7 +276,7 @@ class TestURWIdentity:
 
     def test_identity_includes_urw_mode(self):
         """BPAdapter identity includes mode=min_sum_urw and urw_rho."""
-        from src.bench.adapters.bp import BPAdapter
+        from bench.adapters.bp import BPAdapter
         adapter = BPAdapter()
         adapter.initialize(config={
             "mode": "min_sum_urw",
@@ -290,7 +290,7 @@ class TestURWIdentity:
 
     def test_identity_no_urw_for_baseline(self):
         """BPAdapter identity for min_sum does not include urw_rho."""
-        from src.bench.adapters.bp import BPAdapter
+        from bench.adapters.bp import BPAdapter
         adapter = BPAdapter()
         adapter.initialize(config={
             "mode": "min_sum",
@@ -303,7 +303,7 @@ class TestURWIdentity:
 
     def test_adapter_name_includes_urw(self):
         """BPAdapter.name reflects min_sum_urw mode."""
-        from src.bench.adapters.bp import BPAdapter
+        from bench.adapters.bp import BPAdapter
         adapter = BPAdapter()
         adapter.initialize(config={
             "mode": "min_sum_urw",

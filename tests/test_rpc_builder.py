@@ -13,7 +13,7 @@ Covers:
 import numpy as np
 import pytest
 
-from src.qec.decoder.rpc import (
+from qec.decoder.rpc import (
     RPCConfig,
     StructuralConfig,
     build_rpc_augmented_system,

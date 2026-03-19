@@ -17,9 +17,9 @@ import warnings
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.api import NBEigenmodeFlowAnalyzer, NBPerturbationScorer, detect_spectral_defects
-from src.qec.analysis.constants import MIN_EIGENVECTOR_NORM
-from src.qec.discovery.defect_guided_mutations import defect_guided_mutations
+from qec.analysis.api import NBEigenmodeFlowAnalyzer, NBPerturbationScorer, detect_spectral_defects
+from qec.analysis.constants import MIN_EIGENVECTOR_NORM
+from qec.discovery.defect_guided_mutations import defect_guided_mutations
 
 
 _ROUND = 12

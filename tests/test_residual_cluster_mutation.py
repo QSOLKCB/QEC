@@ -16,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.discovery.guided_mutations import (
+from qec.discovery.guided_mutations import (
     residual_cluster_mutation,
     apply_guided_mutation,
     _OPERATORS,
@@ -188,14 +188,14 @@ class TestResidualClusterMemeticIntegration:
     """Verify cluster smoothing integration in local optimizer."""
 
     def test_optimizer_has_cluster_smoothing(self):
-        from src.qec.discovery.local_optimizer import LocalGraphOptimizer
+        from qec.discovery.local_optimizer import LocalGraphOptimizer
 
         opt = LocalGraphOptimizer(max_steps=5, seed=42)
         assert hasattr(opt, "_residual_cluster_smoothing")
         assert hasattr(opt, "_cluster_analyzer")
 
     def test_cluster_smoothing_returns_candidates(self):
-        from src.qec.discovery.local_optimizer import LocalGraphOptimizer
+        from qec.discovery.local_optimizer import LocalGraphOptimizer
 
         H = _make_regular_H()
         opt = LocalGraphOptimizer(max_steps=5, seed=42)
@@ -207,7 +207,7 @@ class TestResidualClusterMemeticIntegration:
             assert int(np.count_nonzero(cand)) == int(np.count_nonzero(H))
 
     def test_cluster_smoothing_deterministic(self):
-        from src.qec.discovery.local_optimizer import LocalGraphOptimizer
+        from qec.discovery.local_optimizer import LocalGraphOptimizer
 
         H = _make_regular_H()
         opt = LocalGraphOptimizer(max_steps=5, seed=42)
@@ -220,7 +220,7 @@ class TestResidualClusterMemeticIntegration:
             np.testing.assert_array_equal(a, b)
 
     def test_optimizer_five_operators(self):
-        from src.qec.discovery.local_optimizer import LocalGraphOptimizer
+        from qec.discovery.local_optimizer import LocalGraphOptimizer
 
         opt = LocalGraphOptimizer(max_steps=5, seed=42)
         # Verify 5 operators in the optimize loop by checking

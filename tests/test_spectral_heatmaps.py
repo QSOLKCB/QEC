@@ -23,7 +23,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.spectral_heatmaps import (
+from qec.diagnostics.spectral_heatmaps import (
     compute_spectral_heatmaps,
     rank_variable_nodes_by_heat,
     rank_check_nodes_by_heat,
@@ -31,9 +31,9 @@ from src.qec.diagnostics.spectral_heatmaps import (
     _compute_undirected_edge_heat,
     _contrast_normalize,
 )
-from src.qec.diagnostics.spectral_nb import compute_nb_spectrum, _TannerGraph
-from src.qec.diagnostics._spectral_utils import build_directed_edges
-from src.qec.experiments.spectral_heatmap_experiment import (
+from qec.diagnostics.spectral_nb import compute_nb_spectrum, _TannerGraph
+from qec.diagnostics._spectral_utils import build_directed_edges
+from qec.experiments.spectral_heatmap_experiment import (
     run_spectral_heatmap_experiment,
     serialize_heatmap_artifact,
 )

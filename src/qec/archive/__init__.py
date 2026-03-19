@@ -10,8 +10,8 @@ Does not import or modify the decoder (Layer 1).
 Fully deterministic: no randomness, no global state, no input mutation.
 """
 
-from src.qec.archive.storage import DiscoveryArchive
-from src.qec.archive.seeding import seed_population_from_archive
+from qec.archive.storage import DiscoveryArchive
+from qec.archive.seeding import seed_population_from_archive
 
 __all__ = [
     "DiscoveryArchive",

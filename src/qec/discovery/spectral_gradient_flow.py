@@ -7,9 +7,9 @@ from dataclasses import dataclass
 import numpy as np
 import scipy.sparse as sp
 
-from src.qec.analysis.eigenmode_subspace import EigenmodeCluster, cluster_eigenmodes
-from src.qec.analysis.spectral_energy import compute_bethe_hessian_spectrum, estimate_bethe_hessian_r
-from src.qec.fitness.spectral_metrics import compute_girth_spectrum
+from qec.analysis.eigenmode_subspace import EigenmodeCluster, cluster_eigenmodes
+from qec.analysis.spectral_energy import compute_bethe_hessian_spectrum, estimate_bethe_hessian_r
+from qec.fitness.spectral_metrics import compute_girth_spectrum
 
 
 @dataclass(frozen=True)

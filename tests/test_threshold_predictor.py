@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.qec.analysis.threshold_predictor import ThresholdPrediction, predict_threshold_quality
+from qec.analysis.threshold_predictor import ThresholdPrediction, predict_threshold_quality
 
 
 def test_predictor_is_deterministic() -> None:

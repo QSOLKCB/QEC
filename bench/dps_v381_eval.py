@@ -46,137 +46,137 @@ if _REPO_ROOT not in sys.path:
 
 import numpy as np
 
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
-from src.qec.decoder.rpc import RPCConfig, StructuralConfig, build_rpc_augmented_system
-from src.qec.decoder.decoder_interface import get_decoder
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec.decoder.rpc import RPCConfig, StructuralConfig, build_rpc_augmented_system
+from qec.decoder.decoder_interface import get_decoder
 
-from src.qec.channel.geometry import (
+from qec.channel.geometry import (
     centered_syndrome_field,
     syndrome_field,
     pseudo_prior_bias,
     apply_pseudo_prior,
 )
 
-from src.qec.channel.geometry_post import apply_geometry_postprocessing
+from qec.channel.geometry_post import apply_geometry_postprocessing
 
-from src.qec.diagnostics.energy_landscape import (
+from qec.diagnostics.energy_landscape import (
     classify_energy_landscape,
     classify_basin_switch,
     compute_landscape_metrics,
     detect_basin_switch,
 )
 
-from src.qec.diagnostics.iteration_trace import (
+from qec.diagnostics.iteration_trace import (
     compute_iteration_trace_metrics,
 )
 
-from src.qec.diagnostics.bp_dynamics import (
+from qec.diagnostics.bp_dynamics import (
     compute_bp_dynamics_metrics,
 )
 
-from src.qec.diagnostics.bp_regime_trace import (
+from qec.diagnostics.bp_regime_trace import (
     compute_bp_regime_trace,
 )
 
-from src.qec.diagnostics.bp_phase_diagram import (
+from qec.diagnostics.bp_phase_diagram import (
     compute_bp_phase_diagram,
 )
 
-from src.qec.diagnostics.bp_freeze_detection import (
+from qec.diagnostics.bp_freeze_detection import (
     compute_bp_freeze_detection,
 )
 
-from src.qec.diagnostics.bp_fixed_point_analysis import (
+from qec.diagnostics.bp_fixed_point_analysis import (
     compute_bp_fixed_point_analysis,
 )
 
-from src.qec.diagnostics.bp_basin_analysis import (
+from qec.diagnostics.bp_basin_analysis import (
     compute_bp_basin_analysis,
 )
 
-from src.qec.diagnostics.bp_barrier_analysis import (
+from qec.diagnostics.bp_barrier_analysis import (
     compute_bp_barrier_analysis,
 )
 
-from src.qec.diagnostics.bp_boundary_analysis import (
+from qec.diagnostics.bp_boundary_analysis import (
     compute_bp_boundary_analysis,
 )
 
-from src.qec.diagnostics.spectral_boundary_alignment import (
+from qec.diagnostics.spectral_boundary_alignment import (
     compute_spectral_boundary_alignment,
 )
-from src.qec.diagnostics.spectral_trapping_sets import (
+from qec.diagnostics.spectral_trapping_sets import (
     compute_spectral_trapping_sets,
 )
 
-from src.qec.diagnostics.bp_phase_space import (
+from qec.diagnostics.bp_phase_space import (
     compute_bp_phase_space,
     compute_metastability_score,
 )
 
-from src.qec.diagnostics.ternary_decoder_topology import (
+from qec.diagnostics.ternary_decoder_topology import (
     compute_ternary_decoder_topology,
 )
 
-from src.qec.diagnostics.basin_probe import (
+from qec.diagnostics.basin_probe import (
     probe_local_ternary_basin,
 )
 
-from src.qec.diagnostics.phase_diagram import (
+from qec.diagnostics.phase_diagram import (
     build_decoder_phase_diagram,
     make_phase_grid,
 )
 
-from src.qec.diagnostics.phase_boundary_analysis import (
+from qec.diagnostics.phase_boundary_analysis import (
     analyze_phase_boundaries,
 )
 
-from src.qec.diagnostics.non_backtracking_spectrum import (
+from qec.diagnostics.non_backtracking_spectrum import (
     compute_non_backtracking_spectrum,
 )
-from src.qec.diagnostics.bethe_hessian import (
+from qec.diagnostics.bethe_hessian import (
     compute_bethe_hessian,
 )
-from src.qec.diagnostics.bp_stability_proxy import (
+from qec.diagnostics.bp_stability_proxy import (
     estimate_bp_stability,
 )
-from src.qec.diagnostics.bp_jacobian_estimator import (
+from qec.diagnostics.bp_jacobian_estimator import (
     estimate_bp_jacobian_spectral_radius,
 )
-from src.qec.diagnostics.phase_heatmap import (
+from qec.diagnostics.phase_heatmap import (
     print_phase_heatmap,
 )
-from src.qec.diagnostics.spectral_bp_alignment import (
+from qec.diagnostics.spectral_bp_alignment import (
     compute_spectral_bp_alignment,
 )
-from src.qec.diagnostics.spectral_failure_risk import (
+from qec.diagnostics.spectral_failure_risk import (
     compute_spectral_failure_risk,
 )
-from src.qec.diagnostics.bp_stability_predictor import (
+from qec.diagnostics.bp_stability_predictor import (
     compute_bp_stability_prediction,
 )
-from src.qec.experiments.bp_prediction_validation import (
+from qec.experiments.bp_prediction_validation import (
     run_bp_prediction_validation,
 )
-from src.qec.experiments.spectral_decoder_controller import (
+from qec.experiments.spectral_decoder_controller import (
     run_spectral_decoder_control_experiment,
 )
-from src.qec.experiments.spectral_instability_phase_map import (
+from qec.experiments.spectral_instability_phase_map import (
     compute_spectral_instability_score,
     run_spectral_phase_map_experiment,
     compute_phase_map_aggregate_metrics,
 )
-from src.qec.experiments.spectral_graph_repair_loop import (
+from qec.experiments.spectral_graph_repair_loop import (
     run_spectral_graph_repair_loop,
     compute_repair_loop_aggregate_metrics,
 )
-from src.qec.experiments.spectral_graph_design_rules import (
+from qec.experiments.spectral_graph_design_rules import (
     run_spectral_graph_design_analysis,
 )
-from src.qec.experiments.spectral_graph_optimizer import (
+from qec.experiments.spectral_graph_optimizer import (
     run_spectral_graph_optimization,
 )
-from src.qec.experiments.spectral_optimizer_sanity_experiment import (
+from qec.experiments.spectral_optimizer_sanity_experiment import (
     run_spectral_optimizer_sanity_experiment,
     print_sanity_report,
 )
@@ -688,7 +688,7 @@ def run_mode(
 
             # v5.0.0: BP attractor landscape mapping.
             if enable_bp_landscape_map:
-                from src.qec.diagnostics.bp_landscape_mapping import (
+                from qec.diagnostics.bp_landscape_mapping import (
                     compute_bp_landscape_map,
                 )
                 landscape_map_result = compute_bp_landscape_map(
@@ -1257,7 +1257,7 @@ def run_evaluation(
     # v5.4.0: Tanner spectral analysis (once per code instance).
     tanner_spectral_results: dict[int, dict[str, Any]] = {}
     if enable_tanner_spectral_analysis:
-        from src.qec.diagnostics.tanner_spectral_analysis import (
+        from qec.diagnostics.tanner_spectral_analysis import (
             compute_tanner_spectral_analysis,
         )
         for distance in distances:
@@ -1288,10 +1288,10 @@ def run_evaluation(
     nb_localization_results: dict[int, dict[str, Any]] = {}
     nb_trapping_results: dict[int, dict[str, Any]] = {}
     if enable_spectral_bp_alignment:
-        from src.qec.diagnostics.nb_localization import (
+        from qec.diagnostics.nb_localization import (
             compute_nb_localization_metrics,
         )
-        from src.qec.diagnostics.nb_trapping_candidates import (
+        from qec.diagnostics.nb_trapping_candidates import (
             compute_nb_trapping_candidates,
         )
         for distance in distances:
@@ -1542,7 +1542,7 @@ def run_evaluation(
 
     # v7.4.0: Spectral graph design analysis (per-code, before decoding).
     if enable_spectral_graph_design_analysis and "spectral_failure_risk" in out and nb_localization_results:
-        from src.qec.diagnostics.non_backtracking_spectrum import (
+        from qec.diagnostics.non_backtracking_spectrum import (
             compute_non_backtracking_spectrum as _compute_nb_spectrum_design,
         )
         sgda_results: dict[int, dict[str, Any]] = {}
@@ -1901,7 +1901,7 @@ def run_evaluation(
 
     # v6.5.0: Risk-aware damping experiment.
     if enable_risk_aware_damping_experiment and "spectral_failure_risk" in out:
-        from src.qec.experiments.risk_aware_damping import (
+        from qec.experiments.risk_aware_damping import (
             run_risk_aware_damping_experiment,
         )
         rad_results: dict[str, dict[float, dict[int, dict[str, Any]]]] = {}
@@ -1951,7 +1951,7 @@ def run_evaluation(
 
     # v6.5.0: Risk-guided perturbation experiment.
     if enable_risk_guided_perturbation_experiment and "spectral_failure_risk" in out:
-        from src.qec.experiments.risk_guided_perturbation import (
+        from qec.experiments.risk_guided_perturbation import (
             run_risk_guided_perturbation,
         )
         rgp_results: dict[str, dict[float, dict[int, dict[str, Any]]]] = {}
@@ -2011,7 +2011,7 @@ def run_evaluation(
 
     # v6.6.0: Tanner graph repair experiment.
     if enable_tanner_graph_repair_experiment and "spectral_failure_risk" in out:
-        from src.qec.experiments.tanner_graph_repair import (
+        from qec.experiments.tanner_graph_repair import (
             run_tanner_graph_repair_experiment,
         )
         tgr_results: dict[str, dict[float, dict[int, dict[str, Any]]]] = {}
@@ -2073,7 +2073,7 @@ def run_evaluation(
 
     # v6.7.0: Spectral graph optimization experiment.
     if enable_spectral_graph_optimization and "spectral_failure_risk" in out:
-        from src.qec.experiments.tanner_graph_repair import (
+        from qec.experiments.tanner_graph_repair import (
             run_spectral_graph_optimization_experiment,
         )
         sgo_results: dict[str, dict[float, dict[int, dict[str, Any]]]] = {}

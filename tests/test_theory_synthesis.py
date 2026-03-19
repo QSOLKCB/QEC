@@ -4,12 +4,12 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.theory_synthesis import (
+from qec.analysis.theory_synthesis import (
     build_phase_dataset,
     fit_spectral_models,
     generate_spectral_conjectures,
 )
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _phase_profiles() -> list[dict[str, float]]:

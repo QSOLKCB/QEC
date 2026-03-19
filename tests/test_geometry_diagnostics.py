@@ -13,7 +13,7 @@ import json
 import numpy as np
 import pytest
 
-from src.bench.geometry_diagnostics import (
+from bench.geometry_diagnostics import (
     BSIConfigError,
     build_geometry_sidecar,
     collect_per_iteration_data,
@@ -443,8 +443,8 @@ class TestBaselineUnchanged:
     def test_runner_output_unchanged(self):
         """Canonical benchmark output is byte-identical with/without
         the geometry_diagnostics module being importable."""
-        from src.bench.config import BenchmarkConfig, DecoderSpec
-        from src.bench.runner import run_benchmark
+        from bench.config import BenchmarkConfig, DecoderSpec
+        from bench.runner import run_benchmark
 
         config = BenchmarkConfig(
             seed=42,
@@ -470,7 +470,7 @@ class TestBaselineUnchanged:
 
 class TestCollectPerIterationData:
     def test_returns_expected_keys(self):
-        from src.qec_qldpc_codes import create_code, syndrome, channel_llr
+        from qec_qldpc_codes import create_code, syndrome, channel_llr
 
         code = create_code(name="rate_0.50", lifting_size=3, seed=42)
         H = code.H_X
@@ -492,7 +492,7 @@ class TestCollectPerIterationData:
         assert isinstance(result["per_iteration"]["syndrome_weight"], list)
 
     def test_deterministic(self):
-        from src.qec_qldpc_codes import create_code, syndrome, channel_llr
+        from qec_qldpc_codes import create_code, syndrome, channel_llr
 
         code = create_code(name="rate_0.50", lifting_size=3, seed=42)
         H = code.H_X

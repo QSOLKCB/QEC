@@ -22,7 +22,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_metrics import compute_spectral_metrics
+from qec.diagnostics.spectral_metrics import compute_spectral_metrics
 
 
 def classify_tanner_graph_stability(metrics: dict[str, Any]) -> int:

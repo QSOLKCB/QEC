@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from src.bench.schema import (
+from bench.schema import (
     SCHEMA_VERSION,
     canonicalize,
     dumps_result,

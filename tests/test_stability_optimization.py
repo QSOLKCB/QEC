@@ -100,7 +100,7 @@ def _sample_dataset():
 
 class TestRepairCandidates:
     def test_generate_repair_candidates_returns_list(self):
-        from src.qec.diagnostics.repair_candidates import (
+        from qec.diagnostics.repair_candidates import (
             generate_repair_candidates,
         )
 
@@ -112,7 +112,7 @@ class TestRepairCandidates:
             assert "predicted_effect" in c
 
     def test_repair_candidates_determinism(self):
-        from src.qec.diagnostics.repair_candidates import (
+        from qec.diagnostics.repair_candidates import (
             generate_repair_candidates,
         )
 
@@ -121,7 +121,7 @@ class TestRepairCandidates:
         assert r1 == r2
 
     def test_repair_candidates_max_candidates(self):
-        from src.qec.diagnostics.repair_candidates import (
+        from qec.diagnostics.repair_candidates import (
             generate_repair_candidates,
         )
 
@@ -131,7 +131,7 @@ class TestRepairCandidates:
         assert len(candidates) <= 3
 
     def test_repair_candidates_another_matrix(self):
-        from src.qec.diagnostics.repair_candidates import (
+        from qec.diagnostics.repair_candidates import (
             generate_repair_candidates,
         )
 
@@ -144,10 +144,10 @@ class TestRepairCandidates:
 
 class TestRepairScoring:
     def test_score_repair_candidate_returns_deltas(self):
-        from src.qec.diagnostics.repair_candidates import (
+        from qec.diagnostics.repair_candidates import (
             generate_repair_candidates,
         )
-        from src.qec.diagnostics.repair_scoring import score_repair_candidate
+        from qec.diagnostics.repair_scoring import score_repair_candidate
 
         candidates = generate_repair_candidates(_small_H())
         if candidates:
@@ -161,10 +161,10 @@ class TestRepairScoring:
                 assert isinstance(val, float)
 
     def test_score_repair_determinism(self):
-        from src.qec.diagnostics.repair_candidates import (
+        from qec.diagnostics.repair_candidates import (
             generate_repair_candidates,
         )
-        from src.qec.diagnostics.repair_scoring import score_repair_candidate
+        from qec.diagnostics.repair_scoring import score_repair_candidate
 
         candidates = generate_repair_candidates(_small_H())
         if candidates:
@@ -178,7 +178,7 @@ class TestRepairScoring:
 
 class TestStabilityOptimizer:
     def test_optimize_returns_trajectory(self, tmp_path):
-        from src.qec.diagnostics.stability_optimizer import (
+        from qec.diagnostics.stability_optimizer import (
             optimize_tanner_graph_stability,
         )
 
@@ -196,7 +196,7 @@ class TestStabilityOptimizer:
             assert isinstance(entry["score"], float)
 
     def test_optimize_trajectory_monotonic_or_flat(self, tmp_path):
-        from src.qec.diagnostics.stability_optimizer import (
+        from qec.diagnostics.stability_optimizer import (
             optimize_tanner_graph_stability,
         )
 
@@ -210,7 +210,7 @@ class TestStabilityOptimizer:
             assert trajectory[i]["score"] >= trajectory[i - 1]["score"] - 1e-10
 
     def test_optimize_artifact_saved(self, tmp_path):
-        from src.qec.diagnostics.stability_optimizer import (
+        from qec.diagnostics.stability_optimizer import (
             optimize_tanner_graph_stability,
         )
 
@@ -225,7 +225,7 @@ class TestStabilityOptimizer:
         assert isinstance(loaded, list)
 
     def test_optimize_determinism(self, tmp_path):
-        from src.qec.diagnostics.stability_optimizer import (
+        from qec.diagnostics.stability_optimizer import (
             optimize_tanner_graph_stability,
         )
 
@@ -241,7 +241,7 @@ class TestStabilityOptimizer:
 
 class TestSpectralInvariantDiscovery:
     def test_discover_returns_ranked_list(self, tmp_path):
-        from src.qec.diagnostics.spectral_invariant_discovery import (
+        from qec.diagnostics.spectral_invariant_discovery import (
             discover_spectral_invariants,
         )
 
@@ -261,7 +261,7 @@ class TestSpectralInvariantDiscovery:
             assert isinstance(inv["accuracy"], float)
 
     def test_discover_sorted_by_correlation(self, tmp_path):
-        from src.qec.diagnostics.spectral_invariant_discovery import (
+        from qec.diagnostics.spectral_invariant_discovery import (
             discover_spectral_invariants,
         )
 
@@ -277,7 +277,7 @@ class TestSpectralInvariantDiscovery:
             ) - 1e-12
 
     def test_discover_empty_dataset(self, tmp_path):
-        from src.qec.diagnostics.spectral_invariant_discovery import (
+        from qec.diagnostics.spectral_invariant_discovery import (
             discover_spectral_invariants,
         )
 
@@ -286,7 +286,7 @@ class TestSpectralInvariantDiscovery:
         assert invariants == []
 
     def test_discover_artifact_saved(self, tmp_path):
-        from src.qec.diagnostics.spectral_invariant_discovery import (
+        from qec.diagnostics.spectral_invariant_discovery import (
             discover_spectral_invariants,
         )
 
@@ -301,7 +301,7 @@ class TestSpectralInvariantDiscovery:
         assert isinstance(loaded, list)
 
     def test_discover_determinism(self, tmp_path):
-        from src.qec.diagnostics.spectral_invariant_discovery import (
+        from qec.diagnostics.spectral_invariant_discovery import (
             discover_spectral_invariants,
         )
 
@@ -317,7 +317,7 @@ class TestSpectralInvariantDiscovery:
 
 class TestStabilityLandscape:
     def test_explore_returns_dataset(self, tmp_path):
-        from src.qec.experiments.stability_landscape import (
+        from qec.experiments.stability_landscape import (
             explore_stability_landscape,
         )
 
@@ -344,7 +344,7 @@ class TestStabilityLandscape:
             assert isinstance(sample["predicted_stable"], bool)
 
     def test_explore_artifact_saved(self, tmp_path):
-        from src.qec.experiments.stability_landscape import (
+        from qec.experiments.stability_landscape import (
             explore_stability_landscape,
         )
 
@@ -361,7 +361,7 @@ class TestStabilityLandscape:
         assert isinstance(loaded, list)
 
     def test_explore_determinism(self, tmp_path):
-        from src.qec.experiments.stability_landscape import (
+        from qec.experiments.stability_landscape import (
             explore_stability_landscape,
         )
 
@@ -381,7 +381,7 @@ class TestStabilityLandscape:
 
 class TestStabilityOptimizationBenchmark:
     def test_benchmark_runs(self, tmp_path):
-        from src.qec.experiments.stability_optimization_benchmark import (
+        from qec.experiments.stability_optimization_benchmark import (
             run_stability_optimization_benchmark,
         )
 
@@ -401,7 +401,7 @@ class TestStabilityOptimizationBenchmark:
         assert isinstance(result["final_stability_score"], float)
 
     def test_benchmark_artifact_saved(self, tmp_path):
-        from src.qec.experiments.stability_optimization_benchmark import (
+        from qec.experiments.stability_optimization_benchmark import (
             run_stability_optimization_benchmark,
         )
 
@@ -421,7 +421,7 @@ class TestStabilityOptimizationBenchmark:
 
 class TestAPIIntegrationV83:
     def test_optimize_tanner_graph_stability_in_api(self, tmp_path):
-        from src.qec.diagnostics.api import optimize_tanner_graph_stability
+        from qec.diagnostics.api import optimize_tanner_graph_stability
 
         output_path = str(tmp_path / "trajectory.json")
         trajectory = optimize_tanner_graph_stability(
@@ -431,13 +431,13 @@ class TestAPIIntegrationV83:
         assert len(trajectory) >= 1
 
     def test_generate_repair_candidates_in_api(self):
-        from src.qec.diagnostics.api import generate_repair_candidates
+        from qec.diagnostics.api import generate_repair_candidates
 
         candidates = generate_repair_candidates(_small_H())
         assert isinstance(candidates, list)
 
     def test_score_repair_candidate_in_api(self):
-        from src.qec.diagnostics.api import (
+        from qec.diagnostics.api import (
             generate_repair_candidates,
             score_repair_candidate,
         )
@@ -448,7 +448,7 @@ class TestAPIIntegrationV83:
             assert "delta_spectral_radius" in score
 
     def test_discover_spectral_invariants_in_api(self, tmp_path):
-        from src.qec.diagnostics.api import discover_spectral_invariants
+        from qec.diagnostics.api import discover_spectral_invariants
 
         output_path = str(tmp_path / "invariants.json")
         invariants = discover_spectral_invariants(
@@ -463,25 +463,25 @@ class TestAPIIntegrationV83:
 
 class TestLayerDisciplineV83:
     def test_repair_candidates_no_decoder_import(self):
-        import src.qec.diagnostics.repair_candidates as mod
+        import qec.diagnostics.repair_candidates as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source
 
     def test_repair_scoring_no_decoder_import(self):
-        import src.qec.diagnostics.repair_scoring as mod
+        import qec.diagnostics.repair_scoring as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source
 
     def test_stability_optimizer_no_decoder_import(self):
-        import src.qec.diagnostics.stability_optimizer as mod
+        import qec.diagnostics.stability_optimizer as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source
 
     def test_spectral_invariant_discovery_no_decoder_import(self):
-        import src.qec.diagnostics.spectral_invariant_discovery as mod
+        import qec.diagnostics.spectral_invariant_discovery as mod
         source = open(mod.__file__).read()
-        assert "from src.qec.decoder" not in source
-        assert "import src.qec.decoder" not in source
+        assert "from qec.decoder" not in source
+        assert "import qec.decoder" not in source

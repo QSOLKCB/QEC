@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.diagnostics.bethe_hessian import compute_bethe_hessian
+from qec.diagnostics.bethe_hessian import compute_bethe_hessian
 
 _ROUND = 12
 

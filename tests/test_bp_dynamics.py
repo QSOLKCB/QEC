@@ -17,9 +17,9 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pytest
 
-import src.qec.diagnostics.bp_dynamics as _bp_mod
+import qec.diagnostics.bp_dynamics as _bp_mod
 
-from src.qec.diagnostics.bp_dynamics import (
+from qec.diagnostics.bp_dynamics import (
     DEFAULT_PARAMS,
     DEFAULT_THRESHOLDS,
     _CROSS_CALL_CACHE,
@@ -759,7 +759,7 @@ class TestSignPrecomputeEquivalence:
         Calls each metric function without pre-computed signs/CRC sigs,
         forcing the fallback (original) code path.
         """
-        from src.qec.diagnostics.bp_dynamics import (
+        from qec.diagnostics.bp_dynamics import (
             _compute_msi, _compute_cpi, _compute_tsl,
             _compute_lec, _compute_cvne, _compute_gos,
             _compute_eds, _compute_bti,
@@ -783,7 +783,7 @@ class TestSignPrecomputeEquivalence:
 
     def _run_with_cache(self, llr_trace, energy_trace, cvs=None, params=None):
         """Run with pre-computed cache (the optimized path)."""
-        from src.qec.diagnostics.bp_dynamics import (
+        from qec.diagnostics.bp_dynamics import (
             _compute_msi, _compute_cpi, _compute_tsl,
             _compute_lec, _compute_cvne, _compute_gos,
             _compute_eds, _compute_bti,
@@ -1140,7 +1140,7 @@ class TestZeroMutationGuarantee:
         sign_snapshots = [s.copy() for s in signs]
         crc_snapshots = list(crc_sigs)
         # Run full metric suite (uses signs internally)
-        from src.qec.diagnostics.bp_dynamics import (
+        from qec.diagnostics.bp_dynamics import (
             _compute_msi, _compute_cpi, _compute_tsl,
             _compute_gos, _compute_bti,
         )
@@ -1176,7 +1176,7 @@ class TestWindowSafetyFormal:
 
     def test_asymmetric_windows_cached_vs_uncached(self):
         """All 4 distinct window sizes → cached == uncached, bitwise."""
-        from src.qec.diagnostics.bp_dynamics import (
+        from qec.diagnostics.bp_dynamics import (
             _compute_msi, _compute_cpi, _compute_tsl,
             _compute_gos, _compute_bti,
         )
@@ -1222,7 +1222,7 @@ class TestWindowSafetyFormal:
 
     def test_window_of_2_minimal(self):
         """Minimal window=2 with cached path works correctly."""
-        from src.qec.diagnostics.bp_dynamics import (
+        from qec.diagnostics.bp_dynamics import (
             _compute_msi, _compute_gos,
         )
         llr = _make_oscillating_llr_trace(n_iters=10, period=2)
@@ -1253,7 +1253,7 @@ class TestRedundancyElimination:
         Without precomputation, _sign() is called multiple times per vec
         across MSI, CPI, TSL, GOS, BTI.
         """
-        import src.qec.diagnostics.bp_dynamics as mod
+        import qec.diagnostics.bp_dynamics as mod
 
         call_count = {"n": 0}
         original_sign = mod._sign
@@ -1268,7 +1268,7 @@ class TestRedundancyElimination:
         N = len(normed)
 
         # --- Path A: uncached (original behavior) ---
-        from src.qec.diagnostics.bp_dynamics import (
+        from qec.diagnostics.bp_dynamics import (
             _compute_msi, _compute_cpi, _compute_tsl,
             _compute_gos, _compute_bti,
         )
@@ -1381,7 +1381,7 @@ class TestCacheTransparency:
 
     def test_cached_vs_uncached_stable(self):
         """Cache-returned result matches fresh computation."""
-        import src.qec.diagnostics.bp_dynamics as mod
+        import qec.diagnostics.bp_dynamics as mod
 
         llr = _make_stable_llr_trace()
         energy = _make_monotonic_energy()
@@ -1404,7 +1404,7 @@ class TestCacheTransparency:
 
     def test_cached_vs_uncached_oscillating(self):
         """Cache transparency for oscillating trace."""
-        import src.qec.diagnostics.bp_dynamics as mod
+        import qec.diagnostics.bp_dynamics as mod
 
         llr = _make_oscillating_llr_trace()
         energy = _make_flat_energy()
@@ -1512,7 +1512,7 @@ class TestCrossCallRedundancyElimination:
 
     def test_compute_call_count_reduction(self, monkeypatch):
         """Cross-call cache reduces full metric computations."""
-        import src.qec.diagnostics.bp_dynamics as mod
+        import qec.diagnostics.bp_dynamics as mod
 
         call_count = {"n": 0}
         original_precompute = mod._precompute_signs_and_sigs
@@ -1556,7 +1556,7 @@ class TestCrossCallRedundancyElimination:
         _make_stable_llr_trace() + _make_monotonic_energy() is called
         ~14 times with identical inputs across different test classes.
         """
-        import src.qec.diagnostics.bp_dynamics as mod
+        import qec.diagnostics.bp_dynamics as mod
 
         call_count = {"n": 0}
         original_precompute = mod._precompute_signs_and_sigs
@@ -1619,7 +1619,7 @@ class TestByteKeyEquivalence:
 
     def test_fresh_helper_calls_same_key(self):
         """Two independent helper invocations produce same cache key."""
-        from src.qec.diagnostics.bp_dynamics import _make_cache_key
+        from qec.diagnostics.bp_dynamics import _make_cache_key
 
         llr1 = _make_oscillating_llr_trace(n_iters=15, period=3)
         energy1 = _make_flat_energy(n_iters=15)

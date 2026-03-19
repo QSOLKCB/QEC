@@ -20,20 +20,20 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.discovery.archive import (
+from qec.discovery.archive import (
     create_archive,
     update_discovery_archive,
     get_archive_features,
     get_archive_summary,
 )
-from src.qec.discovery.novelty import (
+from qec.discovery.novelty import (
     extract_feature_vector,
     compute_novelty_score,
     compute_population_novelty,
 )
-from src.qec.discovery.cycle_pressure import compute_cycle_pressure
-from src.qec.discovery.spectral_bad_edge import detect_bad_edges
-from src.qec.discovery.ace_filter import compute_local_ace_score, ace_gate_mutation
+from qec.discovery.cycle_pressure import compute_cycle_pressure
+from qec.discovery.spectral_bad_edge import detect_bad_edges
+from qec.discovery.ace_filter import compute_local_ace_score, ace_gate_mutation
 
 
 def _small_H():

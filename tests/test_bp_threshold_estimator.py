@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from src.qec.experiments.bp_threshold_estimator import BPThresholdEstimator
+from qec.experiments.bp_threshold_estimator import BPThresholdEstimator
 
 
 _PHASE_DIAGRAM = {

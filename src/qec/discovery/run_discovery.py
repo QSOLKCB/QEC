@@ -27,9 +27,9 @@ _repo_root = os.path.dirname(
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.discovery.population_engine import DiscoveryEngine
-from src.qec.archive.storage import DiscoveryArchive
-from src.qec.utils.artifact_metadata import generate_run_metadata
+from qec.discovery.population_engine import DiscoveryEngine
+from qec.archive.storage import DiscoveryArchive
+from qec.utils.artifact_metadata import generate_run_metadata
 
 
 def main() -> None:

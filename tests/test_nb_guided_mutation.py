@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import scipy.sparse
 
-from src.qec.discovery.mutation_nb_guided import NBGuidedMutator
+from qec.discovery.mutation_nb_guided import NBGuidedMutator
 
 
 def _make_test_matrix() -> np.ndarray:
@@ -124,7 +124,7 @@ class TestScoreRanking:
         mutator = NBGuidedMutator(k=5, enabled=True)
 
         edges = mutator._collect_edges(H)
-        from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+        from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
         flow = NonBacktrackingFlowAnalyzer().compute_flow(H)
         scores = mutator._compute_edge_scores(
             H, edges, flow["directed_edge_flow"],
@@ -142,7 +142,7 @@ class TestScoreRanking:
         mutator = NBGuidedMutator(k=5, enabled=True)
 
         edges = mutator._collect_edges(H)
-        from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+        from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
         flow = NonBacktrackingFlowAnalyzer().compute_flow(H)
         scores = mutator._compute_edge_scores(
             H, edges, flow["directed_edge_flow"],

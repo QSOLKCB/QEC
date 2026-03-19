@@ -3,7 +3,7 @@
 Version: v71.0.0
 """
 
-from src.qec.modules.common import _EXCLUDED_KEYS, _is_finite_numeric
+from qec.modules.common import _EXCLUDED_KEYS, _is_finite_numeric
 
 
 def build_scores(result: dict) -> list:

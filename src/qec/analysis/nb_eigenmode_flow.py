@@ -16,9 +16,9 @@ from typing import Any
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
-from src.qec.analysis.spectral_signature import with_entropy
-from src.qec.fitness.spectral_metrics import compute_nbt_spectral_radius
+from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from qec.analysis.spectral_signature import with_entropy
+from qec.fitness.spectral_metrics import compute_nbt_spectral_radius
 
 
 _ROUND = 12

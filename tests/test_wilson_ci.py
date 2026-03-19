@@ -5,7 +5,7 @@ Tests for the Wilson score confidence interval helpers.
 import pytest
 import numpy as np
 
-from src.simulation.fer import _probit, _wilson_ci
+from simulation.fer import _probit, _wilson_ci
 
 
 # ───────────────────────────────────────────────────────────────────

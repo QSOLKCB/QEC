@@ -12,12 +12,12 @@ Version: v71.0.3
 
 import os
 
-from src.qec.modules.aggregation.table import build_experiment_table
-from src.qec.modules.comparisons.pairwise import build_pairwise_comparison
-from src.qec.modules.pareto.frontier import build_pareto_frontier
-from src.qec.modules.scoring.scores import build_scores
+from qec.modules.aggregation.table import build_experiment_table
+from qec.modules.comparisons.pairwise import build_pairwise_comparison
+from qec.modules.pareto.frontier import build_pareto_frontier
+from qec.modules.scoring.scores import build_scores
 
-from src.qec.modules.pipeline.validation import (
+from qec.modules.pipeline.validation import (
     validate_mode,
     validate_suites,
     validate_sweep_result,

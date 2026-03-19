@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.cycle_pressure import compute_cycle_pressure
+from qec.discovery.cycle_pressure import compute_cycle_pressure
 
 
 def cycle_pressure_guided_mutation(

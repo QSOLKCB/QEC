@@ -4,9 +4,9 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
-from src.qec.analysis.spectral_phase_boundaries import detect_phase_boundaries
-from src.qec.analysis.spectral_phase_diagram import generate_spectral_phase_diagram
+from qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
+from qec.analysis.spectral_phase_boundaries import detect_phase_boundaries
+from qec.analysis.spectral_phase_diagram import generate_spectral_phase_diagram
 
 
 def _memory() -> SpectralLandscapeMemory:

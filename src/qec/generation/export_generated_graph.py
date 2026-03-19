@@ -17,8 +17,8 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.generation.candidate_evaluation import evaluate_tanner_graph_candidate
-from src.utils.canonicalize import canonicalize
+from qec.generation.candidate_evaluation import evaluate_tanner_graph_candidate
+from utils.canonicalize import canonicalize
 
 
 def export_generated_graph(

@@ -14,8 +14,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.decoder.energy import bp_energy
-from src.qec_qldpc_codes import bp_decode, create_code, syndrome, channel_llr
+from qec.decoder.energy import bp_energy
+from qec_qldpc_codes import bp_decode, create_code, syndrome, channel_llr
 
 
 @pytest.fixture

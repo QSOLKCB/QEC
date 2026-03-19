@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from src.qec.analysis.spectral_regression import SpectralThresholdModel, load_training_dataset
+from qec.analysis.spectral_regression import SpectralThresholdModel, load_training_dataset
 
 
 def _dataset() -> list[dict[str, float]]:

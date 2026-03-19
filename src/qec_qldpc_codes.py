@@ -1523,7 +1523,7 @@ def bp_decode(
 
     # ── v3.9.0 energy trace buffer ──
     if energy_trace:
-        from src.qec.decoder.energy import bp_energy as _bp_energy
+        from qec.decoder.energy import bp_energy as _bp_energy
         _energy_trace: list[float] = []
 
     def _build_return(pp_result, hist=None, res_met=None, etrace=None):

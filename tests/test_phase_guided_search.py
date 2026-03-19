@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.phase_guided_search import (
+from qec.discovery.phase_guided_search import (
     propose_phase_guided_step,
     select_phase_target,
     update_phase_visit_counts,
 )
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _phase_map() -> dict[str, object]:

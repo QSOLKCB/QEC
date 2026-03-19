@@ -18,7 +18,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.discovery.incremental_metrics import update_metrics_incrementally
+from qec.discovery.incremental_metrics import update_metrics_incrementally
 
 
 def _sample_metrics():

@@ -27,7 +27,7 @@ from qec.utils.reproducibility import collect_environment_metadata
 
 def _to_float_dict(d: dict) -> dict:
     return {k: float(v) if isinstance(v, (np.floating, float)) else v for k, v in d.items()}
-from src.utils.canonicalize import canonicalize
+from utils.canonicalize import canonicalize
 
 
 def run_discovery_experiment(

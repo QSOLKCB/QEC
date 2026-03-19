@@ -22,7 +22,7 @@ from qec.generation.tanner_graph_generator import (
 )
 from qec.generation.candidate_evaluation import evaluate_tanner_graph_candidate
 from qec.generation.candidate_ranking import rank_tanner_graph_candidates
-from src.utils.canonicalize import canonicalize
+from utils.canonicalize import canonicalize
 
 
 def run_generation_trajectory(

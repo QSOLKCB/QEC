@@ -21,8 +21,8 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.analysis.bp_residuals import BPResidualAnalyzer
-from src.qec.discovery.guided_mutations import (
+from qec.analysis.bp_residuals import BPResidualAnalyzer
+from qec.discovery.guided_mutations import (
     residual_guided_mutation,
     apply_guided_mutation,
     _OPERATORS,

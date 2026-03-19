@@ -19,11 +19,11 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.critical_radius import estimate_critical_spectral_radius
-from src.qec.diagnostics.spectral_critical_line import (
+from qec.diagnostics.critical_radius import estimate_critical_spectral_radius
+from qec.diagnostics.spectral_critical_line import (
     predict_spectral_critical_radius,
 )
-from src.qec.diagnostics.stability_boundary import estimate_stability_boundary
+from qec.diagnostics.stability_boundary import estimate_stability_boundary
 
 
 def _load_dataset(path: str) -> list[dict]:

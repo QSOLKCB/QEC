@@ -18,9 +18,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.bench.config import BenchmarkConfig, DecoderSpec
-from src.bench.runner import run_benchmark
-from src.bench.geometry_diagnostics import compute_dps
+from bench.config import BenchmarkConfig, DecoderSpec
+from bench.runner import run_benchmark
+from bench.geometry_diagnostics import compute_dps
 
 
 # ── Preview configuration ────────────────────────────────────────────
@@ -88,8 +88,8 @@ class TestGateCheck:
 
     def test_rho1_matches_min_sum_under_bsc_syndrome(self):
         """Direct bp_decode comparison on same H, llr, syndrome."""
-        from src.qec_qldpc_codes import bp_decode, syndrome, create_code
-        from src.qec.channel import get_channel_model
+        from qec_qldpc_codes import bp_decode, syndrome, create_code
+        from qec.channel import get_channel_model
 
         channel = get_channel_model("bsc_syndrome")
         code = create_code("rate_0.50", lifting_size=8, seed=SEED)

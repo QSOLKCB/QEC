@@ -10,23 +10,23 @@ Does not import or modify the decoder (Layer 1).
 
 from __future__ import annotations
 
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.discovery.objectives import compute_discovery_objectives
-from src.qec.discovery.mutation_operators import mutate_tanner_graph
-from src.qec.discovery.repair_operators import repair_tanner_graph
-from src.qec.discovery.archive import update_discovery_archive
-from src.qec.discovery.spectral_bad_edge import detect_bad_edges
-from src.qec.discovery.cycle_pressure import compute_cycle_pressure
-from src.qec.discovery.ace_filter import compute_local_ace_score
-from src.qec.discovery.incremental_metrics import update_metrics_incrementally
-from src.qec.discovery.basin_aware_flow import BasinAwareFlowConfig, BasinAwareSpectralFlow
-from src.qec.discovery.adaptive_mutation_controller import (
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.objectives import compute_discovery_objectives
+from qec.discovery.mutation_operators import mutate_tanner_graph
+from qec.discovery.repair_operators import repair_tanner_graph
+from qec.discovery.archive import update_discovery_archive
+from qec.discovery.spectral_bad_edge import detect_bad_edges
+from qec.discovery.cycle_pressure import compute_cycle_pressure
+from qec.discovery.ace_filter import compute_local_ace_score
+from qec.discovery.incremental_metrics import update_metrics_incrementally
+from qec.discovery.basin_aware_flow import BasinAwareFlowConfig, BasinAwareSpectralFlow
+from qec.discovery.adaptive_mutation_controller import (
     AdaptiveMutationConfig,
     AdaptiveMutationController,
     NonBacktrackingFlowMutator,
     NBGradientMutator,
 )
-from src.qec.discovery.nb_flow_mutation import NBFlowMutationConfig, NonBacktrackingFlowMutator
+from qec.discovery.nb_flow_mutation import NBFlowMutationConfig, NonBacktrackingFlowMutator
 
 __all__ = [
     "run_structure_discovery",

@@ -13,7 +13,7 @@ import json
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.bp_phase_space import (
+from qec.diagnostics.bp_phase_space import (
     compute_bp_phase_space,
 )
 

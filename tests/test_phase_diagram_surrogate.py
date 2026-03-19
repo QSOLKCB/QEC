@@ -4,14 +4,14 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.spectral_phase_diagram_surrogate import (
+from qec.analysis.spectral_phase_diagram_surrogate import (
     PHASE_GRID,
     SpectralPhaseDiagramSurrogate,
     spectral_feature_vector,
     surrogate_threshold,
 )
-from src.qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
-from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
+from qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
+from qec.generation.deterministic_construction import construct_deterministic_tanner_graph
 
 
 def _small_graph() -> np.ndarray:
@@ -50,7 +50,7 @@ def test_surrogate_threshold_extraction() -> None:
 def test_search_pipeline_supports_phase_diagram_surrogate(tmp_path, monkeypatch) -> None:
     H0 = _small_graph()
 
-    from src.qec.discovery import threshold_search as mod
+    from qec.discovery import threshold_search as mod
 
     monkeypatch.setattr(
         mod.PhaseDiagramOrchestrator,
@@ -81,7 +81,7 @@ def test_search_pipeline_supports_phase_diagram_surrogate(tmp_path, monkeypatch)
 def test_phase_curve_artifact_serialization(tmp_path, monkeypatch) -> None:
     H0 = _small_graph()
 
-    from src.qec.discovery import threshold_search as mod
+    from qec.discovery import threshold_search as mod
 
     monkeypatch.setattr(
         mod.PhaseDiagramOrchestrator,

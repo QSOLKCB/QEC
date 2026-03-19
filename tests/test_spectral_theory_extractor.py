@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_conjectures import generate_conjectures, rank_conjectures
-from src.qec.analysis.spectral_theory_dataset import build_theory_dataset
-from src.qec.analysis.spectral_theory_models import fit_theory_models
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.analysis.spectral_conjectures import generate_conjectures, rank_conjectures
+from qec.analysis.spectral_theory_dataset import build_theory_dataset
+from qec.analysis.spectral_theory_models import fit_theory_models
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def _archive() -> dict:

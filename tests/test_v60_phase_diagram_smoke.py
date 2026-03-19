@@ -23,7 +23,7 @@ if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
 from scripts.run_v59_phase_diagram_demo import run_phase_diagram_demo
-from src.qec.diagnostics.phase_heatmap import print_phase_heatmap
+from qec.diagnostics.phase_heatmap import print_phase_heatmap
 
 
 class TestV60PhaseDiagramSmoke:

@@ -17,7 +17,7 @@ import json
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.basin_probe import probe_local_ternary_basin
+from qec.diagnostics.basin_probe import probe_local_ternary_basin
 
 
 # ── Test helpers ──────────────────────────────────────────────────────

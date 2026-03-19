@@ -22,12 +22,12 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.generation.peg_generator import (
+from qec.generation.peg_generator import (
     generate_peg_tanner_graph,
     generate_peg_population,
     _passes_spectral_filter,
 )
-from src.qec.discovery.population_engine import DiscoveryEngine
+from qec.discovery.population_engine import DiscoveryEngine
 
 
 # ── Fixtures ─────────────────────────────────────────────────────
@@ -136,7 +136,7 @@ class TestSpectralFilter:
     def test_peg_graph_passes_filter(self) -> None:
         H = generate_peg_tanner_graph(12, 6, 3, 6, seed=0)
         # PEG graphs should generally have decent girth
-        from src.qec.fitness.spectral_metrics import compute_girth_spectrum
+        from qec.fitness.spectral_metrics import compute_girth_spectrum
         girth_result = compute_girth_spectrum(H)
         assert girth_result["girth"] >= 4
 

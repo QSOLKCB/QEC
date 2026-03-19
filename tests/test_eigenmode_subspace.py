@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.eigenmode_subspace import cluster_eigenmodes
+from qec.analysis.eigenmode_subspace import cluster_eigenmodes
 
 
 def test_degenerate_projector_rotation_stability() -> None:

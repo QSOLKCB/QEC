@@ -10,8 +10,8 @@ import os
 import numpy as np
 import pytest
 
-from src.qec.testing.experiment_harness import DeterministicExperimentHarness
-from src.qec.dev.test_selection import select_tests_for_changed_files
+from qec.testing.experiment_harness import DeterministicExperimentHarness
+from qec.dev.test_selection import select_tests_for_changed_files
 
 
 def pytest_configure(config):

@@ -10,14 +10,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.qec.decoder.ternary.ternary_rule_variants import (
+from qec.decoder.ternary.ternary_rule_variants import (
     majority_rule,
     damped_majority_rule,
     conflict_averse_rule,
     parity_pressure_rule,
     RULE_REGISTRY,
 )
-from src.qec.decoder.ternary.ternary_rule_evaluator import (
+from qec.decoder.ternary.ternary_rule_evaluator import (
     run_decoder_with_rule,
     evaluate_decoder_rule,
 )
@@ -307,7 +307,7 @@ class TestExperimentIntegration:
 
     def test_discovery_run_with_decoder_rules(self) -> None:
         """Verify that enable_decoder_rule_experiments adds expected keys."""
-        from src.qec.experiments.discovery_run import run_discovery_experiment
+        from qec.experiments.discovery_run import run_discovery_experiment
         spec = {
             "num_variables": 10,
             "num_checks": 5,
@@ -328,7 +328,7 @@ class TestExperimentIntegration:
         assert "rule_stability_scores" in results
 
     def test_decoder_rule_metrics_structure(self) -> None:
-        from src.qec.experiments.discovery_run import run_discovery_experiment
+        from qec.experiments.discovery_run import run_discovery_experiment
         spec = {
             "num_variables": 10,
             "num_checks": 5,
@@ -353,7 +353,7 @@ class TestExperimentIntegration:
             assert "trapping_indicator" in entry
 
     def test_best_decoder_rule_is_valid(self) -> None:
-        from src.qec.experiments.discovery_run import run_discovery_experiment
+        from qec.experiments.discovery_run import run_discovery_experiment
         spec = {
             "num_variables": 10,
             "num_checks": 5,
@@ -372,7 +372,7 @@ class TestExperimentIntegration:
         assert best in RULE_REGISTRY
 
     def test_rule_stability_scores_sorted(self) -> None:
-        from src.qec.experiments.discovery_run import run_discovery_experiment
+        from qec.experiments.discovery_run import run_discovery_experiment
         spec = {
             "num_variables": 10,
             "num_checks": 5,
@@ -393,7 +393,7 @@ class TestExperimentIntegration:
 
     def test_default_disabled_no_keys(self) -> None:
         """When flag is off, no decoder rule keys should appear."""
-        from src.qec.experiments.discovery_run import run_discovery_experiment
+        from qec.experiments.discovery_run import run_discovery_experiment
         spec = {
             "num_variables": 10,
             "num_checks": 5,
@@ -414,7 +414,7 @@ class TestExperimentIntegration:
         assert "rule_stability_scores" not in results
 
     def test_experiment_deterministic(self) -> None:
-        from src.qec.experiments.discovery_run import run_discovery_experiment
+        from qec.experiments.discovery_run import run_discovery_experiment
         spec = {
             "num_variables": 10,
             "num_checks": 5,
@@ -450,7 +450,7 @@ class TestAPIWrappers:
     """Tests for analysis API wrappers."""
 
     def test_run_decoder_with_rule_wrapper(self) -> None:
-        from src.qec.analysis.api import run_decoder_with_rule as api_run
+        from qec.analysis.api import run_decoder_with_rule as api_run
         H = simple_parity_matrix()
         r = received_vector()
         result = api_run(H, r, "majority")
@@ -458,7 +458,7 @@ class TestAPIWrappers:
         assert result["final_messages"].dtype == np.int8
 
     def test_evaluate_decoder_rule_wrapper(self) -> None:
-        from src.qec.analysis.api import evaluate_decoder_rule as api_eval
+        from qec.analysis.api import evaluate_decoder_rule as api_eval
         H = simple_parity_matrix()
         r = received_vector()
         metrics = api_eval(H, r, "majority")
@@ -466,7 +466,7 @@ class TestAPIWrappers:
         assert isinstance(metrics["stability"], np.float64)
 
     def test_list_decoder_rules_wrapper(self) -> None:
-        from src.qec.analysis.api import list_decoder_rules as api_list
+        from qec.analysis.api import list_decoder_rules as api_list
         rules = api_list()
         assert isinstance(rules, list)
         assert rules == sorted(rules)

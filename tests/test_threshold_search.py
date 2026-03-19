@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
-from src.qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
+from qec.generation.deterministic_construction import construct_deterministic_tanner_graph
+from qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
 
 
 def _spec() -> dict[str, int]:

@@ -14,7 +14,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.archive.storage import DiscoveryArchive
+from qec.archive.storage import DiscoveryArchive
 
 
 def seed_population_from_archive(

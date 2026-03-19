@@ -22,7 +22,7 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 
-from src.qec.diagnostics.non_backtracking_spectrum import (
+from qec.diagnostics.non_backtracking_spectrum import (
     _build_sparse_nb_matrix,
 )
 

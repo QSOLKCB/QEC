@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import scipy.sparse
 
-from src.qec.analysis.nb_perturbation_scorer import NBPerturbationScorer
+from qec.analysis.nb_perturbation_scorer import NBPerturbationScorer
 
 
 def _H() -> np.ndarray:

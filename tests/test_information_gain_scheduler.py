@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.information_gain import (
+from qec.analysis.information_gain import (
     information_gain_score,
     rank_candidates_by_information_gain,
 )
-from src.qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
-from src.qec.analysis.spectral_uncertainty import estimate_spectral_uncertainty
-from src.qec.discovery.autonomous_scheduler import schedule_autonomous_target
-from src.qec.discovery.discovery_engine import run_structure_discovery
+from qec.analysis.spectral_landscape_memory import SpectralLandscapeMemory
+from qec.analysis.spectral_uncertainty import estimate_spectral_uncertainty
+from qec.discovery.autonomous_scheduler import schedule_autonomous_target
+from qec.discovery.discovery_engine import run_structure_discovery
 
 
 def test_uncertainty_estimation_correctness() -> None:

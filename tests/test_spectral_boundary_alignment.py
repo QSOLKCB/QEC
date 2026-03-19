@@ -13,7 +13,7 @@ import json
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.spectral_boundary_alignment import (
+from qec.diagnostics.spectral_boundary_alignment import (
     compute_spectral_boundary_alignment,
 )
 

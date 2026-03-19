@@ -4,11 +4,11 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.spectral_phase_space import project_2d, project_3d
-from src.qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
-from src.qec.analysis.trajectory_replay import replay_spectral_trajectory
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.experiments.experiment_hash import ExperimentRunner
+from qec.analysis.spectral_phase_space import project_2d, project_3d
+from qec.analysis.spectral_trajectory import SpectralTrajectoryRecorder
+from qec.analysis.trajectory_replay import replay_spectral_trajectory
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.experiments.experiment_hash import ExperimentRunner
 
 
 def _default_spec() -> dict[str, int]:

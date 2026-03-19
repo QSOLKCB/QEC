@@ -24,7 +24,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.experiments.tanner_graph_repair import (
+from qec.experiments.tanner_graph_repair import (
     run_spectral_graph_optimization_experiment,
     spectral_score,
     _build_nb_matrix_from_edges,
@@ -146,7 +146,7 @@ class TestSpectralScore:
 
     def test_consistent_with_nb_spectrum(self):
         """Spectral score is consistent with the v6.0 NB spectrum module."""
-        from src.qec.diagnostics.non_backtracking_spectrum import (
+        from qec.diagnostics.non_backtracking_spectrum import (
             compute_non_backtracking_spectrum,
         )
         H, _, _ = _make_simple_code()
@@ -690,11 +690,11 @@ class TestNoDecoderImport:
 
     def test_no_decoder_import(self):
         """Module does not import any decoder code."""
-        import src.qec.experiments.tanner_graph_repair as mod
+        import qec.experiments.tanner_graph_repair as mod
         source = open(mod.__file__).read()
         assert "import bp_decode" not in source
-        assert "from src.qec.decoder" not in source
-        assert "from src.qec_qldpc_codes" not in source
+        assert "from qec.decoder" not in source
+        assert "from qec_qldpc_codes" not in source
 
 
 class TestV66Compatibility:
@@ -702,7 +702,7 @@ class TestV66Compatibility:
 
     def test_v66_still_works(self):
         """v6.6 repair experiment still works after v6.7 additions."""
-        from src.qec.experiments.tanner_graph_repair import (
+        from qec.experiments.tanner_graph_repair import (
             run_tanner_graph_repair_experiment,
         )
 
@@ -723,7 +723,7 @@ class TestV66Compatibility:
 
     def test_shared_candidate_logic(self):
         """v6.6 and v6.7 produce same candidate swaps for same input."""
-        from src.qec.experiments.tanner_graph_repair import (
+        from qec.experiments.tanner_graph_repair import (
             run_tanner_graph_repair_experiment,
         )
 
@@ -838,16 +838,16 @@ class TestEndToEndWithV64:
 
     def test_full_pipeline(self):
         """Full pipeline: risk scoring -> spectral graph optimization."""
-        from src.qec.diagnostics.nb_localization import (
+        from qec.diagnostics.nb_localization import (
             compute_nb_localization_metrics,
         )
-        from src.qec.diagnostics.nb_trapping_candidates import (
+        from qec.diagnostics.nb_trapping_candidates import (
             compute_nb_trapping_candidates,
         )
-        from src.qec.diagnostics.spectral_bp_alignment import (
+        from qec.diagnostics.spectral_bp_alignment import (
             compute_spectral_bp_alignment,
         )
-        from src.qec.diagnostics.spectral_failure_risk import (
+        from qec.diagnostics.spectral_failure_risk import (
             compute_spectral_failure_risk,
         )
 

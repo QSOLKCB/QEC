@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.qec.discovery.basin_switch_detector import BasinSwitchDetector
+from qec.discovery.basin_switch_detector import BasinSwitchDetector
 
 
 def test_no_basin_switch_when_distance_small() -> None:

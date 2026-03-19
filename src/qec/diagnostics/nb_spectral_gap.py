@@ -18,8 +18,8 @@ from __future__ import annotations
 import numpy as np
 from scipy.sparse.linalg import eigs
 
-from src.qec.diagnostics._spectral_utils import build_nb_operator
-from src.qec.diagnostics.spectral_nb import _TannerGraph
+from qec.diagnostics._spectral_utils import build_nb_operator
+from qec.diagnostics.spectral_nb import _TannerGraph
 
 _ROUND = 12
 

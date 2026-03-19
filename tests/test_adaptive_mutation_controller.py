@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.discovery.adaptive_mutation_controller import (
+from qec.discovery.adaptive_mutation_controller import (
     AdaptiveMutationConfig,
     AdaptiveMutationController,
 )

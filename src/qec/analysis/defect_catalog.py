@@ -8,8 +8,8 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 
-from src.qec.analysis.subgraph_extractor import compute_trapping_parameters, extract_support_subgraph
-from src.qec.analysis.trapping_set_classifier import classify_trapping_set
+from qec.analysis.subgraph_extractor import compute_trapping_parameters, extract_support_subgraph
+from qec.analysis.trapping_set_classifier import classify_trapping_set
 
 
 _ROUND = 12

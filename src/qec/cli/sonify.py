@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from src.qec.analysis.spectral_sonifier import sonify_experiment_artifact
+from qec.analysis.spectral_sonifier import sonify_experiment_artifact
 
 
 def build_parser() -> argparse.ArgumentParser:

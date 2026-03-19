@@ -21,10 +21,10 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.discovery.spectral_pressure import (
+from qec.discovery.spectral_pressure import (
     compute_spectral_mutation_pressure,
 )
-from src.qec.discovery.spectral_guided_mutation import (
+from qec.discovery.spectral_guided_mutation import (
     spectral_pressure_guided_mutation,
 )
 

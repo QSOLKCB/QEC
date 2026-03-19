@@ -12,7 +12,7 @@ Covers:
 import numpy as np
 import pytest
 
-from src.qec_qldpc_codes import (
+from qec_qldpc_codes import (
     bp_decode,
     syndrome,
     channel_llr,

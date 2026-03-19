@@ -18,7 +18,7 @@ from typing import Any
 
 from qec.discovery.discovery_engine import run_structure_discovery
 from qec.utils.reproducibility import collect_environment_metadata
-from src.utils.canonicalize import canonicalize
+from utils.canonicalize import canonicalize
 
 
 def _derive_seed(base_seed: int, label: str) -> int:

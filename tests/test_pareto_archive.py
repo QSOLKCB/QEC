@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from src.qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
+from qec.discovery.pareto_archive import ParetoArchive, ParetoMetrics
 
 
 def test_deterministic_pareto_insertion_and_frontier_order() -> None:

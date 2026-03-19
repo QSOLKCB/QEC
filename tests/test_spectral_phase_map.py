@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from src.qec.analysis.spectral_phase_map import (
+from qec.analysis.spectral_phase_map import (
     construct_phase_map,
     label_phases,
     render_phase_map,

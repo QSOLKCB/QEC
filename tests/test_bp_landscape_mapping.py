@@ -18,7 +18,7 @@ from zlib import crc32
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.bp_landscape_mapping import (
+from qec.diagnostics.bp_landscape_mapping import (
     compute_bp_landscape_map,
     _compute_attractor_id,
     DEFAULT_EPS_VALUES,

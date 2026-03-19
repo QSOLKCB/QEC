@@ -11,26 +11,26 @@ Does not import or modify the decoder (Layer 1).
 from __future__ import annotations
 
 # ── v8.4.0: Tanner graph generation ────────────────────────────────
-from src.qec.generation.tanner_graph_generator import (
+from qec.generation.tanner_graph_generator import (
     generate_tanner_graph_candidates,
 )
-from src.qec.generation.candidate_evaluation import (
+from qec.generation.candidate_evaluation import (
     evaluate_tanner_graph_candidate,
 )
-from src.qec.generation.candidate_ranking import (
+from qec.generation.candidate_ranking import (
     rank_tanner_graph_candidates,
 )
-from src.qec.generation.export_generated_graph import (
+from qec.generation.export_generated_graph import (
     export_generated_graph,
 )
 
 # ── v8.5.0: Deterministic cycle-avoidant construction ───────────
-from src.qec.generation.deterministic_construction import (
+from qec.generation.deterministic_construction import (
     construct_deterministic_tanner_graph,
 )
 
 # ── v10.2.0: PEG-seeded spectral population initialization ────
-from src.qec.generation.peg_generator import (
+from qec.generation.peg_generator import (
     generate_peg_tanner_graph,
     generate_peg_population,
 )

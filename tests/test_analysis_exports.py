@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.qec.analysis import (
+from qec.analysis import (
     SpectralDiversityConfig,
     SpectralDiversityMemory,
     SpectralFrustrationAnalyzer,

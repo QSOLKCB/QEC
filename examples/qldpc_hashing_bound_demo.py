@@ -21,7 +21,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from src.qec_qldpc_codes import (
+from qec_qldpc_codes import (
     GF2e,
     QuantumLDPCCode,
     JointSPDecoder,

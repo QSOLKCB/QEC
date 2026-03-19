@@ -94,7 +94,7 @@ class SpectralMotifLibrary:
         self.clusters = []
 
     def cluster_motifs(self, k: int | None = None) -> list[dict[str, Any]]:
-        from src.qec.analysis.spectral_motif_clustering import cluster_spectral_motifs
+        from qec.analysis.spectral_motif_clustering import cluster_spectral_motifs
 
         self.clusters = cluster_spectral_motifs(self.motifs, k=k)
         return list(self.clusters)

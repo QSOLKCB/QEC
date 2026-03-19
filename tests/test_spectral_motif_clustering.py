@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.spectral_motif_clustering import cluster_spectral_motifs
-from src.qec.discovery.motif_library import SpectralMotifLibrary
+from qec.analysis.spectral_motif_clustering import cluster_spectral_motifs
+from qec.discovery.motif_library import SpectralMotifLibrary
 
 
 def test_cluster_spectral_motifs_deterministic() -> None:

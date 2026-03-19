@@ -13,7 +13,7 @@ Covers:
 import numpy as np
 import pytest
 
-from src.qec.discovery.guided_mutations import (
+from qec.discovery.guided_mutations import (
     absorbing_set_pressure_mutation,
     apply_guided_mutation,
     _OPERATORS,
@@ -120,7 +120,7 @@ class TestAbsorbingSetOperatorRegistration:
 
 class TestFitnessIntegration:
     def test_decoder_aware_has_absorbing_set_metrics(self):
-        from src.qec.fitness.fitness_engine import FitnessEngine
+        from qec.fitness.fitness_engine import FitnessEngine
 
         H = _make_small_ldpc()
         engine = FitnessEngine(
@@ -138,7 +138,7 @@ class TestFitnessIntegration:
         assert "twisted_cycle_fraction" in metrics
 
     def test_decoder_aware_has_new_components(self):
-        from src.qec.fitness.fitness_engine import FitnessEngine
+        from qec.fitness.fitness_engine import FitnessEngine
 
         H = _make_small_ldpc()
         engine = FitnessEngine(
@@ -154,7 +154,7 @@ class TestFitnessIntegration:
         assert "twisted_cycle_fraction" in components
 
     def test_structural_only_unchanged(self):
-        from src.qec.fitness.fitness_engine import FitnessEngine
+        from qec.fitness.fitness_engine import FitnessEngine
 
         H = _make_small_ldpc()
         engine = FitnessEngine(decoder_aware=False)
@@ -164,7 +164,7 @@ class TestFitnessIntegration:
         assert "twisted_cycle_fraction" not in result["components"]
 
     def test_decoder_aware_cache_works(self):
-        from src.qec.fitness.fitness_engine import FitnessEngine
+        from qec.fitness.fitness_engine import FitnessEngine
 
         H = _make_small_ldpc()
         engine = FitnessEngine(

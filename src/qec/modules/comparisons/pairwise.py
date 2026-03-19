@@ -5,7 +5,7 @@ Version: v71.0.0
 
 from collections import defaultdict
 
-from src.qec.modules.common import _EXCLUDED_KEYS
+from qec.modules.common import _EXCLUDED_KEYS
 
 
 def build_pairwise_comparison(result: dict) -> list:

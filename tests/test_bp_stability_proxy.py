@@ -20,7 +20,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.diagnostics.bp_stability_proxy import estimate_bp_stability
+from qec.diagnostics.bp_stability_proxy import estimate_bp_stability
 
 
 class TestBPStabilityProxy:

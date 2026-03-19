@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.qec.analysis.constants import MIN_EIGENVECTOR_NORM
+from qec.analysis.constants import MIN_EIGENVECTOR_NORM
 
 
 def compute_ipr(v: np.ndarray) -> float:

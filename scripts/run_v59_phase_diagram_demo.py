@@ -28,40 +28,40 @@ if _repo_root not in sys.path:
 
 import numpy as np
 
-from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
-from src.qec.diagnostics.bp_phase_space import (
+from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from qec.diagnostics.bp_phase_space import (
     compute_bp_phase_space,
     compute_metastability_score,
 )
-from src.qec.diagnostics.ternary_decoder_topology import (
+from qec.diagnostics.ternary_decoder_topology import (
     compute_ternary_decoder_topology,
 )
-from src.qec.diagnostics.phase_diagram import (
+from qec.diagnostics.phase_diagram import (
     build_decoder_phase_diagram,
     make_phase_grid,
 )
-from src.qec.diagnostics.phase_boundary_analysis import (
+from qec.diagnostics.phase_boundary_analysis import (
     analyze_phase_boundaries,
 )
-from src.qec.diagnostics.non_backtracking_spectrum import (
+from qec.diagnostics.non_backtracking_spectrum import (
     compute_non_backtracking_spectrum,
 )
-from src.qec.diagnostics.bethe_hessian import (
+from qec.diagnostics.bethe_hessian import (
     compute_bethe_hessian,
 )
-from src.qec.diagnostics.bp_stability_proxy import (
+from qec.diagnostics.bp_stability_proxy import (
     estimate_bp_stability,
 )
-from src.qec.diagnostics.bp_jacobian_estimator import (
+from qec.diagnostics.bp_jacobian_estimator import (
     estimate_bp_jacobian_spectral_radius,
 )
-from src.qec.diagnostics.nb_localization import (
+from qec.diagnostics.nb_localization import (
     compute_nb_localization_metrics,
 )
-from src.qec.diagnostics.nb_trapping_candidates import (
+from qec.diagnostics.nb_trapping_candidates import (
     compute_nb_trapping_candidates,
 )
-from src.qec.diagnostics.phase_heatmap import (
+from qec.diagnostics.phase_heatmap import (
     print_phase_heatmap,
 )
 

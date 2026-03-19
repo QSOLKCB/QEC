@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 from scipy.io import mmread
 
-from src.qec.io.export_graph import (
+from qec.io.export_graph import (
     export_matrix_market,
     export_parity_check,
     export_json_adjacency,

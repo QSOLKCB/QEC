@@ -80,25 +80,25 @@ for mod in _MODULES:
 
 def build_theory_dataset(archive: dict[str, Any]) -> dict[str, Any]:
     """Public wrapper for deterministic spectral-theory dataset extraction."""
-    from src.qec.analysis.spectral_theory_dataset import build_theory_dataset as _impl
+    from qec.analysis.spectral_theory_dataset import build_theory_dataset as _impl
     return _impl(archive)
 
 
 def fit_theory_models(dataset: dict[str, Any]) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral-theory model fitting."""
-    from src.qec.analysis.spectral_theory_models import fit_theory_models as _impl
+    from qec.analysis.spectral_theory_models import fit_theory_models as _impl
     return _impl(dataset)
 
 
 def generate_conjectures(fitted_models: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral conjecture generation."""
-    from src.qec.analysis.spectral_conjectures import generate_conjectures as _impl
+    from qec.analysis.spectral_conjectures import generate_conjectures as _impl
     return _impl(fitted_models)
 
 
 def rank_conjectures(conjectures: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral conjecture ranking."""
-    from src.qec.analysis.spectral_conjectures import rank_conjectures as _impl
+    from qec.analysis.spectral_conjectures import rank_conjectures as _impl
     return _impl(conjectures)
 
 
@@ -106,7 +106,7 @@ def rank_conjectures(conjectures: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def validate_conjectures(conjectures: list[dict[str, Any]], dataset: dict[str, Any], tolerance: float = 0.15) -> list[dict[str, Any]]:
     """Public wrapper for deterministic conjecture validation."""
-    from src.qec.analysis.spectral_conjecture_validation import validate_conjectures as _impl
+    from qec.analysis.spectral_conjecture_validation import validate_conjectures as _impl
     return _impl(conjectures, dataset, tolerance=tolerance)
 
 
@@ -117,13 +117,13 @@ def extract_counterexamples(
     max_counterexamples: int = 128,
 ) -> list[dict[str, Any]]:
     """Public wrapper for deterministic counterexample extraction."""
-    from src.qec.analysis.spectral_counterexamples import extract_counterexamples as _impl
+    from qec.analysis.spectral_counterexamples import extract_counterexamples as _impl
     return _impl(conjecture, dataset, error_threshold=error_threshold, max_counterexamples=max_counterexamples)
 
 
 def initialize_theory_memory() -> dict[str, Any]:
     """Public wrapper for deterministic theory memory initialization."""
-    from src.qec.analysis.spectral_theory_memory import initialize_theory_memory as _impl
+    from qec.analysis.spectral_theory_memory import initialize_theory_memory as _impl
     return _impl()
 
 
@@ -134,13 +134,13 @@ def update_theory_memory(
     counterexamples: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Public wrapper for deterministic theory memory updates."""
-    from src.qec.analysis.spectral_theory_memory import update_theory_memory as _impl
+    from qec.analysis.spectral_theory_memory import update_theory_memory as _impl
     return _impl(theory_memory, conjectures, validations, counterexamples)
 
 
 def summarize_theory_memory(theory_memory: dict[str, Any]) -> list[dict[str, Any]]:
     """Public wrapper for deterministic theory memory summary generation."""
-    from src.qec.analysis.spectral_theory_memory import summarize_theory_memory as _impl
+    from qec.analysis.spectral_theory_memory import summarize_theory_memory as _impl
     return _impl(theory_memory)
 
 
@@ -148,13 +148,13 @@ def summarize_theory_memory(theory_memory: dict[str, Any]) -> list[dict[str, Any
 
 def detect_spectral_ridges(points: list[list[float]] | np.ndarray) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral ridge detection."""
-    from src.qec.analysis.spectral_ridges import detect_spectral_ridges as _impl
+    from qec.analysis.spectral_ridges import detect_spectral_ridges as _impl
     return _impl(points)
 
 
 def build_ridge_graph(ridges: list[dict[str, Any]]) -> dict[str, Any]:
     """Public wrapper for deterministic ridge-graph construction."""
-    from src.qec.analysis.spectral_ridges import build_ridge_graph as _impl
+    from qec.analysis.spectral_ridges import build_ridge_graph as _impl
     return _impl(ridges)
 
 
@@ -163,13 +163,13 @@ def map_ridges_to_basins(
     basins: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Public wrapper for deterministic basin/ridge boundary mapping."""
-    from src.qec.analysis.spectral_ridges import map_ridges_to_basins as _impl
+    from qec.analysis.spectral_ridges import map_ridges_to_basins as _impl
     return _impl(ridges, basins)
 
 
 def compute_phase_novelty_score(vector: np.ndarray, known_phase_centroids: list[np.ndarray] | np.ndarray) -> float:
     """Public wrapper for deterministic phase novelty scoring."""
-    from src.qec.discovery.phase_novelty_search import compute_phase_novelty_score as _impl
+    from qec.discovery.phase_novelty_search import compute_phase_novelty_score as _impl
     return _impl(vector, known_phase_centroids)
 
 
@@ -178,56 +178,56 @@ def select_novel_phase_target(
     known_phase_centroids: list[np.ndarray] | np.ndarray,
 ) -> dict[str, np.ndarray]:
     """Public wrapper for deterministic novelty-target selection."""
-    from src.qec.discovery.phase_novelty_search import select_novel_phase_target as _impl
+    from qec.discovery.phase_novelty_search import select_novel_phase_target as _impl
     return _impl(candidate_vectors, known_phase_centroids)
 
 
 def propose_phase_novelty_step(current_vector: np.ndarray, novelty_vector: np.ndarray) -> np.ndarray:
     """Public wrapper for deterministic novelty-guided step proposal."""
-    from src.qec.discovery.phase_novelty_search import propose_phase_novelty_step as _impl
+    from qec.discovery.phase_novelty_search import propose_phase_novelty_step as _impl
     return _impl(current_vector, novelty_vector)
 
 
 
 def compute_phase_metrics(graph: np.ndarray, spectrum: np.ndarray, decoder_stats: dict[str, Any] | None) -> dict[str, float]:
     """Public wrapper for deterministic phase metric computation."""
-    from src.qec.analysis.phase_characterization import compute_phase_metrics as _impl
+    from qec.analysis.phase_characterization import compute_phase_metrics as _impl
     return _impl(graph, spectrum, decoder_stats)
 
 
 def classify_phase(metrics: dict[str, Any]) -> dict[str, str]:
     """Public wrapper for deterministic phase classification."""
-    from src.qec.analysis.phase_characterization import classify_phase as _impl
+    from qec.analysis.phase_characterization import classify_phase as _impl
     return _impl(metrics)
 
 
 def build_phase_profile(phase_id: int, metrics: dict[str, Any], label: dict[str, Any] | str) -> dict[str, Any]:
     """Public wrapper for deterministic phase profile construction."""
-    from src.qec.analysis.phase_characterization import build_phase_profile as _impl
+    from qec.analysis.phase_characterization import build_phase_profile as _impl
     return _impl(phase_id, metrics, label)
 
 
 def build_phase_dataset(phase_profiles: Any) -> dict[str, Any]:
     """Public wrapper for deterministic phase dataset extraction."""
-    from src.qec.analysis.theory_synthesis import build_phase_dataset as _impl
+    from qec.analysis.theory_synthesis import build_phase_dataset as _impl
     return _impl(phase_profiles)
 
 
 def fit_spectral_models(X: Any, y: Any) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral model fitting."""
-    from src.qec.analysis.theory_synthesis import fit_spectral_models as _impl
+    from qec.analysis.theory_synthesis import fit_spectral_models as _impl
     return _impl(X, y)
 
 
 def generate_spectral_conjectures(models: list[dict[str, Any]], feature_names: list[str]) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral conjecture synthesis."""
-    from src.qec.analysis.theory_synthesis import generate_spectral_conjectures as _impl
+    from qec.analysis.theory_synthesis import generate_spectral_conjectures as _impl
     return _impl(models, feature_names)
 
 
 def evaluate_conjecture(conjecture: dict[str, Any], phase_profile: dict[str, Any]) -> dict[str, Any]:
     """Public wrapper for deterministic conjecture evaluation against a phase profile."""
-    from src.qec.analysis.conjecture_validation import evaluate_conjecture as _impl
+    from qec.analysis.conjecture_validation import evaluate_conjecture as _impl
     return _impl(conjecture, phase_profile)
 
 
@@ -238,7 +238,7 @@ def find_conjecture_counterexamples(
     max_counterexamples: int = 128,
 ) -> list[dict[str, Any]]:
     """Public wrapper for deterministic conjecture counterexample detection."""
-    from src.qec.analysis.conjecture_validation import find_conjecture_counterexamples as _impl
+    from qec.analysis.conjecture_validation import find_conjecture_counterexamples as _impl
     return _impl(conjecture, phase_profiles, error_threshold=error_threshold, max_counterexamples=max_counterexamples)
 
 
@@ -248,13 +248,13 @@ def design_validation_experiment(
     num_targets: int = 8,
 ) -> list[dict[str, Any]]:
     """Public wrapper for deterministic validation experiment design."""
-    from src.qec.analysis.conjecture_validation import design_validation_experiment as _impl
+    from qec.analysis.conjecture_validation import design_validation_experiment as _impl
     return _impl(conjecture, archive, num_targets=num_targets)
 
 
 def detect_spectral_basins(points: list[list[float]] | np.ndarray) -> list[dict[str, Any]]:
     """Public wrapper for deterministic spectral basin detection."""
-    from src.qec.analysis.spectral_basins import detect_spectral_basins as _impl
+    from qec.analysis.spectral_basins import detect_spectral_basins as _impl
     return _impl(points)
 
 
@@ -263,7 +263,7 @@ def build_basin_transition_graph(
     basins: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Public wrapper for deterministic basin transition graph construction."""
-    from src.qec.analysis.spectral_basins import build_basin_transition_graph as _impl
+    from qec.analysis.spectral_basins import build_basin_transition_graph as _impl
     return _impl(trajectory, basins)
 
 
@@ -285,7 +285,7 @@ def compute_bh_spectrum(
     num_modes: int = 20,
 ) -> dict[str, Any]:
     """Public wrapper for deterministic Bethe-Hessian matrix and unstable modes."""
-    from src.qec.analysis.eigenmode_mutation import build_bethe_hessian, extract_unstable_modes
+    from qec.analysis.eigenmode_mutation import build_bethe_hessian, extract_unstable_modes
 
     B, r_eff = build_bethe_hessian(H, r=r)
     modes = extract_unstable_modes(B, num_modes=num_modes)
@@ -344,49 +344,49 @@ def run_ternary_decoder(
     max_iterations: int = 20,
 ) -> dict[str, Any]:
     """Public wrapper for deterministic ternary message-passing decoder."""
-    from src.qec.decoder.ternary.ternary_decoder import run_ternary_decoder as _impl
+    from qec.decoder.ternary.ternary_decoder import run_ternary_decoder as _impl
     return _impl(parity_matrix, received_vector, max_iterations=max_iterations)
 
 
 def compute_ternary_stability(messages: np.ndarray) -> np.float64:
     """Public wrapper for deterministic ternary stability computation."""
-    from src.qec.decoder.ternary.ternary_metrics import compute_ternary_stability as _impl
+    from qec.decoder.ternary.ternary_metrics import compute_ternary_stability as _impl
     return _impl(messages)
 
 
 def compute_ternary_entropy(messages: np.ndarray) -> np.float64:
     """Public wrapper for deterministic ternary entropy computation."""
-    from src.qec.decoder.ternary.ternary_metrics import compute_ternary_entropy as _impl
+    from qec.decoder.ternary.ternary_metrics import compute_ternary_entropy as _impl
     return _impl(messages)
 
 
 def compute_ternary_conflict_density(messages: np.ndarray) -> np.float64:
     """Public wrapper for deterministic ternary conflict density computation."""
-    from src.qec.decoder.ternary.ternary_metrics import compute_ternary_conflict_density as _impl
+    from qec.decoder.ternary.ternary_metrics import compute_ternary_conflict_density as _impl
     return _impl(messages)
 
 
 def detect_zero_regions(messages: np.ndarray) -> dict[str, Any]:
     """Public wrapper for deterministic ternary zero-region detection."""
-    from src.qec.decoder.ternary.ternary_trapping import detect_zero_regions as _impl
+    from qec.decoder.ternary.ternary_trapping import detect_zero_regions as _impl
     return _impl(messages)
 
 
 def compute_frustration_index(messages: np.ndarray) -> np.float64:
     """Public wrapper for deterministic ternary frustration index computation."""
-    from src.qec.decoder.ternary.ternary_trapping import compute_frustration_index as _impl
+    from qec.decoder.ternary.ternary_trapping import compute_frustration_index as _impl
     return _impl(messages)
 
 
 def detect_persistent_zero_states(history: list[np.ndarray]) -> list[int]:
     """Public wrapper for deterministic persistent zero-state detection."""
-    from src.qec.decoder.ternary.ternary_trapping import detect_persistent_zero_states as _impl
+    from qec.decoder.ternary.ternary_trapping import detect_persistent_zero_states as _impl
     return _impl(history)
 
 
 def estimate_trapping_indicator(messages: np.ndarray, parity_matrix: np.ndarray) -> np.float64:
     """Public wrapper for deterministic trapping indicator estimation."""
-    from src.qec.decoder.ternary.ternary_trapping import estimate_trapping_indicator as _impl
+    from qec.decoder.ternary.ternary_trapping import estimate_trapping_indicator as _impl
     return _impl(messages, parity_matrix)
 
 
@@ -398,7 +398,7 @@ def run_decoder_with_rule(
     max_iterations: int = 20,
 ) -> dict[str, Any]:
     """Public wrapper for deterministic ternary decoder with rule variant."""
-    from src.qec.decoder.ternary.ternary_rule_evaluator import run_decoder_with_rule as _impl
+    from qec.decoder.ternary.ternary_rule_evaluator import run_decoder_with_rule as _impl
     return _impl(parity_matrix, received, rule_name, max_iterations=max_iterations)
 
 
@@ -410,25 +410,25 @@ def evaluate_decoder_rule(
     max_iterations: int = 20,
 ) -> dict[str, np.float64]:
     """Public wrapper for deterministic decoder rule evaluation."""
-    from src.qec.decoder.ternary.ternary_rule_evaluator import evaluate_decoder_rule as _impl
+    from qec.decoder.ternary.ternary_rule_evaluator import evaluate_decoder_rule as _impl
     return _impl(parity_matrix, received, rule_name, max_iterations=max_iterations)
 
 
 def list_decoder_rules() -> list[str]:
     """Public wrapper returning sorted list of available decoder rule names."""
-    from src.qec.decoder.ternary.ternary_rule_variants import RULE_REGISTRY
+    from qec.decoder.ternary.ternary_rule_variants import RULE_REGISTRY
     return sorted(RULE_REGISTRY.keys())
 
 
 def get_extended_rule_registry() -> dict[str, Any]:
     """Public wrapper returning merged base + mutated rule registry."""
-    from src.qec.decoder.ternary.ternary_rule_variants import get_extended_rule_registry as _impl
+    from qec.decoder.ternary.ternary_rule_variants import get_extended_rule_registry as _impl
     return _impl()
 
 
 def generate_mutated_rules() -> dict[str, Any]:
     """Public wrapper returning deterministic dict of mutated rule variants."""
-    from src.qec.decoder.ternary.ternary_rule_mutations import generate_mutated_rules as _impl
+    from qec.decoder.ternary.ternary_rule_mutations import generate_mutated_rules as _impl
     return _impl()
 def evaluate_graph_decoder_pair(
     parity_matrix: np.ndarray,
@@ -438,7 +438,7 @@ def evaluate_graph_decoder_pair(
     max_iterations: int = 20,
 ) -> dict[str, Any]:
     """Public wrapper for deterministic graph-decoder pair evaluation."""
-    from src.qec.decoder.ternary.ternary_coevolution import evaluate_graph_decoder_pair as _impl
+    from qec.decoder.ternary.ternary_coevolution import evaluate_graph_decoder_pair as _impl
     return _impl(parity_matrix, received, rule_name, max_iterations=max_iterations)
 
 
@@ -449,7 +449,7 @@ def evaluate_rule_population(
     max_iterations: int = 20,
 ) -> list[dict[str, Any]]:
     """Public wrapper for deterministic rule population evaluation."""
-    from src.qec.decoder.ternary.ternary_coevolution import evaluate_rule_population as _impl
+    from qec.decoder.ternary.ternary_coevolution import evaluate_rule_population as _impl
     return _impl(parity_matrix, received, max_iterations=max_iterations)
 
 
@@ -457,7 +457,7 @@ def select_best_rule(
     rule_results: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Public wrapper for deterministic best rule selection."""
-    from src.qec.decoder.ternary.ternary_coevolution import select_best_rule as _impl
+    from qec.decoder.ternary.ternary_coevolution import select_best_rule as _impl
     return _impl(rule_results)
 
 
@@ -465,7 +465,7 @@ def compute_rule_fitness_metrics(
     results: dict[str, Any],
 ) -> dict[str, dict[str, Any]]:
     """Public wrapper for deterministic per-rule fitness metric computation."""
-    from src.qec.decoder.ternary.ternary_rule_fitness import compute_rule_fitness_metrics as _impl
+    from qec.decoder.ternary.ternary_rule_fitness import compute_rule_fitness_metrics as _impl
     return _impl(results)
 
 
@@ -473,7 +473,7 @@ def rank_rules_by_fitness(
     metrics: dict[str, dict[str, Any]],
 ) -> list[tuple[str, dict[str, Any]]]:
     """Public wrapper for deterministic multi-objective rule ranking."""
-    from src.qec.decoder.ternary.ternary_rule_fitness import rank_rules_by_fitness as _impl
+    from qec.decoder.ternary.ternary_rule_fitness import rank_rules_by_fitness as _impl
     return _impl(metrics)
 
 
@@ -484,25 +484,25 @@ def construct_phase_map(
     trajectory: list[list[float]] | np.ndarray,
 ) -> dict[str, Any]:
     """Public wrapper for deterministic spectral phase-map construction."""
-    from src.qec.analysis.spectral_phase_map import construct_phase_map as _impl
+    from qec.analysis.spectral_phase_map import construct_phase_map as _impl
     return _impl(basins, ridges, phase_surface, trajectory)
 
 
 def label_phases(basins: list[dict[str, Any]], ridges: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Public wrapper for deterministic phase labeling from basins/ridges."""
-    from src.qec.analysis.spectral_phase_map import label_phases as _impl
+    from qec.analysis.spectral_phase_map import label_phases as _impl
     return _impl(basins, ridges)
 
 
 def render_phase_map(phase_map: dict[str, Any], output_path: str) -> dict[str, Any]:
     """Public wrapper for deterministic phase-map rendering."""
-    from src.qec.analysis.spectral_phase_map import render_phase_map as _impl
+    from qec.analysis.spectral_phase_map import render_phase_map as _impl
     return _impl(phase_map, output_path)
 
 
 def select_phase_target(phase_map: dict[str, Any], phase_visit_counts: dict[int, int]) -> dict[str, int]:
     """Public wrapper for deterministic phase target selection."""
-    from src.qec.discovery.phase_guided_search import select_phase_target as _impl
+    from qec.discovery.phase_guided_search import select_phase_target as _impl
     return _impl(phase_map, phase_visit_counts)
 
 
@@ -512,7 +512,7 @@ def propose_phase_guided_step(
     target_phase: dict[str, Any] | int,
 ) -> np.ndarray:
     """Public wrapper for deterministic phase-guided spectral step proposal."""
-    from src.qec.discovery.phase_guided_search import propose_phase_guided_step as _impl
+    from qec.discovery.phase_guided_search import propose_phase_guided_step as _impl
     return _impl(current_vector, phase_map, target_phase)
 
 
@@ -520,13 +520,13 @@ def compute_multiobjective_fitness(
     metrics: dict[str, dict[str, np.float64]],
 ) -> dict[str, dict[str, np.float64]]:
     """Public wrapper for diagnostics-aware multi-objective fitness vectors."""
-    from src.qec.decoder.ternary.ternary_rule_fitness import compute_multiobjective_fitness as _impl
+    from qec.decoder.ternary.ternary_rule_fitness import compute_multiobjective_fitness as _impl
     return _impl(metrics)
 
 
 def project_fitness_score(f: dict[str, np.float64]) -> np.float64:
     """Public wrapper for deterministic fitness score projection."""
-    from src.qec.decoder.ternary.ternary_rule_fitness import project_fitness_score as _impl
+    from qec.decoder.ternary.ternary_rule_fitness import project_fitness_score as _impl
     return _impl(f)
 
 
@@ -534,5 +534,5 @@ def rank_rules_multiobjective(
     fitness_vectors: dict[str, dict[str, np.float64]],
 ) -> list[tuple[str, np.float64]]:
     """Public wrapper for multi-objective rule ranking."""
-    from src.qec.decoder.ternary.ternary_rule_fitness import rank_rules_multiobjective as _impl
+    from qec.decoder.ternary.ternary_rule_fitness import rank_rules_multiobjective as _impl
     return _impl(fitness_vectors)

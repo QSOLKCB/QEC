@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.bp_regime_trace import (
+from qec.diagnostics.bp_regime_trace import (
     compute_bp_regime_trace,
 )
 

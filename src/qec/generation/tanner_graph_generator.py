@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.generation.deterministic_construction import (
+from qec.generation.deterministic_construction import (
     construct_deterministic_tanner_graph,
 )
 

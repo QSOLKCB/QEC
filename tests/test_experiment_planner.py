@@ -4,14 +4,14 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.experiment_targets import (
+from qec.analysis.experiment_targets import (
     detect_high_uncertainty_regions,
     generate_experiment_targets,
 )
-from src.qec.analysis.phase_diagram_uncertainty import estimate_phase_uncertainty
-from src.qec.discovery.autonomous_scheduler import schedule_autonomous_target
-from src.qec.discovery.discovery_engine import run_structure_discovery
-from src.qec.discovery.experiment_planner import SpectralExperimentPlanner
+from qec.analysis.phase_diagram_uncertainty import estimate_phase_uncertainty
+from qec.discovery.autonomous_scheduler import schedule_autonomous_target
+from qec.discovery.discovery_engine import run_structure_discovery
+from qec.discovery.experiment_planner import SpectralExperimentPlanner
 
 
 def _phase_surface() -> dict[str, np.ndarray]:

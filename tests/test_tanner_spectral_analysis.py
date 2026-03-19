@@ -13,7 +13,7 @@ import json
 import numpy as np
 import pytest
 
-from src.qec.diagnostics.tanner_spectral_analysis import (
+from qec.diagnostics.tanner_spectral_analysis import (
     compute_tanner_spectral_analysis,
 )
 

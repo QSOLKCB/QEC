@@ -4,9 +4,9 @@ import json
 
 import numpy as np
 
-from src.qec.analysis.bp_diagnostics import BPDiagnostics, collect_bp_diagnostics
-from src.qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
-from src.qec.generation.deterministic_construction import construct_deterministic_tanner_graph
+from qec.analysis.bp_diagnostics import BPDiagnostics, collect_bp_diagnostics
+from qec.discovery.threshold_search import SpectralSearchConfig, run_spectral_threshold_search
+from qec.generation.deterministic_construction import construct_deterministic_tanner_graph
 
 
 def _small_graph() -> np.ndarray:
@@ -38,7 +38,7 @@ def test_collect_bp_diagnostics_extracts_expected_fields() -> None:
 def test_bp_diagnostics_artifacts_are_deterministic(tmp_path, monkeypatch) -> None:
     H0 = _small_graph()
 
-    from src.qec.discovery import threshold_search as mod
+    from qec.discovery import threshold_search as mod
 
     monkeypatch.setattr(
         mod.PhaseDiagramOrchestrator,

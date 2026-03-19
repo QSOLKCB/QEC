@@ -11,12 +11,12 @@ Verifies:
 import numpy as np
 import pytest
 
-from src.qec.experiments.nb_flow_heatmap import (
+from qec.experiments.nb_flow_heatmap import (
     compute_edge_flow_scores,
     compute_edge_flow_scores_from_H,
     format_ascii_heatmap,
 )
-from src.qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
+from qec.analysis.nonbacktracking_flow import NonBacktrackingFlowAnalyzer
 
 
 # ---------------------------------------------------------------------------
@@ -132,18 +132,18 @@ class TestFormatAsciiHeatmap:
 
 class TestIPRWeightedMutation:
     def test_ipr_weight_off_by_default(self):
-        from src.qec.discovery.mutation_nb_guided import NBGuidedMutator
+        from qec.discovery.mutation_nb_guided import NBGuidedMutator
         mutator = NBGuidedMutator(enabled=True)
         assert mutator.use_ipr_weight is False
 
     def test_ipr_weight_from_config(self):
-        from src.qec.discovery.mutation_nb_guided import NBGuidedMutator
+        from qec.discovery.mutation_nb_guided import NBGuidedMutator
         config = {"nb_mutation": {"enabled": True, "use_ipr_weight": True}}
         mutator = NBGuidedMutator.from_config(config)
         assert mutator.use_ipr_weight is True
 
     def test_ipr_weight_produces_different_scores(self):
-        from src.qec.discovery.mutation_nb_guided import NBGuidedMutator
+        from qec.discovery.mutation_nb_guided import NBGuidedMutator
         H = _small_H()
         m1 = NBGuidedMutator(enabled=True, use_ipr_weight=False)
         m2 = NBGuidedMutator(enabled=True, use_ipr_weight=True)
@@ -155,7 +155,7 @@ class TestIPRWeightedMutation:
         assert H2.shape == H.shape
 
     def test_no_mutation_when_disabled(self):
-        from src.qec.discovery.mutation_nb_guided import NBGuidedMutator
+        from qec.discovery.mutation_nb_guided import NBGuidedMutator
         H = _small_H()
         mutator = NBGuidedMutator(enabled=False, use_ipr_weight=True)
         H_out, log = mutator.mutate(H)

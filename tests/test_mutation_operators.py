@@ -20,7 +20,7 @@ _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-from src.qec.discovery.mutation_operators import (
+from qec.discovery.mutation_operators import (
     edge_swap,
     local_rewire,
     cycle_break,

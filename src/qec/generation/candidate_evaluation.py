@@ -15,8 +15,8 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.spectral_metrics import compute_spectral_metrics
-from src.qec.diagnostics.stability_classifier import (
+from qec.diagnostics.spectral_metrics import compute_spectral_metrics
+from qec.diagnostics.stability_classifier import (
     classify_from_parity_check,
     classify_tanner_graph_stability,
 )

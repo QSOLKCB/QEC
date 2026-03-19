@@ -17,9 +17,9 @@ from typing import Any
 
 import numpy as np
 
-from src.qec.diagnostics.repair_candidates import generate_repair_candidates
-from src.qec.diagnostics.repair_scoring import _apply_repair, score_repair_candidate
-from src.qec.diagnostics.spectral_metrics import compute_spectral_metrics
+from qec.diagnostics.repair_candidates import generate_repair_candidates
+from qec.diagnostics.repair_scoring import _apply_repair, score_repair_candidate
+from qec.diagnostics.spectral_metrics import compute_spectral_metrics
 
 
 _ROUND = 12

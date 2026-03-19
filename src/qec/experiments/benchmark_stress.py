@@ -19,6 +19,7 @@ from src.qec.modules.aggregation.table import build_experiment_table
 from src.qec.modules.common import _EXCLUDED_KEYS
 from src.qec.modules.comparisons.pairwise import build_pairwise_comparison
 from src.qec.modules.pareto.frontier import build_pareto_frontier
+from src.qec.modules.pipeline.pipeline import build_full_pipeline
 from src.qec.modules.scoring.scores import build_scores
 
 
@@ -668,12 +669,7 @@ def run_benchmark_stress(
         suite = _run_single_genome_suite(
             n_vars, n_iters, base_seed_label, genome_list[0],
         )
-        suite["mode"] = "single"
-        suite["table"] = build_experiment_table(suite)
-        suite["comparisons"] = build_pairwise_comparison(suite)
-        suite["pareto"] = build_pareto_frontier(suite)
-        suite["scores"] = build_scores(suite)
-        return suite
+        return build_full_pipeline([suite], mode="single")
 
     # Sweep mode: deterministic sequential iteration
     sweep_results = []
@@ -683,15 +679,7 @@ def run_benchmark_stress(
         )
         sweep_results.append(suite)
 
-    sweep_result = {
-        "mode": "sweep",
-        "results": sweep_results,
-    }
-    sweep_result["table"] = build_experiment_table(sweep_result)
-    sweep_result["comparisons"] = build_pairwise_comparison(sweep_result)
-    sweep_result["pareto"] = build_pareto_frontier(sweep_result)
-    sweep_result["scores"] = build_scores(sweep_result)
-    return sweep_result
+    return build_full_pipeline(sweep_results, mode="sweep")
 
 
 

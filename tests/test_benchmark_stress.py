@@ -1001,6 +1001,11 @@ class TestPairwiseComparison:
 class TestParetoFrontier:
     """Tests for Pareto frontier dominance filtering (v69.3.0)."""
 
+    def test_missing_table_raises(self):
+        """build_pareto_frontier raises on missing table."""
+        with pytest.raises(ValueError, match="missing 'table'"):
+            build_pareto_frontier({})
+
     def test_single_genome_pareto(self):
         """Single genome is always on the Pareto frontier."""
         result = run_benchmark_stress(n_vars=10, n_iters=8)

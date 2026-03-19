@@ -1,5 +1,5 @@
 """
-v80.0.1 — QEC FSM Controller (Deterministic Experiment Orchestrator).
+v80.1.0 — QEC FSM Controller (Deterministic Experiment Orchestrator).
 
 A finite state machine that orchestrates experiment execution through
 invariant-aware transitions.  Tracks system state across iterations and
@@ -172,6 +172,21 @@ class QECFSM:
             prev_state = self.state
             self.state, working = self.step(prev_state, working)
             steps += 1
+            # On EVALUATE → ANALYZE (continue loop): adapt thresholds.
+            if self.state == ANALYZE and prev_state == EVALUATE:
+                new_st, new_bt = _adapt_thresholds(
+                    self.history,
+                    self._config["stability_threshold"],
+                    self._config["boundary_crossing_threshold"],
+                )
+                self._config["stability_threshold"] = new_st
+                self._config["boundary_crossing_threshold"] = new_bt
+                # Record adapted thresholds on the last history entry.
+                self.history[-1]["thresholds"] = {
+                    "stability": new_st,
+                    "boundary": new_bt,
+                }
+
             # Check convergence only after EVALUATE → ANALYZE (continue loop).
             if (self.state == ANALYZE
                     and prev_state == EVALUATE
@@ -302,6 +317,70 @@ class QECFSM:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _adapt_thresholds(
+    history: List[Dict[str, Any]],
+    stability_threshold: float,
+    boundary_threshold: float,
+    window: int = 5,
+) -> Tuple[float, float]:
+    """Deterministically adapt thresholds based on recent history.
+
+    Parameters
+    ----------
+    history : list[dict]
+        Full FSM history trace.
+    stability_threshold : float
+        Current stability threshold.
+    boundary_threshold : float
+        Current boundary crossing threshold.
+    window : int
+        Number of recent valid entries to consider.
+
+    Returns
+    -------
+    tuple[float, float]
+        (new_stability_threshold, new_boundary_threshold)
+    """
+    # Collect recent entries with valid stability scores.
+    scored = [
+        e for e in history
+        if e.get("stability_score") is not None
+    ]
+    recent = scored[-window:] if len(scored) >= window else scored
+
+    if not recent:
+        return stability_threshold, boundary_threshold
+
+    # --- Stability threshold: EMA toward recent mean score ---
+    recent_scores = [e["stability_score"] for e in recent]
+    mean_score = sum(recent_scores) / len(recent_scores)
+    new_stability = 0.8 * stability_threshold + 0.2 * mean_score
+
+    # --- Boundary threshold: adjust based on rejection pressure ---
+    recent_decisions = [
+        e for e in history[-window:] if "decision" in e
+    ]
+    if recent_decisions:
+        reject_count = sum(
+            1 for e in recent_decisions if e["decision"] == "REJECT"
+        )
+        reject_rate = reject_count / len(recent_decisions)
+        if reject_rate > 0.5:
+            new_boundary = boundary_threshold + 0.1
+        elif reject_rate < 0.2:
+            new_boundary = boundary_threshold - 0.1
+        else:
+            new_boundary = boundary_threshold
+    else:
+        new_boundary = boundary_threshold
+
+    # Clamp to [0, 10].
+    new_stability = max(0.0, min(10.0, new_stability))
+    new_boundary = max(0.0, min(10.0, new_boundary))
+
+    return new_stability, new_boundary
+
 
 def _has_converged(
     history: List[Dict[str, Any]],

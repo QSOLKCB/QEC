@@ -1,5 +1,5 @@
 """
-Tests for QEC FSM Controller (v80.0.0).
+Tests for QEC FSM Controller (v80.1.0).
 
 Covers:
 - determinism (identical runs produce identical results)
@@ -31,6 +31,7 @@ from qec.controller.qec_fsm import (
     TERMINATE,
     _VALID_STATES,
     _DEFAULT_CONFIG,
+    _adapt_thresholds,
     _build_analysis_result,
     _has_converged,
 )
@@ -484,3 +485,119 @@ class TestConvergence:
             e for e in result["history"] if e.get("reason") == "converged"
         ]
         assert len(converge_entries) == 1
+
+
+# ---------------------------------------------------------------------------
+# 13. Adaptive threshold tests (v80.1.0)
+# ---------------------------------------------------------------------------
+
+class TestAdaptiveThresholds:
+    """Verify deterministic adaptive threshold behaviour."""
+
+    def test_thresholds_update_deterministically(self) -> None:
+        """Same history produces same thresholds."""
+        history = [
+            {"stability_score": 1.0, "decision": "CONTINUE"},
+            {"stability_score": 2.0, "decision": "CONTINUE"},
+            {"stability_score": 3.0, "decision": "CONTINUE"},
+        ]
+        r1 = _adapt_thresholds(history, 0.5, 2.0, window=3)
+        r2 = _adapt_thresholds(history, 0.5, 2.0, window=3)
+        assert r1 == r2
+
+    def test_thresholds_stay_within_bounds(self) -> None:
+        """Thresholds must be clamped to [0, 10]."""
+        # Very high scores should push stability toward 10.
+        history = [
+            {"stability_score": 100.0, "decision": "CONTINUE"},
+        ] * 5
+        st, bt = _adapt_thresholds(history, 9.5, 9.5, window=5)
+        assert 0.0 <= st <= 10.0
+        assert 0.0 <= bt <= 10.0
+
+        # Very negative scores should push toward 0.
+        history_neg = [
+            {"stability_score": -100.0, "decision": "CONTINUE"},
+        ] * 5
+        st2, bt2 = _adapt_thresholds(history_neg, 0.5, 0.5, window=5)
+        assert 0.0 <= st2 <= 10.0
+        assert 0.0 <= bt2 <= 10.0
+
+    def test_no_mutation_of_inputs(self) -> None:
+        """_adapt_thresholds must not mutate the history list."""
+        history = [
+            {"stability_score": 1.0, "decision": "CONTINUE"},
+            {"stability_score": 2.0, "decision": "REJECT"},
+        ]
+        original = copy.deepcopy(history)
+        _adapt_thresholds(history, 0.5, 2.0, window=5)
+        assert history == original
+
+    def test_behaviour_with_short_history(self) -> None:
+        """When history < window, use all available entries."""
+        history = [{"stability_score": 1.0, "decision": "CONTINUE"}]
+        st, bt = _adapt_thresholds(history, 0.5, 2.0, window=5)
+        # EMA: 0.8 * 0.5 + 0.2 * 1.0 = 0.6
+        assert abs(st - 0.6) < 1e-9
+
+    def test_adaptation_only_on_continue_loops(self, sample_data: dict) -> None:
+        """Thresholds entry only appears on EVALUATE → ANALYZE transitions."""
+        fsm = QECFSM(config={
+            "stability_threshold": -1.0,
+            "boundary_crossing_threshold": 999,
+        })
+        result = fsm.run(sample_data, max_steps=50)
+        for entry in result["history"]:
+            if "thresholds" in entry:
+                # Must be an EVALUATE → ANALYZE transition.
+                assert entry["from_state"] == EVALUATE
+                assert entry["to_state"] == ANALYZE
+
+    def test_convergence_still_works(self, sample_data: dict) -> None:
+        """Convergence detection must still trigger with adaptive thresholds."""
+        fsm = QECFSM(config={
+            "stability_threshold": -1.0,
+            "boundary_crossing_threshold": 999,
+        })
+        result = fsm.run(sample_data, max_steps=50)
+        converge_entries = [
+            e for e in result["history"] if e.get("reason") == "converged"
+        ]
+        assert len(converge_entries) == 1
+
+    def test_thresholds_trend_toward_mean_score(self) -> None:
+        """Stability threshold should move toward the mean of recent scores."""
+        history = [
+            {"stability_score": 4.0, "decision": "CONTINUE"},
+            {"stability_score": 4.0, "decision": "CONTINUE"},
+            {"stability_score": 4.0, "decision": "CONTINUE"},
+        ]
+        # Starting threshold 0.5, mean is 4.0.
+        # new = 0.8 * 0.5 + 0.2 * 4.0 = 1.2
+        st, _ = _adapt_thresholds(history, 0.5, 2.0, window=3)
+        assert abs(st - 1.2) < 1e-9
+        # Apply again: new = 0.8 * 1.2 + 0.2 * 4.0 = 1.76
+        st2, _ = _adapt_thresholds(history, st, 2.0, window=3)
+        assert abs(st2 - 1.76) < 1e-9
+        # Trending toward 4.0.
+        assert st2 > st
+
+    def test_reject_pressure_affects_boundary(self) -> None:
+        """High reject rate should increase boundary threshold."""
+        # All REJECT decisions → reject_rate > 0.5 → increase.
+        history = [
+            {"stability_score": 1.0, "decision": "REJECT"},
+            {"stability_score": 1.0, "decision": "REJECT"},
+            {"stability_score": 1.0, "decision": "REJECT"},
+        ]
+        _, bt = _adapt_thresholds(history, 0.5, 2.0, window=3)
+        assert bt > 2.0
+
+        # All CONTINUE decisions → reject_rate < 0.2 → decrease.
+        history_continue = [
+            {"stability_score": 1.0, "decision": "CONTINUE"},
+            {"stability_score": 1.0, "decision": "CONTINUE"},
+            {"stability_score": 1.0, "decision": "CONTINUE"},
+        ]
+        _, bt2 = _adapt_thresholds(history_continue, 0.5, 2.0, window=3)
+        assert bt2 < 2.0

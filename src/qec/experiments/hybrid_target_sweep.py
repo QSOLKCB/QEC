@@ -139,6 +139,32 @@ def extract_regimes(
     return regimes
 
 
+def compare_regimes(regimes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Compare adjacent regimes to quantify inter-regime deltas.
+
+    Pure post-processing — no side effects, no randomness.
+    """
+    comparisons: List[Dict[str, Any]] = []
+    for i in range(len(regimes) - 1):
+        fr = regimes[i]
+        to = regimes[i + 1]
+        comparisons.append({
+            "from_index": i,
+            "to_index": i + 1,
+            "from_range": [fr["start_index"], fr["end_index"]],
+            "to_range": [to["start_index"], to["end_index"]],
+            "delta_mean_score": to["mean_score"] - fr["mean_score"],
+            "delta_mean_compatibility": to["mean_compatibility"] - fr["mean_compatibility"],
+            "class_shift": fr["dominant_class"] != to["dominant_class"],
+            "phase_shift": fr["dominant_phase"] != to["dominant_phase"],
+            "structure_shift": (
+                tuple(fr["dominant_theta"]) != tuple(to["dominant_theta"])
+                or fr["dominant_sequence"] != to["dominant_sequence"]
+            ),
+        })
+    return comparisons
+
+
 def run_target_sweep(
     targets: List[Union[str, Dict[str, Any]]],
     theta_grid: List[List[float]],
@@ -194,11 +220,13 @@ def run_target_sweep(
         })
 
     transitions = detect_transitions(results)
+    regimes = extract_regimes(results, transitions)
     return {
         "n_targets": len(results),
         "targets": [r["target_spec"] for r in results],
         "results": results,
         "transitions": transitions,
         "transition_summary": summarize_transitions(transitions),
-        "regimes": extract_regimes(results, transitions),
+        "regimes": regimes,
+        "regime_comparisons": compare_regimes(regimes),
     }

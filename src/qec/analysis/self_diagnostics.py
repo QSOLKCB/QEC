@@ -1,7 +1,8 @@
-"""Self-diagnostics and deterministic recommendation layer (v93.0.0).
+"""Self-diagnostics and deterministic recommendation layer (v93.1.0).
 
 Converts benchmark + correction outputs into:
-  metrics -> issue detection -> deterministic recommendations
+  metrics -> system class inference -> issue detection
+  -> context-aware recommendations
 
 Analysis only — no modifications to decoder, correction, or benchmark logic.
 All algorithms are pure, deterministic, and use only stdlib + numpy.
@@ -170,6 +171,149 @@ def best_mode_per_system(
 
 
 # ---------------------------------------------------------------------------
+# PART 2b — SYSTEM CLASS INFERENCE (Taxonomy Layer)
+# ---------------------------------------------------------------------------
+
+
+def get_mode_metrics(
+    records: List[Dict[str, Any]],
+    mode_name: str,
+) -> Dict[str, float]:
+    """Extract aggregated metrics for a specific mode from system records.
+
+    Returns dict with compression_efficiency, stability_efficiency.
+    If the mode is not found, returns zeros.
+    """
+    for r in records:
+        if r["mode"] == mode_name:
+            return {
+                "compression_efficiency": r["compression_efficiency"],
+                "stability_efficiency": r["stability_efficiency"],
+            }
+    return {"compression_efficiency": 0.0, "stability_efficiency": 0.0}
+
+
+def infer_system_class(
+    records_for_system: List[Dict[str, Any]],
+) -> str:
+    """Classify a system based on aggregated metrics across modes.
+
+    Input: all mode records for a single (dfa_type, n).
+    Output: one of "chain_like", "cycle_like", "branching_like",
+            "basin_like", "degenerate", "unknown".
+
+    Fully deterministic, rule-based, no ML.
+    """
+    if not records_for_system:
+        return "unknown"
+
+    # Check degenerate first — any record with unique_before <= 2.
+    max_unique_before = 0
+    for r in records_for_system:
+        ub = r.get("unique_before", 0)
+        if ub > max_unique_before:
+            max_unique_before = ub
+    if max_unique_before <= 2:
+        return "degenerate"
+
+    # Extract per-mode metrics.
+    d4_metrics = get_mode_metrics(records_for_system, "d4")
+    square_metrics = get_mode_metrics(records_for_system, "square")
+    inv_metrics = get_mode_metrics(records_for_system, "inv")
+    d4_inv_metrics = get_mode_metrics(records_for_system, "d4+inv")
+
+    d4_stab = d4_metrics["stability_efficiency"]
+    square_stab = square_metrics["stability_efficiency"]
+    inv_stab = inv_metrics["stability_efficiency"]
+    d4_inv_stab = d4_inv_metrics["stability_efficiency"]
+    inv_comp = inv_metrics["compression_efficiency"]
+    d4_comp = d4_metrics["compression_efficiency"]
+
+    # Rule: chain-like — d4 stability dominates and is meaningful.
+    if d4_stab > square_stab and d4_stab > 0.4:
+        return "chain_like"
+
+    # Rule: cycle-like — d4 alone is weak, invariant-guided is stronger.
+    if d4_stab < 0.2 and inv_stab > d4_stab:
+        return "cycle_like"
+
+    # Rule: branching-like — invariant compression dominates d4 compression.
+    if inv_comp > d4_comp and inv_comp > 0.4:
+        return "branching_like"
+
+    # Rule: basin-like — strong correction across multiple modes.
+    max_stab = max(
+        d4_stab, square_stab, inv_stab, d4_inv_stab,
+    )
+    modes_above_threshold = 0
+    for stab in (d4_stab, square_stab, inv_stab, d4_inv_stab):
+        if stab > 0.3:
+            modes_above_threshold += 1
+    if max_stab > 0.5 and modes_above_threshold >= 2:
+        return "basin_like"
+
+    return "unknown"
+
+
+def classify_all_systems(
+    agg: List[Dict[str, Any]],
+) -> Dict[Tuple[str, Optional[int]], str]:
+    """Classify all systems from aggregated records.
+
+    Returns dict mapping (dfa_type, n) -> system_class.
+    Deterministic ordering via sorted keys.
+    """
+    # Group records by system.
+    systems: Dict[
+        Tuple[str, Optional[int]], List[Dict[str, Any]]
+    ] = {}
+    for r in agg:
+        key = (r["dfa_type"], r["n"])
+        systems.setdefault(key, []).append(r)
+
+    result: Dict[Tuple[str, Optional[int]], str] = {}
+    for key in sorted(systems.keys(), key=lambda k: (k[0], str(k[1]))):
+        result[key] = infer_system_class(systems[key])
+    return result
+
+
+# ---------------------------------------------------------------------------
+# PART 2c — TAXONOMY-AWARE ISSUE DETECTION
+# ---------------------------------------------------------------------------
+
+
+def detect_taxonomy_issues(
+    system_class: str,
+    best_mode: str,
+    metrics: List[Dict[str, Any]],
+) -> List[str]:
+    """Detect taxonomy-aware issues for a system.
+
+    Rules are deterministic and based on system class vs best mode.
+    Returns list of taxonomy issue strings.
+    """
+    issues: List[str] = []
+
+    # Cycle mismatch: cycle-like systems should prefer d4+inv.
+    if system_class == "cycle_like" and best_mode != "d4+inv":
+        issues.append("cycle_mismatch")
+
+    # Chain underperformance: chain-like systems should prefer d4.
+    if system_class == "chain_like" and best_mode != "d4":
+        issues.append("chain_underperformance")
+
+    # Branching underuse: branching-like systems need invariant guidance.
+    if system_class == "branching_like" and "inv" not in best_mode:
+        issues.append("missing_invariant_guidance")
+
+    # Degenerate overprocessing: no correction needed for simple systems.
+    if system_class == "degenerate" and best_mode != "none":
+        issues.append("overprocessing_simple_system")
+
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # PART 3 — ISSUE DETECTION
 # ---------------------------------------------------------------------------
 
@@ -180,6 +324,11 @@ _RECOMMENDATION_MAP = {
     "destabilizing": "switch_to_d4_or_invariant",
     "low_diversity": "skip_correction_or_expand_input",
     "globally_weak_correction": "enable_invariant_guidance",
+    # Taxonomy-aware recommendations (v93.1.0).
+    "cycle_mismatch": "prefer_invariant_guided_modes",
+    "chain_underperformance": "prefer_d4_projection",
+    "missing_invariant_guidance": "enable_invariant_guidance",
+    "overprocessing_simple_system": "disable_correction",
 }
 
 
@@ -278,16 +427,71 @@ def run_self_diagnostics(data: Any) -> Dict[str, Any]:
     """Full self-diagnostics pipeline.
 
     Accepts run_suite() or summarize() output.
-    Returns dict with metrics, best_modes, issues, recommendations.
+    Returns dict with metrics, best_modes, system_classes,
+    issues, recommendations.
     """
     records = normalize_results(data)
     agg = aggregate_metrics(records)
     best_modes = best_mode_per_system(agg)
+    system_classes = classify_all_systems(agg)
+
+    # Existing per-record issue detection.
     issues = detect_all(agg, best_modes)
+
+    # Taxonomy-aware issues: append to each system's first record.
+    best_mode_map: Dict[Tuple[str, Optional[int]], str] = {}
+    for b in best_modes:
+        best_mode_map[(b["dfa_type"], b["n"])] = b["best_mode"]
+
+    # Group agg records by system for taxonomy issue detection.
+    system_records: Dict[
+        Tuple[str, Optional[int]], List[Dict[str, Any]]
+    ] = {}
+    for r in agg:
+        key = (r["dfa_type"], r["n"])
+        system_records.setdefault(key, []).append(r)
+
+    # Build taxonomy issues per system.
+    taxonomy_issues_map: Dict[
+        Tuple[str, Optional[int]], List[str]
+    ] = {}
+    for sys_key in sorted(
+        system_classes.keys(), key=lambda k: (k[0], str(k[1]))
+    ):
+        sc = system_classes[sys_key]
+        bm = best_mode_map.get(sys_key, "none")
+        recs_for_sys = system_records.get(sys_key, [])
+        taxonomy_issues_map[sys_key] = detect_taxonomy_issues(
+            sc, bm, recs_for_sys,
+        )
+
+    # Merge taxonomy issues into the first issue record per system.
+    seen_systems: set = set()
+    for ir in issues:
+        sys_key = (ir["dfa_type"], ir["n"])
+        skey = (ir["dfa_type"], str(ir["n"]))
+        if skey not in seen_systems:
+            seen_systems.add(skey)
+            tax_issues = taxonomy_issues_map.get(sys_key, [])
+            ir["issues"].extend(tax_issues)
+
     recs = recommend_all(issues)
+
+    # Convert system_classes to serializable list format.
+    sc_list = []
+    for key in sorted(
+        system_classes.keys(), key=lambda k: (k[0], str(k[1]))
+    ):
+        sc_list.append({
+            "dfa_type": key[0],
+            "n": key[1],
+            "system_class": system_classes[key],
+        })
+
     return {
         "metrics": agg,
         "best_modes": best_modes,
+        "system_classes": sc_list,
         "issues": issues,
         "recommendations": recs,
     }
@@ -308,6 +512,10 @@ def print_diagnostics(report: Dict[str, Any]) -> str:
     best_map: Dict[Tuple[str, Optional[int]], str] = {}
     for b in report["best_modes"]:
         best_map[(b["dfa_type"], b["n"])] = b["best_mode"]
+
+    class_map: Dict[Tuple[str, Optional[int]], str] = {}
+    for sc in report.get("system_classes", []):
+        class_map[(sc["dfa_type"], sc["n"])] = sc["system_class"]
 
     issue_map: Dict[Tuple[str, Optional[int], str], List[str]] = {}
     for ir in report["issues"]:
@@ -332,6 +540,9 @@ def print_diagnostics(report: Dict[str, Any]) -> str:
     for dfa_type, n in systems:
         n_label = "NA" if n is None else str(n)
         lines.append(f"DFA: {dfa_type} (n={n_label})")
+        sys_class = class_map.get((dfa_type, n))
+        if sys_class is not None:
+            lines.append(f"  class: {sys_class}")
         lines.append(f"  best_mode: {best_map.get((dfa_type, n), 'N/A')}")
 
         # Collect all issues for this system across modes.

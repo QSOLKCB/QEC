@@ -1,4 +1,4 @@
-"""Deterministic supervisory control for DFA structures (v90.0.0).
+"""Deterministic supervisory control for DFA structures (v91.1.0).
 
 Derives forbidden states from provable invariant structure, disables
 unsafe transitions, and synthesizes the maximally permissive safe sub-DFA
@@ -460,6 +460,92 @@ def derive_policy_constraints(
 
 
 # ---------------------------------------------------------------------------
+# PART F — Supervisor Metrics
+# ---------------------------------------------------------------------------
+
+
+def compute_supervisor_metrics(
+    original_dfa: Dict[str, Any],
+    supervised_dfa: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Compute deterministic comparison metrics between original and supervised DFA.
+
+    Returns:
+        Dict with states_before, states_after, transitions_before, transitions_after,
+        density_before, density_after, control_strength.
+    """
+    orig_states = len(original_dfa.get("states", []))
+    sup_states = len(supervised_dfa.get("states", []))
+    symbols = len(original_dfa.get("alphabet", []))
+
+    # Count transitions.
+    orig_trans = sum(
+        len(t) for t in original_dfa.get("transitions", {}).values()
+    )
+    sup_trans = sum(
+        len(t) for t in supervised_dfa.get("transitions", {}).values()
+    )
+
+    # density = transitions / (states * symbols), safe division.
+    orig_denom = orig_states * symbols
+    sup_denom = sup_states * symbols
+    density_before = orig_trans / orig_denom if orig_denom > 0 else 0.0
+    density_after = sup_trans / sup_denom if sup_denom > 0 else 0.0
+
+    # control_strength = fraction of transitions removed.
+    control_strength = (
+        1.0 - (sup_trans / orig_trans) if orig_trans > 0 else 0.0
+    )
+
+    return {
+        "states_before": orig_states,
+        "states_after": sup_states,
+        "transitions_before": orig_trans,
+        "transitions_after": sup_trans,
+        "density_before": density_before,
+        "density_after": density_after,
+        "control_strength": control_strength,
+    }
+
+
+# ---------------------------------------------------------------------------
+# PART F2 — Forbidden State Stratification
+# ---------------------------------------------------------------------------
+
+
+def stratify_forbidden_states(
+    forbidden_states: List[int],
+    provenance: Dict[int, List[str]],
+) -> Dict[str, Any]:
+    """Partition forbidden states into hard and structural categories.
+
+    Hard forbidden: states with provenance 'dead_state' or 'dead_drain'
+        (unreachable / absorbing dead ends).
+    Structural forbidden: states with provenance 'invariant_avoid',
+        'outside_allowed_region', 'forbidden_region', 'dead_end_trimmed',
+        'drain_basin' (constraint-based).
+
+    Returns:
+        {"hard_forbidden": sorted list, "structural_forbidden": sorted list}
+    """
+    hard_tags = {"dead_state", "dead_drain"}
+    hard: List[int] = []
+    structural: List[int] = []
+
+    for s in sorted(forbidden_states):
+        reasons = provenance.get(s, [])
+        if any(r in hard_tags for r in reasons):
+            hard.append(s)
+        else:
+            structural.append(s)
+
+    return {
+        "hard_forbidden": sorted(hard),
+        "structural_forbidden": sorted(structural),
+    }
+
+
+# ---------------------------------------------------------------------------
 # PART G1 — Run Supervisor (integration helper)
 # ---------------------------------------------------------------------------
 
@@ -471,7 +557,7 @@ def run_supervisor(
 ) -> Dict[str, Any]:
     """Run full supervisor pipeline: synthesis + policy extraction.
 
-    Returns supervisor result enriched with policy.
+    Returns supervisor result enriched with policy, metrics, and strata.
     """
     result = synthesize_supervisor(dfa, invariants, invariant_constraints)
     policy = extract_supervisor_policy(result["supervised_dfa"])
@@ -479,5 +565,13 @@ def run_supervisor(
 
     result["policy"] = policy
     result["policy_constraints"] = policy_constraints
+
+    # v91.1.0 — supervisor metrics.
+    result["metrics"] = compute_supervisor_metrics(dfa, result["supervised_dfa"])
+
+    # v91.1.0 — forbidden state stratification.
+    result["forbidden_strata"] = stratify_forbidden_states(
+        result["forbidden_states"], result["reasons"],
+    )
 
     return result

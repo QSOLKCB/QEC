@@ -4,7 +4,7 @@ Transforms a minimized DFA from a passive validator into a deterministic
 dynamical engine. All algorithms are pure, deterministic, and use only
 stdlib + collections.
 
-v90.0.0 — supervisory control layer with constraint composition.
+v91.1.0 — observability metrics and geometric correction integration.
 """
 
 from __future__ import annotations
@@ -839,8 +839,10 @@ def run_dfa_engine(dfa: Dict[str, Any]) -> Dict[str, Any]:
 
     # --- Supervisor synthesis (v90.0.0). ---
     from qec.experiments.dfa_supervisor import (
+        compute_supervisor_metrics,
         normalize_constraint_bundle,
         run_supervisor,
+        stratify_forbidden_states,
         structure_invariant_constraints,
     )
     structured_inv = structure_invariant_constraints(inv_constraints, inv_data)
@@ -876,6 +878,16 @@ def run_dfa_engine(dfa: Dict[str, Any]) -> Dict[str, Any]:
             continue
         result = find_control_path(dfa, initial, s)
         control_paths[s] = result
+
+    # v91.1.0 — supervisor metrics and forbidden strata.
+    sup_metrics = supervisor.get("metrics")
+    if sup_metrics is None:
+        sup_metrics = compute_supervisor_metrics(dfa, supervisor["supervised_dfa"])
+    forbidden_strata = supervisor.get("forbidden_strata")
+    if forbidden_strata is None:
+        forbidden_strata = stratify_forbidden_states(
+            supervisor["forbidden_states"], supervisor["reasons"],
+        )
 
     return {
         "validation": validation,
@@ -918,4 +930,7 @@ def run_dfa_engine(dfa: Dict[str, Any]) -> Dict[str, Any]:
             "policy": supervisor.get("policy", {}),
         },
         "constraint_bundle": constraint_bundle,
+        # v91.1.0 — observability.
+        "supervisor_metrics": sup_metrics,
+        "forbidden_strata": forbidden_strata,
     }

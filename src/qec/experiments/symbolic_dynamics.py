@@ -159,6 +159,8 @@ def make_total(dfa: Dict[str, Any]) -> Dict[str, Any]:
     add a transition to a deterministic dead state. If no missing
     transitions exist, return a copy without a dead state.
 
+    The dead state ID (if created) is stored under ``"dead_state"``.
+
     Does not mutate the input DFA.
     """
     states = list(dfa["states"])
@@ -177,31 +179,47 @@ def make_total(dfa: Dict[str, Any]) -> Dict[str, Any]:
         if needs_dead:
             break
 
+    dead_state = None
     if needs_dead:
-        dead = max(states) + 1 if states else 0
-        states.append(dead)
-        transitions[dead] = {sym: dead for sym in alphabet}
+        dead_state = max(states) + 1 if states else 0
+        states.append(dead_state)
+        transitions[dead_state] = {sym: dead_state for sym in alphabet}
         for s in states:
             for sym in alphabet:
                 if sym not in transitions[s]:
-                    transitions[s][sym] = dead
+                    transitions[s][sym] = dead_state
 
     return {
         "states": states,
         "alphabet": alphabet,
         "transitions": transitions,
         "initial_state": dfa["initial_state"],
+        "dead_state": dead_state,
     }
 
 
 # -- F3: Hopcroft DFA minimization ----------------------------------------
 
 
-def minimize_dfa(dfa: Dict[str, Any]) -> Dict[str, Any]:
-    """Minimize a DFA using partition refinement (Hopcroft's algorithm).
+def _build_inverse(
+    states: List[int],
+    alphabet: List[int],
+    transitions: Dict[int, Dict[int, int]],
+) -> Dict[int, Dict[int, Set[int]]]:
+    """Precompute inverse transition map: inv[a][t] = {states reaching t via a}."""
+    inv: Dict[int, Dict[int, Set[int]]] = {a: {} for a in alphabet}
+    for s in states:
+        for a in alphabet:
+            t = transitions[s][a]
+            inv[a].setdefault(t, set()).add(s)
+    return inv
 
-    Produces a canonical minimal automaton by merging states with
-    identical transition signatures. Pure deterministic algorithm.
+
+def minimize_dfa(dfa: Dict[str, Any]) -> Dict[str, Any]:
+    """Minimize a DFA using Hopcroft's worklist algorithm.
+
+    True Hopcroft refinement with inverse transition map and worklist.
+    Produces a canonical minimal automaton. Pure deterministic algorithm.
 
     Does not mutate the input DFA.
     """
@@ -215,69 +233,110 @@ def minimize_dfa(dfa: Dict[str, Any]) -> Dict[str, Any]:
             },
             "initial_state": dfa["initial_state"],
             "n_states": len(dfa["states"]),
+            "dead_state": None,
         }
 
     # Step 1: make transitions total (Hopcroft requires it).
     total = make_total(dfa)
-    states = total["states"]
+    states = sorted(total["states"])
     alphabet = sorted(total["alphabet"])
     transitions = total["transitions"]
 
-    # Step 2: initial partition — all states in one block.
+    # Step 2: precompute inverse transitions.
+    inv = _build_inverse(states, alphabet, transitions)
+
+    # Step 3: initial partition — all states in one block (no accept states).
+    initial_block = frozenset(states)
+    # partition stored as list for deterministic indexing
     partition: List[Set[int]] = [set(states)]
+    # Map each state to its block index.
+    state_to_block: Dict[int, int] = {s: 0 for s in states}
 
-    # Step 3: refine until stable.
-    changed = True
-    while changed:
-        changed = False
-        new_partition: List[Set[int]] = []
-        for block in partition:
-            if len(block) <= 1:
-                new_partition.append(block)
+    # Step 4: worklist — set of block indices to process as splitters.
+    worklist: List[int] = [0]
+    worklist_set: Set[int] = {0}
+
+    # Step 5: Hopcroft refinement loop.
+    while worklist:
+        # Pop from worklist (deterministic: always pop smallest index).
+        worklist.sort()
+        a_idx = worklist.pop(0)
+        worklist_set.discard(a_idx)
+
+        if a_idx >= len(partition):
+            continue
+        splitter = partition[a_idx]
+
+        for sym in alphabet:
+            # X = states that transition via sym into splitter.
+            x: Set[int] = set()
+            for t in splitter:
+                if t in inv[sym]:
+                    x.update(inv[sym][t])
+
+            if not x:
                 continue
-            # Build signature for each state: tuple of partition indices
-            # for each symbol transition.
-            state_to_block = {}
-            for idx, blk in enumerate(partition):
-                for s in blk:
-                    state_to_block[s] = idx
 
-            groups: Dict[Tuple[int, ...], Set[int]] = {}
-            for s in sorted(block):
-                sig = tuple(
-                    state_to_block[transitions[s][sym]] for sym in alphabet
-                )
-                if sig not in groups:
-                    groups[sig] = set()
-                groups[sig].add(s)
+            # Find all blocks that intersect with X and may split.
+            blocks_to_check = sorted(set(state_to_block[s] for s in x))
 
-            if len(groups) > 1:
-                changed = True
-            # Sort groups deterministically for canonical ordering.
-            for sig in sorted(groups):
-                new_partition.append(groups[sig])
-        partition = new_partition
+            for b_idx in blocks_to_check:
+                block_y = partition[b_idx]
+                intersect = block_y & x
+                diff = block_y - x
 
-    # Step 4: assign new state IDs.
-    # Sort partitions by (min original state, block size) for canonical IDs.
-    partition.sort(key=lambda blk: (min(blk), len(blk)))
+                if not intersect or not diff:
+                    continue
+
+                # Split block_y into intersect and diff.
+                partition[b_idx] = intersect
+                new_idx = len(partition)
+                partition.append(diff)
+
+                # Update state_to_block mapping.
+                for s in intersect:
+                    state_to_block[s] = b_idx
+                for s in diff:
+                    state_to_block[s] = new_idx
+
+                # Classic Hopcroft rule: add smaller split to worklist.
+                if b_idx in worklist_set:
+                    # Both halves need to be in worklist.
+                    worklist.append(new_idx)
+                    worklist_set.add(new_idx)
+                else:
+                    # Add the smaller half.
+                    if len(intersect) <= len(diff):
+                        worklist.append(b_idx)
+                        worklist_set.add(b_idx)
+                    else:
+                        worklist.append(new_idx)
+                        worklist_set.add(new_idx)
+
+    # Step 6: filter out empty blocks and canonicalize.
+    final_partition = [blk for blk in partition if blk]
+    final_partition.sort(key=lambda blk: (min(blk), len(blk)))
 
     state_to_new: Dict[int, int] = {}
-    for new_id, block in enumerate(partition):
+    for new_id, block in enumerate(final_partition):
         for s in block:
             state_to_new[s] = new_id
 
     new_initial = state_to_new[total["initial_state"]]
 
-    # Step 5: build minimized transitions.
+    # Step 7: build minimized transitions.
     new_transitions: Dict[int, Dict[int, int]] = {}
     new_states: List[int] = []
-    for new_id, block in enumerate(partition):
+    for new_id, block in enumerate(final_partition):
         new_states.append(new_id)
         rep = min(block)  # deterministic representative
         new_transitions[new_id] = {
             sym: state_to_new[transitions[rep][sym]] for sym in alphabet
         }
+
+    # Step 8: map dead state through minimization.
+    raw_dead = total.get("dead_state")
+    min_dead = state_to_new[raw_dead] if raw_dead is not None else None
 
     return {
         "states": new_states,
@@ -285,7 +344,16 @@ def minimize_dfa(dfa: Dict[str, Any]) -> Dict[str, Any]:
         "transitions": new_transitions,
         "initial_state": new_initial,
         "n_states": len(new_states),
+        "dead_state": min_dead,
     }
+
+
+# -- B4: dead state helper -------------------------------------------------
+
+
+def is_dead_state(state: int, dfa: Dict[str, Any]) -> bool:
+    """Check whether *state* is the dead (sink) state of *dfa*."""
+    return state == dfa.get("dead_state")
 
 
 # -- E1: pipeline entry ----------------------------------------------------
@@ -324,15 +392,29 @@ def run_symbolic_dynamics(
     # 6: minimize DFA.
     min_dfa = minimize_dfa(dfa)
 
+    # 7: compute compression metrics.
+    n_raw_states = len(dfa["states"])
+    n_min_states = len(min_dfa["states"])
+    n_raw_transitions = sum(len(v) for v in dfa["transitions"].values())
+    n_min_transitions = sum(len(v) for v in min_dfa["transitions"].values())
+    state_ratio = n_raw_states / max(1, n_min_states)
+    transition_ratio = n_raw_transitions / max(1, n_min_transitions)
+
     return {
         "alphabet": dfa["alphabet"],
         "states": dfa["states"],
         "transitions": dfa["transitions"],
         "rules": rules,
         "initial_state": dfa["initial_state"],
-        "n_states": len(dfa["states"]),
+        "n_states": n_raw_states,
         "n_rules": len(rules),
         "dfa": dfa,
         "minimized_dfa": min_dfa,
-        "compression_ratio": len(dfa["states"]) / max(1, len(min_dfa["states"])),
+        "compression_ratio": state_ratio,
+        "metrics": {
+            "state_ratio": state_ratio,
+            "transition_ratio": transition_ratio,
+            "raw_states": n_raw_states,
+            "min_states": n_min_states,
+        },
     }

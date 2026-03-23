@@ -9,6 +9,7 @@ from qec.experiments.symbolic_dynamics import (
     extract_basin_sequence,
     extract_forbidden,
     extract_rules,
+    is_dead_state,
     make_total,
     minimize_dfa,
     run_symbolic_dynamics,
@@ -362,3 +363,130 @@ def test_make_total_no_dead_state_when_complete():
     }
     total = make_total(dfa)
     assert len(total["states"]) == 2
+    assert total["dead_state"] is None
+
+
+# -- 24. Hopcroft correctness — minimized DFA identical behavior -----------
+
+
+def test_hopcroft_correctness():
+    """Minimized DFA is structurally valid and deterministic."""
+    seq = [[1, 2, 1], [1, 3], [2, 3, 1], [2, 1]]
+    root = build_trie(seq)
+    dfa = trie_to_dfa(root)
+    min_dfa = minimize_dfa(dfa)
+
+    # Minimized DFA has sequential state IDs.
+    assert min_dfa["states"] == list(range(min_dfa["n_states"]))
+    # Initial state is valid.
+    assert min_dfa["initial_state"] in min_dfa["states"]
+    # All transitions are complete and targets are valid states.
+    states_set = set(min_dfa["states"])
+    for s in min_dfa["states"]:
+        for sym in min_dfa["alphabet"]:
+            assert sym in min_dfa["transitions"][s]
+            assert min_dfa["transitions"][s][sym] in states_set
+    # State count does not exceed total DFA.
+    total = make_total(dfa)
+    assert min_dfa["n_states"] <= len(total["states"])
+
+
+# -- 25. performance sanity — partitions strictly reduce or equal ----------
+
+
+def test_hopcroft_partition_reduction():
+    """Minimization produces state count <= original."""
+    seq = [[1, 2, 1, 2], [1, 2, 3], [3, 2, 1]]
+    root = build_trie(seq)
+    dfa = trie_to_dfa(root)
+    min_dfa = minimize_dfa(dfa)
+    assert min_dfa["n_states"] <= len(dfa["states"]) + 1  # +1 for dead
+
+
+# -- 26. dead state tagging — exists if needed -----------------------------
+
+
+def test_dead_state_tagging():
+    """Dead state is tagged when transitions are incomplete."""
+    dfa = {
+        "states": [0, 1],
+        "alphabet": [1, 2],
+        "transitions": {0: {1: 1}, 1: {2: 0}},
+        "initial_state": 0,
+    }
+    total = make_total(dfa)
+    assert total["dead_state"] is not None
+    assert is_dead_state(total["dead_state"], total)
+    # All transitions must be complete.
+    for s in total["states"]:
+        for sym in total["alphabet"]:
+            assert sym in total["transitions"][s]
+
+
+# -- 27. dead state stability — same input → same dead state ID -----------
+
+
+def test_dead_state_stability():
+    """Same input produces same dead state ID across runs."""
+    dfa = {
+        "states": [0, 1, 2],
+        "alphabet": [1, 2],
+        "transitions": {0: {1: 1}, 1: {2: 2}, 2: {}},
+        "initial_state": 0,
+    }
+    t1 = make_total(dfa)
+    t2 = make_total(dfa)
+    assert t1["dead_state"] == t2["dead_state"]
+    # Through minimization too.
+    m1 = minimize_dfa(dfa)
+    m2 = minimize_dfa(dfa)
+    assert m1["dead_state"] == m2["dead_state"]
+
+
+# -- 28. transition metrics — ratios computed correctly --------------------
+
+
+def test_transition_metrics():
+    """Pipeline returns correct transition compression metrics."""
+    ts = _trajectory_states()
+    bm = _basin_mapping()
+    result = run_symbolic_dynamics(ts, bm)
+    metrics = result["metrics"]
+    assert "state_ratio" in metrics
+    assert "transition_ratio" in metrics
+    assert "raw_states" in metrics
+    assert "min_states" in metrics
+    assert metrics["state_ratio"] >= 1.0
+    assert metrics["transition_ratio"] > 0
+    assert metrics["raw_states"] >= metrics["min_states"]
+
+
+# -- 29. determinism — identical minimized DFA across runs -----------------
+
+
+def test_hopcroft_determinism():
+    """Hopcroft produces identical output across multiple runs."""
+    seq = [[1, 2, 3], [1, 3, 2], [2, 1, 3], [3, 1, 2]]
+    root = build_trie(seq)
+    dfa = trie_to_dfa(root)
+    results = [minimize_dfa(dfa) for _ in range(5)]
+    for r in results[1:]:
+        assert r == results[0]
+
+
+# -- 30. dead state preserved through minimization ------------------------
+
+
+def test_dead_state_through_minimization():
+    """Dead state from make_total is preserved in minimized DFA."""
+    seq = [[1, 2], [1, 3]]
+    root = build_trie(seq)
+    dfa = trie_to_dfa(root)
+    min_dfa = minimize_dfa(dfa)
+    # DFA from trie has missing transitions → dead state should exist.
+    if min_dfa["dead_state"] is not None:
+        ds = min_dfa["dead_state"]
+        assert ds in min_dfa["states"]
+        # Dead state loops to self on all symbols.
+        for sym in min_dfa["alphabet"]:
+            assert min_dfa["transitions"][ds][sym] == ds

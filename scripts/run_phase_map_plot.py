@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-"""v85.0.0 — Phase Map Plot demo script.
+"""v85.1.0 — Phase Map Plot demo script.
 
-Builds a small deterministic phase map and renders it as a PNG figure.
+Builds a small deterministic phase map and renders it as a PNG figure
+with annotated overlays (strongest-interface emphasis, summary box, legend).
 """
 
 from __future__ import annotations
@@ -30,8 +31,30 @@ def main() -> None:
         ],
     }
 
+    interface_ranking = {
+        "ranked_interfaces": [
+            {"from_index": 1, "to_index": 2, "strength": 0.80},
+            {"from_index": 0, "to_index": 1, "strength": 0.45},
+        ],
+        "strongest_interface": {
+            "from_index": 1, "to_index": 2, "strength": 0.80,
+        },
+    }
+
+    transition_summary = {
+        "n_transitions": 2,
+        "max_delta_score": 0.45,
+        "class_change_count": 2,
+        "phase_change_count": 2,
+    }
+
     out_path = Path(tempfile.gettempdir()) / "phase_map_plot.png"
-    result = plot_phase_map(phase_map, output_path=out_path)
+    result = plot_phase_map(
+        phase_map,
+        output_path=out_path,
+        interface_ranking=interface_ranking,
+        transition_summary=transition_summary,
+    )
 
     print("Phase Map Plot")
     print(f"  n_nodes:     {result['n_nodes']}")

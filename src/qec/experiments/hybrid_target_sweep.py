@@ -20,6 +20,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import numpy as np
 
 from qec.experiments.phase_spectral_analysis import run_phase_spectral_analysis
+from qec.experiments.phase_syndrome_analysis import run_syndrome_analysis
 
 from qec.experiments.hybrid_inverse_design import run_hybrid_inverse_design
 
@@ -352,6 +353,7 @@ def run_target_sweep(
         "phase_map": build_phase_map(regimes, regime_interfaces, interface_ranking),
     }
     out["spectral_analysis"] = run_phase_spectral_analysis(out["phase_map"])
+    out["syndrome_analysis"] = run_syndrome_analysis(results)
     return out
 
 

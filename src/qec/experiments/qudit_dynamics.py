@@ -1,4 +1,4 @@
-"""Deterministic qudit measurement layer and experiment pipeline (v91.1.0).
+"""Deterministic qudit measurement layer and experiment pipeline (v92.2.0).
 
 DFA → trajectory → qudit state → stabilizers → syndrome evolution.
 Optional: geometric correction, syndrome compression, stabilizer metadata.
@@ -323,20 +323,19 @@ def run_qudit_dynamics(
     correction_mode: Optional[str] = None,
     run_correction: bool = False,
     compress: bool = False,
+    use_invariants: bool = False,
+    invariants: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Full deterministic qudit dynamics pipeline (v91.1.0).
+    """Full deterministic qudit dynamics pipeline (v92.2.0).
 
     1. Generate DFA trajectory.
     2. Embed into qudit space.
     3. Measure stabilizers.
     4. Extract syndromes.
     5. Analyze evolution.
-    6. (Optional) Apply lattice-projection correction.
-    7. (Optional) Run correction experiments for all modes.
-    3. (Optional) Apply geometric correction.
-    4. Measure stabilizers.
-    5. Extract syndromes.
-    6. Analyze evolution.
+    6. (Optional) Apply lattice-projection correction with
+       invariant-guided damping.
+    7. (Optional) Per-step alignment output.
 
     Args:
         dfa: DFA dict.
@@ -344,27 +343,25 @@ def run_qudit_dynamics(
         steps: number of DFA transitions.
         d: qudit local dimension.
         stabilizer_code: QuditStabilizerCode instance.
-        correction_mode: if set, apply this projection to states
-            and record the mean correction delta.
+        correction_mode: optional geometric correction mode
+            (``"square"``, ``"d4"``). None means no correction.
         run_correction: if True, run correction experiments for
             all projection modes (None, "square", "d4").
-
-    Returns:
-        Dict with "trajectory", "qudit", "syndrome_analysis",
-        and optionally "correction" and/or "experiments".
-        correction_mode: optional geometric correction mode ("square", "d4").
-            None means no correction.
         compress: if True, include syndrome_signatures in output.
+        use_invariants: if True, derive allowed states from
+            *invariants* and apply invariant-guided damping.
+        invariants: invariant dict (used when *use_invariants* is True).
 
     Returns:
         Dict with "trajectory", "qudit", "syndrome_analysis",
-        "stabilizer_metadata", and optionally "corrected",
-        "correction_effect", "syndrome_signatures".
+        "stabilizer_metadata", and optionally "correction",
+        "alignment", "syndrome_signatures".
     """
     from qec.experiments.correction_layer import (
         apply_correction,
         run_correction_experiment,
     )
+    from qec.experiments.dfa_invariants import derive_allowed_states
 
     trajectory = trajectory_to_states(dfa, start_state, steps)
 
@@ -387,12 +384,19 @@ def run_qudit_dynamics(
             compress_syndrome(s) for s in qudit_result["syndromes"]
         ]
 
-    # v92.1.0 — lattice-projection correction with re-measurement.
+    # v92.2.0 — invariant-guided allowed states.
+    allowed_states = None
+    if use_invariants:
+        allowed_states = derive_allowed_states(invariants)
+
+    # v92.1.0 / v92.2.0 — lattice-projection correction with re-measurement.
     if correction_mode is not None:
+        states = qudit_result["states"]
+        syndromes = qudit_result["syndromes"]
         corrected_states: List[np.ndarray] = []
         deltas: List[float] = []
-        for s in qudit_result["states"]:
-            c, delta = apply_correction(s, correction_mode)
+        for s in states:
+            c, delta = apply_correction(s, correction_mode, allowed_states)
             corrected_states.append(c)
             deltas.append(delta)
 
@@ -406,5 +410,15 @@ def run_qudit_dynamics(
             "mean_delta": float(np.mean(deltas)) if deltas else 0.0,
             "corrected_syndromes": corrected_syndromes,
         }
+
+        # v92.2.0 — per-step alignment.
+        alignment = []
+        for s, before, after in zip(states, syndromes, corrected_syndromes):
+            alignment.append({
+                "state_index": int(np.argmax(s)),
+                "before": [int(v) for v in before],
+                "after": [int(v) for v in after],
+            })
+        result["alignment"] = alignment
 
     return result

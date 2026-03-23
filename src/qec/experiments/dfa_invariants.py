@@ -285,6 +285,34 @@ def detect_invariants(
 
 
 # ---------------------------------------------------------------------------
+# F8 — Allowed States Derivation (v92.2.0)
+# ---------------------------------------------------------------------------
+
+
+def derive_allowed_states(
+    invariants: Optional[Dict[str, Any]],
+) -> Optional[Set[int]]:
+    """Derive a set of allowed state indices from invariants.
+
+    Extracts ``allowed_states`` from the invariant dict if present.
+    Returns ``None`` when no constraint can be derived, which signals
+    callers to skip invariant-guided damping.
+
+    Args:
+        invariants: invariant dict, or None.
+
+    Returns:
+        Set of allowed state indices, or None.
+    """
+    if not invariants:
+        return None
+    allowed = invariants.get("allowed_states")
+    if allowed is None:
+        return None
+    return set(allowed)
+
+
+# ---------------------------------------------------------------------------
 # G1 — Invariant Normalization
 # ---------------------------------------------------------------------------
 

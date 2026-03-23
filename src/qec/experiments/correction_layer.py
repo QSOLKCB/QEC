@@ -134,18 +134,18 @@ def compute_metrics(
 
 def run_correction_experiment(
     states: List[np.ndarray],
-    syndromes: List[np.ndarray],
+    stabilizer_code: Any,
     mode: Optional[str],
 ) -> Dict[str, Any]:
     """Run a single correction experiment for one projection mode.
 
-    Applies the given projection to every state, computes metrics by
-    comparing pre-correction syndromes.  (Re-measurement of syndromes
-    after correction is deferred to a future layer.)
+    Applies the given projection to every state, re-measures syndromes
+    on the corrected states, and computes before/after metrics.
 
     Args:
         states: qudit state vectors (not mutated).
-        syndromes: corresponding syndrome vectors.
+        stabilizer_code: QuditStabilizerCode instance with
+            ``syndromes(state)`` method.
         mode: projection mode.
 
     Returns:
@@ -154,11 +154,12 @@ def run_correction_experiment(
     corrected_states: List[np.ndarray] = []
     deltas: List[float] = []
     for s in states:
-        c, d = apply_correction(s, mode)
+        c, delta = apply_correction(s, mode)
         corrected_states.append(c)
-        deltas.append(d)
-    # Reuse original syndromes (no re-measure yet).
-    metrics = compute_metrics(syndromes, syndromes, deltas)
+        deltas.append(delta)
+    before_syn = [stabilizer_code.syndromes(s) for s in states]
+    after_syn = [stabilizer_code.syndromes(s) for s in corrected_states]
+    metrics = compute_metrics(before_syn, after_syn, deltas)
     return {
         "mode": mode,
         "metrics": metrics,

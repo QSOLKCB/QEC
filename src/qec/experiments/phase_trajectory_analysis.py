@@ -17,6 +17,7 @@ from .phase_geometric_dynamics import run_geometric_dynamics
 from .phase_motif_graph import run_motif_graph_analysis
 from .phase_trajectory_motifs import run_trajectory_motif_analysis
 from .phase_resonance_analysis import run_resonance_analysis
+from .phase_basin_analysis import run_basin_analysis
 
 
 # -- per-step helpers ------------------------------------------------
@@ -131,6 +132,12 @@ def run_phase_trajectory_analysis(
     trajectory_motifs = run_trajectory_motif_analysis(series)
     motif_graph = run_motif_graph_analysis(series)
 
+    resonance_analysis = run_resonance_analysis(
+        series,
+        drift,
+        motif_graph["state_graph"],
+    )
+
     return {
         "n_steps": len(phase_maps),
         "spectral_trajectory": spectra,
@@ -149,9 +156,9 @@ def run_phase_trajectory_analysis(
         "geometric_dynamics": run_geometric_dynamics(series),
         "trajectory_motifs": trajectory_motifs,
         "motif_graph": motif_graph,
-        "resonance_analysis": run_resonance_analysis(
-            series,
-            drift,
+        "resonance_analysis": resonance_analysis,
+        "basin_analysis": run_basin_analysis(
             motif_graph["state_graph"],
+            resonance_analysis["attractor_field"],
         ),
     }

@@ -16,6 +16,7 @@ from .phase_syndrome_geometry import run_syndrome_geometry_analysis
 from .phase_geometric_dynamics import run_geometric_dynamics
 from .phase_motif_graph import run_motif_graph_analysis
 from .phase_trajectory_motifs import run_trajectory_motif_analysis
+from .phase_resonance_analysis import run_resonance_analysis
 
 
 # -- per-step helpers ------------------------------------------------
@@ -126,6 +127,10 @@ def run_phase_trajectory_analysis(
     syndrome_analysis = run_syndrome_analysis(node_results)
     syndrome_geometry = run_syndrome_geometry_analysis(node_results)
 
+    series = syndrome_geometry["ternary_series"]["encoded"]
+    trajectory_motifs = run_trajectory_motif_analysis(series)
+    motif_graph = run_motif_graph_analysis(series)
+
     return {
         "n_steps": len(phase_maps),
         "spectral_trajectory": spectra,
@@ -141,11 +146,12 @@ def run_phase_trajectory_analysis(
             syndrome_analysis["transitions"],
         ),
         "syndrome_geometry": syndrome_geometry,
-        "geometric_dynamics": run_geometric_dynamics(
-            syndrome_geometry["ternary_series"]["encoded"],
-        ),
-        "motif_graph": run_motif_graph_analysis(
-        "trajectory_motifs": run_trajectory_motif_analysis(
-            syndrome_geometry["ternary_series"]["encoded"],
+        "geometric_dynamics": run_geometric_dynamics(series),
+        "trajectory_motifs": trajectory_motifs,
+        "motif_graph": motif_graph,
+        "resonance_analysis": run_resonance_analysis(
+            series,
+            drift,
+            motif_graph["state_graph"],
         ),
     }

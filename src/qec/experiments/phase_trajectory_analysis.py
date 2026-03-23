@@ -10,6 +10,7 @@ from typing import Any, Dict, List
 import numpy as np
 
 from .phase_spectral_analysis import run_phase_spectral_analysis
+from .phase_syndrome_analysis import run_syndrome_analysis
 
 
 # -- per-step helpers ------------------------------------------------
@@ -107,6 +108,18 @@ def run_phase_trajectory_analysis(
     transitions = detect_temporal_transitions(drift, threshold=transition_threshold)
     trajectory_type = classify_trajectory(drift, lambda_max)
 
+    # Syndrome analysis over phase-map nodes (one synthetic result per step).
+    node_results = []
+    for pm in phase_maps:
+        for node in pm.get("nodes", []):
+            node_results.append({
+                "class": node.get("dominant_class", ""),
+                "phase": node.get("dominant_phase", ""),
+                "compatibility": node.get("mean_compatibility", 0.0),
+                "score": node.get("mean_score", 0.0),
+            })
+    syndrome_analysis = run_syndrome_analysis(node_results)
+
     return {
         "n_steps": len(phase_maps),
         "spectral_trajectory": spectra,
@@ -116,4 +129,5 @@ def run_phase_trajectory_analysis(
         "degeneracy_evolution": degeneracy_evolution,
         "temporal_transitions": transitions,
         "trajectory_type": trajectory_type,
+        "syndrome_analysis": syndrome_analysis,
     }

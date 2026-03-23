@@ -298,12 +298,18 @@ def run_qudit_dynamics(
     d: int,
     stabilizer_code: Any,
     correction_mode: Optional[str] = None,
+    run_correction: bool = False,
     compress: bool = False,
 ) -> Dict[str, Any]:
     """Full deterministic qudit dynamics pipeline (v91.1.0).
 
     1. Generate DFA trajectory.
     2. Embed into qudit space.
+    3. Measure stabilizers.
+    4. Extract syndromes.
+    5. Analyze evolution.
+    6. (Optional) Apply lattice-projection correction.
+    7. (Optional) Run correction experiments for all modes.
     3. (Optional) Apply geometric correction.
     4. Measure stabilizers.
     5. Extract syndromes.
@@ -315,6 +321,14 @@ def run_qudit_dynamics(
         steps: number of DFA transitions.
         d: qudit local dimension.
         stabilizer_code: QuditStabilizerCode instance.
+        correction_mode: if set, apply this projection to states
+            and record the mean correction delta.
+        run_correction: if True, run correction experiments for
+            all projection modes (None, "square", "d4").
+
+    Returns:
+        Dict with "trajectory", "qudit", "syndrome_analysis",
+        and optionally "correction" and/or "experiments".
         correction_mode: optional geometric correction mode ("square", "d4").
             None means no correction.
         compress: if True, include syndrome_signatures in output.
@@ -324,14 +338,16 @@ def run_qudit_dynamics(
         "stabilizer_metadata", and optionally "corrected",
         "correction_effect", "syndrome_signatures".
     """
+    from qec.experiments.correction_layer import (
+        apply_correction,
+        run_correction_experiment,
+    )
+
     trajectory = trajectory_to_states(dfa, start_state, steps)
 
     qudit_result = measure_trajectory(trajectory, d, stabilizer_code)
 
     syndrome_analysis = analyze_syndrome_evolution(qudit_result["syndromes"])
-
-    # v91.1.0 — stabilizer metadata.
-    stabilizer_metadata = build_stabilizer_metadata(stabilizer_code)
 
     result: Dict[str, Any] = {
         "trajectory": trajectory,

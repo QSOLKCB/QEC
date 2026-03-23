@@ -19,6 +19,8 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 
+from qec.experiments.phase_spectral_analysis import run_phase_spectral_analysis
+
 from qec.experiments.hybrid_inverse_design import run_hybrid_inverse_design
 
 
@@ -337,7 +339,7 @@ def run_target_sweep(
     regime_comparisons = compare_regimes(regimes)
     regime_interfaces = classify_regime_interfaces(regime_comparisons)
     interface_ranking = rank_regime_interfaces(regime_interfaces)
-    return {
+    out = {
         "n_targets": len(results),
         "targets": [r["target_spec"] for r in results],
         "results": results,
@@ -349,6 +351,8 @@ def run_target_sweep(
         "interface_ranking": interface_ranking,
         "phase_map": build_phase_map(regimes, regime_interfaces, interface_ranking),
     }
+    out["spectral_analysis"] = run_phase_spectral_analysis(out["phase_map"])
+    return out
 
 
 # ---------------------------------------------------------------------------

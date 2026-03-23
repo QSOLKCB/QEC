@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import copy
+import importlib
+import sys
 
 from qec.experiments.metrics_probe import (
     analyze_topology,
@@ -12,6 +14,32 @@ from qec.experiments.metrics_probe import (
     generate_test_inputs,
     run_experiments,
 )
+
+
+# ---------------------------------------------------------------------------
+# Import safety
+# ---------------------------------------------------------------------------
+
+
+def test_import_metrics_probe_does_not_raise():
+    """Importing metrics_probe must succeed without optional dependencies."""
+    mod = importlib.import_module("qec.experiments.metrics_probe")
+    assert hasattr(mod, "run_experiments")
+
+
+def test_import_does_not_pull_cffi():
+    """Importing metrics_probe must not transitively load _cffi_backend."""
+    # Reload in a way that checks no cffi was pulled
+    importlib.import_module("qec.experiments.metrics_probe")
+    assert "_cffi_backend" not in sys.modules
+
+
+def test_run_experiments_executes_successfully():
+    """run_experiments must complete without error and return expected shape."""
+    result = run_experiments()
+    assert "inputs" in result
+    assert "topology" in result
+    assert len(result["inputs"]) > 0
 
 
 # ---------------------------------------------------------------------------

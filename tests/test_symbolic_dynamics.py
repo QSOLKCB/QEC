@@ -4,10 +4,13 @@ import copy
 
 from qec.experiments.symbolic_dynamics import (
     build_trie,
+    collect_states,
     compress_sequence,
     extract_basin_sequence,
     extract_forbidden,
     extract_rules,
+    make_total,
+    minimize_dfa,
     run_symbolic_dynamics,
     trie_to_dfa,
 )
@@ -193,3 +196,169 @@ def test_forbidden_transitions():
     assert (0, 3) in forbidden
     # State 0 has symbol 1 → not forbidden.
     assert (0, 1) not in forbidden
+
+
+# -- 13. minimization reduces states --------------------------------------
+
+
+def test_minimization_reduces_states():
+    """Minimization produces <= original state count."""
+    # Trie [1,2,1,2] gives 5 states; repeated pattern is mergeable.
+    seq = [[1, 2, 1, 2]]
+    root = build_trie(seq)
+    dfa = trie_to_dfa(root)
+    min_dfa = minimize_dfa(dfa)
+    assert min_dfa["n_states"] <= len(dfa["states"])
+
+
+# -- 14. equivalent behavior after minimization ---------------------------
+
+
+def test_minimization_equivalent_behavior():
+    """Minimized DFA accepts same transition sequences as original."""
+    seq = [[1, 2], [1, 3], [2, 3]]
+    root = build_trie(seq)
+    dfa = trie_to_dfa(root)
+    total_dfa = make_total(dfa)
+    min_dfa = minimize_dfa(dfa)
+
+    # Walk each input sequence through both DFAs.
+    for s in seq:
+        state_orig = total_dfa["initial_state"]
+        state_min = min_dfa["initial_state"]
+        for sym in s:
+            # Original must have transition (total).
+            assert sym in total_dfa["transitions"][state_orig]
+            state_orig = total_dfa["transitions"][state_orig][sym]
+            # Minimized must also accept.
+            assert sym in min_dfa["transitions"][state_min]
+            state_min = min_dfa["transitions"][state_min][sym]
+
+
+# -- 15. minimization determinism -----------------------------------------
+
+
+def test_minimization_determinism():
+    """Same input produces identical minimized DFA across runs."""
+    seq = [[1, 2, 3], [1, 3, 2], [2, 1, 3]]
+    root = build_trie(seq)
+    dfa = trie_to_dfa(root)
+    m1 = minimize_dfa(dfa)
+    m2 = minimize_dfa(dfa)
+    assert m1 == m2
+
+
+# -- 16. canonical state ordering -----------------------------------------
+
+
+def test_minimization_canonical_ordering():
+    """State IDs are sequential starting at 0."""
+    seq = [[1, 2], [1, 3]]
+    root = build_trie(seq)
+    dfa = trie_to_dfa(root)
+    min_dfa = minimize_dfa(dfa)
+    assert min_dfa["states"] == list(range(min_dfa["n_states"]))
+    assert min_dfa["initial_state"] in min_dfa["states"]
+
+
+# -- 17. dead state handling — no missing transitions ----------------------
+
+
+def test_minimization_no_missing_transitions():
+    """Every (state, symbol) pair has a transition in minimized DFA."""
+    seq = [[1, 2], [2, 1]]
+    root = build_trie(seq)
+    dfa = trie_to_dfa(root)
+    min_dfa = minimize_dfa(dfa)
+    for s in min_dfa["states"]:
+        for sym in min_dfa["alphabet"]:
+            assert sym in min_dfa["transitions"][s]
+
+
+# -- 18. single state DFA -------------------------------------------------
+
+
+def test_minimization_single_state():
+    """Single-state DFA minimizes to single state."""
+    dfa = {
+        "states": [0],
+        "alphabet": [],
+        "transitions": {0: {}},
+        "initial_state": 0,
+    }
+    min_dfa = minimize_dfa(dfa)
+    assert min_dfa["n_states"] == 1
+    assert min_dfa["initial_state"] == 0
+
+
+# -- 19. empty DFA --------------------------------------------------------
+
+
+def test_minimization_empty_dfa():
+    """Empty DFA (root only, no alphabet) minimizes cleanly."""
+    result = run_symbolic_dynamics({}, {})
+    min_dfa = result["minimized_dfa"]
+    assert min_dfa["n_states"] == 1
+    assert min_dfa["alphabet"] == []
+
+
+# -- 20. pipeline integration — compression ratio -------------------------
+
+
+def test_pipeline_compression_ratio():
+    """Pipeline returns compression ratio >= 1.0."""
+    ts = _trajectory_states()
+    bm = _basin_mapping()
+    result = run_symbolic_dynamics(ts, bm)
+    assert "minimized_dfa" in result
+    assert "dfa" in result
+    assert "compression_ratio" in result
+    assert result["compression_ratio"] >= 1.0
+
+
+# -- 21. collect_states helper --------------------------------------------
+
+
+def test_collect_states():
+    """collect_states returns sorted state list."""
+    dfa = {"states": [3, 1, 2, 0]}
+    assert collect_states(dfa) == [0, 1, 2, 3]
+
+
+# -- 22. make_total adds dead state when needed ----------------------------
+
+
+def test_make_total_adds_dead_state():
+    """make_total fills missing transitions with dead state."""
+    dfa = {
+        "states": [0, 1],
+        "alphabet": [1, 2],
+        "transitions": {0: {1: 1}, 1: {2: 0}},
+        "initial_state": 0,
+    }
+    total = make_total(dfa)
+    # Dead state added.
+    assert len(total["states"]) == 3
+    dead = total["states"][-1]
+    # All transitions filled.
+    for s in total["states"]:
+        for sym in total["alphabet"]:
+            assert sym in total["transitions"][s]
+    # Dead state loops to self.
+    for sym in total["alphabet"]:
+        assert total["transitions"][dead][sym] == dead
+
+
+# -- 23. make_total no dead state when complete ----------------------------
+
+
+def test_make_total_no_dead_state_when_complete():
+    """make_total does not add dead state if transitions are already total."""
+    dfa = {
+        "states": [0, 1],
+        "alphabet": [1],
+        "transitions": {0: {1: 1}, 1: {1: 0}},
+        "initial_state": 0,
+    }
+    total = make_total(dfa)
+    assert len(total["states"]) == 2

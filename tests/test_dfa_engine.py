@@ -1,13 +1,16 @@
-"""Tests for the deterministic DFA engine (v89.0.0).
+"""Tests for the deterministic DFA engine (v89.1.0).
 
 Covers: validation, simulation, control, SCC meta-graph,
-attractor mapping, determinism, and edge cases.
+attractor mapping, constrained control, simulation pruning,
+attractor hierarchy, determinism, and edge cases.
 """
 
 from __future__ import annotations
 
 from qec.experiments.dfa_engine import (
     build_scc_graph,
+    compute_scc_levels,
+    compute_scc_transition_summary,
     find_control_path,
     find_terminal_sccs,
     get_next_states,
@@ -412,3 +415,172 @@ class TestDeterminism:
         dag2 = build_scc_graph(sccs2, dfa)
 
         assert dag1 == dag2
+
+
+# ===================================================================
+# v89.1 — Constrained Control
+# ===================================================================
+
+
+class TestConstrainedControl:
+    def test_avoid_states_blocks_path(self):
+        # Linear: 0->1->2. Avoiding state 1 should block the path.
+        result = find_control_path(
+            _linear_dfa(), 0, 2, constraints={"avoid_states": {1}}
+        )
+        assert result["reachable"] is False
+        assert result["constrained"] is True
+
+    def test_avoid_symbols_blocks_path(self):
+        # Linear uses symbol 0 for all transitions.
+        result = find_control_path(
+            _linear_dfa(), 0, 2, constraints={"avoid_symbols": {0}}
+        )
+        assert result["reachable"] is False
+        assert result["constrained"] is True
+
+    def test_max_depth_limits_search(self):
+        # Path 0->1->2 has length 2; max_depth=1 should block it.
+        result = find_control_path(
+            _linear_dfa(), 0, 2, constraints={"max_depth": 1}
+        )
+        assert result["reachable"] is False
+        assert result["constrained"] is True
+
+    def test_max_depth_allows_short_path(self):
+        result = find_control_path(
+            _linear_dfa(), 0, 1, constraints={"max_depth": 2}
+        )
+        assert result["reachable"] is True
+        assert result["length"] == 1
+
+    def test_no_constraints_backward_compatible(self):
+        r1 = find_control_path(_linear_dfa(), 0, 2)
+        assert r1["reachable"] is True
+        assert r1["constrained"] is False
+
+    def test_empty_constraints(self):
+        result = find_control_path(
+            _linear_dfa(), 0, 2, constraints={}
+        )
+        assert result["reachable"] is True
+        assert result["constrained"] is False
+
+
+# ===================================================================
+# v89.1 — Simulation Pruning
+# ===================================================================
+
+
+class TestSimulationPruning:
+    def test_stop_at_attractors(self):
+        dfa = _two_attractor_dfa()
+        result = simulate_from_state(
+            dfa, 0, max_steps=10,
+            pruning={"stop_at_attractors": True},
+        )
+        assert result["pruned"] is True
+        # Trajectories should not endlessly traverse attractor cycles.
+        for traj in result["trajectories"]:
+            assert len(traj) <= 5
+
+    def test_avoid_dead_state(self):
+        dfa = _dead_heavy_dfa()
+        result = simulate_from_state(
+            dfa, 0, max_steps=5,
+            pruning={"avoid_dead_state": True},
+        )
+        assert result["pruned"] is True
+        # Dead state (3) should not appear as an expanded node.
+        for traj in result["trajectories"]:
+            # Dead state may appear as terminal but not in the middle.
+            if 3 in traj:
+                assert traj[-1] == 3 or traj.index(3) == len(traj) - 1
+
+    def test_no_pruning_backward_compatible(self):
+        r1 = simulate_from_state(_branching_dfa(), 0, 5)
+        assert r1["pruned"] is False
+
+    def test_pruned_simulation_deterministic(self):
+        dfa = _two_attractor_dfa()
+        r1 = simulate_from_state(dfa, 0, 10, pruning={"stop_at_attractors": True})
+        r2 = simulate_from_state(dfa, 0, 10, pruning={"stop_at_attractors": True})
+        assert r1 == r2
+
+
+# ===================================================================
+# v89.1 — Attractor Hierarchy
+# ===================================================================
+
+
+class TestAttractorHierarchy:
+    def test_terminal_sccs_level_zero(self):
+        dfa = _two_attractor_dfa()
+        sccs = compute_scc(dfa)
+        classify_components(dfa, sccs)
+        dag = build_scc_graph(sccs, dfa)
+        terminal = find_terminal_sccs(dag)
+        result = compute_scc_levels(dag)
+
+        for t in terminal:
+            assert result["levels"][t] == 0
+
+    def test_simple_dag_levels(self):
+        dfa = _linear_dfa()
+        sccs = compute_scc(dfa)
+        classify_components(dfa, sccs)
+        dag = build_scc_graph(sccs, dfa)
+        result = compute_scc_levels(dag)
+
+        assert result["max_level"] >= 1
+
+    def test_single_state_level(self):
+        dfa = _single_state_dfa()
+        sccs = compute_scc(dfa)
+        classify_components(dfa, sccs)
+        dag = build_scc_graph(sccs, dfa)
+        result = compute_scc_levels(dag)
+
+        assert result["max_level"] == 0
+
+    def test_transition_summary(self):
+        dfa = _two_attractor_dfa()
+        sccs = compute_scc(dfa)
+        classify_components(dfa, sccs)
+        dag = build_scc_graph(sccs, dfa)
+        terminal = find_terminal_sccs(dag)
+        summary = compute_scc_transition_summary(dag, terminal)
+
+        for t in terminal:
+            assert summary[t]["outgoing_count"] == 0
+            assert summary[t]["leads_to_attractor"] is True
+
+    def test_engine_includes_hierarchy(self):
+        result = run_dfa_engine(_two_attractor_dfa())
+        assert "attractor_hierarchy" in result
+        assert "levels" in result["attractor_hierarchy"]
+        assert "max_level" in result["attractor_hierarchy"]
+        assert "transition_summary" in result["attractor_hierarchy"]
+
+
+# ===================================================================
+# v89.1 — Edge Cases
+# ===================================================================
+
+
+class TestEdgeCases:
+    def test_single_state_constrained_control(self):
+        result = find_control_path(
+            _single_state_dfa(), 0, 0, constraints={"max_depth": 0}
+        )
+        assert result["reachable"] is True
+        assert result["length"] == 0
+
+    def test_dead_state_only_transitions(self):
+        dfa = _dead_heavy_dfa()
+        result = simulate_from_state(
+            dfa, 2, max_steps=3,
+            pruning={"avoid_dead_state": True},
+        )
+        # State 2 transitions only to dead state 3
+        assert result["n_trajectories"] >= 1

@@ -151,6 +151,11 @@ def estimate_directionality(
     )
 
 
+def safe_div(a: float, b: float) -> float:
+    """Safe division returning 0.0 when divisor is zero."""
+    return a / b if b != 0 else 0.0
+
+
 def compute_metrics(
     before_syn: List[np.ndarray],
     after_syn: List[np.ndarray],
@@ -165,7 +170,8 @@ def compute_metrics(
 
     Returns:
         Dict with unique counts, change count, mean delta,
-        stability region counts, stability gain, and directionality.
+        stability region counts, stability gain, directionality,
+        and normalized efficiency metrics.
     """
     unique_before = len({tuple(int(v) for v in s) for s in before_syn})
     unique_after = len({tuple(int(v) for v in s) for s in after_syn})
@@ -177,6 +183,10 @@ def compute_metrics(
     stable_before = count_stable_regions(before_syn)
     stable_after = count_stable_regions(after_syn)
     stability_gain = stable_before - stable_after
+    compression_eff = safe_div(
+        (unique_before - unique_after), unique_before
+    )
+    stability_eff = safe_div(stability_gain, stable_before)
     return {
         "unique_before": unique_before,
         "unique_after": unique_after,
@@ -186,6 +196,8 @@ def compute_metrics(
         "stable_after": stable_after,
         "stability_gain": stability_gain,
         "directionality": estimate_directionality(before_syn, after_syn),
+        "compression_efficiency": compression_eff,
+        "stability_efficiency": stability_eff,
     }
 
 

@@ -4,7 +4,7 @@ Transforms a minimized DFA from a passive validator into a deterministic
 dynamical engine. All algorithms are pure, deterministic, and use only
 stdlib + collections.
 
-v89.0.0
+v89.1.0
 """
 
 from __future__ import annotations
@@ -67,6 +67,7 @@ def simulate_from_state(
     dfa: Dict[str, Any],
     start_state: int,
     max_steps: int,
+    pruning: Optional[Dict[str, bool]] = None,
 ) -> Dict[str, Any]:
     """Generate all valid trajectories from *start_state* up to *max_steps*.
 
@@ -74,9 +75,33 @@ def simulate_from_state(
     state are marked cyclic and not expanded further to prevent infinite
     growth.
 
-    Returns {"trajectories": list[list[int]], "n_trajectories": int}.
+    Optional *pruning* dict supports:
+        stop_at_attractors: stop expansion when entering a terminal SCC
+        avoid_dead_state:   do not expand the dead state
+
+    Returns {"trajectories": list[list[int]], "n_trajectories": int,
+             "pruned": bool}.
     """
     transitions = dfa.get("transitions", {})
+    pruned = pruning is not None and bool(pruning)
+    stop_at_attractors = bool(pruning.get("stop_at_attractors")) if pruning else False
+    avoid_dead = bool(pruning.get("avoid_dead_state")) if pruning else False
+
+    dead_state = dfa.get("dead_state")
+
+    # Pre-compute terminal SCC states if needed.
+    terminal_states: Set[int] = set()
+    if stop_at_attractors:
+        from qec.experiments.dfa_analysis import compute_scc, classify_components
+        sccs = compute_scc(dfa)
+        classify_components(dfa, sccs)
+        scc_graph = build_scc_graph(sccs, dfa)
+        terminal_ids = set(find_terminal_sccs(scc_graph))
+        for scc in sccs:
+            if scc["id"] in terminal_ids:
+                for s in scc["states"]:
+                    terminal_states.add(s)
+
     # Each entry: (path_so_far, visited_states_in_path)
     queue: deque[Tuple[List[int], Set[int]]] = deque()
     queue.append(([start_state], {start_state}))
@@ -91,6 +116,12 @@ def simulate_from_state(
             continue
 
         current = path[-1]
+
+        # Pruning: stop at attractor states (don't expand further).
+        if stop_at_attractors and len(path) > 1 and current in terminal_states:
+            completed.append(path)
+            continue
+
         next_states = sorted(set(transitions.get(current, {}).values()))
 
         if not next_states:
@@ -99,6 +130,8 @@ def simulate_from_state(
 
         expanded = False
         for ns in next_states:
+            if avoid_dead and ns == dead_state:
+                continue
             if ns in visited:
                 # Cyclic — record path including the revisited state.
                 completed.append(path + [ns])
@@ -107,7 +140,10 @@ def simulate_from_state(
                 queue.append((path + [ns], new_visited))
                 expanded = True
 
-        if not expanded and not any(ns in visited for ns in next_states):
+        if not expanded and not any(
+            ns in visited for ns in next_states
+            if not (avoid_dead and ns == dead_state)
+        ):
             completed.append(path)
 
     # Deterministic sort: lexicographic on path.
@@ -116,6 +152,7 @@ def simulate_from_state(
     return {
         "trajectories": completed,
         "n_trajectories": len(completed),
+        "pruned": pruned,
     }
 
 
@@ -129,23 +166,36 @@ def find_control_path(
     start_state: int,
     target_state: int,
     target_states: Optional[Set[int]] = None,
+    constraints: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Find shortest path from *start_state* to a target using BFS.
 
     If *target_states* is provided, stop at the first one reached
     (multi-target mode).  Otherwise use *target_state*.
 
-    Returns {"reachable": bool, "path": list, "symbols": list, "length": int}.
+    Optional *constraints* dict supports:
+        avoid_states:  set of states to skip during traversal
+        avoid_symbols: set of symbols to skip during traversal
+        max_depth:     int upper bound on path length
+
+    Returns {"reachable": bool, "path": list, "symbols": list,
+             "length": int, "constrained": bool}.
     """
     targets: Set[int] = target_states if target_states is not None else {target_state}
     transitions = dfa.get("transitions", {})
+    constrained = constraints is not None and bool(constraints)
 
-    if start_state in targets:
+    avoid_states: Set[int] = set(constraints.get("avoid_states", ())) if constraints else set()
+    avoid_symbols: Set[int] = set(constraints.get("avoid_symbols", ())) if constraints else set()
+    max_depth: Optional[int] = constraints.get("max_depth") if constraints else None
+
+    if start_state in targets and start_state not in avoid_states:
         return {
             "reachable": True,
             "path": [start_state],
             "symbols": [],
             "length": 0,
+            "constrained": constrained,
         }
 
     visited: Set[int] = {start_state}
@@ -155,10 +205,19 @@ def find_control_path(
 
     while queue:
         current, path, symbols = queue.popleft()
+        depth = len(path) - 1
+
+        if max_depth is not None and depth >= max_depth:
+            continue
+
         state_trans = transitions.get(current, {})
 
         for symbol in sorted(state_trans):
+            if symbol in avoid_symbols:
+                continue
             ns = state_trans[symbol]
+            if ns in avoid_states:
+                continue
             if ns in visited:
                 continue
             new_path = path + [ns]
@@ -170,6 +229,7 @@ def find_control_path(
                     "path": new_path,
                     "symbols": new_symbols,
                     "length": len(new_path) - 1,
+                    "constrained": constrained,
                 }
 
             visited.add(ns)
@@ -180,6 +240,7 @@ def find_control_path(
         "path": [],
         "symbols": [],
         "length": 0,
+        "constrained": constrained,
     }
 
 
@@ -289,6 +350,79 @@ def map_states_to_attractors(
     }
 
 
+def compute_scc_levels(
+    scc_graph: Dict[int, List[int]],
+) -> Dict[str, Any]:
+    """Compute hierarchy levels for SCC components.
+
+    Terminal SCCs get level 0, their parents level 1, etc.
+    (reverse topological depth).
+
+    Returns {"levels": {component_id: level}, "max_level": int}.
+    """
+    terminal = set(find_terminal_sccs(scc_graph))
+    levels: Dict[int, int] = {}
+
+    # Build reverse graph.
+    reverse: Dict[int, List[int]] = {cid: [] for cid in scc_graph}
+    for cid, targets in scc_graph.items():
+        for t in targets:
+            reverse[t].append(cid)
+
+    # BFS from terminals upward.
+    queue: deque[int] = deque()
+    for t in sorted(terminal):
+        levels[t] = 0
+        queue.append(t)
+
+    while queue:
+        cid = queue.popleft()
+        for pred in sorted(reverse.get(cid, [])):
+            if pred not in levels:
+                levels[pred] = levels[cid] + 1
+                queue.append(pred)
+
+    max_level = max(levels.values()) if levels else 0
+    return {"levels": dict(sorted(levels.items())), "max_level": max_level}
+
+
+def compute_scc_transition_summary(
+    scc_graph: Dict[int, List[int]],
+    terminal_sccs: List[int],
+) -> Dict[int, Dict[str, Any]]:
+    """Summarize each SCC's outgoing edges and attractor reachability.
+
+    Returns {component_id: {"outgoing_count": int, "leads_to_attractor": bool}}.
+    """
+    terminal_set = set(terminal_sccs)
+
+    # Forward reachability via BFS on DAG to check attractor access.
+    reachable_to_terminal: Set[int] = set()
+    reverse: Dict[int, List[int]] = {cid: [] for cid in scc_graph}
+    for cid, targets in scc_graph.items():
+        for t in targets:
+            reverse[t].append(cid)
+
+    queue: deque[int] = deque()
+    for t in sorted(terminal_set):
+        reachable_to_terminal.add(t)
+        queue.append(t)
+    while queue:
+        cid = queue.popleft()
+        for pred in sorted(reverse.get(cid, [])):
+            if pred not in reachable_to_terminal:
+                reachable_to_terminal.add(pred)
+                queue.append(pred)
+
+    summary: Dict[int, Dict[str, Any]] = {}
+    for cid in sorted(scc_graph):
+        summary[cid] = {
+            "outgoing_count": len(scc_graph[cid]),
+            "leads_to_attractor": cid in reachable_to_terminal,
+        }
+    return summary
+
+
 # TODO (v89+):
 # refine cycle classification:
 # - simple loops
@@ -337,6 +471,10 @@ def run_dfa_engine(dfa: Dict[str, Any]) -> Dict[str, Any]:
     terminal = find_terminal_sccs(scc_graph)
     attractor_info = map_states_to_attractors(dfa, sccs, scc_graph, terminal)
 
+    # --- Attractor hierarchy. ---
+    hierarchy = compute_scc_levels(scc_graph)
+    transition_summary = compute_scc_transition_summary(scc_graph, terminal)
+
     return {
         "validation": validation,
         "simulation": simulation,
@@ -353,5 +491,9 @@ def run_dfa_engine(dfa: Dict[str, Any]) -> Dict[str, Any]:
             "scc_graph": scc_graph,
             "terminal_sccs": terminal,
             **attractor_info,
+        },
+        "attractor_hierarchy": {
+            **hierarchy,
+            "transition_summary": transition_summary,
         },
     }

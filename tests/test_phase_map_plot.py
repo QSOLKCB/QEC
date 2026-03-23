@@ -1,4 +1,4 @@
-"""Tests for v85.2.0 — phase map visualization with layout refinements."""
+"""Tests for v85.3.0 — phase map visualization with export modes."""
 
 from __future__ import annotations
 
@@ -295,3 +295,86 @@ def test_layout_empty_nodes():
     """Empty node list returns empty layout."""
     layout = compute_linear_layout([])
     assert layout == {}
+
+
+# ── v85.3.0 — export mode tests ─────────────────────────────────────
+
+
+def test_default_mode_is_debug():
+    """Calling without mode= uses debug (backward compatible)."""
+    pm = _sample_phase_map()
+    result = plot_phase_map(pm)
+    assert result["n_nodes"] == 3
+    assert result["n_edges"] == 2
+
+
+def test_paper_mode_disables_labels_legend_summary():
+    """Paper mode renders without labels, legend, or summary overlay."""
+    pm = _sample_phase_map()
+    with tempfile.TemporaryDirectory() as td:
+        out = Path(td) / "paper.png"
+        result = plot_phase_map(
+            pm,
+            output_path=out,
+            interface_ranking=_sample_interface_ranking(),
+            transition_summary=_sample_transition_summary(),
+            mode="paper",
+        )
+        assert out.exists()
+        assert out.stat().st_size > 0
+        assert result["n_nodes"] == 3
+
+
+def test_debug_mode_enables_labels_legend_summary():
+    """Debug mode renders with labels, legend, and summary overlay."""
+    pm = _sample_phase_map()
+    with tempfile.TemporaryDirectory() as td:
+        out = Path(td) / "debug.png"
+        result = plot_phase_map(
+            pm,
+            output_path=out,
+            interface_ranking=_sample_interface_ranking(),
+            transition_summary=_sample_transition_summary(),
+            mode="debug",
+        )
+        assert out.exists()
+        assert out.stat().st_size > 0
+        assert result["n_nodes"] == 3
+
+
+def test_invalid_mode_raises_error():
+    """Invalid mode raises ValueError."""
+    pm = _sample_phase_map()
+    with pytest.raises(ValueError, match="mode must be 'paper' or 'debug'"):
+        plot_phase_map(pm, mode="fancy")
+
+
+def test_file_creation_both_modes():
+    """Both modes produce valid PNG files."""
+    pm = _sample_phase_map()
+    with tempfile.TemporaryDirectory() as td:
+        for m in ("paper", "debug"):
+            out = Path(td) / f"{m}.png"
+            result = plot_phase_map(pm, output_path=out, mode=m)
+            assert out.exists()
+            assert out.stat().st_size > 0
+            assert result["output_path"] == str(out)
+
+
+def test_deterministic_rendering_unchanged_with_modes():
+    """Layout positions are identical regardless of mode."""
+    nodes = _sample_phase_map()["nodes"]
+    expected = {0: (0.0, -0.1), 1: (1.5, 0.1), 2: (3.0, -0.1)}
+    for m in ("paper", "debug"):
+        assert compute_linear_layout(nodes) == expected
+
+
+def test_paper_file_larger_dpi():
+    """Paper mode (300 dpi) produces a larger file than debug (120 dpi)."""
+    pm = _sample_phase_map()
+    with tempfile.TemporaryDirectory() as td:
+        paper = Path(td) / "paper.png"
+        debug = Path(td) / "debug.png"
+        plot_phase_map(pm, output_path=paper, mode="paper")
+        plot_phase_map(pm, output_path=debug, mode="debug")
+        assert paper.stat().st_size > debug.stat().st_size

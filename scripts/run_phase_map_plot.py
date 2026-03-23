@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-"""v85.1.0 — Phase Map Plot demo script.
+"""v85.3.0 — Phase Map Plot demo script.
 
 Builds a small deterministic phase map and renders it as a PNG figure
-with annotated overlays (strongest-interface emphasis, summary box, legend).
+with annotated overlays.  Produces both "debug" and "paper" exports.
 """
 
 from __future__ import annotations
@@ -48,18 +48,36 @@ def main() -> None:
         "phase_change_count": 2,
     }
 
-    out_path = Path(tempfile.gettempdir()) / "phase_map_plot.png"
-    result = plot_phase_map(
+    tmp = Path(tempfile.gettempdir())
+
+    # debug export (full detail)
+    debug_path = tmp / "phase_map_debug.png"
+    debug_result = plot_phase_map(
         phase_map,
-        output_path=out_path,
+        output_path=debug_path,
         interface_ranking=interface_ranking,
         transition_summary=transition_summary,
+        mode="debug",
     )
 
-    print("Phase Map Plot")
-    print(f"  n_nodes:     {result['n_nodes']}")
-    print(f"  n_edges:     {result['n_edges']}")
-    print(f"  output_path: {result['output_path']}")
+    # paper export (clean, publication-ready)
+    paper_path = tmp / "phase_map_paper.png"
+    paper_result = plot_phase_map(
+        phase_map,
+        output_path=paper_path,
+        interface_ranking=interface_ranking,
+        transition_summary=transition_summary,
+        mode="paper",
+    )
+
+    print("Phase Map Plot — debug")
+    print(f"  n_nodes:     {debug_result['n_nodes']}")
+    print(f"  n_edges:     {debug_result['n_edges']}")
+    print(f"  output_path: {debug_result['output_path']}")
+    print("Phase Map Plot — paper")
+    print(f"  n_nodes:     {paper_result['n_nodes']}")
+    print(f"  n_edges:     {paper_result['n_edges']}")
+    print(f"  output_path: {paper_result['output_path']}")
     print("Done.")
 
 

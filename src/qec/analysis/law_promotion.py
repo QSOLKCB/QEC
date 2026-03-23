@@ -198,6 +198,17 @@ def compute_law_score(coverage: float, simplicity: float) -> float:
 # ---------------------------------------------------------------------------
 
 
+def _matching_runs(
+    conditions: List[Condition], validation_runs: List[Dict[str, Any]]
+) -> frozenset:
+    """Return indices of runs where all conditions hold."""
+    return frozenset(
+        i
+        for i, r in enumerate(validation_runs)
+        if all(c.evaluate(r.get("metrics", {})) for c in conditions)
+    )
+
+
 def minimize_conditions(
     conditions: List[Condition],
     action: str,
@@ -206,7 +217,9 @@ def minimize_conditions(
     """Greedy removal of redundant conditions while preserving consistency==1.0.
 
     For each condition in deterministic order, try removing it.
-    If consistency remains 1.0 after removal, keep it removed.
+    Removal is allowed only if:
+      1. consistency remains 1.0
+      2. the matching-run set does NOT expand (no domain weakening)
     Repeat until stable.
     """
     # Sort conditions deterministically for reproducibility
@@ -215,10 +228,12 @@ def minimize_conditions(
     changed = True
     while changed:
         changed = False
+        original_idx = _matching_runs(current, validation_runs)
         for i in range(len(current)):
             candidate = current[:i] + current[i + 1 :]
-            if len(candidate) == 0:
-                continue
+            candidate_idx = _matching_runs(candidate, validation_runs)
+            if candidate_idx != original_idx:
+                continue  # reject domain expansion
             m = compute_metrics(candidate, action, validation_runs)
             if m["consistency"] == CONSISTENCY_REQUIRED and m["coverage"] > 0.0:
                 current = candidate
@@ -290,6 +305,11 @@ class LawRegistry:
         self, law: Law, validation_runs: List[Dict[str, Any]]
     ) -> bool:
         """Attempt to add a law. Returns True if added, False if rejected."""
+        # Deduplication: reject if a law with same id already exists
+        for existing in self.laws:
+            if existing.id == law.id:
+                return False
+
         conflicts = self._find_conflicts(law, validation_runs)
 
         for conflict in conflicts:
@@ -307,6 +327,25 @@ class LawRegistry:
 # ---------------------------------------------------------------------------
 # PART 6 — LAW PROMOTER
 # ---------------------------------------------------------------------------
+
+
+def _validate_conjecture(conjecture: Any) -> bool:
+    """Return True if conjecture has valid structure for promotion."""
+    if not isinstance(conjecture, dict):
+        return False
+    if "conditions" not in conjecture or "action" not in conjecture:
+        return False
+    conds = conjecture["conditions"]
+    if not isinstance(conds, list):
+        return False
+    for c in conds:
+        if not isinstance(c, dict):
+            return False
+        if not all(k in c for k in ("metric", "operator", "value")):
+            return False
+        if c["operator"] not in _OPERATORS:
+            return False
+    return True
 
 
 def _make_law_id(conditions: List[Condition], action: str) -> str:
@@ -338,6 +377,9 @@ class LawPromoter:
 
         Returns the promoted Law or None if rejected.
         """
+        if not _validate_conjecture(conjecture):
+            return None
+
         raw_conditions = [
             Condition(c["metric"], c["operator"], c["value"])
             for c in conjecture["conditions"]

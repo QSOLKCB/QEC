@@ -473,3 +473,127 @@ class TestThresholdConstants:
         reg = LawRegistry()
         p = LawPromoter(reg, [])
         assert p.threshold == PROMOTION_THRESHOLD
+
+
+# ---------------------------------------------------------------------------
+# Safe minimization tests
+# ---------------------------------------------------------------------------
+
+
+class TestSafeMinimization:
+    def test_no_domain_expansion(self):
+        """x>10 AND x>2: removing x>10 would expand domain — must keep both."""
+        conds = [Condition("x", "gt", 10.0), Condition("x", "gt", 2.0)]
+        runs = [
+            _run({"x": 15.0}, "apply"),
+            _run({"x": 5.0}, "skip"),   # x>2 true but x>10 false
+            _run({"x": 1.0}, "skip"),
+        ]
+        result = minimize_conditions(conds, "apply", runs)
+        # x>2 is redundant (x>10 implies x>2), but x>10 must stay.
+        # Removing x>10 would expand domain to include x=5 run → different action.
+        values = sorted(c.value for c in result)
+        assert 10.0 in values
+
+    def test_empty_condition_allowed(self):
+        """If ALL runs have the same action, conditions can reduce to empty."""
+        conds = [Condition("x", "gt", 0.0)]
+        runs = [
+            _run({"x": 1.0}, "apply"),
+            _run({"x": 2.0}, "apply"),
+            _run({"x": 3.0}, "apply"),
+        ]
+        # Every run matches x>0 and action is always "apply".
+        # Removing x>0 doesn't expand the matching set (all already match).
+        # Actually it does: empty conditions match ALL runs, which is the same
+        # set since all runs already match x>0. So removal is safe.
+        result = minimize_conditions(conds, "apply", runs)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# Conjecture validation tests
+# ---------------------------------------------------------------------------
+
+
+class TestConjectureValidation:
+    def test_missing_conditions_key(self):
+        reg = LawRegistry()
+        p = LawPromoter(reg, [_run({"x": 1.0})])
+        assert p.promote({"action": "apply"}) is None
+
+    def test_missing_action_key(self):
+        reg = LawRegistry()
+        p = LawPromoter(reg, [_run({"x": 1.0})])
+        assert p.promote({"conditions": []}) is None
+
+    def test_bad_operator(self):
+        reg = LawRegistry()
+        p = LawPromoter(reg, [_run({"x": 1.0})])
+        conj = {
+            "conditions": [{"metric": "x", "operator": "bad", "value": 1.0}],
+            "action": "apply",
+        }
+        assert p.promote(conj) is None
+
+    def test_not_a_dict(self):
+        reg = LawRegistry()
+        p = LawPromoter(reg, [])
+        assert p.promote("not a dict") is None
+
+    def test_condition_missing_field(self):
+        reg = LawRegistry()
+        p = LawPromoter(reg, [_run({"x": 1.0})])
+        conj = {
+            "conditions": [{"metric": "x", "operator": "gt"}],  # no value
+            "action": "apply",
+        }
+        assert p.promote(conj) is None
+
+
+# ---------------------------------------------------------------------------
+# Deduplication tests
+# ---------------------------------------------------------------------------
+
+
+class TestDeduplication:
+    def test_duplicate_law_not_added(self):
+        runs = _make_runs()
+        reg = LawRegistry()
+        p = LawPromoter(reg, runs, threshold=0.2)
+        conj = {
+            "conditions": [{"metric": "x", "operator": "gt", "value": 5.0}],
+            "action": "apply",
+            "created_at": 0.0,
+        }
+        law1 = p.promote(conj)
+        assert law1 is not None
+        assert len(reg.laws) == 1
+
+        # Promote same conjecture again — should be rejected as duplicate
+        law2 = p.promote(conj)
+        assert law2 is None
+        assert len(reg.laws) == 1
+
+    def test_multi_conflict_all_replaced(self):
+        """New law that beats multiple conflicting laws removes all of them."""
+        runs = [
+            _run({"x": 10.0, "y": 1.0, "z": 1.0}, "apply"),
+        ]
+        reg = LawRegistry()
+        # Two weak conflicting laws
+        c1 = Law("c1", 1, [Condition("x", "gt", 5.0)], "reject",
+                 [], {"law_score": 0.1}, 0.0)
+        c2 = Law("c2", 1, [Condition("y", "lt", 5.0)], "reject",
+                 [], {"law_score": 0.1}, 0.0)
+        reg.add_law(c1, runs)
+        reg.add_law(c2, runs)
+        assert len(reg.laws) == 2
+
+        # Strong new law that conflicts with both
+        strong = Law("strong", 1, [Condition("z", "gt", 0.0)], "apply",
+                     [], {"law_score": 0.9}, 0.0)
+        added = reg.add_law(strong, runs)
+        assert added is True
+        assert len(reg.laws) == 1
+        assert reg.laws[0].id == "strong"

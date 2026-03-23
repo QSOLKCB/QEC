@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from qec.analysis.strategy_topology import compute_strategy_topology
+
 
 # ---------------------------------------------------------------------------
 # CONSTANTS
@@ -600,8 +602,13 @@ def run_consensus(
         supporters=sorted(supporters),
     )
 
+    # Step 8: strategy topology
+    topology = compute_strategy_topology(strategies)
+    reasoning.append({"step": "strategy_topology", "dominant": topology.get("dominant", "")})
+
     return {
         "selected": consensus,
         "all_scores": all_scores,
         "reasoning": reasoning,
+        "topology": topology,
     }

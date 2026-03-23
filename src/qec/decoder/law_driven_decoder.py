@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from qec.analysis.field_metrics import compute_field_metrics
+from qec.analysis.multiscale_metrics import compute_multiscale_summary
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +280,7 @@ def extract_metrics(
     else:
         metrics["delta"] = 0.0
     metrics["field"] = compute_field_metrics(values)
+    metrics["multiscale"] = compute_multiscale_summary(values)
     return metrics
 
 

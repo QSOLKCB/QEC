@@ -31,11 +31,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from qec.experiments.correction_layer import (
     apply_correction,
     compute_metrics,
+    count_stable_regions,
+    estimate_directionality,
     project,
     project_d4,
     project_square,
     run_correction_experiment,
 )
+from qec.experiments.dfa_invariants import derive_allowed_states
 from qec.experiments.qudit_dynamics import measure_corrected_states
 
 
@@ -382,3 +385,151 @@ class TestNoMutationPipeline:
         measure_corrected_states(states, code)
         for orig, curr in zip(originals, states):
             np.testing.assert_array_equal(orig, curr)
+
+
+# ---------------------------------------------------------------------------
+# 18. Stability metric correctness
+# ---------------------------------------------------------------------------
+
+class TestStabilityMetric:
+    def test_all_same(self):
+        """All identical syndromes → 1 stable region."""
+        syns = [np.array([0, 1])] * 5
+        assert count_stable_regions(syns) == 1
+
+    def test_all_different(self):
+        """All different syndromes → n regions."""
+        syns = [np.array([i, 0]) for i in range(4)]
+        assert count_stable_regions(syns) == 4
+
+    def test_empty(self):
+        assert count_stable_regions([]) == 0
+
+    def test_single(self):
+        assert count_stable_regions([np.array([0, 0])]) == 1
+
+    def test_two_regions(self):
+        syns = [
+            np.array([0, 0]),
+            np.array([0, 0]),
+            np.array([1, 1]),
+            np.array([1, 1]),
+        ]
+        assert count_stable_regions(syns) == 2
+
+    def test_metrics_include_stability(self):
+        """compute_metrics returns stable_before, stable_after, stability_gain."""
+        before = [np.array([0, 0]), np.array([0, 0]), np.array([1, 1])]
+        after = [np.array([0, 0]), np.array([0, 0]), np.array([0, 0])]
+        m = compute_metrics(before, after, [0.1, 0.1, 0.1])
+        assert m["stable_before"] == 2
+        assert m["stable_after"] == 1
+        assert m["stability_gain"] == 1
+
+
+# ---------------------------------------------------------------------------
+# 19. Directionality deterministic
+# ---------------------------------------------------------------------------
+
+class TestDirectionality:
+    def test_no_change(self):
+        syns = [np.array([0, 1]), np.array([1, 0])]
+        assert estimate_directionality(syns, syns) == 0
+
+    def test_reduction(self):
+        before = [np.array([0, 0]), np.array([1, 1]), np.array([0, 1])]
+        after = [np.array([0, 0]), np.array([0, 0]), np.array([0, 0])]
+        assert estimate_directionality(before, after) == 2  # 3 - 1
+
+    def test_deterministic(self):
+        before = [np.array([0, 0]), np.array([1, 1])]
+        after = [np.array([0, 0]), np.array([0, 0])]
+        r1 = estimate_directionality(before, after)
+        r2 = estimate_directionality(before, after)
+        assert r1 == r2
+
+    def test_in_metrics(self):
+        before = [np.array([0, 0]), np.array([1, 1])]
+        after = [np.array([0, 0]), np.array([0, 0])]
+        m = compute_metrics(before, after, [0.1, 0.1])
+        assert "directionality" in m
+        assert m["directionality"] == 1
+
+
+# ---------------------------------------------------------------------------
+# 20. Invariant-guided correction does not crash
+# ---------------------------------------------------------------------------
+
+class TestInvariantGuidedCorrection:
+    def test_no_crash_with_allowed_states(self):
+        s = np.array([0.6, 0.8, 0.0], dtype=np.complex128)
+        c, d = apply_correction(s, "square", allowed_states={0, 1})
+        assert c is not None
+        assert d >= 0.0
+
+    def test_no_crash_none_allowed(self):
+        s = np.array([0.6, 0.8, 0.0], dtype=np.complex128)
+        c, d = apply_correction(s, "square", allowed_states=None)
+        assert c is not None
+
+    def test_damping_effect(self):
+        """Invariant-guided damping should reduce disallowed amplitudes."""
+        s = np.array([0.5, 0.5, 0.5, 0.5], dtype=np.complex128)
+        c_without, _ = apply_correction(s, None, allowed_states=None)
+        c_with, _ = apply_correction(s, None, allowed_states={0, 1})
+        # With damping, indices 2 and 3 should have lower relative amplitude
+        # compared to indices 0 and 1.
+        ratio_without = abs(c_without[2]) / abs(c_without[0]) if c_without[0] != 0 else 0
+        ratio_with = abs(c_with[2]) / abs(c_with[0]) if c_with[0] != 0 else 0
+        assert ratio_with < ratio_without
+
+
+# ---------------------------------------------------------------------------
+# 21. Invariant mode deterministic
+# ---------------------------------------------------------------------------
+
+class TestInvariantDeterminism:
+    def test_deterministic_with_allowed_states(self):
+        s = np.array([0.6, 0.8, 0.0, 0.3], dtype=np.complex128)
+        allowed = {0, 2}
+        c1, d1 = apply_correction(s, "d4", allowed_states=allowed)
+        c2, d2 = apply_correction(s, "d4", allowed_states=allowed)
+        np.testing.assert_array_equal(c1, c2)
+        assert d1 == d2
+
+
+# ---------------------------------------------------------------------------
+# 22. No mutation with invariant-guided correction
+# ---------------------------------------------------------------------------
+
+class TestNoMutationInvariant:
+    def test_no_mutation_with_allowed(self):
+        s = np.array([0.6, 0.8, 0.0], dtype=np.complex128)
+        original = s.copy()
+        apply_correction(s, "square", allowed_states={0})
+        np.testing.assert_array_equal(s, original)
+
+
+# ---------------------------------------------------------------------------
+# 23. derive_allowed_states
+# ---------------------------------------------------------------------------
+
+class TestDeriveAllowedStates:
+    def test_none_input(self):
+        assert derive_allowed_states(None) is None
+
+    def test_empty_dict(self):
+        assert derive_allowed_states({}) is None
+
+    def test_no_allowed_key(self):
+        assert derive_allowed_states({"foo": "bar"}) is None
+
+    def test_with_allowed_states(self):
+        inv = {"allowed_states": [0, 2, 4]}
+        result = derive_allowed_states(inv)
+        assert result == {0, 2, 4}
+
+    def test_returns_set(self):
+        inv = {"allowed_states": [1, 3]}
+        result = derive_allowed_states(inv)
+        assert isinstance(result, set)

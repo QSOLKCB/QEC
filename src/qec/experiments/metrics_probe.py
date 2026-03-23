@@ -165,6 +165,12 @@ def print_experiment_report(results: Dict[str, Any]) -> None:
         print(f"  scale_divergence:  {multi['scale_divergence']:.6f}")
         print(f"  curvature:         {field['curvature']['abs_curvature']:.6f}")
         print(f"  complexity:        {field['complexity']:.6f}")
+        summary = (
+            0.4 * field["phi_alignment"]
+            + 0.3 * multi["scale_consistency"]
+            - 0.3 * field["curvature"]["abs_curvature"]
+        )
+        print(f"  summary_score:     {summary:.6f}")
 
     topo = results["topology"]
     print("\n--- Strategy Topology ---")

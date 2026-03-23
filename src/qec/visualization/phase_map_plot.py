@@ -1,4 +1,4 @@
-"""v85.2.0 — Deterministic phase map visualization.
+"""v85.3.0 — Deterministic phase map visualization.
 
 Converts a phase_map (nodes + edges) into a publication-quality static
 figure using only matplotlib.  Same input always produces identical layout.
@@ -8,6 +8,9 @@ transition summary box, and a deterministic legend.
 
 v85.2.0 refines layout: alternating vertical node offsets, deterministic
 edge curvature for separation, and wider node spacing.
+
+v85.3.0 adds export modes: "paper" (clean, minimal) and "debug" (full
+detail with labels, overlays, legend).
 """
 
 from __future__ import annotations
@@ -171,6 +174,7 @@ def plot_phase_map(
     *,
     interface_ranking: Optional[Dict[str, Any]] = None,
     transition_summary: Optional[Dict[str, Any]] = None,
+    mode: str = "debug",
 ) -> Dict[str, Any]:
     """Render *phase_map* as a deterministic static figure.
 
@@ -186,12 +190,33 @@ def plot_phase_map(
     transition_summary : dict, optional
         Output of ``summarize_transitions``.  When provided a small summary
         text box is overlaid on the figure.
+    mode : str
+        Rendering profile: ``"paper"`` for clean publication output,
+        ``"debug"`` (default) for full detail with labels and overlays.
 
     Returns
     -------
     dict
         ``{"n_nodes": int, "n_edges": int, "output_path": str | None}``
     """
+    # ── mode configuration ────────────────────────────────────────────
+    if mode == "paper":
+        show_node_labels = False
+        show_summary = False
+        show_legend = False
+        dpi = 300
+        node_size = 80
+        edge_scale = 1.2
+    elif mode == "debug":
+        show_node_labels = True
+        show_summary = True
+        show_legend = True
+        dpi = 120
+        node_size = 120
+        edge_scale = 1.0
+    else:
+        raise ValueError("mode must be 'paper' or 'debug'")
+
     nodes: List[Dict[str, Any]] = phase_map.get("nodes", [])
     edges: List[Dict[str, Any]] = phase_map.get("edges", [])
 
@@ -215,7 +240,7 @@ def plot_phase_map(
         x1, y1 = layout[tgt]
         etype = edge.get("type", "")
         color = EDGE_COLORS.get(etype, _DEFAULT_EDGE_COLOR)
-        lw = _scale_linewidth(edge.get("weight", 1.0), max_weight)
+        lw = edge_scale * _scale_linewidth(edge.get("weight", 1.0), max_weight)
         # emphasise strongest interface
         if strongest_key == (src, tgt) or strongest_key == (tgt, src):
             lw += 2.0
@@ -237,27 +262,29 @@ def plot_phase_map(
         # unfilled markers (e.g. "x") ignore edgecolors — skip for them
         filled = marker not in ("x", "+", "1", "2", "3", "4")
         scatter_kw: Dict[str, Any] = dict(
-            c=color, marker=marker, s=120, zorder=2,
+            c=color, marker=marker, s=node_size, zorder=2,
         )
         if filled:
             scatter_kw.update(edgecolors="black", linewidths=0.5)
         ax.scatter(x, y, **scatter_kw)
 
-        label = str(nid)
-        node_range = node.get("range")
-        if node_range is not None:
-            label = f"{nid} [{node_range[0]}-{node_range[1]}]"
-        label_offset = 12 if y >= 0 else -14
-        ax.annotate(label, (x, y), textcoords="offset points",
-                    xytext=(0, label_offset), ha="center", fontsize=7,
-                    va="bottom" if y >= 0 else "top")
+        if show_node_labels:
+            label = str(nid)
+            node_range = node.get("range")
+            if node_range is not None:
+                label = f"{nid} [{node_range[0]}-{node_range[1]}]"
+            label_offset = 12 if y >= 0 else -14
+            ax.annotate(label, (x, y), textcoords="offset points",
+                        xytext=(0, label_offset), ha="center", fontsize=7,
+                        va="bottom" if y >= 0 else "top")
 
     # ── summary overlay ───────────────────────────────────────────────
-    if transition_summary is not None:
+    if show_summary and transition_summary is not None:
         _render_summary_overlay(ax, transition_summary)
 
     # ── legend ────────────────────────────────────────────────────────
-    _add_legend(ax)
+    if show_legend:
+        _add_legend(ax)
 
     ax.set_title("Phase Map", fontsize=10)
     ax.set_xlabel("Regime index")
@@ -270,7 +297,7 @@ def plot_phase_map(
     if output_path is not None:
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(str(out), dpi=150)
+        fig.savefig(str(out), dpi=dpi, bbox_inches="tight")
         saved_path = str(out)
 
     plt.close(fig)

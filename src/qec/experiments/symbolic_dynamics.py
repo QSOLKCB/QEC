@@ -7,7 +7,7 @@ transitions, forbidden transitions, and cycle structure.
 Pure deterministic algorithms only. No randomness, no mutation of inputs.
 """
 
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from qec.experiments.dfa_analysis import analyze_dfa
 from qec.experiments.dfa_engine import run_dfa_engine
@@ -365,6 +365,11 @@ def is_dead_state(state: int, dfa: Dict[str, Any]) -> bool:
 def run_symbolic_dynamics(
     trajectory_states: Dict[int, List[Any]],
     basin_mapping: Dict[Any, int],
+    include_qudit: bool = False,
+    qudit_start_state: Optional[int] = None,
+    qudit_steps: Optional[int] = None,
+    qudit_d: Optional[int] = None,
+    qudit_stabilizer_code: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Full symbolic dynamics pipeline.
 
@@ -409,7 +414,7 @@ def run_symbolic_dynamics(
     # 9: DFA engine — prediction, validation, control.
     dfa_engine = run_dfa_engine(min_dfa)
 
-    return {
+    result = {
         "alphabet": dfa["alphabet"],
         "states": dfa["states"],
         "transitions": dfa["transitions"],
@@ -429,3 +434,19 @@ def run_symbolic_dynamics(
         "dfa_analysis": dfa_analysis,
         "dfa_engine": dfa_engine,
     }
+
+    if include_qudit:
+        from qec.experiments.qudit_dynamics import run_qudit_dynamics
+
+        qd_start = (
+            qudit_start_state
+            if qudit_start_state is not None
+            else min_dfa["initial_state"]
+        )
+        qd_steps = qudit_steps if qudit_steps is not None else 10
+        qd_d = qudit_d if qudit_d is not None else 2
+        result["qudit_dynamics"] = run_qudit_dynamics(
+            min_dfa, qd_start, qd_steps, qd_d, qudit_stabilizer_code
+        )
+
+    return result

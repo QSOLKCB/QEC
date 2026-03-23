@@ -8,6 +8,7 @@ from typing import Any, Dict
 import pytest
 
 from qec.experiments.hybrid_target_sweep import (
+    classify_regime_interfaces,
     compare_regimes,
     detect_transitions,
     extract_regimes,
@@ -220,7 +221,7 @@ class TestTargetSweep:
             pipeline_fn=_fake_pipeline,
             top_k=2,
         )
-        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary", "regimes", "regime_comparisons"}
+        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary", "regimes", "regime_comparisons", "regime_interfaces"}
         assert result["n_targets"] == 1
 
         entry = result["results"][0]
@@ -694,3 +695,81 @@ class TestCompareRegimes:
         r1 = self._regime(3, 5, [2.0], 1, 0.7, 0.9, "B", "chaotic")
         regimes = [r0, r1]
         assert compare_regimes(regimes) == compare_regimes(regimes)
+
+
+# ---------------------------------------------------------------------------
+# Interface classification tests (v84.2)
+# ---------------------------------------------------------------------------
+
+
+class TestClassifyRegimeInterfaces:
+    """Tests for v84.2.0 — classify_regime_interfaces."""
+
+    @staticmethod
+    def _comp(class_shift, phase_shift, structure_shift,
+              delta_score=0.1, delta_compat=0.05, fi=0, ti=1):
+        return {
+            "from_index": fi, "to_index": ti,
+            "from_range": [0, 1], "to_range": [2, 3],
+            "delta_mean_score": delta_score,
+            "delta_mean_compatibility": delta_compat,
+            "class_shift": class_shift,
+            "phase_shift": phase_shift,
+            "structure_shift": structure_shift,
+        }
+
+    def test_strong_boundary(self):
+        """class_shift + phase_shift → strong_boundary."""
+        comps = [self._comp(True, True, True)]
+        ifaces = classify_regime_interfaces(comps)
+        assert len(ifaces) == 1
+        assert ifaces[0]["interface_type"] == "strong_boundary"
+
+    def test_phase_boundary(self):
+        """phase_shift only → phase_boundary."""
+        comps = [self._comp(False, True, True)]
+        ifaces = classify_regime_interfaces(comps)
+        assert ifaces[0]["interface_type"] == "phase_boundary"
+
+    def test_class_boundary(self):
+        """class_shift only → class_boundary."""
+        comps = [self._comp(True, False, True)]
+        ifaces = classify_regime_interfaces(comps)
+        assert ifaces[0]["interface_type"] == "class_boundary"
+
+    def test_structural_boundary(self):
+        """structure_shift only → structural_boundary."""
+        comps = [self._comp(False, False, True)]
+        ifaces = classify_regime_interfaces(comps)
+        assert ifaces[0]["interface_type"] == "structural_boundary"
+
+    def test_degenerate_interface(self):
+        """No shifts → degenerate_interface."""
+        comps = [self._comp(False, False, False)]
+        ifaces = classify_regime_interfaces(comps)
+        assert ifaces[0]["interface_type"] == "degenerate_interface"
+
+    def test_deterministic_output(self):
+        """classify_regime_interfaces is deterministic across calls."""
+        comps = [
+            self._comp(True, True, False, fi=0, ti=1),
+            self._comp(False, False, True, fi=1, ti=2),
+        ]
+        assert classify_regime_interfaces(comps) == classify_regime_interfaces(comps)
+
+    def test_empty_comparisons(self):
+        """Empty comparisons → empty interfaces."""
+        assert classify_regime_interfaces([]) == []
+
+    def test_output_fields(self):
+        """Each interface record contains all required fields."""
+        comps = [self._comp(True, False, True, delta_score=0.3, delta_compat=-0.2)]
+        ifaces = classify_regime_interfaces(comps)
+        expected_keys = {
+            "from_index", "to_index", "interface_type",
+            "delta_mean_score", "delta_mean_compatibility",
+            "class_shift", "phase_shift", "structure_shift",
+        }
+        assert set(ifaces[0].keys()) == expected_keys
+        assert ifaces[0]["delta_mean_score"] == 0.3
+        assert ifaces[0]["delta_mean_compatibility"] == -0.2

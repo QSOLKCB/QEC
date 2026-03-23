@@ -14,6 +14,7 @@ from typing import Any, Dict, List
 
 import numpy as np
 
+from qec.analysis.attractor_analysis import analyze_attractors
 from qec.analysis.field_metrics import compute_field_metrics
 from qec.analysis.multiscale_metrics import compute_multiscale_summary
 from qec.analysis.strategy_topology import compute_strategy_topology
@@ -129,10 +130,12 @@ def run_experiments() -> Dict[str, Any]:
     for case in inputs:
         metrics = evaluate_metrics(case["values"])
         classification = classify_state(metrics)
+        attractor = analyze_attractors(metrics)
         input_results.append({
             "name": case["name"],
             "classification": classification,
             "metrics": metrics,
+            "attractor": attractor,
         })
 
     strategies = generate_mock_strategies()
@@ -171,6 +174,10 @@ def print_experiment_report(results: Dict[str, Any]) -> None:
             - 0.3 * field["curvature"]["abs_curvature"]
         )
         print(f"  summary_score:     {summary:.6f}")
+        if "attractor" in entry:
+            att = entry["attractor"]
+            print(f"  regime:            {att['regime']}")
+            print(f"  basin_score:       {att['basin_score']:.6f}")
 
     topo = results["topology"]
     print("\n--- Strategy Topology ---")

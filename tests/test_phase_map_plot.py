@@ -1,4 +1,4 @@
-"""Tests for v85.0.0 — phase map visualization."""
+"""Tests for v85.1.0 — phase map visualization with annotations."""
 
 from __future__ import annotations
 
@@ -123,3 +123,121 @@ def test_unknown_edge_type():
     }
     result = plot_phase_map(pm)
     assert result["n_edges"] == 1
+
+
+# ── v85.1.0 — annotation tests ──────────────────────────────────────
+
+
+def _sample_interface_ranking():
+    return {
+        "ranked_interfaces": [
+            {"from_index": 1, "to_index": 2, "strength": 0.80},
+            {"from_index": 0, "to_index": 1, "strength": 0.45},
+        ],
+        "strongest_interface": {
+            "from_index": 1, "to_index": 2, "strength": 0.80,
+        },
+    }
+
+
+def _sample_transition_summary():
+    return {
+        "n_transitions": 2,
+        "max_delta_score": 0.45,
+        "class_change_count": 2,
+        "phase_change_count": 2,
+    }
+
+
+def test_plot_with_all_new_args():
+    """Plotting with interface_ranking and transition_summary succeeds."""
+    pm = _sample_phase_map()
+    result = plot_phase_map(
+        pm,
+        interface_ranking=_sample_interface_ranking(),
+        transition_summary=_sample_transition_summary(),
+    )
+    assert result["n_nodes"] == 3
+    assert result["n_edges"] == 2
+
+
+def test_plot_backward_compatible():
+    """Existing calls without new args still work."""
+    pm = _sample_phase_map()
+    result = plot_phase_map(pm)
+    assert result["n_nodes"] == 3
+    assert result["n_edges"] == 2
+    assert result["output_path"] is None
+
+
+def test_strongest_interface_emphasis():
+    """Strongest interface edge renders without error."""
+    pm = _sample_phase_map()
+    with tempfile.TemporaryDirectory() as td:
+        out = Path(td) / "annotated.png"
+        result = plot_phase_map(
+            pm,
+            output_path=out,
+            interface_ranking=_sample_interface_ranking(),
+        )
+        assert out.exists()
+        assert out.stat().st_size > 0
+        assert result["n_edges"] == 2
+
+
+def test_annotation_empty_data():
+    """Empty phase map with annotations does not crash."""
+    result = plot_phase_map(
+        {"nodes": [], "edges": []},
+        interface_ranking={"ranked_interfaces": [],
+                           "strongest_interface": None},
+        transition_summary={"n_transitions": 0, "max_delta_score": 0.0,
+                            "class_change_count": 0, "phase_change_count": 0},
+    )
+    assert result["n_nodes"] == 0
+    assert result["n_edges"] == 0
+
+
+def test_summary_overlay_missing_fields():
+    """Summary overlay tolerates missing keys gracefully."""
+    pm = _sample_phase_map()
+    result = plot_phase_map(
+        pm,
+        transition_summary={},  # all fields missing
+    )
+    assert result["n_nodes"] == 3
+
+
+def test_deterministic_rendering_with_annotations():
+    """Same annotated inputs produce identical layout positions."""
+    nodes = _sample_phase_map()["nodes"]
+    for _ in range(5):
+        assert compute_linear_layout(nodes) == {
+            0: (0.0, 0.0),
+            1: (1.0, 0.0),
+            2: (2.0, 0.0),
+        }
+
+
+def test_interface_ranking_none_strongest():
+    """interface_ranking with strongest_interface=None is safe."""
+    pm = _sample_phase_map()
+    ranking = {"ranked_interfaces": [], "strongest_interface": None}
+    result = plot_phase_map(pm, interface_ranking=ranking)
+    assert result["n_nodes"] == 3
+
+
+def test_plot_saves_png_with_annotations():
+    """Full annotated plot saves to disk correctly."""
+    pm = _sample_phase_map()
+    with tempfile.TemporaryDirectory() as td:
+        out = Path(td) / "full_annotated.png"
+        result = plot_phase_map(
+            pm,
+            output_path=out,
+            interface_ranking=_sample_interface_ranking(),
+            transition_summary=_sample_transition_summary(),
+        )
+        assert out.exists()
+        assert out.stat().st_size > 0
+        assert result["output_path"] == str(out)

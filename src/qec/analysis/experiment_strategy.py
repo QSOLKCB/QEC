@@ -327,6 +327,7 @@ def is_novel(
 def select_experiments(
     candidates: List[Tuple[Tuple[int, ...], float]],
     n: int,
+    bins: Optional[int] = None,
 ) -> List[Tuple[int, ...]]:
     """Select up to N non-adjacent cells by descending priority.
 
@@ -334,6 +335,7 @@ def select_experiments(
     ----------
     candidates : list of (cell_key, priority) pairs
     n : maximum number of experiments to select
+    bins : DEPRECATED — ignored, retained for backward compatibility.
 
     Returns
     -------
@@ -341,6 +343,8 @@ def select_experiments(
 
     Adjacency is determined internally via ``_is_adjacent``.
     """
+    # bins is deprecated and intentionally ignored.
+    _ = bins
     # Sort by priority descending, then by cell_key for determinism.
     sorted_cands = sorted(candidates, key=lambda x: (-x[1], x[0]))
 

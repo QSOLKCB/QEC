@@ -24,6 +24,7 @@ from qec.analysis.attractor_analysis import (
 from qec.analysis.field_metrics import compute_field_metrics
 from qec.analysis.multiscale_metrics import compute_multiscale_summary
 from qec.analysis.strategy_topology import compute_strategy_topology
+from qec.analysis.strategy_transition import select_next_strategy
 
 
 # ---------------------------------------------------------------------------
@@ -178,19 +179,37 @@ def run_experiments() -> Dict[str, Any]:
     """Run the full deterministic metrics & topology probe."""
     inputs = generate_test_inputs()
 
+    strategies = generate_mock_strategies()
+    # Convert mock strategies to dicts for the transition layer
+    strategy_dicts = {
+        sid: {"action_type": s.action_type, "params": dict(s.params)}
+        for sid, s in strategies.items()
+    }
+
     input_results = []
+    prev_strategy = None
+    prev_state = None
     for case in inputs:
         metrics = evaluate_metrics(case["values"])
         classification = classify_state(metrics)
         attractor = analyze_attractors(metrics)
+
+        # Merge attractor into metrics for the transition layer
+        full_metrics = {**metrics, "attractor": attractor}
+        decision = select_next_strategy(
+            full_metrics, strategy_dicts, prev_strategy, prev_state,
+        )
+        prev_strategy = decision["strategy"]
+        prev_state = decision["state"]
+
         input_results.append({
             "name": case["name"],
             "classification": classification,
             "metrics": metrics,
             "attractor": attractor,
+            "decision": decision,
         })
 
-    strategies = generate_mock_strategies()
     topology = analyze_topology(strategies)
 
     return {
@@ -302,6 +321,15 @@ def print_experiment_report(results: Dict[str, Any]) -> None:
             f"  >> {regime} | basin={basin:.2f} | phi={phi_v:.2f}"
             f" | consistency={cons_v:.2f} | curvature={curv_v:.2f}"
         )
+        decision = entry.get("decision")
+        if decision:
+            sel = decision.get("strategy", {})
+            print(f"  strategy:            {sel.get('id', 'n/a')} "
+                  f"(score={sel.get('score', 0.0):.4f})")
+            trans = decision.get("transition")
+            if trans:
+                print(f"  transition:          {trans['from']} -> {trans['to']}"
+                      f" ({trans['change']})")
 
     topo = results["topology"]
     print("\n--- Strategy Topology ---")

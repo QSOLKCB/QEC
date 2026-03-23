@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from qec.experiments.dfa_benchmark import (
     DFA_REGISTRY,
+    DFA_SIZES,
     MODES,
     build_branching_dfa,
     build_chain_dfa,
@@ -203,7 +204,8 @@ class TestSummaryOrdering:
                 run_single_mode(dfa, "chain", 5, mode_name, mode, use_inv)
             )
         summary = summarize(results)
-        assert list(summary.keys()) == sorted(summary.keys())
+        keys = list(summary.keys())
+        assert keys == sorted(keys, key=lambda k: (k[0], str(k[1])))
 
     def test_summary_modes_sorted(self):
         dfa = build_chain_dfa(5)
@@ -213,9 +215,9 @@ class TestSummaryOrdering:
                 run_single_mode(dfa, "chain", 5, mode_name, mode, use_inv)
             )
         summary = summarize(results)
-        for dfa_name in summary:
-            assert list(summary[dfa_name].keys()) == sorted(
-                summary[dfa_name].keys()
+        for key in summary:
+            assert list(summary[key].keys()) == sorted(
+                summary[key].keys()
             )
 
 
@@ -406,5 +408,55 @@ class TestPrintSummary:
         ]
         summary = summarize(results)
         text = print_summary(summary)
-        assert "DFA: chain" in text
+        assert "DFA: chain (n=5)" in text
         assert "comp_eff" in text
+
+    def test_none_size_label(self):
+        dfa = build_two_basin_dfa()
+        results = [
+            run_single_mode(dfa, "two_basin", None, "none", None, False),
+        ]
+        summary = summarize(results)
+        text = print_summary(summary)
+        assert "DFA: two_basin (n=NA)" in text
+
+
+# ---------------------------------------------------------------------------
+# 16. All builders accept n parameter
+# ---------------------------------------------------------------------------
+
+
+class TestBuildersAcceptN:
+    def test_builders_accept_n(self):
+        for name, builder in DFA_REGISTRY.items():
+            dfa = builder(5)
+            assert "states" in dfa
+            assert "transitions" in dfa
+
+
+# ---------------------------------------------------------------------------
+# 17. Summary keys are explicit (dfa_type, n) tuples
+# ---------------------------------------------------------------------------
+
+
+class TestSummaryKeysExplicit:
+    def test_summary_keys_explicit(self):
+        summary = summarize(run_suite())
+        for (dfa_type, n), modes in summary.items():
+            assert isinstance(dfa_type, str)
+            assert n is None or isinstance(n, int)
+            for mode_name, metrics in modes.items():
+                assert isinstance(mode_name, str)
+                assert "compression_efficiency" in metrics
+                assert "stability_efficiency" in metrics
+
+
+# ---------------------------------------------------------------------------
+# 18. None size is handled for fixed-topology DFAs
+# ---------------------------------------------------------------------------
+
+
+class TestNoneSizeHandled:
+    def test_none_size_in_results(self):
+        results = run_suite()
+        assert any(r["n"] is None for r in results)

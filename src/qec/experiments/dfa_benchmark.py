@@ -21,12 +21,13 @@ from qec.experiments.dfa_engine import step
 # ---------------------------------------------------------------------------
 
 
-def build_chain_dfa(n: int) -> Dict[str, Any]:
+def build_chain_dfa(n: Optional[int] = None) -> Dict[str, Any]:
     """Build a linear chain DFA: 0 → 1 → … → n-1 (terminal).
 
     Single alphabet symbol 0 drives the chain forward.
     State n-1 is absorbing (self-loop).
     """
+    assert n is not None, "n must be specified for chain DFA"
     states = list(range(n))
     transitions: Dict[int, Dict[int, int]] = {}
     for s in states:
@@ -42,11 +43,12 @@ def build_chain_dfa(n: int) -> Dict[str, Any]:
     }
 
 
-def build_cycle_dfa(n: int) -> Dict[str, Any]:
+def build_cycle_dfa(n: Optional[int] = None) -> Dict[str, Any]:
     """Build a cycle DFA: 0 → 1 → … → n-1 → 0.
 
     Single alphabet symbol 0 drives around the cycle.
     """
+    assert n is not None, "n must be specified for cycle DFA"
     states = list(range(n))
     transitions: Dict[int, Dict[int, int]] = {}
     for s in states:
@@ -59,13 +61,14 @@ def build_cycle_dfa(n: int) -> Dict[str, Any]:
     }
 
 
-def build_branching_dfa(n: int) -> Dict[str, Any]:
+def build_branching_dfa(n: Optional[int] = None) -> Dict[str, Any]:
     """Build a branching DFA: state 0 branches, paths merge at n-1.
 
     Symbols 0 and 1 available.  State 0 branches to 1 (sym 0) and
     n//2 (sym 1).  All other states chain forward on symbol 0.
     State n-1 is absorbing.
     """
+    assert n is not None, "n must be specified for branching DFA"
     states = list(range(n))
     mid = max(1, n // 2)
     transitions: Dict[int, Dict[int, int]] = {}
@@ -83,11 +86,13 @@ def build_branching_dfa(n: int) -> Dict[str, Any]:
     }
 
 
-def build_two_basin_dfa() -> Dict[str, Any]:
+def build_two_basin_dfa(n: Optional[int] = None) -> Dict[str, Any]:
     """Build a DFA with two attractors (basins).
 
     States 0-2 form basin A (0→1→2→2), states 3-4 form basin B (3→4→4).
     State 0 branches: sym 0 → 1, sym 1 → 3.
+
+    *n* is accepted for API uniformity but ignored (fixed topology).
     """
     return {
         "states": [0, 1, 2, 3, 4],
@@ -103,13 +108,15 @@ def build_two_basin_dfa() -> Dict[str, Any]:
     }
 
 
-def build_dead_state_dfa() -> Dict[str, Any]:
+def build_dead_state_dfa(n: Optional[int] = None) -> Dict[str, Any]:
     """Build a DFA with an absorbing dead state.
 
     States 0-3.  State 3 is absorbing (all transitions self-loop).
     State 0 → 1 (sym 0), 0 → 3 (sym 1).
     State 1 → 2 (sym 0).
     State 2 → 3 (sym 0).
+
+    *n* is accepted for API uniformity but ignored (fixed topology).
     """
     return {
         "states": [0, 1, 2, 3],
@@ -135,6 +142,14 @@ DFA_REGISTRY: Dict[str, Callable] = {
     "branching": build_branching_dfa,
     "two_basin": build_two_basin_dfa,
     "dead_state": build_dead_state_dfa,
+}
+
+DFA_SIZES: Dict[str, List[Optional[int]]] = {
+    "chain": [5, 10],
+    "cycle": [5, 10],
+    "branching": [5, 10],
+    "two_basin": [None],
+    "dead_state": [None],
 }
 
 
@@ -320,11 +335,8 @@ def run_suite() -> List[Dict[str, Any]]:
     """
     results: List[Dict[str, Any]] = []
     for name, builder in sorted(DFA_REGISTRY.items()):
-        for n in [5, 10]:
-            if "n" in builder.__code__.co_varnames:
-                dfa = builder(n)
-            else:
-                dfa = builder()
+        for n in DFA_SIZES[name]:
+            dfa = builder(n)
             for mode_name, mode, use_inv in MODES:
                 results.append(
                     run_single_mode(dfa, name, n, mode_name, mode, use_inv)
@@ -339,44 +351,58 @@ def run_suite() -> List[Dict[str, Any]]:
 
 def summarize(
     results: List[Dict[str, Any]],
-) -> Dict[str, Dict[str, Dict[str, float]]]:
-    """Group results by dfa_name → mode → averaged metrics.
+) -> Dict[Tuple[str, Optional[int]], Dict[str, Dict[str, float]]]:
+    """Group results by (dfa_type, n) → mode → metrics.
 
-    Returns nested dict: {dfa_name: {mode: {metric: value}}}.
+    Returns nested dict: {(dfa_type, n): {mode: {metric: value}}}.
+    Deterministic ordering via sorted keys with str(n) for None stability.
     """
-    grouped: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
-    for r in results:
-        key = r["dfa_name"]
+    sorted_results = sorted(
+        results,
+        key=lambda r: (r["dfa_name"], str(r["n"]), r["mode"]),
+    )
+
+    grouped: Dict[
+        Tuple[str, Optional[int]],
+        Dict[str, List[Dict[str, Any]]],
+    ] = {}
+    for r in sorted_results:
+        key = (r["dfa_name"], r["n"])
         mode = r["mode"]
         grouped.setdefault(key, {}).setdefault(mode, []).append(r["metrics"])
 
-    summary: Dict[str, Dict[str, Dict[str, float]]] = {}
-    for dfa_name in sorted(grouped):
-        summary[dfa_name] = {}
-        for mode in sorted(grouped[dfa_name]):
-            metric_lists = grouped[dfa_name][mode]
+    summary: Dict[
+        Tuple[str, Optional[int]], Dict[str, Dict[str, float]]
+    ] = {}
+    for key in sorted(grouped.keys(), key=lambda k: (k[0], str(k[1]))):
+        summary[key] = {}
+        for mode in sorted(grouped[key]):
+            metric_lists = grouped[key][mode]
             avg: Dict[str, float] = {}
-            for key in ["compression_efficiency", "stability_efficiency"]:
-                vals = [m[key] for m in metric_lists]
-                avg[key] = safe_div(sum(vals), len(vals))
-            summary[dfa_name][mode] = avg
+            for mname in ["compression_efficiency", "stability_efficiency"]:
+                vals = [m[mname] for m in metric_lists]
+                avg[mname] = safe_div(sum(vals), len(vals))
+            summary[key][mode] = avg
     return summary
 
 
 def print_summary(
-    summary: Dict[str, Dict[str, Dict[str, float]]],
+    summary: Dict[Tuple[str, Optional[int]], Dict[str, Dict[str, float]]],
 ) -> str:
     """Format summary as a readable text table.
 
     Returns the formatted string.
     """
     lines: List[str] = []
-    for dfa_name in sorted(summary):
-        lines.append(f"DFA: {dfa_name}")
+    for (dfa_type, n) in sorted(
+        summary.keys(), key=lambda k: (k[0], str(k[1]))
+    ):
+        n_label = "NA" if n is None else str(n)
+        lines.append(f"DFA: {dfa_type} (n={n_label})")
         lines.append(f"{'mode':<12} {'comp_eff':>10} {'stab_eff':>10}")
         lines.append("-" * 34)
-        for mode in sorted(summary[dfa_name]):
-            m = summary[dfa_name][mode]
+        for mode in sorted(summary[(dfa_type, n)]):
+            m = summary[(dfa_type, n)][mode]
             lines.append(
                 f"{mode:<12} {m['compression_efficiency']:>10.4f}"
                 f" {m['stability_efficiency']:>10.4f}"

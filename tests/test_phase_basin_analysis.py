@@ -7,6 +7,7 @@ from qec.experiments.phase_basin_analysis import (
     classify_basins,
     compute_basin_metrics,
     compute_scc,
+    has_self_loop,
     map_states_to_basins,
     run_basin_analysis,
 )
@@ -232,3 +233,55 @@ def test_run_basin_analysis_keys():
     assert "mapping" in result
     assert "n_basins" in result
     assert result["n_basins"] == 2
+
+
+# -- test deterministic component IDs ------------------------------------
+
+
+def test_deterministic_component_ids():
+    """Components are sorted by (canonical_node, size)."""
+    graph = _simple_graph()
+    adj = build_adjacency(graph)
+    scc = compute_scc(adj)
+    components = scc["components"]
+    # Verify IDs are assigned in canonical order.
+    canonical_keys = [(min(c["nodes"]), len(c["nodes"])) for c in components]
+    assert canonical_keys == sorted(canonical_keys)
+    assert [c["id"] for c in components] == list(range(len(components)))
+
+
+# -- test has_self_loop helper -------------------------------------------
+
+
+def test_has_self_loop_true():
+    graph = _simple_graph()
+    assert has_self_loop((2,), graph) is True
+
+
+def test_has_self_loop_false():
+    graph = _simple_graph()
+    assert has_self_loop((0,), graph) is False
+
+
+def test_self_loop_classification_no_loop():
+    """Size-1 component without self-loop → transient_basin, not fixed_point."""
+    graph = _chain_graph()
+    af = _chain_attractor_field()
+    adj = build_adjacency(graph)
+    scc = compute_scc(adj)
+    basins = compute_basin_metrics(scc["components"], graph, af)
+    classifications = classify_basins(basins, graph)
+    for c in classifications:
+        assert c["type"] != "fixed_point"
+
+
+# -- test missing attractor field handling --------------------------------
+
+
+def test_missing_attractor_field_scores():
+    """Nodes absent from attractor field get score 0.0."""
+    graph = _simple_graph()
+    empty_af: dict = {"nodes": []}
+    result = run_basin_analysis(graph, empty_af)
+    for basin in result["basins"]:
+        assert basin["mass"] == 0.0

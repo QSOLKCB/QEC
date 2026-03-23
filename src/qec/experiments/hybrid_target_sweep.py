@@ -21,6 +21,7 @@ import numpy as np
 
 from qec.experiments.phase_spectral_analysis import run_phase_spectral_analysis
 from qec.experiments.phase_syndrome_analysis import run_syndrome_analysis
+from qec.experiments.phase_syndrome_decoder import decode_syndrome_trajectory
 
 from qec.experiments.hybrid_inverse_design import run_hybrid_inverse_design
 
@@ -354,6 +355,10 @@ def run_target_sweep(
     }
     out["spectral_analysis"] = run_phase_spectral_analysis(out["phase_map"])
     out["syndrome_analysis"] = run_syndrome_analysis(results)
+    out["syndrome_decoder"] = decode_syndrome_trajectory(
+        out["syndrome_analysis"]["series"]["encoded"],
+        out["syndrome_analysis"]["transitions"],
+    )
     return out
 
 

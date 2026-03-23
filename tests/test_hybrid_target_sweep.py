@@ -12,6 +12,7 @@ from qec.experiments.hybrid_target_sweep import (
     compare_regimes,
     detect_transitions,
     extract_regimes,
+    rank_regime_interfaces,
     run_target_sweep,
     summarize_transitions,
 )
@@ -221,7 +222,7 @@ class TestTargetSweep:
             pipeline_fn=_fake_pipeline,
             top_k=2,
         )
-        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary", "regimes", "regime_comparisons", "regime_interfaces"}
+        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary", "regimes", "regime_comparisons", "regime_interfaces", "interface_ranking"}
         assert result["n_targets"] == 1
 
         entry = result["results"][0]
@@ -773,3 +774,90 @@ class TestClassifyRegimeInterfaces:
         assert set(ifaces[0].keys()) == expected_keys
         assert ifaces[0]["delta_mean_score"] == 0.3
         assert ifaces[0]["delta_mean_compatibility"] == -0.2
+
+
+# ---------------------------------------------------------------------------
+# Interface ranking tests (v84.3)
+# ---------------------------------------------------------------------------
+
+
+class TestRankRegimeInterfaces:
+    """Tests for v84.3.0 — rank_regime_interfaces."""
+
+    @staticmethod
+    def _iface(delta_score, delta_compat, itype="phase_boundary", fi=0, ti=1):
+        return {
+            "from_index": fi, "to_index": ti,
+            "interface_type": itype,
+            "delta_mean_score": delta_score,
+            "delta_mean_compatibility": delta_compat,
+            "class_shift": False, "phase_shift": True, "structure_shift": False,
+        }
+
+    def test_strength_computed_correctly(self):
+        """strength = abs(delta_mean_score) + abs(delta_mean_compatibility)."""
+        ifaces = [self._iface(0.3, -0.5)]
+        result = rank_regime_interfaces(ifaces)
+        assert result["ranked_interfaces"][0]["strength"] == pytest.approx(0.8)
+
+    def test_ranking_order(self):
+        """Interfaces are ranked by strength descending."""
+        ifaces = [
+            self._iface(0.1, 0.1, fi=0, ti=1),   # strength 0.2
+            self._iface(0.5, -0.3, fi=1, ti=2),   # strength 0.8
+            self._iface(0.2, 0.2, fi=2, ti=3),    # strength 0.4
+        ]
+        result = rank_regime_interfaces(ifaces)
+        strengths = [r["strength"] for r in result["ranked_interfaces"]]
+        assert strengths == [pytest.approx(0.8), pytest.approx(0.4), pytest.approx(0.2)]
+
+    def test_tie_preserves_original_order(self):
+        """Equal-strength interfaces keep their original input order."""
+        ifaces = [
+            self._iface(0.3, 0.2, itype="class_boundary", fi=0, ti=1),
+            self._iface(0.2, 0.3, itype="phase_boundary", fi=1, ti=2),
+        ]
+        result = rank_regime_interfaces(ifaces)
+        ranked = result["ranked_interfaces"]
+        assert ranked[0]["interface_type"] == "class_boundary"
+        assert ranked[1]["interface_type"] == "phase_boundary"
+
+    def test_strongest_interface_correct(self):
+        """strongest_interface is the top-ranked entry."""
+        ifaces = [
+            self._iface(0.1, 0.0, fi=0, ti=1),
+            self._iface(0.9, 0.5, fi=1, ti=2),
+        ]
+        result = rank_regime_interfaces(ifaces)
+        assert result["strongest_interface"] is result["ranked_interfaces"][0]
+        assert result["strongest_interface"]["strength"] == pytest.approx(1.4)
+
+    def test_empty_input(self):
+        """Empty input → empty ranking + None strongest."""
+        result = rank_regime_interfaces([])
+        assert result["ranked_interfaces"] == []
+        assert result["strongest_interface"] is None
+
+    def test_deterministic_output(self):
+        """rank_regime_interfaces is deterministic across calls."""
+        ifaces = [
+            self._iface(0.3, -0.1, fi=0, ti=1),
+            self._iface(0.7, 0.2, fi=1, ti=2),
+        ]
+        assert rank_regime_interfaces(ifaces) == rank_regime_interfaces(ifaces)
+
+    def test_negative_deltas_use_absolute_value(self):
+        """Strength uses absolute values of both deltas."""
+        ifaces = [self._iface(-0.4, -0.6)]
+        result = rank_regime_interfaces(ifaces)
+        assert result["ranked_interfaces"][0]["strength"] == pytest.approx(1.0)
+
+    def test_original_fields_preserved(self):
+        """Ranked entries retain all original interface fields plus strength."""
+        ifaces = [self._iface(0.3, 0.2, itype="strong_boundary")]
+        result = rank_regime_interfaces(ifaces)
+        entry = result["ranked_interfaces"][0]
+        assert entry["interface_type"] == "strong_boundary"
+        assert "delta_mean_score" in entry
+        assert "delta_mean_compatibility" in entry
+        assert "strength" in entry

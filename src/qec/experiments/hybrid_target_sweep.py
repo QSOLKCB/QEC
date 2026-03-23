@@ -200,6 +200,30 @@ def classify_regime_interfaces(
     return interfaces
 
 
+def rank_regime_interfaces(
+    regime_interfaces: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Score and rank interfaces by boundary strength.
+
+    Strength = abs(delta_mean_score) + abs(delta_mean_compatibility).
+    Returns ranked list (descending strength, stable tie-break) and strongest.
+
+    Pure post-processing — no side effects, no randomness.
+    """
+    scored: List[Dict[str, Any]] = []
+    for iface in regime_interfaces:
+        entry = dict(iface)
+        entry["strength"] = (
+            abs(iface["delta_mean_score"]) + abs(iface["delta_mean_compatibility"])
+        )
+        scored.append(entry)
+    ranked = sorted(scored, key=lambda x: x["strength"], reverse=True)
+    return {
+        "ranked_interfaces": ranked,
+        "strongest_interface": ranked[0] if ranked else None,
+    }
+
+
 def run_target_sweep(
     targets: List[Union[str, Dict[str, Any]]],
     theta_grid: List[List[float]],
@@ -257,6 +281,7 @@ def run_target_sweep(
     transitions = detect_transitions(results)
     regimes = extract_regimes(results, transitions)
     regime_comparisons = compare_regimes(regimes)
+    regime_interfaces = classify_regime_interfaces(regime_comparisons)
     return {
         "n_targets": len(results),
         "targets": [r["target_spec"] for r in results],
@@ -265,5 +290,6 @@ def run_target_sweep(
         "transition_summary": summarize_transitions(transitions),
         "regimes": regimes,
         "regime_comparisons": regime_comparisons,
-        "regime_interfaces": classify_regime_interfaces(regime_comparisons),
+        "regime_interfaces": regime_interfaces,
+        "interface_ranking": rank_regime_interfaces(regime_interfaces),
     }

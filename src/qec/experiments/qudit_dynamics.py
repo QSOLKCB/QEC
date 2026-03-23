@@ -271,6 +271,29 @@ def analyze_syndrome_evolution(
 # ---------------------------------------------------------------------------
 
 
+def measure_corrected_states(
+    states: List[np.ndarray], stabilizer_code: Any
+) -> List[Dict[str, Any]]:
+    """Re-measure stabilizers on corrected state vectors.
+
+    Args:
+        states: corrected qudit state vectors.
+        stabilizer_code: QuditStabilizerCode instance.
+
+    Returns:
+        List of dicts with "values" and "syndrome" keys.
+    """
+    corrected_measurements: List[Dict[str, Any]] = []
+    for s in states:
+        vals = stabilizer_code.measure_stabilizers(s)
+        synd = stabilizer_code.syndromes(s)
+        corrected_measurements.append({
+            "values": vals,
+            "syndrome": synd,
+        })
+    return corrected_measurements
+
+
 def compress_syndrome(syndrome: np.ndarray) -> str:
     """Deterministic string signature for a syndrome vector.
 
@@ -349,6 +372,8 @@ def run_qudit_dynamics(
 
     syndrome_analysis = analyze_syndrome_evolution(qudit_result["syndromes"])
 
+    stabilizer_metadata = build_stabilizer_metadata(stabilizer_code)
+
     result: Dict[str, Any] = {
         "trajectory": trajectory,
         "qudit": qudit_result,
@@ -362,45 +387,24 @@ def run_qudit_dynamics(
             compress_syndrome(s) for s in qudit_result["syndromes"]
         ]
 
-    # v91.1.0 — geometric correction (optional).
+    # v92.1.0 — lattice-projection correction with re-measurement.
     if correction_mode is not None:
-        from qec.experiments.qudit_geometric_correction import (
-            correct_trajectory_states,
+        corrected_states: List[np.ndarray] = []
+        deltas: List[float] = []
+        for s in qudit_result["states"]:
+            c, delta = apply_correction(s, correction_mode)
+            corrected_states.append(c)
+            deltas.append(delta)
+
+        corrected_measurements = measure_corrected_states(
+            corrected_states, stabilizer_code
         )
+        corrected_syndromes = [m["syndrome"] for m in corrected_measurements]
 
-        corrected_states = correct_trajectory_states(
-            qudit_result["states"], correction_mode=correction_mode,
-        )
-
-        # Re-measure on corrected states.
-        corrected_syndromes: List[np.ndarray] = []
-        for cstate in corrected_states:
-            synd = stabilizer_code.syndromes(cstate)
-            corrected_syndromes.append(synd.copy())
-
-        result["corrected"] = {
-            "states": corrected_states,
-            "syndromes": corrected_syndromes,
-        }
-
-        # Correction effect metrics.
-        original_synds = qudit_result["syndromes"]
-        syndrome_changes = 0
-        for orig_s, corr_s in zip(original_synds, corrected_syndromes):
-            if not np.array_equal(orig_s, corr_s):
-                syndrome_changes += 1
-
-        unique_before = len(set(
-            tuple(int(x) for x in s) for s in original_synds
-        ))
-        unique_after = len(set(
-            tuple(int(x) for x in s) for s in corrected_syndromes
-        ))
-
-        result["correction_effect"] = {
-            "syndrome_changes": syndrome_changes,
-            "unique_before": unique_before,
-            "unique_after": unique_after,
+        result["correction"] = {
+            "mode": correction_mode,
+            "mean_delta": float(np.mean(deltas)) if deltas else 0.0,
+            "corrected_syndromes": corrected_syndromes,
         }
 
     return result

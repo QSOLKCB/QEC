@@ -13,6 +13,11 @@ Covers:
   10. Invalid mode raises ValueError
   11. Metrics structure
   12. Zero vector handling
+  13. Re-measurement produces corrected_syndromes
+  14. Re-measurement determinism
+  15. Identity correction (mode=None) produces no syndrome changes
+  16. Correction has effect (mode="d4", non-crash)
+  17. No mutation of original states through experiment
 """
 
 import copy
@@ -31,6 +36,7 @@ from qec.experiments.correction_layer import (
     project_square,
     run_correction_experiment,
 )
+from qec.experiments.qudit_dynamics import measure_corrected_states
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +59,28 @@ def _sample_syndromes():
         np.array([1, 0]),
         np.array([0, 1]),
     ]
+
+
+class _MockStabilizerCode:
+    """Minimal stabilizer code mock for testing re-measurement.
+
+    Syndrome is deterministic: each element is
+    round(abs(state_vec[i])) mod 2 for the first ``n_generators``
+    components.
+    """
+
+    def __init__(self, n_generators: int = 2):
+        self._n = n_generators
+
+    def measure_stabilizers(self, state: np.ndarray) -> list:
+        return [complex(state[i]) if i < len(state) else 0.0
+                for i in range(self._n)]
+
+    def syndromes(self, state: np.ndarray) -> np.ndarray:
+        synd = np.zeros(self._n, dtype=int)
+        for i in range(min(self._n, len(state))):
+            synd[i] = int(round(abs(state[i]))) % 2
+        return synd
 
 
 # ---------------------------------------------------------------------------
@@ -151,9 +179,9 @@ class TestIdenticalIO:
 class TestExperimentRunner:
     def test_all_modes(self):
         states = [s.astype(np.complex128) for s in _sample_states()]
-        syns = _sample_syndromes()
+        code = _MockStabilizerCode(n_generators=2)
         for mode in [None, "square", "d4"]:
-            result = run_correction_experiment(states, syns, mode)
+            result = run_correction_experiment(states, code, mode)
             assert result["mode"] == mode
             assert "metrics" in result
             m = result["metrics"]
@@ -163,7 +191,8 @@ class TestExperimentRunner:
             assert "mean_delta" in m
 
     def test_empty_inputs(self):
-        result = run_correction_experiment([], [], "square")
+        code = _MockStabilizerCode(n_generators=2)
+        result = run_correction_experiment([], code, "square")
         assert result["mode"] == "square"
         assert result["metrics"]["mean_delta"] == 0.0
 
@@ -181,9 +210,9 @@ class TestNoMutation:
 
     def test_experiment_no_mutation(self):
         states = [s.astype(np.complex128) for s in _sample_states()]
-        syns = _sample_syndromes()
+        code = _MockStabilizerCode(n_generators=2)
         originals = [s.copy() for s in states]
-        run_correction_experiment(states, syns, "d4")
+        run_correction_experiment(states, code, "d4")
         for orig, curr in zip(originals, states):
             np.testing.assert_array_equal(orig, curr)
 
@@ -253,3 +282,103 @@ class TestZeroVector:
         c, d = apply_correction(s, "square")
         # Zero projects to zero; norm is 0, so no normalization.
         np.testing.assert_array_equal(c, np.array([0.0, 0.0, 0.0]))
+
+
+# ---------------------------------------------------------------------------
+# 13. Re-measurement produces corrected_syndromes
+# ---------------------------------------------------------------------------
+
+class TestReMeasurement:
+    def test_corrected_syndromes_exist(self):
+        """Re-measurement returns syndromes with same length as input."""
+        states = [s.astype(np.complex128) for s in _sample_states()]
+        code = _MockStabilizerCode(n_generators=2)
+        measurements = measure_corrected_states(states, code)
+        assert len(measurements) == len(states)
+        for m in measurements:
+            assert "values" in m
+            assert "syndrome" in m
+            assert len(m["syndrome"]) == 2
+
+    def test_corrected_syndromes_same_length_as_original(self):
+        """After correction + re-measure, syndrome count matches."""
+        states = [s.astype(np.complex128) for s in _sample_states()]
+        code = _MockStabilizerCode(n_generators=2)
+        corrected = []
+        for s in states:
+            c, _ = apply_correction(s, "d4")
+            corrected.append(c)
+        measurements = measure_corrected_states(corrected, code)
+        assert len(measurements) == len(states)
+
+
+# ---------------------------------------------------------------------------
+# 14. Re-measurement determinism
+# ---------------------------------------------------------------------------
+
+class TestReMeasurementDeterminism:
+    def test_deterministic_remeasure(self):
+        """Two identical runs produce byte-identical results."""
+        states = [s.astype(np.complex128) for s in _sample_states()]
+        code = _MockStabilizerCode(n_generators=2)
+
+        corrected = []
+        for s in states:
+            c, _ = apply_correction(s, "square")
+            corrected.append(c)
+
+        m1 = measure_corrected_states(corrected, code)
+        m2 = measure_corrected_states(corrected, code)
+
+        for a, b in zip(m1, m2):
+            np.testing.assert_array_equal(a["syndrome"], b["syndrome"])
+
+
+# ---------------------------------------------------------------------------
+# 15. Identity correction — no syndrome changes
+# ---------------------------------------------------------------------------
+
+class TestIdentityCorrection:
+    def test_mode_none_no_syndrome_changes(self):
+        """mode=None correction should not change syndromes for normalized states."""
+        # Use already-normalized states so identity projection + normalize = no-op.
+        states = [
+            np.array([1.0, 0.0, 0.0], dtype=np.complex128),
+            np.array([0.0, 1.0, 0.0], dtype=np.complex128),
+            np.array([0.0, 0.0, 1.0], dtype=np.complex128),
+        ]
+        code = _MockStabilizerCode(n_generators=2)
+        result = run_correction_experiment(states, code, None)
+        assert result["metrics"]["syndrome_changes"] == 0
+
+
+# ---------------------------------------------------------------------------
+# 16. Correction has effect (mode="d4", non-crash)
+# ---------------------------------------------------------------------------
+
+class TestCorrectionHasEffect:
+    def test_d4_experiment_runs(self):
+        """mode='d4' runs without error and produces valid metrics."""
+        states = [s.astype(np.complex128) for s in _sample_states()]
+        code = _MockStabilizerCode(n_generators=2)
+        result = run_correction_experiment(states, code, "d4")
+        m = result["metrics"]
+        assert m["syndrome_changes"] >= 0
+        assert m["unique_before"] >= 1
+        assert m["unique_after"] >= 1
+        assert m["mean_delta"] >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# 17. No mutation through experiment pipeline
+# ---------------------------------------------------------------------------
+
+class TestNoMutationPipeline:
+    def test_original_states_unchanged_after_remeasure(self):
+        """Original states must not be mutated by measure_corrected_states."""
+        states = [s.astype(np.complex128) for s in _sample_states()]
+        originals = [s.copy() for s in states]
+        code = _MockStabilizerCode(n_generators=2)
+        measure_corrected_states(states, code)
+        for orig, curr in zip(originals, states):
+            np.testing.assert_array_equal(orig, curr)

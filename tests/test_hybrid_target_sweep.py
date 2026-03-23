@@ -223,7 +223,7 @@ class TestTargetSweep:
             pipeline_fn=_fake_pipeline,
             top_k=2,
         )
-        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary", "regimes", "regime_comparisons", "regime_interfaces", "interface_ranking", "phase_map"}
+        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary", "regimes", "regime_comparisons", "regime_interfaces", "interface_ranking", "phase_map", "spectral_analysis", "syndrome_analysis", "syndrome_decoder"}
         assert result["n_targets"] == 1
 
         entry = result["results"][0]

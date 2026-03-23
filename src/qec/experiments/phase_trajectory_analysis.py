@@ -11,6 +11,7 @@ import numpy as np
 
 from .phase_spectral_analysis import run_phase_spectral_analysis
 from .phase_syndrome_analysis import run_syndrome_analysis
+from .phase_syndrome_decoder import decode_syndrome_trajectory
 
 
 # -- per-step helpers ------------------------------------------------
@@ -130,4 +131,8 @@ def run_phase_trajectory_analysis(
         "temporal_transitions": transitions,
         "trajectory_type": trajectory_type,
         "syndrome_analysis": syndrome_analysis,
+        "syndrome_decoder": decode_syndrome_trajectory(
+            syndrome_analysis["series"]["encoded"],
+            syndrome_analysis["transitions"],
+        ),
     }

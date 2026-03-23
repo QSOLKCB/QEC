@@ -17,6 +17,8 @@ No mutation of inputs. No randomness. No probabilistic scoring.
 
 from typing import Any, Dict, List, Optional
 
+import numpy as np
+
 
 # ---------------------------------------------------------------------------
 # PART 1 — INPUT NORMALIZATION
@@ -308,6 +310,129 @@ def invariant_conflict_dissipation(
 
 
 # ---------------------------------------------------------------------------
+# PART 5b — LOOP TWIST SCORE
+# ---------------------------------------------------------------------------
+
+
+def compute_loop_twist(
+    states_before: List[str],
+    states_after: List[str],
+) -> Dict[str, Any]:
+    """Detect orientation-flipping loops in correction traces.
+
+    A twist occurs when consecutive transitions form an A->B, B->A loop
+    BUT the state_after at the return differs from the original state_before,
+    indicating the system returned to the same label but through a different
+    representational path (partial mismatch in surrounding context).
+
+    Specifically: at positions i and i+1, if before[i]==after[i+1] and
+    after[i]==before[i+1] (oscillation pattern) AND additionally
+    after[i+1] != before[i+1] (the return state differs from its input),
+    that is a twist.
+
+    Returns:
+        {"twist_count": int, "twist_ratio": float}
+    """
+    if not states_before or not states_after:
+        return {"twist_count": 0, "twist_ratio": 0.0}
+
+    n = min(len(states_before), len(states_after))
+    if n < 2:
+        return {"twist_count": 0, "twist_ratio": 0.0}
+
+    twist_count = 0
+    for i in range(n - 1):
+        a_before = states_before[i]
+        a_after = states_after[i]
+        b_before = states_before[i + 1]
+        b_after = states_after[i + 1]
+        # Oscillation: A->B then B->A pattern
+        if a_before == b_after and a_after == b_before:
+            # Twist: the return destination differs from its own input
+            if b_after != b_before:
+                twist_count += 1
+
+    max_possible = max(n - 1, 1)
+    return {
+        "twist_count": twist_count,
+        "twist_ratio": twist_count / max_possible,
+    }
+
+
+# ---------------------------------------------------------------------------
+# PART 5c — NONLOCAL INFLUENCE SCORE
+# ---------------------------------------------------------------------------
+
+
+def compute_nonlocal_influence(
+    states_before: List[str],
+    states_after: List[str],
+) -> Dict[str, Any]:
+    """Detect indirect (nonlocal) effects in correction traces.
+
+    A nonlocal event occurs when a state changes (before != after) without
+    a direct local cause — approximated by the previous step having no
+    change (states_before[i-1] == states_after[i-1]) while the current
+    step does change.
+
+    Returns:
+        {"nonlocal_events": int, "nonlocal_ratio": float}
+    """
+    if not states_before or not states_after:
+        return {"nonlocal_events": 0, "nonlocal_ratio": 0.0}
+
+    n = min(len(states_before), len(states_after))
+    if n < 2:
+        return {"nonlocal_events": 0, "nonlocal_ratio": 0.0}
+
+    nonlocal_events = 0
+    for i in range(1, n):
+        prev_unchanged = (states_before[i - 1] == states_after[i - 1])
+        curr_changed = (states_before[i] != states_after[i])
+        if prev_unchanged and curr_changed:
+            nonlocal_events += 1
+
+    max_possible = max(n - 1, 1)
+    return {
+        "nonlocal_events": nonlocal_events,
+        "nonlocal_ratio": nonlocal_events / max_possible,
+    }
+
+
+# ---------------------------------------------------------------------------
+# PART 5d — CORRECTION ACCELERATION
+# ---------------------------------------------------------------------------
+
+
+def compute_acceleration(
+    projection_distances: List[float],
+) -> Dict[str, Any]:
+    """Compute correction acceleration from projection distances.
+
+    Acceleration measures how rapidly the correction effort changes between
+    consecutive steps: mean of |delta| where delta is the difference between
+    consecutive projection distances.
+
+    Returns:
+        {"mean_delta": float, "acceleration_score": float}
+    """
+    if len(projection_distances) < 2:
+        return {"mean_delta": 0.0, "acceleration_score": 0.0}
+
+    dists = np.asarray(projection_distances, dtype=np.float64)
+    deltas = np.abs(np.diff(dists))
+    mean_delta = float(np.mean(deltas))
+
+    # Normalize to [0, 1] range: cap at 2.0 for scoring.
+    acceleration_score = min(mean_delta, 2.0) / 2.0
+
+    return {
+        "mean_delta": mean_delta,
+        "acceleration_score": acceleration_score,
+    }
+
+
+# ---------------------------------------------------------------------------
 # PART 6 — TOTAL FRICTION SCORE
 # ---------------------------------------------------------------------------
 
@@ -362,6 +487,11 @@ def compute_friction_score(
         + conflict["conflict_penalty"]
     )
 
+    # Extended metrics (additive, do not alter friction_score).
+    twist = compute_loop_twist(states_before, states_after)
+    nonlocal_inf = compute_nonlocal_influence(states_before, states_after)
+    accel = compute_acceleration(proj_dists)
+
     return {
         "friction_score": friction,
         "components": {
@@ -371,6 +501,11 @@ def compute_friction_score(
             "churn": churn_normalized,
             "conflict": conflict["conflict_penalty"],
         },
+        "extended_components": {
+            "twist": twist,
+            "nonlocal": nonlocal_inf,
+            "acceleration": accel,
+        },
     }
 
 
@@ -379,20 +514,46 @@ def compute_friction_score(
 # ---------------------------------------------------------------------------
 
 
-def classify_dynamics(friction_score: float) -> str:
+def classify_dynamics(
+    friction_score: float,
+    extended_components: Optional[Dict[str, Any]] = None,
+) -> str:
     """Label correction dynamics regime.
 
-    Rules:
+    Base rules:
         < 1.0  -> "stable"
         1.0-2.5 -> "adaptive"
         >= 2.5  -> "frictional"
+
+    Extended labels (appended with '+' separator):
+        twist_ratio > 0.3   -> "+twisted"
+        nonlocal_ratio > 0.3 -> "+nonlocal"
+        acceleration_score high (> 0.3) -> "+accelerated"
     """
     if friction_score < 1.0:
-        return "stable"
+        base = "stable"
     elif friction_score <= 2.5:
-        return "adaptive"
+        base = "adaptive"
     else:
-        return "frictional"
+        base = "frictional"
+
+    if extended_components is None:
+        return base
+
+    labels = [base]
+    twist = extended_components.get("twist", {})
+    if twist.get("twist_ratio", 0.0) > 0.3:
+        labels.append("twisted")
+
+    nonlocal_inf = extended_components.get("nonlocal", {})
+    if nonlocal_inf.get("nonlocal_ratio", 0.0) > 0.3:
+        labels.append("nonlocal")
+
+    accel = extended_components.get("acceleration", {})
+    if accel.get("acceleration_score", 0.0) > 0.3:
+        labels.append("accelerated")
+
+    return "+".join(labels)
 
 
 # ---------------------------------------------------------------------------
@@ -429,7 +590,8 @@ def run_correction_dynamics(
         friction = compute_friction_score(
             trace, interaction_data, invariants,
         )
-        regime = classify_dynamics(friction["friction_score"])
+        extended = friction.get("extended_components", {})
+        regime = classify_dynamics(friction["friction_score"], extended)
 
         results.append({
             "dfa_type": trace["dfa_type"],
@@ -437,6 +599,7 @@ def run_correction_dynamics(
             "friction_score": friction["friction_score"],
             "regime": regime,
             "components": friction["components"],
+            "extended": extended,
         })
 
     return {"results": results}
@@ -465,6 +628,15 @@ def print_dynamics_report(report: Dict[str, Any]) -> str:
         for comp_name in sorted(result.get("components", {}).keys()):
             val = result["components"][comp_name]
             lines.append(f"    {comp_name}: {val:.1f}")
+        extended = result.get("extended", {})
+        if extended:
+            lines.append("  extended:")
+            twist = extended.get("twist", {})
+            lines.append(f"    twist: {twist.get('twist_ratio', 0.0):.2f}")
+            nonlocal_inf = extended.get("nonlocal", {})
+            lines.append(f"    nonlocal: {nonlocal_inf.get('nonlocal_ratio', 0.0):.2f}")
+            accel = extended.get("acceleration", {})
+            lines.append(f"    acceleration: {accel.get('acceleration_score', 0.0):.2f}")
         lines.append("---")
 
     return "\n".join(lines)

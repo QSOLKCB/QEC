@@ -1,11 +1,21 @@
-"""Stable analysis package exports."""
+"""Stable analysis package exports.
 
-from .api import *  # noqa: F401,F403
-from .spectral_diversity_memory import SpectralDiversityConfig, SpectralDiversityMemory
-from .spectral_landscape_memory import SpectralLandscapeMemory
-from .spectral_frustration import SpectralFrustrationAnalyzer
-from .spectral_signature import SpectralSignature
-from .trap_memory import TrapMemoryConfig, TrapSubspaceMemory
+Lazy-loading: heavy submodule imports are deferred to attribute access so
+that importing lightweight analysis modules (e.g. attractor_analysis,
+field_metrics) does not trigger optional or heavy transitive dependencies.
+"""
+
+import importlib as _importlib
+
+_LAZY_IMPORTS: dict[str, tuple[str, str]] = {
+    "SpectralDiversityConfig": (".spectral_diversity_memory", "SpectralDiversityConfig"),
+    "SpectralDiversityMemory": (".spectral_diversity_memory", "SpectralDiversityMemory"),
+    "SpectralLandscapeMemory": (".spectral_landscape_memory", "SpectralLandscapeMemory"),
+    "SpectralFrustrationAnalyzer": (".spectral_frustration", "SpectralFrustrationAnalyzer"),
+    "SpectralSignature": (".spectral_signature", "SpectralSignature"),
+    "TrapMemoryConfig": (".trap_memory", "TrapMemoryConfig"),
+    "TrapSubspaceMemory": (".trap_memory", "TrapSubspaceMemory"),
+}
 
 __all__ = [
     "SpectralDiversityConfig",
@@ -16,3 +26,23 @@ __all__ = [
     "TrapMemoryConfig",
     "TrapSubspaceMemory",
 ]
+
+
+def __getattr__(name: str):
+    if name in _LAZY_IMPORTS:
+        submod, attr = _LAZY_IMPORTS[name]
+        module = _importlib.import_module(submod, __name__)
+        value = getattr(module, attr)
+        globals()[name] = value
+        return value
+    # Fall back to api module for all other public names
+    try:
+        api = _importlib.import_module(".api", __name__)
+    except ImportError:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    try:
+        value = getattr(api, name)
+    except AttributeError:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    globals()[name] = value
+    return value

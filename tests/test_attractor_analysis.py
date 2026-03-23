@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import copy
+import importlib
+import sys
 
 import pytest
 
@@ -14,6 +16,23 @@ from qec.analysis.attractor_analysis import (
     detect_transition,
     extract_signals,
 )
+
+
+# ---------------------------------------------------------------------------
+# Import safety
+# ---------------------------------------------------------------------------
+
+
+def test_import_attractor_analysis_does_not_raise():
+    """Importing attractor_analysis must succeed without optional deps."""
+    mod = importlib.import_module("qec.analysis.attractor_analysis")
+    assert hasattr(mod, "analyze_attractors")
+
+
+def test_import_does_not_pull_cffi():
+    """Importing attractor_analysis must not transitively load _cffi_backend."""
+    importlib.import_module("qec.analysis.attractor_analysis")
+    assert "_cffi_backend" not in sys.modules
 
 
 # ---------------------------------------------------------------------------

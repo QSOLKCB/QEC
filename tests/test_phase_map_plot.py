@@ -1,4 +1,4 @@
-"""Tests for v85.1.0 — phase map visualization with annotations."""
+"""Tests for v85.2.0 — phase map visualization with layout refinements."""
 
 from __future__ import annotations
 
@@ -56,7 +56,8 @@ def test_layout_order_independent():
 def test_layout_positions():
     nodes = [{"id": 0}, {"id": 1}, {"id": 2}]
     layout = compute_linear_layout(nodes)
-    assert layout == {0: (0.0, 0.0), 1: (1.0, 0.0), 2: (2.0, 0.0)}
+    # v85.2: x spacing = 1.5, y alternates -0.1 / +0.1
+    assert layout == {0: (0.0, -0.1), 1: (1.5, 0.1), 2: (3.0, -0.1)}
 
 
 # ── plot result counts ───────────────────────────────────────────────
@@ -106,12 +107,9 @@ def test_unknown_class_and_phase():
 
 def test_same_input_same_coords():
     nodes = _sample_phase_map()["nodes"]
+    expected = {0: (0.0, -0.1), 1: (1.5, 0.1), 2: (3.0, -0.1)}
     for _ in range(5):
-        assert compute_linear_layout(nodes) == {
-            0: (0.0, 0.0),
-            1: (1.0, 0.0),
-            2: (2.0, 0.0),
-        }
+        assert compute_linear_layout(nodes) == expected
 
 
 # ── edge with unknown type ───────────────────────────────────────────
@@ -211,12 +209,9 @@ def test_summary_overlay_missing_fields():
 def test_deterministic_rendering_with_annotations():
     """Same annotated inputs produce identical layout positions."""
     nodes = _sample_phase_map()["nodes"]
+    expected = {0: (0.0, -0.1), 1: (1.5, 0.1), 2: (3.0, -0.1)}
     for _ in range(5):
-        assert compute_linear_layout(nodes) == {
-            0: (0.0, 0.0),
-            1: (1.0, 0.0),
-            2: (2.0, 0.0),
-        }
+        assert compute_linear_layout(nodes) == expected
 
 
 def test_interface_ranking_none_strongest():
@@ -241,3 +236,62 @@ def test_plot_saves_png_with_annotations():
         assert out.exists()
         assert out.stat().st_size > 0
         assert result["output_path"] == str(out)
+
+
+# ── v85.2.0 — layout refinement tests ───────────────────────────────
+
+
+def test_vertical_offsets_alternate():
+    """Node y-coordinates alternate between -0.1 and +0.1."""
+    nodes = [{"id": i} for i in range(6)]
+    layout = compute_linear_layout(nodes)
+    for i in range(6):
+        expected_y = ((i % 2) * 2 - 1) * 0.1
+        assert layout[i][1] == pytest.approx(expected_y)
+
+
+def test_node_x_spacing():
+    """Nodes are spaced at x = index * 1.5."""
+    nodes = [{"id": i} for i in range(4)]
+    layout = compute_linear_layout(nodes)
+    for i in range(4):
+        assert layout[i][0] == pytest.approx(i * 1.5)
+
+
+def test_single_node_layout():
+    """Single-node map produces valid layout without error."""
+    pm = {"nodes": [{"id": 0, "dominant_class": "stable"}], "edges": []}
+    result = plot_phase_map(pm)
+    assert result["n_nodes"] == 1
+    layout = compute_linear_layout(pm["nodes"])
+    assert layout == {0: (0.0, -0.1)}
+
+
+def test_curved_edges_render():
+    """Curved edges render without error and produce a valid plot."""
+    pm = _sample_phase_map()
+    with tempfile.TemporaryDirectory() as td:
+        out = Path(td) / "curved.png"
+        result = plot_phase_map(pm, output_path=out)
+        assert out.exists()
+        assert out.stat().st_size > 0
+        assert result["n_edges"] == 2
+
+
+def test_multiple_edges_same_pair():
+    """Multiple edges between the same node pair render without error."""
+    pm = {
+        "nodes": [{"id": 0}, {"id": 1}],
+        "edges": [
+            {"source": 0, "target": 1, "type": "phase_boundary", "weight": 0.5},
+            {"source": 0, "target": 1, "type": "class_boundary", "weight": 0.3},
+        ],
+    }
+    result = plot_phase_map(pm)
+    assert result["n_edges"] == 2
+
+
+def test_layout_empty_nodes():
+    """Empty node list returns empty layout."""
+    layout = compute_linear_layout([])
+    assert layout == {}

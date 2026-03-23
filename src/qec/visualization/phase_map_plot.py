@@ -1,20 +1,26 @@
-"""v85.1.0 — Deterministic phase map visualization.
+"""v85.2.0 — Deterministic phase map visualization.
 
 Converts a phase_map (nodes + edges) into a publication-quality static
 figure using only matplotlib.  Same input always produces identical layout.
 
 v85.1.0 adds annotated overlays: dominant-boundary emphasis, node labels,
 transition summary box, and a deterministic legend.
+
+v85.2.0 refines layout: alternating vertical node offsets, deterministic
+edge curvature for separation, and wider node spacing.
 """
 
 from __future__ import annotations
 
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib
 matplotlib.use("Agg")  # non-interactive, deterministic backend
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.patches import PathPatch  # noqa: E402
+from matplotlib.path import Path as MplPath  # noqa: E402
 
 
 # ── node styling ──────────────────────────────────────────────────────
@@ -53,9 +59,18 @@ _DEFAULT_EDGE_COLOR = "gray"
 def compute_linear_layout(
     nodes: List[Dict[str, Any]],
 ) -> Dict[int, Tuple[float, float]]:
-    """Place nodes along the x-axis in order of *id*, y = 0."""
+    """Place nodes with wider spacing and alternating vertical offsets.
+
+    x = index * 1.5 for readability.
+    y alternates between +0.1 and -0.1 to reduce label/edge overlap.
+    """
     sorted_nodes = sorted(nodes, key=lambda n: n["id"])
-    return {n["id"]: (float(i), 0.0) for i, n in enumerate(sorted_nodes)}
+    layout: Dict[int, Tuple[float, float]] = {}
+    for i, n in enumerate(sorted_nodes):
+        x = float(i) * 1.5
+        y = ((i % 2) * 2 - 1) * 0.1
+        layout[n["id"]] = (x, y)
+    return layout
 
 
 # ── weight scaling ────────────────────────────────────────────────────
@@ -64,6 +79,33 @@ def _scale_linewidth(weight: float, max_weight: float) -> float:
     if max_weight <= 0.0:
         return 1.0
     return 1.0 + 3.0 * (weight / max_weight)
+
+
+def _draw_curved_edge(
+    ax: Any,
+    x0: float, y0: float,
+    x1: float, y1: float,
+    color: str,
+    linewidth: float,
+    edge_index: int,
+    source: int,
+) -> None:
+    """Draw a deterministic quadratic Bezier curve between two points."""
+    mid_x = (x0 + x1) / 2.0
+    mid_y = (y0 + y1) / 2.0
+    curve_height = 0.1 + 0.1 * abs(x1 - x0) / 1.5
+    curve_height += 0.05 * edge_index  # separate parallel edges
+    direction = 1.0 if (source % 2 == 0) else -1.0
+    ctrl_y = mid_y + direction * curve_height
+
+    verts = [(x0, y0), (mid_x, ctrl_y), (x1, y1)]
+    codes = [MplPath.MOVETO, MplPath.CURVE3, MplPath.CURVE3]
+    path = MplPath(verts, codes)
+    patch = PathPatch(
+        path, facecolor="none", edgecolor=color,
+        linewidth=linewidth, zorder=1,
+    )
+    ax.add_patch(patch)
 
 
 # ── main plot ─────────────────────────────────────────────────────────
@@ -161,6 +203,9 @@ def plot_phase_map(
     # ── edges (drawn first so nodes overlay) ──────────────────────────
     max_weight = max((e.get("weight", 1.0) for e in edges), default=0.0)
 
+    # Count edges per node-pair for deterministic separation
+    edge_pair_counter: Dict[Tuple[int, int], int] = defaultdict(int)
+
     for edge in edges:
         src = edge.get("source")
         tgt = edge.get("target")
@@ -174,7 +219,10 @@ def plot_phase_map(
         # emphasise strongest interface
         if strongest_key == (src, tgt) or strongest_key == (tgt, src):
             lw += 2.0
-        ax.plot([x0, x1], [y0, y1], color=color, linewidth=lw, zorder=1)
+        pair_key = (min(src, tgt), max(src, tgt))
+        ei = edge_pair_counter[pair_key]
+        edge_pair_counter[pair_key] += 1
+        _draw_curved_edge(ax, x0, y0, x1, y1, color, lw, ei, src)
 
     # ── nodes ─────────────────────────────────────────────────────────
     for node in nodes:
@@ -199,8 +247,10 @@ def plot_phase_map(
         node_range = node.get("range")
         if node_range is not None:
             label = f"{nid} [{node_range[0]}-{node_range[1]}]"
+        label_offset = 12 if y >= 0 else -14
         ax.annotate(label, (x, y), textcoords="offset points",
-                    xytext=(0, 10), ha="center", fontsize=7)
+                    xytext=(0, label_offset), ha="center", fontsize=7,
+                    va="bottom" if y >= 0 else "top")
 
     # ── summary overlay ───────────────────────────────────────────────
     if transition_summary is not None:

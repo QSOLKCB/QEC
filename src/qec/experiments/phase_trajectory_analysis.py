@@ -19,6 +19,7 @@ from .phase_trajectory_motifs import run_trajectory_motif_analysis
 from .phase_resonance_analysis import run_resonance_analysis
 from .phase_basin_analysis import run_basin_analysis
 from .trajectory_clustering import run_trajectory_clustering
+from .symbolic_dynamics import run_symbolic_dynamics
 
 
 # -- per-step helpers ------------------------------------------------
@@ -168,6 +169,10 @@ def run_phase_trajectory_analysis(
         "resonance_analysis": resonance_analysis,
         "basin_analysis": basin_analysis,
         "trajectory_clustering": run_trajectory_clustering(
+            trajectory_states,
+            basin_analysis["mapping"],
+        ),
+        "symbolic_dynamics": run_symbolic_dynamics(
             trajectory_states,
             basin_analysis["mapping"],
         ),

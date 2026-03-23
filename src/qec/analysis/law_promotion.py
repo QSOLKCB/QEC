@@ -9,10 +9,48 @@ All algorithms are pure, deterministic, and use only stdlib + numpy.
 No mutation of inputs. No randomness.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 import hashlib
 import json
 import time
+
+
+# ---------------------------------------------------------------------------
+# CONSTANTS — single source of truth for thresholds
+# ---------------------------------------------------------------------------
+
+PROMOTION_THRESHOLD = 0.5
+CONSISTENCY_REQUIRED = 1.0
+
+# ---------------------------------------------------------------------------
+# FLOAT PRECISION GUARD
+# ---------------------------------------------------------------------------
+
+_NORM_DIGITS = 12
+
+
+def _norm(x: float) -> float:
+    """Normalize a float to fixed precision to avoid drift."""
+    return round(float(x), _NORM_DIGITS)
+
+
+# ---------------------------------------------------------------------------
+# EVIDENCE NORMALIZATION
+# ---------------------------------------------------------------------------
+
+
+def _normalize_evidence_entry(entry: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """Normalize an evidence entry to structured form.
+
+    Accepts:
+      - str  -> {"type": "run_ref", "ref": <str>}
+      - dict -> returned as-is with "type" defaulting to "run_ref"
+    """
+    if isinstance(entry, str):
+        return {"type": "run_ref", "ref": entry}
+    out = dict(entry)
+    out.setdefault("type", "run_ref")
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +83,9 @@ class Condition:
         """Evaluate this condition against a metrics dictionary."""
         if self.metric not in metrics_dict:
             return False
-        return _OPERATORS[self.operator](metrics_dict[self.metric], self.value)
+        return _OPERATORS[self.operator](
+            _norm(metrics_dict[self.metric]), _norm(self.value)
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return {"metric": self.metric, "operator": self.operator, "value": self.value}
@@ -72,7 +112,7 @@ class Law:
         version: int,
         conditions: List[Condition],
         action: str,
-        evidence: List[str],
+        evidence: List[Union[str, Dict[str, Any]]],
         scores: Dict[str, float],
         created_at: float,
     ) -> None:
@@ -80,7 +120,7 @@ class Law:
         self.version = version
         self.conditions = list(conditions)
         self.action = action
-        self.evidence = list(evidence)
+        self.evidence = [_normalize_evidence_entry(e) for e in evidence]
         self.scores = dict(scores)
         self.created_at = created_at
 
@@ -136,8 +176,8 @@ def compute_metrics(
             if run.get("action") == action:
                 condition_and_action += 1
 
-    coverage = condition_matches / total
-    consistency = (
+    coverage = _norm(condition_matches / total)
+    consistency = _norm(
         condition_and_action / condition_matches if condition_matches > 0 else 0.0
     )
     return {"coverage": coverage, "consistency": consistency}
@@ -180,7 +220,7 @@ def minimize_conditions(
             if len(candidate) == 0:
                 continue
             m = compute_metrics(candidate, action, validation_runs)
-            if m["consistency"] == 1.0 and m["coverage"] > 0.0:
+            if m["consistency"] == CONSISTENCY_REQUIRED and m["coverage"] > 0.0:
                 current = candidate
                 changed = True
                 break
@@ -282,7 +322,7 @@ class LawPromoter:
         self,
         registry: LawRegistry,
         validation_runs: List[Dict[str, Any]],
-        threshold: float = 0.5,
+        threshold: float = PROMOTION_THRESHOLD,
     ) -> None:
         self.registry = registry
         self.validation_runs = validation_runs
@@ -303,7 +343,7 @@ class LawPromoter:
             for c in conjecture["conditions"]
         ]
         action = conjecture["action"]
-        evidence = list(conjecture.get("evidence", []))
+        evidence = conjecture.get("evidence", [])
 
         # Step 1: minimize conditions
         minimized = minimize_conditions(
@@ -313,8 +353,8 @@ class LawPromoter:
         # Step 2: compute metrics
         m = compute_metrics(minimized, action, self.validation_runs)
 
-        # Step 3: reject if consistency != 1.0
-        if m["consistency"] != 1.0:
+        # Step 3: reject if consistency != CONSISTENCY_REQUIRED
+        if m["consistency"] != CONSISTENCY_REQUIRED:
             return None
 
         # Step 4: compute simplicity

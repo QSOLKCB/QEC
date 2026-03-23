@@ -3,6 +3,8 @@
 import json
 
 from qec.analysis.law_promotion import (
+    CONSISTENCY_REQUIRED,
+    PROMOTION_THRESHOLD,
     Condition,
     Law,
     LawPromoter,
@@ -419,3 +421,55 @@ class TestDeterminism:
             law = p.promote(conjecture)
             ids.append(law.id)
         assert all(i == ids[0] for i in ids)
+
+
+# ---------------------------------------------------------------------------
+# Hardening tests
+# ---------------------------------------------------------------------------
+
+
+class TestFloatPrecision:
+    def test_float_drift_equality(self):
+        """0.1+0.1+0.1 != 0.3 in raw float — _norm guards this."""
+        c = Condition("x", "eq", 0.3)
+        # 0.1+0.1+0.1 has floating-point drift
+        assert c.evaluate({"x": 0.1 + 0.1 + 0.1}) is True
+
+    def test_scoring_precision(self):
+        """Coverage from 1/3 stays stable through _norm."""
+        conds = [Condition("x", "gt", 0.0)]
+        runs = [_run({"x": 1.0}), _run({"x": -1.0}), _run({"x": -1.0})]
+        m = compute_metrics(conds, "apply", runs)
+        # 1/3 normalized to 12 digits
+        assert m["coverage"] == round(1.0 / 3.0, 12)
+
+
+class TestStructuredEvidence:
+    def test_string_evidence_normalized(self):
+        law = Law("L1", 1, [], "a", ["run1"], {}, 0.0)
+        assert law.evidence == [{"type": "run_ref", "ref": "run1"}]
+
+    def test_dict_evidence_passthrough(self):
+        ev = {"type": "run_ref", "ref": "run2", "metrics": {"x": 1.0}}
+        law = Law("L1", 1, [], "a", [ev], {}, 0.0)
+        assert law.evidence[0]["ref"] == "run2"
+        assert law.evidence[0]["metrics"] == {"x": 1.0}
+
+    def test_mixed_evidence(self):
+        law = Law("L1", 1, [], "a", ["s1", {"ref": "d1"}], {}, 0.0)
+        assert law.evidence[0] == {"type": "run_ref", "ref": "s1"}
+        assert law.evidence[1]["ref"] == "d1"
+        assert law.evidence[1]["type"] == "run_ref"
+
+
+class TestThresholdConstants:
+    def test_promotion_threshold_value(self):
+        assert PROMOTION_THRESHOLD == 0.5
+
+    def test_consistency_required_value(self):
+        assert CONSISTENCY_REQUIRED == 1.0
+
+    def test_promoter_uses_default_threshold(self):
+        reg = LawRegistry()
+        p = LawPromoter(reg, [])
+        assert p.threshold == PROMOTION_THRESHOLD

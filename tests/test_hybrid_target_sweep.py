@@ -8,6 +8,7 @@ from typing import Any, Dict
 import pytest
 
 from qec.experiments.hybrid_target_sweep import (
+    compare_regimes,
     detect_transitions,
     extract_regimes,
     run_target_sweep,
@@ -219,7 +220,7 @@ class TestTargetSweep:
             pipeline_fn=_fake_pipeline,
             top_k=2,
         )
-        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary", "regimes"}
+        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary", "regimes", "regime_comparisons"}
         assert result["n_targets"] == 1
 
         entry = result["results"][0]
@@ -605,3 +606,91 @@ class TestExtractRegimes:
     def test_empty_results(self):
         """Empty results → empty regimes."""
         assert extract_regimes([], []) == []
+
+
+# ---------------------------------------------------------------------------
+# Regime comparison tests (v84.1)
+# ---------------------------------------------------------------------------
+
+
+class TestCompareRegimes:
+    """Tests for v84.1.0 — compare_regimes."""
+
+    @staticmethod
+    def _regime(start, end, theta, seq, score, compat, cls, phase):
+        return {
+            "start_index": start, "end_index": end, "length": end - start + 1,
+            "dominant_theta": theta, "dominant_sequence": seq,
+            "dominant_class": cls, "dominant_phase": phase,
+            "mean_score": score, "mean_compatibility": compat,
+        }
+
+    def test_empty_regimes(self):
+        """No regimes → empty comparisons."""
+        assert compare_regimes([]) == []
+
+    def test_single_regime(self):
+        """Single regime → no adjacent pairs → empty comparisons."""
+        r = self._regime(0, 3, [1.0], 0, 0.5, 0.6, "A", "p1")
+        assert compare_regimes([r]) == []
+
+    def test_adjacent_comparison(self):
+        """Two adjacent regimes produce one comparison with correct fields."""
+        r0 = self._regime(0, 2, [1.0], 0, 0.3, 0.4, "A", "stable")
+        r1 = self._regime(3, 5, [2.0], 1, 0.7, 0.9, "B", "chaotic")
+        comps = compare_regimes([r0, r1])
+        assert len(comps) == 1
+        c = comps[0]
+        assert c["from_index"] == 0
+        assert c["to_index"] == 1
+        assert c["from_range"] == [0, 2]
+        assert c["to_range"] == [3, 5]
+
+    def test_delta_mean_score(self):
+        """delta_mean_score = to.mean_score - from.mean_score."""
+        r0 = self._regime(0, 1, [1.0], 0, 0.2, 0.5, "A", "p1")
+        r1 = self._regime(2, 3, [2.0], 1, 0.8, 0.5, "A", "p1")
+        comps = compare_regimes([r0, r1])
+        assert comps[0]["delta_mean_score"] == pytest.approx(0.6)
+
+    def test_delta_mean_compatibility(self):
+        """delta_mean_compatibility = to.mean_compatibility - from.mean_compatibility."""
+        r0 = self._regime(0, 1, [1.0], 0, 0.5, 0.9, "A", "p1")
+        r1 = self._regime(2, 3, [2.0], 1, 0.5, 0.3, "A", "p1")
+        comps = compare_regimes([r0, r1])
+        assert comps[0]["delta_mean_compatibility"] == pytest.approx(-0.6)
+
+    def test_class_shift(self):
+        """class_shift is True when dominant_class differs."""
+        r0 = self._regime(0, 1, [1.0], 0, 0.5, 0.5, "convergent", "p1")
+        r1 = self._regime(2, 3, [1.0], 0, 0.5, 0.5, "divergent", "p1")
+        comps = compare_regimes([r0, r1])
+        assert comps[0]["class_shift"] is True
+        assert comps[0]["phase_shift"] is False
+
+    def test_phase_shift(self):
+        """phase_shift is True when dominant_phase differs."""
+        r0 = self._regime(0, 1, [1.0], 0, 0.5, 0.5, "A", "stable")
+        r1 = self._regime(2, 3, [1.0], 0, 0.5, 0.5, "A", "chaotic")
+        comps = compare_regimes([r0, r1])
+        assert comps[0]["phase_shift"] is True
+        assert comps[0]["class_shift"] is False
+
+    def test_structure_shift(self):
+        """structure_shift is True when theta or sequence differs."""
+        r0 = self._regime(0, 1, [1.0, 2.0], 0, 0.5, 0.5, "A", "p1")
+        r1 = self._regime(2, 3, [3.0, 4.0], 1, 0.5, 0.5, "A", "p1")
+        comps = compare_regimes([r0, r1])
+        assert comps[0]["structure_shift"] is True
+        # Same theta, same sequence → no structure shift
+        r2 = self._regime(0, 1, [1.0], 0, 0.5, 0.5, "A", "p1")
+        r3 = self._regime(2, 3, [1.0], 0, 0.5, 0.5, "B", "p2")
+        comps2 = compare_regimes([r2, r3])
+        assert comps2[0]["structure_shift"] is False
+
+    def test_deterministic_output(self):
+        """compare_regimes is deterministic across calls."""
+        r0 = self._regime(0, 2, [1.0], 0, 0.3, 0.4, "A", "stable")
+        r1 = self._regime(3, 5, [2.0], 1, 0.7, 0.9, "B", "chaotic")
+        regimes = [r0, r1]
+        assert compare_regimes(regimes) == compare_regimes(regimes)

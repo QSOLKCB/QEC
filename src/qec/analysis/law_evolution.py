@@ -14,7 +14,8 @@ All algorithms are pure, deterministic, and use only stdlib + numpy.
 No mutation of inputs. No randomness.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
+import copy
 import math
 
 from qec.analysis.law_promotion import Condition, Law
@@ -49,36 +50,48 @@ _POS_INF = float("inf")
 _NEG_INF = float("-inf")
 
 
-def extract_intervals(law: Law) -> Dict[str, Tuple[float, float]]:
-    """Convert law conditions into per-metric intervals.
+def extract_intervals(
+    law: Law,
+) -> Dict[str, Dict[str, Any]]:
+    """Convert law conditions into per-metric domain descriptors.
 
     Each condition maps to an interval on its metric axis:
       gt/gte  -> (value, +inf)
       lt/lte  -> (-inf, value)
       eq      -> (value, value)
+      neq     -> full interval with value added to exclusions
 
     Multiple conditions on the same metric are intersected.
-    Returns {metric: (low, high)}.
+    Returns {metric: {"interval": (low, high), "exclusions": frozenset}}.
     """
-    intervals: Dict[str, Tuple[float, float]] = {}
+    intervals: Dict[str, Dict[str, Any]] = {}
     for cond in law.conditions:
         if cond.operator in ("gt", "gte"):
             iv = (cond.value, _POS_INF)
+            excl: FrozenSet[float] = frozenset()
         elif cond.operator in ("lt", "lte"):
             iv = (_NEG_INF, cond.value)
+            excl = frozenset()
         elif cond.operator == "eq":
             iv = (cond.value, cond.value)
+            excl = frozenset()
+        elif cond.operator == "neq":
+            iv = (_NEG_INF, _POS_INF)
+            excl = frozenset({cond.value})
         else:
-            # neq — cannot be represented as a single interval; skip
             continue
 
         if cond.metric in intervals:
-            old_lo, old_hi = intervals[cond.metric]
+            old = intervals[cond.metric]
+            old_lo, old_hi = old["interval"]
             new_lo = max(old_lo, iv[0])
             new_hi = min(old_hi, iv[1])
-            intervals[cond.metric] = (new_lo, new_hi)
+            intervals[cond.metric] = {
+                "interval": (new_lo, new_hi),
+                "exclusions": old["exclusions"] | excl,
+            }
         else:
-            intervals[cond.metric] = iv
+            intervals[cond.metric] = {"interval": iv, "exclusions": excl}
     return intervals
 
 
@@ -139,9 +152,22 @@ def _domains_overlap(law_a: Law, law_b: Law) -> bool:
         return True
 
     for metric in sorted(shared_metrics):
-        rel = intervals_overlap(ivs_a[metric], ivs_b[metric])
+        desc_a = ivs_a[metric]
+        desc_b = ivs_b[metric]
+        rel = intervals_overlap(desc_a["interval"], desc_b["interval"])
         if rel == "disjoint":
             return False
+
+        # If both intervals collapse to a single point and that point
+        # is excluded by either law, domains are disjoint on this metric.
+        iv_a = desc_a["interval"]
+        iv_b = desc_b["interval"]
+        lo = max(iv_a[0], iv_b[0])
+        hi = min(iv_a[1], iv_b[1])
+        if lo == hi:
+            combined_excl = desc_a["exclusions"] | desc_b["exclusions"]
+            if lo in combined_excl:
+                return False
 
     return True
 
@@ -237,16 +263,16 @@ def _copy_law(
     confidence: Optional[float] = None,
     history: Optional[List[Dict[str, Any]]] = None,
 ) -> Law:
-    """Create a copy of a law with optional overrides. Never mutates input."""
-    new_law = Law(
-        law_id=law.id,
-        version=law.version,
-        conditions=list(law.conditions),
-        action=law.action,
-        evidence=list(law.evidence),
-        scores=dict(law.scores),
-        created_at=law.created_at,
-    )
+    """Create a copy of a law with optional overrides. Never mutates input.
+
+    Uses shallow copy to preserve any future Law fields automatically.
+    Mutable containers (conditions, evidence, scores, history) are copied
+    to prevent shared-state mutation.
+    """
+    new_law = copy.copy(law)
+    new_law.conditions = list(law.conditions)
+    new_law.evidence = list(law.evidence)
+    new_law.scores = dict(law.scores)
     new_law.confidence = confidence if confidence is not None else _law_confidence(law)
     new_law.history = list(history) if history is not None else list(getattr(law, "history", []))
     return new_law
@@ -332,14 +358,24 @@ def prune_laws(laws: List[Law]) -> List[Law]:
     for law in surviving:
         redundant = False
         ivs = extract_intervals(law)
-        for kept in final:
-            if kept.action != law.action:
-                continue
-            kept_ivs = extract_intervals(kept)
-            if ivs == kept_ivs:
-                # Same domain, same action — lower confidence is redundant
-                redundant = True
-                break
+        # Skip redundancy check if this law has exclusions (neq conditions)
+        has_exclusions = any(
+            desc["exclusions"] for desc in ivs.values()
+        )
+        if not has_exclusions:
+            for kept in final:
+                if kept.action != law.action:
+                    continue
+                kept_ivs = extract_intervals(kept)
+                kept_has_excl = any(
+                    desc["exclusions"] for desc in kept_ivs.values()
+                )
+                if kept_has_excl:
+                    continue
+                if ivs == kept_ivs:
+                    # Same domain, same action — lower confidence is redundant
+                    redundant = True
+                    break
         if not redundant:
             final.append(law)
 
@@ -391,12 +427,20 @@ def evolve_laws(
             else:
                 law_map[lid] = update_confidence(law, "incorrect", timestamp)
 
-        # Resolve conflicts among applicable laws
+        # Deterministic pairwise conflict resolution
+        # Laws are pre-sorted by priority (confidence -> specificity -> id)
         if len(applicable_ids) > 1:
             applicable_laws = [law_map[lid] for lid in applicable_ids]
             actions = set(l.action for l in applicable_laws)
             if len(actions) > 1:
-                # Group by action, pick winner from each group, then resolve across groups
+                applicable_laws = sorted(
+                    applicable_laws,
+                    key=lambda l: (
+                        -_law_confidence(l),
+                        -len(l.conditions),
+                        l.id,
+                    ),
+                )
                 winner = applicable_laws[0]
                 for other in applicable_laws[1:]:
                     if laws_conflict(winner, other):

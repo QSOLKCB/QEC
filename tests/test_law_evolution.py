@@ -2,6 +2,8 @@
 
 import copy
 
+import pytest
+
 from qec.analysis.law_promotion import Condition, Law
 from qec.analysis.law_evolution import (
     CONFIDENCE_DECREMENT,
@@ -58,17 +60,18 @@ class TestExtractIntervals:
     def test_gt_interval(self):
         law = _make_law(conditions=[Condition("snr", "gt", 3.0)])
         ivs = extract_intervals(law)
-        assert ivs["snr"] == (3.0, float("inf"))
+        assert ivs["snr"]["interval"] == (3.0, float("inf"))
+        assert ivs["snr"]["exclusions"] == frozenset()
 
     def test_lt_interval(self):
         law = _make_law(conditions=[Condition("snr", "lt", 5.0)])
         ivs = extract_intervals(law)
-        assert ivs["snr"] == (float("-inf"), 5.0)
+        assert ivs["snr"]["interval"] == (float("-inf"), 5.0)
 
     def test_eq_interval(self):
         law = _make_law(conditions=[Condition("snr", "eq", 4.0)])
         ivs = extract_intervals(law)
-        assert ivs["snr"] == (4.0, 4.0)
+        assert ivs["snr"]["interval"] == (4.0, 4.0)
 
     def test_multiple_conditions_same_metric_intersect(self):
         law = _make_law(conditions=[
@@ -76,7 +79,7 @@ class TestExtractIntervals:
             Condition("snr", "lt", 8.0),
         ])
         ivs = extract_intervals(law)
-        assert ivs["snr"] == (2.0, 8.0)
+        assert ivs["snr"]["interval"] == (2.0, 8.0)
 
     def test_multiple_metrics(self):
         law = _make_law(conditions=[
@@ -87,10 +90,21 @@ class TestExtractIntervals:
         assert "snr" in ivs
         assert "error_rate" in ivs
 
-    def test_neq_skipped(self):
+    def test_neq_creates_exclusion(self):
         law = _make_law(conditions=[Condition("snr", "neq", 0.0)])
         ivs = extract_intervals(law)
-        assert "snr" not in ivs
+        assert "snr" in ivs
+        assert ivs["snr"]["interval"] == (float("-inf"), float("inf"))
+        assert ivs["snr"]["exclusions"] == frozenset({0.0})
+
+    def test_neq_combined_with_gt(self):
+        law = _make_law(conditions=[
+            Condition("snr", "gt", 2.0),
+            Condition("snr", "neq", 5.0),
+        ])
+        ivs = extract_intervals(law)
+        assert ivs["snr"]["interval"] == (2.0, float("inf"))
+        assert ivs["snr"]["exclusions"] == frozenset({5.0})
 
 
 # ===========================================================================
@@ -473,3 +487,77 @@ class TestDeterminism:
         s1 = compute_theory_consistency(laws, points)
         s2 = compute_theory_consistency(laws, points)
         assert s1 == s2
+
+
+# ===========================================================================
+# EDGE CASES — HARDENING
+# ===========================================================================
+
+
+class TestEdgeCases:
+    def test_multi_metric_disjoint_no_conflict(self):
+        a = _make_law(
+            law_id="law_a",
+            conditions=[
+                Condition("snr", "gt", 5.0),
+                Condition("error_rate", "lt", 0.1),
+            ],
+            action="act_x",
+        )
+        b = _make_law(
+            law_id="law_b",
+            conditions=[
+                Condition("snr", "lt", 3.0),
+                Condition("error_rate", "lt", 0.1),
+            ],
+            action="act_y",
+        )
+        assert not laws_conflict(a, b)
+
+    def test_update_confidence_invalid_outcome(self):
+        law = _make_law()
+        with pytest.raises(ValueError):
+            update_confidence(law, "oops", 0)
+
+    def test_copy_law_preserves_extra_fields(self):
+        """_copy_law should preserve future fields via shallow copy."""
+        law = _make_law(confidence=0.8)
+        law.extra_field = "test_value"
+        copied = _copy_law(law)
+        assert hasattr(copied, "extra_field")
+        assert copied.extra_field == "test_value"
+
+    def test_neq_prevents_false_redundancy(self):
+        """Laws with neq exclusions should not be pruned as redundant."""
+        a = _make_law(
+            law_id="law_a",
+            conditions=[Condition("snr", "gt", 3.0)],
+            action="act_x",
+            confidence=0.9,
+        )
+        b = _make_law(
+            law_id="law_b",
+            conditions=[
+                Condition("snr", "gt", 3.0),
+                Condition("snr", "neq", 5.0),
+            ],
+            action="act_x",
+            confidence=0.5,
+        )
+        result = prune_laws([a, b])
+        # Both should survive since b has exclusions
+        assert len(result) == 2
+
+    def test_neq_domain_overlap_with_eq(self):
+        """eq(5) vs neq(5) on same metric should be disjoint."""
+        a = _make_law(
+            law_id="law_a",
+            conditions=[Condition("snr", "eq", 5.0)],
+            action="act_x",
+        )
+        b = _make_law(
+            law_id="law_b",
+            conditions=[Condition("snr", "neq", 5.0)],
+            action="act_y",
+        )
+        assert not laws_conflict(a, b)

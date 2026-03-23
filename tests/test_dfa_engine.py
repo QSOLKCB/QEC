@@ -1,20 +1,23 @@
-"""Tests for the deterministic DFA engine (v89.1.0).
+"""Tests for the deterministic DFA engine (v89.2.0).
 
 Covers: validation, simulation, control, SCC meta-graph,
 attractor mapping, constrained control, simulation pruning,
-attractor hierarchy, determinism, and edge cases.
+attractor hierarchy, constraint composition, hierarchy-guided
+control, hierarchy simulation fusion, determinism, and edge cases.
 """
 
 from __future__ import annotations
 
 from qec.experiments.dfa_engine import (
     build_scc_graph,
+    compose_constraints,
     compute_scc_levels,
     compute_scc_transition_summary,
     find_control_path,
     find_terminal_sccs,
     get_next_states,
     map_states_to_attractors,
+    normalize_constraints,
     run_dfa_engine,
     simulate_from_state,
     step,
@@ -584,3 +587,309 @@ class TestEdgeCases:
         )
         # State 2 transitions only to dead state 3
         assert result["n_trajectories"] >= 1
+
+
+# ===================================================================
+# v89.2 — Constraint Composition
+# ===================================================================
+
+
+class TestNormalizeConstraints:
+    def test_none_input(self):
+        nc = normalize_constraints(None)
+        assert nc["avoid_states"] == set()
+        assert nc["avoid_symbols"] == set()
+        assert nc["max_depth"] is None
+        assert nc["allow_only_states"] is None
+
+    def test_empty_input(self):
+        nc = normalize_constraints({})
+        assert nc["avoid_states"] == set()
+        assert nc["allow_only_states"] is None
+
+    def test_partial_input(self):
+        nc = normalize_constraints({"avoid_states": [1, 2], "max_depth": 5})
+        assert nc["avoid_states"] == {1, 2}
+        assert nc["max_depth"] == 5
+        assert nc["allow_only_states"] is None
+
+
+class TestComposeConstraints:
+    def test_union_avoid_states(self):
+        result = compose_constraints(
+            {"avoid_states": {1}},
+            {"avoid_states": {2, 3}},
+        )
+        assert result["avoid_states"] == {1, 2, 3}
+
+    def test_union_avoid_symbols(self):
+        result = compose_constraints(
+            {"avoid_symbols": {0}},
+            {"avoid_symbols": {1}},
+        )
+        assert result["avoid_symbols"] == {0, 1}
+
+    def test_intersection_allow_only(self):
+        result = compose_constraints(
+            {"allow_only_states": {0, 1, 2}},
+            {"allow_only_states": {1, 2, 3}},
+        )
+        assert result["allow_only_states"] == {1, 2}
+
+    def test_allow_only_one_side(self):
+        result = compose_constraints(
+            {"allow_only_states": {0, 1}},
+            {},
+        )
+        assert result["allow_only_states"] == {0, 1}
+
+    def test_min_max_depth(self):
+        result = compose_constraints(
+            {"max_depth": 10},
+            {"max_depth": 3},
+        )
+        assert result["max_depth"] == 3
+
+    def test_max_depth_one_side(self):
+        result = compose_constraints({"max_depth": 5}, {})
+        assert result["max_depth"] == 5
+
+    def test_compose_none_inputs(self):
+        result = compose_constraints(None, None)
+        assert result["avoid_states"] == set()
+        assert result["max_depth"] is None
+
+
+# ===================================================================
+# v89.2 — Allow-Only Constraint
+# ===================================================================
+
+
+class TestAllowOnlyConstraint:
+    def test_restricts_traversal(self):
+        # Linear: 0->1->2. Allow only {0, 1} blocks reaching 2.
+        result = find_control_path(
+            _linear_dfa(), 0, 2,
+            constraints={"allow_only_states": {0, 1}},
+        )
+        assert result["reachable"] is False
+        assert result["constrained"] is True
+
+    def test_allows_valid_path(self):
+        # Linear: 0->1->2. Allow {0, 1, 2} allows reaching 2.
+        result = find_control_path(
+            _linear_dfa(), 0, 2,
+            constraints={"allow_only_states": {0, 1, 2}},
+        )
+        assert result["reachable"] is True
+        assert result["path"] == [0, 1, 2]
+
+    def test_start_not_in_allow_only(self):
+        result = find_control_path(
+            _linear_dfa(), 0, 2,
+            constraints={"allow_only_states": {1, 2}},
+        )
+        assert result["reachable"] is False
+
+
+# ===================================================================
+# v89.2 — Hierarchy-Guided Control
+# ===================================================================
+
+
+def _hierarchy_dfa():
+    """DFA with structure for hierarchy tie-breaking.
+
+    0 --0--> 1, 0 --1--> 2
+    1 --0--> 3
+    2 --0--> 3
+    3 --0--> 3 (self-loop attractor)
+
+    States 1 and 2 both lead to 3. With hierarchy, different levels
+    can influence which is explored first.
+    """
+    return {
+        "states": [0, 1, 2, 3],
+        "alphabet": [0, 1],
+        "transitions": {
+            0: {0: 1, 1: 2},
+            1: {0: 3},
+            2: {0: 3},
+            3: {0: 3},
+        },
+        "initial_state": 0,
+        "dead_state": None,
+    }
+
+
+class TestHierarchyGuidedControl:
+    def _build_hierarchy(self, dfa):
+        sccs = compute_scc(dfa)
+        classify_components(dfa, sccs)
+        dag = build_scc_graph(sccs, dfa)
+        levels = compute_scc_levels(dag)
+        return {**levels, "_sccs": sccs}
+
+    def test_same_path_length(self):
+        dfa = _hierarchy_dfa()
+        hierarchy = self._build_hierarchy(dfa)
+        result = find_control_path(
+            dfa, 0, 3, hierarchy=hierarchy, prefer_lower_levels=True,
+        )
+        assert result["reachable"] is True
+        assert result["length"] == 2
+
+    def test_tie_break_deterministic(self):
+        dfa = _hierarchy_dfa()
+        hierarchy = self._build_hierarchy(dfa)
+        r1 = find_control_path(
+            dfa, 0, 3, hierarchy=hierarchy, prefer_lower_levels=True,
+        )
+        r2 = find_control_path(
+            dfa, 0, 3, hierarchy=hierarchy, prefer_lower_levels=True,
+        )
+        assert r1 == r2
+
+    def test_without_hierarchy_still_works(self):
+        dfa = _hierarchy_dfa()
+        result = find_control_path(dfa, 0, 3)
+        assert result["reachable"] is True
+        assert result["length"] == 2
+
+
+# ===================================================================
+# v89.2 — Simulation Hierarchy Pruning
+# ===================================================================
+
+
+class TestSimulationHierarchyPruning:
+    def _build_hierarchy(self, dfa):
+        sccs = compute_scc(dfa)
+        classify_components(dfa, sccs)
+        dag = build_scc_graph(sccs, dfa)
+        levels = compute_scc_levels(dag)
+        return {**levels, "_sccs": sccs}
+
+    def test_max_level_prunes(self):
+        dfa = _two_attractor_dfa()
+        hierarchy = self._build_hierarchy(dfa)
+        result = simulate_from_state(
+            dfa, 0, max_steps=5,
+            pruning={"max_level": 0},
+            hierarchy=hierarchy,
+        )
+        assert result["pruned"] is True
+        assert "max_level" in result["pruning_used"]
+
+    def test_target_levels_restricts(self):
+        dfa = _two_attractor_dfa()
+        hierarchy = self._build_hierarchy(dfa)
+        result = simulate_from_state(
+            dfa, 0, max_steps=5,
+            pruning={"target_levels": {0}},
+            hierarchy=hierarchy,
+        )
+        assert result["pruned"] is True
+
+    def test_stop_at_levels(self):
+        dfa = _two_attractor_dfa()
+        hierarchy = self._build_hierarchy(dfa)
+        result = simulate_from_state(
+            dfa, 0, max_steps=10,
+            pruning={"stop_at_levels": {0}},
+            hierarchy=hierarchy,
+        )
+        assert result["pruned"] is True
+        # Trajectories should be short (stop when entering level 0).
+        for traj in result["trajectories"]:
+            assert len(traj) <= 6
+
+    def test_hierarchy_pruning_deterministic(self):
+        dfa = _two_attractor_dfa()
+        hierarchy = self._build_hierarchy(dfa)
+        r1 = simulate_from_state(
+            dfa, 0, 5, pruning={"max_level": 1}, hierarchy=hierarchy,
+        )
+        r2 = simulate_from_state(
+            dfa, 0, 5, pruning={"max_level": 1}, hierarchy=hierarchy,
+        )
+        assert r1 == r2
+
+
+# ===================================================================
+# v89.2 — Engine Output Fields
+# ===================================================================
+
+
+class TestEngineOutputFields:
+    def test_control_paths_include_constraints_used(self):
+        dfa = _branching_dfa()
+        result = find_control_path(
+            dfa, 0, 3, constraints={"avoid_states": {2}},
+        )
+        assert "constraints_used" in result
+        assert result["constraints_used"]["avoid_states"] == [2]
+
+    def test_simulation_includes_pruning_used(self):
+        dfa = _branching_dfa()
+        result = simulate_from_state(dfa, 0, 5)
+        assert "pruning_used" in result
+
+    def test_engine_backward_compatible(self):
+        result = run_dfa_engine(_branching_dfa())
+        assert "validation" in result
+        assert "simulation" in result
+        assert "control" in result
+        assert "attractors" in result
+        assert "attractor_hierarchy" in result
+
+
+# ===================================================================
+# v89.2 — Determinism (new features)
+# ===================================================================
+
+
+class TestDeterminismV892:
+    def test_compose_determinism(self):
+        r1 = compose_constraints(
+            {"avoid_states": {3, 1}, "max_depth": 5},
+            {"avoid_states": {2}, "allow_only_states": {0, 1, 2}},
+        )
+        r2 = compose_constraints(
+            {"avoid_states": {3, 1}, "max_depth": 5},
+            {"avoid_states": {2}, "allow_only_states": {0, 1, 2}},
+        )
+        assert r1 == r2
+
+    def test_normalize_determinism(self):
+        r1 = normalize_constraints({"avoid_states": [3, 1, 2]})
+        r2 = normalize_constraints({"avoid_states": [3, 1, 2]})
+        assert r1 == r2
+
+
+# ===================================================================
+# v89.2 — Edge Cases (new features)
+# ===================================================================
+
+
+class TestEdgeCasesV892:
+    def test_single_state_allow_only(self):
+        result = find_control_path(
+            _single_state_dfa(), 0, 0,
+            constraints={"allow_only_states": {0}},
+        )
+        assert result["reachable"] is True
+
+    def test_conflicting_constraints(self):
+        # allow_only_states excludes the target entirely.
+        result = find_control_path(
+            _linear_dfa(), 0, 2,
+            constraints={"allow_only_states": {0}},
+        )
+        assert result["reachable"] is False
+
+    def test_compose_empty_with_empty(self):
+        result = compose_constraints({}, {})
+        assert result["avoid_states"] == set()
+        assert result["max_depth"] is None
+        assert result["allow_only_states"] is None

@@ -165,6 +165,41 @@ def compare_regimes(regimes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return comparisons
 
 
+def classify_regime_interfaces(
+    regime_comparisons: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Label each boundary between regimes by shift type.
+
+    Pure post-processing on regime comparisons — no side effects, no randomness.
+    """
+    interfaces: List[Dict[str, Any]] = []
+    for comp in regime_comparisons:
+        cs = comp["class_shift"]
+        ps = comp["phase_shift"]
+        ss = comp["structure_shift"]
+        if cs and ps:
+            itype = "strong_boundary"
+        elif ps:
+            itype = "phase_boundary"
+        elif cs:
+            itype = "class_boundary"
+        elif ss:
+            itype = "structural_boundary"
+        else:
+            itype = "degenerate_interface"
+        interfaces.append({
+            "from_index": comp["from_index"],
+            "to_index": comp["to_index"],
+            "interface_type": itype,
+            "delta_mean_score": comp["delta_mean_score"],
+            "delta_mean_compatibility": comp["delta_mean_compatibility"],
+            "class_shift": cs,
+            "phase_shift": ps,
+            "structure_shift": ss,
+        })
+    return interfaces
+
+
 def run_target_sweep(
     targets: List[Union[str, Dict[str, Any]]],
     theta_grid: List[List[float]],
@@ -221,6 +256,7 @@ def run_target_sweep(
 
     transitions = detect_transitions(results)
     regimes = extract_regimes(results, transitions)
+    regime_comparisons = compare_regimes(regimes)
     return {
         "n_targets": len(results),
         "targets": [r["target_spec"] for r in results],
@@ -228,5 +264,6 @@ def run_target_sweep(
         "transitions": transitions,
         "transition_summary": summarize_transitions(transitions),
         "regimes": regimes,
-        "regime_comparisons": compare_regimes(regimes),
+        "regime_comparisons": regime_comparisons,
+        "regime_interfaces": classify_regime_interfaces(regime_comparisons),
     }

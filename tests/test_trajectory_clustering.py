@@ -3,8 +3,10 @@
 import copy
 
 import numpy as np
+import pytest
 
 from qec.experiments.trajectory_clustering import (
+    DEFAULT_THRESHOLD,
     basin_histogram,
     cluster_trajectories,
     compute_distance_matrix,
@@ -168,3 +170,58 @@ def test_pipeline_all_members_present():
     for cluster in result["clusters"]:
         all_members.extend(cluster["members"])
     assert sorted(all_members) == sorted(t.keys())
+
+
+# -- edge cases: N=0, N=1 ---------------------------------------------------
+
+
+def test_empty_input():
+    """N=0: no trajectories → empty output."""
+    result = run_trajectory_clustering({}, _basin_mapping())
+    assert result == {"clusters": [], "n_clusters": 0}
+
+
+def test_single_trajectory():
+    """N=1: single trajectory → single cluster."""
+    t = {5: [(0,), (1,), (0,)]}
+    result = run_trajectory_clustering(t, _basin_mapping())
+    assert result["n_clusters"] == 1
+    assert result["clusters"][0]["id"] == 0
+    assert result["clusters"][0]["members"] == [5]
+
+
+# -- deterministic cluster IDs & member ordering -----------------------------
+
+
+def test_cluster_ids_canonical():
+    """Cluster IDs are assigned by (min_member, size) ordering."""
+    t = _trajectories()
+    m = _basin_mapping()
+    r1 = run_trajectory_clustering(t, m)
+    r2 = run_trajectory_clustering(t, m)
+    assert r1["clusters"] == r2["clusters"]
+    # IDs must be sequential from 0.
+    ids = [c["id"] for c in r1["clusters"]]
+    assert ids == list(range(len(ids)))
+
+
+def test_members_sorted():
+    """Members within each cluster are always sorted."""
+    t = _trajectories()
+    result = run_trajectory_clustering(t, _basin_mapping())
+    for cluster in result["clusters"]:
+        assert cluster["members"] == sorted(cluster["members"])
+
+
+# -- threshold validation ----------------------------------------------------
+
+
+def test_negative_threshold_raises():
+    """Negative threshold must raise ValueError."""
+    with pytest.raises(ValueError, match="threshold must be non-negative"):
+        run_trajectory_clustering(_trajectories(), _basin_mapping(), threshold=-0.1)
+
+
+def test_default_threshold_constant():
+    """DEFAULT_THRESHOLD is the documented default."""
+    assert DEFAULT_THRESHOLD == 0.3

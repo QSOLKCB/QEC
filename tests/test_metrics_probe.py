@@ -1,4 +1,4 @@
-"""Tests for the deterministic metrics & topology probe (v98.6)."""
+"""Tests for the deterministic metrics & topology probe (v98.7)."""
 
 from __future__ import annotations
 
@@ -10,9 +10,13 @@ from qec.experiments.metrics_probe import (
     analyze_topology,
     classify_state,
     evaluate_metrics,
+    generate_metric_sequences,
     generate_mock_strategies,
     generate_test_inputs,
+    print_experiment_report,
     run_experiments,
+    run_trajectory_experiments,
+    summarize_experiment_patterns,
 )
 
 
@@ -212,3 +216,164 @@ def test_mock_strategies_deterministic():
     for k in a:
         assert a[k].action_type == b[k].action_type
         assert a[k].params == b[k].params
+
+
+# ---------------------------------------------------------------------------
+# Expanded inputs (v98.7)
+# ---------------------------------------------------------------------------
+
+
+def test_expanded_inputs_count():
+    """generate_test_inputs must return at least 16 test cases."""
+    inputs = generate_test_inputs()
+    assert len(inputs) >= 16
+
+
+def test_expanded_inputs_names_unique():
+    """All test input names must be unique."""
+    inputs = generate_test_inputs()
+    names = [inp["name"] for inp in inputs]
+    assert len(names) == len(set(names))
+
+
+def test_expanded_inputs_all_have_values():
+    """Every test input must have a 'values' list of floats."""
+    inputs = generate_test_inputs()
+    for inp in inputs:
+        assert "name" in inp
+        assert "values" in inp
+        assert isinstance(inp["values"], list)
+        assert len(inp["values"]) > 0
+        for v in inp["values"]:
+            assert isinstance(v, float)
+
+
+def test_expanded_inputs_deterministic():
+    """Expanded inputs must be deterministic across calls."""
+    a = generate_test_inputs()
+    b = generate_test_inputs()
+    assert a == b
+
+
+# ---------------------------------------------------------------------------
+# Calibration summary (v98.7)
+# ---------------------------------------------------------------------------
+
+
+def test_summarize_experiment_patterns_structure():
+    """Summary must return a dict keyed by regime with correct fields."""
+    results = run_experiments()
+    summary = summarize_experiment_patterns(results)
+    assert isinstance(summary, dict)
+    assert len(summary) > 0
+    for regime, info in summary.items():
+        assert isinstance(regime, str)
+        assert "count" in info
+        assert "avg_basin_score" in info
+        assert "avg_summary_score" in info
+        assert "avg_phi" in info
+        assert "avg_divergence" in info
+        assert "avg_curvature" in info
+        assert "avg_resonance" in info
+        assert info["count"] > 0
+
+
+def test_summarize_experiment_patterns_counts():
+    """Total count across regimes must equal number of inputs."""
+    results = run_experiments()
+    summary = summarize_experiment_patterns(results)
+    total = sum(info["count"] for info in summary.values())
+    assert total == len(results["inputs"])
+
+
+def test_summarize_experiment_patterns_deterministic():
+    """Summary must be deterministic."""
+    r1 = run_experiments()
+    r2 = run_experiments()
+    s1 = summarize_experiment_patterns(r1)
+    s2 = summarize_experiment_patterns(r2)
+    assert s1 == s2
+
+
+# ---------------------------------------------------------------------------
+# Trajectory experiments (v98.7)
+# ---------------------------------------------------------------------------
+
+
+def test_generate_metric_sequences_count():
+    """Must return at least 3 metric sequences."""
+    seqs = generate_metric_sequences()
+    assert len(seqs) >= 3
+
+
+def test_generate_metric_sequences_structure():
+    """Each sequence must have name and sequence keys."""
+    seqs = generate_metric_sequences()
+    for seq in seqs:
+        assert "name" in seq
+        assert "sequence" in seq
+        assert isinstance(seq["sequence"], list)
+        assert len(seq["sequence"]) > 0
+
+
+def test_generate_metric_sequences_deterministic():
+    """Metric sequences must be deterministic."""
+    a = generate_metric_sequences()
+    b = generate_metric_sequences()
+    assert a == b
+
+
+def test_run_trajectory_experiments_returns_results():
+    """Trajectory experiments must return results for each sequence."""
+    results = run_trajectory_experiments()
+    seqs = generate_metric_sequences()
+    assert len(results) == len(seqs)
+    for r in results:
+        assert "name" in r
+        assert "trajectory" in r
+        traj = r["trajectory"]
+        assert "regimes" in traj
+        assert "transitions" in traj
+        assert "stable_segments" in traj
+        assert "oscillation_flags" in traj
+
+
+def test_run_trajectory_experiments_deterministic():
+    """Trajectory experiments must be deterministic."""
+    a = run_trajectory_experiments()
+    b = run_trajectory_experiments()
+    assert a == b
+
+
+def test_trajectory_stable_convergence():
+    """Stable convergence sequence must produce all-stable regimes."""
+    results = run_trajectory_experiments()
+    stable_result = [r for r in results if r["name"] == "stable_convergence"][0]
+    regimes = stable_result["trajectory"]["regimes"]
+    assert all(r == "stable" for r in regimes)
+
+
+def test_trajectory_regime_transition():
+    """Regime transition sequence must show at least one transition."""
+    results = run_trajectory_experiments()
+    trans_result = [r for r in results if r["name"] == "regime_transition"][0]
+    transitions = trans_result["trajectory"]["transitions"]
+    assert any(t["transition"] for t in transitions)
+
+
+# ---------------------------------------------------------------------------
+# Report output (v98.7)
+# ---------------------------------------------------------------------------
+
+
+def test_print_experiment_report_runs(capsys):
+    """Report printer must complete without error and produce output."""
+    results = run_experiments()
+    print_experiment_report(results)
+    captured = capsys.readouterr()
+    assert "Experiment Report" in captured.out
+    assert "Calibration Summary by Regime" in captured.out
+    # Check compact summary line format
+    assert "basin=" in captured.out
+    assert "phi=" in captured.out
+    assert "consistency=" in captured.out

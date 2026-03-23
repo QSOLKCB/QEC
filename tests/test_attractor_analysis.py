@@ -1,4 +1,4 @@
-"""Tests for attractor basin analysis and regime transition detection."""
+"""Tests for attractor basin analysis and regime transition detection (v98.7)."""
 
 from __future__ import annotations
 
@@ -15,6 +15,10 @@ from qec.analysis.attractor_analysis import (
     compute_basin_score,
     detect_transition,
     extract_signals,
+)
+from qec.experiments.metrics_probe import (
+    generate_metric_sequences,
+    run_trajectory_experiments,
 )
 
 
@@ -274,3 +278,56 @@ class TestAnalyzeAttractors:
         original = copy.deepcopy(m)
         analyze_attractors(m)
         assert m == original
+
+
+# ---------------------------------------------------------------------------
+# Trajectory experiments via metrics_probe sequences (v98.7)
+# ---------------------------------------------------------------------------
+
+class TestTrajectoryExperiments:
+    """Exercise analyze_trajectory with structured metric sequences."""
+
+    def test_stable_convergence_all_stable(self):
+        """Stable convergence sequence stays in stable regime."""
+        results = run_trajectory_experiments()
+        r = [x for x in results if x["name"] == "stable_convergence"][0]
+        assert all(reg == "stable" for reg in r["trajectory"]["regimes"])
+
+    def test_regime_transition_detects_changes(self):
+        """Regime transition sequence must detect transitions."""
+        results = run_trajectory_experiments()
+        r = [x for x in results if x["name"] == "regime_transition"][0]
+        traj = r["trajectory"]
+        assert len(set(traj["regimes"])) > 1
+        assert any(t["transition"] for t in traj["transitions"])
+
+    def test_oscillatory_switching_flags(self):
+        """Oscillatory switching must flag oscillatory segments."""
+        results = run_trajectory_experiments()
+        r = [x for x in results if x["name"] == "oscillatory_switching"][0]
+        assert any(r["trajectory"]["oscillation_flags"])
+
+    def test_unstable_escalation_no_stable(self):
+        """Unstable escalation must not contain stable segments."""
+        results = run_trajectory_experiments()
+        r = [x for x in results if x["name"] == "unstable_escalation"][0]
+        assert len(r["trajectory"]["stable_segments"]) == 0
+
+    def test_mixed_plateau_no_transitions(self):
+        """Mixed plateau must show no transitions."""
+        results = run_trajectory_experiments()
+        r = [x for x in results if x["name"] == "mixed_plateau"][0]
+        assert not any(t["transition"] for t in r["trajectory"]["transitions"])
+
+    def test_trajectory_experiments_deterministic(self):
+        """All trajectory experiments must be deterministic."""
+        a = run_trajectory_experiments()
+        b = run_trajectory_experiments()
+        assert a == b
+
+    def test_trajectory_no_mutation_of_sequences(self):
+        """Running trajectory experiments must not mutate the sequences."""
+        seqs_before = generate_metric_sequences()
+        run_trajectory_experiments()
+        seqs_after = generate_metric_sequences()
+        assert seqs_before == seqs_after

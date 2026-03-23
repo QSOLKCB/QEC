@@ -4,7 +4,7 @@ Transforms a minimized DFA from a passive validator into a deterministic
 dynamical engine. All algorithms are pure, deterministic, and use only
 stdlib + collections.
 
-v89.2.0
+v89.3.0 — invariant integration layer (observation → control bridge).
 """
 
 from __future__ import annotations
@@ -146,6 +146,7 @@ def simulate_from_state(
     max_steps: int,
     pruning: Optional[Dict[str, Any]] = None,
     hierarchy: Optional[Dict[str, Any]] = None,
+    use_invariants: bool = False,
 ) -> Dict[str, Any]:
     """Generate all valid trajectories from *start_state* up to *max_steps*.
 
@@ -160,10 +161,14 @@ def simulate_from_state(
         target_levels:      only expand states within these levels
         stop_at_levels:     stop expansion when entering these levels
 
+    If *use_invariants* is True, derives constraints from DFA invariants
+    and applies them as additional pruning (avoid provably dead regions).
+
     Optional *hierarchy* dict (from compute_scc_levels) provides level info.
 
     Returns {"trajectories": list[list[int]], "n_trajectories": int,
-             "pruned": bool, "pruning_used": dict}.
+             "pruned": bool, "pruning_used": dict,
+             "invariant_constraints_applied": bool}.
     """
     transitions = dfa.get("transitions", {})
     pruned = pruning is not None and bool(pruning)
@@ -176,6 +181,20 @@ def simulate_from_state(
     stop_at_levels: Optional[Set[int]] = (
         set(pruning["stop_at_levels"]) if pruning and pruning.get("stop_at_levels") is not None else None
     )
+
+    # Invariant-derived pruning constraints.
+    inv_avoid: Set[int] = set()
+    inv_applied = False
+    if use_invariants:
+        from qec.experiments.dfa_invariants import (
+            detect_invariants,
+            derive_constraints_from_invariants,
+        )
+        inv_data = detect_invariants(dfa, {}, {})
+        inv_constraints = derive_constraints_from_invariants(inv_data)
+        inv_avoid = set(inv_constraints.get("avoid_states", set()))
+        inv_applied = bool(inv_avoid)
+        pruned = pruned or inv_applied
 
     dead_state = dfa.get("dead_state")
 
@@ -241,6 +260,9 @@ def simulate_from_state(
         for ns in next_states:
             if avoid_dead and ns == dead_state:
                 continue
+            # Invariant-derived pruning: skip provably dead regions.
+            if inv_avoid and ns in inv_avoid:
+                continue
             # Hierarchy-based pruning: skip states exceeding max_level.
             if max_level is not None and state_to_level.get(ns, 0) > max_level:
                 continue
@@ -258,6 +280,7 @@ def simulate_from_state(
         if not expanded and not any(
             ns in visited for ns in next_states
             if not (avoid_dead and ns == dead_state)
+            and not (inv_avoid and ns in inv_avoid)
             and not (max_level is not None and state_to_level.get(ns, 0) > max_level)
             and not (target_levels is not None and state_to_level.get(ns, 0) not in target_levels)
         ):
@@ -279,12 +302,14 @@ def simulate_from_state(
         if stop_at_levels is not None:
             pruning_used["stop_at_levels"] = sorted(stop_at_levels)
 
-    return {
+    result = {
         "trajectories": completed,
         "n_trajectories": len(completed),
         "pruned": pruned,
         "pruning_used": pruning_used,
+        "invariant_constraints_applied": inv_applied,
     }
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -300,6 +325,7 @@ def find_control_path(
     constraints: Optional[Dict[str, Any]] = None,
     hierarchy: Optional[Dict[str, Any]] = None,
     prefer_lower_levels: bool = False,
+    use_invariants: bool = False,
 ) -> Dict[str, Any]:
     """Find shortest path from *start_state* to a target using BFS.
 
@@ -312,14 +338,38 @@ def find_control_path(
         max_depth:         int upper bound on path length
         allow_only_states: set of states allowed (None = no restriction)
 
+    If *use_invariants* is True, derives constraints from DFA invariants
+    and composes them with user-provided constraints.
+
     Optional *hierarchy* dict (from compute_scc_levels) enables level-aware
     tie-breaking when *prefer_lower_levels* is True.
 
     Returns {"reachable": bool, "path": list, "symbols": list,
-             "length": int, "constrained": bool, "constraints_used": dict}.
+             "length": int, "constrained": bool, "constraints_used": dict,
+             "invariant_constraints_applied": bool}.
     """
     targets: Set[int] = target_states if target_states is not None else {target_state}
     transitions = dfa.get("transitions", {})
+
+    # Derive and compose invariant constraints if requested.
+    inv_applied = False
+    if use_invariants:
+        from qec.experiments.dfa_invariants import (
+            detect_invariants,
+            derive_constraints_from_invariants,
+        )
+        inv_data = detect_invariants(dfa, {}, {})
+        inv_constraints = derive_constraints_from_invariants(inv_data)
+        # Only apply if constraints actually restrict something.
+        has_avoid = bool(inv_constraints.get("avoid_states"))
+        inv_allow = inv_constraints.get("allow_only_states")
+        all_states = set(dfa.get("states", []))
+        has_restrictive_allow = (
+            inv_allow is not None and inv_allow != all_states
+        )
+        if has_avoid or has_restrictive_allow:
+            constraints = compose_constraints(constraints, inv_constraints)
+            inv_applied = True
 
     nc = normalize_constraints(constraints)
     avoid_states = nc["avoid_states"]
@@ -349,6 +399,7 @@ def find_control_path(
             "length": 0,
             "constrained": constrained,
             "constraints_used": _constraints_used_summary(nc),
+            "invariant_constraints_applied": inv_applied,
         }
 
     if start_state in targets and start_state not in avoid_states:
@@ -359,6 +410,7 @@ def find_control_path(
             "length": 0,
             "constrained": constrained,
             "constraints_used": _constraints_used_summary(nc),
+            "invariant_constraints_applied": inv_applied,
         }
 
     visited: Set[int] = {start_state}
@@ -405,6 +457,7 @@ def find_control_path(
                     "length": len(new_path) - 1,
                     "constrained": constrained,
                     "constraints_used": _constraints_used_summary(nc),
+                    "invariant_constraints_applied": inv_applied,
                 }
 
             visited.add(ns)
@@ -417,6 +470,7 @@ def find_control_path(
         "length": 0,
         "constrained": constrained,
         "constraints_used": _constraints_used_summary(nc),
+        "invariant_constraints_applied": inv_applied,
     }
 
 
@@ -657,6 +711,20 @@ def run_dfa_engine(dfa: Dict[str, Any]) -> Dict[str, Any]:
     # Enrich hierarchy with SCC info for state-level lookups.
     hierarchy_with_sccs = {**hierarchy, "_sccs": sccs}
 
+    # --- Invariant constraints derivation. ---
+    from qec.experiments.dfa_invariants import (
+        detect_invariants,
+        derive_constraints_from_invariants,
+    )
+    inv_data = detect_invariants(
+        dfa, hierarchy, {"terminal_sccs": terminal, "sccs": sccs, "scc_graph": scc_graph}
+    )
+    inv_constraints = derive_constraints_from_invariants(inv_data)
+    inv_has_constraints = bool(
+        inv_constraints.get("avoid_states")
+        or inv_constraints.get("allow_only_states") is not None
+    )
+
     # --- Simulation from initial state. ---
     simulation = simulate_from_state(
         dfa, initial, max_steps=min(len(states), 20),
@@ -691,5 +759,15 @@ def run_dfa_engine(dfa: Dict[str, Any]) -> Dict[str, Any]:
         "attractor_hierarchy": {
             **hierarchy,
             "transition_summary": transition_summary,
+        },
+        "invariant_constraints": {
+            "avoid_states": sorted(inv_constraints.get("avoid_states", set())),
+            "allow_only_states": (
+                sorted(inv_constraints["allow_only_states"])
+                if inv_constraints.get("allow_only_states") is not None
+                else None
+            ),
+            "has_constraints": inv_has_constraints,
+            "applied": False,
         },
     }

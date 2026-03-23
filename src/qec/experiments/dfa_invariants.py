@@ -1,8 +1,11 @@
-"""Deterministic invariant discovery for DFA structures (v89.2.1).
+"""Deterministic invariant discovery for DFA structures (v89.3.0).
 
 Extracts provable, guaranteed-true structural invariants from a DFA
 and its SCC hierarchy. No heuristics, no probabilistic reasoning —
 only properties that are deterministically verifiable from the graph.
+
+Includes invariant normalization and constraint derivation for the
+invariant integration layer (observation → control bridge).
 
 All functions are pure, deterministic, and non-mutating.
 """
@@ -278,4 +281,119 @@ def detect_invariants(
             "transitions": detect_transition_invariants(dfa),
             "structure": detect_structural_invariants(dfa),
         }
+    }
+
+
+# ---------------------------------------------------------------------------
+# G1 — Invariant Normalization
+# ---------------------------------------------------------------------------
+
+
+def normalize_invariants(inv: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize an invariant dict into canonical form.
+
+    Guarantees:
+    - All top-level sections exist (dead_state, attractors, reachability,
+      transitions, structure).
+    - Lists are sorted.
+    - Sets are converted to sorted lists.
+    - Missing sections become empty dicts.
+    - Output is deterministic: normalize(inv) == normalize(inv).
+    """
+    raw = inv.get("invariants", inv) if isinstance(inv, dict) else {}
+
+    sections = ("dead_state", "attractors", "reachability",
+                "transitions", "structure")
+
+    normalized: Dict[str, Any] = {}
+    for section in sections:
+        normalized[section] = _normalize_section(raw.get(section, {}))
+
+    return {"invariants": normalized}
+
+
+def _normalize_section(section: Any) -> Any:
+    """Recursively normalize a section value into canonical form."""
+    if isinstance(section, set):
+        return sorted(section)
+    if isinstance(section, list):
+        # Sort lists of comparable items; leave lists of dicts as-is
+        # but normalize each element.
+        result = [_normalize_section(item) for item in section]
+        # Sort if items are comparable (not dicts).
+        if result and not isinstance(result[0], dict):
+            try:
+                result = sorted(result)
+            except TypeError:
+                pass
+        return result
+    if isinstance(section, dict):
+        return {k: _normalize_section(v) for k, v in sorted(section.items())}
+    return section
+
+
+# ---------------------------------------------------------------------------
+# G2 — Invariants → Constraints Derivation
+# ---------------------------------------------------------------------------
+
+
+def derive_constraints_from_invariants(
+    inv: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Derive deterministic constraints from proven invariants.
+
+    Mapping rules (strict — no inference beyond provable facts):
+    1. Dead state (if absorbing) → avoid_states.
+    2. States that provably lead only to dead state → avoid_states.
+    3. If state_to_attractor mapping is total and deterministic,
+       optionally derive allow_only_states from reachable states.
+
+    Returns {"avoid_states": set, "allow_only_states": set | None}.
+    """
+    normed = normalize_invariants(inv)
+    sections = normed["invariants"]
+
+    avoid: Set[int] = set()
+    allow_only: Optional[Set[int]] = None
+
+    # --- Rule 1: Dead state → avoid ---
+    dead_info = sections.get("dead_state", {})
+    if dead_info.get("has_dead_state") and dead_info.get("is_absorbing"):
+        dead_state = dead_info.get("dead_state")
+        if dead_state is not None:
+            avoid.add(dead_state)
+
+    # --- Rule 2: Forbidden regions (states leading only to dead state) ---
+    structure = sections.get("structure", {})
+    state_to_attractor = structure.get("state_to_attractor", {})
+    if dead_info.get("has_dead_state") and dead_info.get("dead_state") is not None:
+        dead_state = dead_info["dead_state"]
+        # Find the attractor component containing the dead state.
+        # States whose only attractor is the dead state's component
+        # are forbidden regions.
+        dead_attractor = state_to_attractor.get(
+            dead_state if isinstance(dead_state, str) else dead_state
+        )
+        if dead_attractor is not None:
+            for state_key, att_id in sorted(state_to_attractor.items()):
+                state = int(state_key) if isinstance(state_key, str) else state_key
+                if att_id == dead_attractor and state != dead_state:
+                    avoid.add(state)
+
+    # --- Rule 3: Allow-only from reachable states ---
+    reachability = sections.get("reachability", {})
+    reachable = reachability.get("reachable", [])
+    if reachable and state_to_attractor:
+        # Only apply if mapping is total over reachable states
+        reachable_set = set(reachable)
+        mapped = {
+            int(k) if isinstance(k, str) else k
+            for k in state_to_attractor
+        }
+        if reachable_set <= mapped:
+            allow_only = reachable_set - avoid
+
+    return {
+        "avoid_states": avoid,
+        "allow_only_states": allow_only,
     }

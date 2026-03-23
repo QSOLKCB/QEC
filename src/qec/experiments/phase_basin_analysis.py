@@ -79,8 +79,8 @@ def compute_scc(
         if node not in index_map:
             strongconnect(node)
 
-    # Sort components by first (smallest) node for determinism.
-    components.sort(key=lambda c: c[0])
+    # Sort components by (canonical_node, size) for deterministic IDs.
+    components.sort(key=lambda c: (min(c), len(c)))
 
     return {
         "components": [
@@ -129,7 +129,8 @@ def compute_basin_metrics(
                 else:
                     outgoing += 1
 
-        coherence = float(internal / (internal + outgoing)) if (internal + outgoing) > 0 else 0.0
+        total = internal + outgoing
+        coherence = float(internal / total) if total > 0 else 0.0
 
         basins.append({
             "id": cid,
@@ -147,6 +148,17 @@ def compute_basin_metrics(
 # -- Step 4: classification ----------------------------------------------
 
 
+def has_self_loop(
+    node: Tuple[int, ...],
+    state_graph: Dict[str, Any],
+) -> bool:
+    """Return True if *node* has an explicit self-loop in *state_graph*."""
+    return any(
+        e["from"] == node and e["to"] == node
+        for e in state_graph["edges"]
+    )
+
+
 def classify_basins(
     basins: List[Dict[str, Any]],
     state_graph: Dict[str, Any],
@@ -159,19 +171,13 @@ def classify_basins(
     * coherence >= 0.8 → ``"stable_basin"``
     * otherwise → ``"transient_basin"``
     """
-    # Build self-loop set for fast lookup.
-    self_loops: set = set()
-    for edge in state_graph["edges"]:
-        if edge["from"] == edge["to"]:
-            self_loops.add(tuple(edge["from"]))
-
     classifications: List[Dict[str, Any]] = []
     for basin in basins:
         size = basin["size"]
         coherence = basin["coherence"]
         nodes = basin["nodes"]
 
-        if size == 1 and tuple(nodes[0]) in self_loops:
+        if size == 1 and has_self_loop(tuple(nodes[0]), state_graph):
             btype = "fixed_point"
             confidence = 1.0
         elif size == 2:

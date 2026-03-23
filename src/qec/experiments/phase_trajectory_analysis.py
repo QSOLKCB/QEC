@@ -18,6 +18,7 @@ from .phase_motif_graph import run_motif_graph_analysis
 from .phase_trajectory_motifs import run_trajectory_motif_analysis
 from .phase_resonance_analysis import run_resonance_analysis
 from .phase_basin_analysis import run_basin_analysis
+from .trajectory_clustering import run_trajectory_clustering
 
 
 # -- per-step helpers ------------------------------------------------
@@ -138,6 +139,14 @@ def run_phase_trajectory_analysis(
         motif_graph["state_graph"],
     )
 
+    basin_analysis = run_basin_analysis(
+        motif_graph["state_graph"],
+        resonance_analysis["attractor_field"],
+    )
+
+    # Build per-step trajectory for clustering: single trajectory = series.
+    trajectory_states = {0: series}
+
     return {
         "n_steps": len(phase_maps),
         "spectral_trajectory": spectra,
@@ -157,8 +166,9 @@ def run_phase_trajectory_analysis(
         "trajectory_motifs": trajectory_motifs,
         "motif_graph": motif_graph,
         "resonance_analysis": resonance_analysis,
-        "basin_analysis": run_basin_analysis(
-            motif_graph["state_graph"],
-            resonance_analysis["attractor_field"],
+        "basin_analysis": basin_analysis,
+        "trajectory_clustering": run_trajectory_clustering(
+            trajectory_states,
+            basin_analysis["mapping"],
         ),
     }

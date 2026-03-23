@@ -1,4 +1,4 @@
-"""Tests for the Deterministic Experiment Selection Engine (v97.7.0).
+"""Tests for the Deterministic Experiment Selection Engine (v97.7.1).
 
 Covers:
   - Grid construction and initialization
@@ -24,6 +24,8 @@ from qec.analysis.experiment_strategy import (
     _is_adjacent,
     _manhattan_neighbors,
     _norm,
+    _normalize_variance,
+    BOUNDARY_BONUS,
     build_grid,
     cell_center,
     classify_state,
@@ -349,12 +351,12 @@ class TestNovelty:
 class TestSelectExperiments:
     def test_highest_priority_first(self):
         candidates = [((0,), 0.3), ((1,), 0.9), ((2,), 0.6)]
-        selected = select_experiments(candidates, n=3, bins=10)
+        selected = select_experiments(candidates, n=3)
         assert selected[0] == (1,)
 
     def test_no_adjacent_cells(self):
         candidates = [((0,), 0.9), ((1,), 0.8), ((2,), 0.7)]
-        selected = select_experiments(candidates, n=3, bins=10)
+        selected = select_experiments(candidates, n=3)
         # (0,) and (1,) are adjacent, so (1,) should be skipped.
         assert (0,) in selected
         assert (1,) not in selected
@@ -362,15 +364,15 @@ class TestSelectExperiments:
 
     def test_respects_n_limit(self):
         candidates = [((i,), 1.0 - 0.01 * i) for i in range(0, 20, 2)]
-        selected = select_experiments(candidates, n=3, bins=20)
+        selected = select_experiments(candidates, n=3)
         assert len(selected) <= 3
 
     def test_empty_candidates(self):
-        assert select_experiments([], n=5, bins=10) == []
+        assert select_experiments([], n=5) == []
 
     def test_adjacency_2d(self):
         candidates = [((0, 0), 0.9), ((0, 1), 0.8), ((1, 1), 0.7)]
-        selected = select_experiments(candidates, n=3, bins=3)
+        selected = select_experiments(candidates, n=3)
         assert (0, 0) in selected
         # (0,1) is adjacent to (0,0) so skipped.
         assert (0, 1) not in selected
@@ -458,6 +460,62 @@ class TestRunStrategy:
 
 
 # ---------------------------------------------------------------------------
+# VARIANCE NORMALIZATION
+# ---------------------------------------------------------------------------
+
+
+class TestNormalizeVariance:
+    def test_zero_returns_zero(self):
+        assert _normalize_variance(0.0) == 0.0
+
+    def test_negative_returns_zero(self):
+        assert _normalize_variance(-1.0) == 0.0
+
+    def test_output_in_unit_interval(self):
+        for v in [0.001, 0.1, 1.0, 10.0, 100.0, 1e6]:
+            result = _normalize_variance(v)
+            assert 0.0 <= result <= 1.0, f"Failed for v={v}: got {result}"
+
+    def test_monotonically_increasing(self):
+        values = [0.0, 0.1, 1.0, 10.0, 100.0]
+        results = [_normalize_variance(v) for v in values]
+        for i in range(len(results) - 1):
+            assert results[i] <= results[i + 1]
+
+    def test_known_value(self):
+        # v=1 -> 1/(1+1) = 0.5
+        assert _normalize_variance(1.0) == 0.5
+
+
+# ---------------------------------------------------------------------------
+# BOUNDARY BONUS CONSTANT
+# ---------------------------------------------------------------------------
+
+
+class TestBoundaryBonusConstant:
+    def test_default_value(self):
+        assert BOUNDARY_BONUS == 0.2
+
+    def test_used_in_priority(self):
+        p = compute_priority(0.5, True)
+        expected = 0.5 + BOUNDARY_BONUS
+        assert abs(p - expected) < 1e-10
+
+
+# ---------------------------------------------------------------------------
+# SELECT EXPERIMENTS SIGNATURE
+# ---------------------------------------------------------------------------
+
+
+class TestSelectExperimentsSignature:
+    def test_two_arg_call(self):
+        """select_experiments requires only candidates and n."""
+        candidates = [((0,), 0.9), ((2,), 0.8)]
+        result = select_experiments(candidates, n=2)
+        assert len(result) <= 2
+
+
+# ---------------------------------------------------------------------------
 # DETERMINISM TESTS
 # ---------------------------------------------------------------------------
 
@@ -483,6 +541,6 @@ class TestDeterminism:
 
     def test_selection_deterministic(self):
         candidates = [((i, j), 0.5 + 0.01 * i) for i in range(5) for j in range(5)]
-        s1 = select_experiments(candidates, n=5, bins=5)
-        s2 = select_experiments(candidates, n=5, bins=5)
+        s1 = select_experiments(candidates, n=5)
+        s2 = select_experiments(candidates, n=5)
         assert s1 == s2

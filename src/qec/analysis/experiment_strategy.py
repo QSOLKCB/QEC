@@ -1,4 +1,4 @@
-"""Deterministic Experiment Selection Engine (v97.7.0).
+"""Deterministic Experiment Selection Engine (v97.7.1).
 
 Maps the law system over metric space, identifies uncertainty, conflict,
 and gaps, prioritizes high-value experiment regions, selects non-redundant
@@ -10,7 +10,7 @@ All algorithms are pure, deterministic, and use only stdlib + numpy.
 No mutation of inputs. No randomness. No probabilistic exploration.
 """
 
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 import itertools
 import math
 
@@ -28,6 +28,11 @@ _NORM_DIGITS = 12
 
 def _norm(x: float) -> float:
     return round(float(x), _NORM_DIGITS)
+
+
+def _normalize_variance(v: float) -> float:
+    """Map variance into [0, 1] via v / (v + 1)."""
+    return v / (v + 1.0) if v > 0 else 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +196,7 @@ def compute_uncertainty(
     mean_sq = cell_data["sum_outcome_sq"] / coverage
     variance = max(0.0, mean_sq - mean_outcome * mean_outcome)
     # Normalize variance to [0, 1] using sigmoid-like mapping.
-    norm_variance = _norm(variance / (1.0 + variance))
+    norm_variance = _norm(_normalize_variance(variance))
 
     uncertainty = _norm(
         0.25 * (1.0 - avg_confidence)
@@ -265,9 +270,12 @@ def compute_boundary_cells(
 # ---------------------------------------------------------------------------
 
 
+BOUNDARY_BONUS = 0.2
+
+
 def compute_priority(uncertainty: float, boundary: bool) -> float:
-    """Priority = uncertainty + 0.2 * boundary_flag."""
-    return _norm(uncertainty + 0.2 * (1.0 if boundary else 0.0))
+    """Priority = uncertainty + BOUNDARY_BONUS * boundary_flag."""
+    return _norm(uncertainty + BOUNDARY_BONUS * (1.0 if boundary else 0.0))
 
 
 def is_candidate(state: str, boundary: bool) -> bool:
@@ -287,10 +295,13 @@ def is_novel(
 ) -> bool:
     """Detect if a cell represents novel territory.
 
-    Novel if:
+    A cell is considered novel if:
       - coverage == 0 (unexplored), OR
-      - observed average outcome deviates from all law predictions
-        (we use action hash as a proxy for predicted outcome class)
+      - no laws apply (uncharted territory), OR
+      - observed outcome variance is high (coefficient of variation
+        exceeds *deviation_threshold*)
+
+    This is a purely data-driven novelty metric.
     """
     if cell_data["coverage"] == 0:
         return True
@@ -316,7 +327,6 @@ def is_novel(
 def select_experiments(
     candidates: List[Tuple[Tuple[int, ...], float]],
     n: int,
-    bins: int,
 ) -> List[Tuple[int, ...]]:
     """Select up to N non-adjacent cells by descending priority.
 
@@ -324,17 +334,17 @@ def select_experiments(
     ----------
     candidates : list of (cell_key, priority) pairs
     n : maximum number of experiments to select
-    bins : grid dimension size (for adjacency checking)
 
     Returns
     -------
     List of selected cell keys, ordered by priority descending.
+
+    Adjacency is determined internally via ``_is_adjacent``.
     """
     # Sort by priority descending, then by cell_key for determinism.
     sorted_cands = sorted(candidates, key=lambda x: (-x[1], x[0]))
 
     selected: List[Tuple[int, ...]] = []
-    selected_set: Set[Tuple[int, ...]] = set()
 
     for cell_key, priority in sorted_cands:
         if len(selected) >= n:
@@ -347,7 +357,6 @@ def select_experiments(
                 break
         if not adjacent:
             selected.append(cell_key)
-            selected_set.add(cell_key)
 
     return selected
 
@@ -459,7 +468,7 @@ def run_strategy(
             candidates.append((key, p))
 
     # 7. Selection.
-    selected = select_experiments(candidates, n, bins)
+    selected = select_experiments(candidates, n)
 
     return {
         "selected": selected,

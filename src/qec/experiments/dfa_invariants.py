@@ -397,3 +397,19 @@ def derive_constraints_from_invariants(
         "avoid_states": avoid,
         "allow_only_states": allow_only,
     }
+
+
+def derive_structured_constraints(
+    inv: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Derive structured constraints with per-state provenance.
+
+    Wraps derive_constraints_from_invariants with source annotations.
+
+    Returns canonical dict with avoid_states, allow_only_states, and
+    sources mapping each state to its derivation reasons.
+    """
+    from qec.experiments.dfa_supervisor import structure_invariant_constraints
+
+    raw = derive_constraints_from_invariants(inv)
+    return structure_invariant_constraints(raw, inv)

@@ -4,7 +4,7 @@ Transforms a minimized DFA from a passive validator into a deterministic
 dynamical engine. All algorithms are pure, deterministic, and use only
 stdlib + collections.
 
-v89.3.0 — invariant integration layer (observation → control bridge).
+v90.0.0 — supervisory control layer with constraint composition.
 """
 
 from __future__ import annotations
@@ -107,6 +107,80 @@ def compose_constraints(
 
 
 # ---------------------------------------------------------------------------
+# PART A3 — Full Control Surface Composition
+# ---------------------------------------------------------------------------
+
+
+def compose_control_constraints(
+    user_constraints: Optional[Dict[str, Any]] = None,
+    invariant_constraints: Optional[Dict[str, Any]] = None,
+    supervisor_result: Optional[Dict[str, Any]] = None,
+    policy_constraints: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Compose user ⊕ invariant ⊕ supervisor ⊕ policy into full surface.
+
+    Rules:
+    - user + invariant compose via existing algebra (union avoid, intersect allow)
+    - supervisor contributes hard transition disabling (forbidden states)
+    - policy contributes allowed_symbols_by_state
+    - all provenance retained
+
+    Returns canonical composed constraint dict.
+    """
+    # Start with user ⊕ invariant.
+    base = compose_constraints(user_constraints, invariant_constraints)
+
+    # Supervisor contributes forbidden states as additional avoid_states.
+    if supervisor_result:
+        sup_avoid = set(supervisor_result.get("forbidden_states", []))
+        sup_constraints = {"avoid_states": sup_avoid}
+        base = compose_constraints(base, sup_constraints)
+
+    # Extract final values.
+    nc = normalize_constraints(base)
+    avoid = sorted(nc["avoid_states"])
+    allow_only = sorted(nc["allow_only_states"]) if nc["allow_only_states"] is not None else None
+    max_depth = nc["max_depth"]
+
+    # Policy contributes allowed_symbols_by_state.
+    allowed_symbols: Optional[Dict[int, List[int]]] = None
+    if policy_constraints and "allowed_symbols_by_state" in policy_constraints:
+        allowed_symbols = {
+            k: list(v)
+            for k, v in sorted(policy_constraints["allowed_symbols_by_state"].items())
+        }
+
+    # Build provenance.
+    sources: Dict[str, Any] = {}
+    if user_constraints:
+        uc = normalize_constraints(user_constraints)
+        if uc["avoid_states"]:
+            sources["user_avoid"] = sorted(uc["avoid_states"])
+        if uc["allow_only_states"] is not None:
+            sources["user_allow_only"] = sorted(uc["allow_only_states"])
+    if invariant_constraints:
+        ic = normalize_constraints(invariant_constraints)
+        if ic["avoid_states"]:
+            sources["invariant_avoid"] = sorted(ic["avoid_states"])
+        if ic["allow_only_states"] is not None:
+            sources["invariant_allow_only"] = sorted(ic["allow_only_states"])
+    if supervisor_result and supervisor_result.get("forbidden_states"):
+        sources["supervisor_forbidden"] = sorted(supervisor_result["forbidden_states"])
+    if allowed_symbols is not None:
+        sources["policy_symbols"] = True
+
+    result: Dict[str, Any] = {
+        "avoid_states": avoid,
+        "allow_only_states": allow_only,
+        "max_depth": max_depth,
+        "sources": sources,
+    }
+    if allowed_symbols is not None:
+        result["allowed_symbols_by_state"] = allowed_symbols
+    return result
+
+
+# ---------------------------------------------------------------------------
 # PART B — Trajectory Validation
 # ---------------------------------------------------------------------------
 
@@ -147,6 +221,8 @@ def simulate_from_state(
     pruning: Optional[Dict[str, Any]] = None,
     hierarchy: Optional[Dict[str, Any]] = None,
     use_invariants: bool = False,
+    supervised_dfa: Optional[Dict[str, Any]] = None,
+    constraint_bundle: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Generate all valid trajectories from *start_state* up to *max_steps*.
 
@@ -166,11 +242,22 @@ def simulate_from_state(
 
     Optional *hierarchy* dict (from compute_scc_levels) provides level info.
 
+    If *supervised_dfa* is provided, simulate on the supervised DFA.
+    If *constraint_bundle* has allowed_symbols_by_state, enforce it.
+
     Returns {"trajectories": list[list[int]], "n_trajectories": int,
              "pruned": bool, "pruning_used": dict,
              "invariant_constraints_applied": bool}.
     """
-    transitions = dfa.get("transitions", {})
+    # Use supervised DFA if provided.
+    active_dfa = supervised_dfa if supervised_dfa is not None else dfa
+    sup_allowed_symbols: Optional[Dict[int, List[int]]] = None
+    if constraint_bundle is not None:
+        composed = constraint_bundle.get("composed", {})
+        if "allowed_symbols_by_state" in composed:
+            sup_allowed_symbols = composed["allowed_symbols_by_state"]
+
+    transitions = active_dfa.get("transitions", {})
     pruned = pruning is not None and bool(pruning)
     stop_at_attractors = bool(pruning.get("stop_at_attractors")) if pruning else False
     avoid_dead = bool(pruning.get("avoid_dead_state")) if pruning else False
@@ -250,7 +337,14 @@ def simulate_from_state(
             completed.append(path)
             continue
 
-        next_states = sorted(set(transitions.get(current, {}).values()))
+        # Apply allowed symbols filtering from supervisor policy.
+        current_trans = transitions.get(current, {})
+        if sup_allowed_symbols is not None and current in sup_allowed_symbols:
+            allowed_set = set(sup_allowed_symbols[current])
+            filtered_trans = {sym: ns for sym, ns in current_trans.items() if sym in allowed_set}
+        else:
+            filtered_trans = current_trans
+        next_states = sorted(set(filtered_trans.values()))
 
         if not next_states:
             completed.append(path)
@@ -326,6 +420,8 @@ def find_control_path(
     hierarchy: Optional[Dict[str, Any]] = None,
     prefer_lower_levels: bool = False,
     use_invariants: bool = False,
+    supervised_dfa: Optional[Dict[str, Any]] = None,
+    constraint_bundle: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Find shortest path from *start_state* to a target using BFS.
 
@@ -344,12 +440,23 @@ def find_control_path(
     Optional *hierarchy* dict (from compute_scc_levels) enables level-aware
     tie-breaking when *prefer_lower_levels* is True.
 
+    If *supervised_dfa* is provided, BFS runs on the supervised DFA instead.
+    If *constraint_bundle* has allowed_symbols_by_state, enforce it exactly.
+
     Returns {"reachable": bool, "path": list, "symbols": list,
              "length": int, "constrained": bool, "constraints_used": dict,
              "invariant_constraints_applied": bool}.
     """
+    # Use supervised DFA if provided.
+    active_dfa = supervised_dfa if supervised_dfa is not None else dfa
+    allowed_symbols_by_state: Optional[Dict[int, List[int]]] = None
+    if constraint_bundle is not None:
+        composed = constraint_bundle.get("composed", {})
+        if "allowed_symbols_by_state" in composed:
+            allowed_symbols_by_state = composed["allowed_symbols_by_state"]
+
     targets: Set[int] = target_states if target_states is not None else {target_state}
-    transitions = dfa.get("transitions", {})
+    transitions = active_dfa.get("transitions", {})
 
     # Derive and compose invariant constraints if requested.
     inv_applied = False
@@ -429,7 +536,12 @@ def find_control_path(
 
         # Collect candidate (symbol, next_state) pairs.
         candidates: List[Tuple[int, int]] = []
-        for symbol in sorted(state_trans):
+        # Determine valid symbols for this state.
+        valid_symbols = sorted(state_trans)
+        if allowed_symbols_by_state is not None and current in allowed_symbols_by_state:
+            allowed_set = set(allowed_symbols_by_state[current])
+            valid_symbols = [s for s in valid_symbols if s in allowed_set]
+        for symbol in valid_symbols:
             if symbol in avoid_symbols:
                 continue
             ns = state_trans[symbol]
@@ -725,6 +837,32 @@ def run_dfa_engine(dfa: Dict[str, Any]) -> Dict[str, Any]:
         or inv_constraints.get("allow_only_states") is not None
     )
 
+    # --- Supervisor synthesis (v90.0.0). ---
+    from qec.experiments.dfa_supervisor import (
+        normalize_constraint_bundle,
+        run_supervisor,
+        structure_invariant_constraints,
+    )
+    structured_inv = structure_invariant_constraints(inv_constraints, inv_data)
+    supervisor = run_supervisor(dfa, inv_data, inv_constraints)
+
+    # Build constraint bundle.
+    constraint_bundle = normalize_constraint_bundle({
+        "user": {"avoid_states": [], "allow_only_states": None},
+        "invariant": structured_inv,
+        "supervisor": {
+            "avoid_states": supervisor["forbidden_states"],
+            "allow_only_states": None,
+        },
+        "policy": supervisor.get("policy_constraints", {}),
+        "composed": compose_control_constraints(
+            user_constraints=None,
+            invariant_constraints=inv_constraints,
+            supervisor_result=supervisor,
+            policy_constraints=supervisor.get("policy_constraints"),
+        ),
+    })
+
     # --- Simulation from initial state. ---
     simulation = simulate_from_state(
         dfa, initial, max_steps=min(len(states), 20),
@@ -770,4 +908,14 @@ def run_dfa_engine(dfa: Dict[str, Any]) -> Dict[str, Any]:
             "has_constraints": inv_has_constraints,
             "applied": False,
         },
+        "supervisor": {
+            "supervised_dfa": supervisor["supervised_dfa"],
+            "forbidden_states": supervisor["forbidden_states"],
+            "disabled_transitions": supervisor["disabled_transitions"],
+            "n_pruned_states": supervisor["n_pruned_states"],
+            "n_disabled_transitions": supervisor["n_disabled_transitions"],
+            "reasons": supervisor["reasons"],
+            "policy": supervisor.get("policy", {}),
+        },
+        "constraint_bundle": constraint_bundle,
     }

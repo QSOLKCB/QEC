@@ -1,8 +1,8 @@
-"""Deterministic qudit measurement layer and experiment pipeline.
+"""Deterministic qudit measurement layer and experiment pipeline (v91.1.0).
 
 DFA → trajectory → qudit state → stabilizers → syndrome evolution.
+Optional: geometric correction, syndrome compression, stabilizer metadata.
 
-Observation only — no correction, no projection.
 All algorithms are pure, deterministic, and use only stdlib + numpy.
 """
 
@@ -121,6 +121,24 @@ def embed_state_to_qudit(state_vec: np.ndarray, d: int) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# PART B2 — STABILIZER METADATA
+# ---------------------------------------------------------------------------
+
+
+def build_stabilizer_metadata(stabilizer_code: Any) -> Dict[str, Any]:
+    """Extract deterministic metadata from a stabilizer code instance.
+
+    Returns:
+        {"d": int, "n_qudits": int, "generator_count": int}
+    """
+    return {
+        "d": int(stabilizer_code.d),
+        "n_qudits": int(stabilizer_code.n),
+        "generator_count": len(stabilizer_code.generators),
+    }
+
+
+# ---------------------------------------------------------------------------
 # PART C — STABILIZER MEASUREMENT
 # ---------------------------------------------------------------------------
 
@@ -153,6 +171,7 @@ def measure_trajectory(
             "states": [],
             "stabilizer_values": [],
             "syndromes": [],
+            "state_syndrome_pairs": [],
         }
 
     num_states = max(trajectory) + 1
@@ -160,6 +179,7 @@ def measure_trajectory(
     states_out: List[np.ndarray] = []
     stab_vals: List[List[complex]] = []
     syndromes: List[np.ndarray] = []
+    state_syndrome_pairs: List[Dict[str, Any]] = []
 
     for sid in trajectory:
         basis = state_to_basis_vector(sid, num_states)
@@ -170,11 +190,16 @@ def measure_trajectory(
         states_out.append(qudit_state.copy())
         stab_vals.append(list(vals))
         syndromes.append(synd.copy())
+        state_syndrome_pairs.append({
+            "state": int(sid),
+            "syndrome": [int(x) for x in synd],
+        })
 
     return {
         "states": states_out,
         "stabilizer_values": stab_vals,
         "syndromes": syndromes,
+        "state_syndrome_pairs": state_syndrome_pairs,
     }
 
 
@@ -242,6 +267,26 @@ def analyze_syndrome_evolution(
 
 
 # ---------------------------------------------------------------------------
+# PART D2 — SYNDROME COMPRESSION
+# ---------------------------------------------------------------------------
+
+
+def compress_syndrome(syndrome: np.ndarray) -> str:
+    """Deterministic string signature for a syndrome vector.
+
+    Converts each element to int and joins with underscore.
+    Example: np.array([0, 1, 0, 2]) → "0_1_0_2"
+
+    Args:
+        syndrome: 1-d integer array.
+
+    Returns:
+        Deterministic string signature.
+    """
+    return "_".join(str(int(x)) for x in syndrome)
+
+
+# ---------------------------------------------------------------------------
 # PART E — FULL PIPELINE
 # ---------------------------------------------------------------------------
 
@@ -252,14 +297,17 @@ def run_qudit_dynamics(
     steps: int,
     d: int,
     stabilizer_code: Any,
+    correction_mode: Optional[str] = None,
+    compress: bool = False,
 ) -> Dict[str, Any]:
-    """Full deterministic qudit dynamics pipeline.
+    """Full deterministic qudit dynamics pipeline (v91.1.0).
 
     1. Generate DFA trajectory.
     2. Embed into qudit space.
-    3. Measure stabilizers.
-    4. Extract syndromes.
-    5. Analyze evolution.
+    3. (Optional) Apply geometric correction.
+    4. Measure stabilizers.
+    5. Extract syndromes.
+    6. Analyze evolution.
 
     Args:
         dfa: DFA dict.
@@ -267,9 +315,14 @@ def run_qudit_dynamics(
         steps: number of DFA transitions.
         d: qudit local dimension.
         stabilizer_code: QuditStabilizerCode instance.
+        correction_mode: optional geometric correction mode ("square", "d4").
+            None means no correction.
+        compress: if True, include syndrome_signatures in output.
 
     Returns:
-        Dict with "trajectory", "qudit", "syndrome_analysis".
+        Dict with "trajectory", "qudit", "syndrome_analysis",
+        "stabilizer_metadata", and optionally "corrected",
+        "correction_effect", "syndrome_signatures".
     """
     trajectory = trajectory_to_states(dfa, start_state, steps)
 
@@ -277,8 +330,61 @@ def run_qudit_dynamics(
 
     syndrome_analysis = analyze_syndrome_evolution(qudit_result["syndromes"])
 
-    return {
+    # v91.1.0 — stabilizer metadata.
+    stabilizer_metadata = build_stabilizer_metadata(stabilizer_code)
+
+    result: Dict[str, Any] = {
         "trajectory": trajectory,
         "qudit": qudit_result,
         "syndrome_analysis": syndrome_analysis,
+        "stabilizer_metadata": stabilizer_metadata,
     }
+
+    # v91.1.0 — syndrome compression.
+    if compress:
+        result["syndrome_signatures"] = [
+            compress_syndrome(s) for s in qudit_result["syndromes"]
+        ]
+
+    # v91.1.0 — geometric correction (optional).
+    if correction_mode is not None:
+        from qec.experiments.qudit_geometric_correction import (
+            correct_trajectory_states,
+        )
+
+        corrected_states = correct_trajectory_states(
+            qudit_result["states"], correction_mode=correction_mode,
+        )
+
+        # Re-measure on corrected states.
+        corrected_syndromes: List[np.ndarray] = []
+        for cstate in corrected_states:
+            synd = stabilizer_code.syndromes(cstate)
+            corrected_syndromes.append(synd.copy())
+
+        result["corrected"] = {
+            "states": corrected_states,
+            "syndromes": corrected_syndromes,
+        }
+
+        # Correction effect metrics.
+        original_synds = qudit_result["syndromes"]
+        syndrome_changes = 0
+        for orig_s, corr_s in zip(original_synds, corrected_syndromes):
+            if not np.array_equal(orig_s, corr_s):
+                syndrome_changes += 1
+
+        unique_before = len(set(
+            tuple(int(x) for x in s) for s in original_synds
+        ))
+        unique_after = len(set(
+            tuple(int(x) for x in s) for s in corrected_syndromes
+        ))
+
+        result["correction_effect"] = {
+            "syndrome_changes": syndrome_changes,
+            "unique_before": unique_before,
+            "unique_after": unique_after,
+        }
+
+    return result

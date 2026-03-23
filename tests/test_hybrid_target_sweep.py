@@ -8,6 +8,7 @@ from typing import Any, Dict
 import pytest
 
 from qec.experiments.hybrid_target_sweep import (
+    build_phase_map,
     classify_regime_interfaces,
     compare_regimes,
     detect_transitions,
@@ -222,7 +223,7 @@ class TestTargetSweep:
             pipeline_fn=_fake_pipeline,
             top_k=2,
         )
-        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary", "regimes", "regime_comparisons", "regime_interfaces", "interface_ranking"}
+        assert set(result.keys()) == {"n_targets", "targets", "results", "transitions", "transition_summary", "regimes", "regime_comparisons", "regime_interfaces", "interface_ranking", "phase_map"}
         assert result["n_targets"] == 1
 
         entry = result["results"][0]
@@ -861,3 +862,112 @@ class TestRankRegimeInterfaces:
         assert "delta_mean_score" in entry
         assert "delta_mean_compatibility" in entry
         assert "strength" in entry
+
+
+# ---------------------------------------------------------------------------
+# build_phase_map
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPhaseMap:
+    """Tests for v84.4.0 — Phase Map Export."""
+
+    @staticmethod
+    def _regime(start, end, cls="convergent", phase="stable", score=0.5, compat=0.8):
+        return {
+            "start_index": start,
+            "end_index": end,
+            "length": end - start + 1,
+            "dominant_theta": [1.0],
+            "dominant_sequence": "A",
+            "dominant_class": cls,
+            "dominant_phase": phase,
+            "mean_score": score,
+            "mean_compatibility": compat,
+        }
+
+    @staticmethod
+    def _iface(from_i, to_i, itype="phase_boundary", ds=0.3, dc=0.2,
+               cs=False, ps=True, ss=False):
+        return {
+            "from_index": from_i,
+            "to_index": to_i,
+            "interface_type": itype,
+            "delta_mean_score": ds,
+            "delta_mean_compatibility": dc,
+            "class_shift": cs,
+            "phase_shift": ps,
+            "structure_shift": ss,
+        }
+
+    def test_node_count_matches_regimes(self):
+        """Number of nodes equals number of regimes."""
+        regimes = [self._regime(0, 2), self._regime(3, 5), self._regime(6, 8)]
+        pm = build_phase_map(regimes, [])
+        assert len(pm["nodes"]) == 3
+
+    def test_edge_count_matches_interfaces(self):
+        """Number of edges equals number of interfaces."""
+        regimes = [self._regime(0, 2), self._regime(3, 5)]
+        ifaces = [self._iface(0, 1)]
+        pm = build_phase_map(regimes, ifaces)
+        assert len(pm["edges"]) == 1
+
+    def test_node_fields(self):
+        """Each node carries the required fields."""
+        regimes = [self._regime(0, 4, cls="divergent", phase="unstable",
+                                score=0.7, compat=0.9)]
+        pm = build_phase_map(regimes, [])
+        node = pm["nodes"][0]
+        assert node["id"] == 0
+        assert node["range"] == [0, 4]
+        assert node["length"] == 5
+        assert node["dominant_class"] == "divergent"
+        assert node["dominant_phase"] == "unstable"
+        assert node["mean_score"] == pytest.approx(0.7)
+        assert node["mean_compatibility"] == pytest.approx(0.9)
+
+    def test_edge_fields(self):
+        """Each edge carries the required fields."""
+        regimes = [self._regime(0, 2), self._regime(3, 5)]
+        ifaces = [self._iface(0, 1, itype="strong_boundary", ds=0.4, dc=0.6,
+                              cs=True, ps=True, ss=True)]
+        pm = build_phase_map(regimes, ifaces)
+        edge = pm["edges"][0]
+        assert edge["source"] == 0
+        assert edge["target"] == 1
+        assert edge["type"] == "strong_boundary"
+        assert edge["delta_score"] == pytest.approx(0.4)
+        assert edge["delta_compatibility"] == pytest.approx(0.6)
+        assert edge["class_shift"] is True
+        assert edge["phase_shift"] is True
+        assert edge["structure_shift"] is True
+
+    def test_weight_from_ranking(self):
+        """Edge weight uses ranking strength when provided."""
+        regimes = [self._regime(0, 2), self._regime(3, 5)]
+        ifaces = [self._iface(0, 1, ds=0.3, dc=0.2)]
+        ranking = rank_regime_interfaces(ifaces)
+        pm = build_phase_map(regimes, ifaces, interface_ranking=ranking)
+        assert pm["edges"][0]["weight"] == pytest.approx(0.5)
+
+    def test_weight_computed_without_ranking(self):
+        """Edge weight computed locally when no ranking provided."""
+        regimes = [self._regime(0, 2), self._regime(3, 5)]
+        ifaces = [self._iface(0, 1, ds=-0.4, dc=0.6)]
+        pm = build_phase_map(regimes, ifaces)
+        assert pm["edges"][0]["weight"] == pytest.approx(1.0)
+
+    def test_empty_input(self):
+        """Empty regimes and interfaces produce empty graph."""
+        pm = build_phase_map([], [])
+        assert pm["nodes"] == []
+        assert pm["edges"] == []
+
+    def test_deterministic_output(self):
+        """Repeated calls produce identical output."""
+        regimes = [self._regime(0, 2), self._regime(3, 5)]
+        ifaces = [self._iface(0, 1)]
+        pm1 = build_phase_map(regimes, ifaces)
+        pm2 = build_phase_map(regimes, ifaces)
+        assert pm1 == pm2

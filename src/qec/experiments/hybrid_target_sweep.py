@@ -224,6 +224,56 @@ def rank_regime_interfaces(
     }
 
 
+def build_phase_map(
+    regimes: List[Dict[str, Any]],
+    regime_interfaces: List[Dict[str, Any]],
+    interface_ranking: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Export regimes and interfaces as a graph: nodes + edges.
+
+    Pure structural transformation — no side effects, no randomness.
+    """
+    # Build strength lookup from ranking if available.
+    strength_lookup: Dict[tuple, float] = {}
+    if interface_ranking is not None:
+        for entry in interface_ranking.get("ranked_interfaces", []):
+            key = (entry["from_index"], entry["to_index"])
+            strength_lookup[key] = entry["strength"]
+
+    nodes: List[Dict[str, Any]] = []
+    for i, reg in enumerate(regimes):
+        nodes.append({
+            "id": i,
+            "range": [reg["start_index"], reg["end_index"]],
+            "length": reg["length"],
+            "dominant_class": reg.get("dominant_class"),
+            "dominant_phase": reg.get("dominant_phase"),
+            "mean_score": reg["mean_score"],
+            "mean_compatibility": reg["mean_compatibility"],
+        })
+
+    edges: List[Dict[str, Any]] = []
+    for iface in regime_interfaces:
+        key = (iface["from_index"], iface["to_index"])
+        weight = strength_lookup.get(
+            key,
+            abs(iface["delta_mean_score"]) + abs(iface["delta_mean_compatibility"]),
+        )
+        edges.append({
+            "source": iface["from_index"],
+            "target": iface["to_index"],
+            "type": iface["interface_type"],
+            "weight": weight,
+            "delta_score": iface["delta_mean_score"],
+            "delta_compatibility": iface["delta_mean_compatibility"],
+            "class_shift": iface["class_shift"],
+            "phase_shift": iface["phase_shift"],
+            "structure_shift": iface["structure_shift"],
+        })
+
+    return {"nodes": nodes, "edges": edges}
+
+
 def run_target_sweep(
     targets: List[Union[str, Dict[str, Any]]],
     theta_grid: List[List[float]],
@@ -282,6 +332,7 @@ def run_target_sweep(
     regimes = extract_regimes(results, transitions)
     regime_comparisons = compare_regimes(regimes)
     regime_interfaces = classify_regime_interfaces(regime_comparisons)
+    interface_ranking = rank_regime_interfaces(regime_interfaces)
     return {
         "n_targets": len(results),
         "targets": [r["target_spec"] for r in results],
@@ -291,5 +342,6 @@ def run_target_sweep(
         "regimes": regimes,
         "regime_comparisons": regime_comparisons,
         "regime_interfaces": regime_interfaces,
-        "interface_ranking": rank_regime_interfaces(regime_interfaces),
+        "interface_ranking": interface_ranking,
+        "phase_map": build_phase_map(regimes, regime_interfaces, interface_ranking),
     }

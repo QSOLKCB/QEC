@@ -9,6 +9,9 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
+# Default clustering threshold (L1 histogram distance).
+DEFAULT_THRESHOLD = 0.3
+
 
 # -- B1: extract basin sequence -------------------------------------------
 
@@ -104,7 +107,7 @@ def cluster_trajectories(
 def run_trajectory_clustering(
     trajectories: Dict[int, List[Tuple[int, ...]]],
     basin_mapping: Dict[Tuple[int, ...], int],
-    threshold: float = 0.3,
+    threshold: float = DEFAULT_THRESHOLD,
 ) -> Dict[str, Any]:
     """Cluster trajectories by basin visitation similarity.
 
@@ -121,19 +124,34 @@ def run_trajectory_clustering(
     -------
     dict with ``clusters`` list and ``n_clusters`` count.
     """
+    if threshold < 0.0:
+        raise ValueError("threshold must be non-negative")
+
+    # N = 0: no trajectories.
+    if not trajectories:
+        return {"clusters": [], "n_clusters": 0}
+
     # Build per-trajectory histograms.
     histograms: Dict[int, Dict[int, float]] = {}
     for tid in sorted(trajectories.keys()):
         seq = extract_basin_sequence(trajectories[tid], basin_mapping)
         histograms[tid] = basin_histogram(seq)
 
+    # N = 1: single trajectory, skip distance computation.
+    if len(histograms) == 1:
+        tid = next(iter(histograms))
+        return {
+            "clusters": [{"id": 0, "members": [tid], "centroid_histogram": histograms[tid]}],
+            "n_clusters": 1,
+        }
+
     dist_matrix, ordered_ids = compute_distance_matrix(histograms)
     raw_clusters = cluster_trajectories(dist_matrix, threshold)
 
     # Build output with centroid histograms.
     result_clusters: List[Dict[str, Any]] = []
-    for ci, members_idx in enumerate(raw_clusters):
-        member_ids = [ordered_ids[idx] for idx in members_idx]
+    for members_idx in raw_clusters:
+        member_ids = sorted(ordered_ids[idx] for idx in members_idx)
         # Centroid = element-wise mean of member histograms.
         all_keys: set = set()
         for mid in member_ids:
@@ -143,10 +161,14 @@ def run_trajectory_clustering(
         for k in sorted_keys:
             centroid[k] = sum(histograms[mid].get(k, 0.0) for mid in member_ids) / len(member_ids)
         result_clusters.append({
-            "id": ci,
             "members": member_ids,
             "centroid_histogram": centroid,
         })
+
+    # Canonical cluster ordering: sort by (min_member, cluster_size).
+    result_clusters.sort(key=lambda c: (min(c["members"]), len(c["members"])))
+    for ci, cluster in enumerate(result_clusters):
+        cluster["id"] = ci
 
     return {
         "clusters": result_clusters,

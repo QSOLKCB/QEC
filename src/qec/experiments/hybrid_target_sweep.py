@@ -1,8 +1,10 @@
-"""v83.1.0 — Target Sweep Engine (Invariant Query Grid).
+"""v84.5.0 — Target Sweep Engine (Invariant Query Grid).
 
 Runs ``run_hybrid_inverse_design`` over a list of target specs and returns
 structured results.  This is a thin deterministic loop — no new logic, no
 parallelism, no reordering.
+
+Includes deterministic JSON export for phase maps (v84.5).
 
 Layer 5 — Experiments.
 Does not modify decoder internals.  Fully deterministic.  Read-only on inputs.
@@ -11,6 +13,8 @@ Does not modify decoder internals.  Fully deterministic.  Read-only on inputs.
 from __future__ import annotations
 
 import copy
+import json
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
@@ -292,4 +296,37 @@ def run_target_sweep(
         "regime_comparisons": regime_comparisons,
         "regime_interfaces": regime_interfaces,
         "interface_ranking": rank_regime_interfaces(regime_interfaces),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase-map JSON export (v84.5)
+# ---------------------------------------------------------------------------
+
+
+def phase_map_to_json(phase_map: Dict[str, Any]) -> str:
+    """Serialize a phase map to a deterministic JSON string.
+
+    Uses ``indent=2``, ``sort_keys=True`` for canonical formatting.
+    """
+    return json.dumps(phase_map, indent=2, sort_keys=True, ensure_ascii=False)
+
+
+def save_phase_map(
+    phase_map: Dict[str, Any],
+    output_path: Union[str, Path],
+) -> Dict[str, Any]:
+    """Write *phase_map* to JSON at *output_path*.
+
+    Returns metadata dict with ``output_path``, ``n_nodes``, ``n_edges``.
+    """
+    output_path = Path(output_path)
+    output_path.write_text(
+        phase_map_to_json(phase_map) + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "output_path": str(output_path),
+        "n_nodes": len(phase_map.get("nodes", [])),
+        "n_edges": len(phase_map.get("edges", [])),
     }

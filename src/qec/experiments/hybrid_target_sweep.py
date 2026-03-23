@@ -22,6 +22,7 @@ import numpy as np
 from qec.experiments.phase_spectral_analysis import run_phase_spectral_analysis
 from qec.experiments.phase_syndrome_analysis import run_syndrome_analysis
 from qec.experiments.phase_syndrome_decoder import decode_syndrome_trajectory
+from qec.experiments.phase_syndrome_geometry import run_syndrome_geometry_analysis
 
 from qec.experiments.hybrid_inverse_design import run_hybrid_inverse_design
 
@@ -359,6 +360,7 @@ def run_target_sweep(
         out["syndrome_analysis"]["series"]["encoded"],
         out["syndrome_analysis"]["transitions"],
     )
+    out["syndrome_geometry"] = run_syndrome_geometry_analysis(results)
     return out
 
 

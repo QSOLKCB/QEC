@@ -9,6 +9,8 @@ Pure deterministic algorithms only. No randomness, no mutation of inputs.
 
 from typing import Any, Dict, List, Set, Tuple
 
+from qec.experiments.dfa_analysis import analyze_dfa
+
 
 # -- A1: extract basin sequence --------------------------------------------
 
@@ -400,6 +402,9 @@ def run_symbolic_dynamics(
     state_ratio = n_raw_states / max(1, n_min_states)
     transition_ratio = n_raw_transitions / max(1, n_min_transitions)
 
+    # 8: structural analysis of minimized DFA.
+    dfa_analysis = analyze_dfa(min_dfa)
+
     return {
         "alphabet": dfa["alphabet"],
         "states": dfa["states"],
@@ -417,4 +422,5 @@ def run_symbolic_dynamics(
             "raw_states": n_raw_states,
             "min_states": n_min_states,
         },
+        "dfa_analysis": dfa_analysis,
     }

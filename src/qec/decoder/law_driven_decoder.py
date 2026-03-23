@@ -20,6 +20,7 @@ import numpy as np
 
 DEFAULT_MAX_STEPS = 50
 CONVERGENCE_VARIANCE_THRESHOLD = 1e-6
+FIXED_POINT_ATOL = 1e-12
 OSCILLATION_WINDOW = 5
 
 # ---------------------------------------------------------------------------
@@ -313,16 +314,30 @@ def detect_oscillation(trajectory: List[Dict[str, Any]], window: int = OSCILLATI
     return True
 
 
+def _is_fixed_point(trajectory: List[Dict[str, Any]], index: int) -> bool:
+    """Check if trajectory[index] is identical to trajectory[index-1]."""
+    if index < 1 or index >= len(trajectory):
+        return False
+    a = np.asarray(trajectory[index - 1]["values"], dtype=np.float64)
+    b = np.asarray(trajectory[index]["values"], dtype=np.float64)
+    return bool(np.allclose(a, b, atol=FIXED_POINT_ATOL, rtol=0.0))
+
+
 def evaluate_run(
     trajectory: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """Evaluate a decoder run for convergence and stability.
 
+    Convergence is detected when either:
+    - variance drops below CONVERGENCE_VARIANCE_THRESHOLD, or
+    - the state reaches a fixed point (no change between steps).
+
     Returns:
-    - converged: bool (final variance below threshold)
+    - converged: bool
     - steps_to_convergence: int or None
     - final_variance: float
     - oscillating: bool
+    - fixed_point: bool
     """
     if not trajectory:
         return {
@@ -330,18 +345,25 @@ def evaluate_run(
             "steps_to_convergence": None,
             "final_variance": float("inf"),
             "oscillating": False,
+            "fixed_point": False,
         }
 
     variances = [float(np.var(s["values"])) for s in trajectory]
     final_variance = variances[-1]
-    converged = final_variance < CONVERGENCE_VARIANCE_THRESHOLD
 
+    # Check for variance convergence or fixed-point convergence
     steps_to_convergence = None
-    for i, v in enumerate(variances):
-        if v < CONVERGENCE_VARIANCE_THRESHOLD:
+    fixed_point = False
+    for i in range(len(trajectory)):
+        if variances[i] < CONVERGENCE_VARIANCE_THRESHOLD:
             steps_to_convergence = i
             break
+        if _is_fixed_point(trajectory, i):
+            steps_to_convergence = i
+            fixed_point = True
+            break
 
+    converged = steps_to_convergence is not None
     oscillating = detect_oscillation(trajectory)
 
     return {
@@ -349,6 +371,7 @@ def evaluate_run(
         "steps_to_convergence": steps_to_convergence,
         "final_variance": final_variance,
         "oscillating": oscillating,
+        "fixed_point": fixed_point,
     }
 
 
@@ -409,9 +432,14 @@ def run_decoder(
         current = new_state
         trajectory.append(current)
 
-        # Early convergence check
+        # Early convergence: variance threshold or fixed point
         variance = float(np.var(current["values"]))
         if variance < CONVERGENCE_VARIANCE_THRESHOLD:
+            break
+        if np.allclose(
+            prev_state["values"], current["values"],
+            atol=FIXED_POINT_ATOL, rtol=0.0,
+        ):
             break
 
     evaluation = evaluate_run(trajectory)

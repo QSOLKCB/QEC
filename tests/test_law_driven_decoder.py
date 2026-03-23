@@ -324,6 +324,22 @@ class TestEvaluation:
         assert result["converged"] is False
         assert result["final_variance"] == float("inf")
 
+    def test_fixed_point_convergence(self):
+        """State that stops changing is detected as converged."""
+        s = make_state([2.0, -1.0])  # variance=2.25, not below threshold
+        trajectory = [s, s]  # identical states = fixed point
+        result = evaluate_run(trajectory)
+        assert result["converged"] is True
+        assert result["fixed_point"] is True
+        assert result["steps_to_convergence"] == 1
+
+    def test_non_fixed_point_high_variance_not_converged(self):
+        """Different states with high variance are not converged."""
+        trajectory = [make_state([2.0, -1.0]), make_state([3.0, -2.0])]
+        result = evaluate_run(trajectory)
+        assert result["converged"] is False
+        assert result["fixed_point"] is False
+
 
 # ---------------------------------------------------------------------------
 # STEP 8 — DECODER LOOP
@@ -391,6 +407,18 @@ class TestDecoderLoop:
         metrics = {"variance": 1.0, "mean": 0.0, "delta": 0.0}
         strategy = build_strategy([law], metrics)
         assert "adjust_damping" in strategy.actions
+
+    def test_fixed_point_stops_loop(self):
+        """hard_correction produces a fixed point; loop should stop early."""
+        # hard_correction: [2, -1] -> [1, -1] -> [1, -1] (fixed point)
+        cond = Condition("variance", "gte", 0.0)  # always true
+        law = _make_law("L1", "hard_correction", conditions=[cond])
+        state = make_state([2.0, -1.0])
+        result = run_decoder([law], state, max_steps=50)
+        # Should stop after 2 steps (initial + sign + fixed), not run all 50
+        assert len(result["trajectory"]) <= 4
+        assert result["evaluation"]["converged"] is True
+        assert result["evaluation"]["fixed_point"] is True
 
 
 # ---------------------------------------------------------------------------

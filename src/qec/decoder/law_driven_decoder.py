@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from qec.analysis.field_metrics import compute_field_metrics
+
 
 # ---------------------------------------------------------------------------
 # CONSTANTS
@@ -276,6 +278,7 @@ def extract_metrics(
         metrics["delta"] = float(np.sqrt(np.sum(diff * diff)))
     else:
         metrics["delta"] = 0.0
+    metrics["field"] = compute_field_metrics(values)
     return metrics
 
 

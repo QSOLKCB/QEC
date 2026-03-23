@@ -14,6 +14,7 @@ from .phase_syndrome_analysis import run_syndrome_analysis
 from .phase_syndrome_decoder import decode_syndrome_trajectory
 from .phase_syndrome_geometry import run_syndrome_geometry_analysis
 from .phase_geometric_dynamics import run_geometric_dynamics
+from .phase_trajectory_motifs import run_trajectory_motif_analysis
 
 
 # -- per-step helpers ------------------------------------------------
@@ -140,6 +141,9 @@ def run_phase_trajectory_analysis(
         ),
         "syndrome_geometry": syndrome_geometry,
         "geometric_dynamics": run_geometric_dynamics(
+            syndrome_geometry["ternary_series"]["encoded"],
+        ),
+        "trajectory_motifs": run_trajectory_motif_analysis(
             syndrome_geometry["ternary_series"]["encoded"],
         ),
     }

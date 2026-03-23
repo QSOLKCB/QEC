@@ -7,6 +7,7 @@ from qec.analysis.law_promotion import Condition, Law
 from qec.decoder.law_driven_decoder import (
     ACTION_MAP,
     DecoderStrategy,
+    _ACTION_DISPATCH,
     adjust_damping,
     aggregate_actions,
     build_strategy,
@@ -78,6 +79,19 @@ class TestActionPrimitives:
         result = freeze_nodes(state, mask=[True, False, True, False])
         np.testing.assert_array_almost_equal(result["values"], [0.0, 2.0, 0.0, 4.0])
 
+    def test_freeze_nodes_via_threshold_dispatch(self):
+        """freeze_unstable action passes threshold; dispatcher derives mask."""
+        state = make_state([0.05, 1.0, -0.03, 2.0])
+        # Threshold 0.1 -> freeze indices where |value| < 0.1 (indices 0, 2)
+        result = _ACTION_DISPATCH["freeze_nodes"](state, {"threshold": 0.1})
+        np.testing.assert_array_almost_equal(result["values"], [0.0, 1.0, 0.0, 2.0])
+
+    def test_freeze_nodes_dispatch_with_explicit_mask(self):
+        """Explicit mask still works through dispatch."""
+        state = make_state([1.0, 2.0])
+        result = _ACTION_DISPATCH["freeze_nodes"](state, {"mask": [False, True]})
+        np.testing.assert_array_almost_equal(result["values"], [1.0, 0.0])
+
     def test_schedule_update_sequential(self):
         state = make_state([4.0, 2.0, 6.0])
         result = schedule_update(state, mode="sequential")
@@ -130,8 +144,6 @@ class TestLawToActionMapping:
 
     def test_all_actions_in_map_are_dispatchable(self):
         """Every action in ACTION_MAP must map to a known action type."""
-        from qec.decoder.law_driven_decoder import _ACTION_DISPATCH
-
         for action_str, (action_type, _params) in ACTION_MAP.items():
             assert action_type in _ACTION_DISPATCH, (
                 f"ACTION_MAP entry {action_str!r} -> {action_type!r} not in dispatch"

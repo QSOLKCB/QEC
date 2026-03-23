@@ -100,7 +100,11 @@ def correction_mode(state: Dict[str, Any], mode: str) -> Dict[str, Any]:
 _ACTION_DISPATCH = {
     "adjust_damping": lambda state, params: adjust_damping(state, params["alpha"]),
     "reweight_messages": lambda state, params: reweight_messages(state, params["weight"]),
-    "freeze_nodes": lambda state, params: freeze_nodes(state, params["mask"]),
+    "freeze_nodes": lambda state, params: freeze_nodes(
+        state,
+        params["mask"] if "mask" in params
+        else np.abs(np.asarray(state["values"], dtype=np.float64)) < params["threshold"],
+    ),
     "schedule_update": lambda state, params: schedule_update(state, params["mode"]),
     "correction_mode": lambda state, params: correction_mode(state, params["mode"]),
 }

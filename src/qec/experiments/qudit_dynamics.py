@@ -252,6 +252,8 @@ def run_qudit_dynamics(
     steps: int,
     d: int,
     stabilizer_code: Any,
+    correction_mode: Optional[str] = None,
+    run_correction: bool = False,
 ) -> Dict[str, Any]:
     """Full deterministic qudit dynamics pipeline.
 
@@ -260,6 +262,8 @@ def run_qudit_dynamics(
     3. Measure stabilizers.
     4. Extract syndromes.
     5. Analyze evolution.
+    6. (Optional) Apply lattice-projection correction.
+    7. (Optional) Run correction experiments for all modes.
 
     Args:
         dfa: DFA dict.
@@ -267,18 +271,50 @@ def run_qudit_dynamics(
         steps: number of DFA transitions.
         d: qudit local dimension.
         stabilizer_code: QuditStabilizerCode instance.
+        correction_mode: if set, apply this projection to states
+            and record the mean correction delta.
+        run_correction: if True, run correction experiments for
+            all projection modes (None, "square", "d4").
 
     Returns:
-        Dict with "trajectory", "qudit", "syndrome_analysis".
+        Dict with "trajectory", "qudit", "syndrome_analysis",
+        and optionally "correction" and/or "experiments".
     """
+    from qec.experiments.correction_layer import (
+        apply_correction,
+        run_correction_experiment,
+    )
+
     trajectory = trajectory_to_states(dfa, start_state, steps)
 
     qudit_result = measure_trajectory(trajectory, d, stabilizer_code)
 
     syndrome_analysis = analyze_syndrome_evolution(qudit_result["syndromes"])
 
-    return {
+    result: Dict[str, Any] = {
         "trajectory": trajectory,
         "qudit": qudit_result,
         "syndrome_analysis": syndrome_analysis,
     }
+
+    states = qudit_result["states"]
+    syndromes = qudit_result["syndromes"]
+
+    if correction_mode is not None:
+        deltas: List[float] = []
+        for s in states:
+            _, delta = apply_correction(s, correction_mode)
+            deltas.append(delta)
+        result["correction"] = {
+            "mode": correction_mode,
+            "mean_delta": float(np.mean(deltas)) if deltas else 0.0,
+        }
+
+    if run_correction:
+        result["experiments"] = [
+            run_correction_experiment(states, syndromes, None),
+            run_correction_experiment(states, syndromes, "square"),
+            run_correction_experiment(states, syndromes, "d4"),
+        ]
+
+    return result

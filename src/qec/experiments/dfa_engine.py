@@ -4,7 +4,7 @@ Transforms a minimized DFA from a passive validator into a deterministic
 dynamical engine. All algorithms are pure, deterministic, and use only
 stdlib + collections.
 
-v89.1.0
+v89.2.0
 """
 
 from __future__ import annotations
@@ -27,6 +27,83 @@ def get_next_states(dfa: Dict[str, Any], state: int) -> List[int]:
 def step(dfa: Dict[str, Any], state: int, symbol: int) -> Optional[int]:
     """Return next state for (state, symbol), or None if undefined."""
     return dfa.get("transitions", {}).get(state, {}).get(symbol)
+
+
+# ---------------------------------------------------------------------------
+# PART A2 — Constraint Composition
+# ---------------------------------------------------------------------------
+
+
+def normalize_constraints(
+    constraints: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Normalize a constraints dict into canonical form.
+
+    Returns {"avoid_states": set, "avoid_symbols": set,
+             "max_depth": int|None, "allow_only_states": set|None}.
+    """
+    if not constraints:
+        return {
+            "avoid_states": set(),
+            "avoid_symbols": set(),
+            "max_depth": None,
+            "allow_only_states": None,
+        }
+    return {
+        "avoid_states": set(constraints.get("avoid_states", ())),
+        "avoid_symbols": set(constraints.get("avoid_symbols", ())),
+        "max_depth": constraints.get("max_depth"),
+        "allow_only_states": (
+            set(constraints["allow_only_states"])
+            if constraints.get("allow_only_states") is not None
+            else None
+        ),
+    }
+
+
+def compose_constraints(
+    base: Optional[Dict[str, Any]],
+    extra: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Merge two constraint dicts deterministically.
+
+    Rules:
+    * avoid_states → union
+    * avoid_symbols → union
+    * allow_only_states → intersection (if both exist)
+    * max_depth → min (if both exist)
+    """
+    b = normalize_constraints(base)
+    e = normalize_constraints(extra)
+
+    # allow_only_states: intersection when both present.
+    b_allow = b["allow_only_states"]
+    e_allow = e["allow_only_states"]
+    if b_allow is not None and e_allow is not None:
+        merged_allow: Optional[Set[int]] = b_allow & e_allow
+    elif b_allow is not None:
+        merged_allow = set(b_allow)
+    elif e_allow is not None:
+        merged_allow = set(e_allow)
+    else:
+        merged_allow = None
+
+    # max_depth: min when both present.
+    b_depth = b["max_depth"]
+    e_depth = e["max_depth"]
+    if b_depth is not None and e_depth is not None:
+        merged_depth: Optional[int] = min(b_depth, e_depth)
+    elif b_depth is not None:
+        merged_depth = b_depth
+    else:
+        merged_depth = e_depth
+
+    return {
+        "avoid_states": b["avoid_states"] | e["avoid_states"],
+        "avoid_symbols": b["avoid_symbols"] | e["avoid_symbols"],
+        "max_depth": merged_depth,
+        "allow_only_states": merged_allow,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +144,8 @@ def simulate_from_state(
     dfa: Dict[str, Any],
     start_state: int,
     max_steps: int,
-    pruning: Optional[Dict[str, bool]] = None,
+    pruning: Optional[Dict[str, Any]] = None,
+    hierarchy: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Generate all valid trajectories from *start_state* up to *max_steps*.
 
@@ -78,16 +156,42 @@ def simulate_from_state(
     Optional *pruning* dict supports:
         stop_at_attractors: stop expansion when entering a terminal SCC
         avoid_dead_state:   do not expand the dead state
+        max_level:          skip states with hierarchy level > this value
+        target_levels:      only expand states within these levels
+        stop_at_levels:     stop expansion when entering these levels
+
+    Optional *hierarchy* dict (from compute_scc_levels) provides level info.
 
     Returns {"trajectories": list[list[int]], "n_trajectories": int,
-             "pruned": bool}.
+             "pruned": bool, "pruning_used": dict}.
     """
     transitions = dfa.get("transitions", {})
     pruned = pruning is not None and bool(pruning)
     stop_at_attractors = bool(pruning.get("stop_at_attractors")) if pruning else False
     avoid_dead = bool(pruning.get("avoid_dead_state")) if pruning else False
+    max_level: Optional[int] = pruning.get("max_level") if pruning else None
+    target_levels: Optional[Set[int]] = (
+        set(pruning["target_levels"]) if pruning and pruning.get("target_levels") is not None else None
+    )
+    stop_at_levels: Optional[Set[int]] = (
+        set(pruning["stop_at_levels"]) if pruning and pruning.get("stop_at_levels") is not None else None
+    )
 
     dead_state = dfa.get("dead_state")
+
+    # Build state → level map from hierarchy if provided.
+    state_to_level: Dict[int, int] = {}
+    if hierarchy is not None:
+        levels_map = hierarchy.get("levels", {})
+        # Map state → component id, then component level.
+        state_to_comp: Dict[int, int] = {}
+        if hierarchy.get("_sccs"):
+            for scc in hierarchy["_sccs"]:
+                for s in scc["states"]:
+                    state_to_comp[s] = scc["id"]
+            for s, cid in state_to_comp.items():
+                if cid in levels_map:
+                    state_to_level[s] = levels_map[cid]
 
     # Pre-compute terminal SCC states if needed.
     terminal_states: Set[int] = set()
@@ -122,6 +226,11 @@ def simulate_from_state(
             completed.append(path)
             continue
 
+        # Pruning: stop at specific hierarchy levels.
+        if stop_at_levels and len(path) > 1 and state_to_level.get(current) in stop_at_levels:
+            completed.append(path)
+            continue
+
         next_states = sorted(set(transitions.get(current, {}).values()))
 
         if not next_states:
@@ -131,6 +240,12 @@ def simulate_from_state(
         expanded = False
         for ns in next_states:
             if avoid_dead and ns == dead_state:
+                continue
+            # Hierarchy-based pruning: skip states exceeding max_level.
+            if max_level is not None and state_to_level.get(ns, 0) > max_level:
+                continue
+            # Hierarchy-based pruning: skip states outside target_levels.
+            if target_levels is not None and state_to_level.get(ns, 0) not in target_levels:
                 continue
             if ns in visited:
                 # Cyclic — record path including the revisited state.
@@ -143,16 +258,32 @@ def simulate_from_state(
         if not expanded and not any(
             ns in visited for ns in next_states
             if not (avoid_dead and ns == dead_state)
+            and not (max_level is not None and state_to_level.get(ns, 0) > max_level)
+            and not (target_levels is not None and state_to_level.get(ns, 0) not in target_levels)
         ):
             completed.append(path)
 
     # Deterministic sort: lexicographic on path.
     completed.sort()
 
+    pruning_used: Dict[str, Any] = {}
+    if pruning:
+        if stop_at_attractors:
+            pruning_used["stop_at_attractors"] = True
+        if avoid_dead:
+            pruning_used["avoid_dead_state"] = True
+        if max_level is not None:
+            pruning_used["max_level"] = max_level
+        if target_levels is not None:
+            pruning_used["target_levels"] = sorted(target_levels)
+        if stop_at_levels is not None:
+            pruning_used["stop_at_levels"] = sorted(stop_at_levels)
+
     return {
         "trajectories": completed,
         "n_trajectories": len(completed),
         "pruned": pruned,
+        "pruning_used": pruning_used,
     }
 
 
@@ -167,6 +298,8 @@ def find_control_path(
     target_state: int,
     target_states: Optional[Set[int]] = None,
     constraints: Optional[Dict[str, Any]] = None,
+    hierarchy: Optional[Dict[str, Any]] = None,
+    prefer_lower_levels: bool = False,
 ) -> Dict[str, Any]:
     """Find shortest path from *start_state* to a target using BFS.
 
@@ -174,20 +307,49 @@ def find_control_path(
     (multi-target mode).  Otherwise use *target_state*.
 
     Optional *constraints* dict supports:
-        avoid_states:  set of states to skip during traversal
-        avoid_symbols: set of symbols to skip during traversal
-        max_depth:     int upper bound on path length
+        avoid_states:      set of states to skip during traversal
+        avoid_symbols:     set of symbols to skip during traversal
+        max_depth:         int upper bound on path length
+        allow_only_states: set of states allowed (None = no restriction)
+
+    Optional *hierarchy* dict (from compute_scc_levels) enables level-aware
+    tie-breaking when *prefer_lower_levels* is True.
 
     Returns {"reachable": bool, "path": list, "symbols": list,
-             "length": int, "constrained": bool}.
+             "length": int, "constrained": bool, "constraints_used": dict}.
     """
     targets: Set[int] = target_states if target_states is not None else {target_state}
     transitions = dfa.get("transitions", {})
+
+    nc = normalize_constraints(constraints)
+    avoid_states = nc["avoid_states"]
+    avoid_symbols = nc["avoid_symbols"]
+    max_depth = nc["max_depth"]
+    allow_only = nc["allow_only_states"]
+
     constrained = constraints is not None and bool(constraints)
 
-    avoid_states: Set[int] = set(constraints.get("avoid_states", ())) if constraints else set()
-    avoid_symbols: Set[int] = set(constraints.get("avoid_symbols", ())) if constraints else set()
-    max_depth: Optional[int] = constraints.get("max_depth") if constraints else None
+    # Build state → level map for tie-breaking.
+    state_to_level: Dict[int, int] = {}
+    if hierarchy is not None and prefer_lower_levels:
+        levels_map = hierarchy.get("levels", {})
+        if hierarchy.get("_sccs"):
+            for scc in hierarchy["_sccs"]:
+                for s in scc["states"]:
+                    cid = scc["id"]
+                    if cid in levels_map:
+                        state_to_level[s] = levels_map[cid]
+
+    # Check allow_only for start_state.
+    if allow_only is not None and start_state not in allow_only:
+        return {
+            "reachable": False,
+            "path": [],
+            "symbols": [],
+            "length": 0,
+            "constrained": constrained,
+            "constraints_used": _constraints_used_summary(nc),
+        }
 
     if start_state in targets and start_state not in avoid_states:
         return {
@@ -196,6 +358,7 @@ def find_control_path(
             "symbols": [],
             "length": 0,
             "constrained": constrained,
+            "constraints_used": _constraints_used_summary(nc),
         }
 
     visited: Set[int] = {start_state}
@@ -212,14 +375,25 @@ def find_control_path(
 
         state_trans = transitions.get(current, {})
 
+        # Collect candidate (symbol, next_state) pairs.
+        candidates: List[Tuple[int, int]] = []
         for symbol in sorted(state_trans):
             if symbol in avoid_symbols:
                 continue
             ns = state_trans[symbol]
             if ns in avoid_states:
                 continue
+            if allow_only is not None and ns not in allow_only:
+                continue
             if ns in visited:
                 continue
+            candidates.append((symbol, ns))
+
+        # Hierarchy tie-breaking: sort by (level, state_id) — stable.
+        if prefer_lower_levels and state_to_level:
+            candidates.sort(key=lambda pair: (state_to_level.get(pair[1], 0), pair[1]))
+
+        for symbol, ns in candidates:
             new_path = path + [ns]
             new_symbols = symbols + [symbol]
 
@@ -230,6 +404,7 @@ def find_control_path(
                     "symbols": new_symbols,
                     "length": len(new_path) - 1,
                     "constrained": constrained,
+                    "constraints_used": _constraints_used_summary(nc),
                 }
 
             visited.add(ns)
@@ -241,7 +416,22 @@ def find_control_path(
         "symbols": [],
         "length": 0,
         "constrained": constrained,
+        "constraints_used": _constraints_used_summary(nc),
     }
+
+
+def _constraints_used_summary(nc: Dict[str, Any]) -> Dict[str, Any]:
+    """Build a serializable summary of active constraints."""
+    result: Dict[str, Any] = {}
+    if nc["avoid_states"]:
+        result["avoid_states"] = sorted(nc["avoid_states"])
+    if nc["avoid_symbols"]:
+        result["avoid_symbols"] = sorted(nc["avoid_symbols"])
+    if nc["max_depth"] is not None:
+        result["max_depth"] = nc["max_depth"]
+    if nc["allow_only_states"] is not None:
+        result["allow_only_states"] = sorted(nc["allow_only_states"])
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -453,18 +643,7 @@ def run_dfa_engine(dfa: Dict[str, Any]) -> Dict[str, Any]:
     #     forms a valid transition (self-check). ---
     validation = validate_sequence(dfa, states)
 
-    # --- Simulation from initial state. ---
-    simulation = simulate_from_state(dfa, initial, max_steps=min(len(states), 20))
-
-    # --- Control: paths from initial state to every other state. ---
-    control_paths: Dict[str, Any] = {}
-    for s in states:
-        if s == initial:
-            continue
-        result = find_control_path(dfa, initial, s)
-        control_paths[s] = result
-
-    # --- SCC meta-graph / attractors. ---
+    # --- SCC meta-graph / attractors (computed early for hierarchy). ---
     sccs = compute_scc(dfa)
     classify_components(dfa, sccs)
     scc_graph = build_scc_graph(sccs, dfa)
@@ -474,6 +653,23 @@ def run_dfa_engine(dfa: Dict[str, Any]) -> Dict[str, Any]:
     # --- Attractor hierarchy. ---
     hierarchy = compute_scc_levels(scc_graph)
     transition_summary = compute_scc_transition_summary(scc_graph, terminal)
+
+    # Enrich hierarchy with SCC info for state-level lookups.
+    hierarchy_with_sccs = {**hierarchy, "_sccs": sccs}
+
+    # --- Simulation from initial state. ---
+    simulation = simulate_from_state(
+        dfa, initial, max_steps=min(len(states), 20),
+        hierarchy=hierarchy_with_sccs,
+    )
+
+    # --- Control: paths from initial state to every other state. ---
+    control_paths: Dict[str, Any] = {}
+    for s in states:
+        if s == initial:
+            continue
+        result = find_control_path(dfa, initial, s)
+        control_paths[s] = result
 
     return {
         "validation": validation,

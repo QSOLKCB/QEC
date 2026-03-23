@@ -10,6 +10,7 @@ import pytest
 from qec.analysis.correction_dynamics import (
     classify_dynamics,
     compute_acceleration,
+    compute_curvature,
     compute_friction_score,
     compute_loop_twist,
     compute_mode_switches,
@@ -827,3 +828,186 @@ class TestExtendedIntegration:
         original = copy.deepcopy(data)
         run_correction_dynamics(data)
         assert data == original
+
+
+# ---------------------------------------------------------------------------
+# PART 14 — Curvature Dynamics
+# ---------------------------------------------------------------------------
+
+
+class TestComputeCurvature:
+    def test_empty(self):
+        result = compute_curvature([])
+        assert result["mean_curvature"] == 0.0
+        assert result["abs_curvature"] == 0.0
+        assert result["curvature_variation"] == 0.0
+
+    def test_single_distance(self):
+        result = compute_curvature([1.0])
+        assert result["mean_curvature"] == 0.0
+
+    def test_two_distances(self):
+        result = compute_curvature([1.0, 2.0])
+        assert result["mean_curvature"] == 0.0
+        assert result["abs_curvature"] == 0.0
+        assert result["curvature_variation"] == 0.0
+
+    def test_constant_distance_zero_curvature(self):
+        result = compute_curvature([1.0, 1.0, 1.0, 1.0, 1.0])
+        assert abs(result["mean_curvature"]) < 1e-10
+        assert abs(result["abs_curvature"]) < 1e-10
+        assert abs(result["curvature_variation"]) < 1e-10
+
+    def test_linear_change_near_zero(self):
+        # Linear: d = [1, 2, 3, 4, 5] => curvature = 0 at every point
+        result = compute_curvature([1.0, 2.0, 3.0, 4.0, 5.0])
+        assert abs(result["mean_curvature"]) < 1e-10
+        assert abs(result["abs_curvature"]) < 1e-10
+
+    def test_accelerating_decrease_negative(self):
+        # Accelerating decrease: distances shrink faster over time
+        # d = [4.0, 3.0, 1.0] => curvature = 1.0 - 6.0 + 4.0 = -1.0
+        result = compute_curvature([4.0, 3.0, 1.0])
+        assert result["mean_curvature"] < 0.0
+
+    def test_decelerating_decrease_positive(self):
+        # Decelerating decrease: distances shrink slower over time
+        # d = [4.0, 1.0, 0.0] => curvature = 0.0 - 2.0 + 4.0 = 2.0
+        result = compute_curvature([4.0, 1.0, 0.0])
+        assert result["mean_curvature"] > 0.0
+
+    def test_oscillation_high_abs_curvature(self):
+        # Oscillating: d = [0, 2, 0, 2, 0]
+        # curvature: 0-4+0=-4, 2-0+0=2... wait let me compute:
+        # c[0] = d[2] - 2*d[1] + d[0] = 0 - 4 + 0 = -4
+        # c[1] = d[3] - 2*d[2] + d[1] = 2 - 0 + 2 = 4
+        # c[2] = d[4] - 2*d[3] + d[2] = 0 - 4 + 0 = -4
+        # abs_curvature = mean(4, 4, 4) = 4.0
+        result = compute_curvature([0.0, 2.0, 0.0, 2.0, 0.0])
+        assert result["abs_curvature"] > 0.3
+
+    def test_deterministic(self):
+        dists = [0.1, 0.5, 0.2, 0.8, 0.3]
+        r1 = compute_curvature(dists)
+        r2 = compute_curvature(dists)
+        assert r1 == r2
+
+    def test_no_mutation(self):
+        dists = [1.0, 2.0, 0.5, 3.0]
+        dists_copy = list(dists)
+        compute_curvature(dists)
+        assert dists == dists_copy
+
+    def test_curvature_variation_nonzero_for_mixed(self):
+        # Mixed curvatures should produce nonzero variation
+        # d = [0, 2, 0, 2, 0] => curvatures = [-4, 4, -4] => std > 0
+        result = compute_curvature([0.0, 2.0, 0.0, 2.0, 0.0])
+        assert result["curvature_variation"] > 0.0
+
+    def test_curvature_variation_zero_for_uniform(self):
+        # d = [0, 1, 4, 9, 16] => curvature = 4-2+0=2, 9-8+1=2, 16-18+4=2
+        # All curvatures equal => variation = 0
+        result = compute_curvature([0.0, 1.0, 4.0, 9.0, 16.0])
+        assert abs(result["curvature_variation"]) < 1e-10
+
+
+class TestCurvatureIntegration:
+    def test_friction_score_has_curvature(self):
+        trace = {
+            "states_before": ["a", "b", "a"],
+            "states_after": ["b", "a", "b"],
+            "modes": ["b", "a", "b"],
+            "projection_distances": [0.5, 1.0, 0.2],
+            "stability_efficiency": 0.5,
+        }
+        result = compute_friction_score(trace)
+        assert "curvature" in result["extended_components"]
+        curv = result["extended_components"]["curvature"]
+        assert "mean_curvature" in curv
+        assert "abs_curvature" in curv
+        assert "curvature_variation" in curv
+
+    def test_friction_score_unchanged_with_curvature(self):
+        """Curvature must not alter friction_score formula."""
+        trace = {
+            "states_before": ["a", "b", "a"],
+            "states_after": ["b", "a", "b"],
+            "modes": ["b", "a", "b"],
+            "projection_distances": [0.5, 1.0, 0.2],
+            "stability_efficiency": 0.5,
+        }
+        result = compute_friction_score(trace)
+        # Recompute expected friction without curvature influence
+        osc = detect_oscillation(["a", "b", "a"], ["b", "a", "b"])
+        hyst = detect_hysteresis(["a", "b", "a"], ["b", "a", "b"])
+        sw = compute_mode_switches(["b", "a", "b"])
+        instab = switching_instability_score(["b", "a", "b"])
+        churn = compute_projection_churn([0.5, 1.0, 0.2], 0.5)
+        churn_norm = min(churn["churn_score"], 2.0) / 2.0
+        expected = (
+            osc["oscillation_ratio"]
+            + hyst["hysteresis_ratio"]
+            + sw["switch_ratio"]
+            + instab
+            + churn_norm
+        )
+        assert abs(result["friction_score"] - expected) < 1e-10
+
+    def test_classify_high_curvature(self):
+        ext = {"curvature": {"abs_curvature": 0.5, "mean_curvature": 0.0}}
+        label = classify_dynamics(0.5, ext)
+        assert "high_curvature" in label
+
+    def test_classify_basin_entry(self):
+        ext = {"curvature": {"abs_curvature": 0.0, "mean_curvature": -0.5}}
+        label = classify_dynamics(0.5, ext)
+        assert "basin_entry" in label
+        assert "high_curvature" not in label
+
+    def test_classify_resistant(self):
+        ext = {"curvature": {"abs_curvature": 0.0, "mean_curvature": 0.5}}
+        label = classify_dynamics(0.5, ext)
+        assert "resistant" in label
+
+    def test_classify_zero_curvature_no_label(self):
+        ext = {"curvature": {"abs_curvature": 0.0, "mean_curvature": 0.0}}
+        label = classify_dynamics(0.5, ext)
+        assert label == "stable"
+
+    def test_pipeline_returns_curvature(self):
+        data = _make_data([
+            _make_app(dfa_type="chain", n=5),
+            _make_app(dfa_type="chain", n=5, before_mode="d4", after_mode="none"),
+            _make_app(dfa_type="chain", n=5, before_mode="none", after_mode="square"),
+        ])
+        result = run_correction_dynamics(data)
+        r = result["results"][0]
+        assert "curvature" in r["extended"]
+
+    def test_print_report_includes_curvature(self):
+        report = {
+            "results": [
+                {
+                    "dfa_type": "chain",
+                    "n": 5,
+                    "friction_score": 1.0,
+                    "regime": "adaptive",
+                    "components": {"oscillation": 0.5},
+                    "extended": {
+                        "twist": {"twist_count": 0, "twist_ratio": 0.0},
+                        "nonlocal": {"nonlocal_events": 0, "nonlocal_ratio": 0.0},
+                        "acceleration": {"mean_delta": 0.0, "acceleration_score": 0.0},
+                        "curvature": {
+                            "mean_curvature": -0.1234,
+                            "abs_curvature": 0.5678,
+                            "curvature_variation": 0.0321,
+                        },
+                    },
+                }
+            ]
+        }
+        text = print_dynamics_report(report)
+        assert "curvature:" in text
+        assert "mean: -0.1234" in text
+        assert "abs: 0.5678" in text
+        assert "variation: 0.0321" in text

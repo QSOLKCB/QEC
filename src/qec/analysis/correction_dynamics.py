@@ -433,6 +433,48 @@ def compute_acceleration(
 
 
 # ---------------------------------------------------------------------------
+# PART 5e — CURVATURE DYNAMICS
+# ---------------------------------------------------------------------------
+
+
+def compute_curvature(
+    projection_distances: List[float],
+) -> Dict[str, Any]:
+    """Compute second-order curvature of correction trajectory.
+
+    Uses the discrete second-difference operator (1, -2, 1) on projection
+    distances to measure how the correction trajectory bends over time.
+
+    For distances d:
+        curvature[i] = d[i+1] - 2*d[i] + d[i-1]
+
+    Returns:
+        {"mean_curvature": float, "abs_curvature": float,
+         "curvature_variation": float}
+    """
+    if len(projection_distances) < 3:
+        return {
+            "mean_curvature": 0.0,
+            "abs_curvature": 0.0,
+            "curvature_variation": 0.0,
+        }
+
+    dists = np.asarray(projection_distances, dtype=np.float64)
+    # Second-order difference: d[i+1] - 2*d[i] + d[i-1]
+    curvature = dists[2:] - 2.0 * dists[1:-1] + dists[:-2]
+
+    mean_curvature = float(np.mean(curvature))
+    abs_curvature = float(np.mean(np.abs(curvature)))
+    curvature_variation = float(np.std(curvature))
+
+    return {
+        "mean_curvature": mean_curvature,
+        "abs_curvature": abs_curvature,
+        "curvature_variation": curvature_variation,
+    }
+
+
+# ---------------------------------------------------------------------------
 # PART 6 — TOTAL FRICTION SCORE
 # ---------------------------------------------------------------------------
 
@@ -491,6 +533,7 @@ def compute_friction_score(
     twist = compute_loop_twist(states_before, states_after)
     nonlocal_inf = compute_nonlocal_influence(states_before, states_after)
     accel = compute_acceleration(proj_dists)
+    curv = compute_curvature(proj_dists)
 
     return {
         "friction_score": friction,
@@ -505,6 +548,7 @@ def compute_friction_score(
             "twist": twist,
             "nonlocal": nonlocal_inf,
             "acceleration": accel,
+            "curvature": curv,
         },
     }
 
@@ -529,6 +573,9 @@ def classify_dynamics(
         twist_ratio > 0.3   -> "+twisted"
         nonlocal_ratio > 0.3 -> "+nonlocal"
         acceleration_score high (> 0.3) -> "+accelerated"
+        abs_curvature > 0.3 -> "+high_curvature"
+        mean_curvature < 0  -> "+basin_entry"
+        mean_curvature > 0  -> "+resistant"
     """
     if friction_score < 1.0:
         base = "stable"
@@ -552,6 +599,15 @@ def classify_dynamics(
     accel = extended_components.get("acceleration", {})
     if accel.get("acceleration_score", 0.0) > 0.3:
         labels.append("accelerated")
+
+    curv = extended_components.get("curvature", {})
+    if curv.get("abs_curvature", 0.0) > 0.3:
+        labels.append("high_curvature")
+    mean_curv = curv.get("mean_curvature", 0.0)
+    if mean_curv < 0.0:
+        labels.append("basin_entry")
+    elif mean_curv > 0.0:
+        labels.append("resistant")
 
     return "+".join(labels)
 
@@ -637,6 +693,11 @@ def print_dynamics_report(report: Dict[str, Any]) -> str:
             lines.append(f"    nonlocal: {nonlocal_inf.get('nonlocal_ratio', 0.0):.2f}")
             accel = extended.get("acceleration", {})
             lines.append(f"    acceleration: {accel.get('acceleration_score', 0.0):.2f}")
+            curv = extended.get("curvature", {})
+            lines.append(f"    curvature:")
+            lines.append(f"      mean: {curv.get('mean_curvature', 0.0):.4f}")
+            lines.append(f"      abs: {curv.get('abs_curvature', 0.0):.4f}")
+            lines.append(f"      variation: {curv.get('curvature_variation', 0.0):.4f}")
         lines.append("---")
 
     return "\n".join(lines)

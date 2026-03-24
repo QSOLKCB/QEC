@@ -43,6 +43,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Run the ternary bosonic decoder experiment (print states + score).",
     )
     parser.add_argument(
+        "--strategy-selection", action="store_true",
+        help="Enable trust-aware strategy selection (use with --ternary-bosonic).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -128,6 +132,24 @@ def _run_ternary_bosonic(args) -> int:
 
     result = run_concatenated_bosonic_experiment(raw, threshold=0.3, rounds=3)
     print(format_summary(result), file=sys.stderr)
+
+    if getattr(args, "strategy_selection", False):
+        from qec.analysis.strategy_adapter import (
+            format_selection_summary,
+            run_strategy_selection,
+        )
+
+        strategy_configs = [
+            {"name": "conservative", "threshold": 0.4, "rounds": 3},
+            {"name": "balanced", "threshold": 0.3, "rounds": 3},
+            {"name": "aggressive", "threshold": 0.2, "rounds": 3},
+        ]
+        sel = run_strategy_selection(
+            result,
+            trust_signals={"stability": 0.8, "global_trust": 0.6},
+            strategy_configs=strategy_configs,
+        )
+        print(format_selection_summary(sel), file=sys.stderr)
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

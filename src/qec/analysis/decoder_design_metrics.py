@@ -109,10 +109,13 @@ def design_score(
     float
         Composite score in [0, 1].
     """
+    # Fixed ordering: neutral, confidence, agreement
     nu = neutral_usage(ternary)
     ce = confidence_efficiency(confidences)
     ar = agreement_rate(ternary, baseline)
     score = w_neutral * nu + w_confidence * ce + w_agreement * ar
+    # Round to 1e-12 to eliminate cross-platform floating-point drift
+    score = round(score, 12)
     return float(np.clip(score, 0.0, 1.0))
 
 

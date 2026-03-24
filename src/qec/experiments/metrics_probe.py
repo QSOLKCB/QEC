@@ -24,6 +24,10 @@ from qec.analysis.attractor_analysis import (
 from qec.analysis.field_metrics import compute_field_metrics
 from qec.analysis.multiscale_metrics import compute_multiscale_summary
 from qec.analysis.strategy_evaluation import evaluate_strategy
+from qec.analysis.strategy_memory import (
+    compute_strategy_bias,
+    update_strategy_memory,
+)
 from qec.analysis.strategy_topology import compute_strategy_topology
 from qec.analysis.strategy_transition import select_next_strategy
 
@@ -200,6 +204,7 @@ def run_experiments() -> Dict[str, Any]:
     prev_state = None
     prev_full_metrics = None
     eval_history: List[Dict[str, Any]] = []
+    strategy_memory: Dict[str, List[Dict[str, Any]]] = {}
     for case in inputs:
         metrics = evaluate_metrics(case["values"])
         classification = classify_state(metrics)
@@ -210,6 +215,7 @@ def run_experiments() -> Dict[str, Any]:
         decision = select_next_strategy(
             full_metrics, strategy_dicts, prev_strategy, prev_state,
             history=eval_history if eval_history else None,
+            memory=strategy_memory if strategy_memory else None,
         )
         prev_strategy = decision["strategy"]
         prev_state = decision["state"]
@@ -223,7 +229,26 @@ def run_experiments() -> Dict[str, Any]:
             eval_history = eval_result.get("history", eval_history)
             evaluation = eval_result
 
+            # Update per-strategy memory for the selected strategy
+            selected_id = decision["strategy"].get("id", "")
+            if selected_id and evaluation:
+                ev = evaluation.get("evaluation", {})
+                strategy_memory = update_strategy_memory(
+                    strategy_memory,
+                    selected_id,
+                    {
+                        "score": ev.get("score", 0.0),
+                        "outcome": evaluation.get("outcome", "neutral"),
+                    },
+                )
+
         prev_full_metrics = full_metrics
+
+        # Compute local bias for reporting
+        selected_id = decision["strategy"].get("id", "")
+        local_bias = compute_strategy_bias(strategy_memory, selected_id)
+        adapt = decision.get("adaptation")
+        global_bias = adapt["bias"] if adapt else 0.0
 
         input_results.append({
             "name": case["name"],
@@ -232,6 +257,10 @@ def run_experiments() -> Dict[str, Any]:
             "attractor": attractor,
             "decision": decision,
             "evaluation": evaluation,
+            "memory_bias": {
+                "local": local_bias,
+                "global": global_bias,
+            },
         })
 
     topology = analyze_topology(strategies)
@@ -358,6 +387,10 @@ def print_experiment_report(results: Dict[str, Any]) -> None:
             if adapt:
                 print(f"  ADAPT bias={adapt['bias']:+.2f}"
                       f" traj={adapt['trajectory_score']:+.2f}")
+        mem_bias = entry.get("memory_bias")
+        if mem_bias:
+            print(f"  MEM bias={mem_bias['local']:+.2f} (local)"
+                  f" {mem_bias['global']:+.2f} (global)")
         evaluation = entry.get("evaluation")
         if evaluation:
             ev = evaluation["evaluation"]

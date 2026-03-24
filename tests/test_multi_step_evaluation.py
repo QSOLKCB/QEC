@@ -5,7 +5,9 @@ from __future__ import annotations
 import copy
 
 from qec.analysis.multi_step_evaluation import (
+    HORIZON,
     _best_follow_up_delta,
+    _precompute_best_follow_up_deltas,
     compute_multi_step_factor,
     compute_multi_step_factors,
     compute_two_step_value,
@@ -78,9 +80,9 @@ class TestGetExpectedTransitionOutcomes:
         outcomes = get_expected_transition_outcomes(
             "unstable", "basin_2", "s1", tm,
         )
-        outcome_dict = {o[0]: (o[1], o[2]) for o in outcomes}
-        assert outcome_dict[("stable", "basin_4")] == (0.3, 0.8)
-        assert outcome_dict[("transitional", "basin_3")] == (0.1, 0.6)
+        outcome_dict = {o[0]: (o[1], o[2], o[3]) for o in outcomes}
+        assert outcome_dict[("stable", "basin_4")] == (0.3, 0.8, 5)
+        assert outcome_dict[("transitional", "basin_3")] == (0.1, 0.6, 3)
 
     def test_no_match_returns_empty(self):
         tm = _make_transition_memory()
@@ -143,6 +145,48 @@ class TestBestFollowUpDelta:
 
 
 # ---------------------------------------------------------------------------
+# 2b. _precompute_best_follow_up_deltas
+# ---------------------------------------------------------------------------
+
+
+class TestPrecomputeBestFollowUpDeltas:
+
+    def test_returns_correct_best_per_state(self):
+        tm = _make_transition_memory()
+        best = _precompute_best_follow_up_deltas(tm)
+        # From (stable, basin_4): s1=0.05, s3=0.1 -> best=0.1
+        assert best[("stable", "basin_4")] == 0.1
+        # From (transitional, basin_3): s2=0.4 -> best=0.4
+        assert abs(best[("transitional", "basin_3")] - 0.4) < 1e-10
+
+    def test_empty_memory(self):
+        assert _precompute_best_follow_up_deltas({}) == {}
+
+    def test_deterministic(self):
+        tm = _make_transition_memory()
+        a = _precompute_best_follow_up_deltas(tm)
+        b = _precompute_best_follow_up_deltas(tm)
+        assert a == b
+
+    def test_no_mutation(self):
+        tm = _make_transition_memory()
+        frozen = copy.deepcopy(tm)
+        _precompute_best_follow_up_deltas(tm)
+        assert tm == frozen
+
+
+# ---------------------------------------------------------------------------
+# 2c. Horizon constant
+# ---------------------------------------------------------------------------
+
+
+class TestHorizon:
+
+    def test_horizon_is_two(self):
+        assert HORIZON == 2
+
+
+# ---------------------------------------------------------------------------
 # 3. compute_two_step_value
 # ---------------------------------------------------------------------------
 
@@ -152,25 +196,25 @@ class TestComputeTwoStepValue:
     def test_basic_two_step(self):
         tm = _make_transition_memory()
         # s1 from (unstable, basin_2):
-        #   -> (stable, basin_4): delta1=0.3, count=5
+        #   -> (stable, basin_4): delta1=0.3, success_rate=0.8, count=5
         #     best_delta2 from (stable, basin_4) = 0.1 (s3)
-        #     combined = 0.3 + 0.1 = 0.4
-        #   -> (transitional, basin_3): delta1=0.1, count=3
+        #     combined = 0.3 + 0.1 * 0.8 = 0.38
+        #   -> (transitional, basin_3): delta1=0.1, success_rate=0.6, count=3
         #     best_delta2 from (transitional, basin_3) = 0.4 (s2)
-        #     combined = 0.1 + 0.4 = 0.5
-        # weighted_mean = (0.4*5 + 0.5*3) / (5+3) = (2.0+1.5)/8 = 0.4375
+        #     combined = 0.1 + 0.4 * 0.6 = 0.34
+        # weighted_mean = (0.38*5 + 0.34*3) / (5+3) = (1.9+1.02)/8 = 0.365
         value = compute_two_step_value("unstable", "basin_2", "s1", tm)
-        assert abs(value - 0.4375) < 1e-10
+        assert abs(value - 0.365) < 1e-10
 
     def test_single_outcome(self):
         tm = _make_transition_memory()
         # s2 from (unstable, basin_2):
-        #   -> (stable, basin_4): delta1=0.2, count=4
+        #   -> (stable, basin_4): delta1=0.2, success_rate=0.7, count=4
         #     best_delta2 from (stable, basin_4) = 0.1
-        #     combined = 0.2 + 0.1 = 0.3
-        # weighted_mean = 0.3
+        #     combined = 0.2 + 0.1 * 0.7 = 0.27
+        # weighted_mean = 0.27
         value = compute_two_step_value("unstable", "basin_2", "s2", tm)
-        assert abs(value - 0.3) < 1e-10
+        assert abs(value - 0.27) < 1e-10
 
     def test_no_data_returns_zero(self):
         tm = _make_transition_memory()
@@ -192,6 +236,63 @@ class TestComputeTwoStepValue:
         frozen = copy.deepcopy(tm)
         compute_two_step_value("unstable", "basin_2", "s1", tm)
         assert tm == frozen
+
+    def test_success_rate_gating_reduces_value(self):
+        """Low success_rate should reduce the follow-up contribution."""
+        # Single outcome with low success_rate
+        tm_low = {
+            ("a", "b", "s1", "c", "d"): {
+                "count": 5, "mean_delta": 0.3, "success_rate": 0.1,
+            },
+            ("c", "d", "s2", "e", "f"): {
+                "count": 5, "mean_delta": 0.5, "success_rate": 1.0,
+            },
+        }
+        tm_high = {
+            ("a", "b", "s1", "c", "d"): {
+                "count": 5, "mean_delta": 0.3, "success_rate": 1.0,
+            },
+            ("c", "d", "s2", "e", "f"): {
+                "count": 5, "mean_delta": 0.5, "success_rate": 1.0,
+            },
+        }
+        val_low = compute_two_step_value("a", "b", "s1", tm_low)
+        val_high = compute_two_step_value("a", "b", "s1", tm_high)
+        # Low success_rate gates follow-up: 0.3 + 0.5*0.1 = 0.35
+        # High success_rate: 0.3 + 0.5*1.0 = 0.8
+        assert val_low < val_high
+        assert abs(val_low - 0.35) < 1e-10
+        assert abs(val_high - 0.8) < 1e-10
+
+    def test_zero_variance_single_transition(self):
+        """Single transition entry should work correctly."""
+        tm = {
+            ("x", "y", "s1", "x", "y"): {
+                "count": 1, "mean_delta": 0.2, "success_rate": 1.0,
+            },
+        }
+        # Follow-up from (x,y): best is s1 with 0.2
+        # combined = 0.2 + 0.2 * 1.0 = 0.4
+        value = compute_two_step_value("x", "y", "s1", tm)
+        assert abs(value - 0.4) < 1e-10
+
+    def test_identical_deltas(self):
+        """When all strategies from a state have same delta."""
+        tm = {
+            ("a", "b", "s1", "c", "d"): {
+                "count": 3, "mean_delta": 0.5, "success_rate": 0.8,
+            },
+            ("c", "d", "s1", "e", "f"): {
+                "count": 2, "mean_delta": 0.3, "success_rate": 1.0,
+            },
+            ("c", "d", "s2", "e", "f"): {
+                "count": 2, "mean_delta": 0.3, "success_rate": 1.0,
+            },
+        }
+        # From (c,d): both s1 and s2 have mean_delta=0.3 -> best=0.3
+        # combined = 0.5 + 0.3 * 0.8 = 0.74
+        value = compute_two_step_value("a", "b", "s1", tm)
+        assert abs(value - 0.74) < 1e-10
 
 
 # ---------------------------------------------------------------------------

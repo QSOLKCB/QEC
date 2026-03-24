@@ -7,10 +7,13 @@ now *and* the best follow-up strategy, using existing transition memory.
 Two-step value formula::
 
     For strategy S in current state:
-      step1_outcomes = all recorded (next_state, mean_delta, success_rate)
+      step1_outcomes = all recorded (next_state, mean_delta, success_rate, count)
       For each next_state:
         best_delta2 = max mean_delta of any strategy from next_state
-      two_step_value = weighted_mean(delta1 + best_delta2)
+      two_step_value = weighted_mean(delta1 + best_delta2 * success_rate)
+
+The second step is gated by success_rate to reduce optimistic bias:
+only reliable transitions contribute their full follow-up value.
 
 Multi-step factor::
 
@@ -29,6 +32,10 @@ from typing import Any, Dict, List, Tuple
 # Type alias for transition memory keys
 TransitionKey = Tuple[str, str, str, str, str]
 
+# Horizon is fixed at 2 (current step + one lookahead).
+# No recursion, no nested multi-step calls.
+HORIZON: int = 2
+
 # Multi-step constants
 _ALPHA: float = 0.2
 _FACTOR_MIN: float = 0.8
@@ -44,7 +51,7 @@ def get_expected_transition_outcomes(
     attractor_before: str,
     strategy_id: str,
     transition_memory: Dict[TransitionKey, Dict[str, Any]],
-) -> List[Tuple[Tuple[str, str], float, float]]:
+) -> List[Tuple[Tuple[str, str], float, float, int]]:
     """Return deterministic list of expected outcomes for a strategy.
 
     Scans transition memory for all entries matching
@@ -64,15 +71,16 @@ def get_expected_transition_outcomes(
 
     Returns
     -------
-    list of (next_state, mean_delta, success_rate)
-        Each entry is ``((regime_after, attractor_after), mean_delta, success_rate)``.
+    list of (next_state, mean_delta, success_rate, count)
+        Each entry is ``((regime_after, attractor_after), mean_delta,
+        success_rate, count)``.
         Sorted by key for deterministic ordering.  Empty list if no data.
     """
     r_before = str(regime_before)
     a_before = str(attractor_before)
     s_id = str(strategy_id)
 
-    outcomes: List[Tuple[Tuple[str, str], float, float]] = []
+    outcomes: List[Tuple[Tuple[str, str], float, float, int]] = []
 
     for key in sorted(transition_memory.keys(), key=lambda k: str(k)):
         if (
@@ -85,7 +93,8 @@ def get_expected_transition_outcomes(
             next_state = (str(key[3]), str(key[4]))
             mean_delta = float(entry["mean_delta"])
             success_rate = float(entry["success_rate"])
-            outcomes.append((next_state, mean_delta, success_rate))
+            count = int(entry["count"])
+            outcomes.append((next_state, mean_delta, success_rate, count))
 
     return outcomes
 
@@ -156,6 +165,56 @@ def _best_follow_up_delta(
 # 3. Two-step value computation
 # ---------------------------------------------------------------------------
 
+def _precompute_best_follow_up_deltas(
+    transition_memory: Dict[TransitionKey, Dict[str, Any]],
+) -> Dict[Tuple[str, str], float]:
+    """Precompute best follow-up mean_delta for every (regime, attractor) state.
+
+    Single O(N) scan of transition_memory.  For each origin state
+    ``(regime, attractor)``, aggregates per-strategy weighted mean_delta
+    and keeps the maximum.
+
+    Parameters
+    ----------
+    transition_memory : dict
+        Transition memory.
+
+    Returns
+    -------
+    dict
+        Maps ``(regime, attractor)`` -> best achievable mean_delta.
+    """
+    # Accumulate per (state, strategy): (weighted_sum, total_count)
+    accum: Dict[Tuple[str, str, str], Tuple[float, int]] = {}
+
+    for key in sorted(transition_memory.keys(), key=lambda k: str(k)):
+        if len(key) != 5:
+            continue
+        state_key = (str(key[0]), str(key[1]))
+        sid = str(key[2])
+        entry = transition_memory[key]
+        count = int(entry["count"])
+        delta = float(entry["mean_delta"])
+
+        acc_key = (state_key[0], state_key[1], sid)
+        if acc_key not in accum:
+            accum[acc_key] = (0.0, 0)
+        prev_sum, prev_count = accum[acc_key]
+        accum[acc_key] = (prev_sum + delta * count, prev_count + count)
+
+    # Reduce to best per state
+    best: Dict[Tuple[str, str], float] = {}
+    for acc_key in sorted(accum.keys()):
+        state = (acc_key[0], acc_key[1])
+        weighted_sum, total_count = accum[acc_key]
+        if total_count > 0:
+            mean = weighted_sum / total_count
+            if state not in best or mean > best[state]:
+                best[state] = mean
+
+    return best
+
+
 def compute_two_step_value(
     regime_before: str,
     attractor_before: str,
@@ -167,9 +226,11 @@ def compute_two_step_value(
     For each recorded next_state from applying ``strategy_id`` in the
     current state, finds the best follow-up strategy and computes::
 
-        two_step_value = weighted_mean(delta1 + best_delta2)
+        two_step_value = weighted_mean(delta1 + best_delta2 * success_rate)
 
-    weighted by transition count.
+    weighted by transition count.  The follow-up delta is gated by
+    ``success_rate`` to reduce optimistic bias — unreliable transitions
+    contribute less follow-up value.
 
     Parameters
     ----------
@@ -194,25 +255,19 @@ def compute_two_step_value(
     if not outcomes:
         return 0.0
 
-    # Collect count-weighted (delta1 + best_delta2) values
+    # Precompute best follow-up deltas in one pass (O(N) total)
+    best_follow_ups = _precompute_best_follow_up_deltas(transition_memory)
+
+    # Collect count-weighted (delta1 + best_delta2 * success_rate) values
     weighted_sum = 0.0
     total_count = 0
 
-    for next_state, mean_delta, _success_rate in outcomes:
-        # Look up count for weighting
-        key_prefix = (
-            str(regime_before), str(attractor_before), str(strategy_id),
-            str(next_state[0]), str(next_state[1]),
-        )
-        entry = transition_memory.get(key_prefix, {})
-        count = int(entry.get("count", 1))
-
-        # Best follow-up delta from next_state
-        best_delta2 = _best_follow_up_delta(
-            next_state[0], next_state[1], transition_memory,
+    for next_state, mean_delta, success_rate, count in outcomes:
+        best_delta2 = best_follow_ups.get(
+            (str(next_state[0]), str(next_state[1])), 0.0,
         )
 
-        combined = mean_delta + best_delta2
+        combined = mean_delta + best_delta2 * success_rate
         weighted_sum += combined * count
         total_count += count
 

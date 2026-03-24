@@ -350,6 +350,7 @@ def select_next_strategy(
     history: Optional[List[Dict[str, Any]]] = None,
     memory: Optional[Dict[str, List[Dict[str, Any]]]] = None,
     transition_memory: Optional[Dict[Any, Dict[str, Any]]] = None,
+    physics_signals: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Select the next strategy and compute any transition.
 
@@ -375,13 +376,20 @@ def select_next_strategy(
         Transition memory for v99.3.0 transition learning.  When
         provided together with *history* and *memory*, enables
         multiplicative transition bias in strategy scoring.
+    physics_signals : dict, optional
+        Physics signals for v99.7.0 adaptation modulation.  When
+        provided together with *history* and *memory*, modulates
+        strategy scoring based on system energy, coherence, and
+        stability signals.
 
     Returns
     -------
     dict
         ``{"strategy": <selected>, "state": dict, "transition": dict|None}``
         When adaptive selection is used, also includes ``"adaptation"``
-        with bias, trajectory_score, local_bias, and transition_bias.
+        with bias, trajectory_score, local_bias, transition_bias,
+        multi_step_factor, adaptation_modulation, energy, coherence,
+        and alignment.
     """
     state = extract_state(metrics)
 
@@ -397,6 +405,7 @@ def select_next_strategy(
         mem_result = select_strategy_with_memory(
             strategies, state, history, memory, regime_key=rk,
             transition_memory=transition_memory,
+            physics_signals=physics_signals,
         )
         selected = {
             "id": mem_result["selected"],
@@ -409,6 +418,10 @@ def select_next_strategy(
             "local_bias": mem_result["local_bias"],
             "transition_bias": mem_result["transition_bias"],
             "multi_step_factor": mem_result.get("multi_step_factor", 1.0),
+            "adaptation_modulation": mem_result.get("adaptation_modulation", 1.0),
+            "energy": mem_result.get("energy", 0.0),
+            "coherence": mem_result.get("coherence", 1.0),
+            "alignment": mem_result.get("alignment", 1.0),
         }
     elif history:
         from qec.analysis.strategy_adaptation import select_strategy_adaptive

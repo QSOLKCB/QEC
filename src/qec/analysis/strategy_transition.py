@@ -408,6 +408,7 @@ def select_next_strategy(
             "trajectory_score": 0.0,
             "local_bias": mem_result["local_bias"],
             "transition_bias": mem_result["transition_bias"],
+            "multi_step_factor": mem_result.get("multi_step_factor", 1.0),
         }
     elif history:
         from qec.analysis.strategy_adaptation import select_strategy_adaptive

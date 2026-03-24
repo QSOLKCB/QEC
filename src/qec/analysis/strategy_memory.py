@@ -230,23 +230,36 @@ def score_strategy_with_memory(
     Returns
     -------
     dict
-        ``score``, ``global_bias``, ``local_bias``, ``transition_bias``.
+        ``score``, ``global_bias``, ``local_bias``, ``transition_bias``,
+        ``multi_step_factor``.
     """
     base_score = score_strategy(state, strategy)
     global_bias = compute_adaptation_bias(history)
     transition_bias = 1.0
+    multi_step_factor = 1.0
 
     if regime_key is not None and transition_memory is not None:
         # v99.3.0: multiplicative formula with transition learning
+        # v99.4.0: adds multi-step factor for two-step lookahead
         from qec.analysis.strategy_transition_learning import (
             compute_transition_bias,
+        )
+        from qec.analysis.multi_step_evaluation import (
+            compute_two_step_value,
+            compute_multi_step_factor,
         )
         regime_score = compute_regime_aware_score(memory, regime_key, strategy_id)
         stability_weight = regime_score["stability_weight"]
         transition_bias = compute_transition_bias(
             transition_memory, regime_key[0], regime_key[1], strategy_id,
         )
-        score = max(0.0, min(1.0, base_score * stability_weight * transition_bias))
+        two_step_val = compute_two_step_value(
+            regime_key[0], regime_key[1], strategy_id, transition_memory,
+        )
+        multi_step_factor = compute_multi_step_factor(two_step_val)
+        score = max(0.0, min(1.0,
+            base_score * stability_weight * transition_bias * multi_step_factor,
+        ))
         local_bias = score - base_score  # effective local adjustment
     elif regime_key is not None:
         # v99.2.0: additive formula with stability weighting
@@ -264,6 +277,7 @@ def score_strategy_with_memory(
         "global_bias": global_bias,
         "local_bias": local_bias,
         "transition_bias": transition_bias,
+        "multi_step_factor": multi_step_factor,
     }
 
 
@@ -325,7 +339,7 @@ def select_strategy_with_memory(
     -------
     dict
         ``selected``, ``score``, ``global_bias``, ``local_bias``,
-        ``transition_bias``.
+        ``transition_bias``, ``multi_step_factor``.
     """
     if not strategies:
         return {
@@ -334,6 +348,7 @@ def select_strategy_with_memory(
             "global_bias": 0.0,
             "local_bias": 0.0,
             "transition_bias": 1.0,
+            "multi_step_factor": 1.0,
         }
 
     scored: list = []
@@ -355,6 +370,7 @@ def select_strategy_with_memory(
             result["global_bias"],
             result["local_bias"],
             result["transition_bias"],
+            result["multi_step_factor"],
         ))
 
     scored.sort()
@@ -366,6 +382,7 @@ def select_strategy_with_memory(
         "global_bias": best[5],
         "local_bias": best[6],
         "transition_bias": best[7],
+        "multi_step_factor": best[8],
     }
 
 

@@ -1,4 +1,4 @@
-"""v101.7.0 — Strategy adapter for trust-aware selection.
+"""v101.8.0 — Strategy adapter for trust-aware selection.
 
 Wraps outputs from the v101.4 ternary bosonic pipeline into
 candidate strategies, scores and ranks them, and returns the
@@ -10,6 +10,9 @@ scoring, and selection.
 
 v101.7.0 adds dual-system (ternary + quaternary) support with
 ``run_dual_generation_pipeline`` and ``format_comparison_summary``.
+
+v101.8.0 adds deterministic dominance pruning (Pareto frontier) via
+``run_pruned_pipeline`` and ``format_pruning_summary``.
 
 All functions are:
 - deterministic (identical inputs -> identical outputs)
@@ -24,6 +27,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from qec.analysis.dominance_pruning import pareto_prune, pruning_stats
 from qec.analysis.strategy_generation import generate_strategies
 from qec.analysis.strategy_selection import rank_strategies, select_strategy
 
@@ -416,6 +420,118 @@ def format_comparison_summary(result: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def run_pruned_pipeline(
+    base_strategy: Dict[str, Any],
+    raw_signals: Any,
+    trust_signals: Optional[Dict[str, float]] = None,
+) -> Dict[str, Any]:
+    """Generate, evaluate, prune (Pareto), rank, and select.
+
+    Pipeline:
+    1. Generate 54 strategies (27 ternary + 27 quaternary)
+    2. Evaluate each through the correct pipeline
+    3. Prune dominated strategies (Pareto frontier)
+    4. Rank remaining by score
+    5. Select best
+
+    Parameters
+    ----------
+    base_strategy : dict
+        Base strategy with at least ``"config"`` and ``"metrics"``.
+    raw_signals : array-like
+        Raw analog signals for quaternary pipeline.
+    trust_signals : dict, optional
+        Trust signals for score modulation.
+
+    Returns
+    -------
+    dict
+        Contains full results including pruning statistics.
+    """
+    # Step 1-2: generate and evaluate all 54
+    dual_result = run_dual_generation_pipeline(
+        base_strategy, raw_signals, trust_signals,
+    )
+
+    candidates = dual_result["candidates"]
+
+    # Step 3: Pareto prune
+    pruned = pareto_prune(candidates)
+
+    # Step 4: rank pruned set
+    ranked = rank_strategies(pruned)
+
+    # Step 5: select best from pruned set
+    selected = select_strategy(pruned)
+
+    # Per-system bests from pruned set
+    ternary_ranked = [c for c in ranked if c.get("state_system") == "ternary"]
+    quaternary_ranked = [c for c in ranked if c.get("state_system") == "quaternary"]
+
+    best_ternary = ternary_ranked[0] if ternary_ranked else None
+    best_quaternary = quaternary_ranked[0] if quaternary_ranked else None
+
+    stats = pruning_stats(candidates, pruned)
+
+    return {
+        "candidates": candidates,
+        "pruned": pruned,
+        "ranked": ranked,
+        "selected": selected,
+        "best_ternary": best_ternary,
+        "best_quaternary": best_quaternary,
+        "n_total": len(candidates),
+        "n_pruned": len(pruned),
+        "stats": stats,
+    }
+
+
+def format_pruning_summary(result: Dict[str, Any]) -> str:
+    """Format a human-readable summary of pruned pipeline results.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_pruned_pipeline``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    selected = result["selected"]
+    best_t = result["best_ternary"]
+    best_q = result["best_quaternary"]
+    stats = result["stats"]
+
+    lines = [
+        "",
+        "=== Dominance Pruning (Pareto Frontier) ===",
+        f"Total strategies:        {result['n_total']}",
+        f"After pruning:           {result['n_pruned']}",
+        f"Dominance ratio:         {stats['dominance_ratio']:.4f}",
+        "",
+    ]
+
+    if best_t:
+        lines.append(
+            f"Best ternary:            {best_t['name']} "
+            f"(score={best_t.get('_score', 0.0):.6f})"
+        )
+    if best_q:
+        lines.append(
+            f"Best quaternary:         {best_q['name']} "
+            f"(score={best_q.get('_score', 0.0):.6f})"
+        )
+
+    lines.append(
+        f"Selected (global best):  {selected['name']} "
+        f"(score={selected.get('_score', 0.0):.6f})"
+    )
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -424,4 +540,6 @@ __all__ = [
     "format_generation_summary",
     "run_dual_generation_pipeline",
     "format_comparison_summary",
+    "run_pruned_pipeline",
+    "format_pruning_summary",
 ]

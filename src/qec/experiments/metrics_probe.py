@@ -204,7 +204,7 @@ def run_experiments() -> Dict[str, Any]:
     prev_state = None
     prev_full_metrics = None
     eval_history: List[Dict[str, Any]] = []
-    strategy_memory: Dict[str, Any] = {}
+    strategy_memory: Dict[str, List[Dict[str, Any]]] = {}
     for case in inputs:
         metrics = evaluate_metrics(case["values"])
         classification = classify_state(metrics)

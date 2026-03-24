@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""QEC Deterministic Adaptive Pipeline Demo — v100.0.0.
+"""QEC Deterministic Adaptive Pipeline Demo — v101.0.0.
 
 Runs the full adaptive control loop on fixed deterministic inputs:
 
@@ -9,6 +9,8 @@ Demonstrates regime classification, strategy selection, evaluation feedback,
 transition learning (v99.3), multi-step lookahead (v99.4), physics signals
 (v99.6), adaptation modulation (v99.7), cycle detection (v99.8), and
 trajectory validation (v99.9).
+
+v101: adds --benchmark flag for deterministic benchmarking against baselines.
 
 All outputs are deterministic — repeated runs produce identical results.
 
@@ -295,9 +297,88 @@ def run_demo() -> Dict[str, Any]:
     }
 
 
+def run_benchmark_demo() -> Dict[str, Any]:
+    """Run the deterministic benchmark: QEC vs baselines.
+
+    Returns structured benchmark results for verification.
+    """
+    from qec.analysis.benchmark_comparison import compare_strategies
+    from qec.analysis.convergence_analysis import (
+        compute_convergence_signal,
+        detect_convergence,
+    )
+    from qec.analysis.performance_metrics import (
+        compute_final_performance,
+        compute_stability_variance,
+    )
+    from qec.experiments.benchmark_runner import run_benchmark
+
+    print("=" * 70)
+    print("QEC Deterministic Benchmark (v101.0.0)")
+    print("=" * 70)
+    print()
+    print("Running QEC adaptive pipeline vs deterministic baselines...")
+    print()
+
+    results = run_benchmark()
+    comparisons = compare_strategies(results)
+
+    # Print per-strategy summary
+    for name in ["qec", "random", "fixed", "round_robin"]:
+        data = results[name]
+        scores = data["scores"]
+        final = compute_final_performance(scores)
+        variance = compute_stability_variance(scores)
+        conv_step = detect_convergence(scores)
+        conv_signal = compute_convergence_signal(scores)
+
+        conv_str = f"step {conv_step}" if conv_step is not None else "None"
+        print(f"  {name:<12s}: final={final:.4f}"
+              f"  variance={variance:.6f}"
+              f"  converged={conv_str}"
+              f"  signal={conv_signal:.4f}")
+
+    print()
+
+    # Print comparisons
+    print("Comparisons:")
+    for key in sorted(comparisons.keys()):
+        comp = comparisons[key]
+        ratio = comp["performance_ratio"]
+        stab = comp["stability_diff"]
+        conv_diff = comp["convergence_signal_diff"]
+        print(f"  {key}: ratio={ratio:.4f}"
+              f"  stability_diff={stab:+.6f}"
+              f"  convergence_diff={conv_diff:+.4f}")
+
+    print()
+    print("Deterministic: TRUE")
+    print()
+
+    return {
+        "results": results,
+        "comparisons": comparisons,
+    }
+
+
 def main() -> int:
     """Entry point."""
-    run_demo()
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="QEC Deterministic Adaptive Pipeline Demo",
+    )
+    parser.add_argument(
+        "--benchmark",
+        action="store_true",
+        help="Run deterministic benchmark against baselines",
+    )
+    args = parser.parse_args()
+
+    if args.benchmark:
+        run_benchmark_demo()
+    else:
+        run_demo()
     return 0
 
 

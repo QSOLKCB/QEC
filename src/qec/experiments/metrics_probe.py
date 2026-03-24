@@ -23,6 +23,7 @@ from qec.analysis.attractor_analysis import (
 )
 from qec.analysis.field_metrics import compute_field_metrics
 from qec.analysis.multiscale_metrics import compute_multiscale_summary
+from qec.analysis.strategy_evaluation import evaluate_strategy
 from qec.analysis.strategy_topology import compute_strategy_topology
 from qec.analysis.strategy_transition import select_next_strategy
 
@@ -197,6 +198,8 @@ def run_experiments() -> Dict[str, Any]:
     input_results = []
     prev_strategy = None
     prev_state = None
+    prev_full_metrics = None
+    eval_history: List[Dict[str, Any]] = []
     for case in inputs:
         metrics = evaluate_metrics(case["values"])
         classification = classify_state(metrics)
@@ -210,12 +213,24 @@ def run_experiments() -> Dict[str, Any]:
         prev_strategy = decision["strategy"]
         prev_state = decision["state"]
 
+        # Strategy evaluation: compare before/after metrics
+        evaluation = None
+        if prev_full_metrics is not None:
+            eval_result = evaluate_strategy(
+                prev_full_metrics, full_metrics, history=eval_history,
+            )
+            eval_history = eval_result.get("history", eval_history)
+            evaluation = eval_result
+
+        prev_full_metrics = full_metrics
+
         input_results.append({
             "name": case["name"],
             "classification": classification,
             "metrics": metrics,
             "attractor": attractor,
             "decision": decision,
+            "evaluation": evaluation,
         })
 
     topology = analyze_topology(strategies)
@@ -338,6 +353,13 @@ def print_experiment_report(results: Dict[str, Any]) -> None:
             if trans:
                 print(f"  transition:          {trans['from']} -> {trans['to']}"
                       f" ({trans['change']})")
+        evaluation = entry.get("evaluation")
+        if evaluation:
+            ev = evaluation["evaluation"]
+            label = ev["direction"].upper()
+            score = ev["score"]
+            outcome = evaluation["outcome"]
+            print(f"  >> {label} | score={score:+.2f} | outcome={outcome}")
 
     topo = results["topology"]
     print("\n--- Strategy Topology ---")

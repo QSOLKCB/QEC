@@ -183,7 +183,7 @@ def decimation_round(
             *rounds_used* — number of decimation rounds executed.
     """
     # Lazy import to avoid circular dependency.
-    from ..qec_qldpc_codes import bp_decode, syndrome
+    from qec_qldpc_codes import bp_decode, syndrome
 
     H = np.asarray(H, dtype=np.uint8)
     llr = np.asarray(llr, dtype=np.float64)
@@ -308,7 +308,7 @@ def guided_decimation(
             *correction* — hard-decision binary vector, dtype uint8.
             *total_bp_iters* — cumulative BP iterations across all rounds.
     """
-    from ..qec_qldpc_codes import bp_decode, syndrome
+    from qec_qldpc_codes import bp_decode, syndrome
 
     H = np.asarray(H, dtype=np.uint8)
     llr = np.asarray(llr, dtype=np.float64)

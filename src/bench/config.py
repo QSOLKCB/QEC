@@ -91,7 +91,7 @@ class BenchmarkConfig:
         # Ensure qudit is a plain dict (from JSON) or None.
         if isinstance(self.qudit, dict):
             # Validate via QuditSpec (lazy import to avoid circular dep).
-            from ..qudit.spec import QuditSpec
+            from qudit.spec import QuditSpec
             QuditSpec.from_dict(self.qudit)  # validates; discard result
         # Ensure resource_model is ResourceModelConfig or None.
         if isinstance(self.resource_model, dict):

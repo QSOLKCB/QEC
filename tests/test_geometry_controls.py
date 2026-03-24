@@ -261,7 +261,7 @@ class TestDPSHarnessModes:
 
     def test_new_modes_defined(self):
         """New modes are present in MODES dict."""
-        from bench.dps_v381_eval import MODES, MODE_ORDER
+        from bench_reports.dps_v381_eval import MODES, MODE_ORDER
 
         for mode_name in ("centered_strong", "centered_normalized",
                           "centered_prior_normalized"):
@@ -270,7 +270,7 @@ class TestDPSHarnessModes:
 
     def test_centered_strong_config(self):
         """centered_strong has correct structural config."""
-        from bench.dps_v381_eval import MODES
+        from bench_reports.dps_v381_eval import MODES
 
         cfg = MODES["centered_strong"]["structural"]
         assert cfg.centered_field is True
@@ -280,7 +280,7 @@ class TestDPSHarnessModes:
 
     def test_centered_normalized_config(self):
         """centered_normalized has correct structural config."""
-        from bench.dps_v381_eval import MODES
+        from bench_reports.dps_v381_eval import MODES
 
         cfg = MODES["centered_normalized"]["structural"]
         assert cfg.centered_field is True
@@ -289,7 +289,7 @@ class TestDPSHarnessModes:
 
     def test_centered_prior_normalized_config(self):
         """centered_prior_normalized has correct structural config."""
-        from bench.dps_v381_eval import MODES
+        from bench_reports.dps_v381_eval import MODES
 
         cfg = MODES["centered_prior_normalized"]["structural"]
         assert cfg.centered_field is True
@@ -298,7 +298,7 @@ class TestDPSHarnessModes:
 
     def test_new_modes_execute(self, H, instance):
         """All three new modes run without error."""
-        from bench.dps_v381_eval import run_mode
+        from bench_reports.dps_v381_eval import run_mode
 
         instances = [instance]
         for mode_name in ("centered_strong", "centered_normalized",
@@ -313,7 +313,7 @@ class TestDPSHarnessModes:
 
     def test_new_modes_deterministic(self, H, instance):
         """New modes produce identical results on repeated runs."""
-        from bench.dps_v381_eval import run_mode
+        from bench_reports.dps_v381_eval import run_mode
 
         instances = [instance]
         for mode_name in ("centered_strong", "centered_normalized",
@@ -325,7 +325,7 @@ class TestDPSHarnessModes:
 
     def test_mode_order_length(self):
         """MODE_ORDER contains all defined modes."""
-        from bench.dps_v381_eval import MODES, MODE_ORDER
+        from bench_reports.dps_v381_eval import MODES, MODE_ORDER
 
         assert len(MODE_ORDER) == len(MODES)
         assert set(MODE_ORDER) == set(MODES.keys())

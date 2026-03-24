@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("matplotlib")
+
 from qec.visualization.phase_map_plot import (
     CLASS_COLORS,
     EDGE_COLORS,

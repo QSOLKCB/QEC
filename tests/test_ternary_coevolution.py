@@ -23,7 +23,7 @@ from qec.decoder.ternary.ternary_rule_variants import (
     get_extended_rule_registry,
 )
 from qec.decoder.ternary.ternary_coevolution import evaluate_rule_population
-from tests.utils import simple_parity_matrix, received_vector
+from tests.testing_utils import simple_parity_matrix, received_vector
 
 
 # ===========================================================================

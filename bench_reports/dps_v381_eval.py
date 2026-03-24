@@ -39,10 +39,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Ensure repo root is on Python path so `src.*` imports resolve.
+# Ensure src/ is on Python path so top-level package imports resolve.
 _REPO_ROOT = str(Path(__file__).resolve().parents[1])
+_SRC_DIR = str(Path(_REPO_ROOT) / "src")
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
 if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
+    sys.path.insert(1, _REPO_ROOT)
 
 import numpy as np
 

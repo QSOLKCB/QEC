@@ -20,7 +20,7 @@ from qec.decoder.ternary.ternary_rule_fitness import (
     compute_rule_fitness_metrics,
     rank_rules_by_fitness,
 )
-from tests.utils import simple_parity_matrix, received_vector
+from tests.testing_utils import simple_parity_matrix, received_vector
 
 
 def _make_population_result() -> dict:

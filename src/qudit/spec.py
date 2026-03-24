@@ -20,7 +20,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..utils.canonicalize import canonicalize as _canonicalize_meta
+from utils.canonicalize import canonicalize as _canonicalize_meta
 
 
 def _is_json_serializable(obj: Any) -> bool:

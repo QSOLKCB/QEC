@@ -654,19 +654,19 @@ class TestBenchIntegration:
 
     def test_import_bp_dynamics_from_bench(self):
         """The bench harness must import bp_dynamics without error."""
-        from bench.dps_v381_eval import run_mode  # noqa: F401
+        from bench_reports.dps_v381_eval import run_mode  # noqa: F401
 
     def test_run_mode_accepts_bp_dynamics_flag(self):
         """run_mode signature accepts enable_bp_dynamics."""
         import inspect
-        from bench.dps_v381_eval import run_mode
+        from bench_reports.dps_v381_eval import run_mode
         sig = inspect.signature(run_mode)
         assert "enable_bp_dynamics" in sig.parameters
 
     def test_run_evaluation_accepts_bp_dynamics_flag(self):
         """run_evaluation signature accepts enable_bp_dynamics."""
         import inspect
-        from bench.dps_v381_eval import run_evaluation
+        from bench_reports.dps_v381_eval import run_evaluation
         sig = inspect.signature(run_evaluation)
         assert "enable_bp_dynamics" in sig.parameters
 

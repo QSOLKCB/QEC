@@ -456,7 +456,7 @@ class TestTypeExports:
 class TestBenchIntegration:
     def test_run_mode_with_phase_diagram_flag(self):
         """Smoke test: run_mode accepts enable_bp_phase_diagram parameter."""
-        from bench.dps_v381_eval import run_mode, _pre_generate_instances
+        from bench_reports.dps_v381_eval import run_mode, _pre_generate_instances
         from qec_qldpc_codes import create_code, syndrome, channel_llr
 
         seed = 42
@@ -482,7 +482,7 @@ class TestBenchIntegration:
 
     def test_compute_phase_diagram_from_bench_results(self):
         """Smoke test: compute_bp_phase_diagram works with bench-style data."""
-        from bench.dps_v381_eval import run_mode, _pre_generate_instances
+        from bench_reports.dps_v381_eval import run_mode, _pre_generate_instances
         from qec_qldpc_codes import create_code
 
         seed = 42

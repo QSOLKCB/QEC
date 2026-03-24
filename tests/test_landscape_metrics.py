@@ -24,7 +24,7 @@ from qec.diagnostics.energy_landscape import (
     _ESCAPE_EPSILON_VALUES,
 )
 from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
-from bench.dps_v381_eval import (
+from bench_reports.dps_v381_eval import (
     run_mode,
     _pre_generate_instances,
 )

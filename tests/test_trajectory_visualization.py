@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("matplotlib")
+
 from qec.visualization.trajectory_plot import (
     TRAJECTORY_COLORS,
     plot_spectral_trajectory,

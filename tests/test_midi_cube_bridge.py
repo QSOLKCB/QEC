@@ -5,9 +5,10 @@ from __future__ import annotations
 import os
 import tempfile
 
-import mido
 import numpy as np
 import pytest
+
+mido = pytest.importorskip("mido")
 
 from qec.experiments.midi_cube_bridge import (
     apply_event,

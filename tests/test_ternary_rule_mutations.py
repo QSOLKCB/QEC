@@ -24,7 +24,7 @@ from qec.decoder.ternary.ternary_rule_evaluator import (
     run_decoder_with_rule,
     evaluate_decoder_rule,
 )
-from tests.utils import simple_parity_matrix, received_vector
+from tests.testing_utils import simple_parity_matrix, received_vector
 
 
 # ===========================================================================

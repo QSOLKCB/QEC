@@ -52,8 +52,8 @@ def run_qec_native(
     Returns a list of schema-compliant interop records with
     ``benchmark_kind="direct_comparison"``.
     """
-    from ...qec_qldpc_codes import create_code, bp_decode, syndrome
-    from ...qec.channel import OracleChannel
+    from qec_qldpc_codes import create_code, bp_decode, syndrome
+    from qec.channel import OracleChannel
 
     channel = OracleChannel()
     records: list[dict[str, Any]] = []

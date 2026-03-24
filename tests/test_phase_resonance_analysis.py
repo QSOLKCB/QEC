@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("matplotlib")
+
 from qec.experiments.phase_resonance_analysis import (
     build_attractor_field,
     classify_resonance_field,

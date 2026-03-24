@@ -87,6 +87,10 @@ def compute_nonlinear_response(values: Sequence[float]) -> float:
     arr = np.asarray(values, dtype=np.float64)
     energy = float(np.mean(np.abs(arr)))
     response = (energy ** 3) / (PHI ** 2)
+    # Guard against overflow: if response is not finite, the normalized
+    # value saturates at 1.0.
+    if not np.isfinite(response):
+        return 1.0 - 1e-15
     return float(response / (response + 1.0))
 
 

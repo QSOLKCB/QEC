@@ -1,4 +1,4 @@
-"""Basin-aware strategy transition layer (v98.8).
+"""Basin-aware strategy transition layer (v98.8.1).
 
 Deterministic control layer that selects strategies based on current regime
 and basin score, and computes transitions between strategies to move toward
@@ -11,6 +11,56 @@ Dependencies: stdlib only.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+
+
+# ---------------------------------------------------------------------------
+# Centralized scoring configuration
+# ---------------------------------------------------------------------------
+
+STRATEGY_WEIGHTS: Dict[str, float] = {
+    "phi": 0.4,
+    "consistency": 0.3,
+    "curvature": -0.3,
+    "divergence": -0.2,
+    "resonance": -0.2,
+    "complexity": -0.2,
+}
+
+REGIME_ACTION_PREFERENCES: Dict[str, Dict[str, float]] = {
+    "unstable": {"reduce_instability": 1.0},
+    "oscillatory": {"reduce_oscillation": 1.0},
+    "transitional": {"increase_stability": 1.0},
+    "stable": {"minimal": 1.0},
+}
+
+# Per-regime metric adjustment weights for score_strategy.
+# These small adjustments are added to the base regime×action score.
+_REGIME_METRIC_ADJUSTMENTS: Dict[str, Dict[str, float]] = {
+    "unstable": {"curvature": 0.05, "complexity": 0.05},
+    "oscillatory": {"resonance": 0.05},
+    "transitional": {"divergence": 0.05, "consistency": -0.03},
+    "stable": {},
+}
+_STABLE_FLAT_PENALTY: float = -0.05
+
+
+# ---------------------------------------------------------------------------
+# Centralized transition labels
+# ---------------------------------------------------------------------------
+
+TRANSITION_LABELS: Dict[tuple, str] = {
+    ("unstable", "stable"): "increase_stability",
+    ("unstable", "transitional"): "increase_stability",
+    ("unstable", "mixed"): "reduce_instability",
+    ("unstable", "oscillatory"): "reduce_instability",
+    ("oscillatory", "stable"): "reduce_oscillation",
+    ("oscillatory", "transitional"): "reduce_oscillation",
+    ("oscillatory", "mixed"): "reduce_oscillation",
+    ("transitional", "stable"): "increase_stability",
+    ("mixed", "stable"): "increase_stability",
+}
+
+DEFAULT_TRANSITION_LABEL: str = "reduce_instability"
 
 
 # ---------------------------------------------------------------------------
@@ -150,22 +200,13 @@ def score_strategy(state: Dict[str, Any], strategy: Any) -> float:
     regime_scores = _REGIME_ACTION_SCORES.get(regime, _REGIME_ACTION_SCORES["mixed"])
     base = regime_scores.get(action_type, 0.3)
 
-    # Metric-driven adjustments (small, bounded)
+    # Metric-driven adjustments (small, bounded) using centralized weights
     adjustment = 0.0
-    if regime == "unstable":
-        # prefer strategies that target high curvature / complexity
-        adjustment += 0.05 * state.get("curvature", 0.0)
-        adjustment += 0.05 * state.get("complexity", 0.0)
-    elif regime == "oscillatory":
-        # prefer strategies that target high resonance
-        adjustment += 0.05 * state.get("resonance", 0.0)
-    elif regime == "transitional":
-        # prefer strategies when divergence is high
-        adjustment += 0.05 * state.get("divergence", 0.0)
-        adjustment -= 0.03 * state.get("consistency", 0.0)
-    elif regime == "stable":
-        # penalise intervention when stable
-        adjustment -= 0.05
+    metric_weights = _REGIME_METRIC_ADJUSTMENTS.get(regime, {})
+    for metric, weight in sorted(metric_weights.items()):
+        adjustment += weight * state.get(metric, 0.0)
+    if regime == "stable":
+        adjustment += _STABLE_FLAT_PENALTY
 
     score = base + adjustment
     # Clamp to [0, 1]
@@ -254,19 +295,6 @@ def should_transition(
 # 5. Transition computation
 # ---------------------------------------------------------------------------
 
-_TRANSITION_LABELS = {
-    ("unstable", "stable"): "increase_stability",
-    ("unstable", "transitional"): "increase_stability",
-    ("unstable", "mixed"): "reduce_instability",
-    ("unstable", "oscillatory"): "reduce_instability",
-    ("oscillatory", "stable"): "reduce_oscillation",
-    ("oscillatory", "transitional"): "reduce_oscillation",
-    ("oscillatory", "mixed"): "reduce_oscillation",
-    ("transitional", "stable"): "increase_stability",
-    ("mixed", "stable"): "increase_stability",
-}
-
-
 def compute_transition(
     prev_strategy: Dict[str, Any],
     new_strategy: Dict[str, Any],
@@ -290,12 +318,14 @@ def compute_transition(
     from_id = prev_strategy.get("id", "")
     to_id = new_strategy.get("id", "")
 
-    change = "reduce_instability"  # default
+    # Fallback: when regime pair is not in TRANSITION_LABELS, use
+    # DEFAULT_TRANSITION_LABEL to ensure explicit, deterministic behaviour.
+    change = DEFAULT_TRANSITION_LABEL
     if prev_state and curr_state:
         prev_regime = prev_state.get("regime", "mixed")
         curr_regime = curr_state.get("regime", "mixed")
-        change = _TRANSITION_LABELS.get(
-            (prev_regime, curr_regime), "reduce_instability"
+        change = TRANSITION_LABELS.get(
+            (prev_regime, curr_regime), DEFAULT_TRANSITION_LABEL,
         )
 
     return {
@@ -339,11 +369,18 @@ def select_next_strategy(
     selected = select_strategy(state, strategies)
 
     transition = None
-    if prev_strategy is not None and prev_state is not None:
-        if should_transition(prev_state, state):
-            transition = compute_transition(
-                prev_strategy, selected, prev_state, state,
-            )
+    if prev_strategy is not None:
+        if prev_state is not None:
+            # Full transition detection with regime comparison and magnitude
+            if should_transition(prev_state, state):
+                transition = compute_transition(
+                    prev_strategy, selected, prev_state, state,
+                )
+        else:
+            # Partial input: prev_state missing — detect transition by
+            # strategy change only, skip magnitude calculation.
+            if prev_strategy.get("id", "") != selected.get("id", ""):
+                transition = compute_transition(prev_strategy, selected)
 
     return {
         "strategy": selected,

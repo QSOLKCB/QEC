@@ -1,4 +1,4 @@
-"""Deterministic metrics & topology experiment probe (v98.7).
+"""Deterministic metrics & topology experiment probe (v98.8.1).
 
 Observation-only harness that probes field metrics, multiscale metrics,
 and strategy topology using fixed deterministic inputs.  Does not modify
@@ -135,11 +135,14 @@ def classify_state(metrics: Dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 class _MockStrategy:
-    """Lightweight strategy object with action_type and params."""
+    """Lightweight strategy object with action_type, params, and confidence."""
 
-    def __init__(self, action_type: str, params: Dict[str, Any]) -> None:
+    def __init__(
+        self, action_type: str, params: Dict[str, Any], confidence: float = 0.0,
+    ) -> None:
         self.action_type = action_type
         self.params = dict(params)
+        self.confidence = confidence
 
 
 def generate_mock_strategies() -> Dict[str, Any]:
@@ -180,9 +183,14 @@ def run_experiments() -> Dict[str, Any]:
     inputs = generate_test_inputs()
 
     strategies = generate_mock_strategies()
-    # Convert mock strategies to dicts for the transition layer
+    # Convert mock strategies to dicts for the transition layer,
+    # preserving confidence for correct tie-breaking in select_strategy.
     strategy_dicts = {
-        sid: {"action_type": s.action_type, "params": dict(s.params)}
+        sid: {
+            "action_type": s.action_type,
+            "params": dict(s.params),
+            "confidence": getattr(s, "confidence", 0.0),
+        }
         for sid, s in strategies.items()
     }
 

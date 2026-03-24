@@ -57,6 +57,11 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --ternary-bosonic --strategy-generate).",
     )
     parser.add_argument(
+        "--strategy-prune", action="store_true",
+        help="Apply dominance pruning (Pareto frontier) to strategy set "
+             "(use with --ternary-bosonic --strategy-generate --compare-state-systems).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -177,17 +182,30 @@ def _run_ternary_bosonic(args) -> int:
         }
 
         if getattr(args, "compare_state_systems", False):
-            from qec.analysis.strategy_adapter import (
-                format_comparison_summary,
-                run_dual_generation_pipeline,
-            )
+            if getattr(args, "strategy_prune", False):
+                from qec.analysis.strategy_adapter import (
+                    format_pruning_summary,
+                    run_pruned_pipeline,
+                )
 
-            dual_result = run_dual_generation_pipeline(
-                base_strategy,
-                raw_signals=raw,
-                trust_signals={"stability": 0.8, "global_trust": 0.6},
-            )
-            print(format_comparison_summary(dual_result), file=sys.stderr)
+                prune_result = run_pruned_pipeline(
+                    base_strategy,
+                    raw_signals=raw,
+                    trust_signals={"stability": 0.8, "global_trust": 0.6},
+                )
+                print(format_pruning_summary(prune_result), file=sys.stderr)
+            else:
+                from qec.analysis.strategy_adapter import (
+                    format_comparison_summary,
+                    run_dual_generation_pipeline,
+                )
+
+                dual_result = run_dual_generation_pipeline(
+                    base_strategy,
+                    raw_signals=raw,
+                    trust_signals={"stability": 0.8, "global_trust": 0.6},
+                )
+                print(format_comparison_summary(dual_result), file=sys.stderr)
         else:
             gen_result = run_generation_selection_pipeline(
                 base_strategy,

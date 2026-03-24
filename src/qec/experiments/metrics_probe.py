@@ -209,6 +209,7 @@ def run_experiments() -> Dict[str, Any]:
         full_metrics = {**metrics, "attractor": attractor}
         decision = select_next_strategy(
             full_metrics, strategy_dicts, prev_strategy, prev_state,
+            history=eval_history if eval_history else None,
         )
         prev_strategy = decision["strategy"]
         prev_state = decision["state"]
@@ -353,6 +354,10 @@ def print_experiment_report(results: Dict[str, Any]) -> None:
             if trans:
                 print(f"  transition:          {trans['from']} -> {trans['to']}"
                       f" ({trans['change']})")
+            adapt = decision.get("adaptation")
+            if adapt:
+                print(f"  ADAPT bias={adapt['bias']:+.2f}"
+                      f" traj={adapt['trajectory_score']:+.2f}")
         evaluation = entry.get("evaluation")
         if evaluation:
             ev = evaluation["evaluation"]

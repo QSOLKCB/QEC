@@ -1,4 +1,4 @@
-"""Per-strategy memory and local adaptation layer (v99.2.0).
+"""Per-strategy memory and local adaptation layer (v99.3.0).
 
 Extends v99.0 global adaptation to per-strategy memory, allowing the
 system to prefer or avoid specific strategies based on their individual
@@ -8,6 +8,14 @@ v99.2.0 adds regime-aware memory indexing and stability-weighted
 strategy evaluation.  Memory keys are upgraded from flat strategy IDs
 to (regime_key, strategy_id) tuples, with fallback to global aggregation
 when regime-specific data is unavailable.
+
+v99.3.0 adds transition learning: a multiplicative bias derived from
+historical transition outcomes.  When transition memory is available,
+strategy scoring uses the formula::
+
+    final_score = base_score * stability_weight * transition_bias
+
+where transition_bias defaults to 1.0 (neutral) when no history exists.
 
 Each strategy carries its own performance record, enabling targeted
 adaptation rather than uniform global bias.
@@ -181,14 +189,22 @@ def score_strategy_with_memory(
     memory: Dict[Any, List[Dict[str, Any]]],
     strategy_id: str,
     regime_key: Optional[Tuple[str, str]] = None,
+    transition_memory: Optional[Dict[Any, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Score a strategy with both global and per-strategy bias.
 
-    score = base_score + global_bias + local_bias, clamped to [0, 1].
+    When *regime_key* and *transition_memory* are both provided, uses
+    the v99.3.0 multiplicative formula::
 
-    When *regime_key* is provided, uses regime-aware evaluation with
-    stability weighting from :func:`compute_regime_aware_score`.
-    Falls back to flat memory bias otherwise.
+        score = base_score * stability_weight * transition_bias
+
+    where ``stability_weight`` comes from regime-aware evaluation and
+    ``transition_bias`` comes from transition learning history.
+
+    When *regime_key* is provided without transition memory, uses
+    the v99.2.0 additive formula (backward compatible).
+
+    When neither is provided, uses flat memory bias (v99.1.0).
 
     Parameters
     ----------
@@ -205,28 +221,49 @@ def score_strategy_with_memory(
     regime_key : tuple, optional
         Regime key from :func:`compute_regime_key`.  When provided,
         activates regime-aware scoring with stability weighting.
+    transition_memory : dict, optional
+        Transition memory from
+        :func:`~qec.analysis.strategy_transition_learning.update_transition_memory`.
+        When provided together with *regime_key*, activates v99.3.0
+        multiplicative transition bias.
 
     Returns
     -------
     dict
-        ``score``, ``global_bias``, ``local_bias``.
+        ``score``, ``global_bias``, ``local_bias``, ``transition_bias``.
     """
     base_score = score_strategy(state, strategy)
     global_bias = compute_adaptation_bias(history)
+    transition_bias = 1.0
 
-    if regime_key is not None:
+    if regime_key is not None and transition_memory is not None:
+        # v99.3.0: multiplicative formula with transition learning
+        from qec.analysis.strategy_transition_learning import (
+            compute_transition_bias,
+        )
+        regime_score = compute_regime_aware_score(memory, regime_key, strategy_id)
+        stability_weight = regime_score["stability_weight"]
+        transition_bias = compute_transition_bias(
+            transition_memory, regime_key[0], regime_key[1], strategy_id,
+        )
+        score = max(0.0, min(1.0, base_score * stability_weight * transition_bias))
+        local_bias = score - base_score  # effective local adjustment
+    elif regime_key is not None:
+        # v99.2.0: additive formula with stability weighting
         regime_score = compute_regime_aware_score(memory, regime_key, strategy_id)
         local_bias = 0.2 * regime_score["final_score"]
         local_bias = max(-0.2, min(0.2, local_bias))
+        score = max(0.0, min(1.0, base_score + global_bias + local_bias))
     else:
+        # v99.1.0: flat memory bias
         local_bias = compute_strategy_bias(memory, strategy_id)
-
-    score = max(0.0, min(1.0, base_score + global_bias + local_bias))
+        score = max(0.0, min(1.0, base_score + global_bias + local_bias))
 
     return {
         "score": score,
         "global_bias": global_bias,
         "local_bias": local_bias,
+        "transition_bias": transition_bias,
     }
 
 
@@ -260,14 +297,14 @@ def select_strategy_with_memory(
     history: List[Dict[str, Any]],
     memory: Dict[Any, List[Dict[str, Any]]],
     regime_key: Optional[Tuple[str, str]] = None,
+    transition_memory: Optional[Dict[Any, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Select the best strategy using per-strategy memory bias.
 
-    For each strategy, computes a memory-aware score (base + global + local).
-    Tie-breaking is deterministic: score -> confidence -> simplicity -> id.
-
-    When *regime_key* is provided, uses regime-aware evaluation with
-    stability weighting.  Falls back to flat memory otherwise.
+    For each strategy, computes a memory-aware score.  When
+    *transition_memory* is provided, uses v99.3.0 multiplicative
+    formula.  Tie-breaking is deterministic:
+    score -> confidence -> simplicity -> id.
 
     Parameters
     ----------
@@ -281,11 +318,14 @@ def select_strategy_with_memory(
         Per-strategy memory (flat or regime-indexed).
     regime_key : tuple, optional
         Regime key from :func:`compute_regime_key`.
+    transition_memory : dict, optional
+        Transition memory for v99.3.0 transition learning.
 
     Returns
     -------
     dict
-        ``selected``, ``score``, ``global_bias``, ``local_bias``.
+        ``selected``, ``score``, ``global_bias``, ``local_bias``,
+        ``transition_bias``.
     """
     if not strategies:
         return {
@@ -293,13 +333,16 @@ def select_strategy_with_memory(
             "score": 0.0,
             "global_bias": 0.0,
             "local_bias": 0.0,
+            "transition_bias": 1.0,
         }
 
     scored: list = []
     for sid in sorted(strategies.keys()):
         s = strategies[sid]
         result = score_strategy_with_memory(
-            s, state, history, memory, sid, regime_key=regime_key,
+            s, state, history, memory, sid,
+            regime_key=regime_key,
+            transition_memory=transition_memory,
         )
         conf = _get_confidence(s)
         n_actions = _count_actions(s)
@@ -311,6 +354,7 @@ def select_strategy_with_memory(
             s,
             result["global_bias"],
             result["local_bias"],
+            result["transition_bias"],
         ))
 
     scored.sort()
@@ -321,6 +365,7 @@ def select_strategy_with_memory(
         "score": -best[0],
         "global_bias": best[5],
         "local_bias": best[6],
+        "transition_bias": best[7],
     }
 
 

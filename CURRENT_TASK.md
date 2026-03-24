@@ -1,200 +1,238 @@
-# CURRENT_TASK.md
-Active Development Target — v7.6.1
-
-This document defines the **current implementation task** for AI agents.
-
-Only implement features required for **v7.6.1**.
-
-Do not implement future roadmap features.
+# CURRENT_TASK.md  
+Active Development Target — v99.1.x  
+Deterministic Strategy Memory Integration & Hardening
 
 ---
 
-# Goal
+## ⚠️ Scope
 
-Validate that **non-backtracking eigenvector localization predicts BP instability edges**.
+This document defines the **current implementation task**.
 
-This release establishes the empirical foundation for the spectral Tanner-graph research program.
+Only implement features required for:
 
----
+> **v99.1.x — Strategy Memory Stabilization**
 
-# Scientific Hypothesis
-
-BP failures in QLDPC Tanner graphs arise from **cycle-resonant trapping sets**.
-
-These structures create **localized eigenvectors in the non-backtracking spectrum**.
-
-The inverse participation ratio (IPR) measures this localization.
-
-Edges with large eigenvector magnitude should correspond to edges exhibiting **LLR oscillation or instability during BP decoding**.
+Do NOT implement roadmap features beyond this scope.
 
 ---
 
-# Features To Implement
+# 🧠 Goal
 
-### 1. NB Dominant Eigenpair Extraction
+Stabilize and harden the **deterministic adaptive control loop** by introducing:
 
-Compute the dominant real eigenpair of the non-backtracking operator.
+> **bounded, per-strategy memory with deterministic biasing**
 
-Requirements:
-
-- sparse operator implementation
-- no dense matrices
-- use `scipy.sparse.linalg.eigs`
-- compute only `k=1`
-- use `which="LR"`
-
-Output:
+This completes the transition from:
 
 
-nb_spectral_radius
-nb_dominant_eigenvector
+stateless strategy selection
+→
+experience-aware deterministic system
 
 
 ---
 
-### 2. Inverse Participation Ratio (IPR)
+# 🔬 System Context
 
-Implement localization metric:
-
-
-IPR(v) = sum(v_i^4) / (sum(v_i^2))^2
+The system now operates as:
 
 
-Interpretation:
-
-- low IPR → delocalized eigenvector
-- high IPR → localized trapping set
-
-Output:
+metrics → attractor → strategy → evaluation → adaptation → memory
 
 
-nb_ipr
+v99.1 introduces:
 
+- local specialization per strategy  
+- performance-informed decision bias  
+- deterministic “learning” without randomness  
 
 ---
 
-### 3. Edge Sensitivity Ranking
+# 🎯 Core Objective
 
-Rank directed edges using spectral energy:
+Enable **memory-aware strategy selection** while preserving:
 
-
-sensitivity(edge) = |v_i|^2 * |v_j|^2
-
-
-Output:
-
-
-ranked_edge_sensitivity
-
-
-Edges with highest sensitivity are candidates for instability.
+- determinism  
+- architectural separation  
+- zero regression in baseline behavior  
 
 ---
 
-### 4. Precision@k Validation
-
-Compare spectral ranking against empirically unstable edges.
-
-Procedure:
-
-1. run deterministic BP decode
-2. identify edges with highest LLR variance
-3. compare with spectral ranking
-
-Metric:
-
-
-precision_at_k
-
-
-Target success threshold:
-
-
-precision_at_k > 0.8
-
-
-for k roughly equal to trapping set size.
+# 🧩 Features To Implement / Harden
 
 ---
 
-# Experiments
+## 1. Strategy Memory Structure
 
-Run validation on at least one known LDPC or QLDPC code containing trapping sets.
+Canonical structure:
 
-Example experiment:
+```python
+Dict[str, List[Dict[str, Any]]]
 
+Where:
 
-run_decoder()
-detect_llr_instability_edges()
-compare_with_spectral_ranking()
+key = strategy_id
+value = bounded list of recent performance records
+Requirements
+deterministic append-only updates
+enforce fixed capacity (default: 10)
+no in-place mutation
+stable ordering (oldest → newest)
+2. Performance Scoring
 
+Compute per-strategy performance:
 
-Outputs must be deterministic.
+performance =
+  0.6 * avg_score
++ 0.3 * improvement_rate
+- 0.1 * instability_penalty
 
----
+Constraints:
 
-# Output Artifacts
+clamp to [-1, 1]
+deterministic aggregation
+no floating drift (stable ordering + rounding if needed)
+3. Bias Computation
 
-The experiment must produce a JSON artifact containing:
+Convert performance → selection bias:
 
+bias = 0.2 * performance
 
-{
-"nb_spectral_radius": ...,
-"nb_ipr": ...,
-"precision_at_k": ...,
-"num_edges": ...,
-"num_instability_edges": ...
-}
+Clamp:
 
+[-0.2, +0.2]
 
-Artifacts must be canonical JSON.
+Two components:
 
----
+local bias (per strategy)
+global bias (optional aggregate signal)
+4. Memory-Aware Strategy Scoring
 
-# Explicit Non-Goals
+Final scoring:
+
+final_score =
+  base_score
++ global_bias
++ local_bias
+
+Constraints:
+
+clamp to [0, 1]
+preserve deterministic ranking
+
+Tie-breaking (strict):
+
+score
+confidence
+simplicity
+lexicographic id
+5. Deterministic Selection Integration
+
+Update:
+
+select_next_strategy(...)
+
+Behavior:
+
+if memory is provided → use memory-aware scoring
+otherwise → fallback to baseline logic
+6. Metrics Integration
+
+Update evaluation loop:
+
+maintain strategy_memory across iterations
+update after each evaluation
+expose bias in logs:
+MEM bias=+X.XX (local) +X.XX (global)
+7. Type Safety (Hard Requirement)
+
+Enforce consistent typing across system:
+
+Dict[str, List[Dict[str, Any]]]
+
+Applies to:
+
+strategy_memory
+function signatures
+selection interfaces
+
+No Any-typed containers for memory.
+
+8. Determinism Guarantees
+
+Must preserve:
+
+identical outputs across runs
+stable ordering
+no hidden randomness
+no mutation side effects
+🧪 Tests
+
+All functionality must be covered by deterministic tests:
+
+Required coverage
+memory append + cap enforcement
+no-mutation guarantees
+performance scoring correctness
+bias clamping
+selection determinism
+integration with selector
+📦 Output Guarantees
+no schema changes
+no artifact drift
+baseline behavior unchanged when memory disabled
+🚫 Explicit Non-Goals
 
 Do NOT implement:
 
-- graph repair algorithms
-- spectral heatmaps
-- incremental spectral updates
-- phase diagram experiments
-- ternary decoding experiments
+multi-step planning
+predictive strategy selection
+long-horizon memory
+decay functions
+reinforcement learning
+stochastic adaptation
 
-These belong to future releases.
+These belong to v100+
 
----
+🧱 Architectural Constraints
 
-# Architectural Constraints
-
-Claude must obey:
-
+Must obey:
 
 CLAUDE.md
-IMPLEMENTATION_RULES.md
-ALGORITHM_PATTERNS.md
 ROADMAP.md
+layering rules
+decoder protection
 
+Forbidden:
 
-The decoder core must remain untouched.
+modifying decoder core
+introducing randomness
+cross-layer leakage
+✅ Success Condition
 
-All work must occur in:
+v99.1.x is complete when:
 
+strategy memory is deterministic and bounded
+performance scoring is correct and stable
+bias influences selection deterministically
+selector integrates memory without regressions
+all tests pass
+outputs are byte-identical across runs
+🔜 Next Step (Do Not Implement Yet)
 
-src/qec/diagnostics/
-src/qec/experiments/
+v100 — Strategy Ecology
 
+strategy specialization patterns
+cross-regime dominance
+behavioral taxonomy
+🧠 Final Principle
 
----
+This system must become:
 
-# Success Condition
+adaptive without randomness
 
-v7.6.1 is complete when:
+If it learns, it must do so deterministically.
 
-1. spectral diagnostics run deterministically
-2. IPR is computed
-3. edge sensitivity ranking is produced
-4. Precision@k experiment validates correlation
-5. artifacts are reproducible
+If it changes behavior, it must be explainable.
 
-Only then may the project move to **v7.7.0 heatmaps**.
+If it cannot be reproduced, it is not valid.

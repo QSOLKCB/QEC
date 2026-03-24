@@ -1,22 +1,15 @@
-CLAUDE.md
-
-QSOL QEC Architectural Constitution (v8 Hardened)
+# QSOL QEC Architectural Constitution (v99 Hardened)
 
 This document governs all AI-assisted activity inside the QSOL QEC repository.
 
 It applies to Claude when performing:
 
-code generation
-
-refactoring
-
-testing
-
-experiments
-
-commits
-
-release preparation
+- code generation
+- refactoring
+- testing
+- experiments
+- commits
+- release preparation
 
 This document is not guidance.
 
@@ -24,567 +17,366 @@ It is the architectural constitution of the repository.
 
 Claude must obey these rules when operating inside this codebase.
 
-Core Values
+---
 
-The QEC framework is governed by six non-negotiable principles.
+# Core Values
 
-Determinism
+The QEC framework is governed by six non-negotiable principles:
 
-All experiments must be reproducible byte-for-byte.
+1. Determinism  
+2. Decoder Stability  
+3. Architectural Layering  
+4. Minimal Complexity  
+5. Scientific Transparency  
+6. Reproducibility Guarantees  
 
-Decoder Stability
+---
 
-The decoder core is protected infrastructure.
+# 0. Direct Commit Mode (Non-PR Workflow)
 
-Architectural Layering
+⚠️ FIRST
 
-The repository follows strict dependency layers.
+If you create a pull request (PR), the task is considered FAILED.
 
-Minimal Complexity
+Claude must operate in **Direct Commit Mode**.
 
-Prefer simple deterministic algorithms.
+## Rules
 
-Scientific Transparency
+- DO NOT create a PR  
+- DO NOT create a new branch  
+- Work directly on `main`  
+- You MAY commit and push  
+- Commit directly to `main` only  
 
-Algorithms must remain explainable.
+## Rationale
 
-Reproducibility Guarantees
+The repository is:
 
-Artifacts must remain stable across runs and releases.
+- single-operator controlled  
+- deterministic  
+- release-tag driven  
 
-1. Architectural Layer Model (Non-Negotiable)
+Branching/PR workflows introduce:
 
-The repository follows strict directional layering.
+- merge ambiguity  
+- sync confusion  
+- non-deterministic repo state  
+
+## Safety Conditions
+
+Direct commits are allowed only if:
+
+- all tests pass  
+- determinism is preserved  
+- decoder core is untouched  
+- architectural invariants hold  
+
+All escalation rules remain in effect.
+
+---
+
+# 1. Architectural Layer Model (Non-Negotiable)
 
 Dependencies may only flow downward.
 
-Layer	Path	Role
-1	src/qec/decoder/	Decoder core (protected)
-2	src/qec/channel/	Channel and noise models
-3	src/qec/diagnostics/	Deterministic diagnostics
-4	src/qec/predictors/	Structural instability predictors
-5	src/qec/experiments/	Experimental policies
-6	src/bench/	Benchmark harness
+| Layer | Path | Role |
+|------|------|------|
+| 1 | src/qec/decoder/ | Decoder core (protected) |
+| 2 | src/qec/channel/ | Channel models |
+| 3 | src/qec/diagnostics/ | Observational diagnostics |
+| 4 | src/qec/predictors/ | Instability predictors |
+| 5 | src/qec/analysis/ | Metrics, attractors, strategy logic |
+| 6 | src/qec/experiments/ | Experimental orchestration |
+| 7 | src/bench/ | Benchmark harness |
 
-Rules:
+## Rules
 
-Lower layers must never import higher layers
-
-decoder must never import experiments
-
-src/qec/ must never import src/bench/
-
-predictors must not depend on experiments
+- Lower layers must never import higher layers  
+- decoder must never import experiments  
+- src/qec must never import src/bench  
+- predictors must not depend on experiments  
 
 Layer boundaries are architectural invariants.
 
-Violating them is forbidden without explicit approval.
+Violation is forbidden.
 
-2. Determinism is Architecture
+---
+
+# 2. Determinism is Architecture
 
 Determinism is a structural requirement.
 
 All code must preserve deterministic execution.
 
-Required invariants:
+## Required invariants
 
-no hidden randomness
+- no hidden randomness  
+- no implicit RNG state  
+- explicit seed injection  
+- deterministic ordering  
+- no use of Python hash()  
+- no unordered floating reductions  
 
-no implicit RNG state
+## Required techniques
 
-explicit seed injection
+- SHA-256 deterministic sub-seeds  
+- canonical serialization  
+- stable iteration ordering  
 
-deterministic collection ordering
+## Guarantee
 
-no use of Python hash()
-
-no floating-point drift due to unordered reductions
-
-Sub-seed derivation must use:
-
-SHA-256 deterministic hashing
-
-Artifact serialization must be canonical.
-
-When:
+If:
 
 runtime_mode = "off"
 
-outputs must be byte-identical across runs.
+then outputs must be byte-identical across runs.
 
-3. Artifact & Identity Stability
+---
 
-Artifacts represent immutable experiment records.
+# 3. Artifact & Identity Stability
 
-Rules:
+Artifacts are immutable experiment records.
 
-artifacts must not mutate after hashing
+## Rules
 
-serialization order must remain canonical
-
-decoder identity must be stable across identical configs
-
-identity must not depend on memory layout
+- no mutation after hashing  
+- canonical serialization only  
+- identity independent of memory layout  
+- identical configs → identical outputs  
 
 Identity drift without version bump is forbidden.
 
-4. Decoder Core Protection
+---
 
-The decoder is the most protected subsystem.
+# 4. Decoder Core Protection
 
 Protected path:
 
 src/qec/decoder/
 
-Default rule:
+## Default rule
 
 Do not modify the decoder core.
 
-Prohibited without explicit instruction:
+## Forbidden without explicit instruction
 
-modifying BP message updates
-
-altering scheduling semantics
-
-changing iteration ordering
-
-refactoring decoder internals
-
-introducing adaptive behaviour
+- BP message updates  
+- scheduling semantics  
+- iteration ordering  
+- decoder refactors  
+- adaptive logic inside decoder  
 
 The decoder must remain bit-stable across minor releases.
 
-5. Spectral Research Model
+---
 
-The QEC framework studies belief-propagation instability on Tanner graphs.
+# 5. Adaptive System Constraint (v99+)
 
-The research pipeline is:
+The system includes:
 
-Tanner graph
-↓
-spectral diagnostics
-↓
-instability localization
-↓
-graph repair
-↓
-decoder experiments
+metrics → strategy → evaluation → adaptation → memory
 
-Spectral signals include:
+## Rules
 
-non-backtracking spectral radius
+- adaptation must remain deterministic  
+- memory must be bounded  
+- no stochastic learning  
+- no hidden state outside defined structures  
 
-dominant NB eigenvector
+## Allowed
 
-inverse participation ratio (IPR)
+- score adjustments  
+- biasing strategy selection  
+- evaluation-based feedback  
 
-spectral trapping-set indicators
+## Forbidden
 
-Claude must implement research features in the order:
+- randomness  
+- model training  
+- implicit learning  
+- mutation of past history  
 
-measure → localize → repair → accelerate → map → mitigate
+---
 
-Corresponding roadmap releases:
+# 6. Diagnostics Layer Protection
 
-v7.6.1 validation
-v7.7.0 heatmaps
-v7.8.0 graph repair
-v7.9.0 incremental spectra
-v8.0.0 phase diagrams
-v8.1.0 ternary mitigation
+Diagnostics are observational only.
 
-Claude must not skip steps in this research sequence.
+## Must be
 
-6. Diagnostics Layer Protection
+- deterministic  
+- side-effect free  
+- opt-in  
 
-Diagnostics are observational instruments.
+## Must NOT
 
-They must never influence decoder behaviour.
+- modify decoder inputs  
+- alter BP messages  
+- mutate arrays in-place  
 
-Diagnostics must be:
+Diagnostics may operate on copies only.
 
-deterministic
+---
 
-side-effect free
+# 7. Predictor Layer Protection
 
-opt-in
+Predictors estimate instability pre-decode.
 
-Diagnostics must not:
+## Must
 
-modify BP messages
+- use diagnostics outputs only  
+- be deterministic  
+- produce signals only  
 
-alter decoder inputs
+## Must NOT
 
-change iteration ordering
+- modify decoder  
+- modify inputs  
 
-mutate arrays in-place
+---
 
-Diagnostics may run additional decoding experiments using copied inputs only.
+# 8. Controller Layer Protection
 
-7. Predictor Layer Protection
+Controllers run controlled experiments.
 
-Predictors estimate instability before decoding runs.
+## May
 
-Predictors must:
+- modify inputs  
+- run multiple passes  
 
-operate only on diagnostics outputs
+## Must NOT
 
-remain deterministic
+- modify decoder implementation  
+- introduce randomness  
 
-produce informational signals only
+---
 
-Example signals:
+# 9. Sparse Linear Algebra Rules
 
-bp_failure_risk
-predicted_instability
-spectral_instability_ratio
+Spectral methods must scale.
 
-Predictors must not modify decoder inputs.
+## Forbidden
 
-8. Controller Layer Protection
+- dense Hashimoto matrices  
+- full eigendecomposition  
 
-Controllers run controlled decoding experiments.
+## Required
 
-Controllers may:
-
-alter experiment configuration
-
-modify input LLR vectors
-
-run multiple decode passes
-
-Controllers must not:
-
-modify decoder implementation
-
-patch decoder functions
-
-introduce stochastic behaviour
-
-Controllers wrap decoder calls externally.
-
-9. Sparse Linear Algebra Rules
-
-Spectral algorithms must scale to large QLDPC graphs.
-
-Forbidden:
-
-dense Hashimoto matrix construction
-
-numpy.linalg.eig on NB matrices
-
-Required approach:
-
-sparse operators
-
-Krylov eigensolvers
-
-scipy.sparse.linalg.eigs
-
-linear operator interfaces
+- sparse operators  
+- scipy.sparse.linalg.eigs  
+- linear operator interfaces  
 
 Memory must scale with |E|, not |E|².
 
-10. Tanner Graph Constraint Protection
+---
 
-QLDPC graphs obey strict commutativity constraints:
+# 10. Tanner Graph Constraints
+
+QLDPC constraint:
 
 H_X H_Z^T = 0
 
-Graph repair algorithms must preserve these constraints.
+Graph modifications must preserve commutativity.
 
-Edge swaps must be rejected if they break stabilizer commutativity.
+Invalid transformations must be rejected.
 
-11. Minimal Diff Discipline
+---
+
+# 11. Minimal Diff Discipline
 
 Changes must be minimal and targeted.
 
-Forbidden without instruction:
+## Forbidden
 
-large refactors
+- large refactors  
+- renaming identifiers  
+- style-only edits  
+- reformatting  
+- import shuffling  
 
-renaming identifiers
+Each commit must be single-purpose.
 
-style-only edits
+---
 
-import reordering
+# 12. Dependency Policy
 
-file-wide formatting
+## Rules
 
-moving code between modules
-
-Commits must be small and single-purpose.
-
-12. Dependency Policy
-
-Dependency surface must remain minimal.
-
-Rules:
-
-prefer stdlib
-
-prefer NumPy / SciPy
-
-no new dependencies without approval
-
-no framework introduction
+- prefer stdlib  
+- prefer NumPy / SciPy  
+- no new dependencies without approval  
+- no frameworks  
 
 Architectural bloat is forbidden.
 
-13. Test Discipline
+---
+
+# 13. Test Discipline
 
 Untested code is unshipped code.
 
-Required:
+## Required
 
-unit tests
+- unit tests  
+- determinism tests  
+- regression tests  
 
-determinism tests
+## Rules
 
-regression tests
+- do not widen tolerances to pass tests  
+- fix code, not tests  
 
-artifact validation tests
+---
 
-Tests must not hide drift by widening tolerances.
+# 14. Commit & Push Discipline
 
-Correct code makes tests pass.
+Claude may commit only if:
 
-Tests do not adapt to drift.
+- tests pass  
+- determinism preserved  
+- decoder untouched  
+- schema stable  
+- identity stable  
 
-14. Commit & Push Discipline
-
-Claude may commit only when:
-
-determinism preserved
-
-decoder untouched
-
-schema unchanged
-
-identity stable
-
-tests passing
-
-Push escalation is required for changes touching:
-
-decoder
-
-schema
-
-serialization
-
-hashing
-
-determinism guarantees
+## Critical rule
 
 Passing tests alone are insufficient.
 
-15. Escalation Rule
+---
 
-If a proposed change affects:
+# 15. Escalation Rule
 
-decoder semantics
+If a change affects:
 
-scheduling
-
-schema
-
-serialization
-
-hashing
-
-artifact identity
-
-determinism guarantees
+- decoder semantics  
+- scheduling  
+- schema  
+- serialization  
+- hashing  
+- determinism  
 
 Claude must:
 
-Stop
-
-Explain the risk
-
-Request explicit instruction
+1. STOP  
+2. Explain the risk  
+3. Request instruction  
 
 Silence is not consent.
 
-16. Governing Principle
+---
+
+# 16. Governing Principle
 
 When uncertain:
 
-Preserve stability.
+- preserve stability  
+- avoid refactoring  
+- prefer doing nothing  
+- read before writing  
+- maintain invariants  
 
-Avoid refactoring.
-
-Prefer doing nothing.
-
-Read before writing.
-
-Maintain invariants.
-
-Capability grows.
+Capability grows.  
 Stability does not regress.
 
-If a result cannot be reproduced byte-for-byte, it is not a baseline.
-
-CLAUDE.md Addition — Autonomous Safe PR Workflow
-
-Add a section like this to CLAUDE.md.
-
-## Autonomous PR Workflow
-
-When modifying the repository, Claude Code must follow this workflow.
-
-### 1. Branch Creation
-
-Create a new branch for each task.
-
-Example:
-
-
-git checkout -b claude/<task-name>
-
-
-Branches should be small and focused.
-
-Examples:
-
-
-claude/add-spectral-entropy
-claude/fix-nb-localization
-claude/refactor-diagnostics-api
-
-
----
-
-### 2. Pre-Commit Validation
-
-Before committing changes, Claude must run:
-
-
-pytest
-
-
-If tests fail, Claude must fix the issue before committing.
-
-No commits should be pushed with failing tests.
-
----
-
-### 3. Pull Latest Main
-
-Before pushing a branch, Claude must update the branch with the latest
-`main`.
-
-Preferred method:
-
-
-git fetch origin
-git rebase origin/main
-
-
-If conflicts occur:
-
-- resolve conflicts
-- remove conflict markers
-- run tests again
-
----
-
-### 4. Commit Style
-
-Commits should be concise and scoped.
-
-Example:
-
-
-git commit -m "diagnostics: add spectral entropy metric"
-
-
----
-
-### 5. Push Branch
-
-Push the branch to origin.
-
-
-git push origin claude/<task-name>
-
-
----
-
-### 6. Pull Request Rules
-
-Claude should open a PR with:
-
-Title format:
-
-
-module: short description
-
-
-Example:
-
-
-diagnostics: add spectral entropy metric
-
-
-PR description should include:
-
-- purpose
-- files modified
-- tests added
-
----
-
-### 7. Merge Safety Rules
-
-Claude must **not merge PRs automatically** unless:
-
-- tests pass
-- no merge conflicts exist
-- changes are limited to diagnostics or experiments layers
-
-Never merge changes that modify:
-
-- decoder core
-- BP algorithm
-- parity check generation
-
-These require human review.
-
----
-
-### 8. Merge Strategy
-
-Preferred merge strategy:
-
-
-Squash and merge
-
-
-This keeps the history clean.
-
----
-
-### 9. Post-Merge Cleanup
-
-After merging:
-
-
-git branch -d claude/<task-name>
-
-
----
-
-### 10. Conflict Marker Safety Check
-
-Before committing, Claude must verify the repository does not contain
-merge markers.
-
-Search for:
-
-<<<<<<<
-
-If any markers exist, resolve them before committing.
-
-Never modify `src/qec/decoder/` without explicit human instruction.
+If it cannot be reproduced byte-for-byte,
+it is not a valid result.

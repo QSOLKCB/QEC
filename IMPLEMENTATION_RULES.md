@@ -1,354 +1,348 @@
-IMPLEMENTATION_RULES.md
+# IMPLEMENTATION_RULES.md  
+QSOL QEC Engineering Rules for AI-Assisted Development (v99–v100)
 
-QSOL QEC Engineering Rules for AI-Assisted Development
+Author: Trent Slade — QSOL-IMC  
+ORCID: 0009-0002-4515-9237  
 
-This document defines practical implementation discipline for AI agents operating inside the QSOL QEC repository.
+---
 
-It complements CLAUDE.md.
+## ⚠️ Purpose
 
-Where CLAUDE.md defines architectural law, this document defines engineering practice.
+This document defines **engineering discipline** for AI agents working in the QEC repository.
 
-1. Read Before Writing
+- `CLAUDE.md` → architectural law  
+- `IMPLEMENTATION_RULES.md` → implementation behavior  
 
-Before modifying code, Claude must:
+Both must be obeyed.
 
-Read the relevant modules
+---
 
-Identify architectural layer boundaries
+# 🧠 Core Principle
 
-Confirm changes do not violate CLAUDE.md
+QEC is a **deterministic scientific instrument**.
 
-Propose minimal changes
+Not a simulator.  
+Not an optimizer.  
+Not an ML system.
 
-Claude must never write code before understanding the module.
+Code must prioritize:
 
-2. Minimal Change Principle
+- reproducibility  
+- transparency  
+- structural correctness  
+- deterministic behavior  
 
-Changes must be surgical and local.
+---
+
+# 📖 1. Read Before Writing
+
+Before writing code, Claude must:
+
+1. Read relevant modules  
+2. Identify architectural layer  
+3. Confirm constraints from `CLAUDE.md`  
+4. Propose minimal change  
+
+Claude must **never write code blindly**.
+
+---
+
+# ✂️ 2. Minimal Change Principle
+
+All changes must be:
+
+- local  
+- surgical  
+- minimal  
 
 Rules:
 
-modify the smallest number of lines possible
+- modify smallest number of lines possible  
+- do not refactor unrelated code  
+- do not rename identifiers unnecessarily  
+- do not reformat files  
+- do not restructure modules without instruction  
 
-avoid refactoring unrelated code
+Large diffs = high risk.
 
-avoid renaming identifiers
+---
 
-avoid file-wide formatting changes
-
-do not restructure modules without explicit instruction
-
-Large diffs increase architectural risk.
-
-Small diffs preserve stability.
-
-3. Deterministic Implementation Patterns
+# 🔁 3. Determinism is Mandatory
 
 All algorithms must be deterministic.
 
-Required patterns:
+Required:
 
-explicit seed parameters
+- explicit seed control  
+- stable iteration ordering  
+- deterministic sorting  
+- canonical serialization  
 
-deterministic iteration ordering
+Forbidden:
 
-stable sorting for ranked outputs
+- `random.random()`  
+- unseeded `np.random`  
+- unordered `set` iteration  
+- implicit dict iteration ordering  
 
-no implicit randomness
+No hidden randomness. Ever.
 
-no global state
+---
 
-Avoid:
+# 🧠 4. Structured Memory Discipline (v99+)
 
-random.random()
-np.random without seed
-unordered set iteration
-dict iteration without sorting
-4. Sparse Linear Algebra First
+QEC now includes **system memory**.
 
-Many algorithms in this repository involve large Tanner graphs.
+Memory must follow:
 
-Dense matrix construction is forbidden for spectral operators.
+```python
+Dict[(regime_key, strategy), List[event]]
 
-Never build matrices of size:
+Where:
 
-2|E| × 2|E|
+event = {
+    "step": int,
+    "score": float,
+    "metrics": Dict[str, float],
+}
 
-Instead use:
+Rules:
 
-sparse adjacency structures
+memory must be deterministic
+ordering must be stable
+structure must not drift
+keys must be hashable and reproducible
+
+Forbidden:
+
+untyped dict nesting
+mixing schemas across modules
+implicit structure changes
+
+Memory is a first-class system component.
+
+🧮 5. Sparse Linear Algebra First
+
+All spectral operations must be sparse.
+
+Forbidden:
+
+dense NB matrices
+O(|E|²) constructions
+
+Required:
 
 scipy.sparse
+LinearOperator
+scipy.sparse.linalg.eigs
 
-scipy.sparse.linalg
+Pattern:
 
-LinearOperator interfaces
+eigs(LinearOperator(...), k=1, which="LR")
 
-Example pattern:
+Memory must scale with |E|.
 
-scipy.sparse.linalg.eigs(
-    LinearOperator(...),
-    k=1,
-    which="LR"
-)
+🧪 6. Analysis vs Control Separation
 
-Memory must scale with |E|, not |E|².
+QEC has distinct roles:
 
-5. Avoid Premature Optimization
+Analysis (observational)
+metrics
+attractors
+topology
+spectral diagnostics
+Control (external)
+strategy selection
+adaptation
+scheduling
 
-Algorithms should first be implemented in their minimal correct form.
+Rules:
 
-Performance optimizations should only occur after:
+analysis must not modify behavior
+control must not modify decoder internals
+🧱 7. Decoder Core Protection
 
-correctness
+Protected layer:
 
-determinism
+src/qec/decoder/
 
-reproducibility
+Forbidden:
 
-Do not introduce complex optimization prematurely.
+modifying BP updates
+changing message passing
+injecting hooks
+altering convergence logic
 
-6. Avoid Heuristic Algorithms
+The decoder is:
 
-This repository prioritizes mathematically justified methods.
+a fixed experimental object
 
-Avoid:
+🔬 8. Experimental Modules Must Be External
 
-machine learning heuristics
+All experiments must live in:
 
-stochastic optimization
+src/qec/analysis/
+src/qec/experiments/
 
-simulated annealing
+They must:
+
+wrap the decoder
+never modify it
+remain opt-in
+⚙️ 9. Input Modification Rules
+
+Allowed:
+
+LLR modification
+schedule selection
+graph structure (if valid)
+
+Forbidden:
+
+modifying BP internals
+altering message updates
+injecting state into decoder
+🧠 10. Strategy & Adaptation Rules (v99+)
+
+Strategy logic must be:
+
+deterministic
+memory-driven
+regime-aware
+
+Required:
+
+explicit scoring functions
+stable ranking
+no stochastic exploration
+
+Forbidden:
 
 reinforcement learning
+policy gradients
+exploration noise
 
-Preferred methods:
+This is deterministic adaptation, not ML.
 
-spectral analysis
+📊 11. Artifact Discipline
 
-linear algebra
+All outputs must be:
 
-deterministic graph algorithms
+JSON-safe
+canonicalized
+deterministic
 
-provable perturbation methods
+Artifacts must include:
 
-Algorithms must remain explainable.
+config
+parameters
+results
+memory snapshot (if applicable)
 
-7. Preserve Graph Constraints
+No non-deterministic metadata.
 
-QLDPC Tanner graphs must satisfy stabilizer commutativity constraints:
+🧪 12. Testing Requirements
+
+All new features must include:
+
+determinism tests
+regression tests
+structural validation
+edge case handling
+
+Tests must verify:
+
+correctness
+reproducibility
+stability
+🧱 13. Graph Constraints
+
+QLDPC constraints must always hold:
 
 H_X H_Z^T = 0
 
 Any graph modification must:
 
-preserve row degrees
+preserve row degree
+preserve column degree
+preserve commutativity
 
-preserve column degrees
+If uncertain → STOP.
 
-preserve commutativity constraints
+🚫 14. Forbidden Techniques
 
-If a proposed operation might break these conditions:
+Not allowed in QEC:
 
-Claude must abort the change and request confirmation.
-
-8. Experimental Modules Must Be External
-
-Research experiments must live in:
-
-src/qec/experiments/
-
-Experiments must never:
-
-modify decoder internals
-
-patch decoder functions
-
-inject hooks into BP loops
-
-Experiments must operate as external wrappers.
-
-9. Input Modification is Allowed (With Care)
-
-Experimental controllers may modify:
-
-channel LLR vectors
-
-decoding schedules
-
-graph structure (if valid)
-
-But must never modify:
-
-internal BP message updates
-
-decoder iteration logic
-
-check-node update rules
-
-The decoder remains a black box.
-
-10. Logging and Artifacts
-
-All experiments must produce deterministic artifacts.
-
-Artifacts must include:
-
-configuration snapshot
-
-deterministic seeds
-
-experiment parameters
-
-results
-
-Artifacts must use canonical serialization.
-
-11. Testing Expectations
-
-All new features require tests.
-
-Minimum test coverage:
-
-deterministic behavior
-
-numerical stability
-
-schema validation
-
-regression tests
-
-Tests must verify algorithm correctness, not just execution.
-
-12. Safe Spectral Algorithm Implementation
-
-When implementing spectral algorithms:
-
-Use sparse operators
-
-Target the dominant real eigenvalue
-
-Avoid full spectrum computation
-
-Validate convergence tolerance
-
-Typical pattern:
-
-eigs(..., k=1, which="LR")
-
-Never compute the entire spectrum unless explicitly required.
-
-13. Graph Repair Safety
-
-When implementing Tanner graph repair:
-
-Rules:
-
-preserve degree distribution
-
-preserve stabilizer commutativity
-
-verify graph validity after each modification
-
-Repair loops must remain deterministic.
-
-Forbidden methods:
-
-stochastic edge swaps
-
+stochastic optimization
 simulated annealing
+reinforcement learning
+neural networks
+heuristic search without justification
 
-random rewiring
+Allowed:
 
-14. Phase Diagram Experiments
+spectral methods
+linear algebra
+deterministic graph algorithms
+⚠️ 15. Error Handling
 
-Large experiments must be structured.
+Errors must be explicit:
 
-Pattern:
+raise ValueError("Invalid configuration")
 
-for graph in graph_set:
-    for noise in noise_levels:
-        run_decoder()
-        record_results()
+Forbidden:
 
-Outputs should be simple data artifacts such as:
+silent correction
+implicit fallback
+hidden state repair
+📚 16. Documentation Discipline
 
-CSV
-
-JSON
-
-structured logs
-
-Visualization is not part of the core experiment code.
-
-15. Error Handling Discipline
-
-Errors must be explicit.
-
-Preferred pattern:
-
-raise ValueError("Invalid Tanner graph configuration")
-
-Avoid silent fallbacks.
-
-Avoid implicit correction.
-
-Incorrect inputs must fail loudly.
-
-16. Documentation Discipline
-
-Every new module must include:
+Every module must include:
 
 purpose
-
 inputs
-
 outputs
+algorithm explanation
 
-algorithm description
+Focus on why, not just what.
 
-Comments should explain why the algorithm exists, not just what it does.
+🔁 17. Commit Discipline
 
-17. Commit Discipline
+Each commit must:
 
-Each commit should:
-
-implement a single feature
-
+implement one feature
 include tests
-
 preserve determinism
+avoid unrelated edits
+❓ 18. When Uncertain
 
-avoid unrelated changes
+Claude must:
 
-Commits must remain easy to review.
+stop
+explain uncertainty
+ask for clarification
 
-18. When Uncertain
+Never guess.
 
-If Claude encounters ambiguity:
+🧠 Final Principle
 
-Stop writing code
+QEC evolves by:
 
-Explain the uncertainty
+structure → stability → capability
 
-Request clarification
+Not:
 
-Never guess architectural intent.
+feature → complexity → chaos
+🧠 Closing
 
-Final Principle
+If a result cannot be reproduced byte-for-byte:
 
-This repository is a deterministic scientific instrument.
+it is not part of the system
 
-Code must prioritize:
+If a change weakens structure:
 
-reproducibility
+it must not be merged
 
-transparency
-
-stability
-
-mathematical clarity
-
-Capability grows.
-
-Stability does not regress.
+Small is beautiful.
+Determinism is holy.
+Stability is engineered.

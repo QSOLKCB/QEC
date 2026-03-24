@@ -25,7 +25,11 @@ from qec.analysis.field_metrics import compute_field_metrics
 from qec.analysis.multiscale_metrics import compute_multiscale_summary
 from qec.analysis.strategy_evaluation import evaluate_strategy
 from qec.analysis.strategy_memory import (
+    compute_attractor_id,
+    compute_regime_aware_score,
+    compute_regime_key,
     compute_strategy_bias,
+    update_regime_memory,
     update_strategy_memory,
 )
 from qec.analysis.strategy_topology import compute_strategy_topology
@@ -204,7 +208,8 @@ def run_experiments() -> Dict[str, Any]:
     prev_state = None
     prev_full_metrics = None
     eval_history: List[Dict[str, Any]] = []
-    strategy_memory: Dict[str, List[Dict[str, Any]]] = {}
+    strategy_memory: Dict[Any, List[Dict[str, Any]]] = {}
+    step_counter = 0
     for case in inputs:
         metrics = evaluate_metrics(case["values"])
         classification = classify_state(metrics)
@@ -233,20 +238,38 @@ def run_experiments() -> Dict[str, Any]:
             selected_id = decision["strategy"].get("id", "")
             if selected_id and evaluation:
                 ev = evaluation.get("evaluation", {})
-                strategy_memory = update_strategy_memory(
+                regime_label = attractor.get("regime", "mixed")
+                att_id = compute_attractor_id(
+                    attractor.get("basin_score", 0.0),
+                )
+                rk = compute_regime_key(regime_label, att_id)
+                strategy_memory = update_regime_memory(
                     strategy_memory,
+                    rk,
                     selected_id,
                     {
+                        "step": step_counter,
                         "score": ev.get("score", 0.0),
-                        "outcome": evaluation.get("outcome", "neutral"),
+                        "metrics": {
+                            "basin_score": float(
+                                attractor.get("basin_score", 0.0),
+                            ),
+                        },
                     },
                 )
 
         prev_full_metrics = full_metrics
+        step_counter += 1
 
         # Compute local bias for reporting
         selected_id = decision["strategy"].get("id", "")
-        local_bias = compute_strategy_bias(strategy_memory, selected_id)
+        regime_label = attractor.get("regime", "mixed")
+        att_id = compute_attractor_id(attractor.get("basin_score", 0.0))
+        rk = compute_regime_key(regime_label, att_id)
+        regime_score = compute_regime_aware_score(
+            strategy_memory, rk, selected_id,
+        )
+        local_bias = max(-0.2, min(0.2, 0.2 * regime_score["final_score"]))
         adapt = decision.get("adaptation")
         global_bias = adapt["bias"] if adapt else 0.0
 

@@ -1,8 +1,13 @@
-"""Per-strategy memory and local adaptation layer (v99.1.0).
+"""Per-strategy memory and local adaptation layer (v99.2.0).
 
 Extends v99.0 global adaptation to per-strategy memory, allowing the
 system to prefer or avoid specific strategies based on their individual
 performance history.
+
+v99.2.0 adds regime-aware memory indexing and stability-weighted
+strategy evaluation.  Memory keys are upgraded from flat strategy IDs
+to (regime_key, strategy_id) tuples, with fallback to global aggregation
+when regime-specific data is unavailable.
 
 Each strategy carries its own performance record, enabling targeted
 adaptation rather than uniform global bias.
@@ -13,7 +18,7 @@ Dependencies: stdlib only.  No randomness, no mutation, no ML.
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from qec.analysis.strategy_adaptation import compute_adaptation_bias
 from qec.analysis.strategy_transition import score_strategy
@@ -173,12 +178,17 @@ def score_strategy_with_memory(
     strategy: Any,
     state: Dict[str, Any],
     history: List[Dict[str, Any]],
-    memory: Dict[str, List[Dict[str, Any]]],
+    memory: Dict[Any, List[Dict[str, Any]]],
     strategy_id: str,
+    regime_key: Optional[Tuple[str, str]] = None,
 ) -> Dict[str, Any]:
     """Score a strategy with both global and per-strategy bias.
 
     score = base_score + global_bias + local_bias, clamped to [0, 1].
+
+    When *regime_key* is provided, uses regime-aware evaluation with
+    stability weighting from :func:`compute_regime_aware_score`.
+    Falls back to flat memory bias otherwise.
 
     Parameters
     ----------
@@ -189,9 +199,12 @@ def score_strategy_with_memory(
     history : list of dict
         Global evaluation history.
     memory : dict
-        Per-strategy memory.
+        Per-strategy memory (flat or regime-indexed).
     strategy_id : str
         ID of this strategy in *memory*.
+    regime_key : tuple, optional
+        Regime key from :func:`compute_regime_key`.  When provided,
+        activates regime-aware scoring with stability weighting.
 
     Returns
     -------
@@ -200,7 +213,13 @@ def score_strategy_with_memory(
     """
     base_score = score_strategy(state, strategy)
     global_bias = compute_adaptation_bias(history)
-    local_bias = compute_strategy_bias(memory, strategy_id)
+
+    if regime_key is not None:
+        regime_score = compute_regime_aware_score(memory, regime_key, strategy_id)
+        local_bias = 0.2 * regime_score["final_score"]
+        local_bias = max(-0.2, min(0.2, local_bias))
+    else:
+        local_bias = compute_strategy_bias(memory, strategy_id)
 
     score = max(0.0, min(1.0, base_score + global_bias + local_bias))
 
@@ -239,12 +258,16 @@ def select_strategy_with_memory(
     strategies: Dict[str, Any],
     state: Dict[str, Any],
     history: List[Dict[str, Any]],
-    memory: Dict[str, List[Dict[str, Any]]],
+    memory: Dict[Any, List[Dict[str, Any]]],
+    regime_key: Optional[Tuple[str, str]] = None,
 ) -> Dict[str, Any]:
     """Select the best strategy using per-strategy memory bias.
 
     For each strategy, computes a memory-aware score (base + global + local).
     Tie-breaking is deterministic: score -> confidence -> simplicity -> id.
+
+    When *regime_key* is provided, uses regime-aware evaluation with
+    stability weighting.  Falls back to flat memory otherwise.
 
     Parameters
     ----------
@@ -255,7 +278,9 @@ def select_strategy_with_memory(
     history : list of dict
         Global evaluation history.
     memory : dict
-        Per-strategy memory.
+        Per-strategy memory (flat or regime-indexed).
+    regime_key : tuple, optional
+        Regime key from :func:`compute_regime_key`.
 
     Returns
     -------
@@ -273,7 +298,9 @@ def select_strategy_with_memory(
     scored: list = []
     for sid in sorted(strategies.keys()):
         s = strategies[sid]
-        result = score_strategy_with_memory(s, state, history, memory, sid)
+        result = score_strategy_with_memory(
+            s, state, history, memory, sid, regime_key=regime_key,
+        )
         conf = _get_confidence(s)
         n_actions = _count_actions(s)
         scored.append((
@@ -294,4 +321,246 @@ def select_strategy_with_memory(
         "score": -best[0],
         "global_bias": best[5],
         "local_bias": best[6],
+    }
+
+
+# ---------------------------------------------------------------------------
+# 7. Regime key computation (v99.2.0)
+# ---------------------------------------------------------------------------
+
+_BASIN_THRESHOLDS: Tuple[float, ...] = (0.2, 0.4, 0.6, 0.8)
+
+
+def compute_attractor_id(basin_score: float) -> str:
+    """Compute a deterministic attractor identifier from basin score.
+
+    Quantizes basin_score into discrete buckets for stable indexing.
+    Thresholds: 0.2, 0.4, 0.6, 0.8.
+
+    Parameters
+    ----------
+    basin_score : float
+        Basin score in [0, 1].
+
+    Returns
+    -------
+    str
+        Deterministic attractor identifier (e.g. ``"basin_0"`` .. ``"basin_4"``).
+    """
+    score = float(basin_score)
+    bucket = 0
+    for threshold in _BASIN_THRESHOLDS:
+        if score >= threshold:
+            bucket += 1
+        else:
+            break
+    return f"basin_{bucket}"
+
+
+def compute_regime_key(
+    regime_label: str,
+    attractor_id: str,
+) -> Tuple[str, str]:
+    """Compute a deterministic, hashable regime key.
+
+    Parameters
+    ----------
+    regime_label : str
+        Current regime classification (e.g. ``"unstable"``).
+    attractor_id : str
+        Attractor identifier from :func:`compute_attractor_id`.
+
+    Returns
+    -------
+    tuple of (str, str)
+        ``(regime_label, attractor_id)`` — hashable and deterministic.
+    """
+    return (str(regime_label), str(attractor_id))
+
+
+# ---------------------------------------------------------------------------
+# 8. Regime-indexed memory (v99.2.0)
+# ---------------------------------------------------------------------------
+
+def update_regime_memory(
+    memory: Dict[Any, List[Dict[str, Any]]],
+    regime_key: Tuple[str, str],
+    strategy_id: str,
+    event: Dict[str, Any],
+    cap: int = DEFAULT_MEMORY_CAP,
+) -> Dict[Any, List[Dict[str, Any]]]:
+    """Append an event to regime-indexed memory.
+
+    Returns a **new** memory dict — the input is never mutated.
+
+    The memory key is ``(regime_key, strategy_id)`` where regime_key is
+    a tuple from :func:`compute_regime_key`.
+
+    Parameters
+    ----------
+    memory : dict
+        Maps ``(regime_key, strategy_id)`` → list of events.
+    regime_key : tuple
+        Output of :func:`compute_regime_key`.
+    strategy_id : str
+        Strategy identifier.
+    event : dict
+        Must contain ``"step"`` (int), ``"score"`` (float),
+        ``"metrics"`` (dict of str → float).
+    cap : int
+        Maximum events per key (default 10).
+
+    Returns
+    -------
+    dict
+        New memory with event appended and cap enforced.
+    """
+    new_memory = {k: list(v) for k, v in memory.items()}
+
+    record = {
+        "step": int(event["step"]),
+        "score": float(event["score"]),
+        "metrics": {str(k): float(v) for k, v in event.get("metrics", {}).items()},
+    }
+
+    key = (regime_key, strategy_id)
+    if key not in new_memory:
+        new_memory[key] = []
+
+    entries = list(new_memory[key])
+    entries.append(record)
+
+    if len(entries) > cap:
+        entries = entries[-cap:]
+
+    new_memory[key] = entries
+    return new_memory
+
+
+def query_regime_memory(
+    memory: Dict[Any, List[Dict[str, Any]]],
+    regime_key: Tuple[str, str],
+    strategy_id: str,
+) -> List[Dict[str, Any]]:
+    """Query regime-indexed memory with fallback to global strategy memory.
+
+    Lookup order:
+
+    1. ``memory[(regime_key, strategy_id)]`` — exact regime match
+    2. Aggregate all ``memory[(..., strategy_id)]`` entries — global fallback
+    3. Empty list
+
+    Parameters
+    ----------
+    memory : dict
+        Regime-indexed memory.
+    regime_key : tuple
+        Current regime key.
+    strategy_id : str
+        Strategy to query.
+
+    Returns
+    -------
+    list
+        Event records (copies), or empty list.
+    """
+    key = (regime_key, strategy_id)
+    if key in memory and memory[key]:
+        return list(memory[key])
+
+    # Fallback: aggregate all entries for this strategy across regimes.
+    # Sort keys by string representation for deterministic ordering.
+    fallback: List[Dict[str, Any]] = []
+    for k in sorted(memory.keys(), key=lambda x: str(x)):
+        if isinstance(k, tuple) and len(k) == 2 and k[1] == strategy_id:
+            fallback.extend(memory[k])
+
+    return fallback
+
+
+# ---------------------------------------------------------------------------
+# 9. Stability weighting (v99.2.0)
+# ---------------------------------------------------------------------------
+
+def compute_stability_weight(scores: List[float]) -> float:
+    """Compute stability weight from a list of scores.
+
+    Formula::
+
+        stability = 1 / (1 + variance(scores))
+
+    Parameters
+    ----------
+    scores : list of float
+        Score values from memory events.
+
+    Returns
+    -------
+    float
+        Stability weight in (0, 1].  Returns 1.0 for empty or
+        single-entry lists.
+    """
+    if len(scores) <= 1:
+        return 1.0
+
+    n = len(scores)
+    mean = sum(scores) / n
+    variance = sum((s - mean) ** 2 for s in scores) / n
+
+    # Safe division: variance >= 0, so denominator >= 1
+    return 1.0 / (1.0 + variance)
+
+
+# ---------------------------------------------------------------------------
+# 10. Regime-aware scoring (v99.2.0)
+# ---------------------------------------------------------------------------
+
+def compute_regime_aware_score(
+    memory: Dict[Any, List[Dict[str, Any]]],
+    regime_key: Tuple[str, str],
+    strategy_id: str,
+) -> Dict[str, Any]:
+    """Compute stability-weighted score for a strategy in a regime context.
+
+    Formula::
+
+        final_score = mean_score * stability_weight
+
+    where ``stability_weight = 1 / (1 + variance(scores))``.
+
+    Parameters
+    ----------
+    memory : dict
+        Regime-indexed memory.
+    regime_key : tuple
+        Current regime key.
+    strategy_id : str
+        Strategy to evaluate.
+
+    Returns
+    -------
+    dict
+        ``"mean_score"``, ``"stability_weight"``, ``"final_score"``,
+        ``"n_events"``.
+    """
+    events = query_regime_memory(memory, regime_key, strategy_id)
+
+    if not events:
+        return {
+            "mean_score": 0.0,
+            "stability_weight": 1.0,
+            "final_score": 0.0,
+            "n_events": 0,
+        }
+
+    scores = [float(e["score"]) for e in events]
+    mean_score = sum(scores) / len(scores)
+    stability = compute_stability_weight(scores)
+    final_score = mean_score * stability
+
+    return {
+        "mean_score": mean_score,
+        "stability_weight": stability,
+        "final_score": final_score,
+        "n_events": len(events),
     }

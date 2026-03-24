@@ -70,6 +70,7 @@ _MODULES = [
     "conjecture_validation",
     "physics_signal",
     "policy_signal_robustness",
+    "temporal_confidence",
 ]
 
 for mod in _MODULES:

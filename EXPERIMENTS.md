@@ -1,4 +1,4 @@
-# Reproducible Experiments — v101.1.0
+# Reproducible Experiments — v101.2.0
 
 Formal experiment definitions for validating system properties.
 
@@ -121,6 +121,36 @@ python scripts/qec_demo.py --self-eval
 - Repeated runs produce identical output
 
 **What this verifies**: Self-evaluation is deterministic, bounded, and does not alter existing pipeline behavior. Confidence modulation defaults to neutral (1.0) when no benchmark data is available.
+
+---
+
+## Experiment 7 — Temporal Confidence Tracking (v101.2.0)
+
+**Objective**: Verify that the temporal confidence layer produces bounded, deterministic signals.
+
+**Command**:
+```bash
+python scripts/qec_demo.py --self-eval
+```
+
+**Expected result**:
+- Confidence history is a list of bounded floats
+- Stability in [0.0, 1.0]
+- Trend in [-1.0, 1.0]
+- Trust in [0.0, 1.0]
+- Trust modulation in [0.9, 1.1]
+- Repeated runs produce identical output
+
+**Example output**:
+```
+Confidence history:      [0.31, 0.33, 0.35]
+Stability:               0.92
+Trend:                   +0.04
+Trust:                   0.89
+Trust modulation:        1.08
+```
+
+**What this verifies**: Temporal confidence is deterministic, bounded, and does not alter existing pipeline behavior. Trust modulation defaults to neutral (1.0) when no temporal data is available.
 
 ---
 

@@ -1,4 +1,4 @@
-# System Definition — v101.1.0
+# System Definition — v101.2.0
 
 Formal definition of the QEC deterministic adaptive control system.
 
@@ -125,6 +125,7 @@ final_score = base_score
             × cycle_penalty
             × trajectory_score
             × confidence_modulation
+            × trust_modulation
 ```
 
 Result clamped to [0.0, 1.0].
@@ -142,6 +143,49 @@ Compares QEC performance against deterministic baselines to derive a bounded con
 - **Confidence modulation**: `0.9 + 0.2 × benchmark_confidence`, range [0.9, 1.1]
 
 Confidence modulation is optional. When no benchmark data is available, it defaults to 1.0 (neutral). It is applied at the outermost scoring layer only. No existing factor formulas are altered.
+
+**Properties**: deterministic, bounded, side-effect free, opt-in.
+
+---
+
+## Temporal Confidence (v101.2.0)
+
+Tracks confidence over time to derive a bounded trust signal.
+
+### Confidence History
+
+A bounded FIFO list (max 10 entries) of confidence values, updated each step.
+
+### Stability
+
+Measures confidence volatility: `stability = 1 / (1 + variance)`, bounded [0, 1]. High stability means consistent confidence across steps.
+
+### Trend
+
+Directional signal: `trend = last - first`, clamped to [-1, 1]. Positive trend indicates improving confidence over time.
+
+### Trust Signal
+
+Combines stability and trend:
+
+```
+trend_factor = 0.5 + 0.5 × trend       # maps [-1,1] → [0,1]
+trust = stability × trend_factor        # bounded [0,1]
+```
+
+Interpretation:
+- High stability + positive trend → high trust
+- Unstable or declining → low trust
+
+### Trust Modulation
+
+Optional multiplicative factor for the scoring layer:
+
+```
+trust_modulation = 0.9 + 0.2 × trust   # range [0.9, 1.1]
+```
+
+Neutral (1.0) when trust = 0.5. Defaults to 1.0 when no temporal data is available.
 
 **Properties**: deterministic, bounded, side-effect free, opt-in.
 

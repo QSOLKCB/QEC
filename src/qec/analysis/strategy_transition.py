@@ -344,6 +344,7 @@ def select_next_strategy(
     strategies: Dict[str, Any],
     prev_strategy: Optional[Dict[str, Any]] = None,
     prev_state: Optional[Dict[str, Any]] = None,
+    history: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Select the next strategy and compute any transition.
 
@@ -359,14 +360,34 @@ def select_next_strategy(
         Previous output of :func:`select_strategy`.
     prev_state : dict, optional
         Previous output of :func:`extract_state`.
+    history : list of dict, optional
+        Evaluation history.  When provided, uses adaptive selection
+        (biased by history) instead of base scoring.
 
     Returns
     -------
     dict
         ``{"strategy": <selected>, "state": dict, "transition": dict|None}``
+        When adaptive selection is used, also includes ``"adaptation"``
+        with bias and trajectory_score.
     """
     state = extract_state(metrics)
-    selected = select_strategy(state, strategies)
+
+    adaptation_info = None
+    if history:
+        from qec.analysis.strategy_adaptation import select_strategy_adaptive
+        adaptive = select_strategy_adaptive(strategies, state, history)
+        selected = {
+            "id": adaptive["selected"],
+            "strategy": adaptive["strategy"],
+            "score": adaptive["score"],
+        }
+        adaptation_info = {
+            "bias": adaptive["bias"],
+            "trajectory_score": adaptive["trajectory_score"],
+        }
+    else:
+        selected = select_strategy(state, strategies)
 
     transition = None
     if prev_strategy is not None:
@@ -382,8 +403,11 @@ def select_next_strategy(
             if prev_strategy.get("id", "") != selected.get("id", ""):
                 transition = compute_transition(prev_strategy, selected)
 
-    return {
+    result = {
         "strategy": selected,
         "state": state,
         "transition": transition,
     }
+    if adaptation_info is not None:
+        result["adaptation"] = adaptation_info
+    return result

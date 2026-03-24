@@ -1,4 +1,4 @@
-# Reproducible Experiments — v101.0.0
+# Reproducible Experiments — v101.1.0
 
 Formal experiment definitions for validating system properties.
 
@@ -105,36 +105,22 @@ print('Zero base:',   compute_robust_score(0.0))
 
 ---
 
-## Experiment 6 — Deterministic Benchmarking (v101)
+## Experiment 6 — Benchmark-Aware Self-Evaluation (v101.1.0)
 
-**Objective**: Demonstrate that the QEC adaptive pipeline outperforms deterministic baselines (random, fixed, round-robin strategy selection).
+**Objective**: Verify that the self-evaluation layer produces bounded, deterministic confidence signals.
 
 **Command**:
 ```bash
-python scripts/qec_demo.py --benchmark
+python scripts/qec_demo.py --self-eval
 ```
 
 **Expected result**:
-- QEC final performance exceeds all baselines
-- QEC convergence signal is higher than baselines
-- QEC stability variance is lower than baselines
-- All results are deterministic across runs
+- Benchmark confidence in [0.0, 1.0]
+- Relative advantage in [0.0, 1.0]
+- Confidence modulation in [0.9, 1.1]
+- Repeated runs produce identical output
 
-**Interpretation**:
-- `final`: mean score over the last 5 steps (higher is better)
-- `converged`: step at which scores stabilize within a window (lower is better)
-- `signal`: convergence signal in [0, 1] (higher means more stable)
-- `ratio`: QEC final / baseline final (> 1.0 means QEC is better)
-- `stability_diff`: baseline variance - QEC variance (> 0 means QEC is more stable)
-
-**Verification**:
-```bash
-python scripts/qec_demo.py --benchmark > /tmp/bench1.txt 2>&1
-python scripts/qec_demo.py --benchmark > /tmp/bench2.txt 2>&1
-diff /tmp/bench1.txt /tmp/bench2.txt
-```
-
-**What this verifies**: QEC adaptive strategy selection provides measurable, deterministic improvement over naive baselines. Validates INV-DET-1, INV-BND-3, and system convergence properties.
+**What this verifies**: Self-evaluation is deterministic, bounded, and does not alter existing pipeline behavior. Confidence modulation defaults to neutral (1.0) when no benchmark data is available.
 
 ---
 

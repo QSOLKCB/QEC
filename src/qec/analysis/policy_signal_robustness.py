@@ -1,4 +1,4 @@
-"""v99.9.0 — Policy consistency, cycle detection, signal robustness & trajectory validation.
+"""v101.1.0 — Policy consistency, cycle detection, signal robustness & trajectory validation.
 
 Adds (v99.8.0):
 - Cycle detection in strategy/regime history to penalize oscillatory loops
@@ -10,6 +10,9 @@ Adds (v99.8.0):
 
 Adds (v99.9.0):
 - Trajectory score integration into final scoring formula
+
+Adds (v101.1.0):
+- Optional confidence_modulation factor from benchmark-aware self-evaluation
 
 All functions are:
 - deterministic (identical inputs → identical outputs)
@@ -383,8 +386,9 @@ def compute_robust_score(
     adaptation_modulation: float = 1.0,
     cycle_penalty: float = 1.0,
     trajectory_score: float = 1.0,
+    confidence_modulation: float = 1.0,
 ) -> float:
-    """Compute final score with all v99.9.0 factors.
+    """Compute final score with all factors including v101.1.0 confidence modulation.
 
     Formula::
 
@@ -394,7 +398,8 @@ def compute_robust_score(
                        * multi_step_factor
                        * adaptation_modulation
                        * cycle_penalty
-                       * trajectory_score)
+                       * trajectory_score
+                       * confidence_modulation)
 
     Result clamped to [0.0, 1.0].
 
@@ -414,6 +419,9 @@ def compute_robust_score(
         Cycle detection penalty (default 1.0).
     trajectory_score : float
         Trajectory validation score (default 1.0).
+    confidence_modulation : float
+        Benchmark-aware confidence modulation (default 1.0).
+        Range: [0.9, 1.1].  Neutral when no benchmark data available.
 
     Returns
     -------
@@ -428,6 +436,7 @@ def compute_robust_score(
         * float(adaptation_modulation)
         * float(cycle_penalty)
         * float(trajectory_score)
+        * float(confidence_modulation)
     )
     return max(0.0, min(1.0, score))
 

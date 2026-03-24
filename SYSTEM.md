@@ -1,4 +1,4 @@
-# System Definition — v101.0.0
+# System Definition — v101.1.0
 
 Formal definition of the QEC deterministic adaptive control system.
 
@@ -124,11 +124,26 @@ final_score = base_score
             × adaptation_modulation
             × cycle_penalty
             × trajectory_score
+            × confidence_modulation
 ```
 
 Result clamped to [0.0, 1.0].
 
 All factors default to 1.0 when data is unavailable, ensuring graceful degradation.
+
+---
+
+## Benchmark-Aware Self-Evaluation (v101.1.0)
+
+Compares QEC performance against deterministic baselines to derive a bounded confidence signal.
+
+- **Relative advantage**: `max(0, qec - baseline) / max(|qec|, |baseline|, 1e-12)`, bounded [0, 1]
+- **Benchmark confidence**: Mean relative advantage across all baselines, bounded [0, 1]
+- **Confidence modulation**: `0.9 + 0.2 × benchmark_confidence`, range [0.9, 1.1]
+
+Confidence modulation is optional. When no benchmark data is available, it defaults to 1.0 (neutral). It is applied at the outermost scoring layer only. No existing factor formulas are altered.
+
+**Properties**: deterministic, bounded, side-effect free, opt-in.
 
 ---
 

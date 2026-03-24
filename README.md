@@ -197,9 +197,18 @@ trapping-set identification
 deterministic inverse design
 strategy optimization without randomness
 reproducible computational experiments
+📖 Documentation
+
+- [INSTALL.md](INSTALL.md) — Setup and installation
+- [QUICKSTART.md](QUICKSTART.md) — One-command demo
+- [USAGE_GUIDE.md](USAGE_GUIDE.md) — Workflow and entry points
+- [ARCHITECTURE.md](ARCHITECTURE.md) — System architecture and design
+
 ⚡ Quick Start
 Install
 pip install -e .
+Run the demo
+python scripts/qec_demo.py
 Minimal diagnostic
 from qec.diagnostics.bp_dynamics import compute_bp_dynamics_metrics
 

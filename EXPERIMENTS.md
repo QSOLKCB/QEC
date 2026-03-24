@@ -1,4 +1,4 @@
-# Reproducible Experiments — v101.2.0
+# Reproducible Experiments — v101.3.0
 
 Formal experiment definitions for validating system properties.
 
@@ -151,6 +151,37 @@ Trust modulation:        1.08
 ```
 
 **What this verifies**: Temporal confidence is deterministic, bounded, and does not alter existing pipeline behavior. Trust modulation defaults to neutral (1.0) when no temporal data is available.
+
+---
+
+## Experiment 8 — Regime-Aware Trust (v101.3.0)
+
+**Objective**: Verify that the regime-aware trust layer produces bounded, deterministic, per-regime signals.
+
+**Command**:
+```bash
+python scripts/qec_demo.py --self-eval
+```
+
+**Expected result**:
+- Regime key is a tuple (regime_label, attractor_id)
+- Global trust in [0.0, 1.0]
+- Local trust in [0.0, 1.0]
+- Blended trust in [0.0, 1.0]
+- Regime modulation in [0.9, 1.1]
+- Repeated runs produce identical output
+- Different regimes can have different local trust values
+
+**Example output**:
+```
+Regime key:              ('stable', 'basin_2')
+Global trust:            0.88
+Local trust:             0.61
+Blended trust:           0.74
+Regime modulation:       1.05
+```
+
+**What this verifies**: Regime-aware trust is deterministic, bounded, per-regime isolated, and does not alter existing pipeline behavior. Regime trust modulation defaults to neutral (1.0) when no regime data is available.
 
 ---
 

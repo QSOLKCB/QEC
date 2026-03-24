@@ -1,4 +1,4 @@
-# System Definition — v101.2.0
+# System Definition — v101.3.0
 
 Formal definition of the QEC deterministic adaptive control system.
 
@@ -126,6 +126,7 @@ final_score = base_score
             × trajectory_score
             × confidence_modulation
             × trust_modulation
+            × regime_trust_modulation
 ```
 
 Result clamped to [0.0, 1.0].
@@ -188,6 +189,44 @@ trust_modulation = 0.9 + 0.2 × trust   # range [0.9, 1.1]
 Neutral (1.0) when trust = 0.5. Defaults to 1.0 when no temporal data is available.
 
 **Properties**: deterministic, bounded, side-effect free, opt-in.
+
+---
+
+## Regime-Aware Trust (v101.3.0)
+
+Tracks confidence history per regime, computes local trust, and blends it with global trust.
+
+### Regime Confidence Memory
+
+A per-regime bounded FIFO dict mapping `regime_key → list[float]` (max 10 entries per regime). Updated each step with the current confidence for the active regime.
+
+### Local Trust
+
+Computed from the regime's own confidence history using the same stability/trend/trust pipeline as global trust. Represents how confident the system is *within a specific regime*.
+
+### Global vs Local
+
+- **Global trust**: derived from overall temporal confidence history (all regimes combined)
+- **Local trust**: derived from a single regime's confidence history
+- Systems may trust themselves in one regime but not another
+
+### Blending
+
+```
+blended_trust = alpha × local_trust + (1 - alpha) × global_trust
+```
+
+Default alpha = 0.5 (equal weight). Result clamped to [0, 1].
+
+### Regime Trust Modulation
+
+```
+regime_trust_modulation = 0.9 + 0.2 × blended_trust   # range [0.9, 1.1]
+```
+
+Neutral (1.0) when blended_trust = 0.5. Defaults to 1.0 when no regime data is available.
+
+**Properties**: deterministic, bounded, side-effect free, opt-in, per-regime isolation (no cross-regime interactions).
 
 ---
 

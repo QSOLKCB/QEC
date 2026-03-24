@@ -1,4 +1,4 @@
-"""v101.2.0 — Benchmark-aware self-evaluation layer with temporal confidence.
+"""v101.3.0 — Benchmark-aware self-evaluation layer with regime-aware trust.
 
 Compares QEC performance against deterministic baselines to derive
 a bounded confidence signal.  Optionally provides a confidence
@@ -210,10 +210,58 @@ def compute_temporal_self_evaluation(
     }
 
 
+def compute_regime_self_evaluation(
+    regime_key: tuple,
+    regime_memory: dict,
+    global_trust: float,
+) -> Dict[str, float]:
+    """Compute regime-aware self-evaluation signals.
+
+    Derives local trust from the regime's confidence history, blends
+    it with the global trust signal, and computes a regime-specific
+    trust modulation factor.
+
+    Parameters
+    ----------
+    regime_key : tuple
+        Regime identifier (e.g. ('stable', 'basin_2')).
+    regime_memory : dict
+        Mapping of regime_key -> list of float (confidence history).
+    global_trust : float
+        Global trust signal in [0, 1].
+
+    Returns
+    -------
+    dict[str, float]
+        Keys: ``local_trust``, ``global_trust``, ``blended_trust``,
+        ``regime_trust_modulation``.
+    """
+    from qec.analysis.regime_confidence import (
+        blend_trust_signals,
+        compute_regime_trust,
+        compute_regime_trust_modulation,
+    )
+
+    history = list(regime_memory.get(regime_key, []))
+    local_signals = compute_regime_trust(history)
+    local_trust = local_signals["trust"]
+
+    blended = blend_trust_signals(global_trust, local_trust)
+    modulation = compute_regime_trust_modulation(blended)
+
+    return {
+        "local_trust": local_trust,
+        "global_trust": float(max(0.0, min(1.0, global_trust))),
+        "blended_trust": blended,
+        "regime_trust_modulation": modulation,
+    }
+
+
 __all__ = [
     "compute_relative_advantage",
     "compute_benchmark_confidence",
     "compute_confidence_modulation",
     "compute_self_evaluation_signal",
     "compute_temporal_self_evaluation",
+    "compute_regime_self_evaluation",
 ]

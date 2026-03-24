@@ -71,6 +71,7 @@ _MODULES = [
     "physics_signal",
     "policy_signal_robustness",
     "temporal_confidence",
+    "regime_confidence",
 ]
 
 for mod in _MODULES:

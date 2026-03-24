@@ -391,8 +391,9 @@ def compute_robust_score(
     trajectory_score: float = 1.0,
     confidence_modulation: float = 1.0,
     trust_modulation: float = 1.0,
+    regime_trust_modulation: float = 1.0,
 ) -> float:
-    """Compute final score with all factors including v101.2.0 trust modulation.
+    """Compute final score with all factors including v101.3.0 regime trust.
 
     Formula::
 
@@ -404,7 +405,8 @@ def compute_robust_score(
                        * cycle_penalty
                        * trajectory_score
                        * confidence_modulation
-                       * trust_modulation)
+                       * trust_modulation
+                       * regime_trust_modulation)
 
     Result clamped to [0.0, 1.0].
 
@@ -430,6 +432,9 @@ def compute_robust_score(
     trust_modulation : float
         Temporal trust modulation (default 1.0).
         Range: [0.9, 1.1].  Neutral when no temporal data available.
+    regime_trust_modulation : float
+        Regime-aware trust modulation (default 1.0).
+        Range: [0.9, 1.1].  Neutral when no regime data available.
 
     Returns
     -------
@@ -446,6 +451,7 @@ def compute_robust_score(
         * float(trajectory_score)
         * float(confidence_modulation)
         * float(trust_modulation)
+        * float(regime_trust_modulation)
     )
     return max(0.0, min(1.0, score))
 

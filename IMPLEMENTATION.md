@@ -1,104 +1,223 @@
-# Implementation
-This document provides comprehensive implementation steps for the Quantum Error Correction (QEC) project, including cloning the repository, installing dependencies, running simulations, parsing MIDI output, and integrating IonQ's Fusion-QEC insights.
+# IMPLEMENTATION.md  
+QEC Implementation Notes, Legacy Components & Reproducibility Hooks
 
-## Cloning the Repository
-Clone the QEC repository from GitHub:
+Author: Trent Slade — QSOL-IMC  
+ORCID: 0009-0002-4515-9237  
+
+---
+
+## ⚠️ Scope
+
+This document is **NOT used by Claude Code**.
+
+It exists for:
+
+- human reference  
+- onboarding  
+- legacy system context  
+- reproducibility experiments  
+
+It may contain **historical components** that are no longer part of the core architecture.
+
+The authoritative implementation constraints are defined in:
+
+- `CLAUDE.md`
+- `ROADMAP.md`
+- `CURRENT_TASK.md`
+
+---
+
+# 🧠 System Evolution Context
+
+QEC has evolved from:
+simulation demos → diagnostic framework → spectral analysis → deterministic discovery system
+
+
+This file preserves **early-stage execution pathways** and auxiliary tools.
+
+---
+
+# ⚙️ Repository Setup
+
+Clone the repository:
+
 ```bash
 git clone https://github.com/QSOLKCB/QEC.git
 cd QEC
-Install required dependencies:
+
+Install dependencies:
+
 pip install -r requirements.txt
-Run the Steane code QEC simulation:
+
+Or (preferred modern workflow):
+
+pip install -e .
+🧪 Legacy Simulation Demo (Historical)
+
+⚠️ This is a legacy entry point
+Not part of the modern spectral/diagnostic pipeline
+
+Run:
+
 python src/qec_steane.py
-Expected Output:
+
+Example output:
+
 === Steane Code QEC Simulation Demo ===
 Initialized Steane [[7,1,3]] code
-Theoretical threshold: η_thr ≈ 9.30e-05
-Encoding logical states...
-  |0_L⟩ encoded: (128, 1)
-Applying depolarizing noise (p=0.01)...
-Computing Pauli spectrum...
-  First 3 Pauli expectations: [('X_0', 0.0), ('Y_0', 0.0), ('Z_0', 0.9866666666666675)]
-Running threshold scan...
-  Scanned 10 error rates
-Generating surface code syndromes...
-  Generated 4x4 syndrome lattice
+...
 === Demo Complete ===
-HOW-TO:
-Run the full demo (Steane simulation, MIDI export, LLM integration):
+
+Purpose:
+
+early validation of QEC simulation stack
+sanity check for encoding / noise / decoding
+🎵 MIDI Sonification Pipeline (Experimental)
+
+QEC includes an experimental sonification layer.
+
+Run full demo:
+
 python examples/qec_demo_full.py
-Expected Output:
-============================================================
-FUSION-QEC-SIM: Complete Demo
-============================================================
-1. Steane Code Simulation
-   ✓ Encoded and applied noise
-2. MIDI Export
-MIDI file saved to: /tmp/qec_demo.mid
-   ✓ Exported to MIDI
-3. LLM Integration
-   ✓ AI response generated
-============================================================
-Demo complete! Check /tmp/qec_demo.mid
-============================================================
-Create and run qec_mid_parser.py to parse MIDI data:
-python3 qec_mid_parser.py /tmp/qec_demo.mid
-Track 0:
-note_on channel=0 note=60 velocity=64 time=480
-note_on channel=0 note=70 velocity=64 time=480
-... (x16, notes 60 or 70 based on syndrome 0/1)
-MetaMessage('end_of_track', time=0)
+
+Produces:
+
+MIDI output (/tmp/qec_demo.mid)
+simulation summary
+optional LLM integration output
+MIDI Parsing
+
+Parse MIDI output:
+
+python qec_mid_parser.py /tmp/qec_demo.mid
+
+Mapping:
+
+note 60 → syndrome 0
+note 70 → syndrome 1
+
+Purpose:
+
+auditory inspection of syndrome dynamics
+experimental debugging / visualization
+📊 Legacy Benchmark Output
+
+Example table:
+
 physical_error | Steane | Surface | Reed-Muller | Fusion-QEC
-1.00e-06 2.10e-11 1.00e-12 1.00e-09 -
-3.00e-06 1.89e-10 3.00e-12 3.00e-09 -
-1.00e-05 2.10e-09 1.00e-11 1.00e-08 -
-3.00e-05 1.89e-08 3.00e-11 3.00e-08 -
-1.00e-04 2.10e-07 1.00e-10 1.00e-07 1.00e-08
-3.00e-04 1.89e-06 3.00e-10 3.00e-07 3.00e-08
-1.00e-03 2.10e-05 1.00e-09 1.00e-06 1.00e-07
-3.00e-03 1.89e-04 3.00e-09 3.00e-06 3.00e-07
-1.00e-02 2.10e-03 1.00e-08 1.00e-05 1.00e-06
-3.00e-02 6.00e-02 3.00e-08 3.00e-05 3.00e-06
-Steane [7,1,3] pseudo-threshold: 1.42e-02
-Surface [d=5]: No pseudo-threshold found.
-Reed-Muller [15,1,3]: No pseudo-threshold found.
-Fusion-QEC: No pseudo-threshold found.
-Decoding process per code:
- • Steane: 6 parity checks, minimum-weight or table decoder.
- • Surface: MWPM on syndrome defects.
- • Reed-Muller: recursive (tree/majority logic) decoder.
- • Fusion-QEC: Custom for ion traps.
-MIDI saved to /tmp/qec.mid
-LLM response: Simulated QEC analysis complete.
-Physical Error,Steane,Surface,Reed-Muller,Fusion-QEC (IonQ)
-1.00e-06,2.10e-11,1.00e-12,1.00e-09,-
-3.00e-06,1.89e-10,3.00e-12,3.00e-09,-
-1.00e-05,2.10e-09,1.00e-11,1.00e-08,-
-3.00e-05,1.89e-08,3.00e-11,3.00e-08,-
-1.00e-04,2.10e-07,1.00e-10,1.00e-07,1.00e-08
-3.00e-04,1.89e-06,3.00e-10,1.00e-07,3.00e-08
-1.00e-03,2.10e-05,1.00e-09,1.00e-06,1.00e-07
-3.00e-03,1.89e-04,3.00e-09,3.00e-06,3.00e-07
-1.00e-02,2.10e-03,1.00e-08,1.00e-05,1.00e-06
-1.2 Pseudo-thresholds
-No breakeven threshold crossed; all codes perform below physical error rates. Steane threshold at 1.42e-02.
-Decoding Strategies:
-Code,Decoder Description
-Steane,6 parity checks; table lookup or minimum-weight decoder
-Surface,Minimum-weight perfect matching (MWPM) of syndrome defects
-Reed-Muller,"Recursive, tree-based majority logic decoding"
-Fusion-QEC (IonQ),Custom decoder optimized for ion-trap architecture
-1.4 Notes on Fusion-QEC / IonQ
-Fusion-QEC aligns with ion-trap constraints. IonQ's CliNR protocol achieves 2x logical error improvement, targeting <10^-12 by 2030. Overhead: 3:1 qubits, 2:1 gates. Data estimated, not device-direct.
-IRC Bot Integration
-Run the AI-powered IRC bot:
+...
+
+Includes:
+
+pseudo-threshold estimates
+comparative decoder behavior
+⚛️ Fusion-QEC / IonQ Notes (Historical Research)
+
+Fusion-QEC references:
+
+ion-trap architectures
+CliNR protocol (2× logical error improvement target)
+projected <10⁻¹² logical error rates
+
+⚠️ Important:
+
+These values are illustrative / research-aligned
+Not device-calibrated
+🤖 IRC Bot Integration (Experimental)
+
+Run:
+
 export IRC_SERVER=irc.libera.chat
 export IRC_CHANNEL=#qec-sim
 python run_bot.py
-#Conclusion#
-This summary details the setup, simulation, MIDI parsing, and IonQ Fusion-QEC integration. Reproduce results and extend with IRC bot features as needed.
 
-### Updates
-- Integrated MIDI parsing output with detailed note mapping (60/70 for 0/1 syndromes).
-- Updated logical error rates from `qec_mid_parser.py` output.
-- Added Steane threshold (1.42e-02) and IRC bot instructions from GitHub.
+Purpose:
+
+live simulation interaction
+AI-assisted output interpretation
+🔬 Modern System (Authoritative)
+
+The current QEC system is NOT driven by the above demos.
+
+It operates as:
+
+metrics → attractor → strategy → evaluation → adaptation
+
+Core modules:
+
+src/qec/diagnostics/
+src/qec/analysis/
+src/qec/discovery/
+src/qec/experiments/
+🧱 Implementation Philosophy
+
+QEC enforces:
+
+deterministic execution
+no hidden randomness
+canonical JSON artifacts
+strict layer separation
+
+Legacy components may violate these principles —
+they are preserved for context, not authority.
+
+🔁 Reproducibility Notes
+
+Modern QEC requires:
+
+import numpy as np
+rng = np.random.RandomState(seed)
+
+All experiments must:
+
+use explicit seeds
+avoid global RNG
+produce byte-identical outputs
+🚫 Known Legacy Limitations
+
+The following are not aligned with modern QEC architecture:
+
+demo-style scripts (qec_steane.py)
+MIDI pipeline (non-deterministic timing artifacts possible)
+IRC bot integration
+mixed simulation + analysis flows
+
+These are:
+
+historical artifacts, not core system components
+
+🧠 Recommended Usage
+
+Use this file to:
+
+understand early system evolution
+run quick sanity demos
+explore experimental visualization tools
+
+Do NOT use this file as:
+
+architectural reference
+implementation authority
+source of truth for current system
+📌 Summary
+
+This file captures:
+
+early QEC simulation workflows
+experimental pipelines (MIDI, IRC)
+historical benchmarking outputs
+
+The modern system has moved toward:
+
+deterministic, invariant-driven, spectral discovery
+
+🧠 Final Note
+
+If it’s not deterministic,
+it’s not part of the system.
+
+If it’s not layered correctly,
+it’s not part of the architecture.
+
+If it’s here —
+it’s probably history.

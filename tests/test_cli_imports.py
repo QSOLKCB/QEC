@@ -1,5 +1,5 @@
 """
-Regression test: bench/dps_v381_eval.py resolves imports from repo root.
+Regression test: bench_reports/dps_v381_eval.py resolves imports from repo root.
 
 Verifies the path-setup logic at the top of the harness allows
 importing qec modules without setting PYTHONPATH manually.
@@ -23,8 +23,9 @@ class TestCLIImports:
         """Import the harness module without PYTHONPATH set."""
         result = subprocess.run(
             [sys.executable, "-c",
-             "import sys; sys.path.insert(0, %r); "
-             "from bench.dps_v381_eval import _parse_args" % _repo_root],
+             "import sys; sys.path.insert(0, %r); sys.path.insert(0, %r); "
+             "from bench_reports.dps_v381_eval import _parse_args"
+             % (_repo_root, os.path.join(_repo_root, "src"))],
             capture_output=True, text=True,
             env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"},
         )
@@ -33,7 +34,7 @@ class TestCLIImports:
     def test_harness_help_runs(self):
         """Harness --help exits cleanly without PYTHONPATH."""
         result = subprocess.run(
-            [sys.executable, os.path.join(_repo_root, "bench", "dps_v381_eval.py"),
+            [sys.executable, os.path.join(_repo_root, "bench_reports", "dps_v381_eval.py"),
              "--help"],
             capture_output=True, text=True,
             env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"},

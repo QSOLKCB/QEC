@@ -7,7 +7,7 @@ import hashlib
 import numpy as np
 import pytest
 
-from tests.utils import (
+from tests.testing_utils import (
     _cache,
     to_ternary,
     assert_no_ternary_errors,

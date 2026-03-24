@@ -15,7 +15,7 @@ import pytest
 from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
 from qec.decoder.rpc import RPCConfig, StructuralConfig
 
-from bench.dps_v381_eval import (
+from bench_reports.dps_v381_eval import (
     MODES,
     MODE_ORDER,
     run_mode,

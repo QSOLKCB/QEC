@@ -14,7 +14,7 @@ from typing import Any
 
 import numpy as np
 
-from bench.dps_v381_eval import (
+from bench_reports.dps_v381_eval import (
     run_mode, run_evaluation, run_determinism_check,
     compute_dps_slope, MODES, MODE_ORDER,
     DEFAULT_SEED, DEFAULT_DISTANCES, DEFAULT_P_VALUES,

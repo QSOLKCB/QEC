@@ -11,7 +11,7 @@ import hashlib
 import json
 from typing import Any
 
-from ...utils.canonicalize import canonicalize
+from utils.canonicalize import canonicalize
 
 
 def canonical_json(obj: Any) -> str:

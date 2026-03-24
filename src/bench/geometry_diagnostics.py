@@ -478,7 +478,7 @@ def collect_per_iteration_data(
     -------
     dict with: converged, iterations, per_iteration, residual_summary.
     """
-    from ..qec_qldpc_codes import bp_decode, syndrome
+    from qec_qldpc_codes import bp_decode, syndrome
 
     params = dict(decoder_params)
     params.pop("H", None)  # H passed positionally
@@ -535,7 +535,7 @@ def build_geometry_sidecar(
     -------
     Canonicalized sidecar dict.
     """
-    from ..utils.canonicalize import canonicalize
+    from utils.canonicalize import canonicalize
 
     metrics: dict[str, Any] = {}
 

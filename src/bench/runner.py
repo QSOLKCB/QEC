@@ -61,7 +61,7 @@ def _make_code(distance: int, seed: int) -> Any:
     Uses ``create_code`` with lifting_size = distance to produce a
     code whose block length scales with distance.
     """
-    from ..qec_qldpc_codes import create_code
+    from qec_qldpc_codes import create_code
     code = create_code(name="rate_0.50", lifting_size=distance, seed=seed)
     return code.H_X
 
@@ -112,8 +112,8 @@ def run_benchmark(config: BenchmarkConfig) -> dict[str, Any]:
             f"supported set {sorted(_SUPPORTED_SCHEMA_VERSIONS)}"
         )
 
-    from ..qec_qldpc_codes import syndrome
-    from ..qec.channel import get_channel_model
+    from qec_qldpc_codes import syndrome
+    from qec.channel import get_channel_model
 
     channel = get_channel_model(config.channel_model)
 
@@ -246,7 +246,8 @@ def run_benchmark(config: BenchmarkConfig) -> dict[str, Any]:
 
     # ── Assemble top-level result ──
     try:
-        from .. import __version__ as qec_version
+        from importlib.metadata import version as _pkg_version
+        qec_version = _pkg_version("qec")
     except Exception:
         qec_version = "unknown"
 
@@ -262,7 +263,7 @@ def run_benchmark(config: BenchmarkConfig) -> dict[str, Any]:
     # ── Resource estimates (opt-in, v3.0.1) ──
     if (config.resource_model is not None
             and config.resource_model.enabled):
-        from ..analysis.gate_cost import estimate_gate_costs, compare_costs
+        from analysis.gate_cost import estimate_gate_costs, compare_costs
         dim = 2  # default
         if config.qudit is not None:
             dim = config.qudit.get("dimension", 2)

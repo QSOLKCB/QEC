@@ -27,7 +27,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from ..utils.canonicalize import canonicalize
+from utils.canonicalize import canonicalize
 
 
 # ── Supported model identifiers ──────────────────────────────────────

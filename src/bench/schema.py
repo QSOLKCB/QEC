@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from ..utils.canonicalize import canonicalize  # noqa: F401 — re-exported
+from utils.canonicalize import canonicalize  # noqa: F401 — re-exported
 
 SCHEMA_VERSION = "3.0.1"
 

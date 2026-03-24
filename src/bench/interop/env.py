@@ -42,7 +42,8 @@ def capture_environment(*, deterministic: bool = False) -> dict[str, Any]:
         so that the resulting dict is identical across machines.
     """
     try:
-        from ... import __version__ as qec_version
+        from importlib.metadata import version as _pkg_version
+        qec_version = _pkg_version("qec")
     except Exception:
         qec_version = "unknown"
 

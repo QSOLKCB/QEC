@@ -49,7 +49,7 @@ class BPAdapter(DecoderAdapter):
         llr: Any | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        from ...qec_qldpc_codes import bp_decode
+        from qec_qldpc_codes import bp_decode
 
         if self._H is None:
             raise RuntimeError("Adapter not initialized (no H matrix)")
@@ -59,7 +59,7 @@ class BPAdapter(DecoderAdapter):
 
         if (self._structural_config is not None
                 and self._structural_config.rpc.enabled):
-            from ...qec.decoder.rpc import build_rpc_augmented_system
+            from qec.decoder.rpc import build_rpc_augmented_system
 
             s_for_rpc = (
                 np.asarray(s_used, dtype=np.uint8)
@@ -79,16 +79,16 @@ class BPAdapter(DecoderAdapter):
                 else np.zeros(H_used.shape[0], dtype=np.uint8)
             )
             if self._structural_config.centered_field:
-                from ...qec.channel.geometry import centered_syndrome_field
+                from qec.channel.geometry import centered_syndrome_field
                 llr_used = centered_syndrome_field(H_used, s_geom)
             elif self._structural_config.pseudo_prior:
                 # When only pseudo_prior is enabled (no centered_field),
                 # use standard syndrome field as base LLR.
-                from ...qec.channel.geometry import syndrome_field
+                from qec.channel.geometry import syndrome_field
                 llr_used = syndrome_field(H_used, s_geom)
 
             if self._structural_config.pseudo_prior:
-                from ...qec.channel.geometry import pseudo_prior_bias, apply_pseudo_prior
+                from qec.channel.geometry import pseudo_prior_bias, apply_pseudo_prior
                 bias = pseudo_prior_bias(H_used, s_geom)
                 llr_used = apply_pseudo_prior(
                     llr_used, bias,
@@ -131,7 +131,7 @@ class BPAdapter(DecoderAdapter):
         }
 
     def measure_runtime(self, *, workload: dict[str, Any]) -> dict[str, Any]:
-        from ...qec_qldpc_codes import bp_decode
+        from qec_qldpc_codes import bp_decode
 
         if self._H is None:
             raise RuntimeError("Adapter not initialized (no H matrix)")

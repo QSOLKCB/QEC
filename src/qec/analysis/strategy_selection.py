@@ -19,13 +19,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 # ---------------------------------------------------------------------------
-# Weights — fixed, deterministic
+# Weights — fixed, deterministic, must sum to 1.0
 # ---------------------------------------------------------------------------
 
-_W_DESIGN: float = 0.35
-_W_CONFIDENCE: float = 0.25
-_W_STABILITY: float = 0.20
-_W_TRUST: float = 0.20
+SCORE_WEIGHTS: Dict[str, float] = {
+    "design_score": 0.35,
+    "confidence_efficiency": 0.25,
+    "temporal_stability": 0.20,
+    "trust_modulation": 0.20,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -78,11 +80,12 @@ def score_strategy(
     )
     trust = max(0.0, min(1.0, trust))
 
+    w = SCORE_WEIGHTS
     score = (
-        _W_DESIGN * design
-        + _W_CONFIDENCE * confidence
-        + _W_STABILITY * stability
-        + _W_TRUST * trust
+        w["design_score"] * design
+        + w["confidence_efficiency"] * confidence
+        + w["temporal_stability"] * stability
+        + w["trust_modulation"] * trust
     )
 
     score = round(score, 12)
@@ -185,6 +188,7 @@ def rank_strategies(
 
 
 __all__ = [
+    "SCORE_WEIGHTS",
     "score_strategy",
     "select_strategy",
     "rank_strategies",

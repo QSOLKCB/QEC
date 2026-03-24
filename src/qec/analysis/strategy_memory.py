@@ -1,4 +1,4 @@
-"""Per-strategy memory and local adaptation layer (v99.3.0).
+"""Per-strategy memory and local adaptation layer (v99.7.0).
 
 Extends v99.0 global adaptation to per-strategy memory, allowing the
 system to prefer or avoid specific strategies based on their individual
@@ -179,7 +179,76 @@ def compute_strategy_bias(
 
 
 # ---------------------------------------------------------------------------
-# 4. Memory-aware scoring
+# 4a. Physics-signal adaptation modulation (v99.7.0)
+# ---------------------------------------------------------------------------
+
+def compute_adaptation_modulation(
+    physics_signals: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Compute a deterministic modulation factor from physics signals.
+
+    Combines system_energy, phase_stability, multiscale_coherence,
+    and control_alignment into a single multiplicative factor that
+    amplifies stable, coherent states and suppresses unstable,
+    high-energy states.
+
+    Includes regime-sensitive damping: when oscillation_strength is
+    high and phase_stability is low, modulation is further reduced
+    to prevent oscillatory feedback loops.
+
+    Parameters
+    ----------
+    physics_signals : dict
+        Output of :func:`~qec.analysis.physics_signal.compute_physics_signals`.
+        Uses keys: ``system_energy``, ``phase_stability``,
+        ``multiscale_coherence``, ``control_alignment``,
+        ``oscillation_strength``.  Missing keys fall back to neutral
+        defaults.
+
+    Returns
+    -------
+    dict
+        ``adaptation_modulation`` (float in [0.5, 1.5]),
+        ``energy`` (float), ``coherence`` (float),
+        ``alignment`` (float).
+    """
+    if not physics_signals:
+        return {
+            "adaptation_modulation": 1.0,
+            "energy": 0.0,
+            "coherence": 1.0,
+            "alignment": 1.0,
+        }
+
+    energy = float(physics_signals.get("system_energy", 0.0))
+    phase = float(physics_signals.get("phase_stability", 1.0))
+    coherence = float(physics_signals.get("multiscale_coherence", 1.0))
+    alignment = float(physics_signals.get("control_alignment", 1.0))
+    oscillation = float(physics_signals.get("oscillation_strength", 0.0))
+
+    # Core modulation: amplify stable, coherent, aligned, low-energy states.
+    # Raw product is in [0, 1]; scale to [0.5, 1.5] via offset.
+    energy_bias = max(0.0, min(1.0, 1.0 - energy))
+    raw = energy_bias * phase * coherence * alignment
+    modulation = 0.5 + raw  # maps [0, 1] → [0.5, 1.5]
+
+    # Regime-sensitive damping: high oscillation + low stability → dampen
+    if oscillation > 0.7 and phase < 0.3:
+        modulation *= 0.9
+
+    # Bound to [0.5, 1.5]
+    modulation = max(0.5, min(1.5, modulation))
+
+    return {
+        "adaptation_modulation": modulation,
+        "energy": energy,
+        "coherence": coherence,
+        "alignment": alignment,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 4b. Memory-aware scoring
 # ---------------------------------------------------------------------------
 
 def score_strategy_with_memory(
@@ -190,6 +259,7 @@ def score_strategy_with_memory(
     strategy_id: str,
     regime_key: Optional[Tuple[str, str]] = None,
     transition_memory: Optional[Dict[Any, Dict[str, Any]]] = None,
+    physics_signals: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Score a strategy with both global and per-strategy bias.
 
@@ -198,8 +268,9 @@ def score_strategy_with_memory(
 
         score = base_score * stability_weight * transition_bias
 
-    where ``stability_weight`` comes from regime-aware evaluation and
-    ``transition_bias`` comes from transition learning history.
+    extended in v99.7.0 with physics-signal adaptation modulation::
+
+        score = base * stability * transition * multi_step * adaptation_modulation
 
     When *regime_key* is provided without transition memory, uses
     the v99.2.0 additive formula (backward compatible).
@@ -226,21 +297,28 @@ def score_strategy_with_memory(
         :func:`~qec.analysis.strategy_transition_learning.update_transition_memory`.
         When provided together with *regime_key*, activates v99.3.0
         multiplicative transition bias.
+    physics_signals : dict, optional
+        Output of :func:`~qec.analysis.physics_signal.compute_physics_signals`.
+        When provided, activates v99.7.0 adaptation modulation in the
+        multiplicative scoring path.
 
     Returns
     -------
     dict
         ``score``, ``global_bias``, ``local_bias``, ``transition_bias``,
-        ``multi_step_factor``.
+        ``multi_step_factor``, ``adaptation_modulation``, ``energy``,
+        ``coherence``, ``alignment``.
     """
     base_score = score_strategy(state, strategy)
     global_bias = compute_adaptation_bias(history)
     transition_bias = 1.0
     multi_step_factor = 1.0
+    modulation_result = compute_adaptation_modulation(physics_signals or {})
 
     if regime_key is not None and transition_memory is not None:
         # v99.3.0: multiplicative formula with transition learning
         # v99.4.0: adds multi-step factor for two-step lookahead
+        # v99.7.0: adds adaptation modulation from physics signals
         from qec.analysis.strategy_transition_learning import (
             compute_transition_bias,
         )
@@ -257,8 +335,10 @@ def score_strategy_with_memory(
             regime_key[0], regime_key[1], strategy_id, transition_memory,
         )
         multi_step_factor = compute_multi_step_factor(two_step_val)
+        adaptation_mod = modulation_result["adaptation_modulation"]
         score = max(0.0, min(1.0,
-            base_score * stability_weight * transition_bias * multi_step_factor,
+            base_score * stability_weight * transition_bias
+            * multi_step_factor * adaptation_mod,
         ))
         local_bias = score - base_score  # effective local adjustment
     elif regime_key is not None:
@@ -278,6 +358,10 @@ def score_strategy_with_memory(
         "local_bias": local_bias,
         "transition_bias": transition_bias,
         "multi_step_factor": multi_step_factor,
+        "adaptation_modulation": modulation_result["adaptation_modulation"],
+        "energy": modulation_result["energy"],
+        "coherence": modulation_result["coherence"],
+        "alignment": modulation_result["alignment"],
     }
 
 
@@ -312,12 +396,14 @@ def select_strategy_with_memory(
     memory: Dict[Any, List[Dict[str, Any]]],
     regime_key: Optional[Tuple[str, str]] = None,
     transition_memory: Optional[Dict[Any, Dict[str, Any]]] = None,
+    physics_signals: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Select the best strategy using per-strategy memory bias.
 
     For each strategy, computes a memory-aware score.  When
     *transition_memory* is provided, uses v99.3.0 multiplicative
-    formula.  Tie-breaking is deterministic:
+    formula.  When *physics_signals* is also provided, applies
+    v99.7.0 adaptation modulation.  Tie-breaking is deterministic:
     score -> confidence -> simplicity -> id.
 
     Parameters
@@ -334,12 +420,16 @@ def select_strategy_with_memory(
         Regime key from :func:`compute_regime_key`.
     transition_memory : dict, optional
         Transition memory for v99.3.0 transition learning.
+    physics_signals : dict, optional
+        Physics signals for v99.7.0 adaptation modulation.
 
     Returns
     -------
     dict
         ``selected``, ``score``, ``global_bias``, ``local_bias``,
-        ``transition_bias``, ``multi_step_factor``.
+        ``transition_bias``, ``multi_step_factor``,
+        ``adaptation_modulation``, ``energy``, ``coherence``,
+        ``alignment``.
     """
     if not strategies:
         return {
@@ -349,6 +439,10 @@ def select_strategy_with_memory(
             "local_bias": 0.0,
             "transition_bias": 1.0,
             "multi_step_factor": 1.0,
+            "adaptation_modulation": 1.0,
+            "energy": 0.0,
+            "coherence": 1.0,
+            "alignment": 1.0,
         }
 
     scored: list = []
@@ -358,6 +452,7 @@ def select_strategy_with_memory(
             s, state, history, memory, sid,
             regime_key=regime_key,
             transition_memory=transition_memory,
+            physics_signals=physics_signals,
         )
         conf = _get_confidence(s)
         n_actions = _count_actions(s)
@@ -371,6 +466,10 @@ def select_strategy_with_memory(
             result["local_bias"],
             result["transition_bias"],
             result["multi_step_factor"],
+            result["adaptation_modulation"],
+            result["energy"],
+            result["coherence"],
+            result["alignment"],
         ))
 
     scored.sort()
@@ -383,6 +482,10 @@ def select_strategy_with_memory(
         "local_bias": best[6],
         "transition_bias": best[7],
         "multi_step_factor": best[8],
+        "adaptation_modulation": best[9],
+        "energy": best[10],
+        "coherence": best[11],
+        "alignment": best[12],
     }
 
 

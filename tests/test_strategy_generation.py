@@ -126,7 +126,7 @@ class TestGenerateStrategies:
         result = generate_strategies(base)
         for s in result:
             scale, bias, depth = s["origin"]
-            expected = f"conf_{scale}__bias_{bias:+.1f}__depth_{depth}"
+            expected = f"ternary__conf_{scale}__bias_{bias:+.1f}__depth_{depth}"
             assert s["name"] == expected
 
     def test_strategies_are_independent_copies(self):

@@ -68,6 +68,7 @@ _MODULES = [
     "phase_characterization",
     "theory_synthesis",
     "conjecture_validation",
+    "physics_signal",
 ]
 
 for mod in _MODULES:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""QEC Deterministic Adaptive Pipeline Demo — v101.2.0.
+"""QEC Deterministic Adaptive Pipeline Demo — v101.3.0.
 
 Runs the full adaptive control loop on fixed deterministic inputs:
 
@@ -9,10 +9,11 @@ Demonstrates regime classification, strategy selection, evaluation feedback,
 transition learning (v99.3), multi-step lookahead (v99.4), physics signals
 (v99.6), adaptation modulation (v99.7), cycle detection (v99.8),
 trajectory validation (v99.9), benchmark-aware self-evaluation (v101.1),
-and temporal confidence tracking (v101.2).
+temporal confidence tracking (v101.2), and regime-aware trust (v101.3).
 
 v101: adds --benchmark flag for deterministic benchmarking against baselines.
 v101.2: adds temporal confidence (stability, trend, trust) to --self-eval output.
+v101.3: adds regime-aware trust (local trust, blending, modulation) to --self-eval output.
 
 All outputs are deterministic — repeated runs produce identical results.
 
@@ -299,6 +300,7 @@ def run_demo(self_eval: bool = False) -> Dict[str, Any]:
     # --- Self-evaluation (v101.1.0, opt-in) ---
     self_eval_result = None
     temporal_eval_result = None
+    regime_eval_result = None
     if self_eval:
         from qec.analysis.self_evaluation import (
             compute_self_evaluation_signal,
@@ -362,6 +364,41 @@ def run_demo(self_eval: bool = False) -> Dict[str, Any]:
         print(f"  Trust modulation:        {temporal_eval_result['trust_modulation']:.2f}")
         print()
 
+        # --- Regime-aware trust (v101.3.0) ---
+        from qec.analysis.regime_confidence import (
+            update_regime_confidence_history,
+        )
+        from qec.analysis.self_evaluation import compute_regime_self_evaluation
+
+        # Build regime confidence memory from per-step results
+        regime_confidence_memory: Dict[Any, List[float]] = {}
+        for r in results:
+            rk = (r["regime"], r["attractor_id"])
+            regime_confidence_memory = update_regime_confidence_history(
+                regime_confidence_memory,
+                rk,
+                compute_relative_advantage(r["strategy_score"], mean_baseline),
+                max_len=10,
+            )
+
+        # Pick last step's regime as the demonstration regime
+        last_regime_key = (results[-1]["regime"], results[-1]["attractor_id"])
+        global_trust = temporal_eval_result["trust"]
+
+        regime_eval_result = compute_regime_self_evaluation(
+            last_regime_key, regime_confidence_memory, global_trust,
+        )
+
+        print("=" * 70)
+        print("Regime-Aware Trust (v101.3.0)")
+        print("=" * 70)
+        print(f"  Regime key:              {last_regime_key}")
+        print(f"  Global trust:            {regime_eval_result['global_trust']:.2f}")
+        print(f"  Local trust:             {regime_eval_result['local_trust']:.2f}")
+        print(f"  Blended trust:           {regime_eval_result['blended_trust']:.2f}")
+        print(f"  Regime modulation:       {regime_eval_result['regime_trust_modulation']:.2f}")
+        print()
+
     return {
         "steps": results,
         "regime_counts": regime_counts,
@@ -371,6 +408,7 @@ def run_demo(self_eval: bool = False) -> Dict[str, Any]:
         "metadata": metadata,
         "self_evaluation": self_eval_result,
         "temporal_evaluation": temporal_eval_result,
+        "regime_evaluation": regime_eval_result,
     }
 
 

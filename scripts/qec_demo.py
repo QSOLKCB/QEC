@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""QEC Deterministic Adaptive Pipeline Demo — v101.1.0.
+"""QEC Deterministic Adaptive Pipeline Demo — v101.2.0.
 
 Runs the full adaptive control loop on fixed deterministic inputs:
 
@@ -8,9 +8,11 @@ Runs the full adaptive control loop on fixed deterministic inputs:
 Demonstrates regime classification, strategy selection, evaluation feedback,
 transition learning (v99.3), multi-step lookahead (v99.4), physics signals
 (v99.6), adaptation modulation (v99.7), cycle detection (v99.8),
-trajectory validation (v99.9), and benchmark-aware self-evaluation (v101.1).
+trajectory validation (v99.9), benchmark-aware self-evaluation (v101.1),
+and temporal confidence tracking (v101.2).
 
 v101: adds --benchmark flag for deterministic benchmarking against baselines.
+v101.2: adds temporal confidence (stability, trend, trust) to --self-eval output.
 
 All outputs are deterministic — repeated runs produce identical results.
 
@@ -296,8 +298,13 @@ def run_demo(self_eval: bool = False) -> Dict[str, Any]:
 
     # --- Self-evaluation (v101.1.0, opt-in) ---
     self_eval_result = None
+    temporal_eval_result = None
     if self_eval:
-        from qec.analysis.self_evaluation import compute_self_evaluation_signal
+        from qec.analysis.self_evaluation import (
+            compute_self_evaluation_signal,
+            compute_temporal_self_evaluation,
+        )
+        from qec.analysis.temporal_confidence import update_confidence_history
 
         # Use the last step's strategy score as the QEC final score.
         # Construct deterministic mock baselines from the pipeline results.
@@ -321,6 +328,40 @@ def run_demo(self_eval: bool = False) -> Dict[str, Any]:
         print(f"  Confidence modulation:   {self_eval_result['confidence_modulation']:.2f}")
         print()
 
+        # --- Temporal confidence (v101.2.0) ---
+        # Build a deterministic confidence history from per-step strategy scores
+        # normalized against the mean baseline.
+        mean_baseline = sum(all_scores) / len(all_scores) if all_scores else 0.0
+        confidence_history: List[float] = []
+        for r in results:
+            from qec.analysis.self_evaluation import compute_relative_advantage
+            step_conf = compute_relative_advantage(r["strategy_score"], mean_baseline)
+            confidence_history = update_confidence_history(
+                confidence_history, step_conf, max_len=10,
+            )
+
+        current_confidence = self_eval_result["benchmark_confidence"]
+        temporal_eval_result = compute_temporal_self_evaluation(
+            confidence_history, current_confidence,
+        )
+
+        print("=" * 70)
+        print("Temporal Confidence (v101.2.0)")
+        print("=" * 70)
+        # Show the final confidence history (last entries including current)
+        final_history = update_confidence_history(
+            confidence_history, current_confidence, max_len=10,
+        )
+        hist_str = "[" + ", ".join(f"{v:.2f}" for v in final_history) + "]"
+        print(f"  Confidence history:      {hist_str}")
+        print(f"  Stability:               {temporal_eval_result['stability']:.2f}")
+        trend_val = temporal_eval_result['trend']
+        trend_sign = "+" if trend_val >= 0 else ""
+        print(f"  Trend:                   {trend_sign}{trend_val:.2f}")
+        print(f"  Trust:                   {temporal_eval_result['trust']:.2f}")
+        print(f"  Trust modulation:        {temporal_eval_result['trust_modulation']:.2f}")
+        print()
+
     return {
         "steps": results,
         "regime_counts": regime_counts,
@@ -329,6 +370,7 @@ def run_demo(self_eval: bool = False) -> Dict[str, Any]:
         "history_length": len(eval_history),
         "metadata": metadata,
         "self_evaluation": self_eval_result,
+        "temporal_evaluation": temporal_eval_result,
     }
 
 
@@ -398,19 +440,14 @@ def run_benchmark_demo() -> Dict[str, Any]:
 
 def main() -> int:
     """Entry point."""
-    parser = argparse.ArgumentParser(description="QEC Deterministic Adaptive Pipeline Demo")
+    parser = argparse.ArgumentParser(
+        description="QEC Deterministic Adaptive Pipeline Demo",
+    )
     parser.add_argument(
         "--self-eval",
         action="store_true",
         default=False,
         help="Enable benchmark-aware self-evaluation output",
-    )
-    args = parser.parse_args()
-    run_demo(self_eval=args.self_eval)
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="QEC Deterministic Adaptive Pipeline Demo",
     )
     parser.add_argument(
         "--benchmark",
@@ -422,7 +459,7 @@ def main() -> int:
     if args.benchmark:
         run_benchmark_demo()
     else:
-        run_demo()
+        run_demo(self_eval=args.self_eval)
     return 0
 
 

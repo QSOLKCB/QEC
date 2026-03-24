@@ -1,8 +1,11 @@
-"""v101.1.0 — Benchmark-aware self-evaluation layer.
+"""v101.2.0 — Benchmark-aware self-evaluation layer with temporal confidence.
 
 Compares QEC performance against deterministic baselines to derive
 a bounded confidence signal.  Optionally provides a confidence
 modulation factor for the outermost scoring layer.
+
+v101.2.0 adds temporal self-evaluation: tracks confidence over time,
+computes stability, trend, trust, and trust modulation.
 
 All functions are:
 - deterministic (identical inputs → identical outputs)
@@ -164,9 +167,53 @@ def compute_self_evaluation_signal(
     }
 
 
+def compute_temporal_self_evaluation(
+    history: list,
+    confidence: float,
+) -> Dict[str, float]:
+    """Compute temporal self-evaluation signals from confidence history.
+
+    Tracks confidence over time by updating the history, then derives
+    stability, trend, trust, and trust modulation.
+
+    Parameters
+    ----------
+    history : list of float
+        Existing confidence history (oldest first).
+    confidence : float
+        Current confidence value to append.
+
+    Returns
+    -------
+    dict[str, float]
+        Keys: ``stability``, ``trend``, ``trust``, ``trust_modulation``.
+    """
+    from qec.analysis.temporal_confidence import (
+        compute_confidence_stability,
+        compute_confidence_trend,
+        compute_trust_modulation,
+        compute_trust_signal,
+        update_confidence_history,
+    )
+
+    updated = update_confidence_history(history, confidence)
+    stability = compute_confidence_stability(updated)
+    trend = compute_confidence_trend(updated)
+    trust = compute_trust_signal(stability, trend)
+    trust_mod = compute_trust_modulation(trust)
+
+    return {
+        "stability": stability,
+        "trend": trend,
+        "trust": trust,
+        "trust_modulation": trust_mod,
+    }
+
+
 __all__ = [
     "compute_relative_advantage",
     "compute_benchmark_confidence",
     "compute_confidence_modulation",
     "compute_self_evaluation_signal",
+    "compute_temporal_self_evaluation",
 ]

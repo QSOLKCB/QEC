@@ -197,6 +197,29 @@ trapping-set identification
 deterministic inverse design
 strategy optimization without randomness
 reproducible computational experiments
+## What This System Is (v100)
+
+QEC is a **deterministic adaptive control system** for belief propagation decoding dynamics on LDPC/QLDPC Tanner graphs.
+
+- **No randomness** — all outputs are bitwise reproducible
+- **No neural networks** — closed-form multiplicative scoring
+- **No stochastic exploration** — measurement-driven adaptation
+- **Bounded feedback** — all signals and modulation factors are bounded
+- **Formally defined** — invariants, API contracts, and reproducible experiments
+
+The full adaptive pipeline:
+
+```
+S₀ → metrics → attractor → strategy → transition → evaluation → adaptation → S₁
+```
+
+For formal definitions, see:
+- [SYSTEM.md](SYSTEM.md) — Formal system definition
+- [THEORY.md](THEORY.md) — Theoretical grounding
+- [INVARIANTS.md](INVARIANTS.md) — System invariants
+- [EXPERIMENTS.md](EXPERIMENTS.md) — Reproducible experiments
+- [API_CONTRACT.md](API_CONTRACT.md) — Stable public interfaces
+
 📖 Documentation
 
 - [INSTALL.md](INSTALL.md) — Setup and installation

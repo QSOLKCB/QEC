@@ -1,4 +1,4 @@
-# System Definition — v100.0.0
+# System Definition — v101.0.0
 
 Formal definition of the QEC deterministic adaptive control system.
 
@@ -143,3 +143,37 @@ All factors default to 1.0 when data is unavailable, ensuring graceful degradati
 | No mutation | All functions operate on copies; inputs are never modified |
 | Memory-bounded | Strategy memory capped at 10 events per key |
 | Horizon-bounded | Multi-step lookahead fixed at horizon = 2 |
+
+---
+
+## Benchmarking Layer (v101)
+
+### Baseline Strategies (`analysis/baseline_strategies`)
+
+Deterministic baselines for comparison against the adaptive pipeline:
+
+- **random_strategy_deterministic**: SHA-256 seeded pseudo-random selection. Identical seed+step → identical choice.
+- **fixed_strategy**: Always returns the same strategy.
+- **round_robin_strategy**: Cycles through strategies by step index.
+
+### Performance Metrics (`analysis/performance_metrics`)
+
+- **compute_cumulative_score**: Running cumulative average of scores.
+- **compute_convergence_rate**: Mean absolute step-to-step change (lower = faster convergence).
+- **compute_stability_variance**: Population variance of scores (lower = more stable).
+- **compute_final_performance**: Mean of trailing window of scores.
+
+### Convergence Analysis (`analysis/convergence_analysis`)
+
+- **detect_convergence**: Finds the first step where scores stabilize within a window threshold.
+- **compute_convergence_signal**: [0, 1] measure of tail stability (1.0 = perfectly converged).
+
+### Benchmark Comparison (`analysis/benchmark_comparison`)
+
+- **compare_strategies**: Computes relative performance ratios, convergence differences, and stability differences between QEC and each baseline.
+
+### Benchmark Runner (`experiments/benchmark_runner`)
+
+- **run_benchmark**: Executes QEC pipeline and all baselines on identical inputs, returns structured results for comparison.
+
+All benchmarking components are deterministic, bounded, and side-effect free.

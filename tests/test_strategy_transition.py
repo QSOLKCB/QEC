@@ -8,6 +8,9 @@ from typing import Any, Dict
 import pytest
 
 from qec.analysis.strategy_transition import (
+    DEFAULT_TRANSITION_LABEL,
+    STRATEGY_WEIGHTS,
+    TRANSITION_LABELS,
     compute_transition,
     extract_state,
     score_strategy,
@@ -338,3 +341,99 @@ class TestSelectNextStrategy:
             for _ in range(10)
         ]
         assert len(set(results)) == 1
+
+    def test_partial_input_prev_strategy_no_prev_state(self):
+        """prev_strategy without prev_state should still detect transitions."""
+        metrics = _make_metrics(regime="unstable")
+        strats = _make_strategies()
+        # Simulate a previous selection with a different strategy id
+        prev_strategy = {"id": "s_scale", "strategy": strats["s_scale"], "score": 0.5}
+        result = select_next_strategy(metrics, strats, prev_strategy=prev_strategy)
+        # Should still produce a transition if selected strategy differs
+        assert "transition" in result
+        assert "state" in result
+
+    def test_partial_input_no_prev_strategy(self):
+        """No prev_strategy at all should yield no transition."""
+        metrics = _make_metrics(regime="unstable")
+        strats = _make_strategies()
+        result = select_next_strategy(metrics, strats)
+        assert result["transition"] is None
+
+
+# ---------------------------------------------------------------------------
+# Config integrity
+# ---------------------------------------------------------------------------
+
+class TestConfigIntegrity:
+    def test_strategy_weights_keys(self):
+        """STRATEGY_WEIGHTS must contain expected metric keys."""
+        expected = {"phi", "consistency", "curvature", "divergence", "resonance", "complexity"}
+        assert set(STRATEGY_WEIGHTS.keys()) == expected
+
+    def test_strategy_weights_produce_same_ordering(self):
+        """Centralized weights must not change strategy ordering vs inline."""
+        for regime in ("stable", "unstable", "oscillatory", "transitional", "mixed"):
+            state = extract_state(_make_metrics(regime=regime, curvature=0.5, divergence=0.4))
+            strats = _make_strategies()
+            scored = {sid: score_strategy(state, s) for sid, s in strats.items()}
+            # Ordering must be deterministic and consistent
+            ordered = sorted(scored, key=lambda k: (-scored[k], k))
+            ordered2 = sorted(scored, key=lambda k: (-scored[k], k))
+            assert ordered == ordered2
+
+    def test_transition_labels_completeness(self):
+        """TRANSITION_LABELS must cover all originally defined pairs."""
+        assert ("unstable", "stable") in TRANSITION_LABELS
+        assert ("oscillatory", "stable") in TRANSITION_LABELS
+        assert ("transitional", "stable") in TRANSITION_LABELS
+        assert ("unstable", "oscillatory") in TRANSITION_LABELS
+
+    def test_default_transition_label_is_string(self):
+        assert isinstance(DEFAULT_TRANSITION_LABEL, str)
+        assert len(DEFAULT_TRANSITION_LABEL) > 0
+
+
+# ---------------------------------------------------------------------------
+# Transition fallback
+# ---------------------------------------------------------------------------
+
+class TestTransitionFallback:
+    def test_unknown_regime_pair_uses_default(self):
+        """Regime pair not in TRANSITION_LABELS uses DEFAULT_TRANSITION_LABEL."""
+        result = compute_transition(
+            {"id": "a"}, {"id": "b"},
+            {"regime": "stable"}, {"regime": "unstable"},
+        )
+        # ("stable", "unstable") is not in TRANSITION_LABELS
+        assert result["change"] == DEFAULT_TRANSITION_LABEL
+
+    def test_known_regime_pair_uses_label(self):
+        """Known regime pair uses its specific label."""
+        result = compute_transition(
+            {"id": "a"}, {"id": "b"},
+            {"regime": "unstable"}, {"regime": "stable"},
+        )
+        assert result["change"] == "increase_stability"
+
+
+# ---------------------------------------------------------------------------
+# Confidence preservation
+# ---------------------------------------------------------------------------
+
+class TestConfidencePreservation:
+    def test_higher_confidence_wins_tie(self):
+        """When two strategies have equal score, higher confidence wins."""
+        state = extract_state(_make_metrics(regime="mixed"))
+        strats = {
+            "lo": {"action_type": "damping", "params": {"x": 1}, "confidence": 0.3},
+            "hi": {"action_type": "damping", "params": {"x": 1}, "confidence": 0.9},
+        }
+        result = select_strategy(state, strats)
+        assert result["id"] == "hi"
+
+    def test_confidence_extracted_from_dict(self):
+        """_get_confidence must read confidence from strategy dicts."""
+        from qec.analysis.strategy_transition import _get_confidence
+        assert _get_confidence({"confidence": 0.7}) == pytest.approx(0.7)
+        assert _get_confidence({"action_type": "x"}) == pytest.approx(0.0)

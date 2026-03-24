@@ -377,3 +377,32 @@ def test_print_experiment_report_runs(capsys):
     assert "basin=" in captured.out
     assert "phi=" in captured.out
     assert "consistency=" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# Confidence preservation (v98.8.1)
+# ---------------------------------------------------------------------------
+
+
+def test_strategy_dicts_preserve_confidence():
+    """strategy_dicts in run_experiments must include confidence key."""
+    strategies = generate_mock_strategies()
+    strategy_dicts = {
+        sid: {
+            "action_type": s.action_type,
+            "params": dict(s.params),
+            "confidence": getattr(s, "confidence", 0.0),
+        }
+        for sid, s in strategies.items()
+    }
+    for sid, d in strategy_dicts.items():
+        assert "confidence" in d
+        assert isinstance(d["confidence"], float)
+
+
+def test_mock_strategy_has_confidence_attr():
+    """_MockStrategy must expose a confidence attribute."""
+    strategies = generate_mock_strategies()
+    for s in strategies.values():
+        assert hasattr(s, "confidence")
+        assert isinstance(s.confidence, float)

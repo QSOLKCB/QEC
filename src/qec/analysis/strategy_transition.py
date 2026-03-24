@@ -379,9 +379,15 @@ def select_next_strategy(
 
     adaptation_info = None
     if history and memory is not None:
-        from qec.analysis.strategy_memory import select_strategy_with_memory
+        from qec.analysis.strategy_memory import (
+            compute_attractor_id,
+            compute_regime_key,
+            select_strategy_with_memory,
+        )
+        attractor_id = compute_attractor_id(state.get("basin_score", 0.0))
+        rk = compute_regime_key(state.get("regime", "mixed"), attractor_id)
         mem_result = select_strategy_with_memory(
-            strategies, state, history, memory,
+            strategies, state, history, memory, regime_key=rk,
         )
         selected = {
             "id": mem_result["selected"],

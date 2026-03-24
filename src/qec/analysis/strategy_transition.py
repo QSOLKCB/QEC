@@ -345,7 +345,7 @@ def select_next_strategy(
     prev_strategy: Optional[Dict[str, Any]] = None,
     prev_state: Optional[Dict[str, Any]] = None,
     history: Optional[List[Dict[str, Any]]] = None,
-    memory: Optional[Dict[str, list]] = None,
+    memory: Optional[Dict[str, List[Dict[str, Any]]]] = None,
 ) -> Dict[str, Any]:
     """Select the next strategy and compute any transition.
 

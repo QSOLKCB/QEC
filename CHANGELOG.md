@@ -41,6 +41,20 @@ All features remain:
 
 Drop this right after the header:
 
+[99.3.0] — Deterministic Transition Learning
+
+Added
+
+- Transition key: (regime_before, attractor_before, strategy_id, regime_after, attractor_after).
+- Transition memory with deterministic incremental updates (count, mean_delta, success_rate).
+- Multiplicative transition bias integrated into strategy scoring: final_score = base_score * stability_weight * transition_bias.
+- Neutral fallback (transition_bias = 1.0) when no transition history exists.
+- Bias aggregation across all destination states for a given source regime and strategy.
+- New module: src/qec/analysis/strategy_transition_learning.py.
+- Comprehensive tests: key determinism, memory correctness, bias bounds, selection integration, repeated-run determinism.
+
+---
+
 [99.1.0] — Deterministic Adaptive Strategy Memory
 
 Added

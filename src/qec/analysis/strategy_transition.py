@@ -1,8 +1,11 @@
-"""Basin-aware strategy transition layer (v98.8.1).
+"""Basin-aware strategy transition layer (v99.3.0).
 
 Deterministic control layer that selects strategies based on current regime
 and basin score, and computes transitions between strategies to move toward
 more stable basins.
+
+v99.3.0 adds transition_memory pass-through to enable multiplicative
+transition bias in strategy scoring.
 
 Uses existing metrics only — no new signals introduced.
 Dependencies: stdlib only.
@@ -346,6 +349,7 @@ def select_next_strategy(
     prev_state: Optional[Dict[str, Any]] = None,
     history: Optional[List[Dict[str, Any]]] = None,
     memory: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+    transition_memory: Optional[Dict[Any, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Select the next strategy and compute any transition.
 
@@ -367,13 +371,17 @@ def select_next_strategy(
     memory : dict, optional
         Per-strategy memory.  When provided together with *history*,
         uses memory-aware selection with per-strategy bias.
+    transition_memory : dict, optional
+        Transition memory for v99.3.0 transition learning.  When
+        provided together with *history* and *memory*, enables
+        multiplicative transition bias in strategy scoring.
 
     Returns
     -------
     dict
         ``{"strategy": <selected>, "state": dict, "transition": dict|None}``
         When adaptive selection is used, also includes ``"adaptation"``
-        with bias and trajectory_score.
+        with bias, trajectory_score, local_bias, and transition_bias.
     """
     state = extract_state(metrics)
 
@@ -388,6 +396,7 @@ def select_next_strategy(
         rk = compute_regime_key(state.get("regime", "mixed"), attractor_id)
         mem_result = select_strategy_with_memory(
             strategies, state, history, memory, regime_key=rk,
+            transition_memory=transition_memory,
         )
         selected = {
             "id": mem_result["selected"],
@@ -398,6 +407,7 @@ def select_next_strategy(
             "bias": mem_result["global_bias"],
             "trajectory_score": 0.0,
             "local_bias": mem_result["local_bias"],
+            "transition_bias": mem_result["transition_bias"],
         }
     elif history:
         from qec.analysis.strategy_adaptation import select_strategy_adaptive

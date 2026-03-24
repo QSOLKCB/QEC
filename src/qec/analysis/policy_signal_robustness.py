@@ -1,12 +1,15 @@
-"""v99.8.0 — Policy consistency, cycle detection & signal robustness.
+"""v99.9.0 — Policy consistency, cycle detection, signal robustness & trajectory validation.
 
-Adds:
+Adds (v99.8.0):
 - Cycle detection in strategy/regime history to penalize oscillatory loops
 - Geometric mean modulation to prevent multiplicative signal collapse
 - Light signal decorrelation (normalize to reduce redundancy)
 - Adaptive thresholds (deterministic percentile-based)
 - Modulation stability clamp
 - Integrated scoring with cycle penalty
+
+Adds (v99.9.0):
+- Trajectory score integration into final scoring formula
 
 All functions are:
 - deterministic (identical inputs → identical outputs)
@@ -379,8 +382,9 @@ def compute_robust_score(
     multi_step_factor: float = 1.0,
     adaptation_modulation: float = 1.0,
     cycle_penalty: float = 1.0,
+    trajectory_score: float = 1.0,
 ) -> float:
-    """Compute final score with all v99.8.0 factors.
+    """Compute final score with all v99.9.0 factors.
 
     Formula::
 
@@ -389,7 +393,8 @@ def compute_robust_score(
                        * transition_bias
                        * multi_step_factor
                        * adaptation_modulation
-                       * cycle_penalty)
+                       * cycle_penalty
+                       * trajectory_score)
 
     Result clamped to [0.0, 1.0].
 
@@ -407,6 +412,8 @@ def compute_robust_score(
         Physics-informed modulation (default 1.0).
     cycle_penalty : float
         Cycle detection penalty (default 1.0).
+    trajectory_score : float
+        Trajectory validation score (default 1.0).
 
     Returns
     -------
@@ -420,6 +427,7 @@ def compute_robust_score(
         * float(multi_step_factor)
         * float(adaptation_modulation)
         * float(cycle_penalty)
+        * float(trajectory_score)
     )
     return max(0.0, min(1.0, score))
 

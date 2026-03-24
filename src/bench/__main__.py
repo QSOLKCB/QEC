@@ -39,6 +39,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Run the v8.0 stability phase diagram experiment.",
     )
     parser.add_argument(
+        "--ternary-bosonic", action="store_true",
+        help="Run the ternary bosonic decoder experiment (print states + score).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -51,6 +55,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.stability_phase_diagram:
         return _run_phase_diagram(args)
+
+    if args.ternary_bosonic:
+        return _run_ternary_bosonic(args)
 
     config = BenchmarkConfig.load(args.config)
     result = run_benchmark(config)
@@ -103,6 +110,31 @@ def _run_phase_diagram(args) -> int:
     # Print ASCII diagram
     print(result["ascii_phase_diagram"], file=sys.stderr)
     print(f"Results written to {out_path}", file=sys.stderr)
+
+    return 0
+
+
+def _run_ternary_bosonic(args) -> int:
+    """Run the ternary bosonic decoder experiment."""
+    import numpy as np
+
+    from qec.experiments.concatenated_bosonic_decoder import (
+        format_summary,
+        run_concatenated_bosonic_experiment,
+    )
+
+    # Deterministic demo signals
+    raw = np.array([0.1, -0.8, 0.5, 0.0, -0.3, 0.9, -0.1, 0.4], dtype=np.float64)
+
+    result = run_concatenated_bosonic_experiment(raw, threshold=0.3, rounds=3)
+    print(format_summary(result), file=sys.stderr)
+
+    if args.out:
+        text = json.dumps(result, sort_keys=True, indent=2)
+        with open(args.out, "w") as f:
+            f.write(text)
+            f.write("\n")
+        print(f"\nResults written to {args.out}", file=sys.stderr)
 
     return 0
 

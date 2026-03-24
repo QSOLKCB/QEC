@@ -62,6 +62,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "run_sequence_landscape": (".sequence_landscape", "run_sequence_landscape"),
     "classify_sequence": (".sequence_landscape", "classify_sequence"),
     "run_target_sweep": (".hybrid_target_sweep", "run_target_sweep"),
+    "run_concatenated_bosonic_experiment": (".concatenated_bosonic_decoder", "run_concatenated_bosonic_experiment"),
+    "format_summary": (".concatenated_bosonic_decoder", "format_summary"),
 }
 
 

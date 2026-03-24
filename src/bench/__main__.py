@@ -47,6 +47,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Enable trust-aware strategy selection (use with --ternary-bosonic).",
     )
     parser.add_argument(
+        "--strategy-generate", action="store_true",
+        help="Generate 27 deterministic strategies, evaluate, score, and select "
+             "(use with --ternary-bosonic).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -150,6 +155,26 @@ def _run_ternary_bosonic(args) -> int:
             strategy_configs=strategy_configs,
         )
         print(format_selection_summary(sel), file=sys.stderr)
+
+    if getattr(args, "strategy_generate", False):
+        from qec.analysis.strategy_adapter import (
+            format_generation_summary,
+            run_generation_selection_pipeline,
+        )
+
+        base_strategy = {
+            "config": {
+                "threshold": result.get("threshold", 0.3),
+                "rounds": result.get("rounds", 3),
+                "confidence_scale": 1.0,
+            },
+            "metrics": dict(result.get("metrics", {})),
+        }
+        gen_result = run_generation_selection_pipeline(
+            base_strategy,
+            trust_signals={"stability": 0.8, "global_trust": 0.6},
+        )
+        print(format_generation_summary(gen_result), file=sys.stderr)
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

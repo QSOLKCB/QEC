@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""QEC Deterministic Adaptive Pipeline Demo — v100.0.0.
+"""QEC Deterministic Adaptive Pipeline Demo — v101.1.0.
 
 Runs the full adaptive control loop on fixed deterministic inputs:
 
@@ -7,8 +7,8 @@ Runs the full adaptive control loop on fixed deterministic inputs:
 
 Demonstrates regime classification, strategy selection, evaluation feedback,
 transition learning (v99.3), multi-step lookahead (v99.4), physics signals
-(v99.6), adaptation modulation (v99.7), cycle detection (v99.8), and
-trajectory validation (v99.9).
+(v99.6), adaptation modulation (v99.7), cycle detection (v99.8),
+trajectory validation (v99.9), and benchmark-aware self-evaluation (v101.1).
 
 All outputs are deterministic — repeated runs produce identical results.
 
@@ -17,6 +17,7 @@ Dependencies: qec package (numpy, scipy).
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 
@@ -48,8 +49,14 @@ from qec.experiments.metrics_probe import (
 )
 
 
-def run_demo() -> Dict[str, Any]:
+def run_demo(self_eval: bool = False) -> Dict[str, Any]:
     """Run the full deterministic adaptive pipeline demo.
+
+    Parameters
+    ----------
+    self_eval : bool
+        When True, run benchmark-aware self-evaluation after the
+        pipeline and print confidence signals.
 
     Returns structured results for verification.
     """
@@ -285,6 +292,33 @@ def run_demo() -> Dict[str, Any]:
     print(f"Deterministic: TRUE")
     print()
 
+    # --- Self-evaluation (v101.1.0, opt-in) ---
+    self_eval_result = None
+    if self_eval:
+        from qec.analysis.self_evaluation import compute_self_evaluation_signal
+
+        # Use the last step's strategy score as the QEC final score.
+        # Construct deterministic mock baselines from the pipeline results.
+        qec_final = results[-1]["strategy_score"] if results else 0.0
+        qec_metrics = {"final_score": qec_final}
+
+        # Deterministic baselines: mean and min of all strategy scores
+        all_scores = [r["strategy_score"] for r in results]
+        baseline_metrics = {
+            "mean_baseline": {"final_score": sum(all_scores) / len(all_scores) if all_scores else 0.0},
+            "min_baseline": {"final_score": min(all_scores) if all_scores else 0.0},
+        }
+
+        self_eval_result = compute_self_evaluation_signal(qec_metrics, baseline_metrics)
+
+        print("=" * 70)
+        print("Self-Evaluation (v101.1.0)")
+        print("=" * 70)
+        print(f"  Benchmark confidence:    {self_eval_result['benchmark_confidence']:.2f}")
+        print(f"  Relative advantage:      {self_eval_result['relative_advantage']:.2f}")
+        print(f"  Confidence modulation:   {self_eval_result['confidence_modulation']:.2f}")
+        print()
+
     return {
         "steps": results,
         "regime_counts": regime_counts,
@@ -292,12 +326,21 @@ def run_demo() -> Dict[str, Any]:
         "transition_entries": len(transition_memory),
         "history_length": len(eval_history),
         "metadata": metadata,
+        "self_evaluation": self_eval_result,
     }
 
 
 def main() -> int:
     """Entry point."""
-    run_demo()
+    parser = argparse.ArgumentParser(description="QEC Deterministic Adaptive Pipeline Demo")
+    parser.add_argument(
+        "--self-eval",
+        action="store_true",
+        default=False,
+        help="Enable benchmark-aware self-evaluation output",
+    )
+    args = parser.parse_args()
+    run_demo(self_eval=args.self_eval)
     return 0
 
 

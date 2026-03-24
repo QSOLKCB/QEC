@@ -1,4 +1,4 @@
-# Reproducible Experiments — v100.0.0
+# Reproducible Experiments — v101.1.0
 
 Formal experiment definitions for validating system properties.
 
@@ -102,6 +102,25 @@ print('Zero base:',   compute_robust_score(0.0))
 **Expected result**: All outputs in [0.0, 1.0].
 
 **What this verifies**: INV-BND-3 (final scores clamped), INV-CMP-1 (compositional scoring).
+
+---
+
+## Experiment 6 — Benchmark-Aware Self-Evaluation (v101.1.0)
+
+**Objective**: Verify that the self-evaluation layer produces bounded, deterministic confidence signals.
+
+**Command**:
+```bash
+python scripts/qec_demo.py --self-eval
+```
+
+**Expected result**:
+- Benchmark confidence in [0.0, 1.0]
+- Relative advantage in [0.0, 1.0]
+- Confidence modulation in [0.9, 1.1]
+- Repeated runs produce identical output
+
+**What this verifies**: Self-evaluation is deterministic, bounded, and does not alter existing pipeline behavior. Confidence modulation defaults to neutral (1.0) when no benchmark data is available.
 
 ---
 

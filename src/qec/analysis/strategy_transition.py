@@ -345,6 +345,7 @@ def select_next_strategy(
     prev_strategy: Optional[Dict[str, Any]] = None,
     prev_state: Optional[Dict[str, Any]] = None,
     history: Optional[List[Dict[str, Any]]] = None,
+    memory: Optional[Dict[str, List[Dict[str, Any]]]] = None,
 ) -> Dict[str, Any]:
     """Select the next strategy and compute any transition.
 
@@ -363,6 +364,9 @@ def select_next_strategy(
     history : list of dict, optional
         Evaluation history.  When provided, uses adaptive selection
         (biased by history) instead of base scoring.
+    memory : dict, optional
+        Per-strategy memory.  When provided together with *history*,
+        uses memory-aware selection with per-strategy bias.
 
     Returns
     -------
@@ -374,7 +378,22 @@ def select_next_strategy(
     state = extract_state(metrics)
 
     adaptation_info = None
-    if history:
+    if history and memory is not None:
+        from qec.analysis.strategy_memory import select_strategy_with_memory
+        mem_result = select_strategy_with_memory(
+            strategies, state, history, memory,
+        )
+        selected = {
+            "id": mem_result["selected"],
+            "strategy": strategies.get(mem_result["selected"]),
+            "score": mem_result["score"],
+        }
+        adaptation_info = {
+            "bias": mem_result["global_bias"],
+            "trajectory_score": 0.0,
+            "local_bias": mem_result["local_bias"],
+        }
+    elif history:
         from qec.analysis.strategy_adaptation import select_strategy_adaptive
         adaptive = select_strategy_adaptive(strategies, state, history)
         selected = {

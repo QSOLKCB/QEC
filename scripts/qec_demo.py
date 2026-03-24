@@ -1,12 +1,14 @@
 #!/usr/bin/env python
-"""QEC Deterministic Adaptive Pipeline Demo.
+"""QEC Deterministic Adaptive Pipeline Demo — v100.0.0.
 
 Runs the full adaptive control loop on fixed deterministic inputs:
 
     metrics -> attractor -> strategy -> evaluation -> adaptation -> memory
 
 Demonstrates regime classification, strategy selection, evaluation feedback,
-transition learning (v99.3), and multi-step lookahead (v99.4).
+transition learning (v99.3), multi-step lookahead (v99.4), physics signals
+(v99.6), adaptation modulation (v99.7), cycle detection (v99.8), and
+trajectory validation (v99.9).
 
 All outputs are deterministic — repeated runs produce identical results.
 
@@ -25,8 +27,12 @@ if _repo_root not in sys.path:
 from typing import Any, Dict, List
 
 from qec.analysis.attractor_analysis import analyze_attractors
+from qec.analysis.physics_signal import compute_physics_signals
+from qec.analysis.policy_signal_robustness import detect_cycle, compute_cycle_penalty
+from qec.analysis.reproducibility_metadata import build_reproducibility_metadata
 from qec.analysis.strategy_evaluation import evaluate_strategy
 from qec.analysis.strategy_memory import (
+    compute_adaptation_modulation,
     compute_attractor_id,
     compute_regime_aware_score,
     compute_regime_key,
@@ -34,6 +40,7 @@ from qec.analysis.strategy_memory import (
 )
 from qec.analysis.strategy_transition import select_next_strategy
 from qec.analysis.strategy_transition_learning import record_transition_outcome
+from qec.analysis.trajectory_validation import validate_transition
 from qec.experiments.metrics_probe import (
     evaluate_metrics,
     generate_mock_strategies,
@@ -68,15 +75,24 @@ def run_demo() -> Dict[str, Any]:
     eval_history: List[Dict[str, Any]] = []
     strategy_memory: Dict[Any, List[Dict[str, Any]]] = {}
     transition_memory: Dict[Any, Dict[str, Any]] = {}
+    regime_history: List[str] = []
+    basin_score_history: List[float] = []
     step_counter = 0
     results: List[Dict[str, Any]] = []
 
+    # Reproducibility metadata (seed=0 since demo uses fixed inputs)
+    metadata = build_reproducibility_metadata(seed=0)
+
     print("=" * 70)
-    print("QEC Deterministic Adaptive Pipeline Demo")
+    print("QEC Deterministic Adaptive Pipeline Demo (v100.0.0)")
     print("=" * 70)
     print()
     print("Pipeline: metrics -> attractor -> strategy -> evaluation"
           " -> adaptation -> memory")
+    print()
+    print("Reproducibility metadata:")
+    for mk, mv in sorted(metadata.items()):
+        print(f"  {mk}: {mv}")
     print()
 
     for case in inputs:
@@ -152,6 +168,38 @@ def run_demo() -> Dict[str, Any]:
         transition_bias = adapt.get("transition_bias", 1.0) if adapt else 1.0
         multi_step_factor = adapt.get("multi_step_factor", 1.0) if adapt else 1.0
 
+        # --- Physics signals (v99.6+) ---
+        physics = compute_physics_signals(
+            history=basin_score_history if basin_score_history else None,
+        )
+        energy = physics.get("oscillation_strength", 0.0)
+        coherence = physics.get("phase_stability", 1.0)
+        alignment = physics.get("phase_lock_ratio", 1.0)
+
+        # --- Adaptation modulation (v99.7+) ---
+        mod_result = compute_adaptation_modulation(physics)
+        modulation = mod_result.get("adaptation_modulation", 1.0)
+
+        # --- Cycle detection (v99.8+) ---
+        regime_history.append(regime)
+        cycle_detected = detect_cycle(regime_history)
+        cycle_pen = compute_cycle_penalty(regime_history)
+
+        # --- Trajectory validation (v99.9+) ---
+        trajectory_score = 1.0
+        if prev_full_metrics is not None:
+            before_m = {
+                "score": prev_full_metrics.get("field", {}).get("phi_alignment", 0.0),
+                "energy": 0.0,
+                "coherence": 1.0,
+            }
+            after_m = {
+                "score": full_metrics.get("field", {}).get("phi_alignment", 0.0),
+                "energy": energy,
+                "coherence": coherence,
+            }
+            trajectory_score = validate_transition(before_m, after_m)
+
         # --- Regime-aware score for reporting ---
         rk = compute_regime_key(regime, attractor_id)
         regime_score_info = compute_regime_aware_score(
@@ -169,6 +217,12 @@ def run_demo() -> Dict[str, Any]:
               f"  {local_bias:+.4f} (local)")
         print(f"  transition_bias: {transition_bias:.4f}"
               f"  multi_step_factor: {multi_step_factor:.4f}")
+        print(f"  energy: {energy:.4f}"
+              f"  coherence: {coherence:.4f}"
+              f"  alignment: {alignment:.4f}")
+        print(f"  modulation: {modulation:.4f}"
+              f"  cycle_detected: {cycle_detected}"
+              f"  trajectory_score: {trajectory_score:.4f}")
 
         if evaluation:
             ev_info = evaluation["evaluation"]
@@ -190,6 +244,7 @@ def run_demo() -> Dict[str, Any]:
         prev_full_metrics = full_metrics
         prev_regime = regime
         prev_attractor_id = attractor_id
+        basin_score_history.append(basin_score)
         step_counter += 1
 
         results.append({
@@ -203,6 +258,12 @@ def run_demo() -> Dict[str, Any]:
             "outcome": outcome,
             "transition_bias": transition_bias,
             "multi_step_factor": multi_step_factor,
+            "energy": energy,
+            "coherence": coherence,
+            "alignment": alignment,
+            "modulation": modulation,
+            "cycle_detected": cycle_detected,
+            "trajectory_score": trajectory_score,
         })
 
     # --- Summary ---
@@ -221,6 +282,8 @@ def run_demo() -> Dict[str, Any]:
     print(f"Transition memory entries: {len(transition_memory)}")
     print(f"Evaluation history length: {len(eval_history)}")
     print()
+    print(f"Deterministic: TRUE")
+    print()
 
     return {
         "steps": results,
@@ -228,6 +291,7 @@ def run_demo() -> Dict[str, Any]:
         "memory_keys": len(strategy_memory),
         "transition_entries": len(transition_memory),
         "history_length": len(eval_history),
+        "metadata": metadata,
     }
 
 

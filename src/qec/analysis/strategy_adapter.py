@@ -1,4 +1,4 @@
-"""v102.2.0 — Strategy adapter for trust-aware selection.
+"""v102.4.0 — Strategy adapter for trust-aware selection.
 
 Wraps outputs from the v101.4 ternary bosonic pipeline into
 candidate strategies, scores and ranks them, and returns the
@@ -20,6 +20,9 @@ and ``run_structure_aware_pipeline`` with ``format_structure_aware_summary``.
 
 v102.2.0 adds trajectory tracking and regime analysis via
 ``run_trajectory_analysis`` and ``format_trajectory_summary``.
+
+v102.4.0 adds evolution analysis via ``run_evolution_analysis``
+and ``format_evolution_summary``.
 
 All functions are:
 - deterministic (identical inputs -> identical outputs)
@@ -1049,6 +1052,78 @@ def format_taxonomy_summary(result: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Evolution analysis (v102.4.0)
+# ---------------------------------------------------------------------------
+
+
+def run_evolution_analysis(
+    runs: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run the full evolution analysis pipeline.
+
+    Pipeline: runs -> trajectory types (v102.3) -> transition metrics
+    -> evolution pattern classification (v102.4)
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key with a list of
+        strategy dicts (each having ``"name"`` and ``"metrics"``).
+
+    Returns
+    -------
+    dict
+        Contains ``"history"``, ``"trajectory_metrics"``, ``"regimes"``,
+        ``"taxonomy"``, ``"type_trajectories"``, ``"transition_metrics"``,
+        and ``"evolution"``.
+    """
+    from qec.analysis.strategy_evolution import (
+        build_type_trajectory,
+        classify_evolution_pattern,
+        compute_transition_metrics,
+    )
+
+    result = run_taxonomy_analysis(runs)
+    type_trajectories = build_type_trajectory(runs)
+    transition_metrics = compute_transition_metrics(type_trajectories)
+    evolution = classify_evolution_pattern(transition_metrics, type_trajectories)
+
+    result["type_trajectories"] = type_trajectories
+    result["transition_metrics"] = transition_metrics
+    result["evolution"] = evolution
+    return result
+
+
+def format_evolution_summary(result: Dict[str, Any]) -> str:
+    """Format evolution analysis results as a human-readable summary.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_evolution_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    lines: List[str] = []
+    evolution = result.get("evolution", {})
+
+    lines.append("=== Evolution Analysis ===")
+
+    for name in sorted(evolution.keys()):
+        entry = evolution[name]
+        lines.append(f"Strategy: {name}")
+        lines.append(f"  Pattern: {entry['pattern']}")
+        lines.append(f"  Transitions: {entry['num_transitions']}")
+        lines.append(f"  Stability: {entry['stability_score']:.2f}")
+        lines.append(f"  Dominant: {entry['dominant_type']}")
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -1071,4 +1146,6 @@ __all__ = [
     "format_trajectory_summary",
     "run_taxonomy_analysis",
     "format_taxonomy_summary",
+    "run_evolution_analysis",
+    "format_evolution_summary",
 ]

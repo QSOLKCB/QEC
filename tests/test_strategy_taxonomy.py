@@ -131,8 +131,8 @@ class TestEdgeCases:
         assert result["flat"]["type"] == "stable_core"
 
     def test_noisy_improver_is_volatile_improver(self):
-        """Noisy improvers (improving regime + oscillation) → volatile_improver."""
-        metrics, regimes = _single("noisy", 0.75, 0.08, 2, "improving")
+        """Noisy improvers (improving regime + mild oscillation) → volatile_improver."""
+        metrics, regimes = _single("noisy", 0.75, 0.08, 1, "improving")
         result = classify_strategy_type(metrics, regimes)
         assert result["noisy"]["type"] == "volatile_improver"
 
@@ -141,6 +141,30 @@ class TestEdgeCases:
         metrics, regimes = _single("bad", 0.4, -0.3, 1, "declining")
         result = classify_strategy_type(metrics, regimes)
         assert result["bad"]["type"] == "unstable_decliner"
+
+    def test_oscillatory_dominates_improving(self):
+        """High oscillation overrides improving regime → oscillatory."""
+        metrics, regimes = _single("osc", 0.75, 0.1, 3, "improving")
+        result = classify_strategy_type(metrics, regimes)
+        assert result["osc"]["type"] == "oscillatory"
+
+    def test_oscillatory_dominates_declining(self):
+        """High oscillation overrides declining regime → oscillatory."""
+        metrics, regimes = _single("osc", 0.8, -0.1, 2, "declining")
+        result = classify_strategy_type(metrics, regimes)
+        assert result["osc"]["type"] == "oscillatory"
+
+    def test_oscillatory_dominates_stable(self):
+        """High oscillation overrides stable regime → oscillatory."""
+        metrics, regimes = _single("osc", 0.95, 0.01, 2, "stable")
+        result = classify_strategy_type(metrics, regimes)
+        assert result["osc"]["type"] == "oscillatory"
+
+    def test_mild_oscillation_declining_stays_decliner(self):
+        """Oscillation=1 in declining regime does NOT trigger oscillatory."""
+        metrics, regimes = _single("d", 0.8, -0.1, 1, "declining")
+        result = classify_strategy_type(metrics, regimes)
+        assert result["d"]["type"] == "degrading"
 
     def test_missing_regime_defaults_to_transitional(self):
         """Strategy not in regimes dict → transitional."""

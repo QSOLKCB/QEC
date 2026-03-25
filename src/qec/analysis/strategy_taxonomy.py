@@ -50,17 +50,17 @@ def classify_strategy_type(
         - ``confidence`` : float — min(1.0, stability + abs(trend)),
           rounded to 12 decimal places
 
-    Taxonomy rules (applied in order; first match wins):
+    Taxonomy rules (applied in priority order; first match wins):
 
-    A. ``"stable_core"`` — regime == "stable" and stability > 0.9
-       and abs(trend) < 0.05
-    B. ``"steady_improver"`` — regime == "improving" and stability > 0.7
+    1. ``"oscillatory"`` — oscillation >= 2 (dominates regardless of regime)
+    2. ``"volatile_improver"`` — regime == "improving" and oscillation >= 1
+    3. ``"steady_improver"`` — regime == "improving" and stability > 0.7
        and trend > 0.05 and oscillation == 0
-    C. ``"volatile_improver"`` — regime == "improving" and oscillation >= 1
-    D. ``"oscillatory"`` — regime == "oscillatory"
-    E. ``"degrading"`` — regime == "declining" and stability > 0.7
-    F. ``"unstable_decliner"`` — regime == "declining" and stability <= 0.7
-    G. ``"transitional"`` — regime == "transitional"
+    4. ``"degrading"`` — regime == "declining" and stability > 0.7
+    5. ``"unstable_decliner"`` — regime == "declining" and stability <= 0.7
+    6. ``"stable_core"`` — regime == "stable" and stability > 0.9
+       and abs(trend) < 0.05
+    7. ``"transitional"`` — fallback
     """
     result: Dict[str, Dict[str, Any]] = {}
 
@@ -88,22 +88,30 @@ def _classify_single(
     trend: float,
     oscillation: int,
 ) -> str:
-    """Classify a single strategy into a taxonomy type."""
-    if regime == "stable" and stability > 0.9 and abs(trend) < 0.05:
-        return "stable_core"
-    if regime == "improving" and stability > 0.7 and trend > 0.05 and oscillation == 0:
-        return "steady_improver"
+    """Classify a single strategy into a taxonomy type.
+
+    Priority ordering ensures oscillatory dominates when present,
+    since a strategy with high oscillation is fundamentally oscillatory
+    regardless of its trend direction.  Mild oscillation (exactly 1)
+    within an improving trend is kept as volatile_improver.
+    """
+    # 1. Oscillatory dominates — high oscillation overrides regime.
+    if oscillation >= 2:
+        return "oscillatory"
+    # 2. Improving types (mild oscillation or none).
     if regime == "improving" and oscillation >= 1:
         return "volatile_improver"
-    if regime == "oscillatory":
-        return "oscillatory"
+    if regime == "improving" and stability > 0.7 and trend > 0.05 and oscillation == 0:
+        return "steady_improver"
+    # 3. Declining types.
     if regime == "declining" and stability > 0.7:
         return "degrading"
     if regime == "declining" and stability <= 0.7:
         return "unstable_decliner"
-    if regime == "transitional":
-        return "transitional"
-    # Fallback — should not be reached with valid regime values.
+    # 4. Stable core.
+    if regime == "stable" and stability > 0.9 and abs(trend) < 0.05:
+        return "stable_core"
+    # 5. Transitional (fallback).
     return "transitional"
 
 

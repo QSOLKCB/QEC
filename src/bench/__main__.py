@@ -107,6 +107,11 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --track-strategies).",
     )
     parser.add_argument(
+        "--show-evolution", action="store_true",
+        help="Show strategy evolution analysis (transition patterns) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -336,6 +341,15 @@ def _run_ternary_bosonic(args) -> int:
 
         if getattr(args, "show_taxonomy", False):
             print(format_taxonomy_summary(traj_result), file=sys.stderr)
+
+        if getattr(args, "show_evolution", False):
+            from qec.analysis.strategy_adapter import (
+                format_evolution_summary,
+                run_evolution_analysis,
+            )
+
+            evo_result = run_evolution_analysis(run_results)
+            print(format_evolution_summary(evo_result), file=sys.stderr)
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

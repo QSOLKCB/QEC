@@ -64,9 +64,11 @@ def run_quaternary_bosonic_experiment(
     adjacency : np.ndarray, optional
         N×N adjacency matrix. If None, uses a simple chain graph.
     confidence_scale : float
-        Multiplicative scaling for initial confidences. Default 1.0.
+        Multiplicative scaling applied at initialization and after each
+        message-passing round (compounding). Default 1.0.
     neutral_bias : float
-        Additive bias to soft-state confidence. Default 0.0.
+        Additive bias applied to normalized signals before quantization
+        and to soft-state initial confidence. Default 0.0.
 
     Returns
     -------
@@ -83,8 +85,9 @@ def run_quaternary_bosonic_experiment(
     # Step 1: Normalize
     normalized = normalize_to_bipolar(raw)
 
-    # Step 2: Quaternary quantization
-    quaternary = quantize_quaternary(normalized)
+    # Step 2: Quaternary quantization (apply neutral_bias before snapping)
+    biased = np.clip(normalized + neutral_bias, -1.0, 1.0)
+    quaternary = quantize_quaternary(biased)
     initial_stats = quaternary_stats(quaternary)
 
     # Step 3: Build adjacency if not provided
@@ -98,6 +101,7 @@ def run_quaternary_bosonic_experiment(
     confidences = np.where(
         np.abs(states) == 1.0, 0.8, soft_conf,
     ).astype(np.float64)
+    confidences = np.clip(confidences * confidence_scale, 0.0, 1.0)
     round_diagnostics = []
 
     for r in range(rounds):

@@ -53,9 +53,11 @@ def run_concatenated_bosonic_experiment(
     adjacency : np.ndarray, optional
         N×N adjacency matrix. If None, uses a simple chain graph.
     confidence_scale : float
-        Multiplicative scaling for initial confidences. Default 1.0.
+        Multiplicative scaling applied at initialization and after each
+        message-passing round (compounding). Default 1.0.
     neutral_bias : float
-        Additive bias to neutral-state confidence. Default 0.0.
+        Additive bias applied to normalized signals before quantization
+        and to neutral-state initial confidence. Default 0.0.
 
     Returns
     -------
@@ -72,8 +74,9 @@ def run_concatenated_bosonic_experiment(
     # Step 1: Normalize
     normalized = normalize_to_bipolar(raw)
 
-    # Step 2: Ternary quantization
-    ternary = quantize_ternary(normalized, threshold=threshold)
+    # Step 2: Ternary quantization (apply neutral_bias before snapping)
+    biased = np.clip(normalized + neutral_bias, -1.0, 1.0)
+    ternary = quantize_ternary(biased, threshold=threshold)
     initial_stats = ternary_stats(ternary)
 
     # Step 3: Build adjacency if not provided
@@ -84,6 +87,7 @@ def run_concatenated_bosonic_experiment(
     states = ternary.copy()
     neutral_conf = float(np.clip(0.2 + neutral_bias, 0.0, 1.0))
     confidences = np.where(ternary != 0, 0.8, neutral_conf).astype(np.float64)
+    confidences = np.clip(confidences * confidence_scale, 0.0, 1.0)
     round_diagnostics = []
 
     for r in range(rounds):

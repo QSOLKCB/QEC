@@ -90,8 +90,10 @@ def dominates(
 
     if structure_aware:
         # Consistency gap constraint: a must be at least as consistent
-        a_gap = float(a_metrics.get("consistency_gap", 0.0))
-        b_gap = float(b_metrics.get("consistency_gap", 0.0))
+        if "consistency_gap" not in a_metrics or "consistency_gap" not in b_metrics:
+            return False  # cannot establish structure-aware dominance safely
+        a_gap = float(a_metrics["consistency_gap"])
+        b_gap = float(b_metrics["consistency_gap"])
         if a_gap > b_gap:
             return False
 

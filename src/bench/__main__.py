@@ -69,6 +69,24 @@ def main(argv: list[str] | None = None) -> int:
              "--compare-state-systems --strategy-prune).",
     )
     parser.add_argument(
+        "--analyze-strategies", action="store_true",
+        help="Run full analysis pipeline: cluster, embed, Pareto, compare "
+             "(use with --ternary-bosonic --strategy-generate "
+             "--compare-state-systems --strategy-prune --structure-aware).",
+    )
+    parser.add_argument(
+        "--show-pareto", action="store_true",
+        help="Show Pareto front in analysis output.",
+    )
+    parser.add_argument(
+        "--show-clusters", action="store_true",
+        help="Show strategy clusters in analysis output.",
+    )
+    parser.add_argument(
+        "--show-map", action="store_true",
+        help="Show ASCII strategy map visualization.",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -191,20 +209,41 @@ def _run_ternary_bosonic(args) -> int:
         if getattr(args, "compare_state_systems", False):
             if getattr(args, "strategy_prune", False):
                 if getattr(args, "structure_aware", False):
-                    from qec.analysis.strategy_adapter import (
-                        format_structure_aware_summary,
-                        run_structure_aware_pipeline,
-                    )
+                    if getattr(args, "analyze_strategies", False):
+                        from qec.analysis.strategy_adapter import (
+                            format_analysis_summary,
+                            run_analysis_pipeline,
+                        )
 
-                    sa_result = run_structure_aware_pipeline(
-                        base_strategy,
-                        raw_signals=raw,
-                        trust_signals={"stability": 0.8, "global_trust": 0.6},
-                    )
-                    print(
-                        format_structure_aware_summary(sa_result),
-                        file=sys.stderr,
-                    )
+                        analysis_result = run_analysis_pipeline(
+                            base_strategy,
+                            raw_signals=raw,
+                            trust_signals={"stability": 0.8, "global_trust": 0.6},
+                        )
+                        print(
+                            format_analysis_summary(
+                                analysis_result,
+                                show_pareto=getattr(args, "show_pareto", False),
+                                show_clusters=getattr(args, "show_clusters", False),
+                                show_map=getattr(args, "show_map", False),
+                            ),
+                            file=sys.stderr,
+                        )
+                    else:
+                        from qec.analysis.strategy_adapter import (
+                            format_structure_aware_summary,
+                            run_structure_aware_pipeline,
+                        )
+
+                        sa_result = run_structure_aware_pipeline(
+                            base_strategy,
+                            raw_signals=raw,
+                            trust_signals={"stability": 0.8, "global_trust": 0.6},
+                        )
+                        print(
+                            format_structure_aware_summary(sa_result),
+                            file=sys.stderr,
+                        )
                 else:
                     from qec.analysis.strategy_adapter import (
                         format_pruning_summary,

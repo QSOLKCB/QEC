@@ -33,7 +33,11 @@ from typing import Any, Dict, List, Optional
 
 from qec.analysis.consistency_metrics import enrich_with_consistency_gap
 from qec.analysis.dominance_pruning import pareto_prune, pruning_stats
+from qec.analysis.pareto_analysis import compute_pareto_front
+from qec.analysis.representation_analysis import compare_representations
+from qec.analysis.strategy_clustering import cluster_strategies
 from qec.analysis.strategy_correlation import prune_redundant
+from qec.analysis.strategy_embedding import embed_strategies_2d
 from qec.analysis.strategy_generation import generate_strategies
 from qec.analysis.strategy_selection import rank_strategies, select_strategy
 from qec.analysis.temporal_patterns import enrich_with_revival
@@ -726,6 +730,156 @@ def format_structure_aware_summary(result: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def run_analysis_pipeline(
+    base_strategy: Dict[str, Any],
+    raw_signals: Any,
+    trust_signals: Optional[Dict[str, float]] = None,
+    *,
+    score_histories: Optional[Dict[str, List[float]]] = None,
+    redundancy_threshold: float = 0.98,
+    cluster_threshold: float = 0.9,
+    structure_aware: bool = True,
+) -> Dict[str, Any]:
+    """Run the full analysis pipeline: generate -> evaluate -> enrich -> prune -> cluster -> embed -> analyze.
+
+    Extends the structure-aware pipeline with clustering, embedding,
+    representation comparison, and Pareto front extraction for
+    interpretability.
+
+    Parameters
+    ----------
+    base_strategy : dict
+        Base strategy with at least ``"config"`` and ``"metrics"``.
+    raw_signals : array-like
+        Raw analog signals for quaternary pipeline.
+    trust_signals : dict, optional
+        Trust signals for score modulation.
+    score_histories : dict, optional
+        Mapping of strategy name to list of historical scores.
+    redundancy_threshold : float
+        Correlation threshold for redundancy pruning (default 0.98).
+    cluster_threshold : float
+        Correlation threshold for clustering (default 0.9).
+    structure_aware : bool
+        If True, use structure-aware dominance (default True).
+
+    Returns
+    -------
+    dict
+        Contains structure-aware pipeline results plus analysis outputs:
+        ``embedding``, ``clusters``, ``pareto_front``, ``representation``.
+    """
+    # Steps 1-7: run the structure-aware pipeline
+    sa_result = run_structure_aware_pipeline(
+        base_strategy,
+        raw_signals,
+        trust_signals,
+        score_histories=score_histories,
+        redundancy_threshold=redundancy_threshold,
+    )
+
+    final_strategies = sa_result["final_pruned"]
+    all_enriched = sa_result["candidates"]
+
+    # Step: cluster
+    clusters = cluster_strategies(final_strategies, threshold=cluster_threshold)
+
+    # Step: embed
+    embedding = embed_strategies_2d(final_strategies)
+
+    # Step: Pareto front (from enriched set, structure-aware)
+    pareto_front = compute_pareto_front(
+        all_enriched, structure_aware=structure_aware,
+    )
+
+    # Step: representation comparison (on all enriched candidates)
+    representation = compare_representations(all_enriched)
+
+    sa_result["embedding"] = embedding
+    sa_result["clusters"] = clusters
+    sa_result["pareto_front"] = pareto_front
+    sa_result["representation"] = representation
+
+    return sa_result
+
+
+def format_analysis_summary(
+    result: Dict[str, Any],
+    *,
+    show_pareto: bool = True,
+    show_clusters: bool = True,
+    show_map: bool = False,
+) -> str:
+    """Format a human-readable summary of the analysis pipeline.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_analysis_pipeline``.
+    show_pareto : bool
+        If True, include the Pareto front section (default True).
+    show_clusters : bool
+        If True, include the clusters section (default True).
+    show_map : bool
+        If True, include ASCII strategy map (default False).
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.visualization.strategy_map import render_strategy_map
+
+    lines = [format_structure_aware_summary(result)]
+
+    # Clusters
+    if show_clusters and "clusters" in result:
+        clusters = result["clusters"].get("clusters", [])
+        lines.append("")
+        lines.append("=== Strategy Clusters ===")
+        lines.append(f"Total clusters: {len(clusters)}")
+        for c in clusters:
+            if c["size"] == 1:
+                lines.append(f"  [{c['representative']}] (singleton)")
+            else:
+                others = [m for m in c["members"] if m != c["representative"]]
+                lines.append(
+                    f"  [{c['representative']}] + {len(others)} similar: "
+                    + ", ".join(others[:3])
+                    + ("..." if len(others) > 3 else "")
+                )
+
+    # Pareto front
+    if show_pareto and "pareto_front" in result:
+        pareto = result["pareto_front"]
+        lines.append("")
+        lines.append("=== Pareto Front ===")
+        lines.append(f"Non-dominated strategies: {len(pareto)}")
+        for p in pareto[:5]:
+            ds = float(p.get("metrics", {}).get("design_score", 0.0))
+            name = p.get("name", "")
+            sys_type = p.get("state_system", "?")
+            lines.append(f"  [{sys_type}] {name}: design_score={ds:.6f}")
+
+    # Representation comparison
+    rep = result.get("representation", {})
+    lines.append("")
+    lines.append("=== Representation Comparison ===")
+    for sys_name in ("ternary", "quaternary"):
+        info = rep.get(sys_name, {})
+        count = info.get("count", 0)
+        avg = info.get("avg_design_score", 0.0)
+        best = info.get("best", "none")
+        lines.append(f"  {sys_name}: count={count}, avg_design_score={avg:.6f}, best={best}")
+
+    # Strategy map
+    if show_map and "embedding" in result:
+        lines.append("")
+        lines.append(render_strategy_map(result["embedding"]))
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -739,4 +893,6 @@ __all__ = [
     "enrich_strategies",
     "run_structure_aware_pipeline",
     "format_structure_aware_summary",
+    "run_analysis_pipeline",
+    "format_analysis_summary",
 ]

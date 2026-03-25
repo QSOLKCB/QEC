@@ -37,6 +37,7 @@ from typing import Any, Dict, List, Optional
 from qec.analysis.consistency_metrics import enrich_with_consistency_gap
 from qec.analysis.regime_classification import classify_regime
 from qec.analysis.strategy_history import build_strategy_history
+from qec.analysis.strategy_taxonomy import classify_strategy_type
 from qec.analysis.trajectory_metrics import compute_trajectory_metrics
 from qec.analysis.dominance_pruning import pareto_prune, pruning_stats
 from qec.analysis.pareto_analysis import compute_pareto_front
@@ -988,6 +989,66 @@ def format_trajectory_summary(result: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Taxonomy analysis (v102.3.0)
+# ---------------------------------------------------------------------------
+
+
+def run_taxonomy_analysis(
+    runs: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run the full taxonomy analysis pipeline.
+
+    Pipeline: runs -> trajectory -> taxonomy
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key with a list of
+        strategy dicts (each having ``"name"`` and ``"metrics"``).
+
+    Returns
+    -------
+    dict
+        Contains ``"history"``, ``"trajectory_metrics"``, ``"regimes"``,
+        and ``"taxonomy"``.
+    """
+    result = run_trajectory_analysis(runs)
+    taxonomy = classify_strategy_type(
+        result["trajectory_metrics"],
+        result["regimes"],
+    )
+    result["taxonomy"] = taxonomy
+    return result
+
+
+def format_taxonomy_summary(result: Dict[str, Any]) -> str:
+    """Format taxonomy analysis results as a human-readable summary.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_taxonomy_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    lines: List[str] = []
+    taxonomy = result.get("taxonomy", {})
+
+    lines.append("=== Strategy Taxonomy ===")
+
+    for name in sorted(taxonomy.keys()):
+        entry = taxonomy[name]
+        lines.append(f"Strategy: {name}")
+        lines.append(f"  Type: {entry['type']}")
+        lines.append(f"  Confidence: {entry['confidence']:.2f}")
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -1008,4 +1069,6 @@ __all__ = [
     "explain_pareto",
     "run_trajectory_analysis",
     "format_trajectory_summary",
+    "run_taxonomy_analysis",
+    "format_taxonomy_summary",
 ]

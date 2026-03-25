@@ -1,10 +1,14 @@
-"""v101.8.0 — Deterministic dominance pruning (Pareto frontier).
+"""v101.9.0 — Structure-aware dominance pruning (Pareto frontier).
 
 Removes dominated strategies from a candidate set, retaining only
 Pareto-optimal (non-dominated) strategies.
 
 A strategy A dominates B if A is at least as good as B on all metric
 keys and strictly better on at least one.
+
+v101.9.0 adds structure-aware refinement: dominance additionally
+requires that A's consistency_gap <= B's consistency_gap, and when
+both strategies have revival data, prefers higher revival_strength.
 
 All functions are:
 - deterministic (identical inputs -> identical outputs)
@@ -36,12 +40,21 @@ DOMINANCE_KEYS: List[str] = [
 # ---------------------------------------------------------------------------
 
 
-def dominates(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+def dominates(
+    a: Dict[str, Any],
+    b: Dict[str, Any],
+    *,
+    structure_aware: bool = False,
+) -> bool:
     """Return True if strategy *a* dominates strategy *b*.
 
     A dominates B iff:
     - for every key in DOMINANCE_KEYS: a_metrics[key] >= b_metrics[key]
     - for at least one key: a_metrics[key] > b_metrics[key]
+
+    When *structure_aware* is True, two additional conditions must hold:
+    - a's consistency_gap <= b's consistency_gap
+    - if both have revival data, a's revival_strength >= b's revival_strength
 
     Missing keys default to 0.0.
 
@@ -49,6 +62,8 @@ def dominates(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
     ----------
     a, b : dict
         Strategy dicts with a ``"metrics"`` sub-dict.
+    structure_aware : bool
+        If True, apply consistency gap and revival constraints.
 
     Returns
     -------
@@ -70,7 +85,28 @@ def dominates(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
         if a_val > b_val:
             any_gt = True
 
-    return all_geq and any_gt
+    if not (all_geq and any_gt):
+        return False
+
+    if structure_aware:
+        # Consistency gap constraint: a must be at least as consistent
+        if "consistency_gap" not in a_metrics or "consistency_gap" not in b_metrics:
+            return False  # cannot establish structure-aware dominance safely
+        a_gap = float(a_metrics["consistency_gap"])
+        b_gap = float(b_metrics["consistency_gap"])
+        if a_gap > b_gap:
+            return False
+
+        # Revival constraint: if both have revival, prefer higher strength
+        a_has = a_metrics.get("has_revival", False)
+        b_has = b_metrics.get("has_revival", False)
+        if a_has and b_has:
+            a_strength = float(a_metrics.get("revival_strength", 0.0))
+            b_strength = float(b_metrics.get("revival_strength", 0.0))
+            if a_strength < b_strength:
+                return False
+
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -78,16 +114,25 @@ def dominates(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def pareto_prune(strategies: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def pareto_prune(
+    strategies: List[Dict[str, Any]],
+    *,
+    structure_aware: bool = False,
+) -> List[Dict[str, Any]]:
     """Return only non-dominated (Pareto-optimal) strategies.
 
     Uses O(n²) pairwise comparison — acceptable for ≤54 strategies.
     Does not mutate inputs.
 
+    When *structure_aware* is True, dominance checks additionally
+    require consistency_gap and revival constraints.
+
     Parameters
     ----------
     strategies : list of dict
         Candidate strategies, each with ``"name"`` and ``"metrics"``.
+    structure_aware : bool
+        If True, use structure-aware dominance conditions.
 
     Returns
     -------
@@ -106,7 +151,8 @@ def pareto_prune(strategies: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         for j in range(n):
             if i == j or dominated[j]:
                 continue
-            if dominates(strategies[j], strategies[i]):
+            if dominates(strategies[j], strategies[i],
+                         structure_aware=structure_aware):
                 dominated[i] = True
                 break
 

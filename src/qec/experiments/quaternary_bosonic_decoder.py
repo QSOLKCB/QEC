@@ -50,6 +50,8 @@ def run_quaternary_bosonic_experiment(
     *,
     rounds: int = 3,
     adjacency: Optional[np.ndarray] = None,
+    confidence_scale: float = 1.0,
+    neutral_bias: float = 0.0,
 ) -> Dict[str, Any]:
     """Run the quaternary bosonic decoder experiment.
 
@@ -61,6 +63,12 @@ def run_quaternary_bosonic_experiment(
         Number of message-passing rounds (3–5 recommended).
     adjacency : np.ndarray, optional
         N×N adjacency matrix. If None, uses a simple chain graph.
+    confidence_scale : float
+        Multiplicative scaling applied at initialization and after each
+        message-passing round (compounding). Default 1.0.
+    neutral_bias : float
+        Additive bias applied to normalized signals before quantization
+        and to soft-state initial confidence. Default 0.0.
 
     Returns
     -------
@@ -77,8 +85,9 @@ def run_quaternary_bosonic_experiment(
     # Step 1: Normalize
     normalized = normalize_to_bipolar(raw)
 
-    # Step 2: Quaternary quantization
-    quaternary = quantize_quaternary(normalized)
+    # Step 2: Quaternary quantization (apply neutral_bias before snapping)
+    biased = np.clip(normalized + neutral_bias, -1.0, 1.0)
+    quaternary = quantize_quaternary(biased)
     initial_stats = quaternary_stats(quaternary)
 
     # Step 3: Build adjacency if not provided
@@ -88,15 +97,19 @@ def run_quaternary_bosonic_experiment(
     # Step 4: Message passing rounds
     states = quaternary.copy()
     # Strong states (|s| == 1.0) get high confidence, soft states get lower
+    soft_conf = float(np.clip(0.5 + neutral_bias, 0.0, 1.0))
     confidences = np.where(
-        np.abs(states) == 1.0, 0.8, 0.5,
+        np.abs(states) == 1.0, 0.8, soft_conf,
     ).astype(np.float64)
+    confidences = np.clip(confidences * confidence_scale, 0.0, 1.0)
     round_diagnostics = []
 
     for r in range(rounds):
         states, confidences = run_message_passing_round(
             states, confidences, adjacency,
         )
+        # Apply confidence scaling after each round so it feeds back
+        confidences = np.clip(confidences * confidence_scale, 0.0, 1.0)
         round_diagnostics.append({
             "round": r + 1,
             "states": states.tolist(),

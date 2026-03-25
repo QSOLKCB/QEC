@@ -63,7 +63,7 @@ def explain_strategy(s: Dict[str, Any]) -> Dict[str, Any]:
     revival_strength = float(metrics.get("revival_strength", 0.0))
 
     # Use _score if available (from rank_strategies), else fall back to design_score
-    score_val = float(s.get("_score", s.get("design_score", 0.0)))
+    score_val = float(s.get("_score", design_score))
 
     # Build lookup for dominant factor sorting
     factor_values = {

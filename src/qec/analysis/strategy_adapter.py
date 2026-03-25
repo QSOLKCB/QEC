@@ -320,15 +320,21 @@ def run_dual_generation_pipeline(
         state_sys = g.get("state_system", "ternary")
         cfg = g["config"]
         rounds = cfg.get("rounds", 3)
+        confidence_scale = cfg.get("confidence_scale", 1.0)
+        neutral_bias = cfg.get("neutral_bias", 0.0)
 
         if state_sys == "quaternary":
             result = run_quaternary_bosonic_experiment(
                 raw, rounds=rounds,
+                confidence_scale=confidence_scale,
+                neutral_bias=neutral_bias,
             )
         else:
             threshold = cfg.get("threshold", 0.3)
             result = run_concatenated_bosonic_experiment(
                 raw, threshold=threshold, rounds=rounds,
+                confidence_scale=confidence_scale,
+                neutral_bias=neutral_bias,
             )
 
         candidate = {

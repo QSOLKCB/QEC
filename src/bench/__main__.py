@@ -102,6 +102,11 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --track-strategies).",
     )
     parser.add_argument(
+        "--show-taxonomy", action="store_true",
+        help="Show strategy taxonomy (behavioral type classification) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -292,8 +297,9 @@ def _run_ternary_bosonic(args) -> int:
 
     if getattr(args, "track_strategies", False):
         from qec.analysis.strategy_adapter import (
+            format_taxonomy_summary,
             format_trajectory_summary,
-            run_trajectory_analysis,
+            run_taxonomy_analysis,
         )
 
         # Simulate multiple runs with slight signal perturbations.
@@ -323,10 +329,13 @@ def _run_ternary_bosonic(args) -> int:
             )
             run_results.append({"strategies": ranked})
 
-        traj_result = run_trajectory_analysis(run_results)
+        traj_result = run_taxonomy_analysis(run_results)
 
         if getattr(args, "show_trajectory", False) or getattr(args, "show_regimes", False):
             print(format_trajectory_summary(traj_result), file=sys.stderr)
+
+        if getattr(args, "show_taxonomy", False):
+            print(format_taxonomy_summary(traj_result), file=sys.stderr)
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

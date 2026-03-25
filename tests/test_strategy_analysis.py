@@ -285,6 +285,16 @@ class TestRepresentationComparison:
         compare_representations(strats)
         assert strats == original
 
+    def test_missing_state_system_skipped(self):
+        """Strategies without state_system are not silently assigned to ternary."""
+        strats = [
+            _make_strategy("a", design_score=0.5, state_system="ternary"),
+            {"name": "no_system", "metrics": {"design_score": 0.9}},
+        ]
+        result = compare_representations(strats)
+        assert result["ternary"]["count"] == 1
+        assert result["quaternary"]["count"] == 0
+
 
 # ---------------------------------------------------------------------------
 # Strategy map visualization tests

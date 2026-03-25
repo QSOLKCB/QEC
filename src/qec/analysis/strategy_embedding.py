@@ -20,14 +20,18 @@ from typing import Any, Dict, List
 def embed_strategies_2d(strategies: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Project strategies to 2D coordinates for visualization.
 
-    For each strategy, constructs a metric vector::
-
-        [design_score, confidence_efficiency, temporal_stability, trust_modulation]
-
-    And derives 2D coordinates::
+    Projection uses derived signals::
 
         x = design_score - consistency_gap
         y = confidence_efficiency + revival_strength
+
+    Where:
+
+    - ``consistency_gap`` measures divergence between design_score and
+      confidence_efficiency
+    - ``revival_strength`` captures temporal recovery behavior
+
+    The embedding is deterministic and based on enriched strategy metrics.
 
     Parameters
     ----------

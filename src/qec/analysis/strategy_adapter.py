@@ -803,47 +803,63 @@ def run_analysis_pipeline(
     return sa_result
 
 
-def format_analysis_summary(result: Dict[str, Any]) -> str:
+def format_analysis_summary(
+    result: Dict[str, Any],
+    *,
+    show_pareto: bool = True,
+    show_clusters: bool = True,
+    show_map: bool = False,
+) -> str:
     """Format a human-readable summary of the analysis pipeline.
 
     Parameters
     ----------
     result : dict
         Output of ``run_analysis_pipeline``.
+    show_pareto : bool
+        If True, include the Pareto front section (default True).
+    show_clusters : bool
+        If True, include the clusters section (default True).
+    show_map : bool
+        If True, include ASCII strategy map (default False).
 
     Returns
     -------
     str
         Multi-line summary string.
     """
+    from qec.visualization.strategy_map import render_strategy_map
+
     lines = [format_structure_aware_summary(result)]
 
     # Clusters
-    clusters = result.get("clusters", {}).get("clusters", [])
-    lines.append("")
-    lines.append("=== Strategy Clusters ===")
-    lines.append(f"Total clusters: {len(clusters)}")
-    for c in clusters:
-        if c["size"] == 1:
-            lines.append(f"  [{c['representative']}] (singleton)")
-        else:
-            others = [m for m in c["members"] if m != c["representative"]]
-            lines.append(
-                f"  [{c['representative']}] + {len(others)} similar: "
-                + ", ".join(others[:3])
-                + ("..." if len(others) > 3 else "")
-            )
+    if show_clusters and "clusters" in result:
+        clusters = result["clusters"].get("clusters", [])
+        lines.append("")
+        lines.append("=== Strategy Clusters ===")
+        lines.append(f"Total clusters: {len(clusters)}")
+        for c in clusters:
+            if c["size"] == 1:
+                lines.append(f"  [{c['representative']}] (singleton)")
+            else:
+                others = [m for m in c["members"] if m != c["representative"]]
+                lines.append(
+                    f"  [{c['representative']}] + {len(others)} similar: "
+                    + ", ".join(others[:3])
+                    + ("..." if len(others) > 3 else "")
+                )
 
     # Pareto front
-    pareto = result.get("pareto_front", [])
-    lines.append("")
-    lines.append("=== Pareto Front ===")
-    lines.append(f"Non-dominated strategies: {len(pareto)}")
-    for p in pareto[:5]:
-        ds = float(p.get("metrics", {}).get("design_score", 0.0))
-        name = p.get("name", "")
-        sys_type = p.get("state_system", "?")
-        lines.append(f"  [{sys_type}] {name}: design_score={ds:.6f}")
+    if show_pareto and "pareto_front" in result:
+        pareto = result["pareto_front"]
+        lines.append("")
+        lines.append("=== Pareto Front ===")
+        lines.append(f"Non-dominated strategies: {len(pareto)}")
+        for p in pareto[:5]:
+            ds = float(p.get("metrics", {}).get("design_score", 0.0))
+            name = p.get("name", "")
+            sys_type = p.get("state_system", "?")
+            lines.append(f"  [{sys_type}] {name}: design_score={ds:.6f}")
 
     # Representation comparison
     rep = result.get("representation", {})
@@ -855,6 +871,11 @@ def format_analysis_summary(result: Dict[str, Any]) -> str:
         avg = info.get("avg_design_score", 0.0)
         best = info.get("best", "none")
         lines.append(f"  {sys_name}: count={count}, avg_design_score={avg:.6f}, best={best}")
+
+    # Strategy map
+    if show_map and "embedding" in result:
+        lines.append("")
+        lines.append(render_strategy_map(result["embedding"]))
 
     return "\n".join(lines)
 

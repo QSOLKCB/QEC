@@ -40,9 +40,12 @@ def compare_representations(strategies: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
     for s in strategies:
-        system = s.get("state_system", "ternary")
+        system = s.get("state_system")
         if system in groups:
             groups[system].append(s)
+        else:
+            # Skip unknown or missing systems explicitly
+            continue
 
     result = {}
     for system_name in ("ternary", "quaternary"):

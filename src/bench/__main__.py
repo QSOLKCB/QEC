@@ -221,20 +221,14 @@ def _run_ternary_bosonic(args) -> int:
                             trust_signals={"stability": 0.8, "global_trust": 0.6},
                         )
                         print(
-                            format_analysis_summary(analysis_result),
+                            format_analysis_summary(
+                                analysis_result,
+                                show_pareto=getattr(args, "show_pareto", False),
+                                show_clusters=getattr(args, "show_clusters", False),
+                                show_map=getattr(args, "show_map", False),
+                            ),
                             file=sys.stderr,
                         )
-
-                        if getattr(args, "show_map", False):
-                            from qec.visualization.strategy_map import (
-                                render_strategy_map,
-                            )
-
-                            embedding = analysis_result.get("embedding", [])
-                            print(
-                                "\n" + render_strategy_map(embedding),
-                                file=sys.stderr,
-                            )
                     else:
                         from qec.analysis.strategy_adapter import (
                             format_structure_aware_summary,

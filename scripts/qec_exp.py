@@ -51,6 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--enable-phase-diagram-surrogate", action="store_true")
     search.add_argument("--enable-spectral-trapping-repair", action="store_true")
     search.add_argument("--trapping-localization-fraction", type=float, default=0.2)
+    search.add_argument("--explain", action="store_true",
+                        help="Print strategy explanation and Pareto explanation after analysis")
 
     args = parser.parse_args(argv)
     if args.command == "spectral-search":

@@ -34,10 +34,12 @@ from typing import Any, Dict, List, Optional
 from qec.analysis.consistency_metrics import enrich_with_consistency_gap
 from qec.analysis.dominance_pruning import pareto_prune, pruning_stats
 from qec.analysis.pareto_analysis import compute_pareto_front
+from qec.analysis.pareto_explanation import explain_pareto
 from qec.analysis.representation_analysis import compare_representations
 from qec.analysis.strategy_clustering import cluster_strategies
 from qec.analysis.strategy_correlation import prune_redundant
 from qec.analysis.strategy_embedding import embed_strategies_2d
+from qec.analysis.strategy_explanation import compare_strategies, explain_strategy
 from qec.analysis.strategy_generation import generate_strategies
 from qec.analysis.strategy_selection import rank_strategies, select_strategy
 from qec.analysis.temporal_patterns import enrich_with_revival
@@ -795,10 +797,18 @@ def run_analysis_pipeline(
     # Step: representation comparison (on all enriched candidates)
     representation = compare_representations(all_enriched)
 
+    # Step: explain selected strategy
+    selected_explanation = explain_strategy(sa_result["selected"])
+
+    # Step: explain Pareto front
+    pareto_explanations = explain_pareto(pareto_front)
+
     sa_result["embedding"] = embedding
     sa_result["clusters"] = clusters
     sa_result["pareto_front"] = pareto_front
     sa_result["representation"] = representation
+    sa_result["selected_explanation"] = selected_explanation
+    sa_result["pareto_explanations"] = pareto_explanations
 
     return sa_result
 
@@ -809,6 +819,7 @@ def format_analysis_summary(
     show_pareto: bool = True,
     show_clusters: bool = True,
     show_map: bool = False,
+    show_explanation: bool = False,
 ) -> str:
     """Format a human-readable summary of the analysis pipeline.
 
@@ -822,6 +833,9 @@ def format_analysis_summary(
         If True, include the clusters section (default True).
     show_map : bool
         If True, include ASCII strategy map (default False).
+    show_explanation : bool
+        If True, include strategy explanation and Pareto explanation
+        sections (default False).
 
     Returns
     -------
@@ -877,6 +891,27 @@ def format_analysis_summary(
         lines.append("")
         lines.append(render_strategy_map(result["embedding"]))
 
+    # Explanation
+    if show_explanation:
+        explanation = result.get("selected_explanation")
+        if explanation:
+            lines.append("")
+            lines.append("=== Explanation ===")
+            lines.append(f"Best strategy: {explanation['name']}")
+            lines.append(f"Score: {explanation['score']}")
+            lines.append(f"Dominant factors: {', '.join(explanation['dominant_factors'])}")
+            comps = explanation.get("components", {})
+            for k, v in sorted(comps.items()):
+                lines.append(f"  {k}: {v:.6f}")
+
+        pareto_expl = result.get("pareto_explanations")
+        if pareto_expl:
+            lines.append("")
+            lines.append("=== Pareto Explanation ===")
+            for pe in pareto_expl:
+                strengths = ", ".join(pe["strengths"]) if pe["strengths"] else "none"
+                lines.append(f"  {pe['name']}: strengths={strengths}")
+
     return "\n".join(lines)
 
 
@@ -895,4 +930,7 @@ __all__ = [
     "format_structure_aware_summary",
     "run_analysis_pipeline",
     "format_analysis_summary",
+    "explain_strategy",
+    "compare_strategies",
+    "explain_pareto",
 ]

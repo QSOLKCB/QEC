@@ -34,7 +34,7 @@ def compute_trajectory_metrics(history: Dict[str, Dict[str, List[float]]]) -> Di
         - ``variance_score`` : float — population variance of design_score
         - ``stability`` : float — 1 / (1 + variance_score)
         - ``trend`` : float — final - initial design_score (0.0 if < 2 values)
-        - ``oscillation`` : int — sign changes in consecutive score deltas
+        - ``oscillation`` : int — sign changes in non-zero consecutive score deltas
     """
     result: Dict[str, Dict[str, Any]] = {}
 
@@ -72,13 +72,21 @@ def _variance(values: List[float], mean: float) -> float:
 
 
 def _count_sign_changes(values: List[float]) -> int:
-    """Count the number of sign changes in consecutive deltas."""
+    """Count the number of sign changes in non-zero consecutive deltas.
+
+    Zero deltas (flat segments) are filtered out before counting so
+    that plateaus do not produce artificial oscillations.
+    """
     if len(values) < 3:
         return 0
     deltas = [values[i + 1] - values[i] for i in range(len(values) - 1)]
+    # Filter out zero deltas to avoid ambiguity from flat segments.
+    nonzero = [d for d in deltas if d != 0.0]
+    if len(nonzero) < 2:
+        return 0
     changes = 0
-    for i in range(len(deltas) - 1):
-        if deltas[i] * deltas[i + 1] < 0:
+    for i in range(len(nonzero) - 1):
+        if nonzero[i] * nonzero[i + 1] < 0:
             changes += 1
     return changes
 

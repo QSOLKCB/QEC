@@ -182,6 +182,40 @@ class TestTrajectoryMetrics:
         m2 = compute_trajectory_metrics(history)
         assert m1 == m2
 
+    def test_flat_sequence_zero_oscillation(self):
+        """Flat sequences must never register oscillation."""
+        history = {"F": {"design_score": [0.5, 0.5, 0.5, 0.5, 0.5]}}
+        m = compute_trajectory_metrics(history)
+        assert m["F"]["oscillation"] == 0
+
+    def test_zero_delta_filtered_from_oscillation(self):
+        """Zero deltas between non-zero deltas should not cause extra sign changes."""
+        # Scores: 0.3, 0.5, 0.5, 0.3
+        # Deltas: +0.2, 0.0, -0.2
+        # Non-zero deltas: +0.2, -0.2 → 1 sign change
+        history = {"Z": {"design_score": [0.3, 0.5, 0.5, 0.3]}}
+        m = compute_trajectory_metrics(history)
+        assert m["Z"]["oscillation"] == 1
+
+    def test_two_identical_values(self):
+        """Two identical values: no trend, no oscillation, zero variance."""
+        history = {"D": {"design_score": [0.7, 0.7]}}
+        m = compute_trajectory_metrics(history)
+        assert m["D"]["mean_score"] == 0.7
+        assert m["D"]["variance_score"] == 0.0
+        assert m["D"]["stability"] == 1.0
+        assert m["D"]["trend"] == 0.0
+        assert m["D"]["oscillation"] == 0
+
+    def test_plateau_with_single_change(self):
+        """Plateau broken by a single rise should not oscillate."""
+        # Scores: 0.5, 0.5, 0.5, 0.7
+        # Deltas: 0.0, 0.0, +0.2
+        # Non-zero deltas: [+0.2] → length < 2 → oscillation = 0
+        history = {"P": {"design_score": [0.5, 0.5, 0.5, 0.7]}}
+        m = compute_trajectory_metrics(history)
+        assert m["P"]["oscillation"] == 0
+
 
 # ---------------------------------------------------------------------------
 # classify_regime

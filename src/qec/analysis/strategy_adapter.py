@@ -1,4 +1,4 @@
-"""v101.9.0 — Strategy adapter for trust-aware selection.
+"""v102.2.0 — Strategy adapter for trust-aware selection.
 
 Wraps outputs from the v101.4 ternary bosonic pipeline into
 candidate strategies, scores and ranks them, and returns the
@@ -18,6 +18,9 @@ v101.9.0 adds structure-aware dominance with consistency gap enrichment,
 temporal revival detection, pairwise correlation-based redundancy pruning,
 and ``run_structure_aware_pipeline`` with ``format_structure_aware_summary``.
 
+v102.2.0 adds trajectory tracking and regime analysis via
+``run_trajectory_analysis`` and ``format_trajectory_summary``.
+
 All functions are:
 - deterministic (identical inputs -> identical outputs)
 - side-effect free (no mutation of inputs)
@@ -32,6 +35,9 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from qec.analysis.consistency_metrics import enrich_with_consistency_gap
+from qec.analysis.regime_classification import classify_regime
+from qec.analysis.strategy_history import build_strategy_history
+from qec.analysis.trajectory_metrics import compute_trajectory_metrics
 from qec.analysis.dominance_pruning import pareto_prune, pruning_stats
 from qec.analysis.pareto_analysis import compute_pareto_front
 from qec.analysis.pareto_explanation import explain_pareto
@@ -915,6 +921,73 @@ def format_analysis_summary(
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Trajectory analysis (v102.2.0)
+# ---------------------------------------------------------------------------
+
+
+def run_trajectory_analysis(
+    runs: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run the full trajectory analysis pipeline.
+
+    Pipeline: runs -> history -> trajectory_metrics -> regime_classification
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key with a list of
+        strategy dicts (each having ``"name"`` and ``"metrics"``).
+
+    Returns
+    -------
+    dict
+        Contains ``"history"``, ``"trajectory_metrics"``, and ``"regimes"``.
+    """
+    history = build_strategy_history(runs)
+    traj_metrics = compute_trajectory_metrics(history)
+    regimes = classify_regime(traj_metrics)
+
+    return {
+        "history": history,
+        "trajectory_metrics": traj_metrics,
+        "regimes": regimes,
+    }
+
+
+def format_trajectory_summary(result: Dict[str, Any]) -> str:
+    """Format trajectory analysis results as a human-readable summary.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_trajectory_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    lines: List[str] = []
+    traj = result.get("trajectory_metrics", {})
+    regimes = result.get("regimes", {})
+
+    lines.append("=== Trajectory Summary ===")
+
+    for name in sorted(traj.keys()):
+        m = traj[name]
+        regime = regimes.get(name, "unknown")
+        lines.append(f"Strategy: {name}")
+        lines.append(f"  Mean: {m['mean_score']:.6f}")
+        lines.append(f"  Variance: {m['variance_score']:.6f}")
+        lines.append(f"  Stability: {m['stability']:.6f}")
+        lines.append(f"  Trend: {m['trend']:.6f}")
+        lines.append(f"  Oscillation: {m['oscillation']}")
+        lines.append(f"  Regime: {regime}")
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -933,4 +1006,6 @@ __all__ = [
     "explain_strategy",
     "compare_strategies",
     "explain_pareto",
+    "run_trajectory_analysis",
+    "format_trajectory_summary",
 ]

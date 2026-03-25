@@ -87,6 +87,21 @@ def main(argv: list[str] | None = None) -> int:
         help="Show ASCII strategy map visualization.",
     )
     parser.add_argument(
+        "--track-strategies", action="store_true",
+        help="Track strategy behavior across runs for trajectory analysis "
+             "(use with --ternary-bosonic --strategy-generate).",
+    )
+    parser.add_argument(
+        "--show-trajectory", action="store_true",
+        help="Show trajectory metrics (mean, variance, stability, trend) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
+        "--show-regimes", action="store_true",
+        help="Show regime classification (stable/oscillatory/transitional) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -274,6 +289,44 @@ def _run_ternary_bosonic(args) -> int:
                 trust_signals={"stability": 0.8, "global_trust": 0.6},
             )
             print(format_generation_summary(gen_result), file=sys.stderr)
+
+    if getattr(args, "track_strategies", False):
+        from qec.analysis.strategy_adapter import (
+            format_trajectory_summary,
+            run_trajectory_analysis,
+        )
+
+        # Simulate multiple runs with slight signal perturbations.
+        # Each run produces a full strategy set for trajectory tracking.
+        run_results = []
+        perturbations = [0.0, 0.02, -0.01]
+        for delta in perturbations:
+            perturbed = raw + delta
+            run_result = run_concatenated_bosonic_experiment(
+                perturbed, threshold=0.3, rounds=3,
+            )
+            base = {
+                "config": {
+                    "threshold": run_result.get("threshold", 0.3),
+                    "rounds": run_result.get("rounds", 3),
+                    "confidence_scale": 1.0,
+                },
+                "metrics": dict(run_result.get("metrics", {})),
+            }
+            from qec.analysis.strategy_generation import generate_strategies
+            from qec.analysis.strategy_selection import rank_strategies
+
+            strategies = generate_strategies(base)
+            ranked = rank_strategies(
+                strategies,
+                trust_signals={"stability": 0.8, "global_trust": 0.6},
+            )
+            run_results.append({"strategies": ranked})
+
+        traj_result = run_trajectory_analysis(run_results)
+
+        if getattr(args, "show_trajectory", False) or getattr(args, "show_regimes", False):
+            print(format_trajectory_summary(traj_result), file=sys.stderr)
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

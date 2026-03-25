@@ -60,9 +60,13 @@ def detect_revival(history: List[float]) -> Dict[str, Any]:
     # Find the index of the first occurrence of min_value
     min_idx = values.index(min_value)
 
-    # Revival requires: min occurs before the end AND final > min
-    has_revival = min_idx < len(values) - 1 and final_value > min_value
+    # There must be an actual drop before the minimum:
+    # - min is not the first point, and
+    # - at least one earlier value is strictly higher than the minimum.
+    had_drop = min_idx > 0 and max(values[:min_idx]) > min_value
 
+    # Revival requires: an earlier drop to min, min occurs before the end, AND final > min
+    has_revival = had_drop and min_idx < len(values) - 1 and final_value > min_value
     if has_revival and max_value > min_value:
         strength = (final_value - min_value) / (max_value - min_value)
         strength = max(0.0, min(1.0, strength))

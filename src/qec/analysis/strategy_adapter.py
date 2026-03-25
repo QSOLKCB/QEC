@@ -1,4 +1,4 @@
-"""v101.8.0 — Strategy adapter for trust-aware selection.
+"""v101.9.0 — Strategy adapter for trust-aware selection.
 
 Wraps outputs from the v101.4 ternary bosonic pipeline into
 candidate strategies, scores and ranks them, and returns the
@@ -14,6 +14,10 @@ v101.7.0 adds dual-system (ternary + quaternary) support with
 v101.8.0 adds deterministic dominance pruning (Pareto frontier) via
 ``run_pruned_pipeline`` and ``format_pruning_summary``.
 
+v101.9.0 adds structure-aware dominance with consistency gap enrichment,
+temporal revival detection, pairwise correlation-based redundancy pruning,
+and ``run_structure_aware_pipeline`` with ``format_structure_aware_summary``.
+
 All functions are:
 - deterministic (identical inputs -> identical outputs)
 - side-effect free (no mutation of inputs)
@@ -27,9 +31,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from qec.analysis.consistency_metrics import enrich_with_consistency_gap
 from qec.analysis.dominance_pruning import pareto_prune, pruning_stats
+from qec.analysis.strategy_correlation import prune_redundant
 from qec.analysis.strategy_generation import generate_strategies
 from qec.analysis.strategy_selection import rank_strategies, select_strategy
+from qec.analysis.temporal_patterns import enrich_with_revival
 
 
 def build_candidate_strategies(
@@ -532,6 +539,187 @@ def format_pruning_summary(result: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def enrich_strategies(
+    candidates: List[Dict[str, Any]],
+    score_histories: Optional[Dict[str, List[float]]] = None,
+) -> List[Dict[str, Any]]:
+    """Enrich candidates with consistency gap and optional revival info.
+
+    Does not mutate inputs.
+
+    Parameters
+    ----------
+    candidates : list of dict
+        Strategy candidates.
+    score_histories : dict, optional
+        Mapping of strategy name to score history list.
+
+    Returns
+    -------
+    list of dict
+        Enriched copies of candidates.
+    """
+    histories = score_histories or {}
+    enriched = []
+    for c in candidates:
+        e = enrich_with_consistency_gap(c)
+        name = e.get("name", "")
+        if name in histories:
+            e = enrich_with_revival(e, histories[name])
+        enriched.append(e)
+    return enriched
+
+
+def run_structure_aware_pipeline(
+    base_strategy: Dict[str, Any],
+    raw_signals: Any,
+    trust_signals: Optional[Dict[str, float]] = None,
+    *,
+    score_histories: Optional[Dict[str, List[float]]] = None,
+    redundancy_threshold: float = 0.98,
+) -> Dict[str, Any]:
+    """Generate, evaluate, enrich, prune (structure-aware), and select.
+
+    Pipeline:
+    1. Generate 54 strategies (27 ternary + 27 quaternary)
+    2. Evaluate each through the correct pipeline
+    3. Enrich with consistency_gap and revival info
+    4. Structure-aware Pareto prune
+    5. Correlation-based redundancy prune
+    6. Rank remaining by score
+    7. Select best
+
+    Parameters
+    ----------
+    base_strategy : dict
+        Base strategy with at least ``"config"`` and ``"metrics"``.
+    raw_signals : array-like
+        Raw analog signals for quaternary pipeline.
+    trust_signals : dict, optional
+        Trust signals for score modulation.
+    score_histories : dict, optional
+        Mapping of strategy name to list of historical scores.
+    redundancy_threshold : float
+        Correlation threshold for redundancy pruning (default 0.98).
+
+    Returns
+    -------
+    dict
+        Contains full results including enrichment and pruning statistics.
+    """
+    # Step 1-2: generate and evaluate all 54
+    dual_result = run_dual_generation_pipeline(
+        base_strategy, raw_signals, trust_signals,
+    )
+
+    candidates = dual_result["candidates"]
+
+    # Step 3: enrich
+    enriched = enrich_strategies(candidates, score_histories)
+
+    # Step 4: structure-aware Pareto prune
+    pareto_pruned = pareto_prune(enriched, structure_aware=True)
+
+    # Step 5: correlation-based redundancy prune
+    final_pruned = prune_redundant(pareto_pruned, threshold=redundancy_threshold)
+
+    # Step 6: rank
+    ranked = rank_strategies(final_pruned)
+
+    # Step 7: select
+    selected = select_strategy(final_pruned)
+
+    # Per-system bests
+    ternary_ranked = [c for c in ranked if c.get("state_system") == "ternary"]
+    quaternary_ranked = [c for c in ranked if c.get("state_system") == "quaternary"]
+
+    best_ternary = ternary_ranked[0] if ternary_ranked else None
+    best_quaternary = quaternary_ranked[0] if quaternary_ranked else None
+
+    pareto_stats = pruning_stats(enriched, pareto_pruned)
+    redundancy_removed = len(pareto_pruned) - len(final_pruned)
+
+    # Compute avg consistency gap
+    gaps = [
+        float(c.get("metrics", {}).get("consistency_gap", 0.0))
+        for c in enriched
+    ]
+    avg_gap = round(sum(gaps) / len(gaps), 12) if gaps else 0.0
+
+    # Count revivals
+    revival_count = sum(
+        1 for c in enriched
+        if c.get("metrics", {}).get("has_revival", False)
+    )
+
+    return {
+        "candidates": enriched,
+        "pareto_pruned": pareto_pruned,
+        "final_pruned": final_pruned,
+        "ranked": ranked,
+        "selected": selected,
+        "best_ternary": best_ternary,
+        "best_quaternary": best_quaternary,
+        "n_total": len(enriched),
+        "n_after_pareto": len(pareto_pruned),
+        "n_after_redundancy": len(final_pruned),
+        "pareto_stats": pareto_stats,
+        "redundancy_removed": redundancy_removed,
+        "avg_consistency_gap": avg_gap,
+        "revival_count": revival_count,
+    }
+
+
+def format_structure_aware_summary(result: Dict[str, Any]) -> str:
+    """Format a human-readable summary of structure-aware pipeline results.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_structure_aware_pipeline``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    selected = result["selected"]
+    best_t = result["best_ternary"]
+    best_q = result["best_quaternary"]
+    pareto_stats = result["pareto_stats"]
+
+    lines = [
+        "",
+        "=== Structure-Aware Dominance Pruning ===",
+        f"Total strategies:        {result['n_total']}",
+        f"After Pareto pruning:    {result['n_after_pareto']}",
+        f"After redundancy prune:  {result['n_after_redundancy']}",
+        f"Dominance ratio:         {pareto_stats['dominance_ratio']:.4f}",
+        f"Redundant removed:       {result['redundancy_removed']}",
+        f"Avg consistency gap:     {result['avg_consistency_gap']:.6f}",
+        f"Strategies with revival: {result['revival_count']} / {result['n_total']}",
+        "",
+    ]
+
+    if best_t:
+        lines.append(
+            f"Best ternary:            {best_t['name']} "
+            f"(score={best_t.get('_score', 0.0):.6f})"
+        )
+    if best_q:
+        lines.append(
+            f"Best quaternary:         {best_q['name']} "
+            f"(score={best_q.get('_score', 0.0):.6f})"
+        )
+
+    lines.append(
+        f"Selected (global best):  {selected['name']} "
+        f"(score={selected.get('_score', 0.0):.6f})"
+    )
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -542,4 +730,7 @@ __all__ = [
     "format_comparison_summary",
     "run_pruned_pipeline",
     "format_pruning_summary",
+    "enrich_strategies",
+    "run_structure_aware_pipeline",
+    "format_structure_aware_summary",
 ]

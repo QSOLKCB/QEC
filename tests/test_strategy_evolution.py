@@ -333,6 +333,65 @@ class TestClassifyEvolutionPattern:
 
 
 # ---------------------------------------------------------------------------
+# Priority ordering tests — structural patterns dominate statistical
+# ---------------------------------------------------------------------------
+
+
+class TestPriorityOrdering:
+    """Structural patterns must dominate statistical ones."""
+
+    def test_cycling_dominates_volatile(self):
+        # A->B->A->B->A->B has rate=1.0 (volatile) but is clearly cycling.
+        seq = ["a", "b", "a", "b", "a", "b"]
+        traj = {"A": seq}
+        m = compute_transition_metrics(traj)
+        assert m["A"]["transition_rate"] > 0.5  # would be volatile
+        evo = classify_evolution_pattern(m, traj)
+        assert evo["A"]["pattern"] == "cycling"
+
+    def test_converging_dominates_stable_evolver(self):
+        # Starts as B then converges to A — low rate but structurally converging.
+        seq = ["b"] + ["a"] * 20
+        traj = {"A": seq}
+        m = compute_transition_metrics(traj)
+        assert m["A"]["transition_rate"] < 0.1  # would be stable_evolver
+        evo = classify_evolution_pattern(m, traj)
+        assert evo["A"]["pattern"] == "converging"
+
+    def test_converging_dominates_adaptive(self):
+        # Multiple transitions early, then settles — converging not adaptive.
+        seq = ["a", "b", "c", "c", "c", "c", "c"]
+        traj = {"A": seq}
+        m = compute_transition_metrics(traj)
+        evo = classify_evolution_pattern(m, traj)
+        assert evo["A"]["pattern"] == "converging"
+
+    def test_cycling_dominates_adaptive(self):
+        # A->B->A->B is rate=1.0 but cycling dominates.
+        seq = ["a", "b", "a", "b"]
+        traj = {"A": seq}
+        m = compute_transition_metrics(traj)
+        evo = classify_evolution_pattern(m, traj)
+        assert evo["A"]["pattern"] == "cycling"
+
+    def test_constant_is_stable_not_converging(self):
+        # All same type — stable_evolver, not converging (no transition to converge from).
+        seq = ["stable_core"] * 10
+        traj = {"A": seq}
+        m = compute_transition_metrics(traj)
+        evo = classify_evolution_pattern(m, traj)
+        assert evo["A"]["pattern"] == "stable_evolver"
+
+    def test_constant_is_not_cycling(self):
+        # Constant sequence is not a cycle (needs distinct types in period).
+        seq = ["x"] * 8
+        traj = {"A": seq}
+        m = compute_transition_metrics(traj)
+        evo = classify_evolution_pattern(m, traj)
+        assert evo["A"]["pattern"] != "cycling"
+
+
+# ---------------------------------------------------------------------------
 # Integration tests
 # ---------------------------------------------------------------------------
 

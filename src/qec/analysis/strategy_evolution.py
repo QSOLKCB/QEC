@@ -145,14 +145,15 @@ def classify_evolution_pattern(
         - ``num_transitions`` : int
         - ``dominant_type`` : str
 
-    Evolution patterns (applied in priority order; first match wins):
+    Evolution patterns (applied in priority order; first match wins).
+    Structural patterns dominate statistical ones:
 
-    1. ``"stable_evolver"`` — transition_rate < 0.1 and unique_types <= 2
+    1. ``"cycling"`` — detects repeating pattern (e.g. A->B->A->B)
     2. ``"converging"`` — last 3 types identical (sequence length >= 3)
-    3. ``"cycling"`` — detects repeating pattern (e.g. A->B->A->B)
-    4. ``"volatile"`` — transition_rate > 0.5
-    5. ``"diverging"`` — unique_types >= 4 and no repetition
-    6. ``"adaptive"`` — transition_rate >= 0.1 and <= 0.5 and unique_types >= 2
+    3. ``"volatile"`` — transition_rate > 0.5
+    4. ``"diverging"`` — unique_types >= 4 and no repetition
+    5. ``"adaptive"`` — transition_rate >= 0.1 and <= 0.5 and unique_types >= 2
+    6. ``"stable_evolver"`` — transition_rate < 0.1 and unique_types <= 2
     7. ``"transitional"`` — fallback
     """
     result: Dict[str, Dict[str, Any]] = {}
@@ -223,14 +224,18 @@ def _longest_streak(seq: List[str]) -> int:
 def _has_cycling_pattern(seq: List[str]) -> bool:
     """Detect repeating patterns in a sequence.
 
-    Checks for period lengths 1..len//2.  A period *p* is a cycle if
+    Checks for period lengths 2..len//2.  A period *p* is a cycle if
     every element at index *i* equals the element at index *i mod p*
-    for all *i* in the sequence.
+    for all *i* in the sequence.  The period itself must contain at
+    least 2 distinct types; a constant sequence is not a cycle.
     """
     n = len(seq)
     if n < 4:
         return False
     for period in range(2, n // 2 + 1):
+        # Skip if the period window is constant (not a true cycle).
+        if len(set(seq[:period])) < 2:
+            continue
         is_cycle = True
         for i in range(period, n):
             if seq[i] != seq[i % period]:
@@ -255,28 +260,38 @@ def _classify_single_pattern(
     m: Dict[str, Any],
     seq: List[str],
 ) -> str:
-    """Classify a single strategy's evolution pattern."""
+    """Classify a single strategy's evolution pattern.
+
+    Structural patterns (cycling, converging, diverging) are checked
+    before statistical ones (volatile, adaptive, stable_evolver) so
+    that observable structure is never masked by aggregate statistics.
+    """
     transition_rate = m["transition_rate"]
     unique_types = m["unique_types"]
 
-    # 1. Stable evolver.
-    if transition_rate < 0.1 and unique_types <= 2:
-        return "stable_evolver"
-    # 2. Converging — last 3 types identical.
-    if len(seq) >= 3 and seq[-1] == seq[-2] == seq[-3]:
-        return "converging"
-    # 3. Cycling — repeating pattern.
+    # 1. Cycling — repeating structural pattern dominates all.
     if _has_cycling_pattern(seq):
         return "cycling"
-    # 4. Volatile.
+    # 2. Converging — last 3 types identical, but only if there was
+    #    at least one transition (a constant sequence is not converging).
+    if (
+        len(seq) >= 3
+        and seq[-1] == seq[-2] == seq[-3]
+        and m["num_transitions"] > 0
+    ):
+        return "converging"
+    # 3. Volatile.
     if transition_rate > 0.5:
         return "volatile"
-    # 5. Diverging — many unique types, no repetition.
+    # 4. Diverging — many unique types, no repetition.
     if unique_types >= 4 and _has_no_repetition(seq):
         return "diverging"
-    # 6. Adaptive.
+    # 5. Adaptive.
     if 0.1 <= transition_rate <= 0.5 and unique_types >= 2:
         return "adaptive"
+    # 6. Stable evolver.
+    if transition_rate < 0.1 and unique_types <= 2:
+        return "stable_evolver"
     # 7. Transitional (fallback).
     return "transitional"
 

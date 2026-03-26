@@ -2707,6 +2707,54 @@ def format_policy_topology_adapter_summary(result: Dict[str, Any]) -> str:
     return _fmt(result)
 
 
+def run_trajectory_geometry_analysis(
+    runs: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run rotation-aware trajectory geometry analysis.
+
+    Delegates to ``trajectory_geometry.run_trajectory_geometry_analysis``.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Ordered sequence of run steps.
+
+    Returns
+    -------
+    dict
+        Contains rotation metrics, coupling metrics, and event predictions.
+    """
+    from qec.analysis.trajectory_geometry import (
+        run_trajectory_geometry_analysis as _run,
+    )
+
+    return _run(runs)
+
+
+def format_trajectory_geometry_adapter_summary(
+    result: Dict[str, Any],
+) -> str:
+    """Format trajectory geometry results as a human-readable summary.
+
+    Delegates to ``trajectory_geometry.format_trajectory_geometry_summary``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_trajectory_geometry_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.trajectory_geometry import (
+        format_trajectory_geometry_summary as _fmt,
+    )
+
+    return _fmt(result)
+
+
 def run_system_diagnostics_analysis(
     runs: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
@@ -2805,4 +2853,6 @@ __all__ = [
     "format_policy_topology_adapter_summary",
     "run_system_diagnostics_analysis",
     "format_system_diagnostics_adapter_summary",
+    "run_trajectory_geometry_analysis",
+    "format_trajectory_geometry_adapter_summary",
 ]

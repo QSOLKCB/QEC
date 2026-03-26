@@ -61,6 +61,34 @@ def _round(value: float) -> float:
     return round(float(value), ROUND_PRECISION)
 
 
+def _build_policy_graph(
+    policy_history: List[str],
+) -> Dict[str, Any]:
+    """Build a policy graph from history (deferred import to avoid cycles)."""
+    from qec.analysis.strategy_graph import (
+        build_policy_graph,
+        classify_policy_topology,
+        compute_policy_node_stats,
+        compute_policy_stability,
+        detect_policy_patterns,
+    )
+
+    graph = build_policy_graph(policy_history)
+    node_stats = compute_policy_node_stats(graph)
+    stability = compute_policy_stability(policy_history)
+    patterns = detect_policy_patterns(graph)
+    topology = classify_policy_topology(graph, node_stats)
+
+    return {
+        "graph": graph,
+        "node_stats": node_stats,
+        "stability": stability,
+        "patterns": patterns,
+        "topology": topology,
+        "policy_history": list(policy_history),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Public API — Policy Evaluation per State
 # ---------------------------------------------------------------------------
@@ -272,6 +300,7 @@ def run_meta_control(
     use_memory: bool = False,
     memory: Optional[Dict[str, Any]] = None,
     use_archetypes: bool = False,
+    track_graph: bool = False,
 ) -> Dict[str, Any]:
     """Run the meta-control loop with dynamic policy selection.
 
@@ -312,6 +341,10 @@ def run_meta_control(
     use_archetypes : bool
         If ``True``, merge archetype policies extracted from *memory*
         into the candidate set.  Default ``False``.
+    track_graph : bool
+        If ``True``, build a policy transition graph from the policy
+        history at the end and include it in the result under
+        ``"policy_graph"``.  Default ``False``.
 
     Returns
     -------
@@ -490,6 +523,10 @@ def run_meta_control(
             }
             if refine:
                 result["refinements"] = refinements
+            if track_graph:
+                result["policy_graph"] = _build_policy_graph(
+                    selected_policies,
+                )
             return result
 
     # Max steps reached.
@@ -517,6 +554,8 @@ def run_meta_control(
     }
     if refine:
         result["refinements"] = refinements
+    if track_graph:
+        result["policy_graph"] = _build_policy_graph(selected_policies)
     return result
 
 

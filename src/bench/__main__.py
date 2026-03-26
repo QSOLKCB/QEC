@@ -602,6 +602,7 @@ def _run_ternary_bosonic(args) -> int:
             args, "show_policy_topology", False
         ):
             from qec.analysis.strategy_adapter import (
+                format_policy_topology_adapter_summary,
                 format_strategy_graph_adapter_summary,
                 run_strategy_graph_analysis,
             )
@@ -621,10 +622,18 @@ def _run_ternary_bosonic(args) -> int:
                 multistate_result=multistate_result,
                 coupled_result=coupled_result,
             )
-            print(
-                format_strategy_graph_adapter_summary(graph_result),
-                file=sys.stderr,
-            )
+
+            if getattr(args, "show_strategy_graph", False):
+                print(
+                    format_strategy_graph_adapter_summary(graph_result),
+                    file=sys.stderr,
+                )
+
+            if getattr(args, "show_policy_topology", False):
+                print(
+                    format_policy_topology_adapter_summary(graph_result),
+                    file=sys.stderr,
+                )
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

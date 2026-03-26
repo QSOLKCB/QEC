@@ -17,11 +17,13 @@ import copy
 
 from qec.analysis.strategy_graph import (
     ROUND_PRECISION,
+    analyze_policy_graph,
     build_policy_graph,
     classify_policy_topology,
     compute_policy_node_stats,
     compute_policy_stability,
     detect_policy_patterns,
+    format_policy_topology_summary,
     format_strategy_graph_summary,
 )
 
@@ -226,12 +228,11 @@ class TestClassifyPolicyTopology:
     """Tests for ``classify_policy_topology``."""
 
     def test_empty_graph(self):
-        assert classify_policy_topology({}, {}) == "stable"
+        assert classify_policy_topology({}) == "stable"
 
     def test_stable_mostly_self_loops(self):
         graph = {("a", "a"): 8, ("a", "b"): 1, ("b", "a"): 1}
-        stats = compute_policy_node_stats(graph)
-        assert classify_policy_topology(graph, stats) == "stable"
+        assert classify_policy_topology(graph) == "stable"
 
     def test_converging(self):
         graph = {
@@ -239,8 +240,7 @@ class TestClassifyPolicyTopology:
             ("b", "c"): 3,
             ("d", "c"): 2,
         }
-        stats = compute_policy_node_stats(graph)
-        assert classify_policy_topology(graph, stats) == "converging"
+        assert classify_policy_topology(graph) == "converging"
 
     def test_diverging(self):
         graph = {
@@ -248,8 +248,7 @@ class TestClassifyPolicyTopology:
             ("a", "c"): 3,
             ("a", "d"): 2,
         }
-        stats = compute_policy_node_stats(graph)
-        assert classify_policy_topology(graph, stats) == "diverging"
+        assert classify_policy_topology(graph) == "diverging"
 
     def test_cyclic(self):
         graph = {
@@ -258,8 +257,7 @@ class TestClassifyPolicyTopology:
             ("c", "d"): 1,
             ("d", "c"): 1,
         }
-        stats = compute_policy_node_stats(graph)
-        assert classify_policy_topology(graph, stats) == "cyclic"
+        assert classify_policy_topology(graph) == "cyclic"
 
     def test_mixed(self):
         graph = {
@@ -269,14 +267,12 @@ class TestClassifyPolicyTopology:
             ("d", "a"): 1,
             ("a", "c"): 1,
         }
-        stats = compute_policy_node_stats(graph)
-        assert classify_policy_topology(graph, stats) == "mixed"
+        assert classify_policy_topology(graph) == "mixed"
 
     def test_deterministic(self):
         graph = {("a", "b"): 2, ("b", "c"): 1, ("c", "a"): 1}
-        stats = compute_policy_node_stats(graph)
-        t1 = classify_policy_topology(graph, stats)
-        t2 = classify_policy_topology(graph, stats)
+        t1 = classify_policy_topology(graph)
+        t2 = classify_policy_topology(graph)
         assert t1 == t2
 
 
@@ -339,7 +335,7 @@ class TestIntegration:
         stats = compute_policy_node_stats(graph)
         stability = compute_policy_stability(history)
         patterns = detect_policy_patterns(graph)
-        topology = classify_policy_topology(graph, stats)
+        topology = classify_policy_topology(graph)
 
         # Graph has correct edges.
         assert ("balanced", "balanced") in graph
@@ -380,6 +376,120 @@ class TestIntegration:
         detect_policy_patterns(graph)
         assert graph == graph_copy
 
-        stats = compute_policy_node_stats(graph)
-        classify_policy_topology(graph, stats)
+        classify_policy_topology(graph)
         assert graph == graph_copy
+
+
+# ---------------------------------------------------------------------------
+# Ordering, formatting, and edge-case tests
+# ---------------------------------------------------------------------------
+
+
+class TestTransitionOrdering:
+    """Verify transitions are ranked count DESC, then lexicographic."""
+
+    def test_ranking_order(self):
+        result = {
+            "graph": {
+                ("b", "c"): 1,
+                ("a", "b"): 3,
+                ("a", "c"): 2,
+            },
+            "topology": "mixed",
+            "stability": {},
+            "patterns": {},
+        }
+        text = format_strategy_graph_summary(result)
+        lines = text.split("\n")
+        transition_lines = [l for l in lines if " -> " in l]
+        assert "a -> b: 3" in transition_lines[0]
+        assert "a -> c: 2" in transition_lines[1]
+        assert "b -> c: 1" in transition_lines[2]
+
+
+class TestFloatFormatting:
+    """Verify stability floats use 4 decimal places."""
+
+    def test_four_decimal_places(self):
+        result = {
+            "graph": {},
+            "topology": "stable",
+            "stability": {
+                "dominant_policy": "x",
+                "switch_rate": 0.4,
+                "self_loop_ratio": 0.5,
+                "longest_streak": 3,
+            },
+            "patterns": {},
+        }
+        text = format_strategy_graph_summary(result)
+        assert "Switch Rate: 0.4000" in text
+        assert "Self-Loop Ratio: 0.5000" in text
+
+
+class TestSelfLoopOnlyDisplay:
+    """Verify self-loops are shown even with no other patterns."""
+
+    def test_self_loops_only(self):
+        result = {
+            "graph": {("a", "a"): 5},
+            "topology": "stable",
+            "stability": {},
+            "patterns": {
+                "bidirectional": [],
+                "self_loops": ["a"],
+                "sources": [],
+                "sinks": [],
+            },
+        }
+        text = format_strategy_graph_summary(result)
+        assert "Patterns:" in text
+        assert "Self-loops: a" in text
+
+
+class TestFormatPolicyTopologySummary:
+    """Tests for ``format_policy_topology_summary``."""
+
+    def test_basic_output(self):
+        result = {
+            "topology": "converging",
+            "stability": {
+                "dominant_policy": "balanced",
+                "switch_rate": 0.4,
+                "self_loop_ratio": 0.6,
+                "longest_streak": 3,
+            },
+        }
+        text = format_policy_topology_summary(result)
+        assert "=== Policy Topology ===" in text
+        assert "Topology: converging" in text
+        assert "Dominant Policy: balanced" in text
+        assert "Transitions:" not in text
+
+    def test_no_graph_details(self):
+        result = {
+            "graph": {("a", "b"): 5},
+            "topology": "diverging",
+            "stability": {},
+        }
+        text = format_policy_topology_summary(result)
+        assert "a -> b" not in text
+
+
+class TestAnalyzePolicyGraph:
+    """Tests for ``analyze_policy_graph``."""
+
+    def test_returns_all_keys(self):
+        result = analyze_policy_graph(["a", "b", "a"])
+        assert "graph" in result
+        assert "node_stats" in result
+        assert "stability" in result
+        assert "patterns" in result
+        assert "topology" in result
+        assert "policy_history" in result
+
+    def test_no_mutation(self):
+        history = ["a", "b", "c"]
+        original = list(history)
+        analyze_policy_graph(history)
+        assert history == original

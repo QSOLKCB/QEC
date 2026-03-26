@@ -226,8 +226,6 @@ def detect_policy_patterns(
         - ``sinks`` : list of str — policies with in_degree > 0 and
           out_degree == 0, sorted
     """
-    node_stats = compute_policy_node_stats(graph)
-
     # Bidirectional pairs.
     bidirectional: List[Tuple[str, str]] = []
     seen_pairs: Set[Tuple[str, str]] = set()
@@ -287,7 +285,6 @@ def detect_policy_patterns(
 
 def classify_policy_topology(
     graph: Dict[Tuple[str, str], int],
-    stats: Dict[str, Dict[str, int]],
 ) -> str:
     """Classify the overall topology of the policy transition graph.
 
@@ -295,8 +292,6 @@ def classify_policy_topology(
     ----------
     graph : dict
         Output of ``build_policy_graph``.
-    stats : dict
-        Output of ``compute_policy_node_stats``.
 
     Returns
     -------
@@ -378,6 +373,49 @@ def classify_policy_topology(
 
 
 # ---------------------------------------------------------------------------
+# Public API — Canonical Pipeline
+# ---------------------------------------------------------------------------
+
+
+def analyze_policy_graph(policy_history: List[str]) -> Dict[str, Any]:
+    """Run the full policy graph analysis pipeline.
+
+    Canonical single source of truth for graph construction + metrics.
+
+    Parameters
+    ----------
+    policy_history : list of str
+        Ordered sequence of policy names selected over time.
+
+    Returns
+    -------
+    dict
+        Contains:
+
+        - ``"graph"`` : dict — policy transition graph
+        - ``"node_stats"`` : dict — per-policy node metrics
+        - ``"stability"`` : dict — policy stability metrics
+        - ``"patterns"`` : dict — detected transition patterns
+        - ``"topology"`` : str — topology classification
+        - ``"policy_history"`` : list of str — copy of input history
+    """
+    graph = build_policy_graph(policy_history)
+    node_stats = compute_policy_node_stats(graph)
+    stability = compute_policy_stability(policy_history)
+    patterns = detect_policy_patterns(graph)
+    topology = classify_policy_topology(graph)
+
+    return {
+        "graph": graph,
+        "node_stats": node_stats,
+        "stability": stability,
+        "patterns": patterns,
+        "topology": topology,
+        "policy_history": list(policy_history),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Public API — Formatting
 # ---------------------------------------------------------------------------
 
@@ -438,7 +476,7 @@ def format_strategy_graph_summary(result: Dict[str, Any]) -> str:
         sources = patterns.get("sources", [])
         sinks = patterns.get("sinks", [])
 
-        if bidirectional or sources or sinks:
+        if bidirectional or self_loops or sources or sinks:
             lines.append("")
             lines.append("Patterns:")
             if bidirectional:
@@ -454,12 +492,54 @@ def format_strategy_graph_summary(result: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def format_policy_topology_summary(result: Dict[str, Any]) -> str:
+    """Format policy topology results as a concise summary.
+
+    Shows only topology classification and stability metrics,
+    without the full transition listing.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``analyze_policy_graph`` or ``run_strategy_graph_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    lines: List[str] = []
+    lines.append("=== Policy Topology ===")
+
+    topology = result.get("topology", "mixed")
+    lines.append("")
+    lines.append(f"Topology: {topology}")
+
+    stability = result.get("stability", {})
+    if stability:
+        dominant = stability.get("dominant_policy", "")
+        switch_rate = stability.get("switch_rate", 0.0)
+        self_loop_ratio = stability.get("self_loop_ratio", 0.0)
+        longest_streak = stability.get("longest_streak", 0)
+
+        lines.append("")
+        if dominant:
+            lines.append(f"Dominant Policy: {dominant}")
+        lines.append(f"Switch Rate: {switch_rate:.4f}")
+        lines.append(f"Self-Loop Ratio: {self_loop_ratio:.4f}")
+        lines.append(f"Longest Streak: {longest_streak}")
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "ROUND_PRECISION",
+    "analyze_policy_graph",
     "build_policy_graph",
     "classify_policy_topology",
     "compute_policy_node_stats",
     "compute_policy_stability",
     "detect_policy_patterns",
+    "format_policy_topology_summary",
     "format_strategy_graph_summary",
 ]

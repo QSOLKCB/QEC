@@ -2646,13 +2646,7 @@ def run_strategy_graph_analysis(
         - ``"topology"`` : str — topology classification
         - ``"policy_history"`` : list of str — raw policy history
     """
-    from qec.analysis.strategy_graph import (
-        build_policy_graph,
-        classify_policy_topology,
-        compute_policy_node_stats,
-        compute_policy_stability,
-        detect_policy_patterns,
-    )
+    from qec.analysis.strategy_graph import analyze_policy_graph
 
     # Run meta-control to get policy history.
     meta_result = run_meta_control_analysis(
@@ -2666,21 +2660,7 @@ def run_strategy_graph_analysis(
 
     policy_history = list(meta_result.get("policies", []))
 
-    # Build graph and compute all metrics.
-    graph = build_policy_graph(policy_history)
-    node_stats = compute_policy_node_stats(graph)
-    stability = compute_policy_stability(policy_history)
-    patterns = detect_policy_patterns(graph)
-    topology = classify_policy_topology(graph, node_stats)
-
-    return {
-        "graph": graph,
-        "node_stats": node_stats,
-        "stability": stability,
-        "patterns": patterns,
-        "topology": topology,
-        "policy_history": policy_history,
-    }
+    return analyze_policy_graph(policy_history)
 
 
 def format_strategy_graph_adapter_summary(result: Dict[str, Any]) -> str:
@@ -2700,6 +2680,28 @@ def format_strategy_graph_adapter_summary(result: Dict[str, Any]) -> str:
     """
     from qec.analysis.strategy_graph import (
         format_strategy_graph_summary as _fmt,
+    )
+
+    return _fmt(result)
+
+
+def format_policy_topology_adapter_summary(result: Dict[str, Any]) -> str:
+    """Format policy topology analysis results.
+
+    Delegates to ``strategy_graph.format_policy_topology_summary``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_strategy_graph_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.strategy_graph import (
+        format_policy_topology_summary as _fmt,
     )
 
     return _fmt(result)
@@ -2758,4 +2760,5 @@ __all__ = [
     "format_policy_clustering_adapter_summary",
     "run_strategy_graph_analysis",
     "format_strategy_graph_adapter_summary",
+    "format_policy_topology_adapter_summary",
 ]

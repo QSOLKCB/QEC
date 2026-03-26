@@ -65,28 +65,9 @@ def _build_policy_graph(
     policy_history: List[str],
 ) -> Dict[str, Any]:
     """Build a policy graph from history (deferred import to avoid cycles)."""
-    from qec.analysis.strategy_graph import (
-        build_policy_graph,
-        classify_policy_topology,
-        compute_policy_node_stats,
-        compute_policy_stability,
-        detect_policy_patterns,
-    )
+    from qec.analysis.strategy_graph import analyze_policy_graph
 
-    graph = build_policy_graph(policy_history)
-    node_stats = compute_policy_node_stats(graph)
-    stability = compute_policy_stability(policy_history)
-    patterns = detect_policy_patterns(graph)
-    topology = classify_policy_topology(graph, node_stats)
-
-    return {
-        "graph": graph,
-        "node_stats": node_stats,
-        "stability": stability,
-        "patterns": patterns,
-        "topology": topology,
-        "policy_history": list(policy_history),
-    }
+    return analyze_policy_graph(policy_history)
 
 
 # ---------------------------------------------------------------------------

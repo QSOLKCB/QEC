@@ -1801,6 +1801,75 @@ def format_control_summary(result: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def run_feedback_analysis(
+    runs: List[Dict[str, Any]],
+    objective: Optional[Dict[str, Any]] = None,
+    *,
+    multistate_result: Optional[Dict[str, Any]] = None,
+    max_steps: int = 5,
+) -> Dict[str, Any]:
+    """Run feedback control analysis pipeline.
+
+    Pipeline: runs -> multistate -> feedback_control loop
+
+    Reuses ``multistate_result`` if provided to avoid redundant
+    computation.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+    objective : dict, optional
+        Control objective. Defaults to
+        ``{"maximize": "stability", "minimize": "escape"}``.
+    multistate_result : dict, optional
+        Precomputed output of ``run_multistate_analysis``.
+    max_steps : int
+        Maximum feedback iterations.
+
+    Returns
+    -------
+    dict
+        Output of ``run_feedback_control`` from ``feedback_control.py``.
+    """
+    from qec.analysis.feedback_control import run_feedback_control
+
+    if objective is None:
+        objective = {"maximize": "stability", "minimize": "escape"}
+
+    if multistate_result is None:
+        multistate_result = run_multistate_analysis(runs)
+
+    return run_feedback_control(
+        runs,
+        objective,
+        max_steps=max_steps,
+        multistate_result=multistate_result,
+    )
+
+
+def format_feedback_summary(result: Dict[str, Any]) -> str:
+    """Format feedback control results as a human-readable summary.
+
+    Delegates to ``feedback_control.format_feedback_summary``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_feedback_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.feedback_control import (
+        format_feedback_summary as _fmt,
+    )
+
+    return _fmt(result)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -1837,4 +1906,6 @@ __all__ = [
     "format_coupled_dynamics_summary",
     "run_control_analysis",
     "format_control_summary",
+    "run_feedback_analysis",
+    "format_feedback_summary",
 ]

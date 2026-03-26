@@ -305,6 +305,19 @@ class TestDetectTransitionPatterns:
         assert "d" in patterns["sources"]
         assert "e" in patterns["sinks"]
 
+    def test_precomputed_node_stats_identical(self):
+        graph = {
+            ("a", "b"): 2,
+            ("b", "a"): 1,
+            ("c", "c"): 3,
+            ("d", "b"): 1,
+            ("a", "e"): 1,
+        }
+        without = detect_transition_patterns(graph)
+        precomputed = compute_node_stats(graph)
+        with_stats = detect_transition_patterns(graph, node_stats=precomputed)
+        assert without == with_stats
+
 
 # ---------------------------------------------------------------------------
 # Integration tests

@@ -1163,7 +1163,7 @@ def run_transition_graph_analysis(
     graph = build_transition_graph(type_trajectories)
     node_stats = compute_node_stats(graph)
     ranked = rank_transitions(graph)
-    patterns = detect_transition_patterns(graph)
+    patterns = detect_transition_patterns(graph, node_stats=node_stats)
 
     result["transition_graph"] = graph
     result["node_stats"] = node_stats

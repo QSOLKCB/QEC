@@ -13,7 +13,7 @@ Dependencies: stdlib only.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 
 def build_transition_graph(
@@ -137,6 +137,7 @@ def extract_dominant_flows(
 
 def detect_transition_patterns(
     graph: Dict[Tuple[str, str], int],
+    node_stats: Optional[Dict[str, Dict[str, int]]] = None,
 ) -> Dict[str, Any]:
     """Detect structural patterns in the transition graph.
 
@@ -144,6 +145,9 @@ def detect_transition_patterns(
     ----------
     graph : dict
         Output of ``build_transition_graph``.
+    node_stats : dict or None
+        Precomputed output of ``compute_node_stats``.  If ``None``,
+        node stats are computed internally.
 
     Returns
     -------
@@ -159,11 +163,12 @@ def detect_transition_patterns(
         - ``sinks`` : list of str — types with in_degree > 0 and
           out_degree == 0, sorted
     """
-    node_stats = compute_node_stats(graph)
+    if node_stats is None:
+        node_stats = compute_node_stats(graph)
 
     # Bidirectional pairs.
     bidirectional: List[Tuple[str, str]] = []
-    seen_pairs: set = set()
+    seen_pairs: Set[Tuple[str, str]] = set()
     for (src, tgt) in graph.keys():
         if src == tgt:
             continue

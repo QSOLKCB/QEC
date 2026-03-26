@@ -1235,6 +1235,103 @@ def format_transition_graph_summary(
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Phase space analysis (v102.6.0)
+# ---------------------------------------------------------------------------
+
+
+def run_phase_space_analysis(
+    runs: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run the full phase space analysis pipeline.
+
+    Pipeline: runs -> taxonomy (v102.3) -> evolution trajectories (v102.4)
+    -> transition graph (v102.5) -> phase space (v102.6)
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key with a list of
+        strategy dicts (each having ``"name"`` and ``"metrics"``).
+
+    Returns
+    -------
+    dict
+        Contains all keys from ``run_transition_graph_analysis`` plus
+        ``"attractors"``, ``"basins"``, ``"escape_dynamics"``, and
+        ``"phase_classification"``.
+    """
+    from qec.analysis.phase_space import (
+        classify_phase_state,
+        detect_attractors,
+        detect_basins,
+        detect_escape_dynamics,
+    )
+
+    result = run_transition_graph_analysis(runs)
+    graph = result["transition_graph"]
+    node_stats = result["node_stats"]
+
+    attractors = detect_attractors(graph, node_stats)
+    basins = detect_basins(graph, node_stats)
+    escape = detect_escape_dynamics(graph, node_stats)
+    classification = classify_phase_state(attractors, basins, escape)
+
+    result["attractors"] = attractors
+    result["basins"] = basins
+    result["escape_dynamics"] = escape
+    result["phase_classification"] = classification
+    return result
+
+
+def format_phase_space_summary(
+    result: Dict[str, Any],
+) -> str:
+    """Format phase space analysis results as a human-readable summary.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_phase_space_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    lines: List[str] = []
+    lines.append("=== Phase Space Analysis ===")
+
+    attractors = result.get("attractors", {})
+    basins = result.get("basins", {})
+    escape = result.get("escape_dynamics", {})
+    classification = result.get("phase_classification", {})
+
+    all_nodes = sorted(
+        set(
+            list(attractors.keys())
+            + list(basins.keys())
+            + list(escape.keys())
+            + list(classification.keys())
+        )
+    )
+
+    for node in all_nodes:
+        att = attractors.get(node, {})
+        bas = basins.get(node, {})
+        esc = escape.get(node, {})
+        cls = classification.get(node, {})
+
+        lines.append(f"Type: {node}")
+        lines.append(f"  Attractor: {att.get('is_attractor', False)}")
+        lines.append(f"  Score: {att.get('score', 0)}")
+        lines.append(f"  Basin Strength: {bas.get('basin_strength', 0)}")
+        lines.append(f"  Escape Rate: {esc.get('escape_rate', 0)}")
+        lines.append(f"  Phase: {cls.get('phase', 'neutral')}")
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -1261,4 +1358,6 @@ __all__ = [
     "format_evolution_summary",
     "run_transition_graph_analysis",
     "format_transition_graph_summary",
+    "run_phase_space_analysis",
+    "format_phase_space_summary",
 ]

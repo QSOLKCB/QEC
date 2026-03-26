@@ -1,4 +1,4 @@
-"""v102.4.0 — Strategy adapter for trust-aware selection.
+"""v102.8.0 — Strategy adapter for trust-aware selection.
 
 Wraps outputs from the v101.4 ternary bosonic pipeline into
 candidate strategies, scores and ranks them, and returns the
@@ -26,6 +26,9 @@ and ``format_evolution_summary``.
 
 v102.7.0 adds flow geometry embedding via ``run_flow_geometry_analysis``
 and ``format_flow_geometry_summary``.
+
+v102.8.0 adds ternary classification and multi-state modeling via
+``run_multistate_analysis`` and ``format_multistate_summary``.
 
 All functions are:
 - deterministic (identical inputs -> identical outputs)
@@ -1427,6 +1430,98 @@ def format_flow_geometry_summary(
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Multi-state analysis (v102.8.0)
+# ---------------------------------------------------------------------------
+
+
+def run_multistate_analysis(
+    runs: List[Dict[str, Any]],
+    *,
+    phase_space_result: Optional[Dict[str, Any]] = None,
+    trajectory_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Run the full multi-state analysis pipeline.
+
+    Pipeline: runs -> trajectory (v102.2) -> phase_space (v102.6)
+    -> ternary classification -> phase membership -> state vectors
+
+    Reuses ``phase_space_result`` and ``trajectory_result`` if provided
+    to avoid redundant computation.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key with a list of
+        strategy dicts (each having ``"name"`` and ``"metrics"``).
+    phase_space_result : dict, optional
+        Precomputed output of ``run_phase_space_analysis``.
+    trajectory_result : dict, optional
+        Precomputed output of ``run_trajectory_analysis``.
+
+    Returns
+    -------
+    dict
+        Contains ``"multistate"`` keyed by strategy name, each with
+        ``"ternary"`` and ``"membership"`` sub-dicts.
+    """
+    from qec.analysis.multistate import compute_multistate
+
+    if trajectory_result is None:
+        trajectory_result = run_trajectory_analysis(runs)
+
+    if phase_space_result is None:
+        phase_space_result = run_phase_space_analysis(runs)
+
+    multistate = compute_multistate(
+        runs,
+        trajectory_result=trajectory_result,
+        phase_space_result=phase_space_result,
+    )
+
+    return {"multistate": multistate}
+
+
+def format_multistate_summary(result: Dict[str, Any]) -> str:
+    """Format multi-state analysis results as a human-readable summary.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_multistate_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    lines: List[str] = []
+    lines.append("=== Multi-State Analysis ===")
+
+    multistate = result.get("multistate", {})
+
+    for name in sorted(multistate.keys()):
+        sv = multistate[name]
+        ternary = sv.get("ternary", {})
+        membership = sv.get("membership", {})
+
+        t = ternary.get("trend_state", 0)
+        s = ternary.get("stability_state", 0)
+        p = ternary.get("phase_state", 0)
+
+        t_str = f"+{t}" if t > 0 else str(t)
+        s_str = f"+{s}" if s > 0 else str(s)
+        p_str = f"+{p}" if p > 0 else str(p)
+
+        lines.append(f"Strategy: {name}")
+        lines.append(f"  Ternary: trend={t_str} stability={s_str} phase={p_str}")
+        lines.append("  Membership:")
+        for phase in sorted(membership.keys()):
+            lines.append(f"    {phase}: {membership[phase]}")
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -1457,4 +1552,6 @@ __all__ = [
     "format_phase_space_summary",
     "run_flow_geometry_analysis",
     "format_flow_geometry_summary",
+    "run_multistate_analysis",
+    "format_multistate_summary",
 ]

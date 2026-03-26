@@ -122,6 +122,11 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --track-strategies).",
     )
     parser.add_argument(
+        "--show-multistate", action="store_true",
+        help="Show multi-state analysis (ternary classification, phase membership) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -389,6 +394,18 @@ def _run_ternary_bosonic(args) -> int:
                 ),
                 file=sys.stderr,
             )
+
+        if getattr(args, "show_multistate", False):
+            from qec.analysis.strategy_adapter import (
+                format_multistate_summary,
+                run_multistate_analysis,
+            )
+
+            multistate_result = run_multistate_analysis(
+                run_results,
+                phase_space_result=phase_result,
+            )
+            print(format_multistate_summary(multistate_result), file=sys.stderr)
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

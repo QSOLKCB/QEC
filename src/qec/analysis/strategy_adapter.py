@@ -36,6 +36,9 @@ v102.9.0 adds coupled dynamics and interaction modeling via
 v103.0.0 adds control layer and intervention modeling via
 ``run_control_analysis`` and ``format_control_summary``.
 
+v103.2.0 adds multi-strategy feedback and global control via
+``run_global_control_analysis`` and ``format_global_control_summary``.
+
 All functions are:
 - deterministic (identical inputs -> identical outputs)
 - side-effect free (no mutation of inputs)
@@ -1870,6 +1873,90 @@ def format_feedback_summary(result: Dict[str, Any]) -> str:
     return _fmt(result)
 
 
+def run_global_control_analysis(
+    runs: List[Dict[str, Any]],
+    objective: Optional[Dict[str, Any]] = None,
+    *,
+    multistate_result: Optional[Dict[str, Any]] = None,
+    coupled_result: Optional[Dict[str, Any]] = None,
+    max_steps: int = 5,
+) -> Dict[str, Any]:
+    """Run global multi-strategy feedback control analysis.
+
+    Pipeline: runs -> multistate -> coupled_dynamics -> global_control
+
+    Reuses ``multistate_result`` and ``coupled_result`` if provided
+    to avoid redundant computation.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+    objective : dict, optional
+        Global objective weights (w_stability, w_attractor, w_transient,
+        w_sync).  Defaults to equal weights (0.3, 0.3, 0.2, 0.2).
+    multistate_result : dict, optional
+        Precomputed output of ``run_multistate_analysis``.
+    coupled_result : dict, optional
+        Precomputed output of ``run_coupled_dynamics_analysis``.
+    max_steps : int
+        Maximum feedback iterations.
+
+    Returns
+    -------
+    dict
+        Output of ``run_global_feedback`` from ``global_control.py``.
+    """
+    from qec.analysis.global_control import run_global_feedback
+
+    if objective is None:
+        objective = {
+            "w_stability": 0.3,
+            "w_attractor": 0.3,
+            "w_transient": 0.2,
+            "w_sync": 0.2,
+        }
+
+    if multistate_result is None:
+        multistate_result = run_multistate_analysis(runs)
+
+    if coupled_result is None:
+        coupled_result = run_coupled_dynamics_analysis(
+            runs,
+            multistate_result=multistate_result,
+        )
+
+    return run_global_feedback(
+        runs,
+        objective,
+        max_steps=max_steps,
+        multistate_result=multistate_result,
+        coupled_result=coupled_result,
+    )
+
+
+def format_global_control_summary(result: Dict[str, Any]) -> str:
+    """Format global control results as a human-readable summary.
+
+    Delegates to ``global_control.format_global_control_summary``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_global_control_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.global_control import (
+        format_global_control_summary as _fmt,
+    )
+
+    return _fmt(result)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -1908,4 +1995,6 @@ __all__ = [
     "format_control_summary",
     "run_feedback_analysis",
     "format_feedback_summary",
+    "run_global_control_analysis",
+    "format_global_control_summary",
 ]

@@ -142,6 +142,12 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --track-strategies).",
     )
     parser.add_argument(
+        "--show-global-control", action="store_true",
+        help="Show global multi-strategy feedback control analysis "
+             "(coordinated interventions, conflict resolution, convergence) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -464,6 +470,22 @@ def _run_ternary_bosonic(args) -> int:
                 multistate_result=multistate_result,
             )
             print(format_feedback_summary(feedback_result), file=sys.stderr)
+
+        if getattr(args, "show_global_control", False):
+            from qec.analysis.strategy_adapter import (
+                format_global_control_summary,
+                run_global_control_analysis,
+            )
+
+            global_result = run_global_control_analysis(
+                run_results,
+                multistate_result=multistate_result,
+                coupled_result=coupled_result,
+            )
+            print(
+                format_global_control_summary(global_result),
+                file=sys.stderr,
+            )
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

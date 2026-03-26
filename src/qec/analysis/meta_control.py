@@ -271,6 +271,7 @@ def run_meta_control(
     refine: bool = False,
     use_memory: bool = False,
     memory: Optional[Dict[str, Any]] = None,
+    use_archetypes: bool = False,
 ) -> Dict[str, Any]:
     """Run the meta-control loop with dynamic policy selection.
 
@@ -307,7 +308,10 @@ def run_meta_control(
         candidate set.  Default ``False``.
     memory : dict, optional
         Policy memory (from ``policy_memory.init_policy_memory``).
-        Only used when *use_memory* is ``True``.
+        Only used when *use_memory* or *use_archetypes* is ``True``.
+    use_archetypes : bool
+        If ``True``, merge archetype policies extracted from *memory*
+        into the candidate set.  Default ``False``.
 
     Returns
     -------
@@ -351,6 +355,17 @@ def run_meta_control(
             for mp in memory_policies:
                 if mp.name not in existing_names:
                     policies = list(policies) + [mp]
+
+    # Merge archetype policies if enabled.
+    if use_archetypes and memory is not None:
+        from qec.analysis.policy_memory import get_archetypes
+
+        archetype_policies = get_archetypes(memory)
+        if archetype_policies:
+            existing_names = {p.name for p in policies}
+            for ap in archetype_policies:
+                if ap.name not in existing_names:
+                    policies = list(policies) + [ap]
 
     current_multistate = multistate_result.get("multistate", {})
 

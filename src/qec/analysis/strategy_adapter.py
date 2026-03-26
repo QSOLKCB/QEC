@@ -1,4 +1,4 @@
-"""v102.9.0 — Strategy adapter for trust-aware selection.
+"""v103.0.0 — Strategy adapter for trust-aware selection.
 
 Wraps outputs from the v101.4 ternary bosonic pipeline into
 candidate strategies, scores and ranks them, and returns the
@@ -32,6 +32,9 @@ v102.8.0 adds ternary classification and multi-state modeling via
 
 v102.9.0 adds coupled dynamics and interaction modeling via
 ``run_coupled_dynamics_analysis`` and ``format_coupled_dynamics_summary``.
+
+v103.0.0 adds control layer and intervention modeling via
+``run_control_analysis`` and ``format_control_summary``.
 
 All functions are:
 - deterministic (identical inputs -> identical outputs)
@@ -1631,6 +1634,173 @@ def format_coupled_dynamics_summary(result: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def run_control_analysis(
+    runs: List[Dict[str, Any]],
+    *,
+    multistate_result: Optional[Dict[str, Any]] = None,
+    coupled_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Run the full control layer analysis pipeline.
+
+    Pipeline: runs -> multistate -> generate candidate interventions
+    -> simulate each -> evaluate objectives -> select best
+
+    Reuses ``multistate_result`` and ``coupled_result`` if provided
+    to avoid redundant computation.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key with a list of
+        strategy dicts (each having ``"name"`` and ``"metrics"``).
+    multistate_result : dict, optional
+        Precomputed output of ``run_multistate_analysis``.
+    coupled_result : dict, optional
+        Precomputed output of ``run_coupled_dynamics_analysis``.
+
+    Returns
+    -------
+    dict
+        Contains ``"simulation"``, ``"response"``, ``"best_intervention"``,
+        and ``"coupled_result"`` sub-results.
+    """
+    from qec.analysis.control_layer import (
+        evaluate_intervention,
+        find_best_intervention,
+        simulate_intervention,
+    )
+
+    # Ensure multistate is available.
+    if multistate_result is None:
+        multistate_result = run_multistate_analysis(runs)
+
+    # Ensure coupled dynamics is available for context.
+    if coupled_result is None:
+        coupled_result = run_coupled_dynamics_analysis(
+            runs,
+            multistate_result=multistate_result,
+        )
+
+    multistate = multistate_result.get("multistate", {})
+    strategy_names = sorted(multistate.keys())
+
+    # Generate candidate interventions for each strategy.
+    candidates: List[Dict[str, Any]] = []
+    actions = ("boost_stability", "reduce_escape", "force_transition")
+    strengths = (0.3, 0.6, 0.9)
+    for name in strategy_names:
+        for action in actions:
+            for strength in strengths:
+                candidates.append({
+                    "target": name,
+                    "action": action,
+                    "strength": strength,
+                })
+
+    # Find the best intervention.
+    objective = {"maximize": "stability", "minimize": "escape"}
+    best_result = find_best_intervention(
+        runs,
+        candidates,
+        objective,
+        multistate_result=multistate_result,
+    )
+
+    # Simulate the best intervention for detailed response.
+    best_intervention = best_result.get("best_intervention", {})
+    if best_intervention:
+        sim_result = simulate_intervention(
+            runs,
+            [best_intervention],
+            multistate_result=multistate_result,
+        )
+    else:
+        sim_result = {"before": multistate, "after": multistate, "interventions_applied": []}
+
+    # Compute response metrics.
+    response = evaluate_intervention(
+        sim_result.get("before", {}),
+        sim_result.get("after", {}),
+    )
+
+    return {
+        "simulation": sim_result,
+        "response": response,
+        "best_intervention": best_result,
+        "coupled_result": coupled_result,
+    }
+
+
+def format_control_summary(result: Dict[str, Any]) -> str:
+    """Format control analysis results as a human-readable summary.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_control_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    lines: List[str] = []
+    lines.append("=== Control Analysis ===")
+
+    # Show applied interventions and their effects.
+    sim = result.get("simulation", {})
+    applied = sim.get("interventions_applied", [])
+    response = result.get("response", {})
+
+    for intervention in applied:
+        target = intervention.get("target", "?")
+        action = intervention.get("action", "?")
+        strength = intervention.get("strength", 0.0)
+
+        lines.append(f"Intervention: {action} ({target}) [strength={strength}]")
+
+        if target in response:
+            metrics = response[target]
+            d_stab = metrics.get("delta_stability", 0.0)
+            d_phase = metrics.get("delta_phase", 0.0)
+            d_attr = metrics.get("delta_attractor_weight", 0.0)
+            d_trans = metrics.get("delta_transient_weight", 0.0)
+
+            lines.append(f"  Δ Stability: {d_stab:+.2f}")
+            lines.append(f"  Δ Phase: {d_phase:+.2f}")
+            lines.append(f"  Δ Attractor: {d_attr:+.4f}")
+            lines.append(f"  Δ Transient: {d_trans:+.4f}")
+
+    # Show best intervention from optimizer.
+    best = result.get("best_intervention", {})
+    best_int = best.get("best_intervention", {})
+    best_score = best.get("best_score", 0.0)
+
+    if best_int:
+        lines.append("")
+        lines.append("Best Intervention:")
+        lines.append(
+            f"  {best_int.get('action', '?')} ({best_int.get('target', '?')}) "
+            f"[strength={best_int.get('strength', 0.0)}]"
+        )
+        lines.append(f"  Score: {best_score:.4f}")
+
+    # Show coupled dynamics context if available.
+    coupled = result.get("coupled_result", {})
+    coupled_summary = coupled.get("coupled_summary", {})
+    if coupled_summary:
+        lines.append("")
+        lines.append("Coupling Context:")
+        for pair in sorted(coupled_summary.keys()):
+            info = coupled_summary[pair]
+            name_a, name_b = pair
+            cs = info.get("coupling_strength", 0.0)
+            sr = info.get("sync_ratio", 0.0)
+            lines.append(f"  {name_a} <-> {name_b}: coupling={cs} sync={sr}")
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -1665,4 +1835,6 @@ __all__ = [
     "format_multistate_summary",
     "run_coupled_dynamics_analysis",
     "format_coupled_dynamics_summary",
+    "run_control_analysis",
+    "format_control_summary",
 ]

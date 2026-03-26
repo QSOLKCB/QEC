@@ -132,6 +132,11 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --track-strategies).",
     )
     parser.add_argument(
+        "--show-control", action="store_true",
+        help="Show control analysis (interventions, response metrics, optimizer) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -428,6 +433,23 @@ def _run_ternary_bosonic(args) -> int:
                 format_coupled_dynamics_summary(coupled_result),
                 file=sys.stderr,
             )
+
+        if getattr(args, "show_control", False):
+            from qec.analysis.strategy_adapter import (
+                format_control_summary,
+                run_control_analysis,
+            )
+
+            control_result = run_control_analysis(
+                run_results,
+                multistate_result=multistate_result
+                if "multistate_result" in dir()
+                else None,
+                coupled_result=coupled_result
+                if "coupled_result" in dir()
+                else None,
+            )
+            print(format_control_summary(control_result), file=sys.stderr)
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

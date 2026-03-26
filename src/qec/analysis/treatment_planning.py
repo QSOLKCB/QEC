@@ -255,6 +255,8 @@ def score_treatment(
     result: dict,
     *,
     use_geometry: bool = True,
+    law_registry: dict | None = None,
+    emergent_laws: list | None = None,
 ) -> float:
     """Score a treatment result using a deterministic objective.
 
@@ -266,6 +268,11 @@ def score_treatment(
     - spiral_score reward (convergence)
     - axis_lock reward (focused motion)
 
+    When ``law_registry`` and ``emergent_laws`` are provided (v105.1),
+    applies law-aware adjustments:
+    - penalizes treatments that violate strong invariants
+    - boosts treatments that reinforce strong invariants
+
     Parameters
     ----------
     result : dict
@@ -273,9 +280,15 @@ def score_treatment(
         ``attractor_weight``, ``transient_weight``.
         May contain ``geometry`` dict with ``angular_velocity``,
         ``curvature``, ``spiral_score``, ``axis_lock``.
+        May contain ``violated_invariants`` list and
+        ``reinforced_invariants`` list of canonical invariant keys.
     use_geometry : bool
         Whether to apply geometry-guided scoring terms.
         Default: True.
+    law_registry : dict or None
+        Invariant registry for law-aware scoring.  Default: None.
+    emergent_laws : list or None
+        Emergent laws from ``detect_emergent_laws``.  Default: None.
 
     Returns
     -------
@@ -294,6 +307,9 @@ def score_treatment(
             0.35 * _clamp(stability)
             + 0.35 * _clamp(attractor)
             + 0.30 * _clamp(1.0 - transient)
+        )
+        score = _apply_law_adjustment(
+            score, result, law_registry, emergent_laws,
         )
         return _round(_clamp(score))
 
@@ -317,7 +333,75 @@ def score_treatment(
     score += 0.10 * _clamp(spiral_score)               # reward spiral convergence
     score += 0.05 * _clamp(axis_lock)                  # reward focused axis motion
 
+    # Law-aware adjustment (v105.1).
+    score = _apply_law_adjustment(
+        score, result, law_registry, emergent_laws,
+    )
+
     return _round(_clamp(score))
+
+
+# Maximum law-aware adjustment magnitude (keeps score bounded).
+_LAW_PENALTY_WEIGHT = 0.05
+_LAW_BOOST_WEIGHT = 0.05
+
+
+def _apply_law_adjustment(
+    base_score: float,
+    result: dict,
+    law_registry: dict | None,
+    emergent_laws: list | None,
+) -> float:
+    """Apply law-aware penalty/boost to a treatment score.
+
+    For each violated invariant that is a strong law, subtract a penalty.
+    For each reinforced invariant that is a strong law, add a boost.
+
+    Parameters
+    ----------
+    base_score : float
+        Pre-adjustment score.
+    result : dict
+        Treatment result with optional ``violated_invariants`` and
+        ``reinforced_invariants`` lists of canonical keys.
+    law_registry : dict or None
+        Invariant registry.
+    emergent_laws : list or None
+        Emergent laws list.
+
+    Returns
+    -------
+    float
+        Adjusted score (not yet clamped).
+    """
+    if not law_registry or not emergent_laws:
+        return base_score
+
+    # Build set of strong law keys for O(1) lookup.
+    law_keys: set = set()
+    for law in emergent_laws:
+        law_keys.add(str(law.get("law", "")))
+
+    violated = result.get("violated_invariants", [])
+    reinforced = result.get("reinforced_invariants", [])
+
+    # Penalty for violating strong invariants.
+    penalty = 0.0
+    for key in violated:
+        if str(key) in law_keys:
+            entry = law_registry.get(str(key), {})
+            confidence = float(entry.get("avg_strength", 0.0))
+            penalty += _LAW_PENALTY_WEIGHT * _clamp(confidence)
+
+    # Boost for reinforcing strong invariants.
+    boost = 0.0
+    for key in reinforced:
+        if str(key) in law_keys:
+            entry = law_registry.get(str(key), {})
+            confidence = float(entry.get("avg_strength", 0.0))
+            boost += _LAW_BOOST_WEIGHT * _clamp(confidence)
+
+    return base_score - penalty + boost
 
 
 # ---------------------------------------------------------------------------

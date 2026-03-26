@@ -443,11 +443,51 @@ def format_policy_memory_summary(
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Public API — Archetype Access
+# ---------------------------------------------------------------------------
+
+
+def get_archetypes(
+    memory: Dict[str, Any],
+    k: int = DEFAULT_TOP_K,
+) -> List[Any]:
+    """Retrieve top-k archetype policies from memory.
+
+    Extracts archetypes by clustering stored policies, ranks them
+    by average cluster member score, and returns the top *k*.
+
+    Parameters
+    ----------
+    memory : dict
+        Policy memory.
+    k : int
+        Maximum number of archetypes to return.
+
+    Returns
+    -------
+    list of Policy
+        Top-k ranked archetype policies.
+    """
+    from qec.analysis.policy_clustering import (
+        extract_policy_archetypes,
+        rank_archetypes,
+    )
+
+    archetypes = extract_policy_archetypes(memory)
+    if not archetypes:
+        return []
+
+    ranked = rank_archetypes(archetypes, memory)
+    return ranked[:k]
+
+
 __all__ = [
     "DEFAULT_TOP_K",
     "ROUND_PRECISION",
     "export_policy_memory",
     "format_policy_memory_summary",
+    "get_archetypes",
     "get_top_policies",
     "import_policy_memory",
     "init_policy_memory",

@@ -2519,6 +2519,92 @@ def format_policy_memory_adapter_summary(result: Dict[str, Any]) -> str:
     return str(result.get("summary", ""))
 
 
+def run_policy_clustering_analysis(
+    runs: List[Dict[str, Any]],
+    memory: Optional[Dict[str, Any]] = None,
+    *,
+    threshold: float = 0.2,
+    multistate_result: Optional[Dict[str, Any]] = None,
+    coupled_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Run policy clustering analysis on memory.
+
+    Pipeline: memory -> clustering -> archetypes -> ranking -> evaluation.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+    memory : dict, optional
+        Existing policy memory.  Defaults to empty memory.
+    threshold : float
+        Clustering distance threshold.
+    multistate_result : dict, optional
+        Precomputed multistate result.
+    coupled_result : dict, optional
+        Precomputed coupled dynamics result.
+
+    Returns
+    -------
+    dict
+        Contains ``"clusters"``, ``"archetypes"``, ``"ranked_archetypes"``,
+        and ``"summary"``.
+    """
+    from qec.analysis.policy_clustering import (
+        cluster_policies,
+        extract_policy_archetypes,
+        format_policy_clusters_summary,
+        rank_archetypes,
+    )
+    from qec.analysis.policy import Policy
+    from qec.analysis.policy_memory import init_policy_memory
+
+    if memory is None:
+        memory = init_policy_memory()
+
+    # Extract policies from memory.
+    policies_data = memory.get("policies", {})
+    policies = []
+    for name in sorted(policies_data.keys()):
+        entry = policies_data[name]
+        policies.append(Policy.from_dict(name, entry["policy_dict"]))
+
+    # Cluster.
+    clusters = cluster_policies(policies, threshold=threshold)
+
+    # Build archetypes.
+    archetypes = extract_policy_archetypes(memory, threshold=threshold)
+
+    # Rank archetypes.
+    ranked = rank_archetypes(archetypes, memory, threshold=threshold)
+
+    # Format summary.
+    summary = format_policy_clusters_summary(clusters, ranked)
+
+    return {
+        "clusters": clusters,
+        "archetypes": archetypes,
+        "ranked_archetypes": ranked,
+        "summary": summary,
+    }
+
+
+def format_policy_clustering_adapter_summary(result: Dict[str, Any]) -> str:
+    """Format policy clustering analysis results.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_policy_clustering_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    return str(result.get("summary", ""))
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -2568,4 +2654,6 @@ __all__ = [
     "run_policy_experiment_analysis",
     "run_policy_memory_analysis",
     "format_policy_memory_adapter_summary",
+    "run_policy_clustering_analysis",
+    "format_policy_clustering_adapter_summary",
 ]

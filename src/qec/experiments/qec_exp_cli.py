@@ -106,6 +106,29 @@ def _cmd_policy_memory(args: argparse.Namespace) -> int:
         print(format_policy_memory_summary(memory))
         return 0
 
+    if getattr(args, "show_policy_clusters", False) or getattr(
+        args, "show_archetypes", False
+    ):
+        from qec.analysis.policy_clustering import (
+            cluster_policies,
+            extract_policy_archetypes,
+            format_policy_clusters_summary,
+            rank_archetypes,
+        )
+        from qec.analysis.policy import Policy
+
+        policies_data = memory.get("policies", {})
+        policies = []
+        for name in sorted(policies_data.keys()):
+            entry = policies_data[name]
+            policies.append(Policy.from_dict(name, entry["policy_dict"]))
+
+        clusters = cluster_policies(policies)
+        archetypes = extract_policy_archetypes(memory)
+        ranked = rank_archetypes(archetypes, memory)
+        print(format_policy_clusters_summary(clusters, ranked))
+        return 0
+
     if args.replay_policies or args.use_policy_memory:
         print("Policy memory loaded.")
         print(format_policy_memory_summary(memory))
@@ -154,6 +177,18 @@ def build_parser() -> argparse.ArgumentParser:
     memory_parser.add_argument(
         "--memory-file", default=None,
         help="Path to JSON file with exported policy memory",
+    )
+    memory_parser.add_argument(
+        "--show-policy-clusters", action="store_true",
+        help="Display policy clusters from memory",
+    )
+    memory_parser.add_argument(
+        "--show-archetypes", action="store_true",
+        help="Display archetype policies extracted from clusters",
+    )
+    memory_parser.add_argument(
+        "--use-archetypes", action="store_true",
+        help="Include archetypes in meta-control policy candidates",
     )
     memory_parser.set_defaults(func=_cmd_policy_memory)
 

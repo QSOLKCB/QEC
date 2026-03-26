@@ -127,6 +127,11 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --track-strategies).",
     )
     parser.add_argument(
+        "--show-coupling", action="store_true",
+        help="Show coupled dynamics analysis (interactions, synchronization) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -406,6 +411,23 @@ def _run_ternary_bosonic(args) -> int:
                 phase_space_result=phase_result,
             )
             print(format_multistate_summary(multistate_result), file=sys.stderr)
+
+        if getattr(args, "show_coupling", False):
+            from qec.analysis.strategy_adapter import (
+                format_coupled_dynamics_summary,
+                run_coupled_dynamics_analysis,
+            )
+
+            coupled_result = run_coupled_dynamics_analysis(
+                run_results,
+                multistate_result=multistate_result
+                if "multistate_result" in dir()
+                else None,
+            )
+            print(
+                format_coupled_dynamics_summary(coupled_result),
+                file=sys.stderr,
+            )
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

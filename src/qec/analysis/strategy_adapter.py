@@ -1,4 +1,4 @@
-"""v102.8.0 — Strategy adapter for trust-aware selection.
+"""v102.9.0 — Strategy adapter for trust-aware selection.
 
 Wraps outputs from the v101.4 ternary bosonic pipeline into
 candidate strategies, scores and ranks them, and returns the
@@ -29,6 +29,9 @@ and ``format_flow_geometry_summary``.
 
 v102.8.0 adds ternary classification and multi-state modeling via
 ``run_multistate_analysis`` and ``format_multistate_summary``.
+
+v102.9.0 adds coupled dynamics and interaction modeling via
+``run_coupled_dynamics_analysis`` and ``format_coupled_dynamics_summary``.
 
 All functions are:
 - deterministic (identical inputs -> identical outputs)
@@ -1522,6 +1525,112 @@ def format_multistate_summary(result: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def run_coupled_dynamics_analysis(
+    runs: List[Dict[str, Any]],
+    *,
+    trajectory_result: Optional[Dict[str, Any]] = None,
+    multistate_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Run the full coupled dynamics analysis pipeline.
+
+    Pipeline: runs -> trajectory (v102.2) -> multistate (v102.8)
+    -> joint transitions -> coupling strength -> synchronization
+    -> coupled phase -> interaction summary
+
+    Reuses ``trajectory_result`` and ``multistate_result`` if provided
+    to avoid redundant computation.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key with a list of
+        strategy dicts (each having ``"name"`` and ``"metrics"``).
+    trajectory_result : dict, optional
+        Precomputed output of ``run_trajectory_analysis``.
+    multistate_result : dict, optional
+        Precomputed output of ``run_multistate_analysis``.
+
+    Returns
+    -------
+    dict
+        Contains ``"coupled_summary"`` keyed by strategy pair, plus
+        ``"joint_transitions"``, ``"coupling_strength"``,
+        ``"synchronization"``, and ``"coupled_phase"`` sub-results.
+    """
+    from qec.analysis.coupled_dynamics import (
+        build_coupled_summary,
+        build_joint_transitions,
+        classify_coupled_phase,
+        compute_coupling_strength,
+        detect_synchronization,
+    )
+    from qec.analysis.strategy_evolution import build_type_trajectory
+
+    # Build type trajectories for joint transition analysis.
+    type_trajectories = build_type_trajectory(runs)
+
+    # Ensure multistate is available for phase alignment.
+    if multistate_result is None:
+        multistate_result = run_multistate_analysis(
+            runs,
+            trajectory_result=trajectory_result,
+        )
+    multistate = multistate_result.get("multistate", {})
+
+    # Core coupled dynamics computations.
+    joint = build_joint_transitions(type_trajectories)
+    coupling = compute_coupling_strength(joint)
+    sync = detect_synchronization(type_trajectories)
+    phase = classify_coupled_phase(multistate)
+    summary = build_coupled_summary(coupling, sync, phase)
+
+    return {
+        "joint_transitions": joint,
+        "coupling_strength": coupling,
+        "synchronization": sync,
+        "coupled_phase": phase,
+        "coupled_summary": summary,
+    }
+
+
+def format_coupled_dynamics_summary(result: Dict[str, Any]) -> str:
+    """Format coupled dynamics analysis results as a human-readable summary.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_coupled_dynamics_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    lines: List[str] = []
+    lines.append("=== Coupled Dynamics ===")
+
+    summary = result.get("coupled_summary", {})
+
+    for pair in sorted(summary.keys()):
+        info = summary[pair]
+        name_a, name_b = pair
+
+        cs = info.get("coupling_strength", 0.0)
+        sr = info.get("sync_ratio", 0.0)
+        sc = info.get("sync_classification", "independent")
+        alignment = info.get("alignment", "divergent")
+
+        # Format sync classification for display.
+        sync_label = sc.replace("_", " ")
+
+        lines.append(f"Pair: {name_a} <-> {name_b}")
+        lines.append(f"  Coupling: {cs}")
+        lines.append(f"  Sync: {sr} ({sync_label})")
+        lines.append(f"  Alignment: {alignment}")
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -1554,4 +1663,6 @@ __all__ = [
     "format_flow_geometry_summary",
     "run_multistate_analysis",
     "format_multistate_summary",
+    "run_coupled_dynamics_analysis",
+    "format_coupled_dynamics_summary",
 ]

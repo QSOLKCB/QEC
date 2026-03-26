@@ -2373,6 +2373,152 @@ def run_policy_experiment_analysis(
     }
 
 
+def run_policy_memory_analysis(
+    runs: List[Dict[str, Any]],
+    policies: Optional[List["Policy"]] = None,
+    objective: Optional[Dict[str, Any]] = None,
+    memory: Optional[Dict[str, Any]] = None,
+    *,
+    multistate_result: Optional[Dict[str, Any]] = None,
+    coupled_result: Optional[Dict[str, Any]] = None,
+    max_steps: int = 5,
+    replay: bool = False,
+    replay_k: int = 3,
+) -> Dict[str, Any]:
+    """Run policy memory analysis with optional replay.
+
+    Pipeline: runs -> meta_control -> update memory -> (optional) replay
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+    policies : list of Policy, optional
+        Policies to evaluate.  Defaults to all three built-in policies.
+    objective : dict, optional
+        Global objective weights.  Defaults to equal weights.
+    memory : dict, optional
+        Existing policy memory.  Defaults to empty memory.
+    multistate_result : dict, optional
+        Precomputed multistate result.
+    coupled_result : dict, optional
+        Precomputed coupled dynamics result.
+    max_steps : int
+        Maximum meta-control iterations.
+    replay : bool
+        If ``True``, replay top policies from memory after update.
+    replay_k : int
+        Number of top policies to replay.
+
+    Returns
+    -------
+    dict
+        Contains ``"meta_result"``, ``"memory"``, ``"replay_result"``
+        (if replay enabled), and ``"summary"``.
+    """
+    from qec.analysis.meta_control import run_meta_control
+    from qec.analysis.policy import get_policy
+    from qec.analysis.policy_memory import (
+        format_policy_memory_summary,
+        init_policy_memory,
+        replay_policies,
+        update_policy_memory,
+    )
+
+    if objective is None:
+        objective = {
+            "w_stability": 0.3,
+            "w_attractor": 0.3,
+            "w_transient": 0.2,
+            "w_sync": 0.2,
+        }
+
+    if policies is None:
+        policies = [
+            get_policy("stability_first"),
+            get_policy("sync_first"),
+            get_policy("balanced"),
+        ]
+
+    if memory is None:
+        memory = init_policy_memory()
+
+    if multistate_result is None:
+        multistate_result = run_multistate_analysis(runs)
+    if coupled_result is None:
+        coupled_result = run_coupled_dynamics_analysis(
+            runs,
+            multistate_result=multistate_result,
+        )
+
+    # Run meta-control with memory support.
+    meta_result = run_meta_control(
+        runs,
+        policies,
+        objective,
+        max_steps=max_steps,
+        multistate_result=multistate_result,
+        coupled_result=coupled_result,
+        use_memory=bool(memory.get("policies")),
+        memory=memory,
+    )
+
+    # Update memory with best policy from this run.
+    selected_policies = meta_result.get("policies", [])
+    scores = meta_result.get("scores", [])
+    if selected_policies and len(scores) > 1:
+        # Use the final selected policy and its score.
+        best_name = selected_policies[-1]
+        best_score = scores[-1]
+        # Find the policy object.
+        policy_lookup = {p.name: p for p in policies}
+        if best_name in policy_lookup:
+            memory = update_policy_memory(
+                memory, policy_lookup[best_name], best_score,
+            )
+
+    # Optional replay.
+    replay_result = None
+    if replay:
+        replay_result = replay_policies(
+            runs,
+            memory,
+            objective,
+            k=replay_k,
+            multistate_result=multistate_result,
+            coupled_result=coupled_result,
+            max_steps=max_steps,
+        )
+
+    summary = format_policy_memory_summary(memory, replay_result)
+
+    result: Dict[str, Any] = {
+        "meta_result": meta_result,
+        "memory": memory,
+        "summary": summary,
+    }
+    if replay_result is not None:
+        result["replay_result"] = replay_result
+
+    return result
+
+
+def format_policy_memory_adapter_summary(result: Dict[str, Any]) -> str:
+    """Format policy memory analysis results as a human-readable summary.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_policy_memory_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    return str(result.get("summary", ""))
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -2420,4 +2566,6 @@ __all__ = [
     "run_policy_refinement_analysis",
     "format_policy_refinement_adapter_summary",
     "run_policy_experiment_analysis",
+    "run_policy_memory_analysis",
+    "format_policy_memory_adapter_summary",
 ]

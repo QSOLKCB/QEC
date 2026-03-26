@@ -88,6 +88,34 @@ def _cmd_estimate_threshold(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_policy_memory(args: argparse.Namespace) -> int:
+    from qec.analysis.policy_memory import (
+        format_policy_memory_summary,
+        import_policy_memory,
+        init_policy_memory,
+    )
+
+    memory = init_policy_memory()
+    if args.memory_file is not None:
+        memory_path = Path(args.memory_file)
+        if memory_path.exists():
+            data = json.loads(memory_path.read_text(encoding="utf-8"))
+            memory = import_policy_memory(data)
+
+    if args.show_policy_memory:
+        print(format_policy_memory_summary(memory))
+        return 0
+
+    if args.replay_policies or args.use_policy_memory:
+        print("Policy memory loaded.")
+        print(format_policy_memory_summary(memory))
+        return 0
+
+    # Default: show memory.
+    print(format_policy_memory_summary(memory))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="qec-exp", description="Deterministic experiment CLI")
     parser.add_argument(
@@ -109,6 +137,25 @@ def build_parser() -> argparse.ArgumentParser:
     threshold_parser.add_argument("experiment", help="Experiment name")
     threshold_parser.add_argument("--smooth", action="store_true", help="Apply moving-average smoothing")
     threshold_parser.set_defaults(func=_cmd_estimate_threshold)
+
+    memory_parser = sub.add_parser("policy-memory", help="Show or replay policy memory")
+    memory_parser.add_argument(
+        "--show-policy-memory", action="store_true",
+        help="Display stored policy memory",
+    )
+    memory_parser.add_argument(
+        "--use-policy-memory", action="store_true",
+        help="Use policy memory in meta-control",
+    )
+    memory_parser.add_argument(
+        "--replay-policies", action="store_true",
+        help="Replay top policies from memory",
+    )
+    memory_parser.add_argument(
+        "--memory-file", default=None,
+        help="Path to JSON file with exported policy memory",
+    )
+    memory_parser.set_defaults(func=_cmd_policy_memory)
 
     return parser
 

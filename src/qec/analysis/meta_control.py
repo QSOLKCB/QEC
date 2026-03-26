@@ -1,4 +1,4 @@
-"""v103.5.0 — Meta-control and policy selection engine.
+"""v103.7.0 — Meta-control and policy selection engine.
 
 Provides:
 - per-step policy evaluation across multiple policies
@@ -269,6 +269,8 @@ def run_meta_control(
     multistate_result: Optional[Dict[str, Any]] = None,
     coupled_result: Optional[Dict[str, Any]] = None,
     refine: bool = False,
+    use_memory: bool = False,
+    memory: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Run the meta-control loop with dynamic policy selection.
 
@@ -300,6 +302,12 @@ def run_meta_control(
     refine : bool
         If ``True``, refine the selected policy's thresholds locally
         at each step before applying its intervention. Default ``False``.
+    use_memory : bool
+        If ``True``, merge top policies from *memory* into the
+        candidate set.  Default ``False``.
+    memory : dict, optional
+        Policy memory (from ``policy_memory.init_policy_memory``).
+        Only used when *use_memory* is ``True``.
 
     Returns
     -------
@@ -332,6 +340,17 @@ def run_meta_control(
         coupled_result = run_coupled_dynamics_analysis(
             runs, multistate_result=multistate_result,
         )
+
+    # Merge memory policies if enabled.
+    if use_memory and memory is not None:
+        from qec.analysis.policy_memory import get_top_policies
+
+        memory_policies = get_top_policies(memory)
+        if memory_policies:
+            existing_names = {p.name for p in policies}
+            for mp in memory_policies:
+                if mp.name not in existing_names:
+                    policies = list(policies) + [mp]
 
     current_multistate = multistate_result.get("multistate", {})
 

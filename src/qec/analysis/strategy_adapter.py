@@ -1342,6 +1342,8 @@ def format_phase_space_summary(
 
 def run_flow_geometry_analysis(
     runs: List[Dict[str, Any]],
+    *,
+    phase_space_result: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Run the full flow geometry analysis pipeline.
 
@@ -1349,11 +1351,17 @@ def run_flow_geometry_analysis(
     -> transition graph (v102.5) -> phase space (v102.6)
     -> flow geometry (v102.7)
 
+    If ``phase_space_result`` is provided, the phase space pipeline is
+    skipped and the provided result is reused.
+
     Parameters
     ----------
     runs : list of dict
         Each run must contain a ``"strategies"`` key with a list of
         strategy dicts (each having ``"name"`` and ``"metrics"``).
+    phase_space_result : dict, optional
+        Precomputed output of ``run_phase_space_analysis``.  When
+        provided, avoids redundant recomputation.
 
     Returns
     -------
@@ -1363,7 +1371,10 @@ def run_flow_geometry_analysis(
     """
     from qec.analysis.flow_geometry import compute_flow_geometry
 
-    result = run_phase_space_analysis(runs)
+    if phase_space_result is not None:
+        result = dict(phase_space_result)
+    else:
+        result = run_phase_space_analysis(runs)
     graph = result["transition_graph"]
     geometry = compute_flow_geometry(graph)
 

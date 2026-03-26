@@ -349,8 +349,39 @@ class TestRenderAsciiMap:
     def test_contains_legend(self):
         coords = {"alpha": (0.1, 0.2), "beta": (-0.3, 0.4)}
         result = render_ascii_map(coords)
-        assert "A = alpha" in result
-        assert "B = beta" in result
+        assert "AL = alpha" in result
+        assert "BE = beta" in result
+
+    def test_label_collision_disambiguation(self):
+        # Two types starting with same two letters.
+        coords = {"stable_core": (0.0, 0.0), "stable_drift": (0.5, 0.5)}
+        result = render_ascii_map(coords)
+        assert "Legend:" in result
+        # Both should appear with distinct labels.
+        assert "stable_core" in result
+        assert "stable_drift" in result
+        # Extract legend labels and verify uniqueness.
+        legend_lines = [
+            line.strip() for line in result.split("\n")
+            if "=" in line and "===" not in line
+        ]
+        labels = [line.split("=")[0].strip() for line in legend_lines]
+        assert len(labels) == len(set(labels)), f"Duplicate labels: {labels}"
+
+    def test_many_same_initial(self):
+        coords = {
+            "alpha": (0.0, 0.0),
+            "apex": (0.5, 0.0),
+            "arena": (-0.5, 0.0),
+        }
+        result = render_ascii_map(coords)
+        legend_lines = [
+            line.strip() for line in result.split("\n")
+            if "=" in line and "===" not in line
+        ]
+        labels = [line.split("=")[0].strip() for line in legend_lines]
+        assert len(labels) == 3
+        assert len(set(labels)) == 3, f"Duplicate labels: {labels}"
 
 
 # ---------------------------------------------------------------------------
@@ -435,3 +466,22 @@ class TestFlowGeometryIntegration:
         result = run_flow_geometry_analysis(runs)
         summary = format_flow_geometry_summary(result, show_map=True)
         assert "=== Flow Geometry ===" in summary
+        assert "=== Flow Geometry Map ===" in summary
+        assert "Legend:" in summary
+        assert any(c.isalpha() for c in summary)
+
+    def test_reuse_phase_space_result(self):
+        from qec.analysis.strategy_adapter import (
+            run_flow_geometry_analysis,
+            run_phase_space_analysis,
+        )
+
+        runs = _make_runs_with_scores("gamma", [0.5, 0.6, 0.4])
+        phase_result = run_phase_space_analysis(runs)
+        geo_result = run_flow_geometry_analysis(
+            runs, phase_space_result=phase_result,
+        )
+        assert "flow_geometry" in geo_result
+        # Phase space keys still present.
+        assert "attractors" in geo_result
+        assert "phase_classification" in geo_result

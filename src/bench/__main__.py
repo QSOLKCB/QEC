@@ -361,13 +361,15 @@ def _run_ternary_bosonic(args) -> int:
             evo_result = run_evolution_analysis(run_results)
             print(format_evolution_summary(evo_result), file=sys.stderr)
 
-        if getattr(args, "show_phase_space", False):
-            from qec.analysis.strategy_adapter import (
-                format_phase_space_summary,
-                run_phase_space_analysis,
-            )
+        phase_result = None
+        if getattr(args, "show_phase_space", False) or getattr(args, "show_geometry", False):
+            from qec.analysis.strategy_adapter import run_phase_space_analysis
 
             phase_result = run_phase_space_analysis(run_results)
+
+        if getattr(args, "show_phase_space", False):
+            from qec.analysis.strategy_adapter import format_phase_space_summary
+
             print(format_phase_space_summary(phase_result), file=sys.stderr)
 
         if getattr(args, "show_geometry", False):
@@ -376,7 +378,10 @@ def _run_ternary_bosonic(args) -> int:
                 run_flow_geometry_analysis,
             )
 
-            geo_result = run_flow_geometry_analysis(run_results)
+            geo_result = run_flow_geometry_analysis(
+                run_results,
+                phase_space_result=phase_result,
+            )
             print(
                 format_flow_geometry_summary(
                     geo_result,

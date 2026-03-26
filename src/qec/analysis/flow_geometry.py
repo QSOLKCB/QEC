@@ -1,4 +1,4 @@
-"""v102.7.0 — Flow geometry and deterministic embedding.
+"""v102.7.1 — Flow geometry and deterministic embedding.
 
 Provides a deterministic geometric embedding of behavioral types using
 the transition graph.  Nodes (taxonomy types) are mapped to 2D coordinates
@@ -115,8 +115,7 @@ def build_adjacency_matrix(
 def normalize_matrix(A: List[List[float]]) -> List[List[float]]:
     """Normalize rows of a matrix to transition probabilities.
 
-    Each row is divided by its sum (plus a small epsilon to avoid
-    division by zero).
+    Each row is divided by its sum.  Zero rows are left as zeros.
 
     Parameters
     ----------
@@ -126,15 +125,18 @@ def normalize_matrix(A: List[List[float]]) -> List[List[float]]:
     Returns
     -------
     list of list of float
-        Row-normalized matrix where each row sums to approximately 1
+        Row-normalized matrix where each row sums to exactly 1
         (or 0 for zero rows).
     """
     n = len(A)
     result = [[0.0] * n for _ in range(n)]
     for i in range(n):
-        row_sum = sum(A[i]) + 1e-12
+        row_sum = sum(A[i])
+        if row_sum <= 1e-12:
+            continue
+        inv_row_sum = 1.0 / row_sum
         for j in range(n):
-            result[i][j] = _round(A[i][j] / row_sum)
+            result[i][j] = _round(A[i][j] * inv_row_sum)
     return result
 
 
@@ -338,13 +340,43 @@ def compute_flow_geometry(
     }
 
 
+def _build_labels(names: List[str]) -> Dict[str, str]:
+    """Build collision-free labels for type names.
+
+    Tries a 2-character prefix first, then falls back to a deterministic
+    single-char-plus-digit suffix if collisions occur.
+
+    Parameters
+    ----------
+    names : list of str
+        Sorted list of type names.
+
+    Returns
+    -------
+    dict
+        Maps each name to a unique 1-2 character label.
+    """
+    labels: Dict[str, str] = {}
+    used: set = set()
+    for idx, name in enumerate(names):
+        base = name[:2].upper()
+        label = base
+        if label in used:
+            label = f"{base[0]}{idx % 10}"
+        if label in used:
+            label = f"{chr(65 + (idx % 26))}{idx % 10}"
+        labels[name] = label
+        used.add(label)
+    return labels
+
+
 def render_ascii_map(
     coords: Dict[str, Tuple[float, float]],
     grid_size: int = ASCII_GRID_SIZE,
 ) -> str:
     """Render an ASCII map of embedded type coordinates.
 
-    Places the first character of each type name on a grid.
+    Places a collision-free label for each type on a grid.
     Deterministic placement based on coordinate values.
 
     Parameters
@@ -362,14 +394,16 @@ def render_ascii_map(
     if not coords:
         return "=== Flow Geometry Map ===\n(empty)"
 
+    sorted_names = sorted(coords.keys())
+    labels = _build_labels(sorted_names)
+
     # Initialize grid with dots.
     grid = [["." for _ in range(grid_size)] for _ in range(grid_size)]
 
     half = (grid_size - 1) / 2.0
 
     # Place types on grid (sorted for determinism).
-    placed: Dict[str, Tuple[int, int]] = {}
-    for name in sorted(coords.keys()):
+    for name in sorted_names:
         x, y = coords[name]
         col = int(round(x * half + half))
         row = int(round(-y * half + half))  # flip y for display
@@ -377,9 +411,8 @@ def render_ascii_map(
         col = max(0, min(grid_size - 1, col))
         row = max(0, min(grid_size - 1, row))
 
-        label = name[0].upper()
-        grid[row][col] = label
-        placed[name] = (row, col)
+        # Use first character of label for grid cell.
+        grid[row][col] = labels[name][0]
 
     lines = ["=== Flow Geometry Map ==="]
     for row in grid:
@@ -388,9 +421,9 @@ def render_ascii_map(
     # Legend.
     lines.append("")
     lines.append("Legend:")
-    for name in sorted(coords.keys()):
+    for name in sorted_names:
         x, y = coords[name]
-        lines.append(f"  {name[0].upper()} = {name} ({x:.2f}, {y:.2f})")
+        lines.append(f"  {labels[name]} = {name} ({x:.2f}, {y:.2f})")
 
     return "\n".join(lines)
 

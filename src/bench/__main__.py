@@ -410,6 +410,9 @@ def _run_ternary_bosonic(args) -> int:
                 file=sys.stderr,
             )
 
+        multistate_result = None
+        coupled_result = None
+
         if getattr(args, "show_multistate", False):
             from qec.analysis.strategy_adapter import (
                 format_multistate_summary,
@@ -430,9 +433,7 @@ def _run_ternary_bosonic(args) -> int:
 
             coupled_result = run_coupled_dynamics_analysis(
                 run_results,
-                multistate_result=multistate_result
-                if "multistate_result" in dir()
-                else None,
+                multistate_result=multistate_result,
             )
             print(
                 format_coupled_dynamics_summary(coupled_result),
@@ -447,12 +448,8 @@ def _run_ternary_bosonic(args) -> int:
 
             control_result = run_control_analysis(
                 run_results,
-                multistate_result=multistate_result
-                if "multistate_result" in dir()
-                else None,
-                coupled_result=coupled_result
-                if "coupled_result" in dir()
-                else None,
+                multistate_result=multistate_result,
+                coupled_result=coupled_result,
             )
             print(format_control_summary(control_result), file=sys.stderr)
 
@@ -464,9 +461,7 @@ def _run_ternary_bosonic(args) -> int:
 
             feedback_result = run_feedback_analysis(
                 run_results,
-                multistate_result=multistate_result
-                if "multistate_result" in dir()
-                else None,
+                multistate_result=multistate_result,
             )
             print(format_feedback_summary(feedback_result), file=sys.stderr)
 

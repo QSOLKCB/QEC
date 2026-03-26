@@ -404,9 +404,9 @@ def run_feedback_control(
     current_state = multistate_result.get("multistate", {})
     strategy_names = sorted(current_state.keys())
 
-    # Generate initial candidates.
+    # Generate initial candidates using canonical action set.
     candidates: List[Dict[str, Any]] = []
-    actions = ("boost_stability", "reduce_escape", "force_transition")
+    actions = tuple(VALID_ACTIONS)
     strengths = (0.3, 0.6, 0.9)
     for name in strategy_names:
         for action in actions:
@@ -416,6 +416,9 @@ def run_feedback_control(
                     "action": action,
                     "strength": strength,
                 })
+
+    # Ensure deterministic ordering.
+    candidates.sort(key=lambda x: (x["target"], x["action"], x["strength"]))
 
     # Compute initial score.
     initial_score = _compute_avg_score(current_state, objective)

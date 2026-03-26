@@ -574,7 +574,11 @@ def explain_diagnosis(features: dict, diagnosis: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def run_differential_diagnosis(result: dict) -> dict:
+def run_differential_diagnosis(
+    result: dict,
+    *,
+    refined_thresholds: dict | None = None,
+) -> dict:
     """Run the full differential diagnosis pipeline.
 
     Pipeline:
@@ -586,6 +590,9 @@ def run_differential_diagnosis(result: dict) -> dict:
     result : dict
         Output of ``run_system_diagnostics`` (or a dict containing
         ``global_metrics`` and ``trajectory_geometry`` keys).
+    refined_thresholds : dict, optional
+        Refined thresholds from ``diagnosis_refinement.refine_diagnosis_rules``.
+        If provided, adjusts scoring sensitivity.  If None, uses defaults.
 
     Returns
     -------
@@ -595,7 +602,13 @@ def run_differential_diagnosis(result: dict) -> dict:
         ``diagnosis_confidence``, ``explanations``.
     """
     features = extract_diagnostic_features(result)
-    scores = score_failure_modes(features)
+
+    if refined_thresholds is not None:
+        from qec.analysis.diagnosis_refinement import apply_refined_thresholds
+        scores = apply_refined_thresholds(features, refined_thresholds)
+    else:
+        scores = score_failure_modes(features)
+
     ranked = rank_diagnoses(scores)
 
     # Primary diagnosis is the top-ranked.

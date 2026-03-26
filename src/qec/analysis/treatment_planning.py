@@ -251,18 +251,31 @@ def _compute_post_metrics(before: dict, after: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def score_treatment(result: dict) -> float:
+def score_treatment(
+    result: dict,
+    *,
+    use_geometry: bool = True,
+) -> float:
     """Score a treatment result using a deterministic objective.
 
     Rewards higher stability and attractor weight.
-    Penalizes transient weight, basin-switch risk, angular velocity.
+    Penalizes transient weight.
+    When ``use_geometry`` is True, also applies geometry-guided terms:
+    - angular_velocity penalty (oscillation)
+    - curvature penalty (instability)
+    - spiral_score reward (convergence)
+    - axis_lock reward (focused motion)
 
     Parameters
     ----------
     result : dict
         Must contain ``post_metrics`` with ``stability``,
         ``attractor_weight``, ``transient_weight``.
-        May contain ``aggregate_deltas``.
+        May contain ``geometry`` dict with ``angular_velocity``,
+        ``curvature``, ``spiral_score``, ``axis_lock``.
+    use_geometry : bool
+        Whether to apply geometry-guided scoring terms.
+        Default: True.
 
     Returns
     -------
@@ -275,13 +288,34 @@ def score_treatment(result: dict) -> float:
     attractor = float(post.get("attractor_weight", 0.0))
     transient = float(post.get("transient_weight", 0.0))
 
-    # Weighted sum with positive metrics contributing positively
-    # and negative metrics (transient) penalizing.
+    if not use_geometry:
+        # Original scoring without geometry.
+        score = (
+            0.35 * _clamp(stability)
+            + 0.35 * _clamp(attractor)
+            + 0.30 * _clamp(1.0 - transient)
+        )
+        return _round(_clamp(score))
+
+    # Geometry-guided scoring.
+    geom = result.get("geometry", {})
+    angular_velocity = float(geom.get("angular_velocity", 0.0))
+    curvature = float(geom.get("curvature", 0.0))
+    spiral_score = float(geom.get("spiral_score", 0.0))
+    axis_lock = float(geom.get("axis_lock", 0.0))
+
+    # Base terms (reduced weights to make room for geometry).
     score = (
-        0.35 * _clamp(stability)
-        + 0.35 * _clamp(attractor)
-        + 0.30 * _clamp(1.0 - transient)
+        0.25 * _clamp(stability)
+        + 0.25 * _clamp(attractor)
+        + 0.20 * _clamp(1.0 - transient)
     )
+
+    # Geometry terms.
+    score += 0.10 * _clamp(1.0 - angular_velocity)   # penalize high angular velocity
+    score += 0.05 * _clamp(1.0 - curvature)           # penalize high curvature
+    score += 0.10 * _clamp(spiral_score)               # reward spiral convergence
+    score += 0.05 * _clamp(axis_lock)                  # reward focused axis motion
 
     return _round(_clamp(score))
 

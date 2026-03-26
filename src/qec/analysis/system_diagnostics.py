@@ -212,6 +212,15 @@ def run_system_diagnostics(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         scored_list[0].get("name", "none") if scored_list else "none"
     )
 
+    # --- Stage 9: invariant registry & meta-diagnostics (cross-run) ---
+    # These are populated only when prior run results are available.
+    # Single-run defaults are included for schema consistency.
+    global_metrics["emergent_laws"] = []
+    global_metrics["top_invariants"] = []
+    global_metrics["geometry_adjusted_score"] = round(
+        best_treatment.get("score", 0.0), ROUND_PRECISION
+    )
+
     return {
         "trajectory": trajectory_result,
         "taxonomy": taxonomy_result,
@@ -556,5 +565,17 @@ def format_system_diagnostics(result: Dict[str, Any]) -> str:
     lines.append(f"Treatment Score: {gm.get('treatment_score', 0.0):.2f}")
     lines.append(f"Invariant Count: {gm.get('invariant_count', 0)}")
     lines.append(f"Strongest Invariant: {gm.get('strongest_invariant', 'none')}")
+    lines.append(f"Geometry-Adjusted Score: {gm.get('geometry_adjusted_score', 0.0):.2f}")
+
+    # Emergent laws (cross-run, if available).
+    laws = gm.get("emergent_laws", [])
+    if laws:
+        lines.append("")
+        lines.append("Emergent Laws:")
+        for law in laws:
+            lines.append(
+                f"  - {law.get('law', '?')} "
+                f"(confidence={law.get('confidence', 0.0):.2f})"
+            )
 
     return "\n".join(lines)

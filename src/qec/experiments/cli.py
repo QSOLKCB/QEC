@@ -23,6 +23,17 @@ def _build_parser() -> argparse.ArgumentParser:
     search.add_argument("--num-checks", type=int, default=12)
     search.add_argument("--variable-degree", type=int, default=3)
     search.add_argument("--check-degree", type=int, default=6)
+    search.add_argument("--show-invariant-registry", action="store_true",
+                        help="Show invariant registry after run")
+    search.add_argument("--show-emergent-laws", action="store_true",
+                        help="Show emergent laws from registry")
+    search.add_argument("--show-meta-diagnostics", action="store_true",
+                        help="Show cross-run meta-diagnostics")
+    search.add_argument("--use-geometry-control", action="store_true", default=True,
+                        help="Use geometry-guided treatment scoring (default: on)")
+
+    return parser
+
 from typing import Any
 
 from .phase_diagram_orchestrator import (

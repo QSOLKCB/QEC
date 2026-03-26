@@ -114,6 +114,9 @@ class TestRunSystemDiagnostics:
             "treatment_score",
             "invariant_count",
             "strongest_invariant",
+            "emergent_laws",
+            "top_invariants",
+            "geometry_adjusted_score",
         }
         assert expected == set(gm.keys())
 

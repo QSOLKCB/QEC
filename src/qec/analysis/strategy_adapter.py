@@ -2151,6 +2151,145 @@ def format_meta_control_summary(result: Dict[str, Any]) -> str:
     return _fmt(result)
 
 
+def run_policy_refinement_analysis(
+    runs: List[Dict[str, Any]],
+    policies: Optional[List["Policy"]] = None,
+    objective: Optional[Dict[str, Any]] = None,
+    *,
+    multistate_result: Optional[Dict[str, Any]] = None,
+    coupled_result: Optional[Dict[str, Any]] = None,
+    max_iters: int = 3,
+    max_steps: int = 5,
+) -> Dict[str, Any]:
+    """Run policy refinement analysis with deterministic threshold optimization.
+
+    For each policy, runs the refinement loop to find improved thresholds.
+    Returns per-policy refinement results and the overall best refined policy.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+    policies : list of Policy, optional
+        Policies to refine.  Defaults to all three built-in policies.
+    objective : dict, optional
+        Global objective weights.  Defaults to equal weights.
+    multistate_result : dict, optional
+        Precomputed multistate result.
+    coupled_result : dict, optional
+        Precomputed coupled dynamics result.
+    max_iters : int
+        Maximum refinement iterations per policy.
+    max_steps : int
+        Maximum hierarchical control iterations per variant evaluation.
+
+    Returns
+    -------
+    dict
+        Contains ``"refinements"`` (per-policy results), ``"best"``
+        (overall best refined policy), and ``"summary"`` (formatted string).
+    """
+    from qec.analysis.policy import get_policy
+    from qec.analysis.policy_refinement import (
+        format_policy_refinement_summary,
+        refine_policy,
+    )
+
+    if objective is None:
+        objective = {
+            "w_stability": 0.3,
+            "w_attractor": 0.3,
+            "w_transient": 0.2,
+            "w_sync": 0.2,
+        }
+
+    if policies is None:
+        policies = [
+            get_policy("stability_first"),
+            get_policy("sync_first"),
+            get_policy("balanced"),
+        ]
+
+    if multistate_result is None:
+        multistate_result = run_multistate_analysis(runs)
+    if coupled_result is None:
+        coupled_result = run_coupled_dynamics_analysis(
+            runs,
+            multistate_result=multistate_result,
+        )
+
+    refinements: Dict[str, Dict[str, Any]] = {}
+    best_score = -1.0
+    best_policy = None
+
+    for policy in sorted(policies, key=lambda p: p.name):
+        result = refine_policy(
+            runs,
+            policy,
+            objective,
+            max_iters=max_iters,
+            multistate_result=multistate_result,
+            coupled_result=coupled_result,
+            max_steps=max_steps,
+        )
+        refinements[policy.name] = result
+
+        final_score = result["scores"][-1] if result["scores"] else 0.0
+        if best_policy is None or final_score > best_score or (
+            final_score == best_score
+            and policy.name < best_policy.name
+        ):
+            best_score = final_score
+            best_policy = result["best_policy"]
+
+    # Build summary from the best result.
+    best_result = refinements.get(
+        best_policy.name if best_policy else "",
+        {},
+    )
+    summary = format_policy_refinement_summary(best_result) if best_result else ""
+
+    return {
+        "refinements": refinements,
+        "best": best_policy,
+        "summary": summary,
+    }
+
+
+def format_policy_refinement_adapter_summary(
+    result: Dict[str, Any],
+) -> str:
+    """Format policy refinement results as a human-readable summary.
+
+    Delegates to ``policy_refinement.format_policy_refinement_summary``
+    for the best policy's refinement result.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_policy_refinement_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.policy_refinement import (
+        format_policy_refinement_summary as _fmt,
+    )
+
+    refinements = result.get("refinements", {})
+    best = result.get("best")
+    if best is not None and best.name in refinements:
+        return _fmt(refinements[best.name])
+
+    # Fallback: format first available refinement.
+    for name in sorted(refinements.keys()):
+        return _fmt(refinements[name])
+
+    return "=== Policy Refinement ===\n\nNo refinement results."
+
+
 def run_policy_experiment_analysis(
     runs: List[Dict[str, Any]],
     policies: Optional[List["Policy"]] = None,
@@ -2278,5 +2417,7 @@ __all__ = [
     "format_hierarchical_control_summary",
     "run_meta_control_analysis",
     "format_meta_control_summary",
+    "run_policy_refinement_analysis",
+    "format_policy_refinement_adapter_summary",
     "run_policy_experiment_analysis",
 ]

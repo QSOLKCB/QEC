@@ -268,6 +268,7 @@ def run_meta_control(
     *,
     multistate_result: Optional[Dict[str, Any]] = None,
     coupled_result: Optional[Dict[str, Any]] = None,
+    refine: bool = False,
 ) -> Dict[str, Any]:
     """Run the meta-control loop with dynamic policy selection.
 
@@ -276,6 +277,7 @@ def run_meta_control(
         runs -> multistate -> coupled_dynamics -> loop:
             evaluate all policies (one-step each)
             select best policy
+            (optionally) refine selected policy locally
             apply selected intervention
             update state
             detect meta-convergence
@@ -295,6 +297,9 @@ def run_meta_control(
         Precomputed multistate result.
     coupled_result : dict, optional
         Precomputed coupled dynamics result.
+    refine : bool
+        If ``True``, refine the selected policy's thresholds locally
+        at each step before applying its intervention. Default ``False``.
 
     Returns
     -------
@@ -309,6 +314,8 @@ def run_meta_control(
         - ``"convergence"`` : dict — convergence detection result
         - ``"switching"`` : dict — policy switching analysis
         - ``"steps_taken"`` : int
+        - ``"refinements"`` : list of dict — refinement results per step
+          (only present when *refine* is ``True``)
     """
     from qec.analysis.global_control import (
         apply_global_intervention,
@@ -339,6 +346,10 @@ def run_meta_control(
     all_actions: List[List[Dict[str, Any]]] = []
     scores: List[float] = [_round(initial_score)]
     evaluations: List[Dict[str, Dict[str, Any]]] = []
+    refinements: List[Dict[str, Any]] = []
+
+    # Build policy lookup for refinement.
+    policy_lookup = {p.name: p for p in policies}
 
     for step in range(max_steps):
         # Evaluate all policies for current state.
@@ -353,6 +364,57 @@ def run_meta_control(
 
         # Select best policy.
         best_policy_name = select_policy(step_results)
+
+        # Optionally refine the selected policy locally.
+        if refine and best_policy_name in policy_lookup:
+            from qec.analysis.policy_refinement import refine_policy
+
+            selected_policy = policy_lookup[best_policy_name]
+            refinement_result = refine_policy(
+                runs,
+                selected_policy,
+                objective,
+                max_iters=1,
+                multistate_result=multistate_result,
+                coupled_result=coupled_result,
+            )
+            refinements.append(refinement_result)
+
+            # Use the refined policy for re-evaluation.
+            refined = refinement_result.get("best_policy")
+            if refined is not None:
+                refined_dict = refined.to_dict()
+                from qec.analysis.hierarchical_control import (
+                    run_hierarchical_control,
+                )
+
+                hc_result = run_hierarchical_control(
+                    runs,
+                    objective,
+                    refined_dict,
+                    max_steps=1,
+                    multistate_result=multistate_result,
+                    coupled_result=coupled_result,
+                )
+                hc_scores = hc_result.get("scores", [0.0])
+                refined_score = _round(hc_scores[-1]) if hc_scores else 0.0
+                refined_actions = hc_result.get("final_actions", [[]])
+                refined_action = (
+                    refined_actions[-1] if refined_actions else []
+                )
+
+                # Use refined result if it improves or matches score.
+                original_score = step_results[best_policy_name].get(
+                    "score", 0.0,
+                )
+                if refined_score >= original_score:
+                    step_results[best_policy_name] = {
+                        "score": refined_score,
+                        "action": list(refined_action),
+                    }
+        else:
+            refinements.append({})
+
         selected_policies.append(best_policy_name)
 
         # Get the selected policy's action.
@@ -382,7 +444,7 @@ def run_meta_control(
         )
         if convergence.get("converged", False):
             switching = detect_policy_switching(selected_policies)
-            return {
+            result: Dict[str, Any] = {
                 "states": states,
                 "policies": selected_policies,
                 "actions": all_actions,
@@ -392,6 +454,9 @@ def run_meta_control(
                 "switching": switching,
                 "steps_taken": step + 1,
             }
+            if refine:
+                result["refinements"] = refinements
+            return result
 
     # Max steps reached.
     convergence = detect_meta_convergence(
@@ -406,7 +471,7 @@ def run_meta_control(
 
     switching = detect_policy_switching(selected_policies)
 
-    return {
+    result = {
         "states": states,
         "policies": selected_policies,
         "actions": all_actions,
@@ -416,6 +481,9 @@ def run_meta_control(
         "switching": switching,
         "steps_taken": len(selected_policies),
     }
+    if refine:
+        result["refinements"] = refinements
+    return result
 
 
 # ---------------------------------------------------------------------------

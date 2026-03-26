@@ -137,6 +137,11 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --track-strategies).",
     )
     parser.add_argument(
+        "--show-feedback", action="store_true",
+        help="Show feedback control analysis (iterative closed-loop adaptation) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -405,6 +410,9 @@ def _run_ternary_bosonic(args) -> int:
                 file=sys.stderr,
             )
 
+        multistate_result = None
+        coupled_result = None
+
         if getattr(args, "show_multistate", False):
             from qec.analysis.strategy_adapter import (
                 format_multistate_summary,
@@ -425,9 +433,7 @@ def _run_ternary_bosonic(args) -> int:
 
             coupled_result = run_coupled_dynamics_analysis(
                 run_results,
-                multistate_result=multistate_result
-                if "multistate_result" in dir()
-                else None,
+                multistate_result=multistate_result,
             )
             print(
                 format_coupled_dynamics_summary(coupled_result),
@@ -442,14 +448,22 @@ def _run_ternary_bosonic(args) -> int:
 
             control_result = run_control_analysis(
                 run_results,
-                multistate_result=multistate_result
-                if "multistate_result" in dir()
-                else None,
-                coupled_result=coupled_result
-                if "coupled_result" in dir()
-                else None,
+                multistate_result=multistate_result,
+                coupled_result=coupled_result,
             )
             print(format_control_summary(control_result), file=sys.stderr)
+
+        if getattr(args, "show_feedback", False):
+            from qec.analysis.strategy_adapter import (
+                format_feedback_summary,
+                run_feedback_analysis,
+            )
+
+            feedback_result = run_feedback_analysis(
+                run_results,
+                multistate_result=multistate_result,
+            )
+            print(format_feedback_summary(feedback_result), file=sys.stderr)
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

@@ -1124,6 +1124,117 @@ def format_evolution_summary(result: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Transition graph analysis (v102.5.0)
+# ---------------------------------------------------------------------------
+
+
+def run_transition_graph_analysis(
+    runs: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run the full transition graph analysis pipeline.
+
+    Pipeline: runs -> taxonomy (v102.3) -> evolution trajectories (v102.4)
+    -> transition graph (v102.5)
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key with a list of
+        strategy dicts (each having ``"name"`` and ``"metrics"``).
+
+    Returns
+    -------
+    dict
+        Contains all keys from ``run_evolution_analysis`` plus
+        ``"transition_graph"``, ``"node_stats"``, ``"ranked_transitions"``,
+        and ``"transition_patterns"``.
+    """
+    from qec.analysis.transition_graph import (
+        build_transition_graph,
+        compute_node_stats,
+        detect_transition_patterns,
+        rank_transitions,
+    )
+
+    result = run_evolution_analysis(runs)
+    type_trajectories = result["type_trajectories"]
+
+    graph = build_transition_graph(type_trajectories)
+    node_stats = compute_node_stats(graph)
+    ranked = rank_transitions(graph)
+    patterns = detect_transition_patterns(graph, node_stats=node_stats)
+
+    result["transition_graph"] = graph
+    result["node_stats"] = node_stats
+    result["ranked_transitions"] = ranked
+    result["transition_patterns"] = patterns
+    return result
+
+
+def format_transition_graph_summary(
+    result: Dict[str, Any],
+    show_transition_graph: bool = True,
+) -> str:
+    """Format transition graph analysis results as a human-readable summary.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_transition_graph_analysis``.
+    show_transition_graph : bool
+        Whether to include the transition graph section (default True).
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    lines: List[str] = []
+
+    if not show_transition_graph:
+        return format_evolution_summary(result)
+
+    lines.append("=== Transition Graph ===")
+
+    # Top transitions.
+    ranked = result.get("ranked_transitions", [])
+    if ranked:
+        lines.append("Top Transitions:")
+        for src, tgt, count in ranked:
+            lines.append(f"  {src} → {tgt} : {count}")
+
+    # Node stats.
+    node_stats = result.get("node_stats", {})
+    if node_stats:
+        lines.append("Node Stats:")
+        for node in sorted(node_stats.keys()):
+            s = node_stats[node]
+            lines.append(
+                f"  {node}: in={s['in_degree']} "
+                f"out={s['out_degree']} flow={s['total_flow']}"
+            )
+
+    # Patterns.
+    patterns = result.get("transition_patterns", {})
+    has_patterns = any(
+        bool(patterns.get(k))
+        for k in ("bidirectional", "self_loops", "sources", "sinks")
+    )
+    if has_patterns:
+        lines.append("Patterns:")
+        for a, b in patterns.get("bidirectional", []):
+            lines.append(f"  bidirectional: {a} ↔ {b}")
+        for s in patterns.get("self_loops", []):
+            lines.append(f"  self-loop: {s}")
+        for s in patterns.get("sources", []):
+            lines.append(f"  source: {s}")
+        for s in patterns.get("sinks", []):
+            lines.append(f"  sink: {s}")
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -1148,4 +1259,6 @@ __all__ = [
     "format_taxonomy_summary",
     "run_evolution_analysis",
     "format_evolution_summary",
+    "run_transition_graph_analysis",
+    "format_transition_graph_summary",
 ]

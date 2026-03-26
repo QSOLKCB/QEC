@@ -31,6 +31,12 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="Show cross-run meta-diagnostics")
     search.add_argument("--use-geometry-control", action="store_true", default=True,
                         help="Use geometry-guided treatment scoring (default: on)")
+    search.add_argument("--show-law-stability", action="store_true",
+                        help="Show law stability scores and classifications")
+    search.add_argument("--show-invariant-lifecycle", action="store_true",
+                        help="Show invariant lifecycle phases and trends")
+    search.add_argument("--show-drift", action="store_true",
+                        help="Show cross-run invariant drift detection")
 
     return parser
 

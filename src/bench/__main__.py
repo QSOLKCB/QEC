@@ -189,6 +189,12 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --track-strategies).",
     )
     parser.add_argument(
+        "--show-system", action="store_true",
+        help="Show unified system diagnostics summary "
+             "(synthesizes all analysis layers) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -634,6 +640,18 @@ def _run_ternary_bosonic(args) -> int:
                     format_policy_topology_adapter_summary(graph_result),
                     file=sys.stderr,
                 )
+
+        if getattr(args, "show_system", False):
+            from qec.analysis.strategy_adapter import (
+                format_system_diagnostics_adapter_summary,
+                run_system_diagnostics_analysis,
+            )
+
+            system_result = run_system_diagnostics_analysis(run_results)
+            print(
+                format_system_diagnostics_adapter_summary(system_result),
+                file=sys.stderr,
+            )
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

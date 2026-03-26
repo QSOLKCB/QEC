@@ -2707,6 +2707,48 @@ def format_policy_topology_adapter_summary(result: Dict[str, Any]) -> str:
     return _fmt(result)
 
 
+def run_system_diagnostics_analysis(
+    runs: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run unified system diagnostics across all analysis layers.
+
+    Delegates to ``system_diagnostics.run_system_diagnostics``.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+
+    Returns
+    -------
+    dict
+        Contains all sub-results plus ``"global_metrics"``.
+    """
+    from qec.analysis.system_diagnostics import run_system_diagnostics
+
+    return run_system_diagnostics(runs)
+
+
+def format_system_diagnostics_adapter_summary(result: Dict[str, Any]) -> str:
+    """Format system diagnostics results as a human-readable summary.
+
+    Delegates to ``system_diagnostics.format_system_diagnostics``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_system_diagnostics_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.system_diagnostics import format_system_diagnostics
+
+    return format_system_diagnostics(result)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -2761,4 +2803,6 @@ __all__ = [
     "run_strategy_graph_analysis",
     "format_strategy_graph_adapter_summary",
     "format_policy_topology_adapter_summary",
+    "run_system_diagnostics_analysis",
+    "format_system_diagnostics_adapter_summary",
 ]

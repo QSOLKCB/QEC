@@ -53,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
     search.add_argument("--trapping-localization-fraction", type=float, default=0.2)
     search.add_argument("--explain", action="store_true",
                         help="Print strategy explanation and Pareto explanation after analysis")
+    search.add_argument("--show-geometry-trajectory", action="store_true",
+                        help="Print rotation-aware trajectory geometry diagnostics")
 
     args = parser.parse_args(argv)
     if args.command == "spectral-search":
@@ -105,6 +107,14 @@ def main(argv: list[str] | None = None) -> int:
             if "bp_iterations" in metrics:
                 print(f"bp iterations = {metrics['bp_iterations']}")
                 print(f"final residual = {metrics['bp_final_residual']}")
+        if getattr(args, "show_geometry_trajectory", False):
+            from qec.analysis.trajectory_geometry import (
+                run_trajectory_geometry_analysis,
+                format_trajectory_geometry_summary,
+            )
+            runs = result.get("history", [])
+            geom_result = run_trajectory_geometry_analysis(runs)
+            print(format_trajectory_geometry_summary(geom_result))
         return 0
 
     return 1

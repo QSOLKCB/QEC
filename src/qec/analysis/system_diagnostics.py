@@ -28,7 +28,7 @@ Dependencies: stdlib only (plus sibling analysis modules).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 ROUND_PRECISION = 12
 
@@ -131,6 +131,10 @@ def run_system_diagnostics(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         coupled_result=coupled_result,
     )
 
+    # --- Stage 6: trajectory geometry ---
+    from qec.analysis.trajectory_geometry import run_trajectory_geometry_analysis
+    trajectory_geometry_result = run_trajectory_geometry_analysis(runs)
+
     # --- Synthesize global metrics ---
     global_metrics = _extract_global_metrics(
         trajectory_result=trajectory_result,
@@ -142,6 +146,7 @@ def run_system_diagnostics(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         policy_memory_result=policy_memory_result,
         policy_clustering_result=policy_clustering_result,
         strategy_graph_result=strategy_graph_result,
+        trajectory_geometry_result=trajectory_geometry_result,
     )
 
     return {
@@ -160,6 +165,7 @@ def run_system_diagnostics(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         "policy_memory": policy_memory_result,
         "policy_clustering": policy_clustering_result,
         "strategy_graph": strategy_graph_result,
+        "trajectory_geometry": trajectory_geometry_result,
         "global_metrics": global_metrics,
     }
 
@@ -175,6 +181,7 @@ def _extract_global_metrics(
     policy_memory_result: Dict[str, Any],
     policy_clustering_result: Dict[str, Any],
     strategy_graph_result: Dict[str, Any],
+    trajectory_geometry_result: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Extract synthesized global metrics from all sub-results.
 
@@ -198,6 +205,8 @@ def _extract_global_metrics(
         Output of policy clustering analysis.
     strategy_graph_result : dict
         Output of strategy graph analysis.
+    trajectory_geometry_result : dict, optional
+        Output of trajectory geometry analysis.
 
     Returns
     -------
@@ -225,7 +234,12 @@ def _extract_global_metrics(
     # --- best_archetype ---
     best_archetype = _compute_best_archetype(policy_clustering_result)
 
-    return {
+    # --- geometry metrics ---
+    geom = trajectory_geometry_result or {}
+    rot = geom.get("rotation_metrics", {})
+    geom_pred = geom.get("predictions", {})
+
+    result = {
         "dominant_strategy": dominant_strategy,
         "system_stability": round(system_stability, ROUND_PRECISION),
         "convergence_rate": round(convergence_rate, ROUND_PRECISION),
@@ -233,7 +247,12 @@ def _extract_global_metrics(
         "topology_type": topology_type,
         "best_policy": best_policy,
         "best_archetype": best_archetype,
+        "angular_velocity": rot.get("angular_velocity", 0.0),
+        "spiral_score": rot.get("spiral_score", 0.0),
+        "basin_switch_risk": geom_pred.get("basin_switch_risk", "low"),
     }
+
+    return result
 
 
 def _compute_dominant_strategy(taxonomy_result: Dict[str, Any]) -> str:
@@ -454,5 +473,9 @@ def format_system_diagnostics(result: Dict[str, Any]) -> str:
     lines.append("")
     lines.append(f"Dominant Strategy: {gm.get('dominant_strategy', 'unknown')}")
     lines.append(f"Convergence Rate: {gm.get('convergence_rate', 0.0):.2f}")
+    lines.append("")
+    lines.append(f"Angular Velocity: {gm.get('angular_velocity', 0.0):.2f}")
+    lines.append(f"Spiral Score: {gm.get('spiral_score', 0.0):.2f}")
+    lines.append(f"Basin Switch Risk: {gm.get('basin_switch_risk', 'low')}")
 
     return "\n".join(lines)

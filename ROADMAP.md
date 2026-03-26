@@ -1,420 +1,322 @@
-# QEC Roadmap
+QEC Roadmap
 
-Deterministic QLDPC Stability & Adaptive Control Platform
+Deterministic QLDPC Stability, Adaptive Control & Theory Engine
 
-Author: Trent Slade — QSOL-IMC  
-ORCID: 0009-0002-4515-9237  
+Author: Trent Slade — QSOL-IMC
+ORCID: 0009-0002-4515-9237
 
----
+0. Purpose
 
-## 0. Purpose
+This document defines the architectural direction and research trajectory of the QEC framework.
 
-This document defines the **architectural direction and research trajectory** of the QEC framework.
+QEC has evolved beyond a decoder toolkit.
 
-QEC is no longer just a decoder toolkit.
+It is now a:
 
-It is evolving into a:
+Deterministic Structural Analysis, Adaptive Control, and Theory-Building System for QLDPC Decoding
 
-> **Deterministic Structural Analysis + Adaptive Control System for QLDPC Decoding**
-
----
-
-## 1. Governing Philosophy
+1. Governing Philosophy
 
 QEC evolves under a strict hierarchy:
 
-
-Determinism → Architecture → Measurement → Control → Adaptation
-
+Determinism → Architecture → Measurement → Control → Adaptation → Theory
 
 Rules:
 
-- Capability may expand  
-- Determinism must never regress  
-- The decoder remains sacred  
-- All intelligence is externalized  
+Capability may expand
+Determinism must never regress
+The decoder remains sacred
+All intelligence is externalized
+2. Core Architectural Invariants (Non-Negotiable)
+2.1 Determinism is Architecture
 
----
-
-## 2. Core Architectural Invariants (Non-Negotiable)
-
-### 2.1 Determinism is Architecture
-
-All outputs must be **byte-identical** under fixed configuration.
+All outputs must be byte-identical under fixed configuration.
 
 Required:
 
-- no hidden randomness  
-- explicit seed control  
-- deterministic ordering everywhere  
-- canonical JSON serialization  
-- SHA-256 artifact hashing  
-- stable sweep ordering  
-
-
+no hidden randomness
+explicit seed control
+deterministic ordering everywhere
+canonical JSON serialization
+SHA-256 artifact hashing
+stable sweep ordering
 runtime_mode = "off" ⇒ identical outputs across runs
 
-
-Determinism is not a feature.  
+Determinism is not a feature.
 It is a constraint.
 
----
-
-### 2.2 Decoder Core Protection
+2.2 Decoder Core Protection
 
 Location:
 
-
 src/qec/decoder/
-
 
 Rules:
 
-- no algorithm changes without explicit approval  
-- no adaptive logic inside decoder  
-- no stochastic behavior  
-- no experimental leakage  
+no algorithm changes without explicit approval
+no adaptive logic inside decoder
+no stochastic behavior
+no experimental leakage
 
 The decoder is:
 
-> **a fixed physical system under study**
+a fixed physical system under study
 
----
-
-### 2.3 Layer Separation
+2.3 Layer Separation
 
 Strict directional dependency:
 
-
-decoder → channel → diagnostics → predictors → control → adaptation
-
+decoder → channel → diagnostics → predictors → control → adaptation → theory
 
 Constraints:
 
-- no upward imports  
-- no circular dependencies  
-- no cross-layer mutation  
-
----
-
-### 2.4 Minimalism
+no upward imports
+no circular dependencies
+no cross-layer mutation
+2.4 Minimalism
 
 Prefer:
 
-- stdlib  
-- NumPy / SciPy  
-- sparse operators  
+stdlib
+NumPy / SciPy
+sparse operators
 
 Avoid:
 
-- frameworks  
-- heavy abstractions  
-- unnecessary dependencies  
+frameworks
+heavy abstractions
+unnecessary dependencies
+3. System Architecture (v105 State)
 
----
+QEC now operates as a closed-loop reasoning and intervention system:
 
-## 3. System Architecture (v99 State)
+metrics
+→ trajectory
+→ geometry
+→ diagnostics
+→ differential diagnosis
+→ provocation
+→ revised diagnosis
+→ treatment planning
+→ invariant extraction
+→ invariant registry
+→ law formation
+→ refinement → control
+Layer 1 — Decoder Core
+BP decoding (all variants)
+deterministic scheduling
+OSD / decimation
 
-QEC now operates as a **deterministic control loop**:
+Status: frozen / protected
 
+Layer 2 — Channels
+deterministic LLR construction
+pluggable noise models
+Layer 3 — Diagnostics (Observation)
 
-metrics → attractor → strategy → evaluation → adaptation → memory
-
-
----
-
-### Layer 1 — Decoder Core
-
-- BP decoding (all variants)
-- deterministic scheduling
-- OSD / decimation
-- invariant-safe execution
-
-Status: **frozen / protected**
-
----
-
-### Layer 2 — Channels
-
-- deterministic LLR construction  
-- syndrome-only inference  
-- pluggable models  
-
-Future:
-
-- AWGN  
-- erasure  
-- stim-compatible noise  
-
----
-
-### Layer 3 — Diagnostics (Observation)
-
-Transforms QEC into a **measurement instrument**
+QEC as a measurement instrument
 
 Includes:
 
-- iteration dynamics  
-- basin / attractor detection  
-- spectral analysis (NB, Bethe Hessian)  
-- localization (IPR)  
-- instability metrics  
+attractors / basins
+spectral metrics
+instability measures
+Layer 4 — Geometry & Trajectory Analysis
+angular velocity
+curvature
+spiral dynamics
+axis locking
+coupling metrics
 
-Rules:
+New direction:
 
-- observational only  
-- no side effects  
+trajectory = motion through an error landscape
 
----
+Layer 5 — Differential Diagnosis
 
-### Layer 4 — Predictors (Pre-Decode Intelligence)
+System explains its own behavior:
 
-Goal:
+oscillatory traps
+metastable plateaus
+basin switching
+control overshoot
+Layer 6 — Provocation (Active Testing)
 
-> predict failure before decoding
+Controlled interventions to test hypotheses:
 
-Inputs:
+baseline treatments
+response classification
+diagnosis revision
+Layer 7 — Treatment Planning
 
-- spectral signals  
-- structural metrics  
-- attractor features  
+Deterministic intervention selection:
 
-Outputs:
+candidate generation
+scoring
+geometry-aware control
+law-aware constraints
+Layer 8 — Invariant Extraction
 
-- failure risk  
-- instability classification  
+System identifies structural truths:
 
----
+sign invariants
+ordering invariants
+topology invariants
+geometry invariants
+Layer 9 — Invariant Registry (Cross-Run Memory)
 
-### Layer 5 — Strategy System (Decision Layer)
+Tracks invariants across runs:
 
-Goal:
+frequency
+strength
+streaks
+break events
+Layer 10 — Law Engine
 
-> choose what to do next
+Builds emergent laws:
 
-Components:
-
-- strategy scoring  
-- deterministic selection  
-- regime-aware policies  
-
-Examples:
-
-- damping  
-- scheduling changes  
-- perturbation strategies  
-
----
-
-### Layer 6 — Evaluation (Feedback Layer)
-
-Goal:
-
-> measure impact of actions
+stable laws
+fragile laws
+emerging laws
+decaying laws
 
 Includes:
 
-- before/after comparison  
-- outcome classification  
-- improvement scoring  
+stability scoring
+lifecycle tracking
+drift detection
+Layer 11 — Theory Feedback
 
----
+System uses learned laws to guide:
 
-### Layer 7 — Adaptation (Global Learning)
+control decisions
+diagnosis thresholds
+strategy selection
+4. New Research Directions (v105+)
+4.1 Active Probe Diagnostics (Knowledge Landscape Mapping)
 
-Goal:
-
-> adjust future behavior
-
-Mechanisms:
-
-- trajectory scoring  
-- recency weighting  
-- global bias updates  
-
-Constraint:
-
-- deterministic  
-- no stochastic learning  
-
----
-
-### Layer 8 — Memory (v99+)
+Inspired by learning-landscape research.
 
 Goal:
 
-> local specialization per strategy
+infer system structure using minimal probes
 
 Features:
 
-- bounded memory per strategy  
-- performance tracking  
-- bias generation  
+short diagnostic runs
+targeted perturbations
+landscape reconstruction
+4.2 Trajectory Singularity Analysis
 
-Effect:
-
-> system becomes **experience-aware without randomness**
-
----
-
-## 4. Spectral Research Foundation (Preserved)
-
-Core hypothesis:
-
-
-cycle structure
-→ eigenvector localization
-→ instability modes
-→ BP failure
-
-
-Key signals:
-
-- non-backtracking spectral radius  
-- dominant eigenvector  
-- inverse participation ratio (IPR)  
-- edge sensitivity  
-
-Edge proxy:
-
-
-s(e) ≈ |v_i|² · |v_j|²
-
-
-These remain the **physical grounding layer** of the system.
-
----
-
-## 5. Current System Identity
-
-QEC is now:
-
-> A deterministic, explainable, adaptive system  
-> built on top of a fixed decoding substrate
-
-Not:
-
-- a heuristic optimizer  
-- a stochastic search system  
-- a black-box ML pipeline  
-
----
-
-## 6. Near-Term Roadmap (v100+)
-
-### v100 — Strategy Ecology
-
-- strategy taxonomy formation  
-- cross-regime dominance mapping  
-- specialization patterns  
-
-Outcome:
-
-> system develops **behavioral structure**
-
----
-
-### v101 — Memory Refinement
-
-- decay functions  
-- long vs short horizon memory  
-- stability-aware weighting  
-
----
-
-### v102 — Predictive Control
-
-- pre-selection of strategies before execution  
-- multi-step planning  
-- failure avoidance policies  
-
----
-
-### v103 — System-Level Phase Diagrams
-
-Axes:
-
-- instability  
-- strategy selection  
-- adaptation response  
+Inspired by phase singularity physics.
 
 Goal:
 
-> map full **system dynamics**, not just decoder dynamics  
+detect instability events as topological defects
 
----
+Signals:
 
-### v104 — Meta-Stability Detection
+pre-switch acceleration
+singularity pair formation
+annihilation events
+4.3 Treatment Transport Model
 
-- detect false convergence  
-- distinguish:
-  - true stability  
-  - metastability  
-  - oscillation  
-
----
-
-### v105 — Structural + Adaptive Fusion
-
-Combine:
-
-- spectral signals  
-- adaptive behavior  
+Inspired by quantum transfer physics.
 
 Goal:
 
-> unified structural + behavioral model  
+model intervention strength as landscape transport distance
 
----
+Concepts:
 
-## 7. Anti-Patterns (Strictly Forbidden)
+local vs non-local transitions
+driving-force control
+basin skipping
+4.4 Structural Stress & Defect Analysis
 
-- modifying decoder core  
-- stochastic optimization  
-- ML replacing structural reasoning  
-- dense NB matrix construction  
-- breaking QLDPC constraints  
-- hidden state or implicit randomness  
+Goal:
 
----
+detect hidden structural strain causing failure
 
-## 8. Evolution Strategy
+Features:
+
+stress hotspots
+off-target behavior
+defect propagation
+4.5 Automata-Based Control System
+
+Goal:
+
+formalize system behavior as a deterministic state machine
+
+States:
+
+diagnose → provoke → revise → treat → verify → archive
+
+Benefits:
+
+provable transitions
+clean TUI integration
+safer control flow
+4.6 Hardware Modality Profiles
+
+Goal:
+
+align QEC behavior with hardware constraints
+
+Profiles:
+
+superconducting (time/depth optimized)
+neutral atom (connectivity/space optimized)
+5. Evolution Strategy
 
 QEC evolves in this order:
 
-
-Measure → Understand → Control → Adapt → Specialize
-
-
-Never:
-
-
-Guess → Optimize → Hope
-
-
----
-
-## 9. Success Criteria
+Measure → Understand → Diagnose → Test → Control → Adapt → Generalize → Formalize
+6. Future Roadmap
+v105.2 — Active Probe Engine
+minimal diagnostic probes
+landscape inference
+adaptive probing
+v105.3 — Trajectory Singularity Engine
+instability event detection
+pre-transition signals
+v105.4 — Transport-Based Control
+intervention distance modeling
+basin-jump optimization
+v105.5 — Control Automaton
+formal state machine
+provable control transitions
+v105.6 — Hardware-Aware QEC
+modality profiles
+constraint-aware control
+v106.0 — Human Interface Layer (Rust TUI)
+full system navigation
+zero-logic UI
+CLI/JSON bridge
+7. Anti-Patterns (Strictly Forbidden)
+modifying decoder core
+stochastic optimization
+ML replacing structural reasoning
+hidden state
+non-deterministic control
+8. Success Criteria
 
 The system succeeds when it can:
 
-- predict failure before decoding  
-- explain *why* failure occurs  
-- select corrective strategies deterministically  
-- improve outcomes reproducibly  
-- maintain full auditability  
+diagnose its own failures
+test its hypotheses
+select optimal interventions
+learn invariant structure
+identify stable laws
+adapt behavior deterministically
+9. Final Principle
 
----
+Truth is what survives repeated attempts to break it.
 
-## 10. Final Principle
+Author
 
-> If it cannot be reproduced byte-for-byte, it is not a baseline.
-
----
-
-## Author
-
-Trent Slade  
-QSOL-IMC  
+Trent Slade
+QSOL-IMC
 
 ORCID: https://orcid.org/0009-0002-4515-9237

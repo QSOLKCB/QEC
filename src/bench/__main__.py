@@ -117,6 +117,11 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --track-strategies).",
     )
     parser.add_argument(
+        "--show-geometry", action="store_true",
+        help="Show flow geometry embedding (coordinates, distances, clusters) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -356,14 +361,34 @@ def _run_ternary_bosonic(args) -> int:
             evo_result = run_evolution_analysis(run_results)
             print(format_evolution_summary(evo_result), file=sys.stderr)
 
-        if getattr(args, "show_phase_space", False):
-            from qec.analysis.strategy_adapter import (
-                format_phase_space_summary,
-                run_phase_space_analysis,
-            )
+        phase_result = None
+        if getattr(args, "show_phase_space", False) or getattr(args, "show_geometry", False):
+            from qec.analysis.strategy_adapter import run_phase_space_analysis
 
             phase_result = run_phase_space_analysis(run_results)
+
+        if getattr(args, "show_phase_space", False):
+            from qec.analysis.strategy_adapter import format_phase_space_summary
+
             print(format_phase_space_summary(phase_result), file=sys.stderr)
+
+        if getattr(args, "show_geometry", False):
+            from qec.analysis.strategy_adapter import (
+                format_flow_geometry_summary,
+                run_flow_geometry_analysis,
+            )
+
+            geo_result = run_flow_geometry_analysis(
+                run_results,
+                phase_space_result=phase_result,
+            )
+            print(
+                format_flow_geometry_summary(
+                    geo_result,
+                    show_map=True,
+                ),
+                file=sys.stderr,
+            )
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

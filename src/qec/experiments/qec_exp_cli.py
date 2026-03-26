@@ -102,6 +102,18 @@ def _cmd_policy_memory(args: argparse.Namespace) -> int:
             data = json.loads(memory_path.read_text(encoding="utf-8"))
             memory = import_policy_memory(data)
 
+    if getattr(args, "show_diagnosis", False):
+        from qec.analysis.differential_diagnosis import (
+            format_differential_diagnosis,
+            run_differential_diagnosis,
+        )
+
+        # Build a minimal result structure for diagnosis.
+        diag_result = {"global_metrics": {}, "trajectory_geometry": {}}
+        diagnosis = run_differential_diagnosis(diag_result)
+        print(format_differential_diagnosis(diagnosis))
+        return 0
+
     if args.show_policy_memory:
         print(format_policy_memory_summary(memory))
         return 0
@@ -189,6 +201,10 @@ def build_parser() -> argparse.ArgumentParser:
     memory_parser.add_argument(
         "--use-archetypes", action="store_true",
         help="Include archetypes in meta-control policy candidates",
+    )
+    memory_parser.add_argument(
+        "--show-diagnosis", action="store_true",
+        help="Run differential diagnosis on system diagnostics",
     )
     memory_parser.set_defaults(func=_cmd_policy_memory)
 

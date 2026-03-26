@@ -107,6 +107,13 @@ class TestRunSystemDiagnostics:
             "basin_switch_risk",
             "primary_diagnosis",
             "diagnosis_confidence",
+            "baseline_response_class",
+            "revised_diagnosis",
+            "diagnosis_shift",
+            "best_treatment",
+            "treatment_score",
+            "invariant_count",
+            "strongest_invariant",
         }
         assert expected == set(gm.keys())
 

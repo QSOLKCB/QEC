@@ -102,6 +102,37 @@ def _cmd_policy_memory(args: argparse.Namespace) -> int:
             data = json.loads(memory_path.read_text(encoding="utf-8"))
             memory = import_policy_memory(data)
 
+    if getattr(args, "show_treatment_invariants", False):
+        from qec.analysis.treatment_invariants import (
+            format_treatment_invariants,
+            run_treatment_invariant_analysis,
+        )
+
+        result = run_treatment_invariant_analysis([])
+        scored = {"scored_invariants": result.get("scored_invariants", [])}
+        print(format_treatment_invariants(scored))
+        return 0
+
+    if getattr(args, "show_treatment", False):
+        from qec.analysis.treatment_planning import (
+            format_treatment_plan,
+            run_treatment_planning,
+        )
+
+        result = run_treatment_planning([])
+        print(format_treatment_plan(result))
+        return 0
+
+    if getattr(args, "show_provocation", False):
+        from qec.analysis.provocation_analysis import (
+            format_provocation_analysis,
+            run_provocation_analysis,
+        )
+
+        result = run_provocation_analysis([])
+        print(format_provocation_analysis(result))
+        return 0
+
     if getattr(args, "show_diagnosis", False):
         from qec.analysis.differential_diagnosis import (
             format_differential_diagnosis,
@@ -205,6 +236,18 @@ def build_parser() -> argparse.ArgumentParser:
     memory_parser.add_argument(
         "--show-diagnosis", action="store_true",
         help="Run differential diagnosis on system diagnostics",
+    )
+    memory_parser.add_argument(
+        "--show-provocation", action="store_true",
+        help="Run provocation analysis on system diagnostics",
+    )
+    memory_parser.add_argument(
+        "--show-treatment", action="store_true",
+        help="Run treatment planning on system diagnostics",
+    )
+    memory_parser.add_argument(
+        "--show-treatment-invariants", action="store_true",
+        help="Run treatment invariant analysis",
     )
     memory_parser.set_defaults(func=_cmd_policy_memory)
 

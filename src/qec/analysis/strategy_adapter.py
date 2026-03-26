@@ -2842,6 +2842,141 @@ def format_differential_diagnosis_adapter_summary(
     return format_differential_diagnosis(result)
 
 
+def run_provocation_analysis_adapter(
+    runs: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run provocation analysis pipeline.
+
+    Delegates to ``provocation_analysis.run_provocation_analysis``.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+
+    Returns
+    -------
+    dict
+        Contains diagnosis, interventions, response, and revision.
+    """
+    from qec.analysis.provocation_analysis import run_provocation_analysis
+
+    return run_provocation_analysis(runs)
+
+
+def format_provocation_analysis_adapter_summary(
+    result: Dict[str, Any],
+) -> str:
+    """Format provocation analysis results as a human-readable summary.
+
+    Delegates to ``provocation_analysis.format_provocation_analysis``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_provocation_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.provocation_analysis import format_provocation_analysis
+
+    return format_provocation_analysis(result)
+
+
+def run_treatment_planning_adapter(
+    runs: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run treatment planning pipeline.
+
+    Delegates to ``treatment_planning.run_treatment_planning``.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+
+    Returns
+    -------
+    dict
+        Contains provocation, candidates, evaluations, best treatment.
+    """
+    from qec.analysis.treatment_planning import run_treatment_planning
+
+    return run_treatment_planning(runs)
+
+
+def format_treatment_planning_adapter_summary(
+    result: Dict[str, Any],
+) -> str:
+    """Format treatment planning results as a human-readable summary.
+
+    Delegates to ``treatment_planning.format_treatment_plan``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_treatment_planning``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.treatment_planning import format_treatment_plan
+
+    return format_treatment_plan(result)
+
+
+def run_treatment_invariant_analysis_adapter(
+    runs: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run treatment invariant analysis pipeline.
+
+    Delegates to ``treatment_invariants.run_treatment_invariant_analysis``.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+
+    Returns
+    -------
+    dict
+        Contains diagnosis, provocation, treatment, and invariants.
+    """
+    from qec.analysis.treatment_invariants import run_treatment_invariant_analysis
+
+    return run_treatment_invariant_analysis(runs)
+
+
+def format_treatment_invariant_adapter_summary(
+    result: Dict[str, Any],
+) -> str:
+    """Format treatment invariant results as a human-readable summary.
+
+    Delegates to ``treatment_invariants.format_treatment_invariants``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_treatment_invariant_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.treatment_invariants import format_treatment_invariants
+
+    scored = {
+        "scored_invariants": result.get("scored_invariants", []),
+    }
+    return format_treatment_invariants(scored)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -2902,4 +3037,10 @@ __all__ = [
     "format_trajectory_geometry_adapter_summary",
     "run_differential_diagnosis_analysis",
     "format_differential_diagnosis_adapter_summary",
+    "run_provocation_analysis_adapter",
+    "format_provocation_analysis_adapter_summary",
+    "run_treatment_planning_adapter",
+    "format_treatment_planning_adapter_summary",
+    "run_treatment_invariant_analysis_adapter",
+    "format_treatment_invariant_adapter_summary",
 ]

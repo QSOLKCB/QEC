@@ -167,6 +167,51 @@ def run_system_diagnostics(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         "diagnosis_confidence", 0.0
     )
 
+    # --- Stage 8: provocation + treatment + invariants ---
+    from qec.analysis.provocation_analysis import run_provocation_analysis
+    from qec.analysis.treatment_planning import run_treatment_planning
+    from qec.analysis.treatment_invariants import (
+        extract_treatment_invariants,
+        score_invariants,
+    )
+
+    provocation_result = run_provocation_analysis(runs)
+    treatment_result = run_treatment_planning(runs)
+
+    raw_invariants = extract_treatment_invariants(
+        diagnosis_result, provocation_result, treatment_result,
+    )
+    scored_inv = score_invariants(raw_invariants)
+    scored_list = scored_inv.get("scored_invariants", [])
+
+    # Enrich global metrics with provocation/treatment/invariant data.
+    prov_response = provocation_result.get("response", {})
+    prov_revision = provocation_result.get("revision", {})
+    best_treatment = treatment_result.get("best_treatment", {})
+    best_candidate = best_treatment.get("candidate", {})
+
+    global_metrics["baseline_response_class"] = prov_response.get(
+        "classification", "unchanged"
+    )
+    global_metrics["revised_diagnosis"] = prov_revision.get(
+        "revised_diagnosis", global_metrics["primary_diagnosis"]
+    )
+    global_metrics["diagnosis_shift"] = round(
+        prov_revision.get("confidence_shift", 0.0), ROUND_PRECISION
+    )
+    global_metrics["best_treatment"] = (
+        f"{best_candidate.get('action', 'none')}"
+        f"({best_candidate.get('strength', 0.0)})"
+        if best_candidate else "none"
+    )
+    global_metrics["treatment_score"] = round(
+        best_treatment.get("score", 0.0), ROUND_PRECISION
+    )
+    global_metrics["invariant_count"] = len(scored_list)
+    global_metrics["strongest_invariant"] = (
+        scored_list[0].get("name", "none") if scored_list else "none"
+    )
+
     return {
         "trajectory": trajectory_result,
         "taxonomy": taxonomy_result,
@@ -185,6 +230,10 @@ def run_system_diagnostics(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         "strategy_graph": strategy_graph_result,
         "trajectory_geometry": trajectory_geometry_result,
         "differential_diagnosis": diagnosis_result,
+        "provocation": provocation_result,
+        "treatment": treatment_result,
+        "treatment_invariants": raw_invariants,
+        "scored_invariants": scored_list,
         "global_metrics": global_metrics,
     }
 
@@ -499,5 +548,13 @@ def format_system_diagnostics(result: Dict[str, Any]) -> str:
     lines.append("")
     lines.append(f"Primary Diagnosis: {gm.get('primary_diagnosis', 'unknown')}")
     lines.append(f"Diagnosis Confidence: {gm.get('diagnosis_confidence', 0.0):.2f}")
+    lines.append(f"Baseline Response: {gm.get('baseline_response_class', 'unknown')}")
+    lines.append(f"Revised Diagnosis: {gm.get('revised_diagnosis', 'unknown')}")
+    lines.append(f"Diagnosis Shift: {gm.get('diagnosis_shift', 0.0):+.2f}")
+    lines.append("")
+    lines.append(f"Best Treatment: {gm.get('best_treatment', 'none')}")
+    lines.append(f"Treatment Score: {gm.get('treatment_score', 0.0):.2f}")
+    lines.append(f"Invariant Count: {gm.get('invariant_count', 0)}")
+    lines.append(f"Strongest Invariant: {gm.get('strongest_invariant', 'none')}")
 
     return "\n".join(lines)

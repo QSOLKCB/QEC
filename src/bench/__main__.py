@@ -148,6 +148,12 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --track-strategies).",
     )
     parser.add_argument(
+        "--show-hierarchical-control", action="store_true",
+        help="Show hierarchical control analysis "
+             "(policy routing, local/global merge, convergence) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -484,6 +490,22 @@ def _run_ternary_bosonic(args) -> int:
             )
             print(
                 format_global_control_summary(global_result),
+                file=sys.stderr,
+            )
+
+        if getattr(args, "show_hierarchical_control", False):
+            from qec.analysis.strategy_adapter import (
+                format_hierarchical_control_summary,
+                run_hierarchical_control_analysis,
+            )
+
+            hierarchical_result = run_hierarchical_control_analysis(
+                run_results,
+                multistate_result=multistate_result,
+                coupled_result=coupled_result,
+            )
+            print(
+                format_hierarchical_control_summary(hierarchical_result),
                 file=sys.stderr,
             )
 

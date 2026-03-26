@@ -39,6 +39,10 @@ v103.0.0 adds control layer and intervention modeling via
 v103.2.0 adds multi-strategy feedback and global control via
 ``run_global_control_analysis`` and ``format_global_control_summary``.
 
+v103.3.0 adds hierarchical control and policy-based routing via
+``run_hierarchical_control_analysis`` and
+``format_hierarchical_control_summary``.
+
 All functions are:
 - deterministic (identical inputs -> identical outputs)
 - side-effect free (no mutation of inputs)
@@ -1957,6 +1961,102 @@ def format_global_control_summary(result: Dict[str, Any]) -> str:
     return _fmt(result)
 
 
+def run_hierarchical_control_analysis(
+    runs: List[Dict[str, Any]],
+    objective: Optional[Dict[str, Any]] = None,
+    policy: Optional[Dict[str, Any]] = None,
+    *,
+    multistate_result: Optional[Dict[str, Any]] = None,
+    coupled_result: Optional[Dict[str, Any]] = None,
+    max_steps: int = 5,
+) -> Dict[str, Any]:
+    """Run hierarchical control analysis with policy-based routing.
+
+    Pipeline: runs -> multistate -> coupled_dynamics -> hierarchical_control
+
+    Reuses ``multistate_result`` and ``coupled_result`` if provided
+    to avoid redundant computation.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+    objective : dict, optional
+        Global objective weights (w_stability, w_attractor, w_transient,
+        w_sync).  Defaults to equal weights (0.3, 0.3, 0.2, 0.2).
+    policy : dict, optional
+        Control policy with ``"mode"``, ``"priority"``, ``"thresholds"``.
+        Defaults to the ``"balanced"`` built-in policy.
+    multistate_result : dict, optional
+        Precomputed output of ``run_multistate_analysis``.
+    coupled_result : dict, optional
+        Precomputed output of ``run_coupled_dynamics_analysis``.
+    max_steps : int
+        Maximum hierarchical feedback iterations.
+
+    Returns
+    -------
+    dict
+        Output of ``run_hierarchical_control`` from
+        ``hierarchical_control.py``.
+    """
+    from qec.analysis.hierarchical_control import (
+        get_builtin_policy,
+        run_hierarchical_control,
+    )
+
+    if objective is None:
+        objective = {
+            "w_stability": 0.3,
+            "w_attractor": 0.3,
+            "w_transient": 0.2,
+            "w_sync": 0.2,
+        }
+
+    if policy is None:
+        policy = get_builtin_policy("balanced")
+
+    if multistate_result is None:
+        multistate_result = run_multistate_analysis(runs)
+
+    if coupled_result is None:
+        coupled_result = run_coupled_dynamics_analysis(
+            runs,
+            multistate_result=multistate_result,
+        )
+
+    return run_hierarchical_control(
+        runs,
+        objective,
+        policy,
+        max_steps=max_steps,
+        multistate_result=multistate_result,
+        coupled_result=coupled_result,
+    )
+
+
+def format_hierarchical_control_summary(result: Dict[str, Any]) -> str:
+    """Format hierarchical control results as a human-readable summary.
+
+    Delegates to ``hierarchical_control.format_hierarchical_control_summary``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_hierarchical_control_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.hierarchical_control import (
+        format_hierarchical_control_summary as _fmt,
+    )
+
+    return _fmt(result)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -1997,4 +2097,6 @@ __all__ = [
     "format_feedback_summary",
     "run_global_control_analysis",
     "format_global_control_summary",
+    "run_hierarchical_control_analysis",
+    "format_hierarchical_control_summary",
 ]

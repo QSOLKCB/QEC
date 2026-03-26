@@ -135,6 +135,9 @@ def run_system_diagnostics(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
     from qec.analysis.trajectory_geometry import run_trajectory_geometry_analysis
     trajectory_geometry_result = run_trajectory_geometry_analysis(runs)
 
+    # --- Stage 7: differential diagnosis ---
+    from qec.analysis.differential_diagnosis import run_differential_diagnosis
+
     # --- Synthesize global metrics ---
     global_metrics = _extract_global_metrics(
         trajectory_result=trajectory_result,
@@ -147,6 +150,21 @@ def run_system_diagnostics(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         policy_clustering_result=policy_clustering_result,
         strategy_graph_result=strategy_graph_result,
         trajectory_geometry_result=trajectory_geometry_result,
+    )
+
+    # Run differential diagnosis on the assembled result.
+    diagnosis_input = {
+        "global_metrics": global_metrics,
+        "trajectory_geometry": trajectory_geometry_result,
+    }
+    diagnosis_result = run_differential_diagnosis(diagnosis_input)
+
+    # Enrich global metrics with primary diagnosis.
+    global_metrics["primary_diagnosis"] = diagnosis_result.get(
+        "primary_diagnosis", "unknown"
+    )
+    global_metrics["diagnosis_confidence"] = diagnosis_result.get(
+        "diagnosis_confidence", 0.0
     )
 
     return {
@@ -166,6 +184,7 @@ def run_system_diagnostics(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         "policy_clustering": policy_clustering_result,
         "strategy_graph": strategy_graph_result,
         "trajectory_geometry": trajectory_geometry_result,
+        "differential_diagnosis": diagnosis_result,
         "global_metrics": global_metrics,
     }
 
@@ -477,5 +496,8 @@ def format_system_diagnostics(result: Dict[str, Any]) -> str:
     lines.append(f"Angular Velocity: {gm.get('angular_velocity', 0.0):.2f}")
     lines.append(f"Spiral Score: {gm.get('spiral_score', 0.0):.2f}")
     lines.append(f"Basin Switch Risk: {gm.get('basin_switch_risk', 'low')}")
+    lines.append("")
+    lines.append(f"Primary Diagnosis: {gm.get('primary_diagnosis', 'unknown')}")
+    lines.append(f"Diagnosis Confidence: {gm.get('diagnosis_confidence', 0.0):.2f}")
 
     return "\n".join(lines)

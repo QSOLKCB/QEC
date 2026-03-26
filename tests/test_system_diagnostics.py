@@ -102,6 +102,11 @@ class TestRunSystemDiagnostics:
             "topology_type",
             "best_policy",
             "best_archetype",
+            "angular_velocity",
+            "spiral_score",
+            "basin_switch_risk",
+            "primary_diagnosis",
+            "diagnosis_confidence",
         }
         assert expected == set(gm.keys())
 

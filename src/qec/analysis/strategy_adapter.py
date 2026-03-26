@@ -2797,6 +2797,51 @@ def format_system_diagnostics_adapter_summary(result: Dict[str, Any]) -> str:
     return format_system_diagnostics(result)
 
 
+def run_differential_diagnosis_analysis(
+    result: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Run differential diagnosis on system diagnostics output.
+
+    Delegates to ``differential_diagnosis.run_differential_diagnosis``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_system_diagnostics`` (must contain
+        ``global_metrics`` and ``trajectory_geometry`` keys).
+
+    Returns
+    -------
+    dict
+        Contains features, scores, ranked diagnoses, and explanations.
+    """
+    from qec.analysis.differential_diagnosis import run_differential_diagnosis
+
+    return run_differential_diagnosis(result)
+
+
+def format_differential_diagnosis_adapter_summary(
+    result: Dict[str, Any],
+) -> str:
+    """Format differential diagnosis results as a human-readable summary.
+
+    Delegates to ``differential_diagnosis.format_differential_diagnosis``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_differential_diagnosis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.differential_diagnosis import format_differential_diagnosis
+
+    return format_differential_diagnosis(result)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -2855,4 +2900,6 @@ __all__ = [
     "format_system_diagnostics_adapter_summary",
     "run_trajectory_geometry_analysis",
     "format_trajectory_geometry_adapter_summary",
+    "run_differential_diagnosis_analysis",
+    "format_differential_diagnosis_adapter_summary",
 ]

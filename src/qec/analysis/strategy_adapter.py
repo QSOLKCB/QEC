@@ -2057,6 +2057,89 @@ def format_hierarchical_control_summary(result: Dict[str, Any]) -> str:
     return _fmt(result)
 
 
+def run_policy_experiment_analysis(
+    runs: List[Dict[str, Any]],
+    policies: Optional[List[Any]] = None,
+    objective: Optional[Dict[str, Any]] = None,
+    *,
+    max_steps: int = 5,
+    multistate_result: Optional[Dict[str, Any]] = None,
+    coupled_result: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Run a policy experiment comparing multiple policies.
+
+    Pipeline: runs -> hierarchical_control (per policy) -> experiment_registry
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+    policies : list of Policy, optional
+        Policies to compare.  Defaults to all three built-in policies.
+    objective : dict, optional
+        Global objective weights.  Defaults to equal weights.
+    max_steps : int
+        Maximum hierarchical feedback iterations per policy.
+    multistate_result : dict, optional
+        Precomputed multistate result.
+    coupled_result : dict, optional
+        Precomputed coupled dynamics result.
+
+    Returns
+    -------
+    dict
+        Contains ``"results"`` (per-policy scores), ``"ranking"``
+        (sorted list), and ``"summary"`` (formatted string).
+    """
+    from qec.analysis.experiment_registry import (
+        format_policy_experiment_summary,
+        rank_policies,
+        run_policy_experiment,
+    )
+    from qec.analysis.policy import get_policy
+
+    if objective is None:
+        objective = {
+            "w_stability": 0.3,
+            "w_attractor": 0.3,
+            "w_transient": 0.2,
+            "w_sync": 0.2,
+        }
+
+    if policies is None:
+        policies = [
+            get_policy("stability_first"),
+            get_policy("sync_first"),
+            get_policy("balanced"),
+        ]
+
+    if multistate_result is None:
+        multistate_result = run_multistate_analysis(runs)
+    if coupled_result is None:
+        coupled_result = run_coupled_dynamics_analysis(
+            runs,
+            multistate_result=multistate_result,
+        )
+
+    results = run_policy_experiment(
+        runs,
+        policies,
+        objective,
+        max_steps=max_steps,
+        multistate_result=multistate_result,
+        coupled_result=coupled_result,
+    )
+
+    ranking = rank_policies(results)
+    summary = format_policy_experiment_summary(results)
+
+    return {
+        "results": results,
+        "ranking": ranking,
+        "summary": summary,
+    }
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -2099,4 +2182,5 @@ __all__ = [
     "format_global_control_summary",
     "run_hierarchical_control_analysis",
     "format_hierarchical_control_summary",
+    "run_policy_experiment_analysis",
 ]

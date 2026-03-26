@@ -1,4 +1,4 @@
-"""v102.6.0 — Phase space mapping and attractor detection.
+"""v102.6.1 — Phase space mapping and attractor detection.
 
 Interprets transition graph structure to identify:
 - attractors (stable states with strong self-loops)
@@ -9,7 +9,9 @@ Interprets transition graph structure to identify:
 All functions are:
 - deterministic (identical inputs -> identical outputs)
 - side-effect free (no mutation of inputs)
-- bounded outputs
+- bounded outputs:
+    - ``basin_strength`` ∈ [0, 1)
+    - ``escape_rate`` ∈ [0, 1)
 
 Dependencies: stdlib only.
 """
@@ -17,6 +19,32 @@ Dependencies: stdlib only.
 from __future__ import annotations
 
 from typing import Any, Dict, Tuple
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+ROUND_PRECISION = 12
+
+# Phase classification thresholds.
+BASIN_STRONG_THRESHOLD = 1.0
+BASIN_THRESHOLD = 0.5
+ESCAPE_THRESHOLD = 0.5
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _round(value: float) -> float:
+    """Round to ``ROUND_PRECISION`` decimal places."""
+    return round(float(value), ROUND_PRECISION)
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 
 def detect_attractors(
@@ -42,7 +70,7 @@ def detect_attractors(
         Keyed by type name.  Each value contains:
 
         - ``is_attractor`` : bool
-        - ``score`` : float — rounded to 12 decimals
+        - ``score`` : float — rounded to ``ROUND_PRECISION`` decimals
     """
     result: Dict[str, Dict[str, Any]] = {}
 
@@ -52,10 +80,7 @@ def detect_attractors(
         in_degree = stats["in_degree"]
         out_degree = stats["out_degree"]
 
-        score = round(
-            float(self_loop_count + in_degree - out_degree), 12
-        )
-
+        score = _round(self_loop_count + in_degree - out_degree)
         is_attractor = self_loop_count >= 1 and score > 0
 
         result[node] = {
@@ -67,14 +92,17 @@ def detect_attractors(
 
 
 def detect_basins(
-    graph: Dict[Tuple[str, str], int],
+    _graph: Dict[Tuple[str, str], int],
     node_stats: Dict[str, Dict[str, int]],
 ) -> Dict[str, Dict[str, Any]]:
     """Detect basin characteristics for each node.
 
+    Basin strength is normalized via ``x / (1 + x)`` to produce bounded
+    output in [0, 1).
+
     Parameters
     ----------
-    graph : dict
+    _graph : dict
         Transition graph (unused, accepted for interface consistency).
     node_stats : dict
         Per-node statistics from ``compute_node_stats``.
@@ -85,7 +113,7 @@ def detect_basins(
         Keyed by type name.  Each value contains:
 
         - ``basin_size`` : int — proxy based on in_degree
-        - ``basin_strength`` : float — in_degree / (1 + out_degree)
+        - ``basin_strength`` : float ∈ [0, 1)
     """
     result: Dict[str, Dict[str, Any]] = {}
 
@@ -95,7 +123,8 @@ def detect_basins(
         out_degree = stats["out_degree"]
 
         basin_size = in_degree
-        basin_strength = round(float(in_degree / (1 + out_degree)), 12)
+        raw = in_degree / (1 + out_degree)
+        basin_strength = _round(raw / (1 + raw))
 
         result[node] = {
             "basin_size": basin_size,
@@ -106,14 +135,17 @@ def detect_basins(
 
 
 def detect_escape_dynamics(
-    graph: Dict[Tuple[str, str], int],
+    _graph: Dict[Tuple[str, str], int],
     node_stats: Dict[str, Dict[str, int]],
 ) -> Dict[str, Dict[str, Any]]:
     """Detect escape dynamics for each node.
 
+    Escape rate is normalized via ``x / (1 + x)`` to produce bounded
+    output in [0, 1).
+
     Parameters
     ----------
-    graph : dict
+    _graph : dict
         Transition graph (unused, accepted for interface consistency).
     node_stats : dict
         Per-node statistics from ``compute_node_stats``.
@@ -123,7 +155,7 @@ def detect_escape_dynamics(
     dict
         Keyed by type name.  Each value contains:
 
-        - ``escape_rate`` : float — out_degree / (1 + in_degree)
+        - ``escape_rate`` : float ∈ [0, 1)
     """
     result: Dict[str, Dict[str, Any]] = {}
 
@@ -132,7 +164,8 @@ def detect_escape_dynamics(
         in_degree = stats["in_degree"]
         out_degree = stats["out_degree"]
 
-        escape_rate = round(float(out_degree / (1 + in_degree)), 12)
+        raw = out_degree / (1 + in_degree)
+        escape_rate = _round(raw / (1 + raw))
 
         result[node] = {
             "escape_rate": escape_rate,
@@ -148,12 +181,12 @@ def classify_phase_state(
 ) -> Dict[str, Dict[str, Any]]:
     """Classify each node into a phase state.
 
-    Classification rules (in priority order):
+    Classification rules (in strict priority order):
 
-    A. ``strong_attractor`` — is_attractor and basin_strength > 1
-    B. ``weak_attractor`` — is_attractor and basin_strength <= 1
-    C. ``basin`` — not attractor and basin_strength > 0.5
-    D. ``transient`` — escape_rate > 0.5
+    A. ``strong_attractor`` — is_attractor and basin_strength > BASIN_THRESHOLD
+    B. ``weak_attractor`` — is_attractor (fallback for remaining attractors)
+    C. ``basin`` — not attractor and basin_strength > BASIN_THRESHOLD
+    D. ``transient`` — escape_rate > ESCAPE_THRESHOLD
     E. ``neutral`` — fallback
 
     Parameters
@@ -187,13 +220,13 @@ def classify_phase_state(
         basin_strength = bas["basin_strength"]
         escape_rate = esc["escape_rate"]
 
-        if is_attractor and basin_strength > 1:
+        if is_attractor and basin_strength > BASIN_THRESHOLD:
             phase = "strong_attractor"
-        elif is_attractor and basin_strength <= 1:
+        elif is_attractor:
             phase = "weak_attractor"
-        elif not is_attractor and basin_strength > 0.5:
+        elif basin_strength > BASIN_THRESHOLD:
             phase = "basin"
-        elif escape_rate > 0.5:
+        elif escape_rate > ESCAPE_THRESHOLD:
             phase = "transient"
         else:
             phase = "neutral"
@@ -204,6 +237,10 @@ def classify_phase_state(
 
 
 __all__ = [
+    "BASIN_STRONG_THRESHOLD",
+    "BASIN_THRESHOLD",
+    "ESCAPE_THRESHOLD",
+    "ROUND_PRECISION",
     "detect_attractors",
     "detect_basins",
     "detect_escape_dynamics",

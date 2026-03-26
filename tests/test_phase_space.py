@@ -1,10 +1,10 @@
-"""Tests for phase space analysis (v102.6.0).
+"""Tests for phase space analysis (v102.6.1).
 
 Verifies:
 - correct attractor detection
-- basin strength calculation
-- escape rate correctness
-- phase classification
+- basin strength calculation (bounded to [0, 1))
+- escape rate correctness (bounded to [0, 1))
+- phase classification with strict priority ordering
 - edge cases (isolated node, pure self-loop, pure source, pure sink)
 - integration via run_phase_space_analysis
 """
@@ -14,6 +14,9 @@ from __future__ import annotations
 import copy
 
 from qec.analysis.phase_space import (
+    BASIN_THRESHOLD,
+    ESCAPE_THRESHOLD,
+    ROUND_PRECISION,
     classify_phase_state,
     detect_attractors,
     detect_basins,
@@ -25,6 +28,11 @@ from qec.analysis.transition_graph import compute_node_stats
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _norm(x: float) -> float:
+    """Apply the x/(1+x) normalization used by phase_space."""
+    return round(x / (1 + x), ROUND_PRECISION)
 
 
 def _make_run(strategies):
@@ -86,12 +94,11 @@ class TestDetectAttractors:
         assert result["a"]["is_attractor"] is False
         assert result["a"]["score"] == -19.0
 
-    def test_score_rounded_to_12_decimals(self):
+    def test_score_rounded_to_precision(self):
         graph = {("a", "a"): 1, ("b", "a"): 2}
         stats = compute_node_stats(graph)
         result = detect_attractors(graph, stats)
         score = result["a"]["score"]
-        # Verify it's a float
         assert isinstance(score, float)
 
     def test_multiple_nodes(self):
@@ -131,22 +138,22 @@ class TestDetectBasins:
         stats = compute_node_stats(graph)
         result = detect_basins(graph, stats)
         assert result["b"]["basin_size"] == 8
-        # in=8, out=0 -> strength = 8 / (1+0) = 8.0
-        assert result["b"]["basin_strength"] == 8.0
+        # in=8, out=0 -> raw=8/1=8, strength=8/9
+        assert result["b"]["basin_strength"] == _norm(8.0)
 
     def test_balanced_flow(self):
         graph = {("a", "b"): 3, ("b", "a"): 3}
         stats = compute_node_stats(graph)
         result = detect_basins(graph, stats)
-        # a: in=3, out=3 -> strength = 3/(1+3) = 0.75
-        assert result["a"]["basin_strength"] == 0.75
+        # a: in=3, out=3 -> raw=3/4=0.75, strength=0.75/1.75=3/7
+        assert result["a"]["basin_strength"] == _norm(0.75)
         assert result["a"]["basin_size"] == 3
 
     def test_pure_source(self):
         graph = {("a", "b"): 5}
         stats = compute_node_stats(graph)
         result = detect_basins(graph, stats)
-        # a: in=0, out=5 -> strength = 0/(1+5) = 0
+        # a: in=0, out=5 -> raw=0, strength=0
         assert result["a"]["basin_size"] == 0
         assert result["a"]["basin_strength"] == 0.0
 
@@ -154,14 +161,22 @@ class TestDetectBasins:
         graph = {("a", "a"): 4}
         stats = compute_node_stats(graph)
         result = detect_basins(graph, stats)
-        # in=4, out=4 -> strength = 4/(1+4) = 0.8
-        assert result["a"]["basin_strength"] == 0.8
+        # in=4, out=4 -> raw=4/5=0.8, strength=0.8/1.8=4/9
+        assert result["a"]["basin_strength"] == _norm(0.8)
 
     def test_sorted_keys(self):
         graph = {("c", "a"): 1, ("b", "a"): 1}
         stats = compute_node_stats(graph)
         result = detect_basins(graph, stats)
         assert list(result.keys()) == ["a", "b", "c"]
+
+    def test_bounded_output(self):
+        """Basin strength must always be in [0, 1)."""
+        graph = {("a", "b"): 100, ("c", "b"): 200}
+        stats = compute_node_stats(graph)
+        result = detect_basins(graph, stats)
+        for node in result:
+            assert 0.0 <= result[node]["basin_strength"] < 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -180,35 +195,43 @@ class TestDetectEscapeDynamics:
         graph = {("a", "b"): 5}
         stats = compute_node_stats(graph)
         result = detect_escape_dynamics(graph, stats)
-        # a: out=5, in=0 -> escape = 5/(1+0) = 5.0
-        assert result["a"]["escape_rate"] == 5.0
+        # a: out=5, in=0 -> raw=5/1=5, rate=5/6
+        assert result["a"]["escape_rate"] == _norm(5.0)
 
     def test_pure_sink(self):
         graph = {("a", "b"): 5}
         stats = compute_node_stats(graph)
         result = detect_escape_dynamics(graph, stats)
-        # b: out=0, in=5 -> escape = 0/(1+5) = 0.0
+        # b: out=0, in=5 -> raw=0, rate=0
         assert result["b"]["escape_rate"] == 0.0
 
     def test_balanced(self):
         graph = {("a", "b"): 3, ("b", "a"): 3}
         stats = compute_node_stats(graph)
         result = detect_escape_dynamics(graph, stats)
-        # a: out=3, in=3 -> escape = 3/(1+3) = 0.75
-        assert result["a"]["escape_rate"] == 0.75
+        # a: out=3, in=3 -> raw=3/4=0.75, rate=0.75/1.75=3/7
+        assert result["a"]["escape_rate"] == _norm(0.75)
 
     def test_self_loop(self):
         graph = {("a", "a"): 4}
         stats = compute_node_stats(graph)
         result = detect_escape_dynamics(graph, stats)
-        # in=4, out=4 -> escape = 4/(1+4) = 0.8
-        assert result["a"]["escape_rate"] == 0.8
+        # in=4, out=4 -> raw=4/5=0.8, rate=0.8/1.8=4/9
+        assert result["a"]["escape_rate"] == _norm(0.8)
 
     def test_sorted_keys(self):
         graph = {("c", "a"): 1, ("b", "a"): 1}
         stats = compute_node_stats(graph)
         result = detect_escape_dynamics(graph, stats)
         assert list(result.keys()) == ["a", "b", "c"]
+
+    def test_bounded_output(self):
+        """Escape rate must always be in [0, 1)."""
+        graph = {("a", "b"): 100, ("a", "c"): 200}
+        stats = compute_node_stats(graph)
+        result = detect_escape_dynamics(graph, stats)
+        for node in result:
+            assert 0.0 <= result[node]["escape_rate"] < 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -225,22 +248,22 @@ class TestClassifyPhaseState:
 
     def test_strong_attractor(self):
         attractors = {"a": {"is_attractor": True, "score": 5.0}}
-        basins = {"a": {"basin_size": 10, "basin_strength": 2.0}}
+        basins = {"a": {"basin_size": 10, "basin_strength": 0.8}}
         escape = {"a": {"escape_rate": 0.1}}
         result = classify_phase_state(attractors, basins, escape)
         assert result["a"]["phase"] == "strong_attractor"
 
     def test_weak_attractor(self):
         attractors = {"a": {"is_attractor": True, "score": 1.0}}
-        basins = {"a": {"basin_size": 1, "basin_strength": 0.5}}
+        basins = {"a": {"basin_size": 1, "basin_strength": 0.3}}
         escape = {"a": {"escape_rate": 0.3}}
         result = classify_phase_state(attractors, basins, escape)
         assert result["a"]["phase"] == "weak_attractor"
 
     def test_weak_attractor_boundary(self):
-        # basin_strength == 1 -> weak_attractor (not strong)
+        # basin_strength == BASIN_THRESHOLD -> not > threshold -> weak
         attractors = {"a": {"is_attractor": True, "score": 2.0}}
-        basins = {"a": {"basin_size": 3, "basin_strength": 1.0}}
+        basins = {"a": {"basin_size": 3, "basin_strength": BASIN_THRESHOLD}}
         escape = {"a": {"escape_rate": 0.2}}
         result = classify_phase_state(attractors, basins, escape)
         assert result["a"]["phase"] == "weak_attractor"
@@ -255,7 +278,7 @@ class TestClassifyPhaseState:
     def test_transient(self):
         attractors = {"a": {"is_attractor": False, "score": -2.0}}
         basins = {"a": {"basin_size": 0, "basin_strength": 0.0}}
-        escape = {"a": {"escape_rate": 2.0}}
+        escape = {"a": {"escape_rate": 0.8}}
         result = classify_phase_state(attractors, basins, escape)
         assert result["a"]["phase"] == "transient"
 
@@ -267,12 +290,20 @@ class TestClassifyPhaseState:
         assert result["a"]["phase"] == "neutral"
 
     def test_priority_attractor_over_basin(self):
-        # Even with high basin_strength, attractor check comes first
+        # Attractor with high basin_strength -> strong_attractor, not basin
         attractors = {"a": {"is_attractor": True, "score": 3.0}}
         basins = {"a": {"basin_size": 5, "basin_strength": 0.8}}
         escape = {"a": {"escape_rate": 0.6}}
         result = classify_phase_state(attractors, basins, escape)
-        assert result["a"]["phase"] == "weak_attractor"
+        assert result["a"]["phase"] == "strong_attractor"
+
+    def test_basin_over_transient_priority(self):
+        # Basin dominates transient even when escape_rate is high
+        attractors = {"a": {"is_attractor": False, "score": -1.0}}
+        basins = {"a": {"basin_size": 3, "basin_strength": 0.8}}
+        escape = {"a": {"escape_rate": 0.9}}
+        result = classify_phase_state(attractors, basins, escape)
+        assert result["a"]["phase"] == "basin"
 
     def test_multiple_nodes_different_phases(self):
         attractors = {
@@ -281,14 +312,14 @@ class TestClassifyPhaseState:
             "c": {"is_attractor": False, "score": -2.0},
         }
         basins = {
-            "a": {"basin_size": 10, "basin_strength": 2.0},
+            "a": {"basin_size": 10, "basin_strength": 0.9},
             "b": {"basin_size": 3, "basin_strength": 0.75},
             "c": {"basin_size": 0, "basin_strength": 0.0},
         }
         escape = {
             "a": {"escape_rate": 0.1},
             "b": {"escape_rate": 0.3},
-            "c": {"escape_rate": 2.0},
+            "c": {"escape_rate": 0.8},
         }
         result = classify_phase_state(attractors, basins, escape)
         assert result["a"]["phase"] == "strong_attractor"
@@ -303,6 +334,22 @@ class TestClassifyPhaseState:
         escape = {"c": {"escape_rate": 0.0}, "a": {"escape_rate": 0.0}}
         result = classify_phase_state(attractors, basins, escape)
         assert list(result.keys()) == ["a", "c"]
+
+    def test_uses_constants(self):
+        """Verify thresholds match exported constants."""
+        # Just above BASIN_THRESHOLD -> strong_attractor
+        attractors = {"a": {"is_attractor": True, "score": 1.0}}
+        basins = {"a": {"basin_size": 2, "basin_strength": BASIN_THRESHOLD + 0.01}}
+        escape = {"a": {"escape_rate": 0.0}}
+        result = classify_phase_state(attractors, basins, escape)
+        assert result["a"]["phase"] == "strong_attractor"
+
+        # Just above ESCAPE_THRESHOLD -> transient
+        attractors2 = {"b": {"is_attractor": False, "score": 0.0}}
+        basins2 = {"b": {"basin_size": 0, "basin_strength": 0.0}}
+        escape2 = {"b": {"escape_rate": ESCAPE_THRESHOLD + 0.01}}
+        result2 = classify_phase_state(attractors2, basins2, escape2)
+        assert result2["b"]["phase"] == "transient"
 
 
 # ---------------------------------------------------------------------------
@@ -341,11 +388,13 @@ class TestEdgeCases:
         # self_loop=10, in=10, out=10 -> score=10
         assert att["a"]["is_attractor"] is True
         assert att["a"]["score"] == 10.0
-        # in=10, out=10 -> basin_strength = 10/11
-        assert abs(bas["a"]["basin_strength"] - 10.0 / 11.0) < 1e-10
-        # escape = 10/11
-        assert abs(esc["a"]["escape_rate"] - 10.0 / 11.0) < 1e-10
-        # attractor with basin_strength < 1 -> weak_attractor
+        # in=10, out=10 -> raw=10/11, strength=norm(10/11)=10/21
+        assert abs(bas["a"]["basin_strength"] - _norm(10.0 / 11.0)) < 1e-10
+        assert bas["a"]["basin_strength"] < 1.0  # bounded
+        # escape: raw=10/11, rate=norm(10/11)=10/21
+        assert abs(esc["a"]["escape_rate"] - _norm(10.0 / 11.0)) < 1e-10
+        assert esc["a"]["escape_rate"] < 1.0  # bounded
+        # 10/21 ≈ 0.476 < BASIN_THRESHOLD -> weak_attractor
         assert cls["a"]["phase"] == "weak_attractor"
 
     def test_pure_source(self):
@@ -360,8 +409,9 @@ class TestEdgeCases:
         assert att["src"]["is_attractor"] is False
         assert bas["src"]["basin_size"] == 0
         assert bas["src"]["basin_strength"] == 0.0
-        # out=5, in=0 -> escape=5.0
-        assert esc["src"]["escape_rate"] == 5.0
+        # out=5, in=0 -> raw=5, rate=5/6
+        assert esc["src"]["escape_rate"] == _norm(5.0)
+        assert esc["src"]["escape_rate"] < 1.0  # bounded
         assert cls["src"]["phase"] == "transient"
 
     def test_pure_sink(self):
@@ -375,10 +425,11 @@ class TestEdgeCases:
 
         # No self-loop -> not attractor
         assert att["sink"]["is_attractor"] is False
-        # in=7, out=0 -> basin_strength = 7.0
-        assert bas["sink"]["basin_strength"] == 7.0
+        # in=7, out=0 -> raw=7, strength=7/8
+        assert bas["sink"]["basin_strength"] == _norm(7.0)
+        assert bas["sink"]["basin_strength"] < 1.0  # bounded
         assert esc["sink"]["escape_rate"] == 0.0
-        # Not attractor, basin_strength > 0.5 -> basin
+        # Not attractor, basin_strength > BASIN_THRESHOLD -> basin
         assert cls["sink"]["phase"] == "basin"
 
 
@@ -462,3 +513,19 @@ class TestRunPhaseSpaceAnalysis:
         assert result["basins"] == {}
         assert result["escape_dynamics"] == {}
         assert result["phase_classification"] == {}
+
+    def test_bounded_outputs_integration(self):
+        """All basin_strength and escape_rate values must be in [0, 1)."""
+        from qec.analysis.strategy_adapter import run_phase_space_analysis
+
+        runs = _make_runs_with_scores("zeta", [0.5, 0.6, 0.4, 0.5, 0.7])
+        result = run_phase_space_analysis(runs)
+
+        for node, bas in result["basins"].items():
+            assert 0.0 <= bas["basin_strength"] < 1.0, (
+                f"{node}: basin_strength={bas['basin_strength']}"
+            )
+        for node, esc in result["escape_dynamics"].items():
+            assert 0.0 <= esc["escape_rate"] < 1.0, (
+                f"{node}: escape_rate={esc['escape_rate']}"
+            )

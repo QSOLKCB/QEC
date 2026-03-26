@@ -2059,7 +2059,7 @@ def format_hierarchical_control_summary(result: Dict[str, Any]) -> str:
 
 def run_policy_experiment_analysis(
     runs: List[Dict[str, Any]],
-    policies: Optional[List[Any]] = None,
+    policies: Optional[List["Policy"]] = None,
     objective: Optional[Dict[str, Any]] = None,
     *,
     max_steps: int = 5,

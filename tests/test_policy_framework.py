@@ -286,6 +286,17 @@ class TestComposePolicy:
 class TestPolicyRegistry:
     """Tests for the policy registry."""
 
+    def test_builtin_policy_thresholds_match_constants(self):
+        for name in ["stability_first", "sync_first", "balanced"]:
+            p = get_policy(name)
+            assert p.thresholds["instability"] == DEFAULT_INSTABILITY_THRESHOLD
+            assert p.thresholds["sync"] == DEFAULT_SYNC_THRESHOLD
+
+    def test_policy_decide_accepts_state_arg(self):
+        policy = get_policy("balanced")
+        result = policy.decide({}, {})
+        assert result in ("local", "global", "hybrid")
+
     def test_builtin_policies_registered(self):
         names = list_policies()
         assert "stability_first" in names

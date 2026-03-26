@@ -20,6 +20,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
+from qec.analysis.hierarchical_control import (
+    DEFAULT_INSTABILITY_THRESHOLD,
+    DEFAULT_SYNC_THRESHOLD,
+)
+
 
 # ---------------------------------------------------------------------------
 # Policy class
@@ -59,20 +64,25 @@ class Policy:
         self.priority = priority
         self.thresholds = dict(thresholds)
 
-    def decide(self, state: Dict[str, Any], global_state: Dict[str, Any]) -> str:
-        """Return the routing mode for the given state.
+    def decide(self, _state: Dict[str, Any], global_state: Dict[str, Any]) -> str:
+        """Determine control mode ('local', 'global', 'hybrid').
 
         Parameters
         ----------
-        state : dict
-            Local multistate information (per-strategy state vectors).
+        _state : dict
+            Local state (currently unused, retained for API compatibility).
         global_state : dict
-            Global state with ``"avg_stability"`` and ``"avg_sync"``.
+            Aggregated system state used for decision.
 
         Returns
         -------
         str
             One of ``"local"``, ``"global"``, or ``"hybrid"``.
+
+        Notes
+        -----
+        The ``_state`` parameter is intentionally unused to preserve
+        compatibility with earlier interfaces and allow future extension.
         """
         if self.mode in ("local", "global"):
             return self.mode
@@ -292,8 +302,8 @@ def list_policies() -> List[str]:
 def _register_builtins() -> None:
     """Register the three built-in policies."""
     _defaults = {
-        "instability": 0.5,
-        "sync": 0.5,
+        "instability": DEFAULT_INSTABILITY_THRESHOLD,
+        "sync": DEFAULT_SYNC_THRESHOLD,
     }
     register_policy(Policy(
         name="stability_first",

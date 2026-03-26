@@ -2605,6 +2605,108 @@ def format_policy_clustering_adapter_summary(result: Dict[str, Any]) -> str:
     return str(result.get("summary", ""))
 
 
+def run_strategy_graph_analysis(
+    runs: List[Dict[str, Any]],
+    policies: Optional[List["Policy"]] = None,
+    objective: Optional[Dict[str, Any]] = None,
+    *,
+    multistate_result: Optional[Dict[str, Any]] = None,
+    coupled_result: Optional[Dict[str, Any]] = None,
+    max_steps: int = 5,
+) -> Dict[str, Any]:
+    """Run strategy graph analysis on policy transition history.
+
+    Pipeline: runs -> meta_control -> extract policy history -> build graph
+    -> compute metrics -> classify topology
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+    policies : list of Policy, optional
+        Policies for meta-control.  Defaults to all three built-in policies.
+    objective : dict, optional
+        Global objective weights.  Defaults to equal weights.
+    multistate_result : dict, optional
+        Precomputed multistate result.
+    coupled_result : dict, optional
+        Precomputed coupled dynamics result.
+    max_steps : int
+        Maximum meta-control iterations.
+
+    Returns
+    -------
+    dict
+        Contains:
+
+        - ``"graph"`` : dict — policy transition graph
+        - ``"node_stats"`` : dict — per-policy node metrics
+        - ``"stability"`` : dict — policy stability metrics
+        - ``"patterns"`` : dict — detected transition patterns
+        - ``"topology"`` : str — topology classification
+        - ``"policy_history"`` : list of str — raw policy history
+    """
+    from qec.analysis.strategy_graph import analyze_policy_graph
+
+    # Run meta-control to get policy history.
+    meta_result = run_meta_control_analysis(
+        runs,
+        policies=policies,
+        objective=objective,
+        multistate_result=multistate_result,
+        coupled_result=coupled_result,
+        max_steps=max_steps,
+    )
+
+    policy_history = list(meta_result.get("policies", []))
+
+    return analyze_policy_graph(policy_history)
+
+
+def format_strategy_graph_adapter_summary(result: Dict[str, Any]) -> str:
+    """Format strategy graph analysis results.
+
+    Delegates to ``strategy_graph.format_strategy_graph_summary``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_strategy_graph_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.strategy_graph import (
+        format_strategy_graph_summary as _fmt,
+    )
+
+    return _fmt(result)
+
+
+def format_policy_topology_adapter_summary(result: Dict[str, Any]) -> str:
+    """Format policy topology analysis results.
+
+    Delegates to ``strategy_graph.format_policy_topology_summary``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_strategy_graph_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.strategy_graph import (
+        format_policy_topology_summary as _fmt,
+    )
+
+    return _fmt(result)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -2656,4 +2758,7 @@ __all__ = [
     "format_policy_memory_adapter_summary",
     "run_policy_clustering_analysis",
     "format_policy_clustering_adapter_summary",
+    "run_strategy_graph_analysis",
+    "format_strategy_graph_adapter_summary",
+    "format_policy_topology_adapter_summary",
 ]

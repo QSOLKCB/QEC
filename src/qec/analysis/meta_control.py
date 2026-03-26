@@ -61,6 +61,15 @@ def _round(value: float) -> float:
     return round(float(value), ROUND_PRECISION)
 
 
+def _build_policy_graph(
+    policy_history: List[str],
+) -> Dict[str, Any]:
+    """Build a policy graph from history (deferred import to avoid cycles)."""
+    from qec.analysis.strategy_graph import analyze_policy_graph
+
+    return analyze_policy_graph(policy_history)
+
+
 # ---------------------------------------------------------------------------
 # Public API — Policy Evaluation per State
 # ---------------------------------------------------------------------------
@@ -272,6 +281,7 @@ def run_meta_control(
     use_memory: bool = False,
     memory: Optional[Dict[str, Any]] = None,
     use_archetypes: bool = False,
+    track_graph: bool = False,
 ) -> Dict[str, Any]:
     """Run the meta-control loop with dynamic policy selection.
 
@@ -312,6 +322,10 @@ def run_meta_control(
     use_archetypes : bool
         If ``True``, merge archetype policies extracted from *memory*
         into the candidate set.  Default ``False``.
+    track_graph : bool
+        If ``True``, build a policy transition graph from the policy
+        history at the end and include it in the result under
+        ``"policy_graph"``.  Default ``False``.
 
     Returns
     -------
@@ -490,6 +504,10 @@ def run_meta_control(
             }
             if refine:
                 result["refinements"] = refinements
+            if track_graph:
+                result["policy_graph"] = _build_policy_graph(
+                    selected_policies,
+                )
             return result
 
     # Max steps reached.
@@ -517,6 +535,8 @@ def run_meta_control(
     }
     if refine:
         result["refinements"] = refinements
+    if track_graph:
+        result["policy_graph"] = _build_policy_graph(selected_policies)
     return result
 
 

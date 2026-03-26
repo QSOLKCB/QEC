@@ -177,6 +177,18 @@ def main(argv: list[str] | None = None) -> int:
              "Use with --show-policy-refinement.",
     )
     parser.add_argument(
+        "--show-strategy-graph", action="store_true",
+        help="Show strategy graph analysis "
+             "(policy transitions, node metrics, stability) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
+        "--show-policy-topology", action="store_true",
+        help="Show policy topology classification "
+             "(stable, converging, diverging, cyclic, mixed) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -585,6 +597,43 @@ def _run_ternary_bosonic(args) -> int:
                 format_policy_refinement_adapter_summary(refinement_result),
                 file=sys.stderr,
             )
+
+        if getattr(args, "show_strategy_graph", False) or getattr(
+            args, "show_policy_topology", False
+        ):
+            from qec.analysis.strategy_adapter import (
+                format_policy_topology_adapter_summary,
+                format_strategy_graph_adapter_summary,
+                run_strategy_graph_analysis,
+            )
+
+            graph_policies = None
+            if getattr(args, "policy", None):
+                from qec.analysis.policy import get_policy
+
+                policy_names = [
+                    n.strip() for n in args.policy.split(",") if n.strip()
+                ]
+                graph_policies = [get_policy(n) for n in policy_names]
+
+            graph_result = run_strategy_graph_analysis(
+                run_results,
+                policies=graph_policies,
+                multistate_result=multistate_result,
+                coupled_result=coupled_result,
+            )
+
+            if getattr(args, "show_strategy_graph", False):
+                print(
+                    format_strategy_graph_adapter_summary(graph_result),
+                    file=sys.stderr,
+                )
+
+            if getattr(args, "show_policy_topology", False):
+                print(
+                    format_policy_topology_adapter_summary(graph_result),
+                    file=sys.stderr,
+                )
 
     if args.out:
         text = json.dumps(result, sort_keys=True, indent=2)

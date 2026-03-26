@@ -2057,6 +2057,100 @@ def format_hierarchical_control_summary(result: Dict[str, Any]) -> str:
     return _fmt(result)
 
 
+def run_meta_control_analysis(
+    runs: List[Dict[str, Any]],
+    policies: Optional[List["Policy"]] = None,
+    objective: Optional[Dict[str, Any]] = None,
+    *,
+    multistate_result: Optional[Dict[str, Any]] = None,
+    coupled_result: Optional[Dict[str, Any]] = None,
+    max_steps: int = 5,
+) -> Dict[str, Any]:
+    """Run meta-control analysis with dynamic policy selection.
+
+    Pipeline: runs -> multistate -> coupled_dynamics -> meta_control
+
+    Evaluates multiple policies per step and selects the best one
+    dynamically, enabling policy switching during control.
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key.
+    policies : list of Policy, optional
+        Policies to select among.  Defaults to all three built-in policies.
+    objective : dict, optional
+        Global objective weights.  Defaults to equal weights.
+    multistate_result : dict, optional
+        Precomputed multistate result.
+    coupled_result : dict, optional
+        Precomputed coupled dynamics result.
+    max_steps : int
+        Maximum meta-control iterations.
+
+    Returns
+    -------
+    dict
+        Output of ``run_meta_control`` from ``meta_control.py``.
+    """
+    from qec.analysis.meta_control import run_meta_control
+    from qec.analysis.policy import get_policy
+
+    if objective is None:
+        objective = {
+            "w_stability": 0.3,
+            "w_attractor": 0.3,
+            "w_transient": 0.2,
+            "w_sync": 0.2,
+        }
+
+    if policies is None:
+        policies = [
+            get_policy("stability_first"),
+            get_policy("sync_first"),
+            get_policy("balanced"),
+        ]
+
+    if multistate_result is None:
+        multistate_result = run_multistate_analysis(runs)
+    if coupled_result is None:
+        coupled_result = run_coupled_dynamics_analysis(
+            runs,
+            multistate_result=multistate_result,
+        )
+
+    return run_meta_control(
+        runs,
+        policies,
+        objective,
+        max_steps=max_steps,
+        multistate_result=multistate_result,
+        coupled_result=coupled_result,
+    )
+
+
+def format_meta_control_summary(result: Dict[str, Any]) -> str:
+    """Format meta-control results as a human-readable summary.
+
+    Delegates to ``meta_control.format_meta_control_summary``.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_meta_control_analysis``.
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.meta_control import (
+        format_meta_control_summary as _fmt,
+    )
+
+    return _fmt(result)
+
+
 def run_policy_experiment_analysis(
     runs: List[Dict[str, Any]],
     policies: Optional[List["Policy"]] = None,
@@ -2182,5 +2276,7 @@ __all__ = [
     "format_global_control_summary",
     "run_hierarchical_control_analysis",
     "format_hierarchical_control_summary",
+    "run_meta_control_analysis",
+    "format_meta_control_summary",
     "run_policy_experiment_analysis",
 ]

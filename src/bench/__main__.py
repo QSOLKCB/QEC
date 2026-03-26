@@ -154,6 +154,17 @@ def main(argv: list[str] | None = None) -> int:
              "(use with --track-strategies).",
     )
     parser.add_argument(
+        "--show-meta-control", action="store_true",
+        help="Show meta-control analysis "
+             "(dynamic policy selection, switching detection, convergence) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
+        "--policy", type=str, default=None,
+        help="Comma-separated list of policies for meta-control "
+             "(e.g. stability_first,sync_first,balanced).",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -506,6 +517,32 @@ def _run_ternary_bosonic(args) -> int:
             )
             print(
                 format_hierarchical_control_summary(hierarchical_result),
+                file=sys.stderr,
+            )
+
+        if getattr(args, "show_meta_control", False):
+            from qec.analysis.strategy_adapter import (
+                format_meta_control_summary,
+                run_meta_control_analysis,
+            )
+
+            meta_policies = None
+            if getattr(args, "policy", None):
+                from qec.analysis.policy import get_policy
+
+                policy_names = [
+                    n.strip() for n in args.policy.split(",") if n.strip()
+                ]
+                meta_policies = [get_policy(n) for n in policy_names]
+
+            meta_result = run_meta_control_analysis(
+                run_results,
+                policies=meta_policies,
+                multistate_result=multistate_result,
+                coupled_result=coupled_result,
+            )
+            print(
+                format_meta_control_summary(meta_result),
                 file=sys.stderr,
             )
 

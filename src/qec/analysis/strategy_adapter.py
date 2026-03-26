@@ -24,6 +24,9 @@ v102.2.0 adds trajectory tracking and regime analysis via
 v102.4.0 adds evolution analysis via ``run_evolution_analysis``
 and ``format_evolution_summary``.
 
+v102.7.0 adds flow geometry embedding via ``run_flow_geometry_analysis``
+and ``format_flow_geometry_summary``.
+
 All functions are:
 - deterministic (identical inputs -> identical outputs)
 - side-effect free (no mutation of inputs)
@@ -1332,6 +1335,87 @@ def format_phase_space_summary(
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Flow geometry analysis (v102.7.0)
+# ---------------------------------------------------------------------------
+
+
+def run_flow_geometry_analysis(
+    runs: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Run the full flow geometry analysis pipeline.
+
+    Pipeline: runs -> taxonomy (v102.3) -> evolution trajectories (v102.4)
+    -> transition graph (v102.5) -> phase space (v102.6)
+    -> flow geometry (v102.7)
+
+    Parameters
+    ----------
+    runs : list of dict
+        Each run must contain a ``"strategies"`` key with a list of
+        strategy dicts (each having ``"name"`` and ``"metrics"``).
+
+    Returns
+    -------
+    dict
+        Contains all keys from ``run_phase_space_analysis`` plus
+        ``"flow_geometry"`` with ``coordinates``, ``metrics``, and ``nodes``.
+    """
+    from qec.analysis.flow_geometry import compute_flow_geometry
+
+    result = run_phase_space_analysis(runs)
+    graph = result["transition_graph"]
+    geometry = compute_flow_geometry(graph)
+
+    result["flow_geometry"] = geometry
+    return result
+
+
+def format_flow_geometry_summary(
+    result: Dict[str, Any],
+    *,
+    show_map: bool = False,
+) -> str:
+    """Format flow geometry analysis results as a human-readable summary.
+
+    Parameters
+    ----------
+    result : dict
+        Output of ``run_flow_geometry_analysis``.
+    show_map : bool
+        If True, include ASCII geometry map (default False).
+
+    Returns
+    -------
+    str
+        Multi-line summary string.
+    """
+    from qec.analysis.flow_geometry import render_ascii_map
+
+    lines: List[str] = []
+    lines.append("=== Flow Geometry ===")
+
+    geometry = result.get("flow_geometry", {})
+    coords = geometry.get("coordinates", {})
+    metrics = geometry.get("metrics", {})
+
+    for name in sorted(coords.keys()):
+        x, y = coords[name]
+        m = metrics.get(name, {})
+        dist = m.get("distance_from_center", 0.0)
+        cluster = m.get("cluster_score", 0.0)
+        lines.append(f"Type: {name}")
+        lines.append(f"  Coord: ({x:.2f}, {y:.2f})")
+        lines.append(f"  Dist: {dist:.2f}")
+        lines.append(f"  Cluster: {cluster:.2f}")
+
+    if show_map and coords:
+        lines.append("")
+        lines.append(render_ascii_map(coords))
+
+    return "\n".join(lines)
+
+
 __all__ = [
     "build_candidate_strategies",
     "run_strategy_selection",
@@ -1360,4 +1444,6 @@ __all__ = [
     "format_transition_graph_summary",
     "run_phase_space_analysis",
     "format_phase_space_summary",
+    "run_flow_geometry_analysis",
+    "format_flow_geometry_summary",
 ]

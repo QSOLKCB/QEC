@@ -165,6 +165,18 @@ def main(argv: list[str] | None = None) -> int:
              "(e.g. stability_first,sync_first,balanced).",
     )
     parser.add_argument(
+        "--show-policy-refinement", action="store_true",
+        help="Show policy refinement analysis "
+             "(deterministic threshold optimization) "
+             "(use with --track-strategies).",
+    )
+    parser.add_argument(
+        "--refine-policy", type=str, default=None,
+        help="Refine a specific policy by name "
+             "(e.g. stability_first). "
+             "Use with --show-policy-refinement.",
+    )
+    parser.add_argument(
         "--grid-resolution", type=int, default=20,
         help="Grid resolution for phase diagram (default: 20).",
     )
@@ -543,6 +555,34 @@ def _run_ternary_bosonic(args) -> int:
             )
             print(
                 format_meta_control_summary(meta_result),
+                file=sys.stderr,
+            )
+
+        if getattr(args, "show_policy_refinement", False):
+            from qec.analysis.strategy_adapter import (
+                format_policy_refinement_adapter_summary,
+                run_policy_refinement_analysis,
+            )
+
+            refine_policies = None
+            if getattr(args, "refine_policy", None):
+                from qec.analysis.policy import get_policy
+
+                policy_names = [
+                    n.strip()
+                    for n in args.refine_policy.split(",")
+                    if n.strip()
+                ]
+                refine_policies = [get_policy(n) for n in policy_names]
+
+            refinement_result = run_policy_refinement_analysis(
+                run_results,
+                policies=refine_policies,
+                multistate_result=multistate_result,
+                coupled_result=coupled_result,
+            )
+            print(
+                format_policy_refinement_adapter_summary(refinement_result),
                 file=sys.stderr,
             )
 

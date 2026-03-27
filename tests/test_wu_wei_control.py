@@ -145,6 +145,16 @@ class TestSelectEscalationLevel:
         )
         assert result["level"] == len(ESCALATION_STRENGTHS) - 1
 
+    def test_non_ladder_strength_picks_next_highest(self):
+        ladder = build_escalation_ladder("boost_stability", 0.05)
+        # 0.3 is not in ESCALATION_STRENGTHS (0.2, 0.4, 0.6)
+        result = select_escalation_level(
+            ladder,
+            previous_strength=0.3,
+            previous_improvement=0.0,
+        )
+        assert result["strength"] == 0.4
+
     def test_determinism(self):
         ladder = build_escalation_ladder("boost_stability", 0.05)
         r1 = select_escalation_level(ladder, previous_strength=0.2, previous_improvement=0.0)

@@ -202,7 +202,6 @@ def select_strategy_mode(
     if not isinstance(summary, dict):
         summary = {}
     avg_pressure = _safe_float(summary.get("avg_pressure", 0.0))
-    contested_count = len(influence_map.get("nodes", {}))
 
     # Extract law fragility
     fragile_law_count = 0

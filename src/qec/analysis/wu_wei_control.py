@@ -169,6 +169,7 @@ def build_escalation_ladder(
 
 def select_escalation_level(
     ladder: List[dict],
+    previous_strength: float = 0.0,
     previous_improvement: float = 0.0,
     previous_stability_change: float = 0.0,
 ) -> dict:
@@ -182,6 +183,8 @@ def select_escalation_level(
     ----------
     ladder : list of dict
         Output of ``build_escalation_ladder``.
+    previous_strength : float
+        Strength of the last applied intervention (0.0 if first attempt).
     previous_improvement : float
         Improvement from last intervention (0.0 if first attempt).
     previous_stability_change : float
@@ -196,7 +199,7 @@ def select_escalation_level(
         return {}
 
     # If no previous attempt, start at level 0
-    if previous_improvement == 0.0 and previous_stability_change == 0.0:
+    if previous_strength == 0.0 and previous_improvement == 0.0 and previous_stability_change == 0.0:
         return dict(ladder[0])
 
     # Determine if escalation is needed
@@ -209,11 +212,10 @@ def select_escalation_level(
         # Current level is working, return lowest sufficient level
         return dict(ladder[0])
 
-    # Find next level up
+    # Find next level up based on previous strength
+    prev = _safe_float(previous_strength, 0.0)
     for step in ladder:
-        if step.get("strength", 0.0) > _safe_float(
-            previous_improvement, 0.0
-        ) + ESCALATION_STRENGTHS[0]:
+        if step.get("strength", 0.0) > prev:
             return dict(step)
 
     # Return highest level if all else fails
@@ -254,11 +256,12 @@ def compute_intervention_efficiency(
     )
 
     improvement = after_stability - before_stability
-    strength = max(_safe_float(intervention_strength), 1e-12)
+    raw_strength = _safe_float(intervention_strength)
 
-    if improvement <= 0.0:
+    if raw_strength <= 0.0 or improvement <= 0.0:
         return 0.0
 
+    strength = max(raw_strength, 1e-12)
     return _round(improvement / strength)
 
 

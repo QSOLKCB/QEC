@@ -32,8 +32,9 @@ def run_minimal_chain_experiment(
     for _ in range(DIFFUSION_STEPS):
         final_chain = _diffusion_step(final_chain)
 
-    endpoint_signal_strength = _endpoint_signal_strength(final_chain)
-    interior_signal_strength = _interior_signal_strength(final_chain)
+    # Boundedness in [0, 1] is an architectural invariant for analysis signals.
+    endpoint_signal_strength = _clamp01(_endpoint_signal_strength(final_chain))
+    interior_signal_strength = _clamp01(_interior_signal_strength(final_chain))
     signal_asymmetry = _clamp01(abs(endpoint_signal_strength - interior_signal_strength))
 
     coherence = run_parity_coherence_analysis(final_chain)

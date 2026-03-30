@@ -18,18 +18,21 @@ def run_minimal_chain_experiment(
     chain_length: int,
     perturbation_index: int,
     perturbation_magnitude: float = 1.0,
+    diffusion_steps: int = DIFFUSION_STEPS,
 ) -> dict[str, Any]:
     """Run a deterministic additive perturbation experiment on a 1D chain."""
     if chain_length < 3:
         raise ValueError("chain_length must be >= 3")
     if perturbation_index < 0 or perturbation_index >= chain_length:
         raise ValueError("perturbation_index out of range")
+    if diffusion_steps < 0:
+        raise ValueError("diffusion_steps must be >= 0")
 
     initial_chain = [0.0] * chain_length
     initial_chain[perturbation_index] = float(perturbation_magnitude)
 
     final_chain = list(initial_chain)
-    for _ in range(DIFFUSION_STEPS):
+    for _ in range(diffusion_steps):
         final_chain = _diffusion_step(final_chain)
 
     # Boundedness in [0, 1] is an architectural invariant for analysis signals.

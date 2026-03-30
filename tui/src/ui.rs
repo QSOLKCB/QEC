@@ -6,7 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::app::App;
+use crate::app::{App, HISTORY_WINDOW_MODE};
 
 pub fn draw(f: &mut Frame, app: &App) {
     // Main vertical split: body + footer
@@ -150,7 +150,7 @@ fn workspace_content(app: &App) -> Vec<Line<'static>> {
             Line::from("  repairs_queued:   0"),
             Line::from("  last_action:      none"),
         ],
-        "History Window" => return history_content(app),
+        HISTORY_WINDOW_MODE => return history_content(app),
         "Invariants" => return invariants_content(app),
         "Law Engine" => vec![
             Line::from(""),

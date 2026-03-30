@@ -5,6 +5,10 @@ from __future__ import annotations
 import pytest
 
 from qec.analysis.ternary_lattice_controller import (
+    ALLOWED_BOUNDARY_MODES,
+    BOUNDARY_MODE_FIXED,
+    BOUNDARY_MODE_PERIODIC,
+    BOUNDARY_MODE_REFLECTIVE,
     LATTICE_CLASS_INTERVENTION,
     _count_transitions,
     _lattice_stability_score,
@@ -140,17 +144,17 @@ def test_boundary_modes(monkeypatch: pytest.MonkeyPatch) -> None:
 
     fixed = run_ternary_lattice_controller(
         lattice_cycles=1,
-        lattice_boundary_mode="fixed",
+        lattice_boundary_mode=BOUNDARY_MODE_FIXED,
         return_lattice_trace=True,
     )
     reflective = run_ternary_lattice_controller(
         lattice_cycles=1,
-        lattice_boundary_mode="reflective",
+        lattice_boundary_mode=BOUNDARY_MODE_REFLECTIVE,
         return_lattice_trace=True,
     )
     periodic = run_ternary_lattice_controller(
         lattice_cycles=1,
-        lattice_boundary_mode="periodic",
+        lattice_boundary_mode=BOUNDARY_MODE_PERIODIC,
         return_lattice_trace=True,
     )
 
@@ -165,8 +169,15 @@ def test_invalid_boundary_mode(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda **_: _controller_stub(controller_state="idle_state", chain_length=3),
     )
 
-    with pytest.raises(ValueError, match="lattice_boundary_mode must be one of: fixed, reflective, periodic"):
+    with pytest.raises(ValueError, match="invalid lattice_boundary_mode: bad-mode"):
         run_ternary_lattice_controller(lattice_cycles=1, lattice_boundary_mode="bad-mode")
+
+
+def test_invalid_boundary_mode_raises_with_zero_lattice_cycles() -> None:
+    invalid_mode = "bad-mode"
+    assert invalid_mode not in ALLOWED_BOUNDARY_MODES
+    with pytest.raises(ValueError, match="invalid lattice_boundary_mode: bad-mode"):
+        run_ternary_lattice_controller(lattice_cycles=0, lattice_boundary_mode=invalid_mode)
 
 
 def test_zero_controller_cycles_returns_deterministic_noop(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Literal, Sequence
 
 from qec.analysis.finite_state_controller import (
     CONTROL_LOOP_STABLE,
@@ -19,6 +19,14 @@ LATTICE_CLASS_ADAPTIVE = "adaptive_lattice"
 LATTICE_CLASS_INTERVENTION = "intervention_lattice"
 
 HIGH_STABILITY_MIN = 0.8
+BOUNDARY_MODE_FIXED = "fixed"
+BOUNDARY_MODE_REFLECTIVE = "reflective"
+BOUNDARY_MODE_PERIODIC = "periodic"
+ALLOWED_BOUNDARY_MODES = (
+    BOUNDARY_MODE_FIXED,
+    BOUNDARY_MODE_REFLECTIVE,
+    BOUNDARY_MODE_PERIODIC,
+)
 
 
 def run_ternary_lattice_controller(
@@ -30,17 +38,19 @@ def run_ternary_lattice_controller(
     threshold_values: Sequence[float] | None = None,
     perturbation_values: Sequence[float] | None = None,
     diffusion_steps: int = DIFFUSION_STEPS,
-    lattice_boundary_mode: str = "fixed",
+    lattice_boundary_mode: Literal["fixed", "reflective", "periodic"] = BOUNDARY_MODE_FIXED,
     return_lattice_trace: bool = False,
 ) -> dict[str, Any]:
     """Run deterministic ternary lattice control cycles over finite-state controller outputs."""
-    resolved_chain_length = max(1, int(chain_length))
     resolved_controller_cycles = int(controller_cycles)
     resolved_lattice_boundary_mode = str(lattice_boundary_mode)
+    if resolved_lattice_boundary_mode not in ALLOWED_BOUNDARY_MODES:
+        raise ValueError(f"invalid lattice_boundary_mode: {lattice_boundary_mode}")
 
     if resolved_controller_cycles <= 0:
+        noop_chain_length = max(1, int(chain_length))
         controller_result = {
-            "chain_length": resolved_chain_length,
+            "chain_length": noop_chain_length,
             "field_result": {},
             "controller_state": STATE_IDLE,
             "state_transition_count": 0,
@@ -168,18 +178,18 @@ def _neighbor_value(*, lattice_state: tuple[int, ...], index: int, lattice_bound
     if 0 <= index < length:
         return int(lattice_state[index])
 
-    if lattice_boundary_mode == "fixed":
+    if lattice_boundary_mode == BOUNDARY_MODE_FIXED:
         return 0
 
-    if lattice_boundary_mode == "reflective":
+    if lattice_boundary_mode == BOUNDARY_MODE_REFLECTIVE:
         if index < 0:
             return int(lattice_state[0])
         return int(lattice_state[-1])
 
-    if lattice_boundary_mode == "periodic":
+    if lattice_boundary_mode == BOUNDARY_MODE_PERIODIC:
         return int(lattice_state[index % length])
 
-    raise ValueError("lattice_boundary_mode must be one of: fixed, reflective, periodic")
+    raise ValueError(f"invalid lattice_boundary_mode: {lattice_boundary_mode}")
 
 
 def _count_transitions(previous_state: tuple[int, ...], next_state: tuple[int, ...]) -> int:

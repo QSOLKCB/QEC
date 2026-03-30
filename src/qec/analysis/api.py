@@ -75,6 +75,7 @@ _MODULES = [
     "threshold_phase_map",
     "phase_surface_analysis",
     "finite_size_scaling",
+    "multi_regime_scaling",
 ]
 
 for mod in _MODULES:

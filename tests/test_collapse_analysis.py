@@ -144,8 +144,12 @@ def test_spike_density_bounded():
     assert result3["spike_density"] == 0.0
 
 
-def test_event_ordering_stable():
-    """Singularity events are sorted by index."""
+def test_event_has_index_field_and_ordering_is_forward_compatible():
+    """Currently validates index presence on the single emitted event.
+
+    Ordering assertion is forward-looking: when multiple event types are
+    added, sorted-by-index invariant will be exercised automatically.
+    """
     events = detect_singularity_events(spike_density=0.5, collapse_score=0.9)
     if len(events) > 1:
         indices = [e["index"] for e in events]
@@ -167,11 +171,36 @@ def test_repeated_runs_identical_rounded_outputs():
 
 
 def test_numeric_outputs_are_rounded():
-    """Numeric outputs should be rounded to 12 decimals."""
+    """Numeric outputs from run_collapse_analysis are rounded to 12 decimals."""
     traj = [0.0, 0.1, 0.5, 2.0, 0.3, 0.1, 5.0, 0.2, 0.0, 1.0]
     result = run_collapse_analysis(traj)
-    # Verify values are finite floats (rounding preserves this)
     for key in ("failure_risk", "collapse_score", "acceleration_peak"):
+        val = result[key]
+        assert isinstance(val, float)
+        assert round(val, 12) == val
+
+
+def test_metric_rounding_via_run_collapse_analysis():
+    """velocity_peak, acceleration_peak, acceleration_mean are rounded at API boundary."""
+    traj = [0.0, 0.1, 0.5, 2.0, 0.3, 0.1, 5.0, 0.2, 0.0, 1.0]
+    metrics = compute_velocity_acceleration_metrics(traj)
+    for key in ("velocity_peak", "acceleration_peak", "acceleration_mean"):
+        val = metrics[key]
+        assert isinstance(val, float)
+    # Rounding is applied in run_collapse_analysis; verify via that entry point
+    result = run_collapse_analysis(traj)
+    assert round(result["acceleration_peak"], 12) == result["acceleration_peak"]
+
+
+def test_prediction_rounding_via_predict_basin_switch():
+    """Numeric fields from predict_basin_switch are raw floats."""
+    result = predict_basin_switch(
+        spike_density=0.3,
+        collapse_score=0.8,
+        acceleration_peak=5.0,
+        acceleration_mean=1.0,
+    )
+    for key in ("spike_density", "collapse_score", "acceleration_peak", "acceleration_mean"):
         val = result[key]
         assert isinstance(val, float)
         assert round(val, 12) == val

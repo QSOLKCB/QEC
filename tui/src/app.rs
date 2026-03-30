@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::commands::{dispatch_mode, fetch_engine_diagnostics};
+use crate::commands::{dispatch_mode, fetch_engine_diagnostics, fetch_history_timeline, fetch_invariant_status};
 
 pub const NAV_ITEMS: &[&str] = &[
     "Diagnostics",
@@ -70,11 +70,110 @@ impl DiagnosticsData {
     }
 }
 
+#[derive(Deserialize)]
+struct RawHistory {
+    timeline: Vec<String>,
+}
+
+pub struct HistoryData {
+    pub timeline: Vec<String>,
+    pub error: Option<String>,
+}
+
+impl HistoryData {
+    fn placeholder() -> Self {
+        Self {
+            timeline: vec![
+                "stable".to_string(),
+                "rising".to_string(),
+                "oscillatory".to_string(),
+                "locked".to_string(),
+            ],
+            error: None,
+        }
+    }
+
+    fn from_engine() -> Self {
+        match fetch_history_timeline() {
+            Ok(json_str) => match serde_json::from_str::<RawHistory>(&json_str) {
+                Ok(raw) => Self {
+                    timeline: raw.timeline,
+                    error: None,
+                },
+                Err(e) => {
+                    let mut h = Self::placeholder();
+                    h.error = Some(format!("JSON parse error: {e}"));
+                    h
+                }
+            },
+            Err(e) => {
+                let mut h = Self::placeholder();
+                h.error = Some(format!("ENGINE ERROR: {e}"));
+                h
+            }
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct RawInvariants {
+    determinism: String,
+    bounds: String,
+    stability: String,
+    law_engine: String,
+}
+
+pub struct InvariantData {
+    pub determinism: String,
+    pub bounds: String,
+    pub stability: String,
+    pub law_engine: String,
+    pub error: Option<String>,
+}
+
+impl InvariantData {
+    fn placeholder() -> Self {
+        Self {
+            determinism: "—".to_string(),
+            bounds: "—".to_string(),
+            stability: "—".to_string(),
+            law_engine: "—".to_string(),
+            error: None,
+        }
+    }
+
+    fn from_engine() -> Self {
+        match fetch_invariant_status() {
+            Ok(json_str) => match serde_json::from_str::<RawInvariants>(&json_str) {
+                Ok(raw) => Self {
+                    determinism: raw.determinism,
+                    bounds: raw.bounds,
+                    stability: raw.stability,
+                    law_engine: raw.law_engine,
+                    error: None,
+                },
+                Err(e) => {
+                    let mut inv = Self::placeholder();
+                    inv.error = Some(format!("JSON parse error: {e}"));
+                    inv
+                }
+            },
+            Err(e) => {
+                let mut inv = Self::placeholder();
+                inv.error = Some(format!("ENGINE ERROR: {e}"));
+                inv
+            }
+        }
+    }
+}
+
 pub struct App {
     pub nav_items: &'static [&'static str],
     pub selected_index: usize,
     pub mode: &'static str,
     pub diagnostics: DiagnosticsData,
+    pub history: HistoryData,
+    pub invariants: InvariantData,
 }
 
 impl App {
@@ -84,6 +183,8 @@ impl App {
             selected_index: 0,
             mode: "Diagnostics",
             diagnostics: DiagnosticsData::from_engine(),
+            history: HistoryData::from_engine(),
+            invariants: InvariantData::from_engine(),
         }
     }
 
@@ -116,5 +217,11 @@ impl App {
 
     pub fn refresh_diagnostics(&mut self) {
         self.diagnostics = DiagnosticsData::from_engine();
+    }
+
+    pub fn refresh_all(&mut self) {
+        self.diagnostics = DiagnosticsData::from_engine();
+        self.history = HistoryData::from_engine();
+        self.invariants = InvariantData::from_engine();
     }
 }

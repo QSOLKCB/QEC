@@ -27,8 +27,33 @@ fn main() -> io::Result<()> {
             if key.kind != KeyEventKind::Press {
                 continue;
             }
+            if app.search_overlay_active {
+                match key.code {
+                    KeyCode::Esc => {
+                        app.search_overlay_active = false;
+                        app.help_overlay_active = false;
+                    }
+                    KeyCode::Backspace => {
+                        app.search_query.pop();
+                    }
+                    KeyCode::Enter => app.filter_sessions(),
+                    KeyCode::Char(c) => app.search_query.push(c),
+                    _ => {}
+                }
+                continue;
+            }
             match key.code {
                 KeyCode::Char('q') | KeyCode::Char('Q') => break,
+                KeyCode::Esc => {
+                    app.search_overlay_active = false;
+                    app.help_overlay_active = false;
+                }
+                KeyCode::Char('?') => app.help_overlay_active = !app.help_overlay_active,
+                KeyCode::Char('/') => {
+                    app.search_overlay_active = true;
+                    app.help_overlay_active = false;
+                }
+                _ if app.help_overlay_active => {}
                 KeyCode::Up => {
                     if app.session_browser_active() {
                         app.session_up();
@@ -45,8 +70,12 @@ fn main() -> io::Result<()> {
                 }
                 KeyCode::Enter => app.select_mode(),
                 _ if app.mode == "Actions" => match key.code {
-                    KeyCode::Char('d') | KeyCode::Char('D') => app.run_action_with_status("diagnostics"),
-                    KeyCode::Char('i') | KeyCode::Char('I') => app.run_action_with_status("invariants"),
+                    KeyCode::Char('d') | KeyCode::Char('D') => {
+                        app.run_action_with_status("diagnostics")
+                    }
+                    KeyCode::Char('i') | KeyCode::Char('I') => {
+                        app.run_action_with_status("invariants")
+                    }
                     KeyCode::Char('l') | KeyCode::Char('L') => app.run_action_with_status("law"),
                     KeyCode::Char('r') | KeyCode::Char('R') => {
                         app.run_action_with_status("refresh");
@@ -67,24 +96,20 @@ fn main() -> io::Result<()> {
                 KeyCode::Char('i') | KeyCode::Char('I') => app.jump_to(7),
                 KeyCode::Char('l') | KeyCode::Char('L') => app.jump_to(8),
                 KeyCode::Char('x') | KeyCode::Char('X') => app.jump_to(9),
-                KeyCode::Char('e') | KeyCode::Char('E') => {
-                    match app.export_session_log() {
-                        Ok(()) => app.action_status = "EXPORTED".to_string(),
-                        Err(e) => {
-                            app.action_log.push(format!("[export] ERROR: {e}"));
-                            app.action_status = "FAILED".to_string();
-                        }
+                KeyCode::Char('e') | KeyCode::Char('E') => match app.export_session_log() {
+                    Ok(()) => app.action_status = "EXPORTED".to_string(),
+                    Err(e) => {
+                        app.action_log.push(format!("[export] ERROR: {e}"));
+                        app.action_status = "FAILED".to_string();
                     }
-                }
-                KeyCode::Char('p') | KeyCode::Char('P') => {
-                    match app.replay_last_session() {
-                        Ok(()) => app.action_status = "REPLAY LOADED".to_string(),
-                        Err(e) => {
-                            app.action_log.push(format!("[replay] ERROR: {e}"));
-                            app.action_status = "FAILED".to_string();
-                        }
+                },
+                KeyCode::Char('p') | KeyCode::Char('P') => match app.replay_last_session() {
+                    Ok(()) => app.action_status = "REPLAY LOADED".to_string(),
+                    Err(e) => {
+                        app.action_log.push(format!("[replay] ERROR: {e}"));
+                        app.action_status = "FAILED".to_string();
                     }
-                }
+                },
                 KeyCode::Char('s') | KeyCode::Char('S') => app.scan_sessions(),
                 KeyCode::Char('v') | KeyCode::Char('V') => app.diff_with_selected_session(),
                 _ => {}

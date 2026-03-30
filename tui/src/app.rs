@@ -1,4 +1,6 @@
-use crate::commands::dispatch_mode;
+use serde::Deserialize;
+
+use crate::commands::{dispatch_mode, fetch_engine_diagnostics};
 
 pub const NAV_ITEMS: &[&str] = &[
     "Diagnostics",
@@ -12,10 +14,67 @@ pub const NAV_ITEMS: &[&str] = &[
     "Law Engine",
 ];
 
+#[derive(Deserialize)]
+struct RawDiagnostics {
+    collapse_score: f64,
+    trend_state: String,
+    adaptive_damping: f64,
+    healing_mode: String,
+    history_behavior: String,
+}
+
+pub struct DiagnosticsData {
+    pub collapse_score: String,
+    pub trend_state: String,
+    pub adaptive_damping: String,
+    pub healing_mode: String,
+    pub history_behavior: String,
+    pub error: Option<String>,
+}
+
+impl DiagnosticsData {
+    fn placeholder() -> Self {
+        Self {
+            collapse_score: "—".to_string(),
+            trend_state: "—".to_string(),
+            adaptive_damping: "—".to_string(),
+            healing_mode: "—".to_string(),
+            history_behavior: "—".to_string(),
+            error: None,
+        }
+    }
+
+    fn from_engine() -> Self {
+        match fetch_engine_diagnostics() {
+            Ok(json_str) => match serde_json::from_str::<RawDiagnostics>(&json_str) {
+                Ok(raw) => Self {
+                    collapse_score: format!("{:.2}", raw.collapse_score),
+                    trend_state: raw.trend_state,
+                    adaptive_damping: format!("{:.2}", raw.adaptive_damping),
+                    healing_mode: raw.healing_mode,
+                    history_behavior: raw.history_behavior,
+                    error: None,
+                },
+                Err(e) => {
+                    let mut d = Self::placeholder();
+                    d.error = Some(format!("JSON parse error: {e}"));
+                    d
+                }
+            },
+            Err(e) => {
+                let mut d = Self::placeholder();
+                d.error = Some(format!("ENGINE ERROR: {e}"));
+                d
+            }
+        }
+    }
+}
+
 pub struct App {
     pub nav_items: &'static [&'static str],
     pub selected_index: usize,
     pub mode: &'static str,
+    pub diagnostics: DiagnosticsData,
 }
 
 impl App {
@@ -24,6 +83,7 @@ impl App {
             nav_items: NAV_ITEMS,
             selected_index: 0,
             mode: "Diagnostics",
+            diagnostics: DiagnosticsData::from_engine(),
         }
     }
 
@@ -52,5 +112,9 @@ impl App {
             self.selected_index = index;
             self.select_mode();
         }
+    }
+
+    pub fn refresh_diagnostics(&mut self) {
+        self.diagnostics = DiagnosticsData::from_engine();
     }
 }

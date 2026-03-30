@@ -37,7 +37,7 @@ fn main() -> io::Result<()> {
                 KeyCode::Char('c') | KeyCode::Char('C') => app.jump_to(1),
                 KeyCode::Char('m') | KeyCode::Char('M') => app.jump_to(2),
                 KeyCode::Char('a') | KeyCode::Char('A') => app.jump_to(3),
-                KeyCode::Char('r') | KeyCode::Char('R') => app.jump_to(4),
+                KeyCode::Char('r') | KeyCode::Char('R') => app.refresh_diagnostics(),
                 KeyCode::Char('h') | KeyCode::Char('H') => app.jump_to(5),
                 // 'w' for history Window to avoid conflict
                 KeyCode::Char('w') | KeyCode::Char('W') => app.jump_to(6),

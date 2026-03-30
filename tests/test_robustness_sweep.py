@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from qec.analysis.robustness_sweep import (
     DEFAULT_PERTURBATION_SWEEP,
     ROBUSTNESS_CLASS_HIGHLY_STABLE_MEAN_THRESHOLD,
@@ -37,6 +39,13 @@ def test_default_sweep_ordering() -> None:
 
     assert set(out.keys()) == REQUIRED_KEYS
     assert out["perturbation_values"] == DEFAULT_PERTURBATION_SWEEP
+
+
+def test_invalid_sweep_order_raises() -> None:
+    with pytest.raises(ValueError, match="strictly increasing"):
+        run_robustness_sweep(chain_length=7, perturbation_values=[1.0, 0.5, 2.0], diffusion_steps=4)
+    with pytest.raises(ValueError, match="strictly increasing"):
+        run_robustness_sweep(chain_length=7, perturbation_values=[0.5, 0.5, 1.0], diffusion_steps=4)
 
 
 def test_boundedness() -> None:

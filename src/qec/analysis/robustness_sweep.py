@@ -30,7 +30,7 @@ def run_robustness_sweep(
         )
         for perturbation_magnitude in ordered_perturbation_values
     ]
-    robustness_curve = [float(result["robustness_score"]) for result in sweep_results]
+    robustness_curve = [_clamp01(float(result["robustness_score"])) for result in sweep_results]
 
     monotonicity_score = _monotonicity_score(robustness_curve)
     curve_stability_score = _curve_stability_score(robustness_curve)
@@ -51,7 +51,11 @@ def _ordered_perturbation_values(perturbation_values: list[float] | None) -> lis
     values = DEFAULT_PERTURBATION_SWEEP if perturbation_values is None else perturbation_values
     if len(values) == 0:
         raise ValueError("perturbation_values must be non-empty")
-    return [float(value) for value in values]
+    ordered_values = [float(value) for value in values]
+    for previous, current in zip(ordered_values, ordered_values[1:]):
+        if current <= previous:
+            raise ValueError("perturbation_values must be strictly increasing")
+    return ordered_values
 
 
 def _monotonicity_score(robustness_curve: list[float]) -> float:

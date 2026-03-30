@@ -4,17 +4,21 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Gauge, List, ListItem, Paragraph},
     Frame,
 };
 
-use crate::app::{App, HISTORY_WINDOW_MODE};
+use crate::app::{App, HealthStatus, HISTORY_WINDOW_MODE};
 
 pub fn draw(f: &mut Frame, app: &App) {
     // Main vertical split: KPI strip + body + footer
     let outer = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(5), Constraint::Min(0), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(5),
+            Constraint::Min(0),
+            Constraint::Length(3),
+        ])
         .split(f.size());
 
     draw_kpi_strip(f, app, outer[0]);
@@ -46,41 +50,33 @@ fn draw_kpi_strip(f: &mut Frame, app: &App, area: Rect) {
         .direction(Direction::Horizontal)
         .constraints([
             Constraint::Length(12),
-            Constraint::Length(12),
-            Constraint::Length(10),
-            Constraint::Length(14),
-            Constraint::Min(14),
+            Constraint::Length(28),
+            Constraint::Length(28),
+            Constraint::Min(28),
         ])
         .split(area);
 
     draw_kpi_card(f, cards[0], "Actions", app.total_actions_run, Color::White);
-    draw_kpi_card(
+    draw_ratio_gauge(
         f,
         cards[1],
-        "Success",
-        app.successful_actions,
+        "Success Ratio",
+        app.success_ratio_percent(),
         Color::Green,
     );
-    draw_kpi_card(f, cards[2], "Fail", app.failed_actions, Color::Red);
-    draw_kpi_card(
+    draw_ratio_gauge(
+        f,
+        cards[2],
+        "Failure Ratio",
+        app.failure_ratio_percent(),
+        Color::Red,
+    );
+    draw_ratio_gauge(
         f,
         cards[3],
-        "Avg Lat",
-        format!("{} ms", app.average_action_latency_ms),
+        "Latency Gauge",
+        app.latency_threshold_percent(),
         Color::Cyan,
-    );
-
-    let health_color = match app.health_status.as_str() {
-        "HEALTHY" => Color::Green,
-        "DEGRADED" => Color::Yellow,
-        _ => Color::Red,
-    };
-    draw_kpi_card(
-        f,
-        cards[4],
-        "Health",
-        app.health_status.as_str(),
-        health_color,
     );
 }
 
@@ -89,8 +85,11 @@ fn draw_kpi_card(f: &mut Frame, area: Rect, title: &str, value: impl Display, co
         format!("  {value}"),
         Style::default().fg(color).add_modifier(Modifier::BOLD),
     ));
-    let panel = Paragraph::new(vec![Line::from(""), line])
-        .block(Block::default().borders(Borders::ALL).title(format!(" {title} ")));
+    let panel = Paragraph::new(vec![Line::from(""), line]).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!(" {title} ")),
+    );
     f.render_widget(panel, area);
 }
 
@@ -242,6 +241,8 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
             Constraint::Length(8),
             Constraint::Length(8),
             Constraint::Length(6),
+            Constraint::Length(8),
+            Constraint::Length(6),
             Constraint::Min(5),
         ])
         .split(area);
@@ -275,9 +276,45 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
         Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(" Status "));
     f.render_widget(status, status_layout[0]);
 
-    draw_recent_failures(f, app, status_layout[1]);
-    draw_invariant_kpis(f, app, status_layout[2]);
-    draw_operator_audit(f, app, status_layout[3]);
+    draw_health_and_view(f, app, status_layout[1]);
+    draw_recent_failures(f, app, status_layout[2]);
+    draw_invariant_kpis(f, app, status_layout[3]);
+    draw_operator_audit(f, app, status_layout[4]);
+}
+
+fn draw_health_and_view(f: &mut Frame, app: &App, area: Rect) {
+    let split = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(4), Constraint::Length(4)])
+        .split(area);
+
+    let health_color = match app.health_status {
+        HealthStatus::Healthy => Color::Green,
+        HealthStatus::Degraded => Color::Yellow,
+        HealthStatus::Critical => Color::Red,
+    };
+    let health_panel = Paragraph::new(vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            format!("  {}", app.health_status),
+            Style::default()
+                .fg(health_color)
+                .add_modifier(Modifier::BOLD),
+        )),
+    ])
+    .block(Block::default().borders(Borders::ALL).title(" Health "));
+    f.render_widget(health_panel, split[0]);
+
+    let view_panel = Paragraph::new(vec![
+        Line::from(""),
+        Line::from(format!("  Current: {}", app.current_view_label())),
+    ])
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Operator View "),
+    );
+    f.render_widget(view_panel, split[1]);
 }
 
 fn draw_recent_failures(f: &mut Frame, app: &App, area: Rect) {
@@ -290,8 +327,11 @@ fn draw_recent_failures(f: &mut Frame, app: &App, area: Rect) {
         }
     }
 
-    let panel = Paragraph::new(lines)
-        .block(Block::default().borders(Borders::ALL).title(" Recent Failures "));
+    let panel = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Recent Failures "),
+    );
     f.render_widget(panel, area);
 }
 
@@ -307,24 +347,51 @@ fn draw_invariant_kpis(f: &mut Frame, app: &App, area: Rect) {
         }
     }
 
-    let panel = Paragraph::new(lines)
-        .block(Block::default().borders(Borders::ALL).title(" Invariant Health "));
+    let panel = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Invariant Health "),
+    );
     f.render_widget(panel, area);
 }
 
 fn draw_operator_audit(f: &mut Frame, app: &App, area: Rect) {
-    let mut lines: Vec<Line<'static>> = Vec::new();
-    if app.command_history.is_empty() {
-        lines.push(Line::from("  No operator actions"));
-    } else {
-        for command in app.command_history.iter().rev().take(4) {
-            lines.push(Line::from(format!("  {command}")));
-        }
-    }
+    let lines: Vec<Line<'static>> = vec![
+        Line::from(format!("  Mode: {}", app.alert_profile_mode_label())),
+        Line::from(format!(
+            "  Latency Warn: {} ms",
+            app.latency_warning_threshold_ms
+        )),
+        Line::from(format!(
+            "  Latency Crit: {} ms",
+            app.latency_critical_threshold_ms
+        )),
+        Line::from(format!("  Failure Warn: {}", app.failure_warning_threshold)),
+        Line::from(format!(
+            "  Failure Crit: {}",
+            app.failure_critical_threshold
+        )),
+    ];
 
-    let panel = Paragraph::new(lines)
-        .block(Block::default().borders(Borders::ALL).title(" Operator Audit "));
+    let panel = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Alert Profile "),
+    );
     f.render_widget(panel, area);
+}
+
+fn draw_ratio_gauge(f: &mut Frame, area: Rect, title: &str, percent: u16, color: Color) {
+    let gauge = Gauge::default()
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(format!(" {title} ")),
+        )
+        .gauge_style(Style::default().fg(color).add_modifier(Modifier::BOLD))
+        .percent(percent)
+        .label(format!("{percent}%"));
+    f.render_widget(gauge, area);
 }
 
 fn diagnostics_content(app: &App) -> Vec<Line<'static>> {
@@ -581,6 +648,20 @@ fn draw_footer(f: &mut Frame, area: Rect) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::raw(" Scan  "),
+        Span::styled(
+            "[1/2/3]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(" Views  "),
+        Span::styled(
+            "[T]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(" Thresholds  "),
         Span::styled(
             "[V]",
             Style::default()

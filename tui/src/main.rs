@@ -70,6 +70,10 @@ fn main() -> io::Result<()> {
                     }
                 }
                 KeyCode::Enter => app.select_mode(),
+                KeyCode::Char('1') => app.set_operator_view(0),
+                KeyCode::Char('2') => app.set_operator_view(1),
+                KeyCode::Char('3') => app.set_operator_view(2),
+                KeyCode::Char('t') | KeyCode::Char('T') => app.cycle_alert_threshold_profile(),
                 _ if app.mode == "Actions" => match key.code {
                     KeyCode::Char('d') | KeyCode::Char('D') => {
                         let started = Instant::now();
@@ -137,10 +141,6 @@ fn main() -> io::Result<()> {
                         app.action_status = "FAILED".to_string();
                     }
                 },
-                KeyCode::Char('1') => app.set_operator_view(0),
-                KeyCode::Char('2') => app.set_operator_view(1),
-                KeyCode::Char('3') => app.set_operator_view(2),
-                KeyCode::Char('t') | KeyCode::Char('T') => app.cycle_alert_threshold_profile(),
                 KeyCode::Char('s') | KeyCode::Char('S') => app.scan_sessions(),
                 KeyCode::Char('v') | KeyCode::Char('V') => app.diff_with_selected_session(),
                 _ => {}

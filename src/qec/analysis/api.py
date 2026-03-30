@@ -77,6 +77,7 @@ _MODULES = [
     "finite_size_scaling",
     "multi_regime_scaling",
     "spectral_phase_boundary",
+    "correction_dispatch",
 ]
 
 for mod in _MODULES:

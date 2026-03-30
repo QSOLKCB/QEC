@@ -5,13 +5,30 @@ to suppress oscillatory behavior and stabilize regime transitions.
 """
 
 
-def compute_healing_damping(adaptive_damping: float, regime_behavior: str) -> float:
-    """Compute healing damping based on regime behavior."""
+def compute_suppression_intensity(
+    regime_behavior: str,
+    coherence_length: int,
+) -> float:
+    """Compute suppression intensity scaled by coherence length.
+
+    Longer oscillation persistence produces stronger suppression.
+    Transitions scale mildly. Locked regimes produce no suppression.
+    """
     if regime_behavior == "oscillatory":
-        return round(max(0.3, adaptive_damping - 0.1), 12)
+        return round(min(0.2, 0.05 * coherence_length), 12)
     if regime_behavior == "transition":
-        return round(max(0.3, adaptive_damping - 0.05), 12)
-    return round(adaptive_damping, 12)
+        return round(min(0.1, 0.02 * coherence_length), 12)
+    return 0.0
+
+
+def compute_healing_damping(
+    adaptive_damping: float,
+    regime_behavior: str,
+    coherence_length: int = 1,
+) -> float:
+    """Compute healing damping based on regime behavior and coherence length."""
+    suppression = compute_suppression_intensity(regime_behavior, coherence_length)
+    return round(max(0.3, adaptive_damping - suppression), 12)
 
 
 def compute_healing_mode(regime_behavior: str) -> str:
@@ -43,12 +60,19 @@ def run_self_healing_control(adaptive_result: dict, regime_result: dict) -> dict
     Returns
     -------
     dict
-        healing_damping, healing_mode, escalation_frozen, healing_gain.
+        healing_damping, healing_mode, escalation_frozen, healing_gain,
+        suppression_intensity.
     """
     adaptive_damping = adaptive_result.get("adaptive_damping", 0.0)
     regime_behavior = regime_result.get("regime_behavior", "locked")
+    coherence_length = regime_result.get("coherence_length", 1)
 
-    healing_damping = compute_healing_damping(adaptive_damping, regime_behavior)
+    healing_damping = compute_healing_damping(
+        adaptive_damping, regime_behavior, coherence_length
+    )
+    suppression_intensity = compute_suppression_intensity(
+        regime_behavior, coherence_length
+    )
     healing_mode = compute_healing_mode(regime_behavior)
     escalation_frozen = compute_escalation_freeze(regime_behavior)
     healing_gain = round(
@@ -61,4 +85,5 @@ def run_self_healing_control(adaptive_result: dict, regime_result: dict) -> dict
         "healing_mode": healing_mode,
         "escalation_frozen": escalation_frozen,
         "healing_gain": healing_gain,
+        "suppression_intensity": suppression_intensity,
     }

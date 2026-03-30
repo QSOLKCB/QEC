@@ -1,4 +1,4 @@
-"""Tests for collapse_analysis — v105.3.0."""
+"""Tests for collapse_analysis — v105.3.1."""
 
 from __future__ import annotations
 
@@ -115,3 +115,63 @@ def test_empty_acceleration_spikes():
     result = detect_acceleration_spikes([])
     assert result["spike_count"] == 0
     assert result["spike_density"] == 0.0
+
+
+# -- v105.3.1 hardening tests ------------------------------------------------
+
+def test_zero_std_acceleration_no_spikes():
+    """Zero-std acceleration series (all identical values) produces no spikes."""
+    series = [1.0, 1.0, 1.0, 1.0, 1.0]
+    result = detect_acceleration_spikes(series)
+    assert result["spike_count"] == 0
+    assert result["spike_indices"] == []
+    assert result["spike_density"] == 0.0
+
+
+def test_spike_density_bounded():
+    """spike_density must always be in [0, 1]."""
+    # Normal case
+    series = [0.0] * 20 + [100.0] + [0.0] * 20
+    result = detect_acceleration_spikes(series)
+    assert 0.0 <= result["spike_density"] <= 1.0
+
+    # Edge: all zeros
+    result2 = detect_acceleration_spikes([0.0] * 10)
+    assert 0.0 <= result2["spike_density"] <= 1.0
+
+    # Edge: empty
+    result3 = detect_acceleration_spikes([])
+    assert result3["spike_density"] == 0.0
+
+
+def test_event_ordering_stable():
+    """Singularity events are sorted by index."""
+    events = detect_singularity_events(spike_density=0.5, collapse_score=0.9)
+    if len(events) > 1:
+        indices = [e["index"] for e in events]
+        assert indices == sorted(indices)
+    # Single event should have index field
+    if events:
+        assert "index" in events[0]
+
+
+def test_repeated_runs_identical_rounded_outputs():
+    """Repeated runs return identical rounded outputs (12-decimal reproducibility)."""
+    traj = [0.0, 0.1, 0.5, 2.0, 0.3, 0.1, 5.0, 0.2, 0.0, 1.0]
+    results = [run_collapse_analysis(traj) for _ in range(5)]
+    for r in results[1:]:
+        assert r["failure_risk"] == results[0]["failure_risk"]
+        assert r["collapse_score"] == results[0]["collapse_score"]
+        assert r["acceleration_peak"] == results[0]["acceleration_peak"]
+        assert r == results[0]
+
+
+def test_numeric_outputs_are_rounded():
+    """Numeric outputs should be rounded to 12 decimals."""
+    traj = [0.0, 0.1, 0.5, 2.0, 0.3, 0.1, 5.0, 0.2, 0.0, 1.0]
+    result = run_collapse_analysis(traj)
+    # Verify values are finite floats (rounding preserves this)
+    for key in ("failure_risk", "collapse_score", "acceleration_peak"):
+        val = result[key]
+        assert isinstance(val, float)
+        assert round(val, 12) == val

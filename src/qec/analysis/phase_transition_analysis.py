@@ -15,6 +15,7 @@ def run_phase_transition_analysis(
     chain_length: int,
     perturbation_values: Sequence[float] | None = None,
     diffusion_steps: int = DIFFUSION_STEPS,
+    onset_threshold: float = ONSET_THRESHOLD,
 ) -> dict[str, Any]:
     """Summarize a robustness sweep into deterministic bounded transition metrics."""
     sweep_result = run_robustness_sweep(
@@ -26,7 +27,7 @@ def run_phase_transition_analysis(
     perturbation_axis = [float(value) for value in sweep_result["perturbation_values"]]
     robustness_curve = [_clamp01(float(score)) for score in sweep_result["robustness_curve"]]
 
-    onset_index = _onset_index(robustness_curve)
+    onset_index = _onset_index(robustness_curve, onset_threshold=onset_threshold)
     onset_perturbation = None if onset_index is None else float(perturbation_axis[onset_index])
     onset_drop_magnitude = _onset_drop_magnitude(robustness_curve, onset_index)
 
@@ -64,9 +65,9 @@ def _normalized_auc_score(perturbation_values: list[float], robustness_curve: li
     return _clamp01(area / max_possible_area)
 
 
-def _onset_index(robustness_curve: list[float]) -> int | None:
+def _onset_index(robustness_curve: list[float], onset_threshold: float = ONSET_THRESHOLD) -> int | None:
     for idx, score in enumerate(robustness_curve):
-        if float(score) < ONSET_THRESHOLD:
+        if float(score) < float(onset_threshold):
             return idx
     return None
 

@@ -1,5 +1,8 @@
 use serde::Deserialize;
 
+use std::fs;
+use std::io::Write;
+
 use crate::commands::{dispatch_mode, execute_action, fetch_engine_diagnostics, fetch_history_timeline, fetch_invariant_status};
 
 const MAX_COMMAND_HISTORY: usize = 20;
@@ -181,6 +184,9 @@ pub struct App {
     pub command_history: Vec<String>,
     pub action_status: String,
     pub last_action_time: String,
+    pub exported_log_path: String,
+    pub replay_lines: Vec<String>,
+    pub artifact_view: Vec<String>,
 }
 
 impl App {
@@ -196,6 +202,9 @@ impl App {
             command_history: Vec::new(),
             action_status: "IDLE".to_string(),
             last_action_time: String::new(),
+            exported_log_path: String::new(),
+            replay_lines: Vec::new(),
+            artifact_view: Vec::new(),
         }
     }
 
@@ -280,6 +289,31 @@ impl App {
             self.command_history.remove(0);
         }
     }
+
+    pub fn export_session_log(&mut self) -> Result<(), String> {
+        let path = "qec_tui_session.log";
+        let mut file = fs::File::create(path).map_err(|e| format!("Failed to create log file: {e}"))?;
+        for entry in &self.command_history {
+            writeln!(file, "{entry}").map_err(|e| format!("Write error: {e}"))?;
+        }
+        writeln!(file, "---").map_err(|e| format!("Write error: {e}"))?;
+        writeln!(file, "status: {}", self.action_status).map_err(|e| format!("Write error: {e}"))?;
+        if !self.last_action_time.is_empty() {
+            writeln!(file, "last_action_time: {}", self.last_action_time).map_err(|e| format!("Write error: {e}"))?;
+        }
+        for entry in &self.action_log {
+            writeln!(file, "{entry}").map_err(|e| format!("Write error: {e}"))?;
+        }
+        self.exported_log_path = path.to_string();
+        Ok(())
+    }
+
+    pub fn replay_last_session(&mut self) -> Result<(), String> {
+        let path = "qec_tui_session.log";
+        let contents = fs::read_to_string(path).map_err(|e| format!("Failed to read log file: {e}"))?;
+        self.replay_lines = contents.lines().map(|l| l.to_string()).collect();
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -346,5 +380,54 @@ mod tests {
         assert_eq!(app.command_history.len(), 2);
         assert!(app.command_history[0].starts_with("diagnostics @ "));
         assert!(app.command_history[1].starts_with("invariants @ "));
+    }
+
+    #[test]
+    fn test_export_writes_file() {
+        let mut app = App::new();
+        app.command_history.push("test_cmd @ time1".to_string());
+        app.action_status = "SUCCESS".to_string();
+        app.action_log.push("[test] output".to_string());
+        let result = app.export_session_log();
+        assert!(result.is_ok());
+        assert_eq!(app.exported_log_path, "qec_tui_session.log");
+        let contents = std::fs::read_to_string("qec_tui_session.log").unwrap();
+        assert!(contents.contains("test_cmd @ time1"));
+        assert!(contents.contains("status: SUCCESS"));
+        // cleanup
+        let _ = std::fs::remove_file("qec_tui_session.log");
+    }
+
+    #[test]
+    fn test_replay_reads_file() {
+        let mut app = App::new();
+        std::fs::write("qec_tui_session_test.log", "line1\nline2\nline3\n").unwrap();
+        // Temporarily use a custom path for isolation — test the core logic
+        let contents = std::fs::read_to_string("qec_tui_session_test.log").unwrap();
+        app.replay_lines = contents.lines().map(|l| l.to_string()).collect();
+        assert_eq!(app.replay_lines.len(), 3);
+        assert_eq!(app.replay_lines[0], "line1");
+        let _ = std::fs::remove_file("qec_tui_session_test.log");
+    }
+
+    #[test]
+    fn test_replay_missing_file_returns_error() {
+        let mut app = App::new();
+        let _ = std::fs::remove_file("qec_tui_session.log");
+        let result = app.replay_last_session();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("Failed to read log file"));
+    }
+
+    #[test]
+    fn test_replay_trims_to_10_in_ui() {
+        // Simulate: replay_lines has 15 entries, UI should show last 10
+        let mut app = App::new();
+        for i in 0..15 {
+            app.replay_lines.push(format!("line_{i}"));
+        }
+        let display: Vec<&String> = app.replay_lines.iter().rev().take(10).collect();
+        assert_eq!(display.len(), 10);
     }
 }

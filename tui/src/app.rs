@@ -699,7 +699,8 @@ fn percent_u16(numerator: usize, denominator: usize) -> u16 {
     if denominator == 0 {
         return 0;
     }
-    ((numerator * 100) / denominator) as u16
+    let num = numerator as u128 * 100u128;
+    (num / denominator as u128) as u16
 }
 
 #[cfg(test)]
@@ -1091,6 +1092,11 @@ mod tests {
         assert_eq!(app.current_view_label(), "Performance");
         app.set_operator_view(9);
         assert_eq!(app.current_view_label(), "Performance");
+    }
+
+    #[test]
+    fn test_percent_u16_large_numerator_no_overflow() {
+        assert_eq!(percent_u16(usize::MAX, usize::MAX), 100);
     }
 
     #[test]

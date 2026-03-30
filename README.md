@@ -116,9 +116,14 @@ If it cannot be reproduced byte-for-byte, it is not a result.
 
 🖥 Rust TUI Operator Console (v106+)
 
-QEC now includes a Linutil-inspired Rust TUI control surface for live diagnostics, adaptive control workflows, session replay, and operator-driven law-engine actions.
+QEC now includes a Linutil-inspired Rust TUI control surface for:
 
-The layout is optimized for fast keyboard-first workflows:
+live diagnostics
+adaptive control workflows
+session replay
+operator-driven law-engine actions
+
+The layout is optimized for fast, keyboard-first workflows:
 
 Left   → navigation / mode selection
 Center → live diagnostics / history / action console
@@ -133,39 +138,37 @@ cd tui
 cargo build --release
 Run
 cargo run --release
-
-For production-style startup:
-
+Production-style startup
 ./target/release/qec-tui
 ⌨️ Key Controls
 Navigation
-↑ / ↓        move selection
-Enter        switch active mode
-Q            quit
+↑ / ↓   move selection
+Enter   switch active mode
+Q       quit
 Mode Shortcuts
-D            diagnostics
-C            control flow
-M            memory
-A            adaptive
-R            regime jump
-H            self-healing
-W            history window
-I            invariants
-L            law engine
-X            actions console
+D   diagnostics
+C   control flow
+M   memory
+A   adaptive
+R   regime jump
+H   self-healing
+W   history window
+I   invariants
+L   law engine
+X   actions console
 Action Console
 
 When inside Actions mode:
 
-D            run diagnostics
-I            run invariants
-L            run law engine
-R            refresh all
+D   run diagnostics
+I   run invariants
+L   run law engine
+R   refresh all
 Session & Replay
-E            export session log
-P            replay last session
-S            scan saved sessions
-V            view session diff
+E   export session log
+P   replay last session
+S   scan saved sessions
+V   view session diff
 ✨ Current TUI Features
 
 The Rust console currently supports:

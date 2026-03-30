@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+use std::collections::VecDeque;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -12,6 +13,7 @@ use crate::commands::{
 const MAX_COMMAND_HISTORY: usize = 20;
 const MAX_DIFF_LINES: usize = 20;
 pub const HISTORY_WINDOW_MODE: &str = "History Window";
+const MAX_RECENT_FAILURES: usize = 10;
 
 pub const NAV_ITEMS: &[&str] = &[
     "Diagnostics",
@@ -25,6 +27,23 @@ pub const NAV_ITEMS: &[&str] = &[
     "Law Engine",
     "Actions",
 ];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HealthStatus {
+    Healthy,
+    Degraded,
+    Critical,
+}
+
+impl std::fmt::Display for HealthStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Healthy => write!(f, "HEALTHY"),
+            Self::Degraded => write!(f, "DEGRADED"),
+            Self::Critical => write!(f, "CRITICAL"),
+        }
+    }
+}
 
 #[derive(Deserialize)]
 struct RawDiagnostics {
@@ -206,8 +225,14 @@ pub struct App {
     pub successful_actions: usize,
     pub failed_actions: usize,
     pub average_action_latency_ms: u128,
-    pub health_status: String,
-    pub recent_failures: Vec<String>,
+    pub health_status: HealthStatus,
+    pub recent_failures: VecDeque<String>,
+    pub latency_warning_threshold_ms: u128,
+    pub latency_critical_threshold_ms: u128,
+    pub failure_warning_threshold: usize,
+    pub failure_critical_threshold: usize,
+    pub current_view: usize,
+    pub saved_views: Vec<String>,
     pub invariant_summary: Vec<String>,
 }
 
@@ -239,8 +264,18 @@ impl App {
             successful_actions: 0,
             failed_actions: 0,
             average_action_latency_ms: 0,
-            health_status: "HEALTHY".to_string(),
-            recent_failures: Vec::new(),
+            health_status: HealthStatus::Healthy,
+            recent_failures: VecDeque::new(),
+            latency_warning_threshold_ms: 50,
+            latency_critical_threshold_ms: 150,
+            failure_warning_threshold: 1,
+            failure_critical_threshold: 4,
+            current_view: 0,
+            saved_views: vec![
+                "Default".to_string(),
+                "Incidents".to_string(),
+                "Performance".to_string(),
+            ],
             invariant_summary: Vec::new(),
         };
         app.build_invariant_summary();
@@ -297,21 +332,103 @@ impl App {
             self.successful_actions += 1;
         } else {
             self.failed_actions += 1;
-            self.recent_failures.push(action_name.to_string());
-            while self.recent_failures.len() > 10 {
-                self.recent_failures.remove(0);
+            self.recent_failures.push_back(action_name.to_string());
+            while self.recent_failures.len() > MAX_RECENT_FAILURES {
+                self.recent_failures.pop_front();
             }
         }
 
-        self.average_action_latency_ms =
-            ((self.average_action_latency_ms * previous_total) + latency_ms)
-                / (self.total_actions_run as u128);
+        self.average_action_latency_ms = ((self.average_action_latency_ms * previous_total)
+            + latency_ms)
+            / (self.total_actions_run as u128);
 
-        self.health_status = match self.recent_failures.len() {
-            0 => "HEALTHY".to_string(),
-            1..=3 => "DEGRADED".to_string(),
-            _ => "CRITICAL".to_string(),
+        self.evaluate_alert_profile();
+    }
+
+    pub fn evaluate_alert_profile(&mut self) {
+        let failures = self.recent_failures.len();
+        let avg_latency = self.average_action_latency_ms;
+        self.health_status = if failures >= self.failure_critical_threshold
+            || avg_latency >= self.latency_critical_threshold_ms
+        {
+            HealthStatus::Critical
+        } else if failures >= self.failure_warning_threshold
+            || avg_latency >= self.latency_warning_threshold_ms
+        {
+            HealthStatus::Degraded
+        } else {
+            HealthStatus::Healthy
         };
+    }
+
+    pub fn cycle_alert_threshold_profile(&mut self) {
+        match (
+            self.latency_warning_threshold_ms,
+            self.latency_critical_threshold_ms,
+            self.failure_warning_threshold,
+            self.failure_critical_threshold,
+        ) {
+            (50, 150, 1, 4) => {
+                self.latency_warning_threshold_ms = 30;
+                self.latency_critical_threshold_ms = 90;
+                self.failure_warning_threshold = 1;
+                self.failure_critical_threshold = 2;
+            }
+            (30, 90, 1, 2) => {
+                self.latency_warning_threshold_ms = 80;
+                self.latency_critical_threshold_ms = 250;
+                self.failure_warning_threshold = 2;
+                self.failure_critical_threshold = 6;
+            }
+            _ => {
+                self.latency_warning_threshold_ms = 50;
+                self.latency_critical_threshold_ms = 150;
+                self.failure_warning_threshold = 1;
+                self.failure_critical_threshold = 4;
+            }
+        }
+        self.evaluate_alert_profile();
+    }
+
+    pub fn alert_profile_mode_label(&self) -> &'static str {
+        match (
+            self.latency_warning_threshold_ms,
+            self.latency_critical_threshold_ms,
+            self.failure_warning_threshold,
+            self.failure_critical_threshold,
+        ) {
+            (30, 90, 1, 2) => "Strict",
+            (80, 250, 2, 6) => "Relaxed",
+            _ => "Normal",
+        }
+    }
+
+    pub fn set_operator_view(&mut self, view_index: usize) {
+        if view_index < self.saved_views.len() {
+            self.current_view = view_index;
+        }
+    }
+
+    pub fn current_view_label(&self) -> &str {
+        self.saved_views
+            .get(self.current_view)
+            .map(String::as_str)
+            .unwrap_or("Default")
+    }
+
+    pub fn success_ratio_percent(&self) -> u16 {
+        percent_u16(self.successful_actions, self.total_actions_run)
+    }
+
+    pub fn failure_ratio_percent(&self) -> u16 {
+        percent_u16(self.failed_actions, self.total_actions_run)
+    }
+
+    pub fn latency_threshold_percent(&self) -> u16 {
+        normalize_to_percent(
+            self.average_action_latency_ms,
+            self.latency_critical_threshold_ms,
+        )
     }
 
     pub fn build_invariant_summary(&mut self) {
@@ -569,6 +686,20 @@ impl App {
         }
         self.diff_lines.truncate(MAX_DIFF_LINES);
     }
+}
+
+fn normalize_to_percent(value: u128, threshold: u128) -> u16 {
+    if threshold == 0 {
+        return 0;
+    }
+    ((value.saturating_mul(100)).min(threshold.saturating_mul(100)) / threshold) as u16
+}
+
+fn percent_u16(numerator: usize, denominator: usize) -> u16 {
+    if denominator == 0 {
+        return 0;
+    }
+    ((numerator * 100) / denominator) as u16
 }
 
 #[cfg(test)]
@@ -904,17 +1035,17 @@ mod tests {
     #[test]
     fn test_observability_health_transitions() {
         let mut app = App::new();
-        assert_eq!(app.health_status, "HEALTHY");
+        assert_eq!(app.health_status, HealthStatus::Healthy);
 
         app.update_observability_metrics("a", false, 1);
-        assert_eq!(app.health_status, "DEGRADED");
+        assert_eq!(app.health_status, HealthStatus::Degraded);
 
         app.update_observability_metrics("b", false, 1);
         app.update_observability_metrics("c", false, 1);
-        assert_eq!(app.health_status, "DEGRADED");
+        assert_eq!(app.health_status, HealthStatus::Degraded);
 
         app.update_observability_metrics("d", false, 1);
-        assert_eq!(app.health_status, "CRITICAL");
+        assert_eq!(app.health_status, HealthStatus::Critical);
     }
 
     #[test]
@@ -925,8 +1056,41 @@ mod tests {
         }
 
         assert_eq!(app.recent_failures.len(), 10);
-        assert_eq!(app.recent_failures.first().unwrap(), "fail_2");
-        assert_eq!(app.recent_failures.last().unwrap(), "fail_11");
+        assert_eq!(app.recent_failures.front().unwrap(), "fail_2");
+        assert_eq!(app.recent_failures.back().unwrap(), "fail_11");
+    }
+
+    #[test]
+    fn test_alert_profile_threshold_cycling() {
+        let mut app = App::new();
+        assert_eq!(app.alert_profile_mode_label(), "Normal");
+        app.cycle_alert_threshold_profile();
+        assert_eq!(app.alert_profile_mode_label(), "Strict");
+        app.cycle_alert_threshold_profile();
+        assert_eq!(app.alert_profile_mode_label(), "Relaxed");
+        app.cycle_alert_threshold_profile();
+        assert_eq!(app.alert_profile_mode_label(), "Normal");
+    }
+
+    #[test]
+    fn test_latency_normalization_percentage() {
+        let mut app = App::new();
+        app.average_action_latency_ms = 75;
+        assert_eq!(app.latency_threshold_percent(), 50);
+        app.average_action_latency_ms = 300;
+        assert_eq!(app.latency_threshold_percent(), 100);
+    }
+
+    #[test]
+    fn test_saved_operator_view_switching() {
+        let mut app = App::new();
+        assert_eq!(app.current_view_label(), "Default");
+        app.set_operator_view(1);
+        assert_eq!(app.current_view_label(), "Incidents");
+        app.set_operator_view(2);
+        assert_eq!(app.current_view_label(), "Performance");
+        app.set_operator_view(9);
+        assert_eq!(app.current_view_label(), "Performance");
     }
 
     #[test]

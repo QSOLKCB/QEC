@@ -73,6 +73,7 @@ _MODULES = [
     "temporal_confidence",
     "regime_confidence",
     "threshold_phase_map",
+    "phase_surface_analysis",
 ]
 
 for mod in _MODULES:

@@ -31,6 +31,7 @@ def run_threshold_phase_map(
             chain_length=chain_length,
             perturbation_values=perturbation_values,
             diffusion_steps=diffusion_steps,
+            onset_threshold=threshold,
         )
         phase_result_with_threshold = dict(phase_result)
         phase_result_with_threshold["onset_threshold"] = float(threshold)
@@ -42,7 +43,7 @@ def run_threshold_phase_map(
 
     return {
         "chain_length": int(chain_length),
-        "threshold_values": ordered_threshold_values,
+        "threshold_values": tuple(ordered_threshold_values),
         "phase_results": phase_results,
         "onset_curve": onset_curve,
         "threshold_stability_score": threshold_stability_score,

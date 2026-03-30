@@ -25,13 +25,13 @@ REQUIRED_KEYS = {
 def test_exact_determinism() -> None:
     r1 = run_threshold_phase_map(
         chain_length=9,
-        threshold_values=[0.25, 0.5, 0.75],
+        threshold_values=DEFAULT_ONSET_THRESHOLD_SWEEP,
         perturbation_values=[0.25, 0.5, 1.0, 2.0],
         diffusion_steps=4,
     )
     r2 = run_threshold_phase_map(
         chain_length=9,
-        threshold_values=[0.25, 0.5, 0.75],
+        threshold_values=DEFAULT_ONSET_THRESHOLD_SWEEP,
         perturbation_values=[0.25, 0.5, 1.0, 2.0],
         diffusion_steps=4,
     )
@@ -49,7 +49,7 @@ def test_boundedness() -> None:
     out = run_threshold_phase_map(chain_length=7, diffusion_steps=4)
 
     assert set(out.keys()) == REQUIRED_KEYS
-    assert out["threshold_values"] == DEFAULT_ONSET_THRESHOLD_SWEEP
+    assert out["threshold_values"] == tuple(DEFAULT_ONSET_THRESHOLD_SWEEP)
     assert 0.0 <= out["threshold_stability_score"] <= 1.0
     assert 0.0 <= out["transition_consistency_score"] <= 1.0
 
@@ -67,7 +67,7 @@ def test_stable_threshold_region_case(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("qec.analysis.threshold_phase_map.run_phase_transition_analysis", _stub)
 
-    out = run_threshold_phase_map(chain_length=11, threshold_values=[0.25, 0.5, 0.75], diffusion_steps=4)
+    out = run_threshold_phase_map(chain_length=11, threshold_values=DEFAULT_ONSET_THRESHOLD_SWEEP, diffusion_steps=4)
 
     assert calls["count"] == 3
     assert out["threshold_stability_score"] == 1.0
@@ -90,11 +90,26 @@ def test_mixed_transition_case(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("qec.analysis.threshold_phase_map.run_phase_transition_analysis", _stub)
 
-    out = run_threshold_phase_map(chain_length=11, threshold_values=[0.25, 0.5, 0.75], diffusion_steps=4)
+    out = run_threshold_phase_map(chain_length=11, threshold_values=DEFAULT_ONSET_THRESHOLD_SWEEP, diffusion_steps=4)
 
     assert out["threshold_stability_score"] == 1.0
     assert out["transition_consistency_score"] == 0.0
     assert out["phase_map_class"] == "mixed_transition_region"
+
+
+def test_threshold_value_affects_onset_regression(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _stub(*, onset_threshold: float, **_: object) -> dict[str, object]:
+        return {
+            "onset_index": 0 if float(onset_threshold) < 0.5 else 2,
+            "onset_perturbation": 0.25 if float(onset_threshold) < 0.5 else 1.0,
+            "phase_transition_class": "sharp_transition",
+        }
+
+    monkeypatch.setattr("qec.analysis.threshold_phase_map.run_phase_transition_analysis", _stub)
+
+    out = run_threshold_phase_map(chain_length=9, threshold_values=DEFAULT_ONSET_THRESHOLD_SWEEP, diffusion_steps=4)
+
+    assert out["onset_curve"][0] != out["onset_curve"][1]
 
 
 def test_short_chain_edge_case() -> None:

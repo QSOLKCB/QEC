@@ -5,7 +5,13 @@ from __future__ import annotations
 import pytest
 
 from qec.analysis.ternary_lattice_controller import (
+    ALLOWED_BOUNDARY_MODES,
+    BOUNDARY_MODE_FIXED,
+    BOUNDARY_MODE_PERIODIC,
+    BOUNDARY_MODE_REFLECTIVE,
     LATTICE_CLASS_INTERVENTION,
+    _count_transitions,
+    _lattice_stability_score,
     run_ternary_lattice_controller,
 )
 
@@ -128,3 +134,69 @@ def test_short_chain_edge_case(monkeypatch: pytest.MonkeyPatch) -> None:
     assert out["ternary_lattice_state"] == (1,)
     assert out["lattice_control_class"] == LATTICE_CLASS_INTERVENTION
     assert 0.0 <= out["lattice_stability_score"] <= 1.0
+
+
+def test_boundary_modes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.ternary_lattice_controller.run_finite_state_controller",
+        lambda **_: _controller_stub(controller_state="intervention_state", chain_length=3),
+    )
+
+    fixed = run_ternary_lattice_controller(
+        lattice_cycles=1,
+        lattice_boundary_mode=BOUNDARY_MODE_FIXED,
+        return_lattice_trace=True,
+    )
+    reflective = run_ternary_lattice_controller(
+        lattice_cycles=1,
+        lattice_boundary_mode=BOUNDARY_MODE_REFLECTIVE,
+        return_lattice_trace=True,
+    )
+    periodic = run_ternary_lattice_controller(
+        lattice_cycles=1,
+        lattice_boundary_mode=BOUNDARY_MODE_PERIODIC,
+        return_lattice_trace=True,
+    )
+
+    assert fixed["lattice_trace"][-1] == (-1, 0, 1)
+    assert reflective["lattice_trace"][-1] == (-1, 0, 1)
+    assert periodic["lattice_trace"][-1] == (0, 0, 0)
+
+
+def test_invalid_boundary_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.ternary_lattice_controller.run_finite_state_controller",
+        lambda **_: _controller_stub(controller_state="idle_state", chain_length=3),
+    )
+
+    with pytest.raises(ValueError, match="invalid lattice_boundary_mode: bad-mode"):
+        run_ternary_lattice_controller(lattice_cycles=1, lattice_boundary_mode="bad-mode")
+
+
+def test_invalid_boundary_mode_raises_with_zero_lattice_cycles() -> None:
+    invalid_mode = "bad-mode"
+    assert invalid_mode not in ALLOWED_BOUNDARY_MODES
+    with pytest.raises(ValueError, match="invalid lattice_boundary_mode: bad-mode"):
+        run_ternary_lattice_controller(lattice_cycles=0, lattice_boundary_mode=invalid_mode)
+
+
+def test_zero_controller_cycles_returns_deterministic_noop(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.ternary_lattice_controller.run_finite_state_controller",
+        lambda **_: pytest.fail("run_finite_state_controller should not be called for non-positive cycles"),
+    )
+
+    out = run_ternary_lattice_controller(controller_cycles=0, lattice_cycles=1, return_lattice_trace=True)
+
+    assert out["controller_result"]["controller_state"] == "idle_state"
+    assert out["controller_result"]["controller_stability_score"] == 1.0
+    assert out["lattice_trace"] == [(0, 0, 0, 0, 0, 0, 0, 0, 0), (0, 0, 0, 0, 0, 0, 0, 0, 0)]
+
+
+def test_zero_lattice_cycles_stability_is_one() -> None:
+    assert _lattice_stability_score(transition_count=999, chain_length=9, lattice_cycles=0) == 1.0
+
+
+def test_transition_length_mismatch_raises() -> None:
+    with pytest.raises(ValueError, match="lattice states must have equal length"):
+        _count_transitions((0, 1), (0,))

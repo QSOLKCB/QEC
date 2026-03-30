@@ -17,6 +17,13 @@ REQUIRED_KEYS = {
     "phase_boundary_class",
 }
 
+COMPONENT_KEYS = {
+    "onset_component",
+    "spectral_component",
+    "component_balance_score",
+    "dominant_component",
+}
+
 
 def _stub_multi_regime(**_: object) -> dict[str, object]:
     return {
@@ -43,6 +50,16 @@ def test_exact_determinism(monkeypatch: pytest.MonkeyPatch) -> None:
     assert r1 == r2
 
 
+def test_default_bit_stability_with_component_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("qec.analysis.spectral_phase_boundary.run_multi_regime_scaling", _stub_multi_regime)
+
+    default_out = run_spectral_phase_boundary(diffusion_steps=4)
+    explicit_default_out = run_spectral_phase_boundary(diffusion_steps=4, return_components=False)
+
+    assert default_out == explicit_default_out
+    assert set(default_out.keys()) == REQUIRED_KEYS
+
+
 def test_boundedness(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("qec.analysis.spectral_phase_boundary.run_multi_regime_scaling", _stub_multi_regime)
 
@@ -53,6 +70,36 @@ def test_boundedness(monkeypatch: pytest.MonkeyPatch) -> None:
     assert 0.0 <= out["spectral_gap_drift"] <= 1.0
     assert 0.0 <= out["boundary_shift_score"] <= 1.0
     assert 0.0 <= out["spectral_stability_score"] <= 1.0
+
+
+def test_component_return_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("qec.analysis.spectral_phase_boundary.run_multi_regime_scaling", _stub_multi_regime)
+
+    out = run_spectral_phase_boundary(diffusion_steps=4, return_components=True)
+
+    assert set(out.keys()) == REQUIRED_KEYS | COMPONENT_KEYS
+    assert out["onset_component"] == pytest.approx(0.15)
+    assert out["spectral_component"] == pytest.approx(0.007499999999999995)
+    assert out["component_balance_score"] == pytest.approx(0.8575)
+    assert out["dominant_component"] == "onset_dominant"
+
+
+def test_component_boundedness(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _high_values_stub(**_: object) -> dict[str, object]:
+        out = _stub_multi_regime()
+        out["scaling_result"]["surface_result"]["onset_drift_index"] = 2.0
+        out["small_regime_exponent"] = 100.0
+        out["medium_regime_exponent"] = 0.0
+        out["large_regime_exponent"] = 100.0
+        return out
+
+    monkeypatch.setattr("qec.analysis.spectral_phase_boundary.run_multi_regime_scaling", _high_values_stub)
+
+    out = run_spectral_phase_boundary(diffusion_steps=4, return_components=True)
+
+    assert 0.0 <= out["onset_component"] <= 1.0
+    assert 0.0 <= out["spectral_component"] <= 1.0
+    assert 0.0 <= out["component_balance_score"] <= 1.0
 
 
 def test_spectral_gap_extraction_uses_regime_exponents(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -175,3 +222,47 @@ def test_short_chain_edge_case(monkeypatch: pytest.MonkeyPatch) -> None:
     assert out["spectral_gap_curve"] == pytest.approx([1.0])
     assert out["spectral_gap_drift"] == 0.0
     assert out["boundary_shift_score"] == pytest.approx(0.45)
+
+
+def test_balanced_component_classification(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _balanced_stub(**_: object) -> dict[str, object]:
+        out = _stub_multi_regime()
+        out["scaling_result"]["surface_result"]["onset_drift_index"] = 0.2
+        out["small_regime_exponent"] = 0.0
+        out["medium_regime_exponent"] = 1.0
+        out["large_regime_exponent"] = 1.0
+        return out
+
+    monkeypatch.setattr("qec.analysis.spectral_phase_boundary.run_multi_regime_scaling", _balanced_stub)
+
+    out = run_spectral_phase_boundary(diffusion_steps=4, return_components=True)
+
+    assert out["onset_component"] == pytest.approx(0.1)
+    assert out["spectral_component"] == pytest.approx(0.01333333333333333)
+    assert out["dominant_component"] == "balanced_components"
+
+
+def test_short_chain_edge_case_components(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _short_stub(**_: object) -> dict[str, object]:
+        return {
+            "chain_lengths": (5,),
+            "scaling_result": {
+                "logical_error_scaling_curve": [0.1],
+                "scaling_exponent": 0.5,
+                "surface_result": {"onset_drift_index": 0.9},
+            },
+            "regime_boundaries": (1, 1),
+            "small_regime_exponent": 0.5,
+            "medium_regime_exponent": 0.0,
+            "large_regime_exponent": 0.0,
+            "regime_transition_score": 0.9,
+        }
+
+    monkeypatch.setattr("qec.analysis.spectral_phase_boundary.run_multi_regime_scaling", _short_stub)
+
+    out = run_spectral_phase_boundary(chain_lengths=[5], diffusion_steps=4, return_components=True)
+
+    assert out["onset_component"] == pytest.approx(0.45)
+    assert out["spectral_component"] == 0.0
+    assert out["component_balance_score"] == pytest.approx(0.55)
+    assert out["dominant_component"] == "onset_dominant"

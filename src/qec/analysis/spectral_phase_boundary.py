@@ -18,12 +18,18 @@ PHASE_CLASS_STABLE = "stable_boundary"
 PHASE_CLASS_DRIFTING = "drifting_boundary"
 PHASE_CLASS_CRITICAL = "critical_boundary"
 
+DOMINANT_COMPONENT_THRESHOLD = 0.1
+DOMINANT_COMPONENT_ONSET = "onset_dominant"
+DOMINANT_COMPONENT_SPECTRAL = "spectral_dominant"
+DOMINANT_COMPONENT_BALANCED = "balanced_components"
+
 
 def run_spectral_phase_boundary(
     chain_lengths: Sequence[int] | None = None,
     threshold_values: Sequence[float] | None = None,
     perturbation_values: Sequence[float] | None = None,
     diffusion_steps: int = DIFFUSION_STEPS,
+    return_components: bool = False,
 ) -> dict[str, Any]:
     """Run deterministic spectral phase-boundary tracking over chain growth."""
     multi_regime_result = run_multi_regime_scaling(
@@ -38,13 +44,14 @@ def run_spectral_phase_boundary(
 
     spectral_gap_drift = _spectral_gap_drift(spectral_gap_curve)
     onset_drift_index = _onset_drift_index(multi_regime_result)
+    onset_component = _clamp01(BOUNDARY_WEIGHT_ONSET_DRIFT * onset_drift_index)
+    spectral_component = _clamp01(BOUNDARY_WEIGHT_SPECTRAL_DRIFT * spectral_gap_drift)
     boundary_shift_score = _clamp01(
-        BOUNDARY_WEIGHT_ONSET_DRIFT * onset_drift_index
-        + BOUNDARY_WEIGHT_SPECTRAL_DRIFT * spectral_gap_drift
+        onset_component + spectral_component
     )
     spectral_stability_score = _clamp01(1.0 - boundary_shift_score)
 
-    return {
+    result = {
         "chain_lengths": ordered_chain_lengths,
         "multi_regime_result": multi_regime_result,
         "spectral_gap_curve": spectral_gap_curve,
@@ -53,6 +60,12 @@ def run_spectral_phase_boundary(
         "spectral_stability_score": spectral_stability_score,
         "phase_boundary_class": _phase_boundary_class(spectral_stability_score),
     }
+    if return_components:
+        result["onset_component"] = onset_component
+        result["spectral_component"] = spectral_component
+        result["component_balance_score"] = _clamp01(1.0 - abs(onset_component - spectral_component))
+        result["dominant_component"] = _dominant_component(onset_component, spectral_component)
+    return result
 
 
 def _spectral_gap_curve(multi_regime_result: dict[str, Any], chain_lengths: Sequence[int]) -> list[float]:
@@ -119,6 +132,15 @@ def _phase_boundary_class(spectral_stability_score: float) -> str:
     if float(spectral_stability_score) >= PHASE_BOUNDARY_DRIFTING_MIN:
         return PHASE_CLASS_DRIFTING
     return PHASE_CLASS_CRITICAL
+
+
+def _dominant_component(onset_component: float, spectral_component: float) -> str:
+    difference = float(onset_component) - float(spectral_component)
+    if difference > DOMINANT_COMPONENT_THRESHOLD:
+        return DOMINANT_COMPONENT_ONSET
+    if difference < -DOMINANT_COMPONENT_THRESHOLD:
+        return DOMINANT_COMPONENT_SPECTRAL
+    return DOMINANT_COMPONENT_BALANCED
 
 
 def _clamp01(value: float) -> float:

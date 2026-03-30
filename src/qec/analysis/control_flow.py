@@ -1,4 +1,4 @@
-"""v105.4.0 — Deterministic predictive control flow layer.
+"""v105.4.1 — Deterministic predictive control flow layer.
 
 Consumes outputs from run_collapse_analysis() and produces control
 signals for higher-level strategy modulation.
@@ -14,6 +14,14 @@ Dependencies: none (stdlib only).
 """
 
 from __future__ import annotations
+
+from typing import TypedDict
+
+
+class CollapseResult(TypedDict, total=False):
+    collapse_score: float
+    spike_density: float
+    basin_switch_prediction: bool
 
 ROUND_PRECISION = 12
 
@@ -33,7 +41,7 @@ def compute_damping_factor(collapse_score: float) -> float:
 
 def compute_step_aggressiveness(spike_density: float) -> float:
     """Return step aggressiveness clamped to [0.5, 1.0]."""
-    return max(0.5, 1.0 - spike_density)
+    return min(1.0, max(0.5, 1.0 - spike_density))
 
 
 def compute_strategy_escalation(basin_switch_prediction: bool) -> str:
@@ -41,24 +49,23 @@ def compute_strategy_escalation(basin_switch_prediction: bool) -> str:
     return "escalate" if basin_switch_prediction else "hold"
 
 
-def run_control_flow(collapse_result: dict) -> dict:
+def run_control_flow(collapse_result: CollapseResult) -> dict:
     """Produce control signal from collapse analysis output.
 
     Parameters
     ----------
-    collapse_result : dict
-        Must contain keys: collapse_score, acceleration_peak,
-        basin_switch_prediction.  May contain failure_risk and
-        singularity_events (unused by current signal logic).
+    collapse_result : CollapseResult
+        May contain keys: collapse_score, spike_density,
+        basin_switch_prediction.  Missing keys default safely.
 
     Returns
     -------
     dict with keys: damping_factor, step_aggressiveness,
         strategy_action, control_stability_score.
     """
-    collapse_score = collapse_result["collapse_score"]
-    spike_density = collapse_result["acceleration_peak"]
-    basin_switch = collapse_result["basin_switch_prediction"]
+    collapse_score = collapse_result.get("collapse_score", 0.0)
+    spike_density = collapse_result.get("spike_density", 0.0)
+    basin_switch = collapse_result.get("basin_switch_prediction", False)
 
     damping = compute_damping_factor(collapse_score)
     aggressiveness = compute_step_aggressiveness(spike_density)

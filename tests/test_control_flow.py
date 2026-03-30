@@ -1,6 +1,7 @@
-"""Tests for src/qec/analysis/control_flow.py — v105.4.0."""
+"""Tests for src/qec/analysis/control_flow.py — v105.4.1."""
 
 from qec.analysis.control_flow import (
+    CollapseResult,
     compute_damping_factor,
     compute_step_aggressiveness,
     compute_strategy_escalation,
@@ -10,17 +11,13 @@ from qec.analysis.control_flow import (
 
 def _make_collapse_result(
     collapse_score=0.1,
-    acceleration_peak=0.0,
+    spike_density=0.0,
     basin_switch_prediction=False,
-    failure_risk=0.0,
-    singularity_events=None,
 ):
     return {
-        "failure_risk": failure_risk,
         "collapse_score": collapse_score,
-        "acceleration_peak": acceleration_peak,
+        "spike_density": spike_density,
         "basin_switch_prediction": basin_switch_prediction,
-        "singularity_events": singularity_events if singularity_events is not None else [],
     }
 
 
@@ -54,6 +51,12 @@ class TestComputeStepAggressiveness:
     def test_clamp_high(self):
         assert compute_step_aggressiveness(1.5) == 0.5
 
+    def test_negative_density(self):
+        assert compute_step_aggressiveness(-0.2) == 1.0
+
+    def test_over_large_density(self):
+        assert compute_step_aggressiveness(2.0) == 0.5
+
 
 class TestComputeStrategyEscalation:
     def test_hold(self):
@@ -67,7 +70,7 @@ class TestRunControlFlow:
     def test_stable(self):
         result = run_control_flow(_make_collapse_result(
             collapse_score=0.1,
-            acceleration_peak=0.0,
+            spike_density=0.0,
             basin_switch_prediction=False,
         ))
         assert result["damping_factor"] == 1.0
@@ -78,7 +81,7 @@ class TestRunControlFlow:
     def test_moderate_stress(self):
         result = run_control_flow(_make_collapse_result(
             collapse_score=0.5,
-            acceleration_peak=0.2,
+            spike_density=0.2,
             basin_switch_prediction=False,
         ))
         assert result["damping_factor"] == 0.8
@@ -89,7 +92,7 @@ class TestRunControlFlow:
     def test_high_risk(self):
         result = run_control_flow(_make_collapse_result(
             collapse_score=0.9,
-            acceleration_peak=0.4,
+            spike_density=0.4,
             basin_switch_prediction=True,
         ))
         assert result["damping_factor"] == 0.6
@@ -97,10 +100,22 @@ class TestRunControlFlow:
         assert result["strategy_action"] == "escalate"
         assert result["control_stability_score"] == 0.6
 
+    def test_missing_keys(self):
+        result = run_control_flow({})
+        assert result["damping_factor"] == 1.0
+        assert result["step_aggressiveness"] == 1.0
+        assert result["strategy_action"] == "hold"
+        assert result["control_stability_score"] == 1.0
+
+    def test_boundary_invariant(self):
+        for sd in [-1.0, -0.2, 0.0, 0.3, 0.5, 1.0, 1.5, 2.0]:
+            result = run_control_flow(_make_collapse_result(spike_density=sd))
+            assert 0.5 <= result["step_aggressiveness"] <= 1.0
+
     def test_determinism(self):
         cr = _make_collapse_result(
             collapse_score=0.45,
-            acceleration_peak=0.15,
+            spike_density=0.15,
             basin_switch_prediction=True,
         )
         r1 = run_control_flow(cr)

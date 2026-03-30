@@ -80,6 +80,7 @@ _MODULES = [
     "correction_dispatch",
     "cellular_correction_field",
     "finite_state_controller",
+    "ternary_lattice_controller",
 ]
 
 for mod in _MODULES:

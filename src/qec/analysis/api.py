@@ -78,6 +78,7 @@ _MODULES = [
     "multi_regime_scaling",
     "spectral_phase_boundary",
     "correction_dispatch",
+    "cellular_correction_field",
 ]
 
 for mod in _MODULES:

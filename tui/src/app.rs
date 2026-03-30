@@ -373,7 +373,6 @@ impl App {
         } else if self.selected_session_index >= self.filtered_session_files.len() {
             self.selected_session_index = self.filtered_session_files.len() - 1;
         }
-        self.build_session_metadata();
     }
 
     pub fn filter_sessions(&mut self) {

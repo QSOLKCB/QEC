@@ -101,6 +101,19 @@ def test_regime_transition_scoring(monkeypatch: pytest.MonkeyPatch) -> None:
     assert out["regime_transition_score"] == pytest.approx(0.1)
 
 
+def test_scaling_curve_length_mismatch_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _stub(**_: object) -> dict[str, object]:
+        return {
+            "chain_lengths": (4, 8, 16),
+            "logical_error_scaling_curve": [0.25, 0.125],
+        }
+
+    monkeypatch.setattr("qec.analysis.multi_regime_scaling.run_finite_size_scaling", _stub)
+
+    with pytest.raises(ValueError, match="logical_error_scaling_curve must match chain_lengths length"):
+        run_multi_regime_scaling(diffusion_steps=4)
+
+
 @pytest.mark.parametrize(
     ("curve", "expected_class"),
     [

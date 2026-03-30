@@ -28,7 +28,14 @@ def run_multi_regime_scaling(
     perturbation_values: Sequence[float] | None = None,
     diffusion_steps: int = DIFFUSION_STEPS,
 ) -> dict[str, Any]:
-    """Run deterministic piecewise scaling diagnostics over three size regimes."""
+    """Run deterministic piecewise scaling diagnostics over three size regimes.
+
+    ``regime_boundaries`` is returned as ``(boundary_a, boundary_b)`` and uses
+    zero-based slice boundaries for contiguous partitioning:
+      - small: ``[0:boundary_a]``
+      - medium: ``[boundary_a:boundary_b]``
+      - large: ``[boundary_b:n]``
+    """
     scaling_result = run_finite_size_scaling(
         chain_lengths=chain_lengths,
         threshold_values=threshold_values,
@@ -36,9 +43,13 @@ def run_multi_regime_scaling(
         diffusion_steps=diffusion_steps,
     )
     ordered_chain_lengths = tuple(int(value) for value in scaling_result["chain_lengths"])
+    if "logical_error_scaling_curve" not in scaling_result:
+        raise KeyError("logical_error_scaling_curve missing from scaling_result")
     logical_error_scaling_curve = tuple(
-        float(value) for value in scaling_result.get("logical_error_scaling_curve", [])
+        float(value) for value in scaling_result["logical_error_scaling_curve"]
     )
+    if len(logical_error_scaling_curve) != len(ordered_chain_lengths):
+        raise ValueError("logical_error_scaling_curve must match chain_lengths length")
 
     boundary_a, boundary_b = _regime_boundaries(len(ordered_chain_lengths))
     regime_boundaries = (boundary_a, boundary_b)

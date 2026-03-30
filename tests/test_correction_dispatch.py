@@ -186,3 +186,53 @@ def test_short_chain_edge_case(monkeypatch: pytest.MonkeyPatch) -> None:
     assert out["chain_lengths"] == (5,)
     assert out["dispatch_urgency_score"] == 0.0
     assert out["dispatch_cycle_budget"] == 1
+
+
+def test_missing_required_spectral_result_key_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.correction_dispatch.run_spectral_phase_boundary",
+        lambda **_: {
+            "chain_lengths": (4, 8),
+            "phase_boundary_class": "drifting_boundary",
+            "dominant_component": "balanced_components",
+            "spectral_stability_score": 0.4,
+        },
+    )
+
+    with pytest.raises(KeyError, match="spectral_result missing required key: boundary_shift_score"):
+        run_correction_dispatch(diffusion_steps=4)
+
+
+def test_critical_boundary_precedes_onset_dominance(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.correction_dispatch.run_spectral_phase_boundary",
+        lambda **_: {
+            "chain_lengths": (4, 8),
+            "phase_boundary_class": "critical_boundary",
+            "dominant_component": "onset_dominant",
+            "spectral_stability_score": 0.3,
+            "boundary_shift_score": 0.2,
+        },
+    )
+
+    out = run_correction_dispatch(diffusion_steps=4)
+
+    assert out["correction_action"] == "boundary_intervene"
+
+
+def test_intervention_threshold_regression(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.correction_dispatch.run_spectral_phase_boundary",
+        lambda **_: {
+            "chain_lengths": (4, 8),
+            "phase_boundary_class": "drifting_boundary",
+            "dominant_component": "balanced_components",
+            "spectral_stability_score": 0.2,
+            "boundary_shift_score": 0.6,
+        },
+    )
+
+    out = run_correction_dispatch(diffusion_steps=4)
+
+    assert out["correction_action"] == "boundary_intervene"
+    assert out["action_stability_score"] == 1.0

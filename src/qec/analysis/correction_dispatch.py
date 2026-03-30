@@ -44,6 +44,13 @@ POLICY_CLASS_BY_ACTION = {
     ACTION_BOUNDARY_INTERVENE: POLICY_INTERVENTION,
 }
 
+REQUIRED_SPECTRAL_RESULT_KEYS = (
+    "phase_boundary_class",
+    "dominant_component",
+    "boundary_shift_score",
+    "spectral_stability_score",
+)
+
 
 def run_correction_dispatch(
     chain_lengths: Sequence[int] | None = None,
@@ -60,11 +67,14 @@ def run_correction_dispatch(
         diffusion_steps=diffusion_steps,
         return_components=True,
     )
+    for required_key in REQUIRED_SPECTRAL_RESULT_KEYS:
+        if required_key not in spectral_result:
+            raise KeyError(f"spectral_result missing required key: {required_key}")
 
-    phase_boundary_class = str(spectral_result.get("phase_boundary_class", ""))
-    dominant_component = str(spectral_result.get("dominant_component", ""))
-    spectral_stability_score = _clamp01(float(spectral_result.get("spectral_stability_score", 0.0)))
-    boundary_shift_score = _clamp01(float(spectral_result.get("boundary_shift_score", 0.0)))
+    phase_boundary_class = str(spectral_result["phase_boundary_class"])
+    dominant_component = str(spectral_result["dominant_component"])
+    spectral_stability_score = _clamp01(float(spectral_result["spectral_stability_score"]))
+    boundary_shift_score = _clamp01(float(spectral_result["boundary_shift_score"]))
 
     correction_action = _select_correction_action(
         phase_boundary_class=phase_boundary_class,
@@ -107,12 +117,12 @@ def _select_correction_action(
 ) -> str:
     if phase_boundary_class == PHASE_CLASS_STABLE and spectral_stability_score >= SPECTRAL_STABILITY_HOLD_MIN:
         return ACTION_HOLD_STATE
+    if phase_boundary_class == PHASE_CLASS_CRITICAL or _should_intervene(boundary_shift_score):
+        return ACTION_BOUNDARY_INTERVENE
     if dominant_component == DOMINANT_COMPONENT_ONSET:
         return ACTION_LOCAL_STABILIZE
     if dominant_component == DOMINANT_COMPONENT_SPECTRAL:
         return ACTION_SPECTRAL_REBALANCE
-    if phase_boundary_class == PHASE_CLASS_CRITICAL or boundary_shift_score >= BOUNDARY_SHIFT_INTERVENE_MIN:
-        return ACTION_BOUNDARY_INTERVENE
     return ACTION_HOLD_STATE
 
 
@@ -124,6 +134,10 @@ def _dispatch_cycle_budget(urgency: float) -> int:
     if urgency < CYCLE_BUDGET_THRESHOLD_3:
         return 3
     return 4
+
+
+def _should_intervene(boundary_shift_score: float) -> bool:
+    return float(boundary_shift_score) >= BOUNDARY_SHIFT_INTERVENE_MIN
 
 
 def _action_stability_score(
@@ -141,7 +155,7 @@ def _action_stability_score(
         return 1.0
     if (
         correction_action == ACTION_BOUNDARY_INTERVENE
-        and (phase_boundary_class == PHASE_CLASS_CRITICAL or boundary_shift_score >= BOUNDARY_SHIFT_INTERVENE_MIN)
+        and (phase_boundary_class == PHASE_CLASS_CRITICAL or _should_intervene(boundary_shift_score))
     ):
         return 1.0
     return _clamp01(0.5)

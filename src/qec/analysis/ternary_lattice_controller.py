@@ -1,10 +1,11 @@
-"""v113.0.0 — Deterministic ternary lattice controller over finite-state control."""
+"""v113.1.0 — Deterministic ternary lattice controller over finite-state control."""
 
 from __future__ import annotations
 
 from typing import Any, Sequence
 
 from qec.analysis.finite_state_controller import (
+    CONTROL_LOOP_STABLE,
     STATE_IDLE,
     STATE_INTERVENTION,
     STATE_REBALANCE,
@@ -29,18 +30,33 @@ def run_ternary_lattice_controller(
     threshold_values: Sequence[float] | None = None,
     perturbation_values: Sequence[float] | None = None,
     diffusion_steps: int = DIFFUSION_STEPS,
+    lattice_boundary_mode: str = "fixed",
     return_lattice_trace: bool = False,
 ) -> dict[str, Any]:
     """Run deterministic ternary lattice control cycles over finite-state controller outputs."""
-    controller_result = run_finite_state_controller(
-        chain_length=chain_length,
-        chain_state=chain_state,
-        controller_cycles=controller_cycles,
-        chain_lengths=chain_lengths,
-        threshold_values=threshold_values,
-        perturbation_values=perturbation_values,
-        diffusion_steps=diffusion_steps,
-    )
+    resolved_chain_length = max(1, int(chain_length))
+    resolved_controller_cycles = int(controller_cycles)
+    resolved_lattice_boundary_mode = str(lattice_boundary_mode)
+
+    if resolved_controller_cycles <= 0:
+        controller_result = {
+            "chain_length": resolved_chain_length,
+            "field_result": {},
+            "controller_state": STATE_IDLE,
+            "state_transition_count": 0,
+            "controller_stability_score": 1.0,
+            "control_loop_class": CONTROL_LOOP_STABLE,
+        }
+    else:
+        controller_result = run_finite_state_controller(
+            chain_length=chain_length,
+            chain_state=chain_state,
+            controller_cycles=controller_cycles,
+            chain_lengths=chain_lengths,
+            threshold_values=threshold_values,
+            perturbation_values=perturbation_values,
+            diffusion_steps=diffusion_steps,
+        )
 
     resolved_chain_length = int(controller_result["chain_length"])
     controller_state = str(controller_result["controller_state"])
@@ -55,7 +71,10 @@ def run_ternary_lattice_controller(
     lattice_trace: list[tuple[int, ...]] = [lattice_state]
 
     for _ in range(resolved_lattice_cycles):
-        next_state = _evolve_lattice_state(lattice_state)
+        next_state = _evolve_lattice_state(
+            lattice_state,
+            lattice_boundary_mode=resolved_lattice_boundary_mode,
+        )
         transition_count += _count_transitions(lattice_state, next_state)
         lattice_state = next_state
         lattice_trace.append(lattice_state)
@@ -116,28 +135,63 @@ def _map_controller_state_to_lattice(*, controller_state: str, chain_length: int
     raise KeyError(f"unknown controller_state for lattice initialization: {controller_state}")
 
 
-def _evolve_lattice_state(lattice_state: tuple[int, ...]) -> tuple[int, ...]:
+def _evolve_lattice_state(
+    lattice_state: tuple[int, ...],
+    *,
+    lattice_boundary_mode: str,
+) -> tuple[int, ...]:
     evolved: list[int] = []
     length = len(lattice_state)
 
     for index in range(length):
-        neighborhood = [lattice_state[index]]
-        if index > 0:
-            neighborhood.append(lattice_state[index - 1])
-        if index + 1 < length:
-            neighborhood.append(lattice_state[index + 1])
+        neighborhood = [
+            lattice_state[index],
+            _neighbor_value(
+                lattice_state=lattice_state,
+                index=index - 1,
+                lattice_boundary_mode=lattice_boundary_mode,
+            ),
+            _neighbor_value(
+                lattice_state=lattice_state,
+                index=index + 1,
+                lattice_boundary_mode=lattice_boundary_mode,
+            ),
+        ]
         mean_value = float(sum(neighborhood)) / float(len(neighborhood))
         evolved.append(_sign_to_ternary(mean_value))
 
     return tuple(evolved)
 
 
+def _neighbor_value(*, lattice_state: tuple[int, ...], index: int, lattice_boundary_mode: str) -> int:
+    length = len(lattice_state)
+    if 0 <= index < length:
+        return int(lattice_state[index])
+
+    if lattice_boundary_mode == "fixed":
+        return 0
+
+    if lattice_boundary_mode == "reflective":
+        if index < 0:
+            return int(lattice_state[0])
+        return int(lattice_state[-1])
+
+    if lattice_boundary_mode == "periodic":
+        return int(lattice_state[index % length])
+
+    raise ValueError("lattice_boundary_mode must be one of: fixed, reflective, periodic")
+
+
 def _count_transitions(previous_state: tuple[int, ...], next_state: tuple[int, ...]) -> int:
+    if len(previous_state) != len(next_state):
+        raise ValueError("lattice states must have equal length")
     return sum(1 for previous, current in zip(previous_state, next_state) if previous != current)
 
 
 def _lattice_stability_score(*, transition_count: int, chain_length: int, lattice_cycles: int) -> float:
-    denominator = max(1, int(chain_length) * max(0, int(lattice_cycles)))
+    if int(lattice_cycles) <= 0:
+        return 1.0
+    denominator = int(chain_length) * int(lattice_cycles)
     changed_fraction = float(transition_count) / float(denominator)
     return _clamp01(1.0 - changed_fraction)
 

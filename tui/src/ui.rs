@@ -1,0 +1,198 @@
+use ratatui::{
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
+    Frame,
+};
+
+use crate::app::App;
+
+pub fn draw(f: &mut Frame, app: &App) {
+    // Main vertical split: body + footer
+    let outer = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(3)])
+        .split(f.size());
+
+    // Body: left nav | center workspace | right status
+    let body = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(22),
+            Constraint::Min(40),
+            Constraint::Length(28),
+        ])
+        .split(outer[0]);
+
+    draw_nav(f, app, body[0]);
+    draw_workspace(f, app, body[1]);
+    draw_status(f, body[2]);
+    draw_footer(f, outer[1]);
+}
+
+fn draw_nav(f: &mut Frame, app: &App, area: Rect) {
+    let items: Vec<ListItem> = app
+        .nav_items
+        .iter()
+        .enumerate()
+        .map(|(i, &name)| {
+            let prefix = if i == app.selected_index { ">> " } else { "   " };
+            let style = if i == app.selected_index {
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            ListItem::new(Line::from(Span::styled(
+                format!("{prefix}{name}"),
+                style,
+            )))
+        })
+        .collect();
+
+    let nav = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Navigation "),
+    );
+    f.render_widget(nav, area);
+}
+
+fn draw_workspace(f: &mut Frame, app: &App, area: Rect) {
+    let content = workspace_content(app.mode);
+    let paragraph = Paragraph::new(content).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!(" {} ", app.mode)),
+    );
+    f.render_widget(paragraph, area);
+}
+
+fn workspace_content(mode: &str) -> Vec<Line<'static>> {
+    match mode {
+        "Diagnostics" => vec![
+            Line::from(""),
+            Line::from("  collapse_score:         0.12"),
+            Line::from("  trend_state:            stable"),
+            Line::from("  adaptive_damping:       0.80"),
+            Line::from("  healing_mode:           hold"),
+            Line::from("  history_behavior:       stable_window"),
+            Line::from("  suppression_intensity:  0.00"),
+        ],
+        "Control Flow" => vec![
+            Line::from(""),
+            Line::from("  control_mode:     auto"),
+            Line::from("  damping_target:   0.80"),
+            Line::from("  override:         none"),
+        ],
+        "Memory" => vec![
+            Line::from(""),
+            Line::from("  memory_slots:     16"),
+            Line::from("  active_entries:   3"),
+            Line::from("  bounded:          true"),
+        ],
+        "Adaptive" => vec![
+            Line::from(""),
+            Line::from("  strategy:         conservative"),
+            Line::from("  score_bias:       0.00"),
+            Line::from("  feedback_loop:    idle"),
+        ],
+        "Regime Jump" => vec![
+            Line::from(""),
+            Line::from("  current_regime:   stable"),
+            Line::from("  jump_detected:    false"),
+            Line::from("  transition_prob:  0.02"),
+        ],
+        "Self-Healing" => vec![
+            Line::from(""),
+            Line::from("  healing_state:    hold"),
+            Line::from("  repairs_queued:   0"),
+            Line::from("  last_action:      none"),
+        ],
+        "History Window" => vec![
+            Line::from(""),
+            Line::from("  window_size:      10"),
+            Line::from("  entries_stored:   10"),
+            Line::from("  behavior:         stable_window"),
+        ],
+        "Invariants" => vec![
+            Line::from(""),
+            Line::from("  determinism:      PASS"),
+            Line::from("  bounds:           PASS"),
+            Line::from("  commutativity:    PASS"),
+            Line::from("  layer_isolation:  PASS"),
+        ],
+        "Law Engine" => vec![
+            Line::from(""),
+            Line::from("  laws_loaded:      12"),
+            Line::from("  violations:       0"),
+            Line::from("  enforcement:      active"),
+        ],
+        _ => vec![Line::from("  (no data)")],
+    }
+}
+
+fn draw_status(f: &mut Frame, area: Rect) {
+    let lines = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "  ENGINE:       READY",
+            Style::default().fg(Color::Green),
+        )),
+        Line::from(Span::styled(
+            "  DETERMINISM:  PASS",
+            Style::default().fg(Color::Green),
+        )),
+        Line::from(Span::styled(
+            "  BOUNDS:       PASS",
+            Style::default().fg(Color::Green),
+        )),
+        Line::from(Span::styled(
+            "  STABILITY:    PASS",
+            Style::default().fg(Color::Green),
+        )),
+        Line::from(Span::styled(
+            "  LAW ENGINE:   PASS",
+            Style::default().fg(Color::Green),
+        )),
+    ];
+
+    let status = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Status "),
+    );
+    f.render_widget(status, area);
+}
+
+fn draw_footer(f: &mut Frame, area: Rect) {
+    let legend = Line::from(vec![
+        Span::styled(" [D]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" Diagnostics  "),
+        Span::styled("[C]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" Control  "),
+        Span::styled("[M]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" Memory  "),
+        Span::styled("[A]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" Adaptive  "),
+        Span::styled("[R]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" Regime  "),
+        Span::styled("[H]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" Healing  "),
+        Span::styled("[I]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" Invariants  "),
+        Span::styled("[L]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" Law  "),
+        Span::styled("[Q]", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        Span::raw(" Quit"),
+    ]);
+
+    let footer = Paragraph::new(legend).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Hotkeys "),
+    );
+    f.render_widget(footer, area);
+}

@@ -1,0 +1,9 @@
+[package]
+name = "qec-tui"
+version = "106.0.0"
+edition = "2021"
+description = "QEC Rust TUI control surface — display, navigation, dispatch only"
+
+[dependencies]
+ratatui = "0.26"
+crossterm = "0.27"

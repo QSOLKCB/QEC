@@ -1,4 +1,4 @@
-"""Deterministic collapse / singularity analysis — v105.3.0.
+"""Deterministic collapse / singularity analysis — v105.3.1.
 
 Pure analysis layer for detecting acceleration spikes, collapse scores,
 singularity events, and basin-switch predictions from decoder metric
@@ -27,6 +27,7 @@ def compute_velocity_acceleration_metrics(
         return {
             "velocity": [],
             "acceleration": [],
+            "velocity_peak": 0.0,
             "acceleration_mean": 0.0,
             "acceleration_peak": 0.0,
         }
@@ -40,6 +41,9 @@ def compute_velocity_acceleration_metrics(
         for i in range(len(velocity) - 1)
     ]
 
+    abs_vel = [abs(v) for v in velocity]
+    vel_peak = max(abs_vel) if abs_vel else 0.0
+
     abs_acc = [abs(a) for a in acceleration]
     acc_mean = sum(abs_acc) / len(abs_acc) if abs_acc else 0.0
     acc_peak = max(abs_acc) if abs_acc else 0.0
@@ -47,6 +51,7 @@ def compute_velocity_acceleration_metrics(
     return {
         "velocity": velocity,
         "acceleration": acceleration,
+        "velocity_peak": vel_peak,
         "acceleration_mean": acc_mean,
         "acceleration_peak": acc_peak,
     }
@@ -79,7 +84,7 @@ def detect_acceleration_spikes(
         i for i, v in enumerate(abs_vals) if v > threshold
     ]
     spike_count = len(spike_indices)
-    spike_density = spike_count / n
+    spike_density = min(1.0, spike_count / n)
 
     return {
         "spike_count": spike_count,
@@ -118,9 +123,11 @@ def detect_singularity_events(
     if spike_density > 0.2 and collapse_score > 0.6:
         events.append({
             "type": "collapse_event",
+            "index": 0,
             "spike_density": spike_density,
             "collapse_score": collapse_score,
         })
+    events = sorted(events, key=lambda e: e.get("index", 0))
     return events
 
 
@@ -173,9 +180,9 @@ def run_collapse_analysis(trajectory: list[float]) -> dict:
     switch = predict_basin_switch(spike_density, score, acc_peak, acc_mean)
 
     return {
-        "failure_risk": score,
-        "collapse_score": score,
-        "acceleration_peak": acc_peak,
+        "failure_risk": round(score, 12),
+        "collapse_score": round(score, 12),
+        "acceleration_peak": round(acc_peak, 12),
         "basin_switch_prediction": switch["basin_switch_predicted"],
         "singularity_events": events,
     }

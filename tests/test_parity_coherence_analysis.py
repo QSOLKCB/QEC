@@ -46,6 +46,20 @@ def test_short_noisy_oscillation_no_false_jump() -> None:
     assert out["parity_jump_detected"] is False
 
 
+def test_zero_delta_breaks_coherence_contiguity() -> None:
+    # Signs: [+1, 0, +1] => two runs of length 1 (not contiguous length 2)
+    trajectory = [0.0, 1.0, 1.0, 2.0]
+    out = run_parity_coherence_analysis(trajectory)
+    assert out["coherence_length"] == 1
+
+
+def test_zero_delta_breaks_persistent_jump_detection() -> None:
+    # Signs: [+,+,0,-,-] => zero breaks runs, so not adjacent persistent runs.
+    trajectory = [0.0, 1.0, 2.0, 2.0, 1.0, 0.0]
+    out = run_parity_coherence_analysis(trajectory)
+    assert out["parity_jump_detected"] is False
+
+
 def test_schema_and_boundedness() -> None:
     out = run_parity_coherence_analysis([1.0, 1.0, 1.0, 1.0])
 
@@ -81,3 +95,30 @@ def test_integration_opt_in_only() -> None:
     assert "parity_coherence" not in base
     assert "parity_coherence" in enabled
     assert set(enabled["parity_coherence"].keys()) == REQUIRED_KEYS
+
+
+def test_integration_metric_and_aggregation_configurable() -> None:
+    runs = [
+        {"strategies": [
+            {"name": "A", "metrics": {"design_score": 0.1, "score": 0.9}},
+            {"name": "B", "metrics": {"design_score": 0.9, "score": 0.1}},
+        ]},
+        {"strategies": [
+            {"name": "A", "metrics": {"design_score": 0.2, "score": 0.8}},
+            {"name": "B", "metrics": {"design_score": 0.8, "score": 0.2}},
+        ]},
+    ]
+    by_mean_design = run_trajectory_analysis(
+        runs,
+        enable_parity_coherence=True,
+        parity_metric_key="design_score",
+        parity_aggregation="mean",
+    )
+    by_max_score = run_trajectory_analysis(
+        runs,
+        enable_parity_coherence=True,
+        parity_metric_key="score",
+        parity_aggregation="max",
+    )
+
+    assert by_mean_design["parity_coherence"] != by_max_score["parity_coherence"]

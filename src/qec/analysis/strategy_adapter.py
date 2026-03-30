@@ -74,6 +74,9 @@ from qec.analysis.strategy_generation import generate_strategies
 from qec.analysis.strategy_selection import rank_strategies, select_strategy
 from qec.analysis.temporal_patterns import enrich_with_revival
 
+PARITY_COHERENCE_DEFAULT_METRIC_KEY = "design_score"
+PARITY_COHERENCE_DEFAULT_AGGREGATION = "mean"
+
 
 def build_candidate_strategies(
     experiment_result: Dict[str, Any],
@@ -953,6 +956,8 @@ def format_analysis_summary(
 def run_trajectory_analysis(
     runs: List[Dict[str, Any]],
     enable_parity_coherence: bool = False,
+    parity_metric_key: str = PARITY_COHERENCE_DEFAULT_METRIC_KEY,
+    parity_aggregation: str = PARITY_COHERENCE_DEFAULT_AGGREGATION,
 ) -> Dict[str, Any]:
     """Run the full trajectory analysis pipeline.
 
@@ -968,6 +973,12 @@ def run_trajectory_analysis(
         If True, adds a ``"parity_coherence"`` sub-dict computed from a
         deterministic per-run aggregate trajectory. Default False so
         baseline behavior remains unchanged.
+    parity_metric_key : str, optional
+        Metric key used to build the run-level trajectory when
+        ``enable_parity_coherence`` is True.
+    parity_aggregation : str, optional
+        Run-level aggregation mode for the selected metric.
+        Supported values: ``"mean"``, ``"max"``, ``"min"``.
 
     Returns
     -------
@@ -990,12 +1001,26 @@ def run_trajectory_analysis(
                 run_means.append(0.0)
                 continue
             scores = [
-                float(s.get("metrics", {}).get("design_score", 0.0))
+                float(s.get("metrics", {}).get(parity_metric_key, 0.0))
                 for s in strategies
             ]
-            run_means.append(sum(scores) / len(scores))
+            if parity_aggregation == "mean":
+                run_means.append(sum(scores) / len(scores))
+            elif parity_aggregation == "max":
+                run_means.append(max(scores))
+            elif parity_aggregation == "min":
+                run_means.append(min(scores))
+            else:
+                raise ValueError(
+                    "parity_aggregation must be one of: "
+                    "'mean', 'max', 'min'"
+                )
         result["parity_coherence"] = run_parity_coherence_analysis(
             trajectory=run_means,
+            metadata={
+                "metric_key": parity_metric_key,
+                "aggregation": parity_aggregation,
+            },
         )
     return result
 

@@ -55,6 +55,24 @@ fn main() -> io::Result<()> {
                 KeyCode::Char('i') | KeyCode::Char('I') => app.jump_to(7),
                 KeyCode::Char('l') | KeyCode::Char('L') => app.jump_to(8),
                 KeyCode::Char('x') | KeyCode::Char('X') => app.jump_to(9),
+                KeyCode::Char('e') | KeyCode::Char('E') => {
+                    match app.export_session_log() {
+                        Ok(()) => app.action_status = "EXPORTED".to_string(),
+                        Err(e) => {
+                            app.action_log.push(format!("[export] ERROR: {e}"));
+                            app.action_status = "FAILED".to_string();
+                        }
+                    }
+                }
+                KeyCode::Char('p') | KeyCode::Char('P') => {
+                    match app.replay_last_session() {
+                        Ok(()) => app.action_status = "REPLAY LOADED".to_string(),
+                        Err(e) => {
+                            app.action_log.push(format!("[replay] ERROR: {e}"));
+                            app.action_status = "FAILED".to_string();
+                        }
+                    }
+                }
                 _ => {}
             }
         }

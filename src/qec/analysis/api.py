@@ -79,6 +79,7 @@ _MODULES = [
     "spectral_phase_boundary",
     "correction_dispatch",
     "cellular_correction_field",
+    "finite_state_controller",
 ]
 
 for mod in _MODULES:

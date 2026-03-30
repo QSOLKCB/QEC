@@ -72,6 +72,7 @@ _MODULES = [
     "policy_signal_robustness",
     "temporal_confidence",
     "regime_confidence",
+    "threshold_phase_map",
 ]
 
 for mod in _MODULES:

@@ -8,6 +8,7 @@ use crate::commands::{dispatch_mode, execute_action, fetch_engine_diagnostics, f
 
 const MAX_COMMAND_HISTORY: usize = 20;
 const MAX_DIFF_LINES: usize = 20;
+pub const HISTORY_WINDOW_MODE: &str = "History Window";
 
 pub const NAV_ITEMS: &[&str] = &[
     "Diagnostics",
@@ -187,6 +188,7 @@ pub struct App {
     pub action_status: String,
     pub last_action_time: String,
     pub exported_log_path: String,
+    // Retained for replay-pane compatibility with existing session log workflows.
     pub replay_lines: Vec<String>,
     pub artifact_view: Vec<String>,
     pub session_files: Vec<String>,
@@ -372,7 +374,7 @@ impl App {
     }
 
     pub fn session_browser_active(&self) -> bool {
-        self.mode == "History Window"
+        self.mode == HISTORY_WINDOW_MODE
     }
 
     pub fn diff_with_selected_session(&mut self) {
@@ -397,10 +399,10 @@ impl App {
                     self.diff_lines.push(format!("= {current}"));
                 }
                 (Some(previous), Some(current)) => {
-                    self.diff_lines.push(format!("- {previous}"));
-                    if self.diff_lines.len() >= MAX_DIFF_LINES {
+                    if self.diff_lines.len() + 2 > MAX_DIFF_LINES {
                         break;
                     }
+                    self.diff_lines.push(format!("- {previous}"));
                     self.diff_lines.push(format!("+ {current}"));
                 }
                 (Some(previous), None) => self.diff_lines.push(format!("- {previous}")),
@@ -615,6 +617,37 @@ mod tests {
         app.scan_sessions();
         app.diff_with_selected_session();
         assert_eq!(app.diff_lines.len(), 20);
+
+        std::env::set_current_dir(&original_dir).unwrap();
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_diff_never_emits_orphaned_removal_line() {
+        let _guard = test_lock().lock().unwrap();
+        let mut app = App::new();
+        let original_dir = std::env::current_dir().unwrap();
+        let temp_dir = original_dir.join("tui_app_diff_orphan_guard_test");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        std::env::set_current_dir(&temp_dir).unwrap();
+
+        let mut session_contents = (0..(MAX_DIFF_LINES - 1))
+            .map(|i| format!("same_{i}\n"))
+            .collect::<String>();
+        session_contents.push_str("old_tail\n");
+        std::fs::write("session.log", session_contents).unwrap();
+
+        app.command_history = (0..(MAX_DIFF_LINES - 1))
+            .map(|i| format!("same_{i}"))
+            .collect();
+        app.command_history.push("new_tail".to_string());
+        app.scan_sessions();
+        app.diff_with_selected_session();
+
+        assert_eq!(app.diff_lines.len(), MAX_DIFF_LINES - 1);
+        assert!(app.diff_lines.iter().all(|line| !line.starts_with("- old_tail")));
+        assert!(app.diff_lines.iter().all(|line| !line.starts_with("+ new_tail")));
 
         std::env::set_current_dir(&original_dir).unwrap();
         let _ = std::fs::remove_dir_all(&temp_dir);

@@ -76,6 +76,7 @@ _MODULES = [
     "phase_surface_analysis",
     "finite_size_scaling",
     "multi_regime_scaling",
+    "spectral_phase_boundary",
 ]
 
 for mod in _MODULES:

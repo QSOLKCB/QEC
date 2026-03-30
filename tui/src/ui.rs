@@ -8,7 +8,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::app::{App, HealthStatus, HISTORY_WINDOW_MODE};
+use crate::app::{App, HealthStatus, HISTORY_WINDOW_MODE, MAX_INCIDENT_TIMELINE};
 
 pub fn draw(f: &mut Frame, app: &App) {
     // Main vertical split: KPI strip + body + footer
@@ -243,7 +243,7 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
             Constraint::Length(6),
             Constraint::Length(8),
             Constraint::Length(6),
-            Constraint::Min(5),
+            Constraint::Min(8),
         ])
         .split(area);
 
@@ -280,6 +280,7 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
     draw_recent_failures(f, app, status_layout[2]);
     draw_invariant_kpis(f, app, status_layout[3]);
     draw_operator_audit(f, app, status_layout[4]);
+    draw_incident_timeline(f, app, status_layout[5]);
 }
 
 fn draw_health_and_view(f: &mut Frame, app: &App, area: Rect) {
@@ -307,7 +308,7 @@ fn draw_health_and_view(f: &mut Frame, app: &App, area: Rect) {
 
     let view_panel = Paragraph::new(vec![
         Line::from(""),
-        Line::from(format!("  Current: {}", app.current_view_label())),
+        Line::from(format!("  Current: {}", app.current_view)),
     ])
     .block(
         Block::default()
@@ -357,7 +358,7 @@ fn draw_invariant_kpis(f: &mut Frame, app: &App, area: Rect) {
 
 fn draw_operator_audit(f: &mut Frame, app: &App, area: Rect) {
     let lines: Vec<Line<'static>> = vec![
-        Line::from(format!("  Mode: {}", app.alert_profile_mode_label())),
+        Line::from(format!("  Mode: {}", app.alert_profile)),
         Line::from(format!(
             "  Latency Warn: {} ms",
             app.latency_warning_threshold_ms
@@ -377,6 +378,29 @@ fn draw_operator_audit(f: &mut Frame, app: &App, area: Rect) {
         Block::default()
             .borders(Borders::ALL)
             .title(" Alert Profile "),
+    );
+    f.render_widget(panel, area);
+}
+
+fn draw_incident_timeline(f: &mut Frame, app: &App, area: Rect) {
+    let mut lines: Vec<Line<'static>> = Vec::new();
+    if app.incident_timeline.is_empty() {
+        lines.push(Line::from("  No recent incidents"));
+    } else {
+        for entry in app
+            .incident_timeline
+            .iter()
+            .rev()
+            .take(MAX_INCIDENT_TIMELINE)
+        {
+            lines.push(Line::from(format!("  {entry}")));
+        }
+    }
+
+    let panel = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Incident Timeline (UTC) "),
     );
     f.render_widget(panel, area);
 }

@@ -2,6 +2,7 @@
 
 from qec.analysis.control_flow import (
     CollapseResult,
+    ControlSignal,
     compute_damping_factor,
     compute_step_aggressiveness,
     compute_strategy_escalation,
@@ -111,6 +112,15 @@ class TestRunControlFlow:
         for sd in [-1.0, -0.2, 0.0, 0.3, 0.5, 1.0, 1.5, 2.0]:
             result = run_control_flow(_make_collapse_result(spike_density=sd))
             assert 0.5 <= result["step_aggressiveness"] <= 1.0
+
+    def test_output_keys(self):
+        result = run_control_flow({})
+        assert set(result.keys()) == {
+            "damping_factor",
+            "step_aggressiveness",
+            "strategy_action",
+            "control_stability_score",
+        }
 
     def test_determinism(self):
         cr = _make_collapse_result(

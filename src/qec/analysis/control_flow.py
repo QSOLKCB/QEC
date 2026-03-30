@@ -15,13 +15,23 @@ Dependencies: none (stdlib only).
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 
 class CollapseResult(TypedDict, total=False):
     collapse_score: float
     spike_density: float
     basin_switch_prediction: bool
+    failure_risk: NotRequired[float]
+    singularity_events: NotRequired[list]
+    acceleration_peak: NotRequired[float]
+
+
+class ControlSignal(TypedDict):
+    damping_factor: float
+    step_aggressiveness: float
+    strategy_action: str
+    control_stability_score: float
 
 ROUND_PRECISION = 12
 
@@ -49,7 +59,7 @@ def compute_strategy_escalation(basin_switch_prediction: bool) -> str:
     return "escalate" if basin_switch_prediction else "hold"
 
 
-def run_control_flow(collapse_result: CollapseResult) -> dict:
+def run_control_flow(collapse_result: CollapseResult) -> ControlSignal:
     """Produce control signal from collapse analysis output.
 
     Parameters
@@ -60,7 +70,7 @@ def run_control_flow(collapse_result: CollapseResult) -> dict:
 
     Returns
     -------
-    dict with keys: damping_factor, step_aggressiveness,
+    ControlSignal with keys: damping_factor, step_aggressiveness,
         strategy_action, control_stability_score.
     """
     collapse_score = collapse_result.get("collapse_score", 0.0)

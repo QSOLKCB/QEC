@@ -87,6 +87,35 @@ def test_critical_threshold_fit(monkeypatch: pytest.MonkeyPatch) -> None:
     assert out["scaling_exponent"] > 0.0
 
 
+def test_loglog_fit_executes_without_typeerror(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _stub(**_: object) -> dict[str, object]:
+        return {
+            "chain_lengths": (5, 9, 17),
+            "chain_stability_curve": [0.10, 0.30, 0.55],
+            "surface_stability_score": 0.35,
+        }
+
+    monkeypatch.setattr("qec.analysis.finite_size_scaling.run_phase_surface_analysis", _stub)
+
+    out = run_finite_size_scaling(diffusion_steps=4)
+
+    assert out["critical_threshold_estimate"] is not None
+
+
+def test_surface_chain_length_mismatch_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _stub(**_: object) -> dict[str, object]:
+        return {
+            "chain_lengths": (5, 11, 17),
+            "chain_stability_curve": [0.10, 0.30, 0.55],
+            "surface_stability_score": 0.35,
+        }
+
+    monkeypatch.setattr("qec.analysis.finite_size_scaling.run_phase_surface_analysis", _stub)
+
+    with pytest.raises(ValueError, match="surface_result chain_lengths must match scaling input"):
+        run_finite_size_scaling(chain_lengths=[5, 9, 17], diffusion_steps=4)
+
+
 def test_fit_quality_score_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
     def _stub(**_: object) -> dict[str, object]:
         return {

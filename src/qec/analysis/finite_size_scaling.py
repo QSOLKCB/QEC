@@ -38,12 +38,14 @@ def run_finite_size_scaling(
         perturbation_values=perturbation_values,
         diffusion_steps=diffusion_steps,
     )
-
     ordered_chain_lengths = tuple(
         int(value) for value in (
             DEFAULT_CHAIN_LENGTH_SWEEP if chain_lengths is None else chain_lengths
         )
     )
+    surface_chain_lengths = surface_result.get("chain_lengths")
+    if surface_chain_lengths is not None and tuple(int(value) for value in surface_chain_lengths) != ordered_chain_lengths:
+        raise ValueError("surface_result chain_lengths must match scaling input")
     chain_stability_curve = [
         _clamp01(float(value)) for value in surface_result.get("chain_stability_curve", [])
     ]
@@ -97,7 +99,7 @@ def _pseudo_threshold_estimate(
 ) -> float | None:
     for chain_length, error_proxy in zip(chain_lengths, logical_error_scaling_curve):
         if float(error_proxy) < DEFAULT_PSEUDO_THRESHOLD_CROSSING:
-            return _normalized_threshold_proxy(int(chain_length), chain_lengths)
+            return _normalized_threshold_proxy(float(chain_length), chain_lengths)
     return None
 
 
@@ -117,8 +119,8 @@ def _loglog_fit(
             "fit_quality_score": 0.0,
         }
 
-    log_x = np.log(x[valid], dtype=np.float64)
-    log_y = np.log(y[valid], dtype=np.float64)
+    log_x = np.log(x[valid])
+    log_y = np.log(y[valid])
 
     fit = stats.linregress(log_x, log_y)
     slope = float(fit.slope)
@@ -135,7 +137,7 @@ def _loglog_fit(
         }
 
     crossing_chain = float(np.exp((np.log(float(crossing)) - intercept) / slope))
-    critical_threshold_estimate = _normalized_threshold_proxy_from_float(crossing_chain, chain_lengths)
+    critical_threshold_estimate = _normalized_threshold_proxy(crossing_chain, chain_lengths)
 
     return {
         "critical_threshold_estimate": critical_threshold_estimate,
@@ -144,16 +146,7 @@ def _loglog_fit(
     }
 
 
-def _normalized_threshold_proxy(chain_length: int, chain_lengths: Sequence[int]) -> float:
-    values = [int(value) for value in chain_lengths]
-    minimum = float(min(values))
-    maximum = float(max(values))
-    if maximum <= minimum:
-        return 0.0
-    return _clamp01((float(chain_length) - minimum) / (maximum - minimum))
-
-
-def _normalized_threshold_proxy_from_float(chain_length: float, chain_lengths: Sequence[int]) -> float:
+def _normalized_threshold_proxy(chain_length: float, chain_lengths: Sequence[int]) -> float:
     values = [int(value) for value in chain_lengths]
     minimum = float(min(values))
     maximum = float(max(values))

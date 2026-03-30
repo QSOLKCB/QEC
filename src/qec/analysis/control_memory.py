@@ -1,4 +1,4 @@
-"""v105.5.0 — Deterministic temporal smoothing and trend memory layer.
+"""v105.5.1 — Deterministic temporal smoothing and trend memory layer.
 
 Consumes outputs from run_control_flow() and distinguishes
 one-off instability spikes from sustained collapse trends.
@@ -13,23 +13,29 @@ Dependencies: none (stdlib only).
 
 from __future__ import annotations
 
+TREND_RISE_THRESHOLD = 0.1
+TREND_FALL_THRESHOLD = -0.1
+
 
 def compute_ema(previous: float, current: float, alpha: float = 0.5) -> float:
-    """Standard deterministic exponential moving average."""
+    """Standard deterministic exponential moving average.
+
+    alpha is automatically clamped to [0.0, 1.0].
+    """
     alpha = min(1.0, max(0.0, alpha))
-    return round(alpha * current + (1.0 - alpha) * previous, 12)
+    return alpha * current + (1.0 - alpha) * previous
 
 
 def compute_trend_delta(previous: float, current: float) -> float:
     """Simple difference: current - previous."""
-    return round(current - previous, 12)
+    return current - previous
 
 
 def classify_control_trend(delta: float) -> str:
     """Classify trend direction from delta value."""
-    if delta > 0.1:
+    if delta > TREND_RISE_THRESHOLD:
         return "rising"
-    if delta < -0.1:
+    if delta < TREND_FALL_THRESHOLD:
         return "falling"
     return "stable"
 

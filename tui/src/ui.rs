@@ -63,7 +63,12 @@ fn draw_nav(f: &mut Frame, app: &App, area: Rect) {
 fn draw_workspace(f: &mut Frame, app: &App, area: Rect) {
     let ws_layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(8), Constraint::Length(10), Constraint::Length(14)])
+        .constraints([
+            Constraint::Min(8),
+            Constraint::Length(10),
+            Constraint::Length(8),
+            Constraint::Length(8),
+        ])
         .split(area);
 
     let content = workspace_content(app);
@@ -75,7 +80,8 @@ fn draw_workspace(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(paragraph, ws_layout[0]);
 
     draw_command_history(f, app, ws_layout[1]);
-    draw_replay_pane(f, app, ws_layout[2]);
+    draw_sessions_pane(f, app, ws_layout[2]);
+    draw_diff_pane(f, app, ws_layout[3]);
 }
 
 fn draw_command_history(f: &mut Frame, app: &App, area: Rect) {
@@ -300,22 +306,31 @@ fn actions_content(app: &App) -> Vec<Line<'static>> {
     lines
 }
 
-fn draw_replay_pane(f: &mut Frame, app: &App, area: Rect) {
+fn draw_sessions_pane(f: &mut Frame, app: &App, area: Rect) {
     let mut lines: Vec<Line<'static>> = Vec::new();
-
-    if !app.exported_log_path.is_empty() {
-        lines.push(Line::from(format!("  Exported: {}", app.exported_log_path)));
+    if app.session_files.is_empty() {
+        lines.push(Line::from("  No sessions scanned"));
+    } else {
+        for (index, session_file) in app.session_files.iter().enumerate() {
+            let prefix = if index == app.selected_session_index { ">" } else { " " };
+            lines.push(Line::from(format!("{prefix} {session_file}")));
+        }
     }
 
-    if app.replay_lines.is_empty() {
-        lines.push(Line::from("  No replay loaded"));
+    let panel = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Saved Sessions "),
+    );
+    f.render_widget(panel, area);
+}
+
+fn draw_diff_pane(f: &mut Frame, app: &App, area: Rect) {
+    let mut lines: Vec<Line<'static>> = Vec::new();
+    if app.diff_lines.is_empty() {
+        lines.push(Line::from("  No diff loaded"));
     } else {
-        let start = if app.replay_lines.len() > 10 {
-            app.replay_lines.len() - 10
-        } else {
-            0
-        };
-        for line in &app.replay_lines[start..] {
+        for line in &app.diff_lines {
             lines.push(Line::from(format!("  {line}")));
         }
     }
@@ -323,7 +338,7 @@ fn draw_replay_pane(f: &mut Frame, app: &App, area: Rect) {
     let panel = Paragraph::new(lines).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" Session Replay / Artifacts "),
+            .title(" Session Diff "),
     );
     f.render_widget(panel, area);
 }
@@ -352,6 +367,10 @@ fn draw_footer(f: &mut Frame, area: Rect) {
         Span::raw(" Export  "),
         Span::styled("[P]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         Span::raw(" Replay  "),
+        Span::styled("[S]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" Scan  "),
+        Span::styled("[V]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" Diff  "),
         Span::styled("[Q]", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
         Span::raw(" Quit"),
     ]);

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+from statistics import fmean
 from typing import Any, Sequence
-
-import numpy as np
 
 from qec.analysis.minimal_chain_experiments import DIFFUSION_STEPS
 from qec.analysis.multi_regime_scaling import run_multi_regime_scaling
@@ -47,7 +46,7 @@ def run_spectral_phase_boundary(
 
     return {
         "chain_lengths": ordered_chain_lengths,
-        "scaling_result": multi_regime_result,
+        "multi_regime_result": multi_regime_result,
         "spectral_gap_curve": spectral_gap_curve,
         "spectral_gap_drift": spectral_gap_drift,
         "boundary_shift_score": boundary_shift_score,
@@ -105,7 +104,7 @@ def _spectral_gap_drift(gap_curve: Sequence[float]) -> float:
         abs(float(current) - float(previous))
         for previous, current in zip(gap_curve, gap_curve[1:])
     ]
-    return _clamp01(float(np.mean(np.asarray(differences, dtype=np.float64))))
+    return _clamp01(float(fmean(differences)))
 
 
 def _onset_drift_index(multi_regime_result: dict[str, Any]) -> float:

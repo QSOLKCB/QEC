@@ -9,7 +9,7 @@ from qec.analysis.spectral_phase_boundary import run_spectral_phase_boundary
 
 REQUIRED_KEYS = {
     "chain_lengths",
-    "scaling_result",
+    "multi_regime_result",
     "spectral_gap_curve",
     "spectral_gap_drift",
     "boundary_shift_score",
@@ -141,6 +141,14 @@ def test_class_threshold_behavior(monkeypatch: pytest.MonkeyPatch) -> None:
     assert stable["phase_boundary_class"] == "stable_boundary"
     assert drifting["phase_boundary_class"] == "drifting_boundary"
     assert critical["phase_boundary_class"] == "critical_boundary"
+
+
+def test_non_monotonic_spectral_gap_drift_regression() -> None:
+    from qec.analysis.spectral_phase_boundary import _spectral_gap_drift
+
+    drift = _spectral_gap_drift([0.7, 0.9, 0.6, 0.6, 0.8])
+
+    assert drift == pytest.approx(0.175)
 
 
 def test_short_chain_edge_case(monkeypatch: pytest.MonkeyPatch) -> None:

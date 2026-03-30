@@ -14,6 +14,7 @@ const MAX_COMMAND_HISTORY: usize = 20;
 const MAX_DIFF_LINES: usize = 20;
 pub const HISTORY_WINDOW_MODE: &str = "History Window";
 const MAX_RECENT_FAILURES: usize = 10;
+const MAX_INCIDENT_TIMELINE: usize = 20;
 
 pub const NAV_ITEMS: &[&str] = &[
     "Diagnostics",
@@ -41,6 +42,50 @@ impl std::fmt::Display for HealthStatus {
             Self::Healthy => write!(f, "HEALTHY"),
             Self::Degraded => write!(f, "DEGRADED"),
             Self::Critical => write!(f, "CRITICAL"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OperatorView {
+    Default,
+    Incidents,
+    Performance,
+}
+
+impl std::fmt::Display for OperatorView {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Default => write!(f, "Default"),
+            Self::Incidents => write!(f, "Incidents"),
+            Self::Performance => write!(f, "Performance"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AlertProfile {
+    Normal,
+    Strict,
+    Relaxed,
+}
+
+impl AlertProfile {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Normal => Self::Strict,
+            Self::Strict => Self::Relaxed,
+            Self::Relaxed => Self::Normal,
+        }
+    }
+}
+
+impl std::fmt::Display for AlertProfile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Normal => write!(f, "Normal"),
+            Self::Strict => write!(f, "Strict"),
+            Self::Relaxed => write!(f, "Relaxed"),
         }
     }
 }
@@ -231,8 +276,9 @@ pub struct App {
     pub latency_critical_threshold_ms: u128,
     pub failure_warning_threshold: usize,
     pub failure_critical_threshold: usize,
-    pub current_view: usize,
-    pub saved_views: Vec<String>,
+    pub current_view: OperatorView,
+    pub alert_profile: AlertProfile,
+    pub incident_timeline: VecDeque<String>,
     pub invariant_summary: Vec<String>,
 }
 
@@ -270,14 +316,12 @@ impl App {
             latency_critical_threshold_ms: 150,
             failure_warning_threshold: 1,
             failure_critical_threshold: 4,
-            current_view: 0,
-            saved_views: vec![
-                "Default".to_string(),
-                "Incidents".to_string(),
-                "Performance".to_string(),
-            ],
+            current_view: OperatorView::Default,
+            alert_profile: AlertProfile::Normal,
+            incident_timeline: VecDeque::new(),
             invariant_summary: Vec::new(),
         };
+        app.apply_alert_profile_thresholds();
         app.build_invariant_summary();
         app
     }
@@ -346,6 +390,7 @@ impl App {
     }
 
     pub fn evaluate_alert_profile(&mut self) {
+        let previous_health = self.health_status;
         let failures = self.recent_failures.len();
         let avg_latency = self.average_action_latency_ms;
         self.health_status = if failures >= self.failure_critical_threshold
@@ -359,61 +404,63 @@ impl App {
         } else {
             HealthStatus::Healthy
         };
+
+        if self.health_status != previous_health {
+            match self.health_status {
+                HealthStatus::Degraded => {
+                    self.push_incident_event("HEALTH → DEGRADED".to_string());
+                }
+                HealthStatus::Critical => {
+                    self.push_incident_event("HEALTH → CRITICAL".to_string());
+                }
+                HealthStatus::Healthy => {}
+            }
+        }
     }
 
     pub fn cycle_alert_threshold_profile(&mut self) {
-        match (
-            self.latency_warning_threshold_ms,
-            self.latency_critical_threshold_ms,
-            self.failure_warning_threshold,
-            self.failure_critical_threshold,
-        ) {
-            (50, 150, 1, 4) => {
-                self.latency_warning_threshold_ms = 30;
-                self.latency_critical_threshold_ms = 90;
-                self.failure_warning_threshold = 1;
-                self.failure_critical_threshold = 2;
-            }
-            (30, 90, 1, 2) => {
-                self.latency_warning_threshold_ms = 80;
-                self.latency_critical_threshold_ms = 250;
-                self.failure_warning_threshold = 2;
-                self.failure_critical_threshold = 6;
-            }
-            _ => {
+        self.alert_profile = self.alert_profile.next();
+        self.apply_alert_profile_thresholds();
+        self.push_incident_event(format!("PROFILE → {}", self.alert_profile.to_string().to_uppercase()));
+        self.evaluate_alert_profile();
+    }
+
+    pub fn set_operator_view(&mut self, view: OperatorView) {
+        if self.current_view != view {
+            self.current_view = view;
+            self.push_incident_event(format!("VIEW → {}", self.current_view.to_string().to_uppercase()));
+        }
+    }
+
+    pub fn push_incident_event(&mut self, event: String) {
+        self.incident_timeline
+            .push_back(format!("[{}] {}", event_timestamp_hhmm(), event));
+        while self.incident_timeline.len() > MAX_INCIDENT_TIMELINE {
+            self.incident_timeline.pop_front();
+        }
+    }
+
+    fn apply_alert_profile_thresholds(&mut self) {
+        match self.alert_profile {
+            AlertProfile::Normal => {
                 self.latency_warning_threshold_ms = 50;
                 self.latency_critical_threshold_ms = 150;
                 self.failure_warning_threshold = 1;
                 self.failure_critical_threshold = 4;
             }
+            AlertProfile::Strict => {
+                self.latency_warning_threshold_ms = 30;
+                self.latency_critical_threshold_ms = 90;
+                self.failure_warning_threshold = 1;
+                self.failure_critical_threshold = 2;
+            }
+            AlertProfile::Relaxed => {
+                self.latency_warning_threshold_ms = 80;
+                self.latency_critical_threshold_ms = 250;
+                self.failure_warning_threshold = 2;
+                self.failure_critical_threshold = 6;
+            }
         }
-        self.evaluate_alert_profile();
-    }
-
-    pub fn alert_profile_mode_label(&self) -> &'static str {
-        match (
-            self.latency_warning_threshold_ms,
-            self.latency_critical_threshold_ms,
-            self.failure_warning_threshold,
-            self.failure_critical_threshold,
-        ) {
-            (30, 90, 1, 2) => "Strict",
-            (80, 250, 2, 6) => "Relaxed",
-            _ => "Normal",
-        }
-    }
-
-    pub fn set_operator_view(&mut self, view_index: usize) {
-        if view_index < self.saved_views.len() {
-            self.current_view = view_index;
-        }
-    }
-
-    pub fn current_view_label(&self) -> &str {
-        self.saved_views
-            .get(self.current_view)
-            .map(String::as_str)
-            .unwrap_or("Default")
     }
 
     pub fn success_ratio_percent(&self) -> u16 {
@@ -481,6 +528,7 @@ impl App {
             Err(e) => {
                 let entry = format!("[{action}] ERROR: {e}");
                 self.action_log.push(entry);
+                self.push_incident_event(format!("ACTION FAIL → {action}"));
                 false
             }
         };
@@ -701,6 +749,17 @@ fn percent_u16(numerator: usize, denominator: usize) -> u16 {
     }
     let num = numerator as u128 * 100u128;
     (num / denominator as u128) as u16
+}
+
+fn event_timestamp_hhmm() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let day_secs = secs % 86_400;
+    let hours = day_secs / 3_600;
+    let minutes = (day_secs % 3_600) / 60;
+    format!("{hours:02}:{minutes:02}")
 }
 
 #[cfg(test)]
@@ -1064,13 +1123,13 @@ mod tests {
     #[test]
     fn test_alert_profile_threshold_cycling() {
         let mut app = App::new();
-        assert_eq!(app.alert_profile_mode_label(), "Normal");
+        assert_eq!(app.alert_profile, AlertProfile::Normal);
         app.cycle_alert_threshold_profile();
-        assert_eq!(app.alert_profile_mode_label(), "Strict");
+        assert_eq!(app.alert_profile, AlertProfile::Strict);
         app.cycle_alert_threshold_profile();
-        assert_eq!(app.alert_profile_mode_label(), "Relaxed");
+        assert_eq!(app.alert_profile, AlertProfile::Relaxed);
         app.cycle_alert_threshold_profile();
-        assert_eq!(app.alert_profile_mode_label(), "Normal");
+        assert_eq!(app.alert_profile, AlertProfile::Normal);
     }
 
     #[test]
@@ -1085,13 +1144,50 @@ mod tests {
     #[test]
     fn test_saved_operator_view_switching() {
         let mut app = App::new();
-        assert_eq!(app.current_view_label(), "Default");
-        app.set_operator_view(1);
-        assert_eq!(app.current_view_label(), "Incidents");
-        app.set_operator_view(2);
-        assert_eq!(app.current_view_label(), "Performance");
-        app.set_operator_view(9);
-        assert_eq!(app.current_view_label(), "Performance");
+        assert_eq!(app.current_view, OperatorView::Default);
+        app.set_operator_view(OperatorView::Incidents);
+        assert_eq!(app.current_view, OperatorView::Incidents);
+        app.set_operator_view(OperatorView::Performance);
+        assert_eq!(app.current_view, OperatorView::Performance);
+        app.set_operator_view(OperatorView::Performance);
+        assert_eq!(app.current_view, OperatorView::Performance);
+    }
+
+    #[test]
+    fn test_display_formatting_for_enums() {
+        assert_eq!(OperatorView::Default.to_string(), "Default");
+        assert_eq!(OperatorView::Incidents.to_string(), "Incidents");
+        assert_eq!(OperatorView::Performance.to_string(), "Performance");
+        assert_eq!(AlertProfile::Normal.to_string(), "Normal");
+        assert_eq!(AlertProfile::Strict.to_string(), "Strict");
+        assert_eq!(AlertProfile::Relaxed.to_string(), "Relaxed");
+    }
+
+    #[test]
+    fn test_timeline_cap_and_ordering() {
+        let mut app = App::new();
+        for i in 0..25 {
+            app.push_incident_event(format!("EVENT_{i}"));
+        }
+        assert_eq!(app.incident_timeline.len(), 20);
+        assert!(app.incident_timeline.front().unwrap().contains("EVENT_5"));
+        assert!(app.incident_timeline.back().unwrap().contains("EVENT_24"));
+    }
+
+    #[test]
+    fn test_view_change_adds_timeline_event() {
+        let mut app = App::new();
+        app.set_operator_view(OperatorView::Incidents);
+        let last = app.incident_timeline.back().unwrap();
+        assert!(last.contains("VIEW → INCIDENTS"));
+    }
+
+    #[test]
+    fn test_profile_change_adds_timeline_event() {
+        let mut app = App::new();
+        app.cycle_alert_threshold_profile();
+        let last = app.incident_timeline.back().unwrap();
+        assert!(last.contains("PROFILE → STRICT"));
     }
 
     #[test]

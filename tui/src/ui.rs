@@ -8,7 +8,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::app::{App, HealthStatus, HISTORY_WINDOW_MODE};
+use crate::app::{App, HealthStatus, HISTORY_WINDOW_MODE, MAX_INCIDENT_TIMELINE};
 
 pub fn draw(f: &mut Frame, app: &App) {
     // Main vertical split: KPI strip + body + footer
@@ -387,7 +387,12 @@ fn draw_incident_timeline(f: &mut Frame, app: &App, area: Rect) {
     if app.incident_timeline.is_empty() {
         lines.push(Line::from("  No recent incidents"));
     } else {
-        for entry in app.incident_timeline.iter().rev().take(20) {
+        for entry in app
+            .incident_timeline
+            .iter()
+            .rev()
+            .take(MAX_INCIDENT_TIMELINE)
+        {
             lines.push(Line::from(format!("  {entry}")));
         }
     }
@@ -395,7 +400,7 @@ fn draw_incident_timeline(f: &mut Frame, app: &App, area: Rect) {
     let panel = Paragraph::new(lines).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" Incident Timeline "),
+            .title(" Incident Timeline (UTC) "),
     );
     f.render_widget(panel, area);
 }

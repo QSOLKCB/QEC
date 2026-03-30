@@ -14,7 +14,7 @@ const MAX_COMMAND_HISTORY: usize = 20;
 const MAX_DIFF_LINES: usize = 20;
 pub const HISTORY_WINDOW_MODE: &str = "History Window";
 const MAX_RECENT_FAILURES: usize = 10;
-const MAX_INCIDENT_TIMELINE: usize = 20;
+pub const MAX_INCIDENT_TIMELINE: usize = 20;
 
 pub const NAV_ITEMS: &[&str] = &[
     "Diagnostics",
@@ -752,6 +752,7 @@ fn percent_u16(numerator: usize, denominator: usize) -> u16 {
 }
 
 fn event_timestamp_hhmm() -> String {
+    // UTC HH:MM derived from UNIX epoch seconds for deterministic, dependency-free formatting.
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())

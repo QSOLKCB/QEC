@@ -68,3 +68,8 @@ def test_short_chain_edge_case() -> None:
 
 def test_normalized_auc_known_value() -> None:
     assert _normalized_auc_score([0.0, 1.0, 2.0], [1.0, 0.5, 0.0]) == 0.5
+
+
+def test_auc_alignment_mismatch_raises() -> None:
+    with pytest.raises(ValueError, match="equal length"):
+        _normalized_auc_score([0.0, 1.0], [1.0])

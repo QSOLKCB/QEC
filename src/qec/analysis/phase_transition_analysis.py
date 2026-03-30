@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Sequence
 
 from qec.analysis.minimal_chain_experiments import DIFFUSION_STEPS
 from qec.analysis.robustness_sweep import run_robustness_sweep
@@ -13,7 +13,7 @@ SHARP_TRANSITION_DROP_THRESHOLD = 0.25
 
 def run_phase_transition_analysis(
     chain_length: int,
-    perturbation_values: list[float] | None = None,
+    perturbation_values: Sequence[float] | None = None,
     diffusion_steps: int = DIFFUSION_STEPS,
 ) -> dict[str, Any]:
     """Summarize a robustness sweep into deterministic bounded transition metrics."""
@@ -42,6 +42,8 @@ def run_phase_transition_analysis(
 
 
 def _normalized_auc_score(perturbation_values: list[float], robustness_curve: list[float]) -> float:
+    if len(perturbation_values) != len(robustness_curve):
+        raise ValueError("perturbation_values and robustness_curve must have equal length")
     if len(perturbation_values) == 0 or len(robustness_curve) == 0:
         return 0.0
     if len(perturbation_values) == 1 or len(robustness_curve) == 1:

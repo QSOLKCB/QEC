@@ -60,6 +60,9 @@ def run_cellular_correction_field(
     field_drift_score = _clamp01(float(np.mean(np.abs(corrected_array - initial_array))))
     local_stability_score = _clamp01(1.0 - field_drift_score)
 
+    if correction_action not in FIELD_CLASS_BY_ACTION:
+        raise KeyError(f"unknown correction_action for field class: {correction_action}")
+
     result: dict[str, Any] = {
         "chain_length": resolved_chain_length,
         "dispatch_result": dispatch_result,
@@ -67,7 +70,7 @@ def run_cellular_correction_field(
         "corrected_field": tuple(float(value) for value in corrected_array),
         "field_drift_score": field_drift_score,
         "local_stability_score": local_stability_score,
-        "correction_field_class": FIELD_CLASS_BY_ACTION.get(correction_action, "stable_field"),
+        "correction_field_class": FIELD_CLASS_BY_ACTION[correction_action],
     }
     if return_trace:
         result["automata_trace"] = trace
@@ -76,7 +79,11 @@ def run_cellular_correction_field(
 
 def _resolve_chain_length(chain_length: int, chain_state: Sequence[float] | None) -> int:
     if chain_state is not None:
-        return int(len(chain_state))
+        flattened_chain_state = _flatten_chain_state(chain_state)
+        flattened_length = int(flattened_chain_state.size)
+        if int(chain_length) != flattened_length:
+            raise ValueError("chain_length must match flattened chain_state length")
+        return flattened_length
     return max(1, int(chain_length))
 
 
@@ -87,7 +94,7 @@ def _resolve_initial_field(
     dispatch_urgency_score: float,
 ) -> np.ndarray:
     if chain_state is not None:
-        return _clamp_field(np.asarray(chain_state, dtype=np.float64).reshape(-1))
+        return _clamp_field(_flatten_chain_state(chain_state))
     return np.full(chain_length, _clamp01(dispatch_urgency_score), dtype=np.float64)
 
 
@@ -100,7 +107,7 @@ def _apply_automata_rule(field: np.ndarray, correction_action: str) -> np.ndarra
         return _spectral_rebalance(field)
     if correction_action == ACTION_BOUNDARY_INTERVENE:
         return _boundary_intervene(field)
-    return field.copy()
+    raise KeyError(f"unknown correction_action: {correction_action}")
 
 
 def _local_stabilize(field: np.ndarray) -> np.ndarray:
@@ -136,6 +143,13 @@ def _boundary_intervene(field: np.ndarray) -> np.ndarray:
 
 def _clamp_field(field: np.ndarray) -> np.ndarray:
     return np.clip(field.astype(np.float64, copy=False), 0.0, 1.0)
+
+
+def _flatten_chain_state(chain_state: Sequence[float]) -> np.ndarray:
+    flattened = np.asarray(chain_state, dtype=np.float64).reshape(-1)
+    if int(flattened.size) == 0:
+        raise ValueError("chain_state must be non-empty")
+    return flattened
 
 
 def _clamp01(value: float) -> float:

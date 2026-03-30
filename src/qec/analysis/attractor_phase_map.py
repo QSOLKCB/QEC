@@ -88,7 +88,7 @@ def _detect_attractor(lattice_trace: list[tuple[int, ...]], controller_state: st
 
 def _is_fixed_point(lattice_trace: list[tuple[int, ...]]) -> bool:
     if len(lattice_trace) < 2:
-        return True
+        return False
     recent = lattice_trace[-min(RECENT_STATE_WINDOW, len(lattice_trace)) :]
     baseline = recent[-1]
     return all(state == baseline for state in recent[:-1])
@@ -116,8 +116,11 @@ def _phase_stability_score(lattice_trace: list[tuple[int, ...]]) -> float:
     transition_count = min(STABILITY_WINDOW_TRANSITIONS, len(lattice_trace) - 1)
     previous_states = lattice_trace[-(transition_count + 1) : -1]
     next_states = lattice_trace[-transition_count:]
-
-    total_positions = transition_count * len(lattice_trace[-1])
+    state_lengths = [len(state) for state in previous_states + next_states]
+    if len(set(state_lengths)) != 1:
+        raise ValueError("lattice trace states must have equal length")
+    state_length = state_lengths[0]
+    total_positions = transition_count * state_length
     if total_positions <= 0:
         return 1.0
 

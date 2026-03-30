@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import pytest
 
+import qec.analysis.api as analysis_api
 from qec.analysis.attractor_phase_map import run_attractor_phase_map
+from qec.analysis.spectral_phase_boundary import PHASE_CLASS_STABLE as BOUNDARY_PHASE_CLASS_STABLE
 
 
 REQUIRED_KEYS = {
@@ -173,3 +175,37 @@ def test_short_chain_edge_case(monkeypatch: pytest.MonkeyPatch) -> None:
     assert out["attractor_cycle_length"] == 0
     assert out["phase_class"] == "critical_phase"
     assert 0.0 <= out["phase_stability_score"] <= 1.0
+
+
+def test_insufficient_trace_not_fixed_point(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.attractor_phase_map.run_ternary_lattice_controller",
+        lambda **_: _lattice_result_stub(
+            chain_length=3,
+            controller_state="idle_state",
+            lattice_trace=[(0, 0, 0)],
+        ),
+    )
+
+    out = run_attractor_phase_map()
+
+    assert out["attractor_state"] == "drifting_phase"
+    assert out["attractor_cycle_length"] == 0
+
+
+def test_mismatched_lattice_lengths_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.attractor_phase_map.run_ternary_lattice_controller",
+        lambda **_: _lattice_result_stub(
+            chain_length=3,
+            controller_state="rebalance_state",
+            lattice_trace=[(0, 0, 0), (0, 0)],
+        ),
+    )
+
+    with pytest.raises(ValueError, match="lattice trace states must have equal length"):
+        run_attractor_phase_map()
+
+
+def test_api_phase_class_symbol_collision_prevented() -> None:
+    assert analysis_api.PHASE_CLASS_STABLE == BOUNDARY_PHASE_CLASS_STABLE

@@ -61,13 +61,52 @@ fn draw_nav(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_workspace(f: &mut Frame, app: &App, area: Rect) {
+    let ws_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(8), Constraint::Length(10)])
+        .split(area);
+
     let content = workspace_content(app);
     let paragraph = Paragraph::new(content).block(
         Block::default()
             .borders(Borders::ALL)
             .title(format!(" {} ", app.mode)),
     );
-    f.render_widget(paragraph, area);
+    f.render_widget(paragraph, ws_layout[0]);
+
+    draw_command_history(f, app, ws_layout[1]);
+}
+
+fn draw_command_history(f: &mut Frame, app: &App, area: Rect) {
+    let status_color = match app.action_status.as_str() {
+        "RUNNING" => Color::Yellow,
+        "SUCCESS" => Color::Green,
+        "FAILED" => Color::Red,
+        _ => Color::White,
+    };
+
+    let mut lines: Vec<Line<'static>> = vec![
+        Line::from(Span::styled(
+            format!("  STATUS: {}", app.action_status),
+            Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+    ];
+
+    if app.command_history.is_empty() {
+        lines.push(Line::from("  (no commands run yet)"));
+    } else {
+        for entry in &app.command_history {
+            lines.push(Line::from(format!("  {entry}")));
+        }
+    }
+
+    let panel = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Recent Commands "),
+    );
+    f.render_widget(panel, area);
 }
 
 fn workspace_content(app: &App) -> Vec<Line<'static>> {

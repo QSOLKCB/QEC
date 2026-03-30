@@ -58,6 +58,7 @@ from typing import Any, Dict, List, Optional
 
 from qec.analysis.consistency_metrics import enrich_with_consistency_gap
 from qec.analysis.regime_classification import classify_regime
+from qec.analysis.parity_coherence import run_parity_coherence_analysis
 from qec.analysis.strategy_history import build_strategy_history
 from qec.analysis.strategy_taxonomy import classify_strategy_type
 from qec.analysis.trajectory_metrics import compute_trajectory_metrics
@@ -951,6 +952,7 @@ def format_analysis_summary(
 
 def run_trajectory_analysis(
     runs: List[Dict[str, Any]],
+    enable_parity_coherence: bool = False,
 ) -> Dict[str, Any]:
     """Run the full trajectory analysis pipeline.
 
@@ -962,6 +964,11 @@ def run_trajectory_analysis(
         Each run must contain a ``"strategies"`` key with a list of
         strategy dicts (each having ``"name"`` and ``"metrics"``).
 
+    enable_parity_coherence : bool, optional
+        If True, adds a ``"parity_coherence"`` sub-dict computed from a
+        deterministic per-run aggregate trajectory. Default False so
+        baseline behavior remains unchanged.
+
     Returns
     -------
     dict
@@ -970,12 +977,27 @@ def run_trajectory_analysis(
     history = build_strategy_history(runs)
     traj_metrics = compute_trajectory_metrics(history)
     regimes = classify_regime(traj_metrics)
-
-    return {
+    result = {
         "history": history,
         "trajectory_metrics": traj_metrics,
         "regimes": regimes,
     }
+    if enable_parity_coherence:
+        run_means: List[float] = []
+        for run in runs:
+            strategies = run.get("strategies", [])
+            if not strategies:
+                run_means.append(0.0)
+                continue
+            scores = [
+                float(s.get("metrics", {}).get("design_score", 0.0))
+                for s in strategies
+            ]
+            run_means.append(sum(scores) / len(scores))
+        result["parity_coherence"] = run_parity_coherence_analysis(
+            trajectory=run_means,
+        )
+    return result
 
 
 def format_trajectory_summary(result: Dict[str, Any]) -> str:

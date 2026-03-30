@@ -37,12 +37,18 @@ def run_phase_surface_analysis(
         surface_results.append(phase_map)
         chain_stability_curve.append(_clamp01(float(phase_map["threshold_stability_score"])))
 
-    onset_drift_index = _onset_drift_index(surface_results)
+    threshold_values_metadata = _validated_threshold_values(surface_results)
+    max_possible_shift, chain_max_possible_shifts = _onset_shift_metadata(surface_results)
+    onset_drift_index = _onset_drift_index(
+        surface_results,
+        max_possible_shift=max_possible_shift,
+        chain_max_possible_shifts=chain_max_possible_shifts,
+    )
     surface_stability_score = _surface_stability_score(chain_stability_curve)
 
     return {
         "chain_lengths": tuple(ordered_chain_lengths),
-        "threshold_values": tuple(surface_results[0]["threshold_values"]),
+        "threshold_values": threshold_values_metadata,
         "surface_results": surface_results,
         "onset_drift_index": onset_drift_index,
         "chain_stability_curve": chain_stability_curve,
@@ -71,27 +77,43 @@ def _surface_stability_score(chain_stability_curve: list[float]) -> float:
     return _clamp01(sum(float(score) for score in chain_stability_curve) / float(len(chain_stability_curve)))
 
 
-def _onset_drift_index(surface_results: list[dict[str, Any]]) -> float:
+def _validated_threshold_values(surface_results: list[dict[str, Any]]) -> tuple[float, ...]:
+    reference = tuple(float(value) for value in surface_results[0]["threshold_values"])
+    for surface_result in surface_results[1:]:
+        current = tuple(float(value) for value in surface_result["threshold_values"])
+        if current != reference:
+            raise ValueError("all threshold_values must match across chain lengths")
+    return reference
+
+
+def _onset_drift_index(
+    surface_results: list[dict[str, Any]],
+    max_possible_shift: int,
+    chain_max_possible_shifts: list[int],
+) -> float:
     if len(surface_results) <= 1:
         return 0.0
 
-    representative_indices = [_representative_onset_index(result) for result in surface_results]
-    max_possible_shift = float(_max_possible_onset_shift(surface_results))
-    if max_possible_shift <= 0.0:
+    representative_indices = [
+        _representative_onset_index(result, chain_max_possible_shift=chain_max_possible_shift)
+        for result, chain_max_possible_shift in zip(surface_results, chain_max_possible_shifts)
+    ]
+    max_possible_shift_float = float(max_possible_shift)
+    if max_possible_shift_float <= 0.0:
         return 0.0
 
     shifts = [
         abs(float(current) - float(previous))
         for previous, current in zip(representative_indices, representative_indices[1:])
     ]
-    return _clamp01((sum(shifts) / float(len(shifts))) / max_possible_shift)
+    return _clamp01((sum(shifts) / float(len(shifts))) / max_possible_shift_float)
 
 
-def _representative_onset_index(surface_result: dict[str, Any]) -> float:
+def _representative_onset_index(surface_result: dict[str, Any], chain_max_possible_shift: int) -> float:
     phase_results = list(surface_result.get("phase_results", []))
     if len(phase_results) == 0:
         return 0.0
-    chain_max_index = float(_max_possible_onset_shift([surface_result]))
+    chain_max_index = float(chain_max_possible_shift)
     onset_indices: list[float] = []
     for result in phase_results:
         onset_index = result.get("onset_index")
@@ -99,19 +121,23 @@ def _representative_onset_index(surface_result: dict[str, Any]) -> float:
     return sum(onset_indices) / float(len(onset_indices))
 
 
-def _max_possible_onset_shift(surface_results: list[dict[str, Any]]) -> int:
-    max_shift = 0
+def _onset_shift_metadata(surface_results: list[dict[str, Any]]) -> tuple[int, list[int]]:
+    global_max_shift = 0
+    chain_max_shifts: list[int] = []
     for surface_result in surface_results:
+        chain_max_shift = 0
         phase_results = list(surface_result.get("phase_results", []))
         for result in phase_results:
             sweep_result = result.get("sweep_result")
             if isinstance(sweep_result, dict) and "perturbation_values" in sweep_result:
                 perturbation_values = list(sweep_result.get("perturbation_values", []))
-                max_shift = max(max_shift, max(0, len(perturbation_values) - 1))
+                chain_max_shift = max(chain_max_shift, max(0, len(perturbation_values) - 1))
             onset_index = result.get("onset_index")
             if onset_index is not None:
-                max_shift = max(max_shift, int(onset_index))
-    return max_shift
+                chain_max_shift = max(chain_max_shift, int(onset_index))
+        chain_max_shifts.append(chain_max_shift)
+        global_max_shift = max(global_max_shift, chain_max_shift)
+    return global_max_shift, chain_max_shifts
 
 
 def _surface_class(surface_stability_score: float, onset_drift_index: float) -> str:

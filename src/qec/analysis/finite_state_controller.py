@@ -103,9 +103,6 @@ def _infer_controller_state(field_result: dict[str, Any]) -> str:
     dispatch_result = field_result.get("dispatch_result", {})
     correction_action = str(dispatch_result.get("correction_action", ACTION_HOLD_STATE))
 
-    _ = float(field_result.get("field_drift_score", 0.0))
-    _ = float(field_result.get("local_stability_score", 1.0))
-
     if correction_action not in CONTROLLER_STATE_BY_ACTION:
         raise KeyError(f"unknown correction_action for controller state: {correction_action}")
     return CONTROLLER_STATE_BY_ACTION[correction_action]

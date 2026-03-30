@@ -60,6 +60,14 @@ def test_zero_delta_breaks_persistent_jump_detection() -> None:
     assert out["parity_jump_detected"] is False
 
 
+def test_explicit_zero_gap_regression_sequence() -> None:
+    # Deltas are [1, 0, 0, -1]: zero-gap must break adjacency.
+    trajectory = [0.0, 1.0, 1.0, 1.0, 0.0]
+    out = run_parity_coherence_analysis(trajectory)
+    assert out["coherence_length"] == 1
+    assert out["parity_jump_detected"] is False
+
+
 def test_schema_and_boundedness() -> None:
     out = run_parity_coherence_analysis([1.0, 1.0, 1.0, 1.0])
 

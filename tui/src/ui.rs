@@ -27,7 +27,7 @@ pub fn draw(f: &mut Frame, app: &App) {
 
     draw_nav(f, app, body[0]);
     draw_workspace(f, app, body[1]);
-    draw_status(f, body[2]);
+    draw_status(f, app, body[2]);
     draw_footer(f, outer[1]);
 }
 
@@ -104,19 +104,8 @@ fn workspace_content(app: &App) -> Vec<Line<'static>> {
             Line::from("  repairs_queued:   0"),
             Line::from("  last_action:      none"),
         ],
-        "History Window" => vec![
-            Line::from(""),
-            Line::from("  window_size:      10"),
-            Line::from("  entries_stored:   10"),
-            Line::from("  behavior:         stable_window"),
-        ],
-        "Invariants" => vec![
-            Line::from(""),
-            Line::from("  determinism:      PASS"),
-            Line::from("  bounds:           PASS"),
-            Line::from("  commutativity:    PASS"),
-            Line::from("  layer_isolation:  PASS"),
-        ],
+        "History Window" => return history_content(app),
+        "Invariants" => return invariants_content(app),
         "Law Engine" => vec![
             Line::from(""),
             Line::from("  laws_loaded:      12"),
@@ -127,7 +116,12 @@ fn workspace_content(app: &App) -> Vec<Line<'static>> {
     }
 }
 
-fn draw_status(f: &mut Frame, area: Rect) {
+fn status_color(value: &str) -> Color {
+    if value == "FAIL" { Color::Red } else { Color::Green }
+}
+
+fn draw_status(f: &mut Frame, app: &App, area: Rect) {
+    let inv = &app.invariants;
     let lines = vec![
         Line::from(""),
         Line::from(Span::styled(
@@ -135,20 +129,20 @@ fn draw_status(f: &mut Frame, area: Rect) {
             Style::default().fg(Color::Green),
         )),
         Line::from(Span::styled(
-            "  DETERMINISM:  PASS",
-            Style::default().fg(Color::Green),
+            format!("  DETERMINISM:  {}", inv.determinism),
+            Style::default().fg(status_color(&inv.determinism)),
         )),
         Line::from(Span::styled(
-            "  BOUNDS:       PASS",
-            Style::default().fg(Color::Green),
+            format!("  BOUNDS:       {}", inv.bounds),
+            Style::default().fg(status_color(&inv.bounds)),
         )),
         Line::from(Span::styled(
-            "  STABILITY:    PASS",
-            Style::default().fg(Color::Green),
+            format!("  STABILITY:    {}", inv.stability),
+            Style::default().fg(status_color(&inv.stability)),
         )),
         Line::from(Span::styled(
-            "  LAW ENGINE:   PASS",
-            Style::default().fg(Color::Green),
+            format!("  LAW ENGINE:   {}", inv.law_engine),
+            Style::default().fg(status_color(&inv.law_engine)),
         )),
     ];
 
@@ -183,6 +177,60 @@ fn diagnostics_content(app: &App) -> Vec<Line<'static>> {
     ]
 }
 
+fn history_content(app: &App) -> Vec<Line<'static>> {
+    let h = &app.history;
+    if let Some(ref err) = h.error {
+        return vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                format!("  {err}"),
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )),
+            Line::from(""),
+            Line::from("  Press [R] to retry"),
+        ];
+    }
+    let timeline_str = h.timeline.join(" → ");
+    vec![
+        Line::from(""),
+        Line::from(format!("  Timeline: {timeline_str}")),
+    ]
+}
+
+fn invariants_content(app: &App) -> Vec<Line<'static>> {
+    let inv = &app.invariants;
+    if let Some(ref err) = inv.error {
+        return vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                format!("  {err}"),
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )),
+            Line::from(""),
+            Line::from("  Press [R] to retry"),
+        ];
+    }
+    vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            format!("  DETERMINISM   {}", inv.determinism),
+            Style::default().fg(status_color(&inv.determinism)),
+        )),
+        Line::from(Span::styled(
+            format!("  BOUNDS        {}", inv.bounds),
+            Style::default().fg(status_color(&inv.bounds)),
+        )),
+        Line::from(Span::styled(
+            format!("  STABILITY     {}", inv.stability),
+            Style::default().fg(status_color(&inv.stability)),
+        )),
+        Line::from(Span::styled(
+            format!("  LAW ENGINE    {}", inv.law_engine),
+            Style::default().fg(status_color(&inv.law_engine)),
+        )),
+    ]
+}
+
 fn draw_footer(f: &mut Frame, area: Rect) {
     let legend = Line::from(vec![
         Span::styled(" [D]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
@@ -194,7 +242,7 @@ fn draw_footer(f: &mut Frame, area: Rect) {
         Span::styled("[A]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         Span::raw(" Adaptive  "),
         Span::styled("[R]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-        Span::raw(" Refresh  "),
+        Span::raw(" Refresh All  "),
         Span::styled("[H]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         Span::raw(" Healing  "),
         Span::styled("[I]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),

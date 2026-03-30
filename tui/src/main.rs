@@ -3,6 +3,7 @@ mod commands;
 mod ui;
 
 use std::io;
+use std::time::Instant;
 
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
@@ -71,14 +72,40 @@ fn main() -> io::Result<()> {
                 KeyCode::Enter => app.select_mode(),
                 _ if app.mode == "Actions" => match key.code {
                     KeyCode::Char('d') | KeyCode::Char('D') => {
-                        app.run_action_with_status("diagnostics")
+                        let started = Instant::now();
+                        app.run_action_with_status("diagnostics");
+                        app.update_observability_metrics(
+                            "diagnostics",
+                            app.action_status == "SUCCESS",
+                            started.elapsed().as_millis(),
+                        );
                     }
                     KeyCode::Char('i') | KeyCode::Char('I') => {
-                        app.run_action_with_status("invariants")
+                        let started = Instant::now();
+                        app.run_action_with_status("invariants");
+                        app.update_observability_metrics(
+                            "invariants",
+                            app.action_status == "SUCCESS",
+                            started.elapsed().as_millis(),
+                        );
                     }
-                    KeyCode::Char('l') | KeyCode::Char('L') => app.run_action_with_status("law"),
+                    KeyCode::Char('l') | KeyCode::Char('L') => {
+                        let started = Instant::now();
+                        app.run_action_with_status("law");
+                        app.update_observability_metrics(
+                            "law",
+                            app.action_status == "SUCCESS",
+                            started.elapsed().as_millis(),
+                        );
+                    }
                     KeyCode::Char('r') | KeyCode::Char('R') => {
+                        let started = Instant::now();
                         app.run_action_with_status("refresh");
+                        app.update_observability_metrics(
+                            "refresh",
+                            app.action_status == "SUCCESS",
+                            started.elapsed().as_millis(),
+                        );
                         app.refresh_all();
                     }
                     KeyCode::Char('x') | KeyCode::Char('X') => app.jump_to(9),

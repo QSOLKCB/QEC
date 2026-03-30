@@ -632,16 +632,20 @@ mod tests {
         std::fs::create_dir_all(&temp_dir).unwrap();
         std::env::set_current_dir(&temp_dir).unwrap();
 
-        let mut session_contents = (0..19).map(|i| format!("same_{i}\n")).collect::<String>();
+        let mut session_contents = (0..(MAX_DIFF_LINES - 1))
+            .map(|i| format!("same_{i}\n"))
+            .collect::<String>();
         session_contents.push_str("old_tail\n");
         std::fs::write("session.log", session_contents).unwrap();
 
-        app.command_history = (0..19).map(|i| format!("same_{i}")).collect();
+        app.command_history = (0..(MAX_DIFF_LINES - 1))
+            .map(|i| format!("same_{i}"))
+            .collect();
         app.command_history.push("new_tail".to_string());
         app.scan_sessions();
         app.diff_with_selected_session();
 
-        assert_eq!(app.diff_lines.len(), 19);
+        assert_eq!(app.diff_lines.len(), MAX_DIFF_LINES - 1);
         assert!(app.diff_lines.iter().all(|line| !line.starts_with("- old_tail")));
         assert!(app.diff_lines.iter().all(|line| !line.starts_with("+ new_tail")));
 

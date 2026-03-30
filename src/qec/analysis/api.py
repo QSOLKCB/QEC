@@ -81,6 +81,7 @@ _MODULES = [
     "cellular_correction_field",
     "finite_state_controller",
     "ternary_lattice_controller",
+    "attractor_phase_map",
 ]
 
 for mod in _MODULES:

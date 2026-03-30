@@ -4,7 +4,10 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-use crate::commands::{dispatch_mode, execute_action, fetch_engine_diagnostics, fetch_history_timeline, fetch_invariant_status};
+use crate::commands::{
+    dispatch_mode, execute_action, fetch_engine_diagnostics, fetch_history_timeline,
+    fetch_invariant_status,
+};
 
 const MAX_COMMAND_HISTORY: usize = 20;
 const MAX_DIFF_LINES: usize = 20;
@@ -192,6 +195,11 @@ pub struct App {
     pub replay_lines: Vec<String>,
     pub artifact_view: Vec<String>,
     pub session_files: Vec<String>,
+    pub search_query: String,
+    pub filtered_session_files: Vec<String>,
+    pub search_overlay_active: bool,
+    pub help_overlay_active: bool,
+    pub session_metadata: Vec<String>,
     pub selected_session_index: usize,
     pub diff_lines: Vec<String>,
 }
@@ -213,6 +221,11 @@ impl App {
             replay_lines: Vec::new(),
             artifact_view: Vec::new(),
             session_files: Vec::new(),
+            search_query: String::new(),
+            filtered_session_files: Vec::new(),
+            search_overlay_active: false,
+            help_overlay_active: false,
+            session_metadata: Vec::new(),
             selected_session_index: 0,
             diff_lines: Vec::new(),
         }
@@ -290,7 +303,11 @@ impl App {
             self.action_log.remove(0);
         }
 
-        self.action_status = if success { "SUCCESS".to_string() } else { "FAILED".to_string() };
+        self.action_status = if success {
+            "SUCCESS".to_string()
+        } else {
+            "FAILED".to_string()
+        };
 
         // Append to command history with timestamp
         self.command_history.push(format!("{action} @ {timestamp}"));
@@ -302,14 +319,17 @@ impl App {
 
     pub fn export_session_log(&mut self) -> Result<(), String> {
         let path = "qec_tui_session.log";
-        let mut file = fs::File::create(path).map_err(|e| format!("Failed to create log file: {e}"))?;
+        let mut file =
+            fs::File::create(path).map_err(|e| format!("Failed to create log file: {e}"))?;
         for entry in &self.command_history {
             writeln!(file, "{entry}").map_err(|e| format!("Write error: {e}"))?;
         }
         writeln!(file, "---").map_err(|e| format!("Write error: {e}"))?;
-        writeln!(file, "status: {}", self.action_status).map_err(|e| format!("Write error: {e}"))?;
+        writeln!(file, "status: {}", self.action_status)
+            .map_err(|e| format!("Write error: {e}"))?;
         if !self.last_action_time.is_empty() {
-            writeln!(file, "last_action_time: {}", self.last_action_time).map_err(|e| format!("Write error: {e}"))?;
+            writeln!(file, "last_action_time: {}", self.last_action_time)
+                .map_err(|e| format!("Write error: {e}"))?;
         }
         for entry in &self.action_log {
             writeln!(file, "{entry}").map_err(|e| format!("Write error: {e}"))?;
@@ -320,7 +340,8 @@ impl App {
 
     pub fn replay_last_session(&mut self) -> Result<(), String> {
         let path = "qec_tui_session.log";
-        let contents = fs::read_to_string(path).map_err(|e| format!("Failed to read log file: {e}"))?;
+        let contents =
+            fs::read_to_string(path).map_err(|e| format!("Failed to read log file: {e}"))?;
         self.replay_lines = contents.lines().map(|l| l.to_string()).collect();
         Ok(())
     }
@@ -333,7 +354,9 @@ impl App {
                     let path = entry.path();
                     let ext = path.extension().and_then(|e| e.to_str());
                     if ext == Some("log") && path.is_file() {
-                        path.file_name().and_then(|name| name.to_str()).map(|s| s.to_string())
+                        path.file_name()
+                            .and_then(|name| name.to_str())
+                            .map(|s| s.to_string())
                     } else {
                         None
                     }
@@ -344,33 +367,93 @@ impl App {
 
         sessions.sort();
         self.session_files = sessions;
-        if self.session_files.is_empty() {
+        self.filter_sessions();
+        if self.filtered_session_files.is_empty() {
             self.selected_session_index = 0;
-        } else if self.selected_session_index >= self.session_files.len() {
-            self.selected_session_index = self.session_files.len() - 1;
+        } else if self.selected_session_index >= self.filtered_session_files.len() {
+            self.selected_session_index = self.filtered_session_files.len() - 1;
+        }
+    }
+
+    pub fn filter_sessions(&mut self) {
+        if self.search_query.is_empty() {
+            self.filtered_session_files = self.session_files.clone();
+        } else {
+            let needle = self.search_query.to_ascii_lowercase();
+            self.filtered_session_files = self
+                .session_files
+                .iter()
+                .filter(|name| name.to_ascii_lowercase().contains(&needle))
+                .cloned()
+                .collect();
+        }
+
+        if self.filtered_session_files.is_empty() {
+            self.selected_session_index = 0;
+        } else if self.selected_session_index >= self.filtered_session_files.len() {
+            self.selected_session_index = self.filtered_session_files.len() - 1;
+        }
+        self.build_session_metadata();
+    }
+
+    pub fn build_session_metadata(&mut self) {
+        self.session_metadata.clear();
+
+        let Some(selected_file) = self.filtered_session_files.get(self.selected_session_index)
+        else {
+            self.session_metadata
+                .push("No session selected".to_string());
+            return;
+        };
+
+        let path = Path::new(selected_file);
+        let lines = match fs::read_to_string(path) {
+            Ok(contents) => contents.lines().count(),
+            Err(_) => 0,
+        };
+
+        self.session_metadata.push(format!("name: {selected_file}"));
+        self.session_metadata.push(format!("lines: {lines}"));
+
+        match fs::metadata(path) {
+            Ok(metadata) => {
+                self.session_metadata
+                    .push(format!("size: {} bytes", metadata.len()));
+                if let Ok(modified) = metadata.modified() {
+                    self.session_metadata
+                        .push(format!("modified: {:?}", modified));
+                }
+            }
+            Err(_) => {
+                self.session_metadata.push("size: unavailable".to_string());
+                self.session_metadata
+                    .push("modified: unavailable".to_string());
+            }
         }
     }
 
     pub fn session_up(&mut self) {
-        if self.session_files.is_empty() {
+        if self.filtered_session_files.is_empty() {
             return;
         }
         if self.selected_session_index == 0 {
-            self.selected_session_index = self.session_files.len() - 1;
+            self.selected_session_index = self.filtered_session_files.len() - 1;
         } else {
             self.selected_session_index -= 1;
         }
+        self.build_session_metadata();
     }
 
     pub fn session_down(&mut self) {
-        if self.session_files.is_empty() {
+        if self.filtered_session_files.is_empty() {
             return;
         }
-        if self.selected_session_index + 1 >= self.session_files.len() {
+        if self.selected_session_index + 1 >= self.filtered_session_files.len() {
             self.selected_session_index = 0;
         } else {
             self.selected_session_index += 1;
         }
+        self.build_session_metadata();
     }
 
     pub fn session_browser_active(&self) -> bool {
@@ -379,7 +462,8 @@ impl App {
 
     pub fn diff_with_selected_session(&mut self) {
         self.diff_lines.clear();
-        let Some(selected_file) = self.session_files.get(self.selected_session_index) else {
+        let Some(selected_file) = self.filtered_session_files.get(self.selected_session_index)
+        else {
             return;
         };
 
@@ -553,7 +637,10 @@ mod tests {
         std::fs::write("ignore.txt", "").unwrap();
 
         app.scan_sessions();
-        assert_eq!(app.session_files, vec!["a_run.log".to_string(), "z_run.log".to_string()]);
+        assert_eq!(
+            app.session_files,
+            vec!["a_run.log".to_string(), "z_run.log".to_string()]
+        );
 
         std::env::set_current_dir(&original_dir).unwrap();
         let _ = std::fs::remove_dir_all(&temp_dir);
@@ -571,6 +658,7 @@ mod tests {
 
         app.scan_sessions();
         assert!(app.session_files.is_empty());
+        assert!(app.filtered_session_files.is_empty());
         assert_eq!(app.selected_session_index, 0);
 
         std::env::set_current_dir(&original_dir).unwrap();
@@ -588,7 +676,11 @@ mod tests {
         std::env::set_current_dir(&temp_dir).unwrap();
 
         std::fs::write("session.log", "same\nold_only\n").unwrap();
-        app.command_history = vec!["same".to_string(), "new_only".to_string(), "added".to_string()];
+        app.command_history = vec![
+            "same".to_string(),
+            "new_only".to_string(),
+            "added".to_string(),
+        ];
         app.scan_sessions();
         app.diff_with_selected_session();
         let joined = app.diff_lines.join("\n");
@@ -611,7 +703,10 @@ mod tests {
         std::fs::create_dir_all(&temp_dir).unwrap();
         std::env::set_current_dir(&temp_dir).unwrap();
 
-        let file_lines = (0..30).map(|i| format!("old_{i}")).collect::<Vec<_>>().join("\n");
+        let file_lines = (0..30)
+            .map(|i| format!("old_{i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
         std::fs::write("session.log", file_lines).unwrap();
         app.command_history = (0..30).map(|i| format!("new_{i}")).collect();
         app.scan_sessions();
@@ -646,10 +741,72 @@ mod tests {
         app.diff_with_selected_session();
 
         assert_eq!(app.diff_lines.len(), MAX_DIFF_LINES - 1);
-        assert!(app.diff_lines.iter().all(|line| !line.starts_with("- old_tail")));
-        assert!(app.diff_lines.iter().all(|line| !line.starts_with("+ new_tail")));
+        assert!(app
+            .diff_lines
+            .iter()
+            .all(|line| !line.starts_with("- old_tail")));
+        assert!(app
+            .diff_lines
+            .iter()
+            .all(|line| !line.starts_with("+ new_tail")));
 
         std::env::set_current_dir(&original_dir).unwrap();
         let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_filter_empty_query_returns_all_sessions() {
+        let mut app = App::new();
+        app.session_files = vec!["a.log".to_string(), "b.log".to_string()];
+        app.search_query.clear();
+        app.filter_sessions();
+        assert_eq!(app.filtered_session_files, app.session_files);
+    }
+
+    #[test]
+    fn test_filter_ordering_is_deterministic() {
+        let mut app = App::new();
+        app.session_files = vec![
+            "2026_alpha.log".to_string(),
+            "2026_beta.log".to_string(),
+            "2025_gamma.log".to_string(),
+        ];
+        app.search_query = "2026".to_string();
+        app.filter_sessions();
+        assert_eq!(
+            app.filtered_session_files,
+            vec!["2026_alpha.log".to_string(), "2026_beta.log".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_filter_is_case_insensitive() {
+        let mut app = App::new();
+        app.session_files = vec!["Alpha.LOG".to_string(), "beta.log".to_string()];
+        app.search_query = "alpha".to_string();
+        app.filter_sessions();
+        assert_eq!(app.filtered_session_files, vec!["Alpha.LOG".to_string()]);
+    }
+
+    #[test]
+    fn test_help_overlay_toggle_state() {
+        let mut app = App::new();
+        assert!(!app.help_overlay_active);
+        app.help_overlay_active = true;
+        assert!(app.help_overlay_active);
+        app.help_overlay_active = false;
+        assert!(!app.help_overlay_active);
+    }
+
+    #[test]
+    fn test_metadata_fallback_on_empty_selection() {
+        let mut app = App::new();
+        app.filtered_session_files.clear();
+        app.selected_session_index = 0;
+        app.build_session_metadata();
+        assert_eq!(
+            app.session_metadata,
+            vec!["No session selected".to_string()]
+        );
     }
 }

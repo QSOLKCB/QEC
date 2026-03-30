@@ -28,6 +28,12 @@ pub fn draw(f: &mut Frame, app: &App) {
     draw_nav(f, app, body[0]);
     draw_workspace(f, app, body[1]);
     draw_status(f, app, body[2]);
+    if app.search_overlay_active {
+        draw_search_overlay(f, app);
+    }
+    if app.help_overlay_active {
+        draw_help_overlay(f);
+    }
     draw_footer(f, outer[1]);
 }
 
@@ -37,7 +43,11 @@ fn draw_nav(f: &mut Frame, app: &App, area: Rect) {
         .iter()
         .enumerate()
         .map(|(i, &name)| {
-            let prefix = if i == app.selected_index { ">> " } else { "   " };
+            let prefix = if i == app.selected_index {
+                ">> "
+            } else {
+                "   "
+            };
             let style = if i == app.selected_index {
                 Style::default()
                     .fg(Color::Yellow)
@@ -45,18 +55,11 @@ fn draw_nav(f: &mut Frame, app: &App, area: Rect) {
             } else {
                 Style::default().fg(Color::White)
             };
-            ListItem::new(Line::from(Span::styled(
-                format!("{prefix}{name}"),
-                style,
-            )))
+            ListItem::new(Line::from(Span::styled(format!("{prefix}{name}"), style)))
         })
         .collect();
 
-    let nav = List::new(items).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(" Navigation "),
-    );
+    let nav = List::new(items).block(Block::default().borders(Borders::ALL).title(" Navigation "));
     f.render_widget(nav, area);
 }
 
@@ -67,6 +70,7 @@ fn draw_workspace(f: &mut Frame, app: &App, area: Rect) {
             Constraint::Min(8),
             Constraint::Length(10),
             Constraint::Length(8),
+            Constraint::Length(7),
             Constraint::Length(8),
         ])
         .split(area);
@@ -81,7 +85,8 @@ fn draw_workspace(f: &mut Frame, app: &App, area: Rect) {
 
     draw_command_history(f, app, ws_layout[1]);
     draw_sessions_pane(f, app, ws_layout[2]);
-    draw_diff_pane(f, app, ws_layout[3]);
+    draw_metadata_pane(f, app, ws_layout[3]);
+    draw_diff_pane(f, app, ws_layout[4]);
 }
 
 fn draw_command_history(f: &mut Frame, app: &App, area: Rect) {
@@ -95,7 +100,9 @@ fn draw_command_history(f: &mut Frame, app: &App, area: Rect) {
     let mut lines: Vec<Line<'static>> = vec![
         Line::from(Span::styled(
             format!("  STATUS: {}", app.action_status),
-            Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(status_color)
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
     ];
@@ -164,7 +171,11 @@ fn workspace_content(app: &App) -> Vec<Line<'static>> {
 }
 
 fn status_color(value: &str) -> Color {
-    if value == "FAIL" { Color::Red } else { Color::Green }
+    if value == "FAIL" {
+        Color::Red
+    } else {
+        Color::Green
+    }
 }
 
 fn draw_status(f: &mut Frame, app: &App, area: Rect) {
@@ -193,11 +204,8 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
         )),
     ];
 
-    let status = Paragraph::new(lines).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(" Status "),
-    );
+    let status =
+        Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(" Status "));
     f.render_widget(status, area);
 }
 
@@ -283,7 +291,9 @@ fn actions_content(app: &App) -> Vec<Line<'static>> {
         Line::from(""),
         Line::from(Span::styled(
             "  Available Actions:",
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from("  [D] Run Diagnostics"),
@@ -293,7 +303,9 @@ fn actions_content(app: &App) -> Vec<Line<'static>> {
         Line::from(""),
         Line::from(Span::styled(
             "  Recent Action Output:",
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )),
     ];
     if app.action_log.is_empty() {
@@ -308,11 +320,15 @@ fn actions_content(app: &App) -> Vec<Line<'static>> {
 
 fn draw_sessions_pane(f: &mut Frame, app: &App, area: Rect) {
     let mut lines: Vec<Line<'static>> = Vec::new();
-    if app.session_files.is_empty() {
+    if app.filtered_session_files.is_empty() {
         lines.push(Line::from("  No sessions scanned"));
     } else {
-        for (index, session_file) in app.session_files.iter().enumerate() {
-            let prefix = if index == app.selected_session_index { ">" } else { " " };
+        for (index, session_file) in app.filtered_session_files.iter().enumerate() {
+            let prefix = if index == app.selected_session_index {
+                ">"
+            } else {
+                " "
+            };
             lines.push(Line::from(format!("{prefix} {session_file}")));
         }
     }
@@ -320,7 +336,25 @@ fn draw_sessions_pane(f: &mut Frame, app: &App, area: Rect) {
     let panel = Paragraph::new(lines).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" Saved Sessions "),
+            .title(format!(" Saved Sessions (/ {}) ", app.search_query)),
+    );
+    f.render_widget(panel, area);
+}
+
+fn draw_metadata_pane(f: &mut Frame, app: &App, area: Rect) {
+    let mut lines: Vec<Line<'static>> = Vec::new();
+    if app.session_metadata.is_empty() {
+        lines.push(Line::from("  No session selected"));
+    } else {
+        for line in &app.session_metadata {
+            lines.push(Line::from(format!("  {line}")));
+        }
+    }
+
+    let panel = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Session Metadata "),
     );
     f.render_widget(panel, area);
 }
@@ -345,40 +379,156 @@ fn draw_diff_pane(f: &mut Frame, app: &App, area: Rect) {
 
 fn draw_footer(f: &mut Frame, area: Rect) {
     let legend = Line::from(vec![
-        Span::styled(" [D]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " [D]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Diagnostics  "),
-        Span::styled("[C]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[C]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Control  "),
-        Span::styled("[M]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[M]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Memory  "),
-        Span::styled("[A]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[A]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Adaptive  "),
-        Span::styled("[R]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[R]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Refresh All  "),
-        Span::styled("[H]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[H]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Healing  "),
-        Span::styled("[I]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[I]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Invariants  "),
-        Span::styled("[L]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[L]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Law  "),
-        Span::styled("[X]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[X]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Actions  "),
-        Span::styled("[E]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[E]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Export  "),
-        Span::styled("[P]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[P]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Replay  "),
-        Span::styled("[S]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[S]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Scan  "),
-        Span::styled("[V]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[V]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Diff  "),
-        Span::styled("[Q]", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "[Q]",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" Quit"),
     ]);
 
-    let footer = Paragraph::new(legend).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(" Hotkeys "),
-    );
+    let footer =
+        Paragraph::new(legend).block(Block::default().borders(Borders::ALL).title(" Hotkeys "));
     f.render_widget(footer, area);
+}
+
+fn draw_search_overlay(f: &mut Frame, app: &App) {
+    let area = centered_rect(60, 20, f.size());
+    let lines = vec![
+        Line::from(""),
+        Line::from("  Search Sessions"),
+        Line::from("  ---------------"),
+        Line::from(format!("  / {}", app.search_query)),
+    ];
+    let popup =
+        Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(" Search "));
+    f.render_widget(popup, area);
+}
+
+fn draw_help_overlay(f: &mut Frame) {
+    let area = centered_rect(60, 45, f.size());
+    let lines = vec![
+        Line::from(""),
+        Line::from("  Hotkeys"),
+        Line::from("  -------"),
+        Line::from("  /  Search"),
+        Line::from("  ?  Help"),
+        Line::from("  S  Scan"),
+        Line::from("  V  Diff"),
+        Line::from("  E  Export"),
+        Line::from("  P  Replay"),
+        Line::from("  ↑↓ Navigate"),
+        Line::from("  Q  Quit"),
+    ];
+    let popup = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(" Help "));
+    f.render_widget(popup, area);
+}
+
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let vertical = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(vertical[1])[1]
 }

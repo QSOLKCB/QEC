@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from qec.analysis.minimal_chain_experiments import run_minimal_chain_experiment
+from qec.analysis.minimal_chain_experiments import DIFFUSION_STEPS, run_minimal_chain_experiment
 
 ROBUSTNESS_WEIGHT_LOCAL_IMMUNITY = 0.4
 ROBUSTNESS_WEIGHT_ENDPOINT_RETENTION = 0.3
@@ -17,14 +17,11 @@ PROTECTION_CLASS_STRONG_THRESHOLD = 0.67
 def run_protection_metrics(
     chain_length: int,
     perturbation_magnitude: float = 1.0,
-    diffusion_steps: int = 4,
+    diffusion_steps: int = DIFFUSION_STEPS,
 ) -> dict[str, Any]:
     """Run deterministic boundary-vs-center protection metrics."""
     if chain_length < 3:
         raise ValueError("chain_length must be >= 3")
-    if diffusion_steps < 0:
-        raise ValueError("diffusion_steps must be >= 0")
-
     boundary_result = run_minimal_chain_experiment(
         chain_length=chain_length,
         perturbation_index=0,
@@ -73,11 +70,7 @@ def _protection_class(robustness_score: float) -> str:
 
 
 def _clamp01(value: float) -> float:
-    if value < 0.0:
-        return 0.0
-    if value > 1.0:
-        return 1.0
-    return value
+    return max(0.0, min(1.0, value))
 
 
 __all__ = ["run_protection_metrics"]

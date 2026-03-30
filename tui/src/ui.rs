@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -51,15 +53,15 @@ fn draw_kpi_strip(f: &mut Frame, app: &App, area: Rect) {
         ])
         .split(area);
 
-    draw_kpi_card(f, cards[0], "Actions", app.total_actions_run.to_string(), Color::White);
+    draw_kpi_card(f, cards[0], "Actions", app.total_actions_run, Color::White);
     draw_kpi_card(
         f,
         cards[1],
         "Success",
-        app.successful_actions.to_string(),
+        app.successful_actions,
         Color::Green,
     );
-    draw_kpi_card(f, cards[2], "Fail", app.failed_actions.to_string(), Color::Red);
+    draw_kpi_card(f, cards[2], "Fail", app.failed_actions, Color::Red);
     draw_kpi_card(
         f,
         cards[3],
@@ -77,12 +79,12 @@ fn draw_kpi_strip(f: &mut Frame, app: &App, area: Rect) {
         f,
         cards[4],
         "Health",
-        app.health_status.clone(),
+        app.health_status.as_str(),
         health_color,
     );
 }
 
-fn draw_kpi_card(f: &mut Frame, area: Rect, title: &str, value: String, color: Color) {
+fn draw_kpi_card(f: &mut Frame, area: Rect, title: &str, value: impl Display, color: Color) {
     let line = Line::from(Span::styled(
         format!("  {value}"),
         Style::default().fg(color).add_modifier(Modifier::BOLD),

@@ -241,11 +241,7 @@ impl App {
             average_action_latency_ms: 0,
             health_status: "HEALTHY".to_string(),
             recent_failures: Vec::new(),
-            invariant_summary: vec![
-                "PASS: 0".to_string(),
-                "FAIL: 0".to_string(),
-                "UNKNOWN: 4".to_string(),
-            ],
+            invariant_summary: Vec::new(),
         };
         app.build_invariant_summary();
         app

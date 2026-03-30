@@ -114,21 +114,94 @@ np.random.RandomState(seed)
 
 If it cannot be reproduced byte-for-byte, it is not a result.
 
-🖥 Rust TUI (v106+)
+🖥 Rust TUI Operator Console (v106+)
 
-QEC now includes a Linutil-inspired Rust TUI control surface:
+QEC now includes a Linutil-inspired Rust TUI control surface for live diagnostics, adaptive control workflows, session replay, and operator-driven law-engine actions.
 
-Left   → navigation
-Center → live diagnostics / history
-Right  → invariants / status
-Bottom → action hotkeys
+The layout is optimized for fast keyboard-first workflows:
 
-The TUI follows a strict invariant:
+Left   → navigation / mode selection
+Center → live diagnostics / history / action console
+Right  → invariant health / system status
+Bottom → hotkeys / command legend
+
+The interface is designed as a true operator cockpit for deterministic control and system inspection.
+
+🚀 Build & Run
+Build
+cd tui
+cargo build --release
+Run
+cargo run --release
+
+For production-style startup:
+
+./target/release/qec-tui
+⌨️ Key Controls
+Navigation
+↑ / ↓        move selection
+Enter        switch active mode
+Q            quit
+Mode Shortcuts
+D            diagnostics
+C            control flow
+M            memory
+A            adaptive
+R            regime jump
+H            self-healing
+W            history window
+I            invariants
+L            law engine
+X            actions console
+Action Console
+
+When inside Actions mode:
+
+D            run diagnostics
+I            run invariants
+L            run law engine
+R            refresh all
+Session & Replay
+E            export session log
+P            replay last session
+S            scan saved sessions
+V            view session diff
+✨ Current TUI Features
+
+The Rust console currently supports:
+
+live Python-engine diagnostics
+invariant status monitor
+adaptive control state view
+regime history timeline
+action dispatch console
+timestamped command history
+session export / replay
+multi-session browser
+diff viewer
+
+This makes QEC a persistent operator workstation, not just a passive dashboard.
+
+🧱 Architecture Invariant
+
+The TUI follows a strict architectural law:
 
 ZERO LOGIC IN UI
 
-Python = deterministic engine
-Rust   = render + dispatch
+Python = deterministic engine + control truth
+Rust   = render + dispatch + operator state
+
+This boundary is treated as a hard invariant.
+
+All analysis, control, law, and adaptation logic remains in Python.
+
+Rust is responsible only for:
+
+subprocess dispatch
+JSON parsing
+UI state
+terminal rendering
+session persistence
 🧠 Design Philosophy
 
 Small is beautiful.
@@ -136,6 +209,9 @@ Determinism is architecture.
 Structure before control.
 Control before adaptation.
 Adaptation before operation.
+Operation before optimization.
+
+If it cannot be reproduced byte-for-byte, it is not a result.
 
 👤 Author
 

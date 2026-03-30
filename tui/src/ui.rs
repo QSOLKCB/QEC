@@ -61,7 +61,7 @@ fn draw_nav(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_workspace(f: &mut Frame, app: &App, area: Rect) {
-    let content = workspace_content(app.mode);
+    let content = workspace_content(app);
     let paragraph = Paragraph::new(content).block(
         Block::default()
             .borders(Borders::ALL)
@@ -70,17 +70,10 @@ fn draw_workspace(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(paragraph, area);
 }
 
-fn workspace_content(mode: &str) -> Vec<Line<'static>> {
+fn workspace_content(app: &App) -> Vec<Line<'static>> {
+    let mode = app.mode;
     match mode {
-        "Diagnostics" => vec![
-            Line::from(""),
-            Line::from("  collapse_score:         0.12"),
-            Line::from("  trend_state:            stable"),
-            Line::from("  adaptive_damping:       0.80"),
-            Line::from("  healing_mode:           hold"),
-            Line::from("  history_behavior:       stable_window"),
-            Line::from("  suppression_intensity:  0.00"),
-        ],
+        "Diagnostics" => return diagnostics_content(app),
         "Control Flow" => vec![
             Line::from(""),
             Line::from("  control_mode:     auto"),
@@ -167,6 +160,29 @@ fn draw_status(f: &mut Frame, area: Rect) {
     f.render_widget(status, area);
 }
 
+fn diagnostics_content(app: &App) -> Vec<Line<'static>> {
+    let d = &app.diagnostics;
+    if let Some(ref err) = d.error {
+        return vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                format!("  {err}"),
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )),
+            Line::from(""),
+            Line::from("  Press [R] to retry"),
+        ];
+    }
+    vec![
+        Line::from(""),
+        Line::from(format!("  collapse_score:         {}", d.collapse_score)),
+        Line::from(format!("  trend_state:            {}", d.trend_state)),
+        Line::from(format!("  adaptive_damping:       {}", d.adaptive_damping)),
+        Line::from(format!("  healing_mode:           {}", d.healing_mode)),
+        Line::from(format!("  history_behavior:       {}", d.history_behavior)),
+    ]
+}
+
 fn draw_footer(f: &mut Frame, area: Rect) {
     let legend = Line::from(vec![
         Span::styled(" [D]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
@@ -178,7 +194,7 @@ fn draw_footer(f: &mut Frame, area: Rect) {
         Span::styled("[A]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         Span::raw(" Adaptive  "),
         Span::styled("[R]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-        Span::raw(" Regime  "),
+        Span::raw(" Refresh  "),
         Span::styled("[H]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         Span::raw(" Healing  "),
         Span::styled("[I]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),

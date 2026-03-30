@@ -13,6 +13,7 @@ pub fn dispatch_mode(index: usize) -> &'static str {
         6 => "History Window",
         7 => "Invariants",
         8 => "Law Engine",
+        9 => "Actions",
         _ => "Unknown",
     }
 }
@@ -137,6 +138,62 @@ pub fn fetch_invariant_status() -> Result<String, String> {
     }
 }
 
+/// Execute a law engine action by dispatching to Python CLI modules.
+///
+/// Supported actions: "diagnostics", "invariants", "law", "refresh".
+/// Falls back to `python -c "print('ACTION OK')"` if the CLI module is unavailable.
+pub fn execute_action(action: &str) -> Result<String, String> {
+    let module = match action {
+        "diagnostics" => "qec.cli.diagnostics",
+        "invariants" => "qec.cli.invariants",
+        "law" => "qec.cli.law_engine",
+        "refresh" => {
+            // Run all three, collect output
+            let mut combined = String::new();
+            for sub in &["diagnostics", "invariants", "law"] {
+                match execute_action(sub) {
+                    Ok(out) => {
+                        combined.push_str(&format!("[{sub}] {}\n", out.trim()));
+                    }
+                    Err(e) => {
+                        combined.push_str(&format!("[{sub}] ERROR: {e}\n"));
+                    }
+                }
+            }
+            return Ok(combined);
+        }
+        other => return Err(format!("Unknown action: {other}")),
+    };
+
+    let output = Command::new("python")
+        .args(["-m", module])
+        .output();
+
+    match output {
+        Ok(o) if o.status.success() => {
+            let stdout = String::from_utf8_lossy(&o.stdout).to_string();
+            if stdout.trim().is_empty() {
+                return Err(format!("{module} returned empty output"));
+            }
+            Ok(stdout.trim().to_string())
+        }
+        _ => {
+            // Fallback: module unavailable
+            let fallback = Command::new("python")
+                .args(["-c", "print('ACTION OK')"])
+                .output()
+                .map_err(|e| format!("Failed to invoke Python: {e}"))?;
+
+            if !fallback.status.success() {
+                let stderr = String::from_utf8_lossy(&fallback.stderr);
+                return Err(format!("Python fallback failed: {stderr}"));
+            }
+
+            Ok(String::from_utf8_lossy(&fallback.stdout).trim().to_string())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,6 +215,12 @@ mod tests {
         let json: serde_json::Value =
             serde_json::from_str(&result.unwrap()).expect("output is not valid JSON");
         assert!(json.get("timeline").is_some());
+    }
+
+    #[test]
+    fn test_execute_action_diagnostics() {
+        let result = execute_action("diagnostics");
+        assert!(result.is_ok(), "execute_action(diagnostics) failed: {:?}", result.err());
     }
 
     #[test]

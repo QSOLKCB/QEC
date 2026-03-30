@@ -112,6 +112,7 @@ fn workspace_content(app: &App) -> Vec<Line<'static>> {
             Line::from("  violations:       0"),
             Line::from("  enforcement:      active"),
         ],
+        "Actions" => return actions_content(app),
         _ => vec![Line::from("  (no data)")],
     }
 }
@@ -231,6 +232,34 @@ fn invariants_content(app: &App) -> Vec<Line<'static>> {
     ]
 }
 
+fn actions_content(app: &App) -> Vec<Line<'static>> {
+    let mut lines = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Available Actions:",
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from("  [D] Run Diagnostics"),
+        Line::from("  [I] Run Invariants"),
+        Line::from("  [L] Run Law Engine"),
+        Line::from("  [R] Refresh All"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Recent Action Output:",
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+        )),
+    ];
+    if app.action_log.is_empty() {
+        lines.push(Line::from("  (no actions run yet)"));
+    } else {
+        for entry in &app.action_log {
+            lines.push(Line::from(format!("  {entry}")));
+        }
+    }
+    lines
+}
+
 fn draw_footer(f: &mut Frame, area: Rect) {
     let legend = Line::from(vec![
         Span::styled(" [D]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
@@ -249,6 +278,8 @@ fn draw_footer(f: &mut Frame, area: Rect) {
         Span::raw(" Invariants  "),
         Span::styled("[L]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         Span::raw(" Law  "),
+        Span::styled("[X]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::raw(" Actions  "),
         Span::styled("[Q]", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
         Span::raw(" Quit"),
     ]);

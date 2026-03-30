@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::commands::{dispatch_mode, fetch_engine_diagnostics, fetch_history_timeline, fetch_invariant_status};
+use crate::commands::{dispatch_mode, execute_action, fetch_engine_diagnostics, fetch_history_timeline, fetch_invariant_status};
 
 pub const NAV_ITEMS: &[&str] = &[
     "Diagnostics",
@@ -12,6 +12,7 @@ pub const NAV_ITEMS: &[&str] = &[
     "History Window",
     "Invariants",
     "Law Engine",
+    "Actions",
 ];
 
 #[derive(Deserialize)]
@@ -174,6 +175,7 @@ pub struct App {
     pub diagnostics: DiagnosticsData,
     pub history: HistoryData,
     pub invariants: InvariantData,
+    pub action_log: Vec<String>,
 }
 
 impl App {
@@ -185,6 +187,7 @@ impl App {
             diagnostics: DiagnosticsData::from_engine(),
             history: HistoryData::from_engine(),
             invariants: InvariantData::from_engine(),
+            action_log: Vec::new(),
         }
     }
 
@@ -223,5 +226,17 @@ impl App {
         self.diagnostics = DiagnosticsData::from_engine();
         self.history = HistoryData::from_engine();
         self.invariants = InvariantData::from_engine();
+    }
+
+    pub fn run_action(&mut self, action: &str) {
+        let entry = match execute_action(action) {
+            Ok(output) => format!("[{action}] {output}"),
+            Err(e) => format!("[{action}] ERROR: {e}"),
+        };
+        self.action_log.push(entry);
+        // FIFO trim to last 10 lines
+        while self.action_log.len() > 10 {
+            self.action_log.remove(0);
+        }
     }
 }

@@ -32,7 +32,18 @@ fn main() -> io::Result<()> {
                 KeyCode::Up => app.nav_up(),
                 KeyCode::Down => app.nav_down(),
                 KeyCode::Enter => app.select_mode(),
-                // Direct shortcuts
+                _ if app.mode == "Actions" => match key.code {
+                    KeyCode::Char('d') | KeyCode::Char('D') => app.run_action("diagnostics"),
+                    KeyCode::Char('i') | KeyCode::Char('I') => app.run_action("invariants"),
+                    KeyCode::Char('l') | KeyCode::Char('L') => app.run_action("law"),
+                    KeyCode::Char('r') | KeyCode::Char('R') => {
+                        app.run_action("refresh");
+                        app.refresh_all();
+                    }
+                    KeyCode::Char('x') | KeyCode::Char('X') => app.jump_to(9),
+                    _ => {}
+                },
+                // Direct shortcuts (non-Actions mode)
                 KeyCode::Char('d') | KeyCode::Char('D') => app.jump_to(0),
                 KeyCode::Char('c') | KeyCode::Char('C') => app.jump_to(1),
                 KeyCode::Char('m') | KeyCode::Char('M') => app.jump_to(2),
@@ -43,6 +54,7 @@ fn main() -> io::Result<()> {
                 KeyCode::Char('w') | KeyCode::Char('W') => app.jump_to(6),
                 KeyCode::Char('i') | KeyCode::Char('I') => app.jump_to(7),
                 KeyCode::Char('l') | KeyCode::Char('L') => app.jump_to(8),
+                KeyCode::Char('x') | KeyCode::Char('X') => app.jump_to(9),
                 _ => {}
             }
         }

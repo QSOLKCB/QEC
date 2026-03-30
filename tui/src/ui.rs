@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -9,11 +11,13 @@ use ratatui::{
 use crate::app::{App, HISTORY_WINDOW_MODE};
 
 pub fn draw(f: &mut Frame, app: &App) {
-    // Main vertical split: body + footer
+    // Main vertical split: KPI strip + body + footer
     let outer = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(0), Constraint::Length(3)])
+        .constraints([Constraint::Length(5), Constraint::Min(0), Constraint::Length(3)])
         .split(f.size());
+
+    draw_kpi_strip(f, app, outer[0]);
 
     // Body: left nav | center workspace | right status
     let body = Layout::default()
@@ -23,7 +27,7 @@ pub fn draw(f: &mut Frame, app: &App) {
             Constraint::Min(40),
             Constraint::Length(28),
         ])
-        .split(outer[0]);
+        .split(outer[1]);
 
     draw_nav(f, app, body[0]);
     draw_workspace(f, app, body[1]);
@@ -34,7 +38,60 @@ pub fn draw(f: &mut Frame, app: &App) {
     if app.help_overlay_active {
         draw_help_overlay(f);
     }
-    draw_footer(f, outer[1]);
+    draw_footer(f, outer[2]);
+}
+
+fn draw_kpi_strip(f: &mut Frame, app: &App, area: Rect) {
+    let cards = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(12),
+            Constraint::Length(12),
+            Constraint::Length(10),
+            Constraint::Length(14),
+            Constraint::Min(14),
+        ])
+        .split(area);
+
+    draw_kpi_card(f, cards[0], "Actions", app.total_actions_run, Color::White);
+    draw_kpi_card(
+        f,
+        cards[1],
+        "Success",
+        app.successful_actions,
+        Color::Green,
+    );
+    draw_kpi_card(f, cards[2], "Fail", app.failed_actions, Color::Red);
+    draw_kpi_card(
+        f,
+        cards[3],
+        "Avg Lat",
+        format!("{} ms", app.average_action_latency_ms),
+        Color::Cyan,
+    );
+
+    let health_color = match app.health_status.as_str() {
+        "HEALTHY" => Color::Green,
+        "DEGRADED" => Color::Yellow,
+        _ => Color::Red,
+    };
+    draw_kpi_card(
+        f,
+        cards[4],
+        "Health",
+        app.health_status.as_str(),
+        health_color,
+    );
+}
+
+fn draw_kpi_card(f: &mut Frame, area: Rect, title: &str, value: impl Display, color: Color) {
+    let line = Line::from(Span::styled(
+        format!("  {value}"),
+        Style::default().fg(color).add_modifier(Modifier::BOLD),
+    ));
+    let panel = Paragraph::new(vec![Line::from(""), line])
+        .block(Block::default().borders(Borders::ALL).title(format!(" {title} ")));
+    f.render_widget(panel, area);
 }
 
 fn draw_nav(f: &mut Frame, app: &App, area: Rect) {
@@ -179,6 +236,16 @@ fn status_color(value: &str) -> Color {
 }
 
 fn draw_status(f: &mut Frame, app: &App, area: Rect) {
+    let status_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(8),
+            Constraint::Length(8),
+            Constraint::Length(6),
+            Constraint::Min(5),
+        ])
+        .split(area);
+
     let inv = &app.invariants;
     let lines = vec![
         Line::from(""),
@@ -206,7 +273,58 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
 
     let status =
         Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(" Status "));
-    f.render_widget(status, area);
+    f.render_widget(status, status_layout[0]);
+
+    draw_recent_failures(f, app, status_layout[1]);
+    draw_invariant_kpis(f, app, status_layout[2]);
+    draw_operator_audit(f, app, status_layout[3]);
+}
+
+fn draw_recent_failures(f: &mut Frame, app: &App, area: Rect) {
+    let mut lines: Vec<Line<'static>> = Vec::new();
+    if app.recent_failures.is_empty() {
+        lines.push(Line::from("  No recent failures"));
+    } else {
+        for failure in app.recent_failures.iter().rev() {
+            lines.push(Line::from(format!("  {failure}")));
+        }
+    }
+
+    let panel = Paragraph::new(lines)
+        .block(Block::default().borders(Borders::ALL).title(" Recent Failures "));
+    f.render_widget(panel, area);
+}
+
+fn draw_invariant_kpis(f: &mut Frame, app: &App, area: Rect) {
+    let mut lines: Vec<Line<'static>> = Vec::new();
+    if app.invariant_summary.is_empty() {
+        lines.push(Line::from("  PASS: 0"));
+        lines.push(Line::from("  FAIL: 0"));
+        lines.push(Line::from("  UNKNOWN: 0"));
+    } else {
+        for line in &app.invariant_summary {
+            lines.push(Line::from(format!("  {line}")));
+        }
+    }
+
+    let panel = Paragraph::new(lines)
+        .block(Block::default().borders(Borders::ALL).title(" Invariant Health "));
+    f.render_widget(panel, area);
+}
+
+fn draw_operator_audit(f: &mut Frame, app: &App, area: Rect) {
+    let mut lines: Vec<Line<'static>> = Vec::new();
+    if app.command_history.is_empty() {
+        lines.push(Line::from("  No operator actions"));
+    } else {
+        for command in app.command_history.iter().rev().take(4) {
+            lines.push(Line::from(format!("  {command}")));
+        }
+    }
+
+    let panel = Paragraph::new(lines)
+        .block(Block::default().borders(Borders::ALL).title(" Operator Audit "));
+    f.render_widget(panel, area);
 }
 
 fn diagnostics_content(app: &App) -> Vec<Line<'static>> {

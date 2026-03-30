@@ -202,11 +202,18 @@ pub struct App {
     pub session_metadata: Vec<String>,
     pub selected_session_index: usize,
     pub diff_lines: Vec<String>,
+    pub total_actions_run: usize,
+    pub successful_actions: usize,
+    pub failed_actions: usize,
+    pub average_action_latency_ms: u128,
+    pub health_status: String,
+    pub recent_failures: Vec<String>,
+    pub invariant_summary: Vec<String>,
 }
 
 impl App {
     pub fn new() -> Self {
-        Self {
+        let mut app = Self {
             nav_items: NAV_ITEMS,
             selected_index: 0,
             mode: "Diagnostics",
@@ -228,7 +235,16 @@ impl App {
             session_metadata: Vec::new(),
             selected_session_index: 0,
             diff_lines: Vec::new(),
-        }
+            total_actions_run: 0,
+            successful_actions: 0,
+            failed_actions: 0,
+            average_action_latency_ms: 0,
+            health_status: "HEALTHY".to_string(),
+            recent_failures: Vec::new(),
+            invariant_summary: Vec::new(),
+        };
+        app.build_invariant_summary();
+        app
     }
 
     pub fn nav_up(&mut self) {
@@ -266,6 +282,60 @@ impl App {
         self.diagnostics = DiagnosticsData::from_engine();
         self.history = HistoryData::from_engine();
         self.invariants = InvariantData::from_engine();
+        self.build_invariant_summary();
+    }
+
+    pub fn update_observability_metrics(
+        &mut self,
+        action_name: &str,
+        success: bool,
+        latency_ms: u128,
+    ) {
+        let previous_total = self.total_actions_run as u128;
+        self.total_actions_run += 1;
+        if success {
+            self.successful_actions += 1;
+        } else {
+            self.failed_actions += 1;
+            self.recent_failures.push(action_name.to_string());
+            while self.recent_failures.len() > 10 {
+                self.recent_failures.remove(0);
+            }
+        }
+
+        self.average_action_latency_ms =
+            ((self.average_action_latency_ms * previous_total) + latency_ms)
+                / (self.total_actions_run as u128);
+
+        self.health_status = match self.recent_failures.len() {
+            0 => "HEALTHY".to_string(),
+            1..=3 => "DEGRADED".to_string(),
+            _ => "CRITICAL".to_string(),
+        };
+    }
+
+    pub fn build_invariant_summary(&mut self) {
+        let mut pass = 0;
+        let mut fail = 0;
+        let mut unknown = 0;
+        for value in [
+            self.invariants.determinism.as_str(),
+            self.invariants.bounds.as_str(),
+            self.invariants.stability.as_str(),
+            self.invariants.law_engine.as_str(),
+        ] {
+            match value {
+                "PASS" => pass += 1,
+                "FAIL" => fail += 1,
+                _ => unknown += 1,
+            }
+        }
+
+        self.invariant_summary = vec![
+            format!("PASS: {pass}"),
+            format!("FAIL: {fail}"),
+            format!("UNKNOWN: {unknown}"),
+        ];
     }
 
     pub fn run_action(&mut self, action: &str) {
@@ -808,5 +878,71 @@ mod tests {
             app.session_metadata,
             vec!["No session selected".to_string()]
         );
+    }
+
+    #[test]
+    fn test_observability_metrics_counters() {
+        let mut app = App::new();
+        app.update_observability_metrics("diagnostics", true, 10);
+        app.update_observability_metrics("law", false, 20);
+
+        assert_eq!(app.total_actions_run, 2);
+        assert_eq!(app.successful_actions, 1);
+        assert_eq!(app.failed_actions, 1);
+    }
+
+    #[test]
+    fn test_observability_metrics_rolling_latency_average() {
+        let mut app = App::new();
+        app.update_observability_metrics("diagnostics", true, 10);
+        app.update_observability_metrics("invariants", true, 20);
+        app.update_observability_metrics("law", true, 31);
+
+        assert_eq!(app.average_action_latency_ms, 20);
+    }
+
+    #[test]
+    fn test_observability_health_transitions() {
+        let mut app = App::new();
+        assert_eq!(app.health_status, "HEALTHY");
+
+        app.update_observability_metrics("a", false, 1);
+        assert_eq!(app.health_status, "DEGRADED");
+
+        app.update_observability_metrics("b", false, 1);
+        app.update_observability_metrics("c", false, 1);
+        assert_eq!(app.health_status, "DEGRADED");
+
+        app.update_observability_metrics("d", false, 1);
+        assert_eq!(app.health_status, "CRITICAL");
+    }
+
+    #[test]
+    fn test_recent_failures_capped_at_10() {
+        let mut app = App::new();
+        for idx in 0..12 {
+            app.update_observability_metrics(&format!("fail_{idx}"), false, 1);
+        }
+
+        assert_eq!(app.recent_failures.len(), 10);
+        assert_eq!(app.recent_failures.first().unwrap(), "fail_2");
+        assert_eq!(app.recent_failures.last().unwrap(), "fail_11");
+    }
+
+    #[test]
+    fn test_invariant_summary_fallback() {
+        let mut app = App::new();
+        app.invariants = InvariantData {
+            determinism: "PASS".to_string(),
+            bounds: "—".to_string(),
+            stability: "UNKNOWN".to_string(),
+            law_engine: "FAIL".to_string(),
+            error: None,
+        };
+        app.build_invariant_summary();
+
+        assert_eq!(app.invariant_summary[0], "PASS: 1");
+        assert_eq!(app.invariant_summary[1], "FAIL: 1");
+        assert_eq!(app.invariant_summary[2], "UNKNOWN: 2");
     }
 }

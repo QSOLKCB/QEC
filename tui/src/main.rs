@@ -33,11 +33,11 @@ fn main() -> io::Result<()> {
                 KeyCode::Down => app.nav_down(),
                 KeyCode::Enter => app.select_mode(),
                 _ if app.mode == "Actions" => match key.code {
-                    KeyCode::Char('d') | KeyCode::Char('D') => app.run_action("diagnostics"),
-                    KeyCode::Char('i') | KeyCode::Char('I') => app.run_action("invariants"),
-                    KeyCode::Char('l') | KeyCode::Char('L') => app.run_action("law"),
+                    KeyCode::Char('d') | KeyCode::Char('D') => app.run_action_with_status("diagnostics"),
+                    KeyCode::Char('i') | KeyCode::Char('I') => app.run_action_with_status("invariants"),
+                    KeyCode::Char('l') | KeyCode::Char('L') => app.run_action_with_status("law"),
                     KeyCode::Char('r') | KeyCode::Char('R') => {
-                        app.run_action("refresh");
+                        app.run_action_with_status("refresh");
                         app.refresh_all();
                     }
                     KeyCode::Char('x') | KeyCode::Char('X') => app.jump_to(9),

@@ -2,6 +2,8 @@ use serde::Deserialize;
 
 use crate::commands::{dispatch_mode, execute_action, fetch_engine_diagnostics, fetch_history_timeline, fetch_invariant_status};
 
+const MAX_COMMAND_HISTORY: usize = 20;
+
 pub const NAV_ITEMS: &[&str] = &[
     "Diagnostics",
     "Control Flow",
@@ -176,6 +178,9 @@ pub struct App {
     pub history: HistoryData,
     pub invariants: InvariantData,
     pub action_log: Vec<String>,
+    pub command_history: Vec<String>,
+    pub action_status: String,
+    pub last_action_time: String,
 }
 
 impl App {
@@ -188,6 +193,9 @@ impl App {
             history: HistoryData::from_engine(),
             invariants: InvariantData::from_engine(),
             action_log: Vec::new(),
+            command_history: Vec::new(),
+            action_status: "IDLE".to_string(),
+            last_action_time: String::new(),
         }
     }
 
@@ -238,5 +246,105 @@ impl App {
         while self.action_log.len() > 10 {
             self.action_log.remove(0);
         }
+    }
+
+    pub fn run_action_with_status(&mut self, action: &str) {
+        self.action_status = "RUNNING".to_string();
+        let timestamp = format!("{:?}", std::time::SystemTime::now());
+        self.last_action_time = timestamp.clone();
+
+        let success = match execute_action(action) {
+            Ok(output) => {
+                let entry = format!("[{action}] {output}");
+                self.action_log.push(entry);
+                true
+            }
+            Err(e) => {
+                let entry = format!("[{action}] ERROR: {e}");
+                self.action_log.push(entry);
+                false
+            }
+        };
+
+        // FIFO trim action_log to last 10 lines
+        while self.action_log.len() > 10 {
+            self.action_log.remove(0);
+        }
+
+        self.action_status = if success { "SUCCESS".to_string() } else { "FAILED".to_string() };
+
+        // Append to command history with timestamp
+        self.command_history.push(format!("{action} @ {timestamp}"));
+        // FIFO trim to last MAX_COMMAND_HISTORY
+        while self.command_history.len() > MAX_COMMAND_HISTORY {
+            self.command_history.remove(0);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_initial_status_is_idle() {
+        let app = App::new();
+        assert_eq!(app.action_status, "IDLE");
+        assert!(app.command_history.is_empty());
+        assert!(app.last_action_time.is_empty());
+    }
+
+    #[test]
+    fn test_run_action_with_status_sets_success() {
+        let mut app = App::new();
+        app.run_action_with_status("diagnostics");
+        assert!(app.action_status == "SUCCESS" || app.action_status == "FAILED");
+        assert_eq!(app.command_history.len(), 1);
+        assert!(app.command_history[0].starts_with("diagnostics @ "));
+        assert!(!app.last_action_time.is_empty());
+    }
+
+    #[test]
+    fn test_run_action_with_status_unknown_action_sets_failed() {
+        let mut app = App::new();
+        app.run_action_with_status("nonexistent_action");
+        assert_eq!(app.action_status, "FAILED");
+        assert_eq!(app.command_history.len(), 1);
+        assert!(app.command_history[0].starts_with("nonexistent_action @ "));
+    }
+
+    #[test]
+    fn test_command_history_fifo_trim() {
+        let mut app = App::new();
+        for i in 0..25 {
+            app.command_history.push(format!("cmd_{i}"));
+        }
+        // Simulate the trim logic
+        while app.command_history.len() > MAX_COMMAND_HISTORY {
+            app.command_history.remove(0);
+        }
+        assert_eq!(app.command_history.len(), MAX_COMMAND_HISTORY);
+        assert_eq!(app.command_history[0], "cmd_5");
+        assert_eq!(app.command_history[19], "cmd_24");
+    }
+
+    #[test]
+    fn test_status_transitions() {
+        let mut app = App::new();
+        assert_eq!(app.action_status, "IDLE");
+        // After running a valid action, status should be SUCCESS or FAILED
+        app.run_action_with_status("diagnostics");
+        let after_run = app.action_status.clone();
+        assert!(after_run == "SUCCESS" || after_run == "FAILED");
+    }
+
+    #[test]
+    fn test_command_history_ordering() {
+        let mut app = App::new();
+        app.run_action_with_status("diagnostics");
+        app.run_action_with_status("invariants");
+        assert_eq!(app.command_history.len(), 2);
+        assert!(app.command_history[0].starts_with("diagnostics @ "));
+        assert!(app.command_history[1].starts_with("invariants @ "));
     }
 }

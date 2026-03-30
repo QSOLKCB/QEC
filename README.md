@@ -114,6 +114,7 @@ np.random.RandomState(seed)
 
 If it cannot be reproduced byte-for-byte, it is not a result.
 
+<pre>
 🖥 Rust TUI Operator Console (v106+)
 
 QEC now includes a Linutil-inspired Rust TUI control surface for:
@@ -171,6 +172,8 @@ S   scan saved sessions
 V   view session diff
 ✨ Current TUI Features
 
+</pre>
+  
 The Rust console currently supports:
 
 live Python-engine diagnostics

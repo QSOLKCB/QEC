@@ -2,10 +2,12 @@ use serde::Deserialize;
 
 use std::fs;
 use std::io::Write;
+use std::path::Path;
 
 use crate::commands::{dispatch_mode, execute_action, fetch_engine_diagnostics, fetch_history_timeline, fetch_invariant_status};
 
 const MAX_COMMAND_HISTORY: usize = 20;
+const MAX_DIFF_LINES: usize = 20;
 
 pub const NAV_ITEMS: &[&str] = &[
     "Diagnostics",
@@ -187,6 +189,9 @@ pub struct App {
     pub exported_log_path: String,
     pub replay_lines: Vec<String>,
     pub artifact_view: Vec<String>,
+    pub session_files: Vec<String>,
+    pub selected_session_index: usize,
+    pub diff_lines: Vec<String>,
 }
 
 impl App {
@@ -205,6 +210,9 @@ impl App {
             exported_log_path: String::new(),
             replay_lines: Vec::new(),
             artifact_view: Vec::new(),
+            session_files: Vec::new(),
+            selected_session_index: 0,
+            diff_lines: Vec::new(),
         }
     }
 
@@ -314,11 +322,108 @@ impl App {
         self.replay_lines = contents.lines().map(|l| l.to_string()).collect();
         Ok(())
     }
+
+    pub fn scan_sessions(&mut self) {
+        let mut sessions: Vec<String> = match fs::read_dir(".") {
+            Ok(entries) => entries
+                .filter_map(|entry| entry.ok())
+                .filter_map(|entry| {
+                    let path = entry.path();
+                    let ext = path.extension().and_then(|e| e.to_str());
+                    if ext == Some("log") && path.is_file() {
+                        path.file_name().and_then(|name| name.to_str()).map(|s| s.to_string())
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        };
+
+        sessions.sort();
+        self.session_files = sessions;
+        if self.session_files.is_empty() {
+            self.selected_session_index = 0;
+        } else if self.selected_session_index >= self.session_files.len() {
+            self.selected_session_index = self.session_files.len() - 1;
+        }
+    }
+
+    pub fn session_up(&mut self) {
+        if self.session_files.is_empty() {
+            return;
+        }
+        if self.selected_session_index == 0 {
+            self.selected_session_index = self.session_files.len() - 1;
+        } else {
+            self.selected_session_index -= 1;
+        }
+    }
+
+    pub fn session_down(&mut self) {
+        if self.session_files.is_empty() {
+            return;
+        }
+        if self.selected_session_index + 1 >= self.session_files.len() {
+            self.selected_session_index = 0;
+        } else {
+            self.selected_session_index += 1;
+        }
+    }
+
+    pub fn session_browser_active(&self) -> bool {
+        self.mode == "History Window"
+    }
+
+    pub fn diff_with_selected_session(&mut self) {
+        self.diff_lines.clear();
+        let Some(selected_file) = self.session_files.get(self.selected_session_index) else {
+            return;
+        };
+
+        let selected_path = Path::new(selected_file);
+        let file_lines: Vec<String> = match fs::read_to_string(selected_path) {
+            Ok(contents) => contents.lines().map(|line| line.to_string()).collect(),
+            Err(e) => {
+                self.diff_lines.push(format!("- read error: {e}"));
+                return;
+            }
+        };
+
+        let max_len = file_lines.len().max(self.command_history.len());
+        for idx in 0..max_len {
+            match (file_lines.get(idx), self.command_history.get(idx)) {
+                (Some(previous), Some(current)) if previous == current => {
+                    self.diff_lines.push(format!("= {current}"));
+                }
+                (Some(previous), Some(current)) => {
+                    self.diff_lines.push(format!("- {previous}"));
+                    if self.diff_lines.len() >= MAX_DIFF_LINES {
+                        break;
+                    }
+                    self.diff_lines.push(format!("+ {current}"));
+                }
+                (Some(previous), None) => self.diff_lines.push(format!("- {previous}")),
+                (None, Some(current)) => self.diff_lines.push(format!("+ {current}")),
+                (None, None) => {}
+            }
+            if self.diff_lines.len() >= MAX_DIFF_LINES {
+                break;
+            }
+        }
+        self.diff_lines.truncate(MAX_DIFF_LINES);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn test_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     #[test]
     fn test_initial_status_is_idle() {
@@ -429,5 +534,89 @@ mod tests {
         }
         let display: Vec<&String> = app.replay_lines.iter().rev().take(10).collect();
         assert_eq!(display.len(), 10);
+    }
+
+    #[test]
+    fn test_scan_finds_log_files_in_alphabetical_order() {
+        let _guard = test_lock().lock().unwrap();
+        let mut app = App::new();
+        let original_dir = std::env::current_dir().unwrap();
+        let temp_dir = original_dir.join("tui_app_scan_test");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        std::env::set_current_dir(&temp_dir).unwrap();
+
+        std::fs::write("z_run.log", "").unwrap();
+        std::fs::write("a_run.log", "").unwrap();
+        std::fs::write("ignore.txt", "").unwrap();
+
+        app.scan_sessions();
+        assert_eq!(app.session_files, vec!["a_run.log".to_string(), "z_run.log".to_string()]);
+
+        std::env::set_current_dir(&original_dir).unwrap();
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_scan_empty_directory_no_panic() {
+        let _guard = test_lock().lock().unwrap();
+        let mut app = App::new();
+        let original_dir = std::env::current_dir().unwrap();
+        let temp_dir = original_dir.join("tui_app_empty_scan_test");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        std::env::set_current_dir(&temp_dir).unwrap();
+
+        app.scan_sessions();
+        assert!(app.session_files.is_empty());
+        assert_eq!(app.selected_session_index, 0);
+
+        std::env::set_current_dir(&original_dir).unwrap();
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_diff_markers_present() {
+        let _guard = test_lock().lock().unwrap();
+        let mut app = App::new();
+        let original_dir = std::env::current_dir().unwrap();
+        let temp_dir = original_dir.join("tui_app_diff_marker_test");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        std::env::set_current_dir(&temp_dir).unwrap();
+
+        std::fs::write("session.log", "same\nold_only\n").unwrap();
+        app.command_history = vec!["same".to_string(), "new_only".to_string(), "added".to_string()];
+        app.scan_sessions();
+        app.diff_with_selected_session();
+        let joined = app.diff_lines.join("\n");
+        assert!(joined.contains("= same"));
+        assert!(joined.contains("- old_only"));
+        assert!(joined.contains("+ new_only"));
+        assert!(joined.contains("+ added"));
+
+        std::env::set_current_dir(&original_dir).unwrap();
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_diff_lines_trimmed_to_20() {
+        let _guard = test_lock().lock().unwrap();
+        let mut app = App::new();
+        let original_dir = std::env::current_dir().unwrap();
+        let temp_dir = original_dir.join("tui_app_diff_trim_test");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        std::env::set_current_dir(&temp_dir).unwrap();
+
+        let file_lines = (0..30).map(|i| format!("old_{i}")).collect::<Vec<_>>().join("\n");
+        std::fs::write("session.log", file_lines).unwrap();
+        app.command_history = (0..30).map(|i| format!("new_{i}")).collect();
+        app.scan_sessions();
+        app.diff_with_selected_session();
+        assert_eq!(app.diff_lines.len(), 20);
+
+        std::env::set_current_dir(&original_dir).unwrap();
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

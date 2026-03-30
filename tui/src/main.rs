@@ -29,8 +29,20 @@ fn main() -> io::Result<()> {
             }
             match key.code {
                 KeyCode::Char('q') | KeyCode::Char('Q') => break,
-                KeyCode::Up => app.nav_up(),
-                KeyCode::Down => app.nav_down(),
+                KeyCode::Up => {
+                    if app.session_browser_active() {
+                        app.session_up();
+                    } else {
+                        app.nav_up();
+                    }
+                }
+                KeyCode::Down => {
+                    if app.session_browser_active() {
+                        app.session_down();
+                    } else {
+                        app.nav_down();
+                    }
+                }
                 KeyCode::Enter => app.select_mode(),
                 _ if app.mode == "Actions" => match key.code {
                     KeyCode::Char('d') | KeyCode::Char('D') => app.run_action_with_status("diagnostics"),
@@ -73,6 +85,8 @@ fn main() -> io::Result<()> {
                         }
                     }
                 }
+                KeyCode::Char('s') | KeyCode::Char('S') => app.scan_sessions(),
+                KeyCode::Char('v') | KeyCode::Char('V') => app.diff_with_selected_session(),
                 _ => {}
             }
         }

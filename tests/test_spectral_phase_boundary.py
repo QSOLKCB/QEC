@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from qec.analysis.spectral_phase_boundary import run_spectral_phase_boundary
+from qec.analysis.spectral_phase_boundary import (
+    COMPONENT_KEYS,
+    DOMINANT_COMPONENT_BALANCED,
+    DOMINANT_COMPONENT_ONSET,
+    run_spectral_phase_boundary,
+)
 
 
 REQUIRED_KEYS = {
@@ -16,14 +21,6 @@ REQUIRED_KEYS = {
     "spectral_stability_score",
     "phase_boundary_class",
 }
-
-COMPONENT_KEYS = {
-    "onset_component",
-    "spectral_component",
-    "component_balance_score",
-    "dominant_component",
-}
-
 
 def _stub_multi_regime(**_: object) -> dict[str, object]:
     return {
@@ -81,7 +78,7 @@ def test_component_return_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     assert out["onset_component"] == pytest.approx(0.15)
     assert out["spectral_component"] == pytest.approx(0.007499999999999995)
     assert out["component_balance_score"] == pytest.approx(0.8575)
-    assert out["dominant_component"] == "onset_dominant"
+    assert out["dominant_component"] == DOMINANT_COMPONENT_ONSET
 
 
 def test_component_boundedness(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -239,7 +236,7 @@ def test_balanced_component_classification(monkeypatch: pytest.MonkeyPatch) -> N
 
     assert out["onset_component"] == pytest.approx(0.1)
     assert out["spectral_component"] == pytest.approx(0.01333333333333333)
-    assert out["dominant_component"] == "balanced_components"
+    assert out["dominant_component"] == DOMINANT_COMPONENT_BALANCED
 
 
 def test_short_chain_edge_case_components(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -265,4 +262,4 @@ def test_short_chain_edge_case_components(monkeypatch: pytest.MonkeyPatch) -> No
     assert out["onset_component"] == pytest.approx(0.45)
     assert out["spectral_component"] == 0.0
     assert out["component_balance_score"] == pytest.approx(0.55)
-    assert out["dominant_component"] == "onset_dominant"
+    assert out["dominant_component"] == DOMINANT_COMPONENT_ONSET

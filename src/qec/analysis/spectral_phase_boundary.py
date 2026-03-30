@@ -23,6 +23,17 @@ DOMINANT_COMPONENT_ONSET = "onset_dominant"
 DOMINANT_COMPONENT_SPECTRAL = "spectral_dominant"
 DOMINANT_COMPONENT_BALANCED = "balanced_components"
 
+COMPONENT_KEY_ONSET = "onset_component"
+COMPONENT_KEY_SPECTRAL = "spectral_component"
+COMPONENT_KEY_BALANCE_SCORE = "component_balance_score"
+COMPONENT_KEY_DOMINANT = "dominant_component"
+COMPONENT_KEYS = {
+    COMPONENT_KEY_ONSET,
+    COMPONENT_KEY_SPECTRAL,
+    COMPONENT_KEY_BALANCE_SCORE,
+    COMPONENT_KEY_DOMINANT,
+}
+
 
 def run_spectral_phase_boundary(
     chain_lengths: Sequence[int] | None = None,
@@ -61,10 +72,12 @@ def run_spectral_phase_boundary(
         "phase_boundary_class": _phase_boundary_class(spectral_stability_score),
     }
     if return_components:
-        result["onset_component"] = onset_component
-        result["spectral_component"] = spectral_component
-        result["component_balance_score"] = _clamp01(1.0 - abs(onset_component - spectral_component))
-        result["dominant_component"] = _dominant_component(onset_component, spectral_component)
+        result.update({
+            COMPONENT_KEY_ONSET: onset_component,
+            COMPONENT_KEY_SPECTRAL: spectral_component,
+            COMPONENT_KEY_BALANCE_SCORE: _clamp01(1.0 - abs(onset_component - spectral_component)),
+            COMPONENT_KEY_DOMINANT: _dominant_component(onset_component, spectral_component),
+        })
     return result
 
 

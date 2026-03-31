@@ -93,3 +93,17 @@ def test_deterministic_repeatability() -> None:
     assert result_first == result_second
     assert result_first["escape_possible"] is True
     assert result_first["escape_path"] == ("A", "B", "C", "D")
+
+
+def test_deep_graph_iterative_scc_regression() -> None:
+    n_nodes = 1500
+    edges = [(f"N{i}", f"N{i+1}") for i in range(n_nodes - 1)]
+    graph = build_state_graph(edges)
+
+    sccs_first = tarjan_scc(graph)
+    sccs_second = tarjan_scc(graph)
+    expected = tuple((node,) for node in sorted(graph.keys()))
+
+    assert sccs_first == sccs_second
+    assert len(sccs_first) == n_nodes
+    assert sccs_first == expected

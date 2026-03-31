@@ -37,46 +37,61 @@ def build_state_graph(edges: Iterable[Tuple[str, str]]) -> Graph:
 
 
 def tarjan_scc(graph: Graph) -> SCCs:
-    """Compute SCCs with deterministic Tarjan traversal and ordering.
+    """Compute SCCs with deterministic iterative Kosaraju traversal/order.
 
     Note: adjacency lists are expected to be pre-sorted by ``build_state_graph``.
     """
-    index = 0
-    stack: List[str] = []
-    on_stack: Set[str] = set()
-    indices: Dict[str, int] = {}
-    lowlinks: Dict[str, int] = {}
+    nodes = sorted(graph.keys())
+    reverse_sets: Dict[str, Set[str]] = {node: set() for node in nodes}
+    for src in nodes:
+        for dst in graph.get(src, []):
+            reverse_sets[dst].add(src)
+    reverse_graph: Dict[str, List[str]] = {
+        node: sorted(reverse_sets[node]) for node in nodes
+    }
+
+    visited: Set[str] = set()
+    finish_order: List[str] = []
+
+    for root in nodes:
+        if root in visited:
+            continue
+
+        stack: List[Tuple[str, bool]] = [(root, False)]
+        while stack:
+            node, expanded = stack.pop()
+            if expanded:
+                finish_order.append(node)
+                continue
+            if node in visited:
+                continue
+
+            visited.add(node)
+            stack.append((node, True))
+            for neighbor in reversed(graph.get(node, [])):
+                if neighbor not in visited:
+                    stack.append((neighbor, False))
+
+    assigned: Set[str] = set()
     components: List[Tuple[str, ...]] = []
 
-    def strongconnect(node: str) -> None:
-        nonlocal index
-        indices[node] = index
-        lowlinks[node] = index
-        index += 1
+    for root in reversed(finish_order):
+        if root in assigned:
+            continue
 
-        stack.append(node)
-        on_stack.add(node)
+        stack = [root]
+        component: List[str] = []
+        assigned.add(root)
 
-        for neighbor in graph.get(node, []):
-            if neighbor not in indices:
-                strongconnect(neighbor)
-                lowlinks[node] = min(lowlinks[node], lowlinks[neighbor])
-            elif neighbor in on_stack:
-                lowlinks[node] = min(lowlinks[node], indices[neighbor])
+        while stack:
+            node = stack.pop()
+            component.append(node)
+            for neighbor in reverse_graph.get(node, []):
+                if neighbor not in assigned:
+                    assigned.add(neighbor)
+                    stack.append(neighbor)
 
-        if lowlinks[node] == indices[node]:
-            component: List[str] = []
-            while stack:
-                candidate = stack.pop()
-                on_stack.remove(candidate)
-                component.append(candidate)
-                if candidate == node:
-                    break
-            components.append(tuple(sorted(component)))
-
-    for node in sorted(graph.keys()):
-        if node not in indices:
-            strongconnect(node)
+        components.append(tuple(sorted(component)))
 
     return tuple(sorted(components))
 

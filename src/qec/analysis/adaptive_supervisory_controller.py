@@ -58,10 +58,10 @@ def evaluate_supervisory_transition(
         return MODE_NORMAL
 
     if state.current_mode == MODE_RECOVERY:
-        if recovery_success:
-            return MODE_NORMAL
         if normalized_risk >= 0.95:
             return MODE_SAFE_MODE
+        if recovery_success:
+            return MODE_NORMAL
         if state.recovery_attempts >= 3:
             return MODE_ESCALATION_LOCK
         return MODE_RECOVERY

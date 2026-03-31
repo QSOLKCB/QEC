@@ -55,12 +55,35 @@ class TestEvaluateSupervisoryTransition:
         state = SupervisorState(MODE_RECOVERY, recovery_attempts=2, safe_mode_latched=False)
         assert evaluate_supervisory_transition(state, True, True, 0.8) == MODE_NORMAL
 
+    def test_recovery_fail_safe_precedence_over_success(self):
+        state = SupervisorState(MODE_RECOVERY, recovery_attempts=2, safe_mode_latched=False)
+        assert evaluate_supervisory_transition(state, True, True, 0.95) == MODE_SAFE_MODE
+
     def test_recovery_risk_to_safe_mode(self):
         state = SupervisorState(MODE_RECOVERY, recovery_attempts=2, safe_mode_latched=False)
         assert evaluate_supervisory_transition(state, True, False, 0.95) == MODE_SAFE_MODE
 
+    def test_recovery_risk_boundary_below_threshold_remains_recovery(self):
+        state = SupervisorState(MODE_RECOVERY, recovery_attempts=2, safe_mode_latched=False)
+        assert evaluate_supervisory_transition(state, True, False, 0.94) == MODE_RECOVERY
+
+    def test_recovery_risk_boundary_at_one_triggers_safe_mode(self):
+        state = SupervisorState(MODE_RECOVERY, recovery_attempts=2, safe_mode_latched=False)
+        assert evaluate_supervisory_transition(state, True, False, 1.0) == MODE_SAFE_MODE
+
     def test_recovery_attempts_to_escalation_lock(self):
         state = SupervisorState(MODE_RECOVERY, recovery_attempts=3, safe_mode_latched=False)
+        assert (
+            evaluate_supervisory_transition(state, True, False, 0.2)
+            == MODE_ESCALATION_LOCK
+        )
+
+    def test_recovery_attempts_boundary_below_threshold_remains_recovery(self):
+        state = SupervisorState(MODE_RECOVERY, recovery_attempts=2, safe_mode_latched=False)
+        assert evaluate_supervisory_transition(state, True, False, 0.2) == MODE_RECOVERY
+
+    def test_recovery_attempts_boundary_above_threshold_escalates(self):
+        state = SupervisorState(MODE_RECOVERY, recovery_attempts=4, safe_mode_latched=False)
         assert (
             evaluate_supervisory_transition(state, True, False, 0.2)
             == MODE_ESCALATION_LOCK

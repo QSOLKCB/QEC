@@ -81,6 +81,41 @@ class ThresholdHysteresisController:
             return "nominal"
         return "recovery"
 
+    def next_state(self, state: HysteresisState, score: float) -> HysteresisState:
+        """Return deterministic next hysteresis state with stale-counter reset ownership."""
+        observed_band = self.classify_band(score)
+        next_band = self.apply_hysteresis(state, score)
+
+        warning_counter = 0
+        critical_counter = 0
+        recovery_counter = 0
+
+        if next_band == "nominal":
+            if state.current_band == "nominal" and observed_band == "warning":
+                warning_counter = state.warning_counter + 1
+        elif next_band == "warning":
+            if state.current_band == "warning":
+                if observed_band == "critical":
+                    critical_counter = state.critical_counter + 1
+                elif observed_band == "nominal":
+                    recovery_counter = state.recovery_counter + 1
+        elif next_band == "critical":
+            if state.current_band == "critical":
+                if score < self._critical_recovery_threshold:
+                    recovery_counter = state.recovery_counter + 1
+                elif observed_band == "warning":
+                    warning_counter = state.warning_counter + 1
+        elif next_band == "recovery":
+            if score < self._recovery_nominal_threshold:
+                recovery_counter = state.recovery_counter + 1
+
+        return HysteresisState(
+            current_band=next_band,
+            warning_counter=warning_counter,
+            critical_counter=critical_counter,
+            recovery_counter=recovery_counter,
+        )
+
     def step(self, state: HysteresisState, score: float) -> dict:
         """Compute deterministic transition metadata for one control cycle."""
         previous_band = state.current_band

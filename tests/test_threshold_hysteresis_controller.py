@@ -18,33 +18,6 @@ def _state(current_band: str, *, warning_counter: int = 0, critical_counter: int
     )
 
 
-def _advance_state(controller: ThresholdHysteresisController, state: HysteresisState, score: float) -> HysteresisState:
-    observed = controller.classify_band(score)
-    next_band = controller.apply_hysteresis(state, score)
-
-    warning_counter = state.warning_counter + 1 if observed == "warning" else 0
-    critical_counter = state.critical_counter + 1 if observed == "critical" else 0
-
-    if next_band == "critical":
-        recovery_counter = state.recovery_counter + 1 if score < 0.5 else 0
-    elif next_band in ("warning", "recovery"):
-        if next_band == "warning" and observed == "nominal":
-            recovery_counter = state.recovery_counter + 1
-        elif next_band == "recovery" and score < 0.3:
-            recovery_counter = state.recovery_counter + 1
-        else:
-            recovery_counter = 0
-    else:
-        recovery_counter = 0
-
-    return HysteresisState(
-        current_band=next_band,
-        warning_counter=warning_counter,
-        critical_counter=critical_counter,
-        recovery_counter=recovery_counter,
-    )
-
-
 def test_no_single_cycle_escalation() -> None:
     controller = ThresholdHysteresisController()
     result = controller.step(_state("nominal", warning_counter=0), 0.55)
@@ -107,13 +80,13 @@ def test_anti_flap_repeatability() -> None:
     outputs_a = []
     for score in scores:
         outputs_a.append(controller.step(state_a, score))
-        state_a = _advance_state(controller, state_a, score)
+        state_a = controller.next_state(state_a, score)
 
     state_b = _state("nominal")
     outputs_b = []
     for score in scores:
         outputs_b.append(controller.step(state_b, score))
-        state_b = _advance_state(controller, state_b, score)
+        state_b = controller.next_state(state_b, score)
 
     assert outputs_a == outputs_b
 
@@ -140,3 +113,42 @@ def test_frozen_dataclass_immutability() -> None:
     state = _state("nominal")
     with pytest.raises(FrozenInstanceError):
         state.current_band = "warning"
+
+
+def test_stale_warning_counter_cleared_on_nominal_observation() -> None:
+    controller = ThresholdHysteresisController()
+    state = _state("nominal", warning_counter=1, critical_counter=7, recovery_counter=9)
+    next_state = controller.next_state(state, 0.20)
+    assert next_state.current_band == "nominal"
+    assert next_state.warning_counter == 0
+    assert next_state.critical_counter == 0
+    assert next_state.recovery_counter == 0
+
+
+def test_stale_critical_counter_cleared_on_warning_observation() -> None:
+    controller = ThresholdHysteresisController()
+    state = _state("warning", warning_counter=3, critical_counter=1, recovery_counter=4)
+    next_state = controller.next_state(state, 0.55)
+    assert next_state.current_band == "warning"
+    assert next_state.warning_counter == 0
+    assert next_state.critical_counter == 0
+    assert next_state.recovery_counter == 0
+
+
+def test_stale_recovery_counter_cleared_on_upward_observation() -> None:
+    controller = ThresholdHysteresisController()
+    state = _state("recovery", warning_counter=2, critical_counter=5, recovery_counter=1)
+    next_state = controller.next_state(state, 0.60)
+    assert next_state.current_band == "recovery"
+    assert next_state.warning_counter == 0
+    assert next_state.critical_counter == 0
+    assert next_state.recovery_counter == 0
+
+
+def test_next_state_repeatability_is_deterministic() -> None:
+    controller = ThresholdHysteresisController()
+    initial = _state("critical", warning_counter=1, critical_counter=2, recovery_counter=0)
+    score = 0.45
+    out1 = controller.next_state(initial, score)
+    out2 = controller.next_state(initial, score)
+    assert out1 == out2

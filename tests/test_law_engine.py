@@ -39,7 +39,7 @@ def test_single_law_trigger():
     assert result["executed_law_id"] == "law_single"
     assert result["priority"] == 1
     assert result["action_result"] == {"x": 1, "tag": "single"}
-    assert result["matched_laws"] == ["law_single"]
+    assert result["first_matched_law_id"] == "law_single"
     assert result["evaluation_trace"] == ("law_single",)
     assert state == before
 
@@ -55,7 +55,7 @@ def test_multiple_triggered_laws_highest_priority_wins():
     assert result["executed_law_id"] == "law_high"
     assert result["priority"] == 3
     assert result["action_result"]["tag"] == "high"
-    assert result["matched_laws"] == ["law_high"]
+    assert result["first_matched_law_id"] == "law_high"
     assert result["evaluation_trace"] == ("law_high",)
 
 
@@ -69,7 +69,7 @@ def test_equal_priority_lexicographic_law_id_stable():
     assert result["law_triggered"] is True
     assert result["executed_law_id"] == "law_aaa"
     assert result["action_result"]["tag"] == "aaa"
-    assert result["matched_laws"] == ["law_aaa"]
+    assert result["first_matched_law_id"] == "law_aaa"
     assert result["evaluation_trace"] == ("law_aaa",)
 
 
@@ -85,7 +85,7 @@ def test_no_laws_triggered():
         "executed_law_id": None,
         "priority": None,
         "action_result": {},
-        "matched_laws": [],
+        "first_matched_law_id": None,
         "evaluation_trace": ("law_a", "law_b"),
     }
 
@@ -99,7 +99,7 @@ def test_disabled_law_ignored():
 
     assert result["executed_law_id"] == "law_enabled"
     assert result["action_result"]["tag"] == "enabled"
-    assert result["matched_laws"] == ["law_enabled"]
+    assert result["first_matched_law_id"] == "law_enabled"
     assert result["evaluation_trace"] == ("law_enabled",)
 
 
@@ -126,3 +126,19 @@ def test_evaluation_trace_stability():
 
     assert result_one["evaluation_trace"] == ("law_a", "law_b", "law_c")
     assert result_two["evaluation_trace"] == ("law_a", "law_b", "law_c")
+
+
+def test_first_match_short_circuit_preserved():
+    first = Law("law_a", 3, _always_true, _tag_action("a"))
+
+    def _must_not_execute(_state):
+        raise AssertionError("short-circuit violated")
+
+    second = Law("law_b", 1, _must_not_execute, _tag_action("b"))
+    engine = LawEngine({first.law_id: first, second.law_id: second})
+
+    result = engine.evaluate({"x": 1})
+
+    assert result["executed_law_id"] == "law_a"
+    assert result["first_matched_law_id"] == "law_a"
+    assert result["evaluation_trace"] == ("law_a",)

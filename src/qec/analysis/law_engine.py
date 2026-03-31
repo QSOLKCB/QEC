@@ -13,7 +13,7 @@ Design constraints:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 import copy
 
 
@@ -54,13 +54,13 @@ class LawEngine:
                 "executed_law_id": str | None,
                 "priority": int | None,
                 "action_result": dict,
-                "matched_laws": list[str],
+                "first_matched_law_id": str | None,
                 "evaluation_trace": tuple[str, ...],
             }
         """
         sorted_laws = self.sort_laws()
 
-        matched_laws: List[str] = []
+        first_matched_law_id: Optional[str] = None
         evaluation_trace: List[str] = []
         executed_law: Optional[Law] = None
 
@@ -71,7 +71,7 @@ class LawEngine:
             evaluation_trace.append(law.law_id)
             condition_state = copy.deepcopy(state)
             if law.condition(condition_state):
-                matched_laws.append(law.law_id)
+                first_matched_law_id = law.law_id
                 if executed_law is None:
                     executed_law = law
                     break
@@ -82,7 +82,7 @@ class LawEngine:
                 "executed_law_id": None,
                 "priority": None,
                 "action_result": {},
-                "matched_laws": matched_laws,
+                "first_matched_law_id": first_matched_law_id,
                 "evaluation_trace": tuple(evaluation_trace),
             }
 
@@ -94,6 +94,6 @@ class LawEngine:
             "executed_law_id": executed_law.law_id,
             "priority": executed_law.priority,
             "action_result": action_result,
-            "matched_laws": matched_laws,
+            "first_matched_law_id": first_matched_law_id,
             "evaluation_trace": tuple(evaluation_trace),
         }

@@ -11,7 +11,7 @@ RECOVERY_PERSISTENCE_THRESHOLD = 2
 MAX_TIMER_VALUE = 32
 
 CONTROLLER_STATES = ("observe", "stabilize", "intervene", "recover")
-CONTROL_ACTIONS = ("none", "observe", "stabilize", "intervene", "recover")
+CONTROL_ACTIONS = ("observe", "stabilize", "intervene", "recover")
 
 TIMED_TRANSITIONS: dict[tuple[str, str], tuple[str, str]] = {
     ("observe", "observe"): ("observe", "remain_observe"),
@@ -41,17 +41,22 @@ class TimedControllerState:
     critical_cycles: int = 0
     recovery_cycles: int = 0
     fsm_state: str = "observe"
+    was_escalated: bool = False
 
     def reset(self) -> None:
         self.warning_cycles = 0
         self.critical_cycles = 0
         self.recovery_cycles = 0
         self.fsm_state = "observe"
+        self.was_escalated = False
 
     def update(self, observer_state: Any, attractor_state: Any) -> None:
         warning_active = _is_warning(observer_state, attractor_state)
         critical_active = _is_critical(observer_state, attractor_state)
         recovery_active = _is_recovery(observer_state, attractor_state)
+
+        if warning_active or critical_active:
+            self.was_escalated = True
 
         if warning_active and not critical_active:
             self.warning_cycles = _bounded_increment(self.warning_cycles)
@@ -63,7 +68,7 @@ class TimedControllerState:
         else:
             self.critical_cycles = 0
 
-        if recovery_active and not warning_active and not critical_active:
+        if self.was_escalated and recovery_active and not warning_active and not critical_active:
             self.recovery_cycles = _bounded_increment(self.recovery_cycles)
         else:
             self.recovery_cycles = 0
@@ -108,7 +113,7 @@ def run_timed_controller_synthesis(
     guards = evaluate_timer_guards(state)
     control_action = synthesize_control_action(observer_state, attractor_state, guards)
 
-    action_key = "observe" if control_action == "none" else control_action
+    action_key = control_action
     if action_key not in CONTROL_ACTIONS:
         raise ValueError(f"unknown control action: {control_action}")
 
@@ -118,6 +123,12 @@ def run_timed_controller_synthesis(
 
     next_state, transition_event = TIMED_TRANSITIONS[transition_key]
     state.fsm_state = next_state
+    if control_action in {"stabilize", "intervene"}:
+        state.was_escalated = True
+    if control_action == "recover":
+        state.was_escalated = False
+    if transition_event == "recover_to_observe":
+        state.was_escalated = False
 
     timer_guard_triggered = bool(guards["warning_guard"] or guards["critical_guard"] or guards["recovery_guard"])
 

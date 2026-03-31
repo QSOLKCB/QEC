@@ -51,6 +51,29 @@ class TestEvaluatePolicyEffectiveness:
         assert feedback["policy_degraded"] is False
         assert feedback["stagnation_detected"] is True
 
+    def test_stagnation_positive_boundary_regression(self):
+        state = FeedbackState(0.55, 0.50, "observe", "observe")
+        feedback = evaluate_policy_effectiveness(state)
+        assert feedback["stagnation_detected"] is True
+
+    def test_stagnation_negative_boundary_regression(self):
+        state = FeedbackState(0.50, 0.55, "observe", "observe")
+        feedback = evaluate_policy_effectiveness(state)
+        assert feedback["stagnation_detected"] is True
+
+    def test_plus_minus_point_one_not_improvement_or_degradation(self):
+        plus_boundary = evaluate_policy_effectiveness(
+            FeedbackState(0.90, 0.80, "observe", "stabilize")
+        )
+        minus_boundary = evaluate_policy_effectiveness(
+            FeedbackState(0.80, 0.90, "stabilize", "observe")
+        )
+
+        assert plus_boundary["policy_improved"] is False
+        assert plus_boundary["policy_degraded"] is False
+        assert minus_boundary["policy_improved"] is False
+        assert minus_boundary["policy_degraded"] is False
+
 
 class TestRecommendPolicyAdjustment:
     def test_maintain_action(self):

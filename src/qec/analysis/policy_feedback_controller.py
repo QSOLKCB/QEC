@@ -9,6 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+EPSILON = 1e-12
+
+
 @dataclass(frozen=True)
 class FeedbackState:
     """Immutable feedback state for policy effectiveness analysis."""
@@ -26,7 +29,7 @@ def evaluate_policy_effectiveness(state: FeedbackState) -> dict:
         "risk_delta": risk_delta,
         "policy_improved": risk_delta > 0.10,
         "policy_degraded": risk_delta < -0.10,
-        "stagnation_detected": abs(risk_delta) <= 0.05,
+        "stagnation_detected": abs(risk_delta) <= 0.05 + EPSILON,
     }
 
 

@@ -13,7 +13,7 @@ All outputs are deterministic and stable for identical inputs.
 from __future__ import annotations
 
 from collections import deque
-from typing import Dict, Iterable, List, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 
 Graph = Dict[str, List[str]]
@@ -25,10 +25,8 @@ def build_state_graph(edges: Iterable[Tuple[str, str]]) -> Graph:
     adjacency: Dict[str, Set[str]] = {}
 
     for src, dst in edges:
-        if src not in adjacency:
-            adjacency[src] = set()
-        if dst not in adjacency:
-            adjacency[dst] = set()
+        adjacency.setdefault(src, set())
+        adjacency.setdefault(dst, set())
         adjacency[src].add(dst)
 
     graph: Graph = {}
@@ -39,7 +37,10 @@ def build_state_graph(edges: Iterable[Tuple[str, str]]) -> Graph:
 
 
 def tarjan_scc(graph: Graph) -> SCCs:
-    """Compute SCCs with deterministic Tarjan traversal and ordering."""
+    """Compute SCCs with deterministic Tarjan traversal and ordering.
+
+    Note: adjacency lists are expected to be pre-sorted by ``build_state_graph``.
+    """
     index = 0
     stack: List[str] = []
     on_stack: Set[str] = set()
@@ -56,7 +57,7 @@ def tarjan_scc(graph: Graph) -> SCCs:
         stack.append(node)
         on_stack.add(node)
 
-        for neighbor in sorted(graph.get(node, [])):
+        for neighbor in graph.get(node, []):
             if neighbor not in indices:
                 strongconnect(neighbor)
                 lowlinks[node] = min(lowlinks[node], lowlinks[neighbor])
@@ -112,23 +113,27 @@ def find_escape_path(
     if start in safe_nodes:
         return (start,)
 
-    queue: deque[Tuple[str, ...]] = deque([(start,)])
-    visited: Set[str] = {start}
+    queue: deque[str] = deque([start])
+    predecessors: Dict[str, Optional[str]] = {start: None}
 
     while queue:
-        path = queue.popleft()
-        node = path[-1]
+        node = queue.popleft()
 
         for neighbor in sorted(graph.get(node, [])):
-            if neighbor in visited:
+            if neighbor in predecessors:
                 continue
 
-            next_path = path + (neighbor,)
+            predecessors[neighbor] = node
             if neighbor in safe_nodes:
-                return next_path
+                path: List[str] = []
+                cursor: Optional[str] = neighbor
+                while cursor is not None:
+                    path.append(cursor)
+                    cursor = predecessors[cursor]
+                path.reverse()
+                return tuple(path)
 
-            visited.add(neighbor)
-            queue.append(next_path)
+            queue.append(neighbor)
 
     return ()
 
@@ -175,6 +180,7 @@ def run_graph_controllability(
 ) -> Dict[str, object]:
     """Run deterministic graph controllability analysis pipeline."""
     graph = build_state_graph(edges)
+    safe_nodes_set = set(safe_nodes)
 
     # Keep ``start`` observable even with no incident edges.
     if start not in graph:
@@ -182,8 +188,8 @@ def run_graph_controllability(
 
     sccs = tarjan_scc(graph)
     condensation_dag = build_condensation_dag(graph, sccs)
-    escape_path = find_escape_path(graph, start, set(safe_nodes))
-    risk_by_scc = classify_scc_risk(graph, sccs, set(safe_nodes))
+    escape_path = find_escape_path(graph, start, safe_nodes_set)
+    risk_by_scc = classify_scc_risk(graph, sccs, safe_nodes_set)
 
     critical_sccs = tuple(sccs[idx] for idx in range(len(sccs)) if risk_by_scc[idx] == "critical")
     safe_sccs = tuple(sccs[idx] for idx in range(len(sccs)) if risk_by_scc[idx] == "safe")

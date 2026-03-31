@@ -52,6 +52,19 @@ def test_shortest_escape_path() -> None:
     assert path == ("S", "A", "C", "SAFE")
 
 
+def test_deterministic_path_tie_break_unchanged() -> None:
+    graph = build_state_graph(
+        [
+            ("S", "A"),
+            ("S", "B"),
+            ("A", "SAFE"),
+            ("B", "SAFE"),
+        ]
+    )
+    path = find_escape_path(graph, start="S", safe_nodes={"SAFE"})
+    assert path == ("S", "A", "SAFE")
+
+
 def test_no_escape_path() -> None:
     graph = build_state_graph([("A", "B"), ("B", "C")])
     path = find_escape_path(graph, start="A", safe_nodes={"SAFE"})

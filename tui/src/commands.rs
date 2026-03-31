@@ -155,18 +155,37 @@ pub fn fetch_phase_diagnostics() -> Result<String, String> {
             }
             Ok(stdout)
         }
-        _ => {
+        primary => {
+            let primary_context = match primary {
+                Ok(o) => {
+                    let stderr = String::from_utf8_lossy(&o.stderr).trim().to_string();
+                    if stderr.is_empty() {
+                        format!("exit status {}", o.status)
+                    } else {
+                        format!("exit status {} stderr: {}", o.status, stderr)
+                    }
+                }
+                Err(e) => format!("invoke error: {e}"),
+            };
+
             let fallback = Command::new("python")
                 .args([
                     "-c",
                     "import json; print(json.dumps({\"attractor_state\": \"fixed_point\", \"attractor_cycle_length\": 1, \"phase_transition_index\": 0.0, \"attractor_entry_cycle\": 0, \"transition_sharpness_score\": 1.0, \"attractor_confidence_score\": 1.0, \"detected_cycle_period\": 1, \"cycle_spectrum_class\": \"mono\"}))",
                 ])
                 .output()
-                .map_err(|e| format!("Failed to invoke Python: {e}"))?;
+                .map_err(|e| {
+                    format!(
+                        "Phase diagnostics primary failed: {primary_context}; fallback invoke failed: {e}"
+                    )
+                })?;
 
             if !fallback.status.success() {
                 let stderr = String::from_utf8_lossy(&fallback.stderr);
-                return Err(format!("Python subprocess failed: {stderr}"));
+                eprintln!("phase diagnostics primary failure: {primary_context}");
+                return Err(format!(
+                    "Phase diagnostics primary failed: {primary_context}; fallback failed: {stderr}"
+                ));
             }
 
             let stdout = String::from_utf8_lossy(&fallback.stdout).to_string();
@@ -236,6 +255,12 @@ pub fn execute_action(action: &str) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn test_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     #[test]
     fn test_fetch_engine_diagnostics_returns_json() {
@@ -300,5 +325,23 @@ mod tests {
         assert!(json.get("attractor_state").is_some());
         assert!(json.get("transition_sharpness_score").is_some());
         assert!(json.get("cycle_spectrum_class").is_some());
+    }
+
+    #[test]
+    fn test_fetch_phase_diagnostics_preserves_primary_error_context() {
+        let _guard = test_lock().lock().unwrap();
+        let original_path = std::env::var("PATH").ok();
+        std::env::set_var("PATH", "");
+
+        let result = fetch_phase_diagnostics();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("primary failed"));
+
+        if let Some(path) = original_path {
+            std::env::set_var("PATH", path);
+        } else {
+            std::env::remove_var("PATH");
+        }
     }
 }

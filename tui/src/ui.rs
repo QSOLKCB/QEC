@@ -432,7 +432,7 @@ fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
         .split(area);
     let phase = &app.phase_diagnostics;
     let summary = Paragraph::new(vec![Line::from(format!(
-        "  period: {}  sharpness: {}  confidence: {}",
+        "  period: {}  sharpness: {:.4}  confidence: {:.4}",
         phase.detected_cycle_period,
         phase.transition_sharpness_score,
         phase.attractor_confidence_score
@@ -444,8 +444,8 @@ fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
     );
     f.render_widget(summary, split[0]);
 
-    let confidence = bounded_percent(&phase.attractor_confidence_score);
-    let sharpness = bounded_percent(&phase.transition_sharpness_score);
+    let confidence = bounded_percent(phase.attractor_confidence_score);
+    let sharpness = bounded_percent(phase.transition_sharpness_score);
     draw_ratio_gauge(f, split[1], "Confidence", confidence, Color::Green);
     draw_ratio_gauge(f, split[2], "Sharpness", sharpness, Color::Cyan);
 }
@@ -552,10 +552,13 @@ fn phase_dynamics_content(app: &App) -> Vec<Line<'static>> {
         Line::from(format!("  state: {}", phase.attractor_state)),
         Line::from(format!("  cycle_length: {}", phase.attractor_cycle_length)),
         Line::from(format!("  entry: {}", phase.attractor_entry_cycle)),
-        Line::from(format!("  transition: {}", phase.phase_transition_index)),
-        Line::from(format!("  sharpness: {}", phase.transition_sharpness_score)),
+        Line::from(format!("  transition: {:.4}", phase.phase_transition_index)),
         Line::from(format!(
-            "  confidence: {}",
+            "  sharpness: {:.4}",
+            phase.transition_sharpness_score
+        )),
+        Line::from(format!(
+            "  confidence: {:.4}",
             phase.attractor_confidence_score
         )),
         Line::from(format!("  period: {}", phase.detected_cycle_period)),
@@ -815,10 +818,23 @@ fn draw_help_overlay(f: &mut Frame) {
     f.render_widget(popup, area);
 }
 
-fn bounded_percent(value: &str) -> u16 {
-    let parsed = value.parse::<f64>().unwrap_or(0.0);
-    let clamped = parsed.clamp(0.0, 1.0);
+fn bounded_percent(value: f64) -> u16 {
+    if !value.is_finite() {
+        return 0;
+    }
+    let clamped = value.clamp(0.0, 1.0);
     (clamped * 100.0).round() as u16
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bounded_percent;
+
+    #[test]
+    fn test_bounded_percent_non_finite_guard() {
+        assert_eq!(bounded_percent(f64::NAN), 0);
+        assert_eq!(bounded_percent(f64::INFINITY), 0);
+    }
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {

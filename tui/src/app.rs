@@ -11,6 +11,7 @@ use crate::commands::{
 };
 
 const MAX_COMMAND_HISTORY: usize = 20;
+const MAX_PHASE_SNAPSHOTS: usize = 20;
 const MAX_DIFF_LINES: usize = 20;
 pub const HISTORY_WINDOW_MODE: &str = "History Window";
 const MAX_RECENT_FAILURES: usize = 10;
@@ -258,12 +259,12 @@ struct RawPhaseDiagnostics {
 
 pub struct PhaseDiagnosticsData {
     pub attractor_state: String,
-    pub attractor_cycle_length: String,
-    pub phase_transition_index: String,
-    pub attractor_entry_cycle: String,
-    pub transition_sharpness_score: String,
-    pub attractor_confidence_score: String,
-    pub detected_cycle_period: String,
+    pub attractor_cycle_length: u64,
+    pub phase_transition_index: f64,
+    pub attractor_entry_cycle: u64,
+    pub transition_sharpness_score: f64,
+    pub attractor_confidence_score: f64,
+    pub detected_cycle_period: u64,
     pub cycle_spectrum_class: String,
     pub error: Option<String>,
 }
@@ -272,12 +273,12 @@ impl PhaseDiagnosticsData {
     fn placeholder() -> Self {
         Self {
             attractor_state: "—".to_string(),
-            attractor_cycle_length: "—".to_string(),
-            phase_transition_index: "—".to_string(),
-            attractor_entry_cycle: "—".to_string(),
-            transition_sharpness_score: "—".to_string(),
-            attractor_confidence_score: "—".to_string(),
-            detected_cycle_period: "—".to_string(),
+            attractor_cycle_length: 0,
+            phase_transition_index: 0.0,
+            attractor_entry_cycle: 0,
+            transition_sharpness_score: 0.0,
+            attractor_confidence_score: 0.0,
+            detected_cycle_period: 0,
             cycle_spectrum_class: "—".to_string(),
             error: None,
         }
@@ -288,12 +289,12 @@ impl PhaseDiagnosticsData {
             Ok(json_str) => match serde_json::from_str::<RawPhaseDiagnostics>(&json_str) {
                 Ok(raw) => Self {
                     attractor_state: raw.attractor_state,
-                    attractor_cycle_length: raw.attractor_cycle_length.to_string(),
-                    phase_transition_index: format!("{:.4}", raw.phase_transition_index),
-                    attractor_entry_cycle: raw.attractor_entry_cycle.to_string(),
-                    transition_sharpness_score: format!("{:.4}", raw.transition_sharpness_score),
-                    attractor_confidence_score: format!("{:.4}", raw.attractor_confidence_score),
-                    detected_cycle_period: raw.detected_cycle_period.to_string(),
+                    attractor_cycle_length: raw.attractor_cycle_length,
+                    phase_transition_index: raw.phase_transition_index,
+                    attractor_entry_cycle: raw.attractor_entry_cycle,
+                    transition_sharpness_score: raw.transition_sharpness_score,
+                    attractor_confidence_score: raw.attractor_confidence_score,
+                    detected_cycle_period: raw.detected_cycle_period,
                     cycle_spectrum_class: raw.cycle_spectrum_class,
                     error: None,
                 },
@@ -840,7 +841,7 @@ impl App {
             return;
         }
         self.phase_snapshots.push(format!(
-            "state={} entry={} transition={} sharpness={} confidence={} period={} spectrum={}",
+            "state={} entry={} transition={:.4} sharpness={:.4} confidence={:.4} period={} spectrum={}",
             self.phase_diagnostics.attractor_state,
             self.phase_diagnostics.attractor_entry_cycle,
             self.phase_diagnostics.phase_transition_index,
@@ -849,7 +850,7 @@ impl App {
             self.phase_diagnostics.detected_cycle_period,
             self.phase_diagnostics.cycle_spectrum_class
         ));
-        while self.phase_snapshots.len() > MAX_COMMAND_HISTORY {
+        while self.phase_snapshots.len() > MAX_PHASE_SNAPSHOTS {
             self.phase_snapshots.remove(0);
         }
     }
@@ -1338,12 +1339,22 @@ mod tests {
         let before = app.phase_snapshots.len();
         app.refresh_phase_diagnostics();
         assert!(app.phase_diagnostics.error.is_none());
+        assert!(app.phase_diagnostics.phase_transition_index.is_finite());
         assert!(app.phase_snapshots.len() >= before);
         assert!(app
             .phase_snapshots
             .last()
             .unwrap_or(&String::new())
             .contains("confidence="));
+    }
+
+    #[test]
+    fn test_phase_snapshot_retention_cap() {
+        let mut app = App::new();
+        for _ in 0..(MAX_PHASE_SNAPSHOTS + 5) {
+            app.record_phase_snapshot();
+        }
+        assert_eq!(app.phase_snapshots.len(), MAX_PHASE_SNAPSHOTS);
     }
 
     #[test]

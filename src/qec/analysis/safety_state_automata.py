@@ -16,10 +16,13 @@ SAFETY_STATES = (
 TRANSITION_LABELS = {
     ("nominal", "nominal"): "remain_nominal",
     ("nominal", "alert"): "nominal_to_alert",
+    ("alert", "alert"): "remain_alert",
     ("alert", "recovering"): "alert_to_recovering",
     ("alert", "emergency_stop"): "alert_to_emergency_stop",
+    ("recovering", "recovering"): "remain_recovering",
     ("recovering", "stabilized"): "recovering_to_stabilized",
     ("recovering", "emergency_stop"): "recovering_to_emergency_stop",
+    ("stabilized", "stabilized"): "remain_stabilized",
     ("stabilized", "nominal"): "stabilized_to_nominal",
     ("emergency_stop", "emergency_stop"): "remain_emergency_stop",
 }

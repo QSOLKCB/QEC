@@ -115,37 +115,42 @@ np.random.RandomState(seed)
 If it cannot be reproduced byte-for-byte, it is not a result.
 
 <pre>
-🖥 Rust TUI Operator Console (v106+)
 
-QEC now includes a Linutil-inspired Rust TUI control surface for:
+🖥 Rust TUI Operator Console (v106+, Phase Workstation v115.1+)
+
+QEC includes a Linutil-inspired Rust TUI control surface for:
 
 live diagnostics
 adaptive control workflows
 session replay
 operator-driven law-engine actions
+phase dynamics workstation
+attractor-cycle observability
 
 The layout is optimized for fast, keyboard-first workflows:
 
 Left   → navigation / mode selection
-Center → live diagnostics / history / action console
-Right  → invariant health / system status
+Center → live diagnostics / history / action console / phase workstation
+Right  → invariant health / system status / phase gauges
 Bottom → hotkeys / command legend
-
-The interface is designed as a true operator cockpit for deterministic control and system inspection.
 
 🚀 Build & Run
 Build
 cd tui
 cargo build --release
+
 Run
 cargo run --release
+
 Production-style startup
 ./target/release/qec-tui
+
 ⌨️ Key Controls
 Navigation
 ↑ / ↓   move selection
 Enter   switch active mode
 Q       quit
+
 Mode Shortcuts
 D   diagnostics
 C   control flow
@@ -157,20 +162,34 @@ W   history window
 I   invariants
 L   law engine
 X   actions console
+T   phase dynamics
+G   cycle alert profile
+
 Action Console
-
 When inside Actions mode:
-
 D   run diagnostics
 I   run invariants
 L   run law engine
 R   refresh all
+T   run phase diagnostics
+
 Session & Replay
 E   export session log
 P   replay last session
 S   scan saved sessions
 V   view session diff
+
 ✨ Current TUI Features
+live Python-engine diagnostics
+invariant health monitor
+adaptive control state view
+regime history timeline
+phase dynamics workstation
+confidence / sharpness gauges
+cycle-period diagnostics
+phase snapshot export / replay
+multi-session browser
+diff viewer
 
 </pre>
   

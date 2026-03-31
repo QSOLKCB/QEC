@@ -153,10 +153,10 @@ def _attractor_entry_cycle(lattice_trace: list[tuple[int, ...]], attractor_state
         if not lattice_trace:
             return -1
         final_state = lattice_trace[-1]
-        for index, state in enumerate(lattice_trace):
-            if state == final_state and all(candidate == final_state for candidate in lattice_trace[index:]):
-                return int(index)
-        return -1
+        entry = len(lattice_trace) - 1
+        while entry > 0 and lattice_trace[entry - 1] == final_state:
+            entry -= 1
+        return int(entry)
 
     if attractor_state == ATTRACTOR_STATE_PERIOD_TWO:
         if len(lattice_trace) < 2:
@@ -165,15 +165,15 @@ def _attractor_entry_cycle(lattice_trace: list[tuple[int, ...]], attractor_state
         final_b = lattice_trace[-1]
         if final_a == final_b:
             return -1
-        for start in range(len(lattice_trace) - 1):
-            is_match = True
-            for offset, state in enumerate(lattice_trace[start:]):
-                expected = final_a if (offset % 2 == 0) else final_b
-                if state != expected:
-                    is_match = False
-                    break
-            if is_match:
-                return int(start)
+        valid_states = {final_a, final_b}
+        entry = len(lattice_trace) - 2
+        while entry > 0:
+            previous = lattice_trace[entry - 1]
+            current = lattice_trace[entry]
+            if previous not in valid_states or previous == current:
+                break
+            entry -= 1
+        return int(entry)
     return -1
 
 
@@ -198,26 +198,27 @@ def _transition_sharpness_score(
 def _changed_fraction(lattice_trace: list[tuple[int, ...]], start_cycle: int, end_cycle: int) -> float:
     if end_cycle <= start_cycle:
         return 0.0
-    transitions = [
-        (lattice_trace[index], lattice_trace[index + 1])
-        for index in range(start_cycle, min(end_cycle, len(lattice_trace) - 1))
-    ]
-    if not transitions:
-        return 0.0
-
-    state_lengths = [len(state) for pair in transitions for state in pair]
-    if len(set(state_lengths)) != 1:
-        raise ValueError("lattice trace states must have equal length")
-    state_length = state_lengths[0]
-    total_positions = len(transitions) * state_length
-    if total_positions <= 0:
-        return 0.0
-
+    stop_cycle = min(end_cycle, len(lattice_trace) - 1)
+    expected_length: int | None = None
+    total_positions = 0
     changed_positions = 0
-    for previous_state, next_state in transitions:
+    for transition_index, (previous_state, next_state) in enumerate(zip(lattice_trace, lattice_trace[1:])):
+        if transition_index < start_cycle:
+            continue
+        if transition_index >= stop_cycle:
+            break
+        previous_length = len(previous_state)
+        next_length = len(next_state)
+        if expected_length is None:
+            expected_length = previous_length
+        if previous_length != expected_length or next_length != expected_length:
+            raise ValueError("lattice trace states must have equal length")
+        total_positions += expected_length
         changed_positions += sum(
             1 for previous_value, next_value in zip(previous_state, next_state) if previous_value != next_value
         )
+    if total_positions <= 0:
+        return 0.0
     return float(changed_positions) / float(total_positions)
 
 

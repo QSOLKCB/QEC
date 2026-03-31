@@ -256,6 +256,74 @@ def test_fixed_point_entry_index(monkeypatch: pytest.MonkeyPatch) -> None:
     assert out["attractor_entry_cycle"] == 2
 
 
+def test_period_two_entry_opposite_phase_offset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.attractor_phase_map.run_ternary_lattice_controller",
+        lambda **_: _lattice_result_stub(
+            chain_length=2,
+            controller_state="rebalance_state",
+            lattice_trace=[
+                (0, 0),
+                (3, 3),
+                (2, 2),
+                (1, 1),
+                (2, 2),
+                (1, 1),
+                (2, 2),
+            ],
+        ),
+    )
+
+    out = run_attractor_phase_map()
+    assert out["attractor_state"] == "period_two"
+    assert out["attractor_entry_cycle"] == 2
+
+
+def test_fixed_point_entry_cycle_regression(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.attractor_phase_map.run_ternary_lattice_controller",
+        lambda **_: _lattice_result_stub(
+            chain_length=2,
+            controller_state="idle_state",
+            lattice_trace=[
+                (0, 0),
+                (1, 0),
+                (1, 1),
+                (1, 1),
+                (1, 1),
+                (1, 1),
+            ],
+        ),
+    )
+
+    out = run_attractor_phase_map()
+    assert out["attractor_state"] == "fixed_point"
+    assert out["attractor_entry_cycle"] == 2
+
+
+def test_sharpness_score_deterministic_regression(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.attractor_phase_map.run_ternary_lattice_controller",
+        lambda **_: _lattice_result_stub(
+            chain_length=3,
+            controller_state="idle_state",
+            lattice_trace=[
+                (0, 0, 0),
+                (1, 0, 0),
+                (1, 1, 1),
+                (1, 1, 1),
+                (1, 1, 1),
+                (1, 1, 1),
+            ],
+        ),
+    )
+
+    out1 = run_attractor_phase_map()
+    out2 = run_attractor_phase_map()
+    assert out1["transition_sharpness_score"] == pytest.approx(0.0)
+    assert out1["transition_sharpness_score"] == out2["transition_sharpness_score"]
+
+
 def test_mismatched_lattice_lengths_raise(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "qec.analysis.attractor_phase_map.run_ternary_lattice_controller",

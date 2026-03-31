@@ -14,6 +14,7 @@ All logic in this module is deterministic, explicit, and inspectable.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Mapping
 
 SUPERVISORY_STATES = ("safe", "warning", "critical")
@@ -124,10 +125,10 @@ def run_supervisory_automata(
     """Main supervisory tuple execution layer."""
     previous = _normalize_state(previous_state)
 
-    confidence = _clamp01(float(engine_metrics.get("confidence", 0.0)))
-    cycle_period = max(0.0, float(engine_metrics.get("cycle_period", 0.0)))
-    drift_score = _clamp01(float(engine_metrics.get("drift_score", 0.0)))
-    manifold_preserved = bool(engine_metrics.get("manifold_preserved", True))
+    confidence = _clamp01(_safe_float(engine_metrics.get("confidence", 0.0), default=0.0))
+    cycle_period = max(0.0, _safe_float(engine_metrics.get("cycle_period", 0.0), default=0.0))
+    drift_score = _clamp01(_safe_float(engine_metrics.get("drift_score", 0.0), default=1.0))
+    manifold_preserved = _parse_bool(engine_metrics.get("manifold_preserved", True))
 
     classified_state = classify_supervisory_state(
         confidence=confidence,
@@ -151,10 +152,10 @@ def run_supervisory_automata(
     escalation_level = _escalation_level(next_state)
 
     return {
-        "supervisory_state": classified_state,
+        "classified_state": classified_state,
         "previous_supervisory_state": previous,
         "transition_event": _transition_semantic(previous, next_state),
-        "next_state": next_state,
+        "supervisory_state": next_state,
         "safety_manifold_preserved": manifold_preserved,
         "escalation_level": escalation_level,
         "escalation_action": escalation_action,
@@ -215,6 +216,31 @@ def _normalize_state(state: str) -> str:
 
 def _clamp01(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
+
+
+def _safe_float(value: Any, *, default: float) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return float(default)
+    if math.isnan(numeric):
+        return float(default)
+    return numeric
+
+
+def _parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in ("true", "1"):
+            return True
+        if normalized in ("false", "0"):
+            return False
+        raise ValueError(f"invalid boolean string: {value}")
+    raise ValueError(f"invalid boolean value: {value}")
 
 
 def _escalation_level(state: str) -> int:

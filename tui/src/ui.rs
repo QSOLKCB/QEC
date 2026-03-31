@@ -424,30 +424,24 @@ fn draw_ratio_gauge(f: &mut Frame, area: Rect, title: &str, percent: u16, color:
 fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
     let phase = &app.phase_diagnostics;
     let snapshots = recent_phase_snapshots(app, 12);
-    let confidence_delta = latest_delta_marker(
-        snapshots
-            .iter()
-            .map(|snapshot| snapshot.attractor_confidence_score),
-    );
-    let period_delta = latest_u64_delta_marker(
-        snapshots
-            .iter()
-            .map(|snapshot| snapshot.detected_cycle_period),
-    );
-    let sharpness_delta = latest_delta_marker(
-        snapshots
-            .iter()
-            .map(|snapshot| snapshot.transition_sharpness_score),
-    );
-    let inflection = if has_recent_inflection(
-        snapshots
-            .iter()
-            .map(|snapshot| snapshot.attractor_confidence_score),
-    ) || has_recent_inflection(
-        snapshots
-            .iter()
-            .map(|snapshot| snapshot.transition_sharpness_score),
-    ) {
+    let confidence_values: Vec<f64> = snapshots
+        .iter()
+        .map(|snapshot| snapshot.attractor_confidence_score)
+        .collect();
+    let sharpness_values: Vec<f64> = snapshots
+        .iter()
+        .map(|snapshot| snapshot.transition_sharpness_score)
+        .collect();
+    let period_values: Vec<u64> = snapshots
+        .iter()
+        .map(|snapshot| snapshot.detected_cycle_period)
+        .collect();
+
+    let confidence_delta = latest_delta_marker(&confidence_values);
+    let period_delta = latest_u64_delta_marker(&period_values);
+    let sharpness_delta = latest_delta_marker(&sharpness_values);
+    let inflection =
+        if has_recent_inflection(&confidence_values) || has_recent_inflection(&sharpness_values) {
         " !"
     } else {
         ""
@@ -462,29 +456,17 @@ fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
         )),
         Line::from(format!(
             "  confidence trend: {}  {}",
-            sparkline(
-                snapshots
-                    .iter()
-                    .map(|snapshot| snapshot.attractor_confidence_score)
-            ),
+            sparkline(confidence_values.iter().copied()),
             confidence_delta
         )),
         Line::from(format!(
             "  period timeline: {}  {}",
-            period_timeline(
-                snapshots
-                    .iter()
-                    .map(|snapshot| snapshot.detected_cycle_period)
-            ),
+            period_timeline(period_values.iter().copied()),
             period_delta
         )),
         Line::from(format!(
             "  sharpness trend:  {}  {}",
-            sparkline(
-                snapshots
-                    .iter()
-                    .map(|snapshot| snapshot.transition_sharpness_score)
-            ),
+            sparkline(sharpness_values.iter().copied()),
             sharpness_delta
         )),
         Line::from(format!(
@@ -497,12 +479,7 @@ fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
         )),
         Line::from(format!(
             "  confidence velocity: {}{}",
-            confidence_velocity_strip(
-                snapshots
-                    .iter()
-                    .map(|snapshot| snapshot.attractor_confidence_score),
-                12
-            ),
+            confidence_velocity_strip(&confidence_values, 12),
             inflection
         )),
     ];
@@ -993,62 +970,50 @@ fn bounded_percent(value: f64) -> u16 {
     (clamped * 100.0).round() as u16
 }
 
-fn delta_marker(previous: f64, latest: f64) -> char {
-    if !previous.is_finite() || !latest.is_finite() {
-        return '=';
-    }
-    if latest > previous {
+fn ordering_marker(is_greater: bool, is_less: bool) -> char {
+    if is_greater {
         '+'
-    } else if latest < previous {
+    } else if is_less {
         '-'
     } else {
         '='
     }
 }
 
-fn latest_delta_marker<I>(values: I) -> char
-where
-    I: Iterator<Item = f64>,
-{
-    let mut prev: Option<f64> = None;
-    let mut last: Option<f64> = None;
-    for value in values {
-        prev = last;
-        last = Some(value);
-    }
-    match (prev, last) {
-        (Some(previous), Some(latest)) => delta_marker(previous, latest),
-        _ => '=',
+fn latest_pair<T: Copy>(values: &[T]) -> Option<(T, T)> {
+    if values.len() < 2 {
+        None
+    } else {
+        Some((values[values.len() - 2], values[values.len() - 1]))
     }
 }
 
-fn latest_u64_delta_marker<I>(values: I) -> char
-where
-    I: Iterator<Item = u64>,
-{
-    let mut prev: Option<u64> = None;
-    let mut last: Option<u64> = None;
-    for value in values {
-        prev = last;
-        last = Some(value);
+fn delta_marker(previous: f64, latest: f64) -> char {
+    if !previous.is_finite() || !latest.is_finite() {
+        return '=';
     }
-    match (prev, last) {
-        (Some(previous), Some(latest)) if latest > previous => '+',
-        (Some(previous), Some(latest)) if latest < previous => '-',
-        (Some(_), Some(_)) => '=',
-        _ => '=',
+    ordering_marker(latest > previous, latest < previous)
+}
+
+fn latest_delta_marker(values: &[f64]) -> char {
+    match latest_pair(values) {
+        Some((previous, latest)) => delta_marker(previous, latest),
+        None => '=',
     }
 }
 
-fn has_recent_inflection<I>(values: I) -> bool
-where
-    I: Iterator<Item = f64>,
-{
-    let collected: Vec<f64> = values.collect();
-    if collected.len() < 3 {
+fn latest_u64_delta_marker(values: &[u64]) -> char {
+    match latest_pair(values) {
+        Some((previous, latest)) => ordering_marker(latest > previous, latest < previous),
+        None => '=',
+    }
+}
+
+fn has_recent_inflection(values: &[f64]) -> bool {
+    if values.len() < 3 {
         return false;
     }
-    let recent = &collected[collected.len().saturating_sub(4)..];
+    let recent = &values[values.len().saturating_sub(4)..];
     let mut first_sign: Option<i8> = None;
     for pair in recent.windows(2) {
         if !pair[0].is_finite() || !pair[1].is_finite() {
@@ -1075,18 +1040,14 @@ where
     false
 }
 
-fn confidence_velocity_strip<I>(values: I, window: usize) -> String
-where
-    I: Iterator<Item = f64>,
-{
-    let collected: Vec<f64> = values.collect();
-    if collected.len() < 2 {
+fn confidence_velocity_strip(values: &[f64], window: usize) -> String {
+    if values.len() < 2 {
         return INSUFFICIENT_HISTORY_PLACEHOLDER.to_string();
     }
-    let start = collected.len().saturating_sub(window);
+    let start = values.len().saturating_sub(window);
     let mut out = String::new();
     let mut count = 0usize;
-    for pair in collected[start..].windows(2) {
+    for pair in values[start..].windows(2) {
         if count > 0 {
             out.push(' ');
         }
@@ -1173,21 +1134,21 @@ mod tests {
 
     #[test]
     fn test_delta_markers_and_velocity_strip() {
-        assert_eq!(latest_delta_marker([0.2, 0.4].into_iter()), '+');
-        assert_eq!(latest_delta_marker([0.4, 0.2].into_iter()), '-');
-        assert_eq!(latest_delta_marker([0.4, 0.4].into_iter()), '=');
-        assert_eq!(latest_u64_delta_marker([2, 5].into_iter()), '+');
-        assert_eq!(latest_u64_delta_marker([5, 2].into_iter()), '-');
+        assert_eq!(latest_delta_marker(&[0.2, 0.4]), '+');
+        assert_eq!(latest_delta_marker(&[0.4, 0.2]), '-');
+        assert_eq!(latest_delta_marker(&[0.4, 0.4]), '=');
+        assert_eq!(latest_u64_delta_marker(&[2, 5]), '+');
+        assert_eq!(latest_u64_delta_marker(&[5, 2]), '-');
         assert_eq!(
-            confidence_velocity_strip([0.1, 0.2, 0.2, 0.1, 0.3].into_iter(), 12),
+            confidence_velocity_strip(&[0.1, 0.2, 0.2, 0.1, 0.3], 12),
             "+ = - +"
         );
     }
 
     #[test]
     fn test_inflection_and_replay_timeline_strip() {
-        assert!(has_recent_inflection([0.1, 0.4, 0.2].into_iter()));
-        assert!(!has_recent_inflection([0.1, 0.2, 0.3, 0.4].into_iter()));
+        assert!(has_recent_inflection(&[0.1, 0.4, 0.2]));
+        assert!(!has_recent_inflection(&[0.1, 0.2, 0.3, 0.4]));
         assert_eq!(replay_timeline_strip(0), INSUFFICIENT_HISTORY_PLACEHOLDER);
         assert_eq!(replay_timeline_strip(1), "[=|]");
         assert_eq!(replay_timeline_strip(5), "[====|]");

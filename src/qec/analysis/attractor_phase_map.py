@@ -59,6 +59,7 @@ def run_attractor_phase_map(
     phase_stability_score = _phase_stability_score(lattice_trace)
     phase_transition_index = _phase_transition_index(lattice_trace)
     attractor_entry_cycle = _attractor_entry_cycle(lattice_trace, attractor_state)
+    detected_cycle_period = _detected_cycle_period(lattice_trace)
 
     result: dict[str, Any] = {
         "chain_length": int(lattice_result["chain_length"]),
@@ -70,6 +71,9 @@ def run_attractor_phase_map(
         "phase_transition_index": phase_transition_index,
         "attractor_entry_cycle": attractor_entry_cycle,
         "transition_sharpness_score": _transition_sharpness_score(lattice_trace, attractor_state, attractor_entry_cycle),
+        "detected_cycle_period": detected_cycle_period,
+        "attractor_confidence_score": _attractor_confidence_score(lattice_trace),
+        "cycle_spectrum_class": _cycle_spectrum_class(detected_cycle_period),
     }
 
     if return_phase_trace:
@@ -230,6 +234,49 @@ def _phase_class(attractor_state: str) -> str:
     if attractor_state == ATTRACTOR_STATE_INTERVENTION_PHASE:
         return PHASE_CLASS_CRITICAL
     return PHASE_CLASS_DRIFTING
+
+
+def _detected_cycle_period(lattice_trace: list[tuple[int, ...]]) -> int:
+    for period in (1, 2, 3, 4):
+        if len(lattice_trace) < (2 * period):
+            continue
+        if _consistent_suffix_length(lattice_trace, period) >= (2 * period):
+            return period
+    return 0
+
+
+def _consistent_suffix_length(lattice_trace: list[tuple[int, ...]], period: int) -> int:
+    if period <= 0 or len(lattice_trace) < period:
+        return 0
+    pattern = lattice_trace[-period:]
+    suffix_length = 0
+    for reverse_index, state in enumerate(reversed(lattice_trace)):
+        expected = pattern[-1 - (reverse_index % period)]
+        if state != expected:
+            break
+        suffix_length += 1
+    return suffix_length
+
+
+def _attractor_confidence_score(lattice_trace: list[tuple[int, ...]]) -> float:
+    total_trace_length = len(lattice_trace)
+    if total_trace_length <= 0:
+        return 0.0
+    detected_period = _detected_cycle_period(lattice_trace)
+    if detected_period <= 0:
+        return 0.0
+    consistent_suffix_length = _consistent_suffix_length(lattice_trace, detected_period)
+    return _clamp01(float(consistent_suffix_length) / float(total_trace_length))
+
+
+def _cycle_spectrum_class(detected_cycle_period: int) -> str:
+    if detected_cycle_period == 1:
+        return "fixed_cycle"
+    if detected_cycle_period == 2:
+        return "low_period_cycle"
+    if detected_cycle_period in (3, 4):
+        return "medium_period_cycle"
+    return "drifting_cycle"
 
 
 def _clamp01(value: float) -> float:

@@ -57,6 +57,8 @@ def run_attractor_phase_map(
         controller_state=str(lattice_result["controller_result"]["controller_state"]),
     )
     phase_stability_score = _phase_stability_score(lattice_trace)
+    phase_transition_index = _phase_transition_index(lattice_trace)
+    attractor_entry_cycle = _attractor_entry_cycle(lattice_trace, attractor_state)
 
     result: dict[str, Any] = {
         "chain_length": int(lattice_result["chain_length"]),
@@ -65,6 +67,9 @@ def run_attractor_phase_map(
         "attractor_cycle_length": int(attractor_cycle_length),
         "phase_stability_score": phase_stability_score,
         "phase_class": _phase_class(attractor_state),
+        "phase_transition_index": phase_transition_index,
+        "attractor_entry_cycle": attractor_entry_cycle,
+        "transition_sharpness_score": _transition_sharpness_score(lattice_trace, attractor_state, attractor_entry_cycle),
     }
 
     if return_phase_trace:
@@ -132,6 +137,88 @@ def _phase_stability_score(lattice_trace: list[tuple[int, ...]]) -> float:
 
     changed_fraction = float(changed_positions) / float(total_positions)
     return _clamp01(1.0 - changed_fraction)
+
+
+def _phase_transition_index(lattice_trace: list[tuple[int, ...]]) -> int:
+    seen_states: dict[tuple[int, ...], int] = {}
+    for index, state in enumerate(lattice_trace):
+        if state in seen_states:
+            return int(index)
+        seen_states[state] = index
+    return -1
+
+
+def _attractor_entry_cycle(lattice_trace: list[tuple[int, ...]], attractor_state: str) -> int:
+    if attractor_state == ATTRACTOR_STATE_FIXED_POINT:
+        if not lattice_trace:
+            return -1
+        final_state = lattice_trace[-1]
+        for index, state in enumerate(lattice_trace):
+            if state == final_state and all(candidate == final_state for candidate in lattice_trace[index:]):
+                return int(index)
+        return -1
+
+    if attractor_state == ATTRACTOR_STATE_PERIOD_TWO:
+        if len(lattice_trace) < 2:
+            return -1
+        final_a = lattice_trace[-2]
+        final_b = lattice_trace[-1]
+        if final_a == final_b:
+            return -1
+        for start in range(len(lattice_trace) - 1):
+            is_match = True
+            for offset, state in enumerate(lattice_trace[start:]):
+                expected = final_a if (offset % 2 == 0) else final_b
+                if state != expected:
+                    is_match = False
+                    break
+            if is_match:
+                return int(start)
+    return -1
+
+
+def _transition_sharpness_score(
+    lattice_trace: list[tuple[int, ...]],
+    attractor_state: str,
+    entry_cycle: int | None = None,
+) -> float:
+    if entry_cycle is None:
+        entry_cycle = _attractor_entry_cycle(lattice_trace, attractor_state)
+    if entry_cycle < 0:
+        return 0.0
+
+    changed_fraction_total = _changed_fraction(lattice_trace, 0, len(lattice_trace) - 1)
+    if changed_fraction_total <= 0.0:
+        return 1.0
+
+    changed_fraction_before_entry = _changed_fraction(lattice_trace, 0, entry_cycle - 1)
+    return _clamp01(1.0 - (changed_fraction_before_entry / changed_fraction_total))
+
+
+def _changed_fraction(lattice_trace: list[tuple[int, ...]], start_cycle: int, end_cycle: int) -> float:
+    if end_cycle <= start_cycle:
+        return 0.0
+    transitions = [
+        (lattice_trace[index], lattice_trace[index + 1])
+        for index in range(start_cycle, min(end_cycle, len(lattice_trace) - 1))
+    ]
+    if not transitions:
+        return 0.0
+
+    state_lengths = [len(state) for pair in transitions for state in pair]
+    if len(set(state_lengths)) != 1:
+        raise ValueError("lattice trace states must have equal length")
+    state_length = state_lengths[0]
+    total_positions = len(transitions) * state_length
+    if total_positions <= 0:
+        return 0.0
+
+    changed_positions = 0
+    for previous_state, next_state in transitions:
+        changed_positions += sum(
+            1 for previous_value, next_value in zip(previous_state, next_state) if previous_value != next_value
+        )
+    return float(changed_positions) / float(total_positions)
 
 
 def _phase_class(attractor_state: str) -> str:

@@ -424,22 +424,6 @@ fn draw_ratio_gauge(f: &mut Frame, area: Rect, title: &str, percent: u16, color:
 fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
     let phase = &app.phase_diagnostics;
     let snapshots = recent_phase_snapshots(app, 12);
-    let confidence = snapshots
-        .iter()
-        .map(|snapshot| snapshot.attractor_confidence_score)
-        .collect::<Vec<_>>();
-    let sharpness = snapshots
-        .iter()
-        .map(|snapshot| snapshot.transition_sharpness_score)
-        .collect::<Vec<_>>();
-    let periods = snapshots
-        .iter()
-        .map(|snapshot| snapshot.detected_cycle_period)
-        .collect::<Vec<_>>();
-    let signature = snapshots
-        .iter()
-        .map(|snapshot| attractor_signature(&snapshot.attractor_state))
-        .collect::<Vec<_>>();
 
     let lines = vec![
         Line::from(format!(
@@ -448,12 +432,37 @@ fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
             phase.transition_sharpness_score,
             phase.attractor_confidence_score
         )),
-        Line::from(format!("  confidence trend: {}", sparkline(&confidence))),
-        Line::from(format!("  period timeline: {}", period_timeline(&periods))),
-        Line::from(format!("  sharpness trend:  {}", sparkline(&sharpness))),
+        Line::from(format!(
+            "  confidence trend: {}",
+            sparkline(
+                snapshots
+                    .iter()
+                    .map(|snapshot| snapshot.attractor_confidence_score)
+            )
+        )),
+        Line::from(format!(
+            "  period timeline: {}",
+            period_timeline(
+                snapshots
+                    .iter()
+                    .map(|snapshot| snapshot.detected_cycle_period)
+            )
+        )),
+        Line::from(format!(
+            "  sharpness trend:  {}",
+            sparkline(
+                snapshots
+                    .iter()
+                    .map(|snapshot| snapshot.transition_sharpness_score)
+            )
+        )),
         Line::from(format!(
             "  signature strip:  {}",
-            signature_timeline(&signature)
+            signature_timeline(
+                snapshots
+                    .iter()
+                    .map(|snapshot| attractor_signature(&snapshot.attractor_state))
+            )
         )),
     ];
 
@@ -844,34 +853,49 @@ fn recent_phase_snapshots<'a>(app: &'a App, window: usize) -> &'a [crate::app::P
     &app.phase_snapshots[start..]
 }
 
-fn sparkline(values: &[f64]) -> String {
-    if values.len() < 2 {
-        return "(history n<2)".to_string();
-    }
+const INSUFFICIENT_HISTORY_PLACEHOLDER: &str = "(history n<2)";
+
+fn sparkline<I>(values: I) -> String
+where
+    I: Iterator<Item = f64>,
+{
     const BARS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-    values
-        .iter()
-        .map(|value| {
-            let clamped = if value.is_finite() {
-                value.clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
+    let mut out = String::new();
+    let mut count = 0usize;
+    for value in values {
+        let glyph = if value.is_finite() {
+            let clamped = value.clamp(0.0, 1.0);
             let idx = (clamped * (BARS.len() as f64 - 1.0)).round() as usize;
             BARS[idx]
-        })
-        .collect()
+        } else {
+            '?'
+        };
+        out.push(glyph);
+        count += 1;
+    }
+    if count < 2 {
+        return INSUFFICIENT_HISTORY_PLACEHOLDER.to_string();
+    }
+    out
 }
 
-fn period_timeline(values: &[u64]) -> String {
-    if values.len() < 2 {
-        return "(history n<2)".to_string();
+fn period_timeline<I>(values: I) -> String
+where
+    I: Iterator<Item = u64>,
+{
+    let mut out = String::new();
+    let mut count = 0usize;
+    for value in values {
+        if count > 0 {
+            out.push(' ');
+        }
+        out.push_str(&value.to_string());
+        count += 1;
     }
-    values
-        .iter()
-        .map(|value| value.to_string())
-        .collect::<Vec<_>>()
-        .join(" ")
+    if count < 2 {
+        return INSUFFICIENT_HISTORY_PLACEHOLDER.to_string();
+    }
+    out
 }
 
 fn attractor_signature(state: &str) -> char {
@@ -884,15 +908,23 @@ fn attractor_signature(state: &str) -> char {
     }
 }
 
-fn signature_timeline(values: &[char]) -> String {
-    if values.len() < 2 {
-        return "(history n<2)".to_string();
+fn signature_timeline<I>(values: I) -> String
+where
+    I: Iterator<Item = char>,
+{
+    let mut out = String::new();
+    let mut count = 0usize;
+    for value in values {
+        if count > 0 {
+            out.push(' ');
+        }
+        out.push(value);
+        count += 1;
     }
-    values
-        .iter()
-        .map(char::to_string)
-        .collect::<Vec<_>>()
-        .join(" ")
+    if count < 2 {
+        return INSUFFICIENT_HISTORY_PLACEHOLDER.to_string();
+    }
+    out
 }
 
 fn bounded_percent(value: f64) -> u16 {
@@ -907,6 +939,7 @@ fn bounded_percent(value: f64) -> u16 {
 mod tests {
     use super::{
         attractor_signature, bounded_percent, period_timeline, phase_dynamics_content,
+        INSUFFICIENT_HISTORY_PLACEHOLDER,
         signature_timeline, sparkline,
     };
     use crate::app::{App, PhaseDiagnosticsData};
@@ -919,14 +952,29 @@ mod tests {
 
     #[test]
     fn test_sparkline_deterministic_rendering() {
-        assert_eq!(sparkline(&[0.0, 0.5, 1.0]), "▁▅█");
+        assert_eq!(sparkline([0.0, 0.5, 1.0].into_iter()), "▁▅█");
     }
 
     #[test]
     fn test_history_placeholder_for_insufficient_points() {
-        assert_eq!(sparkline(&[0.3]), "(history n<2)");
-        assert_eq!(period_timeline(&[3]), "(history n<2)");
-        assert_eq!(signature_timeline(&['F']), "(history n<2)");
+        assert_eq!(
+            sparkline([0.3].into_iter()),
+            INSUFFICIENT_HISTORY_PLACEHOLDER
+        );
+        assert_eq!(
+            period_timeline([3].into_iter()),
+            INSUFFICIENT_HISTORY_PLACEHOLDER
+        );
+        assert_eq!(
+            signature_timeline(['F'].into_iter()),
+            INSUFFICIENT_HISTORY_PLACEHOLDER
+        );
+    }
+
+    #[test]
+    fn test_sparkline_anomaly_glyph_rendering() {
+        assert_eq!(sparkline([0.8, f64::NAN, 0.6].into_iter()), "▇?▅");
+        assert_eq!(sparkline([0.8, f64::INFINITY, 0.6].into_iter()), "▇?▅");
     }
 
     #[test]

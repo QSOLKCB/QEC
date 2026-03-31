@@ -19,8 +19,8 @@ def _valid_snapshot() -> dict:
             "critical_cycles": 12,
             "observer_cycles": 3,
         },
-        "controller_state": "timed_control",
-        "supervisory_state": "stable",
+        "controller_state": "observe",
+        "supervisory_state": "safe",
     }
 
 
@@ -66,6 +66,27 @@ def test_invalid_state_violation():
     assert result["counterexample_trace"][0][0] == "valid_controller_state"
 
 
+def test_controller_state_stabilize_is_valid():
+    snapshot = _valid_snapshot()
+    snapshot["controller_state"] = "stabilize"
+    result = run_invariant_proving_engine(snapshot)
+    assert result["proof_status"] == "valid"
+
+
+def test_controller_state_intervene_is_valid():
+    snapshot = _valid_snapshot()
+    snapshot["controller_state"] = "intervene"
+    result = run_invariant_proving_engine(snapshot)
+    assert result["proof_status"] == "valid"
+
+
+def test_supervisory_state_safe_is_valid():
+    snapshot = _valid_snapshot()
+    snapshot["supervisory_state"] = "safe"
+    result = run_invariant_proving_engine(snapshot)
+    assert result["proof_status"] == "valid"
+
+
 def test_proof_confidence_bounds():
     assert compute_proof_confidence(0, 0) == INVARIANT_CONFIDENCE_FLOOR
     assert INVARIANT_CONFIDENCE_FLOOR <= compute_proof_confidence(3, 5) <= INVARIANT_CONFIDENCE_CEILING
@@ -75,6 +96,20 @@ def test_proof_confidence_bounds():
 def test_proof_depth_bounds():
     result = run_invariant_proving_engine(_valid_snapshot())
     assert 0 <= result["proof_depth"] <= MAX_PROOF_DEPTH
+
+
+def test_timer_helper_behavior_unchanged():
+    snapshot = _valid_snapshot()
+    snapshot["timer_state"] = {"critical_cycles": 33}
+    result = run_invariant_proving_engine(snapshot)
+    assert result["counterexample_trace"] == [
+        ("bounded_timer_values", "critical_cycles", 33),
+    ]
+
+
+def test_proof_depth_equals_invariants_checked():
+    result = run_invariant_proving_engine(_valid_snapshot())
+    assert result["proof_depth"] == result["invariants_checked"]
 
 
 def test_counterexample_trace_stability():

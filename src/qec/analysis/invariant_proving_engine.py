@@ -15,15 +15,14 @@ INVARIANT_CONFIDENCE_FLOOR = 0.0
 INVARIANT_CONFIDENCE_CEILING = 1.0
 
 _VALID_CONTROLLER_STATES = (
-    "idle",
     "observe",
-    "attractor_lock",
-    "timed_control",
+    "stabilize",
+    "intervene",
     "recover",
 )
 
 _VALID_SUPERVISORY_STATES = (
-    "stable",
+    "safe",
     "warning",
     "critical",
 )
@@ -73,16 +72,7 @@ def check_risk_score_invariant(value: Any) -> bool:
 
 def check_timer_invariant(timer_state: Any) -> bool:
     """Return True when all timer values are numeric and in [0, MAX_PROOF_DEPTH]."""
-    if not isinstance(timer_state, dict):
-        return False
-    for key in sorted(timer_state.keys()):
-        value = timer_state[key]
-        if not isinstance(value, (int, float)):
-            return False
-        numeric = float(value)
-        if numeric < 0.0 or numeric > float(MAX_PROOF_DEPTH):
-            return False
-    return True
+    return _validate_timer_values(timer_state)[0]
 
 
 def check_state_membership_invariant(state: Any, valid_states: Iterable[str]) -> bool:
@@ -125,18 +115,22 @@ def evaluate_invariants(system_snapshot: Dict[str, Any]) -> Dict[str, List[str]]
 
 
 def _first_timer_violation(timer_state: Any) -> Tuple[str, Any]:
+    return _validate_timer_values(timer_state)[1]
+
+
+def _validate_timer_values(timer_state: Any) -> Tuple[bool, Tuple[str, Any]]:
     if not isinstance(timer_state, dict) or not timer_state:
-        return ("timer_state", timer_state)
+        return (False, ("timer_state", timer_state))
 
     for key in sorted(timer_state.keys()):
         value = timer_state[key]
         if not isinstance(value, (int, float)):
-            return (str(key), value)
+            return (False, (str(key), value))
         numeric = float(value)
         if numeric < 0.0 or numeric > float(MAX_PROOF_DEPTH):
-            return (str(key), value)
+            return (False, (str(key), value))
 
-    return ("timer_state", timer_state)
+    return (True, ("timer_state", timer_state))
 
 
 def build_counterexample_trace(
@@ -197,10 +191,11 @@ def run_invariant_proving_engine(system_snapshot: Dict[str, Any]) -> Dict[str, A
 
     proof_confidence = compute_proof_confidence(satisfied_count, total_count)
     counterexample_trace = build_counterexample_trace(violations, snapshot)
-    proof_depth = max(0, min(total_count, MAX_PROOF_DEPTH))
+    invariants_checked = min(total_count, MAX_PROOF_DEPTH)
+    proof_depth = invariants_checked
 
     return {
-        "invariants_checked": min(total_count, MAX_PROOF_DEPTH),
+        "invariants_checked": invariants_checked,
         "invariants_satisfied": max(0, min(satisfied_count, total_count)),
         "violations_detected": max(0, min(violations_count, total_count)),
         "proof_status": proof_status,

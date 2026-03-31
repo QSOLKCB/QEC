@@ -6,6 +6,7 @@ import math
 
 from qec.analysis.state_observer import (
     BoundedRollingWindow,
+    TRANSITION_EVENTS,
     aggregate_warning_score,
     classify_observer_state,
     compute_drift_score,
@@ -24,6 +25,46 @@ class TestBoundedRollingWindow:
         window.append(0.4)
         assert window.values() == [0.2, 0.3, 0.4]
         assert len(window) == 3
+
+    def test_capacity_zero_defaults_to_one(self) -> None:
+        window = BoundedRollingWindow(capacity=0)
+        window.append(0.1)
+        window.append(0.2)
+        assert window.values() == [0.2]
+        assert len(window) == 1
+
+    def test_negative_capacity_defaults_to_one(self) -> None:
+        window = BoundedRollingWindow(capacity=-5)
+        window.append(0.3)
+        window.append(0.4)
+        assert window.values() == [0.4]
+        assert len(window) == 1
+
+    def test_clear(self) -> None:
+        window = BoundedRollingWindow(capacity=3)
+        window.append(0.1)
+        window.append(0.2)
+        window.clear()
+        assert window.values() == []
+        assert len(window) == 0
+
+    def test_wrap_around_ordering(self) -> None:
+        window = BoundedRollingWindow(capacity=3)
+        for value in [0.1, 0.2, 0.3, 0.4, 0.5]:
+            window.append(value)
+        assert window.values() == [0.3, 0.4, 0.5]
+
+    def test_clamp_behavior(self) -> None:
+        window = BoundedRollingWindow(capacity=3)
+        window.append(-1.0)
+        window.append(1.5)
+        assert window.values() == [0.0, 1.0]
+
+    def test_repeated_wrap_around(self) -> None:
+        window = BoundedRollingWindow(capacity=2)
+        for value in [0.0, 0.1, 0.2, 0.3, 0.4]:
+            window.append(value)
+        assert window.values() == [0.3, 0.4]
 
 
 class TestMetricsBounds:
@@ -57,14 +98,18 @@ class TestClassification:
 
 class TestObserverBehavior:
     def test_transition_label_correctness(self) -> None:
-        _, window = run_state_observer(0.0)
-        warning_result, _ = run_state_observer(1.0, rolling_window=window, previous_state="safe")
-        escalated_result, _ = run_state_observer(1.0, rolling_window=window, previous_state="warning")
-        deescalated_result, _ = run_state_observer(0.0, previous_state="critical")
+        assert TRANSITION_EVENTS[("safe", "warning")] == "safe_to_warning"
+        assert TRANSITION_EVENTS[("warning", "critical")] == "warning_to_critical"
+        assert TRANSITION_EVENTS[("critical", "warning")] == "critical_to_warning"
 
-        assert warning_result["state_transition_event"] == "safe_to_warning"
-        assert escalated_result["state_transition_event"] == "warning_to_critical"
-        assert deescalated_result["state_transition_event"] == "critical_to_warning"
+    def test_transition_label_remain_warning(self) -> None:
+        assert TRANSITION_EVENTS[("warning", "warning")] == "remain_warning"
+
+    def test_transition_label_safe_to_critical(self) -> None:
+        assert TRANSITION_EVENTS[("safe", "critical")] == "safe_to_critical"
+
+    def test_transition_label_remain_critical(self) -> None:
+        assert TRANSITION_EVENTS[("critical", "critical")] == "remain_critical"
 
     def test_nan_handling(self) -> None:
         result, window = run_state_observer(math.nan)

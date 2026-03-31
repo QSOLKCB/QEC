@@ -13,6 +13,17 @@ from typing import Iterable
 SAFE_WARNING_THRESHOLD = 0.30
 CRITICAL_WARNING_THRESHOLD = 0.70
 ROLLING_WINDOW_CAPACITY = 32
+TRANSITION_EVENTS = {
+    ("safe", "safe"): "remain_safe",
+    ("safe", "warning"): "safe_to_warning",
+    ("safe", "critical"): "safe_to_critical",
+    ("warning", "safe"): "warning_to_safe",
+    ("warning", "warning"): "remain_warning",
+    ("warning", "critical"): "warning_to_critical",
+    ("critical", "safe"): "critical_to_safe",
+    ("critical", "warning"): "critical_to_warning",
+    ("critical", "critical"): "remain_critical",
+}
 
 
 def _clamp_unit(value: float) -> float:
@@ -116,19 +127,7 @@ def classify_observer_state(warning_score: float) -> str:
 
 def _compute_transition_event(previous_state: str, observer_state: str) -> str:
     """Return deterministic transition label from finite state transitions."""
-    if previous_state == "critical":
-        if observer_state == "critical":
-            return "remain_critical"
-        return "critical_to_warning"
-
-    if previous_state == "warning":
-        if observer_state == "safe":
-            return "warning_to_safe"
-        return "warning_to_critical"
-
-    if observer_state == "safe":
-        return "remain_safe"
-    return "safe_to_warning"
+    return TRANSITION_EVENTS[(previous_state, observer_state)]
 
 
 def run_state_observer(
@@ -175,6 +174,7 @@ __all__ = [
     "SAFE_WARNING_THRESHOLD",
     "CRITICAL_WARNING_THRESHOLD",
     "ROLLING_WINDOW_CAPACITY",
+    "TRANSITION_EVENTS",
     "BoundedRollingWindow",
     "compute_variance_score",
     "compute_drift_score",

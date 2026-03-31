@@ -257,6 +257,7 @@ struct RawPhaseDiagnostics {
     cycle_spectrum_class: String,
 }
 
+#[derive(Clone)]
 pub struct PhaseDiagnosticsData {
     pub attractor_state: String,
     pub attractor_cycle_length: u64,
@@ -267,6 +268,32 @@ pub struct PhaseDiagnosticsData {
     pub detected_cycle_period: u64,
     pub cycle_spectrum_class: String,
     pub error: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct PhaseSnapshot {
+    pub attractor_state: String,
+    pub attractor_entry_cycle: i64,
+    pub phase_transition_index: f64,
+    pub transition_sharpness_score: f64,
+    pub attractor_confidence_score: f64,
+    pub detected_cycle_period: u64,
+    pub cycle_spectrum_class: String,
+}
+
+impl PhaseSnapshot {
+    pub fn to_log_line(&self) -> String {
+        format!(
+            "state={} entry={} transition={:.4} sharpness={:.4} confidence={:.4} period={} spectrum={}",
+            self.attractor_state,
+            self.attractor_entry_cycle,
+            self.phase_transition_index,
+            self.transition_sharpness_score,
+            self.attractor_confidence_score,
+            self.detected_cycle_period,
+            self.cycle_spectrum_class
+        )
+    }
 }
 
 impl PhaseDiagnosticsData {
@@ -351,7 +378,7 @@ pub struct App {
     pub alert_profile: AlertProfile,
     pub incident_timeline: VecDeque<String>,
     pub invariant_summary: Vec<String>,
-    pub phase_snapshots: Vec<String>,
+    pub phase_snapshots: Vec<PhaseSnapshot>,
 }
 
 impl App {
@@ -666,7 +693,7 @@ impl App {
         if !self.phase_snapshots.is_empty() {
             writeln!(file, "---").map_err(|e| format!("Write error: {e}"))?;
             for snapshot in &self.phase_snapshots {
-                writeln!(file, "phase_snapshot: {snapshot}")
+                writeln!(file, "phase_snapshot: {}", snapshot.to_log_line())
                     .map_err(|e| format!("Write error: {e}"))?;
             }
         }
@@ -840,16 +867,15 @@ impl App {
         if self.phase_diagnostics.error.is_some() {
             return;
         }
-        self.phase_snapshots.push(format!(
-            "state={} entry={} transition={:.4} sharpness={:.4} confidence={:.4} period={} spectrum={}",
-            self.phase_diagnostics.attractor_state,
-            self.phase_diagnostics.attractor_entry_cycle,
-            self.phase_diagnostics.phase_transition_index,
-            self.phase_diagnostics.transition_sharpness_score,
-            self.phase_diagnostics.attractor_confidence_score,
-            self.phase_diagnostics.detected_cycle_period,
-            self.phase_diagnostics.cycle_spectrum_class
-        ));
+        self.phase_snapshots.push(PhaseSnapshot {
+            attractor_state: self.phase_diagnostics.attractor_state.clone(),
+            attractor_entry_cycle: self.phase_diagnostics.attractor_entry_cycle,
+            phase_transition_index: self.phase_diagnostics.phase_transition_index,
+            transition_sharpness_score: self.phase_diagnostics.transition_sharpness_score,
+            attractor_confidence_score: self.phase_diagnostics.attractor_confidence_score,
+            detected_cycle_period: self.phase_diagnostics.detected_cycle_period,
+            cycle_spectrum_class: self.phase_diagnostics.cycle_spectrum_class.clone(),
+        });
         while self.phase_snapshots.len() > MAX_PHASE_SNAPSHOTS {
             self.phase_snapshots.remove(0);
         }
@@ -1344,7 +1370,8 @@ mod tests {
         assert!(app
             .phase_snapshots
             .last()
-            .unwrap_or(&String::new())
+            .map(PhaseSnapshot::to_log_line)
+            .unwrap_or_default()
             .contains("confidence="));
     }
 
@@ -1360,7 +1387,15 @@ mod tests {
     #[test]
     fn test_export_includes_phase_snapshots() {
         let mut app = App::new();
-        app.phase_snapshots = vec!["state=fixed_point entry=0 transition=0.0000 sharpness=1.0000 confidence=1.0000 period=1 spectrum=mono".to_string()];
+        app.phase_snapshots = vec![PhaseSnapshot {
+            attractor_state: "fixed_point".to_string(),
+            attractor_entry_cycle: 0,
+            phase_transition_index: 0.0,
+            transition_sharpness_score: 1.0,
+            attractor_confidence_score: 1.0,
+            detected_cycle_period: 1,
+            cycle_spectrum_class: "mono".to_string(),
+        }];
         let result = app.export_session_log();
         assert!(result.is_ok());
         let contents = std::fs::read_to_string("qec_tui_session.log").unwrap();

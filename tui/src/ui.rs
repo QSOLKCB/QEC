@@ -243,9 +243,9 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
             Constraint::Length(8),
             Constraint::Length(6),
             Constraint::Length(8),
-            Constraint::Length(8),
+            Constraint::Length(10),
             Constraint::Length(6),
-            Constraint::Min(6),
+            Constraint::Min(4),
         ])
         .split(area);
 
@@ -422,32 +422,56 @@ fn draw_ratio_gauge(f: &mut Frame, area: Rect, title: &str, percent: u16, color:
 }
 
 fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
-    let split = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(2),
-            Constraint::Length(3),
-            Constraint::Length(3),
-        ])
-        .split(area);
     let phase = &app.phase_diagnostics;
-    let summary = Paragraph::new(vec![Line::from(format!(
-        "  period: {}  sharpness: {:.4}  confidence: {:.4}",
-        phase.detected_cycle_period,
-        phase.transition_sharpness_score,
-        phase.attractor_confidence_score
-    ))])
-    .block(
+    let snapshots = recent_phase_snapshots(app, 12);
+
+    let lines = vec![
+        Line::from(format!(
+            "  period: {}  sharpness: {:.4}  confidence: {:.4}",
+            phase.detected_cycle_period,
+            phase.transition_sharpness_score,
+            phase.attractor_confidence_score
+        )),
+        Line::from(format!(
+            "  confidence trend: {}",
+            sparkline(
+                snapshots
+                    .iter()
+                    .map(|snapshot| snapshot.attractor_confidence_score)
+            )
+        )),
+        Line::from(format!(
+            "  period timeline: {}",
+            period_timeline(
+                snapshots
+                    .iter()
+                    .map(|snapshot| snapshot.detected_cycle_period)
+            )
+        )),
+        Line::from(format!(
+            "  sharpness trend:  {}",
+            sparkline(
+                snapshots
+                    .iter()
+                    .map(|snapshot| snapshot.transition_sharpness_score)
+            )
+        )),
+        Line::from(format!(
+            "  signature strip:  {}",
+            signature_timeline(
+                snapshots
+                    .iter()
+                    .map(|snapshot| attractor_signature(&snapshot.attractor_state))
+            )
+        )),
+    ];
+
+    let panel = Paragraph::new(lines).block(
         Block::default()
             .borders(Borders::ALL)
             .title(" Phase Health "),
     );
-    f.render_widget(summary, split[0]);
-
-    let confidence = bounded_percent(phase.attractor_confidence_score);
-    let sharpness = bounded_percent(phase.transition_sharpness_score);
-    draw_ratio_gauge(f, split[1], "Confidence", confidence, Color::Green);
-    draw_ratio_gauge(f, split[2], "Sharpness", sharpness, Color::Cyan);
+    f.render_widget(panel, area);
 }
 
 fn diagnostics_content(app: &App) -> Vec<Line<'static>> {
@@ -779,8 +803,11 @@ fn draw_footer(f: &mut Frame, area: Rect) {
         Span::raw(" Quit"),
     ]);
 
-    let footer =
-        Paragraph::new(legend).block(Block::default().borders(Borders::ALL).title(" Hotkeys "));
+    let footer = Paragraph::new(legend).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Hotkeys + trend observability / phase history "),
+    );
     f.render_widget(footer, area);
 }
 
@@ -808,6 +835,8 @@ fn draw_help_overlay(f: &mut Frame) {
         Line::from("  S  Scan"),
         Line::from("  V  Diff"),
         Line::from("  T  Phase Dynamics"),
+        Line::from("  trend observability: confidence/sharpness"),
+        Line::from("  phase history: period + attractor signature"),
         Line::from("  G  Cycle Alert Profile"),
         Line::from("  E  Export"),
         Line::from("  P  Replay"),
@@ -816,6 +845,86 @@ fn draw_help_overlay(f: &mut Frame) {
     ];
     let popup = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(" Help "));
     f.render_widget(popup, area);
+}
+
+fn recent_phase_snapshots<'a>(app: &'a App, window: usize) -> &'a [crate::app::PhaseSnapshot] {
+    let len = app.phase_snapshots.len();
+    let start = len.saturating_sub(window);
+    &app.phase_snapshots[start..]
+}
+
+const INSUFFICIENT_HISTORY_PLACEHOLDER: &str = "(history n<2)";
+
+fn sparkline<I>(values: I) -> String
+where
+    I: Iterator<Item = f64>,
+{
+    const BARS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    let mut out = String::new();
+    let mut count = 0usize;
+    for value in values {
+        let glyph = if value.is_finite() {
+            let clamped = value.clamp(0.0, 1.0);
+            let idx = (clamped * (BARS.len() as f64 - 1.0)).round() as usize;
+            BARS[idx]
+        } else {
+            '?'
+        };
+        out.push(glyph);
+        count += 1;
+    }
+    if count < 2 {
+        return INSUFFICIENT_HISTORY_PLACEHOLDER.to_string();
+    }
+    out
+}
+
+fn period_timeline<I>(values: I) -> String
+where
+    I: Iterator<Item = u64>,
+{
+    let mut out = String::new();
+    let mut count = 0usize;
+    for value in values {
+        if count > 0 {
+            out.push(' ');
+        }
+        out.push_str(&value.to_string());
+        count += 1;
+    }
+    if count < 2 {
+        return INSUFFICIENT_HISTORY_PLACEHOLDER.to_string();
+    }
+    out
+}
+
+fn attractor_signature(state: &str) -> char {
+    match state {
+        "fixed_cycle" => 'F',
+        "low_period_cycle" => 'L',
+        "medium_period_cycle" => 'M',
+        "drifting_cycle" => 'D',
+        _ => 'A',
+    }
+}
+
+fn signature_timeline<I>(values: I) -> String
+where
+    I: Iterator<Item = char>,
+{
+    let mut out = String::new();
+    let mut count = 0usize;
+    for value in values {
+        if count > 0 {
+            out.push(' ');
+        }
+        out.push(value);
+        count += 1;
+    }
+    if count < 2 {
+        return INSUFFICIENT_HISTORY_PLACEHOLDER.to_string();
+    }
+    out
 }
 
 fn bounded_percent(value: f64) -> u16 {
@@ -828,13 +937,53 @@ fn bounded_percent(value: f64) -> u16 {
 
 #[cfg(test)]
 mod tests {
-    use super::{bounded_percent, phase_dynamics_content};
+    use super::{
+        attractor_signature, bounded_percent, period_timeline, phase_dynamics_content,
+        INSUFFICIENT_HISTORY_PLACEHOLDER,
+        signature_timeline, sparkline,
+    };
     use crate::app::{App, PhaseDiagnosticsData};
 
     #[test]
     fn test_bounded_percent_non_finite_guard() {
         assert_eq!(bounded_percent(f64::NAN), 0);
         assert_eq!(bounded_percent(f64::INFINITY), 0);
+    }
+
+    #[test]
+    fn test_sparkline_deterministic_rendering() {
+        assert_eq!(sparkline([0.0, 0.5, 1.0].into_iter()), "▁▅█");
+    }
+
+    #[test]
+    fn test_history_placeholder_for_insufficient_points() {
+        assert_eq!(
+            sparkline([0.3].into_iter()),
+            INSUFFICIENT_HISTORY_PLACEHOLDER
+        );
+        assert_eq!(
+            period_timeline([3].into_iter()),
+            INSUFFICIENT_HISTORY_PLACEHOLDER
+        );
+        assert_eq!(
+            signature_timeline(['F'].into_iter()),
+            INSUFFICIENT_HISTORY_PLACEHOLDER
+        );
+    }
+
+    #[test]
+    fn test_sparkline_anomaly_glyph_rendering() {
+        assert_eq!(sparkline([0.8, f64::NAN, 0.6].into_iter()), "▇?▅");
+        assert_eq!(sparkline([0.8, f64::INFINITY, 0.6].into_iter()), "▇?▅");
+    }
+
+    #[test]
+    fn test_attractor_signature_mapping() {
+        assert_eq!(attractor_signature("fixed_cycle"), 'F');
+        assert_eq!(attractor_signature("low_period_cycle"), 'L');
+        assert_eq!(attractor_signature("medium_period_cycle"), 'M');
+        assert_eq!(attractor_signature("drifting_cycle"), 'D');
+        assert_eq!(attractor_signature("unknown"), 'A');
     }
 
     #[test]

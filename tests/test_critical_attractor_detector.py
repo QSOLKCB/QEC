@@ -74,6 +74,9 @@ def test_empty_sequence_handling() -> None:
     assert result["cycle_detected"] is False
     assert result["cycle_length"] == 0
     assert result["cycle_signature"] == ()
+    assert result["attractor_similarity_score"] == 0.0
+    assert result["critical_risk_score"] == 0.0
+    assert result["risk_triggered"] is False
 
 
 def test_singleton_sequence_handling() -> None:
@@ -81,3 +84,11 @@ def test_singleton_sequence_handling() -> None:
     assert result["cycle_detected"] is False
     assert result["cycle_length"] == 0
     assert result["cycle_signature"] == ()
+    assert result["risk_triggered"] is False
+
+
+def test_no_cycle_high_warning_non_triggered() -> None:
+    result = run_critical_attractor_detector([1, 2, 3, 4], warning_score=1.0)
+    assert result["cycle_detected"] is False
+    assert result["critical_risk_score"] == 0.0
+    assert result["risk_triggered"] is False

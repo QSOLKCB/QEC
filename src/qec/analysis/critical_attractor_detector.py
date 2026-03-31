@@ -60,7 +60,7 @@ def compare_attractors(
     sequence_b = list(cycle_b)
 
     if not sequence_a and not sequence_b:
-        return 1.0
+        return 0.0
     if not sequence_a or not sequence_b:
         return 0.0
 
@@ -117,15 +117,19 @@ def run_critical_attractor_detector(
     cycle_length = len(cycle)
     cycle_signature = compute_cycle_signature(cycle)
 
-    baseline = list(baseline_cycle) if baseline_cycle is not None else cycle
-    similarity_score = compare_attractors(cycle, baseline)
-
-    risk_score = compute_critical_risk_score(
-        warning_score=warning_score,
-        cycle_length=cycle_length,
-        similarity_score=similarity_score,
-    )
-    basin_lock_detected = detect_basin_lock(cycle_length, similarity_score)
+    if not cycle_detected:
+        similarity_score = 0.0
+        risk_score = 0.0
+        basin_lock_detected = False
+    else:
+        baseline = list(baseline_cycle) if baseline_cycle is not None else cycle
+        similarity_score = compare_attractors(cycle, baseline)
+        risk_score = compute_critical_risk_score(
+            warning_score=warning_score,
+            cycle_length=cycle_length,
+            similarity_score=similarity_score,
+        )
+        basin_lock_detected = detect_basin_lock(cycle_length, similarity_score)
     attractor_state = classify_attractor_state(risk_score)
 
     result: dict[str, bool | float | int | tuple[object, ...] | str] = {

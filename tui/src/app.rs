@@ -7,7 +7,7 @@ use std::path::Path;
 
 use crate::commands::{
     dispatch_mode, execute_action, fetch_engine_diagnostics, fetch_history_timeline,
-    fetch_invariant_status,
+    fetch_invariant_status, fetch_phase_diagnostics,
 };
 
 const MAX_COMMAND_HISTORY: usize = 20;
@@ -26,6 +26,7 @@ pub const NAV_ITEMS: &[&str] = &[
     "History Window",
     "Invariants",
     "Law Engine",
+    "Phase Dynamics",
     "Actions",
 ];
 
@@ -243,6 +244,74 @@ impl InvariantData {
     }
 }
 
+#[derive(Deserialize)]
+struct RawPhaseDiagnostics {
+    attractor_state: String,
+    attractor_cycle_length: u64,
+    phase_transition_index: f64,
+    attractor_entry_cycle: u64,
+    transition_sharpness_score: f64,
+    attractor_confidence_score: f64,
+    detected_cycle_period: u64,
+    cycle_spectrum_class: String,
+}
+
+pub struct PhaseDiagnosticsData {
+    pub attractor_state: String,
+    pub attractor_cycle_length: String,
+    pub phase_transition_index: String,
+    pub attractor_entry_cycle: String,
+    pub transition_sharpness_score: String,
+    pub attractor_confidence_score: String,
+    pub detected_cycle_period: String,
+    pub cycle_spectrum_class: String,
+    pub error: Option<String>,
+}
+
+impl PhaseDiagnosticsData {
+    fn placeholder() -> Self {
+        Self {
+            attractor_state: "—".to_string(),
+            attractor_cycle_length: "—".to_string(),
+            phase_transition_index: "—".to_string(),
+            attractor_entry_cycle: "—".to_string(),
+            transition_sharpness_score: "—".to_string(),
+            attractor_confidence_score: "—".to_string(),
+            detected_cycle_period: "—".to_string(),
+            cycle_spectrum_class: "—".to_string(),
+            error: None,
+        }
+    }
+
+    fn from_engine() -> Self {
+        match fetch_phase_diagnostics() {
+            Ok(json_str) => match serde_json::from_str::<RawPhaseDiagnostics>(&json_str) {
+                Ok(raw) => Self {
+                    attractor_state: raw.attractor_state,
+                    attractor_cycle_length: raw.attractor_cycle_length.to_string(),
+                    phase_transition_index: format!("{:.4}", raw.phase_transition_index),
+                    attractor_entry_cycle: raw.attractor_entry_cycle.to_string(),
+                    transition_sharpness_score: format!("{:.4}", raw.transition_sharpness_score),
+                    attractor_confidence_score: format!("{:.4}", raw.attractor_confidence_score),
+                    detected_cycle_period: raw.detected_cycle_period.to_string(),
+                    cycle_spectrum_class: raw.cycle_spectrum_class,
+                    error: None,
+                },
+                Err(e) => {
+                    let mut p = Self::placeholder();
+                    p.error = Some(format!("JSON parse error: {e}"));
+                    p
+                }
+            },
+            Err(e) => {
+                let mut p = Self::placeholder();
+                p.error = Some(format!("ENGINE ERROR: {e}"));
+                p
+            }
+        }
+    }
+}
+
 pub struct App {
     pub nav_items: &'static [&'static str],
     pub selected_index: usize,
@@ -250,6 +319,7 @@ pub struct App {
     pub diagnostics: DiagnosticsData,
     pub history: HistoryData,
     pub invariants: InvariantData,
+    pub phase_diagnostics: PhaseDiagnosticsData,
     pub action_log: Vec<String>,
     pub command_history: Vec<String>,
     pub action_status: String,
@@ -280,6 +350,7 @@ pub struct App {
     pub alert_profile: AlertProfile,
     pub incident_timeline: VecDeque<String>,
     pub invariant_summary: Vec<String>,
+    pub phase_snapshots: Vec<String>,
 }
 
 impl App {
@@ -291,6 +362,7 @@ impl App {
             diagnostics: DiagnosticsData::from_engine(),
             history: HistoryData::from_engine(),
             invariants: InvariantData::from_engine(),
+            phase_diagnostics: PhaseDiagnosticsData::from_engine(),
             action_log: Vec::new(),
             command_history: Vec::new(),
             action_status: "IDLE".to_string(),
@@ -320,9 +392,11 @@ impl App {
             alert_profile: AlertProfile::Normal,
             incident_timeline: VecDeque::new(),
             invariant_summary: Vec::new(),
+            phase_snapshots: Vec::new(),
         };
         app.apply_alert_profile_thresholds();
         app.build_invariant_summary();
+        app.record_phase_snapshot();
         app
     }
 
@@ -344,6 +418,9 @@ impl App {
 
     pub fn select_mode(&mut self) {
         self.mode = dispatch_mode(self.selected_index);
+        if self.mode == "Phase Dynamics" {
+            self.refresh_phase_diagnostics();
+        }
     }
 
     pub fn jump_to(&mut self, index: usize) {
@@ -361,7 +438,14 @@ impl App {
         self.diagnostics = DiagnosticsData::from_engine();
         self.history = HistoryData::from_engine();
         self.invariants = InvariantData::from_engine();
+        self.phase_diagnostics = PhaseDiagnosticsData::from_engine();
+        self.record_phase_snapshot();
         self.build_invariant_summary();
+    }
+
+    pub fn refresh_phase_diagnostics(&mut self) {
+        self.phase_diagnostics = PhaseDiagnosticsData::from_engine();
+        self.record_phase_snapshot();
     }
 
     pub fn update_observability_metrics(
@@ -421,14 +505,20 @@ impl App {
     pub fn cycle_alert_threshold_profile(&mut self) {
         self.alert_profile = self.alert_profile.next();
         self.apply_alert_profile_thresholds();
-        self.push_incident_event(format!("PROFILE → {}", self.alert_profile.to_string().to_uppercase()));
+        self.push_incident_event(format!(
+            "PROFILE → {}",
+            self.alert_profile.to_string().to_uppercase()
+        ));
         self.evaluate_alert_profile();
     }
 
     pub fn set_operator_view(&mut self, view: OperatorView) {
         if self.current_view != view {
             self.current_view = view;
-            self.push_incident_event(format!("VIEW → {}", self.current_view.to_string().to_uppercase()));
+            self.push_incident_event(format!(
+                "VIEW → {}",
+                self.current_view.to_string().to_uppercase()
+            ));
         }
     }
 
@@ -546,6 +636,9 @@ impl App {
 
         // Append to command history with timestamp
         self.command_history.push(format!("{action} @ {timestamp}"));
+        if action == "phase_diagnostics" && success {
+            self.refresh_phase_diagnostics();
+        }
         // FIFO trim to last MAX_COMMAND_HISTORY
         while self.command_history.len() > MAX_COMMAND_HISTORY {
             self.command_history.remove(0);
@@ -568,6 +661,13 @@ impl App {
         }
         for entry in &self.action_log {
             writeln!(file, "{entry}").map_err(|e| format!("Write error: {e}"))?;
+        }
+        if !self.phase_snapshots.is_empty() {
+            writeln!(file, "---").map_err(|e| format!("Write error: {e}"))?;
+            for snapshot in &self.phase_snapshots {
+                writeln!(file, "phase_snapshot: {snapshot}")
+                    .map_err(|e| format!("Write error: {e}"))?;
+            }
         }
         self.exported_log_path = path.to_string();
         Ok(())
@@ -733,6 +833,25 @@ impl App {
             }
         }
         self.diff_lines.truncate(MAX_DIFF_LINES);
+    }
+
+    fn record_phase_snapshot(&mut self) {
+        if self.phase_diagnostics.error.is_some() {
+            return;
+        }
+        self.phase_snapshots.push(format!(
+            "state={} entry={} transition={} sharpness={} confidence={} period={} spectrum={}",
+            self.phase_diagnostics.attractor_state,
+            self.phase_diagnostics.attractor_entry_cycle,
+            self.phase_diagnostics.phase_transition_index,
+            self.phase_diagnostics.transition_sharpness_score,
+            self.phase_diagnostics.attractor_confidence_score,
+            self.phase_diagnostics.detected_cycle_period,
+            self.phase_diagnostics.cycle_spectrum_class
+        ));
+        while self.phase_snapshots.len() > MAX_COMMAND_HISTORY {
+            self.phase_snapshots.remove(0);
+        }
     }
 }
 
@@ -1211,5 +1330,30 @@ mod tests {
         assert_eq!(app.invariant_summary[0], "PASS: 1");
         assert_eq!(app.invariant_summary[1], "FAIL: 1");
         assert_eq!(app.invariant_summary[2], "UNKNOWN: 2");
+    }
+
+    #[test]
+    fn test_phase_diagnostics_refresh_populates_snapshot() {
+        let mut app = App::new();
+        let before = app.phase_snapshots.len();
+        app.refresh_phase_diagnostics();
+        assert!(app.phase_diagnostics.error.is_none());
+        assert!(app.phase_snapshots.len() >= before);
+        assert!(app
+            .phase_snapshots
+            .last()
+            .unwrap_or(&String::new())
+            .contains("confidence="));
+    }
+
+    #[test]
+    fn test_export_includes_phase_snapshots() {
+        let mut app = App::new();
+        app.phase_snapshots = vec!["state=fixed_point entry=0 transition=0.0000 sharpness=1.0000 confidence=1.0000 period=1 spectrum=mono".to_string()];
+        let result = app.export_session_log();
+        assert!(result.is_ok());
+        let contents = std::fs::read_to_string("qec_tui_session.log").unwrap();
+        assert!(contents.contains("phase_snapshot: state=fixed_point"));
+        let _ = std::fs::remove_file("qec_tui_session.log");
     }
 }

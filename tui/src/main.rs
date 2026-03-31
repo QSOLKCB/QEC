@@ -73,7 +73,7 @@ fn main() -> io::Result<()> {
                 KeyCode::Char('1') => app.set_operator_view(OperatorView::Default),
                 KeyCode::Char('2') => app.set_operator_view(OperatorView::Incidents),
                 KeyCode::Char('3') => app.set_operator_view(OperatorView::Performance),
-                KeyCode::Char('t') | KeyCode::Char('T') => app.cycle_alert_threshold_profile(),
+                KeyCode::Char('g') | KeyCode::Char('G') => app.cycle_alert_threshold_profile(),
                 _ if app.mode == "Actions" => match key.code {
                     KeyCode::Char('d') | KeyCode::Char('D') => {
                         let started = Instant::now();
@@ -112,7 +112,16 @@ fn main() -> io::Result<()> {
                         );
                         app.refresh_all();
                     }
-                    KeyCode::Char('x') | KeyCode::Char('X') => app.jump_to(9),
+                    KeyCode::Char('t') | KeyCode::Char('T') => {
+                        let started = Instant::now();
+                        app.run_action_with_status("phase_diagnostics");
+                        app.update_observability_metrics(
+                            "phase_diagnostics",
+                            app.action_status == "SUCCESS",
+                            started.elapsed().as_millis(),
+                        );
+                    }
+                    KeyCode::Char('x') | KeyCode::Char('X') => app.jump_to(10),
                     _ => {}
                 },
                 // Direct shortcuts (non-Actions mode)
@@ -126,7 +135,8 @@ fn main() -> io::Result<()> {
                 KeyCode::Char('w') | KeyCode::Char('W') => app.jump_to(6),
                 KeyCode::Char('i') | KeyCode::Char('I') => app.jump_to(7),
                 KeyCode::Char('l') | KeyCode::Char('L') => app.jump_to(8),
-                KeyCode::Char('x') | KeyCode::Char('X') => app.jump_to(9),
+                KeyCode::Char('t') | KeyCode::Char('T') => app.jump_to(9),
+                KeyCode::Char('x') | KeyCode::Char('X') => app.jump_to(10),
                 KeyCode::Char('e') | KeyCode::Char('E') => match app.export_session_log() {
                     Ok(()) => app.action_status = "EXPORTED".to_string(),
                     Err(e) => {

@@ -221,6 +221,7 @@ fn workspace_content(app: &App) -> Vec<Line<'static>> {
             Line::from("  violations:       0"),
             Line::from("  enforcement:      active"),
         ],
+        "Phase Dynamics" => return phase_dynamics_content(app),
         "Actions" => return actions_content(app),
         _ => vec![Line::from("  (no data)")],
     }
@@ -242,8 +243,9 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
             Constraint::Length(8),
             Constraint::Length(6),
             Constraint::Length(8),
+            Constraint::Length(8),
             Constraint::Length(6),
-            Constraint::Min(8),
+            Constraint::Min(6),
         ])
         .split(area);
 
@@ -279,8 +281,9 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
     draw_health_and_view(f, app, status_layout[1]);
     draw_recent_failures(f, app, status_layout[2]);
     draw_invariant_kpis(f, app, status_layout[3]);
-    draw_operator_audit(f, app, status_layout[4]);
-    draw_incident_timeline(f, app, status_layout[5]);
+    draw_phase_health(f, app, status_layout[4]);
+    draw_operator_audit(f, app, status_layout[5]);
+    draw_incident_timeline(f, app, status_layout[6]);
 }
 
 fn draw_health_and_view(f: &mut Frame, app: &App, area: Rect) {
@@ -418,6 +421,35 @@ fn draw_ratio_gauge(f: &mut Frame, area: Rect, title: &str, percent: u16, color:
     f.render_widget(gauge, area);
 }
 
+fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
+    let split = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(2),
+            Constraint::Length(3),
+            Constraint::Length(3),
+        ])
+        .split(area);
+    let phase = &app.phase_diagnostics;
+    let summary = Paragraph::new(vec![Line::from(format!(
+        "  period: {}  sharpness: {}  confidence: {}",
+        phase.detected_cycle_period,
+        phase.transition_sharpness_score,
+        phase.attractor_confidence_score
+    ))])
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Phase Health "),
+    );
+    f.render_widget(summary, split[0]);
+
+    let confidence = bounded_percent(&phase.attractor_confidence_score);
+    let sharpness = bounded_percent(&phase.transition_sharpness_score);
+    draw_ratio_gauge(f, split[1], "Confidence", confidence, Color::Green);
+    draw_ratio_gauge(f, split[2], "Sharpness", sharpness, Color::Cyan);
+}
+
 fn diagnostics_content(app: &App) -> Vec<Line<'static>> {
     let d = &app.diagnostics;
     if let Some(ref err) = d.error {
@@ -495,6 +527,42 @@ fn invariants_content(app: &App) -> Vec<Line<'static>> {
     ]
 }
 
+fn phase_dynamics_content(app: &App) -> Vec<Line<'static>> {
+    let phase = &app.phase_diagnostics;
+    if let Some(ref err) = phase.error {
+        return vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                format!("  {err}"),
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )),
+            Line::from(""),
+            Line::from("  Press [R] to retry"),
+        ];
+    }
+    vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "  PHASE DYNAMICS",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  --------------------------------"),
+        Line::from(format!("  state: {}", phase.attractor_state)),
+        Line::from(format!("  cycle_length: {}", phase.attractor_cycle_length)),
+        Line::from(format!("  entry: {}", phase.attractor_entry_cycle)),
+        Line::from(format!("  transition: {}", phase.phase_transition_index)),
+        Line::from(format!("  sharpness: {}", phase.transition_sharpness_score)),
+        Line::from(format!(
+            "  confidence: {}",
+            phase.attractor_confidence_score
+        )),
+        Line::from(format!("  period: {}", phase.detected_cycle_period)),
+        Line::from(format!("  spectrum: {}", phase.cycle_spectrum_class)),
+    ]
+}
+
 fn actions_content(app: &App) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::from(""),
@@ -508,6 +576,7 @@ fn actions_content(app: &App) -> Vec<Line<'static>> {
         Line::from("  [D] Run Diagnostics"),
         Line::from("  [I] Run Invariants"),
         Line::from("  [L] Run Law Engine"),
+        Line::from("  [T] Run Phase Diagnostics"),
         Line::from("  [R] Refresh All"),
         Line::from(""),
         Line::from(Span::styled(
@@ -645,6 +714,13 @@ fn draw_footer(f: &mut Frame, area: Rect) {
         ),
         Span::raw(" Law  "),
         Span::styled(
+            "[T]",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(" Phase  "),
+        Span::styled(
             "[X]",
             Style::default()
                 .fg(Color::Yellow)
@@ -680,7 +756,7 @@ fn draw_footer(f: &mut Frame, area: Rect) {
         ),
         Span::raw(" Views  "),
         Span::styled(
-            "[T]",
+            "[G]",
             Style::default()
                 .fg(Color::Yellow)
                 .add_modifier(Modifier::BOLD),
@@ -728,6 +804,8 @@ fn draw_help_overlay(f: &mut Frame) {
         Line::from("  ?  Help"),
         Line::from("  S  Scan"),
         Line::from("  V  Diff"),
+        Line::from("  T  Phase Dynamics"),
+        Line::from("  G  Cycle Alert Profile"),
         Line::from("  E  Export"),
         Line::from("  P  Replay"),
         Line::from("  ↑↓ Navigate"),
@@ -735,6 +813,12 @@ fn draw_help_overlay(f: &mut Frame) {
     ];
     let popup = Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title(" Help "));
     f.render_widget(popup, area);
+}
+
+fn bounded_percent(value: &str) -> u16 {
+    let parsed = value.parse::<f64>().unwrap_or(0.0);
+    let clamped = parsed.clamp(0.0, 1.0);
+    (clamped * 100.0).round() as u16
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {

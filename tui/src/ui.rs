@@ -424,6 +424,28 @@ fn draw_ratio_gauge(f: &mut Frame, area: Rect, title: &str, percent: u16, color:
 fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
     let phase = &app.phase_diagnostics;
     let snapshots = recent_phase_snapshots(app, 12);
+    let confidence_values: Vec<f64> = snapshots
+        .iter()
+        .map(|snapshot| snapshot.attractor_confidence_score)
+        .collect();
+    let sharpness_values: Vec<f64> = snapshots
+        .iter()
+        .map(|snapshot| snapshot.transition_sharpness_score)
+        .collect();
+    let period_values: Vec<u64> = snapshots
+        .iter()
+        .map(|snapshot| snapshot.detected_cycle_period)
+        .collect();
+
+    let confidence_delta = latest_delta_marker(&confidence_values);
+    let period_delta = latest_u64_delta_marker(&period_values);
+    let sharpness_delta = latest_delta_marker(&sharpness_values);
+    let inflection =
+        if has_recent_inflection(&confidence_values) || has_recent_inflection(&sharpness_values) {
+        " !"
+    } else {
+        ""
+    };
 
     let lines = vec![
         Line::from(format!(
@@ -433,28 +455,19 @@ fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
             phase.attractor_confidence_score
         )),
         Line::from(format!(
-            "  confidence trend: {}",
-            sparkline(
-                snapshots
-                    .iter()
-                    .map(|snapshot| snapshot.attractor_confidence_score)
-            )
+            "  confidence trend: {}  {}",
+            sparkline(confidence_values.iter().copied()),
+            confidence_delta
         )),
         Line::from(format!(
-            "  period timeline: {}",
-            period_timeline(
-                snapshots
-                    .iter()
-                    .map(|snapshot| snapshot.detected_cycle_period)
-            )
+            "  period timeline: {}  {}",
+            period_timeline(period_values.iter().copied()),
+            period_delta
         )),
         Line::from(format!(
-            "  sharpness trend:  {}",
-            sparkline(
-                snapshots
-                    .iter()
-                    .map(|snapshot| snapshot.transition_sharpness_score)
-            )
+            "  sharpness trend:  {}  {}",
+            sparkline(sharpness_values.iter().copied()),
+            sharpness_delta
         )),
         Line::from(format!(
             "  signature strip:  {}",
@@ -463,6 +476,11 @@ fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
                     .iter()
                     .map(|snapshot| attractor_signature(&snapshot.attractor_state))
             )
+        )),
+        Line::from(format!(
+            "  confidence velocity: {}{}",
+            confidence_velocity_strip(&confidence_values, 12),
+            inflection
         )),
     ];
 
@@ -619,6 +637,19 @@ fn actions_content(app: &App) -> Vec<Line<'static>> {
         for entry in &app.action_log {
             lines.push(Line::from(format!("  {entry}")));
         }
+    }
+    if !app.replay_lines.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "  Replay mode:",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )));
+        lines.push(Line::from(format!(
+            "  timeline: {}",
+            replay_timeline_strip(app.replay_lines.len())
+        )));
     }
     lines
 }
@@ -900,9 +931,13 @@ where
 
 fn attractor_signature(state: &str) -> char {
     match state {
+        "fixed_point" => 'F',
+        "period_two" => 'P',
+        "drifting_phase" => 'D',
+        "intervention_phase" => 'I',
         "fixed_cycle" => 'F',
-        "low_period_cycle" => 'L',
-        "medium_period_cycle" => 'M',
+        "low_period_cycle" => 'P',
+        "medium_period_cycle" => 'P',
         "drifting_cycle" => 'D',
         _ => 'A',
     }
@@ -935,12 +970,119 @@ fn bounded_percent(value: f64) -> u16 {
     (clamped * 100.0).round() as u16
 }
 
+fn ordering_marker(is_greater: bool, is_less: bool) -> char {
+    if is_greater {
+        '+'
+    } else if is_less {
+        '-'
+    } else {
+        '='
+    }
+}
+
+fn latest_pair<T: Copy>(values: &[T]) -> Option<(T, T)> {
+    if values.len() < 2 {
+        None
+    } else {
+        Some((values[values.len() - 2], values[values.len() - 1]))
+    }
+}
+
+fn delta_marker(previous: f64, latest: f64) -> char {
+    if !previous.is_finite() || !latest.is_finite() {
+        return '=';
+    }
+    ordering_marker(latest > previous, latest < previous)
+}
+
+fn latest_delta_marker(values: &[f64]) -> char {
+    match latest_pair(values) {
+        Some((previous, latest)) => delta_marker(previous, latest),
+        None => '=',
+    }
+}
+
+fn latest_u64_delta_marker(values: &[u64]) -> char {
+    match latest_pair(values) {
+        Some((previous, latest)) => ordering_marker(latest > previous, latest < previous),
+        None => '=',
+    }
+}
+
+fn has_recent_inflection(values: &[f64]) -> bool {
+    if values.len() < 3 {
+        return false;
+    }
+    let recent = &values[values.len().saturating_sub(4)..];
+    let mut first_sign: Option<i8> = None;
+    for pair in recent.windows(2) {
+        if !pair[0].is_finite() || !pair[1].is_finite() {
+            continue;
+        }
+        let sign = if pair[1] > pair[0] {
+            1
+        } else if pair[1] < pair[0] {
+            -1
+        } else {
+            0
+        };
+        if sign == 0 {
+            continue;
+        }
+        if let Some(existing) = first_sign {
+            if existing != sign {
+                return true;
+            }
+        } else {
+            first_sign = Some(sign);
+        }
+    }
+    false
+}
+
+fn confidence_velocity_strip(values: &[f64], window: usize) -> String {
+    if values.len() < 2 {
+        return INSUFFICIENT_HISTORY_PLACEHOLDER.to_string();
+    }
+    let start = values.len().saturating_sub(window);
+    let mut out = String::new();
+    let mut count = 0usize;
+    for pair in values[start..].windows(2) {
+        if count > 0 {
+            out.push(' ');
+        }
+        out.push(delta_marker(pair[0], pair[1]));
+        count += 1;
+    }
+    if count == 0 {
+        return INSUFFICIENT_HISTORY_PLACEHOLDER.to_string();
+    }
+    out
+}
+
+fn replay_timeline_strip(frame_count: usize) -> String {
+    if frame_count == 0 {
+        return INSUFFICIENT_HISTORY_PLACEHOLDER.to_string();
+    }
+    let width = frame_count.min(10).max(2);
+    let mut out = String::from("[");
+    for idx in 0..width {
+        if idx + 1 == width {
+            out.push('|');
+        } else {
+            out.push('=');
+        }
+    }
+    out.push(']');
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        attractor_signature, bounded_percent, period_timeline, phase_dynamics_content,
-        INSUFFICIENT_HISTORY_PLACEHOLDER,
-        signature_timeline, sparkline,
+        attractor_signature, bounded_percent, confidence_velocity_strip, has_recent_inflection,
+        latest_delta_marker, latest_u64_delta_marker, period_timeline, phase_dynamics_content,
+        replay_timeline_strip, signature_timeline, sparkline, INSUFFICIENT_HISTORY_PLACEHOLDER,
     };
     use crate::app::{App, PhaseDiagnosticsData};
 
@@ -979,11 +1121,37 @@ mod tests {
 
     #[test]
     fn test_attractor_signature_mapping() {
+        assert_eq!(attractor_signature("fixed_point"), 'F');
+        assert_eq!(attractor_signature("period_two"), 'P');
+        assert_eq!(attractor_signature("drifting_phase"), 'D');
+        assert_eq!(attractor_signature("intervention_phase"), 'I');
         assert_eq!(attractor_signature("fixed_cycle"), 'F');
-        assert_eq!(attractor_signature("low_period_cycle"), 'L');
-        assert_eq!(attractor_signature("medium_period_cycle"), 'M');
+        assert_eq!(attractor_signature("low_period_cycle"), 'P');
+        assert_eq!(attractor_signature("medium_period_cycle"), 'P');
         assert_eq!(attractor_signature("drifting_cycle"), 'D');
         assert_eq!(attractor_signature("unknown"), 'A');
+    }
+
+    #[test]
+    fn test_delta_markers_and_velocity_strip() {
+        assert_eq!(latest_delta_marker(&[0.2, 0.4]), '+');
+        assert_eq!(latest_delta_marker(&[0.4, 0.2]), '-');
+        assert_eq!(latest_delta_marker(&[0.4, 0.4]), '=');
+        assert_eq!(latest_u64_delta_marker(&[2, 5]), '+');
+        assert_eq!(latest_u64_delta_marker(&[5, 2]), '-');
+        assert_eq!(
+            confidence_velocity_strip(&[0.1, 0.2, 0.2, 0.1, 0.3], 12),
+            "+ = - +"
+        );
+    }
+
+    #[test]
+    fn test_inflection_and_replay_timeline_strip() {
+        assert!(has_recent_inflection(&[0.1, 0.4, 0.2]));
+        assert!(!has_recent_inflection(&[0.1, 0.2, 0.3, 0.4]));
+        assert_eq!(replay_timeline_strip(0), INSUFFICIENT_HISTORY_PLACEHOLDER);
+        assert_eq!(replay_timeline_strip(1), "[=|]");
+        assert_eq!(replay_timeline_strip(5), "[====|]");
     }
 
     #[test]

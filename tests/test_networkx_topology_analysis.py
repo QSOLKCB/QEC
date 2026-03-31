@@ -1,6 +1,7 @@
 """Tests for v126.0.0 Network Topology Invariant Discovery."""
 
 from qec.analysis.networkx_topology_analysis import (
+    _canonical_cycle,
     build_nx_graph,
     classify_topology_risk,
     compute_topology_metrics,
@@ -46,6 +47,13 @@ def test_cycle_detection_correctness() -> None:
 
     assert metrics["cycle_count"] == 1
     assert invariants["unsafe_cycles"] == (("A", "B", "C"),)
+
+
+def test_reverse_traversal_cycles_normalize_identically() -> None:
+    forward = _canonical_cycle(["A", "B", "C"])
+    reversed_order = _canonical_cycle(["A", "C", "B"])
+
+    assert forward == reversed_order
 
 
 def test_articulation_node_discovery() -> None:

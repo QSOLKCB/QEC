@@ -17,8 +17,10 @@ def _canonical_cycle(cycle: list[str]) -> tuple[str, ...]:
     if not cycle:
         return ()
     n = len(cycle)
-    rotations = [tuple(cycle[i:] + cycle[:i]) for i in range(n)]
-    return min(rotations)
+    forward_rotations = [tuple(cycle[i:] + cycle[:i]) for i in range(n)]
+    reversed_cycle = list(reversed(cycle))
+    reversed_rotations = [tuple(reversed_cycle[i:] + reversed_cycle[:i]) for i in range(n)]
+    return min(forward_rotations + reversed_rotations)
 
 
 def build_nx_graph(state_graph: dict[str, list[str]]) -> nx.DiGraph:

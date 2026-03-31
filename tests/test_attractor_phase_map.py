@@ -395,7 +395,7 @@ def test_detected_cycle_period_three(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda **_: _lattice_result_stub(
             chain_length=1,
             controller_state="idle_state",
-            lattice_trace=[(0,), (1,), (2,), (0,), (1,), (2,)],
+            lattice_trace=[(0,), (1,), (1,), (0,), (1,), (1,)],
         ),
     )
 
@@ -410,13 +410,37 @@ def test_detected_cycle_period_four(monkeypatch: pytest.MonkeyPatch) -> None:
         lambda **_: _lattice_result_stub(
             chain_length=1,
             controller_state="idle_state",
-            lattice_trace=[(0,), (1,), (2,), (3,), (0,), (1,), (2,), (3,)],
+            lattice_trace=[(0,), (1,), (1,), (0,), (0,), (1,), (1,), (0,)],
         ),
     )
 
     out = run_attractor_phase_map()
     assert out["detected_cycle_period"] == 4
     assert out["cycle_spectrum_class"] == "medium_period_cycle"
+
+
+def test_fixed_and_period_two_detection_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "qec.analysis.attractor_phase_map.run_ternary_lattice_controller",
+        lambda **_: _lattice_result_stub(
+            chain_length=2,
+            controller_state="idle_state",
+            lattice_trace=[(1, 1), (1, 1), (1, 1), (1, 1)],
+        ),
+    )
+    out_fixed = run_attractor_phase_map()
+    assert out_fixed["detected_cycle_period"] == 1
+
+    monkeypatch.setattr(
+        "qec.analysis.attractor_phase_map.run_ternary_lattice_controller",
+        lambda **_: _lattice_result_stub(
+            chain_length=2,
+            controller_state="idle_state",
+            lattice_trace=[(0, 1), (1, 0), (0, 1), (1, 0)],
+        ),
+    )
+    out_period_two = run_attractor_phase_map()
+    assert out_period_two["detected_cycle_period"] == 2
 
 
 def test_drifting_detected_cycle_period_zero(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -237,12 +237,32 @@ def _phase_class(attractor_state: str) -> str:
 
 
 def _detected_cycle_period(lattice_trace: list[tuple[int, ...]]) -> int:
+    best_period = 0
+    best_suffix_length = 0
     for period in (1, 2, 3, 4):
         if len(lattice_trace) < (2 * period):
             continue
-        if _consistent_suffix_length(lattice_trace, period) >= (2 * period):
-            return period
-    return 0
+        if _has_strict_subperiod(lattice_trace[-period:]):
+            continue
+        suffix_length = _consistent_suffix_length(lattice_trace, period)
+        if suffix_length < (2 * period):
+            continue
+        if suffix_length > best_suffix_length or (suffix_length == best_suffix_length and period > best_period):
+            best_period = period
+            best_suffix_length = suffix_length
+    return best_period
+
+
+def _has_strict_subperiod(pattern: list[tuple[int, ...]]) -> bool:
+    period = len(pattern)
+    if period <= 1:
+        return False
+    for candidate in range(1, period):
+        if period % candidate != 0:
+            continue
+        if all(pattern[index] == pattern[index % candidate] for index in range(period)):
+            return True
+    return False
 
 
 def _consistent_suffix_length(lattice_trace: list[tuple[int, ...]], period: int) -> int:

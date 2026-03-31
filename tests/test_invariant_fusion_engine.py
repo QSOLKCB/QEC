@@ -80,6 +80,11 @@ def test_nan_inf_normalization():
     assert normalize_risk_signal(float("nan")) == 0.0
     assert normalize_risk_signal(float("inf")) == 1.0
     assert normalize_risk_signal(float("-inf")) == 0.0
+    assert normalize_risk_signal(-0.1) == 0.0
+    assert normalize_risk_signal(0.0) == 0.0
+    assert normalize_risk_signal(0.25) == 0.25
+    assert normalize_risk_signal(1.0) == 1.0
+    assert normalize_risk_signal(1.5) == 1.0
 
 
 def test_deterministic_repeatability():

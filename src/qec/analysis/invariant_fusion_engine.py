@@ -7,7 +7,15 @@ bounded risk score with deterministic label thresholds.
 from __future__ import annotations
 
 import math
-from typing import Any, Dict
+from typing import Any, Dict, TypedDict
+
+
+class FusedInvariantRisks(TypedDict):
+    logical_risk: float
+    topology_risk: float
+    control_risk: float
+    fused_risk_score: float
+    fused_risk_label: str
 
 
 def normalize_risk_signal(value: float) -> float:
@@ -63,7 +71,7 @@ def fuse_invariants(
     proof_result: Dict[str, Any],
     topology_result: Dict[str, Any],
     controller_result: Dict[str, Any],
-) -> Dict[str, Any]:
+) -> FusedInvariantRisks:
     """Fuse logical/topology/control invariant risks into a stable schema."""
     logical_risk = normalize_risk_signal(compute_logical_risk(proof_result))
     topology_risk = normalize_risk_signal(compute_topology_risk(topology_result))

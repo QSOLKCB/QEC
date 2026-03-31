@@ -250,7 +250,7 @@ struct RawPhaseDiagnostics {
     attractor_state: String,
     attractor_cycle_length: u64,
     phase_transition_index: f64,
-    attractor_entry_cycle: u64,
+    attractor_entry_cycle: i64,
     transition_sharpness_score: f64,
     attractor_confidence_score: f64,
     detected_cycle_period: u64,
@@ -261,7 +261,7 @@ pub struct PhaseDiagnosticsData {
     pub attractor_state: String,
     pub attractor_cycle_length: u64,
     pub phase_transition_index: f64,
-    pub attractor_entry_cycle: u64,
+    pub attractor_entry_cycle: i64,
     pub transition_sharpness_score: f64,
     pub attractor_confidence_score: f64,
     pub detected_cycle_period: u64,
@@ -1366,5 +1366,15 @@ mod tests {
         let contents = std::fs::read_to_string("qec_tui_session.log").unwrap();
         assert!(contents.contains("phase_snapshot: state=fixed_point"));
         let _ = std::fs::remove_file("qec_tui_session.log");
+    }
+
+    #[test]
+    fn test_raw_phase_diagnostics_allows_negative_entry_cycle() {
+        let parsed: RawPhaseDiagnostics = serde_json::from_str(
+            "{\"attractor_state\":\"drifting\",\"attractor_cycle_length\":0,\"phase_transition_index\":-1.0,\"attractor_entry_cycle\":-1,\"transition_sharpness_score\":0.0,\"attractor_confidence_score\":0.0,\"detected_cycle_period\":0,\"cycle_spectrum_class\":\"aperiodic\"}",
+        )
+        .unwrap();
+        assert_eq!(parsed.attractor_entry_cycle, -1);
+        assert_eq!(parsed.phase_transition_index, -1.0);
     }
 }

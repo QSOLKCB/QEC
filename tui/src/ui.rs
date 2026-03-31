@@ -828,12 +828,36 @@ fn bounded_percent(value: f64) -> u16 {
 
 #[cfg(test)]
 mod tests {
-    use super::bounded_percent;
+    use super::{bounded_percent, phase_dynamics_content};
+    use crate::app::{App, PhaseDiagnosticsData};
 
     #[test]
     fn test_bounded_percent_non_finite_guard() {
         assert_eq!(bounded_percent(f64::NAN), 0);
         assert_eq!(bounded_percent(f64::INFINITY), 0);
+    }
+
+    #[test]
+    fn test_phase_dynamics_renders_negative_entry_cycle() {
+        let mut app = App::new();
+        app.phase_diagnostics = PhaseDiagnosticsData {
+            attractor_state: "drifting".to_string(),
+            attractor_cycle_length: 0,
+            phase_transition_index: -1.0,
+            attractor_entry_cycle: -1,
+            transition_sharpness_score: 0.0,
+            attractor_confidence_score: 0.0,
+            detected_cycle_period: 0,
+            cycle_spectrum_class: "aperiodic".to_string(),
+            error: None,
+        };
+        let rendered = phase_dynamics_content(&app)
+            .iter()
+            .map(|line| line.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(rendered.contains("entry: -1"));
+        assert!(rendered.contains("transition: -1.0000"));
     }
 }
 

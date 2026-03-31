@@ -2,12 +2,41 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
+from typing import TypedDict
 
 MODE_NOMINAL = "nominal"
 MODE_WARNING = "warning"
 MODE_CRITICAL = "critical"
 MODE_RECOVERY = "recovery"
+
+TRANSITION_LABELS = {
+    (MODE_NOMINAL, MODE_NOMINAL): "remain_nominal",
+    (MODE_NOMINAL, MODE_WARNING): "nominal_to_warning",
+    (MODE_NOMINAL, MODE_CRITICAL): "nominal_to_critical",
+    (MODE_WARNING, MODE_NOMINAL): "warning_to_nominal",
+    (MODE_WARNING, MODE_WARNING): "remain_warning",
+    (MODE_WARNING, MODE_CRITICAL): "warning_to_critical",
+    (MODE_CRITICAL, MODE_CRITICAL): "remain_critical",
+    (MODE_CRITICAL, MODE_RECOVERY): "critical_to_recovery",
+    (MODE_RECOVERY, MODE_NOMINAL): "recovery_to_nominal",
+    (MODE_RECOVERY, MODE_WARNING): "recovery_to_warning",
+    (MODE_RECOVERY, MODE_CRITICAL): "recovery_to_critical",
+    (MODE_RECOVERY, MODE_RECOVERY): "remain_recovery",
+    (MODE_CRITICAL, MODE_WARNING): "critical_to_warning",
+    (MODE_CRITICAL, MODE_NOMINAL): "critical_to_nominal",
+    (MODE_WARNING, MODE_RECOVERY): "warning_to_recovery",
+    (MODE_NOMINAL, MODE_RECOVERY): "nominal_to_recovery",
+}
+
+
+class HybridStepResult(TypedDict):
+    previous_mode: str
+    next_mode: str
+    continuous_value: float
+    mode_transition: str
+    hybrid_stable: bool
 
 
 @dataclass(frozen=True)
@@ -34,7 +63,9 @@ class HybridAutomata:
     def transition_mode(self, state: HybridState) -> str:
         """Deterministically classify the next mode from continuous value."""
         self._validate_mode(state.mode)
+        return self._transition_mode_unchecked(state)
 
+    def _transition_mode_unchecked(self, state: HybridState) -> str:
         value = float(state.continuous_value)
         if state.mode == MODE_CRITICAL and value < 0.5:
             return MODE_RECOVERY
@@ -53,7 +84,7 @@ class HybridAutomata:
         )
         return self._clamp01(next_value)
 
-    def step(self, state: HybridState) -> dict:
+    def step(self, state: HybridState) -> HybridStepResult:
         """Execute one deterministic hybrid transition."""
         self._validate_mode(state.mode)
 
@@ -68,7 +99,7 @@ class HybridAutomata:
         ):
             next_mode = MODE_RECOVERY
         else:
-            next_mode = self.transition_mode(
+            next_mode = self._transition_mode_unchecked(
                 HybridState(
                     mode=previous_mode,
                     continuous_value=next_value,
@@ -91,29 +122,18 @@ class HybridAutomata:
 
     @staticmethod
     def _clamp01(value: float) -> float:
-        return max(0.0, min(1.0, float(value)))
+        numeric = float(value)
+        if math.isnan(numeric):
+            return 0.0
+        if not math.isfinite(numeric):
+            if numeric > 0.0:
+                return 1.0
+            return 0.0
+        return max(0.0, min(1.0, numeric))
 
     @staticmethod
     def _transition_label(previous_mode: str, next_mode: str) -> str:
-        transition_labels = {
-            (MODE_NOMINAL, MODE_NOMINAL): "remain_nominal",
-            (MODE_NOMINAL, MODE_WARNING): "nominal_to_warning",
-            (MODE_NOMINAL, MODE_CRITICAL): "nominal_to_critical",
-            (MODE_WARNING, MODE_NOMINAL): "warning_to_nominal",
-            (MODE_WARNING, MODE_WARNING): "remain_warning",
-            (MODE_WARNING, MODE_CRITICAL): "warning_to_critical",
-            (MODE_CRITICAL, MODE_CRITICAL): "remain_critical",
-            (MODE_CRITICAL, MODE_RECOVERY): "critical_to_recovery",
-            (MODE_RECOVERY, MODE_NOMINAL): "recovery_to_nominal",
-            (MODE_RECOVERY, MODE_WARNING): "recovery_to_warning",
-            (MODE_RECOVERY, MODE_CRITICAL): "recovery_to_critical",
-            (MODE_RECOVERY, MODE_RECOVERY): "remain_recovery",
-            (MODE_CRITICAL, MODE_WARNING): "critical_to_warning",
-            (MODE_CRITICAL, MODE_NOMINAL): "critical_to_nominal",
-            (MODE_WARNING, MODE_RECOVERY): "warning_to_recovery",
-            (MODE_NOMINAL, MODE_RECOVERY): "nominal_to_recovery",
-        }
-        label = transition_labels.get((previous_mode, next_mode))
+        label = TRANSITION_LABELS.get((previous_mode, next_mode))
         if label is None:
             raise ValueError(
                 f"unsupported mode transition: ({previous_mode}, {next_mode})"

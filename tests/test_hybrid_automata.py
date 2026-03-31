@@ -117,6 +117,80 @@ def test_deterministic_repeatability() -> None:
     assert first == second
 
 
+def test_nan_drift_rate_safe_fallback() -> None:
+    automata = HybridAutomata()
+    state = HybridState(
+        mode="warning",
+        continuous_value=0.4,
+        drift_rate=float("nan"),
+        risk_score=0.0,
+    )
+
+    assert automata.update_continuous(state) == 0.0
+
+
+def test_positive_infinity_clamps_to_one() -> None:
+    automata = HybridAutomata()
+    state = HybridState(
+        mode="nominal",
+        continuous_value=0.2,
+        drift_rate=float("inf"),
+        risk_score=0.0,
+    )
+
+    assert automata.update_continuous(state) == 1.0
+
+
+def test_negative_infinity_clamps_to_zero() -> None:
+    automata = HybridAutomata()
+    state = HybridState(
+        mode="nominal",
+        continuous_value=0.2,
+        drift_rate=float("-inf"),
+        risk_score=0.0,
+    )
+
+    assert automata.update_continuous(state) == 0.0
+
+
+def test_clamp01_in_range_is_unchanged() -> None:
+    assert HybridAutomata._clamp01(0.25) == 0.25
+    assert HybridAutomata._clamp01(1.0) == 1.0
+
+
+def test_step_schema_fields_unchanged() -> None:
+    automata = HybridAutomata()
+    state = HybridState(
+        mode="nominal",
+        continuous_value=0.2,
+        drift_rate=0.0,
+        risk_score=0.0,
+    )
+    result = automata.step(state)
+
+    assert set(result.keys()) == {
+        "previous_mode",
+        "next_mode",
+        "continuous_value",
+        "mode_transition",
+        "hybrid_stable",
+    }
+
+
+def test_repeatability_preserved_with_non_finite_input() -> None:
+    automata = HybridAutomata()
+    state = HybridState(
+        mode="warning",
+        continuous_value=0.42,
+        drift_rate=float("nan"),
+        risk_score=0.08,
+    )
+    first = automata.step(state)
+    second = automata.step(state)
+
+    assert first == second
+
+
 def test_hybrid_state_is_frozen() -> None:
     state = HybridState(
         mode="nominal",

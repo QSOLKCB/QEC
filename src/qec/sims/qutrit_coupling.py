@@ -21,6 +21,47 @@ from qec.sims.universe_kernel import UniverseState
 
 # Deterministic coupling multipliers — frozen mapping.
 _COUPLING_MULTIPLIERS: Tuple[float, ...] = (1.000, 1.001, 0.998)
+_VALID_QUTRIT_STATES = frozenset({0, 1, 2})
+
+
+def _validate_qutrit_states(qutrit_states: Sequence[int]) -> None:
+    """Fail fast if any qutrit state is not in {0, 1, 2}."""
+    for q in qutrit_states:
+        if q not in _VALID_QUTRIT_STATES:
+            raise ValueError(
+                "qutrit_states must contain only values {0, 1, 2}"
+            )
+
+
+def _lane_multipliers(
+    num_lanes: int,
+    qutrit_states: Sequence[int],
+) -> Tuple[float, ...]:
+    """Compute per-lane coupling multipliers with cyclic qutrit repeat.
+
+    Single source of truth for coupling multiplier resolution.
+    Validates qutrit states and maps them to multipliers.
+
+    Parameters
+    ----------
+    num_lanes : int
+        Number of field lanes.
+    qutrit_states : Sequence[int]
+        Qutrit channel states (0, 1, or 2).
+
+    Returns
+    -------
+    Tuple[float, ...]
+        Per-lane multipliers.
+    """
+    n_qutrits = len(qutrit_states)
+    if num_lanes == 0 or n_qutrits == 0:
+        return ()
+    _validate_qutrit_states(qutrit_states)
+    return tuple(
+        _COUPLING_MULTIPLIERS[qutrit_states[i % n_qutrits]]
+        for i in range(num_lanes)
+    )
 
 
 def apply_qutrit_coupling(
@@ -44,6 +85,11 @@ def apply_qutrit_coupling(
     -------
     Tuple[float, ...]
         New field amplitudes after coupling.
+
+    Raises
+    ------
+    ValueError
+        If any qutrit state is not in {0, 1, 2}.
     """
     n_fields = len(field_amplitudes)
     if n_fields == 0:
@@ -51,8 +97,9 @@ def apply_qutrit_coupling(
     n_qutrits = len(qutrit_states)
     if n_qutrits == 0:
         return tuple(field_amplitudes)
+    multipliers = _lane_multipliers(n_fields, qutrit_states)
     return tuple(
-        field_amplitudes[i] * _COUPLING_MULTIPLIERS[qutrit_states[i % n_qutrits]]
+        field_amplitudes[i] * multipliers[i]
         for i in range(n_fields)
     )
 
@@ -125,10 +172,7 @@ def observe_coupling(state: UniverseState) -> CouplingObservation:
             damped_lanes=0,
             timestep=state.timestep,
         )
-    multipliers = tuple(
-        _COUPLING_MULTIPLIERS[state.qutrit_states[i % n_qutrits]]
-        for i in range(n_fields)
-    )
+    multipliers = _lane_multipliers(n_fields, state.qutrit_states)
     mean_gain = sum(multipliers) / len(multipliers)
     amplified = sum(1 for m in multipliers if m > 1.0)
     damped = sum(1 for m in multipliers if m < 1.0)

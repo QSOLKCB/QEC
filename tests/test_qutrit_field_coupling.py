@@ -254,6 +254,92 @@ class TestCouplingObservation:
 
 
 # ---------------------------------------------------------------------------
+# Invalid qutrit state validation
+# ---------------------------------------------------------------------------
+
+class TestInvalidQutritStates:
+    def test_negative_state_raises(self):
+        with pytest.raises(ValueError, match="qutrit_states must contain only values"):
+            apply_qutrit_coupling((1.0, 2.0), (-1, 0))
+
+    def test_state_3_raises(self):
+        with pytest.raises(ValueError, match="qutrit_states must contain only values"):
+            apply_qutrit_coupling((1.0,), (3,))
+
+    def test_state_99_raises(self):
+        with pytest.raises(ValueError, match="qutrit_states must contain only values"):
+            apply_qutrit_coupling((1.0,), (99,))
+
+    def test_observe_invalid_raises(self):
+        state = UniverseState(
+            field_amplitudes=(1.0,),
+            qutrit_states=(5,),
+            timestep=0,
+            law_name="test",
+        )
+        with pytest.raises(ValueError, match="qutrit_states must contain only values"):
+            observe_coupling(state)
+
+    def test_evolve_coupled_invalid_raises(self):
+        state = UniverseState(
+            field_amplitudes=(1.0,),
+            qutrit_states=(-1,),
+            timestep=0,
+            law_name="test",
+        )
+        with pytest.raises(ValueError, match="qutrit_states must contain only values"):
+            evolve_universe_coupled(state)
+
+    def test_same_invalid_input_same_exception(self):
+        for _ in range(3):
+            with pytest.raises(ValueError, match="qutrit_states must contain only values"):
+                apply_qutrit_coupling((1.0,), (7,))
+
+
+# ---------------------------------------------------------------------------
+# Helper consistency — apply and observe use same lane semantics
+# ---------------------------------------------------------------------------
+
+class TestHelperConsistency:
+    def test_coupling_and_observation_agree_on_lanes(self):
+        state = UniverseState(
+            field_amplitudes=(1.0, 2.0, 3.0, 4.0, 5.0),
+            qutrit_states=(0, 1, 2),
+            timestep=0,
+            law_name="test",
+        )
+        coupled = apply_qutrit_coupling(
+            state.field_amplitudes, state.qutrit_states
+        )
+        obs = observe_coupling(state)
+        # Lane 0: state 0 -> 1.0 (neutral)
+        # Lane 1: state 1 -> 1.001 (amplified)
+        # Lane 2: state 2 -> 0.998 (damped)
+        # Lane 3: state 0 -> 1.0 (neutral, cyclic)
+        # Lane 4: state 1 -> 1.001 (amplified, cyclic)
+        assert coupled[0] == 1.0 * 1.000
+        assert coupled[1] == 2.0 * 1.001
+        assert coupled[4] == 5.0 * 1.001
+        assert obs.amplified_lanes == 2
+        assert obs.damped_lanes == 1
+
+    def test_single_qutrit_consistency(self):
+        state = UniverseState(
+            field_amplitudes=(1.0, 2.0, 3.0),
+            qutrit_states=(2,),
+            timestep=0,
+            law_name="test",
+        )
+        obs = observe_coupling(state)
+        assert obs.damped_lanes == 3
+        assert obs.amplified_lanes == 0
+        coupled = apply_qutrit_coupling(
+            state.field_amplitudes, state.qutrit_states
+        )
+        assert all(coupled[i] == state.field_amplitudes[i] * 0.998 for i in range(3))
+
+
+# ---------------------------------------------------------------------------
 # Frozen immutability
 # ---------------------------------------------------------------------------
 

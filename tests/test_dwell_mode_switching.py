@@ -62,6 +62,14 @@ class TestCanSwitchNow:
         with pytest.raises(ValueError, match="non-negative"):
             can_switch_now(0, 100, -1)
 
+    def test_negative_last_switch_time_raises(self) -> None:
+        with pytest.raises(ValueError, match="last_switch_time_ms"):
+            can_switch_now(-1, 100, 50)
+
+    def test_negative_current_time_raises(self) -> None:
+        with pytest.raises(ValueError, match="current_time_ms"):
+            can_switch_now(0, -1, 50)
+
     def test_deterministic_replay(self) -> None:
         """Same inputs must produce identical outputs on repeated calls."""
         args = (1000, 2500, 1000)
@@ -107,6 +115,10 @@ class TestPassesHysteresis:
     def test_invalid_thresholds_raise(self) -> None:
         with pytest.raises(ValueError, match="enter_threshold"):
             passes_hysteresis(5.0, 3.0, 8.0, "inactive")
+
+    def test_invalid_mode_raises(self) -> None:
+        with pytest.raises(ValueError, match="current_mode"):
+            passes_hysteresis(5.0, 10.0, 5.0, "bogus")
 
     def test_equal_thresholds(self) -> None:
         """When enter == exit, no dead band — behaves as simple threshold."""
@@ -263,7 +275,10 @@ class TestEvaluateModeSwitch:
 
     def test_fail_safe_latch_after_repeated_blocks(self) -> None:
         fs = FailSafeState.initial()
+        asserted_latch_reason = False
+
         for i in range(4):
+            previously_latched = fs.latched
             result, fs = evaluate_mode_switch(
                 current_mode="nominal",
                 candidate_mode="warning",
@@ -275,8 +290,13 @@ class TestEvaluateModeSwitch:
                 exit_threshold=4.0,
                 fail_safe=fs,
             )
+            if not previously_latched and fs.latched:
+                assert result.reason_code == "fail_safe_latched"
+                asserted_latch_reason = True
+
         assert fs.latched is True
         assert result.fail_safe_latched is True
+        assert asserted_latch_reason is True
 
     def test_fail_safe_blocks_even_valid_switch(self) -> None:
         """Once latched, even a valid switch is blocked."""

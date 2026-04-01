@@ -137,10 +137,13 @@ Always install the latest tagged release with:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
+```
 
 After install:
 
+```bash
 qec-tui
+```
 
 This command always resolves the latest GitHub release and installs the latest Rust TUI binary.
 

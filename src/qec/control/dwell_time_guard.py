@@ -37,6 +37,10 @@ def can_switch_now(
     """
     if dwell_time_ms < 0:
         raise ValueError("dwell_time_ms must be non-negative")
+    if last_switch_time_ms < 0:
+        raise ValueError("last_switch_time_ms must be non-negative")
+    if current_time_ms < 0:
+        raise ValueError("current_time_ms must be non-negative")
 
     # 64-bit unsigned wrap-safe elapsed computation
     _MASK_64 = (1 << 64) - 1

@@ -8,7 +8,7 @@ for every switching decision — fully deterministic and replayable.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import ClassVar, List, Tuple
 
 from .dwell_time_guard import can_switch_now
 from .hysteresis_filter import passes_hysteresis
@@ -49,7 +49,7 @@ class FailSafeState:
     recent_modes: Tuple[str, ...]  # bounded ring of last N modes
 
     #: Ring buffer capacity — only the last N modes are retained.
-    _RING_CAP: int = 6
+    _RING_CAP: ClassVar[int] = 6
 
     @staticmethod
     def initial() -> "FailSafeState":

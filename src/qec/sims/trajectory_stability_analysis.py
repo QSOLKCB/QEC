@@ -6,9 +6,9 @@ Deterministic trajectory analysis for the qutrit propulsion universe.
 Given a UniverseSnapshot with trajectory_history, this module classifies
 the route behavior:
 
-- **stable**: monotonic forward travel without repetition
+- **stable**: bounded, non-periodic, non-divergent travel
 - **oscillatory**: periodic revisitation of positions
-- **slingshot**: wraparound produces accelerated net displacement over loops
+- **slingshot**: wraparound laps complete with accelerating speed
 - **divergent**: unbounded velocity growth
 
 All operations are pure, immutable, tuple-only, and replay-safe.
@@ -107,13 +107,13 @@ def _detect_period(
 
     quantized = tuple(_quantize_position(p, tolerance) for p in history)
 
-    # Check each candidate period length
+    # Check each candidate period length against entire remaining history
     for period in range(1, len(quantized) // 2 + 1):
         # Need at least two full cycles to confirm periodicity
         if period * 2 > len(quantized):
             break
         match = True
-        for i in range(period, min(period * 2, len(quantized))):
+        for i in range(period, len(quantized)):
             if quantized[i] != quantized[i - period]:
                 match = False
                 break
@@ -125,51 +125,49 @@ def _detect_period(
 
 def _detect_slingshot(
     history: Tuple[Tuple[float, float], ...],
-    period: int,
     width: int,
 ) -> bool:
-    """Detect slingshot effect: accelerated net displacement over loop periods.
+    """Detect slingshot effect: successive wraparound laps complete faster.
 
-    A slingshot occurs when wraparound produces increasing cumulative
-    displacement across repeated loop periods, meaning each loop carries
-    the craft further than the last.
+    A slingshot occurs when the craft completes full laps around the
+    universe with decreasing step counts, indicating acceleration.
+
+    Laps are detected via cumulative forward displacement reaching
+    the universe width.  Forward-motion semantics: any negative
+    x-displacement is treated as a forward wraparound (dx += width).
     """
-    if period < 1 or len(history) < period * 2 + 1:
+    if len(history) < 4 or width < 1:
         return False
 
-    # Compute cumulative unwrapped displacement per period
-    displacements: list[float] = []
-    num_periods = (len(history) - 1) // period
+    # Detect lap boundaries via cumulative forward displacement
+    cumulative = 0.0
+    lap_starts: list[int] = [0]
 
-    if num_periods < 2:
-        return False
+    for i in range(len(history) - 1):
+        dx = history[i + 1][0] - history[i][0]
+        dy = history[i + 1][1] - history[i][1]
+        # Forward-motion unwrap: negative dx means wraparound
+        if dx < 0.0:
+            dx += width
+        cumulative += math.sqrt(dx * dx + dy * dy)
+        if cumulative >= width:
+            cumulative -= width
+            lap_starts.append(i + 1)
 
-    for p_idx in range(num_periods):
-        start = p_idx * period
-        end = start + period
-        # Sum step-to-step displacements within this period
-        total_disp = 0.0
-        for i in range(start, end):
-            if i + 1 < len(history):
-                # Use raw displacement (not wrapped) to detect net travel
-                dx = history[i + 1][0] - history[i][0]
-                dy = history[i + 1][1] - history[i][1]
-                # Unwrap: if dx jumps by ~width, the craft wrapped around
-                if dx > width / 2.0:
-                    dx -= width
-                elif dx < -width / 2.0:
-                    dx += width
-                total_disp += math.sqrt(dx * dx + dy * dy)
-        displacements.append(total_disp)
+    if len(lap_starts) < 4:
+        return False  # need at least 3 laps (first is skipped)
 
-    if len(displacements) < 2:
-        return False
+    # Compute steps per lap, skipping the first lap which may have
+    # anomalous length due to arbitrary starting position residual.
+    lap_lengths: list[int] = []
+    for j in range(2, len(lap_starts)):
+        lap_lengths.append(lap_starts[j] - lap_starts[j - 1])
 
-    # Slingshot: later periods cover more distance than earlier ones
-    for i in range(1, len(displacements)):
-        if displacements[i - 1] <= 0.0:
+    # Slingshot: a later lap completes in fewer steps than an earlier one
+    for i in range(1, len(lap_lengths)):
+        if lap_lengths[i] <= 0 or lap_lengths[i - 1] <= 0:
             continue
-        ratio = displacements[i] / displacements[i - 1]
+        ratio = lap_lengths[i - 1] / lap_lengths[i]
         if ratio >= _SLINGSHOT_ACCELERATION_RATIO:
             return True
 
@@ -223,14 +221,11 @@ def analyze_trajectory_stability(
     route_period = _detect_period(history, _POSITION_TOLERANCE)
 
     # Detect slingshot
-    slingshot_detected = _detect_slingshot(
-        history, route_period, snapshot.width,
-    )
+    slingshot_detected = _detect_slingshot(history, snapshot.width)
 
     # Classify
     stability_label = _classify_trajectory(
         snapshot=snapshot,
-        mean_velocity=mean_velocity,
         route_period=route_period,
         slingshot_detected=slingshot_detected,
     )
@@ -252,7 +247,6 @@ def analyze_trajectory_stability(
 
 def _classify_trajectory(
     snapshot: UniverseSnapshot,
-    mean_velocity: float,
     route_period: int,
     slingshot_detected: bool,
 ) -> str:
@@ -262,7 +256,7 @@ def _classify_trajectory(
         1. divergent — velocity exceeds safe bounds
         2. slingshot — wraparound acceleration detected
         3. oscillatory — periodic position loop detected
-        4. stable — bounded forward travel
+        4. stable — bounded, non-periodic, non-divergent
     """
     # Divergent: unbounded velocity
     if abs(snapshot.craft_state.velocity) > _VELOCITY_DIVERGENCE_THRESHOLD:

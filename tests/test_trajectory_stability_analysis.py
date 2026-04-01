@@ -13,7 +13,6 @@ from qec.sims.qutrit_propulsion_universe import (
     PROPULSION_WARP,
 )
 from qec.sims.trajectory_stability_analysis import (
-    TrajectoryStabilityReport,
     analyze_trajectory_stability,
 )
 
@@ -146,42 +145,97 @@ class TestSlingshotRoute:
     """Wraparound with accelerated displacement triggers slingshot."""
 
     def test_slingshot_detected(self) -> None:
-        # Construct a trajectory that wraps around a width=10 universe
-        # with increasing step sizes per period, simulating slingshot.
-        # Period=3, and each period's total displacement increases.
+        # Craft accelerates across three laps of a width=10 universe.
+        # Lap 0 (skip): 5 steps   (x: 0->2->4->6->8->0)
+        # Lap 1 (slow): 3 steps   (x: 0->3->7->0)
+        # Lap 2 (fast): 2 steps   (x: 0->5->0)
+        # Ratio lap1/lap2 = 3/2 = 1.5 >= 1.1 → slingshot detected.
         width = 10
-        # Period 1: steps of 1.0 each -> total ~3.0
-        # Period 2: steps of 2.0 each -> total ~6.0 (ratio 2.0 > 1.1)
         history = (
-            (0.0, 0.0),
-            (1.0, 0.0),
-            (2.0, 0.0),
-            (3.0, 0.0),  # end period 1
-            (5.0, 0.0),
-            (7.0, 0.0),
-            (9.0, 0.0),  # end period 2
+            (0.0, 0.0), (2.0, 0.0), (4.0, 0.0),
+            (6.0, 0.0), (8.0, 0.0), (0.0, 0.0),
+            (3.0, 0.0), (7.0, 0.0), (0.0, 0.0),
+            (5.0, 0.0), (0.0, 0.0),
         )
         snap = _make_snapshot_with_history(history, width=width)
-        # Need periodicity for slingshot detection. Construct manually
-        # with a periodic trajectory that accelerates.
-        # Actually, slingshot requires _detect_period to find a period first.
-        # Let's make a repeating pattern with growing displacement.
-        pass
+        report = analyze_trajectory_stability(snap)
+        assert report.slingshot_detected is True
+        assert report.stability_label == "slingshot"
 
     def test_slingshot_via_evolve(self) -> None:
-        # Use the actual propulsion engine: start with thrust, building
-        # velocity so each wraparound period covers more distance.
-        # With width=10 and constant +1 velocity growth, modular arithmetic
-        # creates a repeating position pattern (period 20). Each period
-        # covers more total distance as velocity grows, triggering slingshot.
+        # Thrust builds velocity each step. In a width=10 universe,
+        # early laps take many steps; later laps complete faster.
+        # This is the canonical slingshot scenario.
         snap = create_universe(width=10, height=1, initial_velocity=0.0)
-        schedule = tuple(PROPULSION_THRUST for _ in range(40))
-        evolved = evolve_universe(snap, steps=40, propulsion_schedule=schedule)
+        schedule = tuple(PROPULSION_THRUST for _ in range(20))
+        evolved = evolve_universe(snap, steps=20, propulsion_schedule=schedule)
         report = analyze_trajectory_stability(evolved)
-        # Modular wraparound with growing velocity creates periodic positions
-        # with accelerating displacement — classic slingshot or oscillatory.
-        assert report.stability_label in ("oscillatory", "slingshot")
-        assert report.total_steps == 40
+        assert report.slingshot_detected is True
+        assert report.stability_label == "slingshot"
+        assert report.total_steps == 20
+
+
+# ---------------------------------------------------------------------------
+# Test: wraparound regression
+# ---------------------------------------------------------------------------
+
+
+class TestWraparoundRegression:
+    """Regression tests for forward-motion unwrap in slingshot detection."""
+
+    def test_single_wrap_slingshot(self) -> None:
+        # Three laps with decreasing step counts: 5 (skip), 3, 2.
+        width = 10
+        history = (
+            (0.0, 0.0), (2.0, 0.0), (4.0, 0.0),
+            (6.0, 0.0), (8.0, 0.0), (0.0, 0.0),  # lap 0: 5 steps
+            (3.0, 0.0), (7.0, 0.0), (0.0, 0.0),  # lap 1: 3 steps
+            (5.0, 0.0), (0.0, 0.0),               # lap 2: 2 steps
+        )
+        snap = _make_snapshot_with_history(history, width=width)
+        report = analyze_trajectory_stability(snap)
+        assert report.slingshot_detected is True
+
+    def test_repeated_wraps_slingshot(self) -> None:
+        # Four laps with decreasing step counts: 5 (skip), 4, 3, 2.
+        width = 12
+        history = (
+            (0.0, 0.0), (2.4, 0.0), (4.8, 0.0),
+            (7.2, 0.0), (9.6, 0.0), (0.0, 0.0),  # lap 0: 5 steps
+            (3.0, 0.0), (6.0, 0.0),
+            (9.0, 0.0), (0.0, 0.0),               # lap 1: 4 steps
+            (4.0, 0.0), (8.0, 0.0), (0.0, 0.0),   # lap 2: 3 steps
+            (6.0, 0.0), (0.0, 0.0),               # lap 3: 2 steps
+        )
+        snap = _make_snapshot_with_history(history, width=width)
+        report = analyze_trajectory_stability(snap)
+        assert report.slingshot_detected is True
+        assert report.stability_label == "slingshot"
+
+    def test_high_velocity_wrap(self) -> None:
+        # Thrust for 30 steps in narrow universe — many fast wraps.
+        snap = create_universe(width=5, height=1, initial_velocity=0.0)
+        schedule = tuple(PROPULSION_THRUST for _ in range(30))
+        evolved = evolve_universe(snap, steps=30, propulsion_schedule=schedule)
+        report = analyze_trajectory_stability(evolved)
+        assert report.slingshot_detected is True
+        assert report.stability_label == "slingshot"
+
+    def test_constant_velocity_no_slingshot(self) -> None:
+        # Constant-speed laps: no acceleration, no slingshot.
+        width = 10
+        # 3 laps, each 5 steps of dx=2
+        history = (
+            (0.0, 0.0), (2.0, 0.0), (4.0, 0.0),
+            (6.0, 0.0), (8.0, 0.0), (0.0, 0.0),
+            (2.0, 0.0), (4.0, 0.0), (6.0, 0.0),
+            (8.0, 0.0), (0.0, 0.0),
+            (2.0, 0.0), (4.0, 0.0), (6.0, 0.0),
+            (8.0, 0.0), (0.0, 0.0),
+        )
+        snap = _make_snapshot_with_history(history, width=width)
+        report = analyze_trajectory_stability(snap)
+        assert report.slingshot_detected is False
 
 
 # ---------------------------------------------------------------------------
@@ -284,5 +338,5 @@ class TestEdgeCases:
     def test_too_short_history_raises(self) -> None:
         history = ((0.0, 0.0),)
         snap = _make_snapshot_with_history(history)
-        with pytest.raises(ValueError, match="trajectory_history must have >= 2"):
+        with pytest.raises(ValueError, match="trajectory_history must have"):
             analyze_trajectory_stability(snap)

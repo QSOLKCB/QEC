@@ -6,8 +6,14 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
-# Install project with dev dependencies (editable mode)
-pip install -e "${CLAUDE_PROJECT_DIR}[dev]" --quiet
+PIP="${CLAUDE_PYTHON:-python} -m pip"
 
-# Install flake8 for linting (listed in requirements.txt)
-pip install flake8 --quiet
+# Install project with dev dependencies only if not already available
+if ! "${CLAUDE_PYTHON:-python}" -c "import qec" 2>/dev/null; then
+  $PIP install -e "${CLAUDE_PROJECT_DIR}[dev]" --quiet
+fi
+
+# Install flake8 only if not already available
+if ! "${CLAUDE_PYTHON:-python}" -c "import flake8" 2>/dev/null; then
+  $PIP install flake8 --quiet
+fi

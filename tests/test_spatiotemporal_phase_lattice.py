@@ -139,6 +139,13 @@ class TestBuildSpatiotemporalLattice:
         for cell in snap.cells:
             assert cell.supervisory_state == "elevated"
 
+    def test_recovering_state_accepted(self) -> None:
+        pm = _make_phase_map_3x3()
+        snap = build_spatiotemporal_lattice(pm, epoch_index=0, supervisory_state="recovering")
+        assert snap.supervisory_state == "recovering"
+        for cell in snap.cells:
+            assert cell.supervisory_state == "recovering"
+
     def test_empty_phase_map(self) -> None:
         pm = _make_empty_phase_map()
         snap = build_spatiotemporal_lattice(pm, epoch_index=0)

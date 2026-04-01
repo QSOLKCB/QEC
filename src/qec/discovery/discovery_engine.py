@@ -1819,7 +1819,11 @@ def run_structure_discovery(
             grid_resolution=phase_diagram_resolution,
         )
         phase_surface = estimate_stability_surface(phase_dataset, phase_grid)
-        phase_boundaries = detect_phase_boundaries(landscape_memory)
+        phase_boundaries_raw = detect_phase_boundaries(landscape_memory)
+        if isinstance(phase_boundaries_raw, dict):
+            phase_boundaries = phase_boundaries_raw["phase_boundaries"]
+        else:
+            phase_boundaries = phase_boundaries_raw
         phase_surface_with_boundaries = {
             "grid_x": phase_surface["grid_x"],
             "grid_y": phase_surface["grid_y"],

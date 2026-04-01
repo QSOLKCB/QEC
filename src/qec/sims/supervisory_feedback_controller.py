@@ -149,8 +149,7 @@ def apply_supervisory_feedback(
         ))
 
     cells = tuple(new_cells)
-    n = len(cells)
-    mean_amp = sum(c.field_amplitude for c in cells) / n if n > 0 else 0.0
+    mean_amp = snapshot.mean_field_amplitude * factor
 
     return QuditLatticeSnapshot(
         cells=cells,

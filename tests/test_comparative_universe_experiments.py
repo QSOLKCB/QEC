@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from qec.sims.universe_kernel import UniverseState
 from qec.sims.comparative_experiments import (
     UniverseComparison,
@@ -119,13 +121,13 @@ class TestDivergenceMetrics:
         state = _make_initial_state()
         result = compare_universes(state, steps=50)
         expected = abs(result.lawful_final_energy - result.anti_final_energy)
-        assert result.divergence_score == expected
+        assert result.divergence_score == pytest.approx(expected)
 
     def test_energy_ratio_computation(self) -> None:
         state = _make_initial_state()
         result = compare_universes(state, steps=50)
         expected = result.anti_final_energy / result.lawful_final_energy
-        assert result.energy_ratio == expected
+        assert result.energy_ratio == pytest.approx(expected)
 
     def test_divergence_positive_after_steps(self) -> None:
         state = _make_initial_state()
@@ -172,5 +174,19 @@ class TestCompareUniverses:
     def test_zero_steps(self) -> None:
         state = _make_initial_state()
         result = compare_universes(state, steps=0)
-        assert result.divergence_score == 0.0
+        assert result.divergence_score == pytest.approx(0.0)
         assert result.steps == 0
+
+    def test_zero_energy_ratio(self) -> None:
+        """When lawful energy is zero, energy_ratio must be 0.0."""
+        state = UniverseState(
+            field_amplitudes=(0.0, 0.0, 0.0),
+            qutrit_states=(0, 0, 0),
+            timestep=0,
+            law_name="lawful",
+        )
+        result = compare_universes(state, steps=10)
+        assert result.lawful_final_energy == pytest.approx(0.0)
+        assert result.anti_final_energy == pytest.approx(0.0)
+        assert result.energy_ratio == 0.0
+        assert result.divergence_score == pytest.approx(0.0)

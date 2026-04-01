@@ -20,7 +20,11 @@ from qec.sims.universe_kernel import UniverseState
 from qec.sims.observable_probe import observe_universe
 
 # Standard coupled evolution — reuse existing law.
-from qec.sims.qutrit_coupling import evolve_universe_coupled
+from qec.sims.qutrit_coupling import (
+    _VALID_QUTRIT_STATES,
+    _validate_qutrit_states,
+    evolve_universe_coupled,
+)
 
 # Anti-law qutrit multipliers: inverted semantics.
 #   state 0 -> 1.000  (neutral)
@@ -44,6 +48,7 @@ def _apply_anti_coupling(
     n_qutrits = len(qutrit_states)
     if n_fields == 0 or n_qutrits == 0:
         return field_amplitudes
+    _validate_qutrit_states(qutrit_states)
     return tuple(
         field_amplitudes[i] * _ANTI_COUPLING_MULTIPLIERS[qutrit_states[i % n_qutrits]]
         for i in range(n_fields)

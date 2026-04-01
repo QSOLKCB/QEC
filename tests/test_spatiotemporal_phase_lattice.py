@@ -82,6 +82,7 @@ class TestImmutability:
     def test_snapshot_is_frozen(self) -> None:
         snapshot = SpatiotemporalPhaseSnapshot(
             cells=(), width=0, height=0, epoch_index=0,
+            supervisory_state="normal",
             stable_count=0, critical_count=0, divergent_count=0,
             max_divergence=0.0,
         )
@@ -134,6 +135,7 @@ class TestBuildSpatiotemporalLattice:
     def test_supervisory_state_propagated(self) -> None:
         pm = _make_phase_map_3x3()
         snap = build_spatiotemporal_lattice(pm, epoch_index=0, supervisory_state="elevated")
+        assert snap.supervisory_state == "elevated"
         for cell in snap.cells:
             assert cell.supervisory_state == "elevated"
 
@@ -268,6 +270,13 @@ class TestSupervisoryOverlaySummary:
         snap = build_spatiotemporal_lattice(pm, epoch_index=0, supervisory_state="locked")
         summary = summarize_supervisory_overlay(snap)
         assert summary == "epoch=0 state=locked cells=9 max_divergence=0.125"
+
+    def test_empty_snapshot_locked_summary(self) -> None:
+        pm = _make_empty_phase_map()
+        snap = build_spatiotemporal_lattice(pm, epoch_index=7, supervisory_state="locked")
+        assert snap.supervisory_state == "locked"
+        summary = summarize_supervisory_overlay(snap)
+        assert summary == "epoch=7 state=locked cells=0 max_divergence=0"
 
 
 # ---------------------------------------------------------------------------

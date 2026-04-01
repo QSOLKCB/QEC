@@ -47,6 +47,7 @@ class SpatiotemporalPhaseSnapshot:
     width: int
     height: int
     epoch_index: int
+    supervisory_state: str
     stable_count: int
     critical_count: int
     divergent_count: int
@@ -122,6 +123,7 @@ def build_spatiotemporal_lattice(
         width=width,
         height=height,
         epoch_index=epoch_index,
+        supervisory_state=supervisory_state,
         stable_count=phase_map.stable_count,
         critical_count=phase_map.critical_count,
         divergent_count=phase_map.divergent_count,
@@ -180,11 +182,10 @@ def summarize_supervisory_overlay(
     str
         Summary string in canonical format.
     """
-    state = snapshot.cells[0].supervisory_state if snapshot.cells else "none"
     cell_count = len(snapshot.cells)
     return (
         f"epoch={snapshot.epoch_index} "
-        f"state={state} "
+        f"state={snapshot.supervisory_state} "
         f"cells={cell_count} "
-        f"max_divergence={snapshot.max_divergence}"
+        f"max_divergence={snapshot.max_divergence:.12g}"
     )

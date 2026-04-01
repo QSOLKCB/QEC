@@ -13,8 +13,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from qec.analysis.field_metrics import compute_field_metrics
-from qec.analysis.multiscale_metrics import compute_multiscale_summary
+from qec.core.metrics import compute_field_metrics
+from qec.core.metrics import compute_multiscale_summary
 
 
 # ---------------------------------------------------------------------------

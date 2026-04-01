@@ -187,8 +187,8 @@ class TestCorridorFormation:
         assert result[1][2] == 4
 
     def test_corridor_via_infra_chain(self) -> None:
-        """Longer infra chain between two hubs — cells adjacent to hubs
-        should become corridors."""
+        """Longer infra chain between two hubs — all infra cells on the
+        connecting component become corridors."""
         g = _grid_from_lists([
             [0, 0, 0, 0, 0, 0],
             [0, 3, 2, 2, 3, 0],
@@ -198,6 +198,20 @@ class TestCorridorFormation:
         # Both infra cells connect two hubs via infra path
         assert result[1][2] == 4
         assert result[1][3] == 4
+
+    def test_long_path_corridor_no_hub_adjacency(self) -> None:
+        """Infrastructure cell far from hubs becomes corridor if its
+        component touches two hubs — even without direct hub adjacency."""
+        g = _grid_from_lists([
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 3, 2, 2, 2, 2, 3, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+        ])
+        result = step_grid(g)
+        # Middle cells (1,3) and (1,4) are not adjacent to any hub
+        # but belong to an infra component that touches two hubs
+        assert result[1][3] == 4
+        assert result[1][4] == 4
 
     def test_no_corridor_without_two_hubs(self) -> None:
         """Infra cell near only one hub does not become corridor."""
@@ -328,6 +342,21 @@ class TestReplayDeterminism:
         report2 = analyze_lattice_civilization(history)
         assert report1 == report2
 
+    def test_100_replay_after_precompute_refactor(self) -> None:
+        """Replay determinism holds after component-precompute refactor."""
+        g = _grid_from_lists([
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 3, 2, 2, 2, 3, 0],
+            [0, 0, 0, 2, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0],
+            [0, 1, 1, 0, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+        ])
+        reference = evolve_lattice_civilization(g, steps=20)
+        for _ in range(100):
+            replay = evolve_lattice_civilization(g, steps=20)
+            assert replay == reference
+
 
 # -----------------------------------------------------------------------
 # Report structure
@@ -357,6 +386,7 @@ class TestReport:
         assert isinstance(report.infrastructure_count, int)
         assert isinstance(report.energy_hub_count, int)
         assert isinstance(report.corridor_count, int)
+        assert isinstance(report.corridor_network_count, int)
         assert isinstance(report.connected_regions, int)
         assert report.stability_label in (
             "stable_city", "expanding", "fragmented", "collapsed"
@@ -477,6 +507,10 @@ class TestMakeGridDimensions:
         with pytest.raises(ValueError, match="positive"):
             make_grid(-1, 3)
 
+    def test_negative_cols_rejected(self) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            make_grid(3, -1)
+
 
 # -----------------------------------------------------------------------
 # Analysis history validation
@@ -498,6 +532,39 @@ class TestAnalysisHistoryValidation:
         g2 = ((0, 0, 0), (0, 0, 0))
         with pytest.raises(ValueError, match="shape"):
             analyze_lattice_civilization((g1, g2))
+
+
+# -----------------------------------------------------------------------
+# Corridor network count
+# -----------------------------------------------------------------------
+
+
+class TestCorridorNetworkCount:
+    def test_no_corridors_zero_networks(self) -> None:
+        g = make_grid(3, 3, 0)
+        history = evolve_lattice_civilization(g, steps=0)
+        report = analyze_lattice_civilization(history)
+        assert report.corridor_network_count == 0
+
+    def test_single_corridor_network(self) -> None:
+        """One contiguous corridor region → 1 network."""
+        g = _grid_from_lists([
+            [0, 0, 0, 0, 0],
+            [0, 3, 4, 3, 0],
+            [0, 0, 0, 0, 0],
+        ])
+        history = evolve_lattice_civilization(g, steps=0)
+        report = analyze_lattice_civilization(history)
+        assert report.corridor_network_count == 1
+
+    def test_two_disjoint_corridor_networks(self) -> None:
+        """Two separate corridor regions → 2 networks."""
+        g = _grid_from_lists([
+            [3, 4, 3, 0, 3, 4, 3],
+        ])
+        history = evolve_lattice_civilization(g, steps=0)
+        report = analyze_lattice_civilization(history)
+        assert report.corridor_network_count == 2
 
 
 # -----------------------------------------------------------------------

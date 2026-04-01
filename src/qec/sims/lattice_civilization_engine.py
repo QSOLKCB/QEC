@@ -41,6 +41,7 @@ class LatticeCivilizationReport:
     infrastructure_count: int
     energy_hub_count: int
     corridor_count: int
+    corridor_network_count: int
     connected_regions: int
     stability_label: str  # "stable_city" | "expanding" | "fragmented" | "collapsed"
     growth_rate: float
@@ -119,34 +120,56 @@ def _is_isolated(grid: Grid, r: int, c: int) -> bool:
     return True
 
 
-def _hub_connected_via_infra(grid: Grid, r: int, c: int) -> bool:
-    """Return True if infrastructure cell at (r, c) connects two hubs.
+def _precompute_corridor_eligible(grid: Grid) -> Tuple[Tuple[bool, ...], ...]:
+    """Precompute which infrastructure cells are eligible for corridor promotion.
 
-    Performs BFS along infrastructure (state 2) from (r, c) and checks
-    whether at least two distinct hub (state 3) neighbors are reachable
-    from different directions.
+    Performs a single pass over the grid to identify connected components
+    of infrastructure (state 2) cells.  For each component, checks whether
+    at least two distinct hub (state 3) cells are adjacent to the component.
+    Returns a boolean grid where ``True`` marks infrastructure cells whose
+    component touches at least two hubs.
     """
     rows = len(grid)
     cols = len(grid[0])
+    component_id = [[-1] * cols for _ in range(rows)]
+    # Map component_id → set of adjacent hub positions
+    component_hubs: list[set[Tuple[int, int]]] = []
+    cid = 0
 
-    # Find hub neighbors of the full connected infra component containing (r, c)
-    visited = [[False] * cols for _ in range(rows)]
-    visited[r][c] = True
-    stack = [(r, c)]
-    hub_neighbors: set[Tuple[int, int]] = set()
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c] == 2 and component_id[r][c] == -1:
+                # BFS flood-fill for this infra component
+                component_id[r][c] = cid
+                stack = [(r, c)]
+                hub_neighbors: set[Tuple[int, int]] = set()
+                while stack:
+                    cr, cc = stack.pop()
+                    for dr, dc in _DIRECTIONS:
+                        nr, nc = cr + dr, cc + dc
+                        if 0 <= nr < rows and 0 <= nc < cols:
+                            if grid[nr][nc] == 3:
+                                hub_neighbors.add((nr, nc))
+                            elif (
+                                grid[nr][nc] == 2
+                                and component_id[nr][nc] == -1
+                            ):
+                                component_id[nr][nc] = cid
+                                stack.append((nr, nc))
+                component_hubs.append(hub_neighbors)
+                cid += 1
 
-    while stack:
-        cr, cc = stack.pop()
-        for dr, dc in _DIRECTIONS:
-            nr, nc = cr + dr, cc + dc
-            if 0 <= nr < rows and 0 <= nc < cols:
-                if grid[nr][nc] == 3:
-                    hub_neighbors.add((nr, nc))
-                elif grid[nr][nc] == 2 and not visited[nr][nc]:
-                    visited[nr][nc] = True
-                    stack.append((nr, nc))
-
-    return len(hub_neighbors) >= 2
+    # Build boolean eligibility grid
+    eligible_rows = []
+    for r in range(rows):
+        row = []
+        for c in range(cols):
+            if grid[r][c] == 2 and component_id[r][c] >= 0:
+                row.append(len(component_hubs[component_id[r][c]]) >= 2)
+            else:
+                row.append(False)
+        eligible_rows.append(tuple(row))
+    return tuple(eligible_rows)
 
 
 # ---------------------------------------------------------------------------
@@ -157,6 +180,7 @@ def _hub_connected_via_infra(grid: Grid, r: int, c: int) -> bool:
 def _next_cell(
     grid: Grid, r: int, c: int,
     n_empty: int, n_settlement: int, n_infra: int, n_hub: int, n_corridor: int,
+    corridor_eligible: bool,
 ) -> int:
     """Compute next state for a single cell.
 
@@ -168,11 +192,11 @@ def _next_cell(
     SETTLEMENT (1) -> INFRASTRUCTURE (2):
         settlements + hubs in neighborhood >= 3.
 
+    INFRASTRUCTURE (2) -> CORRIDOR (4):
+        Cell's infrastructure component touches at least two distinct hubs.
+
     INFRASTRUCTURE (2) -> ENERGY HUB (3):
         Surrounded by stable infrastructure cluster (infra + hubs >= 3).
-
-    INFRASTRUCTURE (2) -> CORRIDOR (4):
-        Two hubs connected via infrastructure path through this cell.
 
     ANY non-empty -> EMPTY (0):
         If isolated (no non-empty neighbors).
@@ -197,10 +221,10 @@ def _next_cell(
         return 1
 
     if state == 2:
-        # Corridor formation: connects two hubs via infra path
+        # Corridor formation: infrastructure component connects two hubs
         # Check this before hub promotion (corridor takes priority over hub
         # when connectivity exists)
-        if n_hub >= 1 and _hub_connected_via_infra(grid, r, c):
+        if corridor_eligible:
             return 4
         # Energy hub formation: surrounded by infra cluster
         if n_infra + n_hub >= 3:
@@ -219,12 +243,15 @@ def _step_grid_unchecked(grid: Grid) -> Grid:
     """Advance *grid* by one timestep without validation."""
     rows = len(grid)
     cols = len(grid[0])
+    corridor_eligible = _precompute_corridor_eligible(grid)
     new_rows = []
     for r in range(rows):
         new_row = []
         for c in range(cols):
             counts = _neighbor_counts(grid, r, c)
-            new_row.append(_next_cell(grid, r, c, *counts))
+            new_row.append(
+                _next_cell(grid, r, c, *counts, corridor_eligible[r][c])
+            )
         new_rows.append(tuple(new_row))
     return tuple(new_rows)
 
@@ -412,6 +439,7 @@ def analyze_lattice_civilization(
     last = grid_history[-1]
     counts = _count_states(last)
     regions = _count_connected_regions(last)
+    corridor_networks = _count_corridor_networks(last)
 
     # Growth rate: change in populated cells from first to last
     first_counts = _count_states(first)
@@ -433,6 +461,7 @@ def analyze_lattice_civilization(
         infrastructure_count=counts[2],
         energy_hub_count=counts[3],
         corridor_count=counts[4],
+        corridor_network_count=corridor_networks,
         connected_regions=regions,
         stability_label=label,
         growth_rate=growth_rate,

@@ -119,6 +119,22 @@ heavy frameworks
 unnecessary dependencies
 hidden runtime systems
 magic abstractions
+
+Rust TUI Release Policy
+
+The Rust TUI is independently versioned from the QEC core repository.
+
+TUI versioning reflects:
+
+installer changes
+rendering updates
+operator workflow fixes
+binary/runtime compatibility
+
+QEC core releases do not require TUI version changes unless the UI layer itself is modified.
+
+This decoupling is intentional and permanent.
+
 3. System Architecture (v132.x Canonical State)
 
 QEC now operates as a deterministic closed-loop supervisory framework:

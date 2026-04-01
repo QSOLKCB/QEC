@@ -144,15 +144,19 @@ def load_phase_map_from_json(text: str) -> PhaseMapExportBundle:
         "phase_map",
     )
 
-    cells = tuple(
-        PhaseCell(
-            decay=float(c["decay"]),
-            coupling_profile=tuple(float(v) for v in c["coupling_profile"]),
-            regime_label=str(c["regime_label"]),
-            divergence_score=float(c["divergence_score"]),
+    cell_keys = ("coupling_profile", "decay", "divergence_score", "regime_label")
+    cells_list = []
+    for i, c in enumerate(pm_d["cells"]):
+        _require_keys(c, cell_keys, f"phase_map.cells[{i}]")
+        cells_list.append(
+            PhaseCell(
+                decay=float(c["decay"]),
+                coupling_profile=tuple(float(v) for v in c["coupling_profile"]),
+                regime_label=str(c["regime_label"]),
+                divergence_score=float(c["divergence_score"]),
+            )
         )
-        for c in pm_d["cells"]
-    )
+    cells = tuple(cells_list)
 
     phase_map = PhaseMap(
         cells=cells,

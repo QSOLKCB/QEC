@@ -226,6 +226,14 @@ class TestMissingKeyRejection:
         with pytest.raises(ValueError, match="missing key.*cells.*phase_map"):
             load_phase_map_from_json(json.dumps(d))
 
+    def test_missing_cell_subkey(self):
+        bundle = _make_bundle()
+        text = export_phase_map_to_json(bundle)
+        d = json.loads(text)
+        del d["phase_map"]["cells"][0]["decay"]
+        with pytest.raises(ValueError, match=r"missing key.*decay.*cells\[0\]"):
+            load_phase_map_from_json(json.dumps(d))
+
 
 class TestReplayDeterminism:
     def test_full_replay_cycle(self):

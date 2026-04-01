@@ -38,8 +38,37 @@ _NEIGHBOR_MIX: float = 0.001
 def _build_grid_lookup(
     snapshot: QuditLatticeSnapshot,
 ) -> dict[tuple[int, int], QuditFieldCell]:
-    """Build a (x, y) -> cell lookup from snapshot cells."""
-    return {(c.x_index, c.y_index): c for c in snapshot.cells}
+    """Build a validated (x, y) -> cell lookup from snapshot cells.
+
+    Raises ValueError on incomplete, out-of-bounds, or duplicate cells.
+    """
+    expected = snapshot.width * snapshot.height
+    if len(snapshot.cells) != expected:
+        raise ValueError(
+            f"incomplete lattice: expected {expected} cells, "
+            f"got {len(snapshot.cells)}"
+        )
+
+    grid: dict[tuple[int, int], QuditFieldCell] = {}
+    for cell in snapshot.cells:
+        if cell.x_index < 0 or cell.x_index >= snapshot.width:
+            raise ValueError(
+                f"cell x_index {cell.x_index} out of bounds "
+                f"[0, {snapshot.width})"
+            )
+        if cell.y_index < 0 or cell.y_index >= snapshot.height:
+            raise ValueError(
+                f"cell y_index {cell.y_index} out of bounds "
+                f"[0, {snapshot.height})"
+            )
+        coord = (cell.x_index, cell.y_index)
+        if coord in grid:
+            raise ValueError(
+                f"duplicate cell coordinate ({cell.x_index}, {cell.y_index})"
+            )
+        grid[coord] = cell
+
+    return grid
 
 
 def _von_neumann_neighbors(

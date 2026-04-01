@@ -352,3 +352,109 @@ class TestQuditDimensionGenerality:
         # Corner (0,0): 2 neighbors, sum=2, new=(1+2)%2=1
         corner = [c for c in evolved.cells if c.x_index == 0 and c.y_index == 0][0]
         assert corner.local_state == (1 + 2) % 2
+
+
+# ---------------------------------------------------------------------------
+# Malformed snapshot rejection
+# ---------------------------------------------------------------------------
+
+class TestMalformedSnapshots:
+
+    def test_duplicate_coordinate_rejected_via_lookup(self) -> None:
+        cell_a = QuditFieldCell(
+            x_index=0, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        cell_b = QuditFieldCell(
+            x_index=0, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=1, field_amplitude=1.0,
+        )
+        cell_c = QuditFieldCell(
+            x_index=1, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        cell_d = QuditFieldCell(
+            x_index=0, y_index=1, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        snap = QuditLatticeSnapshot(
+            cells=(cell_a, cell_b, cell_c, cell_d), width=2, height=2,
+            epoch_index=0, mean_field_amplitude=1.0, active_state_count=0,
+        )
+        with pytest.raises(ValueError, match="duplicate cell coordinate"):
+            _build_grid_lookup(snap)
+
+    def test_out_of_bounds_coordinate_rejected_via_lookup(self) -> None:
+        bad_cell = QuditFieldCell(
+            x_index=5, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        snap = QuditLatticeSnapshot(
+            cells=(bad_cell,), width=1, height=1,
+            epoch_index=0, mean_field_amplitude=1.0, active_state_count=0,
+        )
+        with pytest.raises(ValueError, match="out of bounds"):
+            _build_grid_lookup(snap)
+
+    def test_incomplete_lattice_rejected_via_lookup(self) -> None:
+        cell = QuditFieldCell(
+            x_index=0, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        snap = QuditLatticeSnapshot(
+            cells=(cell,), width=2, height=2,
+            epoch_index=0, mean_field_amplitude=1.0, active_state_count=0,
+        )
+        with pytest.raises(ValueError, match="incomplete lattice"):
+            _build_grid_lookup(snap)
+
+    def test_duplicate_coordinate_rejected_via_evolve(self) -> None:
+        """Public API must fail early on malformed snapshot."""
+        cell_a = QuditFieldCell(
+            x_index=0, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        cell_b = QuditFieldCell(
+            x_index=0, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=1, field_amplitude=1.0,
+        )
+        cell_c = QuditFieldCell(
+            x_index=1, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        cell_d = QuditFieldCell(
+            x_index=0, y_index=1, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        snap = QuditLatticeSnapshot(
+            cells=(cell_a, cell_b, cell_c, cell_d), width=2, height=2,
+            epoch_index=0, mean_field_amplitude=1.0, active_state_count=0,
+        )
+        with pytest.raises(ValueError, match="duplicate cell coordinate"):
+            coupled_evolve_step(snap)
+
+    def test_out_of_bounds_rejected_via_evolve(self) -> None:
+        """Public API must fail early on out-of-bounds coordinates."""
+        bad_cell = QuditFieldCell(
+            x_index=5, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        snap = QuditLatticeSnapshot(
+            cells=(bad_cell,), width=1, height=1,
+            epoch_index=0, mean_field_amplitude=1.0, active_state_count=0,
+        )
+        with pytest.raises(ValueError, match="out of bounds"):
+            coupled_evolve_step(snap)
+
+    def test_incomplete_lattice_rejected_via_evolve(self) -> None:
+        """Public API must fail early on incomplete lattice."""
+        cell = QuditFieldCell(
+            x_index=0, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        snap = QuditLatticeSnapshot(
+            cells=(cell,), width=2, height=2,
+            epoch_index=0, mean_field_amplitude=1.0, active_state_count=0,
+        )
+        with pytest.raises(ValueError, match="incomplete lattice"):
+            coupled_evolve_step(snap)

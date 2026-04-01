@@ -548,6 +548,86 @@ class TestValidation:
         with pytest.raises(ValueError, match="steps must be >= 1"):
             search_best_objective_route(snap, (obj,), ((0,),), steps=0)
 
+    def test_is_completed_true_raises(self) -> None:
+        """Constructing an objective with is_completed=True is rejected."""
+        with pytest.raises(ValueError, match="is_completed=False"):
+            UniverseObjective(
+                objective_id="bad",
+                objective_type=OBJECTIVE_WAYPOINT,
+                position=(0.0, 0.0),
+                reward_value=1.0,
+                is_required=False,
+                is_completed=True,
+            )
+
+    def test_is_completed_false_accepted(self) -> None:
+        """Constructing an objective with is_completed=False succeeds."""
+        obj = UniverseObjective(
+            objective_id="ok",
+            objective_type=OBJECTIVE_WAYPOINT,
+            position=(0.0, 0.0),
+            reward_value=1.0,
+            is_required=False,
+            is_completed=False,
+        )
+        assert obj.is_completed is False
+
+
+# ---------------------------------------------------------------------------
+# Test: single-evolution correctness
+# ---------------------------------------------------------------------------
+
+
+class TestSingleEvolutionCorrectness:
+    """Verify search uses single evolution and remains deterministic."""
+
+    def test_search_result_matches_manual_evaluation(self) -> None:
+        """Search result for a single candidate must match direct evaluation."""
+        snap = _make_universe(width=20)
+        steps = 5
+        schedule = tuple(PROPULSION_IDLE for _ in range(steps))
+        objs = (
+            _make_objective(
+                objective_id="wp",
+                position=(0.0, 0.0),
+                reward_value=10.0,
+                is_required=True,
+            ),
+        )
+
+        # Via search API
+        report_search, selected = search_best_objective_route(
+            snap, objs, (schedule,), steps=steps,
+        )
+        assert selected == schedule
+
+        # Via manual single evolution + evaluate
+        evolved = evolve_universe(snap, steps, propulsion_schedule=schedule)
+        report_manual = evaluate_universe_objectives(evolved, objs)
+
+        # Reports must be identical
+        assert report_search == report_manual
+
+    def test_search_deterministic_after_refactor(self) -> None:
+        """100-replay regression for search after single-evolution refactor."""
+        snap = _make_universe(width=20)
+        steps = 5
+        objs = (
+            _make_objective(
+                objective_id="a",
+                position=(0.0, 0.0),
+                reward_value=25.0,
+                is_required=True,
+            ),
+        )
+        candidates = (
+            tuple(PROPULSION_IDLE for _ in range(steps)),
+            tuple(PROPULSION_THRUST for _ in range(steps)),
+        )
+        first = search_best_objective_route(snap, objs, candidates, steps=steps)
+        for _ in range(100):
+            assert search_best_objective_route(snap, objs, candidates, steps=steps) == first
+
 
 # ---------------------------------------------------------------------------
 # Test: decoder untouched

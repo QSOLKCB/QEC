@@ -18,16 +18,16 @@ from dataclasses import dataclass
 from typing import Tuple
 
 from qec.sims.autopilot_policy_search import (
-    AutopilotPolicyReport,
-    search_best_route_policy,
-)
-from qec.sims.constrained_flight import (
-    ConstrainedFlightReport,
-    search_constrained_return_policy,
+    SLINGSHOT_BONUS,
+    _compute_energy_penalty,
+    _score_stability,
 )
 from qec.sims.qutrit_propulsion_universe import (
     UniverseSnapshot,
     evolve_universe,
+)
+from qec.sims.trajectory_stability_analysis import (
+    analyze_trajectory_stability,
 )
 
 # ---------------------------------------------------------------------------
@@ -92,6 +92,18 @@ class UniverseObjective:
     reward_value: float
     is_required: bool
     is_completed: bool
+
+    def __post_init__(self) -> None:
+        """Validate that objectives are initialized as incomplete.
+
+        Completion is determined dynamically by evaluation — constructing
+        an objective with ``is_completed=True`` is a semantic error.
+        """
+        if self.is_completed:
+            raise ValueError(
+                "UniverseObjective must be initialized with is_completed=False; "
+                "completion is determined dynamically by evaluation."
+            )
 
 
 @dataclass(frozen=True)
@@ -289,8 +301,10 @@ def search_best_objective_route(
 ) -> Tuple[ObjectiveFieldReport, Tuple[int, ...]]:
     """Search for the best route that maximizes objective completion.
 
-    Combines autopilot route scoring, constrained flight law, and
-    objective completion reward into a unified mission-planning score.
+    Combines autopilot route scoring and objective completion reward
+    into a unified mission-planning score.  Each candidate schedule
+    is evolved exactly once; the evolved snapshot is reused for both
+    route scoring and objective evaluation.
 
     Scoring formula (additive, deterministic):
         score = route_score + total_reward + required_bonus
@@ -343,17 +357,23 @@ def search_best_objective_route(
                 f"Schedule {i} has length {len(schedule)}, expected {steps}"
             )
 
-        # Evolve universe with this schedule
+        # Single evolution per candidate — reused for both scoring and objectives
         evolved = evolve_universe(snapshot, steps, propulsion_schedule=schedule)
 
-        # Evaluate objectives
+        # Evaluate objectives against evolved snapshot
         obj_report = evaluate_universe_objectives(evolved, objectives)
 
-        # Compute route score component via autopilot scoring
-        autopilot_report = search_best_route_policy(
-            snapshot, (schedule,), steps=steps,
+        # Compute route score inline from evolved snapshot (no second evolution)
+        stab_report = analyze_trajectory_stability(evolved)
+        distance_score = stab_report.net_distance * 1.0
+        stability_score = _score_stability(stab_report)
+        slingshot_bonus = SLINGSHOT_BONUS if stab_report.slingshot_detected else 0.0
+        energy_penalty = _compute_energy_penalty(
+            schedule,
+            snapshot.craft_state.field_energy,
+            evolved.craft_state.field_energy,
         )
-        route_score = autopilot_report.best_score
+        route_score = distance_score + stability_score + slingshot_bonus - energy_penalty
 
         # Compute objective reward
         total_reward = obj_report.total_reward

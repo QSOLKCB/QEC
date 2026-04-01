@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Sequence, Tuple
 
 from qec.sims.universe_kernel import UniverseState
 
@@ -18,30 +18,43 @@ _EPS = 1e-9
 
 
 def v_circ_uff(
-    radii_kpc: Tuple[float, ...],
-    theta: Tuple[float, ...],
+    radii_kpc: Sequence[float],
+    theta: Sequence[float],
 ) -> Tuple[float, ...]:
     """Compute UFF-style circular velocities.
 
     Parameters
     ----------
-    radii_kpc : Tuple[float, ...]
+    radii_kpc : Sequence[float]
         Galactocentric radii in kpc.
-    theta : Tuple[float, ...]
+    theta : Sequence[float]
         Model parameters ``(V0, Rc, beta)``.
 
     Returns
     -------
     Tuple[float, ...]
         Circular velocities in km/s, clipped non-negative.
+
+    Raises
+    ------
+    ValueError
+        If *theta* does not contain exactly 3 values.
     """
-    V0, Rc, beta = theta[0], theta[1], theta[2]
+    theta = tuple(theta)
+    if len(theta) != 3:
+        raise ValueError(
+            "theta must contain exactly 3 values: (V0, Rc, beta)"
+        )
+    V0, Rc, beta = theta
+    radii_kpc = tuple(radii_kpc)
     velocities: list[float] = []
     for R in radii_kpc:
         denom = math.sqrt(R * R + Rc * Rc + _EPS)
         base_arg = 1.0 - Rc / denom
         base = V0 * math.sqrt(max(base_arg, 0.0))
-        tweak = (R / (R + Rc + _EPS)) ** beta
+        raw_base = R / (R + Rc + _EPS)
+        safe_base = max(raw_base, 0.0)
+        tweak = safe_base ** beta
         v = base * (1.0 + 0.2 * tweak)
         velocities.append(max(v, 0.0))
     return tuple(velocities)
@@ -60,8 +73,8 @@ class RotationCurveObservation:
 
 def observe_rotation_curve(
     state: UniverseState,
-    radii_kpc: Tuple[float, ...],
-    theta: Tuple[float, ...],
+    radii_kpc: Sequence[float],
+    theta: Sequence[float],
 ) -> RotationCurveObservation:
     """Observe a rotation curve from the current universe state.
 
@@ -69,9 +82,9 @@ def observe_rotation_curve(
     ----------
     state : UniverseState
         Universe snapshot (used for timestep provenance).
-    radii_kpc : Tuple[float, ...]
+    radii_kpc : Sequence[float]
         Radii at which to evaluate the velocity law.
-    theta : Tuple[float, ...]
+    theta : Sequence[float]
         Model parameters ``(V0, Rc, beta)``.
 
     Returns
@@ -79,6 +92,7 @@ def observe_rotation_curve(
     RotationCurveObservation
         Frozen observation with computed metrics.
     """
+    radii_kpc = tuple(radii_kpc)
     velocities = v_circ_uff(radii_kpc, theta)
     peak_velocity = max(velocities) if velocities else 0.0
     mean_velocity = sum(velocities) / len(velocities) if velocities else 0.0

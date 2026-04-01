@@ -305,6 +305,22 @@ Measure
 → Generalize
 7. Strict Anti-Patterns
 
+## Rust TUI Status (Post-v132.4)
+
+The Rust TUI is now considered **feature-stable infrastructure**.
+
+Future modifications are restricted to:
+
+* critical bug fixes
+* installer compatibility
+* terminal rendering corrections
+* release version synchronization
+* security / dependency maintenance
+
+All future intelligence, supervisory logic, simulation, proof systems, and research functionality remain Python-engine side.
+
+The UI must remain a zero-logic render surface.
+
 Forbidden:
 
 decoder mutation

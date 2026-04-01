@@ -18,7 +18,7 @@ from qec.sims.phase_map_generator import PhaseMap
 
 
 _VALID_REGIME_LABELS = frozenset({"stable", "critical", "divergent"})
-_VALID_SUPERVISORY_STATES = frozenset({"normal", "elevated", "locked"})
+_VALID_SUPERVISORY_STATES = frozenset({"normal", "elevated", "locked", "recovering"})
 
 _REGIME_SYMBOL = {
     "stable": "S",

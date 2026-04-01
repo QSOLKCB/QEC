@@ -70,8 +70,16 @@ def apply_recovery_tunnel(
 ) -> Tuple[SpatiotemporalPhaseSnapshot, RecoveryTunnelReport]:
     """Apply one deterministic recovery tunnel step to a snapshot.
 
-    Transitions the supervisory state according to the state machine
-    and applies one-step cell-level regime recovery for divergent cells.
+    Transitions the supervisory state according to the state machine:
+        locked      -> recovering
+        elevated    -> recovering
+        recovering  -> normal
+        normal      -> normal
+
+    Applies one-step cell-level regime recovery:
+        divergent -> critical
+        critical  -> stable
+        stable    -> stable
 
     Parameters
     ----------

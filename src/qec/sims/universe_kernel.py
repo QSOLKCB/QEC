@@ -10,11 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Tuple
 
-from qec.simulation.export_codec import export_to_json, with_computed_trace_hash
+from qec.simulation.export_codec import with_computed_trace_hash
 from qec.simulation.export_schema import (
     ExportMetadata,
     SimulationExport,
 )
+
+EXPORT_SCHEMA_VERSION = "132.5.0"
+CREATED_BY_RELEASE = "133.0.0"
 
 
 @dataclass(frozen=True)
@@ -31,7 +34,7 @@ class UniverseState:
     law_name: str
 
 
-def evolve_universe(state: UniverseState, dt: float = 1.0) -> UniverseState:
+def evolve_universe(state: UniverseState) -> UniverseState:
     """Evolve the universe state by one deterministic timestep.
 
     Pure function. No randomness, no global state, no mutation.
@@ -45,8 +48,6 @@ def evolve_universe(state: UniverseState, dt: float = 1.0) -> UniverseState:
     ----------
     state : UniverseState
         Current universe snapshot.
-    dt : float
-        Time step scale factor (reserved for future law variants).
 
     Returns
     -------
@@ -79,7 +80,7 @@ def to_simulation_export(state: UniverseState) -> SimulationExport:
         A finalized, hash-stamped export artifact.
     """
     control_trace = tuple(
-        f"field[{i}]={v}" for i, v in enumerate(state.field_amplitudes)
+        f"field[{i}]={v:.17g}" for i, v in enumerate(state.field_amplitudes)
     )
     dwell_events = (state.timestep,)
     export = SimulationExport(
@@ -88,9 +89,9 @@ def to_simulation_export(state: UniverseState) -> SimulationExport:
         fail_safe_events=(),
         transition_events=(),
         metadata=ExportMetadata(
-            schema_version="132.5.0",
+            schema_version=EXPORT_SCHEMA_VERSION,
             trace_hash="",
-            created_by_release="133.0.0",
+            created_by_release=CREATED_BY_RELEASE,
         ),
     )
     return with_computed_trace_hash(export)

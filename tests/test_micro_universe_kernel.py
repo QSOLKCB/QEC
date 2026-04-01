@@ -6,6 +6,8 @@ from __future__ import annotations
 import pytest
 
 from qec.sims.universe_kernel import (
+    CREATED_BY_RELEASE,
+    EXPORT_SCHEMA_VERSION,
     UniverseState,
     evolve_universe,
     to_simulation_export,
@@ -186,8 +188,8 @@ class TestExportBridge:
     def test_export_produces_valid_schema(self):
         state = _make_state()
         export = to_simulation_export(state)
-        assert export.metadata.schema_version == "132.5.0"
-        assert export.metadata.created_by_release == "133.0.0"
+        assert export.metadata.schema_version == EXPORT_SCHEMA_VERSION
+        assert export.metadata.created_by_release == CREATED_BY_RELEASE
         assert len(export.metadata.trace_hash) == 64  # SHA-256 hex
 
     def test_export_round_trip(self):

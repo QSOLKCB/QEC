@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Deterministic autopilot route policy search.
 
 Evaluates candidate propulsion schedules against a universe snapshot,
@@ -159,6 +160,8 @@ def search_best_route_policy(
     ValueError
         If candidate_schedules is empty or a schedule has wrong length.
     """
+    if steps < 1:
+        raise ValueError("steps must be >= 1")
     if not candidate_schedules:
         raise ValueError("candidate_schedules must not be empty")
 

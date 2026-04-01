@@ -1,6 +1,9 @@
+# SPDX-License-Identifier: MIT
 """Deterministic tests for autopilot route policy search."""
 
 from __future__ import annotations
+
+from unittest.mock import patch
 
 import pytest
 
@@ -8,6 +11,7 @@ from qec.sims.qutrit_propulsion_universe import (
     PROPULSION_IDLE,
     PROPULSION_THRUST,
     PROPULSION_WARP,
+    UniverseSnapshot,
     create_universe,
 )
 from qec.sims.autopilot_policy_search import (
@@ -20,7 +24,7 @@ def _make_snapshot(
     velocity: float = 0.0,
     field_energy: float = 100.0,
     width: int = 20,
-) -> object:
+) -> UniverseSnapshot:
     return create_universe(
         width=width,
         height=5,
@@ -33,15 +37,37 @@ def _make_snapshot(
 
 
 class TestStableBeatsOscillatory:
-    """A stable, moderate-thrust route should outscore an oscillatory one."""
+    """A stable, moderate-thrust route should outscore a slingshot route."""
 
     def test_stable_route_preferred(self) -> None:
         snap = _make_snapshot(velocity=1.0)
         steps = 10
-        # Gentle thrust -> likely stable trajectory
-        stable_schedule = (1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        # Alternating warp/idle -> likely oscillatory
-        oscillatory_schedule = (2, 0, 2, 0, 2, 0, 2, 0, 2, 0)
+        # Gentle thrust then coast -> stable trajectory (score ~22.6)
+        stable_schedule = (
+            PROPULSION_THRUST,
+            PROPULSION_IDLE,
+            PROPULSION_IDLE,
+            PROPULSION_IDLE,
+            PROPULSION_IDLE,
+            PROPULSION_IDLE,
+            PROPULSION_IDLE,
+            PROPULSION_IDLE,
+            PROPULSION_IDLE,
+            PROPULSION_IDLE,
+        )
+        # Alternating warp/idle -> slingshot trajectory (score ~10.7)
+        oscillatory_schedule = (
+            PROPULSION_WARP,
+            PROPULSION_IDLE,
+            PROPULSION_WARP,
+            PROPULSION_IDLE,
+            PROPULSION_WARP,
+            PROPULSION_IDLE,
+            PROPULSION_WARP,
+            PROPULSION_IDLE,
+            PROPULSION_WARP,
+            PROPULSION_IDLE,
+        )
 
         report = search_best_route_policy(
             snap,
@@ -51,40 +77,54 @@ class TestStableBeatsOscillatory:
         assert isinstance(report, AutopilotPolicyReport)
         assert report.candidate_count == 2
         assert report.steps_evaluated == steps
-        # The result is deterministic; just verify it completes and returns
-        # a valid schedule from the candidates.
-        assert report.best_schedule in (stable_schedule, oscillatory_schedule)
+        assert report.best_schedule == stable_schedule
+        assert report.best_score > 0.0
+        assert report.stability_score > 0.0
 
 
 class TestSlingshotBonus:
     """Slingshot detection should add the slingshot bonus to the score."""
 
     def test_slingshot_route_gets_bonus(self) -> None:
-        # High velocity + warp on small grid -> wraparound acceleration
+        # High velocity + warp on small grid -> slingshot detection
         snap = _make_snapshot(velocity=5.0, width=10)
         steps = 10
-        warp_schedule = tuple([PROPULSION_WARP] * steps)
-        idle_schedule = tuple([PROPULSION_IDLE] * steps)
+        warp_schedule = (PROPULSION_WARP,) * steps
+        idle_schedule = (PROPULSION_IDLE,) * steps
 
-        report = search_best_route_policy(
+        report_warp = search_best_route_policy(
+            snap,
+            candidate_schedules=(warp_schedule,),
+            steps=steps,
+        )
+        report_idle = search_best_route_policy(
+            snap,
+            candidate_schedules=(idle_schedule,),
+            steps=steps,
+        )
+        # Warp schedule on small grid triggers slingshot
+        assert report_warp.slingshot_bonus > 0.0
+        assert report_idle.slingshot_bonus == 0.0
+
+        # Idle route still wins overall due to stability bonus + lower penalty
+        combined = search_best_route_policy(
             snap,
             candidate_schedules=(warp_schedule, idle_schedule),
             steps=steps,
         )
-        # Warp schedule on small grid should produce slingshot or high distance
-        assert report.candidate_count == 2
-        assert report.best_schedule in (warp_schedule, idle_schedule)
+        assert combined.best_schedule == idle_schedule
 
 
 class TestDivergentPenalized:
     """A divergent route should receive a heavy penalty."""
 
     def test_divergent_route_penalized(self) -> None:
-        # Very high velocity + continuous warp -> divergent
-        snap = _make_snapshot(velocity=100.0, width=20)
+        # Velocity at 1e6: warp pushes past divergence threshold,
+        # idle decays below it via 0.99 multiplier.
+        snap = _make_snapshot(velocity=1e6, width=20)
         steps = 10
-        divergent_schedule = tuple([PROPULSION_WARP] * steps)
-        mild_schedule = tuple([PROPULSION_IDLE] * steps)
+        divergent_schedule = (PROPULSION_WARP,) * steps
+        mild_schedule = (PROPULSION_IDLE,) * steps
 
         report = search_best_route_policy(
             snap,
@@ -92,48 +132,76 @@ class TestDivergentPenalized:
             steps=steps,
         )
         assert report.candidate_count == 2
-        # Mild route should be preferred due to divergent penalty on warp
         assert report.best_schedule == mild_schedule
-
-
-class TestDeterministicTieBreak:
-    """When scores are identical, tie-break by lower propulsion sum, then lex."""
-
-    def test_tie_break_lower_sum(self) -> None:
-        snap = _make_snapshot(velocity=0.0)
-        steps = 3
-        # Both idle -> identical evolution; same score guaranteed
-        sched_a = (0, 0, 0)
-        sched_b = (0, 0, 0)
-
-        report = search_best_route_policy(
+        # Divergent route should have negative stability score component
+        report_div = search_best_route_policy(
             snap,
-            candidate_schedules=(sched_a, sched_b),
+            candidate_schedules=(divergent_schedule,),
             steps=steps,
         )
-        # Both identical -> first wins (tie-break is stable)
-        assert report.best_schedule == sched_a
+        assert report_div.stability_score < 0.0
 
-    def test_tie_break_lexicographic(self) -> None:
-        snap = _make_snapshot(velocity=0.0)
-        steps = 3
-        # Same propulsion sum (1), different lex order
-        sched_low_lex = (0, 0, 1)
-        sched_high_lex = (0, 1, 0)
 
+class TestTieBreakPropulsionSum:
+    """When total scores are equal, lower propulsion sum wins."""
+
+    def test_lower_sum_wins(self) -> None:
+        # V=-50, width=100, field_energy=0, steps=1 produces exact tie:
+        # idle score = 55.5, thrust score = 55.5
+        snap = _make_snapshot(velocity=-50.0, field_energy=0.0, width=100)
+        steps = 1
+        idle_schedule = (PROPULSION_IDLE,)    # sum = 0
+        thrust_schedule = (PROPULSION_THRUST,)  # sum = 1
+
+        # Verify regardless of candidate order
         report_a = search_best_route_policy(
             snap,
-            candidate_schedules=(sched_low_lex, sched_high_lex),
+            candidate_schedules=(idle_schedule, thrust_schedule),
             steps=steps,
         )
         report_b = search_best_route_policy(
             snap,
-            candidate_schedules=(sched_high_lex, sched_low_lex),
+            candidate_schedules=(thrust_schedule, idle_schedule),
             steps=steps,
         )
-        # If scores happen to be equal, lower lex wins regardless of order
-        # If scores differ, both runs must agree on the winner
-        assert report_a.best_schedule == report_b.best_schedule
+        # Both must select idle (lower propulsion sum)
+        assert report_a.best_schedule == idle_schedule
+        assert report_b.best_schedule == idle_schedule
+        # Confirm scores are genuinely tied
+        assert report_a.best_score == report_b.best_score
+
+
+class TestTieBreakLexicographic:
+    """When total scores and propulsion sums are equal, lower lex wins."""
+
+    def test_lower_lex_wins(self) -> None:
+        snap = _make_snapshot(velocity=1.0)
+        steps = 3
+
+        sched_low = (PROPULSION_IDLE, PROPULSION_IDLE, PROPULSION_THRUST)
+        sched_high = (PROPULSION_IDLE, PROPULSION_THRUST, PROPULSION_IDLE)
+
+        # Patch _score_candidate to return identical scores for both,
+        # forcing the tie-break to rely on lexicographic ordering.
+        fixed_scores = (10.0, 5.0, -2.0, 5.0, 0.0)
+        with patch(
+            "qec.sims.autopilot_policy_search._score_candidate",
+            return_value=fixed_scores,
+        ):
+            report_a = search_best_route_policy(
+                snap,
+                candidate_schedules=(sched_low, sched_high),
+                steps=steps,
+            )
+            report_b = search_best_route_policy(
+                snap,
+                candidate_schedules=(sched_high, sched_low),
+                steps=steps,
+            )
+
+        # Lower lex wins regardless of candidate order
+        assert report_a.best_schedule == sched_low
+        assert report_b.best_schedule == sched_low
 
 
 class TestReplayDeterminism:
@@ -143,10 +211,21 @@ class TestReplayDeterminism:
         snap = _make_snapshot(velocity=2.0)
         steps = 10
         candidates = (
-            tuple([PROPULSION_THRUST] * steps),
-            tuple([PROPULSION_IDLE] * steps),
-            tuple([PROPULSION_WARP] * steps),
-            (1, 0, 1, 0, 1, 0, 1, 0, 1, 0),
+            (PROPULSION_THRUST,) * steps,
+            (PROPULSION_IDLE,) * steps,
+            (PROPULSION_WARP,) * steps,
+            (
+                PROPULSION_THRUST,
+                PROPULSION_IDLE,
+                PROPULSION_THRUST,
+                PROPULSION_IDLE,
+                PROPULSION_THRUST,
+                PROPULSION_IDLE,
+                PROPULSION_THRUST,
+                PROPULSION_IDLE,
+                PROPULSION_THRUST,
+                PROPULSION_IDLE,
+            ),
         )
 
         report_1 = search_best_route_policy(snap, candidates, steps=steps)
@@ -160,6 +239,8 @@ class TestReplayDeterminism:
         assert report_1.slingshot_bonus == report_2.slingshot_bonus
         assert report_1.steps_evaluated == report_2.steps_evaluated
         assert report_1.candidate_count == report_2.candidate_count
+        # Frozen dataclass equality
+        assert report_1 == report_2
 
 
 class TestEmptyCandidateValidation:
@@ -171,6 +252,28 @@ class TestEmptyCandidateValidation:
             search_best_route_policy(snap, candidate_schedules=(), steps=5)
 
 
+class TestStepsValidation:
+    """steps < 1 must raise ValueError."""
+
+    def test_zero_steps_raises(self) -> None:
+        snap = _make_snapshot()
+        with pytest.raises(ValueError, match="steps must be >= 1"):
+            search_best_route_policy(
+                snap,
+                candidate_schedules=((PROPULSION_IDLE,),),
+                steps=0,
+            )
+
+    def test_negative_steps_raises(self) -> None:
+        snap = _make_snapshot()
+        with pytest.raises(ValueError, match="steps must be >= 1"):
+            search_best_route_policy(
+                snap,
+                candidate_schedules=((PROPULSION_IDLE,),),
+                steps=-1,
+            )
+
+
 class TestScheduleLengthValidation:
     """Mismatched schedule length must raise ValueError."""
 
@@ -179,7 +282,9 @@ class TestScheduleLengthValidation:
         with pytest.raises(ValueError, match="length"):
             search_best_route_policy(
                 snap,
-                candidate_schedules=((0, 0, 0),),  # length 3 != steps 5
+                candidate_schedules=(
+                    (PROPULSION_IDLE, PROPULSION_IDLE, PROPULSION_IDLE),
+                ),
                 steps=5,
             )
 
@@ -191,8 +296,14 @@ class TestReportFields:
         snap = _make_snapshot(velocity=1.0)
         steps = 5
         candidates = (
-            (1, 1, 0, 0, 0),
-            (0, 0, 0, 0, 0),
+            (
+                PROPULSION_THRUST,
+                PROPULSION_THRUST,
+                PROPULSION_IDLE,
+                PROPULSION_IDLE,
+                PROPULSION_IDLE,
+            ),
+            (PROPULSION_IDLE,) * steps,
         )
         report = search_best_route_policy(snap, candidates, steps=steps)
 

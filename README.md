@@ -1,6 +1,6 @@
-# QSOLKCB / QEC
-Deterministic Structural Analysis & Adaptive Control System  
-for LDPC / QLDPC Tanner Graphs
+QSOLKCB / QEC
+Deterministic Structural Analysis, Adaptive Control & Operator Console
+for LDPC / QLDPC Tanner Graph Dynamics
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19099503.svg)](https://doi.org/10.5281/zenodo.19099503)
@@ -16,245 +16,230 @@ for LDPC / QLDPC Tanner Graphs
 
 ---
 
-QEC is a deterministic research framework for studying:
+QEC is a deterministic research framework for:
 
-- belief propagation (BP) dynamics  
-- Tanner graph structure  
-- spectral instability  
-- phase behavior  
-- adaptive control of decoding strategies  
+belief propagation (BP) dynamics
+Tanner graph structure
+spectral instability
+regime transitions
+adaptive control of decoding strategies
+operator-facing diagnostic control via Rust TUI
 
 It functions as:
 
-- 🧠 **A deterministic analysis system**
-- 🌌 **A phase-space reconstruction engine**
-- ⚙️ **An adaptive control loop (v98+)**
-
----
-
-# 🧠 What QEC Actually Is (Now)
+🧠 A deterministic analysis system
+🌌 A phase-space reconstruction engine
+⚙️ A closed-loop adaptive controller
+🖥 A live Rust TUI operator cockpit (v106+)
+🧠 What QEC Is (Current)
 
 QEC is not just a simulator.
 
 It is a:
 
-> **Deterministic Structural + Adaptive System for Decoding Dynamics**
+Deterministic Structural + Adaptive + Operator System
 
-The system operates as a closed loop:
+The current closed-loop pipeline is:
 
-
-metrics → attractor → strategy → evaluation → adaptation → memory
-
+metrics
+→ collapse analysis
+→ control flow
+→ memory
+→ adaptive control
+→ regime jump
+→ self-healing
+→ history window
+→ operator console
 
 Everything is:
 
-- deterministic  
-- explainable  
-- reproducible  
-- externally controlled (decoder untouched)  
-
----
-
-# 🚀 Core Capabilities (v99)
-
----
-
-## 1. Structural Diagnostics (Foundation)
-
-- BP trajectory analysis  
-- attractor / basin detection  
-- oscillation & metastability metrics  
-- free-energy landscape analysis  
-
----
-
-## 2. Spectral Analysis (Graph Physics Layer)
-
-- non-backtracking spectrum  
-- eigenvector localization (IPR)  
-- trapping-set candidate detection  
-- spectral instability metrics  
-
----
-
-## 3. Phase & Regime Analysis
-
-- deterministic phase diagrams  
-- transition detection  
-- regime segmentation  
-- phase boundary metrics  
-
----
-
-## 4. Strategy System (Decision Layer)
-
-- deterministic strategy scoring  
-- regime-aware selection  
-- structured transition logic  
-
----
-
-## 5. Evaluation Framework
-
-- before/after comparison  
-- outcome classification  
-- improvement scoring  
-
----
-
-## 6. Adaptive Layer (v99)
-
-- trajectory-based feedback  
-- global bias adjustment  
-- recency-weighted performance  
-
----
-
-## 7. Strategy Memory (v99.1)
-
-- bounded per-strategy memory  
-- specialization via historical performance  
-- deterministic biasing (no randomness)  
-
----
-
-# 🌌 Phase-Space + Control System
-
-QEC reconstructs both:
-
-### Phase Structure
-- regimes  
-- boundaries  
-- degeneracy  
-- transitions  
-
-### Behavioral Dynamics
-- strategy effectiveness  
-- adaptation patterns  
-- system response  
-
----
-
-# ⚙️ System Architecture
-
-
+deterministic
+explainable
+reproducible
+externally controlled
+decoder-safe
+UI-separated
+🚀 Core Capabilities (Current)
+1. Structural Diagnostics
+BP trajectory analysis
+attractor / basin detection
+oscillation & metastability metrics
+free-energy landscape analysis
+2. Spectral Analysis
+non-backtracking spectrum
+eigenvector localization (IPR)
+trapping-set detection
+spectral instability scoring
+3. Adaptive Control Stack (v105+)
+collapse prediction
+damping control
+trend memory
+adaptive response
+regime jump detection
+self-healing control
+persistence windows
+4. Operator Console (v106+)
+live Rust TUI
+real-time diagnostics
+invariant monitor
+action dispatch console
+command history
+session export / replay
+multi-session browsing (v106.6+)
+⚙️ Architecture
 Tanner Graph
 ↓
-Diagnostics (metrics)
+Diagnostics
 ↓
-Attractor Classification
+Collapse / Control
 ↓
-Strategy Selection
+Adaptive Response
 ↓
-Evaluation
+Self-Healing
 ↓
-Adaptation
+History Window
 ↓
-Memory
-↓
-System Behavior
-
-
----
-
-# 🔁 Determinism Guarantees
+Rust TUI Operator Console
+🔁 Determinism Guarantees
 
 QEC enforces strict reproducibility:
 
-- no hidden randomness  
-- deterministic ordering everywhere  
-- canonical JSON outputs  
-- stable multi-key ranking  
-- explicit seeded RNG only  
-
-```python
+no hidden randomness
+deterministic ordering
+canonical JSON outputs
+stable ranking
+explicit seeded RNG only
 import numpy as np
 np.random.RandomState(seed)
 
 If it cannot be reproduced byte-for-byte, it is not a result.
 
-🔬 Invariant Framework
+<pre>
 
-QEC is built on explicit, testable invariants.
+🖥 Rust TUI Operator Console (v106+, Phase Workstation v115.1+)
 
-Example:
+QEC includes a Linutil-inspired Rust TUI control surface for:
 
-QSOL-BP-INV-001
-URW(min-sum, ρ = 1.0) ≡ baseline min-sum
+live diagnostics
+adaptive control workflows
+session replay
+operator-driven law-engine actions
+phase dynamics workstation
+attractor-cycle observability
 
-Properties:
+The layout is optimized for fast, keyboard-first workflows:
 
-analytically justified
-empirically validated
-bitwise exact
-📊 Research Applications
+Left   → navigation / mode selection
+Center → live diagnostics / history / action console / phase workstation
+Right  → invariant health / system status / phase gauges
+Bottom → hotkeys / command legend
 
-QEC enables:
+🚀 Build & Run
+Build
+cd tui
+cargo build --release
 
-decoding phase diagram reconstruction
-spectral instability analysis
-trapping-set identification
-deterministic inverse design
-strategy optimization without randomness
-reproducible computational experiments
-## What This System Is (v100)
+Run
+cargo run --release
 
-QEC is a **deterministic adaptive control system** for belief propagation decoding dynamics on LDPC/QLDPC Tanner graphs.
+Production-style startup
+./target/release/qec-tui
 
-- **No randomness** — all outputs are bitwise reproducible
-- **No neural networks** — closed-form multiplicative scoring
-- **No stochastic exploration** — measurement-driven adaptation
-- **Bounded feedback** — all signals and modulation factors are bounded
-- **Formally defined** — invariants, API contracts, and reproducible experiments
+⌨️ Key Controls
+Navigation
+↑ / ↓   move selection
+Enter   switch active mode
+Q       quit
 
-The full adaptive pipeline:
+Mode Shortcuts
+D   diagnostics
+C   control flow
+M   memory
+A   adaptive
+R   regime jump
+H   self-healing
+W   history window
+I   invariants
+L   law engine
+X   actions console
+T   phase dynamics
+G   cycle alert profile
 
-```
-S₀ → metrics → attractor → strategy → transition → evaluation → adaptation → S₁
-```
+Action Console
+When inside Actions mode:
+D   run diagnostics
+I   run invariants
+L   run law engine
+R   refresh all
+T   run phase diagnostics
 
-For formal definitions, see:
-- [SYSTEM.md](SYSTEM.md) — Formal system definition
-- [THEORY.md](THEORY.md) — Theoretical grounding
-- [INVARIANTS.md](INVARIANTS.md) — System invariants
-- [EXPERIMENTS.md](EXPERIMENTS.md) — Reproducible experiments
-- [API_CONTRACT.md](API_CONTRACT.md) — Stable public interfaces
+Session & Replay
+E   export session log
+P   replay last session
+S   scan saved sessions
+V   view session diff
 
-📖 Documentation
+✨ Current TUI Features
+live Python-engine diagnostics
+invariant health monitor
+adaptive control state view
+regime history timeline
+phase dynamics workstation
+confidence / sharpness gauges
+cycle-period diagnostics
+phase snapshot export / replay
+multi-session browser
+diff viewer
 
-- [INSTALL.md](INSTALL.md) — Setup and installation
-- [QUICKSTART.md](QUICKSTART.md) — One-command demo
-- [USAGE_GUIDE.md](USAGE_GUIDE.md) — Workflow and entry points
-- [ARCHITECTURE.md](ARCHITECTURE.md) — System architecture and design
+</pre>
+  
+The Rust console currently supports:
 
-⚡ Quick Start
-Install
-pip install -e .
-Run the demo
-python scripts/qec_demo.py
-Minimal diagnostic
-from qec.diagnostics.bp_dynamics import compute_bp_dynamics_metrics
+live Python-engine diagnostics
+invariant status monitor
+adaptive control state view
+regime history timeline
+action dispatch console
+timestamped command history
+session export / replay
+multi-session browser
+diff viewer
 
-out = compute_bp_dynamics_metrics(llr_trace, energy)
-print(out["metrics"])
+This makes QEC a persistent operator workstation, not just a passive dashboard.
+
+🧱 Architecture Invariant
+
+The TUI follows a strict architectural law:
+
+ZERO LOGIC IN UI
+
+Python = deterministic engine + control truth
+Rust   = render + dispatch + operator state
+
+This boundary is treated as a hard invariant.
+
+All analysis, control, law, and adaptation logic remains in Python.
+
+Rust is responsible only for:
+
+subprocess dispatch
+JSON parsing
+UI state
+terminal rendering
+session persistence
 🧠 Design Philosophy
 
 Small is beautiful.
-Determinism is essential.
-Structure over heuristics.
-Measurement before control.
+Determinism is architecture.
+Structure before control.
+Control before adaptation.
+Adaptation before operation.
+Operation before optimization.
 
-📚 Citation
-
-Trent Slade — QSOL-IMC
-QEC: Deterministic Structural Analysis & Adaptive Control Framework
-
-ORCID: https://orcid.org/0009-0002-4515-9237
+If it cannot be reproduced byte-for-byte, it is not a result.
 
 👤 Author
 
 Trent Slade
 QSOL-IMC
-
-
----
+ORCID: https://orcid.org/0009-0002-4515-9237

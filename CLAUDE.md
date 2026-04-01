@@ -1,102 +1,105 @@
-# QSOL QEC Architectural Constitution (v99 Hardened)
+# QSOL QEC Architectural Constitution
+## Canonical Engineering Constitution — v132.x Hardened
 
-This document governs all AI-assisted activity inside the QSOL QEC repository.
+This document governs **all AI-assisted activity** inside the `QSOLKCB/QEC` repository.
 
-It applies to Claude when performing:
+This file is treated as **always-active repository law**.
 
-- code generation
-- refactoring
-- testing
-- experiments
-- commits
-- release preparation
+It is assumed to be read on every prompt / every turn by AI coding systems.
 
-This document is not guidance.
+This is not guidance.
 
-It is the architectural constitution of the repository.
+This is the **constitutional layer of the codebase**.
 
-Claude must obey these rules when operating inside this codebase.
+All code generation, testing, refactoring, release preparation, commits, and architectural decisions must obey this file.
 
 ---
 
 # Core Values
 
-The QEC framework is governed by six non-negotiable principles:
+The QEC framework is governed by **seven non-negotiable principles**:
 
 1. Determinism  
-2. Decoder Stability  
-3. Architectural Layering  
-4. Minimal Complexity  
-5. Scientific Transparency  
-6. Reproducibility Guarantees  
+2. Safety  
+3. Decoder Stability  
+4. Architectural Layering  
+5. Minimal Complexity  
+6. Scientific Transparency  
+7. Reproducibility Guarantees  
+
+These principles override convenience.
 
 ---
 
-# 0. Direct Commit Mode (Non-PR Workflow)
+# 0. Operating Mode — Direct Commit Constitutional Workflow
 
-⚠️ FIRST
+⚠️ FIRST PRINCIPLE
 
-If you create a pull request (PR), the task is considered FAILED.
-
-Claude must operate in **Direct Commit Mode**.
+QEC is operated as a **direct-commit deterministic repository**.
 
 ## Rules
 
-- DO NOT create a PR  
-- DO NOT create a new branch  
-- Work directly on `main`  
-- You MAY commit and push  
-- Commit directly to `main` only  
+- DO NOT create PRs
+- DO NOT create feature branches
+- DO NOT fork internal workflow
+- work directly on `main`
+- commits must be minimal and single-purpose
+- tags are the release boundary
 
-## Rationale
-
-The repository is:
-
-- single-operator controlled  
-- deterministic  
-- release-tag driven  
-
-Branching/PR workflows introduce:
-
-- merge ambiguity  
-- sync confusion  
-- non-deterministic repo state  
+PR workflow is considered **architecturally invalid** for this repository.
 
 ## Safety Conditions
 
 Direct commits are allowed only if:
 
-- all tests pass  
-- determinism is preserved  
-- decoder core is untouched  
-- architectural invariants hold  
+- tests pass
+- determinism preserved
+- decoder untouched
+- schemas stable
+- no invariant regression
 
-All escalation rules remain in effect.
+## Dependency Acquisition Law
+
+Do not install from live package indexes unless explicitly approved.
+
+Preferred order:
+
+1. stdlib
+2. existing repo deps
+3. canonical upstream release tarball / source archive
+4. package index only as last resort
+
+All third-party additions must be:
+- version pinned
+- source traceable
+- checksum verifiable
+- minimally scoped
 
 ---
 
-# 1. Architectural Layer Model (Non-Negotiable)
+# 1. Architectural Layer Model (NON-NEGOTIABLE)
 
-Dependencies may only flow downward.
+Dependency flow is strictly downward.
 
 | Layer | Path | Role |
-|------|------|------|
-| 1 | src/qec/decoder/ | Decoder core (protected) |
-| 2 | src/qec/channel/ | Channel models |
-| 3 | src/qec/diagnostics/ | Observational diagnostics |
-| 4 | src/qec/predictors/ | Instability predictors |
-| 5 | src/qec/analysis/ | Metrics, attractors, strategy logic |
-| 6 | src/qec/experiments/ | Experimental orchestration |
-| 7 | src/bench/ | Benchmark harness |
+|---|---|---|
+| 1 | `src/qec/decoder/` | Protected decoder core |
+| 2 | `src/qec/channel/` | Channel / LLR models |
+| 3 | `src/qec/diagnostics/` | Observational signals |
+| 4 | `src/qec/analysis/` | Supervisory intelligence |
+| 5 | `src/qec/experiments/` | Controlled experiments |
+| 6 | `src/bench/` | deterministic harness |
 
 ## Rules
 
-- Lower layers must never import higher layers  
-- decoder must never import experiments  
-- src/qec must never import src/bench  
-- predictors must not depend on experiments  
+- lower layers must never import higher layers
+- decoder must never import analysis
+- decoder must never import experiments
+- analysis must not mutate decoder internals
+- no circular imports
+- no upward leakage
 
-Layer boundaries are architectural invariants.
+Layer boundaries are **hard invariants**.
 
 Violation is forbidden.
 
@@ -104,279 +107,220 @@ Violation is forbidden.
 
 # 2. Determinism is Architecture
 
-Determinism is a structural requirement.
+Determinism is not a feature.
 
-All code must preserve deterministic execution.
+It is a hard structural requirement.
+
+All code must preserve byte-identical replay.
 
 ## Required invariants
 
-- no hidden randomness  
-- no implicit RNG state  
-- explicit seed injection  
-- deterministic ordering  
-- no use of Python hash()  
-- no unordered floating reductions  
+- no hidden randomness
+- no implicit RNG state
+- no time-based behavior
+- no async nondeterminism
+- deterministic ordering
+- stable floating reductions
+- canonical serialization
+- stable dict / tuple ordering
+- frozen dataclasses preferred
 
 ## Required techniques
 
-- SHA-256 deterministic sub-seeds  
-- canonical serialization  
-- stable iteration ordering  
+- explicit seed injection
+- SHA-256 deterministic sub-seeds
+- sorted iteration everywhere
+- TypedDict / stable schemas
+- immutable state objects
 
 ## Guarantee
 
-If:
+If configuration is fixed:
 
-runtime_mode = "off"
+```text
+same input
+→ same output
+→ same bytes
 
-then outputs must be byte-identical across runs.
+Anything else is invalid.
 
----
-
-# 3. Artifact & Identity Stability
-
-Artifacts are immutable experiment records.
-
-## Rules
-
-- no mutation after hashing  
-- canonical serialization only  
-- identity independent of memory layout  
-- identical configs → identical outputs  
-
-Identity drift without version bump is forbidden.
-
----
-
-# 4. Decoder Core Protection
+3. Decoder Core Protection (SACRED)
 
 Protected path:
 
 src/qec/decoder/
-
-## Default rule
+Default rule
 
 Do not modify the decoder core.
 
-## Forbidden without explicit instruction
+Forbidden without explicit instruction
+BP update equations
+scheduling semantics
+iteration ordering
+decoder refactors
+adaptive logic inside decoder
+supervisory logic leakage
+temporal verification logic inside decoder
 
-- BP message updates  
-- scheduling semantics  
-- iteration ordering  
-- decoder refactors  
-- adaptive logic inside decoder  
+The decoder is sacred infrastructure.
 
-The decoder must remain bit-stable across minor releases.
+Minor releases must not alter decoder semantics.
 
----
+4. Supervisory Control Law (v132.x)
 
-# 5. Adaptive System Constraint (v99+)
+The current system identity is:
 
-The system includes:
+diagnostics
+→ control
+→ supervision
+→ verification
+→ explainability
 
-metrics → strategy → evaluation → adaptation → memory
+All new work must remain in supervisory / analysis layers.
 
-## Rules
+Allowed
+deterministic control systems
+supervisory state machines
+hysteresis controllers
+temporal verifiers
+policy memory
+theorem verification
+explainability systems
+Forbidden
+stochastic control
+ML black-box control
+hidden learning state
+decoder-side supervision
+5. Safety Law
 
-- adaptation must remain deterministic  
-- memory must be bounded  
-- no stochastic learning  
-- no hidden state outside defined structures  
+Safety always dominates performance.
 
-## Allowed
+Fail-safe precedence must be preserved.
 
-- score adjustments  
-- biasing strategy selection  
-- evaluation-based feedback  
+Required
+absorbing safe states
+escalation locks
+fail-safe latching
+bounded-time recovery
+deterministic temporal legality
+Forbidden
+unsafe recovery bypass
+fail-safe override without explicit approval
+unsafe temporal transitions
+6. Minimal Diff Discipline
 
-## Forbidden
+Every commit must be minimal and single-purpose.
 
-- randomness  
-- model training  
-- implicit learning  
-- mutation of past history  
+Forbidden
+broad refactors
+rename-only edits
+style-only commits
+formatting churn
+unrelated cleanup
+Required
+surgical changes
+smallest viable diff
+deterministic impact
 
----
+Parallelism is allowed only for independent modules and tests.
 
-# 6. Diagnostics Layer Protection
+Do not create merge ambiguity.
 
-Diagnostics are observational only.
-
-## Must be
-
-- deterministic  
-- side-effect free  
-- opt-in  
-
-## Must NOT
-
-- modify decoder inputs  
-- alter BP messages  
-- mutate arrays in-place  
-
-Diagnostics may operate on copies only.
-
----
-
-# 7. Predictor Layer Protection
-
-Predictors estimate instability pre-decode.
-
-## Must
-
-- use diagnostics outputs only  
-- be deterministic  
-- produce signals only  
-
-## Must NOT
-
-- modify decoder  
-- modify inputs  
-
----
-
-# 8. Controller Layer Protection
-
-Controllers run controlled experiments.
-
-## May
-
-- modify inputs  
-- run multiple passes  
-
-## Must NOT
-
-- modify decoder implementation  
-- introduce randomness  
-
----
-
-# 9. Sparse Linear Algebra Rules
-
-Spectral methods must scale.
-
-## Forbidden
-
-- dense Hashimoto matrices  
-- full eigendecomposition  
-
-## Required
-
-- sparse operators  
-- scipy.sparse.linalg.eigs  
-- linear operator interfaces  
-
-Memory must scale with |E|, not |E|².
-
----
-
-# 10. Tanner Graph Constraints
-
-QLDPC constraint:
-
-H_X H_Z^T = 0
-
-Graph modifications must preserve commutativity.
-
-Invalid transformations must be rejected.
-
----
-
-# 11. Minimal Diff Discipline
-
-Changes must be minimal and targeted.
-
-## Forbidden
-
-- large refactors  
-- renaming identifiers  
-- style-only edits  
-- reformatting  
-- import shuffling  
-
-Each commit must be single-purpose.
-
----
-
-# 12. Dependency Policy
-
-## Rules
-
-- prefer stdlib  
-- prefer NumPy / SciPy  
-- no new dependencies without approval  
-- no frameworks  
+7. Dependency Policy
+Rules
+prefer stdlib
+prefer NumPy / SciPy
+NetworkX allowed when justified
+no heavy frameworks
+no new dependencies without explicit approval
 
 Architectural bloat is forbidden.
 
----
+8. Sparse Linear Algebra Rules
 
-# 13. Test Discipline
+Spectral and graph work must scale.
+
+Forbidden
+dense graph matrices
+full eigendecomposition on large systems
+O(N²) memory blowups
+Required
+sparse operators
+scipy.sparse
+iterative solvers
+memory scaling with graph edges
+9. Formal Verification Direction
+
+QEC now explicitly supports formal verification evolution.
+
+Allowed future integrations:
+
+Coq
+Lean
+TLA+
+UPPAAL
+SMT / SAT systems
+
+All integrations must remain deterministic and optional.
+
+10. Test Discipline
 
 Untested code is unshipped code.
 
-## Required
+Required
+unit tests
+deterministic replay tests
+regression tests
+schema stability tests
+boundary-condition tests
+Rules
+do not widen tolerances to hide defects
+fix code, not tests
+every new module must ship with tests
+11. Commit Discipline
 
-- unit tests  
-- determinism tests  
-- regression tests  
+Commit only if:
 
-## Rules
+tests pass
+schemas stable
+determinism preserved
+decoder untouched
+safety invariants preserved
 
-- do not widen tolerances to pass tests  
-- fix code, not tests  
+Passing tests alone is insufficient.
 
----
-
-# 14. Commit & Push Discipline
-
-Claude may commit only if:
-
-- tests pass  
-- determinism preserved  
-- decoder untouched  
-- schema stable  
-- identity stable  
-
-## Critical rule
-
-Passing tests alone are insufficient.
-
----
-
-# 15. Escalation Rule
+12. Escalation Rule
 
 If a change affects:
 
-- decoder semantics  
-- scheduling  
-- schema  
-- serialization  
-- hashing  
-- determinism  
+decoder semantics
+schema contracts
+determinism
+fail-safe logic
+supervisory transitions
+serialization
+hashing
 
-Claude must:
+STOP.
 
-1. STOP  
-2. Explain the risk  
-3. Request instruction  
+Explain risk.
 
-Silence is not consent.
+Request instruction.
 
----
-
-# 16. Governing Principle
+13. Governing Principle
 
 When uncertain:
 
-- preserve stability  
-- avoid refactoring  
-- prefer doing nothing  
-- read before writing  
-- maintain invariants  
+preserve determinism
+preserve safety
+preserve stability
+prefer minimal change
+read before writing
+verify before committing
 
-Capability grows.  
-Stability does not regress.
+Capability may grow.
 
-If it cannot be reproduced byte-for-byte,
+Stability must never regress.
+
+If it cannot be replayed byte-for-byte,
 it is not a valid result.

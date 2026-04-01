@@ -72,14 +72,26 @@ _MODULES = [
     "policy_signal_robustness",
     "temporal_confidence",
     "regime_confidence",
+    "threshold_phase_map",
+    "phase_surface_analysis",
+    "finite_size_scaling",
+    "multi_regime_scaling",
+    "spectral_phase_boundary",
+    "correction_dispatch",
+    "cellular_correction_field",
+    "finite_state_controller",
+    "ternary_lattice_controller",
+    "attractor_phase_map",
 ]
 
 for mod in _MODULES:
     package_name = __name__.rsplit(".", 1)[0]
     module = importlib.import_module(f".{mod}", package_name)
-    globals().update(
-        {k: v for k, v in module.__dict__.items() if not k.startswith("_")}
-    )
+    for public_name, public_value in module.__dict__.items():
+        if public_name.startswith("_"):
+            continue
+        if public_name not in globals():
+            globals()[public_name] = public_value
 
 
 def build_theory_dataset(archive: dict[str, Any]) -> dict[str, Any]:

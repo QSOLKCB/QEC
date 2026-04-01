@@ -58,6 +58,7 @@ from typing import Any, Dict, List, Optional
 
 from qec.analysis.consistency_metrics import enrich_with_consistency_gap
 from qec.analysis.regime_classification import classify_regime
+from qec.analysis.parity_coherence import run_parity_coherence_analysis
 from qec.analysis.strategy_history import build_strategy_history
 from qec.analysis.strategy_taxonomy import classify_strategy_type
 from qec.analysis.trajectory_metrics import compute_trajectory_metrics
@@ -72,6 +73,9 @@ from qec.analysis.strategy_explanation import compare_strategies, explain_strate
 from qec.analysis.strategy_generation import generate_strategies
 from qec.analysis.strategy_selection import rank_strategies, select_strategy
 from qec.analysis.temporal_patterns import enrich_with_revival
+
+PARITY_COHERENCE_DEFAULT_METRIC_KEY = "design_score"
+PARITY_COHERENCE_DEFAULT_AGGREGATION = "mean"
 
 
 def build_candidate_strategies(
@@ -951,6 +955,9 @@ def format_analysis_summary(
 
 def run_trajectory_analysis(
     runs: List[Dict[str, Any]],
+    enable_parity_coherence: bool = False,
+    parity_metric_key: str = PARITY_COHERENCE_DEFAULT_METRIC_KEY,
+    parity_aggregation: str = PARITY_COHERENCE_DEFAULT_AGGREGATION,
 ) -> Dict[str, Any]:
     """Run the full trajectory analysis pipeline.
 
@@ -962,6 +969,17 @@ def run_trajectory_analysis(
         Each run must contain a ``"strategies"`` key with a list of
         strategy dicts (each having ``"name"`` and ``"metrics"``).
 
+    enable_parity_coherence : bool, optional
+        If True, adds a ``"parity_coherence"`` sub-dict computed from a
+        deterministic per-run aggregate trajectory. Default False so
+        baseline behavior remains unchanged.
+    parity_metric_key : str, optional
+        Metric key used to build the run-level trajectory when
+        ``enable_parity_coherence`` is True.
+    parity_aggregation : str, optional
+        Run-level aggregation mode for the selected metric.
+        Supported values: ``"mean"``, ``"max"``, ``"min"``.
+
     Returns
     -------
     dict
@@ -970,12 +988,41 @@ def run_trajectory_analysis(
     history = build_strategy_history(runs)
     traj_metrics = compute_trajectory_metrics(history)
     regimes = classify_regime(traj_metrics)
-
-    return {
+    result = {
         "history": history,
         "trajectory_metrics": traj_metrics,
         "regimes": regimes,
     }
+    if enable_parity_coherence:
+        run_means: List[float] = []
+        for run in runs:
+            strategies = run.get("strategies", [])
+            if not strategies:
+                run_means.append(0.0)
+                continue
+            scores = [
+                float(s.get("metrics", {}).get(parity_metric_key, 0.0))
+                for s in strategies
+            ]
+            if parity_aggregation == "mean":
+                run_means.append(sum(scores) / len(scores))
+            elif parity_aggregation == "max":
+                run_means.append(max(scores))
+            elif parity_aggregation == "min":
+                run_means.append(min(scores))
+            else:
+                raise ValueError(
+                    "parity_aggregation must be one of: "
+                    "'mean', 'max', 'min'"
+                )
+        result["parity_coherence"] = run_parity_coherence_analysis(
+            trajectory=run_means,
+            metadata={
+                "metric_key": parity_metric_key,
+                "aggregation": parity_aggregation,
+            },
+        )
+    return result
 
 
 def format_trajectory_summary(result: Dict[str, Any]) -> str:

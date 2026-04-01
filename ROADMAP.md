@@ -1,33 +1,51 @@
-QEC Roadmap
+# QEC ROADMAP
+## Deterministic Supervisory Control, Formal Verification & Theory Engine
+### Canonical Architecture Roadmap — v132.x Era
 
-Deterministic QLDPC Stability, Adaptive Control & Theory Engine
+**Author:** Trent Slade — QSOL-IMC  
+**ORCID:** 0009-0002-4515-9237
 
-Author: Trent Slade — QSOL-IMC
-ORCID: 0009-0002-4515-9237
+---
 
-0. Purpose
+# 0. Purpose
 
-This document defines the architectural direction and research trajectory of the QEC framework.
+This document defines the canonical architectural direction of the QEC framework.
 
-QEC has evolved beyond a decoder toolkit.
+QEC has evolved beyond a decoder toolkit and beyond a diagnostic-only system.
 
 It is now a:
 
-Deterministic Structural Analysis, Adaptive Control, and Theory-Building System for QLDPC Decoding
+**Deterministic Supervisory Control, Structural Analysis, Adaptive Control, and Formal Verification Framework for QLDPC Decoding**
 
+The framework now operates as a closed-loop control and reasoning engine.
+
+Primary mission:
+
+```text
+measure → diagnose → verify → control → supervise → prove → explain
 1. Governing Philosophy
 
-QEC evolves under a strict hierarchy:
+QEC evolves under strict architectural law:
 
-Determinism → Architecture → Measurement → Control → Adaptation → Theory
+Determinism
+→ Safety
+→ Architecture
+→ Verification
+→ Control
+→ Adaptation
+→ Theory
+→ Explainability
 
 Rules:
 
-Capability may expand
-Determinism must never regress
-The decoder remains sacred
-All intelligence is externalized
-2. Core Architectural Invariants (Non-Negotiable)
+capability may expand
+determinism must never regress
+safety always dominates performance
+decoder remains sacred
+all intelligence externalized
+all decisions auditable
+all transitions formally verifiable
+2. Core Architectural Invariants (NON-NEGOTIABLE)
 2.1 Determinism is Architecture
 
 All outputs must be byte-identical under fixed configuration.
@@ -40,14 +58,17 @@ deterministic ordering everywhere
 canonical JSON serialization
 SHA-256 artifact hashing
 stable sweep ordering
-runtime_mode = "off" ⇒ identical outputs across runs
+replay-identical outputs
+no async nondeterminism
+frozen dataclasses preferred
 
 Determinism is not a feature.
-It is a constraint.
+
+It is a hard architectural constraint.
 
 2.2 Decoder Core Protection
 
-Location:
+Protected location:
 
 src/qec/decoder/
 
@@ -56,267 +77,259 @@ Rules:
 no algorithm changes without explicit approval
 no adaptive logic inside decoder
 no stochastic behavior
-no experimental leakage
+no supervisory logic leakage
+no theory-engine mutation
 
-The decoder is:
+Decoder is:
 
-a fixed physical system under study
-
+fixed physical system under study
 2.3 Layer Separation
 
-Strict directional dependency:
+Strict dependency order:
 
-decoder → channel → diagnostics → predictors → control → adaptation → theory
+decoder
+→ channel
+→ diagnostics
+→ control
+→ supervisory
+→ verification
+→ explainability
+→ theory
 
 Constraints:
 
 no upward imports
 no circular dependencies
 no cross-layer mutation
+no hidden state sharing
 2.4 Minimalism
 
 Prefer:
 
 stdlib
-NumPy / SciPy
+NumPy
+SciPy
 sparse operators
+frozen dataclasses
+TypedDict schemas
 
 Avoid:
 
-frameworks
-heavy abstractions
+heavy frameworks
 unnecessary dependencies
-3. System Architecture (v105 State)
+hidden runtime systems
+magic abstractions
+3. System Architecture (v132.x Canonical State)
 
-QEC now operates as a closed-loop reasoning and intervention system:
+QEC now operates as a deterministic closed-loop supervisory framework:
 
 metrics
-→ trajectory
-→ geometry
-→ diagnostics
-→ differential diagnosis
-→ provocation
-→ revised diagnosis
-→ treatment planning
-→ invariant extraction
-→ invariant registry
+→ diagnosis
+→ control
+→ supervisory state machine
+→ temporal verification
+→ formal proof
+→ policy memory
+→ feedback
+→ explanation
 → law formation
-→ refinement → control
 Layer 1 — Decoder Core
-BP decoding (all variants)
-deterministic scheduling
+
+Protected and frozen.
+
+Includes:
+
+BP decoding
 OSD / decimation
+deterministic scheduling
+fixed physical decoder semantics
 
-Status: frozen / protected
+Status:
 
-Layer 2 — Channels
-deterministic LLR construction
-pluggable noise models
-Layer 3 — Diagnostics (Observation)
+sacred / protected
+Layer 2 — Diagnostics
 
-QEC as a measurement instrument
-
-Includes:
-
-attractors / basins
-spectral metrics
-instability measures
-Layer 4 — Geometry & Trajectory Analysis
-angular velocity
-curvature
-spiral dynamics
-axis locking
-coupling metrics
-
-New direction:
-
-trajectory = motion through an error landscape
-
-Layer 5 — Differential Diagnosis
-
-System explains its own behavior:
-
-oscillatory traps
-metastable plateaus
-basin switching
-control overshoot
-Layer 6 — Provocation (Active Testing)
-
-Controlled interventions to test hypotheses:
-
-baseline treatments
-response classification
-diagnosis revision
-Layer 7 — Treatment Planning
-
-Deterministic intervention selection:
-
-candidate generation
-scoring
-geometry-aware control
-law-aware constraints
-Layer 8 — Invariant Extraction
-
-System identifies structural truths:
-
-sign invariants
-ordering invariants
-topology invariants
-geometry invariants
-Layer 9 — Invariant Registry (Cross-Run Memory)
-
-Tracks invariants across runs:
-
-frequency
-strength
-streaks
-break events
-Layer 10 — Law Engine
-
-Builds emergent laws:
-
-stable laws
-fragile laws
-emerging laws
-decaying laws
+QEC as a measurement instrument.
 
 Includes:
 
-stability scoring
-lifecycle tracking
-drift detection
-Layer 11 — Theory Feedback
+attractors
+basins
+topology
+graph controllability
+instability metrics
+invariant fusion
+Layer 3 — Control Layer
 
-System uses learned laws to guide:
+Deterministic intervention systems.
 
-control decisions
-diagnosis thresholds
-strategy selection
-4. New Research Directions (v105+)
-4.1 Active Probe Diagnostics (Knowledge Landscape Mapping)
+Includes:
 
-Inspired by learning-landscape research.
+hysteresis controller
+policy controller
+adaptive policy orchestrator
+memory-aware feedback
+safety automata
+Layer 4 — Supervisory Control
 
-Goal:
+Formal supervisory control system.
 
-infer system structure using minimal probes
+Includes:
 
-Features:
+adaptive supervisory controller
+temporal transition verifier
+supervisory mode switching
+escalation locks
+fail-safe latching
+dwell-time guards
+Layer 5 — Formal Verification
 
-short diagnostic runs
-targeted perturbations
-landscape reconstruction
-4.2 Trajectory Singularity Analysis
+Machine-verifiable control correctness.
 
-Inspired by phase singularity physics.
+Includes:
 
-Goal:
+theorem-proof generation
+Coq / Lean integration
+TLA+ supervisory models
+temporal proof checks
+transition legality proofs
+Layer 6 — Explainability
 
-detect instability events as topological defects
+Every decision must be inspectable.
 
-Signals:
+Includes:
 
-pre-switch acceleration
-singularity pair formation
-annihilation events
-4.3 Treatment Transport Model
+immutable audit trails
+policy memory history
+anomaly explanation
+forensic control tracing
+decision replay
+Layer 7 — Theory Engine
 
-Inspired by quantum transfer physics.
+System extracts laws from stable supervisory behavior.
 
-Goal:
+Includes:
 
-model intervention strength as landscape transport distance
-
-Concepts:
-
-local vs non-local transitions
-driving-force control
-basin skipping
-4.4 Structural Stress & Defect Analysis
-
-Goal:
-
-detect hidden structural strain causing failure
-
-Features:
-
-stress hotspots
-off-target behavior
-defect propagation
-4.5 Automata-Based Control System
-
-Goal:
-
-formalize system behavior as a deterministic state machine
-
-States:
-
-diagnose → provoke → revise → treat → verify → archive
-
-Benefits:
-
-provable transitions
-clean TUI integration
-safer control flow
-4.6 Hardware Modality Profiles
+invariant registry
+temporal laws
+topology laws
+stability laws
+supervisory behavior laws
+4. Active Roadmap (v132.x)
+v132.1.0 — DFA Controller Synthesis
 
 Goal:
 
-align QEC behavior with hardware constraints
+deterministic Ramadge-Wonham controller synthesis
 
-Profiles:
+Includes:
 
-superconducting (time/depth optimized)
-neutral atom (connectivity/space optimized)
-5. Evolution Strategy
+DFA synthesis
+controllability proofs
+nonblocking verification
+deterministic synthesis gate
+v132.2.0 — DPDA Supervisory Memory
 
-QEC evolves in this order:
+Goal:
 
-Measure → Understand → Diagnose → Test → Control → Adapt → Generalize → Formalize
-6. Future Roadmap
-v105.2 — Active Probe Engine
-minimal diagnostic probes
-landscape inference
-adaptive probing
-v105.3 — Trajectory Singularity Engine
-instability event detection
-pre-transition signals
-v105.4 — Transport-Based Control
-intervention distance modeling
-basin-jump optimization
-v105.5 — Control Automaton
-formal state machine
-provable control transitions
-v105.6 — Hardware-Aware QEC
-modality profiles
-constraint-aware control
-v106.0 — Human Interface Layer (Rust TUI)
-full system navigation
-zero-logic UI
-CLI/JSON bridge
-7. Anti-Patterns (Strictly Forbidden)
-modifying decoder core
+nested supervisory memory systems
+
+Includes:
+
+stack-based recovery
+rollback-safe control memory
+bounded stack depth
+deterministic pushdown control
+v132.3.0 — Dwell-Time & Switching Control
+
+Goal:
+
+prevent supervisory chatter and oscillation
+
+Includes:
+
+dwell-time guards
+hysteresis filters
+safe switching
+bounded-time fail-safe
+v132.4.0 — Formal Proof Integration
+
+Goal:
+
+machine-verifiable supervisory correctness
+
+Includes:
+
+Coq proof generation
+Lean theorem wrappers
+proof registries
+verification caches
+v132.5.0 — Explainable Supervisory Control
+
+Goal:
+
+world-class operator transparency
+
+Includes:
+
+immutable audit trails
+forensic anomaly detection
+decision explainability
+operator replay tools
+5. World-Class Extensions (v133+)
+v133.x — Hybrid Automata
+
+continuous + discrete supervisory systems
+
+v134.x — Adversarial Supervisory Games
+
+robust control under disturbance
+
+v135.x — Symbolic Execution / Model Checking
+
+bounded trace verification
+SAT / SMT integration
+counterexample synthesis
+
+6. Evolution Strategy
+
+QEC now evolves under:
+
+Measure
+→ Diagnose
+→ Control
+→ Supervise
+→ Verify
+→ Explain
+→ Formalize
+→ Generalize
+7. Strict Anti-Patterns
+
+Forbidden:
+
+decoder mutation
 stochastic optimization
-ML replacing structural reasoning
-hidden state
-non-deterministic control
+hidden mutable state
+nondeterministic control
+ML replacing formal reasoning
+unverifiable supervisory transitions
 8. Success Criteria
 
 The system succeeds when it can:
 
-diagnose its own failures
-test its hypotheses
-select optimal interventions
-learn invariant structure
-identify stable laws
-adapt behavior deterministically
+diagnose failures
+select deterministic interventions
+supervise safely
+prove transitions
+explain decisions
+replay behavior identically
+learn stable laws
+scale supervisory logic formally
 9. Final Principle
-
 Truth is what survives repeated attempts to break it.
-
-Author
+Safety is what survives repeated attempts to destabilize it.
+Determinism is what survives repeated attempts to replay it.
 
 Trent Slade
 QSOL-IMC
-
 ORCID: https://orcid.org/0009-0002-4515-9237

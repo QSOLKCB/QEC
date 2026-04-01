@@ -67,7 +67,7 @@ class TestBackendTagging:
         assert p.backend_target == "generic"
 
     def test_invalid_backend_raises(self):
-        with pytest.raises(ValueError, match="Unknown backend_target"):
+        with pytest.raises(ValueError, match="unsupported backend_target"):
             to_adapter_payload(_make_state(), backend_target="cirq")
 
 
@@ -158,3 +158,49 @@ class TestReplayDeterminism:
             n1 = normalize_for_backend(p1)
             n2 = normalize_for_backend(p2)
             assert n1 == n2
+
+
+# ── helper consistency ──────────────────────────────────────────
+
+class TestHelperConsistency:
+    def test_both_apis_reject_invalid_backend_identically(self):
+        bad = "pennylane"
+        with pytest.raises(ValueError, match="unsupported backend_target") as e1:
+            to_adapter_payload(_make_state(), backend_target=bad)
+        p = SimulationAdapterPayload(
+            state_vector=(1.0,),
+            qutrit_register=(0,),
+            timestep=0,
+            backend_target=bad,
+            schema_version="133.3.0",
+        )
+        with pytest.raises(ValueError, match="unsupported backend_target") as e2:
+            normalize_for_backend(p)
+        assert type(e1.value) is type(e2.value)
+
+    @pytest.mark.parametrize("bad_backend", ["", " ", "QuTiP", "QISKIT", "Generic"])
+    def test_case_sensitive_rejection(self, bad_backend: str):
+        with pytest.raises(ValueError, match="unsupported backend_target"):
+            to_adapter_payload(_make_state(), backend_target=bad_backend)
+
+
+# ── replace safety ──────────────────────────────────────────────
+
+class TestReplaceSafety:
+    def test_qutip_preserves_unchanged_fields(self):
+        state = _make_state(amplitudes=(3.0, 4.0), qutrits=(1, 2), timestep=42)
+        p = to_adapter_payload(state, backend_target="qutip")
+        n = normalize_for_backend(p)
+        assert n.qutrit_register == p.qutrit_register
+        assert n.timestep == p.timestep
+        assert n.backend_target == p.backend_target
+        assert n.schema_version == p.schema_version
+
+    def test_qiskit_preserves_unchanged_fields(self):
+        state = _make_state(amplitudes=(0.5, 0.5), qutrits=(5, -1), timestep=7)
+        p = to_adapter_payload(state, backend_target="qiskit")
+        n = normalize_for_backend(p)
+        assert n.state_vector == p.state_vector
+        assert n.timestep == p.timestep
+        assert n.backend_target == p.backend_target
+        assert n.schema_version == p.schema_version

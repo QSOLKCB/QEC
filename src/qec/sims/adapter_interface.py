@@ -11,7 +11,7 @@ This is pure interface infrastructure.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Tuple
 
 from qec.sims.universe_kernel import UniverseState
@@ -19,6 +19,17 @@ from qec.sims.universe_kernel import UniverseState
 _SCHEMA_VERSION = "133.3.0"
 
 _VALID_BACKENDS = frozenset({"generic", "qutip", "qiskit"})
+
+
+def _validate_backend_target(backend_target: str) -> str:
+    """Validate and return a canonical backend target string.
+
+    Raises:
+        ValueError: If backend_target is not supported.
+    """
+    if backend_target not in _VALID_BACKENDS:
+        raise ValueError(f"unsupported backend_target: {backend_target!r}")
+    return backend_target
 
 
 @dataclass(frozen=True)
@@ -52,11 +63,7 @@ def to_adapter_payload(
     Raises:
         ValueError: If backend_target is not recognised.
     """
-    if backend_target not in _VALID_BACKENDS:
-        raise ValueError(
-            f"Unknown backend_target {backend_target!r}; "
-            f"valid targets: {sorted(_VALID_BACKENDS)}"
-        )
+    _validate_backend_target(backend_target)
     return SimulationAdapterPayload(
         state_vector=tuple(state.field_amplitudes),
         qutrit_register=tuple(state.qutrit_states),
@@ -82,7 +89,7 @@ def normalize_for_backend(
     Raises:
         ValueError: If backend_target is not recognised.
     """
-    backend = payload.backend_target
+    backend = _validate_backend_target(payload.backend_target)
 
     if backend == "generic":
         return payload
@@ -93,25 +100,10 @@ def normalize_for_backend(
             normalized = payload.state_vector
         else:
             normalized = tuple(x / norm for x in payload.state_vector)
-        return SimulationAdapterPayload(
-            state_vector=normalized,
-            qutrit_register=payload.qutrit_register,
-            timestep=payload.timestep,
-            backend_target=payload.backend_target,
-            schema_version=payload.schema_version,
-        )
+        return replace(payload, state_vector=normalized)
 
     if backend == "qiskit":
         clipped = tuple(max(0, min(2, v)) for v in payload.qutrit_register)
-        return SimulationAdapterPayload(
-            state_vector=payload.state_vector,
-            qutrit_register=clipped,
-            timestep=payload.timestep,
-            backend_target=payload.backend_target,
-            schema_version=payload.schema_version,
-        )
+        return replace(payload, qutrit_register=clipped)
 
-    raise ValueError(
-        f"Unknown backend_target {backend!r}; "
-        f"valid targets: {sorted(_VALID_BACKENDS)}"
-    )
+    raise ValueError(f"unsupported backend_target: {backend!r}")  # pragma: no cover

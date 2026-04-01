@@ -66,6 +66,7 @@ class QuantumEcosystemReport:
     tunnel_count: int
     interaction_zone_count: int
     connected_ecosystems: int
+    attractor_network_count: int
     stability_label: str
     entropy_score: float
     emergence_index: float
@@ -150,44 +151,54 @@ def _count_connected_ecosystems(grid: Grid) -> int:
     return count
 
 
-def _find_attractor_positions(grid: Grid) -> Tuple[Tuple[int, int], ...]:
-    """Return sorted tuple of all attractor cell positions."""
-    positions = []
-    for r, row in enumerate(grid):
-        for c, val in enumerate(row):
-            if val == 3:
-                positions.append((r, c))
-    return tuple(positions)
+def _precompute_tunnel_eligible(grid: Grid) -> Tuple[Tuple[bool, ...], ...]:
+    """Precompute which cluster/attractor cells are eligible for tunnel promotion.
 
-
-def _cluster_path_connects_attractors(
-    grid: Grid, r: int, c: int,
-) -> bool:
-    """Check if cell (r, c) lies on a cluster/attractor path connecting ≥2 attractors.
-
-    BFS from (r, c) through cells with state 2 (cluster) or 3 (attractor).
-    Returns True if ≥2 distinct attractor cells are reachable.
+    Performs a single BFS pass to identify connected components of
+    cluster (2) and attractor (3) cells.  For each component, counts the
+    number of attractor cells.  Returns a boolean grid where ``True``
+    marks cluster/attractor cells whose component contains at least
+    ``_TUNNEL_ATTRACTOR_PAIR_REQUIRED`` attractors.
     """
     rows = len(grid)
     cols = len(grid[0])
-    visited = [[False] * cols for _ in range(rows)]
-    visited[r][c] = True
-    stack = [(r, c)]
-    attractor_count = 0
-    while stack:
-        cr, cc = stack.pop()
-        if grid[cr][cc] == 3:
-            attractor_count += 1
-            if attractor_count >= _TUNNEL_ATTRACTOR_PAIR_REQUIRED:
-                return True
-        for dr, dc in _DIRECTIONS:
-            nr, nc = cr + dr, cc + dc
-            if (0 <= nr < rows and 0 <= nc < cols
-                    and not visited[nr][nc]
-                    and grid[nr][nc] in (2, 3)):
-                visited[nr][nc] = True
-                stack.append((nr, nc))
-    return False
+    component_id = [[-1] * cols for _ in range(rows)]
+    component_attractor_count: list[int] = []
+    cid = 0
+
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c] in (2, 3) and component_id[r][c] == -1:
+                component_id[r][c] = cid
+                stack = [(r, c)]
+                n_attractors = 0
+                while stack:
+                    cr, cc = stack.pop()
+                    if grid[cr][cc] == 3:
+                        n_attractors += 1
+                    for dr, dc in _DIRECTIONS:
+                        nr, nc = cr + dr, cc + dc
+                        if (0 <= nr < rows and 0 <= nc < cols
+                                and component_id[nr][nc] == -1
+                                and grid[nr][nc] in (2, 3)):
+                            component_id[nr][nc] = cid
+                            stack.append((nr, nc))
+                component_attractor_count.append(n_attractors)
+                cid += 1
+
+    eligible_rows = []
+    for r in range(rows):
+        row = []
+        for c in range(cols):
+            if component_id[r][c] >= 0:
+                row.append(
+                    component_attractor_count[component_id[r][c]]
+                    >= _TUNNEL_ATTRACTOR_PAIR_REQUIRED
+                )
+            else:
+                row.append(False)
+        eligible_rows.append(tuple(row))
+    return tuple(eligible_rows)
 
 
 # ---------------------------------------------------------------------------
@@ -195,29 +206,52 @@ def _cluster_path_connects_attractors(
 # ---------------------------------------------------------------------------
 
 
+def _is_decay_majority(
+    n_particle: int, n_cluster: int, n_attractor: int,
+    n_decay: int, n_tunnel: int, n_interaction: int,
+) -> bool:
+    """Return True if decay cells form a strict majority of non-vacuum neighbors."""
+    non_vacuum = n_particle + n_cluster + n_attractor + n_decay + n_tunnel + n_interaction
+    if non_vacuum == 0:
+        return False
+    return n_decay > (non_vacuum - n_decay)
+
+
 def _evolve_step(grid: Grid) -> Grid:
     """Apply one deterministic evolution step.
 
-    Rules applied in priority order per cell:
+    Priority order per cell state:
 
-    1. **Particle clustering**: particle (1) → cluster (2)
-       if ≥ 2 adjacent particles.
-    2. **Attractor emergence**: cluster (2) → attractor (3)
-       if ≥ ``_ATTRACTOR_CLUSTER_THRESHOLD`` adjacent cluster/attractor cells.
-    3. **Decay field**: cluster (2) or attractor (3) → decay (4)
-       if total active neighbors ≥ ``_DECAY_OVERLOAD_THRESHOLD`` AND
-       majority are decay cells.
-    4. **Tunnel formation**: cluster (2) or attractor (3) → tunnel (5)
-       if the cell is on a cluster path connecting ≥ 2 attractors.
-    5. **Interaction zone**: attractor (3) or tunnel (5) → interaction (6)
-       if adjacent to an existing interaction zone.
-    6. **Vacuum spawning**: vacuum (0) → particle (1)
-       if exactly 1 adjacent particle (sparse seeding).
-    7. **Decay recovery**: decay (4) → vacuum (0)
-       if no adjacent active (non-vacuum, non-decay) cells.
+    State 0 (vacuum):
+        → 1 (particle) if exactly 1 adjacent particle.
+
+    State 1 (particle):
+        → 2 (cluster) if ≥ 2 adjacent particles.
+
+    State 2 (cluster), checked in order:
+        1. → 4 (decay) if non-vacuum neighbor count ≥ threshold AND
+           decay cells are a strict majority of non-vacuum neighbors.
+        2. → 5 (tunnel) if on a cluster/attractor component with ≥ 2 attractors.
+        3. → 3 (attractor) if cluster + attractor neighbors ≥ threshold.
+
+    State 3 (attractor), checked in order:
+        1. → 4 (decay) if non-vacuum neighbor count ≥ threshold AND
+           decay cells are a strict majority of non-vacuum neighbors.
+        2. → 5 (tunnel) if on a cluster/attractor component with ≥ 2 attractors.
+        3. → 6 (interaction) if adjacent to an interaction zone.
+
+    State 4 (decay):
+        → 0 (vacuum) if no active (non-vacuum, non-decay) neighbors.
+
+    State 5 (tunnel):
+        → 6 (interaction) if adjacent to an interaction zone.
+
+    State 6 (interaction):
+        Stable — no transitions.
     """
     rows = len(grid)
     cols = len(grid[0])
+    tunnel_eligible = _precompute_tunnel_eligible(grid)
     new_rows = []
     for r in range(rows):
         new_row = []
@@ -230,8 +264,10 @@ def _evolve_step(grid: Grid) -> Grid:
             n_cluster = n[2]
             n_attractor = n[3]
             n_decay = n[4]
+            n_tunnel = n[5]
             n_interaction = n[6]
-            n_active = n_particle + n_cluster + n_attractor + n[5] + n_interaction
+            non_vacuum = n_particle + n_cluster + n_attractor + n_decay + n_tunnel + n_interaction
+            n_active = n_particle + n_cluster + n_attractor + n_tunnel + n_interaction
 
             if state == 0:
                 # Vacuum spawning: exactly 1 adjacent particle
@@ -248,28 +284,32 @@ def _evolve_step(grid: Grid) -> Grid:
                     new_row.append(1)
 
             elif state == 2:
-                # Decay check first (overload)
-                if n_decay > 0 and (n_decay + n_active) >= _DECAY_OVERLOAD_THRESHOLD and n_decay >= n_cluster:
+                # Priority 1: decay
+                if (non_vacuum >= _DECAY_OVERLOAD_THRESHOLD
+                        and _is_decay_majority(n_particle, n_cluster, n_attractor,
+                                               n_decay, n_tunnel, n_interaction)):
                     new_row.append(4)
-                # Tunnel formation
-                elif _cluster_path_connects_attractors(grid, r, c):
+                # Priority 2: tunnel
+                elif tunnel_eligible[r][c]:
                     new_row.append(5)
-                # Attractor emergence
+                # Priority 3: attractor emergence
                 elif (n_cluster + n_attractor) >= _ATTRACTOR_CLUSTER_THRESHOLD:
                     new_row.append(3)
                 else:
                     new_row.append(2)
 
             elif state == 3:
-                # Decay check (overload)
-                if n_decay > 0 and (n_decay + n_active) >= _DECAY_OVERLOAD_THRESHOLD and n_decay >= n_cluster:
+                # Priority 1: decay
+                if (non_vacuum >= _DECAY_OVERLOAD_THRESHOLD
+                        and _is_decay_majority(n_particle, n_cluster, n_attractor,
+                                               n_decay, n_tunnel, n_interaction)):
                     new_row.append(4)
-                # Interaction zone: adjacent to interaction zone
+                # Priority 2: tunnel
+                elif tunnel_eligible[r][c]:
+                    new_row.append(5)
+                # Priority 3: interaction
                 elif n_interaction > 0:
                     new_row.append(6)
-                # Tunnel formation
-                elif _cluster_path_connects_attractors(grid, r, c):
-                    new_row.append(5)
                 else:
                     new_row.append(3)
 
@@ -306,11 +346,11 @@ def evolve_quantum_ecosystem(
     Returns full deterministic history of length ``steps + 1``
     (including the initial grid).
 
-    Raises ``ValueError`` on invalid grid or non-positive steps.
+    Raises ``ValueError`` on invalid grid or negative steps.
     """
     validate_grid(grid)
-    if steps < 1:
-        raise ValueError("steps must be >= 1")
+    if steps < 0:
+        raise ValueError("steps must be >= 0")
     history = [grid]
     current = grid
     for _ in range(steps):
@@ -336,12 +376,16 @@ def inject_civilization_influence(
 
     Grids must have identical shape.  Returns a new grid tuple.
     """
-    if not ecosystem_grid or not civ_grid:
-        raise ValueError("Grids must be non-empty")
-    e_rows = len(ecosystem_grid)
-    e_cols = len(ecosystem_grid[0])
+    validate_grid(ecosystem_grid)
+    if not civ_grid or not civ_grid[0]:
+        raise ValueError("Civilization grid must be non-empty")
     c_rows = len(civ_grid)
     c_cols = len(civ_grid[0])
+    for r, row in enumerate(civ_grid):
+        if len(row) != c_cols:
+            raise ValueError(f"Civilization grid row {r} has inconsistent width")
+    e_rows = len(ecosystem_grid)
+    e_cols = len(ecosystem_grid[0])
     if e_rows != c_rows or e_cols != c_cols:
         raise ValueError(
             f"Grid shape mismatch: ecosystem {e_rows}x{e_cols} "
@@ -482,6 +526,8 @@ def analyze_quantum_ecosystem(
     entropy = _grid_entropy(final)
     label = _stability_label(history, connected, emergence)
 
+    attractor_networks = _count_attractor_networks(final)
+
     return QuantumEcosystemReport(
         grid_shape=(rows, cols),
         steps_evolved=len(history) - 1,
@@ -492,6 +538,7 @@ def analyze_quantum_ecosystem(
         tunnel_count=counts[5],
         interaction_zone_count=counts[6],
         connected_ecosystems=connected,
+        attractor_network_count=attractor_networks,
         stability_label=label,
         entropy_score=entropy,
         emergence_index=emergence,

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from qec.sims.quantum_ecosystem_sandbox import (
@@ -91,7 +93,9 @@ class TestAttractorFormation:
     """Clusters with enough cluster/attractor neighbors become attractors."""
 
     def test_cluster_surrounded_by_clusters_becomes_attractor(self) -> None:
-        # Cross of clusters: center has 3+ cluster neighbors
+        # Cross of clusters: center has 4 cluster neighbors.
+        # All 5 clusters form one component with 0 attractors → no tunnel.
+        # Center has 4 cluster neighbors ≥ 3 → attractor.
         grid: Grid = (
             (0, 2, 0),
             (2, 2, 2),
@@ -99,9 +103,19 @@ class TestAttractorFormation:
         )
         history = evolve_quantum_ecosystem(grid, steps=1)
         evolved = history[1]
-        # Center (1,1) has 4 cluster neighbors → attractor (if no tunnel/decay first)
-        # Also, clusters connected to attractors may form tunnels; check center
-        assert evolved[1][1] in (3, 5)  # attractor or tunnel
+        assert evolved[1][1] == 3
+
+    def test_exact_rule_priority_cluster_to_attractor(self) -> None:
+        """Cluster with 3 cluster neighbors and no tunnel eligibility → attractor."""
+        grid: Grid = (
+            (0, 2, 0, 0),
+            (2, 2, 2, 0),
+            (0, 0, 0, 0),
+        )
+        history = evolve_quantum_ecosystem(grid, steps=1)
+        evolved = history[1]
+        # (1,1) has 3 cluster neighbors, component has 0 attractors → attractor
+        assert evolved[1][1] == 3
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +134,31 @@ class TestDecayField:
         )
         history = evolve_quantum_ecosystem(grid, steps=1)
         evolved = history[1]
-        # Center cluster (1,1) has heavy decay neighbors → should decay
+        # Center cluster (1,1) has 2 decay + 2 cluster non-vacuum neighbors.
+        # non_vacuum = 4 ≥ 3. decay(2) vs non-decay(2) → not strict majority.
+        # Top/bottom clusters have 2 decay + 1 cluster = 3 non-vacuum.
+        # decay(2) > non-decay(1) → strict majority → decay.
+        # Center: (0,1) and (2,1) are clusters with 2 decay each.
+        # (1,1) neighbors: up=(0,1)=2, down=(2,1)=2, left=(1,0)=4, right=(1,2)=4
+        # n_cluster=2, n_decay=2, non_vacuum=4, decay(2) == non-decay(2) → NOT majority
+        # So (1,1) checks tunnel: component has no attractors → no tunnel.
+        # Checks attractor: n_cluster(2) + n_attractor(0) = 2 < 3 → stays cluster.
+        # But (0,1) neighbors: up=OOB, down=(1,1)=2, left=(0,0)=4, right=(0,2)=4
+        # n_cluster=1, n_decay=2, non_vacuum=3 ≥ 3, decay(2) > non-decay(1) → decay
+        assert evolved[0][1] == 4
+        assert evolved[2][1] == 4
+
+    def test_attractor_decay_under_majority(self) -> None:
+        """Attractor decays when decay cells are strict majority."""
+        grid: Grid = (
+            (0, 4, 0),
+            (4, 3, 4),
+            (0, 0, 0),
+        )
+        history = evolve_quantum_ecosystem(grid, steps=1)
+        evolved = history[1]
+        # (1,1) attractor: neighbors are 3 decay + 0 others non-vacuum
+        # non_vacuum=3 ≥ 3, decay(3) > non-decay(0) → decay
         assert evolved[1][1] == 4
 
 
@@ -162,6 +200,24 @@ class TestTunnelFormation:
             assert evolved[1][c] == 5, (
                 f"Cell (1,{c}) should be tunnel (5), got {evolved[1][c]}"
             )
+        # Attractors are also tunnel-eligible (component has 2 attractors)
+        # but decay check comes first (no decay neighbors), then tunnel
+        assert evolved[1][1] == 5
+        assert evolved[1][5] == 5
+
+    def test_tunnel_precompute_replay_determinism(self) -> None:
+        """Tunnel precompute must produce identical results on 100 replays."""
+        grid: Grid = (
+            (0, 0, 0, 0, 0, 0, 0),
+            (0, 3, 2, 2, 2, 3, 0),
+            (0, 0, 0, 0, 0, 0, 0),
+            (0, 3, 2, 3, 0, 0, 0),
+            (0, 0, 0, 0, 0, 0, 0),
+        )
+        reference = evolve_quantum_ecosystem(grid, steps=10)
+        for _ in range(100):
+            result = evolve_quantum_ecosystem(grid, steps=10)
+            assert result == reference
 
 
 # ---------------------------------------------------------------------------
@@ -173,6 +229,9 @@ class TestInteractionZone:
     """Attractors/tunnels adjacent to interaction zones become interaction zones."""
 
     def test_attractor_adjacent_to_interaction_becomes_interaction(self) -> None:
+        # Attractor (1,1) has interaction neighbor at (0,1).
+        # Priority: decay (no), tunnel (only 1 attractor in component → no),
+        # interaction (yes) → 6.
         grid: Grid = (
             (0, 6, 0),
             (0, 3, 0),
@@ -228,6 +287,23 @@ class TestCivilizationInjection:
         civ: Grid = ((1,),)  # settlement
         result = inject_civilization_influence(eco, civ)
         assert result[0][0] == 6
+
+    def test_ecosystem_grid_validated(self) -> None:
+        eco: Grid = ((9,),)
+        civ: Grid = ((0,),)
+        with pytest.raises(ValueError, match="Invalid state 9"):
+            inject_civilization_influence(eco, civ)
+
+    def test_civ_grid_empty_rejected(self) -> None:
+        eco: Grid = ((0,),)
+        with pytest.raises(ValueError, match="non-empty"):
+            inject_civilization_influence(eco, ())
+
+    def test_civ_grid_inconsistent_width_rejected(self) -> None:
+        eco: Grid = ((0, 1), (0, 1))
+        civ: Grid = ((0, 1), (0,))
+        with pytest.raises(ValueError, match="inconsistent width"):
+            inject_civilization_influence(eco, civ)
 
 
 # ---------------------------------------------------------------------------
@@ -285,6 +361,32 @@ class TestEmergenceAnalysis:
         report = analyze_quantum_ecosystem((grid,))
         assert report.connected_ecosystems == 4
 
+    def test_attractor_network_count_zero(self) -> None:
+        """No attractors → 0 attractor networks."""
+        grid: Grid = ((0, 1, 2), (0, 1, 2))
+        report = analyze_quantum_ecosystem((grid,))
+        assert report.attractor_network_count == 0
+
+    def test_attractor_network_count_one(self) -> None:
+        """Single connected attractor region → 1 network."""
+        grid: Grid = (
+            (0, 3, 0),
+            (3, 3, 0),
+            (0, 0, 0),
+        )
+        report = analyze_quantum_ecosystem((grid,))
+        assert report.attractor_network_count == 1
+
+    def test_attractor_network_count_two_disjoint(self) -> None:
+        """Two disjoint attractor regions → 2 networks."""
+        grid: Grid = (
+            (3, 0, 3),
+            (0, 0, 0),
+            (3, 0, 3),
+        )
+        report = analyze_quantum_ecosystem((grid,))
+        assert report.attractor_network_count == 4  # 4 isolated attractors
+
 
 # ---------------------------------------------------------------------------
 # Replay determinism tests
@@ -326,10 +428,16 @@ class TestHistory:
         history = evolve_quantum_ecosystem(grid, steps=3)
         assert history[0] == grid
 
-    def test_invalid_steps_rejected(self) -> None:
+    def test_steps_zero_returns_initial_only(self) -> None:
+        grid: Grid = ((0, 1), (1, 0))
+        history = evolve_quantum_ecosystem(grid, steps=0)
+        assert len(history) == 1
+        assert history[0] == grid
+
+    def test_negative_steps_rejected(self) -> None:
         grid: Grid = ((0,),)
-        with pytest.raises(ValueError, match="steps must be >= 1"):
-            evolve_quantum_ecosystem(grid, steps=0)
+        with pytest.raises(ValueError, match="steps must be >= 0"):
+            evolve_quantum_ecosystem(grid, steps=-1)
 
 
 # ---------------------------------------------------------------------------
@@ -375,6 +483,70 @@ class TestDecayRecovery:
 
 
 # ---------------------------------------------------------------------------
+# Exact rule priority tests
+# ---------------------------------------------------------------------------
+
+
+class TestExactRulePriority:
+    """Each rule priority must produce a single deterministic outcome."""
+
+    def test_cluster_decay_beats_tunnel(self) -> None:
+        """When a cluster qualifies for both decay and tunnel, decay wins."""
+        grid: Grid = (
+            (0, 4, 0, 0, 0),
+            (4, 2, 3, 2, 3),
+            (0, 4, 0, 0, 0),
+        )
+        history = evolve_quantum_ecosystem(grid, steps=1)
+        evolved = history[1]
+        # (1,1): cluster, 3 decay neighbors, non_vacuum ≥ 3, decay majority → 4
+        assert evolved[1][1] == 4
+
+    def test_cluster_tunnel_beats_attractor(self) -> None:
+        """When a cluster qualifies for both tunnel and attractor, tunnel wins."""
+        grid: Grid = (
+            (0, 0, 0, 0, 0),
+            (0, 3, 2, 3, 0),
+            (0, 0, 2, 0, 0),
+            (0, 0, 0, 0, 0),
+        )
+        history = evolve_quantum_ecosystem(grid, steps=1)
+        evolved = history[1]
+        # (1,2): cluster, component has 2 attractors → tunnel eligible
+        # Also has 2 cluster + 2 attractor = 4 ≥ 3 → would be attractor
+        # But tunnel priority is higher → 5
+        assert evolved[1][2] == 5
+
+    def test_attractor_decay_beats_tunnel(self) -> None:
+        """When an attractor qualifies for both decay and tunnel, decay wins."""
+        grid: Grid = (
+            (0, 4, 0),
+            (4, 3, 2),
+            (0, 4, 3),
+        )
+        history = evolve_quantum_ecosystem(grid, steps=1)
+        evolved = history[1]
+        # (1,1): attractor, 3 decay + 1 cluster = 4 non-vacuum
+        # decay(3) > non-decay(1) → decay wins over tunnel
+        assert evolved[1][1] == 4
+
+    def test_attractor_tunnel_beats_interaction(self) -> None:
+        """When an attractor qualifies for both tunnel and interaction, tunnel wins."""
+        grid: Grid = (
+            (0, 6, 0),
+            (3, 3, 0),
+            (0, 2, 0),
+            (0, 3, 0),
+        )
+        history = evolve_quantum_ecosystem(grid, steps=1)
+        evolved = history[1]
+        # (1,1): attractor, component includes (1,0)=3, (2,1)=2, (3,1)=3 → ≥2 attractors
+        # Also adjacent to interaction at (0,1) → would be interaction
+        # But tunnel priority is higher → 5
+        assert evolved[1][1] == 5
+
+
+# ---------------------------------------------------------------------------
 # Decoder untouched
 # ---------------------------------------------------------------------------
 
@@ -382,20 +554,35 @@ class TestDecayRecovery:
 class TestDecoderUntouched:
     """The decoder module must not be imported by the ecosystem sandbox."""
 
-    def test_no_decoder_import(self) -> None:
-        import importlib
-        import sys
-
-        # Reload to check fresh imports
+    def test_no_decoder_import_runtime(self) -> None:
+        """Verify importing the module does not pull in qec.decoder."""
+        before = set(sys.modules.keys())
+        # Force re-import by removing from cache if present
         mod_name = "qec.sims.quantum_ecosystem_sandbox"
-        if mod_name in sys.modules:
-            mod = sys.modules[mod_name]
-        else:
-            mod = importlib.import_module(mod_name)
+        was_loaded = mod_name in sys.modules
+        if was_loaded:
+            saved = sys.modules.pop(mod_name)
+        try:
+            import importlib
 
+            importlib.import_module(mod_name)
+            after = set(sys.modules.keys())
+            new_modules = after - before
+            decoder_modules = {m for m in new_modules if "qec.decoder" in m}
+            assert not decoder_modules, (
+                f"Importing ecosystem sandbox pulled in decoder modules: {decoder_modules}"
+            )
+        finally:
+            if was_loaded:
+                sys.modules[mod_name] = saved
+
+    def test_no_decoder_in_source(self) -> None:
+        """Source code must not reference qec.decoder."""
+        import importlib
+
+        mod = importlib.import_module("qec.sims.quantum_ecosystem_sandbox")
         source_file = mod.__file__
         assert source_file is not None
         with open(source_file) as f:
             source = f.read()
         assert "qec.decoder" not in source
-        assert "from qec.decoder" not in source

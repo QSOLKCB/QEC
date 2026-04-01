@@ -123,9 +123,8 @@ def analyze_phase_drift(
     )
 
 
-# Transition symbol mapping: (from_regime, to_regime) → symbol.
+# Transition symbol mapping: "{from_regime}_to_{to_regime}" → symbol.
 _DRIFT_SYMBOLS = {
-    "unchanged": ".",
     "stable_to_divergent": "\u2191",
     "stable_to_critical": "\u2191",
     "critical_to_divergent": "\u2191",
@@ -169,6 +168,12 @@ def render_drift_ascii(
 
     if num_cols <= 0:
         raise ValueError("num_cols must be positive for non-empty reports")
+
+    if len(report.cells) % num_cols != 0:
+        raise ValueError(
+            f"cell count {len(report.cells)} is not a multiple of "
+            f"num_cols {num_cols}"
+        )
 
     symbols = [_drift_symbol(c) for c in report.cells]
 

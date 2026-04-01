@@ -266,6 +266,23 @@ class TestAsciiRendering:
         )
         assert render_drift_ascii(report, num_cols=0) == ""
 
+    def test_non_multiple_num_cols_raises(self) -> None:
+        """Cell count must be an exact multiple of num_cols."""
+        cells = (
+            PhaseDriftCell(0.1, (1.0, 1.0, 1.0), "stable", "stable", False),
+            PhaseDriftCell(0.1, (2.0, 1.0, 1.0), "stable", "stable", False),
+            PhaseDriftCell(0.2, (1.0, 1.0, 1.0), "stable", "stable", False),
+        )
+        report = PhaseDriftReport(
+            cells=cells,
+            num_changed=0,
+            num_unchanged=3,
+            drift_ratio=0.0,
+            max_divergence_delta=0.0,
+        )
+        with pytest.raises(ValueError, match="not a multiple"):
+            render_drift_ascii(report, num_cols=2)
+
 
 # ── Deterministic replay tests ──────────────────────────────────────
 

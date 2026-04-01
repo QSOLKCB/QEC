@@ -14,8 +14,8 @@ Covers:
 
 from __future__ import annotations
 
-import math
 from dataclasses import FrozenInstanceError
+from pathlib import Path
 
 import pytest
 
@@ -60,7 +60,7 @@ def _make_universe(width: int = 20, height: int = 5) -> UniverseSnapshot:
     return create_universe(width=width, height=height)
 
 
-def _make_return_schedule(steps: int, width: int = 20) -> tuple[int, ...]:
+def _make_return_schedule(steps: int) -> tuple[int, ...]:
     """Create a schedule that returns to base via idle-only (direct return).
 
     Starting at x=0 with velocity=0, idle keeps velocity near 0,
@@ -211,7 +211,7 @@ class TestGravityAssistDetection:
         """Idle craft at base has no gravity assist."""
         snap = _make_universe()
         evolved = evolve_universe(snap, 5, propulsion_schedule=(0, 0, 0, 0, 0))
-        assert detect_gravity_assist(evolved, (0.0, 0.0)) is False
+        assert detect_gravity_assist(evolved) is False
 
     def test_thrust_loop_has_assist(self) -> None:
         """A craft that loops through the field detects gravity assist."""
@@ -219,13 +219,13 @@ class TestGravityAssistDetection:
         # Thrust enough to loop: velocity builds, wraps around
         schedule = _make_gravity_assist_schedule(steps=20)
         evolved = evolve_universe(snap, 20, propulsion_schedule=schedule)
-        assert detect_gravity_assist(evolved, (0.0, 0.0)) is True
+        assert detect_gravity_assist(evolved) is True
 
     def test_short_history_no_assist(self) -> None:
         """Fewer than 3 trajectory points cannot be an assist."""
         snap = _make_universe()
         evolved = evolve_universe(snap, 1, propulsion_schedule=(0,))
-        assert detect_gravity_assist(evolved, (0.0, 0.0)) is False
+        assert detect_gravity_assist(evolved) is False
 
 
 # ---------------------------------------------------------------------------
@@ -244,14 +244,14 @@ class TestDirectReturnFails:
     def test_idle_return_fails_gravity_law(self) -> None:
         snap = _make_universe()
         # Idle-only: craft stays at base, returns trivially
-        schedule = _make_return_schedule(steps=10, width=20)
+        schedule = _make_return_schedule(steps=10)
         candidates = (schedule,)
         report = search_constrained_return_policy(snap, candidates, steps=10)
         # The craft returns to base...
         assert report.returned_to_base is True
         # ...but mission FAILS because no gravity assist
         assert report.mission_success is False
-        assert report.failure_reason in ("gravity_assist_required", "no_candidate_succeeds")
+        assert report.failure_reason == "gravity_assist_required"
 
 
 # ---------------------------------------------------------------------------
@@ -271,6 +271,7 @@ class TestOutOfFuel:
         assert report.mission_success is False
         assert report.failure_reason == "out_of_fuel"
         assert report.fuel_remaining < 0.0
+        assert report.steps_taken == 0
 
 
 # ---------------------------------------------------------------------------
@@ -291,6 +292,7 @@ class TestCPUBudgetExceeded:
         assert report.mission_success is False
         assert report.failure_reason == "cpu_budget_exceeded"
         assert report.cpu_cycles_used > CPU_CYCLE_BUDGET
+        assert report.steps_taken == 0
 
 
 # ---------------------------------------------------------------------------
@@ -301,29 +303,25 @@ class TestCPUBudgetExceeded:
 class TestMemoryBudgetExceeded:
     """Mission fails if memory consumption exceeds budget."""
 
-    def test_huge_trajectory_exceeds_memory(self) -> None:
+    def test_memory_budget_exceeded_e2e(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """End-to-end: monkeypatch budget low so a normal mission exceeds it."""
+        import qec.sims.constrained_flight as cf
+
+        # A 10-step mission: memory = 11*16 + 10*4 + 256 = 472 bytes
+        # Set budget to 400 so it fails after evolution.
+        monkeypatch.setattr(cf, "MEMORY_BYTE_BUDGET", 400)
+
         snap = _make_universe()
-        # Need trajectory_length * 16 > 1_048_576
-        # trajectory_length = steps + 1 (initial point)
-        # 65537 * 16 = 1_048_592 > 1_048_576
-        # But CPU will fail first at 65536 steps.
-        # Use a schedule where CPU is within budget but memory is not.
-        # Actually, CPU = 65536 * 5000 = way over budget.
-        # We need to test memory independently.
-        # Memory = (steps+1)*16 + steps*4 + 256
-        # For steps=52_429: mem = 52430*16 + 52429*4 + 256 = 838880+209716+256 = 1_048_852
-        # But CPU = 52429*5000 = 262_145_000 >> 7M.
-        #
-        # The CPU check happens before evolution, so it will fail first.
-        # To test memory specifically, we need CPU to pass but memory to fail.
-        # CPU = steps * 5000 + 2000 + candidates * 2000
-        # For CPU <= 7M: steps <= (7M - 4000) / 5000 = 1399.2, so steps <= 1399
-        # Memory at steps=1399: (1400)*16 + 1399*4 + 256 = 22400+5596+256 = 28252
-        # That's way under 1MB. With our simple formulas, memory can never
-        # exceed budget while CPU stays under budget.
-        #
-        # To properly test, we temporarily adjust. Instead, verify the formula
-        # detects the condition by checking _estimate_memory_bytes directly.
+        schedule = _make_gravity_assist_schedule(steps=10)
+        candidates = (schedule,)
+        report = search_constrained_return_policy(snap, candidates, steps=10)
+
+        assert report.mission_success is False
+        assert report.failure_reason == "memory_budget_exceeded"
+        assert report.memory_bytes_used > 400
+
+    def test_memory_estimator_exceeds_budget(self) -> None:
+        """Verify the estimator formula detects large trajectories."""
         mem = _estimate_memory_bytes(
             trajectory_length=70_000,
             schedule_length=70_000,
@@ -362,7 +360,7 @@ class TestBestScheduleSelection:
         candidates = (sched_a, sched_b)
         report = search_constrained_return_policy(snap, candidates, steps=10)
         assert report.mission_success is False
-        assert report.failure_reason in ("gravity_assist_required", "no_candidate_succeeds")
+        assert report.failure_reason == "gravity_assist_required"
 
 
 # ---------------------------------------------------------------------------
@@ -422,7 +420,7 @@ class TestDecoderUntouched:
 
     def test_no_decoder_imports(self) -> None:
         import qec.sims.constrained_flight as mod
-        source = open(mod.__file__).read()
+        source = Path(mod.__file__).read_text()
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
         assert "import qec.decoder" not in source

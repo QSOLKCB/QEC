@@ -18,7 +18,6 @@ All operations are pure, deterministic, and replay-safe.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import Tuple
 
@@ -28,13 +27,10 @@ from qec.sims.qutrit_propulsion_universe import (
     PROPULSION_WARP,
     UniverseSnapshot,
     evolve_universe,
-    evolve_universe_step,
 )
 from qec.sims.trajectory_stability_analysis import (
     TrajectoryStabilityReport,
     analyze_trajectory_stability,
-    _detect_slingshot,
-    _euclidean_distance,
 )
 
 
@@ -59,6 +55,9 @@ _FUEL_BURN_TABLE: Tuple[Tuple[int, float], ...] = (
     (PROPULSION_THRUST, FUEL_BURN_THRUST),
     (PROPULSION_WARP, FUEL_BURN_WARP),
 )
+
+# Derived lookup for O(1) access — single source of truth.
+_FUEL_BURN_MAP: dict[int, float] = {mode: burn for mode, burn in _FUEL_BURN_TABLE}
 
 # ---------------------------------------------------------------------------
 # CPU / memory cost constants
@@ -110,7 +109,8 @@ class ConstrainedFlightReport:
     memory_byte_budget : int
         Maximum allowed memory in bytes.
     steps_taken : int
-        Number of evolution steps executed.
+        Number of evolution steps actually executed (0 for pre-evolution
+        failures such as out-of-fuel or CPU budget exceeded).
     failure_reason : str
         Empty string on success; otherwise one of the canonical reasons.
     selected_schedule : Tuple[int, ...]
@@ -143,14 +143,14 @@ class ConstrainedFlightReport:
 
 
 def _fuel_burn_for_mode(mode: int) -> float:
-    """Return deterministic fuel burn for a propulsion mode."""
-    if mode == PROPULSION_IDLE:
-        return FUEL_BURN_IDLE
-    if mode == PROPULSION_THRUST:
-        return FUEL_BURN_THRUST
-    if mode == PROPULSION_WARP:
-        return FUEL_BURN_WARP
-    raise ValueError(f"Unknown propulsion mode: {mode!r}")
+    """Return deterministic fuel burn for a propulsion mode.
+
+    Derives from ``_FUEL_BURN_TABLE`` — single source of truth.
+    """
+    try:
+        return _FUEL_BURN_MAP[mode]
+    except KeyError:
+        raise ValueError(f"Unknown propulsion mode: {mode!r}") from None
 
 
 def _compute_fuel_consumption(schedule: Tuple[int, ...]) -> float:
@@ -207,10 +207,59 @@ def _estimate_memory_bytes(
 # ---------------------------------------------------------------------------
 
 
-def detect_gravity_assist(
-    snapshot: UniverseSnapshot,
-    initial_position: Tuple[float, float],
+def _point_distance(
+    a: Tuple[float, float],
+    b: Tuple[float, float],
+) -> float:
+    """Euclidean distance between two 2-D points."""
+    dx = a[0] - b[0]
+    dy = a[1] - b[1]
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def _has_slingshot(
+    history: Tuple[Tuple[float, float], ...],
+    width: int,
 ) -> bool:
+    """Detect slingshot: successive wraparound laps complete faster.
+
+    Uses cumulative forward displacement to identify laps.
+    A slingshot occurs when a later lap completes in fewer steps
+    than an earlier lap, with acceleration ratio >= 1.1.
+    """
+    if len(history) < 4 or width < 1:
+        return False
+
+    cumulative = 0.0
+    lap_starts: list[int] = [0]
+
+    for i in range(len(history) - 1):
+        dx = history[i + 1][0] - history[i][0]
+        dy = history[i + 1][1] - history[i][1]
+        if dx < 0.0:
+            dx += width
+        cumulative += (dx * dx + dy * dy) ** 0.5
+        if cumulative >= width:
+            cumulative -= width
+            lap_starts.append(i + 1)
+
+    if len(lap_starts) < 4:
+        return False
+
+    lap_lengths: list[int] = []
+    for j in range(2, len(lap_starts)):
+        lap_lengths.append(lap_starts[j] - lap_starts[j - 1])
+
+    for i in range(1, len(lap_lengths)):
+        if lap_lengths[i] <= 0 or lap_lengths[i - 1] <= 0:
+            continue
+        if lap_lengths[i - 1] / lap_lengths[i] >= 1.1:
+            return True
+
+    return False
+
+
+def detect_gravity_assist(snapshot: UniverseSnapshot) -> bool:
     """Detect whether a valid gravity assist maneuver occurred.
 
     A valid assist requires at least one of:
@@ -226,8 +275,6 @@ def detect_gravity_assist(
     ----------
     snapshot : UniverseSnapshot
         Post-evolution snapshot with trajectory_history.
-    initial_position : tuple of float
-        The (x, y) base position at mission start.
 
     Returns
     -------
@@ -240,7 +287,7 @@ def detect_gravity_assist(
         return False
 
     # Check 1: slingshot via wraparound acceleration
-    if _detect_slingshot(history, snapshot.width):
+    if _has_slingshot(history, snapshot.width):
         return True
 
     # Check 2: field-assisted amplified displacement
@@ -248,9 +295,9 @@ def detect_gravity_assist(
     # than the straight-line distance, indicating gravitational bending.
     cumulative_distance = 0.0
     for i in range(len(history) - 1):
-        cumulative_distance += _euclidean_distance(history[i], history[i + 1])
+        cumulative_distance += _point_distance(history[i], history[i + 1])
 
-    net_distance = _euclidean_distance(history[0], history[-1])
+    net_distance = _point_distance(history[0], history[-1])
 
     # A gravity assist produces a curved trajectory where cumulative
     # travel significantly exceeds direct displacement.
@@ -283,7 +330,7 @@ def _evaluate_mission(
         snapshot.craft_state.y_position,
     )
 
-    # --- fuel law ---
+    # --- fuel law (pre-evolution check) ---
     fuel_consumed = _compute_fuel_consumption(schedule)
     fuel_remaining = INITIAL_FUEL - fuel_consumed
 
@@ -298,14 +345,14 @@ def _evaluate_mission(
             cpu_cycle_budget=CPU_CYCLE_BUDGET,
             memory_bytes_used=0,
             memory_byte_budget=MEMORY_BYTE_BUDGET,
-            steps_taken=steps,
+            steps_taken=0,
             failure_reason="out_of_fuel",
             selected_schedule=schedule,
             net_distance=0.0,
             route_score=0.0,
         )
 
-    # --- CPU budget ---
+    # --- CPU budget (pre-evolution check) ---
     cpu_cycles_used = _estimate_cpu_cycles(steps, candidate_count)
 
     if cpu_cycles_used > CPU_CYCLE_BUDGET:
@@ -319,7 +366,7 @@ def _evaluate_mission(
             cpu_cycle_budget=CPU_CYCLE_BUDGET,
             memory_bytes_used=0,
             memory_byte_budget=MEMORY_BYTE_BUDGET,
-            steps_taken=steps,
+            steps_taken=0,
             failure_reason="cpu_budget_exceeded",
             selected_schedule=schedule,
             net_distance=0.0,
@@ -366,7 +413,7 @@ def _evaluate_mission(
     )
 
     # --- gravity assist check ---
-    gravity_assist_used = detect_gravity_assist(evolved, initial_position)
+    gravity_assist_used = detect_gravity_assist(evolved)
 
     # --- route score ---
     route_score = _compute_route_score(report, fuel_remaining)
@@ -441,9 +488,9 @@ def search_constrained_return_policy(
     valid mission by route_score with deterministic tie-breaking.
 
     If no candidate produces a successful mission, returns the
-    report of the best-scoring failed candidate with failure_reason
-    set to ``"no_candidate_succeeds"`` (unless a more specific
-    failure was already recorded).
+    best-scoring failed candidate's report with its original
+    failure_reason preserved (e.g. ``"gravity_assist_required"``,
+    ``"did_not_return_to_base"``, ``"out_of_fuel"``).
 
     Parameters
     ----------
@@ -500,30 +547,7 @@ def search_constrained_return_policy(
     if best_success_report is not None:
         return best_success_report
 
-    # No candidate succeeded
+    # No candidate succeeded — return best-scoring failure with its
+    # original specific failure_reason preserved.
     assert best_fail_report is not None  # guaranteed by non-empty input
-
-    # Override failure reason if it's a specific constraint failure
-    if best_fail_report.failure_reason in (
-        "out_of_fuel",
-        "cpu_budget_exceeded",
-        "memory_budget_exceeded",
-    ):
-        return best_fail_report
-
-    return ConstrainedFlightReport(
-        mission_success=best_fail_report.mission_success,
-        returned_to_base=best_fail_report.returned_to_base,
-        gravity_assist_used=best_fail_report.gravity_assist_used,
-        fuel_remaining=best_fail_report.fuel_remaining,
-        fuel_consumed=best_fail_report.fuel_consumed,
-        cpu_cycles_used=best_fail_report.cpu_cycles_used,
-        cpu_cycle_budget=best_fail_report.cpu_cycle_budget,
-        memory_bytes_used=best_fail_report.memory_bytes_used,
-        memory_byte_budget=best_fail_report.memory_byte_budget,
-        steps_taken=best_fail_report.steps_taken,
-        failure_reason="no_candidate_succeeds",
-        selected_schedule=best_fail_report.selected_schedule,
-        net_distance=best_fail_report.net_distance,
-        route_score=best_fail_report.route_score,
-    )
+    return best_fail_report

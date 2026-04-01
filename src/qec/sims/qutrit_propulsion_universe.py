@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Deterministic qutrit propulsion universe engine.
 
-Models a craft / packet moving through a 1-D lattice field
+Models a single craft moving through a 2-D lattice field
 using qutrit propulsion states (idle=0, thrust=1, warp=2).
 
 All state objects are frozen dataclasses with tuple-only collections.
@@ -96,7 +96,19 @@ def create_universe(
     Returns
     -------
     UniverseSnapshot
+
+    Raises
+    ------
+    ValueError
+        If dimensions < 1 or propulsion_mode is invalid.
     """
+    if width < 1 or height < 1:
+        raise ValueError("width and height must be >= 1")
+    if propulsion_mode not in VALID_PROPULSION_MODES:
+        raise ValueError(
+            f"Invalid propulsion mode {propulsion_mode!r}; "
+            f"expected one of {VALID_PROPULSION_MODES}"
+        )
     craft = UniverseCraftState(
         x_position=initial_x,
         y_position=initial_y,
@@ -152,6 +164,9 @@ def evolve_universe_step(
     UniverseSnapshot
         New immutable snapshot after one evolution step.
     """
+    if snapshot.width < 1 or snapshot.height < 1:
+        raise ValueError("snapshot width and height must be >= 1")
+
     craft = snapshot.craft_state
     mode = propulsion_mode if propulsion_mode is not None else craft.propulsion_mode
 
@@ -224,6 +239,8 @@ def evolve_universe(
     -------
     UniverseSnapshot
     """
+    if steps < 0:
+        raise ValueError("steps must be >= 0")
     if propulsion_schedule is not None and len(propulsion_schedule) != steps:
         raise ValueError(
             f"Schedule length {len(propulsion_schedule)} != steps {steps}"
@@ -251,6 +268,9 @@ def render_universe_ascii(snapshot: UniverseSnapshot) -> str:
     str
         Multi-line ASCII representation.
     """
+    if snapshot.width < 1 or snapshot.height < 1:
+        raise ValueError("snapshot width and height must be >= 1")
+
     craft = snapshot.craft_state
     craft_col = int(round(craft.x_position)) % snapshot.width
     craft_row = int(round(craft.y_position)) % snapshot.height

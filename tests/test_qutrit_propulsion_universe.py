@@ -70,6 +70,16 @@ class TestCreateUniverse:
         snap = create_universe(initial_x=2.0, initial_y=1.0)
         assert snap.trajectory_history == ((2.0, 1.0),)
 
+    def test_invalid_dimensions_raise(self) -> None:
+        with pytest.raises(ValueError, match="width and height must be >= 1"):
+            create_universe(width=0)
+        with pytest.raises(ValueError, match="width and height must be >= 1"):
+            create_universe(height=0)
+
+    def test_invalid_propulsion_mode_raises(self) -> None:
+        with pytest.raises(ValueError, match="Invalid propulsion mode"):
+            create_universe(propulsion_mode=5)
+
 
 # ---------------------------------------------------------------
 # Propulsion modes
@@ -157,6 +167,11 @@ class TestTrajectoryTracking:
 
 
 class TestMultiStepEvolution:
+    def test_negative_steps_raises(self) -> None:
+        snap = create_universe()
+        with pytest.raises(ValueError, match="steps must be >= 0"):
+            evolve_universe(snap, steps=-1)
+
     def test_schedule_length_mismatch_raises(self) -> None:
         snap = create_universe()
         with pytest.raises(ValueError, match="Schedule length"):
@@ -168,6 +183,24 @@ class TestMultiStepEvolution:
         result = evolve_universe(snap, steps=3, propulsion_schedule=schedule)
         assert result.craft_state.epoch_index == 3
         assert len(result.trajectory_history) == 4  # initial + 3 steps
+
+
+# ---------------------------------------------------------------
+# Field energy decay
+# ---------------------------------------------------------------
+
+
+class TestFieldEnergyDecay:
+    def test_field_energy_decays_deterministically(self) -> None:
+        snap = create_universe(field_energy=1.0)
+        result = evolve_universe_step(snap)
+        assert result.craft_state.field_energy == pytest.approx(1.0 * 0.999)
+
+    def test_field_energy_multi_step_decay(self) -> None:
+        snap = create_universe(field_energy=2.0)
+        result = evolve_universe(snap, steps=5)
+        expected = 2.0 * (0.999 ** 5)
+        assert result.craft_state.field_energy == pytest.approx(expected)
 
 
 # ---------------------------------------------------------------

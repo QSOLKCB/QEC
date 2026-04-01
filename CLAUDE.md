@@ -58,6 +58,23 @@ Direct commits are allowed only if:
 - schemas stable
 - no invariant regression
 
+## Dependency Acquisition Law
+
+Do not install from live package indexes unless explicitly approved.
+
+Preferred order:
+
+1. stdlib
+2. existing repo deps
+3. canonical upstream release tarball / source archive
+4. package index only as last resort
+
+All third-party additions must be:
+- version pinned
+- source traceable
+- checksum verifiable
+- minimally scoped
+
 ---
 
 # 1. Architectural Layer Model (NON-NEGOTIABLE)

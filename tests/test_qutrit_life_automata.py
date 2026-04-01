@@ -231,19 +231,13 @@ class TestOscillator:
         ]
         g = _grid_from_lists(rows)
         history = evolve_qutrit_life(g, steps=40)
+        report = analyze_qutrit_life(history)
 
-        # Verify the period by checking grid equality
-        # Find the first repeat
-        period = 0
-        for i in range(1, len(history)):
-            if history[i] == history[0]:
-                period = i
-                break
-
-        # If the initial grid doesn't repeat, check for any period
-        if period == 0:
-            report = analyze_qutrit_life(history)
-            assert report.period_detected >= 2
+        # Must detect actual oscillatory behavior
+        assert report.period_detected >= 2, (
+            f"Expected oscillator period >= 2, got {report.period_detected}"
+        )
+        assert report.stability_label == "oscillatory"
 
 
 # -----------------------------------------------------------------------
@@ -353,14 +347,99 @@ class TestDecoderUntouched:
         import importlib
         import sys
 
-        # Reload to capture all imports
+        # Snapshot before import to isolate new modules
         mod_name = "qec.sims.qutrit_life_automata"
         if mod_name in sys.modules:
             del sys.modules[mod_name]
+        before = set(sys.modules.keys())
         importlib.import_module(mod_name)
+        after = set(sys.modules.keys())
 
-        loaded = set(sys.modules.keys())
-        decoder_modules = {m for m in loaded if "qec.decoder" in m}
-        assert decoder_modules == set(), (
-            f"Decoder modules imported: {decoder_modules}"
+        new_decoder_modules = {
+            m for m in (after - before) if "qec.decoder" in m
+        }
+        assert new_decoder_modules == set(), (
+            f"Decoder modules imported: {new_decoder_modules}"
         )
+
+
+# -----------------------------------------------------------------------
+# make_grid dimension validation
+# -----------------------------------------------------------------------
+
+
+class TestMakeGridDimensions:
+    def test_zero_rows_rejected(self) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            make_grid(0, 5)
+
+    def test_zero_cols_rejected(self) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            make_grid(5, 0)
+
+    def test_negative_rows_rejected(self) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            make_grid(-1, 3)
+
+    def test_negative_cols_rejected(self) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            make_grid(3, -2)
+
+
+# -----------------------------------------------------------------------
+# History validation in analyze_qutrit_life
+# -----------------------------------------------------------------------
+
+
+class TestAnalysisHistoryValidation:
+    def test_empty_history_rejected(self) -> None:
+        with pytest.raises(ValueError, match="non-empty"):
+            analyze_qutrit_life(())
+
+    def test_invalid_state_in_history_rejected(self) -> None:
+        bad_grid = ((0, 1, 5),)
+        with pytest.raises(ValueError, match="Invalid state"):
+            analyze_qutrit_life((bad_grid,))
+
+    def test_ragged_grid_in_history_rejected(self) -> None:
+        ragged = ((0, 1), (0,))
+        with pytest.raises(ValueError, match="length"):
+            analyze_qutrit_life((ragged,))
+
+    def test_mixed_shape_history_rejected(self) -> None:
+        g1 = ((0, 0), (0, 0))
+        g2 = ((0, 0, 0), (0, 0, 0))
+        with pytest.raises(ValueError, match="shape"):
+            analyze_qutrit_life((g1, g2))
+
+
+# -----------------------------------------------------------------------
+# Replay determinism after unchecked-step refactor
+# -----------------------------------------------------------------------
+
+
+class TestUncheckedStepReplay:
+    def test_step_grid_matches_evolve(self) -> None:
+        """step_grid (validated) and evolve (unchecked inner) must agree."""
+        g = _grid_from_lists([
+            [0, 1, 0],
+            [0, 0, 1],
+            [1, 1, 1],
+        ])
+        # Single step via public API
+        one_step = step_grid(g)
+        # Same step via evolve history
+        history = evolve_qutrit_life(g, steps=1)
+        assert history[1] == one_step
+
+    def test_evolve_replay_after_refactor(self) -> None:
+        """Ensure evolve still produces deterministic results."""
+        g = _grid_from_lists([
+            [1, 0, 2, 0],
+            [0, 1, 0, 1],
+            [2, 0, 1, 0],
+            [0, 1, 0, 2],
+        ])
+        ref = evolve_qutrit_life(g, steps=15)
+        for _ in range(50):
+            assert evolve_qutrit_life(g, steps=15) == ref

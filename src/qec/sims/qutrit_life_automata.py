@@ -65,6 +65,10 @@ def validate_grid(grid: Grid) -> None:
 
 def make_grid(rows: int, cols: int, fill: int = 0) -> Grid:
     """Create a uniform grid filled with *fill*."""
+    if rows <= 0 or cols <= 0:
+        raise ValueError(
+            "Grid dimensions must be positive: rows > 0 and cols > 0"
+        )
     if fill not in _VALID_STATES:
         raise ValueError(f"Invalid fill state {fill}")
     return tuple(tuple(fill for _ in range(cols)) for _ in range(rows))
@@ -141,9 +145,8 @@ def _next_cell(state: int, n_active: int, n_resonant: int) -> int:
     return 1  # de-excite to active
 
 
-def step_grid(grid: Grid) -> Grid:
-    """Advance *grid* by one deterministic timestep."""
-    validate_grid(grid)
+def _step_grid_unchecked(grid: Grid) -> Grid:
+    """Advance *grid* by one timestep without validation."""
     rows = len(grid)
     cols = len(grid[0])
     new_rows = []
@@ -154,6 +157,12 @@ def step_grid(grid: Grid) -> Grid:
             new_row.append(_next_cell(grid[r][c], n_active, n_resonant))
         new_rows.append(tuple(new_row))
     return tuple(new_rows)
+
+
+def step_grid(grid: Grid) -> Grid:
+    """Advance *grid* by one deterministic timestep."""
+    validate_grid(grid)
+    return _step_grid_unchecked(grid)
 
 
 def evolve_qutrit_life(
@@ -170,7 +179,7 @@ def evolve_qutrit_life(
     history = [grid]
     current = grid
     for _ in range(steps):
-        current = step_grid(current)
+        current = _step_grid_unchecked(current)
         history.append(current)
     return tuple(history)
 
@@ -284,9 +293,8 @@ def _stability_label(period: int, history: Tuple[Grid, ...]) -> str:
     if len(history) < 3:
         return "emergent"
     entropies = tuple(_grid_entropy(g) for g in history)
-    variance = sum(
-        (e - sum(entropies) / len(entropies)) ** 2 for e in entropies
-    ) / len(entropies)
+    mean_entropy = sum(entropies) / len(entropies)
+    variance = sum((e - mean_entropy) ** 2 for e in entropies) / len(entropies)
     if variance > 0.1:
         return "chaotic"
     return "emergent"
@@ -304,9 +312,19 @@ def analyze_qutrit_life(grid_history: Tuple[Grid, ...]) -> QutritLifeReport:
         raise ValueError("History must be non-empty")
 
     first = grid_history[0]
+    validate_grid(first)
+    expected_shape = (len(first), len(first[0]))
+    for i, g in enumerate(grid_history[1:], 1):
+        validate_grid(g)
+        if (len(g), len(g[0])) != expected_shape:
+            raise ValueError(
+                f"Grid at index {i} has shape {(len(g), len(g[0]))} "
+                f"!= expected {expected_shape}"
+            )
+
     last = grid_history[-1]
 
-    shape = (len(first), len(first[0]))
+    shape = expected_shape
     steps = len(grid_history) - 1
     counts = tuple(_state_counts(g) for g in grid_history)
     clusters = _count_resonant_clusters(last)

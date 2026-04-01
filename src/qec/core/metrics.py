@@ -141,7 +141,7 @@ def compute_resonance(values: Sequence[float]) -> float:
         comparisons = 0
         for i in range(n - k):
             comparisons += 1
-            if arr[i] == arr[i + k]:
+            if np.isclose(arr[i], arr[i + k], rtol=1e-9, atol=1e-12):
                 repeats += 1
         if comparisons > 0:
             score = repeats / comparisons
@@ -253,13 +253,13 @@ def compute_multiscale_metrics(
 
 
 # Scalar metric keys used for cross-scale comparison
-_SCALAR_KEYS = ("phi_alignment", "symmetry_score", "triality_balance",
-                "nonlinear_response", "resonance", "complexity")
+SCALAR_KEYS = ("phi_alignment", "symmetry_score", "triality_balance",
+               "nonlinear_response", "resonance", "complexity")
 
 
 def _extract_scalars(metrics: Dict[str, Any]) -> np.ndarray:
     """Extract scalar metric values in deterministic order."""
-    return np.array([float(metrics[k]) for k in _SCALAR_KEYS], dtype=np.float64)
+    return np.array([float(metrics[k]) for k in SCALAR_KEYS], dtype=np.float64)
 
 
 def compute_scale_consistency(

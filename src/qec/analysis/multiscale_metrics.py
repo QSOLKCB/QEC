@@ -13,6 +13,7 @@ This module re-exports them for public API compatibility.
 """
 
 from qec.core.metrics import (  # noqa: F401
+    SCALAR_KEYS,
     compute_multiscale_metrics,
     compute_multiscale_summary,
     compute_scale_consistency,

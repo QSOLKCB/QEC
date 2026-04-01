@@ -27,7 +27,6 @@ from qec.sims.qudit_coupling_dynamics import coupled_evolve_step
 from qec.sims.propagation_stability_analysis import (
     PropagationStabilityReport,
     analyze_propagation_stability,
-    _lattice_state_fingerprint,
     _state_only_fingerprint,
     _count_state_changes,
 )
@@ -84,12 +83,12 @@ class TestPropagationStabilityReport:
 
 
 class TestFingerprints:
-    """Deterministic fingerprint extraction tests."""
+    """State-only fingerprint extraction tests."""
 
-    def test_state_fingerprint_deterministic(self) -> None:
+    def test_state_only_fingerprint_deterministic(self) -> None:
         snap = build_qudit_lattice(2, 2, qudit_dimension=3, initial_state=1)
-        fp1 = _lattice_state_fingerprint(snap)
-        fp2 = _lattice_state_fingerprint(snap)
+        fp1 = _state_only_fingerprint(snap)
+        fp2 = _state_only_fingerprint(snap)
         assert fp1 == fp2
 
     def test_state_only_fingerprint(self) -> None:
@@ -158,14 +157,17 @@ class TestFixedPointDetection:
         # Fixed point detected as period-1 attractor
         assert report.attractor_period == 1
 
-    def test_fixed_point_amplitude_decays(self) -> None:
-        """Even at a fixed point, amplitude should decay slightly."""
+    def test_fixed_point_amplitude_constant(self) -> None:
+        """Uniform amplitude is invariant under mixing law.
+
+        For uniform amplitude a: new_amp = a * 0.999 + 0.001 * a = a.
+        Amplitude is exactly preserved at a fixed point.
+        """
         snap = build_qudit_lattice(2, 2, qudit_dimension=3, initial_state=0,
                                    initial_amplitude=1.0)
         report = analyze_propagation_stability(snap, steps=10)
         assert report.stability_label == "fixed_point"
-        # Amplitude decays due to 0.999 + 0.001*neighbor mixing
-        assert report.final_mean_amplitude <= 1.0
+        assert report.final_mean_amplitude == pytest.approx(1.0)
 
 
 # ── Oscillatory / attractor detection ──────────────────────────
@@ -187,20 +189,19 @@ class TestOscillatoryDetection:
         # 1x1 with no neighbors: state = (1+0)%2 = 1 each step -> fixed_point
         assert report.stability_label == "fixed_point"
 
-    def test_small_lattice_attractor(self) -> None:
-        """A 2x2 lattice with dim=2, initial_state=1 should exhibit cycling.
+    def test_small_lattice_uniform_dim2_is_fixed_point(self) -> None:
+        """A 2x2 lattice with dim=2, uniform state=1 is a fixed point.
 
-        Each cell has neighbors with state 1. Corner cells have 2 neighbors:
-        new_state = (1 + 1 + 1) % 2 = 1. So uniform state=1 with dim=2
-        on a 2x2 is also fixed if neighbor count is even. Let's check.
+        Each corner cell has 2 neighbors with state 1:
+        new_state = (1 + 1 + 1) % 2 = 1. State never changes.
         """
         snap = build_qudit_lattice(2, 2, qudit_dimension=2, initial_state=1)
         report = analyze_propagation_stability(snap, steps=10)
-        # Corner cells: 2 neighbors, so (1+2) % 2 = 1. Actually a fixed point.
-        assert report.stability_label in ("fixed_point", "oscillatory")
+        assert report.stability_label == "fixed_point"
+        assert report.max_state_change == 0
 
     def test_asymmetric_initial_state_oscillates(self) -> None:
-        """Manually constructed asymmetric initial state to force oscillation."""
+        """Asymmetric 2x2 dim=2 lattice must oscillate with period 2."""
         cells = (
             QuditFieldCell(0, 0, 0, 2, 1, 1.0),
             QuditFieldCell(1, 0, 0, 2, 0, 1.0),
@@ -212,8 +213,8 @@ class TestOscillatoryDetection:
             mean_field_amplitude=1.0, active_state_count=1,
         )
         report = analyze_propagation_stability(snap, steps=20)
-        # With dim=2 and finite lattice, states must eventually cycle
-        assert report.stability_label in ("oscillatory", "stable")
+        assert report.stability_label == "oscillatory"
+        assert report.attractor_period == 2
         assert report.max_state_change > 0
 
     def test_attractor_period_positive_when_oscillatory(self) -> None:
@@ -246,7 +247,7 @@ class TestStableDetection:
     """Stable propagation: bounded, non-repeating within step window."""
 
     def test_large_dimension_stable(self) -> None:
-        """Large qudit dimension makes attractor less likely in few steps."""
+        """dim=97 over 5 steps: state space too large for attractor."""
         cells = (
             QuditFieldCell(0, 0, 0, 97, 1, 1.0),
             QuditFieldCell(1, 0, 0, 97, 0, 1.0),
@@ -258,8 +259,8 @@ class TestStableDetection:
             mean_field_amplitude=1.0, active_state_count=1,
         )
         report = analyze_propagation_stability(snap, steps=5)
-        # With dim=97, unlikely to cycle in 5 steps
-        assert report.stability_label in ("stable", "oscillatory")
+        assert report.stability_label == "stable"
+        assert report.attractor_period == 0
         assert report.max_state_change > 0
 
     def test_amplitude_bounded(self) -> None:

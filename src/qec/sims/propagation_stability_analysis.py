@@ -7,12 +7,14 @@ Given an initial lattice snapshot, this module evolves it through
 multiple coupled steps and classifies the propagation behavior:
 
 - **fixed_point**: lattice state stops changing entirely
-- **stable**: amplitude changes decay below threshold
+- **stable**: bounded, non-repeating within the step window
 - **oscillatory**: lattice revisits a previously seen state (attractor)
 - **divergent**: amplitude grows beyond safe bounds
 
-Attractor detection uses exact lattice state fingerprinting via
-deterministic tuple hashing. All operations are pure, immutable,
+Attractor detection uses state-only fingerprinting: discrete
+local_state values per cell, compared via deterministic tuple
+hashing. Amplitude is excluded from attractor matching.
+All operations are pure, immutable,
 tuple-only, and replay-safe.
 
 No randomness. No plotting. No file IO. No heavy dependencies.
@@ -27,7 +29,6 @@ from qec.sims.qudit_lattice_engine import QuditLatticeSnapshot
 from qec.sims.qudit_coupling_dynamics import coupled_evolve_step
 
 
-_STABILITY_THRESHOLD: float = 1e-10
 _DIVERGENCE_THRESHOLD: float = 1e6
 
 
@@ -54,19 +55,6 @@ class PropagationStabilityReport:
     max_state_change: int
     stability_label: str
     attractor_period: int
-
-
-def _lattice_state_fingerprint(
-    snapshot: QuditLatticeSnapshot,
-) -> Tuple[Tuple[int, ...], Tuple[float, ...]]:
-    """Extract a deterministic fingerprint of the lattice state.
-
-    Returns a tuple of (local_states, field_amplitudes) preserving
-    canonical cell ordering from the snapshot.
-    """
-    states = tuple(c.local_state for c in snapshot.cells)
-    amps = tuple(c.field_amplitude for c in snapshot.cells)
-    return (states, amps)
 
 
 def _state_only_fingerprint(
@@ -157,7 +145,6 @@ def analyze_propagation_stability(
 
     # Classify based on observations
     stability_label = _classify_stability(
-        initial_snapshot=initial_snapshot,
         final_snapshot=current,
         max_state_change=max_state_change,
         attractor_period=attractor_period,
@@ -173,7 +160,6 @@ def analyze_propagation_stability(
 
 
 def _classify_stability(
-    initial_snapshot: QuditLatticeSnapshot,
     final_snapshot: QuditLatticeSnapshot,
     max_state_change: int,
     attractor_period: int,

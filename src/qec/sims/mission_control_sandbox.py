@@ -23,21 +23,15 @@ from dataclasses import dataclass
 from typing import Tuple
 
 from qec.sims.qutrit_propulsion_universe import (
-    PROPULSION_IDLE,
     UniverseSnapshot,
     evolve_universe,
 )
-from qec.sims.trajectory_stability_analysis import (
-    analyze_trajectory_stability,
-)
 from qec.sims.constrained_flight import (
     _compute_fuel_consumption,
-    _RETURN_TOLERANCE,
     INITIAL_FUEL,
     detect_gravity_assist,
 )
 from qec.sims.universe_field_objectives import (
-    VALID_OBJECTIVE_TYPES,
     UniverseObjective,
     evaluate_universe_objectives,
 )
@@ -338,15 +332,18 @@ def evaluate_space_anomalies(
         encountered.append(anomaly.anomaly_id)
 
         if anomaly.anomaly_type == ANOMALY_BLACK_HOLE:
-            # Check lethal center distance
-            dist_to_center = _point_distance(final_pos, anomaly.position)
-            if dist_to_center <= anomaly.radius and anomaly.is_lethal:
-                is_lethal = True
-                failure_reason = (
-                    f"craft_destroyed_by_{anomaly.anomaly_id}"
-                )
-                # No further scoring on lethal encounter
-                break
+            # Check lethal: any trajectory point inside lethal radius
+            if anomaly.is_lethal:
+                for point in trajectory:
+                    if _point_distance(point, anomaly.position) <= anomaly.radius:
+                        is_lethal = True
+                        failure_reason = (
+                            f"craft_destroyed_by_{anomaly.anomaly_id}"
+                        )
+                        break
+                if is_lethal:
+                    # No further scoring on lethal encounter
+                    break
             # Slingshot bonus if survived
             bonus += BLACK_HOLE_SLINGSHOT_BONUS * anomaly.strength
 
@@ -392,40 +389,25 @@ def _compute_fuel_efficiency(schedule: Tuple[int, ...]) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Objective scoring with resonance amplification
+# Objective completion ID extraction (public API only)
 # ---------------------------------------------------------------------------
 
 
-def _compute_objective_score(
+def _extract_completed_objective_ids(
     snapshot: UniverseSnapshot,
     objectives: Tuple[UniverseObjective, ...],
-    resonance_amplifier: float,
-) -> Tuple[float, Tuple[str, ...]]:
-    """Evaluate objectives and apply resonance amplification.
+) -> Tuple[str, ...]:
+    """Derive completed objective IDs using public API only.
 
-    Returns
-    -------
-    tuple of (score, completed_ids)
+    Evaluates each objective individually via ``evaluate_universe_objectives``
+    to determine completion status without importing private symbols.
     """
-    report = evaluate_universe_objectives(snapshot, objectives)
-    base_reward = report.total_reward
-    # Apply resonance amplification
-    amplified_reward = base_reward * resonance_amplifier
-
-    # Collect completed objective IDs
-    final_pos = (
-        snapshot.craft_state.x_position,
-        snapshot.craft_state.y_position,
-    )
     completed: list[str] = []
-    from qec.sims.universe_field_objectives import _check_objective_completed
     for obj in objectives:
-        if _check_objective_completed(
-            obj, final_pos, snapshot.trajectory_history
-        ):
+        report = evaluate_universe_objectives(snapshot, (obj,))
+        if report.objectives_completed == 1:
             completed.append(obj.objective_id)
-
-    return (amplified_reward, tuple(completed))
+    return tuple(completed)
 
 
 # ---------------------------------------------------------------------------
@@ -447,6 +429,7 @@ def run_mission_sandbox(
     Unified score:
         scenario_score = objective_score + gravity_assist_bonus
                          - anomaly_penalty + fuel_efficiency_score
+                         + anomaly_bonus
 
     Parameters
     ----------
@@ -477,6 +460,9 @@ def run_mission_sandbox(
             evaluate_space_anomalies(evolved, anomalies)
         )
 
+        # Deterministic tie-break key
+        tie_key = (sum(schedule), schedule)
+
         if is_lethal:
             # Mission fails — lethal anomaly
             report = MissionSandboxReport(
@@ -496,17 +482,27 @@ def run_mission_sandbox(
                 anomaly_encounters=encountered_ids,
                 objective_completions=(),
             )
-            # Lethal is always worst — only select if no non-lethal exists
+            # Lethal uses -inf score; apply tie-break among lethals
             score = float("-inf")
-            tie_key = (sum(schedule), schedule)
-            if best_report is None:
+            is_better = False
+            if best_score < score:
+                is_better = True
+            elif best_score == score:
+                if best_tie_key is None or tie_key < best_tie_key:
+                    is_better = True
+            if is_better:
                 best_report = report
                 best_trace = trace
                 best_score = score
                 best_tie_key = tie_key
             continue
 
-        # 2) Compute resonance amplifier from encountered anomalies
+        # 2) Single objective evaluation (public API only)
+        obj_report = evaluate_universe_objectives(evolved, objectives)
+        all_required_ok = obj_report.all_required_satisfied
+        base_reward = obj_report.total_reward
+
+        # 3) Compute resonance amplifier from encountered anomalies
         resonance_amp = 1.0
         for anomaly in anomalies:
             if (
@@ -515,37 +511,30 @@ def run_mission_sandbox(
             ):
                 resonance_amp *= RESONANCE_REWARD_AMPLIFIER * anomaly.strength
 
-        # 3) Objective evaluation with resonance
-        obj_score, completed_ids = _compute_objective_score(
-            evolved, objectives, resonance_amp,
-        )
+        # 4) Amplified objective score
+        obj_score = base_reward * resonance_amp
 
-        # 4) Check required objectives
-        obj_report = evaluate_universe_objectives(evolved, objectives)
-        all_required_ok = obj_report.all_required_satisfied
+        # 5) Completed objective IDs (public API only)
+        completed_ids = _extract_completed_objective_ids(evolved, objectives)
 
-        # 5) Gravity assist detection
+        # 6) Gravity assist detection
         has_gravity_assist = detect_gravity_assist(evolved)
         ga_bonus = GRAVITY_ASSIST_BONUS_VALUE if has_gravity_assist else 0.0
 
-        # 6) Fuel efficiency
+        # 7) Fuel efficiency
         fuel_eff = _compute_fuel_efficiency(schedule)
-
-        # 7) Combine anomaly bonus into scoring
-        total_anom_bonus = anom_bonus
-        total_anom_penalty = anom_penalty
 
         # 8) Unified score
         scenario_score = (
             obj_score
             + ga_bonus
-            - total_anom_penalty
+            - anom_penalty
             + fuel_eff
-            + total_anom_bonus
+            + anom_bonus
         )
 
         # Determine mission success
-        mission_success = all_required_ok and not is_lethal
+        mission_success = all_required_ok
 
         failure = ""
         if not all_required_ok:
@@ -555,7 +544,7 @@ def run_mission_sandbox(
             mission_success=mission_success,
             scenario_score=scenario_score,
             objective_score=obj_score,
-            anomaly_penalty=total_anom_penalty,
+            anomaly_penalty=anom_penalty,
             gravity_assist_bonus=ga_bonus,
             fuel_efficiency_score=fuel_eff,
             trace_length=len(evolved.trajectory_history),
@@ -570,7 +559,6 @@ def run_mission_sandbox(
         )
 
         # Deterministic tie-break
-        tie_key = (sum(schedule), schedule)
         is_better = False
         if scenario_score > best_score:
             is_better = True

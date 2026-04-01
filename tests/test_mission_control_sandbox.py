@@ -25,7 +25,6 @@ import pytest
 from qec.sims.qutrit_propulsion_universe import (
     PROPULSION_IDLE,
     PROPULSION_THRUST,
-    PROPULSION_WARP,
     UniverseCraftState,
     UniverseSnapshot,
     create_universe,
@@ -821,3 +820,170 @@ class TestDecoderUntouched:
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
         assert "import qec.decoder" not in source
+
+
+# ---------------------------------------------------------------------------
+# Test: lethal path crossing (hardening)
+# ---------------------------------------------------------------------------
+
+
+class TestLethalPathCrossing:
+    """Craft that enters lethal black hole mid-route must fail,
+    even if final position is outside the radius."""
+
+    def test_mid_route_lethal_still_kills(self) -> None:
+        """Trajectory passes through lethal black hole then exits.
+        Mission must still fail because a trajectory point was inside."""
+        # Trajectory: (0,0) → (5,0) → (10,0)
+        # Black hole at (5,0) radius=2.0, lethal
+        # Final position (10,0) is outside radius
+        snap = _make_snapshot_at(
+            10.0, 0.0,
+            trajectory=((0.0, 0.0), (5.0, 0.0), (10.0, 0.0)),
+        )
+        bh = _make_anomaly(
+            anomaly_id="bh_midroute",
+            anomaly_type=ANOMALY_BLACK_HOLE,
+            position=(5.0, 0.0),
+            radius=2.0,
+            strength=1.0,
+            is_lethal=True,
+        )
+        bonus, penalty, is_lethal, enc, fail = evaluate_space_anomalies(
+            snap, (bh,)
+        )
+        assert is_lethal is True
+        assert "bh_midroute" in fail
+        assert "bh_midroute" in enc
+
+
+# ---------------------------------------------------------------------------
+# Test: all schedules lethal — deterministic tie-break (hardening)
+# ---------------------------------------------------------------------------
+
+
+class TestAllSchedulesLethal:
+    """When all candidate schedules are lethal, selection must still
+    follow deterministic tie-break law: lower propulsion sum, then
+    lexicographic order."""
+
+    def test_all_lethal_deterministic_tiebreak(self) -> None:
+        """Two lethal schedules: winner is the one with lower propulsion sum."""
+        steps = 5
+        snap = create_universe(width=20, height=5)
+
+        # Both schedules stay near origin where lethal black hole sits
+        sched_idle = tuple(PROPULSION_IDLE for _ in range(steps))  # sum=0
+        sched_thrust = tuple(PROPULSION_THRUST for _ in range(steps))  # sum=5
+
+        scenario = MissionScenario(
+            scenario_id="all_lethal",
+            initial_snapshot=snap,
+            objectives=(
+                _make_objective(position=(0.0, 0.0), reward_value=10.0),
+            ),
+            anomalies=(
+                _make_anomaly(
+                    anomaly_id="bh_origin",
+                    anomaly_type=ANOMALY_BLACK_HOLE,
+                    position=(0.0, 0.0),
+                    radius=100.0,  # covers entire field
+                    strength=1.0,
+                    is_lethal=True,
+                ),
+            ),
+            candidate_schedules=(sched_thrust, sched_idle),
+            steps=steps,
+            description="All schedules lethal tie-break test",
+        )
+
+        report, _ = run_mission_sandbox(scenario)
+        assert report.mission_success is False
+        # Idle schedule has lower propulsion sum (0 < 5) — must win tie-break
+        assert report.selected_schedule == sched_idle
+
+    def test_all_lethal_replay_stable(self) -> None:
+        """100 replays of all-lethal scenario must be identical."""
+        steps = 5
+        snap = create_universe(width=20, height=5)
+        sched_a = tuple(PROPULSION_IDLE for _ in range(steps))
+        sched_b = tuple(PROPULSION_THRUST for _ in range(steps))
+
+        scenario = MissionScenario(
+            scenario_id="all_lethal_replay",
+            initial_snapshot=snap,
+            objectives=(
+                _make_objective(position=(0.0, 0.0), reward_value=10.0),
+            ),
+            anomalies=(
+                _make_anomaly(
+                    anomaly_id="bh_huge",
+                    anomaly_type=ANOMALY_BLACK_HOLE,
+                    position=(0.0, 0.0),
+                    radius=100.0,
+                    is_lethal=True,
+                ),
+            ),
+            candidate_schedules=(sched_a, sched_b),
+            steps=steps,
+            description="All-lethal replay stability",
+        )
+        first = run_mission_sandbox(scenario)
+        for _ in range(100):
+            assert run_mission_sandbox(scenario) == first
+
+
+# ---------------------------------------------------------------------------
+# Test: single-evaluation determinism after refactor (hardening)
+# ---------------------------------------------------------------------------
+
+
+class TestSingleEvaluationDeterminism:
+    """Ensure replay equality is preserved after the single-evaluation
+    refactor (no private imports, no duplicate evaluation)."""
+
+    def test_refactored_replay_with_resonance(self) -> None:
+        """100 replays of resonance scenario must be identical."""
+        steps = 5
+        snap = create_universe(width=20, height=5)
+        sched_idle = tuple(PROPULSION_IDLE for _ in range(steps))
+        sched_thrust = tuple(PROPULSION_THRUST for _ in range(steps))
+
+        scenario = MissionScenario(
+            scenario_id="single_eval_replay",
+            initial_snapshot=snap,
+            objectives=(
+                _make_objective(
+                    objective_id="wp_origin",
+                    position=(0.0, 0.0),
+                    reward_value=25.0,
+                ),
+                _make_objective(
+                    objective_id="beacon_far",
+                    objective_type=OBJECTIVE_BEACON,
+                    position=(1.0, 0.0),
+                    reward_value=15.0,
+                ),
+            ),
+            anomalies=(
+                _make_anomaly(
+                    anomaly_id="res_zone",
+                    anomaly_type=ANOMALY_RESONANCE_ZONE,
+                    position=(0.0, 0.0),
+                    radius=5.0,
+                    strength=1.0,
+                ),
+            ),
+            candidate_schedules=(sched_idle, sched_thrust),
+            steps=steps,
+            description="Single-evaluation determinism",
+        )
+        first = run_mission_sandbox(scenario)
+        for _ in range(100):
+            assert run_mission_sandbox(scenario) == first
+
+    def test_no_private_symbol_in_source(self) -> None:
+        """Module must not import _check_objective_completed."""
+        import qec.sims.mission_control_sandbox as mod
+        source = Path(mod.__file__).read_text()
+        assert "_check_objective_completed" not in source

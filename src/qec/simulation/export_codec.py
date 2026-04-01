@@ -15,11 +15,16 @@ import json
 from typing import Any, Dict
 
 from qec.simulation.export_schema import (
+    TRACE_HASH_SENTINEL,
     ExportMetadata,
     FailSafeEvent,
     SimulationExport,
     TransitionEvent,
 )
+
+
+class ExportSchemaError(Exception):
+    """Raised when JSON payload does not conform to the export schema."""
 
 
 # ---------------------------------------------------------------------------
@@ -102,12 +107,45 @@ def _dict_to_metadata(d: Dict[str, Any]) -> ExportMetadata:
     )
 
 
+_EXPORT_REQUIRED_KEYS = frozenset({
+    "control_trace", "dwell_events", "fail_safe_events",
+    "transition_events", "metadata",
+})
+_METADATA_REQUIRED_KEYS = frozenset({
+    "schema_version", "trace_hash", "created_by_release",
+})
+_TRANSITION_REQUIRED_KEYS = frozenset({
+    "from_state", "to_state", "timestamp_ns", "reason",
+})
+_FAILSAFE_REQUIRED_KEYS = frozenset({
+    "timestamp_ns", "trigger", "resolved",
+})
+
+
+def _validate_keys(d: Any, required: frozenset, context: str) -> None:
+    if not isinstance(d, dict):
+        raise ExportSchemaError(f"{context}: expected dict, got {type(d).__name__}")
+    missing = required - d.keys()
+    if missing:
+        raise ExportSchemaError(f"{context}: missing keys {sorted(missing)}")
+
+
 def load_from_json(text: str) -> SimulationExport:
     """Deserialize canonical JSON back to a SimulationExport.
 
     Lists are explicitly reconstructed as tuples.
+    Raises ExportSchemaError on malformed or missing fields.
     """
-    d = json.loads(text)
+    try:
+        d = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ExportSchemaError(f"invalid JSON: {exc}") from exc
+    _validate_keys(d, _EXPORT_REQUIRED_KEYS, "SimulationExport")
+    _validate_keys(d["metadata"], _METADATA_REQUIRED_KEYS, "ExportMetadata")
+    for i, evt in enumerate(d.get("transition_events", ())):
+        _validate_keys(evt, _TRANSITION_REQUIRED_KEYS, f"TransitionEvent[{i}]")
+    for i, evt in enumerate(d.get("fail_safe_events", ())):
+        _validate_keys(evt, _FAILSAFE_REQUIRED_KEYS, f"FailSafeEvent[{i}]")
     return SimulationExport(
         control_trace=tuple(d["control_trace"]),
         dwell_events=tuple(d["dwell_events"]),
@@ -125,12 +163,44 @@ def load_from_json(text: str) -> SimulationExport:
 def compute_trace_hash(export: SimulationExport) -> str:
     """Compute a deterministic SHA-256 hash of the export's canonical JSON.
 
-    The hash is computed over the full export *including* the current metadata.
-    For initial construction, pass a placeholder trace_hash and then reconstruct
-    with the computed value.
+    To avoid circularity, ``trace_hash`` is normalized to
+    :data:`TRACE_HASH_SENTINEL` before hashing.  This makes the hash
+    independent of any previously stored ``trace_hash`` value and ensures
+    idempotency: calling this function on a finalized export produces the
+    same result as calling it on the pre-hash version.
     """
-    canonical = export_to_json(export)
+    normalized = SimulationExport(
+        control_trace=export.control_trace,
+        dwell_events=export.dwell_events,
+        fail_safe_events=export.fail_safe_events,
+        transition_events=export.transition_events,
+        metadata=ExportMetadata(
+            schema_version=export.metadata.schema_version,
+            trace_hash=TRACE_HASH_SENTINEL,
+            created_by_release=export.metadata.created_by_release,
+        ),
+    )
+    canonical = export_to_json(normalized)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def with_computed_trace_hash(export: SimulationExport) -> SimulationExport:
+    """Return a new export with ``metadata.trace_hash`` set to the computed hash.
+
+    This is the canonical way to finalize an export artifact.
+    """
+    trace_hash = compute_trace_hash(export)
+    return SimulationExport(
+        control_trace=export.control_trace,
+        dwell_events=export.dwell_events,
+        fail_safe_events=export.fail_safe_events,
+        transition_events=export.transition_events,
+        metadata=ExportMetadata(
+            schema_version=export.metadata.schema_version,
+            trace_hash=trace_hash,
+            created_by_release=export.metadata.created_by_release,
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------

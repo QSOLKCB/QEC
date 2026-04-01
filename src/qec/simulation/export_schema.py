@@ -11,6 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Tuple
 
+# Sentinel used during trace hash computation to break circularity.
+TRACE_HASH_SENTINEL = ""
+
 
 @dataclass(frozen=True)
 class TransitionEvent:

@@ -12,10 +12,12 @@ from qec.simulation.export_schema import (
     TransitionEvent,
 )
 from qec.simulation.export_codec import (
+    ExportSchemaError,
     compute_trace_hash,
     export_to_json,
     load_from_json,
     validate_export_replay,
+    with_computed_trace_hash,
 )
 
 
@@ -165,10 +167,82 @@ class TestStableHashing:
         assert len(h) == 64
         int(h, 16)  # valid hex
 
+    def test_hash_idempotent_after_finalization(self) -> None:
+        """Hash must be the same before and after inserting it into metadata."""
+        export = _make_export()
+        finalized = with_computed_trace_hash(export)
+        assert compute_trace_hash(finalized) == finalized.metadata.trace_hash
+
+    def test_hash_independent_of_placeholder(self) -> None:
+        """Different placeholder values must produce the same hash."""
+        meta_a = ExportMetadata(
+            schema_version="132.5.0",
+            trace_hash="placeholder_a",
+            created_by_release="v132.5.0",
+        )
+        meta_b = ExportMetadata(
+            schema_version="132.5.0",
+            trace_hash="placeholder_b",
+            created_by_release="v132.5.0",
+        )
+        export_a = SimulationExport(
+            control_trace=("x",), dwell_events=(1,),
+            fail_safe_events=(), transition_events=(),
+            metadata=meta_a,
+        )
+        export_b = SimulationExport(
+            control_trace=("x",), dwell_events=(1,),
+            fail_safe_events=(), transition_events=(),
+            metadata=meta_b,
+        )
+        assert compute_trace_hash(export_a) == compute_trace_hash(export_b)
+
 
 # ---------------------------------------------------------------------------
 # Empty export
 # ---------------------------------------------------------------------------
+
+
+class TestWithComputedTraceHash:
+    def test_finalized_export_has_valid_hash(self) -> None:
+        finalized = with_computed_trace_hash(_make_export())
+        assert finalized.metadata.trace_hash != "placeholder"
+        assert len(finalized.metadata.trace_hash) == 64
+
+    def test_finalized_round_trips(self) -> None:
+        finalized = with_computed_trace_hash(_make_export())
+        assert validate_export_replay(finalized) is True
+
+    def test_double_finalize_idempotent(self) -> None:
+        once = with_computed_trace_hash(_make_export())
+        twice = with_computed_trace_hash(once)
+        assert once == twice
+
+
+class TestSchemaValidation:
+    def test_invalid_json_raises(self) -> None:
+        with pytest.raises(ExportSchemaError, match="invalid JSON"):
+            load_from_json("not json")
+
+    def test_missing_top_level_key_raises(self) -> None:
+        with pytest.raises(ExportSchemaError, match="missing keys"):
+            load_from_json('{"control_trace":[]}')
+
+    def test_missing_metadata_key_raises(self) -> None:
+        payload = export_to_json(_make_export())
+        import json
+        d = json.loads(payload)
+        del d["metadata"]["schema_version"]
+        with pytest.raises(ExportSchemaError, match="ExportMetadata.*missing keys"):
+            load_from_json(json.dumps(d))
+
+    def test_non_dict_metadata_raises(self) -> None:
+        payload = export_to_json(_make_export())
+        import json
+        d = json.loads(payload)
+        d["metadata"] = "not_a_dict"
+        with pytest.raises(ExportSchemaError, match="expected dict"):
+            load_from_json(json.dumps(d))
 
 
 class TestEdgeCases:

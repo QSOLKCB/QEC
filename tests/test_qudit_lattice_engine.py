@@ -94,6 +94,10 @@ class TestBuildLattice:
         with pytest.raises(ValueError):
             build_qudit_lattice(width=0, height=2)
 
+    def test_negative_epoch_rejected(self) -> None:
+        with pytest.raises(ValueError, match="epoch_index must be >= 0"):
+            build_qudit_lattice(width=2, height=2, epoch_index=-1)
+
 
 # ---------------------------------------------------------------------------
 # Deterministic evolution
@@ -209,3 +213,43 @@ class TestAsciiRender:
         snap = build_qudit_lattice(width=1, height=1, qudit_dimension=2)
         evolved = evolve_qudit_lattice(snap, steps=1)
         assert render_qudit_lattice_ascii(evolved) == "1"
+
+    def test_out_of_bounds_coordinate_rejected(self) -> None:
+        bad_cell = QuditFieldCell(
+            x_index=5, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        snap = QuditLatticeSnapshot(
+            cells=(bad_cell,), width=2, height=2,
+            epoch_index=0, mean_field_amplitude=1.0, active_state_count=0,
+        )
+        with pytest.raises(ValueError, match="out of bounds"):
+            render_qudit_lattice_ascii(snap)
+
+    def test_duplicate_coordinate_rejected(self) -> None:
+        cell_a = QuditFieldCell(
+            x_index=0, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        cell_b = QuditFieldCell(
+            x_index=0, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=1, field_amplitude=1.0,
+        )
+        snap = QuditLatticeSnapshot(
+            cells=(cell_a, cell_b), width=2, height=2,
+            epoch_index=0, mean_field_amplitude=1.0, active_state_count=0,
+        )
+        with pytest.raises(ValueError, match="duplicate cell coordinate"):
+            render_qudit_lattice_ascii(snap)
+
+    def test_incomplete_lattice_rejected(self) -> None:
+        cell = QuditFieldCell(
+            x_index=0, y_index=0, epoch_index=0,
+            qudit_dimension=3, local_state=0, field_amplitude=1.0,
+        )
+        snap = QuditLatticeSnapshot(
+            cells=(cell,), width=2, height=2,
+            epoch_index=0, mean_field_amplitude=1.0, active_state_count=0,
+        )
+        with pytest.raises(ValueError, match="incomplete lattice"):
+            render_qudit_lattice_ascii(snap)

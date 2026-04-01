@@ -92,6 +92,8 @@ def build_qudit_lattice(
     """
     if width < 1 or height < 1:
         raise ValueError("width and height must be >= 1")
+    if epoch_index < 0:
+        raise ValueError("epoch_index must be >= 0")
     _validate_qudit_dimension(qudit_dimension)
     _validate_local_state(initial_state, qudit_dimension)
 
@@ -147,25 +149,23 @@ def evolve_qudit_lattice(
     if steps == 0:
         return snapshot
 
-    cells = snapshot.cells
-    epoch = snapshot.epoch_index
+    new_epoch = snapshot.epoch_index + steps
+    decay = _DECAY_FACTOR ** steps
 
-    for _ in range(steps):
-        epoch += 1
-        new_cells: list[QuditFieldCell] = []
-        for cell in cells:
-            new_state = (cell.local_state + 1) % cell.qudit_dimension
-            new_amp = cell.field_amplitude * _DECAY_FACTOR
-            new_cells.append(QuditFieldCell(
-                x_index=cell.x_index,
-                y_index=cell.y_index,
-                epoch_index=epoch,
-                qudit_dimension=cell.qudit_dimension,
-                local_state=new_state,
-                field_amplitude=new_amp,
-            ))
-        cells = tuple(new_cells)
+    new_cells: list[QuditFieldCell] = []
+    for cell in snapshot.cells:
+        new_state = (cell.local_state + steps) % cell.qudit_dimension
+        new_amp = cell.field_amplitude * decay
+        new_cells.append(QuditFieldCell(
+            x_index=cell.x_index,
+            y_index=cell.y_index,
+            epoch_index=new_epoch,
+            qudit_dimension=cell.qudit_dimension,
+            local_state=new_state,
+            field_amplitude=new_amp,
+        ))
 
+    cells = tuple(new_cells)
     total_amp = sum(c.field_amplitude for c in cells)
     n = len(cells)
     mean_amp = total_amp / n if n > 0 else 0.0
@@ -175,7 +175,7 @@ def evolve_qudit_lattice(
         cells=cells,
         width=snapshot.width,
         height=snapshot.height,
-        epoch_index=epoch,
+        epoch_index=new_epoch,
         mean_field_amplitude=mean_amp,
         active_state_count=active,
     )
@@ -199,10 +199,31 @@ def render_qudit_lattice_ascii(snapshot: QuditLatticeSnapshot) -> str:
     str
         ASCII representation with rows separated by newlines.
     """
+    w, h = snapshot.width, snapshot.height
+    seen: set[tuple[int, int]] = set()
     grid: list[list[str]] = [
-        [""] * snapshot.width for _ in range(snapshot.height)
+        [""] * w for _ in range(h)
     ]
     for cell in snapshot.cells:
+        if cell.x_index < 0 or cell.x_index >= w:
+            raise ValueError(
+                f"cell x_index {cell.x_index} out of bounds [0, {w})"
+            )
+        if cell.y_index < 0 or cell.y_index >= h:
+            raise ValueError(
+                f"cell y_index {cell.y_index} out of bounds [0, {h})"
+            )
+        coord = (cell.x_index, cell.y_index)
+        if coord in seen:
+            raise ValueError(
+                f"duplicate cell coordinate ({cell.x_index}, {cell.y_index})"
+            )
+        seen.add(coord)
         grid[cell.y_index][cell.x_index] = str(cell.local_state)
+
+    if len(seen) != w * h:
+        raise ValueError(
+            f"incomplete lattice: expected {w * h} cells, got {len(seen)}"
+        )
 
     return "\n".join(" ".join(row) for row in grid)

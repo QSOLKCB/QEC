@@ -114,44 +114,61 @@ np.random.RandomState(seed)
 
 If it cannot be reproduced byte-for-byte, it is not a result.
 
-<pre>
+## 🖥 Rust TUI Operator Console
+### QEC Supervisory Workstation
 
-🖥 Rust TUI Operator Console (v106+, Phase Workstation v115.1+)
+QEC includes a **Linutil-inspired Rust TUI operator console** for fast, keyboard-first supervisory workflows.
 
-QEC includes a Linutil-inspired Rust TUI control surface for:
+The TUI provides a unified control surface for:
 
-live diagnostics
-adaptive control workflows
-session replay
-operator-driven law-engine actions
-phase dynamics workstation
-attractor-cycle observability
+- live diagnostics
+- adaptive control workflows
+- supervisory verification
+- session replay
+- law-engine actions
+- phase dynamics workstation
+- attractor / cycle observability
 
-The layout is optimized for fast, keyboard-first workflows:
+---
 
-Left   → navigation / mode selection
-Center → live diagnostics / history / action console / phase workstation
-Right  → invariant health / system status / phase gauges
-Bottom → hotkeys / command legend
+### 🚀 Install / Update (Recommended)
 
-🚀 Build & Run
-Build
+Always install the latest tagged release with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
+
+After install:
+
+qec-tui
+
+This command always resolves the latest GitHub release and installs the latest Rust TUI binary.
+
+🛠 Build From Source
 cd tui
 cargo build --release
 
-Run
+Run:
+
 cargo run --release
 
-Production-style startup
+Production-style startup:
+
 ./target/release/qec-tui
+🖥 Layout
+Left   → navigation / mode selection
+Center → diagnostics / history / phase workstation
+Right  → invariant health / system status / gauges
+Bottom → hotkeys / command legend
+
+Optimized for fast operator workflows.
 
 ⌨️ Key Controls
 Navigation
 ↑ / ↓   move selection
 Enter   switch active mode
 Q       quit
-
-Mode Shortcuts
+🎛 Mode Shortcuts
 D   diagnostics
 C   control flow
 M   memory
@@ -164,21 +181,20 @@ L   law engine
 X   actions console
 T   phase dynamics
 G   cycle alert profile
+⚡ Action Console
 
-Action Console
-When inside Actions mode:
+Inside Actions mode:
+
 D   run diagnostics
 I   run invariants
 L   run law engine
 R   refresh all
 T   run phase diagnostics
-
-Session & Replay
+🔁 Session & Replay
 E   export session log
 P   replay last session
 S   scan saved sessions
 V   view session diff
-
 ✨ Current TUI Features
 live Python-engine diagnostics
 invariant health monitor
@@ -190,8 +206,6 @@ cycle-period diagnostics
 phase snapshot export / replay
 multi-session browser
 diff viewer
-
-</pre>
   
 The Rust console currently supports:
 

@@ -40,7 +40,7 @@ class PhaseMapExportBundle:
 
 
 def _format_float(value: float) -> float:
-    """Round float to 12 significant decimal places for canonical representation."""
+    """Round float to 12 decimal places for canonical representation."""
     return round(value, 12)
 
 
@@ -168,8 +168,12 @@ def load_phase_map_from_json(text: str) -> PhaseMapExportBundle:
         max_divergence=float(pm_d["max_divergence"]),
     )
 
+    schema_version = str(md["schema_version"])
+    if schema_version != _SCHEMA_VERSION:
+        raise ValueError(f"unsupported schema_version: {schema_version}")
+
     metadata = PhaseMapExportMetadata(
-        schema_version=str(md["schema_version"]),
+        schema_version=schema_version,
         created_by_release=str(md["created_by_release"]),
         trace_hash=str(md["trace_hash"]),
     )

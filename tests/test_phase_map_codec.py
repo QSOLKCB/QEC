@@ -234,6 +234,14 @@ class TestMissingKeyRejection:
         with pytest.raises(ValueError, match=r"missing key.*decay.*cells\[0\]"):
             load_phase_map_from_json(json.dumps(d))
 
+    def test_schema_version_mismatch_rejected(self):
+        bundle = _make_bundle()
+        text = export_phase_map_to_json(bundle)
+        d = json.loads(text)
+        d["metadata"]["schema_version"] = "99.0.0"
+        with pytest.raises(ValueError, match="unsupported schema_version"):
+            load_phase_map_from_json(json.dumps(d))
+
 
 class TestReplayDeterminism:
     def test_full_replay_cycle(self):

@@ -3,14 +3,12 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
-from qec.sims.qudit_lattice_engine import (
-    QuditLatticeSnapshot,
-    build_qudit_lattice,
-)
+from qec.sims.qudit_lattice_engine import build_qudit_lattice
 from qec.sims.control_policy_benchmark import (
-    BUILTIN_POLICIES,
     PolicyBenchmarkResult,
     compute_policy_score,
     render_benchmark_summary,
@@ -41,7 +39,7 @@ class TestImmutability:
         result = PolicyBenchmarkResult(
             policy_name="test",
             mean_final_amplitude=0.5,
-            mean_steps_to_stability=3.0,
+            steps_to_first_stability=3,
             recovery_count=1,
             oscillation_count=2,
             score=0.8,
@@ -53,7 +51,7 @@ class TestImmutability:
         result = PolicyBenchmarkResult(
             policy_name="test",
             mean_final_amplitude=0.5,
-            mean_steps_to_stability=3.0,
+            steps_to_first_stability=3,
             recovery_count=1,
             oscillation_count=2,
             score=0.8,
@@ -164,12 +162,12 @@ class TestRunPolicyBenchmark:
         assert names == {"nominal", "aggressive_damping", "recovery_first"}
 
     def test_scores_are_finite(self) -> None:
-        """All scores are finite floats."""
+        """All scores are finite (not NaN or inf)."""
         snap = _make_3x2_lattice()
         results = run_policy_benchmark(snap, steps=10)
         for r in results:
             assert isinstance(r.score, float)
-            assert r.score == r.score  # not NaN
+            assert math.isfinite(r.score)
 
     def test_amplitudes_nonnegative(self) -> None:
         """Final amplitudes must be non-negative."""

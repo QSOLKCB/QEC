@@ -34,10 +34,7 @@ from qec.sims.qudit_lattice_engine import (
     QuditLatticeSnapshot,
 )
 from qec.sims.qudit_coupling_dynamics import coupled_evolve_step
-from qec.sims.propagation_stability_analysis import (
-    PropagationStabilityReport,
-    _DIVERGENCE_THRESHOLD,
-)
+from qec.sims.propagation_stability_analysis import _DIVERGENCE_THRESHOLD
 
 
 # ── Policy tables ────────────────────────────────────────────────
@@ -95,8 +92,9 @@ class PolicyBenchmarkResult:
         Name of the policy that was benchmarked.
     mean_final_amplitude : float
         Mean field amplitude at the end of the simulation.
-    mean_steps_to_stability : float
-        Average step index at which stable/fixed_point was first reached.
+    steps_to_first_stability : int
+        Step index at which fixed_point was first reached, or a
+        repeated stable fingerprint was confirmed.
         Equal to total steps if stability was never reached.
     recovery_count : int
         Total number of steps where recovery was triggered.
@@ -108,7 +106,7 @@ class PolicyBenchmarkResult:
 
     policy_name: str
     mean_final_amplitude: float
-    mean_steps_to_stability: float
+    steps_to_first_stability: int
     recovery_count: int
     oscillation_count: int
     score: float
@@ -251,11 +249,29 @@ def _run_single_policy(
     oscillation_count = 0
     first_stable_step = steps  # default: never reached
 
+    # Fingerprint tracking for oscillation detection (mirrors
+    # propagation_stability_analysis._state_only_fingerprint logic).
+    seen_states: dict[Tuple[int, ...], int] = {}
+    seen_states[tuple(c.local_state for c in current.cells)] = -1
+
+    # Count consecutive fixed_point steps for stability confirmation.
+    consecutive_fixed = 0
+
     for step_idx in range(steps):
         prev = current
         current = coupled_evolve_step(current)
 
-        label = _single_step_stability_label(prev, current)
+        # Fingerprint-based label assignment
+        fp = tuple(c.local_state for c in current.cells)
+        base_label = _single_step_stability_label(prev, current)
+
+        if base_label in ("stable", "fixed_point") and fp in seen_states:
+            label = "oscillatory"
+        else:
+            label = base_label
+
+        if label != "oscillatory":
+            seen_states[fp] = step_idx
 
         # Look up policy; fall back to observe/no-change for unknown labels
         entry = policy_map.get(label, ("observe", 1.0, False))
@@ -266,9 +282,14 @@ def _run_single_policy(
         if label == "oscillatory":
             oscillation_count += 1
 
-        # Track first stable step
-        if label in ("fixed_point", "stable") and first_stable_step == steps:
-            first_stable_step = step_idx
+        # Track first stable step: require fixed_point or two
+        # consecutive stable observations to confirm stability.
+        if label == "fixed_point":
+            consecutive_fixed += 1
+            if consecutive_fixed >= 1 and first_stable_step == steps:
+                first_stable_step = step_idx
+        else:
+            consecutive_fixed = 0
 
         current = _apply_damping(current, damping)
 
@@ -282,7 +303,7 @@ def _run_single_policy(
     return PolicyBenchmarkResult(
         policy_name=policy_name,
         mean_final_amplitude=current.mean_field_amplitude,
-        mean_steps_to_stability=float(first_stable_step),
+        steps_to_first_stability=first_stable_step,
         recovery_count=recovery_count,
         oscillation_count=oscillation_count,
         score=score,

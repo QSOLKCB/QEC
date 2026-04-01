@@ -18,7 +18,16 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-repeat>=0.9",
-    "matplotlib>=3.5"
+    "matplotlib>=3.5",
+    "networkx>=2.6"
+]
+
+# Optional external backends — not installed by default.
+# Tests requiring these are skipped when unavailable.
+external = [
+    "stim>=1.13",
+    "pymatching>=2.2",
+    "qec_qldpc_codes>=0.1"
 ]
 
 [tool.pytest.ini_options]

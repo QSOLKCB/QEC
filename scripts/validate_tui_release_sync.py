@@ -17,16 +17,17 @@ import re
 import sys
 from pathlib import Path
 
-
-def _repo_root_default() -> Path:
-    """Walk up from script location to find repo root."""
-    cursor = Path(__file__).resolve().parent
-    for _ in range(10):
-        if (cursor / "tui" / "install.sh").exists():
-            return cursor
-        cursor = cursor.parent
-    print("ERROR: cannot locate repository root", file=sys.stderr)
-    sys.exit(1)
+# Reuse the canonical repo-root resolver and installer constants so that
+# the script and the library module cannot drift out of sync.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from qec.verification.release_integrity import (  # noqa: E402
+    ASSET_NAME,
+    BINARY_NAME,
+    CANONICAL_CURL_URL,
+    INSTALL_DIR,
+    REPO_SLUG,
+    resolve_repo_root,
+)
 
 
 def _read(path: Path) -> str:
@@ -41,7 +42,7 @@ def main() -> None:
                         help="Expected release tag (e.g. v106.0.0)")
     args = parser.parse_args()
 
-    root = Path(args.repo_root) if args.repo_root else _repo_root_default()
+    root = resolve_repo_root(args.repo_root)
     errors: list[str] = []
 
     # --- Artifact paths ---
@@ -66,8 +67,8 @@ def main() -> None:
     cargo_name = cargo_name_m.group(1) if cargo_name_m else ""
     cargo_ver = cargo_ver_m.group(1) if cargo_ver_m else ""
 
-    if cargo_name != "qec-tui":
-        errors.append(f"Cargo.toml name={cargo_name!r}, expected 'qec-tui'")
+    if cargo_name != BINARY_NAME:
+        errors.append(f"Cargo.toml name={cargo_name!r}, expected {BINARY_NAME!r}")
 
     if not re.fullmatch(r"\d+\.\d+\.\d+", cargo_ver):
         errors.append(f"Cargo.toml version={cargo_ver!r} is not valid semver")
@@ -76,10 +77,10 @@ def main() -> None:
     sh_text = _read(install_sh)
 
     sh_checks = {
-        "REPO": ("QSOLKCB/QEC", re.search(r'^REPO="([^"]+)"', sh_text, re.MULTILINE)),
-        "BINARY_NAME": ("qec-tui", re.search(r'^BINARY_NAME="([^"]+)"', sh_text, re.MULTILINE)),
-        "INSTALL_DIR": ("/usr/local/bin", re.search(r'^INSTALL_DIR="([^"]+)"', sh_text, re.MULTILINE)),
-        "ASSET_NAME": ("qec-tui-linux-x86_64.tar.gz", re.search(r'^ASSET_NAME="([^"]+)"', sh_text, re.MULTILINE)),
+        "REPO": (REPO_SLUG, re.search(r'^REPO="([^"]+)"', sh_text, re.MULTILINE)),
+        "BINARY_NAME": (BINARY_NAME, re.search(r'^BINARY_NAME="([^"]+)"', sh_text, re.MULTILINE)),
+        "INSTALL_DIR": (INSTALL_DIR, re.search(r'^INSTALL_DIR="([^"]+)"', sh_text, re.MULTILINE)),
+        "ASSET_NAME": (ASSET_NAME, re.search(r'^ASSET_NAME="([^"]+)"', sh_text, re.MULTILINE)),
     }
     for key, (expected, match) in sorted(sh_checks.items()):
         actual = match.group(1) if match else "<not found>"
@@ -88,9 +89,8 @@ def main() -> None:
 
     # --- Parse README ---
     readme_text = _read(readme)
-    expected_url = "https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh"
-    if expected_url not in readme_text:
-        errors.append(f"README.md missing canonical curl URL: {expected_url}")
+    if CANONICAL_CURL_URL not in readme_text:
+        errors.append(f"README.md missing canonical curl URL: {CANONICAL_CURL_URL}")
 
     if "curl -fsSL" not in readme_text:
         errors.append("README.md missing 'curl -fsSL' install command")

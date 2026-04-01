@@ -7,11 +7,23 @@ across the repository artifacts (Cargo.toml, README.md, install.sh).
 
 from __future__ import annotations
 
-import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional, Tuple
+
+
+# ---------------------------------------------------------------------------
+# Canonical installer constants — single source of truth
+# ---------------------------------------------------------------------------
+
+REPO_SLUG = "QSOLKCB/QEC"
+BINARY_NAME = "qec-tui"
+INSTALL_DIR = "/usr/local/bin"
+ASSET_NAME = "qec-tui-linux-x86_64.tar.gz"
+CANONICAL_CURL_URL = (
+    "https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +41,7 @@ class IntegrityResult:
 @dataclass(frozen=True)
 class IntegrityReport:
     """Aggregated verification report."""
-    results: tuple  # tuple[IntegrityResult, ...]
+    results: Tuple[IntegrityResult, ...]
     all_passed: bool
 
 
@@ -44,17 +56,23 @@ def _make_report(results: List[IntegrityResult]) -> IntegrityReport:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _repo_root(hint: Optional[str] = None) -> Path:
-    """Resolve the repository root directory."""
+def resolve_repo_root(hint: Optional[str] = None) -> Path:
+    """Resolve the repository root directory.
+
+    If *hint* is provided it is returned as-is.  Otherwise walks upward from
+    this file looking for ``tui/install.sh`` as a sentinel.
+
+    This is the single canonical implementation — scripts and tests should
+    import this rather than reimplementing the walk.
+    """
     if hint is not None:
         return Path(hint)
-    # Walk upward from this file looking for tui/install.sh
     cursor = Path(__file__).resolve().parent
     for _ in range(10):
         if (cursor / "tui" / "install.sh").exists():
             return cursor
         cursor = cursor.parent
-    raise FileNotFoundError("Cannot locate repository root from release_integrity.py")
+    raise FileNotFoundError("Cannot locate repository root")
 
 
 def _read_text(path: Path) -> str:
@@ -74,7 +92,7 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
     - install.sh INSTALL_DIR matches /usr/local/bin
     - README curl URL points to the same install.sh path used in the repo
     """
-    root = _repo_root(repo_root)
+    root = resolve_repo_root(repo_root)
     results: List[IntegrityResult] = []
 
     install_sh = root / "tui" / "install.sh"
@@ -93,7 +111,7 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
     repo_val = repo_match.group(1) if repo_match else ""
     results.append(IntegrityResult(
         "install_sh_repo",
-        repo_val == "QSOLKCB/QEC",
+        repo_val == REPO_SLUG,
         f"REPO={repo_val!r}",
     ))
 
@@ -101,7 +119,7 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
     bin_val = bin_match.group(1) if bin_match else ""
     results.append(IntegrityResult(
         "install_sh_binary_name",
-        bin_val == "qec-tui",
+        bin_val == BINARY_NAME,
         f"BINARY_NAME={bin_val!r}",
     ))
 
@@ -109,7 +127,7 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
     dir_val = dir_match.group(1) if dir_match else ""
     results.append(IntegrityResult(
         "install_sh_install_dir",
-        dir_val == "/usr/local/bin",
+        dir_val == INSTALL_DIR,
         f"INSTALL_DIR={dir_val!r}",
     ))
 
@@ -121,11 +139,10 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
     results.append(IntegrityResult("readme_exists", True, str(readme)))
 
     readme_text = _read_text(readme)
-    expected_url = "https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh"
     results.append(IntegrityResult(
         "readme_curl_url",
-        expected_url in readme_text,
-        f"expected URL present: {expected_url in readme_text}",
+        CANONICAL_CURL_URL in readme_text,
+        f"expected URL present: {CANONICAL_CURL_URL in readme_text}",
     ))
 
     return _make_report(results)
@@ -133,7 +150,7 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
 
 def verify_binary_version_consistency(repo_root: Optional[str] = None) -> IntegrityReport:
     """Verify that Cargo.toml declares a parseable version for qec-tui."""
-    root = _repo_root(repo_root)
+    root = resolve_repo_root(repo_root)
     results: List[IntegrityResult] = []
 
     cargo_toml = root / "tui" / "Cargo.toml"
@@ -149,7 +166,7 @@ def verify_binary_version_consistency(repo_root: Optional[str] = None) -> Integr
     name_val = name_match.group(1) if name_match else ""
     results.append(IntegrityResult(
         "cargo_package_name",
-        name_val == "qec-tui",
+        name_val == BINARY_NAME,
         f"name={name_val!r}",
     ))
 
@@ -176,7 +193,7 @@ def verify_release_tag_alignment(
     the numeric portion of the tag (e.g. tag ``v106.0.0`` matches version
     ``106.0.0``).
     """
-    root = _repo_root(repo_root)
+    root = resolve_repo_root(repo_root)
     results: List[IntegrityResult] = []
 
     install_sh = root / "tui" / "install.sh"
@@ -192,7 +209,7 @@ def verify_release_tag_alignment(
         r'API_URL="(https://api\.github\.com/repos/[^"]+)"', sh_text,
     )
     api_val = api_match.group(1) if api_match else ""
-    expected_literal = "https://api.github.com/repos/QSOLKCB/QEC/releases/latest"
+    expected_literal = f"https://api.github.com/repos/{REPO_SLUG}/releases/latest"
     expected_template = "https://api.github.com/repos/${REPO}/releases/latest"
     api_ok = api_val in (expected_literal, expected_template)
     results.append(IntegrityResult(
@@ -215,7 +232,14 @@ def verify_release_tag_alignment(
     # Optional: tag-to-Cargo.toml alignment
     if expected_tag is not None:
         cargo_toml = root / "tui" / "Cargo.toml"
-        cargo_text = _read_text(cargo_toml) if cargo_toml.exists() else ""
+        cargo_toml_exists = cargo_toml.exists()
+        results.append(IntegrityResult(
+            "cargo_toml_exists_for_tag",
+            cargo_toml_exists,
+            f"{cargo_toml} exists for expected_tag={expected_tag!r}",
+        ))
+
+        cargo_text = _read_text(cargo_toml) if cargo_toml_exists else ""
         ver_match = re.search(r'^version\s*=\s*"([^"]+)"', cargo_text, re.MULTILINE)
         cargo_ver = ver_match.group(1) if ver_match else ""
         tag_ver = expected_tag.lstrip("v")

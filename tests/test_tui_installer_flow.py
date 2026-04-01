@@ -21,6 +21,14 @@ from pathlib import Path
 
 import pytest
 
+from qec.verification.release_integrity import (
+    ASSET_NAME,
+    BINARY_NAME,
+    CANONICAL_CURL_URL,
+    INSTALL_DIR,
+    REPO_SLUG,
+)
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -74,24 +82,24 @@ class TestInstallShExists:
 
     def test_install_sh_configures_repo(self, install_sh: Path) -> None:
         text = install_sh.read_text(encoding="utf-8")
-        assert re.search(r'^REPO="QSOLKCB/QEC"', text, re.MULTILINE), \
-            "install.sh must set REPO to QSOLKCB/QEC"
+        assert re.search(rf'^REPO="{re.escape(REPO_SLUG)}"', text, re.MULTILINE), \
+            f"install.sh must set REPO to {REPO_SLUG}"
 
     def test_install_sh_configures_binary_name(self, install_sh: Path) -> None:
         text = install_sh.read_text(encoding="utf-8")
-        assert re.search(r'^BINARY_NAME="qec-tui"', text, re.MULTILINE), \
-            "install.sh must set BINARY_NAME to qec-tui"
+        assert re.search(rf'^BINARY_NAME="{re.escape(BINARY_NAME)}"', text, re.MULTILINE), \
+            f"install.sh must set BINARY_NAME to {BINARY_NAME}"
 
     def test_install_sh_configures_install_dir(self, install_sh: Path) -> None:
         text = install_sh.read_text(encoding="utf-8")
-        assert re.search(r'^INSTALL_DIR="/usr/local/bin"', text, re.MULTILINE), \
-            "install.sh must set INSTALL_DIR to /usr/local/bin"
+        assert re.search(rf'^INSTALL_DIR="{re.escape(INSTALL_DIR)}"', text, re.MULTILINE), \
+            f"install.sh must set INSTALL_DIR to {INSTALL_DIR}"
 
     def test_install_sh_uses_github_api(self, install_sh: Path) -> None:
         text = install_sh.read_text(encoding="utf-8")
-        expected = "https://api.github.com/repos/${REPO}/releases/latest"
-        assert expected in text or \
-            "https://api.github.com/repos/QSOLKCB/QEC/releases/latest" in text, \
+        expected_template = "https://api.github.com/repos/${REPO}/releases/latest"
+        expected_literal = f"https://api.github.com/repos/{REPO_SLUG}/releases/latest"
+        assert expected_template in text or expected_literal in text, \
             "install.sh must query GitHub releases API"
 
     def test_install_sh_cleans_up_tmpdir(self, install_sh: Path) -> None:
@@ -107,8 +115,6 @@ class TestInstallShExists:
 class TestReadmeCurlPath:
     """Verify the README curl install command matches install.sh location."""
 
-    EXPECTED_URL = "https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh"
-
     def test_readme_exists(self, readme: Path) -> None:
         assert readme.exists(), "README.md must exist"
 
@@ -118,8 +124,8 @@ class TestReadmeCurlPath:
 
     def test_readme_curl_url_matches(self, readme: Path) -> None:
         text = readme.read_text(encoding="utf-8")
-        assert self.EXPECTED_URL in text, \
-            f"README must contain the canonical install URL: {self.EXPECTED_URL}"
+        assert CANONICAL_CURL_URL in text, \
+            f"README must contain the canonical install URL: {CANONICAL_CURL_URL}"
 
     def test_readme_curl_flags(self, readme: Path) -> None:
         text = readme.read_text(encoding="utf-8")
@@ -154,10 +160,10 @@ class TestInstallerIdempotency:
     def test_config_values_stable(self, install_sh: Path) -> None:
         text = install_sh.read_text(encoding="utf-8")
         cfg = self._extract_config(text)
-        assert cfg["REPO"] == "QSOLKCB/QEC"
-        assert cfg["ASSET_NAME"] == "qec-tui-linux-x86_64.tar.gz"
-        assert cfg["INSTALL_DIR"] == "/usr/local/bin"
-        assert cfg["BINARY_NAME"] == "qec-tui"
+        assert cfg["REPO"] == REPO_SLUG
+        assert cfg["ASSET_NAME"] == ASSET_NAME
+        assert cfg["INSTALL_DIR"] == INSTALL_DIR
+        assert cfg["BINARY_NAME"] == BINARY_NAME
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +180,7 @@ class TestVersionTagResolution:
         text = cargo_toml.read_text(encoding="utf-8")
         m = re.search(r'^name\s*=\s*"([^"]+)"', text, re.MULTILINE)
         assert m is not None, "Cargo.toml must declare a package name"
-        assert m.group(1) == "qec-tui", f"Package name must be qec-tui, got {m.group(1)!r}"
+        assert m.group(1) == BINARY_NAME, f"Package name must be {BINARY_NAME}, got {m.group(1)!r}"
 
     def test_cargo_version_is_semver(self, cargo_toml: Path) -> None:
         text = cargo_toml.read_text(encoding="utf-8")

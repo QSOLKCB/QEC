@@ -9,7 +9,7 @@ composing pairwise drift analysis into ordered epoch sequences.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Sequence, Tuple
 
 from qec.sims.phase_drift_analysis import analyze_phase_drift
 from qec.sims.phase_map_generator import PhaseMap
@@ -27,7 +27,11 @@ class PhaseTimelineEpoch:
 
 @dataclass(frozen=True)
 class PhaseTimelineReport:
-    """Frozen report of multi-epoch phase evolution."""
+    """Frozen report of multi-epoch phase evolution.
+
+    # Future: a drift-only lightweight variant may be introduced for
+    # very large timelines that omit full PhaseMap storage per epoch.
+    """
 
     epochs: Tuple[PhaseTimelineEpoch, ...]
     total_epochs: int
@@ -36,16 +40,16 @@ class PhaseTimelineReport:
 
 
 def build_phase_timeline(
-    snapshots: Tuple[PhaseMap, ...],
+    snapshots: Sequence[PhaseMap],
 ) -> PhaseTimelineReport:
     """Build a deterministic phase timeline from ordered snapshots.
 
     Parameters
     ----------
-    snapshots : Tuple[PhaseMap, ...]
+    snapshots : Sequence[PhaseMap]
         Ordered sequence of phase map snapshots.  Must contain at
         least one snapshot.  All snapshots must share identical
-        dimensions.
+        dimensions.  Converted to tuple internally.
 
     Returns
     -------
@@ -57,6 +61,7 @@ def build_phase_timeline(
     ValueError
         If snapshots is empty or dimensions are inconsistent.
     """
+    snapshots = tuple(snapshots)
     if len(snapshots) == 0:
         raise ValueError("snapshots must contain at least one PhaseMap")
 

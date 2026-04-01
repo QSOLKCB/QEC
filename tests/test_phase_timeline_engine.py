@@ -90,6 +90,18 @@ class TestValidation:
             build_phase_timeline((pm1, pm2))
 
 
+# ── Sequence API ergonomics ─────────────────────────────────────────
+
+
+class TestSequenceInput:
+    def test_list_input_accepted(self) -> None:
+        pm_a = _make_phase_map((_cell(0.1, "stable"),), 1, 1)
+        pm_b = _make_phase_map((_cell(0.1, "divergent"),), 1, 1)
+        report = build_phase_timeline([pm_a, pm_b])
+        assert report.total_epochs == 2
+        assert isinstance(report.epochs, tuple)
+
+
 # ── Single snapshot ─────────────────────────────────────────────────
 
 

@@ -1,4 +1,4 @@
-pytest
-numpy
-scipy
-networkx
+pytest>=7.0
+numpy>=1.24
+scipy>=1.10
+networkx>=2.6

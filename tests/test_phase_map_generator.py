@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from qec.sims.law_sweep_engine import LawSweepResult
 from qec.sims.phase_map_generator import (
     PhaseCell,
@@ -191,6 +193,39 @@ def test_deterministic_replay():
     ascii1 = render_phase_matrix_ascii(pm1)
     ascii2 = render_phase_matrix_ascii(pm2)
     assert ascii1 == ascii2
+
+
+def test_partial_grid_rejected():
+    c1 = (1.0, 1.0, 1.0)
+    c2 = (2.0, 2.0, 2.0)
+    # 2 decays x 2 couplings = 4 expected, but only 3 provided
+    results = (
+        _make_result(0.5, c1, "stable", 0.0),
+        _make_result(0.5, c2, "stable", 0.0),
+        _make_result(1.0, c1, "divergent", 1.0),
+    )
+    with pytest.raises(ValueError, match="full rectangular grid"):
+        build_phase_map(results)
+
+
+def test_invalid_regime_label_rejected():
+    cell = PhaseCell(
+        decay=0.9,
+        coupling_profile=(1.0, 1.0, 1.0),
+        regime_label="unknown",
+        divergence_score=0.0,
+    )
+    pm = PhaseMap(
+        cells=(cell,),
+        num_rows=1,
+        num_cols=1,
+        stable_count=0,
+        critical_count=0,
+        divergent_count=0,
+        max_divergence=0.0,
+    )
+    with pytest.raises(ValueError, match="unsupported regime_label: unknown"):
+        render_phase_matrix_ascii(pm)
 
 
 def test_grid_dimensions():

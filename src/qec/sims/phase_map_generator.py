@@ -96,6 +96,11 @@ def build_phase_map(
         for r in results
     )
 
+    if len(cells) != num_rows * num_cols:
+        raise ValueError(
+            "phase map results must form a full rectangular grid"
+        )
+
     stable_count = sum(1 for c in cells if c.regime_label == "stable")
     critical_count = sum(1 for c in cells if c.regime_label == "critical")
     divergent_count = sum(1 for c in cells if c.regime_label == "divergent")
@@ -137,7 +142,10 @@ def render_phase_matrix_ascii(phase_map: PhaseMap) -> str:
         for col in range(phase_map.num_cols):
             idx = row * phase_map.num_cols + col
             cell = phase_map.cells[idx]
-            symbols.append(_REGIME_SYMBOL[cell.regime_label])
+            label = cell.regime_label
+            if label not in _REGIME_SYMBOL:
+                raise ValueError(f"unsupported regime_label: {label}")
+            symbols.append(_REGIME_SYMBOL[label])
         lines.append(" ".join(symbols))
 
     return "\n".join(lines)

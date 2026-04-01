@@ -3,6 +3,10 @@
 
 from __future__ import annotations
 
+import itertools
+
+import pytest
+
 from qec.sims.universe_kernel import UniverseState
 from qec.sims.law_sweep_engine import (
     LawSweepConfig,
@@ -195,6 +199,35 @@ def test_zero_step_edge_case():
     assert results[0].regime_label == "critical"
 
 
+# --- Validation tests ---
+
+
+def test_negative_steps_rejected():
+    """Negative steps must raise ValueError."""
+    state = _make_state(qutrits=(0, 0, 0))
+    config = LawSweepConfig(
+        decay_values=(0.99,),
+        coupling_profiles=((1.0, 1.0, 1.0),),
+        steps=-1,
+        label="negative-steps",
+    )
+    with pytest.raises(ValueError, match="steps must be >= 0"):
+        run_law_sweep(state, config)
+
+
+def test_invalid_qutrit_rejected():
+    """Invalid qutrit states must raise ValueError."""
+    state = _make_state(qutrits=(0, 3, 2))  # 3 is invalid
+    config = LawSweepConfig(
+        decay_values=(0.99,),
+        coupling_profiles=((1.0, 1.0, 1.0),),
+        steps=5,
+        label="bad-qutrit",
+    )
+    with pytest.raises(ValueError, match="qutrit_states"):
+        run_law_sweep(state, config)
+
+
 # --- Multi-parameter grid test ---
 
 
@@ -209,3 +242,8 @@ def test_multi_parameter_grid():
     )
     results = run_law_sweep(state, config)
     assert len(results) == 6  # 3 decay x 2 coupling
+
+    # Verify decay-major, coupling-minor ordering
+    assert [(r.decay, r.coupling_profile) for r in results] == list(
+        itertools.product(config.decay_values, config.coupling_profiles)
+    )

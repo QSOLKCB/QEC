@@ -15,6 +15,7 @@ from typing import Tuple
 
 from qec.sims.universe_kernel import UniverseState
 from qec.sims.observable_probe import observe_universe
+from qec.sims.qutrit_coupling import _validate_qutrit_states
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,7 @@ def _evolve_with_params(
         2. Apply coupling multipliers from profile (cyclic over qutrits)
         3. Increment timestep
     """
+    _validate_qutrit_states(state.qutrit_states)
     # Step 1: parameterized decay
     decayed = tuple(f * decay for f in state.field_amplitudes)
     # Step 2: parameterized coupling
@@ -151,6 +153,9 @@ def run_law_sweep(
         One result per (decay, coupling_profile) combination.
         Ordered by decay values then coupling profiles.
     """
+    if config.steps < 0:
+        raise ValueError("steps must be >= 0")
+
     initial_obs = observe_universe(initial_state)
     baseline_energy = initial_obs.mean_field_energy
 

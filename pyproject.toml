@@ -25,9 +25,9 @@ dev = [
 # Optional external backends — not installed by default.
 # Tests requiring these are skipped when unavailable.
 external = [
-    "stim",
-    "pymatching",
-    "qec_qldpc_codes"
+    "stim>=1.13",
+    "pymatching>=2.2",
+    "qec_qldpc_codes>=0.1"
 ]
 
 [tool.pytest.ini_options]

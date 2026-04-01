@@ -1,280 +1,311 @@
-# QSOLKCB / QEC — Deterministic Adaptive QLDPC System
-## Current Project State Snapshot (v99.1)
+# QSOLKCB / QEC — Deterministic Supervisory Control Framework
+## Current Project State Snapshot (v132.x)
 
-Author: Trent Slade  
-Organization: QSOL-IMC  
-Philosophy: Determinism-first engineering and structural decoding research  
+**Author:** Trent Slade  
+**Organization:** QSOL-IMC  
+**ORCID:** 0009-0002-4515-9237  
+
+**Philosophy:**  
+Determinism-first engineering, formal supervisory control, structural QLDPC reasoning
 
 ---
 
 # Purpose of This File
 
-This document provides a **current architectural snapshot** of the QEC system.
+This document provides the **current authoritative system-state snapshot** of the QEC framework.
 
 It exists to help:
 
-- new contributors  
-- research collaborators  
-- automated agents (ChatGPT / Claude)  
-- future versions of the author  
+- new contributors
+- research collaborators
+- automated agents (ChatGPT / Claude / Codex)
+- future versions of the author
 
 quickly understand:
 
-- what the system currently is  
-- what problems it solves  
-- what invariants must not be broken  
-- where the research is heading  
+- what the system currently is
+- what modules already exist
+- what architectural invariants must not be broken
+- what the active control stack currently does
+- what the protected boundaries are
 
 ---
 
 # Authoritative Project Documents
 
-- README.md — overview and entry point  
-- PROJECT_STATE.md — **current system state (this file)**  
-- ROADMAP.md — future direction  
-- CHANGELOG.md — version history  
+- `README.md` — overview and entry point
+- `PROJECT_STATE.md` — **what exists now**
+- `ROADMAP.md` — future direction
+- `CHANGELOG.md` — historical release evolution
 
 Interpretation:
 
-- PROJECT_STATE = what exists now  
-- ROADMAP = what is coming  
-- CHANGELOG = what already happened  
+```text
+PROJECT_STATE = what currently exists
+ROADMAP = what comes next
+CHANGELOG = what already happened
+Current System Identity (v132.x)
 
----
+QEC is no longer a decoder toolkit.
 
-# Current System Identity (v99+)
-
-QEC is no longer just a decoder toolkit.
+It is no longer only an adaptive controller.
 
 It is now a:
 
-# **Deterministic Adaptive Decision System for QLDPC Decoding**
+Deterministic Supervisory Control, Verification, and Theory Framework for QLDPC Decoding
 
----
+This is now a closed-loop supervisory reasoning system.
 
-## Core Loop
+Primary loop:
 
-The system operates as a fully deterministic control loop:
-
-```text
-metrics → attractor → strategy → evaluation → adaptation → memory
+sense
+→ diagnose
+→ control
+→ supervise
+→ verify
+→ explain
+→ learn laws
 
 Expanded:
 
-sense → decide → evaluate → adapt → specialize
-Key Properties
-fully deterministic (no randomness)
-fully reproducible (byte-identical runs)
-fully interpretable (no black-box learning)
-adaptive without machine learning
-memory-driven strategy selection
-System Architecture (v99)
+metrics
+→ topology
+→ control decision
+→ supervisory transition
+→ temporal verification
+→ policy memory
+→ feedback
+→ explainability
+→ law formation
+Core System Properties
+
+The system is:
+
+fully deterministic
+fully reproducible
+byte-identical under fixed configuration
+formally auditable
+memory-aware
+supervisory-state driven
+fail-safe capable
+non-ML adaptive
+
+Strict exclusions:
+
+no randomness
+no async
+no black-box learning
+no hidden mutable state
+System Architecture (Current)
 
 The system is layered and strictly constrained.
 
 Layer	Path	Role
 1	src/qec/decoder/	Protected BP decoder
 2	src/qec/channel/	Channel / LLR models
-3	src/qec/diagnostics/	Observational signals
-4	src/qec/predictors/	Pre-decode risk estimation
-5	src/qec/analysis/	Metrics, attractors, strategy logic
-6	src/qec/experiments/	Experiment orchestration
-7	src/bench/	Benchmark harness
+3	src/qec/diagnostics/	Observational metrics
+4	src/qec/analysis/	Supervisory intelligence
+5	src/qec/experiments/	Controlled experiments
+6	src/bench/	deterministic harness
 Layer Responsibilities
-Decoder Layer (Protected)
-belief propagation (BP)
-deterministic post-processing
-MUST remain bit-stable
-Analysis Layer (Core Intelligence)
+Layer 1 — Decoder Core (Protected)
 
-This is where most of the v98–v99 system lives.
+Location:
 
-Subsystems:
-1. Field Metrics (v98.5)
-phi alignment
-symmetry / triality
-curvature
-resonance
-complexity
-2. Multiscale Metrics (v98.6)
-scale consistency
-scale divergence
-multi-resolution structure
-3. Attractor Analysis (v98.7)
-regime classification:
-stable
-oscillatory
-unstable
-transitional
-basin score
-transition detection
-4. Strategy Selection (v98.8)
-deterministic scoring
-regime-aware decisions
-transition triggering
-5. Strategy Evaluation (v98.9)
-before/after comparison
-improvement scoring
-outcome classification:
-stabilized
-recovered
-damped
-regressed
-6. Adaptation Layer (v99.0)
-global feedback bias
-trajectory scoring
-recency-weighted performance
-7. Strategy Memory (v99.1)
-per-strategy history
-bounded memory (cap = 10)
-local biasing of strategy selection
-What the System Now Does
+src/qec/decoder/
 
-The system can:
+This remains the protected physical decoding system.
 
-detect system state (via metrics)
-classify behavior (via attractors)
-choose actions (strategies)
-evaluate outcomes
-adapt future decisions
-remember which strategies work
-Crucially
+Includes:
 
-It does all of this:
+belief propagation
+deterministic scheduling
+OSD / decimation
+protected decode semantics
 
-WITHOUT randomness
-WITHOUT ML
-WITHOUT hidden state
-Research Position
+This layer is sacred.
 
-The system has transitioned from:
+Must remain bit-stable.
+
+No supervisory logic may enter this layer.
+
+Layer 2 — Channels
+
+Includes:
+
+deterministic LLR generation
+pluggable noise models
+modality-specific signal profiles
+
+Fully deterministic.
+
+Layer 3 — Diagnostics
+
+QEC as a measurement system.
+
+Includes:
+
+field metrics
+multiscale metrics
+attractor analysis
+topology analysis
+graph controllability
+invariant extraction
+risk fusion
+
+This layer converts raw system behavior into stable signals.
+
+Layer 4 — Supervisory Intelligence (Core)
+
+This is where the modern QEC control framework lives.
+
+This is now the dominant system layer.
+
+Existing Supervisory Modules
+
+Current implemented modules include:
+
+invariant proving engine
+law engine
+hybrid automata
+graph controllability
+safety state automata
+threshold hysteresis controller
+NetworkX topology analysis
+invariant fusion engine
+adaptive policy orchestrator
+policy memory engine
+policy feedback controller
+adaptive supervisory controller
+temporal transition verifier
+
+This is the current production supervisory stack.
+
+Current Control Stack
+
+The control stack now operates as:
+
+diagnostics
+→ fused risk
+→ policy selection
+→ supervisory transition
+→ temporal legality check
+→ memory feedback
+→ state evolution
+
+This is now a deterministic supervisory control system.
+
+Current Supervisory Capabilities
+
+The system can currently:
+
+detect risk conditions
+fuse multi-layer invariants
+select control policies
+escalate safely
+trigger fail-safe states
+enforce absorbing safe states
+verify temporal legality
+detect oscillatory supervisory patterns
+track bounded policy memory
+adapt future decisions deterministically
+provide audit-safe replay
+
+This is a major evolution beyond the v99 adaptive layer.
+
+Current Safety Guarantees
+
+Implemented guarantees include:
+
+fail-safe precedence
+absorbing safe_mode
+absorbing escalation_lock
+temporal transition legality
+deterministic hysteresis anti-flap
+bounded policy memory
+explicit recovery precedence
+no hidden stochastic drift
+
+These are now core system guarantees.
+
+Current Research Position
+
+QEC has transitioned from:
 
 decoder diagnostics
 
 to:
 
-deterministic adaptive control of decoding behavior
-Original Research Insight (v3–v7)
+formal supervisory control framework
 
-Decoding failure is driven by:
+Current research direction:
 
-Tanner graph structure
-↓
-spectral localization
-↓
-instability modes
-↓
-BP failure
-Current Extension (v98–v99)
+control synthesis
+temporal verification
+hybrid automata
+formal theorem integration
+explainable supervision
+Current Known Limits
 
-The system now explores:
+Not yet implemented:
 
-state → intervention → feedback → adaptation
+DFA controller synthesis
+DPDA stack supervisors
+theorem prover bridges
+symbolic execution
+SAT / SMT control proofs
+hybrid continuous-time control
 
-Meaning:
+These are active roadmap items.
 
-decoding is treated as a dynamical system
-strategies act as control inputs
-evaluation provides feedback signals
-memory enables specialization
-Current Capabilities
-Deterministic Strategy System
-multiple strategy types
-composable actions
-deterministic selection
-Adaptive Feedback
-evaluates improvement
-biases future decisions
-tracks trajectory performance
-Memory System
-strategy-specific performance
-bounded historical tracking
-specialization over time
-Experiment Harness
-deterministic input generation
-structured reports
-full trace visibility
-Current Limitations
+Current Test Status
 
-The system is intentionally constrained.
+Current expectation:
 
-Not Yet Implemented
-regime-specific memory
-multi-step trajectory optimization
-learned weight tuning
-attractor-aware adaptation
-Important
+all supervisory modules fully covered by deterministic pytest suite
 
-These are intentional omissions, not gaps.
+Must maintain:
 
-The system prioritizes:
-
-clarity > complexity
-determinism > performance
-structure > heuristics
-Research Direction
-Immediate (v99.x)
-refine adaptation behavior
-introduce regime-aware memory
-improve transition intelligence
-Near-Term
-attractor-conditioned strategy selection
-transition success modeling
-structured decision policies
-Long-Term
-deterministic stability oracle
-Tanner graph optimization via control signals
-full decoding phase-space mapping
-Test Suite Status
-~6000+ tests passing
-0 failures
-deterministic validation across system
-
-Legacy v3 tests have been archived and excluded.
-
+zero nondeterministic failures
+stable schemas
+replay-identical results
 Architectural Invariants
 
-The following must never change without a major version bump:
+The following must never change without major roadmap approval:
 
 decoder semantics
-BP scheduling
 deterministic outputs
-artifact identity
-schema compatibility
-
-All advanced behavior must remain:
-
-opt-in
-externally applied
-non-invasive
+stable schemas
+supervisory transition contracts
+fail-safe precedence
+temporal legality semantics
 Determinism Anchor
 
-Example configuration:
+Canonical guarantee:
 
-runtime_mode = "off"
-seed = fixed
-deterministic_metadata = True
+same input
+→ same supervisory trace
+→ same output
+→ same bytes
 
-Guarantee:
+This is absolute.
 
-same input → same output → byte-identical
 Project Philosophy
-
 Small is beautiful.
 Determinism is holy.
-Stability is engineered.
+Safety is sacred.
+Supervision must be provable.
 
 No randomness.
+
 No excuses.
 
 Negative results are data.
 
-Author
+Final System Identity
 
-Trent Slade
-QSOL-IMC
+QEC is now:
 
-ORCID: https://orcid.org/0009-0002-4515-9237
+a deterministic supervisory control framework for QLDPC systems
 
-
-👉 a system
+not merely a decoder toolkit.

@@ -11,8 +11,6 @@ nonblocking behavior.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Tuple
-
 
 @dataclass(frozen=True)
 class DFAStateMachine:
@@ -127,13 +125,7 @@ def synthesize_supervisor(plant: DFAStateMachine) -> dict:
     else:
         nonblocking = True
 
-    # Maximally permissive: we only blocked what was necessary
-    maximally_permissive = len(blocked) == 0 and legal == _reachable_states(
-        plant.initial_state, plant.transitions, frozenset(plant.states),
-    ) & frozenset(plant.states) or len(legal) > 0
-
-    # More precise: maximally permissive if all reachable safe states kept
-    # We are maximally permissive by construction (RW fixed-point).
+    # Maximally permissive by construction (RW fixed-point).
     maximally_permissive = True
 
     # Score

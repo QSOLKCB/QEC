@@ -6,8 +6,6 @@ Supports byte-identical replay-safe snapshots of:
 - 2D controller episodes
 - 3D trajectories
 - feedback ledgers
-- validator reports
-- policy evidence state
 
 Design invariants
 -----------------
@@ -24,7 +22,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Tuple
+from typing import Any, Callable
 
 from qec.ai.surface_feedback_engine import FeedbackLedger, score_feedback
 
@@ -71,7 +69,7 @@ class SnapshotAuditResult:
 def _canonical_float(value: float) -> float:
     """Normalize a float for canonical serialization.
 
-    Rounds to 15 significant digits to avoid platform-dependent
+    Rounds to 15 decimal places to avoid platform-dependent
     floating-point representation differences while preserving
     full double precision.
     """
@@ -303,6 +301,11 @@ def deserialize_snapshot(payload: str) -> ControllerSnapshot:
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON payload: {exc}") from exc
 
+    if not isinstance(obj, dict):
+        raise ValueError(
+            f"Expected a JSON object, got {type(obj).__name__}"
+        )
+
     required_keys = {
         "evidence_score", "invariant_passed", "payload_json",
         "policy_id", "schema_version", "state_hash", "timestamp_index",
@@ -311,11 +314,18 @@ def deserialize_snapshot(payload: str) -> ControllerSnapshot:
     if missing:
         raise ValueError(f"Missing required keys: {sorted(missing)}")
 
+    raw_invariant = obj["invariant_passed"]
+    if not isinstance(raw_invariant, bool):
+        raise ValueError(
+            f"invariant_passed must be a JSON boolean, "
+            f"got {type(raw_invariant).__name__}: {raw_invariant!r}"
+        )
+
     return ControllerSnapshot(
         state_hash=str(obj["state_hash"]),
         policy_id=str(obj["policy_id"]),
         evidence_score=float(obj["evidence_score"]),
-        invariant_passed=bool(obj["invariant_passed"]),
+        invariant_passed=raw_invariant,
         timestamp_index=int(obj["timestamp_index"]),
         schema_version=str(obj["schema_version"]),
         payload_json=str(obj["payload_json"]),
@@ -361,6 +371,9 @@ def run_snapshot_replay_audit(
     runs
         Number of replay iterations (default 100).
     """
+    if runs < 1:
+        raise ValueError(f"runs must be >= 1, got {runs}")
+
     reference = builder_fn(input_payload)
     ref_serialized = serialize_snapshot(reference)
     ref_hash = compute_snapshot_hash(reference)
@@ -369,7 +382,8 @@ def run_snapshot_replay_audit(
     for _ in range(runs - 1):
         result = builder_fn(input_payload)
         result_serialized = serialize_snapshot(result)
-        if result_serialized == ref_serialized:
+        result_hash = compute_snapshot_hash(result)
+        if result_serialized == ref_serialized and result_hash == ref_hash:
             identical += 1
 
     return SnapshotAuditResult(
@@ -424,9 +438,15 @@ def validate_snapshot_schema(snapshot: ControllerSnapshot) -> bool:
             f"invariant_passed must be bool, got {type(snapshot.invariant_passed).__name__}"
         )
 
-    if not isinstance(snapshot.state_hash, str) or len(snapshot.state_hash) != 64:
+    if not isinstance(snapshot.state_hash, str):
         raise ValueError(
-            f"state_hash must be a 64-char hex string, got length {len(snapshot.state_hash)}"
+            f"state_hash must be a 64-char hex string, "
+            f"got type {type(snapshot.state_hash).__name__}"
+        )
+    if len(snapshot.state_hash) != 64:
+        raise ValueError(
+            f"state_hash must be a 64-char hex string, "
+            f"got length {len(snapshot.state_hash)}"
         )
     try:
         int(snapshot.state_hash, 16)
@@ -437,7 +457,16 @@ def validate_snapshot_schema(snapshot: ControllerSnapshot) -> bool:
 
     try:
         json.loads(snapshot.payload_json)
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, TypeError) as exc:
         raise ValueError(f"payload_json is not valid JSON: {exc}")
+
+    computed_hash = hashlib.sha256(
+        snapshot.payload_json.encode("utf-8")
+    ).hexdigest()
+    if computed_hash != snapshot.state_hash:
+        raise ValueError(
+            f"state_hash does not match SHA-256 of payload_json: "
+            f"expected {computed_hash}, got {snapshot.state_hash}"
+        )
 
     return True

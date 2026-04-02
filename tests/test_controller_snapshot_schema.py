@@ -38,9 +38,8 @@ from qec.ai.controller_snapshot_schema import (
     serialize_snapshot,
     validate_snapshot_schema,
 )
-from qec.ai.movement_learning_2d import MovementEpisode, run_episode
+from qec.ai.movement_learning_2d import run_episode
 from qec.ai.movement_learning_3d import (
-    Trajectory3D,
     run_trajectory,
     trajectory_to_feedback_ledger,
 )
@@ -49,9 +48,6 @@ from qec.ai.surface_feedback_engine import (
     FeedbackLedger,
     episode_to_feedback_ledger,
     record_feedback,
-)
-from qec.ai.state_space_validator import (
-    StateSpaceValidationReport,
 )
 
 
@@ -218,6 +214,18 @@ class TestDeserializationRoundtrip:
     def test_deserialize_missing_keys_raises(self):
         with pytest.raises(ValueError, match="Missing required keys"):
             deserialize_snapshot('{"state_hash": "abc"}')
+
+    def test_deserialize_non_object_json_raises(self):
+        with pytest.raises(ValueError, match="Expected a JSON object"):
+            deserialize_snapshot("[1, 2, 3]")
+
+    def test_deserialize_non_bool_invariant_raises(self):
+        snap = _make_snapshot()
+        serialized = serialize_snapshot(snap)
+        obj = json.loads(serialized)
+        obj["invariant_passed"] = "true"
+        with pytest.raises(ValueError, match="invariant_passed must be a JSON boolean"):
+            deserialize_snapshot(json.dumps(obj))
 
 
 # ===================================================================
@@ -475,6 +483,20 @@ class TestSchemaValidation:
         with pytest.raises(ValueError, match="payload_json"):
             validate_snapshot_schema(bad)
 
+    def test_state_hash_integrity_mismatch(self):
+        snap = _make_snapshot()
+        bad = ControllerSnapshot(
+            state_hash="a" * 64,
+            policy_id=snap.policy_id,
+            evidence_score=snap.evidence_score,
+            invariant_passed=snap.invariant_passed,
+            timestamp_index=snap.timestamp_index,
+            schema_version=SCHEMA_VERSION,
+            payload_json=snap.payload_json,
+        )
+        with pytest.raises(ValueError, match="state_hash does not match"):
+            validate_snapshot_schema(bad)
+
 
 # ===================================================================
 # 8. Version validation tests
@@ -723,6 +745,15 @@ class TestReplayAuditFunction:
         )
         assert audit.identical_runs == 100
         assert audit.deterministic is True
+
+    def test_replay_audit_invalid_runs_raises(self):
+        ep = run_episode(seed=42, steps=5)
+        with pytest.raises(ValueError, match="runs must be >= 1"):
+            run_snapshot_replay_audit(
+                lambda x: build_snapshot_from_episode(x, "bad"),
+                ep,
+                runs=0,
+            )
 
 
 # ===================================================================

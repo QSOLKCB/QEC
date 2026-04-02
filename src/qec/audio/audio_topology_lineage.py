@@ -9,13 +9,22 @@ All structures are frozen, deterministic, and replay-safe.
 
 import math
 from dataclasses import dataclass
-from typing import Tuple
+from typing import List, Tuple
 
 from qec.audio.quantum_audio_logic_lab import (
     QuantumAudioLogicReport,
     _cluster_tightness,
     analyze_quantum_audio_file,
 )
+
+
+# ── Threshold constants ─────────────────────────────────────────────────────
+
+BASIN_SWITCH_DISTANCE_THRESHOLD = 0.25
+BASIN_SWITCH_COHERENCE_THRESHOLD = 0.05
+BASIN_SWITCH_PSD_THRESHOLD = 0.7
+ATTRACTOR_PROXIMITY_THRESHOLD = 0.05
+CHAOTIC_SWITCH_RATIO = 0.6
 
 
 # ── Frozen dataclasses ──────────────────────────────────────────────────────
@@ -105,14 +114,25 @@ def _transition_label(
     entropy_delta: float,
     distance: float,
 ) -> str:
-    """Deterministic transition classification."""
+    """Deterministic transition classification.
+
+    Uses coherence_delta, entropy_delta, and distance to classify:
+      - "stable": small coherence change, small distance
+      - "chaotic": large entropy spike regardless of other metrics
+      - "degrading": coherence drops significantly
+      - "recovering": coherence rises significantly
+      - "basin_jump": large 2D distance
+      - "drifting": none of the above
+    """
+    if abs(entropy_delta) > 0.3:
+        return "chaotic"
     if abs(coherence_delta) < 0.02 and distance < 0.1:
         return "stable"
     if coherence_delta < -0.05:
         return "degrading"
     if coherence_delta > 0.05:
         return "recovering"
-    if distance > 0.25:
+    if distance > BASIN_SWITCH_DISTANCE_THRESHOLD:
         return "basin_jump"
     return "drifting"
 
@@ -172,9 +192,9 @@ def detect_basin_switches(report: AudioLineageReport) -> int:
     count = 0
     for t in report.transitions:
         if (
-            t.distance_2d > 0.25
-            or abs(t.coherence_delta) > 0.05
-            or t.psd_similarity < 0.7
+            t.distance_2d > BASIN_SWITCH_DISTANCE_THRESHOLD
+            or abs(t.coherence_delta) > BASIN_SWITCH_COHERENCE_THRESHOLD
+            or t.psd_similarity < BASIN_SWITCH_PSD_THRESHOLD
         ):
             count += 1
     return count
@@ -192,7 +212,7 @@ def _count_attractors(nodes: Tuple[AudioTopologyNode, ...]) -> int:
     in_attractor = False
     for i in range(len(nodes) - 1):
         dist = _distance_2d(nodes[i].mapping_2d, nodes[i + 1].mapping_2d)
-        if dist <= 0.05:
+        if dist <= ATTRACTOR_PROXIMITY_THRESHOLD:
             if not in_attractor:
                 attractors += 1
                 in_attractor = True
@@ -272,51 +292,24 @@ def classify_lineage(report: AudioLineageReport) -> str:
 
     # Chaotic: many basin switches relative to transitions
     n_transitions = len(report.transitions)
-    if n_transitions > 0 and report.basin_switch_count / n_transitions > 0.6:
+    if n_transitions > 0 and report.basin_switch_count / n_transitions > CHAOTIC_SWITCH_RATIO:
         return "chaotic"
 
     return "drifting"
 
 
-# ── Main entry point ────────────────────────────────────────────────────────
+# ── Shared lineage assembly ─────────────────────────────────────────────────
 
 
-def build_audio_lineage(paths: list) -> AudioLineageReport:
-    """Build a full temporal topology lineage from ordered audio paths.
-
-    Parameters
-    ----------
-    paths : list[str]
-        Ordered list of audio file paths.  The sequence order is
-        preserved exactly — this defines the temporal trajectory.
-
-    Returns
-    -------
-    AudioLineageReport
-        Frozen, deterministic lineage report with nodes, transitions,
-        basin switches, attractors, recovery detection, and classification.
-    """
-    if len(paths) == 0:
-        return AudioLineageReport(
-            nodes=(),
-            transitions=(),
-            basin_switch_count=0,
-            attractor_count=0,
-            recovery_path_detected=False,
-            lineage_label="stable_basin",
-        )
-
-    # Analyze each file and convert to topology nodes (preserve order)
-    reports = [analyze_quantum_audio_file(p) for p in paths]
-    nodes = tuple(_report_to_node(r) for r in reports)
-
-    # Compute ordered transitions: node_i → node_(i+1)
+def _assemble_lineage(
+    nodes: Tuple[AudioTopologyNode, ...],
+) -> AudioLineageReport:
+    """Shared pipeline: transitions → basin switches → attractors → recovery → label."""
     transitions = tuple(
         _compute_transition(nodes[i], nodes[i + 1])
         for i in range(len(nodes) - 1)
     )
 
-    # Build preliminary report for detection functions
     preliminary = AudioLineageReport(
         nodes=nodes,
         transitions=transitions,
@@ -329,7 +322,6 @@ def build_audio_lineage(paths: list) -> AudioLineageReport:
     basin_switches = detect_basin_switches(preliminary)
     attractor_count = _count_attractors(nodes)
 
-    # Build report with counts for recovery detection
     with_counts = AudioLineageReport(
         nodes=nodes,
         transitions=transitions,
@@ -341,7 +333,6 @@ def build_audio_lineage(paths: list) -> AudioLineageReport:
 
     recovery = detect_recovery_path(with_counts)
 
-    # Final report with all fields
     final = AudioLineageReport(
         nodes=nodes,
         transitions=transitions,
@@ -361,6 +352,32 @@ def build_audio_lineage(paths: list) -> AudioLineageReport:
         recovery_path_detected=recovery,
         lineage_label=label,
     )
+
+
+# ── Main entry point ────────────────────────────────────────────────────────
+
+
+def build_audio_lineage(paths: List[str]) -> AudioLineageReport:
+    """Build a full temporal topology lineage from ordered audio paths.
+
+    Parameters
+    ----------
+    paths : List[str]
+        Ordered list of audio file paths.  The sequence order is
+        preserved exactly — this defines the temporal trajectory.
+
+    Returns
+    -------
+    AudioLineageReport
+        Frozen, deterministic lineage report with nodes, transitions,
+        basin switches, attractors, recovery detection, and classification.
+    """
+    if len(paths) == 0:
+        return _assemble_lineage(())
+
+    reports = [analyze_quantum_audio_file(p) for p in paths]
+    nodes = tuple(_report_to_node(r) for r in reports)
+    return _assemble_lineage(nodes)
 
 
 # ── Node/report construction from raw values (for programmatic use) ─────────
@@ -394,50 +411,4 @@ def build_lineage_from_nodes(
 
     Useful for programmatic construction and testing without file I/O.
     """
-    transitions = tuple(
-        _compute_transition(nodes[i], nodes[i + 1])
-        for i in range(len(nodes) - 1)
-    )
-
-    preliminary = AudioLineageReport(
-        nodes=nodes,
-        transitions=transitions,
-        basin_switch_count=0,
-        attractor_count=0,
-        recovery_path_detected=False,
-        lineage_label="",
-    )
-
-    basin_switches = detect_basin_switches(preliminary)
-    attractor_count = _count_attractors(nodes)
-
-    with_counts = AudioLineageReport(
-        nodes=nodes,
-        transitions=transitions,
-        basin_switch_count=basin_switches,
-        attractor_count=attractor_count,
-        recovery_path_detected=False,
-        lineage_label="",
-    )
-
-    recovery = detect_recovery_path(with_counts)
-
-    final = AudioLineageReport(
-        nodes=nodes,
-        transitions=transitions,
-        basin_switch_count=basin_switches,
-        attractor_count=attractor_count,
-        recovery_path_detected=recovery,
-        lineage_label="",
-    )
-
-    label = classify_lineage(final)
-
-    return AudioLineageReport(
-        nodes=nodes,
-        transitions=transitions,
-        basin_switch_count=basin_switches,
-        attractor_count=attractor_count,
-        recovery_path_detected=recovery,
-        lineage_label=label,
-    )
+    return _assemble_lineage(nodes)

@@ -19,9 +19,15 @@ import os
 import pytest
 
 from qec.audio.audio_topology_lineage import (
+    ATTRACTOR_PROXIMITY_THRESHOLD,
+    BASIN_SWITCH_COHERENCE_THRESHOLD,
+    BASIN_SWITCH_DISTANCE_THRESHOLD,
+    BASIN_SWITCH_PSD_THRESHOLD,
+    CHAOTIC_SWITCH_RATIO,
     AudioLineageReport,
     AudioTopologyNode,
     AudioTopologyTransition,
+    _assemble_lineage,
     _compute_psd_similarity_from_nodes,
     _compute_transition,
     _count_attractors,
@@ -111,6 +117,12 @@ class TestTopologyLabel:
 
     def test_basin_jump_label(self):
         assert _transition_label(0.0, 0.0, 0.5) == "basin_jump"
+
+    def test_chaotic_label_high_entropy(self):
+        assert _transition_label(0.0, 0.5, 0.0) == "chaotic"
+
+    def test_chaotic_label_negative_entropy(self):
+        assert _transition_label(0.0, -0.4, 0.0) == "chaotic"
 
     def test_drifting_label(self):
         assert _transition_label(0.03, 0.0, 0.15) == "drifting"
@@ -486,3 +498,23 @@ class TestEdgeCases:
         report = build_lineage_from_nodes((node, node))
         assert report.transitions[0].coherence_delta == 0.0
         assert report.transitions[0].distance_2d == 0.0
+
+
+# ── 16. Threshold constants ────────────────────────────────────────────────
+
+
+class TestThresholdConstants:
+    def test_constants_are_positive(self):
+        assert BASIN_SWITCH_DISTANCE_THRESHOLD > 0
+        assert BASIN_SWITCH_COHERENCE_THRESHOLD > 0
+        assert BASIN_SWITCH_PSD_THRESHOLD > 0
+        assert ATTRACTOR_PROXIMITY_THRESHOLD > 0
+        assert CHAOTIC_SWITCH_RATIO > 0
+
+    def test_assemble_lineage_matches_build(self):
+        nodes = (
+            _make_node("a.mp3", coherence=0.7, tightness=0.3),
+            _make_node("b.mp3", coherence=0.2, tightness=0.1),
+            _make_node("c.mp3", coherence=0.8, tightness=0.2),
+        )
+        assert _assemble_lineage(nodes) == build_lineage_from_nodes(nodes)

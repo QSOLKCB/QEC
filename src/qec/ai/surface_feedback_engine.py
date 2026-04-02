@@ -128,11 +128,23 @@ def _clamp01(value: float) -> float:
 
 
 def _validate_event(event: FeedbackEvent) -> None:
-    """Validate a FeedbackEvent, raising ValueError on invalid type."""
+    """Validate a FeedbackEvent, raising ValueError on invalid inputs."""
     if event.event_type not in VALID_EVENT_TYPES:
         raise ValueError(
             f"Unknown event_type: {event.event_type!r}. "
             f"Must be one of {VALID_EVENT_TYPES}"
+        )
+    if not (0.0 <= event.magnitude <= 1.0):
+        raise ValueError(
+            f"magnitude must be in [0.0, 1.0], got {event.magnitude!r}"
+        )
+    if not (0.0 <= event.confidence <= 1.0):
+        raise ValueError(
+            f"confidence must be in [0.0, 1.0], got {event.confidence!r}"
+        )
+    if event.timestamp_index < 0:
+        raise ValueError(
+            f"timestamp_index must be non-negative, got {event.timestamp_index!r}"
         )
 
 
@@ -242,8 +254,11 @@ def merge_feedback_ledgers(
     for lg in ledgers:
         all_events.extend(lg.events)
 
-    # Deterministic sort: timestamp_index, then source, then event_type
-    all_events.sort(key=lambda e: (e.timestamp_index, e.source, e.event_type))
+    # Deterministic total-order sort: all fields used to break ties so
+    # that merge is permutation-invariant regardless of input order.
+    all_events.sort(key=lambda e: (
+        e.timestamp_index, e.source, e.event_type, e.magnitude, e.confidence,
+    ))
 
     # Replay all events from neutral baseline
     result: FeedbackLedger | None = None

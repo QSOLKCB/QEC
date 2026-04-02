@@ -172,6 +172,31 @@ class TestUnknownTypeRejection:
         with pytest.raises(ValueError, match="Unknown event_type"):
             record_feedback(ev)
 
+    def test_negative_magnitude_raises(self):
+        ev = FeedbackEvent("s", -0.1, "recovery", 0, 0.5)
+        with pytest.raises(ValueError, match="magnitude"):
+            record_feedback(ev)
+
+    def test_magnitude_above_one_raises(self):
+        ev = FeedbackEvent("s", 1.5, "recovery", 0, 0.5)
+        with pytest.raises(ValueError, match="magnitude"):
+            record_feedback(ev)
+
+    def test_negative_confidence_raises(self):
+        ev = FeedbackEvent("s", 0.5, "recovery", 0, -0.1)
+        with pytest.raises(ValueError, match="confidence"):
+            record_feedback(ev)
+
+    def test_confidence_above_one_raises(self):
+        ev = FeedbackEvent("s", 0.5, "recovery", 0, 1.1)
+        with pytest.raises(ValueError, match="confidence"):
+            record_feedback(ev)
+
+    def test_negative_timestamp_raises(self):
+        ev = FeedbackEvent("s", 0.5, "recovery", -1, 0.5)
+        with pytest.raises(ValueError, match="timestamp_index"):
+            record_feedback(ev)
+
 
 # ===========================================================================
 # 4. Score bounds
@@ -260,6 +285,23 @@ class TestLedgerMergeDeterminism:
         assert merged_ab.cumulative_score == merged_ba.cumulative_score
         assert merged_ab.stability_score == merged_ba.stability_score
         assert merged_ab.hazard_pressure == merged_ba.hazard_pressure
+
+    def test_merge_deterministic_when_sort_key_ties(self):
+        # Two events that share (timestamp_index, source, event_type)
+        # but differ in magnitude and confidence. Merging [l1, l2] vs [l2, l1]
+        # should yield identical merged ledgers.
+        ev1 = _make_event("reward", 0.3, 0.4, "same-source", 5)
+        ev2 = _make_event("reward", 0.7, 0.9, "same-source", 5)
+        l1 = record_feedback(ev1)
+        l2 = record_feedback(ev2)
+        merged_ab = merge_feedback_ledgers([l1, l2])
+        merged_ba = merge_feedback_ledgers([l2, l1])
+        # Aggregate scores should be deterministic
+        assert merged_ab.cumulative_score == merged_ba.cumulative_score
+        assert merged_ab.stability_score == merged_ba.stability_score
+        assert merged_ab.hazard_pressure == merged_ba.hazard_pressure
+        # Event sequence (including magnitudes/confidences) should also match
+        assert merged_ab.events == merged_ba.events
 
     def test_merge_100_replay_determinism(self):
         ledger_a = _build_sample_ledger()

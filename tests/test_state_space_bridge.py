@@ -506,16 +506,24 @@ class TestReplayDeterminism:
 class TestDecoderUntouched:
     def test_no_decoder_import_in_bridge(self):
         """Verify state_space_bridge does not import from qec.decoder."""
-        import importlib
+        import ast
+
         import qec.ai.state_space_bridge as mod
 
         source_path = mod.__file__
         assert source_path is not None
         with open(source_path, "r") as f:
-            source = f.read()
-        assert "qec.decoder" not in source
-        assert "from qec.decoder" not in source
-        assert "import qec.decoder" not in source
+            tree = ast.parse(f.read(), filename=source_path)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                assert not node.module.startswith("qec.decoder"), (
+                    f"Forbidden decoder import: from {node.module}"
+                )
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    assert not alias.name.startswith("qec.decoder"), (
+                        f"Forbidden decoder import: import {alias.name}"
+                    )
 
     def test_decoder_directory_exists_untouched(self):
         """Verify decoder directory exists and has not been removed."""

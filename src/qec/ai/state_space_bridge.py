@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Dict, List, Mapping, Sequence, Tuple, Union
+from typing import Any, Dict, List, Mapping, Sequence, Tuple, Union
 
 # ---------------------------------------------------------------------------
 # Thresholds (mirrored from audio_topology_lineage for consistency)
@@ -203,7 +203,7 @@ def build_audio_state_space(
 
 
 def build_qec_state_space(
-    metrics_report: Sequence[Mapping[str, float]],
+    metrics_report: Sequence[Mapping[str, Any]],
 ) -> UnifiedStateSpaceReport:
     """Build a unified state-space from QEC controller metric dicts.
 
@@ -256,7 +256,7 @@ def build_qec_state_space(
 
 
 def build_movement_state_space(
-    trace_report: Sequence[Mapping[str, float]],
+    trace_report: Sequence[Mapping[str, Any]],
 ) -> UnifiedStateSpaceReport:
     """Build a unified state-space from movement trajectory trace dicts.
 
@@ -303,16 +303,15 @@ def merge_state_spaces(
 ) -> UnifiedStateSpaceReport:
     """Merge multiple state-space reports into one unified report.
 
-    Nodes and transitions are concatenated in deterministic input order.
-    Attractors and recovery paths are recomputed over the merged node set.
+    Nodes are concatenated in deterministic input order and transitions are
+    recomputed over the merged node sequence.  Attractors and recovery paths
+    are recomputed over the merged node set.
     """
     all_nodes: List[StateSpaceNode] = []
-    all_transitions: List[StateSpaceTransition] = []
     for r in reports:
         all_nodes.extend(r.nodes)
-        all_transitions.extend(r.transitions)
     nodes_t = tuple(all_nodes)
-    transitions_t = tuple(all_transitions)
+    transitions_t = _compute_transitions(nodes_t)
     attractors = detect_shared_attractors_from_nodes(nodes_t)
     recovery = detect_recovery_paths_from_nodes(nodes_t)
     classification = classify_from_nodes_and_transitions(nodes_t, transitions_t)

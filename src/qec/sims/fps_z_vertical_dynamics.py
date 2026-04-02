@@ -340,11 +340,13 @@ def evolve_vertical_dynamics(
 # ---------------------------------------------------------------------------
 
 def compute_landing_stability(impact_vz: float) -> float:
-    """Compute landing stability score from vertical impact speed.
+    """Compute landing stability score from vertical impact speed magnitude.
+
+    `impact_vz` is expected to be the absolute vertical impact speed (non-negative).
 
     Returns a value in [0, 1] where 1 = perfectly safe landing.
     """
-    return max(0.0, 1.0 - abs(impact_vz) / _V_SAFE)
+    return max(0.0, 1.0 - impact_vz / _V_SAFE)
 
 
 # ---------------------------------------------------------------------------

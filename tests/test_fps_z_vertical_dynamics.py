@@ -125,11 +125,13 @@ def test_jump_arc_returns_to_ground() -> None:
 
 
 def test_ground_clamp() -> None:
-    """Z never goes below zero."""
+    """Z never goes below zero and vertical velocity is clamped on ground contact."""
     state = _make_state(z=1.0, vz=-20.0, grounded=False)
     trace = evolve_vertical_dynamics(state, steps=3, dt=1.0)
     for s in trace:
         assert s.z >= 0.0
+        if s.grounded:
+            assert s.vz == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +252,8 @@ def test_analyze_unsafe_landing() -> None:
     trace = evolve_vertical_dynamics(state, steps=50, dt=0.1)
     report = analyze_vertical_trace(trace)
     # Falling from 100m should produce unsafe landing
-    assert report.landing_stability_score < 1.0
+    assert report.landing_stability_score < 0.3
+    assert report.stability_label == "unsafe_landing"
 
 
 def test_analyze_efficient_glide() -> None:
@@ -337,6 +340,7 @@ def test_report_is_frozen() -> None:
 def test_decoder_untouched() -> None:
     """Verify this module does not import from decoder."""
     import qec.sims.fps_z_vertical_dynamics as mod
-    source = open(mod.__file__).read()
+    with open(mod.__file__) as f:
+        source = f.read()
     assert "qec.decoder" not in source
     assert "from qec.decoder" not in source

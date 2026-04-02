@@ -13,13 +13,14 @@ This runs in < 5 seconds and validates:
 from __future__ import annotations
 
 import hashlib
-import importlib
 from dataclasses import fields
 from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+from fast_regression_runner import get_repo_root
+
+REPO_ROOT = get_repo_root()
 
 
 # ── 1. Core imports ──────────────────────────────────────────────

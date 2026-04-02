@@ -15,17 +15,40 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+
+def get_repo_root() -> Path:
+    """Return the resolved repository root directory."""
+    return Path(__file__).resolve().parents[1]
+
+
+REPO_ROOT = get_repo_root()
 BASELINE_PATH = REPO_ROOT / "tests" / "test_baseline_registry.json"
 SMOKE_TEST = "tests/test_fast_smoke.py"
 
 SRC_PATH = REPO_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
+
+# Strict regex for pytest summary line, e.g.:
+#   "9870 passed, 11 skipped in 79.83s"
+#   "3 failed, 120 passed, 2 skipped, 1 error in 5.00s"
+_SUMMARY_RE = re.compile(
+    r"(?:(\d+)\s+passed)?"
+    r"(?:,?\s*(\d+)\s+failed)?"
+    r"(?:,?\s*(\d+)\s+skipped)?"
+    r"(?:,?\s*(\d+)\s+errors?)?"
+)
+
+# Individual count patterns for robust extraction
+_PASSED_RE = re.compile(r"(\d+)\s+passed")
+_FAILED_RE = re.compile(r"(\d+)\s+failed")
+_SKIPPED_RE = re.compile(r"(\d+)\s+skipped")
+_ERRORS_RE = re.compile(r"(\d+)\s+errors?")
 
 
 def load_baseline() -> dict:
@@ -34,42 +57,79 @@ def load_baseline() -> dict:
         return json.load(f)
 
 
+def _validate_test_path(path_str: str) -> str:
+    """Validate and normalize a test path to ensure it is inside the repo.
+
+    Raises ValueError if the resolved path escapes the repository root.
+    """
+    resolved = (REPO_ROOT / path_str).resolve()
+    if not str(resolved).startswith(str(REPO_ROOT)):
+        raise ValueError(
+            f"Test path escapes repository root: {path_str!r}"
+        )
+    return str(Path(path_str))
+
+
+def _parse_pytest_summary(stdout: str) -> dict:
+    """Parse pytest counts from stdout using strict regex.
+
+    Searches for individual count patterns (e.g. '123 passed') in
+    the output. Returns zero for any count not found.  Never uses
+    implicit variable state.
+    """
+    passed = 0
+    failed = 0
+    skipped = 0
+    errors = 0
+
+    m = _PASSED_RE.search(stdout)
+    if m:
+        passed = int(m.group(1))
+
+    m = _FAILED_RE.search(stdout)
+    if m:
+        failed = int(m.group(1))
+
+    m = _SKIPPED_RE.search(stdout)
+    if m:
+        skipped = int(m.group(1))
+
+    m = _ERRORS_RE.search(stdout)
+    if m:
+        errors = int(m.group(1))
+
+    return {
+        "passed": passed,
+        "failed": failed,
+        "skipped": skipped,
+        "errors": errors,
+    }
+
+
 def run_pytest(targets: list[str], *, collect_only: bool = False) -> dict:
     """Run pytest on the given targets and return result counts.
 
     Returns dict with keys: passed, failed, skipped, errors, returncode.
     """
-    cmd = [sys.executable, "-m", "pytest", "-q", "--tb=short"]
+    # Validate all dynamic test paths before building command
+    safe_targets = [_validate_test_path(t) for t in targets]
+
+    # Safe: command is static argv list, shell disabled
+    cmd = [sys.executable, "-m", "pytest", "-q", "--tb=short", "--no-header"]
     if collect_only:
         cmd.append("--co")
-    cmd.extend(targets)
+    cmd.extend(safe_targets)
 
     result = subprocess.run(
         cmd,
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
+        shell=False,  # Explicit: never use shell
     )
 
-    counts = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0}
+    counts = _parse_pytest_summary(result.stdout)
     counts["returncode"] = result.returncode
-
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        # Parse the pytest summary line, e.g. "123 passed, 4 skipped"
-        if "passed" in line or "failed" in line or "error" in line:
-            for token in line.replace(",", "").split():
-                if token.isdigit():
-                    last_num = int(token)
-                elif token.startswith("passed"):
-                    counts["passed"] = last_num
-                elif token.startswith("failed"):
-                    counts["failed"] = last_num
-                elif token.startswith("skipped"):
-                    counts["skipped"] = last_num
-                elif token.startswith("error"):
-                    counts["errors"] = last_num
-
     counts["stdout"] = result.stdout
     counts["stderr"] = result.stderr
     return counts

@@ -26,8 +26,6 @@ from typing import Tuple
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.signal import butter, sosfilt
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -75,8 +73,8 @@ class TrialityParams:
 def _hash_to_float(data: str, salt: str = "") -> float:
     """Map a string deterministically to [0.0, 1.0) via SHA-256."""
     digest = hashlib.sha256(f"{salt}:{data}".encode("utf-8")).hexdigest()
-    # Use first 8 hex chars (32 bits) for uniform float
-    return int(digest[:8], 16) / 0xFFFFFFFF
+    # Use first 8 hex chars (32 bits) for uniform float in [0.0, 1.0)
+    return int(digest[:8], 16) / (2**32)
 
 
 def _hash_to_int(data: str, low: int, high: int, salt: str = "") -> int:
@@ -250,5 +248,5 @@ def compute_spectral_rolloff(psd: NDArray, threshold: float = 0.85) -> float:
 def compute_peak_bins(psd: NDArray, n_peaks: int = 5) -> Tuple[int, ...]:
     """Return the top-n PSD peak bin indices, sorted ascending."""
     n_peaks = min(n_peaks, len(psd))
-    indices = np.argsort(psd)[-n_peaks:]
+    indices = np.argsort(psd, kind="stable")[-n_peaks:]
     return tuple(sorted(int(i) for i in indices))

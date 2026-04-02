@@ -604,19 +604,22 @@ class TestDecoderUntouched:
 
     def test_triality_engine_no_decoder_import(self):
         import qec.audio.triality_signal_engine as mod
-        source = open(mod.__file__).read()
+        with open(mod.__file__, encoding="utf-8") as f:
+            source = f.read()
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
 
     def test_cognition_registry_no_decoder_import(self):
         import qec.audio.cognition_registry as mod
-        source = open(mod.__file__).read()
+        with open(mod.__file__, encoding="utf-8") as f:
+            source = f.read()
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
 
     def test_audio_cognition_engine_no_decoder_import(self):
         import qec.audio.audio_cognition_engine as mod
-        source = open(mod.__file__).read()
+        with open(mod.__file__, encoding="utf-8") as f:
+            source = f.read()
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
 

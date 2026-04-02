@@ -8,7 +8,7 @@ Design invariants
 -----------------
 * frozen dataclasses only
 * deterministic matching — same fingerprint always produces identical match
-* cosine similarity on PSD vectors
+* cosine similarity on spectral feature vectors (centroid, rolloff, peak_bins)
 * high-confidence threshold: 0.98
 * stable ordering
 * no hidden randomness
@@ -227,16 +227,19 @@ def match_registry_signature(
 
     assert best_entry is not None
 
+    # Clamp to [0.0, 1.0] — cosine similarity can be negative for dissimilar vectors
+    normalized_confidence = max(0.0, best_confidence)
+
     if best_confidence >= HIGH_CONFIDENCE_THRESHOLD:
         return CognitionMatch(
-            confidence=best_confidence,
+            confidence=normalized_confidence,
             identity=f"{best_entry.code_family}:{best_entry.error_type}",
             failure_mode=best_entry.failure_mode,
             recommended_action=best_entry.recommended_action,
         )
 
     return CognitionMatch(
-        confidence=best_confidence,
+        confidence=normalized_confidence,
         identity=UNKNOWN_STATE,
         failure_mode=UNKNOWN_STATE,
         recommended_action=UNKNOWN_ACTION,

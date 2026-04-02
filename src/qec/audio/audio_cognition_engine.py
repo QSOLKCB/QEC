@@ -3,8 +3,7 @@ QEC Audio Cognition Engine — Closed-Loop Deterministic Observability (v136.8.3
 
 Closed-loop law:
 
-    QEC State -> Render -> Listen -> Fingerprint -> Registry Match
-    -> Recall -> Policy Action Hook
+    QEC State -> Render -> Fingerprint -> Registry Match -> Policy Action Hook
 
 Integrates with:
 - v136.8.2 code zoo (src/qec/codes/code_zoo.py)
@@ -39,7 +38,6 @@ from qec.audio.cognition_registry import (
     UNKNOWN_ACTION,
     UNKNOWN_STATE,
     match_registry_signature,
-    recall_similar_failure_state,
     register_cognition_entry,
 )
 from qec.audio.triality_signal_engine import (

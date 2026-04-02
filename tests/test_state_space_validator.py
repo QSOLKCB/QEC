@@ -131,7 +131,7 @@ class TestDataclassImmutability:
     def test_state_space_validation_report_frozen(self):
         r = StateSpaceValidationReport(
             invariant_results=(),
-            replay_audit=ReplayAuditResult(0, 0, True, ""),
+            replay_audit=None,
             overall_passed=True,
             classification_stable=True,
         )
@@ -198,6 +198,33 @@ class TestHashStability:
         r1 = _make_report(nodes=nodes, attractor_nodes=())
         r2 = _make_report(nodes=nodes, attractor_nodes=("a",))
         assert compute_state_space_hash(r1) != compute_state_space_hash(r2)
+
+    def test_hash_invariant_to_attractor_order(self):
+        """Attractor order should not affect the hash."""
+        nodes = (_node("a"), _node("b", x=0.01), _node("c", x=0.02))
+        r1 = _make_report(nodes=nodes, attractor_nodes=("a", "b", "c"))
+        r2 = _make_report(nodes=nodes, attractor_nodes=("c", "a", "b"))
+        assert compute_state_space_hash(r1) == compute_state_space_hash(r2)
+
+    def test_hash_invariant_to_recovery_path_order(self):
+        """Recovery path ordering should not affect the hash."""
+        nodes = (_node("a"), _node("b", x=0.1), _node("c", x=0.2))
+        r1 = _make_report(
+            nodes=nodes,
+            recovery_paths=(("a", "b"), ("b", "c")),
+        )
+        r2 = _make_report(
+            nodes=nodes,
+            recovery_paths=(("b", "c"), ("a", "b")),
+        )
+        assert compute_state_space_hash(r1) == compute_state_space_hash(r2)
+
+    def test_hash_invariant_to_recovery_path_internal_order(self):
+        """Node order within a recovery path should not affect the hash."""
+        nodes = (_node("a"), _node("b", x=0.1))
+        r1 = _make_report(nodes=nodes, recovery_paths=(("a", "b"),))
+        r2 = _make_report(nodes=nodes, recovery_paths=(("b", "a"),))
+        assert compute_state_space_hash(r1) == compute_state_space_hash(r2)
 
 
 # ===================================================================
@@ -376,6 +403,19 @@ class TestReplayAudit:
         audit = run_replay_audit(build_qec_state_space, metrics, runs=5)
         assert audit.state_hash == direct_hash
 
+    def test_replay_invocation_count_matches_runs(self):
+        """builder_fn should be called exactly `runs` times total."""
+        call_count = 0
+
+        def counting_builder(payload):
+            nonlocal call_count
+            call_count += 1
+            return build_qec_state_space(payload)
+
+        metrics = _sample_qec_metrics()
+        run_replay_audit(counting_builder, metrics, runs=20)
+        assert call_count == 20
+
 
 # ===================================================================
 # 8. Hash replay identity
@@ -519,10 +559,11 @@ class TestFullValidation:
         assert "classification_stability" in names
         assert "distance_non_negative" in names
 
-    def test_validation_includes_hash(self):
+    def test_validation_replay_audit_is_none(self):
+        """validate_state_space_report does not run replay; field is None."""
         report = build_qec_state_space(_sample_qec_metrics())
         validation = validate_state_space_report(report)
-        assert len(validation.replay_audit.state_hash) == 64
+        assert validation.replay_audit is None
 
     def test_validation_report_frozen(self):
         report = build_qec_state_space(_sample_qec_metrics())

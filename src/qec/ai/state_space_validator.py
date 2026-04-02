@@ -24,7 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence, Tuple
+from typing import Any, Callable, Mapping, Optional, Sequence, Tuple
 
 from qec.ai.state_space_bridge import (
     UnifiedStateSpaceReport,
@@ -75,7 +75,7 @@ class StateSpaceValidationReport:
     """Complete state-space validation report."""
 
     invariant_results: Tuple[InvariantCheckResult, ...]
-    replay_audit: ReplayAuditResult
+    replay_audit: Optional[ReplayAuditResult]
     overall_passed: bool
     classification_stable: bool
 
@@ -115,13 +115,17 @@ def compute_state_space_hash(report: UnifiedStateSpaceReport) -> str:
     """Compute a deterministic SHA-256 hash of a UnifiedStateSpaceReport.
 
     Uses canonical JSON with sorted keys for byte-identical serialization.
+    Attractor nodes and recovery paths are sorted before hashing so that
+    the hash remains stable regardless of upstream generation order.
     Same input always produces the same hash.
     """
     canonical = {
-        "attractor_nodes": list(report.attractor_nodes),
+        "attractor_nodes": sorted(report.attractor_nodes),
         "classification": report.classification,
         "nodes": [_node_to_dict(n) for n in report.nodes],
-        "recovery_paths": [list(p) for p in report.recovery_paths],
+        "recovery_paths": sorted(
+            [sorted(p) for p in report.recovery_paths]
+        ),
         "transitions": [_transition_to_dict(t) for t in report.transitions],
     }
     serialized = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
@@ -268,8 +272,9 @@ def run_replay_audit(
     """
     reference = builder_fn(input_payload)
     ref_hash = compute_state_space_hash(reference)
-    identical = 0
-    for _ in range(runs):
+    # Reference build counts as the first run; replay the remaining runs - 1.
+    identical = 1
+    for _ in range(runs - 1):
         result = builder_fn(input_payload)
         if compute_state_space_hash(result) == ref_hash:
             identical += 1
@@ -292,7 +297,10 @@ def validate_state_space_report(
     """Run all invariant checks against a UnifiedStateSpaceReport.
 
     Returns a complete ``StateSpaceValidationReport`` with individual
-    invariant results and an overall pass/fail verdict.
+    invariant results and an overall pass/fail verdict.  The
+    ``replay_audit`` field is ``None`` because this function validates a
+    pre-built report; callers should populate it via ``run_replay_audit``
+    when the builder function and input payload are available.
     """
     checks = (
         validate_transition_consistency(report),
@@ -307,12 +315,7 @@ def validate_state_space_report(
     )
     return StateSpaceValidationReport(
         invariant_results=checks,
-        replay_audit=ReplayAuditResult(
-            replay_runs=0,
-            identical_runs=0,
-            deterministic=True,
-            state_hash=compute_state_space_hash(report),
-        ),
+        replay_audit=None,
         overall_passed=all_passed,
         classification_stable=classification_check.passed,
     )

@@ -1,0 +1,8 @@
+{
+  "baseline_total_passed": 9935,
+  "baseline_skipped": 11,
+  "baseline_failed": 0,
+  "baseline_collected": 9940,
+  "frozen_at": "v136.4.1",
+  "note": "Canonical regression baseline — do not weaken"
+}

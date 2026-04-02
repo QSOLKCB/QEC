@@ -10,19 +10,33 @@ import pytest
 import numpy as np
 
 from qec.audio.quantum_audio_logic_lab import (
+    AudioStackHealthReport,
     ComparativeAnalysisResult,
+    CrossEraComparisonReport,
+    LegacyAudioSequenceReport,
+    LegacySequenceTransitionReport,
     QuantumAudioLogicReport,
     _coherence_score,
     _cluster_tightness,
     _compute_byte_pseudospectrum,
     _compute_waveform_spectrum,
     _deterministic_clusters,
+    _get_dependency_tuples,
+    _LEGACY_STATE_FILES,
+    _LEGACY_STATE_NAMES,
+    _LEGACY_TRANSITION_CLASSES,
+    _load_samples,
     _parse_mp3_metadata,
+    _probe_dependencies,
+    _psd_similarity,
     _stability_label,
     _try_decode_audio,
     _welch_psd,
+    analyze_legacy_audio_sequence,
     analyze_quantum_audio_file,
+    compare_legacy_vs_v1366,
     compare_reports,
+    verify_audio_stack_health,
 )
 
 # ---------------------------------------------------------------------------
@@ -34,6 +48,14 @@ _V1_PATH = os.path.join(_REPO_ROOT, "Quantum Coherence Threshold (v1).mp3")
 _V2_PATH = os.path.join(_REPO_ROOT, "Quantum Coherence Threshold (v2).mp3")
 
 _HAS_ARTIFACTS = os.path.isfile(_V1_PATH) and os.path.isfile(_V2_PATH)
+
+_SONIC_DIR = os.path.join(_REPO_ROOT, "artifacts", "sonic")
+_BASELINE_JSON = os.path.join(_SONIC_DIR, "sequence_analysis.json")
+
+_LEGACY_PATHS = [
+    os.path.join(_REPO_ROOT, fname) for fname in _LEGACY_STATE_FILES
+]
+_HAS_LEGACY = all(os.path.isfile(p) for p in _LEGACY_PATHS)
 
 
 # ---------------------------------------------------------------------------
@@ -383,3 +405,351 @@ class TestRealArtifacts:
         r = analyze_quantum_audio_file(_V1_PATH)
         assert r.decode_path in ("byte_pseudospectrum",) or \
                r.decode_path.startswith("waveform:")
+
+
+# ---------------------------------------------------------------------------
+# v136.6.1 — PSD similarity
+# ---------------------------------------------------------------------------
+
+class TestPsdSimilarity:
+    def test_identical_signals(self):
+        """Identical signals yield similarity ~1.0."""
+        s = np.sin(2 * np.pi * 440 * np.arange(44100) / 44100)
+        sim = _psd_similarity(s, 44100, s, 44100)
+        assert sim == pytest.approx(1.0, abs=1e-6)
+
+    def test_different_signals(self):
+        """Different signals yield similarity < 1.0."""
+        sa = np.sin(2 * np.pi * 200 * np.arange(44100) / 44100)
+        sb = np.sin(2 * np.pi * 4000 * np.arange(44100) / 44100)
+        sim = _psd_similarity(sa, 44100, sb, 44100)
+        assert sim < 1.0
+
+    def test_empty_signal(self):
+        sim = _psd_similarity(np.array([]), 44100, np.array([1.0]), 44100)
+        assert sim == 0.0
+
+    def test_deterministic(self):
+        s = np.random.RandomState(42).randn(8192)
+        a = _psd_similarity(s, 44100, s, 44100)
+        b = _psd_similarity(s, 44100, s, 44100)
+        assert a == b
+
+    def test_different_sample_rates_aligned(self):
+        """Same tone at different sample rates should still be similar."""
+        t1 = np.arange(44100) / 44100.0
+        t2 = np.arange(48000) / 48000.0
+        s1 = np.sin(2 * np.pi * 440 * t1)
+        s2 = np.sin(2 * np.pi * 440 * t2)
+        sim = _psd_similarity(s1, 44100, s2, 48000)
+        assert sim > 0.9
+
+
+# ---------------------------------------------------------------------------
+# v136.6.1 — Load samples helper
+# ---------------------------------------------------------------------------
+
+class TestLoadSamples:
+    def test_synthetic_file(self):
+        data = b"\x00\x01\x02\x03" * 2048
+        with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+            f.write(data)
+            path = f.name
+        try:
+            samples, sr = _load_samples(path)
+            assert len(samples) > 0
+            assert sr > 0
+        finally:
+            os.unlink(path)
+
+    def test_deterministic_load(self):
+        data = bytes(range(256)) * 32
+        with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+            f.write(data)
+            path = f.name
+        try:
+            s1, sr1 = _load_samples(path)
+            s2, sr2 = _load_samples(path)
+            assert sr1 == sr2
+            assert np.array_equal(s1, s2)
+        finally:
+            os.unlink(path)
+
+
+# ---------------------------------------------------------------------------
+# v136.6.1 — Dependency hardening tests
+# ---------------------------------------------------------------------------
+
+class TestAudioStackHealth:
+    def test_report_type(self):
+        report = verify_audio_stack_health()
+        assert isinstance(report, AudioStackHealthReport)
+
+    def test_report_is_frozen(self):
+        report = verify_audio_stack_health()
+        with pytest.raises(AttributeError):
+            report.numpy_version = "hack"  # type: ignore[misc]
+
+    def test_numpy_available(self):
+        report = verify_audio_stack_health()
+        assert report.numpy_version != "not_installed"
+
+    def test_scipy_available(self):
+        report = verify_audio_stack_health()
+        assert report.scipy_version != "not_installed"
+        assert report.scipy_signal_available is True
+
+    def test_pseudo_spectrum_always_ready(self):
+        report = verify_audio_stack_health()
+        assert report.pseudo_spectrum_ready is True
+
+    def test_operating_mode_valid(self):
+        report = verify_audio_stack_health()
+        assert report.operating_mode in (
+            "pseudo_spectrum", "true_waveform_decode",
+        )
+
+    def test_active_decode_path_not_empty(self):
+        report = verify_audio_stack_health()
+        assert len(report.active_decode_path) > 0
+
+    def test_deterministic_replay(self):
+        a = verify_audio_stack_health()
+        b = verify_audio_stack_health()
+        assert a == b
+
+
+class TestDependencyTuples:
+    def test_returns_tuple(self):
+        deps = _get_dependency_tuples()
+        assert isinstance(deps, tuple)
+
+    def test_sorted(self):
+        deps = _get_dependency_tuples()
+        names = [d[0] for d in deps]
+        assert names == sorted(names)
+
+    def test_contains_numpy(self):
+        deps = _get_dependency_tuples()
+        names = [d[0] for d in deps]
+        assert "numpy" in names
+
+    def test_contains_scipy(self):
+        deps = _get_dependency_tuples()
+        names = [d[0] for d in deps]
+        assert "scipy" in names
+
+
+# ---------------------------------------------------------------------------
+# v136.6.1 — Legacy constants
+# ---------------------------------------------------------------------------
+
+class TestLegacyConstants:
+    def test_state_count(self):
+        assert len(_LEGACY_STATE_NAMES) == 5
+
+    def test_file_count(self):
+        assert len(_LEGACY_STATE_FILES) == 5
+
+    def test_transition_count(self):
+        assert len(_LEGACY_TRANSITION_CLASSES) == 4
+
+    def test_state_chain_order(self):
+        assert _LEGACY_STATE_NAMES == (
+            "Stable", "Instability", "Transition", "Collapse", "Recovery",
+        )
+
+
+# ---------------------------------------------------------------------------
+# v136.6.1 — Legacy sequence regression (real artifacts)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(not _HAS_LEGACY, reason="Legacy MP3 artifacts not present")
+class TestLegacySequenceRegression:
+    def test_analyse_returns_report(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        assert isinstance(report, LegacyAudioSequenceReport)
+
+    def test_n_states(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        assert report.n_states == 5
+
+    def test_transition_count(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        assert len(report.transition_reports) == 4
+
+    def test_transition_classifications(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        classes = tuple(t.classification for t in report.transition_reports)
+        assert classes == ("divergent", "transition", "collapse", "recovery")
+
+    def test_transition_state_chain_ordering(self):
+        """from_state/to_state pairs must follow the canonical 5-state chain."""
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        chain = [t.from_state for t in report.transition_reports]
+        chain.append(report.transition_reports[-1].to_state)
+        assert tuple(chain) == _LEGACY_STATE_NAMES
+
+    def test_legacy_similarity_bounded(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        assert 0.0 <= report.legacy_similarity_score <= 1.0
+
+    def test_stability_verdict_valid(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        assert report.stability_verdict in (
+            "stable_regression", "partial_regression", "degraded_regression",
+        )
+
+    def test_best_recovery_match_is_filename(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        valid_names = set(_LEGACY_STATE_FILES)
+        assert report.best_recovery_match in valid_names
+
+    def test_frozen(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        with pytest.raises(AttributeError):
+            report.n_states = 99  # type: ignore[misc]
+
+    def test_deterministic_replay(self):
+        a = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        b = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        assert a == b
+
+    def test_transition_psd_similarity_bounded(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        for t in report.transition_reports:
+            assert 0.0 <= t.psd_similarity <= 1.0
+
+    def test_dependency_health_present(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        assert len(report.dependency_health) > 0
+
+    def test_without_baseline(self):
+        report = analyze_legacy_audio_sequence(_REPO_ROOT, None)
+        assert report.n_states == 5
+        # Without baseline, centroid_drift should be 0
+        for t in report.transition_reports:
+            assert t.centroid_drift == 0.0
+
+
+# ---------------------------------------------------------------------------
+# v136.6.1 — JSON baseline comparison
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(not _HAS_LEGACY, reason="Legacy MP3 artifacts not present")
+class TestJsonBaselineComparison:
+    def test_baseline_json_loads(self):
+        import json
+        with open(_BASELINE_JSON) as f:
+            data = json.load(f)
+        assert data["n_states"] == 5
+        assert len(data["transitions"]) == 4
+
+    def test_centroid_drift_finite(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        for t in report.transition_reports:
+            assert math.isfinite(t.centroid_drift)
+
+    def test_legacy_centroid_delta_nonzero(self):
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        # At least one legacy centroid delta should be non-zero
+        any_nonzero = any(
+            t.legacy_centroid_delta != 0.0
+            for t in report.transition_reports
+        )
+        assert any_nonzero
+
+
+# ---------------------------------------------------------------------------
+# v136.6.1 — Cross-era comparison (real artifacts)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(
+    not (_HAS_LEGACY and _HAS_ARTIFACTS),
+    reason="MP3 artifacts not present",
+)
+class TestCrossEraComparison:
+    def test_returns_report(self):
+        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        result = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
+        assert isinstance(result, CrossEraComparisonReport)
+
+    def test_best_analogs_are_filenames(self):
+        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        result = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
+        valid = set(_LEGACY_STATE_FILES)
+        assert result.best_legacy_analog_v1 in valid
+        assert result.best_legacy_analog_v2 in valid
+
+    def test_similarity_bounded(self):
+        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        result = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
+        assert 0.0 <= result.collapse_similarity <= 1.0
+        assert 0.0 <= result.recovery_similarity <= 1.0
+        assert 0.0 <= result.topology_alignment_score <= 1.0
+
+    def test_frozen(self):
+        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        result = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
+        with pytest.raises(AttributeError):
+            result.collapse_similarity = 0.0  # type: ignore[misc]
+
+    def test_deterministic(self):
+        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        a = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
+        b = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
+        assert a == b
+
+    def test_v2_recovery_flag_is_bool(self):
+        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        result = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
+        assert isinstance(result.v2_resembles_recovery, bool)
+
+
+# ---------------------------------------------------------------------------
+# v136.6.1 — Decode path tests
+# ---------------------------------------------------------------------------
+
+class TestDecodePathHardening:
+    def test_pseudospectrum_for_raw_bytes(self):
+        data = bytes(range(256)) * 64
+        with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+            f.write(data)
+            path = f.name
+        try:
+            r = analyze_quantum_audio_file(path)
+            assert r.decode_path == "byte_pseudospectrum"
+        finally:
+            os.unlink(path)
+
+    @pytest.mark.skipif(not _HAS_ARTIFACTS, reason="MP3 artifacts not present")
+    def test_mp3_decode_path_label(self):
+        r = analyze_quantum_audio_file(_V1_PATH)
+        # Either pseudospectrum or waveform — both valid
+        assert "pseudospectrum" in r.decode_path or "waveform" in r.decode_path

@@ -19,6 +19,7 @@ Decode priority order:
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import struct
 from dataclasses import dataclass
@@ -663,4 +664,526 @@ def compare_reports(
         cluster_tightness_b=round(tight_b, 8),
         cluster_tightness_delta=round(tight_b - tight_a, 8),
         best_version=best,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Legacy sequence constants
+# ---------------------------------------------------------------------------
+
+_LEGACY_STATE_NAMES: Tuple[str, ...] = (
+    "Stable",
+    "Instability",
+    "Transition",
+    "Collapse",
+    "Recovery",
+)
+
+_LEGACY_STATE_FILES: Tuple[str, ...] = (
+    "QSOL 1_ Stable Invariant State.mp3",
+    "QSOL 2_ Near-Boundary Instability.mp3",
+    "QSOL 3_ Structural Transition.mp3",
+    "QSOL 4_ Constraint Failure _ Collapse.mp3",
+    "QSOL 5_ Recovery _ Re-stabilization.mp3",
+)
+
+_LEGACY_TRANSITION_CLASSES: Tuple[str, ...] = (
+    "divergent",
+    "transition",
+    "collapse",
+    "recovery",
+)
+
+
+# ---------------------------------------------------------------------------
+# v136.6.1 — Legacy report dataclasses (frozen, tuple-only)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class LegacySequenceTransitionReport:
+    """Frozen report for a single legacy state-to-state transition."""
+
+    from_state: str
+    to_state: str
+    classification: str
+    centroid_delta: float
+    entropy_delta: float
+    harmonic_density_delta: float
+    subharmonic_delta: float
+    coherence_delta: float
+    cluster_tightness_delta: float
+    psd_similarity: float
+    legacy_centroid_delta: float
+    centroid_drift: float
+
+
+@dataclass(frozen=True)
+class LegacyAudioSequenceReport:
+    """Frozen report for the full 5-state legacy audio sequence."""
+
+    n_states: int
+    state_reports: Tuple[QuantumAudioLogicReport, ...]
+    transition_reports: Tuple[LegacySequenceTransitionReport, ...]
+    legacy_similarity_score: float
+    topology_drift_score: float
+    best_recovery_match: str
+    dependency_health: Tuple[Tuple[str, str], ...]
+    stability_verdict: str
+
+
+@dataclass(frozen=True)
+class CrossEraComparisonReport:
+    """Frozen comparison of legacy chain against v136.6 artifacts."""
+
+    best_legacy_analog_v1: str
+    best_legacy_analog_v2: str
+    collapse_similarity: float
+    recovery_similarity: float
+    topology_alignment_score: float
+    v2_resembles_recovery: bool
+
+
+@dataclass(frozen=True)
+class AudioStackHealthReport:
+    """Frozen dependency and decode-path health report."""
+
+    numpy_version: str
+    scipy_version: str
+    scipy_signal_available: bool
+    scipy_io_wavfile_available: bool
+    soundfile_available: bool
+    soundfile_version: str
+    audioread_available: bool
+    audioread_version: str
+    active_decode_path: str
+    fallback_path: str
+    pseudo_spectrum_ready: bool
+    waveform_ready: bool
+    operating_mode: str
+
+
+# ---------------------------------------------------------------------------
+# PSD cosine similarity
+# ---------------------------------------------------------------------------
+
+def _psd_similarity(
+    samples_a: np.ndarray,
+    sr_a: int,
+    samples_b: np.ndarray,
+    sr_b: int,
+) -> float:
+    """Cosine similarity between two Welch PSD vectors.
+
+    When sample rates differ the PSDs are interpolated onto a shared
+    frequency grid spanning the overlapping range so that each index
+    corresponds to the same physical frequency.
+    """
+    freqs_a, psd_a = _welch_psd(samples_a, sr_a)
+    freqs_b, psd_b = _welch_psd(samples_b, sr_b)
+
+    if len(psd_a) == 0 or len(psd_b) == 0:
+        return 0.0
+
+    # Build shared frequency grid over the overlapping range
+    f_min = max(float(freqs_a[0]), float(freqs_b[0]))
+    f_max = min(float(freqs_a[-1]), float(freqs_b[-1]))
+    if f_max <= f_min:
+        return 0.0
+
+    n_bins = min(len(freqs_a), len(freqs_b))
+    shared_freqs = np.linspace(f_min, f_max, n_bins)
+
+    # Linearly interpolate both PSDs onto the shared grid
+    va = np.interp(shared_freqs, freqs_a, psd_a)
+    vb = np.interp(shared_freqs, freqs_b, psd_b)
+
+    norm_a = float(np.linalg.norm(va))
+    norm_b = float(np.linalg.norm(vb))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+
+    return float(np.dot(va, vb) / (norm_a * norm_b))
+
+
+# ---------------------------------------------------------------------------
+# Internal: load samples for a file
+# ---------------------------------------------------------------------------
+
+def _load_samples(path: str) -> Tuple[np.ndarray, int]:
+    """Load audio samples from a file (waveform or pseudo-spectrum).
+
+    Attempts real waveform decode first; only reads raw bytes for
+    pseudo-spectrum fallback to avoid redundant I/O.
+    """
+    decode_result = _try_decode_audio(path)
+    if decode_result is not None:
+        samples, sr, _ = decode_result
+        return samples, sr
+
+    # Fallback: read raw bytes for pseudo-spectrum
+    p = Path(path)
+    raw = p.read_bytes()
+    mp3_meta = _parse_mp3_metadata(raw)
+
+    if mp3_meta is not None:
+        sr = mp3_meta.sample_rate
+        offset = mp3_meta.audio_data_offset
+    else:
+        sr = _DEFAULT_SAMPLE_RATE
+        offset = 0
+
+    samples, sr = _compute_byte_pseudospectrum(raw, sr, offset)
+    return samples, sr
+
+
+# ---------------------------------------------------------------------------
+# PART 1 — Legacy sequence regression
+# ---------------------------------------------------------------------------
+
+def analyze_legacy_audio_sequence(
+    base_dir: str,
+    baseline_json_path: Optional[str] = None,
+) -> LegacyAudioSequenceReport:
+    """Analyse the 5-state legacy audio sequence and compare to baseline.
+
+    Parameters
+    ----------
+    base_dir : str
+        Directory containing the 5 legacy QSOL MP3 files.
+    baseline_json_path : str, optional
+        Path to ``sequence_analysis.json``.  If None, only current
+        spectral analysis is performed (no drift computation).
+
+    Returns
+    -------
+    LegacyAudioSequenceReport
+        Frozen, replay-safe sequence analysis with transition deltas.
+    """
+    # Analyse each state
+    state_reports = []
+    state_samples = []
+    for fname in _LEGACY_STATE_FILES:
+        fpath = str(Path(base_dir) / fname)
+        report = analyze_quantum_audio_file(fpath)
+        state_reports.append(report)
+        samples, sr = _load_samples(fpath)
+        state_samples.append((samples, sr))
+
+    # Load legacy baseline if available
+    legacy_transitions = None
+    if baseline_json_path is not None:
+        with open(baseline_json_path, "r") as f:
+            legacy_data = json.load(f)
+        legacy_transitions = legacy_data.get("transitions", [])
+
+    # Compute transitions
+    transition_reports = []
+    centroid_drifts = []
+    for i in range(len(state_reports) - 1):
+        ra = state_reports[i]
+        rb = state_reports[i + 1]
+
+        centroid_delta = rb.spectral_centroid_hz - ra.spectral_centroid_hz
+        entropy_delta = rb.spectral_entropy - ra.spectral_entropy
+        hd_delta = rb.harmonic_density - ra.harmonic_density
+        sub_delta = rb.subharmonic_energy_ratio - ra.subharmonic_energy_ratio
+        coh_delta = rb.coherence_score - ra.coherence_score
+        tight_a = _cluster_tightness(ra.cluster_points)
+        tight_b = _cluster_tightness(rb.cluster_points)
+        ct_delta = tight_b - tight_a
+
+        sa, sra = state_samples[i]
+        sb, srb = state_samples[i + 1]
+        psd_sim = _psd_similarity(sa, sra, sb, srb)
+
+        # Legacy baseline drift
+        legacy_cd = 0.0
+        cd_drift = 0.0
+        if legacy_transitions is not None and i < len(legacy_transitions):
+            lt = legacy_transitions[i]
+            legacy_cd = lt["metrics"]["centroid_delta"]
+            cd_drift = centroid_delta - legacy_cd
+
+        centroid_drifts.append(abs(cd_drift))
+
+        classification = _LEGACY_TRANSITION_CLASSES[i]
+
+        transition_reports.append(LegacySequenceTransitionReport(
+            from_state=_LEGACY_STATE_NAMES[i],
+            to_state=_LEGACY_STATE_NAMES[i + 1],
+            classification=classification,
+            centroid_delta=round(centroid_delta, 6),
+            entropy_delta=round(entropy_delta, 6),
+            harmonic_density_delta=round(hd_delta, 8),
+            subharmonic_delta=round(sub_delta, 8),
+            coherence_delta=round(coh_delta, 6),
+            cluster_tightness_delta=round(ct_delta, 8),
+            psd_similarity=round(psd_sim, 6),
+            legacy_centroid_delta=round(legacy_cd, 6),
+            centroid_drift=round(cd_drift, 6),
+        ))
+
+    # Topology drift: mean absolute centroid drift from legacy
+    topology_drift = sum(centroid_drifts) / len(centroid_drifts) if centroid_drifts else 0.0
+
+    # Legacy similarity: average PSD similarity across transitions
+    psd_sims = [t.psd_similarity for t in transition_reports]
+    legacy_sim = sum(psd_sims) / len(psd_sims) if psd_sims else 0.0
+
+    # Best recovery match: the state with highest coherence
+    best_recovery = max(state_reports, key=lambda r: r.coherence_score)
+
+    # Dependency health snapshot
+    dep_health = _get_dependency_tuples()
+
+    # Stability verdict
+    coherences = [r.coherence_score for r in state_reports]
+    mean_coh = sum(coherences) / len(coherences)
+    if mean_coh >= 0.45 and topology_drift < 500.0:
+        verdict = "stable_regression"
+    elif mean_coh >= 0.25:
+        verdict = "partial_regression"
+    else:
+        verdict = "degraded_regression"
+
+    return LegacyAudioSequenceReport(
+        n_states=len(state_reports),
+        state_reports=tuple(state_reports),
+        transition_reports=tuple(transition_reports),
+        legacy_similarity_score=round(legacy_sim, 6),
+        topology_drift_score=round(topology_drift, 6),
+        best_recovery_match=best_recovery.filename,
+        dependency_health=dep_health,
+        stability_verdict=verdict,
+    )
+
+
+# ---------------------------------------------------------------------------
+# PART 3 — Cross-generation comparison
+# ---------------------------------------------------------------------------
+
+def compare_legacy_vs_v1366(
+    legacy_report: LegacyAudioSequenceReport,
+    v1_path: str,
+    v2_path: str,
+) -> CrossEraComparisonReport:
+    """Compare legacy 5-state chain against v136.6 artifacts.
+
+    Parameters
+    ----------
+    legacy_report : LegacyAudioSequenceReport
+        Result from ``analyze_legacy_audio_sequence``.
+    v1_path : str
+        Path to Quantum Coherence Threshold (v1).mp3
+    v2_path : str
+        Path to Quantum Coherence Threshold (v2).mp3
+
+    Returns
+    -------
+    CrossEraComparisonReport
+        Frozen cross-era comparison with topology alignment.
+    """
+    v1_report = analyze_quantum_audio_file(v1_path)
+    v2_report = analyze_quantum_audio_file(v2_path)
+
+    states = legacy_report.state_reports
+    n_expected = len(_LEGACY_STATE_NAMES)
+    if len(states) != n_expected:
+        raise ValueError(
+            f"legacy_report has {len(states)} states, expected {n_expected}"
+        )
+
+    # Named indices from the canonical state chain
+    _COLLAPSE_IDX = _LEGACY_STATE_NAMES.index("Collapse")
+    _RECOVERY_IDX = _LEGACY_STATE_NAMES.index("Recovery")
+
+    # Find best legacy analog for v1 and v2 by coherence proximity
+    def _best_analog(target: QuantumAudioLogicReport) -> str:
+        best_name = states[0].filename
+        best_dist = abs(target.coherence_score - states[0].coherence_score)
+        for s in states[1:]:
+            d = abs(target.coherence_score - s.coherence_score)
+            if d < best_dist:
+                best_dist = d
+                best_name = s.filename
+        return best_name
+
+    best_v1 = _best_analog(v1_report)
+    best_v2 = _best_analog(v2_report)
+
+    # Collapse similarity: compare v1 against Collapse state
+    collapse_state = states[_COLLAPSE_IDX]
+    collapse_sim = 1.0 - min(1.0, abs(
+        v1_report.coherence_score - collapse_state.coherence_score
+    ))
+
+    # Recovery similarity: compare v2 against Recovery state
+    recovery_state = states[_RECOVERY_IDX]
+    recovery_sim = 1.0 - min(1.0, abs(
+        v2_report.coherence_score - recovery_state.coherence_score
+    ))
+
+    # Topology alignment: average mapping_2d distance across all states
+    v2_x, v2_y = v2_report.mapping_2d
+    dists = []
+    for s in states:
+        sx, sy = s.mapping_2d
+        dists.append(math.sqrt((v2_x - sx) ** 2 + (v2_y - sy) ** 2))
+    # Closest state alignment (lower distance = higher alignment)
+    min_dist = min(dists) if dists else 1.0
+    topology_alignment = round(max(0.0, 1.0 - min_dist), 6)
+
+    # Does v2 resemble recovery/re-stabilization?
+    v2_resembles = (
+        recovery_sim > 0.5
+        and v2_report.coherence_score >= recovery_state.coherence_score * 0.8
+    )
+
+    return CrossEraComparisonReport(
+        best_legacy_analog_v1=best_v1,
+        best_legacy_analog_v2=best_v2,
+        collapse_similarity=round(collapse_sim, 6),
+        recovery_similarity=round(recovery_sim, 6),
+        topology_alignment_score=topology_alignment,
+        v2_resembles_recovery=v2_resembles,
+    )
+
+
+# ---------------------------------------------------------------------------
+# PART 4 — Dependency hardening
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class _DependencyProbe:
+    """Internal: cached result of probing all audio-stack dependencies."""
+
+    numpy_version: str
+    scipy_version: str
+    scipy_signal_available: bool
+    scipy_io_wavfile_available: bool
+    soundfile_available: bool
+    soundfile_version: str
+    audioread_available: bool
+    audioread_version: str
+
+
+def _probe_dependencies() -> _DependencyProbe:
+    """Probe the installed audio stack once (shared by public helpers)."""
+    # numpy
+    try:
+        import numpy as _np
+        np_ver = str(_np.__version__)
+    except ImportError:
+        np_ver = "not_installed"
+
+    # scipy
+    try:
+        import scipy as _sp
+        scipy_ver = str(_sp.__version__)
+    except ImportError:
+        scipy_ver = "not_installed"
+
+    # scipy.signal
+    try:
+        from scipy import signal as _sig  # noqa: F401
+        sig_avail = True
+    except ImportError:
+        sig_avail = False
+
+    # scipy.io.wavfile
+    try:
+        from scipy.io import wavfile as _wf  # noqa: F401
+        wavfile_avail = True
+    except ImportError:
+        wavfile_avail = False
+
+    # soundfile
+    sf_avail = False
+    sf_ver = "not_installed"
+    try:
+        import soundfile as _sf
+        sf_avail = True
+        sf_ver = str(getattr(_sf, "__version__", "unknown"))
+    except ImportError:
+        pass
+
+    # audioread
+    ar_avail = False
+    ar_ver = "not_installed"
+    try:
+        import audioread as _ar
+        ar_avail = True
+        ar_ver = str(getattr(_ar, "__version__", "unknown"))
+    except ImportError:
+        pass
+
+    return _DependencyProbe(
+        numpy_version=np_ver,
+        scipy_version=scipy_ver,
+        scipy_signal_available=sig_avail,
+        scipy_io_wavfile_available=wavfile_avail,
+        soundfile_available=sf_avail,
+        soundfile_version=sf_ver,
+        audioread_available=ar_avail,
+        audioread_version=ar_ver,
+    )
+
+
+def _get_dependency_tuples() -> Tuple[Tuple[str, str], ...]:
+    """Return sorted tuple of (package, version) for audio stack."""
+    probe = _probe_dependencies()
+    deps = [
+        ("audioread", probe.audioread_version),
+        ("numpy", probe.numpy_version),
+        ("scipy", probe.scipy_version),
+        ("soundfile", probe.soundfile_version),
+    ]
+    return tuple(sorted(deps))
+
+
+def verify_audio_stack_health() -> AudioStackHealthReport:
+    """Verify installed audio stack and report decode-path readiness.
+
+    Returns
+    -------
+    AudioStackHealthReport
+        Frozen report of dependency versions and decode capabilities.
+    """
+    probe = _probe_dependencies()
+
+    # Determine active decode path
+    waveform_ready = (
+        probe.soundfile_available
+        or probe.audioread_available
+        or probe.scipy_io_wavfile_available
+    )
+    if probe.soundfile_available:
+        active_path = "soundfile"
+        fallback = "byte_pseudospectrum"
+    elif probe.audioread_available:
+        active_path = "audioread"
+        fallback = "byte_pseudospectrum"
+    elif probe.scipy_io_wavfile_available:
+        active_path = "scipy.io.wavfile"
+        fallback = "byte_pseudospectrum"
+    else:
+        active_path = "byte_pseudospectrum"
+        fallback = "none"
+
+    mode = "true_waveform_decode" if waveform_ready else "pseudo_spectrum"
+
+    return AudioStackHealthReport(
+        numpy_version=probe.numpy_version,
+        scipy_version=probe.scipy_version,
+        scipy_signal_available=probe.scipy_signal_available,
+        scipy_io_wavfile_available=probe.scipy_io_wavfile_available,
+        soundfile_available=probe.soundfile_available,
+        soundfile_version=probe.soundfile_version,
+        audioread_available=probe.audioread_available,
+        audioread_version=probe.audioread_version,
+        active_decode_path=active_path,
+        fallback_path=fallback,
+        pseudo_spectrum_ready=True,  # always available
+        waveform_ready=waveform_ready,
+        operating_mode=mode,
     )

@@ -257,18 +257,21 @@ def _parse_mp3_metadata(data: bytes) -> Optional[_Mp3Metadata]:
     frame_count = 0
     first_frame: Optional[_Mp3FrameHeader] = None
 
-    # Scan for valid frames — require at least 3 consecutive valid frames
-    # at the start to confirm we've found the audio stream
-    scan_limit = min(len(data), offset + 8192)
+    # Scan for valid frames — require 3 consecutive valid frames
+    # to confirm we've found the audio stream
+    scan_limit = min(len(data), offset + 65536)
     while offset < scan_limit:
         frame = _parse_mp3_frame_header(data, offset)
-        if frame is not None:
-            # Verify next frame follows immediately
-            next_frame = _parse_mp3_frame_header(data, offset + frame.frame_length)
-            if next_frame is not None:
-                first_frame = frame
-                audio_data_offset = offset
-                break
+        if frame is not None and frame.frame_length > 0:
+            second = _parse_mp3_frame_header(data, offset + frame.frame_length)
+            if second is not None and second.frame_length > 0:
+                third = _parse_mp3_frame_header(
+                    data, offset + frame.frame_length + second.frame_length,
+                )
+                if third is not None:
+                    first_frame = frame
+                    audio_data_offset = offset
+                    break
         offset += 1
 
     if first_frame is None:
@@ -358,9 +361,10 @@ def _try_decode_audio(path: str) -> Optional[Tuple[np.ndarray, int, str]]:
         with audioread.audio_open(path) as f:
             sr = f.samplerate
             channels = f.channels
-            buf = b""
+            blocks = []
             for block in f:
-                buf += block
+                blocks.append(block)
+        buf = b"".join(blocks)
         n = (len(buf) // 2) * 2
         samples = np.frombuffer(buf[:n], dtype=np.int16).astype(np.float64)
         if channels > 1:
@@ -411,7 +415,9 @@ def _welch_psd(
     nperseg: int = 4096,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Welch power spectral density — deterministic, no overlap jitter."""
-    seg = min(nperseg, len(samples))
+    if len(samples) == 0:
+        return np.array([0.0]), np.array([0.0])
+    seg = max(1, min(nperseg, len(samples)))
     freqs, psd = scipy_signal.welch(
         samples,
         fs=sr,
@@ -529,7 +535,13 @@ def analyze_quantum_audio_file(path: str) -> QuantumAudioLogicReport:
     if decode_result is not None:
         samples, sr, decoder_name = decode_result
         decode_path_label = f"waveform:{decoder_name}"
+        # Trust the decoder's sample rate for spectral analysis — the
+        # decoder may have resampled.  Use MP3 metadata only for
+        # authoritative duration (frame-counted, more accurate than
+        # len(samples)/sr for decoded streams with padding).
         duration = len(samples) / sr
+        if mp3_meta is not None:
+            duration = mp3_meta.duration_seconds
     else:
         # --- Fallback: byte-window pseudo-spectrum (Priority 3) ---
         if mp3_meta is not None:
@@ -546,11 +558,6 @@ def analyze_quantum_audio_file(path: str) -> QuantumAudioLogicReport:
 
         if mp3_meta is None:
             duration = len(samples) / sr
-
-    # Use MP3 metadata for authoritative sample rate / duration when available
-    if mp3_meta is not None:
-        sr = mp3_meta.sample_rate
-        duration = mp3_meta.duration_seconds
 
     # --- Compute spectral features ---
     spectral = _compute_waveform_spectrum(samples, sr)

@@ -7,6 +7,8 @@ import tempfile
 
 import pytest
 
+import numpy as np
+
 from qec.audio.quantum_audio_logic_lab import (
     ComparativeAnalysisResult,
     QuantumAudioLogicReport,
@@ -18,6 +20,7 @@ from qec.audio.quantum_audio_logic_lab import (
     _parse_mp3_metadata,
     _stability_label,
     _try_decode_audio,
+    _welch_psd,
     analyze_quantum_audio_file,
     compare_reports,
 )
@@ -188,7 +191,6 @@ class TestDecodeCascade:
 
 class TestWaveformSpectrum:
     def test_spectral_features_keys(self):
-        import numpy as np
         samples = np.sin(2 * np.pi * 432 * np.arange(44100) / 44100)
         result = _compute_waveform_spectrum(samples, 44100)
         expected_keys = {
@@ -199,13 +201,72 @@ class TestWaveformSpectrum:
 
     def test_pure_432hz_tone(self):
         """A pure 432 Hz sine wave should have high 432 Hz resonance."""
-        import numpy as np
         sr = 44100
         t = np.arange(sr * 2) / sr  # 2 seconds
         samples = np.sin(2 * np.pi * 432 * t)
         result = _compute_waveform_spectrum(samples, sr)
         assert result["resonance"] > 0.1
         assert result["dominant_freq"] == pytest.approx(432.0, abs=20.0)
+
+
+# ---------------------------------------------------------------------------
+# Unit tests — _welch_psd edge cases
+# ---------------------------------------------------------------------------
+
+class TestWelchPsdEdgeCases:
+    def test_empty_samples(self):
+        """Empty input returns single-element zero spectrum."""
+        freqs, psd = _welch_psd(np.array([]), 44100)
+        assert len(freqs) == 1
+        assert len(psd) == 1
+        assert freqs[0] == 0.0
+        assert psd[0] == 0.0
+
+    def test_single_sample(self):
+        """Single sample does not raise."""
+        freqs, psd = _welch_psd(np.array([1.0]), 44100)
+        assert len(freqs) >= 1
+        assert len(psd) >= 1
+
+    def test_short_samples(self):
+        """Very short input (< nperseg) works without error."""
+        samples = np.array([0.1, -0.2, 0.3, -0.4])
+        freqs, psd = _welch_psd(samples, 44100)
+        assert len(freqs) > 0
+        assert len(psd) > 0
+
+
+# ---------------------------------------------------------------------------
+# Unit tests — MP3 3-frame validation
+# ---------------------------------------------------------------------------
+
+class TestMp3ThreeFrameValidation:
+    def test_two_frame_sequence_rejected(self):
+        """A byte stream with only 2 valid consecutive frames is rejected."""
+        # Build 2 valid MPEG1 Layer III frames (sync=0xFFE, v=1, l=III,
+        # bitrate=128k, sr=44100, no padding, stereo)
+        # Header: 0xFFFB9004  (sync + v1 + lIII + 128k + 44100 + no-pad)
+        import struct
+        hdr = struct.pack(">I", 0xFFFB9004)
+        frame_len = 144 * 128000 // 44100  # 417 bytes
+        frame = hdr + b"\x00" * (frame_len - 4)
+        # Two frames then garbage
+        data = frame * 2 + b"\x00" * 100
+        meta = _parse_mp3_metadata(data)
+        # Only 2 consecutive frames — 3-frame check should fail
+        assert meta is None
+
+    def test_three_frame_sequence_accepted(self):
+        """A byte stream with 3+ valid consecutive frames is accepted."""
+        import struct
+        hdr = struct.pack(">I", 0xFFFB9004)
+        frame_len = 144 * 128000 // 44100
+        frame = hdr + b"\x00" * (frame_len - 4)
+        data = frame * 5
+        meta = _parse_mp3_metadata(data)
+        assert meta is not None
+        assert meta.sample_rate == 44100
+        assert meta.frame_count >= 3
 
 
 # ---------------------------------------------------------------------------

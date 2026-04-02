@@ -24,7 +24,7 @@ from typing import Tuple
 # ---------------------------------------------------------------------------
 
 ArenaGrid = Tuple[Tuple[int, ...], ...]
-Trace = Tuple  # Tuple[ArenaMovementState, ...]
+Trace = Tuple["ArenaMovementState", ...]
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -151,16 +151,24 @@ def _step_once(
     state: ArenaMovementState,
     arena: ArenaGrid,
     dt: float,
-    goal_checkpoint: int,
 ) -> ArenaMovementState:
     """Advance *state* by one deterministic physics tick."""
 
-    # --- Effective acceleration ---
-    eff_az = state.az - GRAVITY
+    fuel = state.fuel
+
+    # --- Effective acceleration (zero thrust when fuel exhausted) ---
+    if fuel > 0.0:
+        eff_ax = state.ax
+        eff_ay = state.ay
+        eff_az = state.az - GRAVITY
+    else:
+        eff_ax = 0.0
+        eff_ay = 0.0
+        eff_az = -GRAVITY
 
     # --- Velocity update: v_{t+1} = v_t + a_t * dt ---
-    nvx = state.vx + state.ax * dt
-    nvy = state.vy + state.ay * dt
+    nvx = state.vx + eff_ax * dt
+    nvy = state.vy + eff_ay * dt
     nvz = state.vz + eff_az * dt
 
     nvx, nvy, nvz = _clamp_speed(nvx, nvy, nvz)
@@ -175,7 +183,6 @@ def _step_once(
     checkpoint_hits = state.checkpoint_hits
     checkpoint_id = state.checkpoint_id
     hazard_contacts = state.hazard_contacts
-    fuel = state.fuel
 
     # --- Fuel consumption for thrust ---
     has_thrust = (state.ax != 0.0 or state.ay != 0.0 or state.az != 0.0)
@@ -262,8 +269,7 @@ def evolve_arena_movement(
     arena: ArenaGrid,
     steps: int = 1,
     dt: float = 1.0,
-    goal_checkpoint: int = -1,
-) -> Tuple[ArenaMovementState, ...]:
+) -> Trace:
     """Evolve *state* for *steps* ticks and return the full trace.
 
     Parameters
@@ -276,12 +282,10 @@ def evolve_arena_movement(
         Number of physics ticks to simulate.
     dt:
         Time-step size (deterministic constant).
-    goal_checkpoint:
-        If >= 0, the checkpoint id that constitutes the goal.
 
     Returns
     -------
-    Tuple[ArenaMovementState, ...]
+    Trace
         The full trace including the initial state at index 0.
     """
     if steps < 0:
@@ -293,7 +297,7 @@ def evolve_arena_movement(
     trace = [state]
     current = state
     for _ in range(steps):
-        current = _step_once(current, arena, dt, goal_checkpoint)
+        current = _step_once(current, arena, dt)
         trace.append(current)
     return tuple(trace)
 

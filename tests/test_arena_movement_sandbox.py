@@ -316,7 +316,8 @@ def test_analyze_empty_trace_raises() -> None:
 def test_decoder_untouched() -> None:
     """Arena movement sandbox must not import decoder modules."""
     import qec.sims.arena_movement_sandbox as mod
-    source = open(mod.__file__, "r").read()
+    with open(mod.__file__, "r") as f:
+        source = f.read()
     assert "qec.decoder" not in source
     assert "from qec.decoder" not in source
     assert "import qec.decoder" not in source
@@ -348,3 +349,63 @@ def test_report_is_frozen() -> None:
         assert False, "Should be frozen"
     except AttributeError:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Tests — speed clamping
+# ---------------------------------------------------------------------------
+
+
+def test_speed_clamping() -> None:
+    """Velocity must never exceed _MAX_SPEED (50.0) on any axis."""
+    # Huge acceleration should be clamped after one step
+    state = _make_state(ax=200.0, ay=-200.0, az=GRAVITY + 200.0, fuel=10.0)
+    trace = evolve_arena_movement(state, _SIMPLE_ARENA, steps=5, dt=1.0)
+    for s in trace:
+        assert -50.0 <= s.vx <= 50.0, f"vx out of range: {s.vx}"
+        assert -50.0 <= s.vy <= 50.0, f"vy out of range: {s.vy}"
+        assert -50.0 <= s.vz <= 50.0, f"vz out of range: {s.vz}"
+
+
+# ---------------------------------------------------------------------------
+# Tests — fuel consumption
+# ---------------------------------------------------------------------------
+
+
+def test_fuel_decreases_with_thrust() -> None:
+    """Fuel should decrease each step when thrust is applied."""
+    state = _make_state(ax=1.0, fuel=5.0, az=GRAVITY)
+    trace = evolve_arena_movement(state, _SIMPLE_ARENA, steps=10, dt=1.0)
+    # Fuel should decrease over steps
+    assert trace[1].fuel < trace[0].fuel
+    assert trace[-1].fuel < trace[0].fuel
+
+
+def test_fuel_constant_without_thrust() -> None:
+    """Fuel should remain unchanged when no thrust is applied."""
+    state = _make_state(ax=0.0, ay=0.0, az=0.0, fuel=5.0)
+    trace = evolve_arena_movement(state, _SIMPLE_ARENA, steps=5, dt=1.0)
+    for s in trace:
+        assert s.fuel == 5.0
+
+
+def test_fuel_never_negative() -> None:
+    """Fuel must never go below zero."""
+    state = _make_state(ax=1.0, fuel=0.05, az=GRAVITY)
+    trace = evolve_arena_movement(state, _SIMPLE_ARENA, steps=10, dt=1.0)
+    for s in trace:
+        assert s.fuel >= 0.0
+
+
+def test_thrust_disabled_when_fuel_exhausted() -> None:
+    """When fuel is zero, thrust acceleration should not apply."""
+    # Start with zero fuel and high thrust — should only get gravity
+    state = _make_state(ax=100.0, ay=100.0, az=GRAVITY + 100.0,
+                        fuel=0.0, z=100.0, grounded=False)
+    trace = evolve_arena_movement(state, _SIMPLE_ARENA, steps=1, dt=1.0)
+    after = trace[1]
+    # With no fuel, ax/ay/az thrust ignored; only gravity applies
+    assert after.vx == 0.0, "No x-thrust without fuel"
+    assert after.vy == 0.0, "No y-thrust without fuel"
+    # vz should be negative (gravity only, no thrust)
+    assert after.vz < 0.0, "Only gravity when fuel exhausted"

@@ -157,6 +157,17 @@ def test_wraparound_x_negative() -> None:
     assert after.wraparound_count == 1
 
 
+def test_wraparound_multi_width() -> None:
+    """Moving more than one arena width in a single tick wraps correctly."""
+    # Arena is 8 wide; move 18 units in one tick: 4.0 + 18.0 = 22.0
+    # 22.0 % 8 = 6.0
+    state = _make_state(x=4.0, y=4.0, vx=18.0, vy=0.0)
+    trace = evolve_spatial_arcade_2d(state, _OPEN_ARENA, steps=1, dt=1.0)
+    after = trace[1]
+    assert abs(after.x - 6.0) < 1e-9
+    assert after.wraparound_count >= 1
+
+
 # ---------------------------------------------------------------------------
 # Tests — wraparound in y
 # ---------------------------------------------------------------------------

@@ -144,12 +144,11 @@ def _clamp_speed_2d(vx: float, vy: float) -> Tuple[float, float]:
 
 
 def _wrap(value: float, limit: float) -> Tuple[float, bool]:
-    """Wrap *value* into [0, limit) and report if wrapping occurred."""
-    if value < 0.0:
-        return value + limit, True
-    if value >= limit:
-        return value - limit, True
-    return value, False
+    """Wrap *value* into [0, limit) via modulo and report if wrapping occurred."""
+    if 0.0 <= value < limit:
+        return value, False
+    wrapped = value % limit
+    return wrapped, True
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +196,7 @@ def _step_once(
     # --- Fuel consumption ---
     has_thrust = (state.ax != 0.0 or state.ay != 0.0)
     if has_thrust and fuel > 0.0:
-        fuel = max(0.0, fuel - _FUEL_COST)
+        fuel = max(0.0, fuel - _FUEL_COST * dt)
 
     # --- Heading from velocity ---
     speed = math.sqrt(nvx * nvx + nvy * nvy)
@@ -245,7 +244,7 @@ def _step_once(
 
     # --- Checkpoint detection ---
     if tile == _TILE_CHECKPOINT:
-        new_cp = gx * 1000 + gy
+        new_cp = gx + gy * cols
         if new_cp != checkpoint_id:
             checkpoint_id = new_cp
             checkpoint_hits += 1

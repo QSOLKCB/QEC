@@ -774,17 +774,28 @@ def _psd_similarity(
 ) -> float:
     """Cosine similarity between two Welch PSD vectors.
 
-    If sample rates differ, uses the minimum common frequency range.
+    When sample rates differ the PSDs are interpolated onto a shared
+    frequency grid spanning the overlapping range so that each index
+    corresponds to the same physical frequency.
     """
-    _, psd_a = _welch_psd(samples_a, sr_a)
-    _, psd_b = _welch_psd(samples_b, sr_b)
+    freqs_a, psd_a = _welch_psd(samples_a, sr_a)
+    freqs_b, psd_b = _welch_psd(samples_b, sr_b)
 
-    # Align lengths
-    min_len = min(len(psd_a), len(psd_b))
-    if min_len == 0:
+    if len(psd_a) == 0 or len(psd_b) == 0:
         return 0.0
-    va = psd_a[:min_len]
-    vb = psd_b[:min_len]
+
+    # Build shared frequency grid over the overlapping range
+    f_min = max(float(freqs_a[0]), float(freqs_b[0]))
+    f_max = min(float(freqs_a[-1]), float(freqs_b[-1]))
+    if f_max <= f_min:
+        return 0.0
+
+    n_bins = min(len(freqs_a), len(freqs_b))
+    shared_freqs = np.linspace(f_min, f_max, n_bins)
+
+    # Linearly interpolate both PSDs onto the shared grid
+    va = np.interp(shared_freqs, freqs_a, psd_a)
+    vb = np.interp(shared_freqs, freqs_b, psd_b)
 
     norm_a = float(np.linalg.norm(va))
     norm_b = float(np.linalg.norm(vb))
@@ -799,15 +810,20 @@ def _psd_similarity(
 # ---------------------------------------------------------------------------
 
 def _load_samples(path: str) -> Tuple[np.ndarray, int]:
-    """Load audio samples from a file (waveform or pseudo-spectrum)."""
-    p = Path(path)
-    raw = p.read_bytes()
-    mp3_meta = _parse_mp3_metadata(raw)
-    decode_result = _try_decode_audio(path)
+    """Load audio samples from a file (waveform or pseudo-spectrum).
 
+    Attempts real waveform decode first; only reads raw bytes for
+    pseudo-spectrum fallback to avoid redundant I/O.
+    """
+    decode_result = _try_decode_audio(path)
     if decode_result is not None:
         samples, sr, _ = decode_result
         return samples, sr
+
+    # Fallback: read raw bytes for pseudo-spectrum
+    p = Path(path)
+    raw = p.read_bytes()
+    mp3_meta = _parse_mp3_metadata(raw)
 
     if mp3_meta is not None:
         sr = mp3_meta.sample_rate
@@ -971,6 +987,15 @@ def compare_legacy_vs_v1366(
     v2_report = analyze_quantum_audio_file(v2_path)
 
     states = legacy_report.state_reports
+    n_expected = len(_LEGACY_STATE_NAMES)
+    if len(states) != n_expected:
+        raise ValueError(
+            f"legacy_report has {len(states)} states, expected {n_expected}"
+        )
+
+    # Named indices from the canonical state chain
+    _COLLAPSE_IDX = _LEGACY_STATE_NAMES.index("Collapse")
+    _RECOVERY_IDX = _LEGACY_STATE_NAMES.index("Recovery")
 
     # Find best legacy analog for v1 and v2 by coherence proximity
     def _best_analog(target: QuantumAudioLogicReport) -> str:
@@ -986,14 +1011,14 @@ def compare_legacy_vs_v1366(
     best_v1 = _best_analog(v1_report)
     best_v2 = _best_analog(v2_report)
 
-    # Collapse similarity: compare v1 against state 3 (Collapse)
-    collapse_state = states[3]  # index 3 = Collapse
+    # Collapse similarity: compare v1 against Collapse state
+    collapse_state = states[_COLLAPSE_IDX]
     collapse_sim = 1.0 - min(1.0, abs(
         v1_report.coherence_score - collapse_state.coherence_score
     ))
 
-    # Recovery similarity: compare v2 against state 4 (Recovery)
-    recovery_state = states[4]  # index 4 = Recovery
+    # Recovery similarity: compare v2 against Recovery state
+    recovery_state = states[_RECOVERY_IDX]
     recovery_sim = 1.0 - min(1.0, abs(
         v2_report.coherence_score - recovery_state.coherence_score
     ))
@@ -1028,44 +1053,22 @@ def compare_legacy_vs_v1366(
 # PART 4 — Dependency hardening
 # ---------------------------------------------------------------------------
 
-def _get_dependency_tuples() -> Tuple[Tuple[str, str], ...]:
-    """Return sorted tuple of (package, version) for audio stack."""
-    deps = []
-    try:
-        import numpy as _np
-        deps.append(("numpy", str(_np.__version__)))
-    except ImportError:
-        deps.append(("numpy", "not_installed"))
+@dataclass(frozen=True)
+class _DependencyProbe:
+    """Internal: cached result of probing all audio-stack dependencies."""
 
-    try:
-        import scipy as _sp
-        deps.append(("scipy", str(_sp.__version__)))
-    except ImportError:
-        deps.append(("scipy", "not_installed"))
-
-    try:
-        import soundfile as _sf
-        deps.append(("soundfile", str(getattr(_sf, "__version__", "unknown"))))
-    except ImportError:
-        deps.append(("soundfile", "not_installed"))
-
-    try:
-        import audioread as _ar
-        deps.append(("audioread", str(getattr(_ar, "__version__", "unknown"))))
-    except ImportError:
-        deps.append(("audioread", "not_installed"))
-
-    return tuple(sorted(deps))
+    numpy_version: str
+    scipy_version: str
+    scipy_signal_available: bool
+    scipy_io_wavfile_available: bool
+    soundfile_available: bool
+    soundfile_version: str
+    audioread_available: bool
+    audioread_version: str
 
 
-def verify_audio_stack_health() -> AudioStackHealthReport:
-    """Verify installed audio stack and report decode-path readiness.
-
-    Returns
-    -------
-    AudioStackHealthReport
-        Frozen report of dependency versions and decode capabilities.
-    """
+def _probe_dependencies() -> _DependencyProbe:
+    """Probe the installed audio stack once (shared by public helpers)."""
     # numpy
     try:
         import numpy as _np
@@ -1114,15 +1117,53 @@ def verify_audio_stack_health() -> AudioStackHealthReport:
     except ImportError:
         pass
 
+    return _DependencyProbe(
+        numpy_version=np_ver,
+        scipy_version=scipy_ver,
+        scipy_signal_available=sig_avail,
+        scipy_io_wavfile_available=wavfile_avail,
+        soundfile_available=sf_avail,
+        soundfile_version=sf_ver,
+        audioread_available=ar_avail,
+        audioread_version=ar_ver,
+    )
+
+
+def _get_dependency_tuples() -> Tuple[Tuple[str, str], ...]:
+    """Return sorted tuple of (package, version) for audio stack."""
+    probe = _probe_dependencies()
+    deps = [
+        ("audioread", probe.audioread_version),
+        ("numpy", probe.numpy_version),
+        ("scipy", probe.scipy_version),
+        ("soundfile", probe.soundfile_version),
+    ]
+    return tuple(sorted(deps))
+
+
+def verify_audio_stack_health() -> AudioStackHealthReport:
+    """Verify installed audio stack and report decode-path readiness.
+
+    Returns
+    -------
+    AudioStackHealthReport
+        Frozen report of dependency versions and decode capabilities.
+    """
+    probe = _probe_dependencies()
+
     # Determine active decode path
-    waveform_ready = sf_avail or ar_avail or wavfile_avail
-    if sf_avail:
+    waveform_ready = (
+        probe.soundfile_available
+        or probe.audioread_available
+        or probe.scipy_io_wavfile_available
+    )
+    if probe.soundfile_available:
         active_path = "soundfile"
         fallback = "byte_pseudospectrum"
-    elif ar_avail:
+    elif probe.audioread_available:
         active_path = "audioread"
         fallback = "byte_pseudospectrum"
-    elif wavfile_avail:
+    elif probe.scipy_io_wavfile_available:
         active_path = "scipy.io.wavfile"
         fallback = "byte_pseudospectrum"
     else:
@@ -1132,14 +1173,14 @@ def verify_audio_stack_health() -> AudioStackHealthReport:
     mode = "true_waveform_decode" if waveform_ready else "pseudo_spectrum"
 
     return AudioStackHealthReport(
-        numpy_version=np_ver,
-        scipy_version=scipy_ver,
-        scipy_signal_available=sig_avail,
-        scipy_io_wavfile_available=wavfile_avail,
-        soundfile_available=sf_avail,
-        soundfile_version=sf_ver,
-        audioread_available=ar_avail,
-        audioread_version=ar_ver,
+        numpy_version=probe.numpy_version,
+        scipy_version=probe.scipy_version,
+        scipy_signal_available=probe.scipy_signal_available,
+        scipy_io_wavfile_available=probe.scipy_io_wavfile_available,
+        soundfile_available=probe.soundfile_available,
+        soundfile_version=probe.soundfile_version,
+        audioread_available=probe.audioread_available,
+        audioread_version=probe.audioread_version,
         active_decode_path=active_path,
         fallback_path=fallback,
         pseudo_spectrum_ready=True,  # always available

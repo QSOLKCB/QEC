@@ -27,6 +27,7 @@ from qec.audio.quantum_audio_logic_lab import (
     _LEGACY_TRANSITION_CLASSES,
     _load_samples,
     _parse_mp3_metadata,
+    _probe_dependencies,
     _psd_similarity,
     _stability_label,
     _try_decode_audio,
@@ -434,6 +435,15 @@ class TestPsdSimilarity:
         b = _psd_similarity(s, 44100, s, 44100)
         assert a == b
 
+    def test_different_sample_rates_aligned(self):
+        """Same tone at different sample rates should still be similar."""
+        t1 = np.arange(44100) / 44100.0
+        t2 = np.arange(48000) / 48000.0
+        s1 = np.sin(2 * np.pi * 440 * t1)
+        s2 = np.sin(2 * np.pi * 440 * t2)
+        sim = _psd_similarity(s1, 44100, s2, 48000)
+        assert sim > 0.9
+
 
 # ---------------------------------------------------------------------------
 # v136.6.1 — Load samples helper
@@ -580,6 +590,15 @@ class TestLegacySequenceRegression:
         )
         classes = tuple(t.classification for t in report.transition_reports)
         assert classes == ("divergent", "transition", "collapse", "recovery")
+
+    def test_transition_state_chain_ordering(self):
+        """from_state/to_state pairs must follow the canonical 5-state chain."""
+        report = analyze_legacy_audio_sequence(
+            _REPO_ROOT, _BASELINE_JSON,
+        )
+        chain = [t.from_state for t in report.transition_reports]
+        chain.append(report.transition_reports[-1].to_state)
+        assert tuple(chain) == _LEGACY_STATE_NAMES
 
     def test_legacy_similarity_bounded(self):
         report = analyze_legacy_audio_sequence(

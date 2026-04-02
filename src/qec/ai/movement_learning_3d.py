@@ -422,7 +422,8 @@ def export_trajectory_state_space(
 
     Each state is converted to a dict with keys: x, y, coherence, entropy,
     stability, label.  The label encodes the trajectory classification.
-    The z-coordinate is encoded in the entropy channel for bridge compatibility.
+    The entropy channel exposes the state's entropy; the z-coordinate is not
+    exported in this 2D-compatible view.
     """
     label = traj.classification if traj.classification else "movement_3d"
     trace = []

@@ -16,11 +16,9 @@ Minimum 55 tests covering:
 
 from __future__ import annotations
 
-import hashlib
-import importlib
+import inspect
 import json
 import os
-import sys
 
 import pytest
 
@@ -78,6 +76,11 @@ class TestDataclassImmutability:
         spec = build_repetition_code(3)
         with pytest.raises(AttributeError):
             spec.metadata = {}  # type: ignore[misc]
+
+    def test_code_spec_metadata_immutable_mapping(self):
+        spec = build_repetition_code(3)
+        with pytest.raises(TypeError):
+            spec.metadata["new_key"] = "value"  # type: ignore[index]
 
 
 # ===================================================================
@@ -347,6 +350,44 @@ class TestRegistryValidation:
         with pytest.raises(ValueError, match="distance"):
             validate_code_spec(spec)
 
+    def test_validate_code_spec_non_string_metadata_key(self):
+        spec = CodeSpec(
+            code_id="x", family="rep", distance=3,
+            logical_qubits=1, physical_qubits=3,
+            stabilizer_count=2, metadata={42: "bad"},
+        )
+        with pytest.raises(ValueError, match="metadata keys must be strings"):
+            validate_code_spec(spec)
+
+    def test_validate_code_spec_non_serializable_metadata(self):
+        spec = CodeSpec(
+            code_id="x", family="rep", distance=3,
+            logical_qubits=1, physical_qubits=3,
+            stabilizer_count=2, metadata={"fn": lambda: None},
+        )
+        with pytest.raises(ValueError, match="JSON-serializable"):
+            validate_code_spec(spec)
+
+    def test_validate_registry_version_mismatch(self):
+        zoo = build_default_code_zoo()
+        bad = CodeZooRegistry(
+            codes=zoo.codes,
+            registry_version="v0.0.0",
+            state_hash=zoo.state_hash,
+        )
+        with pytest.raises(ValueError, match="registry_version mismatch"):
+            validate_registry(bad)
+
+    def test_validate_registry_duplicate_code_ids(self):
+        spec = build_repetition_code(3)
+        bad = CodeZooRegistry(
+            codes=(spec, spec),
+            registry_version=REGISTRY_VERSION,
+            state_hash="a" * 64,
+        )
+        with pytest.raises(ValueError, match="Duplicate code_id"):
+            validate_registry(bad)
+
 
 # ===================================================================
 # 8. 100-run replay determinism
@@ -483,9 +524,7 @@ class TestDecoderUntouched:
 
     def test_no_decoder_import_in_code_zoo(self):
         import qec.codes.code_zoo as mod
-        source_path = mod.__file__
-        with open(source_path) as f:
-            source = f.read()
+        source = inspect.getsource(mod)
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
 

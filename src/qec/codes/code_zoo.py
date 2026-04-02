@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import types
 from dataclasses import dataclass
 from typing import Any, Mapping, Tuple
 
@@ -92,6 +93,18 @@ def validate_code_spec(spec: CodeSpec) -> bool:
         raise ValueError(
             f"metadata must be a Mapping, got {type(spec.metadata).__name__}"
         )
+    for key in spec.metadata:
+        if not isinstance(key, str):
+            raise ValueError(
+                f"metadata keys must be strings, "
+                f"got key {key!r} of type {type(key).__name__}"
+            )
+    try:
+        json.dumps(dict(spec.metadata), sort_keys=True)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"metadata must be JSON-serializable, got error: {exc}"
+        ) from exc
     return True
 
 
@@ -109,6 +122,11 @@ def validate_registry(registry: CodeZooRegistry) -> bool:
             f"registry_version must be a non-empty string, "
             f"got {registry.registry_version!r}"
         )
+    if registry.registry_version != REGISTRY_VERSION:
+        raise ValueError(
+            f"registry_version mismatch: expected {REGISTRY_VERSION!r}, "
+            f"got {registry.registry_version!r}"
+        )
     if not isinstance(registry.state_hash, str) or len(registry.state_hash) != 64:
         raise ValueError(
             f"state_hash must be a 64-char hex string, got {registry.state_hash!r}"
@@ -120,9 +138,13 @@ def validate_registry(registry: CodeZooRegistry) -> bool:
             f"state_hash must be a valid hex string, got {registry.state_hash!r}"
         )
 
-    # Validate each spec
+    # Validate each spec and check for duplicate code_ids
+    seen_ids: set[str] = set()
     for spec in registry.codes:
         validate_code_spec(spec)
+        if spec.code_id in seen_ids:
+            raise ValueError(f"Duplicate code_id in registry: {spec.code_id!r}")
+        seen_ids.add(spec.code_id)
 
     # Validate ordering: must be sorted by (family, distance, code_id)
     sort_keys = [(s.family, s.distance, s.code_id) for s in registry.codes]
@@ -160,7 +182,7 @@ def build_repetition_code(distance: int) -> CodeSpec:
         logical_qubits=1,
         physical_qubits=distance,
         stabilizer_count=distance - 1,
-        metadata={"type": "css", "dimension": 1},
+        metadata=types.MappingProxyType({"dimension": 1, "type": "css"}),
     )
 
 
@@ -181,7 +203,7 @@ def build_surface_code(distance: int) -> CodeSpec:
         logical_qubits=1,
         physical_qubits=physical,
         stabilizer_count=physical - 1,
-        metadata={"type": "css", "dimension": 2},
+        metadata=types.MappingProxyType({"dimension": 2, "type": "css"}),
     )
 
 
@@ -202,7 +224,7 @@ def build_toric_code(distance: int) -> CodeSpec:
         logical_qubits=2,
         physical_qubits=physical,
         stabilizer_count=physical - 2,
-        metadata={"type": "css", "dimension": 2, "topology": "torus"},
+        metadata=types.MappingProxyType({"dimension": 2, "topology": "torus", "type": "css"}),
     )
 
 
@@ -226,7 +248,7 @@ def build_qldpc_code(n: int, k: int, d: int) -> CodeSpec:
         logical_qubits=k,
         physical_qubits=n,
         stabilizer_count=n - k,
-        metadata={"type": "qldpc", "rate": k / n},
+        metadata=types.MappingProxyType({"rate": k / n, "type": "qldpc"}),
     )
 
 
@@ -356,7 +378,6 @@ def build_snapshot_from_code_registry(
     from qec.ai.controller_snapshot_schema import (
         SCHEMA_VERSION,
         ControllerSnapshot,
-        _canonical_json,
     )
 
     canonical = {

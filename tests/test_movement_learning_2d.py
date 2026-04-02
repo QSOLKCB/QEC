@@ -19,7 +19,6 @@ Minimum 45 tests covering:
 from __future__ import annotations
 
 import os
-import sys
 
 import pytest
 
@@ -369,7 +368,7 @@ class TestEpisodeClassification:
         ep = run_episode(seed=42, steps=1)
         assert ep.classification in VALID_CLASSIFICATIONS
 
-    def test_classify_empty_states(self):
+    def test_classify_single_state_episode(self):
         ep = MovementEpisode(
             states=(initialize_state(1),),
             decisions=(),
@@ -497,13 +496,13 @@ class TestDecoderUntouched:
         assert "import qec.decoder" not in source
 
     def test_decoder_directory_unmodified(self):
-        """Verify decoder directory exists and is not empty (sanity check)."""
+        """Verify decoder directory exists and is non-empty (sanity check)."""
         decoder_path = os.path.join(
             os.path.dirname(__file__), "..", "src", "qec", "decoder"
         )
         if os.path.exists(decoder_path):
-            # Decoder dir exists; we didn't delete it
             assert os.path.isdir(decoder_path)
+            assert len(os.listdir(decoder_path)) > 0
 
 
 # ===================================================================

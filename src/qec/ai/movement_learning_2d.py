@@ -161,15 +161,15 @@ def step_environment(state: MovementState, action: str) -> MovementState:
     # Speed increases hazard slightly
     hazard = hazard + speed * 0.01
 
+    # Clamp hazard to [0, 1] before using it for coherence/entropy/stability
+    hazard = max(0.0, min(1.0, hazard))
+
     if action == "recover":
         # Recovery reduces hazard and increases coherence
         hazard = hazard * 0.5
         coherence = min(1.0, state.coherence + 0.1)
     else:
         coherence = state.coherence - hazard * 0.05
-
-    # Clamp hazard to [0, 1]
-    hazard = max(0.0, min(1.0, hazard))
     coherence = max(0.0, min(1.0, coherence))
 
     # Entropy increases with hazard, decreases with stability

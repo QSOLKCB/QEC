@@ -69,9 +69,6 @@ OSCILLATION_THRESHOLD: int = 2
 # Strictness multiplier applied to hysteresis when oscillation detected
 OSCILLATION_STRICTNESS_MULTIPLIER: int = 2
 
-# Float precision for deterministic hashing
-FLOAT_PRECISION: int = 12
-
 # Route severity ordering
 _ROUTE_SEVERITY: Dict[str, int] = {
     ROUTE_PRIMARY: 0,
@@ -114,11 +111,6 @@ class PolicyMemoryLedger:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _round(value: float) -> float:
-    """Round to canonical precision for deterministic hashing."""
-    return round(value, FLOAT_PRECISION)
-
 
 def _canonical_json(obj: Any) -> str:
     """Produce canonical JSON: sorted keys, compact separators."""
@@ -176,6 +168,7 @@ def make_initial_policy_memory_state() -> PolicyMemoryState:
 def compute_hysteresis_route(
     proposed_route: str,
     memory: PolicyMemoryState,
+    effective_low_risk_cycles: int,
 ) -> str:
     """Apply deterministic hysteresis to prevent route oscillation.
 
@@ -193,6 +186,8 @@ def compute_hysteresis_route(
         The route proposed by v136.9.2 adaptive steering.
     memory : PolicyMemoryState
         Current policy memory state.
+    effective_low_risk_cycles : int
+        Low-risk cycle count including the current cycle.
 
     Returns
     -------
@@ -211,7 +206,7 @@ def compute_hysteresis_route(
     if memory.oscillation_count >= OSCILLATION_THRESHOLD:
         required_cycles = HYSTERESIS_RELEASE_CYCLES * OSCILLATION_STRICTNESS_MULTIPLIER
 
-    if memory.consecutive_low_risk_cycles >= required_cycles:
+    if effective_low_risk_cycles >= required_cycles:
         return proposed_route
 
     # Block downgrade — hold current route
@@ -224,20 +219,20 @@ def compute_hysteresis_route(
 
 def enforce_recovery_timeout(
     route: str,
-    memory: PolicyMemoryState,
+    effective_recovery_cycles: int,
 ) -> str:
     """Enforce bounded-time recovery guarantee.
 
-    If the system has been in RECOVERY or ALTERNATE for more than
-    RECOVERY_TIMEOUT_CYCLES consecutive cycles, escalate the route
-    by one severity level.
+    If the system has been in RECOVERY or ALTERNATE for
+    effective_recovery_cycles >= RECOVERY_TIMEOUT_CYCLES,
+    escalate the route by one severity level.
 
     Parameters
     ----------
     route : str
         The current (post-hysteresis) route.
-    memory : PolicyMemoryState
-        Current policy memory state.
+    effective_recovery_cycles : int
+        Recovery cycle count including the current cycle.
 
     Returns
     -------
@@ -247,7 +242,7 @@ def enforce_recovery_timeout(
     if route not in (ROUTE_RECOVERY, ROUTE_ALTERNATE):
         return route
 
-    if memory.consecutive_recovery_cycles >= RECOVERY_TIMEOUT_CYCLES:
+    if effective_recovery_cycles >= RECOVERY_TIMEOUT_CYCLES:
         current_severity = _route_severity(route)
         escalated_severity = min(current_severity + 1, 3)
         return _severity_to_route(escalated_severity)
@@ -285,13 +280,35 @@ def update_policy_memory(
 
     proposed_route = decision.adaptive_recovery_route
 
-    # Step 1: Apply hysteresis
-    hysteresis_route = compute_hysteresis_route(proposed_route, prior_memory)
+    # Step 1: Compute effective low-risk cycles INCLUDING current cycle
+    is_low_risk = (
+        decision.forecast_label in _LOW_RISK_LABELS
+        and not decision.precollapse_detected
+    )
+    effective_low_risk = (
+        prior_memory.consecutive_low_risk_cycles + 1 if is_low_risk else 0
+    )
 
-    # Step 2: Apply recovery timeout
-    governed_route = enforce_recovery_timeout(hysteresis_route, prior_memory)
+    # Step 2: Apply hysteresis with effective count
+    hysteresis_route = compute_hysteresis_route(
+        proposed_route, prior_memory, effective_low_risk,
+    )
 
-    # Step 3: Detect oscillation
+    # Step 3: Compute effective recovery cycles INCLUDING current cycle
+    #         Reset on route transition within recovery family.
+    if hysteresis_route not in (ROUTE_RECOVERY, ROUTE_ALTERNATE):
+        effective_recovery = 0
+    elif hysteresis_route == prior_memory.current_route:
+        effective_recovery = prior_memory.consecutive_recovery_cycles + 1
+    else:
+        effective_recovery = 1
+
+    # Step 4: Apply recovery timeout with effective count
+    governed_route = enforce_recovery_timeout(
+        hysteresis_route, effective_recovery,
+    )
+
+    # Step 5: Detect oscillation
     oscillation_detected = _detect_oscillation(
         current=prior_memory.current_route,
         prior=prior_memory.prior_route,
@@ -301,27 +318,20 @@ def update_policy_memory(
     if oscillation_detected:
         new_oscillation_count = prior_memory.oscillation_count + 1
 
-    # Step 4: Update consecutive low-risk cycles
-    is_low_risk = (
-        decision.forecast_label in _LOW_RISK_LABELS
-        and not decision.precollapse_detected
-    )
-    if is_low_risk:
-        new_consecutive_low_risk = prior_memory.consecutive_low_risk_cycles + 1
-    else:
-        new_consecutive_low_risk = 0
-
-    # Step 5: Update consecutive recovery cycles
-    if governed_route in (ROUTE_RECOVERY, ROUTE_ALTERNATE):
+    # Step 6: Compute final recovery counter for state
+    #         If timeout escalated the route, counter resets.
+    if governed_route not in (ROUTE_RECOVERY, ROUTE_ALTERNATE):
+        new_consecutive_recovery = 0
+    elif governed_route == prior_memory.current_route:
         new_consecutive_recovery = prior_memory.consecutive_recovery_cycles + 1
     else:
-        new_consecutive_recovery = 0
+        new_consecutive_recovery = 1
 
-    # Step 6: Build new state
+    # Step 7: Build new state
     new_state = PolicyMemoryState(
         current_route=governed_route,
         prior_route=prior_memory.current_route,
-        consecutive_low_risk_cycles=new_consecutive_low_risk,
+        consecutive_low_risk_cycles=effective_low_risk,
         consecutive_recovery_cycles=new_consecutive_recovery,
         oscillation_count=new_oscillation_count,
         last_escalation_level=decision.adaptive_escalation_level,
@@ -402,18 +412,16 @@ def append_policy_memory_state(
 
 def export_policy_memory_bundle(
     state: PolicyMemoryState,
-    governed_route: str,
 ) -> Dict[str, Any]:
     """Export a policy memory state as a canonical JSON-safe dict.
 
     Deterministic: same state always produces byte-identical export.
+    The governed route is state.current_route (set by update_policy_memory).
 
     Parameters
     ----------
     state : PolicyMemoryState
         The policy memory state to export.
-    governed_route : str
-        The final governed route after hysteresis and timeout.
 
     Returns
     -------
@@ -425,7 +433,6 @@ def export_policy_memory_bundle(
         "consecutive_low_risk_cycles": state.consecutive_low_risk_cycles,
         "consecutive_recovery_cycles": state.consecutive_recovery_cycles,
         "current_route": state.current_route,
-        "governed_route": governed_route,
         "last_escalation_level": state.last_escalation_level,
         "layer": "adaptive_steering_policy_memory",
         "oscillation_count": state.oscillation_count,

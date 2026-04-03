@@ -310,7 +310,7 @@ def select_decoder_path(
         registry = build_default_decoder_portfolio()
 
     if not registry.candidates:
-        raise ValueError("Cannot select from empty portfolio registry")
+        raise ValueError("Portfolio registry must contain at least one candidate")
 
     evidence_score = snapshot.evidence_score
 

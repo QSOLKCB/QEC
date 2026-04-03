@@ -246,7 +246,7 @@ class TestSelectionDeterminism:
     def test_empty_registry_raises(self):
         snapshot = _make_snapshot()
         empty = PortfolioRegistry(candidates=(), registry_hash="0" * 64)
-        with pytest.raises(ValueError, match="empty portfolio"):
+        with pytest.raises(ValueError, match="at least one candidate"):
             select_decoder_path("surface", 0.95, snapshot, empty)
 
     def test_invariant_failed_reinit(self):

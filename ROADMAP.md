@@ -40,6 +40,7 @@ Audio = topology training substrate
 QEC = primary operational substrate
 AI = deterministic orchestrator
 Physics = observability substrate
+```
 
 This is no longer “QEC with extras”.
 

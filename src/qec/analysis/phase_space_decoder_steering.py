@@ -388,6 +388,7 @@ def build_steering_ledger(
     decisions: Tuple[PhaseSteeringDecision, ...] = (),
 ) -> SteeringLedger:
     """Build an immutable steering ledger from a tuple of decisions."""
+    decisions = tuple(decisions)
     tmp = SteeringLedger(
         decisions=decisions,
         decision_count=len(decisions),

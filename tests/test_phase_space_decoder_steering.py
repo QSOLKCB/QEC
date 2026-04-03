@@ -15,6 +15,9 @@ from __future__ import annotations
 
 import copy
 import json
+from dataclasses import FrozenInstanceError
+
+import pytest
 
 from qec.analysis.phase_space_decoder_steering import (
     ESCALATION_ADVISORY,
@@ -333,19 +336,13 @@ class TestInputNonMutation:
 
     def test_frozen_decision(self) -> None:
         d = route_decoder_from_phase_space(**LOW_RISK)
-        try:
+        with pytest.raises(FrozenInstanceError):
             d.phase_risk_score = 0.99  # type: ignore[misc]
-            assert False, "Should not allow mutation"
-        except AttributeError:
-            pass
 
     def test_frozen_ledger(self) -> None:
         ledger = build_steering_ledger()
-        try:
+        with pytest.raises(FrozenInstanceError):
             ledger.decision_count = 99  # type: ignore[misc]
-            assert False, "Should not allow mutation"
-        except AttributeError:
-            pass
 
 
 # ---------------------------------------------------------------------------
@@ -384,8 +381,5 @@ class TestSteeringLedger:
 
     def test_ledger_immutable(self) -> None:
         ledger = build_steering_ledger()
-        try:
+        with pytest.raises(FrozenInstanceError):
             ledger.decisions = ()  # type: ignore[misc]
-            assert False, "Should not allow mutation"
-        except AttributeError:
-            pass

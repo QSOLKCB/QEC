@@ -742,16 +742,12 @@ class TestDecoderUntouched:
         assert "from qec.decoder" not in source
 
     def test_decoder_directory_exists_and_untouched(self):
-        decoder_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "src", "qec", "decoder",
-        )
-        # If the decoder directory exists, it should not be imported
-        if os.path.isdir(decoder_path):
-            # Gate module should never touch it
-            import qec.evolution.promotion_rollback_gate as mod
-            source = open(mod.__file__).read()
-            assert "decoder" not in source.split("import")[-1] or True
+        import qec.evolution.promotion_rollback_gate as mod
+        assert mod.__file__ is not None
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
+        assert "qec.decoder" not in source
+        assert "from qec.decoder" not in source
 
 
 # ===========================================================================

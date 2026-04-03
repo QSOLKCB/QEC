@@ -151,16 +151,44 @@ def _sort_key(c: PortfolioCandidate) -> Tuple[str, str]:
     return (c.code_family, c.decoder_id)
 
 
+def _validate_candidate(candidate: PortfolioCandidate) -> None:
+    """Validate a single PortfolioCandidate.
+
+    Raises ValueError if any invariant is violated.
+    """
+    if not isinstance(candidate, PortfolioCandidate):
+        raise ValueError(f"Expected PortfolioCandidate, got {type(candidate).__name__}")
+    if not candidate.decoder_id:
+        raise ValueError("decoder_id must be non-empty")
+    if not candidate.code_family:
+        raise ValueError("code_family must be non-empty")
+    if not (0.0 <= candidate.confidence <= 1.0):
+        raise ValueError(
+            f"confidence must be in [0.0, 1.0], got {candidate.confidence}"
+        )
+    if not (0.0 <= candidate.expected_recovery_score <= 1.0):
+        raise ValueError(
+            f"expected_recovery_score must be in [0.0, 1.0], got {candidate.expected_recovery_score}"
+        )
+    if candidate.route_priority < 0:
+        raise ValueError(
+            f"route_priority must be >= 0, got {candidate.route_priority}"
+        )
+
+
 def register_portfolio_candidate(
     candidate: PortfolioCandidate,
     registry: Optional[PortfolioRegistry] = None,
 ) -> PortfolioRegistry:
     """Register a candidate into a portfolio registry.
 
+    Validates candidate invariants at registration time.
     Maintains sorted order by (code_family, decoder_id).
     Recomputes registry hash.
-    Raises ValueError on duplicate decoder_id.
+    Raises ValueError on duplicate decoder_id or invalid candidate.
     """
+    _validate_candidate(candidate)
+
     if registry is None:
         candidates = (candidate,)
     else:
@@ -186,26 +214,12 @@ def validate_portfolio_registry(registry: PortfolioRegistry) -> bool:
             f"candidates must be a tuple, got {type(registry.candidates).__name__}"
         )
 
+    if len(registry.candidates) == 0:
+        raise ValueError("Portfolio registry must contain at least one candidate")
+
     seen_ids: set = set()
     for c in registry.candidates:
-        if not isinstance(c, PortfolioCandidate):
-            raise ValueError(f"Expected PortfolioCandidate, got {type(c).__name__}")
-        if not c.decoder_id:
-            raise ValueError("decoder_id must be non-empty")
-        if not c.code_family:
-            raise ValueError("code_family must be non-empty")
-        if not (0.0 <= c.confidence <= 1.0):
-            raise ValueError(
-                f"confidence must be in [0.0, 1.0], got {c.confidence}"
-            )
-        if not (0.0 <= c.expected_recovery_score <= 1.0):
-            raise ValueError(
-                f"expected_recovery_score must be in [0.0, 1.0], got {c.expected_recovery_score}"
-            )
-        if c.route_priority < 0:
-            raise ValueError(
-                f"route_priority must be >= 0, got {c.route_priority}"
-            )
+        _validate_candidate(c)
         if c.decoder_id in seen_ids:
             raise ValueError(f"Duplicate decoder_id: {c.decoder_id!r}")
         seen_ids.add(c.decoder_id)
@@ -264,17 +278,21 @@ def _resolve_action(code_family: str) -> str:
 def select_decoder_path(
     code_family: str,
     cognition_match: float,
-    evidence_score: float,
     snapshot: ControllerSnapshot,
     registry: Optional[PortfolioRegistry] = None,
 ) -> OrchestratorDecision:
     """Select the optimal decoder path deterministically.
 
     Selection priority (stable):
-    1. exact code_family match
-    2. highest cognition confidence (cognition_match)
+    1. exact code_family match filters candidates
+    2. highest candidate confidence
     3. highest expected_recovery_score
-    4. lowest route_priority
+    4. lowest route_priority integer
+    5. decoder_id alphabetical (final tie-break)
+
+    cognition_match and snapshot.evidence_score are combined with
+    the winning candidate's confidence to produce the output
+    confidence score but do not affect candidate ranking.
 
     Parameters
     ----------
@@ -282,15 +300,19 @@ def select_decoder_path(
         Target code family identifier.
     cognition_match
         Confidence from audio cognition cycle [0.0, 1.0].
-    evidence_score
-        Evidence score from controller snapshot [0.0, 1.0].
     snapshot
-        Controller snapshot for state context.
+        Controller snapshot for state context. ``snapshot.evidence_score``
+        is the authoritative evidence input.
     registry
         Portfolio registry. Uses default if None.
     """
     if registry is None:
         registry = build_default_decoder_portfolio()
+
+    if not registry.candidates:
+        raise ValueError("Cannot select from empty portfolio registry")
+
+    evidence_score = snapshot.evidence_score
 
     # Filter candidates matching code_family first
     family_matches = tuple(
@@ -307,7 +329,7 @@ def select_decoder_path(
         rationale = f"exact_family_match:{code_family}"
         source = "code_family"
     else:
-        # No exact match: fall back to best overall candidate weighted by evidence
+        # No exact match: fall back to best overall candidate
         ranked = sorted(
             registry.candidates,
             key=lambda c: (-c.confidence, -c.expected_recovery_score, c.route_priority, c.decoder_id),
@@ -321,7 +343,10 @@ def select_decoder_path(
         best.confidence * 0.5 + cognition_match * 0.3 + evidence_score * 0.2, 15
     )
 
-    action = _resolve_action(best.code_family)
+    # Resolve action from the requested code_family so that unknown
+    # families deterministically map to _DEFAULT_ACTION rather than
+    # inheriting the fallback candidate's family action.
+    action = _resolve_action(code_family)
 
     # If snapshot invariant failed, override to REINIT
     if not snapshot.invariant_passed:
@@ -359,12 +384,10 @@ def run_orchestration_cycle(
     Deterministic: same inputs always produce identical decision.
     """
     cognition_confidence = cognition_cycle_result.match.confidence
-    evidence = snapshot.evidence_score
 
     return select_decoder_path(
         code_family=code_family,
         cognition_match=cognition_confidence,
-        evidence_score=evidence,
         snapshot=snapshot,
         registry=registry,
     )

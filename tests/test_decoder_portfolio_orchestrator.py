@@ -32,6 +32,7 @@ from qec.orchestration.decoder_portfolio_orchestrator import (
     _canonical_json,
     _candidate_to_canonical_dict,
     _resolve_action,
+    _validate_candidate,
     build_default_decoder_portfolio,
     compute_portfolio_hash,
     export_orchestration_bundle,
@@ -194,57 +195,70 @@ class TestSelectionDeterminism:
     def test_same_inputs_same_decision(self):
         snapshot = _make_snapshot()
         reg = build_default_decoder_portfolio()
-        d1 = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
-        d2 = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
+        d1 = select_decoder_path("surface", 0.95, snapshot, reg)
+        d2 = select_decoder_path("surface", 0.95, snapshot, reg)
         assert d1 == d2
 
     def test_different_family_different_decision(self):
         snapshot = _make_snapshot()
         reg = build_default_decoder_portfolio()
-        d1 = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
-        d2 = select_decoder_path("toric", 0.95, 0.8, snapshot, reg)
+        d1 = select_decoder_path("surface", 0.95, snapshot, reg)
+        d2 = select_decoder_path("toric", 0.95, snapshot, reg)
         assert d1.selected_decoder != d2.selected_decoder
 
     def test_surface_maps_to_surface_fast_path(self):
         snapshot = _make_snapshot()
         reg = build_default_decoder_portfolio()
-        d = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("surface", 0.95, snapshot, reg)
         assert d.policy_action == "SURFACE_FAST_PATH"
 
     def test_toric_maps_to_toric_stability_path(self):
         snapshot = _make_snapshot()
         reg = build_default_decoder_portfolio()
-        d = select_decoder_path("toric", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("toric", 0.95, snapshot, reg)
         assert d.policy_action == "TORIC_STABILITY_PATH"
 
     def test_qldpc_maps_to_qldpc_portfolio(self):
         snapshot = _make_snapshot()
         reg = build_default_decoder_portfolio()
-        d = select_decoder_path("qldpc", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("qldpc", 0.95, snapshot, reg)
         assert d.policy_action == "QLDPC_PORTFOLIO_B"
 
     def test_repetition_maps_to_decode_portfolio_a(self):
         snapshot = _make_snapshot()
         reg = build_default_decoder_portfolio()
-        d = select_decoder_path("repetition", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("repetition", 0.95, snapshot, reg)
         assert d.policy_action == "DECODE_PORTFOLIO_A"
 
     def test_unknown_family_fallback(self):
         snapshot = _make_snapshot()
         reg = build_default_decoder_portfolio()
-        d = select_decoder_path("unknown_family", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("unknown_family", 0.95, snapshot, reg)
         assert d.source_match == "fallback"
+
+    def test_unknown_family_fallback_uses_default_action(self):
+        """Fallback resolves action from requested code_family, not candidate's."""
+        snapshot = _make_snapshot()
+        reg = build_default_decoder_portfolio()
+        d = select_decoder_path("unknown_family", 0.95, snapshot, reg)
+        assert d.policy_action == "DECODE_PORTFOLIO_B"
+
+    def test_empty_registry_raises(self):
+        snapshot = _make_snapshot()
+        empty = PortfolioRegistry(candidates=(), registry_hash="0" * 64)
+        with pytest.raises(ValueError, match="empty portfolio"):
+            select_decoder_path("surface", 0.95, snapshot, empty)
 
     def test_invariant_failed_reinit(self):
         snapshot = _make_snapshot(invariant_passed=False)
         reg = build_default_decoder_portfolio()
-        d = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("surface", 0.95, snapshot, reg)
         assert d.policy_action == "REINIT_CODE_LATTICE"
 
     def test_confidence_combination(self):
         snapshot = _make_snapshot(evidence_score=0.8)
         reg = build_default_decoder_portfolio()
-        d = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("surface", 0.95, snapshot, reg)
         # 0.9 * 0.5 + 0.95 * 0.3 + 0.8 * 0.2 = 0.45 + 0.285 + 0.16 = 0.895
         assert d.confidence == round(0.9 * 0.5 + 0.95 * 0.3 + 0.8 * 0.2, 15)
 
@@ -256,11 +270,11 @@ class TestSelectionDeterminism:
 
         actions_seen = set()
         for family in ("surface", "toric", "qldpc", "repetition"):
-            d = select_decoder_path(family, 0.95, 0.8, snapshot, reg)
+            d = select_decoder_path(family, 0.95, snapshot, reg)
             actions_seen.add(d.policy_action)
 
         # REINIT via invariant failure
-        d = select_decoder_path("surface", 0.95, 0.8, snapshot_fail, reg)
+        d = select_decoder_path("surface", 0.95, snapshot_fail, reg)
         actions_seen.add(d.policy_action)
 
         # Fallback gives DECODE_PORTFOLIO_B or one of the mapped ones
@@ -282,7 +296,7 @@ class TestStableTieBreaking:
         reg = register_portfolio_candidate(c1)
         reg = register_portfolio_candidate(c2, reg)
         snapshot = _make_snapshot()
-        d = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("surface", 0.95, snapshot, reg)
         assert d.selected_decoder == "d_a"  # higher recovery
 
     def test_tie_by_recovery_uses_priority(self):
@@ -293,7 +307,7 @@ class TestStableTieBreaking:
         reg = register_portfolio_candidate(c1)
         reg = register_portfolio_candidate(c2, reg)
         snapshot = _make_snapshot()
-        d = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("surface", 0.95, snapshot, reg)
         assert d.selected_decoder == "d_b"  # lower priority wins
 
     def test_tie_by_all_uses_decoder_id(self):
@@ -304,7 +318,7 @@ class TestStableTieBreaking:
         reg = register_portfolio_candidate(c1)
         reg = register_portfolio_candidate(c2, reg)
         snapshot = _make_snapshot()
-        d = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("surface", 0.95, snapshot, reg)
         assert d.selected_decoder == "d_alpha"  # alphabetical
 
     def test_stable_across_100_runs(self):
@@ -315,9 +329,9 @@ class TestStableTieBreaking:
         reg = register_portfolio_candidate(c1)
         reg = register_portfolio_candidate(c2, reg)
         snapshot = _make_snapshot()
-        ref = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
+        ref = select_decoder_path("surface", 0.95, snapshot, reg)
         for _ in range(100):
-            assert select_decoder_path("surface", 0.95, 0.8, snapshot, reg) == ref
+            assert select_decoder_path("surface", 0.95, snapshot, reg) == ref
 
 
 # ===================================================================
@@ -366,6 +380,17 @@ class TestPortfolioRegistration:
         c = _make_candidate()
         reg = register_portfolio_candidate(c, None)
         assert len(reg.candidates) == 1
+
+    def test_register_validates_candidate(self):
+        """Registration rejects invalid candidates at registration time."""
+        bad = _make_candidate(confidence=5.0)
+        with pytest.raises(ValueError, match="confidence"):
+            register_portfolio_candidate(bad)
+
+    def test_register_validates_negative_priority(self):
+        bad = _make_candidate(route_priority=-1)
+        with pytest.raises(ValueError, match="route_priority"):
+            register_portfolio_candidate(bad)
 
 
 # ===================================================================
@@ -446,32 +471,32 @@ class TestSnapshotIntegration:
     def test_select_with_snapshot(self):
         snapshot = _make_snapshot()
         reg = build_default_decoder_portfolio()
-        d = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("surface", 0.95, snapshot, reg)
         assert isinstance(d, OrchestratorDecision)
 
     def test_snapshot_evidence_affects_confidence(self):
         reg = build_default_decoder_portfolio()
-        d_high = select_decoder_path("surface", 0.95, 1.0, _make_snapshot(evidence_score=1.0), reg)
-        d_low = select_decoder_path("surface", 0.95, 0.0, _make_snapshot(evidence_score=0.0), reg)
+        d_high = select_decoder_path("surface", 0.95, _make_snapshot(evidence_score=1.0), reg)
+        d_low = select_decoder_path("surface", 0.95, _make_snapshot(evidence_score=0.0), reg)
         assert d_high.confidence > d_low.confidence
 
     def test_snapshot_invariant_failure_overrides_action(self):
         snapshot = _make_snapshot(invariant_passed=False)
         reg = build_default_decoder_portfolio()
-        d = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("surface", 0.95, snapshot, reg)
         assert d.policy_action == "REINIT_CODE_LATTICE"
         assert "invariant_failed" in d.rationale
 
     def test_snapshot_invariant_pass_normal_action(self):
         snapshot = _make_snapshot(invariant_passed=True)
         reg = build_default_decoder_portfolio()
-        d = select_decoder_path("surface", 0.95, 0.8, snapshot, reg)
+        d = select_decoder_path("surface", 0.95, snapshot, reg)
         assert d.policy_action != "REINIT_CODE_LATTICE"
 
     def test_snapshot_zero_evidence(self):
         snapshot = _make_snapshot(evidence_score=0.0)
         reg = build_default_decoder_portfolio()
-        d = select_decoder_path("surface", 0.95, 0.0, snapshot, reg)
+        d = select_decoder_path("surface", 0.95, snapshot, reg)
         assert isinstance(d, OrchestratorDecision)
 
 
@@ -533,9 +558,9 @@ class TestReplayDeterminism:
     def test_100_replay_select_decoder_path(self):
         snapshot = _make_snapshot()
         reg = build_default_decoder_portfolio()
-        reference = select_decoder_path("toric", 0.9, 0.85, snapshot, reg)
+        reference = select_decoder_path("toric", 0.9, snapshot, reg)
         for _ in range(100):
-            assert select_decoder_path("toric", 0.9, 0.85, snapshot, reg) == reference
+            assert select_decoder_path("toric", 0.9, snapshot, reg) == reference
 
     def test_100_replay_portfolio_hash(self):
         reference = build_default_decoder_portfolio().registry_hash
@@ -645,39 +670,39 @@ class TestValidation:
 
     def test_validate_confidence_out_of_range(self):
         c = _make_candidate(confidence=1.5)
-        reg = register_portfolio_candidate(c)
         with pytest.raises(ValueError, match="confidence"):
-            validate_portfolio_registry(reg)
+            register_portfolio_candidate(c)
 
     def test_validate_negative_priority(self):
         c = _make_candidate(route_priority=-1)
-        reg = register_portfolio_candidate(c)
         with pytest.raises(ValueError, match="route_priority"):
-            validate_portfolio_registry(reg)
+            register_portfolio_candidate(c)
 
     def test_validate_empty_decoder_id(self):
         c = PortfolioCandidate(
             decoder_id="", code_family="surface",
             confidence=0.9, expected_recovery_score=0.85, route_priority=0,
         )
-        reg = register_portfolio_candidate(c)
         with pytest.raises(ValueError, match="decoder_id"):
-            validate_portfolio_registry(reg)
+            register_portfolio_candidate(c)
 
     def test_validate_empty_code_family(self):
         c = PortfolioCandidate(
             decoder_id="d1", code_family="",
             confidence=0.9, expected_recovery_score=0.85, route_priority=0,
         )
-        reg = register_portfolio_candidate(c)
         with pytest.raises(ValueError, match="code_family"):
-            validate_portfolio_registry(reg)
+            register_portfolio_candidate(c)
 
     def test_validate_recovery_score_out_of_range(self):
         c = _make_candidate(expected_recovery_score=2.0)
-        reg = register_portfolio_candidate(c)
         with pytest.raises(ValueError, match="expected_recovery_score"):
-            validate_portfolio_registry(reg)
+            register_portfolio_candidate(c)
+
+    def test_validate_empty_registry(self):
+        empty = PortfolioRegistry(candidates=(), registry_hash="0" * 64)
+        with pytest.raises(ValueError, match="at least one candidate"):
+            validate_portfolio_registry(empty)
 
 
 # ===================================================================

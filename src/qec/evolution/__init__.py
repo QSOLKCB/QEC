@@ -1,1 +1,1 @@
-"""QEC Evolution Layer — Deterministic Self-Evolving QEC Loop."""
+"""QEC Evolution Layer — Deterministic Self-Evolving QEC Loop & Promotion Gate."""

@@ -17,12 +17,8 @@ Covers:
 - boundary conditions
 """
 
-import hashlib
-import importlib
 import json
-import math
 import os
-import sys
 
 import pytest
 
@@ -301,11 +297,9 @@ class TestNegativeRegionPreservation:
         gate = {"verdict": "rollback", "confidence": 0.1}
         hist = {"drift_score": 0.9, "rollback_rate": 0.9, "promotion_rate": 0.0}
         grid = build_wigner_grid_from_qec_state(cog, gate, hist)
-        for pt in grid.points:
-            # Probability may be any real number — we just verify
-            # that negative values are actually negative (not zero or positive)
-            if pt.probability < 0.0:
-                assert pt.probability < 0.0  # tautology to confirm preservation
+        probabilities = [pt.probability for pt in grid.points]
+        assert any(p < 0.0 for p in probabilities), "Must have negative regions"
+        assert min(probabilities) < 0.0, "Minimum probability must be negative"
 
     def test_negative_mass_positive_under_rollback(self):
         cog = {"confidence": 0.3}
@@ -670,6 +664,71 @@ class TestIntegration:
         )
         assert isinstance(result, PhaseSpaceResult)
 
+    def test_exported_gate_bundle_nested_decision(self):
+        """Gate bundle with nested decision block."""
+        gate = {"decision": {"verdict": "PROMOTE", "confidence": 0.85}}
+        result = run_phase_space_cycle(
+            {"confidence": 0.7}, gate,
+            {"drift_score": 0.2, "rollback_rate": 0.1, "promotion_rate": 0.6},
+        )
+        assert isinstance(result, PhaseSpaceResult)
+        # Verify verdict was extracted and normalised
+        verdict, conf = _extract_gate_verdict_confidence(gate)
+        assert verdict == "promote"
+        assert conf == 0.85
+
+    def test_uppercase_verdict_dataclass(self):
+        """Dataclass-like gate with uppercase verdict."""
+        class MockGateUpper:
+            verdict = "ROLLBACK"
+            confidence = 0.4
+        verdict, conf = _extract_gate_verdict_confidence(MockGateUpper())
+        assert verdict == "rollback"
+        assert conf == 0.4
+
+    def test_exported_cognition_bundle_nested_match(self):
+        """Cognition bundle with nested match.confidence."""
+        cog = {"match": {"confidence": 0.8}}
+        conf = _extract_confidence(cog)
+        assert conf == 0.8
+        result = run_phase_space_cycle(
+            cog,
+            {"verdict": "promote", "confidence": 0.5},
+            {"drift_score": 0.2, "rollback_rate": 0.1, "promotion_rate": 0.5},
+        )
+        assert isinstance(result, PhaseSpaceResult)
+
+    def test_cognition_nested_match_priority_over_top_level(self):
+        """Nested match.confidence takes priority over top-level confidence."""
+        cog = {"match": {"confidence": 0.9}, "confidence": 0.1}
+        assert _extract_confidence(cog) == 0.9
+
+    def test_gate_nested_decision_priority_over_top_level(self):
+        """Nested decision block takes priority over top-level verdict."""
+        gate = {"decision": {"verdict": "ROLLBACK", "confidence": 0.7}, "verdict": "promote", "confidence": 0.3}
+        verdict, conf = _extract_gate_verdict_confidence(gate)
+        assert verdict == "rollback"
+        assert conf == 0.7
+
+    def test_uppercase_verdict_hold(self):
+        """HOLD verdict normalised to lowercase."""
+        gate = {"verdict": "HOLD", "confidence": 0.5}
+        verdict, conf = _extract_gate_verdict_confidence(gate)
+        assert verdict == "hold"
+
+    def test_negative_preservation_fails_if_clamped(self):
+        """Verify negative-region test would fail if all probs >= 0."""
+        # Construct a grid where all probabilities are positive
+        all_positive = tuple(
+            PhasePoint(q=float(i), p=float(j), probability=0.1)
+            for i in range(3) for j in range(3)
+        )
+        grid = WignerGrid(points=all_positive, grid_size=3, negative_mass=0.0, stable_hash="x")
+        probabilities = [pt.probability for pt in grid.points]
+        # This grid has NO negative regions — confirm assertion would catch it
+        assert not any(p < 0.0 for p in probabilities)
+        assert min(probabilities) >= 0.0
+
 
 # ===================================================================
 # Section 12: Decoder Untouched Verification
@@ -693,8 +752,7 @@ class TestDecoderUntouched:
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "src", "qec", "decoder"
         )
-        # Just check that decoder exists — we must not touch it
-        assert os.path.isdir(decoder_path) or True  # pass regardless
+        assert os.path.isdir(decoder_path)
 
     def test_physics_layer_independent(self):
         """Physics layer must not import higher layers."""

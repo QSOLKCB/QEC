@@ -17,7 +17,7 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -81,10 +81,16 @@ def _extract_confidence(cognition_result: Any) -> float:
     if cognition_result is None:
         return 0.0
     if isinstance(cognition_result, dict):
+        # Priority 1: nested match.confidence (exported cognition bundle)
+        match_block = cognition_result.get("match")
+        if isinstance(match_block, dict) and "confidence" in match_block:
+            return float(match_block["confidence"])
+        # Priority 2: top-level confidence
         return float(cognition_result.get("confidence", 0.0))
-    # CognitionCycleResult — dig into match.confidence or params
+    # Priority 3: dataclass-like match.confidence
     if hasattr(cognition_result, "match") and hasattr(cognition_result.match, "confidence"):
         return float(cognition_result.match.confidence)
+    # Priority 4: dataclass-like confidence
     if hasattr(cognition_result, "confidence"):
         return float(cognition_result.confidence)
     return 0.0
@@ -95,12 +101,19 @@ def _extract_gate_verdict_confidence(gate_result: Any) -> Tuple[str, float]:
     if gate_result is None:
         return ("hold", 0.0)
     if isinstance(gate_result, dict):
-        verdict = str(gate_result.get("verdict", "hold"))
+        # Priority 1: nested decision block (exported gate bundle)
+        decision_block = gate_result.get("decision")
+        if isinstance(decision_block, dict):
+            verdict = str(decision_block.get("verdict", "hold")).lower()
+            confidence = float(decision_block.get("confidence", 0.0))
+            return (verdict, confidence)
+        # Priority 2: top-level verdict
+        verdict = str(gate_result.get("verdict", "hold")).lower()
         confidence = float(gate_result.get("confidence", 0.0))
         return (verdict, confidence)
-    # GateDecision dataclass
+    # Priority 3: dataclass-like verdict
     if hasattr(gate_result, "verdict"):
-        verdict = str(gate_result.verdict)
+        verdict = str(gate_result.verdict).lower()
         confidence = float(getattr(gate_result, "confidence", 0.0))
         return (verdict, confidence)
     return ("hold", 0.0)

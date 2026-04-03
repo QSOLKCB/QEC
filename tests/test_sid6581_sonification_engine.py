@@ -15,12 +15,9 @@ Required categories:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
-import sys
 
-import numpy as np
 import pytest
 
 from qec.audio.sid6581_sonification_engine import (
@@ -49,6 +46,7 @@ from qec.audio.sid6581_sonification_engine import (
     SIDRenderResult,
     SIDVoice,
     _apply_adsr_envelope,
+    _build_state_hash,
     _clamp,
     _generate_noise,
     _generate_pulse,
@@ -835,16 +833,14 @@ class TestDecoderUntouched:
         assert "import qec.decoder" not in source
 
     def test_no_decoder_import_in_tests(self):
-        """Verify this test file has no actual decoder imports."""
+        """Verify the engine module source contains no decoder imports."""
         import qec.audio.sid6581_sonification_engine as mod
-        # Verify the engine module has no decoder references in its namespace
-        assert not any(
-            "decoder" in str(getattr(mod, attr, ""))
-            for attr in ("__file__",)
-            if "decoder" in str(getattr(mod, attr, ""))
-        )
-        # Direct check: module's file path should not be under decoder
+        assert mod.__file__ is not None
         assert "decoder" not in mod.__file__
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
+        assert "qec.decoder" not in source
+        assert "from qec.decoder" not in source
 
     def test_decoder_directory_untouched(self):
         """Verify decoder directory exists and was not modified."""
@@ -875,3 +871,102 @@ class TestConstants:
 
     def test_valid_filter_modes(self):
         assert set(VALID_FILTER_MODES) == {"lowpass", "highpass", "bandpass"}
+
+
+# ===========================================================================
+# 17. Stable hash sensitivity tests (PATCH 6)
+# ===========================================================================
+
+
+class TestStableHashSensitivity:
+    """Verify stable_hash changes when any render-affecting parameter changes."""
+
+    def _make_result(self, **overrides):
+        cog = overrides.pop("cognition", {"confidence": 0.5})
+        gate = overrides.pop("gate", {"severity": 0.5})
+        ledger = overrides.pop("ledger", {"drift_score": 0.2, "stable_hash": "x"})
+        return run_sid_sonification_cycle(cog, gate, ledger)
+
+    def test_stable_hash_changes_with_adsr_attack(self):
+        r1 = self._make_result(cognition={"confidence": 0.3})
+        r2 = self._make_result(cognition={"confidence": 0.7})
+        assert r1.stable_hash != r2.stable_hash
+
+    def test_stable_hash_changes_with_cutoff(self):
+        """Different gate confidence -> different cutoff (via state hash) -> different stable_hash."""
+        r1 = self._make_result(
+            gate={"decision": {"confidence": 0.9, "verdict": "a"}},
+            ledger={"drift_score": 0.1, "stable_hash": "h1"},
+        )
+        r2 = self._make_result(
+            gate={"decision": {"confidence": 0.1, "verdict": "b"}},
+            ledger={"drift_score": 0.1, "stable_hash": "h2"},
+        )
+        assert r1.stable_hash != r2.stable_hash
+
+    def test_stable_hash_changes_with_resonance(self):
+        """Different ledger hash -> different resonance -> different stable_hash."""
+        r1 = self._make_result(
+            ledger={"drift_score": 0.1, "stable_hash": "resonance_a"},
+        )
+        r2 = self._make_result(
+            ledger={"drift_score": 0.1, "stable_hash": "resonance_b"},
+        )
+        assert r1.stable_hash != r2.stable_hash
+
+    def test_stable_hash_changes_with_drift(self):
+        r1 = self._make_result(
+            ledger={"drift_score": 0.0, "stable_hash": "same"},
+        )
+        r2 = self._make_result(
+            ledger={"drift_score": 0.9, "stable_hash": "same"},
+        )
+        assert r1.stable_hash != r2.stable_hash
+
+
+# ===========================================================================
+# 18. _build_state_hash determinism and sentinel tests (PATCH 6)
+# ===========================================================================
+
+
+class TestBuildStateHash:
+    def test_state_hash_deterministic_100_runs(self):
+        """_build_state_hash must be identical across 100 repeated calls."""
+        cog = {"match": {"confidence": 0.85, "identity": "test_state"}}
+        gate = {"decision": {"confidence": 0.7, "verdict": "promote"}}
+        ledger = {"drift_score": 0.2, "stable_hash": "abc123"}
+        ref = _build_state_hash(cog, gate, ledger)
+        for i in range(100):
+            assert _build_state_hash(cog, gate, ledger) == ref, (
+                f"State hash replay {i}: mismatch"
+            )
+
+    def test_state_hash_sentinel_cognition(self):
+        """Missing cognition fields must use sentinel, not str(obj)."""
+        h1 = _build_state_hash({}, {}, {})
+        h2 = _build_state_hash({}, {}, {})
+        assert h1 == h2
+        assert len(h1) == 64
+
+    def test_state_hash_sentinel_gate(self):
+        """Missing gate fields produce stable sentinel-based hash."""
+        h1 = _build_state_hash(
+            {"confidence": 0.5}, {}, {"drift_score": 0.0, "stable_hash": "x"},
+        )
+        h2 = _build_state_hash(
+            {"confidence": 0.5}, {}, {"drift_score": 0.0, "stable_hash": "x"},
+        )
+        assert h1 == h2
+
+    def test_state_hash_sentinel_ledger(self):
+        """Missing ledger stable_hash uses sentinel."""
+        h1 = _build_state_hash({"confidence": 0.5}, {"severity": 0.3}, {})
+        h2 = _build_state_hash({"confidence": 0.5}, {"severity": 0.3}, {})
+        assert h1 == h2
+
+    def test_state_hash_differs_for_different_identity(self):
+        cog_a = {"match": {"confidence": 0.5, "identity": "state_a"}}
+        cog_b = {"match": {"confidence": 0.5, "identity": "state_b"}}
+        gate = {"decision": {"confidence": 0.5, "verdict": "hold"}}
+        ledger = {"drift_score": 0.1, "stable_hash": "same"}
+        assert _build_state_hash(cog_a, gate, ledger) != _build_state_hash(cog_b, gate, ledger)

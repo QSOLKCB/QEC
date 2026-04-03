@@ -30,7 +30,6 @@ import math
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Tuple
 
-import numpy as np
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -449,34 +448,86 @@ def _extract_drift_score(history_ledger: Any) -> float:
     return 0.0
 
 
+def _extract_stable_field(obj: Any, *attrs: str, fallback: str) -> str:
+    """Extract a stable string field from an object or mapping.
+
+    Tries attribute access first, then Mapping key access.
+    Returns the explicit fallback sentinel if not found.
+    Never uses str(obj) or repr(obj) — those may contain memory addresses.
+    """
+    for attr in attrs:
+        if hasattr(obj, attr):
+            return str(getattr(obj, attr))
+        if isinstance(obj, Mapping) and attr in obj:
+            val = obj[attr]
+            if isinstance(val, Mapping):
+                # Recurse one level for nested dicts like {"match": {"confidence": ...}}
+                continue
+            return str(val)
+    # Try nested Mapping access for dotted-style fields
+    if isinstance(obj, Mapping):
+        for attr in attrs:
+            for key, val in obj.items():
+                if isinstance(val, Mapping) and attr in val:
+                    return str(val[attr])
+    return fallback
+
+
 def _build_state_hash(cognition_result: Any, gate_result: Any,
                       history_ledger: Any) -> str:
-    """Build deterministic hash of the combined QEC state."""
-    parts = []
+    """Build deterministic hash of the combined QEC state.
 
-    # Cognition hash
-    if hasattr(cognition_result, "match") and hasattr(cognition_result.match, "identity"):
-        parts.append(f"cog:{cognition_result.match.identity}")
-    elif isinstance(cognition_result, Mapping):
-        parts.append(f"cog:{json.dumps(cognition_result, sort_keys=True, separators=(',', ':'), default=str)}")
-    else:
-        parts.append(f"cog:{str(cognition_result)}")
+    Only hashes canonical stable fields. Never uses str(obj),
+    repr(obj), default=str, or any form that could include
+    memory addresses or non-deterministic object representations.
+    """
+    # Cognition: identity, confidence, stable_hash
+    cog_identity = _extract_stable_field(
+        cognition_result, "identity", fallback="unknown_identity",
+    )
+    if cog_identity == "unknown_identity" and isinstance(cognition_result, Mapping):
+        # Check nested match.identity
+        match = cognition_result.get("match", {})
+        if isinstance(match, Mapping) and "identity" in match:
+            cog_identity = str(match["identity"])
+    cog_confidence = str(round(_extract_confidence(cognition_result), 12))
 
-    # Gate hash
-    if hasattr(gate_result, "decision") and hasattr(gate_result.decision, "verdict"):
-        parts.append(f"gate:{gate_result.decision.verdict}")
-    elif isinstance(gate_result, Mapping):
-        parts.append(f"gate:{json.dumps(gate_result, sort_keys=True, separators=(',', ':'), default=str)}")
-    else:
-        parts.append(f"gate:{str(gate_result)}")
+    # Gate: verdict, promoted_action, rollback_action, stable_hash
+    gate_verdict = _extract_stable_field(
+        gate_result, "verdict", fallback="unknown_verdict",
+    )
+    if gate_verdict == "unknown_verdict" and isinstance(gate_result, Mapping):
+        dec = gate_result.get("decision", {})
+        if isinstance(dec, Mapping) and "verdict" in dec:
+            gate_verdict = str(dec["verdict"])
+        elif hasattr(dec, "verdict"):
+            gate_verdict = str(dec.verdict)
+    gate_promoted = _extract_stable_field(
+        gate_result, "promoted_action", fallback="unknown_promoted",
+    )
+    gate_rollback = _extract_stable_field(
+        gate_result, "rollback_action", fallback="unknown_rollback",
+    )
+    gate_stable = _extract_stable_field(
+        gate_result, "stable_hash", fallback="unknown_gate_hash",
+    )
 
-    # Ledger hash
-    if hasattr(history_ledger, "stable_hash"):
-        parts.append(f"ledger:{history_ledger.stable_hash}")
-    elif isinstance(history_ledger, Mapping) and "stable_hash" in history_ledger:
-        parts.append(f"ledger:{history_ledger['stable_hash']}")
-    else:
-        parts.append(f"ledger:{str(history_ledger)}")
+    # Ledger: drift_score, stable_hash
+    ledger_drift = str(round(_extract_drift_score(history_ledger), 12))
+    ledger_stable = _extract_stable_field(
+        history_ledger, "stable_hash", fallback="unknown_ledger_hash",
+    )
+
+    parts = [
+        f"cog_identity:{cog_identity}",
+        f"cog_confidence:{cog_confidence}",
+        f"gate_verdict:{gate_verdict}",
+        f"gate_promoted:{gate_promoted}",
+        f"gate_rollback:{gate_rollback}",
+        f"gate_stable:{gate_stable}",
+        f"ledger_drift:{ledger_drift}",
+        f"ledger_stable:{ledger_stable}",
+    ]
 
     combined = "|".join(sorted(parts))
     return hashlib.sha256(combined.encode("utf-8")).hexdigest()
@@ -649,21 +700,36 @@ def run_sid_sonification_cycle(
 
     drift_overlay = _extract_drift_score(history_ledger)
 
-    # Stable hash: covers frame config + audio content
+    # Stable hash: covers ALL render-affecting parameters
+    _r = round  # alias for brevity
     frame_canonical = json.dumps(
         {
-            "v1_freq": frame.voice1.frequency_hz,
-            "v1_waveform": frame.voice1.waveform,
-            "v2_freq": frame.voice2.frequency_hz,
-            "v2_waveform": frame.voice2.waveform,
-            "v3_freq": frame.voice3.frequency_hz,
-            "v3_waveform": frame.voice3.waveform,
-            "ring_mod": frame.ring_mod_enabled,
-            "filter_mode": frame.filter_mode,
-            "cutoff_hz": frame.cutoff_hz,
-            "resonance": frame.resonance,
-            "spectral_hash": spectral_hash,
             "engine_version": ENGINE_VERSION,
+            "sample_rate": SAMPLE_RATE,
+            "num_samples": NUM_SAMPLES,
+            "spectral_hash": spectral_hash,
+            "ring_mod_enabled": frame.ring_mod_enabled,
+            "filter_mode": frame.filter_mode,
+            "cutoff_hz": _r(frame.cutoff_hz, 12),
+            "resonance": _r(frame.resonance, 12),
+            "v1_frequency_hz": _r(frame.voice1.frequency_hz, 12),
+            "v1_waveform": frame.voice1.waveform,
+            "v1_attack_ms": _r(frame.voice1.attack_ms, 12),
+            "v1_decay_ms": _r(frame.voice1.decay_ms, 12),
+            "v1_sustain_level": _r(frame.voice1.sustain_level, 12),
+            "v1_release_ms": _r(frame.voice1.release_ms, 12),
+            "v2_frequency_hz": _r(frame.voice2.frequency_hz, 12),
+            "v2_waveform": frame.voice2.waveform,
+            "v2_attack_ms": _r(frame.voice2.attack_ms, 12),
+            "v2_decay_ms": _r(frame.voice2.decay_ms, 12),
+            "v2_sustain_level": _r(frame.voice2.sustain_level, 12),
+            "v2_release_ms": _r(frame.voice2.release_ms, 12),
+            "v3_frequency_hz": _r(frame.voice3.frequency_hz, 12),
+            "v3_waveform": frame.voice3.waveform,
+            "v3_attack_ms": _r(frame.voice3.attack_ms, 12),
+            "v3_decay_ms": _r(frame.voice3.decay_ms, 12),
+            "v3_sustain_level": _r(frame.voice3.sustain_level, 12),
+            "v3_release_ms": _r(frame.voice3.release_ms, 12),
         },
         sort_keys=True,
         separators=(",", ":"),

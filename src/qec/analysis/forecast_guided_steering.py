@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 
@@ -50,6 +49,10 @@ from qec.analysis.spectral_attractor_forecasting import (
     LABEL_WARNING,
     LABEL_WATCH,
     RECOVERY_EMERGENCY_REINIT,
+    RECOVERY_HOLD_PRIMARY,
+    RECOVERY_LATTICE_STABILIZE,
+    RECOVERY_SHIFT_ALTERNATE,
+    RECOVERY_SHIFT_RECOVERY,
     SpectralForecastDecision,
 )
 
@@ -64,15 +67,6 @@ ADAPTIVE_STEERING_VERSION: str = "v136.9.2"
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-# Forecast label precedence (ascending severity)
-FORECAST_LABEL_PRECEDENCE: Tuple[str, ...] = (
-    LABEL_LOW,
-    LABEL_WATCH,
-    LABEL_WARNING,
-    LABEL_CRITICAL,
-    LABEL_COLLAPSE_IMMINENT,
-)
 
 # Forecast modulation coefficient for adaptive rollback
 FORECAST_ROLLBACK_ALPHA: float = 0.3
@@ -130,14 +124,6 @@ def _canonical_json(obj: Any) -> str:
 def _clamp01(value: float) -> float:
     """Clamp value to [0.0, 1.0]."""
     return max(0.0, min(1.0, value))
-
-
-def _forecast_label_index(label: str) -> int:
-    """Return severity index for a forecast label (0=LOW, 4=COLLAPSE_IMMINENT)."""
-    try:
-        return FORECAST_LABEL_PRECEDENCE.index(label)
-    except ValueError:
-        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -248,42 +234,86 @@ def _compute_adaptive_decoder_bias(
 ) -> Tuple[str, ...]:
     """Compute adaptive decoder portfolio ordering.
 
-    LOW forecast:
-      - preserve current steering bias (no change)
-
-    WATCH / WARNING:
-      - bias recovery earlier: move recovery-related decoders forward
-
-    CRITICAL:
-      - shift alternate route proactively
-
-    COLLAPSE_IMMINENT:
-      - emergency reinit bias dominant
-
-    If recovery_suggestion is EMERGENCY_REINIT, this dominates priority.
+    Rule ordering (first match wins):
+      1. EMERGENCY_REINIT suggestion dominates all
+      2. COLLAPSE_IMMINENT label dominates
+      3. CRITICAL + precollapse -> emergency reinit bias
+      4. CRITICAL -> alternate portfolio bias
+      5. recovery_suggestion refines portfolio ordering:
+         - SHIFT_ALTERNATE -> alternate portfolio bias
+         - LATTICE_STABILIZE -> stabilization-oriented portfolios
+         - SHIFT_RECOVERY -> recovery-oriented portfolios
+      6. WATCH / WARNING label fallback -> recovery-oriented bias
+      7. HOLD_PRIMARY / LOW -> preserve current steering bias
     """
-    # Emergency reinit dominance
-    if (recovery_suggestion == RECOVERY_EMERGENCY_REINIT
-            or forecast_label == LABEL_COLLAPSE_IMMINENT):
+    # 1. Emergency reinit suggestion dominance
+    if recovery_suggestion == RECOVERY_EMERGENCY_REINIT:
         return ("REINIT_CODE_LATTICE", "DECODE_PORTFOLIO_C", "QLDPC_PORTFOLIO_B")
 
-    # Critical: shift alternate proactively
+    # 2. Collapse imminent label
+    if forecast_label == LABEL_COLLAPSE_IMMINENT:
+        return ("REINIT_CODE_LATTICE", "DECODE_PORTFOLIO_C", "QLDPC_PORTFOLIO_B")
+
+    # 3-4. Critical label
     if forecast_label == LABEL_CRITICAL:
         if precollapse_detected:
             return ("REINIT_CODE_LATTICE", "DECODE_PORTFOLIO_C", "QLDPC_PORTFOLIO_B")
         return ("DECODE_PORTFOLIO_C", "QLDPC_PORTFOLIO_B", "TORIC_STABILITY_PATH")
 
-    # Watch / Warning: bias recovery earlier
+    # 5. Suggestion-based refinement (for WATCH / WARNING / LOW)
+    if recovery_suggestion == RECOVERY_SHIFT_ALTERNATE:
+        return ("DECODE_PORTFOLIO_C", "QLDPC_PORTFOLIO_B", "TORIC_STABILITY_PATH")
+
+    if recovery_suggestion == RECOVERY_LATTICE_STABILIZE:
+        return ("TORIC_STABILITY_PATH", "DECODE_PORTFOLIO_B", "DECODE_PORTFOLIO_A")
+
+    if recovery_suggestion == RECOVERY_SHIFT_RECOVERY:
+        return ("DECODE_PORTFOLIO_B", "TORIC_STABILITY_PATH", "DECODE_PORTFOLIO_A")
+
+    # 6. Label-based fallback for WATCH / WARNING
     if forecast_label in (LABEL_WATCH, LABEL_WARNING):
         return ("DECODE_PORTFOLIO_B", "TORIC_STABILITY_PATH", "DECODE_PORTFOLIO_A")
 
-    # LOW: preserve current steering bias
+    # 7. LOW / HOLD_PRIMARY: preserve current steering bias
     return tuple(steering_decoder_bias)
 
 
 # ---------------------------------------------------------------------------
 # Adaptive recovery route
 # ---------------------------------------------------------------------------
+
+def _suggestion_minimum_route(recovery_suggestion: str) -> str:
+    """Map forecast recovery_suggestion to a deterministic minimum route.
+
+    Precedence (strongest first):
+      EMERGENCY_REINIT   -> ROUTE_EMERGENCY
+      SHIFT_ALTERNATE    -> ROUTE_ALTERNATE
+      LATTICE_STABILIZE  -> ROUTE_RECOVERY
+      SHIFT_RECOVERY     -> ROUTE_RECOVERY
+      HOLD_PRIMARY       -> ROUTE_PRIMARY
+    """
+    suggestion_to_route = {
+        RECOVERY_EMERGENCY_REINIT: ROUTE_EMERGENCY,
+        RECOVERY_SHIFT_ALTERNATE: ROUTE_ALTERNATE,
+        RECOVERY_LATTICE_STABILIZE: ROUTE_RECOVERY,
+        RECOVERY_SHIFT_RECOVERY: ROUTE_RECOVERY,
+        RECOVERY_HOLD_PRIMARY: ROUTE_PRIMARY,
+    }
+    return suggestion_to_route.get(recovery_suggestion, ROUTE_PRIMARY)
+
+
+_ROUTE_SEVERITY = {
+    ROUTE_PRIMARY: 0, ROUTE_RECOVERY: 1,
+    ROUTE_ALTERNATE: 2, ROUTE_EMERGENCY: 3,
+}
+
+
+def _max_route(a: str, b: str) -> str:
+    """Return the higher-severity route of two routes."""
+    if _ROUTE_SEVERITY.get(a, 0) >= _ROUTE_SEVERITY.get(b, 0):
+        return a
+    return b
+
 
 def _compute_adaptive_recovery_route(
     steering_recovery_route: str,
@@ -293,51 +323,52 @@ def _compute_adaptive_recovery_route(
 ) -> str:
     """Compute adaptive recovery route from steering + forecast.
 
-    LOW forecast:
-      - preserve current route
+    Rule ordering (first match wins):
+      1. EMERGENCY_REINIT suggestion dominates -> EMERGENCY
+      2. COLLAPSE_IMMINENT label -> EMERGENCY
+      3. CRITICAL + precollapse -> EMERGENCY
+      4. CRITICAL -> ALTERNATE
+      5. recovery_suggestion minimum floor applied
+      6. label-based fallback (WARNING -> at least RECOVERY,
+         WATCH -> at least RECOVERY if currently PRIMARY)
+      7. LOW -> preserve current route
 
-    WATCH / WARNING:
-      - bias recovery earlier (at minimum RECOVERY)
-
-    CRITICAL:
-      - shift alternate route proactively
-
-    COLLAPSE_IMMINENT:
-      - emergency reinit bias dominant
-
-    If recovery_suggestion is EMERGENCY_REINIT, this dominates.
+    The result is the maximum of the label-based route and the
+    suggestion-based minimum route.
     """
-    # Emergency reinit dominance
-    if (recovery_suggestion == RECOVERY_EMERGENCY_REINIT
-            or forecast_label == LABEL_COLLAPSE_IMMINENT):
+    # 1. Emergency reinit suggestion dominates
+    if recovery_suggestion == RECOVERY_EMERGENCY_REINIT:
         return ROUTE_EMERGENCY
 
-    # Critical: shift alternate proactively
+    # 2. Collapse imminent label dominates
+    if forecast_label == LABEL_COLLAPSE_IMMINENT:
+        return ROUTE_EMERGENCY
+
+    # 3-4. Critical label
     if forecast_label == LABEL_CRITICAL:
         if precollapse_detected:
             return ROUTE_EMERGENCY
-        return ROUTE_ALTERNATE
+        # Suggestion may push higher than ALTERNATE
+        return _max_route(ROUTE_ALTERNATE, _suggestion_minimum_route(recovery_suggestion))
 
-    # Warning: at minimum recovery
+    # 5-6. Suggestion floor + label-based fallback
+    suggestion_route = _suggestion_minimum_route(recovery_suggestion)
+
     if forecast_label == LABEL_WARNING:
-        # Upgrade route if currently below RECOVERY
-        route_severity = {
-            ROUTE_PRIMARY: 0, ROUTE_RECOVERY: 1,
-            ROUTE_ALTERNATE: 2, ROUTE_EMERGENCY: 3,
-        }
-        current = route_severity.get(steering_recovery_route, 0)
-        if current < 1:
-            return ROUTE_RECOVERY
-        return steering_recovery_route
+        label_route = ROUTE_RECOVERY
+        return _max_route(
+            _max_route(label_route, suggestion_route),
+            steering_recovery_route
+            if _ROUTE_SEVERITY.get(steering_recovery_route, 0) >= _ROUTE_SEVERITY.get(label_route, 0)
+            else label_route,
+        )
 
-    # Watch: nudge to recovery if currently at primary
     if forecast_label == LABEL_WATCH:
-        if steering_recovery_route == ROUTE_PRIMARY:
-            return ROUTE_RECOVERY
-        return steering_recovery_route
+        label_route = ROUTE_RECOVERY if steering_recovery_route == ROUTE_PRIMARY else steering_recovery_route
+        return _max_route(label_route, suggestion_route)
 
-    # LOW: preserve current route
-    return steering_recovery_route
+    # 7. LOW: preserve current route, but respect suggestion floor
+    return _max_route(steering_recovery_route, suggestion_route)
 
 
 # ---------------------------------------------------------------------------

@@ -21,15 +21,12 @@ import json
 import pytest
 
 from qec.analysis.phase_space_decoder_steering import (
-    ESCALATION_ADVISORY,
     ESCALATION_CRITICAL,
-    ESCALATION_NONE,
     ESCALATION_WARNING,
     ROUTE_ALTERNATE,
     ROUTE_EMERGENCY,
     ROUTE_PRIMARY,
     ROUTE_RECOVERY,
-    PhaseSteeringDecision,
     route_decoder_from_phase_space,
 )
 from qec.analysis.spectral_attractor_forecasting import (
@@ -40,9 +37,9 @@ from qec.analysis.spectral_attractor_forecasting import (
     LABEL_WATCH,
     RECOVERY_EMERGENCY_REINIT,
     RECOVERY_HOLD_PRIMARY,
+    RECOVERY_LATTICE_STABILIZE,
     RECOVERY_SHIFT_ALTERNATE,
     RECOVERY_SHIFT_RECOVERY,
-    SpectralForecastDecision,
     compute_forecast_decision,
 )
 from qec.analysis.forecast_guided_steering import (
@@ -100,12 +97,14 @@ def _make_critical_forecast() -> SpectralForecastDecision:
 
 def _make_watch_forecast() -> SpectralForecastDecision:
     """Create a WATCH-level forecast decision."""
-    return compute_forecast_decision(
-        spectral_drift=0.25, spectral_energy_delta=0.20,
-        centroid_q=0.15, centroid_p=0.10,
-        drift_momentum=0.15, negative_mass=0.15,
-        prior_phase_risk_score=0.20, prior_escalation_level=0,
+    d = compute_forecast_decision(
+        spectral_drift=0.35, spectral_energy_delta=0.30,
+        centroid_q=0.20, centroid_p=0.15,
+        drift_momentum=0.20, negative_mass=0.20,
+        prior_phase_risk_score=0.25, prior_escalation_level=0,
     )
+    assert d.risk_label == LABEL_WATCH, f"Expected WATCH, got {d.risk_label}"
+    return d
 
 
 def _make_warning_forecast() -> SpectralForecastDecision:
@@ -212,22 +211,22 @@ class TestForecastOverrideRouting:
     def test_watch_nudges_primary_to_recovery(self):
         steering = _make_low_steering()
         forecast = _make_watch_forecast()
+        assert forecast.risk_label == LABEL_WATCH
         decision = route_with_forecast_guidance(steering, forecast)
-        if forecast.risk_label == LABEL_WATCH:
-            assert decision.adaptive_recovery_route in (
-                ROUTE_RECOVERY, ROUTE_ALTERNATE, ROUTE_EMERGENCY,
-            )
+        assert decision.adaptive_recovery_route in (
+            ROUTE_RECOVERY, ROUTE_ALTERNATE, ROUTE_EMERGENCY,
+        )
 
     def test_warning_upgrades_route(self):
         steering = _make_low_steering()
         forecast = _make_warning_forecast()
+        assert forecast.risk_label == LABEL_WARNING
         decision = route_with_forecast_guidance(steering, forecast)
-        if forecast.risk_label == LABEL_WARNING:
-            route_severity = {
-                ROUTE_PRIMARY: 0, ROUTE_RECOVERY: 1,
-                ROUTE_ALTERNATE: 2, ROUTE_EMERGENCY: 3,
-            }
-            assert route_severity[decision.adaptive_recovery_route] >= 1
+        route_severity = {
+            ROUTE_PRIMARY: 0, ROUTE_RECOVERY: 1,
+            ROUTE_ALTERNATE: 2, ROUTE_EMERGENCY: 3,
+        }
+        assert route_severity[decision.adaptive_recovery_route] >= 1
 
     def test_critical_forces_alternate_or_higher(self):
         steering = _make_low_steering()
@@ -236,6 +235,22 @@ class TestForecastOverrideRouting:
         assert decision.adaptive_recovery_route in (
             ROUTE_ALTERNATE, ROUTE_EMERGENCY,
         )
+
+    def test_shift_recovery_suggestion_affects_route(self):
+        steering = _make_low_steering()
+        forecast = _make_warning_forecast()
+        assert forecast.recovery_suggestion == RECOVERY_SHIFT_RECOVERY
+        decision = route_with_forecast_guidance(steering, forecast)
+        assert decision.adaptive_recovery_route in (
+            ROUTE_RECOVERY, ROUTE_ALTERNATE, ROUTE_EMERGENCY,
+        )
+
+    def test_shift_recovery_suggestion_affects_bias(self):
+        steering = _make_low_steering()
+        forecast = _make_warning_forecast()
+        assert forecast.recovery_suggestion == RECOVERY_SHIFT_RECOVERY
+        decision = route_with_forecast_guidance(steering, forecast)
+        assert "DECODE_PORTFOLIO_B" in decision.adaptive_decoder_bias
 
 
 # ---------------------------------------------------------------------------

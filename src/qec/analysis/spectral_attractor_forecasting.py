@@ -41,10 +41,11 @@ FORECAST_VERSION: str = "v136.9.1"
 # Constants — forecast risk weights (deterministic, no ML)
 # ---------------------------------------------------------------------------
 
-WEIGHT_SPECTRAL_DRIFT: float = 0.30
+WEIGHT_SPECTRAL_DRIFT: float = 0.25
 WEIGHT_SPECTRAL_ENERGY_DELTA: float = 0.20
-WEIGHT_PHASE_RADIUS: float = 0.20
-WEIGHT_NEGATIVE_MASS: float = 0.20
+WEIGHT_PHASE_RADIUS: float = 0.15
+WEIGHT_NEGATIVE_MASS: float = 0.15
+WEIGHT_DRIFT_MOMENTUM: float = 0.15
 WEIGHT_PRIOR_RISK: float = 0.10
 
 # Forecast risk label thresholds
@@ -165,10 +166,11 @@ def compute_basin_switch_risk(
     """Compute bounded forecast risk score in [0, 1].
 
     Weighted structure:
-      0.30 spectral_drift
+      0.25 spectral_drift
       0.20 spectral_energy_delta
-      0.20 phase_radius (sqrt(q^2 + p^2), normalised)
-      0.20 negative_mass
+      0.15 phase_radius (sqrt(q^2 + p^2), normalised)
+      0.15 negative_mass
+      0.15 drift_momentum (absolute value, clamped to [0, 1])
       0.10 prior steering risk
 
     All components are clamped to [0, 1] before weighting.
@@ -211,18 +213,22 @@ def compute_basin_switch_risk(
     # Negative mass: clamp to [0, 1]
     neg_mass_norm = _clamp01(abs(negative_mass))
 
+    # Drift momentum: absolute value, clamp to [0, 1]
+    drift_mom_norm = _clamp01(abs(drift_momentum))
+
     # Prior risk: blend risk score and escalation level
     escalation_norm = _clamp01(prior_escalation_level / 3.0)
     prior_norm = _clamp01(
         0.6 * _clamp01(prior_phase_risk_score) + 0.4 * escalation_norm
     )
 
-    # Weighted sum
+    # Weighted sum (total = 1.0)
     raw_score = (
         WEIGHT_SPECTRAL_DRIFT * drift_norm
         + WEIGHT_SPECTRAL_ENERGY_DELTA * energy_norm
         + WEIGHT_PHASE_RADIUS * radius_norm
         + WEIGHT_NEGATIVE_MASS * neg_mass_norm
+        + WEIGHT_DRIFT_MOMENTUM * drift_mom_norm
         + WEIGHT_PRIOR_RISK * prior_norm
     )
 
@@ -561,12 +567,10 @@ def _compute_ledger_hash(ledger: ForecastLedger) -> str:
     """SHA-256 of canonical JSON of a forecast ledger."""
     payload = {
         "decision_count": ledger.decision_count,
-        "decisions": tuple(
+        "decisions": [
             _decision_to_canonical_dict(d) for d in ledger.decisions
-        ),
+        ],
     }
-    # Normalise decisions list to list for JSON serialization
-    payload["decisions"] = list(payload["decisions"])
     canonical = _canonical_json(payload)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 

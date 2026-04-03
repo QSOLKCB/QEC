@@ -57,6 +57,7 @@ class EvolutionStep:
     observed_outcome: str
     confidence_delta: float
     improvement_score: float
+    action_taken: str
 
 
 @dataclass(frozen=True)
@@ -119,11 +120,12 @@ def compute_evolution_hash(ledger: EvolutionLedger) -> str:
     """
     steps_data = tuple(
         {
-            "step_index": s.step_index,
-            "prior_action": s.prior_action,
-            "observed_outcome": s.observed_outcome,
+            "action_taken": s.action_taken,
             "confidence_delta": s.confidence_delta,
             "improvement_score": s.improvement_score,
+            "observed_outcome": s.observed_outcome,
+            "prior_action": s.prior_action,
+            "step_index": s.step_index,
         }
         for s in sorted(ledger.steps, key=lambda s: s.step_index)
     )
@@ -149,6 +151,13 @@ def validate_evolution_ledger(ledger: EvolutionLedger) -> bool:
     if not (0.0 <= ledger.cumulative_improvement <= 1.0):
         return False
 
+    # Cumulative improvement must match recomputed clamped mean
+    if len(ledger.steps) > 0:
+        total = sum(s.improvement_score for s in ledger.steps)
+        expected = max(0.0, min(1.0, total / len(ledger.steps)))
+        if abs(ledger.cumulative_improvement - expected) > 1e-12:
+            return False
+
     # Hash must match recomputed hash
     if ledger.stable_hash != compute_evolution_hash(ledger):
         return False
@@ -172,11 +181,8 @@ def record_evolution_step(
         steps = ledger.steps + (step,)
 
     # Recompute cumulative improvement as clamped mean
-    if len(steps) == 0:
-        cumulative = 0.0
-    else:
-        total = sum(s.improvement_score for s in steps)
-        cumulative = max(0.0, min(1.0, total / len(steps)))
+    total = sum(s.improvement_score for s in steps)
+    cumulative = max(0.0, min(1.0, total / len(steps)))
 
     partial = EvolutionLedger(
         steps=steps,
@@ -205,37 +211,15 @@ def _determine_outcome(
     return "LOW_CONFIDENCE_ROUTE"
 
 
-def _select_adaptation_action(
-    improvement_score: float,
-    prior_decision: Optional[EvolutionDecision],
-    orchestrator_decision: OrchestratorDecision,
-    snapshot: ControllerSnapshot,
-) -> str:
-    """Select deterministic adaptation action based on rules."""
-    if not snapshot.invariant_passed:
-        return "REINITIALIZE_LATTICE"
-
-    if improvement_score >= 0.7:
-        return "RETAIN_PRIOR_ROUTE"
-
-    if improvement_score < 0.3:
-        if prior_decision is not None and prior_decision.selected_action == "ESCALATE_PORTFOLIO":
-            return "SWITCH_CODE_FAMILY_PATH"
-        return "ESCALATE_PORTFOLIO"
-
-    if orchestrator_decision.confidence < 0.4:
-        return "REDUCE_ROUTE_PRIORITY"
-
-    return "RETAIN_PRIOR_ROUTE"
-
-
 def build_next_action(
     code_family: str,
     prior_decision: Optional[EvolutionDecision],
     ledger: EvolutionLedger,
+    orchestrator_confidence: float = 0.5,
 ) -> str:
-    """Build the next adaptation action from ledger state.
+    """Canonical rule engine for adaptation action selection.
 
+    Single source of truth for all action decisions.
     Pure rule-based. No randomness. No ML.
     """
     if len(ledger.steps) == 0:
@@ -251,11 +235,29 @@ def build_next_action(
     if ledger.cumulative_improvement >= 0.65:
         return "RETAIN_PRIOR_ROUTE"
 
-    # If last step showed poor improvement, escalate
+    # If last step showed poor improvement, apply family-aware escalation
     if last_step.improvement_score < 0.3:
+        # QLDPC codes prefer switching family path on low improvement
+        if code_family == "qldpc":
+            return "SWITCH_CODE_FAMILY_PATH"
         if prior_decision is not None and prior_decision.selected_action == "ESCALATE_PORTFOLIO":
             return "SWITCH_CODE_FAMILY_PATH"
         return "ESCALATE_PORTFOLIO"
+
+    # If prior was ESCALATE and confidence still weak, switch family path
+    if (
+        prior_decision is not None
+        and prior_decision.selected_action == "ESCALATE_PORTFOLIO"
+        and orchestrator_confidence < 0.4
+    ):
+        return "SWITCH_CODE_FAMILY_PATH"
+
+    # Surface codes prefer reducing priority when orchestrator confidence is weak
+    if code_family == "surface" and orchestrator_confidence < 0.4:
+        return "REDUCE_ROUTE_PRIORITY"
+
+    if orchestrator_confidence < 0.4:
+        return "REDUCE_ROUTE_PRIORITY"
 
     return "RETAIN_PRIOR_ROUTE"
 
@@ -265,6 +267,7 @@ def run_evolution_cycle(
     cognition_result: CognitionCycleResult,
     snapshot: ControllerSnapshot,
     prior_ledger: Optional[EvolutionLedger] = None,
+    code_family: str = "surface",
 ) -> EvolutionCycleResult:
     """Run one full evolution cycle.
 
@@ -280,6 +283,8 @@ def run_evolution_cycle(
         Snapshot from the v136.8.1 schema.
     prior_ledger : EvolutionLedger, optional
         Previous ledger for continuation. None starts fresh.
+    code_family : str
+        Code family identifier for family-aware adaptation rules.
     """
     # Determine prior confidence from ledger
     if prior_ledger is not None and len(prior_ledger.steps) > 0:
@@ -302,31 +307,54 @@ def run_evolution_cycle(
     # Determine outcome
     outcome = _determine_outcome(orchestrator_decision, snapshot)
 
-    # Build step
+    # Thread prior_action from previous cycle's action_taken
     step_index = 0 if prior_ledger is None else len(prior_ledger.steps)
     prior_action = "NONE"
     if prior_ledger is not None and len(prior_ledger.steps) > 0:
-        prior_action = prior_ledger.steps[-1].prior_action
+        prior_action = prior_ledger.steps[-1].action_taken
 
+    # Reconstruct prior_decision from previous cycle for escalation logic
+    prior_decision: Optional[EvolutionDecision] = None
+    if prior_ledger is not None and len(prior_ledger.steps) > 0:
+        last_prior = prior_ledger.steps[-1]
+        prior_decision = EvolutionDecision(
+            selected_action=last_prior.action_taken,
+            confidence=blended_confidence,
+            rationale="prior",
+            improvement_applied=last_prior.improvement_score > 0.5,
+        )
+
+    # Create preliminary step for action computation
+    preliminary_step = EvolutionStep(
+        step_index=step_index,
+        prior_action=prior_action,
+        observed_outcome=outcome,
+        confidence_delta=blended_confidence - prior_confidence,
+        improvement_score=improvement,
+        action_taken="",
+    )
+    temp_ledger = record_evolution_step(preliminary_step, prior_ledger)
+
+    # Select adaptation action via single canonical rule engine
+    adaptation_action = build_next_action(
+        code_family=code_family,
+        prior_decision=prior_decision,
+        ledger=temp_ledger,
+        orchestrator_confidence=orchestrator_decision.confidence,
+    )
+
+    # Create final step with action_taken
     step = EvolutionStep(
         step_index=step_index,
         prior_action=prior_action,
         observed_outcome=outcome,
         confidence_delta=blended_confidence - prior_confidence,
         improvement_score=improvement,
+        action_taken=adaptation_action,
     )
 
-    # Record step
+    # Record final step
     ledger = record_evolution_step(step, prior_ledger)
-
-    # Select adaptation action
-    prior_decision = None
-    adaptation_action = _select_adaptation_action(
-        improvement_score=improvement,
-        prior_decision=prior_decision,
-        orchestrator_decision=orchestrator_decision,
-        snapshot=snapshot,
-    )
 
     # Build rationale deterministically
     rationale = (
@@ -372,11 +400,12 @@ def export_evolution_bundle(result: EvolutionCycleResult) -> Dict[str, Any]:
         "ledger": {
             "steps": tuple(
                 {
-                    "step_index": s.step_index,
-                    "prior_action": s.prior_action,
-                    "observed_outcome": s.observed_outcome,
+                    "action_taken": s.action_taken,
                     "confidence_delta": s.confidence_delta,
                     "improvement_score": s.improvement_score,
+                    "observed_outcome": s.observed_outcome,
+                    "prior_action": s.prior_action,
+                    "step_index": s.step_index,
                 }
                 for s in result.ledger.steps
             ),

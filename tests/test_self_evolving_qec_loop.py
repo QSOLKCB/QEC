@@ -124,6 +124,7 @@ def _make_snapshot(
 def _make_step(
     step_index: int = 0,
     improvement_score: float = 0.6,
+    action_taken: str = "RETAIN_PRIOR_ROUTE",
 ) -> EvolutionStep:
     return EvolutionStep(
         step_index=step_index,
@@ -131,6 +132,7 @@ def _make_step(
         observed_outcome="HIGH_CONFIDENCE_ROUTE",
         confidence_delta=0.1,
         improvement_score=improvement_score,
+        action_taken=action_taken,
     )
 
 
@@ -143,6 +145,7 @@ def _make_ledger(n_steps: int = 3) -> EvolutionLedger:
             observed_outcome="HIGH_CONFIDENCE_ROUTE",
             confidence_delta=0.05,
             improvement_score=0.6,
+            action_taken="RETAIN_PRIOR_ROUTE",
         )
         ledger = record_evolution_step(step, ledger)
     return ledger
@@ -178,6 +181,11 @@ class TestDataclassImmutability:
         step = _make_step()
         with pytest.raises(FrozenInstanceError):
             step.improvement_score = 999.0
+
+    def test_evolution_step_frozen_action_taken(self):
+        step = _make_step()
+        with pytest.raises(FrozenInstanceError):
+            step.action_taken = "INVALID"
 
     def test_evolution_ledger_frozen(self):
         ledger = _make_ledger(1)
@@ -260,13 +268,13 @@ class TestStepRecording:
 
     def test_cumulative_improvement_computed(self):
         ledger = record_evolution_step(
-            EvolutionStep(0, "NONE", "HIGH_CONFIDENCE_ROUTE", 0.1, 0.8)
+            EvolutionStep(0, "NONE", "HIGH_CONFIDENCE_ROUTE", 0.1, 0.8, "RETAIN_PRIOR_ROUTE")
         )
         assert 0.0 <= ledger.cumulative_improvement <= 1.0
 
     def test_cumulative_improvement_is_mean(self):
-        s0 = EvolutionStep(0, "NONE", "OK", 0.1, 0.6)
-        s1 = EvolutionStep(1, "NONE", "OK", 0.1, 0.8)
+        s0 = EvolutionStep(0, "NONE", "OK", 0.1, 0.6, "RETAIN_PRIOR_ROUTE")
+        s1 = EvolutionStep(1, "NONE", "OK", 0.1, 0.8, "RETAIN_PRIOR_ROUTE")
         ledger = record_evolution_step(s0)
         ledger = record_evolution_step(s1, ledger)
         expected = (0.6 + 0.8) / 2.0
@@ -291,7 +299,7 @@ class TestLedgerDeterminism:
 
     def test_different_steps_different_hash(self):
         l1 = _make_ledger(3)
-        step = EvolutionStep(0, "ESCALATE_PORTFOLIO", "LOW", 0.01, 0.1)
+        step = EvolutionStep(0, "ESCALATE_PORTFOLIO", "LOW", 0.01, 0.1, "ESCALATE_PORTFOLIO")
         l2 = record_evolution_step(step)
         assert l1.stable_hash != l2.stable_hash
 
@@ -328,8 +336,8 @@ class TestHashStability:
         assert len(h) == 64
 
     def test_hash_changes_with_score(self):
-        s1 = EvolutionStep(0, "A", "B", 0.1, 0.5)
-        s2 = EvolutionStep(0, "A", "B", 0.1, 0.6)
+        s1 = EvolutionStep(0, "A", "B", 0.1, 0.5, "X")
+        s2 = EvolutionStep(0, "A", "B", 0.1, 0.6, "X")
         l1 = record_evolution_step(s1)
         l2 = record_evolution_step(s2)
         assert l1.stable_hash != l2.stable_hash
@@ -392,19 +400,19 @@ class TestAdaptationRuleStability:
 
     def test_build_next_action_high_cumulative(self):
         # Build a ledger with high cumulative improvement
-        step = EvolutionStep(0, "RETAIN_PRIOR_ROUTE", "HIGH_CONFIDENCE_ROUTE", 0.1, 0.9)
+        step = EvolutionStep(0, "RETAIN_PRIOR_ROUTE", "HIGH_CONFIDENCE_ROUTE", 0.1, 0.9, "RETAIN_PRIOR_ROUTE")
         ledger = record_evolution_step(step)
         action = build_next_action("surface", None, ledger)
         assert action == "RETAIN_PRIOR_ROUTE"
 
     def test_build_next_action_low_improvement_escalates(self):
-        step = EvolutionStep(0, "RETAIN_PRIOR_ROUTE", "LOW_CONFIDENCE_ROUTE", -0.3, 0.1)
+        step = EvolutionStep(0, "RETAIN_PRIOR_ROUTE", "LOW_CONFIDENCE_ROUTE", -0.3, 0.1, "RETAIN_PRIOR_ROUTE")
         ledger = record_evolution_step(step)
         action = build_next_action("surface", None, ledger)
         assert action == "ESCALATE_PORTFOLIO"
 
     def test_build_next_action_escalate_then_switch(self):
-        step = EvolutionStep(0, "ESCALATE_PORTFOLIO", "LOW_CONFIDENCE_ROUTE", -0.3, 0.1)
+        step = EvolutionStep(0, "ESCALATE_PORTFOLIO", "LOW_CONFIDENCE_ROUTE", -0.3, 0.1, "ESCALATE_PORTFOLIO")
         ledger = record_evolution_step(step)
         prior_decision = EvolutionDecision(
             selected_action="ESCALATE_PORTFOLIO",
@@ -416,7 +424,7 @@ class TestAdaptationRuleStability:
         assert action == "SWITCH_CODE_FAMILY_PATH"
 
     def test_build_next_action_invariant_failed_reinit(self):
-        step = EvolutionStep(0, "NONE", "INVARIANT_FAILED", -0.5, 0.0)
+        step = EvolutionStep(0, "NONE", "INVARIANT_FAILED", -0.5, 0.0, "NONE")
         ledger = record_evolution_step(step)
         action = build_next_action("surface", None, ledger)
         assert action == "REINITIALIZE_LATTICE"
@@ -429,13 +437,13 @@ class TestAdaptationRuleStability:
             (0.0, "INVARIANT_FAILED", None),
         ]
         for score, outcome, prior in scenarios:
-            step = EvolutionStep(0, "NONE", outcome, 0.0, score)
+            step = EvolutionStep(0, "NONE", outcome, 0.0, score, "NONE")
             ledger = record_evolution_step(step)
             action = build_next_action("surface", prior, ledger)
             assert action in VALID_ADAPTATION_ACTIONS
 
     def test_adaptation_deterministic_100_runs(self):
-        step = EvolutionStep(0, "NONE", "MODERATE_CONFIDENCE_ROUTE", 0.05, 0.45)
+        step = EvolutionStep(0, "NONE", "MODERATE_CONFIDENCE_ROUTE", 0.05, 0.45, "RETAIN_PRIOR_ROUTE")
         ledger = record_evolution_step(step)
         reference = build_next_action("toric", None, ledger)
         for _ in range(100):
@@ -512,12 +520,19 @@ class TestReplayDeterminism:
 
 
 class TestSameInputHashIdentity:
-    def test_same_snapshot_same_hash(self):
-        s1 = _make_snapshot()
-        s2 = _make_snapshot()
-        h1 = hashlib.sha256(json.dumps({"a": 1}).encode()).hexdigest()
-        h2 = hashlib.sha256(json.dumps({"a": 1}).encode()).hexdigest()
-        assert h1 == h2
+    def test_same_snapshot_same_cycle_hash(self):
+        """Identical snapshots produce identical snapshot_hash in cycle results."""
+        r1 = run_evolution_cycle(
+            _make_orchestrator_decision(),
+            _make_cognition_result(),
+            _make_snapshot(evidence_score=0.9),
+        )
+        r2 = run_evolution_cycle(
+            _make_orchestrator_decision(),
+            _make_cognition_result(),
+            _make_snapshot(evidence_score=0.9),
+        )
+        assert r1.snapshot_hash == r2.snapshot_hash
 
     def test_different_snapshot_different_hash(self):
         r1 = run_evolution_cycle(
@@ -638,8 +653,8 @@ class TestDecoderUntouched:
         assert "from qec.decoder" not in source
         assert "import qec.decoder" not in source
 
-    def test_decoder_files_unchanged(self):
-        """Verify decoder directory exists and contains no evolution references."""
+    def test_decoder_files_no_evolution_import(self):
+        """Verify decoder files contain no evolution imports."""
         decoder_dir = os.path.join(
             os.path.dirname(__file__), "..", "src", "qec", "decoder"
         )
@@ -649,7 +664,9 @@ class TestDecoderUntouched:
                     fpath = os.path.join(decoder_dir, fname)
                     with open(fpath, "r") as f:
                         content = f.read()
-                    assert "evolution" not in content.lower() or "evolution" in content.lower()
+                    assert "qec.evolution" not in content, (
+                        f"Decoder file {fname} must not import qec.evolution"
+                    )
 
 
 # ===================================================================
@@ -663,7 +680,7 @@ class TestValidateLedger:
         assert validate_evolution_ledger(ledger) is True
 
     def test_wrong_step_index_fails(self):
-        step = EvolutionStep(5, "A", "B", 0.1, 0.5)
+        step = EvolutionStep(5, "A", "B", 0.1, 0.5, "A")
         ledger = EvolutionLedger(
             steps=(step,),
             cumulative_improvement=0.5,
@@ -681,7 +698,7 @@ class TestValidateLedger:
         assert validate_evolution_ledger(tampered) is False
 
     def test_out_of_bounds_cumulative_fails(self):
-        step = EvolutionStep(0, "A", "B", 0.1, 0.5)
+        step = EvolutionStep(0, "A", "B", 0.1, 0.5, "A")
         ledger = EvolutionLedger(
             steps=(step,),
             cumulative_improvement=1.5,
@@ -690,7 +707,7 @@ class TestValidateLedger:
         assert validate_evolution_ledger(ledger) is False
 
     def test_negative_cumulative_fails(self):
-        step = EvolutionStep(0, "A", "B", 0.1, 0.5)
+        step = EvolutionStep(0, "A", "B", 0.1, 0.5, "A")
         ledger = EvolutionLedger(
             steps=(step,),
             cumulative_improvement=-0.1,
@@ -806,3 +823,169 @@ class TestEdgeCases:
     def test_valid_adaptation_actions_tuple(self):
         assert isinstance(VALID_ADAPTATION_ACTIONS, tuple)
         assert len(VALID_ADAPTATION_ACTIONS) == 5
+
+
+# ===================================================================
+# 14. Cross-Cycle Memory Tests (Patch 1/8)
+# ===================================================================
+
+
+class TestCrossCycleMemory:
+    def test_chained_cycle_threads_action_taken(self):
+        """Second cycle's prior_action must be first cycle's action_taken."""
+        r1 = run_evolution_cycle(
+            _make_orchestrator_decision(),
+            _make_cognition_result(),
+            _make_snapshot(),
+        )
+        first_action = r1.ledger.steps[0].action_taken
+        r2 = run_evolution_cycle(
+            _make_orchestrator_decision(),
+            _make_cognition_result(),
+            _make_snapshot(),
+            prior_ledger=r1.ledger,
+        )
+        assert r2.ledger.steps[1].prior_action == first_action
+
+    def test_prior_action_is_none_for_first_cycle(self):
+        result = run_evolution_cycle(
+            _make_orchestrator_decision(),
+            _make_cognition_result(),
+            _make_snapshot(),
+        )
+        assert result.ledger.steps[0].prior_action == "NONE"
+
+    def test_action_taken_stored_in_step(self):
+        result = run_evolution_cycle(
+            _make_orchestrator_decision(),
+            _make_cognition_result(),
+            _make_snapshot(),
+        )
+        assert result.ledger.steps[0].action_taken == result.decision.selected_action
+
+    def test_prior_decision_escalation_to_switch(self):
+        """When prior cycle escalated, next cycle with low improvement switches family."""
+        # First cycle: force escalation via very low confidence → improvement < 0.3
+        r1 = run_evolution_cycle(
+            _make_orchestrator_decision(confidence=0.05),
+            _make_cognition_result(confidence=0.05),
+            _make_snapshot(),
+        )
+        assert r1.decision.selected_action == "ESCALATE_PORTFOLIO"
+        # Second cycle: still very low → prior was ESCALATE → switches family
+        r2 = run_evolution_cycle(
+            _make_orchestrator_decision(confidence=0.05),
+            _make_cognition_result(confidence=0.05),
+            _make_snapshot(),
+            prior_ledger=r1.ledger,
+        )
+        assert r2.decision.selected_action == "SWITCH_CODE_FAMILY_PATH"
+
+    def test_three_cycle_chain_memory(self):
+        """Three chained cycles maintain consistent memory."""
+        r1 = run_evolution_cycle(
+            _make_orchestrator_decision(),
+            _make_cognition_result(),
+            _make_snapshot(),
+        )
+        r2 = run_evolution_cycle(
+            _make_orchestrator_decision(confidence=0.6),
+            _make_cognition_result(confidence=0.5),
+            _make_snapshot(),
+            prior_ledger=r1.ledger,
+        )
+        r3 = run_evolution_cycle(
+            _make_orchestrator_decision(confidence=0.7),
+            _make_cognition_result(confidence=0.6),
+            _make_snapshot(),
+            prior_ledger=r2.ledger,
+        )
+        assert len(r3.ledger.steps) == 3
+        assert r3.ledger.steps[1].prior_action == r1.ledger.steps[0].action_taken
+        assert r3.ledger.steps[2].prior_action == r2.ledger.steps[1].action_taken
+
+
+# ===================================================================
+# 15. Cumulative Mismatch Validation Tests (Patch 3/8)
+# ===================================================================
+
+
+class TestCumulativeMismatchValidation:
+    def test_cumulative_mismatch_fails_validation(self):
+        """Ledger with wrong cumulative_improvement must fail validation."""
+        step = EvolutionStep(0, "A", "B", 0.1, 0.5, "A")
+        # Correct cumulative would be 0.5, set to 0.7 → mismatch
+        wrong_cum = 0.7
+        partial = EvolutionLedger(steps=(step,), cumulative_improvement=wrong_cum, stable_hash="")
+        # Recompute hash with wrong cumulative (so hash check passes)
+        h = compute_evolution_hash(partial)
+        tampered = EvolutionLedger(steps=(step,), cumulative_improvement=wrong_cum, stable_hash=h)
+        assert validate_evolution_ledger(tampered) is False
+
+    def test_correct_cumulative_passes_validation(self):
+        ledger = _make_ledger(4)
+        assert validate_evolution_ledger(ledger) is True
+
+
+# ===================================================================
+# 16. Code Family Specific Rule Tests (Patch 5/8)
+# ===================================================================
+
+
+class TestCodeFamilyRules:
+    def test_qldpc_low_improvement_switches_family(self):
+        step = EvolutionStep(0, "NONE", "LOW_CONFIDENCE_ROUTE", -0.2, 0.1, "NONE")
+        ledger = record_evolution_step(step)
+        action = build_next_action("qldpc", None, ledger)
+        assert action == "SWITCH_CODE_FAMILY_PATH"
+
+    def test_surface_weak_confidence_reduces_priority(self):
+        step = EvolutionStep(0, "NONE", "MODERATE_CONFIDENCE_ROUTE", 0.05, 0.45, "NONE")
+        ledger = record_evolution_step(step)
+        action = build_next_action("surface", None, ledger, orchestrator_confidence=0.3)
+        assert action == "REDUCE_ROUTE_PRIORITY"
+
+    def test_surface_default_escalates_on_low(self):
+        step = EvolutionStep(0, "NONE", "LOW_CONFIDENCE_ROUTE", -0.2, 0.1, "NONE")
+        ledger = record_evolution_step(step)
+        action = build_next_action("surface", None, ledger)
+        assert action == "ESCALATE_PORTFOLIO"
+
+    def test_toric_low_improvement_escalates(self):
+        step = EvolutionStep(0, "NONE", "LOW_CONFIDENCE_ROUTE", -0.2, 0.1, "NONE")
+        ledger = record_evolution_step(step)
+        action = build_next_action("toric", None, ledger)
+        assert action == "ESCALATE_PORTFOLIO"
+
+    def test_code_family_passed_to_cycle(self):
+        """run_evolution_cycle with qldpc family and very low confidence switches."""
+        result = run_evolution_cycle(
+            _make_orchestrator_decision(confidence=0.05),
+            _make_cognition_result(confidence=0.05),
+            _make_snapshot(),
+            code_family="qldpc",
+        )
+        assert result.decision.selected_action == "SWITCH_CODE_FAMILY_PATH"
+
+
+# ===================================================================
+# 17. Decoder No-Evolution Import Assertion (Patch 6-7/8)
+# ===================================================================
+
+
+class TestDecoderNoEvolutionImport:
+    def test_decoder_source_files_clean(self):
+        """Every .py in decoder/ must not reference qec.evolution."""
+        decoder_dir = os.path.join(
+            os.path.dirname(__file__), "..", "src", "qec", "decoder"
+        )
+        if not os.path.isdir(decoder_dir):
+            pytest.skip("decoder dir not found")
+        for fname in sorted(os.listdir(decoder_dir)):
+            if fname.endswith(".py"):
+                fpath = os.path.join(decoder_dir, fname)
+                with open(fpath, "r") as f:
+                    content = f.read()
+                assert "qec.evolution" not in content, (
+                    f"{fname} references qec.evolution"
+                )

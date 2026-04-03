@@ -306,8 +306,14 @@ def validate_history_ledger(ledger: PromotionHistoryLedger) -> bool:
     if ledger.drift_score != expected_drift:
         return False
 
-    for entry in ledger.entries:
+    for i, entry in enumerate(ledger.entries):
+        if entry.verdict not in VALID_VERDICTS:
+            return False
         if entry.action not in VALID_ACTIONS:
+            return False
+        if entry.action != _verdict_to_action(entry.verdict):
+            return False
+        if entry.cycle_index != i:
             return False
 
     return True
@@ -400,9 +406,11 @@ def _verdict_to_action(verdict: str) -> str:
     """Map gate verdict to history action deterministically."""
     if verdict == "PROMOTE":
         return "promote"
-    if verdict == "ROLLBACK" or verdict == "BLOCKED_BY_INVARIANT":
+    if verdict in ("ROLLBACK", "BLOCKED_BY_INVARIANT"):
         return "rollback"
-    return "hold"
+    if verdict in ("HOLD", "INSUFFICIENT_EVIDENCE"):
+        return "hold"
+    raise ValueError(f"Unknown gate verdict: {verdict!r}")
 
 
 # ---------------------------------------------------------------------------

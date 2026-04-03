@@ -611,7 +611,7 @@ class TestDecoderUntouched:
         source = inspect.getsource(mod)
         assert "qec.decoder" not in source
 
-    def test_decoder_files_unchanged(self):
+    def test_decoder_source_has_no_history_monitor_imports(self):
         decoder_dir = os.path.join(
             os.path.dirname(__file__), "..", "src", "qec", "decoder"
         )
@@ -619,7 +619,10 @@ class TestDecoderUntouched:
             for fname in sorted(os.listdir(decoder_dir)):
                 if fname.endswith(".py"):
                     fpath = os.path.join(decoder_dir, fname)
-                    assert os.path.isfile(fpath)
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        source = f.read()
+                    assert "promotion_history_monitor" not in source
+                    assert "from qec.evolution" not in source
 
     def test_module_does_not_touch_decoder_at_runtime(self):
         loaded_before = set(
@@ -780,3 +783,141 @@ class TestValidationEdgeCases:
             stable_hash=h,
         )
         assert validate_history_ledger(ledger) is True
+
+
+# ===========================================================================
+# 14. Threshold ordering invariant (PATCH 4)
+# ===========================================================================
+
+class TestThresholdOrdering:
+    def test_threshold_strict_ordering(self):
+        assert DRIFT_LOW_THRESHOLD < DRIFT_MEDIUM_THRESHOLD
+        assert DRIFT_MEDIUM_THRESHOLD < DRIFT_HIGH_THRESHOLD
+        assert DRIFT_HIGH_THRESHOLD < DRIFT_CRITICAL_THRESHOLD
+
+    def test_threshold_exact_values(self):
+        assert DRIFT_LOW_THRESHOLD == 0.20
+        assert DRIFT_MEDIUM_THRESHOLD == 0.40
+        assert DRIFT_HIGH_THRESHOLD == 0.60
+        assert DRIFT_CRITICAL_THRESHOLD == 0.80
+
+
+# ===========================================================================
+# 15. Hardening tests (PATCH 5)
+# ===========================================================================
+
+class TestHardeningVerdictValidation:
+    def test_unknown_verdict_raises_value_error(self):
+        from qec.evolution.promotion_history_monitor import _verdict_to_action
+        with pytest.raises(ValueError, match="Unknown gate verdict"):
+            _verdict_to_action("FAKE_VERDICT")
+
+    def test_unknown_verdict_rejected_in_cycle(self):
+        gr = _make_gate_result("NOT_A_REAL_VERDICT")
+        with pytest.raises(ValueError, match="Unknown gate verdict"):
+            run_history_monitor_cycle(gr)
+
+    def test_mismatched_verdict_action_rejected(self):
+        bad_entry = PromotionHistoryEntry(
+            cycle_index=0,
+            verdict="PROMOTE",
+            action="rollback",  # mismatch: PROMOTE should map to promote
+            confidence=0.9,
+            improvement_score=0.8,
+            snapshot_hash="x",
+        )
+        from qec.evolution.promotion_history_monitor import _hash_entries, _compute_rates, _compute_drift
+        entries = (bad_entry,)
+        h = _hash_entries(entries)
+        pr, rr = _compute_rates(entries)
+        ds = _compute_drift(entries)
+        tampered = PromotionHistoryLedger(
+            entries=entries,
+            promotion_rate=pr,
+            rollback_rate=rr,
+            drift_score=ds,
+            stable_hash=h,
+        )
+        assert validate_history_ledger(tampered) is False
+
+    def test_non_sequential_cycle_index_rejected(self):
+        e0 = _make_entry(cycle_index=0)
+        e2 = _make_entry(cycle_index=2)  # gap: skipped 1
+        from qec.evolution.promotion_history_monitor import _hash_entries, _compute_rates, _compute_drift
+        entries = (e0, e2)
+        h = _hash_entries(entries)
+        pr, rr = _compute_rates(entries)
+        ds = _compute_drift(entries)
+        tampered = PromotionHistoryLedger(
+            entries=entries,
+            promotion_rate=pr,
+            rollback_rate=rr,
+            drift_score=ds,
+            stable_hash=h,
+        )
+        assert validate_history_ledger(tampered) is False
+
+    def test_duplicate_cycle_index_rejected(self):
+        e0a = _make_entry(cycle_index=0)
+        e0b = _make_entry(cycle_index=0)  # duplicate
+        from qec.evolution.promotion_history_monitor import _hash_entries, _compute_rates, _compute_drift
+        entries = (e0a, e0b)
+        h = _hash_entries(entries)
+        pr, rr = _compute_rates(entries)
+        ds = _compute_drift(entries)
+        tampered = PromotionHistoryLedger(
+            entries=entries,
+            promotion_rate=pr,
+            rollback_rate=rr,
+            drift_score=ds,
+            stable_hash=h,
+        )
+        assert validate_history_ledger(tampered) is False
+
+    def test_reversed_cycle_index_rejected(self):
+        e1 = _make_entry(cycle_index=1)
+        e0 = _make_entry(cycle_index=0)
+        from qec.evolution.promotion_history_monitor import _hash_entries, _compute_rates, _compute_drift
+        entries = (e1, e0)
+        h = _hash_entries(entries)
+        pr, rr = _compute_rates(entries)
+        ds = _compute_drift(entries)
+        tampered = PromotionHistoryLedger(
+            entries=entries,
+            promotion_rate=pr,
+            rollback_rate=rr,
+            drift_score=ds,
+            stable_hash=h,
+        )
+        assert validate_history_ledger(tampered) is False
+
+    def test_invalid_verdict_in_entry_rejected(self):
+        bad_entry = PromotionHistoryEntry(
+            cycle_index=0,
+            verdict="INVALID_VERDICT",
+            action="hold",
+            confidence=0.9,
+            improvement_score=0.8,
+            snapshot_hash="x",
+        )
+        from qec.evolution.promotion_history_monitor import _hash_entries, _compute_rates, _compute_drift
+        entries = (bad_entry,)
+        h = _hash_entries(entries)
+        pr, rr = _compute_rates(entries)
+        ds = _compute_drift(entries)
+        tampered = PromotionHistoryLedger(
+            entries=entries,
+            promotion_rate=pr,
+            rollback_rate=rr,
+            drift_score=ds,
+            stable_hash=h,
+        )
+        assert validate_history_ledger(tampered) is False
+
+    def test_insufficient_evidence_maps_to_hold(self):
+        from qec.evolution.promotion_history_monitor import _verdict_to_action
+        assert _verdict_to_action("INSUFFICIENT_EVIDENCE") == "hold"
+
+    def test_blocked_by_invariant_maps_to_rollback(self):
+        from qec.evolution.promotion_history_monitor import _verdict_to_action
+        assert _verdict_to_action("BLOCKED_BY_INVARIANT") == "rollback"

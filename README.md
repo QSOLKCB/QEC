@@ -334,6 +334,3 @@ Operator clarity beats hidden automation.
 **Trent Slade**
 **QSOL-IMC**
 ORCID: https://orcid.org/0009-0002-4515-9237
-
-```
-```

@@ -23,20 +23,22 @@ from typing import Any
 
 # Ensure imports resolve from repository root.
 _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _repo_root not in sys.path:
-    sys.path.insert(0, _repo_root)
+_repo_src = os.path.join(_repo_root, "src")
+for _path in (_repo_root, _repo_src):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 import numpy as np
 
 from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
-from qec.diagnostics.bp_phase_space import (
+from src.qec.diagnostics.bp_phase_space import (
     compute_bp_phase_space,
     compute_metastability_score,
 )
-from qec.diagnostics.ternary_decoder_topology import (
+from src.qec.diagnostics.ternary_decoder_topology import (
     compute_ternary_decoder_topology,
 )
-from qec.diagnostics.basin_probe import probe_local_ternary_basin
+from src.qec.diagnostics.basin_probe import probe_local_ternary_basin
 
 # ── Configuration ─────────────────────────────────────────────────────
 

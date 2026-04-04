@@ -8,8 +8,10 @@ import sys
 import numpy as np
 
 _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _repo_root not in sys.path:
-    sys.path.insert(0, _repo_root)
+_repo_src = os.path.join(_repo_root, "src")
+for _path in (_repo_root, _repo_src):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 from src.qec.analysis.api import NBEigenmodeFlowAnalyzer, NBPerturbationScorer, compute_nb_spectrum, enumerate_candidate_swaps
 from src.qec.discovery.mutation_nb_eigenmode import NBEigenmodeMutation

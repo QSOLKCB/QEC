@@ -97,8 +97,7 @@ def sign_payload(payload_bytes: bytes, private_key_pem: bytes) -> str:
     Raises ``RuntimeError`` if the ``cryptography`` package is not usable.
     """
     if not _CRYPTO_AVAILABLE:
-        fallback = hashlib.sha256(private_key_pem + b"|" + payload_bytes).hexdigest()
-        return fallback
+        return hashlib.sha256(b"FALLBACK|" + payload_bytes).hexdigest()
     key = load_pem_private_key(private_key_pem, password=None)
     if not isinstance(key, Ed25519PrivateKey):
         raise TypeError("Private key must be Ed25519")
@@ -118,9 +117,8 @@ def verify_signature(
     Does not raise for ordinary invalid signatures.
     """
     if not _CRYPTO_AVAILABLE:
-        expected = hashlib.sha256(payload_bytes + b"|" + public_key_pem).hexdigest()
-        alt_expected = hashlib.sha256(public_key_pem + b"|" + payload_bytes).hexdigest()
-        return signature in (expected, alt_expected)
+        expected = hashlib.sha256(b"FALLBACK|" + payload_bytes).hexdigest()
+        return signature == expected
     key = load_pem_public_key(public_key_pem)
     if not isinstance(key, Ed25519PublicKey):
         raise TypeError("Public key must be Ed25519")
@@ -164,15 +162,18 @@ def create_execution_proof(
     payload = build_proof_payload(verify_result, signer_id, metadata)
     payload_bytes = serialize_proof_payload(payload)
     signature = sign_payload(payload_bytes, private_key_pem)
+    verification_mode = "ed25519" if _CRYPTO_AVAILABLE else "fallback_hash"
     if _CRYPTO_AVAILABLE:
         verified = verify_signature(payload_bytes, signature, public_key_pem)
     else:
-        verified = True
+        verified = False
 
+    payload_with_mode = {**payload, "verification_mode": verification_mode}
     proof = {
-        "payload": payload,
+        "payload": payload_with_mode,
         "signature": signature,
         "verified": verified,
+        "verification_mode": verification_mode,
     }
 
     if output_dir is not None:

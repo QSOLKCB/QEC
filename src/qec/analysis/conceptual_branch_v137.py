@@ -41,9 +41,6 @@ from typing import Any, Dict, Optional, Tuple
 
 CONCEPTUAL_BRANCH_VERSION: str = "v137.0.0"
 
-# Float precision for deterministic hashing (matches v136.9.x / v136.10.0)
-FLOAT_PRECISION: int = 12
-
 
 # ---------------------------------------------------------------------------
 # Frozen dataclasses
@@ -65,7 +62,7 @@ class ConceptualBranchState:
     phase_bin_index: Tuple[int, int]
     quantization_domain: str
     replay_hash_chain: str
-    branch_epoch: str = "v137.0.0"
+    branch_epoch: str = CONCEPTUAL_BRANCH_VERSION
 
 
 @dataclass(frozen=True)

@@ -392,7 +392,7 @@ class TestDocConsistency:
         roadmap_path = os.path.join(
             os.path.dirname(__file__), "..", "ROADMAP.md",
         )
-        with open(roadmap_path) as f:
+        with open(roadmap_path, encoding="utf-8") as f:
             content = f.read()
         assert "v137.0.0" in content
         assert "Conceptual Branch" in content
@@ -401,7 +401,7 @@ class TestDocConsistency:
         roadmap_path = os.path.join(
             os.path.dirname(__file__), "..", "ROADMAP.md",
         )
-        with open(roadmap_path) as f:
+        with open(roadmap_path, encoding="utf-8") as f:
             content = f.read()
         assert "governed" in content.lower()
         assert "quantiz" in content.lower()
@@ -410,6 +410,6 @@ class TestDocConsistency:
         roadmap_path = os.path.join(
             os.path.dirname(__file__), "..", "ROADMAP.md",
         )
-        with open(roadmap_path) as f:
+        with open(roadmap_path, encoding="utf-8") as f:
             content = f.read()
         assert "replay" in content.lower()

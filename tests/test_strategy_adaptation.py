@@ -13,6 +13,7 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
 import copy
 from typing import Any, Dict, List
 
@@ -103,7 +104,7 @@ class TestComputeStrategyHistoryScore:
     def test_all_positive(self) -> None:
         history = _make_history([0.5, 0.3, 0.4])
         result = compute_strategy_history_score(history)
-        assert result["avg_score"] == (0.5 + 0.3 + 0.4) / 3
+        assert result["avg_score"] == pytest.approx((0.5 + 0.3 + 0.4) / 3)
         assert result["improvement_rate"] == 1.0
         assert result["stability"] == 0.0  # all |score| >= 0.1
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import numpy as np
 
-from qec_qldpc_codes import bp_decode, channel_llr, syndrome
+from src.qec_qldpc_codes import bp_decode, channel_llr, syndrome
 
 
 # ═══════════════════════════════════════════════════════════════════════

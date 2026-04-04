@@ -15,6 +15,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "SpectralSignature": (".spectral_signature", "SpectralSignature"),
     "TrapMemoryConfig": (".trap_memory", "TrapMemoryConfig"),
     "TrapSubspaceMemory": (".trap_memory", "TrapSubspaceMemory"),
+    "AuditoryPhaseSignature": (".closed_loop_auditory_phase_control", "AuditoryPhaseSignature"),
+    "AuditoryPhaseLedger": (".closed_loop_auditory_phase_control", "AuditoryPhaseLedger"),
 }
 
 __all__ = [
@@ -25,6 +27,8 @@ __all__ = [
     "SpectralLandscapeMemory",
     "TrapMemoryConfig",
     "TrapSubspaceMemory",
+    "AuditoryPhaseLedger",
+    "AuditoryPhaseSignature",
 ]
 
 

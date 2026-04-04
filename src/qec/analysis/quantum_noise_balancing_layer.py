@@ -290,6 +290,8 @@ def append_perturbation_ledger_entry(
     current = ledger if ledger is not None else PerturbationLedger((), GENESIS_HASH, True)
     if not current.chain_valid:
         raise ValueError("cannot append to an invalid perturbation ledger")
+    if not validate_perturbation_ledger(current):
+        raise ValueError("cannot append to a malformed perturbation ledger")
 
     parent_hash = current.head_hash if current.entries else GENESIS_HASH
     entry = PerturbationLedgerEntry(

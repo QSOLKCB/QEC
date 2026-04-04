@@ -356,15 +356,16 @@ def _classify_forecast_stability(
     """
     unique_tokens = set(tokens)
 
-    # CRITICAL: dominant is severe AND appears more than once
-    if dominant_mode in (ARBITRATION_LOCKDOWN, ARBITRATION_PRIORITIZE_CRITICAL):
-        dominant_count = sum(1 for t in tokens if _is_severe_token(t))
-        if dominant_count >= 2:
-            return STABILITY_CRITICAL
-
-    # STABLE: single repeated token only
+    # STABLE: single unique token always wins first — even if severe.
+    # A uniform horizon is stable by definition regardless of severity.
     if len(unique_tokens) == 1:
         return STABILITY_STABLE
+
+    # CRITICAL: dominant is severe AND repeated severe tokens (with diversity)
+    if dominant_mode in (ARBITRATION_LOCKDOWN, ARBITRATION_PRIORITIZE_CRITICAL):
+        severe_count = sum(1 for t in tokens if _is_severe_token(t))
+        if severe_count >= 2:
+            return STABILITY_CRITICAL
 
     # Diversity metric
     diversity = len(unique_tokens) / len(tokens)
@@ -451,6 +452,11 @@ def compress_forecast_horizon(
     ValueError
         If decisions is empty.
     """
+    if isinstance(decisions, (str, bytes, dict)):
+        raise TypeError(
+            f"decisions must be iterable of TemporalAuditoryArbitrationDecision, "
+            f"got {type(decisions).__name__}"
+        )
     if not hasattr(decisions, "__iter__"):
         raise TypeError(
             f"decisions must be iterable, got {type(decisions).__name__}"

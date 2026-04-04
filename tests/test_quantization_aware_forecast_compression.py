@@ -71,6 +71,9 @@ from qec.analysis.quantization_aware_forecast_compression import (
     _compute_compression_ratio,
     _compute_entropy_proxy,
     _classify_loss_budget,
+    _classify_forecast_stability,
+    _decision_to_canonical_dict,
+    _compute_decision_hash,
 )
 
 
@@ -750,3 +753,301 @@ class TestCompressedTokens:
         result = compress_forecast_horizon(decisions)
         for t in result.compressed_forecast_tokens:
             assert isinstance(t, str)
+
+
+# ---------------------------------------------------------------------------
+# HARDENING PATCH 1 — Hash / Export Consistency Audit
+# ---------------------------------------------------------------------------
+
+class TestHashExportConsistency:
+    """Prove hash == sha256(canonical_payload_minus_metadata)."""
+
+    def test_hash_equals_sha256_of_canonical_dict(self):
+        """stable_hash must equal SHA-256 of _decision_to_canonical_dict."""
+        import hashlib as hl
+        decisions = [_make_arb_static()] * 3
+        result = compress_forecast_horizon(decisions)
+        payload = _decision_to_canonical_dict(result)
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                               ensure_ascii=True)
+        expected = hl.sha256(canonical.encode("utf-8")).hexdigest()
+        assert result.stable_hash == expected
+
+    def test_metadata_only_difference_same_hash(self):
+        """Changing layer/stable_hash in export must not affect decision hash."""
+        decisions = [_make_arb_static()] * 3
+        result = compress_forecast_horizon(decisions)
+        bundle = export_forecast_compression_bundle(result)
+        # Remove metadata fields
+        payload_a = {k: v for k, v in bundle.items()
+                     if k not in ("layer", "stable_hash")}
+        payload_b = _decision_to_canonical_dict(result)
+        assert payload_a == payload_b
+
+    def test_semantic_field_change_different_hash(self):
+        """Different semantic content must produce different hashes."""
+        r1 = compress_forecast_horizon([_make_arb_static()])
+        r2 = compress_forecast_horizon([_make_arb_collapse()])
+        assert r1.stable_hash != r2.stable_hash
+        d1 = _decision_to_canonical_dict(r1)
+        d2 = _decision_to_canonical_dict(r2)
+        assert d1 != d2
+
+    def test_hash_excludes_stable_hash_field(self):
+        """The canonical dict used for hashing must NOT contain stable_hash."""
+        decisions = [_make_arb_static()]
+        result = compress_forecast_horizon(decisions)
+        payload = _decision_to_canonical_dict(result)
+        assert "stable_hash" not in payload
+
+    def test_hash_excludes_layer_field(self):
+        """The canonical dict used for hashing must NOT contain layer."""
+        decisions = [_make_arb_static()]
+        result = compress_forecast_horizon(decisions)
+        payload = _decision_to_canonical_dict(result)
+        assert "layer" not in payload
+
+    def test_ledger_hash_from_ordered_decision_hashes(self):
+        """Ledger hash must be SHA-256 of ordered decision hashes."""
+        import hashlib as hl
+        d1 = compress_forecast_horizon([_make_arb_static()])
+        d2 = compress_forecast_horizon([_make_arb_collapse()])
+        ledger = build_forecast_compression_ledger([d1, d2])
+        hashes = [d1.stable_hash, d2.stable_hash]
+        canonical = json.dumps(hashes, sort_keys=True, separators=(",", ":"),
+                               ensure_ascii=True)
+        expected = hl.sha256(canonical.encode("utf-8")).hexdigest()
+        assert ledger.stable_hash == expected
+
+    def test_ledger_hash_order_sensitive(self):
+        """Swapping decision order must change ledger hash."""
+        d1 = compress_forecast_horizon([_make_arb_static()])
+        d2 = compress_forecast_horizon([_make_arb_collapse()])
+        l_ab = build_forecast_compression_ledger([d1, d2])
+        l_ba = build_forecast_compression_ledger([d2, d1])
+        assert l_ab.stable_hash != l_ba.stable_hash
+
+
+# ---------------------------------------------------------------------------
+# HARDENING PATCH 2 — Loss Class Edge Boundaries
+# ---------------------------------------------------------------------------
+
+class TestLossBudgetEdgeBoundaries:
+    """Exact boundary tests for loss budget classification."""
+
+    def test_exact_1_0_is_lossless(self):
+        assert _classify_loss_budget(1.0, 0.5) == LOSS_LOSSLESS
+
+    def test_exact_1_0_any_entropy_is_lossless(self):
+        assert _classify_loss_budget(1.0, 1.0) == LOSS_LOSSLESS
+        assert _classify_loss_budget(1.0, 0.0) == LOSS_LOSSLESS
+
+    def test_exact_0_7_not_low_loss(self):
+        """0.7 is NOT > 0.7, so it should not qualify for LOW_LOSS."""
+        assert _classify_loss_budget(0.7, 0.2) != LOSS_LOW
+
+    def test_just_above_0_7_with_low_entropy_is_low(self):
+        assert _classify_loss_budget(0.700000000001, 0.2) == LOSS_LOW
+
+    def test_exact_0_7_falls_to_medium(self):
+        """0.7 is > 0.4, so it should be MEDIUM_LOSS."""
+        assert _classify_loss_budget(0.7, 0.2) == LOSS_MEDIUM
+
+    def test_high_entropy_at_0_71_is_medium_not_low(self):
+        """> 0.7 but entropy > 0.3 -> not LOW_LOSS, falls to MEDIUM."""
+        assert _classify_loss_budget(0.71, 0.5) == LOSS_MEDIUM
+
+    def test_exact_0_4_not_medium(self):
+        """0.4 is NOT > 0.4, so should be HIGH_LOSS."""
+        assert _classify_loss_budget(0.4, 0.5) == LOSS_HIGH
+
+    def test_just_above_0_4_is_medium(self):
+        assert _classify_loss_budget(0.400000000001, 0.5) == LOSS_MEDIUM
+
+    def test_below_0_4_is_high(self):
+        assert _classify_loss_budget(0.3, 0.1) == LOSS_HIGH
+        assert _classify_loss_budget(0.1, 0.9) == LOSS_HIGH
+
+    def test_entropy_boundary_0_3_qualifies_for_low(self):
+        """entropy_proxy <= 0.3 with ratio > 0.7 -> LOW_LOSS."""
+        assert _classify_loss_budget(0.8, 0.3) == LOSS_LOW
+
+    def test_entropy_just_above_0_3_not_low(self):
+        """entropy_proxy > 0.3 with ratio > 0.7 -> MEDIUM_LOSS."""
+        assert _classify_loss_budget(0.8, 0.300000000001) == LOSS_MEDIUM
+
+
+# ---------------------------------------------------------------------------
+# HARDENING PATCH 3 — Stability Class False Positives
+# ---------------------------------------------------------------------------
+
+class TestStabilityClassPrecedence:
+    """Ensure single-unique-token ALWAYS returns STABLE, even if severe."""
+
+    def test_all_identical_severe_is_stable(self):
+        """All identical collapse decisions -> single unique token -> STABLE."""
+        decisions = [_make_arb_collapse()] * 5
+        result = compress_forecast_horizon(decisions)
+        # All tokens must be identical
+        raw_tokens = tuple(_tokenize_decision(d) for d in decisions)
+        assert len(set(raw_tokens)) == 1, "Precondition: all tokens must be identical"
+        assert result.forecast_stability_class == STABILITY_STABLE
+
+    def test_all_identical_severe_is_stable_10(self):
+        """10 identical collapse decisions -> STABLE."""
+        decisions = [_make_arb_collapse()] * 10
+        result = compress_forecast_horizon(decisions)
+        assert result.forecast_stability_class == STABILITY_STABLE
+
+    def test_single_severe_decision_is_stable(self):
+        """Single decision is always a single unique token -> STABLE."""
+        decisions = [_make_arb_collapse()]
+        result = compress_forecast_horizon(decisions)
+        assert result.forecast_stability_class == STABILITY_STABLE
+
+    def test_mixed_severe_and_benign_is_critical(self):
+        """Mixed severe + benign tokens with severe dominant -> CRITICAL."""
+        s = _make_arb_static()
+        c = _make_arb_collapse()
+        # Ensure they produce different tokens
+        t_s = _tokenize_decision(s)
+        t_c = _tokenize_decision(c)
+        if t_s != t_c and ("AR_CRIT" in t_c or "AR_LOCK" in t_c):
+            decisions = [c, c, c, s]  # severe dominant, mixed tokens
+            result = compress_forecast_horizon(decisions)
+            assert result.forecast_stability_class == STABILITY_CRITICAL
+
+    def test_classify_stability_unit_single_token(self):
+        """Direct unit test: single unique severe token -> STABLE."""
+        tokens = ("CF_CRIT|AR_LOCK|CS_LOCK",) * 5
+        compressed = _run_length_compress(tokens)
+        result = _classify_forecast_stability(
+            tokens, compressed, ARBITRATION_LOCKDOWN,
+        )
+        assert result == STABILITY_STABLE
+
+    def test_classify_stability_unit_diverse_severe(self):
+        """Direct unit test: diverse severe tokens -> CRITICAL."""
+        tokens = (
+            "CF_CRIT|AR_LOCK|CS_LOCK",
+            "CF_HIGH|AR_CRIT|CS_INT",
+            "CF_CRIT|AR_LOCK|CS_LOCK",
+        )
+        compressed = _run_length_compress(tokens)
+        result = _classify_forecast_stability(
+            tokens, compressed, ARBITRATION_LOCKDOWN,
+        )
+        assert result == STABILITY_CRITICAL
+
+
+# ---------------------------------------------------------------------------
+# HARDENING PATCH 4 — Token Format Invariant
+# ---------------------------------------------------------------------------
+
+class TestTokenFormatInvariant:
+    """Protect CF_*|AR_*|CS_* format for future v137.0.8 parser."""
+
+    def _assert_valid_token(self, token: str):
+        parts = token.split("|")
+        assert len(parts) == 3, f"Expected 3 segments, got {len(parts)}: {token}"
+        assert parts[0].startswith("CF_"), f"Segment 0 must start with CF_: {parts[0]}"
+        assert parts[1].startswith("AR_"), f"Segment 1 must start with AR_: {parts[1]}"
+        assert parts[2].startswith("CS_"), f"Segment 2 must start with CS_: {parts[2]}"
+        for p in parts:
+            assert len(p) > 3, f"Empty segment after prefix: {p}"
+
+    def test_static_token_format(self):
+        self._assert_valid_token(_tokenize_decision(_make_arb_static()))
+
+    def test_collapse_token_format(self):
+        self._assert_valid_token(_tokenize_decision(_make_arb_collapse()))
+
+    def test_escalating_token_format(self):
+        self._assert_valid_token(_tokenize_decision(_make_arb_escalating()))
+
+    def test_mixed_token_format(self):
+        self._assert_valid_token(_tokenize_decision(_make_arb_mixed()))
+
+    def test_exactly_two_pipes(self):
+        for arb_fn in (_make_arb_static, _make_arb_collapse,
+                       _make_arb_escalating, _make_arb_mixed):
+            token = _tokenize_decision(arb_fn())
+            assert token.count("|") == 2, f"Expected 2 pipes: {token}"
+
+    def test_no_empty_segments(self):
+        for arb_fn in (_make_arb_static, _make_arb_collapse,
+                       _make_arb_escalating, _make_arb_mixed):
+            token = _tokenize_decision(arb_fn())
+            for part in token.split("|"):
+                assert part != "", f"Empty segment in token: {token}"
+
+    def test_ordering_cf_ar_cs(self):
+        """Segments must always appear in CF, AR, CS order."""
+        for arb_fn in (_make_arb_static, _make_arb_collapse):
+            token = _tokenize_decision(arb_fn())
+            parts = token.split("|")
+            assert parts[0][:2] == "CF"
+            assert parts[1][:2] == "AR"
+            assert parts[2][:2] == "CS"
+
+
+# ---------------------------------------------------------------------------
+# HARDENING PATCH 5 — Input Type Rigor
+# ---------------------------------------------------------------------------
+
+class TestInputTypeRigor:
+    """Reject str, bytes, dict explicitly."""
+
+    def test_string_raises_type_error(self):
+        with pytest.raises(TypeError):
+            compress_forecast_horizon("abc")
+
+    def test_bytes_raises_type_error(self):
+        with pytest.raises(TypeError):
+            compress_forecast_horizon(b"abc")
+
+    def test_dict_raises_type_error(self):
+        with pytest.raises(TypeError):
+            compress_forecast_horizon({"x": 1})
+
+    def test_string_error_message(self):
+        with pytest.raises(TypeError, match="str"):
+            compress_forecast_horizon("abc")
+
+    def test_bytes_error_message(self):
+        with pytest.raises(TypeError, match="bytes"):
+            compress_forecast_horizon(b"abc")
+
+    def test_dict_error_message(self):
+        with pytest.raises(TypeError, match="dict"):
+            compress_forecast_horizon({"x": 1})
+
+
+# ---------------------------------------------------------------------------
+# HARDENING PATCH 6 — Trace Format Stability (Byte-Identical)
+# ---------------------------------------------------------------------------
+
+class TestTraceFormatStability:
+    """Ensure trace output is byte-identical across 100 runs."""
+
+    def test_100_run_trace_byte_identity(self):
+        decisions = [_make_arb_static(), _make_arb_collapse(), _make_arb_static()]
+        baseline = compress_forecast_horizon(decisions)
+        baseline_bytes = baseline.forecast_symbolic_trace.encode("utf-8")
+        for _ in range(100):
+            result = compress_forecast_horizon(decisions)
+            assert result.forecast_symbolic_trace.encode("utf-8") == baseline_bytes
+
+    def test_trace_encodes_to_utf8_deterministically(self):
+        decisions = [_make_arb_static()] * 3
+        r1 = compress_forecast_horizon(decisions)
+        r2 = compress_forecast_horizon(decisions)
+        assert r1.forecast_symbolic_trace.encode("utf-8") == \
+               r2.forecast_symbolic_trace.encode("utf-8")
+
+    def test_trace_reconstructible_from_compressed_tokens(self):
+        """Trace must equal ' -> '.join(compressed_tokens)."""
+        decisions = [_make_arb_static(), _make_arb_collapse()]
+        result = compress_forecast_horizon(decisions)
+        expected = " -> ".join(result.compressed_forecast_tokens)
+        assert result.forecast_symbolic_trace == expected

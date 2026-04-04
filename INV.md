@@ -341,3 +341,62 @@ These are informational only and do not affect behavior.
   (~21 float/int/str/None values + regime classification dict).
 - **IEEE 754 scope.** Cross-platform bit-identical results are not
   guaranteed if floating-point rounding modes differ.
+
+---
+
+## QSOL-PHI-INV-004: PHI_SCALE_NODE
+
+**Type:** Structural (golden-ratio shell quantization)
+
+**Version:** v137.0.13
+
+**Invariant statement:** All raster depth spans must quantize to the
+canonical φ-shell progression `(1.0, 1.618, 2.618, 4.236, 6.854)`.
+Linear z-bands are forbidden. Shell boundaries are monotonically
+increasing and each successive shell equals the sum of the two
+preceding values (golden recurrence). Quantization is deterministic:
+identical depth inputs always map to the same shell.
+
+---
+
+## QSOL-E8-INV-005: E8_TRIALITY_LOCK
+
+**Type:** Structural (E8 triality constraint)
+
+**Version:** v137.0.13
+
+**Invariant statement:** The visibility classification system must
+enforce exactly three primary shell classes (NEAR_SHELL, MID_SHELL,
+OUTER_SHELL) plus two boundary classes (RESONANCE_NODE, WIGGLE_ZONE).
+The triality of near/mid/outer mirrors the E8 triality structure from
+the theory corpus. Classification boundaries are fixed and
+deterministic.
+
+---
+
+## QSOL-OURO-INV-006: OUROBOROS_FEEDBACK_LOOP
+
+**Type:** Computational (self-consistent restore operator)
+
+**Version:** v137.0.13
+
+**Invariant statement:** The UFF restore operator
+`∇²T + (φ + ψ)² T = 0` is implemented as a deterministic
+span-energy correction via `compute_phi_restore_term`. The restore
+term is a pure function of span_energy and phase_offset with no
+hidden state. For fixed inputs, the output is byte-identical across
+all invocations.
+
+---
+
+## QSOL-SIS2-INV-007: SIS2_STABILITY_RING
+
+**Type:** Structural (ledger stability)
+
+**Version:** v137.0.13
+
+**Invariant statement:** The raster ledger is a frozen, immutable
+artifact. Once constructed, no field may be mutated. The ledger
+stable_hash is computed from canonical JSON of all constituent
+decision hashes. 100-run replay of identical inputs must produce
+byte-identical ledger exports (JSON + SHA-256).

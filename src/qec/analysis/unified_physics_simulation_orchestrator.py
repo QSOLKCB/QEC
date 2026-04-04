@@ -1,4 +1,4 @@
-"""v137.1.3 — Unified Physics Simulation Orchestrator.
+"""v137.1.4 — Unified Physics Simulation Orchestrator.
 
 Layer-4 deterministic orchestration that couples:
 - v137.0.16 composition engine
@@ -23,7 +23,7 @@ from qec.analysis.physics_music_video_composition_engine import (
     extract_visual_scene_cues,
 )
 
-UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION: str = "v137.1.3"
+UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION: str = "v137.1.4"
 FLOAT_PRECISION: int = 12
 
 
@@ -747,3 +747,336 @@ def verify_replay_bundle_roundtrip(
         str(exported.get("stable_hash", "")) == compressed.stable_hash
         and str(exported.get("replay_identity", "")) == compressed.replay_identity
     )
+
+
+def _validate_symbolic_trace_timestamp_map(symbolic_trace_timestamp_map: Mapping[str, Sequence[int]]) -> Dict[str, Tuple[int, ...]]:
+    if not isinstance(symbolic_trace_timestamp_map, Mapping):
+        raise ValueError("invalid symbolic trace map: expected mapping")
+    normalized: Dict[str, Tuple[int, ...]] = {}
+    for original_key in sorted(symbolic_trace_timestamp_map.keys(), key=str):
+        raw = symbolic_trace_timestamp_map[original_key]
+        if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+            raise ValueError("invalid symbolic trace map: timestamps must be integer sequences")
+        normalized[str(original_key)] = tuple(sorted(int(x) for x in raw))
+    return normalized
+
+
+def _symbolic_trace_anchor(symbolic_trace_timestamp_map: Mapping[str, Sequence[int]]) -> str:
+    normalized = _validate_symbolic_trace_timestamp_map(symbolic_trace_timestamp_map)
+    payload = {key: list(value) for key, value in normalized.items()}
+    return _stable_hash_dict(payload)
+
+
+@dataclass(frozen=True)
+class DriftProvenanceRecord:
+    cycle_index: int
+    source_module: str
+    prior_hash: str
+    divergent_hash: str
+    chain_digest_anchor: str
+    delta_table_reference: str
+    symbolic_trace_anchor: str
+    bounded_drift_score: float
+    stable_hash: str
+    replay_identity: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "cycle_index": int(self.cycle_index),
+            "source_module": str(self.source_module),
+            "prior_hash": str(self.prior_hash),
+            "divergent_hash": str(self.divergent_hash),
+            "chain_digest_anchor": str(self.chain_digest_anchor),
+            "delta_table_reference": str(self.delta_table_reference),
+            "symbolic_trace_anchor": str(self.symbolic_trace_anchor),
+            "bounded_drift_score": _round(float(self.bounded_drift_score)),
+            "stable_hash": str(self.stable_hash),
+            "replay_identity": str(self.replay_identity),
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+@dataclass(frozen=True)
+class DriftCycleReport:
+    cycle_index: int
+    composition_match: bool
+    simulation_match: bool
+    synchronization_match: bool
+    orchestrator_match: bool
+    symbolic_trace_match: bool
+    drift_source: str
+    record: DriftProvenanceRecord
+    stable_hash: str
+    replay_identity: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "cycle_index": int(self.cycle_index),
+            "composition_match": bool(self.composition_match),
+            "simulation_match": bool(self.simulation_match),
+            "synchronization_match": bool(self.synchronization_match),
+            "orchestrator_match": bool(self.orchestrator_match),
+            "symbolic_trace_match": bool(self.symbolic_trace_match),
+            "drift_source": str(self.drift_source),
+            "record": self.record.to_dict(),
+            "stable_hash": str(self.stable_hash),
+            "replay_identity": str(self.replay_identity),
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+@dataclass(frozen=True)
+class DriftProvenanceLedger:
+    version: str
+    replay_cycles: int
+    first_divergence_point: int
+    cycle_reports: Tuple[DriftCycleReport, ...]
+    chain_digest_anchor: str
+    delta_table_reference: str
+    symbolic_trace_anchor: str
+    stable_hash: str
+    replay_identity: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "version": str(self.version),
+            "replay_cycles": int(self.replay_cycles),
+            "first_divergence_point": int(self.first_divergence_point),
+            "cycle_reports": [x.to_dict() for x in self.cycle_reports],
+            "chain_digest_anchor": str(self.chain_digest_anchor),
+            "delta_table_reference": str(self.delta_table_reference),
+            "symbolic_trace_anchor": str(self.symbolic_trace_anchor),
+            "stable_hash": str(self.stable_hash),
+            "replay_identity": str(self.replay_identity),
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+def attribute_drift_source(
+    *,
+    composition_match: bool,
+    simulation_match: bool,
+    synchronization_match: bool,
+    orchestrator_match: bool,
+    symbolic_trace_match: bool,
+) -> str:
+    mismatches = tuple(
+        key
+        for key, ok in (
+            ("composition", composition_match),
+            ("simulation", simulation_match),
+            ("synchronization", synchronization_match),
+            ("orchestrator", orchestrator_match),
+            ("symbolic_trace", symbolic_trace_match),
+        )
+        if not ok
+    )
+    if len(mismatches) == 0:
+        return "cross-module"
+    if len(mismatches) == 1:
+        return mismatches[0]
+    return "cross-module"
+
+
+def compare_replay_cycles(
+    reference_snapshot: UnifiedPhysicsReplaySnapshot,
+    candidate_snapshot: UnifiedPhysicsReplaySnapshot,
+    *,
+    cycle_index: int,
+    chain_digest_anchor: str,
+    delta_table_reference: str,
+    symbolic_trace_anchor: str,
+    symbolic_trace_match: bool,
+) -> DriftCycleReport:
+    composition_match = (
+        str(reference_snapshot.composition_stable_hash) == str(candidate_snapshot.composition_stable_hash)
+    )
+    simulation_match = (
+        str(reference_snapshot.simulation_stable_hash) == str(candidate_snapshot.simulation_stable_hash)
+    )
+    synchronization_match = str(reference_snapshot.sync_stable_hash) == str(candidate_snapshot.sync_stable_hash)
+    orchestrator_match = (
+        str(reference_snapshot.orchestrator_stable_hash) == str(candidate_snapshot.orchestrator_stable_hash)
+    )
+    drift_source = attribute_drift_source(
+        composition_match=composition_match,
+        simulation_match=simulation_match,
+        synchronization_match=synchronization_match,
+        orchestrator_match=orchestrator_match,
+        symbolic_trace_match=symbolic_trace_match,
+    )
+    mismatch_count = (
+        int(not composition_match)
+        + int(not simulation_match)
+        + int(not synchronization_match)
+        + int(not orchestrator_match)
+        + int(not symbolic_trace_match)
+    )
+    bounded_drift_score = _round(float(mismatch_count) / 5.0)
+    prior_hash = str(reference_snapshot.orchestrator_stable_hash)
+    divergent_hash = str(candidate_snapshot.orchestrator_stable_hash)
+    record_payload = {
+        "cycle_index": int(cycle_index),
+        "source_module": drift_source,
+        "prior_hash": prior_hash,
+        "divergent_hash": divergent_hash,
+        "chain_digest_anchor": str(chain_digest_anchor),
+        "delta_table_reference": str(delta_table_reference),
+        "symbolic_trace_anchor": str(symbolic_trace_anchor),
+        "bounded_drift_score": bounded_drift_score,
+    }
+    record_hash = _stable_hash_dict(record_payload)
+    record = DriftProvenanceRecord(
+        cycle_index=int(cycle_index),
+        source_module=drift_source,
+        prior_hash=prior_hash,
+        divergent_hash=divergent_hash,
+        chain_digest_anchor=str(chain_digest_anchor),
+        delta_table_reference=str(delta_table_reference),
+        symbolic_trace_anchor=str(symbolic_trace_anchor),
+        bounded_drift_score=bounded_drift_score,
+        stable_hash=record_hash,
+        replay_identity=record_hash,
+    )
+    report_payload = {
+        "cycle_index": int(cycle_index),
+        "composition_match": composition_match,
+        "simulation_match": simulation_match,
+        "synchronization_match": synchronization_match,
+        "orchestrator_match": orchestrator_match,
+        "symbolic_trace_match": bool(symbolic_trace_match),
+        "drift_source": drift_source,
+        "record": record.to_dict(),
+    }
+    report_hash = _stable_hash_dict(report_payload)
+    return DriftCycleReport(
+        cycle_index=int(cycle_index),
+        composition_match=composition_match,
+        simulation_match=simulation_match,
+        synchronization_match=synchronization_match,
+        orchestrator_match=orchestrator_match,
+        symbolic_trace_match=bool(symbolic_trace_match),
+        drift_source=drift_source,
+        record=record,
+        stable_hash=report_hash,
+        replay_identity=report_hash,
+    )
+
+
+def build_drift_provenance_report(
+    reference_bundle: CompressedReplayBundle,
+    candidate_bundle: CompressedReplayBundle,
+    *,
+    reference_symbolic_trace_timestamp_map: Mapping[str, Sequence[int]],
+    candidate_symbolic_trace_timestamp_map: Mapping[str, Sequence[int]],
+) -> DriftProvenanceLedger:
+    if int(reference_bundle.replay_cycles) != int(candidate_bundle.replay_cycles):
+        raise ValueError("mismatched cycle counts")
+    if str(reference_bundle.hash_chain.chain_digest) == "":
+        raise ValueError("invalid hash-chain reference")
+    if len(candidate_bundle.deltas) == 0:
+        raise ValueError("missing delta anchor")
+    reference_snapshots = decompress_replay_snapshots(reference_bundle)
+    candidate_snapshots = decompress_replay_snapshots(candidate_bundle)
+    if len(reference_snapshots) != len(candidate_snapshots):
+        raise ValueError("mismatched cycle counts")
+
+    reference_trace_anchor = _symbolic_trace_anchor(reference_symbolic_trace_timestamp_map)
+    candidate_trace_anchor = _symbolic_trace_anchor(candidate_symbolic_trace_timestamp_map)
+    symbolic_trace_match = reference_trace_anchor == candidate_trace_anchor
+
+    delta_table_reference = _stable_hash_dict(
+        {"deltas": [delta.to_dict() for delta in candidate_bundle.deltas], "replay_cycles": int(candidate_bundle.replay_cycles)}
+    )
+    chain_digest_anchor = str(reference_bundle.hash_chain.chain_digest)
+
+    reports = []
+    first_divergence_point = -1
+    for cycle_index, (reference_snapshot, candidate_snapshot) in enumerate(zip(reference_snapshots, candidate_snapshots)):
+        report = compare_replay_cycles(
+            reference_snapshot,
+            candidate_snapshot,
+            cycle_index=cycle_index,
+            chain_digest_anchor=chain_digest_anchor,
+            delta_table_reference=delta_table_reference,
+            symbolic_trace_anchor=candidate_trace_anchor,
+            symbolic_trace_match=symbolic_trace_match,
+        )
+        if first_divergence_point < 0 and report.record.bounded_drift_score > 0.0:
+            first_divergence_point = cycle_index
+        reports.append(report)
+
+    if first_divergence_point < 0:
+        first_divergence_point = 0
+
+    ledger_payload = {
+        "version": UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+        "replay_cycles": int(candidate_bundle.replay_cycles),
+        "first_divergence_point": int(first_divergence_point),
+        "cycle_reports": [report.to_dict() for report in reports],
+        "chain_digest_anchor": chain_digest_anchor,
+        "delta_table_reference": delta_table_reference,
+        "symbolic_trace_anchor": candidate_trace_anchor,
+    }
+    ledger_hash = _stable_hash_dict(ledger_payload)
+    return DriftProvenanceLedger(
+        version=UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+        replay_cycles=int(candidate_bundle.replay_cycles),
+        first_divergence_point=int(first_divergence_point),
+        cycle_reports=tuple(reports),
+        chain_digest_anchor=chain_digest_anchor,
+        delta_table_reference=delta_table_reference,
+        symbolic_trace_anchor=candidate_trace_anchor,
+        stable_hash=ledger_hash,
+        replay_identity=ledger_hash,
+    )
+
+
+def export_drift_provenance_bundle(ledger: DriftProvenanceLedger) -> Dict[str, Any]:
+    payload = ledger.to_dict()
+    required_keys = {
+        "version",
+        "replay_cycles",
+        "first_divergence_point",
+        "cycle_reports",
+        "chain_digest_anchor",
+        "delta_table_reference",
+        "symbolic_trace_anchor",
+        "stable_hash",
+        "replay_identity",
+    }
+    if tuple(sorted(payload.keys())) != tuple(sorted(required_keys)):
+        raise ValueError("malformed provenance bundle")
+    return payload
+
+
+def verify_drift_provenance_roundtrip(
+    ledger: DriftProvenanceLedger,
+    *,
+    reference_bundle: CompressedReplayBundle,
+    candidate_bundle: CompressedReplayBundle,
+    candidate_symbolic_trace_timestamp_map: Mapping[str, Sequence[int]],
+) -> bool:
+    exported = export_drift_provenance_bundle(ledger)
+    recomputed_anchor = _symbolic_trace_anchor(candidate_symbolic_trace_timestamp_map)
+    if str(exported.get("symbolic_trace_anchor", "")) != recomputed_anchor:
+        raise ValueError("invalid symbolic trace map")
+    if str(ledger.chain_digest_anchor) != str(reference_bundle.hash_chain.chain_digest):
+        raise ValueError("invalid hash-chain reference")
+    if str(ledger.delta_table_reference) == "":
+        raise ValueError("missing delta anchor")
+    if int(reference_bundle.replay_cycles) != int(candidate_bundle.replay_cycles):
+        raise ValueError("mismatched cycle counts")
+    # Recompute stable hash from canonical content payload (excluding stable_hash and
+    # replay_identity) to verify ledger integrity non-self-referentially.
+    content_payload = {k: v for k, v in exported.items() if k not in ("stable_hash", "replay_identity")}
+    recomputed_hash = _stable_hash_dict(content_payload)
+    if recomputed_hash != str(ledger.stable_hash):
+        raise ValueError("malformed provenance bundle")
+    return str(exported.get("replay_identity", "")) == str(ledger.replay_identity)

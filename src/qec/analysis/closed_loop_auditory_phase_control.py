@@ -184,14 +184,20 @@ def observe_auditory_phase_control(
             "phase_bin_index must be a 2-tuple of ints, "
             f"got {phase_bin_index!r}"
         )
+    if phase_bin_index[0] < 0 or phase_bin_index[1] < 0:
+        raise ValueError(
+            "phase_bin_index elements must be >= 0, "
+            f"got {phase_bin_index!r}"
+        )
 
     band = _classify_risk(risk_score)
     frequency = _FREQUENCY_MAP[band]
     bit_depth = _BIT_DEPTH_MAP[band]
 
-    # Symbolic trace: PB(i,j)-F<freq>-B<depth>-<route>
+    # Symbolic trace: PB(i,j)-D<drift>-F<freq>-B<depth>-<route>
     trace = (
         f"PB({phase_bin_index[0]},{phase_bin_index[1]})"
+        f"-D{spectral_drift:.2f}"
         f"-F{int(frequency)}"
         f"-B{bit_depth}"
         f"-{governed_route}"
@@ -240,6 +246,12 @@ def build_auditory_phase_ledger(
     AuditoryPhaseLedger
     """
     signatures = tuple(signatures)
+    for i, s in enumerate(signatures):
+        if not isinstance(s, AuditoryPhaseSignature):
+            raise TypeError(
+                f"signatures[{i}] must be AuditoryPhaseSignature, "
+                f"got {type(s).__name__}"
+            )
     ledger_hash = _compute_ledger_hash(signatures)
     return AuditoryPhaseLedger(
         signatures=signatures,
@@ -259,18 +271,13 @@ def export_auditory_phase_bundle(
     """Export a single signature as a canonical JSON-safe dict.
 
     Deterministic: same signature always produces byte-identical export.
+    Shape is canonical_dict + layer + stable_hash, allowing hash
+    recomputation directly from the exported artifact.
     """
-    return {
-        "amplitude_band": signature.amplitude_band,
-        "audio_symbolic_trace": signature.audio_symbolic_trace,
-        "bit_depth_level": signature.bit_depth_level,
-        "governed_route_hint": signature.governed_route_hint,
-        "instability_frequency_hz": signature.instability_frequency_hz,
-        "layer": "closed_loop_auditory_phase_control",
-        "phase_bin_index": list(signature.phase_bin_index),
-        "stable_hash": signature.stable_hash,
-        "version": signature.version,
-    }
+    base = _signature_to_canonical_dict(signature)
+    base["layer"] = "closed_loop_auditory_phase_control"
+    base["stable_hash"] = signature.stable_hash
+    return base
 
 
 def export_auditory_phase_ledger(

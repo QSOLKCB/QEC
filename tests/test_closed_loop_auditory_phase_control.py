@@ -17,8 +17,6 @@ Covers:
 
 from __future__ import annotations
 
-import copy
-import hashlib
 import json
 
 import pytest
@@ -112,15 +110,15 @@ class TestSymbolicTrace:
 
     def test_trace_format(self) -> None:
         sig = _make_sig(phase_bin=(2, 3), risk=0.5, route="RECOVERY")
-        assert sig.audio_symbolic_trace == "PB(2,3)-F880-B12-RECOVERY"
+        assert sig.audio_symbolic_trace == "PB(2,3)-D0.50-F880-B12-RECOVERY"
 
     def test_trace_low(self) -> None:
         sig = _make_sig(phase_bin=(0, 1), risk=0.0, route="IDLE")
-        assert sig.audio_symbolic_trace == "PB(0,1)-F220-B24-IDLE"
+        assert sig.audio_symbolic_trace == "PB(0,1)-D0.50-F220-B24-IDLE"
 
     def test_trace_collapse(self) -> None:
         sig = _make_sig(phase_bin=(7, 9), risk=0.9, route="HALT")
-        assert sig.audio_symbolic_trace == "PB(7,9)-F3520-B4-HALT"
+        assert sig.audio_symbolic_trace == "PB(7,9)-D0.50-F3520-B4-HALT"
 
     def test_trace_determinism(self) -> None:
         s1 = _make_sig()
@@ -233,14 +231,14 @@ class TestNoDecoderContamination:
 
     def test_no_decoder_import(self) -> None:
         import qec.analysis.closed_loop_auditory_phase_control as mod
-        source = open(mod.__file__, "r").read()
+        source = open(mod.__file__, "r", encoding="utf-8").read()
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
         assert "import qec.decoder" not in source
 
     def test_no_channel_import(self) -> None:
         import qec.analysis.closed_loop_auditory_phase_control as mod
-        source = open(mod.__file__, "r").read()
+        source = open(mod.__file__, "r", encoding="utf-8").read()
         assert "qec.channel" not in source
 
 
@@ -367,3 +365,102 @@ class TestSignatureHash:
         s1 = _make_sig(risk=0.1)
         s2 = _make_sig(risk=0.9)
         assert s1.stable_hash != s2.stable_hash
+
+
+# ---------------------------------------------------------------------------
+# 13. Negative phase_bin indices (hardening)
+# ---------------------------------------------------------------------------
+
+class TestNegativePhaseBinIndices:
+    """Negative phase bin indices must raise ValueError."""
+
+    def test_negative_first(self) -> None:
+        with pytest.raises(ValueError, match="must be >= 0"):
+            observe_auditory_phase_control((-1, 0), 0.5, 0.5, "R")
+
+    def test_negative_second(self) -> None:
+        with pytest.raises(ValueError, match="must be >= 0"):
+            observe_auditory_phase_control((0, -1), 0.5, 0.5, "R")
+
+    def test_both_negative(self) -> None:
+        with pytest.raises(ValueError, match="must be >= 0"):
+            observe_auditory_phase_control((-3, -7), 0.5, 0.5, "R")
+
+
+# ---------------------------------------------------------------------------
+# 14. Ledger type validation (hardening)
+# ---------------------------------------------------------------------------
+
+class TestLedgerTypeValidation:
+    """Ledger must reject non-AuditoryPhaseSignature entries."""
+
+    def test_invalid_object(self) -> None:
+        with pytest.raises(TypeError, match="AuditoryPhaseSignature"):
+            build_auditory_phase_ledger(["not_a_signature"])
+
+    def test_mixed_valid_invalid(self) -> None:
+        valid = _make_sig()
+        with pytest.raises(TypeError, match="signatures\\[1\\]"):
+            build_auditory_phase_ledger([valid, {"fake": True}])
+
+    def test_none_entry(self) -> None:
+        with pytest.raises(TypeError, match="AuditoryPhaseSignature"):
+            build_auditory_phase_ledger([None])
+
+
+# ---------------------------------------------------------------------------
+# 15. Export / hash shape alignment (hardening)
+# ---------------------------------------------------------------------------
+
+class TestExportHashAlignment:
+    """Export shape must equal canonical_dict + layer + stable_hash."""
+
+    def test_export_superset_of_canonical(self) -> None:
+        from qec.analysis.closed_loop_auditory_phase_control import (
+            _signature_to_canonical_dict,
+        )
+        sig = _make_sig()
+        canonical = _signature_to_canonical_dict(sig)
+        export = export_auditory_phase_bundle(sig)
+        for key in canonical:
+            assert key in export, f"canonical key {key!r} missing from export"
+            assert export[key] == canonical[key]
+
+    def test_export_extra_keys_only_layer_and_hash(self) -> None:
+        from qec.analysis.closed_loop_auditory_phase_control import (
+            _signature_to_canonical_dict,
+        )
+        sig = _make_sig()
+        canonical_keys = set(_signature_to_canonical_dict(sig).keys())
+        export_keys = set(export_auditory_phase_bundle(sig).keys())
+        extra = export_keys - canonical_keys
+        assert extra == {"layer", "stable_hash"}
+
+
+# ---------------------------------------------------------------------------
+# 16. Drift token in trace (hardening)
+# ---------------------------------------------------------------------------
+
+class TestDriftToken:
+    """Symbolic trace must encode spectral_drift deterministically."""
+
+    def test_drift_token_present(self) -> None:
+        sig = _make_sig(drift=0.75)
+        assert "-D0.75-" in sig.audio_symbolic_trace
+
+    def test_drift_zero(self) -> None:
+        sig = _make_sig(drift=0.0)
+        assert "-D0.00-" in sig.audio_symbolic_trace
+
+    def test_drift_negative(self) -> None:
+        sig = _make_sig(drift=-1.23)
+        assert "-D-1.23-" in sig.audio_symbolic_trace
+
+    def test_drift_changes_hash(self) -> None:
+        s1 = _make_sig(drift=0.1)
+        s2 = _make_sig(drift=0.9)
+        assert s1.stable_hash != s2.stable_hash
+
+    def test_drift_format_two_decimals(self) -> None:
+        sig = _make_sig(drift=0.123456)
+        assert "-D0.12-" in sig.audio_symbolic_trace

@@ -251,6 +251,18 @@ def compute_noise_compensation(
 ) -> float:
     """Compute deterministic bounded compensation factor in [0, 1]."""
     values_by_source = {source: value for source, value in normalized_noise_inputs}
+    model_sources = {source for source, _ in compensation_model.compensation_weights}
+    input_sources = set(values_by_source.keys())
+    missing = model_sources - input_sources
+    extra = input_sources - model_sources
+    if missing:
+        raise ValueError(
+            f"normalized_noise_inputs is missing sources required by model: {sorted(missing)}"
+        )
+    if extra:
+        raise ValueError(
+            f"normalized_noise_inputs contains sources not present in model: {sorted(extra)}"
+        )
     weighted_sum = 0.0
     for source, weight in compensation_model.compensation_weights:
         weighted_sum += values_by_source[source] * float(weight)

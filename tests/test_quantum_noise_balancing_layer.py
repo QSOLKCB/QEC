@@ -80,6 +80,23 @@ def test_corruption_detection():
     assert not validate_perturbation_ledger(bad)
 
 
+def test_append_rejects_malformed_ledger():
+    """Appending to a ledger with chain_valid=True but corrupt data must fail fast."""
+    import pytest
+
+    entry = PerturbationLedgerEntry(
+        sequence_id=0,
+        perturbation_hash="h1",
+        parent_hash=GENESIS_HASH,
+        fidelity_score=0.9,
+        stability_score=0.9,
+    )
+    # head_hash is wrong — chain is actually invalid despite chain_valid=True
+    malformed = PerturbationLedger(entries=(entry,), head_hash="tampered", chain_valid=True)
+    with pytest.raises(ValueError):
+        append_perturbation_ledger_entry(malformed, "h2", 0.8, 0.8)
+
+
 def test_no_decoder_imports():
     import qec.analysis.quantum_noise_balancing_layer as layer
 

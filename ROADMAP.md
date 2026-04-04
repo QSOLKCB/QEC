@@ -22,6 +22,7 @@ continuous system state
 → governed control action
 → temporal supervisory memory
 → stable replay identity
+```
 
 This law is invariant.
 

@@ -1,4 +1,4 @@
-"""v137.1.5 — Unified Physics Simulation Orchestrator.
+"""v137.1.6 — Unified Physics Simulation Orchestrator.
 
 Layer-4 deterministic orchestration that couples:
 - v137.0.16 composition engine
@@ -23,7 +23,7 @@ from qec.analysis.physics_music_video_composition_engine import (
     extract_visual_scene_cues,
 )
 
-UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION: str = "v137.1.5"
+UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION: str = "v137.1.6"
 FLOAT_PRECISION: int = 12
 
 
@@ -1343,3 +1343,291 @@ def verify_repair_bundle_roundtrip(bundle: RepairSuggestionBundle) -> bool:
     if canonical_export != canonical_roundtrip:
         raise ValueError("corrupted repair bundle")
     return str(reparsed_payload.get("replay_identity", "")) == str(bundle.replay_identity)
+
+
+def _validate_bounded_score(name: str, value: float) -> float:
+    score = _round(float(value))
+    if score < 0.0 or score > 1.0:
+        raise ValueError(f"invalid convergence score: {value}")
+    return score
+
+
+def _is_sha256_hex(value: str) -> bool:
+    token = str(value)
+    return len(token) == 64 and all(ch in "0123456789abcdef" for ch in token)
+
+
+@dataclass(frozen=True)
+class RuntimeStabilitySnapshot:
+    cycle_index: int
+    soak_window: int
+    drift_score: float
+    convergence_score: float
+    replay_identity: str
+    advisory_rank_drift: float
+    provenance_source_drift: str
+    first_divergence_anchor: int
+    chain_digest_anchor: str
+    symbolic_trace_stability: bool
+    stable_hash: str
+    observatory_only: bool = True
+
+    def __post_init__(self) -> None:
+        if self.observatory_only is not True:
+            raise ValueError("runtime stability observatory must remain observatory-only")
+        _validate_bounded_score("drift_score", self.drift_score)
+        _validate_bounded_score("convergence_score", self.convergence_score)
+        _validate_bounded_score("advisory_rank_drift", self.advisory_rank_drift)
+        if int(self.soak_window) < 1:
+            raise ValueError("invalid soak window")
+        if int(self.first_divergence_anchor) < 0:
+            raise ValueError("corrupted replay anchor")
+        if str(self.provenance_source_drift) not in _VALID_REPAIR_SOURCE_MODULES:
+            raise ValueError("invalid advisory ranking state")
+        if not _is_sha256_hex(str(self.chain_digest_anchor)):
+            raise ValueError("corrupted replay anchor")
+        if not _is_sha256_hex(str(self.stable_hash)):
+            raise ValueError("malformed stability bundle")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "cycle_index": int(self.cycle_index),
+            "soak_window": int(self.soak_window),
+            "drift_score": _round(float(self.drift_score)),
+            "convergence_score": _round(float(self.convergence_score)),
+            "replay_identity": str(self.replay_identity),
+            "advisory_rank_drift": _round(float(self.advisory_rank_drift)),
+            "provenance_source_drift": str(self.provenance_source_drift),
+            "first_divergence_anchor": int(self.first_divergence_anchor),
+            "chain_digest_anchor": str(self.chain_digest_anchor),
+            "symbolic_trace_stability": bool(self.symbolic_trace_stability),
+            "stable_hash": str(self.stable_hash),
+            "observatory_only": bool(self.observatory_only),
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+@dataclass(frozen=True)
+class StabilityConvergenceReport:
+    soak_window: int
+    snapshots: Tuple[RuntimeStabilitySnapshot, ...]
+    mean_drift_score: float
+    mean_convergence_score: float
+    stable_hash: str
+    replay_identity: str
+    observatory_only: bool = True
+
+    def __post_init__(self) -> None:
+        if self.observatory_only is not True:
+            raise ValueError("runtime stability observatory must remain observatory-only")
+        if int(self.soak_window) < 1:
+            raise ValueError("invalid soak window")
+        _validate_bounded_score("mean_drift_score", self.mean_drift_score)
+        _validate_bounded_score("mean_convergence_score", self.mean_convergence_score)
+        if len(self.snapshots) != int(self.soak_window):
+            raise ValueError("malformed stability bundle")
+        if not _is_sha256_hex(str(self.stable_hash)):
+            raise ValueError("malformed stability bundle")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "soak_window": int(self.soak_window),
+            "snapshots": [s.to_dict() for s in self.snapshots],
+            "mean_drift_score": _round(float(self.mean_drift_score)),
+            "mean_convergence_score": _round(float(self.mean_convergence_score)),
+            "stable_hash": str(self.stable_hash),
+            "replay_identity": str(self.replay_identity),
+            "observatory_only": bool(self.observatory_only),
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+@dataclass(frozen=True)
+class RuntimeStabilityLedger:
+    version: str
+    soak_window: int
+    convergence_report: StabilityConvergenceReport
+    advisory_stability_score: float
+    provenance_stability_score: float
+    stable_hash: str
+    replay_identity: str
+    observatory_only: bool = True
+
+    def __post_init__(self) -> None:
+        if self.observatory_only is not True:
+            raise ValueError("runtime stability observatory must remain observatory-only")
+        if int(self.soak_window) < 1:
+            raise ValueError("invalid soak window")
+        _validate_bounded_score("advisory_stability_score", self.advisory_stability_score)
+        _validate_bounded_score("provenance_stability_score", self.provenance_stability_score)
+        if int(self.convergence_report.soak_window) != int(self.soak_window):
+            raise ValueError("malformed stability bundle")
+        if not _is_sha256_hex(str(self.stable_hash)):
+            raise ValueError("malformed stability bundle")
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "version": str(self.version),
+            "soak_window": int(self.soak_window),
+            "convergence_report": self.convergence_report.to_dict(),
+            "advisory_stability_score": _round(float(self.advisory_stability_score)),
+            "provenance_stability_score": _round(float(self.provenance_stability_score)),
+            "stable_hash": str(self.stable_hash),
+            "replay_identity": str(self.replay_identity),
+            "observatory_only": bool(self.observatory_only),
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+def analyze_repair_suggestion_stability(repair_ledger: RepairSuggestionLedger) -> float:
+    suggestions = tuple(repair_ledger.suggestion_bundle.suggestions)
+    if len(suggestions) == 0:
+        raise ValueError("invalid advisory ranking state")
+    ranking_signature = tuple((s.advisory_priority, s.repair_action, s.source_module) for s in suggestions)
+    unique = len(set(ranking_signature))
+    return _round(max(0.0, min(1.0, 1.0 - (float(unique - 1) / float(len(ranking_signature))))))
+
+
+def track_drift_convergence(
+    provenance_ledger: DriftProvenanceLedger,
+    repair_ledger: RepairSuggestionLedger,
+    *,
+    soak_window: int,
+) -> StabilityConvergenceReport:
+    if int(soak_window) < 1:
+        raise ValueError("invalid soak window")
+    if int(provenance_ledger.replay_cycles) < int(soak_window):
+        raise ValueError("invalid soak window")
+    advisory_stability = analyze_repair_suggestion_stability(repair_ledger)
+    snapshots = []
+    for cycle_index, report in enumerate(provenance_ledger.cycle_reports[: int(soak_window)]):
+        drift_score = _validate_bounded_score("drift_score", float(report.record.bounded_drift_score))
+        convergence_score = _validate_bounded_score("convergence_score", 1.0 - drift_score)
+        snapshot_payload = {
+            "cycle_index": int(cycle_index),
+            "soak_window": int(soak_window),
+            "drift_score": drift_score,
+            "convergence_score": convergence_score,
+            "replay_identity": str(report.record.replay_identity),
+            "advisory_rank_drift": _round(1.0 - advisory_stability),
+            "provenance_source_drift": str(report.drift_source),
+            "first_divergence_anchor": int(provenance_ledger.first_divergence_point),
+            "chain_digest_anchor": str(provenance_ledger.chain_digest_anchor),
+            "symbolic_trace_stability": bool(report.symbolic_trace_match),
+            "observatory_only": True,
+        }
+        snapshot_hash = _stable_hash_dict(snapshot_payload)
+        snapshots.append(
+            RuntimeStabilitySnapshot(
+                cycle_index=int(cycle_index),
+                soak_window=int(soak_window),
+                drift_score=drift_score,
+                convergence_score=convergence_score,
+                replay_identity=str(report.record.replay_identity),
+                advisory_rank_drift=_round(1.0 - advisory_stability),
+                provenance_source_drift=str(report.drift_source),
+                first_divergence_anchor=int(provenance_ledger.first_divergence_point),
+                chain_digest_anchor=str(provenance_ledger.chain_digest_anchor),
+                symbolic_trace_stability=bool(report.symbolic_trace_match),
+                stable_hash=snapshot_hash,
+                observatory_only=True,
+            )
+        )
+    mean_drift = _round(sum(float(s.drift_score) for s in snapshots) / float(soak_window))
+    mean_convergence = _round(sum(float(s.convergence_score) for s in snapshots) / float(soak_window))
+    report_payload = {
+        "soak_window": int(soak_window),
+        "snapshots": [s.to_dict() for s in snapshots],
+        "mean_drift_score": mean_drift,
+        "mean_convergence_score": mean_convergence,
+        "observatory_only": True,
+    }
+    report_hash = _stable_hash_dict(report_payload)
+    return StabilityConvergenceReport(
+        soak_window=int(soak_window),
+        snapshots=tuple(snapshots),
+        mean_drift_score=mean_drift,
+        mean_convergence_score=mean_convergence,
+        stable_hash=report_hash,
+        replay_identity=report_hash,
+        observatory_only=True,
+    )
+
+
+def observe_runtime_stability(
+    provenance_ledger: DriftProvenanceLedger,
+    repair_ledger: RepairSuggestionLedger,
+    *,
+    soak_window: int,
+) -> RuntimeStabilityLedger:
+    convergence_report = track_drift_convergence(
+        provenance_ledger,
+        repair_ledger,
+        soak_window=soak_window,
+    )
+    advisory_stability = analyze_repair_suggestion_stability(repair_ledger)
+    source_set = tuple(sorted({str(r.drift_source) for r in provenance_ledger.cycle_reports[: int(soak_window)]}))
+    provenance_stability = _round(max(0.0, min(1.0, 1.0 - (float(len(source_set) - 1) / 5.0))))
+    ledger_payload = {
+        "version": UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+        "soak_window": int(soak_window),
+        "convergence_report": convergence_report.to_dict(),
+        "advisory_stability_score": advisory_stability,
+        "provenance_stability_score": provenance_stability,
+        "observatory_only": True,
+    }
+    ledger_hash = _stable_hash_dict(ledger_payload)
+    return RuntimeStabilityLedger(
+        version=UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+        soak_window=int(soak_window),
+        convergence_report=convergence_report,
+        advisory_stability_score=advisory_stability,
+        provenance_stability_score=provenance_stability,
+        stable_hash=ledger_hash,
+        replay_identity=ledger_hash,
+        observatory_only=True,
+    )
+
+
+def export_runtime_stability_bundle(ledger: RuntimeStabilityLedger) -> Dict[str, Any]:
+    payload = ledger.to_dict()
+    required_keys = (
+        "version",
+        "soak_window",
+        "convergence_report",
+        "advisory_stability_score",
+        "provenance_stability_score",
+        "stable_hash",
+        "replay_identity",
+        "observatory_only",
+    )
+    if tuple(sorted(payload.keys())) != tuple(sorted(required_keys)):
+        raise ValueError("malformed stability bundle")
+    if bool(payload.get("observatory_only", False)) is not True:
+        raise ValueError("malformed stability bundle")
+    return payload
+
+
+def verify_runtime_stability_roundtrip(ledger: RuntimeStabilityLedger) -> bool:
+    exported = export_runtime_stability_bundle(ledger)
+    content_payload = {k: v for k, v in exported.items() if k not in ("stable_hash", "replay_identity")}
+    recomputed_hash = _stable_hash_dict(content_payload)
+    if recomputed_hash != str(ledger.stable_hash):
+        raise ValueError("malformed stability bundle")
+    if int(ledger.soak_window) < 1:
+        raise ValueError("invalid soak window")
+    if float(ledger.convergence_report.mean_convergence_score) < 0.0 or float(
+        ledger.convergence_report.mean_convergence_score
+    ) > 1.0:
+        raise ValueError("invalid convergence score")
+    if not _is_sha256_hex(str(ledger.convergence_report.snapshots[0].chain_digest_anchor)):
+        raise ValueError("corrupted replay anchor")
+    if float(ledger.advisory_stability_score) < 0.0 or float(ledger.advisory_stability_score) > 1.0:
+        raise ValueError("invalid advisory ranking state")
+    return str(exported.get("replay_identity", "")) == str(ledger.replay_identity)

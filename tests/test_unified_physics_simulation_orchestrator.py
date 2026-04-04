@@ -20,6 +20,9 @@ import pytest
 
 from qec.analysis.unified_physics_simulation_orchestrator import (
     UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+    RepairSuggestion,
+    RepairSuggestionBundle,
+    RepairSuggestionLedger,
     audit_cross_module_replay_integrity,
     CompressedReplayBundle,
     DriftProvenanceLedger,
@@ -35,7 +38,12 @@ from qec.analysis.unified_physics_simulation_orchestrator import (
     export_drift_provenance_bundle,
     export_compressed_replay_bundle,
     validate_symbolic_memory_trace,
+    export_repair_suggestion_bundle,
+    generate_repair_suggestions,
+    map_drift_to_repair_actions,
+    rank_repair_candidates,
     verify_drift_provenance_roundtrip,
+    verify_repair_bundle_roundtrip,
     verify_replay_bundle_roundtrip,
 )
 
@@ -49,7 +57,7 @@ def _fixture_inputs():
 # A) API + version
 
 def test_version_constant():
-    assert UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION == "v137.1.4"
+    assert UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION == "v137.1.5"
 
 
 def test_audit_returns_artifact_with_expected_fields():
@@ -650,3 +658,209 @@ def test_provenance_fail_fast_tampered_stable_hash():
             candidate_bundle=cand,
             candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
         )
+
+
+def _build_provenance_ledger(*, replay_cycles: int = 6, seed_shift: int = 0):
+    ref = _build_bundle(replay_cycles=replay_cycles)
+    cand = _build_bundle(replay_cycles=replay_cycles)
+    return build_drift_provenance_report(
+        ref,
+        cand,
+        reference_symbolic_trace_timestamp_map=_symbolic_map(0),
+        candidate_symbolic_trace_timestamp_map=_symbolic_map(seed_shift),
+    )
+
+
+def test_deterministic_repair_ranking_stability_100_run_soak():
+    ledger = _build_provenance_ledger(replay_cycles=5, seed_shift=0)
+    a = generate_repair_suggestions(ledger)
+    for _ in range(100):
+        b = generate_repair_suggestions(ledger)
+        assert a.stable_hash == b.stable_hash
+        assert a.to_canonical_json() == b.to_canonical_json()
+        assert a.suggestion_bundle.suggestions == b.suggestion_bundle.suggestions
+
+
+@pytest.mark.parametrize(
+    "source_module,actions",
+    [
+        ("composition", ("resync composition clock", "rebuild composition snapshot delta", "verify composition hash chain")),
+        ("simulation", ("rebuild simulation tick graph", "re-run state propagation audit", "verify simulation hash integrity")),
+        ("synchronization", ("rebuild sync timestamp map", "verify delta anchor consistency", "revalidate symbolic trace timestamps")),
+        ("orchestrator", ("rebuild cycle ledger", "recompute replay identity", "re-run provenance verification")),
+        ("symbolic_trace", ("rebuild symbolic token map", "verify timestamp provenance", "compare trace divergence anchors")),
+        ("cross-module", ("full replay audit recommendation", "drift provenance rerun", "cycle anchor verification")),
+    ],
+)
+def test_map_drift_to_repair_actions_per_module(source_module, actions):
+    assert map_drift_to_repair_actions(source_module) == actions
+
+
+def test_map_drift_to_repair_actions_invalid_module():
+    with pytest.raises(ValueError, match="invalid source module"):
+        map_drift_to_repair_actions("decoder")
+
+
+def test_generate_repair_suggestions_advisory_only_invariant():
+    ledger = _build_provenance_ledger(replay_cycles=4)
+    repairs = generate_repair_suggestions(ledger)
+    assert repairs.advisory_only is True
+    assert repairs.suggestion_bundle.advisory_only is True
+    assert all(item.advisory_only is True for item in repairs.suggestion_bundle.suggestions)
+
+
+@pytest.mark.parametrize("seed_shift", [0, 5, 10])
+def test_generate_repair_suggestions_contains_required_fields(seed_shift):
+    ledger = _build_provenance_ledger(replay_cycles=4, seed_shift=seed_shift)
+    repairs = generate_repair_suggestions(ledger)
+    assert isinstance(repairs, RepairSuggestionLedger)
+    assert repairs.first_divergence_cycle == ledger.first_divergence_point
+    assert repairs.provenance_stable_hash == ledger.stable_hash
+    for suggestion in repairs.suggestion_bundle.suggestions:
+        assert suggestion.source_module in {
+            "composition",
+            "simulation",
+            "synchronization",
+            "orchestrator",
+            "symbolic_trace",
+            "cross-module",
+        }
+        assert isinstance(suggestion.repair_action, str) and suggestion.repair_action != ""
+        assert 0.0 <= suggestion.deterministic_rank_score <= 1.0
+        assert suggestion.provenance_cycle_reference >= 0
+        assert suggestion.first_divergence_anchor == ledger.first_divergence_point
+
+
+def test_rank_repair_candidates_stable_ordering():
+    items = (
+        RepairSuggestion("simulation", "b", 2, 0.5, 1, 1, True, "c" * 64, "c" * 64),
+        RepairSuggestion("simulation", "a", 2, 0.5, 1, 1, True, "b" * 64, "b" * 64),
+        RepairSuggestion("composition", "z", 1, 0.9, 1, 1, True, "a" * 64, "a" * 64),
+    )
+    ranked = rank_repair_candidates(items)
+    assert [x.repair_action for x in ranked] == ["z", "a", "b"]
+
+
+def test_export_repair_suggestion_bundle_roundtrip_byte_identical():
+    ledger = _build_provenance_ledger(replay_cycles=5)
+    repairs = generate_repair_suggestions(ledger)
+    exported = export_repair_suggestion_bundle(repairs.suggestion_bundle)
+    lhs = json.dumps(exported, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    rhs = json.dumps(repairs.suggestion_bundle.to_dict(), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    assert lhs == rhs
+    assert verify_repair_bundle_roundtrip(repairs.suggestion_bundle) is True
+
+
+def test_fail_fast_malformed_provenance_ledger_invalid_cycle_anchor():
+    ledger = _build_provenance_ledger(replay_cycles=4)
+    bad = DriftProvenanceLedger(
+        version=ledger.version,
+        replay_cycles=ledger.replay_cycles,
+        first_divergence_point=ledger.replay_cycles + 1,
+        cycle_reports=ledger.cycle_reports,
+        chain_digest_anchor=ledger.chain_digest_anchor,
+        delta_table_reference=ledger.delta_table_reference,
+        symbolic_trace_anchor=ledger.symbolic_trace_anchor,
+        stable_hash=ledger.stable_hash,
+        replay_identity=ledger.replay_identity,
+    )
+    with pytest.raises(ValueError, match="invalid cycle anchor"):
+        generate_repair_suggestions(bad)
+
+
+def test_fail_fast_malformed_provenance_ledger_invalid_source_module():
+    ledger = _build_provenance_ledger(replay_cycles=4)
+    report = ledger.cycle_reports[0]
+    bad_report = type(report)(
+        cycle_index=report.cycle_index,
+        composition_match=report.composition_match,
+        simulation_match=report.simulation_match,
+        synchronization_match=report.synchronization_match,
+        orchestrator_match=report.orchestrator_match,
+        symbolic_trace_match=report.symbolic_trace_match,
+        drift_source="decoder",
+        record=report.record,
+        stable_hash=report.stable_hash,
+        replay_identity=report.replay_identity,
+    )
+    bad = DriftProvenanceLedger(
+        version=ledger.version,
+        replay_cycles=ledger.replay_cycles,
+        first_divergence_point=ledger.first_divergence_point,
+        cycle_reports=(bad_report,) + ledger.cycle_reports[1:],
+        chain_digest_anchor=ledger.chain_digest_anchor,
+        delta_table_reference=ledger.delta_table_reference,
+        symbolic_trace_anchor=ledger.symbolic_trace_anchor,
+        stable_hash=ledger.stable_hash,
+        replay_identity=ledger.replay_identity,
+    )
+    with pytest.raises(ValueError, match="invalid source module"):
+        generate_repair_suggestions(bad)
+
+
+def test_fail_fast_malformed_provenance_ledger_invalid_drift_score():
+    ledger = _build_provenance_ledger(replay_cycles=4)
+    report = ledger.cycle_reports[0]
+    record = report.record
+    bad_record = type(record)(
+        cycle_index=record.cycle_index,
+        source_module=record.source_module,
+        prior_hash=record.prior_hash,
+        divergent_hash=record.divergent_hash,
+        chain_digest_anchor=record.chain_digest_anchor,
+        delta_table_reference=record.delta_table_reference,
+        symbolic_trace_anchor=record.symbolic_trace_anchor,
+        bounded_drift_score=1.5,
+        stable_hash=record.stable_hash,
+        replay_identity=record.replay_identity,
+    )
+    bad_report = type(report)(
+        cycle_index=report.cycle_index,
+        composition_match=report.composition_match,
+        simulation_match=report.simulation_match,
+        synchronization_match=report.synchronization_match,
+        orchestrator_match=report.orchestrator_match,
+        symbolic_trace_match=report.symbolic_trace_match,
+        drift_source=report.drift_source,
+        record=bad_record,
+        stable_hash=report.stable_hash,
+        replay_identity=report.replay_identity,
+    )
+    bad = DriftProvenanceLedger(
+        version=ledger.version,
+        replay_cycles=ledger.replay_cycles,
+        first_divergence_point=ledger.first_divergence_point,
+        cycle_reports=(bad_report,) + ledger.cycle_reports[1:],
+        chain_digest_anchor=ledger.chain_digest_anchor,
+        delta_table_reference=ledger.delta_table_reference,
+        symbolic_trace_anchor=ledger.symbolic_trace_anchor,
+        stable_hash=ledger.stable_hash,
+        replay_identity=ledger.replay_identity,
+    )
+    with pytest.raises(ValueError, match="invalid drift score"):
+        generate_repair_suggestions(bad)
+
+
+def test_fail_fast_corrupted_repair_bundle():
+    ledger = _build_provenance_ledger(replay_cycles=4)
+    repairs = generate_repair_suggestions(ledger)
+    bad = RepairSuggestionBundle(
+        version=repairs.suggestion_bundle.version,
+        suggestions=repairs.suggestion_bundle.suggestions,
+        advisory_only=True,
+        stable_hash="0" * 64,
+        replay_identity=repairs.suggestion_bundle.replay_identity,
+    )
+    with pytest.raises(ValueError, match="corrupted repair bundle"):
+        export_repair_suggestion_bundle(bad)
+
+
+def test_ast_entropy_and_layer_purity_guards_for_repair_layer():
+    path = Path("src/qec/analysis/unified_physics_simulation_orchestrator.py")
+    src = path.read_text(encoding="utf-8")
+    assert "random." not in src
+    assert "np.random" not in src
+    assert "numpy.random" not in src
+    assert "uuid" not in src
+    assert "time.time" not in src
+    assert "qec.decoder" not in src

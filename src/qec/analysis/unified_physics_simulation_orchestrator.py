@@ -23,7 +23,7 @@ from qec.analysis.physics_music_video_composition_engine import (
     extract_visual_scene_cues,
 )
 
-UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION: str = "v137.1.4"
+UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION: str = "v137.1.5"
 FLOAT_PRECISION: int = 12
 
 
@@ -1080,3 +1080,253 @@ def verify_drift_provenance_roundtrip(
     if recomputed_hash != str(ledger.stable_hash):
         raise ValueError("malformed provenance bundle")
     return str(exported.get("replay_identity", "")) == str(ledger.replay_identity)
+
+
+_VALID_REPAIR_SOURCE_MODULES: Tuple[str, ...] = (
+    "composition",
+    "simulation",
+    "synchronization",
+    "orchestrator",
+    "symbolic_trace",
+    "cross-module",
+)
+
+_REPAIR_ACTIONS_BY_SOURCE: Mapping[str, Tuple[str, ...]] = {
+    "composition": (
+        "resync composition clock",
+        "rebuild composition snapshot delta",
+        "verify composition hash chain",
+    ),
+    "simulation": (
+        "rebuild simulation tick graph",
+        "re-run state propagation audit",
+        "verify simulation hash integrity",
+    ),
+    "synchronization": (
+        "rebuild sync timestamp map",
+        "verify delta anchor consistency",
+        "revalidate symbolic trace timestamps",
+    ),
+    "orchestrator": (
+        "rebuild cycle ledger",
+        "recompute replay identity",
+        "re-run provenance verification",
+    ),
+    "symbolic_trace": (
+        "rebuild symbolic token map",
+        "verify timestamp provenance",
+        "compare trace divergence anchors",
+    ),
+    "cross-module": (
+        "full replay audit recommendation",
+        "drift provenance rerun",
+        "cycle anchor verification",
+    ),
+}
+
+
+@dataclass(frozen=True)
+class RepairSuggestion:
+    source_module: str
+    repair_action: str
+    advisory_priority: int
+    deterministic_rank_score: float
+    provenance_cycle_reference: int
+    first_divergence_anchor: int
+    advisory_only: bool
+    stable_hash: str
+    replay_identity: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "source_module": str(self.source_module),
+            "repair_action": str(self.repair_action),
+            "advisory_priority": int(self.advisory_priority),
+            "deterministic_rank_score": _round(float(self.deterministic_rank_score)),
+            "provenance_cycle_reference": int(self.provenance_cycle_reference),
+            "first_divergence_anchor": int(self.first_divergence_anchor),
+            "advisory_only": True,
+            "stable_hash": str(self.stable_hash),
+            "replay_identity": str(self.replay_identity),
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+@dataclass(frozen=True)
+class RepairSuggestionBundle:
+    version: str
+    suggestions: Tuple[RepairSuggestion, ...]
+    advisory_only: bool
+    stable_hash: str
+    replay_identity: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "version": str(self.version),
+            "suggestions": [item.to_dict() for item in self.suggestions],
+            "advisory_only": True,
+            "stable_hash": str(self.stable_hash),
+            "replay_identity": str(self.replay_identity),
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+@dataclass(frozen=True)
+class RepairSuggestionLedger:
+    version: str
+    provenance_stable_hash: str
+    first_divergence_cycle: int
+    suggestion_bundle: RepairSuggestionBundle
+    advisory_only: bool
+    stable_hash: str
+    replay_identity: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "version": str(self.version),
+            "provenance_stable_hash": str(self.provenance_stable_hash),
+            "first_divergence_cycle": int(self.first_divergence_cycle),
+            "suggestion_bundle": self.suggestion_bundle.to_dict(),
+            "advisory_only": True,
+            "stable_hash": str(self.stable_hash),
+            "replay_identity": str(self.replay_identity),
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+def map_drift_to_repair_actions(source_module: str) -> Tuple[str, ...]:
+    source_key = str(source_module)
+    if source_key not in _REPAIR_ACTIONS_BY_SOURCE:
+        raise ValueError(f"invalid source module: {source_key}")
+    return _REPAIR_ACTIONS_BY_SOURCE[source_key]
+
+
+def rank_repair_candidates(candidates: Sequence[RepairSuggestion]) -> Tuple[RepairSuggestion, ...]:
+    return tuple(
+        sorted(
+            tuple(candidates),
+            key=lambda item: (
+                -_round(float(item.deterministic_rank_score)),
+                int(item.advisory_priority),
+                int(item.provenance_cycle_reference),
+                str(item.source_module),
+                str(item.repair_action),
+                str(item.stable_hash),
+            ),
+        )
+    )
+
+
+def _validate_repair_inputs(provenance_ledger: DriftProvenanceLedger) -> None:
+    if not isinstance(provenance_ledger, DriftProvenanceLedger):
+        raise ValueError("malformed provenance ledger")
+    if int(provenance_ledger.replay_cycles) < 1:
+        raise ValueError("malformed provenance ledger")
+    if int(provenance_ledger.first_divergence_point) < 0 or int(provenance_ledger.first_divergence_point) >= int(
+        provenance_ledger.replay_cycles
+    ):
+        raise ValueError("invalid cycle anchor")
+    if str(provenance_ledger.chain_digest_anchor) == "":
+        raise ValueError("invalid cycle anchor")
+    if len(provenance_ledger.cycle_reports) != int(provenance_ledger.replay_cycles):
+        raise ValueError("malformed provenance ledger")
+    for report in provenance_ledger.cycle_reports:
+        if str(report.drift_source) not in _VALID_REPAIR_SOURCE_MODULES:
+            raise ValueError(f"invalid source module: {report.drift_source}")
+        drift_score = float(report.record.bounded_drift_score)
+        if drift_score < 0.0 or drift_score > 1.0:
+            raise ValueError(f"invalid drift score: {drift_score}")
+
+
+def generate_repair_suggestions(provenance_ledger: DriftProvenanceLedger) -> RepairSuggestionLedger:
+    _validate_repair_inputs(provenance_ledger)
+    suggestions = []
+    for report in provenance_ledger.cycle_reports:
+        source_module = str(report.drift_source)
+        actions = map_drift_to_repair_actions(source_module)
+        base_score = _round(float(report.record.bounded_drift_score))
+        action_count = len(actions)
+        priority = 1 if base_score >= 0.66 else (2 if base_score >= 0.33 else 3)
+        for action_index, action in enumerate(actions):
+            action_weight = 1.0 - (float(action_index) / float(action_count))
+            rank_score = _round(max(0.0, min(1.0, (0.7 * base_score) + (0.3 * action_weight))))
+            suggestion_payload = {
+                "source_module": source_module,
+                "repair_action": str(action),
+                "advisory_priority": int(priority),
+                "deterministic_rank_score": rank_score,
+                "provenance_cycle_reference": int(report.cycle_index),
+                "first_divergence_anchor": int(provenance_ledger.first_divergence_point),
+                "advisory_only": True,
+            }
+            suggestion_hash = _stable_hash_dict(suggestion_payload)
+            suggestions.append(
+                RepairSuggestion(
+                    source_module=source_module,
+                    repair_action=str(action),
+                    advisory_priority=int(priority),
+                    deterministic_rank_score=rank_score,
+                    provenance_cycle_reference=int(report.cycle_index),
+                    first_divergence_anchor=int(provenance_ledger.first_divergence_point),
+                    advisory_only=True,
+                    stable_hash=suggestion_hash,
+                    replay_identity=suggestion_hash,
+                )
+            )
+    ranked = rank_repair_candidates(tuple(suggestions))
+    bundle_payload = {
+        "version": UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+        "suggestions": [item.to_dict() for item in ranked],
+        "advisory_only": True,
+    }
+    bundle_hash = _stable_hash_dict(bundle_payload)
+    bundle = RepairSuggestionBundle(
+        version=UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+        suggestions=ranked,
+        advisory_only=True,
+        stable_hash=bundle_hash,
+        replay_identity=bundle_hash,
+    )
+    ledger_payload = {
+        "version": UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+        "provenance_stable_hash": str(provenance_ledger.stable_hash),
+        "first_divergence_cycle": int(provenance_ledger.first_divergence_point),
+        "suggestion_bundle": bundle.to_dict(),
+        "advisory_only": True,
+    }
+    ledger_hash = _stable_hash_dict(ledger_payload)
+    return RepairSuggestionLedger(
+        version=UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+        provenance_stable_hash=str(provenance_ledger.stable_hash),
+        first_divergence_cycle=int(provenance_ledger.first_divergence_point),
+        suggestion_bundle=bundle,
+        advisory_only=True,
+        stable_hash=ledger_hash,
+        replay_identity=ledger_hash,
+    )
+
+
+def export_repair_suggestion_bundle(bundle: RepairSuggestionBundle) -> Dict[str, Any]:
+    payload = bundle.to_dict()
+    content_payload = {k: v for k, v in payload.items() if k not in ("stable_hash", "replay_identity")}
+    recomputed_hash = _stable_hash_dict(content_payload)
+    if recomputed_hash != str(bundle.stable_hash):
+        raise ValueError("corrupted repair bundle")
+    if bool(payload.get("advisory_only", False)) is not True:
+        raise ValueError("corrupted repair bundle")
+    return payload
+
+
+def verify_repair_bundle_roundtrip(bundle: RepairSuggestionBundle) -> bool:
+    exported = export_repair_suggestion_bundle(bundle)
+    canonical_a = _canonical_json(exported)
+    canonical_b = _canonical_json(bundle.to_dict())
+    if canonical_a.encode("utf-8") != canonical_b.encode("utf-8"):
+        raise ValueError("corrupted repair bundle")
+    return str(exported.get("replay_identity", "")) == str(bundle.replay_identity)

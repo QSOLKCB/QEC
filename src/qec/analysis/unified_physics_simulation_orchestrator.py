@@ -685,6 +685,12 @@ def compress_replay_snapshots(
 def decompress_replay_snapshots(
     bundle: CompressedReplayBundle,
 ) -> Tuple[UnifiedPhysicsReplaySnapshot, ...]:
+    if str(bundle.version) != UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION:
+        raise ValueError(
+            "unsupported compressed bundle version: "
+            f"expected {UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION}, "
+            f"got {bundle.version}"
+        )
     if int(bundle.replay_cycles) != len(bundle.deltas):
         raise ValueError("malformed compressed bundle: replay_cycles must equal delta count")
     if len(bundle.composition_hashes) == 0:

@@ -19,6 +19,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "AuditoryPhaseLedger": (".closed_loop_auditory_phase_control", "AuditoryPhaseLedger"),
     "TemporalAuditorySequenceDecision": (".temporal_auditory_sequence_analysis", "TemporalAuditorySequenceDecision"),
     "TemporalAuditorySequenceLedger": (".temporal_auditory_sequence_analysis", "TemporalAuditorySequenceLedger"),
+    "TemporalAuditoryPolicyState": (".temporal_auditory_sequence_policy_memory", "TemporalAuditoryPolicyState"),
+    "TemporalAuditoryPolicyLedger": (".temporal_auditory_sequence_policy_memory", "TemporalAuditoryPolicyLedger"),
 }
 
 __all__ = [
@@ -33,6 +35,8 @@ __all__ = [
     "AuditoryPhaseSignature",
     "TemporalAuditorySequenceDecision",
     "TemporalAuditorySequenceLedger",
+    "TemporalAuditoryPolicyState",
+    "TemporalAuditoryPolicyLedger",
 ]
 
 

@@ -56,7 +56,7 @@ def compute_strategy_history_score(
     scores = [float(h["score"]) for h in history]
     n = len(scores)
 
-    avg_score = sum(scores) / n
+    avg_score = round(sum(scores) / n, 12)
     improvement_rate = sum(1 for h in history if h.get("direction") == "improved") / n
     stability = sum(1 for s in scores if abs(s) < 0.1) / n
 

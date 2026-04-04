@@ -2,6 +2,8 @@
 
 ## Branch: v137 Canonical Line
 
+Historical branch anchor: `v137.0.0`
+
 **Current Canonical Tip:** `v137.0.15`
 **Next Planned Release:** `v137.0.16`
 

@@ -28,7 +28,7 @@ if _repo_root not in sys.path:
 
 import numpy as np
 
-from qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
+from src.qec_qldpc_codes import bp_decode, syndrome, channel_llr, create_code
 from qec.diagnostics.bp_phase_space import (
     compute_bp_phase_space,
     compute_metastability_score,

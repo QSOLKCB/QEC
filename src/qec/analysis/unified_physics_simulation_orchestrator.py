@@ -74,6 +74,26 @@ class UnifiedPhysicsSimulationLedger:
     frames: Tuple[Dict[str, Any], ...]
     states: Tuple[Dict[str, Any], ...]
     sync_rows: Tuple[Dict[str, Any], ...]
+    invariant_scores: Tuple[Dict[str, Any], ...] = ()
+    symbolic_trace: Tuple[Dict[str, Any], ...] = ()
+    stable_hash: str = ""
+    replay_identity: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return a deterministic plain-data representation for exports."""
+        return {
+            "frames": list(self.frames),
+            "states": list(self.states),
+            "sync_rows": list(self.sync_rows),
+            "invariant_scores": list(self.invariant_scores),
+            "symbolic_trace": list(self.symbolic_trace),
+            "stable_hash": self.stable_hash,
+            "replay_identity": self.replay_identity,
+        }
+
+    def to_canonical_json(self) -> str:
+        """Serialize the ledger using the module's canonical JSON format."""
+        return _canonical_json(self.to_dict())
 def _stable_hash_dict(payload: Dict[str, Any]) -> str:
     return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 

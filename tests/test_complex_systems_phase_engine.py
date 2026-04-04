@@ -104,8 +104,10 @@ def test_no_decoder_imports() -> None:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             imports.extend(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            continue
+        if isinstance(node, ast.ImportFrom) and node.module is not None:
             imports.append(node.module)
+            imports.extend(f"{node.module}.{alias.name}" for alias in node.names)
     assert not any(name.startswith("qec.decoder") for name in imports)
 
 

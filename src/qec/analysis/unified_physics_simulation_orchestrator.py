@@ -753,11 +753,11 @@ def _validate_symbolic_trace_timestamp_map(symbolic_trace_timestamp_map: Mapping
     if not isinstance(symbolic_trace_timestamp_map, Mapping):
         raise ValueError("invalid symbolic trace map: expected mapping")
     normalized: Dict[str, Tuple[int, ...]] = {}
-    for key in sorted(str(k) for k in symbolic_trace_timestamp_map.keys()):
-        raw = symbolic_trace_timestamp_map[key]
+    for original_key in sorted(symbolic_trace_timestamp_map.keys(), key=str):
+        raw = symbolic_trace_timestamp_map[original_key]
         if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
             raise ValueError("invalid symbolic trace map: timestamps must be integer sequences")
-        normalized[key] = tuple(sorted(int(x) for x in raw))
+        normalized[str(original_key)] = tuple(sorted(int(x) for x in raw))
     return normalized
 
 

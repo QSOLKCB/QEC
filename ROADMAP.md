@@ -361,3 +361,113 @@ Replay identity is mandatory
 All artifacts must remain canonical JSON + stable hash linked.
 
 This is non-negotiable.
+
+---
+
+# LONG-HORIZON RESEARCH DIRECTION
+## Deterministic NLP Interface + State-Driven Governance
+
+Future architectural expansion after the current v137.x roadmap.
+
+This is a long-horizon branch concept intended to unify natural-language
+interaction with deterministic governed execution.
+
+The core principle is:
+
+```text
+natural language
+→ deterministic intent parser
+→ canonical state schema
+→ governed execution engine
+→ replay-safe output
+
+Natural language is treated as an interface layer only.
+
+It must never directly mutate the core control engine.
+
+All requests must first be normalized into a canonical schema.
+
+Example:
+
+user: "show me oscillation risk in the last 20 cycles"
+
+Deterministic parser output:
+
+{
+  "intent": "temporal_auditory_analysis",
+  "window": 20
+}
+
+The governed engine then executes the exact schema.
+
+This preserves replay identity:
+
+same request
+→ same schema
+→ same output
+State-Driven Deterministic Reasoning
+
+This principle generalizes beyond QEC and applies to all high-stakes domains.
+
+The invariant law is:
+
+same full state
++ same rules
++ same version
+= same result
+
+This applies to:
+
+decoder control
+topology routing
+policy memory
+medical decision support
+engineering diagnostics
+infrastructure control
+
+Example conceptual schema:
+
+{
+  "domain": "clinical_decision_support",
+  "diagnosis": "community_acquired_pneumonia",
+  "age": 74,
+  "weight_kg": 82,
+  "penicillin_allergy": false,
+  "kidney_function_egfr": 58,
+  "guideline_version": "2026"
+}
+
+For identical state + identical rules, the output must always be identical.
+
+Determinism is mandatory.
+
+Future Interface Horizon
+v138.x — Deterministic NLP Governance Layer
+
+Potential future branch:
+
+web ui / nlp ui
+→ intent quantization
+→ symbolic state lattice
+→ governed control
+→ replay-safe memory
+
+This may evolve from the existing Rust TUI into a web-based
+natural-language supervisory interface.
+
+Possible interfaces:
+
+Web UI
+Tauri desktop
+browser control console
+conversational operator shell
+
+The deterministic engine remains the single source of truth.
+
+The interface is only a semantic translation layer.
+
+Canonical Principle
+Conversation is the interface
+State is the truth
+Determinism is law
+Replay identity is mandatory

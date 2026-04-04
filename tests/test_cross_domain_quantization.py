@@ -16,7 +16,6 @@ Covers:
 from __future__ import annotations
 
 import json
-import math
 
 import numpy as np
 import pytest
@@ -119,22 +118,22 @@ class TestSampleRateQuantize:
 class TestBitDepthLevels:
 
     def test_24bit_levels(self):
-        """24-bit quantization -> 2^24 = 16,777,216 levels."""
+        """24-bit mid-tread -> 2^24 + 1 representable levels."""
         samples = np.linspace(-1, 1, 100)
         _, _, decision = bit_depth_quantize(samples, bit_depth=24)
-        assert decision.output_levels == 2 ** 24
+        assert decision.output_levels == 2 ** 24 + 1
 
     def test_8bit_levels(self):
-        """8-bit quantization -> 256 levels."""
+        """8-bit mid-tread -> 257 representable levels."""
         samples = np.linspace(-1, 1, 100)
         _, _, decision = bit_depth_quantize(samples, bit_depth=8)
-        assert decision.output_levels == 256
+        assert decision.output_levels == 257
 
     def test_16bit_levels(self):
-        """16-bit quantization -> 65536 levels."""
+        """16-bit mid-tread -> 65537 representable levels."""
         samples = np.linspace(-1, 1, 100)
         _, _, decision = bit_depth_quantize(samples, bit_depth=16)
-        assert decision.output_levels == 65536
+        assert decision.output_levels == 65537
 
     def test_higher_depth_lower_noise(self):
         """24-bit should have less noise than 8-bit."""
@@ -152,23 +151,35 @@ class TestBitDepthLevels:
 class TestBitcrusher:
 
     def test_4bit_coarse(self):
-        """4-bit quantization -> only 16 levels, high noise."""
+        """4-bit mid-tread -> 17 representable levels, high noise."""
         rng = np.random.RandomState(7)
         samples = rng.uniform(-1, 1, 1000)
         quantized, noise, decision = bit_depth_quantize(samples, bit_depth=4)
-        assert decision.output_levels == 16
+        assert decision.output_levels == 17
         # 4-bit should produce visible noise
         assert noise > 1e-4
-        # Quantized values should be on the 16-level grid
-        delta = 2.0 / 16
+        # Quantized values should be on the mid-tread grid
+        delta = 2.0 / 16  # step size = 2 / 2^4
         residuals = np.abs(np.round(quantized / delta) * delta - quantized)
         np.testing.assert_allclose(residuals, 0.0, atol=1e-12)
 
-    def test_1bit_extreme(self):
-        """1-bit quantization -> 2 levels."""
+    def test_1bit_mid_tread(self):
+        """1-bit mid-tread -> 3 representable levels {-1, 0, 1}."""
         samples = np.array([-0.9, -0.1, 0.1, 0.9])
         quantized, _, decision = bit_depth_quantize(samples, bit_depth=1)
-        assert decision.output_levels == 2
+        assert decision.output_levels == 3
+        # Mid-tread: actual lattice must include zero
+        np.testing.assert_array_equal(
+            sorted(np.unique(quantized).tolist()), [-1.0, 0.0, 1.0],
+        )
+
+    def test_output_levels_matches_unique(self):
+        """Reported output_levels must equal actual unique lattice points."""
+        # 4-bit on dense input covers the full lattice
+        samples = np.linspace(-1, 1, 10000)
+        quantized, _, decision = bit_depth_quantize(samples, bit_depth=4)
+        unique_count = len(np.unique(quantized))
+        assert unique_count == decision.output_levels
 
     def test_invalid_depth_raises(self):
         with pytest.raises(ValueError):
@@ -181,32 +192,32 @@ class TestBitcrusher:
 
 class TestWeightQuantize:
 
-    def test_int8_256_levels(self):
-        """INT8 quantization -> 256 levels."""
+    def test_int8_257_levels(self):
+        """INT8 mid-tread -> 257 representable levels."""
         rng = np.random.RandomState(11)
         weights = rng.randn(100)
         quantized, max_err, mse, decision = weight_quantize(weights, bits=8)
-        assert decision.output_levels == 256
+        assert decision.output_levels == 257
         assert max_err >= 0.0
         assert mse >= 0.0
         assert decision.domain == "ai_weight"
 
-    def test_int4_16_levels(self):
-        """INT4 quantization -> 16 levels."""
+    def test_int4_17_levels(self):
+        """INT4 mid-tread -> 17 representable levels."""
         rng = np.random.RandomState(22)
         weights = rng.randn(100)
         quantized, max_err, mse, decision = weight_quantize(weights, bits=4)
-        assert decision.output_levels == 16
+        assert decision.output_levels == 17
         # INT4 has larger error than INT8
         _, _, mse8, _ = weight_quantize(weights, bits=8)
         assert mse > mse8
 
     def test_fp16_simulation(self):
-        """16-bit quantization simulates FP16-like bucket."""
+        """16-bit mid-tread simulates FP16-like bucket."""
         rng = np.random.RandomState(33)
         weights = rng.randn(200) * 5.0
         quantized, _, mse, decision = weight_quantize(weights, bits=16)
-        assert decision.output_levels == 65536
+        assert decision.output_levels == 65537
         assert mse < 0.01  # very fine grid
 
     def test_zero_weights(self):

@@ -9,10 +9,11 @@ Unified continuous-to-discrete quantization infrastructure spanning:
     risk-band quantization
     phase-space binning
 
-Core primitive — canonical uniform mid-riser quantization:
+Core primitive — canonical uniform mid-tread (round-to-nearest) quantization:
 
     Q(x) = Δ · floor(x / Δ + 1/2)
 
+Zero is always a representable level.
 All domains share this single mathematical law.
 
 Layer: analysis (Layer 4) — additive mathematical infrastructure.
@@ -27,7 +28,7 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
+from typing import Tuple
 
 import numpy as np
 
@@ -62,9 +63,11 @@ RISK_THRESHOLDS: Tuple[float, ...] = (0.2, 0.4, 0.6, 0.8)
 # ---------------------------------------------------------------------------
 
 def uniform_quantize(x: np.ndarray, delta: float) -> np.ndarray:
-    """Canonical uniform mid-riser quantization.
+    """Canonical uniform mid-tread (round-to-nearest) quantization.
 
     Q(x) = Δ · floor(x / Δ + 1/2)
+
+    Zero is always a representable level.
 
     Parameters
     ----------
@@ -120,6 +123,17 @@ def _float_key(v: float) -> str:
     return f"{v:.{FLOAT_PRECISION}e}"
 
 
+def _canonical_value(v: object) -> str:
+    """Deterministic serialization of a parameter value for hashing."""
+    if isinstance(v, float):
+        return _float_key(v)
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, tuple):
+        return "[" + ",".join(_canonical_value(e) for e in v) + "]"
+    return str(v)
+
+
 def _hash_decision(
     domain: str,
     parameters: Tuple[Tuple[str, object], ...],
@@ -131,7 +145,7 @@ def _hash_decision(
     payload = json.dumps(
         {
             "domain": domain,
-            "parameters": [[k, str(v)] for k, v in parameters],
+            "parameters": [[k, _canonical_value(v)] for k, v in parameters],
             "input_summary": [[k, _float_key(v)] for k, v in input_summary],
             "output_levels": output_levels,
             "error_estimate": _float_key(error_estimate),
@@ -198,8 +212,12 @@ def sample_rate_quantize(
 
     # Deterministic resampling via linear interpolation on uniform grid
     n_original = len(signal)
-    duration = n_original / original_rate_hz
-    n_target = max(1, int(math.floor(duration * sample_rate_hz)))
+    # Integer arithmetic to avoid float off-by-one errors
+    n_target = max(
+        1,
+        (n_original * sample_rate_hz + (original_rate_hz // 2))
+        // original_rate_hz,
+    )
     target_times = np.arange(n_target, dtype=np.float64) / sample_rate_hz
     original_times = np.arange(n_original, dtype=np.float64) / original_rate_hz
     resampled = np.interp(target_times, original_times, signal)
@@ -231,8 +249,9 @@ def bit_depth_quantize(
 ) -> Tuple[np.ndarray, float, QuantizationDecision]:
     """Amplitude quantization — reduce bit depth.
 
-    Maps continuous samples in [-1, 1] onto 2^n discrete levels
-    using the canonical uniform quantizer.
+    Maps continuous samples in [-1, 1] onto a mid-tread lattice with
+    step Δ = 2 / 2^n. The actual representable level count is 2^n + 1
+    because zero is always included (mid-tread property).
 
     Parameters
     ----------
@@ -254,22 +273,23 @@ def bit_depth_quantize(
         raise ValueError(f"bit_depth must be >= 1, got {bit_depth}")
     samples = np.asarray(samples, dtype=np.float64)
 
-    levels = 2 ** bit_depth
-    delta = 2.0 / levels  # full range [-1, 1] = width 2
+    n_steps = 2 ** bit_depth
+    delta = 2.0 / n_steps  # full range [-1, 1] = width 2
+    representable_levels = n_steps + 1  # mid-tread: zero is a level
     quantized = uniform_quantize(samples, delta)
     # Clamp to valid range
     quantized = np.clip(quantized, -1.0, 1.0)
 
     noise = float(np.mean((quantized - samples) ** 2))
 
-    params = (("bit_depth", bit_depth), ("levels", levels))
+    params = (("bit_depth", bit_depth), ("levels", representable_levels))
     summary = _input_summary(samples)
-    h = _hash_decision("audio_bit_depth", params, summary, levels, noise)
+    h = _hash_decision("audio_bit_depth", params, summary, representable_levels, noise)
     decision = QuantizationDecision(
         domain="audio_bit_depth",
         parameters=params,
         input_summary=summary,
-        output_levels=levels,
+        output_levels=representable_levels,
         error_estimate=noise,
         stable_hash=h,
     )
@@ -286,7 +306,9 @@ def weight_quantize(
 ) -> Tuple[np.ndarray, float, float, QuantizationDecision]:
     """Symmetric uniform weight quantization.
 
-    Maps floating-point weights to a 2^bits level symmetric lattice.
+    Maps floating-point weights to a mid-tread symmetric lattice with
+    step Δ = 2·w_max / 2^bits. Representable levels = 2^bits + 1
+    because zero is always included.
 
     Parameters
     ----------
@@ -311,23 +333,24 @@ def weight_quantize(
     weights = np.asarray(weights, dtype=np.float64)
 
     w_max = float(np.max(np.abs(weights)))
+    n_steps = 2 ** bits
+    representable_levels = n_steps + 1  # mid-tread: zero is a level
     if w_max == 0.0:
         quantized = np.zeros_like(weights)
-        params = (("bits", bits), ("levels", 2 ** bits), ("w_max", 0.0))
+        params = (("bits", bits), ("levels", representable_levels), ("w_max", 0.0))
         summary = _input_summary(weights)
-        h = _hash_decision("ai_weight", params, summary, 2 ** bits, 0.0)
+        h = _hash_decision("ai_weight", params, summary, representable_levels, 0.0)
         decision = QuantizationDecision(
             domain="ai_weight",
             parameters=params,
             input_summary=summary,
-            output_levels=2 ** bits,
+            output_levels=representable_levels,
             error_estimate=0.0,
             stable_hash=h,
         )
         return quantized, 0.0, 0.0, decision
 
-    levels = 2 ** bits
-    delta = (2.0 * w_max) / levels
+    delta = (2.0 * w_max) / n_steps
     quantized = uniform_quantize(weights, delta)
     quantized = np.clip(quantized, -w_max, w_max)
 
@@ -337,16 +360,16 @@ def weight_quantize(
 
     params = (
         ("bits", bits),
-        ("levels", levels),
+        ("levels", representable_levels),
         ("w_max", round(w_max, FLOAT_PRECISION)),
     )
     summary = _input_summary(weights)
-    h = _hash_decision("ai_weight", params, summary, levels, mse)
+    h = _hash_decision("ai_weight", params, summary, representable_levels, mse)
     decision = QuantizationDecision(
         domain="ai_weight",
         parameters=params,
         input_summary=summary,
-        output_levels=levels,
+        output_levels=representable_levels,
         error_estimate=mse,
         stable_hash=h,
     )
@@ -514,7 +537,7 @@ def export_quantization_bundle(
             "error_estimate": _float_key(d.error_estimate),
             "input_summary": [[k, _float_key(v)] for k, v in d.input_summary],
             "output_levels": d.output_levels,
-            "parameters": [[k, str(v)] for k, v in d.parameters],
+            "parameters": [[k, _canonical_value(v)] for k, v in d.parameters],
             "stable_hash": d.stable_hash,
         })
     bundle = {

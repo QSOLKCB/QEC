@@ -59,6 +59,8 @@ class UnifiedPhysicsOrchestratorArtifact:
     composition_stable_hash: str
     simulation_stable_hash: str
     sync_stable_hash: str
+    stable_hash: str
+    replay_identity: str
     symbolic_trace_valid: bool
     symbolic_trace: str
     orchestrator_drift_score: float

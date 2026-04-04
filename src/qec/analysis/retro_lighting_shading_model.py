@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 
@@ -360,16 +361,19 @@ def classify_lighting_mode(
     """Deterministic lighting mode classification.
 
     Rules:
+    - zone_count must be >= 1
     - zone_count == 1 and no depth -> AMBIENT_RETRO
     - zone_count > 1 and no depth  -> SECTOR_BANDED
     - zone_count == 1 and depth    -> DEPTH_SHADED
     - zone_count > 1 and depth     -> HYBRID_LUMINANCE
     """
-    if zone_count <= 1 and not has_depth:
+    if zone_count < 1:
+        raise ValueError(f"zone_count must be >= 1, got {zone_count}")
+    if zone_count == 1 and not has_depth:
         return AMBIENT_RETRO
     if zone_count > 1 and not has_depth:
         return SECTOR_BANDED
-    if zone_count <= 1 and has_depth:
+    if zone_count == 1 and has_depth:
         return DEPTH_SHADED
     return HYBRID_LUMINANCE
 
@@ -449,6 +453,10 @@ def _validate_luminance_levels(levels: Any) -> Tuple[float, ...]:
                 f"got {type(v).__name__}"
             )
         fv = float(v)
+        if not math.isfinite(fv):
+            raise ValueError(
+                f"luminance_levels[{i}] must be finite, got {fv}"
+            )
         if fv < 0.0 or fv > 1.0:
             raise ValueError(
                 f"luminance_levels[{i}] must be in [0, 1], got {fv}"
@@ -508,17 +516,37 @@ def build_light_zones(
 # ---------------------------------------------------------------------------
 
 
+def _compute_lane_blend_factor(
+    lane_index: int,
+    lane_count: int,
+    smoothing: bool,
+) -> float:
+    """Compute blend factor for a shading lane.
+
+    smoothing=True  -> progressive blend: (lane_index + 1) / lane_count
+    smoothing=False -> stepped hard-band:  lane_index / (lane_count - 1)
+                       (1.0 when lane_count == 1)
+    """
+    if smoothing:
+        return _round((lane_index + 1) / lane_count)
+    if lane_count == 1:
+        return 1.0
+    return _round(lane_index / (lane_count - 1))
+
+
 def build_shading_lanes(
     lane_count: int,
     smoothing: bool,
 ) -> Tuple[RetroShadingLane, ...]:
     """Build deterministic shading lanes.
 
-    Default 4 lanes. Blend factor distributed evenly across lanes.
+    Default 4 lanes. Blend factor profile depends on smoothing mode:
+    - smoothing=True:  progressive (Voodoo FSAA-style)
+    - smoothing=False: stepped hard-band
     """
     lanes = []
     for i in range(lane_count):
-        blend_factor = _round((i + 1) / lane_count)
+        blend_factor = _compute_lane_blend_factor(i, lane_count, smoothing)
         aa_class = classify_antialias_band(i, lane_count)
         h = _compute_lane_hash(i, blend_factor, aa_class)
         lanes.append(RetroShadingLane(

@@ -1,6 +1,7 @@
 """Tests for v137.0.12 — Retro Lighting + Shading Model."""
 
 import json
+import math
 import sys
 
 import pytest
@@ -37,6 +38,7 @@ from qec.analysis.retro_lighting_shading_model import (
     RetroLuminanceViewport,
     RetroShadingDecision,
     RetroShadingLane,
+    _compute_lane_blend_factor,
     build_light_zones,
     build_luminance_symbolic_trace,
     build_luminance_viewports,
@@ -435,18 +437,90 @@ class TestInvalidInput:
 class TestNoDecoderContamination:
     def test_no_decoder_import(self):
         import qec.analysis.retro_lighting_shading_model as mod
-        source = open(mod.__file__).read()
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
 
-    def test_no_decoder_in_sys_modules(self):
-        # Ensure the module doesn't pull in decoder
-        decoder_modules = [
-            k for k in sys.modules
-            if k.startswith("qec.decoder")
-        ]
-        # This is a soft check — decoder may be loaded by other tests
-        # but this module should not import it
-        import qec.analysis.retro_lighting_shading_model as mod
-        source = open(mod.__file__).read()
-        assert "import qec.decoder" not in source
+    def test_no_decoder_side_effect(self):
+        before = {k for k in sys.modules if k.startswith("qec.decoder")}
+        import importlib
+        importlib.reload(
+            sys.modules["qec.analysis.retro_lighting_shading_model"]
+        )
+        after = {k for k in sys.modules if k.startswith("qec.decoder")}
+        assert after == before
+
+
+# -----------------------------------------------------------------------
+# Smoothing semantics (PATCH 1 hardening)
+# -----------------------------------------------------------------------
+
+
+class TestSmoothingSemantics:
+    def test_smoothing_true_progressive_blend(self):
+        lanes = build_shading_lanes(4, True)
+        factors = [l.blend_factor for l in lanes]
+        assert factors == [pytest.approx(0.25), pytest.approx(0.5),
+                           pytest.approx(0.75), pytest.approx(1.0)]
+
+    def test_smoothing_false_stepped_blend(self):
+        lanes = build_shading_lanes(4, False)
+        factors = [l.blend_factor for l in lanes]
+        assert factors == [pytest.approx(0.0), pytest.approx(1.0 / 3.0),
+                           pytest.approx(2.0 / 3.0), pytest.approx(1.0)]
+
+    def test_smoothing_single_lane(self):
+        lanes_smooth = build_shading_lanes(1, True)
+        lanes_hard = build_shading_lanes(1, False)
+        assert lanes_smooth[0].blend_factor == pytest.approx(1.0)
+        assert lanes_hard[0].blend_factor == pytest.approx(1.0)
+
+    def test_smoothing_changes_hashes(self):
+        lanes_smooth = build_shading_lanes(4, True)
+        lanes_hard = build_shading_lanes(4, False)
+        assert lanes_smooth[0].stable_hash != lanes_hard[0].stable_hash
+
+    def test_blend_factor_helper_progressive(self):
+        assert _compute_lane_blend_factor(0, 4, True) == pytest.approx(0.25)
+        assert _compute_lane_blend_factor(3, 4, True) == pytest.approx(1.0)
+
+    def test_blend_factor_helper_stepped(self):
+        assert _compute_lane_blend_factor(0, 4, False) == pytest.approx(0.0)
+        assert _compute_lane_blend_factor(3, 4, False) == pytest.approx(1.0)
+
+
+# -----------------------------------------------------------------------
+# NaN / inf luminance rejection (PATCH 2 hardening)
+# -----------------------------------------------------------------------
+
+
+class TestNanInfRejection:
+    def test_nan_rejected(self):
+        with pytest.raises(ValueError, match="finite"):
+            build_retro_shading_decision([float("nan")], False, False)
+
+    def test_positive_inf_rejected(self):
+        with pytest.raises(ValueError, match="finite"):
+            build_retro_shading_decision([float("inf")], False, False)
+
+    def test_negative_inf_rejected(self):
+        with pytest.raises(ValueError, match="finite"):
+            build_retro_shading_decision([float("-inf")], False, False)
+
+
+# -----------------------------------------------------------------------
+# Zone count contract (PATCH 3 hardening)
+# -----------------------------------------------------------------------
+
+
+class TestZoneCountContract:
+    def test_zero_zone_count_rejected(self):
+        with pytest.raises(ValueError, match="zone_count must be >= 1"):
+            classify_lighting_mode(0, False)
+
+    def test_one_zone_valid(self):
+        assert classify_lighting_mode(1, False) == AMBIENT_RETRO
+
+    def test_multiple_zones_valid(self):
+        assert classify_lighting_mode(5, True) == HYBRID_LUMINANCE

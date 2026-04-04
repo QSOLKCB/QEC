@@ -1022,7 +1022,7 @@ def test_runtime_fail_fast_malformed_stability_bundle():
 
 def test_runtime_fail_fast_invalid_convergence_score():
     ledger = _build_runtime_stability_ledger(replay_cycles=4, soak_window=4, seed_shift=0)
-    with pytest.raises(ValueError, match="invalid convergence score"):
+    with pytest.raises(ValueError, match="invalid mean_convergence_score"):
         StabilityConvergenceReport(
             soak_window=ledger.convergence_report.soak_window,
             snapshots=ledger.convergence_report.snapshots,

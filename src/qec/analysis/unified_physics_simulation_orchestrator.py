@@ -1348,7 +1348,7 @@ def verify_repair_bundle_roundtrip(bundle: RepairSuggestionBundle) -> bool:
 def _validate_bounded_score(name: str, value: float) -> float:
     score = _round(float(value))
     if score < 0.0 or score > 1.0:
-        raise ValueError(f"invalid convergence score: {value}")
+        raise ValueError(f"invalid {name}: {value}")
     return score
 
 
@@ -1383,7 +1383,7 @@ class RuntimeStabilitySnapshot:
         if int(self.first_divergence_anchor) < 0:
             raise ValueError("corrupted replay anchor")
         if str(self.provenance_source_drift) not in _VALID_REPAIR_SOURCE_MODULES:
-            raise ValueError("invalid advisory ranking state")
+            raise ValueError("invalid provenance drift source")
         if not _is_sha256_hex(str(self.chain_digest_anchor)):
             raise ValueError("corrupted replay anchor")
         if not _is_sha256_hex(str(self.stable_hash)):
@@ -1629,5 +1629,5 @@ def verify_runtime_stability_roundtrip(ledger: RuntimeStabilityLedger) -> bool:
     if not _is_sha256_hex(str(ledger.convergence_report.snapshots[0].chain_digest_anchor)):
         raise ValueError("corrupted replay anchor")
     if float(ledger.advisory_stability_score) < 0.0 or float(ledger.advisory_stability_score) > 1.0:
-        raise ValueError("invalid advisory ranking state")
+        raise ValueError("invalid advisory stability score")
     return str(exported.get("replay_identity", "")) == str(ledger.replay_identity)

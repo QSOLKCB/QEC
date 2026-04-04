@@ -8,6 +8,7 @@ from qec.analysis.coding_agent_execution_kernel import (
     append_command_history_entry,
     build_task_graph,
     compute_bounded_workflow_score,
+    derive_agent_workflow_state,
     empty_command_history,
     normalize_kernel_tasks,
     run_coding_agent_execution_kernel,
@@ -265,3 +266,66 @@ def test_graph_hash_independent_of_input_order():
     g1 = build_task_graph(_sample_tasks())
     g2 = build_task_graph(reversed(_sample_tasks()))
     assert g1.graph_hash == g2.graph_hash
+
+
+def test_inconsistent_task_counts_rejected():
+    with pytest.raises(ValueError, match="cannot exceed total_tasks"):
+        compute_bounded_workflow_score(
+            ready_tasks=4,
+            blocked_tasks=0,
+            total_tasks=3,
+            total_estimated_cost=0.0,
+        )
+    with pytest.raises(ValueError, match="cannot exceed total_tasks"):
+        compute_bounded_workflow_score(
+            ready_tasks=0,
+            blocked_tasks=4,
+            total_tasks=3,
+            total_estimated_cost=0.0,
+        )
+    with pytest.raises(ValueError, match="cannot exceed total_tasks"):
+        compute_bounded_workflow_score(
+            ready_tasks=2,
+            blocked_tasks=2,
+            total_tasks=3,
+            total_estimated_cost=0.0,
+        )
+
+
+def test_schedule_carries_estimated_cost():
+    graph = build_task_graph(_sample_tasks())
+    scheduled = schedule_task_graph(graph)
+    cost_map = {t.task_id: t.estimated_cost for t in graph.nodes}
+    for item in scheduled:
+        assert item.estimated_cost == cost_map[item.task_id]
+
+
+def test_workflow_state_uses_real_total_cost():
+    graph = build_task_graph(_sample_tasks())
+    scheduled = schedule_task_graph(graph)
+    history = empty_command_history()
+    state = derive_agent_workflow_state(scheduled, history)
+    expected_cost = round(sum(t.estimated_cost for t in scheduled), 12)
+    assert expected_cost > 0.0
+    assert 0.0 <= state.bounded_score <= 1.0
+
+
+def test_estimated_cost_rounded_to_fixed_precision():
+    tasks = [
+        {
+            "task_id": "X",
+            "task_kind": "k",
+            "description": "d",
+            "dependencies": [],
+            "required_capabilities": [],
+            "priority": 1,
+            "estimated_cost": 0.1 + 0.2,
+            "bounded": True,
+        }
+    ]
+    normalized = normalize_kernel_tasks(tasks)
+    a = normalized[0].estimated_cost
+    tasks[0]["estimated_cost"] = 0.3
+    normalized2 = normalize_kernel_tasks(tasks)
+    b = normalized2[0].estimated_cost
+    assert a == b

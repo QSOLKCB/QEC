@@ -15,10 +15,13 @@ Theory invariants preserved by this module:
 from __future__ import annotations
 
 import hashlib
+import heapq
 import json
 import math
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
+
+_ESTIMATED_COST_PRECISION: int = 12
 
 _ALLOWED_COMMAND_KINDS: tuple[str, ...] = (
     "plan",
@@ -86,6 +89,7 @@ class ScheduledTask:
     scheduler_bucket: str
     ready: bool
     blocked_by: tuple[str, ...]
+    estimated_cost: float
     schedule_hash: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -95,6 +99,7 @@ class ScheduledTask:
             "scheduler_bucket": self.scheduler_bucket,
             "ready": self.ready,
             "blocked_by": list(self.blocked_by),
+            "estimated_cost": self.estimated_cost,
             "schedule_hash": self.schedule_hash,
         }
 
@@ -288,7 +293,7 @@ def normalize_kernel_tasks(tasks: Iterable[Any]) -> tuple[KernelTask, ...]:
             estimated_cost_raw, (int, float)
         ):
             raise ValueError("estimated_cost must be numeric")
-        estimated_cost = float(estimated_cost_raw)
+        estimated_cost = round(float(estimated_cost_raw), _ESTIMATED_COST_PRECISION)
         if not math.isfinite(estimated_cost) or estimated_cost < 0.0:
             raise ValueError("estimated_cost must be finite and non-negative")
 
@@ -326,16 +331,16 @@ def _deterministic_topo_order(tasks: tuple[KernelTask, ...]) -> tuple[str, ...]:
     for key in reverse:
         reverse[key].sort()
 
-    ready = sorted([tid for tid, deg in indegree.items() if deg == 0])
+    ready: list[str] = [tid for tid, deg in indegree.items() if deg == 0]
+    heapq.heapify(ready)
     ordered: list[str] = []
     while ready:
-        current = ready.pop(0)
+        current = heapq.heappop(ready)
         ordered.append(current)
         for nxt in reverse[current]:
             indegree[nxt] -= 1
             if indegree[nxt] == 0:
-                ready.append(nxt)
-        ready.sort()
+                heapq.heappush(ready, nxt)
 
     if len(ordered) != len(tasks):
         raise ValueError("task graph contains cycle")
@@ -451,12 +456,14 @@ def schedule_task_graph(graph: TaskGraph) -> tuple[ScheduledTask, ...]:
             bucket = "ready"
             ready = True
             completed.add(task_id)
+        estimated_cost_val = round(task.estimated_cost, _ESTIMATED_COST_PRECISION)
         payload = {
             "task_id": task_id,
             "execution_index": idx,
             "scheduler_bucket": bucket,
             "ready": ready,
             "blocked_by": list(blocked_by),
+            "estimated_cost": estimated_cost_val,
         }
         schedule.append(
             ScheduledTask(
@@ -465,6 +472,7 @@ def schedule_task_graph(graph: TaskGraph) -> tuple[ScheduledTask, ...]:
                 scheduler_bucket=bucket,
                 ready=ready,
                 blocked_by=blocked_by,
+                estimated_cost=estimated_cost_val,
                 schedule_hash=_hash_sha256(payload),
             )
         )
@@ -583,6 +591,12 @@ def compute_bounded_workflow_score(
         raise ValueError("task counts must be non-negative")
     if total_estimated_cost < 0.0:
         raise ValueError("total_estimated_cost must be non-negative")
+    if ready_tasks > total_tasks:
+        raise ValueError("ready_tasks cannot exceed total_tasks")
+    if blocked_tasks > total_tasks:
+        raise ValueError("blocked_tasks cannot exceed total_tasks")
+    if ready_tasks + blocked_tasks > total_tasks:
+        raise ValueError("ready_tasks + blocked_tasks cannot exceed total_tasks")
 
     denom = max(total_tasks, 1)
     ready_ratio = float(ready_tasks) / float(denom)
@@ -602,7 +616,9 @@ def derive_agent_workflow_state(
     ready_tasks = sum(1 for task in schedule if task.ready)
     blocked_tasks = sum(1 for task in schedule if task.scheduler_bucket != "ready")
     completed_tasks = sum(1 for entry in history.entries if entry.command_kind == "complete")
-    total_cost = 0.0
+    total_cost = round(
+        sum(task.estimated_cost for task in schedule), _ESTIMATED_COST_PRECISION
+    )
     dependency_pressure = 0.0
     if total_tasks > 0:
         dependency_pressure = round(

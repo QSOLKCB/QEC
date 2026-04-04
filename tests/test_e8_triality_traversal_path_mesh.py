@@ -775,6 +775,117 @@ class TestCyclicReturn:
 
 
 # -----------------------------------------------------------------------
+# Topology safety — degenerate cycles, periodicity, disconnection
+# -----------------------------------------------------------------------
+
+
+class TestTopologySafety:
+    def test_no_self_loops(self):
+        """No loopback edge may have source == target (degenerate cycle)."""
+        for nc in range(1, 30):
+            _, edges = build_path_mesh(nc, allow_loopback=True)
+            for e in edges:
+                assert e.source_index != e.target_index, (
+                    f"Self-loop at nc={nc}, node={e.source_index}"
+                )
+
+    def test_loopback_always_backward(self):
+        """Loopback edges must always go from higher to lower index."""
+        for nc in range(1, 30):
+            _, edges = build_path_mesh(nc, allow_loopback=True)
+            for e in edges:
+                if e.edge_class == LOOPBACK_EDGE:
+                    assert e.target_index < e.source_index, (
+                        f"Forward-loopback at nc={nc}: "
+                        f"{e.source_index}->{e.target_index}"
+                    )
+
+    def test_loopback_intra_block(self):
+        """Every loopback stays within its 5-node block (no cross-block cycles)."""
+        for nc in [5, 10, 15, 20, 25]:
+            _, edges = build_path_mesh(nc, allow_loopback=True)
+            for e in edges:
+                if e.edge_class == LOOPBACK_EDGE:
+                    assert e.source_index // 5 == e.target_index // 5, (
+                        f"Cross-block loopback at nc={nc}: "
+                        f"{e.source_index}->{e.target_index}"
+                    )
+
+    def test_graph_connected_all_sizes(self):
+        """Mesh must be connected (undirected) for all sizes 1..25."""
+        for nc in range(1, 26):
+            nodes, edges = build_path_mesh(nc, allow_loopback=True)
+            adj = {i: set() for i in range(nc)}
+            for e in edges:
+                adj[e.source_index].add(e.target_index)
+                adj[e.target_index].add(e.source_index)
+            visited = set()
+            stack = [0]
+            while stack:
+                n = stack.pop()
+                if n in visited:
+                    continue
+                visited.add(n)
+                stack.extend(adj[n] - visited)
+            assert visited == set(range(nc)), (
+                f"Disconnected at nc={nc}: "
+                f"missing nodes {set(range(nc)) - visited}"
+            )
+
+    def test_graph_connected_without_loopback(self):
+        """Forward-only mesh is connected via linear chain."""
+        for nc in range(1, 20):
+            nodes, edges = build_path_mesh(nc, allow_loopback=False)
+            adj = {i: set() for i in range(nc)}
+            for e in edges:
+                adj[e.source_index].add(e.target_index)
+                adj[e.target_index].add(e.source_index)
+            visited = set()
+            stack = [0]
+            while stack:
+                n = stack.pop()
+                if n in visited:
+                    continue
+                visited.add(n)
+                stack.extend(adj[n] - visited)
+            assert visited == set(range(nc))
+
+    def test_partial_block_no_spurious_loopback(self):
+        """Non-multiple-of-5 counts must not create spurious loopbacks."""
+        for nc in [6, 7, 8, 9, 11, 13, 17]:
+            _, edges = build_path_mesh(nc, allow_loopback=True)
+            loopbacks = [e for e in edges if e.edge_class == LOOPBACK_EDGE]
+            expected_count = nc // 5  # only complete blocks have TOROIDAL
+            assert len(loopbacks) == expected_count, (
+                f"nc={nc}: expected {expected_count} loopbacks, "
+                f"got {len(loopbacks)}"
+            )
+
+    def test_loopback_count_scales_linearly(self):
+        """Number of loopbacks = floor(node_count / 5) for multiples."""
+        for nc in range(5, 55, 5):
+            _, edges = build_path_mesh(nc, allow_loopback=True)
+            loopbacks = [e for e in edges if e.edge_class == LOOPBACK_EDGE]
+            assert len(loopbacks) == nc // 5
+
+    def test_no_duplicate_edges(self):
+        """No two edges may share the same (source, target) pair."""
+        for nc in [5, 10, 15, 20]:
+            _, edges = build_path_mesh(nc, allow_loopback=True)
+            pairs = [(e.source_index, e.target_index) for e in edges]
+            assert len(set(pairs)) == len(pairs), (
+                f"Duplicate edge at nc={nc}"
+            )
+
+    def test_periodicity_does_not_collapse_hashes(self):
+        """Nodes with same axis class in different blocks have different hashes."""
+        nodes, _ = build_path_mesh(10)
+        # Node 0 and node 5 are both PRIMARY_AXIS
+        assert nodes[0].axis_class == nodes[5].axis_class == PRIMARY_AXIS
+        assert nodes[0].stable_hash != nodes[5].stable_hash
+
+
+# -----------------------------------------------------------------------
 # No decoder contamination
 # -----------------------------------------------------------------------
 

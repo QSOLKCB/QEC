@@ -155,8 +155,8 @@ def _classify_oscillation(
     1. Length 0 or 1, or all same band -> STATIC
     2. Strictly monotonic increase in escalation order -> ESCALATING
     3. Any COLLAPSE band appears more than once -> COLLAPSE_LOOP
-    4. Strict two-band alternation (ABABAB...) -> ALTERNATING
-    5. Any repeated transition -> CYCLIC
+    4. Strict two-band alternation (min 4 elements, ABAB...) -> ALTERNATING
+    5. Any previously seen band revisited -> CYCLIC
     6. Fallback -> STATIC
     """
     bands = _extract_bands(signatures)
@@ -192,11 +192,11 @@ def _classify_oscillation(
 
     # CYCLIC: any band revisited (sequence returns to a previous state),
     # or any repeated transition pair.
-    seen_bands: list[str] = []
+    seen_bands: set[str] = set()
     for b in bands:
         if b in seen_bands:
             return OSCILLATION_CYCLIC
-        seen_bands.append(b)
+        seen_bands.add(b)
 
     return OSCILLATION_STATIC
 

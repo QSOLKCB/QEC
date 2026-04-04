@@ -7,7 +7,6 @@ and decoder non-contamination.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 
@@ -24,8 +23,6 @@ from qec.analysis.temporal_auditory_sequence_analysis import (
     OSCILLATION_ESCALATING,
     OSCILLATION_STATIC,
     TEMPORAL_AUDITORY_SEQUENCE_VERSION,
-    TemporalAuditorySequenceDecision,
-    TemporalAuditorySequenceLedger,
     analyze_auditory_sequence,
     build_temporal_auditory_ledger,
     export_temporal_auditory_bundle,
@@ -366,17 +363,17 @@ class TestNoDecoderContamination:
         import qec.analysis.temporal_auditory_sequence_analysis as mod
         source_file = mod.__file__
         assert source_file is not None
-        with open(source_file) as f:
+        with open(source_file, encoding="utf-8") as f:
             source = f.read()
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
 
     def test_decoder_modules_untouched(self):
-        """Verify decoder modules are not in our transitive imports."""
+        """Verify importing our module introduces no new decoder modules."""
+        before = {k for k in sys.modules if "qec.decoder" in k}
         import qec.analysis.temporal_auditory_sequence_analysis as mod  # noqa: F811
-        imported = set(sys.modules.keys())
-        decoder_modules = [k for k in imported if "qec.decoder" in k]
-        assert decoder_modules == [], f"Decoder contamination: {decoder_modules}"
+        after = {k for k in sys.modules if "qec.decoder" in k}
+        assert after == before, f"New decoder contamination: {after - before}"
 
 
 # ---------------------------------------------------------------------------

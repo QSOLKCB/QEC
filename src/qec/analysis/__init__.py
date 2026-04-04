@@ -17,6 +17,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "TrapSubspaceMemory": (".trap_memory", "TrapSubspaceMemory"),
     "AuditoryPhaseSignature": (".closed_loop_auditory_phase_control", "AuditoryPhaseSignature"),
     "AuditoryPhaseLedger": (".closed_loop_auditory_phase_control", "AuditoryPhaseLedger"),
+    "TemporalAuditorySequenceDecision": (".temporal_auditory_sequence_analysis", "TemporalAuditorySequenceDecision"),
+    "TemporalAuditorySequenceLedger": (".temporal_auditory_sequence_analysis", "TemporalAuditorySequenceLedger"),
 }
 
 __all__ = [
@@ -29,6 +31,8 @@ __all__ = [
     "TrapSubspaceMemory",
     "AuditoryPhaseLedger",
     "AuditoryPhaseSignature",
+    "TemporalAuditorySequenceDecision",
+    "TemporalAuditorySequenceLedger",
 ]
 
 

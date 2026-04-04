@@ -409,17 +409,25 @@ def validate_task_graph(graph: TaskGraph) -> bool:
     return True
 
 
-def _dependency_depth(task_id: str, task_map: Mapping[str, KernelTask]) -> int:
-    deps = task_map[task_id].dependencies
-    if not deps:
-        return 0
-    return 1 + max(_dependency_depth(dep, task_map) for dep in deps)
+def _dependency_depths(graph: TaskGraph) -> dict[str, int]:
+    """Compute task dependency depths in one topological pass."""
+    task_map = {task.task_id: task for task in graph.nodes}
+    depths: dict[str, int] = {}
+
+    for task_id in graph.topo_order:
+        deps = task_map[task_id].dependencies
+        if not deps:
+            depths[task_id] = 0
+            continue
+        depths[task_id] = 1 + max(depths[dep] for dep in deps)
+
+    return depths
 
 
 def schedule_task_graph(graph: TaskGraph) -> tuple[ScheduledTask, ...]:
     validate_task_graph(graph)
     task_map = {task.task_id: task for task in graph.nodes}
-    depth = {tid: _dependency_depth(tid, task_map) for tid in task_map}
+    depth = _dependency_depths(graph)
 
     ordered_ids = sorted(
         task_map,

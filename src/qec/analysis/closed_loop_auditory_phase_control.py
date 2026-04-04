@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 
@@ -125,11 +126,11 @@ def _compute_ledger_hash(signatures: Tuple[AuditoryPhaseSignature, ...]) -> str:
 
 
 def _classify_risk(risk_score: float) -> str:
-    """Map a risk score in [0, 1] to a deterministic band label."""
+    """Map a finite risk score in [0, inf) to a deterministic band label."""
     if not isinstance(risk_score, (int, float)):
         raise TypeError(f"risk_score must be numeric, got {type(risk_score).__name__}")
-    if risk_score < 0.0:
-        raise ValueError(f"risk_score must be >= 0, got {risk_score}")
+    if not math.isfinite(risk_score) or risk_score < 0.0:
+        raise ValueError(f"risk_score must be finite and >= 0, got {risk_score}")
     for label, lo, hi in _RISK_BANDS:
         if lo <= risk_score < hi:
             return label
@@ -170,10 +171,17 @@ def observe_auditory_phase_control(
     Raises
     ------
     TypeError
-        If ``phase_bin_index`` is not a 2-tuple of ints.
+        If ``phase_bin_index`` is not a 2-tuple of ints, or
+        ``governed_route`` is not a string.
     ValueError
-        If ``risk_score`` is negative.
+        If ``risk_score`` is negative, NaN, or infinite.
     """
+    # Validate governed_route.
+    if not isinstance(governed_route, str):
+        raise TypeError(
+            f"governed_route must be a str, got {type(governed_route).__name__}"
+        )
+
     # Validate phase_bin_index.
     if (
         not isinstance(phase_bin_index, tuple)

@@ -231,14 +231,16 @@ class TestNoDecoderContamination:
 
     def test_no_decoder_import(self) -> None:
         import qec.analysis.closed_loop_auditory_phase_control as mod
-        source = open(mod.__file__, "r", encoding="utf-8").read()
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
         assert "import qec.decoder" not in source
 
     def test_no_channel_import(self) -> None:
         import qec.analysis.closed_loop_auditory_phase_control as mod
-        source = open(mod.__file__, "r", encoding="utf-8").read()
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
         assert "qec.channel" not in source
 
 
@@ -464,3 +466,39 @@ class TestDriftToken:
     def test_drift_format_two_decimals(self) -> None:
         sig = _make_sig(drift=0.123456)
         assert "-D0.12-" in sig.audio_symbolic_trace
+
+
+# ---------------------------------------------------------------------------
+# 17. NaN / Inf risk rejection (finalization)
+# ---------------------------------------------------------------------------
+
+class TestNanInfRiskRejection:
+    """NaN and infinite risk_score must raise ValueError."""
+
+    def test_nan_rejected(self) -> None:
+        with pytest.raises(ValueError, match="finite"):
+            observe_auditory_phase_control((0, 0), 0.0, float("nan"), "R")
+
+    def test_positive_inf_rejected(self) -> None:
+        with pytest.raises(ValueError, match="finite"):
+            observe_auditory_phase_control((0, 0), 0.0, float("inf"), "R")
+
+    def test_negative_inf_rejected(self) -> None:
+        with pytest.raises(ValueError, match="finite"):
+            observe_auditory_phase_control((0, 0), 0.0, float("-inf"), "R")
+
+
+# ---------------------------------------------------------------------------
+# 18. governed_route type validation (finalization)
+# ---------------------------------------------------------------------------
+
+class TestGovernedRouteValidation:
+    """governed_route must be a string."""
+
+    def test_int_route_rejected(self) -> None:
+        with pytest.raises(TypeError, match="governed_route must be a str"):
+            observe_auditory_phase_control((0, 0), 0.0, 0.5, 42)  # type: ignore[arg-type]
+
+    def test_object_route_rejected(self) -> None:
+        with pytest.raises(TypeError, match="governed_route must be a str"):
+            observe_auditory_phase_control((0, 0), 0.0, 0.5, object())  # type: ignore[arg-type]

@@ -74,25 +74,23 @@ class UnifiedPhysicsSimulationLedger:
     frames: Tuple[Dict[str, Any], ...]
     states: Tuple[Dict[str, Any], ...]
     sync_rows: Tuple[Dict[str, Any], ...]
-    invariant_scores: Tuple[Dict[str, Any], ...] = ()
-    symbolic_trace: Tuple[Dict[str, Any], ...] = ()
-    stable_hash: str = ""
-    replay_identity: str = ""
+    invariant_scores: Dict[str, float]
+    symbolic_trace: str
+    stable_hash: str
+    replay_identity: str
 
     def to_dict(self) -> Dict[str, Any]:
-        """Return a deterministic plain-data representation for exports."""
         return {
-            "frames": list(self.frames),
-            "states": list(self.states),
-            "sync_rows": list(self.sync_rows),
-            "invariant_scores": list(self.invariant_scores),
-            "symbolic_trace": list(self.symbolic_trace),
+            "frames": [dict(x) for x in self.frames],
+            "states": [dict(x) for x in self.states],
+            "sync_rows": [dict(x) for x in self.sync_rows],
+            "invariant_scores": dict(self.invariant_scores),
+            "symbolic_trace": self.symbolic_trace,
             "stable_hash": self.stable_hash,
             "replay_identity": self.replay_identity,
         }
 
     def to_canonical_json(self) -> str:
-        """Serialize the ledger using the module's canonical JSON format."""
         return _canonical_json(self.to_dict())
 
 
@@ -233,33 +231,6 @@ class OrchestratorTraceFrame:
             "symbolic_token": self.symbolic_token,
             "memory_scalar": self.memory_scalar,
             "coupling_score": self.coupling_score,
-            "stable_hash": self.stable_hash,
-            "replay_identity": self.replay_identity,
-            "version": self.version,
-        }
-
-    def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
-
-
-@dataclass(frozen=True)
-class OrchestratorLedger:
-    states: Tuple[OrchestratorState, ...]
-    decisions: Tuple[OrchestratorDecision, ...]
-    trace_frames: Tuple[OrchestratorTraceFrame, ...]
-    invariant_scores: Dict[str, float]
-    symbolic_trace: str
-    stable_hash: str
-    replay_identity: str
-    version: str = UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "states": [s.to_dict() for s in self.states],
-            "decisions": [d.to_dict() for d in self.decisions],
-            "trace_frames": [t.to_dict() for t in self.trace_frames],
-            "invariant_scores": dict(self.invariant_scores),
-            "symbolic_trace": self.symbolic_trace,
             "stable_hash": self.stable_hash,
             "replay_identity": self.replay_identity,
             "version": self.version,

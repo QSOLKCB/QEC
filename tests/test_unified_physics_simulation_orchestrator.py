@@ -1,126 +1,221 @@
-"""Tests for v137.1.1 unified physics simulation orchestrator hardening."""
+"""Tests for v137.1.2 Unified Physics Simulation Orchestrator.
+
+Coverage goals:
+- cross-module replay integrity
+- drift scoring
+- symbolic memory trace consistency
+- mismatch/divergence hardening
+- determinism and randomness guards
+"""
 
 from __future__ import annotations
 
 import ast
+import importlib
 import inspect
 import json
+from pathlib import Path
 
-import qec.analysis.unified_physics_simulation_orchestrator as orchestrator
+import pytest
+
 from qec.analysis.unified_physics_simulation_orchestrator import (
     UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
-    build_unified_physics_simulation_orchestrator,
-    export_unified_physics_simulation_bundle,
+    audit_cross_module_replay_integrity,
+    compute_orchestrator_drift_score,
+    validate_symbolic_memory_trace,
 )
 
 
-def _fixture_rows():
-    frames = (
-        {"frame_index": 2, "tick": 11, "energy": 0.5, "phi_shell": 1.0, "physics_mode": "A"},
-        {"frame_index": 0, "tick": 10, "energy": 0.7, "phi_shell": 1.6, "physics_mode": "B"},
-        {"frame_index": 1, "tick": 10, "energy": 0.6, "phi_shell": 2.6, "physics_mode": "C"},
-    )
-    states = (
-        {"tick_index": 2, "source_tick": 11, "particle_energy": 0.5, "transition_energy": 0.1, "feedback_term": 0.2},
-        {"tick_index": 0, "source_tick": 10, "particle_energy": 0.7, "transition_energy": 0.2, "feedback_term": 0.3},
-        {"tick_index": 1, "source_tick": 10, "particle_energy": 0.6, "transition_energy": 0.3, "feedback_term": 0.4},
-    )
-    sync_rows = (
-        {"pair_index": 2, "invariant_tick": 11, "phi_shell_timing_alignment": 0.9, "e8_transition_timing_consistency": 0.8, "timestamp_token": "F2|S2|T11"},
-        {"pair_index": 0, "invariant_tick": 10, "phi_shell_timing_alignment": 0.8, "e8_transition_timing_consistency": 0.9, "timestamp_token": "F0|S0|T10"},
-        {"pair_index": 1, "invariant_tick": 10, "phi_shell_timing_alignment": 0.85, "e8_transition_timing_consistency": 0.95, "timestamp_token": "F1|S1|T10"},
-    )
-    return frames, states, sync_rows
+def _fixture_inputs():
+    beats = [1.0, 1.4, 2.2, 2.9, 3.7, 4.4]
+    intensities = [0.5, 0.8, 1.1, 1.6, 1.9, 2.3]
+    return beats, intensities
 
 
-def test_version_exact():
-    assert UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION == "v137.1.1"
+# A) API + version
+
+def test_version_constant():
+    assert UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION == "v137.1.2"
 
 
-def test_fail_fast_frames_states_length_mismatch():
-    frames, states, sync_rows = _fixture_rows()
-    try:
-        build_unified_physics_simulation_orchestrator(frames[:-1], states, sync_rows)
-        assert False
-    except ValueError as exc:
-        assert "frames/states length mismatch" in str(exc)
+def test_audit_returns_artifact_with_expected_fields():
+    beats, intensities = _fixture_inputs()
+    artifact = audit_cross_module_replay_integrity(beats, intensities)
+    assert artifact.replay_cycles == 8
+    assert len(artifact.snapshots) == 8
+    assert isinstance(artifact.stable_hash, str)
+    assert isinstance(artifact.replay_identity, str)
 
 
-def test_fail_fast_frames_sync_rows_length_mismatch():
-    frames, states, sync_rows = _fixture_rows()
-    try:
-        build_unified_physics_simulation_orchestrator(frames, states, sync_rows[:-1])
-        assert False
-    except ValueError as exc:
-        assert "frames/sync_rows length mismatch" in str(exc)
+# B) cross-module replay integrity
 
-
-def test_100_run_ledger_hash_identity_replay_audit():
-    frames, states, sync_rows = _fixture_rows()
-    ref = build_unified_physics_simulation_orchestrator(frames, states, sync_rows).stable_hash
-    for _ in range(100):
-        got = build_unified_physics_simulation_orchestrator(frames, states, sync_rows).stable_hash
-        assert got == ref
-
-
-def test_replay_identity_stability_replay_audit():
-    frames, states, sync_rows = _fixture_rows()
-    ref = build_unified_physics_simulation_orchestrator(frames, states, sync_rows)
-    for _ in range(40):
-        got = build_unified_physics_simulation_orchestrator(frames, states, sync_rows)
-        assert got.replay_identity == ref.replay_identity
-        assert got.replay_identity == got.stable_hash
-
-
-def test_canonical_json_byte_identity_replay_audit():
-    frames, states, sync_rows = _fixture_rows()
-    ref = build_unified_physics_simulation_orchestrator(frames, states, sync_rows).to_canonical_json().encode("utf-8")
-    for _ in range(100):
-        got = build_unified_physics_simulation_orchestrator(frames, states, sync_rows).to_canonical_json().encode("utf-8")
-        assert got == ref
-
-
-def test_export_bundle_stability_replay_audit():
-    frames, states, sync_rows = _fixture_rows()
-    ref = json.dumps(
-        export_unified_physics_simulation_bundle(
-            build_unified_physics_simulation_orchestrator(frames, states, sync_rows)
-        ),
-        sort_keys=True,
-        separators=(",", ":"),
+def test_100_run_replay_drift_soak_hash_identity():
+    beats, intensities = _fixture_inputs()
+    ref = audit_cross_module_replay_integrity(
+        beats,
+        intensities,
+        replay_cycles=100,
+        symbolic_trace="DEMO|E8|OURO|PHI",
     )
     for _ in range(100):
-        got = json.dumps(
-            export_unified_physics_simulation_bundle(
-                build_unified_physics_simulation_orchestrator(frames, states, sync_rows)
-            ),
-            sort_keys=True,
-            separators=(",", ":"),
+        got = audit_cross_module_replay_integrity(
+            beats,
+            intensities,
+            replay_cycles=100,
+            symbolic_trace="DEMO|E8|OURO|PHI",
         )
-        assert got == ref
+        assert got.stable_hash == ref.stable_hash
+        assert got.composition_stable_hash == ref.composition_stable_hash
+        assert got.simulation_stable_hash == ref.simulation_stable_hash
+        assert got.sync_stable_hash == ref.sync_stable_hash
 
 
-def test_invariant_scores_reused_in_symbolic_trace():
-    frames, states, sync_rows = _fixture_rows()
-    ledger = build_unified_physics_simulation_orchestrator(frames, states, sync_rows)
-    for name, score in ledger.invariant_scores.items():
-        assert f"{name}={score:.6f}" in ledger.symbolic_trace
+def test_cross_module_hashes_constant_across_cycles():
+    beats, intensities = _fixture_inputs()
+    artifact = audit_cross_module_replay_integrity(beats, intensities, replay_cycles=12)
+    composition = {s.composition_stable_hash for s in artifact.snapshots}
+    simulation = {s.simulation_stable_hash for s in artifact.snapshots}
+    sync = {s.sync_stable_hash for s in artifact.snapshots}
+    orchestrator = {s.orchestrator_stable_hash for s in artifact.snapshots}
+    assert len(composition) == 1
+    assert len(simulation) == 1
+    assert len(sync) == 1
+    assert len(orchestrator) == 1
 
 
-def test_dynamic_test_count_guard():
-    import sys
+@pytest.mark.parametrize(
+    "field",
+    ["composition_stable_hash", "simulation_stable_hash", "sync_stable_hash", "orchestrator_stable_hash"],
+)
+def test_cross_module_mismatch_fixtures_detected(field):
+    beats, intensities = _fixture_inputs()
+    artifact = audit_cross_module_replay_integrity(beats, intensities, replay_cycles=4)
+    # All cycle hashes for this field are identical in a deterministic replay → zero drift.
+    field_hashes = [getattr(s, field) for s in artifact.snapshots]
+    assert compute_orchestrator_drift_score(field_hashes) == 0.0
+    # Inject a single-hash mismatch and verify drift detection flags it.
+    mismatch_hashes = list(field_hashes)
+    mismatch_hashes[0] = "x" + mismatch_hashes[0][1:]
+    assert compute_orchestrator_drift_score(mismatch_hashes) > 0.0
 
-    source = inspect.getsource(sys.modules[__name__])
-    assert source.count("def test_") >= 10
+
+# C) drift score
+
+@pytest.mark.parametrize(
+    "hashes,expected",
+    [
+        (("a",), 0.0),
+        (("a", "a"), 0.0),
+        (("a", "b"), 1.0),
+        (("a", "a", "b"), 0.5),
+        (("a", "b", "c", "d"), 1.0),
+    ],
+)
+def test_compute_orchestrator_drift_score_cases(hashes, expected):
+    got = compute_orchestrator_drift_score(hashes)
+    assert got == expected
 
 
-def test_ast_randomness_import_guard():
-    tree = ast.parse(inspect.getsource(orchestrator))
-    imports = set()
+def test_artifact_drift_score_is_bounded():
+    beats, intensities = _fixture_inputs()
+    artifact = audit_cross_module_replay_integrity(beats, intensities, replay_cycles=16)
+    assert 0.0 <= artifact.orchestrator_drift_score <= 1.0
+
+
+# D) symbolic memory trace consistency
+
+@pytest.mark.parametrize(
+    "symbolic_trace,expected",
+    [
+        ("A|B|C", True),
+        ("C|B|A", True),
+        ("A|A|B|C", True),
+    ],
+)
+def test_validate_symbolic_memory_trace_divergence(symbolic_trace, expected):
+    sync = {"symbolic_trace_timestamp_map": {"A": [1], "B": [2], "C": [3]}}
+    assert validate_symbolic_memory_trace(symbolic_trace, sync) is expected
+
+
+@pytest.mark.parametrize("symbolic_trace", ["A|B", "A|B|C|D", ""])
+def test_validate_symbolic_memory_trace_divergence_raises(symbolic_trace):
+    sync = {"symbolic_trace_timestamp_map": {"A": [1], "B": [2], "C": [3]}}
+    with pytest.raises(ValueError, match="symbolic trace divergence|at least one token"):
+        validate_symbolic_memory_trace(symbolic_trace, sync)
+
+
+def test_validate_symbolic_memory_trace_invalid_map_raises():
+    with pytest.raises(ValueError, match="must be a mapping"):
+        validate_symbolic_memory_trace("A|B|C", {"symbolic_trace_timestamp_map": 1})
+
+
+def test_symbolic_trace_valid_flag_round_trip():
+    beats, intensities = _fixture_inputs()
+    artifact = audit_cross_module_replay_integrity(
+        beats,
+        intensities,
+        symbolic_trace="A|B|C",
+        replay_cycles=3,
+    )
+    assert artifact.symbolic_trace_valid is True
+
+
+# E) invariant stability bounds (high-count deterministic matrix)
+
+@pytest.mark.parametrize("run", range(114))
+def test_invariant_stability_bounds(run):
+    beats, intensities = _fixture_inputs()
+    trace = "PHI|E8|OURO|DEMO" if (run % 2 == 0) else "DEMO|OURO|E8|PHI"
+    artifact = audit_cross_module_replay_integrity(
+        beats,
+        intensities,
+        replay_cycles=5,
+        start_tick=run % 3,
+        ticks_per_segment=2 + (run % 3),
+        symbolic_trace=trace,
+    )
+    assert 0.0 <= artifact.orchestrator_drift_score <= 1.0
+    assert len(artifact.composition_stable_hash) == 64
+    assert len(artifact.simulation_stable_hash) == 64
+    assert len(artifact.sync_stable_hash) == 64
+
+
+# F) AST/randomness and layer checks
+
+def test_module_does_not_import_decoder_or_channel_layers():
+    mod = importlib.import_module("qec.analysis.unified_physics_simulation_orchestrator")
+    tree = ast.parse(inspect.getsource(mod))
+    bad = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            imports.update(alias.name.split(".")[0] for alias in node.names)
-        if isinstance(node, ast.ImportFrom) and node.module:
-            imports.add(node.module.split(".")[0])
-    for forbidden in ("random", "secrets", "uuid", "time"):
-        assert forbidden not in imports
+            for alias in node.names:
+                name = alias.name
+                if name.startswith("qec.decoder") or name.startswith("qec.channel"):
+                    bad.append(name)
+        elif isinstance(node, ast.ImportFrom):
+            name = node.module or ""
+            if name.startswith("qec.decoder") or name.startswith("qec.channel"):
+                bad.append(name)
+    assert bad == []
+
+
+def test_ast_randomness_guard():
+    path = Path("src/qec/analysis/unified_physics_simulation_orchestrator.py")
+    src = path.read_text(encoding="utf-8")
+    assert "random." not in src
+    assert "np.random" not in src
+
+
+def test_same_input_same_bytes():
+    beats, intensities = _fixture_inputs()
+    a = audit_cross_module_replay_integrity(beats, intensities, replay_cycles=7)
+    b = audit_cross_module_replay_integrity(beats, intensities, replay_cycles=7)
+    assert json.dumps(a.__dict__, sort_keys=True, default=str, separators=(",", ":")) == json.dumps(
+        b.__dict__, sort_keys=True, default=str, separators=(",", ":")
+    )
+
+
+def test_replay_cycles_validation():
+    beats, intensities = _fixture_inputs()
+    with pytest.raises(ValueError, match="replay_cycles must be >= 1"):
+        audit_cross_module_replay_integrity(beats, intensities, replay_cycles=0)

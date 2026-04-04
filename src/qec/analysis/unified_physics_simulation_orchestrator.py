@@ -1,4 +1,4 @@
-"""v137.1.2 — Unified Physics Simulation Orchestrator.
+"""v137.1.3 — Unified Physics Simulation Orchestrator.
 
 Layer-4 deterministic orchestration that couples:
 - v137.0.16 composition engine
@@ -23,7 +23,7 @@ from qec.analysis.physics_music_video_composition_engine import (
     extract_visual_scene_cues,
 )
 
-UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION: str = "v137.1.2"
+UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION: str = "v137.1.3"
 FLOAT_PRECISION: int = 12
 
 
@@ -495,3 +495,255 @@ def export_unified_physics_simulation_bundle(
     ledger: UnifiedPhysicsSimulationLedger,
 ) -> Dict[str, Any]:
     return ledger.to_dict()
+
+
+@dataclass(frozen=True)
+class ReplaySnapshotDelta:
+    cycle_index: int
+    composition_ref: int
+    simulation_ref: int
+    sync_ref: int
+    orchestrator_ref: int
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "cycle_index": int(self.cycle_index),
+            "composition_ref": int(self.composition_ref),
+            "simulation_ref": int(self.simulation_ref),
+            "sync_ref": int(self.sync_ref),
+            "orchestrator_ref": int(self.orchestrator_ref),
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+    def compute_stable_hash(self) -> str:
+        return _stable_hash_dict(self.to_dict())
+
+
+@dataclass(frozen=True)
+class ReplayHashChain:
+    ordered_hashes: Tuple[str, ...]
+    chain_hashes: Tuple[str, ...]
+    chain_digest: str
+    stable_hash: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "ordered_hashes": list(self.ordered_hashes),
+            "chain_hashes": list(self.chain_hashes),
+            "chain_digest": self.chain_digest,
+            "stable_hash": self.stable_hash,
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+@dataclass(frozen=True)
+class CompressedReplayBundle:
+    version: str
+    replay_cycles: int
+    composition_hashes: Tuple[str, ...]
+    simulation_hashes: Tuple[str, ...]
+    sync_hashes: Tuple[str, ...]
+    orchestrator_hashes: Tuple[str, ...]
+    deltas: Tuple[ReplaySnapshotDelta, ...]
+    symbolic_trace_valid: bool
+    symbolic_trace: str
+    orchestrator_drift_score: float
+    composition_stable_hash: str
+    simulation_stable_hash: str
+    sync_stable_hash: str
+    hash_chain: ReplayHashChain
+    stable_hash: str
+    replay_identity: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "version": self.version,
+            "replay_cycles": int(self.replay_cycles),
+            "composition_hashes": list(self.composition_hashes),
+            "simulation_hashes": list(self.simulation_hashes),
+            "sync_hashes": list(self.sync_hashes),
+            "orchestrator_hashes": list(self.orchestrator_hashes),
+            "deltas": [delta.to_dict() for delta in self.deltas],
+            "symbolic_trace_valid": bool(self.symbolic_trace_valid),
+            "symbolic_trace": self.symbolic_trace,
+            "orchestrator_drift_score": _round(float(self.orchestrator_drift_score)),
+            "composition_stable_hash": self.composition_stable_hash,
+            "simulation_stable_hash": self.simulation_stable_hash,
+            "sync_stable_hash": self.sync_stable_hash,
+            "hash_chain": self.hash_chain.to_dict(),
+            "stable_hash": self.stable_hash,
+            "replay_identity": self.replay_identity,
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+def _dedupe_insertion_order(values: Sequence[str]) -> Tuple[str, ...]:
+    seen: Dict[str, int] = {}
+    ordered = []
+    for value in values:
+        key = str(value)
+        if key not in seen:
+            seen[key] = len(ordered)
+            ordered.append(key)
+    return tuple(ordered)
+
+
+def build_replay_hash_chain(snapshots: Sequence[UnifiedPhysicsReplaySnapshot]) -> ReplayHashChain:
+    ordered = tuple(str(snapshot.orchestrator_stable_hash) for snapshot in snapshots)
+    rolling = "GENESIS"
+    chain_hashes = []
+    for idx, replay_hash in enumerate(ordered):
+        rolling = hashlib.sha256(f"{idx}|{rolling}|{replay_hash}".encode("utf-8")).hexdigest()
+        chain_hashes.append(rolling)
+    chain_payload = {
+        "ordered_hashes": list(ordered),
+        "chain_hashes": list(chain_hashes),
+        "chain_digest": rolling,
+    }
+    stable_hash = _stable_hash_dict(chain_payload)
+    return ReplayHashChain(
+        ordered_hashes=ordered,
+        chain_hashes=tuple(chain_hashes),
+        chain_digest=rolling,
+        stable_hash=stable_hash,
+    )
+
+
+def compress_replay_snapshots(
+    artifact: UnifiedPhysicsOrchestratorArtifact,
+) -> CompressedReplayBundle:
+    if int(artifact.replay_cycles) != len(artifact.snapshots):
+        raise ValueError("artifact replay_cycles does not match snapshot length")
+    if len(artifact.snapshots) == 0:
+        raise ValueError("artifact snapshots must not be empty")
+
+    composition_hashes = _dedupe_insertion_order(tuple(s.composition_stable_hash for s in artifact.snapshots))
+    simulation_hashes = _dedupe_insertion_order(tuple(s.simulation_stable_hash for s in artifact.snapshots))
+    sync_hashes = _dedupe_insertion_order(tuple(s.sync_stable_hash for s in artifact.snapshots))
+    orchestrator_hashes = _dedupe_insertion_order(tuple(s.orchestrator_stable_hash for s in artifact.snapshots))
+
+    composition_index = {value: idx for idx, value in enumerate(composition_hashes)}
+    simulation_index = {value: idx for idx, value in enumerate(simulation_hashes)}
+    sync_index = {value: idx for idx, value in enumerate(sync_hashes)}
+    orchestrator_index = {value: idx for idx, value in enumerate(orchestrator_hashes)}
+
+    deltas = tuple(
+        ReplaySnapshotDelta(
+            cycle_index=int(snapshot.cycle_index),
+            composition_ref=int(composition_index[snapshot.composition_stable_hash]),
+            simulation_ref=int(simulation_index[snapshot.simulation_stable_hash]),
+            sync_ref=int(sync_index[snapshot.sync_stable_hash]),
+            orchestrator_ref=int(orchestrator_index[snapshot.orchestrator_stable_hash]),
+        )
+        for snapshot in artifact.snapshots
+    )
+
+    hash_chain = build_replay_hash_chain(artifact.snapshots)
+    bundle_payload = {
+        "version": UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+        "replay_cycles": int(artifact.replay_cycles),
+        "composition_hashes": list(composition_hashes),
+        "simulation_hashes": list(simulation_hashes),
+        "sync_hashes": list(sync_hashes),
+        "orchestrator_hashes": list(orchestrator_hashes),
+        "deltas": [delta.to_dict() for delta in deltas],
+        "symbolic_trace_valid": bool(artifact.symbolic_trace_valid),
+        "symbolic_trace": str(artifact.symbolic_trace),
+        "orchestrator_drift_score": _round(float(artifact.orchestrator_drift_score)),
+        "composition_stable_hash": str(artifact.composition_stable_hash),
+        "simulation_stable_hash": str(artifact.simulation_stable_hash),
+        "sync_stable_hash": str(artifact.sync_stable_hash),
+        "hash_chain": hash_chain.to_dict(),
+    }
+    stable_hash = _stable_hash_dict(bundle_payload)
+    return CompressedReplayBundle(
+        version=UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+        replay_cycles=int(artifact.replay_cycles),
+        composition_hashes=composition_hashes,
+        simulation_hashes=simulation_hashes,
+        sync_hashes=sync_hashes,
+        orchestrator_hashes=orchestrator_hashes,
+        deltas=deltas,
+        symbolic_trace_valid=bool(artifact.symbolic_trace_valid),
+        symbolic_trace=str(artifact.symbolic_trace),
+        orchestrator_drift_score=_round(float(artifact.orchestrator_drift_score)),
+        composition_stable_hash=str(artifact.composition_stable_hash),
+        simulation_stable_hash=str(artifact.simulation_stable_hash),
+        sync_stable_hash=str(artifact.sync_stable_hash),
+        hash_chain=hash_chain,
+        stable_hash=stable_hash,
+        replay_identity=stable_hash,
+    )
+
+
+def decompress_replay_snapshots(
+    bundle: CompressedReplayBundle,
+) -> Tuple[UnifiedPhysicsReplaySnapshot, ...]:
+    if str(bundle.version) != UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION:
+        raise ValueError(
+            "unsupported compressed bundle version: "
+            f"expected {UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION}, "
+            f"got {bundle.version}"
+        )
+    if int(bundle.replay_cycles) != len(bundle.deltas):
+        raise ValueError("malformed compressed bundle: replay_cycles must equal delta count")
+    if len(bundle.composition_hashes) == 0:
+        raise ValueError("malformed compressed bundle: composition hash table is empty")
+    if len(bundle.simulation_hashes) == 0:
+        raise ValueError("malformed compressed bundle: simulation hash table is empty")
+    if len(bundle.sync_hashes) == 0:
+        raise ValueError("malformed compressed bundle: sync hash table is empty")
+    if len(bundle.orchestrator_hashes) == 0:
+        raise ValueError("malformed compressed bundle: orchestrator hash table is empty")
+
+    snapshots = []
+    expected_cycle = 0
+    for delta in bundle.deltas:
+        if int(delta.cycle_index) != expected_cycle:
+            raise ValueError("malformed compressed bundle: non-sequential cycle index")
+        if not (0 <= delta.composition_ref < len(bundle.composition_hashes)):
+            raise ValueError("malformed compressed bundle: composition_ref out of range")
+        if not (0 <= delta.simulation_ref < len(bundle.simulation_hashes)):
+            raise ValueError("malformed compressed bundle: simulation_ref out of range")
+        if not (0 <= delta.sync_ref < len(bundle.sync_hashes)):
+            raise ValueError("malformed compressed bundle: sync_ref out of range")
+        if not (0 <= delta.orchestrator_ref < len(bundle.orchestrator_hashes)):
+            raise ValueError("malformed compressed bundle: orchestrator_ref out of range")
+        snapshots.append(
+            UnifiedPhysicsReplaySnapshot(
+                cycle_index=expected_cycle,
+                composition_stable_hash=str(bundle.composition_hashes[delta.composition_ref]),
+                simulation_stable_hash=str(bundle.simulation_hashes[delta.simulation_ref]),
+                sync_stable_hash=str(bundle.sync_hashes[delta.sync_ref]),
+                orchestrator_stable_hash=str(bundle.orchestrator_hashes[delta.orchestrator_ref]),
+            )
+        )
+        expected_cycle += 1
+    return tuple(snapshots)
+
+
+def export_compressed_replay_bundle(bundle: CompressedReplayBundle) -> Dict[str, Any]:
+    return bundle.to_dict()
+
+
+def verify_replay_bundle_roundtrip(
+    artifact: UnifiedPhysicsOrchestratorArtifact,
+) -> bool:
+    compressed = compress_replay_snapshots(artifact)
+    decompressed = decompress_replay_snapshots(compressed)
+    if decompressed != artifact.snapshots:
+        return False
+    chain = build_replay_hash_chain(decompressed)
+    if chain.chain_digest != compressed.hash_chain.chain_digest:
+        return False
+    exported = export_compressed_replay_bundle(compressed)
+    return (
+        str(exported.get("stable_hash", "")) == compressed.stable_hash
+        and str(exported.get("replay_identity", "")) == compressed.replay_identity
+    )

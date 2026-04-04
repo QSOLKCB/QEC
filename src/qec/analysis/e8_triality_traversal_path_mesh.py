@@ -379,14 +379,16 @@ def compute_phi_weighted_path_cost(
 # ---------------------------------------------------------------------------
 
 
-def _compute_resonance_weight(node_index: int, axis_class: str) -> float:
+def _compute_resonance_weight(_node_index: int, axis_class: str) -> float:
     """Compute deterministic resonance weight for a node.
 
     RESONANCE_LINK nodes receive weight PHI_PATH_WEIGHT.
     TOROIDAL_RETURN nodes receive weight PHI_PATH_WEIGHT * 0.5.
     All other nodes receive weight 0.0.
 
-    This is a pure function of node_index and axis_class.
+    The ``_node_index`` parameter is intentionally unused and retained for
+    signature compatibility. Resonance weight is currently a pure function
+    of ``axis_class``.
     """
     if axis_class == RESONANCE_LINK:
         return _round(PHI_PATH_WEIGHT)

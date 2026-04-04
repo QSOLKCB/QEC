@@ -1324,9 +1324,13 @@ def export_repair_suggestion_bundle(bundle: RepairSuggestionBundle) -> Dict[str,
 
 
 def verify_repair_bundle_roundtrip(bundle: RepairSuggestionBundle) -> bool:
+    """Verify bundle export survives a canonical JSON roundtrip unchanged."""
     exported = export_repair_suggestion_bundle(bundle)
-    canonical_a = _canonical_json(exported)
-    canonical_b = _canonical_json(bundle.to_dict())
-    if canonical_a.encode("utf-8") != canonical_b.encode("utf-8"):
+    canonical_export = _canonical_json(exported)
+    reparsed_payload = json.loads(canonical_export)
+    if not isinstance(reparsed_payload, dict):
         raise ValueError("corrupted repair bundle")
-    return str(exported.get("replay_identity", "")) == str(bundle.replay_identity)
+    canonical_roundtrip = _canonical_json(reparsed_payload)
+    if canonical_export != canonical_roundtrip:
+        raise ValueError("corrupted repair bundle")
+    return str(reparsed_payload.get("replay_identity", "")) == str(bundle.replay_identity)

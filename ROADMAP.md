@@ -2,18 +2,22 @@
 
 ## Branch: v137 Canonical Line
 
-**Current Canonical Tip:** `v137.0.11`
-**Next Planned Release:** `v137.0.12`
+**Current Canonical Tip:** `v137.0.15`
+**Next Planned Release:** `v137.0.16`
 
 This roadmap supersedes all prior v136 and early v137 planning.
 
-The **v137 line is the canonical architecture**.
+The **v137 line remains the canonical architecture**.
+
+The active priority path is now the **Retro Physics Multimodal Subsystem Arc** through `v137.1.0`.
+
+After `v137.1.0`, development returns to the canonical roadmap continuation.
 
 ---
 
 # CURRENT CANONICAL STACK
 
-The QEC system is now formally defined as a deterministic supervisory intelligence stack.
+The QEC system is now formally defined as a deterministic supervisory intelligence + multimodal physics stack.
 
 Core branch law:
 
@@ -25,352 +29,273 @@ continuous system state
 → steering control
 → policy memory
 → stable replay identity
-```
+→ world substrate
+→ spectral topology
+→ simulation runtime
+→ unified orchestration
 
 This law is invariant.
 
 All future releases must preserve this stack.
 
----
-
-# MASTER ARCHITECTURE LAW
-
-```text
+MASTER ARCHITECTURE LAW
 Physics = observability substrate
-Quantization = shared symbolic lattice
+Quantization = symbolic lattice
 Topology = structural substrate
 Governance = temporal control law
 Memory = supervisory continuity
 Replay = stable identity chain
 World = simulation substrate
 AI = deterministic orchestration layer
-Audio = secondary symbolic substrate
-```
+Audio = spectral symbolic substrate
+Video = multimodal simulation substrate
 
 This is no longer only a decoder project.
 
-This is now a **deterministic governed intelligence stack**
+This is now a deterministic governed intelligence stack
 whose primary operational substrate is quantum error correction.
 
----
-
-# COMPLETED CANONICAL RELEASE LINE
-
-## v137.0.0 — Conceptual Branch Epoch
+COMPLETED SUPERVISORY STACK ARC
+v137.0.1 — Quantization-Aware Decoder Observation
 
 Completed
 
-Established branch-era identity.
-
----
-
-## v137.0.1 — Quantization-Aware Decoder Observation
+v137.0.2 — Decoder Topology Discovery
 
 Completed
 
-Read-only diagnostic layer.
-
----
-
-## v137.0.2 — Decoder Topology Discovery
+v137.0.3 — Closed-Loop Auditory + Phase Control
 
 Completed
 
-Deterministic topology intelligence anchor.
-
----
-
-## v137.0.3 — Closed-Loop Auditory + Phase Control
+v137.0.4 — Temporal Auditory Sequence Analysis
 
 Completed
 
-Audio as secondary observability substrate.
-
----
-
-## v137.0.4 — Temporal Auditory Sequence Analysis
+v137.0.5 — Temporal Auditory Policy Memory
 
 Completed
 
-Ordered symbolic sequence intelligence.
-
----
-
-## v137.0.5 — Temporal Auditory Policy Memory
+v137.0.6 — Temporal Auditory Policy Arbitration
 
 Completed
 
-Supervisory temporal memory.
-
----
-
-## v137.0.6 — Temporal Auditory Policy Arbitration
+v137.0.7 — Quantization-Aware Forecast Compression
 
 Completed
 
-Conflict resolution + bounded consensus.
-
----
-
-## v137.0.7 — Quantization-Aware Forecast Compression
+v137.0.8 — Forecast-Guided Supervisory Steering
 
 Completed
 
-Long-horizon symbolic compression.
-
----
-
-## v137.0.8 — Forecast-Guided Supervisory Steering
+v137.0.9 — Supervisory Steering Policy Memory
 
 Completed
 
-Drift scoring + bounded steering action.
+This completed the first supervisory control arc.
 
----
-
-## v137.0.9 — Supervisory Steering Policy Memory
+COMPLETED RETRO / PHYSICS SUBSYSTEM ARC
+v137.0.10 — Retro 3D World Modelling
 
 Completed
 
-Hysteresis-aware policy persistence.
+Deterministic world primitives + sector substrate.
 
-This completes the first supervisory control arc.
+v137.0.11 — Retro Camera + Projection Pipeline
 
----
+Completed
 
-# ACTIVE RELEASE ARC — RETRO WORLD MODELLING DETOUR
+Replay-safe camera state + visibility abstraction.
 
-This is a deliberate v137.0.x thematic branch.
+v137.0.12 — Retro Lighting + Shading Model
+
+Completed
+
+Sector lighting + palette + depth shading.
+
+v137.0.13 — φ-Shell Rasterization Pipeline
+
+Completed
+
+Theory-coupled φ-shell scanline lattice.
+
+Absorbed:
+
+phi shell progression
+UFF restore operator
+E8 visibility mapping
+v137.0.14 — E8 Triality Traversal + Path Mesh
+
+Completed
+
+Deterministic traversal graph + ouroboros loopback topology.
+
+Absorbed:
+
+E8 triality topology
+phi-weighted path distance
+bounded cyclic return
+v137.0.15 — Spectral Mesh Resonance Audit
+
+Completed
+
+Audio → spectral topology → invariant audit.
+
+Absorbed:
+
+phi resonance lock
+mod-5 triality recurrence
+SID / SIS style spectral metrics
+MP3 real-fixture deterministic audit
+
+This completes the retro + spectral bridge layer.
+
+ACTIVE PRIORITY ARC — MULTIMODAL PHYSICS RUNTIME
+
+This is now the active release path through v137.1.0.
 
 Purpose:
 
-introduce deterministic retro simulation substrate before v137.1.0.
+unify audio, image, video, simulation, and topology into a deterministic runtime kernel.
 
-Inspired by:
+This arc intentionally channels:
 
-* Amiga 1200 constraint-first graphics
-* SGI IRIS geometry-first modelling
-* Doom-style pseudo-3D
-
-This is **not a renderer**.
-
-This is a replay-safe world modelling substrate.
-
----
-
-## v137.0.10 — Retro 3D World Modelling
-
-Next release
-
-Core law:
-
-```text
-symbolic supervisory state
-→ retro world primitives
-→ sector modelling
-→ deterministic scene abstraction
-→ replay-safe world artifact
-```
-
-Supports:
-
-* `TRUE_3D`
-* `PSEUDO_3D`
-* Doom-style sectors
-* SGI-like geometry primitives
-
----
-
-## v137.0.11 — Retro Camera + Projection Pipeline
-
-Core law:
-
-```text
-world model
-→ camera pose
-→ projection transform
-→ visibility abstraction
-→ replay-safe view artifact
-```
+DOS demoscene
+Impulse Tracker
+SGI / Amiga retro graphics
+physics-aware simulation
+replay-safe orchestration
+v137.0.16 — Physics-Aware Music Video Composition Engine
+audio + image + physics invariants
+→ deterministic scene timeline
+→ frame-state ledger
+→ video composition artifact
 
 Focus:
 
-* camera yaw / pitch
-* perspective abstraction
-* pseudo-3D projection spans
-* view frustum summary
-
----
-
-## v137.0.12 — Sprite + Entity Layer
-
-Core law:
-
-```text
-world sectors
-→ entities
-→ billboards
-→ actor ordering
-→ stable entity trace
-```
+MP3 + MP4 spectral alignment
+JPG scene cue extraction
+beat → simulation tick mapping
+φ-shell timing
+E8 transition mesh
+demo-scene style timeline orchestration
+v137.0.17 — Demoscene Physics Simulation Core
+scene timeline
+→ particle field evolution
+→ resonance wave propagation
+→ mesh trajectory states
+→ replay-safe simulation field
 
 Focus:
 
-* sprite entities
-* terminals / control objects
-* pickups / markers
-* occlusion ordering
-
----
-
-## v137.0.13 — Lighting + Palette Simulation
-
-Retro-tech inspired release.
-
-Core law:
-
-```text
-sector geometry
-→ light bands
-→ palette zones
-→ depth fog
-→ symbolic luminance field
-```
+deterministic particles
+shell expansion rings
+field propagation
+loopback recurrence motion
+v137.0.18 — Multi-Modal Theory Synchronization
+audio
++ image
++ video
++ simulation
+→ master phase clock
+→ synchronized theory state
 
 Focus:
 
-* sector light classes
-* palette constraints
-* depth shading
-* SGI / Amiga style scene atmosphere
-
----
-
-## v137.0.14 — Traversal + Path Mesh
-
-Core law:
-
-```text
-sector graph
-→ adjacency mesh
-→ deterministic traversal
-→ replay-safe path artifact
-```
+master phase wheel
+global sync tick
+theory-aligned timing lattice
+v137.0.19 — Physics Narrative Sequencer
+scene A
+→ scene B
+→ scene C
+→ causal physics transitions
 
 Focus:
 
-* corridor topology
-* room graph connectivity
-* stable traversal routes
-* navigation mesh abstraction
-
----
-
-## v137.0.15 — Retro World Simulation Loop
-
-Bridge release before milestone.
-
-Core law:
-
-```text
-world state
-→ camera
-→ entities
-→ traversal
-→ frame-step tick
-→ replay-safe simulation state
-```
-
-This completes the retro-world arc.
-
----
-
-# NEXT MAJOR MILESTONE
-
-## v137.1.0 — Unified Supervisory Orchestrator
-
-This is the major milestone release.
-
-Core law:
-
-```text
-supervisory stack
-+ world substrate
+chapter transitions
+deterministic narrative frames
+simulation chapter state
+v137.0.20 — Retro Theory Runtime Kernel
+world
++ camera
++ lighting
 + traversal
-+ memory
-= unified deterministic orchestrator
-```
++ spectral audit
++ video timeline
++ simulation
+→ runtime kernel
+
+This completes the active multimedia subsystem.
+
+NEXT MAJOR MILESTONE
+v137.1.0 — Unified Physics-Simulation Orchestrator
+
+This is the milestone release.
+
+supervisory stack
++ retro subsystem
++ spectral runtime
++ simulation kernel
+= unified orchestrator
 
 Single entry point for:
 
-* observation
-* sequence analysis
-* arbitration
-* compression
-* steering
-* policy memory
-* world simulation
+observation
+compression
+steering
+memory
+world
+spectral analysis
+video
+simulation
 
-This becomes the first full-stack orchestrator.
+This becomes the first full-stack deterministic runtime orchestrator.
 
----
+POST-MILESTONE RETURN TO CANONICAL ROADMAP
 
-# LONGER HORIZON
+After v137.1.0, resume canonical roadmap continuation.
 
-## v137.2.x — Autonomous Planning Kernel
+v137.2.x — Autonomous Planning Kernel
 
 Focus:
 
-* route planning
-* world-state reasoning
-* control-policy synthesis
-* multi-layer orchestration
-
----
-
-## v138.x — Deterministic NLP Governance Layer
-
-Future interface horizon:
-
-```text
+route planning
+world reasoning
+control-policy synthesis
+multi-layer orchestration
+v138.x — Deterministic NLP Governance Layer
 natural language
-→ deterministic intent parser
+→ intent lattice
 → canonical state schema
 → governed engine
 → replay-safe output
-```
+CANONICAL PRINCIPLES
+Determinism is architecture
 
----
+Same input = same bytes
 
-# CANONICAL PRINCIPLES
-
-## Determinism is architecture
-
-Same input = same bytes.
-
-## Decoder core is sacred
+Decoder core is sacred
 
 Never modify:
 
-```text
 src/qec/decoder/
-```
 
 unless explicitly required.
 
-## Layering is law
+Layering is law
 
 Lower layers never import higher layers.
 
-## Replay identity is mandatory
+Replay identity is mandatory
 
-Canonical JSON + SHA-256 stable hashes.
+Canonical JSON + SHA-256 stable hashes
 
-## World modelling remains Layer 4
+Theory coupling is mandatory
 
-Retro simulation must remain additive.
+Every release must absorb at least one executable construct from /papers
 
-## Conversation is interface
+Conversation is interface
 
 State is truth
 Determinism is law

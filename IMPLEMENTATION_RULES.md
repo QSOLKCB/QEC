@@ -362,6 +362,51 @@ Pure naming or thematic alignment does NOT satisfy this rule.
 
 The release must absorb real theory semantics from the `/papers` corpus.
 
+---
+
+# 19. Release Hardening Scope Fence
+
+## SCOPE FENCE (mandatory)
+
+AI-assisted hardening passes are **strictly scoped** to the current release boundary.
+
+### AI-assisted hardening passes may ONLY modify:
+
+1. Files explicitly created or changed in the current release
+2. Direct dependency files required for the current release to function
+3. Tests directly targeting modules introduced or modified in the current release
+
+### AI-assisted hardening passes MUST NOT modify:
+
+* Historical tests unrelated to the current release
+* Prior release modules
+* Legacy scripts
+* Unrelated CI or pytest failures
+* Older bench, simulation, or experiment files
+* Any file outside the current release's dependency cone
+
+### Unrelated failure handling
+
+If repository-wide pytest surfaces failures outside the current release scope:
+
+* **Report** the failures explicitly
+* **Do NOT repair** them during the hardening pass
+* Repairs are permitted only if the failure is **directly caused** by the current release
+
+### Dedicated follow-up requirement
+
+Repository-wide pytest failures outside current release scope must be:
+
+* Logged as a separate concern
+* Resolved in a **dedicated follow-up pass**
+* Never conflated with release hardening work
+
+This fence is **durable engineering law**, not a temporary guideline.
+
+Violation of scope fence constitutes an invalid hardening pass.
+
+---
+
 🧠 Final Principle
 
 QEC evolves by:

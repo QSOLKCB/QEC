@@ -74,6 +74,161 @@ class UnifiedPhysicsSimulationLedger:
     frames: Tuple[Dict[str, Any], ...]
     states: Tuple[Dict[str, Any], ...]
     sync_rows: Tuple[Dict[str, Any], ...]
+def _stable_hash_dict(payload: Dict[str, Any]) -> str:
+    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+
+def _extract_fields(obj: Any, schema: Mapping[str, Tuple[Any, Any]]) -> Dict[str, Any]:
+    if isinstance(obj, Mapping):
+        return {name: caster(obj.get(name, default)) for name, (default, caster) in schema.items()}
+    return {name: caster(getattr(obj, name, default)) for name, (default, caster) in schema.items()}
+
+
+def _extract_frame(frame: Any) -> Dict[str, Any]:
+    return _extract_fields(
+        frame,
+        {
+            "frame_index": (0, int),
+            "tick": (0, int),
+            "energy": (0.0, float),
+            "physics_mode": ("TRIALITY_SWEEP", str),
+            "stable_hash": ("", str),
+        },
+    )
+
+
+def _extract_state(state: Any) -> Dict[str, Any]:
+    return _extract_fields(
+        state,
+        {
+            "tick_index": (0, int),
+            "source_tick": (0, int),
+            "transition_energy": (0.0, float),
+            "feedback_term": (0.0, float),
+            "stable_hash": ("", str),
+        },
+    )
+
+
+def _extract_decision(decision: Any) -> Dict[str, Any]:
+    return _extract_fields(
+        decision,
+        {
+            "tick_index": (0, int),
+            "source_tick": (0, int),
+            "transition_mode": ("TRIALITY_SWEEP", str),
+            "transition_gain": (0.0, float),
+        },
+    )
+
+
+def _extract_sync_row(row: Any) -> Dict[str, Any]:
+    return _extract_fields(
+        row,
+        {
+            "pair_index": (0, int),
+            "invariant_tick": (0, int),
+            "timestamp_token": ("", str),
+            "phi_shell_timing_alignment": (0.0, float),
+            "e8_transition_timing_consistency": (0.0, float),
+            "ouroboros_recurrence_clock": (0.0, float),
+            "demoscene_runtime_synchronization": (0.0, float),
+        },
+    )
+
+
+@dataclass(frozen=True)
+class OrchestratorState:
+    state_index: int
+    tick: int
+    physics_mode: str
+    energy: float
+    frame_hash: str
+    simulation_state_hash: str
+    sync_token: str
+    stable_hash: str
+    replay_identity: str
+    version: str = UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "state_index": self.state_index,
+            "tick": self.tick,
+            "physics_mode": self.physics_mode,
+            "energy": self.energy,
+            "frame_hash": self.frame_hash,
+            "simulation_state_hash": self.simulation_state_hash,
+            "sync_token": self.sync_token,
+            "stable_hash": self.stable_hash,
+            "replay_identity": self.replay_identity,
+            "version": self.version,
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+@dataclass(frozen=True)
+class OrchestratorDecision:
+    state_index: int
+    tick: int
+    selected_mode: str
+    deterministic_rank: int
+    alignment_gain: float
+    memory_gain: float
+    stable_hash: str
+    replay_identity: str
+    version: str = UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "state_index": self.state_index,
+            "tick": self.tick,
+            "selected_mode": self.selected_mode,
+            "deterministic_rank": self.deterministic_rank,
+            "alignment_gain": self.alignment_gain,
+            "memory_gain": self.memory_gain,
+            "stable_hash": self.stable_hash,
+            "replay_identity": self.replay_identity,
+            "version": self.version,
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+@dataclass(frozen=True)
+class OrchestratorTraceFrame:
+    trace_index: int
+    tick: int
+    symbolic_token: str
+    memory_scalar: float
+    coupling_score: float
+    stable_hash: str
+    replay_identity: str
+    version: str = UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "trace_index": self.trace_index,
+            "tick": self.tick,
+            "symbolic_token": self.symbolic_token,
+            "memory_scalar": self.memory_scalar,
+            "coupling_score": self.coupling_score,
+            "stable_hash": self.stable_hash,
+            "replay_identity": self.replay_identity,
+            "version": self.version,
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+
+@dataclass(frozen=True)
+class OrchestratorLedger:
+    states: Tuple[OrchestratorState, ...]
+    decisions: Tuple[OrchestratorDecision, ...]
+    trace_frames: Tuple[OrchestratorTraceFrame, ...]
     invariant_scores: Dict[str, float]
     symbolic_trace: str
     stable_hash: str

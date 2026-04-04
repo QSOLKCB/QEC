@@ -856,11 +856,81 @@ def test_fail_fast_corrupted_repair_bundle():
 
 
 def test_ast_entropy_and_layer_purity_guards_for_repair_layer():
+    """Guard deterministic purity using AST checks instead of source substrings."""
+
+    def _attribute_path(node: ast.AST) -> str | None:
+        parts: list[str] = []
+        current = node
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        if isinstance(current, ast.Name):
+            parts.append(current.id)
+            return ".".join(reversed(parts))
+        return None
+
     path = Path("src/qec/analysis/unified_physics_simulation_orchestrator.py")
     src = path.read_text(encoding="utf-8")
-    assert "random." not in src
-    assert "np.random" not in src
-    assert "numpy.random" not in src
-    assert "uuid" not in src
-    assert "time.time" not in src
-    assert "qec.decoder" not in src
+    tree = ast.parse(src, filename=str(path))
+
+    import_aliases: dict[str, str] = {}
+    imported_names: set[str] = set()
+    attribute_paths: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imported_names.add(alias.name)
+                import_aliases[alias.asname or alias.name] = alias.name
+            continue
+
+        if isinstance(node, ast.ImportFrom):
+            if node.module is None:
+                continue
+            for alias in node.names:
+                full_name = f"{node.module}.{alias.name}"
+                imported_names.add(full_name)
+                import_aliases[alias.asname or alias.name] = full_name
+            continue
+
+        if isinstance(node, ast.Attribute):
+            path_value = _attribute_path(node)
+            if path_value is None:
+                continue
+            root, _, remainder = path_value.partition(".")
+            normalized_root = import_aliases.get(root, root)
+            normalized_path = (
+                f"{normalized_root}.{remainder}" if remainder else normalized_root
+            )
+            attribute_paths.add(normalized_path)
+
+    assert "random" not in imported_names
+    assert "uuid" not in imported_names
+    assert "qec.decoder" not in imported_names
+    assert "numpy.random" not in imported_names
+
+    assert all(
+        not (path_value == "random" or path_value.startswith("random."))
+        for path_value in attribute_paths
+    )
+    assert all(
+        not (path_value == "uuid" or path_value.startswith("uuid."))
+        for path_value in attribute_paths
+    )
+    assert all(
+        not (
+            path_value == "numpy.random"
+            or path_value.startswith("numpy.random.")
+        )
+        for path_value in attribute_paths
+    )
+    assert all(
+        not (path_value == "time.time" or path_value.startswith("time.time."))
+        for path_value in attribute_paths
+    )
+    assert all(
+        not (
+            path_value == "qec.decoder" or path_value.startswith("qec.decoder.")
+        )
+        for path_value in attribute_paths
+    )

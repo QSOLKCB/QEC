@@ -407,6 +407,32 @@ Violation of scope fence constitutes an invalid hardening pass.
 
 ---
 
+# 20. PDF / Papers Ingestion Rule
+
+## Priority Order
+
+When ingesting theory from the `/papers` corpus:
+
+1. Prefer `papers/*.md` first — markdown is always available and text-renderable
+2. Prefer `ROADMAP.md` for theory-coupled release context
+3. Avoid `papers/*.pdf` unless explicitly required by instruction
+
+## Rationale
+
+* `pdftoppm` and other PDF rendering toolchains are **not guaranteed** in all environments
+* Missing `pdftoppm` is an **environment-only limitation**, not a repository failure
+* Repeated PDF render attempts against unavailable tooling waste ingestion passes
+* Text-first ingestion is faster, deterministic, and sufficient for theory coupling
+
+## Rules
+
+* Do not attempt PDF rendering unless explicitly instructed
+* Do not treat PDF render failure as a repository defect
+* Do not retry failed PDF toolchain paths
+* Always check for a `.md` equivalent before attempting `.pdf`
+
+---
+
 🧠 Final Principle
 
 QEC evolves by:

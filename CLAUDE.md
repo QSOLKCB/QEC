@@ -406,6 +406,27 @@ Request instruction.
 
 ---
 
+# 13A. Theory Ingestion Priority
+
+When ingesting theory from the `/papers` corpus:
+
+1. Prefer `papers/*.md` first
+2. Prefer `ROADMAP.md` for release context
+3. Avoid `papers/*.pdf` unless explicitly required
+
+## Rules
+
+* text-first ingestion is mandatory
+* PDF rendering toolchains (`pdftoppm`) are not guaranteed in all environments
+* missing `pdftoppm` is an environment-only limitation, not a repository failure
+* do not retry failed PDF render paths
+* do not treat PDF toolchain absence as a defect
+* always check for `.md` equivalent before attempting `.pdf`
+
+This rule is **durable workflow law** from `v137.0.19` onward.
+
+---
+
 # 13. Governing Principle
 
 When uncertain:

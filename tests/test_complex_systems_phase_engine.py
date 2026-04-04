@@ -184,3 +184,20 @@ def test_chain_valid_reflects_actual_validity() -> None:
     )
     assert ledger.chain_valid is validate_phase_ledger(ledger)
     assert ledger.chain_valid is True
+
+
+def test_chain_valid_false_on_corrupt_ledger() -> None:
+    bad_entry = PhaseLedgerEntry(
+        sequence_id=0,
+        phase_hash="a" * 64,
+        parent_hash="bad",
+        warning_score=0.1,
+        stability_score=0.9,
+    )
+    corrupted = PhaseLedger(
+        entries=(bad_entry,),
+        head_hash="b" * 64,
+        chain_valid=True,
+    )
+    assert not validate_phase_ledger(corrupted)
+    assert corrupted.chain_valid is True  # stored flag is stale; validate_phase_ledger is authoritative

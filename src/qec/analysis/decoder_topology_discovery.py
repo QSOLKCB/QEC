@@ -2,21 +2,23 @@
 Decoder Topology Discovery — v137.0.2
 
 Read-only topology discovery layer that produces deterministic decoder
-topology recommendations by combining:
+topology recommendations.
 
-    - code zoo registry (code family metadata)
-    - decoder portfolio registry (candidate decoders)
-    - quantized risk state (symbolic risk lattice)
-    - symbolic observation signatures
-    - cognition / topology similarity scoring
+Scoring inputs:
+    1. optional decoder_family hint (exact-match signal, weight 0.5)
+    2. symbolic observation signature overlap (Jaccard bigram, weight 0.3)
+    3. phase-bin proximity to canonical reference points (Manhattan, weight 0.2)
+    4. deterministic tie-breaking (alphabetical family name)
+
+Identity / export fields (carried but not scored):
+    - symbolic_risk_lattice — preserved in decision identity and export bundle
+    - known_portfolio — restricts candidate set when provided
+
+Compatible with code zoo families and decoder portfolio registries
+but does not import or depend on them directly.
 
 Layer: analysis (Layer 4) — additive read-only diagnostics.
 Never imports or mutates decoder internals.
-
-Similarity scoring is purely deterministic:
-    1. exact decoder-family match
-    2. symbolic observation overlap (Jaccard on character bigrams)
-    3. phase-bin proximity (Manhattan distance, bounded)
 
 All outputs are deterministic, frozen, and byte-identical on replay.
 """
@@ -26,7 +28,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Sequence, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -298,16 +300,17 @@ def discover_decoder_topology(
 
 
 def build_topology_ledger(
-    decisions: Tuple[TopologyDiscoveryDecision, ...],
+    decisions: Sequence[TopologyDiscoveryDecision],
 ) -> TopologyDiscoveryLedger:
-    """Build an immutable ledger from a tuple of decisions.
+    """Build an immutable ledger from a sequence of decisions.
 
+    Accepts any sequence (tuple, list, etc.); normalizes to tuple internally.
     Decisions are stored in the provided order (caller controls ordering).
     The ledger hash covers all decisions deterministically.
 
     Parameters
     ----------
-    decisions : tuple of TopologyDiscoveryDecision
+    decisions : sequence of TopologyDiscoveryDecision
         Ordered decisions to include.
 
     Returns

@@ -274,9 +274,8 @@ class TestNoDecoderContamination:
         assert source_file is not None
         with open(source_file, encoding="utf-8") as f:
             source = f.read()
-        # Must not import from qec.decoder
-        assert "from qec.decoder" not in source
-        assert "import qec.decoder" not in source
+        # Must not reference qec.decoder in any import form
+        assert "qec.decoder" not in source
 
     def test_no_decoder_in_sys_modules_after_import(self):
         """Importing this module must not pull in decoder modules."""

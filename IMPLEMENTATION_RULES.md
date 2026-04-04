@@ -413,9 +413,10 @@ Violation of scope fence constitutes an invalid hardening pass.
 
 When ingesting theory from the `/papers` corpus:
 
-1. Prefer `papers/*.md` first — markdown is always available and text-renderable
-2. Prefer `ROADMAP.md` for theory-coupled release context
-3. Avoid `papers/*.pdf` unless explicitly required by instruction
+1. Prefer `ROADMAP.md` first for theory-coupled release context
+2. Prefer existing Layer 4 modules
+3. Prefer `papers/*.md` when available
+4. Use `papers/*.pdf` only when explicitly required by instruction
 
 ## Rationale
 

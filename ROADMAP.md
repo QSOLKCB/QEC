@@ -328,12 +328,12 @@ Violation of scope fence constitutes an invalid hardening pass.
 ### Workflow Latency Reduction
 
 * Eliminated repeated dead-end PDF render attempts during theory ingestion
-* Text-first ingestion path (`papers/*.md` → `ROADMAP.md`) is now canonical
+* Canonical ingestion priority is `ROADMAP.md` → existing Layer 4 modules → `papers/*.md` when available → `papers/*.pdf` only when explicitly required
 * Missing `pdftoppm` is classified as environment-only, not repository failure
 
 ### PDF Ingestion Optimization
 
-* `papers/*.md` is the preferred ingestion source
+* Canonical ingestion priority: `ROADMAP.md` first, then existing Layer 4 modules, then `papers/*.md` when available
 * `papers/*.pdf` is attempted only when explicitly required
 * Failed PDF toolchain paths are not retried
 * Durable rules added to `CLAUDE.md` (§13A) and `IMPLEMENTATION_RULES.md` (§20)

@@ -47,7 +47,7 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Union
 
 # ---------------------------------------------------------------------------
 # Version
@@ -170,6 +170,20 @@ def _round(value: float) -> float:
     return round(value, FLOAT_PRECISION)
 
 
+def _canonical_bound_value(value: float) -> Union[float, str]:
+    """Convert a bound value to a canonical JSON-safe representation.
+
+    Finite values are rounded to canonical precision.
+    Infinite values are represented as the string ``"INF"``.
+
+    This helper must be used consistently in BOTH hashing and export
+    to prevent semantic drift between the two paths.
+    """
+    if math.isfinite(value):
+        return _round(value)
+    return "INF"
+
+
 # ---------------------------------------------------------------------------
 # Helpers -- hashing
 # ---------------------------------------------------------------------------
@@ -204,10 +218,10 @@ def _compute_shell_hash(
 ) -> str:
     """SHA-256 of canonical JSON of a phi shell descriptor."""
     payload = {
-        "lower_bound": _round(lower_bound),
+        "lower_bound": _canonical_bound_value(lower_bound),
         "shell_index": shell_index,
         "shell_value": _round(shell_value),
-        "upper_bound": _round(upper_bound),
+        "upper_bound": _canonical_bound_value(upper_bound),
         "version": RETRO_PHI_SHELL_VERSION,
     }
     return hashlib.sha256(
@@ -391,17 +405,42 @@ def compute_phi_restore_term(
 # ---------------------------------------------------------------------------
 
 
+def _compute_phi_midpoints() -> Tuple[float, ...]:
+    """Compute midpoints between consecutive phi shells.
+
+    Returns a tuple of ``len(PHI_SHELLS) - 1`` midpoint values derived
+    dynamically from the canonical phi shell progression.  This prevents
+    boundary drift if the lattice is ever updated.
+
+    Returns:
+        Tuple of midpoint floats, e.g. ``(1.309, 2.118, 3.427, 5.545)``.
+    """
+    return tuple(
+        _round((PHI_SHELLS[i] + PHI_SHELLS[i + 1]) / 2.0)
+        for i in range(len(PHI_SHELLS) - 1)
+    )
+
+
+# Visibility classes ordered by shell index.
+_VISIBILITY_CLASSES: Tuple[str, ...] = (
+    NEAR_SHELL,
+    MID_SHELL,
+    OUTER_SHELL,
+    RESONANCE_NODE,
+    WIGGLE_ZONE,
+)
+
+
 def classify_shell_visibility(depth: float) -> str:
     """Classify depth into a visibility class.
 
     E8 triality lock: three primary classes plus two boundary classes.
 
-    Rules (based on phi shell boundaries):
-        depth <= 1.309  (midpoint of shells 0-1)  -> NEAR_SHELL
-        depth <= 2.118  (midpoint of shells 1-2)  -> MID_SHELL
-        depth <= 3.427  (midpoint of shells 2-3)  -> OUTER_SHELL
-        depth <= 5.545  (midpoint of shells 3-4)  -> RESONANCE_NODE
-        otherwise                                  -> WIGGLE_ZONE
+    Each shell covers a half-open interval ``[lower, upper)`` where
+    boundaries are the midpoints derived from ``PHI_SHELLS`` via
+    ``_compute_phi_midpoints()``.  At the exact midpoint, the depth
+    belongs to the lower (nearer) shell.  The final class (WIGGLE_ZONE)
+    covers ``[last_midpoint, INF)``.
 
     Args:
         depth: Non-negative depth value.
@@ -415,20 +454,11 @@ def classify_shell_visibility(depth: float) -> str:
     """
     d = _validate_non_negative_float(depth, "depth")
 
-    # Midpoints between consecutive phi shells
-    # (1.0 + 1.618) / 2 = 1.309
-    # (1.618 + 2.618) / 2 = 2.118
-    # (2.618 + 4.236) / 2 = 3.427
-    # (4.236 + 6.854) / 2 = 5.545
-    if d <= 1.309:
-        return NEAR_SHELL
-    if d <= 2.118:
-        return MID_SHELL
-    if d <= 3.427:
-        return OUTER_SHELL
-    if d <= 5.545:
-        return RESONANCE_NODE
-    return WIGGLE_ZONE
+    midpoints = _compute_phi_midpoints()
+    for i, mp in enumerate(midpoints):
+        if d <= mp:
+            return _VISIBILITY_CLASSES[i]
+    return _VISIBILITY_CLASSES[len(midpoints)]
 
 
 # ---------------------------------------------------------------------------
@@ -443,9 +473,11 @@ def build_phi_scanline_spans(
     """Build phi-quantized scanline spans.
 
     Each column in the scanline is assigned a depth that scales linearly
-    from 0 to max_depth across the width. The depth is then quantized to
-    the nearest phi shell, classified, and corrected with the UFF restore
-    term.
+    from 0 to max_depth across the width.  For ``width == 1`` the single
+    column is placed at depth 0.0 (the near-plane origin), consistent
+    with the linear interpolation ``i / (w - 1)`` having no defined
+    second endpoint.  The depth is then quantized to the nearest phi
+    shell, classified, and corrected with the UFF restore term.
 
     Args:
         width: Number of columns (must be >= 1).
@@ -464,7 +496,7 @@ def build_phi_scanline_spans(
     spans = []
     for i in range(w):
         if w == 1:
-            raw_depth = md
+            raw_depth = 0.0
         else:
             raw_depth = _round((i / (w - 1)) * md)
         phi_shell = quantize_depth_phi_shell(raw_depth)
@@ -491,20 +523,25 @@ def build_phi_scanline_spans(
 def build_phi_shell_descriptors() -> Tuple[RetroPhiShell, ...]:
     """Build frozen descriptors for each phi shell.
 
+    Each shell covers a half-open interval ``[lower_bound, upper_bound)``
+    where boundaries are midpoints between consecutive phi shell values.
+    The final shell covers ``[lower_bound, INF)`` (unbounded above).
+
     Returns:
         Tuple of RetroPhiShell descriptors with computed boundaries.
     """
+    midpoints = _compute_phi_midpoints()
     shells = []
     for i, sv in enumerate(PHI_SHELLS):
         if i == 0:
             lower = 0.0
         else:
-            lower = _round((PHI_SHELLS[i - 1] + sv) / 2.0)
+            lower = midpoints[i - 1]
         if i == len(PHI_SHELLS) - 1:
             upper = float("inf")
         else:
-            upper = _round((sv + PHI_SHELLS[i + 1]) / 2.0)
-        h = _compute_shell_hash(i, sv, lower, upper if math.isfinite(upper) else 9999.0)
+            upper = midpoints[i]
+        h = _compute_shell_hash(i, sv, lower, upper)
         shells.append(RetroPhiShell(
             shell_index=i,
             shell_value=sv,
@@ -653,13 +690,17 @@ def _span_to_dict(span: RetroRasterSpan) -> Dict[str, Any]:
 
 
 def _shell_to_dict(shell: RetroPhiShell) -> Dict[str, Any]:
-    """Convert a shell descriptor to a canonical dict."""
+    """Convert a shell descriptor to a canonical dict.
+
+    Infinite upper bounds are exported as ``None`` (JSON null).
+    Hashing uses ``"INF"`` via ``_canonical_bound_value``.
+    """
     return {
         "lower_bound": _round(shell.lower_bound),
         "shell_index": shell.shell_index,
         "shell_value": _round(shell.shell_value),
         "stable_hash": shell.stable_hash,
-        "upper_bound": _round(shell.upper_bound) if math.isfinite(shell.upper_bound) else 9999.0,
+        "upper_bound": _round(shell.upper_bound) if math.isfinite(shell.upper_bound) else None,
         "version": shell.version,
     }
 

@@ -30,6 +30,8 @@ from qec.analysis.retro_phi_shell_rasterization_pipeline import (
     RetroRasterDecision,
     RetroRasterLedger,
     RetroRasterSpan,
+    _canonical_bound_value,
+    _compute_phi_midpoints,
     build_phi_raster_decision,
     build_phi_raster_ledger,
     build_phi_scanline_spans,
@@ -313,6 +315,7 @@ class TestBuildPhiScanlineSpans:
         spans = build_phi_scanline_spans(1, 5.0)
         assert len(spans) == 1
         assert spans[0].span_index == 0
+        assert spans[0].depth == 0.0
 
     def test_multiple_columns(self):
         spans = build_phi_scanline_spans(10, 5.0)
@@ -398,7 +401,11 @@ class TestBuildPhiShellDescriptors:
             assert shells[i].shell_value > shells[i - 1].shell_value
 
     def test_boundaries_contiguous(self):
-        """Each shell's lower_bound matches previous shell's upper_bound."""
+        """Each shell's lower_bound matches previous shell's upper_bound.
+
+        Interval contract: [lower_bound, upper_bound) for all shells.
+        Final shell: [lower_bound, INF).
+        """
         shells = build_phi_shell_descriptors()
         for i in range(1, len(shells)):
             assert shells[i].lower_bound == shells[i - 1].upper_bound
@@ -593,7 +600,8 @@ class TestNoDecoderContamination:
     def test_no_decoder_import(self):
         """Module must not import anything from qec.decoder."""
         import qec.analysis.retro_phi_shell_rasterization_pipeline as mod
-        source = open(mod.__file__).read()
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
 
@@ -710,3 +718,163 @@ class TestHashUniqueness:
         hashes = [s.stable_hash for s in spans]
         # Most should be unique (some may collide if depths match)
         assert len(set(hashes)) >= len(hashes) // 2
+
+
+# -----------------------------------------------------------------------
+# HARDENING: sentinel semantics (PATCH 1 verification)
+# -----------------------------------------------------------------------
+
+
+class TestSentinelSemantics:
+    def test_export_last_shell_upper_bound_is_none(self):
+        """Exported last shell upper_bound must be None (JSON null)."""
+        d = build_phi_raster_decision(4, 5.0)
+        ledger = build_phi_raster_ledger((d,))
+        exported = export_phi_raster_ledger(ledger)
+        last_shell = exported["decisions"][0]["shells"][-1]
+        assert last_shell["upper_bound"] is None
+
+    def test_export_non_final_shells_have_float_upper_bound(self):
+        """Non-final shells must have finite float upper_bound in export."""
+        d = build_phi_raster_decision(4, 5.0)
+        ledger = build_phi_raster_ledger((d,))
+        exported = export_phi_raster_ledger(ledger)
+        shells = exported["decisions"][0]["shells"]
+        for s in shells[:-1]:
+            assert isinstance(s["upper_bound"], float)
+
+    def test_canonical_bound_value_finite(self):
+        assert _canonical_bound_value(1.5) == round(1.5, FLOAT_PRECISION)
+
+    def test_canonical_bound_value_inf(self):
+        assert _canonical_bound_value(float("inf")) == "INF"
+
+    def test_canonical_bound_value_neg_inf(self):
+        assert _canonical_bound_value(float("-inf")) == "INF"
+
+    def test_hash_uses_inf_string_not_9999(self):
+        """Shell hash must use 'INF', never 9999.0."""
+        import qec.analysis.retro_phi_shell_rasterization_pipeline as mod
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
+        assert "9999" not in source
+
+    def test_sentinel_replay_deterministic(self):
+        """100-run replay with INF sentinel must be stable."""
+        results = [build_phi_shell_descriptors() for _ in range(100)]
+        hashes = [tuple(s.stable_hash for s in r) for r in results]
+        assert len(set(hashes)) == 1
+
+
+# -----------------------------------------------------------------------
+# HARDENING: midpoint alignment (PATCH 2 + 3 verification)
+# -----------------------------------------------------------------------
+
+
+class TestMidpointAlignment:
+    def test_midpoints_count(self):
+        mps = _compute_phi_midpoints()
+        assert len(mps) == len(PHI_SHELLS) - 1
+
+    def test_midpoints_match_shell_averages(self):
+        mps = _compute_phi_midpoints()
+        for i, mp in enumerate(mps):
+            expected = round((PHI_SHELLS[i] + PHI_SHELLS[i + 1]) / 2.0, FLOAT_PRECISION)
+            assert mp == expected
+
+    def test_exact_midpoint_ties_go_to_lower_shell(self):
+        """At midpoint boundary, depth <= midpoint -> lower (nearer) class."""
+        mps = _compute_phi_midpoints()
+        classes = [NEAR_SHELL, MID_SHELL, OUTER_SHELL, RESONANCE_NODE]
+        for mp, expected_class in zip(mps, classes):
+            assert classify_shell_visibility(mp) == expected_class
+
+    def test_half_open_interval_upper_exclusive(self):
+        """Just above midpoint falls into next class."""
+        mps = _compute_phi_midpoints()
+        next_classes = [MID_SHELL, OUTER_SHELL, RESONANCE_NODE, WIGGLE_ZONE]
+        for mp, expected_class in zip(mps, next_classes):
+            assert classify_shell_visibility(mp + 0.0001) == expected_class
+
+    def test_final_shell_inclusive_infinity(self):
+        """Very large depth always maps to WIGGLE_ZONE."""
+        assert classify_shell_visibility(1e6) == WIGGLE_ZONE
+
+    def test_classifier_matches_computed_midpoints(self):
+        """Classifier boundaries are exactly the computed midpoints."""
+        mps = _compute_phi_midpoints()
+        # Each midpoint is the transition point
+        for mp in mps:
+            below = classify_shell_visibility(mp)
+            above = classify_shell_visibility(mp + 0.0001)
+            assert below != above
+
+
+# -----------------------------------------------------------------------
+# HARDENING: derived boundaries (PATCH 3 verification)
+# -----------------------------------------------------------------------
+
+
+class TestDerivedBoundaries:
+    def test_no_hardcoded_constants_in_classifier(self):
+        """classify_shell_visibility must not contain hardcoded boundary values."""
+        import inspect
+        source = inspect.getsource(classify_shell_visibility)
+        # Must not contain any of the old hardcoded values
+        assert "1.309" not in source
+        assert "2.118" not in source
+        assert "3.427" not in source
+        assert "5.545" not in source
+
+    def test_shell_descriptors_use_derived_midpoints(self):
+        """Shell descriptor boundaries must match _compute_phi_midpoints."""
+        mps = _compute_phi_midpoints()
+        shells = build_phi_shell_descriptors()
+        for i in range(1, len(shells)):
+            assert shells[i].lower_bound == mps[i - 1]
+        for i in range(len(shells) - 1):
+            assert shells[i].upper_bound == mps[i]
+
+
+# -----------------------------------------------------------------------
+# HARDENING: width==1 semantics (PATCH 4 verification)
+# -----------------------------------------------------------------------
+
+
+class TestWidthOneSemantics:
+    def test_width_one_depth_is_zero(self):
+        """Single-column span must have depth 0.0 (near-plane origin)."""
+        spans = build_phi_scanline_spans(1, 10.0)
+        assert spans[0].depth == 0.0
+
+    def test_width_one_visibility_is_near_shell(self):
+        """Single-column at depth 0.0 must classify as NEAR_SHELL."""
+        spans = build_phi_scanline_spans(1, 10.0)
+        assert spans[0].visibility_class == NEAR_SHELL
+
+    def test_width_one_phi_shell_is_first(self):
+        """Depth 0.0 quantizes to first phi shell (1.0)."""
+        spans = build_phi_scanline_spans(1, 10.0)
+        assert spans[0].phi_shell == PHI_SHELLS[0]
+
+
+# -----------------------------------------------------------------------
+# HARDENING: file handle hygiene (PATCH 5 verification)
+# -----------------------------------------------------------------------
+
+
+class TestFileHandleHygiene:
+    def test_no_bare_open_in_tests(self):
+        """This test file must not contain bare open() without context manager."""
+        import re
+        import pathlib
+        source = pathlib.Path(__file__).read_text(encoding="utf-8")
+        # Match lines that assign result of open() directly (bare open)
+        # e.g. "source = open(..." but NOT "with open(..."
+        bare_pattern = re.compile(r"^\s+\w+\s*=\s*open\(")
+        lines = source.split("\n")
+        for i, line in enumerate(lines):
+            if bare_pattern.match(line):
+                raise AssertionError(
+                    f"Bare open() found at line {i + 1}: {line.strip()}"
+                )

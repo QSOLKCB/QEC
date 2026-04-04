@@ -22,14 +22,20 @@ from qec.analysis.unified_physics_simulation_orchestrator import (
     UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
     audit_cross_module_replay_integrity,
     CompressedReplayBundle,
+    DriftProvenanceLedger,
     ReplayHashChain,
     ReplaySnapshotDelta,
+    attribute_drift_source,
+    build_drift_provenance_report,
     build_replay_hash_chain,
+    compare_replay_cycles,
     compress_replay_snapshots,
     compute_orchestrator_drift_score,
     decompress_replay_snapshots,
+    export_drift_provenance_bundle,
     export_compressed_replay_bundle,
     validate_symbolic_memory_trace,
+    verify_drift_provenance_roundtrip,
     verify_replay_bundle_roundtrip,
 )
 
@@ -43,7 +49,7 @@ def _fixture_inputs():
 # A) API + version
 
 def test_version_constant():
-    assert UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION == "v137.1.3"
+    assert UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION == "v137.1.4"
 
 
 def test_audit_returns_artifact_with_expected_fields():
@@ -402,3 +408,216 @@ def test_ast_randomness_guard_extended():
     assert "numpy.random" not in src
     assert "uuid" not in src
     assert "time.time" not in src
+
+
+def _build_bundle(*, replay_cycles: int = 6, symbolic_trace: str = "A|B|C"):
+    beats, intensities = _fixture_inputs()
+    artifact = audit_cross_module_replay_integrity(
+        beats,
+        intensities,
+        replay_cycles=replay_cycles,
+        symbolic_trace=symbolic_trace,
+    )
+    return compress_replay_snapshots(artifact)
+
+
+def _symbolic_map(seed: int = 0):
+    return {
+        "A": [1 + seed, 4 + seed],
+        "B": [2 + seed, 5 + seed],
+        "C": [3 + seed, 6 + seed],
+    }
+
+
+def test_attribute_drift_source_single_module():
+    got = attribute_drift_source(
+        composition_match=False,
+        simulation_match=True,
+        synchronization_match=True,
+        orchestrator_match=True,
+        symbolic_trace_match=True,
+    )
+    assert got == "composition"
+
+
+def test_attribute_drift_source_cross_module():
+    got = attribute_drift_source(
+        composition_match=False,
+        simulation_match=True,
+        synchronization_match=False,
+        orchestrator_match=True,
+        symbolic_trace_match=True,
+    )
+    assert got == "cross-module"
+
+
+def test_compare_replay_cycles_same_input_zero_drift():
+    bundle = _build_bundle(replay_cycles=3)
+    snapshot = decompress_replay_snapshots(bundle)[0]
+    report = compare_replay_cycles(
+        snapshot,
+        snapshot,
+        cycle_index=0,
+        chain_digest_anchor=bundle.hash_chain.chain_digest,
+        delta_table_reference="delta-ref",
+        symbolic_trace_anchor="trace-anchor",
+        symbolic_trace_match=True,
+    )
+    assert report.record.bounded_drift_score == 0.0
+    assert report.drift_source == "cross-module"
+
+
+def test_build_drift_provenance_report_stable_100_runs():
+    ref = _build_bundle(replay_cycles=8)
+    cand = _build_bundle(replay_cycles=8)
+    baseline = build_drift_provenance_report(
+        ref,
+        cand,
+        reference_symbolic_trace_timestamp_map=_symbolic_map(0),
+        candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
+    )
+    for _ in range(100):
+        got = build_drift_provenance_report(
+            ref,
+            cand,
+            reference_symbolic_trace_timestamp_map=_symbolic_map(0),
+            candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
+        )
+        assert got.stable_hash == baseline.stable_hash
+        assert got.to_canonical_json() == baseline.to_canonical_json()
+
+
+def test_build_drift_provenance_report_single_cycle_mismatch_attribution():
+    ref = _build_bundle(replay_cycles=4)
+    snapshots = list(decompress_replay_snapshots(ref))
+    snapshots[2] = type(snapshots[2])(
+        cycle_index=snapshots[2].cycle_index,
+        composition_stable_hash=("f" + snapshots[2].composition_stable_hash[1:]),
+        simulation_stable_hash=snapshots[2].simulation_stable_hash,
+        sync_stable_hash=snapshots[2].sync_stable_hash,
+        orchestrator_stable_hash=snapshots[2].orchestrator_stable_hash,
+    )
+    modified_chain = build_replay_hash_chain(tuple(snapshots))
+    candidate = CompressedReplayBundle(
+        version=ref.version,
+        replay_cycles=ref.replay_cycles,
+        composition_hashes=(snapshots[0].composition_stable_hash, snapshots[2].composition_stable_hash),
+        simulation_hashes=ref.simulation_hashes,
+        sync_hashes=ref.sync_hashes,
+        orchestrator_hashes=ref.orchestrator_hashes,
+        deltas=(
+            ReplaySnapshotDelta(0, 0, 0, 0, 0),
+            ReplaySnapshotDelta(1, 0, 0, 0, 0),
+            ReplaySnapshotDelta(2, 1, 0, 0, 0),
+            ReplaySnapshotDelta(3, 0, 0, 0, 0),
+        ),
+        symbolic_trace_valid=ref.symbolic_trace_valid,
+        symbolic_trace=ref.symbolic_trace,
+        orchestrator_drift_score=ref.orchestrator_drift_score,
+        composition_stable_hash=ref.composition_stable_hash,
+        simulation_stable_hash=ref.simulation_stable_hash,
+        sync_stable_hash=ref.sync_stable_hash,
+        hash_chain=modified_chain,
+        stable_hash=ref.stable_hash,
+        replay_identity=ref.replay_identity,
+    )
+    report = build_drift_provenance_report(
+        ref,
+        candidate,
+        reference_symbolic_trace_timestamp_map=_symbolic_map(0),
+        candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
+    )
+    assert report.first_divergence_point == 2
+    assert report.cycle_reports[2].drift_source == "composition"
+
+
+def test_symbolic_trace_divergence_detection_in_provenance():
+    ref = _build_bundle(replay_cycles=5)
+    cand = _build_bundle(replay_cycles=5)
+    ledger = build_drift_provenance_report(
+        ref,
+        cand,
+        reference_symbolic_trace_timestamp_map=_symbolic_map(0),
+        candidate_symbolic_trace_timestamp_map=_symbolic_map(10),
+    )
+    assert ledger.cycle_reports[0].symbolic_trace_match is False
+    assert ledger.cycle_reports[0].drift_source == "symbolic_trace"
+
+
+def test_export_drift_provenance_bundle_byte_identical_roundtrip():
+    ref = _build_bundle(replay_cycles=5)
+    cand = _build_bundle(replay_cycles=5)
+    ledger = build_drift_provenance_report(
+        ref,
+        cand,
+        reference_symbolic_trace_timestamp_map=_symbolic_map(0),
+        candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
+    )
+    lhs = json.dumps(export_drift_provenance_bundle(ledger), sort_keys=True, separators=(",", ":"))
+    rhs = json.dumps(export_drift_provenance_bundle(ledger), sort_keys=True, separators=(",", ":"))
+    assert lhs.encode("utf-8") == rhs.encode("utf-8")
+    assert verify_drift_provenance_roundtrip(
+        ledger,
+        reference_bundle=ref,
+        candidate_bundle=cand,
+        candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
+    ) is True
+
+
+def test_provenance_fail_fast_mismatched_cycle_counts():
+    ref = _build_bundle(replay_cycles=4)
+    cand = _build_bundle(replay_cycles=5)
+    with pytest.raises(ValueError, match="mismatched cycle counts"):
+        build_drift_provenance_report(
+            ref,
+            cand,
+            reference_symbolic_trace_timestamp_map=_symbolic_map(0),
+            candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
+        )
+
+
+def test_provenance_fail_fast_invalid_hash_chain_reference():
+    ref = _build_bundle(replay_cycles=4)
+    cand = _build_bundle(replay_cycles=4)
+    ledger = build_drift_provenance_report(
+        ref,
+        cand,
+        reference_symbolic_trace_timestamp_map=_symbolic_map(0),
+        candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
+    )
+    bad = DriftProvenanceLedger(
+        version=ledger.version,
+        replay_cycles=ledger.replay_cycles,
+        first_divergence_point=ledger.first_divergence_point,
+        cycle_reports=ledger.cycle_reports,
+        chain_digest_anchor="",
+        delta_table_reference=ledger.delta_table_reference,
+        symbolic_trace_anchor=ledger.symbolic_trace_anchor,
+        stable_hash=ledger.stable_hash,
+        replay_identity=ledger.replay_identity,
+    )
+    with pytest.raises(ValueError, match="invalid hash-chain reference"):
+        verify_drift_provenance_roundtrip(
+            bad,
+            reference_bundle=ref,
+            candidate_bundle=cand,
+            candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
+        )
+
+
+def test_provenance_fail_fast_invalid_symbolic_trace_map():
+    ref = _build_bundle(replay_cycles=4)
+    cand = _build_bundle(replay_cycles=4)
+    ledger = build_drift_provenance_report(
+        ref,
+        cand,
+        reference_symbolic_trace_timestamp_map=_symbolic_map(0),
+        candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
+    )
+    with pytest.raises(ValueError, match="invalid symbolic trace map"):
+        verify_drift_provenance_roundtrip(
+            ledger,
+            reference_bundle=ref,
+            candidate_bundle=cand,
+            candidate_symbolic_trace_timestamp_map={"A": "bad", "B": [2], "C": [3]},
+        )

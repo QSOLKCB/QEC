@@ -178,57 +178,60 @@ All future roadmap work must build from this branch identity.
 
 # NEXT RELEASE HORIZON
 
-## v137.1.x — Return to Original Control Roadmap
+## v137.0.x — Return to Original Control Roadmap
 
-We now return to the original roadmap
-using the new branch architecture.
+We now return to the original roadmap using the new branch architecture.
+
+The v137 branch is now in **stabilization + expansion cadence**.
+
+Post-epoch releases will proceed under the `v137.0.x` line unless a major subsystem shift justifies a new minor boundary.
 
 ---
 
-## v137.1.0 — Quantization-Aware Decoder Observation
+## v137.0.1 — Quantization-Aware Decoder Observation
 Read-only diagnostic layer.
 
 Use quantization vocabulary as a decoder observability lens.
 
-Inputs:
-
+### Inputs
 - decoder state
 - syndrome drift
 - phase-space state
 - risk score
 
-Outputs:
-
+### Outputs
 - symbolic risk lattice
 - decoder quantization signature
 - observability compression metrics
 
-This bridges v136.10.0 directly into operational QEC diagnostics.
+This bridges **v136.10.0** directly into operational QEC diagnostics.
 
 ---
 
-## v137.1.1 — Decoder Topology Discovery (Recovered from original roadmap)
-Former v136.9.x planned item.
+## v137.0.2 — Decoder Topology Discovery  
+Recovered from the original roadmap.
 
-Use:
+Former `v136.9.x` planned milestone.
 
+### Inputs
 - code zoo
 - portfolio registry
 - quantized risk state
 - cognition similarity
 
-Outputs:
-
+### Outputs
 - decoder-family route
 - topology pairing score
 - recovery topology suggestions
 
+This restores the original discovery roadmap under the new branch architecture.
+
 ---
 
-## v137.1.2 — Closed-Loop Auditory + Phase Control
+## v137.0.3 — Closed-Loop Auditory + Phase Control
 Recovered original roadmap milestone.
 
-This becomes:
+This now becomes:
 
 ```text
 hear instability
@@ -238,25 +241,26 @@ hear instability
 → govern route memory
 ```
 
-This is now much stronger after v136.10.0.
+This release is significantly strengthened by the quantization branch.
 
 ---
 
-## v137.1.3 — Quantization-Aware Forecast Compression
+## v137.0.4 — Quantization-Aware Forecast Compression
 New branch-era release.
 
 Compress long-horizon forecast states into symbolic risk sequences.
 
-Examples:
+Example:
 
 ```text
 LOW → WATCH → WARNING → CRITICAL
 ```
 
-Useful for:
+### Use cases
 - drift forecasting
 - policy-memory summaries
 - experiment harness sweeps
+- observability compression
 
 ---
 
@@ -266,16 +270,15 @@ Useful for:
 
 Future branch line.
 
-Focus:
-
+### Focus
 - governed decoder discovery
 - symbolic risk compression
 - autonomous topology planning
 - replay-stable experiment memory
 - multi-cycle observability compression
 
-Still deterministic.
-Still governed.
+Still deterministic.  
+Still governed.  
 Still decoder-safe.
 
 ---

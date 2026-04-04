@@ -1082,15 +1082,6 @@ def verify_drift_provenance_roundtrip(
     return str(exported.get("replay_identity", "")) == str(ledger.replay_identity)
 
 
-_VALID_REPAIR_SOURCE_MODULES: Tuple[str, ...] = (
-    "composition",
-    "simulation",
-    "synchronization",
-    "orchestrator",
-    "symbolic_trace",
-    "cross-module",
-)
-
 _REPAIR_ACTIONS_BY_SOURCE: Mapping[str, Tuple[str, ...]] = {
     "composition": (
         "resync composition clock",
@@ -1124,6 +1115,8 @@ _REPAIR_ACTIONS_BY_SOURCE: Mapping[str, Tuple[str, ...]] = {
     ),
 }
 
+_VALID_REPAIR_SOURCE_MODULES: Tuple[str, ...] = tuple(sorted(_REPAIR_ACTIONS_BY_SOURCE.keys()))
+
 
 @dataclass(frozen=True)
 class RepairSuggestion:
@@ -1137,6 +1130,10 @@ class RepairSuggestion:
     stable_hash: str
     replay_identity: str
 
+    def __post_init__(self) -> None:
+        if self.advisory_only is not True:
+            raise ValueError("repair suggestions must remain advisory-only")
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "source_module": str(self.source_module),
@@ -1145,7 +1142,7 @@ class RepairSuggestion:
             "deterministic_rank_score": _round(float(self.deterministic_rank_score)),
             "provenance_cycle_reference": int(self.provenance_cycle_reference),
             "first_divergence_anchor": int(self.first_divergence_anchor),
-            "advisory_only": True,
+            "advisory_only": bool(self.advisory_only),
             "stable_hash": str(self.stable_hash),
             "replay_identity": str(self.replay_identity),
         }
@@ -1162,11 +1159,15 @@ class RepairSuggestionBundle:
     stable_hash: str
     replay_identity: str
 
+    def __post_init__(self) -> None:
+        if self.advisory_only is not True:
+            raise ValueError("repair suggestions must remain advisory-only")
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "version": str(self.version),
             "suggestions": [item.to_dict() for item in self.suggestions],
-            "advisory_only": True,
+            "advisory_only": bool(self.advisory_only),
             "stable_hash": str(self.stable_hash),
             "replay_identity": str(self.replay_identity),
         }
@@ -1185,13 +1186,17 @@ class RepairSuggestionLedger:
     stable_hash: str
     replay_identity: str
 
+    def __post_init__(self) -> None:
+        if self.advisory_only is not True:
+            raise ValueError("repair suggestions must remain advisory-only")
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "version": str(self.version),
             "provenance_stable_hash": str(self.provenance_stable_hash),
             "first_divergence_cycle": int(self.first_divergence_cycle),
             "suggestion_bundle": self.suggestion_bundle.to_dict(),
-            "advisory_only": True,
+            "advisory_only": bool(self.advisory_only),
             "stable_hash": str(self.stable_hash),
             "replay_identity": str(self.replay_identity),
         }
@@ -1313,6 +1318,10 @@ def generate_repair_suggestions(provenance_ledger: DriftProvenanceLedger) -> Rep
 
 
 def export_repair_suggestion_bundle(bundle: RepairSuggestionBundle) -> Dict[str, Any]:
+    if bundle.advisory_only is not True:
+        raise ValueError("corrupted repair bundle")
+    if not all(s.advisory_only is True for s in bundle.suggestions):
+        raise ValueError("corrupted repair bundle")
     payload = bundle.to_dict()
     content_payload = {k: v for k, v in payload.items() if k not in ("stable_hash", "replay_identity")}
     recomputed_hash = _stable_hash_dict(content_payload)

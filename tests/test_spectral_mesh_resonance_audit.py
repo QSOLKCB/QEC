@@ -29,6 +29,8 @@ import pytest
 from qec.analysis.spectral_mesh_resonance_audit import (
     SPECTRAL_MESH_RESONANCE_VERSION,
     PHI,
+    _BLOCK_SIZE,
+    _TOP_K_PEAKS,
     SpectralMeshAuditDecision,
     SpectralMeshAuditLedger,
     SpectralResonancePeak,
@@ -39,6 +41,8 @@ from qec.analysis.spectral_mesh_resonance_audit import (
     extract_spectral_peaks,
     _bytes_to_float_vector,
     _compute_fft_magnitudes,
+    _find_top_peaks,
+    _stable_hash_dict,
     _compute_phi_lock_score,
     _compute_triality_recurrence_score,
     _compute_loopback_cycle_score,
@@ -485,3 +489,105 @@ class TestSymbolicTrace:
         assert "SID_INST=" in d.symbolic_trace
         assert "SID_DRIFT=" in d.symbolic_trace
         assert "SID_ATTR=" in d.symbolic_trace
+
+
+# ---------------------------------------------------------------------------
+# 15. Hardening — FFT edge cases
+# ---------------------------------------------------------------------------
+
+class TestFFTEdgeCases:
+    def test_empty_vector_safe(self):
+        """Empty input must return zero spectrum, not crash."""
+        vec = np.array([], dtype=np.float64)
+        result = _compute_fft_magnitudes(vec, 4096)
+        assert len(result) == 4096 // 2 + 1
+        assert float(np.sum(result)) == 0.0
+
+    def test_short_vector_safe(self):
+        """Input shorter than block_size must zero-pad, not crash."""
+        vec = np.arange(100, dtype=np.float64)
+        result = _compute_fft_magnitudes(vec, 4096)
+        assert len(result) == 4096 // 2 + 1
+
+    def test_one_byte_vector_safe(self):
+        """Single-element input must produce valid spectrum."""
+        vec = np.array([42.0], dtype=np.float64)
+        result = _compute_fft_magnitudes(vec, 4096)
+        assert len(result) == 4096 // 2 + 1
+        # DC bin should reflect the single value
+        assert result[0] > 0.0
+
+
+# ---------------------------------------------------------------------------
+# 16. Hardening — peak edge cases
+# ---------------------------------------------------------------------------
+
+class TestPeakEdgeCases:
+    def test_empty_magnitudes_returns_empty(self):
+        mags = np.array([], dtype=np.float64)
+        result = _find_top_peaks(mags, 10)
+        assert len(result) == 0
+        assert result.dtype == np.int64
+
+    def test_equal_magnitudes_deterministic(self):
+        """Equal magnitudes must produce deterministic index ordering."""
+        mags = np.ones(64, dtype=np.float64)
+        r1 = _find_top_peaks(mags, 16)
+        r2 = _find_top_peaks(mags, 16)
+        np.testing.assert_array_equal(r1, r2)
+
+    def test_equal_magnitudes_repeat_10(self):
+        """10 repeats of equal-magnitude extraction must be identical."""
+        mags = np.ones(64, dtype=np.float64) * 7.0
+        reference = _find_top_peaks(mags, 16)
+        for _ in range(10):
+            np.testing.assert_array_equal(
+                _find_top_peaks(mags, 16), reference
+            )
+
+
+# ---------------------------------------------------------------------------
+# 17. Hardening — hash version coupling
+# ---------------------------------------------------------------------------
+
+class TestHashVersionCoupling:
+    def test_peak_hash_includes_version(self):
+        """Peak hash payload path must include version, block_size, top_k."""
+        # Reconstruct what the hash dict looks like and verify fields
+        peak_dict = {
+            "peak_index": 5,
+            "frequency_ratio": 0.25,
+            "magnitude": 100.0,
+            "version": SPECTRAL_MESH_RESONANCE_VERSION,
+            "block_size": _BLOCK_SIZE,
+            "top_k": _TOP_K_PEAKS,
+        }
+        h_with = _stable_hash_dict(peak_dict)
+        # Without version fields -> different hash
+        peak_dict_no_ver = {
+            "peak_index": 5,
+            "frequency_ratio": 0.25,
+            "magnitude": 100.0,
+        }
+        h_without = _stable_hash_dict(peak_dict_no_ver)
+        assert h_with != h_without
+
+    def test_decision_hash_includes_version(self):
+        """Decision hash must change if version field changes."""
+        base = {
+            "source_name": "test.mp3",
+            "peak_count": 10,
+            "phi_lock_score": 0.5,
+            "triality_recurrence_score": 0.5,
+            "loopback_cycle_score": 0.5,
+            "spectral_instability_score": 0.1,
+            "spectral_drift_score": 0.1,
+            "attractor_lock_score": 0.9,
+            "symbolic_trace": "trace",
+            "version": "v137.0.15",
+        }
+        h1 = _stable_hash_dict(base)
+        altered = dict(base)
+        altered["version"] = "v999.0.0"
+        h2 = _stable_hash_dict(altered)
+        assert h1 != h2

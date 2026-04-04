@@ -47,7 +47,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 
@@ -128,9 +127,15 @@ def _bytes_to_float_vector(data: bytes) -> np.ndarray:
 def _compute_fft_magnitudes(vec: np.ndarray, block_size: int) -> np.ndarray:
     """Compute averaged FFT magnitudes over non-overlapping windows."""
     n = len(vec)
-    n_blocks = max(1, n // block_size)
-    # Trim to exact multiple
-    trimmed = vec[: n_blocks * block_size].reshape(n_blocks, block_size)
+    if n == 0:
+        return np.zeros(block_size // 2 + 1, dtype=np.float64)
+    if n < block_size:
+        padded = np.zeros(block_size, dtype=np.float64)
+        padded[:n] = vec
+        trimmed = padded.reshape(1, block_size)
+    else:
+        n_blocks = n // block_size
+        trimmed = vec[: n_blocks * block_size].reshape(n_blocks, block_size)
     # Real FFT per block — take only positive frequencies
     spectra = np.abs(np.fft.rfft(trimmed, axis=1))
     # Average across blocks for stable spectrum
@@ -139,9 +144,13 @@ def _compute_fft_magnitudes(vec: np.ndarray, block_size: int) -> np.ndarray:
 
 def _find_top_peaks(magnitudes: np.ndarray, top_k: int) -> np.ndarray:
     """Return indices of top-k magnitude peaks, sorted by index."""
+    if len(magnitudes) == 0 or top_k <= 0:
+        return np.array([], dtype=np.int64)
     k = min(top_k, len(magnitudes))
-    # argpartition then sort for determinism
-    indices = np.argpartition(magnitudes, -k)[-k:]
+    # Stable tie-breaking: lexsort by (index ASC, magnitude ASC)
+    # so equal magnitudes resolve by lowest index first
+    ordered = np.lexsort((np.arange(len(magnitudes)), magnitudes))
+    indices = ordered[-k:]
     return np.sort(indices)
 
 
@@ -180,6 +189,9 @@ def extract_spectral_peaks(
             "peak_index": idx_int,
             "frequency_ratio": freq_ratio,
             "magnitude": mag,
+            "version": SPECTRAL_MESH_RESONANCE_VERSION,
+            "block_size": _BLOCK_SIZE,
+            "top_k": _TOP_K_PEAKS,
         }
         h = _stable_hash_dict(peak_dict)
         peaks.append(SpectralResonancePeak(
@@ -355,6 +367,7 @@ def build_spectral_mesh_audit(
         "spectral_drift_score": drift,
         "attractor_lock_score": attractor,
         "symbolic_trace": symbolic_trace,
+        "version": SPECTRAL_MESH_RESONANCE_VERSION,
     }
     h = _stable_hash_dict(decision_dict)
 

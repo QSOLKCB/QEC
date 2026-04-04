@@ -18,7 +18,6 @@ Covers:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 
@@ -670,10 +669,9 @@ class TestGenericIterables:
         m = build_retro_world_model(TRUE_3D, gen, [], (0, 0, 0))
         assert m.primitive_count == 3
 
-    def test_sectors_as_set_like(self):
-        # frozenset won't preserve order but is iterable
+    def test_sectors_as_frozenset(self):
         s = _make_sector()
-        m = build_retro_world_model(PSEUDO_3D, [], [s], (0, 0, 0))
+        m = build_retro_world_model(PSEUDO_3D, [], frozenset({s}), (0, 0, 0))
         assert m.sector_count == 1
 
     def test_camera_as_list(self):
@@ -766,23 +764,19 @@ class TestWorldModes:
 
 
 class TestNoDecoderContamination:
-    def test_no_decoder_import(self):
-        """Module must not import from qec.decoder."""
+    def test_no_decoder_import_in_source(self):
+        """Module source must not contain decoder imports."""
         import qec.analysis.retro_3d_world_modelling as mod
         source = open(mod.__file__).read()
         assert "from qec.decoder" not in source
         assert "import qec.decoder" not in source
 
-    def test_no_decoder_in_sys_modules(self):
-        """Building world models must not trigger decoder loading."""
-        decoder_modules = [
-            k for k in sys.modules
-            if k.startswith("qec.decoder")
-        ]
-        # Even if loaded elsewhere, the module itself must not import it
-        import qec.analysis.retro_3d_world_modelling as mod
-        source = open(mod.__file__).read()
-        assert "decoder" not in source.split("import")[-1] if "import" in source else True
+    def test_no_decoder_module_loaded_by_build(self):
+        """Building world models must not trigger decoder module loading."""
+        before = {k for k in sys.modules if k.startswith("qec.decoder")}
+        build_retro_world_model(TRUE_3D, [], [], (0, 0, 0))
+        after = {k for k in sys.modules if k.startswith("qec.decoder")}
+        assert after == before
 
 
 # =========================================================================
@@ -838,3 +832,83 @@ class TestConstants:
     def test_all_complexity_classes_distinct(self):
         classes = {MINIMAL, COMPACT, STRUCTURED, DENSE}
         assert len(classes) == 4
+
+
+# =========================================================================
+# 19. Bool rejection in triples (PATCH 1)
+# =========================================================================
+
+
+class TestBoolRejectionInTriples:
+    def test_reject_bool_in_position(self):
+        with pytest.raises(TypeError, match="bool"):
+            _make_primitive(pos=(True, 0.0, 0.0))
+
+    def test_reject_false_in_position(self):
+        with pytest.raises(TypeError, match="bool"):
+            _make_primitive(pos=(0.0, False, 0.0))
+
+    def test_reject_bool_in_scale(self):
+        with pytest.raises(TypeError, match="bool"):
+            _make_primitive(scl=(True, 1.0, 1.0))
+
+    def test_reject_bool_in_rotation(self):
+        with pytest.raises(TypeError, match="bool"):
+            _make_primitive(rot=(0.0, 0.0, True))
+
+    def test_reject_bool_in_camera_pose(self):
+        with pytest.raises(TypeError, match="bool"):
+            build_retro_world_model(TRUE_3D, [], [], (False, 0.0, 0.0))
+
+    def test_reject_all_bools_triple(self):
+        with pytest.raises(TypeError, match="bool"):
+            _make_primitive(pos=(True, False, True))
+
+    def test_int_still_accepted(self):
+        p = _make_primitive(pos=(1, 2, 3))
+        assert p.position == (1.0, 2.0, 3.0)
+
+    def test_float_still_accepted(self):
+        p = _make_primitive(pos=(1.0, 2.0, 3.0))
+        assert p.position == (1.0, 2.0, 3.0)
+
+
+# =========================================================================
+# 20. policy_hint type rejection (PATCH 3)
+# =========================================================================
+
+
+class TestPolicyHintTypeRejection:
+    def test_reject_int_hint(self):
+        with pytest.raises(TypeError, match="policy_hint"):
+            build_retro_world_model(
+                TRUE_3D, [], [], (0, 0, 0), policy_hint=42,  # type: ignore[arg-type]
+            )
+
+    def test_reject_float_hint(self):
+        with pytest.raises(TypeError, match="policy_hint"):
+            build_retro_world_model(
+                TRUE_3D, [], [], (0, 0, 0), policy_hint=3.14,  # type: ignore[arg-type]
+            )
+
+    def test_reject_dict_hint(self):
+        with pytest.raises(TypeError, match="policy_hint"):
+            build_retro_world_model(
+                TRUE_3D, [], [], (0, 0, 0), policy_hint={},  # type: ignore[arg-type]
+            )
+
+    def test_reject_list_hint(self):
+        with pytest.raises(TypeError, match="policy_hint"):
+            build_retro_world_model(
+                TRUE_3D, [], [], (0, 0, 0), policy_hint=[],  # type: ignore[arg-type]
+            )
+
+    def test_accept_none_hint(self):
+        m = build_retro_world_model(TRUE_3D, [], [], (0, 0, 0), policy_hint=None)
+        assert m is not None
+
+    def test_accept_str_hint(self):
+        m = build_retro_world_model(
+            TRUE_3D, [], [], (0, 0, 0), policy_hint="STABLE",
+        )
+        assert m is not None

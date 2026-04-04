@@ -23,7 +23,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 
 # ---------------------------------------------------------------------------
 # Version
@@ -197,6 +197,10 @@ def _normalize_triple(raw: Any, field_name: str) -> Tuple[float, float, float]:
         )
     result = []
     for i, elem in enumerate(seq):
+        if isinstance(elem, bool):
+            raise TypeError(
+                f"{field_name}[{i}] must be int or float, got bool"
+            )
         if not isinstance(elem, (int, float)):
             raise TypeError(
                 f"{field_name}[{i}] must be int or float, "
@@ -416,8 +420,8 @@ def classify_projection(
 
     Rules:
     - PSEUDO_3D mode with sectors -> PSEUDO_DOOM
-    - TRUE_3D with no sectors and primitives -> PERSPECTIVE_3D
-    - TRUE_3D with sectors -> HYBRID_RETRO
+    - TRUE_3D with both sectors and primitives -> HYBRID_RETRO
+    - TRUE_3D with primitives only -> PERSPECTIVE_3D
     - Otherwise -> ORTHO_LIKE
     """
     if world_mode == PSEUDO_3D:
@@ -622,6 +626,12 @@ def build_retro_world_model(
         raise ValueError(
             f"world_mode must be one of {VALID_WORLD_MODES}, "
             f"got {world_mode!r}"
+        )
+
+    if policy_hint is not None and not isinstance(policy_hint, str):
+        raise TypeError(
+            f"policy_hint must be None or str, "
+            f"got {type(policy_hint).__name__}"
         )
 
     cam = _normalize_triple(camera_pose, "camera_pose")

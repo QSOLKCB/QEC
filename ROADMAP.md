@@ -216,13 +216,206 @@ Deliverables:
 
 ---
 
-## v137.1.11 → v137.1.20
+## v137.1.11 → v137.1.20 Releases
 
-Reserved for:
+## v137.1.11 — Stability Policy Lattice
 
-strict hardening only
-no architectural scope expansion
-performance + determinism upgrades only
+Inspired by agent-runtime governance, policy fences, and deterministic execution control.
+
+Focus:
+
+policy-state lattice
+runtime action constraints
+deterministic governance scoring
+
+Deliverables:
+
+- stability policy graph
+- deterministic policy violation detector
+- bounded action-risk score
+- replay-safe policy audit trail
+
+---
+
+## v137.1.12 — Quantum Route Optimization Layer
+
+Inspired by shortest-path advances and planning graph research.
+
+Focus:
+
+route planning
+state-transition shortest paths
+control-path minimization
+
+Deliverables:
+
+- deterministic shortest-path kernel
+- weighted route lattice
+- replay-safe path scheduler
+- path divergence detector
+
+This begins soft handoff preparation for `v137.2.x`.
+
+---
+
+## v137.1.13 — Memory Compression + Context Ledger
+
+Inspired by xMemory / agent context compression systems.
+
+Focus:
+
+context minimization
+memory deduplication
+stable context replay
+
+Deliverables:
+
+- canonical memory compaction
+- stable context hash-chain
+- replay-safe context snapshots
+- deterministic ledger minimization
+
+---
+
+## v137.1.14 — Phase Transition Forecast Engine
+
+Inspired by complex systems bifurcation and geometry-induced transitions.
+
+Focus:
+
+phase shifts
+bifurcation prediction
+macro-state drift warnings
+
+Deliverables:
+
+- transition probability score
+- bifurcation early-warning detector
+- attractor boundary forecast
+- deterministic phase horizon
+
+---
+
+## v137.1.15 — Quantum Noise Fidelity Observatory
+
+Inspired by modern QEC roadmap / fidelity and noise balancing research.
+
+Focus:
+
+noise balancing
+fidelity stability
+error drift observability
+
+Deliverables:
+
+- fidelity stability timeline
+- bounded noise score
+- perturbation compensation metrics
+- replay-safe noise audit
+
+Excellent bridge toward planning kernel reliability.
+
+---
+
+## v137.1.16 — Geometry & Topology Reasoning Layer
+
+Inspired by chirality, geometry, polytope, and compact manifold research.
+
+Focus:
+
+state-space geometry
+topological reasoning
+shape-aware transition control
+
+Deliverables:
+
+- polytope state map
+- topology-aware route scoring
+- attractor manifold detector
+- deterministic geometry ledger
+
+---
+
+## v137.1.17 — Analog Runtime Acceleration Layer
+
+Inspired by memristor, photonic, and analog compute research.
+
+Focus:
+
+analog runtime simulation
+accelerated state evaluation
+low-overhead convergence scoring
+
+Deliverables:
+
+- analog convergence estimator
+- photonic-style propagation model
+- deterministic acceleration benchmark
+- replay-equivalent fast path
+
+Strictly observational / simulation only.
+
+No hardware coupling yet.
+
+---
+
+## v137.1.18 — Quantum Communication Governance Layer
+
+Inspired by quantum-secure communications and distributed control systems.
+
+Focus:
+
+distributed orchestration
+secure replay identity
+inter-node governance
+
+Deliverables:
+
+- secure replay signature chain
+- deterministic node-state synchronization
+- cross-node drift provenance
+- governance trust score
+
+---
+
+## v137.1.19 — Autonomous Planning Prekernel
+
+Direct bridge release into `v137.2.x`.
+
+Focus:
+
+world-state reasoning
+route graph synthesis
+control-policy staging
+
+Deliverables:
+
+- planning graph prototype
+- deterministic policy search
+- bounded route objective function
+- replay-safe world-state snapshot
+
+This is the final architectural prekernel release.
+
+---
+
+## v137.1.20 — Canonical Kernel Handoff Release
+
+Mandatory terminal release for the `v137.1.x` line.
+
+Focus:
+
+strict hardening
+planning-kernel handoff
+performance + determinism finalization
+
+Deliverables:
+
+- full line hardening sweep
+- deterministic benchmark freeze
+- replay / provenance / advisory / observatory freeze
+- `v137.2.x` migration contract
+- planning kernel bootstrap schema
 
 This line must terminate at `v137.1.20`.
 

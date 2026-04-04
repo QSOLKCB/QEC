@@ -23,10 +23,6 @@ import pytest
 from qec.analysis.quantization_aware_decoder_observation import (
     DECODER_OBSERVATION_VERSION,
     DEFAULT_PHASE_BIN_WIDTH,
-    DRIFT_BANDS,
-    DRIFT_THRESHOLDS,
-    STABILITY_BANDS,
-    STABILITY_THRESHOLDS,
     DecoderObservationSignature,
     ObservationLedger,
     build_observation_ledger,
@@ -34,9 +30,8 @@ from qec.analysis.quantization_aware_decoder_observation import (
     observe_decoder_quantization,
 )
 from qec.analysis.cross_domain_quantization import (
-    RISK_BANDS,
-    risk_band_quantize,
     phase_space_quantize,
+    risk_band_quantize,
 )
 
 

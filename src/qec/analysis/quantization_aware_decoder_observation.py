@@ -30,7 +30,6 @@ from qec.analysis.cross_domain_quantization import (
     FLOAT_PRECISION,
     phase_space_quantize,
     risk_band_quantize,
-    _float_key,
 )
 
 
@@ -50,6 +49,15 @@ DRIFT_THRESHOLDS: Tuple[float, ...] = (0.25, 0.5, 0.75)
 
 # Default phase-space bin width
 DEFAULT_PHASE_BIN_WIDTH: float = 0.5
+
+
+# ---------------------------------------------------------------------------
+# Local deterministic formatting
+# ---------------------------------------------------------------------------
+
+def _local_float_key(v: float) -> str:
+    """Deterministic float-to-string for hashing and export."""
+    return f"{v:.{FLOAT_PRECISION}e}"
 
 
 # ---------------------------------------------------------------------------
@@ -113,8 +121,8 @@ def _hash_observation(
             "decoder_quantization_signature": decoder_quantization_signature,
             "phase_bin_index": list(phase_bin_index),
             "phase_quantized_coords": [
-                _float_key(phase_quantized_coords[0]),
-                _float_key(phase_quantized_coords[1]),
+                _local_float_key(phase_quantized_coords[0]),
+                _local_float_key(phase_quantized_coords[1]),
             ],
             "stability_band": stability_band,
             "symbolic_risk_lattice": symbolic_risk_lattice,
@@ -330,8 +338,8 @@ def export_decoder_observation_bundle(
             "decoder_quantization_signature": s.decoder_quantization_signature,
             "phase_bin_index": list(s.phase_bin_index),
             "phase_quantized_coords": [
-                _float_key(s.phase_quantized_coords[0]),
-                _float_key(s.phase_quantized_coords[1]),
+                _local_float_key(s.phase_quantized_coords[0]),
+                _local_float_key(s.phase_quantized_coords[1]),
             ],
             "stability_band": s.stability_band,
             "stable_hash": s.stable_hash,
@@ -340,8 +348,8 @@ def export_decoder_observation_bundle(
         })
     bundle = {
         "compression_metrics": {
-            "phase_bin_entropy_proxy": _float_key(ledger.phase_bin_entropy_proxy),
-            "symbolic_compression_ratio": _float_key(ledger.symbolic_compression_ratio),
+            "phase_bin_entropy_proxy": _local_float_key(ledger.phase_bin_entropy_proxy),
+            "symbolic_compression_ratio": _local_float_key(ledger.symbolic_compression_ratio),
             "unique_symbol_count": ledger.unique_symbol_count,
         },
         "signature_count": ledger.signature_count,

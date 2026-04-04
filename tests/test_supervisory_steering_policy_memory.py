@@ -16,7 +16,7 @@ Covers:
   - no decoder contamination
   - ledger construction
 
-Target: 80–100 tests.
+Target: 100–120 tests.
 """
 
 from __future__ import annotations
@@ -96,14 +96,6 @@ def _make_decision(
         stable_hash=hashlib.sha256(
             f"{action}-{drift}-{coherence}".encode()
         ).hexdigest(),
-    )
-
-
-def _make_decisions(*actions_and_drifts):
-    """Make decisions from (action, drift) pairs."""
-    return tuple(
-        _make_decision(action=a, drift=d)
-        for a, d in actions_and_drifts
     )
 
 
@@ -895,12 +887,20 @@ class TestInputValidation:
             build_supervisory_policy_memory(())
 
     def test_reject_none(self):
-        with pytest.raises(TypeError, match="must be a list or tuple"):
+        with pytest.raises(TypeError, match="must be an iterable"):
             build_supervisory_policy_memory(None)
 
     def test_reject_string(self):
-        with pytest.raises(TypeError, match="must be a list or tuple"):
+        with pytest.raises(TypeError, match="not str/bytes/dict"):
             build_supervisory_policy_memory("not a sequence")
+
+    def test_reject_bytes(self):
+        with pytest.raises(TypeError, match="not str/bytes/dict"):
+            build_supervisory_policy_memory(b"bytes")
+
+    def test_reject_dict(self):
+        with pytest.raises(TypeError, match="not str/bytes/dict"):
+            build_supervisory_policy_memory({"key": "val"})
 
     def test_reject_wrong_type_in_list(self):
         with pytest.raises(TypeError, match="must be SteeringDecision"):
@@ -911,20 +911,65 @@ class TestInputValidation:
             build_supervisory_policy_memory([_make_decision(), "bad"])
 
     def test_reject_int(self):
-        with pytest.raises(TypeError, match="must be a list or tuple"):
+        with pytest.raises(TypeError, match="must be an iterable"):
             build_supervisory_policy_memory(42)
+
+    def test_accept_generator(self):
+        gen = (
+            _make_decision(action=STEERING_HOLD) for _ in range(3)
+        )
+        state = build_supervisory_policy_memory(gen)
+        assert state.history_length == 3
+
+    def test_reject_version_mismatch(self):
+        bad = SteeringDecision(
+            horizon_count=5,
+            dominant_trend_class="STABLE_TREND",
+            steering_action=STEERING_HOLD,
+            drift_score=0.0,
+            coherence_score=0.8,
+            replay_valid=True,
+            temporal_coherence_class="HIGH_COHERENCE",
+            steering_symbolic_trace="trace",
+            stable_hash="a" * 64,
+            version="v0.0.0",
+        )
+        with pytest.raises(ValueError, match="version must be"):
+            build_supervisory_policy_memory([bad])
 
     def test_ledger_reject_empty(self):
         with pytest.raises(ValueError, match="must not be empty"):
             build_supervisory_policy_memory_ledger([])
 
     def test_ledger_reject_none(self):
-        with pytest.raises(TypeError, match="must be a list or tuple"):
+        with pytest.raises(TypeError, match="must be an iterable"):
             build_supervisory_policy_memory_ledger(None)
 
     def test_ledger_reject_wrong_type(self):
         with pytest.raises(TypeError, match="must be SteeringPolicyState"):
             build_supervisory_policy_memory_ledger(["not a state"])
+
+    def test_ledger_reject_string(self):
+        with pytest.raises(TypeError, match="not str/bytes/dict"):
+            build_supervisory_policy_memory_ledger("bad")
+
+    def test_ledger_reject_bytes(self):
+        with pytest.raises(TypeError, match="not str/bytes/dict"):
+            build_supervisory_policy_memory_ledger(b"bad")
+
+    def test_ledger_reject_dict(self):
+        with pytest.raises(TypeError, match="not str/bytes/dict"):
+            build_supervisory_policy_memory_ledger({"k": "v"})
+
+    def test_ledger_reject_int(self):
+        with pytest.raises(TypeError, match="must be an iterable"):
+            build_supervisory_policy_memory_ledger(42)
+
+    def test_ledger_accept_generator(self):
+        state = build_supervisory_policy_memory((_make_decision(),))
+        gen = (state for _ in range(2))
+        ledger = build_supervisory_policy_memory_ledger(gen)
+        assert ledger.state_count == 2
 
 
 # ---------------------------------------------------------------------------

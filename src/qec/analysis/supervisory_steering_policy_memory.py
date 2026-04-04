@@ -264,8 +264,13 @@ def _compute_hysteresis_state(
 ) -> str:
     """Derive hysteresis state from action persistence.
 
-    If the last two decisions share the same action, persist that
-    action's hysteresis state. Otherwise NEUTRAL.
+    Rules:
+      - Single decision: map action to its persistent hysteresis state.
+      - Same trailing action (last two match): persistent hysteresis state
+        (e.g. repeated DAMPEN -> PERSIST_DAMPEN,
+        repeated LOCKDOWN -> LOCKDOWN_MEMORY).
+      - Differing trailing actions + latest is LOCKDOWN: LOCKDOWN_MEMORY.
+      - Otherwise: NEUTRAL.
     """
     if len(decisions) < 2:
         return _ACTION_TO_HYSTERESIS.get(
@@ -298,8 +303,9 @@ def _classify_policy_memory(
       1. oscillation -> OSCILLATING_POLICY
       2. cooldown active -> COOLDOWN_POLICY
       3. dominant LOCKDOWN -> LOCKED_POLICY
-      4. persistent action (hysteresis not NEUTRAL) -> HYSTERETIC_POLICY
-      5. all HOLD + stable drift -> STABLE_POLICY
+      4. persistent non-HOLD action (hysteresis not NEUTRAL/PERSIST_HOLD)
+         -> HYSTERETIC_POLICY
+      5. dominant HOLD + stable drift (|drift| <= 0.1) -> STABLE_POLICY
       6. fallback -> STABLE_POLICY
     """
     if oscillation_detected:
@@ -359,9 +365,14 @@ def build_supervisory_policy_memory(
     ValueError
         If input is empty.
     """
-    if not isinstance(decisions, (list, tuple)):
+    if isinstance(decisions, (str, bytes, dict)):
         raise TypeError(
-            f"decisions must be a list or tuple, got {type(decisions).__name__}"
+            f"decisions must be an iterable (not str/bytes/dict), "
+            f"got {type(decisions).__name__}"
+        )
+    if not hasattr(decisions, "__iter__"):
+        raise TypeError(
+            f"decisions must be an iterable, got {type(decisions).__name__}"
         )
     decisions = tuple(decisions)
     if len(decisions) == 0:
@@ -371,6 +382,12 @@ def build_supervisory_policy_memory(
             raise TypeError(
                 f"decisions[{i}] must be SteeringDecision, "
                 f"got {type(d).__name__}"
+            )
+        if d.version != FORECAST_GUIDED_SUPERVISORY_STEERING_VERSION:
+            raise ValueError(
+                f"decisions[{i}].version must be "
+                f"{FORECAST_GUIDED_SUPERVISORY_STEERING_VERSION!r}, "
+                f"got {d.version!r}"
             )
 
     dominant_action = _compute_dominant_action(decisions)
@@ -447,9 +464,14 @@ def build_supervisory_policy_memory_ledger(
     ValueError
         If input is empty.
     """
-    if not isinstance(states, (list, tuple)):
+    if isinstance(states, (str, bytes, dict)):
         raise TypeError(
-            f"states must be a list or tuple, got {type(states).__name__}"
+            f"states must be an iterable (not str/bytes/dict), "
+            f"got {type(states).__name__}"
+        )
+    if not hasattr(states, "__iter__"):
+        raise TypeError(
+            f"states must be an iterable, got {type(states).__name__}"
         )
     states = tuple(states)
     if len(states) == 0:

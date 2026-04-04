@@ -517,7 +517,7 @@ class ReplaySnapshotDelta:
     def to_canonical_json(self) -> str:
         return _canonical_json(self.to_dict())
 
-    def stable_hash(self) -> str:
+    def compute_stable_hash(self) -> str:
         return _stable_hash_dict(self.to_dict())
 
 

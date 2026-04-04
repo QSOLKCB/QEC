@@ -261,9 +261,9 @@ def _compute_convergence_score(
 ) -> float:
     """Compute convergence score bounded [0, 1].
 
-    Ratio of matching field pairs to total field pairs across states.
-    For each convergence field, count how many states agree with the
-    majority value, then average across fields.
+    For each convergence field, compute the fraction of states
+    matching the majority value, then average across all
+    convergence fields.
     """
     if len(states) == 1:
         return 1.0
@@ -290,7 +290,6 @@ def _compute_convergence_score(
 
 def _determine_arbitration_decision(
     states: Tuple[TemporalAuditoryPolicyState, ...],
-    dominant_response: str,
     conflict_level: str,
     convergence_score: float,
 ) -> str:
@@ -300,8 +299,9 @@ def _determine_arbitration_decision(
     1. Multiple severe conflicts with low convergence -> LOCKDOWN
     2. Any CRITICAL_LOCK or collapse-dominant severe state -> PRIORITIZE_CRITICAL
     3. STATIC / MONITOR / STABLE dominates -> PRIORITIZE_STABLE
-    4. Mild disagreement but same response family -> MERGE
-    5. All aligned -> PASS_THROUGH
+    4. Mild disagreement (LOW / MEDIUM conflict) -> MERGE
+    5. Fully aligned (CONFLICT_NONE and perfect convergence) -> PASS_THROUGH
+    6. Fallback -> MERGE
     """
     # Rule 1: LOCKDOWN — multiple severe conflicts with low convergence
     if conflict_level in (CONFLICT_HIGH, CONFLICT_CRITICAL) and convergence_score < 0.5:
@@ -327,12 +327,16 @@ def _determine_arbitration_decision(
     if stable_count > len(states) // 2:
         return ARBITRATION_PRIORITIZE_STABLE
 
-    # Rule 4: MERGE — mild disagreement, same response family
+    # Rule 4: MERGE — mild disagreement
     if conflict_level in (CONFLICT_LOW, CONFLICT_MEDIUM):
         return ARBITRATION_MERGE
 
-    # Rule 5: PASS_THROUGH — all aligned
-    return ARBITRATION_PASS_THROUGH
+    # Rule 5: PASS_THROUGH — only for fully aligned states
+    if conflict_level == CONFLICT_NONE and convergence_score == 1.0:
+        return ARBITRATION_PASS_THROUGH
+
+    # Rule 6: safe fallback
+    return ARBITRATION_MERGE
 
 
 # ---------------------------------------------------------------------------
@@ -436,7 +440,7 @@ def arbitrate_temporal_auditory_policies(
     conflict_level = _compute_conflict_level(states)
     convergence_score = _compute_convergence_score(states)
     arbitration_decision = _determine_arbitration_decision(
-        states, dominant_response, conflict_level, convergence_score,
+        states, conflict_level, convergence_score,
     )
     consensus_hint = _derive_consensus_hint(
         arbitration_decision, dominant_response,

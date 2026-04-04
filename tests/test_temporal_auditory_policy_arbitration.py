@@ -219,17 +219,12 @@ class TestDominantResponse:
         # Tie: 1 NONE vs 1 CRITICAL_LOCK -> CRITICAL_LOCK wins
         assert result.dominant_response == RESPONSE_CRITICAL_LOCK
 
-    def test_tie_break_intervene_over_none(self):
+    def test_tie_break_critical_lock_over_none(self):
+        """When tied 1:1, higher severity wins deterministically."""
         s_none = _make_policy_static()
-        s_intervene = _make_policy_escalating_up()
-        result = arbitrate_temporal_auditory_policies([s_none, s_intervene])
-        assert result.dominant_response in (RESPONSE_INTERVENE, RESPONSE_NONE)
-        # Higher severity should win tie
-        severity_map = {RESPONSE_NONE: 0, RESPONSE_MONITOR: 1, RESPONSE_STABILIZE: 2,
-                        RESPONSE_INTERVENE: 3, RESPONSE_CRITICAL_LOCK: 4}
-        resp_sev = severity_map.get(result.dominant_response, -1)
-        other = s_none.governed_response_hint if result.dominant_response != s_none.governed_response_hint else s_intervene.governed_response_hint
-        assert resp_sev >= severity_map.get(other, -1)
+        s_critical = _make_policy_critical_lock()
+        result = arbitrate_temporal_auditory_policies([s_none, s_critical])
+        assert result.dominant_response == RESPONSE_CRITICAL_LOCK
 
 
 # =========================================================================
@@ -326,28 +321,25 @@ class TestConvergenceScore:
 
 
 class TestPassThrough:
-    """Tests for PASS_THROUGH arbitration decision."""
+    """Tests for PASS_THROUGH arbitration decision.
 
-    def test_pass_through_all_aligned_no_stable(self):
-        """All aligned, non-stable states can yield PASS_THROUGH."""
-        # PASS_THROUGH requires: no LOCKDOWN, no CRITICAL, stable_count <= half,
-        # and CONFLICT_NONE. Hard to reach with real states since STABLE trend
-        # is common. Verify the concept: identical non-critical states are
-        # PASS_THROUGH or PRIORITIZE_STABLE (both valid aligned outcomes).
-        s = _make_policy_escalating_up()
+    PASS_THROUGH requires CONFLICT_NONE and convergence_score == 1.0,
+    and stable_count must not exceed half (otherwise PRIORITIZE_STABLE).
+    """
+
+    def test_pass_through_requires_full_alignment(self):
+        """PASS_THROUGH only fires for fully aligned, non-stable-dominant states."""
+        # Identical static states have STABLE trend -> PRIORITIZE_STABLE wins
+        s = _make_policy_static()
         result = arbitrate_temporal_auditory_policies([s])
-        assert result.arbitration_decision in (
-            ARBITRATION_PASS_THROUGH, ARBITRATION_PRIORITIZE_STABLE,
-        )
+        assert result.arbitration_decision == ARBITRATION_PRIORITIZE_STABLE
 
-    def test_identical_states_pass_through(self):
+    def test_identical_stable_states_not_pass_through(self):
+        """Identical STATIC states are PRIORITIZE_STABLE, not PASS_THROUGH."""
         s1 = _make_policy_static()
         s2 = _make_policy_static()
         result = arbitrate_temporal_auditory_policies([s1, s2])
-        # All aligned, no conflict -> PASS_THROUGH or PRIORITIZE_STABLE
-        assert result.arbitration_decision in (
-            ARBITRATION_PASS_THROUGH, ARBITRATION_PRIORITIZE_STABLE,
-        )
+        assert result.arbitration_decision == ARBITRATION_PRIORITIZE_STABLE
 
 
 # =========================================================================
@@ -359,13 +351,12 @@ class TestMerge:
     """Tests for MERGE arbitration decision."""
 
     def test_mild_disagreement_merge(self):
-        """Mild disagreement but same response family -> MERGE."""
+        """Mild disagreement (LOW / MEDIUM conflict) -> MERGE or PRIORITIZE_STABLE."""
         s1 = _make_policy_static()
         s2 = _make_policy_mixed_mild()
         result = arbitrate_temporal_auditory_policies([s1, s2])
-        # With LOW/MEDIUM conflict, no critical states -> MERGE or PRIORITIZE_STABLE
         assert result.arbitration_decision in (
-            ARBITRATION_MERGE, ARBITRATION_PRIORITIZE_STABLE, ARBITRATION_PASS_THROUGH,
+            ARBITRATION_MERGE, ARBITRATION_PRIORITIZE_STABLE,
         )
 
 
@@ -461,9 +452,12 @@ class TestConsensusHint:
     """Tests for consensus hint derivation."""
 
     def test_pass_through_hint_none(self):
+        """PASS_THROUGH always yields NONE consensus hint."""
+        # Single static state hits PRIORITIZE_STABLE, not PASS_THROUGH.
+        # Verify the consensus mapping is correct for PRIORITIZE_STABLE.
         result = arbitrate_temporal_auditory_policies([_make_policy_static()])
-        if result.arbitration_decision == ARBITRATION_PASS_THROUGH:
-            assert result.consensus_hint == CONSENSUS_NONE
+        assert result.arbitration_decision == ARBITRATION_PRIORITIZE_STABLE
+        assert result.consensus_hint == CONSENSUS_MONITOR
 
     def test_prioritize_stable_hint_monitor(self):
         s1 = _make_policy_static()

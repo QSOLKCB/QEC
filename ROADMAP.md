@@ -1,266 +1,236 @@
-# QSOL QEC — Canonical Engineering Roadmap
+# QSOL QEC — Canonical Forward Engineering Roadmap
 
-## Branch: v137 Canonical Line
+Branch: v137 canonical deterministic architecture line  
+Current Canonical Tip: `v137.1.2`  
+Next Planned Release: `v137.1.3`
 
-Conceptual Branch: v137 deterministic architecture line
+This roadmap supersedes all prior historical release-path clutter.
 
-Historical branch anchor: `v137.0.0`
+Completed releases are archived as milestone anchors only.
 
-**Current Canonical Tip:** `v137.0.15`
-**Next Planned Release:** `v137.0.16`
+This document now tracks ONLY:
 
-This roadmap supersedes all prior v136 and early v137 planning.
-
-The **v137 line remains the canonical architecture**.
-
-The active priority path is now the **Retro Physics Multimodal Subsystem Arc** through `v137.1.0`.
-
-After `v137.1.0`, development returns to the canonical roadmap continuation.
+- active forward engineering
+- near-term release path
+- major milestone arcs
+- durable engineering law
 
 ---
 
-# CURRENT CANONICAL STACK
+# CURRENT CANONICAL STATE
 
-The QEC system is now formally defined as a deterministic supervisory intelligence + multimodal physics stack.
+The system has now completed the deterministic replay-audit orchestrator line.
 
-Core branch law:
+Completed milestone:
 
-```text
-continuous system state
-→ quantized symbolic state
-→ observability
-→ temporal supervisory memory
-→ steering control
-→ policy memory
-→ stable replay identity
+v137.1.0 — Unified Physics-Simulation Orchestrator  
+v137.1.1 — Replay + Edge Hardening  
+v137.1.2 — Cross-Module Replay Integrity + Drift Audit
+
+The system is now formally elevated from:
+
+decoder + supervisory intelligence
+
+to
+
+full deterministic orchestration runtime.
+
+Canonical stack:
+
+continuous state
+→ symbolic quantization
+→ topology
+→ supervision
+→ temporal memory
 → world substrate
-→ spectral topology
 → simulation runtime
-→ unified orchestration
+→ multimodal synchronization
+→ replay audit
+→ drift governance
+→ deterministic orchestration
 
-This law is invariant.
+This stack is invariant.
 
-All future releases must preserve this stack.
+---
 
-MASTER ARCHITECTURE LAW
-Physics = observability substrate
-Quantization = symbolic lattice
-Topology = structural substrate
-Governance = temporal control law
-Memory = supervisory continuity
-Replay = stable identity chain
-World = simulation substrate
-AI = deterministic orchestration layer
-Audio = spectral symbolic substrate
-Video = multimodal simulation substrate
+# ACTIVE RELEASE ARC — v137.1.x CLEAN HARDENING LINE
 
-This is no longer only a decoder project.
-
-This is now a deterministic governed intelligence stack
-whose primary operational substrate is quantum error correction.
-
-COMPLETED SUPERVISORY STACK ARC
-v137.0.1 — Quantization-Aware Decoder Observation
-
-Completed
-
-v137.0.2 — Decoder Topology Discovery
-
-Completed
-
-v137.0.3 — Closed-Loop Auditory + Phase Control
-
-Completed
-
-v137.0.4 — Temporal Auditory Sequence Analysis
-
-Completed
-
-v137.0.5 — Temporal Auditory Policy Memory
-
-Completed
-
-v137.0.6 — Temporal Auditory Policy Arbitration
-
-Completed
-
-v137.0.7 — Quantization-Aware Forecast Compression
-
-Completed
-
-v137.0.8 — Forecast-Guided Supervisory Steering
-
-Completed
-
-v137.0.9 — Supervisory Steering Policy Memory
-
-Completed
-
-This completed the first supervisory control arc.
-
-COMPLETED RETRO / PHYSICS SUBSYSTEM ARC
-v137.0.10 — Retro 3D World Modelling
-
-Completed
-
-Deterministic world primitives + sector substrate.
-
-v137.0.11 — Retro Camera + Projection Pipeline
-
-Completed
-
-Replay-safe camera state + visibility abstraction.
-
-v137.0.12 — Retro Lighting + Shading Model
-
-Completed
-
-Sector lighting + palette + depth shading.
-
-v137.0.13 — φ-Shell Rasterization Pipeline
-
-Completed
-
-Theory-coupled φ-shell scanline lattice.
-
-Absorbed:
-
-phi shell progression
-UFF restore operator
-E8 visibility mapping
-v137.0.14 — E8 Triality Traversal + Path Mesh
-
-Completed
-
-Deterministic traversal graph + ouroboros loopback topology.
-
-Absorbed:
-
-E8 triality topology
-phi-weighted path distance
-bounded cyclic return
-v137.0.15 — Spectral Mesh Resonance Audit
-
-Completed
-
-Audio → spectral topology → invariant audit.
-
-Absorbed:
-
-phi resonance lock
-mod-5 triality recurrence
-SID / SIS style spectral metrics
-MP3 real-fixture deterministic audit
-
-This completes the retro + spectral bridge layer.
-
-ACTIVE PRIORITY ARC — MULTIMODAL PHYSICS RUNTIME
-
-This is now the active release path through v137.1.0.
+This arc remains active through `v137.1.20`.
 
 Purpose:
 
-unify audio, image, video, simulation, and topology into a deterministic runtime kernel.
+stabilize orchestrator runtime
+eliminate audit blind spots
+strengthen deterministic guarantees
+prepare autonomous planning kernel handoff
 
-This arc intentionally channels:
+---
 
-DOS demoscene
-Impulse Tracker
-SGI / Amiga retro graphics
-physics-aware simulation
-replay-safe orchestration
-v137.0.16 — Physics-Aware Music Video Composition Engine
-audio + image + physics invariants
-→ deterministic scene timeline
-→ frame-state ledger
-→ video composition artifact
+## v137.1.3 — Replay Artifact Compression Layer
 
 Focus:
 
-MP3 + MP4 spectral alignment
-JPG scene cue extraction
-beat → simulation tick mapping
-φ-shell timing
-E8 transition mesh
-demo-scene style timeline orchestration
-v137.0.17 — Demoscene Physics Simulation Core
-scene timeline
-→ particle field evolution
-→ resonance wave propagation
-→ mesh trajectory states
-→ replay-safe simulation field
+replay snapshot compaction
+hash-chain compression
+stable artifact deduplication
+canonical export minimization
+
+Deliverables:
+
+- deterministic snapshot delta encoding
+- compressed replay bundle format
+- invariant-preserving export schema
+- byte-identical decompression guarantee
+
+---
+
+## v137.1.4 — Drift Provenance Engine
 
 Focus:
 
-deterministic particles
-shell expansion rings
-field propagation
-loopback recurrence motion
-v137.0.18 — Multi-Modal Theory Synchronization
-audio
-+ image
-+ video
-+ simulation
-→ master phase clock
-→ synchronized theory state
+drift source attribution
+module-level mismatch tracing
+hash divergence provenance
+
+Deliverables:
+
+- composition drift source mapping
+- simulation drift decomposition
+- sync-layer mismatch attribution
+- per-cycle provenance report
+
+---
+
+## v137.1.5 — Autonomous Repair Suggestions
 
 Focus:
 
-master phase wheel
-global sync tick
-theory-aligned timing lattice
-v137.0.19 — Physics Narrative Sequencer
-scene A
-→ scene B
-→ scene C
-→ causal physics transitions
+deterministic repair hints
+drift remediation planning
+safe replay correction proposals
+
+Deliverables:
+
+- root-cause heuristic engine
+- deterministic patch suggestions
+- invariant-preserving repair guidance
+
+Strictly advisory only.
+
+No self-modifying code.
+
+---
+
+## v137.1.6 — Runtime Stability Observatory
 
 Focus:
 
-chapter transitions
-deterministic narrative frames
-simulation chapter state
-v137.0.20 — Retro Theory Runtime Kernel
-world
-+ camera
-+ lighting
-+ traversal
-+ spectral audit
-+ video timeline
-+ simulation
-→ runtime kernel
+long-run soak diagnostics
+cycle stability analytics
+multi-run convergence audit
 
-This completes the active multimedia subsystem.
+Deliverables:
 
-NEXT MAJOR MILESTONE
-v137.1.0 — Unified Physics-Simulation Orchestrator
+- 1000-cycle soak harness
+- long-run drift score stability
+- replay entropy metrics
+- convergence score timeline
 
-This is the milestone release.
+Inspired by complex systems + system observability literature.
 
-supervisory stack
-+ retro subsystem
-+ spectral runtime
-+ simulation kernel
-= unified orchestrator
+---
 
-Single entry point for:
+## v137.1.7 — Agent Governance Fence
 
-observation
-compression
-steering
-memory
-world
-spectral analysis
-video
-simulation
+Absorbing ideas from:
+AI governance toolkit
+agent runtime security
+policy enforcement layers :contentReference[oaicite:2]{index=2}
 
-This becomes the first full-stack deterministic runtime orchestrator.
+Focus:
 
-POST-MILESTONE RETURN TO CANONICAL ROADMAP
+AI runtime safety law
+execution boundary policy
+tool invocation governance
 
-After v137.1.0, resume canonical roadmap continuation.
+Deliverables:
 
-v137.2.x — Autonomous Planning Kernel
+- policy lattice
+- action permission graph
+- deterministic agent state law
+- replay-safe governance hooks
+
+---
+
+## v137.1.8 — Quantum Noise Balancing Layer
+
+Inspired by quantum-noise choreography and fidelity research :contentReference[oaicite:3]{index=3} :contentReference[oaicite:4]{index=4}
+
+Focus:
+
+noise-aware control correction
+simulation perturbation balance
+quantum-style stability scoring
+
+Deliverables:
+
+- bounded perturbation metrics
+- noise compensation model
+- fidelity stability score
+
+---
+
+## v137.1.9 — Complex Systems Phase Engine
+
+Inspired by complex systems modeling text :contentReference[oaicite:5]{index=5}
+
+Focus:
+
+phase transitions
+system bifurcation analysis
+macro-state transitions
+
+Deliverables:
+
+- phase-state detector
+- bifurcation warning score
+- attractor transition graph
+
+---
+
+## v137.1.10 — Coding Agent Execution Kernel
+
+Absorbing coding-agent architecture research :contentReference[oaicite:6]{index=6}
+
+Focus:
+
+tool planning
+execution graph
+bounded agent workflow runtime
+
+Deliverables:
+
+- task graph planner
+- deterministic execution scheduler
+- replay-safe command history
+
+---
+
+## v137.1.11 → v137.1.20
+
+Reserved for:
+
+strict hardening only
+no architectural scope expansion
+performance + determinism upgrades only
+
+This line must terminate at `v137.1.20`.
+
+---
+
+# FUTURE CANONICAL ARC (KEEP EXACTLY AS REQUESTED)
+
+## v137.2.x — Autonomous Planning Kernel
 
 Focus:
 
@@ -268,104 +238,19 @@ route planning
 world reasoning
 control-policy synthesis
 multi-layer orchestration
-v138.x — Deterministic NLP Governance Layer
+
+---
+
+## v138.x — Deterministic NLP Governance Layer
+
 natural language
 → intent lattice
 → canonical state schema
 → governed engine
 → replay-safe output
----
-
-# Release Hardening Scope Fence
-
-## SCOPE FENCE (mandatory)
-
-AI-assisted hardening passes are **strictly scoped** to the current release boundary.
-
-This law prevents hardening drift — the failure mode where repository-wide test runs
-cause AI agents to expand into unrelated historical tests, legacy modules, and prior
-release files.
-
-### AI-assisted hardening passes may ONLY modify:
-
-1. Files explicitly created or changed in the current release
-2. Direct dependency files required for the current release to function
-3. Tests directly targeting modules introduced or modified in the current release
-
-### AI-assisted hardening passes MUST NOT modify:
-
-* Historical tests unrelated to the current release
-* Prior release modules
-* Legacy scripts
-* Unrelated CI or pytest failures
-* Older bench, simulation, or experiment files
-* Any file outside the current release's dependency cone
-
-### Unrelated failure handling
-
-If repository-wide pytest surfaces failures outside the current release scope:
-
-* **Report** the failures explicitly
-* **Do NOT repair** them during the hardening pass
-* Repairs are permitted only if the failure is **directly caused** by the current release
-
-### Dedicated follow-up requirement
-
-Repository-wide pytest failures outside current release scope must be:
-
-* Logged as a separate concern
-* Resolved in a **dedicated follow-up pass**
-* Never conflated with release hardening work
-
-This fence is **durable engineering law**, not a temporary guideline.
-
-Violation of scope fence constitutes an invalid hardening pass.
 
 ---
 
-## Engineering Notes — v137.0.19
+# RELEASE HARDENING SCOPE FENCE
 
-### Workflow Latency Reduction
-
-* Eliminated repeated dead-end PDF render attempts during theory ingestion
-* Canonical ingestion priority is: 1. Use `ROADMAP.md` first 2. Use existing Layer 4 modules second 3. Use `papers/*.md` when available 4. Use `papers/*.pdf` only when explicitly required
-* Missing `pdftoppm` is classified as environment-only, not repository failure
-
-### PDF Ingestion Optimization
-
-* Canonical ingestion priority is: 1. Use `ROADMAP.md` first 2. Use existing Layer 4 modules second 3. Use `papers/*.md` when available 4. Use `papers/*.pdf` only when explicitly required
-* `papers/*.pdf` is attempted only when explicitly required
-* Failed PDF toolchain paths are not retried
-* Durable rules added to `CLAUDE.md` (§13A) and `IMPLEMENTATION_RULES.md` (§20)
-
----
-
-CANONICAL PRINCIPLES
-Determinism is architecture
-
-Same input = same bytes
-
-Decoder core is sacred
-
-Never modify:
-
-src/qec/decoder/
-
-unless explicitly required.
-
-Layering is law
-
-Lower layers never import higher layers.
-
-Replay identity is mandatory
-
-Canonical JSON + SHA-256 stable hashes
-
-Theory coupling is mandatory
-
-Every release must absorb at least one executable construct from /papers
-
-Conversation is interface
-
-State is truth
-Determinism is law
+[KEEP EXACTLY AS CURRENT]

@@ -2,8 +2,8 @@
 
 ## Branch: v137 Canonical Line
 
-**Current Canonical Tip:** `v137.0.9`
-**Next Planned Release:** `v137.0.10`
+**Current Canonical Tip:** `v137.0.11`
+**Next Planned Release:** `v137.0.12`
 
 This roadmap supersedes all prior v136 and early v137 planning.
 

@@ -28,10 +28,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 
 from qec.analysis.retro_3d_world_modelling import (
-    HYBRID_RETRO,
-    PERSPECTIVE_3D,
     PSEUDO_3D,
-    PSEUDO_DOOM,
     TRUE_3D,
     RetroWorldModel,
 )
@@ -315,7 +312,6 @@ def _compute_ledger_hash(
 
 def classify_projection_mode(
     world_mode: str,
-    projection_class: str,
     sector_count: int,
     primitive_count: int,
 ) -> str:
@@ -432,11 +428,11 @@ def compute_visible_sector_count(
 
     Simple bounded rules:
     - base = sector_count
-    - fov_factor = fov_degrees / 360.0 (fraction of full view)
+    - fov_factor = min(fov_degrees / 90.0, 1.0)
     - depth_range = far_plane - near_plane
-    - if depth_range < 10.0: reduce by half
-    - scale by fov_factor
-    - clamp to [0, sector_count]
+    - if depth_range < 10.0: effective = sector_count * 0.5
+    - visible = effective * fov_factor
+    - clamp to [1, sector_count] (0 only if sector_count == 0)
     """
     if sector_count == 0:
         return 0
@@ -629,7 +625,6 @@ def build_retro_camera_projection(
     # Classify projection mode from world model
     projection_mode = classify_projection_mode(
         world_model.world_mode,
-        world_model.projection_class,
         world_model.sector_count,
         world_model.primitive_count,
     )

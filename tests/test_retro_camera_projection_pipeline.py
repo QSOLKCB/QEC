@@ -10,9 +10,7 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
-import sys
 from dataclasses import FrozenInstanceError
 from typing import Any
 
@@ -42,9 +40,6 @@ from qec.analysis.retro_camera_projection_pipeline import (
     TILTED_HORIZON,
     TRACKING_CAMERA,
     RetroCameraProjectionDecision,
-    RetroCameraProjectionLedger,
-    RetroCameraState,
-    RetroProjectionSpan,
     build_projection_spans,
     build_projection_symbolic_trace,
     build_retro_camera_projection,
@@ -296,10 +291,10 @@ class TestProjectionModeClassification:
         assert d.projection_mode == ORTHOGRAPHIC_RETRO
 
     def test_classify_projection_mode_direct(self) -> None:
-        assert classify_projection_mode("PSEUDO_3D", "PSEUDO_DOOM", 3, 0) == PSEUDO_DOOM_VIEW
-        assert classify_projection_mode("TRUE_3D", "PERSPECTIVE_3D", 0, 5) == PERSPECTIVE_RETRO
-        assert classify_projection_mode("TRUE_3D", "HYBRID_RETRO", 2, 3) == HYBRID_CAMERA
-        assert classify_projection_mode("TRUE_3D", "ORTHO_LIKE", 0, 0) == ORTHOGRAPHIC_RETRO
+        assert classify_projection_mode("PSEUDO_3D", 3, 0) == PSEUDO_DOOM_VIEW
+        assert classify_projection_mode("TRUE_3D", 0, 5) == PERSPECTIVE_RETRO
+        assert classify_projection_mode("TRUE_3D", 2, 3) == HYBRID_CAMERA
+        assert classify_projection_mode("TRUE_3D", 0, 0) == ORTHOGRAPHIC_RETRO
 
 
 # ===================================================================
@@ -771,14 +766,16 @@ class TestNoDecoderContamination:
 
     def test_no_decoder_import(self) -> None:
         import qec.analysis.retro_camera_projection_pipeline as mod
-        source = open(mod.__file__).read()
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
         assert "from qec.decoder" not in source
         assert "import qec.decoder" not in source
 
     def test_no_decoder_in_imports(self) -> None:
         """Verify no decoder imports exist in the module source."""
         import qec.analysis.retro_camera_projection_pipeline as mod
-        source = open(mod.__file__).read()
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
         lines = source.splitlines()
         for line in lines:
             stripped = line.strip()
@@ -972,3 +969,50 @@ class TestLedger:
         l1 = build_retro_camera_projection_ledger([d1, d2])
         l2 = build_retro_camera_projection_ledger([d2, d1])
         assert l1.stable_hash != l2.stable_hash
+
+
+# ===================================================================
+# 22. Finalization hardening — v137.0.11 pre-tag
+# ===================================================================
+
+
+class TestFinalizationHardening:
+    """Pre-tag semantic hardening tests."""
+
+    def test_classify_projection_mode_no_projection_class_param(self) -> None:
+        """classify_projection_mode takes 3 args: world_mode, sector_count,
+        primitive_count. No projection_class parameter."""
+        import inspect
+        sig = inspect.signature(classify_projection_mode)
+        params = list(sig.parameters.keys())
+        assert params == ["world_mode", "sector_count", "primitive_count"]
+
+    def test_classify_projection_mode_pseudo_3d_ignores_counts(self) -> None:
+        """PSEUDO_3D always yields PSEUDO_DOOM_VIEW regardless of counts."""
+        assert classify_projection_mode("PSEUDO_3D", 0, 0) == PSEUDO_DOOM_VIEW
+        assert classify_projection_mode("PSEUDO_3D", 5, 5) == PSEUDO_DOOM_VIEW
+
+    def test_visible_sector_fov_factor_uses_90(self) -> None:
+        """fov_factor = min(fov / 90, 1.0), so fov=90 gives factor 1.0."""
+        # With fov=90, large depth range, all sectors visible
+        assert compute_visible_sector_count(5, 90.0, 0.1, 100.0) == 5
+
+    def test_visible_sector_fov_over_90_capped(self) -> None:
+        """fov > 90 still caps factor at 1.0."""
+        v90 = compute_visible_sector_count(5, 90.0, 0.1, 100.0)
+        v180 = compute_visible_sector_count(5, 180.0, 0.1, 100.0)
+        assert v90 == v180
+
+    def test_visible_sector_minimum_is_one(self) -> None:
+        """Non-zero sector count always yields at least 1 visible."""
+        assert compute_visible_sector_count(1, 1.0, 0.1, 100.0) >= 1
+        assert compute_visible_sector_count(10, 1.0, 0.1, 5.0) >= 1
+
+    def test_roadmap_version_metadata(self) -> None:
+        """ROADMAP.md reflects v137.0.11 as current tip."""
+        import pathlib
+        roadmap = pathlib.Path(__file__).resolve().parent.parent / "ROADMAP.md"
+        if roadmap.exists():
+            text = roadmap.read_text(encoding="utf-8")
+            assert "v137.0.11" in text
+            assert "v137.0.12" in text

@@ -7,6 +7,14 @@ Deterministic Layer-4 unified orchestrator joining:
 
 Core law:
 same input -> same bytes
+"""v137.1.0 — Unified Physics-Simulation Orchestrator.
+
+Layer-4 deterministic orchestration law:
+composition
++ simulation
++ synchronization
++ symbolic memory trace
+= unified deterministic orchestrator
 """
 
 from __future__ import annotations
@@ -85,6 +93,9 @@ class UnifiedPhysicsSimulationLedger:
             "frames": [dict(x) for x in self.frames],
             "states": [dict(x) for x in self.states],
             "sync_rows": [dict(x) for x in self.sync_rows],
+            "states": [s.to_dict() for s in self.states],
+            "decisions": [d.to_dict() for d in self.decisions],
+            "trace_frames": [t.to_dict() for t in self.trace_frames],
             "invariant_scores": dict(self.invariant_scores),
             "symbolic_trace": self.symbolic_trace,
             "stable_hash": self.stable_hash,

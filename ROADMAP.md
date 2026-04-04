@@ -1,164 +1,20 @@
-# QSOL QEC — Canonical Roadmap
-## Branch: v137.0.0+ (Current Canonical Line)
+# QSOL QEC — Canonical Engineering Roadmap
+## Branch: v137 Canonical Line
 
-**Program Theme:**  
-Deterministic governed control + cross-domain symbolic quantization architecture.
+**Current Canonical Tip:** `v137.0.2`
+**Next Planned Release:** `v137.0.3`
 
-This roadmap supersedes all prior v136 branch planning.
+This roadmap supersedes all prior v136 and pre-branch planning.
 
-The v136 detour is now canonical architecture.
-
-The system has evolved into a:
-
-- physics-aware control stack
-- supervisory governance engine
-- cross-domain quantization substrate
-- replay-stable analytical kernel
-
-The core law is now:
-
-> **continuous state → quantized symbolic state → governed control action**
-
----
-
-# MASTER ARCHITECTURE LAW
-
-```text
-Movement = controller training substrate
-Audio = topology + quantization substrate
-QEC = primary operational substrate
-AI = deterministic orchestrator
-Physics = observability substrate
-Quantization = shared symbolic lattice
-Governance = temporal supervisory memory
-```
-
-This is no longer merely QEC orchestration.
-
-This is now:
-
-**a deterministic governed intelligence architecture whose primary operational capability is quantum error correction**
+The v137 line is now the canonical architecture.
 
 ---
 
 # CURRENT CANONICAL STACK
 
-```text
-phase-space observability
-→ forecast risk
-→ adaptive steering
-→ policy memory
-→ governed output
-→ cross-domain quantization
-→ conceptual branch state
-```
+The QEC system is now formally defined as a deterministic, decoder-safe, replay-stable control architecture.
 
----
-
-# COMPLETED CANONICAL RELEASE LINE
-
-## v136.9.x — Closed-Loop Physics-Aware Control Stack
-
-### v136.9.0 — Phase-Space Decoder Steering
-Completed
-
-- phase centroid routing
-- negative mass steering
-- rollback weighting
-- escalation steering
-- deterministic routing ledger
-
----
-
-### v136.9.1 — Spectral Attractor Forecasting
-Completed
-
-- collapse-risk prediction
-- basin switch warning
-- pre-collapse signatures
-- deterministic recovery suggestion
-
----
-
-### v136.9.2 — Forecast-Guided Adaptive Steering
-Completed
-
-- proactive rollback modulation
-- route preemption
-- forecast-driven escalation
-- recovery suggestion routing
-
----
-
-### v136.9.3 — Adaptive Steering Policy Memory
-Completed
-
-- hysteresis governance
-- oscillation suppression
-- timeout escalation
-- temporal route memory
-
----
-
-### v136.9.4 — Governed Steering Integration
-Completed
-
-- raw + governed bundle
-- compositional hash chain
-- policy-state export
-- replay-safe integrated control
-
----
-
-## v136.10.0 — Cross-Domain Quantization Framework
-Completed
-
-Unified symbolic discretization law across:
-
-- audio DSP
-- AI weights
-- risk bands
-- phase-space
-- control states
-
-### Core Law
-
-```text
-continuous → quantized lattice → symbolic state
-```
-
-Implemented:
-
-- sample-rate quantization
-- bit-depth / bitcrusher quantization
-- INT8 / INT4 weight quantization
-- risk-band quantization
-- phase-space binning
-- stable quantization ledger
-
-This is now canonical mathematical infrastructure.
-
----
-
-# CURRENT CANONICAL TIP
-
-## **v137.0.0 — Conceptual Branch Epoch**
-Current canonical release.
-
-This release formalizes the new architectural identity:
-
-> **governed + quantized + replay-safe control architecture**
-
-Implemented:
-
-- `ConceptualBranchState` — frozen branch-era state descriptor
-- `ConceptualBranchLedger` — immutable ordered state ledger
-- `unify_control_and_quantization()` — primary integration function
-- `export_conceptual_branch_bundle()` — canonical JSON-safe state export
-- `build_branch_ledger()` — deterministic ledger construction
-- compositional replay hash chain (governed + quantization + policy hashes)
-
-Core conceptual law:
+Core branch law:
 
 ```text
 continuous system state
@@ -166,127 +22,341 @@ continuous system state
 → governed control action
 → temporal supervisory memory
 → stable replay identity
-```
 
-Module: `src/qec/analysis/conceptual_branch_v137.py`
+This law is invariant.
 
-This is the current canonical line.
+All future releases must preserve this stack.
 
-All future roadmap work must build from this branch identity.
+MASTER ARCHITECTURE LAW
+Physics = observability substrate
+Quantization = shared symbolic lattice
+Topology = structural substrate
+Governance = temporal control law
+Memory = supervisory continuity
+Replay = stable identity chain
+QEC = operational substrate
+AI = deterministic orchestration layer
+Audio = secondary symbolic substrate
 
----
+This is no longer only a decoder project.
 
-# NEXT RELEASE HORIZON
+This is now a deterministic governed intelligence stack whose primary operational substrate is quantum error correction.
 
-## v137.0.x — Return to Original Control Roadmap
+COMPLETED CANONICAL RELEASE LINE
+v136.9.x — Closed-Loop Physics-Aware Control Stack
 
-We now return to the original roadmap using the new branch architecture.
+Completed
 
-The v137 branch is now in **stabilization + expansion cadence**.
+Established the governed control loop.
 
-Post-epoch releases will proceed under the `v137.0.x` line unless a major subsystem shift justifies a new minor boundary.
+Completed milestones
+phase-space steering
+spectral attractor forecasting
+forecast-guided adaptive steering
+policy memory
+governed steering integration
 
----
+Core control law:
 
-## v137.0.1 — Quantization-Aware Decoder Observation
+observe
+→ forecast
+→ steer
+→ govern
+→ replay
+v136.10.0 — Cross-Domain Quantization Framework
+
+Completed
+
+Unified quantization as shared symbolic infrastructure across:
+
+audio DSP
+AI weights
+risk bands
+phase-space bins
+control states
+
+Core law:
+
+continuous → quantized lattice → symbolic state
+
+Implemented:
+
+bit-depth quantization
+sample-rate quantization
+INT8 / INT4 symbolic compression
+risk-band quantization
+phase-space binning
+deterministic quantization ledgers
+
+This remains canonical mathematical infrastructure.
+
+v137.0.0 — Conceptual Branch Epoch
+
+Completed
+
+Established branch-era identity.
+
+Implemented:
+
+ConceptualBranchState
+ConceptualBranchLedger
+compositional replay hash chain
+governed + quantized unified branch state
+
+Core branch law formalized:
+
+continuous
+→ quantized
+→ governed
+→ memory
+→ replay identity
+
+This is the major architectural epoch.
+
+v137.0.1 — Quantization-Aware Decoder Observation
+
+Completed
+
 Read-only diagnostic layer.
 
-Use quantization vocabulary as a decoder observability lens.
+Converts decoder observables into symbolic quantized signatures.
 
-### Inputs
-- decoder state
-- syndrome drift
-- phase-space state
-- risk score
+Implemented:
 
-### Outputs
-- symbolic risk lattice
-- decoder quantization signature
-- observability compression metrics
+symbolic risk lattice
+syndrome drift banding
+phase-space symbolic signatures
+observability compression metrics
+stable observation ledgers
 
-This bridges **v136.10.0** directly into operational QEC diagnostics.
+Strict Layer 4 additive diagnostics.
 
----
+Decoder untouched.
 
-## v137.0.2 — Decoder Topology Discovery  
-Recovered from the original roadmap.
+v137.0.2 — Decoder Topology Discovery
 
-Former `v136.9.x` planned milestone.
+Completed
 
-### Inputs
-- code zoo
-- portfolio registry
-- quantized risk state
-- cognition similarity
+Introduced deterministic topology recommendation engine.
 
-### Outputs
-- decoder-family route
-- topology pairing score
-- recovery topology suggestions
+Implemented:
 
-This restores the original discovery roadmap under the new branch architecture.
+topology pairing scores
+decoder-family route suggestions
+recovery topology recommendations
+stable candidate ordering
+deterministic export + replay identity
 
----
+This is now the topology intelligence anchor for the branch line.
 
-## v137.0.3 — Closed-Loop Auditory + Phase Control
-Recovered original roadmap milestone.
+ACTIVE RELEASE HORIZON
+v137.0.3 — Closed-Loop Auditory + Phase Control
 
-This now becomes:
+Next release
 
-```text
-hear instability
-→ quantize instability
-→ observe instability
-→ route recovery
-→ govern route memory
-```
+This release operationalizes audio as a secondary observability substrate.
 
-This release is significantly strengthened by the quantization branch.
+Core law:
 
----
+phase instability
+→ sonification signature
+→ audio quantization
+→ symbolic instability trace
+→ governed recovery memory
 
-## v137.0.4 — Quantization-Aware Forecast Compression
-New branch-era release.
+Focus:
 
-Compress long-horizon forecast states into symbolic risk sequences.
+phase-space sonification
+deterministic instability audio signatures
+bit-depth symbolic compression
+audio topology fingerprints
+replay-stable sonic ledgers
 
-Example:
+This is strictly observational.
 
-```text
+No decoder mutation.
+
+v137.0.4 — Quantization-Aware Forecast Compression
+
+Compress long-horizon forecast trajectories into symbolic sequences.
+
+Examples:
+
 LOW → WATCH → WARNING → CRITICAL
-```
 
-### Use cases
-- drift forecasting
-- policy-memory summaries
-- experiment harness sweeps
-- observability compression
+Outputs:
 
----
+symbolic risk sequences
+entropy proxies
+forecast compression ratio
+degradation bounds
+replay-linked forecast chains
 
-# LONGER-TERM HORIZON
+Use cases:
 
-## v138.x — Autonomous Quantized Observatory Kernel
+long-horizon drift summaries
+memory compression
+experiment harness sweeps
+governance summaries
+v137.0.5 — Below-Threshold Mitigation Modeling Layer
 
-Future branch line.
+Introduce deterministic pre-correction mitigation modeling.
 
-### Focus
-- governed decoder discovery
-- symbolic risk compression
-- autonomous topology planning
-- replay-stable experiment memory
-- multi-cycle observability compression
+Focus:
 
-Still deterministic.  
-Still governed.  
-Still decoder-safe.
+photonic distillation
+error reduction before correction
+noise shaping transforms
+mitigation route selection
 
----
+Core law:
 
-# CANONICAL PRINCIPLE
+noise in
+→ mitigation transform
+→ effective noise state
+→ decoder-safe output
 
-Determinism is architecture  
-Decoder core is sacred  
-Quantization is shared symbolic language  
-Governance is temporal law  
+Inspired by current photonic below-threshold work.
+
+v137.0.6 — Resource-Efficient Fault Tolerance Budgeting
+
+Introduce explicit symbolic resource-state kernel.
+
+Outputs:
+
+physical qubit budget
+latency budget
+memory overhead
+decoder throughput cost
+logical error envelope
+
+This becomes part of governed action space.
+
+v137.0.7 — Bosonic and Cat-State Noise Pack
+
+Introduce first-class bosonic noise support.
+
+Includes:
+
+photon loss
+dephasing
+cat-state bias channels
+finite-energy effects
+GKP / bosonic symbolic signatures
+
+This strengthens phase-space branch identity.
+
+v137.0.8 — Network-Aware QEC Observability
+
+Introduce distributed network telemetry layer.
+
+Outputs:
+
+noisy-fibre state
+path-phase jitter
+distributed latency state
+synchronization risk symbols
+
+This prepares distributed QEC observability.
+
+v137.0.9 — Bottleneck-Avoiding Recovery Trajectories
+
+Introduce deterministic bottleneck avoidance.
+
+Inspired by Mpemba-style fast relaxation.
+
+Focus:
+
+metastability escape
+fast-basin recovery
+trajectory acceleration
+symbolic bottleneck scoring
+v137.0.10 — Gauge / Subsystem Topology Integration
+
+Extend topology discovery into gauge-aware systems.
+
+Includes:
+
+subsystem codes
+gauge fixing
+sequence legality
+single-shot measurement topology
+MEDIUM-TERM RESEARCH HORIZON
+v137.1.x — Synthetic + Higher-Dimensional Topology Line
+
+Focus:
+
+synthetic dimensions
+3D / 4D geometry
+topological gauge synthesis
+product-code embeddings
+dimensional symbolic tokens
+v137.2.x — Distributed Autonomous Planning
+
+Focus:
+
+latency contracts
+distributed co-processor scheduling
+multi-node topology routing
+logical resource planning
+provenance graph identity
+LONG-TERM AUTONOMOUS KERNEL
+v138.x — Autonomous Quantized Observatory Kernel
+
+Platform-kernel horizon.
+
+Focus:
+
+governed observability ABI
+modular channel plugins
+topology plugins
+mitigation plugins
+network plugins
+v139.x — Autonomous Supervisor Kernel
+
+Final systems horizon.
+
+Focus:
+
+deterministic fixed-point planning
+mitigation + topology co-design
+provenance graph replay identity
+formal supervisory legality
+proof-carrying governance
+CANONICAL PRINCIPLES
+
+These are invariant.
+
+Determinism is architecture
+
+Identical inputs must yield identical outputs and byte-identical artifacts.
+
+No hidden randomness.
+
+Decoder core is sacred
+
+No control logic inside:
+
+src/qec/decoder/
+
+All intelligence remains boundary-side.
+
+Layering is law
+
+Lower layers never import higher layers.
+
+Quantization is shared symbolic language
+
+Continuous state is never governed directly.
+
+All control acts on quantized symbolic state.
+
+Governance is temporal law
+
+All actions must be legality-checked, cycle-safe, and memory-aware.
+
 Replay identity is mandatory
+
+All artifacts must remain canonical JSON + stable hash linked.
+
+This is non-negotiable.

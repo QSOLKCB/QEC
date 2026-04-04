@@ -84,25 +84,19 @@ def test_cross_module_hashes_constant_across_cycles():
 
 
 @pytest.mark.parametrize(
-    "mutator",
-    [
-        lambda a: {**a, "composition_stable_hash": "x" + a["composition_stable_hash"][1:]},
-        lambda a: {**a, "simulation_stable_hash": "x" + a["simulation_stable_hash"][1:]},
-        lambda a: {**a, "sync_stable_hash": "x" + a["sync_stable_hash"][1:]},
-        lambda a: {**a, "orchestrator_stable_hash": "x" + a["orchestrator_stable_hash"][1:]},
-    ],
+    "field",
+    ["composition_stable_hash", "simulation_stable_hash", "sync_stable_hash", "orchestrator_stable_hash"],
 )
-def test_cross_module_mismatch_fixtures_detected(mutator):
+def test_cross_module_mismatch_fixtures_detected(field):
     beats, intensities = _fixture_inputs()
-    artifact = audit_cross_module_replay_integrity(beats, intensities, replay_cycles=2)
-    base = {
-        "composition_stable_hash": artifact.snapshots[0].composition_stable_hash,
-        "simulation_stable_hash": artifact.snapshots[0].simulation_stable_hash,
-        "sync_stable_hash": artifact.snapshots[0].sync_stable_hash,
-        "orchestrator_stable_hash": artifact.snapshots[0].orchestrator_stable_hash,
-    }
-    altered = mutator(base)
-    assert altered != base
+    artifact = audit_cross_module_replay_integrity(beats, intensities, replay_cycles=4)
+    # All cycle hashes for this field are identical in a deterministic replay → zero drift.
+    field_hashes = [getattr(s, field) for s in artifact.snapshots]
+    assert compute_orchestrator_drift_score(field_hashes) == 0.0
+    # Inject a single-hash mismatch and verify drift detection flags it.
+    mismatch_hashes = list(field_hashes)
+    mismatch_hashes[0] = "x" + mismatch_hashes[0][1:]
+    assert compute_orchestrator_drift_score(mismatch_hashes) > 0.0
 
 
 # C) drift score

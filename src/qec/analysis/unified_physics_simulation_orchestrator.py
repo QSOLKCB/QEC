@@ -284,8 +284,7 @@ def audit_cross_module_replay_integrity(
         simulation_hash = cycle["simulation"].stable_hash
         sync_ledger = cycle["sync_ledger"]
         sync_hash = str(sync_ledger["stable_hash"])
-        if cycle_index == 0:
-            symbolic_trace_ok = validate_symbolic_memory_trace(symbolic_trace, sync_ledger)
+        symbolic_trace_ok = validate_symbolic_memory_trace(symbolic_trace, sync_ledger)
 
         orchestrator_payload = {
             "composition_stable_hash": composition_hash,

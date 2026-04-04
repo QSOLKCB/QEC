@@ -94,8 +94,6 @@ class UnifiedPhysicsSimulationLedger:
     def to_canonical_json(self) -> str:
         """Serialize the ledger using the module's canonical JSON format."""
         return _canonical_json(self.to_dict())
-def _stable_hash_dict(payload: Dict[str, Any]) -> str:
-    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 
 
 def _extract_fields(obj: Any, schema: Mapping[str, Tuple[Any, Any]]) -> Dict[str, Any]:
@@ -257,9 +255,9 @@ class OrchestratorLedger:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "frames": [dict(x) for x in self.frames],
-            "states": [dict(x) for x in self.states],
-            "sync_rows": [dict(x) for x in self.sync_rows],
+            "states": [s.to_dict() for s in self.states],
+            "decisions": [d.to_dict() for d in self.decisions],
+            "trace_frames": [t.to_dict() for t in self.trace_frames],
             "invariant_scores": dict(self.invariant_scores),
             "symbolic_trace": self.symbolic_trace,
             "stable_hash": self.stable_hash,

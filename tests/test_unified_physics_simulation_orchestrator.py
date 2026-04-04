@@ -108,7 +108,9 @@ def test_invariant_scores_reused_in_symbolic_trace():
 
 
 def test_dynamic_test_count_guard():
-    source = inspect.getsource(__import__(__name__))
+    import sys
+
+    source = inspect.getsource(sys.modules[__name__])
     assert source.count("def test_") >= 10
 
 

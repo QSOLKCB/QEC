@@ -1073,6 +1073,10 @@ def verify_drift_provenance_roundtrip(
         raise ValueError("missing delta anchor")
     if int(reference_bundle.replay_cycles) != int(candidate_bundle.replay_cycles):
         raise ValueError("mismatched cycle counts")
-    if str(exported.get("stable_hash", "")) != str(ledger.stable_hash):
+    # Recompute stable hash from canonical content payload (excluding stable_hash and
+    # replay_identity) to verify ledger integrity non-self-referentially.
+    content_payload = {k: v for k, v in exported.items() if k not in ("stable_hash", "replay_identity")}
+    recomputed_hash = _stable_hash_dict(content_payload)
+    if recomputed_hash != str(ledger.stable_hash):
         raise ValueError("malformed provenance bundle")
     return str(exported.get("replay_identity", "")) == str(ledger.replay_identity)

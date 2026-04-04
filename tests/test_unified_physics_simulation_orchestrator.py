@@ -621,3 +621,32 @@ def test_provenance_fail_fast_invalid_symbolic_trace_map():
             candidate_bundle=cand,
             candidate_symbolic_trace_timestamp_map={"A": "bad", "B": [2], "C": [3]},
         )
+
+
+def test_provenance_fail_fast_tampered_stable_hash():
+    ref = _build_bundle(replay_cycles=4)
+    cand = _build_bundle(replay_cycles=4)
+    ledger = build_drift_provenance_report(
+        ref,
+        cand,
+        reference_symbolic_trace_timestamp_map=_symbolic_map(0),
+        candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
+    )
+    tampered = DriftProvenanceLedger(
+        version=ledger.version,
+        replay_cycles=ledger.replay_cycles,
+        first_divergence_point=ledger.first_divergence_point,
+        cycle_reports=ledger.cycle_reports,
+        chain_digest_anchor=ledger.chain_digest_anchor,
+        delta_table_reference=ledger.delta_table_reference,
+        symbolic_trace_anchor=ledger.symbolic_trace_anchor,
+        stable_hash="tampered_hash_value",
+        replay_identity=ledger.replay_identity,
+    )
+    with pytest.raises(ValueError, match="malformed provenance bundle"):
+        verify_drift_provenance_roundtrip(
+            tampered,
+            reference_bundle=ref,
+            candidate_bundle=cand,
+            candidate_symbolic_trace_timestamp_map=_symbolic_map(0),
+        )

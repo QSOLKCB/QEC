@@ -272,7 +272,7 @@ class TestNoDecoderContamination:
         import qec.analysis.decoder_topology_discovery as mod
         source_file = mod.__file__
         assert source_file is not None
-        with open(source_file) as f:
+        with open(source_file, encoding="utf-8") as f:
             source = f.read()
         # Must not import from qec.decoder
         assert "from qec.decoder" not in source
@@ -311,3 +311,99 @@ class TestVersion:
         d = _make_decision()
         ledger = build_topology_ledger((d,))
         assert ledger.ledger_version == "v137.0.2"
+
+
+# ---------------------------------------------------------------------------
+# Input validation (hardening pass)
+# ---------------------------------------------------------------------------
+
+
+class TestInputValidation:
+    """Verify API boundary validation for phase_bin_index."""
+
+    def test_negative_bin_raises(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            discover_decoder_topology(
+                observation_signature="test",
+                symbolic_risk_lattice="LOW",
+                phase_bin_index=(-1, 0),
+            )
+
+    def test_negative_second_bin_raises(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            discover_decoder_topology(
+                observation_signature="test",
+                symbolic_risk_lattice="LOW",
+                phase_bin_index=(0, -3),
+            )
+
+    def test_non_int_bin_raises(self):
+        with pytest.raises(ValueError, match="two ints"):
+            discover_decoder_topology(
+                observation_signature="test",
+                symbolic_risk_lattice="LOW",
+                phase_bin_index=(1.5, 2),  # type: ignore[arg-type]
+            )
+
+    def test_wrong_length_raises(self):
+        with pytest.raises(ValueError, match="two ints"):
+            discover_decoder_topology(
+                observation_signature="test",
+                symbolic_risk_lattice="LOW",
+                phase_bin_index=(1, 2, 3),  # type: ignore[arg-type]
+            )
+
+    def test_list_instead_of_tuple_raises(self):
+        with pytest.raises(ValueError, match="two ints"):
+            discover_decoder_topology(
+                observation_signature="test",
+                symbolic_risk_lattice="LOW",
+                phase_bin_index=[1, 2],  # type: ignore[arg-type]
+            )
+
+    def test_ledger_rejects_non_decision(self):
+        with pytest.raises(TypeError, match="TopologyDiscoveryDecision"):
+            build_topology_ledger(("not_a_decision",))  # type: ignore[arg-type]
+
+    def test_ledger_accepts_list_input(self):
+        """build_topology_ledger normalizes list to tuple."""
+        d = _make_decision()
+        ledger = build_topology_ledger([d])  # type: ignore[arg-type]
+        assert isinstance(ledger.decisions, tuple)
+        assert len(ledger.decisions) == 1
+
+
+# ---------------------------------------------------------------------------
+# Integration-style test with realistic portfolio
+# ---------------------------------------------------------------------------
+
+
+class TestRealisticPortfolioIntegration:
+    """Small integration test with a realistic known_portfolio."""
+
+    def test_realistic_portfolio_deterministic(self):
+        portfolio = ("surface", "toric", "qldpc")
+        d = discover_decoder_topology(
+            observation_signature="surface_syndrome_drift_high",
+            symbolic_risk_lattice="WARNING",
+            phase_bin_index=(1, 1),
+            decoder_family="surface",
+            known_portfolio=portfolio,
+        )
+        assert d.recommended_decoder_family == "surface"
+        assert d.recovery_topology_suggestions
+        assert len(d.recovery_topology_suggestions) > 0
+
+        # Stable export
+        ledger = build_topology_ledger((d,))
+        e1 = export_topology_bundle(ledger)
+        e2 = export_topology_bundle(build_topology_ledger((
+            discover_decoder_topology(
+                observation_signature="surface_syndrome_drift_high",
+                symbolic_risk_lattice="WARNING",
+                phase_bin_index=(1, 1),
+                decoder_family="surface",
+                known_portfolio=portfolio,
+            ),
+        )))
+        assert e1 == e2

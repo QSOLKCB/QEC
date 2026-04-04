@@ -65,6 +65,14 @@ _RECOVERY_SUGGESTIONS: dict[str, Tuple[str, ...]] = {
 
 _DEFAULT_RECOVERY: Tuple[str, ...] = ("generic_bp", "generic_uf")
 
+# Canonical reference phase bins per family (deterministic, module-level)
+REFERENCE_PHASE_BINS: dict[str, Tuple[int, int]] = {
+    "qldpc": (2, 3),
+    "repetition": (0, 0),
+    "surface": (1, 1),
+    "toric": (1, 2),
+}
+
 
 # ---------------------------------------------------------------------------
 # Frozen dataclasses
@@ -209,6 +217,21 @@ def discover_decoder_topology(
     TopologyDiscoveryDecision
         Frozen, deterministic recommendation.
     """
+    # Validate phase_bin_index at API boundary
+    if (
+        not isinstance(phase_bin_index, tuple)
+        or len(phase_bin_index) != 2
+        or not isinstance(phase_bin_index[0], int)
+        or not isinstance(phase_bin_index[1], int)
+    ):
+        raise ValueError(
+            f"phase_bin_index must be a tuple of two ints, got {phase_bin_index!r}"
+        )
+    if phase_bin_index[0] < 0 or phase_bin_index[1] < 0:
+        raise ValueError(
+            f"phase_bin_index entries must be non-negative, got {phase_bin_index!r}"
+        )
+
     # Determine candidate families (sorted for determinism)
     if known_portfolio is not None:
         candidates = tuple(sorted(set(known_portfolio)))
@@ -217,14 +240,6 @@ def discover_decoder_topology(
 
     if not candidates:
         candidates = KNOWN_DECODER_FAMILIES
-
-    # Canonical reference phase bins per family (deterministic)
-    _REFERENCE_BINS: dict[str, Tuple[int, int]] = {
-        "qldpc": (2, 3),
-        "repetition": (0, 0),
-        "surface": (1, 1),
-        "toric": (1, 2),
-    }
 
     # Score each candidate
     scored: list[tuple[float, str]] = []
@@ -236,7 +251,7 @@ def discover_decoder_topology(
         symbolic_score = _jaccard_bigram(observation_signature, family)
 
         # 3. Phase proximity
-        ref_bin = _REFERENCE_BINS.get(family, (0, 0))
+        ref_bin = REFERENCE_PHASE_BINS.get(family, (0, 0))
         phase_score = _phase_proximity(phase_bin_index, ref_bin)
 
         # Weighted combination
@@ -300,6 +315,15 @@ def build_topology_ledger(
     TopologyDiscoveryLedger
         Frozen, deterministic ledger.
     """
+    # Normalize to tuple to prevent mutable-sequence aliasing
+    decisions = tuple(decisions)
+    for i, d in enumerate(decisions):
+        if not isinstance(d, TopologyDiscoveryDecision):
+            raise TypeError(
+                f"decisions[{i}] must be TopologyDiscoveryDecision, "
+                f"got {type(d).__name__}"
+            )
+
     canonical = {
         "decisions": [
             {

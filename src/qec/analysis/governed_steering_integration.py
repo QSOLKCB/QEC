@@ -184,18 +184,28 @@ def compute_governed_steering(
 # ---------------------------------------------------------------------------
 
 def _bundle_to_canonical_dict(b: GovernedSteeringBundle) -> Dict[str, Any]:
-    """Convert a GovernedSteeringBundle to a canonical dict for hashing."""
-    policy_dict: Optional[Dict[str, Any]] = None
+    """Convert a GovernedSteeringBundle to a canonical dict for hashing.
+
+    Shape mirrors export minus layer/version/stable_hash metadata.
+    Policy state fields are flat with ``policy_`` prefix.
+    Includes raw_decision_stable_hash for full upstream identity.
+    """
     if b.policy_state is not None:
-        policy_dict = {
-            "consecutive_low_risk_cycles": b.policy_state.consecutive_low_risk_cycles,
-            "consecutive_recovery_cycles": b.policy_state.consecutive_recovery_cycles,
-            "current_route": b.policy_state.current_route,
-            "last_escalation_level": b.policy_state.last_escalation_level,
-            "oscillation_count": b.policy_state.oscillation_count,
-            "policy_cycle_index": b.policy_state.policy_cycle_index,
-            "prior_route": b.policy_state.prior_route,
-        }
+        p_consecutive_low = b.policy_state.consecutive_low_risk_cycles
+        p_consecutive_rec = b.policy_state.consecutive_recovery_cycles
+        p_current_route = b.policy_state.current_route
+        p_last_escalation = b.policy_state.last_escalation_level
+        p_oscillation = b.policy_state.oscillation_count
+        p_cycle_index = b.policy_state.policy_cycle_index
+        p_prior_route = b.policy_state.prior_route
+    else:
+        p_consecutive_low = 0
+        p_consecutive_rec = 0
+        p_current_route = ""
+        p_last_escalation = 0
+        p_oscillation = 0
+        p_cycle_index = 0
+        p_prior_route = ""
 
     return {
         "adaptive_decoder_bias": list(b.raw_decision.adaptive_decoder_bias),
@@ -207,8 +217,15 @@ def _bundle_to_canonical_dict(b: GovernedSteeringBundle) -> Dict[str, Any]:
         "forecast_risk_score": _round(b.raw_decision.forecast_risk_score),
         "governance_applied": b.governance_applied,
         "governed_route": b.governed_route,
-        "policy_state": policy_dict,
+        "policy_consecutive_low_risk_cycles": p_consecutive_low,
+        "policy_consecutive_recovery_cycles": p_consecutive_rec,
+        "policy_current_route": p_current_route,
+        "policy_cycle_index": p_cycle_index,
+        "policy_last_escalation_level": p_last_escalation,
+        "policy_oscillation_count": p_oscillation,
+        "policy_prior_route": p_prior_route,
         "precollapse_detected": b.raw_decision.precollapse_detected,
+        "raw_decision_stable_hash": b.raw_decision.stable_hash,
         "route_mutated": b.route_mutated,
     }
 
@@ -290,37 +307,13 @@ def export_governed_steering_bundle(
     dict
         Stable dictionary with sorted keys, suitable for JSON serialization.
     """
-    result: Dict[str, Any] = {
-        "adaptive_decoder_bias": list(bundle.raw_decision.adaptive_decoder_bias),
-        "adaptive_escalation_level": bundle.raw_decision.adaptive_escalation_level,
-        "adaptive_recovery_route": bundle.raw_decision.adaptive_recovery_route,
-        "adaptive_rollback_weight": _round(bundle.raw_decision.adaptive_rollback_weight),
-        "cycle_index": bundle.cycle_index,
-        "forecast_label": bundle.raw_decision.forecast_label,
-        "forecast_risk_score": _round(bundle.raw_decision.forecast_risk_score),
-        "governance_applied": bundle.governance_applied,
-        "governed_route": bundle.governed_route,
-        "layer": "governed_steering_integration",
-        "precollapse_detected": bundle.raw_decision.precollapse_detected,
-        "route_mutated": bundle.route_mutated,
-        "stable_hash": bundle.stable_hash,
-        "version": GOVERNED_STEERING_VERSION,
-    }
+    # Canonical payload mirrors _bundle_to_canonical_dict shape
+    canonical = _bundle_to_canonical_dict(bundle)
 
-    # Policy memory counters (present only when governance applied)
-    if bundle.policy_state is not None:
-        result["policy_consecutive_low_risk_cycles"] = (
-            bundle.policy_state.consecutive_low_risk_cycles
-        )
-        result["policy_consecutive_recovery_cycles"] = (
-            bundle.policy_state.consecutive_recovery_cycles
-        )
-        result["policy_oscillation_count"] = (
-            bundle.policy_state.oscillation_count
-        )
-    else:
-        result["policy_consecutive_low_risk_cycles"] = 0
-        result["policy_consecutive_recovery_cycles"] = 0
-        result["policy_oscillation_count"] = 0
+    # Export = canonical + layer/version/stable_hash metadata
+    result: Dict[str, Any] = dict(canonical)
+    result["layer"] = "governed_steering_integration"
+    result["stable_hash"] = bundle.stable_hash
+    result["version"] = GOVERNED_STEERING_VERSION
 
     return result

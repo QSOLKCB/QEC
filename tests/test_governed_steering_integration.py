@@ -43,6 +43,8 @@ from qec.analysis.governed_steering_integration import (
     GOVERNED_STEERING_VERSION,
     GovernedSteeringBundle,
     GovernedSteeringLedger,
+    _bundle_to_canonical_dict,
+    _canonical_json,
     append_governed_bundle,
     build_governed_ledger,
     compute_governed_steering,
@@ -427,9 +429,14 @@ class TestExportEquality:
             "version", "layer", "forecast_label", "forecast_risk_score",
             "adaptive_escalation_level", "adaptive_rollback_weight",
             "adaptive_decoder_bias", "precollapse_detected",
+            "raw_decision_stable_hash",
             "policy_consecutive_low_risk_cycles",
             "policy_consecutive_recovery_cycles",
             "policy_oscillation_count",
+            "policy_current_route",
+            "policy_prior_route",
+            "policy_cycle_index",
+            "policy_last_escalation_level",
         }
         assert required.issubset(set(export.keys()))
 
@@ -594,3 +601,72 @@ class TestNoRegression:
         )
         assert bundle.raw_decision == standalone
         assert bundle.governed_route == standalone.adaptive_recovery_route
+
+
+# ---------------------------------------------------------------------------
+# 11. Hash-export shape alignment
+# ---------------------------------------------------------------------------
+
+class TestHashExportAlignment:
+    """Canonical hash payload must align with export shape."""
+
+    def _recompute_hash_from_export(self, bundle):
+        """Recompute stable_hash from export-compatible payload."""
+        import hashlib
+        export = export_governed_steering_bundle(bundle)
+        # Remove metadata-only keys (layer, version, stable_hash)
+        payload = {k: v for k, v in export.items()
+                   if k not in ("layer", "version", "stable_hash")}
+        canonical = _canonical_json(payload)
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    def test_hash_recomputable_from_export_enabled(self):
+        """stable_hash can be recomputed from export minus metadata."""
+        bundle = compute_governed_steering(
+            _make_low_steering(), _make_low_forecast(),
+            enable_policy_memory=True,
+        )
+        recomputed = self._recompute_hash_from_export(bundle)
+        assert recomputed == bundle.stable_hash
+
+    def test_hash_recomputable_from_export_disabled(self):
+        """stable_hash recomputable even with governance disabled."""
+        bundle = compute_governed_steering(
+            _make_critical_steering(), _make_critical_forecast(),
+            enable_policy_memory=False,
+        )
+        recomputed = self._recompute_hash_from_export(bundle)
+        assert recomputed == bundle.stable_hash
+
+    def test_hash_recomputable_with_prior(self):
+        """stable_hash recomputable with prior policy state."""
+        prior = _memory_in_recovery(consecutive_low=2, cycle_index=5)
+        bundle = compute_governed_steering(
+            _make_low_steering(), _make_low_forecast(),
+            prior_policy_state=prior,
+            enable_policy_memory=True,
+        )
+        recomputed = self._recompute_hash_from_export(bundle)
+        assert recomputed == bundle.stable_hash
+
+    def test_canonical_dict_matches_export_minus_metadata(self):
+        """_bundle_to_canonical_dict == export minus layer/version/stable_hash."""
+        bundle = compute_governed_steering(
+            _make_low_steering(), _make_low_forecast(),
+            enable_policy_memory=True,
+        )
+        canonical = _bundle_to_canonical_dict(bundle)
+        export = export_governed_steering_bundle(bundle)
+        export_filtered = {k: v for k, v in export.items()
+                          if k not in ("layer", "version", "stable_hash")}
+        assert canonical == export_filtered
+
+    def test_export_includes_raw_decision_stable_hash(self):
+        """Export carries raw_decision_stable_hash for identity chain."""
+        bundle = compute_governed_steering(
+            _make_low_steering(), _make_low_forecast(),
+            enable_policy_memory=True,
+        )
+        export = export_governed_steering_bundle(bundle)
+        assert export["raw_decision_stable_hash"] == bundle.raw_decision.stable_hash
+        assert len(export["raw_decision_stable_hash"]) == 64

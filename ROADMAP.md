@@ -149,6 +149,27 @@ This release formalizes the new architectural identity:
 
 > **governed + quantized + replay-safe control architecture**
 
+Implemented:
+
+- `ConceptualBranchState` — frozen branch-era state descriptor
+- `ConceptualBranchLedger` — immutable ordered state ledger
+- `unify_control_and_quantization()` — primary integration function
+- `export_conceptual_branch_bundle()` — canonical JSON-safe state export
+- `build_branch_ledger()` — deterministic ledger construction
+- compositional replay hash chain (governed + quantization + policy hashes)
+
+Core conceptual law:
+
+```text
+continuous system state
+→ quantized symbolic state
+→ governed control action
+→ temporal supervisory memory
+→ stable replay identity
+```
+
+Module: `src/qec/analysis/conceptual_branch_v137.py`
+
 This is the current canonical line.
 
 All future roadmap work must build from this branch identity.

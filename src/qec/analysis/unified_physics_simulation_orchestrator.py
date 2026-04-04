@@ -38,78 +38,63 @@ def _stable_hash_dict(payload: Dict[str, Any]) -> str:
     return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 
 
+def _extract_fields(obj: Any, schema: Mapping[str, Tuple[Any, Any]]) -> Dict[str, Any]:
+    if isinstance(obj, Mapping):
+        return {name: caster(obj.get(name, default)) for name, (default, caster) in schema.items()}
+    return {name: caster(getattr(obj, name, default)) for name, (default, caster) in schema.items()}
+
+
 def _extract_frame(frame: Any) -> Dict[str, Any]:
-    if isinstance(frame, Mapping):
-        return {
-            "frame_index": int(frame.get("frame_index", 0)),
-            "tick": int(frame.get("tick", 0)),
-            "energy": float(frame.get("energy", 0.0)),
-            "physics_mode": str(frame.get("physics_mode", "TRIALITY_SWEEP")),
-            "stable_hash": str(frame.get("stable_hash", "")),
-        }
-    return {
-        "frame_index": int(getattr(frame, "frame_index", 0)),
-        "tick": int(getattr(frame, "tick", 0)),
-        "energy": float(getattr(frame, "energy", 0.0)),
-        "physics_mode": str(getattr(frame, "physics_mode", "TRIALITY_SWEEP")),
-        "stable_hash": str(getattr(frame, "stable_hash", "")),
-    }
+    return _extract_fields(
+        frame,
+        {
+            "frame_index": (0, int),
+            "tick": (0, int),
+            "energy": (0.0, float),
+            "physics_mode": ("TRIALITY_SWEEP", str),
+            "stable_hash": ("", str),
+        },
+    )
 
 
 def _extract_state(state: Any) -> Dict[str, Any]:
-    if isinstance(state, Mapping):
-        return {
-            "tick_index": int(state.get("tick_index", 0)),
-            "source_tick": int(state.get("source_tick", 0)),
-            "transition_energy": float(state.get("transition_energy", 0.0)),
-            "feedback_term": float(state.get("feedback_term", 0.0)),
-            "stable_hash": str(state.get("stable_hash", "")),
-        }
-    return {
-        "tick_index": int(getattr(state, "tick_index", 0)),
-        "source_tick": int(getattr(state, "source_tick", 0)),
-        "transition_energy": float(getattr(state, "transition_energy", 0.0)),
-        "feedback_term": float(getattr(state, "feedback_term", 0.0)),
-        "stable_hash": str(getattr(state, "stable_hash", "")),
-    }
+    return _extract_fields(
+        state,
+        {
+            "tick_index": (0, int),
+            "source_tick": (0, int),
+            "transition_energy": (0.0, float),
+            "feedback_term": (0.0, float),
+            "stable_hash": ("", str),
+        },
+    )
 
 
 def _extract_decision(decision: Any) -> Dict[str, Any]:
-    if isinstance(decision, Mapping):
-        return {
-            "tick_index": int(decision.get("tick_index", 0)),
-            "source_tick": int(decision.get("source_tick", 0)),
-            "transition_mode": str(decision.get("transition_mode", "TRIALITY_SWEEP")),
-            "transition_gain": float(decision.get("transition_gain", 0.0)),
-        }
-    return {
-        "tick_index": int(getattr(decision, "tick_index", 0)),
-        "source_tick": int(getattr(decision, "source_tick", 0)),
-        "transition_mode": str(getattr(decision, "transition_mode", "TRIALITY_SWEEP")),
-        "transition_gain": float(getattr(decision, "transition_gain", 0.0)),
-    }
+    return _extract_fields(
+        decision,
+        {
+            "tick_index": (0, int),
+            "source_tick": (0, int),
+            "transition_mode": ("TRIALITY_SWEEP", str),
+            "transition_gain": (0.0, float),
+        },
+    )
 
 
 def _extract_sync_row(row: Any) -> Dict[str, Any]:
-    if isinstance(row, Mapping):
-        return {
-            "pair_index": int(row.get("pair_index", 0)),
-            "invariant_tick": int(row.get("invariant_tick", 0)),
-            "timestamp_token": str(row.get("timestamp_token", "")),
-            "phi_shell_timing_alignment": float(row.get("phi_shell_timing_alignment", 0.0)),
-            "e8_transition_timing_consistency": float(row.get("e8_transition_timing_consistency", 0.0)),
-            "ouroboros_recurrence_clock": float(row.get("ouroboros_recurrence_clock", 0.0)),
-            "demoscene_runtime_synchronization": float(row.get("demoscene_runtime_synchronization", 0.0)),
-        }
-    return {
-        "pair_index": int(getattr(row, "pair_index", 0)),
-        "invariant_tick": int(getattr(row, "invariant_tick", 0)),
-        "timestamp_token": str(getattr(row, "timestamp_token", "")),
-        "phi_shell_timing_alignment": float(getattr(row, "phi_shell_timing_alignment", 0.0)),
-        "e8_transition_timing_consistency": float(getattr(row, "e8_transition_timing_consistency", 0.0)),
-        "ouroboros_recurrence_clock": float(getattr(row, "ouroboros_recurrence_clock", 0.0)),
-        "demoscene_runtime_synchronization": float(getattr(row, "demoscene_runtime_synchronization", 0.0)),
-    }
+    return _extract_fields(
+        row,
+        {
+            "pair_index": (0, int),
+            "invariant_tick": (0, int),
+            "timestamp_token": ("", str),
+            "phi_shell_timing_alignment": (0.0, float),
+            "e8_transition_timing_consistency": (0.0, float),
+            "ouroboros_recurrence_clock": (0.0, float),
+            "demoscene_runtime_synchronization": (0.0, float),
+        },
+    )
 
 
 @dataclass(frozen=True)
@@ -235,7 +220,11 @@ def build_orchestrator_state_graph(
     states = sorted((_extract_state(state) for state in simulation_states), key=lambda row: (row["source_tick"], row["tick_index"]))
     sync_rows = sorted((_extract_sync_row(row) for row in synchronized_rows), key=lambda row: (row["invariant_tick"], row["pair_index"]))
 
-    pair_count = min(len(frames), len(states), len(sync_rows))
+    if not (len(frames) == len(states) == len(sync_rows)):
+        raise ValueError(
+            f"frames/states/sync_rows length mismatch: {len(frames)}/{len(states)}/{len(sync_rows)}"
+        )
+    pair_count = len(frames)
     graph = []
     for idx in range(pair_count):
         frame = frames[idx]
@@ -274,7 +263,11 @@ def synchronize_subsystem_decisions(
     simulation_decisions: Sequence[Any],
 ) -> Tuple[OrchestratorDecision, ...]:
     raw_decisions = sorted((_extract_decision(decision) for decision in simulation_decisions), key=lambda row: (row["source_tick"], row["tick_index"]))
-    pair_count = min(len(state_graph), len(raw_decisions))
+    if len(state_graph) != len(raw_decisions):
+        raise ValueError(
+            f"state_graph/simulation_decisions length mismatch: {len(state_graph)}/{len(raw_decisions)}"
+        )
+    pair_count = len(state_graph)
     out = []
     for idx in range(pair_count):
         state = state_graph[idx]
@@ -310,7 +303,11 @@ def build_symbolic_memory_trace(
     state_graph: Sequence[OrchestratorState],
     decisions: Sequence[OrchestratorDecision],
 ) -> Tuple[OrchestratorTraceFrame, ...]:
-    pair_count = min(len(state_graph), len(decisions))
+    if len(state_graph) != len(decisions):
+        raise ValueError(
+            f"state_graph/decisions length mismatch: {len(state_graph)}/{len(decisions)}"
+        )
+    pair_count = len(state_graph)
     traces = []
     prev_memory = 0.0
     for idx in range(pair_count):
@@ -373,11 +370,12 @@ def build_orchestrator_ledger(
             DEMOSCENE_MASTER_CLOCK,
         )
     )
+    rounded_invariant_scores = {k: _round(v) for k, v in invariant_scores.items()}
     payload = {
         "state_hashes": [s.stable_hash for s in states],
         "decision_hashes": [d.stable_hash for d in decisions],
         "trace_hashes": [t.stable_hash for t in trace_frames],
-        "invariant_scores": {k: _round(v) for k, v in invariant_scores.items()},
+        "invariant_scores": rounded_invariant_scores,
         "symbolic_trace": symbolic_trace,
         "version": UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
     }
@@ -386,7 +384,7 @@ def build_orchestrator_ledger(
         states=states,
         decisions=decisions,
         trace_frames=trace_frames,
-        invariant_scores={k: _round(v) for k, v in invariant_scores.items()},
+        invariant_scores=rounded_invariant_scores,
         symbolic_trace=symbolic_trace,
         stable_hash=sh,
         replay_identity=sh,

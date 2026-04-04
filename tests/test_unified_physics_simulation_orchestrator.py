@@ -84,7 +84,7 @@ def test_export_orchestrator_bundle_schema(field):
 
 # B) determinism + stable hash
 
-@pytest.mark.parametrize("run", range(24))
+@pytest.mark.parametrize("run", range(40))
 def test_40_run_stable_hash_soak(run):
     composition, sim, sync = _build_inputs()
     ref = orchestrate_multimodal_runtime(composition.frames, sim, sync).stable_hash
@@ -100,7 +100,7 @@ def test_12_run_same_input_same_bytes(run):
     assert json.dumps(a, sort_keys=True, separators=(",", ":")) == json.dumps(b, sort_keys=True, separators=(",", ":"))
 
 
-@pytest.mark.parametrize("variant", ["A|B|C", "A|B|D", "X|Y|Z", "Q|E8|M", "P|O|L"]) 
+@pytest.mark.parametrize("variant", ["A|B|C", "A|B|D", "X|Y|Z", "Q|E8|M", "P|O|L"])
 def test_input_change_changes_hash(variant):
     composition, sim, sync = _build_inputs()
     base = orchestrate_multimodal_runtime(composition.frames, sim, sync)
@@ -110,6 +110,12 @@ def test_input_change_changes_hash(variant):
         sync2["synchronized_rows"][0]["timestamp_token"] = variant
     alt = orchestrate_multimodal_runtime(composition.frames, sim, sync2)
     assert base.stable_hash != alt.stable_hash
+
+
+def test_state_graph_length_mismatch_raises():
+    composition, sim, sync = _build_inputs()
+    with pytest.raises(ValueError, match="length mismatch"):
+        build_orchestrator_state_graph(composition.frames, sim["states"][:-1], sync["synchronized_rows"])
 
 
 # C) subsystem synchronization
@@ -140,6 +146,13 @@ def test_state_graph_sorted_by_tick_and_index(run):
     states = build_orchestrator_state_graph(composition.frames, sim["states"], sync["synchronized_rows"])
     ordered = sorted((s.tick, s.state_index) for s in states)
     assert [(s.tick, s.state_index) for s in states] == ordered
+
+
+def test_synchronize_subsystem_decisions_length_mismatch_raises():
+    composition, sim, sync = _build_inputs()
+    states = build_orchestrator_state_graph(composition.frames, sim["states"], sync["synchronized_rows"])
+    with pytest.raises(ValueError, match="length mismatch"):
+        synchronize_subsystem_decisions(states[:-1], sim["decisions"])
 
 
 # D) symbolic trace memory
@@ -183,6 +196,14 @@ def test_build_orchestrator_ledger_roundtrip_dict(run):
     assert payload["stable_hash"] == ledger.stable_hash
 
 
+def test_build_symbolic_memory_trace_length_mismatch_raises():
+    composition, sim, sync = _build_inputs()
+    states = build_orchestrator_state_graph(composition.frames, sim["states"], sync["synchronized_rows"])
+    decisions = synchronize_subsystem_decisions(states, sim["decisions"])
+    with pytest.raises(ValueError, match="length mismatch"):
+        build_symbolic_memory_trace(states[:-1], decisions)
+
+
 # E) architecture purity
 
 def test_layer4_module_does_not_import_decoder_or_channel_layers():
@@ -208,10 +229,40 @@ def test_layer4_module_does_not_import_decoder_or_channel_layers():
 def test_orchestrator_module_has_no_random_usage():
     mod_path = Path("src/qec/analysis/unified_physics_simulation_orchestrator.py")
     src = mod_path.read_text(encoding="utf-8")
-    assert "random." not in src
-    assert "np.random" not in src
+    tree = ast.parse(src)
+    aliases = {}
+    forbidden = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                local = alias.asname or alias.name
+                aliases[local] = alias.name
+                if alias.name == "random" or alias.name == "numpy.random":
+                    forbidden.append(alias.name)
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if module == "random" or module == "numpy.random":
+                forbidden.append(module)
+            for alias in node.names:
+                local = alias.asname or alias.name
+                aliases[local] = f"{module}.{alias.name}" if module else alias.name
+        elif isinstance(node, ast.Attribute):
+            if isinstance(node.value, ast.Name):
+                base = node.value.id
+                target = aliases.get(base, base)
+                if (target == "numpy" and node.attr == "random") or target == "numpy.random":
+                    forbidden.append(f"{target}.{node.attr}")
+
+    assert forbidden == []
 
 
 def test_orchestrator_total_test_count_guard():
-    # 115 tests in this file: keep release target in 100-120 range.
-    assert 100 <= 115 <= 120
+    src = Path(__file__).read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    count = sum(
+        1
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
+    )
+    assert count >= 1

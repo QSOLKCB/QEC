@@ -324,6 +324,44 @@ ask for clarification
 
 Never guess.
 
+## Theory-Coupled Release Rule (mandatory)
+
+Every tagged release must integrate at least one explicit executable construct from the `/papers` theory corpus.
+
+This requirement is mandatory for all releases from `v137.0.13` onward.
+
+Acceptable integrations include:
+
+- mathematical invariant
+- operator rule
+- field equation term
+- symmetry prior
+- qutrit / ternary state logic
+- E8 structural mapping
+- resonance constraint
+- cosmological scaling law
+- symbolic ontology mapping
+- reproducible simulation path
+
+The integration must be:
+
+- executable
+- testable
+- deterministic
+- documented in release notes
+
+Each release note must include:
+
+Theory Upgrade Source:
+- file:
+- concept:
+- implementation:
+- invariant tested:
+
+Pure naming or thematic alignment does NOT satisfy this rule.
+
+The release must absorb real theory semantics from the `/papers` corpus.
+
 🧠 Final Principle
 
 QEC evolves by:

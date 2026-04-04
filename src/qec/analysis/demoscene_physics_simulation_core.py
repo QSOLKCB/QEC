@@ -19,8 +19,6 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Sequence, Tuple
 
-import numpy as np
-
 DEMOSCENE_PHYSICS_SIMULATION_VERSION: str = "v137.0.17"
 
 FLOAT_PRECISION: int = 12
@@ -39,6 +37,9 @@ TRANSITION_MODES: Tuple[str, ...] = (
     "RESONANCE_COLLAPSE",
     "DEMOSCENE_TRANSITION",
 )
+TRANSITION_MODE_TO_INDEX: Dict[str, int] = {
+    mode: idx for idx, mode in enumerate(TRANSITION_MODES)
+}
 
 
 def _round(value: float) -> float:
@@ -239,17 +240,17 @@ def build_simulation_ticks(composition_frames: Sequence[Any]) -> Tuple[PhysicsSi
 
 def propagate_physics_state(ticks: Tuple[PhysicsSimulationTick, ...]) -> Tuple[PhysicsSimulationState, ...]:
     states = []
-    prev_particle = np.float64(0.0)
-    prev_wave = np.float64(0.0)
+    prev_particle = 0.0
+    prev_wave = 0.0
     for tick in ticks:
-        e = np.float64(tick.energy)
-        seed = np.float64(tick.transition_seed)
-        phi_shell = np.float64(tick.phi_shell)
-        particle = np.float64(0.6) * prev_particle + np.float64(0.4) * e
-        resonance = np.float64(0.5) * prev_wave + np.float64(0.5) * (seed / (phi_shell + np.float64(1.0)))
-        mesh = (particle - resonance) / (np.float64(PHI) + np.float64(1.0))
-        transition = np.abs(mesh) + np.float64(0.25) * np.abs(e)
-        feedback = (particle + resonance) / (np.float64(2.0) + phi_shell)
+        e = float(tick.energy)
+        seed = float(tick.transition_seed)
+        phi_shell = float(tick.phi_shell)
+        particle = 0.6 * prev_particle + 0.4 * e
+        resonance = 0.5 * prev_wave + 0.5 * (seed / (phi_shell + 1.0))
+        mesh = (particle - resonance) / (PHI + 1.0)
+        transition = abs(mesh) + 0.25 * abs(e)
+        feedback = (particle + resonance) / (2.0 + phi_shell)
         payload = {
             "tick_index": tick.tick_index,
             "source_tick": tick.source_tick,
@@ -283,8 +284,8 @@ def compute_transition_field(states: Tuple[PhysicsSimulationState, ...]) -> Tupl
     decisions = []
     for state in states:
         mode = TRANSITION_MODES[state.tick_index % len(TRANSITION_MODES)]
-        gain = np.float64(state.transition_energy) + np.float64(0.5) * np.float64(abs(state.feedback_term))
-        bounded = bool(gain <= np.float64(64.0))
+        gain = float(state.transition_energy) + 0.5 * abs(float(state.feedback_term))
+        bounded = bool(gain <= 64.0)
         payload = {
             "tick_index": state.tick_index,
             "source_tick": state.source_tick,
@@ -311,37 +312,49 @@ def compute_transition_field(states: Tuple[PhysicsSimulationState, ...]) -> Tupl
 def _score_tick_field(ticks: Tuple[PhysicsSimulationTick, ...]) -> float:
     if len(ticks) < 2:
         return 1.0 if len(ticks) == 1 else 0.0
-    source = np.asarray([t.source_tick for t in ticks], dtype=np.float64)
-    diffs = np.diff(source)
-    if np.any(diffs < 0):
+    diffs = [float(ticks[i].source_tick - ticks[i - 1].source_tick) for i in range(1, len(ticks))]
+    if any(d < 0.0 for d in diffs):
         return 0.0
-    mean = float(np.mean(diffs))
+    mean = sum(diffs) / float(len(diffs))
     if mean <= 1e-12:
         return 1.0
-    return max(0.0, min(1.0, 1.0 - float(np.std(diffs)) / (mean + 1e-12)))
+    variance = sum((d - mean) * (d - mean) for d in diffs) / float(len(diffs))
+    std = variance ** 0.5
+    return max(0.0, min(1.0, 1.0 - std / (mean + 1e-12)))
 
 
 def _score_phi_lock(ticks: Tuple[PhysicsSimulationTick, ...], states: Tuple[PhysicsSimulationState, ...]) -> float:
-    if len(ticks) == 0:
+    """Score phi-lock closeness using the deterministic common prefix.
+
+    If lengths differ, scoring is computed over min(len(ticks), len(states)).
+    This avoids silent zip truncation ambiguity while preserving bounded
+    deterministic behavior.
+    """
+    pair_count = min(len(ticks), len(states))
+    if pair_count == 0:
         return 0.0
     closeness = []
-    for tick, state in zip(ticks, states):
+    for idx in range(pair_count):
+        tick = ticks[idx]
+        state = states[idx]
         anchor = _quantize_phi_shell(abs(state.particle_energy) if state.particle_energy > 0 else 1.0)
         dist = abs(anchor - tick.phi_shell)
         closeness.append(max(0.0, 1.0 - min(dist / PHI_SHELLS[-1], 1.0)))
-    return _round(float(np.mean(np.asarray(closeness, dtype=np.float64))))
+    return _round(sum(closeness) / float(len(closeness)))
 
 
 def _score_e8_triality(decisions: Tuple[PhysicsSimulationDecision, ...]) -> float:
     if len(decisions) == 0:
         return 0.0
-    counts = np.zeros(len(TRANSITION_MODES), dtype=np.float64)
+    counts = [0.0] * len(TRANSITION_MODES)
     for d in decisions:
-        counts[TRANSITION_MODES.index(d.transition_mode)] += 1.0
+        mode_idx = TRANSITION_MODE_TO_INDEX.get(d.transition_mode)
+        if mode_idx is not None:
+            counts[mode_idx] += 1.0
     expected = float(len(decisions)) / float(len(TRANSITION_MODES))
     if expected <= 1e-12:
         return 1.0
-    deviation = float(np.sum(np.abs(counts - expected)))
+    deviation = sum(abs(count - expected) for count in counts)
     max_dev = expected * float(len(TRANSITION_MODES) - 1)
     return _round(max(0.0, min(1.0, 1.0 - deviation / (max_dev + 1e-12))))
 
@@ -349,15 +362,15 @@ def _score_e8_triality(decisions: Tuple[PhysicsSimulationDecision, ...]) -> floa
 def _score_ouroboros_feedback(states: Tuple[PhysicsSimulationState, ...]) -> float:
     if len(states) < 4:
         return 0.0
-    series = np.asarray([s.feedback_term for s in states], dtype=np.float64)
+    series = [float(s.feedback_term) for s in states]
     half = len(series) // 2
     first = series[:half]
     second = series[half: half + len(first)]
     if len(second) == 0:
         return 0.0
-    dot = float(np.dot(first, second))
-    na = float(np.linalg.norm(first))
-    nb = float(np.linalg.norm(second))
+    dot = sum(a * b for a, b in zip(first, second))
+    na = sum(a * a for a in first) ** 0.5
+    nb = sum(b * b for b in second) ** 0.5
     if na <= 1e-12 or nb <= 1e-12:
         return 0.0
     cosine = dot / (na * nb)

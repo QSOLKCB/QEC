@@ -173,6 +173,25 @@ def test_sorting_is_stable_and_deterministic(permute):
     assert r1.stable_hash == r2.stable_hash
 
 
+def test_build_simulation_ticks_canonical_ordering_scrambled_input():
+    scrambled = [
+        {"tick": 8, "frame_index": 2, "energy": 1.0, "phi_shell": 1.0, "physics_mode": "TRIALITY_SWEEP"},
+        {"tick": 7, "frame_index": 3, "energy": 1.0, "phi_shell": 1.0, "physics_mode": "TRIALITY_SWEEP"},
+        {"tick": 8, "frame_index": 1, "energy": 1.0, "phi_shell": 1.0, "physics_mode": "TRIALITY_SWEEP"},
+        {"tick": 7, "frame_index": 0, "energy": 1.0, "phi_shell": 1.0, "physics_mode": "TRIALITY_SWEEP"},
+    ]
+    ticks = build_simulation_ticks(scrambled)
+    ordering = [(t.source_tick, t.frame_index) for t in ticks]
+    assert ordering == [(7, 0), (7, 3), (8, 1), (8, 2)]
+
+
+def test_score_phi_lock_handles_tick_state_length_mismatch():
+    ticks = build_simulation_ticks(_make_frames())
+    states = propagate_physics_state(ticks[:-1])
+    score = core._score_phi_lock(ticks, states)
+    assert 0.0 <= score <= 1.0
+
+
 # C) invariant bounds
 @pytest.mark.parametrize("name", [
     DEMOSCENE_RUNTIME_TICK_FIELD,

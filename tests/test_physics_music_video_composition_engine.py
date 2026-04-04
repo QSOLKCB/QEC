@@ -13,6 +13,7 @@ from __future__ import annotations
 import ast
 import dataclasses
 import importlib
+import sys
 import inspect
 import json
 from pathlib import Path
@@ -386,9 +387,9 @@ def test_layer4_isolation_by_path() -> None:
 
 
 def test_controlled_import_diff_purity_no_new_decoder_modules() -> None:
-    before = set(importlib.sys.modules.keys())
+    before = set(sys.modules.keys())
     importlib.reload(engine)
-    after = set(importlib.sys.modules.keys())
+    after = set(sys.modules.keys())
     new_modules = after - before
     assert not any(name.startswith("qec.decoder") for name in new_modules)
 

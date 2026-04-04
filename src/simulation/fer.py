@@ -10,7 +10,10 @@ from __future__ import annotations
 import json
 import numpy as np
 
-from src.qec_qldpc_codes import bp_decode, channel_llr, syndrome
+try:
+    from qec_qldpc_codes import bp_decode, channel_llr, syndrome
+except ImportError:
+    from src.qec_qldpc_codes import bp_decode, channel_llr, syndrome
 
 
 # ═══════════════════════════════════════════════════════════════════════

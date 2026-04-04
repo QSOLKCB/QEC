@@ -94,7 +94,10 @@ def sign_payload(payload_bytes: bytes, private_key_pem: bytes) -> str:
     Returns the signature as a hex string.  Ed25519 signatures are
     deterministic — same key + same payload always yield the same signature.
 
-    Raises ``RuntimeError`` if the ``cryptography`` package is not usable.
+    If the ``cryptography`` package is not usable, returns a deterministic
+    SHA-256 hex digest of ``b"FALLBACK|" + payload_bytes`` instead.  This
+    fallback value is a compatibility marker and is **not** a cryptographic
+    signature.
     """
     if not _CRYPTO_AVAILABLE:
         return hashlib.sha256(b"FALLBACK|" + payload_bytes).hexdigest()
@@ -157,7 +160,11 @@ def create_execution_proof(
 
     Returns
     -------
-    dict  with keys ``payload``, ``signature``, ``verified``.
+    dict  with keys ``payload``, ``signature``, ``verified``,
+    ``verification_mode``.  The ``payload`` value includes a
+    ``verification_mode`` field.  The ``signature`` covers the
+    original payload **without** ``verification_mode``; consumers
+    must strip that key before signature verification.
     """
     payload = build_proof_payload(verify_result, signer_id, metadata)
     payload_bytes = serialize_proof_payload(payload)
@@ -171,6 +178,7 @@ def create_execution_proof(
     payload_with_mode = {**payload, "verification_mode": verification_mode}
     proof = {
         "payload": payload_with_mode,
+        "signed_payload": payload,
         "signature": signature,
         "verified": verified,
         "verification_mode": verification_mode,

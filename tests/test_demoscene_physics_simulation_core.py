@@ -13,6 +13,7 @@ from __future__ import annotations
 import ast
 import dataclasses
 import importlib
+import sys
 import inspect
 import json
 from pathlib import Path
@@ -282,9 +283,9 @@ def test_layer4_path_purity():
 
 
 def test_controlled_reload_no_decoder_leak():
-    before = set(importlib.sys.modules.keys())
+    before = set(sys.modules.keys())
     importlib.reload(core)
-    after = set(importlib.sys.modules.keys())
+    after = set(sys.modules.keys())
     assert not any(name.startswith("qec.decoder") for name in (after - before))
 
 

@@ -149,3 +149,38 @@ def test_bifurcation_saturation_case() -> None:
         attractor_divergence=1.0,
     )
     assert score == 1.0
+
+
+def test_bifurcation_score_rejects_non_finite() -> None:
+    import math
+
+    for bad in (math.nan, math.inf, -math.inf):
+        with pytest.raises(ValueError, match="must be a finite float"):
+            compute_bifurcation_warning_score(bad, 0.5, 0.1, 0.1)
+        with pytest.raises(ValueError, match="must be a finite float"):
+            compute_bifurcation_warning_score(0.5, bad, 0.1, 0.1)
+        with pytest.raises(ValueError, match="must be a finite float"):
+            compute_bifurcation_warning_score(0.5, 0.5, bad, 0.1)
+        with pytest.raises(ValueError, match="must be a finite float"):
+            compute_bifurcation_warning_score(0.5, 0.5, 0.1, bad)
+
+
+def test_edge_tuple_wrong_length_raises() -> None:
+    with pytest.raises(ValueError, match="4-tuple"):
+        build_attractor_transition_graph(
+            ["a", "b"],
+            [("a", "b", 0.5)],  # type: ignore[list-item]
+        )
+    with pytest.raises(ValueError, match="4-tuple"):
+        build_attractor_transition_graph(
+            ["a", "b"],
+            [("a", "b", 0.5, True, "extra")],  # type: ignore[list-item]
+        )
+
+
+def test_chain_valid_reflects_actual_validity() -> None:
+    _, warning, _, ledger = run_complex_systems_phase_engine(
+        _stability(), _perturbation(), noise_level=0.1
+    )
+    assert ledger.chain_valid is validate_phase_ledger(ledger)
+    assert ledger.chain_valid is True

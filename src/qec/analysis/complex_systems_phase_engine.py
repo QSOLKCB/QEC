@@ -212,11 +212,19 @@ def compute_bifurcation_warning_score(
     attractor_divergence: float,
 ) -> float:
     """DETERMINISTIC_BIFURCATION_WARNING: bounded [0, 1] phase warning."""
-    raw = (
-        abs(float(current_stability) - float(prior_stability))
-        + float(transition_pressure)
-        + float(attractor_divergence)
-    )
+    cs = float(current_stability)
+    ps = float(prior_stability)
+    tp = float(transition_pressure)
+    ad = float(attractor_divergence)
+    for name, val in (
+        ("current_stability", cs),
+        ("prior_stability", ps),
+        ("transition_pressure", tp),
+        ("attractor_divergence", ad),
+    ):
+        if not math.isfinite(val):
+            raise ValueError(f"{name} must be a finite float, got {val!r}")
+    raw = abs(cs - ps) + tp + ad
     return _clamp01(raw)
 
 
@@ -314,6 +322,11 @@ def build_attractor_transition_graph(
         if isinstance(edge, AttractorTransitionEdge):
             parsed = edge
         else:
+            if not isinstance(edge, tuple) or len(edge) != 4:
+                raise ValueError(
+                    f"edge must be an AttractorTransitionEdge or a 4-tuple "
+                    f"(source, target, weight, stable), got {edge!r}"
+                )
             source, target, weight, stable = edge
             parsed = AttractorTransitionEdge(
                 source_state=str(source),
@@ -359,6 +372,9 @@ def detect_macro_state_transition(
     prior_stability: float | None = None,
     attractor_divergence: float | None = None,
 ) -> BifurcationWarningReport:
+    nl = float(noise_level)
+    if not math.isfinite(nl):
+        raise ValueError(f"noise_level must be a finite float, got {nl!r}")
     current_stability = phase_state.stability_score
     prior = current_stability if prior_stability is None else float(prior_stability)
     divergence = (
@@ -373,7 +389,7 @@ def detect_macro_state_transition(
         transition_pressure=phase_state.transition_pressure,
         attractor_divergence=divergence,
     )
-    confidence_score = _clamp01(1.0 - abs(float(noise_level) - current_stability))
+    confidence_score = _clamp01(1.0 - abs(nl - current_stability))
     transition_imminent = warning_score >= 0.7
 
     payload = {
@@ -411,12 +427,16 @@ def append_phase_ledger_entry(
     )
 
     head_hash = _hash_sha256({"parent_hash": parent_hash, "entry": entry.to_dict()})
-    updated = PhaseLedger(
+    tentative = PhaseLedger(
         entries=entries + (entry,),
         head_hash=head_hash,
         chain_valid=True,
     )
-    return updated
+    return PhaseLedger(
+        entries=tentative.entries,
+        head_hash=tentative.head_hash,
+        chain_valid=validate_phase_ledger(tentative),
+    )
 
 
 def validate_phase_ledger(ledger: PhaseLedger) -> bool:

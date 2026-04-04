@@ -197,9 +197,9 @@ class TestTokenization:
 
     def test_conflict_none_maps_to_cf_none(self):
         arb = _make_arb_static()
-        if arb.conflict_level == "NONE":
-            token = _tokenize_decision(arb)
-            assert token.startswith("CF_NONE")
+        assert arb.conflict_level == "NONE", "Precondition: static arb must have NONE conflict"
+        token = _tokenize_decision(arb)
+        assert token.startswith("CF_NONE")
 
     def test_different_inputs_may_produce_different_tokens(self):
         arb_s = _make_arb_static()
@@ -645,19 +645,22 @@ class TestNoDecoderContamination:
 
     def test_no_decoder_import(self):
         import qec.analysis.quantization_aware_forecast_compression as mod
-        source = open(mod.__file__).read()
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
         assert "from qec.decoder" not in source
         assert "import qec.decoder" not in source
 
     def test_no_experiment_import(self):
         import qec.analysis.quantization_aware_forecast_compression as mod
-        source = open(mod.__file__).read()
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
         assert "from qec.experiments" not in source
         assert "import qec.experiments" not in source
 
     def test_no_sims_import(self):
         import qec.analysis.quantization_aware_forecast_compression as mod
-        source = open(mod.__file__).read()
+        with open(mod.__file__, "r", encoding="utf-8") as f:
+            source = f.read()
         assert "from qec.sims" not in source
         assert "import qec.sims" not in source
 
@@ -909,13 +912,13 @@ class TestStabilityClassPrecedence:
         """Mixed severe + benign tokens with severe dominant -> CRITICAL."""
         s = _make_arb_static()
         c = _make_arb_collapse()
-        # Ensure they produce different tokens
         t_s = _tokenize_decision(s)
         t_c = _tokenize_decision(c)
-        if t_s != t_c and ("AR_CRIT" in t_c or "AR_LOCK" in t_c):
-            decisions = [c, c, c, s]  # severe dominant, mixed tokens
-            result = compress_forecast_horizon(decisions)
-            assert result.forecast_stability_class == STABILITY_CRITICAL
+        assert t_s != t_c, "Precondition: static and collapse must produce different tokens"
+        assert "AR_CRIT" in t_c or "AR_LOCK" in t_c, "Precondition: collapse token must be severe"
+        decisions = [c, c, c, s]  # severe dominant, mixed tokens
+        result = compress_forecast_horizon(decisions)
+        assert result.forecast_stability_class == STABILITY_CRITICAL
 
     def test_classify_stability_unit_single_token(self):
         """Direct unit test: single unique severe token -> STABLE."""

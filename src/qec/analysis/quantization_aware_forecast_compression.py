@@ -252,7 +252,7 @@ def _run_length_compress(
 ) -> Tuple[str, ...]:
     """Collapse repeated adjacent identical tokens.
 
-    Example: A A A B B C -> ("A×3", "B×2", "C×1")
+    Example: A A A B B C -> ("A ×3", "B ×2", "C ×1")
     """
     if len(tokens) == 0:
         return ()
@@ -348,11 +348,14 @@ def _classify_forecast_stability(
 ) -> str:
     """Classify forecast stability.
 
-    Rules:
-    - Single unique token (all repeated) -> STABLE
-    - Any repeated LOCKDOWN or PRIORITIZE_CRITICAL dominant -> CRITICAL
-    - Low diversity + monotone severity shift -> DRIFTING
-    - Mixed tokens / high diversity -> VOLATILE
+    Evaluation order (first match wins):
+    1. Single unique token (all identical) -> STABLE
+    2. Severe dominant mode with >= 2 severe tokens -> CRITICAL
+    3. Diversity <= 0.5 -> DRIFTING
+    4. Otherwise -> VOLATILE
+
+    Note: compressed_tokens is currently unused (reserved for future
+    monotone-shift analysis). No monotone-shift logic is implemented.
     """
     unique_tokens = set(tokens)
 

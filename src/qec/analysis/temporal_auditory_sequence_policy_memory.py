@@ -213,29 +213,55 @@ def _classify_recurrence_trend(
 # ---------------------------------------------------------------------------
 
 
+def _window_mode(
+    decision: TemporalAuditorySequenceDecision,
+) -> str:
+    """Classify a decision window as a pure escalation mode.
+
+    Returns one of:
+      "ESCALATE"   — escalation_signal != NONE, deescalation_signal == NONE
+      "DEESCALATE" — deescalation_signal != NONE, escalation_signal == NONE
+      "MIXED"      — both non-NONE
+      "NONE"       — both NONE
+    """
+    has_esc = decision.escalation_signal != "NONE"
+    has_deesc = decision.deescalation_signal != "NONE"
+    if has_esc and has_deesc:
+        return "MIXED"
+    if has_esc:
+        return "ESCALATE"
+    if has_deesc:
+        return "DEESCALATE"
+    return "NONE"
+
+
 def _detect_hysteresis(
     decisions: Tuple[TemporalAuditorySequenceDecision, ...],
 ) -> bool:
     """Detect if hysteresis is active from escalation/de-escalation history.
 
-    True if repeated escalation/de-escalation alternation occurs
-    across recent windows. Specifically: if there are at least 2
-    alternations between escalation and de-escalation signals
-    in adjacent windows.
+    True if repeated pure escalation/de-escalation alternation occurs
+    across recent windows. Only counts alternations between pure
+    ESCALATE and pure DEESCALATE windows. MIXED and NONE windows
+    are ignored.
+
+    Requires at least 2 pure alternations.
     """
     if len(decisions) < 3:
         return False
 
-    alternation_count = 0
-    for i in range(1, len(decisions)):
-        prev_esc = decisions[i - 1].escalation_signal != "NONE"
-        prev_deesc = decisions[i - 1].deescalation_signal != "NONE"
-        curr_esc = decisions[i].escalation_signal != "NONE"
-        curr_deesc = decisions[i].deescalation_signal != "NONE"
+    # Extract pure modes, skipping MIXED and NONE
+    pure_modes = tuple(
+        _window_mode(d) for d in decisions
+        if _window_mode(d) in ("ESCALATE", "DEESCALATE")
+    )
 
-        # Alternation: previous window had escalation and current has
-        # de-escalation, or vice versa
-        if (prev_esc and curr_deesc) or (prev_deesc and curr_esc):
+    if len(pure_modes) < 2:
+        return False
+
+    alternation_count = 0
+    for i in range(1, len(pure_modes)):
+        if pure_modes[i] != pure_modes[i - 1]:
             alternation_count += 1
 
     return alternation_count >= 2
@@ -254,15 +280,18 @@ def _classify_escalation_dampening(
 
     Rules:
     - No hysteresis -> NONE
-    - Hysteresis active with < 3 escalation windows -> DAMPEN
-    - Hysteresis active with 3+ escalation windows -> HOLD
-    - Hysteresis active with 3+ escalation windows AND COLLAPSE_LOOP present -> LOCK
+    - Hysteresis active with < 3 pure escalation windows -> DAMPEN
+    - Hysteresis active with 3+ pure escalation windows -> HOLD
+    - Hysteresis active with 3+ pure escalation windows AND COLLAPSE_LOOP present -> LOCK
+
+    Pure escalation windows are those where _window_mode returns "ESCALATE"
+    (escalation_signal != NONE and deescalation_signal == NONE).
     """
     if not hysteresis_active:
         return DAMPENING_NONE
 
     escalation_count = sum(
-        1 for d in decisions if d.escalation_signal != "NONE"
+        1 for d in decisions if _window_mode(d) == "ESCALATE"
     )
     has_collapse_loop = any(
         d.oscillation_pattern == "COLLAPSE_LOOP" for d in decisions

@@ -9,7 +9,6 @@ no decoder contamination, and invalid input rejection.
 from __future__ import annotations
 
 import json
-import sys
 
 import pytest
 
@@ -102,8 +101,26 @@ def _make_decision_with_critical_escalation() -> TemporalAuditorySequenceDecisio
 
 
 def _make_decision_with_deescalation() -> TemporalAuditorySequenceDecision:
-    """A decision with de-escalation signal."""
+    """A decision with de-escalation signal (MIXED: both esc and deesc non-NONE)."""
     sigs = [_make_sig_band("CRITICAL"), _make_sig_band("WARNING")]
+    return analyze_auditory_sequence(sigs)
+
+
+def _make_decision_pure_deescalate() -> TemporalAuditorySequenceDecision:
+    """A decision with pure de-escalation (esc=NONE, deesc=RECOVER)."""
+    sigs = [_make_sig_band("LOW"), _make_sig_band("WATCH"), _make_sig_band("LOW")]
+    return analyze_auditory_sequence(sigs)
+
+
+def _make_decision_pure_escalate_watch() -> TemporalAuditorySequenceDecision:
+    """A decision with pure escalation at WATCH level (esc=WATCH, deesc=NONE)."""
+    sigs = [_make_sig_band("LOW"), _make_sig_band("WARNING")]
+    return analyze_auditory_sequence(sigs)
+
+
+def _make_decision_static_low_recurrence() -> TemporalAuditorySequenceDecision:
+    """A STATIC decision with zero recurrence."""
+    sigs = [_make_sig_band("LOW"), _make_sig_band("LOW")]
     return analyze_auditory_sequence(sigs)
 
 
@@ -207,12 +224,11 @@ class TestHysteresisActivation:
         state = build_temporal_auditory_policy_state(decisions)
         assert state.hysteresis_active is False
 
-    def test_hysteresis_with_alternating_escalation_deescalation(self):
-        """Repeated esc/deesc alternation triggers hysteresis."""
-        # Need escalation followed by de-escalation alternation across windows
-        d_esc = _make_decision_with_critical_escalation()
-        d_deesc = _make_decision_with_deescalation()
-        # esc -> deesc -> esc -> deesc = 2+ alternations
+    def test_hysteresis_with_pure_alternating_escalation_deescalation(self):
+        """Repeated pure esc/deesc alternation triggers hysteresis."""
+        d_esc = _make_decision_with_critical_escalation()  # pure ESCALATE
+        d_deesc = _make_decision_pure_deescalate()  # pure DEESCALATE
+        # ESC -> DEESC -> ESC -> DEESC = 3 alternations
         decisions = [d_esc, d_deesc, d_esc, d_deesc]
         state = build_temporal_auditory_policy_state(decisions)
         assert state.hysteresis_active is True
@@ -224,11 +240,30 @@ class TestHysteresisActivation:
 
     def test_hysteresis_requires_minimum_alternations(self):
         """Single alternation is not enough."""
-        d_esc = _make_decision_with_critical_escalation()
-        d_deesc = _make_decision_with_deescalation()
-        d_static = _make_decision_static()
+        d_esc = _make_decision_with_critical_escalation()  # pure ESCALATE
+        d_deesc = _make_decision_pure_deescalate()  # pure DEESCALATE
+        d_static = _make_decision_static()  # NONE mode
+        # Only 1 pure alternation (esc -> deesc), static is ignored
         decisions = [d_esc, d_deesc, d_static]
         state = build_temporal_auditory_policy_state(decisions)
+        assert state.hysteresis_active is False
+
+    def test_mixed_windows_do_not_trigger_hysteresis(self):
+        """MIXED windows (both esc and deesc non-NONE) are ignored."""
+        d_mixed = _make_decision_with_deescalation()  # MIXED: WATCH + RELAX
+        d_esc = _make_decision_with_critical_escalation()  # pure ESCALATE
+        # Only 1 pure mode window (d_esc), rest are MIXED -> no alternation
+        decisions = [d_esc, d_mixed, d_esc, d_mixed]
+        state = build_temporal_auditory_policy_state(decisions)
+        assert state.hysteresis_active is False
+
+    def test_none_windows_do_not_count_for_hysteresis(self):
+        """NONE-mode windows are skipped in hysteresis detection."""
+        d_esc = _make_decision_with_critical_escalation()  # pure ESCALATE
+        d_static = _make_decision_static()  # NONE mode
+        decisions = [d_esc, d_static, d_esc, d_static, d_esc]
+        state = build_temporal_auditory_policy_state(decisions)
+        # Only pure ESCALATE windows remain, no alternation
         assert state.hysteresis_active is False
 
 
@@ -239,39 +274,49 @@ class TestHysteresisActivation:
 class TestEscalationDampening:
     def test_no_dampening_without_hysteresis(self):
         state = build_temporal_auditory_policy_state([_make_decision_static()])
+        assert state.hysteresis_active is False
         assert state.escalation_dampening == DAMPENING_NONE
 
-    def test_dampen_with_hysteresis_few_escalations(self):
-        """Hysteresis active but < 3 escalation windows -> DAMPEN."""
-        d_esc = _make_decision_with_critical_escalation()
-        d_deesc = _make_decision_with_deescalation()
-        # 4 windows: esc, deesc, esc, deesc -> hysteresis active
-        # 2 escalation windows (d_esc has escalation_signal != NONE)
+    def test_dampen_with_hysteresis_few_pure_escalations(self):
+        """Hysteresis active + < 3 pure escalation windows -> DAMPEN."""
+        d_esc = _make_decision_with_critical_escalation()  # pure ESCALATE
+        d_deesc = _make_decision_pure_deescalate()  # pure DEESCALATE
+        # 4 windows: ESC, DEESC, ESC, DEESC -> hysteresis active
+        # 2 pure escalation windows
         decisions = [d_esc, d_deesc, d_esc, d_deesc]
         state = build_temporal_auditory_policy_state(decisions)
-        if state.hysteresis_active:
-            assert state.escalation_dampening in (DAMPENING_DAMPEN, DAMPENING_HOLD, DAMPENING_LOCK)
+        assert state.hysteresis_active is True
+        assert state.escalation_dampening == DAMPENING_DAMPEN
 
     def test_dampening_none_without_hysteresis_many_escalations(self):
-        """Many escalation windows but no hysteresis -> NONE."""
+        """Many pure escalation windows but no hysteresis -> NONE."""
         decisions = [_make_decision_escalating()] * 5
         state = build_temporal_auditory_policy_state(decisions)
-        if not state.hysteresis_active:
-            assert state.escalation_dampening == DAMPENING_NONE
+        assert state.hysteresis_active is False
+        assert state.escalation_dampening == DAMPENING_NONE
+
+    def test_hold_with_hysteresis_three_plus_pure_escalations(self):
+        """Hysteresis + 3+ pure escalation windows, no COLLAPSE_LOOP -> HOLD."""
+        d_esc = _make_decision_with_critical_escalation()  # pure ESCALATE
+        d_deesc = _make_decision_pure_deescalate()  # pure DEESCALATE
+        # 6 windows: ESC, DEESC, ESC, DEESC, ESC, DEESC
+        # -> hysteresis active, 3 pure escalation windows -> HOLD
+        decisions = [d_esc, d_deesc, d_esc, d_deesc, d_esc, d_deesc]
+        state = build_temporal_auditory_policy_state(decisions)
+        assert state.hysteresis_active is True
+        assert state.escalation_dampening == DAMPENING_HOLD
 
     def test_lock_with_collapse_loop_and_hysteresis(self):
-        """Hysteresis + 3+ escalation windows + COLLAPSE_LOOP -> LOCK."""
-        d_esc = _make_decision_with_critical_escalation()
-        d_deesc = _make_decision_with_deescalation()
-        d_collapse = _make_decision_collapse_loop()
-        # Need hysteresis (2+ alternations) and 3+ escalation windows and COLLAPSE_LOOP
-        decisions = [d_esc, d_deesc, d_esc, d_deesc, d_esc, d_collapse]
+        """Hysteresis + 3+ pure escalation windows + COLLAPSE_LOOP -> LOCK."""
+        d_esc = _make_decision_with_critical_escalation()  # pure ESCALATE
+        d_deesc = _make_decision_pure_deescalate()  # pure DEESCALATE
+        d_collapse = _make_decision_collapse_loop()  # pure ESCALATE + COLLAPSE_LOOP
+        # ESC, DEESC, ESC, DEESC, COLLAPSE, DEESC
+        # -> hysteresis active, 3 pure esc (2x d_esc + 1x d_collapse), COLLAPSE_LOOP -> LOCK
+        decisions = [d_esc, d_deesc, d_esc, d_deesc, d_collapse, d_deesc]
         state = build_temporal_auditory_policy_state(decisions)
-        if state.hysteresis_active:
-            # 3+ escalation windows present and COLLAPSE_LOOP present
-            esc_count = sum(1 for d in decisions if d.escalation_signal != "NONE")
-            if esc_count >= 3:
-                assert state.escalation_dampening == DAMPENING_LOCK
+        assert state.hysteresis_active is True
+        assert state.escalation_dampening == DAMPENING_LOCK
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +327,7 @@ class TestGovernedResponseHint:
     def test_collapse_loop_gives_critical_lock(self):
         decisions = [_make_decision_collapse_loop()] * 3
         state = build_temporal_auditory_policy_state(decisions)
+        assert state.dominant_pattern == "COLLAPSE_LOOP"
         assert state.governed_response_hint == RESPONSE_CRITICAL_LOCK
 
     def test_repeated_critical_gives_critical_lock(self):
@@ -291,26 +337,30 @@ class TestGovernedResponseHint:
         assert state.governed_response_hint == RESPONSE_CRITICAL_LOCK
 
     def test_escalating_trend_up_gives_intervene(self):
+        """ESCALATING dominant + trend UP -> INTERVENE."""
+        # escalating has rec=0.0, high_rec has rec=1.0
+        # [escalating, escalating, high_rec] -> dominant=ESCALATING (2 vs 1)
+        # recurrence: 0.0, 0.0, 1.0 -> UP (no downs, one up)
+        # escalating has esc=ESCALATE (not CRITICAL) -> no CRITICAL_LOCK
         d_esc = _make_decision_escalating()
-        d_low = _make_decision_low_recurrence()
         d_high = _make_decision_high_recurrence()
-        # Need: dominant = ESCALATING, trend = UP
-        # Make mostly ESCALATING and rising recurrence
         decisions = [d_esc, d_esc, d_high]
         state = build_temporal_auditory_policy_state(decisions)
-        if state.dominant_pattern == "ESCALATING" and state.recurrence_trend == TREND_UP:
-            assert state.governed_response_hint == RESPONSE_INTERVENE
+        assert state.dominant_pattern == "ESCALATING"
+        assert state.recurrence_trend == TREND_UP
+        assert state.governed_response_hint == RESPONSE_INTERVENE
 
     def test_static_trend_down_gives_monitor(self):
-        d_high_rec = _make_decision_high_recurrence()
-        d_static = _make_decision_static()
-        # high recurrence -> static (low recurrence) = DOWN trend
-        # dominant should be neither COLLAPSE_LOOP nor ESCALATING
-        # Need mostly STATIC for dominant
-        decisions = [d_static, d_static, d_high_rec, d_static]
+        """STATIC dominant + trend DOWN -> MONITOR."""
+        # static (LOW*3) has rec=1.0, static_low_rec (LOW*2) has rec=0.0
+        # [static, static_low_rec] -> dominant=STATIC, trend DOWN
+        d_high = _make_decision_static()  # rec=1.0
+        d_low = _make_decision_static_low_recurrence()  # rec=0.0
+        decisions = [d_high, d_low]
         state = build_temporal_auditory_policy_state(decisions)
-        if state.dominant_pattern == "STATIC" and state.recurrence_trend == TREND_DOWN:
-            assert state.governed_response_hint == RESPONSE_MONITOR
+        assert state.dominant_pattern == "STATIC"
+        assert state.recurrence_trend == TREND_DOWN
+        assert state.governed_response_hint == RESPONSE_MONITOR
 
     def test_none_response_for_generic(self):
         decisions = [_make_decision_cyclic()]
@@ -318,21 +368,19 @@ class TestGovernedResponseHint:
         assert state.governed_response_hint == RESPONSE_NONE
 
     def test_alternating_with_hysteresis_gives_stabilize(self):
-        """ALTERNATING + hysteresis_active -> STABILIZE."""
-        d_alt = _make_decision_alternating()
-        # Use WATCH-level escalation (not CRITICAL) to avoid triggering
-        # the higher-priority CRITICAL_LOCK rule
-        d_watch_esc = analyze_auditory_sequence(
-            [_make_sig_band("LOW"), _make_sig_band("WARNING")]
-        )
-        d_deesc = _make_decision_with_deescalation()
-        # Need: dominant = ALTERNATING, hysteresis_active = True
-        # watch_esc has escalation_signal=WATCH (not CRITICAL) and
-        # deesc has deescalation_signal != NONE, giving alternations
+        """ALTERNATING dominant + hysteresis_active -> STABILIZE."""
+        d_alt = _make_decision_alternating()  # NONE mode
+        d_watch_esc = _make_decision_pure_escalate_watch()  # pure ESCALATE (WATCH)
+        d_deesc = _make_decision_pure_deescalate()  # pure DEESCALATE
+        # [alt, watch_esc, deesc, watch_esc, deesc, alt, alt]
+        # Pure modes: ESCALATE, DEESCALATE, ESCALATE, DEESCALATE -> 3 alternations
+        # Pattern counts: ALTERNATING=3, ESCALATING=2, CYCLIC=2 -> dominant=ALTERNATING
+        # No CRITICAL escalation signals -> no CRITICAL_LOCK
         decisions = [d_alt, d_watch_esc, d_deesc, d_watch_esc, d_deesc, d_alt, d_alt]
         state = build_temporal_auditory_policy_state(decisions)
-        if state.dominant_pattern == "ALTERNATING" and state.hysteresis_active:
-            assert state.governed_response_hint == RESPONSE_STABILIZE
+        assert state.dominant_pattern == "ALTERNATING"
+        assert state.hysteresis_active is True
+        assert state.governed_response_hint == RESPONSE_STABILIZE
 
 
 # ---------------------------------------------------------------------------
@@ -493,7 +541,7 @@ class TestReplayDeterminism:
 # ---------------------------------------------------------------------------
 
 class TestNoDecoderContamination:
-    def test_no_decoder_import(self):
+    def test_no_decoder_import_in_source(self):
         """temporal_auditory_sequence_policy_memory must not import decoder."""
         import qec.analysis.temporal_auditory_sequence_policy_memory as mod
         source_file = mod.__file__
@@ -503,12 +551,15 @@ class TestNoDecoderContamination:
         assert "qec.decoder" not in source
         assert "from qec.decoder" not in source
 
-    def test_decoder_modules_untouched(self):
-        """Verify importing our module introduces no new decoder modules."""
-        before = {k for k in sys.modules if "qec.decoder" in k}
-        import qec.analysis.temporal_auditory_sequence_policy_memory as mod  # noqa: F811
-        after = {k for k in sys.modules if "qec.decoder" in k}
-        assert after == before, f"New decoder contamination: {after - before}"
+    def test_no_decoder_string_in_source(self):
+        """No decoder reference of any kind in source."""
+        import qec.analysis.temporal_auditory_sequence_policy_memory as mod
+        source_file = mod.__file__
+        assert source_file is not None
+        with open(source_file, encoding="utf-8") as f:
+            source = f.read()
+        assert "import decoder" not in source
+        assert "decoder." not in source
 
 
 # ---------------------------------------------------------------------------

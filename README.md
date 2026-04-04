@@ -1,4 +1,3 @@
-````markdown
 # QSOLKCB / QEC
 ### Deterministic Quantum Error Correction, Multimodal Runtime, and Replay-Safe Orchestration
 ### Supervisory Control • Structural Analysis • Quantized Observability • Rust Operator Console

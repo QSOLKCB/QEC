@@ -1,11 +1,12 @@
-"""v137.1.0 — Unified Physics-Simulation Orchestrator.
+"""v137.1.1 — Post-Orchestrator Replay Audit + Edge Case Hardening.
 
-Layer-4 deterministic orchestration law:
-composition
-+ simulation
-+ synchronization
-+ symbolic memory trace
-= unified deterministic orchestrator
+Layer-4 deterministic unified orchestrator joining:
+- composition frames
+- propagated states
+- synchronized rows
+
+Core law:
+same input -> same bytes
 """
 
 from __future__ import annotations
@@ -15,15 +16,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Sequence, Tuple
 
-import numpy as np
-
-UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION: str = "v137.1.0"
+UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION: str = "v137.1.1"
 FLOAT_PRECISION: int = 12
-
-PHYSICS_ORCHESTRATION_LOCK: str = "PHYSICS_ORCHESTRATION_LOCK"
-E8_RUNTIME_TRIALITY_ORCHESTRATION: str = "E8_RUNTIME_TRIALITY_ORCHESTRATION"
-OUROBOROS_MEMORY_FEEDBACK: str = "OUROBOROS_MEMORY_FEEDBACK"
-DEMOSCENE_MASTER_CLOCK: str = "DEMOSCENE_MASTER_CLOCK"
 
 
 def _round(value: float) -> float:
@@ -34,8 +28,70 @@ def _canonical_json(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
-def _stable_hash_dict(payload: Dict[str, Any]) -> str:
-    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+def _canonical_json_bytes(obj: Any) -> bytes:
+    return _canonical_json(obj).encode("utf-8")
+
+
+def _stable_hash_dict(payload: Mapping[str, Any]) -> str:
+    return hashlib.sha256(_canonical_json_bytes(dict(payload))).hexdigest()
+
+
+def _extract_scalar_row(
+    row: Any,
+    *,
+    int_fields: Sequence[str],
+    float_fields: Sequence[str],
+    str_fields: Sequence[str],
+) -> Dict[str, Any]:
+    """Shared deterministic extractor for mapping or object rows."""
+    if isinstance(row, Mapping):
+        getter = row.get
+    else:
+        getter = lambda key, default: getattr(row, key, default)
+
+    out: Dict[str, Any] = {}
+    for key in int_fields:
+        out[key] = int(getter(key, 0))
+    for key in float_fields:
+        out[key] = _round(float(getter(key, 0.0)))
+    for key in str_fields:
+        out[key] = str(getter(key, ""))
+    return out
+
+
+def _validate_equal_lengths(frames: Sequence[Any], states: Sequence[Any], sync_rows: Sequence[Any]) -> None:
+    f_len = len(frames)
+    s_len = len(states)
+    y_len = len(sync_rows)
+    if f_len != s_len:
+        raise ValueError(f"frames/states length mismatch: {f_len} != {s_len}")
+    if f_len != y_len:
+        raise ValueError(f"frames/sync_rows length mismatch: {f_len} != {y_len}")
+
+
+@dataclass(frozen=True)
+class UnifiedPhysicsSimulationLedger:
+    frames: Tuple[Dict[str, Any], ...]
+    states: Tuple[Dict[str, Any], ...]
+    sync_rows: Tuple[Dict[str, Any], ...]
+    invariant_scores: Dict[str, float]
+    symbolic_trace: str
+    stable_hash: str
+    replay_identity: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "frames": [dict(x) for x in self.frames],
+            "states": [dict(x) for x in self.states],
+            "sync_rows": [dict(x) for x in self.sync_rows],
+            "invariant_scores": dict(self.invariant_scores),
+            "symbolic_trace": self.symbolic_trace,
+            "stable_hash": self.stable_hash,
+            "replay_identity": self.replay_identity,
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
 
 
 def _extract_fields(obj: Any, schema: Mapping[str, Tuple[Any, Any]]) -> Dict[str, Any]:
@@ -184,227 +240,89 @@ class OrchestratorTraceFrame:
         return _canonical_json(self.to_dict())
 
 
-@dataclass(frozen=True)
-class OrchestratorLedger:
-    states: Tuple[OrchestratorState, ...]
-    decisions: Tuple[OrchestratorDecision, ...]
-    trace_frames: Tuple[OrchestratorTraceFrame, ...]
-    invariant_scores: Dict[str, float]
-    symbolic_trace: str
-    stable_hash: str
-    replay_identity: str
-    version: str = UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION
+def build_unified_physics_simulation_orchestrator(
+    frames: Sequence[Any],
+    states: Sequence[Any],
+    sync_rows: Sequence[Any],
+) -> UnifiedPhysicsSimulationLedger:
+    _validate_equal_lengths(frames, states, sync_rows)
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "states": [s.to_dict() for s in self.states],
-            "decisions": [d.to_dict() for d in self.decisions],
-            "trace_frames": [t.to_dict() for t in self.trace_frames],
-            "invariant_scores": dict(self.invariant_scores),
-            "symbolic_trace": self.symbolic_trace,
-            "stable_hash": self.stable_hash,
-            "replay_identity": self.replay_identity,
-            "version": self.version,
-        }
-
-    def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
-
-
-def build_orchestrator_state_graph(
-    composition_frames: Sequence[Any],
-    simulation_states: Sequence[Any],
-    synchronized_rows: Sequence[Any],
-) -> Tuple[OrchestratorState, ...]:
-    frames = sorted((_extract_frame(frame) for frame in composition_frames), key=lambda row: (row["tick"], row["frame_index"]))
-    states = sorted((_extract_state(state) for state in simulation_states), key=lambda row: (row["source_tick"], row["tick_index"]))
-    sync_rows = sorted((_extract_sync_row(row) for row in synchronized_rows), key=lambda row: (row["invariant_tick"], row["pair_index"]))
-
-    if not (len(frames) == len(states) == len(sync_rows)):
-        raise ValueError(
-            f"frames/states/sync_rows length mismatch: {len(frames)}/{len(states)}/{len(sync_rows)}"
+    extracted_frames = tuple(
+        _extract_scalar_row(
+            row,
+            int_fields=("frame_index", "tick"),
+            float_fields=("energy", "phi_shell"),
+            str_fields=("physics_mode",),
         )
-    pair_count = len(frames)
-    graph = []
-    for idx in range(pair_count):
-        frame = frames[idx]
-        state = states[idx]
-        sync = sync_rows[idx]
-        tick = int(max(frame["tick"], state["source_tick"], sync["invariant_tick"]))
-        payload = {
-            "state_index": idx,
-            "tick": tick,
-            "physics_mode": frame["physics_mode"],
-            "energy": _round((float(frame["energy"]) + float(state["transition_energy"])) / 2.0),
-            "frame_hash": frame["stable_hash"],
-            "simulation_state_hash": state["stable_hash"],
-            "sync_token": sync["timestamp_token"],
-            "version": UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
-        }
-        sh = _stable_hash_dict(payload)
-        graph.append(
-            OrchestratorState(
-                state_index=idx,
-                tick=tick,
-                physics_mode=payload["physics_mode"],
-                energy=payload["energy"],
-                frame_hash=payload["frame_hash"],
-                simulation_state_hash=payload["simulation_state_hash"],
-                sync_token=payload["sync_token"],
-                stable_hash=sh,
-                replay_identity=sh,
-            )
-        )
-    return tuple(graph)
-
-
-def synchronize_subsystem_decisions(
-    state_graph: Sequence[OrchestratorState],
-    simulation_decisions: Sequence[Any],
-) -> Tuple[OrchestratorDecision, ...]:
-    raw_decisions = sorted((_extract_decision(decision) for decision in simulation_decisions), key=lambda row: (row["source_tick"], row["tick_index"]))
-    if len(state_graph) != len(raw_decisions):
-        raise ValueError(
-            f"state_graph/simulation_decisions length mismatch: {len(state_graph)}/{len(raw_decisions)}"
-        )
-    pair_count = len(state_graph)
-    out = []
-    for idx in range(pair_count):
-        state = state_graph[idx]
-        decision = raw_decisions[idx]
-        alignment = _round((float(decision["transition_gain"]) + float(state.energy)) / (1.0 + float(idx + 1)))
-        memory = _round((alignment + abs(float(state.energy))) / 2.0)
-        payload = {
-            "state_index": state.state_index,
-            "tick": state.tick,
-            "selected_mode": decision["transition_mode"],
-            "deterministic_rank": idx,
-            "alignment_gain": alignment,
-            "memory_gain": memory,
-            "version": UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
-        }
-        sh = _stable_hash_dict(payload)
-        out.append(
-            OrchestratorDecision(
-                state_index=state.state_index,
-                tick=state.tick,
-                selected_mode=decision["transition_mode"],
-                deterministic_rank=idx,
-                alignment_gain=alignment,
-                memory_gain=memory,
-                stable_hash=sh,
-                replay_identity=sh,
-            )
-        )
-    return tuple(out)
-
-
-def build_symbolic_memory_trace(
-    state_graph: Sequence[OrchestratorState],
-    decisions: Sequence[OrchestratorDecision],
-) -> Tuple[OrchestratorTraceFrame, ...]:
-    if len(state_graph) != len(decisions):
-        raise ValueError(
-            f"state_graph/decisions length mismatch: {len(state_graph)}/{len(decisions)}"
-        )
-    pair_count = len(state_graph)
-    traces = []
-    prev_memory = 0.0
-    for idx in range(pair_count):
-        state = state_graph[idx]
-        decision = decisions[idx]
-        memory_scalar = _round(0.5 * prev_memory + 0.5 * decision.memory_gain)
-        coupling = _round((memory_scalar + abs(state.energy)) / (1.0 + abs(float(idx))))
-        payload = {
-            "trace_index": idx,
-            "tick": state.tick,
-            "symbolic_token": f"{state.physics_mode}|{decision.selected_mode}|{state.sync_token}",
-            "memory_scalar": memory_scalar,
-            "coupling_score": coupling,
-            "version": UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
-        }
-        sh = _stable_hash_dict(payload)
-        traces.append(
-            OrchestratorTraceFrame(
-                trace_index=idx,
-                tick=state.tick,
-                symbolic_token=payload["symbolic_token"],
-                memory_scalar=memory_scalar,
-                coupling_score=coupling,
-                stable_hash=sh,
-                replay_identity=sh,
-            )
-        )
-        prev_memory = memory_scalar
-    return tuple(traces)
-
-
-def build_orchestrator_ledger(
-    states: Tuple[OrchestratorState, ...],
-    decisions: Tuple[OrchestratorDecision, ...],
-    trace_frames: Tuple[OrchestratorTraceFrame, ...],
-) -> OrchestratorLedger:
-    phi_vals = np.asarray([float(d.alignment_gain) for d in decisions], dtype=np.float64)
-    e8_vals = np.asarray([1.0 if s.physics_mode == d.selected_mode else 0.0 for s, d in zip(states, decisions)], dtype=np.float64)
-    ouro_vals = np.asarray([float(t.memory_scalar) for t in trace_frames], dtype=np.float64)
-    clock_vals = np.asarray([1.0 if t.tick >= 0 else 0.0 for t in trace_frames], dtype=np.float64)
-
-    def _safe_mean(values: np.ndarray) -> float:
-        if values.size == 0:
-            return 0.0
-        return _round(float(np.mean(values, dtype=np.float64)))
-
-    invariant_scores = {
-        PHYSICS_ORCHESTRATION_LOCK: _safe_mean(phi_vals),
-        E8_RUNTIME_TRIALITY_ORCHESTRATION: _safe_mean(e8_vals),
-        OUROBOROS_MEMORY_FEEDBACK: _safe_mean(ouro_vals),
-        DEMOSCENE_MASTER_CLOCK: _safe_mean(clock_vals),
-    }
-
-    symbolic_trace = "|".join(
-        f"{name}={invariant_scores[name]:.6f}"
-        for name in (
-            PHYSICS_ORCHESTRATION_LOCK,
-            E8_RUNTIME_TRIALITY_ORCHESTRATION,
-            OUROBOROS_MEMORY_FEEDBACK,
-            DEMOSCENE_MASTER_CLOCK,
-        )
+        for row in frames
     )
-    rounded_invariant_scores = {k: _round(v) for k, v in invariant_scores.items()}
+    extracted_states = tuple(
+        _extract_scalar_row(
+            row,
+            int_fields=("tick_index", "source_tick"),
+            float_fields=("particle_energy", "transition_energy", "feedback_term"),
+            str_fields=(),
+        )
+        for row in states
+    )
+    extracted_sync = tuple(
+        _extract_scalar_row(
+            row,
+            int_fields=("pair_index", "invariant_tick"),
+            float_fields=("phi_shell_timing_alignment", "e8_transition_timing_consistency"),
+            str_fields=("timestamp_token",),
+        )
+        for row in sync_rows
+    )
+
+    ordered_frames = tuple(sorted(extracted_frames, key=lambda r: (r["tick"], r["frame_index"])))
+    ordered_states = tuple(sorted(extracted_states, key=lambda r: (r["source_tick"], r["tick_index"])))
+    ordered_sync = tuple(sorted(extracted_sync, key=lambda r: (r["invariant_tick"], r["pair_index"])))
+
+    n = float(len(ordered_frames))
+    if n == 0.0:
+        drift_energy = 0.0
+        drift_tick = 0.0
+        drift_sync = 0.0
+    else:
+        drift_energy = _round(
+            sum(abs(f["energy"] - s["particle_energy"]) for f, s in zip(ordered_frames, ordered_states)) / n
+        )
+        drift_tick = _round(
+            sum(abs(float(f["tick"] - s["source_tick"])) for f, s in zip(ordered_frames, ordered_states)) / n
+        )
+        drift_sync = _round(
+            sum(abs(float(f["tick"] - y["invariant_tick"])) for f, y in zip(ordered_frames, ordered_sync)) / n
+        )
+
+    rounded_invariants = {
+        "energy_state_drift": _round(max(0.0, min(1.0, 1.0 - drift_energy))),
+        "tick_state_drift": _round(max(0.0, min(1.0, 1.0 - drift_tick / 32.0))),
+        "sync_tick_drift": _round(max(0.0, min(1.0, 1.0 - drift_sync / 32.0))),
+    }
+    symbolic_trace = "|".join(f"{k}={rounded_invariants[k]:.6f}" for k in sorted(rounded_invariants))
+
     payload = {
-        "state_hashes": [s.stable_hash for s in states],
-        "decision_hashes": [d.stable_hash for d in decisions],
-        "trace_hashes": [t.stable_hash for t in trace_frames],
-        "invariant_scores": rounded_invariant_scores,
+        "frames": [dict(x) for x in ordered_frames],
+        "states": [dict(x) for x in ordered_states],
+        "sync_rows": [dict(x) for x in ordered_sync],
+        "invariant_scores": rounded_invariants,
         "symbolic_trace": symbolic_trace,
         "version": UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
     }
-    sh = _stable_hash_dict(payload)
-    return OrchestratorLedger(
-        states=states,
-        decisions=decisions,
-        trace_frames=trace_frames,
-        invariant_scores=rounded_invariant_scores,
+    stable_hash = _stable_hash_dict(payload)
+    return UnifiedPhysicsSimulationLedger(
+        frames=ordered_frames,
+        states=ordered_states,
+        sync_rows=ordered_sync,
+        invariant_scores=rounded_invariants,
         symbolic_trace=symbolic_trace,
-        stable_hash=sh,
-        replay_identity=sh,
+        stable_hash=stable_hash,
+        replay_identity=stable_hash,
     )
 
 
-def orchestrate_multimodal_runtime(
-    composition_frames: Sequence[Any],
-    simulation_ledger: Mapping[str, Any],
-    synchronization_ledger: Mapping[str, Any],
-) -> OrchestratorLedger:
-    sim_states = simulation_ledger.get("states", ())
-    sim_decisions = simulation_ledger.get("decisions", ())
-    sync_rows = synchronization_ledger.get("synchronized_rows", ())
-
-    state_graph = build_orchestrator_state_graph(composition_frames, sim_states, sync_rows)
-    decisions = synchronize_subsystem_decisions(state_graph, sim_decisions)
-    trace = build_symbolic_memory_trace(state_graph, decisions)
-    return build_orchestrator_ledger(state_graph, decisions, trace)
-
-
-def export_orchestrator_bundle(ledger: OrchestratorLedger) -> Dict[str, Any]:
+def export_unified_physics_simulation_bundle(
+    ledger: UnifiedPhysicsSimulationLedger,
+) -> Dict[str, Any]:
     return ledger.to_dict()

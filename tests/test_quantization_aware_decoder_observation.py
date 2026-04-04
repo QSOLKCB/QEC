@@ -451,3 +451,57 @@ class TestDecoderFamily:
     def test_explicit_family(self):
         sig = _make_observation(decoder_family="bp_experimental")
         assert sig.decoder_family == "bp_experimental"
+
+
+# ---------------------------------------------------------------------------
+# Input validation
+# ---------------------------------------------------------------------------
+
+class TestInputValidation:
+    """Verify invalid inputs raise ValueError."""
+
+    def test_risk_score_below_zero(self):
+        with pytest.raises(ValueError, match="risk_score"):
+            _make_observation(risk_score=-0.1)
+
+    def test_risk_score_above_one(self):
+        with pytest.raises(ValueError, match="risk_score"):
+            _make_observation(risk_score=1.01)
+
+    def test_syndrome_drift_below_zero(self):
+        with pytest.raises(ValueError, match="syndrome_drift"):
+            _make_observation(syndrome_drift=-0.01)
+
+    def test_syndrome_drift_above_one(self):
+        with pytest.raises(ValueError, match="syndrome_drift"):
+            _make_observation(syndrome_drift=1.5)
+
+    def test_stability_score_below_zero(self):
+        with pytest.raises(ValueError, match="decoder_stability_score"):
+            _make_observation(decoder_stability_score=-0.1)
+
+    def test_stability_score_above_one(self):
+        with pytest.raises(ValueError, match="decoder_stability_score"):
+            _make_observation(decoder_stability_score=2.0)
+
+    def test_phase_bin_width_zero(self):
+        with pytest.raises(ValueError, match="phase_bin_width"):
+            observe_decoder_quantization(
+                syndrome_drift=0.1,
+                decoder_stability_score=0.5,
+                phase_centroid_q=0.0,
+                phase_centroid_p=0.0,
+                risk_score=0.3,
+                phase_bin_width=0.0,
+            )
+
+    def test_phase_bin_width_negative(self):
+        with pytest.raises(ValueError, match="phase_bin_width"):
+            observe_decoder_quantization(
+                syndrome_drift=0.1,
+                decoder_stability_score=0.5,
+                phase_centroid_q=0.0,
+                phase_centroid_p=0.0,
+                risk_score=0.3,
+                phase_bin_width=-1.0,
+            )

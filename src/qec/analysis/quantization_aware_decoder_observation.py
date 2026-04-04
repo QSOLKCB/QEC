@@ -26,16 +26,11 @@ import math
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-import numpy as np
-
 from qec.analysis.cross_domain_quantization import (
     FLOAT_PRECISION,
-    RISK_BANDS,
     phase_space_quantize,
     risk_band_quantize,
-    uniform_quantize,
     _float_key,
-    _canonical_value,
 )
 
 
@@ -192,6 +187,17 @@ def observe_decoder_quantization(
     DecoderObservationSignature
         Frozen quantized observation record.
     """
+    if not (0.0 <= syndrome_drift <= 1.0):
+        raise ValueError(f"syndrome_drift must be in [0, 1], got {syndrome_drift}")
+    if not (0.0 <= decoder_stability_score <= 1.0):
+        raise ValueError(
+            f"decoder_stability_score must be in [0, 1], got {decoder_stability_score}"
+        )
+    if not (0.0 <= risk_score <= 1.0):
+        raise ValueError(f"risk_score must be in [0, 1], got {risk_score}")
+    if phase_bin_width <= 0.0:
+        raise ValueError(f"phase_bin_width must be positive, got {phase_bin_width}")
+
     # Risk band via v136.10.0 framework
     risk_label, _ = risk_band_quantize(risk_score)
 

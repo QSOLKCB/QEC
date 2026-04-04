@@ -1,4 +1,4 @@
-"""Tests for v137.1.5 Unified Physics Simulation Orchestrator.
+"""Tests for v137.1.6 Unified Physics Simulation Orchestrator.
 
 Coverage goals:
 - cross-module replay integrity
@@ -20,6 +20,9 @@ import pytest
 
 from qec.analysis.unified_physics_simulation_orchestrator import (
     UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+    RuntimeStabilitySnapshot,
+    StabilityConvergenceReport,
+    RuntimeStabilityLedger,
     RepairSuggestion,
     RepairSuggestionBundle,
     RepairSuggestionLedger,
@@ -40,6 +43,11 @@ from qec.analysis.unified_physics_simulation_orchestrator import (
     validate_symbolic_memory_trace,
     export_repair_suggestion_bundle,
     generate_repair_suggestions,
+    observe_runtime_stability,
+    track_drift_convergence,
+    analyze_repair_suggestion_stability,
+    export_runtime_stability_bundle,
+    verify_runtime_stability_roundtrip,
     map_drift_to_repair_actions,
     rank_repair_candidates,
     verify_drift_provenance_roundtrip,
@@ -57,7 +65,7 @@ def _fixture_inputs():
 # A) API + version
 
 def test_version_constant():
-    assert UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION == "v137.1.5"
+    assert UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION == "v137.1.6"
 
 
 def test_audit_returns_artifact_with_expected_fields():
@@ -934,3 +942,151 @@ def test_ast_entropy_and_layer_purity_guards_for_repair_layer():
         )
         for path_value in attribute_paths
     )
+
+
+def _build_runtime_stability_ledger(*, replay_cycles: int = 8, soak_window: int = 8, seed_shift: int = 0):
+    provenance = _build_provenance_ledger(replay_cycles=replay_cycles, seed_shift=seed_shift)
+    repairs = generate_repair_suggestions(provenance)
+    return observe_runtime_stability(provenance, repairs, soak_window=soak_window)
+
+
+def test_200_run_soak_stability_runtime_observability():
+    ledger = _build_runtime_stability_ledger(replay_cycles=8, soak_window=8, seed_shift=0)
+    baseline = ledger.to_canonical_json()
+    for _ in range(200):
+        got = _build_runtime_stability_ledger(replay_cycles=8, soak_window=8, seed_shift=0)
+        assert got.to_canonical_json() == baseline
+        assert got.stable_hash == ledger.stable_hash
+
+
+def test_same_input_convergence_score_is_one():
+    ledger = _build_runtime_stability_ledger(replay_cycles=6, soak_window=6, seed_shift=0)
+    assert all(snapshot.convergence_score == 1.0 for snapshot in ledger.convergence_report.snapshots)
+    assert ledger.convergence_report.mean_convergence_score == 1.0
+
+
+def test_drift_divergence_lowers_convergence_score():
+    ledger = _build_runtime_stability_ledger(replay_cycles=6, soak_window=6, seed_shift=10)
+    assert any(snapshot.convergence_score < 1.0 for snapshot in ledger.convergence_report.snapshots)
+    assert ledger.convergence_report.mean_convergence_score < 1.0
+
+
+def test_advisory_rank_stability_is_deterministic():
+    provenance = _build_provenance_ledger(replay_cycles=6, seed_shift=0)
+    repairs = generate_repair_suggestions(provenance)
+    a = analyze_repair_suggestion_stability(repairs)
+    b = analyze_repair_suggestion_stability(repairs)
+    assert a == b
+    assert 0.0 <= a <= 1.0
+
+
+def test_runtime_stability_export_roundtrip_byte_identical():
+    ledger = _build_runtime_stability_ledger(replay_cycles=6, soak_window=6, seed_shift=0)
+    exported = export_runtime_stability_bundle(ledger)
+    lhs = json.dumps(exported, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    rhs = json.dumps(ledger.to_dict(), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    assert lhs == rhs
+    assert verify_runtime_stability_roundtrip(ledger) is True
+
+
+def test_runtime_observatory_only_invariant_true():
+    ledger = _build_runtime_stability_ledger(replay_cycles=4, soak_window=4, seed_shift=0)
+    assert ledger.observatory_only is True
+    assert ledger.convergence_report.observatory_only is True
+    assert all(snapshot.observatory_only is True for snapshot in ledger.convergence_report.snapshots)
+
+
+@pytest.mark.parametrize("soak_window", [0, -1])
+def test_runtime_fail_fast_invalid_soak_window(soak_window):
+    provenance = _build_provenance_ledger(replay_cycles=4, seed_shift=0)
+    repairs = generate_repair_suggestions(provenance)
+    with pytest.raises(ValueError, match="invalid soak window"):
+        observe_runtime_stability(provenance, repairs, soak_window=soak_window)
+
+
+def test_runtime_fail_fast_malformed_stability_bundle():
+    ledger = _build_runtime_stability_ledger(replay_cycles=4, soak_window=4, seed_shift=0)
+    bad = RuntimeStabilityLedger(
+        version=ledger.version,
+        soak_window=ledger.soak_window,
+        convergence_report=ledger.convergence_report,
+        advisory_stability_score=ledger.advisory_stability_score,
+        provenance_stability_score=ledger.provenance_stability_score,
+        stable_hash="0" * 64,
+        replay_identity=ledger.replay_identity,
+        observatory_only=True,
+    )
+    with pytest.raises(ValueError, match="malformed stability bundle"):
+        verify_runtime_stability_roundtrip(bad)
+
+
+def test_runtime_fail_fast_invalid_convergence_score():
+    ledger = _build_runtime_stability_ledger(replay_cycles=4, soak_window=4, seed_shift=0)
+    with pytest.raises(ValueError, match="invalid mean_convergence_score"):
+        StabilityConvergenceReport(
+            soak_window=ledger.convergence_report.soak_window,
+            snapshots=ledger.convergence_report.snapshots,
+            mean_drift_score=ledger.convergence_report.mean_drift_score,
+            mean_convergence_score=1.5,
+            stable_hash=ledger.convergence_report.stable_hash,
+            replay_identity=ledger.convergence_report.replay_identity,
+            observatory_only=True,
+        )
+
+
+def test_runtime_fail_fast_corrupted_replay_anchor():
+    ledger = _build_runtime_stability_ledger(replay_cycles=4, soak_window=4, seed_shift=0)
+    snap = ledger.convergence_report.snapshots[0]
+    with pytest.raises(ValueError, match="corrupted replay anchor"):
+        RuntimeStabilitySnapshot(
+            cycle_index=snap.cycle_index,
+            soak_window=snap.soak_window,
+            drift_score=snap.drift_score,
+            convergence_score=snap.convergence_score,
+            replay_identity=snap.replay_identity,
+            advisory_rank_drift=snap.advisory_rank_drift,
+            provenance_source_drift=snap.provenance_source_drift,
+            first_divergence_anchor=snap.first_divergence_anchor,
+            chain_digest_anchor="",
+            symbolic_trace_stability=snap.symbolic_trace_stability,
+            stable_hash=snap.stable_hash,
+            observatory_only=True,
+        )
+
+
+def test_runtime_fail_fast_invalid_advisory_ranking_state():
+    with pytest.raises(ValueError, match="invalid advisory ranking state"):
+        analyze_repair_suggestion_stability(
+            RepairSuggestionLedger(
+                version=UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+                provenance_stable_hash="1" * 64,
+                first_divergence_cycle=0,
+                suggestion_bundle=RepairSuggestionBundle(
+                    version=UNIFIED_PHYSICS_SIMULATION_ORCHESTRATOR_VERSION,
+                    suggestions=tuple(),
+                    advisory_only=True,
+                    stable_hash="2" * 64,
+                    replay_identity="2" * 64,
+                ),
+                advisory_only=True,
+                stable_hash="3" * 64,
+                replay_identity="3" * 64,
+            )
+        )
+
+
+def test_runtime_snapshot_output_required_fields():
+    ledger = _build_runtime_stability_ledger(replay_cycles=5, soak_window=5, seed_shift=0)
+    snapshot = ledger.convergence_report.snapshots[0].to_dict()
+    for key in (
+        "cycle_index",
+        "soak_window",
+        "drift_score",
+        "convergence_score",
+        "replay_identity",
+        "advisory_rank_drift",
+        "provenance_source_drift",
+        "first_divergence_anchor",
+        "chain_digest_anchor",
+    ):
+        assert key in snapshot

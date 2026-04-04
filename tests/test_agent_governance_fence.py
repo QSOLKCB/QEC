@@ -170,6 +170,18 @@ def test_governance_ledger_detects_corruption() -> None:
         validate_governance_ledger(ledger)
 
 
+def test_governance_ledger_rejects_chain_valid_false() -> None:
+    ledger = GovernanceLedger(entries=(), head_hash="0" * 64, chain_valid=False, governance_only=True)
+    with pytest.raises(ValueError, match="chain_valid"):
+        validate_governance_ledger(ledger)
+
+
+def test_governance_ledger_rejects_governance_only_false() -> None:
+    ledger = GovernanceLedger(entries=(), head_hash="0" * 64, chain_valid=True, governance_only=False)
+    with pytest.raises(ValueError, match="governance_only"):
+        validate_governance_ledger(ledger)
+
+
 def test_run_agent_governance_fence_has_no_side_effect_execution(monkeypatch: pytest.MonkeyPatch) -> None:
     called = {"value": False}
 
@@ -222,6 +234,67 @@ def test_rule_tie_breaking_is_deterministic() -> None:
         parent_ledger_hash="0" * 64,
     )
     assert decision.matched_rule_ids == ("a", "b")
+
+
+def test_custom_lattice_rank_affects_decision_outcome() -> None:
+    """Custom lattice order changes meet() results, affecting the effective decision."""
+    rules = (
+        PolicyRule(
+            rule_id="r-sandbox",
+            action_kind="inspect",
+            tool_name="catalog",
+            scope_prefix="analysis/",
+            required_capabilities=(),
+            forbidden_capabilities=(),
+            max_risk_score=1.0,
+            decision=PolicyState.SANDBOX,
+            priority=10,
+        ),
+        PolicyRule(
+            rule_id="r-escalate",
+            action_kind="inspect",
+            tool_name="catalog",
+            scope_prefix="analysis/",
+            required_capabilities=(),
+            forbidden_capabilities=(),
+            max_risk_score=1.0,
+            decision=PolicyState.ESCALATE,
+            priority=10,
+        ),
+    )
+    # Default lattice: DENY < ESCALATE < SANDBOX < OBSERVE < ALLOW
+    # meet(SANDBOX, ESCALATE) = ESCALATE
+    default_lattice = build_policy_lattice()
+    decision_default = evaluate_governance_decision(
+        request=_request(),
+        policy_lattice=default_lattice,
+        permission_graph=_permission_graph(),
+        policy_rules=rules,
+        parent_ledger_hash="0" * 64,
+    )
+
+    # Custom lattice: DENY < SANDBOX < ESCALATE < OBSERVE < ALLOW
+    # meet(SANDBOX, ESCALATE) = SANDBOX
+    custom_lattice = build_policy_lattice(
+        order=(
+            PolicyState.DENY,
+            PolicyState.SANDBOX,
+            PolicyState.ESCALATE,
+            PolicyState.OBSERVE,
+            PolicyState.ALLOW,
+        )
+    )
+    decision_custom = evaluate_governance_decision(
+        request=_request(),
+        policy_lattice=custom_lattice,
+        permission_graph=_permission_graph(),
+        policy_rules=rules,
+        parent_ledger_hash="0" * 64,
+    )
+
+    assert decision_default.effective_policy_state == PolicyState.ESCALATE
+    assert decision_custom.effective_policy_state == PolicyState.SANDBOX
+    assert decision_default.decision_hash != decision_custom.decision_hash
 
 
 def test_canonical_json_output_is_stable() -> None:

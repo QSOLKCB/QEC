@@ -269,6 +269,7 @@ _RISK_WEIGHTS: dict[str, float] = {
     "unknown_action_kind": 0.25,
     "privileged_scope": 0.2,
     "forbidden_capability": 0.25,
+    "missing_required_capability": 0.2,
     "missing_replay_context": 0.2,
     "missing_provenance": 0.15,
     "high_impact_action": 0.2,
@@ -290,6 +291,7 @@ def _scope_matches(prefix: str, target_scope: str) -> bool:
 def _match_rules(
     request: GovernanceActionRequest,
     rules: Sequence[PolicyRule],
+    policy_lattice: PolicyLattice,
 ) -> tuple[PolicyRule, ...]:
     matched = []
     for rule in rules:
@@ -308,7 +310,7 @@ def _match_rules(
     return tuple(
         sorted(
             matched,
-            key=lambda r: (-int(r.priority), r.rule_id, PolicyLattice().rank(r.decision)),
+            key=lambda r: (-int(r.priority), r.rule_id, policy_lattice.rank(r.decision)),
         )
     )
 
@@ -337,11 +339,11 @@ def evaluate_governance_decision(
 
     required_caps = _pair_lookup(permission_graph.action_required_capabilities, normalized.action_kind) or ()
     if any(cap not in normalized.capability_tags for cap in required_caps):
-        risk_signals.append("forbidden_capability")
+        risk_signals.append("missing_required_capability")
 
     risk_score = compute_bounded_risk_score(risk_signals)
 
-    matched_rules = _match_rules(normalized, policy_rules)
+    matched_rules = _match_rules(normalized, policy_rules, policy_lattice)
     matched_ids = tuple(rule.rule_id for rule in matched_rules)
 
     states: list[PolicyState] = []
@@ -432,6 +434,10 @@ def append_governance_ledger_entry(
 
 
 def validate_governance_ledger(ledger: GovernanceLedger) -> bool:
+    if not ledger.chain_valid:
+        raise ValueError("ledger chain_valid flag is False")
+    if not ledger.governance_only:
+        raise ValueError("ledger governance_only flag is False")
     expected_parent = "0" * 64
     for index, entry in enumerate(ledger.entries):
         if entry.sequence_id != index:

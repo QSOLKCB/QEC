@@ -35,10 +35,6 @@ def _canonical_json(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
-def _stable_hash_dict(payload: Dict[str, Any]) -> str:
-    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
-
-
 def _trace_tokens(symbolic_trace: str) -> Tuple[str, ...]:
     return tuple(sorted(set(tok.strip() for tok in str(symbolic_trace).split("|") if tok.strip())))
 

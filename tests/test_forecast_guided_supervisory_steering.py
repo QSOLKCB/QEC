@@ -30,6 +30,15 @@ from qec.analysis.temporal_auditory_policy_arbitration import (
     arbitrate_temporal_auditory_policies,
 )
 from qec.analysis.quantization_aware_forecast_compression import (
+    QUANTIZATION_AWARE_FORECAST_COMPRESSION_VERSION,
+    STABILITY_STABLE,
+    STABILITY_CRITICAL,
+    STABILITY_DRIFTING,
+    STABILITY_VOLATILE,
+    LOSS_LOSSLESS,
+    LOSS_LOW,
+    LOSS_MEDIUM,
+    LOSS_HIGH,
     ForecastCompressionDecision,
     compress_forecast_horizon,
 )
@@ -184,6 +193,49 @@ def _make_fc_calming() -> ForecastCompressionDecision:
     return compress_forecast_horizon(arbs)
 
 
+# --- Synthetic ForecastCompressionDecision builders for controlled drift ---
+
+def _make_synthetic_fc(
+    stability: str = STABILITY_STABLE,
+    loss: str = LOSS_LOSSLESS,
+    entropy: float = 0.2,
+    compression_ratio: float = 0.2,
+) -> ForecastCompressionDecision:
+    """Build a synthetic ForecastCompressionDecision with controlled fields.
+
+    Uses a deterministic stable_hash derived from the field values.
+    """
+    import hashlib as _hl
+    import json as _js
+    tokens = ("SYN_TOKEN x1",)
+    trace = "SYN_TOKEN x1"
+    payload = {
+        "compressed_forecast_tokens": list(tokens),
+        "compression_ratio": compression_ratio,
+        "dominant_arbitration_mode": "PASS_THROUGH",
+        "entropy_proxy": entropy,
+        "forecast_stability_class": stability,
+        "forecast_symbolic_trace": trace,
+        "horizon_length": 5,
+        "loss_budget_class": loss,
+        "version": QUANTIZATION_AWARE_FORECAST_COMPRESSION_VERSION,
+    }
+    canonical = _js.dumps(payload, sort_keys=True, separators=(",", ":"),
+                          ensure_ascii=True)
+    h = _hl.sha256(canonical.encode("utf-8")).hexdigest()
+    return ForecastCompressionDecision(
+        horizon_length=5,
+        compressed_forecast_tokens=tokens,
+        compression_ratio=compression_ratio,
+        entropy_proxy=entropy,
+        dominant_arbitration_mode="PASS_THROUGH",
+        forecast_stability_class=stability,
+        loss_budget_class=loss,
+        forecast_symbolic_trace=trace,
+        stable_hash=h,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Test replay validation
 # ---------------------------------------------------------------------------
@@ -260,6 +312,12 @@ class TestReplayValidation:
         )
         assert _verify_replay((bad,)) is False
 
+    def test_replay_uses_upstream_version_constant(self):
+        """Verify replay checks against the imported upstream constant, not a hardcoded string."""
+        fc = _make_fc_static()
+        assert fc.version == QUANTIZATION_AWARE_FORECAST_COMPRESSION_VERSION
+        assert _verify_replay((fc,)) is True
+
     def test_replay_valid_propagates_to_decision(self):
         result = derive_supervisory_steering([_make_fc_static()])
         assert result.replay_valid is True
@@ -314,16 +372,22 @@ class TestCoherenceScore:
         s2 = _compute_coherence_score(decisions)
         assert s1 == s2
 
-    def test_all_different_stability_low_coherence(self):
-        # Use horizons that produce different stability classes
+    def test_mixed_stability_coherence_bounded(self):
+        """Mixed real fixtures: coherence stays within [0, 1]."""
         fc_s = _make_fc_static()
         fc_e = _make_fc_escalating()
         fc_c = _make_fc_collapse()
         decisions = (fc_s, fc_e, fc_c)
         score = _compute_coherence_score(decisions)
-        # With 3 different stability classes, no adjacent match -> 0.0
-        # But some might match, so just check bound
         assert 0.0 <= score <= 1.0
+
+    def test_synthetic_all_different_stability_zero_coherence(self):
+        """Synthetic: three distinct stability classes -> 0.0 coherence."""
+        a = _make_synthetic_fc(stability=STABILITY_STABLE)
+        b = _make_synthetic_fc(stability=STABILITY_DRIFTING)
+        c = _make_synthetic_fc(stability=STABILITY_CRITICAL)
+        score = _compute_coherence_score((a, b, c))
+        assert score == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -359,16 +423,35 @@ class TestDriftScore:
         s2 = _compute_drift_score(decisions)
         assert s1 == s2
 
-    def test_escalating_produces_positive_drift(self):
-        # Static -> escalating -> collapse should show positive drift
-        decisions = (_make_fc_static(), _make_fc_escalating(), _make_fc_collapse())
-        score = _compute_drift_score(decisions)
-        # Drift direction depends on the actual stability/loss/entropy values
-        assert -1.0 <= score <= 1.0
+    def test_escalating_synthetic_produces_positive_drift(self):
+        """Controlled escalation: STABLE/LOSSLESS -> CRITICAL/HIGH_LOSS."""
+        calm = _make_synthetic_fc(
+            stability=STABILITY_STABLE, loss=LOSS_LOSSLESS,
+            entropy=0.1, compression_ratio=0.2,
+        )
+        severe = _make_synthetic_fc(
+            stability=STABILITY_CRITICAL, loss=LOSS_HIGH,
+            entropy=0.9, compression_ratio=0.9,
+        )
+        score = _compute_drift_score((calm, severe))
+        assert score > 0.0, f"Expected positive drift for escalation, got {score}"
 
-    def test_calming_direction(self):
-        # Collapse -> calming -> static should produce negative drift
-        decisions = (_make_fc_collapse(), _make_fc_calming(), _make_fc_static())
+    def test_calming_synthetic_produces_negative_drift(self):
+        """Controlled calming: CRITICAL/HIGH_LOSS -> STABLE/LOSSLESS."""
+        severe = _make_synthetic_fc(
+            stability=STABILITY_CRITICAL, loss=LOSS_HIGH,
+            entropy=0.9, compression_ratio=0.9,
+        )
+        calm = _make_synthetic_fc(
+            stability=STABILITY_STABLE, loss=LOSS_LOSSLESS,
+            entropy=0.1, compression_ratio=0.2,
+        )
+        score = _compute_drift_score((severe, calm))
+        assert score < 0.0, f"Expected negative drift for calming, got {score}"
+
+    def test_real_fixture_drift_bounded(self):
+        """Real fixture drift stays within [-1, 1] bounds."""
+        decisions = (_make_fc_static(), _make_fc_escalating(), _make_fc_collapse())
         score = _compute_drift_score(decisions)
         assert -1.0 <= score <= 1.0
 

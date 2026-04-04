@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Sequence, Tuple
 
 from qec.analysis.quantization_aware_forecast_compression import (
+    QUANTIZATION_AWARE_FORECAST_COMPRESSION_VERSION,
     STABILITY_CRITICAL,
     STABILITY_DRIFTING,
     STABILITY_STABLE,
@@ -191,7 +192,7 @@ def _verify_replay(
     - stable hashes exist and are non-empty
     - compressed_forecast_tokens non-empty
     - horizon_length > 0
-    - version matches v137.0.7
+    - version matches upstream QUANTIZATION_AWARE_FORECAST_COMPRESSION_VERSION
     """
     for d in decisions:
         if not d.stable_hash or not isinstance(d.stable_hash, str):
@@ -202,7 +203,7 @@ def _verify_replay(
             return False
         if d.horizon_length <= 0:
             return False
-        if d.version != "v137.0.7":
+        if d.version != QUANTIZATION_AWARE_FORECAST_COMPRESSION_VERSION:
             return False
     return True
 
@@ -272,9 +273,9 @@ def _compute_drift_score(
         # Entropy increase (higher entropy = more disorder = escalation)
         entropy_delta = nxt.entropy_proxy - curr.entropy_proxy
 
-        # Compression ratio degradation (lower ratio = more compression = calming)
-        # Invert: ratio going down means calming
-        ratio_delta = curr.compression_ratio - nxt.compression_ratio
+        # Compression ratio increase = less compression = more disorder = escalation
+        # Compression ratio decrease = more compression = more uniform = calming
+        ratio_delta = nxt.compression_ratio - curr.compression_ratio
 
         # Average the four signals
         step_drift = (stability_delta + loss_delta + entropy_delta + ratio_delta) / 4.0

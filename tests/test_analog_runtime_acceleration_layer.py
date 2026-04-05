@@ -76,3 +76,30 @@ def test_fail_fast_invalid_inputs() -> None:
             coupling=0.1,
             enable_fast_path=False,
         )
+
+    with pytest.raises(ValueError, match=r"coupling must be in \[0, 1\]"):
+        run_analog_runtime_acceleration_layer(
+            state_id="x",
+            amplitudes=(0.2,),
+            damping=0.1,
+            coupling=1.5,
+            enable_fast_path=False,
+        )
+
+    with pytest.raises(ValueError, match="enable_fast_path must be a bool"):
+        run_analog_runtime_acceleration_layer(
+            state_id="x",
+            amplitudes=(0.2,),
+            damping=0.1,
+            coupling=0.1,
+            enable_fast_path=1,  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(ValueError, match=r"amplitudes\[0\] must be finite"):
+        run_analog_runtime_acceleration_layer(
+            state_id="x",
+            amplitudes=(float("inf"),),
+            damping=0.1,
+            coupling=0.1,
+            enable_fast_path=False,
+        )

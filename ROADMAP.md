@@ -1,22 +1,16 @@
-# QSOL QEC — Canonical Linux-Style Roadmap
+# QSOL QEC — Canonical Linux-Style Research Systems Roadmap
 Branch: long-running canonical deterministic systems line  
 Current Stable Release: `v137.3.0`
 
-This roadmap fully replaces all prior roadmap versions.
+This roadmap supersedes all previous roadmap versions.
 
-Versioning follows long-line Linux-style progression.
+Versioning remains Linux-style.
 
-Major line remains **v137.x.x**
+Major line remains:
 
-Future architecture evolves through **minor series**
+**v137.x.x**
 
-Example:
-
-- `v137.4.x`
-- `v137.5.x`
-- `v137.6.x`
-
-This preserves release continuity and replay lineage.
+This preserves release continuity, DOI lineage, benchmark replay fidelity, and publication chronology.
 
 ---
 
@@ -35,8 +29,9 @@ Mandatory invariants:
 - deterministic tie-breaking
 - fail-fast validation
 - append-only provenance
-- schema migration contracts
 - immutable event history
+- canonical replay law
+- schema migration contracts
 
 `src/qec/decoder/` remains sacred infrastructure.
 
@@ -55,10 +50,10 @@ Mandatory governance substrate.
 Focus:
 
 - append-only event history
+- Merkle provenance
 - cryptographic audit
-- capability boundaries
-- signed provenance
-- deterministic replay law
+- signed replay law
+- immutable event receipts
 
 Planned line:
 
@@ -72,14 +67,48 @@ capability + privilege boundary engine
 signed provenance artifact chain
 
 ### v137.4.3
-policy decision artifact + evidence receipts
+policy evidence receipts
 
 ### v137.4.4
-replay-law certification battery
+replay certification battery
 
 ---
 
-## v137.5.x — Autonomous Planning + Control Synthesis
+## v137.5.x — Resonance Control + State Coherence Layer
+
+New upgrade from UFF / resonance documents.
+
+Focus:
+
+- coherence state field
+- phase-lock runtime
+- decoherence recovery
+- state fragmentation control
+- stability attractor fields
+
+Inspired by:
+coherent source → differentiated structure ontology
+
+Planned line:
+
+### v137.5.0
+coherence field kernel
+
+### v137.5.1
+phase-lock state transitions
+
+### v137.5.2
+decoherence + fragmentation recovery
+
+### v137.5.3
+stability attractor field engine
+
+### v137.5.4
+collapse + reset simulation battery
+
+---
+
+## v137.6.x — Autonomous Planning + World-State Synthesis
 
 Focus:
 
@@ -90,116 +119,96 @@ Focus:
 
 Planned line:
 
-### v137.5.0
+### v137.6.0
 plan IR + deterministic search kernel
 
-### v137.5.1
+### v137.6.1
 route graph execution runtime
 
-### v137.5.2
-dead-end pruning + stable tie-breaking
+### v137.6.2
+dead-end pruning
 
-### v137.5.3
+### v137.6.3
 policy-constrained planner
 
-### v137.5.4
+### v137.6.4
 planning replay battery
 
 ---
 
-## v137.6.x — Hierarchical Memory + State Compaction
+## v137.7.x — Hierarchical Memory + Semantic Compression
 
-Mandatory bridge release.
+Strongly enhanced from uploaded theory docs.
 
 Focus:
 
-- context compression
+- semantic fragmentation repair
 - memory hierarchy
-- evidence linkage
-- bounded retrieval
-
-Planned line:
-
-### v137.6.0
-raw → episode hierarchy
-
-### v137.6.1
-semantic → theme memory compaction
-
-### v137.6.2
-hash-preserving compression chain
-
-### v137.6.3
-uncertainty-gated retrieval
-
-### v137.6.4
-memory fidelity benchmark battery
-
----
-
-## v137.7.x — Deterministic NLP Governance v2
-
-Evolution of the completed NLP layer.
-
-Focus:
-
-natural language → intent lattice → governed planner → replay-safe output
+- state compression
+- evidence-linked recall
+- symbolic reconstruction
 
 Planned line:
 
 ### v137.7.0
-intent lattice v2
+raw → episode hierarchy
 
 ### v137.7.1
-semantic graph compiler
+semantic → theme compaction
 
 ### v137.7.2
-privilege-aware response planner
+hash-preserving compression chain
 
 ### v137.7.3
-semantic risk classifier
+fragmentation recovery engine
 
 ### v137.7.4
-governance evidence battery
+memory fidelity benchmark
 
 ---
 
-## v137.8.x — Unified World Model Kernel
+## v137.8.x — Geometry + Topology Reasoning Kernel
+
+Major enhancement from E8 / topology documents.
 
 Focus:
 
-- persistent graph
-- time-series mutation log
-- causal state evolution
-- bounded traversal
+- graph topology reasoning
+- polytope traversal
+- manifold state projection
+- E8-inspired symmetry kernels
+- route geometry synthesis
 
 Planned line:
 
 ### v137.8.0
-typed world graph
+topological graph kernel
 
 ### v137.8.1
-time-series mutation kernel
+polytope reasoning engine
 
 ### v137.8.2
-bounded traversal API
+E8 symmetry projection layer
 
 ### v137.8.3
-future-state projection engine
+manifold traversal planner
 
 ### v137.8.4
-world-state replay certification
+topology divergence battery
 
 ---
 
-## v137.9.x — Multimodal Physics-Aware Reasoning
+## v137.9.x — Multimodal Signal + Physics-Aware Reasoning
+
+Major upgrade from resonance / sound docs.
 
 Focus:
 
+- signal-space reasoning
 - multimodal ingestion
-- geometry kernels
-- observational photonic fast path
-- deterministic fixed-point wrappers
+- spectrogram governance
+- audio topology inference
+- signal coherence scoring
 
 Planned line:
 
@@ -207,16 +216,16 @@ Planned line:
 multimodal feature schema
 
 ### v137.9.1
-geometry + polytope reasoning layer
+spectral reasoning layer
 
 ### v137.9.2
-fixed-point compensation wrappers
+signal coherence engine
 
 ### v137.9.3
-observational photonic fast path
+audio + phase-space topology
 
 ### v137.9.4
-cross-hardware divergence battery
+cross-modal replay certification
 
 ---
 
@@ -231,7 +240,8 @@ Focus:
 - hypothesis lattice
 - experiment DSL
 - theorem bridge
-- proof-carrying artifacts
+- simulation reproducibility
+- evidence lineage
 
 ---
 
@@ -240,9 +250,9 @@ Focus:
 Focus:
 
 - multi-node orchestration
+- federated trust chain
 - signed replication
 - transparency logs
-- federated trust chain
 
 ---
 
@@ -252,32 +262,48 @@ Focus:
 
 - planning
 - memory
+- geometry
 - language
-- world modeling
-- scientific reasoning
+- signal reasoning
+- scientific inference
 - distributed governance
 
-This becomes the journal / preprint platform.
+This becomes the formal journal / preprint architecture line.
 
 ---
 
 # FORMAL METHODS LINE
 
-Parallel milestone series.
-
 ---
 
 ## v137.20.x — TLA+ + model checking
+
 - replay law verification
+- convergence proofs
 - state transition proofs
-- distributed convergence
 
 ---
 
 ## v137.21.x — Lean 4 invariant pack
+
 - hash chain proofs
 - schema migration proofs
 - lattice monotonicity
+- route optimality proofs
+
+---
+
+# RESEARCH PAPER LINE
+
+---
+
+## v137.30.x — Formalization + Preprint Stack
+
+- architecture manuscript
+- theorem appendix
+- benchmark figures
+- DOI reproducibility pack
+- formal methods appendix
 
 ---
 
@@ -287,8 +313,9 @@ Every release must pass:
 
 - byte identity battery
 - replay battery
-- schema migration battery
 - governance adversary suite
 - planning determinism suite
+- signal fidelity suite
 - memory fidelity suite
-- cross-hardware divergence suite
+- topology divergence suite
+- cross-hardware replay suite

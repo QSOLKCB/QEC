@@ -158,13 +158,13 @@ class WorldStateBound:
 
 @dataclass(frozen=True)
 class BoundedWorldState:
-    normalized_state: Mapping[str, Any]
+    normalized_state_canonical_json: str
     bounds: tuple[WorldStateBound, ...]
     world_state_hash: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "normalized_state": self.normalized_state,
+            "normalized_state": json.loads(self.normalized_state_canonical_json),
             "bounds": [item.to_dict() for item in self.bounds],
             "world_state_hash": self.world_state_hash,
         }
@@ -377,8 +377,9 @@ def bound_world_state(
         "bounds": [record.to_dict() for record in bound_records],
         "version": AUTONOMOUS_PLANNING_KERNEL_VERSION,
     }
+    canonical_json = _canonical_json(normalized)
     return BoundedWorldState(
-        normalized_state=normalized,
+        normalized_state_canonical_json=canonical_json,
         bounds=tuple(bound_records),
         world_state_hash=_sha256_hex_mapping(payload),
     )
@@ -435,6 +436,8 @@ def synthesize_planning_graph(
 
 def _bounded_route_objective(route: Sequence[str], planning_graph: PlanningGraph) -> float:
     normalized_route = tuple(_norm_token(step, name="route step") for step in route)
+    if not normalized_route:
+        raise ValueError("route must not be empty")
     node_set = {node.node_id for node in planning_graph.nodes}
     for step in normalized_route:
         if step not in node_set:
@@ -482,7 +485,16 @@ def execute_deterministic_route(
     if not route:
         raise ValueError("selected_route must not be empty")
 
+    node_set = {node.node_id for node in planning_graph.nodes}
+    for step in route:
+        if step not in node_set:
+            raise ValueError(f"route node not present in planning graph: {step}")
+
     edge_cost_map = {(edge.source, edge.target): float(edge.cost) for edge in planning_graph.edges}
+    for idx in range(len(route) - 1):
+        pair = (route[idx], route[idx + 1])
+        if pair not in edge_cost_map:
+            raise ValueError(f"route edge not present in planning graph: {pair}")
     steps: list[ExecutionStep] = []
     prior_hash = GENESIS_HASH
     for idx in range(len(route) - 1):

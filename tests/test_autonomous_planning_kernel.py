@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 
 from qec.analysis.autonomous_planning_kernel import (
     GENESIS_HASH,
     export_policy_ledger_canonical_bytes,
+    execute_deterministic_route,
     run_autonomous_planning_kernel,
+    synthesize_planning_graph,
 )
 
 
@@ -172,3 +175,32 @@ def test_fail_fast_invalid_input_handling() -> None:
             world_state_bounds={"not_present": (0.0, 1.0)},
             enable_v137_2_runtime=True,
         )
+
+
+def test_bounded_world_state_canonical_json_immutable_snapshot() -> None:
+    """Mutations to the original world_state dict must not change to_canonical_bytes()."""
+    world_state: dict[str, Any] = {"start": 0.2, "mid": 0.7, "goal": 1.4, "agent": "planner-rt", "flags": ["safe"]}
+    report = run_autonomous_planning_kernel(
+        world_state,
+        _routes(),
+        edge_costs=_edge_costs(),
+        world_state_bounds=_bounds(),
+        enable_v137_2_runtime=True,
+    )
+    canonical_before = report.to_canonical_bytes()
+    world_state["start"] = 99.9
+    assert report.to_canonical_bytes() == canonical_before
+
+
+def test_execute_deterministic_route_rejects_missing_node() -> None:
+    """execute_deterministic_route must fail fast when a route node is absent from the graph."""
+    graph = synthesize_planning_graph(_routes(), edge_costs=_edge_costs())
+    with pytest.raises(ValueError, match="route node not present in planning graph"):
+        execute_deterministic_route(graph, ("start", "nonexistent_node"))
+
+
+def test_execute_deterministic_route_rejects_missing_edge() -> None:
+    """execute_deterministic_route must fail fast when a route edge is absent from the graph."""
+    graph = synthesize_planning_graph(_routes(), edge_costs=_edge_costs())
+    with pytest.raises(ValueError, match="route edge not present in planning graph"):
+        execute_deterministic_route(graph, ("mid", "start"))

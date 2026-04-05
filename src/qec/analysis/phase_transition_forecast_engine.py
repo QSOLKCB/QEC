@@ -280,14 +280,16 @@ def compute_transition_probability_score(
         + 0.28 * forecast_input.transition_pressure
         + 0.2 * boundary_risk
     )
+    bounded = forecast_input.bounded
     payload = {
         "input_hash": forecast_input.input_hash,
         "probability_score": probability,
+        "bounded": bounded,
         "deterministic": True,
     }
     return TransitionProbabilityForecast(
         probability_score=probability,
-        bounded=True,
+        bounded=bounded,
         deterministic=True,
         forecast_hash=_hash_sha256(payload),
     )

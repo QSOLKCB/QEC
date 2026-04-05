@@ -85,7 +85,16 @@ def test_receipt_stability() -> None:
     r1 = generate_privilege_receipt(decision)
     r2 = generate_privilege_receipt(decision)
     assert r1 == r2
-    assert r1.receipt_bytes == decision.to_canonical_bytes()
+    assert hashlib.sha256(r1.receipt_bytes).hexdigest() == r1.receipt_hash
+
+
+def test_replay_rejects_non_canonical_json() -> None:
+    grant = _grant()
+    decision = authorize_action(grant, "actor-7", "enqueue", ("sys:queue",))
+    payload = json.loads(decision.to_canonical_bytes())
+    non_canonical = json.dumps(payload, indent=2).encode("utf-8")
+    with pytest.raises(ValueError, match="canonical"):
+        replay_privilege_decision(non_canonical, grant)
 
 
 def test_replay_fidelity() -> None:

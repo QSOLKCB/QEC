@@ -225,19 +225,19 @@ def generate_privilege_receipt(decision: PrivilegeDecision) -> CapabilityReceipt
         raise ValueError("decision must be a PrivilegeDecision")
 
     decision_payload = decision.to_dict()
-    decision_bytes = _canonical_bytes(decision_payload)
     receipt_payload = {
         "decision_hash": decision.stable_decision_hash,
         "decision_payload": decision_payload,
         "schema_version": decision.schema_version,
     }
-    receipt_hash = _sha256_hex(receipt_payload)
+    receipt_bytes = _canonical_bytes(receipt_payload)
+    receipt_hash = hashlib.sha256(receipt_bytes).hexdigest()
 
     return CapabilityReceipt(
         decision_hash=decision.stable_decision_hash,
         receipt_hash=receipt_hash,
         schema_version=decision.schema_version,
-        receipt_bytes=decision_bytes,
+        receipt_bytes=receipt_bytes,
     )
 
 
@@ -249,8 +249,12 @@ def replay_privilege_decision(decision_bytes: bytes, grant: CapabilityGrant) -> 
 
     try:
         payload = json.loads(decision_bytes.decode("utf-8"))
+        canonical_decision_bytes = _canonical_bytes(payload)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("decision_bytes must be UTF-8 canonical JSON") from exc
+
+    if decision_bytes != canonical_decision_bytes:
+        raise ValueError("decision_bytes must be UTF-8 canonical JSON")
 
     capability_id = _require_non_empty_str("payload.capability_id", payload.get("capability_id"))
     actor_id = _require_non_empty_str("payload.actor_id", payload.get("actor_id"))

@@ -183,7 +183,10 @@ def _normalize_benchmark_samples(samples: Sequence[Mapping[str, Any]]) -> tuple[
     for idx, sample in enumerate(samples):
         benchmark_id = _require_non_empty_str(f"benchmark_samples[{idx}].benchmark_id", sample.get("benchmark_id"))
 
-        operation_count = int(sample.get("operation_count", -1))
+        operation_count_value = sample.get("operation_count", -1)
+        if isinstance(operation_count_value, bool) or not isinstance(operation_count_value, int):
+            raise ValueError(f"benchmark_samples[{idx}].operation_count must be an integer")
+        operation_count = operation_count_value
         if operation_count < 0 or operation_count > 10**12:
             raise ValueError(f"benchmark_samples[{idx}].operation_count must be in [0, 1e12]")
 
@@ -255,12 +258,13 @@ def _build_freeze_report(
     normalized_advisories = tuple(sorted({_require_non_empty_str("advisory_code", code) for code in advisory_codes}))
 
     normalized_metrics: list[tuple[str, float]] = []
-    for key in sorted(observatory_metrics):
+    for key, raw_value in observatory_metrics.items():
         name = _require_non_empty_str("observatory_metric_key", key)
-        value = _require_finite(f"observatory_metrics[{name}]", observatory_metrics[key])
+        value = _require_finite(f"observatory_metrics[{name}]", raw_value)
         if value < 0.0 or value > 1.0:
             raise ValueError(f"observatory_metrics[{name}] must be in [0, 1]")
         normalized_metrics.append((name, _round_float(value)))
+    normalized_metrics.sort(key=lambda item: item[0])
 
     metrics_tuple = tuple(normalized_metrics)
     payload = {

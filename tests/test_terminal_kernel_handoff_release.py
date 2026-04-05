@@ -121,3 +121,33 @@ def test_fail_fast_invalid_input_handling_and_bounded_validation():
             observatory_metrics={"m": 1.1},
             enable_terminal_handoff_freeze=True,
         )
+
+    with pytest.raises(ValueError, match=r"operation_count must be an integer"):
+        build_terminal_kernel_handoff_release(
+            benchmark_samples=({"benchmark_id": "b", "operation_count": 1.9, "determinism_score": 1.0},),
+            replay_anchor="r",
+            provenance_anchor="p",
+            advisory_codes=(),
+            observatory_metrics={},
+            enable_terminal_handoff_freeze=True,
+        )
+
+    with pytest.raises(ValueError, match=r"operation_count must be an integer"):
+        build_terminal_kernel_handoff_release(
+            benchmark_samples=({"benchmark_id": "b", "operation_count": True, "determinism_score": 1.0},),
+            replay_anchor="r",
+            provenance_anchor="p",
+            advisory_codes=(),
+            observatory_metrics={},
+            enable_terminal_handoff_freeze=True,
+        )
+
+    with pytest.raises(ValueError, match="observatory_metric_key must be a non-empty string"):
+        build_terminal_kernel_handoff_release(
+            benchmark_samples=({"benchmark_id": "b", "operation_count": 1, "determinism_score": 1.0},),
+            replay_anchor="r",
+            provenance_anchor="p",
+            advisory_codes=(),
+            observatory_metrics={1: 0.5},  # type: ignore[dict-item]
+            enable_terminal_handoff_freeze=True,
+        )

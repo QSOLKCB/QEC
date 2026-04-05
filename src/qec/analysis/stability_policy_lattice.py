@@ -62,6 +62,30 @@ def _bounded_float(value: Any, field: str) -> float:
     return _clamp01(out)
 
 
+def _require_bool(value: Any, field: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{field} must be a real boolean")
+    return value
+
+
+def _require_finite_float(value: Any, field: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be numeric, not bool")
+    out = float(value)
+    if not math.isfinite(out):
+        raise ValueError(f"{field} must be finite")
+    return out
+
+
+def _require_nonneg_int(value: Any, field: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be an integer, not bool")
+    out = int(value)
+    if out < 0:
+        raise ValueError(f"{field} must be non-negative")
+    return out
+
+
 @dataclass(frozen=True)
 class PolicyNode:
     state_id: str
@@ -328,17 +352,39 @@ def detect_policy_violation(
     signals = dict(prior_risk_signals or {})
     action_id = str(action_metadata.get("action_id", "")).strip() or "unknown_action"
 
-    known_action = bool(action_metadata.get("known_action", action_id != "unknown_action"))
-    quota_remaining = float(action_metadata.get("quota_remaining", signals.get("quota_remaining", 1.0)))
+    _raw_known = action_metadata.get("known_action", None)
+    if _raw_known is None:
+        known_action: bool = action_id != "unknown_action"
+    else:
+        known_action = _require_bool(_raw_known, "known_action")
+
+    _raw_quota = action_metadata.get("quota_remaining", signals.get("quota_remaining", None))
+    if _raw_quota is None:
+        quota_remaining: float = 1.0
+    else:
+        quota_remaining = _require_finite_float(_raw_quota, "quota_remaining")
+
     unmet_dependencies = int(action_metadata.get("unmet_dependencies", 0))
-    dependencies_satisfied = bool(action_metadata.get("dependencies_satisfied", unmet_dependencies == 0))
+
+    _raw_deps = action_metadata.get("dependencies_satisfied", None)
+    if _raw_deps is None:
+        dependencies_satisfied: bool = unmet_dependencies == 0
+    else:
+        dependencies_satisfied = _require_bool(_raw_deps, "dependencies_satisfied")
+
+    _raw_exceeded = action_metadata.get("quota_exceeded", None)
+    if _raw_exceeded is None:
+        quota_exceeded: bool = False
+    else:
+        quota_exceeded = _require_bool(_raw_exceeded, "quota_exceeded")
+
     workflow_instability = _bounded_float(workflow_state.get("workflow_instability", 0.0), "workflow_instability")
     repeated_failures = int(signals.get("repeated_failures", 0))
     failure_pressure = _bounded_float(signals.get("failure_pressure", 0.0), "failure_pressure")
 
     if not known_action:
         kind = "unknown_action"
-    elif bool(action_metadata.get("quota_exceeded", False)) or quota_remaining <= 0.0:
+    elif quota_exceeded or quota_remaining <= 0.0:
         kind = "quota_violation"
     elif (not dependencies_satisfied) or unmet_dependencies > 0:
         kind = "dependency_violation"
@@ -452,6 +498,10 @@ def validate_policy_audit_trail(trail: PolicyAuditTrail) -> bool:
             raise ValueError("sequence continuity violation")
         if entry.parent_hash != expected_parent:
             raise ValueError("parent linkage violation")
+        if not isinstance(entry.action_id, str) or not entry.action_id.strip():
+            raise ValueError("action_id must be a non-empty string")
+        _canonical_state(entry.prior_state, "prior_state")
+        _canonical_state(entry.next_state, "next_state")
 
         payload = {
             "sequence_id": entry.sequence_id,
@@ -556,7 +606,7 @@ def run_stability_policy_lattice(
         next_state=next_state,
     )
 
-    prior_violations = int(workflow_state.get("prior_violations", 0))
+    prior_violations = _require_nonneg_int(workflow_state.get("prior_violations", 0), "prior_violations")
     violations = prior_violations + (1 if violation.violation_kind != "none" else 0)
     highest_risk = round(
         max(risk, _bounded_float(workflow_state.get("highest_risk_so_far", 0.0), "highest_risk_so_far")),

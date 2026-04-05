@@ -156,3 +156,107 @@ def test_chain_valid_flag_consistency():
 def test_monotonic_escalation_order():
     violation = detect_policy_violation({"action_id": "A1", "known_action": True}, {"workflow_instability": 0.0})
     assert evaluate_policy_state_transition("observe", 0.0, violation) == "observe"
+
+
+def test_detect_violation_rejects_non_bool_known_action():
+    with pytest.raises(ValueError, match="known_action must be a real boolean"):
+        detect_policy_violation({"action_id": "A1", "known_action": "true"}, {"workflow_instability": 0.0})
+
+
+def test_detect_violation_rejects_non_bool_quota_exceeded():
+    with pytest.raises(ValueError, match="quota_exceeded must be a real boolean"):
+        detect_policy_violation(
+            {"action_id": "A1", "known_action": True, "quota_exceeded": "false"},
+            {"workflow_instability": 0.0},
+        )
+
+
+def test_detect_violation_rejects_non_bool_dependencies_satisfied():
+    with pytest.raises(ValueError, match="dependencies_satisfied must be a real boolean"):
+        detect_policy_violation(
+            {"action_id": "A1", "known_action": True, "dependencies_satisfied": 0},
+            {"workflow_instability": 0.0},
+        )
+
+
+def test_detect_violation_rejects_nan_quota_remaining():
+    with pytest.raises(ValueError, match="quota_remaining must be finite"):
+        detect_policy_violation(
+            {"action_id": "A1", "known_action": True, "quota_remaining": math.nan},
+            {"workflow_instability": 0.0},
+        )
+
+
+def test_detect_violation_rejects_inf_quota_remaining():
+    with pytest.raises(ValueError, match="quota_remaining must be finite"):
+        detect_policy_violation(
+            {"action_id": "A1", "known_action": True, "quota_remaining": math.inf},
+            {"workflow_instability": 0.0},
+        )
+
+
+def test_detect_violation_rejects_bool_quota_remaining():
+    with pytest.raises(ValueError, match="quota_remaining must be numeric"):
+        detect_policy_violation(
+            {"action_id": "A1", "known_action": True, "quota_remaining": False},
+            {"workflow_instability": 0.0},
+        )
+
+
+def test_audit_trail_rejects_non_canonical_prior_state():
+    trail = empty_policy_audit_trail()
+    entry = PolicyAuditEntry(
+        sequence_id=0,
+        action_id="A1",
+        prior_state="unknown_state",
+        next_state="observe",
+        parent_hash="",
+        entry_hash="placeholder",
+    )
+    bad = PolicyAuditTrail(entries=(entry,), head_hash="placeholder", chain_valid=True)
+    with pytest.raises(ValueError, match="unknown prior_state"):
+        validate_policy_audit_trail(bad)
+
+
+def test_audit_trail_rejects_non_canonical_next_state():
+    trail = empty_policy_audit_trail()
+    entry = PolicyAuditEntry(
+        sequence_id=0,
+        action_id="A1",
+        prior_state="allow",
+        next_state="invalid",
+        parent_hash="",
+        entry_hash="placeholder",
+    )
+    bad = PolicyAuditTrail(entries=(entry,), head_hash="placeholder", chain_valid=True)
+    with pytest.raises(ValueError, match="unknown next_state"):
+        validate_policy_audit_trail(bad)
+
+
+def test_audit_trail_rejects_empty_action_id():
+    trail = empty_policy_audit_trail()
+    entry = PolicyAuditEntry(
+        sequence_id=0,
+        action_id="   ",
+        prior_state="allow",
+        next_state="observe",
+        parent_hash="",
+        entry_hash="placeholder",
+    )
+    bad = PolicyAuditTrail(entries=(entry,), head_hash="placeholder", chain_valid=True)
+    with pytest.raises(ValueError, match="action_id must be a non-empty string"):
+        validate_policy_audit_trail(bad)
+
+
+def test_run_lattice_rejects_bool_prior_violations():
+    action = {"action_id": "A1", "known_action": True}
+    workflow = {"workflow_instability": 0.0, "prior_violations": True}
+    with pytest.raises(ValueError, match="prior_violations must be an integer, not bool"):
+        run_stability_policy_lattice(action, workflow)
+
+
+def test_run_lattice_rejects_negative_prior_violations():
+    action = {"action_id": "A1", "known_action": True}
+    workflow = {"workflow_instability": 0.0, "prior_violations": -1}
+    with pytest.raises(ValueError, match="prior_violations must be non-negative"):
+        run_stability_policy_lattice(action, workflow)

@@ -272,10 +272,13 @@ def compute_transition_probability_score(
     ):
         _require_finite(name, val)
 
+    stability_risk = 1.0 - forecast_input.prior_stability_score
+    boundary_risk = 1.0 - forecast_input.boundary_distance
     probability = _clamp01(
-        0.4 * forecast_input.drift_signal
-        + 0.35 * forecast_input.transition_pressure
-        + 0.25 * (1.0 - forecast_input.boundary_distance)
+        0.2 * stability_risk
+        + 0.32 * forecast_input.drift_signal
+        + 0.28 * forecast_input.transition_pressure
+        + 0.2 * boundary_risk
     )
     payload = {
         "input_hash": forecast_input.input_hash,

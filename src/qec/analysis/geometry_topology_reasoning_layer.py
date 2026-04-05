@@ -564,7 +564,8 @@ def compute_topology_aware_route_score(
         dimension_jump_penalty = 0.0
         stable_adjacency_ratio = 1.0
 
-    overlap = sum(1 for node_id in route_nodes if node_id in set(polytope_map.manifold_candidates))
+    manifold_candidates = set(polytope_map.manifold_candidates)
+    overlap = sum(1 for node_id in route_nodes if node_id in manifold_candidates)
     manifold_overlap_ratio = _round12(overlap / len(route_nodes))
 
     topology_penalty = _clamp01(

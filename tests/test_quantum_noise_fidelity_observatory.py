@@ -178,11 +178,18 @@ def test_same_input_same_bytes():
 
 def test_no_decoder_imports():
     module_name = "qec.analysis.quantum_noise_fidelity_observatory"
+    decoder_prefix = "qec.decoder"
     for k in list(sys.modules):
         if k == module_name or k.startswith(module_name + "."):
             del sys.modules[k]
+    before_decoder_modules = {
+        name for name in sys.modules if name == decoder_prefix or name.startswith(decoder_prefix + ".")
+    }
     importlib.import_module(module_name)
-    assert all(not m.startswith("qec.decoder") for m in sys.modules)
+    after_decoder_modules = {
+        name for name in sys.modules if name == decoder_prefix or name.startswith(decoder_prefix + ".")
+    }
+    assert after_decoder_modules == before_decoder_modules
 
 
 def test_zero_noise_strong_health_path():

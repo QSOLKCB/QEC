@@ -1,449 +1,294 @@
-# QSOL QEC — Canonical Forward Engineering Roadmap
+# QSOL QEC — Canonical Linux-Style Roadmap
+Branch: long-running canonical deterministic systems line  
+Current Stable Release: `v137.3.0`
 
-Branch: v137 canonical deterministic architecture line  
-Current Canonical Tip: `v137.1.2`  
-Next Planned Release: `v137.1.3`
+This roadmap fully replaces all prior roadmap versions.
 
-This roadmap supersedes all prior historical release-path clutter.
+Versioning follows long-line Linux-style progression.
 
-Completed releases are archived as milestone anchors only.
+Major line remains **v137.x.x**
 
-This document now tracks ONLY:
+Future architecture evolves through **minor series**
 
-- active forward engineering
-- near-term release path
-- major milestone arcs
-- durable engineering law
+Example:
 
----
+- `v137.4.x`
+- `v137.5.x`
+- `v137.6.x`
 
-# CURRENT CANONICAL STATE
-
-The system has now completed the deterministic replay-audit orchestrator line.
-
-Completed milestone:
-
-v137.1.0 — Unified Physics-Simulation Orchestrator  
-v137.1.1 — Replay + Edge Hardening  
-v137.1.2 — Cross-Module Replay Integrity + Drift Audit
-
-The system is now formally elevated from:
-
-decoder + supervisory intelligence
-
-to
-
-full deterministic orchestration runtime.
-
-Canonical stack:
-
-continuous state
-→ symbolic quantization
-→ topology
-→ supervision
-→ temporal memory
-→ world substrate
-→ simulation runtime
-→ multimodal synchronization
-→ replay audit
-→ drift governance
-→ deterministic orchestration
-
-This stack is invariant.
+This preserves release continuity and replay lineage.
 
 ---
 
-# ACTIVE RELEASE ARC — v137.1.x CLEAN HARDENING LINE
+# CORE LAW
 
-This arc remains active through `v137.1.20`.
+Determinism is architecture.
 
-Purpose:
+**same input = same bytes**
 
-stabilize orchestrator runtime
-eliminate audit blind spots
-strengthen deterministic guarantees
-prepare autonomous planning kernel handoff
+Mandatory invariants:
+
+- frozen dataclasses
+- canonical JSON / bytes export
+- stable SHA-256 replay identity
+- deterministic ordering
+- deterministic tie-breaking
+- fail-fast validation
+- append-only provenance
+- schema migration contracts
+- immutable event history
+
+`src/qec/decoder/` remains sacred infrastructure.
+
+No roadmap arc may violate this.
 
 ---
 
-## v137.1.3 — Replay Artifact Compression Layer
+# ACTIVE CANONICAL ARC
+
+---
+
+## v137.4.x — Sovereignty Kernel + Cryptographic Audit
+
+Mandatory governance substrate.
 
 Focus:
 
-replay snapshot compaction
-hash-chain compression
-stable artifact deduplication
-canonical export minimization
+- append-only event history
+- cryptographic audit
+- capability boundaries
+- signed provenance
+- deterministic replay law
 
-Deliverables:
+Planned line:
 
-- deterministic snapshot delta encoding
-- compressed replay bundle format
-- invariant-preserving export schema
-- byte-identical decompression guarantee
+### v137.4.0
+Merkle-linked event history kernel
+
+### v137.4.1
+capability + privilege boundary engine
+
+### v137.4.2
+signed provenance artifact chain
+
+### v137.4.3
+policy decision artifact + evidence receipts
+
+### v137.4.4
+replay-law certification battery
 
 ---
 
-## v137.1.4 — Drift Provenance Engine
+## v137.5.x — Autonomous Planning + Control Synthesis
 
 Focus:
 
-drift source attribution
-module-level mismatch tracing
-hash divergence provenance
+- deterministic search
+- route planning
+- world-state control
+- bounded planning IR
 
-Deliverables:
+Planned line:
 
-- composition drift source mapping
-- simulation drift decomposition
-- sync-layer mismatch attribution
-- per-cycle provenance report
+### v137.5.0
+plan IR + deterministic search kernel
+
+### v137.5.1
+route graph execution runtime
+
+### v137.5.2
+dead-end pruning + stable tie-breaking
+
+### v137.5.3
+policy-constrained planner
+
+### v137.5.4
+planning replay battery
 
 ---
 
-## v137.1.5 — Autonomous Repair Suggestions
+## v137.6.x — Hierarchical Memory + State Compaction
+
+Mandatory bridge release.
 
 Focus:
 
-deterministic repair hints
-drift remediation planning
-safe replay correction proposals
+- context compression
+- memory hierarchy
+- evidence linkage
+- bounded retrieval
 
-Deliverables:
+Planned line:
 
-- root-cause heuristic engine
-- deterministic patch suggestions
-- invariant-preserving repair guidance
+### v137.6.0
+raw → episode hierarchy
 
-Strictly advisory only.
+### v137.6.1
+semantic → theme memory compaction
 
-No self-modifying code.
+### v137.6.2
+hash-preserving compression chain
+
+### v137.6.3
+uncertainty-gated retrieval
+
+### v137.6.4
+memory fidelity benchmark battery
 
 ---
 
-## v137.1.6 — Runtime Stability Observatory
+## v137.7.x — Deterministic NLP Governance v2
+
+Evolution of the completed NLP layer.
 
 Focus:
 
-long-run soak diagnostics
-cycle stability analytics
-multi-run convergence audit
+natural language → intent lattice → governed planner → replay-safe output
 
-Deliverables:
+Planned line:
 
-- 1000-cycle soak harness
-- long-run drift score stability
-- replay entropy metrics
-- convergence score timeline
+### v137.7.0
+intent lattice v2
 
-Inspired by complex systems + system observability literature.
+### v137.7.1
+semantic graph compiler
+
+### v137.7.2
+privilege-aware response planner
+
+### v137.7.3
+semantic risk classifier
+
+### v137.7.4
+governance evidence battery
 
 ---
 
-## v137.1.7 — Agent Governance Fence
-
-Absorbing ideas from:
-AI governance toolkit
-agent runtime security
-policy enforcement layers :contentReference[oaicite:2]{index=2}
+## v137.8.x — Unified World Model Kernel
 
 Focus:
 
-AI runtime safety law
-execution boundary policy
-tool invocation governance
+- persistent graph
+- time-series mutation log
+- causal state evolution
+- bounded traversal
 
-Deliverables:
+Planned line:
 
-- policy lattice
-- action permission graph
-- deterministic agent state law
-- replay-safe governance hooks
+### v137.8.0
+typed world graph
+
+### v137.8.1
+time-series mutation kernel
+
+### v137.8.2
+bounded traversal API
+
+### v137.8.3
+future-state projection engine
+
+### v137.8.4
+world-state replay certification
 
 ---
 
-## v137.1.8 — Quantum Noise Balancing Layer
-
-Inspired by quantum-noise choreography and fidelity research :contentReference[oaicite:3]{index=3} :contentReference[oaicite:4]{index=4}
+## v137.9.x — Multimodal Physics-Aware Reasoning
 
 Focus:
 
-noise-aware control correction
-simulation perturbation balance
-quantum-style stability scoring
+- multimodal ingestion
+- geometry kernels
+- observational photonic fast path
+- deterministic fixed-point wrappers
 
-Deliverables:
+Planned line:
 
-- bounded perturbation metrics
-- noise compensation model
-- fidelity stability score
+### v137.9.0
+multimodal feature schema
+
+### v137.9.1
+geometry + polytope reasoning layer
+
+### v137.9.2
+fixed-point compensation wrappers
+
+### v137.9.3
+observational photonic fast path
+
+### v137.9.4
+cross-hardware divergence battery
 
 ---
 
-## v137.1.9 — Complex Systems Phase Engine
+# NEXT LONG ARC
 
-Inspired by complex systems modeling text :contentReference[oaicite:5]{index=5}
+---
+
+## v137.10.x — Scientific Reasoning Kernel
 
 Focus:
 
-phase transitions
-system bifurcation analysis
-macro-state transitions
-
-Deliverables:
-
-- phase-state detector
-- bifurcation warning score
-- attractor transition graph
+- hypothesis lattice
+- experiment DSL
+- theorem bridge
+- proof-carrying artifacts
 
 ---
 
-## v137.1.10 — Coding Agent Execution Kernel
-
-Absorbing coding-agent architecture research :contentReference[oaicite:6]{index=6}
+## v137.11.x — Distributed Governance Kernel
 
 Focus:
 
-tool planning
-execution graph
-bounded agent workflow runtime
-
-Deliverables:
-
-- task graph planner
-- deterministic execution scheduler
-- replay-safe command history
+- multi-node orchestration
+- signed replication
+- transparency logs
+- federated trust chain
 
 ---
 
-## v137.1.11 → v137.1.20 Releases
-
-## v137.1.11 — Stability Policy Lattice
-
-Inspired by agent-runtime governance, policy fences, and deterministic execution control.
+## v137.12.x — Unified Intelligence Substrate
 
 Focus:
 
-policy-state lattice
-runtime action constraints
-deterministic governance scoring
+- planning
+- memory
+- language
+- world modeling
+- scientific reasoning
+- distributed governance
 
-Deliverables:
-
-- stability policy graph
-- deterministic policy violation detector
-- bounded action-risk score
-- replay-safe policy audit trail
+This becomes the journal / preprint platform.
 
 ---
 
-## v137.1.12 — Quantum Route Optimization Layer
+# FORMAL METHODS LINE
 
-Inspired by shortest-path advances and planning graph research.
-
-Focus:
-
-route planning
-state-transition shortest paths
-control-path minimization
-
-Deliverables:
-
-- deterministic shortest-path kernel
-- weighted route lattice
-- replay-safe path scheduler
-- path divergence detector
-
-This begins soft handoff preparation for `v137.2.x`.
+Parallel milestone series.
 
 ---
 
-## v137.1.13 — Memory Compression + Context Ledger
-
-Inspired by xMemory / agent context compression systems.
-
-Focus:
-
-context minimization
-memory deduplication
-stable context replay
-
-Deliverables:
-
-- canonical memory compaction
-- stable context hash-chain
-- replay-safe context snapshots
-- deterministic ledger minimization
+## v137.20.x — TLA+ + model checking
+- replay law verification
+- state transition proofs
+- distributed convergence
 
 ---
 
-## v137.1.14 — Phase Transition Forecast Engine
-
-Inspired by complex systems bifurcation and geometry-induced transitions.
-
-Focus:
-
-phase shifts
-bifurcation prediction
-macro-state drift warnings
-
-Deliverables:
-
-- transition probability score
-- bifurcation early-warning detector
-- attractor boundary forecast
-- deterministic phase horizon
+## v137.21.x — Lean 4 invariant pack
+- hash chain proofs
+- schema migration proofs
+- lattice monotonicity
 
 ---
 
-## v137.1.15 — Quantum Noise Fidelity Observatory
+# BENCHMARK LAW
 
-Inspired by modern QEC roadmap / fidelity and noise balancing research.
+Every release must pass:
 
-Focus:
-
-noise balancing
-fidelity stability
-error drift observability
-
-Deliverables:
-
-- fidelity stability timeline
-- bounded noise score
-- perturbation compensation metrics
-- replay-safe noise audit
-
-Excellent bridge toward planning kernel reliability.
-
----
-
-## v137.1.16 — Geometry & Topology Reasoning Layer
-
-Inspired by chirality, geometry, polytope, and compact manifold research.
-
-Focus:
-
-state-space geometry
-topological reasoning
-shape-aware transition control
-
-Deliverables:
-
-- polytope state map
-- topology-aware route scoring
-- attractor manifold detector
-- deterministic geometry ledger
-
----
-
-## v137.1.17 — Analog Runtime Acceleration Layer
-
-Inspired by memristor, photonic, and analog compute research.
-
-Focus:
-
-analog runtime simulation
-accelerated state evaluation
-low-overhead convergence scoring
-
-Deliverables:
-
-- analog convergence estimator
-- photonic-style propagation model
-- deterministic acceleration benchmark
-- replay-equivalent fast path
-
-Strictly observational / simulation only.
-
-No hardware coupling yet.
-
----
-
-## v137.1.18 — Quantum Communication Governance Layer
-
-Inspired by quantum-secure communications and distributed control systems.
-
-Focus:
-
-distributed orchestration
-secure replay identity
-inter-node governance
-
-Deliverables:
-
-- secure replay signature chain
-- deterministic node-state synchronization
-- cross-node drift provenance
-- governance trust score
-
----
-
-## v137.1.19 — Autonomous Planning Prekernel
-
-Direct bridge release into `v137.2.x`.
-
-Focus:
-
-world-state reasoning
-route graph synthesis
-control-policy staging
-
-Deliverables:
-
-- planning graph prototype
-- deterministic policy search
-- bounded route objective function
-- replay-safe world-state snapshot
-
-This is the final architectural prekernel release.
-
----
-
-## v137.1.20 — Canonical Kernel Handoff Release
-
-Mandatory terminal release for the `v137.1.x` line.
-
-Focus:
-
-strict hardening
-planning-kernel handoff
-performance + determinism finalization
-
-Deliverables:
-
-- full line hardening sweep
-- deterministic benchmark freeze
-- replay / provenance / advisory / observatory freeze
-- `v137.2.x` migration contract
-- planning kernel bootstrap schema
-
-This line must terminate at `v137.1.20`.
-
----
-
-# FUTURE CANONICAL ARC (KEEP EXACTLY AS REQUESTED)
-
-## v137.2.x — Autonomous Planning Kernel
-
-Focus:
-
-route planning
-world reasoning
-control-policy synthesis
-multi-layer orchestration
-
----
-
-## v138.x — Deterministic NLP Governance Layer
-
-natural language
-→ intent lattice
-→ canonical state schema
-→ governed engine
-→ replay-safe output
-
----
-
-# RELEASE HARDENING SCOPE FENCE
-
-[KEEP EXACTLY AS CURRENT]
+- byte identity battery
+- replay battery
+- schema migration battery
+- governance adversary suite
+- planning determinism suite
+- memory fidelity suite
+- cross-hardware divergence suite

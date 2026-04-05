@@ -356,9 +356,13 @@ def build_weighted_route_lattice(
         for source, targets in sorted(adjacency_map.items(), key=lambda p: p[0])
     )
 
+    canonical_nodes = sorted(nodes, key=lambda n: n.node_id)
+    canonical_edges = sorted(
+        edges, key=lambda e: (e.source_node, e.target_node, e.transition_weight, e.allowed)
+    )
     payload = {
-        "nodes": [node.to_dict() for node in nodes],
-        "edges": [edge.to_dict() for edge in edges],
+        "nodes": [node.to_dict() for node in canonical_nodes],
+        "edges": [edge.to_dict() for edge in canonical_edges],
         "adjacency": [[s, [[t, _round_float(w)] for t, w in ts]] for s, ts in adjacency],
         "lattice_valid": True,
     }
@@ -410,9 +414,13 @@ def validate_weighted_route_lattice(lattice: WeightedRouteLattice) -> bool:
     if actual_adjacency != expected_adjacency:
         return False
 
+    canonical_nodes = sorted(lattice.nodes, key=lambda n: n.node_id)
+    canonical_edges = sorted(
+        lattice.edges, key=lambda e: (e.source_node, e.target_node, e.transition_weight, e.allowed)
+    )
     payload = {
-        "nodes": [node.to_dict() for node in lattice.nodes],
-        "edges": [edge.to_dict() for edge in lattice.edges],
+        "nodes": [node.to_dict() for node in canonical_nodes],
+        "edges": [edge.to_dict() for edge in canonical_edges],
         "adjacency": [[s, [[t, _round_float(w)] for t, w in ts]] for s, ts in expected_adjacency],
         "lattice_valid": True,
     }
@@ -420,7 +428,7 @@ def validate_weighted_route_lattice(lattice: WeightedRouteLattice) -> bool:
     if lattice.lattice_hash != expected_hash:
         return False
     if lattice.lattice_valid is not True:
-        raise ValueError("contradictory lattice_valid flag detected")
+        return False
     return True
 
 
@@ -647,7 +655,7 @@ def validate_route_ledger(ledger: RouteLedger) -> bool:
     if ledger.head_hash != expected_head:
         return False
     if ledger.chain_valid is not True:
-        raise ValueError("contradictory chain_valid flag detected")
+        return False
     return True
 
 

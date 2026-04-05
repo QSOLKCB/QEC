@@ -49,12 +49,12 @@ def test_build_weighted_route_lattice_is_stable():
     assert a.to_canonical_json() == b.to_canonical_json()
 
 
-def test_build_lattice_rejects_unknown_endpoint():
+def test_normalize_rejects_unknown_endpoint():
     with pytest.raises(ValueError):
         normalize_route_inputs(_sample_nodes(), ({"source_node": "A", "target_node": "Z", "transition_weight": 1.0},))
 
 
-def test_build_lattice_rejects_negative_weight():
+def test_normalize_rejects_negative_weight():
     with pytest.raises(ValueError):
         normalize_route_inputs(_sample_nodes(), ({"source_node": "A", "target_node": "B", "transition_weight": -0.1},))
 
@@ -196,8 +196,7 @@ def test_self_loop_rejection():
 
 def test_contradictory_chain_valid_flag_rejected():
     ledger = RouteLedger(entries=(), head_hash=GENESIS_HASH, chain_valid=False)
-    with pytest.raises(ValueError):
-        validate_route_ledger(ledger)
+    assert validate_route_ledger(ledger) is False
 
 
 def test_nan_inf_rejected_in_weights_or_scores():

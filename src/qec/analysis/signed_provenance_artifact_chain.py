@@ -57,10 +57,11 @@ def _canonicalize_json(value: Any) -> _JSONValue:
     if isinstance(value, list):
         return tuple(_canonicalize_json(v) for v in value)
     if isinstance(value, Mapping):
+        keys = tuple(value.keys())
+        if any(not isinstance(key, str) for key in keys):
+            raise ValueError("payload keys must be strings")
         canonical_dict: dict[str, _JSONValue] = {}
-        for key in sorted(value.keys()):
-            if not isinstance(key, str):
-                raise ValueError("payload keys must be strings")
+        for key in sorted(keys):
             canonical_dict[key] = _canonicalize_json(value[key])
         return canonical_dict
     raise ValueError(f"unsupported payload value type: {type(value)!r}")
@@ -88,7 +89,7 @@ class ProvenanceArtifact:
     payload: Mapping[str, _JSONValue]
     artifact_hash: str
     signer_key_id: str
-    artifact_signature: str
+    artifact_mac: str
 
 
 @dataclass(frozen=True)
@@ -123,8 +124,15 @@ def _artifact_hash(
     return _sha256_hex(digest_input)
 
 
-def _artifact_signature(*, signer_key_id: str, artifact_hash: str) -> str:
-    return _sha256_hex(b"|".join((b"qec-provenance-signature-v1", signer_key_id.encode("utf-8"), artifact_hash.encode("ascii"))))
+def _derive_artifact_mac(*, signer_key_id: str, artifact_hash: str) -> str:
+    """Compute a deterministic bind digest (SHA-256 MAC) over signer identity and artifact hash.
+
+    This is NOT a cryptographic asymmetric signature.  It provides a
+    deterministic, replay-safe binding of the signer key identity to
+    the artifact hash; callers requiring true authenticity guarantees
+    should layer an Ed25519 or equivalent signing scheme on top.
+    """
+    return _sha256_hex(b"|".join((b"qec-provenance-mac-v1", signer_key_id.encode("utf-8"), artifact_hash.encode("ascii"))))
 
 
 def _artifact_to_dict(artifact: ProvenanceArtifact) -> dict[str, Any]:
@@ -137,7 +145,7 @@ def _artifact_to_dict(artifact: ProvenanceArtifact) -> dict[str, Any]:
         "payload": _canonicalize_json(artifact.payload),
         "artifact_hash": artifact.artifact_hash,
         "signer_key_id": artifact.signer_key_id,
-        "artifact_signature": artifact.artifact_signature,
+        "artifact_mac": artifact.artifact_mac,
     }
 
 
@@ -183,7 +191,7 @@ def verify_provenance_chain(chain: ProvenanceChain) -> bool:
             field_name="originating_privilege_decision_hash",
         )
         _validate_hash_hex(artifact.artifact_hash, field_name="artifact_hash")
-        _validate_hash_hex(artifact.artifact_signature, field_name="artifact_signature")
+        _validate_hash_hex(artifact.artifact_mac, field_name="artifact_mac")
         _validate_non_empty_str(artifact.signer_key_id, field_name="signer_key_id")
 
         if artifact.parent_artifact_hash != expected_parent:
@@ -204,9 +212,9 @@ def verify_provenance_chain(chain: ProvenanceChain) -> bool:
         if artifact.artifact_hash != expected_hash:
             raise ValueError("artifact hash mismatch")
 
-        expected_signature = _artifact_signature(signer_key_id=artifact.signer_key_id, artifact_hash=artifact.artifact_hash)
-        if artifact.artifact_signature != expected_signature:
-            raise ValueError("artifact signature mismatch")
+        expected_mac = _derive_artifact_mac(signer_key_id=artifact.signer_key_id, artifact_hash=artifact.artifact_hash)
+        if artifact.artifact_mac != expected_mac:
+            raise ValueError("artifact MAC mismatch")
 
         if artifact.artifact_hash in seen_artifact_hashes:
             raise ValueError("replay detected: duplicate artifact hash")
@@ -263,7 +271,7 @@ def append_provenance_artifact(
         originating_sovereignty_event_hash=event_hash,
         originating_privilege_decision_hash=privilege_hash,
     )
-    signature = _artifact_signature(signer_key_id=key_id, artifact_hash=artifact_hash)
+    mac = _derive_artifact_mac(signer_key_id=key_id, artifact_hash=artifact_hash)
 
     artifact = ProvenanceArtifact(
         index=index,
@@ -274,7 +282,7 @@ def append_provenance_artifact(
         payload=canonical_payload,
         artifact_hash=artifact_hash,
         signer_key_id=key_id,
-        artifact_signature=signature,
+        artifact_mac=mac,
     )
     artifacts = chain.artifacts + (artifact,)
     return ProvenanceChain(artifacts=artifacts, chain_root=compute_provenance_root(artifacts))

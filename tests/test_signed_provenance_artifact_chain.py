@@ -124,6 +124,15 @@ def test_fail_fast_invalid_input_handling() -> None:
             signer_key_id="k",
         )
 
+    with pytest.raises(ValueError, match="payload keys must be strings"):
+        append_provenance_artifact(
+            chain,
+            {"ok": True, 1: "mixed"},  # type: ignore[arg-type]
+            originating_sovereignty_event_hash=_hex("1"),
+            originating_privilege_decision_hash=_hex("2"),
+            signer_key_id="k",
+        )
+
     with pytest.raises(ValueError, match="payload must be a mapping object"):
         append_provenance_artifact(
             chain,

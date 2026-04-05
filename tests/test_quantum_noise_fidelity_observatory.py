@@ -238,3 +238,26 @@ def test_observation_law_same_trajectory_same_observatory_bytes():
     assert json.dumps([x.to_dict() for x in a], sort_keys=True, separators=(",", ":")) == json.dumps(
         [x.to_dict() for x in b], sort_keys=True, separators=(",", ":")
     )
+
+
+def test_as_snapshot_mapping_missing_keys_raises_value_error():
+    incomplete = {
+        "snapshot_id": "x",
+        "noise_level": 0.1,
+        # missing: fidelity_score, stability_score, error_drift, compensation_factor
+    }
+    with pytest.raises(ValueError, match="missing required fields"):
+        build_fidelity_stability_timeline((incomplete,))  # type: ignore[arg-type]
+
+
+def test_as_snapshot_mapping_missing_single_key_names_it():
+    incomplete = {
+        "snapshot_id": "x",
+        "noise_level": 0.1,
+        "fidelity_score": 0.9,
+        "stability_score": 0.8,
+        "error_drift": 0.05,
+        # missing: compensation_factor
+    }
+    with pytest.raises(ValueError, match="compensation_factor"):
+        build_fidelity_stability_timeline((incomplete,))  # type: ignore[arg-type]

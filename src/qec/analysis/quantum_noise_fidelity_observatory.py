@@ -73,10 +73,25 @@ def _stable_average(values: Sequence[float]) -> float:
     return _round12(sum(values) / len(values))
 
 
+_SNAPSHOT_REQUIRED_KEYS: tuple[str, ...] = (
+    "snapshot_id",
+    "noise_level",
+    "fidelity_score",
+    "stability_score",
+    "error_drift",
+    "compensation_factor",
+)
+
+
 def _as_snapshot(obj: NoiseFidelitySnapshot | Mapping[str, Any]) -> NoiseFidelitySnapshot:
     if isinstance(obj, NoiseFidelitySnapshot):
         return obj
     if isinstance(obj, Mapping):
+        missing = [k for k in _SNAPSHOT_REQUIRED_KEYS if k not in obj]
+        if missing:
+            raise ValueError(
+                f"snapshot mapping is missing required fields: {missing}"
+            )
         return normalize_noise_fidelity_inputs(
             snapshot_id=obj["snapshot_id"],
             noise_level=obj["noise_level"],

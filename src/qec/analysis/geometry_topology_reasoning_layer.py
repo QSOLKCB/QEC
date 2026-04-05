@@ -387,8 +387,16 @@ def normalize_geometry_inputs(
         if current is None:
             by_relation_key[rel_key] = relation
         else:
-            choose_key = (relation.transition_cost, int(relation.stable), relation.relation_hash)
-            current_key = (current.transition_cost, int(current.stable), current.relation_hash)
+            choose_key = (
+                relation.transition_cost,
+                int(not relation.stable),
+                relation.relation_hash,
+            )
+            current_key = (
+                current.transition_cost,
+                int(not current.stable),
+                current.relation_hash,
+            )
             if choose_key < current_key:
                 by_relation_key[rel_key] = relation
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 from typing import Any, Mapping
 
 _JSONScalar = str | int | float | bool | None
@@ -26,17 +27,22 @@ def _sha256_hex(data: bytes) -> str:
 
 def _canonicalize_json(value: Any) -> _JSONValue:
     """Fail-fast canonicalization to deterministic JSON-compatible structures."""
-    if value is None or isinstance(value, (str, bool, int, float)):
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("non-finite float values are not permitted in canonical payload")
         return value
     if isinstance(value, tuple):
         return tuple(_canonicalize_json(v) for v in value)
     if isinstance(value, list):
         return tuple(_canonicalize_json(v) for v in value)
     if isinstance(value, Mapping):
-        canonical_dict: dict[str, _JSONValue] = {}
-        for key in sorted(value.keys()):
+        for key in value.keys():
             if not isinstance(key, str):
                 raise ValueError("payload keys must be strings")
+        canonical_dict: dict[str, _JSONValue] = {}
+        for key in sorted(value.keys()):
             canonical_dict[key] = _canonicalize_json(value[key])
         return canonical_dict
     raise ValueError(f"unsupported payload value type: {type(value)!r}")
@@ -49,6 +55,7 @@ def _canonical_json_bytes(value: Any) -> bytes:
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,
+        allow_nan=False,
     ).encode("utf-8")
 
 
@@ -176,6 +183,10 @@ def append_event(
         raise ValueError("schema_version must be positive")
 
     _validate_history_chain(history.events)
+
+    expected_root = compute_merkle_root(history.events)
+    if history.chain_root != expected_root:
+        raise ValueError("history chain_root mismatch before append")
 
     canonical_payload = _canonicalize_json(payload)
     if not isinstance(canonical_payload, dict):

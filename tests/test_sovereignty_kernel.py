@@ -83,6 +83,12 @@ def test_fail_fast_invalid_input_handling() -> None:
     with pytest.raises(ValueError, match="events must be a JSON list"):
         replay_history(b'{"history_schema_version":1,"chain_root":"x","events":{}}')
 
+    with pytest.raises(ValueError, match="non-finite float values are not permitted"):
+        append_event(history, {"val": float("nan")})
+
+    with pytest.raises(ValueError, match="non-finite float values are not permitted"):
+        append_event(history, {"val": float("inf")})
+
 
 def test_replay_rejects_tampered_payload() -> None:
     history = _build_history()
@@ -91,3 +97,15 @@ def test_replay_rejects_tampered_payload() -> None:
 
     with pytest.raises(ValueError, match="event_hash replay mismatch"):
         replay_history(tampered)
+
+
+def test_append_rejects_tampered_chain_root() -> None:
+    history = _build_history()
+    tampered_root = "a" * 64
+    tampered_history = SovereignEventHistory(
+        events=history.events,
+        chain_root=tampered_root,
+    )
+
+    with pytest.raises(ValueError, match="history chain_root mismatch before append"):
+        append_event(tampered_history, {"event": "C"})

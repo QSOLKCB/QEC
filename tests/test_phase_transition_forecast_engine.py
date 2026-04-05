@@ -47,15 +47,16 @@ def test_probability_score_rejects_nan_inf() -> None:
 
 
 def test_bifurcation_warning_thresholds_are_stable() -> None:
+    # Inputs chosen so that the computed probability spans all four escalation levels.
     levels = []
-    for score in (0.29, 0.3, 0.59, 0.6, 0.79, 0.8):
+    for score in (0.1, 0.3, 0.7, 0.9):
         inp = normalize_forecast_inputs("threshold", 0.5, score, score, 1.0 - score)
         report = detect_bifurcation_early_warning(compute_transition_probability_score(inp))
         levels.append(report.escalation_level)
     assert levels[0] == "none"
-    assert "observe" in levels
-    assert "warning" in levels
-    assert levels[-1] == "critical"
+    assert levels[1] == "observe"
+    assert levels[2] == "warning"
+    assert levels[3] == "critical"
 
 
 def test_boundary_forecast_is_deterministic() -> None:
@@ -162,3 +163,117 @@ def test_boundary_zero_closing_rate_max_horizon_steps() -> None:
     inp = normalize_forecast_inputs("horizon_cap", 0.8, 0.0, 0.0, 0.9)
     boundary = forecast_attractor_boundary(inp)
     assert boundary.horizon_steps == MAX_HORIZON_STEPS
+
+
+def _make_valid_entry(sequence_id: int = 0, parent_hash: str = "0" * 64) -> ForecastLedgerEntry:
+    """Build a correctly-hashed ledger entry for use in corruption tests."""
+    import hashlib as _hashlib
+    import json as _json
+
+    forecast_hash = "a" * 64
+    body = {
+        "sequence_id": sequence_id,
+        "forecast_hash": forecast_hash,
+        "parent_hash": parent_hash,
+        "warning_score": 0.5,
+        "horizon_score": 0.5,
+    }
+    entry_hash = _hashlib.sha256(
+        _json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return ForecastLedgerEntry(
+        sequence_id=sequence_id,
+        forecast_hash=forecast_hash,
+        parent_hash=parent_hash,
+        warning_score=0.5,
+        horizon_score=0.5,
+        entry_hash=entry_hash,
+    )
+
+
+def _head_hash_for(parent_hash: str, entry_hash: str) -> str:
+    import hashlib as _hashlib
+    import json as _json
+
+    payload = {"parent_hash": parent_hash, "entry_hash": entry_hash}
+    return _hashlib.sha256(
+        _json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def test_validate_ledger_rejects_short_forecast_hash() -> None:
+    """A forecast_hash shorter than 64 chars must invalidate the ledger even if entry_hash matches."""
+    short_forecast = "a" * 32  # only 32 chars — not a valid sha256
+    parent_hash = "0" * 64
+    import hashlib as _hashlib
+    import json as _json
+
+    body = {
+        "sequence_id": 0,
+        "forecast_hash": short_forecast,
+        "parent_hash": parent_hash,
+        "warning_score": 0.5,
+        "horizon_score": 0.5,
+    }
+    entry_hash = _hashlib.sha256(
+        _json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    head_hash = _head_hash_for(parent_hash, entry_hash)
+    entry = ForecastLedgerEntry(
+        sequence_id=0,
+        forecast_hash=short_forecast,
+        parent_hash=parent_hash,
+        warning_score=0.5,
+        horizon_score=0.5,
+        entry_hash=entry_hash,
+    )
+    ledger = ForecastLedger(entries=(entry,), head_hash=head_hash, chain_valid=True)
+    assert not validate_forecast_ledger(ledger)
+
+
+def test_validate_ledger_rejects_short_entry_hash() -> None:
+    """A entry_hash shorter than 64 chars must invalidate the ledger."""
+    entry = _make_valid_entry()
+    bad_entry = ForecastLedgerEntry(
+        sequence_id=entry.sequence_id,
+        forecast_hash=entry.forecast_hash,
+        parent_hash=entry.parent_hash,
+        warning_score=entry.warning_score,
+        horizon_score=entry.horizon_score,
+        entry_hash="b" * 32,  # not 64 chars
+    )
+    head_hash = _head_hash_for(entry.parent_hash, bad_entry.entry_hash)
+    ledger = ForecastLedger(entries=(bad_entry,), head_hash=head_hash, chain_valid=True)
+    assert not validate_forecast_ledger(ledger)
+
+
+def test_validate_ledger_rejects_nan_warning_score() -> None:
+    """NaN warning_score must invalidate the ledger (and not raise an exception)."""
+    entry = _make_valid_entry()
+    nan_entry = ForecastLedgerEntry(
+        sequence_id=entry.sequence_id,
+        forecast_hash=entry.forecast_hash,
+        parent_hash=entry.parent_hash,
+        warning_score=math.nan,
+        horizon_score=entry.horizon_score,
+        entry_hash=entry.entry_hash,
+    )
+    head_hash = _head_hash_for(entry.parent_hash, nan_entry.entry_hash)
+    ledger = ForecastLedger(entries=(nan_entry,), head_hash=head_hash, chain_valid=True)
+    assert not validate_forecast_ledger(ledger)
+
+
+def test_validate_ledger_rejects_inf_horizon_score() -> None:
+    """Inf horizon_score must invalidate the ledger (and not raise an exception)."""
+    entry = _make_valid_entry()
+    inf_entry = ForecastLedgerEntry(
+        sequence_id=entry.sequence_id,
+        forecast_hash=entry.forecast_hash,
+        parent_hash=entry.parent_hash,
+        warning_score=entry.warning_score,
+        horizon_score=math.inf,
+        entry_hash=entry.entry_hash,
+    )
+    head_hash = _head_hash_for(entry.parent_hash, inf_entry.entry_hash)
+    ledger = ForecastLedger(entries=(inf_entry,), head_hash=head_hash, chain_valid=True)
+    assert not validate_forecast_ledger(ledger)

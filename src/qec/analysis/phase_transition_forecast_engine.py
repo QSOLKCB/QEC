@@ -435,9 +435,14 @@ def append_forecast_ledger_entry(
     )
 
 
+def _is_sha256_hex(value: object) -> bool:
+    """Return True iff value is a 64-character lowercase hex string."""
+    return isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+
+
 def validate_forecast_ledger(ledger: ForecastLedger) -> bool:
     """Pure ledger validator for sequence, linkage, hashes, and validity flag."""
-    if not isinstance(ledger.head_hash, str) or len(ledger.head_hash) != 64:
+    if not _is_sha256_hex(ledger.head_hash):
         return False
 
     parent_hash = GENESIS_HASH
@@ -445,6 +450,14 @@ def validate_forecast_ledger(ledger: ForecastLedger) -> bool:
         if entry.sequence_id != idx:
             return False
         if entry.parent_hash != parent_hash:
+            return False
+        if not _is_sha256_hex(entry.forecast_hash):
+            return False
+        if not _is_sha256_hex(entry.entry_hash):
+            return False
+        if not math.isfinite(entry.warning_score):
+            return False
+        if not math.isfinite(entry.horizon_score):
             return False
         expected_entry_hash = _hash_sha256(
             {

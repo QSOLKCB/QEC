@@ -184,6 +184,8 @@ def build_secure_replay_signature_chain(
     replay_namespace: str = "quantum-communication-governance",
 ) -> ReplaySignatureChain:
     namespace = _norm_token(replay_namespace, name="replay_namespace")
+    if not synchronized_states:
+        raise ValueError("synchronized_states must not be empty")
     entries: list[ReplaySignatureEntry] = []
     parent_signature = _sha256_hex_mapping({"namespace": namespace, "version": _VERSION})
     for index, state in enumerate(synchronized_states):
@@ -219,7 +221,13 @@ def build_secure_replay_signature_chain(
 
 
 def compute_cross_node_drift_provenance(synchronized_states: Sequence[NodeState]) -> tuple[DriftProvenance, ...]:
-    metric_maps = {state.node_id: dict(state.metrics) for state in synchronized_states}
+    metric_maps: dict[str, dict[str, float]] = {}
+    seen_node_ids: set[str] = set()
+    for state in synchronized_states:
+        if state.node_id in seen_node_ids:
+            raise ValueError(f"Duplicate node_id in synchronized_states: {state.node_id}")
+        seen_node_ids.add(state.node_id)
+        metric_maps[state.node_id] = dict(state.metrics)
     node_ids = tuple(sorted(metric_maps.keys()))
     output: list[DriftProvenance] = []
     for left_index, left_node in enumerate(node_ids):
@@ -249,6 +257,8 @@ def compute_governance_trust_score(
     synchronized_states: Sequence[NodeState],
     drift_provenance: Sequence[DriftProvenance],
 ) -> float:
+    if not synchronized_states:
+        raise ValueError("synchronized_states must not be empty")
     trusted_nodes = sum(1 for state in synchronized_states if "trusted" in state.governance_flags)
     trusted_ratio = float(trusted_nodes) / float(len(synchronized_states))
     avg_abs_drift = (

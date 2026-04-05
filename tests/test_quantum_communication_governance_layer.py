@@ -74,6 +74,11 @@ def test_governance_trust_score_is_bounded() -> None:
     assert 0.0 <= report.governance_trust_score <= 1.0
 
 
+def test_fail_fast_empty_node_states() -> None:
+    with pytest.raises(ValueError):
+        run_quantum_communication_governance_layer(())
+
+
 def test_fail_fast_invalid_node_state_input() -> None:
     bad_state = NodeState(node_id="", epoch=1, state_hash="ok", metrics=(("fidelity", 1.0),), governance_flags=())
     with pytest.raises(ValueError):

@@ -222,26 +222,26 @@ def _state_to_dict(state: CanonicalSemanticState) -> Dict[str, Any]:
     }
 
 
-def _lattice_to_dict(lattice: Tuple[IntentScore, ...]) -> Tuple[Dict[str, Any], ...]:
-    return tuple(
+def _lattice_to_dict(lattice: Tuple[IntentScore, ...]) -> list[Dict[str, Any]]:
+    return [
         {
             "intent": item.intent,
             "matched_terms": list(item.matched_terms),
             "score": item.score,
         }
         for item in lattice
-    )
+    ]
 
 
-def _graph_to_dict(graph: Tuple[IntentActionEdge, ...]) -> Tuple[Dict[str, str], ...]:
-    return tuple(
+def _graph_to_dict(graph: Tuple[IntentActionEdge, ...]) -> list[Dict[str, str]]:
+    return [
         {
             "edge_type": edge.edge_type,
             "source": edge.source,
             "target": edge.target,
         }
         for edge in graph
-    )
+    ]
 
 
 def _plan_to_dict(plan: GovernedResponsePlan) -> Dict[str, str]:

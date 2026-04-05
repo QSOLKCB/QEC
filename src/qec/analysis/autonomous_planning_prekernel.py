@@ -75,13 +75,16 @@ def _normalize_edge_costs(edge_costs: Mapping[tuple[str, str], float] | None) ->
     normalized: dict[tuple[str, str], float] = {}
     for key, cost in edge_costs.items():
         if not isinstance(key, tuple) or len(key) != 2:
-            raise ValueError("edge_cost keys must be (source, target) tuples")
+            raise ValueError("edge_costs keys must be (source, target) tuples")
         src = _norm_token(key[0], name="edge source")
         dst = _norm_token(key[1], name="edge target")
+        normalized_key = (src, dst)
         numeric = float(cost)
         if not math.isfinite(numeric) or numeric < 0.0:
             raise ValueError("edge costs must be finite and >= 0")
-        normalized[(src, dst)] = _round64(numeric)
+        if normalized_key in normalized:
+            raise ValueError(f"duplicate edge_costs key after normalization: {normalized_key}")
+        normalized[normalized_key] = _round64(numeric)
     return normalized
 
 

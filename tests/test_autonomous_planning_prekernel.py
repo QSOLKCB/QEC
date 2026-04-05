@@ -96,3 +96,14 @@ def test_fail_fast_invalid_input_handling() -> None:
     graph = synthesize_planning_graph(_routes(), edge_costs=_edge_costs())
     with pytest.raises(ValueError):
         bounded_route_objective(("start", "unknown"), graph)
+
+
+def test_duplicate_edge_costs_after_normalization_rejected() -> None:
+    # Keys differing only by surrounding whitespace normalize to the same (src, dst)
+    # pair; the prekernel must reject this deterministically rather than silently
+    # overwriting the earlier entry.
+    with pytest.raises(ValueError, match="duplicate edge_costs key after normalization"):
+        synthesize_planning_graph(
+            _routes(),
+            edge_costs={("start", "goal"): 1.0, (" start", "goal"): 2.0},
+        )

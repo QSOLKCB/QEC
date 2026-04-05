@@ -365,6 +365,8 @@ def normalize_geometry_inputs(
         if source_node not in node_ids or target_node not in node_ids:
             raise ValueError("relation endpoint not present in node set")
         transition_cost = _round12(data.get("transition_cost"))
+        if transition_cost < 0:
+            raise ValueError("transition_cost must be non-negative")
         adjacency_kind = _canon_str(data.get("adjacency_kind"), "adjacency_kind")
         stable = data.get("stable")
         if not isinstance(stable, bool):

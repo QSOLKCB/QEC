@@ -138,11 +138,16 @@ def _compute_receipt_hash(
 
 
 def _normalize_evidence_hashes(evidence_hashes: Sequence[str]) -> tuple[str, ...]:
-    if not isinstance(evidence_hashes, Sequence):
-        raise ValueError("supporting_evidence_hashes must be a sequence")
+    if isinstance(evidence_hashes, (str, bytes, bytearray)) or not isinstance(
+        evidence_hashes, Sequence
+    ):
+        raise ValueError(
+            "supporting_evidence_hashes must be a sequence of hash strings"
+        )
     normalized: list[tuple[str, int]] = []
     for idx, evidence_hash in enumerate(evidence_hashes):
-        normalized.append((_validate_hash_hex(evidence_hash, field_name="supporting_evidence_hashes"), idx))
+        field_name = f"supporting_evidence_hashes[{idx}]"
+        normalized.append((_validate_hash_hex(evidence_hash, field_name=field_name), idx))
     ordered = tuple(item[0] for item in sorted(normalized, key=lambda item: (item[0], item[1])))
     if len(set(ordered)) != len(ordered):
         raise ValueError("supporting_evidence_hashes must be unique")

@@ -207,3 +207,48 @@ def test_empty_geometry_ledger_valid_baseline():
     assert ledger.head_hash == "0" * 64
     assert ledger.chain_valid is True
     assert validate_geometry_ledger(ledger) is True
+
+
+def test_route_score_multi_adjacency_kind_same_endpoints():
+    """Multiple relations sharing (source, target) but different adjacency_kind.
+
+    When one of the relations is stable, the transition must be counted as stable
+    regardless of the order in which relations are processed. A dict keyed only by
+    (source_node, target_node) would overwrite the stable relation with the unstable
+    one (or vice versa) non-deterministically; the frozenset-based implementation must
+    reflect the correct stability for the pair.
+    """
+    nodes = _sample_nodes()
+
+    # Build two polytopes: one where n1→n2 has ONLY an unstable relation,
+    # and one where it has BOTH a stable and an unstable relation.
+    # The mixed-relation polytope must score at least as well as the all-unstable one
+    # on the n1→n2 route (stable wins → lower unstable_transition_penalty).
+    unstable_only_relations = [
+        {"source_node": "n1", "target_node": "n2", "transition_cost": 0.5, "adjacency_kind": "bridge", "stable": False},
+        {"source_node": "n2", "target_node": "n3", "transition_cost": 0.4, "adjacency_kind": "bridge", "stable": False},
+        {"source_node": "n3", "target_node": "n2", "transition_cost": 0.3, "adjacency_kind": "stable", "stable": True},
+    ]
+    mixed_relations = list(unstable_only_relations) + [
+        # Add a stable variant of n1→n2 with a different adjacency_kind.
+        {"source_node": "n1", "target_node": "n2", "transition_cost": 0.2, "adjacency_kind": "stable", "stable": True},
+    ]
+
+    poly_unstable = build_polytope_state_map(nodes, unstable_only_relations)
+    poly_mixed = build_polytope_state_map(nodes, mixed_relations)
+
+    score_unstable = compute_topology_aware_route_score(poly_unstable, route=("n1", "n2"), base_route_score=0.8)
+    score_mixed = compute_topology_aware_route_score(poly_mixed, route=("n1", "n2"), base_route_score=0.8)
+
+    # Mixed polytope has a stable relation for n1→n2 so its topology_penalty must be
+    # strictly lower than the all-unstable polytope (all else equal for a single-transition route).
+    assert score_mixed.topology_penalty < score_unstable.topology_penalty
+
+    # Both scores must remain bounded and deterministic.
+    for score in (score_unstable, score_mixed):
+        assert 0.0 <= score.final_route_score <= 1.0
+        assert 0.0 <= score.topology_penalty <= 1.0
+        assert 0.0 <= score.topology_affinity <= 1.0
+
+    score_mixed2 = compute_topology_aware_route_score(poly_mixed, route=("n1", "n2"), base_route_score=0.8)
+    assert score_mixed == score_mixed2

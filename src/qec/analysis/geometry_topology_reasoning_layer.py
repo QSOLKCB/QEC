@@ -547,9 +547,13 @@ def compute_topology_aware_route_score(
         if node_id not in node_lookup:
             raise ValueError(f"unknown route node: {node_id}")
 
-    relation_lookup: dict[tuple[str, str], TransitionRelation] = {
-        (r.source_node, r.target_node): r for r in polytope_map.relations
-    }
+    # A transition is stable if ANY relation for that (source, target) pair is stable.
+    # Keying only by (source_node, target_node) would overwrite entries when multiple
+    # relations share endpoints but differ in adjacency_kind, potentially
+    # misclassifying a stable transition as unstable.
+    stable_pairs: frozenset[tuple[str, str]] = frozenset(
+        (r.source_node, r.target_node) for r in polytope_map.relations if r.stable
+    )
 
     boundary_risk = _round12(
         sum(node_lookup[node_id].boundary_score for node_id in route_nodes) / len(route_nodes)
@@ -558,7 +562,7 @@ def compute_topology_aware_route_score(
     transitions = tuple(zip(route_nodes[:-1], route_nodes[1:]))
     if transitions:
         unstable_count = sum(
-            1 for pair in transitions if pair not in relation_lookup or not relation_lookup[pair].stable
+            1 for pair in transitions if pair not in stable_pairs
         )
         jump_count = sum(
             1

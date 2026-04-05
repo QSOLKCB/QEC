@@ -246,7 +246,7 @@ def normalize_forecast_inputs(
         "drift_signal": _clamp01(ds),
         "transition_pressure": _clamp01(tp),
         "boundary_distance": _clamp01(bd),
-        "bounded": bool(bounded),
+        "bounded": True,
     }
     input_hash = _hash_sha256(normalized)
     return PhaseForecastInput(

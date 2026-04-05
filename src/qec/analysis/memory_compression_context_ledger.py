@@ -445,6 +445,7 @@ def append_context_ledger_entry(
     if ratio < 0.0 or ratio > 1.0:
         raise ValueError("compression_ratio must be bounded in [0,1]")
 
+    snapshot_hash = _normalize_string("snapshot_hash", snapshot_hash)
     sequence_id = len(prior_ledger.entries)
     parent_hash = prior_ledger.entries[-1].entry_hash if prior_ledger.entries else GENESIS_HASH
     payload = _entry_payload(sequence_id, snapshot_hash, parent_hash, retained_count, ratio)

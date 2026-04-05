@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ from qec.analysis.memory_compression_context_ledger import (
     ContextLedgerEntry,
     append_context_ledger_entry,
     build_canonical_memory_snapshot,
+    build_context_compaction_plan,
     compute_context_compression_report,
     deduplicate_context_items,
     empty_context_ledger,
@@ -194,10 +196,17 @@ def test_same_input_same_bytes() -> None:
 
 
 def test_no_decoder_imports() -> None:
-    module_path = Path("src/qec/analysis/memory_compression_context_ledger.py")
-    source = module_path.read_text(encoding="utf-8")
-    assert "qec.decoder" not in source
-    assert "src/qec/decoder" not in source
+    source = Path("src/qec/analysis/memory_compression_context_ledger.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imports: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imports.extend(alias.name for alias in node.names)
+            continue
+        if isinstance(node, ast.ImportFrom) and node.module is not None:
+            imports.append(node.module)
+            imports.extend(f"{node.module}.{alias.name}" for alias in node.names)
+    assert not any(name.startswith("qec.decoder") for name in imports)
 
 
 def test_insertion_order_independence() -> None:
@@ -236,3 +245,41 @@ def test_snapshot_hash_independent_of_input_order() -> None:
     left = run_memory_compression_context_ledger(_sample_items())[1]
     right = run_memory_compression_context_ledger(list(reversed(_sample_items())))[1]
     assert left.snapshot_hash == right.snapshot_hash
+
+
+def test_build_context_compaction_plan_deterministic() -> None:
+    normalized = normalize_context_items(_sample_items())
+    retained, compacted = deduplicate_context_items(normalized)
+    plan1 = build_context_compaction_plan(retained, compacted)
+    plan2 = build_context_compaction_plan(retained, compacted)
+    assert plan1 == plan2
+    assert plan1.plan_hash == plan2.plan_hash
+
+
+def test_build_context_compaction_plan_ordering() -> None:
+    normalized = normalize_context_items(_sample_items())
+    retained, compacted = deduplicate_context_items(normalized)
+    plan = build_context_compaction_plan(retained, compacted)
+    assert plan.retained_ids == tuple(sorted(plan.retained_ids))
+    assert plan.removed_ids == tuple(sorted(plan.removed_ids))
+    assert plan.canonical_order == tuple(sorted(plan.retained_ids + plan.removed_ids))
+
+
+def test_build_context_compaction_plan_hash_is_stable_across_input_order() -> None:
+    normalized = normalize_context_items(_sample_items())
+    retained, compacted = deduplicate_context_items(normalized)
+    plan_fwd = build_context_compaction_plan(retained, compacted)
+    plan_rev = build_context_compaction_plan(tuple(reversed(retained)), compacted)
+    assert plan_fwd.plan_hash == plan_rev.plan_hash
+
+
+def test_append_context_ledger_entry_rejects_empty_snapshot_hash() -> None:
+    ledger = empty_context_ledger()
+    with pytest.raises(ValueError, match="snapshot_hash"):
+        append_context_ledger_entry(ledger, snapshot_hash="   ", retained_count=1, compression_ratio=0.0)
+
+
+def test_append_context_ledger_entry_rejects_non_string_snapshot_hash() -> None:
+    ledger = empty_context_ledger()
+    with pytest.raises(ValueError, match="snapshot_hash"):
+        append_context_ledger_entry(ledger, snapshot_hash=123, retained_count=1, compression_ratio=0.0)  # type: ignore[arg-type]

@@ -259,8 +259,8 @@ def _normalize_item_like(item: Any) -> dict[str, Any]:
             "bounded": item.get("bounded", True),
         }
     if isinstance(item, tuple):
-        if len(item) not in (7, 8):
-            raise ValueError("tuple context item must have 7 or 8 fields")
+        if len(item) != 7:
+            raise ValueError("tuple context item must have exactly 7 fields")
         return {
             "item_id": item[0],
             "category": item[1],

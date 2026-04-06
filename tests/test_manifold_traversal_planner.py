@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from qec.analysis.e8_symmetry_projection_layer import build_e8_symmetry_projection
+from qec.analysis.e8_symmetry_projection_layer import (
+    E8SymmetryProjection,
+    E8SymmetryResult,
+    E8SymmetryVector,
+    build_e8_symmetry_projection,
+)
 from qec.analysis.episodic_memory_lifting import lift_raw_records_to_episodic_memory
 from qec.analysis.fragmentation_recovery_engine import recover_fragmented_compression_chain
 from qec.analysis.hash_preserving_memory_compression import CompressedMemoryArtifact, compress_semantic_theme_memory
@@ -172,3 +177,104 @@ def test_lineage_validation_fail_fast() -> None:
     other_graph = _graph_from_observed_records((0,))
     with pytest.raises(ValueError, match="graph_hash must match symmetry_artifact.source_graph_hash"):
         build_manifold_traversal_plan(symmetry, graph_artifact=other_graph)
+
+
+def _make_bad_projection(symmetry: E8SymmetryResult, **overrides: object) -> E8SymmetryProjection:
+    """Return a projection with overridden fields and a stub symmetry_hash."""
+    p = symmetry.projection
+    fields = {
+        "projection_id": p.projection_id,
+        "source_graph_hash": p.source_graph_hash,
+        "source_polytope_hash": p.source_polytope_hash,
+        "vector_count": p.vector_count,
+        "coordinate_dimension": p.coordinate_dimension,
+        "vectors": p.vectors,
+        "symmetry_alignment_score": p.symmetry_alignment_score,
+        "basis_consistency_score": p.basis_consistency_score,
+        "projection_integrity_score": p.projection_integrity_score,
+        "lattice_continuity_score": p.lattice_continuity_score,
+        "overall_symmetry_score": p.overall_symmetry_score,
+        "law_invariants": p.law_invariants,
+        "symmetry_hash": "stub-hash",
+    }
+    fields.update(overrides)
+    return E8SymmetryProjection(**fields)  # type: ignore[arg-type]
+
+
+def _make_bad_symmetry(symmetry: E8SymmetryResult, projection: E8SymmetryProjection) -> E8SymmetryResult:
+    return E8SymmetryResult(
+        schema_version=symmetry.schema_version,
+        source_graph_hash=symmetry.source_graph_hash,
+        source_polytope_hash=symmetry.source_polytope_hash,
+        source_replay_identity_hash=symmetry.source_replay_identity_hash,
+        projection=projection,
+        symmetry_hash="stub-hash",
+    )
+
+
+def test_fail_fast_coordinate_dimension_not_8() -> None:
+    symmetry = _symmetry_from_observed_records((0, 1))
+    bad_proj = _make_bad_projection(symmetry, coordinate_dimension=4)
+    bad_symmetry = _make_bad_symmetry(symmetry, bad_proj)
+    with pytest.raises(ValueError, match="coordinate_dimension must be 8"):
+        build_manifold_traversal_plan(bad_symmetry)
+
+
+def test_fail_fast_vector_count_not_8() -> None:
+    symmetry = _symmetry_from_observed_records((0, 1))
+    bad_proj = _make_bad_projection(symmetry, vector_count=5)
+    bad_symmetry = _make_bad_symmetry(symmetry, bad_proj)
+    with pytest.raises(ValueError, match="vector_count must be 8"):
+        build_manifold_traversal_plan(bad_symmetry)
+
+
+def test_fail_fast_continuity_component_out_of_range() -> None:
+    symmetry = _symmetry_from_observed_records((0, 1))
+    original_vector = symmetry.projection.vectors[0]
+    bad_vector = E8SymmetryVector(
+        basis_id=original_vector.basis_id,
+        basis_index=original_vector.basis_index,
+        coordinate_order=original_vector.coordinate_order,
+        normalized_coordinates=original_vector.normalized_coordinates,
+        projection_weight=original_vector.projection_weight,
+        continuity_component=1.5,
+    )
+    bad_vectors = (bad_vector,) + symmetry.projection.vectors[1:]
+    bad_proj = _make_bad_projection(symmetry, vectors=bad_vectors)
+    bad_symmetry = _make_bad_symmetry(symmetry, bad_proj)
+    with pytest.raises(ValueError, match="continuity_component must be in"):
+        build_manifold_traversal_plan(bad_symmetry)
+
+
+def test_fail_fast_projection_weight_out_of_range() -> None:
+    symmetry = _symmetry_from_observed_records((0, 1))
+    original_vector = symmetry.projection.vectors[0]
+    bad_vector = E8SymmetryVector(
+        basis_id=original_vector.basis_id,
+        basis_index=original_vector.basis_index,
+        coordinate_order=original_vector.coordinate_order,
+        normalized_coordinates=original_vector.normalized_coordinates,
+        projection_weight=-0.1,
+        continuity_component=original_vector.continuity_component,
+    )
+    bad_vectors = (bad_vector,) + symmetry.projection.vectors[1:]
+    bad_proj = _make_bad_projection(symmetry, vectors=bad_vectors)
+    bad_symmetry = _make_bad_symmetry(symmetry, bad_proj)
+    with pytest.raises(ValueError, match="projection_weight must be in"):
+        build_manifold_traversal_plan(bad_symmetry)
+
+
+def test_fail_fast_projection_lineage_graph_hash_mismatch() -> None:
+    symmetry = _symmetry_from_observed_records((0, 1))
+    bad_proj = _make_bad_projection(symmetry, source_graph_hash="wrong-graph-hash")
+    bad_symmetry = _make_bad_symmetry(symmetry, bad_proj)
+    with pytest.raises(ValueError, match="projection source_graph_hash must match"):
+        build_manifold_traversal_plan(bad_symmetry)
+
+
+def test_fail_fast_projection_lineage_polytope_hash_mismatch() -> None:
+    symmetry = _symmetry_from_observed_records((0, 1))
+    bad_proj = _make_bad_projection(symmetry, source_polytope_hash="wrong-polytope-hash")
+    bad_symmetry = _make_bad_symmetry(symmetry, bad_proj)
+    with pytest.raises(ValueError, match="projection source_polytope_hash must match"):
+        build_manifold_traversal_plan(bad_symmetry)

@@ -110,14 +110,12 @@ def _validate_optional_lineage(
 def _validate_symmetry_artifact(symmetry_artifact: E8SymmetryResult) -> None:
     if not isinstance(symmetry_artifact, E8SymmetryResult):
         raise ValueError("symmetry_artifact must be an E8SymmetryResult")
+    if symmetry_artifact.projection.coordinate_dimension != 8:
+        raise ValueError("symmetry_artifact projection coordinate_dimension must be 8")
+    if symmetry_artifact.projection.vector_count != 8:
+        raise ValueError("symmetry_artifact projection vector_count must be 8")
     if symmetry_artifact.projection.vector_count != len(symmetry_artifact.projection.vectors):
         raise ValueError("symmetry_artifact projection vector_count must match vectors length")
-    if symmetry_artifact.projection.coordinate_dimension <= 0:
-        raise ValueError("symmetry_artifact projection coordinate_dimension must be positive")
-    if symmetry_artifact.projection.stable_hash() != symmetry_artifact.projection.symmetry_hash:
-        raise ValueError("symmetry_artifact projection symmetry_hash must match stable_hash")
-    if symmetry_artifact.stable_hash() != symmetry_artifact.symmetry_hash:
-        raise ValueError("symmetry_artifact symmetry_hash must match stable_hash")
 
     for score in (
         symmetry_artifact.projection.symmetry_alignment_score,
@@ -132,12 +130,35 @@ def _validate_symmetry_artifact(symmetry_artifact: E8SymmetryResult) -> None:
         if not math.isfinite(score_value) or not 0.0 <= score_value <= 1.0:
             raise ValueError("symmetry_artifact scores must be finite numbers in [0.0, 1.0]")
 
+    # Per-vector bounds and structural checks run before hash verification so that
+    # out-of-range values fail fast without requiring the caller to craft a valid
+    # hash for corrupted data.
     expected_dim = symmetry_artifact.projection.coordinate_dimension
     for vector in symmetry_artifact.projection.vectors:
         if len(vector.coordinate_order) != expected_dim:
             raise ValueError("symmetry_artifact vector coordinate_order must match coordinate_dimension")
         if len(vector.normalized_coordinates) != expected_dim:
             raise ValueError("symmetry_artifact vector normalized_coordinates must match coordinate_dimension")
+        cont = float(vector.continuity_component)
+        if not math.isfinite(cont) or not 0.0 <= cont <= 1.0:
+            raise ValueError("symmetry_artifact vector continuity_component must be in [0.0, 1.0]")
+        pw = float(vector.projection_weight)
+        if not math.isfinite(pw) or not 0.0 <= pw <= 1.0:
+            raise ValueError("symmetry_artifact vector projection_weight must be in [0.0, 1.0]")
+
+    # Lineage consistency checks (O(1)) before hash computation (O(N)).
+    if symmetry_artifact.projection.source_graph_hash != symmetry_artifact.source_graph_hash:
+        raise ValueError(
+            "symmetry_artifact projection source_graph_hash must match symmetry_artifact.source_graph_hash"
+        )
+    if symmetry_artifact.projection.source_polytope_hash != symmetry_artifact.source_polytope_hash:
+        raise ValueError(
+            "symmetry_artifact projection source_polytope_hash must match symmetry_artifact.source_polytope_hash"
+        )
+    if symmetry_artifact.projection.stable_hash() != symmetry_artifact.projection.symmetry_hash:
+        raise ValueError("symmetry_artifact projection symmetry_hash must match stable_hash")
+    if symmetry_artifact.stable_hash() != symmetry_artifact.symmetry_hash:
+        raise ValueError("symmetry_artifact symmetry_hash must match stable_hash")
 
 
 @dataclass(frozen=True)
@@ -321,8 +342,8 @@ def _build_manifold_nodes(symmetry_artifact: E8SymmetryResult) -> tuple[Manifold
                 source_basis_index=vector.basis_index,
                 coordinate_order=vector.coordinate_order,
                 manifold_coordinates=vector.normalized_coordinates,
-                continuity_weight=_clamp01(float(vector.continuity_component)),
-                alignment_weight=_clamp01(float(vector.projection_weight)),
+                continuity_weight=float(vector.continuity_component),
+                alignment_weight=float(vector.projection_weight),
             )
         )
 

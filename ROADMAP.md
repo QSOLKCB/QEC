@@ -1,37 +1,33 @@
-# QSOL QEC — Canonical Linux-Style Research Systems Roadmap
-Branch: long-running canonical deterministic systems line  
-Current Stable Release: `v137.3.0`
+# QSOL QEC — Canonical Linux-Style Roadmap
+**Branch:** long-running canonical deterministic systems line  
+**Current Stable Release:** `v137.6.3`
 
 This roadmap supersedes all previous roadmap versions.
 
-Versioning remains Linux-style.
-
-Major line remains:
-
-**v137.x.x**
-
-This preserves release continuity, DOI lineage, benchmark replay fidelity, and publication chronology.
+The `v137.x.x` line remains the canonical long-running systems branch, preserving deterministic replay lineage, schema continuity, and release traceability.
 
 ---
 
 # CORE LAW
 
-Determinism is architecture.
+**Determinism is architecture.**
 
-**same input = same bytes**
+```text
+same input = same bytes
+```
 
 Mandatory invariants:
-
 - frozen dataclasses
 - canonical JSON / bytes export
 - stable SHA-256 replay identity
 - deterministic ordering
 - deterministic tie-breaking
 - fail-fast validation
-- append-only provenance
-- immutable event history
-- canonical replay law
+- immutable artifact snapshots
+- explicit evidence receipts
+- bounded scores only
 - schema migration contracts
+- append-only provenance where applicable
 
 `src/qec/decoder/` remains sacred infrastructure.
 
@@ -39,283 +35,331 @@ No roadmap arc may violate this.
 
 ---
 
+# CURRENT EXECUTION POSTURE
+
+## Immediate Next Release
+
+### v137.6.4 — Planning Replay Battery
+
+This is the immediate next milestone.
+
+Focus:
+- route replay certification
+- frontier determinism validation
+- pruning replay invariants
+- policy receipt replay identity
+- adversarial malformed-input replay tests
+- end-to-end planner artifact certification
+
+---
+
+# CURRENT ARCHITECTURAL FLOW
+
+```text
+sovereignty
+→ capability
+→ provenance
+→ policy evidence
+→ replay certification
+→ coherence
+→ phase-lock
+→ fragmentation recovery
+→ attractor stabilization
+→ collapse/reset validation
+→ plan IR
+→ deterministic search
+→ route execution
+→ dead-end pruning
+→ policy governance
+→ planning replay certification
+→ memory hierarchy
+→ topology / geometry
+→ multimodal signal reasoning
+→ scientific reasoning
+→ distributed governance
+→ unified intelligence substrate
+```
+
+---
+
 # ACTIVE CANONICAL ARC
-
----
-
-## v137.4.x — Sovereignty Kernel + Cryptographic Audit
-
-Mandatory governance substrate.
-
-Focus:
-
-- append-only event history
-- Merkle provenance
-- cryptographic audit
-- signed replay law
-- immutable event receipts
-
-Planned line:
-
-### v137.4.0
-Merkle-linked event history kernel
-
-### v137.4.1
-capability + privilege boundary engine
-
-### v137.4.2
-signed provenance artifact chain
-
-### v137.4.3
-policy evidence receipts
-
-### v137.4.4
-replay certification battery
-
----
-
-## v137.5.x — Resonance Control + State Coherence Layer
-
-New upgrade from UFF / resonance documents.
-
-Focus:
-
-- coherence state field
-- phase-lock runtime
-- decoherence recovery
-- state fragmentation control
-- stability attractor fields
-
-Inspired by:
-coherent source → differentiated structure ontology
-
-Planned line:
-
-### v137.5.0
-coherence field kernel
-
-### v137.5.1
-phase-lock state transitions
-
-### v137.5.2
-decoherence + fragmentation recovery
-
-### v137.5.3
-stability attractor field engine
-
-### v137.5.4
-collapse + reset simulation battery
-
----
 
 ## v137.6.x — Autonomous Planning + World-State Synthesis
 
-Focus:
+**Status:** ACTIVE
 
+Focus:
 - deterministic search
 - route planning
-- world-state control
-- bounded planning IR
+- governed frontier admission
+- bounded route pruning
+- replay-safe planning evidence
+- full planner certification
 
-Planned line:
+### Completed
+- `v137.6.0` — Plan IR + Deterministic Search Kernel
+- `v137.6.1` — Route Graph Execution Runtime
+- `v137.6.2` — Dead-End Pruning
+- `v137.6.3` — Policy-Constrained Planner
 
-### v137.6.0
-plan IR + deterministic search kernel
+### Next
+- `v137.6.4` — Planning Replay Battery
 
-### v137.6.1
-route graph execution runtime
-
-### v137.6.2
-dead-end pruning
-
-### v137.6.3
-policy-constrained planner
-
-### v137.6.4
-planning replay battery
+### Certification Targets
+- byte-stable replay
+- stable frontier ordering
+- pruning artifact reproducibility
+- policy receipt chain continuity
+- deterministic counterexample retention
+- malformed-route rejection invariants
 
 ---
 
 ## v137.7.x — Hierarchical Memory + Semantic Compression
 
-Strongly enhanced from uploaded theory docs.
-
 Focus:
+- raw → episode hierarchy
+- semantic → theme compaction
+- hash-preserving compression
+- fragmentation repair
+- bounded retrieval
+- memory fidelity benchmarking
 
-- semantic fragmentation repair
-- memory hierarchy
-- state compression
-- evidence-linked recall
-- symbolic reconstruction
-
-Planned line:
-
-### v137.7.0
-raw → episode hierarchy
-
-### v137.7.1
-semantic → theme compaction
-
-### v137.7.2
-hash-preserving compression chain
-
-### v137.7.3
-fragmentation recovery engine
-
-### v137.7.4
-memory fidelity benchmark
+### Planned Line
+- `v137.7.0` — Raw → Episode Hierarchy
+- `v137.7.1` — Semantic → Theme Compaction
+- `v137.7.2` — Hash-Preserving Compression Chain
+- `v137.7.3` — Fragmentation Recovery Engine
+- `v137.7.4` — Memory Fidelity Benchmark
 
 ---
 
 ## v137.8.x — Geometry + Topology Reasoning Kernel
 
-Major enhancement from E8 / topology documents.
-
 Focus:
+- topological graph kernels
+- polytope reasoning
+- E8 symmetry projections
+- manifold traversal
+- topology divergence certification
 
-- graph topology reasoning
-- polytope traversal
-- manifold state projection
-- E8-inspired symmetry kernels
-- route geometry synthesis
-
-Planned line:
-
-### v137.8.0
-topological graph kernel
-
-### v137.8.1
-polytope reasoning engine
-
-### v137.8.2
-E8 symmetry projection layer
-
-### v137.8.3
-manifold traversal planner
-
-### v137.8.4
-topology divergence battery
+### Planned Line
+- `v137.8.0` — Topological Graph Kernel
+- `v137.8.1` — Polytope Reasoning Engine
+- `v137.8.2` — E8 Symmetry Projection Layer
+- `v137.8.3` — Manifold Traversal Planner
+- `v137.8.4` — Topology Divergence Battery
 
 ---
 
 ## v137.9.x — Multimodal Signal + Physics-Aware Reasoning
 
-Major upgrade from resonance / sound docs.
-
 Focus:
-
-- signal-space reasoning
-- multimodal ingestion
-- spectrogram governance
-- audio topology inference
+- multimodal feature schemas
+- spectral reasoning
 - signal coherence scoring
+- audio / phase-space topology
+- cross-modal replay certification
 
-Planned line:
+### Planned Line
+- `v137.9.0` — Multimodal Feature Schema
+- `v137.9.1` — Spectral Reasoning Layer
+- `v137.9.2` — Signal Coherence Engine
+- `v137.9.3` — Audio + Phase-Space Topology
+- `v137.9.4` — Cross-Modal Replay Certification
 
-### v137.9.0
-multimodal feature schema
-
-### v137.9.1
-spectral reasoning layer
-
-### v137.9.2
-signal coherence engine
-
-### v137.9.3
-audio + phase-space topology
-
-### v137.9.4
-cross-modal replay certification
+**Engineering Rule:**
+All signal-theory work must be deterministic, benchmarked, and falsifiable.
+No numerological or metaphor-only claims enter architecture.
 
 ---
 
-# NEXT LONG ARC
-
----
+# SCIENTIFIC REASONING ARC (OPTIMIZED)
 
 ## v137.10.x — Scientific Reasoning Kernel
 
-Focus:
+This is the major optimized addition based on our claim-audit reasoning.
 
+This line turns external speculative theories into deterministic evaluation substrate.
+
+Focus:
 - hypothesis lattice
 - experiment DSL
-- theorem bridge
-- simulation reproducibility
 - evidence lineage
+- theorem bridge
+- claim verification
+- skepticism engine
+- scientific replay certification
+
+### Planned Line
+- `v137.10.0` — Hypothesis Lattice
+- `v137.10.1` — Experiment DSL
+- `v137.10.2` — Evidence Lineage Engine
+- `v137.10.3` — Claim Audit Kernel
+- `v137.10.4` — Scientific Replay Battery
 
 ---
+
+## v137.10.3 — Claim Audit Kernel
+
+This is the optimized reasoning release.
+
+Purpose:
+convert internet-scale speculative theories, grand claims, and pseudo-frameworks into deterministic audit artifacts.
+
+### Core Batteries
+- dimensional consistency battery
+- tautology / relabeling detector
+- evidence-to-claim ratio scoring
+- benchmark provenance battery
+- novelty-vs-known-theorem proximity scoring
+
+### Core Scores
+- `dimensional_validity_score`
+- `tautology_risk_score`
+- `benchmark_provenance_score`
+- `novelty_distance_score`
+- `evidence_strength_score`
+- `unsupported_extrapolation_score`
+
+### Core Artifact
+- `ClaimAuditReceipt`
+
+Must preserve:
+- canonical export
+- stable SHA-256 receipt chain
+- deterministic scoring
+- explicit evidence fields
+
+This becomes a major research and publication line.
+
+---
+
+# DISTRIBUTED GOVERNANCE ARC
 
 ## v137.11.x — Distributed Governance Kernel
 
 Focus:
-
 - multi-node orchestration
-- federated trust chain
 - signed replication
 - transparency logs
+- federated trust chain
+
+### Planned Line
+- `v137.11.0` — Multi-Node Orchestration Kernel
+- `v137.11.1` — Signed Replication Chain
+- `v137.11.2` — Transparency Log Substrate
+- `v137.11.3` — Federated Trust Receipts
+- `v137.11.4` — Distributed Replay Battery
 
 ---
+
+# UNIFIED SUBSTRATE ARC
 
 ## v137.12.x — Unified Intelligence Substrate
 
 Focus:
-
 - planning
 - memory
-- geometry
-- language
-- signal reasoning
-- scientific inference
+- topology
+- multimodal signal
+- scientific reasoning
 - distributed governance
 
-This becomes the formal journal / preprint architecture line.
+### Planned Line
+- `v137.12.0` — Subsystem Fusion Kernel
+- `v137.12.1` — Unified Artifact Registry
+- `v137.12.2` — Cross-Substrate Scheduler
+- `v137.12.3` — Governed World-Model Handoff
+- `v137.12.4` — Unified Substrate Certification Battery
+
+This becomes the formal preprint / paper platform.
 
 ---
 
 # FORMAL METHODS LINE
 
----
-
-## v137.20.x — TLA+ + model checking
-
+## v137.20.x — TLA+ + Model Checking
 - replay law verification
-- convergence proofs
 - state transition proofs
+- planner convergence proofs
+- distributed consistency checks
 
----
-
-## v137.21.x — Lean 4 invariant pack
-
+## v137.21.x — Lean 4 Invariant Pack
 - hash chain proofs
 - schema migration proofs
+- route admissibility proofs
+- artifact immutability proofs
 - lattice monotonicity
-- route optimality proofs
 
 ---
 
-# RESEARCH PAPER LINE
-
----
+# RESEARCH / PAPER LINE
 
 ## v137.30.x — Formalization + Preprint Stack
-
 - architecture manuscript
 - theorem appendix
 - benchmark figures
 - DOI reproducibility pack
 - formal methods appendix
 
+## v137.31.x — Adversarial Claim Corpus
+- pseudo-theory evaluation corpus
+- dimensional failure examples
+- tautology disguised as novelty
+- benchmark theater examples
+- deterministic reviewer receipts
+
 ---
 
 # BENCHMARK LAW
 
-Every release must pass:
+Every release must pass relevant batteries.
 
+## Core
 - byte identity battery
 - replay battery
-- governance adversary suite
-- planning determinism suite
-- signal fidelity suite
-- memory fidelity suite
-- topology divergence suite
-- cross-hardware replay suite
+- schema migration battery
+- canonical export battery
+- stable hash battery
+
+## Planning
+- frontier determinism suite
+- pruning stability suite
+- policy governance suite
+- route replay certification suite
+
+## Scientific Reasoning
+- dimensional consistency suite
+- tautology detection suite
+- evidence provenance suite
+- novelty-vs-relabeling suite
+- adversarial claim audit suite
+
+---
+
+# ENGINEERING DISCIPLINE
+
+Every release must be:
+- narrow
+- truthfully named
+- additive by default
+- deterministic
+- benchmarkable
+- paper-friendly
+- replay-safe
+
+Prefer:
+- new focused modules
+- new focused tests
+- explicit invariants
+- explicit receipts
+- explicit failure modes
+
+Avoid:
+- mixed-purpose releases
+- architecture sprawl
+- mutable artifact state
+- benchmark theater
+- numerological phenomenology
+- ungrounded theoretical claims

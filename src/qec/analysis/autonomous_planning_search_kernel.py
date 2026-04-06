@@ -231,7 +231,7 @@ def run_deterministic_search(
 def compute_search_stability_score(ranked_routes: Sequence[tuple[tuple[str, ...], float, int, str]]) -> float:
     if not ranked_routes:
         raise ValueError("ranked_routes must not be empty")
-    best_score = ranked_routes[0][1]
+    best_score = max(score for _, score, _, _ in ranked_routes)
     best_count = 0
     for _, score, _, _ in ranked_routes:
         if score == best_score:
@@ -306,13 +306,13 @@ def synthesize_plan_ir(
 
 def export_plan_bytes(plan_ir: PlanIR) -> bytes:
     if not isinstance(plan_ir, PlanIR):
-        raise ValueError("plan_ir must be a PlanIR instance")
+        raise TypeError("plan_ir must be a PlanIR instance")
     return plan_ir.to_canonical_bytes()
 
 
 def generate_plan_receipt(plan_ir: PlanIR) -> PlanReceipt:
     if not isinstance(plan_ir, PlanIR):
-        raise ValueError("plan_ir must be a PlanIR instance")
+        raise TypeError("plan_ir must be a PlanIR instance")
 
     receipt_payload = {
         "schema_version": plan_ir.schema_version,

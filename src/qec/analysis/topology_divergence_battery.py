@@ -26,6 +26,10 @@ DETERMINISTIC_SCENARIO_ORDERING_RULE = "DETERMINISTIC_SCENARIO_ORDERING_RULE"
 REPLAY_SAFE_DIVERGENCE_IDENTITY_RULE = "REPLAY_SAFE_DIVERGENCE_IDENTITY_RULE"
 BOUNDED_DIVERGENCE_SCORE_RULE = "BOUNDED_DIVERGENCE_SCORE_RULE"
 
+# Reserved sentinel used for the baseline (all-paths) scenario.
+# This value must never appear as a node_id in a ManifoldTraversalResult.
+_BASELINE_SENTINEL = "baseline"
+
 
 def _canonicalize_json(value: Any) -> _JSONValue:
     if value is None or isinstance(value, (str, bool, int)):
@@ -156,6 +160,8 @@ def _validate_traversal_artifact(traversal_artifact: ManifoldTraversalResult) ->
     node_ids = tuple(node.node_id for node in traversal_artifact.nodes)
     if len(set(node_ids)) != len(node_ids):
         raise ValueError("traversal_artifact nodes must have unique node_id values")
+    if any(node.node_id == _BASELINE_SENTINEL for node in traversal_artifact.nodes):
+        raise ValueError(f"node_id '{_BASELINE_SENTINEL}' is reserved and cannot be used in traversal artifacts")
 
     node_keys = tuple((node.node_index, node.source_basis_index, node.node_id) for node in traversal_artifact.nodes)
     if node_keys != tuple(sorted(node_keys)):
@@ -386,7 +392,7 @@ def _scenario_paths(
 ) -> tuple[tuple[int, str], ...]:
     items: list[tuple[int, str]] = []
     for path in traversal_artifact.paths:
-        if anchor_node_id == "baseline" or anchor_node_id in path.node_ids:
+        if anchor_node_id == _BASELINE_SENTINEL or anchor_node_id in path.node_ids:
             items.append((path.path_index, path.path_id))
     return tuple(sorted(items, key=lambda item: (item[0], item[1])))
 
@@ -402,6 +408,28 @@ def _normalized_entropy(values: tuple[float, ...]) -> float:
         return 0.0
     entropy = float(-sum(p * math.log(p) for p in probs))
     return _clamp01(float(entropy / math.log(len(probs))))
+
+
+def _anchor_branch_split_values(
+    anchor_node_id: str, segments: tuple["DivergenceSegment", ...]
+) -> tuple[float, ...]:
+    """Return per-branch segment counts for segments adjacent to the anchor node.
+
+    Counts how many segments touch each neighbor of the anchor, giving a
+    distribution whose entropy measures true route-split diversity.
+    """
+    if anchor_node_id == _BASELINE_SENTINEL:
+        return ()
+    branch_counts: dict[str, float] = {}
+    for segment in segments:
+        if segment.start_node_id == anchor_node_id:
+            branch_node_id = segment.end_node_id
+        elif segment.end_node_id == anchor_node_id:
+            branch_node_id = segment.start_node_id
+        else:
+            continue
+        branch_counts[branch_node_id] = branch_counts.get(branch_node_id, 0.0) + 1.0
+    return tuple(sorted(branch_counts.values()))
 
 
 def _build_scenario(
@@ -470,7 +498,7 @@ def _build_scenario(
     )
 
     branch_divergence_score = _mean(tuple(segment.split_pressure_score for segment in stable_segments))
-    split_values = tuple(float(max(0, len(neighbors[node_id]) - 1)) for node_id in neighbors if node_id in {anchor_node_id})
+    split_values = _anchor_branch_split_values(anchor_node_id, stable_segments)
     split_entropy_score = _normalized_entropy(split_values)
     path_fragmentation_score = _mean(tuple(segment.fragmentation_impact_score for segment in stable_segments))
 
@@ -486,7 +514,7 @@ def _build_scenario(
         scenario_index=scenario_index,
         anchor_node_id=anchor_node_id,
         path_ids=path_ids,
-        split_count=1 if anchor_node_id != "baseline" else 0,
+        split_count=1 if anchor_node_id != _BASELINE_SENTINEL else 0,
         segment_count=len(stable_segments),
         segments=stable_segments,
         branch_divergence_score=branch_divergence_score,
@@ -513,7 +541,7 @@ def run_topology_divergence_battery(
     )
 
     neighbors = _build_neighbors(traversal_artifact)
-    anchors = ("baseline",) + _split_nodes(neighbors)
+    anchors = (_BASELINE_SENTINEL,) + _split_nodes(neighbors)
     scenarios = tuple(
         _build_scenario(
             traversal_artifact=traversal_artifact,

@@ -120,6 +120,72 @@ def _manual_traversal(path_scores: tuple[float, ...]) -> ManifoldTraversalResult
     return replace(result, traversal_hash=result.stable_hash())
 
 
+def _manual_traversal_split() -> ManifoldTraversalResult:
+    """Create a traversal with node n-1 as a split node (connects to n-0, n-2, and n-3).
+
+    Topology:
+        p-0: n-0 -> n-1 -> n-2
+        p-1: n-0 -> n-1 -> n-3
+    n-1 has three neighbours so it is detected as a split node and gets its own scenario.
+    """
+    nodes = tuple(
+        ManifoldNode(
+            node_id=f"n-{idx}",
+            node_index=idx,
+            source_basis_id=f"b-{idx}",
+            source_basis_index=idx,
+            coordinate_order=("x", "y"),
+            manifold_coordinates=(float(idx), float(idx + 1)),
+            continuity_weight=1.0,
+            alignment_weight=1.0,
+        )
+        for idx in range(4)
+    )
+    paths = (
+        TraversalPath(
+            path_id="p-0",
+            path_index=0,
+            node_ids=("n-0", "n-1", "n-2"),
+            path_length=3,
+            path_continuity_score=0.9,
+            path_alignment_score=0.9,
+            route_integrity_score=0.9,
+            traversal_efficiency_score=0.9,
+            path_score=0.9,
+        ),
+        TraversalPath(
+            path_id="p-1",
+            path_index=1,
+            node_ids=("n-0", "n-1", "n-3"),
+            path_length=3,
+            path_continuity_score=0.8,
+            path_alignment_score=0.8,
+            route_integrity_score=0.8,
+            traversal_efficiency_score=0.8,
+            path_score=0.8,
+        ),
+    )
+    result = ManifoldTraversalResult(
+        schema_version=1,
+        source_graph_hash="graph-h-split",
+        source_polytope_hash="polytope-h-split",
+        source_symmetry_hash="symmetry-h-split",
+        source_replay_identity_hash="replay-h-split",
+        node_count=4,
+        path_count=2,
+        nodes=nodes,
+        paths=paths,
+        path_continuity_score=0.85,
+        manifold_alignment_score=0.85,
+        symmetry_route_integrity_score=0.85,
+        traversal_efficiency_score=0.85,
+        overall_traversal_score=0.85,
+        law_invariants=("x",),
+        traversal_hash="",
+    )
+    return replace(result, traversal_hash=result.stable_hash())
+
+
 def test_identical_input_produces_byte_identical_divergence_artifacts() -> None:
     traversal, _, _, _ = _traversal_from_observed_records((0, 2, 4))
 
@@ -139,20 +205,33 @@ def test_deterministic_repeated_runs() -> None:
 
 
 def test_stable_scenario_ordering() -> None:
-    traversal = _manual_traversal((0.9, 0.9, 0.9))
+    # Use a split-node traversal so there are multiple scenarios to order.
+    traversal = _manual_traversal_split()
     artifact = run_topology_divergence_battery(traversal)
 
-    keys = tuple((scenario.scenario_index, scenario.scenario_id) for scenario in artifact.scenarios)
-    assert keys == tuple(sorted(keys))
+    # The baseline scenario (sentinel) must always be first.
+    anchor_ids = tuple(scenario.anchor_node_id for scenario in artifact.scenarios)
+    assert anchor_ids[0] == "baseline"
+    # Remaining scenarios are ordered by anchor_node_id (the deterministic sort key).
+    assert anchor_ids[1:] == tuple(sorted(anchor_ids[1:]))
+    # All scenario IDs are unique content hashes — ordering is driven by content, not insertion.
+    scenario_ids = tuple(scenario.scenario_id for scenario in artifact.scenarios)
+    assert len(set(scenario_ids)) == len(scenario_ids)
 
 
 def test_stable_segment_ordering() -> None:
+    # Each path in _manual_traversal has exactly one edge (edge_index=0 for all segments),
+    # so the effective sort key is (path_id, start_node_id, end_node_id, segment_id) —
+    # a fully content-derived ordering that is independent of segment_index.
     traversal = _manual_traversal((0.9, 0.8, 0.7))
     artifact = run_topology_divergence_battery(traversal)
 
     for scenario in artifact.scenarios:
-        keys = tuple((segment.segment_index, segment.path_id, segment.segment_id) for segment in scenario.segments)
-        assert keys == tuple(sorted(keys))
+        content_keys = tuple(
+            (segment.path_id, segment.start_node_id, segment.end_node_id, segment.segment_id)
+            for segment in scenario.segments
+        )
+        assert content_keys == tuple(sorted(content_keys))
 
 
 def test_stable_hash_invariants() -> None:
@@ -174,6 +253,28 @@ def test_fail_fast_malformed_traversal_input() -> None:
 
     with pytest.raises(ValueError, match="traversal_hash must match stable_hash"):
         run_topology_divergence_battery(invalid)
+
+
+def test_fail_fast_baseline_node_id_rejected() -> None:
+    """Traversal inputs with node_id == 'baseline' must be rejected to prevent sentinel collision."""
+    traversal = _manual_traversal((0.9, 0.9, 0.9))
+    bad_nodes = (replace(traversal.nodes[0], node_id="baseline"),) + traversal.nodes[1:]
+    invalid = replace(traversal, nodes=bad_nodes, node_count=len(bad_nodes), traversal_hash="")
+    invalid = replace(invalid, traversal_hash=invalid.stable_hash())
+
+    with pytest.raises(ValueError, match="reserved"):
+        run_topology_divergence_battery(invalid)
+
+
+def test_split_entropy_nonzero_on_split_node() -> None:
+    """split_entropy_score must be > 0 for a scenario whose anchor is a true split node."""
+    traversal = _manual_traversal_split()
+    artifact = run_topology_divergence_battery(traversal)
+
+    # The split-node scenario (anchor_node_id == "n-1") must have non-zero entropy.
+    split_scenarios = [s for s in artifact.scenarios if s.anchor_node_id != "baseline"]
+    assert split_scenarios, "expected at least one non-baseline scenario"
+    assert all(s.split_entropy_score > 0.0 for s in split_scenarios)
 
 
 def test_perfect_continuity_produces_low_divergence() -> None:

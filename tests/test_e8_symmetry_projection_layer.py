@@ -40,8 +40,9 @@ def _compressed_artifact():
     return compress_semantic_theme_memory(semantic)
 
 
-def _graph_from_observed_records(observed_indices: tuple[int, ...]):
-    compressed = _compressed_artifact()
+def _graph_from_observed_records(observed_indices: tuple[int, ...], compressed=None):
+    if compressed is None:
+        compressed = _compressed_artifact()
     observed = tuple(compressed.records[idx] for idx in observed_indices)
     recovery = recover_fragmented_compression_chain(
         compressed,
@@ -51,12 +52,13 @@ def _graph_from_observed_records(observed_indices: tuple[int, ...]):
     return build_topological_graph_kernel(compressed, recovery)
 
 
-def _polytope_from_observed_records(observed_indices: tuple[int, ...]):
-    return build_polytope_reasoning_engine(_graph_from_observed_records(observed_indices))
+def _polytope_from_observed_records(observed_indices: tuple[int, ...], compressed=None):
+    return build_polytope_reasoning_engine(_graph_from_observed_records(observed_indices, compressed))
 
 
 def test_identical_input_produces_byte_identical_symmetry_artifacts() -> None:
-    polytope = _polytope_from_observed_records(tuple(range(len(_compressed_artifact().records))))
+    compressed = _compressed_artifact()
+    polytope = _polytope_from_observed_records(tuple(range(len(compressed.records))), compressed)
 
     symmetry_a = build_e8_symmetry_projection(polytope)
     symmetry_b = build_e8_symmetry_projection(polytope)
@@ -128,7 +130,8 @@ def test_fail_fast_malformed_polytope_input() -> None:
 
 
 def test_perfect_continuity_produces_high_symmetry_score() -> None:
-    polytope = _polytope_from_observed_records(tuple(range(len(_compressed_artifact().records))))
+    compressed = _compressed_artifact()
+    polytope = _polytope_from_observed_records(tuple(range(len(compressed.records))), compressed)
     symmetry = build_e8_symmetry_projection(polytope)
 
     assert symmetry.projection.symmetry_alignment_score > 0.85
@@ -137,7 +140,8 @@ def test_perfect_continuity_produces_high_symmetry_score() -> None:
 
 
 def test_fragmented_topology_degrades_symmetry_score() -> None:
-    pristine = build_e8_symmetry_projection(_polytope_from_observed_records(tuple(range(len(_compressed_artifact().records)))))
+    compressed = _compressed_artifact()
+    pristine = build_e8_symmetry_projection(_polytope_from_observed_records(tuple(range(len(compressed.records))), compressed))
     fragmented = build_e8_symmetry_projection(_polytope_from_observed_records((0,)))
 
     assert fragmented.projection.lattice_continuity_score < pristine.projection.lattice_continuity_score

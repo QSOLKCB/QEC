@@ -107,8 +107,11 @@ def _validate_polytope_artifact(polytope_artifact: PolytopeReasoningResult) -> N
         polytope_artifact.polytope_integrity_score,
         polytope_artifact.overall_polytope_score,
     ):
-        if score < 0.0 or score > 1.0:
-            raise ValueError("polytope_artifact scores must be in [0.0, 1.0]")
+        if isinstance(score, bool) or not isinstance(score, (int, float)):
+            raise ValueError("polytope_artifact scores must be finite numbers in [0.0, 1.0]")
+        score_value = float(score)
+        if not math.isfinite(score_value) or not 0.0 <= score_value <= 1.0:
+            raise ValueError("polytope_artifact scores must be finite numbers in [0.0, 1.0]")
 
 
 def _validate_optional_graph_lineage(

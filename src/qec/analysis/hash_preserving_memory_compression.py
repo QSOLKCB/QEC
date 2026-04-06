@@ -247,6 +247,8 @@ def _validate_semantic_theme_artifact(artifact: SemanticThemeArtifact) -> tuple[
         raise ValueError("theme_count must match themes length")
     if artifact.theme_count != len(artifact.theme_ids):
         raise ValueError("theme_count must match theme_ids length")
+    if artifact.theme_count == 0:
+        raise ValueError("artifact must contain at least one theme")
     if tuple(theme.theme_id for theme in artifact.themes) != artifact.theme_ids:
         raise ValueError("theme_ids must align with themes ordering")
     themes = artifact.themes
@@ -313,7 +315,9 @@ def compress_semantic_theme_memory(artifact: SemanticThemeArtifact) -> Compresse
         )
 
     preserved_theme_hashes = tuple(theme.theme_hash for theme in themes)
-    compression_chain_head = artifact.source_artifact_hash if len(records) == 0 else records[-1].source_replay_identity_hash
+    if len(records) == 0:
+        raise ValueError("compression produced no records; artifact must contain at least one theme")
+    compression_chain_head = records[-1].source_replay_identity_hash
     replay_identity_hash = _sha256_hex(
         {
             "source_artifact_hash": artifact.artifact_hash,

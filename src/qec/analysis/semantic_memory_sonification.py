@@ -173,10 +173,29 @@ class SonificationReceipt:
         return _sha256_hex(self.to_hash_payload_dict())
 
 
+_MIN_HASH_HEX_LEN = 8
+
+
+def _validate_hex_hash(value: object, *, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string")
+    if value != value.strip():
+        raise ValueError(f"{field_name} must not contain leading or trailing whitespace")
+    if len(value) < _MIN_HASH_HEX_LEN:
+        raise ValueError(
+            f"{field_name} must be at least {_MIN_HASH_HEX_LEN} hex characters, got {len(value)}"
+        )
+    try:
+        int(value, 16)
+    except ValueError:
+        raise ValueError(f"{field_name} must be a valid hex string, got {value!r}") from None
+    return value
+
+
 def _validate_compressed_artifact(artifact: CompressedMemoryArtifact) -> tuple[CompressionRecord, ...]:
     if not isinstance(artifact, CompressedMemoryArtifact):
         raise ValueError("artifact must be a CompressedMemoryArtifact")
-    _validate_non_empty_str(artifact.compression_hash, field_name="compression_hash")
+    _validate_hex_hash(artifact.compression_hash, field_name="compression_hash")
     if artifact.compressed_record_count != len(artifact.records):
         raise ValueError("compressed_record_count must match records length")
     records = artifact.records
@@ -184,7 +203,9 @@ def _validate_compressed_artifact(artifact: CompressedMemoryArtifact) -> tuple[C
         if record.theme_index != idx:
             raise ValueError("record theme_index must be contiguous and ordered")
         _validate_non_empty_str(record.theme_id, field_name="theme_id")
-        _validate_non_empty_str(record.source_theme_hash, field_name="source_theme_hash")
+        _validate_hex_hash(record.source_theme_hash, field_name="source_theme_hash")
+        _validate_hex_hash(record.source_replay_identity_hash, field_name="source_replay_identity_hash")
+        _validate_hex_hash(record.source_parent_theme_hash, field_name="source_parent_theme_hash")
     return records
 
 
@@ -204,6 +225,14 @@ def project_compressed_memory_to_sonification(
         raise ValueError("sample_rate_hz must be fixed at 48000 for deterministic replay")
     if bit_depth_pcm != 16:
         raise ValueError("bit_depth_pcm must be fixed at 16 for deterministic replay")
+    if not isinstance(artifact.compression_ratio, float):
+        raise ValueError("compression_ratio must be a float")
+    if not math.isfinite(artifact.compression_ratio):
+        raise ValueError("compression_ratio must be finite")
+    if not (0.0 <= artifact.compression_ratio <= 1.0):
+        raise ValueError(
+            f"compression_ratio must be in [0, 1], got {artifact.compression_ratio}"
+        )
 
     events: list[tuple[int, float, int, float, int]] = []
     offset_ms = 0

@@ -1,3 +1,9 @@
+"""Replay certification battery for v137.4.x sovereignty artifacts.
+
+Produces canonical bytes and stable SHA-256 root hashes for verifying
+replayed supervisory artifacts without depending on decoder internals.
+All operations are deterministic and replay-safe (same inputs → same bytes).
+"""
 from __future__ import annotations
 
 import hashlib
@@ -34,8 +40,15 @@ def _normalize_scalar(value: Any) -> Any:
 
 def _normalize_value(value: Any) -> Any:
     if isinstance(value, Mapping):
-        keys = sorted(str(k) for k in value.keys())
-        return {key: _normalize_value(value[key]) for key in keys}
+        normalized_mapping: dict[str, Any] = {}
+        for original_key, item in sorted(value.items(), key=lambda entry: str(entry[0])):
+            normalized_key = str(original_key)
+            if normalized_key in normalized_mapping:
+                raise ValueError(
+                    f"mapping contains multiple keys that normalize to {normalized_key!r}"
+                )
+            normalized_mapping[normalized_key] = _normalize_value(item)
+        return normalized_mapping
     if isinstance(value, (list, tuple)):
         return [_normalize_value(v) for v in value]
     return _normalize_scalar(value)
@@ -81,7 +94,7 @@ class ReplayCertificationReport:
     capability_decision_hash: str
     provenance_chain_hash: str
     policy_evidence_hash: str
-    byte_identity_hash: str
+    pre_report_hash: str
     certification_root_hash: str
     sovereignty_event_count: int
     capability_decision_count: int
@@ -95,7 +108,7 @@ class ReplayCertificationReport:
             "capability_decision_hash": self.capability_decision_hash,
             "provenance_chain_hash": self.provenance_chain_hash,
             "policy_evidence_hash": self.policy_evidence_hash,
-            "byte_identity_hash": self.byte_identity_hash,
+            "pre_report_hash": self.pre_report_hash,
             "certification_root_hash": self.certification_root_hash,
             "sovereignty_event_count": int(self.sovereignty_event_count),
             "capability_decision_count": int(self.capability_decision_count),
@@ -116,7 +129,6 @@ class ReplayCertificationReport:
 class CertificationReceipt:
     certification_root_hash: str
     report_hash: str
-    certification_bytes_hash: str
     receipt_hash: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -124,7 +136,6 @@ class CertificationReceipt:
             "version": _VERSION,
             "certification_root_hash": self.certification_root_hash,
             "report_hash": self.report_hash,
-            "certification_bytes_hash": self.certification_bytes_hash,
             "receipt_hash": self.receipt_hash,
         }
 
@@ -167,7 +178,11 @@ def certify_chain_integrity(provenance_chain: Sequence[Mapping[str, Any]]) -> st
 
         declared_parent = link.get("parent_hash")
         if declared_parent is not None and str(declared_parent) != chain_root:
-            raise ValueError("provenance chain parent hash mismatch")
+            raise ValueError(
+                f"provenance chain parent hash mismatch at provenance_chain[{index}] "
+                f"(link_id={link_id!r}): expected parent_hash={chain_root!r}, "
+                f"received parent_hash={str(declared_parent)!r}"
+            )
 
         payload = _normalize_value(link.get("payload", {}))
         link_payload = {
@@ -226,7 +241,7 @@ def _build_report(
         capability_decision_hash=capability_decision_hash,
         provenance_chain_hash=provenance_chain_hash,
         policy_evidence_hash=policy_evidence_hash,
-        byte_identity_hash=byte_identity_hash,
+        pre_report_hash=byte_identity_hash,
         certification_root_hash=certification_root_hash,
         sovereignty_event_count=len(normalized_sovereignty),
         capability_decision_count=len(normalized_capability),
@@ -266,18 +281,15 @@ def run_replay_certification_battery(
 
 def generate_certification_receipt(report: ReplayCertificationReport) -> CertificationReceipt:
     report_hash = _sha256_hex_from_mapping(report.to_dict())
-    certification_bytes_hash = hashlib.sha256(export_certification_bytes(report)).hexdigest()
     receipt_hash = _sha256_hex_from_mapping(
         {
             "version": _VERSION,
             "certification_root_hash": report.certification_root_hash,
             "report_hash": report_hash,
-            "certification_bytes_hash": certification_bytes_hash,
         }
     )
     return CertificationReceipt(
         certification_root_hash=report.certification_root_hash,
         report_hash=report_hash,
-        certification_bytes_hash=certification_bytes_hash,
         receipt_hash=receipt_hash,
     )

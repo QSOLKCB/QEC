@@ -91,6 +91,12 @@ def _normalize_route_graph(route_graph: Mapping[str, Sequence[str]]) -> dict[str
     all_nodes: set[str] = set()
     for raw_node, raw_neighbors in route_graph.items():
         node = _norm_token(str(raw_node), name="route node")
+        if node in normalized:
+            raise ValueError(f"route node key collision after normalization: {node!r}")
+        if isinstance(raw_neighbors, (str, bytes, bytearray)):
+            raise ValueError(
+                f"route_graph[{node}] neighbors must not be a string or bytes sequence"
+            )
         if not isinstance(raw_neighbors, Sequence):
             raise ValueError(f"route_graph[{node}] must be a sequence of next nodes")
 
@@ -197,6 +203,28 @@ class ExecutionReceipt:
         return self.to_canonical_json().encode("utf-8")
 
 
+def _advance_path_normalized(
+    current_path: tuple[str, ...],
+    normalized_graph: dict[str, tuple[str, ...]],
+    bounded_max_path_length: int,
+) -> tuple[str, ...]:
+    """Advance path by one step using a pre-normalized graph (no re-normalization).
+
+    Preconditions:
+    - ``current_path`` must contain normalized (stripped, non-empty) node tokens.
+    - ``normalized_graph`` must be a fully normalized graph (keys and neighbor tuples
+      already produced by ``_normalize_route_graph``).
+    - ``bounded_max_path_length`` must be >= 1 (already validated).
+    """
+    if len(current_path) >= bounded_max_path_length:
+        return current_path
+    current_node = current_path[-1]
+    candidates = normalized_graph.get(current_node, ())
+    if not candidates:
+        return current_path
+    return current_path + (candidates[0],)
+
+
 def advance_path_state(
     current_path: Sequence[str], route_graph: Mapping[str, Sequence[str]], *, max_path_length: int
 ) -> tuple[str, ...]:
@@ -207,19 +235,10 @@ def advance_path_state(
     normalized_path = tuple(_norm_token(node, name="path node") for node in current_path)
     normalized_graph = _normalize_route_graph(route_graph)
 
-    if len(normalized_path) >= bounded_max_path_length:
-        return normalized_path
-
-    current_node = normalized_path[-1]
-    if current_node not in normalized_graph:
+    if normalized_path[-1] not in normalized_graph:
         raise ValueError("current_path terminal node must exist in route_graph")
 
-    candidates = normalized_graph[current_node]
-    if not candidates:
-        return normalized_path
-
-    next_node = candidates[0]
-    return normalized_path + (next_node,)
+    return _advance_path_normalized(normalized_path, normalized_graph, bounded_max_path_length)
 
 
 def compute_execution_stability_score(branch_factors: Sequence[int]) -> float:
@@ -272,7 +291,7 @@ def execute_route_graph(
             break
 
         branch_factors.append(len(candidates))
-        next_path = advance_path_state(path, normalized_route_graph, max_path_length=bounded_max_path_length)
+        next_path = _advance_path_normalized(path, normalized_route_graph, bounded_max_path_length)
         if next_path == path:
             break
 

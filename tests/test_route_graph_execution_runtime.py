@@ -189,6 +189,36 @@ def test_fail_fast_invalid_input_handling() -> None:
             enable_v137_6_route_runtime=True,
         )
 
+    with pytest.raises(ValueError, match="string or bytes"):
+        execute_route_graph(
+            _source_plan_hash(),
+            {"start": "goal"},
+            initial_node="start",
+            world_state=_world_state(),
+            max_path_length=5,
+            enable_v137_6_route_runtime=True,
+        )
+
+    with pytest.raises(ValueError, match="collision"):
+        execute_route_graph(
+            _source_plan_hash(),
+            {"a": ("goal",), " a": ("goal",)},
+            initial_node="a",
+            world_state=_world_state(),
+            max_path_length=5,
+            enable_v137_6_route_runtime=True,
+        )
+
+    with pytest.raises(ValueError, match="collision"):
+        execute_route_graph(
+            _source_plan_hash(),
+            {"start": ("a",), "a": ("goal",), " a": ("goal",)},
+            initial_node="start",
+            world_state=_world_state(),
+            max_path_length=5,
+            enable_v137_6_route_runtime=True,
+        )
+
 
 def test_advance_path_state_deterministic_progression() -> None:
     next_path = advance_path_state(("start",), _route_graph(), max_path_length=4)

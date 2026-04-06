@@ -284,6 +284,49 @@ def test_repeated_run_stress_replay_identity() -> None:
     assert artifact.certification_score == pytest.approx(1.0)
 
 
+def test_certification_route_graph_hash_matches_pruning_artifact() -> None:
+    """route_graph_hash on the certification artifact must equal the pruning artifact's route_graph_hash."""
+    from qec.analysis.autonomous_planning_search_kernel import synthesize_plan_ir
+    from qec.analysis.route_graph_execution_runtime import execute_route_graph
+
+    plan = synthesize_plan_ir(
+        _world_state(),
+        _objective(),
+        _candidate_routes(),
+        search_depth=3,
+        enable_v137_6_search=True,
+    )
+    execution = execute_route_graph(
+        plan.stable_plan_hash,
+        _route_graph(),
+        initial_node="start",
+        world_state=_world_state(),
+        max_path_length=1,
+        enable_v137_6_route_runtime=True,
+    )
+    pruning = analyze_dead_end_pruning(
+        plan.stable_plan_hash,
+        _route_graph(),
+        current_path=execution.executed_route,
+        max_path_length=1,
+        enable_v137_6_2_dead_end_pruning=True,
+    )
+    artifact = certify_planning_replay_battery(
+        _world_state(),
+        _objective(),
+        _candidate_routes(),
+        _route_graph(),
+        initial_node="start",
+        search_depth=3,
+        max_path_length=1,
+        policy_rules=_policy_rules(),
+        replay_run_count=2,
+        stress_run_count=1,
+        enable_v137_6_4_replay_battery=True,
+    )
+    assert artifact.route_graph_hash == pruning.route_graph_hash
+
+
 def test_fail_fast_validation_for_battery_flags_and_counts() -> None:
     with pytest.raises(ValueError, match="enable_v137_6_4_replay_battery"):
         certify_planning_replay_battery(
@@ -324,3 +367,4 @@ def test_fail_fast_validation_for_battery_flags_and_counts() -> None:
             stress_run_count=0,
             enable_v137_6_4_replay_battery=True,
         )
+

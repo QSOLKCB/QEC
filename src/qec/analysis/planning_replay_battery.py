@@ -47,6 +47,7 @@ class PlanningReplayRunRecord:
     execution_hash: str
     pruning_hash: str
     policy_hash: str
+    route_graph_hash: str
     artifact_bytes_hash: str
     frontier_order: tuple[str, ...]
     chain_hash: str
@@ -212,6 +213,10 @@ def _execute_single_replay_run(
     artifact_bytes = _canonical_json(artifact_payload).encode("utf-8")
     artifact_bytes_hash = _sha256_hex_bytes(artifact_bytes)
 
+    # Each per-run chain_hash is self-contained (prior_hash=GENESIS_HASH) to make
+    # individual run records independently replayable and verifiable.  The outer
+    # replay_identity_chain built in certify_planning_replay_battery links these
+    # per-run hashes into a sequential inter-run chain.
     chain_hash = _sha256_hex_mapping(
         {
             "schema_version": PLANNING_REPLAY_BATTERY_VERSION,
@@ -235,6 +240,7 @@ def _execute_single_replay_run(
         execution_hash=execution.stable_execution_hash,
         pruning_hash=pruning.stable_pruning_hash,
         policy_hash=policy.stable_policy_hash,
+        route_graph_hash=pruning.route_graph_hash,
         artifact_bytes_hash=artifact_bytes_hash,
         frontier_order=policy.examined_candidates,
         chain_hash=chain_hash,
@@ -249,6 +255,8 @@ def run_adversarial_replay_harness(
     frontier_candidates: Sequence[str],
     max_path_length: int,
 ) -> tuple[str, ...]:
+    if not frontier_candidates:
+        raise ValueError("frontier_candidates must be non-empty for adversarial harness")
     signatures: list[str] = []
 
     def _record_failure(case_name: str, fn: Callable[[], Any]) -> None:
@@ -328,7 +336,7 @@ def run_adversarial_replay_harness(
             source_plan_hash,
             route_graph,
             current_path=current_path,
-            frontier_candidates=tuple(frontier_candidates) + (frontier_candidates[0],),
+            frontier_candidates=tuple(frontier_candidates) + (next(iter(frontier_candidates)),),
             max_path_length=max_path_length,
             policy_rules={},
             enable_v137_6_3_policy_constraints=True,
@@ -360,6 +368,38 @@ def run_adversarial_replay_harness(
     )
 
     return tuple(signatures)
+
+
+def _compute_replay_checks(
+    run_records: tuple[PlanningReplayRunRecord, ...],
+) -> tuple[bool, bool, bool, bool]:
+    """Return (byte_identity_verified, frontier_order_stable, pruning_hash_stable, policy_hash_stable)."""
+    byte_identity_verified = len({r.artifact_bytes_hash for r in run_records}) == 1
+    frontier_order_stable = len({r.frontier_order for r in run_records}) == 1
+    pruning_hash_stable = len({r.pruning_hash for r in run_records}) == 1
+    policy_hash_stable = len({r.policy_hash for r in run_records}) == 1
+    return byte_identity_verified, frontier_order_stable, pruning_hash_stable, policy_hash_stable
+
+
+def _compute_certification_score(checks: tuple[bool, ...]) -> float:
+    if not checks:
+        raise ValueError("checks tuple must be non-empty")
+    return _round64(float(sum(1 for c in checks if c)) / float(len(checks)))
+
+
+def _build_identity_chain(run_records: tuple[PlanningReplayRunRecord, ...]) -> tuple[str, ...]:
+    chain: list[str] = [GENESIS_HASH]
+    for record in run_records:
+        chain.append(
+            _sha256_hex_mapping(
+                {
+                    "prior_hash": chain[-1],
+                    "run_index": int(record.run_index),
+                    "run_chain_hash": record.chain_hash,
+                }
+            )
+        )
+    return tuple(chain)
 
 
 def certify_planning_replay_battery(
@@ -397,10 +437,9 @@ def certify_planning_replay_battery(
         for index in range(run_count)
     )
 
-    byte_identity_verified = len({record.artifact_bytes_hash for record in run_records}) == 1
-    frontier_order_stable = len({record.frontier_order for record in run_records}) == 1
-    pruning_hash_stable = len({record.pruning_hash for record in run_records}) == 1
-    policy_hash_stable = len({record.policy_hash for record in run_records}) == 1
+    byte_identity_verified, frontier_order_stable, pruning_hash_stable, policy_hash_stable = _compute_replay_checks(
+        run_records
+    )
 
     baseline = run_records[0]
     stress_hashes = tuple(
@@ -443,22 +482,11 @@ def certify_planning_replay_battery(
         bool(policy_hash_stable),
         bool(adversarial_cases_passed),
     )
-    certification_score = _round64(float(sum(1 for item in checks if item)) / float(len(checks)))
-
-    replay_identity_chain: list[str] = [GENESIS_HASH]
-    for record in run_records:
-        replay_identity_chain.append(
-            _sha256_hex_mapping(
-                {
-                    "prior_hash": replay_identity_chain[-1],
-                    "run_index": int(record.run_index),
-                    "run_chain_hash": record.chain_hash,
-                }
-            )
-        )
+    certification_score = _compute_certification_score(checks)
+    replay_identity_chain = _build_identity_chain(run_records)
 
     source_plan_hash = baseline.plan_hash
-    route_graph_hash = baseline.execution_hash
+    route_graph_hash = baseline.route_graph_hash
     artifact_payload = {
         "schema_version": PLANNING_REPLAY_BATTERY_VERSION,
         "source_plan_hash": source_plan_hash,
@@ -469,7 +497,7 @@ def certify_planning_replay_battery(
         "pruning_hash_stable": pruning_hash_stable,
         "policy_hash_stable": policy_hash_stable,
         "adversarial_cases_passed": adversarial_cases_passed,
-        "replay_identity_chain": replay_identity_chain,
+        "replay_identity_chain": list(replay_identity_chain),
         "certification_score": certification_score,
     }
     stable_certification_hash = _sha256_hex_mapping(artifact_payload)
@@ -484,7 +512,7 @@ def certify_planning_replay_battery(
         pruning_hash_stable=pruning_hash_stable,
         policy_hash_stable=policy_hash_stable,
         adversarial_cases_passed=adversarial_cases_passed,
-        replay_identity_chain=tuple(replay_identity_chain),
+        replay_identity_chain=replay_identity_chain,
         certification_score=certification_score,
         stable_certification_hash=stable_certification_hash,
     )

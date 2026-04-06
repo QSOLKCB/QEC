@@ -107,6 +107,16 @@ def _validate_correspondence_artifact(artifact: ArithmeticTopologyCorrespondence
         raise ValueError("correspondence_artifact must be an ArithmeticTopologyCorrespondenceResult")
     if artifact.stable_hash() != artifact.correspondence_hash:
         raise ValueError("correspondence_artifact correspondence_hash must match stable_hash")
+    if artifact.witness_count != len(artifact.witnesses):
+        raise ValueError(
+            f"correspondence_artifact witness_count ({artifact.witness_count}) "
+            f"must match len(witnesses) ({len(artifact.witnesses)})"
+        )
+    if artifact.primitive_count != len(artifact.primitives):
+        raise ValueError(
+            f"correspondence_artifact primitive_count ({artifact.primitive_count}) "
+            f"must match len(primitives) ({len(artifact.primitives)})"
+        )
 
 
 def _collect_base_features(correspondence_artifact: ArithmeticTopologyCorrespondenceResult) -> tuple[tuple[str, str, str | int | float], ...]:
@@ -168,7 +178,7 @@ def _normalize_optional_payloads(
     float_payload: Mapping[str, float] | None,
     int_payload: Mapping[str, int] | None,
     str_payload: Mapping[str, str] | None,
-    tuple_feature_streams: tuple[tuple[str, str, str | int | float], ...] | None,
+    tuple_feature_streams: tuple[tuple[str, str | int | float] | tuple[str, str, str | int | float], ...] | None,
 ) -> tuple[tuple[str, str, str | int | float], ...]:
     features: list[tuple[str, str, str | int | float]] = []
 
@@ -207,17 +217,19 @@ def _normalize_optional_payloads(
             value: str | int | float
             if len(entry) == 2:
                 name_obj, value_obj = entry
-                name = str(name_obj)
+                if not isinstance(name_obj, str) or not name_obj:
+                    raise ValueError("tuple feature name must be non-empty string")
+                name = name_obj
                 value = _normalize_feature_value(value_obj)
             else:
                 family_obj, name_obj, value_obj = entry
                 if not isinstance(family_obj, str) or not family_obj:
                     raise ValueError("tuple feature family must be non-empty string")
+                if not isinstance(name_obj, str) or not name_obj:
+                    raise ValueError("tuple feature name must be non-empty string")
                 family = family_obj
-                name = str(name_obj)
+                name = name_obj
                 value = _normalize_feature_value(value_obj)
-            if not name:
-                raise ValueError("tuple feature name must be non-empty string")
             features.append((family, name, value))
 
     return tuple(features)
@@ -390,13 +402,120 @@ class MultimodalFeatureSchemaReceipt:
         return _sha256_hex(self.to_hash_payload_dict())
 
 
+def _feature_sort_key(entry: tuple[str, str, str | int | float]) -> tuple[str, str, str]:
+    return (entry[0], entry[1], _canonical_json(entry[2]))
+
+
+def _compute_feature_ordering_score(
+    optional_features: tuple[tuple[str, str, str | int | float], ...],
+) -> float:
+    """Score how close optional feature keys are to sorted order within each family.
+
+    Scores per-family (float, int, str, custom streams) to avoid penalising
+    callers for the fixed block-assembly order (float → int → str → streams).
+    Returns 1.0 when every family's key sequence is already sorted.
+    """
+    if not optional_features:
+        return 1.0
+    family_names: dict[str, list[str]] = {}
+    for family, name, _ in optional_features:
+        family_names.setdefault(family, []).append(name)
+    per_family_scores: list[float] = []
+    for names in family_names.values():
+        sorted_names = sorted(names)
+        matches = sum(1 for a, b in zip(names, sorted_names) if a == b)
+        per_family_scores.append(float(matches) / len(names))
+    return _mean(tuple(per_family_scores), default=1.0)
+
+
+def _canonicalize_features(
+    raw_features: tuple[tuple[str, str, str | int | float], ...],
+) -> tuple[tuple[str, str, str | int | float], ...]:
+    """Sort features into canonical (family, name, value) order and validate uniqueness."""
+    canonical = tuple(sorted(raw_features, key=_feature_sort_key))
+    if len(set((family, name) for family, name, _ in canonical)) != len(canonical):
+        raise ValueError("duplicate feature identity detected after canonical normalization")
+    return canonical
+
+
+def _compute_payload_normalization_score(
+    optional_features: tuple[tuple[str, str, str | int | float], ...],
+    canonical_optional_features: tuple[tuple[str, str, str | int | float], ...],
+) -> float:
+    """Measure how much normalization (reordering) was required on the optional payload.
+
+    Compares element-wise positions between optional input order and canonical
+    optional order.  Returns 1.0 only when the optional features are already in
+    canonical order; ignores the base features that are always deterministic.
+    """
+    if not optional_features:
+        return 1.0
+    unchanged = sum(1 for r, c in zip(optional_features, canonical_optional_features) if r == c)
+    return _clamp01(float(unchanged) / len(optional_features))
+
+
+def _build_feature_objects(
+    canonical_raw_features: tuple[tuple[str, str, str | int | float], ...],
+) -> tuple[MultimodalFeature, ...]:
+    """Construct indexed MultimodalFeature objects from canonicalized raw triples."""
+    return tuple(
+        MultimodalFeature(
+            feature_name=name,
+            feature_family=family,
+            feature_namespace=f"{family}.v{_NAMESPACE_SCHEMA_VERSION}",
+            feature_schema_version=_FEATURE_SCHEMA_VERSION,
+            feature_value=_normalize_feature_value(value),
+            feature_index=index,
+        )
+        for index, (family, name, value) in enumerate(canonical_raw_features)
+    )
+
+
+def _build_namespace_objects(
+    features: tuple[MultimodalFeature, ...],
+) -> tuple[FeatureNamespace, ...]:
+    """Aggregate feature counts per namespace and stamp each with a stable hash."""
+    namespace_counts: dict[str, int] = {}
+    namespace_families: dict[str, str] = {}
+    for feature in features:
+        namespace_counts[feature.feature_namespace] = namespace_counts.get(feature.feature_namespace, 0) + 1
+        namespace_families[feature.feature_namespace] = feature.feature_family
+    namespace_names = tuple(sorted(namespace_counts.keys()))
+    namespaces = tuple(
+        FeatureNamespace(
+            feature_namespace=ns_name,
+            feature_family=namespace_families[ns_name],
+            feature_schema_version=_NAMESPACE_SCHEMA_VERSION,
+            namespace_index=index,
+            feature_count=namespace_counts[ns_name],
+            namespace_hash="",
+        )
+        for index, ns_name in enumerate(namespace_names)
+    )
+    return tuple(replace(ns, namespace_hash=ns.stable_hash()) for ns in namespaces)
+
+
+def _verify_namespace_consistency(
+    namespaces: tuple[FeatureNamespace, ...],
+    features: tuple[MultimodalFeature, ...],
+) -> float:
+    """Validate namespace hashes and member counts; return consistency score."""
+    for namespace in namespaces:
+        if namespace.namespace_hash != namespace.stable_hash():
+            raise ValueError("namespace_hash must match stable_hash")
+        realized_count = sum(1 for f in features if f.feature_namespace == namespace.feature_namespace)
+        if realized_count != namespace.feature_count:
+            raise ValueError("namespace feature_count must match realized namespace members")
+    return 1.0
+
+
 def build_multimodal_feature_schema(
     correspondence_artifact: ArithmeticTopologyCorrespondenceResult,
     *,
     float_payload: Mapping[str, float] | None = None,
     int_payload: Mapping[str, int] | None = None,
     str_payload: Mapping[str, str] | None = None,
-    tuple_feature_streams: tuple[tuple[str, str, str | int | float], ...] | None = None,
+    tuple_feature_streams: tuple[tuple[str, str | int | float] | tuple[str, str, str | int | float], ...] | None = None,
 ) -> MultimodalFeatureSchemaResult:
     _validate_correspondence_artifact(correspondence_artifact)
 
@@ -409,65 +528,15 @@ def build_multimodal_feature_schema(
     )
     raw_features = base_features + optional_features
 
-    optional_keys = tuple((family, name) for family, name, _ in optional_features)
-    sorted_optional_keys = tuple(sorted(optional_keys))
-    ordering_matches = sum(1 for a, b in zip(optional_keys, sorted_optional_keys) if a == b)
-    feature_ordering_score = 1.0 if not optional_keys else _clamp01(float(ordering_matches / len(optional_keys)))
-
-    canonical_raw_features = tuple(sorted(raw_features, key=lambda x: (x[0], x[1], _canonical_json(x[2]))))
-    if len(set((family, name) for family, name, _ in canonical_raw_features)) != len(canonical_raw_features):
-        raise ValueError("duplicate feature identity detected after canonical normalization")
-
-    features: list[MultimodalFeature] = []
-    for index, (family, name, value) in enumerate(canonical_raw_features):
-        namespace = f"{family}.v{_NAMESPACE_SCHEMA_VERSION}"
-        features.append(
-            MultimodalFeature(
-                feature_name=name,
-                feature_family=family,
-                feature_namespace=namespace,
-                feature_schema_version=_FEATURE_SCHEMA_VERSION,
-                feature_value=_normalize_feature_value(value),
-                feature_index=index,
-            )
-        )
-
-    namespace_counts: dict[str, int] = {}
-    namespace_families: dict[str, str] = {}
-    for feature in features:
-        namespace_counts[feature.feature_namespace] = namespace_counts.get(feature.feature_namespace, 0) + 1
-        namespace_families[feature.feature_namespace] = feature.feature_family
-
-    namespace_names = tuple(sorted(namespace_counts.keys()))
-    namespaces = tuple(
-        FeatureNamespace(
-            feature_namespace=name,
-            feature_family=namespace_families[name],
-            feature_schema_version=_NAMESPACE_SCHEMA_VERSION,
-            namespace_index=index,
-            feature_count=namespace_counts[name],
-            namespace_hash="",
-        )
-        for index, name in enumerate(namespace_names)
-    )
-    namespaces = tuple(replace(ns, namespace_hash=ns.stable_hash()) for ns in namespaces)
+    feature_ordering_score = _compute_feature_ordering_score(optional_features)
+    canonical_raw_features = _canonicalize_features(raw_features)
+    canonical_optional_features = tuple(sorted(optional_features, key=_feature_sort_key))
+    payload_normalization_score = _compute_payload_normalization_score(optional_features, canonical_optional_features)
+    features = _build_feature_objects(canonical_raw_features)
+    namespaces = _build_namespace_objects(features)
 
     schema_integrity_score = 1.0
-    namespace_consistency_score = 1.0
-    for namespace in namespaces:
-        if namespace.namespace_hash != namespace.stable_hash():
-            raise ValueError("namespace_hash must match stable_hash")
-        realized_count = sum(1 for feature in features if feature.feature_namespace == namespace.feature_namespace)
-        if realized_count != namespace.feature_count:
-            raise ValueError("namespace feature_count must match realized namespace members")
-        namespace_consistency_score = _clamp01(
-            namespace_consistency_score
-            * (1.0 if realized_count == namespace.feature_count else float(realized_count / max(namespace.feature_count, 1)))
-        )
-
-    payload_normalization_score = 1.0 if len(canonical_raw_features) == len(raw_features) else _clamp01(
-        float(len(canonical_raw_features) / max(len(raw_features), 1))
-    )
+    namespace_consistency_score = _verify_namespace_consistency(namespaces, features)
 
     overall_schema_score = _mean(
         (
@@ -478,14 +547,14 @@ def build_multimodal_feature_schema(
         ),
         default=1.0,
     )
-    for name, value in (
+    for score_name, value in (
         ("schema_integrity_score", schema_integrity_score),
         ("namespace_consistency_score", namespace_consistency_score),
         ("feature_ordering_score", feature_ordering_score),
         ("payload_normalization_score", payload_normalization_score),
         ("overall_schema_score", overall_schema_score),
     ):
-        _validate_unit_interval(value, name)
+        _validate_unit_interval(value, score_name)
 
     result = MultimodalFeatureSchemaResult(
         schema_version=_FEATURE_SCHEMA_VERSION,
@@ -497,7 +566,7 @@ def build_multimodal_feature_schema(
         source_correspondence_hash=correspondence_artifact.correspondence_hash,
         feature_count=len(features),
         namespace_count=len(namespaces),
-        features=tuple(features),
+        features=features,
         namespaces=namespaces,
         schema_integrity_score=schema_integrity_score,
         namespace_consistency_score=namespace_consistency_score,

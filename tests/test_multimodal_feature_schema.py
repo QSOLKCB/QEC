@@ -220,3 +220,73 @@ def test_fail_fast_correspondence_hash_mismatch() -> None:
 
     with pytest.raises(ValueError, match="correspondence_hash must match stable_hash"):
         build_multimodal_feature_schema(invalid)
+
+
+def test_fail_fast_witness_count_mismatch() -> None:
+    correspondence = _correspondence()
+    # Forge a self-consistent artifact: hash is valid for the wrong witness_count
+    # so the hash check passes but the structural count check should fire.
+    forged = replace(correspondence, witness_count=correspondence.witness_count + 99, correspondence_hash="")
+    forged = replace(forged, correspondence_hash=forged.stable_hash())
+
+    with pytest.raises(ValueError, match="witness_count"):
+        build_multimodal_feature_schema(forged)
+
+
+def test_fail_fast_primitive_count_mismatch() -> None:
+    correspondence = _correspondence()
+    forged = replace(correspondence, primitive_count=correspondence.primitive_count + 99, correspondence_hash="")
+    forged = replace(forged, correspondence_hash=forged.stable_hash())
+
+    with pytest.raises(ValueError, match="primitive_count"):
+        build_multimodal_feature_schema(forged)
+
+
+def test_fail_fast_tuple_stream_non_string_name() -> None:
+    correspondence = _correspondence()
+
+    with pytest.raises(ValueError, match="tuple feature name must be non-empty string"):
+        build_multimodal_feature_schema(correspondence, tuple_feature_streams=((123, "value"),))
+
+    with pytest.raises(ValueError, match="tuple feature name must be non-empty string"):
+        build_multimodal_feature_schema(correspondence, tuple_feature_streams=(("family", 456, "value"),))
+
+    with pytest.raises(ValueError, match="tuple feature name must be non-empty string"):
+        build_multimodal_feature_schema(correspondence, tuple_feature_streams=(("", "value"),))
+
+    with pytest.raises(ValueError, match="tuple feature name must be non-empty string"):
+        build_multimodal_feature_schema(correspondence, tuple_feature_streams=(("family", "", "value"),))
+
+    with pytest.raises(ValueError, match="tuple feature family must be non-empty string"):
+        build_multimodal_feature_schema(correspondence, tuple_feature_streams=(("", "name", "value"),))
+
+
+def test_feature_ordering_score_per_family() -> None:
+    correspondence = _correspondence()
+
+    # tuple streams with a family that sorts before 'str' should not penalise
+    # the str family score — per-family scoring applies
+    artifact = build_multimodal_feature_schema(
+        correspondence,
+        str_payload={"aaa": "x", "zzz": "y"},  # already sorted
+        tuple_feature_streams=(("apple", "temp", 1.0),),  # single-item family → 1.0
+    )
+    assert artifact.feature_ordering_score == 1.0
+
+
+def test_payload_normalization_score_reflects_reordering() -> None:
+    correspondence = _correspondence()
+
+    # Input keys in non-canonical order → normalization required → score < 1.0
+    artifact_unsorted = build_multimodal_feature_schema(
+        correspondence,
+        float_payload={"zeta": 0.25, "alpha": 0.5},
+    )
+    # Input keys in canonical order → no reordering needed → score = 1.0
+    artifact_sorted = build_multimodal_feature_schema(
+        correspondence,
+        float_payload={"alpha": 0.5, "zeta": 0.25},
+    )
+
+    assert artifact_unsorted.payload_normalization_score < 1.0
+    assert artifact_sorted.payload_normalization_score == 1.0

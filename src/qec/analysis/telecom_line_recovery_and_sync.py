@@ -117,6 +117,12 @@ def _validate_battery_artifact(battery_artifact: CopperChannelBatteryResult) -> 
     if battery_artifact.fixtures != expected_fixture_order:
         raise ValueError("battery_artifact fixtures must be in canonical deterministic order")
 
+    if not battery_artifact.scenarios:
+        raise ValueError(
+            "battery_artifact must contain at least one scenario; "
+            "zero-scenario batteries cannot produce valid recovery lineage"
+        )
+
     expected_scenario_order = tuple(sorted(battery_artifact.scenarios, key=lambda s: (s.scenario_index, s.scenario_name)))
     if battery_artifact.scenarios != expected_scenario_order:
         raise ValueError("battery_artifact scenarios must be in canonical deterministic order")
@@ -390,7 +396,7 @@ def run_telecom_line_recovery(
         line_recovery_score = _clamp01(line_health * (1.0 - (segment_index * 0.04)))
         burst_recovery_score = _clamp01(burst_health * (1.0 - (segment_index * 0.10)))
 
-        source_scenario_id = source_scenario_ids[segment_index % scenario_count] if scenario_count > 0 else ""
+        source_scenario_id = source_scenario_ids[segment_index % scenario_count]
 
         segment_id = _sha256_hex(
             {

@@ -176,6 +176,15 @@ def test_fail_fast_malformed_battery_input() -> None:
         run_telecom_line_recovery(invalid)
 
 
+def test_fail_fast_zero_scenario_battery() -> None:
+    battery = _battery_artifact()
+    stripped = replace(battery, scenarios=(), scenario_count=0)
+    zero_scenario = replace(stripped, copper_channel_battery_hash=stripped.stable_hash())
+
+    with pytest.raises(ValueError, match="zero-scenario batteries cannot produce valid recovery lineage"):
+        run_telecom_line_recovery(zero_scenario)
+
+
 def test_deterministic_relock_behavior() -> None:
     battery = _battery_artifact()
     artifact = run_telecom_line_recovery(battery)

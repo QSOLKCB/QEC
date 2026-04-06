@@ -13,7 +13,7 @@ from qec.analysis.e8_symmetry_projection_layer import (
 )
 from qec.analysis.episodic_memory_lifting import lift_raw_records_to_episodic_memory
 from qec.analysis.fragmentation_recovery_engine import recover_fragmented_compression_chain
-from qec.analysis.hash_preserving_memory_compression import compress_semantic_theme_memory
+from qec.analysis.hash_preserving_memory_compression import compress_semantic_theme_memory, CompressedMemoryArtifact
 from qec.analysis.polytope_reasoning_engine import build_polytope_reasoning_engine
 from qec.analysis.semantic_theme_compaction import compact_episodic_memory_to_semantic_themes
 from qec.analysis.topological_graph_kernel import build_topological_graph_kernel
@@ -40,7 +40,7 @@ def _compressed_artifact():
     return compress_semantic_theme_memory(semantic)
 
 
-def _graph_from_observed_records(observed_indices: tuple[int, ...], compressed=None):
+def _graph_from_observed_records(observed_indices: tuple[int, ...], compressed: CompressedMemoryArtifact | None = None):
     if compressed is None:
         compressed = _compressed_artifact()
     observed = tuple(compressed.records[idx] for idx in observed_indices)
@@ -52,7 +52,7 @@ def _graph_from_observed_records(observed_indices: tuple[int, ...], compressed=N
     return build_topological_graph_kernel(compressed, recovery)
 
 
-def _polytope_from_observed_records(observed_indices: tuple[int, ...], compressed=None):
+def _polytope_from_observed_records(observed_indices: tuple[int, ...], compressed: CompressedMemoryArtifact | None = None):
     return build_polytope_reasoning_engine(_graph_from_observed_records(observed_indices, compressed))
 
 

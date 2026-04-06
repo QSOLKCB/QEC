@@ -18,7 +18,6 @@ Release laws:
 
 import hashlib
 import json
-import math
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
@@ -122,12 +121,13 @@ def _can_reach_terminal(
     normalized_graph: Mapping[str, tuple[str, ...]],
     *,
     max_remaining_steps: int,
-) -> bool:
+) -> tuple[bool, frozenset[str]]:
     if max_remaining_steps < 0:
-        return False
+        return False, frozenset()
 
     stack: list[tuple[str, int]] = [(start_node, max_remaining_steps)]
     visited: set[tuple[str, int]] = set()
+    terminal_nodes: set[str] = set()
 
     while stack:
         node, steps_left = stack.pop()
@@ -138,13 +138,14 @@ def _can_reach_terminal(
 
         branches = normalized_graph.get(node, tuple())
         if not branches:
-            return True
+            terminal_nodes.add(node)
+            continue
         if steps_left == 0:
             continue
         for nxt in reversed(branches):
             stack.append((nxt, steps_left - 1))
 
-    return False
+    return bool(terminal_nodes), frozenset(terminal_nodes)
 
 
 def compute_dead_end_pressure(total_candidates_examined: int, dead_end_count: int) -> float:
@@ -264,15 +265,13 @@ def analyze_dead_end_pruning(
     reachable_terminals: set[str] = set()
 
     for idx, candidate in enumerate(frontier):
-        can_reach_terminal = _can_reach_terminal(candidate, normalized_graph, max_remaining_steps=remaining_after_step)
+        can_reach_terminal, candidate_terminals = _can_reach_terminal(candidate, normalized_graph, max_remaining_steps=remaining_after_step)
         if can_reach_terminal:
             survivors.append(candidate)
         else:
             dead_ends.append(candidate)
 
-        terminal_marker = candidate if not normalized_graph[candidate] else ""
-        if terminal_marker:
-            reachable_terminals.add(terminal_marker)
+        reachable_terminals.update(candidate_terminals)
 
         step_hash = _sha256_hex_mapping(
             {

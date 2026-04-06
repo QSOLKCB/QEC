@@ -41,11 +41,20 @@ def test_deterministic_theme_grouping() -> None:
 def test_stable_theme_ordering() -> None:
     episodic = _episodic_artifact()
     artifact = compact_episodic_memory_to_semantic_themes(episodic)
-    assert artifact.theme_ids == tuple(sorted(artifact.theme_ids))
-    assert tuple(theme.theme_index for theme in artifact.themes) == tuple(range(artifact.theme_count))
+
+    themes = list(artifact.themes)
+    assert tuple(theme.theme_index for theme in themes) == tuple(range(artifact.theme_count))
+
+    # The parent chain must be strictly linear: each theme's parent is the previous theme's replay hash
+    for i, theme in enumerate(themes[1:], start=1):
+        assert theme.parent_theme_hash == themes[i - 1].replay_identity_hash
+        assert theme.theme_index == i
+
+    # The externally exposed theme_ids ordering must match the internal theme ordering
+    assert artifact.theme_ids == tuple(theme.theme_id for theme in themes)
 
 
-def test_exact_symbolic_motif_grouping_by_parent_chain() -> None:
+def test_task_completion_and_boundary_signature_grouping() -> None:
     episodic = _episodic_artifact()
     artifact = compact_episodic_memory_to_semantic_themes(episodic)
     assert artifact.theme_count < episodic.episode_count

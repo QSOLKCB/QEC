@@ -6,6 +6,7 @@ Deterministic Layer-4 semantic compaction from episodes into bounded symbolic th
 from __future__ import annotations
 
 from dataclasses import dataclass
+import enum
 import hashlib
 import json
 import math
@@ -24,13 +25,22 @@ DETERMINISTIC_THEME_ASSIGNMENT_RULE = "DETERMINISTIC_THEME_ASSIGNMENT_RULE"
 REPLAY_SAFE_THEME_CHAIN_INVARIANT = "REPLAY_SAFE_THEME_CHAIN_INVARIANT"
 BOUNDED_THEME_AGGREGATION_RULE = "BOUNDED_THEME_AGGREGATION_RULE"
 
-_THEME_RULE_PRECEDENCE: tuple[str, ...] = (
-    "explicit_label",
-    "parent_chain",
-    "task_completion",
-    "boundary_signature",
-    "record_prefix",
-    "episode_hash",
+class _ThemeRule(str, enum.Enum):
+    EXPLICIT_LABEL = "explicit_label"
+    PARENT_CHAIN = "parent_chain"
+    TASK_COMPLETION = "task_completion"
+    BOUNDARY_SIGNATURE = "boundary_signature"
+    RECORD_PREFIX = "record_prefix"
+    EPISODE_HASH = "episode_hash"
+
+
+_THEME_RULE_PRECEDENCE: tuple[_ThemeRule, ...] = (
+    _ThemeRule.EXPLICIT_LABEL,
+    _ThemeRule.PARENT_CHAIN,
+    _ThemeRule.TASK_COMPLETION,
+    _ThemeRule.BOUNDARY_SIGNATURE,
+    _ThemeRule.RECORD_PREFIX,
+    _ThemeRule.EPISODE_HASH,
 )
 
 
@@ -113,26 +123,25 @@ def _extract_explicit_label(episode: EpisodeRecord) -> str | None:
 
 
 
-def _theme_candidates_for_episode(episode: EpisodeRecord) -> dict[str, str]:
-    candidates: dict[str, str] = {}
+def _theme_candidates_for_episode(episode: EpisodeRecord) -> dict[_ThemeRule, str]:
+    candidates: dict[_ThemeRule, str] = {}
     explicit_label = _extract_explicit_label(episode)
     if explicit_label is not None:
-        candidates["explicit_label"] = f"explicit_label:{explicit_label}"
+        candidates[_ThemeRule.EXPLICIT_LABEL] = f"explicit_label:{explicit_label}"
 
-    if episode.parent_episode_hash.strip() != "":
-        candidates["parent_chain"] = f"parent_chain:{episode.parent_episode_hash}"
+    candidates[_ThemeRule.PARENT_CHAIN] = f"parent_chain:{episode.parent_episode_hash}"
 
     if "task_completion" in episode.boundary_reasons:
-        candidates["task_completion"] = "task_completion"
+        candidates[_ThemeRule.TASK_COMPLETION] = "task_completion"
 
     if len(episode.boundary_reasons) > 0:
-        candidates["boundary_signature"] = f"boundary_signature:{'|'.join(episode.boundary_reasons)}"
+        candidates[_ThemeRule.BOUNDARY_SIGNATURE] = f"boundary_signature:{'|'.join(sorted(episode.boundary_reasons))}"
 
-    prefixes = tuple(sorted({_extract_record_prefix(rid) for rid in episode.record_ids if _extract_record_prefix(rid) is not None}))
+    prefixes = tuple(sorted({p for rid in episode.record_ids if (p := _extract_record_prefix(rid)) is not None}))
     if len(prefixes) > 0:
-        candidates["record_prefix"] = f"record_prefix:{'|'.join(prefixes)}"
+        candidates[_ThemeRule.RECORD_PREFIX] = f"record_prefix:{'|'.join(prefixes)}"
 
-    candidates["episode_hash"] = f"episode_hash:{episode.episode_hash}"
+    candidates[_ThemeRule.EPISODE_HASH] = f"episode_hash:{episode.episode_hash}"
     return candidates
 
 
@@ -170,6 +179,18 @@ class ThemeRecord:
             "replay_identity_hash": self.replay_identity_hash,
         }
 
+    def to_hash_payload_dict(self) -> dict[str, _JSONValue]:
+        """Payload for stable_hash; excludes self-referential hash fields."""
+        return {
+            "theme_id": self.theme_id,
+            "theme_index": self.theme_index,
+            "episode_ids": self.episode_ids,
+            "episode_hashes": self.episode_hashes,
+            "theme_signature": self.theme_signature,
+            "compaction_reasons": self.compaction_reasons,
+            "parent_theme_hash": self.parent_theme_hash,
+        }
+
     def to_canonical_json(self) -> str:
         return _canonical_json(self.to_dict())
 
@@ -177,13 +198,13 @@ class ThemeRecord:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash(self) -> str:
-        return _sha256_hex(self.to_dict())
+        return _sha256_hex(self.to_hash_payload_dict())
 
 
 @dataclass(frozen=True)
 class SemanticThemeArtifact:
     schema_version: int
-    source_episode_hash: str
+    source_artifact_hash: str
     episode_count: int
     theme_count: int
     theme_ids: tuple[str, ...]
@@ -197,7 +218,7 @@ class SemanticThemeArtifact:
     def to_dict(self) -> dict[str, _JSONValue]:
         return {
             "schema_version": self.schema_version,
-            "source_episode_hash": self.source_episode_hash,
+            "source_artifact_hash": self.source_artifact_hash,
             "episode_count": self.episode_count,
             "theme_count": self.theme_count,
             "theme_ids": self.theme_ids,
@@ -209,33 +230,19 @@ class SemanticThemeArtifact:
             "artifact_hash": self.artifact_hash,
         }
 
-    def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
-
-    def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
-
-    def stable_hash(self) -> str:
-        return _sha256_hex(self.to_dict())
-
-
-@dataclass(frozen=True)
-class SemanticThemeReceipt:
-    schema_version: int
-    artifact_hash: str
-    source_episode_hash: str
-    replay_chain_head: str
-    theme_hashes: tuple[str, ...]
-    receipt_hash: str
-
-    def to_dict(self) -> dict[str, _JSONValue]:
+    def to_hash_payload_dict(self) -> dict[str, _JSONValue]:
+        """Payload for stable_hash; excludes self-referential artifact_hash field."""
         return {
             "schema_version": self.schema_version,
-            "artifact_hash": self.artifact_hash,
-            "source_episode_hash": self.source_episode_hash,
-            "replay_chain_head": self.replay_chain_head,
-            "theme_hashes": self.theme_hashes,
-            "receipt_hash": self.receipt_hash,
+            "source_artifact_hash": self.source_artifact_hash,
+            "episode_count": self.episode_count,
+            "theme_count": self.theme_count,
+            "theme_ids": self.theme_ids,
+            "themes": tuple(theme.to_dict() for theme in self.themes),
+            "episode_to_theme": self.episode_to_theme,
+            "compaction_ratio": self.compaction_ratio,
+            "law_invariants": self.law_invariants,
+            "assignment_precedence": self.assignment_precedence,
         }
 
     def to_canonical_json(self) -> str:
@@ -245,7 +252,46 @@ class SemanticThemeReceipt:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash(self) -> str:
-        return _sha256_hex(self.to_dict())
+        return _sha256_hex(self.to_hash_payload_dict())
+
+
+@dataclass(frozen=True)
+class SemanticThemeReceipt:
+    schema_version: int
+    artifact_hash: str
+    source_artifact_hash: str
+    replay_chain_head: str
+    theme_hashes: tuple[str, ...]
+    receipt_hash: str
+
+    def to_dict(self) -> dict[str, _JSONValue]:
+        return {
+            "schema_version": self.schema_version,
+            "artifact_hash": self.artifact_hash,
+            "source_artifact_hash": self.source_artifact_hash,
+            "replay_chain_head": self.replay_chain_head,
+            "theme_hashes": self.theme_hashes,
+            "receipt_hash": self.receipt_hash,
+        }
+
+    def to_hash_payload_dict(self) -> dict[str, _JSONValue]:
+        """Payload for stable_hash; excludes self-referential receipt_hash field."""
+        return {
+            "schema_version": self.schema_version,
+            "artifact_hash": self.artifact_hash,
+            "source_artifact_hash": self.source_artifact_hash,
+            "replay_chain_head": self.replay_chain_head,
+            "theme_hashes": self.theme_hashes,
+        }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+    def to_canonical_bytes(self) -> bytes:
+        return self.to_canonical_json().encode("utf-8")
+
+    def stable_hash(self) -> str:
+        return _sha256_hex(self.to_hash_payload_dict())
 
 
 
@@ -263,6 +309,13 @@ def _validate_episodic_artifact(artifact: EpisodicMemoryArtifact) -> tuple[Episo
         _validate_non_empty_str(ep.episode_id, field_name="episode_id")
         _validate_non_empty_str(ep.episode_hash, field_name="episode_hash")
         _validate_non_empty_str(ep.parent_episode_hash, field_name="parent_episode_hash")
+        if not isinstance(ep.episode_index, int) or ep.episode_index < 0:
+            raise ValueError("episode_index must be a non-negative int")
+        if not isinstance(ep.boundary_reasons, tuple):
+            raise ValueError("boundary_reasons must be a tuple")
+        for reason in ep.boundary_reasons:
+            if not isinstance(reason, str) or reason.strip() == "":
+                raise ValueError("each boundary_reason must be a non-empty string")
         if ep.episode_id in seen_ids:
             raise ValueError("episode_id values must be unique")
         seen_ids.add(ep.episode_id)
@@ -288,8 +341,8 @@ def compact_episodic_memory_to_semantic_themes(
     if config.normalize_episode_order:
         episodes = tuple(sorted(episodes, key=lambda item: (item.episode_index, item.episode_id)))
 
-    episode_candidates: dict[str, dict[str, str]] = {}
-    signature_counts: dict[str, dict[str, int]] = {rule: {} for rule in _THEME_RULE_PRECEDENCE}
+    episode_candidates: dict[str, dict[_ThemeRule, str]] = {}
+    signature_counts: dict[_ThemeRule, dict[str, int]] = {rule: {} for rule in _THEME_RULE_PRECEDENCE}
     for ep in episodes:
         candidates = _theme_candidates_for_episode(ep)
         episode_candidates[ep.episode_id] = candidates
@@ -299,20 +352,34 @@ def compact_episodic_memory_to_semantic_themes(
             _validate_non_empty_str(signature, field_name="theme_signature")
             signature_counts[rule_name][signature] = signature_counts[rule_name].get(signature, 0) + 1
 
-    grouped: dict[tuple[str, str], list[EpisodeRecord]] = {}
+    grouped: dict[tuple[_ThemeRule, str], list[EpisodeRecord]] = {}
     for ep in episodes:
         candidates = episode_candidates[ep.episode_id]
-        selected_rule = "episode_hash"
-        selected_signature = candidates["episode_hash"]
+        selected_rule = _ThemeRule.EPISODE_HASH
+        selected_signature = candidates[_ThemeRule.EPISODE_HASH]
         for rule_name in _THEME_RULE_PRECEDENCE:
             signature = candidates.get(rule_name)
             if signature is None:
                 continue
-            if rule_name == "episode_hash" or signature_counts[rule_name].get(signature, 0) >= 2:
+            if rule_name is _ThemeRule.EPISODE_HASH or signature_counts[rule_name].get(signature, 0) >= 2:
                 selected_rule = rule_name
                 selected_signature = signature
                 break
         grouped.setdefault((selected_rule, selected_signature), []).append(ep)
+
+    # Second pass: downgrade any singleton non-fallback group to episode_hash.
+    # A higher-precedence rule may have reduced the group size to 1 after
+    # signature_counts were computed over all candidates.
+    final_grouped: dict[tuple[_ThemeRule, str], list[EpisodeRecord]] = {}
+    for key, eps_list in grouped.items():
+        rule_name, _signature = key
+        if rule_name is not _ThemeRule.EPISODE_HASH and len(eps_list) == 1:
+            ep = eps_list[0]
+            fallback_sig = episode_candidates[ep.episode_id][_ThemeRule.EPISODE_HASH]
+            final_grouped.setdefault((_ThemeRule.EPISODE_HASH, fallback_sig), []).append(ep)
+        else:
+            final_grouped.setdefault(key, []).extend(eps_list)
+    grouped = final_grouped
 
     group_order = sorted(
         grouped.keys(),
@@ -381,7 +448,7 @@ def compact_episodic_memory_to_semantic_themes(
 
     payload = {
         "schema_version": _SCHEMA_VERSION,
-        "source_episode_hash": artifact.artifact_hash,
+        "source_artifact_hash": artifact.artifact_hash,
         "episode_count": episode_count,
         "theme_count": len(themes),
         "theme_ids": theme_ids,
@@ -395,7 +462,7 @@ def compact_episodic_memory_to_semantic_themes(
 
     return SemanticThemeArtifact(
         schema_version=_SCHEMA_VERSION,
-        source_episode_hash=artifact.artifact_hash,
+        source_artifact_hash=artifact.artifact_hash,
         episode_count=episode_count,
         theme_count=len(themes),
         theme_ids=theme_ids,
@@ -412,11 +479,11 @@ def compact_episodic_memory_to_semantic_themes(
 def generate_semantic_theme_receipt(artifact: SemanticThemeArtifact) -> SemanticThemeReceipt:
     if not isinstance(artifact, SemanticThemeArtifact):
         raise ValueError("artifact must be a SemanticThemeArtifact")
-    replay_chain_head = artifact.source_episode_hash if artifact.theme_count == 0 else artifact.themes[-1].replay_identity_hash
+    replay_chain_head = artifact.source_artifact_hash if artifact.theme_count == 0 else artifact.themes[-1].replay_identity_hash
     payload = {
         "schema_version": artifact.schema_version,
         "artifact_hash": artifact.artifact_hash,
-        "source_episode_hash": artifact.source_episode_hash,
+        "source_artifact_hash": artifact.source_artifact_hash,
         "replay_chain_head": replay_chain_head,
         "theme_hashes": tuple(theme.theme_hash for theme in artifact.themes),
     }
@@ -424,7 +491,7 @@ def generate_semantic_theme_receipt(artifact: SemanticThemeArtifact) -> Semantic
     return SemanticThemeReceipt(
         schema_version=artifact.schema_version,
         artifact_hash=artifact.artifact_hash,
-        source_episode_hash=artifact.source_episode_hash,
+        source_artifact_hash=artifact.source_artifact_hash,
         replay_chain_head=replay_chain_head,
         theme_hashes=tuple(theme.theme_hash for theme in artifact.themes),
         receipt_hash=receipt_hash,

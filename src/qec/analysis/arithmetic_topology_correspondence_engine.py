@@ -101,6 +101,13 @@ def _validate_divergence_artifact(divergence_artifact: TopologyDivergenceResult)
     scenario_keys = tuple((scenario.scenario_index, scenario.anchor_node_id, scenario.scenario_id) for scenario in divergence_artifact.scenarios)
     if scenario_keys != tuple(sorted(scenario_keys)):
         raise ValueError("divergence_artifact scenarios must be sorted deterministically")
+    scenario_indexes = tuple(scenario.scenario_index for scenario in divergence_artifact.scenarios)
+    expected_scenario_indexes = tuple(range(len(divergence_artifact.scenarios)))
+    if scenario_indexes != expected_scenario_indexes:
+        raise ValueError("divergence_artifact scenario_index values must be contiguous and zero-based")
+    scenario_ids = tuple(scenario.scenario_id for scenario in divergence_artifact.scenarios)
+    if len(set(scenario_ids)) != len(scenario_ids):
+        raise ValueError("divergence_artifact scenario_id values must be unique")
 
     segment_total = 0
     for scenario in divergence_artifact.scenarios:
@@ -113,6 +120,15 @@ def _validate_divergence_artifact(divergence_artifact: TopologyDivergenceResult)
         )
         if segment_keys != tuple(sorted(segment_keys)):
             raise ValueError("divergence_artifact scenario segments must be sorted deterministically")
+
+        segment_indexes = tuple(segment.segment_index for segment in scenario.segments)
+        expected_segment_indexes = tuple(range(len(scenario.segments)))
+        if segment_indexes != expected_segment_indexes:
+            raise ValueError("divergence_artifact scenario segment_index values must be contiguous and zero-based")
+
+        segment_ids = tuple(segment.segment_id for segment in scenario.segments)
+        if len(set(segment_ids)) != len(segment_ids):
+            raise ValueError("divergence_artifact scenario segment_id values must be unique")
 
         for segment in scenario.segments:
             if segment.scenario_id != scenario.scenario_id:
@@ -485,6 +501,9 @@ def build_arithmetic_topology_correspondence(
     )
 
     witnesses = _build_witnesses(divergence_artifact)
+    witness_scenario_ids = tuple(w.scenario_id for w in witnesses)
+    if len(set(witness_scenario_ids)) != len(witness_scenario_ids):
+        raise ValueError("witnesses contain duplicate scenario_id values; divergence_artifact validation must enforce uniqueness")
     witness_by_scenario_id = {witness.scenario_id: witness for witness in witnesses}
     primitives = _build_primitives(divergence_artifact, witness_by_scenario_id)
 

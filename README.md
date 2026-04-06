@@ -158,7 +158,7 @@ pytest -q
 
 ---
 
-## Rust TUI Operator Console
+# Rust TUI Operator Console
 
 QEC includes a **Rust TUI operator workstation** for fast keyboard-first workflows.
 
@@ -173,44 +173,67 @@ Supports:
 
 ---
 
-# Windows PowerShell (Recommended)
+## Install Latest Release (Recommended)
+
+Install the latest tagged Rust TUI release binary with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
+```
+
+After install:
+
+```bash
+qec-tui
+```
+
+This resolves the latest released Rust TUI binary from GitHub releases.
+
+---
+
+## Windows PowerShell (Build From Source)
 
 Open **PowerShell** inside the repository root.
 
-## Build
+Build:
 
 ```powershell
 cd .\tui
 cargo build --release
 ```
 
-## Run
+Run:
 
 ```powershell
 cargo run --release
 ```
 
-## Run binary directly
+Run compiled binary from the local build output:
 
 ```powershell
 .\target\release\qec-tui.exe
 ```
 
+Important:
+This `.exe` is **generated locally by Cargo** after build.
+It is **not stored in the repository**.
+
 ---
 
-# Windows PowerShell (Repo Root Shortcut)
+## Linux / macOS (Build From Source)
 
-If launching from repo root:
-
-```powershell
-.\tui\target\release\qec-tui.exe
+```bash
+cd tui
+cargo build --release
+cargo run --release
+./target/release/qec-tui
 ```
 
 ---
 
-# Windows PowerShell + WSL Option
+## Windows + WSL (Optional)
 
-If you prefer Linux tooling:
+For Linux-style workflow on Windows:
 
 ```powershell
 wsl
@@ -218,36 +241,11 @@ cd /mnt/c/path/to/QEC/tui
 cargo run --release
 ```
 
-This is excellent for parity with Linux workflows.
-
 ---
 
-# Linux / macOS
+## Cargo Install (Optional)
 
-## Build
-
-```bash
-cd tui
-cargo build --release
-```
-
-## Run
-
-```bash
-cargo run --release
-```
-
-## Run binary
-
-```bash
-./target/release/qec-tui
-```
-
----
-
-# Cargo Install (Optional)
-
-If you want global CLI-style access:
+Install globally from local source:
 
 ```bash
 cargo install --path ./tui
@@ -257,12 +255,6 @@ Then run:
 
 ```bash
 qec-tui
-```
-
-On Windows PowerShell:
-
-```powershell
-qec-tui.exe
 ```
 
 ---

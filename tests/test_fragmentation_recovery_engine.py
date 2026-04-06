@@ -103,6 +103,8 @@ def test_bounded_scores_and_invariants() -> None:
         REPLAY_SAFE_RECOVERY_CHAIN,
         BOUNDED_FRAGMENT_RECOVERY_SCORE,
     )
+    assert repaired.lineage_report.stable_hash() == repaired.lineage_report.report_hash
+    assert repaired.stable_hash() == repaired.recovery_artifact_hash
 
 
 def test_fail_fast_on_malformed_or_invalid_inputs() -> None:
@@ -162,6 +164,10 @@ def test_preserves_sonification_lineage_when_present() -> None:
     assert repaired.sonification_repair_metadata is not None
     assert repaired.sonification_repair_metadata.source_sonification_spec_hash == sonification.sonification_spec_hash
     assert repaired.sonification_repair_metadata.preserved_audio_projection_hash == sonification.audio_projection_hash
+    assert (
+        repaired.sonification_repair_metadata.stable_hash()
+        == repaired.sonification_repair_metadata.metadata_hash
+    )
 
 
 def test_replay_safe_receipt_generation() -> None:
@@ -176,6 +182,7 @@ def test_replay_safe_receipt_generation() -> None:
 
     assert receipt_a.receipt_hash == receipt_b.receipt_hash
     assert receipt_a.to_canonical_bytes() == receipt_b.to_canonical_bytes()
+    assert receipt_a.stable_hash() == receipt_a.receipt_hash
 
 
 def test_unrecoverable_fragmentation_classification() -> None:
@@ -199,3 +206,64 @@ def test_unrecoverable_fragmentation_classification() -> None:
     )
     assert repaired.lineage_report.classification == "unrecoverable_corruption"
     assert repaired.recovery_confidence == 0.0
+
+
+def test_fail_fast_on_empty_chain() -> None:
+    compressed = _compressed_artifact()
+    empty = type(compressed)(
+        schema_version=compressed.schema_version,
+        source_artifact_hash=compressed.source_artifact_hash,
+        source_theme_count=0,
+        compressed_record_count=0,
+        signature_table=compressed.signature_table,
+        reason_table=compressed.reason_table,
+        episode_hash_chain_table=compressed.episode_hash_chain_table,
+        records=(),
+        preserved_theme_hashes=(),
+        source_compaction_ratio=compressed.source_compaction_ratio,
+        compression_ratio=compressed.compression_ratio,
+        compression_chain_head=compressed.compression_chain_head,
+        replay_identity_hash=compressed.replay_identity_hash,
+        law_invariants=compressed.law_invariants,
+        compression_hash=compressed.compression_hash,
+    )
+    with pytest.raises(ValueError, match="must contain at least one CompressionRecord"):
+        recover_fragmented_compression_chain(empty, enable_fragmentation_recovery=True)
+
+
+def test_fail_fast_on_out_of_range_observed_theme_index() -> None:
+    compressed = _compressed_artifact()
+    negative = type(compressed.records[0])(
+        theme_id=compressed.records[0].theme_id,
+        theme_index=-1,
+        source_theme_hash=compressed.records[0].source_theme_hash,
+        source_replay_identity_hash=compressed.records[0].source_replay_identity_hash,
+        source_parent_theme_hash=compressed.records[0].source_parent_theme_hash,
+        signature_ref=compressed.records[0].signature_ref,
+        reason_ref=compressed.records[0].reason_ref,
+        episode_hashes_ref=compressed.records[0].episode_hashes_ref,
+        compression_record_hash=compressed.records[0].compression_record_hash,
+    )
+    too_large = type(compressed.records[0])(
+        theme_id=compressed.records[0].theme_id,
+        theme_index=len(compressed.records),
+        source_theme_hash=compressed.records[0].source_theme_hash,
+        source_replay_identity_hash=compressed.records[0].source_replay_identity_hash,
+        source_parent_theme_hash=compressed.records[0].source_parent_theme_hash,
+        signature_ref=compressed.records[0].signature_ref,
+        reason_ref=compressed.records[0].reason_ref,
+        episode_hashes_ref=compressed.records[0].episode_hashes_ref,
+        compression_record_hash=compressed.records[0].compression_record_hash,
+    )
+    with pytest.raises(ValueError, match="observed_records theme_index out of source chain bounds"):
+        recover_fragmented_compression_chain(
+            compressed,
+            observed_records=(negative,),
+            enable_fragmentation_recovery=True,
+        )
+    with pytest.raises(ValueError, match="observed_records theme_index out of source chain bounds"):
+        recover_fragmented_compression_chain(
+            compressed,
+            observed_records=(too_large,),
+            enable_fragmentation_recovery=True,
+        )

@@ -140,26 +140,37 @@ def _validate_optional_fixture_payload(
     if attenuation_fixture is not None:
         if not isinstance(attenuation_fixture, tuple):
             raise ValueError("attenuation_fixture must be a tuple")
+        out_float: list[float] = []
         for value in attenuation_fixture:
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise ValueError("attenuation_fixture values must be numeric")
             as_float = float(value)
             if not math.isfinite(as_float):
                 raise ValueError("attenuation_fixture values must be finite")
+            out_float.append(as_float)
+        canonical_float = tuple(sorted(out_float))
 
     if distortion_fixture is not None:
         if not isinstance(distortion_fixture, tuple):
             raise ValueError("distortion_fixture must be a tuple")
+        out_int: list[int] = []
         for value in distortion_fixture:
             if isinstance(value, bool) or not isinstance(value, int):
                 raise ValueError("distortion_fixture values must be int")
+            out_int.append(int(value))
+        canonical_int = tuple(sorted(out_int))
 
     if label_fixture is not None:
         if not isinstance(label_fixture, tuple):
             raise ValueError("label_fixture must be a tuple")
+        out_str: list[str] = []
         for value in label_fixture:
             if not isinstance(value, str):
                 raise ValueError("label_fixture values must be str")
+            out_str.append(value)
+        canonical_str = tuple(sorted(out_str))
+
+    return canonical_float, canonical_int, canonical_str
 
 
 @dataclass(frozen=True)

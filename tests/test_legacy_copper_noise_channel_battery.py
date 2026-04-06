@@ -93,6 +93,11 @@ def test_identical_input_produces_byte_identical_battery_artifacts() -> None:
     assert artifact_a.stable_hash() == artifact_a.copper_channel_battery_hash
 
 
+
+
+def test_export_rejects_non_battery_artifact() -> None:
+    with pytest.raises(ValueError, match="must be a CopperChannelBatteryResult"):
+        export_copper_channel_battery_bytes(object())
 def test_deterministic_repeated_runs() -> None:
     spectral = _spectral_artifact()
 
@@ -187,6 +192,20 @@ def test_receipt_determinism() -> None:
     assert receipt_a.to_canonical_bytes() == receipt_b.to_canonical_bytes()
 
 
+def test_generate_receipt_rejects_non_battery_artifact() -> None:
+    with pytest.raises(ValueError, match="must be a CopperChannelBatteryResult"):
+        generate_copper_channel_battery_receipt(object())
+
+
+def test_generate_receipt_rejects_mismatched_battery_hash() -> None:
+    spectral = _spectral_artifact()
+    artifact = run_legacy_copper_noise_channel_battery(spectral)
+    tampered = replace(artifact, copper_channel_battery_hash="deadbeef")
+
+    with pytest.raises(ValueError, match="must match stable_hash"):
+        generate_copper_channel_battery_receipt(tampered)
+
+
 def test_lineage_hash_preservation() -> None:
     spectral = _spectral_artifact()
     artifact = run_legacy_copper_noise_channel_battery(spectral)
@@ -232,22 +251,3 @@ def test_spectral_identity_controls_battery_identity() -> None:
 
     assert baseline.to_canonical_bytes() == with_fixtures.to_canonical_bytes()
     assert baseline.copper_channel_battery_hash == with_fixtures.copper_channel_battery_hash
-
-
-def test_generate_receipt_rejects_non_battery_artifact() -> None:
-    with pytest.raises(ValueError, match="artifact must be a CopperChannelBatteryResult"):
-        generate_copper_channel_battery_receipt(object())
-
-
-def test_generate_receipt_rejects_mismatched_battery_hash() -> None:
-    spectral = _spectral_artifact()
-    artifact = run_legacy_copper_noise_channel_battery(spectral)
-    invalid = replace(artifact, copper_channel_battery_hash="deadbeef")
-
-    with pytest.raises(ValueError, match="copper_channel_battery_hash must match stable_hash"):
-        generate_copper_channel_battery_receipt(invalid)
-
-
-def test_export_rejects_non_battery_artifact() -> None:
-    with pytest.raises(ValueError, match="artifact must be a CopperChannelBatteryResult"):
-        export_copper_channel_battery_bytes(object())

@@ -374,8 +374,17 @@ def run_telecom_line_recovery(
     source_scenario_ids = tuple(scenario.scenario_id for scenario in battery_artifact.scenarios)
     scenario_count = len(source_scenario_ids)
 
+    if len(_RECOVERY_MODE_ORDER) != len(_RECOVERY_SCENARIOS):
+        raise ValueError(
+            "Recovery segment configuration mismatch: "
+            f"{len(_RECOVERY_MODE_ORDER)} recovery modes but "
+            f"{len(_RECOVERY_SCENARIOS)} recovery scenarios."
+        )
+
     segments: list[TelecomRecoverySegment] = []
-    for segment_index, (recovery_mode, recovery_scenario) in enumerate(zip(_RECOVERY_MODE_ORDER, _RECOVERY_SCENARIOS)):
+    for segment_index, (recovery_mode, recovery_scenario) in enumerate(
+        zip(_RECOVERY_MODE_ORDER, _RECOVERY_SCENARIOS)
+    ):
         mode_weight = 1.0 - (segment_index * 0.07)
         carrier_lock_integrity_score = _clamp01(continuity_health * mode_weight)
         line_recovery_score = _clamp01(line_health * (1.0 - (segment_index * 0.04)))

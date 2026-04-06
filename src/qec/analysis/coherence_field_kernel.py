@@ -116,16 +116,24 @@ def _normalize_state_components(
     if not pairs:
         raise ValueError("state_components must not be empty")
 
-    canonical: list[tuple[str, float]] = []
-    seen: set[str] = set()
-    for name, value, _ in sorted(pairs, key=lambda item: (str(item[0]), int(item[2]))):
+    # Validate and normalize names before sorting to avoid calling str() on
+    # arbitrary objects (which can be non-deterministic and has side effects).
+    validated: list[tuple[str, float, int]] = []
+    for name, value, index in pairs:
         if not isinstance(name, str):
             raise ValueError("state component names must be strings")
         key = name.strip()
         if key == "":
             raise ValueError("state component names must be non-empty")
+        validated.append((key, value, index))
+
+    canonical: list[tuple[str, float]] = []
+    seen: set[str] = set()
+    for key, value, _ in sorted(validated, key=lambda item: (item[0], item[2])):
         if key in seen:
             raise ValueError("duplicate state component name")
+        if isinstance(value, bool):
+            raise ValueError("state component values must be numeric, not bool")
         numeric = float(value)
         if not math.isfinite(numeric):
             raise ValueError("state component values must be finite")

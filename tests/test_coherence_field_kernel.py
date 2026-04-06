@@ -84,6 +84,15 @@ def test_fail_fast_invalid_input_handling() -> None:
             parent_certification_root=_hex("a"),
         )
 
+    with pytest.raises(ValueError, match="state component names must be strings"):
+        synthesize_coherence_field(
+            [(42, 1.0)],  # type: ignore[list-item]
+            parent_certification_root=_hex("a"),
+        )
+
+    with pytest.raises(ValueError, match="state component values must be numeric, not bool"):
+        synthesize_coherence_field({"alpha": True}, parent_certification_root=_hex("a"))
+
     field = _build_field()
     tampered = replace(field, stable_field_hash=_hex("b"))
     with pytest.raises(ValueError, match="stable_field_hash mismatch"):

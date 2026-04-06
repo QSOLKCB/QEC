@@ -87,7 +87,11 @@ def _hash_bytes(payload: bytes) -> str:
 
 
 def _round_float(value: float) -> float:
-    return round(float(value), ROUND_DIGITS)
+    """Round floats deterministically and normalize signed zero."""
+    rounded = round(float(value), ROUND_DIGITS)
+    if rounded == 0.0:
+        return 0.0
+    return rounded
 
 
 def _clamp01(value: float) -> float:
@@ -106,16 +110,25 @@ def _require_hash_hex(name: str, value: str) -> str:
     return value
 
 
+def _is_non_string_sequence(value: Any) -> bool:
+    """Return True for sequence inputs except text/byte containers."""
+    return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+
+
 def _canonicalize_state_trace(state_trace: Sequence[Sequence[float]]) -> tuple[tuple[float, ...], ...]:
-    if not isinstance(state_trace, Sequence) or len(state_trace) == 0:
+    if not _is_non_string_sequence(state_trace) or len(state_trace) == 0:
         raise ValueError("state_trace must be a non-empty sequence")
 
     canonical: list[tuple[float, ...]] = []
     expected_width: int | None = None
 
     for row_idx, raw_state in enumerate(state_trace):
-        if not isinstance(raw_state, Sequence) or len(raw_state) == 0:
+        if not _is_non_string_sequence(raw_state) or len(raw_state) == 0:
             raise ValueError("each state must be a non-empty sequence")
+
+        for col_idx, element in enumerate(raw_state):
+            if isinstance(element, bool):
+                raise ValueError(f"state_trace[{row_idx}][{col_idx}] must be numeric, not bool")
 
         state_vec = np.asarray(raw_state, dtype=np.float64)
         if state_vec.ndim != 1:
@@ -213,9 +226,14 @@ def synthesize_attractor_field(
     else:
         tail = np.asarray(canonical_trace[-len(basin) :], dtype=np.float64)
         basin_arr = np.asarray(basin, dtype=np.float64)
-        delta = np.abs(tail - basin_arr)
-        mean_delta = float(np.mean(delta, dtype=np.float64))
-        convergence = _clamp01(1.0 - mean_delta)
+        n = len(basin)
+        min_mean_delta = float("inf")
+        for shift in range(n):
+            shifted = np.roll(basin_arr, shift, axis=0)
+            mean_delta = float(np.mean(np.abs(tail - shifted), dtype=np.float64))
+            if mean_delta < min_mean_delta:
+                min_mean_delta = mean_delta
+        convergence = _clamp01(1.0 - min_mean_delta)
 
     attractor_state_hash = _state_hash(basin)
 

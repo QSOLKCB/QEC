@@ -135,3 +135,47 @@ def test_repeated_run_determinism() -> None:
         )
         assert field == reference
         assert export_attractor_bytes(field) == reference_bytes
+
+
+def test_convergence_stability_score_phase_invariant() -> None:
+    """Phase-shifted cyclic traversal must score as fully converged."""
+    # Basin is (A, B, C); trace ends with a phase-shifted traversal (C, A, B).
+    a = (0.0, 1.0)
+    b = (1.0, 0.0)
+    c = (0.5, 0.5)
+    # Pre-period states establish the basin, then one complete phase-shifted cycle.
+    trace = (a, b, c, a, b, c, a, b)
+    basin = detect_attractor_basin(trace)
+    assert set(basin) == {a, b, c}
+
+    field = synthesize_attractor_field(
+        source_recovery_hash=_SOURCE_HASH,
+        parent_recovery_hash=_PARENT_HASH,
+        state_trace=trace,
+        enable_attractor_engine=True,
+    )
+    # Convergence should be perfect (1.0) because the tail is a cyclic shift of the basin.
+    assert field.convergence_stability_score == 1.0
+
+
+def test_convergence_stability_score_regression() -> None:
+    """Convergence score for known trace must remain stable across code changes."""
+    trace = _state_trace()
+    field = synthesize_attractor_field(
+        source_recovery_hash=_SOURCE_HASH,
+        parent_recovery_hash=_PARENT_HASH,
+        state_trace=trace,
+        enable_attractor_engine=True,
+    )
+    # Basin is ((0.5, 0.5), (1.0, 1.0)); tail matches the basin exactly → score must be 1.0.
+    assert field.convergence_stability_score == 1.0
+
+
+def test_fail_fast_string_state_trace() -> None:
+    with pytest.raises(ValueError, match="state_trace"):
+        detect_attractor_basin("invalid")  # type: ignore[arg-type]
+
+
+def test_fail_fast_bool_elements_rejected() -> None:
+    with pytest.raises(ValueError, match="bool"):
+        detect_attractor_basin([[True, False]])

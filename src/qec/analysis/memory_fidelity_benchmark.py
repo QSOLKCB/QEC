@@ -83,15 +83,30 @@ def _safe_fraction(num: int, den: int) -> float:
 def _validate_source_artifact(artifact: CompressedMemoryArtifact) -> tuple[CompressionRecord, ...]:
     if not isinstance(artifact, CompressedMemoryArtifact):
         raise ValueError("source_artifact must be a CompressedMemoryArtifact")
-    if artifact.compressed_record_count != len(artifact.records):
+
+    records = artifact.records
+    if artifact.compressed_record_count != len(records):
         raise ValueError("source_artifact compressed_record_count must match records length")
-    if artifact.source_theme_count != len(artifact.records):
+    if artifact.source_theme_count != len(records):
         raise ValueError("source_artifact source_theme_count must match records length")
-    if len(artifact.records) == 0:
+    if len(records) == 0:
         raise ValueError("source_artifact must contain at least one CompressionRecord")
-    return artifact.records
+    if artifact.compression_chain_head != records[-1].source_replay_identity_hash:
+        raise ValueError(
+            "source_artifact compression_chain_head must match the last record source_replay_identity_hash"
+        )
 
+    for expected_theme_index, record in enumerate(records):
+        if record.theme_index != expected_theme_index:
+            raise ValueError("source_artifact records must have contiguous theme_index values")
 
+        expected_parent_theme_index = None if expected_theme_index == 0 else expected_theme_index - 1
+        if record.parent_theme_index != expected_parent_theme_index:
+            raise ValueError(
+                "source_artifact records must maintain sequential parent_theme_index lineage"
+            )
+
+    return records
 def _validate_recovery_artifact(
     artifact: FragmentationRecoveryArtifact,
     *,

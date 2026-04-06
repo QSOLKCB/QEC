@@ -243,6 +243,49 @@ def _normalize_policy_rules(policy_rules: Mapping[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def _freeze_normalized_policy_rules(normalized: dict[str, Any]) -> tuple[tuple[str, Any], ...]:
+    """Convert normalized policy_rules to a hashable, immutable tuple of sorted (key, value) pairs.
+
+    Among all allowed policy_rules keys, ``node_costs`` is the only one whose value is a ``dict``
+    (``dict[str, float]``).  All other values produced by ``_normalize_policy_rules`` are already
+    primitives or tuples.  The ``node_costs`` dict is therefore the only ``isinstance(v, dict)``
+    branch that can be reached; the assertion below makes this invariant explicit.
+    """
+    items: list[tuple[str, Any]] = []
+    for k in sorted(normalized.keys()):
+        v = normalized[k]
+        if isinstance(v, dict):
+            assert k == "node_costs", f"unexpected nested dict for policy key {k!r}"  # noqa: S101
+            items.append((k, tuple(sorted(v.items()))))
+        else:
+            items.append((k, v))
+    return tuple(items)
+
+
+# Key name for the one nested-dict field in normalized policy_rules.
+# Both _freeze_normalized_policy_rules and _thaw_policy_rules must stay in
+# sync with _normalize_policy_rules: if a new nested-dict key is ever added,
+# update _POLICY_RULES_DICT_KEY and both freeze/thaw helpers together.
+_POLICY_RULES_DICT_KEY: str = "node_costs"
+
+
+def _thaw_policy_rules(frozen: tuple[tuple[str, Any], ...]) -> dict[str, Any]:
+    """Reconstruct a JSON-serializable plain dict from a frozen policy_rules snapshot.
+
+    Inverts ``_freeze_normalized_policy_rules``: the ``node_costs`` key is the only one stored
+    as a nested tuple of pairs and is reconstructed as a plain ``dict``.  All other values are
+    returned unchanged (primitives and tuples of strings/pairs, which json.dumps serialises
+    identically to lists).
+    """
+    result: dict[str, Any] = {}
+    for k, v in frozen:
+        if k == _POLICY_RULES_DICT_KEY:
+            result[k] = dict(v)
+        else:
+            result[k] = v
+    return result
+
+
 def compute_policy_pressure(total_candidates_examined: int, rejected_candidates: int) -> float:
     examined = int(total_candidates_examined)
     rejected = int(rejected_candidates)
@@ -289,7 +332,7 @@ class PolicyDecisionArtifact:
     constrained_candidates: tuple[str, ...]
     violated_rules: tuple[str, ...]
     candidate_decisions: tuple[CandidatePolicyDecision, ...]
-    policy_rules: Mapping[str, Any]
+    policy_rules: tuple[tuple[str, Any], ...]
     policy_pressure_score: float
     policy_identity_chain: tuple[str, ...]
     stable_policy_hash: str
@@ -306,7 +349,7 @@ class PolicyDecisionArtifact:
             "constrained_candidates": list(self.constrained_candidates),
             "violated_rules": list(self.violated_rules),
             "candidate_decisions": [decision.to_dict() for decision in self.candidate_decisions],
-            "policy_rules": self.policy_rules,
+            "policy_rules": _thaw_policy_rules(self.policy_rules),
             "policy_pressure_score": _round64(self.policy_pressure_score),
             "policy_identity_chain": list(self.policy_identity_chain),
             "stable_policy_hash": self.stable_policy_hash,
@@ -355,6 +398,102 @@ class PolicyDecisionReceipt:
         return self.to_canonical_json().encode("utf-8")
 
 
+# ---------------------------------------------------------------------------
+# Pure per-rule check helpers (each returns a list of violated rule names)
+# ---------------------------------------------------------------------------
+
+
+def _check_max_depth(tentative_path: tuple[str, ...], max_depth: int | None) -> list[str]:
+    if max_depth is not None and len(tentative_path) > int(max_depth):
+        return ["max_depth"]
+    return []
+
+
+def _check_forbidden_nodes(candidate: str, forbidden_nodes: frozenset[str]) -> list[str]:
+    if candidate in forbidden_nodes:
+        return ["forbidden_nodes"]
+    return []
+
+
+def _check_forbidden_transitions(
+    prior_node: str,
+    candidate: str,
+    forbidden_transitions: frozenset[tuple[str, str]],
+) -> list[str]:
+    if (prior_node, candidate) in forbidden_transitions:
+        return ["forbidden_transitions"]
+    return []
+
+
+def _check_required_terminal_subset(
+    candidate: str,
+    normalized_graph: dict[str, tuple[str, ...]],
+    remaining_steps: int,
+    required_terminals: frozenset[str],
+) -> tuple[list[str], frozenset[str]]:
+    """Return (violations, reachable_terminals) for the required_terminal_subset rule."""
+    reachable_terminals = _collect_reachable_terminals(candidate, normalized_graph, max_steps=remaining_steps)
+    if required_terminals and reachable_terminals.isdisjoint(required_terminals):
+        return ["required_terminal_subset"], reachable_terminals
+    return [], reachable_terminals
+
+
+def _check_route_cost_ceiling(
+    tentative_path: tuple[str, ...],
+    node_costs: dict[str, float],
+    route_cost_ceiling: float | None,
+) -> list[str]:
+    if route_cost_ceiling is None:
+        return []
+    route_cost = _round64(sum(float(node_costs.get(node, 1.0)) for node in tentative_path))
+    if route_cost > float(route_cost_ceiling):
+        return ["route_cost_ceiling"]
+    return []
+
+
+def _check_must_pass_through(
+    candidate: str,
+    normalized_graph: dict[str, tuple[str, ...]],
+    remaining_steps: int,
+    tentative_path: tuple[str, ...],
+    required_nodes: frozenset[str],
+) -> tuple[list[str], bool]:
+    """Return (violations, is_constrained) for the must_pass_through_nodes rule."""
+    if not required_nodes:
+        return [], False
+    covered_nodes = frozenset(tentative_path)
+    missing_required = tuple(sorted(required_nodes - covered_nodes))
+    if not missing_required:
+        return [], False
+    reachable_nodes = _collect_reachable(candidate, normalized_graph, max_steps=remaining_steps)
+    if any(node not in reachable_nodes for node in missing_required):
+        return ["must_pass_through_nodes"], False
+    return [], True  # admissible but constrained
+
+
+def _compute_step_hash(
+    prior_hash: str,
+    idx: int,
+    candidate: str,
+    status: str,
+    candidate_violations: list[str],
+    source_plan_hash: str,
+    route_graph_hash: str,
+) -> str:
+    """Return the next identity-chain hash for a single evaluated candidate."""
+    return _sha256_hex_mapping(
+        {
+            "prior_hash": prior_hash,
+            "candidate_index": idx,
+            "candidate_node": candidate,
+            "candidate_status": status,
+            "violated_rules": sorted(set(candidate_violations)),
+            "source_plan_hash": source_plan_hash,
+            "route_graph_hash": route_graph_hash,
+        }
+    )
+
+
 def analyze_policy_constrained_frontier(
     source_plan_hash: str,
     route_graph: Mapping[str, Sequence[str]],
@@ -375,6 +514,15 @@ def analyze_policy_constrained_frontier(
         raise ValueError("current_path terminal node must exist in route_graph")
 
     normalized_frontier = _normalize_frontier(frontier_candidates)
+
+    # Fail-fast: every frontier candidate must exist in the normalized graph universe.
+    # _normalize_route_graph adds all neighbor nodes as keys (with empty adjacency when
+    # absent), so this check covers both explicit keys and implicit sink nodes.
+    graph_universe = frozenset(normalized_graph.keys())
+    unknown_candidates = tuple(sorted(c for c in normalized_frontier if c not in graph_universe))
+    if unknown_candidates:
+        raise ValueError(f"frontier candidates not in route_graph universe: {unknown_candidates}")
+
     bounded_max_path_length = _validate_max_path_length(max_path_length)
     if len(normalized_path) > bounded_max_path_length:
         raise ValueError("current_path length must be <= max_path_length")
@@ -388,7 +536,7 @@ def analyze_policy_constrained_frontier(
     required_nodes = frozenset(normalized_policy_rules.get("must_pass_through_nodes", tuple()))
     max_depth = normalized_policy_rules.get("max_depth")
     route_cost_ceiling = normalized_policy_rules.get("route_cost_ceiling")
-    node_costs = normalized_policy_rules.get("node_costs", {})
+    node_costs: dict[str, float] = normalized_policy_rules.get("node_costs", {})
 
     prior_node = normalized_path[-1]
     remaining_after_step = bounded_max_path_length - (len(normalized_path) + 1)
@@ -402,36 +550,19 @@ def analyze_policy_constrained_frontier(
     for idx, candidate in enumerate(normalized_frontier):
         tentative_path = normalized_path + (candidate,)
         candidate_violations: list[str] = []
-        candidate_constrained = False
 
-        if max_depth is not None and len(tentative_path) > int(max_depth):
-            candidate_violations.append("max_depth")
-        if candidate in forbidden_nodes:
-            candidate_violations.append("forbidden_nodes")
-        if (prior_node, candidate) in forbidden_transitions:
-            candidate_violations.append("forbidden_transitions")
-
-        reachable_terminals = _collect_reachable_terminals(candidate, normalized_graph, max_steps=remaining_after_step)
-        if required_terminals and reachable_terminals.isdisjoint(required_terminals):
-            candidate_violations.append("required_terminal_subset")
-
-        if route_cost_ceiling is not None:
-            route_cost = 0.0
-            for node in tentative_path:
-                route_cost += float(node_costs.get(node, 1.0))
-            route_cost = _round64(route_cost)
-            if route_cost > float(route_cost_ceiling):
-                candidate_violations.append("route_cost_ceiling")
-
-        if required_nodes:
-            covered_nodes = frozenset(tentative_path)
-            missing_required = tuple(sorted(required_nodes - covered_nodes))
-            if missing_required:
-                reachable_nodes = _collect_reachable(candidate, normalized_graph, max_steps=remaining_after_step)
-                if any(node not in reachable_nodes for node in missing_required):
-                    candidate_violations.append("must_pass_through_nodes")
-                else:
-                    candidate_constrained = True
+        candidate_violations += _check_max_depth(tentative_path, max_depth)
+        candidate_violations += _check_forbidden_nodes(candidate, forbidden_nodes)
+        candidate_violations += _check_forbidden_transitions(prior_node, candidate, forbidden_transitions)
+        rt_violations, reachable_terminals = _check_required_terminal_subset(
+            candidate, normalized_graph, remaining_after_step, required_terminals
+        )
+        candidate_violations += rt_violations
+        candidate_violations += _check_route_cost_ceiling(tentative_path, node_costs, route_cost_ceiling)
+        mpt_violations, candidate_constrained = _check_must_pass_through(
+            candidate, normalized_graph, remaining_after_step, tentative_path, required_nodes
+        )
+        candidate_violations += mpt_violations
 
         if candidate_violations:
             status = "rejected"
@@ -445,18 +576,12 @@ def analyze_policy_constrained_frontier(
             status = "admissible"
             admitted.append(candidate)
 
-        step_hash = _sha256_hex_mapping(
-            {
-                "prior_hash": identity_chain[-1],
-                "candidate_index": idx,
-                "candidate_node": candidate,
-                "candidate_status": status,
-                "violated_rules": sorted(set(candidate_violations)),
-                "source_plan_hash": normalized_source_plan_hash,
-                "route_graph_hash": route_graph_hash,
-            }
+        identity_chain.append(
+            _compute_step_hash(
+                identity_chain[-1], idx, candidate, status, candidate_violations,
+                normalized_source_plan_hash, route_graph_hash,
+            )
         )
-        identity_chain.append(step_hash)
 
         decisions.append(
             CandidatePolicyDecision(
@@ -510,7 +635,7 @@ def analyze_policy_constrained_frontier(
         constrained_candidates=tuple(constrained),
         violated_rules=tuple(sorted(violated_rule_set)),
         candidate_decisions=decisions_with_pressure,
-        policy_rules=normalized_policy_rules,
+        policy_rules=_freeze_normalized_policy_rules(normalized_policy_rules),
         policy_pressure_score=pressure,
         policy_identity_chain=tuple(identity_chain),
         stable_policy_hash=stable_policy_hash,

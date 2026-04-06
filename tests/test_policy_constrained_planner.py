@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from typing import Any
 
 from qec.analysis.policy_constrained_planner import (
     GENESIS_HASH,
@@ -168,6 +169,42 @@ def test_fail_fast_validation_for_malformed_inputs() -> None:
 
     with pytest.raises(ValueError, match="rejected_candidates must be <= total_candidates_examined"):
         compute_policy_pressure(1, 2)
+
+
+def test_frontier_candidate_absent_from_graph_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="not in route_graph universe"):
+        analyze_policy_constrained_frontier(
+            _source_plan_hash(),
+            _graph(),
+            current_path=("start",),
+            frontier_candidates=("alpha", "unknown_node"),
+            max_path_length=4,
+            policy_rules={},
+            enable_v137_6_3_policy_constraints=True,
+        )
+
+
+def test_policy_rules_field_is_immutable_and_replay_bytes_stable() -> None:
+    mutable_rules: dict[str, Any] = {"forbidden_nodes": ("beta",)}
+    artifact = analyze_policy_constrained_frontier(
+        _source_plan_hash(),
+        _graph(),
+        current_path=("start",),
+        frontier_candidates=("alpha",),
+        max_path_length=4,
+        policy_rules=mutable_rules,
+        enable_v137_6_3_policy_constraints=True,
+    )
+
+    original_bytes = artifact.to_canonical_bytes()
+
+    # Mutating the original input dict must not affect the artifact snapshot.
+    mutable_rules["forbidden_nodes"] = ("alpha",)
+    mutable_rules["max_depth"] = 1
+    assert artifact.to_canonical_bytes() == original_bytes
+
+    # policy_rules stored on the artifact must not be a plain mutable dict.
+    assert not isinstance(artifact.policy_rules, dict)
 
 
 def test_integration_sanity_after_v137_6_2_pruning_flow() -> None:

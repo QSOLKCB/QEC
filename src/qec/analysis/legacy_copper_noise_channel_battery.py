@@ -131,14 +131,11 @@ def _validate_spectral_artifact(spectral_artifact: SpectralReasoningResult) -> N
         _validate_unit_interval(score, f"spectral_artifact {score_name}")
 
 
-def _canonicalize_optional_fixture_payload(
+def _validate_optional_fixture_payload(
     attenuation_fixture: tuple[float, ...] | None,
     distortion_fixture: tuple[int, ...] | None,
     label_fixture: tuple[str, ...] | None,
-) -> tuple[tuple[float, ...], tuple[int, ...], tuple[str, ...]]:
-    canonical_float: tuple[float, ...] = ()
-    canonical_int: tuple[int, ...] = ()
-    canonical_str: tuple[str, ...] = ()
+) -> None:
 
     if attenuation_fixture is not None:
         if not isinstance(attenuation_fixture, tuple):
@@ -350,7 +347,7 @@ def run_legacy_copper_noise_channel_battery(
     # Optional payloads are canonicalized and validated for deterministic readiness,
     # but battery identity is strictly spectral-derived per
     # REPLAY_SAFE_CHANNEL_BATTERY_IDENTITY_RULE.
-    _canonicalize_optional_fixture_payload(attenuation_fixture, distortion_fixture, label_fixture)
+    _validate_optional_fixture_payload(attenuation_fixture, distortion_fixture, label_fixture)
 
     continuity_baseline = _mean(
         (
@@ -362,6 +359,8 @@ def run_legacy_copper_noise_channel_battery(
     )
 
     family_multipliers: tuple[float, ...] = (0.99, 0.97, 0.98, 0.96, 0.95)
+    if len(_CHANNEL_FAMILIES) != len(family_multipliers):
+        raise ValueError("channel family configuration length mismatch")
     fixtures: list[CopperChannelFixture] = []
     for fixture_index, (channel_family, multiplier) in enumerate(zip(_CHANNEL_FAMILIES, family_multipliers)):
         attenuation_curve = tuple(

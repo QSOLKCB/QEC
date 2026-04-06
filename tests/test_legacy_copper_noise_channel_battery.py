@@ -90,6 +90,9 @@ def test_identical_input_produces_byte_identical_battery_artifacts() -> None:
     assert artifact_a == artifact_b
     assert artifact_a.to_canonical_bytes() == artifact_b.to_canonical_bytes()
     assert export_copper_channel_battery_bytes(artifact_a) == export_copper_channel_battery_bytes(artifact_b)
+    assert artifact_a.stable_hash() == artifact_a.copper_channel_battery_hash
+
+
 
 
 def test_export_rejects_non_battery_artifact() -> None:

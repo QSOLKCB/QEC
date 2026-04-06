@@ -1,31 +1,23 @@
 # QSOL QEC — Canonical Geometry-Driven Linux-Style Roadmap
 **Branch:** long-running canonical deterministic systems line  
-**Current Stable Release:** `v137.7.2`
+**Current Stable Release:** `v137.8.0`
 
 This roadmap supersedes all previous roadmap versions.
 
-The `v137.x.x` line remains the canonical long-running systems branch, preserving deterministic replay lineage, schema continuity, and release traceability.
+The `v137.x.x` line remains the canonical deterministic systems branch, preserving:
 
-The governing systems principle for future architecture is:
+- deterministic replay lineage
+- schema continuity
+- stable release traceability
+- paper-friendly benchmark progression
+- formal verification pathways
+
+---
+
+# CORE LAW
 
 ```text
-state evolution through constrained geometry
-
-This principle unifies:
-
-governed planning
-episodic memory
-topology / manifold traversal
-noisy communication channels
-spectral signal recovery
-scientific reasoning
-heterogeneous compute acceleration
-neuromorphic substrates
-distributed governance
-CORE LAW
-
 Determinism is architecture.
-
 same input = same bytes
 
 Mandatory invariants:
@@ -46,36 +38,47 @@ src/qec/decoder/ remains sacred infrastructure.
 
 No roadmap arc may violate this.
 
-CURRENT EXECUTION POSTURE
-Immediate Next Release
-v137.7.3 — Fragmentation Recovery Engine
+GOVERNING PRINCIPLE
+state evolution through constrained geometry
 
-Focus:
+This principle unifies:
 
-compressed memory repair
-chain continuity restoration
-theme fracture recovery
-replay-safe recovery receipts
+governed planning
+episodic memory
+topology / manifold traversal
+noisy communication channels
+spectral signal recovery
+scientific reasoning
+proof-carrying skepticism
+heterogeneous compute acceleration
+neuromorphic simulation
+distributed governance
+formal methods
 ACTIVE CANONICAL ARC
 v137.7.x — Hierarchical Memory + Episodic Geometry
 
-Status: ACTIVE
+Status: COMPLETE
 
-Completed
+Completed:
+
 v137.7.0 — Raw → Episode Hierarchy
 v137.7.1 — Semantic → Theme Compaction
 v137.7.2 — Hash-Preserving Compression Chain + Sonification Projection
-Next
 v137.7.3 — Fragmentation Recovery Engine
 v137.7.4 — Memory Fidelity Benchmark
-Interpretation
-sequence trajectory → episodic manifold segmentation
+
+Interpretation:
+
+sequence trajectory
+→ episodic segmentation
 → semantic compaction
-→ compressed replay-safe chain
-→ deterministic sonification
+→ replay-safe compression
+→ deterministic recovery
+→ fidelity certification
+
 v137.8.x — Geometry + Topology Reasoning Kernel
 
-This line is strengthened by the topology / number-theory link inspiration.
+Status: ACTIVE
 
 Focus:
 
@@ -84,18 +87,21 @@ polytope reasoning
 E8 symmetry projections
 manifold traversal
 topology divergence certification
-latent shortcut geometry
-geodesic inference
-number-topology correspondence
-Planned Line
+arithmetic-topology correspondence
+
+Planned line:
+
 v137.8.0 — Topological Graph Kernel
 v137.8.1 — Polytope Reasoning Engine
 v137.8.2 — E8 Symmetry Projection Layer
 v137.8.3 — Manifold Traversal Planner
 v137.8.4 — Topology Divergence Battery
 v137.8.5 — Arithmetic Topology Correspondence Engine
-Interpretation
+
+Interpretation:
+
 state trajectory across constrained manifold geometry
+
 v137.9.x — Signal + Channel Recovery + Physics-Aware Reasoning
 
 Focus:
@@ -105,8 +111,10 @@ spectral reasoning
 telecom benchmarks
 satellite LDPC baseline
 signal transduction modeling
-atomic-chain sensor benchmarks
-Planned Line
+sensor fidelity certification
+
+Planned:
+
 v137.9.0 — Multimodal Feature Schema
 v137.9.1 — Spectral Reasoning Layer
 v137.9.2 — Legacy Copper Noise Channel Battery
@@ -114,73 +122,90 @@ v137.9.3 — Telecom Line Recovery + Carrier Synchronization
 v137.9.4 — Satellite LDPC Baseline Benchmark
 v137.9.5 — Atomic Signal Transduction Observatory
 v137.9.6 — Cross-Modal Replay Certification
-Benchmarks
+
+Benchmarks:
+
 POTS / DSL / ISDN / T1 / T3
 AWGN
 burst-noise
 erasure
 BER / FER
 sensor signal fidelity
-v137.10.x — Scientific Reasoning Geometry
+v137.10.x — Scientific Reasoning + Claim Audit Geometry
 
 Focus:
 
 hypothesis lattice
 experiment DSL
+evidence lineage
 claim verification
 skepticism engine
 replay certification
-Planned Line
+adversarial pseudoscience rejection
+
+Planned:
+
 v137.10.0 — Hypothesis Lattice
 v137.10.1 — Experiment DSL
 v137.10.2 — Evidence Lineage Engine
 v137.10.3 — Claim Audit Kernel
 v137.10.4 — Scientific Replay Battery
-v137.11.x — Heterogeneous Compute + Hardware Acceleration
+v137.10.5 — Proof Obligation Extractor
+v137.10.6 — Numerological Phenomenology Rejection Battery
+v137.10.7 — Proof-Carrying Skepticism Battery
 
-This is a new line inspired by the 8086 accelerator and Cell CPU scheduling links.
+Interpretation:
+
+claim
+→ semantics
+→ invariants
+→ proof obligations
+→ certification or rejection
+
+This line explicitly rejects:
+
+equation cosplay
+symbolic density without mechanism
+numerology without executable semantics
+ungrounded “unified theory” claims
+proof-shaped but non-proof text
+v137.11.x — Heterogeneous Compute + Hardware Acceleration
 
 Focus:
 
 deterministic hardware offload
 integer / matrix acceleration
 replay-safe co-processor scheduling
-emulator-grade heterogeneous task splitting
-Planned Line
+emulator-grade task splitting
+
+Planned:
+
 v137.11.0 — Deterministic Co-Processor Kernel
 v137.11.1 — Integer / Matrix Offload Engine
 v137.11.2 — Heterogeneous Scheduler
 v137.11.3 — Emulator-Grade Parallel Workload Splitter
 v137.11.4 — Hardware Replay Battery
-Interpretation
-state evolution across heterogeneous compute geometry
-
-This line is ideal for:
-
-CPU/GPU split
-Rust / Python split execution
-FPGA / accelerator experiments later
 v137.12.x — Neuromorphic + Hybrid Biological Compute Research
-
-This is the big new research line from the rat-neuron ML link.
 
 Focus:
 
 hybrid substrate modeling
 neuromorphic simulation
-biological-signal computation benchmarking
-deterministic interface layer
-Planned Line
+biological-signal benchmarking
+deterministic interface layers
+
+Planned:
+
 v137.12.0 — Neuromorphic Substrate Simulator
 v137.12.1 — Hybrid Signal Interface Layer
 v137.12.2 — Bio-Signal Benchmark Battery
 v137.12.3 — Hybrid Replay Certification
 v137.12.4 — Experimental Research Pack
-Important Rule
 
-This line remains simulation-first.
+Important rule:
 
-No biological claims without explicit evidence receipts.
+simulation-first only
+no biological claims without evidence receipts
 
 v137.13.x — Unified Intelligence Substrate
 
@@ -191,10 +216,12 @@ memory
 topology
 signal
 acceleration
-neuromorphic simulation
 scientific reasoning
-distributed governance
-Planned Line
+governance
+proof certification
+
+Planned:
+
 v137.13.0 — Subsystem Fusion Kernel
 v137.13.1 — Unified Artifact Registry
 v137.13.2 — Cross-Substrate Scheduler
@@ -202,38 +229,62 @@ v137.13.3 — Governed World-Model Handoff
 v137.13.4 — Unified Certification Battery
 FORMAL METHODS LINE
 v137.20.x — TLA+ + Model Checking
+
+Focus:
+
 replay law verification
 state transition proofs
 convergence proofs
-heterogeneous scheduling proofs
+scheduler correctness
+claim-state verification
+
+Planned:
+
+v137.20.0 — Replay Law Model Checker
+v137.20.1 — State Transition Proof Battery
+v137.20.2 — Convergence Proof Pack
+v137.20.3 — Scheduler Safety Model
+v137.20.4 — Adversarial Slop Claim State Rejection Pack
+
+This line formally stress-tests mystical / pseudoscientific claims by requiring explicit state machines and checkable safety properties.
+
 v137.21.x — Lean 4 Invariant Pack
-hash chain proofs
+
+Focus:
+
+hash-chain proofs
 schema migration proofs
 topology invariants
 acceleration invariants
-artifact immutability proofs
+artifact immutability
+proof-carrying skepticism
+
+Planned:
+
+v137.21.0 — Hash Chain Proof Suite
+v137.21.1 — Schema Migration Proof Suite
+v137.21.2 — Topology Invariant Proof Pack
+v137.21.3 — Artifact Immutability Proof Pack
+v137.21.4 — Slop Rejection Proof Obligations
+v137.21.5 — Proof-Carrying Skepticism Core
 BENCHMARK LAW
 
 Every release must pass relevant batteries.
 
-Core
+Core:
+
 byte identity battery
 replay battery
 canonical export battery
 stable hash battery
-Communications
-BER suite
-FER suite
-carrier stability suite
-LDPC convergence suite
-Hardware
-offload determinism suite
-scheduler stability suite
-parallel replay suite
-Scientific Reasoning
+
+Scientific reasoning:
+
 dimensional consistency suite
 tautology detection suite
 provenance suite
+proof obligation satisfaction suite
+pseudoscience rejection suite
 ENGINEERING DISCIPLINE
 
 Every release must be:
@@ -245,6 +296,7 @@ deterministic
 benchmarkable
 paper-friendly
 replay-safe
+proof-auditable
 
 Avoid:
 
@@ -253,3 +305,4 @@ mutable artifact state
 benchmark theater
 numerological phenomenology
 ungrounded theoretical claims
+proof-shaped slop

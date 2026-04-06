@@ -121,6 +121,17 @@ def _validate_recovery_artifact(
         raise ValueError("recovery_artifact source_replay_identity_hash must match source_artifact")
     if len(artifact.repaired_records) != len(source_records):
         raise ValueError("recovery_artifact repaired_records must match source record count")
+    if (
+        artifact.repaired_chain_head
+        != artifact.repaired_records[-1].source_replay_identity_hash
+    ):
+        raise ValueError(
+            "recovery_artifact repaired_chain_head must match final repaired record"
+        )
+    if artifact.preserved_theme_hashes != source_artifact.preserved_theme_hashes:
+        raise ValueError(
+            "recovery_artifact preserved_theme_hashes must match source_artifact"
+        )
     return artifact.repaired_records
 
 

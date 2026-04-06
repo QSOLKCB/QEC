@@ -96,7 +96,7 @@ def test_reset_marker_segmentation() -> None:
     assert artifact.episodes[1].boundary_reasons == ("reset_marker",)
 
 
-def test_route_task_completion_segmentation() -> None:
+def test_task_completion_segmentation() -> None:
     records = (
         {"record_id": "a", "sequence_index": 0, "task_completed": True},
         {"record_id": "b", "sequence_index": 1},

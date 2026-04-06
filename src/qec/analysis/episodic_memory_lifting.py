@@ -180,6 +180,15 @@ class RawMemoryRecord:
             "task_completed": self.task_completed,
         }
 
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+    def to_canonical_bytes(self) -> bytes:
+        return self.to_canonical_json().encode("utf-8")
+
+    def stable_hash(self) -> str:
+        return _sha256_hex(self.to_dict())
+
 
 @dataclass(frozen=True)
 class EpisodeRecord:
@@ -205,6 +214,15 @@ class EpisodeRecord:
             "episode_hash": self.episode_hash,
             "replay_identity_hash": self.replay_identity_hash,
         }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+    def to_canonical_bytes(self) -> bytes:
+        return self.to_canonical_json().encode("utf-8")
+
+    def stable_hash(self) -> str:
+        return _sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -339,8 +357,9 @@ def _boundary_reasons(
 def detect_episode_boundaries(
     records: Sequence[Mapping[str, object]],
     *,
-    config: EpisodeBoundaryConfig = EpisodeBoundaryConfig(),
+    config: EpisodeBoundaryConfig | None = None,
 ) -> tuple[tuple[int, tuple[str, ...]], ...]:
+    config = config if config is not None else EpisodeBoundaryConfig()
     normalized = _normalize_records(records, normalize_by_sequence_index=config.normalize_by_sequence_index)
     boundaries: list[tuple[int, tuple[str, ...]]] = []
     current_len = 1
@@ -363,8 +382,9 @@ def detect_episode_boundaries(
 def lift_raw_records_to_episodic_memory(
     records: Sequence[Mapping[str, object]],
     *,
-    config: EpisodeBoundaryConfig = EpisodeBoundaryConfig(),
+    config: EpisodeBoundaryConfig | None = None,
 ) -> EpisodicMemoryArtifact:
+    config = config if config is not None else EpisodeBoundaryConfig()
     normalized = _normalize_records(records, normalize_by_sequence_index=config.normalize_by_sequence_index)
     source_sequence_hash = _sha256_hex(tuple(item.to_dict() for item in normalized))
     boundaries = detect_episode_boundaries(normalized, config=config)
@@ -471,6 +491,7 @@ __all__ = [
     "EpisodeRecord",
     "EpisodicMemoryArtifact",
     "EpisodicMemoryReceipt",
+    "RawMemoryRecord",
     "detect_episode_boundaries",
     "export_episodic_memory_bytes",
     "generate_episodic_memory_receipt",

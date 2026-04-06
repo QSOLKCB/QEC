@@ -283,12 +283,12 @@ class EpisodicMemoryReceipt:
 
 
 def _normalize_records(
-    records: Sequence[Mapping[str, object]],
+    records: Sequence[Mapping[str, object] | RawMemoryRecord],
     *,
     normalize_by_sequence_index: bool,
 ) -> tuple[RawMemoryRecord, ...]:
     if not isinstance(records, Sequence) or isinstance(records, (str, bytes, bytearray)):
-        raise ValueError("records must be a sequence of mappings")
+        raise ValueError("records must be a non-string sequence of mappings or RawMemoryRecord instances")
     if len(records) == 0:
         raise ValueError("records must be non-empty")
 
@@ -355,7 +355,7 @@ def _boundary_reasons(
 
 
 def detect_episode_boundaries(
-    records: Sequence[Mapping[str, object]],
+    records: Sequence[Mapping[str, object] | RawMemoryRecord],
     *,
     config: EpisodeBoundaryConfig | None = None,
 ) -> tuple[tuple[int, tuple[str, ...]], ...]:
@@ -380,7 +380,7 @@ def detect_episode_boundaries(
 
 
 def lift_raw_records_to_episodic_memory(
-    records: Sequence[Mapping[str, object]],
+    records: Sequence[Mapping[str, object] | RawMemoryRecord],
     *,
     config: EpisodeBoundaryConfig | None = None,
 ) -> EpisodicMemoryArtifact:

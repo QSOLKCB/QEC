@@ -92,6 +92,9 @@ def test_identical_input_produces_byte_identical_battery_artifacts() -> None:
     assert export_copper_channel_battery_bytes(artifact_a) == export_copper_channel_battery_bytes(artifact_b)
 
 
+def test_export_rejects_non_battery_artifact() -> None:
+    with pytest.raises(ValueError, match="must be a CopperChannelBatteryResult"):
+        export_copper_channel_battery_bytes(object())
 def test_deterministic_repeated_runs() -> None:
     spectral = _spectral_artifact()
 

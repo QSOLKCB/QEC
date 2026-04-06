@@ -35,6 +35,8 @@ def _validate_hash_hex(value: str, *, field_name: str) -> str:
 
 
 def _validate_probability(value: float, *, field_name: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a number, not bool")
     if not isinstance(value, (int, float)):
         raise ValueError(f"{field_name} must be a number")
     value_f = float(value)
@@ -93,6 +95,8 @@ def _validate_vector(values: tuple[float, ...], *, field_name: str) -> tuple[flo
         raise ValueError(f"{field_name} must be non-empty")
     normalized: list[float] = []
     for value in values:
+        if isinstance(value, bool):
+            raise ValueError(f"{field_name} entries must be numeric, not bool")
         if not isinstance(value, (int, float)):
             raise ValueError(f"{field_name} entries must be numeric")
         entry = float(value)
@@ -241,6 +245,8 @@ def _stable_recovery_hash_payload(
     recovered_state_hash: str,
     parent_transition_hash: str,
     schema_version: int,
+    fragmentation_boundaries: tuple[int, ...],
+    recovered_coherence_profile: tuple[float, ...],
 ) -> bytes:
     payload = {
         "source_field_hash": source_field_hash,
@@ -249,6 +255,8 @@ def _stable_recovery_hash_payload(
         "recovered_state_hash": recovered_state_hash,
         "parent_transition_hash": parent_transition_hash,
         "schema_version": schema_version,
+        "fragmentation_boundaries": fragmentation_boundaries,
+        "recovered_coherence_profile": recovered_coherence_profile,
     }
     return _canonical_json_bytes(payload)
 
@@ -278,6 +286,8 @@ def synthesize_recovery_state(
         recovered_state_hash=recovered_hash,
         parent_transition_hash=parent_hash,
         schema_version=state.schema_version,
+        fragmentation_boundaries=boundaries,
+        recovered_coherence_profile=recovered_profile,
     )
     stable_hash = _sha256_hex(stable_payload)
 
@@ -325,12 +335,15 @@ def validate_recovery_artifact(artifact: RecoveryArtifact) -> bool:
         raise ValueError("recovered_coherence_profile must be a tuple")
     _validate_vector(artifact.recovered_coherence_profile, field_name="recovered_coherence_profile")
 
+    profile_len = len(artifact.recovered_coherence_profile)
     last_boundary = 0
     for boundary in artifact.fragmentation_boundaries:
         if not isinstance(boundary, int):
             raise ValueError("fragmentation_boundaries entries must be integers")
         if boundary <= last_boundary:
             raise ValueError("fragmentation_boundaries must be strictly increasing")
+        if boundary <= 0 or boundary >= profile_len:
+            raise ValueError("fragmentation_boundaries entries out of range")
         last_boundary = boundary
 
     if not isinstance(artifact.recovery_identity_chain, tuple) or len(artifact.recovery_identity_chain) != 4:
@@ -345,6 +358,8 @@ def validate_recovery_artifact(artifact: RecoveryArtifact) -> bool:
         recovered_state_hash=artifact.recovered_state_hash,
         parent_transition_hash=parent_hash,
         schema_version=artifact.schema_version,
+        fragmentation_boundaries=artifact.fragmentation_boundaries,
+        recovered_coherence_profile=artifact.recovered_coherence_profile,
     )
     expected_stable_hash = _sha256_hex(expected_payload)
     if stable_hash != expected_stable_hash:

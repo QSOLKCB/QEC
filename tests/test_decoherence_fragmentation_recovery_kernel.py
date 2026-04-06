@@ -83,6 +83,30 @@ def test_tamper_detection() -> None:
         validate_recovery_artifact(tampered)
 
 
+def test_tamper_detection_recovered_coherence_profile() -> None:
+    artifact = synthesize_recovery_state(_state(), parent_transition_hash=_hex("e"))
+    original = artifact.recovered_coherence_profile
+    mutated = tuple(v + 0.01 for v in original)
+    tampered = replace(artifact, recovered_coherence_profile=mutated)
+
+    with pytest.raises(ValueError, match="stable_recovery_hash mismatch"):
+        validate_recovery_artifact(tampered)
+
+
+def test_tamper_detection_fragmentation_boundaries() -> None:
+    state = DecoherenceState(
+        state_id="tamper-boundaries",
+        field_amplitudes=(0.9, 0.4, 0.1, 0.95, 0.98),
+        coherence_profile=(0.95, 0.88, 0.21, 0.22, 0.93),
+    )
+    artifact = synthesize_recovery_state(state, parent_transition_hash=_hex("f"))
+    # Replace boundaries with an empty tuple so the hash no longer matches
+    tampered = replace(artifact, fragmentation_boundaries=())
+
+    with pytest.raises(ValueError, match="stable_recovery_hash mismatch"):
+        validate_recovery_artifact(tampered)
+
+
 def test_fail_fast_invalid_input_handling() -> None:
     with pytest.raises(ValueError, match="field_amplitudes and coherence_profile must have equal lengths"):
         DecoherenceState(

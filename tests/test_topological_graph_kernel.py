@@ -214,3 +214,51 @@ def test_receipt_determinism() -> None:
     assert receipt_a == receipt_b
     assert receipt_a.stable_hash() == receipt_a.receipt_hash
     assert receipt_a.to_canonical_bytes() == receipt_b.to_canonical_bytes()
+
+
+def test_fail_fast_mismatched_preserved_theme_hashes() -> None:
+    compressed = _compressed_artifact()
+    recovery = recover_fragmented_compression_chain(
+        compressed,
+        observed_records=tuple(compressed.records),
+        enable_fragmentation_recovery=True,
+    )
+    invalid_recovery = type(recovery)(
+        schema_version=recovery.schema_version,
+        source_compression_hash=recovery.source_compression_hash,
+        source_replay_identity_hash=recovery.source_replay_identity_hash,
+        repaired_chain_head=recovery.repaired_chain_head,
+        repaired_records=recovery.repaired_records,
+        preserved_theme_hashes=tuple(reversed(recovery.preserved_theme_hashes)),
+        continuity_score=recovery.continuity_score,
+        recovery_confidence=recovery.recovery_confidence,
+        fracture_severity=recovery.fracture_severity,
+        lineage_report=recovery.lineage_report,
+        sonification_repair_metadata=recovery.sonification_repair_metadata,
+        replay_safe=recovery.replay_safe,
+        law_invariants=recovery.law_invariants,
+        recovery_artifact_hash=recovery.recovery_artifact_hash,
+    )
+
+    with pytest.raises(ValueError, match="preserved_theme_hashes must match source_artifact"):
+        build_topological_graph_kernel(compressed, invalid_recovery)
+
+
+def test_fragmented_chain_connectivity_and_lineage_degrade() -> None:
+    compressed = _compressed_artifact()
+    pristine = recover_fragmented_compression_chain(
+        compressed,
+        observed_records=tuple(compressed.records),
+        enable_fragmentation_recovery=True,
+    )
+    fragmented = recover_fragmented_compression_chain(
+        compressed,
+        observed_records=(compressed.records[4], compressed.records[0]),
+        enable_fragmentation_recovery=True,
+    )
+
+    pristine_graph = build_topological_graph_kernel(compressed, pristine)
+    fragmented_graph = build_topological_graph_kernel(compressed, fragmented)
+
+    assert fragmented_graph.connectivity_score < pristine_graph.connectivity_score
+    assert fragmented_graph.lineage_integrity_score < pristine_graph.lineage_integrity_score

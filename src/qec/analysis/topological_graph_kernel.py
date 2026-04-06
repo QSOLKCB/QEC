@@ -115,7 +115,36 @@ def _validate_recovery_artifact(
         raise ValueError("recovery_artifact repaired_records must match source record count")
     if artifact.repaired_chain_head != artifact.repaired_records[-1].source_replay_identity_hash:
         raise ValueError("recovery_artifact repaired_chain_head must match final repaired record")
+    if artifact.preserved_theme_hashes != source_artifact.preserved_theme_hashes:
+        raise ValueError("recovery_artifact preserved_theme_hashes must match source_artifact")
     return artifact.repaired_records
+
+
+_LINEAGE_ISSUE_FIELDS: tuple[str, ...] = (
+    "missing_theme_indices",
+    "disordered_theme_indices",
+    "corrupted_theme_indices",
+    "missing_indices",
+    "disordered_indices",
+    "corrupted_indices",
+    "missing",
+    "disordered",
+    "corrupted",
+)
+
+
+def _get_indices_from_report(report: Any, field_name: str) -> tuple[int, ...]:
+    if report is None:
+        return ()
+    if isinstance(report, Mapping):
+        value = report.get(field_name, ())
+    else:
+        value = getattr(report, field_name, ())
+    if value is None:
+        return ()
+    if isinstance(value, (tuple, list)):
+        return tuple(int(v) for v in value)
+    return ()
 
 
 def _node_id(record: CompressionRecord) -> str:
@@ -280,10 +309,17 @@ def build_topological_graph_kernel(
     recovery_artifact: FragmentationRecoveryArtifact,
 ) -> TopologicalGraphKernelResult:
     source_records = _validate_source_artifact(source_artifact)
-    repaired_records = _validate_recovery_artifact(
+    _validate_recovery_artifact(
         recovery_artifact,
         source_artifact=source_artifact,
         source_records=source_records,
+    )
+
+    lineage_report = getattr(recovery_artifact, "lineage_report", None)
+    fractured_indices: frozenset[int] = frozenset(
+        idx
+        for field_name in _LINEAGE_ISSUE_FIELDS
+        for idx in _get_indices_from_report(lineage_report, field_name)
     )
 
     nodes_list: list[TopologicalGraphNode] = []
@@ -309,13 +345,7 @@ def build_topological_graph_kernel(
     for idx in range(1, len(source_records)):
         src_record = source_records[idx - 1]
         tgt_record = source_records[idx]
-        repaired_src = repaired_records[idx - 1]
-        repaired_tgt = repaired_records[idx]
-        contiguous = (
-            repaired_tgt.source_parent_theme_hash == repaired_src.source_replay_identity_hash
-            and repaired_tgt.source_replay_identity_hash == tgt_record.source_replay_identity_hash
-            and repaired_src.source_replay_identity_hash == src_record.source_replay_identity_hash
-        )
+        contiguous = idx not in fractured_indices and (idx - 1) not in fractured_indices
         weight = observed_continuity if contiguous else 0.0
         continuity_hits += weight
         edge_payload = {
@@ -341,18 +371,24 @@ def build_topological_graph_kernel(
     )
 
     expected_edge_count = max(0, len(source_records) - 1)
-    connectivity_score = _safe_fraction(len(edges), expected_edge_count)
+    connected_edge_count = sum(1 for edge in edges if edge.continuity_weight > 0.0)
+    connectivity_score = _safe_fraction(connected_edge_count, expected_edge_count)
     continuity_graph_score = _clamp01(
         1.0 if expected_edge_count <= 0 else float(continuity_hits / expected_edge_count)
     )
 
-    lineage_pass = 0
-    for idx, node in enumerate(nodes):
-        if idx == 0 and node.lineage_parent_id == "":
-            lineage_pass += 1
-        elif idx > 0 and node.lineage_parent_id == nodes[idx - 1].node_id:
-            lineage_pass += 1
-    lineage_integrity_score = _safe_fraction(lineage_pass, len(nodes))
+    if fractured_indices:
+        lineage_integrity_score = _clamp01(
+            1.0 - _safe_fraction(len(fractured_indices), len(source_records))
+        )
+    else:
+        lineage_pass = 0
+        for idx, node in enumerate(nodes):
+            if idx == 0 and node.lineage_parent_id == "":
+                lineage_pass += 1
+            elif idx > 0 and node.lineage_parent_id == nodes[idx - 1].node_id:
+                lineage_pass += 1
+        lineage_integrity_score = _safe_fraction(lineage_pass, len(nodes))
 
     overall_topology_score = _clamp01(
         float(connectivity_score * 0.25 + continuity_graph_score * 0.5 + lineage_integrity_score * 0.25)

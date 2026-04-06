@@ -11,7 +11,7 @@ import json
 import math
 from typing import Any, Mapping
 
-from qec.analysis.topological_graph_kernel import TopologicalGraphKernelResult
+from qec.analysis.topological_graph_kernel import TopologicalGraphEdge, TopologicalGraphKernelResult
 
 _JSONScalar = str | int | float | bool | None
 _JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
@@ -247,8 +247,9 @@ def build_polytope_reasoning_engine(graph_artifact: TopologicalGraphKernelResult
 
     degree_by_node_id = {node.node_id: 0 for node in graph_artifact.nodes}
     for edge in graph_artifact.edges:
-        degree_by_node_id[edge.source_node_id] += 1
-        degree_by_node_id[edge.target_node_id] += 1
+        if edge.continuity_weight > 0.0:
+            degree_by_node_id[edge.source_node_id] += 1
+            degree_by_node_id[edge.target_node_id] += 1
 
     vertices_list: list[PolytopeVertex] = []
     for node in graph_artifact.nodes:
@@ -274,6 +275,12 @@ def build_polytope_reasoning_engine(graph_artifact: TopologicalGraphKernelResult
 
     vertex_id_by_node_id = {vertex.source_node_id: vertex.vertex_id for vertex in vertices}
 
+    # Map each target_node_id to its edge for deterministic chain predecessor lookup.
+    # The continuity chain is linear so each node is the target of at most one edge.
+    edge_by_target: dict[str, TopologicalGraphEdge] = {
+        edge.target_node_id: edge for edge in graph_artifact.edges
+    }
+
     faces_list: list[PolytopeFace] = []
     for idx, edge in enumerate(graph_artifact.edges):
         src_vertex_id = vertex_id_by_node_id[edge.source_node_id]
@@ -282,14 +289,13 @@ def build_polytope_reasoning_engine(graph_artifact: TopologicalGraphKernelResult
         vertex_ids = tuple(sorted((src_vertex_id, tgt_vertex_id)))
         source_edge_ids = (edge.edge_id,)
         continuity = _clamp01(float(edge.continuity_weight))
-        if idx > 0:
-            prev_edge = graph_artifact.edges[idx - 1]
-            if prev_edge.target_node_id == edge.source_node_id:
-                dimension = 3
-                prev_vertex_id = vertex_id_by_node_id[prev_edge.source_node_id]
-                vertex_ids = tuple(sorted((prev_vertex_id, src_vertex_id, tgt_vertex_id)))
-                source_edge_ids = tuple(sorted((prev_edge.edge_id, edge.edge_id)))
-                continuity = _clamp01(float((prev_edge.continuity_weight + edge.continuity_weight) / 2.0))
+        pred_edge = edge_by_target.get(edge.source_node_id)
+        if pred_edge is not None:
+            dimension = 3
+            pred_vertex_id = vertex_id_by_node_id[pred_edge.source_node_id]
+            vertex_ids = tuple(sorted((pred_vertex_id, src_vertex_id, tgt_vertex_id)))
+            source_edge_ids = tuple(sorted((pred_edge.edge_id, edge.edge_id)))
+            continuity = _clamp01(float((pred_edge.continuity_weight + edge.continuity_weight) / 2.0))
 
         face_payload = {
             "source_graph_hash": graph_artifact.graph_hash,
@@ -319,10 +325,35 @@ def build_polytope_reasoning_engine(graph_artifact: TopologicalGraphKernelResult
     face_continuity_score = _clamp01(float(continuity_hits / len(faces))) if faces else 1.0
 
     expected_face_count = graph_artifact.edge_count
-    face_count_match = 1 if len(faces) == expected_face_count else 0
-    expected_dimensions = sum(1 for face in faces if face.face_dimension in (2, 3))
+    flattened_source_edge_ids = tuple(
+        source_edge_id for face in faces for source_edge_id in face.source_edge_ids
+    )
+    unique_source_edge_ids = len(set(flattened_source_edge_ids))
+    source_edge_coverage_score = _safe_fraction(unique_source_edge_ids, expected_face_count)
+    source_edge_uniqueness_score = _safe_fraction(
+        unique_source_edge_ids, len(flattened_source_edge_ids)
+    )
+    if faces:
+        expected_mean_dimension = 2.0 + _clamp01(graph_artifact.overall_topology_score)
+        actual_mean_dimension = sum(face.face_dimension for face in faces) / len(faces)
+        dimension_alignment_score = _clamp01(
+            1.0 - abs(actual_mean_dimension - expected_mean_dimension)
+        )
+    else:
+        dimension_alignment_score = 1.0
+    valid_vertex_incidence_count = sum(
+        1
+        for face in faces
+        if len(set(face.vertex_ids)) >= 2 and len(face.vertex_ids) >= face.face_dimension
+    )
+    vertex_incidence_score = _safe_fraction(valid_vertex_incidence_count, len(faces))
     dimensional_consistency_score = _clamp01(
-        float(0.5 * _safe_fraction(expected_dimensions, len(faces)) + 0.5 * float(face_count_match))
+        float(
+            0.4 * dimension_alignment_score
+            + 0.3 * source_edge_coverage_score
+            + 0.2 * source_edge_uniqueness_score
+            + 0.1 * vertex_incidence_score
+        )
     )
 
     source_alignment = 1.0 if graph_artifact.source_replay_identity_hash else 0.0

@@ -349,6 +349,13 @@ def run_telecom_line_recovery(
     line_index_fixture: tuple[int, ...] | None = None,
     tag_fixture: tuple[str, ...] | None = None,
 ) -> TelecomRecoveryResult:
+    """Build a replay-safe telecom recovery artifact from a battery artifact.
+
+    Recovery identity and payload are derived strictly from ``battery_artifact``
+    per REPLAY_SAFE_RECOVERY_IDENTITY_RULE. Optional fixture payloads are
+    accepted only for deterministic-readiness validation and do not affect
+    generated segments, scores, or hashes.
+    """
     _validate_battery_artifact(battery_artifact)
     _validate_optional_fixture_payload(gain_fixture, line_index_fixture, tag_fixture)
 

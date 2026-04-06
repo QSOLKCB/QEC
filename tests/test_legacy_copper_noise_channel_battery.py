@@ -189,6 +189,20 @@ def test_receipt_determinism() -> None:
     assert receipt_a.to_canonical_bytes() == receipt_b.to_canonical_bytes()
 
 
+def test_generate_receipt_rejects_non_battery_artifact() -> None:
+    with pytest.raises(ValueError, match="must be a CopperChannelBatteryResult"):
+        generate_copper_channel_battery_receipt(object())
+
+
+def test_generate_receipt_rejects_mismatched_battery_hash() -> None:
+    spectral = _spectral_artifact()
+    artifact = run_legacy_copper_noise_channel_battery(spectral)
+    tampered = replace(artifact, copper_channel_battery_hash="deadbeef")
+
+    with pytest.raises(ValueError, match="must match stable_hash"):
+        generate_copper_channel_battery_receipt(tampered)
+
+
 def test_lineage_hash_preservation() -> None:
     spectral = _spectral_artifact()
     artifact = run_legacy_copper_noise_channel_battery(spectral)

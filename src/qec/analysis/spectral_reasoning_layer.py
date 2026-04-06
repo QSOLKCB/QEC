@@ -148,7 +148,10 @@ def _extract_schema_magnitudes(schema_artifact: MultimodalFeatureSchemaResult) -
     for feature in schema_artifact.features:
         value = feature.feature_value
         if isinstance(value, bool):
-            continue
+            raise TypeError(
+                f"schema feature bool values are not supported for magnitude extraction"
+                f" (feature: {feature.feature_name!r})"
+            )
         if isinstance(value, int):
             magnitudes.append(float(abs(value)))
         elif isinstance(value, float):
@@ -157,6 +160,11 @@ def _extract_schema_magnitudes(schema_artifact: MultimodalFeatureSchemaResult) -
             magnitudes.append(float(abs(value)))
         elif isinstance(value, str):
             magnitudes.append(float(len(value)))
+        else:
+            raise TypeError(
+                f"unsupported schema feature_value type {type(value)!r} for magnitude extraction"
+                f" (feature: {feature.feature_name!r})"
+            )
     if not magnitudes:
         return (0.0,)
     return tuple(magnitudes)
@@ -208,6 +216,11 @@ class SpectralFeature:
             "feature_projection_score": self.feature_projection_score,
         }
 
+    def to_hash_payload_dict(self) -> dict[str, _JSONValue]:
+        payload = self.to_dict()
+        payload.pop("feature_id")
+        return payload
+
     def to_canonical_json(self) -> str:
         return _canonical_json(self.to_dict())
 
@@ -215,7 +228,7 @@ class SpectralFeature:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash(self) -> str:
-        return _sha256_hex(self.to_dict())
+        return _sha256_hex(self.to_hash_payload_dict())
 
 
 @dataclass(frozen=True)
@@ -371,7 +384,7 @@ def build_spectral_reasoning_layer(
             projection_score = _clamp01(1.0 - (source_feature_index / projection_denominator))
             spectral_feature = SpectralFeature(
                 feature_id="",
-                source_feature_index=source_feature.feature_index,
+                source_feature_index=source_feature_index,
                 source_feature_family=source_feature.feature_family,
                 source_feature_name=source_feature.feature_name,
                 source_feature_hash=source_feature.stable_hash(),

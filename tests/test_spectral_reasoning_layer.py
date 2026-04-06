@@ -10,7 +10,7 @@ from qec.analysis.episodic_memory_lifting import lift_raw_records_to_episodic_me
 from qec.analysis.fragmentation_recovery_engine import recover_fragmented_compression_chain
 from qec.analysis.hash_preserving_memory_compression import CompressedMemoryArtifact, compress_semantic_theme_memory
 from qec.analysis.manifold_traversal_planner import build_manifold_traversal_plan
-from qec.analysis.multimodal_feature_schema import build_multimodal_feature_schema
+from qec.analysis.multimodal_feature_schema import MultimodalFeatureSchemaResult, build_multimodal_feature_schema
 from qec.analysis.polytope_reasoning_engine import build_polytope_reasoning_engine
 from qec.analysis.semantic_theme_compaction import compact_episodic_memory_to_semantic_themes
 from qec.analysis.spectral_reasoning_layer import (
@@ -47,7 +47,7 @@ def _compressed_artifact() -> CompressedMemoryArtifact:
     return compress_semantic_theme_memory(semantic)
 
 
-def _schema_artifact() -> object:
+def _schema_artifact() -> MultimodalFeatureSchemaResult:
     compressed = _compressed_artifact()
     seed = tuple(range(min(6, len(compressed.records))))
     observed = tuple(compressed.records[idx] for idx in seed)
@@ -128,6 +128,9 @@ def test_stable_hash_invariants() -> None:
         BOUNDED_SPECTRAL_SCORE_RULE,
     )
     assert artifact.stable_hash() == artifact.spectral_reasoning_hash
+    for band in artifact.spectral_bands:
+        for feature in band.features:
+            assert feature.feature_id == feature.stable_hash()
 
 
 def test_fail_fast_malformed_schema_input() -> None:

@@ -41,12 +41,15 @@ def _normalize_scalar(value: Any) -> Any:
 def _normalize_value(value: Any) -> Any:
     if isinstance(value, Mapping):
         normalized_mapping: dict[str, Any] = {}
+        original_keys: dict[str, Any] = {}
         for original_key, item in sorted(value.items(), key=lambda entry: str(entry[0])):
             normalized_key = str(original_key)
             if normalized_key in normalized_mapping:
                 raise ValueError(
-                    f"mapping contains multiple keys that normalize to {normalized_key!r}"
+                    f"mapping contains multiple keys that normalize to {normalized_key!r} "
+                    f"(original keys: {original_keys[normalized_key]!r} and {original_key!r})"
                 )
+            original_keys[normalized_key] = original_key
             normalized_mapping[normalized_key] = _normalize_value(item)
         return normalized_mapping
     if isinstance(value, (list, tuple)):

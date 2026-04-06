@@ -88,6 +88,16 @@ def test_fail_fast_invalid_input_handling() -> None:
         compute_recovery_regression_score(-0.1, 0.2)
 
 
+def test_export_validates_stable_hash_consistency() -> None:
+    valid_report = simulate_state_collapse(_source_attractor(), _reset_pathway(), parent_attractor_hash=_parent_hash())
+    tampered_report = dataclasses.replace(
+        valid_report,
+        stable_simulation_hash="ff" * 32,
+    )
+    with pytest.raises(ValueError, match="stable_simulation_hash"):
+        export_simulation_bytes(tampered_report)
+
+
 def test_export_validates_tampered_report_bounds() -> None:
     valid_report = simulate_state_collapse(_source_attractor(), _reset_pathway(), parent_attractor_hash=_parent_hash())
     invalid_report = CollapseSimulationReport(

@@ -37,7 +37,10 @@ def _validate_hash_hex(value: str, *, name: str) -> str:
     if len(normalized) != 64:
         raise ValueError(f"{name} must be a 64-character SHA-256 hex string")
     if any(ch not in "0123456789abcdef" for ch in normalized):
-        raise ValueError(f"{name} must be lowercase hexadecimal")
+        raise ValueError(
+            f"{name} must be a 64-character SHA-256 hex string "
+            "(normalized to lowercase)"
+        )
     return normalized
 
 
@@ -156,9 +159,7 @@ def validate_reset_pathway(reset_pathway: Sequence[str]) -> tuple[str, ...]:
         seen_steps.add(label)
         normalized_steps.append(label)
 
-    decorated = [(label, index) for index, label in enumerate(normalized_steps)]
-    decorated.sort(key=lambda item: (item[0], item[1]))
-    return tuple(label for label, _ in decorated)
+    return tuple(sorted(normalized_steps))
 
 
 def compute_recovery_regression_score(
@@ -247,6 +248,23 @@ def export_simulation_bytes(report: CollapseSimulationReport) -> bytes:
     _bounded_unit_interval(report.collapse_severity_score, name="collapse_severity_score")
     _bounded_unit_interval(report.reset_success_score, name="reset_success_score")
     _bounded_unit_interval(report.recovery_regression_score, name="recovery_regression_score")
+    expected_hash = _compute_stable_simulation_hash(
+        {
+            "schema_version": report.schema_version,
+            "source_attractor_hash": report.source_attractor_hash,
+            "collapse_severity_score": report.collapse_severity_score,
+            "reset_success_score": report.reset_success_score,
+            "recovery_regression_score": report.recovery_regression_score,
+            "reset_state_hash": report.reset_state_hash,
+            "parent_attractor_hash": report.parent_attractor_hash,
+            "stable_simulation_hash": _STABLE_HASH_SENTINEL,
+        }
+    )
+    if report.stable_simulation_hash != expected_hash:
+        raise ValueError(
+            "stable_simulation_hash does not match the report payload; "
+            "the report may have been tampered with"
+        )
     return report.to_canonical_bytes()
 
 

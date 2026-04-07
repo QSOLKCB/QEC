@@ -94,7 +94,7 @@ class EvidenceNode:
             "node_type": self.node_type,
             "source_hash": self.source_hash,
             "source_kind": self.source_kind,
-            "metadata": _canonicalize_json(self.metadata),
+            "metadata": self.metadata,
             "linked_experiment_hash": self.linked_experiment_hash,
             "linked_measurement_ids": tuple(self.linked_measurement_ids),
         }
@@ -254,7 +254,7 @@ def validate_evidence_graph(graph: EvidenceLineageGraph) -> None:
     if len(set(node_ids)) != len(node_ids):
         raise ValueError("duplicate node IDs are not allowed")
 
-    node_id_set = set(node_ids)
+    node_by_id: dict[str, EvidenceNode] = {node.node_id: node for node in graph.nodes}
     measurement_ids = {node.node_id for node in graph.nodes if node.node_type == "measurement"}
 
     for node in graph.nodes:
@@ -274,12 +274,10 @@ def validate_evidence_graph(graph: EvidenceLineageGraph) -> None:
     for edge in graph.edges:
         if edge.relation_type not in _ALLOWED_EDGE_TYPES:
             raise ValueError(f"unsupported edge type: {edge.relation_type}")
-        if edge.from_node_id not in node_id_set or edge.to_node_id not in node_id_set:
+        if edge.from_node_id not in node_by_id or edge.to_node_id not in node_by_id:
             raise ValueError("edge references unknown node IDs")
         if edge.from_node_id == edge.to_node_id:
-            from_node = next(node for node in graph.nodes if node.node_id == edge.from_node_id)
-            to_node = next(node for node in graph.nodes if node.node_id == edge.to_node_id)
-            if not (from_node.node_type == "receipt" and to_node.node_type == "receipt"):
+            if node_by_id[edge.from_node_id].node_type != "receipt":
                 raise ValueError("self-loop edges are only allowed for receipt-linked nodes")
 
 

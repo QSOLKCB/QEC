@@ -137,6 +137,10 @@ def _validate_replay_certification_artifact(
     ):
         _validate_unit_interval(score, f"certification_artifact {score_name}")
 
+    # Verify top-level source_* fields match ledger.lineage_chain to prevent forged provenance:
+    # an attacker could mutate source_* fields while leaving the ledger unchanged and recompute
+    # replay_certification_hash, creating an artifact that passes hash checks but carries incorrect
+    # upstream lineage.
     expected_lineage_chain = (
         certification_artifact.source_feature_schema_hash,
         certification_artifact.source_spectral_reasoning_hash,

@@ -333,12 +333,17 @@ def _sorted_tuple(values: Sequence[str]) -> tuple[str, ...]:
 
 
 def _validate_finding(finding: ClaimAuditFinding) -> None:
+    """Validate finding invariants required for deterministic hashing."""
     if finding.finding_type not in _ALLOWED_FINDING_TYPES:
         raise ValueError("unsupported finding type")
     if finding.severity not in _ALLOWED_SEVERITIES:
         raise ValueError("unsupported severity")
     if not isinstance(finding.related_node_ids, tuple):
         raise ValueError("related_node_ids must be tuple")
+    if len(set(finding.related_node_ids)) != len(finding.related_node_ids):
+        raise ValueError("related_node_ids must be duplicate-free")
+    if finding.related_node_ids != _sorted_tuple(finding.related_node_ids):
+        raise ValueError("related_node_ids must be sorted in canonical order")
 
 
 def _build_rationale_summary(verdict: str, findings: Sequence[ClaimAuditFinding]) -> str:

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import heapq
 import json
 import math
 from typing import Any, Mapping
@@ -117,6 +118,7 @@ class EpochSchedule:
     tasks: tuple[EpochTaskDescriptor, ...]
     dispatch_order: tuple[str, ...]
     barrier_count: int
+    schema_version: int
     stable_schedule_hash: str
 
     def to_dict(self) -> dict[str, _JSONValue]:
@@ -125,6 +127,7 @@ class EpochSchedule:
             "tasks": tuple(task.to_dict() for task in self.tasks),
             "dispatch_order": self.dispatch_order,
             "barrier_count": self.barrier_count,
+            "schema_version": self.schema_version,
             "stable_schedule_hash": self.stable_schedule_hash,
         }
 
@@ -250,7 +253,9 @@ def validate_epoch_tasks(tasks: tuple[EpochTaskDescriptor, ...]) -> tuple[EpochT
 
     epoch_ids = {task.epoch_id for task in tasks}
     if len(epoch_ids) != 1:
-        raise ValueError("cross-epoch dependency leakage is not allowed")
+        raise ValueError(
+            f"tasks must all share the same epoch_id; found epoch_ids: {sorted(epoch_ids)}"
+        )
 
     task_ids = [task.task_id for task in tasks]
     if any(task_id == "" for task_id in task_ids):
@@ -295,14 +300,15 @@ def _build_edge_map(tasks: tuple[EpochTaskDescriptor, ...]) -> dict[str, set[str
         edges[task.task_id].update(task.dependency_ids)
 
     ordered = tuple(sorted(tasks, key=_task_sort_key))
-    for barrier_index, barrier in enumerate(ordered):
-        if barrier.task_type != "merge_barrier":
-            continue
-        before_ids = tuple(task.task_id for task in ordered[:barrier_index])
-        after_ids = tuple(task.task_id for task in ordered[barrier_index + 1 :])
-        edges[barrier.task_id].update(before_ids)
-        for after_id in after_ids:
-            edges[after_id].add(barrier.task_id)
+    seen_ids: set[str] = set()
+    barrier_ids: set[str] = set()
+    for task in ordered:
+        if task.task_type == "merge_barrier":
+            edges[task.task_id].update(seen_ids)
+            barrier_ids.add(task.task_id)
+        else:
+            edges[task.task_id].update(barrier_ids)
+        seen_ids.add(task.task_id)
 
     return edges
 
@@ -318,19 +324,21 @@ def _deterministic_topological_order(tasks: tuple[EpochTaskDescriptor, ...]) -> 
         for dep_id in dep_ids:
             reverse_edges[dep_id].add(task_id)
 
-    ready = sorted((task_id for task_id, degree in indegree.items() if degree == 0), key=lambda tid: _task_sort_key(id_to_task[tid]))
+    heap: list[tuple[tuple[str, int, str], str]] = []
+    for task_id, degree in indegree.items():
+        if degree == 0:
+            heapq.heappush(heap, (_task_sort_key(id_to_task[task_id]), task_id))
+
     dispatch: list[str] = []
 
-    while ready:
-        task_id = ready.pop(0)
+    while heap:
+        _, task_id = heapq.heappop(heap)
         dispatch.append(task_id)
 
-        impacted = sorted(reverse_edges[task_id], key=lambda tid: _task_sort_key(id_to_task[tid]))
-        for target_id in impacted:
+        for target_id in reverse_edges[task_id]:
             indegree[target_id] -= 1
             if indegree[target_id] == 0:
-                ready.append(target_id)
-        ready.sort(key=lambda tid: _task_sort_key(id_to_task[tid]))
+                heapq.heappush(heap, (_task_sort_key(id_to_task[target_id]), target_id))
 
     if len(dispatch) != len(tasks):
         raise ValueError("malformed dependency graph: cycle detected")
@@ -343,20 +351,21 @@ def build_epoch_schedule(tasks: tuple[EpochTaskDescriptor, ...]) -> EpochSchedul
     dispatch_order = _deterministic_topological_order(validated)
     epoch_id = validated[0].epoch_id
     barrier_count = sum(1 for task in validated if task.task_type == "merge_barrier")
-    schedule_hash = _sha256_hex(
-        {
-            "epoch_id": epoch_id,
-            "tasks": tuple(sorted((task.to_dict() for task in validated), key=lambda item: (str(item["epoch_id"]), int(item["task_order"]), str(item["task_id"]))),),
-            "dispatch_order": dispatch_order,
-            "barrier_count": barrier_count,
-            "schema_version": _SCHEMA_VERSION,
-        }
+    schedule_without_hash = EpochSchedule(
+        epoch_id=epoch_id,
+        tasks=tuple(sorted(validated, key=_task_sort_key)),
+        dispatch_order=dispatch_order,
+        barrier_count=barrier_count,
+        schema_version=_SCHEMA_VERSION,
+        stable_schedule_hash="",
     )
+    schedule_hash = _sha256_hex(schedule_without_hash.to_hash_payload_dict())
     return EpochSchedule(
         epoch_id=epoch_id,
         tasks=tuple(sorted(validated, key=_task_sort_key)),
         dispatch_order=dispatch_order,
         barrier_count=barrier_count,
+        schema_version=_SCHEMA_VERSION,
         stable_schedule_hash=schedule_hash,
     )
 
@@ -382,7 +391,7 @@ def build_schedule_receipt(schedule: EpochSchedule) -> ScheduleReceipt:
     )
 
 
-def stable_schedule_hash(report: SchedulerReport) -> str:
+def stable_report_hash(report: SchedulerReport) -> str:
     return _sha256_hex(report.to_hash_payload_dict())
 
 
@@ -399,6 +408,6 @@ def compile_scheduler_report(raw_input: Mapping[str, Any] | tuple[EpochTaskDescr
     return SchedulerReport(
         schedule=schedule,
         receipt=receipt,
-        stable_hash=stable_schedule_hash(report),
+        stable_hash=stable_report_hash(report),
         schema_version=_SCHEMA_VERSION,
     )

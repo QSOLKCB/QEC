@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from qec.analysis.heterogeneous_scheduler import (
+    _sha256_hex,
     build_epoch_schedule,
     build_schedule_receipt,
     compile_scheduler_report,
@@ -144,7 +145,7 @@ def test_cross_epoch_leakage_rejection() -> None:
             "schema_version": 1,
         }
     )
-    with pytest.raises(ValueError, match="cross-epoch dependency leakage"):
+    with pytest.raises(ValueError, match="same epoch_id"):
         compile_scheduler_report({"tasks": tasks, "schema_version": 1})
 
 
@@ -211,3 +212,9 @@ def test_receipt_stability() -> None:
     receipt_a = build_schedule_receipt(schedule)
     receipt_b = build_schedule_receipt(schedule)
     assert receipt_a == receipt_b
+
+
+def test_schedule_hash_verifiable_from_payload() -> None:
+    schedule = build_epoch_schedule(normalize_epoch_tasks({"tasks": _base_tasks(), "schema_version": 1}))
+    recomputed = _sha256_hex(schedule.to_hash_payload_dict())
+    assert recomputed == schedule.stable_schedule_hash

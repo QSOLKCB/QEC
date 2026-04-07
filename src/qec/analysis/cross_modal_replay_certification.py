@@ -124,6 +124,14 @@ def _validate_rf_artifact(rf_artifact: RFEqualizationResult) -> None:
     if rf_artifact.frame_count != sum(segment.frame_count for segment in rf_artifact.segments):
         raise ValueError("rf_artifact frame_count must match summed segment frame_count")
 
+    for score_name, score_value in (
+        ("equalization_integrity_score", rf_artifact.equalization_integrity_score),
+        ("compensation_stability_score", rf_artifact.compensation_stability_score),
+        ("reflection_resilience_score", rf_artifact.reflection_resilience_score),
+        ("frame_consistency_score", rf_artifact.frame_consistency_score),
+    ):
+        _validate_unit_interval(score_value, f"rf_artifact {score_name}")
+
     for segment in rf_artifact.segments:
         if segment.segment_hash != segment.stable_hash():
             raise ValueError("rf_artifact segment_hash must match stable_hash")
@@ -131,6 +139,13 @@ def _validate_rf_artifact(rf_artifact: RFEqualizationResult) -> None:
             raise ValueError("rf_artifact each segment must contain at least one frame")
         if segment.frame_count != len(segment.frames):
             raise ValueError("rf_artifact frame_count must match len(frames) per segment")
+        for score_name, score_value in (
+            ("equalization_integrity_score", segment.equalization_integrity_score),
+            ("compensation_stability_score", segment.compensation_stability_score),
+            ("reflection_resilience_score", segment.reflection_resilience_score),
+            ("frame_consistency_score", segment.frame_consistency_score),
+        ):
+            _validate_unit_interval(score_value, f"rf_artifact segment {score_name}")
         expected_frame_order = tuple(
             sorted(segment.frames, key=lambda f: (f.frame_index, f.compensation_scenario, f.frame_id))
         )
@@ -141,6 +156,11 @@ def _validate_rf_artifact(rf_artifact: RFEqualizationResult) -> None:
                 raise ValueError("rf_artifact frame_hash must match stable_hash")
             if frame.frame_id != frame.frame_hash:
                 raise ValueError("rf_artifact frame_id must equal frame_hash")
+            for score_name, score_value in (
+                ("reflection_resilience_score", frame.reflection_resilience_score),
+                ("frame_consistency_score", frame.frame_consistency_score),
+            ):
+                _validate_unit_interval(score_value, f"rf_artifact frame {score_name}")
 
 
 def _validate_direct_lineage(
@@ -158,6 +178,8 @@ def _validate_direct_lineage(
             raise ValueError("satellite_artifact satellite_baseline_hash must match stable_hash")
         if satellite_artifact.satellite_baseline_hash != rf_artifact.source_satellite_baseline_hash:
             raise ValueError("direct lineage mismatch: satellite_baseline_hash")
+        if satellite_artifact.source_telecom_recovery_hash != rf_artifact.source_telecom_recovery_hash:
+            raise ValueError("direct lineage mismatch: satellite->telecom")
 
     if telecom_artifact is not None:
         if not isinstance(telecom_artifact, TelecomRecoveryResult):
@@ -166,6 +188,10 @@ def _validate_direct_lineage(
             raise ValueError("telecom_artifact telecom_recovery_hash must match stable_hash")
         if telecom_artifact.telecom_recovery_hash != rf_artifact.source_telecom_recovery_hash:
             raise ValueError("direct lineage mismatch: telecom_recovery_hash")
+        if telecom_artifact.source_copper_channel_battery_hash != rf_artifact.source_copper_channel_battery_hash:
+            raise ValueError("direct lineage mismatch: telecom->copper")
+        if telecom_artifact.source_spectral_reasoning_hash != rf_artifact.source_spectral_reasoning_hash:
+            raise ValueError("direct lineage mismatch: telecom->spectral")
 
     if spectral_artifact is not None:
         if not isinstance(spectral_artifact, SpectralReasoningResult):
@@ -174,6 +200,8 @@ def _validate_direct_lineage(
             raise ValueError("spectral_artifact spectral_reasoning_hash must match stable_hash")
         if spectral_artifact.spectral_reasoning_hash != rf_artifact.source_spectral_reasoning_hash:
             raise ValueError("direct lineage mismatch: spectral_reasoning_hash")
+        if spectral_artifact.source_feature_schema_hash != rf_artifact.source_feature_schema_hash:
+            raise ValueError("direct lineage mismatch: spectral->schema")
 
     if schema_artifact is not None:
         if not isinstance(schema_artifact, MultimodalFeatureSchemaResult):
@@ -294,7 +322,7 @@ class CrossModalReplayCertificationResult:
     source_spectral_reasoning_hash: str
     source_copper_channel_battery_hash: str
     source_telecom_recovery_hash: str
-    source_satellite_signal_hash: str
+    source_satellite_baseline_hash: str
     source_rf_equalization_hash: str
     replay_certification_id: str
     certification_profile: str
@@ -314,7 +342,7 @@ class CrossModalReplayCertificationResult:
             "source_spectral_reasoning_hash": self.source_spectral_reasoning_hash,
             "source_copper_channel_battery_hash": self.source_copper_channel_battery_hash,
             "source_telecom_recovery_hash": self.source_telecom_recovery_hash,
-            "source_satellite_signal_hash": self.source_satellite_signal_hash,
+            "source_satellite_baseline_hash": self.source_satellite_baseline_hash,
             "source_rf_equalization_hash": self.source_rf_equalization_hash,
             "replay_certification_id": self.replay_certification_id,
             "certification_profile": self.certification_profile,
@@ -350,7 +378,7 @@ class CrossModalReplayCertificationReceipt:
     source_spectral_reasoning_hash: str
     source_copper_channel_battery_hash: str
     source_telecom_recovery_hash: str
-    source_satellite_signal_hash: str
+    source_satellite_baseline_hash: str
     source_rf_equalization_hash: str
     replay_certification_id: str
     certification_profile: str
@@ -366,7 +394,7 @@ class CrossModalReplayCertificationReceipt:
             "source_spectral_reasoning_hash": self.source_spectral_reasoning_hash,
             "source_copper_channel_battery_hash": self.source_copper_channel_battery_hash,
             "source_telecom_recovery_hash": self.source_telecom_recovery_hash,
-            "source_satellite_signal_hash": self.source_satellite_signal_hash,
+            "source_satellite_baseline_hash": self.source_satellite_baseline_hash,
             "source_rf_equalization_hash": self.source_rf_equalization_hash,
             "replay_certification_id": self.replay_certification_id,
             "certification_profile": self.certification_profile,
@@ -416,6 +444,10 @@ def run_cross_modal_replay_certification(
 
     Optional direct lineage artifacts are used exclusively for validation and never
     mutate upstream identity or produced hashes.
+
+    ``score_fixture`` is a deterministic-readiness validation parameter only (analogous
+    to ``float_fixture`` in ``run_rf_equalization``).  It is validated for finiteness
+    but is not incorporated into any certification score computation.
     """
 
     _validate_profile(certification_profile)
@@ -462,7 +494,7 @@ def run_cross_modal_replay_certification(
         )
         replay_identity_score = _mean(
             (
-                1.0 if segment.segment_hash == segment.stable_hash() and segment.segment_id == segment.segment_hash else 0.0,
+                1.0 if segment.segment_hash == segment.stable_hash() else 0.0,
                 frame_identity_score,
                 1.0 if rf_artifact.rf_equalization_hash == rf_artifact.stable_hash() else 0.0,
             ),
@@ -542,7 +574,7 @@ def run_cross_modal_replay_certification(
         source_spectral_reasoning_hash=rf_artifact.source_spectral_reasoning_hash,
         source_copper_channel_battery_hash=rf_artifact.source_copper_channel_battery_hash,
         source_telecom_recovery_hash=rf_artifact.source_telecom_recovery_hash,
-        source_satellite_signal_hash=rf_artifact.source_satellite_baseline_hash,
+        source_satellite_baseline_hash=rf_artifact.source_satellite_baseline_hash,
         source_rf_equalization_hash=rf_artifact.rf_equalization_hash,
         replay_certification_id=replay_certification_id,
         certification_profile=certification_profile,
@@ -583,7 +615,7 @@ def generate_cross_modal_replay_certification_receipt(
         source_spectral_reasoning_hash=artifact.source_spectral_reasoning_hash,
         source_copper_channel_battery_hash=artifact.source_copper_channel_battery_hash,
         source_telecom_recovery_hash=artifact.source_telecom_recovery_hash,
-        source_satellite_signal_hash=artifact.source_satellite_signal_hash,
+        source_satellite_baseline_hash=artifact.source_satellite_baseline_hash,
         source_rf_equalization_hash=artifact.source_rf_equalization_hash,
         replay_certification_id=artifact.replay_certification_id,
         certification_profile=artifact.certification_profile,

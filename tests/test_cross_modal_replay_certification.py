@@ -174,7 +174,7 @@ def test_lineage_preservation_and_end_to_end_replay_continuity() -> None:
     assert artifact.source_spectral_reasoning_hash == spectral.spectral_reasoning_hash
     assert artifact.source_copper_channel_battery_hash == battery.copper_channel_battery_hash
     assert artifact.source_telecom_recovery_hash == telecom.telecom_recovery_hash
-    assert artifact.source_satellite_signal_hash == satellite.satellite_baseline_hash
+    assert artifact.source_satellite_baseline_hash == satellite.satellite_baseline_hash
     assert artifact.source_rf_equalization_hash == rf.rf_equalization_hash
     assert artifact.lineage_consistency_score == pytest.approx(1.0)
 

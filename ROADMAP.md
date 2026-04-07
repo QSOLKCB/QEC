@@ -1,6 +1,6 @@
 # QSOL QEC — Canonical Deterministic Systems Roadmap
 **Branch:** canonical deterministic systems line  
-**Current Stable Release:** `v137.8.1`
+**Current Stable Release:** `v137.9.5`
 
 This roadmap supersedes all previous roadmap versions.
 
@@ -14,7 +14,13 @@ into
 
 **deterministic operating substrate architecture**
 
-while preserving full release traceability, replay lineage, and proof pathways.
+while preserving:
+
+- release traceability
+- deterministic replay lineage
+- stable schema continuity
+- paper-friendly benchmark progression
+- formal verification pathways
 
 ---
 
@@ -68,9 +74,24 @@ This principle unifies:
 
 ---
 
-# ACTIVE CANONICAL ARC
+# RELEASE-HISTORY RECONCILIATION
+
+This roadmap treats **tagged releases as authoritative**.
+
+To remove prior numbering confusion:
+
+- `v137.9.5` is fixed as  
+  **RF Equalization + Ground Station Compensation**
+- `v137.9.6` remains  
+  **Cross-Modal Replay Certification**
+- **Atomic Signal Transduction Observatory** is re-homed to  
+  **`v137.9.7`**
+
+This preserves release history while keeping planned research scope intact.
 
 ---
+
+# ACTIVE CANONICAL ARC
 
 ## v137.7.x — Hierarchical Memory + Episodic Geometry
 **Status:** COMPLETE
@@ -97,13 +118,12 @@ sequence trajectory
 ---
 
 ## v137.8.x — Geometry + Topology Reasoning Kernel
-**Status:** ACTIVE
+**Status:** COMPLETE
 
 Completed:
+
 - `v137.8.0` — Topological Graph Kernel
 - `v137.8.1` — Polytope Reasoning Engine
-
-Planned:
 - `v137.8.2` — E8 Symmetry Projection Layer
 - `v137.8.3` — Manifold Traversal Planner
 - `v137.8.4` — Topology Divergence Battery
@@ -118,29 +138,51 @@ state trajectory across constrained manifold geometry
 ---
 
 ## v137.9.x — Signal + Channel Recovery + Physics-Aware Reasoning
+**Status:** ACTIVE
 
-Planned:
+Completed:
 
 - `v137.9.0` — Multimodal Feature Schema
 - `v137.9.1` — Spectral Reasoning Layer
 - `v137.9.2` — Legacy Copper Noise Channel Battery
 - `v137.9.3` — Telecom Line Recovery + Carrier Synchronization
-- `v137.9.4` — Satellite LDPC Baseline Benchmark
-- `v137.9.5` — Atomic Signal Transduction Observatory
-- `v137.9.6` — Cross-Modal Replay Certification
+- `v137.9.4` — Satellite Signal Baseline + Orbital Noise Envelope
+- `v137.9.5` — RF Equalization + Ground Station Compensation
 
-Benchmarks:
+Planned:
+
+- `v137.9.6` — Cross-Modal Replay Certification
+- `v137.9.7` — Atomic Signal Transduction Observatory
+
+Benchmarks / domains:
 
 - POTS / DSL / ISDN / T1 / T3
 - AWGN
 - burst-noise
 - erasure
 - BER / FER
+- spectral continuity
+- telecom recovery integrity
+- orbital / RF compensation fidelity
 - sensor signal fidelity
+
+Interpretation:
+
+```text
+schema
+→ spectral reasoning
+→ deterministic degradation
+→ deterministic recovery
+→ orbital baseline
+→ RF compensation
+→ cross-modal replay certification
+→ atomic signal observability
+```
 
 ---
 
 ## v137.10.x — Scientific Reasoning + Claim Audit Geometry
+**Status:** PLANNED
 
 Planned:
 
@@ -160,9 +202,20 @@ This line explicitly rejects:
 - numerology without executable semantics
 - proof-shaped but non-proof text
 
+Interpretation:
+
+```text
+claim
+→ semantics
+→ invariants
+→ proof obligations
+→ certification or rejection
+```
+
 ---
 
 ## v137.11.x — Heterogeneous Compute + Hardware Acceleration
+**Status:** PLANNED
 
 Planned:
 
@@ -172,9 +225,22 @@ Planned:
 - `v137.11.3` — Emulator-Grade Parallel Workload Splitter
 - `v137.11.4` — Hardware Replay Battery
 
+Interpretation:
+
+```text
+state evolution across heterogeneous compute geometry
+```
+
+This line is suitable for:
+
+- CPU / GPU split
+- Rust / Python split execution
+- future FPGA / accelerator experiments
+
 ---
 
 ## v137.12.x — Neuromorphic + Hybrid Biological Compute Research
+**Status:** PLANNED
 
 Planned:
 
@@ -194,6 +260,7 @@ no biological claims without evidence receipts
 ---
 
 ## v137.13.x — Unified Intelligence Substrate
+**Status:** PLANNED
 
 Planned:
 
@@ -205,13 +272,9 @@ Planned:
 
 ---
 
-# NEW KERNELISATION TRACK (CANONICAL OS ARC)
-
-This is the major upgrade from the deep research. :contentReference[oaicite:0]{index=0} :contentReference[oaicite:1]{index=1}
+# KERNELISATION TRACK (CANONICAL OS ARC)
 
 This track promotes QEC from deterministic runtime into deterministic operating substrate.
-
----
 
 ## v137.14.x — Axiom
 **Syscall ABI + Deterministic Event Log**
@@ -296,6 +359,7 @@ Planned:
 # FORMAL METHODS LINE
 
 ## v137.20.x — TLA+ + Model Checking
+**Status:** PLANNED
 
 Planned:
 
@@ -308,6 +372,7 @@ Planned:
 ---
 
 ## v137.21.x — Lean 4 Invariant Pack
+**Status:** PLANNED
 
 Planned:
 
@@ -322,21 +387,32 @@ Planned:
 
 # BENCHMARK LAW
 
-Every release must pass:
+Every release must pass relevant batteries.
 
 Core:
+
 - byte identity battery
 - replay battery
 - canonical export battery
 - stable hash battery
 
+Signal / channel:
+
+- BER suite
+- FER suite
+- carrier stability suite
+- degradation / recovery monotonicity suite
+- cross-modal replay consistency suite
+
 Kernel:
+
 - syscall determinism battery
 - scheduler replay battery
 - memory rollback battery
 - cluster convergence battery
 
 Scientific:
+
 - dimensional consistency suite
 - tautology detection suite
 - provenance suite

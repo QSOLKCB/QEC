@@ -135,3 +135,23 @@ def test_callable_leakage_rejected() -> None:
     bad_input["artifact_id"] = lambda: "artifact"
     with pytest.raises(ValueError, match="callables"):
         normalize_replay_input(bad_input)
+
+
+def test_input_hash_canonical_mismatch_fails() -> None:
+    raw_runs = _base_runs()
+    # Both runs use a consistent input_hash that differs from canonical_input_hash
+    raw_runs[0]["input_hash"] = _h("9")
+    raw_runs[1]["input_hash"] = _h("9")
+    report = compile_replay_report(_base_input(), raw_runs)
+    assert report.comparison.byte_identical is False
+    assert report.receipt.validation_passed is False
+    assert report.receipt.fail_count >= 1
+
+
+def test_report_order_independent() -> None:
+    raw_runs = _base_runs()
+    reversed_runs = list(reversed(raw_runs))
+    report_a = compile_replay_report(_base_input(), raw_runs)
+    report_b = compile_replay_report(_base_input(), reversed_runs)
+    assert report_a.stable_hash == report_b.stable_hash
+    assert report_a.to_canonical_bytes() == report_b.to_canonical_bytes()

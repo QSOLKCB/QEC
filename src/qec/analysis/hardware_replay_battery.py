@@ -39,6 +39,8 @@ def _assert_no_callable(value: Any, *, name: str) -> None:
 
 
 def _normalize_token(value: Any, *, name: str) -> str:
+    if value is None:
+        raise ValueError(f"{name} must not be None")
     if isinstance(value, bool):
         raise ValueError(f"{name} must be a string")
     token = str(value).strip()
@@ -63,10 +65,17 @@ def _normalize_shard_ids(value: Any, *, name: str) -> tuple[str, ...]:
         if not _SHARD_ID_RE.fullmatch(shard_id):
             raise ValueError(f"{name}[{index}] is invalid")
         normalized.append(shard_id)
-    unique_sorted = tuple(sorted(set(normalized)))
-    if not unique_sorted:
+    if not normalized:
         raise ValueError(f"{name} must contain at least one shard id")
-    return unique_sorted
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for shard_id in normalized:
+        if shard_id in seen and shard_id not in duplicates:
+            duplicates.append(shard_id)
+        seen.add(shard_id)
+    if duplicates:
+        raise ValueError(f"{name} contains duplicate shard id(s): {', '.join(sorted(duplicates))}")
+    return tuple(sorted(normalized))
 
 
 @dataclass(frozen=True)
@@ -230,22 +239,35 @@ def validate_replay_input(replay_input: ReplayInput) -> None:
         raise ValueError("unsupported schema version")
 
 
-def _normalize_replay_run(raw_run: Any, replay_input: ReplayInput, *, index: int) -> ReplayRun:
+def _extract_replay_run_fields(raw_run: Any, *, index: int) -> Mapping[str, Any]:
+    """Return raw replay-run fields from a mapping or ReplayRun instance."""
     if isinstance(raw_run, ReplayRun):
-        run = raw_run
-    else:
-        if not isinstance(raw_run, Mapping):
-            raise ValueError(f"replay_runs[{index}] must be a mapping")
-        _assert_no_callable(raw_run, name=f"replay_runs[{index}]")
-        run = ReplayRun(
-            run_id=_normalize_token(raw_run.get("run_id", ""), name=f"replay_runs[{index}].run_id"),
-            artifact_id=_normalize_token(raw_run.get("artifact_id", ""), name=f"replay_runs[{index}].artifact_id"),
-            input_hash=_normalize_hash(raw_run.get("input_hash", ""), name=f"replay_runs[{index}].input_hash"),
-            output_hash=_normalize_hash(raw_run.get("output_hash", ""), name=f"replay_runs[{index}].output_hash"),
-            epoch_id=_normalize_token(raw_run.get("epoch_id", ""), name=f"replay_runs[{index}].epoch_id"),
-            run_index=int(raw_run.get("run_index", -1)),
-            shard_ids=_normalize_shard_ids(raw_run.get("shard_ids", ()), name=f"replay_runs[{index}].shard_ids"),
-        )
+        return {
+            "run_id": raw_run.run_id,
+            "artifact_id": raw_run.artifact_id,
+            "input_hash": raw_run.input_hash,
+            "output_hash": raw_run.output_hash,
+            "epoch_id": raw_run.epoch_id,
+            "run_index": raw_run.run_index,
+            "shard_ids": raw_run.shard_ids,
+        }
+    if not isinstance(raw_run, Mapping):
+        raise ValueError(f"replay_runs[{index}] must be a mapping or ReplayRun")
+    return raw_run
+
+
+def _normalize_replay_run(raw_run: Any, replay_input: ReplayInput, *, index: int) -> ReplayRun:
+    raw_fields = _extract_replay_run_fields(raw_run, index=index)
+    _assert_no_callable(raw_fields, name=f"replay_runs[{index}]")
+    run = ReplayRun(
+        run_id=_normalize_token(raw_fields.get("run_id", ""), name=f"replay_runs[{index}].run_id"),
+        artifact_id=_normalize_token(raw_fields.get("artifact_id", ""), name=f"replay_runs[{index}].artifact_id"),
+        input_hash=_normalize_hash(raw_fields.get("input_hash", ""), name=f"replay_runs[{index}].input_hash"),
+        output_hash=_normalize_hash(raw_fields.get("output_hash", ""), name=f"replay_runs[{index}].output_hash"),
+        epoch_id=_normalize_token(raw_fields.get("epoch_id", ""), name=f"replay_runs[{index}].epoch_id"),
+        run_index=int(raw_fields.get("run_index", -1)),
+        shard_ids=_normalize_shard_ids(raw_fields.get("shard_ids", ()), name=f"replay_runs[{index}].shard_ids"),
+    )
     if run.run_index < 0:
         raise ValueError("run_index must be >= 0")
     if run.artifact_id != replay_input.artifact_id:
@@ -261,7 +283,8 @@ def compare_replay_runs(replay_input: ReplayInput, replay_runs: Sequence[ReplayR
     observed_hash = first.output_hash
 
     expected_hash_match = observed_hash == replay_input.canonical_output_hash
-    byte_identical = all(
+    input_hash_match = all(run.input_hash == replay_input.canonical_input_hash for run in ordered_runs)
+    byte_identical_consistency = all(
         run.output_hash == first.output_hash and run.input_hash == first.input_hash
         for run in ordered_runs
     )
@@ -271,8 +294,8 @@ def compare_replay_runs(replay_input: ReplayInput, replay_runs: Sequence[ReplayR
     return ReplayComparison(
         artifact_id=replay_input.artifact_id,
         expected_hash=replay_input.canonical_output_hash,
-        observed_hash=observed_hash if expected_hash_match else observed_hash,
-        byte_identical=bool(expected_hash_match and byte_identical),
+        observed_hash=observed_hash,
+        byte_identical=bool(expected_hash_match and input_hash_match and byte_identical_consistency),
         epoch_match=epoch_match,
         shard_match=shard_match,
     )
@@ -290,6 +313,10 @@ def build_replay_battery_receipt(comparison: ReplayComparison) -> ReplayBatteryR
     validation_passed = fail_count == 0
     payload = {
         "artifact_id": comparison.artifact_id,
+        "expected_hash": comparison.expected_hash,
+        "observed_hash": comparison.observed_hash,
+        "epoch_match": comparison.epoch_match,
+        "shard_match": comparison.shard_match,
         "pass_count": pass_count,
         "fail_count": fail_count,
         "byte_identical": comparison.byte_identical,
@@ -324,11 +351,12 @@ def run_replay_battery(replay_input: ReplayInput, replay_runs: Sequence[ReplayRu
         _normalize_replay_run(raw_run, replay_input, index=index)
         for index, raw_run in enumerate(replay_runs)
     )
-    comparison = compare_replay_runs(replay_input, normalized_runs)
+    canonical_runs = tuple(sorted(normalized_runs, key=lambda run: (run.run_index, run.run_id)))
+    comparison = compare_replay_runs(replay_input, canonical_runs)
     receipt = build_replay_battery_receipt(comparison)
     interim = ReplayBatteryReport(
         input=replay_input,
-        runs=normalized_runs,
+        runs=canonical_runs,
         comparison=comparison,
         receipt=receipt,
         stable_hash="",
@@ -337,7 +365,7 @@ def run_replay_battery(replay_input: ReplayInput, replay_runs: Sequence[ReplayRu
     stable_hash = stable_replay_report_hash(interim)
     return ReplayBatteryReport(
         input=replay_input,
-        runs=normalized_runs,
+        runs=canonical_runs,
         comparison=comparison,
         receipt=receipt,
         stable_hash=stable_hash,

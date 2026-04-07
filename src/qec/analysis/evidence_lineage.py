@@ -310,6 +310,5 @@ def build_evidence_receipt(graph: EvidenceLineageGraph) -> EvidenceLineageReceip
 
 def compile_evidence_graph(raw_graph: Mapping[str, Any]) -> tuple[EvidenceLineageGraph, EvidenceLineageReceipt]:
     graph = normalize_evidence_graph(raw_graph)
-    validate_evidence_graph(graph)
     receipt = build_evidence_receipt(graph)
     return graph, receipt

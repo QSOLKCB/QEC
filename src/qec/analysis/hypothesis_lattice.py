@@ -21,13 +21,11 @@ _JSONScalar = str | int | float | bool | None
 _JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
 
 _HYPOTHESIS_LATTICE_VERSION = 1
-_LATTICE_PROFILE_ORDER: tuple[str, ...] = (
-    "signal_causality_lattice",
-    "lineage_consistency_lattice",
-    "degradation_recovery_lattice",
-    "observability_transition_lattice",
-    "full_chain_hypothesis_lattice",
-)
+# Only the full-chain profile is currently implemented.  The profile value is
+# metadata-only: it influences the deterministic lattice_id/hash but does not
+# alter node/edge construction or scoring.  Additional profiles must be added
+# here only when their distinct construction semantics are implemented.
+_LATTICE_PROFILE_ORDER: tuple[str, ...] = ("full_chain_hypothesis_lattice",)
 
 HYPOTHESIS_LATTICE_LAW = "HYPOTHESIS_LATTICE_LAW"
 DETERMINISTIC_LATTICE_ORDERING_RULE = "DETERMINISTIC_LATTICE_ORDERING_RULE"
@@ -150,15 +148,50 @@ def _validate_observatory_artifact(observatory_artifact: AtomicSignalTransductio
     if observatory_artifact.windows != expected_window_order:
         raise ValueError("observatory_artifact windows must be in canonical deterministic order")
 
+    # Derive expected lineage from the top-level source_* fields so that forged
+    # source_* mutations that are internally consistent with the observatory hash
+    # cannot propagate into nested observations/windows with mismatched lineage.
+    expected_nested_lineage: tuple[str, ...] = (
+        observatory_artifact.source_feature_schema_hash,
+        observatory_artifact.source_spectral_reasoning_hash,
+        observatory_artifact.source_copper_channel_battery_hash,
+        observatory_artifact.source_telecom_recovery_hash,
+        observatory_artifact.source_satellite_baseline_hash,
+        observatory_artifact.source_rf_equalization_hash,
+        observatory_artifact.source_replay_certification_hash,
+    )
+
+    observation_ids: frozenset[str] = frozenset(
+        o.observation_id for o in observatory_artifact.observations
+    )
+
     for observation in observatory_artifact.observations:
         if observation.observation_hash != observation.stable_hash():
             raise ValueError("observatory_artifact observation_hash must match stable_hash")
         if observation.observation_id != observation.observation_hash:
             raise ValueError("observatory_artifact observation_id must equal observation_hash")
+        if observation.lineage_chain != expected_nested_lineage:
+            raise ValueError(
+                "observatory_artifact observation lineage_chain must match source fields"
+            )
 
     for window in observatory_artifact.windows:
         if window.window_hash != window.stable_hash():
             raise ValueError("observatory_artifact window_hash must match stable_hash")
+        if window.lineage_chain != expected_nested_lineage:
+            raise ValueError(
+                "observatory_artifact window lineage_chain must match source fields"
+            )
+        if len(window.observation_ids) != 2:
+            raise ValueError(
+                f"window {window.window_id!r} must reference exactly 2 observation IDs; "
+                f"got {len(window.observation_ids)}"
+            )
+        missing = tuple(oid for oid in window.observation_ids if oid not in observation_ids)
+        if missing:
+            raise ValueError(
+                f"window {window.window_id!r} references unknown observation IDs: {missing!r}"
+            )
 
 
 def _validate_direct_lineage(
@@ -518,15 +551,7 @@ def _build_edges(
         target_node = node_by_source_id[target_observation_id]
 
         source_edge = HypothesisEdge(
-            edge_id=_sha256_hex(
-                {
-                    "edge_index": len(edges),
-                    "from": source_node.node_id,
-                    "to": window_node.node_id,
-                    "edge_kind": "observation_to_transition",
-                    "lineage_chain": lineage_chain,
-                }
-            ),
+            edge_id="",
             edge_index=len(edges),
             from_node_id=source_node.node_id,
             to_node_id=window_node.node_id,
@@ -548,18 +573,11 @@ def _build_edges(
             ),
             edge_hash="",
         )
-        edges.append(_finalize_identity(source_edge, "edge_hash"))
+        finalized_source = _finalize_identity(source_edge, "edge_hash")
+        edges.append(replace(finalized_source, edge_id=finalized_source.edge_hash))
 
         target_edge = HypothesisEdge(
-            edge_id=_sha256_hex(
-                {
-                    "edge_index": len(edges),
-                    "from": window_node.node_id,
-                    "to": target_node.node_id,
-                    "edge_kind": "transition_to_observation",
-                    "lineage_chain": lineage_chain,
-                }
-            ),
+            edge_id="",
             edge_index=len(edges),
             from_node_id=window_node.node_id,
             to_node_id=target_node.node_id,
@@ -581,7 +599,8 @@ def _build_edges(
             ),
             edge_hash="",
         )
-        edges.append(_finalize_identity(target_edge, "edge_hash"))
+        finalized_target = _finalize_identity(target_edge, "edge_hash")
+        edges.append(replace(finalized_target, edge_id=finalized_target.edge_hash))
 
     return tuple(
         sorted(
@@ -648,6 +667,8 @@ def _validate_lattice(lattice: HypothesisLattice, expected_lineage_chain: tuple[
     for edge in lattice.edges:
         if edge.edge_hash != edge.stable_hash():
             raise ValueError("lattice edge_hash must match stable_hash")
+        if edge.edge_id != edge.edge_hash:
+            raise ValueError("lattice edge_id must equal edge_hash")
         if edge.lineage_chain != expected_lineage_chain:
             raise ValueError("lattice edge lineage_chain mismatch")
 

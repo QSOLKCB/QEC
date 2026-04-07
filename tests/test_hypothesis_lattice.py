@@ -172,6 +172,7 @@ def test_stable_hash_invariants(lineage_artifacts: tuple) -> None:
         assert node.node_id == node.node_hash
     for edge in artifact.lattice.edges:
         assert edge.edge_hash == edge.stable_hash()
+        assert edge.edge_id == edge.edge_hash
 
 
 def test_fail_fast_malformed_upstream_input(lineage_artifacts: tuple) -> None:
@@ -261,3 +262,70 @@ def test_direct_lineage_mismatch_rejection(lineage_artifacts: tuple) -> None:
             satellite_artifact=wrong_satellite,
             rf_artifact=rf,
         )
+
+
+def test_forged_observation_lineage_rejection(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, _, observatory = lineage_artifacts
+    # Forge the first observation to carry a bad lineage_chain while keeping its
+    # hash internally consistent — the observatory accepts the artifact at the
+    # hash level but the hypothesis lattice must catch the cross-field mismatch.
+    bad_obs = replace(observatory.observations[0], lineage_chain=("forged-lineage-hash",))
+    new_hash = bad_obs.stable_hash()
+    bad_obs = replace(bad_obs, observation_id=new_hash, observation_hash=new_hash)
+    new_observations = (bad_obs,) + observatory.observations[1:]
+    new_observations = tuple(
+        sorted(
+            new_observations,
+            key=lambda o: (o.observation_index, o.observatory_profile, o.observation_id),
+        )
+    )
+    forged = replace(observatory, observations=new_observations)
+    forged = replace(forged, atomic_signal_observatory_hash=forged.stable_hash())
+
+    with pytest.raises(ValueError, match="lineage_chain must match source fields"):
+        build_hypothesis_lattice(forged)
+
+
+def test_window_observation_ids_count_rejection(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, _, observatory = lineage_artifacts
+    # Forge a window with 3 observation_ids (must be exactly 2).
+    bad_window = replace(
+        observatory.windows[0],
+        observation_ids=observatory.windows[0].observation_ids + ("extra-observation-id",),
+    )
+    bad_window = replace(bad_window, window_hash=bad_window.stable_hash())
+    new_windows = (bad_window,) + observatory.windows[1:]
+    new_windows = tuple(
+        sorted(
+            new_windows,
+            key=lambda w: (w.window_index, w.window_id, w.window_hash),
+        )
+    )
+    forged = replace(observatory, windows=new_windows)
+    forged = replace(forged, atomic_signal_observatory_hash=forged.stable_hash())
+
+    with pytest.raises(ValueError, match="exactly 2 observation IDs"):
+        build_hypothesis_lattice(forged)
+
+
+def test_window_unknown_observation_id_rejection(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, _, observatory = lineage_artifacts
+    # Forge a window with a valid count but one unknown observation ID.
+    orig_ids = observatory.windows[0].observation_ids
+    bad_window = replace(
+        observatory.windows[0],
+        observation_ids=(orig_ids[0], "unknown-observation-id-" + "a" * 44),
+    )
+    bad_window = replace(bad_window, window_hash=bad_window.stable_hash())
+    new_windows = (bad_window,) + observatory.windows[1:]
+    new_windows = tuple(
+        sorted(
+            new_windows,
+            key=lambda w: (w.window_index, w.window_id, w.window_hash),
+        )
+    )
+    forged = replace(observatory, windows=new_windows)
+    forged = replace(forged, atomic_signal_observatory_hash=forged.stable_hash())
+
+    with pytest.raises(ValueError, match="references unknown observation IDs"):
+        build_hypothesis_lattice(forged)

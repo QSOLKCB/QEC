@@ -23,6 +23,14 @@ _SUPPORTED_OPERATIONS = (
     "fixed_point_mac",
     "identity_pass",
 )
+# Explicit, versioned weight mapping — stable across reorderings of _SUPPORTED_OPERATIONS.
+_OP_CYCLE_WEIGHTS: dict[str, int] = {
+    "integer_matrix": 1,
+    "bitfield_transform": 2,
+    "lookup_table": 3,
+    "fixed_point_mac": 4,
+    "identity_pass": 5,
+}
 _SUPPORTED_LANES = ("cpu_sidecar", "fixed_function_0", "fixed_function_1")
 _LOOKUP_TABLE: dict[str, int] = {
     "zero": 0,
@@ -234,12 +242,12 @@ def normalize_coprocessor_descriptor(raw_input: Mapping[str, Any] | CoProcessorD
 
     payload = _canonicalize_json(data.get("payload", {}))
     descriptor = CoProcessorDescriptor(
-        descriptor_id=str(data.get("descriptor_id", "")),
+        descriptor_id=str(data.get("descriptor_id", "")).strip(),
         operation_type=str(data.get("operation_type", "")),
         input_hash=str(data.get("input_hash", "")),
         payload=payload,
         lane_id=str(data.get("lane_id", "")),
-        epoch_id=str(data.get("epoch_id", "")),
+        epoch_id=str(data.get("epoch_id", "")).strip(),
         scratchpad_size=_require_int(data.get("scratchpad_size", 0), "scratchpad_size"),
         schema_version=_require_int(data.get("schema_version", _SCHEMA_VERSION), "schema_version"),
     )
@@ -286,7 +294,7 @@ def _op_lookup_table(payload: _JSONValue) -> _JSONValue:
     data = _require_mapping(payload, "payload")
     symbols = data.get("symbols")
     if not isinstance(symbols, tuple):
-        raise ValueError("lookup_table payload.symbols must be a sequence")
+        raise ValueError("lookup_table payload.symbols must be a tuple")
     mapped = tuple(_LOOKUP_TABLE.get(str(symbol), -1) for symbol in symbols)
     return {"symbols": symbols, "values": mapped}
 
@@ -311,19 +319,30 @@ def _op_integer_matrix(payload: _JSONValue) -> _JSONValue:
         raise ValueError("integer_matrix payload must include tuple matrices")
     if len(matrix_a) == 0 or len(matrix_b) == 0:
         raise ValueError("integer_matrix matrices must be non-empty")
+    for i, row in enumerate(matrix_a):
+        if not isinstance(row, tuple):
+            raise ValueError(f"matrix_a row {i} must be a tuple, got {type(row).__name__}")
+    for i, row in enumerate(matrix_b):
+        if not isinstance(row, tuple):
+            raise ValueError(f"matrix_b row {i} must be a tuple, got {type(row).__name__}")
     a_rows = tuple(tuple(_require_int(v, "matrix_a value") for v in row) for row in matrix_a)
     b_rows = tuple(tuple(_require_int(v, "matrix_b value") for v in row) for row in matrix_b)
+    if any(len(row) == 0 for row in a_rows):
+        raise ValueError("matrix_a rows must be non-empty")
+    if any(len(row) == 0 for row in b_rows):
+        raise ValueError("matrix_b rows must be non-empty")
     width = len(a_rows[0])
+    b_width = len(b_rows[0])
     if any(len(row) != width for row in a_rows):
         raise ValueError("matrix_a rows must have equal width")
-    if any(len(row) != len(b_rows[0]) for row in b_rows):
+    if any(len(row) != b_width for row in b_rows):
         raise ValueError("matrix_b rows must have equal width")
     if width != len(b_rows):
         raise ValueError("matrix dimensions are incompatible")
     result: list[tuple[int, ...]] = []
     for row in a_rows:
         out_row: list[int] = []
-        for col_idx in range(len(b_rows[0])):
+        for col_idx in range(b_width):
             total = 0
             for k in range(width):
                 total += row[k] * b_rows[k][col_idx]
@@ -373,7 +392,7 @@ def _run_operation(operation_type: str, payload: _JSONValue) -> _JSONValue:
 def _deterministic_cycle_count(descriptor: CoProcessorDescriptor, output_payload: _JSONValue) -> int:
     payload_bytes = len(_canonical_bytes(descriptor.payload))
     output_bytes = len(_canonical_bytes(output_payload))
-    op_weight = _SUPPORTED_OPERATIONS.index(descriptor.operation_type) + 1
+    op_weight = _OP_CYCLE_WEIGHTS[descriptor.operation_type]
     return payload_bytes + output_bytes + (op_weight * 17)
 
 

@@ -155,3 +155,43 @@ def test_descriptor_dataclass_roundtrip() -> None:
     descriptor = normalize_coprocessor_descriptor(_base_input(descriptor_id="dc-1"))
     explicit = CoProcessorDescriptor(**descriptor.to_dict())
     assert explicit.to_canonical_bytes() == descriptor.to_canonical_bytes()
+
+
+def test_whitespace_only_descriptor_id_rejected() -> None:
+    with pytest.raises(ValueError, match="descriptor_id must be non-empty"):
+        compile_coprocessor_report(_base_input(descriptor_id="   "))
+
+
+def test_whitespace_only_epoch_id_rejected() -> None:
+    with pytest.raises(ValueError, match="epoch_id must be non-empty"):
+        compile_coprocessor_report(_base_input(descriptor_id="desc-ws-1", epoch_id="  "))
+
+
+def test_integer_matrix_scalar_rows_rejected() -> None:
+    with pytest.raises(ValueError, match="matrix_a row 0 must be a tuple"):
+        compile_coprocessor_report(
+            _base_input(
+                descriptor_id="desc-mat-bad-1",
+                operation_type="integer_matrix",
+                payload={"matrix_a": [1, 2], "matrix_b": [[5, 6], [7, 8]]},
+            )
+        )
+
+
+def test_integer_matrix_zero_width_rows_rejected() -> None:
+    with pytest.raises(ValueError, match="matrix_a rows must be non-empty"):
+        compile_coprocessor_report(
+            _base_input(
+                descriptor_id="desc-mat-bad-2",
+                operation_type="integer_matrix",
+                payload={"matrix_a": [[], []], "matrix_b": [[5, 6], [7, 8]]},
+            )
+        )
+
+
+def test_lookup_table_list_symbols_canonicalized() -> None:
+    """lookup_table requires payload.symbols as a tuple (after canonicalization, lists become tuples)."""
+    report = compile_coprocessor_report(
+        _base_input(descriptor_id="desc-lt-list", payload={"symbols": ["one", "two"]})
+    )
+    assert report.result.output_payload["values"] == (1, 2)

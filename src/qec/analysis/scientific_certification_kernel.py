@@ -204,7 +204,7 @@ class CertificationReceipt:
         return self.to_canonical_json().encode("utf-8")
 
 
-def normalize_certification_input(raw_input: Mapping[str, Any]) -> CertificationInput:
+def normalize_certification_input(raw_input: CertificationInput | Mapping[str, Any]) -> CertificationInput:
     if isinstance(raw_input, CertificationInput):
         validate_certification_input(raw_input)
         return CertificationInput(**raw_input.__dict__)
@@ -289,13 +289,14 @@ def run_certification_kernel(cert_input: CertificationInput) -> tuple[Certificat
             )
         )
 
-    if not cert_input.audit_hash or not cert_input.replay_hash or not cert_input.proof_report_hash or not cert_input.rejection_battery_hash:
+    conditional_prior_count = sum(1 for _, v, _ in cert_input.prior_verdicts if v == "conditionally_certified")
+    if conditional_prior_count > 0:
         findings.append(
             _make_finding(
-                finding_type="missing_prerequisite",
-                message="one or more prerequisite hashes are missing",
-                blocking=True,
-                severity="error",
+                finding_type="certification_constraint",
+                message=f"prior conditionally_certified verdict(s) present: {conditional_prior_count}",
+                blocking=False,
+                severity="warning",
                 index=5,
             )
         )
@@ -398,18 +399,28 @@ def stable_certification_hash(decision: CertificationDecision, findings: Sequenc
 
 
 def build_certification_receipt(decision: CertificationDecision, findings: Sequence[CertificationFinding]) -> CertificationReceipt:
-    expected_hash = stable_certification_hash(decision, findings)
+    findings_tuple = tuple(sorted(findings, key=lambda x: x.finding_id))
+    expected_hash = stable_certification_hash(decision, findings_tuple)
     if decision.certification_hash != expected_hash:
         raise ValueError("certification hash mismatch")
     validation_passed = decision.certification_verdict in _ALLOWED_VERDICTS
-    decision_bytes = decision.to_canonical_bytes()
+    canonical_payload = {
+        "artifact_id": decision.artifact_id,
+        "certification_verdict": decision.certification_verdict,
+        "finding_ids": sorted(decision.finding_ids),
+        "blocking_findings": int(decision.blocking_findings),
+        "rationale_summary": decision.rationale_summary,
+        "findings": [item.to_dict() for item in findings_tuple],
+        "schema_version": decision.schema_version,
+    }
+    byte_length = len(_canonical_json(canonical_payload).encode("utf-8"))
     return CertificationReceipt(
         certification_hash=decision.certification_hash,
         artifact_id=decision.artifact_id,
         certification_verdict=decision.certification_verdict,
-        finding_count=len(tuple(findings)),
+        finding_count=len(findings_tuple),
         blocking_findings=decision.blocking_findings,
-        byte_length=len(decision_bytes),
+        byte_length=byte_length,
         validation_passed=validation_passed,
         schema_version=decision.schema_version,
     )

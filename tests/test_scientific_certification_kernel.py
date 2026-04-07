@@ -8,7 +8,6 @@ from qec.analysis.scientific_certification_kernel import (
     CertificationFinding,
     build_certification_receipt,
     compile_certification_decision,
-    normalize_certification_input,
     stable_certification_hash,
 )
 
@@ -43,29 +42,17 @@ def test_certified_verdict() -> None:
 
 def test_conditional_certification() -> None:
     raw = _base_raw()
-    raw["prior_verdicts"] = []
-    inp = normalize_certification_input(raw)
-    # inject a deterministic warning finding through hash function validation path
-    finding = CertificationFinding(
-        finding_id="f" * 64,
-        finding_type="certification_constraint",
-        message="non-blocking policy note",
-        blocking=False,
-        severity="warning",
-    )
-    decision = CertificationDecision(
-        artifact_id=inp.artifact_id,
-        certification_verdict="conditionally_certified",
-        finding_ids=(finding.finding_id,),
-        blocking_findings=0,
-        rationale_summary="conditionally_certified: 1 non-blocking findings",
-        certification_hash="",
-        schema_version=SCIENTIFIC_CERTIFICATION_SCHEMA_VERSION,
-    )
-    cert_hash = stable_certification_hash(decision, (finding,))
-    final = CertificationDecision(**{**decision.__dict__, "certification_hash": cert_hash})
-    receipt = build_certification_receipt(final, (finding,))
-    assert final.certification_verdict == "conditionally_certified"
+    raw["prior_verdicts"] = [
+        {
+            "artifact_id": "artifact-0",
+            "certification_verdict": "conditionally_certified",
+            "certification_hash": "e" * 64,
+        }
+    ]
+    decision, findings, receipt = compile_certification_decision(raw)
+    assert decision.certification_verdict == "conditionally_certified"
+    assert decision.blocking_findings == 0
+    assert any(f.severity == "warning" for f in findings)
     assert receipt.validation_passed is True
 
 

@@ -40,10 +40,24 @@ def _normalize_optional_text(value: Any, *, name: str) -> str:
 def _normalize_finite_float(value: Any, *, name: str) -> float:
     if callable(value):
         raise ValueError(f"{name} must not be callable")
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must not be a boolean")
     numeric = float(value)
     if not math.isfinite(numeric):
         raise ValueError(f"{name} must be finite")
     return numeric
+
+
+def _normalize_strict_int(value: Any, *, name: str) -> int:
+    if value is None:
+        raise ValueError(f"{name} is required")
+    if callable(value):
+        raise ValueError(f"{name} must not be callable")
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must not be a boolean")
+    if not isinstance(value, int):
+        raise ValueError(f"{name} must be an integer, got {type(value).__name__}")
+    return value
 
 
 def _normalize_string_tuple(values: Any, *, name: str) -> tuple[str, ...]:
@@ -323,7 +337,7 @@ def normalize_experiment_spec(raw_spec: Mapping[str, Any]) -> ExperimentSpec:
     for idx, raw in enumerate(list(raw_steps)):
         if not isinstance(raw, Mapping):
             raise ValueError(f"step at index {idx} must be a mapping")
-        step_order = int(raw.get("step_order"))
+        step_order = _normalize_strict_int(raw.get("step_order"), name="step_order")
         steps.append(
             ExperimentStep(
                 step_order=step_order,
@@ -359,6 +373,11 @@ def normalize_experiment_spec(raw_spec: Mapping[str, Any]) -> ExperimentSpec:
 
 
 def validate_experiment_spec(spec: ExperimentSpec) -> None:
+    if spec.schema_version != EXPERIMENT_DSL_SCHEMA_VERSION:
+        raise ValueError(
+            f"unsupported schema_version: {spec.schema_version!r}; "
+            f"expected {EXPERIMENT_DSL_SCHEMA_VERSION!r}"
+        )
     if not spec.title:
         raise ValueError("title must not be empty")
     if not spec.objective:

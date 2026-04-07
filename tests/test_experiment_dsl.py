@@ -201,3 +201,37 @@ def test_defensive_copy_and_receipt_stability() -> None:
     assert all(variable.variable_id != "injected" for variable in artifact.variables)
     assert receipt_a == receipt_b
     assert receipt_a.to_canonical_bytes() == receipt_b.to_canonical_bytes()
+
+
+def test_step_order_validation_rejects_invalid_values() -> None:
+    def _spec_with_step_order(step_order: object) -> dict[str, object]:
+        raw = _raw_spec()
+        steps = list(raw["procedure_steps"])  # type: ignore[arg-type]
+        assert steps, "_raw_spec must have at least one procedure step"
+        steps[0] = dict(steps[0], step_order=step_order)  # type: ignore[arg-type]
+        raw["procedure_steps"] = steps
+        return raw
+
+    with pytest.raises(ValueError, match="step_order"):
+        compile_experiment_spec(_spec_with_step_order(None))
+
+    with pytest.raises(ValueError, match="step_order"):
+        compile_experiment_spec(_spec_with_step_order(True))
+
+    with pytest.raises(ValueError, match="step_order"):
+        compile_experiment_spec(_spec_with_step_order(1.9))
+
+    with pytest.raises(ValueError, match="step_order"):
+        compile_experiment_spec(_spec_with_step_order("two"))
+
+
+def test_schema_version_validation_rejects_unsupported_values() -> None:
+    raw = _raw_spec()
+    raw["schema_version"] = "v0.0.0"
+    with pytest.raises(ValueError, match="unsupported schema_version"):
+        compile_experiment_spec(raw)
+
+    raw2 = _raw_spec()
+    raw2["schema_version"] = ""
+    artifact = compile_experiment_spec(raw2)
+    assert artifact.schema_version == "v137.10.1"

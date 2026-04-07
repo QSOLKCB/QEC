@@ -44,6 +44,9 @@ DETERMINISTIC_RF_ORDERING_RULE = "DETERMINISTIC_RF_ORDERING_RULE"
 REPLAY_SAFE_RF_IDENTITY_RULE = "REPLAY_SAFE_RF_IDENTITY_RULE"
 BOUNDED_RF_SCORE_RULE = "BOUNDED_RF_SCORE_RULE"
 
+if len(_GROUND_STATION_ORDER) != len(_COMPENSATION_SCENARIO_ORDER):
+    raise RuntimeError("ground station/scenario configuration mismatch")
+
 
 def _canonicalize_json(value: Any) -> _JSONValue:
     if value is None or isinstance(value, (str, bool, int)):
@@ -184,6 +187,10 @@ def _validate_optional_fixture_payload(
         for value in str_fixture:
             if not isinstance(value, str):
                 raise ValueError("str_fixture values must be str")
+
+
+def _finalize_identity(obj: Any, hash_field: str) -> Any:
+    return replace(obj, **{hash_field: obj.stable_hash()})
 
 
 @dataclass(frozen=True)
@@ -398,9 +405,6 @@ def run_rf_equalization(
     _validate_satellite_artifact(baseline_artifact)
     _validate_optional_fixture_payload(float_fixture, int_fixture, str_fixture)
 
-    if len(_GROUND_STATION_ORDER) != len(_COMPENSATION_SCENARIO_ORDER):
-        raise ValueError("ground station/scenario configuration mismatch")
-
     rf_equalization_id = _sha256_hex(
         {
             "source_satellite_baseline_hash": baseline_artifact.satellite_baseline_hash,
@@ -454,7 +458,7 @@ def run_rf_equalization(
                 frame_consistency_score=frame_consistency_score,
                 frame_hash="",
             )
-            frame_hash = frame.stable_hash()
+            frame_hash = _finalize_identity(frame, "frame_hash").frame_hash
             frames.append(replace(frame, frame_id=frame_hash, frame_hash=frame_hash))
 
         baseline_deficit = 1.0 - source_segment.overall_satellite_score
@@ -491,7 +495,7 @@ def run_rf_equalization(
             overall_rf_score=overall_rf_score,
             segment_hash="",
         )
-        segments.append(replace(segment, segment_hash=segment.stable_hash()))
+        segments.append(_finalize_identity(segment, "segment_hash"))
 
     equalization_integrity_score = _mean(tuple(segment.equalization_integrity_score for segment in segments), default=1.0)
     compensation_stability_score = _mean(tuple(segment.compensation_stability_score for segment in segments), default=1.0)
@@ -532,7 +536,7 @@ def run_rf_equalization(
         ),
         rf_equalization_hash="",
     )
-    return replace(artifact, rf_equalization_hash=artifact.stable_hash())
+    return _finalize_identity(artifact, "rf_equalization_hash")
 
 
 def export_rf_equalization_bytes(artifact: RFEqualizationResult) -> bytes:
@@ -561,7 +565,7 @@ def generate_rf_equalization_receipt(artifact: RFEqualizationResult) -> RFEquali
         overall_rf_score=artifact.overall_rf_score,
         receipt_hash="",
     )
-    return replace(receipt, receipt_hash=receipt.stable_hash())
+    return _finalize_identity(receipt, "receipt_hash")
 
 
 __all__ = [

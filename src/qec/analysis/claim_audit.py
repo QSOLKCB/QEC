@@ -279,6 +279,8 @@ def _normalize_available_statuses(payload: Any, *, name: str) -> dict[str, str]:
             status = _normalize_token(value.get("status"), name=f"{name}[{item_id}].status")
         else:
             status = _normalize_token(value, name=f"{name}[{item_id}]")
+        if item_id in out:
+            raise ValueError(f"duplicate normalized key in {name}: {item_id}")
         out[item_id] = status
     return out
 

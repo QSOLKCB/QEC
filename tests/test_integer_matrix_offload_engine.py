@@ -140,6 +140,30 @@ def test_bad_shift_rejected() -> None:
         compile_matrix_offload_report(_base_input(fixed_point_shift=-1))
 
 
+def test_shift_upper_bound_rejected() -> None:
+    with pytest.raises(ValueError, match="malformed shift parameters"):
+        compile_matrix_offload_report(_base_input(fixed_point_shift=32))
+
+
+def test_lane_operation_incompatibility_rejected() -> None:
+    with pytest.raises(ValueError, match="not supported on lane_id"):
+        compile_matrix_offload_report(_base_input(operation_type="matmul", lane_id="fixed_point_lane"))
+
+
+def test_fixed_point_mac_on_integer_lane_rejected() -> None:
+    with pytest.raises(ValueError, match="not supported on lane_id"):
+        compile_matrix_offload_report(
+            _base_input(
+                operation_type="fixed_point_mac",
+                lane_id="integer_lane_0",
+                matrix_a=[[10, 20]],
+                matrix_b=[[2, 3]],
+                scale_factor=3,
+                fixed_point_shift=2,
+            )
+        )
+
+
 def test_non_rectangular_b_rejected() -> None:
     with pytest.raises(ValueError, match="matrix_b must be rectangular"):
         compile_matrix_offload_report(_base_input(matrix_b=[[5], [6, 7]]))

@@ -11,7 +11,7 @@ import hashlib
 import json
 from typing import Any, Mapping
 
-_JSONScalar = str | int | float | bool | None
+_JSONScalar = str | int | bool | None
 _JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
 
 _SCHEMA_VERSION = 1
@@ -23,7 +23,23 @@ _SUPPORTED_OPERATION_TYPES = (
     "transpose",
     "identity_matrix_pass",
 )
+# Explicit, versioned weight mapping — stable across reorderings of _SUPPORTED_OPERATION_TYPES.
+_OP_CYCLE_WEIGHTS: dict[str, int] = {
+    "matmul": 1,
+    "matvec": 2,
+    "accumulate": 3,
+    "fixed_point_mac": 4,
+    "transpose": 5,
+    "identity_matrix_pass": 6,
+}
 _SUPPORTED_LANES = ("integer_lane_0", "integer_lane_1", "fixed_point_lane")
+# Allowlist mapping — specifies which operation types are valid on each lane.
+_LANE_OPERATION_ALLOWLIST: dict[str, frozenset[str]] = {
+    "integer_lane_0": frozenset({"matmul", "matvec", "accumulate", "transpose", "identity_matrix_pass"}),
+    "integer_lane_1": frozenset({"matmul", "matvec", "accumulate", "transpose", "identity_matrix_pass"}),
+    "fixed_point_lane": frozenset({"fixed_point_mac"}),
+}
+_FIXED_POINT_SHIFT_MAX = 31
 _INT32_MIN = -(2**31)
 _INT32_MAX = 2**31 - 1
 
@@ -101,7 +117,10 @@ def _normalize_matrix(value: Any, field_name: str) -> tuple[tuple[int, ...], ...
             raise ValueError(f"{field_name} row {row_idx} must be a tuple")
         if len(row) == 0:
             raise ValueError(f"{field_name} rows must be non-empty")
-        normalized_row = tuple(_require_int(cell, f"{field_name}[{row_idx}]") for cell in row)
+        normalized_row = tuple(
+            _require_int(cell, f"{field_name}[{row_idx}][{col_idx}]")
+            for col_idx, cell in enumerate(row)
+        )
         if width is None:
             width = len(normalized_row)
         elif len(normalized_row) != width:
@@ -258,8 +277,9 @@ def normalize_matrix_offload_descriptor(
     raw_input: Mapping[str, Any] | MatrixOffloadDescriptor,
 ) -> MatrixOffloadDescriptor:
     if isinstance(raw_input, MatrixOffloadDescriptor):
-        return raw_input
-    data = _require_mapping(raw_input, "raw_input")
+        data: Mapping[str, Any] = raw_input.to_dict()
+    else:
+        data = _require_mapping(raw_input, "raw_input")
 
     descriptor = MatrixOffloadDescriptor(
         descriptor_id=str(data.get("descriptor_id", "")).strip(),
@@ -287,8 +307,13 @@ def validate_matrix_offload_descriptor(descriptor: MatrixOffloadDescriptor) -> M
         raise ValueError("epoch_id must be non-empty")
     if descriptor.schema_version != _SCHEMA_VERSION:
         raise ValueError("unsupported schema version")
-    if descriptor.fixed_point_shift < 0:
+    if descriptor.fixed_point_shift < 0 or descriptor.fixed_point_shift > _FIXED_POINT_SHIFT_MAX:
         raise ValueError("malformed shift parameters")
+    allowed_ops = _LANE_OPERATION_ALLOWLIST[descriptor.lane_id]
+    if descriptor.operation_type not in allowed_ops:
+        raise ValueError(
+            f"operation_type '{descriptor.operation_type}' not supported on lane_id '{descriptor.lane_id}'"
+        )
 
     a_rows = descriptor.matrix_a
     b_rows = descriptor.matrix_b
@@ -381,7 +406,7 @@ def _transpose(matrix: tuple[tuple[int, ...], ...]) -> tuple[tuple[int, ...], ..
 def _cycle_count(descriptor: MatrixOffloadDescriptor, output_matrix: tuple[tuple[int, ...], ...]) -> int:
     in_cells = len(descriptor.matrix_a) * len(descriptor.matrix_a[0]) + len(descriptor.matrix_b) * len(descriptor.matrix_b[0])
     out_cells = len(output_matrix) * len(output_matrix[0])
-    op_weight = _SUPPORTED_OPERATION_TYPES.index(descriptor.operation_type) + 1
+    op_weight = _OP_CYCLE_WEIGHTS[descriptor.operation_type]
     return in_cells + out_cells + (op_weight * 19)
 
 

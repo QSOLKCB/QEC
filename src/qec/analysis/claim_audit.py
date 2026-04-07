@@ -27,7 +27,7 @@ JsonValue = JsonScalar | tuple["JsonValue", ...] | tuple[tuple[str, "JsonValue"]
 @dataclass(frozen=True)
 class _EmptyObjectMarker:
     """Sentinel to distinguish empty JSON objects {} from empty arrays []."""
-    pass
+    ...
 
 
 _EMPTY_OBJECT = _EmptyObjectMarker()
@@ -304,9 +304,7 @@ def _normalize_available_statuses(payload: Any, *, name: str) -> dict[str, str]:
 
 def _is_status_available(status: str | None) -> bool:
     """Return True if the status indicates the item is available."""
-    if status is None:
-        return False
-    return status.lower() not in _UNAVAILABLE_STATUSES
+    return status is not None and status.lower() not in _UNAVAILABLE_STATUSES
 
 
 def _extract_graph_nodes(evidence_graph: Mapping[str, Any] | None) -> set[str]:

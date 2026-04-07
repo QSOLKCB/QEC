@@ -163,11 +163,6 @@ def _normalize_bytes(value: Any) -> bytes:
 
 def normalize_replay_case(raw_case: ReplayCase | Mapping[str, Any]) -> ReplayCase:
     if isinstance(raw_case, ReplayCase):
-        # Validate hash fields even for existing ReplayCase instances
-        _validate_hash(raw_case.experiment_hash, "experiment_hash")
-        _validate_hash(raw_case.evidence_hash, "evidence_hash")
-        _validate_hash(raw_case.audit_hash, "audit_hash")
-        _validate_hash(raw_case.expected_output_hash, "expected_output_hash")
         validate_replay_case(raw_case)
         return ReplayCase(**raw_case.__dict__)
     if not isinstance(raw_case, Mapping):
@@ -199,6 +194,11 @@ def validate_replay_case(case: ReplayCase) -> None:
         )
     if len(case.canonical_input_bytes) == 0:
         raise ValueError("malformed canonical bytes")
+    # Validate hash field formats
+    _validate_hash(case.experiment_hash, "experiment_hash")
+    _validate_hash(case.evidence_hash, "evidence_hash")
+    _validate_hash(case.audit_hash, "audit_hash")
+    _validate_hash(case.expected_output_hash, "expected_output_hash")
 
 
 def _extract_replay_payload(output: Any) -> tuple[str, str, bytes | None]:
@@ -256,15 +256,15 @@ def run_replay_battery(
     *,
     replay_fn: Callable[[bytes], Mapping[str, Any]],
 ) -> ReplayBatteryReport:
-    normalized = tuple(cases)
+    cases_tuple = tuple(cases)
 
     seen: set[str] = set()
-    for case in normalized:
+    for case in cases_tuple:
         if case.case_id in seen:
             raise ValueError("duplicate case IDs")
         seen.add(case.case_id)
 
-    ordered = tuple(sorted(normalized, key=lambda item: item.case_id))
+    ordered = tuple(sorted(cases_tuple, key=lambda item: item.case_id))
     results = tuple(run_replay_case(case, replay_fn=replay_fn) for case in ordered)
 
     total_cases = len(results)

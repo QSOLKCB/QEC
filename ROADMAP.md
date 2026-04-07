@@ -151,26 +151,44 @@ claim
 → replay verification
 → epistemic rejection
 → certification
-v137.11.x — Heterogeneous Compute + Hardware Acceleration
 
-Status: PLANNED
+## v137.11.x — Heterogeneous Compute + Hardware Acceleration
+**Status:** READY TO START
 
-Planned core releases:
+This series establishes the deterministic heterogeneous compute substrate for QEC.
 
-v137.11.0 — Deterministic Co-Processor Kernel
-v137.11.1 — Integer / Matrix Offload Engine
-v137.11.2 — Heterogeneous Scheduler
-v137.11.3 — Emulator-Grade Parallel Workload Splitter
-v137.11.4 — Hardware Replay Battery
+The architectural philosophy combines:
 
-Planned memory-compression sub-arc:
+- retro fixed-function co-processor design
+- integer-first acceleration
+- explicit epoch scheduling
+- replay-safe split / merge execution
+- modern memory-traffic minimization
 
-v137.11.5 — Neural Compression Sidecar
-v137.11.6 — Deterministic Latent Decode Lane
-v137.11.7 — Memory Traffic Reduction Battery
+This line is directly inspired by:
 
-Interpretation:
+- :contentReference[oaicite:0]{index=0} Amiga Copper / blitter logic
+- :contentReference[oaicite:2]{index=2} PlayStation GTE fixed-point geometry pipeline
+- retro DSP / co-processor hardware
+- FPGA fixed-function recreations
+- modern hardware replay systems
+- neural compression / compute-for-bandwidth substitution
 
+---
+
+### Core law
+
+```text
+speed through constrained compute geometry
+Secondary law
+reduce memory traffic before increasing compute complexity
+Determinism law
+same input
+same epochs
+same bytes
+Hard replay law
+replay failure = architecture failure
+Series interpretation
 state evolution across heterogeneous compute geometry
 → integer-first acceleration
 → bounded workload partitioning
@@ -182,19 +200,158 @@ Suitable for:
 
 CPU / GPU split
 Rust / Python split execution
-retro fixed-function acceleration principles
 fixed-point arithmetic
 LUT-driven kernels
-future FPGA / accelerator experiments
-memory bandwidth constrained systems
+SRAM / cache-constrained workloads
+FPGA / accelerator experiments
+replay-safe hardware scheduling
+memory-bandwidth constrained systems
+Core releases
+v137.11.0 — Deterministic Co-Processor Kernel
 
-Core law:
+Goal: establish the fixed-function substrate
 
-speed through constrained compute geometry
+Deliverables:
 
-Secondary law:
+bounded co-processor interface
+deterministic instruction lane
+fixed local SRAM / scratchpad
+explicit work descriptors
+cycle-bounded execution receipts
+stable replay hashes
 
-reduce memory traffic before increasing compute complexity
+Interpretation:
+
+cpu → descriptor → co-processor → receipt
+
+This release defines the hardware-software boundary contract.
+
+v137.11.1 — Integer / Matrix Offload Engine
+
+Goal: build the speed lane
+
+Deliverables:
+
+integer-first matrix engine
+fixed-point multiply-accumulate
+saturating arithmetic
+deterministic reduction ordering
+explicit scaling metadata
+bounded output ranges
+
+Hard rule:
+
+no floating point unless mathematically unavoidable
+
+This release formalizes the retro integer-speed philosophy.
+
+v137.11.2 — Heterogeneous Scheduler
+
+Goal: explicit epoch scheduling
+
+Deliverables:
+
+epoch-based work queue
+deterministic dispatch order
+replay-safe scheduling ledger
+fixed fence boundaries
+CPU ↔ offload synchronization
+deterministic tie-breaking
+
+Primary law:
+
+no dynamic opportunistic scheduling
+
+Everything dispatches through:
+
+explicit epochs
+fixed ordering
+deterministic merge boundaries
+
+Research lineage:
+
+VBLANK
+Copper WAIT / MOVE
+replay epoch systems
+v137.11.3 — Emulator-Grade Parallel Workload Splitter
+
+Goal: tile / chunk parallelization
+
+Deliverables:
+
+tile-based work splitting
+fixed-size work shards
+local working-set optimization
+SRAM fit guarantees
+deterministic shard ordering
+deterministic merge receipts
+
+Interpretation:
+
+global task → tiles → parallel lanes → deterministic merge
+
+This is the retro GPU / tile renderer DNA release.
+
+v137.11.4 — Hardware Replay Battery
+
+Goal: prove deterministic execution
+
+Deliverables:
+
+epoch log receipts
+state checkpointing
+replay re-execution
+checksum validation
+byte-identical verification
+fail-safe divergence halts
+
+This release is mandatory validation for the entire line.
+
+Memory-compression sub-arc
+v137.11.5 — Neural Compression Sidecar
+
+Introduce bounded neural compression as a memory-traffic reduction lane.
+
+Focus:
+
+compressed latent blocks
+explicit decode boundaries
+bounded memory movement
+replay-safe latent receipts
+v137.11.6 — Deterministic Latent Decode Lane
+
+Deterministic sample-time reconstruction from compressed latent state.
+
+Focus:
+
+decode-on-demand
+stable decode hashes
+explicit quantization metadata
+deterministic reconstruction
+v137.11.7 — Memory Traffic Reduction Battery
+
+Formal replay-safe validation of memory compression lanes.
+
+Focus:
+
+byte-identical decode replay
+traffic reduction metrics
+checksum / hash validation
+bandwidth reduction certification
+Architectural intent
+
+This entire series should feel like:
+
+retro co-processor philosophy
++
+modern replay-safe systems engineering
+
+The purpose of this line is not “hardware acceleration” in the generic sense.
+
+The purpose is:
+
+deterministic speed through explicit constrained compute lanes
+
 v137.12.x — Neuromorphic + Hybrid Biological Compute Research
 
 Status: PLANNED

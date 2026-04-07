@@ -25,6 +25,7 @@ _ALLOWED_VERDICTS = frozenset({"accepted", "flagged", "rejected"})
 
 _NUMERIC_TOKEN_RE = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$")
 _RATIO_TOKEN_RE = re.compile(r"^[+-]?\d+(?:\.\d+)?/[+-]?\d+(?:\.\d+)?$")
+_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 
 _SYMMETRY_MARKERS = frozenset({"symmetry", "symmetric", "mirror", "balanced", "palindrome", "triality"})
 _CONSTANT_MARKERS = frozenset({"constant", "universal", "fundamental", "sacred"})
@@ -88,10 +89,16 @@ def _normalize_provenance(value: Any) -> tuple[tuple[str, str], ...]:
     if not isinstance(value, Mapping):
         raise ValueError("provenance must be a mapping")
     items: list[tuple[str, str]] = []
+    seen_keys: set[str] = set()
     for key, val in value.items():
         if callable(key) or callable(val):
             raise ValueError("callable leakage")
-        items.append((_normalize_token(key, name="provenance key"), _normalize_token(val, name="provenance value")))
+        normalized_key = _normalize_token(key, name="provenance key")
+        normalized_value = _normalize_token(val, name="provenance value")
+        if normalized_key in seen_keys:
+            raise ValueError(f"duplicate provenance key after normalization: {normalized_key!r}")
+        seen_keys.add(normalized_key)
+        items.append((normalized_key, normalized_value))
     items.sort(key=lambda x: x[0])
     return tuple(items)
 
@@ -241,6 +248,14 @@ def normalize_rejection_battery_input(raw_input: Mapping[str, Any]) -> Rejection
 def validate_rejection_battery_input(battery_input: RejectionBatteryInput) -> None:
     if battery_input.schema_version != NUMEROLOGICAL_REJECTION_BATTERY_SCHEMA_VERSION:
         raise ValueError("unsupported schema version")
+    if not battery_input.artifact_id:
+        raise ValueError("artifact_id is required")
+    if not battery_input.claim_id:
+        raise ValueError("claim_id is required")
+    if not _HEX64_RE.match(battery_input.audit_hash):
+        raise ValueError("audit_hash must be a 64-character lowercase hex string")
+    if not _HEX64_RE.match(battery_input.proof_report_hash):
+        raise ValueError("proof_report_hash must be a 64-character lowercase hex string")
 
 
 def _validate_findings(findings: Sequence[RejectionFinding]) -> None:
@@ -259,6 +274,30 @@ def _has_repetition(values: tuple[str, ...]) -> bool:
     if not values:
         return False
     return len(set(values)) < len(values)
+
+
+def _select_repeated_token(tokens: tuple[str, ...]) -> str | None:
+    """Return the most-frequent repeated token, tie-breaking lexicographically."""
+    counts: dict[str, int] = {}
+    for token in tokens:
+        counts[token] = counts.get(token, 0) + 1
+    repeated = [t for t, c in counts.items() if c > 1]
+    if not repeated:
+        return None
+    max_count = max(counts[t] for t in repeated)
+    return min(t for t in repeated if counts[t] == max_count)
+
+
+def _select_repeated_numeric(constants: tuple[str, ...]) -> str | None:
+    """Return the most-frequent repeated numeric constant, tie-breaking lexicographically."""
+    counts: dict[str, int] = {}
+    for c in constants:
+        counts[c] = counts.get(c, 0) + 1
+    repeated = [c for c, n in counts.items() if n > 1]
+    if not repeated:
+        return None
+    max_count = max(counts[c] for c in repeated)
+    return min(c for c in repeated if counts[c] == max_count)
 
 
 def _new_finding(*, rejection_type: str, message: str, related_token: str = "", related_numeric_value: str = "", severity: str = "warning", blocking: bool = False) -> RejectionFinding:
@@ -292,11 +331,17 @@ def run_rejection_battery(
     cited_evidence = set(battery_input.cited_evidence_ids)
     cited_criteria = set(battery_input.cited_criterion_ids)
 
+    # None means availability catalog is unknown (skip intersection check).
+    # An explicit empty list means no items are available (full rejection applies).
     has_measurement_grounding = bool(cited_measurements) and (
-        not available_measurement_set or bool(cited_measurements & available_measurement_set)
+        available_measurements is None or bool(cited_measurements & available_measurement_set)
     )
-    has_evidence_linkage = bool(cited_evidence) and (not available_evidence_set or bool(cited_evidence & available_evidence_set))
-    has_criterion_linkage = bool(cited_criteria) and (not available_criteria_set or bool(cited_criteria & available_criteria_set))
+    has_evidence_linkage = bool(cited_evidence) and (
+        available_evidence is None or bool(cited_evidence & available_evidence_set)
+    )
+    has_criterion_linkage = bool(cited_criteria) and (
+        available_criteria is None or bool(cited_criteria & available_criteria_set)
+    )
 
     findings: list[RejectionFinding] = []
 
@@ -305,7 +350,7 @@ def run_rejection_battery(
             _new_finding(
                 rejection_type="unsupported_symbolic_repetition",
                 message="repeated symbolic tokens without linked evidence or criterion references",
-                related_token=battery_input.symbolic_tokens[0],
+                related_token=_select_repeated_token(battery_input.symbolic_tokens) or "",
             )
         )
 
@@ -314,7 +359,7 @@ def run_rejection_battery(
             _new_finding(
                 rejection_type="unsupported_numeric_motif",
                 message="repeated numeric constants not tied to cited measurements",
-                related_numeric_value=battery_input.numeric_constants[0],
+                related_numeric_value=_select_repeated_numeric(battery_input.numeric_constants) or "",
             )
         )
 
@@ -346,7 +391,7 @@ def run_rejection_battery(
             _new_finding(
                 rejection_type="constant_reification",
                 message="constants repeatedly elevated to explanatory status",
-                related_numeric_value=battery_input.numeric_constants[0],
+                related_numeric_value=_select_repeated_numeric(battery_input.numeric_constants) or "",
                 related_token=next(token for token in battery_input.symbolic_tokens if token.lower() in _CONSTANT_MARKERS),
             )
         )
@@ -368,7 +413,7 @@ def run_rejection_battery(
             _new_finding(
                 rejection_type="evidence_gap_amplification",
                 message="missing evidence cited while symbolic inflation persists",
-                related_token=battery_input.symbolic_tokens[0],
+                related_token=_select_repeated_token(battery_input.symbolic_tokens) or "",
                 severity="error",
                 blocking=True,
             )
@@ -419,6 +464,10 @@ def stable_rejection_battery_hash(decision: RejectionDecision, findings: Sequenc
     if decision.rejection_verdict not in _ALLOWED_VERDICTS:
         raise ValueError("unsupported verdict")
     _validate_findings(findings)
+    expected_ids = sorted(f.finding_id for f in findings)
+    actual_ids = sorted(decision.finding_ids)
+    if expected_ids != actual_ids:
+        raise ValueError("decision finding_ids do not match provided findings")
     payload = {
         "decision": {
             "artifact_id": decision.artifact_id,
@@ -446,6 +495,11 @@ def build_rejection_battery_receipt(
     _validate_findings(findings)
     if decision.schema_version != NUMEROLOGICAL_REJECTION_BATTERY_SCHEMA_VERSION:
         raise ValueError("unsupported schema version")
+    # Recompute and verify the battery hash for integrity; do not trust decision.battery_hash blindly.
+    computed_hash = stable_rejection_battery_hash(decision, findings)
+    if decision.battery_hash and decision.battery_hash != computed_hash:
+        raise ValueError("battery_hash mismatch: decision hash does not match computed hash")
+    battery_hash = computed_hash
     ordered_findings = tuple(sorted(findings, key=lambda f: (f.rejection_type, f.finding_id)))
     serialized = _canonical_json(
         {
@@ -454,7 +508,7 @@ def build_rejection_battery_receipt(
         }
     ).encode("utf-8")
     return RejectionBatteryReceipt(
-        battery_hash=decision.battery_hash,
+        battery_hash=battery_hash,
         artifact_id=decision.artifact_id,
         rejection_verdict=decision.rejection_verdict,
         finding_count=len(ordered_findings),

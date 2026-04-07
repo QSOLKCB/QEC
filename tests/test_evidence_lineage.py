@@ -104,6 +104,23 @@ def test_canonical_ordering() -> None:
     assert edge_keys == tuple(sorted(edge_keys))
 
 
+def test_canonical_bytes_and_hash_are_independent_of_input_ordering() -> None:
+    # Build two equivalent raw graphs with different node/edge orderings
+    raw_a = _raw_graph()
+    raw_b = _raw_graph()
+
+    # Permute node and edge order in the second raw graph
+    raw_b["nodes"] = list(reversed(list(raw_b["nodes"])))  # type: ignore[index]
+    raw_b["edges"] = list(reversed(list(raw_b["edges"])))  # type: ignore[index]
+
+    graph_a, _ = compile_evidence_graph(raw_a)
+    graph_b, _ = compile_evidence_graph(raw_b)
+
+    # Canonical bytes and stable hash should be identical regardless of input ordering
+    assert graph_a.to_canonical_bytes() == graph_b.to_canonical_bytes()
+    assert stable_evidence_hash(graph_a) == stable_evidence_hash(graph_b)
+
+
 def test_duplicate_node_rejection() -> None:
     raw = _raw_graph()
     raw["nodes"] = list(raw["nodes"]) + [dict(raw["nodes"][0])]  # type: ignore[index]

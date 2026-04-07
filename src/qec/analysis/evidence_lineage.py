@@ -284,12 +284,15 @@ def validate_evidence_graph(graph: EvidenceLineageGraph) -> None:
 
 
 
-def stable_evidence_hash(graph: EvidenceLineageGraph) -> str:
+def _stable_evidence_hash_payload(graph: EvidenceLineageGraph) -> dict[str, Any]:
+    """Return the deterministic payload used for stable evidence hashing."""
     payload = graph.to_dict().copy()
-    return _sha256_hex(payload)
+    payload.pop("graph_id", None)
+    return payload
 
 
-
+def stable_evidence_hash(graph: EvidenceLineageGraph) -> str:
+    return _sha256_hex(_stable_evidence_hash_payload(graph))
 def build_evidence_receipt(graph: EvidenceLineageGraph) -> EvidenceLineageReceipt:
     validate_evidence_graph(graph)
     canonical_bytes = graph.to_canonical_bytes()

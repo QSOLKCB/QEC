@@ -212,6 +212,32 @@ def test_fail_fast_malformed_telecom_input() -> None:
         run_satellite_signal_baseline(invalid)
 
 
+def test_fail_fast_zero_segments() -> None:
+    telecom = _telecom_artifact()
+    zero_seg = replace(telecom, segment_count=0, segments=(), frame_count=0)
+    zero_seg = replace(zero_seg, telecom_recovery_hash=zero_seg.stable_hash())
+
+    with pytest.raises(ValueError, match="at least one segment"):
+        run_satellite_signal_baseline(zero_seg)
+
+
+def test_fail_fast_zero_frames_in_segment() -> None:
+    telecom = _telecom_artifact()
+    first_seg = telecom.segments[0]
+    zero_frame_seg = replace(first_seg, frame_count=0, frames=())
+    zero_frame_seg = replace(zero_frame_seg, segment_hash=zero_frame_seg.stable_hash())
+    new_segments = (zero_frame_seg,) + telecom.segments[1:]
+    updated = replace(
+        telecom,
+        segments=new_segments,
+        frame_count=sum(s.frame_count for s in new_segments),
+    )
+    updated = replace(updated, telecom_recovery_hash=updated.stable_hash())
+
+    with pytest.raises(ValueError, match="at least one frame"):
+        run_satellite_signal_baseline(updated)
+
+
 def test_receipt_determinism() -> None:
     telecom = _telecom_artifact()
     artifact = run_satellite_signal_baseline(telecom)

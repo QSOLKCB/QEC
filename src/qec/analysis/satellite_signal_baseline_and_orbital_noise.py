@@ -31,13 +31,6 @@ _ORBITAL_CLASS_ORDER: tuple[str, ...] = (
     "relay",
     "deep_space",
 )
-_SCENARIO_TO_CLASS: dict[str, str] = {
-    "nominal_orbit": "leo",
-    "solar_noise": "meo",
-    "eclipse_shadow": "geo",
-    "relay_handoff": "relay",
-    "deep_space_latency": "deep_space",
-}
 _SCENARIO_SEVERITY: dict[str, float] = {
     "nominal_orbit": 0.00,
     "solar_noise": 0.18,
@@ -105,10 +98,10 @@ def _mean(values: tuple[float, ...], default: float = 1.0) -> float:
 
 def _validate_unit_interval(value: float, name: str) -> None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{name} must be finite number in [0.0, 1.0]")
+        raise ValueError(f"{name} must be a numeric value")
     score = float(value)
     if not math.isfinite(score) or not 0.0 <= score <= 1.0:
-        raise ValueError(f"{name} must be finite number in [0.0, 1.0]")
+        raise ValueError(f"{name} must be finite and in [0.0, 1.0]")
 
 
 def _validate_telecom_artifact(recovery_artifact: TelecomRecoveryResult) -> None:
@@ -118,6 +111,8 @@ def _validate_telecom_artifact(recovery_artifact: TelecomRecoveryResult) -> None
         raise ValueError("recovery_artifact telecom_recovery_hash must match stable_hash")
     if recovery_artifact.segment_count != len(recovery_artifact.segments):
         raise ValueError("recovery_artifact segment_count must match len(segments)")
+    if recovery_artifact.segment_count <= 0 or not recovery_artifact.segments:
+        raise ValueError("recovery_artifact must contain at least one segment")
     if recovery_artifact.frame_count != sum(segment.frame_count for segment in recovery_artifact.segments):
         raise ValueError("recovery_artifact frame_count must match summed segment frame_count")
 
@@ -130,6 +125,8 @@ def _validate_telecom_artifact(recovery_artifact: TelecomRecoveryResult) -> None
     for segment in recovery_artifact.segments:
         if segment.segment_hash != segment.stable_hash():
             raise ValueError("recovery_artifact segment_hash must match stable_hash")
+        if segment.frame_count <= 0 or not segment.frames:
+            raise ValueError("recovery_artifact each segment must contain at least one frame")
         if segment.frame_count != len(segment.frames):
             raise ValueError("recovery_artifact frame_count must match len(frames) per segment")
 
@@ -380,7 +377,12 @@ def run_satellite_signal_baseline(
     int_fixture: tuple[int, ...] | None = None,
     str_fixture: tuple[str, ...] | None = None,
 ) -> SatelliteBaselineResult:
-    """Build replay-safe satellite baseline artifacts from telecom recovery lineage."""
+    """Build replay-safe satellite baseline artifacts from telecom recovery lineage.
+
+    The optional ``float_fixture``, ``int_fixture``, and ``str_fixture`` inputs
+    are validated for deterministic-readiness only. They do not affect the
+    generated artifact, its content, or any derived hashes.
+    """
     _validate_telecom_artifact(recovery_artifact)
     _validate_optional_fixture_payload(float_fixture, int_fixture, str_fixture)
 
@@ -398,8 +400,9 @@ def run_satellite_signal_baseline(
     telecom_segments = recovery_artifact.segments
     telecom_segment_count = len(telecom_segments)
 
-    for segment_index, orbital_scenario in enumerate(_ORBITAL_SCENARIO_ORDER):
-        orbital_class = _SCENARIO_TO_CLASS[orbital_scenario]
+    for segment_index, (orbital_scenario, orbital_class) in enumerate(
+        zip(_ORBITAL_SCENARIO_ORDER, _ORBITAL_CLASS_ORDER)
+    ):
         source_segment = telecom_segments[segment_index % telecom_segment_count]
         severity = _SCENARIO_SEVERITY[orbital_scenario]
 

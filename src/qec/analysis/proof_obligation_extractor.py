@@ -137,14 +137,6 @@ def _normalize_available_ids(values: Any, *, name: str) -> tuple[str, ...]:
     return _normalize_string_tuple(values, name=name)
 
 
-def _extract_status_from_value(value: Any) -> str:
-    if isinstance(value, Mapping):
-        candidate = value.get("status", value.get("state", value.get("result", "")))
-    else:
-        candidate = value
-    return str(candidate).strip().lower()
-
-
 def _extract_replay_pass(value: Any) -> bool:
     if isinstance(value, Mapping):
         for key in ("deterministic_pass", "pass", "passed", "validation_passed"):
@@ -416,8 +408,13 @@ def extract_proof_obligations(
     if evidence_graph is not None:
         if not isinstance(evidence_graph, Mapping):
             raise ValueError("evidence_graph must be mapping")
-        raw_nodes = evidence_graph.get("node_ids", ())
-        evidence_nodes.update(_normalize_string_tuple(raw_nodes, name="evidence_graph.node_ids"))
+        # Accept "nodes" (canonical) or "node_ids" (legacy) key.
+        if "nodes" in evidence_graph:
+            raw_nodes = evidence_graph["nodes"]
+            evidence_nodes.update(_normalize_string_tuple(raw_nodes, name="evidence_graph.nodes"))
+        elif "node_ids" in evidence_graph:
+            raw_nodes = evidence_graph["node_ids"]
+            evidence_nodes.update(_normalize_string_tuple(raw_nodes, name="evidence_graph.node_ids"))
 
     obligations: list[ProofObligation] = []
     for measurement_id in obligation_input.measurement_ids:
@@ -485,7 +482,7 @@ def extract_proof_obligations(
                 )
             )
         else:
-            status = "satisfied" if evidence_graph is not None else "required"
+            status = "required" if evidence_graph is not None else "unsatisfied"
             obligations.append(
                 ProofObligation(
                     obligation_id=_obligation_id(
@@ -500,33 +497,33 @@ def extract_proof_obligations(
                     related_finding_id="",
                     related_node_ids=(),
                     requirement_text=f"evidence relation {relation_id} must be present",
-                    blocking=status == "unsatisfied",
+                    blocking=evidence_graph is None,
                     status=status,
                 )
             )
 
     conflict_ids = tuple(fid for fid in obligation_input.finding_ids if fid in finding_set)
     conflict_from_verdict = obligation_input.verdict == "contradicted"
-    if conflict_from_verdict or conflict_ids:
-        status = "unsatisfied" if (conflict_from_verdict or conflict_ids) else "satisfied"
-        obligations.append(
-            ProofObligation(
-                obligation_id=_obligation_id(
-                    claim_id=obligation_input.claim_id,
-                    obligation_type="conflict_absence",
-                    scope=",".join(conflict_ids) if conflict_ids else obligation_input.verdict,
-                ),
-                obligation_type="conflict_absence",
+    conflict_present = conflict_from_verdict or bool(conflict_ids)
+    status = "unsatisfied" if conflict_present else "satisfied"
+    obligations.append(
+        ProofObligation(
+            obligation_id=_obligation_id(
                 claim_id=obligation_input.claim_id,
-                related_measurement_id="",
-                related_criterion_id="",
-                related_finding_id=conflict_ids[0] if conflict_ids else "",
-                related_node_ids=(),
-                requirement_text="no conflicting evidence findings may remain unresolved",
-                blocking=status == "unsatisfied",
-                status=status,
-            )
+                obligation_type="conflict_absence",
+                scope=",".join(conflict_ids) if conflict_ids else obligation_input.verdict,
+            ),
+            obligation_type="conflict_absence",
+            claim_id=obligation_input.claim_id,
+            related_measurement_id="",
+            related_criterion_id="",
+            related_finding_id=conflict_ids[0] if conflict_ids else "",
+            related_node_ids=(),
+            requirement_text="no conflicting evidence findings may remain unresolved",
+            blocking=status == "unsatisfied",
+            status=status,
         )
+    )
 
     if replay_report is not None:
         if not isinstance(replay_report, Mapping):
@@ -561,9 +558,30 @@ def stable_proof_obligation_hash(report: ProofObligationReport) -> str:
     return hashlib.sha256(report.to_canonical_bytes()).hexdigest()
 
 
-def build_proof_obligation_receipt(report: ProofObligationReport) -> ProofObligationReceipt:
+def validate_proof_obligation_report(report: ProofObligationReport) -> None:
     if report.schema_version != PROOF_OBLIGATION_SCHEMA_VERSION:
         raise ValueError("unsupported schema_version")
+    ids = [item.obligation_id for item in report.obligations]
+    if len(set(ids)) != len(ids):
+        raise ValueError("duplicate obligation IDs in report")
+    for item in report.obligations:
+        _validate_obligation(item)
+    recomputed_total = len(report.obligations)
+    recomputed_blocking = sum(1 for item in report.obligations if item.blocking and item.status == "unsatisfied")
+    recomputed_satisfied = sum(1 for item in report.obligations if item.status == "satisfied")
+    recomputed_unsatisfied = sum(1 for item in report.obligations if item.status == "unsatisfied")
+    if report.total_obligations != recomputed_total:
+        raise ValueError("total_obligations count mismatch")
+    if report.blocking_obligations != recomputed_blocking:
+        raise ValueError("blocking_obligations count mismatch")
+    if report.satisfied_obligations != recomputed_satisfied:
+        raise ValueError("satisfied_obligations count mismatch")
+    if report.unsatisfied_obligations != recomputed_unsatisfied:
+        raise ValueError("unsatisfied_obligations count mismatch")
+
+
+def build_proof_obligation_receipt(report: ProofObligationReport) -> ProofObligationReceipt:
+    validate_proof_obligation_report(report)
     report_hash = stable_proof_obligation_hash(report)
     return ProofObligationReceipt(
         report_hash=report_hash,
@@ -619,4 +637,5 @@ __all__ = [
     "normalize_proof_obligation_input",
     "stable_proof_obligation_hash",
     "validate_proof_obligation_input",
+    "validate_proof_obligation_report",
 ]

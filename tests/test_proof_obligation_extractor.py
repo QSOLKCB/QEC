@@ -11,6 +11,7 @@ from qec.analysis.proof_obligation_extractor import (
     extract_proof_obligations,
     normalize_proof_obligation_input,
     stable_proof_obligation_hash,
+    validate_proof_obligation_report,
 )
 
 
@@ -61,7 +62,7 @@ def test_lineage_and_evidence_presence_obligations() -> None:
     normalized = normalize_proof_obligation_input(_base_raw_input())
     obligations = extract_proof_obligations(
         normalized,
-        evidence_graph={"node_ids": ["n_claim", "n_result"]},
+        evidence_graph={"nodes": ["n_claim", "n_result"]},
     )
     lineage = [o for o in obligations if o.obligation_type == "lineage_integrity"]
     evidence_presence = [o for o in obligations if o.obligation_type == "evidence_presence"]
@@ -69,6 +70,19 @@ def test_lineage_and_evidence_presence_obligations() -> None:
     assert lineage[0].status == "satisfied"
     assert lineage[0].requirement_text == "lineage nodes n_claim,n_result must be linked"
     assert len(evidence_presence) == 1
+    # evidence_graph provided but relation has no node_ids to verify → required, not blocking
+    assert evidence_presence[0].status == "required"
+    assert evidence_presence[0].blocking is False
+
+
+def test_evidence_presence_unsatisfied_blocking_when_graph_absent() -> None:
+    normalized = normalize_proof_obligation_input(_base_raw_input())
+    # No evidence_graph provided → evidence_presence must be unsatisfied + blocking
+    obligations = extract_proof_obligations(normalized)
+    evidence_presence = [o for o in obligations if o.obligation_type == "evidence_presence"]
+    assert len(evidence_presence) == 1
+    assert evidence_presence[0].status == "unsatisfied"
+    assert evidence_presence[0].blocking is True
 
 
 def test_conflict_and_replay_obligations_created() -> None:
@@ -88,6 +102,16 @@ def test_conflict_and_replay_obligations_created() -> None:
     assert replay.blocking is True
 
 
+def test_conflict_absence_satisfied_when_no_conflicts() -> None:
+    # verdict = supported and no conflicting findings → conflict_absence always emitted as satisfied
+    normalized = normalize_proof_obligation_input(_base_raw_input())
+    obligations = extract_proof_obligations(normalized)
+    conflict = [o for o in obligations if o.obligation_type == "conflict_absence"]
+    assert len(conflict) == 1
+    assert conflict[0].status == "satisfied"
+    assert conflict[0].blocking is False
+
+
 def test_deterministic_hash_and_canonical_bytes_stable() -> None:
     raw = _base_raw_input()
     _, report_a, receipt_a = compile_proof_obligation_report(
@@ -95,7 +119,7 @@ def test_deterministic_hash_and_canonical_bytes_stable() -> None:
         available_findings=("finding_conflict",),
         available_measurements=("m_obs_1", "m_obs_2"),
         available_criteria=("crit_a", "crit_b"),
-        evidence_graph={"node_ids": ["n_claim", "n_result"]},
+        evidence_graph={"nodes": ["n_claim", "n_result"]},
         replay_report={"deterministic_pass": True},
     )
     _, report_b, receipt_b = compile_proof_obligation_report(
@@ -103,7 +127,7 @@ def test_deterministic_hash_and_canonical_bytes_stable() -> None:
         available_findings=("finding_conflict",),
         available_measurements=("m_obs_2", "m_obs_1"),
         available_criteria=("crit_b", "crit_a"),
-        evidence_graph={"node_ids": ["n_result", "n_claim"]},
+        evidence_graph={"nodes": ["n_result", "n_claim"]},
         replay_report={"deterministic_pass": True},
     )
     assert report_a.to_canonical_bytes() == report_b.to_canonical_bytes()
@@ -193,3 +217,25 @@ def test_receipt_stability() -> None:
     receipt_a = build_proof_obligation_receipt(report)
     receipt_b = build_proof_obligation_receipt(report)
     assert receipt_a.to_canonical_bytes() == receipt_b.to_canonical_bytes()
+
+
+def test_validate_proof_obligation_report_passes_on_valid_report() -> None:
+    _, report, _ = compile_proof_obligation_report(
+        _base_raw_input(),
+        available_measurements=("m_obs_1", "m_obs_2"),
+        available_criteria=("crit_a", "crit_b"),
+    )
+    # Should not raise
+    validate_proof_obligation_report(report)
+
+
+def test_evidence_graph_legacy_node_ids_key_accepted() -> None:
+    # Backward-compatible: "node_ids" key must still be accepted
+    normalized = normalize_proof_obligation_input(_base_raw_input())
+    obligations = extract_proof_obligations(
+        normalized,
+        evidence_graph={"node_ids": ["n_claim", "n_result"]},
+    )
+    lineage = [o for o in obligations if o.obligation_type == "lineage_integrity"]
+    assert len(lineage) == 1
+    assert lineage[0].status == "satisfied"

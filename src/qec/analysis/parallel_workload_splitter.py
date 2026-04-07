@@ -246,9 +246,9 @@ def split_workload(descriptor: WorkloadDescriptor) -> tuple[WorkShard, ...]:
             raise ValueError("payload exceeds max_shard_size")
         payloads.append({"strategy": strategy, "rows": _restore_payload(descriptor.payload)})
     elif strategy == "row_chunks":
-        max_rows_by_size = max(1, descriptor.max_shard_size // cols)
-        if max_rows_by_size <= 0:
+        if cols > descriptor.max_shard_size:
             raise ValueError("payload exceeds max_shard_size")
+        max_rows_by_size = descriptor.max_shard_size // cols
         rows_per_shard = min(math.ceil(rows / descriptor.target_shard_count), max_rows_by_size)
         for start in range(0, rows, rows_per_shard):
             stop = min(rows, start + rows_per_shard)
@@ -261,7 +261,9 @@ def split_workload(descriptor: WorkloadDescriptor) -> tuple[WorkShard, ...]:
                 }
             )
     elif strategy == "column_chunks":
-        max_cols_by_size = max(1, descriptor.max_shard_size // rows)
+        if rows > descriptor.max_shard_size:
+            raise ValueError("payload exceeds max_shard_size")
+        max_cols_by_size = descriptor.max_shard_size // rows
         cols_per_shard = min(math.ceil(cols / descriptor.target_shard_count), max_cols_by_size)
         for start in range(0, cols, cols_per_shard):
             stop = min(cols, start + cols_per_shard)
@@ -332,8 +334,12 @@ def merge_shards(shards: Sequence[WorkShard]) -> bytes:
     strategy = str(ordered[0].shard_payload.get("strategy", ""))
     if strategy not in _ALLOWED_SPLIT_STRATEGIES:
         raise ValueError("unsupported split_strategy")
+    if any(str(shard.shard_payload.get("strategy", "")) != strategy for shard in ordered):
+        raise ValueError("shards must share strategy")
 
     if strategy == "identity_pass":
+        if len(ordered) != 1:
+            raise ValueError("identity_pass requires exactly 1 shard")
         merged_rows = ordered[0].shard_payload["rows"]
     elif strategy == "row_chunks":
         merged_rows = []
@@ -376,6 +382,9 @@ def build_merge_receipt(shards: Sequence[WorkShard], merged_output: bytes) -> Me
     if not shards:
         raise ValueError("invalid shard count")
     ordered = tuple(sorted(shards, key=lambda shard: (shard.shard_index, shard.shard_id)))
+    workload_ids = {shard.workload_id for shard in ordered}
+    if len(workload_ids) != 1:
+        raise ValueError("shards must share workload_id")
     workload_id = ordered[0].workload_id
     payload = {
         "workload_id": workload_id,

@@ -157,3 +157,72 @@ def test_merge_requires_single_workload_id() -> None:
     )
     with pytest.raises(ValueError, match="shards must share workload_id"):
         merge_shards((shard, rogue))
+
+
+def test_row_chunks_max_shard_size_less_than_cols_raises() -> None:
+    raw = _base_raw("row_chunks")
+    # 4 cols, max_shard_size=3 means a single row already violates the bound
+    raw["max_shard_size"] = 3
+    descriptor = normalize_workload_descriptor(raw)
+    with pytest.raises(ValueError, match="payload exceeds max_shard_size"):
+        split_workload(descriptor)
+
+
+def test_column_chunks_max_shard_size_less_than_rows_raises() -> None:
+    raw = _base_raw("column_chunks")
+    # 3 rows, max_shard_size=2 means a single column already violates the bound
+    raw["max_shard_size"] = 2
+    descriptor = normalize_workload_descriptor(raw)
+    with pytest.raises(ValueError, match="payload exceeds max_shard_size"):
+        split_workload(descriptor)
+
+
+def test_merge_shards_mixed_strategies_raises() -> None:
+    desc_row = normalize_workload_descriptor(_base_raw("row_chunks"))
+    desc_scan = normalize_workload_descriptor(
+        {**_base_raw("scanline_split"), "workload_id": "workload-A"}
+    )
+    shards_row = split_workload(desc_row)
+    shards_scan = split_workload(desc_scan)
+    # Pick one shard from each strategy but force the same workload_id
+    shard_scan_same_wid = WorkShard(
+        shard_id=shards_scan[0].shard_id,
+        workload_id="workload-A",
+        shard_index=shards_scan[0].shard_index + len(shards_row),
+        shard_payload=shards_scan[0].shard_payload,
+        epoch_id=shards_scan[0].epoch_id,
+        stable_hash=shards_scan[0].stable_hash,
+    )
+    with pytest.raises(ValueError, match="shards must share strategy"):
+        merge_shards((*shards_row, shard_scan_same_wid))
+
+
+def test_identity_pass_merge_requires_exactly_one_shard() -> None:
+    report = compile_split_report(_base_raw("identity_pass"))
+    shard = report.shards[0]
+    duplicate = WorkShard(
+        shard_id=shard.shard_id,
+        workload_id=shard.workload_id,
+        shard_index=1,
+        shard_payload=shard.shard_payload,
+        epoch_id=shard.epoch_id,
+        stable_hash=shard.stable_hash,
+    )
+    with pytest.raises(ValueError, match="identity_pass requires exactly 1 shard"):
+        merge_shards((shard, duplicate))
+
+
+def test_build_merge_receipt_mixed_workload_ids_raises() -> None:
+    report = compile_split_report(_base_raw("identity_pass"))
+    shard = report.shards[0]
+    rogue = WorkShard(
+        shard_id="x" * 64,
+        workload_id="other",
+        shard_index=1,
+        shard_payload=shard.shard_payload,
+        epoch_id=shard.epoch_id,
+        stable_hash="y" * 64,
+    )
+    merged = shard.to_canonical_bytes()
+    with pytest.raises(ValueError, match="shards must share workload_id"):
+        build_merge_receipt((shard, rogue), merged)

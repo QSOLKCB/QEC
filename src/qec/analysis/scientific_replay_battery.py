@@ -73,7 +73,7 @@ class ReplayBatteryReport:
             "total_cases": self.total_cases,
             "passed_cases": self.passed_cases,
             "failed_cases": self.failed_cases,
-            "pass_rate": _round64(self.pass_rate),
+            "pass_rate": self.pass_rate,
             "results": [result.to_dict() for result in self.results],
             "schema_version": self.schema_version,
         }
@@ -163,6 +163,12 @@ def _normalize_bytes(value: Any) -> bytes:
 
 def normalize_replay_case(raw_case: ReplayCase | Mapping[str, Any]) -> ReplayCase:
     if isinstance(raw_case, ReplayCase):
+        # Validate hash fields even for existing ReplayCase instances
+        _validate_hash(raw_case.experiment_hash, "experiment_hash")
+        _validate_hash(raw_case.evidence_hash, "evidence_hash")
+        _validate_hash(raw_case.audit_hash, "audit_hash")
+        _validate_hash(raw_case.expected_output_hash, "expected_output_hash")
+        validate_replay_case(raw_case)
         return ReplayCase(**raw_case.__dict__)
     if not isinstance(raw_case, Mapping):
         raise ValueError("raw_case must be mapping or ReplayCase")
@@ -187,7 +193,10 @@ def validate_replay_case(case: ReplayCase) -> None:
     if not case.expected_verdict:
         raise ValueError("empty verdict")
     if case.schema_version != SCIENTIFIC_REPLAY_BATTERY_SCHEMA_VERSION:
-        raise ValueError("unsupported schema versions")
+        raise ValueError(
+            f"unsupported schema_version: {case.schema_version}; expected "
+            f"{SCIENTIFIC_REPLAY_BATTERY_SCHEMA_VERSION}"
+        )
     if len(case.canonical_input_bytes) == 0:
         raise ValueError("malformed canonical bytes")
 
@@ -247,7 +256,7 @@ def run_replay_battery(
     *,
     replay_fn: Callable[[bytes], Mapping[str, Any]],
 ) -> ReplayBatteryReport:
-    normalized = tuple(normalize_replay_case(case) for case in cases)
+    normalized = tuple(cases)
 
     seen: set[str] = set()
     for case in normalized:
@@ -284,7 +293,10 @@ def run_replay_battery(
 
 def stable_replay_battery_hash(report: ReplayBatteryReport) -> str:
     if report.schema_version != SCIENTIFIC_REPLAY_BATTERY_SCHEMA_VERSION:
-        raise ValueError("unsupported schema versions")
+        raise ValueError(
+            f"unsupported schema_version: {report.schema_version}; expected "
+            f"{SCIENTIFIC_REPLAY_BATTERY_SCHEMA_VERSION}"
+        )
     return _sha256_hex_bytes(report.to_canonical_bytes())
 
 

@@ -7,6 +7,7 @@ import pytest
 from qec.analysis.scientific_replay_battery import (
     SCIENTIFIC_REPLAY_BATTERY_SCHEMA_VERSION,
     ReplayBatteryReport,
+    ReplayCase,
     compile_replay_battery,
     normalize_replay_case,
     run_replay_battery,
@@ -149,8 +150,25 @@ def test_schema_rejection() -> None:
     raw = _case("a", b"payload")
     raw["schema_version"] = "v0"
 
-    with pytest.raises(ValueError, match="unsupported schema versions"):
+    with pytest.raises(ValueError, match="unsupported schema_version"):
         normalize_replay_case(raw)
+
+
+def test_replay_case_hash_validation() -> None:
+    """Ensure that malformed hash fields are rejected even when passing a ReplayCase instance."""
+    invalid_case = ReplayCase(
+        case_id="test",
+        experiment_hash="invalid",  # Not a valid 64-char hex SHA-256
+        evidence_hash="b" * 64,
+        audit_hash="c" * 64,
+        canonical_input_bytes=b"payload",
+        expected_output_hash="d" * 64,
+        expected_verdict="pass",
+        schema_version=SCIENTIFIC_REPLAY_BATTERY_SCHEMA_VERSION,
+    )
+
+    with pytest.raises(ValueError, match="experiment_hash must be 64-char lowercase hex SHA-256"):
+        normalize_replay_case(invalid_case)
 
 
 def test_callable_leakage_rejected() -> None:

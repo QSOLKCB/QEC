@@ -1,14 +1,16 @@
 # QSOLKCB / QEC
-### Deterministic Quantum Error Correction • Geometry-Driven Runtime • Replay-Safe Systems Architecture
-### Rust TUI Operator Console • Topological Diagnostics • Supervisory Control • Formal Replay Lineage
+### Deterministic Quantum Error Correction • Heterogeneous Compute Substrate • Replay-Safe Systems Architecture
+### Rust TUI Operator Console • Topological Diagnostics • Fixed-Function Compute Lanes • Formal Replay Lineage
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19099503.svg)](https://doi.org/10.5281/zenodo.19099503)
 [![Authorea](https://img.shields.io/badge/Authorea-10.22541%2Fau.177376131.17346095%2Fv1-blue)](https://doi.org/10.22541/au.177376131.17346095/v1)
 [![Branch](https://img.shields.io/badge/branch-v137%20canonical-purple)]()
+[![Version](https://img.shields.io/badge/current-v137.11.4-blue)]()
 [![Architecture](https://img.shields.io/badge/architecture-deterministic%20systems-blueviolet)]()
 [![Determinism](https://img.shields.io/badge/determinism-byte--identical-success)]()
-[![Replay](https://img.shields.io/badge/replay-stable%20hash%20chain-green)]()
+[![Replay](https://img.shields.io/badge/replay-hardware%20verified-green)]()
+[![Compute](https://img.shields.io/badge/compute-heterogeneous%20lanes-orange)]()
 [![Decoder Safety](https://img.shields.io/badge/decoder-sacred-critical)]()
 [![Layer 4](https://img.shields.io/badge/layer-4%20analysis-orange)]()
 [![Rust TUI](https://img.shields.io/badge/operator%20console-rust%20tui-red)]()
@@ -20,15 +22,19 @@
 
 # What QEC Is
 
-QEC is a **deterministic systems architecture** built around quantum error correction and extended into:
+QEC is a **deterministic systems architecture** rooted in quantum error correction and extended into a replay-safe heterogeneous compute substrate.
 
-- topology-aware reasoning
-- replay-safe artifact chains
-- temporal supervisory memory
-- multimodal synchronization
-- signal recovery
+The system now spans:
+
+- quantum error correction
 - deterministic orchestration
-- formal verification pathways
+- scientific reasoning + certification
+- topology-aware diagnostics
+- fixed-function compute lanes
+- integer / matrix offload
+- epoch scheduling
+- parallel workload partitioning
+- hardware replay verification
 - Rust operator tooling
 
 The governing law is:
@@ -37,319 +43,239 @@ The governing law is:
 continuous state
 → quantized symbolic state
 → observability
-→ memory
+→ topology
 → governed action
+→ heterogeneous compute lanes
+→ replay verification
 → stable replay identity
-→ topology kernel
-→ deterministic orchestration
-```
 
 If the same input does not produce the same bytes, it is not a valid result.
 
----
+Current Canonical State
 
-# Core Architecture
+Current stable release: v137.11.4
 
-```text
+The v137.11.x line establishes a deterministic heterogeneous compute substrate.
+
+Completed core arc:
+
+v137.11.0 — Deterministic Co-Processor Kernel
+v137.11.1 — Integer / Matrix Offload Engine
+v137.11.2 — Heterogeneous Scheduler
+v137.11.3 — Emulator-Grade Parallel Workload Splitter
+v137.11.4 — Hardware Replay Battery
+
+This line is inspired by:
+
+retro fixed-function co-processors
+integer-first acceleration
+deterministic scheduling epochs
+replay-safe workload partitioning
+hardware divergence detection
+Core Architecture
 decoder substrate
 → symbolic quantization
 → observability
-→ supervisory memory
-→ fragmentation recovery
-→ fidelity benchmarking
-→ topological graph kernel
-→ simulation / signal runtime
+→ topology graph kernel
+→ deterministic co-processor lanes
+→ integer / matrix offload
+→ epoch scheduler
+→ workload splitter
+→ hardware replay battery
 → replay-safe artifacts
 → operator console
-```
 
 Active canonical branch:
 
-`v137.x.x`
+v137.x.x
 
----
+Core Capabilities
+Quantum + Structural Diagnostics
+BP trajectory analysis
+attractor / basin detection
+metastability metrics
+topology-aware diagnostics
+graph continuity scoring
+deterministic observability artifacts
+Scientific Reasoning + Certification
 
-# Core Capabilities
+Completed v137.10.x reasoning stack:
 
-## Structural Diagnostics
-- BP trajectory analysis
-- attractor / basin detection
-- metastability metrics
-- topology-aware diagnostics
-- deterministic observability artifacts
-- graph continuity scoring
+hypothesis lattice
+experiment DSL
+evidence lineage
+claim audit kernel
+proof obligation extractor
+numerological rejection battery
+scientific certification kernel
 
-## Supervisory Control
-- governed steering
-- escalation paths
-- hysteresis / timeout control
-- temporal policy memory
-- deterministic decisions
+All outputs are replay-safe and hash-stable.
 
-## Replay-Safe Artifact System
-All major outputs are:
+Heterogeneous Compute (v137.11.x)
+Deterministic Co-Processor Kernel
 
-- frozen dataclasses
-- canonical JSON
-- canonical bytes
-- stable SHA-256 hashes
-- immutable lineage receipts
-- byte-identical on replay
+Fixed-function compute contract:
 
-## Geometry + Topology
-The `v137.8.x` line introduces:
+cpu → descriptor → co-processor → receipt
+Integer / Matrix Offload Engine
 
-- deterministic graph kernels
-- topology divergence batteries
-- manifold traversal prep
-- E8 / polytope future substrate
+Integer-first acceleration lane:
 
-## Formal Methods (Roadmap)
-Planned verification lines:
+deterministic matrix transforms
+fixed-point multiply-accumulate
+saturating arithmetic
+explicit scaling metadata
+stable cycle counts
 
-- TLA+ model checking
-- Lean 4 invariant proofs
-- replay law proofs
-- schema migration proofs
-- topology invariant packs
+Hard rule:
 
----
+no floating point unless mathematically unavoidable
+Heterogeneous Scheduler
 
-# Determinism Guarantees
+Epoch-based deterministic scheduling:
+
+stable dependency ordering
+merge barriers
+lexicographic tie-break
+replay-safe dispatch receipts
+
+Hard rule:
+
+same epoch = same execution order
+Parallel Workload Splitter
+
+Tile / chunk partitioning:
+
+fixed tiles
+row chunks
+column chunks
+scanline split
+deterministic merge receipts
+
+Hard rule:
+
+same input = same shards = same merge bytes
+Hardware Replay Battery
+
+Replay verification across all compute lanes.
+
+Validates:
+
+input hash
+output hash
+epoch identity
+shard identity
+byte equality
+
+Hard law:
+
+replay failure = architecture failure
+Determinism Guarantees
 
 QEC enforces strict reproducibility:
 
-- no hidden randomness
-- stable ordering
-- deterministic tie-breaking
-- canonical serialization
-- replay-safe export
-- explicit seeded RNG only
+no hidden randomness
+stable ordering
+deterministic tie-breaking
+canonical serialization
+stable SHA-256 hashes
+replay-safe export
+explicit seeded RNG only
 
 Example:
 
-```python
 import numpy as np
 rng = np.random.RandomState(seed)
-```
 
 Determinism is architecture.
 
----
-
-# Installation
-
----
-
-## Python / Core Runtime
-
-```bash
+Installation
+Python / Core Runtime
 git clone https://github.com/QSOLKCB/QEC.git
 cd QEC
 pip install -e .
-```
 
-Optional development tools:
+Development tools:
 
-```bash
 pip install -r requirements-dev.txt
 pytest -q
-```
+Rust TUI Operator Console
 
----
-
-# Rust TUI Operator Console
-
-QEC includes a **Rust TUI operator workstation** for fast keyboard-first workflows.
+QEC includes a Rust TUI operator workstation for fast keyboard-first workflows.
 
 Supports:
 
-- live diagnostics
-- topology visualization
-- replay inspection
-- invariant health
-- session export
-- control workflows
-
----
-
-## Install Latest Release (Recommended)
-
-Install the latest tagged Rust TUI release binary with:
-
-```bash
+live diagnostics
+topology visualization
+replay inspection
+invariant health
+session export
+compute-lane inspection
+scheduler receipts
+hardware replay inspection
+Install Latest Release
 curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
-```
-
-After install:
-
-```bash
-qec-tui
-```
-
-This resolves the latest released Rust TUI binary from GitHub releases.
-
----
-
-## Windows PowerShell (Build From Source)
-
-Open **PowerShell** inside the repository root.
-
-Build:
-
-```powershell
-cd .\tui
-cargo build --release
-```
 
 Run:
 
-```powershell
-cargo run --release
-```
-
-Run compiled binary from the local build output:
-
-```powershell
-.\target\release\qec-tui.exe
-```
-
-Important:
-This `.exe` is **generated locally by Cargo** after build.
-It is **not stored in the repository**.
-
----
-
-## Linux / macOS (Build From Source)
-
-```bash
+qec-tui
+Build From Source
+Linux / macOS
 cd tui
 cargo build --release
 cargo run --release
 ./target/release/qec-tui
-```
-
----
-
-## Windows + WSL (Optional)
-
-For Linux-style workflow on Windows:
-
-```powershell
-wsl
-cd /mnt/c/path/to/QEC/tui
+Windows PowerShell
+cd .\tui
+cargo build --release
 cargo run --release
-```
-
----
-
-## Cargo Install (Optional)
-
-Install globally from local source:
-
-```bash
-cargo install --path ./tui
-```
-
-Then run:
-
-```bash
-qec-tui
-```
-
----
-
-# TUI Layout
-
-```text
+.\target\release\qec-tui.exe
+TUI Layout
 Left   → navigation / mode selection
-Center → diagnostics / graph / history
-Right  → invariant health / topology status
+Center → diagnostics / graph / scheduler / replay
+Right  → invariant health / topology / compute lanes
 Bottom → hotkeys / command legend
-```
+Engineering Laws
+Determinism is architecture
 
----
-
-# Key Controls
-
-```text
-↑ / ↓   move selection
-← / →   switch panes
-Enter   activate
-Esc     back
-Q       quit
-```
-
----
-
-# Mode Shortcuts
-
-```text
-D   diagnostics
-T   topology graph
-M   memory
-R   replay
-I   invariants
-L   law engine
-X   action console
-H   health
-S   sessions
-```
-
----
-
-# Session / Replay
-
-```text
-E   export session
-P   replay last
-V   diff session
-S   scan saved
-```
-
----
-
-# Engineering Laws
-
-## Determinism is architecture
 Same input = same bytes.
 
-## Decoder core is sacred
+Replay is law
+
+Same artifacts = same stable hash.
+
+Hardware replay is mandatory
+
+Divergence = failure.
+
+Decoder core is sacred
+
 Do not modify:
 
-```text
 src/qec/decoder/
-```
 
 without explicit need.
 
-## Layering is law
+Layering is law
+
 Lower layers do not import higher layers.
 
-## Replay identity is mandatory
+Canonical identity is mandatory
+
 Canonical JSON + stable SHA-256 required.
 
-## Topology is deterministic
-Node ordering and edge ordering must be stable.
+Design Philosophy
 
-## Formal methods are roadmap law
-Future releases must remain proof-compatible.
-
----
-
-# Design Philosophy
-
-Small is beautiful.  
-Determinism is architecture.  
-Replay identity is law.  
-Topology is structure.  
-Proofs beat vibes.  
+Small is beautiful.
+Determinism is architecture.
+Replay identity is law.
+Hardware replay proves truth.
+Fixed-function beats ambiguity.
+Proofs beat vibes.
 Operator clarity beats hidden automation.
 
----
+Author
 
-# Author
-
-**Trent Slade**  
-**QSOL-IMC**  
+Trent Slade
+QSOL-IMC
 ORCID: https://orcid.org/0009-0002-4515-9237

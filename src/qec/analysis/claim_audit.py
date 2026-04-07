@@ -18,9 +18,19 @@ _ALLOWED_FINDING_TYPES = frozenset(
     }
 )
 _ALLOWED_SEVERITIES = frozenset({"info", "warning", "error"})
+_UNAVAILABLE_STATUSES = frozenset({"missing", "unavailable", "not_found", "absent"})
 
 JsonScalar = str | int | float | bool | None
 JsonValue = JsonScalar | tuple["JsonValue", ...] | tuple[tuple[str, "JsonValue"], ...]
+
+
+@dataclass(frozen=True)
+class _EmptyObjectMarker:
+    """Sentinel to distinguish empty JSON objects {} from empty arrays []."""
+    pass
+
+
+_EMPTY_OBJECT = _EmptyObjectMarker()
 
 
 def _canonical_json(payload: Mapping[str, Any]) -> str:
@@ -68,6 +78,8 @@ def _normalize_json_value(value: Any, *, path: str) -> JsonValue:
                 raise ValueError(f"duplicate key after normalization at {path}: {key}")
             seen.add(key)
             deduped.append((key, sub_value))
+        if not deduped:
+            return _EMPTY_OBJECT
         return tuple(deduped)
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
         return tuple(_normalize_json_value(item, path=path) for item in list(value))
@@ -75,6 +87,8 @@ def _normalize_json_value(value: Any, *, path: str) -> JsonValue:
 
 
 def _json_value_to_python(value: JsonValue) -> Any:
+    if isinstance(value, _EmptyObjectMarker):
+        return {}
     if isinstance(value, tuple):
         if value and isinstance(value[0], tuple) and len(value[0]) == 2 and isinstance(value[0][0], str):
             return {k: _json_value_to_python(v) for k, v in value}  # type: ignore[misc]
@@ -235,7 +249,10 @@ class ClaimAuditReceipt:
 def normalize_claim_audit_input(raw_input: Mapping[str, Any]) -> ClaimAuditInput:
     if not isinstance(raw_input, Mapping):
         raise ValueError("raw_input must be a mapping")
-    schema_version = _normalize_token(raw_input.get("schema_version") or CLAIM_AUDIT_SCHEMA_VERSION, name="schema_version")
+    raw_schema = raw_input.get("schema_version")
+    if raw_schema is not None and (not isinstance(raw_schema, str) or raw_schema.strip() == ""):
+        raise ValueError("schema_version must be a non-empty string if provided")
+    schema_version = _normalize_token(raw_schema if raw_schema is not None else CLAIM_AUDIT_SCHEMA_VERSION, name="schema_version")
     claim_input = ClaimAuditInput(
         claim_id=_normalize_token(raw_input.get("claim_id"), name="claim_id"),
         claim_text=_normalize_token(raw_input.get("claim_text"), name="claim_text"),
@@ -283,6 +300,13 @@ def _normalize_available_statuses(payload: Any, *, name: str) -> dict[str, str]:
             raise ValueError(f"duplicate normalized key in {name}: {item_id}")
         out[item_id] = status
     return out
+
+
+def _is_status_available(status: str | None) -> bool:
+    """Return True if the status indicates the item is available."""
+    if status is None:
+        return False
+    return status.lower() not in _UNAVAILABLE_STATUSES
 
 
 def _extract_graph_nodes(evidence_graph: Mapping[str, Any] | None) -> set[str]:
@@ -398,7 +422,8 @@ def run_claim_audit(
         findings.append(finding)
 
     for measurement_id in audit_input.measurement_ids:
-        if measurement_id not in measurement_status:
+        measurement_stat = measurement_status.get(measurement_id)
+        if measurement_stat is None or not _is_status_available(measurement_stat):
             emit(
                 "measurement_missing",
                 related_measurement_id=measurement_id,
@@ -434,7 +459,8 @@ def run_claim_audit(
         relation_measurement = relation.get("measurement_id")
         if relation_measurement is not None:
             expected_mid = _normalize_token(relation_measurement, name="expected measurement_id")
-            if expected_mid not in measurement_status:
+            expected_status = measurement_status.get(expected_mid)
+            if expected_status is None or not _is_status_available(expected_status):
                 emit(
                     "measurement_missing",
                     related_measurement_id=expected_mid,
@@ -539,8 +565,12 @@ def build_claim_audit_receipt(decision: ClaimAuditDecision, findings: Sequence[C
     if decision.verdict not in _ALLOWED_VERDICTS:
         raise ValueError("unsupported verdict")
     findings_sorted = tuple(sorted(findings, key=lambda item: item.finding_id))
+    seen_ids: set[str] = set()
     for finding in findings_sorted:
         _validate_finding(finding)
+        if finding.finding_id in seen_ids:
+            raise ValueError("duplicate finding IDs")
+        seen_ids.add(finding.finding_id)
     return ClaimAuditReceipt(
         audit_hash=decision.audit_hash,
         claim_id=decision.claim_id,

@@ -226,3 +226,82 @@ def test_duplicate_finding_ids_rejected() -> None:
     )
     with pytest.raises(ValueError, match="duplicate finding IDs"):
         stable_claim_audit_hash(decision, repeated)
+
+
+def test_empty_schema_version_rejected() -> None:
+    raw = _raw_input()
+    raw["schema_version"] = ""
+    with pytest.raises(ValueError, match="schema_version must be a non-empty string"):
+        normalize_claim_audit_input(raw)
+
+
+def test_unavailable_measurement_status_emits_missing() -> None:
+    """When a measurement status is 'missing' or similar, it should emit measurement_missing."""
+    raw = _raw_input()
+    raw["measurement_ids"] = ["m-1"]
+    raw["criterion_ids"] = ["c-1"]
+    raw["expected_relations"] = {"c-1": {"measurement_id": "m-1", "node_ids": ["n-1"]}}
+
+    _, decision, findings, _ = compile_claim_audit(
+        raw,
+        available_measurements={"m-1": "missing"},
+        available_criteria={"c-1": "satisfied"},
+        evidence_graph={"nodes": ["n-1"], "conflicts": []},
+    )
+    assert decision.verdict == "inconclusive"
+    assert any(f.finding_type == "measurement_missing" and f.related_measurement_id == "m-1" for f in findings)
+
+
+def test_unavailable_measurement_with_status_object_emits_missing() -> None:
+    """When a measurement status is {'status': 'missing'}, it should emit measurement_missing."""
+    raw = _raw_input()
+    raw["measurement_ids"] = ["m-1"]
+    raw["criterion_ids"] = ["c-1"]
+    raw["expected_relations"] = {"c-1": {"measurement_id": "m-1", "node_ids": ["n-1"]}}
+
+    _, decision, findings, _ = compile_claim_audit(
+        raw,
+        available_measurements={"m-1": {"status": "missing"}},
+        available_criteria={"c-1": "satisfied"},
+        evidence_graph={"nodes": ["n-1"], "conflicts": []},
+    )
+    assert decision.verdict == "inconclusive"
+    assert any(f.finding_type == "measurement_missing" and f.related_measurement_id == "m-1" for f in findings)
+
+
+def test_duplicate_finding_ids_rejected_in_build_receipt() -> None:
+    """build_claim_audit_receipt should reject duplicate finding IDs."""
+    audit_input = normalize_claim_audit_input(_raw_input())
+    decision, _ = run_claim_audit(audit_input)
+    repeated = (
+        ClaimAuditFinding(
+            finding_id="f-1",
+            finding_type="evidence_missing",
+            related_measurement_id="",
+            related_criterion_id="",
+            related_node_ids=(),
+            message="a",
+            severity="warning",
+        ),
+        ClaimAuditFinding(
+            finding_id="f-1",
+            finding_type="lineage_gap",
+            related_measurement_id="",
+            related_criterion_id="",
+            related_node_ids=(),
+            message="b",
+            severity="error",
+        ),
+    )
+    with pytest.raises(ValueError, match="duplicate finding IDs"):
+        build_claim_audit_receipt(decision, repeated)
+
+
+def test_empty_object_round_trips_correctly() -> None:
+    """Empty objects {} should serialize as {} not []."""
+    raw = _raw_input()
+    raw["provenance"] = {}
+    audit_input = normalize_claim_audit_input(raw)
+    d = audit_input.to_dict()
+    assert d["provenance"] == {}
+    assert isinstance(d["provenance"], dict)

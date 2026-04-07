@@ -82,7 +82,8 @@ def _schema_artifact() -> MultimodalFeatureSchemaResult:
     return build_multimodal_feature_schema(correspondence, float_payload={"zeta": 0.35, "alpha": 0.45})
 
 
-def _lineage_artifacts() -> tuple:
+@pytest.fixture(scope="module")
+def lineage_artifacts() -> tuple:
     schema = _schema_artifact()
     spectral = build_spectral_reasoning_layer(schema)
     battery = run_legacy_copper_noise_channel_battery(
@@ -104,8 +105,8 @@ def _lineage_artifacts() -> tuple:
     return schema, spectral, battery, telecom, satellite, rf, certification
 
 
-def test_identical_input_produces_byte_identical_observatory_artifacts() -> None:
-    _, _, _, _, _, _, certification = _lineage_artifacts()
+def test_identical_input_produces_byte_identical_observatory_artifacts(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, certification = lineage_artifacts
 
     artifact_a = run_atomic_signal_transduction_observatory(certification)
     artifact_b = run_atomic_signal_transduction_observatory(certification)
@@ -116,8 +117,8 @@ def test_identical_input_produces_byte_identical_observatory_artifacts() -> None
     assert artifact_a.stable_hash() == artifact_a.atomic_signal_observatory_hash
 
 
-def test_deterministic_repeated_runs() -> None:
-    _, _, _, _, _, _, certification = _lineage_artifacts()
+def test_deterministic_repeated_runs(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, certification = lineage_artifacts
 
     artifacts = [
         export_atomic_signal_observatory_bytes(
@@ -132,8 +133,8 @@ def test_deterministic_repeated_runs() -> None:
     assert len(set(artifacts)) == 1
 
 
-def test_stable_observation_ordering_and_stable_window_ordering() -> None:
-    _, _, _, _, _, _, certification = _lineage_artifacts()
+def test_stable_observation_ordering_and_stable_window_ordering(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, certification = lineage_artifacts
     artifact = run_atomic_signal_transduction_observatory(certification)
 
     observation_keys = tuple(
@@ -148,8 +149,8 @@ def test_stable_observation_ordering_and_stable_window_ordering() -> None:
     assert artifact.window_count == len(artifact.windows)
 
 
-def test_stable_hash_invariants() -> None:
-    _, _, _, _, _, _, certification = _lineage_artifacts()
+def test_stable_hash_invariants(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, certification = lineage_artifacts
     artifact = run_atomic_signal_transduction_observatory(certification)
 
     assert artifact.law_invariants == (
@@ -166,16 +167,16 @@ def test_stable_hash_invariants() -> None:
         assert window.window_hash == window.stable_hash()
 
 
-def test_fail_fast_malformed_upstream_input() -> None:
-    _, _, _, _, _, _, certification = _lineage_artifacts()
+def test_fail_fast_malformed_upstream_input(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, certification = lineage_artifacts
     invalid = replace(certification, replay_certification_hash="bad-hash")
 
     with pytest.raises(ValueError, match="replay_certification_hash must match stable_hash"):
         run_atomic_signal_transduction_observatory(invalid)
 
 
-def test_lineage_preservation_and_end_to_end_observatory_continuity() -> None:
-    schema, spectral, battery, telecom, satellite, rf, certification = _lineage_artifacts()
+def test_lineage_preservation_and_end_to_end_observatory_continuity(lineage_artifacts: tuple) -> None:
+    schema, spectral, battery, telecom, satellite, rf, certification = lineage_artifacts
 
     artifact = run_atomic_signal_transduction_observatory(
         certification,
@@ -197,8 +198,8 @@ def test_lineage_preservation_and_end_to_end_observatory_continuity() -> None:
     assert artifact.overall_observatory_score == pytest.approx(certification.overall_certification_score)
 
 
-def test_receipt_determinism() -> None:
-    _, _, _, _, _, _, certification = _lineage_artifacts()
+def test_receipt_determinism(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, certification = lineage_artifacts
     artifact = run_atomic_signal_transduction_observatory(certification)
 
     receipt_a = generate_atomic_signal_observatory_receipt(artifact)
@@ -209,8 +210,8 @@ def test_receipt_determinism() -> None:
     assert receipt_a.to_canonical_bytes() == receipt_b.to_canonical_bytes()
 
 
-def test_bounded_score_checks() -> None:
-    _, _, _, _, _, _, certification = _lineage_artifacts()
+def test_bounded_score_checks(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, certification = lineage_artifacts
     artifact = run_atomic_signal_transduction_observatory(certification)
 
     scores = (
@@ -223,8 +224,8 @@ def test_bounded_score_checks() -> None:
     assert all(0.0 <= score <= 1.0 for score in scores)
 
 
-def test_nan_infinity_rejection() -> None:
-    _, _, _, _, _, _, certification = _lineage_artifacts()
+def test_nan_infinity_rejection(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, certification = lineage_artifacts
 
     with pytest.raises(ValueError, match="finite"):
         run_atomic_signal_transduction_observatory(certification, score_fixture=(1.0, float("nan")))
@@ -232,8 +233,8 @@ def test_nan_infinity_rejection() -> None:
         run_atomic_signal_transduction_observatory(certification, score_fixture=(1.0, float("inf")))
 
 
-def test_direct_lineage_mismatch_rejection() -> None:
-    schema, spectral, _, telecom, satellite, rf, certification = _lineage_artifacts()
+def test_direct_lineage_mismatch_rejection(lineage_artifacts: tuple) -> None:
+    schema, spectral, _, telecom, satellite, rf, certification = lineage_artifacts
     wrong_satellite = replace(satellite, source_telecom_recovery_hash="f" * 64)
     wrong_satellite = replace(wrong_satellite, satellite_baseline_hash=wrong_satellite.stable_hash())
 
@@ -246,3 +247,14 @@ def test_direct_lineage_mismatch_rejection() -> None:
             satellite_artifact=wrong_satellite,
             rf_artifact=rf,
         )
+
+
+def test_forged_source_field_rejected(lineage_artifacts: tuple) -> None:
+    _, _, _, _, _, _, certification = lineage_artifacts
+    # Forge source_feature_schema_hash while keeping ledger.lineage_chain unchanged,
+    # then recompute replay_certification_hash so the hash self-consistency check passes.
+    forged = replace(certification, source_feature_schema_hash="a" * 64)
+    forged = replace(forged, replay_certification_hash=forged.stable_hash())
+
+    with pytest.raises(ValueError, match="source fields.*inconsistent.*ledger lineage_chain"):
+        run_atomic_signal_transduction_observatory(forged)

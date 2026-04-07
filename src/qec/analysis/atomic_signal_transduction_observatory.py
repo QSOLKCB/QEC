@@ -137,11 +137,28 @@ def _validate_replay_certification_artifact(
     ):
         _validate_unit_interval(score, f"certification_artifact {score_name}")
 
+    expected_lineage_chain = (
+        certification_artifact.source_feature_schema_hash,
+        certification_artifact.source_spectral_reasoning_hash,
+        certification_artifact.source_copper_channel_battery_hash,
+        certification_artifact.source_telecom_recovery_hash,
+        certification_artifact.source_satellite_baseline_hash,
+        certification_artifact.source_rf_equalization_hash,
+    )
+    if ledger.lineage_chain != expected_lineage_chain:
+        raise ValueError(
+            "certification_artifact source fields are inconsistent with ledger lineage_chain"
+        )
+
     for witness in ledger.witnesses:
         if witness.witness_hash != witness.stable_hash():
             raise ValueError("certification_artifact witness_hash must match stable_hash")
         if witness.witness_id != witness.witness_hash:
             raise ValueError("certification_artifact witness_id must equal witness_hash")
+        if witness.lineage_chain != ledger.lineage_chain:
+            raise ValueError(
+                "certification_artifact witness lineage_chain must match ledger lineage_chain"
+            )
         for score_name, score in (
             ("modal_alignment_score", witness.modal_alignment_score),
             ("replay_identity_score", witness.replay_identity_score),
@@ -465,7 +482,7 @@ def _build_observations(
         observation = AtomicSignalObservation(
             observation_id="",
             observation_index=observation_index,
-            observatory_profile=profile_name if observatory_profile == "end_to_end_signal_window" else observatory_profile,
+            observatory_profile=observatory_profile,
             source_witness_id=witness.witness_id,
             source_segment_id=witness.source_rf_segment_id,
             lineage_chain=lineage_chain,
@@ -553,7 +570,15 @@ def run_atomic_signal_transduction_observatory(
     spectral_artifact: SpectralReasoningResult | None = None,
     schema_artifact: MultimodalFeatureSchemaResult | None = None,
 ) -> AtomicSignalTransductionObservatoryResult:
-    """Build deterministic replay-safe atomic signal observatory artifacts."""
+    """Build deterministic replay-safe atomic signal observatory artifacts.
+
+    Optional direct lineage artifacts are used exclusively for validation and never
+    mutate upstream identity or produced hashes.
+
+    ``score_fixture`` is a deterministic-readiness validation parameter only (analogous
+    to ``score_fixture`` in ``run_cross_modal_replay_certification``).  It is validated
+    for finiteness but is not incorporated into any observatory score computation.
+    """
 
     _validate_profile(observatory_profile)
     _validate_replay_certification_artifact(certification_artifact)
@@ -646,7 +671,7 @@ def run_atomic_signal_transduction_observatory(
 
 def export_atomic_signal_observatory_bytes(artifact: AtomicSignalTransductionObservatoryResult) -> bytes:
     if not isinstance(artifact, AtomicSignalTransductionObservatoryResult):
-        raise ValueError("artifact must be a AtomicSignalTransductionObservatoryResult")
+        raise ValueError("artifact must be an AtomicSignalTransductionObservatoryResult")
     return artifact.to_canonical_bytes()
 
 
@@ -654,7 +679,7 @@ def generate_atomic_signal_observatory_receipt(
     artifact: AtomicSignalTransductionObservatoryResult,
 ) -> AtomicSignalObservatoryReceipt:
     if not isinstance(artifact, AtomicSignalTransductionObservatoryResult):
-        raise ValueError("artifact must be a AtomicSignalTransductionObservatoryResult")
+        raise ValueError("artifact must be an AtomicSignalTransductionObservatoryResult")
     if artifact.stable_hash() != artifact.atomic_signal_observatory_hash:
         raise ValueError("artifact atomic_signal_observatory_hash must match stable_hash")
 

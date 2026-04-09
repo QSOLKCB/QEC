@@ -128,3 +128,37 @@ def test_decay_factor_validation() -> None:
     bad["decay_factor"] = 1.1
     with pytest.raises(ValueError, match=r"decay_factor must be in \[0, 1\]"):
         compile_substrate_report(bad)
+
+
+def test_substrate_input_instance_empty_simulation_id_rejected() -> None:
+    from qec.analysis.neuromorphic_substrate_simulator import SubstrateInput
+
+    bad = SubstrateInput(
+        simulation_id="   ",
+        node_count=2,
+        input_signal=(1.0, 2.0, 3.0, 4.0),
+        threshold=5,
+        time_steps=4,
+        decay_factor=0.5,
+        epoch_id="epoch-1",
+        schema_version=SCHEMA_VERSION,
+    )
+    with pytest.raises(ValueError, match="simulation_id must be non-empty"):
+        compile_substrate_report(bad)
+
+
+def test_substrate_input_instance_empty_epoch_id_rejected() -> None:
+    from qec.analysis.neuromorphic_substrate_simulator import SubstrateInput
+
+    bad = SubstrateInput(
+        simulation_id="sim-001",
+        node_count=2,
+        input_signal=(1.0, 2.0, 3.0, 4.0),
+        threshold=5,
+        time_steps=4,
+        decay_factor=0.5,
+        epoch_id="",
+        schema_version=SCHEMA_VERSION,
+    )
+    with pytest.raises(ValueError, match="epoch_id must be non-empty"):
+        compile_substrate_report(bad)

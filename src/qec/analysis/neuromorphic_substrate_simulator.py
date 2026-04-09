@@ -103,10 +103,12 @@ class SubstrateInput:
         return {
             "simulation_id": self.simulation_id,
             "node_count": self.node_count,
-            "input_signal": self.input_signal,
+            "input_signal": tuple(
+                str(_to_quantized_decimal(v, "input_signal entry")) for v in self.input_signal
+            ),
             "threshold": self.threshold,
             "time_steps": self.time_steps,
-            "decay_factor": self.decay_factor,
+            "decay_factor": str(_to_quantized_decimal(self.decay_factor, "decay_factor")),
             "epoch_id": self.epoch_id,
             "schema_version": self.schema_version,
         }
@@ -214,9 +216,9 @@ class SubstrateSimulationReport:
 
 def normalize_substrate_input(raw_input: Mapping[str, Any] | SubstrateInput) -> SubstrateInput:
     if isinstance(raw_input, SubstrateInput):
-        return raw_input
-
-    data = _require_mapping(raw_input, "raw_input")
+        data = raw_input.to_dict()
+    else:
+        data = _require_mapping(raw_input, "raw_input")
     _canonicalize_json(data)
 
     input_signal_raw = data.get("input_signal")
@@ -233,11 +235,18 @@ def normalize_substrate_input(raw_input: Mapping[str, Any] | SubstrateInput) -> 
         time_steps=_require_int(data.get("time_steps"), "time_steps"),
         decay_factor=float(_to_quantized_decimal(data.get("decay_factor"), "decay_factor")),
         epoch_id=_require_non_empty_str(data.get("epoch_id"), "epoch_id"),
-        schema_version=str(data.get("schema_version", SCHEMA_VERSION)),
+        schema_version=_require_non_empty_str(
+            data.get("schema_version", SCHEMA_VERSION),
+            "schema_version",
+        ).strip(),
     )
 
 
 def validate_substrate_input(sim_input: SubstrateInput) -> SubstrateInput:
+    if not isinstance(sim_input.simulation_id, str) or not sim_input.simulation_id.strip():
+        raise ValueError("simulation_id must be non-empty")
+    if not isinstance(sim_input.epoch_id, str) or not sim_input.epoch_id.strip():
+        raise ValueError("epoch_id must be non-empty")
     if sim_input.schema_version != SCHEMA_VERSION:
         raise ValueError(f"unsupported schema version: {sim_input.schema_version}")
     if sim_input.node_count <= 0:

@@ -308,7 +308,11 @@ def merge_latent_blocks(blocks: Sequence[LatentBlock]) -> bytes:
     return b"".join(block.latent_payload for block in ordered)
 
 
-def build_compression_receipt(blocks: Sequence[LatentBlock], merged_latent: bytes) -> CompressionReceipt:
+def build_compression_receipt(
+    blocks: Sequence[LatentBlock],
+    merged_latent: bytes,
+    original_payload_size: int,
+) -> CompressionReceipt:
     ordered = tuple(sorted(tuple(blocks), key=lambda block: (block.block_index, block.block_id)))
     if not ordered:
         raise ValueError("blocks must be non-empty")
@@ -316,13 +320,15 @@ def build_compression_receipt(blocks: Sequence[LatentBlock], merged_latent: byte
     if len(artifact_ids) != 1:
         raise ValueError("all blocks must share the same artifact_id")
 
+    canonical_merged_latent = merge_latent_blocks(ordered)
     expected_hashes = tuple(_build_block_hash(block) for block in ordered)
-    validation_passed = expected_hashes == tuple(block.stable_hash for block in ordered)
-    latent_hash = _sha256_hex_bytes(merged_latent)
+    block_hashes_match = expected_hashes == tuple(block.stable_hash for block in ordered)
+    merged_latent_matches = merged_latent == canonical_merged_latent
+    validation_passed = block_hashes_match and merged_latent_matches
+    latent_hash = _sha256_hex_bytes(canonical_merged_latent)
 
-    total_latent_bytes = sum(len(block.latent_payload) for block in ordered)
-    denominator = total_latent_bytes if total_latent_bytes > 0 else 1
-    compression_ratio = round(float(len(merged_latent)) / float(denominator), 12)
+    denominator = original_payload_size if original_payload_size > 0 else 1
+    compression_ratio = round(float(len(canonical_merged_latent)) / float(denominator), 12)
 
     payload = {
         "artifact_id": ordered[0].artifact_id,
@@ -359,7 +365,7 @@ def compile_compression_report(raw_input: Mapping[str, Any]) -> CompressionRepor
     validate_compression_descriptor(descriptor)
     blocks = compress_to_latent_blocks(descriptor)
     merged_latent = merge_latent_blocks(blocks)
-    receipt = build_compression_receipt(blocks, merged_latent)
+    receipt = build_compression_receipt(blocks, merged_latent, len(descriptor.payload))
     interim = CompressionReport(
         descriptor=descriptor,
         blocks=blocks,

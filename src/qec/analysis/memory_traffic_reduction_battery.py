@@ -93,6 +93,8 @@ class TrafficBatteryInput:
     decoded_bytes: int
     epoch_id: str
     schema_version: str
+    original_content_hash: str
+    decoded_content_hash: str
 
     def to_dict(self) -> dict[str, _JSONValue]:
         return {
@@ -102,6 +104,8 @@ class TrafficBatteryInput:
             "decoded_bytes": self.decoded_bytes,
             "epoch_id": self.epoch_id,
             "schema_version": self.schema_version,
+            "original_content_hash": self.original_content_hash,
+            "decoded_content_hash": self.decoded_content_hash,
         }
 
     def to_canonical_json(self) -> str:
@@ -249,6 +253,8 @@ def normalize_traffic_battery_input(raw_input: Mapping[str, Any]) -> TrafficBatt
         decoded_bytes=_normalize_positive_int(raw_input.get("decoded_bytes"), field_name="decoded_bytes"),
         epoch_id=_normalize_non_empty_str(raw_input.get("epoch_id"), field_name="epoch_id"),
         schema_version=_normalize_non_empty_str(schema_value, field_name="schema_version"),
+        original_content_hash=_normalize_non_empty_str(raw_input.get("original_content_hash"), field_name="original_content_hash"),
+        decoded_content_hash=_normalize_non_empty_str(raw_input.get("decoded_content_hash"), field_name="decoded_content_hash"),
     )
 
 
@@ -257,13 +263,24 @@ def validate_traffic_battery_input(battery_input: TrafficBatteryInput) -> None:
         raise ValueError("battery_input must be a TrafficBatteryInput")
     if battery_input.schema_version != TRAFFIC_BATTERY_SCHEMA_VERSION:
         raise ValueError("unsupported schema_version")
+    if not battery_input.artifact_id:
+        raise ValueError("artifact_id must be non-empty")
+    if not battery_input.epoch_id:
+        raise ValueError("epoch_id must be non-empty")
+    if battery_input.original_bytes <= 0:
+        raise ValueError("original_bytes must be positive")
+    if battery_input.latent_bytes <= 0:
+        raise ValueError("latent_bytes must be positive")
+    if battery_input.decoded_bytes <= 0:
+        raise ValueError("decoded_bytes must be positive")
+    if not battery_input.original_content_hash:
+        raise ValueError("original_content_hash must be non-empty")
+    if not battery_input.decoded_content_hash:
+        raise ValueError("decoded_content_hash must be non-empty")
 
 
 def compute_traffic_metrics(battery_input: TrafficBatteryInput) -> TrafficMetrics:
     validate_traffic_battery_input(battery_input)
-
-    if battery_input.original_bytes == 0:
-        raise ValueError("original_bytes must be positive")
 
     bytes_saved = battery_input.original_bytes - battery_input.latent_bytes
     compression_ratio = _round_ratio(battery_input.latent_bytes / battery_input.original_bytes)
@@ -286,33 +303,19 @@ def compute_traffic_metrics(battery_input: TrafficBatteryInput) -> TrafficMetric
     )
 
 
-def compare_decoded_outputs(battery_input: TrafficBatteryInput) -> TrafficComparison:
+def compare_decoded_outputs(
+    battery_input: TrafficBatteryInput,
+    metrics: TrafficMetrics,
+) -> TrafficComparison:
     validate_traffic_battery_input(battery_input)
-    metrics = compute_traffic_metrics(battery_input)
 
-    expected_decoded_hash = _sha256_hex(
-        {
-            "artifact_id": battery_input.artifact_id,
-            "epoch_id": battery_input.epoch_id,
-            "schema_version": battery_input.schema_version,
-            "decoded_bytes": battery_input.original_bytes,
-        }
-    )
-    observed_decoded_hash = _sha256_hex(
-        {
-            "artifact_id": battery_input.artifact_id,
-            "epoch_id": battery_input.epoch_id,
-            "schema_version": battery_input.schema_version,
-            "decoded_bytes": battery_input.decoded_bytes,
-        }
-    )
-    byte_identical = expected_decoded_hash == observed_decoded_hash
+    byte_identical = battery_input.original_content_hash == battery_input.decoded_content_hash
     reduction_verified = metrics.bytes_saved >= 0 and metrics.traffic_reduction_ratio >= 0.0
 
     return TrafficComparison(
         artifact_id=battery_input.artifact_id,
-        expected_decoded_hash=expected_decoded_hash,
-        observed_decoded_hash=observed_decoded_hash,
+        expected_decoded_hash=battery_input.original_content_hash,
+        observed_decoded_hash=battery_input.decoded_content_hash,
         byte_identical=byte_identical,
         reduction_verified=reduction_verified,
     )
@@ -327,7 +330,7 @@ def build_traffic_battery_receipt(
     if not isinstance(comparison, TrafficComparison):
         raise ValueError("comparison must be a TrafficComparison")
 
-    validation_passed = comparison.byte_identical and comparison.reduction_verified and metrics.decode_byte_match
+    validation_passed = comparison.byte_identical and comparison.reduction_verified
 
     receipt_payload = {
         "artifact_id": comparison.artifact_id,
@@ -357,7 +360,7 @@ def compile_traffic_battery_report(raw_input: Mapping[str, Any]) -> TrafficBatte
     battery_input = normalize_traffic_battery_input(raw_input)
     validate_traffic_battery_input(battery_input)
     metrics = compute_traffic_metrics(battery_input)
-    comparison = compare_decoded_outputs(battery_input)
+    comparison = compare_decoded_outputs(battery_input, metrics)
     receipt = build_traffic_battery_receipt(metrics, comparison)
 
     report_without_hash = TrafficBatteryReport(

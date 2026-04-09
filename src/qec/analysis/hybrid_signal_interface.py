@@ -11,11 +11,13 @@ from decimal import Decimal, ROUND_HALF_EVEN
 import hashlib
 import json
 import math
+import types
 from typing import Any, Mapping
 
 from qec.analysis.neuromorphic_substrate_simulator import (
     SCHEMA_VERSION as SUBSTRATE_SCHEMA_VERSION,
     SubstrateSimulationReport,
+    stable_substrate_report_hash,
 )
 
 SCHEMA_VERSION = "v137.12.1"
@@ -62,12 +64,6 @@ def _canonical_bytes(value: Any) -> bytes:
 
 def _sha256_hex(value: Any) -> str:
     return hashlib.sha256(_canonical_bytes(value)).hexdigest()
-
-
-def _require_int(value: Any, field_name: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{field_name} must be an integer")
-    return value
 
 
 def _quantize_unit_float(value: float, field_name: str) -> float:
@@ -235,13 +231,29 @@ def _validate_config(config: HybridSignalInterfaceConfig) -> HybridSignalInterfa
 def _validate_substrate_report(report: SubstrateSimulationReport) -> SubstrateSimulationReport:
     if report.schema_version != SUBSTRATE_SCHEMA_VERSION:
         raise ValueError(f"unsupported substrate schema version: {report.schema_version}")
+    input_schema_version = getattr(report.input, "schema_version", None)
+    if input_schema_version != SUBSTRATE_SCHEMA_VERSION:
+        raise ValueError(
+            f"unsupported substrate input schema version: {input_schema_version}"
+        )
     if not isinstance(report.input.node_count, int) or report.input.node_count <= 0:
         raise ValueError("report input node_count must be > 0")
     if not isinstance(report.input.time_steps, int) or report.input.time_steps <= 0:
         raise ValueError("report input time_steps must be > 0")
+    threshold = report.input.threshold
+    if (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, (int, float))
+        or not math.isfinite(threshold)
+        or threshold <= 0
+    ):
+        raise ValueError("report input threshold must be a finite number > 0")
     expected = report.input.node_count * report.input.time_steps
     if len(report.states) != expected:
         raise ValueError("states length must equal node_count * time_steps")
+    computed_hash = stable_substrate_report_hash(report)
+    if report.stable_hash != computed_hash:
+        raise ValueError("report stable_hash does not match computed hash")
     return report
 
 
@@ -394,6 +406,10 @@ def build_hybrid_signal_receipt(
         raise ValueError(f"unsupported schema version: {trace.schema_version}")
 
     metrics = dict(summary_metrics) if summary_metrics is not None else compute_hybrid_activity_summary(trace)
+    canonical_metrics = _canonicalize_json(metrics)
+    if not isinstance(canonical_metrics, dict):
+        raise ValueError("summary_metrics must serialize to a mapping")
+    immutable_metrics: Mapping[str, _JSONValue] = types.MappingProxyType(canonical_metrics)
     proto = HybridSignalReceipt(
         receipt_hash="",
         interface_version=trace.config.interface_version,
@@ -404,7 +420,7 @@ def build_hybrid_signal_receipt(
         node_count=len(trace.node_ids),
         channel_names=trace.config.channel_names,
         validation_passed=True,
-        summary_metrics=_canonicalize_json(metrics),
+        summary_metrics=immutable_metrics,
     )
     return HybridSignalReceipt(
         receipt_hash=_sha256_hex(proto.to_hash_payload_dict()),

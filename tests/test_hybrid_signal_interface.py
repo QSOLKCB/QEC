@@ -13,7 +13,10 @@ from qec.analysis.hybrid_signal_interface import (
     project_substrate_events_to_frames,
     run_hybrid_signal_interface,
 )
-from qec.analysis.neuromorphic_substrate_simulator import compile_substrate_report
+from qec.analysis.neuromorphic_substrate_simulator import (
+    compile_substrate_report,
+    stable_substrate_report_hash,
+)
 
 
 def _base_input() -> dict[str, object]:
@@ -120,11 +123,21 @@ def test_wrapper_output_matches_manual_pipeline() -> None:
 def test_strict_ordering_rejects_unordered_states() -> None:
     report = compile_substrate_report(_base_input())
     shuffled = tuple(sorted(report.states, key=lambda s: (s.node_id, s.time_index)))
+    # Two-step construction mirrors compile_substrate_report: compute hash on a proto
+    # with stable_hash="" so that _validate_substrate_report's hash check passes,
+    # letting the ordering check fire as intended.
+    broken_proto = type(report)(
+        input=report.input,
+        states=shuffled,
+        receipt=report.receipt,
+        stable_hash="",
+        schema_version=report.schema_version,
+    )
     broken = type(report)(
         input=report.input,
         states=shuffled,
         receipt=report.receipt,
-        stable_hash=report.stable_hash,
+        stable_hash=stable_substrate_report_hash(broken_proto),
         schema_version=report.schema_version,
     )
     with pytest.raises(ValueError, match="states must be ordered"):

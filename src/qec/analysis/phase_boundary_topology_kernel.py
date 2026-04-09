@@ -380,6 +380,11 @@ def _validate_transition_path(path: MorphologyTransitionPath) -> MorphologyTrans
         raise ValueError("broken lineage: transition path stable_hash mismatch")
     if len(path.states) == 0:
         raise ValueError("empty path")
+
+    state_ids = tuple(state.state_id for state in path.states)
+    if len(set(state_ids)) != len(state_ids):
+        raise ValueError("duplicate state ids")
+
     if len(path.edges) != max(0, len(path.states) - 1):
         raise ValueError("invalid ordering")
 
@@ -399,7 +404,13 @@ def _validate_transition_path(path: MorphologyTransitionPath) -> MorphologyTrans
             if not math.isfinite(value):
                 raise ValueError("non-finite metrics")
 
-    for edge in path.edges:
+    for i, edge in enumerate(path.edges):
+        source = path.states[i]
+        target = path.states[i + 1]
+        if edge.source_index != source.source_index or edge.target_index != target.source_index:
+            raise ValueError("invalid ordering: edge indices do not align")
+        if edge.source_state != source.state_label or edge.target_state != target.state_label:
+            raise ValueError("schema mismatch: edge/state label mismatch")
         for value in (edge.transition_magnitude, edge.stability_delta, edge.continuity_delta):
             if not math.isfinite(value):
                 raise ValueError("non-finite metrics")

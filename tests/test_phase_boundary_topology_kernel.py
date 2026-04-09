@@ -5,12 +5,19 @@ from __future__ import annotations
 import pytest
 
 from qec.analysis.hybrid_signal_interface import build_hybrid_signal_trace
-from qec.analysis.morphology_transition_kernel import build_transition_path
+from qec.analysis.morphology_transition_kernel import (
+    MorphologyState,
+    MorphologyTransitionEdge,
+    MorphologyTransitionPath,
+    build_transition_path,
+)
 from qec.analysis.neuromorphic_substrate_simulator import compile_substrate_report
 from qec.analysis.phase_boundary_topology_kernel import (
     SCHEMA_VERSION,
     PhaseRegion,
     PhaseTopologyPath,
+    _sha256_hex,
+    _validate_transition_path,
     build_phase_topology_path,
     detect_phase_regions,
     run_phase_boundary_topology_kernel,
@@ -161,3 +168,91 @@ def test_receipt_integrity() -> None:
     assert receipt.validation_passed is True
     assert receipt.receipt_chain[1] == result.path.stable_hash
     assert receipt.receipt_chain[2] == result.stable_hash
+
+
+def _make_path_with_stable_hash(
+    path: MorphologyTransitionPath,
+    states: tuple,
+    edges: tuple,
+) -> MorphologyTransitionPath:
+    """Build a MorphologyTransitionPath with a correctly-computed stable_hash."""
+    proto = MorphologyTransitionPath(
+        config=path.config,
+        input_trajectory_hash=path.input_trajectory_hash,
+        states=states,
+        edges=edges,
+        stable_hash="",
+        schema_version=path.schema_version,
+    )
+    return MorphologyTransitionPath(
+        config=path.config,
+        input_trajectory_hash=path.input_trajectory_hash,
+        states=states,
+        edges=edges,
+        stable_hash=_sha256_hex(proto.to_hash_payload_dict()),
+        schema_version=path.schema_version,
+    )
+
+
+def test_duplicate_state_id_rejection() -> None:
+    """A path whose states contain duplicate state_id values is rejected."""
+    path = _make_transition_path()
+    if len(path.states) < 2:
+        pytest.skip("path has fewer than 2 states")
+    duplicate_state = MorphologyState(
+        state_id=path.states[0].state_id,
+        source_index=path.states[1].source_index,
+        state_label=path.states[1].state_label,
+        activity_centroid=path.states[1].activity_centroid,
+        spike_density_coordinate=path.states[1].spike_density_coordinate,
+        continuity_coordinate=path.states[1].continuity_coordinate,
+        state_score=path.states[1].state_score,
+    )
+    new_states = (path.states[0], duplicate_state) + path.states[2:]
+    malformed = _make_path_with_stable_hash(path, new_states, path.edges)
+    with pytest.raises(ValueError, match="duplicate state ids"):
+        _validate_transition_path(malformed)
+
+
+def test_misaligned_edge_index_rejection() -> None:
+    """A path with an edge whose indices don't match consecutive states is rejected."""
+    path = _make_transition_path()
+    if len(path.edges) == 0:
+        pytest.skip("path has no edges")
+    bad_edge = MorphologyTransitionEdge(
+        source_index=9999,
+        target_index=9998,
+        source_state=path.edges[0].source_state,
+        target_state=path.edges[0].target_state,
+        transition_magnitude=path.edges[0].transition_magnitude,
+        stability_delta=path.edges[0].stability_delta,
+        continuity_delta=path.edges[0].continuity_delta,
+    )
+    new_edges = (bad_edge,) + path.edges[1:]
+    malformed = _make_path_with_stable_hash(path, path.states, new_edges)
+    with pytest.raises(ValueError, match="edge indices do not align"):
+        _validate_transition_path(malformed)
+
+
+def test_misaligned_edge_label_rejection() -> None:
+    """A path with an edge whose state labels don't match consecutive states is rejected."""
+    path = _make_transition_path()
+    if len(path.edges) == 0:
+        pytest.skip("path has no edges")
+    valid_labels = ("stable_oscillation", "transient_burst", "refractory_suppression")
+    mismatched_label = next(
+        lbl for lbl in valid_labels if lbl != path.edges[0].source_state
+    )
+    bad_edge = MorphologyTransitionEdge(
+        source_index=path.edges[0].source_index,
+        target_index=path.edges[0].target_index,
+        source_state=mismatched_label,
+        target_state=path.edges[0].target_state,
+        transition_magnitude=path.edges[0].transition_magnitude,
+        stability_delta=path.edges[0].stability_delta,
+        continuity_delta=path.edges[0].continuity_delta,
+    )
+    new_edges = (bad_edge,) + path.edges[1:]
+    malformed = _make_path_with_stable_hash(path, path.states, new_edges)
+    with pytest.raises(ValueError, match="edge/state label mismatch"):
+        _validate_transition_path(malformed)

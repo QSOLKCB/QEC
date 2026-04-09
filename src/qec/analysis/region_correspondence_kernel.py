@@ -448,6 +448,7 @@ def _candidate_scores(
         (config.label_match_weight * label_score)
         + (config.morphology_weight * morphology_score)
         + (config.span_overlap_weight * span_score)
+        + (config.boundary_coherence_weight * boundary_score)
     )
     topology_correspondence = _clamp01((0.6 * label_score) + (0.4 * span_score))
     boundary_coherence = _clamp01(boundary_score)

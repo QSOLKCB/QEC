@@ -106,15 +106,17 @@ def _bounded_score(*, passed: tuple[bool, ...]) -> float:
 
 @dataclass(frozen=True)
 class HybridReplayCertificationConfig:
+    """Configuration for hybrid replay certification.
+
+    Only supported, behavior-affecting fields are exposed here so the config
+    surface remains aligned with runtime certification semantics.
+    """
+
     schema_version: str = SCHEMA_VERSION
-    require_strict_ordering: bool = True
-    require_metric_identity: bool = True
 
     def to_dict(self) -> dict[str, _JSONValue]:
         return {
             "schema_version": self.schema_version,
-            "require_strict_ordering": self.require_strict_ordering,
-            "require_metric_identity": self.require_metric_identity,
         }
 
     def to_canonical_json(self) -> str:

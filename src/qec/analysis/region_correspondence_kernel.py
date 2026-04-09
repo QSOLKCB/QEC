@@ -495,7 +495,7 @@ def _validate_correspondence_map(correspondence_map: RegionCorrespondenceMap) ->
             if not math.isfinite(value):
                 raise ValueError("non-finite metrics")
             if value < 0.0 or value > 1.0:
-                raise ValueError("non-finite metrics")
+                raise ValueError("metrics must be in [0, 1]")
 
 
 def build_region_correspondence_map(

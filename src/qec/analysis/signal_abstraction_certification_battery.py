@@ -181,6 +181,13 @@ class SignalAbstractionCertificationResult:
             ),
         }
 
+    def to_hash_payload_dict(self) -> dict[str, _JSONValue]:
+        """Return dict excluding self-referential hash fields for stable hashing."""
+        payload = self.to_dict()
+        payload.pop("report_hash")
+        payload.pop("receipt_hash")
+        return payload
+
     def to_canonical_json(self) -> str:
         return _canonical_json(self.to_dict())
 
@@ -188,7 +195,7 @@ class SignalAbstractionCertificationResult:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_sha256(self) -> str:
-        return _sha256_hex(self.to_dict())
+        return _sha256_hex(self.to_hash_payload_dict())
 
 
 @dataclass(frozen=True)
@@ -323,8 +330,8 @@ def _compute_domain_flags(
 ) -> tuple[dict[str, bool], dict[str, bool], dict[str, bool], dict[str, bool]]:
     _validate_stack_lineage(geometry, morphology, topology, correspondence)
 
-    report_a = build_certification_report(evidence, _compute_result(evidence, (), (1.0, 1.0, 1.0, 1.0, 1.0)))
-    report_b = build_certification_report(evidence, _compute_result(evidence, (), (1.0, 1.0, 1.0, 1.0, 1.0)))
+    report_a = build_certification_report(evidence, _compute_result((), (1.0, 1.0, 1.0, 1.0, 1.0)))
+    report_b = build_certification_report(evidence, _compute_result((), (1.0, 1.0, 1.0, 1.0, 1.0)))
     byte_identity = {
         "repeated_run_byte_identity": report_a.to_canonical_bytes() == report_b.to_canonical_bytes(),
         "canonical_export_stability": report_a.to_canonical_json() == report_a.to_canonical_json(),
@@ -394,7 +401,6 @@ def _compute_domain_flags(
 
 
 def _compute_result(
-    evidence: SignalAbstractionEvidence,
     failure_reasons: tuple[str, ...],
     scores: tuple[float, float, float, float, float],
 ) -> SignalAbstractionCertificationResult:
@@ -419,14 +425,15 @@ def build_certification_report(
     config: SignalAbstractionCertificationConfig | None = None,
 ) -> SignalAbstractionCertificationReport:
     effective_config = config or SignalAbstractionCertificationConfig()
-    result_hash = result.stable_sha256()
-    report_seed = {
+    # Compute the report hash from a well-defined payload that excludes self-referential fields
+    hash_payload = {
         "config": effective_config.to_dict(),
         "evidence": evidence.to_dict(),
-        "result": result.to_dict(),
-        "result_hash": result_hash,
+        "result": result.to_hash_payload_dict(),
+        "schema_version": effective_config.schema_version,
     }
-    report_hash = _sha256_hex(report_seed)
+    report_hash = _sha256_hex(hash_payload)
+    # Set the same report_hash in both the result and the report
     fixed_result = SignalAbstractionCertificationResult(
         validation_passed=result.validation_passed,
         certification_score=result.certification_score,
@@ -439,19 +446,12 @@ def build_certification_report(
         cross_layer_consistency_score=result.cross_layer_consistency_score,
         global_certification_score=result.global_certification_score,
     )
-    proto_report = SignalAbstractionCertificationReport(
+    return SignalAbstractionCertificationReport(
         config=effective_config,
         evidence=evidence,
         result=fixed_result,
-        report_hash="",
+        report_hash=report_hash,
         schema_version=effective_config.schema_version,
-    )
-    return SignalAbstractionCertificationReport(
-        config=proto_report.config,
-        evidence=proto_report.evidence,
-        result=proto_report.result,
-        report_hash=_sha256_hex(proto_report.to_hash_payload_dict()),
-        schema_version=proto_report.schema_version,
     )
 
 
@@ -507,6 +507,7 @@ def run_signal_abstraction_certification_battery(
     )
 
     failures: list[str] = []
+    fail_fast_triggered = False
     for domain_name, checks in (
         ("byte_identity", byte_identity),
         ("lineage_integrity", lineage),
@@ -516,14 +517,15 @@ def run_signal_abstraction_certification_battery(
         for check_name, check_passed in checks.items():
             if not check_passed:
                 failures.append(f"{domain_name}.{check_name}")
+                if effective_config.fail_fast:
+                    fail_fast_triggered = True
+                    break
+        if fail_fast_triggered:
+            break
 
-    if effective_config.fail_fast and len(failures) > 0:
-        failures = tuple(sorted(failures))
-    else:
-        failures = tuple(sorted(failures))
+    failures = tuple(sorted(failures))
 
     base_result = _compute_result(
-        evidence,
         failures,
         (determinism_score, lineage_score, metric_score, cross_layer_score, global_score),
     )

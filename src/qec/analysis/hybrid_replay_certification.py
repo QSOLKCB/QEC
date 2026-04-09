@@ -538,7 +538,7 @@ def run_hybrid_replay_certification(
         structural_replay_passed=structural_replay_passed,
         metric_replay_passed=metric_replay_passed,
         cross_layer_passed=cross_layer_passed,
-        validation_passed=all(validation_flags.values()),
+        validation_passed=all(domain_passes),
         certification_score=_bounded_score(passed=domain_passes),
         validation_flags=validation_flags,
         receipt_chain=evidence.stable_receipt_chain(),

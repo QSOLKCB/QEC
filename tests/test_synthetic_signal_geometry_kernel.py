@@ -18,6 +18,7 @@ from qec.analysis.neuromorphic_substrate_simulator import (
 )
 from qec.analysis.synthetic_signal_geometry_kernel import (
     SCHEMA_VERSION,
+    SignalGeometryEdge,
     SignalGeometryKernelResult,
     SignalGeometryNode,
     SignalGeometryReceipt,
@@ -82,6 +83,13 @@ class TestFrozenDataclasses:
         result, _ = run_signal_geometry_kernel(trace)
         with pytest.raises(FrozenInstanceError):
             result.stable_hash = "bad"
+
+    def test_edge_frozen(self) -> None:
+        trace = _make_trace()
+        traj = build_geometry_trajectory(trace)
+        assert len(traj.edges) > 0
+        with pytest.raises(FrozenInstanceError):
+            traj.edges[0].source_index = 99
 
     def test_receipt_frozen(self) -> None:
         trace = _make_trace()
@@ -302,6 +310,44 @@ class TestValidation:
         trace = _make_trace()
         with pytest.raises(ValueError, match="unsupported schema version"):
             run_signal_geometry_kernel(trace, config)
+
+    def test_invalid_coordinate_dimensions_rejected(self) -> None:
+        with pytest.raises(ValueError, match="coordinate_dimensions must be 3"):
+            SyntheticSignalGeometryConfig(coordinate_dimensions=5)
+
+    def test_trajectory_vector_length_validated(self) -> None:
+        from qec.analysis.synthetic_signal_geometry_kernel import _validate_nodes
+
+        bad_node = SignalGeometryNode(
+            frame_index=0,
+            activity_centroid=0.5,
+            spike_density_coordinate=0.5,
+            continuity_coordinate=0.0,
+            trajectory_vector=(0.5, 0.5),  # length 2, should be 3
+            stable_hash="a" * 64,
+        )
+        config = SyntheticSignalGeometryConfig()
+        with pytest.raises(ValueError, match="trajectory_vector length"):
+            _validate_nodes((bad_node,), config)
+
+    def test_tampered_trace_hash_rejected(self) -> None:
+        trace = _make_trace()
+        tampered = type(trace)(
+            config=trace.config,
+            input_stable_hash=trace.input_stable_hash,
+            node_ids=trace.node_ids,
+            frame_count=trace.frame_count,
+            frames=trace.frames,
+            stable_hash="0" * 64,
+            schema_version=trace.schema_version,
+        )
+        with pytest.raises(ValueError, match="stable_hash does not match"):
+            run_signal_geometry_kernel(tampered)
+
+    def test_first_frame_continuity_is_zero(self) -> None:
+        trace = _make_trace()
+        nodes = project_trace_to_geometry(trace)
+        assert nodes[0].continuity_coordinate == 0.0
 
 
 # ---------------------------------------------------------------------------

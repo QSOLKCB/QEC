@@ -96,21 +96,10 @@ def _clamp01(value: float) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Shape morphology labels (deterministic, explicit rules)
+# Shape morphology thresholds used by deterministic classification rules
 # ---------------------------------------------------------------------------
 
-_SHAPE_LINEAR = "linear"
-_SHAPE_CYCLIC = "cyclic"
-_SHAPE_CLUSTERED = "clustered"
-_SHAPE_SPARSE = "sparse"
-_SHAPE_RESONANT = "resonant"
-_SHAPE_MONOTONIC = "monotonic"
-
-_CYCLIC_THRESHOLD = 0.05
-_CLUSTERED_VARIANCE_THRESHOLD = 0.01
 _SPARSE_DENSITY_THRESHOLD = 0.1
-_RESONANT_FLIP_RATIO = 0.6
-_LINEAR_R2_THRESHOLD = 0.9
 
 # ---------------------------------------------------------------------------
 # Frozen dataclasses
@@ -126,6 +115,13 @@ class SyntheticSignalGeometryConfig:
     enforce_strict_ordering: bool = True
     enforce_unique_frame_ids: bool = True
     coordinate_dimensions: int = 3
+
+    def __post_init__(self) -> None:
+        if self.coordinate_dimensions != 3:
+            raise ValueError(
+                "SyntheticSignalGeometryConfig.coordinate_dimensions must be 3; "
+                "the current geometry kernel implementation is 3D-only."
+            )
 
     def to_dict(self) -> dict[str, _JSONValue]:
         return {
@@ -179,7 +175,7 @@ class SignalGeometryNode:
 
 
 @dataclass(frozen=True)
-class _TransitionEdge:
+class SignalGeometryEdge:
     """Deterministic edge between consecutive geometry nodes."""
 
     source_index: int
@@ -214,7 +210,7 @@ class SignalGeometryTrajectory:
     input_trace_hash: str
     node_count: int
     nodes: tuple[SignalGeometryNode, ...]
-    edges: tuple[_TransitionEdge, ...]
+    edges: tuple[SignalGeometryEdge, ...]
     shape_label: str
     shape_scores: Mapping[str, float]
     stable_hash: str
@@ -368,6 +364,9 @@ def _validate_trace(trace: HybridSignalTrace) -> HybridSignalTrace:
         raise ValueError("trace frame_count must be > 0")
     if len(trace.frames) != trace.frame_count:
         raise ValueError("trace frames length must equal frame_count")
+    computed_hash = _sha256_hex(trace.to_hash_payload_dict())
+    if trace.stable_hash != computed_hash:
+        raise ValueError("trace stable_hash does not match computed hash")
     return trace
 
 
@@ -386,6 +385,10 @@ def _validate_nodes(
             raise ValueError("duplicate frame_index detected")
         seen_indices.add(node.frame_index)
         last_index = node.frame_index
+        if len(node.trajectory_vector) != config.coordinate_dimensions:
+            raise ValueError(
+                "trajectory_vector length must equal config.coordinate_dimensions"
+            )
         for v in node.trajectory_vector:
             if not math.isfinite(v):
                 raise ValueError("trajectory_vector contains non-finite value")
@@ -405,7 +408,7 @@ def project_trace_to_geometry(
     _validate_trace(trace)
 
     nodes: list[SignalGeometryNode] = []
-    prev_centroid = 0.0
+    prev_centroid: float | None = None
 
     for frame in trace.frames:
         node_count = len(frame.node_state_lane)
@@ -423,10 +426,13 @@ def project_trace_to_geometry(
             "spike_density_coordinate",
         )
 
-        continuity = _quantize_unit_float(
-            abs(activity_centroid - prev_centroid),
-            "continuity_coordinate",
-        )
+        if prev_centroid is None:
+            continuity = 0.0
+        else:
+            continuity = _quantize_unit_float(
+                abs(activity_centroid - prev_centroid),
+                "continuity_coordinate",
+            )
 
         trajectory_vector = (activity_centroid, spike_density, continuity)
 
@@ -461,9 +467,9 @@ def project_trace_to_geometry(
 
 def _build_transition_edges(
     nodes: tuple[SignalGeometryNode, ...],
-) -> tuple[_TransitionEdge, ...]:
+) -> tuple[SignalGeometryEdge, ...]:
     """Build deterministic edges between consecutive geometry nodes."""
-    edges: list[_TransitionEdge] = []
+    edges: list[SignalGeometryEdge] = []
     for i in range(len(nodes) - 1):
         src = nodes[i]
         tgt = nodes[i + 1]
@@ -473,7 +479,7 @@ def _build_transition_edges(
         magnitude = math.sqrt(cd * cd + sd * sd + cond * cond)
         magnitude = _quantize_unit_float(_clamp01(magnitude), "edge_magnitude")
         edges.append(
-            _TransitionEdge(
+            SignalGeometryEdge(
                 source_index=src.frame_index,
                 target_index=tgt.frame_index,
                 centroid_delta=cd,
@@ -848,6 +854,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "SyntheticSignalGeometryConfig",
     "SignalGeometryNode",
+    "SignalGeometryEdge",
     "SignalGeometryTrajectory",
     "SignalGeometryKernelResult",
     "SignalGeometryReceipt",

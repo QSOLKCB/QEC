@@ -674,24 +674,18 @@ def compute_phase_similarity(
 
     min_len = min(len(path_a.regions), len(path_b.regions))
     max_len = max(len(path_a.regions), len(path_b.regions))
-    if max_len == 0:
-        raise ValueError("cannot compare empty paths")
 
     length_overlap = float(min_len) / float(max_len)
-    if min_len == 0:
-        label_alignment = 0.0
-        morphology_similarity = 0.0
-    else:
-        label_alignment = float(
-            sum(1 for i in range(min_len) if path_a.regions[i].region_label == path_b.regions[i].region_label)
-        ) / float(min_len)
-        morphology_similarity = 1.0 - _clamp01(
-            sum(
-                abs(path_a.regions[i].morphology_mean - path_b.regions[i].morphology_mean)
-                for i in range(min_len)
-            )
-            / float(min_len)
+    label_alignment = float(
+        sum(1 for i in range(min_len) if path_a.regions[i].region_label == path_b.regions[i].region_label)
+    ) / float(min_len)
+    morphology_similarity = 1.0 - _clamp01(
+        sum(
+            abs(path_a.regions[i].morphology_mean - path_b.regions[i].morphology_mean)
+            for i in range(min_len)
         )
+        / float(min_len)
+    )
 
     topology_similarity = _clamp01((0.6 * label_alignment) + (0.4 * morphology_similarity))
     path_overlap = _clamp01(length_overlap * topology_similarity)

@@ -602,18 +602,34 @@ def build_phase_topology_path(
     return path
 
 
+def _compute_boundary_integrity_score(path: PhaseTopologyPath) -> float:
+    """Measure boundary coherence across adjacent valid boundaries."""
+    if len(path.boundaries) <= 1:
+        return 1.0
+
+    pair_scores: list[float] = []
+    for previous_boundary, current_boundary in zip(
+        path.boundaries,
+        path.boundaries[1:],
+    ):
+        continuity_coherence = 1.0 - _clamp01(
+            abs(current_boundary.continuity_delta - previous_boundary.continuity_delta)
+        )
+        morphology_coherence = 1.0 - _clamp01(
+            abs(current_boundary.morphology_delta - previous_boundary.morphology_delta)
+        )
+        pair_scores.append((continuity_coherence + morphology_coherence) / 2.0)
+
+    return sum(pair_scores) / float(len(pair_scores))
+
+
 def _compute_kernel_metrics(path: PhaseTopologyPath) -> dict[str, float]:
     if len(path.boundaries) == 0:
         boundary_integrity = 1.0
         continuity_score = 1.0
         region_consistency = 1.0
     else:
-        contiguous = sum(
-            1
-            for i, boundary in enumerate(path.boundaries)
-            if boundary.source_region_index == i and boundary.target_region_index == i + 1
-        )
-        boundary_integrity = float(contiguous) / float(len(path.boundaries))
+        boundary_integrity = _compute_boundary_integrity_score(path)
         continuity_score = 1.0 - _clamp01(
             sum(abs(boundary.continuity_delta) for boundary in path.boundaries)
             / float(len(path.boundaries))

@@ -383,9 +383,15 @@ class RegionCorrespondenceReceipt:
 
 def _validate_config(config: RegionCorrespondenceConfig) -> RegionCorrespondenceConfig:
     if config.schema_version != SCHEMA_VERSION:
-        raise ValueError("schema mismatch")
+        raise ValueError(
+            f"schema version mismatch: expected={SCHEMA_VERSION!r}, "
+            f"actual={config.schema_version!r}"
+        )
     if config.kernel_version != SCHEMA_VERSION:
-        raise ValueError("schema mismatch")
+        raise ValueError(
+            f"kernel version mismatch: expected={SCHEMA_VERSION!r}, "
+            f"actual={config.kernel_version!r}"
+        )
     return config
 
 

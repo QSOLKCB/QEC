@@ -1,371 +1,495 @@
-# QSOL QEC — Canonical Engineering Roadmap
+# QSOL QEC — Canonical Deterministic Systems Roadmap
+**Branch:** canonical deterministic systems line  
+**Current Stable Release:** `v137.10.7`  
+**Next Planned Arc:** `v137.11.x — Heterogeneous Compute + Hardware Acceleration`
 
-## Branch: v137 Canonical Line
+This roadmap supersedes all previous roadmap versions.
 
-Conceptual Branch: v137 deterministic architecture line
+The `v137.x.x` line remains the canonical deterministic systems branch.
 
-Historical branch anchor: `v137.0.0`
+The project now formally evolves from:
 
-**Current Canonical Tip:** `v137.0.15`
-**Next Planned Release:** `v137.0.16`
+**deterministic runtime architecture**
 
-This roadmap supersedes all prior v136 and early v137 planning.
+into
 
-The **v137 line remains the canonical architecture**.
+**deterministic operating substrate architecture**
 
-The active priority path is now the **Retro Physics Multimodal Subsystem Arc** through `v137.1.0`.
+while preserving:
 
-After `v137.1.0`, development returns to the canonical roadmap continuation.
+- release traceability
+- deterministic replay lineage
+- stable schema continuity
+- paper-friendly benchmark progression
+- formal verification pathways
 
 ---
 
-# CURRENT CANONICAL STACK
-
-The QEC system is now formally defined as a deterministic supervisory intelligence + multimodal physics stack.
-
-Core branch law:
+# CORE LAW
 
 ```text
-continuous system state
-→ quantized symbolic state
-→ observability
-→ temporal supervisory memory
-→ steering control
-→ policy memory
-→ stable replay identity
-→ world substrate
-→ spectral topology
-→ simulation runtime
-→ unified orchestration
+Determinism is architecture.
+same input = same bytes
+
+Mandatory invariants:
+
+frozen dataclasses
+canonical JSON / bytes export
+stable SHA-256 replay identity
+deterministic ordering
+deterministic tie-breaking
+fail-fast validation
+immutable artifact snapshots
+explicit evidence receipts
+bounded scores only
+schema migration contracts
+append-only provenance where applicable
 
-This law is invariant.
+src/qec/decoder/ remains sacred infrastructure.
+
+No roadmap arc may violate this.
+
+GOVERNING PRINCIPLE
+state evolution through constrained geometry
+
+This principle unifies:
+
+governed planning
+episodic memory
+topology / manifold traversal
+noisy communication channels
+spectral signal recovery
+scientific reasoning
+proof-carrying skepticism
+heterogeneous compute acceleration
+neuromorphic simulation
+distributed governance
+formal methods
+operating substrate kernelisation
+ACTIVE CANONICAL ARC
+v137.7.x — Hierarchical Memory + Episodic Geometry
 
-All future releases must preserve this stack.
-
-MASTER ARCHITECTURE LAW
-Physics = observability substrate
-Quantization = symbolic lattice
-Topology = structural substrate
-Governance = temporal control law
-Memory = supervisory continuity
-Replay = stable identity chain
-World = simulation substrate
-AI = deterministic orchestration layer
-Audio = spectral symbolic substrate
-Video = multimodal simulation substrate
-
-This is no longer only a decoder project.
-
-This is now a deterministic governed intelligence stack
-whose primary operational substrate is quantum error correction.
-
-COMPLETED SUPERVISORY STACK ARC
-v137.0.1 — Quantization-Aware Decoder Observation
-
-Completed
-
-v137.0.2 — Decoder Topology Discovery
-
-Completed
-
-v137.0.3 — Closed-Loop Auditory + Phase Control
-
-Completed
-
-v137.0.4 — Temporal Auditory Sequence Analysis
-
-Completed
-
-v137.0.5 — Temporal Auditory Policy Memory
-
-Completed
-
-v137.0.6 — Temporal Auditory Policy Arbitration
-
-Completed
-
-v137.0.7 — Quantization-Aware Forecast Compression
-
-Completed
-
-v137.0.8 — Forecast-Guided Supervisory Steering
-
-Completed
-
-v137.0.9 — Supervisory Steering Policy Memory
-
-Completed
-
-This completed the first supervisory control arc.
-
-COMPLETED RETRO / PHYSICS SUBSYSTEM ARC
-v137.0.10 — Retro 3D World Modelling
-
-Completed
-
-Deterministic world primitives + sector substrate.
-
-v137.0.11 — Retro Camera + Projection Pipeline
-
-Completed
-
-Replay-safe camera state + visibility abstraction.
-
-v137.0.12 — Retro Lighting + Shading Model
-
-Completed
-
-Sector lighting + palette + depth shading.
-
-v137.0.13 — φ-Shell Rasterization Pipeline
-
-Completed
-
-Theory-coupled φ-shell scanline lattice.
-
-Absorbed:
-
-phi shell progression
-UFF restore operator
-E8 visibility mapping
-v137.0.14 — E8 Triality Traversal + Path Mesh
-
-Completed
-
-Deterministic traversal graph + ouroboros loopback topology.
-
-Absorbed:
-
-E8 triality topology
-phi-weighted path distance
-bounded cyclic return
-v137.0.15 — Spectral Mesh Resonance Audit
-
-Completed
-
-Audio → spectral topology → invariant audit.
-
-Absorbed:
-
-phi resonance lock
-mod-5 triality recurrence
-SID / SIS style spectral metrics
-MP3 real-fixture deterministic audit
-
-This completes the retro + spectral bridge layer.
-
-ACTIVE PRIORITY ARC — MULTIMODAL PHYSICS RUNTIME
-
-This is now the active release path through v137.1.0.
-
-Purpose:
-
-unify audio, image, video, simulation, and topology into a deterministic runtime kernel.
-
-This arc intentionally channels:
-
-DOS demoscene
-Impulse Tracker
-SGI / Amiga retro graphics
-physics-aware simulation
-replay-safe orchestration
-v137.0.16 — Physics-Aware Music Video Composition Engine
-audio + image + physics invariants
-→ deterministic scene timeline
-→ frame-state ledger
-→ video composition artifact
-
-Focus:
-
-MP3 + MP4 spectral alignment
-JPG scene cue extraction
-beat → simulation tick mapping
-φ-shell timing
-E8 transition mesh
-demo-scene style timeline orchestration
-v137.0.17 — Demoscene Physics Simulation Core
-scene timeline
-→ particle field evolution
-→ resonance wave propagation
-→ mesh trajectory states
-→ replay-safe simulation field
-
-Focus:
-
-deterministic particles
-shell expansion rings
-field propagation
-loopback recurrence motion
-v137.0.18 — Multi-Modal Theory Synchronization
-audio
-+ image
-+ video
-+ simulation
-→ master phase clock
-→ synchronized theory state
-
-Focus:
-
-master phase wheel
-global sync tick
-theory-aligned timing lattice
-v137.0.19 — Physics Narrative Sequencer
-scene A
-→ scene B
-→ scene C
-→ causal physics transitions
-
-Focus:
-
-chapter transitions
-deterministic narrative frames
-simulation chapter state
-v137.0.20 — Retro Theory Runtime Kernel
-world
-+ camera
-+ lighting
-+ traversal
-+ spectral audit
-+ video timeline
-+ simulation
-→ runtime kernel
-
-This completes the active multimedia subsystem.
-
-NEXT MAJOR MILESTONE
-v137.1.0 — Unified Physics-Simulation Orchestrator
-
-This is the milestone release.
-
-supervisory stack
-+ retro subsystem
-+ spectral runtime
-+ simulation kernel
-= unified orchestrator
-
-Single entry point for:
-
-observation
-compression
-steering
-memory
-world
-spectral analysis
-video
-simulation
-
-This becomes the first full-stack deterministic runtime orchestrator.
-
-POST-MILESTONE RETURN TO CANONICAL ROADMAP
-
-After v137.1.0, resume canonical roadmap continuation.
-
-v137.2.x — Autonomous Planning Kernel
-
-Focus:
-
-route planning
-world reasoning
-control-policy synthesis
-multi-layer orchestration
-v138.x — Deterministic NLP Governance Layer
-natural language
-→ intent lattice
-→ canonical state schema
-→ governed engine
-→ replay-safe output
----
-
-# Release Hardening Scope Fence
-
-## SCOPE FENCE (mandatory)
-
-AI-assisted hardening passes are **strictly scoped** to the current release boundary.
-
-This law prevents hardening drift — the failure mode where repository-wide test runs
-cause AI agents to expand into unrelated historical tests, legacy modules, and prior
-release files.
-
-### AI-assisted hardening passes may ONLY modify:
-
-1. Files explicitly created or changed in the current release
-2. Direct dependency files required for the current release to function
-3. Tests directly targeting modules introduced or modified in the current release
-
-### AI-assisted hardening passes MUST NOT modify:
-
-* Historical tests unrelated to the current release
-* Prior release modules
-* Legacy scripts
-* Unrelated CI or pytest failures
-* Older bench, simulation, or experiment files
-* Any file outside the current release's dependency cone
-
-### Unrelated failure handling
-
-If repository-wide pytest surfaces failures outside the current release scope:
-
-* **Report** the failures explicitly
-* **Do NOT repair** them during the hardening pass
-* Repairs are permitted only if the failure is **directly caused** by the current release
-
-### Dedicated follow-up requirement
-
-Repository-wide pytest failures outside current release scope must be:
-
-* Logged as a separate concern
-* Resolved in a **dedicated follow-up pass**
-* Never conflated with release hardening work
-
-This fence is **durable engineering law**, not a temporary guideline.
-
-Violation of scope fence constitutes an invalid hardening pass.
+Status: COMPLETE
+
+Completed:
+
+v137.7.0 — Raw → Episode Hierarchy
+v137.7.1 — Semantic → Theme Compaction
+v137.7.2 — Hash-Preserving Compression Chain + Sonification Projection
+v137.7.3 — Fragmentation Recovery Engine
+v137.7.4 — Memory Fidelity Benchmark
+
+Interpretation:
+
+sequence trajectory
+→ episodic segmentation
+→ semantic compaction
+→ replay-safe compression
+→ deterministic recovery
+→ fidelity certification
+v137.8.x — Geometry + Topology Reasoning Kernel
+
+Status: COMPLETE
+
+Completed:
+
+v137.8.0 — Topological Graph Kernel
+v137.8.1 — Polytope Reasoning Engine
+v137.8.2 — E8 Symmetry Projection Layer
+v137.8.3 — Manifold Traversal Planner
+v137.8.4 — Topology Divergence Battery
+v137.8.5 — Arithmetic Topology Correspondence Engine
+
+Interpretation:
+
+state trajectory across constrained manifold geometry
+v137.9.x — Signal + Channel Recovery + Physics-Aware Reasoning
+
+Status: ACTIVE / COMPLETE THROUGH v137.9.5
+
+Completed:
+
+v137.9.0 — Multimodal Feature Schema
+v137.9.1 — Spectral Reasoning Layer
+v137.9.2 — Legacy Copper Noise Channel Battery
+v137.9.3 — Telecom Line Recovery + Carrier Synchronization
+v137.9.4 — Satellite Signal Baseline + Orbital Noise Envelope
+v137.9.5 — RF Equalization + Ground Station Compensation
+
+Planned legacy continuation:
+
+v137.9.6 — Cross-Modal Replay Certification
+v137.9.7 — Atomic Signal Transduction Observatory
+v137.10.x — Scientific Reasoning + Claim Audit Geometry
+
+Status: COMPLETE
+
+Completed:
+
+v137.10.0 — Hypothesis Lattice
+v137.10.1 — Experiment DSL
+v137.10.2 — Evidence Lineage Engine
+v137.10.3 — Claim Audit Kernel
+v137.10.4 — Scientific Replay Battery
+v137.10.5 — Proof Obligation Extractor
+v137.10.6 — Numerological Phenomenology Rejection Battery
+v137.10.7 — Scientific Certification Kernel
+
+This line explicitly rejects:
+
+equation cosplay
+symbolic density without mechanism
+numerology without executable semantics
+proof-shaped but non-proof text
+
+Interpretation:
+
+claim
+→ semantics
+→ invariants
+→ proof obligations
+→ replay verification
+→ epistemic rejection
+→ certification
+
+## v137.11.x — Heterogeneous Compute + Hardware Acceleration
+**Status:** READY TO START
+
+This series establishes the deterministic heterogeneous compute substrate for QEC.
+
+The architectural philosophy combines:
+
+- retro fixed-function co-processor design
+- integer-first acceleration
+- explicit epoch scheduling
+- replay-safe split / merge execution
+- modern memory-traffic minimization
+
+This line is directly inspired by:
+
+- :contentReference[oaicite:0]{index=0} Amiga Copper / blitter logic
+- :contentReference[oaicite:2]{index=2} PlayStation GTE fixed-point geometry pipeline
+- retro DSP / co-processor hardware
+- FPGA fixed-function recreations
+- modern hardware replay systems
+- neural compression / compute-for-bandwidth substitution
 
 ---
 
-## Engineering Notes — v137.0.19
+### Core law
 
-### Workflow Latency Reduction
+```text
+speed through constrained compute geometry
+Secondary law
+reduce memory traffic before increasing compute complexity
+Determinism law
+same input
+same epochs
+same bytes
+Hard replay law
+replay failure = architecture failure
+Series interpretation
+state evolution across heterogeneous compute geometry
+→ integer-first acceleration
+→ bounded workload partitioning
+→ deterministic replay across hardware lanes
+→ compute-for-bandwidth substitution
+→ memory traffic minimization
 
-* Eliminated repeated dead-end PDF render attempts during theory ingestion
-* Text-first ingestion path (`papers/*.md` → `ROADMAP.md`) is now canonical
-* Missing `pdftoppm` is classified as environment-only, not repository failure
+Suitable for:
 
-### PDF Ingestion Optimization
+CPU / GPU split
+Rust / Python split execution
+fixed-point arithmetic
+LUT-driven kernels
+SRAM / cache-constrained workloads
+FPGA / accelerator experiments
+replay-safe hardware scheduling
+memory-bandwidth constrained systems
+Core releases
+v137.11.0 — Deterministic Co-Processor Kernel
 
-* `papers/*.md` is the preferred ingestion source
-* `papers/*.pdf` is attempted only when explicitly required
-* Failed PDF toolchain paths are not retried
-* Durable rules added to `CLAUDE.md` (§13A) and `IMPLEMENTATION_RULES.md` (§20)
+Goal: establish the fixed-function substrate
 
----
+Deliverables:
 
-CANONICAL PRINCIPLES
-Determinism is architecture
+bounded co-processor interface
+deterministic instruction lane
+fixed local SRAM / scratchpad
+explicit work descriptors
+cycle-bounded execution receipts
+stable replay hashes
 
-Same input = same bytes
+Interpretation:
 
-Decoder core is sacred
+cpu → descriptor → co-processor → receipt
 
-Never modify:
+This release defines the hardware-software boundary contract.
 
-src/qec/decoder/
+v137.11.1 — Integer / Matrix Offload Engine
 
-unless explicitly required.
+Goal: build the speed lane
 
-Layering is law
+Deliverables:
 
-Lower layers never import higher layers.
+integer-first matrix engine
+fixed-point multiply-accumulate
+saturating arithmetic
+deterministic reduction ordering
+explicit scaling metadata
+bounded output ranges
 
-Replay identity is mandatory
+Hard rule:
 
-Canonical JSON + SHA-256 stable hashes
+no floating point unless mathematically unavoidable
 
-Theory coupling is mandatory
+This release formalizes the retro integer-speed philosophy.
 
-Every release must absorb at least one executable construct from /papers
+v137.11.2 — Heterogeneous Scheduler
 
-Conversation is interface
+Goal: explicit epoch scheduling
 
-State is truth
-Determinism is law
+Deliverables:
+
+epoch-based work queue
+deterministic dispatch order
+replay-safe scheduling ledger
+fixed fence boundaries
+CPU ↔ offload synchronization
+deterministic tie-breaking
+
+Primary law:
+
+no dynamic opportunistic scheduling
+
+Everything dispatches through:
+
+explicit epochs
+fixed ordering
+deterministic merge boundaries
+
+Research lineage:
+
+VBLANK
+Copper WAIT / MOVE
+replay epoch systems
+v137.11.3 — Emulator-Grade Parallel Workload Splitter
+
+Goal: tile / chunk parallelization
+
+Deliverables:
+
+tile-based work splitting
+fixed-size work shards
+local working-set optimization
+SRAM fit guarantees
+deterministic shard ordering
+deterministic merge receipts
+
+Interpretation:
+
+global task → tiles → parallel lanes → deterministic merge
+
+This is the retro GPU / tile renderer DNA release.
+
+v137.11.4 — Hardware Replay Battery
+
+Goal: prove deterministic execution
+
+Deliverables:
+
+epoch log receipts
+state checkpointing
+replay re-execution
+checksum validation
+byte-identical verification
+fail-safe divergence halts
+
+This release is mandatory validation for the entire line.
+
+Memory-compression sub-arc
+v137.11.5 — Neural Compression Sidecar
+
+Introduce bounded neural compression as a memory-traffic reduction lane.
+
+Focus:
+
+compressed latent blocks
+explicit decode boundaries
+bounded memory movement
+replay-safe latent receipts
+v137.11.6 — Deterministic Latent Decode Lane
+
+Deterministic sample-time reconstruction from compressed latent state.
+
+Focus:
+
+decode-on-demand
+stable decode hashes
+explicit quantization metadata
+deterministic reconstruction
+v137.11.7 — Memory Traffic Reduction Battery
+
+Formal replay-safe validation of memory compression lanes.
+
+Focus:
+
+byte-identical decode replay
+traffic reduction metrics
+checksum / hash validation
+bandwidth reduction certification
+Architectural intent
+
+This entire series should feel like:
+
+retro co-processor philosophy
++
+modern replay-safe systems engineering
+
+The purpose of this line is not “hardware acceleration” in the generic sense.
+
+The purpose is:
+
+deterministic speed through explicit constrained compute lanes
+
+v137.12.x — Neuromorphic + Hybrid Biological Compute Research
+
+Status: PLANNED
+
+Planned:
+
+v137.12.0 — Neuromorphic Substrate Simulator
+v137.12.1 — Hybrid Signal Interface Layer
+v137.12.2 — Bio-Signal Benchmark Battery
+v137.12.3 — Hybrid Replay Certification
+v137.12.4 — Experimental Research Pack
+
+Rule:
+
+simulation-first only
+no biological claims without evidence receipts
+v137.13.x — Unified Intelligence Substrate
+
+Status: PLANNED
+
+Planned:
+
+v137.13.0 — Subsystem Fusion Kernel
+v137.13.1 — Unified Artifact Registry
+v137.13.2 — Cross-Substrate Scheduler
+v137.13.3 — Governed World-Model Handoff
+v137.13.4 — Unified Certification Battery
+KERNELISATION TRACK (CANONICAL OS ARC)
+v137.14.x — Axiom
+
+Syscall ABI + Deterministic Event Log
+
+v137.14.0 — Deterministic Syscall ABI
+v137.14.1 — Oracle Input Event Log
+v137.14.2 — Replay Boundary Contract
+v137.14.3 — Machine Envelope Specification
+v137.15.x — Stratum
+
+Versioned Memory + Snapshot Kernel
+
+v137.15.0 — Versioned Memory Objects
+v137.15.1 — Copy-on-Write Snapshot Layer
+v137.15.2 — Deterministic Rollback Kernel
+v137.15.3 — Immutable Root Hash Chain
+v137.16.x — Chronon
+
+Deterministic Scheduler + Virtual Time
+
+v137.16.0 — Virtual Time Kernel
+v137.16.1 — Deterministic Run Queue
+v137.16.2 — Replay-Safe Yield Points
+v137.16.3 — Epoch Scheduler
+v137.16.4 — Logical Clock Battery
+v137.17.x — Manifold
+
+Topological Address Space Kernel
+
+v137.17.0 — Graph-as-Memory Address Space
+v137.17.1 — Topological IPC
+v137.17.2 — Capability Edge Routing
+v137.17.3 — Geodesic Dispatcher
+v137.17.4 — Process-Space Manifold Battery
+v137.18.x — Transducer
+
+Deterministic Device + Signal Bus
+
+v137.18.0 — Device Abstraction Kernel
+v137.18.1 — Interrupt Epoch Buffer
+v137.18.2 — Signal Air-Lock Layer
+v137.18.3 — Replay-Safe Device Receipts
+v137.19.x — Quorum
+
+Distributed Governance + Consensus Kernel
+
+v137.19.0 — Distributed State Log
+v137.19.1 — Deterministic Consensus Layer
+v137.19.2 — Federated Artifact Replication
+v137.19.3 — Cluster Replay Battery
+FORMAL METHODS LINE
+v137.20.x — TLA+ + Model Checking
+replay law
+scheduler safety
+consensus safety
+state transition proofs
+v137.21.x — Lean 4 Invariant Pack
+hash chain proofs
+schema migration proofs
+topology invariants
+proof-carrying skepticism core
+BENCHMARK LAW
+
+Every release must pass relevant batteries.
+
+Core:
+
+byte identity battery
+replay battery
+canonical export battery
+stable hash battery
+
+Signal / channel:
+
+BER suite
+FER suite
+carrier stability suite
+degradation / recovery monotonicity suite
+
+Kernel:
+
+syscall determinism battery
+scheduler replay battery
+memory rollback battery
+cluster convergence battery
+
+Scientific:
+
+dimensional consistency suite
+tautology detection suite
+provenance suite
+pseudoscience rejection suite
+ENGINEERING DISCIPLINE
+
+Every release must be:
+
+narrow
+truthfully named
+additive by default
+deterministic
+benchmarkable
+paper-friendly
+replay-safe
+proof-auditable
+
+Avoid:
+
+mixed-purpose releases
+mutable artifact state
+benchmark theater
+numerological phenomenology
+ungrounded theoretical claims
+proof-shaped slop

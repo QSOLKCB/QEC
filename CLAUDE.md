@@ -410,9 +410,10 @@ Request instruction.
 
 When ingesting theory from the `/papers` corpus:
 
-1. Prefer `papers/*.md` first
-2. Prefer `ROADMAP.md` for release context
-3. Avoid `papers/*.pdf` unless explicitly required
+1. Use `ROADMAP.md` first
+2. Use existing Layer 4 modules second
+3. Use `papers/*.md` when available
+4. Use `papers/*.pdf` only when explicitly required
 
 ## Rules
 

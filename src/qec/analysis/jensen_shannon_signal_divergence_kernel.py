@@ -96,6 +96,8 @@ def _validate_distribution(distribution: "SignalDistribution", *, name: str) -> 
         raise ValueError(f"{name} labels and probabilities length mismatch")
     if distribution.labels != tuple(sorted(distribution.labels)):
         raise ValueError(f"{name} labels must be sorted")
+    if len(set(distribution.labels)) != len(distribution.labels):
+        raise ValueError(f"{name} labels must be unique")
 
     probs = tuple(float(p) for p in distribution.probabilities)
     for idx, p in enumerate(probs):

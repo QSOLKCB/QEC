@@ -47,6 +47,8 @@ def _canonicalize_json(value: Any) -> _JSONValue:
         if not math.isfinite(value):
             raise ValueError("non-finite float values are not allowed")
         return value
+    if callable(value):
+        raise ValueError("callable values are not allowed in canonical payloads")
     if isinstance(value, tuple):
         return tuple(_canonicalize_json(v) for v in value)
     if isinstance(value, list):

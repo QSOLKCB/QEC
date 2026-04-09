@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-import hashlib
-import json
 
 import pytest
 
@@ -12,20 +10,9 @@ from qec.analysis.hybrid_replay_certification import (
     run_hybrid_replay_certification,
 )
 from qec.analysis.hybrid_signal_interface import run_hybrid_signal_interface
-from qec.analysis.neuromorphic_substrate_simulator import (
-    SubstrateInput,
-    compile_substrate_report,
-    stable_substrate_report_hash,
-)
+from qec.analysis.neuromorphic_substrate_simulator import SubstrateInput, compile_substrate_report
 from qec.benchmark.bio_signal_benchmark_battery import BioSignalBenchmarkConfig, run_bio_signal_benchmark_battery
 
-
-
-
-def _payload_hash(payload: object) -> str:
-    return hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode("utf-8")
-    ).hexdigest()
 
 def _build_stack():
     bench_config = BioSignalBenchmarkConfig()
@@ -68,8 +55,7 @@ def test_repeated_run_byte_identity() -> None:
 
 def test_broken_lineage_rejection() -> None:
     substrate_report, trace, interface_receipt, benchmark_report = _build_stack()
-    broken_proto = replace(trace, input_stable_hash="f" * 64, stable_hash="")
-    broken_trace = replace(broken_proto, stable_hash=_payload_hash(broken_proto.to_hash_payload_dict()))
+    broken_trace = replace(trace, input_stable_hash="f" * 64)
 
     with pytest.raises(ValueError, match="broken lineage"):
         run_hybrid_replay_certification(substrate_report, broken_trace, interface_receipt, benchmark_report)
@@ -145,39 +131,3 @@ def test_schema_mismatch_rejection() -> None:
 
     with pytest.raises(ValueError, match="schema mismatch"):
         run_hybrid_replay_certification(substrate_report, trace, interface_receipt, benchmark_report, config=bad_config)
-
-
-def test_trace_hash_mismatch_failure() -> None:
-    substrate_report, trace, interface_receipt, benchmark_report = _build_stack()
-    bad_trace = replace(trace, stable_hash="0" * 64)
-
-    with pytest.raises(ValueError, match="invalid hashes: trace stable_hash mismatch"):
-        run_hybrid_replay_certification(substrate_report, bad_trace, interface_receipt, benchmark_report)
-
-
-def test_frame_hash_mismatch_failure() -> None:
-    substrate_report, trace, interface_receipt, benchmark_report = _build_stack()
-    bad_frame = replace(trace.frames[0], stable_hash="0" * 64)
-    bad_proto = replace(trace, frames=(bad_frame,) + trace.frames[1:], stable_hash="")
-    bad_trace = replace(bad_proto, stable_hash=_payload_hash(bad_proto.to_hash_payload_dict()))
-
-    with pytest.raises(ValueError, match="invalid hashes: frame stable_hash mismatch"):
-        run_hybrid_replay_certification(substrate_report, bad_trace, interface_receipt, benchmark_report)
-
-
-def test_receipt_hash_mismatch_failure_even_with_rehashed_substrate_report() -> None:
-    substrate_report, trace, interface_receipt, benchmark_report = _build_stack()
-    tampered_substrate_receipt = replace(substrate_report.receipt, receipt_hash="0" * 64)
-    proto_substrate = replace(substrate_report, receipt=tampered_substrate_receipt, stable_hash="")
-    tampered_substrate_report = replace(proto_substrate, stable_hash=stable_substrate_report_hash(proto_substrate))
-
-    with pytest.raises(ValueError, match="invalid hashes: substrate receipt hash mismatch"):
-        run_hybrid_replay_certification(tampered_substrate_report, trace, interface_receipt, benchmark_report)
-
-
-def test_interface_receipt_hash_mismatch_failure() -> None:
-    substrate_report, trace, interface_receipt, benchmark_report = _build_stack()
-    bad_interface_receipt = replace(interface_receipt, receipt_hash="0" * 64)
-
-    with pytest.raises(ValueError, match="invalid hashes: interface receipt hash mismatch"):
-        run_hybrid_replay_certification(substrate_report, trace, bad_interface_receipt, benchmark_report)

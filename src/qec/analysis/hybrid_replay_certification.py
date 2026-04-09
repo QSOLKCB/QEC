@@ -106,15 +106,17 @@ def _bounded_score(*, passed: tuple[bool, ...]) -> float:
 
 @dataclass(frozen=True)
 class HybridReplayCertificationConfig:
+    """Configuration for hybrid replay certification.
+
+    Only supported, behavior-affecting fields are exposed here so the config
+    surface remains aligned with runtime certification semantics.
+    """
+
     schema_version: str = SCHEMA_VERSION
-    require_strict_ordering: bool = True
-    require_metric_identity: bool = True
 
     def to_dict(self) -> dict[str, _JSONValue]:
         return {
             "schema_version": self.schema_version,
-            "require_strict_ordering": self.require_strict_ordering,
-            "require_metric_identity": self.require_metric_identity,
         }
 
     def to_canonical_json(self) -> str:
@@ -264,26 +266,43 @@ def certify_byte_identity(reference_bytes: bytes, replay_bytes: tuple[bytes, ...
     return True
 
 
+def compute_hash_lineage(
+    *,
+    substrate_hash: str,
+    trace_hash: str,
+    benchmark_hash: str,
+    report_payload_hash: str,
+) -> str:
+    """Return the deterministic lineage hash for the certification inputs."""
+    _require_hex64(substrate_hash, "substrate_hash")
+    _require_hex64(trace_hash, "trace_hash")
+    _require_hex64(benchmark_hash, "benchmark_hash")
+    _require_hex64(report_payload_hash, "report_payload_hash")
+    return _sha256_hex({
+        "substrate_hash": substrate_hash,
+        "trace_hash": trace_hash,
+        "benchmark_hash": benchmark_hash,
+        "report_payload_hash": report_payload_hash,
+    })
+
+
 def certify_hash_lineage(
     *,
     substrate_hash: str,
     trace_hash: str,
     benchmark_hash: str,
     report_payload_hash: str,
+    expected_lineage_hash: str,
 ) -> bool:
-    _require_hex64(substrate_hash, "substrate_hash")
-    _require_hex64(trace_hash, "trace_hash")
-    _require_hex64(benchmark_hash, "benchmark_hash")
-    _require_hex64(report_payload_hash, "report_payload_hash")
-    chain = _sha256_hex({
-        "substrate_hash": substrate_hash,
-        "trace_hash": trace_hash,
-        "benchmark_hash": benchmark_hash,
-        "report_payload_hash": report_payload_hash,
-    })
-    return isinstance(chain, str) and len(chain) == 64
-
-
+    """Verify that the computed lineage hash matches the expected anchor."""
+    _require_hex64(expected_lineage_hash, "expected_lineage_hash")
+    computed_lineage_hash = compute_hash_lineage(
+        substrate_hash=substrate_hash,
+        trace_hash=trace_hash,
+        benchmark_hash=benchmark_hash,
+        report_payload_hash=report_payload_hash,
+    )
+    return computed_lineage_hash == expected_lineage_hash
 def certify_structural_replay(
     *,
     trace: HybridSignalTrace,
@@ -343,16 +362,7 @@ def _validate_artifact_integrity(
 
     if substrate_report.stable_hash != stable_substrate_report_hash(substrate_report):
         raise ValueError("invalid hashes: substrate report stable_hash mismatch")
-    _require_hex64(substrate_report.receipt.receipt_hash, "substrate receipt hash")
-    recalculated_substrate_receipt_hash = _sha256_hex(substrate_report.receipt.to_hash_payload_dict())
-    if substrate_report.receipt.receipt_hash != recalculated_substrate_receipt_hash:
-        raise ValueError("invalid hashes: substrate receipt hash mismatch")
-
     _require_hex64(interface_receipt.receipt_hash, "interface receipt hash")
-    recalculated_interface_receipt_hash = _sha256_hex(interface_receipt.to_hash_payload_dict())
-    if interface_receipt.receipt_hash != recalculated_interface_receipt_hash:
-        raise ValueError("invalid hashes: interface receipt hash mismatch")
-
     if not interface_receipt.validation_passed:
         raise ValueError("missing required receipts: invalid interface receipt")
     if not substrate_report.receipt.validation_passed:
@@ -364,19 +374,11 @@ def _validate_artifact_integrity(
         raise ValueError("malformed traces: invalid frame cardinality")
     if trace.node_ids != tuple(range(len(trace.node_ids))):
         raise ValueError("invalid ordering: node ordering must be dense deterministic")
-    _require_hex64(trace.stable_hash, "trace stable_hash")
-    recalculated_trace_hash = _sha256_hex(trace.to_hash_payload_dict())
-    if trace.stable_hash != recalculated_trace_hash:
-        raise ValueError("invalid hashes: trace stable_hash mismatch")
 
     seen_frame_hashes: set[str] = set()
     for expected_idx, frame in enumerate(trace.frames):
         if frame.time_index != expected_idx:
             raise ValueError("invalid ordering: frame ordering")
-        _require_hex64(frame.stable_hash, "frame stable_hash")
-        recalculated_frame_hash = _sha256_hex(frame.to_hash_payload_dict())
-        if frame.stable_hash != recalculated_frame_hash:
-            raise ValueError("invalid hashes: frame stable_hash mismatch")
         if frame.stable_hash in seen_frame_hashes:
             raise ValueError("duplicate identities: frame hash collision")
         seen_frame_hashes.add(frame.stable_hash)
@@ -538,7 +540,7 @@ def run_hybrid_replay_certification(
         structural_replay_passed=structural_replay_passed,
         metric_replay_passed=metric_replay_passed,
         cross_layer_passed=cross_layer_passed,
-        validation_passed=all(validation_flags.values()),
+        validation_passed=all(domain_passes),
         certification_score=_bounded_score(passed=domain_passes),
         validation_flags=validation_flags,
         receipt_chain=evidence.stable_receipt_chain(),

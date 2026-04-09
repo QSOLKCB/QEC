@@ -6,7 +6,6 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19099503.svg)](https://doi.org/10.5281/zenodo.19099503)
 [![Authorea](https://img.shields.io/badge/Authorea-10.22541%2Fau.177376131.17346095%2Fv1-blue)](https://doi.org/10.22541/au.177376131.17346095/v1)
 [![Branch](https://img.shields.io/badge/branch-v137%20canonical-purple)]()
-[![Version](https://img.shields.io/badge/current-v137.12.0-blue)]()
 [![Architecture](https://img.shields.io/badge/architecture-deterministic%20systems-blueviolet)]()
 [![Determinism](https://img.shields.io/badge/determinism-byte--identical-success)]()
 [![Replay](https://img.shields.io/badge/replay-hardware%20verified-green)]()

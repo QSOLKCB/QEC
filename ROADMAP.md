@@ -1,13 +1,14 @@
 # QSOL QEC — Canonical Deterministic Systems Roadmap
+
 **Branch:** canonical deterministic systems line  
-**Current Stable Release:** `v137.10.7`  
-**Next Planned Arc:** `v137.11.x — Heterogeneous Compute + Hardware Acceleration`
+**Current Stable Release:** `v137.13.1`  
+**Current Active Target:** `v137.13.2 — Phase Boundary Topology Kernel`
 
 This roadmap supersedes all previous roadmap versions.
 
 The `v137.x.x` line remains the canonical deterministic systems branch.
 
-The project now formally evolves from:
+The project continues its evolution from:
 
 **deterministic runtime architecture**
 
@@ -25,14 +26,12 @@ while preserving:
 
 ---
 
-# CORE LAW
+## CORE LAW
 
 ```text
 Determinism is architecture.
 same input = same bytes
-
-Mandatory invariants:
-
+Mandatory invariants
 frozen dataclasses
 canonical JSON / bytes export
 stable SHA-256 replay identity
@@ -63,10 +62,31 @@ scientific reasoning
 proof-carrying skepticism
 heterogeneous compute acceleration
 neuromorphic simulation
+synthetic signal abstraction
 distributed governance
 formal methods
 operating substrate kernelisation
-ACTIVE CANONICAL ARC
+RELEASE-HISTORY RULE
+
+Published tags are authoritative.
+
+If a previous roadmap draft used placeholder names that differ from the tagged releases, the tagged releases win.
+
+This rule now explicitly applies to the v137.13.x line.
+
+Earlier placeholder v137.13.x names such as:
+
+Subsystem Fusion Kernel
+Unified Artifact Registry
+Cross-Substrate Scheduler
+Governed World-Model Handoff
+Unified Certification Battery
+
+are retired from v137.13.x.
+
+They may be re-homed later under a future integration arc if needed.
+
+ACTIVE CANONICAL LINE
 v137.7.x — Hierarchical Memory + Episodic Geometry
 
 Status: COMPLETE
@@ -105,7 +125,7 @@ Interpretation:
 state trajectory across constrained manifold geometry
 v137.9.x — Signal + Channel Recovery + Physics-Aware Reasoning
 
-Status: ACTIVE / COMPLETE THROUGH v137.9.5
+Status: COMPLETE THROUGH v137.9.5
 
 Completed:
 
@@ -116,10 +136,22 @@ v137.9.3 — Telecom Line Recovery + Carrier Synchronization
 v137.9.4 — Satellite Signal Baseline + Orbital Noise Envelope
 v137.9.5 — RF Equalization + Ground Station Compensation
 
-Planned legacy continuation:
+Roadmap note:
 
-v137.9.6 — Cross-Modal Replay Certification
-v137.9.7 — Atomic Signal Transduction Observatory
+The old v137.9.6 / v137.9.7 placeholder continuation is retired as a live target.
+Its replay-certification and observability concerns are now covered more cleanly by later lines:
+
+v137.10.x
+v137.12.x
+
+Interpretation:
+
+schema
+→ spectral reasoning
+→ deterministic degradation
+→ deterministic recovery
+→ orbital baseline
+→ RF compensation
 v137.10.x — Scientific Reasoning + Claim Audit Geometry
 
 Status: COMPLETE
@@ -151,212 +183,52 @@ claim
 → replay verification
 → epistemic rejection
 → certification
+v137.11.x — Heterogeneous Compute + Hardware Acceleration
 
-## v137.11.x — Heterogeneous Compute + Hardware Acceleration
-**Status:** READY TO START
+Status: COMPLETE
 
-This series establishes the deterministic heterogeneous compute substrate for QEC.
+Completed:
 
-The architectural philosophy combines:
+v137.11.0 — Deterministic Co-Processor Kernel
+v137.11.1 — Integer / Matrix Offload Engine
+v137.11.2 — Heterogeneous Scheduler
+v137.11.3 — Emulator-Grade Parallel Workload Splitter
+v137.11.4 — Hardware Replay Battery
+v137.11.5 — Neural Compression Sidecar
+v137.11.6 — Deterministic Latent Decode Lane
+v137.11.7 — Memory Traffic Reduction Battery
 
-- retro fixed-function co-processor design
-- integer-first acceleration
-- explicit epoch scheduling
-- replay-safe split / merge execution
-- modern memory-traffic minimization
+Core law:
 
-This line is directly inspired by:
-
-- :contentReference[oaicite:0]{index=0} Amiga Copper / blitter logic
-- :contentReference[oaicite:2]{index=2} PlayStation GTE fixed-point geometry pipeline
-- retro DSP / co-processor hardware
-- FPGA fixed-function recreations
-- modern hardware replay systems
-- neural compression / compute-for-bandwidth substitution
-
----
-
-### Core law
-
-```text
 speed through constrained compute geometry
-Secondary law
+
+Secondary law:
+
 reduce memory traffic before increasing compute complexity
-Determinism law
+
+Determinism law:
+
 same input
 same epochs
 same bytes
-Hard replay law
+
+Hard replay law:
+
 replay failure = architecture failure
-Series interpretation
+
+Interpretation:
+
 state evolution across heterogeneous compute geometry
 → integer-first acceleration
 → bounded workload partitioning
 → deterministic replay across hardware lanes
 → compute-for-bandwidth substitution
 → memory traffic minimization
-
-Suitable for:
-
-CPU / GPU split
-Rust / Python split execution
-fixed-point arithmetic
-LUT-driven kernels
-SRAM / cache-constrained workloads
-FPGA / accelerator experiments
-replay-safe hardware scheduling
-memory-bandwidth constrained systems
-Core releases
-v137.11.0 — Deterministic Co-Processor Kernel
-
-Goal: establish the fixed-function substrate
-
-Deliverables:
-
-bounded co-processor interface
-deterministic instruction lane
-fixed local SRAM / scratchpad
-explicit work descriptors
-cycle-bounded execution receipts
-stable replay hashes
-
-Interpretation:
-
-cpu → descriptor → co-processor → receipt
-
-This release defines the hardware-software boundary contract.
-
-v137.11.1 — Integer / Matrix Offload Engine
-
-Goal: build the speed lane
-
-Deliverables:
-
-integer-first matrix engine
-fixed-point multiply-accumulate
-saturating arithmetic
-deterministic reduction ordering
-explicit scaling metadata
-bounded output ranges
-
-Hard rule:
-
-no floating point unless mathematically unavoidable
-
-This release formalizes the retro integer-speed philosophy.
-
-v137.11.2 — Heterogeneous Scheduler
-
-Goal: explicit epoch scheduling
-
-Deliverables:
-
-epoch-based work queue
-deterministic dispatch order
-replay-safe scheduling ledger
-fixed fence boundaries
-CPU ↔ offload synchronization
-deterministic tie-breaking
-
-Primary law:
-
-no dynamic opportunistic scheduling
-
-Everything dispatches through:
-
-explicit epochs
-fixed ordering
-deterministic merge boundaries
-
-Research lineage:
-
-VBLANK
-Copper WAIT / MOVE
-replay epoch systems
-v137.11.3 — Emulator-Grade Parallel Workload Splitter
-
-Goal: tile / chunk parallelization
-
-Deliverables:
-
-tile-based work splitting
-fixed-size work shards
-local working-set optimization
-SRAM fit guarantees
-deterministic shard ordering
-deterministic merge receipts
-
-Interpretation:
-
-global task → tiles → parallel lanes → deterministic merge
-
-This is the retro GPU / tile renderer DNA release.
-
-v137.11.4 — Hardware Replay Battery
-
-Goal: prove deterministic execution
-
-Deliverables:
-
-epoch log receipts
-state checkpointing
-replay re-execution
-checksum validation
-byte-identical verification
-fail-safe divergence halts
-
-This release is mandatory validation for the entire line.
-
-Memory-compression sub-arc
-v137.11.5 — Neural Compression Sidecar
-
-Introduce bounded neural compression as a memory-traffic reduction lane.
-
-Focus:
-
-compressed latent blocks
-explicit decode boundaries
-bounded memory movement
-replay-safe latent receipts
-v137.11.6 — Deterministic Latent Decode Lane
-
-Deterministic sample-time reconstruction from compressed latent state.
-
-Focus:
-
-decode-on-demand
-stable decode hashes
-explicit quantization metadata
-deterministic reconstruction
-v137.11.7 — Memory Traffic Reduction Battery
-
-Formal replay-safe validation of memory compression lanes.
-
-Focus:
-
-byte-identical decode replay
-traffic reduction metrics
-checksum / hash validation
-bandwidth reduction certification
-Architectural intent
-
-This entire series should feel like:
-
-retro co-processor philosophy
-+
-modern replay-safe systems engineering
-
-The purpose of this line is not “hardware acceleration” in the generic sense.
-
-The purpose is:
-
-deterministic speed through explicit constrained compute lanes
-
 v137.12.x — Neuromorphic + Hybrid Biological Compute Research
 
-Status: PLANNED
+Status: COMPLETE
 
-Planned:
+Completed:
 
 v137.12.0 — Neuromorphic Substrate Simulator
 v137.12.1 — Hybrid Signal Interface Layer
@@ -368,29 +240,95 @@ Rule:
 
 simulation-first only
 no biological claims without evidence receipts
-v137.13.x — Unified Intelligence Substrate
 
-Status: PLANNED
+Interpretation:
 
-Planned:
+synthetic substrate
+→ hybrid signal interface
+→ deterministic benchmark battery
+→ replay certification
+→ reproducible research artifact pack
 
-v137.13.0 — Subsystem Fusion Kernel
-v137.13.1 — Unified Artifact Registry
-v137.13.2 — Cross-Substrate Scheduler
-v137.13.3 — Governed World-Model Handoff
-v137.13.4 — Unified Certification Battery
+This line is complete and should now be treated as closed infrastructure for later abstraction work.
+
+v137.13.x — Synthetic Signal Geometry + Morphology Abstraction
+
+Status: ACTIVE
+
+Completed:
+
+v137.13.0 — Synthetic Signal Geometry Kernel
+v137.13.1 — Morphology Transition Kernel
+
+Active next release:
+
+v137.13.2 — Phase Boundary Topology Kernel
+
+Planned continuation:
+
+v137.13.3 — Region Correspondence Kernel
+v137.13.4 — Signal Abstraction Certification Battery
+
+Rule:
+
+formal signal abstraction only
+simulation-first only
+no biological claims
+no neuroscience claims
+no physiological claims
+
+Interpretation:
+
+hybrid trace
+→ geometry projection
+→ morphology transitions
+→ phase-region boundaries
+→ cross-region correspondence
+→ abstraction certification
+v137.13.2 immediate intent
+
+v137.13.2 — Phase Boundary Topology Kernel should:
+
+segment morphology transition paths into deterministic phase regions
+detect explicit boundary crossings
+classify region/boundary types with deterministic rules
+preserve canonical export and replay identity
+extend the abstraction arc without widening into unrelated subsystem orchestration
+v137.13.3 intent
+
+v137.13.3 — Region Correspondence Kernel should:
+
+align related regions across trajectories
+compute deterministic correspondence scores
+support structural comparison across signal abstractions
+remain bounded, replay-safe, and paper-friendly
+v137.13.4 intent
+
+v137.13.4 — Signal Abstraction Certification Battery should:
+
+certify geometry / transition / topology / correspondence outputs
+validate byte identity, replay identity, and bounded metrics
+close the v137.13.x line as a deterministic abstraction arc
 KERNELISATION TRACK (CANONICAL OS ARC)
 v137.14.x — Axiom
 
 Syscall ABI + Deterministic Event Log
 
+Planned:
+
 v137.14.0 — Deterministic Syscall ABI
 v137.14.1 — Oracle Input Event Log
 v137.14.2 — Replay Boundary Contract
 v137.14.3 — Machine Envelope Specification
+
+Core law:
+
+same input now includes explicit event log
 v137.15.x — Stratum
 
 Versioned Memory + Snapshot Kernel
+
+Planned:
 
 v137.15.0 — Versioned Memory Objects
 v137.15.1 — Copy-on-Write Snapshot Layer
@@ -399,6 +337,8 @@ v137.15.3 — Immutable Root Hash Chain
 v137.16.x — Chronon
 
 Deterministic Scheduler + Virtual Time
+
+Planned:
 
 v137.16.0 — Virtual Time Kernel
 v137.16.1 — Deterministic Run Queue
@@ -409,6 +349,8 @@ v137.17.x — Manifold
 
 Topological Address Space Kernel
 
+Planned:
+
 v137.17.0 — Graph-as-Memory Address Space
 v137.17.1 — Topological IPC
 v137.17.2 — Capability Edge Routing
@@ -418,6 +360,8 @@ v137.18.x — Transducer
 
 Deterministic Device + Signal Bus
 
+Planned:
+
 v137.18.0 — Device Abstraction Kernel
 v137.18.1 — Interrupt Epoch Buffer
 v137.18.2 — Signal Air-Lock Layer
@@ -426,48 +370,61 @@ v137.19.x — Quorum
 
 Distributed Governance + Consensus Kernel
 
+Planned:
+
 v137.19.0 — Distributed State Log
 v137.19.1 — Deterministic Consensus Layer
 v137.19.2 — Federated Artifact Replication
 v137.19.3 — Cluster Replay Battery
 FORMAL METHODS LINE
 v137.20.x — TLA+ + Model Checking
-replay law
-scheduler safety
-consensus safety
-state transition proofs
+
+Status: PLANNED
+
+Planned:
+
+v137.20.0 — Replay Law Model Checker
+v137.20.1 — State Transition Proof Battery
+v137.20.2 — Scheduler Safety Model
+v137.20.3 — Consensus Safety Model
+v137.20.4 — Slop Rejection State Battery
 v137.21.x — Lean 4 Invariant Pack
-hash chain proofs
-schema migration proofs
-topology invariants
-proof-carrying skepticism core
+
+Status: PLANNED
+
+Planned:
+
+v137.21.0 — Hash Chain Proof Suite
+v137.21.1 — Schema Migration Proof Suite
+v137.21.2 — Topology Invariant Proof Pack
+v137.21.3 — Artifact Immutability Proof Pack
+v137.21.4 — Proof-Carrying Skepticism Core
+v137.21.5 — Kernel Transition Proof Obligations
 BENCHMARK LAW
 
 Every release must pass relevant batteries.
 
-Core:
-
+Core
 byte identity battery
 replay battery
 canonical export battery
 stable hash battery
-
-Signal / channel:
-
+Signal / channel
 BER suite
 FER suite
 carrier stability suite
 degradation / recovery monotonicity suite
-
-Kernel:
-
+Geometry / abstraction
+trajectory ordering battery
+transition integrity battery
+phase-boundary stability battery
+correspondence consistency battery
+Kernel
 syscall determinism battery
 scheduler replay battery
 memory rollback battery
 cluster convergence battery
-
-Scientific:
-
+Scientific
 dimensional consistency suite
 tautology detection suite
 provenance suite

@@ -514,11 +514,18 @@ def run_hybrid_replay_certification(
         "benchmark_hash": evidence.benchmark_hash,
         "evidence_hash": evidence.stable_hash(),
     })
+    expected_lineage = compute_hash_lineage(
+        substrate_hash=evidence.substrate_hash,
+        trace_hash=evidence.trace_hash,
+        benchmark_hash=evidence.benchmark_hash,
+        report_payload_hash=lineage_payload_hash,
+    )
     hash_lineage_passed = certify_hash_lineage(
         substrate_hash=evidence.substrate_hash,
         trace_hash=evidence.trace_hash,
         benchmark_hash=evidence.benchmark_hash,
         report_payload_hash=lineage_payload_hash,
+        expected_lineage_hash=expected_lineage,
     )
 
     validation_flags = {

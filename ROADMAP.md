@@ -1,8 +1,8 @@
 # QSOL QEC — Canonical Deterministic Systems Roadmap
 
 **Branch:** canonical deterministic systems line  
-**Current Stable Release:** `v137.13.1`  
-**Current Active Target:** `v137.13.2 — Phase Boundary Topology Kernel`
+**Current Stable Release:** `v137.13.2`  
+**Current Active Target:** `v137.13.3 — Region Correspondence Kernel`
 
 This roadmap supersedes all previous roadmap versions.
 
@@ -63,6 +63,12 @@ proof-carrying skepticism
 heterogeneous compute acceleration
 neuromorphic simulation
 synthetic signal abstraction
+divergence geometry
+codebase memory compilation
+autonomous research orchestration
+governed agentic systems
+quantum runtime autonomy
+temporal hardware substrates
 distributed governance
 formal methods
 operating substrate kernelisation
@@ -72,7 +78,7 @@ Published tags are authoritative.
 
 If a previous roadmap draft used placeholder names that differ from the tagged releases, the tagged releases win.
 
-This rule now explicitly applies to the v137.13.x line.
+This rule explicitly applies to the v137.13.x line.
 
 Earlier placeholder v137.13.x names such as:
 
@@ -84,7 +90,7 @@ Unified Certification Battery
 
 are retired from v137.13.x.
 
-They may be re-homed later under a future integration arc if needed.
+They may be re-homed later under future integration arcs.
 
 ACTIVE CANONICAL LINE
 v137.7.x — Hierarchical Memory + Episodic Geometry
@@ -139,10 +145,7 @@ v137.9.5 — RF Equalization + Ground Station Compensation
 Roadmap note:
 
 The old v137.9.6 / v137.9.7 placeholder continuation is retired as a live target.
-Its replay-certification and observability concerns are now covered more cleanly by later lines:
-
-v137.10.x
-v137.12.x
+Its replay-certification and observability concerns are now covered more cleanly by later lines.
 
 Interpretation:
 
@@ -259,14 +262,14 @@ Completed:
 
 v137.13.0 — Synthetic Signal Geometry Kernel
 v137.13.1 — Morphology Transition Kernel
+v137.13.2 — Phase Boundary Topology Kernel
 
 Active next release:
 
-v137.13.2 — Phase Boundary Topology Kernel
-
-Planned continuation:
-
 v137.13.3 — Region Correspondence Kernel
+
+Planned closeout:
+
 v137.13.4 — Signal Abstraction Certification Battery
 
 Rule:
@@ -285,15 +288,6 @@ hybrid trace
 → phase-region boundaries
 → cross-region correspondence
 → abstraction certification
-v137.13.2 immediate intent
-
-v137.13.2 — Phase Boundary Topology Kernel should:
-
-segment morphology transition paths into deterministic phase regions
-detect explicit boundary crossings
-classify region/boundary types with deterministic rules
-preserve canonical export and replay identity
-extend the abstraction arc without widening into unrelated subsystem orchestration
 v137.13.3 intent
 
 v137.13.3 — Region Correspondence Kernel should:
@@ -309,97 +303,252 @@ v137.13.4 — Signal Abstraction Certification Battery should:
 certify geometry / transition / topology / correspondence outputs
 validate byte identity, replay identity, and bounded metrics
 close the v137.13.x line as a deterministic abstraction arc
+POST-ABSTRACTION EXPANSION (LINK-INFORMED)
+v137.14.x — Divergence Geometry + Information Metrics
+
+Status: PLANNED
+
+This line strengthens the abstraction stack using explicit divergence families instead of ad hoc distance measures.
+
+Planned:
+
+v137.14.0 — Jensen–Shannon Signal Divergence Kernel
+v137.14.1 — Fisher–Rao Geometry Approximation Layer
+v137.14.2 — Bregman / f-Divergence Correspondence Engine
+v137.14.3 — Divergence Topology Battery
+v137.14.4 — Information-Geometric Certification Pack
+
+Interpretation:
+
+signal abstraction
+→ divergence geometry
+→ information-theoretic comparison
+→ topology-aware discrepancy scoring
+→ certified distance law
+
+Hard rule:
+
+every divergence must be explicit, bounded where applicable, and replay-safe
+v137.15.x — Codebase Memory + Decision Compiler
+
+Status: PLANNED
+
+This line turns project work into a deterministic, queryable knowledge substrate.
+
+Planned:
+
+v137.15.0 — Session Capture Hook Pack
+v137.15.1 — Decision Graph Compiler
+v137.15.2 — Contradiction / Staleness Linter
+v137.15.3 — Queryable Knowledge Article Registry
+v137.15.4 — Memory Replay + Provenance Battery
+
+Interpretation:
+
+development session
+→ structured decision capture
+→ cross-referenced knowledge articles
+→ contradiction / staleness checks
+→ replayable engineering memory
+
+Hard rule:
+
+memory is evidence, not vibe
+captured decisions must be attributable, lintable, and replay-safe
+v137.16.x — Autonomous Research Orchestration
+
+Status: PLANNED
+
+This line formalizes idea-to-paper research execution while preserving strict human accountability.
+
+Planned:
+
+v137.16.0 — Research Workflow DSL
+v137.16.1 — Citation Verification + Evidence Gate
+v137.16.2 — Multi-Agent Debate / Review Harness
+v137.16.3 — Draft-to-Paper Artifact Packager
+v137.16.4 — Human Oversight + Ethics Battery
+
+Interpretation:
+
+idea
+→ governed workflow
+→ evidence gate
+→ debate / review
+→ paper artifact
+→ human accountability
+
+Hard rule:
+
+AI may assist research generation
+humans remain responsible for claims, correctness, and submission
+v137.17.x — Agentic Governance + World-Model Control
+
+Status: PLANNED
+
+This line re-homes the old governance placeholders into a modern agentic substrate.
+
+Planned:
+
+v137.17.0 — Modular Agent Data Plane
+v137.17.1 — Access Control + Lineage Kernel
+v137.17.2 — Cross-Agent Orchestration Ledger
+v137.17.3 — Governed World-Model Handoff
+v137.17.4 — Agentic Reliability + Audit Battery
+
+Interpretation:
+
+high-quality data
+→ governed agent access
+→ orchestration ledger
+→ controlled world-model transfer
+→ audited autonomy
+
+Hard rule:
+
+agentic systems require lineage, traceability, and explicit governance before scale
+v137.18.x — Autonomous Quantum Operations
+
+Status: PLANNED
+
+This line extends QEC toward autonomous quantum runtime control.
+
+Planned:
+
+v137.18.0 — Autonomous Calibration Kernel
+v137.18.1 — Runtime Performance Management Layer
+v137.18.2 — Secure Local Quantum Control Lane
+v137.18.3 — Quantum Containerization + Rack Integration Pack
+v137.18.4 — Quantum Operations Replay Battery
+
+Interpretation:
+
+quantum hardware
+→ autonomous tuneup / calibration
+→ runtime correction
+→ secure local deployment
+→ data-center-friendly integration
+→ replay-certified ops
+
+Hard rule:
+
+no autonomous quantum control without explicit receipts, local replay, and fail-safe rollback
+v137.19.x — Temporal Hardware + Streaming Compute
+
+Status: PLANNED
+
+This line merges memory-centric compute and time-signal hardware ideas back into QEC’s deterministic substrate.
+
+Planned:
+
+v137.19.0 — Host-Memory Streaming Execution Engine
+v137.19.1 — Double-Buffered Parameter / State Pipeline
+v137.19.2 — Stateless Template Binding Layer
+v137.19.3 — Temporal Hardware / Reservoir Interface
+v137.19.4 — Energy / Bandwidth Certification Battery
+
+Interpretation:
+
+host memory
+→ streamed execution
+→ transient compute engines
+→ temporal hardware interfaces
+→ energy- / bandwidth-aware certification
+
+Hard rule:
+
+treat memory movement as a first-class architectural cost
 KERNELISATION TRACK (CANONICAL OS ARC)
-v137.14.x — Axiom
+v137.20.x — Axiom
 
 Syscall ABI + Deterministic Event Log
 
 Planned:
 
-v137.14.0 — Deterministic Syscall ABI
-v137.14.1 — Oracle Input Event Log
-v137.14.2 — Replay Boundary Contract
-v137.14.3 — Machine Envelope Specification
+v137.20.0 — Deterministic Syscall ABI
+v137.20.1 — Oracle Input Event Log
+v137.20.2 — Replay Boundary Contract
+v137.20.3 — Machine Envelope Specification
 
 Core law:
 
 same input now includes explicit event log
-v137.15.x — Stratum
+v137.21.x — Stratum
 
 Versioned Memory + Snapshot Kernel
 
 Planned:
 
-v137.15.0 — Versioned Memory Objects
-v137.15.1 — Copy-on-Write Snapshot Layer
-v137.15.2 — Deterministic Rollback Kernel
-v137.15.3 — Immutable Root Hash Chain
-v137.16.x — Chronon
+v137.21.0 — Versioned Memory Objects
+v137.21.1 — Copy-on-Write Snapshot Layer
+v137.21.2 — Deterministic Rollback Kernel
+v137.21.3 — Immutable Root Hash Chain
+v137.22.x — Chronon
 
 Deterministic Scheduler + Virtual Time
 
 Planned:
 
-v137.16.0 — Virtual Time Kernel
-v137.16.1 — Deterministic Run Queue
-v137.16.2 — Replay-Safe Yield Points
-v137.16.3 — Epoch Scheduler
-v137.16.4 — Logical Clock Battery
-v137.17.x — Manifold
+v137.22.0 — Virtual Time Kernel
+v137.22.1 — Deterministic Run Queue
+v137.22.2 — Replay-Safe Yield Points
+v137.22.3 — Epoch Scheduler
+v137.22.4 — Logical Clock Battery
+v137.23.x — Manifold
 
 Topological Address Space Kernel
 
 Planned:
 
-v137.17.0 — Graph-as-Memory Address Space
-v137.17.1 — Topological IPC
-v137.17.2 — Capability Edge Routing
-v137.17.3 — Geodesic Dispatcher
-v137.17.4 — Process-Space Manifold Battery
-v137.18.x — Transducer
+v137.23.0 — Graph-as-Memory Address Space
+v137.23.1 — Topological IPC
+v137.23.2 — Capability Edge Routing
+v137.23.3 — Geodesic Dispatcher
+v137.23.4 — Process-Space Manifold Battery
+v137.24.x — Transducer
 
 Deterministic Device + Signal Bus
 
 Planned:
 
-v137.18.0 — Device Abstraction Kernel
-v137.18.1 — Interrupt Epoch Buffer
-v137.18.2 — Signal Air-Lock Layer
-v137.18.3 — Replay-Safe Device Receipts
-v137.19.x — Quorum
+v137.24.0 — Device Abstraction Kernel
+v137.24.1 — Interrupt Epoch Buffer
+v137.24.2 — Signal Air-Lock Layer
+v137.24.3 — Replay-Safe Device Receipts
+v137.25.x — Quorum
 
 Distributed Governance + Consensus Kernel
 
 Planned:
 
-v137.19.0 — Distributed State Log
-v137.19.1 — Deterministic Consensus Layer
-v137.19.2 — Federated Artifact Replication
-v137.19.3 — Cluster Replay Battery
+v137.25.0 — Distributed State Log
+v137.25.1 — Deterministic Consensus Layer
+v137.25.2 — Federated Artifact Replication
+v137.25.3 — Cluster Replay Battery
 FORMAL METHODS LINE
-v137.20.x — TLA+ + Model Checking
+v137.26.x — TLA+ + Model Checking
 
 Status: PLANNED
 
 Planned:
 
-v137.20.0 — Replay Law Model Checker
-v137.20.1 — State Transition Proof Battery
-v137.20.2 — Scheduler Safety Model
-v137.20.3 — Consensus Safety Model
-v137.20.4 — Slop Rejection State Battery
-v137.21.x — Lean 4 Invariant Pack
+v137.26.0 — Replay Law Model Checker
+v137.26.1 — State Transition Proof Battery
+v137.26.2 — Scheduler Safety Model
+v137.26.3 — Consensus Safety Model
+v137.26.4 — Slop Rejection State Battery
+v137.27.x — Lean 4 Invariant Pack
 
 Status: PLANNED
 
 Planned:
 
-v137.21.0 — Hash Chain Proof Suite
-v137.21.1 — Schema Migration Proof Suite
-v137.21.2 — Topology Invariant Proof Pack
-v137.21.3 — Artifact Immutability Proof Pack
-v137.21.4 — Proof-Carrying Skepticism Core
-v137.21.5 — Kernel Transition Proof Obligations
+v137.27.0 — Hash Chain Proof Suite
+v137.27.1 — Schema Migration Proof Suite
+v137.27.2 — Topology Invariant Proof Pack
+v137.27.3 — Artifact Immutability Proof Pack
+v137.27.4 — Proof-Carrying Skepticism Core
+v137.27.5 — Kernel Transition Proof Obligations
 BENCHMARK LAW
 
 Every release must pass relevant batteries.
@@ -419,6 +568,25 @@ trajectory ordering battery
 transition integrity battery
 phase-boundary stability battery
 correspondence consistency battery
+divergence certification battery
+Memory / knowledge
+contradiction battery
+staleness battery
+provenance battery
+replayable knowledge battery
+Agentic / research
+citation verification battery
+workflow governance battery
+human-oversight battery
+auditability battery
+Quantum operations
+autonomous calibration replay battery
+runtime drift correction battery
+secure local control battery
+Temporal hardware / compute
+memory traffic battery
+stream scheduling battery
+energy / bandwidth certification battery
 Kernel
 syscall determinism battery
 scheduler replay battery

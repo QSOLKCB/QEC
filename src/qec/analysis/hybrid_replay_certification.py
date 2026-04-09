@@ -264,26 +264,43 @@ def certify_byte_identity(reference_bytes: bytes, replay_bytes: tuple[bytes, ...
     return True
 
 
+def compute_hash_lineage(
+    *,
+    substrate_hash: str,
+    trace_hash: str,
+    benchmark_hash: str,
+    report_payload_hash: str,
+) -> str:
+    """Return the deterministic lineage hash for the certification inputs."""
+    _require_hex64(substrate_hash, "substrate_hash")
+    _require_hex64(trace_hash, "trace_hash")
+    _require_hex64(benchmark_hash, "benchmark_hash")
+    _require_hex64(report_payload_hash, "report_payload_hash")
+    return _sha256_hex({
+        "substrate_hash": substrate_hash,
+        "trace_hash": trace_hash,
+        "benchmark_hash": benchmark_hash,
+        "report_payload_hash": report_payload_hash,
+    })
+
+
 def certify_hash_lineage(
     *,
     substrate_hash: str,
     trace_hash: str,
     benchmark_hash: str,
     report_payload_hash: str,
+    expected_lineage_hash: str,
 ) -> bool:
-    _require_hex64(substrate_hash, "substrate_hash")
-    _require_hex64(trace_hash, "trace_hash")
-    _require_hex64(benchmark_hash, "benchmark_hash")
-    _require_hex64(report_payload_hash, "report_payload_hash")
-    chain = _sha256_hex({
-        "substrate_hash": substrate_hash,
-        "trace_hash": trace_hash,
-        "benchmark_hash": benchmark_hash,
-        "report_payload_hash": report_payload_hash,
-    })
-    return isinstance(chain, str) and len(chain) == 64
-
-
+    """Verify that the computed lineage hash matches the expected anchor."""
+    _require_hex64(expected_lineage_hash, "expected_lineage_hash")
+    computed_lineage_hash = compute_hash_lineage(
+        substrate_hash=substrate_hash,
+        trace_hash=trace_hash,
+        benchmark_hash=benchmark_hash,
+        report_payload_hash=report_payload_hash,
+    )
+    return computed_lineage_hash == expected_lineage_hash
 def certify_structural_replay(
     *,
     trace: HybridSignalTrace,

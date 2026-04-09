@@ -657,6 +657,10 @@ def _validate_benchmark_config(config: BioSignalBenchmarkConfig) -> BioSignalBen
         raise ValueError("time_steps must be > 0")
     if config.threshold <= 0:
         raise ValueError("threshold must be > 0")
+    if isinstance(config.decay_factor, bool):
+        raise ValueError("decay_factor must be a float, not bool")
+    if not isinstance(config.decay_factor, (int, float)):
+        raise ValueError("decay_factor must be numeric")
     if not math.isfinite(config.decay_factor):
         raise ValueError("decay_factor must be finite")
     if config.decay_factor < 0.0 or config.decay_factor > 1.0:

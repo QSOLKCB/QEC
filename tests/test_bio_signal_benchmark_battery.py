@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from qec.benchmark.bio_signal_benchmark_battery import (
@@ -65,6 +67,13 @@ def test_malformed_input_rejection() -> None:
             build_hybrid_signal_trace(compile_substrate_report(_base_input())),
             (0.0, 0.5),
         )
+
+
+def test_decay_factor_bool_rejected() -> None:
+    with pytest.raises(ValueError, match="decay_factor must be a float, not bool"):
+        run_bio_signal_benchmark_battery(dataclasses.replace(BioSignalBenchmarkConfig(), decay_factor=True))
+    with pytest.raises(ValueError, match="decay_factor must be a float, not bool"):
+        run_bio_signal_benchmark_battery(dataclasses.replace(BioSignalBenchmarkConfig(), decay_factor=False))
 
 
 def test_bounded_metric_validation() -> None:

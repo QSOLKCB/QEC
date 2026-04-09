@@ -32,7 +32,7 @@ def _base_input(strategy: str) -> dict[str, object]:
         "decode_strategy": strategy,
         "quantization_bits": 8,
         "epoch_id": "epoch-7",
-        "schema_version": "137.11.6",
+        "schema_version": "v137.11.6",
     }
 
 

@@ -13,7 +13,7 @@ from typing import Any, Mapping
 _JSONScalar = str | int | bool | None
 _JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
 
-_SCHEMA_VERSION = "137.11.6"
+_SCHEMA_VERSION = "v137.11.6"
 _SUPPORTED_DECODE_STRATEGIES = (
     "latent_tiles",
     "quantized_blocks",
@@ -262,17 +262,32 @@ def validate_decode_descriptor(descriptor: DecodeDescriptor) -> DecodeDescriptor
         raise ValueError("unsupported schema version")
 
     seen_ids: set[str] = set()
+    normalized_blocks: list[dict[str, Any]] = []
     for idx, block in enumerate(descriptor.latent_blocks):
         block_id = block.get("block_id")
         block_index = block.get("block_index")
-        if not isinstance(block_id, str) or block_id.strip() == "":
+        if not isinstance(block_id, str):
+            raise ValueError("malformed latent block payload")
+        normalized_block_id = block_id.strip()
+        if normalized_block_id == "":
             raise ValueError("malformed latent block payload")
         if isinstance(block_index, bool) or not isinstance(block_index, int) or block_index < 0:
             raise ValueError("malformed latent block payload")
-        if block_id in seen_ids:
+        if normalized_block_id in seen_ids:
             raise ValueError("duplicate block IDs")
-        seen_ids.add(block_id)
-    return descriptor
+        seen_ids.add(normalized_block_id)
+        normalized_block = dict(block)
+        normalized_block["block_id"] = normalized_block_id
+        normalized_blocks.append(normalized_block)
+
+    return DecodeDescriptor(
+        artifact_id=descriptor.artifact_id,
+        latent_blocks=tuple(normalized_blocks),
+        decode_strategy=descriptor.decode_strategy,
+        quantization_bits=descriptor.quantization_bits,
+        epoch_id=descriptor.epoch_id,
+        schema_version=descriptor.schema_version,
+    )
 
 
 def _decode_block_payload(

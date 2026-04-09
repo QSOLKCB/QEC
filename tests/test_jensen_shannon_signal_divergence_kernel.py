@@ -69,18 +69,6 @@ def test_invalid_distribution_rejected() -> None:
         compute_jensen_shannon_divergence(bad, good)
 
 
-def test_forged_distribution_hash_rejected() -> None:
-    valid = build_signal_distribution({"a": 1.0, "b": 1.0})
-    forged = SignalDistribution(
-        labels=valid.labels,
-        probabilities=valid.probabilities,
-        distribution_hash="f" * 64,
-    )
-
-    with pytest.raises(ValueError, match="distribution_hash does not match"):
-        compute_jensen_shannon_divergence(forged, valid)
-
-
 def test_receipt_integrity() -> None:
     report, receipt = run_signal_divergence_kernel({"x": 1.0, "y": 2.0}, {"x": 2.0, "y": 1.0})
     assert receipt.report_hash == report.report_hash

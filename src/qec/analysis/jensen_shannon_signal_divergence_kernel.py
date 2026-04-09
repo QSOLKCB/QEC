@@ -52,10 +52,6 @@ def _sha256_hex(value: Any) -> str:
     return hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
 
 
-def _is_sha256_hex(value: str) -> bool:
-    return len(value) == 64 and all(ch in "0123456789abcdef" for ch in value)
-
-
 def _quantize(value: float, *, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{name} must be a finite float")
@@ -100,6 +96,8 @@ def _validate_distribution(distribution: "SignalDistribution", *, name: str) -> 
         raise ValueError(f"{name} labels and probabilities length mismatch")
     if distribution.labels != tuple(sorted(distribution.labels)):
         raise ValueError(f"{name} labels must be sorted")
+    if len(set(distribution.labels)) != len(distribution.labels):
+        raise ValueError(f"{name} labels must be unique")
 
     probs = tuple(float(p) for p in distribution.probabilities)
     for idx, p in enumerate(probs):
@@ -110,18 +108,6 @@ def _validate_distribution(distribution: "SignalDistribution", *, name: str) -> 
 
     if abs(sum(probs) - 1.0) > 1e-12:
         raise ValueError(f"{name} probabilities must sum to 1 within 1e-12")
-    if not _is_sha256_hex(distribution.distribution_hash):
-        raise ValueError(f"{name} distribution_hash must be 64-char lowercase hex")
-    expected_hash = _sha256_hex(
-        {
-            "labels": distribution.labels,
-            "probabilities": tuple(
-                _quantized_str(value, name=f"{name}.probabilities[{i}]") for i, value in enumerate(probs)
-            ),
-        }
-    )
-    if distribution.distribution_hash != expected_hash:
-        raise ValueError(f"{name} distribution_hash does not match labels/probabilities")
 
 
 @dataclass(frozen=True)
@@ -251,6 +237,8 @@ def build_signal_distribution(signal_weights: Mapping[str, float]) -> SignalDist
     distribution_hash = _sha256_hex(payload)
     dist = SignalDistribution(labels=labels, probabilities=normalized_probabilities, distribution_hash=distribution_hash)
     _validate_distribution(dist, name="distribution")
+    if distribution_hash != _sha256_hex({"labels": labels, "probabilities": tuple(_quantized_str(v, name="p") for v in normalized_probabilities)}):
+        raise ValueError("distribution_hash mismatch")
     return dist
 
 

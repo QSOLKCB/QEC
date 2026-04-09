@@ -92,7 +92,7 @@ def _quantize(value: float, *, field_name: str) -> float:
 
 
 def _quantize_unit(value: float, *, field_name: str) -> float:
-    q = _quantize(_clamp01(value), field_name=field_name)
+    q = _quantize(value, field_name=field_name)
     if q < 0.0 or q > 1.0:
         raise ValueError(f"{field_name} must be in [0, 1]")
     return q

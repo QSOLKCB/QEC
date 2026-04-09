@@ -323,7 +323,7 @@ def build_compression_receipt(
     canonical_merged_latent = merge_latent_blocks(ordered)
     expected_hashes = tuple(_build_block_hash(block) for block in ordered)
     block_hashes_match = expected_hashes == tuple(block.stable_hash for block in ordered)
-    merged_latent_matches = merged_latent == canonical_merged_latent
+    merged_latent_matches = len(merged_latent) == len(canonical_merged_latent) and merged_latent == canonical_merged_latent
     validation_passed = block_hashes_match and merged_latent_matches
     latent_hash = _sha256_hex_bytes(canonical_merged_latent)
 

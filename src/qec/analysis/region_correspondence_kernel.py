@@ -754,7 +754,13 @@ def run_region_correspondence_kernel(
 
     if receipt.receipt_chain[0] != effective_config.stable_sha256():
         raise ValueError("broken lineage")
+    if receipt.receipt_chain[1] != _sha256_hex(path_hashes):
+        raise ValueError("broken lineage")
     if receipt.receipt_chain[2] != result.stable_hash:
+        raise ValueError("broken lineage")
+    if receipt.receipt_chain[3] != _sha256_hex(
+        {"receipt_chain_seed": receipt.receipt_chain[:3]}
+    ):
         raise ValueError("broken lineage")
 
     return result, receipt

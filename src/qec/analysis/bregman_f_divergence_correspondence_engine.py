@@ -378,11 +378,14 @@ def _compute_correspondence_result(
     source: SignalDistribution,
     target: SignalDistribution,
 ) -> DivergenceCorrespondenceResult:
-    p, q = _aligned_pq(source, target)
-
-    kl_score = _normalize_kl(_raw_kl_bits(p, q))
-    tv_score = _clamp01(0.5 * sum(abs(pv - qv) for pv, qv in zip(p, q)))
-    bregman_score = _normalize_kl(_symmetric_kl_bits(p, q))
+    # Delegate to the public primitives so the engine and the
+    # standalone divergence functions share a single source of truth.
+    # ``compute_bregman_alignment`` returns the *raw* alignment
+    # (``1 = identical``), so we take its complement to obtain the
+    # engine-convention score where ``0 = identical``.
+    kl_score = compute_kl_divergence(source, target)
+    tv_score = compute_total_variation_distance(source, target)
+    bregman_score = _clamp01(1.0 - compute_bregman_alignment(source, target))
 
     # Family-consistency signal: range of the three divergence-family
     # scores. ``0`` means perfect agreement, ``1`` means maximal
@@ -439,12 +442,15 @@ def run_divergence_correspondence_engine(
 
     Returns a ``(report, receipt)`` pair. The receipt's ``validation_passed``
     attests that the report hash was independently re-derived from the
-    canonical payload and that both distributions pass validation.
+    report object's own canonical form, mirroring how an external
+    consumer would derive it.
     """
     cfg = config if config is not None else DivergenceCorrespondenceConfig()
     if not isinstance(cfg, DivergenceCorrespondenceConfig):
         raise ValueError("config must be a DivergenceCorrespondenceConfig")
 
+    # ``build_signal_distribution`` validates its output internally, so
+    # we do not re-validate the distributions here.
     source_distribution = build_signal_distribution(source_signal_weights)
     target_distribution = build_signal_distribution(target_signal_weights)
     result = _compute_correspondence_result(source_distribution, target_distribution)
@@ -456,20 +462,25 @@ def run_divergence_correspondence_engine(
         "target_distribution": target_distribution.to_dict(),
         "correspondence_result": result.to_dict(),
     }
-    report_hash = _sha256_hex(report_payload)
     report = DivergenceCorrespondenceReport(
         schema_version=SCHEMA_VERSION,
         config=cfg,
         source_distribution=source_distribution,
         target_distribution=target_distribution,
         correspondence_result=result,
-        report_hash=report_hash,
+        report_hash=_sha256_hex(report_payload),
     )
 
+    # Round-trip self-verification: derive the hash from the report
+    # object's own canonical form (with its self-referential
+    # ``report_hash`` field stripped), exactly as an external consumer
+    # would. This catches any drift between the dataclass and the
+    # payload that was hashed.
     report_bytes = report.to_canonical_bytes()
-    recomputed_report_hash = _sha256_hex(report_payload)
-    _validate_distribution(source_distribution, name="source_distribution")
-    _validate_distribution(target_distribution, name="target_distribution")
+    round_trip_payload = {
+        k: v for k, v in report.to_dict().items() if k != "report_hash"
+    }
+    recomputed_report_hash = _sha256_hex(round_trip_payload)
     validation_passed = (
         recomputed_report_hash == report.report_hash and len(report_bytes) > 0
     )

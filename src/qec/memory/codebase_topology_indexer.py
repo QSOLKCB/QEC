@@ -306,16 +306,38 @@ def _coerce_inputs(*args: Any, **kwargs: Any) -> Tuple[str, Any, Any]:
     raise TopologyIndexError("invalid_topology_input", "invalid topology input")
 
 
+def _validate_raw_nodes(raw_nodes: Any) -> None:
+    """Validate raw node input for deterministic normalization errors."""
+    if not isinstance(raw_nodes, (list, tuple)):
+        raise TopologyIndexError("invalid_nodes", "nodes must be a list or tuple")
+    for index, node in enumerate(raw_nodes):
+        if not isinstance(node, (TopologyIndexNode, Mapping)):
+            raise TopologyIndexError(
+                "invalid_node",
+                f"node at index {index} must be a mapping or TopologyIndexNode",
+            )
+
+
+def _validate_raw_edges(raw_edges: Any) -> None:
+    """Validate raw edge input for deterministic normalization errors."""
+    if not isinstance(raw_edges, (list, tuple)):
+        raise TopologyIndexError("invalid_edges", "edges must be a list or tuple")
+    for index, edge in enumerate(raw_edges):
+        if not isinstance(edge, (TopologyIndexEdge, Mapping)):
+            raise TopologyIndexError(
+                "invalid_edge",
+                f"edge at index {index} must be a mapping or TopologyIndexEdge",
+            )
+
+
 def normalize_codebase_topology_input(*args: Any, **kwargs: Any) -> Tuple[str, Tuple[TopologyIndexNode, ...], Tuple[TopologyIndexEdge, ...]]:
     index_id, raw_nodes, raw_edges = _coerce_inputs(*args, **kwargs)
 
     if not index_id:
         raise TopologyIndexError("invalid_index_id", "invalid topology index id")
-    if not isinstance(raw_nodes, Sequence):
-        raise TopologyIndexError("invalid_nodes", "nodes must be a sequence")
-    if not isinstance(raw_edges, Sequence):
-        raise TopologyIndexError("invalid_edges", "edges must be a sequence")
 
+    _validate_raw_nodes(raw_nodes)
+    _validate_raw_edges(raw_edges)
     nodes = tuple(sorted((_normalize_node(n) for n in raw_nodes), key=_node_sort_key))
     edges = tuple(sorted((_normalize_edge(e) for e in raw_edges), key=_edge_sort_key))
 

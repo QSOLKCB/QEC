@@ -6,7 +6,7 @@ This project follows **Semantic Versioning (SemVer)**.
 
 ---
 
-## Documentation sync after `v137.15.3`
+## Documentation sync after `v137.15.5`
 
 - README refreshed
 - CHANGELOG normalized
@@ -57,6 +57,30 @@ Hard law:
 
 same input = same bytes
 Latest Stable Release
+[137.15.5] — Bounded Fallback Corridor
+Added
+deterministic bounded fallback corridor layer
+hard-bounded fallback transition envelope
+canonical corridor receipts
+replay-safe corridor lineage
+Hardening
+lane canonicalization
+TypeError safety on evaluate paths
+force_terminal_fallback override semantics
+dead-code removal and expanded regression tests
+
+[137.15.4] — Collision Prevention Scheduler + Phase-Lane Arbitration
+Added
+deterministic collision prevention scheduler
+phase-lane arbitration kernel
+bounded arbitration receipts
+replay-safe scheduler lineage
+Hardening
+optional lane / phase inputs
+fallback_action in arbitration
+ScheduleLike evaluate contract
+P2-specific flags
+
 [137.15.3] — Transition Safety Envelope Kernel
 Added
 deterministic transition safety envelope kernel

@@ -423,7 +423,21 @@ def validate_transition_safety_envelope(
     envelope: EnvelopeLike,
     context: ContextLike,
 ) -> SafetyEnvelopeValidationReport:
-    normalized_envelope, normalized_context = normalize_transition_safety_envelope(envelope, context)
+    """Validate an envelope and return a deterministic report for invalid input."""
+    try:
+        normalized_envelope, normalized_context = normalize_transition_safety_envelope(envelope, context)
+    except ValueError as exc:
+        return SafetyEnvelopeValidationReport(
+            is_valid=False,
+            uniqueness=False,
+            state_validity=False,
+            path_validity=False,
+            rollback_consistency=False,
+            constraint_ordering=False,
+            bounded_depth=False,
+            fallback_validity=False,
+            errors=(f"normalization_failed:{exc}",),
+        )
 
     errors: List[str] = []
 

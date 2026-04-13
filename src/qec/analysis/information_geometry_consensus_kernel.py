@@ -244,12 +244,16 @@ def _compute_consensus_result(
     ot = _validate_score(global_transport_geometry_score, name="global_transport_geometry_score")
 
     values = (js, fr, dc, ot)
-    consensus = _clamp01(sum(values) / 4.0)
+    # Convert divergence-style inputs (0=identical, 1=maximally separated) into
+    # alignment space (0=maximally separated, 1=identical) before aggregating so
+    # that higher consensus scores indicate stronger agreement, not divergence.
+    alignment_values = tuple(1.0 - v for v in values)
+    consensus = _clamp01(sum(alignment_values) / 4.0)
     mean = consensus
-    mad = sum(abs(v - mean) for v in values) / 4.0
+    mad = sum(abs(v - mean) for v in alignment_values) / 4.0
     dispersion = _clamp01(2.0 * mad)
     agreement = _clamp01(1.0 - dispersion)
-    stability = _clamp01(1.0 - (max(values) - min(values)))
+    stability = _clamp01(1.0 - (max(alignment_values) - min(alignment_values)))
     global_consensus = _clamp01((consensus + agreement + stability) / 3.0)
 
     payload = {

@@ -145,11 +145,14 @@ def test_manual_pipeline_equivalence() -> None:
         _h("d"),
     )
     r = report.consensus_result
-    manual_consensus = (0.1 + 0.2 + 0.3 + 0.4) / 4.0
-    manual_mad = (abs(0.1 - manual_consensus) + abs(0.2 - manual_consensus) + abs(0.3 - manual_consensus) + abs(0.4 - manual_consensus)) / 4.0
+    # Divergence inputs are first mapped to alignment space (1 - divergence)
+    # before aggregation, so higher scores reflect stronger agreement.
+    a0, a1, a2, a3 = 1 - 0.1, 1 - 0.2, 1 - 0.3, 1 - 0.4  # 0.9, 0.8, 0.7, 0.6
+    manual_consensus = (a0 + a1 + a2 + a3) / 4.0  # 0.75
+    manual_mad = (abs(a0 - manual_consensus) + abs(a1 - manual_consensus) + abs(a2 - manual_consensus) + abs(a3 - manual_consensus)) / 4.0
     manual_dispersion = 2.0 * manual_mad
     manual_agreement = 1.0 - manual_dispersion
-    manual_stability = 1.0 - (0.4 - 0.1)
+    manual_stability = 1.0 - (max(a0, a1, a2, a3) - min(a0, a1, a2, a3))
     manual_global = (manual_consensus + manual_agreement + manual_stability) / 3.0
 
     assert abs(r.geometry_consensus_score - manual_consensus) < 1e-12
@@ -158,6 +161,61 @@ def test_manual_pipeline_equivalence() -> None:
     assert abs(r.geometry_stability_score - manual_stability) < 1e-12
     assert abs(r.global_information_consensus_score - manual_global) < 1e-12
     assert receipt.report_hash == report.report_hash
+
+
+def test_zero_divergence_consensus_is_one() -> None:
+    """All-zero divergence (identical signals) should produce consensus == 1.0."""
+    report, _ = run_information_geometry_consensus_kernel(
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        _h("a"),
+        _h("b"),
+        _h("c"),
+        _h("d"),
+    )
+    r = report.consensus_result
+    assert r.geometry_consensus_score == 1.0
+    assert r.geometry_dispersion_score == 0.0
+    assert r.manifold_agreement_score == 1.0
+    assert r.geometry_stability_score == 1.0
+    assert r.global_information_consensus_score == 1.0
+
+
+def test_maximal_divergence_consensus_is_zero() -> None:
+    """All-one divergence (maximally separated signals) should produce consensus == 0.0."""
+    report, _ = run_information_geometry_consensus_kernel(
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        _h("a"),
+        _h("b"),
+        _h("c"),
+        _h("d"),
+    )
+    r = report.consensus_result
+    assert r.geometry_consensus_score == 0.0
+
+
+def test_mixed_divergence_intermediate_consensus() -> None:
+    """Mixed divergence inputs produce the expected intermediate alignment score."""
+    # divergences = [0.25, 0.25, 0.75, 0.75] → alignments = [0.75, 0.75, 0.25, 0.25]
+    # expected consensus = (0.75 + 0.75 + 0.25 + 0.25) / 4 = 0.5
+    report, _ = run_information_geometry_consensus_kernel(
+        0.25,
+        0.25,
+        0.75,
+        0.75,
+        _h("a"),
+        _h("b"),
+        _h("c"),
+        _h("d"),
+    )
+    r = report.consensus_result
+    assert abs(r.geometry_consensus_score - 0.5) < 1e-12
+    assert 0.0 <= r.global_information_consensus_score <= 1.0
 
 
 def test_receipt_integrity() -> None:

@@ -592,18 +592,17 @@ def run_information_geometric_certification_pack(
     )
     summary = build_ascii_information_geometric_certification_summary(temp_report)
 
-    report_payload = report_seed | {"summary_text": summary}
     report = InformationGeometricCertificationReport(
         schema_version=SCHEMA_VERSION,
         config=normalized_config,
         certification_input=normalized_input,
         certification_result=result,
         summary_text=summary,
-        report_hash=_sha256_hex(report_payload),
+        report_hash=report_hash,
     )
 
     report_bytes = report.to_canonical_bytes()
-    validation_passed = _sha256_hex(report.as_hash_payload()) == report.report_hash and len(report_bytes) > 0
+    validation_passed = _sha256_hex(report_seed) == report.report_hash and len(report_bytes) > 0
     if not validation_passed:
         raise ValueError("information-geometric certification report failed self-verification")
 

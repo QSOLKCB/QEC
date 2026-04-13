@@ -375,6 +375,7 @@ def run_information_geometry_consensus_kernel(
 def build_ascii_information_geometry_consensus_summary(
     report: InformationGeometryConsensusReport,
 ) -> str:
+    """Return a deterministic ASCII summary for a consensus report."""
     if not isinstance(report, InformationGeometryConsensusReport):
         raise ValueError("report must be an InformationGeometryConsensusReport")
     r = report.consensus_result

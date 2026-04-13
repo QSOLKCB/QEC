@@ -550,13 +550,6 @@ def evaluate_transition_safety_envelope(
     proposed_transition_sequence: Sequence[Mapping[str, Any]],
 ) -> SafetyEnvelopeExecutionReceipt:
     # Validate and normalize all path entries to ensure deterministic evaluation.
-    # Derive automaton_id from envelope constraints or use empty string if no constraints.
-    automaton_id = ""
-    if envelope.constraints:
-        # Use first constraint's from_state as reference; the actual automaton_id
-        # will be validated per-entry below.
-        pass
-    
     normalized_entries: List[Mapping[str, Any]] = []
     for idx, entry in enumerate(proposed_transition_sequence):
         if not isinstance(entry, Mapping):
@@ -564,7 +557,6 @@ def evaluate_transition_safety_envelope(
         for field in ("from_state", "to_state", "operation", "transition_depth"):
             if field not in entry:
                 raise ValueError(f"missing proposed_transition_path field: {field}")
-        # automaton_id is optional in evaluate; if missing, infer from entry or skip check
         entry_automaton_id = str(entry.get("automaton_id", ""))
         depth = int(entry["transition_depth"])
         if depth < 1:

@@ -211,7 +211,7 @@ def test_validate_bounded_depth_failure():
 
 
 def test_fallback_mode_rollback_sets_rollback_requirement():
-    """Test that fallback_mode=rollback with forbidden op sets deterministic_rollback_requirement=True."""
+    """Test that fallback_mode=rollback with forbidden operation sets deterministic_rollback_requirement=True."""
     envelope = _base_envelope()
     envelope["constraints"][1]["forbidden_operations"] = ["apply"]
     envelope["constraints"][1]["rollback_required"] = False

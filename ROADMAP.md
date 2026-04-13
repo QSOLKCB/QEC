@@ -1,22 +1,18 @@
-# QSOLKCB / QEC
-## Canonical ROADMAP
-### Deterministic Quantum Error Correction • Replay-Safe Systems • Formal Control Architecture
+QSOLKCB / QEC
+Canonical ROADMAP
+Deterministic Quantum Error Correction • Replay-Safe Systems • Formal Control Architecture
 
-> Canonical engineering law document  
-> Published release tags are authoritative  
-> Same input = same bytes  
+Canonical engineering law document
+Published release tags are authoritative
+Same input = same bytes
 
----
+HARD LAW
+Core Architectural Law
 
-# HARD LAW
-
-## Core Architectural Law
-
-**Determinism is architecture.**
+Determinism is architecture.
 
 Every subsystem in QEC must preserve:
 
-```text
 same input = same bytes
 same state = same hash
 same replay = same artifact
@@ -33,79 +29,32 @@ bounded failure modes
 CANONICAL TIP
 Stable Tip
 
-v137.15.3 — Transition Safety Envelope Kernel
+v137.16.0 — Deterministic Memory Graph Kernel
 
 This is the current canonical release anchor.
 
-Completed ladder:
-
+Completed ladder
+Divergence Geometry + Information Metrics
 v137.14.0 — Jensen–Shannon Signal Divergence Kernel
 v137.14.1 — Fisher–Rao Geometry Approximation Layer
 v137.14.2 — Bregman / f-Divergence Correspondence Engine
 v137.14.3 — Optimal Transport Geometry Kernel
 v137.14.4 — Information Geometry Consensus Kernel
 v137.14.5 — Information-Geometric Certification Pack
+Formal Control Sequencing + Safety Kernel
 v137.15.0 — Deterministic Control Sequence Kernel
 v137.15.1 — Explicit State Transition Automata Kernel
 v137.15.2 — Deterministic Rollback Planner
 v137.15.3 — Transition Safety Envelope Kernel
+v137.15.4 — Collision Prevention Scheduler + Phase-Lane Arbitration
+v137.15.5 — Bounded Fallback Corridor
+v137.15.6 — Proof-Carrying Control Sequence Engine (HARD GATE COMPLETE)
+Codebase Memory + Decision Compiler
+v137.16.0 — Deterministic Memory Graph Kernel
 ACTIVE ARC
-v137.15.x — Formal Control Sequencing + Safety Kernel
+v137.16.x — Codebase Memory + Decision Compiler
 
 This is now the primary active arc.
-
-Purpose:
-
-deterministic control sequencing
-explicit state transitions
-proof-carrying control
-safety-first agent gating
-replay-safe execution plans
-v137.15.0 → v137.15.5
-Control Foundations
-
-Focus:
-
-deterministic sequence engine
-control AST normalization
-state transition validation
-collision prevention
-execution safety envelopes
-bounded fallback paths
-v137.15.6
-Proof-Carrying Control Sequence Engine
-
-HARD GATE RELEASE
-
-This release gates all downstream agentic and autonomy arcs.
-
-Mandatory acceptance criteria
-
-Must pass ALL:
-
-proof format stable
-SMT-LIB export stable
-Z3 / CVC5 verification pass
-control collision proofs pass
-replay identity tests pass
-latency budget within target
-proof artifact hash stable
-canonical bytes stable
-
-Until this release is complete:
-
-v137.16.x
-v137.17.x
-v137.18.x
-
-must not begin implementation
-
-PARALLEL MID-TERM TRACKS
-
-These tracks may begin only after v137.15.6 is complete
-
-v137.16.x
-Codebase Memory + Decision Compiler
 
 Purpose:
 
@@ -113,8 +62,24 @@ deterministic memory graph
 decision DAG compiler
 codebase topology indexing
 replay-safe reasoning graph
-v137.17.x
-Autonomous Research Orchestration
+Active ladder
+v137.16.0 — Deterministic Memory Graph Kernel ✅
+v137.16.1 — Decision DAG Compiler
+v137.16.2 — Codebase Topology Indexer
+v137.16.3 — Replay-Safe Reasoning Graph
+
+Focus:
+
+stable node lineage
+deterministic dependency DAGs
+release topology mapping
+compiler-safe decision graphs
+replay-safe traversal proofs
+PARALLEL MID-TERM TRACKS
+
+These tracks are unlocked because v137.15.6 is complete.
+
+v137.17.x — Autonomous Research Orchestration
 
 Purpose:
 
@@ -123,10 +88,9 @@ deterministic experiment scheduling
 benchmark-first automation
 research trace lineage
 
-Output contracts must be explicitly compatible with v137.18.x.
+Output contracts must remain compatible with v137.18.x.
 
-v137.18.x
-Agentic Governance + Safety Layer
+v137.18.x — Agentic Governance + Safety Layer
 
 Purpose:
 
@@ -134,18 +98,16 @@ proof-carrying agent actions
 governance audit trails
 hard execution constraints
 bounded autonomy
-required bridge
-
-v137.18.0.5 — deterministic agent simulation sandbox
+Required bridge
+v137.18.0.5 — Deterministic Agent Simulation Sandbox
 
 This must land before governance enforcement.
 
 QUANTUM + COMPUTE TRACKS
 
-These tracks are allowed in parallel after v137.15.6.
+These tracks are allowed in parallel.
 
-v137.19.x
-Quantum Noise + Co-Processor Determinism
+v137.19.x — Quantum Noise + Co-Processor Determinism
 v137.19.0
 
 Quantum Vacuum Noise Characterization Kernel
@@ -164,8 +126,25 @@ Purpose:
 GPU / TPU determinism
 replay-safe co-processor orchestration
 bounded inference variance
-v137.20.x
-Hardware + Streaming Compute
+v137.19.2
+
+Phononic Determinism Characterization Kernel
+
+Purpose:
+
+lattice vibration mode modeling
+deterministic phonon dispersion envelopes
+bounded propagation variance
+replay-safe substrate mode signatures
+acoustic / optical mode differentiation
+
+Focus:
+
+optical vs acoustic phonon paths
+dispersion curve canonicalization
+substrate determinism batteries
+bounded mode variance
+v137.20.x — Hardware + Streaming Compute
 
 These are explicitly parallelized.
 
@@ -190,9 +169,7 @@ deterministic cache index mapping
 orthogonality certificates
 memory footprint reduction
 
-This release may proceed in parallel with v137.20.0.
-
-It is NOT hard-gated by substrate characterization.
+This may proceed in parallel with v137.20.0.
 
 v137.20.2
 
@@ -200,16 +177,33 @@ Streaming Scheduler + Memory Pressure Adaptor
 
 Dependencies:
 
-v137.20.0 complete
-v137.20.1 complete
+v137.20.0
+v137.20.1
 
 Purpose:
 
 deterministic compression scaling
 bounded latency degradation
 scheduler adaptation proofs
+v137.20.3
+
+Photonic / Phononic Hybrid Scheduler Kernel
+
+Dependencies:
+
+v137.19.2
+v137.20.0
+v137.20.1
+
+Purpose:
+
+photonic processor scheduling profiles
+phononic latency channel models
+deterministic optical compute routing
+substrate-aware scheduler proofs
 FORMAL METHODS CONSOLIDATION
 v137.21-fm.0
+
 Proof Obligation Consolidation
 
 Purpose:
@@ -226,6 +220,7 @@ agent proofs
 compute proofs
 hardware proofs
 v137.21.x
+
 Kernelisation + Formal Methods
 
 Purpose:
@@ -234,36 +229,42 @@ proof-aware kernel exports
 canonical verification interface
 deterministic formal runtime substrate
 LONG HORIZON
-v138.x
-Deterministic Runtime + Throughput Architecture
+v138.x — Deterministic Runtime + Throughput Architecture
 
 These arcs are partially parallel.
 
 v138.0.x
+
 Secure Deterministic Runtime
+
 deterministic client
 sandbox runtime
 strict preemption
 bounded external execution
 v138.1.x
+
 Resource-Bounded Optimization
+
 resource accounting
 deterministic scheduling economics
 bounded exploration
 constrained optimization
 v138.2.x
+
 Cross-Substrate Certification
+
 portability proofs
 replay validation
 substrate certification
 v138.3.x
+
 Human-Auditable Autonomy
+
 proof summaries
 decision explanation
 verification checkpoints
 DEFERRED
-v139+
-Distributed Deterministic Consensus + Lattice Expansion
+v139+ — Distributed Deterministic Consensus + Lattice Expansion
 
 Deferred until:
 
@@ -305,6 +306,3 @@ replay-auditable
 No mixed-purpose releases.
 
 No speculative arc expansion without dependency justification.
-
-
----

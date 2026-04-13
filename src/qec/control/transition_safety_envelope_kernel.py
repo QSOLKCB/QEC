@@ -382,7 +382,7 @@ def normalize_transition_safety_envelope(
         )
 
     if payload.context_id != normalized_context.context_id:
-        raise ValueError("mixed automaton lineage")
+        raise ValueError("context ID mismatch")
     if payload.terminal_action not in _ALLOWED_TERMINAL_ACTIONS:
         raise ValueError("fallback validity failed")
     if payload.fallback_mode not in _ALLOWED_FALLBACK_MODES:

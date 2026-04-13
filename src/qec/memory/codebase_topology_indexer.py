@@ -16,10 +16,7 @@ import re
 from typing import Any, Dict, List, Mapping, Sequence, Set, Tuple, Union
 
 from qec.memory.decision_dag_compiler import CompiledDecisionDAG, DecisionDAGNode
-from qec.memory.deterministic_memory_graph_kernel import (
-    DeterministicMemoryGraph,
-    MemoryGraphNode,
-)
+from qec.memory.deterministic_memory_graph_kernel import DeterministicMemoryGraph
 
 
 _ALLOWED_NODE_KINDS: Tuple[str, ...] = (

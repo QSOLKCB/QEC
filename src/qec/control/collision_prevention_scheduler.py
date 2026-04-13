@@ -562,22 +562,16 @@ def evaluate_collision_prevention_schedule(schedule: CollisionPreventionSchedule
 
                 if rule.priority_resolution_mode == "defer_lower_priority":
                     decisions[loser.window_id] = max(decisions[loser.window_id], 1)
-                    if loser.window_id not in resolved:
-                        resolved.append(loser.window_id)
                 elif rule.priority_resolution_mode == "block_lower_priority":
                     decisions[loser.window_id] = 2
-                    if loser.window_id not in blocked:
-                        blocked.append(loser.window_id)
                 elif rule.priority_resolution_mode == "halt_on_conflict":
                     decisions[loser.window_id] = 2
                     decisions[winner.window_id] = max(decisions[winner.window_id], 2)
-                    if loser.window_id not in blocked:
-                        blocked.append(loser.window_id)
-                    if winner.window_id not in blocked:
-                        blocked.append(winner.window_id)
 
                 break
 
+    resolved = [window_id for window_id, decision in decisions.items() if decision == 1]
+    blocked = [window_id for window_id, decision in decisions.items() if decision == 2]
     if blocked and any(
         rule.priority_resolution_mode == "halt_on_conflict" and rule.rule_id in triggered_rules for rule in schedule.rules
     ):

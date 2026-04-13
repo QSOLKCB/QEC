@@ -19,6 +19,17 @@
 
 ---
 
+# Current Stable State
+
+Current stable release: `v137.14.0`
+Current active arc: `v137.14.x — Information Geometry`
+
+- deterministic JSD divergence kernel
+- bounded information geometry metrics
+- replay-safe report receipts
+
+---
+
 # What QEC Is
 
 QEC is a **deterministic systems architecture** that began in quantum error correction and has evolved into a broader **replay-safe computational substrate**.

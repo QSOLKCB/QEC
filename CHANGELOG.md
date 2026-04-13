@@ -6,6 +6,14 @@ This project follows **Semantic Versioning (SemVer)**.
 
 ---
 
+## Documentation sync after `v137.14.0`
+
+- README refreshed
+- CHANGELOG normalized
+- release lineage clarified
+
+---
+
 # Current Canonical Development State
 
 QEC has evolved from an experimental QLDPC diagnostics toolkit into a:

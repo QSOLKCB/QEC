@@ -470,9 +470,9 @@ def validate_deterministic_rollback_plan(plan: PlanLike) -> RollbackPlanValidati
     if not target_validity:
         errors.append("target_validity_failed")
 
-    chain_continuity = bool(steps)
-    if not chain_continuity:
-        errors.append("chain_continuity_failed")
+    rollback_steps_present = bool(steps)
+    if not rollback_steps_present:
+        errors.append("rollback_steps_present_failed")
 
     epoch_direction_correctness = True
     for i in range(1, len(steps)):

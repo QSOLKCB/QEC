@@ -9,14 +9,13 @@ Determinism law:
 
 from __future__ import annotations
 
+import collections
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 import re
-from typing import Any, Dict, List, Mapping, Sequence, Set, Tuple, Union
-
-from qec.memory.decision_dag_compiler import CompiledDecisionDAG, DecisionDAGNode
-from qec.memory.deterministic_memory_graph_kernel import DeterministicMemoryGraph
+from typing import Any, Dict, List, Mapping, Set, Tuple, Union
 
 
 _ALLOWED_NODE_KINDS: Tuple[str, ...] = (
@@ -247,12 +246,21 @@ def _normalize_node(raw: NodeLike) -> TopologyIndexNode:
     if isinstance(raw, TopologyIndexNode):
         node = raw
     else:
+        if not isinstance(raw, Mapping):
+            raise TopologyIndexError("invalid_node", "node must be a mapping or TopologyIndexNode")
+        raw_epoch = raw.get("index_epoch", 0)
+        if isinstance(raw_epoch, bool):
+            raise TopologyIndexError("invalid_index_epoch", "index_epoch must be an integer, not bool")
+        try:
+            epoch = int(raw_epoch)
+        except (TypeError, ValueError):
+            raise TopologyIndexError("invalid_index_epoch", "index_epoch must be a valid integer")
         node = TopologyIndexNode(
             node_id=str(raw.get("node_id", "")).strip(),
             node_kind=str(raw.get("node_kind", "")).strip(),
             module_path=str(raw.get("module_path", "")).strip(),
             lineage_hash=str(raw.get("lineage_hash", "")).strip(),
-            index_epoch=int(raw.get("index_epoch", 0)),
+            index_epoch=epoch,
         )
     if not node.node_id:
         raise TopologyIndexError("invalid_node_id", "invalid topology node id")
@@ -271,13 +279,31 @@ def _normalize_edge(raw: EdgeLike) -> TopologyIndexEdge:
     if isinstance(raw, TopologyIndexEdge):
         edge = raw
     else:
+        if not isinstance(raw, Mapping):
+            raise TopologyIndexError("invalid_edge", "edge must be a mapping or TopologyIndexEdge")
+        raw_weight = raw.get("edge_weight", 0.0)
+        if isinstance(raw_weight, bool):
+            raise TopologyIndexError("invalid_edge_weight", "edge_weight must be numeric, not bool")
+        try:
+            weight = float(raw_weight)
+        except (TypeError, ValueError):
+            raise TopologyIndexError("invalid_edge_weight", "edge_weight must be a valid float")
+        if not math.isfinite(weight):
+            raise TopologyIndexError("invalid_edge_weight", "edge_weight must be a finite float")
+        raw_epoch = raw.get("index_epoch", 0)
+        if isinstance(raw_epoch, bool):
+            raise TopologyIndexError("invalid_index_epoch", "index_epoch must be an integer, not bool")
+        try:
+            epoch = int(raw_epoch)
+        except (TypeError, ValueError):
+            raise TopologyIndexError("invalid_index_epoch", "index_epoch must be a valid integer")
         edge = TopologyIndexEdge(
             edge_id=str(raw.get("edge_id", "")).strip(),
             source_node_id=str(raw.get("source_node_id", "")).strip(),
             target_node_id=str(raw.get("target_node_id", "")).strip(),
             relationship_kind=str(raw.get("relationship_kind", "")).strip(),
-            edge_weight=float(raw.get("edge_weight", 0.0)),
-            index_epoch=int(raw.get("index_epoch", 0)),
+            edge_weight=weight,
+            index_epoch=epoch,
         )
     if not edge.edge_id:
         raise TopologyIndexError("invalid_edge_id", "invalid topology edge id")
@@ -355,10 +381,11 @@ def normalize_codebase_topology_input(*args: Any, **kwargs: Any) -> Tuple[str, T
         if edge.source_node_id not in node_ids or edge.target_node_id not in node_ids:
             raise TopologyIndexError("invalid_edge_reference", "edge references unknown node")
 
+    node_kind_map: Dict[str, str] = {n.node_id: n.node_kind for n in nodes}
     for edge in edges:
         if edge.relationship_kind == "belongs_to":
-            source_kind = next(n.node_kind for n in nodes if n.node_id == edge.source_node_id)
-            target_kind = next(n.node_kind for n in nodes if n.node_id == edge.target_node_id)
+            source_kind = node_kind_map[edge.source_node_id]
+            target_kind = node_kind_map[edge.target_node_id]
             if target_kind != "package" or source_kind == "release":
                 raise TopologyIndexError("invalid_hierarchy_reference", "invalid hierarchy relationship")
 
@@ -393,11 +420,23 @@ def validate_codebase_topology_index(value: Union[CodebaseTopologyIndex, Mapping
         edges = ()
 
     uniqueness_ok = "duplicate_node" not in violations and "duplicate_edge" not in violations
-    node_validity_ok = not any(v.startswith("invalid_node") for v in violations)
-    edge_validity_ok = not any(v in {"invalid_edge_reference", "invalid_edge_id", "invalid_relationship_kind"} for v in violations)
+    node_validity_ok = not any(
+        v in {
+            "invalid_node_id", "invalid_node_kind", "invalid_node", "invalid_nodes",
+            "invalid_module_path", "invalid_index_epoch",
+        }
+        for v in violations
+    )
+    edge_validity_ok = not any(
+        v in {
+            "invalid_edge_id", "invalid_edge_reference", "invalid_edge", "invalid_edges",
+            "invalid_relationship_kind", "invalid_edge_weight",
+        }
+        for v in violations
+    )
     lineage_validity_ok = "invalid_lineage_hash" not in violations
     hierarchy_validity_ok = "invalid_hierarchy_reference" not in violations
-    weight_validity_ok = "negative_edge_weight" not in violations
+    weight_validity_ok = "negative_edge_weight" not in violations and "invalid_edge_weight" not in violations
     is_valid = not violations
 
     return TopologyIndexValidationReport(
@@ -437,23 +476,27 @@ def traverse_codebase_topology_index(
     visited_nodes: List[str] = []
     visited_edges: List[str] = []
     seen_nodes: Set[str] = set()
+    visited_edge_ids: Set[str] = set()
 
     for root in sorted(index_obj.nodes, key=_node_sort_key):
         if root.node_id in seen_nodes:
             continue
-        stack: List[str] = [root.node_id]
-        while stack:
-            current = stack.pop(0)
+        queue: collections.deque[str] = collections.deque([root.node_id])
+        queued: Set[str] = {root.node_id}
+        while queue:
+            current = queue.popleft()
             if current in seen_nodes:
                 continue
             seen_nodes.add(current)
             visited_nodes.append(current)
             outgoing = adjacency.get(current, [])
             for target_id, edge_id in outgoing:
-                if edge_id not in visited_edges:
+                if edge_id not in visited_edge_ids:
                     visited_edges.append(edge_id)
-                if target_id not in seen_nodes and target_id not in stack:
-                    stack.append(target_id)
+                    visited_edge_ids.add(edge_id)
+                if target_id not in seen_nodes and target_id not in queued:
+                    queue.append(target_id)
+                    queued.add(target_id)
 
     receipt_seed = {
         "index_id": index_obj.index_id,

@@ -105,6 +105,23 @@ def test_canonical_export_stability():
     assert first == second
 
 
+def test_deterministic_coverage_traversal():
+    index_obj = build_codebase_topology_index(_sample_topology_payload())
+    a = traverse_codebase_topology_index(index_obj, "coverage")
+    b = traverse_codebase_topology_index(index_obj, "coverage")
+    assert a.visited_nodes == b.visited_nodes
+    assert a.visited_edges == b.visited_edges
+    assert a.traversal_hash == b.traversal_hash
+    assert "test.alpha" in a.visited_nodes
+    assert "e5" in a.visited_edges
+
+
+def test_invalid_traversal_mode_rejection():
+    index_obj = build_codebase_topology_index(_sample_topology_payload())
+    with pytest.raises(ValueError, match="unsupported traversal mode"):
+        traverse_codebase_topology_index(index_obj, "nonexistent_mode")
+
+
 def test_validation_report_valid():
     index_obj = build_codebase_topology_index(_sample_topology_payload())
     report = validate_codebase_topology_index(index_obj)

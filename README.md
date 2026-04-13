@@ -19,24 +19,36 @@
 
 ---
 
+# Current Stable State
+
+Current stable release: `v137.14.0`
+Current active arc: `v137.14.x — Information Geometry`
+
+- deterministic JSD divergence kernel
+- bounded information geometry metrics
+- replay-safe report receipts
+
+---
+
 # What QEC Is
 
-QEC is a **deterministic systems architecture** rooted in quantum error correction and extended into a replay-safe heterogeneous compute substrate.
+QEC is a **deterministic systems architecture** that began in quantum error correction and has evolved into a broader **replay-safe computational substrate**.
 
-The system now spans:
+It now spans:
 
 - quantum error correction
 - deterministic orchestration
 - scientific reasoning + certification
 - topology-aware diagnostics
-- fixed-function compute lanes
-- integer / matrix offload
-- epoch scheduling
-- parallel workload partitioning
+- heterogeneous compute lanes
 - hardware replay verification
+- synthetic signal abstraction
+- morphology + topology correspondence
+- information geometry kernels
 - Rust operator tooling
+- proof-ready replay lineage
 
-The governing law is:
+The governing law remains:
 
 ```text
 continuous state
@@ -44,19 +56,27 @@ continuous state
 → observability
 → topology
 → governed action
-→ heterogeneous compute lanes
+→ compute lanes
 → replay verification
 → stable replay identity
+→ information geometry
 
 If the same input does not produce the same bytes, it is not a valid result.
 
 Current Canonical State
 
-Current stable release: v137.11.4
+Current stable release: v137.14.0
 
-The v137.11.x line establishes a deterministic heterogeneous compute substrate.
+The current canonical branch is:
 
-Completed core arc:
+v137.x.x
+
+QEC now includes three major completed arcs beyond the original compute substrate.
+
+Completed Canonical Arcs
+v137.11.x — Heterogeneous Compute Substrate
+
+Completed:
 
 v137.11.0 — Deterministic Co-Processor Kernel
 v137.11.1 — Integer / Matrix Offload Engine
@@ -64,122 +84,89 @@ v137.11.2 — Heterogeneous Scheduler
 v137.11.3 — Emulator-Grade Parallel Workload Splitter
 v137.11.4 — Hardware Replay Battery
 
-This line is inspired by:
+This line established:
 
-retro fixed-function co-processors
-integer-first acceleration
-deterministic scheduling epochs
-replay-safe workload partitioning
-hardware divergence detection
+fixed-function compute lanes
+deterministic epoch scheduling
+workload sharding
+hardware replay validation
+v137.12.x — Neuromorphic + Hybrid Compute Research
+
+Completed:
+
+v137.12.0 — Neuromorphic Substrate Simulator
+v137.12.1 — Hybrid Signal Interface Layer
+v137.12.2 — Bio-Signal Benchmark Battery
+v137.12.3 — Hybrid Replay Certification
+v137.12.4 — Experimental Research Pack
+
+This line is simulation-first only.
+
+No biological claims are made without evidence receipts.
+
+v137.13.x — Signal Abstraction Certification Arc
+
+Completed:
+
+v137.13.0 — Synthetic Signal Geometry Kernel
+v137.13.1 — Morphology Transition Kernel
+v137.13.2 — Phase Boundary Topology Kernel
+v137.13.3 — Region Correspondence Kernel
+v137.13.4 — Signal Abstraction Certification Battery
+
+This arc formalizes:
+
+geometry
+→ morphology
+→ topology
+→ correspondence
+→ certification
+
+All outputs are deterministic, replay-safe, and bounded.
+
+v137.14.x — Information Geometry Arc
+
+Current:
+
+v137.14.0 — Jensen–Shannon Signal Divergence Kernel
+
+This introduces explicit information-theoretic divergence into the analysis stack.
+
+Implemented:
+
+deterministic distribution builder
+Jensen–Shannon divergence
+entropy alignment metrics
+canonical divergence reports
+receipt-chain continuity
+
+This upgrades comparison from heuristic similarity into explicit bounded information geometry.
+
 Core Architecture
 decoder substrate
 → symbolic quantization
 → observability
 → topology graph kernel
-→ deterministic co-processor lanes
-→ integer / matrix offload
-→ epoch scheduler
-→ workload splitter
-→ hardware replay battery
+→ compute lanes
+→ replay battery
+→ morphology abstraction
+→ correspondence mapping
+→ certification battery
+→ divergence geometry
 → replay-safe artifacts
 → operator console
-
-Active canonical branch:
-
-v137.x.x
-
-Core Capabilities
-Quantum + Structural Diagnostics
-BP trajectory analysis
-attractor / basin detection
-metastability metrics
-topology-aware diagnostics
-graph continuity scoring
-deterministic observability artifacts
-Scientific Reasoning + Certification
-
-Completed v137.10.x reasoning stack:
-
-hypothesis lattice
-experiment DSL
-evidence lineage
-claim audit kernel
-proof obligation extractor
-numerological rejection battery
-scientific certification kernel
-
-All outputs are replay-safe and hash-stable.
-
-Heterogeneous Compute (v137.11.x)
-Deterministic Co-Processor Kernel
-
-Fixed-function compute contract:
-
-cpu → descriptor → co-processor → receipt
-Integer / Matrix Offload Engine
-
-Integer-first acceleration lane:
-
-deterministic matrix transforms
-fixed-point multiply-accumulate
-saturating arithmetic
-explicit scaling metadata
-stable cycle counts
-
-Hard rule:
-
-no floating point unless mathematically unavoidable
-Heterogeneous Scheduler
-
-Epoch-based deterministic scheduling:
-
-stable dependency ordering
-merge barriers
-lexicographic tie-break
-replay-safe dispatch receipts
-
-Hard rule:
-
-same epoch = same execution order
-Parallel Workload Splitter
-
-Tile / chunk partitioning:
-
-fixed tiles
-row chunks
-column chunks
-scanline split
-deterministic merge receipts
-
-Hard rule:
-
-same input = same shards = same merge bytes
-Hardware Replay Battery
-
-Replay verification across all compute lanes.
-
-Validates:
-
-input hash
-output hash
-epoch identity
-shard identity
-byte equality
-
-Hard law:
-
-replay failure = architecture failure
 Determinism Guarantees
 
 QEC enforces strict reproducibility:
 
 no hidden randomness
-stable ordering
+deterministic ordering
 deterministic tie-breaking
 canonical serialization
 stable SHA-256 hashes
-replay-safe export
 explicit seeded RNG only
+12dp quantization where required
+receipt-chain continuity
 
 Example:
 
@@ -188,52 +175,6 @@ rng = np.random.RandomState(seed)
 
 Determinism is architecture.
 
-Installation
-Python / Core Runtime
-git clone https://github.com/QSOLKCB/QEC.git
-cd QEC
-pip install -e .
-
-Development tools:
-
-pip install -r requirements-dev.txt
-pytest -q
-Rust TUI Operator Console
-
-QEC includes a Rust TUI operator workstation for fast keyboard-first workflows.
-
-Supports:
-
-live diagnostics
-topology visualization
-replay inspection
-invariant health
-session export
-compute-lane inspection
-scheduler receipts
-hardware replay inspection
-Install Latest Release
-curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
-
-Run:
-
-qec-tui
-Build From Source
-Linux / macOS
-cd tui
-cargo build --release
-cargo run --release
-./target/release/qec-tui
-Windows PowerShell
-cd .\tui
-cargo build --release
-cargo run --release
-.\target\release\qec-tui.exe
-TUI Layout
-Left   → navigation / mode selection
-Center → diagnostics / graph / scheduler / replay
-Right  → invariant health / topology / compute lanes
-Bottom → hotkeys / command legend
 Engineering Laws
 Determinism is architecture
 
@@ -263,6 +204,36 @@ Canonical identity is mandatory
 
 Canonical JSON + stable SHA-256 required.
 
+Installation
+Python / Core Runtime
+git clone https://github.com/QSOLKCB/QEC.git
+cd QEC
+pip install -e .
+
+Development:
+
+pip install -r requirements-dev.txt
+pytest -q
+Rust TUI Operator Console
+
+QEC includes a Rust TUI operator workstation for fast keyboard-first workflows.
+
+Supports:
+
+live diagnostics
+topology visualization
+replay inspection
+invariant health
+compute-lane inspection
+scheduler receipts
+hardware replay inspection
+divergence summary inspection
+Install Latest Release
+curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
+
+Run:
+
+qec-tui
 Design Philosophy
 
 Small is beautiful.

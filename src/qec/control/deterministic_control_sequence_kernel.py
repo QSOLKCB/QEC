@@ -29,7 +29,13 @@ _MAX_PRIORITY = 100
 
 
 def _canonical_json(data: Mapping[str, Any]) -> str:
-    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return json.dumps(
+        data,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    )
 
 
 

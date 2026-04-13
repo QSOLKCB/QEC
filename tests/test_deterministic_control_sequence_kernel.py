@@ -1,3 +1,5 @@
+import pytest
+
 from qec.control.deterministic_control_sequence_kernel import (
     ControlSequenceStep,
     execute_deterministic_control_sequence,
@@ -58,31 +60,22 @@ def test_repeated_run_hash_identity():
 def test_duplicate_step_rejection():
     steps = _base_steps()
     steps[2]["step_id"] = "s2"
-    try:
+    with pytest.raises(ValueError, match="duplicate step_id"):
         normalize_control_sequence("seq-a", steps)
-        assert False, "expected duplicate step_id rejection"
-    except ValueError as exc:
-        assert "duplicate step_id" in str(exc)
 
 
 def test_invalid_rollback_rejection():
     steps = _base_steps()
     steps[2]["rollback_action"] = "rollback:missing"
-    try:
+    with pytest.raises(ValueError, match="invalid rollback reference"):
         normalize_control_sequence("seq-a", steps)
-        assert False, "expected invalid rollback rejection"
-    except ValueError as exc:
-        assert "invalid rollback reference" in str(exc)
 
 
 def test_non_monotonic_epoch_rejection():
     steps = _base_steps()
     steps[2]["sequence_epoch"] = 0
-    try:
+    with pytest.raises(ValueError, match="malformed step ordering"):
         normalize_control_sequence("seq-a", steps)
-        assert False, "expected non-monotonic epoch rejection"
-    except ValueError as exc:
-        assert "malformed step ordering" in str(exc)
 
 
 def test_stable_step_ordering():

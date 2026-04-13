@@ -22,20 +22,15 @@
 
 # Current Stable State
 
-**Current stable release:** `v137.14.4`  
-**Current active arc:** `v137.14.x — Information Geometry + Consensus`
+**Current stable release:** `v137.15.3`  
+**Current active arc:** `v137.15.x — Formal Control Sequencing + Safety Kernel`
 
 Completed in the current arc:
 
-- `v137.14.0` — Jensen–Shannon Signal Divergence Kernel
-- `v137.14.1` — Fisher–Rao Geometry Approximation Layer
-- `v137.14.2` — Bregman / f-Divergence Correspondence Engine
-- `v137.14.3` — Optimal Transport Geometry Kernel
-- `v137.14.4` — Information Geometry Consensus Kernel
-
-Current next target:
-
-- `v137.14.5` — Geometry Drift Forecast Kernel
+- `v137.15.0` — Deterministic Control Sequence Kernel
+- `v137.15.1` — Explicit State Transition Automata Kernel
+- `v137.15.2` — Deterministic Rollback Planner
+- `v137.15.3` — Transition Safety Envelope Kernel
 
 ---
 
@@ -81,7 +76,7 @@ continuous state
 
 # Current Canonical State
 
-**Current stable release:** `v137.14.4`
+**Current stable release:** `v137.15.3`
 
 The canonical development line is:
 
@@ -164,6 +159,7 @@ Completed:
 - `v137.14.2` — divergence correspondence
 - `v137.14.3` — transport geometry
 - `v137.14.4` — consensus manifold
+- `v137.14.5` — information-geometric certification pack
 
 This upgrades comparison from heuristic similarity into explicit bounded information geometry.
 
@@ -176,6 +172,26 @@ signal abstraction
 → transport geometry
 → consensus manifold
 → drift forecasting
+```
+
+---
+
+## v137.15.x — Formal Control Sequencing + Safety Kernel
+
+Completed:
+
+- `v137.15.0` — Deterministic Control Sequence Kernel
+- `v137.15.1` — Explicit State Transition Automata Kernel
+- `v137.15.2` — Deterministic Rollback Planner
+- `v137.15.3` — Transition Safety Envelope Kernel
+
+This arc formalizes:
+
+```text
+control sequencing
+→ explicit state transitions
+→ rollback planning
+→ safety envelopes
 ```
 
 ---

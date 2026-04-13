@@ -6,7 +6,7 @@ This project follows **Semantic Versioning (SemVer)**.
 
 ---
 
-## Documentation sync after `v137.14.0`
+## Documentation sync after `v137.15.3`
 
 - README refreshed
 - CHANGELOG normalized
@@ -57,6 +57,96 @@ Hard law:
 
 same input = same bytes
 Latest Stable Release
+[137.15.3] — Transition Safety Envelope Kernel
+Added
+deterministic transition safety envelope kernel
+bounded safety constraint evaluation
+per-constraint depth enforcement
+rollback-requirement consistency checks
+canonical envelope receipts
+Hardening
+input validation in evaluate paths
+force-fail semantics for constraint violations
+deterministic envelope hashing
+replay-safe envelope artifacts
+
+This release closes the v137.15.x control foundations quartet prior to v137.15.4.
+
+v137.15.x — Formal Control Sequencing + Safety Kernel
+[137.15.2] — Deterministic Rollback Planner
+Added
+deterministic rollback plan construction
+bounded rollback step ordering
+canonical rollback receipts
+replay-safe rollback lineage
+Hardening
+deep-frozen plan structures
+tuple-only step collections
+stable plan hash verification
+[137.15.1] — Explicit State Transition Automata Kernel
+Added
+explicit state automaton construction
+deterministic transition evaluation
+BFS reachability verification via deque
+final-state hash certification
+uniqueness checks on states and transitions
+Hardening
+deep freeze of automaton structures
+force-fail semantics on illegal transitions
+canonical automaton hash verification
+[137.15.0] — Deterministic Control Sequence Kernel
+Added
+deterministic control sequence engine
+control AST normalization
+canonical sequence receipts
+replay-safe execution traces
+Hardening
+hardened canonicalization
+frozen mapping structures
+shared invariant helper
+pytest.raises-based regression coverage
+
+This release opens the v137.15.x formal control sequencing + safety kernel arc.
+
+v137.14.x — Information Geometry Arc
+[137.14.5] — Information-Geometric Certification Pack
+Added
+information-geometric certification bundle
+cross-kernel divergence receipts
+canonical certification artifact export
+replay-safe certification lineage
+Hardening
+hash payload consistency across kernels
+canonical input export verification
+type-hint tightening
+[137.14.4] — Information Geometry Consensus Kernel
+Added
+deterministic consensus manifold kernel
+bounded consensus alignment metrics
+canonical consensus receipts
+replay-safe manifold artifacts
+[137.14.3] — Optimal Transport Geometry Kernel
+Added
+deterministic optimal transport geometry layer
+bounded transport cost metrics
+canonical transport receipts
+replay-safe transport artifacts
+[137.14.2] — Bregman / f-Divergence Correspondence Engine
+Added
+deterministic Bregman correspondence engine
+f-divergence correspondence scoring
+bounded correspondence metrics
+canonical correspondence receipts
+Hardening
+review feedback addressed on correspondence engine
+[137.14.1] — Fisher–Rao Geometry Approximation Layer
+Added
+deterministic Fisher–Rao geometry approximation
+bounded geodesic metrics
+canonical geometry receipts
+replay-safe geometry artifacts
+Hardening
+review feedback addressed on Fisher–Rao layer
 [137.14.0] — Jensen–Shannon Signal Divergence Kernel
 Added
 deterministic signal distribution builder
@@ -75,7 +165,7 @@ canonical distribution hash verification
 forged-hash rejection regression test
 deterministic repeated-run validation
 
-This release opens the v137.14.x information geometry arc.
+This release opened the v137.14.x information geometry arc.
 
 v137.13.x — Signal Abstraction Certification Arc
 [137.13.4] — Signal Abstraction Certification Battery

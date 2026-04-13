@@ -33,7 +33,7 @@ bounded failure modes
 CANONICAL TIP
 Stable Tip
 
-v137.14.5 — Information-Geometric Certification Pack
+v137.15.3 — Transition Safety Envelope Kernel
 
 This is the current canonical release anchor.
 
@@ -45,6 +45,10 @@ v137.14.2 — Bregman / f-Divergence Correspondence Engine
 v137.14.3 — Optimal Transport Geometry Kernel
 v137.14.4 — Information Geometry Consensus Kernel
 v137.14.5 — Information-Geometric Certification Pack
+v137.15.0 — Deterministic Control Sequence Kernel
+v137.15.1 — Explicit State Transition Automata Kernel
+v137.15.2 — Deterministic Rollback Planner
+v137.15.3 — Transition Safety Envelope Kernel
 ACTIVE ARC
 v137.15.x — Formal Control Sequencing + Safety Kernel
 

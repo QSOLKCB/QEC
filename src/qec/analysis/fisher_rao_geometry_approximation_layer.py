@@ -72,17 +72,21 @@ def _sha256_hex(value: Any) -> str:
     return hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
 
 
-def _quantize(value: float, *, name: str) -> float:
+def _quantized_decimal(value: float, *, name: str) -> Decimal:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{name} must be a finite float")
-    if not math.isfinite(float(value)):
+    coerced = float(value)
+    if not math.isfinite(coerced):
         raise ValueError(f"{name} must be a finite float")
-    return float(Decimal(str(float(value))).quantize(_DECIMAL_PLACES, rounding=ROUND_HALF_EVEN))
+    return Decimal(str(coerced)).quantize(_DECIMAL_PLACES, rounding=ROUND_HALF_EVEN)
+
+
+def _quantize(value: float, *, name: str) -> float:
+    return float(_quantized_decimal(value, name=name))
 
 
 def _quantized_str(value: float, *, name: str) -> str:
-    q = Decimal(str(_quantize(value, name=name))).quantize(_DECIMAL_PLACES, rounding=ROUND_HALF_EVEN)
-    return str(q)
+    return str(_quantized_decimal(value, name=name))
 
 
 def _clamp01(value: float) -> float:
@@ -129,16 +133,14 @@ class FisherRaoConfig:
     """Configuration for the Fisher–Rao geometry layer.
 
     The layer is fully deterministic; configuration only carries
-    schema lineage and a defensive clamp toggle.
+    schema lineage. Distance is always clamped into ``[0, π]``.
     """
 
     schema_version: str = SCHEMA_VERSION
-    clamp_distance: bool = True
 
     def to_dict(self) -> dict[str, _JSONValue]:
         return {
             "schema_version": self.schema_version,
-            "clamp_distance": self.clamp_distance,
         }
 
     def to_canonical_json(self) -> str:
@@ -276,6 +278,25 @@ def _bhattacharyya_coefficient(p: tuple[float, ...], q: tuple[float, ...]) -> fl
     return bc
 
 
+def _fisher_rao_distance_and_bc(
+    source_distribution: SignalDistribution,
+    target_distribution: SignalDistribution,
+) -> tuple[float, float]:
+    """Compute Fisher–Rao distance and Bhattacharyya coefficient.
+
+    Validates both distributions, then returns the clamped geodesic
+    distance in ``[0, π]`` together with the Bhattacharyya coefficient
+    in ``[0, 1]``. This is the single source of truth used by all
+    public geometry computations.
+    """
+    _validate_distribution(source_distribution, name="source_distribution")
+    _validate_distribution(target_distribution, name="target_distribution")
+    _, p, q = _aligned_pq(source_distribution, target_distribution)
+    bc = _bhattacharyya_coefficient(p, q)
+    distance = _clamp_pi(2.0 * math.acos(bc))
+    return distance, bc
+
+
 def compute_fisher_rao_distance(
     source_distribution: SignalDistribution,
     target_distribution: SignalDistribution,
@@ -286,12 +307,8 @@ def compute_fisher_rao_distance(
 
         distance = 2 * arccos( sum_i sqrt(p_i * q_i) )
     """
-    _validate_distribution(source_distribution, name="source_distribution")
-    _validate_distribution(target_distribution, name="target_distribution")
-    _, p, q = _aligned_pq(source_distribution, target_distribution)
-    bc = _bhattacharyya_coefficient(p, q)
-    distance = 2.0 * math.acos(bc)
-    return _clamp_pi(distance)
+    distance, _ = _fisher_rao_distance_and_bc(source_distribution, target_distribution)
+    return distance
 
 
 def compute_geodesic_alignment(
@@ -303,10 +320,7 @@ def compute_geodesic_alignment(
     Returns ``0`` when the two distributions are identical and ``1``
     when they have disjoint supports.
     """
-    _validate_distribution(source_distribution, name="source_distribution")
-    _validate_distribution(target_distribution, name="target_distribution")
-    _, p, q = _aligned_pq(source_distribution, target_distribution)
-    bc = _bhattacharyya_coefficient(p, q)
+    _, bc = _fisher_rao_distance_and_bc(source_distribution, target_distribution)
     return _clamp01(1.0 - bc)
 
 
@@ -314,10 +328,7 @@ def _compute_geometry_result(
     source: SignalDistribution,
     target: SignalDistribution,
 ) -> FisherRaoResult:
-    _, p, q = _aligned_pq(source, target)
-
-    bc = _bhattacharyya_coefficient(p, q)
-    distance = _clamp_pi(2.0 * math.acos(bc))
+    distance, bc = _fisher_rao_distance_and_bc(source, target)
     normalized = _clamp01(distance / _PI)
 
     fisher_rao_distance_score = normalized
@@ -401,6 +412,19 @@ def run_fisher_rao_geometry_layer(
     )
 
     report_bytes = report.to_canonical_bytes()
+    # Independent verification: re-derive the report hash from the
+    # canonical payload and confirm distributions still validate. This
+    # is what the receipt's ``validation_passed`` attests to.
+    recomputed_report_hash = _sha256_hex(report_payload)
+    _validate_distribution(source_distribution, name="source_distribution")
+    _validate_distribution(target_distribution, name="target_distribution")
+    validation_passed = (
+        recomputed_report_hash == report.report_hash
+        and len(report_bytes) > 0
+    )
+    if not validation_passed:
+        raise ValueError("fisher-rao report failed self-verification")
+
     receipt_payload = {
         "report_hash": report.report_hash,
         "config_hash": cfg.config_hash,
@@ -408,7 +432,7 @@ def run_fisher_rao_geometry_layer(
         "target_distribution_hash": target_distribution.distribution_hash,
         "result_hash": result.result_hash,
         "byte_length": len(report_bytes),
-        "validation_passed": True,
+        "validation_passed": validation_passed,
     }
     receipt = FisherRaoReceipt(
         report_hash=report.report_hash,
@@ -417,7 +441,7 @@ def run_fisher_rao_geometry_layer(
         target_distribution_hash=target_distribution.distribution_hash,
         result_hash=result.result_hash,
         byte_length=len(report_bytes),
-        validation_passed=True,
+        validation_passed=validation_passed,
         receipt_hash=_sha256_hex(receipt_payload),
     )
     return report, receipt

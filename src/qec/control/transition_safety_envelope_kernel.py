@@ -487,10 +487,16 @@ def validate_transition_safety_envelope(
     if not constraint_ordering:
         errors.append("constraint_ordering_failed")
 
-    bounded_depth = all(
-        1 <= int(entry["transition_depth"]) <= max(c.max_transition_depth for c in normalized_envelope.constraints)
-        for entry in normalized_context.proposed_transition_path
-    )
+    if not normalized_envelope.constraints:
+        bounded_depth = False
+    else:
+        max_transition_depth = max(
+            c.max_transition_depth for c in normalized_envelope.constraints
+        )
+        bounded_depth = all(
+            1 <= int(entry["transition_depth"]) <= max_transition_depth
+            for entry in normalized_context.proposed_transition_path
+        )
     if not bounded_depth:
         errors.append("bounded_depth_failed")
 

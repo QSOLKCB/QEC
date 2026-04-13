@@ -527,7 +527,6 @@ def evaluate_collision_prevention_schedule(schedule: CollisionPreventionSchedule
     collision_count = 0
 
     decisions: Dict[str, int] = {w.window_id: 0 for w in schedule.windows}
-    window_by_id = {w.window_id: w for w in schedule.windows}
 
     for i, left in enumerate(schedule.windows):
         for right in schedule.windows[i + 1 :]:

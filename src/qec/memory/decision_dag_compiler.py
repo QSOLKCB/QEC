@@ -463,9 +463,11 @@ def validate_decision_dag(
 
     Unlike :func:`normalize_decision_dag_input`, this function does not raise
     on invariant violations — it returns a byte-stable report enumerating
-    every failure. Structural input errors (non-mapping, missing top-level
-    fields, invalid dag id) still raise fast since the report cannot be
-    constructed without a valid identifier and iterable nodes / edges.
+    every failure. Top-level input errors that prevent unpacking the DAG
+    shape (for example, non-mapping input, missing top-level fields, or an
+    invalid dag id) still raise fast. Once a dag id, nodes, and edges have
+    been unpacked, normalization and graph-structure problems are reported
+    in the returned invalid report rather than raised.
     """
     dag_id, raw_nodes, raw_edges = _unpack_dag_input(value)
 

@@ -579,8 +579,10 @@ def evaluate_collision_prevention_schedule(schedule: CollisionPreventionSchedule
         status = "blocked"
     elif resolved:
         status = "resolved"
-    else:
+    elif collision_count == 0:
         status = "clean"
+    else:
+        status = "blocked"
 
     decision_trace_base3 = "".join(str(decisions[w.window_id]) for w in schedule.windows)
 

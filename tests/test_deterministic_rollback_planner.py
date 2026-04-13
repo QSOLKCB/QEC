@@ -185,10 +185,22 @@ def test_deterministic_dry_run_rollback_execution():
 
 
 def test_canonical_export_stability():
-    plan = plan_deterministic_rollback(_sequence_context())
-    receipt = execute_deterministic_rollback_plan(plan, failure_injection_target="rb2")
-    report = validate_deterministic_rollback_plan(plan)
+    plan_a = plan_deterministic_rollback(_sequence_context())
+    plan_b = plan_deterministic_rollback(_sequence_context())
 
-    assert plan.to_canonical_json() == plan.to_canonical_json()
-    assert receipt.to_canonical_bytes() == receipt.as_hash_payload()
-    assert report.to_canonical_bytes() == report.as_hash_payload()
+    receipt_a = execute_deterministic_rollback_plan(
+        plan_a, failure_injection_target="rb2"
+    )
+    receipt_b = execute_deterministic_rollback_plan(
+        plan_b, failure_injection_target="rb2"
+    )
+
+    report_a = validate_deterministic_rollback_plan(plan_a)
+    report_b = validate_deterministic_rollback_plan(plan_b)
+
+    assert plan_a.to_canonical_json() == plan_b.to_canonical_json()
+    assert receipt_a.to_canonical_bytes() == receipt_b.to_canonical_bytes()
+    assert report_a.to_canonical_bytes() == report_b.to_canonical_bytes()
+
+    assert receipt_a.to_canonical_bytes() == receipt_a.as_hash_payload()
+    assert report_a.to_canonical_bytes() == report_a.as_hash_payload()

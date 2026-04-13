@@ -1,6 +1,10 @@
 import pytest
+import types
 
 from qec.control.explicit_state_transition_automata import (
+    ControlStateNode,
+    ControlStateTransition,
+    ExplicitStateTransitionAutomaton,
     execute_explicit_state_transition_automaton,
     normalize_explicit_state_transition_automaton,
 )
@@ -166,6 +170,52 @@ def test_deterministic_rollback_trace():
     receipt_b = execute_explicit_state_transition_automaton(normalized, ("prepare", "apply"))
     assert receipt_a.deterministic_rollback_trace == ("t2", "s0")
     assert receipt_a.deterministic_rollback_trace == receipt_b.deterministic_rollback_trace
+    # Failure records the from_state (s1), not the destination (s2), because force_fail
+    # is evaluated before the transition is committed.
+    assert len(receipt_a.failure_path) == 1
+    assert receipt_a.failure_path[0]["state_id"] == "s1"
+    # final_state_hash must be stable across repeated runs
+    assert receipt_a.final_state_hash == receipt_b.final_state_hash
+
+
+def test_duplicate_state_id_on_dataclass_input():
+    """Duplicate state_id in a dataclass automaton must be rejected by normalize."""
+    s0 = ControlStateNode(
+        state_id="s0",
+        state_label="idle",
+        invariants=types.MappingProxyType({"safe": True}),
+        allowed_operations=("prepare",),
+        terminal=False,
+        state_epoch=1,
+    )
+    # Intentional duplicate: same state_id as s0
+    s0_dup = ControlStateNode(
+        state_id="s0",
+        state_label="idle2",
+        invariants=types.MappingProxyType({"safe": True}),
+        allowed_operations=("prepare",),
+        terminal=True,
+        state_epoch=2,
+    )
+    t1 = ControlStateTransition(
+        transition_id="t1",
+        from_state="s0",
+        to_state="s0",
+        trigger_operation="prepare",
+        guard_conditions=types.MappingProxyType({"enabled": True}),
+        failure_mode="halt",
+        rollback_target="none",
+        transition_epoch=1,
+        priority=10,
+    )
+    bad_automaton = ExplicitStateTransitionAutomaton(
+        automaton_id="dup-test",
+        initial_state="s0",
+        states=(s0, s0_dup),
+        transitions=(t1,),
+    )
+    with pytest.raises(ValueError, match="duplicate state_id"):
+        normalize_explicit_state_transition_automaton(bad_automaton)
 
 
 def test_canonical_export_stability():

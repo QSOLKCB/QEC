@@ -6,6 +6,7 @@ replay-stable transition execution receipts.
 
 from __future__ import annotations
 
+import collections
 from dataclasses import dataclass
 import hashlib
 import json
@@ -76,6 +77,23 @@ def _canonicalize_value(value: Any) -> Any:
     if isinstance(value, (tuple, list)):
         return [_canonicalize_value(item) for item in value]
     raise ValueError(f"unsupported canonical payload type: {type(value)!r}")
+
+
+def _deep_freeze_value(value: Any) -> Any:
+    """Recursively convert mappings to MappingProxyType and sequences to tuples.
+
+    Supported scalar types (str, bool, int, float, None) are returned as-is.
+    Mappings are converted to MappingProxyType with all values deep-frozen.
+    Sequences (list/tuple) are converted to tuples with all items deep-frozen.
+    Any other type raises ValueError.
+    """
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    if isinstance(value, Mapping):
+        return types.MappingProxyType({k: _deep_freeze_value(v) for k, v in value.items()})
+    if isinstance(value, (tuple, list)):
+        return tuple(_deep_freeze_value(item) for item in value)
+    raise ValueError(f"unsupported type for deep freeze: {type(value)!r}")
 
 
 def _parse_rollback_target(rollback_target: str) -> str | None:
@@ -250,7 +268,7 @@ def _freeze_state_node(state: ControlStateNode) -> ControlStateNode:
     return ControlStateNode(
         state_id=state.state_id,
         state_label=state.state_label,
-        invariants=types.MappingProxyType(dict(state.invariants)),
+        invariants=_deep_freeze_value(state.invariants),
         allowed_operations=tuple(str(op) for op in state.allowed_operations),
         terminal=bool(state.terminal),
         state_epoch=state.state_epoch,
@@ -263,7 +281,7 @@ def _freeze_transition(transition: ControlStateTransition) -> ControlStateTransi
         from_state=transition.from_state,
         to_state=transition.to_state,
         trigger_operation=transition.trigger_operation,
-        guard_conditions=types.MappingProxyType(dict(transition.guard_conditions)),
+        guard_conditions=_deep_freeze_value(transition.guard_conditions),
         failure_mode=transition.failure_mode,
         rollback_target=transition.rollback_target,
         transition_epoch=transition.transition_epoch,
@@ -354,13 +372,13 @@ def _check_automaton_invariants(
             adjacency[state_id] = next_states
 
         visited: set[str] = set()
-        queue: List[str] = [automaton.initial_state]
+        queue: collections.deque[str] = collections.deque([automaton.initial_state])
         while queue:
-            current = queue.pop(0)
+            current = queue.popleft()
             if current in visited:
                 continue
             visited.add(current)
-            for nxt in adjacency.get(current, ()): 
+            for nxt in adjacency.get(current, ()):
                 if nxt not in visited:
                     queue.append(nxt)
         reachability = visited == state_id_set
@@ -409,7 +427,7 @@ def normalize_explicit_state_transition_automaton(
                 state = ControlStateNode(
                     state_id=str(raw_state["state_id"]),
                     state_label=str(raw_state["state_label"]),
-                    invariants=types.MappingProxyType(dict(raw_state["invariants"])),
+                    invariants=_deep_freeze_value(raw_state["invariants"]),
                     allowed_operations=tuple(str(op) for op in raw_state["allowed_operations"]),
                     terminal=bool(raw_state["terminal"]),
                     state_epoch=int(raw_state["state_epoch"]),
@@ -435,7 +453,7 @@ def normalize_explicit_state_transition_automaton(
                     from_state=str(raw_transition["from_state"]),
                     to_state=str(raw_transition["to_state"]),
                     trigger_operation=str(raw_transition["trigger_operation"]),
-                    guard_conditions=types.MappingProxyType(dict(raw_transition["guard_conditions"])),
+                    guard_conditions=_deep_freeze_value(raw_transition["guard_conditions"]),
                     failure_mode=str(raw_transition["failure_mode"]),
                     rollback_target=str(raw_transition["rollback_target"]),
                     transition_epoch=int(raw_transition["transition_epoch"]),
@@ -473,6 +491,14 @@ def normalize_explicit_state_transition_automaton(
     )
 
     checks = _check_automaton_invariants(normalized)
+    if not checks["state_uniqueness"]:
+        all_state_ids = [s.state_id for s in normalized.states]
+        duplicate_state_ids = sorted({sid for sid in all_state_ids if all_state_ids.count(sid) > 1})
+        raise ValueError(f"duplicate state_id detected in automaton: {duplicate_state_ids}")
+    if not checks["transition_uniqueness"]:
+        all_transition_ids = [t.transition_id for t in normalized.transitions]
+        duplicate_transition_ids = sorted({tid for tid in all_transition_ids if all_transition_ids.count(tid) > 1})
+        raise ValueError(f"duplicate transition_id detected in automaton: {duplicate_transition_ids}")
     if not checks["initial_state_validity"]:
         raise ValueError("invalid initial state")
     if "transition_endpoint_validity_failed" in checks["errors"]:
@@ -564,6 +590,22 @@ def execute_explicit_state_transition_automaton(
             break
 
         before_state = current_state
+
+        if bool(selected.guard_conditions.get("force_fail", False)):
+            rollback_ids: List[str] = [selected.transition_id]
+            rollback_target = _parse_rollback_target(selected.rollback_target)
+            if rollback_target is not None:
+                rollback_ids.append(rollback_target)
+            rollback_trace = tuple(rollback_ids)
+            failure_path = (
+                {
+                    "state_id": before_state,
+                    "trigger_operation": str(trigger),
+                    "failure_mode": selected.failure_mode,
+                },
+            )
+            break
+
         current_state = selected.to_state
         transition_trace.append(
             {
@@ -575,25 +617,14 @@ def execute_explicit_state_transition_automaton(
             }
         )
 
-        if bool(selected.guard_conditions.get("force_fail", False)):
-            rollback_ids: List[str] = [selected.transition_id]
-            rollback_target = _parse_rollback_target(selected.rollback_target)
-            visited_targets: set[str] = set()
-            while rollback_target is not None and rollback_target not in visited_targets:
-                visited_targets.add(rollback_target)
-                rollback_ids.append(rollback_target)
-                rollback_target = None
-            rollback_trace = tuple(rollback_ids)
-            failure_path = (
-                {
-                    "state_id": current_state,
-                    "trigger_operation": str(trigger),
-                    "failure_mode": selected.failure_mode,
-                },
-            )
-            break
-
-    final_state_hash = _state_hash(automaton.automaton_id, current_state)
+    final_state_payload = {
+        "automaton_id": automaton.automaton_id,
+        "state_id": current_state,
+        "transition_trace": [_canonicalize_value(item) for item in transition_trace],
+        "failure_path": [_canonicalize_value(item) for item in failure_path],
+        "rollback_trace": list(rollback_trace),
+    }
+    final_state_hash = _sha256_hex(_canonical_bytes(final_state_payload))
 
     return StateTransitionExecutionReceipt(
         automaton_hash=automaton_hash,

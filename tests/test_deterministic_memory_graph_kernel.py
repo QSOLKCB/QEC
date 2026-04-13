@@ -7,10 +7,23 @@ on repeated execution.
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from qec.memory.deterministic_memory_graph_kernel import (
     DeterministicMemoryGraph,
+    ERR_DUPLICATE_EDGE,
+    ERR_DUPLICATE_NODE,
+    ERR_EDGE_KIND_INVALID,
+    ERR_EDGE_REF_SOURCE_MISSING,
+    ERR_EDGE_REF_TARGET_MISSING,
+    ERR_EDGE_WEIGHT_INVALID,
+    ERR_EDGE_WEIGHT_NEGATIVE,
+    ERR_LINEAGE_INVALID,
+    ERR_NODE_KIND_INVALID,
+    ERR_PAYLOAD_INVALID,
+    GraphValidationError,
     MemoryGraphEdge,
     MemoryGraphExecutionReceipt,
     MemoryGraphNode,
@@ -129,10 +142,12 @@ def test_node_and_edge_canonical_exports():
 def test_dataclasses_are_frozen():
     raw = _simple_graph_input()
     g = build_deterministic_memory_graph(raw)
-    with pytest.raises((AttributeError, Exception)):
+    with pytest.raises((FrozenInstanceError, AttributeError)):
         g.nodes[0].node_id = "mutated"  # type: ignore[misc]
-    with pytest.raises((AttributeError, Exception)):
+    with pytest.raises((FrozenInstanceError, AttributeError)):
         g.edges[0].edge_weight = 99.0  # type: ignore[misc]
+    with pytest.raises((FrozenInstanceError, AttributeError)):
+        g.graph_hash = "mutated"  # type: ignore[misc]
 
 
 # --------------------------------------------------------------------------
@@ -352,8 +367,10 @@ def test_traversal_receipt_is_frozen_dataclass():
     g = build_deterministic_memory_graph(raw)
     r = traverse_deterministic_memory_graph(g, "n-a", "bfs")
     assert isinstance(r, MemoryGraphExecutionReceipt)
-    with pytest.raises((AttributeError, Exception)):
+    with pytest.raises((FrozenInstanceError, AttributeError)):
         r.traversal_hash = "mutated"  # type: ignore[misc]
+    with pytest.raises((FrozenInstanceError, AttributeError)):
+        r.visited_nodes = ()  # type: ignore[misc]
 
 
 # --------------------------------------------------------------------------
@@ -391,3 +408,235 @@ def test_build_accepts_existing_graph_instance():
     g2 = build_deterministic_memory_graph(g1)
     assert g1.graph_hash == g2.graph_hash
     assert g1.to_canonical_bytes() == g2.to_canonical_bytes()
+
+
+# --------------------------------------------------------------------------
+# Hardening regression tests — structured error codes, stable payload
+# context, validation-flag correctness, and FrozenInstanceError-based
+# immutability.
+# --------------------------------------------------------------------------
+
+
+def _raise_code(raw) -> str:
+    """Run build + normalize and return the GraphValidationError code."""
+    with pytest.raises(GraphValidationError) as excinfo:
+        build_deterministic_memory_graph(raw)
+    return excinfo.value.code
+
+
+def test_structured_error_code_duplicate_node():
+    raw = _simple_graph_input()
+    raw["nodes"].append(_node("n-a", "module", 5))
+    assert _raise_code(raw) == ERR_DUPLICATE_NODE
+
+
+def test_structured_error_code_duplicate_edge():
+    raw = _simple_graph_input()
+    raw["edges"].append(_edge("e-ab", "n-b", "n-c", "depends_on", 1.0, 1))
+    assert _raise_code(raw) == ERR_DUPLICATE_EDGE
+
+
+def test_structured_error_code_missing_source_ref():
+    raw = _simple_graph_input()
+    raw["edges"].append(
+        _edge("e-missing-src", "n-missing", "n-b", "depends_on", 1.0, 1)
+    )
+    assert _raise_code(raw) == ERR_EDGE_REF_SOURCE_MISSING
+
+
+def test_structured_error_code_missing_target_ref():
+    raw = _simple_graph_input()
+    raw["edges"].append(
+        _edge("e-missing-tgt", "n-a", "n-missing", "depends_on", 1.0, 1)
+    )
+    assert _raise_code(raw) == ERR_EDGE_REF_TARGET_MISSING
+
+
+def test_structured_error_code_node_kind_invalid():
+    raw = _simple_graph_input()
+    raw["nodes"][0]["node_kind"] = "wizard"
+    assert _raise_code(raw) == ERR_NODE_KIND_INVALID
+
+
+def test_structured_error_code_edge_kind_invalid():
+    raw = _simple_graph_input()
+    raw["edges"][0]["edge_kind"] = "haunts"
+    assert _raise_code(raw) == ERR_EDGE_KIND_INVALID
+
+
+def test_structured_error_code_lineage_invalid():
+    raw = _simple_graph_input()
+    raw["nodes"][0]["lineage_hash"] = "not-a-hash"
+    assert _raise_code(raw) == ERR_LINEAGE_INVALID
+
+
+def test_structured_error_code_negative_weight():
+    raw = _simple_graph_input()
+    raw["edges"][0]["edge_weight"] = -3.5
+    assert _raise_code(raw) == ERR_EDGE_WEIGHT_NEGATIVE
+
+
+def test_structured_error_code_weight_invalid():
+    raw = _simple_graph_input()
+    raw["edges"][0]["edge_weight"] = "not-a-number"
+    assert _raise_code(raw) == ERR_EDGE_WEIGHT_INVALID
+
+
+def test_structured_error_code_payload_invalid():
+    raw = _simple_graph_input()
+    raw["nodes"][0]["node_payload"] = "not-a-mapping"
+    assert _raise_code(raw) == ERR_PAYLOAD_INVALID
+
+
+def test_payload_error_path_context_root():
+    raw = _simple_graph_input()
+    raw["nodes"][0]["node_payload"] = "not-a-mapping"
+    with pytest.raises(GraphValidationError) as excinfo:
+        build_deterministic_memory_graph(raw)
+    msg = str(excinfo.value)
+    assert "malformed payload in node n-a at path=node_payload" in msg
+    assert excinfo.value.code == ERR_PAYLOAD_INVALID
+
+
+def test_payload_error_path_context_nested_mapping():
+    raw = _simple_graph_input()
+    raw["nodes"][0]["node_payload"] = {
+        "metadata": {"hash": float("nan")}
+    }
+    with pytest.raises(GraphValidationError) as excinfo:
+        build_deterministic_memory_graph(raw)
+    msg = str(excinfo.value)
+    assert (
+        "malformed payload in node n-a at path=node_payload.metadata.hash"
+        in msg
+    )
+
+
+def test_payload_error_path_context_list_index():
+    raw = _simple_graph_input()
+    raw["nodes"][0]["node_payload"] = {"values": [1, object(), 3]}
+    with pytest.raises(GraphValidationError) as excinfo:
+        build_deterministic_memory_graph(raw)
+    msg = str(excinfo.value)
+    # The list index path token is deterministic and human-readable.
+    assert (
+        "malformed payload in node n-a at path=node_payload.values.[1]"
+        in msg
+    )
+
+
+def test_payload_error_path_is_deterministic_across_runs():
+    raw = _simple_graph_input()
+    raw["nodes"][0]["node_payload"] = {
+        "metadata": {"hash": float("inf")}
+    }
+    msgs = set()
+    for _ in range(5):
+        with pytest.raises(GraphValidationError) as excinfo:
+            build_deterministic_memory_graph(raw)
+        msgs.add(str(excinfo.value))
+    assert len(msgs) == 1
+
+
+def test_validation_report_duplicate_node_flag_correctness():
+    # Build a valid base graph, then append a duplicate of n-a with a
+    # different epoch so the second _normalize_node call still succeeds
+    # and the duplicate is detected by the set check.
+    raw = _simple_graph_input()
+    raw["nodes"].append(_node("n-a", "module", 9))
+    report = validate_deterministic_memory_graph(raw)
+    assert report.is_valid is False
+    assert report.uniqueness_ok is False
+    # Other channels must stay green — the flag classifier must not flip
+    # unrelated report channels.
+    assert report.node_validity_ok is True
+    assert report.edge_validity_ok is True
+    assert report.payload_validity_ok is True
+    assert report.lineage_validity_ok is True
+    assert report.weight_validity_ok is True
+    assert any("duplicate node id: n-a" in v for v in report.violations)
+
+
+def test_validation_report_invalid_edge_reference_flag_correctness():
+    raw = _simple_graph_input()
+    raw["edges"].append(
+        _edge("e-orphan", "n-a", "n-ghost", "depends_on", 1.0, 9)
+    )
+    report = validate_deterministic_memory_graph(raw)
+    assert report.is_valid is False
+    assert report.edge_validity_ok is False
+    # Orthogonal channels remain green.
+    assert report.uniqueness_ok is True
+    assert report.node_validity_ok is True
+    assert report.payload_validity_ok is True
+    assert report.lineage_validity_ok is True
+    assert report.weight_validity_ok is True
+    assert any(
+        "e-orphan references missing target node n-ghost" in v
+        for v in report.violations
+    )
+
+
+def test_validation_report_payload_channel_isolation():
+    # Corrupt an isolated node's payload (n-iso is not referenced by any
+    # edge) so the payload failure cannot cascade into edge_validity_ok.
+    raw = _simple_graph_input()
+    raw["nodes"].append(
+        _node("n-iso", "module", 7, {"bad": float("nan")}, _lh("9"))
+    )
+    report = validate_deterministic_memory_graph(raw)
+    assert report.is_valid is False
+    assert report.payload_validity_ok is False
+    # Orthogonal channels must remain green.
+    assert report.lineage_validity_ok is True
+    assert report.weight_validity_ok is True
+    assert report.node_validity_ok is True
+    assert report.edge_validity_ok is True
+    assert report.uniqueness_ok is True
+
+
+def test_validation_report_bytes_stable_across_runs():
+    raw = _simple_graph_input()
+    raw["nodes"][0]["lineage_hash"] = "nope"
+    raw["edges"][0]["edge_weight"] = -9.0
+    bytes_set = {
+        validate_deterministic_memory_graph(raw).to_canonical_bytes()
+        for _ in range(5)
+    }
+    assert len(bytes_set) == 1
+
+
+def test_graph_validation_error_is_value_error_subclass():
+    # Back-compat: callers catching ValueError must still work.
+    raw = _simple_graph_input()
+    raw["nodes"][0]["node_kind"] = "wizard"
+    with pytest.raises(ValueError):
+        build_deterministic_memory_graph(raw)
+
+
+def test_immutability_node_frozen_instance_error():
+    raw = _simple_graph_input()
+    g = build_deterministic_memory_graph(raw)
+    with pytest.raises(FrozenInstanceError):
+        g.nodes[0].node_id = "mutated"  # type: ignore[misc]
+    with pytest.raises(FrozenInstanceError):
+        g.nodes[0].node_kind = "release"  # type: ignore[misc]
+
+
+def test_immutability_edge_frozen_instance_error():
+    raw = _simple_graph_input()
+    g = build_deterministic_memory_graph(raw)
+    with pytest.raises(FrozenInstanceError):
+        g.edges[0].edge_weight = 999.0  # type: ignore[misc]
+    with pytest.raises(FrozenInstanceError):
+        g.edges[0].source_node_id = "x"  # type: ignore[misc]
+
+
+def test_immutability_receipt_frozen_instance_error():
+    raw = _simple_graph_input()
+    g = build_deterministic_memory_graph(raw)
+    r = traverse_deterministic_memory_graph(g, "n-a", "bfs")
+    with pytest.raises(FrozenInstanceError):
+        r.traversal_hash = "mutated"  # type: ignore[misc]
+    with pytest.raises(FrozenInstanceError):
+        r.visited_nodes = ()  # type: ignore[misc]

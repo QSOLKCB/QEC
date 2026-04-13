@@ -60,7 +60,7 @@ def _sha256_hex(value: Any) -> str:
 
 
 
-def _quantized_decimal(value: float, *, name: str) -> Decimal:
+def _quantized_decimal(value: float | int, *, name: str) -> Decimal:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{name} must be a finite float")
     coerced = float(value)
@@ -148,6 +148,12 @@ class InformationGeometricCertificationInput:
             "manifold_agreement_score": _quantized_str(self.manifold_agreement_score, name="manifold_agreement_score"),
             "coverage_ratio": _quantized_str(self.coverage_ratio, name="coverage_ratio"),
         }
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+    def to_canonical_bytes(self) -> bytes:
+        return self.to_canonical_json().encode("utf-8")
 
     def as_hash_payload(self) -> dict[str, _JSONValue]:
         return self.to_dict()
@@ -280,6 +286,7 @@ class InformationGeometricCertificationReport:
     def as_hash_payload(self) -> dict[str, _JSONValue]:
         payload = self.to_dict().copy()
         payload.pop("report_hash", None)
+        payload.pop("summary_text", None)
         return payload
 
 
@@ -602,7 +609,7 @@ def run_information_geometric_certification_pack(
     )
 
     report_bytes = report.to_canonical_bytes()
-    validation_passed = _sha256_hex(report_seed) == report.report_hash and len(report_bytes) > 0
+    validation_passed = _sha256_hex(report.as_hash_payload()) == report.report_hash and len(report_bytes) > 0
     if not validation_passed:
         raise ValueError("information-geometric certification report failed self-verification")
 

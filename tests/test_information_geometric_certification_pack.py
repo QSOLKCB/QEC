@@ -152,6 +152,8 @@ def test_ascii_text_summary_presence() -> None:
     summary = build_ascii_information_geometric_certification_summary(report)
     assert SCHEMA_VERSION in summary
     assert report.report_hash in summary
+    assert report.summary_text == summary
+    assert report.report_hash in report.summary_text
 
 
 def test_dataclass_input_supported() -> None:

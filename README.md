@@ -22,7 +22,7 @@
 
 # Current Stable State
 
-**Current stable release:** `v137.15.3`  
+**Current stable release:** `v137.15.5`  
 **Current active arc:** `v137.15.x — Formal Control Sequencing + Safety Kernel`
 
 Completed in the current arc:
@@ -31,6 +31,8 @@ Completed in the current arc:
 - `v137.15.1` — Explicit State Transition Automata Kernel
 - `v137.15.2` — Deterministic Rollback Planner
 - `v137.15.3` — Transition Safety Envelope Kernel
+- `v137.15.4` — Collision Prevention Scheduler + Phase-Lane Arbitration
+- `v137.15.5` — Bounded Fallback Corridor
 
 ---
 
@@ -76,7 +78,7 @@ continuous state
 
 # Current Canonical State
 
-**Current stable release:** `v137.15.3`
+**Current stable release:** `v137.15.5`
 
 The canonical development line is:
 
@@ -184,6 +186,8 @@ Completed:
 - `v137.15.1` — Explicit State Transition Automata Kernel
 - `v137.15.2` — Deterministic Rollback Planner
 - `v137.15.3` — Transition Safety Envelope Kernel
+- `v137.15.4` — Collision Prevention Scheduler + Phase-Lane Arbitration
+- `v137.15.5` — Bounded Fallback Corridor
 
 This arc formalizes:
 
@@ -192,6 +196,8 @@ control sequencing
 → explicit state transitions
 → rollback planning
 → safety envelopes
+→ collision prevention
+→ bounded fallback corridors
 ```
 
 ---

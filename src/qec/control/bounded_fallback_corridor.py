@@ -14,8 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
-import math
-from typing import Any, Dict, List, Mapping, Sequence, Tuple, Union
+from typing import Any, Dict, List, Mapping, Tuple, Union
 
 
 _ALLOWED_TERMINAL_POLICIES: Tuple[str, ...] = (
@@ -79,23 +78,6 @@ def _canonical_bytes(data: Any) -> bytes:
 
 def _sha256_hex(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
-
-
-def _canonicalize_value(value: Any) -> Any:
-    if value is None or isinstance(value, (str, bool, int)):
-        return value
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise ValueError("non-finite float values are not allowed in canonical payloads")
-        return value
-    if isinstance(value, Mapping):
-        keys = tuple(value.keys())
-        if any(not isinstance(k, str) for k in keys):
-            raise ValueError("mapping keys must be strings in canonical payloads")
-        return {k: _canonicalize_value(value[k]) for k in sorted(keys)}
-    if isinstance(value, (tuple, list)):
-        return [_canonicalize_value(item) for item in value]
-    raise ValueError(f"unsupported canonical payload type: {type(value)!r}")
 
 
 @dataclass(frozen=True)
@@ -269,7 +251,7 @@ def _normalize_segment(value: SegmentLike) -> FallbackCorridorSegment:
             from_state=str(value["from_state"]),
             to_state=str(value["to_state"]),
             max_depth=int(value["max_depth"]),
-            allowed_lanes=tuple(int(v) for v in value["allowed_lanes"]),
+            allowed_lanes=tuple(sorted(int(v) for v in value["allowed_lanes"])),
             rollback_limit=int(value["rollback_limit"]),
             priority=int(value["priority"]),
             segment_epoch=int(value["segment_epoch"]),
@@ -392,8 +374,8 @@ def validate_bounded_fallback_corridor(corridor: CorridorLike) -> FallbackCorrid
     errors: List[str] = []
 
     try:
-        normalized = normalize_bounded_fallback_corridor(corridor)
-    except ValueError as exc:
+        normalize_bounded_fallback_corridor(corridor)
+    except (ValueError, TypeError) as exc:
         text = str(exc)
         if "duplicate segment IDs" in text:
             uniqueness = False
@@ -437,55 +419,16 @@ def validate_bounded_fallback_corridor(corridor: CorridorLike) -> FallbackCorrid
             errors=tuple(errors),
         )
 
-    if len(set(seg.segment_id for seg in normalized.segments)) != len(normalized.segments):
-        uniqueness = False
-        errors.append("uniqueness_failed")
-
-    if any((not seg.from_state) or (not seg.to_state) for seg in normalized.segments):
-        state_validity = False
-        errors.append("state_validity_failed")
-
-    if any((lane < 0) for seg in normalized.segments for lane in seg.allowed_lanes):
-        lane_validity = False
-        errors.append("lane_validity_failed")
-
-    if normalized.max_total_depth < 0 or any(seg.max_depth < 0 for seg in normalized.segments):
-        depth_validity = False
-        errors.append("depth_validity_failed")
-
-    if any(seg.rollback_limit < 0 for seg in normalized.segments):
-        rollback_limit_validity = False
-        errors.append("rollback_limit_validity_failed")
-
-    if normalized.terminal_policy not in _ALLOWED_TERMINAL_POLICIES:
-        terminal_policy_validity = False
-        errors.append("terminal_policy_validity_failed")
-
-    if normalized.max_attempts < 0:
-        bounded_attempt_validity = False
-        errors.append("bounded_attempt_validity_failed")
-
-    is_valid = (
-        uniqueness
-        and state_validity
-        and lane_validity
-        and depth_validity
-        and rollback_limit_validity
-        and terminal_policy_validity
-        and bounded_attempt_validity
-        and not errors
-    )
-
     return FallbackCorridorValidationReport(
-        is_valid=is_valid,
-        uniqueness=uniqueness,
-        state_validity=state_validity,
-        lane_validity=lane_validity,
-        depth_validity=depth_validity,
-        rollback_limit_validity=rollback_limit_validity,
-        terminal_policy_validity=terminal_policy_validity,
-        bounded_attempt_validity=bounded_attempt_validity,
-        errors=tuple(errors),
+        is_valid=True,
+        uniqueness=True,
+        state_validity=True,
+        lane_validity=True,
+        depth_validity=True,
+        rollback_limit_validity=True,
+        terminal_policy_validity=True,
+        bounded_attempt_validity=True,
+        errors=(),
     )
 
 
@@ -497,6 +440,17 @@ def evaluate_bounded_fallback_corridor(
     normalized_context = _normalize_context(context)
 
     corridor_hash = _sha256_hex(normalized.as_hash_payload())
+
+    if normalized.terminal_policy == "force_terminal_fallback":
+        return FallbackCorridorExecutionReceipt(
+            corridor_hash=corridor_hash,
+            selected_segment_trace=(),
+            depth_trace=(),
+            attempt_trace=(),
+            lane_trace=(),
+            terminal_decision="terminal_fallback",
+            bounded_stop_reason="terminal_policy_enforced",
+        )
 
     selected: List[str] = []
     depth_trace: List[int] = []

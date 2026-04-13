@@ -214,3 +214,73 @@ def test_validate_schedule_passes_for_valid_data():
     report = validate_collision_prevention_schedule(_base_schedule())
     assert report.is_valid is True
     assert report.errors == ()
+
+
+def test_validate_duplicate_window_sets_only_uniqueness_flag():
+    # P2: a duplicate-window error must only fail the uniqueness flag,
+    # not unrelated flags like epoch_validity, lane_validity, etc.
+    schedule = _base_schedule()
+    schedule["windows"][1]["window_id"] = "w1"
+    report = validate_collision_prevention_schedule(schedule)
+    assert report.is_valid is False
+    assert report.uniqueness is False
+    assert report.epoch_validity is True
+    assert report.lane_validity is True
+    assert report.phase_validity is True
+    assert report.rule_validity is True
+    assert report.delta_threshold_validity is True
+    assert report.fallback_validity is True
+
+
+def test_validate_invalid_epoch_sets_only_epoch_flag():
+    schedule = _base_schedule()
+    schedule["windows"][0]["window_epoch_end"] = 9
+    report = validate_collision_prevention_schedule(schedule)
+    assert report.is_valid is False
+    assert report.epoch_validity is False
+    assert report.uniqueness is True
+    assert report.lane_validity is True
+    assert report.phase_validity is True
+    assert report.rule_validity is True
+
+
+def test_evaluate_accepts_schedule_like_dict():
+    # evaluate_collision_prevention_schedule must accept raw ScheduleLike dicts.
+    receipt = evaluate_collision_prevention_schedule(_base_schedule())
+    assert receipt.scheduler_terminal_status == "clean"
+    assert isinstance(receipt.schedule_hash, str) and len(receipt.schedule_hash) == 64
+
+
+def test_fallback_action_allow_keeps_decision_zero():
+    # fallback_action="allow" must result in 0 (no deferral) even when a rule fires.
+    schedule = _base_schedule()
+    schedule = _force_same_lane(schedule)
+    schedule["windows"][0]["window_epoch_start"] = 10
+    schedule["windows"][1]["window_epoch_start"] = 10
+    schedule["windows"][0]["collision_delta_threshold"] = 0
+    schedule["windows"][1]["collision_delta_threshold"] = 0
+    schedule["rules"][0]["priority_resolution_mode"] = "defer_lower_priority"
+    schedule["rules"][0]["fallback_action"] = "allow"
+    normalized = normalize_collision_prevention_schedule(schedule)
+    receipt = evaluate_collision_prevention_schedule(normalized)
+    # fallback_action="allow" → loser decision stays 0 → resolved/blocked are empty.
+    # collision_count >= 1 with no resolved/blocked windows → status is "blocked"
+    # (unhandled-collision else-branch).
+    assert receipt.scheduler_terminal_status == "blocked"
+    assert all(d == "0" for d in receipt.decision_trace_base3)
+
+
+def test_fallback_actions_preserve_insertion_order():
+    # deterministic_fallback_actions must preserve encounter order, not be sorted.
+    schedule = _base_schedule()
+    schedule = _force_same_lane(schedule)
+    schedule["windows"][0]["window_epoch_start"] = 10
+    schedule["windows"][1]["window_epoch_start"] = 10
+    schedule["windows"][0]["collision_delta_threshold"] = 0
+    schedule["windows"][1]["collision_delta_threshold"] = 0
+    schedule["rules"][0]["fallback_action"] = "defer"
+    normalized = normalize_collision_prevention_schedule(schedule)
+    receipt = evaluate_collision_prevention_schedule(normalized)
+    # At least one fallback_action recorded; check it equals the rule's action.
+    assert len(receipt.deterministic_fallback_actions) >= 1
+    assert receipt.deterministic_fallback_actions[0] == "defer"

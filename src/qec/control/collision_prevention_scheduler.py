@@ -28,6 +28,19 @@ _ALLOWED_PRIORITY_RESOLUTION_MODES: Tuple[str, ...] = (
 _ALLOWED_TERMINAL_MODES: Tuple[str, ...] = ("clean", "resolved", "blocked", "halt")
 _ALLOWED_FALLBACK_ACTIONS: Tuple[str, ...] = ("allow", "defer", "block", "halt", "rollback")
 
+# Maps a rule's fallback_action to the decision value applied to the losing window.
+# 0 = allow (no change), 1 = defer (resolved), 2 = block/halt/rollback (blocked).
+# halt and rollback both map to 2 because the arbitration layer treats them as
+# equivalent "block with escalation" signals; the terminal status upgrade to
+# "halt" is driven separately by priority_resolution_mode == "halt_on_conflict".
+_FALLBACK_TO_DECISION: Dict[str, int] = {
+    "allow": 0,
+    "defer": 1,
+    "block": 2,
+    "halt": 2,     # escalated to "halt" status when mode == "halt_on_conflict"
+    "rollback": 2,  # treated as block at the scheduling layer
+}
+
 _REQUIRED_WINDOW_FIELDS: Tuple[str, ...] = (
     "window_id",
     "transition_id",
@@ -37,10 +50,11 @@ _REQUIRED_WINDOW_FIELDS: Tuple[str, ...] = (
     "window_epoch_end",
     "priority",
     "exclusive",
-    "scheduler_lane",
-    "phase_window",
     "collision_delta_threshold",
 )
+# scheduler_lane and phase_window are always computed deterministically from
+# transition_id and window_epoch_start; they are not required in input.
+_COMPUTED_WINDOW_FIELDS: Tuple[str, ...] = ("scheduler_lane", "phase_window")
 _REQUIRED_RULE_FIELDS: Tuple[str, ...] = (
     "rule_id",
     "conflicting_transition_ids",
@@ -294,14 +308,6 @@ def _normalize_window(window: WindowLike) -> ScheduledTransitionWindow:
     if end < start:
         raise ValueError("invalid epoch windows")
 
-    lane_input = int(data["scheduler_lane"])
-    if lane_input < 0 or lane_input > 63:
-        raise ValueError("invalid lane values")
-
-    phase_input = int(data["phase_window"])
-    if phase_input < 0 or phase_input > 59:
-        raise ValueError("invalid phase windows")
-
     threshold = int(data["collision_delta_threshold"])
     if threshold < 0:
         raise ValueError("malformed delta thresholds")
@@ -439,17 +445,32 @@ def validate_collision_prevention_schedule(schedule: ScheduleLike) -> CollisionS
     try:
         normalized = normalize_collision_prevention_schedule(schedule)
     except ValueError as exc:
+        msg = str(exc)
+        # Map the specific error message to the flag(s) it actually concerns.
+        # Only the flag that corresponds to the failing check is set to False;
+        # all unrelated flags remain True so callers can distinguish root causes.
+        uniqueness = "duplicate" not in msg
+        epoch_validity = "epoch" not in msg
+        exclusive_overlap_detection = "exclusive" not in msg and "overlapping" not in msg
+        lane_validity = "lane" not in msg
+        phase_validity = "phase" not in msg
+        rule_validity = "resolution" not in msg and "conflicting_transition_ids" not in msg
+        # ^ False when the error concerns priority_resolution_mode ("resolution" substring)
+        #   or when conflicting_transition_ids is empty/missing.
+        delta_threshold_validity = "delta" not in msg
+        priority_consistency = True  # normalization does not check priority ordering
+        fallback_validity = "fallback" not in msg
         return CollisionScheduleValidationReport(
             is_valid=False,
-            uniqueness=False,
-            epoch_validity=False,
-            exclusive_overlap_detection=False,
-            lane_validity=False,
-            phase_validity=False,
-            rule_validity=False,
-            delta_threshold_validity=False,
-            priority_consistency=False,
-            fallback_validity=False,
+            uniqueness=uniqueness,
+            epoch_validity=epoch_validity,
+            exclusive_overlap_detection=exclusive_overlap_detection,
+            lane_validity=lane_validity,
+            phase_validity=phase_validity,
+            rule_validity=rule_validity,
+            delta_threshold_validity=delta_threshold_validity,
+            priority_consistency=priority_consistency,
+            fallback_validity=fallback_validity,
             errors=(f"normalization_failed:{exc}",),
         )
 
@@ -517,11 +538,11 @@ def validate_collision_prevention_schedule(schedule: ScheduleLike) -> CollisionS
     )
 
 
-def evaluate_collision_prevention_schedule(schedule: CollisionPreventionSchedule) -> CollisionScheduleExecutionReceipt:
+def evaluate_collision_prevention_schedule(schedule: ScheduleLike) -> CollisionScheduleExecutionReceipt:
+    # Accept any ScheduleLike and normalize so callers don't have to pre-normalize.
+    schedule = normalize_collision_prevention_schedule(schedule)
     schedule_hash = _sha256_hex(schedule.as_hash_payload())
 
-    blocked: List[str] = []
-    resolved: List[str] = []
     triggered_rules: List[str] = []
     fallback_actions: List[str] = []
     collision_count = 0
@@ -550,6 +571,7 @@ def evaluate_collision_prevention_schedule(schedule: CollisionPreventionSchedule
 
                 if rule.rule_id not in triggered_rules:
                     triggered_rules.append(rule.rule_id)
+                # Preserve insertion order so temporal/decision sequence is traceable.
                 fallback_actions.append(rule.fallback_action)
 
                 if left.priority > right.priority:
@@ -559,12 +581,12 @@ def evaluate_collision_prevention_schedule(schedule: CollisionPreventionSchedule
                 else:
                     loser, winner = (right, left) if right.window_id > left.window_id else (left, right)
 
-                if rule.priority_resolution_mode == "defer_lower_priority":
-                    decisions[loser.window_id] = max(decisions[loser.window_id], 1)
-                elif rule.priority_resolution_mode == "block_lower_priority":
-                    decisions[loser.window_id] = 2
-                elif rule.priority_resolution_mode == "halt_on_conflict":
-                    decisions[loser.window_id] = 2
+                # fallback_action drives the concrete decision for the losing window;
+                # priority_resolution_mode determines which window loses and whether
+                # to escalate both sides to halt.
+                loser_decision = _FALLBACK_TO_DECISION[rule.fallback_action]
+                decisions[loser.window_id] = max(decisions[loser.window_id], loser_decision)
+                if rule.priority_resolution_mode == "halt_on_conflict":
                     decisions[winner.window_id] = max(decisions[winner.window_id], 2)
 
                 break
@@ -592,7 +614,7 @@ def evaluate_collision_prevention_schedule(schedule: CollisionPreventionSchedule
         blocked_windows=tuple(sorted(blocked)),
         resolved_windows=tuple(sorted(resolved)),
         triggered_rules=tuple(sorted(triggered_rules)),
-        deterministic_fallback_actions=tuple(sorted(fallback_actions)),
+        deterministic_fallback_actions=tuple(fallback_actions),
         scheduler_terminal_status=status,
         decision_trace_base3=decision_trace_base3,
     )

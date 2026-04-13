@@ -172,7 +172,14 @@ class DeterministicRollbackPlan:
         return _canonical_bytes(self.to_dict())
 
     def as_hash_payload(self) -> bytes:
-        return self.to_canonical_bytes()
+        # Return the same bytes used to compute plan_id (excludes plan_id itself).
+        payload = {
+            "context_id": self.context_id,
+            "root_failure_step_id": self.root_failure_step_id,
+            "root_failure_state_id": self.root_failure_state_id,
+            "rollback_steps": [step.to_dict() for step in self.rollback_steps],
+        }
+        return _canonical_bytes(payload)
 
 
 @dataclass(frozen=True)
@@ -180,7 +187,7 @@ class RollbackPlanValidationReport:
     is_valid: bool
     rollback_step_uniqueness: bool
     target_validity: bool
-    chain_continuity: bool
+    rollback_steps_present: bool
     epoch_direction_correctness: bool
     terminal_boundary_correctness: bool
     priority_bounds: bool
@@ -192,7 +199,7 @@ class RollbackPlanValidationReport:
             "is_valid": self.is_valid,
             "rollback_step_uniqueness": self.rollback_step_uniqueness,
             "target_validity": self.target_validity,
-            "chain_continuity": self.chain_continuity,
+            "rollback_steps_present": self.rollback_steps_present,
             "epoch_direction_correctness": self.epoch_direction_correctness,
             "terminal_boundary_correctness": self.terminal_boundary_correctness,
             "priority_bounds": self.priority_bounds,
@@ -270,6 +277,17 @@ class RollbackPlanningContext:
         return self.to_canonical_bytes()
 
 
+def _entry_step_id(entry: Mapping[str, Any]) -> str:
+    """Return the step/transition identifier from a path entry.
+
+    Raises ValueError if neither ``step_id`` nor ``transition_id`` is present.
+    """
+    step_id: Any = entry.get("step_id") or entry.get("transition_id")
+    if not step_id:
+        raise ValueError("path entry missing both step_id and transition_id")
+    return str(step_id)
+
+
 def _normalize_rollback_step(value: RollbackStepLike) -> RollbackPlanStep:
     if isinstance(value, RollbackPlanStep):
         step = value
@@ -277,6 +295,14 @@ def _normalize_rollback_step(value: RollbackStepLike) -> RollbackPlanStep:
         missing = [name for name in _REQUIRED_ROLLBACK_STEP_FIELDS if name not in value]
         if missing:
             raise ValueError(f"missing required rollback fields: {missing}")
+        requires_confirmation = value["requires_confirmation"]
+        terminal = value["terminal"]
+        if not isinstance(requires_confirmation, bool):
+            raise ValueError(
+                f"requires_confirmation must be a bool, got {type(requires_confirmation)!r}"
+            )
+        if not isinstance(terminal, bool):
+            raise ValueError(f"terminal must be a bool, got {type(terminal)!r}")
         step = RollbackPlanStep(
             rollback_step_id=str(value["rollback_step_id"]),
             target_step_id=str(value["target_step_id"]),
@@ -284,8 +310,8 @@ def _normalize_rollback_step(value: RollbackStepLike) -> RollbackPlanStep:
             rollback_action=str(value["rollback_action"]),
             rollback_epoch=int(value["rollback_epoch"]),
             priority=int(value["priority"]),
-            requires_confirmation=bool(value["requires_confirmation"]),
-            terminal=bool(value["terminal"]),
+            requires_confirmation=requires_confirmation,
+            terminal=terminal,
         )
     if not (_MIN_PRIORITY <= step.priority <= _MAX_PRIORITY):
         raise ValueError("non-bounded priorities detected")
@@ -345,12 +371,12 @@ def normalize_rollback_planning_context(context: ContextLike) -> RollbackPlannin
         raise ValueError("duplicate rollback step IDs")
 
     ordered_path = tuple(payload.executed_path)
-    path_step_ids = {
-        str(item.get("step_id", item.get("transition_id", ""))) for item in ordered_path
+    path_pairs = {
+        (_entry_step_id(item), str(item["state_id"]))
+        for item in ordered_path
     }
-    path_state_ids = {str(item["state_id"]) for item in ordered_path}
 
-    if payload.failure_step_id not in path_step_ids or payload.failure_state_id not in path_state_ids:
+    if (payload.failure_step_id, payload.failure_state_id) not in path_pairs:
         raise ValueError("invalid target step/state references")
 
     previous_epoch: int | None = None
@@ -367,7 +393,7 @@ def normalize_rollback_planning_context(context: ContextLike) -> RollbackPlannin
         if rollback_target_count[target_key] > 1:
             raise ValueError("ambiguous rollback candidates")
 
-        if step.target_step_id not in path_step_ids or step.target_state_id not in path_state_ids:
+        if (step.target_step_id, step.target_state_id) not in path_pairs:
             raise ValueError("invalid target step/state references")
 
     return RollbackPlanningContext(
@@ -376,7 +402,7 @@ def normalize_rollback_planning_context(context: ContextLike) -> RollbackPlannin
         failure_step_id=payload.failure_step_id,
         failure_state_id=payload.failure_state_id,
         executed_path=ordered_path,
-        available_rollbacks=tuple(_normalize_rollback_step(item) for item in payload.available_rollbacks),
+        available_rollbacks=payload.available_rollbacks,
         planning_epoch=payload.planning_epoch,
     )
 
@@ -393,7 +419,7 @@ def plan_deterministic_rollback(context: ContextLike) -> DeterministicRollbackPl
     last_rollback_epoch: int | None = None
 
     for path_entry in reversed(normalized.executed_path):
-        path_step_id = str(path_entry.get("step_id", path_entry.get("transition_id")))
+        path_step_id = _entry_step_id(path_entry)
         path_state_id = str(path_entry["state_id"])
         candidate = by_target.get((path_step_id, path_state_id))
         if candidate is None:
@@ -434,30 +460,33 @@ def plan_deterministic_rollback(context: ContextLike) -> DeterministicRollbackPl
     )
 
 
-def validate_deterministic_rollback_plan(plan: PlanLike) -> RollbackPlanValidationReport:
+def _normalize_plan(plan: PlanLike) -> DeterministicRollbackPlan:
     if isinstance(plan, DeterministicRollbackPlan):
-        payload = plan
-    else:
-        missing = [
-            name
-            for name in (
-                "plan_id",
-                "context_id",
-                "rollback_steps",
-                "root_failure_step_id",
-                "root_failure_state_id",
-            )
-            if name not in plan
-        ]
-        if missing:
-            raise ValueError(f"missing required plan fields: {missing}")
-        payload = DeterministicRollbackPlan(
-            plan_id=str(plan["plan_id"]),
-            context_id=str(plan["context_id"]),
-            rollback_steps=tuple(_normalize_rollback_step(item) for item in plan["rollback_steps"]),
-            root_failure_step_id=str(plan["root_failure_step_id"]),
-            root_failure_state_id=str(plan["root_failure_state_id"]),
+        return plan
+    missing = [
+        name
+        for name in (
+            "plan_id",
+            "context_id",
+            "rollback_steps",
+            "root_failure_step_id",
+            "root_failure_state_id",
         )
+        if name not in plan
+    ]
+    if missing:
+        raise ValueError(f"missing required plan fields: {missing}")
+    return DeterministicRollbackPlan(
+        plan_id=str(plan["plan_id"]),
+        context_id=str(plan["context_id"]),
+        rollback_steps=tuple(_normalize_rollback_step(item) for item in plan["rollback_steps"]),
+        root_failure_step_id=str(plan["root_failure_step_id"]),
+        root_failure_state_id=str(plan["root_failure_state_id"]),
+    )
+
+
+def validate_deterministic_rollback_plan(plan: PlanLike) -> RollbackPlanValidationReport:
+    payload = _normalize_plan(plan)
 
     errors: List[str] = []
     steps = payload.rollback_steps
@@ -506,7 +535,7 @@ def validate_deterministic_rollback_plan(plan: PlanLike) -> RollbackPlanValidati
     is_valid = (
         rollback_step_uniqueness
         and target_validity
-        and chain_continuity
+        and rollback_steps_present
         and epoch_direction_correctness
         and terminal_boundary_correctness
         and priority_bounds
@@ -517,7 +546,7 @@ def validate_deterministic_rollback_plan(plan: PlanLike) -> RollbackPlanValidati
         is_valid=is_valid,
         rollback_step_uniqueness=rollback_step_uniqueness,
         target_validity=target_validity,
-        chain_continuity=chain_continuity,
+        rollback_steps_present=rollback_steps_present,
         epoch_direction_correctness=epoch_direction_correctness,
         terminal_boundary_correctness=terminal_boundary_correctness,
         priority_bounds=priority_bounds,
@@ -527,20 +556,22 @@ def validate_deterministic_rollback_plan(plan: PlanLike) -> RollbackPlanValidati
 
 
 def execute_deterministic_rollback_plan(
-    plan: DeterministicRollbackPlan,
+    plan: PlanLike,
     failure_injection_target: str | None = None,
 ) -> RollbackExecutionReceipt:
-    validation = validate_deterministic_rollback_plan(plan)
+    normalized_plan = _normalize_plan(plan)
+    validation = validate_deterministic_rollback_plan(normalized_plan)
     if not validation.is_valid:
         raise ValueError(f"invalid deterministic rollback plan: {validation.errors}")
 
-    plan_hash = _sha256_hex(plan.as_hash_payload())
+    # plan_id is itself a SHA-256 hash; use it directly as the stable plan identifier.
+    plan_hash = normalized_plan.plan_id
     initial_failure_hash = _sha256_hex(
         _canonical_bytes(
             {
-                "context_id": plan.context_id,
-                "root_failure_step_id": plan.root_failure_step_id,
-                "root_failure_state_id": plan.root_failure_state_id,
+                "context_id": normalized_plan.context_id,
+                "root_failure_step_id": normalized_plan.root_failure_step_id,
+                "root_failure_state_id": normalized_plan.root_failure_state_id,
             }
         )
     )
@@ -549,10 +580,10 @@ def execute_deterministic_rollback_plan(
     halted_path: Tuple[str, ...] = ()
     terminal_status = "completed"
 
-    final_step_id = plan.root_failure_step_id
-    final_state_id = plan.root_failure_state_id
+    final_step_id = normalized_plan.root_failure_step_id
+    final_state_id = normalized_plan.root_failure_state_id
 
-    for step in plan.rollback_steps:
+    for step in normalized_plan.rollback_steps:
         if failure_injection_target is not None and step.rollback_step_id == failure_injection_target:
             halted_path = tuple(item["rollback_step_id"] for item in executed_trace) + (step.rollback_step_id,)
             terminal_status = "halted"
@@ -569,13 +600,13 @@ def execute_deterministic_rollback_plan(
         final_step_id = step.target_step_id
         final_state_id = step.target_state_id
 
-    if terminal_status == "completed" and not plan.rollback_steps[-1].terminal:
+    if terminal_status == "completed" and not normalized_plan.rollback_steps[-1].terminal:
         terminal_status = "invalid_terminal"
 
     final_rollback_state_hash = _sha256_hex(
         _canonical_bytes(
             {
-                "context_id": plan.context_id,
+                "context_id": normalized_plan.context_id,
                 "final_step_id": final_step_id,
                 "final_state_id": final_state_id,
                 "terminal_status": terminal_status,

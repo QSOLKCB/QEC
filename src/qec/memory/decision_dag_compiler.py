@@ -64,6 +64,10 @@ ERR_DAG_TYPE_INVALID: str = "dag_type_invalid"
 ERR_DAG_FIELDS_MISSING: str = "dag_fields_missing"
 ERR_DAG_ID_INVALID: str = "dag_id_invalid"
 ERR_DAG_CYCLE: str = "dag_cycle_detected"
+ERR_TRAVERSAL_MODE_INVALID: str = "traversal_mode_invalid"
+ERR_TRAVERSAL_START_INVALID: str = "traversal_start_invalid"
+ERR_TRAVERSAL_DAG_TYPE_INVALID: str = "traversal_dag_type_invalid"
+ERR_TRAVERSAL_CYCLE_STATE_INVALID: str = "traversal_cycle_state_invalid"
 
 
 _REQUIRED_DAG_FIELDS: Tuple[str, ...] = ("dag_id", "nodes", "edges")
@@ -388,6 +392,25 @@ def _compute_dag_hash(
     return _sha256_hex(_canonical_bytes(payload))
 
 
+def _normalize_and_toposort(
+    value: DAGInputLike,
+) -> Tuple[
+    str,
+    Tuple[DecisionDAGNode, ...],
+    Tuple[DecisionDAGEdge, ...],
+    Tuple[str, ...],
+]:
+    dag_id, raw_nodes, raw_edges = _unpack_dag_input(value)
+    dag_nodes, dag_edges = _kernel_normalize(dag_id, raw_nodes, raw_edges)
+    topo = _topological_order(dag_nodes, dag_edges)
+    if topo is None:
+        raise DecisionDAGError(
+            ERR_DAG_CYCLE,
+            f"cycle detected in decision dag {dag_id}",
+        )
+    return dag_id, dag_nodes, dag_edges, topo
+
+
 # ---------------------------------------------------------------------------
 # Public API.
 # ---------------------------------------------------------------------------
@@ -415,14 +438,7 @@ def normalize_decision_dag_input(
     * malformed lineage hashes
     * cycles
     """
-    dag_id, raw_nodes, raw_edges = _unpack_dag_input(value)
-    dag_nodes, dag_edges = _kernel_normalize(dag_id, raw_nodes, raw_edges)
-    topo = _topological_order(dag_nodes, dag_edges)
-    if topo is None:
-        raise DecisionDAGError(
-            ERR_DAG_CYCLE,
-            f"cycle detected in decision dag {dag_id}",
-        )
+    dag_id, dag_nodes, dag_edges, _ = _normalize_and_toposort(value)
     return dag_id, dag_nodes, dag_edges
 
 
@@ -435,15 +451,7 @@ def compile_decision_dag(value: DAGInputLike) -> CompiledDecisionDAG:
     over identical input yields byte-identical DAGs and byte-identical
     hashes.
     """
-    dag_id, dag_nodes, dag_edges = normalize_decision_dag_input(value)
-    topo = _topological_order(dag_nodes, dag_edges)
-    # normalize_decision_dag_input already enforced acyclicity; this is a
-    # defensive assertion and cannot fail on valid input.
-    if topo is None:  # pragma: no cover - defensive
-        raise DecisionDAGError(
-            ERR_DAG_CYCLE,
-            f"cycle detected in decision dag {dag_id}",
-        )
+    dag_id, dag_nodes, dag_edges, topo = _normalize_and_toposort(value)
     id_to_node = {n.node_id: n for n in dag_nodes}
     ordered_nodes = tuple(id_to_node[nid] for nid in topo)
     dag_hash = _compute_dag_hash(dag_id, ordered_nodes, dag_edges, topo)
@@ -461,13 +469,11 @@ def validate_decision_dag(
 ) -> DecisionDAGValidationReport:
     """Produce a deterministic validation report for a decision DAG input.
 
-    Unlike :func:`normalize_decision_dag_input`, this function does not raise
-    on invariant violations — it returns a byte-stable report enumerating
-    every failure. Top-level input errors that prevent unpacking the DAG
-    shape (for example, non-mapping input, missing top-level fields, or an
-    invalid dag id) still raise fast. Once a dag id, nodes, and edges have
-    been unpacked, normalization and graph-structure problems are reported
-    in the returned invalid report rather than raised.
+    Top-level unpack failures raise fast (for example, non-mapping input,
+    missing top-level fields, or an invalid dag id). Once ``dag_id``,
+    ``nodes``, and ``edges`` are unpacked, normalization and graph-structure
+    problems are returned as a deterministic invalid report rather than
+    raised.
     """
     dag_id, raw_nodes, raw_edges = _unpack_dag_input(value)
 
@@ -676,16 +682,43 @@ def traverse_decision_dag(
     ``traversal_hash``. Repeated traversal yields byte-identical output.
     """
     if not isinstance(dag, CompiledDecisionDAG):
-        raise ValueError("dag must be CompiledDecisionDAG")
+        raise DecisionDAGError(
+            ERR_TRAVERSAL_DAG_TYPE_INVALID,
+            "dag must be CompiledDecisionDAG",
+        )
     if not isinstance(start_node_id, str) or not start_node_id.strip():
-        raise ValueError("invalid start node id")
+        raise DecisionDAGError(
+            ERR_TRAVERSAL_START_INVALID,
+            "invalid start node id",
+        )
     start = start_node_id.strip()
     if traversal_mode not in _ALLOWED_TRAVERSAL_MODES:
-        raise ValueError(f"unsupported traversal mode: {traversal_mode}")
+        raise DecisionDAGError(
+            ERR_TRAVERSAL_MODE_INVALID,
+            f"unsupported traversal mode: {traversal_mode}",
+        )
 
     node_ids = {n.node_id for n in dag.nodes}
+    topo_ids = set(dag.topological_order)
+    if topo_ids != node_ids or len(dag.topological_order) != len(dag.nodes):
+        raise DecisionDAGError(
+            ERR_TRAVERSAL_CYCLE_STATE_INVALID,
+            "compiled dag topological order is inconsistent with nodes",
+        )
+    topo_pos = {nid: idx for idx, nid in enumerate(dag.topological_order)}
+    if any(
+        topo_pos[e.source_node_id] >= topo_pos[e.target_node_id]
+        for e in dag.edges
+    ):
+        raise DecisionDAGError(
+            ERR_TRAVERSAL_CYCLE_STATE_INVALID,
+            "compiled dag topological order violates edge ordering",
+        )
     if start not in node_ids:
-        raise ValueError(f"start node not in dag: {start}")
+        raise DecisionDAGError(
+            ERR_TRAVERSAL_START_INVALID,
+            f"start node not in dag: {start}",
+        )
 
     if traversal_mode == "topological":
         visited_nodes, visited_edges = _traverse_topological(dag, start)
@@ -731,6 +764,10 @@ __all__ = (
     "ERR_DAG_FIELDS_MISSING",
     "ERR_DAG_ID_INVALID",
     "ERR_DAG_CYCLE",
+    "ERR_TRAVERSAL_MODE_INVALID",
+    "ERR_TRAVERSAL_START_INVALID",
+    "ERR_TRAVERSAL_DAG_TYPE_INVALID",
+    "ERR_TRAVERSAL_CYCLE_STATE_INVALID",
     "normalize_decision_dag_input",
     "compile_decision_dag",
     "validate_decision_dag",

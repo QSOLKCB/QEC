@@ -22,6 +22,10 @@ from qec.memory.decision_dag_compiler import (
     ERR_DAG_FIELDS_MISSING,
     ERR_DAG_ID_INVALID,
     ERR_DAG_TYPE_INVALID,
+    ERR_TRAVERSAL_CYCLE_STATE_INVALID,
+    ERR_TRAVERSAL_DAG_TYPE_INVALID,
+    ERR_TRAVERSAL_MODE_INVALID,
+    ERR_TRAVERSAL_START_INVALID,
     compile_decision_dag,
     normalize_decision_dag_input,
     traverse_decision_dag,
@@ -429,15 +433,38 @@ def test_traverse_critical_path_start_without_outgoing():
 def test_traverse_rejects_unknown_mode():
     raw = _simple_dag_input()
     dag = compile_decision_dag(raw)
-    with pytest.raises(ValueError, match="unsupported traversal mode"):
+    with pytest.raises(DecisionDAGError) as excinfo:
         traverse_decision_dag(dag, "n-a", "wormhole")
+    assert excinfo.value.code == ERR_TRAVERSAL_MODE_INVALID
 
 
 def test_traverse_rejects_unknown_start():
     raw = _simple_dag_input()
     dag = compile_decision_dag(raw)
-    with pytest.raises(ValueError, match="start node not in dag"):
+    with pytest.raises(DecisionDAGError) as excinfo:
         traverse_decision_dag(dag, "n-ghost", "topological")
+    assert excinfo.value.code == ERR_TRAVERSAL_START_INVALID
+
+
+def test_traverse_rejects_invalid_dag_type():
+    with pytest.raises(DecisionDAGError) as excinfo:
+        traverse_decision_dag("not-a-dag", "n-a", "topological")  # type: ignore[arg-type]
+    assert excinfo.value.code == ERR_TRAVERSAL_DAG_TYPE_INVALID
+
+
+def test_traverse_rejects_invalid_cycle_state():
+    raw = _simple_dag_input()
+    dag = compile_decision_dag(raw)
+    broken = CompiledDecisionDAG(
+        dag_id=dag.dag_id,
+        nodes=dag.nodes,
+        edges=dag.edges,
+        topological_order=("n-b", "n-a", "n-c", "n-d"),
+        dag_hash=dag.dag_hash,
+    )
+    with pytest.raises(DecisionDAGError) as excinfo:
+        traverse_decision_dag(broken, "n-a", "topological")
+    assert excinfo.value.code == ERR_TRAVERSAL_CYCLE_STATE_INVALID
 
 
 def test_traverse_receipt_hash_determinism():

@@ -411,6 +411,38 @@ def _normalize_and_toposort(
     return dag_id, dag_nodes, dag_edges, topo
 
 
+def _assert_compiled_topology_consistent(dag: "CompiledDecisionDAG") -> None:
+    """Assert that a compiled DAG's topological order is consistent with its nodes and edges.
+
+    Raises :class:`DecisionDAGError` with ``ERR_TRAVERSAL_CYCLE_STATE_INVALID``
+    for any inconsistency: mismatched node sets, duplicate order entries, edge
+    endpoints that reference unknown node ids, or edges that violate the
+    topological ordering.
+    """
+    node_ids = {n.node_id for n in dag.nodes}
+    topo_ids = set(dag.topological_order)
+    if topo_ids != node_ids or len(dag.topological_order) != len(dag.nodes):
+        raise DecisionDAGError(
+            ERR_TRAVERSAL_CYCLE_STATE_INVALID,
+            "compiled dag topological order is inconsistent with nodes",
+        )
+    for e in dag.edges:
+        if e.source_node_id not in node_ids or e.target_node_id not in node_ids:
+            raise DecisionDAGError(
+                ERR_TRAVERSAL_CYCLE_STATE_INVALID,
+                "compiled dag edge references unknown node id",
+            )
+    topo_pos = {nid: idx for idx, nid in enumerate(dag.topological_order)}
+    if any(
+        topo_pos[e.source_node_id] >= topo_pos[e.target_node_id]
+        for e in dag.edges
+    ):
+        raise DecisionDAGError(
+            ERR_TRAVERSAL_CYCLE_STATE_INVALID,
+            "compiled dag topological order violates edge ordering",
+        )
+
+
 # ---------------------------------------------------------------------------
 # Public API.
 # ---------------------------------------------------------------------------
@@ -455,13 +487,15 @@ def compile_decision_dag(value: DAGInputLike) -> CompiledDecisionDAG:
     id_to_node = {n.node_id: n for n in dag_nodes}
     ordered_nodes = tuple(id_to_node[nid] for nid in topo)
     dag_hash = _compute_dag_hash(dag_id, ordered_nodes, dag_edges, topo)
-    return CompiledDecisionDAG(
+    compiled = CompiledDecisionDAG(
         dag_id=dag_id,
         nodes=ordered_nodes,
         edges=dag_edges,
         topological_order=topo,
         dag_hash=dag_hash,
     )
+    _assert_compiled_topology_consistent(compiled)
+    return compiled
 
 
 def validate_decision_dag(
@@ -698,23 +732,8 @@ def traverse_decision_dag(
             f"unsupported traversal mode: {traversal_mode}",
         )
 
-    node_ids = {n.node_id for n in dag.nodes}
-    topo_ids = set(dag.topological_order)
-    if topo_ids != node_ids or len(dag.topological_order) != len(dag.nodes):
-        raise DecisionDAGError(
-            ERR_TRAVERSAL_CYCLE_STATE_INVALID,
-            "compiled dag topological order is inconsistent with nodes",
-        )
-    topo_pos = {nid: idx for idx, nid in enumerate(dag.topological_order)}
-    if any(
-        topo_pos[e.source_node_id] >= topo_pos[e.target_node_id]
-        for e in dag.edges
-    ):
-        raise DecisionDAGError(
-            ERR_TRAVERSAL_CYCLE_STATE_INVALID,
-            "compiled dag topological order violates edge ordering",
-        )
-    if start not in node_ids:
+    _assert_compiled_topology_consistent(dag)
+    if start not in {n.node_id for n in dag.nodes}:
         raise DecisionDAGError(
             ERR_TRAVERSAL_START_INVALID,
             f"start node not in dag: {start}",

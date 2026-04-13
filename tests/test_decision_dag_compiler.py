@@ -467,6 +467,29 @@ def test_traverse_rejects_invalid_cycle_state():
     assert excinfo.value.code == ERR_TRAVERSAL_CYCLE_STATE_INVALID
 
 
+def test_traverse_rejects_edge_with_unknown_node_id():
+    raw = _simple_dag_input()
+    dag = compile_decision_dag(raw)
+    ghost_edge = DecisionDAGEdge(
+        edge_id="e-ghost",
+        source_node_id="n-a",
+        target_node_id="n-unknown",
+        edge_kind="depends_on",
+        edge_weight=1.0,
+        creation_epoch=99,
+    )
+    broken = CompiledDecisionDAG(
+        dag_id=dag.dag_id,
+        nodes=dag.nodes,
+        edges=dag.edges + (ghost_edge,),
+        topological_order=dag.topological_order,
+        dag_hash=dag.dag_hash,
+    )
+    with pytest.raises(DecisionDAGError) as excinfo:
+        traverse_decision_dag(broken, "n-a", "topological")
+    assert excinfo.value.code == ERR_TRAVERSAL_CYCLE_STATE_INVALID
+
+
 def test_traverse_receipt_hash_determinism():
     raw = _simple_dag_input()
     dag = compile_decision_dag(raw)

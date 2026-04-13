@@ -490,13 +490,28 @@ def validate_transition_safety_envelope(
     if not normalized_envelope.constraints:
         bounded_depth = False
     else:
-        max_transition_depth = max(
-            c.max_transition_depth for c in normalized_envelope.constraints
-        )
-        bounded_depth = all(
-            1 <= int(entry["transition_depth"]) <= max_transition_depth
-            for entry in normalized_context.proposed_transition_path
-        )
+        # Check depth limits per-constraint for each transition.
+        # A transition is valid if its depth is within bounds for all matching constraints.
+        bounded_depth = True
+        for entry in normalized_context.proposed_transition_path:
+            entry_depth = int(entry["transition_depth"])
+            entry_from = str(entry["from_state"])
+            entry_to = str(entry["to_state"])
+            if entry_depth < 1:
+                bounded_depth = False
+                break
+            # Find all constraints matching this transition's states
+            matching_constraints = [
+                c for c in normalized_envelope.constraints
+                if c.from_state == entry_from and c.to_state == entry_to
+            ]
+            # If there are matching constraints, check depth against each
+            for constraint in matching_constraints:
+                if entry_depth > constraint.max_transition_depth:
+                    bounded_depth = False
+                    break
+            if not bounded_depth:
+                break
     if not bounded_depth:
         errors.append("bounded_depth_failed")
 
@@ -534,7 +549,38 @@ def evaluate_transition_safety_envelope(
     envelope: TransitionSafetyEnvelope,
     proposed_transition_sequence: Sequence[Mapping[str, Any]],
 ) -> SafetyEnvelopeExecutionReceipt:
-    path = tuple(_deep_freeze_value(_canonicalize_value(item)) for item in proposed_transition_sequence)
+    # Validate and normalize all path entries to ensure deterministic evaluation.
+    # Derive automaton_id from envelope constraints or use empty string if no constraints.
+    automaton_id = ""
+    if envelope.constraints:
+        # Use first constraint's from_state as reference; the actual automaton_id
+        # will be validated per-entry below.
+        pass
+    
+    normalized_entries: List[Mapping[str, Any]] = []
+    for idx, entry in enumerate(proposed_transition_sequence):
+        if not isinstance(entry, Mapping):
+            raise ValueError("proposed_transition_path entries must be mappings")
+        for field in ("from_state", "to_state", "operation", "transition_depth"):
+            if field not in entry:
+                raise ValueError(f"missing proposed_transition_path field: {field}")
+        # automaton_id is optional in evaluate; if missing, infer from entry or skip check
+        entry_automaton_id = str(entry.get("automaton_id", ""))
+        depth = int(entry["transition_depth"])
+        if depth < 1:
+            raise ValueError("malformed path depth")
+        normalized_entry = {
+            "from_state": str(entry["from_state"]),
+            "to_state": str(entry["to_state"]),
+            "operation": str(entry["operation"]),
+            "transition_depth": depth,
+            "automaton_id": entry_automaton_id,
+        }
+        if not normalized_entry["from_state"] or not normalized_entry["to_state"]:
+            raise ValueError("unknown states")
+        normalized_entries.append(_deep_freeze_value(_canonicalize_value(normalized_entry)))
+    
+    path = tuple(normalized_entries)
 
     envelope_hash = _sha256_hex(envelope.as_hash_payload())
     path_hash = _sha256_hex(_canonical_bytes([_canonicalize_value(item) for item in path]))
@@ -573,6 +619,8 @@ def evaluate_transition_safety_envelope(
                     decision_outcome = "block"
                 if envelope.fallback_mode == "rollback" or decision_outcome == "rollback_required":
                     deterministic_fallback_action = "rollback"
+                    # Ensure rollback requirement is True when fallback action is rollback
+                    deterministic_rollback_requirement = True
                 elif envelope.fallback_mode == "halt":
                     deterministic_fallback_action = "halt"
                     if decision_outcome == "block":

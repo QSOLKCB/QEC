@@ -30,7 +30,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
-from typing import Any, Dict, Iterable, List, Mapping, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Sequence, Tuple, Union
+
+
+# Sentinel prefix that marks a constraint as intentionally failing under
+# the deterministic verifier. Centralized here so obligation encoders and
+# verification logic share a single contract.
+CONSTRAINT_FAILURE_SENTINEL: str = "FAIL:"
+
+
+def _is_constraint_failure(constraint: str) -> bool:
+    """Return True iff a constraint literal marks a deterministic failure."""
+    return constraint.startswith(CONSTRAINT_FAILURE_SENTINEL)
 
 
 _ALLOWED_PROOF_KINDS: Tuple[str, ...] = (
@@ -93,14 +104,19 @@ def _sha256_hex(payload: bytes) -> str:
 
 
 def _normalize_constraint_group(raw: Any, label: str) -> Tuple[str, ...]:
+    # Determinism contract: only ordered sequence inputs (list / tuple) are
+    # accepted. Unordered iterables (set / frozenset / generator) and
+    # mappings are rejected explicitly so input iteration order cannot leak
+    # into SMT-LIB text or proof hashes.
     if raw is None:
         raise ValueError(f"malformed constraint in {label}")
     if isinstance(raw, (str, bytes)):
         raise ValueError(f"malformed constraint in {label}")
-    try:
-        items = list(raw)
-    except TypeError as exc:
-        raise ValueError(f"malformed constraint in {label}") from exc
+    if isinstance(raw, Mapping):
+        raise ValueError(f"malformed constraint in {label}")
+    if not isinstance(raw, (list, tuple)):
+        raise ValueError(f"malformed constraint in {label}")
+    items: Sequence[Any] = raw
     normalized: List[str] = []
     for item in items:
         if not isinstance(item, str):
@@ -513,7 +529,7 @@ def _constraint_failures(obligation: ControlProofObligation) -> Tuple[str, ...]:
     failures: List[str] = []
     for group in _CONSTRAINT_GROUPS:
         for constraint in getattr(obligation, group):
-            if constraint.startswith("FAIL:"):
+            if _is_constraint_failure(constraint):
                 failures.append(f"{group}:{constraint}")
     return tuple(failures)
 
@@ -546,6 +562,27 @@ def verify_control_proof_sequence(
     if solver_target not in _ALLOWED_SOLVERS:
         raise ValueError(f"invalid solver target: {solver_target}")
 
+    def _invalid_artifact() -> ProofVerificationReport:
+        return ProofVerificationReport(
+            solver_target=solver_target,
+            verification_status="invalid_artifact",
+            proof_artifact_hash="",
+            replay_identity_hash="",
+            obligations_passed=(),
+            obligations_failed=(),
+            latency_ms=0,
+        )
+
+    # Structural guard: proof_obligations must be a tuple of
+    # ControlProofObligation instances. Any tampering with the container
+    # shape or element type maps to a deterministic invalid_artifact
+    # outcome rather than an uncaught AttributeError/TypeError.
+    if not isinstance(sequence.proof_obligations, tuple):
+        return _invalid_artifact()
+    for entry in sequence.proof_obligations:
+        if not isinstance(entry, ControlProofObligation):
+            return _invalid_artifact()
+
     # Recompute canonical control hash and base artifact hash to guard
     # against tampering; any mismatch yields invalid_artifact deterministically.
     try:
@@ -561,16 +598,8 @@ def verify_control_proof_sequence(
             recomputed_base_hash,
             sequence.proof_obligations,
         )
-    except ValueError:
-        return ProofVerificationReport(
-            solver_target=solver_target,
-            verification_status="invalid_artifact",
-            proof_artifact_hash="",
-            replay_identity_hash="",
-            obligations_passed=(),
-            obligations_failed=(),
-            latency_ms=0,
-        )
+    except (ValueError, TypeError, AttributeError):
+        return _invalid_artifact()
 
     integrity_ok = (
         recomputed_control_hash == sequence.canonical_control_hash
@@ -579,17 +608,16 @@ def verify_control_proof_sequence(
     )
 
     if not integrity_ok:
-        return ProofVerificationReport(
-            solver_target=solver_target,
-            verification_status="invalid_artifact",
-            proof_artifact_hash="",
-            replay_identity_hash="",
-            obligations_passed=(),
-            obligations_failed=(),
-            latency_ms=0,
-        )
+        return _invalid_artifact()
 
-    artifact = export_smtlib_proof_artifact(sequence, solver_target)
+    # Export is wrapped defensively so that any current or future
+    # artifact-level error surfaces as a deterministic invalid_artifact
+    # report rather than an uncaught exception.
+    try:
+        artifact = export_smtlib_proof_artifact(sequence, solver_target)
+    except (ValueError, TypeError, AttributeError):
+        return _invalid_artifact()
+
     replay_identity_hash = _replay_identity_hash(
         sequence.canonical_control_hash, artifact.export_hash, solver_target
     )

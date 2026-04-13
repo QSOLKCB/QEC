@@ -147,6 +147,27 @@ def test_normalize_rejects_string_as_constraint_group():
         normalize_control_proof_obligation(dto)
 
 
+def test_normalize_rejects_unordered_set_constraint_group():
+    dto = _obligation()
+    dto["state_constraints"] = {"S0_safe", "S1_safe"}
+    with pytest.raises(ValueError, match="malformed constraint"):
+        normalize_control_proof_obligation(dto)
+
+
+def test_normalize_rejects_generator_constraint_group():
+    dto = _obligation()
+    dto["transition_constraints"] = (c for c in ("T01_legal",))
+    with pytest.raises(ValueError, match="malformed constraint"):
+        normalize_control_proof_obligation(dto)
+
+
+def test_normalize_rejects_mapping_constraint_group():
+    dto = _obligation()
+    dto["rollback_constraints"] = {"rb_leq_3": True}
+    with pytest.raises(ValueError, match="malformed constraint"):
+        normalize_control_proof_obligation(dto)
+
+
 def test_normalize_rejects_zero_latency_budget():
     dto = _obligation(latency_budget_ms=0)
     with pytest.raises(ValueError, match="invalid latency budget"):
@@ -307,6 +328,61 @@ def test_verify_detects_tampered_sequence_as_invalid_artifact():
         proof_obligations=sequence.proof_obligations,
         canonical_control_hash=sequence.canonical_control_hash,
         proof_hash="0" * 64,
+        smtlib_artifact_hash=sequence.smtlib_artifact_hash,
+    )
+    report = verify_control_proof_sequence(tampered, "z3")
+    assert report.verification_status == "invalid_artifact"
+    assert report.proof_artifact_hash == ""
+    assert report.replay_identity_hash == ""
+
+
+def test_verify_detects_tampered_canonical_control_hash_as_invalid_artifact():
+    sequence = _build_sequence()
+    tampered = ProofCarryingControlSequence(
+        sequence_id=sequence.sequence_id,
+        proof_obligations=sequence.proof_obligations,
+        canonical_control_hash="0" * 64,
+        proof_hash=sequence.proof_hash,
+        smtlib_artifact_hash=sequence.smtlib_artifact_hash,
+    )
+    report = verify_control_proof_sequence(tampered, "z3")
+    assert report.verification_status == "invalid_artifact"
+
+
+def test_verify_detects_tampered_smtlib_artifact_hash_as_invalid_artifact():
+    sequence = _build_sequence()
+    tampered = ProofCarryingControlSequence(
+        sequence_id=sequence.sequence_id,
+        proof_obligations=sequence.proof_obligations,
+        canonical_control_hash=sequence.canonical_control_hash,
+        proof_hash=sequence.proof_hash,
+        smtlib_artifact_hash="0" * 64,
+    )
+    report = verify_control_proof_sequence(tampered, "z3")
+    assert report.verification_status == "invalid_artifact"
+
+
+def test_verify_detects_non_tuple_proof_obligations_as_invalid_artifact():
+    sequence = _build_sequence()
+    tampered = ProofCarryingControlSequence(
+        sequence_id=sequence.sequence_id,
+        proof_obligations=list(sequence.proof_obligations),  # type: ignore[arg-type]
+        canonical_control_hash=sequence.canonical_control_hash,
+        proof_hash=sequence.proof_hash,
+        smtlib_artifact_hash=sequence.smtlib_artifact_hash,
+    )
+    report = verify_control_proof_sequence(tampered, "z3")
+    assert report.verification_status == "invalid_artifact"
+    assert report.proof_artifact_hash == ""
+
+
+def test_verify_detects_non_obligation_entries_as_invalid_artifact():
+    sequence = _build_sequence()
+    tampered = ProofCarryingControlSequence(
+        sequence_id=sequence.sequence_id,
+        proof_obligations=({"not": "a dataclass"},),  # type: ignore[arg-type]
+        canonical_control_hash=sequence.canonical_control_hash,
+        proof_hash=sequence.proof_hash,
         smtlib_artifact_hash=sequence.smtlib_artifact_hash,
     )
     report = verify_control_proof_sequence(tampered, "z3")

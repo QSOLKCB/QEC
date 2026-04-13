@@ -1,271 +1,306 @@
-# QSOL QEC — Canonical Deterministic Systems Roadmap
+# QSOLKCB / QEC
+## Canonical ROADMAP
+### Deterministic Quantum Error Correction • Replay-Safe Systems • Formal Control Architecture
 
-**Branch:** canonical deterministic systems line  
-**Current Stable Release:** `v137.14.0`  
-**Current Active Target:** `v137.14.1 — Fisher–Rao Geometry Approximation Layer`
-
-This roadmap supersedes all previous roadmap versions.
-
-The `v137.x.x` line remains the canonical deterministic systems branch.
-
-The project continues its evolution from:
-
-**deterministic runtime architecture**
-
-into
-
-**deterministic operating substrate architecture**
-
-while preserving:
-
-- release traceability
-- deterministic replay lineage
-- stable schema continuity
-- paper-friendly benchmark progression
-- formal verification pathways
-- operator-safe control sequencing
+> Canonical engineering law document  
+> Published release tags are authoritative  
+> Same input = same bytes  
 
 ---
 
-# CORE LAW
+# HARD LAW
+
+## Core Architectural Law
+
+**Determinism is architecture.**
+
+Every subsystem in QEC must preserve:
 
 ```text
-Determinism is architecture.
 same input = same bytes
+same state = same hash
+same replay = same artifact
 
-Mandatory invariants:
+This law supersedes convenience, performance shortcuts, and speculative features.
 
-frozen dataclasses
-canonical JSON / bytes export
-stable SHA-256 replay identity
-deterministic ordering
-deterministic tie-breaking
-fail-fast validation
-immutable artifact snapshots
-explicit evidence receipts
-bounded scores only
-schema migration contracts
-append-only provenance where applicable
+No release may violate:
 
-src/qec/decoder/ remains sacred infrastructure.
+deterministic execution
+stable serialization
+replay-safe lineage
+proof-auditable control
+bounded failure modes
+CANONICAL TIP
+Stable Tip
 
-No roadmap arc may violate this.
+v137.14.5 — Information-Geometric Certification Pack
 
-GOVERNING PRINCIPLE
-state evolution through constrained geometry
+This is the current canonical release anchor.
 
-This principle unifies:
-
-governed planning
-episodic memory
-topology / manifold traversal
-noisy communication channels
-spectral signal recovery
-scientific reasoning
-proof-carrying skepticism
-heterogeneous compute acceleration
-neuromorphic simulation
-synthetic signal abstraction
-divergence geometry
-formal control sequencing
-safety-first routines
-bounded memory systems
-deterministic scheduler evolution
-kernelisation pathways
-RELEASE-HISTORY RULE
-
-Published tags are authoritative.
-
-If a roadmap draft differs from tagged releases, the tagged releases win.
-
-This explicitly applies to all v137.x.x arcs.
-
-COMPLETED CANONICAL ARCS
-v137.7.x — Hierarchical Memory + Episodic Geometry
-
-Status: COMPLETE
-
-v137.7.0 — Raw → Episode Hierarchy
-v137.7.1 — Semantic → Theme Compaction
-v137.7.2 — Hash-Preserving Compression Chain + Sonification Projection
-v137.7.3 — Fragmentation Recovery Engine
-v137.7.4 — Memory Fidelity Benchmark
-v137.8.x — Geometry + Topology Reasoning Kernel
-
-Status: COMPLETE
-
-v137.8.0 — Topological Graph Kernel
-v137.8.1 — Polytope Reasoning Engine
-v137.8.2 — E8 Symmetry Projection Layer
-v137.8.3 — Manifold Traversal Planner
-v137.8.4 — Topology Divergence Battery
-v137.8.5 — Arithmetic Topology Correspondence Engine
-v137.9.x — Signal + Channel Recovery + Physics-Aware Reasoning
-
-Status: COMPLETE
-
-v137.9.0 — Multimodal Feature Schema
-v137.9.1 — Spectral Reasoning Layer
-v137.9.2 — Legacy Copper Noise Channel Battery
-v137.9.3 — Telecom Line Recovery + Carrier Synchronization
-v137.9.4 — Satellite Signal Baseline + Orbital Noise Envelope
-v137.9.5 — RF Equalization + Ground Station Compensation
-v137.10.x — Scientific Reasoning + Claim Audit Geometry
-
-Status: COMPLETE
-
-v137.10.0 — Hypothesis Lattice
-v137.10.1 — Experiment DSL
-v137.10.2 — Evidence Lineage Engine
-v137.10.3 — Claim Audit Kernel
-v137.10.4 — Scientific Replay Battery
-v137.10.5 — Proof Obligation Extractor
-v137.10.6 — Numerological Phenomenology Rejection Battery
-v137.10.7 — Scientific Certification Kernel
-v137.11.x — Heterogeneous Compute + Hardware Acceleration
-
-Status: COMPLETE
-
-v137.11.0 — Deterministic Co-Processor Kernel
-v137.11.1 — Integer / Matrix Offload Engine
-v137.11.2 — Heterogeneous Scheduler
-v137.11.3 — Emulator-Grade Parallel Workload Splitter
-v137.11.4 — Hardware Replay Battery
-v137.11.5 — Neural Compression Sidecar
-v137.11.6 — Deterministic Latent Decode Lane
-v137.11.7 — Memory Traffic Reduction Battery
-v137.12.x — Neuromorphic + Hybrid Biological Compute Research
-
-Status: COMPLETE
-
-v137.12.0 — Neuromorphic Substrate Simulator
-v137.12.1 — Hybrid Signal Interface Layer
-v137.12.2 — Bio-Signal Benchmark Battery
-v137.12.3 — Hybrid Replay Certification
-v137.12.4 — Experimental Research Pack
-
-Rule:
-
-simulation-first only
-no biological claims without evidence receipts
-v137.13.x — Synthetic Signal Geometry + Morphology Abstraction
-
-Status: COMPLETE
-
-v137.13.0 — Synthetic Signal Geometry Kernel
-v137.13.1 — Morphology Transition Kernel
-v137.13.2 — Phase Boundary Topology Kernel
-v137.13.3 — Region Correspondence Kernel
-v137.13.4 — Signal Abstraction Certification Battery
-ACTIVE ARC
-v137.14.x — Divergence Geometry + Information Metrics
-
-Status: ACTIVE
-
-Completed:
+Completed ladder:
 
 v137.14.0 — Jensen–Shannon Signal Divergence Kernel
-
-Planned:
-
 v137.14.1 — Fisher–Rao Geometry Approximation Layer
 v137.14.2 — Bregman / f-Divergence Correspondence Engine
-v137.14.3 — Divergence Topology Battery
-v137.14.4 — Information-Geometric Certification Pack
-
-Interpretation:
-
-signal abstraction
-→ divergence geometry
-→ manifold discrepancy
-→ topology-aware divergence
-→ certified information metrics
-
-Hard rule:
-
-every divergence must be explicit,
-bounded where applicable,
-and replay-safe
-NEW APOLLO-INSPIRED CONTROL ARC
+v137.14.3 — Optimal Transport Geometry Kernel
+v137.14.4 — Information Geometry Consensus Kernel
+v137.14.5 — Information-Geometric Certification Pack
+ACTIVE ARC
 v137.15.x — Formal Control Sequencing + Safety Kernel
 
-Status: PLANNED
+This is now the primary active arc.
 
-Inspired by:
+Purpose:
 
-determinism
+deterministic control sequencing
 explicit state transitions
-hard real-time control
-minimal memory
-safety-first routines
-formal sequencing
+proof-carrying control
+safety-first agent gating
+replay-safe execution plans
+v137.15.0 → v137.15.5
+Control Foundations
 
-Planned:
+Focus:
 
-v137.15.0 — Deterministic Sequencing Controller
-v137.15.1 — Explicit State Transition Automata
-v137.15.2 — Real-Time Deterministic Scheduler Windows
-v137.15.3 — Bounded Control Memory Kernel
-v137.15.4 — Safety Trip + Abort Control Layer
-v137.15.5 — Formal Mission Sequence Engine
+deterministic sequence engine
+control AST normalization
+state transition validation
+collision prevention
+execution safety envelopes
+bounded fallback paths
+v137.15.6
+Proof-Carrying Control Sequence Engine
 
-Interpretation:
+HARD GATE RELEASE
 
-metrics
-→ explicit system state
-→ bounded transition rules
-→ deterministic control
-→ safety trip conditions
-→ replay-safe sequence receipts
+This release gates all downstream agentic and autonomy arcs.
 
-Hard law:
+Mandatory acceptance criteria
 
-all control paths must be explicit
-all abort paths must be deterministic
+Must pass ALL:
 
-This is now the canonical systems control + sequencing line.
+proof format stable
+SMT-LIB export stable
+Z3 / CVC5 verification pass
+control collision proofs pass
+replay identity tests pass
+latency budget within target
+proof artifact hash stable
+canonical bytes stable
 
-FUTURE SYSTEM ARCS
-v137.16.x — Codebase Memory + Decision Compiler
-v137.17.x — Autonomous Research Orchestration
-v137.18.x — Agentic Governance + World-Model Control
-v137.19.x — Autonomous Quantum Operations
-v137.20.x — Temporal Hardware + Streaming Compute
-v137.21+ — Kernelisation + Formal Methods
+Until this release is complete:
 
-These remain structurally valid and should be treated as downstream roadmap lines.
+v137.16.x
+v137.17.x
+v137.18.x
 
+must not begin implementation
+
+PARALLEL MID-TERM TRACKS
+
+These tracks may begin only after v137.15.6 is complete
+
+v137.16.x
+Codebase Memory + Decision Compiler
+
+Purpose:
+
+deterministic memory graph
+decision DAG compiler
+codebase topology indexing
+replay-safe reasoning graph
+v137.17.x
+Autonomous Research Orchestration
+
+Purpose:
+
+bounded hypothesis generation
+deterministic experiment scheduling
+benchmark-first automation
+research trace lineage
+
+Output contracts must be explicitly compatible with v137.18.x.
+
+v137.18.x
+Agentic Governance + Safety Layer
+
+Purpose:
+
+proof-carrying agent actions
+governance audit trails
+hard execution constraints
+bounded autonomy
+required bridge
+
+v137.18.0.5 — deterministic agent simulation sandbox
+
+This must land before governance enforcement.
+
+QUANTUM + COMPUTE TRACKS
+
+These tracks are allowed in parallel after v137.15.6.
+
+v137.19.x
+Quantum Noise + Co-Processor Determinism
+v137.19.0
+
+Quantum Vacuum Noise Characterization Kernel
+
+Purpose:
+
+deterministic decoherence envelope
+coherent deviation bounds
+non-stochastic failure modeling
+v137.19.1
+
+Quantum Co-Processor Determinism Kernel
+
+Purpose:
+
+GPU / TPU determinism
+replay-safe co-processor orchestration
+bounded inference variance
+v137.20.x
+Hardware + Streaming Compute
+
+These are explicitly parallelized.
+
+v137.20.0
+
+2D Substrate Determinism Characterization Kernel
+
+Purpose:
+
+hardware timing profile
+propagation mismatch mapping
+scheduler substrate profile
+replay batteries per substrate
+v137.20.1
+
+Deterministic Spectral KV Compression Kernel
+
+Purpose:
+
+Fourier / Chebyshev basis compression
+deterministic cache index mapping
+orthogonality certificates
+memory footprint reduction
+
+This release may proceed in parallel with v137.20.0.
+
+It is NOT hard-gated by substrate characterization.
+
+v137.20.2
+
+Streaming Scheduler + Memory Pressure Adaptor
+
+Dependencies:
+
+v137.20.0 complete
+v137.20.1 complete
+
+Purpose:
+
+deterministic compression scaling
+bounded latency degradation
+scheduler adaptation proofs
+FORMAL METHODS CONSOLIDATION
+v137.21-fm.0
+Proof Obligation Consolidation
+
+Purpose:
+
+unified proof taxonomy
+proof composition rules
+cross-arc proof compatibility
+verification latency battery
+
+This must consolidate:
+
+control proofs
+agent proofs
+compute proofs
+hardware proofs
+v137.21.x
+Kernelisation + Formal Methods
+
+Purpose:
+
+proof-aware kernel exports
+canonical verification interface
+deterministic formal runtime substrate
+LONG HORIZON
+v138.x
+Deterministic Runtime + Throughput Architecture
+
+These arcs are partially parallel.
+
+v138.0.x
+Secure Deterministic Runtime
+deterministic client
+sandbox runtime
+strict preemption
+bounded external execution
+v138.1.x
+Resource-Bounded Optimization
+resource accounting
+deterministic scheduling economics
+bounded exploration
+constrained optimization
+v138.2.x
+Cross-Substrate Certification
+portability proofs
+replay validation
+substrate certification
+v138.3.x
+Human-Auditable Autonomy
+proof summaries
+decision explanation
+verification checkpoints
+DEFERRED
+v139+
+Distributed Deterministic Consensus + Lattice Expansion
+
+Deferred until:
+
+v138.x stable
+proof stack mature
+runtime substrate validated
+
+Includes:
+
+distributed consensus
+large lattice expansion
+telemetry integration
+advanced substrate experimentation
 BENCHMARK LAW
 
-Every release must pass relevant batteries:
+Every release must include:
 
-byte identity battery
-replay battery
-canonical export battery
-stable hash battery
-divergence certification battery
-scheduler replay battery
-safety-trip battery
-rollback battery
-formal sequencing battery
-ENGINEERING DISCIPLINE
+deterministic replay tests
+stable artifact hashing
+regression battery
+benchmark thresholds
+failure boundary checks
 
-Every release must be:
+Untested code is unshipped code.
+
+Unbenchmarked architecture is roadmap drift.
+
+RELEASE LAW
+
+Each release must remain:
 
 narrow
 truthfully named
 additive by default
-deterministic
 benchmarkable
-paper-friendly
-replay-safe
-proof-auditable
+merge-safe
+replay-auditable
 
-Avoid:
+No mixed-purpose releases.
 
-mixed-purpose releases
-mutable artifact state
-benchmark theater
-numerological phenomenology
-ungrounded theoretical claims
-proof-shaped slop
+No speculative arc expansion without dependency justification.
+
+
+---

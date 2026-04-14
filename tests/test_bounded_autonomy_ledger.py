@@ -175,3 +175,47 @@ def test_dataclass_hash_methods() -> None:
     entry = ledger.entries[0]
     assert entry.stable_hash() == entry.continuity_hash
     assert ledger.stable_hash() == ledger.ledger_hash
+
+
+def test_allow_decision_inconsistency_in_raw_dict_rejected() -> None:
+    ledger = _build(1)
+    bad_dict = ledger.to_dict()
+    bad_dict["entries"][0]["allow"] = not bad_dict["entries"][0]["allow"]
+    report = validate_bounded_autonomy_ledger(bad_dict)
+    assert report["is_valid"] is False
+    assert report["violations"]
+
+
+def test_validator_detects_allow_decision_inconsistency() -> None:
+    ledger = _build(1)
+    entry = ledger.entries[0]
+    bad_entry = AutonomyLedgerEntry(
+        entry_index=entry.entry_index,
+        replay_identity=entry.replay_identity,
+        transition_id=entry.transition_id,
+        boundary_report_hash=entry.boundary_report_hash,
+        firewall_decision_hash=entry.firewall_decision_hash,
+        allow=not entry.allow,
+        decision=entry.decision,
+        rule_hit_reasons=entry.rule_hit_reasons,
+        prior_continuity_hash=entry.prior_continuity_hash,
+        continuity_hash=entry.continuity_hash,
+    )
+    bad = BoundedAutonomyLedger(
+        ledger_version=ledger.ledger_version,
+        entries=(bad_entry,),
+        receipt_chain=ledger.receipt_chain,
+        ledger_hash=ledger.ledger_hash,
+    )
+    report = validate_bounded_autonomy_ledger(bad)
+    assert "allow/decision inconsistency" in report["violations"]
+
+
+def test_replay_comparison_asymmetric_normalization_failure() -> None:
+    ledger_a = _build(2)
+    bad_dict = {"entries": "not-a-sequence", "ledger_version": LEDGER_VERSION}
+    cmp = compare_autonomy_ledger_replay(ledger_a, bad_dict)
+    assert cmp["replay_stable"] is False
+    assert cmp["ledger_hash_match"] is False
+    assert cmp["receipt_chain_match"] is False
+    assert cmp["replay_identity_match"] is False

@@ -48,8 +48,8 @@ def _normalize_decision(value: Any) -> str:
 
 
 def _normalize_reasons(reasons: Sequence[Any]) -> Tuple[str, ...]:
-    normalized = sorted({_normalize_non_empty(item) for item in reasons if _normalize_non_empty(item)})
-    return tuple(normalized)
+    normed = [_normalize_non_empty(item) for item in reasons]
+    return tuple(sorted({n for n in normed if n}))
 
 
 @dataclass(frozen=True)
@@ -221,14 +221,22 @@ def _to_entry(raw: EntryLike) -> AutonomyLedgerEntry:
     reasons_raw = raw.get("rule_hit_reasons", ())
     if not isinstance(reasons_raw, Sequence) or isinstance(reasons_raw, (str, bytes)):
         raise ValueError("rule_hit_reasons must be a sequence")
+    decision = _normalize_decision(raw.get("decision", ""))
+    expected_allow = decision == "allow"
+    raw_allow = raw.get("allow")
+    if raw_allow is not None:
+        if not isinstance(raw_allow, bool):
+            raise ValueError(f"allow must be bool, got {type(raw_allow).__name__!r}")
+        if raw_allow != expected_allow:
+            raise ValueError(f"allow={raw_allow!r} contradicts decision={decision!r}")
     return AutonomyLedgerEntry(
         entry_index=int(raw.get("entry_index", -1)),
         replay_identity=replay_identity,
         transition_id=transition_id,
         boundary_report_hash=_normalize_hash(raw.get("boundary_report_hash", "")),
         firewall_decision_hash=_normalize_hash(raw.get("firewall_decision_hash", "")),
-        allow=bool(raw.get("allow", False)),
-        decision=_normalize_decision(raw.get("decision", "")),
+        allow=expected_allow,
+        decision=decision,
         rule_hit_reasons=_normalize_reasons(reasons_raw),
         prior_continuity_hash=_normalize_hash(raw.get("prior_continuity_hash", "")),
         continuity_hash=_normalize_hash(raw.get("continuity_hash", "")),
@@ -451,6 +459,8 @@ def validate_bounded_autonomy_ledger(ledger: LedgerLike) -> Dict[str, Any]:
         if entry.firewall_decision_hash in seen_decision_hashes:
             violations.append("duplicate decision hash")
         seen_decision_hashes.add(entry.firewall_decision_hash)
+        if entry.allow != (entry.decision == "allow"):
+            violations.append("allow/decision inconsistency")
         prior_hash = entry.continuity_hash
 
     if normalized.receipt_chain:
@@ -496,12 +506,30 @@ def compare_autonomy_ledger_replay(run_a_ledger: LedgerLike, run_b_ledger: Ledge
     report_a = validate_bounded_autonomy_ledger(run_a_ledger)
     report_b = validate_bounded_autonomy_ledger(run_b_ledger)
 
+    _empty = BoundedAutonomyLedger(LEDGER_VERSION, (), (), _compute_ledger_hash((), (), LEDGER_VERSION))
+    a_failed = False
+    b_failed = False
+
     try:
         ledger_a = _normalize_ledger(run_a_ledger)
+    except Exception:
+        ledger_a = _empty
+        a_failed = True
+
+    try:
         ledger_b = _normalize_ledger(run_b_ledger)
     except Exception:
-        ledger_a = BoundedAutonomyLedger(LEDGER_VERSION, (), (), _compute_ledger_hash((), (), LEDGER_VERSION))
-        ledger_b = ledger_a
+        ledger_b = _empty
+        b_failed = True
+
+    if a_failed or b_failed:
+        return {
+            "replay_stable": False,
+            "ledger_hash_match": False,
+            "receipt_chain_match": False,
+            "replay_identity_match": False,
+            "violations": tuple(sorted(set(report_a["violations"] + report_b["violations"]))),
+        }
 
     replay_identity_match = tuple(entry.replay_identity for entry in ledger_a.entries) == tuple(
         entry.replay_identity for entry in ledger_b.entries
@@ -525,7 +553,7 @@ def compare_autonomy_ledger_replay(run_a_ledger: LedgerLike, run_b_ledger: Ledge
         "ledger_hash_match": ledger_hash_match,
         "receipt_chain_match": receipt_chain_match,
         "replay_identity_match": replay_identity_match,
-        "violations": tuple(sorted(set(tuple(report_a["violations"]) + tuple(report_b["violations"]) + tuple(violations)))),
+        "violations": tuple(sorted(set(report_a["violations"] + report_b["violations"] + tuple(violations)))),
     }
 
 

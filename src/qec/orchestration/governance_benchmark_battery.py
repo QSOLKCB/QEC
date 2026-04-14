@@ -262,7 +262,9 @@ def _build_result(simulation_index: int, simulation: DeterministicAgentSimulatio
         for step in ordered_trace
         if (
             bool(step.simulated_boundary_result.get("violations", ()))
-            or not bool(step.simulated_boundary_result.get("audit_receipt", {}).get("within_boundary", False))
+            or bool(step.simulated_boundary_result.get("violated_rules", ()))
+            or bool(step.simulated_boundary_result.get("findings", ()))
+            or not bool(step.simulated_boundary_result.get("within_boundary", True))
         )
     )
     replay_step_signature = _sha256_hex(

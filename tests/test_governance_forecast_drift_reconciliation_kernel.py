@@ -425,3 +425,88 @@ def test_dataclass_support_methods() -> None:
     assert metric.stable_hash() == metric.stable_hash()
     assert receipt.stable_hash() == receipt.receipt_hash
     assert kernel.stable_hash() == kernel.reconciliation_hash
+
+
+def test_metric_pairing_is_stable_for_reordered_realized_rows() -> None:
+    forecast_series = (
+        {
+            "evolution_id": "e0",
+            "projected_stability": 0.9,
+            "projected_severity": 0.1,
+            "continuity_expected": True,
+            "replay_identity": "r0",
+        },
+        {
+            "evolution_id": "e1",
+            "projected_stability": 0.2,
+            "projected_severity": 0.8,
+            "continuity_expected": False,
+            "replay_identity": "r1",
+        },
+    )
+    realized_base = (
+        {
+            "evolution_id": "e0",
+            "stability_realized": 0.9,
+            "severity": 0.1,
+            "continuity_ok": True,
+            "replay_identity": "r0",
+        },
+        {
+            "evolution_id": "e1",
+            "stability_realized": 0.2,
+            "severity": 0.8,
+            "continuity_ok": False,
+            "replay_identity": "r1",
+        },
+    )
+    realized_swapped = (realized_base[1], realized_base[0])
+    drift_series = ()
+
+    kernel_a = run_governance_forecast_reconciliation(
+        scenario=build_forecast_reconciliation_scenario(
+            scenario_id="row-order-a",
+            forecast_series=forecast_series,
+            realized_evolution_series=realized_base,
+            realized_drift_series=drift_series,
+        )
+    )
+    kernel_b = run_governance_forecast_reconciliation(
+        scenario=build_forecast_reconciliation_scenario(
+            scenario_id="row-order-b",
+            forecast_series=forecast_series,
+            realized_evolution_series=realized_swapped,
+            realized_drift_series=drift_series,
+        )
+    )
+
+    assert tuple(metric.metric_value for metric in kernel_a.metrics) == tuple(metric.metric_value for metric in kernel_b.metrics)
+
+
+def test_validator_checks_full_receipt_integrity() -> None:
+    f, e, d = _accurate_inputs()
+    scenario = build_forecast_reconciliation_scenario(
+        scenario_id="receipt-integrity",
+        forecast_series=f,
+        realized_evolution_series=e,
+        realized_drift_series=d,
+    )
+    kernel = run_governance_forecast_reconciliation(scenario=scenario)
+    forged_receipt = ForecastReconciliationReceipt(
+        scenario_hash="0" * 64,
+        metrics_hash=kernel.receipt.metrics_hash,
+        reconciliation_hash="1" * 64,
+        replay_reconciliation_score=kernel.receipt.replay_reconciliation_score,
+        receipt_hash=kernel.receipt.receipt_hash,
+    )
+    forged_kernel = GovernanceForecastDriftReconciliationKernel(
+        scenario=kernel.scenario,
+        metrics=kernel.metrics,
+        violations=kernel.violations,
+        receipt=forged_receipt,
+        reconciliation_hash=kernel.reconciliation_hash,
+    )
+    violations = validate_forecast_reconciliation(forged_kernel)
+    assert "receipt_scenario_hash_mismatch" in violations
+    assert "receipt_reconciliation_hash_mismatch" in violations
+    assert "receipt_hash_mismatch" in violations

@@ -372,16 +372,30 @@ def _compute_metrics(scenario: ForecastReconciliationScenario) -> Tuple[Forecast
     evolutions = _ordered_realized_evolution_nodes(scenario.realized_evolution_series)
     drifts = _ordered_realized_drift_nodes(scenario.realized_drift_series)
 
-    pair_count = min(len(forecasts), len(evolutions))
+    evolutions_by_id: Dict[str, list[_RealizedEvolutionNode]] = {}
+    for realized in evolutions:
+        evolutions_by_id.setdefault(realized.evolution_id, []).append(realized)
+
+    evolution_match_index: Dict[str, int] = {}
+    matched_pairs: list[Tuple[_ForecastNode, _RealizedEvolutionNode]] = []
+    for forecast in forecasts:
+        realized_group = evolutions_by_id.get(forecast.evolution_id)
+        if not realized_group:
+            continue
+        group_index = evolution_match_index.get(forecast.evolution_id, 0)
+        if group_index >= len(realized_group):
+            continue
+        matched_pairs.append((forecast, realized_group[group_index]))
+        evolution_match_index[forecast.evolution_id] = group_index + 1
+
+    pair_count = len(matched_pairs)
     if pair_count > 0:
         error_sum = 0.0
         stability_error_sum = 0.0
         continuity_error_sum = 0.0
         severity_residual_sum = 0.0
         replay_match_sum = 0.0
-        for i in range(pair_count):
-            forecast = forecasts[i]
-            realized = evolutions[i]
+        for forecast, realized in matched_pairs:
             realized_instability = _clamp01((1.0 - realized.stability_realized + realized.severity) * 0.5)
             projected_instability = _clamp01((1.0 - forecast.projected_stability + forecast.projected_severity) * 0.5)
             error_sum += abs(projected_instability - realized_instability)
@@ -515,6 +529,35 @@ def validate_forecast_reconciliation(kernel: Any) -> Tuple[str, ...]:
                 expected_metrics_hash = _metrics_hash(metrics)
                 if expected_metrics_hash != actual_metrics_hash:
                     violations.append("receipt_metrics_hash_mismatch")
+
+            actual_scenario_hash = _safe_text(_field(receipt, "scenario_hash", "")).strip()
+            if actual_scenario_hash:
+                expected_scenario_hash = scenario.stable_hash()
+                if expected_scenario_hash != actual_scenario_hash:
+                    violations.append("receipt_scenario_hash_mismatch")
+
+            actual_reconciliation_hash = _safe_text(_field(receipt, "reconciliation_hash", "")).strip()
+            expected_reconciliation_hash = _safe_text(_field(kernel, "reconciliation_hash", "")).strip()
+            if actual_reconciliation_hash and expected_reconciliation_hash:
+                if actual_reconciliation_hash != expected_reconciliation_hash:
+                    violations.append("receipt_reconciliation_hash_mismatch")
+
+            actual_receipt_hash = _safe_text(_field(receipt, "receipt_hash", "")).strip()
+            if actual_receipt_hash:
+                replay_score_raw = _field(receipt, "replay_reconciliation_score", 0.0)
+                try:
+                    replay_score = float(replay_score_raw)
+                except Exception:
+                    replay_score = 0.0
+                expected_receipt_payload = {
+                    "scenario_hash": _safe_text(_field(receipt, "scenario_hash", "")).strip(),
+                    "metrics_hash": _safe_text(_field(receipt, "metrics_hash", "")).strip(),
+                    "reconciliation_hash": _safe_text(_field(receipt, "reconciliation_hash", "")).strip(),
+                    "replay_reconciliation_score": replay_score,
+                }
+                expected_receipt_hash = _sha256_hex(_canonical_json(expected_receipt_payload).encode("utf-8"))
+                if expected_receipt_hash != actual_receipt_hash:
+                    violations.append("receipt_hash_mismatch")
     except Exception as exc:
         violations.append(f"validator_internal_error:{_safe_text(exc)}")
 

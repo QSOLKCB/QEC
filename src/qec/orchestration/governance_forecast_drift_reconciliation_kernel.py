@@ -404,7 +404,10 @@ def _compute_metrics(scenario: ForecastReconciliationScenario) -> Tuple[Forecast
             projected_instability = _clamp01((1.0 - forecast.projected_stability + forecast.projected_severity) * 0.5)
             error_sum += abs(projected_instability - realized_instability)
             stability_error_sum += abs(forecast.projected_stability - realized.stability_realized)
-            continuity_error_sum += abs((1.0 if forecast.continuity_expected else 0.0) - (1.0 if realized.continuity_ok else 0.0))
+            continuity_error_sum += abs(
+                (1.0 if forecast.continuity_expected else 0.0)
+                - (1.0 if realized.continuity_ok else 0.0)
+            )
             severity_residual_sum += abs(forecast.projected_severity - realized.severity)
             replay_match = 1.0 if (
                 forecast.evolution_id == realized.evolution_id

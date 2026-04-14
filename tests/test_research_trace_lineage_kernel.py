@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from qec.orchestration.autonomous_research_orchestration_kernel import (
@@ -224,3 +226,55 @@ def test_canonical_export_stability() -> None:
     lineage = build_research_trace_lineage("canonical_export", plan, schedule, pipeline)
     assert lineage.to_canonical_json() == lineage.to_canonical_json()
     assert lineage.to_canonical_bytes() == lineage.to_canonical_bytes()
+
+
+def test_negative_edge_weight_rejection() -> None:
+    node_a = ResearchTraceNode("a", "plan", "plan:a", "a" * 64, 0)
+    node_b = ResearchTraceNode("b", "schedule", "schedule:b", "b" * 64, 0)
+    bad_edge = {
+        "edge_id": "e0",
+        "source_trace_id": "b",
+        "target_trace_id": "a",
+        "relation_kind": "derives_from",
+        "edge_weight": -1.0,
+        "trace_epoch": 0,
+    }
+    with pytest.raises(ValueError, match="non-negative and finite"):
+        normalize_research_trace_input((node_a, node_b), (bad_edge,))
+
+
+def test_nan_edge_weight_rejection() -> None:
+    node_a = ResearchTraceNode("a", "plan", "plan:a", "a" * 64, 0)
+    node_b = ResearchTraceNode("b", "schedule", "schedule:b", "b" * 64, 0)
+    bad_edge = {
+        "edge_id": "e0",
+        "source_trace_id": "b",
+        "target_trace_id": "a",
+        "relation_kind": "derives_from",
+        "edge_weight": math.nan,
+        "trace_epoch": 0,
+    }
+    with pytest.raises(ValueError, match="non-negative and finite"):
+        normalize_research_trace_input((node_a, node_b), (bad_edge,))
+
+
+def test_inf_edge_weight_rejection() -> None:
+    node_a = ResearchTraceNode("a", "plan", "plan:a", "a" * 64, 0)
+    node_b = ResearchTraceNode("b", "schedule", "schedule:b", "b" * 64, 0)
+    bad_edge = {
+        "edge_id": "e0",
+        "source_trace_id": "b",
+        "target_trace_id": "a",
+        "relation_kind": "derives_from",
+        "edge_weight": math.inf,
+        "trace_epoch": 0,
+    }
+    with pytest.raises(ValueError, match="non-negative and finite"):
+        normalize_research_trace_input((node_a, node_b), (bad_edge,))
+
+
+def test_unsupported_traversal_mode_rejection() -> None:
+    plan, schedule, pipeline = _sample_plan_schedule_pipeline()
+    lineage = build_research_trace_lineage("traversal_mode_test", plan, schedule, pipeline)
+    with pytest.raises(ValueError, match="unsupported traversal mode"):
+        traverse_research_trace_lineage(lineage, "unknown_mode")

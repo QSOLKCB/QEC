@@ -387,7 +387,7 @@ def build_research_trace_lineage(
             ResearchTraceNode(
                 trace_id=stage.stage_id,
                 trace_kind="stage",
-                source_ref=f"stage:{stage.input_ref}",
+                source_ref=f"stage:{stage.stage_id}",
                 trace_hash=_sha256_hex(stage.as_hash_payload()),
                 trace_epoch=stage.stage_epoch,
             )
@@ -446,10 +446,10 @@ def build_research_trace_lineage(
         )
     )
 
-    for idx, stage in enumerate(pipeline.stages):
+    for stage in pipeline.stages:
         edges.append(
             ResearchTraceEdge(
-                edge_id=_edge_id("scheduled_by", stage.stage_id, schedule.schedule_id, idx),
+                edge_id=_edge_id("scheduled_by", stage.stage_id, schedule.schedule_id, 0),
                 source_trace_id=stage.stage_id,
                 target_trace_id=schedule.schedule_id,
                 relation_kind="scheduled_by",
@@ -459,11 +459,16 @@ def build_research_trace_lineage(
         )
 
     stage_by_id = {stage.stage_id: stage for stage in pipeline.stages}
-    for idx, result in enumerate(pipeline.results):
-        stage = stage_by_id[result.stage_id]
+    for result in pipeline.results:
+        stage = stage_by_id.get(result.stage_id)
+        if stage is None:
+            raise ValueError(
+                "Pipeline result references missing stage: "
+                f"result_id={result.result_id!r}, stage_id={result.stage_id!r}"
+            )
         edges.append(
             ResearchTraceEdge(
-                edge_id=_edge_id("produced_by", result.result_id, stage.stage_id, idx),
+                edge_id=_edge_id("produced_by", result.result_id, stage.stage_id, 0),
                 source_trace_id=result.result_id,
                 target_trace_id=stage.stage_id,
                 relation_kind="produced_by",
@@ -566,14 +571,15 @@ def validate_research_trace_lineage(lineage: LineageLike) -> ResearchTraceValida
     for edge in candidate.edges:
         if edge.source_trace_id not in known_nodes or edge.target_trace_id not in known_nodes:
             reference_validity_ok = False
-            violations.append("invalid_edge_reference")
-            break
-        referenced_sources.add(edge.source_trace_id)
-        referenced_targets.add(edge.target_trace_id)
+            if "invalid_edge_reference" not in violations:
+                violations.append("invalid_edge_reference")
+        else:
+            referenced_sources.add(edge.source_trace_id)
+            referenced_targets.add(edge.target_trace_id)
         if edge.edge_weight < 0.0 or not math.isfinite(edge.edge_weight):
             weight_validity_ok = False
-            violations.append("invalid_edge_weight")
-            break
+            if "invalid_edge_weight" not in violations:
+                violations.append("invalid_edge_weight")
 
     if candidate.nodes:
         roots = [node.trace_id for node in candidate.nodes if node.trace_kind == "plan"]
@@ -615,6 +621,23 @@ def validate_research_trace_lineage(lineage: LineageLike) -> ResearchTraceValida
     )
 
 
+def _filter_traversal(
+    lineage: ResearchTraceLineage,
+    allowed_kinds: set,
+    allowed_relations: set,
+) -> Tuple[Tuple[ResearchTraceNode, ...], Tuple[ResearchTraceEdge, ...]]:
+    nodes = tuple(node for node in lineage.nodes if node.trace_kind in allowed_kinds)
+    node_ids = {node.trace_id for node in nodes}
+    edges = tuple(
+        edge
+        for edge in lineage.edges
+        if edge.relation_kind in allowed_relations
+        and edge.source_trace_id in node_ids
+        and edge.target_trace_id in node_ids
+    )
+    return nodes, edges
+
+
 def traverse_research_trace_lineage(
     lineage: ResearchTraceLineage,
     traversal_mode: str,
@@ -624,26 +647,26 @@ def traverse_research_trace_lineage(
         raise ValueError(f"unsupported traversal mode: {traversal_mode}")
 
     if traversal_mode == "lineage":
-        nodes = lineage.nodes
-        edges = lineage.edges
+        nodes: Tuple[ResearchTraceNode, ...] = lineage.nodes
+        edges: Tuple[ResearchTraceEdge, ...] = lineage.edges
     elif traversal_mode == "verification":
-        allowed_kinds = {"plan", "schedule", "stage", "result", "verification"}
-        allowed_relations = {"derives_from", "scheduled_by", "produced_by", "verified_by", "replays"}
-        nodes = tuple(node for node in lineage.nodes if node.trace_kind in allowed_kinds)
-        node_ids = {node.trace_id for node in nodes}
-        edges = tuple(edge for edge in lineage.edges if edge.relation_kind in allowed_relations and edge.source_trace_id in node_ids and edge.target_trace_id in node_ids)
+        nodes, edges = _filter_traversal(
+            lineage,
+            allowed_kinds={"plan", "schedule", "stage", "result", "verification"},
+            allowed_relations={"derives_from", "scheduled_by", "produced_by", "verified_by"},
+        )
     elif traversal_mode == "audit":
-        allowed_kinds = {"plan", "schedule", "stage", "result", "audit"}
-        allowed_relations = {"derives_from", "scheduled_by", "produced_by", "audited_by", "replays"}
-        nodes = tuple(node for node in lineage.nodes if node.trace_kind in allowed_kinds)
-        node_ids = {node.trace_id for node in nodes}
-        edges = tuple(edge for edge in lineage.edges if edge.relation_kind in allowed_relations and edge.source_trace_id in node_ids and edge.target_trace_id in node_ids)
+        nodes, edges = _filter_traversal(
+            lineage,
+            allowed_kinds={"plan", "schedule", "stage", "result", "audit"},
+            allowed_relations={"derives_from", "scheduled_by", "produced_by", "audited_by"},
+        )
     else:
-        allowed_kinds = {"plan", "schedule", "stage", "result", "audit", "verification", "artifact"}
-        allowed_relations = {"derives_from", "scheduled_by", "produced_by", "verified_by", "audited_by", "replays"}
-        nodes = tuple(node for node in lineage.nodes if node.trace_kind in allowed_kinds)
-        node_ids = {node.trace_id for node in nodes}
-        edges = tuple(edge for edge in lineage.edges if edge.relation_kind in allowed_relations and edge.source_trace_id in node_ids and edge.target_trace_id in node_ids)
+        nodes, edges = _filter_traversal(
+            lineage,
+            allowed_kinds={"plan", "schedule", "stage", "result", "audit", "verification", "artifact"},
+            allowed_relations={"derives_from", "scheduled_by", "produced_by", "verified_by", "audited_by", "replays"},
+        )
 
     ordered_nodes = tuple(sorted(nodes, key=_node_sort_key))
     ordered_edges = tuple(sorted(edges, key=_edge_sort_key))

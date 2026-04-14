@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 from typing import Any, Dict, Mapping, Tuple
 
 
@@ -35,6 +36,8 @@ def _is_scalar(value: Any) -> bool:
 
 def _normalize_value(value: Any) -> StateValue:
     if _is_scalar(value):
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValueError("state values must be finite floats")
         return value
     if isinstance(value, list):
         return tuple(_normalize_value(item) for item in value)
@@ -56,12 +59,16 @@ def _normalize_state(state: Mapping[str, Any]) -> Dict[str, StateValue]:
     if not isinstance(state, Mapping):
         raise ValueError("state must be a mapping")
 
-    normalized: Dict[str, StateValue] = {}
-    for key in sorted(state.keys()):
+    validated_keys: list[str] = []
+    for key in state.keys():
         if not isinstance(key, str):
             raise ValueError("state keys must be strings")
         if key == "":
             raise ValueError("state keys must be non-empty")
+        validated_keys.append(key)
+
+    normalized: Dict[str, StateValue] = {}
+    for key in sorted(validated_keys):
         normalized[key] = _normalize_value(state[key])
     return normalized
 
@@ -186,7 +193,9 @@ class DeterministicCovenantExecution:
 def _normalize_keys(keys: Tuple[str, ...] | list[str]) -> Tuple[str, ...]:
     normalized = []
     for key in keys:
-        key_text = str(key)
+        if not isinstance(key, str):
+            raise ValueError("rule keys must be strings")
+        key_text = key.strip()
         if not key_text:
             raise ValueError("rule keys must be non-empty strings")
         normalized.append(key_text)
@@ -205,22 +214,31 @@ def build_covenant_rule(
     precondition_keys: Tuple[str, ...] | list[str] = (),
     postcondition_keys: Tuple[str, ...] | list[str] = (),
 ) -> CovenantRule:
-    if not str(rule_id):
+    if not str(rule_id).strip():
         raise ValueError("rule_id must be non-empty")
-    if not str(target_key):
+    if not str(target_key).strip():
         raise ValueError("target_key must be non-empty")
-    if not str(replay_identity):
+    if not str(replay_identity).strip():
         raise ValueError("replay_identity must be non-empty")
+    delta_f = float(delta)
+    if not math.isfinite(delta_f):
+        raise ValueError("delta must be finite")
+    if min_value is not None:
+        if not math.isfinite(float(min_value)):
+            raise ValueError("min_value must be finite")
+    if max_value is not None:
+        if not math.isfinite(float(max_value)):
+            raise ValueError("max_value must be finite")
     if min_value is not None and max_value is not None and min_value > max_value:
         raise ValueError("min_value cannot exceed max_value")
 
     return CovenantRule(
-        rule_id=str(rule_id),
-        target_key=str(target_key),
-        delta=float(delta),
+        rule_id=str(rule_id).strip(),
+        target_key=str(target_key).strip(),
+        delta=delta_f,
         min_value=min_value,
         max_value=max_value,
-        replay_identity=str(replay_identity),
+        replay_identity=str(replay_identity).strip(),
         invariant_keys=_normalize_keys(tuple(invariant_keys)),
         precondition_keys=_normalize_keys(tuple(precondition_keys)),
         postcondition_keys=_normalize_keys(tuple(postcondition_keys)),
@@ -249,15 +267,19 @@ def execute_covenant_transition(
     if not violations:
         normalized_prior = _normalize_state(state_t)
 
+    # Normalize replay_identity from action_capsule consistently in both paths.
+    _raw_ri = str(action_capsule.get("replay_identity", "") or "").strip()
+    replay_identity = _raw_ri if _raw_ri else covenant_rule.replay_identity
+
     if violations:
         prior = CovenantState(state_data=normalized_prior, state_hash=_state_hash(normalized_prior))
-        transition_id = _transition_id(prior.state_hash, covenant_rule.rule_id, covenant_rule.replay_identity)
+        transition_id = _transition_id(prior.state_hash, covenant_rule.rule_id, replay_identity)
         receipt = CovenantTransitionReceipt(
             transition_id=transition_id,
             prior_state_hash=prior.state_hash,
             next_state_hash=prior.state_hash,
             rule_id=covenant_rule.rule_id,
-            replay_identity=covenant_rule.replay_identity,
+            replay_identity=replay_identity,
             accepted=False,
             violations=tuple(violations),
             receipt_hash=_sha256_hex(
@@ -266,7 +288,7 @@ def execute_covenant_transition(
                         "accepted": False,
                         "next_state_hash": prior.state_hash,
                         "prior_state_hash": prior.state_hash,
-                        "replay_identity": covenant_rule.replay_identity,
+                        "replay_identity": replay_identity,
                         "rule_id": covenant_rule.rule_id,
                         "transition_id": transition_id,
                         "violations": tuple(violations),
@@ -282,7 +304,6 @@ def execute_covenant_transition(
         )
 
     prior = CovenantState(state_data=normalized_prior, state_hash=_state_hash(normalized_prior))
-    replay_identity = str(action_capsule.get("replay_identity", covenant_rule.replay_identity))
     transition_id = str(action_capsule.get("transition_id", "")).strip() or _transition_id(
         prior.state_hash,
         covenant_rule.rule_id,

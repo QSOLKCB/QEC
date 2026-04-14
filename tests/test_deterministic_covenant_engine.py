@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import math
 import json
 
+import pytest
+
 from qec.orchestration.deterministic_covenant_engine import (
-    CovenantRule,
     CovenantState,
     CovenantTransitionReceipt,
     DeterministicCovenantExecution,
@@ -157,3 +159,85 @@ def test_required_dataclass_surface_methods_exist() -> None:
     assert isinstance(execution.prior_state, CovenantState)
     assert isinstance(execution.receipt, CovenantTransitionReceipt)
     assert isinstance(execution, DeterministicCovenantExecution)
+
+
+def test_non_finite_float_state_value_fails_validation() -> None:
+    for bad in (math.nan, math.inf, -math.inf):
+        violations = validate_covenant_state({"counter": bad})
+        assert len(violations) == 1
+        assert violations[0].startswith("malformed_state:")
+
+
+def test_non_finite_delta_raises_in_build_rule() -> None:
+    for bad in (math.nan, math.inf, -math.inf):
+        with pytest.raises(ValueError, match="delta must be finite"):
+            build_covenant_rule(
+                rule_id="r",
+                target_key="counter",
+                delta=bad,
+                replay_identity="ri",
+            )
+
+
+def test_non_finite_bounds_raise_in_build_rule() -> None:
+    with pytest.raises(ValueError, match="min_value must be finite"):
+        build_covenant_rule(
+            rule_id="r",
+            target_key="counter",
+            delta=1.0,
+            min_value=math.nan,
+            replay_identity="ri",
+        )
+    with pytest.raises(ValueError, match="max_value must be finite"):
+        build_covenant_rule(
+            rule_id="r",
+            target_key="counter",
+            delta=1.0,
+            max_value=math.inf,
+            replay_identity="ri",
+        )
+
+
+def test_whitespace_only_rule_key_is_rejected() -> None:
+    with pytest.raises(ValueError, match="non-empty"):
+        build_covenant_rule(
+            rule_id="r",
+            target_key="counter",
+            delta=1.0,
+            replay_identity="ri",
+            invariant_keys=("   ",),
+        )
+
+
+def test_non_str_rule_key_is_rejected() -> None:
+    with pytest.raises(ValueError, match="strings"):
+        build_covenant_rule(
+            rule_id="r",
+            target_key="counter",
+            delta=1.0,
+            replay_identity="ri",
+            invariant_keys=(42,),  # type: ignore[arg-type]
+        )
+
+
+def test_malformed_state_receipt_uses_action_capsule_replay_identity() -> None:
+    rule = _build_rule()
+    execution = execute_covenant_transition(
+        [("invalid",)],  # not a mapping
+        {"replay_identity": "replay-from-capsule"},
+        rule,
+    )
+
+    assert execution.receipt.accepted is False
+    assert execution.receipt.replay_identity == "replay-from-capsule"
+
+
+def test_none_replay_identity_in_capsule_falls_back_to_rule() -> None:
+    rule = _build_rule()
+    execution = execute_covenant_transition(
+        {"counter": 2.0, "name": "alpha"},
+        {"replay_identity": None},
+        rule,
+    )
+
+    assert execution.receipt.replay_identity == rule.replay_identity

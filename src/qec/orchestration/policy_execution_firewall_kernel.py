@@ -56,7 +56,7 @@ def _stable_sorted_unique_text(values: Sequence[Any]) -> Tuple[str, ...]:
     return tuple(sorted(normalized))
 
 
-def _contains_severity_at_or_above(summary: Mapping[str, Any], threshold: str) -> bool:
+def _contains_severity_above_threshold(summary: Mapping[str, Any], threshold: str) -> bool:
     threshold_rank = _SEVERITY_RANK[threshold]
     for key, count in summary.items():
         level = _safe_str(key).strip().lower()
@@ -462,7 +462,7 @@ def evaluate_policy_execution_firewall(
                     )
                 )
 
-        if _contains_severity_at_or_above(severity_summary, rule.max_allowed_severity):
+        if _contains_severity_above_threshold(severity_summary, rule.max_allowed_severity):
             violations.append("blocked_severity_level")
             reasons.append(
                 _reason(
@@ -567,8 +567,8 @@ def evaluate_policy_execution_firewall(
                     )
                 )
 
-    if malformed and "malformed_audit_report" not in violations:
-        violations.append("malformed_audit_report")
+    if malformed and "malformed_input" not in violations:
+        violations.append("malformed_input")
 
     decision_value = "deny" if violations else "allow"
     unique_violations = tuple(sorted(set(violations)))

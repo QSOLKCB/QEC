@@ -57,6 +57,69 @@ Hard law:
 
 same input = same bytes
 Latest Stable Release
+[137.19.0] — Governance Benchmark Battery
+Added
+deterministic governance benchmark battery
+aggregate governance metrics
+replay stability metrics
+continuity success metrics
+boundary failure metrics
+policy drift metrics
+canonical benchmark receipts
+stable SHA-256 benchmark hashing
+deterministic summary export
+
+[137.18.5] — Deterministic Agent Simulation Sandbox
+Added
+deterministic dry-run simulation sandbox
+end-to-end governance simulation
+continuity trace hashing
+sandbox receipts
+allow / deny path simulation
+replay identity chain
+non-raising malformed scenario handling
+
+[137.18.4] — Bounded Autonomy Ledger
+Added
+bounded autonomy ledger
+continuity chain validation
+ledger receipts
+ordered decision history
+duplicate transition detection
+replay-safe ledger hashing
+
+[137.18.3] — Policy Execution Firewall Kernel
+Added
+deterministic firewall decision kernel
+allow / deny execution policy layer
+rule-hit reasoning
+firewall receipts
+policy replay stability
+
+[137.18.2] — Governance Memory / I-O Boundary Auditor
+Added
+boundary audit layer
+memory scope audit
+I/O boundary validation
+continuity validation
+deterministic audit reports
+non-raising validator path
+
+[137.18.1] — Deterministic Covenant Engine
+Added
+deterministic covenant runtime
+bounded state transitions
+transition receipts
+stable state hashing
+replay-safe covenant execution
+
+[137.18.0] — Proof-Carrying Agent Action Capsule
+Added
+proof-carrying action capsule
+proof obligations
+receipt chain validation
+replay-safe action certification
+
 [137.17.6] — Deterministic Ledger Replay Certification Pack
 Added
 replay certification pack

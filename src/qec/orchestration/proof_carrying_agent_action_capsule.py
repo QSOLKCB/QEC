@@ -100,10 +100,20 @@ def _canonicalize_payload(payload: Any) -> Dict[str, Any]:
 
 
 def _canonicalize_mapping(mapping: Mapping[str, Any]) -> Dict[str, Any]:
+    if not isinstance(mapping, Mapping):
+        raise ValueError("payload mapping expected")
+    validated: Dict[str, Any] = {}
+    for raw_key in mapping.keys():
+        if not isinstance(raw_key, str):
+            raise ValueError(
+                f"payload keys must be strings, got {type(raw_key).__name__}"
+            )
+        if not raw_key.strip():
+            raise ValueError("payload keys must be non-empty strings")
+        validated[raw_key] = _canonicalize_value(mapping[raw_key])
     result: Dict[str, Any] = {}
-    for raw_key in sorted(mapping.keys(), key=str):
-        key = str(raw_key)
-        result[key] = _canonicalize_value(mapping[raw_key])
+    for key in sorted(validated.keys()):
+        result[key] = validated[key]
     return result
 
 
@@ -112,7 +122,7 @@ def _canonicalize_value(value: Any) -> Any:
         return _canonicalize_mapping(value)
     if isinstance(value, (list, tuple)):
         return [_canonicalize_value(item) for item in value]
-    if isinstance(value, (str, int, float, bool)) or value is None:
+    if isinstance(value, bool) or isinstance(value, (str, int, float)) or value is None:
         return value
     raise ValueError(f"unsupported payload value type: {type(value).__name__}")
 
@@ -134,6 +144,59 @@ def _require_non_empty(value: Any, *, field: str) -> str:
     if not text:
         raise ValueError(f"{field} must be non-empty")
     return text
+
+
+def _require_epoch(value: Any, *, field: str) -> int:
+    """Strictly validate a non-negative integer epoch field.
+
+    Rejects bool (which is a subtype of int), non-integers, and negatives.
+    """
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be a non-negative integer")
+    if not isinstance(value, int):
+        raise ValueError(f"{field} must be a non-negative integer")
+    if value < 0:
+        raise ValueError(f"{field} must be a non-negative integer")
+    return value
+
+
+_SHA256_HEX_CHARS = frozenset("0123456789abcdef")
+
+
+def _require_sha256_hex(value: Any, *, field: str) -> str:
+    """Validate that ``value`` is a 64-char lowercase hex SHA-256 string."""
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a 64-char lowercase hex SHA-256 string")
+    if len(value) != 64:
+        raise ValueError(f"{field} must be a 64-char lowercase hex SHA-256 string")
+    for ch in value:
+        if ch not in _SHA256_HEX_CHARS:
+            raise ValueError(f"{field} must be a 64-char lowercase hex SHA-256 string")
+    return value
+
+
+def _normalize_obligation_hash_tuple(
+    raw: Any, *, field: str = "obligation_hashes"
+) -> Tuple[str, ...]:
+    """Strictly normalize an iterable of obligation hash entries."""
+    if raw is None:
+        raise ValueError(f"{field} must be a non-scalar iterable")
+    if isinstance(raw, (str, bytes, bytearray)):
+        raise ValueError(f"{field} must be a non-scalar iterable")
+    try:
+        items = list(raw)
+    except TypeError as exc:
+        raise ValueError(f"{field} must be a non-scalar iterable") from exc
+    normalized: List[str] = []
+    for entry in items:
+        if not isinstance(entry, str):
+            raise ValueError(f"{field} entries must be non-empty strings")
+        stripped = entry.strip()
+        if not stripped:
+            raise ValueError(f"{field} entries must be non-empty strings")
+        _require_sha256_hex(stripped, field=f"{field} entry")
+        normalized.append(stripped)
+    return tuple(normalized)
 
 
 # ---------------------------------------------------------------------------
@@ -256,11 +319,8 @@ def build_action_proof_receipt(
 ) -> AgentActionProofReceipt:
     """Build a deterministic proof receipt for a capsule snapshot."""
     normalized_action_id = _require_non_empty(action_id, field="action_id")
-    normalized_capsule_hash = _require_non_empty(capsule_hash, field="capsule_hash")
-    if not isinstance(receipt_epoch, int) or isinstance(receipt_epoch, bool):
-        raise ValueError("receipt_epoch must be a non-negative integer")
-    if receipt_epoch < 0:
-        raise ValueError("receipt_epoch must be a non-negative integer")
+    normalized_capsule_hash = _require_sha256_hex(capsule_hash, field="capsule_hash")
+    receipt_epoch = _require_epoch(receipt_epoch, field="receipt_epoch")
 
     normalized_obligations = _normalize_obligations(obligations)
     obligation_hashes = tuple(sorted(ob.stable_hash() for ob in normalized_obligations))
@@ -292,15 +352,22 @@ def _normalize_receipt(
     if isinstance(raw, AgentActionProofReceipt):
         return raw
     if not isinstance(raw, Mapping):
-        raise ValueError("receipt must be mapping or AgentActionProofReceipt")
-    obligation_hashes = tuple(str(h).strip() for h in raw.get("obligation_hashes", ()))
+        raise ValueError("malformed receipt input: not a mapping or AgentActionProofReceipt")
+    if "receipt_epoch" not in raw:
+        raise ValueError("receipt_epoch must be a non-negative integer")
+    if "obligation_hashes" not in raw:
+        raise ValueError("obligation_hashes must be a non-scalar iterable")
+    receipt_epoch = _require_epoch(raw.get("receipt_epoch"), field="receipt_epoch")
+    obligation_hashes = _normalize_obligation_hash_tuple(
+        raw.get("obligation_hashes"), field="obligation_hashes"
+    )
     return AgentActionProofReceipt(
         receipt_id=_require_non_empty(raw.get("receipt_id"), field="receipt_id"),
         action_id=_require_non_empty(raw.get("action_id"), field="action_id"),
-        capsule_hash=_require_non_empty(raw.get("capsule_hash"), field="capsule_hash"),
+        capsule_hash=_require_sha256_hex(raw.get("capsule_hash"), field="capsule_hash"),
         obligation_hashes=obligation_hashes,
-        receipt_epoch=int(raw.get("receipt_epoch", 0)),
-        receipt_hash=_require_non_empty(raw.get("receipt_hash"), field="receipt_hash"),
+        receipt_epoch=receipt_epoch,
+        receipt_hash=_require_sha256_hex(raw.get("receipt_hash"), field="receipt_hash"),
     )
 
 
@@ -509,7 +576,13 @@ class AgentActionValidationReport:
 def validate_agent_action_capsule(
     capsule: ProofCarryingAgentActionCapsule,
 ) -> AgentActionValidationReport:
-    """Deterministically validate a capsule and return a validation report."""
+    """Deterministically validate a capsule and return a validation report.
+
+    This function must NEVER raise. All failure modes (including malformed
+    inputs, malformed payloads, tampered receipts, and canonical-body
+    recomputation errors) are converted into deterministic violation
+    entries. Only ``certify_agent_action_capsule`` may raise.
+    """
     violations: List[str] = []
 
     if not capsule.action_id:
@@ -520,6 +593,12 @@ def validate_agent_action_capsule(
         violations.append("empty action_scope")
     if not isinstance(capsule.action_payload, Mapping):
         violations.append("malformed payload: not a mapping")
+
+    # Hash-format check on the capsule_hash itself.
+    try:
+        _require_sha256_hex(capsule.capsule_hash, field="capsule_hash")
+    except ValueError as exc:
+        violations.append(f"malformed capsule_hash: {exc}")
 
     # Obligation checks
     obligation_ids = [ob.obligation_id for ob in capsule.proof_obligations]
@@ -534,7 +613,11 @@ def validate_agent_action_capsule(
     for obligation in capsule.proof_obligations:
         if obligation.obligation_kind not in SUPPORTED_OBLIGATION_KINDS:
             violations.append(f"unsupported obligation_kind: {obligation.obligation_kind}")
-        if obligation.obligation_epoch < 0:
+        if isinstance(obligation.obligation_epoch, bool) or not isinstance(
+            obligation.obligation_epoch, int
+        ):
+            violations.append(f"invalid obligation_epoch: {obligation.obligation_id}")
+        elif obligation.obligation_epoch < 0:
             violations.append(f"negative obligation_epoch: {obligation.obligation_id}")
 
     # Invariants structural check
@@ -548,11 +631,14 @@ def validate_agent_action_capsule(
             violations.append(f"unsupported validation_flag: {flag}")
 
     # Receipt chain checks
-    sorted_chain = sorted(
-        capsule.receipt_chain, key=lambda r: (r.receipt_epoch, r.receipt_id)
-    )
-    if list(sorted_chain) != list(capsule.receipt_chain):
-        violations.append("unsorted proof chain")
+    try:
+        sorted_chain = sorted(
+            capsule.receipt_chain, key=lambda r: (r.receipt_epoch, r.receipt_id)
+        )
+        if list(sorted_chain) != list(capsule.receipt_chain):
+            violations.append("unsorted proof receipt chain")
+    except (TypeError, ValueError) as exc:
+        violations.append(f"malformed receipt input: {exc}")
     seen_receipt_ids: set = set()
     for receipt in capsule.receipt_chain:
         if receipt.receipt_id in seen_receipt_ids:
@@ -562,34 +648,55 @@ def validate_agent_action_capsule(
             violations.append(f"receipt mismatch: action_id for {receipt.receipt_id}")
         if receipt.capsule_hash != capsule.capsule_hash:
             violations.append(f"receipt mismatch: capsule_hash for {receipt.receipt_id}")
-        expected = build_action_proof_receipt(
-            capsule.action_id,
-            capsule.capsule_hash,
-            capsule.proof_obligations,
-            receipt_epoch=receipt.receipt_epoch,
-        )
+        try:
+            _require_sha256_hex(receipt.receipt_hash, field="receipt_hash")
+        except ValueError as exc:
+            violations.append(f"receipt validation failed: {exc}")
+        try:
+            _normalize_obligation_hash_tuple(
+                receipt.obligation_hashes, field="obligation_hashes"
+            )
+        except ValueError as exc:
+            violations.append(f"receipt validation failed: {exc}")
+        try:
+            expected = build_action_proof_receipt(
+                capsule.action_id,
+                capsule.capsule_hash,
+                capsule.proof_obligations,
+                receipt_epoch=receipt.receipt_epoch,
+            )
+        except ValueError as exc:
+            violations.append(f"receipt validation failed: {exc}")
+            continue
         if receipt.receipt_hash != expected.receipt_hash:
             violations.append(f"receipt mismatch: receipt_hash for {receipt.receipt_id}")
         if receipt.obligation_hashes != expected.obligation_hashes:
             violations.append(f"receipt mismatch: obligation_hashes for {receipt.receipt_id}")
 
     # Replay identity check (body excludes receipt_chain by design).
-    body = _capsule_body_payload(
-        action_id=capsule.action_id,
-        action_type=capsule.action_type,
-        action_scope=capsule.action_scope,
-        action_payload=capsule.action_payload,
-        preconditions=capsule.preconditions,
-        invariants=capsule.invariants,
-        proof_obligations=capsule.proof_obligations,
-        validation_flags=capsule.validation_flags,
-    )
-    recomputed_hash = _sha256_hex(_canonical_json(body).encode("utf-8"))
-    if recomputed_hash != capsule.capsule_hash:
-        violations.append("replay drift: capsule_hash mismatch")
-    expected_identity = f"agent-action::{capsule.action_type}::{capsule.capsule_hash[:16]}"
-    if capsule.replay_identity != expected_identity:
-        violations.append("replay drift: replay_identity mismatch")
+    try:
+        body = _capsule_body_payload(
+            action_id=capsule.action_id,
+            action_type=capsule.action_type,
+            action_scope=capsule.action_scope,
+            action_payload=capsule.action_payload,
+            preconditions=capsule.preconditions,
+            invariants=capsule.invariants,
+            proof_obligations=capsule.proof_obligations,
+            validation_flags=capsule.validation_flags,
+        )
+        recomputed_hash = _sha256_hex(_canonical_json(body).encode("utf-8"))
+        if recomputed_hash != capsule.capsule_hash:
+            violations.append("replay drift: capsule_hash mismatch")
+    except (ValueError, TypeError) as exc:
+        violations.append(f"malformed replay body: {exc}")
+
+    try:
+        expected_identity = f"agent-action::{capsule.action_type}::{capsule.capsule_hash[:16]}"
+        if capsule.replay_identity != expected_identity:
+            violations.append("replay drift: replay_identity mismatch")
+    except (TypeError, ValueError) as exc:
+        violations.append(f"malformed replay body: {exc}")
 
     ordered_violations = tuple(sorted(violations))
     is_valid = len(ordered_violations) == 0
@@ -635,6 +742,13 @@ def compare_action_capsule_replay(
     capsule_b: ProofCarryingAgentActionCapsule,
 ) -> bool:
     """Return True if two capsules are byte-identical under canonical JSON.
+
+    Canonical byte equality is the **primary** replay-identity check. The
+    subsequent ``capsule_hash`` and ``replay_identity`` comparisons are
+    intentionally redundant: they are defense-in-depth guards that catch
+    any future drift between the canonical JSON body and the precomputed
+    hash / identity fields on the capsule. The redundancy is preserved on
+    purpose and must not be removed during refactors.
 
     Raises ValueError with a deterministic reason on replay drift.
     """

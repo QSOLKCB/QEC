@@ -195,25 +195,37 @@ def _step_sort_key(step: OrchestrationStep) -> Tuple[int, int, str]:
     return (step.execution_order, step.step_epoch, step.step_id)
 
 
+def _require_non_empty_string(value: Any, field_name: str) -> str:
+    """Validate a required string field and return its stripped value."""
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a non-empty string")
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"{field_name} must be a non-empty string")
+    return normalized
+
+
 def _normalize_task(raw: ResearchTaskLike) -> ResearchTask:
     if isinstance(raw, ResearchTask):
-        task = raw
+        task = ResearchTask(
+            task_id=_require_non_empty_string(raw.task_id, "task_id"),
+            task_kind=_require_non_empty_string(raw.task_kind, "task_kind"),
+            source_ref=_require_non_empty_string(raw.source_ref, "source_ref"),
+            priority=raw.priority,
+            task_epoch=raw.task_epoch,
+        )
     else:
         if not isinstance(raw, Mapping):
             raise ValueError("task must be a mapping or ResearchTask")
         task = ResearchTask(
-            task_id=str(raw.get("task_id", "")).strip(),
-            task_kind=str(raw.get("task_kind", "")).strip(),
-            source_ref=str(raw.get("source_ref", "")).strip(),
+            task_id=_require_non_empty_string(raw.get("task_id", ""), "task_id"),
+            task_kind=_require_non_empty_string(raw.get("task_kind", ""), "task_kind"),
+            source_ref=_require_non_empty_string(raw.get("source_ref", ""), "source_ref"),
             priority=int(raw.get("priority", 0)),
             task_epoch=int(raw.get("task_epoch", 0)),
         )
-    if not task.task_id:
-        raise ValueError("invalid task id")
     if task.task_kind not in VALID_RESEARCH_TASK_KINDS:
         raise ValueError(f"invalid task kind: {task.task_kind}")
-    if not task.source_ref:
-        raise ValueError("source_ref must be non-empty")
     if task.priority < 0:
         raise ValueError("negative priority is not allowed")
     if task.task_epoch < 0:

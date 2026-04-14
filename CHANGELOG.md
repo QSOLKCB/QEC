@@ -57,6 +57,34 @@ Hard law:
 
 same input = same bytes
 Latest Stable Release
+[137.17.6] — Deterministic Ledger Replay Certification Pack
+Added
+replay certification pack
+canonical ledger normalization before certification
+receipt integrity validation
+traversal replay verification
+tamper detection
+certification hash reproducibility
+epoch boundary for v137.17.x
+
+[137.17.5] — Dataflow Research Ledger Kernel
+Added
+deterministic dataflow research ledger
+canonical stage ordering
+stable ledger hashing
+continuity summaries
+traversal receipts
+upstream/downstream artifact linkage validation
+
+[137.17.4] — Deterministic Research Audit Kernel
+Added
+deterministic research audit layer
+structural validation
+lineage continuity checks
+traversal determinism
+hash continuity validation
+replay-safe audit receipts
+
 [137.15.5] — Bounded Fallback Corridor
 Added
 deterministic bounded fallback corridor layer

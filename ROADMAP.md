@@ -40,13 +40,15 @@ No release may violate:
 
 ## Stable Tip
 
-**v137.16.0 — Deterministic Memory Graph Kernel**
+**v137.17.3 — Research Trace Lineage Kernel**
 
 This is the current canonical release anchor.
 
-### Completed ladder
+---
 
-### Divergence Geometry + Information Metrics
+# COMPLETED LADDER
+
+## v137.14.x — Divergence Geometry + Information Metrics
 
 * `v137.14.0` — Jensen–Shannon Signal Divergence Kernel
 * `v137.14.1` — Fisher–Rao Geometry Approximation Layer
@@ -55,7 +57,7 @@ This is the current canonical release anchor.
 * `v137.14.4` — Information Geometry Consensus Kernel
 * `v137.14.5` — Information-Geometric Certification Pack
 
-### Formal Control Sequencing + Safety Kernel
+## v137.15.x — Formal Control Sequencing + Safety Kernel
 
 * `v137.15.0` — Deterministic Control Sequence Kernel
 * `v137.15.1` — Explicit State Transition Automata Kernel
@@ -65,49 +67,27 @@ This is the current canonical release anchor.
 * `v137.15.5` — Bounded Fallback Corridor
 * `v137.15.6` — Proof-Carrying Control Sequence Engine (**HARD GATE COMPLETE**)
 
-### Codebase Memory + Decision Compiler
+## v137.16.x — Codebase Memory + Decision Compiler
 
 * `v137.16.0` — Deterministic Memory Graph Kernel
+* `v137.16.1` — Decision DAG Compiler
+* `v137.16.2` — Codebase Topology Indexer
+* `v137.16.3` — Replay-Safe Reasoning Graph
+
+## v137.17.x — Autonomous Research Orchestration
+
+* `v137.17.0` — Autonomous Research Orchestration Kernel
+* `v137.17.1` — Deterministic Experiment Scheduling Kernel
+* `v137.17.2` — Replay-Safe Benchmark Pipeline Kernel
+* `v137.17.3` — Research Trace Lineage Kernel
 
 ---
 
 # ACTIVE ARC
 
-## v137.16.x — Codebase Memory + Decision Compiler
+## v137.17.x — Autonomous Research Orchestration + Audit
 
 This is now the **primary active arc**.
-
-Purpose:
-
-* deterministic memory graph
-* decision DAG compiler
-* codebase topology indexing
-* replay-safe reasoning graph
-
-### Active ladder
-
-* `v137.16.0` — Deterministic Memory Graph Kernel ✅
-* `v137.16.1` — Decision DAG Compiler
-* `v137.16.2` — Codebase Topology Indexer
-* `v137.16.3` — Replay-Safe Reasoning Graph
-
-Focus:
-
-* stable node lineage
-* deterministic dependency DAGs
-* release topology mapping
-* compiler-safe decision graphs
-* replay-safe traversal proofs
-
----
-
-# PARALLEL MID-TERM TRACKS
-
-These tracks are unlocked because `v137.15.6` is complete.
-
----
-
-## v137.17.x — Autonomous Research Orchestration
 
 Purpose:
 
@@ -115,12 +95,39 @@ Purpose:
 * deterministic experiment scheduling
 * benchmark-first automation
 * research trace lineage
+* replay-safe audit
+* dataflow-aware execution tracing
 
-Output contracts must remain compatible with `v137.18.x`.
+This arc is intentionally **bounded**.
+
+It is not governance.
+It is not autonomy escalation.
+It is not self-modifying orchestration.
+
+### Active ladder
+
+* `v137.17.0` — Autonomous Research Orchestration Kernel ✅
+* `v137.17.1` — Deterministic Experiment Scheduling Kernel ✅
+* `v137.17.2` — Replay-Safe Benchmark Pipeline Kernel ✅
+* `v137.17.3` — Research Trace Lineage Kernel ✅
+* `v137.17.4` — Deterministic Research Audit Kernel
+* `v137.17.5` — Dataflow Research Ledger Kernel
+
+### Focus
+
+* replay-safe audit receipts
+* flow continuity across plan → schedule → pipeline → lineage
+* deterministic benchmark lineage
+* dataflow-native execution traces
+* stable artifact / validation / traversal contracts
 
 ---
 
+# NEXT ARC
+
 ## v137.18.x — Agentic Governance + Safety Layer
+
+This arc begins only after the orchestration audit surface is in place.
 
 Purpose:
 
@@ -128,6 +135,7 @@ Purpose:
 * governance audit trails
 * hard execution constraints
 * bounded autonomy
+* memory / compute / I/O boundary enforcement
 
 ### Required bridge
 
@@ -135,13 +143,27 @@ Purpose:
 
 This must land before governance enforcement.
 
+### Proposed ladder
+
+* `v137.18.0` — Proof-Carrying Agent Action Capsule
+* `v137.18.0.5` — Deterministic Agent Simulation Sandbox
+* `v137.18.1` — Governance Memory / I-O Boundary Auditor
+* `v137.18.2` — Policy Execution Firewall Kernel
+* `v137.18.3` — Bounded Autonomy Ledger
+
+### Focus
+
+* observable action boundaries
+* replay-safe state transitions
+* agent memory / context integrity
+* execution-policy enforcement
+* deterministic auditability of stateful model behavior
+
 ---
 
 # QUANTUM + COMPUTE TRACKS
 
-These tracks are allowed in parallel.
-
----
+These tracks are allowed in parallel because `v137.15.6` is complete.
 
 ## v137.19.x — Quantum Noise + Co-Processor Determinism
 
@@ -155,8 +177,6 @@ Purpose:
 * coherent deviation bounds
 * non-stochastic failure modeling
 
----
-
 ### `v137.19.1`
 
 **Quantum Co-Processor Determinism Kernel**
@@ -166,8 +186,6 @@ Purpose:
 * GPU / TPU determinism
 * replay-safe co-processor orchestration
 * bounded inference variance
-
----
 
 ### `v137.19.2`
 
@@ -181,20 +199,22 @@ Purpose:
 * replay-safe substrate mode signatures
 * acoustic / optical mode differentiation
 
-Focus:
+### `v137.19.3`
 
-* optical vs acoustic phonon paths
-* dispersion curve canonicalization
-* substrate determinism batteries
-* bounded mode variance
+**Dataflow Substrate Arbitration Kernel**
+
+Purpose:
+
+* dataflow-inspired substrate routing
+* bounded asynchronous compute ordering
+* replay-safe execution path arbitration
+* parallelism without nondeterminism
 
 ---
 
 ## v137.20.x — Hardware + Streaming Compute
 
 These are explicitly parallelized.
-
----
 
 ### `v137.20.0`
 
@@ -206,8 +226,6 @@ Purpose:
 * propagation mismatch mapping
 * scheduler substrate profile
 * replay batteries per substrate
-
----
 
 ### `v137.20.1`
 
@@ -221,8 +239,6 @@ Purpose:
 * memory footprint reduction
 
 This may proceed in parallel with `v137.20.0`.
-
----
 
 ### `v137.20.2`
 
@@ -238,8 +254,6 @@ Purpose:
 * deterministic compression scaling
 * bounded latency degradation
 * scheduler adaptation proofs
-
----
 
 ### `v137.20.3`
 
@@ -257,6 +271,22 @@ Purpose:
 * phononic latency channel models
 * deterministic optical compute routing
 * substrate-aware scheduler proofs
+
+### `v137.20.4`
+
+**Substrate Side-Channel Audit Kernel**
+
+Dependencies:
+
+* `v137.20.0`
+* `v137.20.3`
+
+Purpose:
+
+* side-channel leakage envelope characterization
+* scheduler secrecy bounds
+* replay-safe substrate observability audit
+* execution-trace shielding analysis
 
 ---
 
@@ -276,11 +306,10 @@ Purpose:
 This must consolidate:
 
 * control proofs
+* orchestration proofs
 * agent proofs
 * compute proofs
 * hardware proofs
-
----
 
 ## `v137.21.x`
 
@@ -291,6 +320,7 @@ Purpose:
 * proof-aware kernel exports
 * canonical verification interface
 * deterministic formal runtime substrate
+* auditable flow / memory / cache / I-O contracts
 
 ---
 
@@ -304,35 +334,70 @@ These arcs are partially parallel.
 
 **Secure Deterministic Runtime**
 
+Purpose:
+
 * deterministic client
 * sandbox runtime
 * strict preemption
 * bounded external execution
+* secure state / memory / I-O boundaries
 
 ### `v138.1.x`
 
 **Resource-Bounded Optimization**
 
+Purpose:
+
 * resource accounting
 * deterministic scheduling economics
 * bounded exploration
 * constrained optimization
+* control-theoretic complexity shedding
+* leaner / faster runtime adaptation without replay drift
 
 ### `v138.2.x`
 
 **Cross-Substrate Certification**
 
+Purpose:
+
 * portability proofs
 * replay validation
 * substrate certification
+* CPU / GPU / photonic / phononic consistency envelopes
 
 ### `v138.3.x`
 
+**Internals-Aware Runtime Observability**
+
+Purpose:
+
+* token / attention / cache lineage instrumentation
+* replay-safe internal state summaries
+* deterministic model internals observability
+* bounded introspection receipts
+
+### `v138.4.x`
+
 **Human-Auditable Autonomy**
+
+Purpose:
 
 * proof summaries
 * decision explanation
 * verification checkpoints
+* operator-readable audit traces
+
+### `v138.5.x`
+
+**Unified Memory-Compute-I/O Runtime Kernel**
+
+Purpose:
+
+* explicit memory / compute / I-O fusion boundaries
+* deterministic runtime state capsules
+* learned-runtime compatibility envelopes
+* replay-safe interface-state audit
 
 ---
 
@@ -352,6 +417,7 @@ Includes:
 * large lattice expansion
 * telemetry integration
 * advanced substrate experimentation
+* cross-node replay-safe audit federation
 
 ---
 

@@ -21,6 +21,7 @@ from qec.orchestration.autonomous_research_orchestration_kernel import (
 
 VALID_LANE_KINDS: Tuple[str, ...] = (
     "benchmark",
+    "experiment",
     "validation",
     "proof",
     "release_audit",
@@ -245,8 +246,6 @@ def _normalize_lane(raw: SchedulingLaneLike) -> SchedulingLane:
 
     if lane.lane_kind not in VALID_LANE_KINDS:
         raise ValueError(f"invalid lane kind: {lane.lane_kind}")
-    if lane.capacity < 0:
-        raise ValueError("negative capacity is not allowed")
     return lane
 
 
@@ -269,6 +268,8 @@ def _topological_step_order(steps: Tuple[OrchestrationStep, ...]) -> Tuple[Orche
 
     for step in steps:
         for dep in step.dependency_refs:
+            if dep not in step_map:
+                raise ValueError(f"unknown dependency reference: {dep!r}")
             adjacency[dep].append(step.step_id)
             indegree[step.step_id] += 1
 
@@ -319,7 +320,7 @@ def normalize_experiment_schedule_input(
     for lane_kind in VALID_LANE_KINDS:
         lane_kind_to_lanes[lane_kind] = tuple(l for l in ordered_lanes if l.lane_kind == lane_kind)
 
-    for lane_kind in {task_by_id[step.task_id].task_kind for step in normalized_plan.steps}:
+    for lane_kind in sorted({task_by_id[step.task_id].task_kind for step in normalized_plan.steps}):
         if not lane_kind_to_lanes.get(lane_kind):
             raise ValueError(f"no lane available for task kind: {lane_kind}")
 
@@ -356,6 +357,7 @@ def build_deterministic_experiment_schedule(
     lane_selector: Dict[str, int] = {kind: 0 for kind in VALID_LANE_KINDS}
 
     scheduled: List[ScheduledExperiment] = []
+    step_epoch_assignment: Dict[str, int] = {}
     for step in ordered_steps:
         task: ResearchTask = task_by_id[step.task_id]
         candidate_lanes = lanes_by_kind[task.task_kind]
@@ -367,9 +369,19 @@ def build_deterministic_experiment_schedule(
             raise ValueError(f"lane capacity cannot schedule tasks: {lane.lane_id}")
 
         lane_count = lane_counters[lane.lane_id]
-        schedule_epoch = lane.lane_epoch + (lane_count // lane.capacity)
+        lane_based_epoch = lane.lane_epoch + (lane_count // lane.capacity)
         execution_slot = lane_count % lane.capacity
         lane_counters[lane.lane_id] = lane_count + 1
+
+        dep_max_epoch = max(
+            (step_epoch_assignment[dep] for dep in step.dependency_refs),
+            default=-1,
+        )
+        if dep_max_epoch >= 0:
+            schedule_epoch = max(lane_based_epoch, dep_max_epoch + 1)
+        else:
+            schedule_epoch = lane_based_epoch
+        step_epoch_assignment[step.step_id] = schedule_epoch
 
         scheduled.append(
             ScheduledExperiment(
@@ -404,17 +416,24 @@ def validate_deterministic_experiment_schedule(schedule: ScheduleLike) -> Schedu
             raise ValueError("schedule must be mapping or DeterministicExperimentSchedule")
         lanes = tuple(_normalize_lane(raw) for raw in schedule.get("lanes", ()))
         experiments_raw = schedule.get("scheduled_experiments", ())
-        experiments = tuple(
-            ScheduledExperiment(
-                experiment_id=_require_non_empty_string(exp.get("experiment_id", ""), "experiment_id"),
-                task_id=_require_non_empty_string(exp.get("task_id", ""), "task_id"),
-                lane_id=_require_non_empty_string(exp.get("lane_id", ""), "lane_id"),
-                execution_slot=_require_non_negative_int(exp.get("execution_slot", 0), "execution_slot"),
-                priority=_require_non_negative_int(exp.get("priority", 0), "priority"),
-                schedule_epoch=_require_non_negative_int(exp.get("schedule_epoch", 0), "schedule_epoch"),
-            )
-            for exp in experiments_raw
-        )
+        experiments_list: List[ScheduledExperiment] = []
+        for exp in experiments_raw:
+            if isinstance(exp, ScheduledExperiment):
+                experiments_list.append(exp)
+            elif isinstance(exp, Mapping):
+                experiments_list.append(
+                    ScheduledExperiment(
+                        experiment_id=_require_non_empty_string(exp.get("experiment_id", ""), "experiment_id"),
+                        task_id=_require_non_empty_string(exp.get("task_id", ""), "task_id"),
+                        lane_id=_require_non_empty_string(exp.get("lane_id", ""), "lane_id"),
+                        execution_slot=_require_non_negative_int(exp.get("execution_slot", 0), "execution_slot"),
+                        priority=_require_non_negative_int(exp.get("priority", 0), "priority"),
+                        schedule_epoch=_require_non_negative_int(exp.get("schedule_epoch", 0), "schedule_epoch"),
+                    )
+                )
+            else:
+                raise ValueError("each scheduled experiment must be a mapping or ScheduledExperiment")
+        experiments = tuple(experiments_list)
         schedule_id = _require_non_empty_string(schedule.get("schedule_id", ""), "schedule_id")
         candidate = DeterministicExperimentSchedule(
             schedule_id=schedule_id,
@@ -445,6 +464,10 @@ def validate_deterministic_experiment_schedule(schedule: ScheduleLike) -> Schedu
         if lane.lane_kind not in VALID_LANE_KINDS:
             lane_validity_ok = False
             violations.append("invalid_lane_kind")
+            break
+        if lane.capacity < 0 or lane.lane_epoch < 0:
+            lane_validity_ok = False
+            violations.append("invalid_lane")
             break
 
     for exp in candidate.scheduled_experiments:
@@ -540,7 +563,10 @@ def traverse_deterministic_experiment_schedule(
 
     experiments = schedule.scheduled_experiments
     if traversal_mode == "execution":
-        ordered_experiments = tuple(sorted(experiments, key=_scheduled_experiment_sort_key))
+        # Preserve the schedule's canonical experiment order for execution traversal.
+        # The stored order reflects dependency-safe epoch assignment sorted by
+        # (schedule_epoch, lane_id, execution_slot, priority, experiment_id).
+        ordered_experiments = tuple(experiments)
     elif traversal_mode == "lane":
         ordered_experiments = tuple(sorted(experiments, key=lambda e: (e.lane_id, e.schedule_epoch, e.execution_slot, e.priority, e.experiment_id)))
     elif traversal_mode == "audit":

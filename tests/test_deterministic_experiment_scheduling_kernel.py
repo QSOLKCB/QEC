@@ -12,6 +12,7 @@ from qec.orchestration.deterministic_experiment_scheduling_kernel import (
     build_deterministic_experiment_schedule,
     normalize_experiment_schedule_input,
     traverse_deterministic_experiment_schedule,
+    validate_deterministic_experiment_schedule,
 )
 
 
@@ -142,3 +143,32 @@ def test_canonical_export_stability() -> None:
     schedule = build_deterministic_experiment_schedule("schedule_export", _sample_plan(), _sample_lanes())
     assert schedule.to_canonical_json() == schedule.to_canonical_json()
     assert schedule.to_canonical_bytes() == schedule.to_canonical_bytes()
+
+
+def test_experiment_task_kind_scheduled() -> None:
+    tasks = (
+        ResearchTask(task_id="task_exp", task_kind="experiment", source_ref="node:0", priority=0, task_epoch=0),
+    )
+    steps = (
+        OrchestrationStep(step_id="exp_exp", task_id="task_exp", execution_order=0, dependency_refs=(), step_epoch=0),
+    )
+    plan = build_autonomous_research_plan("plan_experiment", tasks, steps)
+    lanes = (SchedulingLane(lane_id="lane_experiment_0", lane_kind="experiment", capacity=2, lane_epoch=0),)
+    schedule = build_deterministic_experiment_schedule("schedule_experiment", plan, lanes)
+    assert len(schedule.scheduled_experiments) == 1
+    assert schedule.scheduled_experiments[0].task_id == "task_exp"
+    report = validate_deterministic_experiment_schedule(schedule)
+    assert report.is_valid
+
+
+def test_experiment_task_kind_missing_lane_rejected() -> None:
+    tasks = (
+        ResearchTask(task_id="task_exp", task_kind="experiment", source_ref="node:0", priority=0, task_epoch=0),
+    )
+    steps = (
+        OrchestrationStep(step_id="exp_exp", task_id="task_exp", execution_order=0, dependency_refs=(), step_epoch=0),
+    )
+    plan = build_autonomous_research_plan("plan_experiment_no_lane", tasks, steps)
+    lanes = (SchedulingLane(lane_id="lane_proof_0", lane_kind="proof", capacity=1, lane_epoch=0),)
+    with pytest.raises(ValueError, match="no lane available for task kind"):
+        build_deterministic_experiment_schedule("schedule_exp_no_lane", plan, lanes)

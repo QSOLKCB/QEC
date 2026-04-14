@@ -11,7 +11,6 @@
 [![Replay](https://img.shields.io/badge/replay-hash--stable-green)]()
 [![Governance](https://img.shields.io/badge/governance-proof--carrying-orange)]()
 [![Covenants](https://img.shields.io/badge/contracts-deterministic%20covenants-red)]()
-[![Formal Methods](https://img.shields.io/badge/formal-methods-proof--aware-blue)]()
 [![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
 ---

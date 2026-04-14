@@ -57,17 +57,52 @@ Hard law:
 
 same input = same bytes
 Latest Stable Release
+[137.19.5] — Governance Forecast Drift Reconciliation Kernel
+Added
+forecast drift reconciliation kernel
+order-invariant evolution matching
+full receipt integrity validation
+forecast residual metrics
+calibration scoring
+replay-safe reconciliation receipts
+
+[137.19.4] — Governance Stability Forecast Kernel
+Added
+stability forecast kernel
+projected instability metrics
+basin decay forecasting
+severity projection scoring
+forecast confidence metrics
+
+[137.19.3] — Governance Topology Evolution Kernel
+Added
+topology evolution kernel
+temporal topology metrics
+basin persistence analysis
+drift velocity metrics
+evolution receipts
+
+[137.19.2] — Governance Stability Topology Kernel
+Added
+stability topology kernel
+cluster topology metrics
+transition density analysis
+topology severity scoring
+replay-safe receipts
+
+[137.19.1] — Policy Drift Analysis Kernel
+Added
+policy drift analysis kernel
+drift metrics
+policy change scoring
+stability comparisons
+
 [137.19.0] — Governance Benchmark Battery
 Added
-deterministic governance benchmark battery
-aggregate governance metrics
-replay stability metrics
-continuity success metrics
-boundary failure metrics
-policy drift metrics
-canonical benchmark receipts
-stable SHA-256 benchmark hashing
-deterministic summary export
+governance benchmark battery
+deterministic benchmark suite
+metric stability checks
+benchmark receipts
 
 [137.18.5] — Deterministic Agent Simulation Sandbox
 Added

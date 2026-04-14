@@ -328,6 +328,59 @@ def test_malformed_input_handling() -> None:
     assert kernel.advisory_output == "observe_only"
 
 
+def test_no_mutation_of_inputs() -> None:
+    r, d = _low_residual_inputs()
+    original_r = tuple(dict(item) for item in r)
+    original_d = tuple(dict(item) for item in d)
+    scenario = build_feedback_control_scenario(
+        scenario_id="no-mutate",
+        reconciliation_series=r,
+        drift_series=d,
+    )
+
+    original_scenario_json = scenario.to_canonical_json()
+    original_scenario_hash = scenario.stable_hash()
+
+    # First run should not mutate the input series or the scenario.
+    run_governance_feedback_control(scenario=scenario)
+    assert r == original_r
+    assert d == original_d
+    assert scenario.to_canonical_json() == original_scenario_json
+    assert scenario.stable_hash() == original_scenario_hash
+
+    # Second run on the same scenario instance should also preserve immutability.
+    run_governance_feedback_control(scenario=scenario)
+    assert r == original_r
+    assert d == original_d
+    assert scenario.to_canonical_json() == original_scenario_json
+    assert scenario.stable_hash() == original_scenario_hash
+
+
+def test_validator_accepts_dict_scenario_without_raising() -> None:
+    # Build a real kernel then cross-validate with a dict-shaped scenario whose
+    # receipt carries the same canonical scenario_hash — the validator must
+    # derive the expected hash generically and not produce a spurious mismatch.
+    r, d = _low_residual_inputs()
+    scenario = build_feedback_control_scenario(
+        scenario_id="dict-scenario",
+        reconciliation_series=r,
+        drift_series=d,
+    )
+    kernel = run_governance_feedback_control(scenario=scenario)
+    dict_like_kernel = {
+        "scenario": scenario.to_dict(),
+        "metrics": kernel.metrics,
+        "advisory_output": kernel.advisory_output,
+        "advisory_rationale": kernel.advisory_rationale,
+        "receipt": kernel.receipt,
+        "analysis_hash": kernel.analysis_hash,
+    }
+    violations = validate_feedback_control(dict_like_kernel)
+    assert isinstance(violations, tuple)
+    assert "receipt_scenario_hash_mismatch" not in violations
+    assert not any(v.startswith("validator_internal_error") for v in violations)
+
+
 def test_decoder_untouched_confirmation() -> None:
     import qec.orchestration.governance_forecast_feedback_control_kernel as module
 

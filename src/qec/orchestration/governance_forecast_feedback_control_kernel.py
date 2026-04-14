@@ -81,10 +81,6 @@ def _safe_text(value: Any) -> str:
         return ""
 
 
-def _safe_bool(value: Any) -> bool:
-    return value is True
-
-
 def _safe_nonneg_int(value: Any) -> int:
     if isinstance(value, bool):
         return 0
@@ -504,6 +500,48 @@ def _advisory_hash(advisory_output: str, advisory_rationale: Sequence[str]) -> s
     return _sha256_hex(_canonical_json(payload).encode("utf-8"))
 
 
+def _derive_scenario_hash(scenario: Any) -> str:
+    """Compute the canonical scenario hash from a dataclass or dict-like scenario.
+
+    Prefers ``stable_hash()`` when available. Falls back to hashing a
+    canonicalized ``to_dict()`` payload, and finally to hashing a synthesized
+    dict built directly from ``_field`` lookups. Returns an empty string if no
+    canonical representation can be derived.
+    """
+    stable_hash_method = getattr(scenario, "stable_hash", None)
+    if callable(stable_hash_method):
+        try:
+            result = stable_hash_method()
+        except Exception:
+            result = ""
+        if isinstance(result, str) and result:
+            return result
+
+    to_dict_method = getattr(scenario, "to_dict", None)
+    if callable(to_dict_method):
+        try:
+            payload = to_dict_method()
+            return _sha256_hex(_canonical_json(payload).encode("utf-8"))
+        except Exception:
+            pass
+
+    try:
+        synthesized = {
+            "scenario_id": _safe_text(_field(scenario, "scenario_id", "")),
+            "reconciliation_series": [
+                dict(item) if isinstance(item, Mapping) else {}
+                for item in _safe_series(_field(scenario, "reconciliation_series", ()))
+            ],
+            "drift_series": [
+                dict(item) if isinstance(item, Mapping) else {}
+                for item in _safe_series(_field(scenario, "drift_series", ()))
+            ],
+        }
+        return _sha256_hex(_canonical_json(synthesized).encode("utf-8"))
+    except Exception:
+        return ""
+
+
 def _analysis_hash(
     *,
     scenario: FeedbackControlScenario,
@@ -590,24 +628,31 @@ def validate_feedback_control(kernel: Any) -> Tuple[str, ...]:
         if receipt is not None:
             actual_metrics_hash = _safe_text(_field(receipt, "metrics_hash", "")).strip()
             if actual_metrics_hash:
-                expected_metrics_hash = _metrics_hash(metrics)
-                if expected_metrics_hash != actual_metrics_hash:
-                    violations.append("receipt_metrics_hash_mismatch")
+                try:
+                    expected_metrics_hash = _metrics_hash(metrics)
+                except Exception:
+                    violations.append("receipt_metrics_hash_unverifiable")
+                else:
+                    if expected_metrics_hash != actual_metrics_hash:
+                        violations.append("receipt_metrics_hash_mismatch")
 
             actual_scenario_hash = _safe_text(_field(receipt, "scenario_hash", "")).strip()
             if actual_scenario_hash:
-                try:
-                    expected_scenario_hash = scenario.stable_hash()
-                except Exception:
-                    expected_scenario_hash = ""
+                expected_scenario_hash = _derive_scenario_hash(scenario)
                 if expected_scenario_hash and expected_scenario_hash != actual_scenario_hash:
                     violations.append("receipt_scenario_hash_mismatch")
 
             actual_advisory_hash = _safe_text(_field(receipt, "advisory_hash", "")).strip()
             if actual_advisory_hash:
-                expected_advisory_hash = _advisory_hash(advisory_output, advisory_rationale)
-                if expected_advisory_hash != actual_advisory_hash:
-                    violations.append("receipt_advisory_hash_mismatch")
+                try:
+                    expected_advisory_hash = _advisory_hash(
+                        advisory_output, advisory_rationale
+                    )
+                except Exception:
+                    violations.append("receipt_advisory_hash_unverifiable")
+                else:
+                    if expected_advisory_hash != actual_advisory_hash:
+                        violations.append("receipt_advisory_hash_mismatch")
 
             actual_analysis_hash = _safe_text(_field(receipt, "analysis_hash", "")).strip()
             expected_analysis_hash = _safe_text(

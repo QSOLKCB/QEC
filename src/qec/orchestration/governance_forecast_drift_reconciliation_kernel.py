@@ -300,7 +300,11 @@ def _normalize_realized_evolution_node(raw: Any, index: int) -> _RealizedEvoluti
     basin_id = _safe_text(_field(raw, "basin_id", _field(raw, "decision_basin", ""))).strip() or "unknown"
     continuity_ok = _safe_bool(_field(raw, "continuity_ok", False))
     severity = _clamp01(_safe_nonneg_float(_field(raw, "severity", _field(raw, "topology_severity", 0.0))))
-    stability_realized = _clamp01(_safe_nonneg_float(_field(raw, "stability_realized", _field(raw, "stability", 1.0))))
+    stability_realized = _clamp01(
+        _safe_nonneg_float(
+            _field(raw, "stability_realized", _field(raw, "stability", 1.0))
+        )
+    )
     replay_identity = _safe_text(_field(raw, "replay_identity", "")).strip()
     return _RealizedEvolutionNode(
         evolution_id=evolution_id,

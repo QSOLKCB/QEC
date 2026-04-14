@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import pytest
 
 from qec.orchestration.autonomous_research_orchestration_kernel import (
@@ -17,6 +18,7 @@ from qec.orchestration.replay_safe_benchmark_pipeline_kernel import (
     build_replay_safe_benchmark_pipeline,
     normalize_benchmark_pipeline_input,
     traverse_replay_safe_benchmark_pipeline,
+    validate_replay_safe_benchmark_pipeline,
 )
 
 
@@ -197,3 +199,36 @@ def test_canonical_export_stability() -> None:
     pipeline = build_replay_safe_benchmark_pipeline("pipeline_export", schedule, stages, results)
     assert pipeline.to_canonical_json() == pipeline.to_canonical_json()
     assert pipeline.to_canonical_bytes() == pipeline.to_canonical_bytes()
+
+
+def test_duplicate_stage_order_within_epoch_rejection() -> None:
+    schedule = _sample_schedule()
+    stages, results = _sample_stages_and_results(schedule)
+    exp_ids = [exp.experiment_id for exp in schedule.scheduled_experiments]
+    bad_stages = (
+        BenchmarkStage(stage_id="stage_a", stage_kind="prepare", input_ref=exp_ids[0], stage_order=0, stage_epoch=0),
+        BenchmarkStage(stage_id="stage_b", stage_kind="execute", input_ref=exp_ids[1], stage_order=0, stage_epoch=0),
+    )
+    with pytest.raises(ValueError, match="invalid stage order"):
+        normalize_benchmark_pipeline_input(schedule, bad_stages, results)
+
+
+def test_validate_pipeline_valid() -> None:
+    schedule = _sample_schedule()
+    stages, results = _sample_stages_and_results(schedule)
+    pipeline = build_replay_safe_benchmark_pipeline("pipeline_validate", schedule, stages, results)
+    report = validate_replay_safe_benchmark_pipeline(pipeline)
+    assert report.is_valid is True
+    assert report.pipeline_hash_ok is True
+    assert report.violations == ()
+
+
+def test_validate_pipeline_hash_mismatch() -> None:
+    schedule = _sample_schedule()
+    stages, results = _sample_stages_and_results(schedule)
+    pipeline = build_replay_safe_benchmark_pipeline("pipeline_hmm", schedule, stages, results)
+    tampered = dataclasses.replace(pipeline, pipeline_hash="deadbeef" * 8)
+    report = validate_replay_safe_benchmark_pipeline(tampered)
+    assert report.is_valid is False
+    assert report.pipeline_hash_ok is False
+    assert "pipeline_hash_mismatch" in report.violations

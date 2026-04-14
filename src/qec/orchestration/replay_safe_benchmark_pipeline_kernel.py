@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Mapping, Sequence, Tuple, Union
 from qec.orchestration.deterministic_experiment_scheduling_kernel import (
     DeterministicExperimentSchedule,
     ScheduledExperiment,
+    SchedulingLane,
 )
 
 
@@ -138,6 +139,8 @@ class BenchmarkResult:
 @dataclass(frozen=True)
 class ReplaySafeBenchmarkPipeline:
     pipeline_id: str
+    schedule_id: str
+    schedule_hash: str
     stages: Tuple[BenchmarkStage, ...]
     results: Tuple[BenchmarkResult, ...]
     pipeline_hash: str
@@ -145,6 +148,8 @@ class ReplaySafeBenchmarkPipeline:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "pipeline_id": self.pipeline_id,
+            "schedule_id": self.schedule_id,
+            "schedule_hash": self.schedule_hash,
             "stages": [stage.to_dict() for stage in self.stages],
             "results": [result.to_dict() for result in self.results],
             "pipeline_hash": self.pipeline_hash,
@@ -169,6 +174,7 @@ class BenchmarkPipelineValidationReport:
     result_validity_ok: bool
     ordering_validity_ok: bool
     lineage_validity_ok: bool
+    pipeline_hash_ok: bool
     violations: Tuple[str, ...]
 
     def to_dict(self) -> Dict[str, Any]:
@@ -180,6 +186,7 @@ class BenchmarkPipelineValidationReport:
             "result_validity_ok": self.result_validity_ok,
             "ordering_validity_ok": self.ordering_validity_ok,
             "lineage_validity_ok": self.lineage_validity_ok,
+            "pipeline_hash_ok": self.pipeline_hash_ok,
             "violations": list(self.violations),
         }
 
@@ -259,7 +266,15 @@ def _normalize_schedule(schedule: ScheduleLike) -> DeterministicExperimentSchedu
 
     return DeterministicExperimentSchedule(
         schedule_id=_require_non_empty_string(schedule.get("schedule_id", ""), "schedule_id"),
-        lanes=tuple(schedule.get("lanes", ())),
+        lanes=tuple(
+            lane if isinstance(lane, SchedulingLane) else SchedulingLane(
+                lane_id=_require_non_empty_string(lane.get("lane_id", ""), "lane_id"),
+                lane_kind=_require_non_empty_string(lane.get("lane_kind", ""), "lane_kind"),
+                capacity=_require_non_negative_int(lane.get("capacity", 0), "capacity"),
+                lane_epoch=_require_non_negative_int(lane.get("lane_epoch", 0), "lane_epoch"),
+            )
+            for lane in schedule.get("lanes", ())
+        ),
         scheduled_experiments=tuple(scheduled_experiments),
         schedule_hash=_require_non_empty_string(schedule.get("schedule_hash", ""), "schedule_hash"),
     )
@@ -355,8 +370,9 @@ def normalize_benchmark_pipeline_input(
     for stage in normalized_stages:
         per_epoch_orders.setdefault(stage.stage_epoch, []).append(stage.stage_order)
     for orders in per_epoch_orders.values():
-        unique_orders = sorted(set(orders))
-        if unique_orders != list(range(len(unique_orders))):
+        if len(orders) != len(set(orders)):
+            raise ValueError("invalid stage order")
+        if sorted(orders) != list(range(len(orders))):
             raise ValueError("invalid stage order")
 
     ordered_stages = tuple(sorted(normalized_stages, key=_stage_sort_key))
@@ -422,6 +438,8 @@ def build_replay_safe_benchmark_pipeline(
 
     return ReplaySafeBenchmarkPipeline(
         pipeline_id=pipeline_id,
+        schedule_id=normalized_schedule.schedule_id,
+        schedule_hash=normalized_schedule.schedule_hash,
         stages=ordered_stages,
         results=ordered_lineage_results,
         pipeline_hash=pipeline_hash,
@@ -436,6 +454,8 @@ def validate_replay_safe_benchmark_pipeline(pipeline: PipelineLike) -> Benchmark
             raise ValueError("pipeline must be mapping or ReplaySafeBenchmarkPipeline")
         candidate = ReplaySafeBenchmarkPipeline(
             pipeline_id=_require_non_empty_string(pipeline.get("pipeline_id", ""), "pipeline_id"),
+            schedule_id=_require_non_empty_string(pipeline.get("schedule_id", ""), "schedule_id"),
+            schedule_hash=_require_non_empty_string(pipeline.get("schedule_hash", ""), "schedule_hash"),
             stages=tuple(_normalize_stage(raw) for raw in pipeline.get("stages", ())),
             results=tuple(_normalize_result(raw) for raw in pipeline.get("results", ())),
             pipeline_hash=_require_non_empty_string(pipeline.get("pipeline_hash", ""), "pipeline_hash"),
@@ -447,6 +467,7 @@ def validate_replay_safe_benchmark_pipeline(pipeline: PipelineLike) -> Benchmark
     result_validity_ok = True
     ordering_validity_ok = True
     lineage_validity_ok = True
+    pipeline_hash_ok = True
 
     stage_ids = tuple(stage.stage_id for stage in candidate.stages)
     result_ids = tuple(result.result_id for result in candidate.results)
@@ -484,7 +505,18 @@ def validate_replay_safe_benchmark_pipeline(pipeline: PipelineLike) -> Benchmark
             violations.append("lineage_invalid")
             break
 
-    is_valid = all((uniqueness_ok, stage_validity_ok, result_validity_ok, ordering_validity_ok, lineage_validity_ok))
+    expected_hash = _compute_pipeline_hash(
+        candidate.pipeline_id,
+        candidate.schedule_id,
+        candidate.schedule_hash,
+        candidate.stages,
+        candidate.results,
+    )
+    if candidate.pipeline_hash != expected_hash:
+        pipeline_hash_ok = False
+        violations.append("pipeline_hash_mismatch")
+
+    is_valid = all((uniqueness_ok, stage_validity_ok, result_validity_ok, ordering_validity_ok, lineage_validity_ok, pipeline_hash_ok))
     return BenchmarkPipelineValidationReport(
         pipeline_id=candidate.pipeline_id,
         is_valid=is_valid,
@@ -493,6 +525,7 @@ def validate_replay_safe_benchmark_pipeline(pipeline: PipelineLike) -> Benchmark
         result_validity_ok=result_validity_ok,
         ordering_validity_ok=ordering_validity_ok,
         lineage_validity_ok=lineage_validity_ok,
+        pipeline_hash_ok=pipeline_hash_ok,
         violations=tuple(violations),
     )
 
@@ -514,17 +547,15 @@ def traverse_replay_safe_benchmark_pipeline(
     elif traversal_mode == "verification":
         ordered_stages = tuple(stage for stage in stages if stage.stage_kind in ("verify", "audit"))
         stage_ids = {stage.stage_id for stage in ordered_stages}
-        ordered_results = tuple(
-            result for result in results if result.stage_id in stage_ids or result.result_kind == "verification"
-        )
+        ordered_results = tuple(result for result in results if result.stage_id in stage_ids)
     elif traversal_mode == "audit":
         ordered_stages = tuple(stage for stage in stages if stage.stage_kind == "audit")
         stage_ids = {stage.stage_id for stage in ordered_stages}
-        ordered_results = tuple(result for result in results if result.stage_id in stage_ids or result.result_kind == "audit")
+        ordered_results = tuple(result for result in results if result.stage_id in stage_ids)
     else:
         ordered_stages = tuple(stage for stage in stages if stage.stage_kind in ("aggregate", "audit"))
         stage_ids = {stage.stage_id for stage in ordered_stages}
-        ordered_results = tuple(result for result in results if result.stage_id in stage_ids or result.result_kind == "artifact")
+        ordered_results = tuple(result for result in results if result.stage_id in stage_ids)
 
     ordered_stage_trace = tuple(stage.stage_id for stage in ordered_stages)
     ordered_result_trace = tuple(result.result_id for result in ordered_results)

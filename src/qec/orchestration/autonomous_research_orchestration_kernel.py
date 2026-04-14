@@ -367,6 +367,12 @@ def validate_autonomous_research_plan(plan: PlanLike) -> ResearchOrchestrationVa
             violations.append("missing_dependency_ref")
             break
 
+    if dependency_validity_ok:
+        try:
+            _topological_step_order(candidate.steps)
+        except ValueError:
+            dependency_validity_ok = False
+            violations.append("dependency_cycle")
     if tuple(sorted(candidate.tasks, key=_task_sort_key)) != candidate.tasks:
         ordering_validity_ok = False
         violations.append("task_ordering_invalid")

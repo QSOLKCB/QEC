@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import json
 
 import pytest
@@ -248,8 +249,6 @@ def test_zero_transition_count_preserved():
 
 def test_validate_topology_hash_integrity():
     """Regression: receipt with tampered topology_hash must trigger topology_hash_mismatch."""
-    import dataclasses
-
     scenario = build_stability_topology_scenario(
         scenario_id="tamper",
         benchmark_series=_sample_benchmark_series(),

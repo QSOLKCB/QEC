@@ -129,6 +129,27 @@ def test_validator_never_raises_and_reports_violations():
     assert "invalid_report_type" in violations
 
 
+def test_validator_passes_for_valid_report():
+    report = audit_governance_memory_io_boundaries(**_base_kwargs())
+    valid, violations = validate_boundary_audit_report(report)
+    assert valid is True
+    assert violations == ()
+
+
+def test_malformed_payload_emits_finding_not_exception():
+    kwargs = _base_kwargs()
+    kwargs["payload"] = object()
+    report = audit_governance_memory_io_boundaries(**kwargs)
+    assert any(f.finding_code == "malformed_payload" for f in report.findings)
+
+
+def test_malformed_state_emits_finding_not_exception():
+    kwargs = _base_kwargs()
+    kwargs["state"] = object()
+    report = audit_governance_memory_io_boundaries(**kwargs)
+    assert any(f.finding_code == "malformed_state" for f in report.findings)
+
+
 def test_replay_comparison_stability():
     kwargs = _base_kwargs()
     report_a = audit_governance_memory_io_boundaries(**kwargs)

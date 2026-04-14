@@ -42,14 +42,6 @@ def _as_mapping(value: Any) -> Mapping[str, Any] | None:
     return None
 
 
-def _safe_int(value: Any) -> int | None:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return value
-    return None
-
-
 @dataclass(frozen=True)
 class BoundaryAuditRule:
     rule_id: str
@@ -240,7 +232,12 @@ def compare_boundary_audit_replay(
     report_a: GovernanceMemoryIOBoundaryAuditReport,
     report_b: GovernanceMemoryIOBoundaryAuditReport,
 ) -> Dict[str, Any]:
-    fields = (
+    """Compare two audit reports for replay equivalence.
+
+    Compares top-level report fields and receipt-level invariants
+    (``audit_receipt.receipt_hash`` and ``audit_receipt.continuity_ok``).
+    """
+    top_fields = (
         "report_hash",
         "replay_binding",
         "within_boundary",
@@ -248,14 +245,30 @@ def compare_boundary_audit_replay(
         "severity_summary",
     )
     mismatches = []
-    for field in fields:
+    for field in top_fields:
         if getattr(report_a, field) != getattr(report_b, field):
             mismatches.append(field)
+    if report_a.audit_receipt.receipt_hash != report_b.audit_receipt.receipt_hash:
+        mismatches.append("audit_receipt.receipt_hash")
+    if report_a.audit_receipt.continuity_ok != report_b.audit_receipt.continuity_ok:
+        mismatches.append("audit_receipt.continuity_ok")
     return {
         "match": len(mismatches) == 0,
         "mismatch_fields": tuple(mismatches),
         "report_a_hash": report_a.report_hash,
         "report_b_hash": report_b.report_hash,
+    }
+
+
+def _report_preimage_dict(report: GovernanceMemoryIOBoundaryAuditReport) -> Dict[str, Any]:
+    """Build the canonical preimage used to compute and verify ``report_hash``."""
+    return {
+        "audit_receipt": report.audit_receipt.to_dict(),
+        "findings": [finding.to_dict() for finding in report.findings],
+        "replay_binding": report.replay_binding,
+        "severity_summary": report.severity_summary,
+        "violated_rules": report.violated_rules,
+        "within_boundary": report.within_boundary,
     }
 
 
@@ -273,7 +286,7 @@ def validate_boundary_audit_report(report: Any) -> Tuple[bool, Tuple[str, ...]]:
             recomputed_summary = summarize_boundary_findings(report.findings)
             if recomputed_summary != report.severity_summary:
                 violations.append("severity_summary_mismatch")
-            recomputed_hash = _sha256_hex(report.to_canonical_json().encode("utf-8"))
+            recomputed_hash = _sha256_hex(_canonical_json(_report_preimage_dict(report)).encode("utf-8"))
             if report.report_hash != recomputed_hash:
                 violations.append("report_hash_mismatch")
     except Exception as exc:  # pragma: no cover - defensive non-raising guarantee
@@ -329,9 +342,25 @@ def audit_governance_memory_io_boundaries(
                     )
                 )
 
-    payload_size = _canonical_len(payload)
     payload_rule = rules_by_id.get("payload_size_max")
-    if payload_rule is not None and payload_rule.max_value is not None and payload_size > payload_rule.max_value:
+    payload_malformed = False
+    try:
+        payload_size = _canonical_len(payload)
+    except (TypeError, ValueError):
+        payload_malformed = True
+        payload_size = 0
+        findings.append(
+            _build_finding(
+                finding_code="malformed_payload",
+                dimension="payload_size",
+                severity=payload_rule.severity if payload_rule is not None else "high",
+                rule_id="payload_size_max",
+                message="payload is not JSON-serializable",
+                expected="json-serializable",
+                observed=type(payload).__name__,
+            )
+        )
+    if not payload_malformed and payload_rule is not None and payload_rule.max_value is not None and payload_size > payload_rule.max_value:
         findings.append(
             _build_finding(
                 finding_code="payload_too_large",
@@ -344,9 +373,25 @@ def audit_governance_memory_io_boundaries(
             )
         )
 
-    state_size = _canonical_len(state)
     state_rule = rules_by_id.get("state_size_max")
-    if state_rule is not None and state_rule.max_value is not None and state_size > state_rule.max_value:
+    state_malformed = False
+    try:
+        state_size = _canonical_len(state)
+    except (TypeError, ValueError):
+        state_malformed = True
+        state_size = 0
+        findings.append(
+            _build_finding(
+                finding_code="malformed_state",
+                dimension="state_size",
+                severity=state_rule.severity if state_rule is not None else "high",
+                rule_id="state_size_max",
+                message="state is not JSON-serializable",
+                expected="json-serializable",
+                observed=type(state).__name__,
+            )
+        )
+    if not state_malformed and state_rule is not None and state_rule.max_value is not None and state_size > state_rule.max_value:
         findings.append(
             _build_finding(
                 finding_code="state_too_large",

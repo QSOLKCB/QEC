@@ -63,9 +63,11 @@ def _safe_text(value: Any) -> str:
 
 
 def _safe_nonneg_int(value: Any) -> int:
+    # Bools are explicitly rejected: they are not valid numeric counts here
+    # and silently coercing True/False into 1/0 would distort drift metrics.
+    if isinstance(value, bool):
+        return 0
     try:
-        if isinstance(value, bool):
-            return int(value)
         parsed = int(value)
     except Exception:
         return 0
@@ -74,7 +76,11 @@ def _safe_nonneg_int(value: Any) -> int:
     return parsed
 
 
-def _safe_bool(value: Any) -> bool:
+def _strict_bool(value: Any) -> bool:
+    # Strict coercion: only the literal True maps to True. This keeps the
+    # normalized continuity flag unambiguous — any non-bool (or False) input
+    # becomes False rather than relying on Python truthiness, which would
+    # turn arbitrary junk (non-empty strings, non-zero ints) into True.
     return value is True
 
 
@@ -151,7 +157,7 @@ def _normalize_benchmark(data: Any, fallback_id: str) -> _BenchmarkSnapshot:
         deny_count=_safe_nonneg_int(_field(data, "deny_count", 0)),
         decision_surface=_safe_decision_surface(_field(data, "decision_surface", ())),
         boundary_failures=_safe_nonneg_int(_field(data, "boundary_failures", 0)),
-        continuity_ok=_safe_bool(_field(data, "continuity_ok", False)),
+        continuity_ok=_strict_bool(_field(data, "continuity_ok", False)),
         replay_identity=_safe_text(_field(data, "replay_identity", "")).strip(),
         trace_length=_safe_nonneg_int(_field(data, "trace_length", 0)),
     )
@@ -567,15 +573,19 @@ def summarize_policy_drift(analysis: Any) -> Dict[str, Any]:
                 "analysis_hash": "",
                 "receipt_hash": "",
             }
+        validated_violations = validate_policy_drift_analysis(analysis)
         metric_deltas = {
             metric.metric_name: metric.delta for metric in analysis.metrics
         }
         return {
-            "valid": len(analysis.violations) == 0,
+            "valid": len(validated_violations) == 0
+            and len(analysis.violations) == 0,
             "scenario_id": analysis.scenario.scenario_id,
             "drift_severity_score": analysis.receipt.drift_severity_score,
             "metric_deltas": dict(sorted(metric_deltas.items())),
-            "violations": tuple(analysis.violations),
+            "violations": tuple(
+                sorted(set(tuple(analysis.violations) + tuple(validated_violations)))
+            ),
             "analysis_hash": analysis.analysis_hash,
             "receipt_hash": analysis.receipt.receipt_hash,
         }

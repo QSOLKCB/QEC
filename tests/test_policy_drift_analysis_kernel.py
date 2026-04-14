@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from qec.orchestration.policy_drift_analysis_kernel import (
+    _METRIC_ORDER,
     PolicyDriftAnalysisKernel,
     PolicyDriftMetric,
     PolicyDriftReceipt,
@@ -18,16 +19,9 @@ from qec.orchestration.policy_drift_analysis_kernel import (
 )
 
 
-_EXPECTED_METRIC_ORDER = (
-    "allow_drift_rate",
-    "deny_drift_rate",
-    "decision_surface_delta",
-    "boundary_failure_delta",
-    "continuity_delta",
-    "replay_stability_delta",
-    "trace_length_delta",
-    "drift_severity_score",
-)
+# Source metric order from the kernel itself to avoid drift between code and
+# tests if new metrics are added in canonical order.
+_EXPECTED_METRIC_ORDER = _METRIC_ORDER
 
 
 def _benchmark(
@@ -356,6 +350,49 @@ def test_severity_score_bounded_and_monotonic():
     assert 0.0 <= partial_score <= 1.0
     assert 0.0 <= heavy_score <= 1.0
     assert partial_score < heavy_score
+
+
+def test_bool_inputs_rejected_for_numeric_counts():
+    # Booleans must not be silently coerced into 1/0 counts. Also continuity_ok
+    # must be strictly the literal True — truthy junk must not flip it.
+    scenario = build_policy_drift_scenario(
+        scenario_id="scn.bool",
+        benchmark_a={
+            "benchmark_id": "a",
+            "allow_count": True,
+            "deny_count": False,
+            "boundary_failures": True,
+            "trace_length": True,
+            "continuity_ok": "yes",  # truthy but not the literal True
+        },
+        benchmark_b={
+            "benchmark_id": "b",
+            "allow_count": 10,
+            "deny_count": 0,
+            "continuity_ok": True,
+        },
+    )
+    assert scenario.benchmark_a.allow_count == 0
+    assert scenario.benchmark_a.deny_count == 0
+    assert scenario.benchmark_a.boundary_failures == 0
+    assert scenario.benchmark_a.trace_length == 0
+    assert scenario.benchmark_a.continuity_ok is False
+    assert scenario.benchmark_b.continuity_ok is True
+
+
+def test_summarize_reports_invalid_for_tampered_hash():
+    analysis = run_policy_drift_analysis(_scenario())
+    tampered = PolicyDriftAnalysisKernel(
+        scenario=analysis.scenario,
+        metrics=analysis.metrics,
+        violations=analysis.violations,
+        receipt=analysis.receipt,
+        analysis_hash="0" * 64,
+    )
+    summary = summarize_policy_drift(tampered)
+    assert summary["valid"] is False
+    # The integrity-check violation must surface in the summary
+    assert any("hash" in v for v in summary["violations"])
 
 
 def test_metric_stable_hash_reproducible():

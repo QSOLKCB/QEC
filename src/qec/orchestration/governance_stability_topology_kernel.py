@@ -23,7 +23,7 @@ from typing import Any, Dict, Mapping, Tuple
 
 _METRIC_ORDER: Tuple[str, ...] = (
     "stability_cluster_count",
-    "dominant_decision_basin",
+    "dominant_decision_basin_share",
     "drift_transition_density",
     "replay_basin_stability",
     "continuity_surface_entropy",
@@ -367,7 +367,7 @@ def _compute_metrics(scenario: StabilityTopologyScenario) -> Tuple[StabilityTopo
 
     values = {
         "stability_cluster_count": clusters,
-        "dominant_decision_basin": _bounded01(dominant),
+        "dominant_decision_basin_share": _bounded01(dominant),
         "drift_transition_density": _bounded01(drift_transition_density),
         "replay_basin_stability": _bounded01(replay_basin_stability),
         "continuity_surface_entropy": _bounded01(continuity_surface_entropy),
@@ -492,6 +492,8 @@ def validate_stability_topology(analysis: Any) -> Tuple[str, ...]:
             )
             if expected_receipt.receipt_hash != analysis.receipt.receipt_hash:
                 violations.append("receipt_hash_mismatch")
+            if analysis.receipt.topology_hash != analysis.topology_hash:
+                violations.append("topology_hash_mismatch")
             if isinstance(analysis.scenario, StabilityTopologyScenario):
                 if analysis.receipt.scenario_hash != analysis.scenario.stable_hash():
                     violations.append("scenario_hash_mismatch")

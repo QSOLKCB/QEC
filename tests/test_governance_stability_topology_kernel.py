@@ -3,6 +3,8 @@ from __future__ import annotations
 import copy
 import json
 
+import pytest
+
 from qec.orchestration.governance_stability_topology_kernel import (
     GovernanceStabilityTopologyKernel,
     StabilityTopologyMetric,
@@ -156,7 +158,7 @@ def test_deterministic_metric_ordering():
     names = tuple(metric.metric_name for metric in analysis.metrics)
     assert names == (
         "stability_cluster_count",
-        "dominant_decision_basin",
+        "dominant_decision_basin_share",
         "drift_transition_density",
         "replay_basin_stability",
         "continuity_surface_entropy",
@@ -221,3 +223,40 @@ def test_summary_and_dataclass_contracts():
     assert isinstance(analysis.receipt, StabilityTopologyReceipt)
     assert summary["scenario_id"] == "s5"
     assert "topology_severity_score" in summary
+    assert "dominant_decision_basin_share" in summary["metric_values"]
+    assert "dominant_decision_basin" not in summary["metric_values"]
+
+
+def test_zero_transition_count_preserved():
+    """Regression: explicit transition_count=0 must not be coerced to 1."""
+    scenario = build_stability_topology_scenario(
+        scenario_id="zero_tc",
+        benchmark_series=_sample_benchmark_series(),
+        drift_series=[
+            {"drift_id": "d0", "from_basin": "allow", "to_basin": "deny", "transition_count": 0},
+            {"drift_id": "d1", "from_basin": "deny", "to_basin": "allow", "transition_count": 2},
+        ],
+    )
+    zero_node = next(n for n in scenario.drift_series if n.drift_id == "d0")
+    assert zero_node.transition_count == 0, "explicit zero transition_count must be preserved"
+    analysis = run_governance_stability_topology(scenario)
+    metric_map = {m.metric_name: m.metric_value for m in analysis.metrics}
+    # With one zero and one 2-transition drift, mean is 1.0 → density = 0.1
+    # If 0 were coerced to 1, mean would be 1.5 → density = 0.15; values differ.
+    assert metric_map["drift_transition_density"] == pytest.approx(0.1, abs=1e-9)
+
+
+def test_validate_topology_hash_integrity():
+    """Regression: receipt with tampered topology_hash must trigger topology_hash_mismatch."""
+    import dataclasses
+
+    scenario = build_stability_topology_scenario(
+        scenario_id="tamper",
+        benchmark_series=_sample_benchmark_series(),
+        drift_series=_sample_drift_series(),
+    )
+    analysis = run_governance_stability_topology(scenario)
+    tampered_receipt = dataclasses.replace(analysis.receipt, topology_hash="deadbeef" * 8)
+    tampered_analysis = dataclasses.replace(analysis, receipt=tampered_receipt)
+    violations = validate_stability_topology(tampered_analysis)
+    assert "topology_hash_mismatch" in violations

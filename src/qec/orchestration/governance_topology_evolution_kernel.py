@@ -468,10 +468,11 @@ def validate_topology_evolution(
                 violations.append(f"metric_out_of_bounds:{key}")
 
         if receipt is not None:
-            expected_metrics_hash = _metrics_hash(metrics)
-            actual_metrics_hash = _safe_text(_field(receipt, "metrics_hash", ""))
-            if expected_metrics_hash != actual_metrics_hash:
-                violations.append("receipt_metrics_hash_mismatch")
+            actual_metrics_hash = _safe_text(_field(receipt, "metrics_hash", "")).strip()
+            if actual_metrics_hash:
+                expected_metrics_hash = _metrics_hash(metrics)
+                if expected_metrics_hash != actual_metrics_hash:
+                    violations.append("receipt_metrics_hash_mismatch")
     except Exception as exc:
         violations.append(f"validator_internal_error:{_safe_text(exc)}")
 

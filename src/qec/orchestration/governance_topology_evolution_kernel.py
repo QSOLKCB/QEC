@@ -262,36 +262,14 @@ def _normalize_drift_node(raw: Any, index: int) -> _DriftNode:
     )
 
 
-def _sorted_topology_nodes(series: Sequence[Any]) -> Tuple[_TopologyNode, ...]:
-    nodes = tuple(_normalize_topology_node(raw, index=i) for i, raw in enumerate(series))
-    return tuple(
-        sorted(
-            nodes,
-            key=lambda n: (
-                n.topology_id,
-                n.basin_id,
-                n.replay_identity,
-                _canonical_json(n.to_dict()),
-            ),
-        )
-    )
+def _ordered_topology_nodes(series: Sequence[Any]) -> Tuple[_TopologyNode, ...]:
+    """Normalize topology nodes preserving caller-provided order (for temporal metrics)."""
+    return tuple(_normalize_topology_node(raw, index=i) for i, raw in enumerate(series))
 
 
-def _sorted_drift_nodes(series: Sequence[Any]) -> Tuple[_DriftNode, ...]:
-    nodes = tuple(_normalize_drift_node(raw, index=i) for i, raw in enumerate(series))
-    return tuple(
-        sorted(
-            nodes,
-            key=lambda n: (
-                n.drift_id,
-                n.from_basin,
-                n.to_basin,
-                n.transition_count,
-                n.drift_magnitude,
-                _canonical_json(n.to_dict()),
-            ),
-        )
-    )
+def _ordered_drift_nodes(series: Sequence[Any]) -> Tuple[_DriftNode, ...]:
+    """Normalize drift nodes preserving caller-provided order (for temporal metrics)."""
+    return tuple(_normalize_drift_node(raw, index=i) for i, raw in enumerate(series))
 
 
 def build_topology_evolution_scenario(
@@ -301,8 +279,9 @@ def build_topology_evolution_scenario(
     drift_series: Any,
 ) -> TopologyEvolutionScenario:
     normalized_id = _safe_text(scenario_id).strip()
-    normalized_topology = _sorted_topology_nodes(_safe_series(topology_series))
-    normalized_drift = _sorted_drift_nodes(_safe_series(drift_series))
+    # Preserve caller-provided order: temporal sequence must not be reordered.
+    normalized_topology = _ordered_topology_nodes(_safe_series(topology_series))
+    normalized_drift = _ordered_drift_nodes(_safe_series(drift_series))
     return TopologyEvolutionScenario(
         scenario_id=normalized_id,
         topology_series=tuple(node.to_dict() for node in normalized_topology),
@@ -319,8 +298,10 @@ def _metric(name: str, value: float) -> TopologyEvolutionMetric:
 
 
 def _compute_metrics(scenario: TopologyEvolutionScenario) -> Tuple[TopologyEvolutionMetric, ...]:
-    topologies = _sorted_topology_nodes(scenario.topology_series)
-    drifts = _sorted_drift_nodes(scenario.drift_series)
+    # Preserve temporal order for all adjacent-pair metrics; canonical sorting
+    # is confined to hashing/serialization paths only.
+    topologies = _ordered_topology_nodes(scenario.topology_series)
+    drifts = _ordered_drift_nodes(scenario.drift_series)
 
     topology_count = len(topologies)
     drift_count = len(drifts)

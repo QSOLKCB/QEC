@@ -177,3 +177,37 @@ def test_certify_traversal_replay_deterministic() -> None:
     assert entry.replay_stable is True
     report = compare_replay_runs(ledger, rebuilt)
     assert report.replay_stable is True
+
+
+def test_validate_certification_rejects_tampered_report_hash() -> None:
+    ledger = _sample_ledger()
+    pack = certify_ledger_replay(ledger)
+    tampered_report = dataclasses.replace(pack.report, certification_hash="f" * 64)
+    tampered_pack = dataclasses.replace(pack, report=tampered_report)
+    with pytest.raises(ValueError, match="report certification_hash mismatch"):
+        validate_ledger_replay_certification(tampered_pack)
+
+
+def test_validate_certification_rejects_tampered_receipt_report_hash() -> None:
+    ledger = _sample_ledger()
+    pack = certify_ledger_replay(ledger)
+    tampered_receipt = dataclasses.replace(pack.receipt, report_hash="f" * 64)
+    tampered_pack = dataclasses.replace(pack, receipt=tampered_receipt)
+    with pytest.raises(ValueError, match="receipt report_hash mismatch"):
+        validate_ledger_replay_certification(tampered_pack)
+
+
+def test_validate_certification_rejects_tampered_receipt_ledger_id() -> None:
+    ledger = _sample_ledger()
+    pack = certify_ledger_replay(ledger)
+    tampered_receipt = dataclasses.replace(pack.receipt, ledger_id="tampered-id")
+    tampered_pack = dataclasses.replace(pack, receipt=tampered_receipt)
+    with pytest.raises(ValueError, match="receipt ledger_id mismatch"):
+        validate_ledger_replay_certification(tampered_pack)
+
+
+def test_certify_ledger_replay_raises_on_unexpected_receipt_mode() -> None:
+    ledger = _sample_ledger()
+    receipt = traverse_dataflow_research_ledger(ledger, "full")
+    with pytest.raises(ValueError, match="expected_receipts contains modes not present in traversal_modes"):
+        certify_ledger_replay(ledger, traversal_modes=("continuity",), expected_receipts={"full": receipt})

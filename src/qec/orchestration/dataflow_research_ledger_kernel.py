@@ -453,6 +453,11 @@ def compute_dataflow_continuity(entries: Sequence[DataflowLedgerEntry]) -> Dataf
     )
 
 
+def normalize_dataflow_research_ledger(ledger: LedgerLike) -> DataflowResearchLedger:
+    """Return canonical normalized form of a ledger, rebuilt entirely from entries."""
+    return _normalize_ledger(ledger)
+
+
 def validate_dataflow_research_ledger(ledger: LedgerLike) -> DataflowLedgerValidationReport:
     normalized = _normalize_ledger(ledger)
 

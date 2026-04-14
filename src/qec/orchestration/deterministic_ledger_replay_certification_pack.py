@@ -17,6 +17,7 @@ from qec.orchestration.dataflow_research_ledger_kernel import (
     DataflowResearchLedger,
     LedgerLike,
     VALID_DATAFLOW_TRAVERSAL_MODES,
+    normalize_dataflow_research_ledger,
     traverse_dataflow_research_ledger,
     validate_dataflow_research_ledger,
 )
@@ -241,6 +242,8 @@ def certify_traversal_replay(
     receipt_b: ReceiptLike | None = None,
 ) -> LedgerReplayCertificationEntry:
     mode = _require_mode(traversal_mode)
+    _validate_ledger_or_raise(run_a_ledger)
+    _validate_ledger_or_raise(run_b_ledger)
 
     baseline_receipt = traverse_dataflow_research_ledger(run_a_ledger, mode)
     replay_receipt = traverse_dataflow_research_ledger(run_b_ledger, mode)
@@ -312,6 +315,8 @@ def compare_replay_runs(
     run_a_receipts: Mapping[str, ReceiptLike] | None = None,
     run_b_receipts: Mapping[str, ReceiptLike] | None = None,
 ) -> LedgerReplayCertificationReport:
+    _validate_ledger_or_raise(run_a_ledger)
+    _validate_ledger_or_raise(run_b_ledger)
     modes = _normalize_modes(traversal_modes)
     normalized_a = _normalize_receipt_overrides(run_a_receipts)
     normalized_b = _normalize_receipt_overrides(run_b_receipts)
@@ -360,13 +365,7 @@ def compare_replay_runs(
 
 
 def build_replay_certification_receipt(report: LedgerReplayCertificationReport) -> LedgerReplayCertificationReceipt:
-    payload = {
-        "ledger_id": report.ledger_id,
-        "certification_hash": report.certification_hash,
-        "replay_stable": report.replay_stable,
-        "traversal_modes": list(report.traversal_modes),
-    }
-    report_hash = _sha256_hex(_canonical_json(payload).encode("utf-8"))
+    report_hash = _sha256_hex(report.to_canonical_json().encode("utf-8"))
     return LedgerReplayCertificationReceipt(
         receipt_id=f"ledger-replay-cert::{report_hash[:16]}",
         ledger_id=report.ledger_id,
@@ -379,14 +378,37 @@ def build_replay_certification_receipt(report: LedgerReplayCertificationReport) 
 
 def validate_ledger_replay_certification(pack: LedgerReplayCertificationPack) -> bool:
     report_copy = pack.report.to_dict()
-    report_hash = report_copy.pop("certification_hash")
+    stored_hash = report_copy.pop("certification_hash")
     recomputed_hash = _sha256_hex(_canonical_json(report_copy).encode("utf-8"))
-    if recomputed_hash != report_hash:
-        raise ValueError("certification hash mismatch")
-    if pack.receipt.certification_hash != pack.report.certification_hash:
-        raise ValueError("receipt mismatch exists")
-    if pack.receipt.traversal_modes != pack.report.traversal_modes:
-        raise ValueError("traversal subset differs")
+    if recomputed_hash != stored_hash:
+        raise ValueError(
+            f"report certification_hash mismatch: stored={stored_hash!r}, recomputed={recomputed_hash!r}"
+        )
+    expected_receipt = build_replay_certification_receipt(pack.report)
+    if pack.receipt.receipt_id != expected_receipt.receipt_id:
+        raise ValueError(
+            f"receipt receipt_id mismatch: got={pack.receipt.receipt_id!r}, expected={expected_receipt.receipt_id!r}"
+        )
+    if pack.receipt.ledger_id != expected_receipt.ledger_id:
+        raise ValueError(
+            f"receipt ledger_id mismatch: got={pack.receipt.ledger_id!r}, expected={expected_receipt.ledger_id!r}"
+        )
+    if pack.receipt.certification_hash != expected_receipt.certification_hash:
+        raise ValueError(
+            f"receipt certification_hash mismatch: got={pack.receipt.certification_hash!r}, expected={expected_receipt.certification_hash!r}"
+        )
+    if pack.receipt.replay_stable != expected_receipt.replay_stable:
+        raise ValueError(
+            f"receipt replay_stable mismatch: got={pack.receipt.replay_stable!r}, expected={expected_receipt.replay_stable!r}"
+        )
+    if pack.receipt.traversal_modes != expected_receipt.traversal_modes:
+        raise ValueError(
+            f"receipt traversal_modes mismatch: got={pack.receipt.traversal_modes!r}, expected={expected_receipt.traversal_modes!r}"
+        )
+    if pack.receipt.report_hash != expected_receipt.report_hash:
+        raise ValueError(
+            f"receipt report_hash mismatch: got={pack.receipt.report_hash!r}, expected={expected_receipt.report_hash!r}"
+        )
     return True
 
 
@@ -398,17 +420,23 @@ def certify_ledger_replay(
 ) -> LedgerReplayCertificationPack:
     _validate_ledger_or_raise(ledger)
 
-    baseline_mapping = _ledger_to_mapping(ledger)
+    normalized_ledger = normalize_dataflow_research_ledger(ledger)
+    baseline_mapping = normalized_ledger.to_dict()
     reconstructed_mapping = json.loads(_canonical_json(baseline_mapping))
     _validate_ledger_or_raise(reconstructed_mapping)
 
     modes = _normalize_modes(traversal_modes)
+    normalized_expected_receipts = _normalize_receipt_overrides(expected_receipts)
+    unexpected_modes = tuple(mode for mode in normalized_expected_receipts if mode not in modes)
+    if unexpected_modes:
+        raise ValueError(
+            f"expected_receipts contains modes not present in traversal_modes: {','.join(unexpected_modes)}"
+        )
     baseline_receipts = {mode: traverse_dataflow_research_ledger(baseline_mapping, mode) for mode in modes}
     reconstructed_receipts = {mode: traverse_dataflow_research_ledger(reconstructed_mapping, mode) for mode in modes}
 
-    for mode, receipt in _normalize_receipt_overrides(expected_receipts).items():
-        if mode in baseline_receipts:
-            baseline_receipts[mode] = receipt
+    for mode, receipt in normalized_expected_receipts.items():
+        baseline_receipts[mode] = receipt
 
     report = compare_replay_runs(
         baseline_mapping,

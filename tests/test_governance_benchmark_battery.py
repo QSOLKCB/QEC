@@ -196,6 +196,40 @@ def test_boundary_failure_rate_for_internal_io_is_one() -> None:
     assert battery.benchmark_receipt.aggregate_metrics["boundary_failure_rate"] == 0.5
 
 
+def test_boundary_failure_rate_all_invalid_is_one() -> None:
+    # A single-step simulation always produces within_boundary=False on step 0
+    # (no prior receipt hash exists), yielding boundary_failure_rate == 1.0.
+    sim = run_deterministic_agent_simulation(_scenario(steps=1))
+    battery = run_governance_benchmark_battery(
+        build_governance_benchmark_scenario(simulation_set=(sim,))
+    )
+    assert battery.benchmark_receipt.aggregate_metrics["boundary_failure_rate"] == 1.0
+
+
+def test_boundary_failure_rate_fully_valid_is_zero() -> None:
+    # Chain a second simulation that receives a valid prior receipt hash so that
+    # all steps satisfy within_boundary=True, yielding boundary_failure_rate == 0.0.
+    sc = _scenario(steps=1)
+    first = run_deterministic_agent_simulation(sc)
+    prior_hash = first.simulated_execution_trace[0].simulated_boundary_result.get(
+        "audit_receipt", {}
+    ).get("receipt_hash", "")
+    chained_sc = build_agent_simulation_scenario(
+        action_capsule=sc.action_capsule,
+        covenant_rule=sc.covenant_rule,
+        sandbox_policy_rules=sc.sandbox_policy_rules,
+        initial_state={"counter": 1.0},
+        simulation_steps=2,
+        io_surface="none",
+        prior_transition_receipt_hash=prior_hash,
+    )
+    second = run_deterministic_agent_simulation(chained_sc)
+    battery = run_governance_benchmark_battery(
+        build_governance_benchmark_scenario(simulation_set=(second,))
+    )
+    assert battery.benchmark_receipt.aggregate_metrics["boundary_failure_rate"] == 0.0
+
+
 def test_summarize_ordering_by_index() -> None:
     scenario = build_governance_benchmark_scenario(simulation_set=(_sandbox(steps=2), _sandbox(steps=1)))
     battery = run_governance_benchmark_battery(scenario)

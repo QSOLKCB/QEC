@@ -239,6 +239,22 @@ def test_validation_report_flags_invalid_reference():
     assert report.cross_artifact_reference_validity_ok is False
 
 
+def test_edge_references_missing_node_rejection():
+    payload = _base_payload()
+    payload["edges"][0]["target_node_id"] = "n-missing"
+    with pytest.raises(ReasoningGraphError) as exc_info:
+        normalize_replay_safe_reasoning_input(payload)
+    assert exc_info.value.code == "invalid_edge_reference"
+
+
+def test_validation_report_flags_edge_invalid_reference():
+    payload = _base_payload()
+    payload["edges"][0]["target_node_id"] = "n-missing"
+    report = validate_replay_safe_reasoning_graph(payload)
+    assert report.is_valid is False
+    assert report.edge_validity_ok is False
+
+
 def test_validation_report_accepts_built_graph_object():
     graph = build_replay_safe_reasoning_graph(_base_payload())
     report = validate_replay_safe_reasoning_graph(graph)

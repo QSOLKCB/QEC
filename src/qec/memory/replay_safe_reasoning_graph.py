@@ -52,6 +52,21 @@ _RELATIONS_BY_TRAVERSAL: Dict[str, Tuple[str, ...]] = {
 
 _LINEAGE_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
+_VALID_SOURCE_REF_PREFIXES: Tuple[str, ...] = (
+    "memory_graph:",
+    "decision_dag:",
+    "topology_index:",
+    "release:",
+    "proof:",
+    "test:",
+    "artifact:",
+)
+
+
+def _is_valid_source_ref(ref: str) -> bool:
+    """Return True if *ref* has a valid ``<prefix>:<non-empty-id>`` form."""
+    return any(ref.startswith(p) and len(ref) > len(p) for p in _VALID_SOURCE_REF_PREFIXES)
+
 
 class ReasoningGraphError(ValueError):
     """Structured reasoning-graph validation error."""
@@ -372,6 +387,8 @@ def _validate_built_graph_object(graph: ReplaySafeReasoningGraph) -> None:
         node = raw_node
         if not node.source_ref:
             raise ReasoningGraphError("invalid_node", "source_ref must be non-empty")
+        if not _is_valid_source_ref(node.source_ref):
+            raise ReasoningGraphError("invalid_cross_artifact_reference", "invalid cross-artifact reference")
         if not node.node_id:
             raise ReasoningGraphError("invalid_node_id", "invalid reasoning node id")
         if node.reasoning_kind not in _ALLOWED_REASONING_KINDS:
@@ -513,7 +530,7 @@ def validate_replay_safe_reasoning_graph(payload: GraphLike) -> ReasoningGraphVa
             edge_count = len(raw_edges) if isinstance(raw_edges, Sequence) and not isinstance(raw_edges, (str, bytes, bytearray)) else 0
             normalize_replay_safe_reasoning_input(payload)
     except ReasoningGraphError as exc:
-        violations.append(str(exc))
+        violations.append(f"{exc.code}: {exc}")
         if exc.code in ("duplicate_node", "duplicate_edge"):
             uniqueness_ok = False
         if exc.code in ("invalid_node", "invalid_node_id", "invalid_reasoning_kind", "invalid_reasoning_epoch"):

@@ -450,8 +450,11 @@ def normalize_replay_safe_reasoning_input(payload: Mapping[str, Any]) -> Tuple[s
             raise ReasoningGraphError("duplicate_edge", f"duplicate reasoning edge id: {edge.edge_id}")
         if edge.source_node_id not in node_ids or edge.target_node_id not in node_ids:
             raise ReasoningGraphError(
-                "invalid_cross_artifact_reference",
-                "invalid cross-artifact reference",
+                "invalid_edge_reference",
+                (
+                    f"edge references missing node: {edge.edge_id} "
+                    f"({edge.source_node_id} -> {edge.target_node_id})"
+                ),
             )
         seen_edge_ids.add(edge.edge_id)
         edges.append(edge)

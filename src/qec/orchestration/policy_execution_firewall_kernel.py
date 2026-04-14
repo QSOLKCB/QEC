@@ -271,8 +271,9 @@ def _hash_inputs(
     action_hash = _safe_str(getattr(action_capsule, "stable_hash", lambda: "")())
     covenant_hash = _safe_str(getattr(covenant_execution, "stable_hash", lambda: "")())
     report_hash = _safe_str(getattr(boundary_audit_report, "stable_hash", lambda: "")())
+    ordered_rules = tuple(sorted(policy_rules, key=lambda item: (item.rule_id, item.stable_hash())))
     rules_hash = _sha256_hex(
-        _canonical_json([rule.stable_hash() for rule in policy_rules]).encode("utf-8")
+        _canonical_json([rule.stable_hash() for rule in ordered_rules]).encode("utf-8")
     )
     return action_hash, covenant_hash, report_hash, rules_hash
 

@@ -232,6 +232,25 @@ def test_replay_comparison_stability() -> None:
     assert cmp["mismatch_fields"] == ()
 
 
+def test_replay_comparison_stable_across_policy_rule_input_order() -> None:
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    report = _sample_report(capsule, execution)
+    rule_a = _sample_rule(rule_id="fw.alpha")
+    rule_b = _sample_rule(
+        rule_id="fw.beta",
+        allowed_action_types=("observe", "summarize"),
+        disallowed_violated_rule_ids=("io_surface_allowed", "proof_chain_empty"),
+    )
+
+    a = evaluate_policy_execution_firewall(capsule, execution, report, (rule_a, rule_b))
+    b = evaluate_policy_execution_firewall(capsule, execution, report, (rule_b, rule_a))
+    cmp = compare_firewall_replay(a, b)
+
+    assert cmp["match"] is True
+    assert cmp["mismatch_fields"] == ()
+
+
 def test_canonical_json_round_trip() -> None:
     capsule = _sample_capsule()
     execution = _sample_execution()

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import heapq
 import json
 from typing import Any, Dict, Mapping, Sequence, Tuple, Union, List, Set
 
@@ -247,35 +248,38 @@ def _normalize_dependency_refs(refs: Sequence[Any]) -> Tuple[str, ...]:
     return tuple(sorted(normalized_refs))
 
 
+def _require_non_negative_int(value: Any, field_name: str) -> int:
+    """Validate a required non-negative integer field, rejecting booleans."""
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a non-negative integer, not bool")
+    try:
+        result = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} must be a non-negative integer")
+    if result < 0:
+        raise ValueError(f"{field_name} must be non-negative")
+    return result
+
+
 def _normalize_step(raw: OrchestrationStepLike) -> OrchestrationStep:
     if isinstance(raw, OrchestrationStep):
         step = OrchestrationStep(
-            step_id=raw.step_id,
-            task_id=raw.task_id,
-            execution_order=raw.execution_order,
+            step_id=_require_non_empty_string(raw.step_id, "step_id"),
+            task_id=_require_non_empty_string(raw.task_id, "task_id"),
+            execution_order=_require_non_negative_int(raw.execution_order, "execution_order"),
             dependency_refs=_normalize_dependency_refs(raw.dependency_refs),
-            step_epoch=raw.step_epoch,
+            step_epoch=_require_non_negative_int(raw.step_epoch, "step_epoch"),
         )
     else:
         if not isinstance(raw, Mapping):
             raise ValueError("step must be a mapping or OrchestrationStep")
         step = OrchestrationStep(
-            step_id=str(raw.get("step_id", "")).strip(),
-            task_id=str(raw.get("task_id", "")).strip(),
-            execution_order=int(raw.get("execution_order", 0)),
+            step_id=_require_non_empty_string(raw.get("step_id", ""), "step_id"),
+            task_id=_require_non_empty_string(raw.get("task_id", ""), "task_id"),
+            execution_order=_require_non_negative_int(raw.get("execution_order", 0), "execution_order"),
             dependency_refs=_normalize_dependency_refs(raw.get("dependency_refs", ())),
-            step_epoch=int(raw.get("step_epoch", 0)),
+            step_epoch=_require_non_negative_int(raw.get("step_epoch", 0), "step_epoch"),
         )
-    if not step.step_id:
-        raise ValueError("invalid step id")
-    if not step.task_id:
-        raise ValueError("invalid step task_id")
-    if step.execution_order < 0:
-        raise ValueError("invalid execution order")
-    if step.step_epoch < 0:
-        raise ValueError("step_epoch must be non-negative")
-    if any(not ref for ref in step.dependency_refs):
-        raise ValueError("dependency refs must be non-empty step ids")
     return step
 
 
@@ -327,6 +331,7 @@ def build_autonomous_research_plan(
     tasks: Sequence[ResearchTaskLike],
     steps: Sequence[OrchestrationStepLike],
 ) -> AutonomousResearchPlan:
+    plan_id = _require_non_empty_string(plan_id, "plan_id")
     normalized_tasks, normalized_steps = normalize_research_orchestration_input(tasks, steps)
     plan_hash = _compute_plan_hash(plan_id=plan_id, tasks=normalized_tasks, steps=normalized_steps)
     return AutonomousResearchPlan(
@@ -428,17 +433,22 @@ def _topological_step_order(steps: Tuple[OrchestrationStep, ...]) -> Tuple[Orche
             adjacency[dep].append(s.step_id)
             indegree[s.step_id] += 1
 
-    frontier = sorted((step_map[sid] for sid, deg in indegree.items() if deg == 0), key=_step_sort_key)
+    frontier: List[Tuple[Any, ...]] = []
+    for sid, deg in indegree.items():
+        if deg == 0:
+            s = step_map[sid]
+            heapq.heappush(frontier, (_step_sort_key(s), sid))
     ordered: List[OrchestrationStep] = []
 
     while frontier:
-        current = frontier.pop(0)
+        _, sid = heapq.heappop(frontier)
+        current = step_map[sid]
         ordered.append(current)
         for nxt in sorted(adjacency[current.step_id]):
             indegree[nxt] -= 1
             if indegree[nxt] == 0:
-                frontier.append(step_map[nxt])
-                frontier.sort(key=_step_sort_key)
+                nxt_step = step_map[nxt]
+                heapq.heappush(frontier, (_step_sort_key(nxt_step), nxt))
 
     if len(ordered) != len(steps):
         raise ValueError("dependency cycle detected")

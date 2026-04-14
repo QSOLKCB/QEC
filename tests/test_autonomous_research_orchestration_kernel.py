@@ -8,6 +8,7 @@ from qec.orchestration.autonomous_research_orchestration_kernel import (
     build_autonomous_research_plan,
     normalize_research_orchestration_input,
     traverse_autonomous_research_plan,
+    validate_autonomous_research_plan,
 )
 
 
@@ -137,3 +138,36 @@ def test_canonical_export_stability() -> None:
     plan = build_autonomous_research_plan("plan_export", _sample_tasks(), _sample_steps())
     assert plan.to_canonical_json() == plan.to_canonical_json()
     assert plan.to_canonical_bytes() == plan.to_canonical_bytes()
+
+
+def test_deterministic_benchmark_traversal() -> None:
+    plan = build_autonomous_research_plan("plan_bench", _sample_tasks(), _sample_steps())
+    a = traverse_autonomous_research_plan(plan, "benchmark")
+    b = traverse_autonomous_research_plan(plan, "benchmark")
+    assert a.ordered_step_trace == b.ordered_step_trace
+    assert a.ordered_task_trace == b.ordered_task_trace
+    assert a.traversal_hash == b.traversal_hash
+    # benchmark steps (belonging to benchmark tasks) must appear before other steps
+    benchmark_task_ids = {t.task_id for t in plan.tasks if t.task_kind == "benchmark"}
+    step_map = {s.step_id: s for s in plan.steps}
+    first_non_benchmark_idx = next(
+        (i for i, sid in enumerate(a.ordered_step_trace) if step_map[sid].task_id not in benchmark_task_ids),
+        len(a.ordered_step_trace),
+    )
+    for sid in a.ordered_step_trace[:first_non_benchmark_idx]:
+        assert step_map[sid].task_id in benchmark_task_ids
+
+
+def test_validation_detects_dependency_cycle() -> None:
+    tasks = (
+        ResearchTask(task_id="task_x", task_kind="experiment", source_ref="ref:x", priority=0, task_epoch=0),
+    )
+    # step_a -> step_b -> step_a (cycle); normalize allows cross-step cycles, validate must catch them
+    steps = (
+        OrchestrationStep(step_id="step_a", task_id="task_x", execution_order=0, dependency_refs=("step_b",), step_epoch=0),
+        OrchestrationStep(step_id="step_b", task_id="task_x", execution_order=1, dependency_refs=("step_a",), step_epoch=0),
+    )
+    plan = build_autonomous_research_plan("plan_cycle", tasks, steps)
+    report = validate_autonomous_research_plan(plan)
+    assert not report.is_valid
+    assert "dependency_cycle" in report.violations

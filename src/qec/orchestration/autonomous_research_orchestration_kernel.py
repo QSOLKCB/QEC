@@ -233,20 +233,37 @@ def _normalize_task(raw: ResearchTaskLike) -> ResearchTask:
     return task
 
 
+def _normalize_dependency_refs(refs: Sequence[Any]) -> Tuple[str, ...]:
+    """Return canonical dependency refs for deterministic plan hashing."""
+    if not isinstance(refs, Sequence) or isinstance(refs, (str, bytes)):
+        raise ValueError("dependency_refs must be a sequence of step ids")
+
+    normalized_refs = tuple(str(ref).strip() for ref in refs)
+    if any(not ref for ref in normalized_refs):
+        raise ValueError("dependency refs must be non-empty step ids")
+    if len(normalized_refs) != len(set(normalized_refs)):
+        raise ValueError("duplicate dependency refs are not allowed")
+
+    return tuple(sorted(normalized_refs))
+
+
 def _normalize_step(raw: OrchestrationStepLike) -> OrchestrationStep:
     if isinstance(raw, OrchestrationStep):
-        step = raw
+        step = OrchestrationStep(
+            step_id=raw.step_id,
+            task_id=raw.task_id,
+            execution_order=raw.execution_order,
+            dependency_refs=_normalize_dependency_refs(raw.dependency_refs),
+            step_epoch=raw.step_epoch,
+        )
     else:
         if not isinstance(raw, Mapping):
             raise ValueError("step must be a mapping or OrchestrationStep")
-        refs = raw.get("dependency_refs", ())
-        if not isinstance(refs, Sequence) or isinstance(refs, (str, bytes)):
-            raise ValueError("dependency_refs must be a sequence of step ids")
         step = OrchestrationStep(
             step_id=str(raw.get("step_id", "")).strip(),
             task_id=str(raw.get("task_id", "")).strip(),
             execution_order=int(raw.get("execution_order", 0)),
-            dependency_refs=tuple(str(ref).strip() for ref in refs),
+            dependency_refs=_normalize_dependency_refs(raw.get("dependency_refs", ())),
             step_epoch=int(raw.get("step_epoch", 0)),
         )
     if not step.step_id:

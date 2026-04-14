@@ -291,7 +291,16 @@ def test_canonical_json_round_trip() -> None:
     )
     encoded = kernel.to_canonical_json()
     parsed = json.loads(encoded)
-    assert json.dumps(parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False) == encoded
+    assert (
+        json.dumps(
+            parsed,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        == encoded
+    )
 
 
 def test_deterministic_metric_ordering() -> None:

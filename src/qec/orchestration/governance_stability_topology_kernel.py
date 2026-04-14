@@ -242,6 +242,29 @@ class GovernanceStabilityTopologyKernel:
         return self.topology_hash
 
 
+def _benchmark_node_sort_key(node: Any) -> Tuple[str, str, str, str]:
+    """Return a deterministic sort key for normalized benchmark nodes."""
+    node_payload = node.to_dict() if hasattr(node, "to_dict") else node
+    return (
+        _safe_text(getattr(node, "benchmark_id", "")),
+        _safe_text(getattr(node, "decision_basin", "")),
+        _safe_text(getattr(node, "replay_identity", "")),
+        _canonical_json(node_payload),
+    )
+
+
+def _drift_node_sort_key(node: Any) -> Tuple[str, str, str, int, str]:
+    """Return a deterministic sort key for normalized drift nodes."""
+    node_payload = node.to_dict() if hasattr(node, "to_dict") else node
+    return (
+        _safe_text(getattr(node, "drift_id", "")),
+        _safe_text(getattr(node, "from_basin", "")),
+        _safe_text(getattr(node, "to_basin", "")),
+        int(getattr(node, "transition_count", 0)),
+        _canonical_json(node_payload),
+    )
+
+
 def build_stability_topology_scenario(
     *,
     scenario_id: str,
@@ -249,12 +272,22 @@ def build_stability_topology_scenario(
     drift_series: Any,
 ) -> StabilityTopologyScenario:
     normalized_benchmarks = tuple(
-        _normalize_benchmark_node(item, index)
-        for index, item in enumerate(_safe_series(benchmark_series))
+        sorted(
+            (
+                _normalize_benchmark_node(item, index)
+                for index, item in enumerate(_safe_series(benchmark_series))
+            ),
+            key=_benchmark_node_sort_key,
+        )
     )
     normalized_drifts = tuple(
-        _normalize_drift_node(item, index)
-        for index, item in enumerate(_safe_series(drift_series))
+        sorted(
+            (
+                _normalize_drift_node(item, index)
+                for index, item in enumerate(_safe_series(drift_series))
+            ),
+            key=_drift_node_sort_key,
+        )
     )
     return StabilityTopologyScenario(
         scenario_id=_safe_text(scenario_id).strip(),

@@ -285,6 +285,8 @@ def normalize_research_orchestration_input(
     step_id_set = set(step_ids)
     for step in normalized_steps:
         for dep in step.dependency_refs:
+            if dep == step.step_id:
+                raise ValueError(f"step cannot depend on itself: {dep}")
             if dep not in step_id_set:
                 raise ValueError(f"missing dependency refs: {dep}")
 

@@ -147,7 +147,7 @@ def _normalize_drift_node(raw: Any, index: int) -> _DriftNode:
         drift_id=drift_id,
         from_basin=from_basin,
         to_basin=to_basin,
-        transition_count=_safe_nonneg_int(_field(raw, "transition_count", 1)) or 1,
+        transition_count=_safe_nonneg_int(_field(raw, "transition_count", 1)),
     )
 
 

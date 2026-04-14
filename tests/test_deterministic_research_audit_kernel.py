@@ -167,3 +167,13 @@ def test_canonical_export_stability() -> None:
     report = run_deterministic_research_audit("audit_export", plan, schedule, pipeline, lineage)
     assert report.to_canonical_json() == report.to_canonical_json()
     assert report.to_canonical_bytes() == report.to_canonical_bytes()
+
+
+def test_valid_artifacts_no_continuity_findings() -> None:
+    plan, schedule, pipeline, lineage = _sample_artifacts()
+    report = run_deterministic_research_audit("audit_happy_path", plan, schedule, pipeline, lineage)
+    continuity_kinds = {"continuity_gap", "flow_discontinuity", "missing_root"}
+    continuity_findings = [f for f in report.findings if f.finding_kind in continuity_kinds]
+    assert continuity_findings == [], (
+        f"Expected no continuity/flow findings for valid artifacts, got: {continuity_findings}"
+    )

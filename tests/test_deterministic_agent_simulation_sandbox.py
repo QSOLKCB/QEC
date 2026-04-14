@@ -75,10 +75,10 @@ def _deny_scenario() -> AgentSimulationScenario:
     scenario = _allow_scenario(steps=2)
     policy = build_firewall_policy_rule(
         rule_id="p-deny",
-        allowed_action_types=("validate",),
+        allowed_action_types=("certify",),
         allowed_action_scopes=("validate",),
         require_within_boundary=False,
-        max_allowed_severity="low",
+        max_allowed_severity="critical",
         require_receipt_continuity=False,
         required_replay_identity_prefix="agent-action::",
         required_covenant_rule_id="r1",
@@ -235,3 +235,41 @@ def test_dataclass_canonical_json_and_to_dict_shape():
     assert "step_index" in step.to_dict()
     assert "receipt_hash" in receipt.to_dict()
     assert "scenario" in run.to_dict()
+
+
+def test_boundary_continuity_ok_for_valid_replay_chain():
+    """Regression: boundary auditor receives correct mapping shapes so
+    continuity_ok is True for steps 2+ in a valid replay chain."""
+    scenario = _allow_scenario(steps=3)
+    run = run_deterministic_agent_simulation(scenario)
+    assert run.validation_violations == ()
+    # Steps 1 and 2 (index 1, 2) have a real prior receipt hash —
+    # the boundary audit must confirm continuity_ok=True for them.
+    for step in run.simulated_execution_trace[1:]:
+        audit_receipt = step.simulated_boundary_result.get("audit_receipt", {})
+        assert audit_receipt.get("continuity_ok") is True, (
+            f"step {step.step_index}: expected continuity_ok=True, got {audit_receipt}"
+        )
+
+
+def test_malformed_action_capsule_type_does_not_crash():
+    """Regression: malformed AgentSimulationScenario with wrong action_capsule
+    type must not raise during receipt construction; returns empty trace + violations."""
+    scenario = _allow_scenario(steps=1)
+    # Bypass type enforcement by constructing dataclass directly with wrong type.
+    broken = AgentSimulationScenario(
+        action_capsule="not_a_capsule",  # type: ignore[arg-type]
+        covenant_rule=scenario.covenant_rule,
+        sandbox_policy_rules=scenario.sandbox_policy_rules,
+        initial_state=scenario.initial_state,
+        simulation_steps=1,
+        io_surface="none",
+        prior_transition_receipt_hash="",
+    )
+    run = run_deterministic_agent_simulation(broken)
+    assert run.simulated_execution_trace == ()
+    assert "malformed_scenario:action_capsule" in run.validation_violations
+    # Receipt hash must be deterministic even for this malformed case.
+    assert isinstance(run.sandbox_receipt.receipt_hash, str)
+    assert len(run.sandbox_receipt.receipt_hash) == 64
+    assert run.sandbox_receipt.scenario_hash == "malformed_scenario"

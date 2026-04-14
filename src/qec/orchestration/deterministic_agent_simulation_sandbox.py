@@ -276,6 +276,11 @@ def run_deterministic_agent_simulation(
             covenant_rule=scenario.covenant_rule,
         )
 
+        current_receipt_dict = {
+            **covenant_execution.receipt.to_dict(),
+            "prior_receipt_hash": prior_transition_hash,
+        }
+        prior_receipt_dict = {"receipt_hash": prior_transition_hash}
         boundary_report: GovernanceMemoryIOBoundaryAuditReport = audit_governance_memory_io_boundaries(
             covenant_metadata={
                 "covenant_id": scenario.covenant_rule.rule_id,
@@ -288,8 +293,8 @@ def run_deterministic_agent_simulation(
             io_surface=scenario.io_surface,
             replay_identity=scenario.action_capsule.replay_identity,
             declared_replay_identity=scenario.action_capsule.replay_identity,
-            transition_receipt=covenant_execution.receipt,
-            prior_transition_receipt=prior_transition_hash,
+            transition_receipt=current_receipt_dict,
+            prior_transition_receipt=prior_receipt_dict,
             boundary_rules=None,
         )
 
@@ -358,12 +363,16 @@ def build_agent_simulation_receipt(
     simulated_execution_trace: Sequence[AgentSimulationStep],
     validation_violations: Sequence[str] = (),
 ) -> AgentSimulationReceipt:
+    try:
+        scenario_hash = scenario.stable_hash()
+    except (AttributeError, TypeError):
+        scenario_hash = "malformed_scenario"
     step_hashes = tuple(step.stable_hash() for step in simulated_execution_trace)
     allow_count = sum(1 for step in simulated_execution_trace if step.allow)
     deny_count = sum(1 for step in simulated_execution_trace if not step.allow)
     ordered_violations = tuple(sorted({str(v) for v in validation_violations if str(v)}))
     preimage = {
-        "scenario_hash": scenario.stable_hash(),
+        "scenario_hash": scenario_hash,
         "step_hashes": list(step_hashes),
         "allow_count": allow_count,
         "deny_count": deny_count,
@@ -371,7 +380,7 @@ def build_agent_simulation_receipt(
     }
     receipt_hash = _sha256_hex(_canonical_json(preimage).encode("utf-8"))
     return AgentSimulationReceipt(
-        scenario_hash=scenario.stable_hash(),
+        scenario_hash=scenario_hash,
         step_hashes=step_hashes,
         allow_count=allow_count,
         deny_count=deny_count,

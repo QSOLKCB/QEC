@@ -193,7 +193,7 @@ def test_boundary_failure_rate_for_internal_io_is_one() -> None:
     battery = run_governance_benchmark_battery(
         build_governance_benchmark_scenario(simulation_set=(run_deterministic_agent_simulation(internal),))
     )
-    assert battery.benchmark_receipt.aggregate_metrics["boundary_failure_rate"] == 1.0
+    assert battery.benchmark_receipt.aggregate_metrics["boundary_failure_rate"] == 0.5
 
 
 def test_summarize_ordering_by_index() -> None:

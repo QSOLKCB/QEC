@@ -292,7 +292,7 @@ def _normalize_entry(raw: Any) -> DataflowLedgerEntry:
             artifact_in_id=str(raw.get("artifact_in_id", "")).strip(),
             artifact_in_hash=_require_optional_hash(raw.get("artifact_in_hash", ""), "artifact_in_hash"),
             artifact_out_id=_require_non_empty_string(raw.get("artifact_out_id", ""), "artifact_out_id"),
-            artifact_out_hash=_require_optional_hash(raw.get("artifact_out_hash", ""), "artifact_out_hash"),
+            artifact_out_hash=_require_valid_hash(raw.get("artifact_out_hash", ""), "artifact_out_hash"),
             predecessor_stage=str(raw.get("predecessor_stage", "")).strip(),
             upstream_hash_link=_require_optional_hash(raw.get("upstream_hash_link", ""), "upstream_hash_link"),
             continuity_ok=bool(raw.get("continuity_ok", False)),
@@ -310,18 +310,19 @@ def _normalize_entry(raw: Any) -> DataflowLedgerEntry:
 
 def _normalize_ledger(ledger: LedgerLike) -> DataflowResearchLedger:
     if isinstance(ledger, DataflowResearchLedger):
-        return ledger
-    if not isinstance(ledger, Mapping):
+        entries: Tuple[DataflowLedgerEntry, ...] = ledger.entries
+        ledger_id = ledger.ledger_id
+        provided_hash = ledger.ledger_hash
+    elif isinstance(ledger, Mapping):
+        entries = tuple(_normalize_entry(raw) for raw in ledger.get("entries", ()))
+        ledger_id = _require_non_empty_string(ledger.get("ledger_id", ""), "ledger_id")
+        provided_hash = str(ledger.get("ledger_hash", "")).strip()
+    else:
         raise ValueError("ledger must be mapping or DataflowResearchLedger")
 
-    entries = tuple(_normalize_entry(raw) for raw in ledger.get("entries", ()))
     normalized_entries = tuple(sorted(entries, key=_entry_sort_key))
-    rebuilt = _build_ledger_from_entries(
-        ledger_id=_require_non_empty_string(ledger.get("ledger_id", ""), "ledger_id"),
-        entries=normalized_entries,
-    )
-    serialized_hash = str(ledger.get("ledger_hash", "")).strip()
-    if serialized_hash and rebuilt.ledger_hash != serialized_hash:
+    rebuilt = _build_ledger_from_entries(ledger_id=ledger_id, entries=normalized_entries)
+    if provided_hash and rebuilt.ledger_hash != provided_hash:
         raise ValueError("ledger_hash mismatch")
     return rebuilt
 
@@ -410,7 +411,7 @@ def build_dataflow_research_ledger(
     prev_hash = ""
     for ordinal, stage_name in enumerate(CANONICAL_DATAFLOW_STAGES):
         artifact_id, artifact_hash = _artifact_id_hash_for_stage(stage_name, stage_artifacts[stage_name])
-        continuity_ok = (ordinal == 0) or bool(prev_hash and prev_hash == prev_hash)
+        continuity_ok = (ordinal == 0) or bool(prev_hash)
         reason = "root" if ordinal == 0 else "linked" if prev_hash else "missing_upstream"
         validation_flags: Tuple[str, ...] = ("canonical_stage",)
         entry = DataflowLedgerEntry(
@@ -433,7 +434,6 @@ def build_dataflow_research_ledger(
         prev_hash = artifact_hash
 
     ledger = _build_ledger_from_entries(normalized_ledger_id, tuple(entries))
-    validate_dataflow_research_ledger(ledger)
     return ledger
 
 
@@ -460,41 +460,52 @@ def validate_dataflow_research_ledger(ledger: LedgerLike) -> DataflowLedgerValid
     entries = normalized.entries
     if not entries:
         violations.append("empty_ledger_entries")
-        raise ValueError(violations[0])
+        return DataflowLedgerValidationReport(
+            ledger_id=normalized.ledger_id,
+            is_valid=False,
+            violations=tuple(violations),
+        )
 
     expected_ordinals = tuple(range(len(entries)))
     ordinals = tuple(entry.stage_ordinal for entry in entries)
     if len(set(ordinals)) != len(ordinals):
         violations.append("duplicate_stage_ordinals")
-        raise ValueError(violations[0])
 
-    if ordinals != expected_ordinals:
+    if not violations and ordinals != expected_ordinals:
         violations.append("impossible_stage_regression")
-        raise ValueError(violations[0])
 
     expected_stage_names = CANONICAL_DATAFLOW_STAGES[: len(entries)]
     stage_names = tuple(entry.stage_name for entry in entries)
-    if stage_names != expected_stage_names:
+    if not violations and stage_names != expected_stage_names:
         violations.append("unstable_or_unsorted_traversal_inputs")
-        raise ValueError(violations[0])
 
     traversal_indices = tuple(entry.traversal_index for entry in entries)
-    if traversal_indices != expected_ordinals:
+    if not violations and traversal_indices != expected_ordinals:
         violations.append("unstable_or_unsorted_traversal_inputs")
-        raise ValueError(violations[0])
 
-    for idx in range(1, len(entries)):
-        prev_entry = entries[idx - 1]
-        entry = entries[idx]
-        if entry.continuity_ok and not entry.upstream_hash_link:
-            violations.append("missing_required_upstream_link")
-            raise ValueError(violations[0])
-        if entry.upstream_hash_link != prev_entry.artifact_out_hash:
-            violations.append("hash_drift_between_linked_stages")
-            raise ValueError(violations[0])
-        if entry.predecessor_stage != prev_entry.stage_name:
-            violations.append("malformed_receipt_chain_structure")
-            raise ValueError(violations[0])
+    if not violations:
+        for idx in range(1, len(entries)):
+            prev_entry = entries[idx - 1]
+            entry = entries[idx]
+            if entry.continuity_ok and not entry.upstream_hash_link:
+                violations.append("missing_required_upstream_link")
+                break
+            if entry.upstream_hash_link != prev_entry.artifact_out_hash:
+                violations.append("hash_drift_between_linked_stages")
+                break
+            if entry.predecessor_stage != prev_entry.stage_name:
+                violations.append("malformed_receipt_chain_structure")
+                break
+            if entry.artifact_in_id != prev_entry.artifact_out_id:
+                violations.append("artifact_identity_mismatch_between_linked_stages")
+                break
+            # artifact_in_hash is the per-entry receipt of what entered this stage;
+            # upstream_hash_link is the chaining mechanism.  Both are set from the
+            # same predecessor hash in the builder, but may be tampered independently,
+            # so we validate them as separate fields.
+            if entry.artifact_in_hash != prev_entry.artifact_out_hash:
+                violations.append("artifact_hash_mismatch_between_linked_stages")
+                break
 
     expected_summary = compute_dataflow_continuity(entries)
     if expected_summary.to_dict() != normalized.continuity_summary.to_dict():
@@ -555,7 +566,7 @@ def traverse_dataflow_research_ledger(
         "ordered_edge_trace": list(selected_edge_trace),
     }
     traversal_hash = _sha256_hex(_canonical_json(payload).encode("utf-8"))
-    receipt_id = f"receipt::{_sha256_hex(_canonical_json(payload).encode('utf-8'))[:16]}"
+    receipt_id = f"receipt::{traversal_hash[:16]}"
     return DataflowLedgerTraversalReceipt(
         receipt_id=receipt_id,
         ledger_id=normalized.ledger_id,

@@ -102,32 +102,48 @@ def test_missing_upstream_linkage_detected() -> None:
     plan, schedule, pipeline, lineage, audit = _sample_artifacts()
     ledger = build_dataflow_research_ledger("ledger_missing_upstream", plan, schedule, pipeline, lineage, audit)
     broken_entry = dataclasses.replace(ledger.entries[1], upstream_hash_link="", continuity_ok=True)
-    tampered = dataclasses.replace(ledger, entries=(ledger.entries[0], broken_entry, *ledger.entries[2:]))
-    with pytest.raises(ValueError, match="missing_required_upstream_link"):
-        validate_dataflow_research_ledger(tampered)
+    tampered_dict = {
+        "ledger_id": ledger.ledger_id,
+        "entries": [e.to_dict() for e in (ledger.entries[0], broken_entry, *ledger.entries[2:])],
+    }
+    report = validate_dataflow_research_ledger(tampered_dict)
+    assert report.is_valid is False
+    assert "missing_required_upstream_link" in report.violations
 
 
 def test_hash_drift_between_linked_stages_detected() -> None:
     plan, schedule, pipeline, lineage, audit = _sample_artifacts()
     ledger = build_dataflow_research_ledger("ledger_hash_drift", plan, schedule, pipeline, lineage, audit)
     broken_entry = dataclasses.replace(ledger.entries[2], upstream_hash_link="f" * 64)
-    tampered = dataclasses.replace(ledger, entries=(ledger.entries[0], ledger.entries[1], broken_entry, *ledger.entries[3:]))
-    with pytest.raises(ValueError, match="hash_drift_between_linked_stages"):
-        validate_dataflow_research_ledger(tampered)
+    tampered_dict = {
+        "ledger_id": ledger.ledger_id,
+        "entries": [e.to_dict() for e in (ledger.entries[0], ledger.entries[1], broken_entry, *ledger.entries[3:])],
+    }
+    report = validate_dataflow_research_ledger(tampered_dict)
+    assert report.is_valid is False
+    assert "hash_drift_between_linked_stages" in report.violations
 
 
 def test_duplicate_or_out_of_order_ordinals_rejected() -> None:
     plan, schedule, pipeline, lineage, audit = _sample_artifacts()
     ledger = build_dataflow_research_ledger("ledger_bad_ordinals", plan, schedule, pipeline, lineage, audit)
     duplicate = dataclasses.replace(ledger.entries[1], stage_ordinal=0)
-    duplicate_ledger = dataclasses.replace(ledger, entries=(ledger.entries[0], duplicate, *ledger.entries[2:]))
-    with pytest.raises(ValueError, match="duplicate_stage_ordinals"):
-        validate_dataflow_research_ledger(duplicate_ledger)
+    duplicate_dict = {
+        "ledger_id": ledger.ledger_id,
+        "entries": [e.to_dict() for e in (ledger.entries[0], duplicate, *ledger.entries[2:])],
+    }
+    report = validate_dataflow_research_ledger(duplicate_dict)
+    assert report.is_valid is False
+    assert "duplicate_stage_ordinals" in report.violations
 
     regressed = dataclasses.replace(ledger.entries[3], stage_ordinal=10)
-    regressed_ledger = dataclasses.replace(ledger, entries=(ledger.entries[0], ledger.entries[1], ledger.entries[2], regressed, ledger.entries[4]))
-    with pytest.raises(ValueError, match="impossible_stage_regression"):
-        validate_dataflow_research_ledger(regressed_ledger)
+    regressed_dict = {
+        "ledger_id": ledger.ledger_id,
+        "entries": [e.to_dict() for e in (ledger.entries[0], ledger.entries[1], ledger.entries[2], regressed, ledger.entries[4])],
+    }
+    report2 = validate_dataflow_research_ledger(regressed_dict)
+    assert report2.is_valid is False
+    assert "impossible_stage_regression" in report2.violations
 
 
 def test_continuity_summary_truthful_for_healthy_chain() -> None:
@@ -162,9 +178,13 @@ def test_malformed_entries_fail_validation() -> None:
     plan, schedule, pipeline, lineage, audit = _sample_artifacts()
     ledger = build_dataflow_research_ledger("ledger_malformed", plan, schedule, pipeline, lineage, audit)
     malformed = dataclasses.replace(ledger.entries[2], predecessor_stage="plan")
-    tampered = dataclasses.replace(ledger, entries=(ledger.entries[0], ledger.entries[1], malformed, ledger.entries[3], ledger.entries[4]))
-    with pytest.raises(ValueError, match="malformed_receipt_chain_structure"):
-        validate_dataflow_research_ledger(tampered)
+    tampered_dict = {
+        "ledger_id": ledger.ledger_id,
+        "entries": [e.to_dict() for e in (ledger.entries[0], ledger.entries[1], malformed, ledger.entries[3], ledger.entries[4])],
+    }
+    report = validate_dataflow_research_ledger(tampered_dict)
+    assert report.is_valid is False
+    assert "malformed_receipt_chain_structure" in report.violations
 
 
 def test_empty_and_minimal_input_behavior_explicit() -> None:
@@ -178,5 +198,6 @@ def test_empty_and_minimal_input_behavior_explicit() -> None:
             {"audit_id": "a", "audit_hash": "3" * 64},
         )
 
-    with pytest.raises(ValueError, match="empty_ledger_entries"):
-        validate_dataflow_research_ledger({"ledger_id": "x", "entries": ()})
+    report = validate_dataflow_research_ledger({"ledger_id": "x", "entries": []})
+    assert report.is_valid is False
+    assert "empty_ledger_entries" in report.violations

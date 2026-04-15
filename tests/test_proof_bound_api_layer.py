@@ -138,3 +138,14 @@ def test_validator_accepts_valid_layer():
     result = validate_proof_bound_api_layer(layer)
     assert result["valid"] is True
     assert result["violations"] == ()
+
+
+def test_validator_rejects_tampered_mapping_payload():
+    layer = run_proof_bound_api_layer(_request(), _contract(), (), _response())
+    tampered = layer.to_dict()
+    tampered["contract_hash"] = "bad-contract-hash"
+    tampered["proof_receipt"]["contract_hash"] = "bad-contract-hash"
+    result = validate_proof_bound_api_layer(tampered)
+    assert result["valid"] is False
+    assert "contract_hash_mismatch" in result["violations"]
+    assert "proof_receipt_mismatch" in result["violations"]

@@ -317,11 +317,39 @@ def validate_proof_bound_api_layer(layer: Any) -> Dict[str, Any]:
         if isinstance(layer, ProofBoundApiLayer):
             candidate = layer
         elif isinstance(layer, Mapping):
-            candidate = run_proof_bound_api_layer(
-                api_request=layer.get("api_request", {}),
-                proof_contract=layer.get("proof_contract", {}),
-                invariant_requirements=layer.get("invariant_requirements", ()),
-                api_response=layer.get("api_response", {}),
+            api_request_raw = _normalize_mapping(layer.get("api_request", {}))
+            proof_contract_raw = _normalize_mapping(
+                layer.get("proof_contract", api_request_raw.get("proof_contract", {}))
+            )
+            invariant_requirements_raw = layer.get(
+                "invariant_requirements",
+                api_request_raw.get("invariant_requirements", ()),
+            )
+            api_response_raw = _normalize_mapping(layer.get("api_response", {}))
+
+            api_request = build_proof_bound_api_request(
+                api_request=api_request_raw.get("api_request", api_request_raw),
+                proof_contract=proof_contract_raw,
+                invariant_requirements=invariant_requirements_raw,
+            )
+            contract_hash = _safe_text(layer.get("contract_hash"), "")
+            receipt_raw = _normalize_mapping(layer.get("proof_receipt", {}))
+            candidate = ProofBoundApiLayer(
+                api_request=api_request,
+                api_response=api_response_raw,
+                proof_receipt=ProofReceipt(
+                    receipt_id=_safe_text(receipt_raw.get("receipt_id"), ""),
+                    advisory_state=_safe_text(receipt_raw.get("advisory_state"), ""),
+                    invariant_satisfaction_score=_clamp01(receipt_raw.get("invariant_satisfaction_score")),
+                    replay_contract_score=_clamp01(receipt_raw.get("replay_contract_score")),
+                    serialization_integrity_score=_clamp01(receipt_raw.get("serialization_integrity_score")),
+                    interface_boundary_score=_clamp01(receipt_raw.get("interface_boundary_score")),
+                    proof_confidence_score=_clamp01(receipt_raw.get("proof_confidence_score")),
+                    request_hash=_safe_text(receipt_raw.get("request_hash"), ""),
+                    response_hash=_safe_text(receipt_raw.get("response_hash"), ""),
+                    contract_hash=_safe_text(receipt_raw.get("contract_hash"), ""),
+                ),
+                contract_hash=contract_hash,
             )
         else:
             non_layer_input = True

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Deterministic simulation export bridge — v132.5.0 scaffolding."""
+"""Correlated-noise simulator export bridge."""
 
 from .correlated_noise_simulator import (
     CORRELATED_NOISE_SIMULATOR_VERSION,

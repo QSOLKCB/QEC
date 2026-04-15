@@ -137,6 +137,10 @@ def _validate_optional_fixture_payload(
     label_fixture: tuple[str, ...] | None,
 ) -> None:
 
+    canonical_float: tuple[float, ...] = ()
+    canonical_int: tuple[int, ...] = ()
+    canonical_str: tuple[str, ...] = ()
+
     if attenuation_fixture is not None:
         if not isinstance(attenuation_fixture, tuple):
             raise ValueError("attenuation_fixture must be a tuple")

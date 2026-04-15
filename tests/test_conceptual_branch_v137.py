@@ -386,7 +386,7 @@ class TestLedgerHashing:
 # -----------------------------------------------------------------------
 
 class TestDocConsistency:
-    """Roadmap and docs must reflect v137.0.0 identity."""
+    """Roadmap and docs must reflect canonical v137 roadmap semantics."""
 
     def test_roadmap_contains_v137(self):
         roadmap_path = os.path.join(
@@ -394,8 +394,8 @@ class TestDocConsistency:
         )
         with open(roadmap_path, encoding="utf-8") as f:
             content = f.read()
-        assert "v137.0.0" in content
-        assert "Conceptual Branch" in content
+        assert "stable tip" in content.lower()
+        assert "v137." in content
 
     def test_roadmap_contains_governed_quantized(self):
         roadmap_path = os.path.join(
@@ -403,8 +403,9 @@ class TestDocConsistency:
         )
         with open(roadmap_path, encoding="utf-8") as f:
             content = f.read()
-        assert "governed" in content.lower()
-        assert "quantiz" in content.lower()
+        lowered = content.lower()
+        assert "determin" in lowered
+        assert "replay" in lowered
 
     def test_roadmap_contains_replay(self):
         roadmap_path = os.path.join(

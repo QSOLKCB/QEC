@@ -673,10 +673,13 @@ def compare_suppression_replay(
     baseline: CorrelatedNoiseSuppressionKernel,
     replay: CorrelatedNoiseSuppressionKernel,
 ) -> Dict[str, Any]:
+    baseline_hash = baseline.stable_hash()
+    replay_hash = replay.stable_hash()
+
     report = {
-        "baseline_hash": baseline.stable_hash(),
-        "replay_hash": replay.stable_hash(),
-        "hash_match": baseline.stable_hash() == replay.stable_hash(),
+        "baseline_hash": baseline_hash,
+        "replay_hash": replay_hash,
+        "hash_match": baseline_hash == replay_hash,
         "baseline_advisory_output": baseline.advisory_output,
         "replay_advisory_output": replay.advisory_output,
         "advisory_match": baseline.advisory_output == replay.advisory_output,

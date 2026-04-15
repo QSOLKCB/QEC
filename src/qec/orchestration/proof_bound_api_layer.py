@@ -67,8 +67,13 @@ def _safe_text(value: Any, default: str = "") -> str:
 def _canonicalize(value: Any) -> Any:
     if isinstance(value, Mapping):
         normalized: Dict[str, Any] = {}
-        for key in sorted(str(k) for k in value.keys()):
-            normalized[key] = _canonicalize(value[key])
+        for original_key in sorted(value.keys(), key=str):
+            string_key = str(original_key)
+            if string_key in normalized:
+                raise ValueError(
+                    f"Mapping contains non-unique canonical key: {string_key!r}"
+                )
+            normalized[string_key] = _canonicalize(value[original_key])
         return normalized
     if isinstance(value, (list, tuple)):
         return [_canonicalize(item) for item in value]

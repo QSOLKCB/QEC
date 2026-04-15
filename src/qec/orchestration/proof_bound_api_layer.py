@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 from typing import Any, Dict, Iterable, Mapping, Tuple
 
 
@@ -77,7 +78,13 @@ def _canonicalize(value: Any) -> Any:
         return normalized
     if isinstance(value, (list, tuple)):
         return [_canonicalize(item) for item in value]
-    if isinstance(value, (str, int, float, bool)) or value is None:
+    if isinstance(value, float):
+        if math.isnan(value):
+            return "NaN"
+        if math.isinf(value):
+            return "Infinity" if value > 0 else "-Infinity"
+        return value
+    if isinstance(value, (str, int, bool)) or value is None:
         return value
     return _safe_text(value)
 

@@ -149,3 +149,36 @@ def test_validator_rejects_tampered_mapping_payload():
     assert result["valid"] is False
     assert "contract_hash_mismatch" in result["violations"]
     assert "proof_receipt_mismatch" in result["violations"]
+
+
+def test_non_finite_float_nan_canonicalizes_to_sentinel():
+    layer = run_proof_bound_api_layer(
+        {"value": float("nan")}, _contract(), (), {"result": float("nan")}
+    )
+    canonical = layer.to_canonical_json()
+    assert "NaN" in canonical
+    assert float("nan") not in [float("nan")]  # sanity; actual check is no raise
+
+
+def test_non_finite_float_positive_infinity_canonicalizes_to_sentinel():
+    layer = run_proof_bound_api_layer(
+        {"value": float("inf")}, _contract(), (), {"result": float("inf")}
+    )
+    canonical = layer.to_canonical_json()
+    assert "Infinity" in canonical
+
+
+def test_non_finite_float_negative_infinity_canonicalizes_to_sentinel():
+    layer = run_proof_bound_api_layer(
+        {"value": float("-inf")}, _contract(), (), {"result": float("-inf")}
+    )
+    canonical = layer.to_canonical_json()
+    assert "-Infinity" in canonical
+
+
+def test_non_finite_float_stable_hash_reproducibility():
+    req = {"nan_val": float("nan"), "inf_val": float("inf"), "neg_inf": float("-inf")}
+    layer_a = run_proof_bound_api_layer(req, _contract(), (), {})
+    layer_b = run_proof_bound_api_layer(req, _contract(), (), {})
+    assert layer_a.stable_hash() == layer_b.stable_hash()
+    assert layer_a.to_canonical_json() == layer_b.to_canonical_json()

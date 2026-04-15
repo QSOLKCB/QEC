@@ -345,8 +345,9 @@ class InterfaceNormalizationContract:
         }
         logical_payload_hash = _stable_hash(logical_payload)
 
-        sideband_receipt_hashes = tuple(
-            sorted((raw.timestamp_receipt_hash, raw.suppression_receipt_hash))
+        sideband_receipt_hashes = (
+            raw.timestamp_receipt_hash,
+            raw.suppression_receipt_hash,
         )
 
         package = NormalizedSyndromePackage(

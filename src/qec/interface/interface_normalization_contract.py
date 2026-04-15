@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 from types import MappingProxyType
 from typing import Any, Dict, Mapping, Sequence, Tuple
 
@@ -71,7 +72,11 @@ def _canonicalize(value: Any, *, field: str) -> Any:
         return [_canonicalize(item, field=field) for item in value]
     if isinstance(value, list):
         return [_canonicalize(item, field=field) for item in value]
-    if isinstance(value, (str, int, float, bool)) or value is None:
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError(f"{field} contains non-finite float: {value!r}")
+        return value
+    if isinstance(value, (str, int, bool)) or value is None:
         return value
     raise TypeError(f"{field} contains non-canonical type: {type(value).__name__}")
 
@@ -333,6 +338,11 @@ class InterfaceNormalizationContract:
     def normalize(
         self, raw_capture: Any
     ) -> Tuple[NormalizedSyndromePackage, InterfaceNormalizationReport, InterfaceContractReceipt]:
+        # Capture original shape representation before build_raw_interface_capture normalizes it
+        try:
+            original_shape_input: Any = raw_capture["shape"]  # type: ignore[index]
+        except (KeyError, TypeError):
+            original_shape_input = "<missing>"
         raw = self.build_raw_interface_capture(raw_capture)
         syndrome_bits = _canonicalize_syndrome_ordering(raw.signal_payload)
         normalized_shape = _normalize_shape(raw.shape)
@@ -369,7 +379,7 @@ class InterfaceNormalizationContract:
                 "separate_sideband_metadata",
             ),
             warnings=(),
-            shape_transformations=(f"{list(raw.shape)}->{list(normalized_shape)}",),
+            shape_transformations=(f"{original_shape_input!r}->{list(normalized_shape)}",),
             dropped_metadata_fields=dropped_metadata_fields,
             contract_version=self.contract_version,
         )

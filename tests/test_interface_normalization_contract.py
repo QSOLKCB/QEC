@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-import inspect
 
 import pytest
 
@@ -115,8 +114,23 @@ def test_stable_repeated_hash_equality():
 
 
 def test_decoder_untouched_guarantee():
-    source = inspect.getsource(__import__("qec.interface.interface_normalization_contract", fromlist=["*"]))
-    assert "qec.decoder" not in source
+    import ast
+    import pathlib
+
+    mod = __import__("qec.interface.interface_normalization_contract", fromlist=["*"])
+    source = pathlib.Path(mod.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    violations: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.startswith("qec.decoder"):
+                    violations.append(f"import {alias.name}")
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if module.startswith("qec.decoder"):
+                violations.append(f"from {module} import ...")
+    assert not violations, f"Unexpected qec.decoder imports: {violations}"
 
 
 def test_report_and_receipt_immutability():

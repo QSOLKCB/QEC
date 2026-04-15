@@ -228,11 +228,21 @@ class CorrelatedNoiseReceipt:
             "replay_identity": self.replay_identity,
         }
 
+    def to_hash_payload_dict(self) -> Dict[str, Any]:
+        """Return the canonical receipt payload used to compute `receipt_hash`."""
+        return {
+            "version": self.version,
+            "config_hash": self.config_hash,
+            "realization_hash": self.realization_hash,
+            "report_hash": self.report_hash,
+            "replay_identity": self.replay_identity,
+        }
+
     def to_canonical_json(self) -> str:
         return _canonical_json(self.to_dict())
 
     def stable_hash(self) -> str:
-        return _stable_hash(self.to_dict())
+        return _stable_hash(self.to_hash_payload_dict())
 
 
 @dataclass(frozen=True)

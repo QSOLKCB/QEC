@@ -328,9 +328,7 @@ The following research artifacts and reproducibility records support the QSOLKCB
 1. Trent Slade, QSOL-IMC. *Deterministic Runtime Optimization and Formal Invariant Validation in QSOL-IMC QEC v68.4.1* Zenodo. DOI: https://doi.org/10.5281/zenodo.19062692
 2. Trent Slade, QSOL-IMC. *Invariant-Driven Computation Elimination: A Formal Execution-Context Reuse Framework (QSOL-BP-INV-003) [QEC v68.6.2]* Zenodo. DOI: https://doi.org/10.5281/zenodo.19102390
 3. Trent Slade, QSOL-IMC. *Deterministic Redundancy Elimination via Trace-Indexed Sign/CRC Reuse in QSOL-IMC QEC v68.5.0* Zenodo. DOI: https://doi.org/10.5281/zenodo.19099503
-4. Trent Slade, QSOL-IMC. *Dark-State Invariants: A Deterministic Framework for Detecting Computational Redundancy in Belief Propagation Dynamics
-Authors/Creators
-* Zenodo. DOI: https://doi.org/10.5281/zenodo.19104208
+4. Trent Slade, QSOL-IMC. *Dark-State Invariants: A Deterministic Framework for Detecting Computational Redundancy in Belief Propagation Dynamics Zenodo. DOI: https://doi.org/10.5281/zenodo.19104208
 
 These references provide DOI-backed archival support for the release ladder, reproducibility claims, and research continuity of the QEC project.
 

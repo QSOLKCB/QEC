@@ -230,7 +230,6 @@ def test_envelope_check_decision_effect_always_reject() -> None:
 
 
 def test_build_policy_rejects_string_for_int_fields() -> None:
-    from qec.security.intake_firewall_kernel import IntakeFirewallKernel
     with pytest.raises(TypeError, match="max_nesting_depth"):
         IntakeFirewallKernel.build_policy({"max_nesting_depth": "6"})
     with pytest.raises(TypeError, match="max_mapping_width"):
@@ -240,13 +239,11 @@ def test_build_policy_rejects_string_for_int_fields() -> None:
 
 
 def test_build_policy_rejects_bool_for_int_fields() -> None:
-    from qec.security.intake_firewall_kernel import IntakeFirewallKernel
     with pytest.raises(TypeError, match="max_nesting_depth"):
         IntakeFirewallKernel.build_policy({"max_nesting_depth": True})
 
 
 def test_build_policy_rejects_non_bool_for_bool_fields() -> None:
-    from qec.security.intake_firewall_kernel import IntakeFirewallKernel
     with pytest.raises(TypeError, match="strict_string_only_keys"):
         IntakeFirewallKernel.build_policy({"strict_string_only_keys": "true"})
     with pytest.raises(TypeError, match="quarantine_incomplete_provenance"):

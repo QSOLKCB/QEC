@@ -353,7 +353,7 @@ class IntakeFirewallKernel:
             if field not in raw:
                 raise ValueError(f"artifact missing required field: {field}")
         known_keys = frozenset(required)
-        unknown_keys = sorted(str(k) for k in raw.keys() if (k if isinstance(k, str) else str(k)) not in known_keys)
+        unknown_keys = sorted(str(k) for k in raw.keys() if str(k) not in known_keys)
         if unknown_keys:
             raise ValueError(f"artifact contains unknown top-level keys: {unknown_keys}")
         payload = _canonicalize(raw["payload"], field="payload", strict_string_keys=strict_string_keys)

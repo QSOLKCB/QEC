@@ -174,6 +174,18 @@ def test_receipt_report_immutability() -> None:
     assert "checks" in payload
 
 
+def test_check_snapshot_values_are_frozen() -> None:
+    artifact = _artifact()
+    artifact["payload"] = {"decoder_override": "x"}
+    report, _ = run_intake_firewall(artifact=artifact)
+    check = next(item for item in report.checks if item.name == "forbidden_payload_field_names")
+    assert isinstance(check.observed_value, tuple)
+    before = report.stable_hash()
+    with pytest.raises(AttributeError):
+        check.observed_value.append("tamper")  # type: ignore[attr-defined]
+    assert report.stable_hash() == before
+
+
 def test_decoder_untouched_guarantee_and_api_helpers() -> None:
     import qec.security.intake_firewall_kernel as mod
 

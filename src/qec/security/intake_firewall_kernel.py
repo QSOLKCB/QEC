@@ -113,6 +113,14 @@ def _structure_metrics(value: Any) -> Dict[str, int]:
     return metrics
 
 
+def _freeze_snapshot(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _freeze_snapshot(item) for key, item in value.items()})
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return tuple(_freeze_snapshot(item) for item in value)
+    return value
+
+
 @dataclass(frozen=True)
 class IntakeArtifact:
     artifact_id: str
@@ -387,14 +395,16 @@ class IntakeFirewallKernel:
         )
 
     def _check(self, *, name: str, category: str, required: bool, passed: bool, decision_effect: str, observed_value: Any, policy_value: Any, explanation: str) -> IntakeFirewallCheck:
+        observed_snapshot = _freeze_snapshot(_canonicalize(observed_value, field="observed_value", strict_string_keys=True))
+        policy_snapshot = _freeze_snapshot(_canonicalize(policy_value, field="policy_value", strict_string_keys=True))
         return IntakeFirewallCheck(
             name=name,
             category=category,
             required=required,
             passed=passed,
             decision_effect=decision_effect,
-            observed_value=observed_value,
-            policy_value=policy_value,
+            observed_value=observed_snapshot,
+            policy_value=policy_snapshot,
             explanation=explanation,
         )
 

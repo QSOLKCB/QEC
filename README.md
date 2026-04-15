@@ -321,7 +321,24 @@ Formal methods before autonomy.
 
 ---
 
-# Author
+## References
+
+The following research artifacts and reproducibility records support the QSOLKCB / QEC architecture, release methodology, and deterministic systems roadmap:
+
+1. Trent Slade, QSOL-IMC. *Deterministic supervisory control and governance systems artifact.* Zenodo. DOI: https://doi.org/10.5281/zenodo.19062692
+2. Trent Slade, QSOL-IMC. *Replay-safe topology forecasting and orchestration systems artifact.* Zenodo. DOI: https://doi.org/10.5281/zenodo.19102390
+3. Trent Slade, QSOL-IMC. *Deterministic control-runtime reproducibility record.* Zenodo. DOI: https://doi.org/10.5281/zenodo.19099503
+4. Trent Slade, QSOL-IMC. *Governance topology stability and replay artifact.* Zenodo. DOI: https://doi.org/10.5281/zenodo.19104208
+
+These references provide DOI-backed archival support for the release ladder, reproducibility claims, and research continuity of the QEC project.
+
+Additional project papers and working research notes are available in the repository:
+
+**[Project Papers and Research Notes](https://github.com/QSOLKCB/QEC/tree/main/papers)**
+
+---
+
+## Author
 
 **Trent Slade**  
 QSOL-IMC  

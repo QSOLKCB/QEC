@@ -206,6 +206,66 @@ def test_receipt_report_immutability() -> None:
     assert "checks" in payload
 
 
+def test_public_artifact_allowed_when_manifest_and_lineage_hash_disabled() -> None:
+    artifact = _artifact(classification="public")
+    artifact["manifest"] = {"benchmark_id": "bench-001", "corpus_classification": "public"}
+    report, _ = run_benchmark_vault(
+        benchmark_artifact=artifact,
+        benchmark_vault_policy=_policy(require_manifest_hash=False, require_lineage_hash=False),
+    )
+    assert report.decision == "allow"
+
+
+def test_manifest_hash_required_only_when_enabled() -> None:
+    artifact = _artifact()
+    artifact["manifest"] = dict(artifact["manifest"])
+    del artifact["manifest"]["manifest_hash"]
+
+    allow_report, _ = run_benchmark_vault(
+        benchmark_artifact=artifact,
+        benchmark_vault_policy=_policy(require_manifest_hash=False),
+    )
+    reject_report, _ = run_benchmark_vault(
+        benchmark_artifact=artifact,
+        benchmark_vault_policy=_policy(require_manifest_hash=True),
+    )
+
+    assert "manifest_hash_presence" not in allow_report.rejection_reasons
+    assert "manifest_hash_presence" in reject_report.rejection_reasons
+
+
+def test_lineage_hash_required_only_when_enabled_for_public_corpus() -> None:
+    artifact = _artifact(classification="public")
+    artifact["manifest"] = dict(artifact["manifest"])
+    del artifact["manifest"]["lineage_hash"]
+
+    allow_report, _ = run_benchmark_vault(
+        benchmark_artifact=artifact,
+        benchmark_vault_policy=_policy(require_lineage_hash=False),
+    )
+    reject_report, _ = run_benchmark_vault(
+        benchmark_artifact=artifact,
+        benchmark_vault_policy=_policy(require_lineage_hash=True),
+    )
+
+    assert "lineage_hash_presence" not in allow_report.rejection_reasons
+    assert "lineage_hash_presence" in reject_report.rejection_reasons
+
+
+def test_manifest_required_fields_follow_policy_flags() -> None:
+    artifact = _artifact(classification="public")
+    artifact["manifest"] = {"benchmark_id": "bench-001", "corpus_classification": "public"}
+
+    report, _ = run_benchmark_vault(
+        benchmark_artifact=artifact,
+        benchmark_vault_policy=_policy(require_manifest_hash=True, require_lineage_hash=True),
+    )
+
+    assert "required_manifest_fields" in report.rejection_reasons
+    required_check = next(check for check in report.checks if check.name == "required_manifest_fields")
+    assert required_check.policy_value == ("benchmark_id", "lineage_hash", "manifest_hash")
+
+
 def test_decoder_untouched_guarantee_and_helpers() -> None:
     import qec.security.benchmark_vault as mod
 

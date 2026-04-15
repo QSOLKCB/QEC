@@ -1,4 +1,4 @@
-"""v137.21.6 — Benchmark Vault + Poisoning Resistance Pack.
+"""v137.21.7 — Benchmark Vault + Poisoning Resistance Pack.
 
 Deterministic benchmark custody boundary for benchmark corpora and evaluation
 packs. This module is additive and decoder-untouched.
@@ -13,7 +13,7 @@ import math
 from types import MappingProxyType
 from typing import Any, Dict, Mapping, Sequence, Tuple
 
-BENCHMARK_VAULT_VERSION = "v137.21.6"
+BENCHMARK_VAULT_VERSION = "v137.21.7"
 
 DECISION_ALLOW = "allow"
 DECISION_WARN = "warn"
@@ -359,7 +359,7 @@ class BenchmarkVaultKernel:
             sealed_classifications=("sealed",),
             public_classifications=("public",),
             required_provenance_fields=("origin", "source_id", "chain_of_custody"),
-            required_manifest_fields=("manifest_hash", "lineage_hash", "benchmark_id"),
+            required_manifest_fields=("benchmark_id",),
             forbidden_metadata_keys=(
                 "benchmark_override",
                 "sealed_corpus_override",
@@ -515,16 +515,24 @@ class BenchmarkVaultKernel:
             type_valid = normalized.benchmark_type in self.policy.allowed_benchmark_types
             checks.append(self._check(name="benchmark_type_allowed", category="benchmark_identity", required=True, passed=type_valid, decision_effect=DECISION_REJECT, observed_value=normalized.benchmark_type, policy_value=list(self.policy.allowed_benchmark_types), explanation="Benchmark type must be explicitly allowed."))
 
-            missing_manifest_fields = tuple(sorted(field for field in self.policy.required_manifest_fields if field not in normalized.manifest))
+            effective_required_manifest_fields = tuple(
+                sorted(
+                    set(field for field in self.policy.required_manifest_fields if field not in ("benchmark_id", "manifest_hash", "lineage_hash"))
+                    .union({"benchmark_id"})
+                    .union({"manifest_hash"} if self.policy.require_manifest_hash else set())
+                    .union({"lineage_hash"} if self.policy.require_lineage_hash else set())
+                )
+            )
+            missing_manifest_fields = tuple(sorted(field for field in effective_required_manifest_fields if field not in normalized.manifest))
             manifest_complete = len(missing_manifest_fields) == 0
-            checks.append(self._check(name="required_manifest_fields", category="manifest_integrity", required=True, passed=manifest_complete, decision_effect=DECISION_REJECT, observed_value=list(missing_manifest_fields), policy_value=list(self.policy.required_manifest_fields), explanation="Manifest required fields must be present."))
+            checks.append(self._check(name="required_manifest_fields", category="manifest_integrity", required=True, passed=manifest_complete, decision_effect=DECISION_REJECT, observed_value=list(missing_manifest_fields), policy_value=list(effective_required_manifest_fields), explanation="Manifest required fields must be present under active policy requirements."))
 
             manifest_hash_present = isinstance(normalized.manifest.get("manifest_hash"), str) and bool(str(normalized.manifest.get("manifest_hash")).strip())
             checks.append(self._check(name="manifest_hash_presence", category="manifest_integrity", required=self.policy.require_manifest_hash, passed=(manifest_hash_present or (not self.policy.require_manifest_hash)), decision_effect=DECISION_REJECT, observed_value=manifest_hash_present, policy_value=self.policy.require_manifest_hash, explanation="Manifest hash presence is policy-controlled."))
 
             lineage_hash_present = isinstance(normalized.manifest.get("lineage_hash"), str) and bool(str(normalized.manifest.get("lineage_hash")).strip())
-            lineage_required = self.policy.require_lineage_hash and normalized.corpus_classification in self.policy.sealed_classifications
-            checks.append(self._check(name="lineage_hash_presence", category="manifest_integrity", required=lineage_required, passed=(lineage_hash_present or (not lineage_required)), decision_effect=DECISION_REJECT, observed_value=lineage_hash_present, policy_value=lineage_required, explanation="Lineage hash is required for sealed corpora when enabled by policy."))
+            lineage_required = self.policy.require_lineage_hash
+            checks.append(self._check(name="lineage_hash_presence", category="manifest_integrity", required=lineage_required, passed=(lineage_hash_present or (not lineage_required)), decision_effect=DECISION_REJECT, observed_value=lineage_hash_present, policy_value=lineage_required, explanation="Lineage hash presence is policy-controlled."))
 
             manifest_paths = _iter_mapping_paths(normalized.manifest)
             forbidden_manifest_hits = tuple(sorted(path for path, key in manifest_paths if key in self.policy.forbidden_manifest_field_names))

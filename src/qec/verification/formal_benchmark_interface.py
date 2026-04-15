@@ -333,11 +333,15 @@ class FormalBenchmarkInterface:
                 "benchmark_pass_ratio": _normalize_float(bench["benchmark_pass_ratio"], field="benchmark_pass_ratio"),
             },
             "proof_contract_receipts": {
-                "completeness_ratio": _normalize_float(proof["completeness_ratio"], field="proof completeness_ratio"),
+                "completeness_ratio": _normalize_float(
+                    proof["completeness_ratio"],
+                    field="proof_contract_receipts.completeness_ratio",
+                ),
             },
             "suppression_receipts": {
                 "completeness_ratio": _normalize_float(
-                    suppression["completeness_ratio"], field="suppression completeness_ratio"
+                    suppression["completeness_ratio"],
+                    field="suppression_receipts.completeness_ratio",
                 ),
             },
             "latency_throughput_receipts": {

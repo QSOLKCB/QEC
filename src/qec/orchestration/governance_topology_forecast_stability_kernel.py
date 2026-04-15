@@ -342,6 +342,12 @@ def _compute_metrics(scenario: TopologyForecastScenario) -> Tuple[TopologyForeca
                 gradient_sum += abs(right.forecast_pressure - left.forecast_pressure) / step_delta
             horizon_gradient = gradient_sum / float(horizon_count - 1)
 
+    avg_topology_pressure = (
+        0.0
+        if topology_count == 0
+        else sum(node.pressure for node in topology_nodes) / float(topology_count)
+    )
+
     replay_pairs = 0
     replay_stable = 0
     for idx in range(1, topology_count):
@@ -357,10 +363,11 @@ def _compute_metrics(scenario: TopologyForecastScenario) -> Tuple[TopologyForeca
     horizon_projection_gradient = _clamp01(horizon_gradient)
 
     forecast_surface_pressure = _clamp01(
-        0.45 * (1.0 - forecast_coherence_score)
+        0.40 * (1.0 - forecast_coherence_score)
         + 0.25 * _clamp01(horizon_projection_gradient)
-        + 0.20 * (1.0 - _clamp01(avg_alignment))
+        + 0.15 * (1.0 - _clamp01(avg_alignment))
         + 0.10 * _clamp01(horizon_pressure)
+        + 0.10 * _clamp01(avg_topology_pressure)
     )
 
     topology_forecast_alignment = _clamp01(0.8 * _clamp01(avg_alignment) + 0.2 * (1.0 - _clamp01(horizon_delta)))
@@ -381,8 +388,24 @@ def _compute_metrics(scenario: TopologyForecastScenario) -> Tuple[TopologyForeca
     )
 
 
-def _metrics_hash(metrics: Sequence[TopologyForecastMetric]) -> str:
-    return _sha256_hex(_canonical_json([metric.to_dict() for metric in metrics]).encode("utf-8"))
+def _metric_entry_to_dict(metric: Any) -> Dict[str, Any]:
+    """Normalize a metric entry to a canonical dict (handles dataclass or plain dict)."""
+    if hasattr(metric, "to_dict") and callable(getattr(metric, "to_dict")):
+        return metric.to_dict()
+    name = _safe_text(_field(metric, "metric_name", ""))
+    try:
+        order = int(_field(metric, "metric_order", 0))
+    except Exception:
+        order = 0
+    try:
+        value = float(_field(metric, "metric_value", 0.0))
+    except Exception:
+        value = 0.0
+    return {"metric_name": name, "metric_order": order, "metric_value": value}
+
+
+def _metrics_hash(metrics: Sequence[Any]) -> str:
+    return _sha256_hex(_canonical_json([_metric_entry_to_dict(m) for m in metrics]).encode("utf-8"))
 
 
 def _classify_advisory(forecast_surface_pressure: float) -> str:

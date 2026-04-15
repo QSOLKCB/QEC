@@ -343,4 +343,3 @@ Additional project papers and working research notes are available in the reposi
 **Trent Slade**  
 QSOL-IMC  
 ORCID: https://orcid.org/0009-0002-4515-9237  
-DOI: https://doi.org/10.5281/zenodo.19099502

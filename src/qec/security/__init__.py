@@ -1,5 +1,20 @@
 """Deterministic security kernels for intake and policy boundaries."""
 
+from .benchmark_vault import (
+    BENCHMARK_VAULT_VERSION,
+    CHECK_CATEGORY_ORDER as BENCHMARK_VAULT_CHECK_CATEGORY_ORDER,
+    BenchmarkArtifact,
+    BenchmarkManifestIdentity,
+    BenchmarkVaultCheck,
+    BenchmarkVaultKernel,
+    BenchmarkVaultPolicy,
+    BenchmarkVaultReceipt,
+    BenchmarkVaultReport,
+    run_benchmark_vault,
+    summarize_benchmark_vault_report,
+    validate_benchmark_artifact,
+)
+
 from .intake_firewall_kernel import (
     CHECK_CATEGORY_ORDER,
     DECISION_ALLOW,
@@ -19,6 +34,18 @@ from .intake_firewall_kernel import (
 )
 
 __all__ = [
+    "BENCHMARK_VAULT_VERSION",
+    "BENCHMARK_VAULT_CHECK_CATEGORY_ORDER",
+    "BenchmarkArtifact",
+    "BenchmarkManifestIdentity",
+    "BenchmarkVaultCheck",
+    "BenchmarkVaultKernel",
+    "BenchmarkVaultPolicy",
+    "BenchmarkVaultReceipt",
+    "BenchmarkVaultReport",
+    "run_benchmark_vault",
+    "summarize_benchmark_vault_report",
+    "validate_benchmark_artifact",
     "CHECK_CATEGORY_ORDER",
     "DECISION_ALLOW",
     "DECISION_QUARANTINE",

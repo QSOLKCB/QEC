@@ -80,7 +80,7 @@ def _stable_sample_sort_key(sample: "LatencyThroughputSample") -> Tuple[int, str
 
 def _normalize_sample(raw: SampleLike, fallback_index: int) -> "LatencyThroughputSample":
     if isinstance(raw, LatencyThroughputSample):
-        return raw
+        raw = raw.to_dict()
     if not isinstance(raw, Mapping):
         raw = {"sample_id": f"sample-{fallback_index}", "latency_ms": raw}
 
@@ -312,6 +312,49 @@ def _calculate_metrics(
     return metrics, composite_pressure, advisory
 
 
+
+
+def _deserialize_budget_receipt(raw: Any, fallback: BudgetReceipt) -> BudgetReceipt:
+    if not isinstance(raw, Mapping):
+        return fallback
+
+    ledger_version = _normalize_text(raw.get("ledger_version"), fallback.ledger_version)
+    advisory_state = _normalize_text(raw.get("advisory_state"), fallback.advisory_state)
+    logical_replay_identity = _normalize_text(raw.get("logical_replay_identity"), fallback.logical_replay_identity)
+    logical_outputs_valid = bool(raw.get("logical_outputs_valid", fallback.logical_outputs_valid))
+    timing_budget_exceeded = bool(raw.get("timing_budget_exceeded", fallback.timing_budget_exceeded))
+    composite_budget_pressure, _ = _normalize_float(raw.get("composite_budget_pressure"), fallback.composite_budget_pressure)
+    ledger_hash = _normalize_text(raw.get("ledger_hash"), fallback.ledger_hash)
+    receipt_hash = _normalize_text(raw.get("receipt_hash"), fallback.receipt_hash)
+
+    return BudgetReceipt(
+        ledger_version=ledger_version,
+        advisory_state=advisory_state,
+        logical_replay_identity=logical_replay_identity,
+        logical_outputs_valid=logical_outputs_valid,
+        timing_budget_exceeded=timing_budget_exceeded,
+        composite_budget_pressure=_clamp01(float(composite_budget_pressure)),
+        ledger_hash=ledger_hash,
+        receipt_hash=receipt_hash,
+    )
+
+
+def _deserialize_budget_analysis(raw: Any, fallback: Tuple[BudgetMetric, ...]) -> Tuple[BudgetMetric, ...]:
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        return fallback
+
+    metrics = []
+    for item in raw:
+        if not isinstance(item, Mapping):
+            continue
+        name = _normalize_text(item.get("metric_name"), "")
+        if not name:
+            continue
+        value, _ = _normalize_float(item.get("metric_value"), default=0.0)
+        metrics.append(BudgetMetric(metric_name=name, metric_value=_clamp01(float(value))))
+
+    return tuple(metrics) if metrics else fallback
+
 def build_budget_receipt(ledger: LedgerLike) -> BudgetReceipt:
     normalized = ledger if isinstance(ledger, LatencyThroughputBudgetLedger) else run_latency_throughput_budget_ledger(**build_latency_throughput_scenario(ledger))
     timing_exceeded = normalized.advisory_state == "budget_violation"
@@ -422,7 +465,25 @@ def _as_ledger(raw: LedgerLike) -> LatencyThroughputBudgetLedger:
         return raw
     if isinstance(raw, Mapping):
         scenario = build_latency_throughput_scenario(raw)
-        return run_latency_throughput_budget_ledger(**scenario)
+        rebuilt = run_latency_throughput_budget_ledger(**scenario)
+        normalization_notes = raw.get("normalization_notes", scenario["normalization_notes"])
+        if isinstance(normalization_notes, Sequence) and not isinstance(normalization_notes, (str, bytes)):
+            notes = tuple(sorted(str(note) for note in normalization_notes))
+        else:
+            notes = rebuilt.normalization_notes
+
+        return LatencyThroughputBudgetLedger(
+            ledger_version=_normalize_text(raw.get("ledger_version"), rebuilt.ledger_version),
+            timing_series=rebuilt.timing_series,
+            throughput_series=rebuilt.throughput_series,
+            budget_requirements=rebuilt.budget_requirements,
+            budget_analysis=_deserialize_budget_analysis(raw.get("budget_analysis"), rebuilt.budget_analysis),
+            advisory_state=_normalize_text(raw.get("advisory_state"), rebuilt.advisory_state),
+            composite_budget_pressure=_clamp01(_normalize_float(raw.get("composite_budget_pressure"), rebuilt.composite_budget_pressure)[0]),
+            budget_receipt=_deserialize_budget_receipt(raw.get("budget_receipt"), rebuilt.budget_receipt),
+            normalization_notes=notes,
+            ledger_hash=_normalize_text(raw.get("ledger_hash"), rebuilt.ledger_hash),
+        )
     return run_latency_throughput_budget_ledger()
 
 

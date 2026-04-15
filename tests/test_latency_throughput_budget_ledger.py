@@ -201,3 +201,42 @@ def test_deterministic_ordering_of_samples() -> None:
     scenario = build_latency_throughput_scenario(_scenario())
     assert tuple(sample.sample_id for sample in scenario["timing_series"]) == ("t0", "t1")
     assert tuple(sample.sample_id for sample in scenario["throughput_series"]) == ("p0", "p1")
+
+
+def test_dataclass_samples_are_re_normalized_before_hashing() -> None:
+    scenario = build_latency_throughput_scenario(_scenario())
+    bad_sample = LatencyThroughputSample(
+        sample_index=0,
+        sample_id="nan-sample",
+        latency_ms=math.nan,
+        throughput_units=10.0,
+        backlog_units=0.0,
+    )
+    ledger = run_latency_throughput_budget_ledger(
+        timing_series=(bad_sample,),
+        throughput_series=scenario["throughput_series"],
+        budget_requirements=scenario["budget_requirements"],
+    )
+    assert ledger.timing_series[0].latency_ms == 0.0
+
+
+def test_validator_preserves_integrity_fields_for_mapping_inputs() -> None:
+    ledger = run_latency_throughput_budget_ledger(**build_latency_throughput_scenario(_scenario()))
+    tampered = ledger.to_dict()
+    tampered["ledger_hash"] = "00" * 32
+    tampered["budget_receipt"]["receipt_hash"] = "11" * 32
+
+    report = validate_latency_throughput_budget_ledger(tampered)
+    assert report["is_valid"] is False
+    assert "receipt ledger hash mismatch" in report["violations"]
+    assert "receipt hash drift" in report["violations"]
+
+
+def test_compare_budget_replay_detects_tampered_mapping_hashes() -> None:
+    ledger = run_latency_throughput_budget_ledger(**build_latency_throughput_scenario(_scenario()))
+    tampered = ledger.to_dict()
+    tampered["ledger_hash"] = "ff" * 32
+
+    cmp = compare_budget_replay(ledger, tampered)
+    assert cmp["replay_stable"] is False
+    assert "ledger hash mismatch" in cmp["violations"]

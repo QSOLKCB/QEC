@@ -230,6 +230,8 @@ def test_manifest_hash_required_only_when_enabled() -> None:
         benchmark_vault_policy=_policy(require_manifest_hash=True),
     )
 
+    assert allow_report.decision == "allow"
+    assert reject_report.decision == "reject"
     assert "manifest_hash_presence" not in allow_report.rejection_reasons
     assert "manifest_hash_presence" in reject_report.rejection_reasons
 

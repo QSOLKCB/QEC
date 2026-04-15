@@ -121,6 +121,16 @@ def test_stable_hash_repeatability() -> None:
     assert receipt_a.stable_hash() == receipt_b.stable_hash()
 
 
+def test_report_payload_is_deeply_immutable() -> None:
+    report, _ = run_formal_benchmark_interface(**_inputs(), thresholds=_thresholds())
+    initial_hash = report.stable_hash()
+    with pytest.raises(TypeError):
+        report.category_summaries["physical_timing"]["failed"] = 99
+    with pytest.raises(TypeError):
+        report.counts_by_status["failed"] = 99
+    assert report.stable_hash() == initial_hash
+
+
 def test_threshold_boundary_equality_is_pass() -> None:
     payload = _inputs()
     payload["latency_throughput_receipts"]["latency_compliance_ratio"] = 0.95

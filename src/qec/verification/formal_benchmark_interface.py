@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
+from types import MappingProxyType
 from typing import Any, Dict, Iterable, Mapping, Tuple
 
 INTERFACE_VERSION = "v137.21.3"
@@ -163,8 +164,8 @@ class FormalBenchmarkThresholdSet:
 @dataclass(frozen=True)
 class FormalBenchmarkInterfaceReport:
     checks: Tuple[FormalBenchmarkCheck, ...]
-    category_summaries: Dict[str, Dict[str, int]]
-    counts_by_status: Dict[str, int]
+    category_summaries: Mapping[str, Mapping[str, int]]
+    counts_by_status: Mapping[str, int]
     failing_required_checks: Tuple[str, ...]
     advisory_warnings: Tuple[str, ...]
     logical_gate_passed: bool
@@ -172,6 +173,17 @@ class FormalBenchmarkInterfaceReport:
     replay_gate_passed: bool
     proof_gate_passed: bool
     overall_decision: str
+
+    def __post_init__(self) -> None:
+        immutable_category_summaries = MappingProxyType(
+            {
+                category: MappingProxyType(dict(self.category_summaries[category]))
+                for category in CATEGORY_ORDER
+            }
+        )
+        immutable_counts_by_status = MappingProxyType(dict(self.counts_by_status))
+        object.__setattr__(self, "category_summaries", immutable_category_summaries)
+        object.__setattr__(self, "counts_by_status", immutable_counts_by_status)
 
     def to_dict(self) -> Dict[str, Any]:
         return {

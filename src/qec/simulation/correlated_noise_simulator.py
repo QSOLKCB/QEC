@@ -41,20 +41,6 @@ def _clamp01(value: float) -> float:
     return float(value)
 
 
-def _canonicalize_value(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {str(k): _canonicalize_value(value[k]) for k in sorted(value.keys(), key=lambda x: str(x))}
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return [_canonicalize_value(item) for item in value]
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise ValueError("non-finite float in canonicalized value")
-        return float(value)
-    if isinstance(value, (str, int, bool)) or value is None:
-        return value
-    raise TypeError(f"unsupported canonical type: {type(value).__name__}")
-
-
 def _dict_from_any(raw: Any) -> Dict[str, Any]:
     if isinstance(raw, CorrelatedNoiseConfig):
         return raw.to_dict()
@@ -265,8 +251,14 @@ class CorrelatedNoiseSimulator:
 
 def validate_noise_config(config: Any) -> CorrelatedNoiseConfig:
     data = _dict_from_any(config)
+    provided_version = data.get("version")
+    if provided_version is not None and str(provided_version).strip() != CORRELATED_NOISE_SIMULATOR_VERSION:
+        raise ValueError(
+            f"unsupported schema version: {provided_version!r} "
+            f"(expected {CORRELATED_NOISE_SIMULATOR_VERSION!r})"
+        )
     normalized = CorrelatedNoiseConfig(
-        version=str(data.get("version", CORRELATED_NOISE_SIMULATOR_VERSION)).strip() or CORRELATED_NOISE_SIMULATOR_VERSION,
+        version=CORRELATED_NOISE_SIMULATOR_VERSION,
         model=str(data.get("model", "")).strip(),
         topology=str(data.get("topology", "")).strip(),
         num_sites=int(data.get("num_sites", 0)),

@@ -132,6 +132,13 @@ def test_explicit_seed_required() -> None:
         validate_noise_config(cfg)
 
 
+def test_mismatched_version_rejected() -> None:
+    cfg = dict(BASE_CONFIG)
+    cfg["version"] = "v999.0.0"
+    with pytest.raises(ValueError, match="unsupported schema version"):
+        validate_noise_config(cfg)
+
+
 def test_no_hidden_global_rng_state() -> None:
     cfg = dict(BASE_CONFIG)
     random.seed(999999)

@@ -1,12 +1,12 @@
-# QSOL QEC — Canonical Deterministic Systems Roadmap
+# QSOLKCB / QEC
 
-**Branch:** canonical deterministic systems line  
-**Current Stable Release:** `v137.13.2`  
-**Current Active Target:** `v137.13.3 — Region Correspondence Kernel`
+## CANONICAL ROADMAP
 
-This roadmap supersedes all previous roadmap versions.
+### Deterministic Quantum Error Correction • Replay-Safe Systems • Covenant Runtime • Formal Methods • Hardware-Coupled Runtime • Distributed Deterministic Consensus
 
-The `v137.x.x` line remains the canonical deterministic systems branch.
+> Canonical engineering law document  
+> Published release tags are authoritative  
+> Same input = same bytes  
 
 ---
 
@@ -32,611 +32,750 @@ have no meaning relative to the historical upstream fork.
 
 The project continues its evolution from:
 
-**deterministic runtime architecture**
+This law supersedes convenience, performance shortcuts, speculative autonomy, uncontrolled execution, probabilistic state mutation, non-auditable side effects, uncontrolled hardware coupling, and benchmark-free architectural drift.
 
-into
+No release may violate:
 
-**deterministic operating substrate architecture**
+- deterministic execution
+- stable serialization
+- replay-safe lineage
+- proof-auditable control
+- bounded failure modes
+- explicit transition invariants
+- stable receipt chains
+- canonical hashing
 
-while preserving:
+Additional law:
 
-- release traceability
-- deterministic replay lineage
-- stable schema continuity
-- paper-friendly benchmark progression
-- formal verification pathways
+- decoder core remains sacred infrastructure
+- additive releases by default
+- physical temporal constraints must be captured strictly as side-band latency receipts
+- suppression-before-correction must remain outside decoder semantics
+- autonomous external inputs must pass an intake firewall before entering benchmark or orchestration paths
+- formal extraction proofs are required for all core topological logic modifications
 
 ---
 
-## CORE LAW
+# CANONICAL TIP
 
-```text
-Determinism is architecture.
-same input = same bytes
-Mandatory invariants
-frozen dataclasses
-canonical JSON / bytes export
-stable SHA-256 replay identity
-deterministic ordering
-deterministic tie-breaking
-fail-fast validation
-immutable artifact snapshots
-explicit evidence receipts
-bounded scores only
-schema migration contracts
-append-only provenance where applicable
+Stable tip:
 
-src/qec/decoder/ remains sacred infrastructure.
-
-No roadmap arc may violate this.
-
-GOVERNING PRINCIPLE
-state evolution through constrained geometry
-
-This principle unifies:
-
-governed planning
-episodic memory
-topology / manifold traversal
-noisy communication channels
-spectral signal recovery
-scientific reasoning
-proof-carrying skepticism
-heterogeneous compute acceleration
-neuromorphic simulation
-synthetic signal abstraction
-divergence geometry
-codebase memory compilation
-autonomous research orchestration
-governed agentic systems
-quantum runtime autonomy
-temporal hardware substrates
-distributed governance
-formal methods
-operating substrate kernelisation
-RELEASE-HISTORY RULE
+v137.20.4 — Governance Topology Forecast Stability Kernel
 
 Published tags are authoritative.
 
-If a previous roadmap draft used placeholder names that differ from the tagged releases, the tagged releases win.
+---
 
-This rule explicitly applies to the v137.13.x line.
+# COMPLETED CANONICAL EPOCHS
 
-Earlier placeholder v137.13.x names such as:
-
-Subsystem Fusion Kernel
-Unified Artifact Registry
-Cross-Substrate Scheduler
-Governed World-Model Handoff
-Unified Certification Battery
-
-are retired from v137.13.x.
-
-They may be re-homed later under future integration arcs.
-
-ACTIVE CANONICAL LINE
-v137.7.x — Hierarchical Memory + Episodic Geometry
-
-Status: COMPLETE
+## v137.14.x — Divergence Geometry + Information Metrics
 
 Completed:
 
-v137.7.0 — Raw → Episode Hierarchy
-v137.7.1 — Semantic → Theme Compaction
-v137.7.2 — Hash-Preserving Compression Chain + Sonification Projection
-v137.7.3 — Fragmentation Recovery Engine
-v137.7.4 — Memory Fidelity Benchmark
+- v137.14.0 — Jensen–Shannon Signal Divergence Kernel
+- v137.14.1 — Fisher–Rao Geometry Approximation Layer
+- v137.14.2 — Bregman / f-Divergence Correspondence Engine
+- v137.14.3 — Optimal Transport Geometry Kernel
+- v137.14.4 — Information Geometry Consensus Kernel
+- v137.14.5 — Information-Geometric Certification Pack
 
-Interpretation:
+Purpose:
 
-sequence trajectory
-→ episodic segmentation
-→ semantic compaction
-→ replay-safe compression
-→ deterministic recovery
-→ fidelity certification
-v137.8.x — Geometry + Topology Reasoning Kernel
+geometry-aware comparison  
+state-space divergence  
+consensus metrics  
+bounded information geometry  
 
-Status: COMPLETE
+---
 
-Completed:
-
-v137.8.0 — Topological Graph Kernel
-v137.8.1 — Polytope Reasoning Engine
-v137.8.2 — E8 Symmetry Projection Layer
-v137.8.3 — Manifold Traversal Planner
-v137.8.4 — Topology Divergence Battery
-v137.8.5 — Arithmetic Topology Correspondence Engine
-
-Interpretation:
-
-state trajectory across constrained manifold geometry
-v137.9.x — Signal + Channel Recovery + Physics-Aware Reasoning
-
-Status: COMPLETE THROUGH v137.9.5
+## v137.15.x — Formal Control Sequencing + Safety Kernel
 
 Completed:
 
-v137.9.0 — Multimodal Feature Schema
-v137.9.1 — Spectral Reasoning Layer
-v137.9.2 — Legacy Copper Noise Channel Battery
-v137.9.3 — Telecom Line Recovery + Carrier Synchronization
-v137.9.4 — Satellite Signal Baseline + Orbital Noise Envelope
-v137.9.5 — RF Equalization + Ground Station Compensation
+- v137.15.0 — Deterministic Control Sequence Kernel
+- v137.15.1 — Explicit State Transition Automata Kernel
+- v137.15.2 — Deterministic Rollback Planner
+- v137.15.3 — Transition Safety Envelope Kernel
+- v137.15.4 — Collision Prevention Scheduler + Phase-Lane Arbitration
+- v137.15.5 — Bounded Fallback Corridor
+- v137.15.6 — Proof-Carrying Control Sequence Engine
 
-Roadmap note:
+HARD GATE COMPLETE
 
-The old v137.9.6 / v137.9.7 placeholder continuation is retired as a live target.
-Its replay-certification and observability concerns are now covered more cleanly by later lines.
+Purpose:
 
-Interpretation:
+formal control laws  
+rollback safety  
+explicit state transitions  
+proof-carrying control  
 
-schema
-→ spectral reasoning
-→ deterministic degradation
-→ deterministic recovery
-→ orbital baseline
-→ RF compensation
-v137.10.x — Scientific Reasoning + Claim Audit Geometry
+---
 
-Status: COMPLETE
+## v137.16.x — Memory + Decision Compiler
 
 Completed:
 
-v137.10.0 — Hypothesis Lattice
-v137.10.1 — Experiment DSL
-v137.10.2 — Evidence Lineage Engine
-v137.10.3 — Claim Audit Kernel
-v137.10.4 — Scientific Replay Battery
-v137.10.5 — Proof Obligation Extractor
-v137.10.6 — Numerological Phenomenology Rejection Battery
-v137.10.7 — Scientific Certification Kernel
+- v137.16.0 — Deterministic Memory Graph Kernel
+- v137.16.1 — Decision DAG Compiler
+- v137.16.2 — Codebase Topology Indexer
+- v137.16.3 — Replay-Safe Reasoning Graph
 
-This line explicitly rejects:
+Purpose:
 
-equation cosplay
-symbolic density without mechanism
-numerology without executable semantics
-proof-shaped but non-proof text
+memory topology  
+decision graph compilation  
+reasoning lineage  
+replay-safe cognition graph  
 
-Interpretation:
+---
 
-claim
-→ semantics
-→ invariants
-→ proof obligations
-→ replay verification
-→ epistemic rejection
-→ certification
-v137.11.x — Heterogeneous Compute + Hardware Acceleration
-
-Status: COMPLETE
+## v137.17.x — Autonomous Research Orchestration Epoch
 
 Completed:
 
-v137.11.0 — Deterministic Co-Processor Kernel
-v137.11.1 — Integer / Matrix Offload Engine
-v137.11.2 — Heterogeneous Scheduler
-v137.11.3 — Emulator-Grade Parallel Workload Splitter
-v137.11.4 — Hardware Replay Battery
-v137.11.5 — Neural Compression Sidecar
-v137.11.6 — Deterministic Latent Decode Lane
-v137.11.7 — Memory Traffic Reduction Battery
+- v137.17.0 — Autonomous Research Orchestration Kernel
+- v137.17.1 — Deterministic Experiment Scheduling Kernel
+- v137.17.2 — Replay-Safe Benchmark Pipeline Kernel
+- v137.17.3 — Research Trace Lineage Kernel
+- v137.17.4 — Deterministic Research Audit Kernel
+- v137.17.5 — Dataflow Research Ledger Kernel
+- v137.17.6 — Deterministic Ledger Replay Certification Pack
 
-Core law:
+EPOCH BOUNDARY COMPLETE
 
-speed through constrained compute geometry
+Purpose:
 
-Secondary law:
+research lineage  
+benchmark determinism  
+ledger receipts  
+audit-safe experiment orchestration  
 
-reduce memory traffic before increasing compute complexity
+---
 
-Determinism law:
-
-same input
-same epochs
-same bytes
-
-Hard replay law:
-
-replay failure = architecture failure
-
-Interpretation:
-
-state evolution across heterogeneous compute geometry
-→ integer-first acceleration
-→ bounded workload partitioning
-→ deterministic replay across hardware lanes
-→ compute-for-bandwidth substitution
-→ memory traffic minimization
-v137.12.x — Neuromorphic + Hybrid Biological Compute Research
-
-Status: COMPLETE
+## v137.18.x — Deterministic Covenant Governance + Safety Layer
 
 Completed:
 
-v137.12.0 — Neuromorphic Substrate Simulator
-v137.12.1 — Hybrid Signal Interface Layer
-v137.12.2 — Bio-Signal Benchmark Battery
-v137.12.3 — Hybrid Replay Certification
-v137.12.4 — Experimental Research Pack
+- v137.18.0 — Proof-Carrying Agent Action Capsule
+- v137.18.1 — Deterministic Covenant Engine
+- v137.18.2 — Governance Memory / I-O Boundary Auditor
+- v137.18.3 — Policy Execution Firewall Kernel
+- v137.18.4 — Bounded Autonomy Ledger
+- v137.18.5 — Deterministic Agent Simulation Sandbox
 
-Rule:
+Purpose:
 
-simulation-first only
-no biological claims without evidence receipts
+proof-carrying governance  
+bounded autonomy  
+state covenant runtime  
+audit-safe control  
+simulation sandbox  
 
-Interpretation:
+Canonical model:
 
-synthetic substrate
-→ hybrid signal interface
-→ deterministic benchmark battery
-→ replay certification
-→ reproducible research artifact pack
+state_t  
++ action_capsule  
++ covenant_rules  
+→ next_state  
++ proof_receipt  
++ audit_artifact  
 
-This line is complete and should now be treated as closed infrastructure for later abstraction work.
+---
 
-v137.13.x — Synthetic Signal Geometry + Morphology Abstraction
-
-Status: ACTIVE
+## v137.19.x — Governance Science + Stability Analysis
 
 Completed:
 
-v137.13.0 — Synthetic Signal Geometry Kernel
-v137.13.1 — Morphology Transition Kernel
-v137.13.2 — Phase Boundary Topology Kernel
+- v137.19.0 — Governance Benchmark Battery
+- v137.19.1 — Policy Drift Analysis Kernel
+- v137.19.2 — Governance Stability Topology Kernel
 
-Active next release:
+Purpose:
 
-v137.13.3 — Region Correspondence Kernel
+benchmark science  
+drift analysis  
+policy stability  
+decision topology  
+severity metrics  
 
-Planned closeout:
+Canonical model:
 
-v137.13.4 — Signal Abstraction Certification Battery
+benchmark_series  
++ drift_series  
+→ topology_analysis  
++ stable_receipt  
 
-Rule:
+---
 
-formal signal abstraction only
-simulation-first only
-no biological claims
-no neuroscience claims
-no physiological claims
+## v137.20.x — Supervisory Advisory Control Epoch
 
-Interpretation:
+Completed:
 
-hybrid trace
-→ geometry projection
-→ morphology transitions
-→ phase-region boundaries
-→ cross-region correspondence
-→ abstraction certification
-v137.13.3 intent
+- v137.20.0 — Governance Forecast Feedback Control Kernel
+- v137.20.1 — Governance Control Stability Calibration Kernel
+- v137.20.2 — Governance Calibration Drift Reconciliation Kernel
+- v137.20.3 — Governance Drift Topology Stability Kernel
+- v137.20.3.1 — Pre-existing Suite Hardening Pack
+- v137.20.4 — Governance Topology Forecast Stability Kernel
 
-v137.13.3 — Region Correspondence Kernel should:
+In progress:
 
-align related regions across trajectories
-compute deterministic correspondence scores
-support structural comparison across signal abstractions
-remain bounded, replay-safe, and paper-friendly
-v137.13.4 intent
+- v137.20.5 — Governance Forecast Topology Reconciliation Kernel
 
-v137.13.4 — Signal Abstraction Certification Battery should:
+Purpose:
 
-certify geometry / transition / topology / correspondence outputs
-validate byte identity, replay identity, and bounded metrics
-close the v137.13.x line as a deterministic abstraction arc
-POST-ABSTRACTION EXPANSION (LINK-INFORMED)
-v137.14.x — Divergence Geometry + Information Metrics
+supervisory control  
+calibration science  
+drift reconciliation  
+topology stability  
+topology forecasting  
+forecast reconciliation  
 
-Status: PLANNED
+Canonical model:
 
-This line strengthens the abstraction stack using explicit divergence families instead of ad hoc distance measures.
+forecast_series  
++ topology_series  
++ replay_horizon_series  
+→ reconciliation_analysis  
++ stable_receipt  
 
-Planned:
+---
 
-v137.14.0 — Jensen–Shannon Signal Divergence Kernel
-v137.14.1 — Fisher–Rao Geometry Approximation Layer
-v137.14.2 — Bregman / f-Divergence Correspondence Engine
-v137.14.3 — Divergence Topology Battery
-v137.14.4 — Information-Geometric Certification Pack
+# FORMAL METHODS CONSOLIDATION
 
-Interpretation:
+## v137.21.x — Formal Methods Consolidation + Real-Time Integration
 
-signal abstraction
-→ divergence geometry
-→ information-theoretic comparison
-→ topology-aware discrepancy scoring
-→ certified distance law
+Purpose:
 
-Hard rule:
+proof-aware kernel exports  
+formal verification interface  
+deterministic runtime substrate  
+auditable covenant contracts  
+verification latency battery  
+suppression-before-correction law  
+hardware-coupling foundation  
+security and autonomy preconditions  
 
-every divergence must be explicit, bounded where applicable, and replay-safe
-v137.15.x — Codebase Memory + Decision Compiler
+Benchmark focus:
 
-Status: PLANNED
-
-This line turns project work into a deterministic, queryable knowledge substrate.
-
-Planned:
-
-v137.15.0 — Session Capture Hook Pack
-v137.15.1 — Decision Graph Compiler
-v137.15.2 — Contradiction / Staleness Linter
-v137.15.3 — Queryable Knowledge Article Registry
-v137.15.4 — Memory Replay + Provenance Battery
-
-Interpretation:
-
-development session
-→ structured decision capture
-→ cross-referenced knowledge articles
-→ contradiction / staleness checks
-→ replayable engineering memory
-
-Hard rule:
-
-memory is evidence, not vibe
-captured decisions must be attributable, lintable, and replay-safe
-v137.16.x — Autonomous Research Orchestration
-
-Status: PLANNED
-
-This line formalizes idea-to-paper research execution while preserving strict human accountability.
+- utility-scale verification gates
+- cost-vs-value validation criteria
+- staged verification progression
+- auditable benchmark acceptance thresholds
+- latency budget compliance
+- throughput scaling compliance
+- offline vs realtime equivalence
+- suppression efficacy accounting
+- control-budget vs codec-budget attribution
 
 Planned:
 
-v137.16.0 — Research Workflow DSL
-v137.16.1 — Citation Verification + Evidence Gate
-v137.16.2 — Multi-Agent Debate / Review Harness
-v137.16.3 — Draft-to-Paper Artifact Packager
-v137.16.4 — Human Oversight + Ethics Battery
+- v137.21.0 — Proof-Bound API Layer
+- v137.21.1 — Correlated-Noise Suppression Kernel
+- v137.21.2 — Latency & Throughput Budget Ledger
+- v137.21.3 — Formal Benchmark Interface
+- v137.21.4 — Interface / Normalization Layer Contract
+- v137.21.5 — Intake Firewall Kernel
+- v137.21.6 — Benchmark Vault + Poisoning Resistance Pack
 
-Interpretation:
+Purpose by rung:
 
-idea
-→ governed workflow
-→ evidence gate
-→ debate / review
-→ paper artifact
-→ human accountability
+- v137.21.0 binds decoder and control-adjacent APIs to proof obligations and machine-checkable export contracts
+- v137.21.1 formalizes suppression-before-correction as a pre-decoder layer and emits suppression receipts
+- v137.21.2 introduces latency budget receipts and throughput budget receipts as side-band physical truth artifacts
+- v137.21.3 connects benchmark law to CI and merge gates
+- v137.21.4 freezes the platform-agnostic boundary between physical hardware data and deterministic syndromes
+- v137.21.5 blocks contraband data, malformed parameter packs, and unverified external artifacts
+- v137.21.6 separates public training corpora from sealed evaluation corpora and hardens against benchmark poisoning
 
-Hard rule:
+Canonical law for this epoch:
 
-AI may assist research generation
-humans remain responsible for claims, correctness, and submission
-v137.17.x — Agentic Governance + World-Model Control
+logical truth  
++ physical timing truth  
+→ dual-receipt validation  
 
-Status: PLANNED
+---
 
-This line re-homes the old governance placeholders into a modern agentic substrate.
+## DEPLOYMENT TRANSITION MODEL
+
+Canonical progression:
+
+offline experimentation  
+→ replay-safe validation  
+→ realtime orchestration  
+→ hardware-coupled execution  
+
+Stage law:
+
+- no stage may be skipped
+- every stage must emit replay-safe receipts
+- every stage must define benchmark gates
+- later stages must preserve lower-stage logical hashes
+- physical timing may vary, but logical outputs must remain reproducible
+
+Stage requirements:
+
+### Stage 1 — Offline Experimentation
+
+Required artifacts:
+
+- canonical parity-check matrices
+- deterministic noise seeds
+- benchmark corpus receipts
+- formal configuration manifests
+
+Benchmark gates:
+
+- hash equivalence across repeated runs
+- deterministic output equality across supported platforms
+- bounded failure modes under static inputs
+
+### Stage 2 — Replay-Safe Validation
+
+Required artifacts:
+
+- simulated latency budgets
+- replay-safe detector error models
+- cycle-count receipts
+- packaging-format receipts
+
+Benchmark gates:
+
+- deterministic cycle reproducibility
+- no backlog under bounded synthetic workloads
+- equivalence between offline logic and replay-safe validation logic
+
+### Stage 3 — Realtime Orchestration
+
+Required artifacts:
+
+- FPGA/GPU execution artifacts
+- latency budget receipts
+- throughput logs
+- queue fairness and contention receipts
+
+Benchmark gates:
+
+- bounded end-to-end latency
+- bounded backlog growth
+- hardware outputs equal offline mathematical outputs
+
+### Stage 4 — Hardware-Coupled Execution
+
+Required artifacts:
+
+- suppression receipts
+- raw analog capture logs
+- hardware topology snapshots
+- shadow replay packages
+
+Benchmark gates:
+
+- physical logical error suppression over sustained runs
+- shadow reproducibility from captured traces
+- bounded timing violation rate
+- no decoder semantic drift
+
+---
+
+## QEC STACK MODEL
+
+Canonical stack:
+
+decoder core  
++ interface / data normalization layer  
++ orchestration / supervisory layer  
++ formal verification layer  
++ hardware-coupled execution layer  
+→ replay-safe logical control  
+
+Stack law:
+
+- decoder core remains sacred
+- interface layer must not mutate decoder semantics
+- orchestration layer must not leak into decoder
+- formal verification must bind core logic without changing its runtime meaning
+- hardware-coupled execution must emit side-band timing truth, not mutate logic truth
+- layered dependency flow remains downward-only
+
+Layer purposes:
+
+### Layer 1 — Sacred Decoder Core
+
+Purpose:
+
+pure mathematical decoding  
+stable serialization  
+platform-agnostic logic  
+canonical hash identity  
+
+### Layer 2 — Interface / Normalization Layer
+
+Purpose:
+
+noise whitening metadata  
+detector normalization  
+shape enforcement  
+platform-neutral syndrome packaging  
+
+### Layer 3 — Orchestration / Supervisory Layer
+
+Purpose:
+
+streaming control  
+queue scheduling  
+replay-safe receipts  
+benchmark gating  
+operator auditability  
+
+### Layer 4 — Formal Verification Layer
+
+Purpose:
+
+proof extraction  
+machine-checkable equivalence  
+invariant certification  
+merge-gate verification  
+
+### Layer 5 — Hardware-Coupled Execution Layer
+
+Purpose:
+
+FPGA / GPU / ASIC dispatch  
+latency capture  
+timing violation reporting  
+physical throughput logging  
+
+---
+
+# LONG HORIZON
+
+Operational scaling ladder:
+
+replay-safe memory-scale operation  
+→ sustained logical-operation scale  
+→ utility-scale deterministic operation  
+
+## v138.x — Formal Runtime + Hardware-Coupled Transition Epoch
+
+Purpose:
+
+realistic simulation  
+platform abstraction  
+hardware-coupled execution  
+correlated decoding  
+throughput scaling  
+cross-node replay federation  
+
+### v138.1.x — Realistic Simulation Kernel
 
 Planned:
 
-v137.17.0 — Modular Agent Data Plane
-v137.17.1 — Access Control + Lineage Kernel
-v137.17.2 — Cross-Agent Orchestration Ledger
-v137.17.3 — Governed World-Model Handoff
-v137.17.4 — Agentic Reliability + Audit Battery
+- v138.1.0 — Correlated Noise Simulator
+- v138.1.1 — Experiment Packaging Format
+- v138.1.2 — Multi-Code Orchestration Simulator
+- v138.1.3 — Non-Clifford / Truncated Polytope Bounds Pack
 
-Interpretation:
+Purpose:
 
-high-quality data
-→ governed agent access
-→ orchestration ledger
-→ controlled world-model transfer
-→ audited autonomy
+temporal and spatial correlated-noise modeling  
+non-Clifford experiment support  
+multi-code parallel scenario simulation  
+replay-safe experiment packaging  
 
-Hard rule:
-
-agentic systems require lineage, traceability, and explicit governance before scale
-v137.18.x — Autonomous Quantum Operations
-
-Status: PLANNED
-
-This line extends QEC toward autonomous quantum runtime control.
+### v138.2.x — Hardware-Coupled Control Stack
 
 Planned:
 
-v137.18.0 — Autonomous Calibration Kernel
-v137.18.1 — Runtime Performance Management Layer
-v137.18.2 — Secure Local Quantum Control Lane
-v137.18.3 — Quantum Containerization + Rack Integration Pack
-v137.18.4 — Quantum Operations Replay Battery
+- v138.2.0 — FPGA / ASIC Control Module
+- v138.2.1 — Latency-Budget Enforcement Hardware
+- v138.2.2 — Throughput Scaling Study
+- v138.2.3 — Thermal / Power Budget Receipt Pack
 
-Interpretation:
+Purpose:
 
-quantum hardware
-→ autonomous tuneup / calibration
-→ runtime correction
-→ secure local deployment
-→ data-center-friendly integration
-→ replay-certified ops
+real-time dispatch  
+low-latency hardware control  
+timing-truth receipts  
+hardware determinism validation  
 
-Hard rule:
-
-no autonomous quantum control without explicit receipts, local replay, and fail-safe rollback
-v137.19.x — Temporal Hardware + Streaming Compute
-
-Status: PLANNED
-
-This line merges memory-centric compute and time-signal hardware ideas back into QEC’s deterministic substrate.
+### v138.3.x — Correlated Decoding and Suppression
 
 Planned:
 
-v137.19.0 — Host-Memory Streaming Execution Engine
-v137.19.1 — Double-Buffered Parameter / State Pipeline
-v137.19.2 — Stateless Template Binding Layer
-v137.19.3 — Temporal Hardware / Reservoir Interface
-v137.19.4 — Energy / Bandwidth Certification Battery
+- v138.3.0 — Joint-Syndrome Decoder
+- v138.3.1 — Suppression / Decoding Co-Design
+- v138.3.2 — Topology-Sensitive Noise Profile Kernel
 
-Interpretation:
+Purpose:
 
-host memory
-→ streamed execution
-→ transient compute engines
-→ temporal hardware interfaces
-→ energy- / bandwidth-aware certification
+correlated error decoding  
+suppression-aware decoder evaluation  
+topology-sensitive noise adaptation  
+control-budget / codec-budget accounting  
 
-Hard rule:
-
-treat memory movement as a first-class architectural cost
-KERNELISATION TRACK (CANONICAL OS ARC)
-v137.20.x — Axiom
-
-Syscall ABI + Deterministic Event Log
+### v138.4.x — Cross-Node Replay Federation
 
 Planned:
 
-v137.20.0 — Deterministic Syscall ABI
-v137.20.1 — Oracle Input Event Log
-v137.20.2 — Replay Boundary Contract
-v137.20.3 — Machine Envelope Specification
+- v138.4.0 — Deterministic Federation Protocol
+- v138.4.1 — Replay-Safe Wire Serialization
+- v138.4.2 — Proof-Carrying Remote Execution Receipt
+- v138.4.3 — Remote Benchmark Equivalence Pack
 
-Core law:
+Purpose:
 
-same input now includes explicit event log
-v137.21.x — Stratum
+cross-node replay  
+federated receipt integrity  
+deterministic workload splitting  
+cluster-safe experiment replay  
 
-Versioned Memory + Snapshot Kernel
-
-Planned:
-
-v137.21.0 — Versioned Memory Objects
-v137.21.1 — Copy-on-Write Snapshot Layer
-v137.21.2 — Deterministic Rollback Kernel
-v137.21.3 — Immutable Root Hash Chain
-v137.22.x — Chronon
-
-Deterministic Scheduler + Virtual Time
+### v138.5.x — Runtime Theorem Proving
 
 Planned:
 
-v137.22.0 — Virtual Time Kernel
-v137.22.1 — Deterministic Run Queue
-v137.22.2 — Replay-Safe Yield Points
-v137.22.3 — Epoch Scheduler
-v137.22.4 — Logical Clock Battery
-v137.23.x — Manifold
+- v138.5.0 — Proof Kernel Integration
+- v138.5.1 — Bounded Proof Search
+- v138.5.2 — Runtime Proof Obligations
+- v138.5.3 — Replay-Safe Proof Receipts
 
-Topological Address Space Kernel
+Purpose:
 
-Planned:
+dynamic proof synthesis  
+runtime verification  
+machine-checkable proofs  
+proof-carrying execution  
 
-v137.23.0 — Graph-as-Memory Address Space
-v137.23.1 — Topological IPC
-v137.23.2 — Capability Edge Routing
-v137.23.3 — Geodesic Dispatcher
-v137.23.4 — Process-Space Manifold Battery
-v137.24.x — Transducer
-
-Deterministic Device + Signal Bus
+### v138.6.x — Utility-Scale QEC Validation
 
 Planned:
 
-v137.24.0 — Device Abstraction Kernel
-v137.24.1 — Interrupt Epoch Buffer
-v137.24.2 — Signal Air-Lock Layer
-v137.24.3 — Replay-Safe Device Receipts
-v137.25.x — Quorum
+- v138.6.0 — Utility-Scale Benchmark Corpus
+- v138.6.1 — Cost-vs-Value Validation Pack
+- v138.6.2 — Physical-to-Logical Ratio Ledger
+- v138.6.3 — Logical Clock Rate Certification Pack
 
-Distributed Governance + Consensus Kernel
+Purpose:
+
+utility-scale acceptance gates  
+cost-vs-value verification  
+resource-efficiency validation  
+logical-operation scale benchmarking  
+
+---
+
+# DISTRIBUTED FUTURE
+
+## v139.x — Distributed Deterministic Covenant Consensus
+
+Purpose:
+
+distributed determinism  
+multi-node replay  
+consensus without probabilistic voting  
+monotonic lattice convergence  
+adversarial resilience  
+sealed benchmark governance  
+
+Canonical law:
+
+same cluster state  
+= same lattice hash  
 
 Planned:
 
-v137.25.0 — Distributed State Log
-v137.25.1 — Deterministic Consensus Layer
-v137.25.2 — Federated Artifact Replication
-v137.25.3 — Cluster Replay Battery
-FORMAL METHODS LINE
-v137.26.x — TLA+ + Model Checking
+### v139.0.x — Agentic Security Layer
 
-Status: PLANNED
+- v139.0.0 — Intake Firewall Kernel
+- v139.0.1 — Contraband Data Rejection Pack
+- v139.0.2 — State Corruption Detection Ledger
+- v139.0.3 — Benchmark Poisoning Defense Vault
+
+Purpose:
+
+zero-trust intake  
+malicious artifact rejection  
+benchmark integrity  
+agent-safety preconditions  
+
+### v139.1.x — Multi-Agent Governance Protocol
+
+- v139.1.0 — Multi-Agent Covenant Protocol
+- v139.1.1 — Capability Isolation Envelope
+- v139.1.2 — Tool Invocation Pattern Guard
+- v139.1.3 — Multi-Agent Audit Mesh
+
+Purpose:
+
+cooperative-agent bounds  
+resource isolation  
+tamper-evident action logs  
+systemic trap resistance  
+
+### v139.2.x — Byzantine-Resistant Consensus
+
+- v139.2.0 — Deterministic Byzantine Consensus Kernel
+- v139.2.1 — Proof-Attested Voting Receipts
+- v139.2.2 — Recovery / Rollback Consensus Pack
+- v139.2.3 — Quantum-Resistant Receipt Signature Layer
+
+Purpose:
+
+deterministic tie-breaking  
+consensus auditability  
+minority-attack resistance  
+long-term cryptographic integrity  
+
+### v139.3.x — Distributed Benchmark Federation
+
+- v139.3.0 — Sealed Evaluation Benchmark Vault
+- v139.3.1 — Cross-Node Equivalence Certification
+- v139.3.2 — Federation Latency vs Proof Overhead Study
+- v139.3.3 — Consensus Benchmark Battery
+
+Purpose:
+
+federated benchmark integrity  
+distributed proof checking  
+network-vs-verification tradeoff analysis  
+utility-scale cluster validation  
+
+---
+
+# AUTONOMOUS SCIENCE FUTURE
+
+## v140.x — Autonomous Scientific Runtime Orchestration
+
+Purpose:
+
+autonomous science  
+physical experiment orchestration  
+formal proof escalation  
+hardware-safe execution  
+bounded multi-agent optimization  
+human-auditable autonomy  
+
+Canonical model:
+
+logical hypothesis  
++ proof obligation  
++ benchmark gate  
+→ physical execution  
++ immutable research artifact  
 
 Planned:
 
-v137.26.0 — Replay Law Model Checker
-v137.26.1 — State Transition Proof Battery
-v137.26.2 — Scheduler Safety Model
-v137.26.3 — Consensus Safety Model
-v137.26.4 — Slop Rejection State Battery
-v137.27.x — Lean 4 Invariant Pack
+### v140.0.x — Autonomous Experiment Governance
 
-Status: PLANNED
+- laboratory hardware orchestration
+- proof-preserving experiment plans
+- operator override and veto channels
+- autonomous action receipts
 
-Planned:
+### v140.1.x — Autonomous Optimization Runtime
 
-v137.27.0 — Hash Chain Proof Suite
-v137.27.1 — Schema Migration Proof Suite
-v137.27.2 — Topology Invariant Proof Pack
-v137.27.3 — Artifact Immutability Proof Pack
-v137.27.4 — Proof-Carrying Skepticism Core
-v137.27.5 — Kernel Transition Proof Obligations
-BENCHMARK LAW
+- deterministic keep / revert optimization loops
+- hardware-control parameter exploration
+- reproducible agent search trajectories
+- regression-safe autonomous tuning
 
-Every release must pass relevant batteries.
+### v140.2.x — Human Proof Bridge
 
-Core
-byte identity battery
-replay battery
-canonical export battery
-stable hash battery
-Signal / channel
-BER suite
-FER suite
-carrier stability suite
-degradation / recovery monotonicity suite
-Geometry / abstraction
-trajectory ordering battery
-transition integrity battery
-phase-boundary stability battery
-correspondence consistency battery
-divergence certification battery
-Memory / knowledge
-contradiction battery
-staleness battery
-provenance battery
-replayable knowledge battery
-Agentic / research
-citation verification battery
-workflow governance battery
-human-oversight battery
-auditability battery
-Quantum operations
-autonomous calibration replay battery
-runtime drift correction battery
-secure local control battery
-Temporal hardware / compute
-memory traffic battery
-stream scheduling battery
-energy / bandwidth certification battery
-Kernel
-syscall determinism battery
-scheduler replay battery
-memory rollback battery
-cluster convergence battery
-Scientific
-dimensional consistency suite
-tautology detection suite
-provenance suite
-pseudoscience rejection suite
-ENGINEERING DISCIPLINE
+- machine-to-human proof summaries
+- operator intervention receipts
+- explainable autonomy packs
+- escalation contracts
 
-Every release must be:
+### v140.3.x — Autonomous Hardware Safety Pack
 
-narrow
-truthfully named
-additive by default
-deterministic
-benchmarkable
-paper-friendly
-replay-safe
-proof-auditable
+- hardware covenant enforcement
+- timing violation rollback
+- thermal budget enforcement
+- unsafe experiment quarantine
 
-Avoid:
+### v140.4.x — Autonomous Scientific Credibility Gate
 
-mixed-purpose releases
-mutable artifact state
-benchmark theater
-numerological phenomenology
-ungrounded theoretical claims
-proof-shaped slop
+- benchmark poisoning resilience certification
+- hidden evaluation corpus verification
+- cross-agent reproducibility audits
+- cryptographically trusted publication receipts
+
+Autonomy law:
+
+- no autonomous release without benchmark vault validation
+- no autonomous hardware actuation without hardware covenant enforcement
+- no autonomous optimization without deterministic keep / revert receipts
+- no autonomous proof claims without machine-checkable artifacts
+
+---
+
+# RESEARCH TRACKS
+
+Publication-grade arcs:
+
+- PLDI — temporal logic + deterministic runtime proofs
+- POPL — proof-carrying covenant systems
+- ASPLOS — hardware abstraction + latency receipts + schedulers
+- PODC — deterministic distributed consensus
+- FAccT — human-auditable autonomy
+- QEC systems — correlated-noise simulation, suppression-before-correction, utility-scale validation
+- secure autonomy — benchmark poisoning defense and intake-firewall design
+
+---
+
+# BENCHMARK LAW
+
+Every release must include:
+
+- deterministic replay tests
+- stable artifact hashing
+- regression battery
+- benchmark thresholds
+- failure boundary checks
+- proof integrity checks
+- topology stability metrics
+- drift regression metrics
+- latency budget checks
+- throughput scaling checks
+- offline vs realtime equivalence checks
+- backlog growth checks
+- suppression efficacy checks
+- physical-to-logical ratio accounting where applicable
+- federation consistency checks where applicable
+- security resilience checks where applicable
+
+Acceptance gate law:
+
+- benchmark → decide → keep / revert
+- no release may advance stages without passing current-stage gates
+- no hardware-coupled claim without side-band timing truth
+- no autonomy claim without sealed benchmark validation
+
+Untested code is unshipped code.
+
+Unbenchmarked architecture is roadmap drift.
+
+---
+
+# RELEASE LAW
+
+Each release must remain:
+
+- narrow
+- truthfully named
+- additive by default
+- benchmarkable
+- merge-safe
+- replay-auditable
+- proof-carrying where applicable
+- stage-appropriate
+- timing-honest
+- security-scoped where applicable
+
+No mixed-purpose releases.
+
+No speculative arc expansion without dependency justification.
+
+No bypass of deployment transition gates.
+
+Determinism remains law.

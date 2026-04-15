@@ -1,20 +1,16 @@
 # QSOLKCB / QEC
-### Deterministic Quantum Error Correction • Heterogeneous Compute Substrate • Replay-Safe Systems Architecture
-### Rust TUI Operator Console • Topological Diagnostics • Fixed-Function Compute Lanes • Formal Replay Lineage
+### Deterministic Quantum Error Correction • Replay-Safe Systems • Covenant Runtime • Formal Methods
+### Rust TUI Operator Console • Formal Replay Lineage • Proof-Carrying Governance • Deterministic Smart Contracts
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19099503.svg)](https://doi.org/10.5281/zenodo.19099503)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19099502-blue)](https://doi.org/10.5281/zenodo.19099502)
 [![Authorea](https://img.shields.io/badge/Authorea-10.22541%2Fau.177376131.17346095%2Fv1-blue)](https://doi.org/10.22541/au.177376131.17346095/v1)
 [![Branch](https://img.shields.io/badge/branch-v137%20canonical-purple)]()
 [![Architecture](https://img.shields.io/badge/architecture-deterministic%20systems-blueviolet)]()
 [![Determinism](https://img.shields.io/badge/determinism-byte--identical-success)]()
-[![Replay](https://img.shields.io/badge/replay-hardware%20verified-green)]()
-[![Compute](https://img.shields.io/badge/compute-heterogeneous%20lanes-orange)]()
-[![Decoder Safety](https://img.shields.io/badge/decoder-sacred-critical)]()
-[![Layer 4](https://img.shields.io/badge/layer-4%20analysis-orange)]()
-[![Rust TUI](https://img.shields.io/badge/operator%20console-rust%20tui-red)]()
-[![Topology](https://img.shields.io/badge/topology-graph%20kernel-blue)]()
-[![Proof Ready](https://img.shields.io/badge/formal%20methods-proof%20ready-lightgrey)]()
+[![Replay](https://img.shields.io/badge/replay-hash--stable-green)]()
+[![Governance](https://img.shields.io/badge/governance-proof--carrying-orange)]()
+[![Covenants](https://img.shields.io/badge/contracts-deterministic%20covenants-red)]()
 [![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
 ---
@@ -63,20 +59,23 @@ the governance controls and the restoration record.
 
 # What QEC Is
 
-QEC is a **deterministic systems architecture** that began in quantum error correction and has evolved into a broader **replay-safe computational substrate**.
+QEC is a **deterministic systems architecture** that began in quantum error correction and has evolved into a broader **replay-safe computational substrate, covenant runtime, and formal control science stack**.
 
 It now spans:
 
 - quantum error correction
 - deterministic orchestration
-- scientific reasoning + certification
-- topology-aware diagnostics
-- heterogeneous compute lanes
+- replay-safe research pipelines
+- proof-carrying governance
+- deterministic local smart contracts
+- bounded state-transition systems
+- governance science + drift analysis
 - hardware replay verification
-- synthetic signal abstraction
-- morphology + topology correspondence
-- information geometry kernels
 - Rust operator tooling
+- topology-aware diagnostics
+- information geometry kernels
+- covenant execution primitives
+- formal methods
 - proof-ready replay lineage
 
 The governing law remains:
@@ -87,196 +86,256 @@ continuous state
 → observability
 → topology
 → governed action
-→ compute lanes
+→ covenant transition
 → replay verification
 → stable replay identity
-→ information geometry
+→ proof receipt
+→ benchmark science
+→ drift topology
+```
 
-If the same input does not produce the same bytes, it is not a valid result.
+> If the same input does not produce the same bytes, it is not a valid result.
 
-Current Canonical State
+---
 
-Current stable release: v137.14.0
+# Current Canonical Architecture
 
-The current canonical branch is:
-
-v137.x.x
-
-QEC now includes three major completed arcs beyond the original compute substrate.
-
-Completed Canonical Arcs
-v137.11.x — Heterogeneous Compute Substrate
-
-Completed:
-
-v137.11.0 — Deterministic Co-Processor Kernel
-v137.11.1 — Integer / Matrix Offload Engine
-v137.11.2 — Heterogeneous Scheduler
-v137.11.3 — Emulator-Grade Parallel Workload Splitter
-v137.11.4 — Hardware Replay Battery
-
-This line established:
-
-fixed-function compute lanes
-deterministic epoch scheduling
-workload sharding
-hardware replay validation
-v137.12.x — Neuromorphic + Hybrid Compute Research
-
-Completed:
-
-v137.12.0 — Neuromorphic Substrate Simulator
-v137.12.1 — Hybrid Signal Interface Layer
-v137.12.2 — Bio-Signal Benchmark Battery
-v137.12.3 — Hybrid Replay Certification
-v137.12.4 — Experimental Research Pack
-
-This line is simulation-first only.
-
-No biological claims are made without evidence receipts.
-
-v137.13.x — Signal Abstraction Certification Arc
-
-Completed:
-
-v137.13.0 — Synthetic Signal Geometry Kernel
-v137.13.1 — Morphology Transition Kernel
-v137.13.2 — Phase Boundary Topology Kernel
-v137.13.3 — Region Correspondence Kernel
-v137.13.4 — Signal Abstraction Certification Battery
-
-This arc formalizes:
-
-geometry
-→ morphology
-→ topology
-→ correspondence
-→ certification
-
-All outputs are deterministic, replay-safe, and bounded.
-
-v137.14.x — Information Geometry Arc
-
-Current:
-
-v137.14.0 — Jensen–Shannon Signal Divergence Kernel
-
-This introduces explicit information-theoretic divergence into the analysis stack.
-
-Implemented:
-
-deterministic distribution builder
-Jensen–Shannon divergence
-entropy alignment metrics
-canonical divergence reports
-receipt-chain continuity
-
-This upgrades comparison from heuristic similarity into explicit bounded information geometry.
-
-Core Architecture
+```text
 decoder substrate
 → symbolic quantization
 → observability
 → topology graph kernel
-→ compute lanes
-→ replay battery
-→ morphology abstraction
-→ correspondence mapping
-→ certification battery
-→ divergence geometry
-→ replay-safe artifacts
+→ replay-safe orchestration
+→ research ledger
+→ replay certification
+→ proof-carrying action capsule
+→ covenant engine
+→ governance boundary audit
+→ autonomy ledger
+→ simulation sandbox
+→ benchmark battery
+→ drift analysis
+→ topology kernel
 → operator console
-Determinism Guarantees
+```
+
+---
+
+# Completed Canonical Arcs
+
+## v137.14.x — Information Geometry Arc
+
+Completed:
+
+- Jensen–Shannon divergence
+- Fisher–Rao geometry
+- divergence correspondence
+- transport geometry
+- consensus manifold
+- information-geometric certification pack
+
+---
+
+## v137.15.x — Formal Control + Safety Kernel
+
+Completed:
+
+- deterministic control sequencing
+- explicit state transitions
+- rollback planning
+- transition safety envelopes
+- bounded fallback corridors
+- proof-carrying control engine
+
+---
+
+## v137.16.x — Memory + Decision Compiler
+
+Completed:
+
+- deterministic memory graph
+- decision DAG compiler
+- topology indexer
+- replay-safe reasoning graph
+
+---
+
+## v137.17.x — Research Orchestration Epoch
+
+Completed:
+
+- orchestration kernel
+- deterministic scheduling
+- benchmark pipeline
+- research lineage
+- research audit
+- dataflow ledger
+- replay certification
+
+---
+
+## v137.18.x — Governance + Covenant Runtime
+
+Completed:
+
+- proof-carrying action capsule
+- deterministic covenant engine
+- boundary auditor
+- policy firewall
+- bounded autonomy ledger
+- deterministic simulation sandbox
+
+---
+
+## v137.19.x — Governance Science
+
+Completed:
+
+- governance benchmark battery
+- policy drift analysis kernel
+
+In progress:
+
+- governance stability topology kernel
+
+---
+
+# Deterministic Smart Contracts (No Blockchain)
+
+QEC includes a **deterministic covenant runtime**.
+
+These are local smart contracts implemented in **pure Python / NumPy**.
+
+They are **not blockchain contracts**.
+
+No chain consensus.  
+No gas model.  
+No wallets.  
+No miners.  
+No external ledger.  
+
+Canonical model:
+
+```text
+state_t
++ action_capsule
++ covenant_rules
+→ next_state
++ proof_receipt
++ audit_artifact
+```
+
+Supported covenant domains include:
+
+- workflow contracts
+- research protocol contracts
+- scheduler contracts
+- safety contracts
+- boundary contracts
+- simulation contracts
+- benchmark contracts
+
+---
+
+# Determinism Guarantees
 
 QEC enforces strict reproducibility:
 
-no hidden randomness
-deterministic ordering
-deterministic tie-breaking
-canonical serialization
-stable SHA-256 hashes
-explicit seeded RNG only
-12dp quantization where required
-receipt-chain continuity
+- no hidden randomness
+- deterministic ordering
+- deterministic tie-breaking
+- canonical JSON serialization
+- stable SHA-256 hashing
+- explicit seeded RNG only
+- replay-safe receipts
+- proof-carrying validation
 
 Example:
 
+```python
 import numpy as np
 rng = np.random.RandomState(seed)
+```
 
-Determinism is architecture.
+> Determinism is architecture.
 
-Engineering Laws
-Determinism is architecture
+---
 
+# Engineering Laws
+
+## Determinism is architecture
 Same input = same bytes.
 
-Replay is law
-
+## Replay is law
 Same artifacts = same stable hash.
 
-Hardware replay is mandatory
+## Proofs beat vibes
+All state transitions must be auditable.
 
-Divergence = failure.
-
-Decoder core is sacred
-
+## Decoder core is sacred
 Do not modify:
 
+```text
 src/qec/decoder/
+```
 
 without explicit need.
 
-Layering is law
-
+## Layering is law
 Lower layers do not import higher layers.
 
-Canonical identity is mandatory
-
+## Canonical identity is mandatory
 Canonical JSON + stable SHA-256 required.
 
-Installation
-Python / Core Runtime
+---
+
+# Python Installation
+
+```bash
 git clone https://github.com/QSOLKCB/QEC.git
 cd QEC
 pip install -e .
+```
 
 Development:
 
+```bash
 pip install -r requirements-dev.txt
 pytest -q
-Rust TUI Operator Console
+```
 
-QEC includes a Rust TUI operator workstation for fast keyboard-first workflows.
+---
 
-Supports:
+# Design Philosophy
 
-live diagnostics
-topology visualization
-replay inspection
-invariant health
-compute-lane inspection
-scheduler receipts
-hardware replay inspection
-divergence summary inspection
-Install Latest Release
-curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
+Small is beautiful.  
+Determinism is architecture.  
+Replay identity is law.  
+Proofs beat vibes.  
+Operator clarity beats hidden automation.  
+Formal methods before autonomy.
 
-Run:
+---
 
-qec-tui
-Design Philosophy
+## References
 
-Small is beautiful.
-Determinism is architecture.
-Replay identity is law.
-Hardware replay proves truth.
-Fixed-function beats ambiguity.
-Proofs beat vibes.
-Operator clarity beats hidden automation.
+The following research artifacts and reproducibility records support the QSOLKCB / QEC architecture, release methodology, and deterministic systems roadmap:
 
-Author
+1. Trent Slade, QSOL-IMC. *Deterministic Runtime Optimization and Formal Invariant Validation in QSOL-IMC QEC v68.4.1* Zenodo. DOI: https://doi.org/10.5281/zenodo.19062692
+2. Trent Slade, QSOL-IMC. *Invariant-Driven Computation Elimination: A Formal Execution-Context Reuse Framework (QSOL-BP-INV-003) [QEC v68.6.2]* Zenodo. DOI: https://doi.org/10.5281/zenodo.19102390
+3. Trent Slade, QSOL-IMC. *Deterministic Redundancy Elimination via Trace-Indexed Sign/CRC Reuse in QSOL-IMC QEC v68.5.0* Zenodo. DOI: https://doi.org/10.5281/zenodo.19099503
+4. Trent Slade, QSOL-IMC. *Dark-State Invariants: A Deterministic Framework for Detecting Computational Redundancy in Belief Propagation Dynamics Zenodo. DOI: https://doi.org/10.5281/zenodo.19104208
 
-Trent Slade
-QSOL-IMC
-ORCID: https://orcid.org/0009-0002-4515-9237
+These references provide DOI-backed archival support for the release ladder, reproducibility claims, and research continuity of the QEC project.
+
+Additional project papers and working research notes are available in the repository:
+
+**[Project Papers and Research Notes](https://github.com/QSOLKCB/QEC/tree/main/papers)**
+
+---
+
+## Author
+
+**Trent Slade**  
+QSOL-IMC  
+ORCID: https://orcid.org/0009-0002-4515-9237  

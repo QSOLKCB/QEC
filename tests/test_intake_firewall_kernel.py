@@ -198,3 +198,56 @@ def test_decoder_untouched_guarantee_and_api_helpers() -> None:
     assert summary["decision"] == "allow"
     validation = validate_intake_artifact(_artifact())
     assert validation["valid"] is True
+
+
+def test_unknown_top_level_key_rejection() -> None:
+    artifact = _artifact()
+    artifact["extra_field"] = "should_be_rejected"
+    report, receipt = run_intake_firewall(artifact=artifact)
+    assert report.decision == "reject"
+    assert "artifact_envelope_structure" in report.rejection_reasons
+    assert receipt.rejected is True
+
+
+def test_envelope_failure_short_circuits_downstream_checks() -> None:
+    report, receipt = run_intake_firewall(artifact={"artifact_id": "x"})
+    assert report.decision == "reject"
+    assert receipt.rejected is True
+    check_names = {check.name for check in report.checks}
+    assert check_names == {"artifact_envelope_structure"}
+
+
+def test_envelope_check_decision_effect_always_reject() -> None:
+    report_ok, _ = run_intake_firewall(artifact=_artifact())
+    envelope_ok = next(c for c in report_ok.checks if c.name == "artifact_envelope_structure")
+    assert envelope_ok.passed is True
+    assert envelope_ok.decision_effect == "reject"
+
+    report_bad, _ = run_intake_firewall(artifact={"artifact_id": "x"})
+    envelope_bad = next(c for c in report_bad.checks if c.name == "artifact_envelope_structure")
+    assert envelope_bad.passed is False
+    assert envelope_bad.decision_effect == "reject"
+
+
+def test_build_policy_rejects_string_for_int_fields() -> None:
+    from qec.security.intake_firewall_kernel import IntakeFirewallKernel
+    with pytest.raises(TypeError, match="max_nesting_depth"):
+        IntakeFirewallKernel.build_policy({"max_nesting_depth": "6"})
+    with pytest.raises(TypeError, match="max_mapping_width"):
+        IntakeFirewallKernel.build_policy({"max_mapping_width": "64"})
+    with pytest.raises(TypeError, match="max_sequence_length"):
+        IntakeFirewallKernel.build_policy({"max_sequence_length": "512"})
+
+
+def test_build_policy_rejects_bool_for_int_fields() -> None:
+    from qec.security.intake_firewall_kernel import IntakeFirewallKernel
+    with pytest.raises(TypeError, match="max_nesting_depth"):
+        IntakeFirewallKernel.build_policy({"max_nesting_depth": True})
+
+
+def test_build_policy_rejects_non_bool_for_bool_fields() -> None:
+    from qec.security.intake_firewall_kernel import IntakeFirewallKernel
+    with pytest.raises(TypeError, match="strict_string_only_keys"):
+        IntakeFirewallKernel.build_policy({"strict_string_only_keys": "true"})
+    with pytest.raises(TypeError, match="quarantine_incomplete_provenance"):
+        IntakeFirewallKernel.build_policy({"quarantine_incomplete_provenance": 1})

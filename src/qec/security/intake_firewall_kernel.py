@@ -121,6 +121,20 @@ def _freeze_snapshot(value: Any) -> Any:
     return value
 
 
+def _expect_bool(raw: Mapping, field: str, default: bool) -> bool:
+    value = raw.get(field, default)
+    if not isinstance(value, bool):
+        raise TypeError(f"{field} must be bool, got {type(value).__name__!r}")
+    return value
+
+
+def _expect_int(raw: Mapping, field: str, default: int) -> int:
+    value = raw.get(field, default)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{field} must be int, got {type(value).__name__!r}")
+    return value
+
+
 @dataclass(frozen=True)
 class IntakeArtifact:
     artifact_id: str
@@ -338,6 +352,10 @@ class IntakeFirewallKernel:
         for field in required:
             if field not in raw:
                 raise ValueError(f"artifact missing required field: {field}")
+        known_keys = frozenset(required)
+        unknown_keys = sorted(str(k) for k in raw.keys() if (k if isinstance(k, str) else str(k)) not in known_keys)
+        if unknown_keys:
+            raise ValueError(f"artifact contains unknown top-level keys: {unknown_keys}")
         payload = _canonicalize(raw["payload"], field="payload", strict_string_keys=strict_string_keys)
         metadata = _canonicalize(raw["metadata"], field="metadata", strict_string_keys=strict_string_keys)
         provenance = _canonicalize(raw["provenance"], field="provenance", strict_string_keys=strict_string_keys)
@@ -383,14 +401,14 @@ class IntakeFirewallKernel:
             allowed_artifact_types=_tuple_str("allowed_artifact_types", IntakeFirewallKernel.default_policy().allowed_artifact_types),
             required_provenance_fields=_tuple_str("required_provenance_fields", IntakeFirewallKernel.default_policy().required_provenance_fields),
             forbidden_metadata_keys=_tuple_str("forbidden_metadata_keys", IntakeFirewallKernel.default_policy().forbidden_metadata_keys),
-            max_nesting_depth=int(raw.get("max_nesting_depth", 6)),
-            max_mapping_width=int(raw.get("max_mapping_width", 64)),
-            max_sequence_length=int(raw.get("max_sequence_length", 512)),
+            max_nesting_depth=_expect_int(raw, "max_nesting_depth", 6),
+            max_mapping_width=_expect_int(raw, "max_mapping_width", 64),
+            max_sequence_length=_expect_int(raw, "max_sequence_length", 512),
             required_declared_contracts=_tuple_str("required_declared_contracts", IntakeFirewallKernel.default_policy().required_declared_contracts),
             forbidden_payload_field_names=_tuple_str("forbidden_payload_field_names", IntakeFirewallKernel.default_policy().forbidden_payload_field_names),
             allowed_source_channels=_tuple_str("allowed_source_channels", IntakeFirewallKernel.default_policy().allowed_source_channels),
-            strict_string_only_keys=bool(raw.get("strict_string_only_keys", True)),
-            quarantine_incomplete_provenance=bool(raw.get("quarantine_incomplete_provenance", True)),
+            strict_string_only_keys=_expect_bool(raw, "strict_string_only_keys", True),
+            quarantine_incomplete_provenance=_expect_bool(raw, "quarantine_incomplete_provenance", True),
             advisory_payload_field_names=_tuple_str("advisory_payload_field_names", ()),
         )
 
@@ -433,180 +451,183 @@ class IntakeFirewallKernel:
                 category="schema_integrity",
                 required=True,
                 passed=envelope_ok,
-                decision_effect=DECISION_REJECT if not envelope_ok else DECISION_ALLOW,
+                decision_effect=DECISION_REJECT,
                 observed_value="valid" if envelope_ok else envelope_error,
                 policy_value="required_fields_and_types",
                 explanation="Artifact envelope must satisfy required fields and canonical types.",
             )
         )
 
-        metrics = _structure_metrics(normalized_artifact.payload)
-        checks.append(
-            self._check(
-                name="payload_max_nesting_depth",
-                category="payload_safety",
-                required=True,
-                passed=metrics["max_nesting_depth"] <= self.policy.max_nesting_depth,
-                decision_effect=DECISION_REJECT,
-                observed_value=metrics["max_nesting_depth"],
-                policy_value=self.policy.max_nesting_depth,
-                explanation="Payload nesting depth must be bounded.",
-            )
-        )
-        checks.append(
-            self._check(
-                name="payload_max_mapping_width",
-                category="payload_safety",
-                required=True,
-                passed=metrics["max_mapping_width"] <= self.policy.max_mapping_width,
-                decision_effect=DECISION_REJECT,
-                observed_value=metrics["max_mapping_width"],
-                policy_value=self.policy.max_mapping_width,
-                explanation="Payload mapping width must be bounded.",
-            )
-        )
-        checks.append(
-            self._check(
-                name="payload_max_sequence_length",
-                category="payload_safety",
-                required=True,
-                passed=metrics["max_sequence_length"] <= self.policy.max_sequence_length,
-                decision_effect=DECISION_REJECT,
-                observed_value=metrics["max_sequence_length"],
-                policy_value=self.policy.max_sequence_length,
-                explanation="Payload sequence length must be bounded.",
-            )
-        )
+        # Defaults used when envelope validation fails (short-circuit path).
+        contract_valid: bool = False
+        provenance_complete: bool = False
 
-        payload_key_paths = _iter_mapping_paths(normalized_artifact.payload)
-        forbidden_payload_hits = tuple(sorted(path for path, key in payload_key_paths if key in self.policy.forbidden_payload_field_names))
-        checks.append(
-            self._check(
-                name="forbidden_payload_field_names",
-                category="payload_safety",
-                required=True,
-                passed=len(forbidden_payload_hits) == 0,
-                decision_effect=DECISION_REJECT,
-                observed_value=list(forbidden_payload_hits),
-                policy_value=list(self.policy.forbidden_payload_field_names),
-                explanation="Forbidden payload fields are rejected.",
+        if envelope_ok:
+            metrics = _structure_metrics(normalized_artifact.payload)
+            checks.append(
+                self._check(
+                    name="payload_max_nesting_depth",
+                    category="payload_safety",
+                    required=True,
+                    passed=metrics["max_nesting_depth"] <= self.policy.max_nesting_depth,
+                    decision_effect=DECISION_REJECT,
+                    observed_value=metrics["max_nesting_depth"],
+                    policy_value=self.policy.max_nesting_depth,
+                    explanation="Payload nesting depth must be bounded.",
+                )
             )
-        )
-        advisory_hits = tuple(sorted(path for path, key in payload_key_paths if key in self.policy.advisory_payload_field_names))
-        checks.append(
-            self._check(
-                name="advisory_payload_fields",
-                category="payload_safety",
-                required=False,
-                passed=len(advisory_hits) == 0,
-                decision_effect=DECISION_WARN,
-                observed_value=list(advisory_hits),
-                policy_value=list(self.policy.advisory_payload_field_names),
-                explanation="Advisory payload fields are tracked as warnings.",
+            checks.append(
+                self._check(
+                    name="payload_max_mapping_width",
+                    category="payload_safety",
+                    required=True,
+                    passed=metrics["max_mapping_width"] <= self.policy.max_mapping_width,
+                    decision_effect=DECISION_REJECT,
+                    observed_value=metrics["max_mapping_width"],
+                    policy_value=self.policy.max_mapping_width,
+                    explanation="Payload mapping width must be bounded.",
+                )
             )
-        )
+            checks.append(
+                self._check(
+                    name="payload_max_sequence_length",
+                    category="payload_safety",
+                    required=True,
+                    passed=metrics["max_sequence_length"] <= self.policy.max_sequence_length,
+                    decision_effect=DECISION_REJECT,
+                    observed_value=metrics["max_sequence_length"],
+                    policy_value=self.policy.max_sequence_length,
+                    explanation="Payload sequence length must be bounded.",
+                )
+            )
 
-        metadata_paths = _iter_mapping_paths(normalized_artifact.metadata)
-        forbidden_metadata_hits = tuple(sorted(path for path, key in metadata_paths if key in self.policy.forbidden_metadata_keys))
-        checks.append(
-            self._check(
-                name="forbidden_metadata_keys",
-                category="metadata_policy",
-                required=True,
-                passed=len(forbidden_metadata_hits) == 0,
-                decision_effect=DECISION_REJECT,
-                observed_value=list(forbidden_metadata_hits),
-                policy_value=list(self.policy.forbidden_metadata_keys),
-                explanation="Forbidden metadata keys are rejected.",
+            payload_key_paths = _iter_mapping_paths(normalized_artifact.payload)
+            forbidden_payload_hits = tuple(sorted(path for path, key in payload_key_paths if key in self.policy.forbidden_payload_field_names))
+            checks.append(
+                self._check(
+                    name="forbidden_payload_field_names",
+                    category="payload_safety",
+                    required=True,
+                    passed=len(forbidden_payload_hits) == 0,
+                    decision_effect=DECISION_REJECT,
+                    observed_value=list(forbidden_payload_hits),
+                    policy_value=list(self.policy.forbidden_payload_field_names),
+                    explanation="Forbidden payload fields are rejected.",
+                )
             )
-        )
+            advisory_hits = tuple(sorted(path for path, key in payload_key_paths if key in self.policy.advisory_payload_field_names))
+            checks.append(
+                self._check(
+                    name="advisory_payload_fields",
+                    category="payload_safety",
+                    required=False,
+                    passed=len(advisory_hits) == 0,
+                    decision_effect=DECISION_WARN,
+                    observed_value=list(advisory_hits),
+                    policy_value=list(self.policy.advisory_payload_field_names),
+                    explanation="Advisory payload fields are tracked as warnings.",
+                )
+            )
 
-        missing_provenance = tuple(sorted(field for field in self.policy.required_provenance_fields if field not in normalized_artifact.provenance))
-        provenance_complete = len(missing_provenance) == 0
-        provenance_effect = DECISION_ALLOW
-        if not provenance_complete:
+            metadata_paths = _iter_mapping_paths(normalized_artifact.metadata)
+            forbidden_metadata_hits = tuple(sorted(path for path, key in metadata_paths if key in self.policy.forbidden_metadata_keys))
+            checks.append(
+                self._check(
+                    name="forbidden_metadata_keys",
+                    category="metadata_policy",
+                    required=True,
+                    passed=len(forbidden_metadata_hits) == 0,
+                    decision_effect=DECISION_REJECT,
+                    observed_value=list(forbidden_metadata_hits),
+                    policy_value=list(self.policy.forbidden_metadata_keys),
+                    explanation="Forbidden metadata keys are rejected.",
+                )
+            )
+
+            missing_provenance = tuple(sorted(field for field in self.policy.required_provenance_fields if field not in normalized_artifact.provenance))
+            provenance_complete = len(missing_provenance) == 0
             provenance_effect = DECISION_QUARANTINE if self.policy.quarantine_incomplete_provenance else DECISION_REJECT
-        checks.append(
-            self._check(
-                name="required_provenance_fields",
-                category="provenance_integrity",
-                required=True,
-                passed=provenance_complete,
-                decision_effect=provenance_effect,
-                observed_value=list(missing_provenance),
-                policy_value=list(self.policy.required_provenance_fields),
-                explanation="Required provenance must be complete.",
+            checks.append(
+                self._check(
+                    name="required_provenance_fields",
+                    category="provenance_integrity",
+                    required=True,
+                    passed=provenance_complete,
+                    decision_effect=provenance_effect,
+                    observed_value=list(missing_provenance),
+                    policy_value=list(self.policy.required_provenance_fields),
+                    explanation="Required provenance must be complete.",
+                )
             )
-        )
 
-        contract_valid = normalized_artifact.declared_contract in self.policy.required_declared_contracts
-        checks.append(
-            self._check(
-                name="declared_contract_allowed",
-                category="contract_compliance",
-                required=True,
-                passed=contract_valid,
-                decision_effect=DECISION_REJECT,
-                observed_value=normalized_artifact.declared_contract,
-                policy_value=list(self.policy.required_declared_contracts),
-                explanation="Declared contract must be in the allowed contract set.",
+            contract_valid = normalized_artifact.declared_contract in self.policy.required_declared_contracts
+            checks.append(
+                self._check(
+                    name="declared_contract_allowed",
+                    category="contract_compliance",
+                    required=True,
+                    passed=contract_valid,
+                    decision_effect=DECISION_REJECT,
+                    observed_value=normalized_artifact.declared_contract,
+                    policy_value=list(self.policy.required_declared_contracts),
+                    explanation="Declared contract must be in the allowed contract set.",
+                )
             )
-        )
 
-        source_valid = normalized_artifact.source_channel in self.policy.allowed_source_channels
-        checks.append(
-            self._check(
-                name="source_channel_allowed",
-                category="source_admissibility",
-                required=True,
-                passed=source_valid,
-                decision_effect=DECISION_REJECT,
-                observed_value=normalized_artifact.source_channel,
-                policy_value=list(self.policy.allowed_source_channels),
-                explanation="Source channel must be in the allowed source set.",
+            source_valid = normalized_artifact.source_channel in self.policy.allowed_source_channels
+            checks.append(
+                self._check(
+                    name="source_channel_allowed",
+                    category="source_admissibility",
+                    required=True,
+                    passed=source_valid,
+                    decision_effect=DECISION_REJECT,
+                    observed_value=normalized_artifact.source_channel,
+                    policy_value=list(self.policy.allowed_source_channels),
+                    explanation="Source channel must be in the allowed source set.",
+                )
             )
-        )
 
-        benchmark_type = normalized_artifact.artifact_type == "benchmark_corpus"
-        artifact_type_valid = normalized_artifact.artifact_type in self.policy.allowed_artifact_types
-        checks.append(
-            self._check(
-                name="artifact_type_allowed",
-                category="schema_integrity",
-                required=True,
-                passed=artifact_type_valid,
-                decision_effect=DECISION_REJECT,
-                observed_value=normalized_artifact.artifact_type,
-                policy_value=list(self.policy.allowed_artifact_types),
-                explanation="Artifact type must be explicitly allowed.",
+            benchmark_type = normalized_artifact.artifact_type == "benchmark_corpus"
+            artifact_type_valid = normalized_artifact.artifact_type in self.policy.allowed_artifact_types
+            checks.append(
+                self._check(
+                    name="artifact_type_allowed",
+                    category="schema_integrity",
+                    required=True,
+                    passed=artifact_type_valid,
+                    decision_effect=DECISION_REJECT,
+                    observed_value=normalized_artifact.artifact_type,
+                    policy_value=list(self.policy.allowed_artifact_types),
+                    explanation="Artifact type must be explicitly allowed.",
+                )
             )
-        )
 
-        benchmark_override_hits = tuple(
-            sorted(
-                path
-                for path, key in metadata_paths
-                if key in ("benchmark_override", "sealed_corpus_override", "public_corpus_relabel")
+            benchmark_override_hits = tuple(
+                sorted(
+                    path
+                    for path, key in metadata_paths
+                    if key in ("benchmark_override", "sealed_corpus_override", "public_corpus_relabel")
+                )
             )
-        )
-        benchmark_passed = (not benchmark_type) or (provenance_complete and len(benchmark_override_hits) == 0)
-        benchmark_effect = DECISION_ALLOW
-        if benchmark_type and not provenance_complete:
-            benchmark_effect = DECISION_QUARANTINE if self.policy.quarantine_incomplete_provenance else DECISION_REJECT
-        if benchmark_override_hits:
+            benchmark_passed = (not benchmark_type) or (provenance_complete and len(benchmark_override_hits) == 0)
             benchmark_effect = DECISION_REJECT
-        checks.append(
-            self._check(
-                name="benchmark_intake_guard",
-                category="benchmark_protection",
-                required=True,
-                passed=benchmark_passed,
-                decision_effect=benchmark_effect,
-                observed_value={"is_benchmark": benchmark_type, "metadata_hits": list(benchmark_override_hits), "provenance_complete": provenance_complete},
-                policy_value={"quarantine_incomplete_provenance": self.policy.quarantine_incomplete_provenance},
-                explanation="Benchmark artifacts require complete provenance and no override metadata.",
+            if benchmark_type and not provenance_complete:
+                benchmark_effect = DECISION_QUARANTINE if self.policy.quarantine_incomplete_provenance else DECISION_REJECT
+            if benchmark_override_hits:
+                benchmark_effect = DECISION_REJECT
+            checks.append(
+                self._check(
+                    name="benchmark_intake_guard",
+                    category="benchmark_protection",
+                    required=True,
+                    passed=benchmark_passed,
+                    decision_effect=benchmark_effect,
+                    observed_value={"is_benchmark": benchmark_type, "metadata_hits": list(benchmark_override_hits), "provenance_complete": provenance_complete},
+                    policy_value={"quarantine_incomplete_provenance": self.policy.quarantine_incomplete_provenance},
+                    explanation="Benchmark artifacts require complete provenance and no override metadata.",
+                )
             )
-        )
 
         checks_tuple = tuple(sorted(checks, key=lambda c: (CHECK_CATEGORY_ORDER.index(c.category), c.name)))
 

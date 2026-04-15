@@ -234,9 +234,51 @@ deterministic runtime substrate
 auditable covenant contracts  
 verification latency battery  
 
+Benchmark focus:
+
+- utility-scale verification gates
+- cost-vs-value validation criteria
+- staged verification progression
+- auditable benchmark acceptance thresholds
+
+---
+
+## DEPLOYMENT TRANSITION MODEL
+
+Canonical progression:
+
+offline experimentation  
+→ replay-safe validation  
+→ realtime orchestration  
+→ hardware-coupled execution  
+
+---
+
+## QEC STACK MODEL
+
+Canonical stack:
+
+decoder core  
++ interface / data normalization layer  
++ orchestration / supervisory layer  
+→ replay-safe logical control  
+
+Stack law:
+
+- decoder core remains sacred
+- interface layer must not mutate decoder semantics
+- orchestration layer must not leak into decoder
+- layered dependency flow remains downward-only
+
 ---
 
 # LONG HORIZON
+
+Operational scaling ladder:
+
+replay-safe memory-scale operation  
+→ sustained logical-operation scale  
+→ utility-scale deterministic operation  
 
 ## v138.x — Formal Runtime + Theorem Systems
 
@@ -388,6 +430,9 @@ Every release must include:
 - proof integrity checks
 - topology stability metrics
 - drift regression metrics
+- latency budget checks
+- throughput scaling checks
+- offline vs realtime equivalence checks
 
 Untested code is unshipped code.
 

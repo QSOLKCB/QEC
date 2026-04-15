@@ -4,6 +4,7 @@ import random
 
 import pytest
 
+import qec.simulation.correlated_noise_simulator as correlated_noise_simulator
 from qec.simulation.correlated_noise_simulator import (
     CorrelatedNoiseConfig,
     CorrelatedNoiseSimulator,
@@ -138,3 +139,52 @@ def test_no_hidden_global_rng_state() -> None:
     random.seed(123456)
     b = generate_correlated_noise(cfg)
     assert a.stable_hash() == b.stable_hash()
+
+
+def test_spatiotemporal_cluster_marks_future_members_active(monkeypatch: pytest.MonkeyPatch) -> None:
+    class SequenceRng:
+        def __init__(self, values: list[float], randrange_values: list[int]) -> None:
+            self._values = iter(values)
+            self._randrange_values = iter(randrange_values)
+
+        def random(self) -> float:
+            return next(self._values)
+
+        def randrange(self, stop: int) -> int:
+            candidate = next(self._randrange_values)
+            assert 0 <= candidate < stop
+            return candidate
+
+    monkeypatch.setattr(
+        correlated_noise_simulator.random,
+        "Random",
+        lambda seed: SequenceRng(
+            values=[
+                0.05,  # t=0 baseline event draw: pass
+                0.05,  # t=0 cluster trigger draw: pass
+                0.10,  # t=0 temporal frontier member draw: pass
+                0.50,  # t=1 baseline event draw: would fail without scheduled activation
+                0.95,  # t=1 cluster trigger draw: fail (keeps sequence bounded)
+                0.50,  # t=2 baseline event draw: passes only if t=1 is active
+                0.99,  # t=2 cluster trigger draw: fail (keeps sequence bounded)
+            ],
+            randrange_values=[1],  # target_size -> 2, so one frontier member can be added
+        ),
+    )
+
+    cfg = {
+        "model": "spatiotemporal_cluster",
+        "topology": "line",
+        "num_sites": 1,
+        "time_steps": 3,
+        "event_rate": 0.2,
+        "temporal_alpha": 1.0,
+        "spatial_beta": 0.0,
+        "cluster_rate": 1.0,
+        "cluster_max_size": 2,
+        "seed": 138100,
+    }
+    realization = generate_correlated_noise(cfg)
+    event_keys = {(event.time_step, event.site_index) for event in realization.events}
+    assert (1, 0) in event_keys
+    assert (2, 0) in event_keys

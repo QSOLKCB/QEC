@@ -363,9 +363,12 @@ def generate_correlated_noise(config: Any) -> CorrelatedNoiseRealization:
     clusters_raw: list[Dict[str, Any]] = []
 
     previous_active = [False] * cfg.num_sites
+    scheduled_active: Dict[int, set[int]] = {}
 
     for time_step in range(cfg.time_steps):
         active_now = [False] * cfg.num_sites
+        for scheduled_site in scheduled_active.pop(time_step, set()):
+            active_now[scheduled_site] = True
         for site_index in range(cfg.num_sites):
             neighbor_indices = adjacency[site_index]
             previous_neighbor_active = 0
@@ -426,6 +429,8 @@ def generate_correlated_noise(config: Any) -> CorrelatedNoiseRealization:
                                 cluster_members.append((next_time, next_site, mode))
                                 if next_time == time_step:
                                     active_now[next_site] = True
+                                elif next_time > time_step:
+                                    scheduled_active.setdefault(next_time, set()).add(next_site)
                                 for neighbor in sorted(adjacency[next_site]):
                                     candidate = (next_time, neighbor, "cluster_spatial")
                                     if (candidate[0], candidate[1]) not in visited:

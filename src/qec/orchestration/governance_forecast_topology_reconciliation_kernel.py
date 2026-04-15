@@ -273,7 +273,11 @@ def _normalize_forecast_node(raw: Any, index: int) -> _ForecastNode:
             _field(
                 raw,
                 "forecast_stability",
-                _field(raw, "topology_forecast_alignment", _field(raw, "forecast_coherence_score", 0.0)),
+                _field(
+                    raw,
+                    "forecast_coherence_score",
+                    _field(raw, "topology_forecast_alignment", 0.0),
+                ),
             )
         )
     )

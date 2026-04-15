@@ -10,17 +10,27 @@
 
 ---
 
-# HARD LAW
+## Fork Synchronization Policy
 
-## Core Architectural Law
+`QSOLKCB/QEC` is the **canonical** development line. The upstream
+`multimodalas/fusion-qec` fork is **historical lineage only**.
 
-Determinism is architecture.
+- **Do NOT** use GitHub "Sync fork".
+- **Do NOT** merge upstream automatically.
+- **Do NOT** rebase `main` onto upstream.
+- All upstream comparisons require **explicit human review**.
 
-Every subsystem in QEC must preserve:
+The GitHub ahead/behind banner against `multimodalas/fusion-qec:main` is
+informational only. Divergence from the upstream fork is **expected and
+intentional**; the canonical `v137.x` history does not share a common
+ancestor with the upstream and must never be reconciled with it.
 
-same input = same bytes  
-same state = same hash  
-same replay = same artifact  
+Roadmap milestones below belong exclusively to the `QSOLKCB/QEC` line and
+have no meaning relative to the historical upstream fork.
+
+---
+
+The project continues its evolution from:
 
 This law supersedes convenience, performance shortcuts, speculative autonomy, uncontrolled execution, probabilistic state mutation, non-auditable side effects, uncontrolled hardware coupling, and benchmark-free architectural drift.
 

@@ -15,49 +15,45 @@
 
 ---
 
-# Quick Start — Rust TUI Operator Console
+## Fork Synchronization Policy
 
-QEC includes a **Rust TUI operator workstation** for keyboard-first deterministic workflows.
+**`QSOLKCB/QEC` is the canonical development line.**
 
-Supports:
+This repository is a historical fork of `multimodalas/fusion-qec`, but it is
+now the authoritative upstream for all QEC work. The `multimodalas/fusion-qec`
+repository is retained **for historical lineage only** and must not be treated
+as a source of truth.
 
-- live diagnostics
-- topology visualization
-- replay inspection
-- invariant health
-- covenant transition tracing
-- scheduler receipts
-- proof audit inspection
-- governance trace review
-- drift analysis summaries
+GitHub will display a banner similar to:
 
-## Install latest release
+> This branch is N commits ahead of and M commits behind multimodalas/fusion-qec:main
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
-```
+**This divergence is intentional and expected.** The ahead/behind counter does
+**not** imply any required synchronization. The canonical `v137.x` history does
+not share a common ancestor with the historical upstream and must never be
+rebased, merged, or reconciled against it.
 
-## Run
+### Hard Rules
 
-```bash
-qec-tui
-```
+- **Do NOT** click "Sync fork" on GitHub.
+- **Do NOT** merge `multimodalas/fusion-qec` (or any other upstream) into
+  `QSOLKCB/QEC:main`.
+- **Do NOT** rebase `QSOLKCB/QEC:main` onto any upstream branch.
+- **Do NOT** configure automation (GitHub Actions, bots, Dependabot-style
+  upstream trackers) to perform any of the above.
+- All upstream comparisons are **informational only** and require **explicit
+  human review** before any ref is touched.
 
----
+### Why
 
-# Current Stable State
+A previous accidental "Sync fork" operation rolled `origin/main` back to a
+307-commit historical fork snapshot, destroying the visible v137.x line at the
+branch tip. Recovery was possible because the canonical history was preserved
+in a local clone; it will not always be. Treat the upstream fork pointer as
+read-only lineage metadata, nothing more.
 
-**Current stable release:** `v137.19.1`  
-**Current active arc:** `v137.19.x — Governance Science + Stability Analysis`
-
-Completed in the current arc:
-
-- `v137.19.0` — Governance Benchmark Battery
-- `v137.19.1` — Policy Drift Analysis Kernel
-
-In progress:
-
-- `v137.19.2` — Governance Stability Topology Kernel
+See `AUDIT_CHECKLIST.md` § 11 and `PROJECT_STATE.md` § Disaster Recovery for
+the governance controls and the restoration record.
 
 ---
 

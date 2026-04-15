@@ -31,6 +31,61 @@ quickly understand:
 
 ---
 
+# Fork Synchronization Policy
+
+**`QSOLKCB/QEC` is the canonical development line.** The upstream
+`multimodalas/fusion-qec` repository is retained for historical lineage only.
+
+- Do **NOT** use GitHub's "Sync fork" button.
+- Do **NOT** merge upstream automatically.
+- Do **NOT** rebase `main` onto the upstream fork.
+- All upstream comparisons require **explicit human review**.
+
+The GitHub banner "This branch is N commits ahead of and M commits behind
+`multimodalas/fusion-qec:main`" is **informational only**. Divergence is
+**expected and intentional**. The canonical `v137.x` history does not share a
+common ancestor with the upstream fork and must not be reconciled with it.
+
+This policy exists because a prior accidental sync destructively rolled
+`origin/main` back to a 307-commit historical snapshot. See the
+**Disaster Recovery** section below for the restoration record.
+
+---
+
+# Disaster Recovery — origin/main Restoration (v137.14.x era)
+
+**Status:** resolved.
+
+**Incident:** An inadvertent fork-sync operation force-pushed
+`origin/main` from the canonical `v137.x` tip back to commit
+`0c0f4e3` — "Merge pull request #25 from QSOLKCB/main" — a 307-commit
+historical fork snapshot with **no common ancestor** with the canonical line.
+
+**Resolution:**
+
+- Canonical state `fbdde2c` ("Update CHANGELOG.md", PR #257 era, v137.14.x)
+  was recovered from a local clone that still held the intact history.
+- Safety pointers were pushed to `origin` before any ref mutation:
+  - `recovery/origin-main-rolledback-0c0f4e3` — pre-restore remote tip
+  - `recovery/local-main-pre-restore-fbdde2c` — canonical tip snapshot
+- `origin/main` was restored via a **leased force-push**:
+  ```
+  git push origin fbdde2c:refs/heads/main \
+      --force-with-lease=refs/heads/main:0c0f4e3
+  ```
+- The lease was honored; no concurrent updates were clobbered.
+- Post-recovery verification confirmed:
+  - `origin/main` == `fbdde2c`
+  - `v137.14.x` through `v137.17.x` tags reachable from `main`
+  - local `main` and `origin/main` share the same tip
+  - both recovery pointers persisted on origin
+
+**Lessons recorded:** never invoke GitHub "Sync fork"; upstream is lineage
+metadata only; always use `--force-with-lease` with an explicit expected SHA
+when repairing refs; preserve snapshots **before** ref mutation.
+
+---
+
 # Authoritative Project Documents
 
 - `README.md` — overview and entry point

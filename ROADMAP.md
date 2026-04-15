@@ -41,7 +41,7 @@ No release may violate:
 
 Stable tip:
 
-v137.19.1 — Policy Drift Analysis Kernel
+v137.20.4 — Governance Topology Forecast Stability Kernel
 
 Published tags are authoritative.
 
@@ -169,9 +169,6 @@ Completed:
 
 - v137.19.0 — Governance Benchmark Battery
 - v137.19.1 — Policy Drift Analysis Kernel
-
-In progress:
-
 - v137.19.2 — Governance Stability Topology Kernel
 
 Purpose:
@@ -187,6 +184,40 @@ Canonical model:
 benchmark_series  
 + drift_series  
 → topology_analysis  
++ stable_receipt  
+
+---
+
+## v137.20.x — Supervisory Advisory Control Epoch
+
+Completed:
+
+- v137.20.0 — Governance Forecast Feedback Control Kernel
+- v137.20.1 — Governance Control Stability Calibration Kernel
+- v137.20.2 — Governance Calibration Drift Reconciliation Kernel
+- v137.20.3 — Governance Drift Topology Stability Kernel
+- v137.20.3.1 — Pre-existing Suite Hardening Pack
+- v137.20.4 — Governance Topology Forecast Stability Kernel
+
+In progress:
+
+- v137.20.5 — Governance Forecast Topology Reconciliation Kernel
+
+Purpose:
+
+supervisory control  
+calibration science  
+drift reconciliation  
+topology stability  
+topology forecasting  
+forecast reconciliation  
+
+Canonical model:
+
+forecast_series  
++ topology_series  
++ replay_horizon_series  
+→ reconciliation_analysis  
 + stable_receipt  
 
 ---

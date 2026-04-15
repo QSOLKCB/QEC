@@ -228,14 +228,14 @@ def test_validator_preserves_integrity_fields_for_mapping_inputs() -> None:
 
     report = validate_latency_throughput_budget_ledger(tampered)
     assert report["is_valid"] is False
-    assert "receipt ledger hash mismatch" in report["violations"]
+    assert "ledger hash drift" in report["violations"]
     assert "receipt hash drift" in report["violations"]
 
 
-def test_compare_budget_replay_detects_tampered_mapping_hashes() -> None:
+def test_compare_budget_replay_detects_content_differences() -> None:
     ledger = run_latency_throughput_budget_ledger(**build_latency_throughput_scenario(_scenario()))
     tampered = ledger.to_dict()
-    tampered["ledger_hash"] = "ff" * 32
+    tampered["timing_series"][0]["latency_ms"] = 99.0  # change actual content
 
     cmp = compare_budget_replay(ledger, tampered)
     assert cmp["replay_stable"] is False

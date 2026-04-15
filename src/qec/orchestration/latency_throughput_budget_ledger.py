@@ -67,6 +67,20 @@ def _normalize_text(value: Any, default: str) -> str:
     return text if text else default
 
 
+def _normalize_bool(value: Any, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return bool(value)
+    if isinstance(value, str):
+        lower = value.strip().lower()
+        if lower in ("true", "yes", "1"):
+            return True
+        if lower in ("false", "no", "0"):
+            return False
+    return default
+
+
 def _stable_sample_sort_key(sample: "LatencyThroughputSample") -> Tuple[int, str, float, float, float, Tuple[str, ...]]:
     return (
         sample.sample_index,
@@ -321,8 +335,8 @@ def _deserialize_budget_receipt(raw: Any, fallback: BudgetReceipt) -> BudgetRece
     ledger_version = _normalize_text(raw.get("ledger_version"), fallback.ledger_version)
     advisory_state = _normalize_text(raw.get("advisory_state"), fallback.advisory_state)
     logical_replay_identity = _normalize_text(raw.get("logical_replay_identity"), fallback.logical_replay_identity)
-    logical_outputs_valid = bool(raw.get("logical_outputs_valid", fallback.logical_outputs_valid))
-    timing_budget_exceeded = bool(raw.get("timing_budget_exceeded", fallback.timing_budget_exceeded))
+    logical_outputs_valid = _normalize_bool(raw.get("logical_outputs_valid"), fallback.logical_outputs_valid)
+    timing_budget_exceeded = _normalize_bool(raw.get("timing_budget_exceeded"), fallback.timing_budget_exceeded)
     composite_budget_pressure, _ = _normalize_float(raw.get("composite_budget_pressure"), fallback.composite_budget_pressure)
     ledger_hash = _normalize_text(raw.get("ledger_hash"), fallback.ledger_hash)
     receipt_hash = _normalize_text(raw.get("receipt_hash"), fallback.receipt_hash)
@@ -355,20 +369,55 @@ def _deserialize_budget_analysis(raw: Any, fallback: Tuple[BudgetMetric, ...]) -
 
     return tuple(metrics) if metrics else fallback
 
-def build_budget_receipt(ledger: LedgerLike) -> BudgetReceipt:
-    normalized = ledger if isinstance(ledger, LatencyThroughputBudgetLedger) else run_latency_throughput_budget_ledger(**build_latency_throughput_scenario(ledger))
-    timing_exceeded = normalized.advisory_state == "budget_violation"
+def _compute_ledger_hash(ledger: "LatencyThroughputBudgetLedger") -> str:
+    body = {
+        "ledger_version": ledger.ledger_version,
+        "timing_series": [s.to_dict() for s in ledger.timing_series],
+        "throughput_series": [s.to_dict() for s in ledger.throughput_series],
+        "budget_requirements": dict(ledger.budget_requirements),
+        "budget_analysis": [m.to_dict() for m in ledger.budget_analysis],
+        "advisory_state": ledger.advisory_state,
+        "composite_budget_pressure": ledger.composite_budget_pressure,
+        "normalization_notes": list(ledger.normalization_notes),
+    }
+    return _sha256_hex(_canonical_json(body).encode("utf-8"))
+
+
+def _compute_receipt_hash(normalized: "LatencyThroughputBudgetLedger", ledger_hash: str) -> str:
+    latency_compliance = next(
+        (m.metric_value for m in normalized.budget_analysis if m.metric_name == "latency_budget_compliance"),
+        1.0,
+    )
     receipt_body = {
         "ledger_version": normalized.ledger_version,
         "advisory_state": normalized.advisory_state,
         "logical_replay_identity": "logical-replay-unchanged",
         "logical_outputs_valid": True,
-        "timing_budget_exceeded": timing_exceeded,
+        "timing_budget_exceeded": latency_compliance < 1.0,
         "composite_budget_pressure": normalized.composite_budget_pressure,
-        "ledger_hash": normalized.ledger_hash,
+        "ledger_hash": ledger_hash,
     }
-    receipt_hash = _sha256_hex(_canonical_json(receipt_body).encode("utf-8"))
-    return BudgetReceipt(receipt_hash=receipt_hash, **receipt_body)
+    return _sha256_hex(_canonical_json(receipt_body).encode("utf-8"))
+
+
+def build_budget_receipt(ledger: LedgerLike) -> BudgetReceipt:
+    normalized = ledger if isinstance(ledger, LatencyThroughputBudgetLedger) else run_latency_throughput_budget_ledger(**build_latency_throughput_scenario(ledger))
+    latency_compliance = next(
+        (m.metric_value for m in normalized.budget_analysis if m.metric_name == "latency_budget_compliance"),
+        1.0,
+    )
+    timing_exceeded = latency_compliance < 1.0
+    receipt_hash = _compute_receipt_hash(normalized, normalized.ledger_hash)
+    return BudgetReceipt(
+        ledger_version=normalized.ledger_version,
+        advisory_state=normalized.advisory_state,
+        logical_replay_identity="logical-replay-unchanged",
+        logical_outputs_valid=True,
+        timing_budget_exceeded=timing_exceeded,
+        composite_budget_pressure=normalized.composite_budget_pressure,
+        ledger_hash=normalized.ledger_hash,
+        receipt_hash=receipt_hash,
+    )
 
 
 def build_latency_throughput_scenario(
@@ -500,9 +549,13 @@ def validate_latency_throughput_budget_ledger(ledger: LedgerLike) -> Dict[str, A
                 violations.append(f"metric out of bounds: {metric.metric_name}")
         if normalized.advisory_state not in ADVISORY_STATES:
             violations.append("invalid advisory state")
-        if normalized.budget_receipt.ledger_hash != normalized.ledger_hash:
-            violations.append("receipt ledger hash mismatch")
-        if normalized.budget_receipt.receipt_hash != build_budget_receipt(normalized).receipt_hash:
+        expected_hash = _compute_ledger_hash(normalized)
+        if normalized.ledger_hash != expected_hash:
+            violations.append("ledger hash drift")
+        if normalized.budget_receipt.ledger_hash != expected_hash:
+            violations.append("receipt ledger hash drift")
+        expected_receipt_hash = _compute_receipt_hash(normalized, expected_hash)
+        if normalized.budget_receipt.receipt_hash != expected_receipt_hash:
             violations.append("receipt hash drift")
     except Exception as exc:  # nosec - validator must never raise
         return {
@@ -514,7 +567,7 @@ def validate_latency_throughput_budget_ledger(ledger: LedgerLike) -> Dict[str, A
     return {
         "is_valid": len(violations) == 0,
         "violations": tuple(violations),
-        "ledger_hash": normalized.ledger_hash,
+        "ledger_hash": expected_hash,
     }
 
 
@@ -531,9 +584,13 @@ def compare_budget_replay(left: LedgerLike, right: LedgerLike) -> Dict[str, Any]
         }
 
     violations = []
-    if left_ledger.ledger_hash != right_ledger.ledger_hash:
+    left_hash = _compute_ledger_hash(left_ledger)
+    right_hash = _compute_ledger_hash(right_ledger)
+    if left_hash != right_hash:
         violations.append("ledger hash mismatch")
-    if left_ledger.budget_receipt.receipt_hash != right_ledger.budget_receipt.receipt_hash:
+    left_receipt_hash = _compute_receipt_hash(left_ledger, left_hash)
+    right_receipt_hash = _compute_receipt_hash(right_ledger, right_hash)
+    if left_receipt_hash != right_receipt_hash:
         violations.append("receipt hash mismatch")
     if left_ledger.advisory_state != right_ledger.advisory_state:
         violations.append("advisory mismatch")
@@ -541,8 +598,8 @@ def compare_budget_replay(left: LedgerLike, right: LedgerLike) -> Dict[str, Any]
     return {
         "replay_stable": len(violations) == 0,
         "violations": tuple(violations),
-        "left_hash": left_ledger.ledger_hash,
-        "right_hash": right_ledger.ledger_hash,
+        "left_hash": left_hash,
+        "right_hash": right_hash,
     }
 
 

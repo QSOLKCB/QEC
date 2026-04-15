@@ -1,6 +1,19 @@
 # SPDX-License-Identifier: MIT
 """Correlated-noise simulator export bridge."""
 
+from .experiment_packaging_format import (
+    EXPERIMENT_PACKAGING_FORMAT_VERSION,
+    ExperimentPackage,
+    ExperimentPackageArtifact,
+    ExperimentPackageManifest,
+    ExperimentPackageReceipt,
+    ExperimentPackageValidationError,
+    ExperimentPackageValidationReport,
+    build_experiment_package,
+    package_replay_identity,
+    validate_experiment_package,
+)
+
 from .correlated_noise_simulator import (
     CORRELATED_NOISE_SIMULATOR_VERSION,
     SUPPORTED_MODELS,
@@ -20,6 +33,16 @@ from .correlated_noise_simulator import (
 )
 
 __all__ = [
+    "EXPERIMENT_PACKAGING_FORMAT_VERSION",
+    "ExperimentPackageValidationError",
+    "ExperimentPackageArtifact",
+    "ExperimentPackageManifest",
+    "ExperimentPackageReceipt",
+    "ExperimentPackage",
+    "ExperimentPackageValidationReport",
+    "build_experiment_package",
+    "validate_experiment_package",
+    "package_replay_identity",
     "CORRELATED_NOISE_SIMULATOR_VERSION",
     "SUPPORTED_MODELS",
     "SUPPORTED_TOPOLOGIES",

@@ -109,6 +109,45 @@ checklist before merge.
 - [ ] Version number incremented according to versioning policy
 - [ ] Release report prepared (if applicable)
 
+## 11. Fork Synchronization Safety
+
+`QSOLKCB/QEC` is the canonical development line. The upstream
+`multimodalas/fusion-qec` fork is retained for historical lineage only.
+Divergence from the upstream fork is expected and intentional; the
+canonical `v137.x` history does not share a common ancestor with the
+upstream fork.
+
+- [ ] This PR does **not** merge any commits from `multimodalas/fusion-qec`
+- [ ] This PR does **not** rebase `main` onto any upstream branch
+- [ ] The GitHub "Sync fork" button was **not** used
+- [ ] No automation in this PR performs upstream sync, fork merge, or
+      upstream rebase against `QSOLKCB/QEC:main`
+- [ ] Any ref repair on protected branches (`main`, release tags) uses
+      `git push --force-with-lease=<ref>:<expected-sha>` with an explicit
+      expected SHA — never plain `--force`
+- [ ] Before any protected-ref rewrite, a recovery pointer is pushed to
+      `origin` capturing the pre-rewrite tip (see
+      `PROJECT_STATE.md` § Disaster Recovery for the canonical procedure)
+
+### Disaster Recovery Reference
+
+A prior accidental fork-sync rolled `origin/main` back from the canonical
+`v137.x` tip (`fbdde2c`, PR #257 era) to a 307-commit historical fork
+snapshot (`0c0f4e3`, "Merge pull request #25 from QSOLKCB/main") with no
+common ancestor. Recovery was performed via a leased force-push:
+
+```
+git push origin fbdde2c:refs/heads/main \
+    --force-with-lease=refs/heads/main:0c0f4e3
+```
+
+Safety pointers preserved on origin before the restore:
+
+- `recovery/origin-main-rolledback-0c0f4e3` (pre-restore remote tip)
+- `recovery/local-main-pre-restore-fbdde2c` (canonical tip snapshot)
+
+Full restoration record lives in `PROJECT_STATE.md`.
+
 ---
 
 ## Audit Outcome

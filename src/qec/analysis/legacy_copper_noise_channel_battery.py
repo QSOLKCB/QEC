@@ -135,7 +135,7 @@ def _validate_optional_fixture_payload(
     attenuation_fixture: tuple[float, ...] | None,
     distortion_fixture: tuple[int, ...] | None,
     label_fixture: tuple[str, ...] | None,
-) -> None:
+) -> tuple[tuple[float, ...], tuple[int, ...], tuple[str, ...]]:
 
     canonical_float: tuple[float, ...] = ()
     canonical_int: tuple[int, ...] = ()

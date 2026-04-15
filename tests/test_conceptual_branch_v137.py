@@ -397,7 +397,7 @@ class TestDocConsistency:
         assert "stable tip" in content.lower()
         assert "v137." in content
 
-    def test_roadmap_contains_governed_quantized(self):
+    def test_roadmap_contains_determinism_replay(self):
         roadmap_path = os.path.join(
             os.path.dirname(__file__), "..", "ROADMAP.md",
         )

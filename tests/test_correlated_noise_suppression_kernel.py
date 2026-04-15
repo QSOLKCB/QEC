@@ -194,6 +194,34 @@ def test_decoder_untouched_confirmation() -> None:
     assert kernel.suppression_analysis["decoder_semantics_modified"] is False
 
 
+
+
+def test_validator_detects_tampered_receipt_payload() -> None:
+    kernel = run_correlated_noise_suppression(scenario=_build_scenario())
+    tampered_receipt = SuppressionReceipt(
+        scenario_hash=kernel.suppression_receipt.scenario_hash,
+        metrics_hash=kernel.suppression_receipt.metrics_hash,
+        suppression_hash=kernel.suppression_receipt.suppression_hash,
+        suppression_confidence_score=kernel.suppression_receipt.suppression_confidence_score,
+        advisory_output="severe_correlated_suppression",
+        sideband_only=kernel.suppression_receipt.sideband_only,
+        receipt_hash=kernel.suppression_receipt.receipt_hash,
+    )
+    tampered_kernel = CorrelatedNoiseSuppressionKernel(
+        scenario=kernel.scenario,
+        metrics=kernel.metrics,
+        suppression_analysis=kernel.suppression_analysis,
+        advisory_output=kernel.advisory_output,
+        violations=kernel.violations,
+        suppression_receipt=tampered_receipt,
+        suppression_hash=kernel.suppression_hash,
+        sideband_only=kernel.sideband_only,
+        decoder_untouched=kernel.decoder_untouched,
+    )
+
+    violations = validate_correlated_noise_suppression(tampered_kernel)
+    assert "receipt_hash_mismatch" in violations
+
 def test_suppression_receipt_determinism() -> None:
     scenario = _build_scenario()
     kernel = run_correlated_noise_suppression(scenario=scenario)

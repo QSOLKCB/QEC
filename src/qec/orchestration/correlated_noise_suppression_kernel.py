@@ -224,7 +224,7 @@ class SuppressionReceipt:
         return _canonical_json(self.to_dict())
 
     def stable_hash(self) -> str:
-        return self.receipt_hash
+        return _receipt_hash_from_payload(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -352,6 +352,37 @@ def _metrics_hash(metrics: Sequence[SuppressionMetric]) -> str:
     return _sha256_hex(_canonical_json([metric.to_dict() for metric in metrics]).encode("utf-8"))
 
 
+def _receipt_payload(
+    *,
+    scenario_hash: str,
+    metrics_hash: str,
+    suppression_hash: str,
+    suppression_confidence_score: float,
+    advisory_output: str,
+    sideband_only: bool,
+) -> Dict[str, Any]:
+    return {
+        "scenario_hash": scenario_hash,
+        "metrics_hash": metrics_hash,
+        "suppression_hash": suppression_hash,
+        "suppression_confidence_score": _clamp01(suppression_confidence_score),
+        "advisory_output": advisory_output,
+        "sideband_only": bool(sideband_only),
+    }
+
+
+def _receipt_hash_from_payload(payload: Mapping[str, Any]) -> str:
+    canonical_payload = _receipt_payload(
+        scenario_hash=_safe_text(_field(payload, "scenario_hash", "")),
+        metrics_hash=_safe_text(_field(payload, "metrics_hash", "")),
+        suppression_hash=_safe_text(_field(payload, "suppression_hash", "")),
+        suppression_confidence_score=_safe_nonneg_float(_field(payload, "suppression_confidence_score", 0.0)),
+        advisory_output=_safe_text(_field(payload, "advisory_output", "")),
+        sideband_only=_field(payload, "sideband_only", False) is True,
+    )
+    return _sha256_hex(_canonical_json(canonical_payload).encode("utf-8"))
+
+
 def _advisory_from_pressure(composite_pressure: float) -> str:
     bounded = _clamp01(composite_pressure)
     for advisory, threshold in _ADVISORY_THRESHOLDS:
@@ -477,15 +508,15 @@ def build_suppression_receipt(
             confidence_score = metric.metric_value
             break
 
-    payload = {
-        "scenario_hash": scenario.stable_hash(),
-        "metrics_hash": _metrics_hash(metrics_tuple),
-        "suppression_hash": suppression_hash,
-        "suppression_confidence_score": _clamp01(confidence_score),
-        "advisory_output": advisory_output,
-        "sideband_only": True,
-    }
-    receipt_hash = _sha256_hex(_canonical_json(payload).encode("utf-8"))
+    payload = _receipt_payload(
+        scenario_hash=scenario.stable_hash(),
+        metrics_hash=_metrics_hash(metrics_tuple),
+        suppression_hash=suppression_hash,
+        suppression_confidence_score=confidence_score,
+        advisory_output=advisory_output,
+        sideband_only=True,
+    )
+    receipt_hash = _receipt_hash_from_payload(payload)
     return SuppressionReceipt(receipt_hash=receipt_hash, **payload)
 
 
@@ -542,7 +573,8 @@ def validate_correlated_noise_suppression(kernel: Any) -> Tuple[str, ...]:
                 violations.append("receipt_scenario_hash_mismatch")
             if _safe_text(_field(receipt, "metrics_hash", "")) != _metrics_hash(metrics):
                 violations.append("receipt_metrics_hash_mismatch")
-            if _safe_text(_field(receipt, "receipt_hash", "")) != _safe_text(_field(receipt, "stable_hash", lambda: "")()):
+            expected_receipt_hash = _receipt_hash_from_payload(_field(receipt, "to_dict", lambda: {})())
+            if _safe_text(_field(receipt, "receipt_hash", "")) != expected_receipt_hash:
                 violations.append("receipt_hash_mismatch")
     except Exception:
         violations.append("validator_internal_exception")

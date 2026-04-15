@@ -76,6 +76,12 @@ def test_malformed_shape_failure():
         contract.normalize(_raw_capture(shape="2xbad"))
 
 
+def test_shape_cardinality_must_match_syndrome_bit_count():
+    contract = InterfaceNormalizationContract()
+    with pytest.raises(ValueError, match="bit count must match shape cardinality"):
+        contract.normalize(_raw_capture(shape=[2, 2], signal_payload=[0, 1, 1]))
+
+
 def test_non_string_key_rejection():
     contract = InterfaceNormalizationContract()
     with pytest.raises(TypeError):

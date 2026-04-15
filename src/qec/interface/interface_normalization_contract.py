@@ -148,6 +148,15 @@ def _canonicalize_syndrome_ordering(payload: Any) -> Tuple[int, ...]:
     raise TypeError("signal_payload must be sequence or mapping")
 
 
+def _shape_cardinality(shape: Tuple[int, ...]) -> int:
+    if not shape:
+        return 0
+    cardinality = 1
+    for dim in shape:
+        cardinality *= dim
+    return cardinality
+
+
 @dataclass(frozen=True)
 class RawInterfaceCapture:
     source_id: str
@@ -291,12 +300,18 @@ class InterfaceNormalizationContract:
                 raise ValueError(f"raw_capture missing required field: {key}")
         _normalize_text(mapping["source_id"], field="source_id")
         _normalize_text(mapping["capture_type"], field="capture_type")
-        _normalize_shape(mapping["shape"])
+        normalized_shape = _normalize_shape(mapping["shape"])
         _normalize_dtype(mapping["dtype"])
         _normalize_text(mapping["timestamp_receipt_hash"], field="timestamp_receipt_hash")
         _normalize_text(mapping["suppression_receipt_hash"], field="suppression_receipt_hash")
         _validate_string_only_mapping_keys(mapping["metadata"], field="metadata")
-        _canonicalize_syndrome_ordering(mapping["signal_payload"])
+        syndrome_bits = _canonicalize_syndrome_ordering(mapping["signal_payload"])
+        expected_bits = _shape_cardinality(normalized_shape)
+        if len(syndrome_bits) != expected_bits:
+            raise ValueError(
+                "signal_payload bit count must match shape cardinality: "
+                f"{len(syndrome_bits)} != {expected_bits}"
+            )
 
     @staticmethod
     def build_raw_interface_capture(raw_capture: Any) -> RawInterfaceCapture:

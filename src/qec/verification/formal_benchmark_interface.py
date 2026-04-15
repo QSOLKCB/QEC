@@ -214,12 +214,15 @@ class FormalBenchmarkGateReceipt:
     version: str
     gate_decision: str
     report_hash: str
-    input_digests: Dict[str, str]
+    input_digests: Mapping[str, str]
     merge_readiness: str
     merge_ready: bool
     ci_gate_status: str
     rationale: Tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        immutable_input_digests = MappingProxyType(dict(self.input_digests))
+        object.__setattr__(self, "input_digests", immutable_input_digests)
     def to_dict(self) -> Dict[str, Any]:
         return {
             "version": self.version,

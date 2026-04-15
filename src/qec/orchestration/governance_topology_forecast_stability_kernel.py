@@ -446,16 +446,17 @@ def validate_topology_forecast_stability(kernel: Any) -> Tuple[str, ...]:
             if not topology_id:
                 violations.append(f"malformed_topology_row:{idx}")
 
-        last_horizon = -1.0
+        last_horizon_key: Tuple[float, str] | None = None
         for idx, row in enumerate(horizon_series):
             horizon_id = _safe_text(_field(row, "horizon_id", "")).strip()
             horizon_step = _safe_nonneg_float(_field(row, "horizon_step", -1.0))
             if not horizon_id:
                 violations.append(f"malformed_horizon_row:{idx}")
-            if horizon_step < last_horizon:
+            horizon_key = (horizon_step, horizon_id)
+            if last_horizon_key is not None and horizon_key < last_horizon_key:
                 violations.append("horizon_ordering_violation")
                 break
-            last_horizon = horizon_step
+            last_horizon_key = horizon_key
 
         names = tuple(_safe_text(_field(metric, "metric_name", "")) for metric in metrics)
         if names != _METRIC_ORDER:

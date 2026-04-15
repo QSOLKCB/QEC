@@ -697,7 +697,7 @@ def summarize_correlated_noise_suppression(kernel: CorrelatedNoiseSuppressionKer
         f"advisory_output={kernel.advisory_output},"
         f"suppression_hash={kernel.suppression_hash},"
         f"receipt_hash={kernel.suppression_receipt.receipt_hash},"
-        "sideband_only=True,"
-        "decoder_untouched=True"
+        f"sideband_only={kernel.sideband_only},"
+        f"decoder_untouched={kernel.decoder_untouched}"
         ")"
     )

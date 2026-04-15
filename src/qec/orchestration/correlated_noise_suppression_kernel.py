@@ -545,7 +545,17 @@ def validate_correlated_noise_suppression(kernel: Any) -> Tuple[str, ...]:
 
         for metric in metrics:
             name = _safe_text(_field(metric, "metric_name", ""))
-            value = _safe_nonneg_float(_field(metric, "metric_value", 0.0))
+            raw_value = _field(metric, "metric_value", 0.0)
+            try:
+                value = float(raw_value)
+            except (TypeError, ValueError):
+                violations.append(f"metric_non_numeric:{name}")
+                continue
+
+            if not math.isfinite(value):
+                violations.append(f"metric_non_finite:{name}")
+                continue
+
             if name in _METRIC_INDEX and (value < 0.0 or value > 1.0):
                 violations.append(f"metric_out_of_bounds:{name}")
 

@@ -71,14 +71,17 @@ def _normalize_float(value: Any, *, field: str) -> float:
 
 
 def _normalize_mapping(value: Any, *, field: str) -> Mapping[str, Any]:
+    """Normalize a mapping with deterministic, string-only keys."""
     if not isinstance(value, Mapping):
         raise TypeError(f"{field} must be a mapping")
+
     normalized: Dict[str, Any] = {}
-    for key in sorted(value.keys(), key=lambda x: str(x)):
-        skey = str(key)
-        if skey in normalized:
-            raise ValueError(f"{field} contains duplicate canonical key {skey!r}")
-        normalized[skey] = value[key]
+    for key in value.keys():
+        if not isinstance(key, str):
+            raise TypeError(f"{field} keys must be str, got {type(key).__name__}")
+
+    for key in sorted(value.keys()):
+        normalized[key] = value[key]
     return normalized
 
 

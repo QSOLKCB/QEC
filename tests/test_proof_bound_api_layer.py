@@ -157,7 +157,9 @@ def test_non_finite_float_nan_canonicalizes_to_sentinel():
     )
     canonical = layer.to_canonical_json()
     assert "NaN" in canonical
-    assert float("nan") not in [float("nan")]  # sanity; actual check is no raise
+    # Verify canonical JSON round-trips without error (allow_nan=False would have raised)
+    reloaded = json.loads(canonical)
+    assert reloaded is not None
 
 
 def test_non_finite_float_positive_infinity_canonicalizes_to_sentinel():

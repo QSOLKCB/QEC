@@ -557,7 +557,11 @@ def validate_forecast_topology_reconciliation(kernel: Any) -> Tuple[str, ...]:
                     violations.append("receipt_scenario_hash_mismatch")
 
             actual_reconciliation_hash = _safe_text(_field(receipt, "reconciliation_hash", "")).strip()
-            expected_reconciliation_hash = _safe_text(_field(kernel, "reconciliation_hash", "")).strip()
+            expected_reconciliation_hash = _reconciliation_hash(
+                scenario=scenario,
+                metrics=metrics,
+                violations=tuple(sorted(set(violations))),
+            )
             if actual_reconciliation_hash and expected_reconciliation_hash:
                 if actual_reconciliation_hash != expected_reconciliation_hash:
                     violations.append("receipt_reconciliation_hash_mismatch")

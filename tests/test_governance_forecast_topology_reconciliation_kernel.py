@@ -340,6 +340,36 @@ def test_summary_content() -> None:
     assert kernel.receipt.receipt_hash in text
 
 
+def test_validator_recomputes_reconciliation_hash() -> None:
+    f, t, h = _stable_inputs()
+    scenario = build_forecast_topology_reconciliation_scenario(
+        scenario_id="forged-hash",
+        forecast_series=f,
+        topology_series=t,
+        replay_horizon_series=h,
+    )
+    kernel = run_governance_forecast_topology_reconciliation(scenario=scenario)
+    forged_hash = "f" * 64
+    forged_receipt = build_forecast_topology_reconciliation_receipt(
+        scenario=scenario,
+        metrics=kernel.metrics,
+        reconciliation_hash=forged_hash,
+        advisory_output=kernel.advisory_output,
+    )
+    forged_kernel = GovernanceForecastTopologyReconciliationKernel(
+        scenario=kernel.scenario,
+        metrics=kernel.metrics,
+        reconciliation_analysis=kernel.reconciliation_analysis,
+        advisory_output=kernel.advisory_output,
+        violations=kernel.violations,
+        receipt=forged_receipt,
+        reconciliation_hash=forged_hash,
+    )
+
+    violations = validate_forecast_topology_reconciliation(forged_kernel)
+    assert "receipt_reconciliation_hash_mismatch" in violations
+
+
 def test_dataclass_support_methods() -> None:
     scenario = ForecastTopologyReconciliationScenario(
         scenario_id="x",

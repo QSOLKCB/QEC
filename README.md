@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19099502-blue)](https://doi.org/10.5281/zenodo.19099502)
 [![Authorea](https://img.shields.io/badge/Authorea-10.22541%2Fau.177376131.17346095%2Fv1-blue)](https://doi.org/10.22541/au.177376131.17346095/v1)
-[![Branch](https://img.shields.io/badge/branch-v137%20canonical-purple)]()
+[![Branch](https://img.shields.io/badge/branch-v138%20canonical-purple)]()
 [![Architecture](https://img.shields.io/badge/architecture-deterministic%20systems-blueviolet)]()
 [![Determinism](https://img.shields.io/badge/determinism-byte--identical-success)]()
 [![Replay](https://img.shields.io/badge/replay-hash--stable-green)]()
@@ -30,6 +30,9 @@ QEC includes a **Rust TUI operator workstation** for keyboard-first deterministi
 - proof audit inspection
 - governance trace review
 - drift analysis summaries
+- simulation lane monitoring
+- orchestration receipt inspection
+- multi-code experiment tracing
 
 ---
 
@@ -51,24 +54,23 @@ qec-tui
 
 # What QEC Is
 
-QEC is a **deterministic systems architecture** that began in quantum error correction and has evolved into a broader **replay-safe computational substrate, covenant runtime, and formal control science stack**.
+QEC began as a **deterministic quantum error correction framework** and has evolved into a broader **replay-safe formal systems runtime**.
 
 It now spans:
 
 - quantum error correction
 - deterministic orchestration
-- replay-safe research pipelines
+- replay-safe simulation
 - proof-carrying governance
 - deterministic local smart contracts
-- bounded state-transition systems
-- governance science + drift analysis
+- formal control science
+- topology-aware diagnostics
+- experiment packaging
+- multi-code orchestration simulation
+- non-Clifford admissibility bounds
 - hardware replay verification
 - Rust operator tooling
-- topology-aware diagnostics
-- information geometry kernels
-- covenant execution primitives
-- formal methods
-- proof-ready replay lineage
+- formal replay lineage
 
 The governing law remains:
 
@@ -84,6 +86,7 @@ continuous state
 → proof receipt
 → benchmark science
 → drift topology
+→ simulation lineage
 ```
 
 > If the same input does not produce the same bytes, it is not a valid result.
@@ -103,92 +106,52 @@ decoder substrate
 → proof-carrying action capsule
 → covenant engine
 → governance boundary audit
-→ autonomy ledger
 → simulation sandbox
-→ benchmark battery
-→ drift analysis
-→ topology kernel
+→ correlated-noise simulation
+→ experiment packaging
+→ multi-code orchestration
+→ admissibility bounds
 → operator console
 ```
 
 ---
 
-# Completed Canonical Arcs
+# Current Stable Tip
 
-## v137.14.x — Information Geometry Arc
+**v138.1.2 — Multi-Code Orchestration Simulator**
 
-Completed:
+Current active ladder:
 
-- Jensen–Shannon divergence
-- Fisher–Rao geometry
-- divergence correspondence
-- transport geometry
-- consensus manifold
-- information-geometric certification pack
+- `v138.1.0` — Correlated Noise Simulator
+- `v138.1.1` — Experiment Packaging Format
+- `v138.1.2` — Multi-Code Orchestration Simulator
+- `v138.1.3` — Non-Clifford / Truncated Polytope Bounds Pack *(next)*
 
 ---
 
-## v137.15.x — Formal Control + Safety Kernel
+# Simulation Epoch — v138.1.x
 
-Completed:
+The current active development epoch focuses on **realistic simulation, deterministic experiment packaging, and multi-lane orchestration**.
 
-- deterministic control sequencing
-- explicit state transitions
-- rollback planning
-- transition safety envelopes
-- bounded fallback corridors
-- proof-carrying control engine
+### Completed
 
----
+### v138.1.0 — Correlated Noise Simulator
+- temporal and spatial correlated noise
+- topology-aware propagation
+- deterministic seeded realizations
+- replay-safe receipts
 
-## v137.16.x — Memory + Decision Compiler
+### v138.1.1 — Experiment Packaging Format
+- canonical experiment manifests
+- stable artifact descriptors
+- lineage-safe package receipts
+- deterministic package hashing
 
-Completed:
-
-- deterministic memory graph
-- decision DAG compiler
-- topology indexer
-- replay-safe reasoning graph
-
----
-
-## v137.17.x — Research Orchestration Epoch
-
-Completed:
-
-- orchestration kernel
-- deterministic scheduling
-- benchmark pipeline
-- research lineage
-- research audit
-- dataflow ledger
-- replay certification
-
----
-
-## v137.18.x — Governance + Covenant Runtime
-
-Completed:
-
-- proof-carrying action capsule
-- deterministic covenant engine
-- boundary auditor
-- policy firewall
-- bounded autonomy ledger
-- deterministic simulation sandbox
-
----
-
-## v137.19.x — Governance Science
-
-Completed:
-
-- governance benchmark battery
-- policy drift analysis kernel
-
-In progress:
-
-- governance stability topology kernel
+### v138.1.2 — Multi-Code Orchestration Simulator
+- multi-lane experiment coordination
+- stable lane ordering
+- deterministic execution hashes
+- replay-safe orchestration receipts
 
 ---
 
@@ -200,11 +163,11 @@ These are local smart contracts implemented in **pure Python / NumPy**.
 
 They are **not blockchain contracts**.
 
-No chain consensus.  
-No gas model.  
-No wallets.  
-No miners.  
-No external ledger.  
+No chain consensus  
+No gas model  
+No wallets  
+No miners  
+No external ledger  
 
 Canonical model:
 
@@ -281,7 +244,7 @@ Canonical JSON + stable SHA-256 required.
 
 ---
 
-# Python Installation
+# Installation
 
 ```bash
 git clone https://github.com/QSOLKCB/QEC.git
@@ -300,12 +263,12 @@ pytest -q
 
 # Design Philosophy
 
-Small is beautiful.  
-Determinism is architecture.  
-Replay identity is law.  
-Proofs beat vibes.  
-Operator clarity beats hidden automation.  
-Formal methods before autonomy.
+Small is beautiful  
+Determinism is architecture  
+Replay identity is law  
+Proofs beat vibes  
+Operator clarity beats hidden automation  
+Formal methods before autonomy  
 
 ---
 
@@ -314,13 +277,11 @@ Formal methods before autonomy.
 The following research artifacts and reproducibility records support the QSOLKCB / QEC architecture, release methodology, and deterministic systems roadmap:
 
 1. Trent Slade, QSOL-IMC. *Deterministic Runtime Optimization and Formal Invariant Validation in QSOL-IMC QEC v68.4.1* Zenodo. DOI: https://doi.org/10.5281/zenodo.19062692
-2. Trent Slade, QSOL-IMC. *Invariant-Driven Computation Elimination: A Formal Execution-Context Reuse Framework (QSOL-BP-INV-003) [QEC v68.6.2]* Zenodo. DOI: https://doi.org/10.5281/zenodo.19102390
-3. Trent Slade, QSOL-IMC. *Deterministic Redundancy Elimination via Trace-Indexed Sign/CRC Reuse in QSOL-IMC QEC v68.5.0* Zenodo. DOI: https://doi.org/10.5281/zenodo.19099503
-4. Trent Slade, QSOL-IMC. *Dark-State Invariants: A Deterministic Framework for Detecting Computational Redundancy in Belief Propagation Dynamics Zenodo. DOI: https://doi.org/10.5281/zenodo.19104208
+2. Trent Slade, QSOL-IMC. *Invariant-Driven Computation Elimination* DOI: https://doi.org/10.5281/zenodo.19102390
+3. Trent Slade, QSOL-IMC. *Deterministic Redundancy Elimination* DOI: https://doi.org/10.5281/zenodo.19099503
+4. Trent Slade, QSOL-IMC. *Dark-State Invariants* DOI: https://doi.org/10.5281/zenodo.19104208
 
-These references provide DOI-backed archival support for the release ladder, reproducibility claims, and research continuity of the QEC project.
-
-Additional project papers and working research notes are available in the repository:
+Additional project papers and research notes:
 
 **[Project Papers and Research Notes](https://github.com/QSOLKCB/QEC/tree/main/papers)**
 
@@ -330,4 +291,4 @@ Additional project papers and working research notes are available in the reposi
 
 **Trent Slade**  
 QSOL-IMC  
-ORCID: https://orcid.org/0009-0002-4515-9237  
+ORCID: https://orcid.org/0009-0002-4515-9237

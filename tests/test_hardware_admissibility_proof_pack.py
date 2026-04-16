@@ -7,7 +7,10 @@ import json
 
 import pytest
 
-from qec.runtime.constraint_bound_dispatch_firewall import DispatchConstraint, build_constraint_bound_dispatch_firewall
+from qec.runtime.constraint_bound_dispatch_firewall import (
+    DispatchConstraint,
+    build_constraint_bound_dispatch_firewall,
+)
 from qec.runtime.deterministic_recovery_operator import build_deterministic_recovery_state
 from qec.runtime.hardware_admissibility_proof_pack import (
     HardwareAdmissibilityProofPackValidationError,
@@ -16,7 +19,10 @@ from qec.runtime.hardware_admissibility_proof_pack import (
     validate_hardware_admissibility_proof_pack,
 )
 from qec.runtime.quadratic_tension_functional_kernel import build_quadratic_tension_functional
-from qec.runtime.runtime_admissibility_projection_engine import AdmissibleSubspace, project_runtime_state
+from qec.runtime.runtime_admissibility_projection_engine import (
+    AdmissibleSubspace,
+    project_runtime_state,
+)
 
 
 def _projection(state=(2.0, -1.5, 3.0)):
@@ -130,3 +136,21 @@ def test_repeated_run_proof_stability():
     for _ in range(20):
         pack = build_hardware_admissibility_proof_pack(projection, tension, recovery, firewall)
         assert pack.stable_hash() == expected
+
+
+def test_null_component_metadata_does_not_crash():
+    projection, tension, recovery, firewall = _lineage()
+    pack = build_hardware_admissibility_proof_pack(projection, tension, recovery, firewall)
+    payload = pack.to_dict()
+    payload["components"][0]["metadata"] = None
+    report = validate_hardware_admissibility_proof_pack(payload)
+    assert not report.valid
+
+
+def test_missing_required_component_type_reports_error():
+    projection, tension, recovery, firewall = _lineage()
+    pack = build_hardware_admissibility_proof_pack(projection, tension, recovery, firewall)
+    payload = pack.to_dict()
+    payload["components"] = [c for c in payload["components"] if c["component_type"] != "tension"]
+    report = validate_hardware_admissibility_proof_pack(payload)
+    assert any("required component type missing: tension" in e for e in report.errors)

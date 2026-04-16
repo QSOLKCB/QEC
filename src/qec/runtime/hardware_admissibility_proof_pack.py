@@ -184,6 +184,7 @@ class HardwareAdmissibilityProofPack:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "hardware_admissibility_proof_pack_version": HARDWARE_ADMISSIBILITY_PROOF_PACK_VERSION,
             "state_id": self.state_id,
             "components": [component.to_dict() for component in self.components],
             "verdict": self.verdict,
@@ -201,27 +202,35 @@ class HardwareAdmissibilityProofPack:
 
 def _normalize_component(raw: Any, *, field: str) -> HardwareProofComponent:
     if isinstance(raw, HardwareProofComponent):
-        component = raw
+        component_id = _normalize_text(raw.component_id, field=f"{field}.component_id")
+        component_type = _normalize_text(raw.component_type, field=f"{field}.component_type")
+        source_hash = _normalize_hash(raw.source_hash, field=f"{field}.source_hash")
+        metadata = dict(_canonicalize_value(dict(raw.metadata), field=f"{field}.metadata"))
     elif isinstance(raw, Mapping):
-        component = HardwareProofComponent(
-            component_id=_normalize_text(raw.get("component_id"), field=f"{field}.component_id"),
-            component_type=_normalize_text(raw.get("component_type"), field=f"{field}.component_type"),
-            source_hash=_normalize_hash(raw.get("source_hash"), field=f"{field}.source_hash"),
-            metadata=dict(_canonicalize_value(dict(raw.get("metadata", {})), field=f"{field}.metadata")),
-        )
+        component_id = _normalize_text(raw.get("component_id"), field=f"{field}.component_id")
+        component_type = _normalize_text(raw.get("component_type"), field=f"{field}.component_type")
+        source_hash = _normalize_hash(raw.get("source_hash"), field=f"{field}.source_hash")
+        raw_meta = raw.get("metadata")
+        if raw_meta is None:
+            raw_meta = {}
+        if not isinstance(raw_meta, Mapping):
+            raise HardwareAdmissibilityProofPackValidationError(
+                f"{field}.metadata must be a mapping or null"
+            )
+        metadata = dict(_canonicalize_value(raw_meta, field=f"{field}.metadata"))
     else:
         raise HardwareAdmissibilityProofPackValidationError(f"{field} must be HardwareProofComponent or mapping")
 
-    if component.component_type not in _SUPPORTED_COMPONENT_TYPES:
+    if component_type not in _SUPPORTED_COMPONENT_TYPES:
         raise HardwareAdmissibilityProofPackValidationError(
-            f"{field}.component_type unsupported: {component.component_type}"
+            f"{field}.component_type unsupported: {component_type}"
         )
 
     return HardwareProofComponent(
-        component_id=_normalize_text(component.component_id, field=f"{field}.component_id"),
-        component_type=_normalize_text(component.component_type, field=f"{field}.component_type"),
-        source_hash=_normalize_hash(component.source_hash, field=f"{field}.source_hash"),
-        metadata=dict(_canonicalize_value(dict(component.metadata), field=f"{field}.metadata")),
+        component_id=component_id,
+        component_type=component_type,
+        source_hash=source_hash,
+        metadata=metadata,
     )
 
 
@@ -375,6 +384,12 @@ def validate_hardware_admissibility_proof_pack(
             error_count=1,
         )
 
+    pack_version = payload.get("hardware_admissibility_proof_pack_version")
+    if pack_version != HARDWARE_ADMISSIBILITY_PROOF_PACK_VERSION:
+        errors.append(
+            f"hardware_admissibility_proof_pack_version must be {HARDWARE_ADMISSIBILITY_PROOF_PACK_VERSION!r}"
+        )
+
     try:
         state_id = _normalize_text(payload.get("state_id"), field="state_id")
     except HardwareAdmissibilityProofPackValidationError as exc:
@@ -399,6 +414,14 @@ def validate_hardware_admissibility_proof_pack(
     component_ids = [c.component_id for c in components]
     if len(component_ids) != len(set(component_ids)):
         errors.append("duplicate component ids are not allowed")
+
+    component_types = [c.component_type for c in components]
+    for required_type in _SUPPORTED_COMPONENT_TYPES:
+        count = component_types.count(required_type)
+        if count == 0:
+            errors.append(f"required component type missing: {required_type}")
+        elif count > 1:
+            errors.append(f"component type {required_type} present {count} times (expected exactly once)")
 
     for component in components:
         metadata_state = component.metadata.get("state_id")
@@ -426,10 +449,24 @@ def validate_hardware_admissibility_proof_pack(
     if not isinstance(validation_map, Mapping):
         errors.append("validation must be a mapping")
     else:
+        raw_validation_errors = validation_map.get("errors", ())
+        if isinstance(raw_validation_errors, (str, bytes)) or not isinstance(raw_validation_errors, Sequence):
+            errors.append("validation.errors must be a sequence")
+            validation_errors: Tuple[str, ...] = ()
+        else:
+            validation_errors = tuple(str(item) for item in raw_validation_errors)
+
+        raw_error_count = validation_map.get("error_count", 0)
+        try:
+            validation_error_count = int(raw_error_count)
+        except (TypeError, ValueError):
+            errors.append("validation.error_count must be an integer")
+            validation_error_count = 0
+
         validation_obj = HardwareProofValidationReport(
             valid=bool(validation_map.get("valid")),
-            errors=tuple(str(item) for item in validation_map.get("errors", ())),
-            error_count=int(validation_map.get("error_count", 0)),
+            errors=validation_errors,
+            error_count=validation_error_count,
         )
         if validation_obj.error_count != len(validation_obj.errors):
             errors.append("validation.error_count mismatch")
@@ -448,16 +485,20 @@ def validate_hardware_admissibility_proof_pack(
             if receipt.receipt_hash != receipt.stable_hash():
                 errors.append("receipt.receipt_hash lineage mismatch")
 
-            expected_pack_hash = _stable_hash(
-                {
-                    "state_id": state_id,
-                    "components": [component.to_dict() for component in sorted_components],
-                    "verdict": verdict,
-                    "proof_lineage_hash": payload.get("proof_lineage_hash"),
-                }
-            )
-            if receipt.proof_pack_hash != expected_pack_hash:
-                errors.append("receipt.proof_pack_hash mismatch")
+            try:
+                expected_pack_hash = _stable_hash(
+                    {
+                        "state_id": state_id,
+                        "components": [component.to_dict() for component in sorted_components],
+                        "verdict": verdict,
+                        "proof_lineage_hash": payload.get("proof_lineage_hash"),
+                    }
+                )
+            except (TypeError, ValueError):
+                errors.append("receipt.proof_pack_hash invalid canonical payload")
+            else:
+                if receipt.proof_pack_hash != expected_pack_hash:
+                    errors.append("receipt.proof_pack_hash mismatch")
 
             if validation_obj is not None and receipt.validation_hash != validation_obj.stable_hash():
                 errors.append("receipt.validation_hash mismatch")

@@ -94,7 +94,6 @@ hardware replay validation
 frontier-model comparative harness
 DOI-ready dataset export
 🏗 Current Canonical Architecture
-
 decoder substrate
 → symbolic quantization
 → observability
@@ -109,7 +108,6 @@ decoder substrate
 → DOI-ready export layer
 → operator console
 → runtime safety bridge
-
 ⭐ Current Stable Tip
 
 v138.3.5 — Proof-Carrying Runtime Bridge
@@ -150,26 +148,23 @@ v138.3.5 — Proof-Carrying Runtime Bridge
 bridge token issuance
 execution authorization
 proof-carrying legality
+⚙ Deterministic Smart Contracts (No Blockchain)
 
-# ⚙ Deterministic Smart Contracts (No Blockchain)
+QEC includes a deterministic covenant runtime.
 
-QEC includes a **deterministic covenant runtime**.
+These are local smart contracts implemented in pure Python / NumPy.
 
-These are local smart contracts implemented in **pure Python / NumPy**.
+They are not blockchain contracts.
 
-They are **not blockchain contracts**.
+no chain consensus
+no gas model
+no wallets
+no miners
+no external ledger
 
-- no chain consensus
-- no gas model
-- no wallets
-- no miners
-- no external ledger
+The covenant runtime provides formal local state transition contracts for deterministic systems execution, workflow governance, and proof-carrying orchestration.
 
-The covenant runtime provides **formal local state transition contracts** for deterministic systems execution, workflow governance, and proof-carrying orchestration.
-
-## Canonical Model
-
-```text
+Canonical Model
 state_t
 + action_capsule
 + covenant_rules
@@ -247,14 +242,7 @@ src/qec/decoder/
 
 without explicit architectural need.
 
-The decoder substrate remains protected infrastructure.
-
 Layering is law
-
-Lower layers do not import higher layers.
-
-Canonical layer flow:
-
 decoder
 → runtime
 → orchestration
@@ -297,9 +285,6 @@ Safety before convenience
 Stable lineage before performance shortcuts
 Lawful execution before speculative control
 🚀 v138.3.x Safety Epoch Complete
-
-The current formal runtime safety stack is now complete:
-
 admissibility
 → tension
 → recovery
@@ -312,3 +297,23 @@ This now forms a paper-grade formal runtime safety framework.
 Same input
 → same proof
 → same bytes
+
+📚 References
+Deterministic Runtime Optimization and Formal Invariant Validation
+DOI: https://doi.org/10.5281/zenodo.19062692
+Invariant-Driven Computation Elimination
+DOI: https://doi.org/10.5281/zenodo.19102390
+Deterministic Redundancy Elimination
+DOI: https://doi.org/10.5281/zenodo.19099503
+Dark-State Invariants
+DOI: https://doi.org/10.5281/zenodo.19104208
+
+Additional project papers and research notes:
+
+Project Papers and Research Notes
+
+👤 Author
+
+Trent Slade
+QSOL-IMC
+ORCID: https://orcid.org/0009-0002-4515-9237

@@ -208,6 +208,36 @@ def test_receipt_tamper_detection():
     assert "receipt.validation_passed mismatch" in report.errors
 
 
+def test_validation_handles_non_iterable_metrics_payload():
+    artifact = _prompt_artifact()
+    matrix = _invocation_matrix(artifact)
+    tensor = build_persona_drift_tensor(artifact, matrix, _metric_mappings())
+    payload = tensor.to_dict()
+    payload["metrics"] = None
+    report = validate_persona_drift_tensor(
+        payload,
+        canonical_prompt_artifact=artifact,
+        invocation_matrix=matrix,
+    )
+    assert report.valid is False
+    assert "tensor.metrics must be an iterable sequence" in report.errors
+
+
+def test_validation_handles_integer_metrics_payload():
+    artifact = _prompt_artifact()
+    matrix = _invocation_matrix(artifact)
+    tensor = build_persona_drift_tensor(artifact, matrix, _metric_mappings())
+    payload = tensor.to_dict()
+    payload["metrics"] = 5
+    report = validate_persona_drift_tensor(
+        payload,
+        canonical_prompt_artifact=artifact,
+        invocation_matrix=matrix,
+    )
+    assert report.valid is False
+    assert "tensor.metrics must be an iterable sequence" in report.errors
+
+
 def test_projection_stability():
     artifact = _prompt_artifact()
     matrix = _invocation_matrix(artifact)

@@ -427,12 +427,16 @@ def validate_persona_drift_tensor(
             errors.append(str(exc))
             aggregate_drift_magnitude = 0.0
 
+        metrics_raw = tensor.get("metrics", ())
         normalized_metrics: list[PersonaDriftMetric] = []
-        for raw_metric in tensor.get("metrics", ()):  # type: ignore[arg-type]
-            try:
-                normalized_metrics.append(_normalize_metric(raw_metric))
-            except PersonaDriftTensorValidationError as exc:
-                errors.append(str(exc))
+        if isinstance(metrics_raw, Sequence) and not isinstance(metrics_raw, (str, bytes, bytearray)):
+            for raw_metric in metrics_raw:
+                try:
+                    normalized_metrics.append(_normalize_metric(raw_metric))
+                except PersonaDriftTensorValidationError as exc:
+                    errors.append(str(exc))
+        else:
+            errors.append("tensor.metrics must be an iterable sequence")
         metrics = tuple(normalized_metrics)
 
         receipt_raw = tensor.get("receipt", {})

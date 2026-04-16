@@ -4,7 +4,6 @@
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
 [![Latest](https://img.shields.io/badge/stable-v138.3.5-success)](https://github.com/QSOLKCB/QEC/releases/tag/v138.3.5)
-[![DOI Core](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19099502-blue)](https://doi.org/10.5281/zenodo.19099502)
 [![DOI v68.4.1](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19062692-blue)](https://doi.org/10.5281/zenodo.19062692)
 [![DOI Invariants](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19102390-blue)](https://doi.org/10.5281/zenodo.19102390)
 [![DOI Redundancy](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19099503-blue)](https://doi.org/10.5281/zenodo.19099503)

@@ -108,7 +108,8 @@ It now spans five synchronized layers:
 
 # 🏗 Current Canonical Architecture
 
-```text
+---
+
 decoder substrate
 → symbolic quantization
 → observability

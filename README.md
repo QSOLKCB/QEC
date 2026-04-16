@@ -15,87 +15,78 @@
 
 ---
 
-## 🚀 Quick Start — Rust TUI Operator Console
+# 🚀 QEC at a Glance
 
-QEC includes a **Rust TUI operator workstation** for keyboard-first deterministic workflows.
+QEC is a **deterministic systems runtime and research framework** built around:
 
-### Supports
-
-- live diagnostics
-- topology visualization
-- replay inspection
-- invariant health
-- covenant transition tracing
-- scheduler receipts
-- proof audit inspection
-- governance trace review
-- drift analysis summaries
-- simulation lane monitoring
-- orchestration receipt inspection
-- multi-code experiment tracing
-
----
-
-## 📦 Install Latest Release
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
-```
-
----
-
-## ▶ Run
-
-```bash
-qec-tui
-```
-
----
-
-# What QEC Is
-
-QEC began as a **deterministic quantum error correction framework** and has evolved into a broader **replay-safe formal systems runtime**.
-
-It now spans:
-
-- quantum error correction
-- deterministic orchestration
-- replay-safe simulation
+- replay-safe quantum error correction
+- formal state transition control
 - proof-carrying governance
-- deterministic local smart contracts
-- formal control science
-- topology-aware diagnostics
-- experiment packaging
-- multi-code orchestration simulation
-- non-Clifford admissibility bounds
-- hardware replay verification
-- Rust operator tooling
-- formal replay lineage
+- hardware-coupled runtime truth
+- comparative frontier-model evaluation
+- stable archival research receipts
+- physics-aware simulation pathways
+- Rust TUI operator workflows
 
 The governing law remains:
 
 ```text
-continuous state
-→ quantized symbolic state
-→ observability
-→ topology
-→ governed action
-→ covenant transition
-→ replay verification
-→ stable replay identity
-→ proof receipt
-→ benchmark science
-→ drift topology
-→ simulation lineage
-```
+same input
+→ same ordering
+→ same canonical JSON
+→ same stable hash
+→ same bytes
 
-> If the same input does not produce the same bytes, it is not a valid result.
+If the same input does not produce the same bytes, it is not a valid result.
 
----
+🖥 Quick Start — Rust TUI Operator Console
 
-# Current Canonical Architecture
+QEC includes a Rust TUI operator workstation for keyboard-first deterministic workflows.
 
-```text
+Supports
+live diagnostics
+topology visualization
+replay inspection
+invariant health
+covenant transition tracing
+scheduler receipts
+proof audit inspection
+governance trace review
+drift analysis summaries
+simulation lane monitoring
+orchestration receipt inspection
+multi-code experiment tracing
+frontier evaluation artifact inspection
+📦 Install Latest Release
+curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
+▶ Run
+qec-tui
+🧠 What QEC Is
+
+QEC began as a deterministic quantum error correction framework and has evolved into a formal replay-safe systems science runtime.
+
+It now spans five synchronized layers:
+
+deterministic engineering stack
+invariant science + formal methods
+hardware-coupled runtime truth
+comparative frontier-model evaluation
+research / simulation sandbox
+
+Core domains include:
+
+quantum error correction
+deterministic orchestration
+replay-safe simulation
+proof-carrying governance
+formal control science
+topology-aware diagnostics
+multi-code orchestration
+experiment packaging
+hardware replay validation
+frontier-model comparative harness
+DOI-ready dataset export
+🏗 Current Canonical Architecture
 decoder substrate
 → symbolic quantization
 → observability
@@ -103,192 +94,169 @@ decoder substrate
 → replay-safe orchestration
 → research ledger
 → replay certification
-→ proof-carrying action capsule
 → covenant engine
-→ governance boundary audit
-→ simulation sandbox
-→ correlated-noise simulation
-→ experiment packaging
-→ multi-code orchestration
-→ admissibility bounds
+→ hardware runtime truth
+→ comparative evaluation harness
+→ stable archival receipts
+→ DOI-ready export layer
 → operator console
-```
+⭐ Current Stable Tip
 
----
-
-# Current Stable Tip
-
-**v138.1.2 — Multi-Code Orchestration Simulator**
+v138.2.15 — Stable Evaluation Receipt Pack
 
 Current active ladder:
 
-- `v138.1.0` — Correlated Noise Simulator
-- `v138.1.1` — Experiment Packaging Format
-- `v138.1.2` — Multi-Code Orchestration Simulator
-- `v138.1.3` — Non-Clifford / Truncated Polytope Bounds Pack *(next)*
+v138.2.10 — Prompt Canonicalization Layer
+v138.2.11 — Multi-Model Invocation Matrix
+v138.2.12 — Technical Rigor Metric Pack
+v138.2.13 — Persona Drift Tensor
+v138.2.14 — Wrapper Divergence Study
+v138.2.15 — Stable Evaluation Receipt Pack
+v138.2.16 — Zenodo Dataset Export Layer (active next)
+🔬 Comparative Determinism Harness — v138.2.x
 
----
+The current active epoch focuses on deterministic frontier-model comparative systems science.
 
-# Simulation Epoch — v138.1.x
+Completed
+v138.2.10 — Prompt Canonicalization Layer
+canonical prompt artifacts
+stable prompt hashing
+wrapper metadata normalization
+replay-safe prompt receipts
+v138.2.11 — Multi-Model Invocation Matrix
+deterministic invocation planning
+provider / route normalization
+stable matrix ordering
+replay-safe matrix receipts
+v138.2.12 — Technical Rigor Metric Pack
+bounded benchmark metrics
+aggregate rigor scoring
+deterministic evaluation receipts
+v138.2.13 — Persona Drift Tensor
+repeated-run stability analysis
+bounded drift magnitude
+behavioral tensor receipts
+v138.2.14 — Wrapper Divergence Study
+route mediation science
+wrapper divergence metrics
+stable divergence receipts
+v138.2.15 — Stable Evaluation Receipt Pack
+cross-artifact archival lineage
+replay-safe evaluation packs
+canonical comparative receipts
+⚙ Deterministic Smart Contracts (No Blockchain)
 
-The current active development epoch focuses on **realistic simulation, deterministic experiment packaging, and multi-lane orchestration**.
+QEC includes a deterministic covenant runtime.
 
-### Completed
+These are local smart contracts implemented in pure Python / NumPy.
 
-### v138.1.0 — Correlated Noise Simulator
-- temporal and spatial correlated noise
-- topology-aware propagation
-- deterministic seeded realizations
-- replay-safe receipts
+They are not blockchain contracts.
 
-### v138.1.1 — Experiment Packaging Format
-- canonical experiment manifests
-- stable artifact descriptors
-- lineage-safe package receipts
-- deterministic package hashing
-
-### v138.1.2 — Multi-Code Orchestration Simulator
-- multi-lane experiment coordination
-- stable lane ordering
-- deterministic execution hashes
-- replay-safe orchestration receipts
-
----
-
-# Deterministic Smart Contracts (No Blockchain)
-
-QEC includes a **deterministic covenant runtime**.
-
-These are local smart contracts implemented in **pure Python / NumPy**.
-
-They are **not blockchain contracts**.
-
-No chain consensus  
-No gas model  
-No wallets  
-No miners  
-No external ledger  
+No chain consensus
+No gas model
+No wallets
+No miners
+No external ledger
 
 Canonical model:
 
-```text
 state_t
 + action_capsule
 + covenant_rules
 → next_state
 + proof_receipt
 + audit_artifact
-```
 
-Supported covenant domains include:
+Supported domains:
 
-- workflow contracts
-- research protocol contracts
-- scheduler contracts
-- safety contracts
-- boundary contracts
-- simulation contracts
-- benchmark contracts
-
----
-
-# Determinism Guarantees
+workflow contracts
+research protocol contracts
+scheduler contracts
+safety contracts
+simulation contracts
+benchmark contracts
+🔒 Determinism Guarantees
 
 QEC enforces strict reproducibility:
 
-- no hidden randomness
-- deterministic ordering
-- deterministic tie-breaking
-- canonical JSON serialization
-- stable SHA-256 hashing
-- explicit seeded RNG only
-- replay-safe receipts
-- proof-carrying validation
+no hidden randomness
+deterministic ordering
+deterministic tie-breaking
+canonical JSON serialization
+stable SHA-256 hashing
+explicit seeded RNG only
+replay-safe receipts
+proof-carrying validation
 
 Example:
 
-```python
 import numpy as np
 rng = np.random.RandomState(seed)
-```
 
-> Determinism is architecture.
+Determinism is architecture.
 
----
+📜 Engineering Laws
+Determinism is architecture
 
-# Engineering Laws
-
-## Determinism is architecture
 Same input = same bytes.
 
-## Replay is law
+Replay is law
+
 Same artifacts = same stable hash.
 
-## Proofs beat vibes
+Proofs beat vibes
+
 All state transitions must be auditable.
 
-## Decoder core is sacred
+Decoder core is sacred
+
 Do not modify:
 
-```text
 src/qec/decoder/
-```
 
-without explicit need.
+without explicit architectural need.
 
-## Layering is law
+Layering is law
+
 Lower layers do not import higher layers.
 
-## Canonical identity is mandatory
+Canonical identity is mandatory
+
 Canonical JSON + stable SHA-256 required.
 
----
-
-# Installation
-
-```bash
+📦 Installation
 git clone https://github.com/QSOLKCB/QEC.git
 cd QEC
 pip install -e .
-```
 
 Development:
 
-```bash
 pip install -r requirements-dev.txt
 pytest -q
-```
+🎯 Design Philosophy
 
----
+Small is beautiful
+Determinism is architecture
+Replay identity is law
+Proofs beat vibes
+Operator clarity beats hidden automation
+Formal methods before autonomy
 
-# Design Philosophy
-
-Small is beautiful  
-Determinism is architecture  
-Replay identity is law  
-Proofs beat vibes  
-Operator clarity beats hidden automation  
-Formal methods before autonomy  
-
----
-
-## References
+References
 
 The following research artifacts and reproducibility records support the QSOLKCB / QEC architecture, release methodology, and deterministic systems roadmap:
 
-1. Trent Slade, QSOL-IMC. *Deterministic Runtime Optimization and Formal Invariant Validation in QSOL-IMC QEC v68.4.1* Zenodo. DOI: https://doi.org/10.5281/zenodo.19062692
-2. Trent Slade, QSOL-IMC. *Invariant-Driven Computation Elimination* DOI: https://doi.org/10.5281/zenodo.19102390
-3. Trent Slade, QSOL-IMC. *Deterministic Redundancy Elimination* DOI: https://doi.org/10.5281/zenodo.19099503
-4. Trent Slade, QSOL-IMC. *Dark-State Invariants* DOI: https://doi.org/10.5281/zenodo.19104208
+Trent Slade, QSOL-IMC. Deterministic Runtime Optimization and Formal Invariant Validation in QSOL-IMC QEC v68.4.1 Zenodo. DOI: https://doi.org/10.5281/zenodo.19062692
+Trent Slade, QSOL-IMC. Invariant-Driven Computation Elimination DOI: https://doi.org/10.5281/zenodo.19102390
+Trent Slade, QSOL-IMC. Deterministic Redundancy Elimination DOI: https://doi.org/10.5281/zenodo.19099503
+Trent Slade, QSOL-IMC. Dark-State Invariants DOI: https://doi.org/10.5281/zenodo.19104208
 
 Additional project papers and research notes:
 
-**[Project Papers and Research Notes](https://github.com/QSOLKCB/QEC/tree/main/papers)**
+Project Papers and Research Notes
 
----
+Author
 
-## Author
-
-**Trent Slade**  
-QSOL-IMC  
+Trent Slade
+QSOL-IMC
 ORCID: https://orcid.org/0009-0002-4515-9237

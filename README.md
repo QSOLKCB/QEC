@@ -73,7 +73,7 @@ qec-tui
 ```
 
 ---
-
+<pre>
 # 🧠 What QEC Is
 
 QEC began as a deterministic quantum error correction framework and has evolved into a formal replay-safe systems science runtime.
@@ -271,3 +271,4 @@ Project Papers and Research Notes
 Trent Slade
 QSOL-IMC
 ORCID: https://orcid.org/0009-0002-4515-9237
+</pre>

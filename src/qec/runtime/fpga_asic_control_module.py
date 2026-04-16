@@ -18,6 +18,8 @@ FPGA_ASIC_CONTROL_MODULE_VERSION = "v138.2.0"
 
 SUPPORTED_TARGET_FAMILIES: Tuple[str, ...] = ("fpga", "asic", "simulation_shadow")
 
+_SHA256_HEX_CHARS: frozenset = frozenset("0123456789abcdef")
+
 
 class HardwareControlValidationError(ValueError):
     """Raised when hardware control data violates deterministic schema."""
@@ -62,6 +64,21 @@ def _normalize_bool(value: Any, *, field: str) -> bool:
     if not isinstance(value, bool):
         raise HardwareControlValidationError(f"{field} must be a boolean")
     return value
+
+
+def _normalize_sha256_hex(value: Any, *, field: str) -> str:
+    """Validate and normalize a 64-character lowercase SHA-256 hex string."""
+    text = _normalize_text(value, field=field)
+    lowered = text.lower()
+    if len(lowered) != 64:
+        raise HardwareControlValidationError(
+            f"{field} must be a 64-character SHA-256 hex string, got length {len(lowered)}"
+        )
+    if not frozenset(lowered) <= _SHA256_HEX_CHARS:
+        raise HardwareControlValidationError(
+            f"{field} must be a valid SHA-256 hex string (lowercase hex characters only)"
+        )
+    return lowered
 
 
 
@@ -252,10 +269,15 @@ def _normalize_target(raw: HardwareTarget | Mapping[str, Any]) -> HardwareTarget
     if family not in SUPPORTED_TARGET_FAMILIES:
         raise HardwareControlValidationError(f"unsupported target.target_family: {family!r}")
 
+    raw_lane_families = raw.get("supported_lane_families", ())
+    if isinstance(raw_lane_families, (str, bytes)):
+        raise HardwareControlValidationError(
+            "target.supported_lane_families must be a sequence of strings, not a bare str or bytes"
+        )
     lane_families = tuple(
         sorted(
             _normalize_text(item, field="target.supported_lane_families")
-            for item in tuple(raw.get("supported_lane_families", ()))
+            for item in tuple(raw_lane_families)
         )
     )
     if not lane_families:
@@ -331,8 +353,8 @@ def build_hardware_control_dispatch(
 
     normalized_metadata = _canonicalize_value(dict(metadata or {}), field="dispatch.metadata")
     dispatch_payload = {
-        "execution_hash": _normalize_text(execution_hash, field="execution_hash"),
-        "package_hash": _normalize_text(package_hash, field="package_hash"),
+        "execution_hash": _normalize_sha256_hex(execution_hash, field="execution_hash"),
+        "package_hash": _normalize_sha256_hex(package_hash, field="package_hash"),
         "lane_id": _normalize_text(lane_id, field="lane_id"),
         "lane_family": normalized_lane_family,
         "target_family": normalized_target.target_family,
@@ -400,10 +422,10 @@ def validate_hardware_control_dispatch(
             dispatch = HardwareControlDispatch(
                 target=target,
                 dispatch=ControlDispatchIntent(
-                    dispatch_id=_normalize_text(dispatch_map["dispatch_id"], field="dispatch.dispatch_id"),
+                    dispatch_id=_normalize_sha256_hex(dispatch_map["dispatch_id"], field="dispatch.dispatch_id"),
                     lane_id=_normalize_text(dispatch_map["lane_id"], field="dispatch.lane_id"),
-                    package_hash=_normalize_text(dispatch_map["package_hash"], field="dispatch.package_hash"),
-                    execution_hash=_normalize_text(dispatch_map["execution_hash"], field="dispatch.execution_hash"),
+                    package_hash=_normalize_sha256_hex(dispatch_map["package_hash"], field="dispatch.package_hash"),
+                    execution_hash=_normalize_sha256_hex(dispatch_map["execution_hash"], field="dispatch.execution_hash"),
                     target_family=_normalize_text(dispatch_map["target_family"], field="dispatch.target_family"),
                     dispatch_policy=_normalize_text(dispatch_map["dispatch_policy"], field="dispatch.dispatch_policy"),
                     priority_rank=_normalize_int(dispatch_map["priority_rank"], field="dispatch.priority_rank", minimum=0),
@@ -415,23 +437,29 @@ def validate_hardware_control_dispatch(
                         latency_map["projected_dispatch_ns"], field="latency_receipt.projected_dispatch_ns", minimum=0
                     ),
                     within_budget=_normalize_bool(latency_map["within_budget"], field="latency_receipt.within_budget"),
-                    latency_hash=_normalize_text(latency_map["latency_hash"], field="latency_receipt.latency_hash"),
+                    latency_hash=_normalize_sha256_hex(latency_map["latency_hash"], field="latency_receipt.latency_hash"),
                 ),
                 control_receipt=HardwareControlReceipt(
-                    dispatch_hash=_normalize_text(control_map["dispatch_hash"], field="control_receipt.dispatch_hash"),
-                    target_hash=_normalize_text(control_map["target_hash"], field="control_receipt.target_hash"),
-                    latency_hash=_normalize_text(control_map["latency_hash"], field="control_receipt.latency_hash"),
+                    dispatch_hash=_normalize_sha256_hex(control_map["dispatch_hash"], field="control_receipt.dispatch_hash"),
+                    target_hash=_normalize_sha256_hex(control_map["target_hash"], field="control_receipt.target_hash"),
+                    latency_hash=_normalize_sha256_hex(control_map["latency_hash"], field="control_receipt.latency_hash"),
                     validation_passed=_normalize_bool(control_map["validation_passed"], field="control_receipt.validation_passed"),
-                    receipt_hash=_normalize_text(control_map["receipt_hash"], field="control_receipt.receipt_hash"),
+                    receipt_hash=_normalize_sha256_hex(control_map["receipt_hash"], field="control_receipt.receipt_hash"),
                 ),
             )
         else:
             raise HardwareControlValidationError("dispatch_obj must be mapping or HardwareControlDispatch")
-    except Exception as exc:  # pragma: no cover - fail-fast path
+    except Exception as exc:  # fail-fast normalization path
         return HardwareControlValidationReport(valid=False, errors=(f"normalization_failed: {exc}",))
 
     if dispatch.target.target_family not in SUPPORTED_TARGET_FAMILIES:
         errors.append(f"unsupported target_family: {dispatch.target.target_family!r}")
+
+    if dispatch.dispatch.target_family != dispatch.target.target_family:
+        errors.append(
+            f"dispatch.target_family {dispatch.dispatch.target_family!r} does not match "
+            f"target.target_family {dispatch.target.target_family!r}"
+        )
 
     try:
         lane_family = _normalize_text(dispatch.dispatch.metadata.get("lane_family", ""), field="dispatch.metadata.lane_family")
@@ -446,9 +474,37 @@ def validate_hardware_control_dispatch(
     if dispatch.latency_receipt.projected_dispatch_ns < 0:
         errors.append("latency_receipt.projected_dispatch_ns must be >= 0")
 
+    expected_within_budget = (
+        dispatch.latency_receipt.projected_dispatch_ns <= dispatch.latency_receipt.latency_budget_ns
+    )
+    if dispatch.latency_receipt.within_budget != expected_within_budget:
+        errors.append(
+            f"within_budget semantic invariant violated: "
+            f"projected={dispatch.latency_receipt.projected_dispatch_ns} "
+            f"budget={dispatch.latency_receipt.latency_budget_ns} "
+            f"within_budget={dispatch.latency_receipt.within_budget}"
+        )
+
     expected_latency_hash = _stable_hash(dispatch.latency_receipt.to_hash_payload_dict())
     if dispatch.latency_receipt.latency_hash != expected_latency_hash:
         errors.append("latency_hash mismatch")
+
+    # Verify dispatch_id is the deterministic preimage hash of the dispatch fields.
+    # lane_family is stored in metadata; reconstruct original metadata without it.
+    _lane_family_for_id = dispatch.dispatch.metadata.get("lane_family", "")
+    _meta_without_lane = {k: v for k, v in dispatch.dispatch.metadata.items() if k != "lane_family"}
+    expected_dispatch_id = _stable_hash({
+        "execution_hash": dispatch.dispatch.execution_hash,
+        "package_hash": dispatch.dispatch.package_hash,
+        "lane_id": dispatch.dispatch.lane_id,
+        "lane_family": _lane_family_for_id,
+        "target_family": dispatch.dispatch.target_family,
+        "dispatch_policy": dispatch.dispatch.dispatch_policy,
+        "priority_rank": dispatch.dispatch.priority_rank,
+        "metadata": _meta_without_lane,
+    })
+    if dispatch.dispatch.dispatch_id != expected_dispatch_id:
+        errors.append("dispatch_id mismatch: does not match expected preimage hash")
 
     expected_dispatch_hash = dispatch.dispatch.stable_hash()
     if dispatch.control_receipt.dispatch_hash != expected_dispatch_hash:

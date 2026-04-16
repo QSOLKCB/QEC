@@ -161,3 +161,165 @@ def test_validation_rejects_non_boolean_latency_within_budget():
     assert report.valid is False
     assert len(report.errors) == 1
     assert report.errors[0].startswith("normalization_failed: latency_receipt.within_budget must be a boolean")
+
+
+def test_build_rejects_short_execution_hash():
+    with pytest.raises(HardwareControlValidationError, match="execution_hash"):
+        build_hardware_control_dispatch(
+            execution_hash="short",
+            package_hash="a" * 64,
+            lane_id="lane-0",
+            lane_family="surface_code",
+            hardware_target=_target(),
+            dispatch_policy="strict_deterministic",
+            projected_base_latency_ns=50,
+            priority_rank=0,
+        )
+
+
+def test_build_rejects_non_hex_package_hash():
+    with pytest.raises(HardwareControlValidationError, match="package_hash"):
+        build_hardware_control_dispatch(
+            execution_hash="e" * 64,
+            package_hash="z" * 64,  # 'z' is not a hex character
+            lane_id="lane-0",
+            lane_family="surface_code",
+            hardware_target=_target(),
+            dispatch_policy="strict_deterministic",
+            projected_base_latency_ns=50,
+            priority_rank=0,
+        )
+
+
+def test_normalize_target_rejects_string_lane_families():
+    with pytest.raises(HardwareControlValidationError, match="supported_lane_families"):
+        build_hardware_control_dispatch(
+            execution_hash="e" * 64,
+            package_hash="a" * 64,
+            lane_id="lane-0",
+            lane_family="s",
+            hardware_target={
+                "target_family": "fpga",
+                "target_name": "test",
+                "target_class": "accelerator",
+                "supported_lane_families": "surface_code",  # bare string instead of sequence
+                "latency_budget_ns": 100,
+                "throughput_budget_ops": 100,
+                "metadata": {},
+            },
+            dispatch_policy="strict_deterministic",
+            projected_base_latency_ns=50,
+            priority_rank=0,
+        )
+
+
+def test_validation_detects_target_family_mismatch():
+    """dispatch.target_family that differs from target.target_family must be caught."""
+    dispatch = _build()
+    tampered_dispatch_dict = {
+        **dispatch.dispatch.to_dict(),
+        "target_family": "asic",  # target is "fpga", dispatch says "asic"
+    }
+    report = validate_hardware_control_dispatch(
+        {
+            "target": dispatch.target.to_dict(),
+            "dispatch": tampered_dispatch_dict,
+            "latency_receipt": dispatch.latency_receipt.to_dict(),
+            "control_receipt": dispatch.control_receipt.to_dict(),
+        }
+    )
+    assert report.valid is False
+    assert any("target_family" in e for e in report.errors)
+
+
+def test_validation_detects_dispatch_id_tampering():
+    """Tampering dispatch_id (even with recomputed downstream hashes) must be caught."""
+    from qec.runtime.fpga_asic_control_module import (
+        ControlDispatchIntent,
+        HardwareControlDispatch,
+        HardwareControlReceipt,
+        _stable_hash,
+    )
+
+    dispatch = _build()
+
+    # Build a tampered dispatch intent with a different dispatch_id but consistent downstream hashes
+    tampered_intent = ControlDispatchIntent(
+        dispatch_id="d" * 64,
+        lane_id=dispatch.dispatch.lane_id,
+        package_hash=dispatch.dispatch.package_hash,
+        execution_hash=dispatch.dispatch.execution_hash,
+        target_family=dispatch.dispatch.target_family,
+        dispatch_policy=dispatch.dispatch.dispatch_policy,
+        priority_rank=dispatch.dispatch.priority_rank,
+        metadata=dict(dispatch.dispatch.metadata),
+    )
+    new_dispatch_hash = tampered_intent.stable_hash()
+    new_control_payload = {
+        "dispatch_hash": new_dispatch_hash,
+        "target_hash": dispatch.target.stable_hash(),
+        "latency_hash": dispatch.latency_receipt.latency_hash,
+        "validation_passed": True,
+    }
+    tampered_control = HardwareControlReceipt(
+        dispatch_hash=new_dispatch_hash,
+        target_hash=dispatch.target.stable_hash(),
+        latency_hash=dispatch.latency_receipt.latency_hash,
+        validation_passed=True,
+        receipt_hash=_stable_hash(new_control_payload),
+    )
+    tampered_obj = HardwareControlDispatch(
+        target=dispatch.target,
+        dispatch=tampered_intent,
+        latency_receipt=dispatch.latency_receipt,
+        control_receipt=tampered_control,
+    )
+    report = validate_hardware_control_dispatch(tampered_obj)
+    assert report.valid is False
+    assert any("dispatch_id" in e for e in report.errors)
+
+
+def test_validation_detects_within_budget_tampering():
+    """Flipping within_budget (with recomputed latency_hash and receipt_hash) must be caught."""
+    from qec.runtime.fpga_asic_control_module import (
+        HardwareControlDispatch,
+        HardwareControlReceipt,
+        LatencyTruthReceipt,
+        _stable_hash,
+    )
+
+    dispatch = _build(budget=200)  # projected=60, within_budget=True
+    assert dispatch.latency_receipt.within_budget is True
+
+    tampered_latency = LatencyTruthReceipt(
+        latency_budget_ns=dispatch.latency_receipt.latency_budget_ns,
+        projected_dispatch_ns=dispatch.latency_receipt.projected_dispatch_ns,
+        within_budget=False,  # flipped — semantically invalid
+        latency_hash=_stable_hash({
+            "latency_budget_ns": dispatch.latency_receipt.latency_budget_ns,
+            "projected_dispatch_ns": dispatch.latency_receipt.projected_dispatch_ns,
+            "within_budget": False,
+        }),
+    )
+    new_control_payload = {
+        "dispatch_hash": dispatch.control_receipt.dispatch_hash,
+        "target_hash": dispatch.control_receipt.target_hash,
+        "latency_hash": tampered_latency.latency_hash,
+        "validation_passed": True,
+    }
+    tampered_control = HardwareControlReceipt(
+        dispatch_hash=dispatch.control_receipt.dispatch_hash,
+        target_hash=dispatch.control_receipt.target_hash,
+        latency_hash=tampered_latency.latency_hash,
+        validation_passed=True,
+        receipt_hash=_stable_hash(new_control_payload),
+    )
+    tampered_obj = HardwareControlDispatch(
+        target=dispatch.target,
+        dispatch=dispatch.dispatch,
+        latency_receipt=tampered_latency,
+        control_receipt=tampered_control,
+    )
+    report = validate_hardware_control_dispatch(tampered_obj)
+    assert report.valid is False
+    assert any("within_budget" in e for e in report.errors)

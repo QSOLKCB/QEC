@@ -64,8 +64,17 @@ QEC includes a **Rust TUI operator workstation** for keyboard-first deterministi
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
-▶ Run
+```
+
+## ▶ Run
+
+```bash
 qec-tui
+```
+
+---
+
+# 🧠 What QEC Is
 
 QEC began as a deterministic quantum error correction framework and has evolved into a formal replay-safe systems science runtime.
 

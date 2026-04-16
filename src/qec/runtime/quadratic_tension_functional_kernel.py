@@ -447,9 +447,14 @@ def validate_quadratic_tension_functional(
                 errors.append(f"terms[{index}] must be a mapping")
                 continue
             try:
+                raw_coordinate_index = raw_term.get("coordinate_index")
+                if not isinstance(raw_coordinate_index, int) or isinstance(raw_coordinate_index, bool):
+                    raise QuadraticTensionFunctionalValidationError(
+                        f"terms[{index}].coordinate_index must be an integer"
+                    )
                 term = QuadraticTensionTerm(
                     term_id=_normalize_text(raw_term.get("term_id"), field=f"terms[{index}].term_id"),
-                    coordinate_index=int(raw_term.get("coordinate_index")),
+                    coordinate_index=raw_coordinate_index,
                     residual_component=_normalize_float(
                         raw_term.get("residual_component"), field=f"terms[{index}].residual_component"
                     ),

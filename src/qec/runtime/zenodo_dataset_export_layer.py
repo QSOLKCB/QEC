@@ -21,6 +21,14 @@ DEFAULT_ZENODO_KEYWORDS: Tuple[str, ...] = (
     "replay-safe systems",
 )
 
+RESERVED_REPRODUCIBILITY_METADATA_KEYS: Tuple[str, ...] = (
+    "hash_lineage",
+    "canonical_manifest_checksum",
+    "python_version",
+    "module_version",
+    "reproducibility_note",
+)
+
 
 class ZenodoDatasetExportValidationError(ValueError):
     """Raised when Zenodo dataset export input violates deterministic schema."""
@@ -52,6 +60,19 @@ def _canonicalize_value(value: Any, *, field: str) -> Any:
     if isinstance(value, (list, tuple)):
         return [_canonicalize_value(item, field=field) for item in value]
     raise ZenodoDatasetExportValidationError(f"{field} contains unsupported type: {type(value).__name__}")
+
+
+def _validate_reproducibility_metadata_overrides(extra_metadata: Mapping[str, Any]) -> None:
+    """Reject caller metadata that attempts to override generated lineage fields."""
+    collisions = sorted(
+        key for key in RESERVED_REPRODUCIBILITY_METADATA_KEYS if key in extra_metadata
+    )
+    if collisions:
+        collision_list = ", ".join(collisions)
+        raise ZenodoDatasetExportValidationError(
+            "reproducibility_metadata contains reserved generated keys: "
+            f"{collision_list}"
+        )
 
 
 def _normalize_required_text(value: Any, *, field: str) -> str:
@@ -619,6 +640,7 @@ def build_zenodo_dataset_export_bundle(
     extra_metadata = {} if reproducibility_metadata is None else _canonicalize_value(
         dict(reproducibility_metadata), field="reproducibility_metadata"
     )
+    _validate_reproducibility_metadata_overrides(extra_metadata)
 
     manifest_payload = _manifest_checksum_payload(
         dataset_id_text,

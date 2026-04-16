@@ -40,33 +40,6 @@ All roadmap work must preserve:
 
 ---
 
-## v138.3.x — Constraint-First Runtime Safety Layer
-
-Purpose:
-
-bring UFT-ID admissibility geometry directly into runtime safety.
-
-Planned:
-
-- v138.3.0 — Runtime Admissibility Projection Engine
-- v138.3.1 — Quadratic Tension Functional Kernel
-- v138.3.2 — Deterministic Recovery Operator
-- v138.3.3 — Constraint-Bound Dispatch Firewall
-- v138.3.4 — Hardware Admissibility Proof Pack
-- v138.3.5 — Proof-Carrying Runtime Bridge
-
-Canonical model:
-
-```text
-runtime_state
-→ admissibility residual
-→ tension accumulation
-→ deterministic recovery
-→ proof receipt
-```
-
----
-
 ## v138.4.x — Qutrit / Ternary Hardware Decode Path
 
 Purpose:

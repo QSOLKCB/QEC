@@ -470,6 +470,16 @@ def validate_runtime_projection(projection: RuntimeAdmissibilityProjection | Map
     return tuple(errors)
 
 
+def _normalize_summary_float(value: Any, *, field: str) -> float:
+    """Validate a numeric summary scalar and return it as a finite float."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise RuntimeAdmissibilityProjectionValidationError(f"{field} must be numeric")
+    normalized = float(value)
+    if math.isnan(normalized) or math.isinf(normalized):
+        raise RuntimeAdmissibilityProjectionValidationError(f"{field} must be finite")
+    return normalized
+
+
 def runtime_projection_summary(
     projection: RuntimeAdmissibilityProjection | Mapping[str, Any],
 ) -> Dict[str, Any]:
@@ -482,11 +492,20 @@ def runtime_projection_summary(
         }
     if not isinstance(projection, Mapping):
         raise RuntimeAdmissibilityProjectionValidationError("projection must be RuntimeAdmissibilityProjection or mapping")
+
     residual = projection.get("residual", {})
     receipt = projection.get("receipt", {})
+    if not isinstance(residual, Mapping):
+        raise RuntimeAdmissibilityProjectionValidationError("projection.residual must be a mapping")
+    if not isinstance(receipt, Mapping):
+        raise RuntimeAdmissibilityProjectionValidationError("projection.receipt must be a mapping")
+
     return {
         "admissible": bool(residual.get("admissible")),
-        "residual_norm": float(residual.get("residual_norm", 0.0)),
+        "residual_norm": _normalize_summary_float(
+            residual.get("residual_norm", 0.0),
+            field="projection.residual.residual_norm",
+        ),
         "projected_state_hash": str(receipt.get("projected_state_hash", "")),
         "receipt_hash": str(receipt.get("receipt_hash", "")),
     }

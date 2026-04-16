@@ -442,6 +442,9 @@ def validate_rigor_metric_pack(
         errors.append("every matrix invocation must have at least one metric")
 
     for metric in metrics:
+        metric_id = metric.metric_id.strip() if isinstance(metric.metric_id, str) else ""
+        if not metric_id:
+            errors.append("metric.metric_id must be a non-empty string")
         if metric.invocation_id not in matrix_invocation_ids:
             errors.append("metric.invocation_id must exist in matrix")
         if metric.metric_name not in SUPPORTED_RIGOR_METRIC_NAMES:

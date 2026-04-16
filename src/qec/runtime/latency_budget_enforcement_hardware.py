@@ -283,6 +283,21 @@ def _resolve_decision(*, violation_class: str, policy: LatencyBudgetPolicy, targ
     return "throttle"
 
 
+def _extract_target_family(decision: LatencyEnforcementDecision) -> str:
+    metadata_target = decision.metadata.get("target_family")
+    if isinstance(metadata_target, str):
+        candidate = metadata_target.strip()
+        if candidate:
+            return candidate
+
+    parts = decision.enforcement_reason.split(":", 2)
+    if len(parts) == 3:
+        candidate = parts[2].strip()
+        if candidate:
+            return candidate
+    return "unknown"
+
+
 def enforce_latency_budget(
     *,
     dispatch_receipt: HardwareControlDispatch | Mapping[str, Any],
@@ -314,6 +329,7 @@ def enforce_latency_budget(
             "violation_class": violation_class,
             "recovery_mode": policy.recovery_mode,
             "source_latency_hash": context["latency_hash"],
+            "target_family": context["target_family"],
             "enforcement_version": LATENCY_BUDGET_ENFORCEMENT_VERSION,
         },
     )
@@ -427,6 +443,14 @@ def validate_latency_budget(
         errors.append("decision.hard_limit_breached invariant violated")
     if expected_hard_breach and enforcement.decision.decision != "reject":
         errors.append("hard limit breach must force reject decision")
+
+    expected_decision = _resolve_decision(
+        violation_class=recomputed_class,
+        policy=enforcement.policy,
+        target_family=_extract_target_family(enforcement.decision),
+    )
+    if enforcement.decision.decision != expected_decision:
+        errors.append("decision.decision is inconsistent with policy semantics")
 
     if enforcement.receipt.policy_hash != enforcement.policy.stable_hash():
         errors.append("receipt.policy_hash mismatch")

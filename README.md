@@ -76,7 +76,8 @@ qec-tui
 <pre>
 # 🧠 What QEC Is
 
-QEC began as a deterministic quantum error correction framework and has evolved into a formal replay-safe systems science runtime.
+QEC began as a deterministic quantum error correction framework and has evolved
+into a formal replay-safe systems science runtime.
 
 It now spans five synchronized layers:
 

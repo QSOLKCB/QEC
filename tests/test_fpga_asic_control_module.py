@@ -128,3 +128,36 @@ def test_priority_rank_changes_dispatch_hash():
     a = _build(priority_rank=0)
     b = _build(priority_rank=1)
     assert a.dispatch.stable_hash() != b.dispatch.stable_hash()
+
+
+def test_validation_missing_lane_family_returns_invalid_report():
+    dispatch = _build()
+    tampered = {
+        "target": dispatch.target.to_dict(),
+        "dispatch": {
+            **dispatch.dispatch.to_dict(),
+            "metadata": {"region": "us-east"},
+        },
+        "latency_receipt": dispatch.latency_receipt.to_dict(),
+        "control_receipt": dispatch.control_receipt.to_dict(),
+    }
+    report = validate_hardware_control_dispatch(tampered)
+    assert report.valid is False
+    assert "dispatch.metadata.lane_family must be non-empty" in report.errors
+
+
+def test_validation_rejects_non_boolean_latency_within_budget():
+    dispatch = _build()
+    tampered = {
+        "target": dispatch.target.to_dict(),
+        "dispatch": dispatch.dispatch.to_dict(),
+        "latency_receipt": {
+            **dispatch.latency_receipt.to_dict(),
+            "within_budget": "false",
+        },
+        "control_receipt": dispatch.control_receipt.to_dict(),
+    }
+    report = validate_hardware_control_dispatch(tampered)
+    assert report.valid is False
+    assert len(report.errors) == 1
+    assert report.errors[0].startswith("normalization_failed: latency_receipt.within_budget must be a boolean")

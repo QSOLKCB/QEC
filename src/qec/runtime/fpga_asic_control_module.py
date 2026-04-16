@@ -53,6 +53,12 @@ def _normalize_int(value: Any, *, field: str, minimum: int | None = None) -> int
     return result
 
 
+def _normalize_bool(value: Any, *, field: str) -> bool:
+    if not isinstance(value, bool):
+        raise HardwareControlValidationError(f"{field} must be a boolean")
+    return value
+
+
 
 def _canonicalize_value(value: Any, *, field: str) -> Any:
     if value is None or isinstance(value, (bool, str, int)):
@@ -403,14 +409,14 @@ def validate_hardware_control_dispatch(
                     projected_dispatch_ns=_normalize_int(
                         latency_map["projected_dispatch_ns"], field="latency_receipt.projected_dispatch_ns", minimum=0
                     ),
-                    within_budget=bool(latency_map["within_budget"]),
+                    within_budget=_normalize_bool(latency_map["within_budget"], field="latency_receipt.within_budget"),
                     latency_hash=_normalize_text(latency_map["latency_hash"], field="latency_receipt.latency_hash"),
                 ),
                 control_receipt=HardwareControlReceipt(
                     dispatch_hash=_normalize_text(control_map["dispatch_hash"], field="control_receipt.dispatch_hash"),
                     target_hash=_normalize_text(control_map["target_hash"], field="control_receipt.target_hash"),
                     latency_hash=_normalize_text(control_map["latency_hash"], field="control_receipt.latency_hash"),
-                    validation_passed=bool(control_map["validation_passed"]),
+                    validation_passed=_normalize_bool(control_map["validation_passed"], field="control_receipt.validation_passed"),
                     receipt_hash=_normalize_text(control_map["receipt_hash"], field="control_receipt.receipt_hash"),
                 ),
             )
@@ -422,9 +428,13 @@ def validate_hardware_control_dispatch(
     if dispatch.target.target_family not in SUPPORTED_TARGET_FAMILIES:
         errors.append(f"unsupported target_family: {dispatch.target.target_family!r}")
 
-    lane_family = _normalize_text(dispatch.dispatch.metadata.get("lane_family", ""), field="dispatch.metadata.lane_family")
-    if lane_family not in dispatch.target.supported_lane_families:
-        errors.append(f"lane family unsupported by target: {lane_family!r}")
+    try:
+        lane_family = _normalize_text(dispatch.dispatch.metadata.get("lane_family", ""), field="dispatch.metadata.lane_family")
+    except HardwareControlValidationError as exc:
+        errors.append(str(exc))
+    else:
+        if lane_family not in dispatch.target.supported_lane_families:
+            errors.append(f"lane family unsupported by target: {lane_family!r}")
 
     if dispatch.target.latency_budget_ns < 0:
         errors.append("target.latency_budget_ns must be >= 0")

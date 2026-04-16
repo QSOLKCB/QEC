@@ -32,6 +32,22 @@ from .correlated_noise_simulator import (
     validate_noise_config,
 )
 
+
+from .non_clifford_truncated_polytope_bounds import (
+    NON_CLIFFORD_TRUNCATED_POLYTOPE_BOUNDS_VERSION,
+    SUPPORTED_GATE_FAMILIES,
+    GateProfile,
+    PolytopeBound,
+    NonCliffordBoundsReceipt,
+    NonCliffordBoundsAnalysis,
+    NonCliffordBoundsValidationError,
+    NonCliffordBoundsValidationReport,
+    build_non_clifford_bounds,
+    validate_non_clifford_bounds,
+    compute_polytope_bounds,
+    admissibility_projection,
+)
+
 from .multi_code_orchestration_simulator import (
     MULTI_CODE_ORCHESTRATION_SIMULATOR_VERSION,
     SUPPORTED_CODE_FAMILIES,
@@ -91,4 +107,17 @@ __all__ = [
     "validate_multi_code_orchestration",
     "simulate_lane_execution",
     "orchestration_replay_identity",
+
+    "NON_CLIFFORD_TRUNCATED_POLYTOPE_BOUNDS_VERSION",
+    "SUPPORTED_GATE_FAMILIES",
+    "GateProfile",
+    "PolytopeBound",
+    "NonCliffordBoundsReceipt",
+    "NonCliffordBoundsAnalysis",
+    "NonCliffordBoundsValidationError",
+    "NonCliffordBoundsValidationReport",
+    "build_non_clifford_bounds",
+    "validate_non_clifford_bounds",
+    "compute_polytope_bounds",
+    "admissibility_projection",
 ]

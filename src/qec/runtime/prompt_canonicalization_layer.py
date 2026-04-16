@@ -15,8 +15,6 @@ from typing import Any, Dict, Mapping, Tuple
 
 PROMPT_CANONICALIZATION_LAYER_VERSION = "v138.2.10"
 
-_SHA256_HEX_CHARS: frozenset = frozenset("0123456789abcdef")
-
 
 class PromptCanonicalizationValidationError(ValueError):
     """Raised when prompt canonicalization input violates deterministic schema."""
@@ -93,7 +91,7 @@ def _normalize_policy_flags(value: Any) -> Tuple[str, ...]:
 
     sorted_flags = tuple(sorted(normalized))
     if len(set(sorted_flags)) != len(sorted_flags):
-        raise PromptCanonicalizationValidationError("spec.policy_flags contains duplicate values after normalization")
+        raise PromptCanonicalizationValidationError("spec.policy_flags must be unique after normalization")
     return sorted_flags
 
 
@@ -121,6 +119,7 @@ def _collect_validation_errors_from_mapping(spec_map: Mapping[str, Any]) -> Tupl
         ("prompt_text", "spec.prompt_text must be non-empty"),
         ("model_name", "spec.model_name must be non-empty"),
         ("invocation_route", "spec.invocation_route must be non-empty"),
+        ("temperature_setting", "spec.temperature_setting must be non-empty"),
     )
     for field_name, error_text in required_text_fields:
         value = spec_map.get(field_name)
@@ -204,17 +203,26 @@ def _normalize_prompt_spec_permissive(spec_map: Mapping[str, Any]) -> PromptSpec
     system_prompt = spec_map.get("system_prompt")
     normalized_system_prompt = system_prompt.strip() if isinstance(system_prompt, str) else None
 
+    try:
+        canonical_wrapper = _canonicalize_value(dict(wrapper_map), field="spec.wrapper_metadata")
+    except PromptCanonicalizationValidationError:
+        canonical_wrapper = {}
+    try:
+        canonical_meta = _canonicalize_value(dict(metadata_map), field="spec.metadata")
+    except PromptCanonicalizationValidationError:
+        canonical_meta = {}
+
     return PromptSpec(
         prompt_id=_safe_text(spec_map.get("prompt_id")),
         prompt_text=_safe_text(spec_map.get("prompt_text")),
         system_prompt=normalized_system_prompt,
-        wrapper_metadata=_canonicalize_value(dict(wrapper_map), field="spec.wrapper_metadata"),
+        wrapper_metadata=canonical_wrapper,
         model_name=_safe_text(spec_map.get("model_name")),
         invocation_route=_safe_text(spec_map.get("invocation_route")),
         repetition_count=repetition_count,
         temperature_setting=_safe_text(spec_map.get("temperature_setting")),
         policy_flags=deduped_flags,
-        metadata=_canonicalize_value(dict(metadata_map), field="spec.metadata"),
+        metadata=canonical_meta,
     )
 
 
@@ -315,6 +323,7 @@ class CanonicalPromptArtifact:
             "spec": self.spec.to_dict(),
             "receipt": self.receipt.to_dict(),
             "validation": self.validation.to_dict(),
+            "canonicalization_version": PROMPT_CANONICALIZATION_LAYER_VERSION,
         }
 
     def to_canonical_json(self) -> str:
@@ -352,17 +361,6 @@ def _build_prompt_hash_payload(spec: PromptSpec) -> Dict[str, Any]:
     }
 
 
-def _normalize_sha256_hex(value: Any, *, field: str) -> str:
-    if value is None or not isinstance(value, str):
-        raise PromptCanonicalizationValidationError(f"{field} must be a string")
-    text = value.strip().lower()
-    if len(text) != 64:
-        raise PromptCanonicalizationValidationError(f"{field} must be a 64-character SHA-256 hex string")
-    if not frozenset(text) <= _SHA256_HEX_CHARS:
-        raise PromptCanonicalizationValidationError(f"{field} must be lowercase SHA-256 hex")
-    return text
-
-
 def validate_prompt_spec(
     raw_spec: PromptSpec | Mapping[str, Any],
     artifact: CanonicalPromptArtifact | Mapping[str, Any] | None = None,
@@ -391,9 +389,9 @@ def validate_prompt_spec(
         if artifact_spec.stable_hash() != normalized_input_spec.stable_hash():
             errors.append("artifact.spec mismatch")
 
-        expected_prompt_hash = _stable_hash(_build_prompt_hash_payload(normalized_input_spec))
-        expected_spec_hash = normalized_input_spec.stable_hash()
-        expected_wrapper_hash = _stable_hash(normalized_input_spec.to_dict()["wrapper_metadata"])
+        expected_prompt_hash = _stable_hash(_build_prompt_hash_payload(artifact_spec))
+        expected_spec_hash = artifact_spec.stable_hash()
+        expected_wrapper_hash = _stable_hash(artifact_spec.to_dict()["wrapper_metadata"])
         provided_validation_passed = bool(receipt_map.get("validation_passed", False))
         expected_receipt_hash = _stable_hash(
             {

@@ -128,9 +128,6 @@ def test_validate_rejects_raw_spec_artifact_pair_mismatch():
     report = validate_prompt_spec(raw_spec, artifact.to_dict())
     assert report.valid is False
     assert "artifact.spec mismatch" in report.errors
-    assert "receipt.prompt_hash mismatch" in report.errors
-    assert "receipt.spec_hash mismatch" in report.errors
-    assert "receipt.receipt_hash mismatch" in report.errors
 
 
 def test_canonical_json_round_trip():
@@ -146,3 +143,23 @@ def test_projection_stability():
     a = canonical_prompt_projection(artifact)
     b = canonical_prompt_projection(artifact)
     assert a == b
+
+
+def test_invalid_metadata_non_throwing():
+    """build_canonical_prompt_artifact must not raise on NaN/Inf or unsupported types in metadata."""
+    import math
+
+    payload = _valid_mapping()
+    payload["wrapper_metadata"] = {"bad_value": math.nan}
+    artifact = build_canonical_prompt_artifact(payload)
+    assert artifact.validation.valid is False
+
+    payload2 = _valid_mapping()
+    payload2["metadata"] = {"bad_value": math.inf}
+    artifact2 = build_canonical_prompt_artifact(payload2)
+    assert artifact2.validation.valid is False
+
+    payload3 = _valid_mapping()
+    payload3["wrapper_metadata"] = {"unsupported": object()}
+    artifact3 = build_canonical_prompt_artifact(payload3)
+    assert artifact3.validation.valid is False

@@ -80,28 +80,35 @@ qec-tui
 
 # 🧠 What QEC Is
 
-QEC began as a deterministic quantum error correction framework and has evolved into a formal replay-safe systems science runtime.
+QEC began as a **deterministic quantum error correction framework** and has evolved into a **formal replay-safe systems science runtime**.
 
 It now spans five synchronized layers:
 
-deterministic engineering stack
-invariant science + formal methods
-hardware-coupled runtime truth
-comparative frontier-model evaluation
-research / simulation sandbox
-Core Domains
-quantum error correction
-deterministic orchestration
-replay-safe simulation
-proof-carrying governance
-formal control science
-topology-aware diagnostics
-multi-code orchestration
-experiment packaging
-hardware replay validation
-frontier-model comparative harness
-DOI-ready dataset export
-🏗 Current Canonical Architecture
+- deterministic engineering stack
+- invariant science + formal methods
+- hardware-coupled runtime truth
+- comparative frontier-model evaluation
+- research / simulation sandbox
+
+## Core Domains
+
+- quantum error correction
+- deterministic orchestration
+- replay-safe simulation
+- proof-carrying governance
+- formal control science
+- topology-aware diagnostics
+- multi-code orchestration
+- experiment packaging
+- hardware replay validation
+- frontier-model comparative harness
+- DOI-ready dataset export
+
+---
+
+# 🏗 Current Canonical Architecture
+
+```text
 decoder substrate
 → symbolic quantization
 → observability
@@ -116,6 +123,9 @@ decoder substrate
 → DOI-ready export layer
 → operator console
 → runtime safety bridge
+
+
+
 ⭐ Current Stable Tip
 
 v138.3.5 — Proof-Carrying Runtime Bridge

@@ -204,6 +204,7 @@ class NonCliffordBoundsReceipt:
     profile_hash: str
     bound_set_hash: str
     admissibility_hash: str
+    admissibility_threshold: float
     validation_passed: bool
     receipt_hash: str
 
@@ -212,6 +213,7 @@ class NonCliffordBoundsReceipt:
             "profile_hash": self.profile_hash,
             "bound_set_hash": self.bound_set_hash,
             "admissibility_hash": self.admissibility_hash,
+            "admissibility_threshold": float(self.admissibility_threshold),
             "validation_passed": bool(self.validation_passed),
             "receipt_hash": self.receipt_hash,
         }
@@ -221,6 +223,7 @@ class NonCliffordBoundsReceipt:
             "profile_hash": self.profile_hash,
             "bound_set_hash": self.bound_set_hash,
             "admissibility_hash": self.admissibility_hash,
+            "admissibility_threshold": float(self.admissibility_threshold),
             "validation_passed": bool(self.validation_passed),
         }
 
@@ -323,6 +326,7 @@ def build_non_clifford_bounds(
             "admissible": [bound.admissible for bound in bounds],
             "pressure_scores": [bound.pressure_score for bound in bounds],
             "truncation_level": int(truncation_level),
+            "admissibility_threshold": threshold,
             "schema": NON_CLIFFORD_TRUNCATED_POLYTOPE_BOUNDS_VERSION,
         }
     )
@@ -331,6 +335,7 @@ def build_non_clifford_bounds(
         profile_hash=profile_hash,
         bound_set_hash=bound_set_hash,
         admissibility_hash=admissibility_hash,
+        admissibility_threshold=threshold,
         validation_passed=True,
         receipt_hash="",
     )
@@ -342,6 +347,7 @@ def build_non_clifford_bounds(
             profile_hash=profile_hash,
             bound_set_hash=bound_set_hash,
             admissibility_hash=admissibility_hash,
+            admissibility_threshold=threshold,
             validation_passed=True,
             receipt_hash=receipt_hash,
         ),
@@ -383,11 +389,16 @@ def validate_non_clifford_bounds(analysis: NonCliffordBoundsAnalysis) -> tuple[b
     if analysis.receipt.bound_set_hash != expected_bound_set_hash:
         errors.append("receipt.bound_set_hash mismatch")
 
+    threshold = _normalize_float(analysis.receipt.admissibility_threshold, field="receipt.admissibility_threshold")
+    if not 0.0 < threshold <= 1.0:
+        errors.append("receipt.admissibility_threshold must be in (0,1]")
+
     expected_admissibility_hash = _stable_hash(
         {
             "admissible": [bound.admissible for bound in analysis.bounds],
             "pressure_scores": [bound.pressure_score for bound in analysis.bounds],
             "truncation_level": int(analysis.bounds[0].truncation_level if analysis.bounds else 0),
+            "admissibility_threshold": threshold,
             "schema": NON_CLIFFORD_TRUNCATED_POLYTOPE_BOUNDS_VERSION,
         }
     )

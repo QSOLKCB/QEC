@@ -65,6 +65,22 @@ def test_receipt_hash_stable() -> None:
     assert analysis.receipt.receipt_hash == analysis.receipt.stable_hash()
 
 
+def test_receipt_hash_changes_when_threshold_policy_changes() -> None:
+    baseline = build_non_clifford_bounds(
+        gate_profile=_profile(),
+        truncation_level=2,
+        policy_flags={"admissibility_threshold": 0.5},
+    )
+    changed_threshold = build_non_clifford_bounds(
+        gate_profile=_profile(),
+        truncation_level=2,
+        policy_flags={"admissibility_threshold": 0.7},
+    )
+    assert [bound.admissible for bound in baseline.bounds] == [bound.admissible for bound in changed_threshold.bounds]
+    assert baseline.receipt.admissibility_hash != changed_threshold.receipt.admissibility_hash
+    assert baseline.receipt.receipt_hash != changed_threshold.receipt.receipt_hash
+
+
 def test_admissibility_changes_with_truncation() -> None:
     low = build_non_clifford_bounds(gate_profile=_profile(weight=0.6), truncation_level=0)
     high = build_non_clifford_bounds(gate_profile=_profile(weight=0.6), truncation_level=2)
@@ -96,6 +112,7 @@ def test_validate_receipt_consistency_failure() -> None:
             profile_hash="0" * 64,
             bound_set_hash=analysis.receipt.bound_set_hash,
             admissibility_hash=analysis.receipt.admissibility_hash,
+            admissibility_threshold=analysis.receipt.admissibility_threshold,
             validation_passed=True,
             receipt_hash=analysis.receipt.receipt_hash,
         ),

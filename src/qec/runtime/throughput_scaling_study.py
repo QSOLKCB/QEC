@@ -574,9 +574,8 @@ def validate_throughput_scaling_study(
             errors.append(f"sample[{sample.sample_id}].rejected_dispatches must be >= 0")
         if sample.accepted_dispatches + sample.rejected_dispatches <= 0:
             errors.append(f"sample[{sample.sample_id}].accepted + rejected must be > 0")
-        if study.policy.degradation_mode in ("soft_throttle", "hard_cap"):
-            if sample.effective_ops_per_window > sample.projected_ops_per_window:
-                errors.append(f"sample[{sample.sample_id}] effective_ops_per_window exceeds projected_ops_per_window")
+        if sample.effective_ops_per_window > sample.projected_ops_per_window:
+            errors.append(f"sample[{sample.sample_id}] effective_ops_per_window exceeds projected_ops_per_window")
         if math.isnan(sample.saturation_score) or math.isinf(sample.saturation_score):
             errors.append(f"sample[{sample.sample_id}].saturation_score must be finite")
         if not (0.0 <= sample.saturation_score <= 1.0):

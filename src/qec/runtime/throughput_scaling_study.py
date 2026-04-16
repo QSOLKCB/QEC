@@ -27,6 +27,12 @@ _SUPPORTED_SCALING_MODES: Tuple[str, ...] = ("linear", "saturating", "bounded_me
 _SUPPORTED_DEGRADATION_MODES: Tuple[str, ...] = ("none", "soft_throttle", "hard_cap")
 _SHA256_HEX_CHARS: frozenset = frozenset("0123456789abcdef")
 
+# Scaling-law constants — used in throughput computation.
+_OPS_PER_ACCEPTED_DISPATCH: int = 100
+_SATURATING_EXTRA_OPS_PER_LANE: int = 25
+_BOUNDED_MESH_EXTRA_OPS_PER_LANE: int = 10
+_SOFT_THROTTLE_FACTOR: float = 0.9
+
 
 class ThroughputScalingValidationError(ValueError):
     """Raised when throughput scaling study data violates deterministic schema."""
@@ -325,9 +331,9 @@ def _effective_ops_cap(policy: ThroughputScalingPolicy) -> int:
     if policy.scaling_mode == "linear":
         return policy.target_ops_per_window
     if policy.scaling_mode == "saturating":
-        return policy.target_ops_per_window + (policy.max_parallel_lanes * 25)
+        return policy.target_ops_per_window + (policy.max_parallel_lanes * _SATURATING_EXTRA_OPS_PER_LANE)
     if policy.scaling_mode == "bounded_mesh":
-        return policy.target_ops_per_window + (policy.max_parallel_lanes * 10)
+        return policy.target_ops_per_window + (policy.max_parallel_lanes * _BOUNDED_MESH_EXTRA_OPS_PER_LANE)
     raise ThroughputScalingValidationError(f"unsupported policy.scaling_mode: {policy.scaling_mode!r}")
 
 
@@ -374,11 +380,11 @@ def compute_throughput_profile(
         else:
             accepted_running += 1
 
-        projected_ops = accepted_running * 100
+        projected_ops = accepted_running * _OPS_PER_ACCEPTED_DISPATCH
         effective_ops = min(projected_ops, cap)
 
         if policy.degradation_mode == "soft_throttle" and lane_count > policy.max_parallel_lanes:
-            effective_ops = int(math.floor(float(effective_ops) * 0.9))
+            effective_ops = int(math.floor(float(effective_ops) * _SOFT_THROTTLE_FACTOR))
 
         saturation_score = min(1.0, float(projected_ops) / float(max(1, cap)))
 
@@ -462,7 +468,19 @@ def build_throughput_scaling_study(
 
     policy = _normalize_policy(scaling_policy)
     normalized_enforcements = _normalize_enforcement_set(enforcement_set)
-    samples = compute_throughput_profile(normalized_enforcements, policy)
+    try:
+        samples = compute_throughput_profile(normalized_enforcements, policy)
+    except ThroughputScalingValidationError as exc:
+        error_msg = str(exc)
+        invalid_receipt = _build_receipt(policy=policy, samples=(), study_valid=False)
+        return ThroughputScalingStudy(
+            policy=policy,
+            samples=(),
+            receipt=invalid_receipt,
+            validation=ThroughputScalingValidationReport(
+                valid=False, errors=(error_msg,), error_count=1
+            ),
+        )
 
     provisional_receipt = _build_receipt(policy=policy, samples=samples, study_valid=True)
     provisional = ThroughputScalingStudy(
@@ -574,6 +592,10 @@ def validate_throughput_scaling_study(
             errors.append(f"sample[{sample.sample_id}].rejected_dispatches must be >= 0")
         if sample.accepted_dispatches + sample.rejected_dispatches <= 0:
             errors.append(f"sample[{sample.sample_id}].accepted + rejected must be > 0")
+        if sample.projected_ops_per_window < 0:
+            errors.append(f"sample[{sample.sample_id}].projected_ops_per_window must be >= 0")
+        if sample.effective_ops_per_window < 0:
+            errors.append(f"sample[{sample.sample_id}].effective_ops_per_window must be >= 0")
         if sample.effective_ops_per_window > sample.projected_ops_per_window:
             errors.append(f"sample[{sample.sample_id}] effective_ops_per_window exceeds projected_ops_per_window")
         if math.isnan(sample.saturation_score) or math.isinf(sample.saturation_score):

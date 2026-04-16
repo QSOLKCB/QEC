@@ -161,6 +161,16 @@ def test_invalid_policy_rejection():
     assert "policy.max_parallel_lanes must be > 0" in study.validation.errors
 
 
+def test_invalid_scaling_mode_returns_invalid_report():
+    """build_throughput_scaling_study must return a deterministic invalid report for unknown scaling_mode."""
+    study = build_throughput_scaling_study(
+        enforcement_set=(_enforcement(lane_count=1, projected_latency_ns=90, dispatch_suffix="1"),),
+        scaling_policy=_policy(scaling_mode="unknown_mode"),
+    )
+    assert study.validation.valid is False
+    assert any("unsupported policy.scaling_mode" in err for err in study.validation.errors)
+
+
 def test_saturation_score_bounds():
     enforcements = (
         _enforcement(lane_count=1, projected_latency_ns=90, dispatch_suffix="1"),

@@ -58,86 +58,213 @@ Purpose:
 
 ---
 
-# CANONICAL SCIENTIFIC LAW
+## 🚀 v138.2.10–v138.2.x — Frontier Comparative Determinism Harness Arc
+
+Purpose:
+
+introduce a deterministic frontier-model comparative research harness that applies QEC's replay-safe receipt doctrine to large language model systems science.
+
+This arc sits **after the hardware truth stack** and **before `v138.3.x`**.
+
+This placement allows the existing receipt / validation architecture developed in the `v138.2.0–v138.2.3` hardware runtime stack to be reused for multi-model comparative evaluation.
+
+Canonical doctrine:
 
 ```text
-Detection
-→ Formalization
-→ Reduction
-→ Runtime Elimination
-→ Distributed Proof
-→ Autonomous Recovery
+same prompt
+→ controlled invocation
+→ normalized outputs
+→ divergence metrics
+→ stable evaluation receipt
 ```
 
-This is now the permanent QSOL doctrine.
+This extends the QEC philosophy into deterministic LLM systems science.
 
 ---
 
-# RESEARCH-PROVEN FOUNDATIONS
+### v138.2.10 — Prompt Canonicalization Layer
 
-## Invariant Science Layer
+Purpose:
 
-Canonical law:
+make prompts deterministic first-class inputs.
+
+Canonical flow:
 
 ```text
-detect invariant
-→ prove invariant
-→ eliminate redundant compute
-→ preserve exact semantics
+PromptSpec
+→ canonical JSON
+→ stable hash
+→ prompt receipt
 ```
 
-This governs:
+Required fields:
 
-- decoder optimization
-- runtime skipping
-- distributed execution reduction
-- thermal minimization
+- prompt text
+- system prompt
+- wrapper metadata
+- model name
+- repetition count
+- seed / temperature settings
+- invocation route
+- policy flags
+
+This is the foundational release for the entire arc.
 
 ---
 
-## Deterministic Control Science Layer
+### v138.2.11 — Multi-Model Invocation Matrix
 
-Canonical control model:
+Purpose:
 
-```text
-State
-→ Metrics
-→ Attractor
-→ Strategy
-→ Signals
-→ Modulation
-→ Constraints
-→ Validated Transition
-```
+build the comparative execution substrate.
 
-This governs:
+Initial model matrix:
 
-- v137 supervisory control
-- v138.2 hardware stack
-- bounded adaptive control mesh
-- hardware feedback convergence
+- ChatGPT native
+- ChatGPT 5.4 via Sider
+- Claude
+- Grok
+
+Outputs must be normalized into stable canonical records.
+
+Purpose:
+- model-to-model comparison
+- wrapper-layer analysis
+- deterministic invocation lineage
+
+This is where the comparative methods paper formally begins.
 
 ---
 
-## Constraint-First Dynamics
+### v138.2.12 — Technical Rigor Metric Pack
 
-Canonical UFT-ID model:
+Purpose:
+
+introduce deterministic scoring and comparative benchmark science.
+
+Core metrics:
+
+- constraint coverage
+- scope adherence
+- architecture fidelity
+- error handling robustness
+- hallucination frequency
+- explicit assumption quality
+
+Canonical metric law:
 
 ```text
-S
-→ admissible subspace A
-→ residual r(s)
-→ quadratic tension Φ(s)
-→ deterministic projection
-→ proof receipt
+required_items_covered / total_required_items
 ```
 
-This governs:
+This becomes the benchmark science layer.
 
-- runtime legality
-- recovery
-- policy boundary enforcement
-- distributed admissibility
+---
+
+### v138.2.13 — Persona Drift Tensor
+
+Purpose:
+
+measure persona persistence and multi-run voice stability.
+
+Canonical flow:
+
+```text
+same persona prompt
+→ N repeated runs
+→ drift tensor
+```
+
+Suggested baseline:
+
+```text
+N = 10
+```
+
+Core metrics:
+
+- lexical stability
+- thematic persistence
+- rhetorical motif recurrence
+- emotional arc retention
+- tone drift
+- callback continuity
+
+This is a highly publishable research rung.
+
+---
+
+### v138.2.14 — Wrapper Divergence Study
+
+Purpose:
+
+study platform mediation effects.
+
+Primary comparison:
+
+```text
+ChatGPT direct
+vs
+ChatGPT 5.4 via Sider
+```
+
+Core measurements:
+
+- system mediation drift
+- wrapper-layer divergence
+- truncation differences
+- hidden prompt effects
+- safety layer variation
+- token-level divergence
+
+This is paper-grade systems ethnography.
+
+---
+
+### v138.2.15 — Stable Evaluation Receipt Pack
+
+Purpose:
+
+formalize deterministic evaluation receipts.
+
+Canonical flow:
+
+```text
+metrics
++ divergence tensor
++ prompt hash
+→ stable evaluation receipt
+```
+
+Purpose:
+- replay-safe evaluation
+- benchmark reproducibility
+- stable lineage
+- canonical artifact hashing
+
+---
+
+### v138.2.16 — Zenodo Dataset Export Layer
+
+Purpose:
+
+package comparative studies into citable research datasets.
+
+Automatically export:
+
+- prompt manifests
+- raw outputs
+- normalized outputs
+- divergence metrics
+- evaluation receipts
+- methodology notes
+- reproducibility metadata
+
+Target:
+
+Zenodo / DOI-ready dataset bundles.
+
+This is the publication and archival layer for the comparative determinism arc.
 
 ---
 

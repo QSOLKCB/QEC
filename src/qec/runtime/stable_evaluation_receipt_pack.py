@@ -119,6 +119,21 @@ def _extract_score(artifact: Any, *, field: str, artifact_name: str) -> float:
     return _normalize_score(value, field=f"{artifact_name}.{field}")
 
 
+def _extract_artifact_valid(artifact: Any) -> bool:
+    """Return the artifact's own validation.valid flag; defaults to True when absent."""
+    if isinstance(artifact, Mapping):
+        validation = artifact.get("validation")
+        if isinstance(validation, Mapping):
+            return bool(validation.get("valid", True))
+    else:
+        validation_obj = getattr(artifact, "validation", None)
+        if validation_obj is not None:
+            valid_flag = getattr(validation_obj, "valid", None)
+            if valid_flag is not None:
+                return bool(valid_flag)
+    return True
+
+
 def _build_pack_hash_payload(
     prompt_hash: str,
     matrix_hash: str,
@@ -311,6 +326,13 @@ def validate_stable_evaluation_receipt_pack(
     expected_rigor_pack_hash = _extract_rigor_pack_hash(rigor_metric_pack)
     expected_drift_tensor_hash = _extract_drift_tensor_hash(drift_tensor)
     expected_wrapper_study_hash = _extract_wrapper_study_hash(wrapper_divergence_study)
+
+    if not _extract_artifact_valid(rigor_metric_pack):
+        errors.append("rigor_metric_pack.validation.valid is False")
+    if not _extract_artifact_valid(drift_tensor):
+        errors.append("drift_tensor.validation.valid is False")
+    if not _extract_artifact_valid(wrapper_divergence_study):
+        errors.append("wrapper_divergence_study.validation.valid is False")
 
     if isinstance(receipt_pack, StableEvaluationReceiptPack):
         try:

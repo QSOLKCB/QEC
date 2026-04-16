@@ -13,6 +13,7 @@ from qec.runtime.persona_drift_tensor import build_persona_drift_tensor
 from qec.runtime.prompt_canonicalization_layer import build_canonical_prompt_artifact
 from qec.runtime.stable_evaluation_receipt_pack import (
     StableEvaluationReceipt,
+    StableEvaluationReceiptPack,
     StableEvaluationReceiptPackValidationError,
     build_stable_evaluation_receipt_pack,
     compute_composite_evaluation_score,
@@ -327,3 +328,56 @@ def test_lineage_consistency_regression():
     assert pack.drift_tensor_hash == drift.receipt.tensor_hash
     assert pack.wrapper_study_hash == wrapper.receipt.study_hash
     assert pack.validation.valid is True
+
+
+def test_upstream_artifact_invalid_rejection():
+    """Pack must be invalid when any upstream artifact already failed its own validation."""
+    artifact, matrix, rigor, drift, wrapper = _all_artifacts()
+    pack = build_stable_evaluation_receipt_pack(artifact, matrix, rigor, drift, wrapper)
+
+    # Build a fake wrapper that carries the correct hashes/score but reports validation failed.
+    fake_invalid_wrapper = {
+        "receipt": {"study_hash": wrapper.receipt.study_hash},
+        "aggregate_divergence_score": wrapper.aggregate_divergence_score,
+        "validation": {"valid": False},
+    }
+    report = validate_stable_evaluation_receipt_pack(
+        pack.to_dict(),
+        canonical_prompt_artifact=artifact,
+        invocation_matrix=matrix,
+        rigor_metric_pack=rigor,
+        drift_tensor=drift,
+        wrapper_divergence_study=fake_invalid_wrapper,
+    )
+    assert report.valid is False
+    assert "wrapper_divergence_study.validation.valid is False" in report.errors
+
+
+def test_nan_inf_pack_instance_rejection():
+    """validate_stable_evaluation_receipt_pack must return an invalid report (not raise)
+    when a StableEvaluationReceiptPack instance carries NaN/Inf aggregate scores."""
+    artifact, matrix, rigor, drift, wrapper = _all_artifacts()
+    pack = build_stable_evaluation_receipt_pack(artifact, matrix, rigor, drift, wrapper)
+
+    nan_pack = StableEvaluationReceiptPack(
+        prompt_hash=pack.prompt_hash,
+        matrix_hash=pack.matrix_hash,
+        rigor_pack_hash=pack.rigor_pack_hash,
+        drift_tensor_hash=pack.drift_tensor_hash,
+        wrapper_study_hash=pack.wrapper_study_hash,
+        aggregate_rigor_score=math.nan,
+        aggregate_stability_score=pack.aggregate_stability_score,
+        aggregate_divergence_score=pack.aggregate_divergence_score,
+        receipt=pack.receipt,
+        validation=pack.validation,
+    )
+    report = validate_stable_evaluation_receipt_pack(
+        nan_pack,
+        canonical_prompt_artifact=artifact,
+        invocation_matrix=matrix,
+        rigor_metric_pack=rigor,
+        drift_tensor=drift,
+        wrapper_divergence_study=wrapper,
+    )
+    assert report.valid is False
+    assert "receipt_pack.aggregate_rigor_score must be finite" in report.errors

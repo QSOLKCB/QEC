@@ -30,42 +30,42 @@ QEC is a **deterministic systems runtime and research framework** built around:
 
 The governing law remains:
 
-same input
-→ same ordering
-→ same canonical JSON
-→ same stable hash
-→ same bytes
+same input  
+→ same ordering  
+→ same canonical JSON  
+→ same stable hash  
+→ same bytes  
 
-If the same input does not produce the same bytes, it is not a valid result.
+> If the same input does not produce the same bytes, it is not a valid result.
 
-🖥 Quick Start — Rust TUI Operator Console
+---
 
-QEC includes a Rust TUI operator workstation for keyboard-first deterministic workflows.
+# 🖥 Quick Start — Rust TUI Operator Console
 
-Supports
-live diagnostics
-topology visualization
-replay inspection
-invariant health
-covenant transition tracing
-scheduler receipts
-proof audit inspection
-governance trace review
-drift analysis summaries
-simulation lane monitoring
-orchestration receipt inspection
-multi-code experiment tracing
-frontier evaluation artifact inspection
+QEC includes a **Rust TUI operator workstation** for keyboard-first deterministic workflows.
 
-<pre>
-📦 Install Latest Release
+## Supports
+
+- live diagnostics
+- topology visualization
+- replay inspection
+- invariant health
+- covenant transition tracing
+- scheduler receipts
+- proof audit inspection
+- governance trace review
+- drift analysis summaries
+- simulation lane monitoring
+- orchestration receipt inspection
+- multi-code experiment tracing
+- frontier evaluation artifact inspection
+
+## 📦 Install Latest Release
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
-</pre>
-<pre>
 ▶ Run
 qec-tui
-</pre>
-
 🧠 What QEC Is
 
 QEC began as a deterministic quantum error correction framework and has evolved into a formal replay-safe systems science runtime.
@@ -77,9 +77,7 @@ invariant science + formal methods
 hardware-coupled runtime truth
 comparative frontier-model evaluation
 research / simulation sandbox
-
-Core domains include:
-
+Core Domains
 quantum error correction
 deterministic orchestration
 replay-safe simulation
@@ -92,6 +90,7 @@ hardware replay validation
 frontier-model comparative harness
 DOI-ready dataset export
 🏗 Current Canonical Architecture
+
 decoder substrate
 → symbolic quantization
 → observability
@@ -105,12 +104,12 @@ decoder substrate
 → stable archival receipts
 → DOI-ready export layer
 → operator console
+
 ⭐ Current Stable Tip
 
 v138.2.15 — Stable Evaluation Receipt Pack
 
-Current active ladder:
-
+Current Active Ladder
 v138.2.10 — Prompt Canonicalization Layer
 v138.2.11 — Multi-Model Invocation Matrix
 v138.2.12 — Technical Rigor Metric Pack
@@ -157,23 +156,22 @@ These are local smart contracts implemented in pure Python / NumPy.
 
 They are not blockchain contracts.
 
-No chain consensus
-No gas model
-No wallets
-No miners
-No external ledger
+no chain consensus
+no gas model
+no wallets
+no miners
+no external ledger
 
 Canonical model:
 
 state_t
-+ action_capsule
-+ covenant_rules
+
+action_capsule
+covenant_rules
 → next_state
-+ proof_receipt
-+ audit_artifact
-
-Supported domains:
-
+proof_receipt
+audit_artifact
+Supported Domains
 workflow contracts
 research protocol contracts
 scheduler contracts
@@ -233,34 +231,34 @@ Canonical JSON + stable SHA-256 required.
 git clone https://github.com/QSOLKCB/QEC.git
 cd QEC
 pip install -e .
-
-Development:
-
+Development
 pip install -r requirements-dev.txt
 pytest -q
 🎯 Design Philosophy
-
 Small is beautiful
 Determinism is architecture
 Replay identity is law
 Proofs beat vibes
 Operator clarity beats hidden automation
 Formal methods before autonomy
-
-References
+📚 References
 
 The following research artifacts and reproducibility records support the QSOLKCB / QEC architecture, release methodology, and deterministic systems roadmap:
 
-Trent Slade, QSOL-IMC. Deterministic Runtime Optimization and Formal Invariant Validation in QSOL-IMC QEC v68.4.1 Zenodo. DOI: https://doi.org/10.5281/zenodo.19062692
-Trent Slade, QSOL-IMC. Invariant-Driven Computation Elimination DOI: https://doi.org/10.5281/zenodo.19102390
-Trent Slade, QSOL-IMC. Deterministic Redundancy Elimination DOI: https://doi.org/10.5281/zenodo.19099503
-Trent Slade, QSOL-IMC. Dark-State Invariants DOI: https://doi.org/10.5281/zenodo.19104208
+Trent Slade, QSOL-IMC. Deterministic Runtime Optimization and Formal Invariant Validation in QSOL-IMC QEC v68.4.1
+Zenodo DOI: https://doi.org/10.5281/zenodo.19062692
+Trent Slade, QSOL-IMC. Invariant-Driven Computation Elimination
+DOI: https://doi.org/10.5281/zenodo.19102390
+Trent Slade, QSOL-IMC. Deterministic Redundancy Elimination
+DOI: https://doi.org/10.5281/zenodo.19099503
+Trent Slade, QSOL-IMC. Dark-State Invariants
+DOI: https://doi.org/10.5281/zenodo.19104208
 
 Additional project papers and research notes:
 
 Project Papers and Research Notes
 
-Author
+👤 Author
 
 Trent Slade
 QSOL-IMC

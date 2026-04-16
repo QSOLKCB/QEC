@@ -324,12 +324,8 @@ def project_runtime_state(
         state_id = "runtime-state"
         input_state = _normalize_vector(runtime_state, field="runtime_state", expected_dimension=subspace.dimension)
 
-    projected_state = _project_onto_subspace(input_state, subspace.basis_vectors)
-    residual = RuntimeResidual(
-        residual_norm=float(math.sqrt(_dot(_subtract(input_state, projected_state), _subtract(input_state, projected_state)))),
-        residual_vector=_subtract(input_state, projected_state),
-        admissible=bool(compute_runtime_residual(input_state, subspace.basis_vectors).admissible),
-    )
+    residual = compute_runtime_residual(input_state, subspace.basis_vectors)
+    projected_state = _subtract(input_state, residual.residual_vector)
     if residual.residual_norm < 0.0:
         raise RuntimeAdmissibilityProjectionValidationError("residual_norm must be >= 0")
 

@@ -207,150 +207,198 @@ state_t
 → next_state
 + proof_receipt
 + audit_artifact
+```
 
-Supported Domains
-workflow contracts
-research protocol contracts
-scheduler contracts
-safety contracts
-simulation contracts
-benchmark contracts
-runtime authorization contracts
-proof-carrying bridge contracts
-🔒 Determinism Guarantees
+## Supported Domains
+
+- workflow contracts
+- research protocol contracts
+- scheduler contracts
+- safety contracts
+- simulation contracts
+- benchmark contracts
+- runtime authorization contracts
+- proof-carrying bridge contracts
+
+---
+
+# 🔒 Determinism Guarantees
 
 QEC enforces strict reproducibility across all architectural layers.
 
 Every valid artifact must be replay-safe and byte-identical under identical inputs.
 
-Guarantees
-no hidden randomness
-deterministic ordering
-deterministic tie-breaking
-canonical JSON serialization
-stable SHA-256 hashing
-explicit seeded RNG only
-replay-safe receipts
-proof-carrying validation
-stable lineage hashes
-deterministic bridge tokens
-Example
+## Guarantees
+
+- no hidden randomness
+- deterministic ordering
+- deterministic tie-breaking
+- canonical JSON serialization
+- stable SHA-256 hashing
+- explicit seeded RNG only
+- replay-safe receipts
+- proof-carrying validation
+- stable lineage hashes
+- deterministic bridge tokens
+
+## Example
+
+```python
 import numpy as np
 
 rng = np.random.RandomState(seed)
+```
 
-Determinism is architecture.
+> Determinism is architecture.
 
-📜 Engineering Laws
+---
+
+# 📜 Engineering Laws
 
 These laws govern all contributions, releases, and architectural evolution inside QEC.
 
-Determinism is architecture
-
+## Determinism is architecture
 Same input = same bytes.
 
 If identical inputs produce different artifacts, the result is invalid.
 
-Replay is law
-
+## Replay is law
 Same artifacts = same stable hash.
 
 Every artifact must preserve:
 
-replay identity
-lineage continuity
-stable hashing
-canonical ordering
-Proofs beat vibes
+- replay identity
+- lineage continuity
+- stable hashing
+- canonical ordering
 
+## Proofs beat vibes
 All state transitions must be auditable.
 
 Every transition should emit:
 
-validation report
-receipt artifact
-stable lineage hash
-proof-carrying metadata
-Decoder core is sacred
+- validation report
+- receipt artifact
+- stable lineage hash
+- proof-carrying metadata
+
+## Decoder core is sacred
 
 Do not modify:
 
+```text
 src/qec/decoder/
+```
 
 without explicit architectural need.
 
-Layering is law
+## Layering is law
+
+```text
 decoder
 → runtime
 → orchestration
 → proof
 → bridge
 → operator tooling
+```
 
 No upward dependency leakage.
 
-Canonical identity is mandatory
+## Canonical identity is mandatory
 
 Every stable artifact must support:
 
-to_dict()
-to_canonical_json()
-stable_hash()
+- `to_dict()`
+- `to_canonical_json()`
+- `stable_hash()`
 
 Canonical JSON + stable SHA-256 is required.
 
-📦 Installation
-Clone
+---
+
+# 📦 Installation
+
+## Clone
+
+```bash
 git clone https://github.com/QSOLKCB/QEC.git
 cd QEC
-Install
+```
+
+## Install
+
+```bash
 pip install -e .
-Development
+```
+
+## Development
+
+```bash
 pip install -r requirements-dev.txt
 pytest -q
-🎯 Design Philosophy
+```
 
-QEC follows a constraint-first engineering doctrine.
+---
 
-Small is beautiful
-Determinism is architecture
-Replay identity is law
-Proofs beat vibes
-Operator clarity beats hidden automation
-Formal methods before autonomy
-Safety before convenience
-Stable lineage before performance shortcuts
-Lawful execution before speculative control
-🚀 v138.3.x Safety Epoch Complete
+# 🎯 Design Philosophy
+
+QEC follows a **constraint-first engineering doctrine**.
+
+- Small is beautiful
+- Determinism is architecture
+- Replay identity is law
+- Proofs beat vibes
+- Operator clarity beats hidden automation
+- Formal methods before autonomy
+- Safety before convenience
+- Stable lineage before performance shortcuts
+- Lawful execution before speculative control
+
+---
+
+# 🚀 v138.3.x Safety Epoch Complete
+
+```text
 admissibility
 → tension
 → recovery
 → firewall
 → hardware proof
 → runtime bridge
+```
 
-This now forms a paper-grade formal runtime safety framework.
+This now forms a **paper-grade formal runtime safety framework**.
 
-Same input
-→ same proof
+Same input  
+→ same proof  
 → same bytes
 
-📚 References
-Deterministic Runtime Optimization and Formal Invariant Validation
-DOI: https://doi.org/10.5281/zenodo.19062692
-Invariant-Driven Computation Elimination
-DOI: https://doi.org/10.5281/zenodo.19102390
-Deterministic Redundancy Elimination
-DOI: https://doi.org/10.5281/zenodo.19099503
-Dark-State Invariants
-DOI: https://doi.org/10.5281/zenodo.19104208
+---
 
-Additional project papers and research notes:
+# 📚 References
 
-Project Papers and Research Notes
+- Deterministic Runtime Optimization and Formal Invariant Validation  
+  DOI: https://doi.org/10.5281/zenodo.19062692
 
-👤 Author
+- Invariant-Driven Computation Elimination  
+  DOI: https://doi.org/10.5281/zenodo.19102390
 
-Trent Slade
-QSOL-IMC
+- Deterministic Redundancy Elimination  
+  DOI: https://doi.org/10.5281/zenodo.19099503
+
+- Dark-State Invariants  
+  DOI: https://doi.org/10.5281/zenodo.19104208
+
+Additional project papers and research notes:  
+https://github.com/QSOLKCB/QEC/tree/main/papers
+
+**Project Papers and Research Notes**
+
+---
+
+# 👤 Author
+
+**Trent Slade**  
+QSOL-IMC  
 ORCID: https://orcid.org/0009-0002-4515-9237

@@ -1,21 +1,22 @@
 # QSOLKCB / QEC
 ## CANONICAL ROADMAP — ENGINEERING + RESEARCH PROGRAM
+### Deterministic Quantum Error Correction • Replay-Safe Systems • Covenant Runtime • Formal Methods • Hardware-Coupled Runtime • Constraint-First Information Dynamics • Physics-Aware Control
 
-### Deterministic Quantum Error Correction • Replay-Safe Systems • Covenant Runtime • Formal Methods • Hardware-Coupled Runtime • Constraint-First Information Dynamics
-
-> Canonical engineering law document
-> Published release tags are authoritative
-> Same input = same bytes
+> Canonical engineering law document  
+> Published release tags are authoritative  
+> Same input = same bytes  
 
 ---
 
 # PROGRAM LAW
 
-QEC now formally operates across **three synchronized layers**:
+QEC now formally operates across **five synchronized layers**:
 
 1. **Deterministic Engineering Stack**
 2. **Invariant Science + Formal Methods**
-3. **Unified Information Dynamics / UFT-ID Research Branch**
+3. **Constraint-First Information Dynamics (UFT-ID)**
+4. **Physics-Aware Noise + Hardware Runtime**
+5. **Research Sandbox / Frontier Theory Branch**
 
 All roadmap work must preserve:
 
@@ -26,6 +27,8 @@ All roadmap work must preserve:
 - bounded latency truth
 - hardware-safe receipts
 - formal admissibility constraints
+- physics-aware noise realism
+- benchmarkable proof artifacts
 
 ---
 
@@ -33,9 +36,9 @@ All roadmap work must preserve:
 
 **v138.2.0 — FPGA / ASIC Control Module**
 
-Current epoch:
+Current active epoch:
 
-**v138.2.x — Hardware-Coupled Control Stack**
+## v138.2.x — Hardware-Coupled Control Stack
 
 Completed:
 - v138.2.0 — FPGA / ASIC Control Module
@@ -44,32 +47,37 @@ Planned:
 - v138.2.1 — Latency-Budget Enforcement Hardware
 - v138.2.2 — Throughput Scaling Study
 - v138.2.3 — Thermal / Power Budget Receipt Pack
+- v138.2.4 — Latency + Thermal Validation Pack
 
 Purpose:
 - real-time dispatch
 - low-latency control truth
 - timing-safe receipts
 - hardware determinism validation
+- thermal / power proof ladder
+
+---
+
+# CANONICAL SCIENTIFIC LAW
+
+```text
+Detection
+→ Formalization
+→ Reduction
+→ Runtime Elimination
+→ Distributed Proof
+→ Autonomous Recovery
+```
+
+This is now the permanent QSOL doctrine.
 
 ---
 
 # RESEARCH-PROVEN FOUNDATIONS
 
-The roadmap is now explicitly grounded in published QSOL research:
-
 ## Invariant Science Layer
-Derived from:
-
-- Dark-State Invariants :contentReference[oaicite:3]{index=3}
-- Invariant Structure in Decoder Pipelines :contentReference[oaicite:4]{index=4}
 
 Canonical law:
-
-```text
-Detection → Formalization → Reduction
-```
-
-This becomes a permanent roadmap principle:
 
 ```text
 detect invariant
@@ -78,14 +86,16 @@ detect invariant
 → preserve exact semantics
 ```
 
-This should govern all decoder + runtime releases.
+This governs:
+
+- decoder optimization
+- runtime skipping
+- distributed execution reduction
+- thermal minimization
 
 ---
 
 ## Deterministic Control Science Layer
-Derived from:
-
-Deterministic Adaptive Control Without Stochastic Exploration :contentReference[oaicite:5]{index=5}
 
 Canonical control model:
 
@@ -100,45 +110,38 @@ State
 → Validated Transition
 ```
 
-This now formally underpins:
+This governs:
 
-- v137.20.x supervisory control
-- v138.2.x hardware control
-- future real-time dispatch stack
+- v137 supervisory control
+- v138.2 hardware stack
+- bounded adaptive control mesh
+- hardware feedback convergence
 
 ---
 
-## Constraint-First Information Dynamics
-Derived from:
+## Constraint-First Dynamics
 
-UFT-ID 2.0 :contentReference[oaicite:6]{index=6}
-
-Canonical model:
+Canonical UFT-ID model:
 
 ```text
 S
 → admissible subspace A
-→ violation residual r(s)
+→ residual r(s)
 → quadratic tension Φ(s)
 → deterministic projection
+→ proof receipt
 ```
 
-This should become the **long-term formal law** for:
+This governs:
 
-- decoder admissibility
-- orchestration legality
-- hardware dispatch safety
+- runtime legality
+- recovery
 - policy boundary enforcement
-
-This is now the formal bridge between:
-
-QEC engineering
-and
-constraint-first information dynamics.
+- distributed admissibility
 
 ---
 
-# NEW FRONTIER EPOCHS
+# ACTIVE ENGINEERING EPOCHS
 
 ---
 
@@ -155,6 +158,7 @@ Planned:
 - v138.3.2 — Deterministic Recovery Operator
 - v138.3.3 — Constraint-Bound Dispatch Firewall
 - v138.3.4 — Hardware Admissibility Proof Pack
+- v138.3.5 — Proof-Carrying Runtime Bridge
 
 Canonical model:
 
@@ -166,8 +170,6 @@ runtime_state
 → proof receipt
 ```
 
-This directly extends UFT-ID 2.0.
-
 ---
 
 ## v138.4.x — Qutrit / Ternary Hardware Decode Path
@@ -176,20 +178,22 @@ Purpose:
 
 bring ternary Golay / qutrit code research into runtime.
 
-Derived from: :contentReference[oaicite:7]{index=7}
-
 Planned:
 
 - v138.4.0 — Ternary Decode Lane
 - v138.4.1 — Qutrit Hardware Dispatch Path
 - v138.4.2 — Ternary ASIC Experiment Module
 - v138.4.3 — CSS / Surface Hybrid Study
+- v138.4.4 — Ternary Validation Bridge
 
-This should explicitly bridge:
+Canonical bridge:
 
+```text
 binary surface
 ↔ ternary Golay
-↔ qutrit hardware control
+↔ GF(3) lattice
+↔ qutrit hardware
+```
 
 ---
 
@@ -197,9 +201,7 @@ binary surface
 
 Purpose:
 
-experimental research branch integrating resonance frameworks.
-
-Derived from: 
+physics-aware experimental research branch.
 
 Planned:
 
@@ -207,12 +209,191 @@ Planned:
 - v138.5.1 — Phase-Coherence Audit Layer
 - v138.5.2 — E8 Topology Projection Experiment
 - v138.5.3 — Fractal Field Invariant Mapper
+- v138.5.4 — Resonance Interface Bridge
 
 This remains:
 
-research-sandbox only
+**research sandbox only**
 
-NOT production decoder path.
+No production decoder coupling.
+
+---
+
+## 🚀 v138.6.x — Invariant Elimination Runtime
+
+Purpose:
+
+convert formally proven invariants into production-grade
+runtime computation elimination.
+
+Canonical law:
+
+```text
+Detection
+→ Formalization
+→ Reduction
+→ Runtime Elimination
+```
+
+Planned:
+
+- v138.6.0 — Dark-State Mask Runtime Engine
+- v138.6.1 — Idempotence Class Detector
+- v138.6.2 — Runtime Skip Safety Validator
+- v138.6.3 — Distributed Execution-Skip Fabric
+- v138.6.4 — Thermal / Power Reduction Benchmark Pack
+- v138.6.5 — Proof-Carrying Skip Receipts
+
+Purpose:
+- eliminate redundant compute
+- preserve exact semantics
+- reduce thermal load
+- reduce latency
+- preserve byte-identical replay
+
+This is now a **major canonical epoch**.
+
+---
+
+## v138.7.x — Machine Learning + Neural Decoder Runtime
+
+Purpose:
+
+physics-aware and hardware-aware decoder augmentation.
+
+Planned:
+
+- v138.7.0 — Deterministic GNN Decoder Kernel
+- v138.7.1 — Early Termination via Dark-State Proofs
+- v138.7.2 — ML Accuracy + Latency Benchmarks
+- v138.7.3 — FPGA / GPU Neural Acceleration
+- v138.7.4 — ML Hardware Validation Bridge
+
+---
+
+## v138.8.x — Correlated Noise + Noise Tailoring
+
+Purpose:
+
+realistic hardware noise physics.
+
+Planned:
+
+- v138.8.0 — Correlated Noise Simulator
+- v138.8.1 — Cluster Expansion Noise Kernel
+- v138.8.2 — Honest Noise Approximation Pack
+- v138.8.3 — Noise-Tailoring Pulse Runtime
+- v138.8.4 — Noise-Tailoring Hardware Bridge
+
+Canonical model:
+
+```text
+physical noise
+→ correlation expansion
+→ admissible approximation
+→ tailored recovery policy
+```
+
+This is the **physics-aware runtime epoch**.
+
+---
+
+## v138.9.x — Multi-Code Orchestration Runtime
+
+Purpose:
+
+runtime switching across code families.
+
+Planned:
+
+- v138.9.0 — Surface / qLDPC Selector
+- v138.9.1 — Ternary + Surface Migration Engine
+- v138.9.2 — Multi-Code Orchestration Benchmark
+- v138.9.3 — Dynamic Code Policy Kernel
+- v138.9.4 — Multi-Code Bridge
+
+Supported:
+- surface
+- qLDPC
+- ternary Golay
+- Floquet
+- concatenated bosonic
+
+---
+
+# DISTRIBUTED FRONTIER EPOCHS
+
+---
+
+## v139.x — Distributed Deterministic Consensus Runtime
+
+Purpose:
+
+multi-node replay-safe execution.
+
+Planned:
+
+- v139.0 — Distributed State Synchronization Bus
+- v139.1 — Replay Log Consensus Layer
+- v139.2 — Byzantine-Safe Proof Consensus
+- v139.3 — Cross-Node Recovery Runtime
+- v139.4 — Distributed Proof Aggregation
+
+---
+
+## v140.x — Bounded Feedback Hardware Control Mesh
+
+Purpose:
+
+distributed hardware control truth.
+
+Planned:
+
+- adaptive thermal control
+- latency stabilization
+- distributed timing mesh
+- power-aware control modulation
+
+---
+
+## v141.x — Constraint-First Autonomous Recovery Runtime
+
+Purpose:
+
+fully autonomous theorem-guided recovery.
+
+Canonical model:
+
+```text
+constraint violation
+→ tension accumulation
+→ threshold crossing
+→ deterministic recovery impulse
+```
+
+This is the autonomous north-star runtime.
+
+---
+
+# BENCHMARK LADDER
+
+Runs in parallel to all epochs.
+
+- BM-1 decoder correctness
+- BM-2 invariant elimination truth
+- BM-3 thermal / latency truth
+- BM-4 qutrit validation
+- BM-5 distributed replay truth
+- BM-6 proof kernel correctness
+- BM-7 noise realism benchmarks
+
+All benchmarks require:
+
+- canonical manifest
+- stable hash
+- reproducible seed
+- comparison baseline
+- proof receipt
 
 ---
 
@@ -223,9 +404,11 @@ deterministic decoder
 → invariant elimination
 → admissibility geometry
 → hardware control truth
-→ qutrit dispatch
-→ proof-carrying runtime
+→ physics-aware noise runtime
+→ qutrit + qLDPC orchestration
 → distributed deterministic consensus
+→ theorem-guided autonomous recovery
+→ global proof-carrying quantum runtime
 ```
 
-This is now the canonical north-star architecture.
+This is now the canonical frontier architecture.

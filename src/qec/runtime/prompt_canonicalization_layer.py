@@ -206,10 +206,12 @@ def _normalize_prompt_spec_permissive(spec_map: Mapping[str, Any]) -> PromptSpec
     try:
         canonical_wrapper = _canonicalize_value(dict(wrapper_map), field="spec.wrapper_metadata")
     except PromptCanonicalizationValidationError:
+        # Error already captured by _collect_validation_errors_from_mapping; fall back to empty mapping.
         canonical_wrapper = {}
     try:
         canonical_meta = _canonicalize_value(dict(metadata_map), field="spec.metadata")
     except PromptCanonicalizationValidationError:
+        # Error already captured by _collect_validation_errors_from_mapping; fall back to empty mapping.
         canonical_meta = {}
 
     return PromptSpec(

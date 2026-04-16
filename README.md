@@ -127,71 +127,87 @@ decoder substrate
 ```
 
 ```
-⭐ Current Stable Tip
+---
 
-v138.3.5 — Proof-Carrying Runtime Bridge
+# ⭐ Current Stable Tip
 
-Current Active Ladder
-v138.3.0 — Runtime Admissibility Projection Engine
-v138.3.1 — Quadratic Tension Functional Kernel
-v138.3.2 — Deterministic Recovery Operator
-v138.3.3 — Constraint-Bound Dispatch Firewall
-v138.3.4 — Hardware Admissibility Proof Pack
-v138.3.5 — Proof-Carrying Runtime Bridge
-🔬 Current Safety Epoch — v138.3.x
+**v138.3.5 — Proof-Carrying Runtime Bridge**
 
-The current active epoch focuses on formal runtime safety, proof-carrying execution, and deterministic authorization.
-```
+## Current Active Ladder
 
-Completed
-v138.3.0 — Runtime Admissibility Projection Engine
-admissibility geometry
-residual computation
-proof receipts
-v138.3.1 — Quadratic Tension Functional Kernel
-scalar tension functional
-bounded pressure signal
-replay-safe validation
-v138.3.2 — Deterministic Recovery Operator
-projection-aligned recovery
-bounded repair magnitude
-recovery receipts
-v138.3.3 — Constraint-Bound Dispatch Firewall
-allow / deny / recover_only
-deterministic gatekeeping
-replay-safe firewall receipts
-v138.3.4 — Hardware Admissibility Proof Pack
-hardware-facing proof artifact
-lineage validation
-stable proof receipts
-v138.3.5 — Proof-Carrying Runtime Bridge
-bridge token issuance
-execution authorization
-proof-carrying legality
-⚙ Deterministic Smart Contracts (No Blockchain)
+- `v138.3.0` — Runtime Admissibility Projection Engine
+- `v138.3.1` — Quadratic Tension Functional Kernel
+- `v138.3.2` — Deterministic Recovery Operator
+- `v138.3.3` — Constraint-Bound Dispatch Firewall
+- `v138.3.4` — Hardware Admissibility Proof Pack
+- `v138.3.5` — Proof-Carrying Runtime Bridge
 
-QEC includes a deterministic covenant runtime.
+---
 
-These are local smart contracts implemented in pure Python / NumPy.
+# 🔬 Current Safety Epoch — v138.3.x
 
-They are not blockchain contracts.
+The current active epoch focuses on **formal runtime safety, proof-carrying execution, and deterministic authorization**.
 
-no chain consensus
-no gas model
-no wallets
-no miners
-no external ledger
+## Completed
 
-The covenant runtime provides formal local state transition contracts for deterministic systems execution, 
-workflow governance, and proof-carrying orchestration.
+### v138.3.0 — Runtime Admissibility Projection Engine
+- admissibility geometry
+- residual computation
+- proof receipts
 
-Canonical Model
+### v138.3.1 — Quadratic Tension Functional Kernel
+- scalar tension functional
+- bounded pressure signal
+- replay-safe validation
+
+### v138.3.2 — Deterministic Recovery Operator
+- projection-aligned recovery
+- bounded repair magnitude
+- recovery receipts
+
+### v138.3.3 — Constraint-Bound Dispatch Firewall
+- allow / deny / recover_only
+- deterministic gatekeeping
+- replay-safe firewall receipts
+
+### v138.3.4 — Hardware Admissibility Proof Pack
+- hardware-facing proof artifact
+- lineage validation
+- stable proof receipts
+
+### v138.3.5 — Proof-Carrying Runtime Bridge
+- bridge token issuance
+- execution authorization
+- proof-carrying legality
+
+---
+
+# ⚙ Deterministic Smart Contracts (No Blockchain)
+
+QEC includes a **deterministic covenant runtime**.
+
+These are local smart contracts implemented in **pure Python / NumPy**.
+
+They are **not blockchain contracts**.
+
+- no chain consensus
+- no gas model
+- no wallets
+- no miners
+- no external ledger
+
+The covenant runtime provides **formal local state transition contracts** for deterministic systems execution, workflow governance, and proof-carrying orchestration.
+
+## Canonical Model
+
+```text
 state_t
 + action_capsule
 + covenant_rules
 → next_state
 + proof_receipt
 + audit_artifact
+
 Supported Domains
 workflow contracts
 research protocol contracts

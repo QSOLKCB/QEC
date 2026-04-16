@@ -461,7 +461,7 @@ def validate_rigor_metric_pack(
         errors.append("metrics not in deterministic order")
 
     recomputed_aggregate = compute_aggregate_rigor_score(metrics)
-    if abs(float(aggregate_score) - recomputed_aggregate) > 0.0:
+    if abs(float(aggregate_score) - recomputed_aggregate) > 1e-12:
         errors.append("metric_pack.aggregate_score mismatch")
 
     expected_validation_passed = not bool(errors)

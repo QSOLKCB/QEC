@@ -508,12 +508,15 @@ def validate_persona_drift_tensor(
     if abs(float(aggregate_stability_score) - recomputed_aggregate_stability) > 1e-12:
         errors.append("tensor.aggregate_stability_score mismatch")
 
-    recomputed_drift_magnitude = compute_drift_magnitude(aggregate_stability_score)
-    if abs(float(aggregate_drift_magnitude) - recomputed_drift_magnitude) > 1e-12:
-        errors.append("tensor.aggregate_drift_magnitude mismatch")
+    try:
+        recomputed_drift_magnitude = compute_drift_magnitude(aggregate_stability_score)
+        if abs(float(aggregate_drift_magnitude) - recomputed_drift_magnitude) > 1e-12:
+            errors.append("tensor.aggregate_drift_magnitude mismatch")
 
-    if abs(float(aggregate_drift_magnitude) - (1.0 - float(aggregate_stability_score))) > 1e-12:
-        errors.append("aggregate drift law mismatch")
+        if abs(float(aggregate_drift_magnitude) - (1.0 - float(aggregate_stability_score))) > 1e-12:
+            errors.append("aggregate drift law mismatch")
+    except PersonaDriftTensorValidationError as exc:
+        errors.append(str(exc))
 
     expected_validation_passed = not bool(errors)
     expected_receipt = _build_receipt(

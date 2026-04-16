@@ -136,6 +136,7 @@ def test_semantic_tamper_detection():
         },
         "receipt": enforcement.receipt.to_dict(),
         "validation": enforcement.validation.to_dict(),
+        "target_family": enforcement.target_family,
     }
     report = validate_latency_budget(tampered)
     assert report.valid is False
@@ -174,6 +175,7 @@ def test_non_hard_violation_decision_tamper_detection():
         "decision": tampered_decision.to_dict(),
         "receipt": tampered_receipt.to_dict(),
         "validation": enforcement.validation.to_dict(),
+        "target_family": enforcement.target_family,
     }
     report = validate_latency_budget(tampered)
     assert report.valid is False
@@ -194,3 +196,61 @@ def test_reroute_is_limited_to_simulation_shadow():
         budget_policy=_policy(action="reroute"),
     )
     assert enforcement.decision.decision == "reroute"
+
+
+def test_none_metadata_policy_is_valid():
+    """_normalize_policy() must treat explicit None metadata as {} without TypeError."""
+    enforcement = enforce_latency_budget(
+        dispatch_receipt=_dispatch(),
+        projected_latency_ns=110,
+        budget_policy={
+            "policy_id": "policy-none-meta",
+            "max_latency_ns": 100,
+            "hard_limit_ns": 150,
+            "violation_action": "throttle",
+            "recovery_mode": "bounded",
+            "metadata": None,
+        },
+    )
+    assert enforcement.decision.decision == "throttle"
+    assert enforcement.validation.valid is True
+
+
+def test_violation_action_allow_honored():
+    """violation_action='allow' must produce an 'allow' decision for warning/violation classes."""
+    enforcement = enforce_latency_budget(
+        dispatch_receipt=_dispatch(),
+        projected_latency_ns=120,
+        budget_policy=_policy(action="allow"),
+    )
+    assert compute_latency_violation_class(projected_latency_ns=120, policy=_policy(action="allow")) == "warning"
+    assert enforcement.decision.decision == "allow"
+    assert enforcement.validation.valid is True
+
+
+def test_violation_action_reject_honored():
+    """violation_action='reject' must produce a 'reject' decision for warning/violation classes."""
+    enforcement = enforce_latency_budget(
+        dispatch_receipt=_dispatch(),
+        projected_latency_ns=120,
+        budget_policy=_policy(action="reject"),
+    )
+    assert enforcement.decision.decision == "reject"
+    assert enforcement.validation.valid is True
+
+
+def test_target_family_tamper_detection():
+    """Replacing target_family in the serialised enforcement must be caught by validation."""
+    enforcement = enforce_latency_budget(
+        dispatch_receipt=_dispatch(target_family="fpga"),
+        projected_latency_ns=140,
+        budget_policy=_policy(action="reroute"),
+    )
+    # Original decision must be 'throttle' (reroute not valid for fpga)
+    assert enforcement.decision.decision == "throttle"
+
+    # Tamper: replace target_family to make it look like reroute was correct
+    tampered = {**enforcement.to_dict(), "target_family": "simulation_shadow"}
+    report = validate_latency_budget(tampered)
+    assert report.valid is False
+    assert "decision.decision is inconsistent with policy semantics" in report.errors

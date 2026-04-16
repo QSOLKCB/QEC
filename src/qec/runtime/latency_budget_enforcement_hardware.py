@@ -200,6 +200,7 @@ class LatencyBudgetEnforcement:
     decision: LatencyEnforcementDecision
     receipt: LatencyBudgetReceipt
     validation: LatencyBudgetValidationReport
+    target_family: str
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -207,6 +208,7 @@ class LatencyBudgetEnforcement:
             "decision": self.decision.to_dict(),
             "receipt": self.receipt.to_dict(),
             "validation": self.validation.to_dict(),
+            "target_family": self.target_family,
         }
 
     def to_canonical_json(self) -> str:
@@ -221,13 +223,14 @@ def _normalize_policy(raw: LatencyBudgetPolicy | Mapping[str, Any]) -> LatencyBu
         return raw
     if not isinstance(raw, Mapping):
         raise LatencyBudgetValidationError("policy must be mapping or LatencyBudgetPolicy")
+    _meta = raw.get("metadata")
     return LatencyBudgetPolicy(
         policy_id=_normalize_text(raw.get("policy_id"), field="policy.policy_id"),
         max_latency_ns=_normalize_int(raw.get("max_latency_ns"), field="policy.max_latency_ns"),
         hard_limit_ns=_normalize_int(raw.get("hard_limit_ns"), field="policy.hard_limit_ns"),
         violation_action=_normalize_text(raw.get("violation_action"), field="policy.violation_action"),
         recovery_mode=_normalize_text(raw.get("recovery_mode"), field="policy.recovery_mode"),
-        metadata=_canonicalize_value(dict(raw.get("metadata", {})), field="policy.metadata"),
+        metadata=_canonicalize_value(_meta if isinstance(_meta, Mapping) else {}, field="policy.metadata"),
     )
 
 
@@ -278,9 +281,12 @@ def _resolve_decision(*, violation_class: str, policy: LatencyBudgetPolicy, targ
     if violation_class == "hard_breach":
         return "reject"
 
-    if policy.violation_action == "reroute" and target_family == "simulation_shadow":
-        return "reroute"
-    return "throttle"
+    # For warning/violation: honour the policy's violation_action.
+    # "reroute" is restricted to simulation_shadow targets; fall back to "throttle" otherwise.
+    action = policy.violation_action
+    if action == "reroute" and target_family != "simulation_shadow":
+        return "throttle"
+    return action
 
 
 def _extract_target_family(decision: LatencyEnforcementDecision) -> str:
@@ -354,6 +360,7 @@ def enforce_latency_budget(
         decision=decision,
         receipt=receipt,
         validation=LatencyBudgetValidationReport(valid=True, errors=(), error_count=0),
+        target_family=context["target_family"],
     )
     validation = validate_latency_budget(provisional)
     return LatencyBudgetEnforcement(
@@ -361,6 +368,7 @@ def enforce_latency_budget(
         decision=decision,
         receipt=receipt,
         validation=validation,
+        target_family=context["target_family"],
     )
 
 
@@ -378,23 +386,34 @@ def validate_latency_budget(
             decision_map = enforcement_obj["decision"]
             receipt_map = enforcement_obj["receipt"]
             validation_map = enforcement_obj.get("validation", {"valid": True, "errors": [], "error_count": 0})
+            decision_meta = decision_map.get("metadata")
+            decision = LatencyEnforcementDecision(
+                dispatch_id=_normalize_sha256_hex(decision_map["dispatch_id"], field="decision.dispatch_id"),
+                projected_latency_ns=_normalize_int(
+                    decision_map["projected_latency_ns"], field="decision.projected_latency_ns", minimum=0
+                ),
+                within_budget=_normalize_bool(decision_map["within_budget"], field="decision.within_budget"),
+                hard_limit_breached=_normalize_bool(
+                    decision_map["hard_limit_breached"], field="decision.hard_limit_breached"
+                ),
+                decision=_normalize_text(decision_map["decision"], field="decision.decision"),
+                enforcement_reason=_normalize_text(
+                    decision_map["enforcement_reason"], field="decision.enforcement_reason"
+                ),
+                metadata=_canonicalize_value(
+                    decision_meta if isinstance(decision_meta, Mapping) else {},
+                    field="decision.metadata",
+                ),
+            )
+            tf_raw = enforcement_obj.get("target_family")
+            resolved_target_family = (
+                tf_raw.strip()
+                if isinstance(tf_raw, str) and tf_raw.strip()
+                else _extract_target_family(decision)
+            )
             enforcement = LatencyBudgetEnforcement(
                 policy=policy,
-                decision=LatencyEnforcementDecision(
-                    dispatch_id=_normalize_sha256_hex(decision_map["dispatch_id"], field="decision.dispatch_id"),
-                    projected_latency_ns=_normalize_int(
-                        decision_map["projected_latency_ns"], field="decision.projected_latency_ns", minimum=0
-                    ),
-                    within_budget=_normalize_bool(decision_map["within_budget"], field="decision.within_budget"),
-                    hard_limit_breached=_normalize_bool(
-                        decision_map["hard_limit_breached"], field="decision.hard_limit_breached"
-                    ),
-                    decision=_normalize_text(decision_map["decision"], field="decision.decision"),
-                    enforcement_reason=_normalize_text(
-                        decision_map["enforcement_reason"], field="decision.enforcement_reason"
-                    ),
-                    metadata=_canonicalize_value(dict(decision_map.get("metadata", {})), field="decision.metadata"),
-                ),
+                decision=decision,
                 receipt=LatencyBudgetReceipt(
                     policy_hash=_normalize_sha256_hex(receipt_map["policy_hash"], field="receipt.policy_hash"),
                     dispatch_hash=_normalize_sha256_hex(receipt_map["dispatch_hash"], field="receipt.dispatch_hash"),
@@ -407,6 +426,7 @@ def validate_latency_budget(
                     errors=tuple(str(v) for v in tuple(validation_map.get("errors", ()))),
                     error_count=_normalize_int(validation_map.get("error_count", 0), field="validation.error_count", minimum=0),
                 ),
+                target_family=resolved_target_family,
             )
         else:
             raise LatencyBudgetValidationError("enforcement_obj must be mapping or LatencyBudgetEnforcement")
@@ -447,7 +467,7 @@ def validate_latency_budget(
     expected_decision = _resolve_decision(
         violation_class=recomputed_class,
         policy=enforcement.policy,
-        target_family=_extract_target_family(enforcement.decision),
+        target_family=enforcement.target_family,
     )
     if enforcement.decision.decision != expected_decision:
         errors.append("decision.decision is inconsistent with policy semantics")

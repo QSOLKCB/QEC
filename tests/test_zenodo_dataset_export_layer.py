@@ -327,3 +327,33 @@ def test_empty_title_author_version_rejection(field, value):
             stable_pack,
             **kwargs,
         )
+
+
+@pytest.mark.parametrize(
+    "reserved_key",
+    (
+        "hash_lineage",
+        "canonical_manifest_checksum",
+        "python_version",
+        "module_version",
+        "reproducibility_note",
+    ),
+)
+def test_reserved_reproducibility_metadata_key_collision_rejection(reserved_key):
+    """Caller-supplied reproducibility_metadata must not override generated lineage fields."""
+    artifact, matrix, rigor, drift, wrapper, stable_pack = _all_artifacts()
+    with pytest.raises(ZenodoDatasetExportValidationError, match="reserved generated keys"):
+        build_zenodo_dataset_export_bundle(
+            artifact,
+            matrix,
+            rigor,
+            drift,
+            wrapper,
+            stable_pack,
+            dataset_id="qec-frontier-v1382",
+            title="Frontier Comparative Determinism Harness Dataset",
+            version_tag="v138.2.16",
+            author="QSOLKCB",
+            affiliation="Quantum Systems Open Lab",
+            reproducibility_metadata={reserved_key: "attacker-controlled-value"},
+        )

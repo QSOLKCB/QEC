@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
-from typing import Any, Dict, Mapping, Sequence, Tuple
+from typing import Any, Dict, Mapping, Tuple
 
 from qec.runtime.throughput_scaling_study import (
     ThroughputSample,

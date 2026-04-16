@@ -85,7 +85,7 @@ def _normalize_basis_vectors(value: Any, *, dimension: int, field: str) -> Tuple
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise RuntimeAdmissibilityProjectionValidationError(f"{field} must be a sequence")
     if len(value) == 0:
-        raise RuntimeAdmissibilityProjectionValidationError("basis_vectors must be non-empty")
+        raise RuntimeAdmissibilityProjectionValidationError(f"{field} must be non-empty")
     basis: list[Tuple[float, ...]] = []
     for index, vector in enumerate(value):
         basis.append(_normalize_vector(vector, field=f"{field}[{index}]", expected_dimension=dimension))

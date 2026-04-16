@@ -55,7 +55,10 @@ def _normalize_required_text(value: Any, *, field: str) -> str:
         raise PromptCanonicalizationValidationError(f"{field} must not be None")
     if not isinstance(value, str):
         raise PromptCanonicalizationValidationError(f"{field} must be a string")
-    return value.strip()
+    normalized = value.strip()
+    if not normalized:
+        raise PromptCanonicalizationValidationError(f"{field} must be non-empty")
+    return normalized
 
 
 def _normalize_optional_text(value: Any, *, field: str) -> str | None:

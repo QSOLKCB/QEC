@@ -36,33 +36,6 @@ All roadmap work must preserve:
 
 ---
 
-### v138.2.14 — Wrapper Divergence Study
-
-Purpose:
-
-study platform mediation effects.
-
-Primary comparison:
-
-```text
-ChatGPT direct
-vs
-ChatGPT 5.4 via Sider
-```
-
-Core measurements:
-
-- system mediation drift
-- wrapper-layer divergence
-- truncation differences
-- hidden prompt effects
-- safety layer variation
-- token-level divergence
-
-This is paper-grade systems ethnography.
-
----
-
 ### v138.2.15 — Stable Evaluation Receipt Pack
 
 Purpose:

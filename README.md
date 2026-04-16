@@ -123,7 +123,7 @@ decoder substrate
 → DOI-ready export layer
 → operator console
 → runtime safety bridge
-
+```
 
 
 ⭐ Current Stable Tip

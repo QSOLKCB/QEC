@@ -125,7 +125,7 @@ decoder substrate
 → runtime safety bridge
 ```
 
-
+```
 ⭐ Current Stable Tip
 
 v138.3.5 — Proof-Carrying Runtime Bridge

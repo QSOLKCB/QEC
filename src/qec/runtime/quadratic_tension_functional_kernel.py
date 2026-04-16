@@ -467,6 +467,29 @@ def validate_quadratic_tension_functional(
                     errors.append(f"terms[{index}].coordinate_index must be >= 0")
                 if term.squared_component < 0.0:
                     errors.append(f"terms[{index}].squared_component must be >= 0")
+                if normalized_residual is not None:
+                    coord = term.coordinate_index
+                    if 0 <= coord < len(normalized_residual):
+                        expected_residual = normalized_residual[coord]
+                        if not math.isclose(
+                            term.residual_component,
+                            expected_residual,
+                            rel_tol=0.0,
+                            abs_tol=_QUADRATIC_TENSION_EQUALITY_TOLERANCE,
+                        ):
+                            errors.append(
+                                f"terms[{index}].residual_component does not match residual_vector[{coord}]"
+                            )
+                expected_squared = term.residual_component * term.residual_component
+                if not math.isclose(
+                    term.squared_component,
+                    expected_squared,
+                    rel_tol=0.0,
+                    abs_tol=_QUADRATIC_TENSION_EQUALITY_TOLERANCE,
+                ):
+                    errors.append(
+                        f"terms[{index}].squared_component does not equal residual_component**2"
+                    )
                 normalized_terms.append(term)
             except (QuadraticTensionFunctionalValidationError, TypeError, ValueError) as exc:
                 errors.append(str(exc))

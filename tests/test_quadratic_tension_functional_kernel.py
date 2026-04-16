@@ -116,3 +116,36 @@ def test_residual_term_non_negativity_enforcement():
     payload["terms"][0]["squared_component"] = -1.0
     report = validate_quadratic_tension_functional(payload)
     assert any("squared_component must be >= 0" in err for err in report.errors)
+
+
+def test_coordinate_index_must_be_integer_not_float():
+    functional = build_quadratic_tension_functional(_projection())
+    payload = functional.to_dict()
+    payload["terms"][0]["coordinate_index"] = 0.0
+    report = validate_quadratic_tension_functional(payload)
+    assert any("coordinate_index must be an integer" in err for err in report.errors)
+
+
+def test_coordinate_index_must_not_be_bool():
+    functional = build_quadratic_tension_functional(_projection())
+    payload = functional.to_dict()
+    payload["terms"][0]["coordinate_index"] = True
+    report = validate_quadratic_tension_functional(payload)
+    assert any("coordinate_index must be an integer" in err for err in report.errors)
+
+
+def test_tampered_residual_component_detected():
+    functional = build_quadratic_tension_functional(_projection())
+    payload = functional.to_dict()
+    payload["terms"][0]["residual_component"] = 999.0
+    report = validate_quadratic_tension_functional(payload)
+    assert any("residual_component does not match residual_vector" in err for err in report.errors)
+
+
+def test_tampered_squared_component_detected():
+    functional = build_quadratic_tension_functional(_projection())
+    payload = functional.to_dict()
+    original_residual = payload["terms"][0]["residual_component"]
+    payload["terms"][0]["squared_component"] = original_residual * original_residual + 1.0
+    report = validate_quadratic_tension_functional(payload)
+    assert any("squared_component does not equal residual_component**2" in err for err in report.errors)

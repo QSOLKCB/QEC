@@ -123,6 +123,21 @@ def test_prompt_hash_mismatch_rejection():
     assert "record.prompt_hash mismatch" in report.errors
 
 
+def test_record_invocation_id_mapping_mismatch_rejection():
+    artifact = _prompt_artifact()
+    matrix = build_multi_model_invocation_matrix(artifact, _spec_mappings(artifact.receipt.prompt_hash))
+    tampered = {
+        **matrix.to_dict(),
+        "records": [
+            {**matrix.records[0].to_dict(), "invocation_id": "inv-z"},
+            matrix.records[1].to_dict(),
+        ],
+    }
+    report = validate_invocation_matrix(tampered)
+    assert report.valid is False
+    assert "record.invocation_id set must match spec.invocation_id set" in report.errors
+
+
 def test_mapping_dataclass_parity():
     artifact = _prompt_artifact()
     mappings = _spec_mappings(artifact.receipt.prompt_hash)

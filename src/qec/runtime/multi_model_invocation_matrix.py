@@ -411,6 +411,9 @@ def validate_invocation_matrix(
     invocation_ids = [spec.invocation_id for spec in specs]
     if len(set(invocation_ids)) != len(invocation_ids):
         errors.append("invocation_id must be unique")
+    record_invocation_ids = [record.invocation_id for record in records]
+    if len(set(record_invocation_ids)) != len(record_invocation_ids):
+        errors.append("record.invocation_id must be unique")
 
     for spec in specs:
         if spec.prompt_hash != prompt_hash:
@@ -432,6 +435,8 @@ def validate_invocation_matrix(
 
     if len(records) != len(specs):
         errors.append("record count must equal spec count")
+    if set(record_invocation_ids) != set(invocation_ids):
+        errors.append("record.invocation_id set must match spec.invocation_id set")
 
     expected_order = _ordered_records(records)
     if expected_order != tuple(records):

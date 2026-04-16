@@ -390,10 +390,10 @@ Same input
 - Dark-State Invariants  
   DOI: https://doi.org/10.5281/zenodo.19104208
 
-Additional project papers and research notes:  
+**Project Papers**:  
 https://github.com/QSOLKCB/QEC/tree/main/papers
 
-**Project Papers and Research Notes**
+
 
 ---
 

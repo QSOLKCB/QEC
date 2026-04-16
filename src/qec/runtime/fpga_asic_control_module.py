@@ -35,7 +35,12 @@ def _stable_hash(data: Any) -> str:
 
 
 def _normalize_text(value: Any, *, field: str) -> str:
-    text = str(value).strip()
+    """Validate required text fields without coercing missing values."""
+    if value is None:
+        raise HardwareControlValidationError(f"{field} must be a string")
+    if not isinstance(value, str):
+        raise HardwareControlValidationError(f"{field} must be a string")
+    text = value.strip()
     if not text:
         raise HardwareControlValidationError(f"{field} must be non-empty")
     return text

@@ -9,10 +9,12 @@ import pytest
 
 from qec.simulation.experiment_packaging_format import (
     EXPERIMENT_PACKAGING_FORMAT_VERSION,
+    ExperimentPackage,
     ExperimentPackageManifest,
     ExperimentPackageValidationError,
     build_experiment_package,
     package_replay_identity,
+    validate_experiment_package,
 )
 
 
@@ -187,3 +189,71 @@ def test_canonical_json_round_trip_stability() -> None:
     parsed = json.loads(json_a)
     json_b = json.dumps(parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
     assert json_a == json_b
+
+
+def test_bool_seed_rejection() -> None:
+    bad = _manifest_payload()
+    bad["seed"] = True
+    with pytest.raises(ExperimentPackageValidationError, match="manifest.seed must be int or str"):
+        build_experiment_package(manifest=bad, artifacts=_artifact_payloads())
+
+
+def test_missing_manifest_required_key_raises_validation_error() -> None:
+    for key in ("seed", "package_kind", "experiment_id", "simulator_release",
+                "simulator_module", "scenario_hash", "topology_family",
+                "code_family", "parameter_hash"):
+        bad = _manifest_payload()
+        del bad[key]
+        with pytest.raises(ExperimentPackageValidationError, match=key):
+            build_experiment_package(manifest=bad, artifacts=_artifact_payloads())
+
+
+def test_missing_artifact_required_key_raises_validation_error() -> None:
+    for key in ("artifact_role", "artifact_hash", "artifact_kind", "serialization_format"):
+        bad = dict(_artifact_payloads()[0])
+        del bad[key]
+        with pytest.raises(ExperimentPackageValidationError, match=key):
+            build_experiment_package(manifest=_manifest_payload(), artifacts=(bad,))
+
+
+def test_bool_content_bytes_rejection() -> None:
+    bad = dict(_artifact_payloads()[0])
+    bad["content_bytes"] = True
+    with pytest.raises(ExperimentPackageValidationError, match="content_bytes"):
+        build_experiment_package(manifest=_manifest_payload(), artifacts=(bad,))
+
+
+def test_non_numeric_content_bytes_raises_validation_error() -> None:
+    bad = dict(_artifact_payloads()[0])
+    bad["content_bytes"] = "not-a-number"
+    with pytest.raises(ExperimentPackageValidationError, match="content_bytes"):
+        build_experiment_package(manifest=_manifest_payload(), artifacts=(bad,))
+
+
+def test_validate_enforces_manifest_collection_ordering() -> None:
+    # Build a valid package first to get a correctly hashed receipt.
+    pkg = build_experiment_package(manifest=_manifest_payload(), artifacts=_artifact_payloads())
+
+    # Reverse realization_hashes so they are not sorted.
+    reversed_hashes = tuple(reversed(pkg.manifest.realization_hashes))
+    bad_manifest = ExperimentPackageManifest(
+        format_version=pkg.manifest.format_version,
+        package_kind=pkg.manifest.package_kind,
+        experiment_id=pkg.manifest.experiment_id,
+        simulator_release=pkg.manifest.simulator_release,
+        simulator_module=pkg.manifest.simulator_module,
+        scenario_hash=pkg.manifest.scenario_hash,
+        realization_hashes=reversed_hashes,
+        topology_family=pkg.manifest.topology_family,
+        code_family=pkg.manifest.code_family,
+        seed=pkg.manifest.seed,
+        parameter_hash=pkg.manifest.parameter_hash,
+        policy_flags=pkg.manifest.policy_flags,
+        benchmark_id=pkg.manifest.benchmark_id,
+        manifest_lineage_hash=pkg.manifest.manifest_lineage_hash,
+        notes=pkg.manifest.notes,
+    )
+    bad_pkg = ExperimentPackage(manifest=bad_manifest, artifacts=pkg.artifacts, receipt=pkg.receipt)
+    report = validate_experiment_package(bad_pkg)
+    assert not report.valid
+    assert any("realization_hashes" in e for e in report.errors)

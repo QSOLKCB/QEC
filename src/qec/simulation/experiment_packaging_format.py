@@ -83,6 +83,10 @@ def _normalize_hash_tuple(values: Sequence[str], *, field: str) -> Tuple[str, ..
 
 
 def _artifact_sort_key(artifact: "ExperimentPackageArtifact") -> Tuple[Any, ...]:
+    try:
+        metadata_hash = _stable_hash(artifact.metadata)
+    except (TypeError, ValueError):
+        metadata_hash = ""
     return (
         artifact.artifact_role,
         artifact.artifact_kind,
@@ -90,12 +94,36 @@ def _artifact_sort_key(artifact: "ExperimentPackageArtifact") -> Tuple[Any, ...]
         artifact.artifact_hash,
         artifact.lineage_hash or "",
         artifact.content_bytes if artifact.content_bytes is not None else -1,
-        _stable_hash(artifact.metadata),
+        metadata_hash,
     )
 
 
 
-def _package_hash_payload(*, manifest_hash: str, artifact_set_hash: str, upstream_receipt_hashes: Tuple[str, ...], package_version: str) -> Dict[str, Any]:
+def _require_key(mapping: Mapping, key: str, context: str) -> Any:
+    """Return mapping[key]. Raises ExperimentPackageValidationError if key is missing."""
+    try:
+        return mapping[key]
+    except KeyError:
+        raise ExperimentPackageValidationError(f"{context}.{key} is required")
+
+
+def _parse_content_bytes(value: Any, *, field: str = "artifact.content_bytes") -> "int | None":
+    """Parse and validate content_bytes: reject bool, coerce to int, enforce >= 0."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ExperimentPackageValidationError(f"{field} must be a non-negative integer, not bool")
+    try:
+        result = int(value)
+    except (ValueError, TypeError) as exc:
+        raise ExperimentPackageValidationError(f"{field} must be a non-negative integer") from exc
+    if result < 0:
+        raise ExperimentPackageValidationError(f"{field} must be >= 0")
+    return result
+
+
+def _package_hash_payload(
+    *, manifest_hash: str, artifact_set_hash: str, upstream_receipt_hashes: Tuple[str, ...], package_version: str) -> Dict[str, Any]:
     return {
         "manifest_hash": manifest_hash,
         "artifact_set_hash": artifact_set_hash,
@@ -254,22 +282,22 @@ def _manifest_from_any(raw: ExperimentPackageManifest | Mapping[str, Any]) -> Ex
 
     benchmark_id = raw.get("benchmark_id")
     lineage_hash = raw.get("manifest_lineage_hash")
-    seed = raw["seed"]
-    if not isinstance(seed, (str, int)):
+    seed = _require_key(raw, "seed", "manifest")
+    if isinstance(seed, bool) or not isinstance(seed, (str, int)):
         raise ExperimentPackageValidationError("manifest.seed must be int or str")
 
     return ExperimentPackageManifest(
         format_version=_normalize_text(raw.get("format_version", EXPERIMENT_PACKAGING_FORMAT_VERSION), field="manifest.format_version"),
-        package_kind=_normalize_text(raw["package_kind"], field="manifest.package_kind"),
-        experiment_id=_normalize_text(raw["experiment_id"], field="manifest.experiment_id"),
-        simulator_release=_normalize_text(raw["simulator_release"], field="manifest.simulator_release"),
-        simulator_module=_normalize_text(raw["simulator_module"], field="manifest.simulator_module"),
-        scenario_hash=_normalize_hash(raw["scenario_hash"], field="manifest.scenario_hash"),
+        package_kind=_normalize_text(_require_key(raw, "package_kind", "manifest"), field="manifest.package_kind"),
+        experiment_id=_normalize_text(_require_key(raw, "experiment_id", "manifest"), field="manifest.experiment_id"),
+        simulator_release=_normalize_text(_require_key(raw, "simulator_release", "manifest"), field="manifest.simulator_release"),
+        simulator_module=_normalize_text(_require_key(raw, "simulator_module", "manifest"), field="manifest.simulator_module"),
+        scenario_hash=_normalize_hash(_require_key(raw, "scenario_hash", "manifest"), field="manifest.scenario_hash"),
         realization_hashes=_normalize_hash_tuple(tuple(raw.get("realization_hashes", ())), field="manifest.realization_hashes"),
-        topology_family=_normalize_text(raw["topology_family"], field="manifest.topology_family"),
-        code_family=_normalize_text(raw["code_family"], field="manifest.code_family"),
+        topology_family=_normalize_text(_require_key(raw, "topology_family", "manifest"), field="manifest.topology_family"),
+        code_family=_normalize_text(_require_key(raw, "code_family", "manifest"), field="manifest.code_family"),
         seed=str(seed) if isinstance(seed, str) else int(seed),
-        parameter_hash=_normalize_hash(raw["parameter_hash"], field="manifest.parameter_hash"),
+        parameter_hash=_normalize_hash(_require_key(raw, "parameter_hash", "manifest"), field="manifest.parameter_hash"),
         policy_flags=tuple(sorted(_normalize_text(flag, field="manifest.policy_flags") for flag in tuple(raw.get("policy_flags", ())))),
         benchmark_id=None if benchmark_id is None else _normalize_text(benchmark_id, field="manifest.benchmark_id"),
         manifest_lineage_hash=None if lineage_hash is None else _normalize_hash(lineage_hash, field="manifest.manifest_lineage_hash"),
@@ -286,25 +314,23 @@ def _artifact_from_any(raw: ExperimentPackageArtifact | Mapping[str, Any]) -> Ex
             artifact_hash=_normalize_hash(raw.artifact_hash, field="artifact.artifact_hash"),
             artifact_kind=_normalize_text(raw.artifact_kind, field="artifact.artifact_kind"),
             serialization_format=_normalize_text(raw.serialization_format, field="artifact.serialization_format"),
-            content_bytes=None if raw.content_bytes is None else int(raw.content_bytes),
+            content_bytes=_parse_content_bytes(raw.content_bytes),
             lineage_hash=None if raw.lineage_hash is None else _normalize_hash(raw.lineage_hash, field="artifact.lineage_hash"),
             metadata=metadata,
         )
     if not isinstance(raw, Mapping):
         raise ExperimentPackageValidationError("artifact must be mapping or ExperimentPackageArtifact")
 
-    content_bytes = raw.get("content_bytes")
-    if content_bytes is not None and int(content_bytes) < 0:
-        raise ExperimentPackageValidationError("artifact.content_bytes must be >= 0")
+    content_bytes = _parse_content_bytes(raw.get("content_bytes"))
     lineage_hash = raw.get("lineage_hash")
     metadata = _canonicalize_value(dict(raw.get("metadata", {})), field="artifact.metadata")
 
     return ExperimentPackageArtifact(
-        artifact_role=_normalize_text(raw["artifact_role"], field="artifact.artifact_role").lower(),
-        artifact_hash=_normalize_hash(raw["artifact_hash"], field="artifact.artifact_hash"),
-        artifact_kind=_normalize_text(raw["artifact_kind"], field="artifact.artifact_kind"),
-        serialization_format=_normalize_text(raw["serialization_format"], field="artifact.serialization_format"),
-        content_bytes=None if content_bytes is None else int(content_bytes),
+        artifact_role=_normalize_text(_require_key(raw, "artifact_role", "artifact"), field="artifact.artifact_role").lower(),
+        artifact_hash=_normalize_hash(_require_key(raw, "artifact_hash", "artifact"), field="artifact.artifact_hash"),
+        artifact_kind=_normalize_text(_require_key(raw, "artifact_kind", "artifact"), field="artifact.artifact_kind"),
+        serialization_format=_normalize_text(_require_key(raw, "serialization_format", "artifact"), field="artifact.serialization_format"),
+        content_bytes=content_bytes,
         lineage_hash=None if lineage_hash is None else _normalize_hash(lineage_hash, field="artifact.lineage_hash"),
         metadata=metadata,
     )
@@ -398,12 +424,17 @@ def validate_experiment_package(package: ExperimentPackage) -> ExperimentPackage
         if not _is_hex_sha256(value):
             errors.append(f"manifest.realization_hashes[{index}] must be 64-char lowercase SHA-256 hex")
 
+    if list(package.manifest.realization_hashes) != sorted(package.manifest.realization_hashes):
+        errors.append("manifest.realization_hashes must be pre-sorted in canonical order")
+    if list(package.manifest.policy_flags) != sorted(package.manifest.policy_flags):
+        errors.append("manifest.policy_flags must be pre-sorted in canonical order")
+    if list(package.manifest.notes) != sorted(package.manifest.notes):
+        errors.append("manifest.notes must be pre-sorted in canonical order")
+
     # Artifact invariants + deterministic ordering.
     seen_roles = set()
-    canonical_roles = []
     for idx, artifact in enumerate(package.artifacts):
         canonical_role = artifact.artifact_role.strip().lower()
-        canonical_roles.append(canonical_role)
         if canonical_role in seen_roles:
             errors.append(f"duplicate artifact role after canonical normalization: {canonical_role!r}")
         seen_roles.add(canonical_role)

@@ -379,8 +379,6 @@ def compute_throughput_profile(
 
         if policy.degradation_mode == "soft_throttle" and lane_count > policy.max_parallel_lanes:
             effective_ops = int(math.floor(float(effective_ops) * 0.9))
-        elif policy.degradation_mode == "hard_cap" and lane_count >= policy.max_parallel_lanes:
-            effective_ops = min(projected_ops, cap)
 
         saturation_score = min(1.0, float(projected_ops) / float(max(1, cap)))
 

@@ -36,30 +36,6 @@ All roadmap work must preserve:
 
 ---
 
-### v138.2.16 — Zenodo Dataset Export Layer
-
-Purpose:
-
-package comparative studies into citable research datasets.
-
-Automatically export:
-
-- prompt manifests
-- raw outputs
-- normalized outputs
-- divergence metrics
-- evaluation receipts
-- methodology notes
-- reproducibility metadata
-
-Target:
-
-Zenodo / DOI-ready dataset bundles.
-
-This is the publication and archival layer for the comparative determinism arc.
-
----
-
 # ACTIVE ENGINEERING EPOCHS
 
 ---

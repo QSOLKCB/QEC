@@ -233,8 +233,6 @@ def build_proof_carrying_runtime_bridge(
         raise ProofCarryingRuntimeBridgeValidationError("lineage mismatch: verdict")
     if firewall_verdict not in _SUPPORTED_VERDICTS:
         raise ProofCarryingRuntimeBridgeValidationError(f"unsupported verdict: {firewall_verdict}")
-    if firewall_verdict != "allow":
-        raise ProofCarryingRuntimeBridgeValidationError("bridge authorization requires firewall verdict 'allow'")
 
     authorized = firewall_verdict == "allow"
     authorization_hash = _stable_hash(

@@ -248,7 +248,7 @@ class ExperimentPackageValidationReport:
 
 def _manifest_from_any(raw: ExperimentPackageManifest | Mapping[str, Any]) -> ExperimentPackageManifest:
     if isinstance(raw, ExperimentPackageManifest):
-        return raw
+        raw = raw.to_dict()
     if not isinstance(raw, Mapping):
         raise ExperimentPackageValidationError("manifest must be mapping or ExperimentPackageManifest")
 

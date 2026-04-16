@@ -9,6 +9,7 @@ import pytest
 
 from qec.simulation.experiment_packaging_format import (
     EXPERIMENT_PACKAGING_FORMAT_VERSION,
+    ExperimentPackageManifest,
     ExperimentPackageValidationError,
     build_experiment_package,
     package_replay_identity,
@@ -97,6 +98,36 @@ def test_artifact_ordering_stability() -> None:
 
     assert package_a.artifacts == package_b.artifacts
     assert package_a.receipt.package_hash == package_b.receipt.package_hash
+
+
+def test_manifest_dataclass_input_is_canonicalized_before_hashing() -> None:
+    manifest_dict = _manifest_payload()
+    manifest_dataclass = ExperimentPackageManifest(
+        format_version=manifest_dict["format_version"],
+        package_kind=manifest_dict["package_kind"],
+        experiment_id=manifest_dict["experiment_id"],
+        simulator_release=manifest_dict["simulator_release"],
+        simulator_module=manifest_dict["simulator_module"],
+        scenario_hash=manifest_dict["scenario_hash"],
+        realization_hashes=tuple(reversed(manifest_dict["realization_hashes"])),
+        topology_family=manifest_dict["topology_family"],
+        code_family=manifest_dict["code_family"],
+        seed=manifest_dict["seed"],
+        parameter_hash=manifest_dict["parameter_hash"],
+        policy_flags=tuple(reversed(manifest_dict["policy_flags"])),
+        benchmark_id=manifest_dict["benchmark_id"],
+        manifest_lineage_hash=manifest_dict["manifest_lineage_hash"],
+        notes=tuple(reversed(manifest_dict["notes"])),
+    )
+
+    package_from_dict = build_experiment_package(manifest=manifest_dict, artifacts=_artifact_payloads())
+    package_from_dataclass = build_experiment_package(manifest=manifest_dataclass, artifacts=_artifact_payloads())
+
+    assert package_from_dataclass.manifest.realization_hashes == tuple(sorted(manifest_dict["realization_hashes"]))
+    assert package_from_dataclass.manifest.policy_flags == tuple(sorted(manifest_dict["policy_flags"]))
+    assert package_from_dataclass.manifest.notes == tuple(sorted(manifest_dict["notes"]))
+    assert package_from_dict.receipt.manifest_hash == package_from_dataclass.receipt.manifest_hash
+    assert package_from_dict.receipt.package_hash == package_from_dataclass.receipt.package_hash
 
 
 def test_validation_failure_on_malformed_manifest() -> None:

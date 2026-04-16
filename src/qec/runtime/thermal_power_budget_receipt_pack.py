@@ -30,6 +30,9 @@ _SHA256_HEX_CHARS: frozenset = frozenset("0123456789abcdef")
 
 _THERMAL_DIVISOR: int = 10
 _POWER_DIVISOR: int = 8
+# Extra headroom allowed above the declared budget before the saturating/throttled cap takes effect.
+_THERMAL_SATURATION_HEADROOM: int = 10
+_POWER_THROTTLE_HEADROOM: int = 10
 
 
 class ThermalPowerBudgetValidationError(ValueError):
@@ -135,6 +138,7 @@ class ThermalPowerPolicy:
 @dataclass(frozen=True)
 class ThermalBudgetReceipt:
     sample_id: str
+    lane_count: int
     projected_thermal_units: int
     within_thermal_budget: bool
     thermal_pressure_score: float
@@ -143,6 +147,7 @@ class ThermalBudgetReceipt:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "sample_id": self.sample_id,
+            "lane_count": int(self.lane_count),
             "projected_thermal_units": int(self.projected_thermal_units),
             "within_thermal_budget": bool(self.within_thermal_budget),
             "thermal_pressure_score": float(self.thermal_pressure_score),
@@ -159,6 +164,7 @@ class ThermalBudgetReceipt:
 @dataclass(frozen=True)
 class PowerBudgetReceipt:
     sample_id: str
+    lane_count: int
     projected_power_units: int
     within_power_budget: bool
     power_pressure_score: float
@@ -167,6 +173,7 @@ class PowerBudgetReceipt:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "sample_id": self.sample_id,
+            "lane_count": int(self.lane_count),
             "projected_power_units": int(self.projected_power_units),
             "within_power_budget": bool(self.within_power_budget),
             "power_pressure_score": float(self.power_pressure_score),
@@ -344,7 +351,7 @@ def _apply_thermal_mode(*, ops: int, budget: int, mode: str) -> int:
     if mode == "linear":
         return base
     if mode == "saturating":
-        return min(base, budget + 10)
+        return min(base, budget + _THERMAL_SATURATION_HEADROOM)
     if mode == "bounded_envelope":
         return min(base, budget)
     raise ThermalPowerBudgetValidationError(f"unsupported policy.thermal_mode: {mode!r}")
@@ -357,7 +364,7 @@ def _apply_power_mode(*, ops: int, budget: int, mode: str) -> int:
     if mode == "capped":
         return min(base, budget)
     if mode == "throttled":
-        return min(base, budget + 10)
+        return min(base, budget + _POWER_THROTTLE_HEADROOM)
     raise ThermalPowerBudgetValidationError(f"unsupported policy.power_mode: {mode!r}")
 
 
@@ -391,6 +398,7 @@ def compute_thermal_power_profile(
         thermal_receipts.append(
             ThermalBudgetReceipt(
                 sample_id=sample.sample_id,
+                lane_count=sample.lane_count,
                 projected_thermal_units=projected_thermal_units,
                 within_thermal_budget=projected_thermal_units <= normalized_policy.max_thermal_units,
                 thermal_pressure_score=thermal_pressure,
@@ -406,6 +414,7 @@ def compute_thermal_power_profile(
         power_receipts.append(
             PowerBudgetReceipt(
                 sample_id=sample.sample_id,
+                lane_count=sample.lane_count,
                 projected_power_units=projected_power_units,
                 within_power_budget=projected_power_units <= normalized_policy.max_power_units,
                 power_pressure_score=power_pressure,
@@ -420,8 +429,8 @@ def compute_thermal_power_profile(
         )
 
     return (
-        tuple(sorted(thermal_receipts, key=lambda r: r.sample_id)),
-        tuple(sorted(power_receipts, key=lambda r: r.sample_id)),
+        tuple(sorted(thermal_receipts, key=lambda r: (r.lane_count, r.sample_id))),
+        tuple(sorted(power_receipts, key=lambda r: (r.lane_count, r.sample_id))),
     )
 
 
@@ -538,6 +547,7 @@ def validate_thermal_power_budget_pack(
                 thermal_receipts.append(
                     ThermalBudgetReceipt(
                         sample_id=_normalize_sha256_hex(entry["sample_id"], field="thermal_receipt.sample_id"),
+                        lane_count=_normalize_int(entry["lane_count"], field="thermal_receipt.lane_count", minimum=0),
                         projected_thermal_units=_normalize_int(
                             entry["projected_thermal_units"], field="thermal_receipt.projected_thermal_units"
                         ),
@@ -557,6 +567,7 @@ def validate_thermal_power_budget_pack(
                 power_receipts.append(
                     PowerBudgetReceipt(
                         sample_id=_normalize_sha256_hex(entry["sample_id"], field="power_receipt.sample_id"),
+                        lane_count=_normalize_int(entry["lane_count"], field="power_receipt.lane_count", minimum=0),
                         projected_power_units=_normalize_int(
                             entry["projected_power_units"], field="power_receipt.projected_power_units"
                         ),
@@ -618,7 +629,7 @@ def validate_thermal_power_budget_pack(
         if abs(receipt.thermal_pressure_score - expected_pressure) > 1e-12:
             errors.append(f"thermal_receipt[{receipt.sample_id}].thermal_pressure_score mismatch")
 
-        key = receipt.sample_id
+        key = (receipt.lane_count, receipt.sample_id)
         if previous_thermal_key is not None and key < previous_thermal_key:
             errors.append("thermal_receipts are not in deterministic ordering")
         previous_thermal_key = key
@@ -638,7 +649,7 @@ def validate_thermal_power_budget_pack(
         if abs(receipt.power_pressure_score - expected_pressure) > 1e-12:
             errors.append(f"power_receipt[{receipt.sample_id}].power_pressure_score mismatch")
 
-        key = receipt.sample_id
+        key = (receipt.lane_count, receipt.sample_id)
         if previous_power_key is not None and key < previous_power_key:
             errors.append("power_receipts are not in deterministic ordering")
         previous_power_key = key

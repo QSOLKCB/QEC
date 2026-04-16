@@ -189,3 +189,34 @@ def test_replay_projection_stability():
     a = budget_replay_projection(study)
     b = budget_replay_projection(study)
     assert a == b
+
+
+def test_receipt_ordering_by_lane_count_then_sample_id():
+    study = build_thermal_power_budget_pack(
+        throughput_study=_throughput_study(),
+        thermal_power_policy=_policy(),
+    )
+    thermal_keys = [(r.lane_count, r.sample_id) for r in study.thermal_receipts]
+    assert thermal_keys == sorted(thermal_keys), "thermal_receipts must be ordered by (lane_count, sample_id)"
+    power_keys = [(r.lane_count, r.sample_id) for r in study.power_receipts]
+    assert power_keys == sorted(power_keys), "power_receipts must be ordered by (lane_count, sample_id)"
+
+
+def test_thermal_saturating_headroom_path():
+    # saturating mode caps projected at min(ops // divisor, budget + _THERMAL_SATURATION_HEADROOM)
+    study = build_thermal_power_budget_pack(
+        throughput_study=_throughput_study(),
+        thermal_power_policy=_policy(thermal_mode="saturating", max_thermal_units=5),
+    )
+    ceiling = 5 + 10  # budget + _THERMAL_SATURATION_HEADROOM
+    assert all(receipt.projected_thermal_units <= ceiling for receipt in study.thermal_receipts)
+
+
+def test_power_throttled_headroom_path():
+    # throttled mode caps projected at min(ops // divisor, budget + _POWER_THROTTLE_HEADROOM)
+    study = build_thermal_power_budget_pack(
+        throughput_study=_throughput_study(),
+        thermal_power_policy=_policy(power_mode="throttled", max_power_units=5),
+    )
+    ceiling = 5 + 10  # budget + _POWER_THROTTLE_HEADROOM
+    assert all(receipt.projected_power_units <= ceiling for receipt in study.power_receipts)

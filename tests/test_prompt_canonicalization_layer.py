@@ -121,6 +121,18 @@ def test_receipt_tamper_detection():
     assert "receipt.receipt_hash mismatch" in report.errors
 
 
+def test_validate_rejects_raw_spec_artifact_pair_mismatch():
+    base = _valid_mapping()
+    artifact = build_canonical_prompt_artifact(base)
+    raw_spec = {**base, "prompt_text": "Different caller text."}
+    report = validate_prompt_spec(raw_spec, artifact.to_dict())
+    assert report.valid is False
+    assert "artifact.spec mismatch" in report.errors
+    assert "receipt.prompt_hash mismatch" in report.errors
+    assert "receipt.spec_hash mismatch" in report.errors
+    assert "receipt.receipt_hash mismatch" in report.errors
+
+
 def test_canonical_json_round_trip():
     artifact = build_canonical_prompt_artifact(_valid_mapping())
     payload = json.loads(artifact.to_canonical_json())

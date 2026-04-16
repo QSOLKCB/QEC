@@ -366,6 +366,11 @@ def validate_prompt_spec(
 ) -> PromptCanonicalizationValidationReport:
     spec_map = _extract_mapping(raw_spec)
     errors = list(_collect_validation_errors_from_mapping(spec_map))
+    normalized_input_spec: PromptSpec
+    try:
+        normalized_input_spec = normalize_prompt_spec(spec_map)
+    except PromptCanonicalizationValidationError:
+        normalized_input_spec = _normalize_prompt_spec_permissive(spec_map)
 
     if artifact is not None:
         if isinstance(artifact, CanonicalPromptArtifact):
@@ -380,9 +385,12 @@ def validate_prompt_spec(
             artifact_spec = build_canonical_prompt_artifact(spec_map).spec
             receipt_map = {}
 
-        expected_prompt_hash = _stable_hash(_build_prompt_hash_payload(artifact_spec))
-        expected_spec_hash = artifact_spec.stable_hash()
-        expected_wrapper_hash = _stable_hash(artifact_spec.to_dict()["wrapper_metadata"])
+        if artifact_spec.stable_hash() != normalized_input_spec.stable_hash():
+            errors.append("artifact.spec mismatch")
+
+        expected_prompt_hash = _stable_hash(_build_prompt_hash_payload(normalized_input_spec))
+        expected_spec_hash = normalized_input_spec.stable_hash()
+        expected_wrapper_hash = _stable_hash(normalized_input_spec.to_dict()["wrapper_metadata"])
         provided_validation_passed = bool(receipt_map.get("validation_passed", False))
         expected_receipt_hash = _stable_hash(
             {

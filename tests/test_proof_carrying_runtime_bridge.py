@@ -58,15 +58,53 @@ def _lineage_allow(state=(2.0, -1.5, 0.0)):
     return proof_pack, firewall
 
 
-def _bridge_payload_with_verdict(verdict: str) -> dict:
-    proof_pack, firewall = _lineage_allow()
-    firewall_payload = firewall.to_dict()
-    firewall_payload["verdict"]["verdict"] = verdict
-    proof_pack_payload = proof_pack.to_dict()
-    proof_pack_payload["verdict"] = verdict
+def _lineage_deny():
+    projection = _projection()
+    tension = build_quadratic_tension_functional(projection)
+    recovery = build_deterministic_recovery_state(projection, tension)
+    constraints = (
+        DispatchConstraint(
+            constraint_id="c-deny",
+            constraint_type="recovery_magnitude",
+            threshold=1000.0,
+            operator=">=",
+            metadata={"hard": True},
+        ),
+    )
+    firewall = build_constraint_bound_dispatch_firewall(recovery, tension, constraints)
+    proof_pack = build_hardware_admissibility_proof_pack(projection, tension, recovery, firewall)
+    return proof_pack, firewall
 
-    bridge = build_proof_carrying_runtime_bridge(proof_pack_payload, firewall_payload)
+
+def _lineage_recover_only():
+    projection = _projection()
+    tension = build_quadratic_tension_functional(projection)
+    recovery = build_deterministic_recovery_state(projection, tension)
+    constraints = (
+        DispatchConstraint(
+            constraint_id="c-soft",
+            constraint_type="recovery_magnitude",
+            threshold=1000.0,
+            operator=">=",
+            metadata={"hard": False},
+        ),
+    )
+    firewall = build_constraint_bound_dispatch_firewall(recovery, tension, constraints)
+    proof_pack = build_hardware_admissibility_proof_pack(projection, tension, recovery, firewall)
+    return proof_pack, firewall
+
+
+def _bridge_payload_with_verdict(verdict: str) -> dict:
+    if verdict == "deny":
+        proof_pack, firewall = _lineage_deny()
+    elif verdict == "recover_only":
+        proof_pack, firewall = _lineage_recover_only()
+    else:
+        proof_pack, firewall = _lineage_allow()
+    bridge = build_proof_carrying_runtime_bridge(proof_pack, firewall)
     return bridge.to_dict()
+
+
 def test_same_input_same_bytes():
     proof_pack, firewall = _lineage_allow()
     a = build_proof_carrying_runtime_bridge(proof_pack, firewall)
@@ -99,7 +137,7 @@ def test_lineage_mismatch_rejection():
     proof_pack, firewall = _lineage_allow()
     bad_firewall = firewall.to_dict()
     bad_firewall["state_id"] = "state-other"
-    with pytest.raises(ProofCarryingRuntimeBridgeValidationError, match="lineage mismatch"):
+    with pytest.raises(ProofCarryingRuntimeBridgeValidationError, match="upstream validation|lineage mismatch"):
         build_proof_carrying_runtime_bridge(proof_pack, bad_firewall)
 
 
@@ -107,7 +145,7 @@ def test_invalid_verdict_rejection():
     proof_pack, firewall = _lineage_allow()
     bad_firewall = firewall.to_dict()
     bad_firewall["verdict"]["verdict"] = "invalid"
-    with pytest.raises(ProofCarryingRuntimeBridgeValidationError, match="lineage mismatch: verdict|unsupported verdict"):
+    with pytest.raises(ProofCarryingRuntimeBridgeValidationError, match="upstream validation|lineage mismatch|unsupported"):
         build_proof_carrying_runtime_bridge(proof_pack, bad_firewall)
 
 

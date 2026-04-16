@@ -9,6 +9,13 @@ import json
 import math
 from typing import Any, Dict, Mapping, Tuple
 
+from qec.runtime.hardware_admissibility_proof_pack import (
+    validate_hardware_admissibility_proof_pack,
+)
+from qec.runtime.constraint_bound_dispatch_firewall import (
+    validate_constraint_bound_dispatch_firewall,
+)
+
 PROOF_CARRYING_RUNTIME_BRIDGE_VERSION = "v138.3.5"
 _SUPPORTED_VERDICTS = ("allow", "deny", "recover_only")
 
@@ -217,6 +224,17 @@ def build_proof_carrying_runtime_bridge(
     proof_pack_map = _extract_mapping(hardware_proof_pack, field="hardware_proof_pack")
     firewall_map = _extract_mapping(firewall_artifact, field="firewall_artifact")
 
+    pack_report = validate_hardware_admissibility_proof_pack(proof_pack_map)
+    if not pack_report.valid:
+        raise ProofCarryingRuntimeBridgeValidationError(
+            f"hardware_proof_pack failed upstream validation: {pack_report.errors}"
+        )
+    fw_report = validate_constraint_bound_dispatch_firewall(firewall_map)
+    if not fw_report.valid:
+        raise ProofCarryingRuntimeBridgeValidationError(
+            f"firewall_artifact failed upstream validation: {fw_report.errors}"
+        )
+
     state_id = _normalize_text(proof_pack_map.get("state_id"), field="hardware_proof_pack.state_id")
     if _normalize_text(firewall_map.get("state_id"), field="firewall_artifact.state_id") != state_id:
         raise ProofCarryingRuntimeBridgeValidationError("lineage mismatch: firewall_artifact.state_id")
@@ -286,22 +304,24 @@ def build_proof_carrying_runtime_bridge(
     )
     bridge_hash = _stable_hash(_bridge_hash_payload(provisional_bridge))
 
-    first_pass_bridge = ProofCarryingRuntimeBridge(
+    # Finalize receipt before running validation so the validator sees a proper 64-char receipt_hash.
+    # _receipt_hash_payload uses only bridge_hash and validation_passed, not receipt_hash itself.
+    receipt_base = RuntimeBridgeReceipt(bridge_hash=bridge_hash, receipt_hash="", validation_passed=True)
+    receipt = RuntimeBridgeReceipt(
+        bridge_hash=bridge_hash,
+        receipt_hash=receipt_base.stable_hash(),
+        validation_passed=True,
+    )
+    complete_bridge = ProofCarryingRuntimeBridge(
         state_id=state_id,
         proof_pack_hash=proof_pack_hash,
         verdict=firewall_verdict,
         authorized=authorized,
         bridge_token=bridge_token,
-        receipt=RuntimeBridgeReceipt(bridge_hash=bridge_hash, receipt_hash="", validation_passed=True),
+        receipt=receipt,
         validation=provisional_validation,
     )
-    validation = validate_proof_carrying_runtime_bridge(first_pass_bridge)
-    receipt_base = RuntimeBridgeReceipt(bridge_hash=bridge_hash, receipt_hash="", validation_passed=validation.valid)
-    receipt = RuntimeBridgeReceipt(
-        bridge_hash=bridge_hash,
-        receipt_hash=receipt_base.stable_hash(),
-        validation_passed=validation.valid,
-    )
+    validation = validate_proof_carrying_runtime_bridge(complete_bridge)
 
     return ProofCarryingRuntimeBridge(
         state_id=state_id,
@@ -365,6 +385,11 @@ def validate_proof_carrying_runtime_bridge(
         errors.append("bridge_token must be a mapping")
     else:
         try:
+            raw_metadata = token_map.get("metadata")
+            if raw_metadata is None:
+                raw_metadata = {}
+            if not isinstance(raw_metadata, Mapping):
+                raise ProofCarryingRuntimeBridgeValidationError("bridge_token.metadata must be a mapping")
             token = RuntimeBridgeToken(
                 token_id=_normalize_hash(token_map.get("token_id"), field="bridge_token.token_id"),
                 state_id=_normalize_text(token_map.get("state_id"), field="bridge_token.state_id"),
@@ -374,7 +399,7 @@ def validate_proof_carrying_runtime_bridge(
                     token_map.get("authorization_hash"),
                     field="bridge_token.authorization_hash",
                 ),
-                metadata=dict(_canonicalize_value(token_map.get("metadata", {}), field="bridge_token.metadata")),
+                metadata=dict(_canonicalize_value(raw_metadata, field="bridge_token.metadata")),
             )
             if token.token_id != _stable_hash(_token_hash_payload(token)):
                 errors.append("bridge_token.token_id mismatch")
@@ -395,7 +420,7 @@ def validate_proof_carrying_runtime_bridge(
             )
             if token.authorization_hash != expected_auth_hash:
                 errors.append("authorization_hash mismatch")
-        except ProofCarryingRuntimeBridgeValidationError as exc:
+        except (ProofCarryingRuntimeBridgeValidationError, TypeError, ValueError) as exc:
             errors.append(str(exc))
 
     validation_map = payload.get("validation")

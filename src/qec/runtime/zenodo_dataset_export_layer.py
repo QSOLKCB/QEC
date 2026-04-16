@@ -598,7 +598,7 @@ def validate_zenodo_dataset_export_bundle(
         errors.append("receipt.bundle_hash mismatch")
     if receipt.receipt_hash != expected_receipt.receipt_hash:
         errors.append("receipt.receipt_hash mismatch")
-    if receipt.validation_passed != (not errors):
+    if receipt.validation_passed != expected_validation_passed:
         errors.append("receipt.validation_passed mismatch")
 
     deduped_errors = tuple(dict.fromkeys(errors))

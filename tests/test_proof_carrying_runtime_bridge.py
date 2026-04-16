@@ -64,53 +64,9 @@ def _bridge_payload_with_verdict(verdict: str) -> dict:
     firewall_payload["verdict"]["verdict"] = verdict
     proof_pack_payload = proof_pack.to_dict()
     proof_pack_payload["verdict"] = verdict
-    bridge = build_proof_carrying_runtime_bridge(proof_pack, firewall)
-    payload = bridge.to_dict()
 
-    payload["verdict"] = verdict
-    payload["authorized"] = verdict == "allow"
-    payload["bridge_token"]["verdict"] = verdict
-    from qec.runtime.proof_carrying_runtime_bridge import _authorization_hash_payload, _stable_hash  # type: ignore
-
-    payload["bridge_token"]["authorization_hash"] = _stable_hash(
-        _authorization_hash_payload(
-            state_id=payload["state_id"],
-            proof_pack_hash=payload["proof_pack_hash"],
-            verdict=verdict,
-            authorized=payload["authorized"],
-        )
-    )
-
-    token_payload = {
-        "state_id": payload["bridge_token"]["state_id"],
-        "verdict": payload["bridge_token"]["verdict"],
-        "proof_pack_hash": payload["bridge_token"]["proof_pack_hash"],
-        "authorization_hash": payload["bridge_token"]["authorization_hash"],
-        "metadata": payload["bridge_token"]["metadata"],
-    }
-    payload["bridge_token"]["token_id"] = _stable_hash(token_payload)
-
-    bridge_hash_payload = {
-        "proof_carrying_runtime_bridge_version": payload["proof_carrying_runtime_bridge_version"],
-        "state_id": payload["state_id"],
-        "proof_pack_hash": payload["proof_pack_hash"],
-        "verdict": payload["verdict"],
-        "authorized": payload["authorized"],
-        "bridge_token": payload["bridge_token"],
-    }
-    payload["receipt"]["bridge_hash"] = _stable_hash(bridge_hash_payload)
-
-    payload["validation"] = {"valid": True, "errors": [], "error_count": 0}
-    payload["receipt"]["validation_passed"] = True
-    receipt_payload = {
-        "bridge_hash": payload["receipt"]["bridge_hash"],
-        "validation_passed": payload["receipt"]["validation_passed"],
-    }
-    payload["receipt"]["receipt_hash"] = _stable_hash(receipt_payload)
-
-    return payload
-
-
+    bridge = build_proof_carrying_runtime_bridge(proof_pack_payload, firewall_payload)
+    return bridge.to_dict()
 def test_same_input_same_bytes():
     proof_pack, firewall = _lineage_allow()
     a = build_proof_carrying_runtime_bridge(proof_pack, firewall)

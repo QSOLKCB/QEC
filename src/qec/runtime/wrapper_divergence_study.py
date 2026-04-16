@@ -613,32 +613,36 @@ def wrapper_divergence_projection(study_or_mapping: WrapperDivergenceStudy | Map
             "comparison_count": int(study.comparison_count),
             "study_hash": study.receipt.study_hash,
         }
+    elif isinstance(study_or_mapping, Mapping):
+        metrics_raw = study_or_mapping.get("metrics", ())
+        normalized_metrics: list[WrapperDivergenceMetric] = []
+        if isinstance(metrics_raw, Sequence) and not isinstance(metrics_raw, (str, bytes, bytearray)):
+            for metric in metrics_raw:
+                normalized_metrics.append(_normalize_metric(metric))
+        ordered_metrics = _ordered_metrics(normalized_metrics)
+        ordered_axis_names = tuple(dict.fromkeys(m.axis_name for m in ordered_metrics))
 
-    metrics_raw = study_or_mapping.get("metrics", ())
-    normalized_metrics: list[WrapperDivergenceMetric] = []
-    if isinstance(metrics_raw, Sequence) and not isinstance(metrics_raw, (str, bytes, bytearray)):
-        for metric in metrics_raw:
-            normalized_metrics.append(_normalize_metric(metric))
-    ordered_metrics = _ordered_metrics(normalized_metrics)
-    ordered_axis_names = tuple(dict.fromkeys(m.axis_name for m in ordered_metrics))
+        prompt_hash_raw = study_or_mapping.get("prompt_hash")
+        matrix_hash_raw = study_or_mapping.get("matrix_hash")
+        prompt_hash = prompt_hash_raw.strip() if isinstance(prompt_hash_raw, str) else ""
+        matrix_hash = matrix_hash_raw.strip() if isinstance(matrix_hash_raw, str) else ""
+        comparison_count = _comparison_count(ordered_metrics)
+        aggregate_divergence_score = compute_aggregate_divergence(ordered_metrics)
+        study_hash = _build_study_hash(
+            prompt_hash,
+            matrix_hash,
+            comparison_count,
+            ordered_metrics,
+            aggregate_divergence_score,
+        )
 
-    prompt_hash_raw = study_or_mapping.get("prompt_hash")
-    matrix_hash_raw = study_or_mapping.get("matrix_hash")
-    prompt_hash = prompt_hash_raw.strip() if isinstance(prompt_hash_raw, str) else ""
-    matrix_hash = matrix_hash_raw.strip() if isinstance(matrix_hash_raw, str) else ""
-    comparison_count = _comparison_count(ordered_metrics)
-    aggregate_divergence_score = compute_aggregate_divergence(ordered_metrics)
-    study_hash = _build_study_hash(
-        prompt_hash,
-        matrix_hash,
-        comparison_count,
-        ordered_metrics,
-        aggregate_divergence_score,
+        return {
+            "aggregate_divergence_score": float(aggregate_divergence_score),
+            "ordered_axis_names": list(ordered_axis_names),
+            "comparison_count": int(comparison_count),
+            "study_hash": study_hash,
+        }
+
+    raise WrapperDivergenceValidationError(
+        "study_or_mapping must be a WrapperDivergenceStudy or mapping"
     )
-
-    return {
-        "aggregate_divergence_score": float(aggregate_divergence_score),
-        "ordered_axis_names": list(ordered_axis_names),
-        "comparison_count": int(comparison_count),
-        "study_hash": study_hash,
-    }

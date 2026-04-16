@@ -426,9 +426,28 @@ def validate_zenodo_dataset_export_bundle(
             errors.append(f"{name}.validation.valid is False")
 
     if isinstance(bundle, ZenodoDatasetExportBundle):
-        payload = bundle.to_dict()
-        if _canonical_json(payload) != bundle.to_canonical_json():
-            errors.append("canonical JSON mismatch")
+        try:
+            payload = bundle.to_dict()
+        except (TypeError, ValueError) as exc:
+            errors.append(f"bundle.to_dict() failed: {exc}")
+            payload = {}
+        else:
+            payload_canonical_json: str | None = None
+            bundle_canonical_json: str | None = None
+            try:
+                payload_canonical_json = _canonical_json(payload)
+            except (TypeError, ValueError) as exc:
+                errors.append(f"_canonical_json(payload) failed: {exc}")
+            try:
+                bundle_canonical_json = bundle.to_canonical_json()
+            except (TypeError, ValueError) as exc:
+                errors.append(f"bundle.to_canonical_json() failed: {exc}")
+            if (
+                payload_canonical_json is not None
+                and bundle_canonical_json is not None
+                and payload_canonical_json != bundle_canonical_json
+            ):
+                errors.append("canonical JSON mismatch")
     elif isinstance(bundle, Mapping):
         payload = dict(bundle)
     else:

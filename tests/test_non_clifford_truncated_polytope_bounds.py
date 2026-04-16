@@ -11,6 +11,7 @@ from qec.simulation.non_clifford_truncated_polytope_bounds import (
     NON_CLIFFORD_TRUNCATED_POLYTOPE_BOUNDS_VERSION,
     GateProfile,
     NonCliffordBoundsValidationError,
+    NonCliffordBoundsValidationReport,
     admissibility_projection,
     build_non_clifford_bounds,
     compute_polytope_bounds,
@@ -113,13 +114,16 @@ def test_validate_receipt_consistency_failure() -> None:
             bound_set_hash=analysis.receipt.bound_set_hash,
             admissibility_hash=analysis.receipt.admissibility_hash,
             admissibility_threshold=analysis.receipt.admissibility_threshold,
+            lane_metadata_hash=analysis.receipt.lane_metadata_hash,
             validation_passed=True,
             receipt_hash=analysis.receipt.receipt_hash,
         ),
     )
-    valid, errors = validate_non_clifford_bounds(tampered)
-    assert not valid
-    assert any("profile_hash mismatch" in item for item in errors)
+    report = validate_non_clifford_bounds(tampered)
+    assert isinstance(report, NonCliffordBoundsValidationReport)
+    assert not report.valid
+    assert report.error_count >= 1
+    assert any("profile_hash mismatch" in item for item in report.errors)
 
 
 def test_dataclass_profile_input_supported() -> None:
@@ -132,3 +136,81 @@ def test_dataclass_profile_input_supported() -> None:
     )
     analysis = build_non_clifford_bounds(gate_profile=profile, truncation_level=1)
     assert analysis.profile.gate_family == "toffoli"
+
+
+def test_gate_sequence_none_raises_validation_error() -> None:
+    bad = dict(_profile())
+    bad["gate_sequence"] = None
+    with pytest.raises(NonCliffordBoundsValidationError, match="gate_sequence"):
+        build_non_clifford_bounds(gate_profile=bad, truncation_level=1)
+
+
+def test_gate_sequence_string_raises_validation_error() -> None:
+    bad = dict(_profile())
+    bad["gate_sequence"] = "g0"
+    with pytest.raises(NonCliffordBoundsValidationError, match="gate_sequence"):
+        build_non_clifford_bounds(gate_profile=bad, truncation_level=1)
+
+
+def test_gate_sequence_int_raises_validation_error() -> None:
+    bad = dict(_profile())
+    bad["gate_sequence"] = 42
+    with pytest.raises(NonCliffordBoundsValidationError, match="gate_sequence"):
+        build_non_clifford_bounds(gate_profile=bad, truncation_level=1)
+
+
+def test_metadata_none_is_treated_as_empty() -> None:
+    raw = dict(_profile())
+    raw["metadata"] = None
+    analysis = build_non_clifford_bounds(gate_profile=raw, truncation_level=1)
+    assert analysis.profile.metadata == {}
+
+
+def test_metadata_non_mapping_raises_validation_error() -> None:
+    bad = dict(_profile())
+    bad["metadata"] = ["not", "a", "mapping"]
+    with pytest.raises(NonCliffordBoundsValidationError, match="metadata"):
+        build_non_clifford_bounds(gate_profile=bad, truncation_level=1)
+
+
+def test_validate_returns_report_dataclass() -> None:
+    analysis = build_non_clifford_bounds(gate_profile=_profile(), truncation_level=2)
+    report = validate_non_clifford_bounds(analysis)
+    assert isinstance(report, NonCliffordBoundsValidationReport)
+    assert report.valid
+    assert report.error_count == 0
+    assert report.errors == ()
+
+
+def test_validate_report_to_dict() -> None:
+    analysis = build_non_clifford_bounds(gate_profile=_profile(), truncation_level=2)
+    report = validate_non_clifford_bounds(analysis)
+    d = report.to_dict()
+    assert d["valid"] is True
+    assert d["error_count"] == 0
+    assert d["errors"] == []
+
+
+def test_lane_metadata_captured_in_receipt() -> None:
+    no_meta = build_non_clifford_bounds(gate_profile=_profile(), truncation_level=2)
+    with_meta = build_non_clifford_bounds(
+        gate_profile=_profile(),
+        truncation_level=2,
+        lane_metadata={"lane": "A", "circuit_depth": 10},
+    )
+    assert no_meta.receipt.lane_metadata_hash != with_meta.receipt.lane_metadata_hash
+    assert no_meta.receipt.admissibility_hash != with_meta.receipt.admissibility_hash
+    assert no_meta.receipt.receipt_hash != with_meta.receipt.receipt_hash
+
+
+def test_validate_structural_bounds_count_mismatch() -> None:
+    """Tamper bounds to have wrong length -> validation error."""
+    analysis = build_non_clifford_bounds(gate_profile=_profile(), truncation_level=2)
+    tampered = type(analysis)(
+        profile=analysis.profile,
+        bounds=analysis.bounds[:1],
+        receipt=analysis.receipt,
+    )
+    report = validate_non_clifford_bounds(tampered)
+    assert not report.valid
+    assert any("len(bounds)" in e for e in report.errors)

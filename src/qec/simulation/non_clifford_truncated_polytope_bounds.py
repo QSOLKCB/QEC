@@ -133,19 +133,35 @@ def _as_profile(raw: "GateProfile | Mapping[str, Any]") -> "GateProfile":
     if non_clifford_weight < 0.0:
         raise NonCliffordBoundsValidationError("profile.non_clifford_weight must be >= 0")
 
+    raw_seq = raw.get("gate_sequence", (gate_family,))
+    if isinstance(raw_seq, (str, bytes)):
+        raise NonCliffordBoundsValidationError(
+            f"profile.gate_sequence must be a list or tuple, not a string, got {type(raw_seq).__name__!r}"
+        )
+    if not isinstance(raw_seq, (list, tuple)):
+        raise NonCliffordBoundsValidationError(
+            f"profile.gate_sequence must be a list or tuple, got {type(raw_seq).__name__!r}"
+        )
     gate_sequence = tuple(
-        _normalize_text(item, field="profile.gate_sequence")
-        for item in tuple(raw.get("gate_sequence", (gate_family,)))
+        _normalize_text(item, field="profile.gate_sequence") for item in raw_seq
     )
     if not gate_sequence:
         raise NonCliffordBoundsValidationError("profile.gate_sequence must be non-empty")
+
+    raw_meta = raw.get("metadata", {})
+    if raw_meta is None:
+        raw_meta = {}
+    if not isinstance(raw_meta, Mapping):
+        raise NonCliffordBoundsValidationError(
+            f"profile.metadata must be a mapping, got {type(raw_meta).__name__!r}"
+        )
 
     return GateProfile(
         gate_family=gate_family,
         gate_sequence=gate_sequence,
         non_clifford_weight=non_clifford_weight,
         approximation_policy=_normalize_text(raw.get("approximation_policy", "deterministic_bounds"), field="profile.approximation_policy"),
-        metadata=_canonicalize_value(dict(raw.get("metadata", {})), field="profile.metadata"),
+        metadata=_canonicalize_value(dict(raw_meta), field="profile.metadata"),
     )
 
 
@@ -205,6 +221,7 @@ class NonCliffordBoundsReceipt:
     bound_set_hash: str
     admissibility_hash: str
     admissibility_threshold: float
+    lane_metadata_hash: str
     validation_passed: bool
     receipt_hash: str
 
@@ -214,6 +231,7 @@ class NonCliffordBoundsReceipt:
             "bound_set_hash": self.bound_set_hash,
             "admissibility_hash": self.admissibility_hash,
             "admissibility_threshold": float(self.admissibility_threshold),
+            "lane_metadata_hash": self.lane_metadata_hash,
             "validation_passed": bool(self.validation_passed),
             "receipt_hash": self.receipt_hash,
         }
@@ -224,6 +242,7 @@ class NonCliffordBoundsReceipt:
             "bound_set_hash": self.bound_set_hash,
             "admissibility_hash": self.admissibility_hash,
             "admissibility_threshold": float(self.admissibility_threshold),
+            "lane_metadata_hash": self.lane_metadata_hash,
             "validation_passed": bool(self.validation_passed),
         }
 
@@ -252,6 +271,21 @@ class NonCliffordBoundsAnalysis:
 
     def stable_hash(self) -> str:
         return _stable_hash(self.to_dict())
+
+
+@dataclass(frozen=True)
+class NonCliffordBoundsValidationReport:
+    """Validation report for non-Clifford bounds, consistent with other qec.simulation reports."""
+
+    valid: bool
+    errors: Tuple[str, ...]
+
+    @property
+    def error_count(self) -> int:
+        return len(self.errors)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"valid": self.valid, "error_count": self.error_count, "errors": list(self.errors)}
 
 
 
@@ -320,6 +354,7 @@ def build_non_clifford_bounds(
     )
 
     profile_hash = normalized_profile.stable_hash()
+    lane_metadata_hash = _stable_hash(normalized_lane_metadata)
     bound_set_hash = _stable_hash([bound.to_dict() for bound in bounds])
     admissibility_hash = _stable_hash(
         {
@@ -327,6 +362,7 @@ def build_non_clifford_bounds(
             "pressure_scores": [bound.pressure_score for bound in bounds],
             "truncation_level": int(truncation_level),
             "admissibility_threshold": threshold,
+            "lane_metadata_hash": lane_metadata_hash,
             "schema": NON_CLIFFORD_TRUNCATED_POLYTOPE_BOUNDS_VERSION,
         }
     )
@@ -336,6 +372,7 @@ def build_non_clifford_bounds(
         bound_set_hash=bound_set_hash,
         admissibility_hash=admissibility_hash,
         admissibility_threshold=threshold,
+        lane_metadata_hash=lane_metadata_hash,
         validation_passed=True,
         receipt_hash="",
     )
@@ -348,38 +385,59 @@ def build_non_clifford_bounds(
             bound_set_hash=bound_set_hash,
             admissibility_hash=admissibility_hash,
             admissibility_threshold=threshold,
+            lane_metadata_hash=lane_metadata_hash,
             validation_passed=True,
             receipt_hash=receipt_hash,
         ),
     )
 
-    valid, errors = validate_non_clifford_bounds(analysis)
-    if not valid:
-        raise NonCliffordBoundsValidationError("; ".join(errors))
+    report = validate_non_clifford_bounds(analysis)
+    if not report.valid:
+        raise NonCliffordBoundsValidationError("; ".join(report.errors))
     return analysis
 
 
 
-def validate_non_clifford_bounds(analysis: NonCliffordBoundsAnalysis) -> tuple[bool, tuple[str, ...]]:
+def validate_non_clifford_bounds(analysis: NonCliffordBoundsAnalysis) -> NonCliffordBoundsValidationReport:
     """Validate deterministic schema, bounds safety, and receipt consistency."""
     errors: list[str] = []
 
     if analysis.profile.gate_family not in SUPPORTED_GATE_FAMILIES:
         errors.append("profile.gate_family unsupported")
 
-    for idx, bound in enumerate(analysis.bounds):
-        if math.isnan(bound.lower_bound) or math.isinf(bound.lower_bound):
-            errors.append(f"bounds[{idx}].lower_bound must be finite")
-        if math.isnan(bound.upper_bound) or math.isinf(bound.upper_bound):
-            errors.append(f"bounds[{idx}].upper_bound must be finite")
-        if bound.lower_bound > bound.upper_bound:
-            errors.append(f"bounds[{idx}].lower_bound must be <= upper_bound")
-        if bound.truncation_level < 0:
-            errors.append(f"bounds[{idx}].truncation_level must be >= 0")
-        if math.isnan(bound.pressure_score) or math.isinf(bound.pressure_score):
-            errors.append(f"bounds[{idx}].pressure_score must be finite")
-        if not 0.0 <= bound.pressure_score <= 1.0:
-            errors.append(f"bounds[{idx}].pressure_score must be in [0,1]")
+    if not analysis.bounds:
+        errors.append("bounds must be non-empty")
+
+    if len(analysis.bounds) != len(analysis.profile.gate_sequence):
+        errors.append(
+            f"len(bounds)={len(analysis.bounds)} must match len(profile.gate_sequence)={len(analysis.profile.gate_sequence)}"
+        )
+
+    if analysis.bounds:
+        expected_truncation = analysis.bounds[0].truncation_level
+        for idx, bound in enumerate(analysis.bounds):
+            if not bound.region_id:
+                errors.append(f"bounds[{idx}].region_id must be non-empty")
+            if math.isnan(bound.lower_bound) or math.isinf(bound.lower_bound):
+                errors.append(f"bounds[{idx}].lower_bound must be finite")
+            elif not 0.0 <= bound.lower_bound <= 1.0:
+                errors.append(f"bounds[{idx}].lower_bound must be in [0,1]")
+            if math.isnan(bound.upper_bound) or math.isinf(bound.upper_bound):
+                errors.append(f"bounds[{idx}].upper_bound must be finite")
+            elif not 0.0 <= bound.upper_bound <= 1.0:
+                errors.append(f"bounds[{idx}].upper_bound must be in [0,1]")
+            if bound.lower_bound > bound.upper_bound:
+                errors.append(f"bounds[{idx}].lower_bound must be <= upper_bound")
+            if bound.truncation_level < 0:
+                errors.append(f"bounds[{idx}].truncation_level must be >= 0")
+            if bound.truncation_level != expected_truncation:
+                errors.append(
+                    f"bounds[{idx}].truncation_level={bound.truncation_level} inconsistent with bounds[0].truncation_level={expected_truncation}"
+                )
+            if math.isnan(bound.pressure_score) or math.isinf(bound.pressure_score):
+                errors.append(f"bounds[{idx}].pressure_score must be finite")
+            elif not 0.0 <= bound.pressure_score <= 1.0:
+                errors.append(f"bounds[{idx}].pressure_score must be in [0,1]")
 
     expected_profile_hash = analysis.profile.stable_hash()
     if analysis.receipt.profile_hash != expected_profile_hash:
@@ -399,6 +457,7 @@ def validate_non_clifford_bounds(analysis: NonCliffordBoundsAnalysis) -> tuple[b
             "pressure_scores": [bound.pressure_score for bound in analysis.bounds],
             "truncation_level": int(analysis.bounds[0].truncation_level if analysis.bounds else 0),
             "admissibility_threshold": threshold,
+            "lane_metadata_hash": analysis.receipt.lane_metadata_hash,
             "schema": NON_CLIFFORD_TRUNCATED_POLYTOPE_BOUNDS_VERSION,
         }
     )
@@ -409,7 +468,7 @@ def validate_non_clifford_bounds(analysis: NonCliffordBoundsAnalysis) -> tuple[b
         errors.append("receipt.receipt_hash mismatch")
 
     ordered = tuple(sorted(errors))
-    return (not ordered, ordered)
+    return NonCliffordBoundsValidationReport(valid=not ordered, errors=ordered)
 
 
 
@@ -445,6 +504,7 @@ __all__ = [
     "PolytopeBound",
     "NonCliffordBoundsReceipt",
     "NonCliffordBoundsAnalysis",
+    "NonCliffordBoundsValidationReport",
     "build_non_clifford_bounds",
     "validate_non_clifford_bounds",
     "compute_polytope_bounds",

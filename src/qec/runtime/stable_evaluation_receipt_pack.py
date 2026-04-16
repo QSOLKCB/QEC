@@ -313,19 +313,27 @@ def validate_stable_evaluation_receipt_pack(
     expected_wrapper_study_hash = _extract_wrapper_study_hash(wrapper_divergence_study)
 
     if isinstance(receipt_pack, StableEvaluationReceiptPack):
-        prompt_hash = receipt_pack.prompt_hash
-        matrix_hash = receipt_pack.matrix_hash
-        rigor_pack_hash = receipt_pack.rigor_pack_hash
-        drift_tensor_hash = receipt_pack.drift_tensor_hash
-        wrapper_study_hash = receipt_pack.wrapper_study_hash
-        aggregate_rigor_score = float(receipt_pack.aggregate_rigor_score)
-        aggregate_stability_score = float(receipt_pack.aggregate_stability_score)
-        aggregate_divergence_score = float(receipt_pack.aggregate_divergence_score)
-        receipt = receipt_pack.receipt
-        recomputed_json = _canonical_json(receipt_pack.to_dict())
-        if recomputed_json != receipt_pack.to_canonical_json():
-            errors.append("canonical JSON mismatch")
-    elif isinstance(receipt_pack, Mapping):
+        try:
+            receipt_pack_mapping = receipt_pack.to_dict()
+        except (TypeError, ValueError, StableEvaluationReceiptPackValidationError) as exc:
+            errors.append(f"receipt_pack.to_dict() failed: {exc}")
+            receipt_pack = {}
+        else:
+            try:
+                recomputed_json = _canonical_json(receipt_pack_mapping)
+            except (TypeError, ValueError) as exc:
+                errors.append(f"receipt_pack canonical JSON invalid: {exc}")
+            else:
+                try:
+                    canonical_json = receipt_pack.to_canonical_json()
+                except (TypeError, ValueError, StableEvaluationReceiptPackValidationError) as exc:
+                    errors.append(f"receipt_pack.to_canonical_json() failed: {exc}")
+                else:
+                    if recomputed_json != canonical_json:
+                        errors.append("canonical JSON mismatch")
+            receipt_pack = receipt_pack_mapping
+
+    if isinstance(receipt_pack, Mapping):
         try:
             prompt_hash = _normalize_required_hash(receipt_pack.get("prompt_hash"), field="receipt_pack.prompt_hash")
         except StableEvaluationReceiptPackValidationError as exc:

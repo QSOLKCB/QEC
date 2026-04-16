@@ -32,6 +32,24 @@ from .correlated_noise_simulator import (
     validate_noise_config,
 )
 
+from .multi_code_orchestration_simulator import (
+    MULTI_CODE_ORCHESTRATION_SIMULATOR_VERSION,
+    SUPPORTED_CODE_FAMILIES,
+    SUPPORTED_LANE_EXECUTION_POLICIES,
+    SUPPORTED_ORCHESTRATION_POLICIES,
+    MultiCodeOrchestrationManifest,
+    MultiCodeOrchestrationReceipt,
+    MultiCodeOrchestrationSimulation,
+    MultiCodeOrchestrationValidationError,
+    MultiCodeOrchestrationValidationReport,
+    SimulationLane,
+    SimulationLaneResult,
+    build_multi_code_orchestration,
+    orchestration_replay_identity,
+    simulate_lane_execution,
+    validate_multi_code_orchestration,
+)
+
 __all__ = [
     "EXPERIMENT_PACKAGING_FORMAT_VERSION",
     "ExperimentPackageValidationError",
@@ -58,4 +76,19 @@ __all__ = [
     "generate_correlated_noise",
     "summarize_noise_realization",
     "build_noise_receipt",
+    "MULTI_CODE_ORCHESTRATION_SIMULATOR_VERSION",
+    "SUPPORTED_CODE_FAMILIES",
+    "SUPPORTED_ORCHESTRATION_POLICIES",
+    "SUPPORTED_LANE_EXECUTION_POLICIES",
+    "MultiCodeOrchestrationValidationError",
+    "SimulationLane",
+    "MultiCodeOrchestrationManifest",
+    "SimulationLaneResult",
+    "MultiCodeOrchestrationReceipt",
+    "MultiCodeOrchestrationSimulation",
+    "MultiCodeOrchestrationValidationReport",
+    "build_multi_code_orchestration",
+    "validate_multi_code_orchestration",
+    "simulate_lane_execution",
+    "orchestration_replay_identity",
 ]

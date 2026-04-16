@@ -140,6 +140,7 @@ v138.3.5 — Proof-Carrying Runtime Bridge
 🔬 Current Safety Epoch — v138.3.x
 
 The current active epoch focuses on formal runtime safety, proof-carrying execution, and deterministic authorization.
+```
 
 Completed
 v138.3.0 — Runtime Admissibility Projection Engine
@@ -180,7 +181,8 @@ no wallets
 no miners
 no external ledger
 
-The covenant runtime provides formal local state transition contracts for deterministic systems execution, workflow governance, and proof-carrying orchestration.
+The covenant runtime provides formal local state transition contracts for deterministic systems execution, 
+workflow governance, and proof-carrying orchestration.
 
 Canonical Model
 state_t

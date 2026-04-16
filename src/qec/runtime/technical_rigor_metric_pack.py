@@ -436,6 +436,11 @@ def validate_rigor_metric_pack(
     if len(set(metric_ids)) != len(metric_ids):
         errors.append("metric_id must be unique")
 
+    covered_invocation_ids = {m.invocation_id for m in metrics}
+    missing_invocation_ids = sorted(matrix_invocation_ids - covered_invocation_ids)
+    if missing_invocation_ids:
+        errors.append("every matrix invocation must have at least one metric")
+
     for metric in metrics:
         if metric.invocation_id not in matrix_invocation_ids:
             errors.append("metric.invocation_id must exist in matrix")

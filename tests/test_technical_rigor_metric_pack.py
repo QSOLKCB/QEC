@@ -151,6 +151,14 @@ def test_invocation_id_mismatch_rejection():
     assert "metric.invocation_id must exist in matrix" in pack.validation.errors
 
 
+def test_missing_matrix_invocation_metric_rejection():
+    artifact = _prompt_artifact()
+    matrix = _invocation_matrix(artifact)
+    pack = build_technical_rigor_metric_pack(artifact, matrix, [_metric_mappings()[0]])
+    assert pack.validation.valid is False
+    assert "every matrix invocation must have at least one metric" in pack.validation.errors
+
+
 def test_score_bounds_rejection():
     artifact = _prompt_artifact()
     matrix = _invocation_matrix(artifact)

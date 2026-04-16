@@ -293,11 +293,19 @@ def _manifest_from_any(raw: MultiCodeOrchestrationManifest | Mapping[str, Any]) 
             f"unsupported manifest.orchestration_policy: {orchestration_policy!r}"
         )
 
+    orchestration_version = _normalize_text(
+        raw.get("orchestration_version", MULTI_CODE_ORCHESTRATION_SIMULATOR_VERSION),
+        field="manifest.orchestration_version",
+    )
+    if orchestration_version != MULTI_CODE_ORCHESTRATION_SIMULATOR_VERSION:
+        raise MultiCodeOrchestrationValidationError(
+            "unsupported manifest.orchestration_version: "
+            f"{orchestration_version!r}; expected "
+            f"{MULTI_CODE_ORCHESTRATION_SIMULATOR_VERSION!r}"
+        )
+
     return MultiCodeOrchestrationManifest(
-        orchestration_version=_normalize_text(
-            raw.get("orchestration_version", MULTI_CODE_ORCHESTRATION_SIMULATOR_VERSION),
-            field="manifest.orchestration_version",
-        ),
+        orchestration_version=orchestration_version,
         experiment_id=_normalize_text(raw.get("experiment_id"), field="manifest.experiment_id"),
         orchestration_policy=orchestration_policy,
         lane_order=tuple(_normalize_text(item, field="manifest.lane_order") for item in tuple(raw.get("lane_order", ()))),

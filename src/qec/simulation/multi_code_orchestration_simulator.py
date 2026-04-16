@@ -56,6 +56,8 @@ def _is_hex_sha256(value: str) -> bool:
 
 
 def _normalize_text(value: Any, *, field: str) -> str:
+    if value is None:
+        raise MultiCodeOrchestrationValidationError(f"{field} must be non-empty")
     text = str(value).strip()
     if not text:
         raise MultiCodeOrchestrationValidationError(f"{field} must be non-empty")
@@ -546,15 +548,7 @@ def validate_multi_code_orchestration(
     if simulation.receipt.execution_hash != expected_execution_hash:
         errors.append("receipt.execution_hash mismatch")
 
-    expected_receipt_hash = _stable_hash(
-        {
-            "manifest_hash": simulation.receipt.manifest_hash,
-            "lane_set_hash": simulation.receipt.lane_set_hash,
-            "execution_hash": simulation.receipt.execution_hash,
-            "lane_count": simulation.receipt.lane_count,
-            "validation_passed": simulation.receipt.validation_passed,
-        }
-    )
+    expected_receipt_hash = simulation.receipt.stable_hash()
     if simulation.receipt.receipt_hash != expected_receipt_hash:
         errors.append("receipt.receipt_hash mismatch")
 

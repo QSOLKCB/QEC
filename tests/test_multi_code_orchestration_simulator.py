@@ -156,6 +156,20 @@ def test_invalid_code_family_rejection() -> None:
         build_multi_code_orchestration(manifest=_manifest(), lanes=tuple(lanes))
 
 
+def test_none_required_field_rejected() -> None:
+    lanes = list(_lanes())
+    # lane_id=None must fail fast; "None" string must never slip through
+    lanes[0] = dict(lanes[0], lane_id=None)
+    with pytest.raises(MultiCodeOrchestrationValidationError, match="lane_id"):
+        build_multi_code_orchestration(manifest=_manifest(), lanes=tuple(lanes))
+
+    # experiment_id=None in manifest must also fail
+    manifest = dict(_manifest())
+    manifest["experiment_id"] = None
+    with pytest.raises(MultiCodeOrchestrationValidationError, match="experiment_id"):
+        build_multi_code_orchestration(manifest=manifest, lanes=_lanes())
+
+
 def test_nan_inf_rejection() -> None:
     sim = build_multi_code_orchestration(manifest=_manifest(), lanes=_lanes())
     bad_results = list(sim.results)

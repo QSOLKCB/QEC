@@ -36,29 +36,6 @@ All roadmap work must preserve:
 
 ---
 
-### v138.2.15 — Stable Evaluation Receipt Pack
-
-Purpose:
-
-formalize deterministic evaluation receipts.
-
-Canonical flow:
-
-```text
-metrics
-+ divergence tensor
-+ prompt hash
-→ stable evaluation receipt
-```
-
-Purpose:
-- replay-safe evaluation
-- benchmark reproducibility
-- stable lineage
-- canonical artifact hashing
-
----
-
 ### v138.2.16 — Zenodo Dataset Export Layer
 
 Purpose:

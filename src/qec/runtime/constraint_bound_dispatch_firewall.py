@@ -182,6 +182,7 @@ class ConstraintBoundDispatchFirewall:
     state_id: str
     tension_value: float
     recovery_magnitude: float
+    upstream_admissible: bool
     constraints: Tuple[DispatchConstraint, ...]
     verdict: DispatchVerdict
     receipt: DispatchReceipt
@@ -192,6 +193,7 @@ class ConstraintBoundDispatchFirewall:
             "state_id": self.state_id,
             "tension_value": float(self.tension_value),
             "recovery_magnitude": float(self.recovery_magnitude),
+            "upstream_admissible": bool(self.upstream_admissible),
             "constraints": [constraint.to_dict() for constraint in self.constraints],
             "verdict": self.verdict.to_dict(),
             "receipt": self.receipt.to_dict(),
@@ -205,6 +207,12 @@ class ConstraintBoundDispatchFirewall:
         return _stable_hash(self.to_dict())
 
 
+def _normalize_metadata(value: Any, *, field: str) -> Dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ConstraintBoundDispatchFirewallValidationError(f"{field} must be a mapping")
+    return dict(_canonicalize_value(dict(value), field=field))
+
+
 def _normalize_constraint(raw: Any, *, field: str) -> DispatchConstraint:
     if isinstance(raw, DispatchConstraint):
         candidate = raw
@@ -214,7 +222,7 @@ def _normalize_constraint(raw: Any, *, field: str) -> DispatchConstraint:
             constraint_type=_normalize_text(raw.get("constraint_type"), field=f"{field}.constraint_type"),
             threshold=_normalize_float(raw.get("threshold"), field=f"{field}.threshold"),
             operator=_normalize_text(raw.get("operator"), field=f"{field}.operator"),
-            metadata=_canonicalize_value(dict(raw.get("metadata", {})), field=f"{field}.metadata"),
+            metadata=_normalize_metadata(raw.get("metadata", {}), field=f"{field}.metadata"),
         )
     else:
         raise ConstraintBoundDispatchFirewallValidationError(f"{field} must be DispatchConstraint or mapping")
@@ -228,7 +236,7 @@ def _normalize_constraint(raw: Any, *, field: str) -> DispatchConstraint:
         constraint_type=_normalize_text(candidate.constraint_type, field=f"{field}.constraint_type"),
         threshold=_normalize_float(candidate.threshold, field=f"{field}.threshold"),
         operator=_normalize_text(candidate.operator, field=f"{field}.operator"),
-        metadata=_canonicalize_value(dict(candidate.metadata), field=f"{field}.metadata"),
+        metadata=_normalize_metadata(candidate.metadata, field=f"{field}.metadata"),
     )
 
 
@@ -236,7 +244,7 @@ def _sorted_constraints(constraints: Sequence[DispatchConstraint]) -> Tuple[Disp
     return tuple(sorted(constraints, key=lambda c: (c.constraint_type, c.constraint_id)))
 
 
-def _compare(actual: float, threshold: float, operator: str) -> bool:
+def _compare(actual: float, threshold: float, operator: str, *, tolerance: float = _DISPATCH_TOLERANCE) -> bool:
     if operator == "<=":
         return bool(actual <= threshold)
     if operator == "<":
@@ -246,7 +254,7 @@ def _compare(actual: float, threshold: float, operator: str) -> bool:
     if operator == ">":
         return bool(actual > threshold)
     if operator == "==":
-        return bool(math.isclose(actual, threshold, rel_tol=0.0, abs_tol=_DISPATCH_TOLERANCE))
+        return bool(math.isclose(actual, threshold, rel_tol=0.0, abs_tol=tolerance))
     raise ConstraintBoundDispatchFirewallValidationError(f"unsupported operator: {operator}")
 
 
@@ -264,6 +272,7 @@ def evaluate_dispatch_constraints(
     constraints: Sequence[DispatchConstraint | Mapping[str, Any]],
     *,
     tolerance: float = _DISPATCH_TOLERANCE,
+    upstream_admissible: bool = True,
 ) -> DispatchVerdict:
     normalized_tension = _normalize_float(tension_value, field="tension_value")
     normalized_recovery = _normalize_float(recovery_magnitude, field="recovery_magnitude")
@@ -275,30 +284,48 @@ def evaluate_dispatch_constraints(
     if normalized_tolerance < 0.0:
         raise ConstraintBoundDispatchFirewallValidationError("tolerance must be >= 0")
 
+    if not bool(upstream_admissible):
+        return DispatchVerdict(
+            verdict="deny",
+            admissible=False,
+            recovery_required=False,
+            reason="upstream_admissibility_failure",
+        )
+
     normalized_constraints = _sorted_constraints(
         [_normalize_constraint(raw, field=f"constraints[{index}]") for index, raw in enumerate(constraints)]
     )
 
+    has_soft_failure = False
     for constraint in normalized_constraints:
         actual = _constraint_value(
             constraint_type=constraint.constraint_type,
             tension_value=normalized_tension,
             recovery_magnitude=normalized_recovery,
         )
-        if not _compare(actual, constraint.threshold, constraint.operator):
-            return DispatchVerdict(
-                verdict="deny",
-                admissible=False,
-                recovery_required=False,
-                reason=f"constraint_failed:{constraint.constraint_type}:{constraint.constraint_id}",
-            )
+        if not _compare(actual, constraint.threshold, constraint.operator, tolerance=normalized_tolerance):
+            is_hard = bool(constraint.metadata.get("hard", True))
+            if is_hard:
+                return DispatchVerdict(
+                    verdict="deny",
+                    admissible=False,
+                    recovery_required=False,
+                    reason=f"constraint_failed:{constraint.constraint_type}:{constraint.constraint_id}",
+                )
+            has_soft_failure = True
 
-    if normalized_recovery > normalized_tolerance:
+    if has_soft_failure or normalized_recovery > normalized_tolerance:
+        if has_soft_failure and normalized_recovery > normalized_tolerance:
+            reason = "soft_constraint_failure_and_recovery_above_tolerance"
+        elif has_soft_failure:
+            reason = "soft_constraint_failure"
+        else:
+            reason = "recovery_magnitude_above_tolerance"
         return DispatchVerdict(
             verdict="recover_only",
             admissible=True,
             recovery_required=True,
-            reason="recovery_magnitude_above_tolerance",
+            reason=reason,
         )
 
     return DispatchVerdict(
@@ -314,6 +341,7 @@ def _build_firewall_hash(
     state_id: str,
     tension_value: float,
     recovery_magnitude: float,
+    upstream_admissible: bool,
     constraints: Sequence[DispatchConstraint],
     verdict: DispatchVerdict,
 ) -> str:
@@ -322,6 +350,7 @@ def _build_firewall_hash(
             "state_id": state_id,
             "tension_value": float(tension_value),
             "recovery_magnitude": float(recovery_magnitude),
+            "upstream_admissible": bool(upstream_admissible),
             "constraints": [constraint.to_dict() for constraint in constraints],
             "verdict": verdict.to_dict(),
         }
@@ -385,12 +414,17 @@ def build_constraint_bound_dispatch_firewall(
     normalized_constraints = _sorted_constraints(
         tuple(_normalize_constraint(constraint, field=f"constraints[{index}]") for index, constraint in enumerate(constraints))
     )
-    verdict = evaluate_dispatch_constraints(tension_value, recovery_magnitude, normalized_constraints)
+    upstream_admissible = bool(tension_map.get("admissible", True))
+    verdict = evaluate_dispatch_constraints(
+        tension_value, recovery_magnitude, normalized_constraints,
+        upstream_admissible=upstream_admissible,
+    )
 
     firewall_hash = _build_firewall_hash(
         state_id=state_id,
         tension_value=tension_value,
         recovery_magnitude=recovery_magnitude,
+        upstream_admissible=upstream_admissible,
         constraints=normalized_constraints,
         verdict=verdict,
     )
@@ -406,6 +440,7 @@ def build_constraint_bound_dispatch_firewall(
         state_id=state_id,
         tension_value=tension_value,
         recovery_magnitude=recovery_magnitude,
+        upstream_admissible=upstream_admissible,
         constraints=normalized_constraints,
         verdict=verdict,
         receipt=provisional_receipt,
@@ -424,6 +459,7 @@ def build_constraint_bound_dispatch_firewall(
         state_id=state_id,
         tension_value=tension_value,
         recovery_magnitude=recovery_magnitude,
+        upstream_admissible=upstream_admissible,
         constraints=normalized_constraints,
         verdict=verdict,
         receipt=final_receipt,
@@ -501,10 +537,18 @@ def validate_constraint_bound_dispatch_firewall(
         except ConstraintBoundDispatchFirewallValidationError as exc:
             errors.append(str(exc))
 
+    upstream_admissible = bool(payload.get("upstream_admissible", True))
+
     if verdict_obj is not None and tension_value is not None and recovery_magnitude is not None:
-        expected_verdict = evaluate_dispatch_constraints(tension_value, recovery_magnitude, expected_constraints)
-        if verdict_obj.to_dict() != expected_verdict.to_dict():
-            errors.append("verdict mismatch")
+        try:
+            expected_verdict = evaluate_dispatch_constraints(
+                tension_value, recovery_magnitude, expected_constraints,
+                upstream_admissible=upstream_admissible,
+            )
+            if verdict_obj.to_dict() != expected_verdict.to_dict():
+                errors.append("verdict mismatch")
+        except ConstraintBoundDispatchFirewallValidationError as exc:
+            errors.append(str(exc))
 
     receipt_map = payload.get("receipt")
     if not isinstance(receipt_map, Mapping):
@@ -525,6 +569,7 @@ def validate_constraint_bound_dispatch_firewall(
                     state_id=state_id,
                     tension_value=tension_value,
                     recovery_magnitude=recovery_magnitude,
+                    upstream_admissible=upstream_admissible,
                     constraints=expected_constraints,
                     verdict=verdict_obj,
                 )

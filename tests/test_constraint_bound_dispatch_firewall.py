@@ -77,8 +77,23 @@ def test_deny_verdict():
 
 
 def test_recover_only_verdict():
-    recovery, tension = _lineage()
-    firewall = build_constraint_bound_dispatch_firewall(recovery, tension, _constraints())
+    # Use raw dicts to construct a firewall with admissible=True upstream and
+    # recovery_magnitude=5.0. This bypasses the normal lineage pipeline so we can
+    # test the recover_only verdict path directly (with a real lineage, admissible=True
+    # implies zero residual and therefore zero recovery_magnitude, which would give
+    # an allow verdict instead).
+    state_id = "test-recover-state"
+    recovery_dict = {
+        "state_id": state_id,
+        "tension_value": 2.0,
+        "recovery_magnitude": 5.0,
+        "receipt": {
+            "input_state_hash": "a" * 64,
+            "recovery_hash": "b" * 64,
+        },
+    }
+    tension_dict = {"state_id": state_id, "tension_value": 2.0, "admissible": True}
+    firewall = build_constraint_bound_dispatch_firewall(recovery_dict, tension_dict, _constraints())
     assert firewall.recovery_magnitude > 1e-12
     assert firewall.verdict.verdict == "recover_only"
 
@@ -120,7 +135,11 @@ def test_canonical_json_round_trip():
                 "recovery_hash": payload["receipt"]["recovery_hash"],
             },
         },
-        {"state_id": payload["state_id"], "tension_value": payload["tension_value"]},
+        {
+            "state_id": payload["state_id"],
+            "tension_value": payload["tension_value"],
+            "admissible": payload["upstream_admissible"],
+        },
         payload["constraints"],
     )
     assert rebuilt.stable_hash() == firewall.stable_hash()
@@ -152,3 +171,58 @@ def test_verdict_consistency_under_repeated_runs():
     for _ in range(20):
         firewall = build_constraint_bound_dispatch_firewall(recovery, tension, _constraints())
         assert firewall.verdict.to_dict() == expected
+
+
+def test_inadmissible_upstream_deny():
+    # Default _lineage() produces tension.admissible=False (large z-residual).
+    # The firewall must deny dispatch and expose upstream_admissible=False.
+    recovery, tension = _lineage()
+    firewall = build_constraint_bound_dispatch_firewall(recovery, tension, _constraints())
+    assert firewall.verdict.verdict == "deny"
+    assert not firewall.upstream_admissible
+    assert firewall.verdict.reason == "upstream_admissibility_failure"
+
+
+def test_soft_constraint_failure_gives_recover_only():
+    # A constraint with hard=False should not deny; it should degrade to recover_only.
+    state_id = "test-soft-fail"
+    recovery_dict = {
+        "state_id": state_id,
+        "tension_value": 5.0,
+        "recovery_magnitude": 0.0,
+        "receipt": {"input_state_hash": "c" * 64, "recovery_hash": "d" * 64},
+    }
+    tension_dict = {"state_id": state_id, "tension_value": 5.0, "admissible": True}
+    # tension_value=5.0 violates threshold=1.0 but constraint is soft (hard=False).
+    soft_constraint = (
+        DispatchConstraint(
+            constraint_id="c-soft",
+            constraint_type="tension_value",
+            threshold=1.0,
+            operator="<=",
+            metadata={"hard": False},
+        ),
+    )
+    firewall = build_constraint_bound_dispatch_firewall(recovery_dict, tension_dict, soft_constraint)
+    assert firewall.verdict.verdict == "recover_only"
+
+
+def test_metadata_none_raises_validation_error():
+    with pytest.raises(ConstraintBoundDispatchFirewallValidationError):
+        _evaluate_with_bad_metadata(metadata_value=None)
+
+
+def test_metadata_non_mapping_raises_validation_error():
+    with pytest.raises(ConstraintBoundDispatchFirewallValidationError):
+        _evaluate_with_bad_metadata(metadata_value="not-a-mapping")
+
+
+def _evaluate_with_bad_metadata(*, metadata_value):
+    bad_constraint = {
+        "constraint_id": "c-bad-meta",
+        "constraint_type": "tension_value",
+        "threshold": 10.0,
+        "operator": "<=",
+        "metadata": metadata_value,
+    }
+    evaluate_dispatch_constraints(1.0, 0.0, [bad_constraint])

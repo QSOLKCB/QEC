@@ -153,11 +153,19 @@ def test_nan_inf_rejection():
     artifact = _prompt_artifact()
     matrix = _invocation_matrix(artifact)
 
-    nan_tensor = build_persona_drift_tensor(artifact, matrix, [{**_metric_mappings()[0], "score": math.nan}, _metric_mappings()[1]])
+    nan_tensor = build_persona_drift_tensor(
+        artifact,
+        matrix,
+        [{**_metric_mappings()[0], "score": math.nan}, _metric_mappings()[1]],
+    )
     assert nan_tensor.validation.valid is False
     assert any("finite" in e for e in nan_tensor.validation.errors)
 
-    inf_tensor = build_persona_drift_tensor(artifact, matrix, [{**_metric_mappings()[0], "score": math.inf}, _metric_mappings()[1]])
+    inf_tensor = build_persona_drift_tensor(
+        artifact,
+        matrix,
+        [{**_metric_mappings()[0], "score": math.inf}, _metric_mappings()[1]],
+    )
     assert inf_tensor.validation.valid is False
     assert any("finite" in e for e in inf_tensor.validation.errors)
 

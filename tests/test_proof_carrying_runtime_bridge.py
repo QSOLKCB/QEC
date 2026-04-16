@@ -62,6 +62,7 @@ def _lineage_deny():
     projection = _projection()
     tension = build_quadratic_tension_functional(projection)
     recovery = build_deterministic_recovery_state(projection, tension)
+    # threshold=1000.0 with ">=" is guaranteed to fail for any realistic recovery_magnitude
     constraints = (
         DispatchConstraint(
             constraint_id="c-deny",
@@ -80,6 +81,7 @@ def _lineage_recover_only():
     projection = _projection()
     tension = build_quadratic_tension_functional(projection)
     recovery = build_deterministic_recovery_state(projection, tension)
+    # same infeasible threshold as deny but with hard=False → soft failure → recover_only verdict
     constraints = (
         DispatchConstraint(
             constraint_id="c-soft",

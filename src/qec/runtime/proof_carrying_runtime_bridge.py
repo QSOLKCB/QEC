@@ -305,7 +305,9 @@ def build_proof_carrying_runtime_bridge(
     bridge_hash = _stable_hash(_bridge_hash_payload(provisional_bridge))
 
     # Finalize receipt before running validation so the validator sees a proper 64-char receipt_hash.
-    # _receipt_hash_payload uses only bridge_hash and validation_passed, not receipt_hash itself.
+    # _receipt_hash_payload covers only bridge_hash and validation_passed (not receipt_hash itself),
+    # so the hash is deterministic at this stage. validation_passed=True reflects the expectation
+    # that the builder produces a structurally valid bridge; the subsequent validation call confirms it.
     receipt_base = RuntimeBridgeReceipt(bridge_hash=bridge_hash, receipt_hash="", validation_passed=True)
     receipt = RuntimeBridgeReceipt(
         bridge_hash=bridge_hash,

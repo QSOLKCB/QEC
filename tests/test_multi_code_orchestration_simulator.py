@@ -125,6 +125,30 @@ def test_canonical_json_round_trip() -> None:
     assert j1 == j2
 
 
+def test_receipt_hash_matches_returned_receipt_payload() -> None:
+    sim = build_multi_code_orchestration(manifest=_manifest(), lanes=_lanes())
+    assert sim.receipt.receipt_hash == sim.receipt.stable_hash()
+
+
+def test_results_package_hash_must_match_lane_package_hash() -> None:
+    sim = build_multi_code_orchestration(manifest=_manifest(), lanes=_lanes())
+    bad_results = list(sim.results)
+    bad_results[0] = SimulationLaneResult(
+        lane_id=bad_results[0].lane_id,
+        package_hash=_h("a"),
+        execution_hash=bad_results[0].execution_hash,
+        status=bad_results[0].status,
+        topology_stability_score=bad_results[0].topology_stability_score,
+        replay_identity=bad_results[0].replay_identity,
+        metadata=bad_results[0].metadata,
+    )
+    report = validate_multi_code_orchestration(
+        type(sim)(manifest=sim.manifest, lanes=sim.lanes, results=tuple(bad_results), receipt=sim.receipt)
+    )
+    assert not report.valid
+    assert any("results[0].package_hash must match lanes[0].package_hash" in err for err in report.errors)
+
+
 def test_invalid_code_family_rejection() -> None:
     lanes = list(_lanes())
     lanes[0] = dict(lanes[0], code_family="unknown_code")

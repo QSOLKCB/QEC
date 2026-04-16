@@ -418,7 +418,7 @@ def build_multi_code_orchestration(
         manifest_hash=manifest_hash,
         lane_set_hash=lane_set_hash,
         execution_hash=execution_hash,
-        validation_passed=False,
+        validation_passed=True,
         lane_count=len(normalized_lanes),
         receipt_hash="",
     )
@@ -504,6 +504,8 @@ def validate_multi_code_orchestration(
             errors.append(f"results[{idx}].status must be non-empty")
         if not _is_hex_sha256(result.package_hash):
             errors.append(f"results[{idx}].package_hash must be 64-char lowercase SHA-256 hex")
+        elif result.package_hash != simulation.lanes[idx].package_hash:
+            errors.append(f"results[{idx}].package_hash must match lanes[{idx}].package_hash")
         if not _is_hex_sha256(result.execution_hash):
             errors.append(f"results[{idx}].execution_hash must be 64-char lowercase SHA-256 hex")
         if math.isnan(result.topology_stability_score) or math.isinf(result.topology_stability_score):
@@ -542,7 +544,7 @@ def validate_multi_code_orchestration(
             "lane_set_hash": simulation.receipt.lane_set_hash,
             "execution_hash": simulation.receipt.execution_hash,
             "lane_count": simulation.receipt.lane_count,
-            "validation_passed": False,
+            "validation_passed": simulation.receipt.validation_passed,
         }
     )
     if simulation.receipt.receipt_hash != expected_receipt_hash:

@@ -30,7 +30,6 @@ QEC is a **deterministic systems runtime and research framework** built around:
 
 The governing law remains:
 
-```text
 same input
 → same ordering
 → same canonical JSON

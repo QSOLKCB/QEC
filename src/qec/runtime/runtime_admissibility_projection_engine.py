@@ -299,8 +299,8 @@ def compute_runtime_residual(
     projected_state = _project_onto_subspace(state, basis)
     residual_vector = _subtract(state, projected_state)
     residual_norm = float(math.sqrt(_dot(residual_vector, residual_vector)))
-    if residual_norm < 0.0:
-        raise RuntimeAdmissibilityProjectionValidationError("residual_norm must be >= 0")
+    if not math.isfinite(residual_norm):
+        raise RuntimeAdmissibilityProjectionValidationError("residual_norm must be finite")
     return RuntimeResidual(
         residual_norm=residual_norm,
         residual_vector=residual_vector,

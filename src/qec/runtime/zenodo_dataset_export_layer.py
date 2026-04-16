@@ -770,17 +770,12 @@ def zenodo_export_projection(bundle_or_mapping: ZenodoDatasetExportBundle | Mapp
             bundle_hash=bundle_hash,
             validation_passed=True,
         )
-        receipt_raw = bundle_or_mapping.get("receipt", {})
-        if isinstance(receipt_raw, Mapping) and isinstance(receipt_raw.get("receipt_hash"), str) and receipt_raw.get("receipt_hash").strip():
-            receipt_hash = receipt_raw.get("receipt_hash").strip()
-        else:
-            receipt_hash = receipt.receipt_hash
         return {
             "dataset_id": dataset_id,
             "title": title,
             "version_tag": version_tag,
             "bundle_hash": bundle_hash,
-            "receipt_hash": receipt_hash,
+            "receipt_hash": receipt.receipt_hash,
         }
     else:
         raise ZenodoDatasetExportValidationError("bundle_or_mapping must be ZenodoDatasetExportBundle or mapping")

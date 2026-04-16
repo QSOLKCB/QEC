@@ -56,10 +56,16 @@ simulation lane monitoring
 orchestration receipt inspection
 multi-code experiment tracing
 frontier evaluation artifact inspection
+
+<pre>
 📦 Install Latest Release
 curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
+</pre>
+<pre>
 ▶ Run
 qec-tui
+</pre>
+
 🧠 What QEC Is
 
 QEC began as a deterministic quantum error correction framework and has evolved into a formal replay-safe systems science runtime.

@@ -371,27 +371,52 @@ def validate_runtime_projection(projection: RuntimeAdmissibilityProjection | Map
     projected = payload.get("projected_state")
     residual = payload.get("residual")
     receipt = payload.get("receipt")
+    normalized_state: list[float] | None = None
+    normalized_projected: list[float] | None = None
 
     if not isinstance(state, Sequence) or isinstance(state, (str, bytes)):
         errors.append("input_state must be a sequence")
     if not isinstance(projected, Sequence) or isinstance(projected, (str, bytes)):
         errors.append("projected_state must be a sequence")
 
-    if isinstance(state, Sequence) and isinstance(projected, Sequence):
+    if (
+        isinstance(state, Sequence)
+        and not isinstance(state, (str, bytes))
+        and isinstance(projected, Sequence)
+        and not isinstance(projected, (str, bytes))
+    ):
         if len(state) != len(projected):
             errors.append("input_state/projected_state dimension mismatch")
 
-    if isinstance(state, Sequence):
+    if isinstance(state, Sequence) and not isinstance(state, (str, bytes)):
+        candidate_state: list[float] = []
         for idx, value in enumerate(state):
-            if isinstance(value, bool) or not isinstance(value, (int, float)) or math.isnan(float(value)) or math.isinf(float(value)):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or math.isnan(float(value))
+                or math.isinf(float(value))
+            ):
                 errors.append(f"input_state[{idx}] must be finite")
                 break
+            candidate_state.append(float(value))
+        else:
+            normalized_state = candidate_state
 
-    if isinstance(projected, Sequence):
+    if isinstance(projected, Sequence) and not isinstance(projected, (str, bytes)):
+        candidate_projected: list[float] = []
         for idx, value in enumerate(projected):
-            if isinstance(value, bool) or not isinstance(value, (int, float)) or math.isnan(float(value)) or math.isinf(float(value)):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or math.isnan(float(value))
+                or math.isinf(float(value))
+            ):
                 errors.append(f"projected_state[{idx}] must be finite")
                 break
+            candidate_projected.append(float(value))
+        else:
+            normalized_projected = candidate_projected
 
     if not isinstance(residual, Mapping):
         errors.append("residual must be a mapping")
@@ -430,11 +455,11 @@ def validate_runtime_projection(projection: RuntimeAdmissibilityProjection | Map
             )
             if receipt_obj.proof_hash != recomputed_proof:
                 errors.append("receipt.proof_hash lineage mismatch")
-            if isinstance(state, Sequence):
-                if receipt_obj.input_state_hash != _stable_hash({"state": [float(v) for v in state]}):
+            if normalized_state is not None:
+                if receipt_obj.input_state_hash != _stable_hash({"state": normalized_state}):
                     errors.append("receipt.input_state_hash mismatch")
-            if isinstance(projected, Sequence):
-                if receipt_obj.projected_state_hash != _stable_hash({"state": [float(v) for v in projected]}):
+            if normalized_projected is not None:
+                if receipt_obj.projected_state_hash != _stable_hash({"state": normalized_projected}):
                     errors.append("receipt.projected_state_hash mismatch")
         except RuntimeAdmissibilityProjectionValidationError as exc:
             errors.append(str(exc))

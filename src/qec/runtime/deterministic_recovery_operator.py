@@ -1,5 +1,12 @@
 # SPDX-License-Identifier: MIT
-"""v138.3.2 — deterministic recovery operator."""
+"""v138.3.2 — deterministic recovery operator.
+
+Recovery is always projection-aligned: the recovered state equals the projected
+admissible state regardless of tension magnitude.  Tension is cross-validated
+against state geometry (quadratic squared-L2 norm) in the builder to enforce
+lineage and prevent forged tension signals.  Receipt and hash integrity are
+enforced at both construction and validation time.
+"""
 
 from __future__ import annotations
 
@@ -212,8 +219,10 @@ def compute_recovery_state(
     if normalized_tolerance < 0.0:
         raise DeterministicRecoveryOperatorValidationError("tolerance must be >= 0")
 
-    if normalized_tension <= normalized_tolerance:
-        return normalized_projected
+    # Recovery is always projection-aligned: the recovered state equals the
+    # projected admissible state regardless of tension magnitude.  The tension
+    # signal influences metadata and receipts but does not alter geometry.
+    _ = normalized_tolerance  # retained for API stability; tolerance check is in builder
     return normalized_projected
 
 
@@ -344,6 +353,15 @@ def build_deterministic_recovery_state(
     if tension_value < 0.0:
         raise DeterministicRecoveryOperatorValidationError("tension.tension_value must be >= 0")
 
+    # Enforce tension-value lineage: recompute the expected quadratic tension
+    # (squared L2 norm of the projection residual) from the already-verified
+    # state geometry and reject any mapping whose tension_value does not match.
+    expected_tension = float(sum((p - i) ** 2 for p, i in zip(projected_state, input_state)))
+    if not math.isclose(tension_value, expected_tension, rel_tol=0.0, abs_tol=_RECOVERY_EQUALITY_TOLERANCE):
+        raise DeterministicRecoveryOperatorValidationError(
+            "tension.tension_value does not match state geometry"
+        )
+
     tension_receipt = tension_map.get("receipt")
     if not isinstance(tension_receipt, Mapping):
         raise DeterministicRecoveryOperatorValidationError("tension.receipt must be a mapping")
@@ -418,7 +436,18 @@ def validate_deterministic_recovery_state(
 ) -> RecoveryValidationReport:
     errors: list[str] = []
 
-    payload = recovery.to_dict() if isinstance(recovery, DeterministicRecoveryState) else dict(recovery)
+    if isinstance(recovery, DeterministicRecoveryState):
+        payload = recovery.to_dict()
+    elif isinstance(recovery, Mapping):
+        payload = dict(recovery)
+    else:
+        return RecoveryValidationReport(
+            valid=False,
+            errors=(
+                f"recovery must be DeterministicRecoveryState or Mapping, got {type(recovery).__name__}",
+            ),
+            error_count=1,
+        )
 
     if not isinstance(payload.get("state_id"), str) or not str(payload.get("state_id")).strip():
         errors.append("state_id must be non-empty")
@@ -508,6 +537,15 @@ def validate_deterministic_recovery_state(
 
     if input_state is not None and recovered_state is not None and len(normalized_steps) != len(recovered_state):
         errors.append("recovery_steps length must match recovered_state dimension")
+
+    # Enforce that coordinate indices are unique and cover the full range [0..dim-1].
+    if input_state is not None and recovered_state is not None and normalized_steps:
+        expected_indices = set(range(len(recovered_state)))
+        actual_indices = {step.coordinate_index for step in normalized_steps}
+        if actual_indices != expected_indices:
+            errors.append(
+                f"recovery_steps coordinate_index values must be unique and cover [0..{len(recovered_state) - 1}]"
+            )
 
     for idx, step in enumerate(normalized_steps):
         if recovered_state is not None and input_state is not None:

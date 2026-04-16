@@ -122,3 +122,33 @@ def test_step_delta_consistency():
     payload["recovery_steps"][0]["delta"] = 999.0
     report = validate_deterministic_recovery_state(payload)
     assert any("delta mismatch" in error for error in report.errors)
+
+
+def test_forged_tension_value_rejected():
+    """P1: builder must reject a tension_value that does not match state geometry."""
+    projection = _projection(inadmissible=True)
+    tension = build_quadratic_tension_functional(projection)
+    tension_map = tension.to_dict()
+    # Forge a zero tension even though the residual is nonzero.
+    tension_map["tension_value"] = 0.0
+    with pytest.raises(DeterministicRecoveryOperatorValidationError, match="does not match state geometry"):
+        build_deterministic_recovery_state(projection, tension_map)
+
+
+def test_validate_invalid_type_returns_report():
+    """P2: validate_deterministic_recovery_state must not crash on non-Mapping input."""
+    for bad_input in (42, None, [1, 2, 3]):
+        report = validate_deterministic_recovery_state(bad_input)  # type: ignore[arg-type]
+        assert not report.valid
+        assert report.error_count >= 1
+        assert any("Mapping" in err or "DeterministicRecoveryState" in err for err in report.errors)
+
+
+def test_duplicate_coordinate_index_rejected():
+    """Validator must reject a payload with duplicate coordinate indices."""
+    recovery = _recovery()
+    payload = recovery.to_dict()
+    # Duplicate step 0's index onto step 1 — creates a gap and a duplicate.
+    payload["recovery_steps"][1]["coordinate_index"] = 0
+    report = validate_deterministic_recovery_state(payload)
+    assert any("coordinate_index" in err for err in report.errors)

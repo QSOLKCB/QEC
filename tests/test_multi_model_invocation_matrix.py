@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 
 from qec.runtime.multi_model_invocation_matrix import (
+    InvocationMatrixReceipt,
     InvocationRecord,
     ModelInvocationSpec,
     build_multi_model_invocation_matrix,
@@ -185,3 +186,43 @@ def test_deterministic_model_ordering():
     matrix = build_multi_model_invocation_matrix(artifact, _spec_mappings(artifact.receipt.prompt_hash))
     projection = invocation_matrix_projection(matrix)
     assert projection["ordered_models"] == ["claude", "grok"]
+
+
+def test_validation_passed_tamper_detection():
+    """Altering validation_passed and recomputing receipt_hash must be detected."""
+    artifact = _prompt_artifact()
+    matrix = build_multi_model_invocation_matrix(artifact, _spec_mappings(artifact.receipt.prompt_hash))
+    # Build a forged receipt with validation_passed=False (correct internal hash for that value).
+    forged_provisional = InvocationMatrixReceipt(
+        prompt_hash=matrix.receipt.prompt_hash,
+        matrix_hash=matrix.receipt.matrix_hash,
+        receipt_hash="",
+        validation_passed=False,
+    )
+    tampered = {
+        **matrix.to_dict(),
+        "receipt": {
+            **matrix.receipt.to_dict(),
+            "validation_passed": False,
+            "receipt_hash": forged_provisional.stable_hash(),
+        },
+    }
+    report = validate_invocation_matrix(tampered)
+    assert report.valid is False
+    assert "receipt.validation_passed mismatch" in report.errors
+
+
+def test_record_spec_field_mismatch_rejection():
+    """A record whose model_name differs from its matching spec must be rejected."""
+    artifact = _prompt_artifact()
+    matrix = build_multi_model_invocation_matrix(artifact, _spec_mappings(artifact.receipt.prompt_hash))
+    tampered = {
+        **matrix.to_dict(),
+        "records": [
+            {**matrix.records[0].to_dict(), "model_name": "wrong_model"},
+            matrix.records[1].to_dict(),
+        ],
+    }
+    report = validate_invocation_matrix(tampered)
+    assert report.valid is False
+    assert any("model_name mismatch" in e for e in report.errors)

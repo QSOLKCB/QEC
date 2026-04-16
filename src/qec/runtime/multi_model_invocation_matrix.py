@@ -17,6 +17,8 @@ SUPPORTED_INVOCATION_STATUSES: Tuple[str, ...] = ("pending", "completed", "faile
 CANONICAL_PROVIDER_NAMES: Tuple[str, ...] = ("openai", "sider", "anthropic", "xai")
 CANONICAL_MODEL_NAMES: Tuple[str, ...] = ("chatgpt_native", "chatgpt_5_4_sider", "claude", "grok")
 
+_SHA256_HEX_CHARS: frozenset = frozenset("0123456789abcdef")
+
 
 class InvocationMatrixValidationError(ValueError):
     """Raised when invocation matrix input violates deterministic schema."""
@@ -66,6 +68,18 @@ def _normalize_non_negative_int(value: Any, *, field: str) -> int:
     if normalized < 0:
         raise InvocationMatrixValidationError(f"{field} must be >= 0")
     return normalized
+
+
+def _normalize_sha256_hex(value: Any, *, field: str) -> str:
+    """Validate that value is a 64-character lowercase SHA-256 hex string."""
+    if not isinstance(value, str):
+        raise InvocationMatrixValidationError(f"{field} must be a string")
+    text = value.strip().lower()
+    if len(text) != 64:
+        raise InvocationMatrixValidationError(f"{field} must be a 64-character SHA-256 hex string")
+    if not frozenset(text) <= _SHA256_HEX_CHARS:
+        raise InvocationMatrixValidationError(f"{field} must be a lowercase SHA-256 hex string")
+    return text
 
 
 def _normalize_metadata_mapping(value: Any, *, field: str) -> Dict[str, Any]:
@@ -376,7 +390,9 @@ def validate_invocation_matrix(
         records = tuple(matrix.records)
         receipt = matrix.receipt
     elif isinstance(matrix, Mapping):
-        prompt_hash = str(matrix.get("prompt_hash", ""))
+        # Use explicit isinstance check; str() would coerce None to the string 'None'.
+        prompt_hash_raw = matrix.get("prompt_hash")
+        prompt_hash = prompt_hash_raw.strip() if isinstance(prompt_hash_raw, str) else ""
         specs_list: list[ModelInvocationSpec] = []
         for spec in matrix.get("invocation_specs", ()):
             try:
@@ -394,10 +410,13 @@ def validate_invocation_matrix(
         records = tuple(record_list)
         receipt_raw = matrix.get("receipt", {})
         if isinstance(receipt_raw, Mapping):
+            r_ph_raw = receipt_raw.get("prompt_hash")
+            r_mh_raw = receipt_raw.get("matrix_hash")
+            r_rh_raw = receipt_raw.get("receipt_hash")
             receipt = InvocationMatrixReceipt(
-                prompt_hash=str(receipt_raw.get("prompt_hash", "")),
-                matrix_hash=str(receipt_raw.get("matrix_hash", "")),
-                receipt_hash=str(receipt_raw.get("receipt_hash", "")),
+                prompt_hash=r_ph_raw.strip() if isinstance(r_ph_raw, str) else "",
+                matrix_hash=r_mh_raw.strip() if isinstance(r_mh_raw, str) else "",
+                receipt_hash=r_rh_raw.strip() if isinstance(r_rh_raw, str) else "",
                 validation_passed=bool(receipt_raw.get("validation_passed", False)),
             )
         else:
@@ -407,6 +426,11 @@ def validate_invocation_matrix(
 
     if not isinstance(prompt_hash, str) or not prompt_hash.strip():
         errors.append("matrix.prompt_hash must be non-empty")
+    else:
+        try:
+            _normalize_sha256_hex(prompt_hash, field="matrix.prompt_hash")
+        except InvocationMatrixValidationError as exc:
+            errors.append(str(exc))
 
     invocation_ids = [spec.invocation_id for spec in specs]
     if len(set(invocation_ids)) != len(invocation_ids):
@@ -437,18 +461,47 @@ def validate_invocation_matrix(
         errors.append("record count must equal spec count")
     if set(record_invocation_ids) != set(invocation_ids):
         errors.append("record.invocation_id set must match spec.invocation_id set")
+    elif specs and records:
+        # Enforce 1:1 structural correspondence between each record and its matching spec.
+        spec_lookup: Dict[str, ModelInvocationSpec] = {spec.invocation_id: spec for spec in specs}
+        for record in records:
+            matched_spec = spec_lookup.get(record.invocation_id)
+            if matched_spec is not None:
+                if record.model_name != matched_spec.model_name:
+                    errors.append(f"record.model_name mismatch for invocation_id {record.invocation_id!r}")
+                if record.provider_name != matched_spec.provider_name:
+                    errors.append(f"record.provider_name mismatch for invocation_id {record.invocation_id!r}")
+                if record.route_name != matched_spec.route_name:
+                    errors.append(f"record.route_name mismatch for invocation_id {record.invocation_id!r}")
+                if record.repetition_index != matched_spec.repetition_index:
+                    errors.append(f"record.repetition_index mismatch for invocation_id {record.invocation_id!r}")
 
     expected_order = _ordered_records(records)
     if expected_order != tuple(records):
         errors.append("records not in deterministic order")
 
-    expected_receipt = _build_receipt(prompt_hash, specs, records, validation_passed=receipt.validation_passed)
+    # Derive expected_validation_passed from constraints collected so far, not from the provided
+    # receipt value.  This prevents an attacker from altering validation_passed and recomputing
+    # receipt_hash to make a tampered matrix pass validation.
+    expected_validation_passed = not bool(errors)
+    expected_receipt = _build_receipt(prompt_hash, specs, records, validation_passed=expected_validation_passed)
+    if receipt.validation_passed != expected_validation_passed:
+        errors.append("receipt.validation_passed mismatch")
     if receipt.prompt_hash != prompt_hash:
         errors.append("receipt.prompt_hash mismatch")
     if receipt.matrix_hash != expected_receipt.matrix_hash:
         errors.append("receipt.matrix_hash mismatch")
     if receipt.receipt_hash != expected_receipt.receipt_hash:
         errors.append("receipt.receipt_hash mismatch")
+    # Validate receipt hash field formats.
+    for hash_val, field_name in (
+        (receipt.matrix_hash, "receipt.matrix_hash"),
+        (receipt.receipt_hash, "receipt.receipt_hash"),
+    ):
+        try:
+            _normalize_sha256_hex(hash_val, field=field_name)
+        except InvocationMatrixValidationError as exc:
+            errors.append(str(exc))
 
     deduped_errors = tuple(dict.fromkeys(errors))
     return InvocationMatrixValidationReport(
@@ -552,9 +605,9 @@ def invocation_matrix_projection(
     else:
         raise InvocationMatrixValidationError("matrix_or_parts must be MultiModelInvocationMatrix or mapping")
 
-    ordered_models = tuple(dict.fromkeys(record.model_name for record in matrix.records))
-    ordered_providers = tuple(dict.fromkeys(record.provider_name for record in matrix.records))
-    ordered_routes = tuple(dict.fromkeys(record.route_name for record in matrix.records))
+    ordered_models = tuple(dict.fromkeys(record.model_name for record in _ordered_records(matrix.records)))
+    ordered_providers = tuple(dict.fromkeys(record.provider_name for record in _ordered_records(matrix.records)))
+    ordered_routes = tuple(dict.fromkeys(record.route_name for record in _ordered_records(matrix.records)))
     repetition_count = len({record.repetition_index for record in matrix.records})
 
     return {

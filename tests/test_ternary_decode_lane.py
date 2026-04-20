@@ -136,6 +136,15 @@ def test_receipt_invariants_and_hash_exclusion_behavior() -> None:
     assert receipt.receipt_hash == receipt.stable_hash()
 
 
+def test_selected_metric_bundle_is_immutable_and_hash_stable() -> None:
+    receipt = run_ternary_decode_lane((0, 2, 1))
+    baseline_hash = receipt.receipt_hash
+    with pytest.raises(TypeError):
+        receipt.selected_metric_bundle["bounded_confidence"] = 0.0
+    assert receipt.receipt_hash == baseline_hash
+    assert receipt.stable_hash() == baseline_hash
+
+
 def test_candidate_validation_rejects_malformed_correction_symbol() -> None:
     with pytest.raises(ValueError, match=r"proposed_correction\[1\] must be one of 0, 1, 2"):
         TernaryDecodeCandidate(

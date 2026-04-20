@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
+from types import MappingProxyType
 from typing import Any, Iterable, Mapping, Sequence
 
 _RELEASE_VERSION = "v138.4.0"
@@ -217,7 +218,7 @@ class TernaryDecodeCandidate:
         if not isinstance(self.metric_bundle, Mapping):
             raise ValueError("metric_bundle must be a mapping")
         normalized_metrics = {key: _bounded(float(self.metric_bundle[key]), field=key) for key in metric_keys}
-        object.__setattr__(self, "metric_bundle", normalized_metrics)
+        object.__setattr__(self, "metric_bundle", MappingProxyType(dict(normalized_metrics)))
         object.__setattr__(self, "composite_score", _bounded(float(self.composite_score), field="composite_score"))
 
     def to_dict(self) -> dict[str, Any]:

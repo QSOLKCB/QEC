@@ -309,3 +309,53 @@ def test_source_can_be_validated_by_stable_hash_without_replay_identity() -> Non
     receipt_like = _ReceiptLike(source)
     receipt = build_distributed_execution_skip_fabric(source_skip_safety_receipt=receipt_like)
     assert receipt.source_skip_safety_hash
+
+
+def test_source_schema_validation_rejects_malformed_hashes_profiles_and_region_sources() -> None:
+    source = _as_payload_with_replay_identity(_base_skip_safety_receipt())
+    source["source_idempotence_hash"] = None
+    source = _rehash(source)
+    with pytest.raises(ValueError, match="source_idempotence_hash"):
+        build_distributed_execution_skip_fabric(source_skip_safety_receipt=source)
+
+    source = _as_payload_with_replay_identity(_base_skip_safety_receipt())
+    source["safety_profile"] = {"safe_region_count": 1}
+    source = _rehash(source)
+    with pytest.raises(ValueError, match="safety_profile missing required keys"):
+        build_distributed_execution_skip_fabric(source_skip_safety_receipt=source)
+
+    source = _as_payload_with_replay_identity(_base_skip_safety_receipt())
+    source["decision"] = {"global_safety_classification": "safe_runtime_elimination_ready"}
+    source = _rehash(source)
+    with pytest.raises(ValueError, match="decision missing required keys"):
+        build_distributed_execution_skip_fabric(source_skip_safety_receipt=source)
+
+    source = _as_payload_with_replay_identity(_base_skip_safety_receipt())
+    regions = list(source["skip_safety_regions"])  # type: ignore[arg-type]
+    region = dict(source["skip_safety_regions"][0])  # type: ignore[index]
+    region.pop("idempotence_class", None)
+    regions[0] = region
+    source["skip_safety_regions"] = regions
+    source = _rehash(source)
+    with pytest.raises(ValueError, match="region missing keys"):
+        build_distributed_execution_skip_fabric(source_skip_safety_receipt=source)
+
+    source = _as_payload_with_replay_identity(_base_skip_safety_receipt())
+    regions = list(source["skip_safety_regions"])  # type: ignore[arg-type]
+    region = dict(source["skip_safety_regions"][1])  # type: ignore[index]
+    region["supporting_sources"] = list(reversed(region["supporting_sources"]))  # type: ignore[index]
+    regions[1] = region
+    source["skip_safety_regions"] = regions
+    source = _rehash(source)
+    with pytest.raises(ValueError, match="supporting_sources must preserve canonical ordering"):
+        build_distributed_execution_skip_fabric(source_skip_safety_receipt=source)
+
+    source = _as_payload_with_replay_identity(_base_skip_safety_receipt())
+    regions = list(source["skip_safety_regions"])  # type: ignore[arg-type]
+    region = dict(source["skip_safety_regions"][0])  # type: ignore[index]
+    region["supporting_sources"] = ["unknown_source"]
+    regions[0] = region
+    source["skip_safety_regions"] = regions
+    source = _rehash(source)
+    with pytest.raises(ValueError, match="supporting_sources contain invalid source"):
+        build_distributed_execution_skip_fabric(source_skip_safety_receipt=source)

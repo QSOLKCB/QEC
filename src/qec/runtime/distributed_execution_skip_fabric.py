@@ -45,6 +45,20 @@ RECOMMENDATIONS = (
     "requires_runtime_constraints",
     "do_not_optimize",
 )
+SOURCE_SIGNAL_NAMES = ("fractal", "phase", "resonance", "topology")
+SOURCE_SAFETY_PROFILE_KEYS = (
+    "safe_region_count",
+    "unsafe_region_count",
+    "strongest_safe_region_id",
+    "total_safe_coverage_fraction",
+    "global_safety_classification",
+)
+SOURCE_DECISION_KEYS = (
+    "global_safety_classification",
+    "strongest_safe_region",
+    "recommendation",
+    "caution_reasons",
+)
 
 _JSONScalar = str | int | float | bool | None
 _JSONValue = _JSONScalar | tuple["_JSONValue", ...] | Mapping[str, "_JSONValue"]
@@ -323,6 +337,27 @@ def _normalize_skip_safety_source(source_skip_safety_receipt: Any) -> _Normalize
     if isinstance(trajectory_length, bool) or not isinstance(trajectory_length, int) or trajectory_length <= 0:
         raise DistributedExecutionSkipFabricError("source trajectory_length must be a positive int")
 
+    source_idempotence_hash = source_map.get("source_idempotence_hash")
+    source_interface_hash = source_map.get("source_interface_hash")
+    if not isinstance(source_idempotence_hash, str) or not source_idempotence_hash:
+        raise DistributedExecutionSkipFabricError("source source_idempotence_hash must be a non-empty string")
+    if not isinstance(source_interface_hash, str) or not source_interface_hash:
+        raise DistributedExecutionSkipFabricError("source source_interface_hash must be a non-empty string")
+
+    safety_profile_raw = source_map.get("safety_profile")
+    if not isinstance(safety_profile_raw, Mapping):
+        raise DistributedExecutionSkipFabricError("source safety_profile must be a mapping")
+    missing_profile_keys = sorted(set(SOURCE_SAFETY_PROFILE_KEYS).difference(safety_profile_raw.keys()))
+    if missing_profile_keys:
+        raise DistributedExecutionSkipFabricError(f"source safety_profile missing required keys {missing_profile_keys}")
+
+    decision_raw = source_map.get("decision")
+    if not isinstance(decision_raw, Mapping):
+        raise DistributedExecutionSkipFabricError("source decision must be a mapping")
+    missing_decision_keys = sorted(set(SOURCE_DECISION_KEYS).difference(decision_raw.keys()))
+    if missing_decision_keys:
+        raise DistributedExecutionSkipFabricError(f"source decision missing required keys {missing_decision_keys}")
+
     bounded_metrics = _validate_metric_bundle(source_map.get("bounded_metrics"), field_name="source_skip_safety.bounded_metrics")
     required_metric_keys = {
         "global_safety_score",
@@ -352,10 +387,12 @@ def _normalize_skip_safety_source(source_skip_safety_receipt: Any) -> _Normalize
         required_region_keys = {
             "region_id",
             "region_kind",
+            "idempotence_class",
             "safety_class",
             "safety_score",
             "confidence_score",
             "supporting_sources",
+            "justification_tags",
         }
         missing_region_keys = sorted(required_region_keys.difference(raw.keys()))
         if missing_region_keys:
@@ -393,14 +430,14 @@ def _normalize_skip_safety_source(source_skip_safety_receipt: Any) -> _Normalize
         supporting_sources: list[str] = []
         seen_supporting_sources: set[str] = set()
         for source_name in supporting_sources_raw:
-            if not isinstance(source_name, str) or not source_name:
-                raise DistributedExecutionSkipFabricError("source supporting_sources must contain non-empty strings")
+            if not isinstance(source_name, str) or source_name not in SOURCE_SIGNAL_NAMES:
+                raise DistributedExecutionSkipFabricError("source supporting_sources contain invalid source")
             if source_name in seen_supporting_sources:
                 raise DistributedExecutionSkipFabricError("source supporting_sources must not contain duplicates")
             seen_supporting_sources.add(source_name)
             supporting_sources.append(source_name)
-        if tuple(supporting_sources) != tuple(supporting_sources_raw):
-            raise DistributedExecutionSkipFabricError("source supporting_sources ordering must be preserved")
+        if tuple(supporting_sources) != tuple(sorted(supporting_sources)):
+            raise DistributedExecutionSkipFabricError("source supporting_sources must preserve canonical ordering")
 
         sort_key = (-normalized_safety, -normalized_confidence, region_id)
         if previous_key is not None and sort_key < previous_key:

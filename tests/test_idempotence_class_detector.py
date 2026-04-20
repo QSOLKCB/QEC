@@ -296,6 +296,58 @@ def test_reject_source_with_invalid_bounded_metric_value() -> None:
         build_idempotence_class_detector(source_dark_state_receipt=source)
 
 
+def test_reject_duplicate_region_ids_in_source_dark_state_regions() -> None:
+    source = _as_payload_with_replay_identity(_base_dark_state_receipt())
+    source["dark_state_regions"] = [
+        {
+            "region_id": "duplicate_region",
+            "region_kind": "behavior_region",
+            "supporting_sources": ["phase"],
+            "stability_score": 0.66,
+            "elimination_readiness_score": 0.64,
+            "mask_confidence": 0.62,
+            "justification_tags": ["stable_behavior"],
+        },
+        {
+            "region_id": "duplicate_region",
+            "region_kind": "structure_region",
+            "supporting_sources": ["resonance"],
+            "stability_score": 0.58,
+            "elimination_readiness_score": 0.56,
+            "mask_confidence": 0.55,
+            "justification_tags": ["stable_structure"],
+        },
+    ]
+    source["mask_profile"]["strongest_region_id"] = source["dark_state_regions"][0]["region_id"]  # type: ignore[index]
+    source["mask_profile"]["candidate_region_count"] = len(source["dark_state_regions"])  # type: ignore[index]
+    source = _rehash(source)
+    with pytest.raises(ValueError, match="region_id must be unique"):
+        build_idempotence_class_detector(source_dark_state_receipt=source)
+
+
+def test_source_supporting_sources_must_be_non_empty_and_unique() -> None:
+    empty_sources = _as_payload_with_replay_identity(_base_dark_state_receipt())
+    empty_sources["dark_state_regions"][0]["supporting_sources"] = []  # type: ignore[index]
+    empty_sources = _rehash(empty_sources)
+    with pytest.raises(ValueError, match="supporting_sources must be non-empty"):
+        build_idempotence_class_detector(source_dark_state_receipt=empty_sources)
+
+    duplicate_sources = _as_payload_with_replay_identity(_base_dark_state_receipt())
+    duplicate_sources["dark_state_regions"][0]["supporting_sources"] = ["phase", "phase"]  # type: ignore[index]
+    duplicate_sources = _rehash(duplicate_sources)
+    with pytest.raises(ValueError, match="must not contain duplicates"):
+        build_idempotence_class_detector(source_dark_state_receipt=duplicate_sources)
+
+
+def test_source_supporting_sources_are_canonicalized_to_sorted_order() -> None:
+    source = _as_payload_with_replay_identity(_base_dark_state_receipt())
+    source["dark_state_regions"][0]["supporting_sources"] = ["topology", "phase", "fractal"]  # type: ignore[index]
+    source = _rehash(source)
+    receipt = build_idempotence_class_detector(source_dark_state_receipt=source)
+    first_region = next(region for region in receipt.region_classes if region.region_id == source["dark_state_regions"][0]["region_id"])  # type: ignore[index]
+    assert first_region.supporting_sources == tuple(sorted(first_region.supporting_sources))
+
+
 def test_source_bridge_from_dark_state_engine_matches_expected() -> None:
     source = build_dark_state_mask_runtime_engine(source_interface_receipt=_base_interface_payload())
     receipt = build_idempotence_class_detector(source_dark_state_receipt=source)

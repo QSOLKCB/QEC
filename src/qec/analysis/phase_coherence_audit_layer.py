@@ -394,7 +394,10 @@ def _normalize_resonance_receipt(resonance_receipt: Any, trajectory_length: int)
         if field_name not in payload:
             raise ValueError(f"malformed resonance_receipt: missing field '{field_name}'")
     if "ordered_lock_spans" not in payload and "lock_spans" not in payload:
-        raise ValueError("malformed resonance_receipt: missing field 'ordered_lock_spans'")
+        raise ValueError(
+            "malformed resonance_receipt: missing lock spans field "
+            "('ordered_lock_spans' or legacy 'lock_spans')"
+        )
 
     if payload["advisory_only"] is not True:
         raise ValueError("resonance_receipt advisory_only must be True")

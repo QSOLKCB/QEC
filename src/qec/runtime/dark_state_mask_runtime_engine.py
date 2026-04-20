@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """v138.6.0 — deterministic dark-state mask runtime engine."""
 
 from __future__ import annotations

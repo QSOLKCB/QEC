@@ -71,6 +71,14 @@ def _clamp01(value: float) -> float:
     return float(value)
 
 
+def _trajectory_recurrence_score(states: tuple[StateIdentifier, ...]) -> float:
+    trajectory_length = len(states)
+    unique_states = len(set(states))
+    return _clamp01(
+        (trajectory_length - unique_states) / float(max(1, trajectory_length - 1))
+    )
+
+
 
 def _state_sort_key(state: StateIdentifier) -> tuple[int, str]:
     if isinstance(state, bool):
@@ -337,7 +345,8 @@ def _normalize_input(
     normalized_states = tuple(state_sequence)
     if len(normalized_states) == 0:
         raise ValueError("state_sequence must be non-empty")
-    normalized_states = tuple(((_state_sort_key(state), state)[1]) for state in normalized_states)
+    for state in normalized_states:
+        _state_sort_key(state)
 
     normalized_drift: tuple[float, ...] | None = None
     if drift_sequence is not None:
@@ -503,8 +512,8 @@ def _cross_span_stability(lock_spans: tuple[ResonanceLockSpan, ...]) -> float:
 def _metrics(
     inp: ResonanceLockInput,
     lock_spans: tuple[ResonanceLockSpan, ...],
+    recurrence_score: float,
 ) -> Mapping[str, float]:
-    unique_states = len(set(inp.state_sequence))
     trajectory_length = len(inp.state_sequence)
 
     lock_strength_score = max((span.lock_strength for span in lock_spans), default=0.0)
@@ -512,10 +521,6 @@ def _metrics(
     for state in inp.state_sequence:
         counts[state] = counts.get(state, 0) + 1
     attractor_concentration_score = max(counts.values()) / float(trajectory_length)
-    trajectory_recurrence_score = _clamp01(
-        (trajectory_length - unique_states) / float(max(1, trajectory_length - 1))
-    )
-
     if inp.drift_sequence is None:
         drift_suppression_score = 0.0
     else:
@@ -532,7 +537,7 @@ def _metrics(
             lock_strength_score
             + attractor_concentration_score
             + drift_suppression_score
-            + trajectory_recurrence_score
+            + recurrence_score
             + cross_span_stability_score
         )
         / 5.0
@@ -543,7 +548,7 @@ def _metrics(
             "lock_strength_score": _clamp01(lock_strength_score),
             "attractor_concentration_score": _clamp01(attractor_concentration_score),
             "drift_suppression_score": _clamp01(drift_suppression_score),
-            "trajectory_recurrence_score": _clamp01(trajectory_recurrence_score),
+            "trajectory_recurrence_score": _clamp01(recurrence_score),
             "cross_span_stability_score": _clamp01(cross_span_stability_score),
             "bounded_resonance_confidence": _clamp01(bounded_resonance_confidence),
         }
@@ -638,9 +643,9 @@ def run_resonance_lock_diagnostic(
         policy=effective_policy,
     )
     lock_spans = _detect_lock_spans(normalized)
-    recurrence = _clamp01((len(normalized.state_sequence) - len(set(normalized.state_sequence))) / float(max(1, len(normalized.state_sequence) - 1)))
+    recurrence = _trajectory_recurrence_score(normalized.state_sequence)
     attractor = _derive_attractor_profile(normalized, lock_spans, recurrence)
-    metrics = _metrics(normalized, lock_spans)
+    metrics = _metrics(normalized, lock_spans, recurrence)
     classification = _classification(attractor, metrics)
     decision = _decision(normalized, lock_spans, classification, metrics)
 

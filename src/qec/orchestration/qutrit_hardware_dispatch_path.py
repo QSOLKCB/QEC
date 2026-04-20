@@ -11,6 +11,8 @@ from typing import Any, Mapping, Sequence
 
 _RELEASE_VERSION = "v138.4.1"
 _DISPATCH_KIND = "qutrit_hardware_dispatch_path"
+_EXPECTED_SOURCE_RELEASE_VERSION = "v138.4.0"
+_EXPECTED_SOURCE_LANE_KIND = "ternary_decode_lane"
 _SUPPORTED_TARGETS = ("qutrit_asic_lane", "qutrit_fpga_lane", "qutrit_sim_lane")
 _REQUIRED_SOURCE_METRICS = (
     "syndrome_match_score",
@@ -173,6 +175,16 @@ def _extract_source_lane(source_lane_receipt: Any) -> dict[str, Any]:
 
     source["release_version"] = _require_non_empty_text(source["release_version"], field="source_lane_receipt.release_version")
     source["lane_kind"] = _require_non_empty_text(source["lane_kind"], field="source_lane_receipt.lane_kind")
+    if source["release_version"] != _EXPECTED_SOURCE_RELEASE_VERSION:
+        raise ValueError(
+            "source_lane_receipt.release_version must be "
+            f"{_EXPECTED_SOURCE_RELEASE_VERSION}"
+        )
+    if source["lane_kind"] != _EXPECTED_SOURCE_LANE_KIND:
+        raise ValueError(
+            "source_lane_receipt.lane_kind must be "
+            f"{_EXPECTED_SOURCE_LANE_KIND}"
+        )
     source["selected_candidate_id"] = _require_non_empty_text(
         source["selected_candidate_id"],
         field="source_lane_receipt.selected_candidate_id",

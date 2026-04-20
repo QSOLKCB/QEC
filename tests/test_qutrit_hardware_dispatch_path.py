@@ -33,6 +33,22 @@ def test_validation_rejects_malformed_source_receipt() -> None:
         build_qutrit_hardware_dispatch({"lane_kind": "ternary_decode_lane"})
 
 
+def test_validation_rejects_unexpected_source_release_version() -> None:
+    source = run_ternary_decode_lane((0, 1, 2)).to_dict()
+    source["release_version"] = "v138.4.9"
+    source["receipt_hash"] = dispatch_path._stable_hash(dispatch_path._source_hash_payload(source))
+    with pytest.raises(ValueError, match="source_lane_receipt.release_version must be v138.4.0"):
+        build_qutrit_hardware_dispatch(source)
+
+
+def test_validation_rejects_unexpected_source_lane_kind() -> None:
+    source = run_ternary_decode_lane((0, 1, 2)).to_dict()
+    source["lane_kind"] = "ternary_decode_lane_beta"
+    source["receipt_hash"] = dispatch_path._stable_hash(dispatch_path._source_hash_payload(source))
+    with pytest.raises(ValueError, match="source_lane_receipt.lane_kind must be ternary_decode_lane"):
+        build_qutrit_hardware_dispatch(source)
+
+
 def test_validation_rejects_invalid_preferred_target() -> None:
     source = run_ternary_decode_lane((0, 1, 2))
     with pytest.raises(ValueError, match="unsupported target"):

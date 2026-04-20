@@ -302,7 +302,6 @@ def _normalize_resonance_source(resonance_receipt: Any) -> _NormalizedSource:
     lock_spans = payload.get("ordered_lock_spans", payload.get("lock_spans"))
     _ordered_tuple_of_mappings(lock_spans, field_name="resonance lock spans", required_keys=("start_index", "end_index", "lock_strength"))
 
-    classification = payload.get("resonance_classification")
     if not isinstance(classification, str) or not classification:
         raise ValueError("malformed resonance_receipt: resonance_classification must be a non-empty string")
 

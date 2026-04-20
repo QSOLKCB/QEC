@@ -144,9 +144,11 @@ def test_bounds_invariants_canonical_hashing_and_immutability() -> None:
 
 def test_regression_source_hash_binding_detects_post_construction_mutation() -> None:
     dispatch = _asic_dispatch_receipt(correction_len=4).to_dict()
-    dispatch["selected_target"] = "qutrit_sim_lane"
-    dispatch["receipt_hash"] = asic_module._stable_hash(asic_module._source_dispatch_hash_payload(dispatch))
-    with pytest.raises(ValueError, match="not ASIC-compatible"):
+    mutated_metrics = dict(dispatch["dispatch_metric_bundle"])
+    mutated_metrics["bounded_dispatch_confidence"] = 0.05
+    dispatch["dispatch_metric_bundle"] = mutated_metrics
+
+    with pytest.raises(ValueError, match="receipt_hash mismatch"):
         run_ternary_asic_experiment(dispatch)
 
 

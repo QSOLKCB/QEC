@@ -158,14 +158,25 @@ def _extract_source_study(source_study_receipt: Any) -> dict[str, Any]:
     required_fields = (
         "release_version",
         "study_kind",
+        "source_experiment_release_version",
+        "source_experiment_kind",
         "source_experiment_receipt_hash",
         "source_dispatch_receipt_hash",
         "source_lane_receipt_hash",
         "source_selected_target",
         "canonical_selected_correction",
         "correction_length",
+        "execution_profile",
+        "source_metric_bundle",
         "binary_css_projection",
+        "projection_weight",
+        "ternary_weight",
+        "projection_x_weight",
+        "projection_z_weight",
+        "projection_overlap_count",
+        "projection_divergence_count",
         "hybrid_classification",
+        "hybrid_recommendation",
         "metric_bundle",
         "css_projection_consistency_score",
         "surface_alignment_score",
@@ -190,13 +201,21 @@ def _extract_source_study(source_study_receipt: Any) -> dict[str, Any]:
         raise ValueError(f"source_study_receipt.study_kind must be {_EXPECTED_SOURCE_STUDY_KIND}")
 
     for field_name in (
+        "source_experiment_release_version",
+        "source_experiment_kind",
         "source_experiment_receipt_hash",
         "source_dispatch_receipt_hash",
         "source_lane_receipt_hash",
         "source_selected_target",
+        "hybrid_recommendation",
         "receipt_hash",
     ):
         source[field_name] = _require_non_empty_text(source[field_name], field=f"source_study_receipt.{field_name}")
+
+    for field_name in ("execution_profile", "source_metric_bundle"):
+        if not isinstance(source[field_name], Mapping):
+            raise ValueError(f"source_study_receipt.{field_name} must be a mapping")
+        source[field_name] = dict(source[field_name])
 
     correction = _normalize_correction(source["canonical_selected_correction"], field="source_study_receipt.canonical_selected_correction")
     length = _require_int(source["correction_length"], field="source_study_receipt.correction_length")

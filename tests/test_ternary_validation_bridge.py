@@ -57,6 +57,20 @@ def test_validation_rejects_malformed_source_study_receipt() -> None:
         run_ternary_validation_bridge({"study_kind": "css_surface_hybrid_study"})
 
 
+def test_validation_rejects_missing_hash_payload_fields_with_value_error() -> None:
+    source = _study_receipt_dict()
+    source.pop("source_experiment_kind")
+    with pytest.raises(ValueError, match="missing required fields: source_experiment_kind"):
+        run_ternary_validation_bridge(source)
+
+
+def test_validation_rejects_non_mapping_hash_payload_fields() -> None:
+    source = _study_receipt_dict()
+    source["execution_profile"] = "invalid"
+    with pytest.raises(ValueError, match="execution_profile must be a mapping"):
+        run_ternary_validation_bridge(source)
+
+
 def test_validation_rejects_wrong_source_release_version() -> None:
     source = _study_receipt_dict()
     source["release_version"] = "v138.4.9"

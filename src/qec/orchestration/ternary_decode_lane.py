@@ -218,6 +218,10 @@ class TernaryDecodeCandidate:
         )
         if not isinstance(self.metric_bundle, Mapping):
             raise ValueError("metric_bundle must be a mapping")
+        missing_metric_keys = [key for key in metric_keys if key not in self.metric_bundle]
+        if missing_metric_keys:
+            missing_keys = ", ".join(missing_metric_keys)
+            raise ValueError(f"metric_bundle is missing required keys: {missing_keys}")
         normalized_metrics = {key: _bounded(float(self.metric_bundle[key]), field=key) for key in metric_keys}
         object.__setattr__(self, "metric_bundle", MappingProxyType(dict(normalized_metrics)))
         object.__setattr__(self, "composite_score", _bounded(float(self.composite_score), field="composite_score"))

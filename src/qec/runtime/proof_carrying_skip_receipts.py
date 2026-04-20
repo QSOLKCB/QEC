@@ -860,12 +860,18 @@ def _build_metrics(
 
 
 def _classify_proof_validity(metrics: Mapping[str, float], *, contradicted_count: int) -> str:
+    """Classify proof validity in a way that preserves downstream invariants."""
     confidence = float(metrics["bounded_proof_confidence"])
     consistency = float(metrics["proof_consistency_score"])
     coverage = float(metrics["claim_coverage_score"])
     if contradicted_count > 0 and consistency < 0.75:
         return "invalidated_proof_receipt"
-    if confidence >= 0.62 and coverage >= 0.50 and consistency >= 0.85:
+    if (
+        contradicted_count == 0
+        and confidence >= 0.62
+        and coverage >= 0.50
+        and consistency >= 0.85
+    ):
         return "strong_proof_receipt"
     if confidence >= 0.35 and coverage > 0.0 and consistency >= 0.70:
         return "partial_proof_receipt"

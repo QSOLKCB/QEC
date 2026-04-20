@@ -950,10 +950,13 @@ def _validate_structural_invariants(
     if tuple(sorted(claims, key=lambda item: (-item.proof_strength_score, -item.projected_savings, item.region_id))) != claims:
         raise ProofCarryingSkipReceiptError("proof_claims must follow deterministic ordering")
 
-    region_set = {region.region_id for region in skip_source.skip_regions}
-    fabric_set = {region.region_id for region in fabric_source.execution_regions}
-    benchmark_set = {region.region_id for region in benchmark_source.benchmark_regions}
-    if region_set != fabric_set or region_set != benchmark_set:
+    skip_region_ids = tuple(region.region_id for region in skip_source.skip_regions)
+    fabric_region_ids = tuple(region.region_id for region in fabric_source.execution_regions)
+    benchmark_region_ids = tuple(region.region_id for region in benchmark_source.benchmark_regions)
+    region_set = set(skip_region_ids)
+    if skip_region_ids != fabric_region_ids:
+        raise ProofCarryingSkipReceiptError("region ordering must match exactly across skip and execution sources")
+    if region_set != set(benchmark_region_ids):
         raise ProofCarryingSkipReceiptError("all claim region references must be valid across all sources")
     if len(claims) != len(region_set):
         raise ProofCarryingSkipReceiptError("proof_claim count must equal source region count")
@@ -991,10 +994,7 @@ def _validate_structural_invariants(
     positive_claims = profile.proved_claim_count + profile.conditional_claim_count
     if profile.proof_validity_class in {"strong_proof_receipt", "partial_proof_receipt"} and positive_claims <= 0:
         raise ProofCarryingSkipReceiptError("strong/partial proof classification requires positive proof claims")
-    requires_strongest_proved_claim = (
-        profile.proof_validity_class in {"strong_proof_receipt", "partial_proof_receipt"}
-        or positive_claims > 0
-    )
+    requires_strongest_proved_claim = profile.proof_validity_class in {"strong_proof_receipt", "partial_proof_receipt"}
     if requires_strongest_proved_claim and profile.strongest_proved_claim is None:
         raise ProofCarryingSkipReceiptError(
             "strongest proved claim required when proof claims are present or classification is strong/partial"

@@ -357,3 +357,32 @@ def test_region_set_mismatch_is_rejected() -> None:
             source_execution_fabric_receipt=fabric,
             source_benchmark_receipt=_ReceiptLike(bad),
         )
+
+
+def test_weak_receipt_all_unsafe_execute_allows_no_positive_claims() -> None:
+    skip, fabric, bench = _build_sources()
+    s = skip.to_dict()  # type: ignore[union-attr]
+    f = fabric.to_dict()  # type: ignore[union-attr]
+    b = bench.to_dict()  # type: ignore[union-attr]
+
+    for region in s["skip_safety_regions"]:  # type: ignore[index]
+        region["safety_class"] = "unsafe_to_skip"
+    for region in f["execution_regions"]:  # type: ignore[index]
+        region["execution_decision"] = "execute"
+    for region in b["benchmark_regions"]:  # type: ignore[index]
+        region["execution_decision"] = "execute"
+
+    s = _rehash(s)
+    f["source_skip_safety_hash"] = _content_hash_without_identity(s)
+    f = _rehash(f)
+    b["source_skip_safety_hash"] = _content_hash_without_identity(s)
+    b["source_execution_fabric_hash"] = _content_hash_without_identity(f)
+    b = _rehash(b)
+
+    receipt = build_proof_carrying_skip_receipt(
+        source_skip_safety_receipt=s,
+        source_execution_fabric_receipt=f,
+        source_benchmark_receipt=b,
+    )
+    assert receipt.proof_validity_classification == "weak_proof_receipt"
+    assert receipt.decision["strongest_proved_claim"] is None

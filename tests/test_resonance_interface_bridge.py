@@ -211,6 +211,43 @@ def test_immutability_enforcement() -> None:
         receipt.bounded_metrics["bounded_interface_confidence"] = 0.0  # type: ignore[index]
     with pytest.raises(TypeError):
         receipt.structure_summary["resonance_classification"] = "x"  # type: ignore[index]
+    if receipt.structure_summary["strongest_lock"] is not None:
+        with pytest.raises(TypeError):
+            receipt.structure_summary["strongest_lock"]["lock_strength"] = 0.0  # type: ignore[index]
+
+
+def test_strongest_lock_selected_by_lock_strength() -> None:
+    resonance, _, _, _ = _make_sources()
+    modified = resonance.to_dict()
+    modified["ordered_lock_spans"] = (
+        {"start_index": 0, "end_index": 2, "lock_strength": 0.25},
+        {"start_index": 3, "end_index": 6, "lock_strength": 0.9},
+    )
+    _rehash_replay_identity(modified)
+    receipt = build_resonance_interface_bridge(resonance_receipt=modified)
+    assert receipt.structure_summary["strongest_lock"] == {
+        "end_index": 6,
+        "lock_strength": 0.9,
+        "start_index": 3,
+    }
+
+
+def test_conflict_interpretation_reachable_with_contradictory_sources() -> None:
+    resonance, phase, _, _ = _make_sources()
+    weak_resonance = resonance.to_dict()
+    weak_resonance["resonance_classification"] = "unknown_resonance_state"
+    _rehash_replay_identity(weak_resonance)
+    weak_phase = phase.to_dict()
+    weak_phase["coherence_classification"] = "unknown_phase_state"
+    weak_phase["resonance_source_identity"] = weak_resonance["replay_identity"]
+    _rehash_replay_identity(weak_phase)
+
+    receipt = build_resonance_interface_bridge(
+        resonance_receipt=weak_resonance,
+        phase_audit_receipt=weak_phase,
+    )
+    assert receipt.agreement_summary["source_agreement_interpretation"] == "cross_source_conflict_detected"
+    assert receipt.interface_classification == "conflicted_interface"
 
 
 def test_replay_hash_stability_and_call_order_independence() -> None:

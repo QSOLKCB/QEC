@@ -90,7 +90,15 @@ def _clamp01(value: float) -> float:
 
 
 def _immutable_mapping(mapping: Mapping[str, _JSONValue]) -> Mapping[str, _JSONValue]:
-    return types.MappingProxyType({key: _canonicalize_json(mapping[key]) for key in sorted(mapping.keys())})
+    return types.MappingProxyType({key: _deep_freeze_json(_canonicalize_json(mapping[key])) for key in sorted(mapping.keys())})
+
+
+def _deep_freeze_json(value: _JSONValue) -> _JSONValue:
+    if isinstance(value, dict):
+        return types.MappingProxyType({key: _deep_freeze_json(value[key]) for key in sorted(value.keys())})
+    if isinstance(value, tuple):
+        return tuple(_deep_freeze_json(item) for item in value)
+    return value
 
 
 def _normalize_receipt_mapping(payload_raw: Any, *, source_name: str) -> Mapping[str, _JSONValue]:
@@ -108,7 +116,7 @@ def _normalize_receipt_mapping(payload_raw: Any, *, source_name: str) -> Mapping
 
     if not isinstance(payload, dict):
         raise ValueError(f"malformed {source_name}: payload must be a mapping")
-    return types.MappingProxyType({key: payload[key] for key in sorted(payload.keys())})
+    return _immutable_mapping(payload)
 
 
 def _validate_bounded_metrics(metrics_raw: Any, *, field_name: str) -> Mapping[str, float]:
@@ -499,7 +507,19 @@ def _precompute_interface_agreement(normalized: Mapping[str, _NormalizedSource])
         multiscale = _clamp01(0.5 + 0.5 * min(ts, fs))
 
     mean_consistency = (structural + behavioral + embedding + multiscale) / 4.0
-    if mean_consistency >= 0.85:
+    conflict_pairs = []
+    if "resonance" in normalized and "fractal" in normalized:
+        conflict_pairs.append(structural)
+    if "phase" in normalized and "resonance" in normalized:
+        conflict_pairs.append(behavioral)
+    if "topology" in normalized and "phase" in normalized:
+        conflict_pairs.append(embedding)
+    if "topology" in normalized and "fractal" in normalized:
+        conflict_pairs.append(multiscale)
+
+    if conflict_pairs and min(conflict_pairs) <= 0.6 and mean_consistency < 0.7:
+        interpretation = "cross_source_conflict_detected"
+    elif mean_consistency >= 0.85:
         interpretation = "high_cross_source_agreement"
     elif mean_consistency >= 0.65:
         interpretation = "moderate_cross_source_agreement"
@@ -532,7 +552,11 @@ def _build_decision(
     elif source_count >= 2 and cross >= 0.65 and confidence >= 0.6:
         classification = "partially_unified_interface"
         recommendation = "interface_ready_for_partial_runtime_binding"
-    elif cross < 0.45:
+    elif cross < 0.45 or (
+        source_count >= 2
+        and agreement.source_agreement_interpretation == "cross_source_conflict_detected"
+        and cross < 0.65
+    ):
         classification = "conflicted_interface"
         recommendation = "interface_conflict_requires_review"
     else:
@@ -690,7 +714,14 @@ def build_resonance_interface_bridge(
             "strongest_lock": None
             if "resonance" not in normalized
             else (
-                normalized["resonance"].payload.get("ordered_lock_spans", normalized["resonance"].payload.get("lock_spans", ()))[0]
+                max(
+                    normalized["resonance"].payload.get("ordered_lock_spans", normalized["resonance"].payload.get("lock_spans", ())),
+                    key=lambda span: (
+                        float(span["lock_strength"]),
+                        -int(span["start_index"]),
+                        -int(span["end_index"]),
+                    ),
+                )
                 if len(normalized["resonance"].payload.get("ordered_lock_spans", normalized["resonance"].payload.get("lock_spans", ()))) > 0
                 else None
             ),

@@ -52,21 +52,25 @@ _JSONScalar = str | int | float | bool | None
 _JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
 
 
+class DarkStateMaskRuntimeValidationError(ValueError):
+    """Raised when dark-state runtime engine input or invariants are invalid."""
+
+
 def _canonicalize_json(value: Any) -> _JSONValue:
     if value is None or isinstance(value, (str, bool, int)):
         return value
     if isinstance(value, float):
         if not math.isfinite(value):
-            raise ValueError("non-finite float values are not allowed")
+            raise DarkStateMaskRuntimeValidationError("non-finite float values are not allowed")
         return float(value)
     if isinstance(value, (tuple, list)):
         return tuple(_canonicalize_json(item) for item in value)
     if isinstance(value, Mapping):
         keys = tuple(value.keys())
         if any(not isinstance(key, str) for key in keys):
-            raise ValueError("payload keys must be strings")
+            raise DarkStateMaskRuntimeValidationError("payload keys must be strings")
         return {key: _canonicalize_json(value[key]) for key in sorted(keys)}
-    raise ValueError(f"unsupported canonical payload type: {type(value)!r}")
+    raise DarkStateMaskRuntimeValidationError(f"unsupported canonical payload type: {type(value)!r}")
 
 
 def _canonical_json(value: Any) -> str:
@@ -106,7 +110,7 @@ def _deep_freeze_json(value: _JSONValue) -> _JSONValue:
 def _immutable_mapping(mapping: Mapping[str, Any]) -> Mapping[str, _JSONValue]:
     canonical = _canonicalize_json(mapping)
     if not isinstance(canonical, dict):
-        raise ValueError("immutable mapping input must be a mapping")
+        raise DarkStateMaskRuntimeValidationError("immutable mapping input must be a mapping")
     return types.MappingProxyType({key: _deep_freeze_json(canonical[key]) for key in sorted(canonical.keys())})
 
 
@@ -114,23 +118,23 @@ def _as_mapping(payload_raw: Any) -> dict[str, Any]:
     if hasattr(payload_raw, "to_dict") and callable(payload_raw.to_dict):
         payload_raw = payload_raw.to_dict()
     if not isinstance(payload_raw, Mapping):
-        raise ValueError("source_interface_receipt must be a mapping or receipt-like object")
+        raise DarkStateMaskRuntimeValidationError("source_interface_receipt must be a mapping or receipt-like object")
     return dict(payload_raw)
 
 
 def _validate_metric_bundle(metrics_raw: Any, *, field_name: str) -> Mapping[str, float]:
     if not isinstance(metrics_raw, Mapping) or not metrics_raw:
-        raise ValueError(f"{field_name} must be a non-empty mapping")
+        raise DarkStateMaskRuntimeValidationError(f"{field_name} must be a non-empty mapping")
     normalized: dict[str, float] = {}
     for key in sorted(metrics_raw.keys()):
         if not isinstance(key, str) or not key:
-            raise ValueError(f"{field_name} keys must be non-empty strings")
+            raise DarkStateMaskRuntimeValidationError(f"{field_name} keys must be non-empty strings")
         value = metrics_raw[key]
         if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise ValueError(f"{field_name}[{key!r}] must be numeric")
+            raise DarkStateMaskRuntimeValidationError(f"{field_name}[{key!r}] must be numeric")
         number = float(value)
         if not math.isfinite(number) or number < 0.0 or number > 1.0:
-            raise ValueError(f"{field_name}[{key!r}] must be in [0,1]")
+            raise DarkStateMaskRuntimeValidationError(f"{field_name}[{key!r}] must be in [0,1]")
         normalized[key] = number
     return types.MappingProxyType(normalized)
 
@@ -285,63 +289,66 @@ def _normalize_interface_source(source_interface_receipt: Any) -> _NormalizedInt
     }
     missing = sorted(expected_keys.difference(source_map.keys()))
     if missing:
-        raise ValueError(f"malformed source interface receipt: missing keys {missing}")
+        raise DarkStateMaskRuntimeValidationError(f"malformed source interface receipt: missing keys {missing}")
 
     if source_map.get("release_version") != SOURCE_RELEASE_VERSION:
-        raise ValueError("source interface release_version must be 'v138.5.4'")
+        raise DarkStateMaskRuntimeValidationError("source interface release_version must be 'v138.5.4'")
     if source_map.get("bridge_kind") != SOURCE_BRIDGE_KIND:
-        raise ValueError("source interface bridge_kind must be 'resonance_interface_bridge'")
+        raise DarkStateMaskRuntimeValidationError("source interface bridge_kind must be 'resonance_interface_bridge'")
     if source_map.get("advisory_only") is not True:
-        raise ValueError("source interface advisory_only must be True")
+        raise DarkStateMaskRuntimeValidationError("source interface advisory_only must be True")
     if source_map.get("decoder_core_modified") is not False:
-        raise ValueError("source interface decoder_core_modified must be False")
+        raise DarkStateMaskRuntimeValidationError("source interface decoder_core_modified must be False")
 
     trajectory_length = source_map.get("trajectory_length")
     if isinstance(trajectory_length, bool) or not isinstance(trajectory_length, int) or trajectory_length <= 0:
-        raise ValueError("source interface trajectory_length must be a positive int")
+        raise DarkStateMaskRuntimeValidationError("source interface trajectory_length must be a positive int")
 
     for summary_name in ("structure_summary", "behavior_summary", "embedding_summary", "agreement_summary"):
         summary = source_map.get(summary_name)
         if not isinstance(summary, Mapping):
-            raise ValueError(f"source interface {summary_name} must be a mapping")
+            raise DarkStateMaskRuntimeValidationError(f"source interface {summary_name} must be a mapping")
 
     source_presence_flags_raw = source_map.get("source_presence_flags")
     if not isinstance(source_presence_flags_raw, Mapping):
-        raise ValueError("source interface source_presence_flags must be a mapping")
+        raise DarkStateMaskRuntimeValidationError("source interface source_presence_flags must be a mapping")
     required_presence_keys = ("resonance", "phase", "topology", "fractal")
     if set(source_presence_flags_raw.keys()) != set(required_presence_keys):
-        raise ValueError("source interface source_presence_flags must contain canonical keys")
+        raise DarkStateMaskRuntimeValidationError("source interface source_presence_flags must contain canonical keys")
     source_presence_flags = {
         key: bool(source_presence_flags_raw[key]) if isinstance(source_presence_flags_raw[key], bool) else None
         for key in required_presence_keys
     }
     if any(value is None for value in source_presence_flags.values()):
-        raise ValueError("source interface source_presence_flags values must be bool")
+        raise DarkStateMaskRuntimeValidationError("source interface source_presence_flags values must be bool")
 
     interface_classification = source_map.get("interface_classification")
     if interface_classification not in ALLOWED_INTERFACE_CLASSIFICATIONS:
-        raise ValueError("source interface classification label is invalid")
+        raise DarkStateMaskRuntimeValidationError("source interface classification label is invalid")
 
     recommendation = source_map.get("recommendation")
     if recommendation not in ALLOWED_INTERFACE_RECOMMENDATIONS:
-        raise ValueError("source interface recommendation label is invalid")
+        raise DarkStateMaskRuntimeValidationError("source interface recommendation label is invalid")
 
     bounded_metrics = _validate_metric_bundle(source_map.get("bounded_metrics"), field_name="source_interface.bounded_metrics")
 
     canonical_payload = _canonicalize_json(source_map)
     if not isinstance(canonical_payload, dict):
-        raise ValueError("source interface payload must be canonical mapping")
+        raise DarkStateMaskRuntimeValidationError("source interface payload must be canonical mapping")
 
     hash_without_identity = dict(canonical_payload)
     replay_identity = hash_without_identity.pop("replay_identity", None)
     source_interface_hash = _sha256_hex(hash_without_identity)
+    has_stable_hash = hasattr(source_interface_receipt, "stable_hash") and callable(source_interface_receipt.stable_hash)
+    if replay_identity is None and not has_stable_hash:
+        raise DarkStateMaskRuntimeValidationError("source interface must provide replay_identity or stable_hash proof")
     if replay_identity is not None and replay_identity != source_interface_hash:
-        raise ValueError("source interface replay_identity hash mismatch")
+        raise DarkStateMaskRuntimeValidationError("source interface replay_identity hash mismatch")
 
-    if hasattr(source_interface_receipt, "stable_hash") and callable(source_interface_receipt.stable_hash):
+    if has_stable_hash:
         stable_hash_value = source_interface_receipt.stable_hash()
         if not isinstance(stable_hash_value, str) or stable_hash_value != source_interface_hash:
-            raise ValueError("source interface stable_hash mismatch")
+            raise DarkStateMaskRuntimeValidationError("source interface stable_hash mismatch")
 
     return _NormalizedInterfaceSource(
         payload=types.MappingProxyType(canonical_payload),
@@ -590,9 +597,9 @@ def _validate_structural_invariants(
     decision: DarkStateRuntimeDecision,
 ) -> None:
     if decision.dark_state_classification not in CLASSIFICATIONS:
-        raise ValueError("invalid dark-state classification")
+        raise DarkStateMaskRuntimeValidationError("invalid dark-state classification")
     if decision.recommendation not in RECOMMENDATIONS:
-        raise ValueError("invalid runtime recommendation")
+        raise DarkStateMaskRuntimeValidationError("invalid runtime recommendation")
 
     if tuple(regions) != tuple(
         sorted(
@@ -600,27 +607,27 @@ def _validate_structural_invariants(
             key=lambda item: (-float(item.elimination_readiness_score), -float(item.stability_score), item.region_id),
         )
     ):
-        raise ValueError("dark_state_regions must follow deterministic ordering")
+        raise DarkStateMaskRuntimeValidationError("dark_state_regions must follow deterministic ordering")
 
     for metric_name, metric_value in metrics.items():
         if not math.isfinite(float(metric_value)) or float(metric_value) < 0.0 or float(metric_value) > 1.0:
-            raise ValueError(f"{metric_name} must be in [0,1]")
+            raise DarkStateMaskRuntimeValidationError(f"{metric_name} must be in [0,1]")
 
     for region in regions:
         if region.region_kind not in REGION_KINDS:
-            raise ValueError(f"invalid region kind: {region.region_kind}")
+            raise DarkStateMaskRuntimeValidationError(f"invalid region kind: {region.region_kind}")
         for source in region.supporting_sources:
             if source not in normalized.source_presence_flags or not normalized.source_presence_flags[source]:
-                raise ValueError("region supporting_sources include unavailable source")
+                raise DarkStateMaskRuntimeValidationError("region supporting_sources include unavailable source")
 
     if decision.dark_state_classification != "no_dark_state_mask" and decision.strongest_region is None:
-        raise ValueError("strongest region must exist for non-empty dark-state classifications")
+        raise DarkStateMaskRuntimeValidationError("strongest region must exist for non-empty dark-state classifications")
 
     if decision.dark_state_classification in {"strong_dark_state_mask", "partial_dark_state_mask"} and len(regions) < 1:
-        raise ValueError("strong/partial dark-state classification requires at least one region")
+        raise DarkStateMaskRuntimeValidationError("strong/partial dark-state classification requires at least one region")
 
     if profile.strongest_region_id is None and len(regions) > 0:
-        raise ValueError("mask profile strongest region must exist when candidate regions exist")
+        raise DarkStateMaskRuntimeValidationError("mask profile strongest region must exist when candidate regions exist")
 
 
 def build_dark_state_mask_runtime_engine(*, source_interface_receipt: Any) -> DarkStateMaskRuntimeReceipt:

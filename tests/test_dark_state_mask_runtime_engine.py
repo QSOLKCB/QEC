@@ -91,6 +91,13 @@ def test_tamper_regressions_reject_hash_and_structure() -> None:
         build_dark_state_mask_runtime_engine(source_interface_receipt=rehashed)
 
 
+def test_source_integrity_requires_replay_or_stable_hash_proof() -> None:
+    source = _base_interface_payload()
+    source.pop("replay_identity")
+    with pytest.raises(dsm.DarkStateMaskRuntimeValidationError, match="replay_identity or stable_hash proof"):
+        build_dark_state_mask_runtime_engine(source_interface_receipt=source)
+
+
 def test_region_ordering_is_deterministic() -> None:
     source = _base_interface_payload()
     receipt = build_dark_state_mask_runtime_engine(source_interface_receipt=source)

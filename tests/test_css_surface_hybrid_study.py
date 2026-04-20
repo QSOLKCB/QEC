@@ -152,6 +152,37 @@ def test_classification_ternary_favorable_when_surface_is_weaker() -> None:
     assert receipt.study_decision.hybrid_classification == "ternary_favorable"
 
 
+def test_surface_alignment_uses_memory_feasibility_signal() -> None:
+    source = _asic_receipt_dict()
+    source["canonical_selected_correction"] = (0, 1, 2, 0, 1, 2)
+    source["correction_length"] = 6
+    source["metric_bundle"] = {
+        "asic_compatibility_score": 0.70,
+        "execution_feasibility_score": 0.70,
+        "timing_efficiency_score": 0.70,
+        "power_efficiency_score": 0.95,
+        "thermal_stability_score": 0.70,
+        "memory_feasibility_score": 0.10,
+        "bounded_experiment_confidence": 0.70,
+    }
+    source = _rehash_source(source)
+    low_memory_receipt = run_css_surface_hybrid_study(source)
+
+    source["metric_bundle"] = {
+        "asic_compatibility_score": 0.70,
+        "execution_feasibility_score": 0.70,
+        "timing_efficiency_score": 0.70,
+        "power_efficiency_score": 0.10,
+        "thermal_stability_score": 0.70,
+        "memory_feasibility_score": 0.95,
+        "bounded_experiment_confidence": 0.70,
+    }
+    source = _rehash_source(source)
+    high_memory_receipt = run_css_surface_hybrid_study(source)
+
+    assert high_memory_receipt.hybrid_metrics.surface_alignment_score > low_memory_receipt.hybrid_metrics.surface_alignment_score
+
+
 def test_classification_surface_favorable_when_ternary_is_weaker() -> None:
     source = _asic_receipt_dict()
     source["canonical_selected_correction"] = (0, 1, 2, 0, 1, 2)
@@ -220,6 +251,16 @@ def test_bounds_invariants_serialization_hashing_and_immutability() -> None:
 
     assert receipt.to_canonical_json() == receipt.to_canonical_json()
     assert receipt.to_canonical_json().isascii()
+
+
+def test_validation_rejects_unsupported_timing_regime_before_metrics_derivation() -> None:
+    source = _asic_receipt_dict()
+    profile = dict(source["execution_profile"])
+    profile["timing_regime"] = "ultra_tight"
+    source["execution_profile"] = profile
+    source = _rehash_source(source)
+    with pytest.raises(ValueError, match="timing_regime unsupported"):
+        run_css_surface_hybrid_study(source)
 
 
 def test_regression_source_hash_binding_detects_post_construction_mutation() -> None:

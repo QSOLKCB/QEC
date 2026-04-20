@@ -41,6 +41,9 @@ _REQUIRED_PROFILE_FIELDS = (
     "memory_pressure_class",
 )
 
+_ALLOWED_TIMING_REGIMES = ("tight", "moderate", "relaxed")
+_ALLOWED_MEMORY_PRESSURE_CLASSES = ("low", "moderate", "high")
+
 
 def _canonical_json(data: Any) -> str:
     return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
@@ -174,6 +177,16 @@ def _normalize_source_experiment(source_experiment_receipt: Any) -> dict[str, An
             raise ValueError(f"source_experiment_receipt.execution_profile missing key: {key}")
         normalized_profile[key] = _require_non_empty_text(
             execution_profile[key], field=f"source_experiment_receipt.execution_profile.{key}"
+        )
+    if normalized_profile["timing_regime"] not in _ALLOWED_TIMING_REGIMES:
+        raise ValueError(
+            "source_experiment_receipt.execution_profile.timing_regime unsupported: "
+            + normalized_profile["timing_regime"]
+        )
+    if normalized_profile["memory_pressure_class"] not in _ALLOWED_MEMORY_PRESSURE_CLASSES:
+        raise ValueError(
+            "source_experiment_receipt.execution_profile.memory_pressure_class unsupported: "
+            + normalized_profile["memory_pressure_class"]
         )
     source["execution_profile"] = MappingProxyType(normalized_profile)
 
@@ -367,7 +380,13 @@ def _derive_metrics(source: Mapping[str, Any], projection: "CSSSurfaceProjection
     surface_alignment = _bounded(
         max(
             0.0,
-            min(1.0, (0.50 * bundle["timing_efficiency_score"]) + (0.30 * bundle["resource_feasibility_score"] if "resource_feasibility_score" in bundle else 0.30 * bundle["power_efficiency_score"]) + (0.20 * neutral_ratio) + profile_bonus),
+            min(
+                1.0,
+                (0.50 * bundle["timing_efficiency_score"])
+                + (0.30 * bundle["memory_feasibility_score"])
+                + (0.20 * neutral_ratio)
+                + profile_bonus,
+            ),
         ),
         field="surface_alignment_score",
     )

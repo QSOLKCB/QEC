@@ -192,9 +192,10 @@ class TernaryDecodeCandidate:
     def __post_init__(self) -> None:
         if not isinstance(self.candidate_id, str) or not self.candidate_id:
             raise ValueError("candidate_id must be a non-empty string")
+        correction_raw = tuple(self.proposed_correction)
         correction = _validate_correction_shape(
-            tuple(self.proposed_correction),
-            len(self.proposed_correction),
+            correction_raw,
+            len(correction_raw),
             field="proposed_correction",
         )
         object.__setattr__(self, "proposed_correction", correction)

@@ -303,15 +303,23 @@ pip install -e .
 
 # 📚 References
 
-https://doi.org/10.5281/zenodo.19062692
-https://doi.org/10.5281/zenodo.19102390
-https://doi.org/10.5281/zenodo.19099503
-https://doi.org/10.5281/zenodo.19104208
+- **Deterministic Runtime Optimization and Formal Invariant Validation**  
+  https://doi.org/10.5281/zenodo.19062692  
+
+- **Invariant-Driven Computation Elimination**  
+  https://doi.org/10.5281/zenodo.19102390  
+
+- **Deterministic Redundancy Elimination**  
+  https://doi.org/10.5281/zenodo.19099503  
+
+- **Dark-State Invariants**  
+  https://doi.org/10.5281/zenodo.19104208  
 
 ---
 
 ## 📄 Registered Research Artifact
 
+Deterministic Proof-Carrying Runtime Elimination (v138.6.x)
 https://osf.io/sjk7b
 
 ---

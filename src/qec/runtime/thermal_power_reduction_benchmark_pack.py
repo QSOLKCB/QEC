@@ -38,6 +38,19 @@ REGION_KINDS = {
 }
 EXECUTION_DECISIONS = ("execute", "skip", "conditionally_execute")
 PARTITION_KINDS = ("skip_partition", "execution_partition", "mixed_partition")
+SAFETY_CLASSES = (
+    "safe_to_skip",
+    "conditionally_safe_to_skip",
+    "unsafe_to_skip",
+    "unknown_safety",
+)
+DEPENDENCY_CLASSES = ("independent", "weakly_dependent", "strongly_dependent")
+PROPAGATION_REASONS = (
+    "safe_to_skip_direct",
+    "conditionally_safe_bracketed_by_safe_neighbors",
+    "conditionally_safe_requires_local_execution",
+    "unsafe_or_unknown_requires_execution",
+)
 CLASSIFICATIONS = (
     "high_reduction_benchmark",
     "moderate_reduction_benchmark",
@@ -50,7 +63,12 @@ RECOMMENDATIONS = (
     "requires_additional_runtime_validation",
     "benchmark_not_actionable",
 )
-VALIDITY_CLASSES = ("strong_validity", "moderate_validity", "limited_validity", "inconclusive_validity")
+VALIDITY_CLASSES = (
+    "strong_validity",
+    "moderate_validity",
+    "limited_validity",
+    "inconclusive_validity",
+)
 _ALLOWED_TAGS = {
     "skip_partition",
     "execute_partition",
@@ -74,7 +92,9 @@ def _canonicalize_json(value: Any) -> _JSONValue:
         return value
     if isinstance(value, float):
         if not math.isfinite(value):
-            raise ThermalPowerReductionBenchmarkError("non-finite float values are not allowed")
+            raise ThermalPowerReductionBenchmarkError(
+                "non-finite float values are not allowed"
+            )
         return float(value)
     if isinstance(value, (tuple, list)):
         return tuple(_canonicalize_json(item) for item in value)
@@ -83,7 +103,9 @@ def _canonicalize_json(value: Any) -> _JSONValue:
         if any(not isinstance(key, str) for key in keys):
             raise ThermalPowerReductionBenchmarkError("payload keys must be strings")
         return {key: _canonicalize_json(value[key]) for key in sorted(keys)}
-    raise ThermalPowerReductionBenchmarkError(f"unsupported canonical payload type: {type(value)!r}")
+    raise ThermalPowerReductionBenchmarkError(
+        f"unsupported canonical payload type: {type(value)!r}"
+    )
 
 
 def _canonical_json(value: Any) -> str:
@@ -114,7 +136,9 @@ def _clamp01(value: float) -> float:
 
 def _deep_freeze_json(value: _JSONValue) -> _JSONValue:
     if isinstance(value, Mapping):
-        return types.MappingProxyType({key: _deep_freeze_json(value[key]) for key in sorted(value.keys())})
+        return types.MappingProxyType(
+            {key: _deep_freeze_json(value[key]) for key in sorted(value.keys())}
+        )
     if isinstance(value, tuple):
         return tuple(_deep_freeze_json(item) for item in value)
     return value
@@ -123,23 +147,37 @@ def _deep_freeze_json(value: _JSONValue) -> _JSONValue:
 def _immutable_mapping(mapping: Mapping[str, Any]) -> Mapping[str, _JSONValue]:
     canonical = _canonicalize_json(mapping)
     if not isinstance(canonical, dict):
-        raise ThermalPowerReductionBenchmarkError("immutable mapping input must be a mapping")
-    return types.MappingProxyType({key: _deep_freeze_json(canonical[key]) for key in sorted(canonical.keys())})
+        raise ThermalPowerReductionBenchmarkError(
+            "immutable mapping input must be a mapping"
+        )
+    return types.MappingProxyType(
+        {key: _deep_freeze_json(canonical[key]) for key in sorted(canonical.keys())}
+    )
 
 
-def _validate_metric_bundle(metrics_raw: Any, *, field_name: str) -> Mapping[str, float]:
+def _validate_metric_bundle(
+    metrics_raw: Any, *, field_name: str
+) -> Mapping[str, float]:
     if not isinstance(metrics_raw, Mapping) or not metrics_raw:
-        raise ThermalPowerReductionBenchmarkError(f"{field_name} must be a non-empty mapping")
+        raise ThermalPowerReductionBenchmarkError(
+            f"{field_name} must be a non-empty mapping"
+        )
     normalized: dict[str, float] = {}
     for key in sorted(metrics_raw.keys()):
         if not isinstance(key, str) or not key:
-            raise ThermalPowerReductionBenchmarkError(f"{field_name} keys must be non-empty strings")
+            raise ThermalPowerReductionBenchmarkError(
+                f"{field_name} keys must be non-empty strings"
+            )
         value = metrics_raw[key]
         if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise ThermalPowerReductionBenchmarkError(f"{field_name}[{key!r}] must be numeric")
+            raise ThermalPowerReductionBenchmarkError(
+                f"{field_name}[{key!r}] must be numeric"
+            )
         number = float(value)
         if not math.isfinite(number) or number < 0.0 or number > 1.0:
-            raise ThermalPowerReductionBenchmarkError(f"{field_name}[{key!r}] must be in [0,1]")
+            raise ThermalPowerReductionBenchmarkError(
+                f"{field_name}[{key!r}] must be in [0,1]"
+            )
         normalized[key] = number
     return types.MappingProxyType(normalized)
 
@@ -148,7 +186,9 @@ def _as_mapping(payload_raw: Any) -> dict[str, Any]:
     if hasattr(payload_raw, "to_dict") and callable(payload_raw.to_dict):
         payload_raw = payload_raw.to_dict()
     if not isinstance(payload_raw, Mapping):
-        raise ThermalPowerReductionBenchmarkError("source_execution_fabric_receipt must be a mapping or receipt-like object")
+        raise ThermalPowerReductionBenchmarkError(
+            "source_execution_fabric_receipt must be a mapping or receipt-like object"
+        )
     return dict(payload_raw)
 
 
@@ -229,8 +269,6 @@ class ThermalPowerReductionBenchmarkReceipt:
     runtime_kind: str
     source_execution_fabric_hash: str
     source_skip_safety_hash: str
-    source_idempotence_hash: str
-    source_interface_hash: str
     trajectory_length: int
     benchmark_regions: tuple[BenchmarkRegionEstimate, ...]
     benchmark_profile: Mapping[str, _JSONValue]
@@ -245,18 +283,22 @@ class ThermalPowerReductionBenchmarkReceipt:
         benchmark_profile = _canonicalize_json(self.benchmark_profile)
         benchmark_decision = _canonicalize_json(self.benchmark_decision)
         if not isinstance(benchmark_profile, dict):
-            raise ThermalPowerReductionBenchmarkError("benchmark_profile must serialize as an object")
+            raise ThermalPowerReductionBenchmarkError(
+                "benchmark_profile must serialize as an object"
+            )
         if not isinstance(benchmark_decision, dict):
-            raise ThermalPowerReductionBenchmarkError("benchmark_decision must serialize as an object")
+            raise ThermalPowerReductionBenchmarkError(
+                "benchmark_decision must serialize as an object"
+            )
         return {
             "release_version": self.release_version,
             "runtime_kind": self.runtime_kind,
             "source_execution_fabric_hash": self.source_execution_fabric_hash,
             "source_skip_safety_hash": self.source_skip_safety_hash,
-            "source_idempotence_hash": self.source_idempotence_hash,
-            "source_interface_hash": self.source_interface_hash,
             "trajectory_length": self.trajectory_length,
-            "benchmark_regions": tuple(region.to_dict() for region in self.benchmark_regions),
+            "benchmark_regions": tuple(
+                region.to_dict() for region in self.benchmark_regions
+            ),
             "benchmark_profile": benchmark_profile,
             "benchmark_decision": benchmark_decision,
             "benchmark_classification": self.benchmark_classification,
@@ -289,8 +331,6 @@ class _NormalizedExecutionRegion:
 class _NormalizedExecutionFabricSource:
     source_execution_fabric_hash: str
     source_skip_safety_hash: str
-    source_idempotence_hash: str
-    source_interface_hash: str
     trajectory_length: int
     execution_regions: tuple[_NormalizedExecutionRegion, ...]
     execution_partitions: tuple[tuple[str, ...], ...]
@@ -314,7 +354,9 @@ class _BenchmarkFeatureBundle:
     confidence_penalty: float
 
 
-def _normalize_execution_fabric_source(source_execution_fabric_receipt: Any) -> _NormalizedExecutionFabricSource:
+def _normalize_execution_fabric_source(
+    source_execution_fabric_receipt: Any,
+) -> _NormalizedExecutionFabricSource:
     source_map = _as_mapping(source_execution_fabric_receipt)
     expected_keys = {
         "release_version",
@@ -332,32 +374,50 @@ def _normalize_execution_fabric_source(source_execution_fabric_receipt: Any) -> 
     }
     missing = sorted(expected_keys.difference(source_map.keys()))
     if missing:
-        raise ThermalPowerReductionBenchmarkError(f"malformed execution fabric receipt: missing keys {missing}")
+        raise ThermalPowerReductionBenchmarkError(
+            f"malformed execution fabric receipt: missing keys {missing}"
+        )
+    extras = sorted(set(source_map.keys()).difference(expected_keys))
+    if extras:
+        raise ThermalPowerReductionBenchmarkError(
+            f"malformed execution fabric receipt: unexpected keys {extras}"
+        )
 
     if source_map.get("release_version") != SOURCE_RELEASE_VERSION:
-        raise ThermalPowerReductionBenchmarkError("source release_version must be 'v138.6.3'")
+        raise ThermalPowerReductionBenchmarkError(
+            "source release_version must be 'v138.6.3'"
+        )
     if source_map.get("runtime_kind") != SOURCE_RUNTIME_KIND:
-        raise ThermalPowerReductionBenchmarkError("source runtime_kind must be 'distributed_execution_skip_fabric'")
+        raise ThermalPowerReductionBenchmarkError(
+            "source runtime_kind must be 'distributed_execution_skip_fabric'"
+        )
     if source_map.get("advisory_only") is not True:
         raise ThermalPowerReductionBenchmarkError("source advisory_only must be True")
     if source_map.get("decoder_core_modified") is not False:
-        raise ThermalPowerReductionBenchmarkError("source decoder_core_modified must be False")
+        raise ThermalPowerReductionBenchmarkError(
+            "source decoder_core_modified must be False"
+        )
 
     trajectory_length = source_map.get("trajectory_length")
-    if isinstance(trajectory_length, bool) or not isinstance(trajectory_length, int) or trajectory_length <= 0:
-        raise ThermalPowerReductionBenchmarkError("source trajectory_length must be a positive int")
+    if (
+        isinstance(trajectory_length, bool)
+        or not isinstance(trajectory_length, int)
+        or trajectory_length <= 0
+    ):
+        raise ThermalPowerReductionBenchmarkError(
+            "source trajectory_length must be a positive int"
+        )
 
     source_skip_safety_hash = source_map.get("source_skip_safety_hash")
-    source_idempotence_hash = source_map.get("source_idempotence_hash")
-    source_interface_hash = source_map.get("source_interface_hash")
     if not isinstance(source_skip_safety_hash, str) or not source_skip_safety_hash:
-        raise ThermalPowerReductionBenchmarkError("source source_skip_safety_hash must be a non-empty string")
-    if not isinstance(source_idempotence_hash, str) or not source_idempotence_hash:
-        raise ThermalPowerReductionBenchmarkError("source source_idempotence_hash must be a non-empty string")
-    if not isinstance(source_interface_hash, str) or not source_interface_hash:
-        raise ThermalPowerReductionBenchmarkError("source source_interface_hash must be a non-empty string")
+        raise ThermalPowerReductionBenchmarkError(
+            "source source_skip_safety_hash must be a non-empty string"
+        )
 
-    source_metrics = _validate_metric_bundle(source_map.get("bounded_metrics"), field_name="source_execution_fabric.bounded_metrics")
+    source_metrics = _validate_metric_bundle(
+        source_map.get("bounded_metrics"),
+        field_name="source_execution_fabric.bounded_metrics",
+    )
     required_source_metrics = {
         "execution_reduction_score",
         "skip_coverage_score",
@@ -366,7 +426,9 @@ def _normalize_execution_fabric_source(source_execution_fabric_receipt: Any) -> 
         "bounded_execution_confidence",
         "elimination_efficiency_score",
     }
-    missing_metric_keys = sorted(required_source_metrics.difference(set(source_metrics.keys())))
+    missing_metric_keys = sorted(
+        required_source_metrics.difference(set(source_metrics.keys()))
+    )
     if missing_metric_keys:
         raise ThermalPowerReductionBenchmarkError(
             f"source execution fabric bounded_metrics missing required keys {missing_metric_keys}"
@@ -374,32 +436,51 @@ def _normalize_execution_fabric_source(source_execution_fabric_receipt: Any) -> 
 
     fabric_profile = source_map.get("fabric_profile")
     if not isinstance(fabric_profile, Mapping):
-        raise ThermalPowerReductionBenchmarkError("source fabric_profile must be a mapping")
+        raise ThermalPowerReductionBenchmarkError(
+            "source fabric_profile must be a mapping"
+        )
     profile_class = fabric_profile.get("global_execution_classification")
     if profile_class not in SOURCE_GLOBAL_CLASSIFICATIONS:
-        raise ThermalPowerReductionBenchmarkError("source fabric_profile classification is invalid")
+        raise ThermalPowerReductionBenchmarkError(
+            "source fabric_profile classification is invalid"
+        )
 
     global_decision = source_map.get("global_decision")
     if not isinstance(global_decision, Mapping):
-        raise ThermalPowerReductionBenchmarkError("source global_decision must be a mapping")
+        raise ThermalPowerReductionBenchmarkError(
+            "source global_decision must be a mapping"
+        )
     decision_class = global_decision.get("global_execution_classification")
     decision_recommendation = global_decision.get("recommendation")
     if decision_class not in SOURCE_GLOBAL_CLASSIFICATIONS:
-        raise ThermalPowerReductionBenchmarkError("source global_decision classification is invalid")
+        raise ThermalPowerReductionBenchmarkError(
+            "source global_decision classification is invalid"
+        )
     if decision_recommendation not in SOURCE_RECOMMENDATIONS:
-        raise ThermalPowerReductionBenchmarkError("source global_decision recommendation is invalid")
+        raise ThermalPowerReductionBenchmarkError(
+            "source global_decision recommendation is invalid"
+        )
     if source_map.get("recommendation") != decision_recommendation:
-        raise ThermalPowerReductionBenchmarkError("source recommendation must match source global_decision recommendation")
+        raise ThermalPowerReductionBenchmarkError(
+            "source recommendation must match source global_decision recommendation"
+        )
 
     execution_regions_raw = source_map.get("execution_regions")
-    if not isinstance(execution_regions_raw, (list, tuple)) or not execution_regions_raw:
-        raise ThermalPowerReductionBenchmarkError("source execution_regions must be a non-empty ordered sequence")
+    if (
+        not isinstance(execution_regions_raw, (list, tuple))
+        or not execution_regions_raw
+    ):
+        raise ThermalPowerReductionBenchmarkError(
+            "source execution_regions must be a non-empty ordered sequence"
+        )
 
     normalized_regions: list[_NormalizedExecutionRegion] = []
     seen_region_ids: set[str] = set()
     for raw in execution_regions_raw:
         if not isinstance(raw, Mapping):
-            raise ThermalPowerReductionBenchmarkError("source execution_regions entries must be mappings")
+            raise ThermalPowerReductionBenchmarkError(
+                "source execution_regions entries must be mappings"
+            )
         required_keys = {
             "region_id",
             "region_kind",
@@ -411,13 +492,17 @@ def _normalize_execution_fabric_source(source_execution_fabric_receipt: Any) -> 
         }
         missing_keys = sorted(required_keys.difference(raw.keys()))
         if missing_keys:
-            raise ThermalPowerReductionBenchmarkError(f"source execution region missing keys {missing_keys}")
+            raise ThermalPowerReductionBenchmarkError(
+                f"source execution region missing keys {missing_keys}"
+            )
 
         region_id = raw.get("region_id")
         region_kind = raw.get("region_kind")
         execution_decision = raw.get("execution_decision")
         if not isinstance(region_id, str) or not region_id:
-            raise ThermalPowerReductionBenchmarkError("source region_id must be a non-empty string")
+            raise ThermalPowerReductionBenchmarkError(
+                "source region_id must be a non-empty string"
+            )
         if region_id in seen_region_ids:
             raise ThermalPowerReductionBenchmarkError("source region_id must be unique")
         seen_region_ids.add(region_id)
@@ -425,18 +510,60 @@ def _normalize_execution_fabric_source(source_execution_fabric_receipt: Any) -> 
         if region_kind not in REGION_KINDS:
             raise ThermalPowerReductionBenchmarkError("source region_kind is invalid")
         if execution_decision not in EXECUTION_DECISIONS:
-            raise ThermalPowerReductionBenchmarkError("source execution_decision label is invalid")
+            raise ThermalPowerReductionBenchmarkError(
+                "source execution_decision label is invalid"
+            )
+        safety_class = raw.get("safety_class")
+        dependency_class = raw.get("dependency_class")
+        propagation_reason = raw.get("propagation_reason")
+        if safety_class not in SAFETY_CLASSES:
+            raise ThermalPowerReductionBenchmarkError(
+                "source safety_class label is invalid"
+            )
+        if dependency_class not in DEPENDENCY_CLASSES:
+            raise ThermalPowerReductionBenchmarkError(
+                "source dependency_class label is invalid"
+            )
+        if (
+            not isinstance(propagation_reason, str)
+            or propagation_reason not in PROPAGATION_REASONS
+        ):
+            raise ThermalPowerReductionBenchmarkError(
+                "source propagation_reason is invalid"
+            )
+        if safety_class == "safe_to_skip" and execution_decision != "skip":
+            raise ThermalPowerReductionBenchmarkError(
+                "safe_to_skip regions must remain skip"
+            )
+        if (
+            safety_class in {"unsafe_to_skip", "unknown_safety"}
+            and execution_decision != "execute"
+        ):
+            raise ThermalPowerReductionBenchmarkError(
+                "unsafe/unknown regions must execute"
+            )
 
         supporting_sources_raw = raw.get("supporting_sources")
-        if not isinstance(supporting_sources_raw, (list, tuple)) or not supporting_sources_raw:
-            raise ThermalPowerReductionBenchmarkError("source supporting_sources must be a non-empty ordered sequence")
+        if (
+            not isinstance(supporting_sources_raw, (list, tuple))
+            or not supporting_sources_raw
+        ):
+            raise ThermalPowerReductionBenchmarkError(
+                "source supporting_sources must be a non-empty ordered sequence"
+            )
         supporting_sources = tuple(supporting_sources_raw)
         if any(not isinstance(item, str) or not item for item in supporting_sources):
-            raise ThermalPowerReductionBenchmarkError("source supporting_sources contain invalid value")
+            raise ThermalPowerReductionBenchmarkError(
+                "source supporting_sources contain invalid value"
+            )
         if len(set(supporting_sources)) != len(supporting_sources):
-            raise ThermalPowerReductionBenchmarkError("source supporting_sources must not contain duplicates")
+            raise ThermalPowerReductionBenchmarkError(
+                "source supporting_sources must not contain duplicates"
+            )
         if supporting_sources != tuple(sorted(supporting_sources)):
-            raise ThermalPowerReductionBenchmarkError("source supporting_sources must preserve canonical ordering")
+            raise ThermalPowerReductionBenchmarkError(
+                "source supporting_sources must preserve canonical ordering"
+            )
 
         normalized_regions.append(
             _NormalizedExecutionRegion(
@@ -449,28 +576,94 @@ def _normalize_execution_fabric_source(source_execution_fabric_receipt: Any) -> 
         )
 
     execution_partitions_raw = source_map.get("execution_partitions")
-    if not isinstance(execution_partitions_raw, (list, tuple)) or not execution_partitions_raw:
-        raise ThermalPowerReductionBenchmarkError("source execution_partitions must be a non-empty ordered sequence")
+    if (
+        not isinstance(execution_partitions_raw, (list, tuple))
+        or not execution_partitions_raw
+    ):
+        raise ThermalPowerReductionBenchmarkError(
+            "source execution_partitions must be a non-empty ordered sequence"
+        )
 
-    region_index = {region.region_id: idx for idx, region in enumerate(normalized_regions)}
+    region_index = {
+        region.region_id: idx for idx, region in enumerate(normalized_regions)
+    }
+    decision_by_region = {
+        region.region_id: region.execution_decision for region in normalized_regions
+    }
     partitions: list[tuple[str, ...]] = []
     partition_kind_by_region: dict[str, str] = {}
     flattened_ids: list[str] = []
     for partition in execution_partitions_raw:
         if not isinstance(partition, Mapping):
-            raise ThermalPowerReductionBenchmarkError("source execution_partitions entries must be mappings")
+            raise ThermalPowerReductionBenchmarkError(
+                "source execution_partitions entries must be mappings"
+            )
         partition_kind = partition.get("partition_kind")
         region_ids_raw = partition.get("region_ids")
+        decision_profile_raw = partition.get("decision_profile")
         if partition_kind not in PARTITION_KINDS:
-            raise ThermalPowerReductionBenchmarkError("source partition_kind is invalid")
+            raise ThermalPowerReductionBenchmarkError(
+                "source partition_kind is invalid"
+            )
         if not isinstance(region_ids_raw, (list, tuple)) or not region_ids_raw:
-            raise ThermalPowerReductionBenchmarkError("source partition region_ids must be a non-empty ordered sequence")
+            raise ThermalPowerReductionBenchmarkError(
+                "source partition region_ids must be a non-empty ordered sequence"
+            )
+        if (
+            not isinstance(decision_profile_raw, (list, tuple))
+            or not decision_profile_raw
+        ):
+            raise ThermalPowerReductionBenchmarkError(
+                "source partition decision_profile must be a non-empty ordered sequence"
+            )
         region_ids = tuple(region_ids_raw)
-        if any((not isinstance(item, str) or item not in region_index) for item in region_ids):
-            raise ThermalPowerReductionBenchmarkError("source partition region_ids contain unknown region_id")
+        decision_profile = tuple(decision_profile_raw)
+        if any(
+            (not isinstance(item, str) or item not in region_index)
+            for item in region_ids
+        ):
+            raise ThermalPowerReductionBenchmarkError(
+                "source partition region_ids contain unknown region_id"
+            )
+        if any(item not in EXECUTION_DECISIONS for item in decision_profile):
+            raise ThermalPowerReductionBenchmarkError(
+                "source partition decision_profile contains invalid execution_decision"
+            )
+        if len(region_ids) != len(decision_profile):
+            raise ThermalPowerReductionBenchmarkError(
+                "partition decision_profile length mismatch"
+            )
+        expected_profile = tuple(
+            decision_by_region[region_id] for region_id in region_ids
+        )
+        if decision_profile != expected_profile:
+            raise ThermalPowerReductionBenchmarkError(
+                "partition decision_profile inconsistent with execution_regions"
+            )
+        if partition_kind == "skip_partition" and any(
+            decision != "skip" for decision in decision_profile
+        ):
+            raise ThermalPowerReductionBenchmarkError(
+                "skip_partition must contain only skip decisions"
+            )
+        if partition_kind == "execution_partition" and any(
+            decision != "execute" for decision in decision_profile
+        ):
+            raise ThermalPowerReductionBenchmarkError(
+                "execution_partition must contain only execute decisions"
+            )
+        if partition_kind == "mixed_partition":
+            if all(decision == "skip" for decision in decision_profile) or all(
+                decision == "execute" for decision in decision_profile
+            ):
+                raise ThermalPowerReductionBenchmarkError(
+                    "mixed_partition must contain mixed decisions"
+                )
         indices = tuple(region_index[item] for item in region_ids)
         if indices != tuple(sorted(indices)):
-            raise ThermalPowerReductionBenchmarkError("execution_partitions must preserve canonical region order")
+            raise ThermalPowerReductionBenchmarkError(
+                "execution_partitions must preserve canonical region order"
+            )
         partitions.append(region_ids)
         flattened_ids.extend(region_ids)
         for item in region_ids:
@@ -478,25 +671,36 @@ def _normalize_execution_fabric_source(source_execution_fabric_receipt: Any) -> 
 
     expected_order = tuple(region.region_id for region in normalized_regions)
     if tuple(flattened_ids) != expected_order:
-        raise ThermalPowerReductionBenchmarkError("execution_partitions must correspond exactly to execution_regions")
+        raise ThermalPowerReductionBenchmarkError(
+            "execution_partitions must correspond exactly to execution_regions"
+        )
 
     canonical_payload = _canonicalize_json(source_map)
     if not isinstance(canonical_payload, dict):
-        raise ThermalPowerReductionBenchmarkError("source execution fabric payload must be canonical mapping")
+        raise ThermalPowerReductionBenchmarkError(
+            "source execution fabric payload must be canonical mapping"
+        )
 
     hash_without_identity = dict(canonical_payload)
     replay_identity = hash_without_identity.pop("replay_identity", None)
     source_execution_fabric_hash = _sha256_hex(hash_without_identity)
-    has_stable_hash = hasattr(source_execution_fabric_receipt, "stable_hash") and callable(
-        source_execution_fabric_receipt.stable_hash
-    )
+    has_stable_hash = hasattr(
+        source_execution_fabric_receipt, "stable_hash"
+    ) and callable(source_execution_fabric_receipt.stable_hash)
     if replay_identity is None and not has_stable_hash:
-        raise ThermalPowerReductionBenchmarkError("source must provide replay_identity or stable_hash proof")
+        raise ThermalPowerReductionBenchmarkError(
+            "source must provide replay_identity or stable_hash proof"
+        )
     if replay_identity is not None and replay_identity != source_execution_fabric_hash:
-        raise ThermalPowerReductionBenchmarkError("source replay_identity hash mismatch")
+        raise ThermalPowerReductionBenchmarkError(
+            "source replay_identity hash mismatch"
+        )
     if has_stable_hash:
         stable_hash_value = source_execution_fabric_receipt.stable_hash()
-        if not isinstance(stable_hash_value, str) or stable_hash_value != source_execution_fabric_hash:
+        if (
+            not isinstance(stable_hash_value, str)
+            or stable_hash_value != source_execution_fabric_hash
+        ):
             raise ThermalPowerReductionBenchmarkError("source stable_hash mismatch")
 
     enriched_regions = tuple(
@@ -513,29 +717,46 @@ def _normalize_execution_fabric_source(source_execution_fabric_receipt: Any) -> 
     return _NormalizedExecutionFabricSource(
         source_execution_fabric_hash=source_execution_fabric_hash,
         source_skip_safety_hash=source_skip_safety_hash,
-        source_idempotence_hash=source_idempotence_hash,
-        source_interface_hash=source_interface_hash,
         trajectory_length=trajectory_length,
         execution_regions=enriched_regions,
         execution_partitions=tuple(partitions),
-        propagation_stability_score=float(source_metrics["propagation_stability_score"]),
-        partition_consistency_score=float(source_metrics["partition_consistency_score"]),
+        propagation_stability_score=float(
+            source_metrics["propagation_stability_score"]
+        ),
+        partition_consistency_score=float(
+            source_metrics["partition_consistency_score"]
+        ),
         source_confidence_score=float(source_metrics["bounded_execution_confidence"]),
     )
 
 
-def _precompute_benchmark_features(normalized: _NormalizedExecutionFabricSource) -> _BenchmarkFeatureBundle:
+def _precompute_benchmark_features(
+    normalized: _NormalizedExecutionFabricSource,
+) -> _BenchmarkFeatureBundle:
     total = len(normalized.execution_regions)
-    skip_count = sum(1 for region in normalized.execution_regions if region.execution_decision == "skip")
-    execute_count = sum(1 for region in normalized.execution_regions if region.execution_decision == "execute")
+    skip_count = sum(
+        1
+        for region in normalized.execution_regions
+        if region.execution_decision == "skip"
+    )
+    execute_count = sum(
+        1
+        for region in normalized.execution_regions
+        if region.execution_decision == "execute"
+    )
     conditional_count = total - skip_count - execute_count
 
     skip_fraction = skip_count / float(total)
     execute_fraction = execute_count / float(total)
     conditional_fraction = conditional_count / float(total)
 
-    conflict_penalty_signal = _clamp01((1.0 - normalized.propagation_stability_score) * 0.6 + conditional_fraction * 0.4)
-    confidence_penalty = _clamp01(conditional_fraction * 0.35 + conflict_penalty_signal * 0.25)
+    conflict_penalty_signal = _clamp01(
+        (1.0 - normalized.propagation_stability_score) * 0.6
+        + conditional_fraction * 0.4
+    )
+    confidence_penalty = _clamp01(
+        conditional_fraction * 0.35 + conflict_penalty_signal * 0.25
+    )
 
     return _BenchmarkFeatureBundle(
         total_region_count=total,
@@ -573,15 +794,22 @@ def _build_benchmark_region_estimates(
     for region in normalized.execution_regions:
         baseline = baseline_weight_by_kind[region.region_kind]
         projected = baseline * decision_factor[region.execution_decision]
-        if region.partition_kind == "mixed_partition" and region.execution_decision == "conditionally_execute":
+        if (
+            region.partition_kind == "mixed_partition"
+            and region.execution_decision == "conditionally_execute"
+        ):
             projected += baseline * 0.10
         projected *= 1.0 + (features.conflict_penalty_signal * 0.08)
         if projected > baseline:
             projected = baseline
 
         projected_savings = _clamp01((baseline - projected) / baseline)
-        thermal = _clamp01(projected_savings * (0.65 + 0.35 * features.propagation_stability))
-        power = _clamp01(projected_savings * (0.55 + 0.45 * features.partition_consistency))
+        thermal = _clamp01(
+            projected_savings * (0.65 + 0.35 * features.propagation_stability)
+        )
+        power = _clamp01(
+            projected_savings * (0.55 + 0.45 * features.partition_consistency)
+        )
 
         tags: list[str] = []
         if region.partition_kind == "skip_partition":
@@ -601,7 +829,9 @@ def _build_benchmark_region_estimates(
 
         deduped_tags = tuple(sorted(set(tags)))
         if any(tag not in _ALLOWED_TAGS for tag in deduped_tags):
-            raise ThermalPowerReductionBenchmarkError("invalid justification_tags entry")
+            raise ThermalPowerReductionBenchmarkError(
+                "invalid justification_tags entry"
+            )
 
         regions.append(
             BenchmarkRegionEstimate(
@@ -620,7 +850,11 @@ def _build_benchmark_region_estimates(
     return tuple(
         sorted(
             regions,
-            key=lambda item: (-item.projected_savings, -item.thermal_reduction_score, item.region_id),
+            key=lambda item: (
+                -item.projected_savings,
+                -item.thermal_reduction_score,
+                item.region_id,
+            ),
         )
     )
 
@@ -633,9 +867,15 @@ def _build_bounded_metrics(
 ) -> Mapping[str, float]:
     aggregate_baseline = sum(region.baseline_cost for region in regions)
     aggregate_projected = sum(region.projected_cost for region in regions)
-    projected_execution_reduction = 0.0 if aggregate_baseline == 0.0 else _clamp01((aggregate_baseline - aggregate_projected) / aggregate_baseline)
+    projected_execution_reduction = (
+        0.0
+        if aggregate_baseline == 0.0
+        else _clamp01((aggregate_baseline - aggregate_projected) / aggregate_baseline)
+    )
 
-    confidence = _clamp01(normalized.source_confidence_score * (1.0 - features.confidence_penalty))
+    confidence = _clamp01(
+        normalized.source_confidence_score * (1.0 - features.confidence_penalty)
+    )
     consistency = _clamp01(
         0.5 * features.partition_consistency
         + 0.5 * features.propagation_stability
@@ -666,7 +906,9 @@ def _build_bounded_metrics(
         "benchmark_confidence_score": confidence,
         "elimination_efficiency_score": elimination_efficiency,
     }
-    return _validate_metric_bundle(metrics, field_name="thermal_power_benchmark.bounded_metrics")
+    return _validate_metric_bundle(
+        metrics, field_name="thermal_power_benchmark.bounded_metrics"
+    )
 
 
 def _classify_benchmark(metrics: Mapping[str, float]) -> str:
@@ -688,7 +930,11 @@ def _build_profile(
     features: _BenchmarkFeatureBundle,
     classification: str,
 ) -> ThermalPowerBenchmarkProfile:
-    strongest = regions[0].region_id if regions and classification != "inconclusive_benchmark" else ""
+    strongest = (
+        regions[0].region_id
+        if regions and classification != "inconclusive_benchmark"
+        else ""
+    )
     total_savings = sum(region.projected_savings for region in regions)
 
     if classification == "high_reduction_benchmark":
@@ -720,16 +966,22 @@ def _build_decision(
 ) -> ThermalPowerBenchmarkDecision:
     if classification == "high_reduction_benchmark":
         recommendation = "ready_for_reduction_reporting"
-        interpretation = "high projected deterministic reduction with strong benchmark confidence"
+        interpretation = (
+            "high projected deterministic reduction with strong benchmark confidence"
+        )
     elif classification == "moderate_reduction_benchmark":
         recommendation = "ready_for_partial_reduction_reporting"
-        interpretation = "moderate projected deterministic reduction with bounded confidence"
+        interpretation = (
+            "moderate projected deterministic reduction with bounded confidence"
+        )
     elif classification == "low_reduction_benchmark":
         recommendation = "requires_additional_runtime_validation"
         interpretation = "limited projected deterministic reduction; confidence penalties are material"
     else:
         recommendation = "benchmark_not_actionable"
-        interpretation = "insufficient deterministic evidence for actionable reduction reporting"
+        interpretation = (
+            "insufficient deterministic evidence for actionable reduction reporting"
+        )
 
     cautions: list[str] = []
     if features.conditional_region_count > 0:
@@ -760,37 +1012,74 @@ def _validate_structural_invariants(
     classification: str,
 ) -> None:
     if len(normalized.execution_regions) != len(regions):
-        raise ThermalPowerReductionBenchmarkError("benchmark_regions length must match source execution_regions")
+        raise ThermalPowerReductionBenchmarkError(
+            "benchmark_regions length must match source execution_regions"
+        )
 
     region_ids = {region.region_id for region in normalized.execution_regions}
     if len(region_ids) != len(normalized.execution_regions):
-        raise ThermalPowerReductionBenchmarkError("source execution_regions contain duplicate region_id")
+        raise ThermalPowerReductionBenchmarkError(
+            "source execution_regions contain duplicate region_id"
+        )
 
     for region in regions:
         if region.region_id not in region_ids:
-            raise ThermalPowerReductionBenchmarkError("benchmark region references unknown source region_id")
+            raise ThermalPowerReductionBenchmarkError(
+                "benchmark region references unknown source region_id"
+            )
         if region.region_kind not in REGION_KINDS:
             raise ThermalPowerReductionBenchmarkError("invalid benchmark region_kind")
         if region.execution_decision not in EXECUTION_DECISIONS:
-            raise ThermalPowerReductionBenchmarkError("invalid benchmark execution_decision")
-        for value in (region.baseline_cost, region.projected_cost, region.projected_savings, region.thermal_reduction_score, region.power_reduction_score):
+            raise ThermalPowerReductionBenchmarkError(
+                "invalid benchmark execution_decision"
+            )
+        for value in (
+            region.baseline_cost,
+            region.projected_cost,
+            region.projected_savings,
+            region.thermal_reduction_score,
+            region.power_reduction_score,
+        ):
             if not math.isfinite(float(value)):
-                raise ThermalPowerReductionBenchmarkError("benchmark region contains non-finite numeric value")
+                raise ThermalPowerReductionBenchmarkError(
+                    "benchmark region contains non-finite numeric value"
+                )
         if region.baseline_cost <= 0.0:
-            raise ThermalPowerReductionBenchmarkError("benchmark baseline_cost must be > 0")
+            raise ThermalPowerReductionBenchmarkError(
+                "benchmark baseline_cost must be > 0"
+            )
         if region.projected_cost < 0.0:
-            raise ThermalPowerReductionBenchmarkError("benchmark projected_cost must be >= 0")
+            raise ThermalPowerReductionBenchmarkError(
+                "benchmark projected_cost must be >= 0"
+            )
         if region.projected_cost - region.baseline_cost > 1e-12:
-            raise ThermalPowerReductionBenchmarkError("benchmark projected_cost must be <= baseline_cost")
-        for bounded in (region.projected_savings, region.thermal_reduction_score, region.power_reduction_score):
+            raise ThermalPowerReductionBenchmarkError(
+                "benchmark projected_cost must be <= baseline_cost"
+            )
+        for bounded in (
+            region.projected_savings,
+            region.thermal_reduction_score,
+            region.power_reduction_score,
+        ):
             if float(bounded) < 0.0 or float(bounded) > 1.0:
-                raise ThermalPowerReductionBenchmarkError("benchmark region bounded score must be in [0,1]")
+                raise ThermalPowerReductionBenchmarkError(
+                    "benchmark region bounded score must be in [0,1]"
+                )
 
     sorted_regions = tuple(
-        sorted(regions, key=lambda item: (-item.projected_savings, -item.thermal_reduction_score, item.region_id))
+        sorted(
+            regions,
+            key=lambda item: (
+                -item.projected_savings,
+                -item.thermal_reduction_score,
+                item.region_id,
+            ),
+        )
     )
     if regions != sorted_regions:
-        raise ThermalPowerReductionBenchmarkError("benchmark_regions must follow deterministic ordering")
+        raise ThermalPowerReductionBenchmarkError(
+            "benchmark_regions must follow deterministic ordering"
+        )
 
     for name, value in metrics.items():
         if not math.isfinite(float(value)) or float(value) < 0.0 or float(value) > 1.0:
@@ -803,28 +1092,53 @@ def _validate_structural_invariants(
     if profile.benchmark_validity_class not in VALIDITY_CLASSES:
         raise ThermalPowerReductionBenchmarkError("invalid benchmark validity class")
 
-    if classification != "inconclusive_benchmark" and not profile.strongest_benchmark_region:
-        raise ThermalPowerReductionBenchmarkError("strongest benchmark region is required for actionable classifications")
-    if classification in {"high_reduction_benchmark", "moderate_reduction_benchmark"} and profile.skip_region_count + profile.conditional_region_count <= 0:
-        raise ThermalPowerReductionBenchmarkError("high/moderate classification requires skip or conditional regions")
+    if (
+        classification != "inconclusive_benchmark"
+        and not profile.strongest_benchmark_region
+    ):
+        raise ThermalPowerReductionBenchmarkError(
+            "strongest benchmark region is required for actionable classifications"
+        )
+    if (
+        classification in {"high_reduction_benchmark", "moderate_reduction_benchmark"}
+        and profile.skip_region_count + profile.conditional_region_count <= 0
+    ):
+        raise ThermalPowerReductionBenchmarkError(
+            "high/moderate classification requires skip or conditional regions"
+        )
 
     if decision.strongest_benchmark_region != profile.strongest_benchmark_region:
-        raise ThermalPowerReductionBenchmarkError("decision strongest_benchmark_region must match benchmark_profile")
+        raise ThermalPowerReductionBenchmarkError(
+            "decision strongest_benchmark_region must match benchmark_profile"
+        )
 
 
 def build_thermal_power_reduction_benchmark_pack(
     *, source_execution_fabric_receipt: Any
 ) -> ThermalPowerReductionBenchmarkReceipt:
     """Build deterministic v138.6.4 thermal/power reduction benchmark receipt."""
-    benchmark_input = ThermalPowerBenchmarkInput(source_execution_fabric_receipt=source_execution_fabric_receipt)
+    benchmark_input = ThermalPowerBenchmarkInput(
+        source_execution_fabric_receipt=source_execution_fabric_receipt
+    )
 
-    normalized = _normalize_execution_fabric_source(benchmark_input.source_execution_fabric_receipt)
+    normalized = _normalize_execution_fabric_source(
+        benchmark_input.source_execution_fabric_receipt
+    )
     features = _precompute_benchmark_features(normalized)
     benchmark_regions = _build_benchmark_region_estimates(normalized, features)
-    metrics = _build_bounded_metrics(regions=benchmark_regions, features=features, normalized=normalized)
+    metrics = _build_bounded_metrics(
+        regions=benchmark_regions, features=features, normalized=normalized
+    )
     classification = _classify_benchmark(metrics)
-    profile = _build_profile(regions=benchmark_regions, features=features, classification=classification)
-    decision = _build_decision(classification=classification, profile=profile, metrics=metrics, features=features)
+    profile = _build_profile(
+        regions=benchmark_regions, features=features, classification=classification
+    )
+    decision = _build_decision(
+        classification=classification,
+        profile=profile,
+        metrics=metrics,
+        features=features,
+    )
 
     _validate_structural_invariants(
         normalized=normalized,
@@ -840,8 +1154,6 @@ def build_thermal_power_reduction_benchmark_pack(
         runtime_kind=RUNTIME_KIND,
         source_execution_fabric_hash=normalized.source_execution_fabric_hash,
         source_skip_safety_hash=normalized.source_skip_safety_hash,
-        source_idempotence_hash=normalized.source_idempotence_hash,
-        source_interface_hash=normalized.source_interface_hash,
         trajectory_length=normalized.trajectory_length,
         benchmark_regions=benchmark_regions,
         benchmark_profile=_immutable_mapping(profile.to_dict()),

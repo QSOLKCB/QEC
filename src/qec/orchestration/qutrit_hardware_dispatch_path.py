@@ -225,6 +225,8 @@ def _extract_source_lane(source_lane_receipt: Any) -> dict[str, Any]:
 
     if not isinstance(source["advisory_only"], bool):
         raise ValueError("source_lane_receipt.advisory_only must be boolean")
+    if not source["advisory_only"]:
+        raise ValueError("source_lane_receipt.advisory_only must be True; non-advisory source receipts are not accepted by this planner")
     if not isinstance(source["decoder_core_modified"], bool):
         raise ValueError("source_lane_receipt.decoder_core_modified must be boolean")
     if source["decoder_core_modified"]:
@@ -321,6 +323,11 @@ def _normalize_constraints(dispatch_constraints: Mapping[str, Any] | None) -> di
 
     if constraints["require_hardware_target"] and constraints["required_resource_class"] == "low":
         raise ValueError("dispatch_constraints are contradictory: hardware target cannot require low resource class")
+    if constraints["require_hardware_target"] and constraints["required_timing_class"] == "relaxed":
+        raise ValueError(
+            "dispatch_constraints are contradictory: hardware target cannot require relaxed timing class "
+            "(only qutrit_sim_lane is relaxed, which is not a hardware target)"
+        )
 
     return constraints
 
@@ -614,6 +621,13 @@ def _build_constraint_report(
         rejection_reasons.append("unsupported symbol basis")
     if not correction_length_match:
         rejection_reasons.append("correction length exceeds capability")
+
+    # Record threshold-based failures before applying constraint-class overrides so
+    # they are reported independently of class-mismatch reasons.
+    timing_failed_threshold = not timing_admissible
+    resource_failed_threshold = not resource_admissible
+    safety_failed_threshold = not safety_admissible
+
     if constraints["required_timing_class"] is not None and policy.timing_class != constraints["required_timing_class"]:
         rejection_reasons.append("timing class constraint mismatch")
         timing_admissible = False
@@ -624,11 +638,11 @@ def _build_constraint_report(
         rejection_reasons.append("hardware target required")
         safety_admissible = False
 
-    if not timing_admissible:
+    if timing_failed_threshold:
         rejection_reasons.append("timing feasibility below threshold")
-    if not resource_admissible:
+    if resource_failed_threshold:
         rejection_reasons.append("resource feasibility below threshold")
-    if not safety_admissible:
+    if safety_failed_threshold:
         rejection_reasons.append("constraint safety below threshold")
 
     return QutritDispatchConstraintReport(

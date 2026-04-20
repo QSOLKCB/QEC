@@ -64,6 +64,23 @@ def test_validation_rejects_contradictory_constraints() -> None:
         )
 
 
+def test_validation_rejects_contradictory_relaxed_timing_with_hardware_requirement() -> None:
+    source = run_ternary_decode_lane((0, 1, 2))
+    with pytest.raises(ValueError, match="contradictory"):
+        build_qutrit_hardware_dispatch(
+            source,
+            dispatch_constraints={"require_hardware_target": True, "required_timing_class": "relaxed"},
+        )
+
+
+def test_validation_rejects_nonadvisory_source_receipt() -> None:
+    source = run_ternary_decode_lane((0, 1, 2)).to_dict()
+    source["advisory_only"] = False
+    source["receipt_hash"] = dispatch_path._stable_hash(dispatch_path._source_hash_payload(source))
+    with pytest.raises(ValueError, match="advisory_only must be True"):
+        build_qutrit_hardware_dispatch(source)
+
+
 def test_validation_rejects_invalid_capability_values() -> None:
     source = run_ternary_decode_lane((0, 1, 2))
     with pytest.raises(ValueError, match=r"must be within \[0,1\]"):

@@ -694,7 +694,11 @@ def build_qutrit_hardware_dispatch(
         pool = preferred_admissible
     elif preferences and not preferred_admissible:
         if constraints["require_hardware_target"]:
-            raise ValueError("preferred_targets contain no admissible hardware targets under constraints")
+            raise ValueError(
+                "preferred_targets contain no admissible targets under the provided constraints; "
+                "with dispatch_constraints.require_hardware_target=True, preferred_targets is "
+                "treated as a hard requirement rather than a fallback ordering hint"
+            )
         pool = admissible
     elif strong_hardware_signal and hardware_admissible:
         pool = hardware_admissible

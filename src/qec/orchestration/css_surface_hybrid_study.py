@@ -32,15 +32,6 @@ _REQUIRED_SOURCE_METRICS = (
     "bounded_experiment_confidence",
 )
 
-_REQUIRED_PROFILE_FIELDS = (
-    "pipeline_depth_class",
-    "lane_parallelism_class",
-    "timing_regime",
-    "power_regime",
-    "thermal_regime",
-    "memory_pressure_class",
-)
-
 _ALLOWED_PIPELINE_DEPTH = ("shallow", "medium", "deep")
 _ALLOWED_LANE_PARALLELISM = ("serial", "dual_lane", "multi_lane")
 _ALLOWED_TIMING_REGIMES = ("tight", "moderate", "relaxed")
@@ -56,6 +47,8 @@ _PROFILE_FIELD_ALLOWED: dict[str, tuple[str, ...]] = {
     "thermal_regime": _ALLOWED_THERMAL_REGIMES,
     "memory_pressure_class": _ALLOWED_MEMORY_PRESSURE_CLASSES,
 }
+
+_REQUIRED_PROFILE_FIELDS = tuple(_PROFILE_FIELD_ALLOWED.keys())
 
 
 def _canonical_json(data: Any) -> str:

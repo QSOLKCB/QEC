@@ -182,7 +182,10 @@ def test_surface_alignment_uses_memory_feasibility_signal() -> None:
     source = _rehash_source(source)
     low_memory_receipt = run_css_surface_hybrid_study(source)
 
-    source["metric_bundle"] = {
+    source_high = _asic_receipt_dict()
+    source_high["canonical_selected_correction"] = (0, 1, 2, 0, 1, 2)
+    source_high["correction_length"] = 6
+    source_high["metric_bundle"] = {
         "asic_compatibility_score": 0.70,
         "execution_feasibility_score": 0.70,
         "timing_efficiency_score": 0.70,
@@ -191,8 +194,8 @@ def test_surface_alignment_uses_memory_feasibility_signal() -> None:
         "memory_feasibility_score": 0.95,
         "bounded_experiment_confidence": 0.70,
     }
-    source = _rehash_source(source)
-    high_memory_receipt = run_css_surface_hybrid_study(source)
+    source_high = _rehash_source(source_high)
+    high_memory_receipt = run_css_surface_hybrid_study(source_high)
 
     assert high_memory_receipt.hybrid_metrics.surface_alignment_score > low_memory_receipt.hybrid_metrics.surface_alignment_score
 

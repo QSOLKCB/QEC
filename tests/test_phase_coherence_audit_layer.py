@@ -185,12 +185,16 @@ def test_bounded_metrics_and_invariants() -> None:
 
 
 def test_canonical_json_and_hash_stability() -> None:
-    receipt = run_phase_coherence_audit(
+    receipt_a = run_phase_coherence_audit(
         state_sequence=("a", "a", "b", "b", "a"),
         phase_sequence=("p", "p", "q", "q", "p"),
     )
-    assert receipt.to_canonical_json() == receipt.to_canonical_json()
-    ref = receipt.stable_hash()
+    receipt_b = run_phase_coherence_audit(
+        state_sequence=("a", "a", "b", "b", "a"),
+        phase_sequence=("p", "p", "q", "q", "p"),
+    )
+    assert receipt_a.to_canonical_json() == receipt_b.to_canonical_json()
+    ref = receipt_a.stable_hash()
     for _ in range(5):
         assert (
             run_phase_coherence_audit(

@@ -139,3 +139,13 @@ def test_mapping_like_fields_are_immutable() -> None:
         receipt.bounded_metrics["lock_strength_score"] = 0.0  # type: ignore[index]
     with pytest.raises(TypeError):
         receipt.attractor_profile.occupancy_counts["s:a"] = 999  # type: ignore[index]
+
+
+def test_single_state_empty_drift_no_error() -> None:
+    """Regression: transition-aligned empty drift for a single state must not raise IndexError."""
+    receipt = run_resonance_lock_diagnostic(
+        state_sequence=("x",),
+        drift_sequence=(),
+    )
+    assert receipt.trajectory_length == 1
+    assert receipt.lock_spans == ()

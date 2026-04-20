@@ -184,7 +184,10 @@ class ResonanceLockInput:
         return {
             "state_sequence": tuple(_state_token(s) for s in self.state_sequence),
             "drift_sequence": self.drift_sequence,
-            "phase_sequence": None if self.phase_sequence is None else tuple(str(v) for v in self.phase_sequence),
+            "phase_sequence": None if self.phase_sequence is None else tuple(
+                _state_token(v) if isinstance(v, (int, str)) else float(v)
+                for v in self.phase_sequence
+            ),
             "policy": self.policy.to_dict(),
         }
 
@@ -330,7 +333,8 @@ class ResonanceLockDiagnosticReceipt:
         return _canonical_bytes(self.to_dict())
 
     def stable_hash(self) -> str:
-        return self.replay_identity
+        """Return the deterministic hash derived from the receipt payload."""
+        return hashlib.sha256(_canonical_bytes(self.to_hash_payload_dict())).hexdigest()
 
 
 def _normalize_input(
@@ -389,11 +393,21 @@ def _normalize_input(
 
 
 def _state_aligned_drift(states_len: int, drift_sequence: tuple[float, ...] | None) -> tuple[float, ...]:
+    """Align drift values to the state sequence length.
+
+    Missing drift is treated as unknown, not as zero drift. Returning
+    ``math.inf`` prevents downstream lock gating and suppression scoring from
+    awarding false credit when no drift signal was provided.
+    """
     if drift_sequence is None:
-        return tuple(0.0 for _ in range(states_len))
+        return tuple(math.inf for _ in range(states_len))
     if len(drift_sequence) == states_len:
         return drift_sequence
     if len(drift_sequence) == states_len - 1:
+        if not drift_sequence:
+            # Single-state trajectory: explicitly provided transition-aligned empty
+            # sequence has no transitions, so no drift signal — treat as zero.
+            return (0.0,)
         return drift_sequence + (drift_sequence[-1],)
     raise ValueError("drift_sequence is not aligned")
 
@@ -409,12 +423,13 @@ def _dominant_state(states: tuple[StateIdentifier, ...]) -> tuple[StateIdentifie
 def _detect_lock_spans(inp: ResonanceLockInput) -> tuple[ResonanceLockSpan, ...]:
     states = inp.state_sequence
     drifts = _state_aligned_drift(len(states), inp.drift_sequence)
+    drift_known = inp.drift_sequence is not None
 
     candidate: list[bool] = []
     for idx, state in enumerate(states):
         persistence = idx > 0 and state == states[idx - 1]
         short_cycle = idx > 1 and state == states[idx - 2]
-        low_drift = abs(drifts[idx]) <= inp.policy.drift_lock_threshold
+        low_drift = drift_known and abs(drifts[idx]) <= inp.policy.drift_lock_threshold
         candidate.append(bool(persistence or short_cycle or low_drift))
 
     spans: list[ResonanceLockSpan] = []
@@ -432,11 +447,17 @@ def _detect_lock_spans(inp: ResonanceLockInput) -> tuple[ResonanceLockSpan, ...]
         if end - start + 1 < inp.policy.min_lock_span_length:
             continue
         segment_states = states[start : end + 1]
-        segment_drifts = tuple(abs(v) for v in drifts[start : end + 1])
         dominant_state, dominant_count = _dominant_state(segment_states)
         repeat_ratio = dominant_count / float(len(segment_states))
-        mean_drift = sum(segment_drifts) / float(len(segment_drifts))
-        drift_suppression = 1.0 - _clamp01(mean_drift / max(inp.policy.drift_lock_threshold, 1e-12))
+        if drift_known:
+            segment_drifts = tuple(abs(v) for v in drifts[start : end + 1])
+            mean_drift = sum(segment_drifts) / float(len(segment_drifts))
+            drift_suppression = 1.0 - _clamp01(mean_drift / max(inp.policy.drift_lock_threshold, 1e-12))
+        else:
+            # Drift unknown: report mean_drift as 0.0 (display placeholder only).
+            # lock_strength is unaffected because drift_suppression is also 0.0.
+            mean_drift = 0.0
+            drift_suppression = 0.0
         lock_strength = _clamp01(0.65 * repeat_ratio + 0.35 * drift_suppression)
         if lock_strength < inp.policy.min_span_lock_strength:
             continue
@@ -651,7 +672,7 @@ def run_resonance_lock_diagnostic(
 
     input_summary = _immutable_mapping(
         {
-            "state_sequence_hash": normalized.stable_hash(),
+            "input_hash": normalized.stable_hash(),
             "state_cardinality": len(set(normalized.state_sequence)),
             "drift_alignment": "none"
             if normalized.drift_sequence is None

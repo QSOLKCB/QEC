@@ -571,11 +571,6 @@ def _target_scores(
         field=f"{target}.bounded_dispatch_confidence",
     )
 
-    if dispatch_readiness < policy.min_hardware_lane_readiness and target != "qutrit_sim_lane":
-        dispatch_readiness = dispatch_readiness
-    if metrics["bounded_confidence"] < policy.min_bounded_confidence and target != "qutrit_sim_lane":
-        target_compatibility = target_compatibility
-
     return {
         "target_compatibility_score": target_compatibility,
         "dispatch_readiness_score": dispatch_readiness,

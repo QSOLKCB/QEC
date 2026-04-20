@@ -409,12 +409,12 @@ def _normalize_resonance_receipt(resonance_receipt: Any, trajectory_length: int)
 
     spans_field = "ordered_lock_spans" if "ordered_lock_spans" in payload else "lock_spans"
     if not isinstance(payload[spans_field], tuple):
-        raise ValueError("malformed resonance_receipt: ordered_lock_spans must be a sequence")
+        raise ValueError(f"malformed resonance_receipt: {spans_field} must be a sequence")
     for idx, span in enumerate(payload[spans_field]):
         if not isinstance(span, Mapping):
-            raise ValueError(f"malformed resonance_receipt: ordered_lock_spans[{idx}] must be a mapping")
+            raise ValueError(f"malformed resonance_receipt: {spans_field}[{idx}] must be a mapping")
         if "start_index" not in span or "end_index" not in span:
-            raise ValueError(f"malformed resonance_receipt: ordered_lock_spans[{idx}] missing indices")
+            raise ValueError(f"malformed resonance_receipt: {spans_field}[{idx}] missing indices")
 
     replay_identity = payload["replay_identity"]
     if not isinstance(replay_identity, str) or replay_identity == "":

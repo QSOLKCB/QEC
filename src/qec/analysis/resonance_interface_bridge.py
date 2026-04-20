@@ -720,15 +720,47 @@ def build_resonance_interface_bridge(
 
     structure_summary = _immutable_mapping(
         {
-            "resonance_classification": None if "resonance" not in normalized else normalized["resonance"].classification,
-            "lock_count": None if "resonance" not in normalized else len(normalized["resonance"].payload.get("ordered_lock_spans", normalized["resonance"].payload.get("lock_spans", ()))),
-            "strongest_lock": None
-            if "resonance" not in normalized
-            else (
-                max(
-                    normalized["resonance"].payload.get("ordered_lock_spans", normalized["resonance"].payload.get("lock_spans", ())),
-                    key=lambda span: (
-                        float(span["lock_strength"]),
+    def _validated_topology_coordinate_key(item: Mapping[str, Any], position: int) -> tuple[float, int]:
+        """Validate a topology coordinate entry and return the ordering key."""
+        if not isinstance(item, Mapping):
+            raise ValueError(
+                f"Invalid topology ordered_coordinates entry at index {position}: expected a mapping"
+            )
+        if "value" not in item or "index" not in item:
+            raise ValueError(
+                f"Invalid topology ordered_coordinates entry at index {position}: missing 'value' or 'index'"
+            )
+
+        raw_value = item["value"]
+        raw_index = item["index"]
+
+        if isinstance(raw_index, bool) or not isinstance(raw_index, int):
+            raise ValueError(
+                f"Invalid topology ordered_coordinates entry at index {position}: 'index' must be an integer"
+            )
+
+        if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)):
+            raise ValueError(
+                f"Invalid topology ordered_coordinates entry at index {position}: 'value' must be numeric"
+            )
+
+        value = float(raw_value)
+        if not math.isfinite(value):
+            raise ValueError(
+                f"Invalid topology ordered_coordinates entry at index {position}: 'value' must be finite"
+            )
+
+        return (value, -raw_index)
+
+    embedding_summary = _immutable_mapping(
+        {
+            "topology_classification": None if "topology" not in normalized else normalized["topology"].classification,
+            "dominant_coordinate": None
+            if "topology" not in normalized or len(normalized["topology"].payload["ordered_coordinates"]) == 0
+            else max(
+                enumerate(normalized["topology"].payload["ordered_coordinates"]),
+                key=lambda entry: _validated_topology_coordinate_key(entry[1], entry[0]),
+            )[1],
                         -int(span["start_index"]),
                         -int(span["end_index"]),
                     ),

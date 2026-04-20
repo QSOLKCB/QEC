@@ -483,7 +483,7 @@ def _normalize_input(
     normalized_drift: tuple[float, ...] | None = None
     if drift_sequence is not None:
         normalized_drift = _validate_numeric_sequence(tuple(drift_sequence), field_name="drift_sequence")
-        _state_aligned_drift(len(normalized_states), normalized_drift)
+        normalized_drift = _state_aligned_drift(len(normalized_states), normalized_drift)
 
     normalized_resonance: Mapping[str, _JSONValue] | None = None
     if resonance_receipt is not None:

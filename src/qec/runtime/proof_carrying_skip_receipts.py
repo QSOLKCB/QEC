@@ -985,8 +985,14 @@ def _validate_structural_invariants(
     positive_claims = profile.proved_claim_count + profile.conditional_claim_count
     if profile.proof_validity_class in {"strong_proof_receipt", "partial_proof_receipt"} and positive_claims <= 0:
         raise ProofCarryingSkipReceiptError("strong/partial proof classification requires positive proof claims")
-    if profile.proof_validity_class != "invalidated_proof_receipt" and profile.strongest_proved_claim is None:
-        raise ProofCarryingSkipReceiptError("strongest proved claim required unless classification is invalidated")
+    requires_strongest_proved_claim = (
+        profile.proof_validity_class in {"strong_proof_receipt", "partial_proof_receipt"}
+        or positive_claims > 0
+    )
+    if requires_strongest_proved_claim and profile.strongest_proved_claim is None:
+        raise ProofCarryingSkipReceiptError(
+            "strongest proved claim required when proof claims are present or classification is strong/partial"
+        )
     if profile.contradicted_claim_count > 0 and profile.proof_validity_class == "strong_proof_receipt":
         raise ProofCarryingSkipReceiptError("contradicted claims must reduce proof validity")
 

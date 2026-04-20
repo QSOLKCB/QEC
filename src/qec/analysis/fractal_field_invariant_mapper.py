@@ -94,7 +94,8 @@ def _canonicalize_motif(motif: _Motif) -> _Motif:
     for item in motif:
         if type(item) is not first_type:
             raise ValueError("motif entries must have homogeneous canonical type")
-        _ = _canonicalize_token(item)
+        if isinstance(item, str) and not item:
+            raise ValueError("trajectory string tokens must be non-empty")
     return motif
 
 
@@ -182,10 +183,11 @@ def _precompute_scale_profiles(trajectory: tuple[_Token, ...]) -> tuple[_ScalePr
                 first_index[motif] = idx
             counts_map[motif] += 1
 
+        sig_cache: dict[_Motif, str] = {motif: _motif_signature(motif) for motif in counts_map}
         motif_counts = tuple(
             sorted(
                 ((motif, count) for motif, count in counts_map.items()),
-                key=lambda item: (-item[1], _motif_signature(item[0]), first_index[item[0]]),
+                key=lambda item: (-item[1], sig_cache[item[0]], first_index[item[0]]),
             )
         )
         dominant_motif = motif_counts[0][0]
@@ -236,7 +238,7 @@ def _precompute_motif_signatures(
         ordered_occurrences = tuple(sorted(occurrences, key=lambda item: item[0]))
         representative_motif = sorted(
             signature_motifs[signature],
-            key=lambda motif: (len(motif), _motif_signature(motif), motif),
+            key=lambda m: (len(m), m),
         )[0]
         ratios = tuple(item[1] for item in ordered_occurrences)
         signatures.append(
@@ -382,13 +384,15 @@ def _validate_structural_invariants(
             raise ValueError(f"{name} must be in [0,1]")
 
     scale_map = {profile.scale_size: profile for profile in scale_profiles}
+    scale_sig_map: dict[int, set[str]] = {
+        profile.scale_size: {_motif_signature(motif) for motif, _count in profile.motif_counts}
+        for profile in scale_profiles
+    }
     for signature in invariant_signatures:
         for scale_size, _ratio in signature.scale_occurrences:
-            profile = scale_map.get(scale_size)
-            if profile is None:
+            if scale_size not in scale_map:
                 raise ValueError("motif references invalid scale")
-            profile_signatures = {_motif_signature(motif) for motif, _count in profile.motif_counts}
-            if signature.signature not in profile_signatures:
+            if signature.signature not in scale_sig_map[scale_size]:
                 raise ValueError("motif references invalid profile content")
 
 

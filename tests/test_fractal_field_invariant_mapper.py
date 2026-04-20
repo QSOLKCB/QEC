@@ -121,6 +121,17 @@ def test_elimination_readiness_precomputation_called_once() -> None:
     assert counts == {"scale": 1, "motif": 1}
 
 
+def test_motif_signature_no_collision_for_pipe_in_string_tokens() -> None:
+    """Regression: motifs containing '|' must not collide with multi-element motifs."""
+    sig_combined = ffim._motif_signature(("a|b",))
+    sig_separate = ffim._motif_signature(("a", "b"))
+    assert sig_combined != sig_separate
+
+    sig_abc = ffim._motif_signature(("a|b", "c"))
+    sig_a_bc = ffim._motif_signature(("a", "b|c"))
+    assert sig_abc != sig_a_bc
+
+
 def test_canonical_json_is_compact_sorted_and_replay_safe() -> None:
     receipt = map_fractal_field_invariants((1, 2, 1, 2, 1, 2, 1, 2, 1))
     data = receipt.to_canonical_json()

@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 import hashlib
 import json
 import math
 import types
-from typing import Any, Mapping
+from typing import Any
 
 RELEASE_VERSION = "v138.6.1"
 RUNTIME_KIND = "idempotence_class_detector"
@@ -64,7 +65,7 @@ JUSTIFICATION_TAGS = {
 }
 
 _JSONScalar = str | int | float | bool | None
-_JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
+_JSONValue = _JSONScalar | tuple["_JSONValue", ...] | Mapping[str, "_JSONValue"]
 
 
 class IdempotenceClassDetectorValidationError(ValueError):
@@ -115,7 +116,7 @@ def _clamp01(value: float) -> float:
 
 
 def _deep_freeze_json(value: _JSONValue) -> _JSONValue:
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         return types.MappingProxyType({key: _deep_freeze_json(value[key]) for key in sorted(value.keys())})
     if isinstance(value, tuple):
         return tuple(_deep_freeze_json(item) for item in value)
@@ -237,6 +238,12 @@ class IdempotenceClassDetectorReceipt:
     decoder_core_modified: bool
 
     def to_dict(self) -> dict[str, _JSONValue]:
+        class_profile = _canonicalize_json(self.class_profile)
+        decision = _canonicalize_json(self.decision)
+        if not isinstance(class_profile, dict):
+            raise IdempotenceClassDetectorValidationError("class_profile must serialize as an object")
+        if not isinstance(decision, dict):
+            raise IdempotenceClassDetectorValidationError("decision must serialize as an object")
         return {
             "release_version": self.release_version,
             "runtime_kind": self.runtime_kind,
@@ -245,11 +252,11 @@ class IdempotenceClassDetectorReceipt:
             "trajectory_length": self.trajectory_length,
             "source_presence_flags": dict(self.source_presence_flags),
             "region_classes": tuple(region.to_dict() for region in self.region_classes),
-            "class_profile": dict(self.class_profile),
+            "class_profile": class_profile,
             "idempotence_classification": self.idempotence_classification,
             "recommendation": self.recommendation,
             "bounded_metrics": dict(self.bounded_metrics),
-            "decision": dict(self.decision),
+            "decision": decision,
             "advisory_only": self.advisory_only,
             "decoder_core_modified": self.decoder_core_modified,
         }
@@ -373,7 +380,32 @@ def _normalize_dark_state_source(source_dark_state_receipt: Any) -> _NormalizedD
     mask_profile = source_map.get("mask_profile")
     if not isinstance(mask_profile, Mapping):
         raise IdempotenceClassDetectorValidationError("source dark-state mask_profile must be a mapping")
+    required_mask_profile_keys = {
+        "candidate_region_count",
+        "strongest_region_id",
+        "total_dark_state_coverage_fraction",
+        "elimination_candidacy",
+    }
+    missing_mask_profile_keys = sorted(required_mask_profile_keys.difference(mask_profile.keys()))
+    if missing_mask_profile_keys:
+        raise IdempotenceClassDetectorValidationError(f"source dark-state mask_profile missing keys {missing_mask_profile_keys}")
+    candidate_region_count = mask_profile.get("candidate_region_count")
+    if isinstance(candidate_region_count, bool) or not isinstance(candidate_region_count, int) or candidate_region_count < 0:
+        raise IdempotenceClassDetectorValidationError("source dark-state mask_profile.candidate_region_count must be a non-negative int")
+    total_dark_state_coverage_fraction = mask_profile.get("total_dark_state_coverage_fraction")
+    if isinstance(total_dark_state_coverage_fraction, bool) or not isinstance(total_dark_state_coverage_fraction, (int, float)):
+        raise IdempotenceClassDetectorValidationError("source dark-state mask_profile.total_dark_state_coverage_fraction must be numeric")
+    total_dark_state_coverage = float(total_dark_state_coverage_fraction)
+    if not math.isfinite(total_dark_state_coverage) or total_dark_state_coverage < 0.0 or total_dark_state_coverage > 1.0:
+        raise IdempotenceClassDetectorValidationError(
+            "source dark-state mask_profile.total_dark_state_coverage_fraction must be in [0,1]"
+        )
+    elimination_candidacy = mask_profile.get("elimination_candidacy")
+    if not isinstance(elimination_candidacy, str) or not elimination_candidacy:
+        raise IdempotenceClassDetectorValidationError("source dark-state mask_profile.elimination_candidacy must be a non-empty string")
     profile_strongest = mask_profile.get("strongest_region_id")
+    if profile_strongest is not None and (not isinstance(profile_strongest, str) or not profile_strongest):
+        raise IdempotenceClassDetectorValidationError("source dark-state mask_profile.strongest_region_id must be None or non-empty string")
 
     dark_state_regions_raw = source_map.get("dark_state_regions")
     if not isinstance(dark_state_regions_raw, (list, tuple)):
@@ -381,6 +413,7 @@ def _normalize_dark_state_source(source_dark_state_receipt: Any) -> _NormalizedD
 
     normalized_regions: list[Mapping[str, _JSONValue]] = []
     strongest_region_in_regions = False
+    seen_region_ids: set[str] = set()
     previous_key: tuple[float, float, str] | None = None
     for raw in dark_state_regions_raw:
         if not isinstance(raw, Mapping):
@@ -402,19 +435,29 @@ def _normalize_dark_state_source(source_dark_state_receipt: Any) -> _NormalizedD
         region_kind = raw.get("region_kind")
         if not isinstance(region_id, str) or not region_id:
             raise IdempotenceClassDetectorValidationError("source dark-state region_id must be a non-empty string")
+        if region_id in seen_region_ids:
+            raise IdempotenceClassDetectorValidationError("source dark-state region_id must be unique")
+        seen_region_ids.add(region_id)
         if region_kind not in REGION_KINDS:
             raise IdempotenceClassDetectorValidationError("source dark-state region_kind is invalid")
 
         supporting_sources_raw = raw.get("supporting_sources")
         if not isinstance(supporting_sources_raw, (list, tuple)):
             raise IdempotenceClassDetectorValidationError("source dark-state supporting_sources must be an ordered sequence")
+        if not supporting_sources_raw:
+            raise IdempotenceClassDetectorValidationError("source dark-state supporting_sources must be non-empty")
         support_sources: list[str] = []
+        seen_support_sources: set[str] = set()
         for source_name in supporting_sources_raw:
             if not isinstance(source_name, str) or source_name not in source_presence_flags:
                 raise IdempotenceClassDetectorValidationError("source dark-state supporting_sources contain invalid source")
             if not source_presence_flags[source_name]:
                 raise IdempotenceClassDetectorValidationError("source dark-state supporting_sources include unavailable source")
+            if source_name in seen_support_sources:
+                raise IdempotenceClassDetectorValidationError("source dark-state supporting_sources must not contain duplicates")
+            seen_support_sources.add(source_name)
             support_sources.append(source_name)
+        support_sources = sorted(support_sources)
 
         numeric_fields = {
             "stability_score": raw.get("stability_score"),
@@ -463,6 +506,10 @@ def _normalize_dark_state_source(source_dark_state_receipt: Any) -> _NormalizedD
         raise IdempotenceClassDetectorValidationError("source dark-state strongest_region_id must exist when regions exist")
     if profile_strongest is not None and not strongest_region_in_regions:
         raise IdempotenceClassDetectorValidationError("source dark-state strongest_region_id is inconsistent with dark_state_regions")
+    if candidate_region_count != len(normalized_regions):
+        raise IdempotenceClassDetectorValidationError("source dark-state mask_profile.candidate_region_count is inconsistent with dark_state_regions")
+    if normalized_regions and str(normalized_regions[0]["region_id"]) != profile_strongest:
+        raise IdempotenceClassDetectorValidationError("source dark-state mask_profile.strongest_region_id must match first region")
 
     canonical_payload = _canonicalize_json(source_map)
     if not isinstance(canonical_payload, dict):
@@ -537,9 +584,20 @@ def _precompute_idempotence_features(normalized: _NormalizedDarkStateSource) -> 
         if global_confidence < 0.5 or confidence < 0.45:
             tags.append("low_confidence")
 
-        if idempotence_score >= 0.85 and readiness >= 0.8 and stability >= 0.8 and confidence >= 0.78 and region_conflict_penalty <= 0.1:
+        if (
+            idempotence_score >= 0.85
+            and readiness >= 0.8
+            and stability >= 0.8
+            and confidence >= 0.78
+            and region_conflict_penalty <= 0.1
+        ):
             margin = idempotence_score - 0.85
-        elif idempotence_score >= 0.67 and readiness >= 0.62 and stability >= 0.62 and confidence >= 0.58:
+        elif (
+            idempotence_score >= 0.67
+            and readiness >= 0.62
+            and stability >= 0.62
+            and confidence >= 0.58
+        ):
             margin = idempotence_score - 0.67
         elif idempotence_score >= 0.5 and readiness >= 0.45 and stability >= 0.45:
             margin = idempotence_score - 0.5

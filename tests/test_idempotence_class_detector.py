@@ -169,6 +169,7 @@ def test_profile_strong_partial_weak_none_behavior() -> None:
         },
     ]
     partial_source["mask_profile"]["strongest_region_id"] = partial_source["dark_state_regions"][0]["region_id"]  # type: ignore[index]
+    partial_source["mask_profile"]["candidate_region_count"] = len(partial_source["dark_state_regions"])  # type: ignore[index]
     partial_source = _rehash(partial_source)
     partial = build_idempotence_class_detector(source_dark_state_receipt=partial_source)
     assert partial.idempotence_classification in {"partial_idempotence_profile", "weak_idempotence_profile", "no_idempotence_profile"}
@@ -300,6 +301,14 @@ def test_source_bridge_from_dark_state_engine_matches_expected() -> None:
     receipt = build_idempotence_class_detector(source_dark_state_receipt=source)
     assert receipt.release_version == "v138.6.1"
     assert receipt.runtime_kind == "idempotence_class_detector"
+    assert receipt.advisory_only is True
+    assert receipt.decoder_core_modified is False
+
+
+def test_receipt_to_dict_is_json_serializable() -> None:
+    source = _base_dark_state_receipt()
+    receipt = build_idempotence_class_detector(source_dark_state_receipt=source)
+    assert json.loads(json.dumps(receipt.to_dict()))["runtime_kind"] == "idempotence_class_detector"
 
 
 def test_dark_state_engine_determinism_regression_input() -> None:

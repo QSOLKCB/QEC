@@ -148,3 +148,10 @@ def test_regression_source_hash_binding_detects_post_construction_mutation() -> 
     dispatch["receipt_hash"] = asic_module._stable_hash(asic_module._source_dispatch_hash_payload(dispatch))
     with pytest.raises(ValueError, match="not ASIC-compatible"):
         run_ternary_asic_experiment(dispatch)
+
+
+def test_regression_source_hash_binding_requires_explicit_dispatch_fields() -> None:
+    dispatch = _asic_dispatch_receipt(correction_len=4).to_dict()
+    dispatch.pop("source_lane_kind")
+    with pytest.raises(ValueError, match="missing required hash-bound fields: source_lane_kind"):
+        run_ternary_asic_experiment(dispatch)

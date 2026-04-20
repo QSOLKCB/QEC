@@ -36,6 +36,14 @@ _REQUIRED_SOURCE_FIELDS = (
     "decoder_core_modified",
     "receipt_hash",
 )
+_REQUIRED_SOURCE_HASH_BOUND_FIELDS = (
+    "source_lane_kind",
+    "source_selected_candidate_id",
+    "timing_class",
+    "resource_class",
+    "constraint_status",
+    "constraint_report",
+)
 
 _ALLOWED_PIPELINE_DEPTH = ("shallow", "medium", "deep")
 _ALLOWED_LANE_PARALLELISM = ("serial", "dual_lane", "multi_lane")
@@ -182,28 +190,26 @@ def _extract_source_dispatch(source_dispatch_receipt: Any) -> dict[str, Any]:
 
 
 def _source_dispatch_hash_payload(source: Mapping[str, Any]) -> dict[str, Any]:
+    missing = [key for key in _REQUIRED_SOURCE_HASH_BOUND_FIELDS if key not in source]
+    if missing:
+        raise ValueError(
+            "source_dispatch_receipt missing required hash-bound fields: " + ", ".join(missing)
+        )
+
     return {
         "release_version": source["release_version"],
         "dispatch_kind": source["dispatch_kind"],
-        "source_lane_kind": source.get("source_lane_kind", "ternary_decode_lane"),
+        "source_lane_kind": source["source_lane_kind"],
         "source_lane_receipt_hash": source["source_lane_receipt_hash"],
-        "source_selected_candidate_id": source.get("source_selected_candidate_id", "unknown"),
+        "source_selected_candidate_id": source["source_selected_candidate_id"],
         "canonical_selected_correction": tuple(source["canonical_selected_correction"]),
         "selected_target": source["selected_target"],
         "dispatch_eligible": source["dispatch_eligible"],
-        "timing_class": source.get("timing_class", "strict"),
-        "resource_class": source.get("resource_class", "high"),
-        "constraint_status": source.get("constraint_status", "admissible"),
+        "timing_class": source["timing_class"],
+        "resource_class": source["resource_class"],
+        "constraint_status": source["constraint_status"],
         "dispatch_metric_bundle": {k: source["dispatch_metric_bundle"][k] for k in _REQUIRED_SOURCE_METRICS},
-        "constraint_report": source.get("constraint_report", {
-            "supported_symbol_basis": True,
-            "correction_length_match": True,
-            "capability_admissible": True,
-            "timing_admissible": True,
-            "resource_admissible": True,
-            "safety_admissible": True,
-            "rejection_reasons": (),
-        }),
+        "constraint_report": source["constraint_report"],
         "advisory_only": source["advisory_only"],
         "hardware_execution_performed": source["hardware_execution_performed"],
         "decoder_core_modified": source["decoder_core_modified"],

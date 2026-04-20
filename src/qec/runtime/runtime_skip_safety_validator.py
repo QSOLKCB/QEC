@@ -341,8 +341,11 @@ def _normalize_idempotence_source(source_idempotence_receipt: Any) -> _Normalize
     if not isinstance(source_presence_flags_raw, Mapping):
         raise RuntimeSkipSafetyValidationError("source idempotence source_presence_flags must be a mapping")
     required_presence_keys = ("resonance", "phase", "topology", "fractal")
-    if tuple(source_presence_flags_raw.keys()) != required_presence_keys:
-        raise RuntimeSkipSafetyValidationError("source idempotence source_presence_flags must preserve canonical ordering")
+    if set(source_presence_flags_raw.keys()) != set(required_presence_keys):
+        raise RuntimeSkipSafetyValidationError(
+            "source idempotence source_presence_flags must contain exactly "
+            "('resonance', 'phase', 'topology', 'fractal')"
+        )
     source_presence_flags: dict[str, bool] = {}
     for key in required_presence_keys:
         value = source_presence_flags_raw.get(key)

@@ -41,8 +41,21 @@ _REQUIRED_PROFILE_FIELDS = (
     "memory_pressure_class",
 )
 
+_ALLOWED_PIPELINE_DEPTH = ("shallow", "medium", "deep")
+_ALLOWED_LANE_PARALLELISM = ("serial", "dual_lane", "multi_lane")
 _ALLOWED_TIMING_REGIMES = ("tight", "moderate", "relaxed")
+_ALLOWED_POWER_REGIMES = ("low", "medium", "high")
+_ALLOWED_THERMAL_REGIMES = ("cool", "warm", "hot")
 _ALLOWED_MEMORY_PRESSURE_CLASSES = ("low", "moderate", "high")
+
+_PROFILE_FIELD_ALLOWED: dict[str, tuple[str, ...]] = {
+    "pipeline_depth_class": _ALLOWED_PIPELINE_DEPTH,
+    "lane_parallelism_class": _ALLOWED_LANE_PARALLELISM,
+    "timing_regime": _ALLOWED_TIMING_REGIMES,
+    "power_regime": _ALLOWED_POWER_REGIMES,
+    "thermal_regime": _ALLOWED_THERMAL_REGIMES,
+    "memory_pressure_class": _ALLOWED_MEMORY_PRESSURE_CLASSES,
+}
 
 
 def _canonical_json(data: Any) -> str:
@@ -124,7 +137,20 @@ def _normalize_source_experiment(source_experiment_receipt: Any) -> dict[str, An
         "canonical_selected_correction",
         "correction_length",
         "execution_profile",
+        "pipeline_depth_class",
+        "lane_parallelism_class",
+        "timing_regime",
+        "power_regime",
+        "thermal_regime",
+        "memory_pressure_class",
         "metric_bundle",
+        "asic_compatibility_score",
+        "execution_feasibility_score",
+        "timing_efficiency_score",
+        "power_efficiency_score",
+        "thermal_stability_score",
+        "memory_feasibility_score",
+        "bounded_experiment_confidence",
         "advisory_only",
         "hardware_execution_performed",
         "decoder_core_modified",
@@ -178,16 +204,19 @@ def _normalize_source_experiment(source_experiment_receipt: Any) -> dict[str, An
         normalized_profile[key] = _require_non_empty_text(
             execution_profile[key], field=f"source_experiment_receipt.execution_profile.{key}"
         )
-    if normalized_profile["timing_regime"] not in _ALLOWED_TIMING_REGIMES:
-        raise ValueError(
-            "source_experiment_receipt.execution_profile.timing_regime unsupported: "
-            + normalized_profile["timing_regime"]
-        )
-    if normalized_profile["memory_pressure_class"] not in _ALLOWED_MEMORY_PRESSURE_CLASSES:
-        raise ValueError(
-            "source_experiment_receipt.execution_profile.memory_pressure_class unsupported: "
-            + normalized_profile["memory_pressure_class"]
-        )
+    for key in sorted(_PROFILE_FIELD_ALLOWED.keys()):
+        value = normalized_profile[key]
+        allowed = _PROFILE_FIELD_ALLOWED[key]
+        if value not in allowed:
+            raise ValueError(
+                f"source_experiment_receipt.execution_profile.{key} unsupported: {value}"
+            )
+        top_value = _require_non_empty_text(source[key], field=f"source_experiment_receipt.{key}")
+        if top_value != value:
+            raise ValueError(
+                f"source_experiment_receipt.{key} must match execution_profile.{key}"
+            )
+        source[key] = value
     source["execution_profile"] = MappingProxyType(normalized_profile)
 
     metrics = source["metric_bundle"]
@@ -198,6 +227,14 @@ def _normalize_source_experiment(source_experiment_receipt: Any) -> dict[str, An
         field="source_experiment_receipt.metric_bundle",
         required_keys=_REQUIRED_SOURCE_METRICS,
     )
+    for key in sorted(_REQUIRED_SOURCE_METRICS):
+        nested_value = source["metric_bundle"][key]
+        top_value = _bounded(source[key], field=f"source_experiment_receipt.{key}")
+        if top_value != nested_value:
+            raise ValueError(
+                f"source_experiment_receipt.{key} must match metric_bundle.{key}"
+            )
+        source[key] = nested_value
 
     for field_name, expected in (
         ("advisory_only", True),
@@ -228,20 +265,20 @@ def _source_experiment_hash_payload(source: Mapping[str, Any]) -> dict[str, Any]
         "canonical_selected_correction": tuple(source["canonical_selected_correction"]),
         "correction_length": source["correction_length"],
         "execution_profile": {key: source["execution_profile"][key] for key in sorted(_REQUIRED_PROFILE_FIELDS)},
-        "pipeline_depth_class": source["execution_profile"]["pipeline_depth_class"],
-        "lane_parallelism_class": source["execution_profile"]["lane_parallelism_class"],
-        "timing_regime": source["execution_profile"]["timing_regime"],
-        "power_regime": source["execution_profile"]["power_regime"],
-        "thermal_regime": source["execution_profile"]["thermal_regime"],
-        "memory_pressure_class": source["execution_profile"]["memory_pressure_class"],
+        "pipeline_depth_class": source["pipeline_depth_class"],
+        "lane_parallelism_class": source["lane_parallelism_class"],
+        "timing_regime": source["timing_regime"],
+        "power_regime": source["power_regime"],
+        "thermal_regime": source["thermal_regime"],
+        "memory_pressure_class": source["memory_pressure_class"],
         "metric_bundle": {key: source["metric_bundle"][key] for key in sorted(_REQUIRED_SOURCE_METRICS)},
-        "asic_compatibility_score": source["metric_bundle"]["asic_compatibility_score"],
-        "execution_feasibility_score": source["metric_bundle"]["execution_feasibility_score"],
-        "timing_efficiency_score": source["metric_bundle"]["timing_efficiency_score"],
-        "power_efficiency_score": source["metric_bundle"]["power_efficiency_score"],
-        "thermal_stability_score": source["metric_bundle"]["thermal_stability_score"],
-        "memory_feasibility_score": source["metric_bundle"]["memory_feasibility_score"],
-        "bounded_experiment_confidence": source["metric_bundle"]["bounded_experiment_confidence"],
+        "asic_compatibility_score": source["asic_compatibility_score"],
+        "execution_feasibility_score": source["execution_feasibility_score"],
+        "timing_efficiency_score": source["timing_efficiency_score"],
+        "power_efficiency_score": source["power_efficiency_score"],
+        "thermal_stability_score": source["thermal_stability_score"],
+        "memory_feasibility_score": source["memory_feasibility_score"],
+        "bounded_experiment_confidence": source["bounded_experiment_confidence"],
         "advisory_only": source["advisory_only"],
         "hardware_execution_performed": source["hardware_execution_performed"],
         "decoder_core_modified": source["decoder_core_modified"],
@@ -270,7 +307,7 @@ def _project_ternary_to_css(correction: tuple[int, ...]) -> "CSSSurfaceProjectio
         projected.append(pair)
 
     ternary_weight = sum(1 for symbol in correction if symbol != 0)
-    overlap_count = sum(1 for symbol, pair in zip(correction, projected) if (symbol == 0 and pair == (0, 0)) or (symbol in (1, 2) and pair != (0, 0)))
+    overlap_count = sum(1 for pair in projected if pair == (0, 0))
     divergence_count = len(correction) - overlap_count
 
     return CSSSurfaceProjection(

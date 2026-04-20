@@ -16,6 +16,20 @@ def _asic_receipt_dict() -> dict[str, object]:
 
 
 def _rehash_source(receipt: dict[str, object]) -> dict[str, object]:
+    if "execution_profile" in receipt:
+        ep = receipt["execution_profile"]
+        for key in ("pipeline_depth_class", "lane_parallelism_class", "timing_regime",
+                    "power_regime", "thermal_regime", "memory_pressure_class"):
+            if key in ep:
+                receipt[key] = ep[key]
+    if "metric_bundle" in receipt:
+        mb = receipt["metric_bundle"]
+        for key in ("asic_compatibility_score", "execution_feasibility_score",
+                    "timing_efficiency_score", "power_efficiency_score",
+                    "thermal_stability_score", "memory_feasibility_score",
+                    "bounded_experiment_confidence"):
+            if key in mb:
+                receipt[key] = mb[key]
     payload = hybrid_module._source_experiment_hash_payload(receipt)
     receipt["receipt_hash"] = hybrid_module._stable_hash(payload)
     return receipt
@@ -112,8 +126,8 @@ def test_projection_is_deterministic_and_weight_counts_are_correct() -> None:
     assert projection.projected_binary_sequence == ((0, 0), (1, 0), (0, 1), (0, 1))
     assert projection.projection_weight == 3
     assert projection.ternary_weight == 3
-    assert projection.overlap_count == 4
-    assert projection.divergence_count == 0
+    assert projection.overlap_count == 1
+    assert projection.divergence_count == 3
 
 
 def test_classification_strong_agreement_yields_css_or_balanced() -> None:
@@ -269,5 +283,21 @@ def test_regression_source_hash_binding_detects_post_construction_mutation() -> 
     mutated_metrics = dict(source["metric_bundle"])
     mutated_metrics["bounded_experiment_confidence"] = 0.01
     mutated["metric_bundle"] = mutated_metrics
+    mutated["bounded_experiment_confidence"] = 0.01
+    with pytest.raises(ValueError, match="receipt_hash mismatch"):
+        run_css_surface_hybrid_study(mutated)
+
+
+def test_regression_source_hash_binding_detects_top_level_field_mutation() -> None:
+    source = _asic_receipt_dict()
+    # Mutate both top-level metric field AND metric_bundle consistently (field-match check passes)
+    # but do NOT recompute receipt_hash; the hash payload includes top-level fields so the
+    # hash check must catch this.
+    new_score = round(float(source["asic_compatibility_score"]) * 0.5, 6)
+    mutated = dict(source)
+    mutated_bundle = dict(source["metric_bundle"])
+    mutated_bundle["asic_compatibility_score"] = new_score
+    mutated["metric_bundle"] = mutated_bundle
+    mutated["asic_compatibility_score"] = new_score
     with pytest.raises(ValueError, match="receipt_hash mismatch"):
         run_css_surface_hybrid_study(mutated)

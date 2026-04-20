@@ -110,6 +110,58 @@ def _normalize_correction(raw: Any, *, field: str) -> tuple[int, ...]:
     return tuple(normalized)
 
 
+def _normalize_selected_target(source: dict[str, Any]) -> str:
+    """Extract, validate, and ASIC-compatibility-check the selected_target field."""
+    raw = source["selected_target"]
+    if isinstance(raw, Mapping):
+        target = _require_non_empty_text(
+            raw.get("target_name"), field="source_dispatch_receipt.selected_target.target_name"
+        )
+    else:
+        target = _require_non_empty_text(raw, field="source_dispatch_receipt.selected_target")
+    if target != _ASIC_COMPATIBLE_TARGET:
+        raise ValueError(
+            "source_dispatch_receipt.selected_target is not ASIC-compatible; expected qutrit_asic_lane"
+        )
+    return target
+
+
+def _check_source_boolean_invariants(source: dict[str, Any]) -> None:
+    """Validate all required boolean invariants on the source dispatch receipt."""
+    _bool_invariants: tuple[tuple[str, bool], ...] = (
+        ("dispatch_eligible", True),
+        ("advisory_only", True),
+        ("hardware_execution_performed", False),
+        ("decoder_core_modified", False),
+    )
+    for field_name, expected in _bool_invariants:
+        if not isinstance(source[field_name], bool):
+            raise ValueError(f"source_dispatch_receipt.{field_name} must be boolean")
+        if source[field_name] is not expected:
+            raise ValueError(f"source_dispatch_receipt.{field_name} must be {expected}")
+
+
+def _normalize_source_metric_bundle(source: dict[str, Any]) -> Mapping[str, float]:
+    """Validate and canonicalize the dispatch_metric_bundle from the source receipt."""
+    if not isinstance(source["dispatch_metric_bundle"], Mapping):
+        raise ValueError("source_dispatch_receipt.dispatch_metric_bundle must be a mapping")
+    return _canonical_mapping(
+        source["dispatch_metric_bundle"],
+        field="source_dispatch_receipt.dispatch_metric_bundle",
+        required_keys=_REQUIRED_SOURCE_METRICS,
+    )
+
+
+def _verify_source_receipt_hash(source: dict[str, Any]) -> None:
+    """Recompute expected receipt hash and raise if it does not match the stored hash."""
+    source["receipt_hash"] = _require_non_empty_text(
+        source["receipt_hash"], field="source_dispatch_receipt.receipt_hash"
+    )
+    expected_hash = _stable_hash(_source_dispatch_hash_payload(source))
+    if source["receipt_hash"] != expected_hash:
+        raise ValueError("source_dispatch_receipt.receipt_hash mismatch")
+
+
 def _extract_source_dispatch(source_dispatch_receipt: Any) -> dict[str, Any]:
     if isinstance(source_dispatch_receipt, Mapping):
         source = dict(source_dispatch_receipt)
@@ -128,7 +180,9 @@ def _extract_source_dispatch(source_dispatch_receipt: Any) -> dict[str, Any]:
     source["release_version"] = _require_non_empty_text(
         source["release_version"], field="source_dispatch_receipt.release_version"
     )
-    source["dispatch_kind"] = _require_non_empty_text(source["dispatch_kind"], field="source_dispatch_receipt.dispatch_kind")
+    source["dispatch_kind"] = _require_non_empty_text(
+        source["dispatch_kind"], field="source_dispatch_receipt.dispatch_kind"
+    )
     if source["release_version"] != _EXPECTED_SOURCE_RELEASE_VERSION:
         raise ValueError(f"source_dispatch_receipt.release_version must be {_EXPECTED_SOURCE_RELEASE_VERSION}")
     if source["dispatch_kind"] != _EXPECTED_SOURCE_DISPATCH_KIND:
@@ -137,55 +191,13 @@ def _extract_source_dispatch(source_dispatch_receipt: Any) -> dict[str, Any]:
     source["source_lane_receipt_hash"] = _require_non_empty_text(
         source["source_lane_receipt_hash"], field="source_dispatch_receipt.source_lane_receipt_hash"
     )
-
-    if isinstance(source["selected_target"], Mapping):
-        selected_target = _require_non_empty_text(source["selected_target"].get("target_name"), field="source_dispatch_receipt.selected_target.target_name")
-    else:
-        selected_target = _require_non_empty_text(source["selected_target"], field="source_dispatch_receipt.selected_target")
-    source["selected_target"] = selected_target
-
+    source["selected_target"] = _normalize_selected_target(source)
     source["canonical_selected_correction"] = _normalize_correction(
         source["canonical_selected_correction"], field="source_dispatch_receipt.canonical_selected_correction"
     )
-
-    if not isinstance(source["dispatch_eligible"], bool):
-        raise ValueError("source_dispatch_receipt.dispatch_eligible must be boolean")
-    if source["dispatch_eligible"] is not True:
-        raise ValueError("source_dispatch_receipt.dispatch_eligible must be True")
-
-    if not isinstance(source["advisory_only"], bool):
-        raise ValueError("source_dispatch_receipt.advisory_only must be boolean")
-    if source["advisory_only"] is not True:
-        raise ValueError("source_dispatch_receipt.advisory_only must be True")
-
-    if not isinstance(source["hardware_execution_performed"], bool):
-        raise ValueError("source_dispatch_receipt.hardware_execution_performed must be boolean")
-    if source["hardware_execution_performed"] is not False:
-        raise ValueError("source_dispatch_receipt.hardware_execution_performed must be False")
-
-    if not isinstance(source["decoder_core_modified"], bool):
-        raise ValueError("source_dispatch_receipt.decoder_core_modified must be boolean")
-    if source["decoder_core_modified"] is not False:
-        raise ValueError("source_dispatch_receipt.decoder_core_modified must be False")
-
-    if source["selected_target"] != _ASIC_COMPATIBLE_TARGET:
-        raise ValueError(
-            "source_dispatch_receipt.selected_target is not ASIC-compatible; expected qutrit_asic_lane"
-        )
-
-    if not isinstance(source["dispatch_metric_bundle"], Mapping):
-        raise ValueError("source_dispatch_receipt.dispatch_metric_bundle must be a mapping")
-    source["dispatch_metric_bundle"] = _canonical_mapping(
-        source["dispatch_metric_bundle"],
-        field="source_dispatch_receipt.dispatch_metric_bundle",
-        required_keys=_REQUIRED_SOURCE_METRICS,
-    )
-
-    source["receipt_hash"] = _require_non_empty_text(source["receipt_hash"], field="source_dispatch_receipt.receipt_hash")
-    expected_hash = _stable_hash(_source_dispatch_hash_payload(source))
-    if source["receipt_hash"] != expected_hash:
-        raise ValueError("source_dispatch_receipt.receipt_hash mismatch")
-
+    _check_source_boolean_invariants(source)
+    source["dispatch_metric_bundle"] = _normalize_source_metric_bundle(source)
+    _verify_source_receipt_hash(source)
     return source
 
 

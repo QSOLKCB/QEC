@@ -683,17 +683,28 @@ def build_resonance_interface_bridge(
     bounded_confidence = _clamp01(
         0.35 * cross_source_consistency
         + 0.35 * completeness
-        + 0.15 * structural_alignment
-        + 0.15 * behavioral_alignment
-        - penalty
-    )
+    resonance_lock_spans = ()
+    strongest_lock = None
+    if "resonance" in normalized:
+        resonance_lock_spans = normalized["resonance"].payload.get(
+            "ordered_lock_spans",
+            normalized["resonance"].payload.get("lock_spans", ()),
+        )
+        if len(resonance_lock_spans) > 0:
+            strongest_lock = max(
+                resonance_lock_spans,
+                key=lambda item: (
+                    float(item.get("lock_strength", 0.0)),
+                    -int(item.get("start_index", 0)),
+                    -int(item.get("end_index", 0)),
+                ),
+            )
 
-    metrics = types.MappingProxyType(
+    structure_summary = _immutable_mapping(
         {
-            "interface_completeness_score": completeness,
-            "cross_source_consistency_score": cross_source_consistency,
-            "structural_alignment_score": structural_alignment,
-            "behavioral_alignment_score": behavioral_alignment,
+            "resonance_classification": None if "resonance" not in normalized else normalized["resonance"].classification,
+            "lock_count": None if "resonance" not in normalized else len(resonance_lock_spans),
+            "strongest_lock": strongest_lock,
             "embedding_alignment_score": embedding_alignment,
             "bounded_interface_confidence": bounded_confidence,
         }

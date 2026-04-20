@@ -299,6 +299,7 @@ def _normalize_idempotence_source(source_idempotence_receipt: Any) -> _Normalize
         "release_version",
         "runtime_kind",
         "source_interface_hash",
+        "source_dark_state_hash",
         "trajectory_length",
         "source_presence_flags",
         "region_classes",
@@ -328,6 +329,11 @@ def _normalize_idempotence_source(source_idempotence_receipt: Any) -> _Normalize
         raise RuntimeSkipSafetyValidationError("source idempotence trajectory_length must be a positive int")
 
     source_interface_hash = source_map.get("source_interface_hash")
+    source_dark_state_hash = source_map.get("source_dark_state_hash")
+    if not isinstance(source_dark_state_hash, str) or not source_dark_state_hash:
+        raise RuntimeSkipSafetyValidationError(
+            "source idempotence source_dark_state_hash must be a non-empty string"
+        )
     if not isinstance(source_interface_hash, str) or not source_interface_hash:
         raise RuntimeSkipSafetyValidationError("source idempotence source_interface_hash must be a non-empty string")
 

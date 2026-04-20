@@ -46,11 +46,11 @@ def _clamp01(value: float) -> float:
 
 
 def _motif_signature(motif: _Motif) -> str:
+    """Return a deterministic, collision-safe signature for a motif."""
     if not motif:
         raise ValueError("motif must be non-empty")
     canonical = _primitive_motif(motif)
-    prefix = "i" if isinstance(canonical[0], int) else "s"
-    return f"{prefix}:" + "|".join(str(item) for item in canonical)
+    return _canonical_json(canonical)
 
 
 def _primitive_motif(motif: _Motif) -> _Motif:

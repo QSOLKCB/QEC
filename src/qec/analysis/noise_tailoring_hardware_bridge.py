@@ -155,7 +155,7 @@ def run_noise_tailoring_hardware_bridge(
     config: Mapping[str, float | int],
 ) -> dict[str, float]:
     """Run deterministic bridge validation from projected scenarios to hardware-like results."""
-    _validate_config(config)
+    validated_config = _validate_config(config)
 
     if not isinstance(hardware_measurements, Mapping):
         raise ValueError("Invalid hardware_measurements: hardware_measurements must be a mapping")
@@ -183,9 +183,20 @@ def run_noise_tailoring_hardware_bridge(
         edge_agreements.append(per_scenario["edge_agreement"])
 
     count = float(len(ordered_projected_results))
-    return {
+    metrics = {
         "mean_node_error": round(sum(node_errors) / count, _ROUND),
         "mean_edge_error": round(sum(edge_errors) / count, _ROUND),
         "mean_node_agreement": round(sum(node_agreements) / count, _ROUND),
         "mean_edge_agreement": round(sum(edge_agreements) / count, _ROUND),
     }
+
+    if metrics["mean_node_error"] > validated_config["max_mean_node_error"]:
+        raise ValueError(
+            "Validation failed: mean_node_error exceeds configured max_mean_node_error"
+        )
+    if metrics["mean_edge_error"] > validated_config["max_mean_edge_error"]:
+        raise ValueError(
+            "Validation failed: mean_edge_error exceeds configured max_mean_edge_error"
+        )
+
+    return metrics

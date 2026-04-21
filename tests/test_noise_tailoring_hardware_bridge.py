@@ -121,6 +121,37 @@ def test_duplicate_projected_result_ids_raise_value_error():
         run_noise_tailoring_hardware_bridge(projected, hardware, _bridge_config())
 
 
+
+
+def test_mean_node_error_above_threshold_raises_value_error():
+    config = _bridge_config()
+    config["max_mean_node_error"] = 0.0
+
+    hardware = {
+        "s1": {
+            "mean_node_weight_after": 0.0,
+            "mean_edge_weight_after": 0.0,
+        }
+    }
+
+    with pytest.raises(ValueError, match="mean_node_error exceeds configured max_mean_node_error"):
+        run_noise_tailoring_hardware_bridge([_projected_result()], hardware, config)
+
+
+def test_mean_edge_error_above_threshold_raises_value_error():
+    config = _bridge_config()
+    config["max_mean_edge_error"] = 0.0
+
+    hardware = {
+        "s1": {
+            "mean_node_weight_after": 0.6,
+            "mean_edge_weight_after": 0.0,
+        }
+    }
+
+    with pytest.raises(ValueError, match="mean_edge_error exceeds configured max_mean_edge_error"):
+        run_noise_tailoring_hardware_bridge([_projected_result()], hardware, config)
+
 def test_aggregate_correctness_fixed_scenarios():
     config = {
         "node_mitigation_strength": 0.0,

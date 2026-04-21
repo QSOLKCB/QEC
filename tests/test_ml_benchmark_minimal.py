@@ -118,7 +118,7 @@ def test_validation_errors(monkeypatch: pytest.MonkeyPatch) -> None:
         bench, "early_termination_via_dark_state_proofs", _stub_terminate_false
     )
 
-    with pytest.raises(ValueError, match="scenarios must be a non-empty list"):
+    with pytest.raises(ValueError, match="scenarios must be a non-empty sequence"):
         bench.run_minimal_ml_benchmark([])
 
     with pytest.raises(ValueError, match="missing required fields"):
@@ -384,3 +384,89 @@ def test_aggregate_hash_changes_when_scenario_changes(
         ]
     )
     assert baseline.aggregate.stable_hash() != changed.aggregate.stable_hash()
+
+
+def test_scenario_edge_round_trip_from_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bench, "deterministic_gnn_decoder_kernel", _stub_kernel)
+    monkeypatch.setattr(
+        bench, "early_termination_via_dark_state_proofs", _stub_terminate_false
+    )
+    full = bench.build_ml_benchmark_full_result(
+        [
+            {
+                "id": "s1",
+                "nodes": ["a", "b"],
+                "edges": [("a", "b")],
+                "expected_top_node": "a",
+                "expected_terminate": False,
+            }
+        ]
+    )
+
+    serialized = full.scenarios[0].to_dict()
+    replayed = bench.run_minimal_ml_benchmark([serialized])
+
+    assert replayed["mean_top_match"] == 1.0
+
+
+def test_build_ml_benchmark_full_result_accepts_tuple_scenarios(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(bench, "deterministic_gnn_decoder_kernel", _stub_kernel)
+    monkeypatch.setattr(
+        bench, "early_termination_via_dark_state_proofs", _stub_terminate_false
+    )
+
+    scenarios = (
+        {
+            "id": "s1",
+            "nodes": ["a"],
+            "edges": [],
+            "expected_top_node": "a",
+            "expected_terminate": False,
+        },
+    )
+
+    full = bench.build_ml_benchmark_full_result(scenarios)
+
+    assert full.case_results[0].scenario_id == "s1"
+
+
+def test_run_minimal_rounding_uses_config_decimals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bench, "deterministic_gnn_decoder_kernel", _stub_kernel)
+    monkeypatch.setattr(
+        bench, "early_termination_via_dark_state_proofs", _stub_terminate_false
+    )
+
+    scenarios = [
+        {
+            "id": "s1",
+            "nodes": ["a", "b", "c"],
+            "edges": [],
+            "expected_top_node": "a",
+            "expected_terminate": False,
+        },
+        {
+            "id": "s2",
+            "nodes": ["a", "b", "c", "d"],
+            "edges": [],
+            "expected_top_node": "a",
+            "expected_terminate": False,
+        },
+    ]
+
+    default = bench.run_minimal_ml_benchmark(scenarios)
+
+    original_config = bench.MLBenchmarkConfig
+
+    class ZeroRoundingConfig(original_config):
+        def __init__(self) -> None:
+            super().__init__(rounding_decimals=0)
+
+    monkeypatch.setattr(bench, "MLBenchmarkConfig", ZeroRoundingConfig)
+    zero_rounded = bench.run_minimal_ml_benchmark(scenarios)
+
+    assert default["mean_normalized_latency_score"] != zero_rounded[
+        "mean_normalized_latency_score"
+    ]
+    assert zero_rounded["mean_normalized_latency_score"] == 0.0

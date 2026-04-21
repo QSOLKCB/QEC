@@ -6,7 +6,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from collections.abc import Mapping, Sequence
-from typing import Any, ClassVar
+from typing import Any
 
 
 def deterministic_gnn_decoder_kernel(
@@ -35,14 +35,11 @@ REQUIRED_FIELDS = (
     "expected_terminate",
 )
 
-ROUNDING_DECIMALS = 12
-
 
 @dataclass(frozen=True)
 class _CanonicalDataclass:
     """Base helpers for canonical serialization and stable hashing."""
 
-    _hash_excluded_fields: ClassVar[tuple[str, ...]] = ()
 
     def to_dict(self, *, include_hash_fields: bool = True) -> dict[str, Any]:
         raise NotImplementedError
@@ -65,7 +62,7 @@ class _CanonicalDataclass:
 class MLBenchmarkConfig(_CanonicalDataclass):
     api_version: str = "v138.7.2.1"
     message_rounds: int = 1
-    rounding_decimals: int = ROUNDING_DECIMALS
+    rounding_decimals: int = 12
 
     def to_dict(self, *, include_hash_fields: bool = True) -> dict[str, Any]:
         del include_hash_fields
@@ -89,7 +86,7 @@ class MLBenchmarkScenario(_CanonicalDataclass):
         return {
             "id": self.id,
             "nodes": list(self.nodes),
-            "edges": [list(edge) for edge in self.edges],
+            "edges": [tuple(edge) for edge in self.edges],
             "expected_top_node": self.expected_top_node,
             "expected_terminate": self.expected_terminate,
         }
@@ -145,8 +142,6 @@ class MLBenchmarkAggregate(_CanonicalDataclass):
 
 @dataclass(frozen=True)
 class MLBenchmarkReceipt(_CanonicalDataclass):
-    _hash_excluded_fields: ClassVar[tuple[str, ...]] = ("receipt_hash",)
-
     config_hash: str = ""
     scenario_manifest_hash: str = ""
     aggregate_hash: str = ""
@@ -165,11 +160,7 @@ class MLBenchmarkReceipt(_CanonicalDataclass):
         }
         if include_hash_fields:
             return payload
-        return {
-            key: value
-            for key, value in payload.items()
-            if key not in self._hash_excluded_fields
-        }
+        return {key: value for key, value in payload.items() if key != "receipt_hash"}
 
 
 @dataclass(frozen=True)
@@ -219,13 +210,19 @@ def _validate_scenario(raw: Any) -> dict[str, Any]:
         raise ValueError("scenario nodes must be a non-empty list[str]")
 
     edges = raw["edges"]
-    if not isinstance(edges, list):
+    if not isinstance(edges, Sequence) or isinstance(edges, (str, bytes)):
         raise ValueError("scenario edges must be list[tuple[str, str]]")
+    normalized_edges: list[tuple[str, str]] = []
     for edge in edges:
-        if not isinstance(edge, tuple) or len(edge) != 2:
+        if (
+            not isinstance(edge, Sequence)
+            or isinstance(edge, (str, bytes))
+            or len(edge) != 2
+        ):
             raise ValueError("scenario edges must be list of 2-tuples")
         if not isinstance(edge[0], str) or not isinstance(edge[1], str):
             raise ValueError("scenario edges must contain str node ids")
+        normalized_edges.append((edge[0], edge[1]))
 
     expected_top_node = raw["expected_top_node"]
     if not isinstance(expected_top_node, str):
@@ -238,13 +235,13 @@ def _validate_scenario(raw: Any) -> dict[str, Any]:
     return {
         "id": scenario_id,
         "nodes": list(nodes),
-        "edges": list(edges),
+        "edges": normalized_edges,
         "expected_top_node": expected_top_node,
         "expected_terminate": expected_terminate,
     }
 
 
-def _round_api_float(value: float, *, rounding_decimals: int = ROUNDING_DECIMALS) -> float:
+def _round_api_float(value: float, *, rounding_decimals: int) -> float:
     """Round API-facing floats using the configured decimal precision."""
     if not isinstance(rounding_decimals, int):
         raise ValueError("rounding_decimals must be int")
@@ -293,8 +290,9 @@ def build_ml_benchmark_full_result(
     if not isinstance(scenarios, Sequence) or not scenarios:
         raise ValueError("scenarios must be a non-empty sequence")
 
+    scenarios_list = list(scenarios)
     config = MLBenchmarkConfig()
-    normalized_scenarios = _normalize_scenarios(scenarios)
+    normalized_scenarios = _normalize_scenarios(scenarios_list)
 
     top_match_sum = 0.0
     termination_correct_sum = 0.0
@@ -442,12 +440,18 @@ def run_minimal_ml_benchmark(
     full_result = build_ml_benchmark_full_result(scenarios)
     aggregate = full_result.aggregate
     return {
-        "mean_top_match": _round_api_float(aggregate.mean_top_match),
-        "mean_termination_correct": _round_api_float(
-            aggregate.mean_termination_correct
+        "mean_top_match": _round_api_float(
+            aggregate.mean_top_match, rounding_decimals=full_result.config.rounding_decimals
         ),
-        "mean_latency_units": _round_api_float(aggregate.mean_latency_units),
+        "mean_termination_correct": _round_api_float(
+            aggregate.mean_termination_correct,
+            rounding_decimals=full_result.config.rounding_decimals,
+        ),
+        "mean_latency_units": _round_api_float(
+            aggregate.mean_latency_units, rounding_decimals=full_result.config.rounding_decimals
+        ),
         "mean_normalized_latency_score": _round_api_float(
-            aggregate.mean_normalized_latency_score
+            aggregate.mean_normalized_latency_score,
+            rounding_decimals=full_result.config.rounding_decimals,
         ),
     }

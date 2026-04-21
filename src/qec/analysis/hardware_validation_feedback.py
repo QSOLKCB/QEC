@@ -15,7 +15,7 @@ _REQUIRED_CONFIG_KEYS = (
 _VALID_STATUSES = {"PASS", "WARN", "FAIL"}
 
 
-def _validated_config(config: Mapping[str, float]) -> tuple[float, float, float]:
+def _validated_config(config: Mapping[str, float | int]) -> tuple[float, float, float]:
     if not isinstance(config, Mapping):
         raise ValueError("config must be mapping-like")
 

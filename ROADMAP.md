@@ -1,39 +1,31 @@
----
 QSOLKCB / QEC — EXECUTION ROADMAP (v140+)
-CORE LAW (GLOBAL)
+🧭 Core Law (Global)
 iterative system
 → invariant detection
 → redundancy elimination
 → convergence control
 → deterministic execution
-
----
-
 All modules MUST:
-
 be deterministic
 be replay-safe
 be bounded
 fail fast on invalid input
 produce canonical artifacts
-SYSTEM TRAJECTORY
+🧬 System Trajectory
 QEC
 → physics-aware runtime
 → distributed deterministic system
 → hardware-aware control system
 → invariant-driven universal compute engine
-CURRENT STATE
+📍 Current State
 v139.4 — Distributed Proof Aggregation (COMPLETE)
-
-System capability:
-
 multi-node execution
 → deterministic agreement
 → recovery
 → canonical proof
-NEXT EPOCH
+🚀 Next Epoch
 v140.x — BOUNDED FEEDBACK HARDWARE CONTROL MESH
-PURPOSE
+🎯 Purpose
 
 Transform QEC from:
 
@@ -42,166 +34,165 @@ distributed compute system
 into:
 
 distributed hardware-aware control system
-HARDWARE CONTROL LAW (NEW GLOBAL LAW)
+⚖️ Hardware Control Law (New Global Law)
 hardware observation
 → admissible projection
 → bounded interpretation
 → deterministic control recommendation
 → canonical receipt
-HARD CONSTRAINTS
+🔒 Hard Constraints
 NO direct hardware actuation
 NO real-time dependency
 NO hidden feedback loops
 ALL feedback must be explicit input
 ALL outputs must be bounded
 ALL decisions must be deterministic
-v140.0 — ADAPTIVE THERMAL CONTROL KERNEL
-PURPOSE
+🔥 v140.0 — Adaptive Thermal Control Kernel
+🎯 Purpose
 
-Establish deterministic thermal truth per node.
+Establish deterministic thermal truth per node
 
-INPUT
+📥 Input
 ThermalNodeSignal[]
-
 policy
 prior_snapshot (optional, explicit)
-MODEL
+⚙️ Model
 temperature
 + drift
 + utilization
 → thermal pressure
 → classification
 → control recommendation
-OUTPUT
+📤 Output
 ThermalControlReceipt
-REQUIRED METRICS (ALL BOUNDED [0,1])
+📊 Required Metrics (bounded [0,1])
 thermal_pressure
 cooling_bias
 workload_derate
 stability_score
-REQUIRED CLASSIFICATION
+🧠 Classification
 hold
 pre_cool
 derate
 critical
-REQUIRED PROPERTIES
+⚙️ Required Properties
 node-level independence
 deterministic ordering
 no cross-node interaction
 no implicit memory
-ROLE IN ARC
+🧩 Role in Arc
 establish local hardware truth
-v140.1 — LATENCY STABILIZATION LOOP
-PURPOSE
+⏱ v140.1 — Latency Stabilization Loop
+🎯 Purpose
 
-Introduce temporal stability control.
+Introduce temporal stability control
 
-INPUT
+📥 Input
 LatencySignal[]
 policy
 previous_latency_snapshot (explicit)
-MODEL
+⚙️ Model
 latency
 + jitter
 + drift
 → instability detection
 → feedback correction
-OUTPUT
+📤 Output
 LatencyControlReceipt
-REQUIRED METRICS
+📊 Required Metrics
 jitter_score
 latency_drift
 stabilization_pressure
 correction_strength
-REQUIRED BEHAVIOR
+⚙️ Required Behavior
 detect oscillation vs stable drift
 classify instability regime
 recommend correction magnitude
-ROLE IN ARC
+🧩 Role in Arc
 add time-domain control stability
-v140.2 — DISTRIBUTED TIMING MESH
-PURPOSE
+🕒 v140.2 — Distributed Timing Mesh
+🎯 Purpose
 
-Synchronize nodes into a deterministic timing fabric.
+Synchronize nodes into a deterministic timing fabric
 
-INPUT
+📥 Input
 node_timing_states
 latency_receipts
 thermal_receipts
-MODEL
+⚙️ Model
 node timing
 → drift detection
 → alignment computation
 → timing correction plan
-OUTPUT
+📤 Output
 TimingMeshReceipt
-REQUIRED METRICS
+📊 Required Metrics
 timing_drift
 alignment_error
 synchronization_confidence
 mesh_stability
-REQUIRED PROPERTIES
+⚙️ Required Properties
 deterministic node ordering
 global alignment computation
 no probabilistic consensus
-ROLE IN ARC
+🧩 Role in Arc
 establish deterministic global clocking layer
-v140.3 — POWER-AWARE CONTROL MODULATION
-PURPOSE
+⚡ v140.3 — Power-Aware Control Modulation
+🎯 Purpose
 
-Introduce energy-aware control balancing.
+Introduce energy-aware control balancing
 
-INPUT
+📥 Input
 power_signals
 thermal_receipts
 timing_receipts
-MODEL
+⚙️ Model
 power load
 + thermal pressure
 + timing stress
 → modulation decision
-OUTPUT
+📤 Output
 PowerControlReceipt
-REQUIRED METRICS
+📊 Required Metrics
 power_pressure
 load_balance_score
 modulation_strength
 efficiency_score
-REQUIRED BEHAVIOR
+⚙️ Required Behavior
 prevent overload hotspots
 rebalance workload recommendations
 maintain bounded system load
-ROLE IN ARC
+🧩 Role in Arc
 add resource-aware control layer
-v140.4 — HARDWARE FEEDBACK CONSENSUS BRIDGE
-PURPOSE
+🌐 v140.4 — Hardware Feedback Consensus Bridge
+🎯 Purpose
 
-Unify all hardware feedback into global deterministic control truth.
+Unify all hardware feedback into global deterministic control truth
 
-INPUT
+📥 Input
 thermal_receipts
 latency_receipts
 timing_receipts
 power_receipts
-MODEL
+⚙️ Model
 node-level control
 → cross-node aggregation
 → conflict resolution
 → consensus control plan
-OUTPUT
+📤 Output
 HardwareConsensusReceipt
-REQUIRED METRICS
+📊 Required Metrics
 consensus_confidence
 cross_node_variance
 stabilization_score
 conflict_count
-REQUIRED BEHAVIOR
+⚙️ Required Behavior
 deterministic aggregation
 resolve conflicting node recommendations
 produce single global control state
-ROLE IN ARC
+🧩 Role in Arc
 establish global hardware control truth
-v140 ARC — FINAL STATE
+🧠 v140 ARC — Final State
 hardware signals
 → local control truth
 → temporal stabilization
@@ -209,8 +200,8 @@ hardware signals
 → power balancing
 → consensus aggregation
 → global deterministic control
-v141.x — AUTONOMOUS RECOVERY + SELF-HEALING
-PURPOSE
+♻️ v141.x — Autonomous Recovery + Self-Healing Runtime
+🎯 Purpose
 
 Move from:
 
@@ -219,37 +210,37 @@ control recommendation
 to:
 
 self-correcting system
-CORE MODEL
+⚙️ Core Model
 anomaly
 → classification
 → recovery plan
 → replay + rollback
 → adaptive correction
-KEY MODULES
+🧩 Key Modules
 anomaly detection kernel
 rollback engine
 policy adaptation kernel
 recovery validation receipt
-v142.x — IRIS (INVARIANT RUNTIME)
-PURPOSE
+🌌 v142.x — IRIS (Invariant Runtime)
+🎯 Purpose
 
-Generalize QEC into:
+Generalize QEC into a:
 
 universal invariant-driven compute acceleration engine
-CORE ABSTRACTION
-S → state space
-O → operator
-I → invariant set
-Φ → equivalence classes
-μ → convergence metric
-τ → termination threshold
-CANONICAL MODEL
+🧠 Core Abstraction
+S → state space  
+O → operator  
+I → invariant set  
+Φ → equivalence classes  
+μ → convergence metric  
+τ → termination threshold  
+⚙️ Canonical Model
 iterative system
 → invariant detection
 → redundancy elimination
 → convergence control
 → deterministic execution
-IMPLEMENTATION PATH
+🛠 Implementation Path
 v142.0 — Iterative System Abstraction
 
 Wrap arbitrary systems:
@@ -278,7 +269,7 @@ transformers
 diffusion
 GNNs
 physics simulators
-UNIFIED EXECUTION FLOW (FINAL FORM)
+🔁 Unified Execution Flow (Final Form)
 system
 → iterative updates
 → invariant detection
@@ -289,7 +280,7 @@ system
 → distributed consensus
 → stabilization
 → deterministic output
-STRATEGIC POSITION
+🧭 Strategic Position
 
 QSOL is:
 
@@ -298,11 +289,11 @@ deterministic runtime
 + adaptive control system
 + hardware-aware execution layer
 + universal compute accelerator
-FINAL NOTE
+🧾 Final Note
 
 This roadmap defines a strict progression:
 
-v139 → distributed agreement
-v140 → hardware control
-v141 → self-healing
-v142 → universal compute runtime
+v139 → distributed agreement  
+v140 → hardware control  
+v141 → self-healing  
+v142 → universal compute runtime  

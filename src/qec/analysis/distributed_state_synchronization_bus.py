@@ -596,13 +596,17 @@ def _build_rationale(
     node_statuses: tuple[NodeSyncStatus, ...],
     cluster_ready: bool,
     structural_consistency: bool,
+    require_matching_epoch: bool = True,
 ) -> tuple[str, ...]:
+    """Build human-readable readiness rationale aligned with policy constraints."""
     out: list[str] = ["reference node selected deterministically"]
 
     if all(status.epoch_aligned for status in node_statuses):
         out.append("epoch alignment satisfied")
-    else:
+    elif require_matching_epoch:
         out.append("epoch mismatch blocks cluster readiness")
+    else:
+        out.append("epoch mismatch noted but allowed by policy")
 
     if all(status.state_hash_aligned for status in node_statuses):
         out.append("state hash alignment satisfied")

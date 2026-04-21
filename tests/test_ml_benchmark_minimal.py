@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from dataclasses import FrozenInstanceError
 
 from qec.analysis import ml_benchmark_minimal as bench
 
@@ -247,3 +248,139 @@ def test_malformed_termination_result_raises_value_error(
                 }
             ]
         )
+
+
+def test_dataclass_immutability(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bench, "deterministic_gnn_decoder_kernel", _stub_kernel)
+    monkeypatch.setattr(
+        bench, "early_termination_via_dark_state_proofs", _stub_terminate_false
+    )
+    full = bench.build_ml_benchmark_full_result(
+        [
+            {
+                "id": "s1",
+                "nodes": ["a"],
+                "edges": [],
+                "expected_top_node": "a",
+                "expected_terminate": False,
+            }
+        ]
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        full.aggregate.mean_top_match = 0.0
+
+
+def test_canonical_json_and_stable_hash_are_consistent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(bench, "deterministic_gnn_decoder_kernel", _stub_kernel)
+    monkeypatch.setattr(
+        bench, "early_termination_via_dark_state_proofs", _stub_terminate_false
+    )
+    scenarios = [
+        {
+            "id": "s2",
+            "nodes": ["x", "y"],
+            "edges": [("x", "y")],
+            "expected_top_node": "x",
+            "expected_terminate": False,
+        },
+        {
+            "id": "s1",
+            "nodes": ["a"],
+            "edges": [],
+            "expected_top_node": "a",
+            "expected_terminate": False,
+        },
+    ]
+    full_a = bench.build_ml_benchmark_full_result(scenarios)
+    full_b = bench.build_ml_benchmark_full_result(scenarios)
+
+    assert full_a.to_canonical_json() == full_b.to_canonical_json()
+    assert full_a.stable_hash() == full_b.stable_hash()
+    assert full_a.aggregate.stable_hash() == full_b.aggregate.stable_hash()
+    assert full_a.case_results[0].stable_hash() == full_b.case_results[0].stable_hash()
+
+
+def test_receipt_hash_invariant(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bench, "deterministic_gnn_decoder_kernel", _stub_kernel)
+    monkeypatch.setattr(
+        bench, "early_termination_via_dark_state_proofs", _stub_terminate_false
+    )
+    full = bench.build_ml_benchmark_full_result(
+        [
+            {
+                "id": "s1",
+                "nodes": ["a"],
+                "edges": [],
+                "expected_top_node": "a",
+                "expected_terminate": False,
+            }
+        ]
+    )
+    assert full.receipt.receipt_hash == full.receipt.stable_hash()
+
+
+def test_replay_identity_changes_when_input_changes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(bench, "deterministic_gnn_decoder_kernel", _stub_kernel)
+    monkeypatch.setattr(
+        bench, "early_termination_via_dark_state_proofs", _stub_terminate_false
+    )
+    baseline = bench.build_ml_benchmark_full_result(
+        [
+            {
+                "id": "s1",
+                "nodes": ["a"],
+                "edges": [],
+                "expected_top_node": "a",
+                "expected_terminate": False,
+            }
+        ]
+    )
+    changed = bench.build_ml_benchmark_full_result(
+        [
+            {
+                "id": "s1",
+                "nodes": ["a", "b"],
+                "edges": [("a", "b")],
+                "expected_top_node": "a",
+                "expected_terminate": False,
+            }
+        ]
+    )
+    assert baseline.receipt.replay_identity != changed.receipt.replay_identity
+
+
+def test_aggregate_hash_changes_when_scenario_changes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(bench, "deterministic_gnn_decoder_kernel", _stub_kernel)
+    monkeypatch.setattr(
+        bench, "early_termination_via_dark_state_proofs", _stub_terminate_false
+    )
+    baseline = bench.build_ml_benchmark_full_result(
+        [
+            {
+                "id": "s1",
+                "nodes": ["a"],
+                "edges": [],
+                "expected_top_node": "a",
+                "expected_terminate": False,
+            }
+        ]
+    )
+    changed = bench.build_ml_benchmark_full_result(
+        [
+            {
+                "id": "s1",
+                "nodes": ["a", "b"],
+                "edges": [("a", "b")],
+                "expected_top_node": "a",
+                "expected_terminate": False,
+            }
+        ]
+    )
+    assert baseline.aggregate.stable_hash() != changed.aggregate.stable_hash()

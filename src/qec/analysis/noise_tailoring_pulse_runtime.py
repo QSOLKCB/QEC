@@ -151,6 +151,13 @@ def _validate_projected_result(projected_result: Mapping[str, Any]) -> dict[str,
             raise ValueError("Invalid projected_result: 'edge_weights' values must be finite numeric values")
         edge_weights[edge_key_to_tuple[key]] = float(value)
 
+    missing_edges = [_edge_key(edge) for edge in edges if edge not in edge_weights]
+    if missing_edges:
+        missing_edges_str = ", ".join(missing_edges)
+        raise ValueError(
+            "Invalid projected_result: 'edge_weights' must provide values for all declared edges; "
+            f"missing keys: {missing_edges_str}"
+        )
     return {
         "id": scenario_id,
         "regime": regime,

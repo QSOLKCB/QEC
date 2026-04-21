@@ -32,9 +32,9 @@ def _validate_scenarios(scenarios: Sequence[Mapping[str, Any]]) -> list[Mapping[
 
 
 def _validate_hardware_latency(value: Any, *, scenario_id: str) -> float:
-    if not isinstance(value, float) or isinstance(value, bool) or value <= 0.0:
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0.0:
         raise ValueError(
-            f"hardware latency must be positive float for scenario '{scenario_id}'"
+            f"hardware latency must be positive number for scenario '{scenario_id}'"
         )
     return float(value)
 

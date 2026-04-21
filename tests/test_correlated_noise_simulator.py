@@ -1,197 +1,164 @@
-from dataclasses import FrozenInstanceError
-import inspect
-import random
+"""Tests for v138.8.0 correlated noise simulator (SU(3-native bootstrap))."""
+
+from __future__ import annotations
+
+import math
+import os
+import sys
 
 import pytest
 
-import qec.simulation.correlated_noise_simulator as correlated_noise_simulator
-from qec.simulation.correlated_noise_simulator import (
-    CorrelatedNoiseConfig,
-    CorrelatedNoiseSimulator,
-    build_noise_receipt,
-    build_topology_adjacency,
-    generate_correlated_noise,
-    summarize_noise_realization,
-    validate_noise_config,
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
+from qec.analysis.correlated_noise_simulator import (
+    apply_su3_correlated_noise,
+    classify_noise_regime,
+    run_correlated_noise_simulation,
 )
 
 
-BASE_CONFIG = {
-    "model": "independent_baseline",
-    "topology": "ring",
-    "num_sites": 9,
-    "time_steps": 12,
-    "event_rate": 0.21,
-    "seed": 138100,
-}
-
-
-@pytest.mark.parametrize(
-    "model",
-    (
-        "independent_baseline",
-        "temporal_markov",
-        "nearest_neighbor_spatial",
-        "spatiotemporal_cluster",
-    ),
-)
-def test_replay_stability_per_model(model: str) -> None:
-    cfg = dict(BASE_CONFIG)
-    cfg["model"] = model
-
-    run_a = generate_correlated_noise(cfg)
-    run_b = generate_correlated_noise(cfg)
-
-    assert run_a.to_canonical_json() == run_b.to_canonical_json()
-    assert run_a.stable_hash() == run_b.stable_hash()
-
-    report_a = summarize_noise_realization(run_a)
-    report_b = summarize_noise_realization(run_b)
-    assert report_a.stable_hash() == report_b.stable_hash()
-
-    receipt_a = build_noise_receipt(cfg, run_a, report_a)
-    receipt_b = build_noise_receipt(cfg, run_b, report_b)
-    assert receipt_a.to_canonical_json() == receipt_b.to_canonical_json()
-
-
-def test_topology_validation() -> None:
-    cfg = dict(BASE_CONFIG)
-    cfg["topology"] = "hex"
-    with pytest.raises(ValueError, match="unsupported topology"):
-        validate_noise_config(cfg)
-
-
-def test_seed_determinism() -> None:
-    cfg = dict(BASE_CONFIG)
-    first = generate_correlated_noise(cfg)
-    second = generate_correlated_noise(cfg)
-    assert first.stable_hash() == second.stable_hash()
-
-
-def test_different_seeds_produce_different_hashes() -> None:
-    base = dict(BASE_CONFIG)
-    other = dict(BASE_CONFIG)
-    other["seed"] = BASE_CONFIG["seed"] + 1
-
-    first = generate_correlated_noise(base)
-    second = generate_correlated_noise(other)
-    assert first.stable_hash() != second.stable_hash()
-
-
-def test_shuffled_config_mapping_same_hash() -> None:
-    shuffled = {
-        "seed": BASE_CONFIG["seed"],
-        "event_rate": BASE_CONFIG["event_rate"],
-        "time_steps": BASE_CONFIG["time_steps"],
-        "num_sites": BASE_CONFIG["num_sites"],
-        "topology": BASE_CONFIG["topology"],
-        "model": BASE_CONFIG["model"],
+def _base_config() -> dict[str, float]:
+    return {
+        "local_contrast_noise_scale": 0.2,
+        "global_drift_noise_scale": 0.1,
+        "stable_threshold": 2.0,
+        "relaxation_threshold": 6.0,
     }
-    run_a = generate_correlated_noise(BASE_CONFIG)
-    run_b = generate_correlated_noise(shuffled)
-    assert run_a.stable_hash() == run_b.stable_hash()
 
 
-def test_immutability() -> None:
-    cfg = validate_noise_config(BASE_CONFIG)
-    with pytest.raises(FrozenInstanceError):
-        cfg.model = "temporal_markov"  # type: ignore[misc]
+def test_deterministic_replay_identical_outputs():
+    cfg = _base_config()
+    scenarios = [
+        {"id": "b", "nodes": ["n2", "n1"], "edges": [("n1", "n2")]},
+        {"id": "a", "nodes": ["x"], "edges": []},
+    ]
+    out1 = run_correlated_noise_simulation(scenarios, cfg)
+    out2 = run_correlated_noise_simulation(scenarios, cfg)
+    assert out1 == out2
 
 
-def test_decoder_untouched_guarantee() -> None:
-    cfg = validate_noise_config(BASE_CONFIG)
-    simulator = CorrelatedNoiseSimulator(config=cfg)
-    source = inspect.getsource(generate_correlated_noise)
-
-    assert simulator.decoder_untouched is True
-    assert "qec.decoder" not in source
-
-
-def test_topology_shapes_line_ring_grid() -> None:
-    line = dict(BASE_CONFIG)
-    line["topology"] = "line"
-    ring = dict(BASE_CONFIG)
-    ring["topology"] = "ring"
-    grid = dict(BASE_CONFIG)
-    grid["topology"] = "grid"
-    grid["num_sites"] = 10
-
-    line_adj = build_topology_adjacency(line)
-    ring_adj = build_topology_adjacency(ring)
-    grid_adj = build_topology_adjacency(grid)
-
-    assert line_adj[0] == (1,)
-    assert ring_adj[0] == (1, 8)
-    assert len(grid_adj) == 10
+def test_regime_classification_s1_s2_s3():
+    cfg = _base_config()
+    s1 = {"id": "s1", "nodes": ["a"], "edges": []}  # load=1 <= 2
+    s2 = {"id": "s2", "nodes": ["a", "b"], "edges": [("a", "b")] }  # load=3
+    s3 = {
+        "id": "s3",
+        "nodes": ["a", "b", "c", "d"],
+        "edges": [("a", "b"), ("b", "c"), ("c", "d")],
+    }  # load=7 >= 6
+    assert classify_noise_regime(s1, cfg) == "S1"
+    assert classify_noise_regime(s2, cfg) == "S2"
+    assert classify_noise_regime(s3, cfg) == "S3"
 
 
-def test_explicit_seed_required() -> None:
-    cfg = dict(BASE_CONFIG)
-    cfg.pop("seed")
-    with pytest.raises(KeyError):
-        validate_noise_config(cfg)
+def test_simple_noise_application_exact_expected_values():
+    cfg = _base_config()
+    scenario = {
+        "id": "mid",
+        "nodes": ["n1", "n2"],
+        "edges": [("n1", "n2")],
+        "node_weights": {"n1": 2.0, "n2": 1.5},
+        "edge_weights": {"n1->n2": 4.0},
+    }
+    out = apply_su3_correlated_noise(scenario, cfg)
+    # S2 factors: (1-0.2)*(1-0.1)=0.72
+    assert out["regime"] == "S2"
+    assert out["node_weights"]["n1"] == 1.44
+    assert out["node_weights"]["n2"] == 1.08
+    assert out["edge_weights"]["n1->n2"] == 2.88
 
 
-def test_mismatched_version_rejected() -> None:
-    cfg = dict(BASE_CONFIG)
-    cfg["version"] = "v999.0.0"
-    with pytest.raises(ValueError, match="unsupported schema version"):
-        validate_noise_config(cfg)
-
-
-def test_no_hidden_global_rng_state() -> None:
-    cfg = dict(BASE_CONFIG)
-    random.seed(999999)
-    a = generate_correlated_noise(cfg)
-    random.seed(123456)
-    b = generate_correlated_noise(cfg)
-    assert a.stable_hash() == b.stable_hash()
-
-
-def test_spatiotemporal_cluster_marks_future_members_active(monkeypatch: pytest.MonkeyPatch) -> None:
-    class SequenceRng:
-        def __init__(self, values: list[float], randrange_values: list[int]) -> None:
-            self._values = iter(values)
-            self._randrange_values = iter(randrange_values)
-
-        def random(self) -> float:
-            return next(self._values)
-
-        def randrange(self, stop: int) -> int:
-            candidate = next(self._randrange_values)
-            assert 0 <= candidate < stop
-            return candidate
-
-    monkeypatch.setattr(
-        correlated_noise_simulator.random,
-        "Random",
-        lambda seed: SequenceRng(
-            values=[
-                0.05,  # t=0 baseline event draw: pass
-                0.05,  # t=0 cluster trigger draw: pass
-                0.10,  # t=0 temporal frontier member draw: pass
-                0.50,  # t=1 baseline event draw: would fail without scheduled activation
-                0.95,  # t=1 cluster trigger draw: fail (keeps sequence bounded)
-                0.50,  # t=2 baseline event draw: passes only if t=1 is active
-                0.99,  # t=2 cluster trigger draw: fail (keeps sequence bounded)
-            ],
-            randrange_values=[1],  # target_size -> 2, so one frontier member can be added
-        ),
-    )
-
+def test_zero_noise_keeps_weights_unchanged():
     cfg = {
-        "model": "spatiotemporal_cluster",
-        "topology": "line",
-        "num_sites": 1,
-        "time_steps": 3,
-        "event_rate": 0.2,
-        "temporal_alpha": 1.0,
-        "spatial_beta": 0.0,
-        "cluster_rate": 1.0,
-        "cluster_max_size": 2,
-        "seed": 138100,
+        "local_contrast_noise_scale": 0.0,
+        "global_drift_noise_scale": 0.0,
+        "stable_threshold": 1,
+        "relaxation_threshold": 3,
     }
-    realization = generate_correlated_noise(cfg)
-    event_keys = {(event.time_step, event.site_index) for event in realization.events}
-    assert (1, 0) in event_keys
-    assert (2, 0) in event_keys
+    scenario = {
+        "id": "z",
+        "nodes": ["n1", "n2"],
+        "edges": [("n1", "n2")],
+        "node_weights": {"n1": 3.0, "n2": 5.0},
+        "edge_weights": {"n1->n2": 7.0},
+    }
+    out = apply_su3_correlated_noise(scenario, cfg)
+    assert out["node_weights"]["n1"] == 3.0
+    assert out["node_weights"]["n2"] == 5.0
+    assert out["edge_weights"]["n1->n2"] == 7.0
+
+
+def test_duplicate_scenario_ids_raise_value_error():
+    cfg = _base_config()
+    scenarios = [
+        {"id": "dup", "nodes": ["a"], "edges": []},
+        {"id": "dup", "nodes": ["b"], "edges": []},
+    ]
+    with pytest.raises(ValueError, match="duplicate scenario ids"):
+        run_correlated_noise_simulation(scenarios, cfg)
+
+
+def test_malformed_scenario_raises_value_error():
+    cfg = _base_config()
+    bad = {"id": "bad", "nodes": ["a"], "edges": [["a", "b"]]}  # edge must be tuple
+    with pytest.raises(ValueError, match="edges"):
+        apply_su3_correlated_noise(bad, cfg)
+
+
+def test_invalid_config_raises_value_error():
+    bad_cfg = {
+        "local_contrast_noise_scale": -1.0,
+        "global_drift_noise_scale": 0.0,
+        "stable_threshold": 3.0,
+        "relaxation_threshold": 2.0,
+    }
+    scenario = {"id": "s", "nodes": ["n"], "edges": []}
+    with pytest.raises(ValueError, match="must be >= 0"):
+        classify_noise_regime(scenario, bad_cfg)
+
+
+def test_aggregate_metrics_expected_values():
+    cfg = {
+        "local_contrast_noise_scale": 0.2,
+        "global_drift_noise_scale": 0.1,
+        "stable_threshold": 2.0,
+        "relaxation_threshold": 4.0,
+    }
+    scenarios = [
+        {"id": "b", "nodes": ["n1"], "edges": []},  # S1 -> factor 0.8775
+        {"id": "a", "nodes": ["x", "y"], "edges": [("x", "y")]},  # S2 -> factor 0.72
+    ]
+    out = run_correlated_noise_simulation(scenarios, cfg)
+
+    assert out == {
+        "mean_node_weight": 0.7725,
+        "mean_edge_weight": 0.72,
+        "mean_node_noise_delta": 0.2275,
+        "mean_edge_noise_delta": 0.28,
+    }
+
+
+def test_non_negative_and_finite_outputs():
+    cfg = {
+        "local_contrast_noise_scale": 4.0,
+        "global_drift_noise_scale": 3.0,
+        "stable_threshold": 0.0,
+        "relaxation_threshold": 1.0,
+    }
+    scenario = {
+        "id": "nn",
+        "nodes": ["a", "b"],
+        "edges": [("a", "b")],
+        "node_weights": {"a": 2.0, "b": 1.0},
+        "edge_weights": {"a->b": 5.0},
+    }
+    out = apply_su3_correlated_noise(scenario, cfg)
+
+    for value in out["node_weights"].values():
+        assert value >= 0.0
+        assert math.isfinite(value)
+    for value in out["edge_weights"].values():
+        assert value >= 0.0
+        assert math.isfinite(value)

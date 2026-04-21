@@ -4,9 +4,11 @@ import inspect
 
 import pytest
 
+from qec.analysis import canonical_hashing
 from qec.analysis import deterministic_gnn_decoder_kernel
 from qec.analysis.deterministic_gnn_decoder_kernel import (
     DeterministicGNNKernelConfig,
+    DeterministicGNNKernelReceipt,
     SyndromeGraphEdge,
     SyndromeGraphNode,
     build_deterministic_gnn_decoder_kernel,
@@ -206,3 +208,16 @@ def test_dataclass_inputs_are_revalidated_for_finiteness_and_sideband_shape() ->
 def test_guardrail_kernel_analysis_module_has_no_decoder_core_dependency() -> None:
     source = inspect.getsource(deterministic_gnn_decoder_kernel)
     assert "qec.decoder" not in source
+
+
+def test_canonical_hashing_helpers_match_shared_canonical_hashing_module() -> None:
+    payload = {"z": [1, 2.0], "a": {"k": "v"}}
+    assert deterministic_gnn_decoder_kernel._canonical_json(payload) == canonical_hashing.canonical_json(payload)
+    assert deterministic_gnn_decoder_kernel._canonical_bytes(payload) == canonical_hashing.canonical_bytes(payload)
+    assert deterministic_gnn_decoder_kernel._sha256_hex(payload) == canonical_hashing.sha256_hex(payload)
+
+
+def test_hash_mismatch_invariants_raise_for_receipt_dataclass() -> None:
+    baseline = build_deterministic_gnn_decoder_kernel(config=_base_config(), nodes=_base_nodes(), edges=_base_edges())
+    with pytest.raises(ValueError, match="receipt_hash must match stable_hash payload"):
+        DeterministicGNNKernelReceipt(**{**baseline.receipt.to_dict(), "receipt_hash": "0" * 64})

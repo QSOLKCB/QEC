@@ -6,11 +6,17 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-import hashlib
-import json
 import math
 import types
 from typing import Any
+
+from qec.analysis.canonical_hashing import (
+    CanonicalHashingError,
+    canonical_bytes,
+    canonical_json,
+    canonicalize_json,
+    sha256_hex,
+)
 
 RELEASE_VERSION = "v138.7.0"
 RUNTIME_KIND = "deterministic_gnn_decoder_kernel"
@@ -24,38 +30,31 @@ class DeterministicGNNKernelError(ValueError):
 
 
 def _canonicalize_json(value: Any) -> _JSONValue:
-    if value is None or isinstance(value, (str, bool, int)):
-        return value
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise DeterministicGNNKernelError("non-finite float values are not allowed")
-        return float(value)
-    if isinstance(value, (tuple, list)):
-        return tuple(_canonicalize_json(item) for item in value)
-    if isinstance(value, Mapping):
-        keys = tuple(value.keys())
-        if any(not isinstance(key, str) for key in keys):
-            raise DeterministicGNNKernelError("payload keys must be strings")
-        return {key: _canonicalize_json(value[key]) for key in sorted(keys)}
-    raise DeterministicGNNKernelError(f"unsupported canonical payload type: {type(value)!r}")
+    try:
+        return canonicalize_json(value)
+    except CanonicalHashingError as exc:
+        raise DeterministicGNNKernelError(str(exc)) from exc
 
 
 def _canonical_json(value: Any) -> str:
-    return json.dumps(
-        _canonicalize_json(value),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        allow_nan=False,
-    )
+    try:
+        return canonical_json(value)
+    except CanonicalHashingError as exc:
+        raise DeterministicGNNKernelError(str(exc)) from exc
 
 
 def _canonical_bytes(value: Any) -> bytes:
-    return _canonical_json(value).encode("utf-8")
+    try:
+        return canonical_bytes(value)
+    except CanonicalHashingError as exc:
+        raise DeterministicGNNKernelError(str(exc)) from exc
 
 
 def _sha256_hex(value: Any) -> str:
-    return hashlib.sha256(_canonical_bytes(value)).hexdigest()
+    try:
+        return sha256_hex(value)
+    except CanonicalHashingError as exc:
+        raise DeterministicGNNKernelError(str(exc)) from exc
 
 
 def _clamp01(value: float) -> float:
@@ -307,6 +306,10 @@ class DeterministicGNNKernelReceipt:
 
     def stable_hash(self) -> str:
         return _sha256_hex(self.to_hash_payload_dict())
+
+    def __post_init__(self) -> None:
+        if self.receipt_hash and self.receipt_hash != self.stable_hash():
+            raise DeterministicGNNKernelError("receipt_hash must match stable_hash payload")
 
 
 @dataclass(frozen=True)

@@ -54,7 +54,11 @@ def _validate_config(config: Mapping[str, Any]) -> dict[str, float]:
     return parsed
 
 
-def _edge_key(edge: tuple[str, str]) -> str:
+def _edge_key(edge: tuple[str, str]) -> tuple[str, str]:
+    return edge
+
+
+def _edge_output_key(edge: tuple[str, str]) -> str:
     return f"{edge[0]}->{edge[1]}"
 
 
@@ -96,7 +100,7 @@ def _validate_scenario(scenario: Mapping[str, Any]) -> dict[str, Any]:
     if len(set(edges)) != len(edges):
         raise ValueError("Invalid scenario: 'edges' must not contain duplicates")
 
-    known_edge_keys = {_edge_key(edge) for edge in edges}
+    known_edge_keys_by_string = {_edge_output_key(edge): edge for edge in edges}
 
     node_weights_raw = scenario.get("node_weights", {})
     if node_weights_raw is None:
@@ -120,14 +124,16 @@ def _validate_scenario(scenario: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError("Invalid scenario: 'node_weights' values must be finite numeric values")
         node_weights[key] = float(value)
 
-    edge_weights: dict[str, float] = {}
-    for key in known_edge_keys:
-        if key not in edge_weights_raw:
-            continue
-        value = edge_weights_raw[key]
+    edge_weights: dict[tuple[str, str], float] = {}
+    for key, value in edge_weights_raw.items():
+        if not isinstance(key, str):
+            raise ValueError("Invalid scenario: 'edge_weights' keys must be strings")
         if not _is_valid_number(value):
             raise ValueError("Invalid scenario: 'edge_weights' values must be finite numeric values")
-        edge_weights[key] = float(value)
+        if key not in known_edge_keys_by_string:
+            # extra edge_weights keys are ignored for compatibility with v138.8.0
+            continue
+        edge_weights[known_edge_keys_by_string[key]] = float(value)
 
     nodes_sorted = sorted(nodes)
     edges_sorted = sorted(edges, key=lambda edge: (edge[0], edge[1]))
@@ -176,6 +182,26 @@ def apply_cluster_expansion_noise(
     """Apply deterministic SU(3) local+global+pairwise cluster expansion noise."""
     parsed_config = _validate_config(config)
     normalized = _validate_scenario(scenario)
+    computed = _apply_cluster_expansion_noise_validated(normalized, parsed_config)
+    edge_weights_out: dict[str, float] = {}
+    for edge in normalized["edges"]:
+        edge_weights_out[_edge_output_key(edge)] = computed["edge_weights"][edge]
+
+    return {
+        "id": normalized["id"],
+        "regime": computed["regime"],
+        "nodes": normalized["nodes"],
+        "edges": normalized["edges"],
+        "node_weights": computed["node_weights"],
+        "edge_weights": edge_weights_out,
+    }
+
+
+def _apply_cluster_expansion_noise_validated(
+    normalized: Mapping[str, Any],
+    parsed_config: Mapping[str, float],
+) -> dict[str, Any]:
+    """Apply kernel math assuming normalized scenario and parsed config."""
 
     regime = _classify_noise_regime(normalized, parsed_config)
     local_factor, drift_factor = _su3_factors(regime, parsed_config)
@@ -200,7 +226,7 @@ def apply_cluster_expansion_noise(
         node_weights_out[node] = round(max(0.0, computed), _ROUND)
 
     edge_pairwise = 1.0 - pairwise_scale
-    edge_weights_out: dict[str, float] = {}
+    edge_weights_out: dict[tuple[str, str], float] = {}
     for edge in normalized["edges"]:
         key = _edge_key(edge)
         base = normalized["edge_weights"].get(key, 1.0)
@@ -209,14 +235,7 @@ def apply_cluster_expansion_noise(
             raise ValueError("Invalid computed weight: non-finite edge weight encountered")
         edge_weights_out[key] = round(max(0.0, computed), _ROUND)
 
-    return {
-        "id": normalized["id"],
-        "regime": regime,
-        "nodes": normalized["nodes"],
-        "edges": normalized["edges"],
-        "node_weights": node_weights_out,
-        "edge_weights": edge_weights_out,
-    }
+    return {"regime": regime, "node_weights": node_weights_out, "edge_weights": edge_weights_out}
 
 
 def run_cluster_expansion_simulation(

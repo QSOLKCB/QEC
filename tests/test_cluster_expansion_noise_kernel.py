@@ -111,6 +111,65 @@ def test_non_negative_and_finite_outputs():
         assert math.isfinite(value)
 
 
+def test_clamps_negative_weights_to_zero():
+    cfg = {
+        "local_contrast_noise_scale": 0.0,
+        "global_drift_noise_scale": 0.0,
+        "pairwise_correlation_scale": 0.0,
+        "stable_threshold": 0.0,
+        "relaxation_threshold": 1.0,
+    }
+    scenario = {
+        "id": "clamp",
+        "nodes": ["a", "b"],
+        "edges": [("a", "b")],
+        "node_weights": {"a": -1.0, "b": -2.5},
+        "edge_weights": {"a->b": -3.75},
+    }
+
+    out = apply_cluster_expansion_noise(scenario, cfg)
+    assert out["node_weights"]["a"] == 0.0
+    assert out["node_weights"]["b"] == 0.0
+    assert out["edge_weights"]["a->b"] == 0.0
+
+
+def test_rounds_weights_to_12_decimal_places():
+    cfg = {
+        "local_contrast_noise_scale": 0.0,
+        "global_drift_noise_scale": 0.0,
+        "pairwise_correlation_scale": 0.0,
+        "stable_threshold": 0.0,
+        "relaxation_threshold": 1.0,
+    }
+    scenario = {
+        "id": "rounding",
+        "nodes": ["a", "b"],
+        "edges": [("a", "b")],
+        "node_weights": {"a": 1.0 / 3.0, "b": 2.0 / 3.0},
+        "edge_weights": {"a->b": 2.0 / 9.0},
+    }
+
+    out = apply_cluster_expansion_noise(scenario, cfg)
+    assert out["node_weights"]["a"] == round(1.0 / 3.0, 12)
+    assert out["node_weights"]["b"] == round(2.0 / 3.0, 12)
+    assert out["edge_weights"]["a->b"] == round(2.0 / 9.0, 12)
+
+
+def test_edge_tuple_keys_prevent_simulation_collision_corruption():
+    cfg = _base_config(pairwise=0.0)
+    scenario = {
+        "id": "collision",
+        "nodes": ["a->b", "a", "b->c", "c"],
+        "edges": [("a->b", "c"), ("a", "b->c")],
+        "edge_weights": {"a->b->c": 5.0},
+    }
+
+    out = run_cluster_expansion_simulation([scenario], cfg)
+    # Under S3 at pairwise=0, multiplier=(1-0.2*0.25)*(1-0.1*0.5)=0.9025:
+    # default edge weight=1.0 and provided edge weight=5.0 are both included.
+    assert out["mean_edge_weight"] == 2.7075
+
+
 @pytest.mark.parametrize(
     ("scenario", "config", "error_match"),
     [
@@ -123,16 +182,6 @@ def test_non_negative_and_finite_outputs():
             {"id": "bad_endpoint", "nodes": ["a"], "edges": [("a", "b")]},
             _base_config(),
             "all edge endpoints",
-        ),
-        (
-            {
-                "id": "bad_edge_weight_key",
-                "nodes": ["a", "b"],
-                "edges": [("a", "b")],
-                "edge_weights": {"b->a": 1.0},
-            },
-            _base_config(),
-            "keys must match declared edges",
         ),
         (
             {"id": "s", "nodes": ["a"], "edges": []},

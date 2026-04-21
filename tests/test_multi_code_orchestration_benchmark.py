@@ -177,6 +177,75 @@ def test_canonical_json_stability_and_hash_determinism() -> None:
     assert receipt_a.stable_hash == receipt_b.stable_hash
 
 
+def test_stable_hash_value_reproduces_stored_stable_hash() -> None:
+    receipt = benchmark_multi_code_orchestration(
+        [
+            _candidate("baseline", orchestration_depth=0),
+            _candidate("migrated", source_family="surface", target_family="toric", orchestration_depth=1),
+        ],
+        _policy(),
+    )
+
+    assert receipt.stable_hash_value() == receipt.stable_hash
+
+
+def test_receipt_canonical_payload_contains_schema_version() -> None:
+    receipt = benchmark_multi_code_orchestration(
+        [
+            _candidate("baseline", orchestration_depth=0),
+            _candidate("migrated", source_family="surface", target_family="toric", orchestration_depth=1),
+        ],
+        _policy(),
+    )
+
+    assert receipt.to_dict()["schema_version"] == "1"
+    assert '"schema_version":"1"' in receipt.to_canonical_json()
+    assert b'"schema_version":"1"' in receipt.to_canonical_bytes()
+
+
+def test_policy_weights_are_frozen_against_caller_mutation() -> None:
+    source_weights = {
+        "stability_gain": 1.0,
+        "loss_reduction": 1.0,
+        "hardware_gain": 1.0,
+        "efficiency_gain": 1.0,
+        "overhead_penalty": 1.0,
+        "confidence_gain": 1.0,
+    }
+    policy = BenchmarkPolicy(
+        minimum_selection_confidence=0.6,
+        minimum_migration_confidence=0.6,
+        maximum_projected_loss=0.5,
+        maximum_migration_overhead=0.5,
+        require_cross_family_benefit=False,
+        weights=source_weights,
+    )
+    source_weights["stability_gain"] = 99.0
+    assert policy.weights["stability_gain"] == 1.0
+    with pytest.raises(TypeError):
+        policy.weights["stability_gain"] = 2.0  # type: ignore[index]
+
+
+def test_unknown_benchmark_weight_keys_rejected() -> None:
+    with pytest.raises(ValueError, match="unexpected benchmark weight keys"):
+        BenchmarkPolicy(
+            minimum_selection_confidence=0.6,
+            minimum_migration_confidence=0.6,
+            maximum_projected_loss=0.5,
+            maximum_migration_overhead=0.5,
+            require_cross_family_benefit=False,
+            weights={
+                "stability_gain": 1.0,
+                "loss_reduction": 1.0,
+                "hardware_gain": 1.0,
+                "efficiency_gain": 1.0,
+                "overhead_penalty": 1.0,
+                "confidence_gain": 1.0,
+                "extra_weight": 1.0,
+            },
+        )
+
+
 def test_frozen_dataclass_immutability() -> None:
     candidate = _candidate("immut")
     with pytest.raises(FrozenInstanceError):

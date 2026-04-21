@@ -10,12 +10,13 @@ from dataclasses import dataclass, field
 import hashlib
 import json
 import math
+from types import MappingProxyType
 from typing import Any, Mapping
 
 _JSONScalar = str | int | float | bool | None
 _JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = "1"
 
 ALLOWED_CODE_FAMILIES: tuple[str, ...] = (
     "qldpc",
@@ -217,12 +218,18 @@ class BenchmarkPolicy:
         missing = tuple(k for k in REQUIRED_BENCHMARK_WEIGHT_KEYS if k not in self.weights)
         if missing:
             raise ValueError(f"missing required benchmark weight keys: {missing}")
+        unexpected = tuple(sorted(k for k in weight_keys if k not in REQUIRED_BENCHMARK_WEIGHT_KEYS))
+        if unexpected:
+            raise ValueError(f"unexpected benchmark weight keys: {unexpected}")
 
         total_weight = 0.0
+        normalized_weights: dict[str, float] = {}
         for key in REQUIRED_BENCHMARK_WEIGHT_KEYS:
-            total_weight += _validate_non_negative_weight(key, self.weights[key])
+            normalized_weights[key] = _validate_non_negative_weight(key, self.weights[key])
+            total_weight += normalized_weights[key]
         if not math.isfinite(total_weight) or total_weight <= 0.0:
             raise ValueError("aggregate required weight must be finite and > 0")
+        object.__setattr__(self, "weights", MappingProxyType(normalized_weights))
 
     def to_dict(self) -> dict[str, Any]:
         canonical_weights = {k: float(self.weights[k]) for k in sorted(self.weights.keys())}
@@ -343,6 +350,7 @@ class BenchmarkComparison:
 
 @dataclass(frozen=True)
 class OrchestrationBenchmarkReceipt:
+    schema_version: str
     benchmark_scores: tuple[BenchmarkScore, ...]
     comparison: BenchmarkComparison
     policy_snapshot: BenchmarkPolicy
@@ -350,6 +358,8 @@ class OrchestrationBenchmarkReceipt:
     stable_hash: str
 
     def __post_init__(self) -> None:
+        if not isinstance(self.schema_version, str) or not self.schema_version:
+            raise ValueError("schema_version must be non-empty string")
         if not isinstance(self.benchmark_scores, tuple) or any(
             not isinstance(s, BenchmarkScore) for s in self.benchmark_scores
         ):
@@ -365,6 +375,7 @@ class OrchestrationBenchmarkReceipt:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "schema_version": self.schema_version,
             "benchmark_scores": tuple(score.to_dict() for score in self.benchmark_scores),
             "comparison": self.comparison.to_dict(),
             "policy_snapshot": self.policy_snapshot.to_dict(),
@@ -379,7 +390,34 @@ class OrchestrationBenchmarkReceipt:
         return _canonical_bytes(self.to_dict())
 
     def stable_hash_value(self) -> str:
-        return _sha256_hex(self.to_dict())
+        return _sha256_hex(
+            _receipt_hash_payload(
+                schema_version=self.schema_version,
+                benchmark_scores=self.benchmark_scores,
+                comparison=self.comparison,
+                policy_snapshot=self.policy_snapshot,
+                replay_identity=self.replay_identity,
+            )
+        )
+
+
+def _receipt_hash_payload(
+    *,
+    schema_version: str,
+    benchmark_scores: tuple[BenchmarkScore, ...],
+    comparison: BenchmarkComparison,
+    policy_snapshot: BenchmarkPolicy,
+    replay_identity: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "schema_version": schema_version,
+        "benchmark_scores": tuple(score.to_dict() for score in benchmark_scores),
+        "comparison": comparison.to_dict(),
+        "policy_snapshot": policy_snapshot.to_dict(),
+    }
+    if replay_identity is not None:
+        payload["replay_identity"] = replay_identity
+    return payload
 
 
 def _evaluate_admissibility(candidate: OrchestrationCandidate, policy: BenchmarkPolicy) -> tuple[bool, tuple[str, ...]]:
@@ -511,20 +549,24 @@ def _build_receipt(
     comparison: BenchmarkComparison,
     policy: BenchmarkPolicy,
 ) -> OrchestrationBenchmarkReceipt:
-    payload_without_hash = {
-        "schema_version": SCHEMA_VERSION,
-        "benchmark_scores": tuple(score.to_dict() for score in scores),
-        "comparison": comparison.to_dict(),
-        "policy_snapshot": policy.to_dict(),
-    }
+    payload_without_hash = _receipt_hash_payload(
+        schema_version=SCHEMA_VERSION,
+        benchmark_scores=scores,
+        comparison=comparison,
+        policy_snapshot=policy,
+    )
     replay_identity = _sha256_hex(payload_without_hash)
-    payload_with_replay = {
-        **payload_without_hash,
-        "replay_identity": replay_identity,
-    }
+    payload_with_replay = _receipt_hash_payload(
+        schema_version=SCHEMA_VERSION,
+        benchmark_scores=scores,
+        comparison=comparison,
+        policy_snapshot=policy,
+        replay_identity=replay_identity,
+    )
     stable_hash = _sha256_hex(payload_with_replay)
 
     return OrchestrationBenchmarkReceipt(
+        schema_version=SCHEMA_VERSION,
         benchmark_scores=scores,
         comparison=comparison,
         policy_snapshot=policy,

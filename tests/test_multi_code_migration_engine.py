@@ -53,18 +53,45 @@ def test_qldpc_to_surface_migration_success() -> None:
     assert receipt.selected_migration_path == "qldpc_to_surface"
 
 
+def test_ternary_to_qldpc_migration_success() -> None:
+    receipt = plan_code_migration(_profile("ternary"), _policy("qldpc"))
+    assert receipt.assessment.admissible is True
+    assert receipt.selected_migration_path == "ternary_to_qldpc"
+
+
+def test_surface_to_surface_migration_success() -> None:
+    receipt = plan_code_migration(_profile("surface"), _policy("surface"))
+    assert receipt.assessment.admissible is True
+    assert receipt.selected_migration_path == "surface_to_surface"
+
+
 def test_unsupported_migration_rejection() -> None:
     with pytest.raises(ValueError, match="unsupported migration pair"):
         plan_code_migration(_profile("surface"), _policy("qldpc"))
 
 
 def test_invalid_metric_rejection() -> None:
-    with pytest.raises(ValueError, match=r"finite float in \[0, 1\]"):
+    with pytest.raises(ValueError, match=r"finite numeric value in \[0, 1\]"):
         CodeStateProfile(
             code_id="bad",
             code_family="ternary",
             distance=3,
             logical_error_rate=1.100000000000,
+            syndrome_density=0.200000000000,
+            check_density=0.200000000000,
+            hardware_alignment=0.200000000000,
+            stability_score=0.200000000000,
+            observables=("X",),
+        )
+
+
+def test_bool_metric_rejection() -> None:
+    with pytest.raises(ValueError, match=r"numeric value in \[0, 1\]"):
+        CodeStateProfile(
+            code_id="bad-bool",
+            code_family="ternary",
+            distance=3,
+            logical_error_rate=True,  # type: ignore[arg-type]
             syndrome_density=0.200000000000,
             check_density=0.200000000000,
             hardware_alignment=0.200000000000,
@@ -110,6 +137,9 @@ def test_frozen_dataclass_immutability() -> None:
     profile = _profile("ternary")
     with pytest.raises(FrozenInstanceError):
         profile.code_id = "changed"  # type: ignore[misc]
+    with pytest.raises(TypeError):
+        assert profile.metadata is not None
+        profile.metadata["operator"] = "changed"
 
 
 def test_deterministic_step_ordering() -> None:

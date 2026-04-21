@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any, Mapping, TypeAlias
 
 _JSONPrimitive: TypeAlias = None | bool | int | float | str
@@ -72,11 +73,13 @@ def _require_non_empty_str(value: str, field: str) -> None:
 
 
 def _validate_bounded_float(value: float, field: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be a numeric value in [0, 1]")
     if not isinstance(value, (int, float)):
-        raise ValueError(f"{field} must be a float in [0, 1]")
+        raise ValueError(f"{field} must be a numeric value in [0, 1]")
     bounded = float(value)
     if not math.isfinite(bounded) or bounded < 0.0 or bounded > 1.0:
-        raise ValueError(f"{field} must be a finite float in [0, 1]")
+        raise ValueError(f"{field} must be a finite numeric value in [0, 1]")
     return bounded
 
 
@@ -116,12 +119,12 @@ def _normalize_metadata(metadata: Mapping[str, str] | None) -> Mapping[str, str]
         return None
     if not isinstance(metadata, Mapping):
         raise ValueError("metadata must be a mapping[str, str] if provided")
+    for key, value in metadata.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError("metadata keys and values must be strings")
     normalized: dict[str, str] = {}
     for key in sorted(metadata.keys()):
-        value = metadata[key]
-        if not isinstance(key, str) or not isinstance(value, str):
-            raise ValueError("metadata must contain only string keys and string values")
-        normalized[key] = value
+        normalized[key] = metadata[key]
     return normalized
 
 
@@ -172,7 +175,8 @@ class CodeStateProfile:
             _validate_bounded_float(getattr(self, field), field)
         _validate_observables(self.observables)
         normalized_metadata = _normalize_metadata(self.metadata)
-        object.__setattr__(self, "metadata", normalized_metadata)
+        immutable_metadata = None if normalized_metadata is None else MappingProxyType(normalized_metadata)
+        object.__setattr__(self, "metadata", immutable_metadata)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -192,7 +196,7 @@ class CodeStateProfile:
         return _canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
+        return _canonical_bytes(self.to_dict())
 
     def stable_hash(self) -> str:
         return _sha256_hex(self.to_dict())
@@ -232,7 +236,7 @@ class MigrationPolicy:
         return _canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
+        return _canonical_bytes(self.to_dict())
 
     def stable_hash(self) -> str:
         return _sha256_hex(self.to_dict())
@@ -267,7 +271,7 @@ class MigrationStep:
         return _canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
+        return _canonical_bytes(self.to_dict())
 
     def stable_hash(self) -> str:
         return _sha256_hex(self.to_dict())
@@ -308,7 +312,7 @@ class MigrationAssessment:
         return _canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
+        return _canonical_bytes(self.to_dict())
 
     def stable_hash(self) -> str:
         return _sha256_hex(self.to_dict())
@@ -343,7 +347,7 @@ class MigrationReceipt:
             raise ValueError("policy_snapshot must be MigrationPolicy")
         _require_non_empty_str(self.replay_identity, "replay_identity")
         if not isinstance(self.stable_hash_value, str):
-            raise ValueError("stable_hash_value must be a string")
+            raise ValueError("stable_hash_value must be a 64-character hex string")
 
     def to_hash_payload_dict(self) -> dict[str, Any]:
         payload = self.to_dict()
@@ -367,7 +371,7 @@ class MigrationReceipt:
         return _canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
+        return _canonical_bytes(self.to_dict())
 
 
 def _compute_observable_overlap(source_observables: tuple[str, ...], target_family: str) -> float:

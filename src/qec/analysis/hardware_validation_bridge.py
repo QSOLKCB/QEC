@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -12,12 +13,12 @@ def _validate_scenarios(scenarios: Sequence[Mapping[str, Any]]) -> list[Mapping[
     if not isinstance(scenarios, Sequence) or isinstance(scenarios, (str, bytes)):
         raise ValueError("scenarios must be a non-empty sequence")
 
-    scenario_list = list(scenarios)
-    if not scenario_list:
+    scenarios_list = list(scenarios)
+    if not scenarios_list:
         raise ValueError("scenarios must be a non-empty sequence")
 
     scenario_ids: list[str] = []
-    for scenario in scenario_list:
+    for scenario in scenarios_list:
         if not isinstance(scenario, Mapping):
             raise ValueError("scenario must be mapping-like")
         scenario_id = scenario.get("id")
@@ -28,13 +29,18 @@ def _validate_scenarios(scenarios: Sequence[Mapping[str, Any]]) -> list[Mapping[
     if len(set(scenario_ids)) != len(scenario_ids):
         raise ValueError("scenario ids must be unique")
 
-    return sorted(scenario_list, key=lambda scenario: scenario["id"])
+    return sorted(scenarios_list, key=lambda scenario: scenario["id"])
 
 
 def _validate_hardware_latency(value: Any, *, scenario_id: str) -> float:
-    if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0.0:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or value <= 0.0
+        or not math.isfinite(value)
+    ):
         raise ValueError(
-            f"hardware latency must be positive number for scenario '{scenario_id}'"
+            f"hardware latency must be positive finite number for scenario '{scenario_id}'"
         )
     return float(value)
 
@@ -55,17 +61,8 @@ def run_hardware_validation_bridge(
                 f"hardware_measurements missing scenario id '{scenario_id}'"
             )
 
-    total_simulated_latency = 0.0
-    total_hardware_latency = 0.0
-    total_absolute_error = 0.0
-    total_relative_error = 0.0
-    total_agreement_score = 0.0
-
     for scenario in sorted_scenarios:
         scenario_id = scenario["id"]
-
-        simulation_result = run_neural_acceleration_simulation([scenario])
-        simulated_latency = float(simulation_result["mean_latency_accelerated"])
 
         hardware_entry = hardware_measurements[scenario_id]
         if not isinstance(hardware_entry, Mapping):
@@ -79,6 +76,18 @@ def run_hardware_validation_bridge(
         hardware_latency = _validate_hardware_latency(
             hardware_entry["latency"], scenario_id=scenario_id
         )
+
+    total_simulated_latency = 0.0
+    total_hardware_latency = 0.0
+    total_absolute_error = 0.0
+    total_relative_error = 0.0
+    total_agreement_score = 0.0
+
+    for scenario in sorted_scenarios:
+        scenario_id = scenario["id"]
+        simulation_result = run_neural_acceleration_simulation([scenario])
+        simulated_latency = float(simulation_result["mean_latency_accelerated"])
+        hardware_latency = float(hardware_measurements[scenario_id]["latency"])
 
         absolute_error = abs(simulated_latency - hardware_latency)
         relative_error = absolute_error / max(1.0, simulated_latency)

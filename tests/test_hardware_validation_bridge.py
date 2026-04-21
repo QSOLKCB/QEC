@@ -36,8 +36,10 @@ def test_deterministic_replay(monkeypatch: pytest.MonkeyPatch) -> None:
 
     first = bridge.run_hardware_validation_bridge(scenarios, hardware)
     second = bridge.run_hardware_validation_bridge(scenarios, hardware)
+    reordered = bridge.run_hardware_validation_bridge(list(reversed(scenarios)), hardware)
 
     assert first == second
+    assert first == reordered
 
 
 def test_perfect_match_has_full_agreement(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -82,8 +84,43 @@ def test_negative_hardware_latency_raises_value_error(monkeypatch: pytest.Monkey
         bridge, "run_neural_acceleration_simulation", _stub_simulation_single_value
     )
 
-    with pytest.raises(ValueError, match="hardware latency must be positive float"):
+    with pytest.raises(
+        ValueError, match="hardware latency must be positive finite number"
+    ):
         bridge.run_hardware_validation_bridge(
             [{"id": "s1", "nodes": ["x"], "edges": []}],
             {"s1": {"latency": -1.0}},
+        )
+
+
+def test_non_finite_hardware_latency_raises_value_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        bridge, "run_neural_acceleration_simulation", _stub_simulation_single_value
+    )
+
+    with pytest.raises(
+        ValueError, match="hardware latency must be positive finite number"
+    ):
+        bridge.run_hardware_validation_bridge(
+            [{"id": "s1", "nodes": ["x"], "edges": []}],
+            {"s1": {"latency": float("inf")}},
+        )
+
+
+def test_hardware_validation_fails_before_simulation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _fail_if_called(_scenarios):
+        raise AssertionError("simulation should not run before hardware validation")
+
+    monkeypatch.setattr(bridge, "run_neural_acceleration_simulation", _fail_if_called)
+
+    with pytest.raises(
+        ValueError, match="hardware latency must be positive finite number"
+    ):
+        bridge.run_hardware_validation_bridge(
+            [{"id": "s1", "nodes": ["x"], "edges": []}],
+            {"s1": {"latency": float("nan")}},
         )

@@ -5,11 +5,17 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-import hashlib
-import json
 import math
 import types
 from typing import Any
+
+from qec.analysis.canonical_hashing import (
+    CanonicalHashingError,
+    canonical_bytes,
+    canonical_json,
+    canonicalize_json,
+    sha256_hex,
+)
 
 RELEASE_VERSION = "v138.7.1"
 RUNTIME_KIND = "early_termination_via_dark_state_proofs"
@@ -30,38 +36,31 @@ class EarlyTerminationDarkStateProofError(ValueError):
 
 
 def _canonicalize_json(value: Any) -> _JSONValue:
-    if value is None or isinstance(value, (str, bool, int)):
-        return value
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise EarlyTerminationDarkStateProofError("non-finite float values are not allowed")
-        return float(value)
-    if isinstance(value, (tuple, list)):
-        return tuple(_canonicalize_json(item) for item in value)
-    if isinstance(value, Mapping):
-        keys = tuple(value.keys())
-        if any(not isinstance(key, str) for key in keys):
-            raise EarlyTerminationDarkStateProofError("payload keys must be strings")
-        return {key: _canonicalize_json(value[key]) for key in sorted(keys)}
-    raise EarlyTerminationDarkStateProofError(f"unsupported canonical payload type: {type(value)!r}")
+    try:
+        return canonicalize_json(value)
+    except CanonicalHashingError as exc:
+        raise EarlyTerminationDarkStateProofError(str(exc)) from exc
 
 
 def _canonical_json(value: Any) -> str:
-    return json.dumps(
-        _canonicalize_json(value),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        allow_nan=False,
-    )
+    try:
+        return canonical_json(value)
+    except CanonicalHashingError as exc:
+        raise EarlyTerminationDarkStateProofError(str(exc)) from exc
 
 
 def _canonical_bytes(value: Any) -> bytes:
-    return _canonical_json(value).encode("utf-8")
+    try:
+        return canonical_bytes(value)
+    except CanonicalHashingError as exc:
+        raise EarlyTerminationDarkStateProofError(str(exc)) from exc
 
 
 def _sha256_hex(value: Any) -> str:
-    return hashlib.sha256(_canonical_bytes(value)).hexdigest()
+    try:
+        return sha256_hex(value)
+    except CanonicalHashingError as exc:
+        raise EarlyTerminationDarkStateProofError(str(exc)) from exc
 
 
 def _clamp01(value: float) -> float:
@@ -264,6 +263,10 @@ class EarlyTerminationDecision:
     def stable_hash(self) -> str:
         return _sha256_hex(self.to_hash_payload_dict())
 
+    def __post_init__(self) -> None:
+        if self.decision_hash != self.stable_hash():
+            raise EarlyTerminationDarkStateProofError("decision_hash must match stable_hash payload")
+
 
 @dataclass(frozen=True)
 class EarlyTerminationReceipt:
@@ -309,6 +312,10 @@ class EarlyTerminationReceipt:
 
     def stable_hash(self) -> str:
         return _sha256_hex(self.to_hash_payload_dict())
+
+    def __post_init__(self) -> None:
+        if self.receipt_hash and self.receipt_hash != self.stable_hash():
+            raise EarlyTerminationDarkStateProofError("receipt_hash must match stable_hash payload")
 
 
 @dataclass(frozen=True)
@@ -460,11 +467,14 @@ def normalize_kernel_result(kernel_result: Any) -> Mapping[str, _JSONValue]:
         target_nodes = proposal_raw.get("target_nodes", ())
         if not isinstance(target_nodes, (list, tuple)):
             raise EarlyTerminationDarkStateProofError("proposal.target_nodes must be a sequence")
+        target_edges = proposal_raw.get("target_edges", ())
+        if not isinstance(target_edges, (list, tuple)):
+            raise EarlyTerminationDarkStateProofError("proposal.target_edges must be a sequence")
         canonical_proposal = _canonicalize_json(
             {
                 "proposal_id": proposal_id,
                 "target_nodes": tuple(str(node) for node in target_nodes),
-                "target_edges": tuple(str(edge) for edge in proposal_raw.get("target_edges", ())),
+                "target_edges": tuple(str(edge) for edge in target_edges),
                 "action_class": str(proposal_raw.get("action_class", "")),
                 "proposal_score": score,
                 "confidence": confidence,
@@ -502,6 +512,28 @@ def normalize_kernel_result(kernel_result: Any) -> Mapping[str, _JSONValue]:
         "config_hash": _hex_or_none(raw.get("config_hash"), field_name="kernel_result.config_hash"),
         "input_hash": _hex_or_none(raw.get("input_hash"), field_name="kernel_result.input_hash"),
     }
+    computed_result_hash = _sha256_hex(
+        {
+            "release_version": normalized["release_version"],
+            "runtime_kind": normalized["runtime_kind"],
+            "proposals": normalized["proposals"],
+            "converged": normalized["converged"],
+            "convergence_delta": normalized["convergence_delta"],
+            "config_hash": normalized["config_hash"],
+            "input_hash": normalized["input_hash"],
+        }
+    )
+    if normalized["result_hash"] != computed_result_hash:
+        raise EarlyTerminationDarkStateProofError(
+            "kernel_result.result_hash must match normalized kernel payload used for early-termination analysis"
+        )
+    computed_replay_identity = _sha256_hex(
+        {"result_hash": computed_result_hash, "input_hash": normalized["input_hash"]}
+    )
+    if normalized["replay_identity"] != computed_replay_identity:
+        raise EarlyTerminationDarkStateProofError(
+            "kernel_result.replay_identity must match normalized kernel payload lineage"
+        )
     return types.MappingProxyType(normalized)
 
 
@@ -659,7 +691,8 @@ def classify_early_termination_decision(
 
     missing_proof = dark_state_inputs is None
     proposal_weak = (not has_proposals and config.require_nonempty_proposals) or (
-        top_confidence < config.minimum_top_proposal_confidence or top_score < config.minimum_top_proposal_score
+        has_proposals
+        and (top_confidence < config.minimum_top_proposal_confidence or top_score < config.minimum_top_proposal_score)
     )
     convergence_missing_or_weak = config.require_convergence and (not converged or convergence_delta > config.maximum_convergence_delta)
 
@@ -668,8 +701,8 @@ def classify_early_termination_decision(
         terminate_early = False
         rationale = "dark-state proof is required by policy but not supplied"
     else:
-        proof_required = not config.allow_termination_without_dark_state_proof
-        proof_weak = proof_required and (
+        proof_supplied = dark_state_inputs is not None
+        proof_weak = proof_supplied and (
             proof_signals.dark_state_score < config.minimum_dark_state_score
             or proof_signals.dark_state_coverage < config.minimum_dark_state_coverage
             or proof_signals.proof_consistency_score < config.minimum_proof_consistency_score

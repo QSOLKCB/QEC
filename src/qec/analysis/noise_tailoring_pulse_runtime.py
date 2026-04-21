@@ -137,6 +137,12 @@ def _validate_projected_result(projected_result: Mapping[str, Any]) -> dict[str,
             raise ValueError("Invalid projected_result: 'node_weights' values must be finite numeric values")
         node_weights[key] = float(value)
 
+    missing_node_weights = sorted(node_set - set(node_weights))
+    if missing_node_weights:
+        missing_nodes = ", ".join(missing_node_weights)
+        raise ValueError(
+            f"Invalid projected_result: 'node_weights' must include every declared node; missing: {missing_nodes}"
+        )
     edge_weights: dict[Edge, float] = {}
     for key, value in edge_weights_raw.items():
         if not isinstance(key, str) or key not in edge_key_to_tuple:

@@ -2,19 +2,28 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 
+def deterministic_gnn_decoder_kernel(
+    *, nodes: Sequence[str], edges: Sequence[tuple[str, str]]
+) -> Mapping[str, Any]:
+    """Return kernel_result with shape: {'proposals': [{'target_nodes': list[str]}], ...}."""
+    raise NotImplementedError(
+        "deterministic_gnn_decoder_kernel must be provided by runtime"
+    )
 
 
+def early_termination_via_dark_state_proofs(
+    *, kernel_result: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    """Return termination_result with shape: {'decision': {'terminate_early': bool}, ...}."""
+    raise NotImplementedError(
+        "early_termination_via_dark_state_proofs must be provided by runtime"
+    )
 
-def deterministic_gnn_decoder_kernel(*, nodes, edges):
-    raise NotImplementedError("deterministic_gnn_decoder_kernel must be provided by runtime")
 
-
-def early_termination_via_dark_state_proofs(*, kernel_result):
-    raise NotImplementedError("early_termination_via_dark_state_proofs must be provided by runtime")
 REQUIRED_FIELDS = (
     "id",
     "nodes",
@@ -37,7 +46,11 @@ def _validate_scenario(raw: Any) -> dict[str, Any]:
         raise ValueError("scenario id must be str")
 
     nodes = raw["nodes"]
-    if not isinstance(nodes, list) or not nodes or any(not isinstance(node, str) for node in nodes):
+    if (
+        not isinstance(nodes, list)
+        or not nodes
+        or any(not isinstance(node, str) for node in nodes)
+    ):
         raise ValueError("scenario nodes must be a non-empty list[str]")
 
     edges = raw["edges"]
@@ -66,7 +79,48 @@ def _validate_scenario(raw: Any) -> dict[str, Any]:
     }
 
 
-def run_minimal_ml_benchmark(scenarios: list[dict]) -> dict:
+def _extract_predicted_top(kernel_result: Mapping[str, Any]) -> str:
+    proposals = kernel_result.get("proposals")
+    if not isinstance(proposals, list) or not proposals:
+        raise ValueError("kernel_result must contain non-empty list at key 'proposals'")
+
+    first_proposal = proposals[0]
+    if not isinstance(first_proposal, Mapping):
+        raise ValueError("kernel_result proposals[0] must be mapping-like")
+
+    target_nodes = first_proposal.get("target_nodes")
+    if (
+        not isinstance(target_nodes, Sequence)
+        or isinstance(target_nodes, (str, bytes))
+        or not target_nodes
+    ):
+        raise ValueError(
+            "kernel_result proposals[0]['target_nodes'] must be non-empty sequence[str]"
+        )
+    if any(not isinstance(node, str) for node in target_nodes):
+        raise ValueError(
+            "kernel_result proposals[0]['target_nodes'] must be non-empty sequence[str]"
+        )
+
+    return target_nodes[0]
+
+
+def _extract_predicted_terminate(termination_result: Mapping[str, Any]) -> bool:
+    decision = termination_result.get("decision")
+    if not isinstance(decision, Mapping):
+        raise ValueError("termination_result must contain mapping-like key 'decision'")
+
+    terminate_early = decision.get("terminate_early")
+    if not isinstance(terminate_early, bool):
+        raise ValueError("termination_result decision['terminate_early'] must be bool")
+
+    return terminate_early
+
+
+def run_minimal_ml_benchmark(
+    scenarios: Sequence[Mapping[str, Any]],
+) -> dict[str, float]:
+    """Run deterministic benchmark over scenarios and return mean float metrics."""
     if not isinstance(scenarios, list) or not scenarios:
         raise ValueError("scenarios must be a non-empty list")
 
@@ -82,15 +136,29 @@ def run_minimal_ml_benchmark(scenarios: list[dict]) -> dict:
     latency_sum = 0.0
 
     for scenario in ordered:
-        kernel_result = deterministic_gnn_decoder_kernel(nodes=scenario["nodes"], edges=scenario["edges"])
-        predicted_top = kernel_result["proposals"][0]["target_nodes"][0]
+        kernel_result = deterministic_gnn_decoder_kernel(
+            nodes=scenario["nodes"], edges=scenario["edges"]
+        )
+        if not isinstance(kernel_result, Mapping):
+            raise ValueError("kernel_result must be mapping-like")
+        predicted_top = _extract_predicted_top(kernel_result)
 
-        termination_result = early_termination_via_dark_state_proofs(kernel_result=kernel_result)
-        predicted_terminate = termination_result["decision"]["terminate_early"]
+        termination_result = early_termination_via_dark_state_proofs(
+            kernel_result=kernel_result
+        )
+        if not isinstance(termination_result, Mapping):
+            raise ValueError("termination_result must be mapping-like")
+        predicted_terminate = _extract_predicted_terminate(termination_result)
 
         top_match_sum += 1.0 if predicted_top == scenario["expected_top_node"] else 0.0
-        termination_correct_sum += 1.0 if predicted_terminate == scenario["expected_terminate"] else 0.0
-        latency_sum += float(len(scenario["nodes"]) + len(scenario["edges"]) + len(kernel_result["proposals"]))
+        termination_correct_sum += (
+            1.0 if predicted_terminate == scenario["expected_terminate"] else 0.0
+        )
+        latency_sum += float(
+            len(scenario["nodes"])
+            + len(scenario["edges"])
+            + len(kernel_result["proposals"])
+        )
 
     count = float(len(ordered))
     return {

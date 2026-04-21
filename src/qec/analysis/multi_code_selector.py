@@ -208,6 +208,19 @@ def select_runtime_code(
         if not isinstance(candidate, CodeCandidateProfile):
             raise ValueError("all candidates must be CodeCandidateProfile")
 
+    seen_code_ids: set[str] = set()
+    seen_candidate_keys: set[tuple[str, str]] = set()
+    for candidate in candidate_list:
+        candidate_key = (candidate.code_family, candidate.code_id)
+        if candidate.code_id in seen_code_ids:
+            raise ValueError(f"duplicate candidate code_id: {candidate.code_id}")
+        if candidate_key in seen_candidate_keys:
+            raise ValueError(
+                "duplicate candidate (code_family, code_id): "
+                f"{candidate.code_family}, {candidate.code_id}"
+            )
+        seen_code_ids.add(candidate.code_id)
+        seen_candidate_keys.add(candidate_key)
     weight_map = policy.to_weight_map()
     weight_sum = sum(weight_map.values())
 

@@ -242,7 +242,10 @@ def run_cluster_expansion_simulation(
     edge_deltas_all: list[float] = []
 
     for scenario_norm in ordered:
-        perturbed = apply_cluster_expansion_noise(scenario_norm, parsed_config)
+        perturbed = _apply_cluster_expansion_noise_validated(
+            scenario_norm,
+            parsed_config,
+        )
 
         for node in scenario_norm["nodes"]:
             base = scenario_norm["node_weights"].get(node, 1.0)

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import inspect
 
 import pytest
 
+from qec.analysis import canonical_hashing
 from qec.analysis import early_termination_via_dark_state_proofs as et
 from qec.analysis.deterministic_gnn_decoder_kernel import build_deterministic_gnn_decoder_kernel
 
@@ -250,3 +252,76 @@ def test_optional_supplied_weak_proof_blocks_termination() -> None:
     )
     assert result.decision.decision_label in {"ambiguous_state", "continue_iteration"}
     assert result.decision.terminate_early is False
+
+
+def test_ambiguous_state_only_for_conflicting_signals_and_not_missing_proof() -> None:
+    strong_kernel = _kernel_result(confidence_boost=0.4, converged=True, delta=0.01)
+    ambiguous = et.build_early_termination_analysis_result(
+        config=_config(minimum_dark_state_coverage=0.95),
+        kernel_result=strong_kernel,
+        dark_state_inputs=_proof(dark_state_score=0.99, dark_state_coverage=0.10, proof_consistency_score=0.99),
+    )
+    assert ambiguous.decision.decision_label == "ambiguous_state"
+
+    missing = et.build_early_termination_analysis_result(
+        config=_config(allow_termination_without_dark_state_proof=False),
+        kernel_result=strong_kernel,
+        dark_state_inputs=None,
+    )
+    assert missing.decision.decision_label == "insufficient_proof"
+
+
+def test_strong_consistent_signals_never_produce_ambiguous_state() -> None:
+    result = et.build_early_termination_analysis_result(
+        config=_config(),
+        kernel_result=_kernel_result(confidence_boost=0.4, converged=True, delta=0.01),
+        dark_state_inputs=_proof(dark_state_score=0.99, dark_state_coverage=0.99, proof_consistency_score=0.99),
+    )
+    assert result.decision.decision_label == "terminate_early"
+    assert result.decision.terminate_early is True
+
+
+def test_optional_convergence_policy_does_not_treat_weak_convergence_as_strong() -> None:
+    kernel = _kernel_result(confidence_boost=0.0, converged=False, delta=0.99)
+    kernel["proposals"] = []
+    kernel["result_hash"] = et._sha256_hex(
+        {
+            "release_version": kernel["release_version"],
+            "runtime_kind": kernel["runtime_kind"],
+            "proposals": kernel["proposals"],
+            "converged": kernel["converged"],
+            "convergence_delta": kernel["convergence_delta"],
+            "config_hash": kernel.get("config_hash"),
+            "input_hash": kernel.get("input_hash"),
+        }
+    )
+    kernel["replay_identity"] = et._sha256_hex({"result_hash": kernel["result_hash"], "input_hash": kernel.get("input_hash")})
+
+    result = et.build_early_termination_analysis_result(
+        config=_config(
+            require_convergence=False,
+            require_nonempty_proposals=False,
+            allow_termination_without_dark_state_proof=True,
+        ),
+        kernel_result=kernel,
+        dark_state_inputs=_proof(dark_state_score=0.1, dark_state_coverage=0.1, proof_consistency_score=0.1),
+    )
+    assert result.decision.decision_label == "continue_iteration"
+    assert result.decision.terminate_early is False
+
+
+def test_canonical_hashing_helpers_match_shared_module() -> None:
+    payload = {"z": [1, 2.0], "a": {"k": "v"}}
+    assert et._canonical_json(payload) == canonical_hashing.canonical_json(payload)
+    assert et._canonical_bytes(payload) == canonical_hashing.canonical_bytes(payload)
+    assert et._sha256_hex(payload) == canonical_hashing.sha256_hex(payload)
+
+
+def test_result_hash_mismatch_raises() -> None:
+    baseline = et.build_early_termination_analysis_result(
+        config=_config(),
+        kernel_result=_kernel_result(confidence_boost=0.4, converged=True, delta=0.01),
+        dark_state_inputs=_proof(),
+    )
+    with pytest.raises(ValueError, match="result_hash must match stable_hash payload"):
+        replace(baseline, result_hash="0" * 64)

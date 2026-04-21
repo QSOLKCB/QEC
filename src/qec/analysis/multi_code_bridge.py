@@ -4,11 +4,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
 import math
 from typing import Any
 
-from .canonical_hashing import canonical_bytes, canonical_json
+from .canonical_hashing import canonical_json, sha256_hex
 
 ALLOWED_CODE_FAMILIES: tuple[str, ...] = ("surface", "qldpc", "ternary", "color")
 ALLOWED_SELECTED_ACTIONS: tuple[str, ...] = (
@@ -66,10 +65,6 @@ def _validate_bool(name: str, value: Any) -> bool:
     return value
 
 
-def _sha256(value: Any) -> str:
-    return hashlib.sha256(canonical_bytes(value)).hexdigest()
-
-
 @dataclass(frozen=True)
 class BridgeSelectionInput:
     selected_code_id: str
@@ -80,8 +75,7 @@ class BridgeSelectionInput:
 
     def __post_init__(self) -> None:
         _validate_non_empty_str("selected_code_id", self.selected_code_id)
-        if self.selected_code_family not in ALLOWED_CODE_FAMILIES:
-            raise ValueError("selected_code_family must be in allowed code families")
+        _validate_non_empty_str("selected_code_family", self.selected_code_family)
         _validate_unit_interval_float("selection_confidence", self.selection_confidence)
         if not isinstance(self.ranking_order, tuple):
             raise ValueError("ranking_order must be a non-empty tuple[str, ...]")
@@ -111,7 +105,7 @@ class BridgeSelectionInput:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash_value(self) -> str:
-        return _sha256(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -127,10 +121,8 @@ class BridgeMigrationInput:
 
     def __post_init__(self) -> None:
         _validate_non_empty_str("source_code_id", self.source_code_id)
-        if self.source_code_family not in ALLOWED_CODE_FAMILIES:
-            raise ValueError("source_code_family must be in allowed code families")
-        if self.target_code_family not in ALLOWED_CODE_FAMILIES:
-            raise ValueError("target_code_family must be in allowed code families")
+        _validate_non_empty_str("source_code_family", self.source_code_family)
+        _validate_non_empty_str("target_code_family", self.target_code_family)
         _validate_bool("migration_admissible", self.migration_admissible)
         _validate_unit_interval_float("migration_confidence", self.migration_confidence)
         _validate_unit_interval_float("migration_projected_loss", self.migration_projected_loss)
@@ -156,7 +148,7 @@ class BridgeMigrationInput:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash_value(self) -> str:
-        return _sha256(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -172,8 +164,7 @@ class BridgeBenchmarkInput:
 
     def __post_init__(self) -> None:
         _validate_non_empty_str("best_candidate_id", self.best_candidate_id)
-        if self.best_candidate_family not in ALLOWED_CODE_FAMILIES:
-            raise ValueError("best_candidate_family must be in allowed code families")
+        _validate_non_empty_str("best_candidate_family", self.best_candidate_family)
         _validate_unit_interval_float("best_utility", self.best_utility)
         _validate_unit_interval_float("baseline_utility", self.baseline_utility)
         _validate_unit_interval_float("improvement_margin", self.improvement_margin)
@@ -200,7 +191,7 @@ class BridgeBenchmarkInput:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash_value(self) -> str:
-        return _sha256(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -221,8 +212,7 @@ class BridgePolicyInput:
         if self.selected_action not in ALLOWED_SELECTED_ACTIONS:
             raise ValueError("selected_action must be an allowed action")
         _validate_non_empty_str("target_code_id", self.target_code_id)
-        if self.target_code_family not in ALLOWED_CODE_FAMILIES:
-            raise ValueError("target_code_family must be in allowed code families")
+        _validate_non_empty_str("target_code_family", self.target_code_family)
         _validate_bool("stay_on_current_code", self.stay_on_current_code)
         _validate_bool("approve_migration", self.approve_migration)
         _validate_bool("recommend_orchestration", self.recommend_orchestration)
@@ -255,7 +245,7 @@ class BridgePolicyInput:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash_value(self) -> str:
-        return _sha256(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -296,7 +286,7 @@ class BridgeStep:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash_value(self) -> str:
-        return _sha256(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -342,7 +332,7 @@ class BridgeReadiness:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash_value(self) -> str:
-        return _sha256(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -387,7 +377,7 @@ class MultiCodeBridgeReceipt:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash_value(self) -> str:
-        return _sha256(_receipt_hash_payload(self))
+        return sha256_hex(_receipt_hash_payload(self))
 
 
 def _consistency_snapshot(
@@ -405,8 +395,7 @@ def _consistency_snapshot(
 
     migration_policy_aligned = (
         migration_input.target_code_family == policy_input.target_code_family
-        and migration_input.source_code_id == selection_input.selected_code_id
-        and migration_input.source_code_family == selection_input.selected_code_family
+        and selection_input.selected_code_family == policy_input.target_code_family
     )
 
     benchmark_policy_aligned = (
@@ -641,7 +630,7 @@ def build_multi_code_bridge(
 
     readiness = _compute_readiness(selection_input, migration_input, benchmark_input, policy_input)
     bridge_steps = _build_steps(readiness)
-    replay_identity = _sha256(
+    replay_identity = sha256_hex(
         _replay_payload(selection_input, migration_input, benchmark_input, policy_input, readiness)
     )
 
@@ -656,7 +645,7 @@ def build_multi_code_bridge(
         replay_identity=replay_identity,
         stable_hash="0" * 64,
     )
-    stable_hash = _sha256(_receipt_hash_payload(receipt_no_hash))
+    stable_hash = sha256_hex(_receipt_hash_payload(receipt_no_hash))
 
     return MultiCodeBridgeReceipt(
         selection_input=selection_input,

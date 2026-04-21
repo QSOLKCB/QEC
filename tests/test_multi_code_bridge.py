@@ -82,6 +82,52 @@ def test_migrate_handoff_success() -> None:
     assert receipt.readiness.migration_policy_aligned is True
 
 
+def test_migrate_alignment_with_distinct_source_and_target() -> None:
+    selection = BridgeSelectionInput(
+        selected_code_id="qldpc_b",
+        selected_code_family="qldpc",
+        selection_confidence=0.8,
+        ranking_order=("qldpc_b", "surface_a"),
+        selection_stable_hash=_hex("1"),
+    )
+    migration = BridgeMigrationInput(
+        source_code_id="surface_a",
+        source_code_family="surface",
+        target_code_family="qldpc",
+        migration_admissible=True,
+        migration_confidence=0.7,
+        migration_projected_loss=0.2,
+        migration_distance_retention=0.8,
+        migration_stable_hash=_hex("2"),
+    )
+    benchmark = BridgeBenchmarkInput(
+        best_candidate_id="qldpc_b",
+        best_candidate_family="qldpc",
+        best_utility=0.9,
+        baseline_utility=0.8,
+        improvement_margin=0.1,
+        cross_family_winner=True,
+        benchmark_admissible=True,
+        benchmark_stable_hash=_hex("3"),
+    )
+    policy = BridgePolicyInput(
+        selected_action="migrate",
+        target_code_id="qldpc_b",
+        target_code_family="qldpc",
+        stay_on_current_code=False,
+        approve_migration=True,
+        recommend_orchestration=False,
+        policy_confidence=0.75,
+        improvement_score=0.6,
+        risk_score=0.2,
+        escalation_level="none",
+        policy_stable_hash=_hex("4"),
+    )
+    receipt = build_multi_code_bridge(selection, migration, benchmark, policy)
+    assert receipt.readiness.migration_policy_aligned is True
+    assert receipt.readiness.bridge_ready is True
+
+
 def test_orchestrate_handoff_success() -> None:
     receipt = build_multi_code_bridge(_base_selection(), _base_migration(), _base_benchmark(), _base_policy("orchestrate"))
     assert receipt.readiness.bridge_ready is True
@@ -139,6 +185,53 @@ def test_duplicate_ranking_order_rejected() -> None:
             ranking_order=("surface_a", "surface_a"),
             selection_stable_hash=_hex("a"),
         )
+
+
+def test_bridge_accepts_valid_unknown_family() -> None:
+    selection = BridgeSelectionInput(
+        selected_code_id="ldpc_a",
+        selected_code_family="ldpc",
+        selection_confidence=0.8,
+        ranking_order=("ldpc_a", "surface_a"),
+        selection_stable_hash=_hex("8"),
+    )
+    migration = BridgeMigrationInput(
+        source_code_id="surface_a",
+        source_code_family="surface",
+        target_code_family="ldpc",
+        migration_admissible=True,
+        migration_confidence=0.7,
+        migration_projected_loss=0.2,
+        migration_distance_retention=0.8,
+        migration_stable_hash=_hex("9"),
+    )
+    benchmark = BridgeBenchmarkInput(
+        best_candidate_id="ldpc_a",
+        best_candidate_family="ldpc",
+        best_utility=0.9,
+        baseline_utility=0.8,
+        improvement_margin=0.1,
+        cross_family_winner=True,
+        benchmark_admissible=True,
+        benchmark_stable_hash=_hex("a"),
+    )
+    policy = BridgePolicyInput(
+        selected_action="switch",
+        target_code_id="ldpc_a",
+        target_code_family="ldpc",
+        stay_on_current_code=False,
+        approve_migration=False,
+        recommend_orchestration=False,
+        policy_confidence=0.75,
+        improvement_score=0.6,
+        risk_score=0.2,
+        escalation_level="none",
+        policy_stable_hash=_hex("b"),
+    )
+
+    receipt = build_multi_code_bridge(selection, migration, benchmark, policy)
+    assert receipt is not None
+    assert receipt.readiness.bridge_ready is True
 
 
 def test_canonical_json_stability() -> None:

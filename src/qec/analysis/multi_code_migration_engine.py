@@ -343,7 +343,7 @@ class MigrationReceipt:
             raise ValueError("policy_snapshot must be MigrationPolicy")
         _require_non_empty_str(self.replay_identity, "replay_identity")
         if not isinstance(self.stable_hash_value, str):
-            raise ValueError("stable_hash must be a string")
+            raise ValueError("stable_hash_value must be a string")
 
     def to_hash_payload_dict(self) -> dict[str, Any]:
         payload = self.to_dict()

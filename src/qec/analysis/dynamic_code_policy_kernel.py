@@ -668,14 +668,21 @@ def decide_dynamic_code_policy(
     rationale.append("risk within bounded policy tolerance" if not hard_reject else "risk exceeds bounded policy tolerance")
     rationale.append(f"selected action: {selected_action}")
 
-    target_code_id = runtime_state.current_code_id if selected_action == "stay" else candidate_input.candidate_code_id
-    target_code_family = runtime_state.current_code_family if selected_action == "stay" else candidate_input.candidate_code_family
+    stays_on_current_code = selected_action in {"stay", "defer", "reject"}
+    target_code_id = (
+        runtime_state.current_code_id if stays_on_current_code else candidate_input.candidate_code_id
+    )
+    target_code_family = (
+        runtime_state.current_code_family
+        if stays_on_current_code
+        else candidate_input.candidate_code_family
+    )
 
     decision = PolicyDecision(
         selected_action=selected_action,
         target_code_id=target_code_id,
         target_code_family=target_code_family,
-        stay_on_current_code=selected_action == "stay",
+        stay_on_current_code=stays_on_current_code,
         approve_migration=selected_action == "migrate",
         recommend_orchestration=selected_action == "orchestrate",
         policy_confidence=policy_confidence,

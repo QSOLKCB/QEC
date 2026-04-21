@@ -371,9 +371,12 @@ class ReplayLogConsensusReceipt:
 
 
 def _matching_prefix_length(reference_entries: tuple[ReplayLogEntry, ...], candidate_entries: tuple[ReplayLogEntry, ...]) -> int:
+    reference_hashes = tuple(entry.stable_hash_value() for entry in reference_entries)
+    candidate_hashes = tuple(entry.stable_hash_value() for entry in candidate_entries)
+
     matched = 0
-    for ref_entry, node_entry in zip(reference_entries, candidate_entries):
-        if ref_entry.stable_hash_value() != node_entry.stable_hash_value():
+    for reference_hash, candidate_hash in zip(reference_hashes, candidate_hashes):
+        if reference_hash != candidate_hash:
             break
         matched += 1
     return matched

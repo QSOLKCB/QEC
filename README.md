@@ -23,170 +23,165 @@
 
 ---
 
-# 🚀 QEC at a Glance
+🚀 QEC at a Glance
 
-QEC is a **deterministic runtime + research framework** for:
+QEC is a deterministic runtime + distributed consensus framework for:
 
-* proof-carrying runtime execution
-* invariant-driven computation elimination
-* replay-safe orchestration
-* deterministic governance systems
-* verifiable optimization pipelines
-
----
-
-## 🧠 Governing Law
-
-```text
+proof-carrying runtime execution
+invariant-driven computation elimination
+replay-safe orchestration
+deterministic governance systems
+verifiable optimization pipelines
+multi-node consensus on state, history, and proofs
+🧠 Governing Law
 same input
 → same ordering
 → same canonical JSON
 → same stable hash
 → same bytes
-```
+⚡ Quickstart — Deterministic Consensus Demo
 
----
+This is the fastest way to prove to yourself the system works.
 
-# 🖥 Rust TUI Operator Console
+1. Install
+git clone https://github.com/QSOLKCB/QEC.git
+cd QEC
+pip install -e .
+2. Run a Deterministic Replay
+python -m qec.cli.diagnostics replay
+
+You should see:
+
+canonical state output
+stable hash
+replay identity
+3. Run It Again
+
+Run the exact same command:
+
+python -m qec.cli.diagnostics replay
+
+Expected result:
+
+✔ identical output
+✔ identical hash
+✔ identical decision path
+
+4. Conceptual Distributed Check
+
+Now imagine:
+
+node A → same input
+node B → same input
+node C → same input
+
+QEC guarantees:
+
+same output
+same replay log
+same proof
+5. What You Just Verified
+deterministic execution
+→ replay stability
+→ proof consistency
+→ consensus viability
+🧠 Why This Matters
+
+Most systems:
+
+run → drift → reconcile later
+
+QEC:
+
+run → identical → no reconciliation needed
+🖥 Rust TUI Operator Console
 
 Keyboard-first deterministic control surface.
 
-## Features
-
-* live diagnostics
-* replay inspection
-* invariant health
-* proof audit inspection
-* orchestration tracing
-* simulation monitoring
-
----
-
-## Install
-
-```bash
+Features
+live diagnostics
+replay inspection
+invariant health
+proof audit inspection
+orchestration tracing
+simulation monitoring
+Install
 curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
-```
-
-## Run
-
-```bash
+Run
 qec-tui
-```
+🔹 Operator Walkthrough (TUI Demo Flow)
 
----
+This is the fastest way to understand the system in motion.
 
-## 🔹 Operator Walkthrough (TUI Demo Flow)
-
-This is the fastest way to *understand the system in motion*.
-
-### 1. Launch TUI
-
-```bash
+1. Launch TUI
 qec-tui
-```
-
----
-
-### 2. Navigate Modes
+2. Navigate Modes
 
 Use:
 
-* ↑ / ↓ → move
-* Enter → select
-* Q → quit
-
----
-
-### 3. Run a Deterministic Replay
+↑ / ↓ → move
+Enter → select
+Q → quit
+3. Run a Deterministic Replay
 
 Go to:
 
-```
 Diagnostics → Replay Inspector
-```
 
 You’ll see:
 
-* input state
-* canonical ordering
-* stable hash
-* artifact lineage
-
----
-
-### 4. Inspect Proof-Carrying Execution
+input state
+canonical ordering
+stable hash
+artifact lineage
+4. Inspect Proof-Carrying Execution
 
 Go to:
 
-```
 Governance → Proof Audit
-```
 
 Observe:
 
-* skip vs execute decisions
-* validation state
-* proof receipt integrity
-
----
-
-### 5. View Runtime Elimination
+skip vs execute decisions
+validation state
+proof receipt integrity
+5. View Runtime Elimination
 
 Go to:
 
-```
 Simulation → Execution Fabric
-```
 
 Watch:
 
-* regions being skipped
-* deterministic routing
-* elimination decisions
-
----
-
-### 6. Inspect Benchmark Projection
+regions being skipped
+deterministic routing
+elimination decisions
+6. Inspect Benchmark Projection
 
 Go to:
 
-```
 Diagnostics → Benchmark View
-```
 
 Shows:
 
-* baseline cost
-* projected cost
-* normalized reduction score
-
----
-
-### 7. Verify Determinism
+baseline cost
+projected cost
+normalized reduction score
+7. Verify Determinism
 
 Re-run same input:
 
 ✔ hashes remain identical
 ✔ decisions remain identical
 
----
-
-## 🧠 Key Insight
+🧠 Key Insight
 
 The TUI is not visualization.
 
 It is:
 
-```text
 deterministic state introspection
-```
-
----
-
-# 🏗 Canonical Architecture
-
-```text
+🏗 Canonical Architecture
 decoder
 → runtime
 → orchestration
@@ -194,14 +189,10 @@ decoder
 → execution
 → benchmark
 → proof
+→ consensus
+→ recovery
 → archive
-```
-
----
-
-# 🧩 Deterministic Runtime Pipeline (v138.6.x)
-
-```text
+🧩 Deterministic Runtime Pipeline (v139.x)
 INPUT
  ↓
 [Detection]
@@ -216,119 +207,54 @@ INPUT
  ↓
 [Proof Layer]
  ↓
+[Consensus Layer]
+ ↓
+[Recovery Layer]
+ ↓
 OUTPUT
-```
-
----
-
-## 🔗 Artifact Lineage
-
-```text
-detection_hash
-→ idempotence_hash
-→ skip_safety_hash
-→ execution_hash
-→ benchmark_hash
+🔗 Artifact Lineage
+state_hash
+→ replay_hash
 → proof_hash
-```
+→ consensus_hash
+→ recovery_hash
+⭐ Current Stable Version
 
----
+v139.2 — Byzantine-Safe Proof Consensus
 
-# ⭐ Current Stable Version
-
-**v138.6.5 — Proof-Carrying Skip Receipts**
-
----
-
-# 🔬 Invariant Elimination Runtime (v138.6.x)
-
-```text
-Detection
-→ Formalization
-→ Reduction
-→ Runtime Elimination
-```
-
----
-
-### Modules
-
-* v138.6.0 — Dark-State Mask Runtime Engine
-* v138.6.1 — Idempotence Class Detector
-* v138.6.2 — Runtime Skip Safety Validator
-* v138.6.3 — Distributed Execution-Skip Fabric
-* v138.6.4 — Thermal / Power Reduction Benchmark Pack
-* v138.6.5 — Proof-Carrying Skip Receipts
-
----
-
-# ⚙ Deterministic Covenant Runtime
-
-```text
+⚙ Deterministic Covenant Runtime
 state_t + action → next_state + proof
-```
-
----
-
-# 🔒 Determinism Guarantees
-
-* no randomness
-* canonical JSON
-* SHA-256 hashing
-* replay-safe artifacts
-* proof-carrying validation
-
----
-
-# 📦 Installation
-
-```bash
-git clone https://github.com/QSOLKCB/QEC.git
-cd QEC
-pip install -e .
-```
-
----
-
-# 📜 Engineering Laws
-
-* Same input = same bytes
-* Replay is law
-* Proofs beat vibes
-* Decoder core is sacred
-
----
-
-# 📚 References
-
-- **Deterministic Runtime Optimization and Formal Invariant Validation**  
-  https://doi.org/10.5281/zenodo.19062692  
-
-- **Invariant-Driven Computation Elimination**  
-  https://doi.org/10.5281/zenodo.19102390  
-
-- **Deterministic Redundancy Elimination**  
-  https://doi.org/10.5281/zenodo.19099503  
-
-- **Dark-State Invariants**  
-  https://doi.org/10.5281/zenodo.19104208  
-
----
-
-## 📄 Registered Research Artifact
+🔒 Determinism Guarantees
+no randomness
+canonical JSON
+SHA-256 hashing
+replay-safe artifacts
+proof-carrying validation
+📜 Engineering Laws
+Same input = same bytes
+Replay is law
+Proofs beat vibes
+Consensus must be deterministic
+Decoder core is sacred
+📚 References
+Deterministic Runtime Optimization and Formal Invariant Validation
+https://doi.org/10.5281/zenodo.19062692
+Invariant-Driven Computation Elimination
+https://doi.org/10.5281/zenodo.19102390
+Deterministic Redundancy Elimination
+https://doi.org/10.5281/zenodo.19099503
+Dark-State Invariants
+https://doi.org/10.5281/zenodo.19104208
+📄 Registered Research Artifact
 
 Deterministic Proof-Carrying Runtime Elimination (v138.6.x)
 https://osf.io/sjk7b
 
----
-
-## 📄 Papers
+📄 Papers
 
 https://github.com/QSOLKCB/QEC/tree/main/papers
 
----
-
-# 👤 Author
+👤 Author
 
 Trent Slade
 ORCID: https://orcid.org/0009-0002-4515-9237

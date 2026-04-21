@@ -218,15 +218,15 @@ Purpose:
 
 runtime switching across code families.
 
-Planned:
+- v138.9.4 — Multi-Code Bridge
 
-v138.9.0 — Surface / qLDPC Selector
-v138.9.1 — Ternary + Surface Migration Engine
-v138.9.2 — Multi-Code Orchestration Benchmark
-v138.9.3 — Dynamic Code Policy Kernel
-v138.9.4 — Multi-Code Bridge
-DISTRIBUTED FRONTIER EPOCHS
-v139.x — Distributed Deterministic Consensus Runtime
+---
+
+# DISTRIBUTED FRONTIER EPOCHS
+
+---
+
+## v139.x — Distributed Deterministic Consensus Runtime
 
 Purpose:
 
@@ -234,14 +234,78 @@ multi-node replay-safe execution.
 
 Planned:
 
-state synchronization
-replay log consensus
-byzantine-safe proof aggregation
+- v139.0 — Distributed State Synchronization Bus
+- v139.1 — Replay Log Consensus Layer
+- v139.2 — Byzantine-Safe Proof Consensus
+- v139.3 — Cross-Node Recovery Runtime
+- v139.4 — Distributed Proof Aggregation
+
+---
+
+# DISTRIBUTED FRONTIER EPOCHS
+
+---
+
+## v139.x — Distributed Deterministic Consensus Runtime
+
+Purpose:
+
+multi-node replay-safe execution.
+
+Planned:
+
+- v139.0 — Distributed State Synchronization Bus  
+- v139.1 — Replay Log Consensus Layer  
+- v139.2 — Byzantine-Safe Proof Consensus  
+- v139.3 — Cross-Node Recovery Runtime  
+- v139.4 — Distributed Proof Aggregation  
+
+Canonical model:
+
+```text
+local state
+→ synchronization bus
+→ replay-log alignment
+→ consensus formation
+→ proof aggregation
+→ global deterministic state
+
+Constraints:
+
+deterministic consensus only (no probabilistic finality)
+replay identity must match across all nodes
+invariant preservation across distributed state transitions
+bounded convergence time
 v140.x — Bounded Feedback Hardware Control Mesh
 
 Purpose:
 
 distributed hardware control truth.
+
+Planned:
+
+v140.0 — Adaptive Thermal Control Kernel
+v140.1 — Latency Stabilization Loop
+v140.2 — Distributed Timing Mesh
+v140.3 — Power-Aware Control Modulation
+v140.4 — Hardware Feedback Consensus Bridge
+
+Canonical model:
+
+hardware signals
+→ distributed sensing
+→ bounded feedback loops
+→ control signal propagation
+→ cross-node synchronization
+→ stabilized hardware state
+
+Constraints:
+
+no unbounded feedback amplification
+deterministic control response
+latency-aware adjustment only
+hardware-safe modulation limits enforced
+integration with governance + feedback layers (v138.7.x)
 
 v141.x — Constraint-First Autonomous Recovery Runtime
 

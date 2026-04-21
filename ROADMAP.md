@@ -1,3 +1,4 @@
+---
 QSOLKCB / QEC — EXECUTION ROADMAP (v140+)
 CORE LAW (GLOBAL)
 iterative system
@@ -5,6 +6,8 @@ iterative system
 → redundancy elimination
 → convergence control
 → deterministic execution
+
+---
 
 All modules MUST:
 

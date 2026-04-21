@@ -71,6 +71,9 @@ def _validate_scenario(scenario: Mapping[str, Any]) -> dict[str, Any]:
     for node in nodes:
         if not isinstance(node, str):
             raise ValueError("Invalid scenario: 'nodes' must contain only strings")
+    node_set = set(nodes)
+    if len(node_set) != len(nodes):
+        raise ValueError("Invalid scenario: 'nodes' must contain unique node identifiers")
 
     edges = scenario.get("edges")
     if not isinstance(edges, Sequence) or isinstance(edges, (str, bytes)):
@@ -84,7 +87,11 @@ def _validate_scenario(scenario: Mapping[str, Any]) -> dict[str, Any]:
             or not isinstance(edge[1], str)
         ):
             raise ValueError("Invalid scenario: 'edges' must contain only (str, str) tuples")
+        if edge[0] not in node_set or edge[1] not in node_set:
+            raise ValueError("Invalid scenario: all edge endpoints must be present in 'nodes'")
         normalized_edges.append((edge[0], edge[1]))
+    if len(set(normalized_edges)) != len(normalized_edges):
+        raise ValueError("Invalid scenario: 'edges' must not contain duplicates")
 
     node_weights_raw = scenario.get("node_weights", {})
     if node_weights_raw is None:
@@ -102,6 +109,8 @@ def _validate_scenario(scenario: Mapping[str, Any]) -> dict[str, Any]:
     for k, v in node_weights_raw.items():
         if not isinstance(k, str):
             raise ValueError("Invalid scenario: 'node_weights' keys must be strings")
+        if k not in node_set:
+            raise ValueError("Invalid scenario: 'node_weights' keys must match declared nodes")
         if not _is_valid_number(v):
             raise ValueError("Invalid scenario: 'node_weights' values must be finite numeric values")
         node_weights[k] = float(v)
@@ -123,11 +132,8 @@ def _validate_scenario(scenario: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def classify_noise_regime(scenario: Mapping[str, Any], config: Mapping[str, Any]) -> str:
+def classify_noise_regime(normalized: Mapping[str, Any], parsed_config: Mapping[str, float]) -> str:
     """Classify a scenario into S1/S2/S3 by total load vs thresholds."""
-    parsed_config = _validate_config(config)
-    normalized = _validate_scenario(scenario)
-
     total_load = len(normalized["nodes"]) + len(normalized["edges"])
     if total_load <= parsed_config["stable_threshold"]:
         return "S1"
@@ -158,11 +164,8 @@ def apply_su3_correlated_noise(
         local_factor = 1.0 - (parsed_config["local_contrast_noise_scale"] * 0.25)
         drift_factor = 1.0 - (parsed_config["global_drift_noise_scale"] * 0.5)
 
-    nodes_sorted = sorted(normalized["nodes"])
-    edges_sorted = sorted(normalized["edges"])
-
     node_weights_out: dict[str, float] = {}
-    for node in nodes_sorted:
+    for node in normalized["nodes"]:
         base = normalized["node_weights"].get(node, 1.0)
         computed = base * local_factor * drift_factor
         if not math.isfinite(computed):
@@ -170,7 +173,7 @@ def apply_su3_correlated_noise(
         node_weights_out[node] = round(max(0.0, computed), _ROUND)
 
     edge_weights_out: dict[str, float] = {}
-    for edge in edges_sorted:
+    for edge in normalized["edges"]:
         key = _edge_key(edge)
         base = normalized["edge_weights"].get(key, 1.0)
         computed = base * local_factor * drift_factor
@@ -181,8 +184,8 @@ def apply_su3_correlated_noise(
     return {
         "id": normalized["id"],
         "regime": regime,
-        "nodes": nodes_sorted,
-        "edges": edges_sorted,
+        "nodes": normalized["nodes"],
+        "edges": normalized["edges"],
         "node_weights": node_weights_out,
         "edge_weights": edge_weights_out,
     }
@@ -213,13 +216,13 @@ def run_correlated_noise_simulation(
     for scenario in ordered:
         perturbed = apply_su3_correlated_noise(scenario, parsed_config)
 
-        for node in sorted(scenario["nodes"]):
+        for node in scenario["nodes"]:
             base = scenario["node_weights"].get(node, 1.0)
             p = perturbed["node_weights"][node]
             node_weights_all.append(float(p))
             node_deltas_all.append(float(base) - float(p))
 
-        for edge in sorted(scenario["edges"]):
+        for edge in scenario["edges"]:
             key = _edge_key(edge)
             base = scenario["edge_weights"].get(key, 1.0)
             p = perturbed["edge_weights"][key]

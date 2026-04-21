@@ -3,18 +3,14 @@
 from __future__ import annotations
 
 import math
-import os
-import sys
 
 import pytest
-
-_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _repo_root not in sys.path:
-    sys.path.insert(0, _repo_root)
 
 from qec.analysis.correlated_noise_simulator import (
     apply_su3_correlated_noise,
     classify_noise_regime,
+    _validate_config,
+    _validate_scenario,
     run_correlated_noise_simulation,
 )
 
@@ -48,9 +44,10 @@ def test_regime_classification_s1_s2_s3():
         "nodes": ["a", "b", "c", "d"],
         "edges": [("a", "b"), ("b", "c"), ("c", "d")],
     }  # load=7 >= 6
-    assert classify_noise_regime(s1, cfg) == "S1"
-    assert classify_noise_regime(s2, cfg) == "S2"
-    assert classify_noise_regime(s3, cfg) == "S3"
+    parsed = _validate_config(cfg)
+    assert classify_noise_regime(_validate_scenario(s1), parsed) == "S1"
+    assert classify_noise_regime(_validate_scenario(s2), parsed) == "S2"
+    assert classify_noise_regime(_validate_scenario(s3), parsed) == "S3"
 
 
 def test_simple_noise_application_exact_expected_values():
@@ -116,7 +113,40 @@ def test_invalid_config_raises_value_error():
     }
     scenario = {"id": "s", "nodes": ["n"], "edges": []}
     with pytest.raises(ValueError, match="must be >= 0"):
-        classify_noise_regime(scenario, bad_cfg)
+        apply_su3_correlated_noise(scenario, bad_cfg)
+
+
+@pytest.mark.parametrize(
+    ("scenario", "error_match"),
+    [
+        (
+            {"id": "dup_nodes", "nodes": ["a", "a"], "edges": []},
+            "must contain unique node identifiers",
+        ),
+        (
+            {"id": "bad_edge_endpoint", "nodes": ["a"], "edges": [("a", "b")]},
+            "all edge endpoints must be present in 'nodes'",
+        ),
+        (
+            {
+                "id": "bad_node_weight_key",
+                "nodes": ["a"],
+                "edges": [],
+                "node_weights": {"b": 1.0},
+            },
+            "keys must match declared nodes",
+        ),
+        (
+            {"id": "dup_edges", "nodes": ["a", "b"], "edges": [("a", "b"), ("a", "b")]},
+            "must not contain duplicates",
+        ),
+    ],
+)
+def test_scenario_validation_rejects_invalid_duplicates_and_keys(
+    scenario: dict[str, object], error_match: str
+):
+    with pytest.raises(ValueError, match=error_match):
+        _validate_scenario(scenario)
 
 
 def test_aggregate_metrics_expected_values():

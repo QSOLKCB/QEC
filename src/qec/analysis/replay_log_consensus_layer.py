@@ -86,8 +86,7 @@ class ReplayLogEntry:
     deterministic_order_key: str
 
     def __post_init__(self) -> None:
-        if _require_non_negative_int(self.sequence_index, "sequence_index") < 0:
-            raise ValueError("sequence_index must be >= 0")
+        _require_non_negative_int(self.sequence_index, "sequence_index")
         _require_non_empty_str(self.event_type, "event_type")
         _require_non_empty_str(self.deterministic_order_key, "deterministic_order_key")
         for field_name in ("event_hash", "replay_identity", "payload_hash"):

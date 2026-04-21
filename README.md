@@ -361,26 +361,38 @@ state_t + action → next_state + proof
 - Consensus must be deterministic  
 - Decoder core is sacred  
 
+---
 
-📚 References
-Deterministic Runtime Optimization and Formal Invariant Validation
-https://doi.org/10.5281/zenodo.19062692
-Invariant-Driven Computation Elimination
-https://doi.org/10.5281/zenodo.19102390
-Deterministic Redundancy Elimination
-https://doi.org/10.5281/zenodo.19099503
-Dark-State Invariants
-https://doi.org/10.5281/zenodo.19104208
-📄 Registered Research Artifact
+## 📚 References
 
-Deterministic Proof-Carrying Runtime Elimination (v138.6.x)
-https://osf.io/sjk7b
+- **Deterministic Runtime Optimization and Formal Invariant Validation**  
+  https://doi.org/10.5281/zenodo.19062692  
 
-📄 Papers
+- **Invariant-Driven Computation Elimination**  
+  https://doi.org/10.5281/zenodo.19102390  
 
-https://github.com/QSOLKCB/QEC/tree/main/papers
+- **Deterministic Redundancy Elimination**  
+  https://doi.org/10.5281/zenodo.19099503  
 
-👤 Author
+- **Dark-State Invariants**  
+  https://doi.org/10.5281/zenodo.19104208  
 
-Trent Slade
-ORCID: https://orcid.org/0009-0002-4515-9237
+---
+
+## 📄 Registered Research Artifact
+
+Deterministic Proof-Carrying Runtime Elimination (v138.6.x)  
+https://osf.io/sjk7b  
+
+---
+
+## 📄 Papers
+
+https://github.com/QSOLKCB/QEC/tree/main/papers  
+
+---
+
+## 👤 Author
+
+Trent Slade  
+ORCID: https://orcid.org/0009-0002-4515-9237  

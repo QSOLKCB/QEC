@@ -611,7 +611,7 @@ def _build_rationale(
     if all(status.state_hash_aligned for status in node_statuses):
         out.append("state hash alignment satisfied")
     else:
-        out.append("state hash mismatch blocks cluster readiness")
+        out.append("state hash mismatch detected")
 
     if all(status.loss_delta_ok for status in node_statuses):
         out.append("projected loss delta within policy bounds")

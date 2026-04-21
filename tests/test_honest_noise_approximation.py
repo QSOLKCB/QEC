@@ -5,6 +5,9 @@ from __future__ import annotations
 import pytest
 
 from qec.analysis.honest_noise_approximation import (
+    _project_to_honest_noise_validated,
+    _validate_config,
+    _validate_noisy_result,
     project_to_honest_noise,
     run_honest_noise_projection,
 )
@@ -81,7 +84,7 @@ def test_contraction_behavior_scales_weights_correctly():
     assert out["edge_weights"]["a->b"] == 0.2
 
 
-def test_normalization_behavior_scales_set_when_mean_exceeds_max():
+def test_projection_no_normalization_path_needed():
     config = {
         "max_node_weight": 1.0,
         "max_edge_weight": 1.0,
@@ -98,10 +101,35 @@ def test_normalization_behavior_scales_set_when_mean_exceeds_max():
     }
 
     out = project_to_honest_noise(noisy, config)
-    # Nodes clamp to [1.0, 1.0], mean already == max -> unchanged.
     assert out["node_weights"] == {"a": 1.0, "b": 1.0}
-    # Edges clamp to [1.0, 1.0], mean == max -> unchanged bounded outputs.
     assert out["edge_weights"] == {"a->b": 1.0, "b->a": 1.0}
+
+
+def test_edge_key_collision_inputs_do_not_corrupt_edge_outputs():
+    config = _base_config()
+    noisy = {
+        "id": "collision",
+        "regime": "S1",
+        "nodes": ["a", "a->b", "b->c", "c"],
+        "edges": [("a", "b->c"), ("a->b", "c")],
+        "node_weights": {"a": 1.0, "a->b": 1.0, "b->c": 1.0, "c": 1.0},
+        "edge_weights": {"a->b->c": 0.7},
+    }
+
+    with pytest.raises(ValueError, match="edge_weights"):
+        project_to_honest_noise(noisy, config)
+
+
+def test_validated_runner_helper_matches_public_api_results():
+    config = _base_config()
+    scenario = _base_noisy_result()
+    normalized = _validate_noisy_result(scenario)
+    parsed = _validate_config(config)
+
+    via_api = project_to_honest_noise(scenario, config)
+    via_validated = _project_to_honest_noise_validated(normalized, parsed)
+
+    assert via_validated == via_api
 
 
 def test_deterministic_replay_and_aggregate_metrics():

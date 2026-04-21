@@ -6,7 +6,6 @@ admissible, bounded, comparable, and deterministic representations.
 Pipeline (per weight):
 1) clamp
 2) contract
-3) optional normalization
 """
 
 from __future__ import annotations
@@ -22,6 +21,7 @@ _REQUIRED_CONFIG_KEYS = (
     "min_weight",
     "contraction_factor",
 )
+Edge = tuple[str, str]
 
 
 def _is_valid_number(value: Any) -> bool:
@@ -93,7 +93,7 @@ def _validate_noisy_result(noisy_result: Mapping[str, Any]) -> dict[str, Any]:
     edges_raw = noisy_result.get("edges")
     if not isinstance(edges_raw, Sequence) or isinstance(edges_raw, (str, bytes)):
         raise ValueError("Invalid noisy_result: 'edges' must be a sequence of (src, dst) tuples")
-    edges: list[tuple[str, str]] = []
+    edges: list[Edge] = []
     for edge in edges_raw:
         if (
             not isinstance(edge, tuple)
@@ -116,7 +116,9 @@ def _validate_noisy_result(noisy_result: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(edge_weights_raw, Mapping):
         raise ValueError("Invalid noisy_result: 'edge_weights' must be a mapping")
 
-    edge_key_to_tuple: dict[str, tuple[str, str]] = {f"{u}->{v}": (u, v) for (u, v) in edges}
+    edge_key_to_tuple: dict[str, Edge] = {_edge_key(edge): edge for edge in edges}
+    if len(edge_key_to_tuple) != len(edges):
+        raise ValueError("Invalid noisy_result: 'edges' produce ambiguous edge_weights keys")
 
     node_weights: dict[str, float] = {}
     for key, value in node_weights_raw.items():
@@ -126,7 +128,7 @@ def _validate_noisy_result(noisy_result: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError("Invalid noisy_result: 'node_weights' values must be finite numeric values")
         node_weights[key] = float(value)
 
-    edge_weights: dict[str, float] = {}
+    edge_weights: dict[Edge, float] = {}
     for key, value in edge_weights_raw.items():
         if not isinstance(key, str):
             raise ValueError("Invalid noisy_result: 'edge_weights' keys must be strings")
@@ -134,7 +136,7 @@ def _validate_noisy_result(noisy_result: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError("Invalid noisy_result: 'edge_weights' keys must match declared edges")
         if not _is_valid_number(value):
             raise ValueError("Invalid noisy_result: 'edge_weights' values must be finite numeric values")
-        edge_weights[key] = float(value)
+        edge_weights[edge_key_to_tuple[key]] = float(value)
 
     return {
         "id": scenario_id,
@@ -152,19 +154,17 @@ def _project_weight(raw: float, min_weight: float, max_weight: float, contractio
     return contracted
 
 
-def _normalize_if_needed(weights: dict[str, float], max_weight: float) -> dict[str, float]:
-    if not weights:
-        return {}
-    mean_weight = float(sum(weights.values()) / len(weights))
-    if mean_weight <= max_weight:
-        return weights
-    scale = max_weight / mean_weight
-    return {key: value * scale for key, value in weights.items()}
+def _edge_key(edge: Edge) -> str:
+    return f"{edge[0]}->{edge[1]}"
 
 
-def _finalize_weights(weights: dict[str, float], min_weight: float, max_weight: float) -> dict[str, float]:
+def _ordered_edges(edges: Sequence[Edge]) -> list[Edge]:
+    return sorted(edges, key=lambda pair: (pair[0], pair[1]))
+
+
+def _finalize_weights(weights: Mapping[str, float], ordered_keys: Sequence[str], min_weight: float, max_weight: float) -> dict[str, float]:
     out: dict[str, float] = {}
-    for key in sorted(weights):
+    for key in ordered_keys:
         bounded = min(max(weights[key], min_weight), max_weight)
         if not math.isfinite(bounded):
             raise ValueError("Invalid computed weight: non-finite projected weight encountered")
@@ -172,13 +172,34 @@ def _finalize_weights(weights: dict[str, float], min_weight: float, max_weight: 
     return out
 
 
-def project_to_honest_noise(noisy_result: Mapping[str, Any], config: Mapping[str, Any]) -> dict[str, Any]:
-    """Project one noisy result into bounded and deterministic honest-noise space."""
-    parsed_config = _validate_config(config)
-    normalized = _validate_noisy_result(noisy_result)
+def _finalize_edge_weights(
+    weights: Mapping[Edge, float],
+    ordered_edges: Sequence[Edge],
+    min_weight: float,
+    max_weight: float,
+) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for edge in ordered_edges:
+        bounded = min(max(weights[edge], min_weight), max_weight)
+        if not math.isfinite(bounded):
+            raise ValueError("Invalid computed weight: non-finite projected weight encountered")
+        out[_edge_key(edge)] = round(bounded, _ROUND)
+    return out
 
+
+def _project_to_honest_noise_validated(
+    normalized: Mapping[str, Any],
+    parsed_config: Mapping[str, float],
+    *,
+    ordered_nodes: Sequence[str] | None = None,
+    ordered_edges: Sequence[Edge] | None = None,
+) -> dict[str, Any]:
+    if ordered_nodes is None:
+        ordered_nodes = sorted(normalized["nodes"])
+    if ordered_edges is None:
+        ordered_edges = _ordered_edges(normalized["edges"])
     node_projected: dict[str, float] = {}
-    for node in sorted(normalized["nodes"]):
+    for node in ordered_nodes:
         base = normalized["node_weights"].get(node, 1.0)
         node_projected[node] = _project_weight(
             base,
@@ -187,22 +208,28 @@ def project_to_honest_noise(noisy_result: Mapping[str, Any], config: Mapping[str
             parsed_config["contraction_factor"],
         )
 
-    edge_projected: dict[str, float] = {}
-    for edge in sorted(normalized["edges"], key=lambda pair: (pair[0], pair[1])):
-        key = f"{edge[0]}->{edge[1]}"
-        base = normalized["edge_weights"].get(key, 1.0)
-        edge_projected[key] = _project_weight(
+    edge_projected: dict[Edge, float] = {}
+    for edge in ordered_edges:
+        base = normalized["edge_weights"].get(edge, 1.0)
+        edge_projected[edge] = _project_weight(
             base,
             parsed_config["min_weight"],
             parsed_config["max_edge_weight"],
             parsed_config["contraction_factor"],
         )
 
-    node_normalized = _normalize_if_needed(node_projected, parsed_config["max_node_weight"])
-    edge_normalized = _normalize_if_needed(edge_projected, parsed_config["max_edge_weight"])
-
-    node_out = _finalize_weights(node_normalized, parsed_config["min_weight"], parsed_config["max_node_weight"])
-    edge_out = _finalize_weights(edge_normalized, parsed_config["min_weight"], parsed_config["max_edge_weight"])
+    node_out = _finalize_weights(
+        node_projected,
+        ordered_nodes,
+        parsed_config["min_weight"],
+        parsed_config["max_node_weight"],
+    )
+    edge_out = _finalize_edge_weights(
+        edge_projected,
+        ordered_edges,
+        parsed_config["min_weight"],
+        parsed_config["max_edge_weight"],
+    )
 
     return {
         "id": normalized["id"],
@@ -214,12 +241,19 @@ def project_to_honest_noise(noisy_result: Mapping[str, Any], config: Mapping[str
     }
 
 
+def project_to_honest_noise(noisy_result: Mapping[str, Any], config: Mapping[str, Any]) -> dict[str, Any]:
+    """Project one noisy result into bounded and deterministic honest-noise space."""
+    parsed_config = _validate_config(config)
+    normalized = _validate_noisy_result(noisy_result)
+    return _project_to_honest_noise_validated(normalized, parsed_config)
+
+
 def run_honest_noise_projection(
     scenarios: Sequence[Mapping[str, Any]],
     config: Mapping[str, Any],
 ) -> dict[str, float]:
     """Run deterministic aggregate projection across scenarios."""
-    _validate_config(config)
+    parsed_config = _validate_config(config)
     normalized_scenarios = list(scenarios)
     if not normalized_scenarios:
         raise ValueError("Invalid scenarios: scenarios must be a non-empty sequence")
@@ -237,18 +271,25 @@ def run_honest_noise_projection(
     edge_adjustments_all: list[float] = []
 
     for scenario in ordered:
-        projected = project_to_honest_noise(scenario, config)
+        ordered_nodes = sorted(scenario["nodes"])
+        ordered_edges = _ordered_edges(scenario["edges"])
+        projected = _project_to_honest_noise_validated(
+            scenario,
+            parsed_config,
+            ordered_nodes=ordered_nodes,
+            ordered_edges=ordered_edges,
+        )
 
-        for node in sorted(scenario["nodes"]):
+        for node in ordered_nodes:
             key = str(node)
             base = float(scenario["node_weights"].get(key, 1.0))
             out = float(projected["node_weights"][key])
             node_weights_all.append(out)
             node_adjustments_all.append(out - base)
 
-        for edge in sorted(scenario["edges"], key=lambda pair: (pair[0], pair[1])):
-            key = f"{edge[0]}->{edge[1]}"
-            base = float(scenario["edge_weights"].get(key, 1.0))
+        for edge in ordered_edges:
+            key = _edge_key(edge)
+            base = float(scenario["edge_weights"].get(edge, 1.0))
             out = float(projected["edge_weights"][key])
             edge_weights_all.append(out)
             edge_adjustments_all.append(out - base)

@@ -50,9 +50,17 @@ def _validated_config(config: Mapping[str, float]) -> tuple[float, float, float]
 def _validated_status(governance_result: Mapping[str, Any]) -> str:
     if not isinstance(governance_result, Mapping):
         raise ValueError("governance_result must be mapping-like")
-    status = governance_result.get("status")
+
+    if "status" not in governance_result:
+        raise ValueError("governance_result must include a 'status' field")
+
+    status = governance_result["status"]
+    if status is None:
+        raise ValueError("governance_result status must not be None")
+
     if status not in _VALID_STATUSES:
         raise ValueError("governance_result status must be one of: PASS, WARN, FAIL")
+
     return str(status)
 
 

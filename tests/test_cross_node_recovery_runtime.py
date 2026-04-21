@@ -106,10 +106,15 @@ def test_proof_only_recovery_path() -> None:
 
 def test_full_rejoin_classification() -> None:
     receipt = run_cross_node_recovery_runtime(
-        (_node("n1"), _node("n2", sync_confidence=0.2, replay_confidence=0.2), _node("n3")),
+        (_node("n1"), _node("n2", sync_confidence=0.2), _node("n3")),
         _policy(allow_partial_cluster_recovery=True),
     )
-    assert _status(receipt, "n2").requires_full_rejoin is True
+    status = _status(receipt, "n2")
+    assert status.requires_full_rejoin is True
+    assert any(
+        action.action_type == "rejoin_node" and action.target_node_id == "n2"
+        for action in receipt.recovery_actions
+    )
 
 
 def test_role_mixing_allowed_vs_blocked() -> None:
@@ -184,7 +189,7 @@ def test_deterministic_rationale_ordering() -> None:
     receipt = run_cross_node_recovery_runtime((_node("n1"), _node("n2")), _policy())
     assert receipt.rationale == (
         "reference recovery node selected deterministically",
-        "sync admissibility satisfies policy",
+        "at least one node reports sync ok",
         "cross-node recovery ready",
     )
 

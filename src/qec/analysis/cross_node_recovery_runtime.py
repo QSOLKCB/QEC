@@ -631,7 +631,7 @@ def _build_actions(
             )
 
     for status in statuses:
-        if status.recoverable:
+        if status.requires_full_rejoin:
             actions.append(
                 RecoveryAction(
                     action_index=0,
@@ -640,7 +640,7 @@ def _build_actions(
                     target_node_id=status.node_id,
                     blocking=False,
                     ready=True,
-                    detail="node eligible for deterministic rejoin",
+                    detail="node requires deterministic full rejoin",
                 )
             )
 
@@ -713,9 +713,14 @@ def run_cross_node_recovery_runtime(
 
     if policy.allow_partial_cluster_recovery:
         plan_exists = any(s.recoverable or s.requires_replay_recovery or s.requires_proof_recovery for s in statuses)
-        recovery_ready = structurally_consistent and reference_status.admissible and any(s.recoverable for s in statuses) and plan_exists
+        recovery_ready = (
+            structurally_consistent
+            and reference_status.recoverable
+            and any(s.recoverable for s in statuses)
+            and plan_exists
+        )
     else:
-        recovery_ready = structurally_consistent and reference_status.admissible and all(s.recoverable for s in statuses)
+        recovery_ready = structurally_consistent and reference_status.recoverable and all(s.recoverable for s in statuses)
 
     actions = _build_actions(statuses, reference.node_id, recovery_ready)
     rationale = _build_rationale(statuses, policy, recovery_ready)

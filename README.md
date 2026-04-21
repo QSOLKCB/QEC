@@ -1,8 +1,6 @@
-# QSOLKCB / QEC
-
-### Deterministic Quantum Error Correction • Replay-Safe Systems • Covenant Runtime • Formal Methods
-
-### Rust TUI Operator Console • Formal Replay Lineage • Proof-Carrying Governance • Deterministic Smart Contracts
+#QSOLKCB / QEC
+##Deterministic Quantum Error Correction • Replay-Safe Systems • Covenant Runtime • Formal Methods
+###Rust TUI Operator Console • Formal Replay Lineage • Proof-Carrying Governance • Deterministic Smart Contracts
 
 ---
 

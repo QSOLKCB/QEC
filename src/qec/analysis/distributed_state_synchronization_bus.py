@@ -678,7 +678,10 @@ def build_distributed_sync_receipt(
     admissible = tuple(status for status in node_statuses if status.admissible)
 
     structural_consistency = all(
-        status.epoch_aligned and status.state_hash_aligned and status.replay_identity_aligned for status in node_statuses
+        status.replay_identity_aligned
+        and (status.epoch_aligned or not policy.require_matching_epoch)
+        and (status.state_hash_aligned or not policy.require_matching_state_hash)
+        for status in node_statuses
     )
 
     required_constraints_ok = True

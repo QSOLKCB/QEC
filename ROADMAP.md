@@ -1,218 +1,305 @@
-# QSOLKCB / QEC ROADMAP
-
-Deterministic Quantum Error Correction  
-→ Invariant-Driven Compute Runtime  
-→ Physics-Aware + Adaptive + Distributed Execution
-
----
-
-# CORE PRINCIPLE
-
-```text
+QSOLKCB / QEC — EXECUTION ROADMAP (v140+)
+CORE LAW (GLOBAL)
 iterative system
 → invariant detection
 → redundancy elimination
 → convergence control
 → deterministic execution
 
-All roadmap arcs are specializations of this law.
+All modules MUST:
 
-v138.x — PHYSICS-AWARE RUNTIME EPOCH
+be deterministic
+be replay-safe
+be bounded
+fail fast on invalid input
+produce canonical artifacts
+SYSTEM TRAJECTORY
+QEC
+→ physics-aware runtime
+→ distributed deterministic system
+→ hardware-aware control system
+→ invariant-driven universal compute engine
+CURRENT STATE
+v139.4 — Distributed Proof Aggregation (COMPLETE)
 
-Purpose:
+System capability:
 
-transition from abstract decoding → physically grounded, structured noise and adaptive control.
+multi-node execution
+→ deterministic agreement
+→ recovery
+→ canonical proof
+NEXT EPOCH
+v140.x — BOUNDED FEEDBACK HARDWARE CONTROL MESH
+PURPOSE
 
-v138.7.x — Machine Learning + Neural Decoder Runtime
+Transform QEC from:
 
-Purpose:
+distributed compute system
 
-physics-aware and hardware-aware decoder augmentation.
+into:
 
-Completed:
-
-v138.7.0 — Deterministic GNN Decoder Kernel
-v138.7.1 — Early Termination via Dark-State Proofs
-v138.7.2 — ML Accuracy + Latency Benchmarks
-v138.7.3 — FPGA / GPU Neural Acceleration
-v138.7.4 — ML Hardware Validation Bridge
-v138.7.4.1 — Validation Hardening
-v138.7.4.2 — Governance Layer
-v138.7.4.3 — Adaptive Feedback (Threshold Control)
-
-Canonical model:
-
-neural inference
-→ invariant detection
-→ early termination
-→ hardware validation
-→ governance feedback
-v138.8.x — Correlated Noise + Noise Tailoring
-
-Purpose:
-
-realistic hardware noise physics.
-
-v138.8.0 — Correlated Noise Simulator (SU(3-native)
-S1 → stable regime
-S2 → perturbation regime
-S3 → relaxation regime
-
-λ3 → local contrast noise
-λ8 → global drift noise
-v138.8.1 — Cluster Expansion Noise Kernel
-noise
-→ pairwise correlations
-→ structured interaction model
-v138.8.2 — Honest Noise Approximation Pack
-raw noise
+distributed hardware-aware control system
+HARDWARE CONTROL LAW (NEW GLOBAL LAW)
+hardware observation
 → admissible projection
-→ bounded + comparable noise
-v138.8.3 — Noise-Tailoring Pulse Runtime
-noise
-→ projection
-→ control signal
-→ mitigation policy
-v138.8.4 — Noise-Tailoring Hardware Bridge
-tailored control
-→ hardware execution
-→ validation feedback
-v138.9.x — Multi-Code Adaptive Runtime
+→ bounded interpretation
+→ deterministic control recommendation
+→ canonical receipt
+HARD CONSTRAINTS
+NO direct hardware actuation
+NO real-time dependency
+NO hidden feedback loops
+ALL feedback must be explicit input
+ALL outputs must be bounded
+ALL decisions must be deterministic
+v140.0 — ADAPTIVE THERMAL CONTROL KERNEL
+PURPOSE
 
-Purpose:
+Establish deterministic thermal truth per node.
 
-dynamic orchestration across heterogeneous QEC codes.
+INPUT
+ThermalNodeSignal[]
 
-Planned:
+policy
+prior_snapshot (optional, explicit)
+MODEL
+temperature
++ drift
++ utilization
+→ thermal pressure
+→ classification
+→ control recommendation
+OUTPUT
+ThermalControlReceipt
+REQUIRED METRICS (ALL BOUNDED [0,1])
+thermal_pressure
+cooling_bias
+workload_derate
+stability_score
+REQUIRED CLASSIFICATION
+hold
+pre_cool
+derate
+critical
+REQUIRED PROPERTIES
+node-level independence
+deterministic ordering
+no cross-node interaction
+no implicit memory
+ROLE IN ARC
+establish local hardware truth
+v140.1 — LATENCY STABILIZATION LOOP
+PURPOSE
 
-v138.9.0 — Surface / qLDPC Selector
-v138.9.1 — Ternary + Surface Migration Engine
-v138.9.2 — Multi-Code Orchestration Benchmark
-v138.9.3 — Dynamic Code Policy Kernel
-v138.9.4 — Multi-Code Bridge
+Introduce temporal stability control.
 
-Canonical model:
+INPUT
+LatencySignal[]
+policy
+previous_latency_snapshot (explicit)
+MODEL
+latency
++ jitter
++ drift
+→ instability detection
+→ feedback correction
+OUTPUT
+LatencyControlReceipt
+REQUIRED METRICS
+jitter_score
+latency_drift
+stabilization_pressure
+correction_strength
+REQUIRED BEHAVIOR
+detect oscillation vs stable drift
+classify instability regime
+recommend correction magnitude
+ROLE IN ARC
+add time-domain control stability
+v140.2 — DISTRIBUTED TIMING MESH
+PURPOSE
 
-code space
-→ selection
-→ migration
-→ policy adaptation
-→ runtime optimization
-DISTRIBUTED FRONTIER EPOCHS
-v139.x — Distributed Deterministic Consensus Runtime
+Synchronize nodes into a deterministic timing fabric.
 
-Purpose:
+INPUT
+node_timing_states
+latency_receipts
+thermal_receipts
+MODEL
+node timing
+→ drift detection
+→ alignment computation
+→ timing correction plan
+OUTPUT
+TimingMeshReceipt
+REQUIRED METRICS
+timing_drift
+alignment_error
+synchronization_confidence
+mesh_stability
+REQUIRED PROPERTIES
+deterministic node ordering
+global alignment computation
+no probabilistic consensus
+ROLE IN ARC
+establish deterministic global clocking layer
+v140.3 — POWER-AWARE CONTROL MODULATION
+PURPOSE
 
-multi-node replay-safe execution.
+Introduce energy-aware control balancing.
 
-Planned:
+INPUT
+power_signals
+thermal_receipts
+timing_receipts
+MODEL
+power load
++ thermal pressure
++ timing stress
+→ modulation decision
+OUTPUT
+PowerControlReceipt
+REQUIRED METRICS
+power_pressure
+load_balance_score
+modulation_strength
+efficiency_score
+REQUIRED BEHAVIOR
+prevent overload hotspots
+rebalance workload recommendations
+maintain bounded system load
+ROLE IN ARC
+add resource-aware control layer
+v140.4 — HARDWARE FEEDBACK CONSENSUS BRIDGE
+PURPOSE
 
-v139.0 — Distributed State Synchronization Bus
-v139.1 — Replay Log Consensus Layer
-v139.2 — Byzantine-Safe Proof Consensus
-v139.3 — Cross-Node Recovery Runtime
-v139.4 — Distributed Proof Aggregation
+Unify all hardware feedback into global deterministic control truth.
 
-Canonical model:
-
-local state
-→ synchronization
-→ consensus
-→ proof aggregation
-→ global deterministic state
-v140.x — Bounded Feedback Hardware Control Mesh
-
-Purpose:
-
-distributed hardware control truth.
-
-Planned:
-
-v140.0 — Adaptive Thermal Control Kernel
-v140.1 — Latency Stabilization Loop
-v140.2 — Distributed Timing Mesh
-v140.3 — Power-Aware Control Modulation
-v140.4 — Hardware Feedback Consensus Bridge
-
-Canonical model:
-
+INPUT
+thermal_receipts
+latency_receipts
+timing_receipts
+power_receipts
+MODEL
+node-level control
+→ cross-node aggregation
+→ conflict resolution
+→ consensus control plan
+OUTPUT
+HardwareConsensusReceipt
+REQUIRED METRICS
+consensus_confidence
+cross_node_variance
+stabilization_score
+conflict_count
+REQUIRED BEHAVIOR
+deterministic aggregation
+resolve conflicting node recommendations
+produce single global control state
+ROLE IN ARC
+establish global hardware control truth
+v140 ARC — FINAL STATE
 hardware signals
-→ feedback loops
-→ distributed control
-→ stabilization
-v141.x — Autonomous Recovery + Self-Healing Runtime
+→ local control truth
+→ temporal stabilization
+→ timing alignment
+→ power balancing
+→ consensus aggregation
+→ global deterministic control
+v141.x — AUTONOMOUS RECOVERY + SELF-HEALING
+PURPOSE
 
-Purpose:
+Move from:
 
-fully autonomous system resilience.
+control recommendation
 
-Planned:
+to:
 
-anomaly detection
-rollback + replay recovery
-adaptive policy correction
-self-healing execution paths
-v142.x — INVARIANT-DRIVEN COMPUTE RUNTIME (IRIS)
+self-correcting system
+CORE MODEL
+anomaly
+→ classification
+→ recovery plan
+→ replay + rollback
+→ adaptive correction
+KEY MODULES
+anomaly detection kernel
+rollback engine
+policy adaptation kernel
+recovery validation receipt
+v142.x — IRIS (INVARIANT RUNTIME)
+PURPOSE
 
-Purpose:
+Generalize QEC into:
 
-generalize QSOL beyond QEC into a universal compute acceleration layer.
-
-Core Abstraction (IRS)
+universal invariant-driven compute acceleration engine
+CORE ABSTRACTION
 S → state space
 O → operator
-μ → convergence metric
-τ → termination threshold
 I → invariant set
 Φ → equivalence classes
-T → dependency graph
-Canonical IRIS Model
+μ → convergence metric
+τ → termination threshold
+CANONICAL MODEL
 iterative system
-→ invariant detector
-→ redundancy eliminator
-→ convergence controller
-→ deterministic executor
-v142.x Planned
-v142.0 — Iterative System Abstraction Layer
+→ invariant detection
+→ redundancy elimination
+→ convergence control
+→ deterministic execution
+IMPLEMENTATION PATH
+v142.0 — Iterative System Abstraction
+
+Wrap arbitrary systems:
+
+QEC
+ML
+simulators
 v142.1 — Generalized Invariant Detector
-v142.2 — Cross-Domain Convergence Engine
-v142.3 — Deterministic Execution Wrapper (ML + Simulators)
-v142.4 — World Model Acceleration Benchmarks
-IRIS Runtime Layers
-Layer 1 — Operator Interception
-Layer 2 — Invariant Detection
-Layer 3 — Redundancy Elimination
-Layer 4 — Proof-Carrying Infrastructure
-Layer 5 — Adaptive Control + Governance
-Domain Mapping
-QEC → dark-state detection
-Physics → equilibrium detection
-Diffusion → denoising convergence
-Transformers → attention stabilization
-GNNs → message-passing convergence
-World models → latent trajectory stabilization
+
+Detect:
+
+fixed points
+cycles
+symmetry classes
+v142.2 — Convergence Engine
+detect convergence regimes
+accelerate termination
+v142.3 — Deterministic Execution Wrapper
+enforce replay-safe execution
+standardize outputs
+v142.4 — Cross-Domain Benchmarks
+
+Apply to:
+
+transformers
+diffusion
+GNNs
+physics simulators
+UNIFIED EXECUTION FLOW (FINAL FORM)
+system
+→ iterative updates
+→ invariant detection
+→ redundancy elimination
+→ convergence acceleration
+→ control synthesis
+→ hardware validation
+→ distributed consensus
+→ stabilization
+→ deterministic output
 STRATEGIC POSITION
-
-QSOL is NOT:
-
-a simulator
-a decoder library
-a toolkit
 
 QSOL is:
 
 deterministic runtime
-+ invariant-driven compute reduction
++ invariant-driven compute reduction engine
 + adaptive control system
-UNIFIED EXECUTION FLOW
-system (QEC / ML / physics)
-→ iterative updates
-→ invariant detection
-→ skip redundant compute
-→ convergence acceleration
-→ deterministic output
-END STATE
-QEC runtime
-→ physics-aware system
-→ distributed deterministic engine
-→ universal compute accelerator
++ hardware-aware execution layer
++ universal compute accelerator
+FINAL NOTE
+
+This roadmap defines a strict progression:
+
+v139 → distributed agreement
+v140 → hardware control
+v141 → self-healing
+v142 → universal compute runtime

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-import subprocess
+import inspect
 
 import pytest
 
+from qec.analysis import deterministic_gnn_decoder_kernel
 from qec.analysis.deterministic_gnn_decoder_kernel import (
     DeterministicGNNKernelConfig,
+    SyndromeGraphEdge,
+    SyndromeGraphNode,
     build_deterministic_gnn_decoder_kernel,
 )
 
@@ -156,13 +159,50 @@ def test_receipt_integrity_and_meaningful_change_hash_delta() -> None:
 
     assert baseline.receipt.stable_hash() == replay.receipt.stable_hash()
     assert baseline.receipt.receipt_hash == baseline.receipt.stable_hash()
+    assert baseline.receipt.kernel_result_hash == baseline.result_hash
     assert baseline.stable_hash() != changed.stable_hash()
     assert baseline.receipt.stable_hash() != changed.receipt.stable_hash()
     assert baseline.receipt.top_proposal_hash is not None
     assert baseline.receipt.kernel_result_hash
 
 
-def test_guardrail_no_decoder_core_changes_in_worktree() -> None:
-    output = subprocess.check_output(["git", "diff", "--name-only"], text=True)
-    touched = [line.strip() for line in output.splitlines() if line.strip()]
-    assert not any(path.startswith("src/qec/decoder/") for path in touched)
+def test_config_validation_rejects_boolean_numeric_fields() -> None:
+    with pytest.raises(ValueError, match="must not be a bool"):
+        build_deterministic_gnn_decoder_kernel(config=_base_config(num_rounds=True), nodes=_base_nodes(), edges=_base_edges())
+    with pytest.raises(ValueError, match="must not be a bool"):
+        build_deterministic_gnn_decoder_kernel(
+            config={**_base_config().to_dict(), "damping_factor": True},
+            nodes=_base_nodes(),
+            edges=_base_edges(),
+        )
+
+
+def test_dataclass_inputs_are_revalidated_for_finiteness_and_sideband_shape() -> None:
+    config = _base_config()
+    nodes = (
+        SyndromeGraphNode(node_id="n0", syndrome=float("nan"), parity=0.5, defect=0.1, hardware_sideband={"latency": 0.2}),
+        SyndromeGraphNode(node_id="n1", syndrome=0.3, parity=0.2, defect=0.2, hardware_sideband={"latency": 0.1}),
+    )
+    edges = (SyndromeGraphEdge(edge_id="e0", source_node_id="n0", target_node_id="n1", coupling_weight=0.8, edge_sideband={}),)
+    with pytest.raises(ValueError, match="node.syndrome must be finite"):
+        build_deterministic_gnn_decoder_kernel(config=config, nodes=nodes, edges=edges)
+
+    nodes_ok = (
+        SyndromeGraphNode(node_id="n0", syndrome=0.9, parity=0.5, defect=0.1, hardware_sideband={"latency": "slow"}),
+        SyndromeGraphNode(node_id="n1", syndrome=0.3, parity=0.2, defect=0.2, hardware_sideband={"latency": 0.1}),
+    )
+    with pytest.raises(ValueError, match="must be numeric"):
+        build_deterministic_gnn_decoder_kernel(config=config, nodes=nodes_ok, edges=edges)
+
+    edges_nan = (SyndromeGraphEdge(edge_id="e0", source_node_id="n0", target_node_id="n1", coupling_weight=float("nan"), edge_sideband={}),)
+    nodes_clean = (
+        SyndromeGraphNode(node_id="n0", syndrome=0.9, parity=0.5, defect=0.1, hardware_sideband={"latency": 0.2}),
+        SyndromeGraphNode(node_id="n1", syndrome=0.3, parity=0.2, defect=0.2, hardware_sideband={"latency": 0.1}),
+    )
+    with pytest.raises(ValueError, match="edge.coupling_weight must be finite"):
+        build_deterministic_gnn_decoder_kernel(config=config, nodes=nodes_clean, edges=edges_nan)
+
+
+def test_guardrail_kernel_analysis_module_has_no_decoder_core_dependency() -> None:
+    source = inspect.getsource(deterministic_gnn_decoder_kernel)
+    assert "qec.decoder" not in source

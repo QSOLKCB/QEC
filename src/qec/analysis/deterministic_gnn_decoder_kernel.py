@@ -77,12 +77,40 @@ def _immutable_mapping(mapping: Mapping[str, Any]) -> Mapping[str, _JSONValue]:
     return types.MappingProxyType(canonical)
 
 
-def _validate_finite_number(value: Any, *, field_name: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise DeterministicGNNKernelError(f"{field_name} must be numeric")
-    number = float(value)
+def _validate_finite_number(
+    value: Any,
+    *,
+    field_name: str,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> float:
+    if isinstance(value, bool):
+        raise DeterministicGNNKernelError(f"{field_name} must not be a bool")
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise DeterministicGNNKernelError(f"{field_name} must be numeric") from exc
     if not math.isfinite(number):
         raise DeterministicGNNKernelError(f"{field_name} must be finite")
+    if minimum is not None and number < minimum:
+        raise DeterministicGNNKernelError(f"{field_name} must be >= {minimum}")
+    if maximum is not None and number > maximum:
+        raise DeterministicGNNKernelError(f"{field_name} must be <= {maximum}")
+    return number
+
+
+def _validate_int_config_value(value: Any, *, field_name: str, minimum: int | None = None) -> int:
+    if isinstance(value, bool):
+        raise DeterministicGNNKernelError(f"{field_name} must not be a bool")
+    if isinstance(value, float):
+        if not math.isfinite(value) or not value.is_integer():
+            raise DeterministicGNNKernelError(f"{field_name} must be an integer")
+    try:
+        number = int(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise DeterministicGNNKernelError(f"{field_name} must be an integer") from exc
+    if minimum is not None and number < minimum:
+        raise DeterministicGNNKernelError(f"{field_name} must be >= {minimum}")
     return number
 
 
@@ -340,48 +368,27 @@ class DeterministicGNNKernelResult:
 
 def _normalize_config(config: DeterministicGNNKernelConfig | Mapping[str, Any]) -> DeterministicGNNKernelConfig:
     if isinstance(config, DeterministicGNNKernelConfig):
-        normalized = config
+        raw_config: Mapping[str, Any] = config.to_dict()
     else:
         if not isinstance(config, Mapping):
             raise DeterministicGNNKernelError("config must be a DeterministicGNNKernelConfig or mapping")
-        normalized = DeterministicGNNKernelConfig(
-            num_rounds=int(config.get("num_rounds", 0)),
-            self_weight=float(config.get("self_weight", 0.0)),
-            neighbor_weight=float(config.get("neighbor_weight", 0.0)),
-            syndrome_weight=float(config.get("syndrome_weight", 0.0)),
-            hardware_weight=float(config.get("hardware_weight", 0.0)),
-            residual_weight=float(config.get("residual_weight", 0.0)),
-            damping_factor=float(config.get("damping_factor", 0.0)),
-            score_round_digits=int(config.get("score_round_digits", 6)),
-            top_k=int(config.get("top_k", 1)),
-            convergence_epsilon=float(config.get("convergence_epsilon", 1e-6)),
-            normalization_policy=str(config.get("normalization_policy", "clamp_0_1")),
-        )
+        raw_config = config
 
-    if normalized.num_rounds < 0:
-        raise DeterministicGNNKernelError("num_rounds must be non-negative")
-    if normalized.top_k <= 0:
-        raise DeterministicGNNKernelError("top_k must be positive")
-    if normalized.score_round_digits < 0:
-        raise DeterministicGNNKernelError("score_round_digits must be non-negative")
+    normalized = DeterministicGNNKernelConfig(
+        num_rounds=_validate_int_config_value(raw_config.get("num_rounds", 0), field_name="num_rounds", minimum=0),
+        self_weight=_validate_finite_number(raw_config.get("self_weight", 0.0), field_name="self_weight", minimum=0.0, maximum=1.0),
+        neighbor_weight=_validate_finite_number(raw_config.get("neighbor_weight", 0.0), field_name="neighbor_weight", minimum=0.0, maximum=1.0),
+        syndrome_weight=_validate_finite_number(raw_config.get("syndrome_weight", 0.0), field_name="syndrome_weight", minimum=0.0, maximum=1.0),
+        hardware_weight=_validate_finite_number(raw_config.get("hardware_weight", 0.0), field_name="hardware_weight", minimum=0.0, maximum=1.0),
+        residual_weight=_validate_finite_number(raw_config.get("residual_weight", 0.0), field_name="residual_weight", minimum=0.0, maximum=1.0),
+        damping_factor=_validate_finite_number(raw_config.get("damping_factor", 0.0), field_name="damping_factor", minimum=0.0, maximum=1.0),
+        score_round_digits=_validate_int_config_value(raw_config.get("score_round_digits", 6), field_name="score_round_digits", minimum=0),
+        top_k=_validate_int_config_value(raw_config.get("top_k", 1), field_name="top_k", minimum=1),
+        convergence_epsilon=_validate_finite_number(raw_config.get("convergence_epsilon", 1e-6), field_name="convergence_epsilon", minimum=0.0),
+        normalization_policy=str(raw_config.get("normalization_policy", "clamp_0_1")),
+    )
     if normalized.normalization_policy != "clamp_0_1":
         raise DeterministicGNNKernelError("normalization_policy must be 'clamp_0_1'")
-    if normalized.convergence_epsilon < 0.0:
-        raise DeterministicGNNKernelError("convergence_epsilon must be non-negative")
-
-    for field_name in (
-        "self_weight",
-        "neighbor_weight",
-        "syndrome_weight",
-        "hardware_weight",
-        "residual_weight",
-        "damping_factor",
-    ):
-        value = getattr(normalized, field_name)
-        if not math.isfinite(value):
-            raise DeterministicGNNKernelError(f"{field_name} must be finite")
-        if value < 0.0 or value > 1.0:
-            raise DeterministicGNNKernelError(f"{field_name} must be in [0,1]")
     return normalized
 
 
@@ -389,17 +396,24 @@ def _normalize_nodes(raw_nodes: Sequence[SyndromeGraphNode | Mapping[str, Any]])
     normalized: list[SyndromeGraphNode] = []
     for raw in raw_nodes:
         if isinstance(raw, SyndromeGraphNode):
-            node = raw
+            raw_node: Mapping[str, Any] = {
+                "node_id": raw.node_id,
+                "syndrome": raw.syndrome,
+                "parity": raw.parity,
+                "defect": raw.defect,
+                "hardware_sideband": raw.hardware_sideband,
+            }
         else:
             if not isinstance(raw, Mapping):
                 raise DeterministicGNNKernelError("node entries must be SyndromeGraphNode or mappings")
-            node = SyndromeGraphNode(
-                node_id=str(raw.get("node_id", "")),
-                syndrome=_validate_finite_number(raw.get("syndrome", 0.0), field_name="node.syndrome"),
-                parity=_validate_finite_number(raw.get("parity", 0.0), field_name="node.parity"),
-                defect=_validate_finite_number(raw.get("defect", 0.0), field_name="node.defect"),
-                hardware_sideband=_immutable_mapping(raw.get("hardware_sideband", {})),
-            )
+            raw_node = raw
+        node = SyndromeGraphNode(
+            node_id=str(raw_node.get("node_id", "")),
+            syndrome=_validate_finite_number(raw_node.get("syndrome", 0.0), field_name="node.syndrome"),
+            parity=_validate_finite_number(raw_node.get("parity", 0.0), field_name="node.parity"),
+            defect=_validate_finite_number(raw_node.get("defect", 0.0), field_name="node.defect"),
+            hardware_sideband=_immutable_mapping(raw_node.get("hardware_sideband", {})),
+        )
         if not node.node_id:
             raise DeterministicGNNKernelError("node_id must be non-empty")
         normalized.append(node)
@@ -419,25 +433,30 @@ def _normalize_edges(raw_edges: Sequence[SyndromeGraphEdge | Mapping[str, Any]],
     normalized: list[SyndromeGraphEdge] = []
     for raw in raw_edges:
         if isinstance(raw, SyndromeGraphEdge):
-            edge = raw
+            raw_edge: Mapping[str, Any] = {
+                "edge_id": raw.edge_id,
+                "source_node_id": raw.source_node_id,
+                "target_node_id": raw.target_node_id,
+                "coupling_weight": raw.coupling_weight,
+                "edge_sideband": raw.edge_sideband,
+            }
         else:
             if not isinstance(raw, Mapping):
                 raise DeterministicGNNKernelError("edge entries must be SyndromeGraphEdge or mappings")
-            edge = SyndromeGraphEdge(
-                edge_id=str(raw.get("edge_id", "")),
-                source_node_id=str(raw.get("source_node_id", "")),
-                target_node_id=str(raw.get("target_node_id", "")),
-                coupling_weight=_validate_finite_number(raw.get("coupling_weight", 0.0), field_name="edge.coupling_weight"),
-                edge_sideband=_immutable_mapping(raw.get("edge_sideband", {})),
-            )
+            raw_edge = raw
+        edge = SyndromeGraphEdge(
+            edge_id=str(raw_edge.get("edge_id", "")),
+            source_node_id=str(raw_edge.get("source_node_id", "")),
+            target_node_id=str(raw_edge.get("target_node_id", "")),
+            coupling_weight=_validate_finite_number(raw_edge.get("coupling_weight", 0.0), field_name="edge.coupling_weight", minimum=0.0, maximum=1.0),
+            edge_sideband=_immutable_mapping(raw_edge.get("edge_sideband", {})),
+        )
         if not edge.edge_id:
             raise DeterministicGNNKernelError("edge_id must be non-empty")
         if edge.source_node_id not in node_ids or edge.target_node_id not in node_ids:
             raise DeterministicGNNKernelError("edge references unknown node ids")
         if edge.source_node_id == edge.target_node_id:
             raise DeterministicGNNKernelError("self-loop edges are not allowed")
-        if edge.coupling_weight < 0.0 or edge.coupling_weight > 1.0:
-            raise DeterministicGNNKernelError("edge.coupling_weight must be in [0,1]")
         normalized.append(edge)
 
     edge_ids = [edge.edge_id for edge in normalized]
@@ -471,6 +490,38 @@ def _action_class(score: float) -> str:
     if score >= 0.34:
         return "apply_secondary_correction"
     return "monitor_only"
+
+
+def _result_core_payload(
+    *,
+    cfg: DeterministicGNNKernelConfig,
+    nodes: tuple[SyndromeGraphNode, ...],
+    edges: tuple[SyndromeGraphEdge, ...],
+    snapshots: tuple[GNNMessageSnapshot, ...],
+    final_scores: Mapping[str, float],
+    ranked_proposals: tuple[GNNCorrectionProposal, ...],
+    converged: bool,
+    max_delta: float,
+    config_hash: str,
+    graph_hash: str,
+    input_hash: str,
+) -> dict[str, _JSONValue]:
+    return {
+        "release_version": RELEASE_VERSION,
+        "runtime_kind": RUNTIME_KIND,
+        "config": cfg.to_dict(),
+        "nodes": tuple(node.to_dict() for node in nodes),
+        "edges": tuple(edge.to_dict() for edge in edges),
+        "message_snapshots": tuple(snapshot.to_dict() for snapshot in snapshots),
+        "final_node_scores": _canonicalize_json(final_scores),
+        "proposals": tuple(proposal.to_dict() for proposal in ranked_proposals),
+        "round_count": len(snapshots),
+        "converged": converged,
+        "convergence_delta": round(max_delta, cfg.score_round_digits),
+        "config_hash": config_hash,
+        "graph_hash": graph_hash,
+        "input_hash": input_hash,
+    }
 
 
 def build_deterministic_gnn_decoder_kernel(
@@ -590,49 +641,30 @@ def build_deterministic_gnn_decoder_kernel(
         }
     )
 
-    provisional = DeterministicGNNKernelResult(
-        release_version=RELEASE_VERSION,
-        runtime_kind=RUNTIME_KIND,
-        config=cfg,
-        nodes=normalized_nodes,
-        edges=normalized_edges,
-        message_snapshots=tuple(snapshots),
-        final_node_scores=final_scores,
-        proposals=ranked_proposals,
-        round_count=len(snapshots),
-        converged=converged,
-        convergence_delta=round(max_delta, cfg.score_round_digits),
-        config_hash=config_hash,
-        graph_hash=graph_hash,
-        input_hash=input_hash,
-        replay_identity="",
-        result_hash="",
-        receipt=DeterministicGNNKernelReceipt(
-            release_version=RELEASE_VERSION,
-            runtime_kind=RUNTIME_KIND,
+    snapshots_tuple = tuple(snapshots)
+    result_hash = _sha256_hex(
+        _result_core_payload(
+            cfg=cfg,
+            nodes=normalized_nodes,
+            edges=normalized_edges,
+            snapshots=snapshots_tuple,
+            final_scores=final_scores,
+            ranked_proposals=ranked_proposals,
+            converged=converged,
+            max_delta=max_delta,
             config_hash=config_hash,
             graph_hash=graph_hash,
             input_hash=input_hash,
-            round_count=len(snapshots),
-            converged=converged,
-            proposal_count=len(ranked_proposals),
-            top_proposal_hash=ranked_proposals[0].stable_hash() if ranked_proposals else None,
-            kernel_result_hash="",
-            replay_identity="",
-            decoder_core_modified=False,
-            receipt_hash="",
-        ),
+        )
     )
-    result_hash = provisional.stable_hash()
     replay_identity = _sha256_hex({"result_hash": result_hash, "input_hash": input_hash})
-
-    receipt_base = DeterministicGNNKernelReceipt(
+    receipt_payload = DeterministicGNNKernelReceipt(
         release_version=RELEASE_VERSION,
         runtime_kind=RUNTIME_KIND,
         config_hash=config_hash,
         graph_hash=graph_hash,
         input_hash=input_hash,
-        round_count=len(snapshots),
+        round_count=len(snapshots_tuple),
         converged=converged,
         proposal_count=len(ranked_proposals),
         top_proposal_hash=ranked_proposals[0].stable_hash() if ranked_proposals else None,
@@ -641,49 +673,31 @@ def build_deterministic_gnn_decoder_kernel(
         decoder_core_modified=False,
         receipt_hash="",
     )
-    receipt = DeterministicGNNKernelReceipt(**{**receipt_base.to_dict(), "receipt_hash": receipt_base.stable_hash()})
-
-    result_base = DeterministicGNNKernelResult(
+    receipt = DeterministicGNNKernelReceipt(**{**receipt_payload.to_dict(), "receipt_hash": receipt_payload.stable_hash()})
+    result = DeterministicGNNKernelResult(
         release_version=RELEASE_VERSION,
         runtime_kind=RUNTIME_KIND,
         config=cfg,
         nodes=normalized_nodes,
         edges=normalized_edges,
-        message_snapshots=tuple(snapshots),
+        message_snapshots=snapshots_tuple,
         final_node_scores=final_scores,
         proposals=ranked_proposals,
-        round_count=len(snapshots),
+        round_count=len(snapshots_tuple),
         converged=converged,
         convergence_delta=round(max_delta, cfg.score_round_digits),
         config_hash=config_hash,
         graph_hash=graph_hash,
         input_hash=input_hash,
         replay_identity=replay_identity,
-        result_hash="",
+        result_hash=result_hash,
         receipt=receipt,
-    )
-    result = DeterministicGNNKernelResult(
-        release_version=result_base.release_version,
-        runtime_kind=result_base.runtime_kind,
-        config=result_base.config,
-        nodes=result_base.nodes,
-        edges=result_base.edges,
-        message_snapshots=result_base.message_snapshots,
-        final_node_scores=result_base.final_node_scores,
-        proposals=result_base.proposals,
-        round_count=result_base.round_count,
-        converged=result_base.converged,
-        convergence_delta=result_base.convergence_delta,
-        config_hash=result_base.config_hash,
-        graph_hash=result_base.graph_hash,
-        input_hash=result_base.input_hash,
-        replay_identity=result_base.replay_identity,
-        result_hash=result_base.stable_hash(),
-        receipt=result_base.receipt,
     )
 
     if result.receipt.receipt_hash != result.receipt.stable_hash():
         raise DeterministicGNNKernelError("receipt hash mismatch")
+    if result.receipt.kernel_result_hash != result.result_hash:
+        raise DeterministicGNNKernelError("receipt kernel_result_hash mismatch")
     if any(not (0.0 <= score <= 1.0) for score in result.final_node_scores.values()):
         raise DeterministicGNNKernelError("final scores must remain bounded in [0,1]")
     return result

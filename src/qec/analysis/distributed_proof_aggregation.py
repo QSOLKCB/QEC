@@ -9,7 +9,6 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 import math
-from typing import Any
 
 from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, sha256_hex
 

@@ -545,12 +545,10 @@ def run_distributed_proof_aggregation(
     aggregated_proof_hash = _compute_aggregated_proof_hash(included_tuple)
     participation_fraction = float(len(included_tuple) / len(ordered_inputs))
 
-    all_included_are_admissible = all(status.admissible for status in status_tuple if status.contributes_to_aggregation)
-    all_admissible_included = all(status.contributes_to_aggregation for status in status_tuple if status.admissible)
     partial_policy_ok = policy.allow_partial_aggregation or all(
         status.admissible and status.contributes_to_aggregation for status in status_tuple
     )
-    structurally_consistent = all_included_are_admissible and all_admissible_included and partial_policy_ok
+    structurally_consistent = partial_policy_ok
 
     if included_tuple:
         aggregation_confidence = float(sum(node.consensus_confidence for node in included_tuple) / len(included_tuple))

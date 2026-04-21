@@ -564,7 +564,7 @@ def _structural_consistency(statuses: tuple[NodeReplayConsensusStatus, ...], pol
             return False
         if policy.require_full_prefix_agreement and not status.prefix_aligned:
             return False
-        if not policy.allow_length_skew and not status.length_delta_ok:
+        if not status.length_delta_ok:
             return False
         if not status.consensus_fraction_ok:
             return False

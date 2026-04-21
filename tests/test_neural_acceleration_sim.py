@@ -9,6 +9,11 @@ def _stub_kernel(*, nodes, edges):
     return {"proposals": [{"target_nodes": [nodes[0]]}], "nodes": nodes, "edges": edges}
 
 
+def _stub_kernel_tuple_shapes(*, nodes, edges):
+    del edges
+    return {"proposals": ({"target_nodes": (nodes[0],)},)}
+
+
 def _stub_terminate_false(*, kernel_result):
     del kernel_result
     return {"decision": {"terminate_early": False}}
@@ -71,8 +76,9 @@ def test_speedup_is_consistent(monkeypatch: pytest.MonkeyPatch) -> None:
         ]
     )
 
-    expected = ((2.0 / 4.0) + (2.0 / 5.0)) / 2.0
+    expected = ((4.0 / 2.0) + (5.0 / 2.0)) / 2.0
     assert result["mean_normalized_speedup"] == expected
+    assert result["mean_normalized_speedup"] > 1.0
 
 
 def test_mismatch_triggers_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -106,3 +112,35 @@ def test_validation_errors(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(ValueError, match="scenario missing required fields"):
         sim.run_neural_acceleration_simulation([{"id": "s1"}])
+
+
+def test_accepts_tuple_proposals_and_target_nodes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sim, "deterministic_gnn_decoder_kernel", _stub_kernel_tuple_shapes)
+    monkeypatch.setattr(
+        sim, "early_termination_via_dark_state_proofs", _stub_terminate_false
+    )
+
+    result = sim.run_neural_acceleration_simulation(
+        [{"id": "s1", "nodes": ["n0", "n1"], "edges": (("n0", "n1"),)}]
+    )
+
+    assert result["mean_latency_baseline"] == 4.0
+
+
+def test_duplicate_scenario_ids_raise_value_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sim, "deterministic_gnn_decoder_kernel", _stub_kernel)
+    monkeypatch.setattr(
+        sim, "early_termination_via_dark_state_proofs", _stub_terminate_false
+    )
+
+    with pytest.raises(ValueError, match="scenario ids must be unique"):
+        sim.run_neural_acceleration_simulation(
+            [
+                {"id": "dup", "nodes": ["a", "b"], "edges": [("a", "b")]},
+                {"id": "dup", "nodes": ["x", "y"], "edges": [("x", "y")]},
+            ]
+        )

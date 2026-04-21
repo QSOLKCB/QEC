@@ -49,7 +49,7 @@ def _validate_scenario(raw: Any) -> dict[str, Any]:
 
     edges = raw["edges"]
     if not isinstance(edges, Sequence) or isinstance(edges, (str, bytes)):
-        raise ValueError("scenario edges must be list[tuple[str, str]]")
+        raise ValueError("scenario edges must be a sequence of 2-tuples of str")
 
     normalized_edges: list[tuple[str, str]] = []
     for edge in edges:
@@ -68,19 +68,29 @@ def _validate_scenario(raw: Any) -> dict[str, Any]:
 
 def _extract_top_proposal_node(kernel_result: Mapping[str, Any]) -> str:
     proposals = kernel_result.get("proposals")
-    if not isinstance(proposals, list) or not proposals:
-        raise ValueError("kernel_result must contain non-empty list at key 'proposals'")
+    if (
+        not isinstance(proposals, Sequence)
+        or isinstance(proposals, (str, bytes))
+        or not proposals
+    ):
+        raise ValueError(
+            "kernel_result must contain non-empty sequence at key 'proposals'"
+        )
     top = proposals[0]
     if not isinstance(top, Mapping):
         raise ValueError("kernel_result proposals must be mapping-like")
     target_nodes = top.get("target_nodes")
-    if not isinstance(target_nodes, list) or not target_nodes:
+    if (
+        not isinstance(target_nodes, Sequence)
+        or isinstance(target_nodes, (str, bytes))
+        or not target_nodes
+    ):
         raise ValueError(
-            "kernel_result proposal must contain non-empty list at key 'target_nodes'"
+            "kernel_result proposal must contain non-empty sequence[str] at key 'target_nodes'"
         )
+    if any(not isinstance(target_node, str) for target_node in target_nodes):
+        raise ValueError("kernel_result proposal target_nodes must contain only str")
     top_node = target_nodes[0]
-    if not isinstance(top_node, str):
-        raise ValueError("kernel_result top target node must be str")
     return top_node
 
 
@@ -94,7 +104,7 @@ def _extract_terminate_early(termination_result: Mapping[str, Any]) -> bool:
     return terminate_early
 
 
-def _run_baseline_path(
+def _run_path(
     *, nodes: Sequence[str], edges: Sequence[tuple[str, str]]
 ) -> tuple[str, bool, int]:
     kernel_result = deterministic_gnn_decoder_kernel(nodes=nodes, edges=edges)
@@ -105,20 +115,19 @@ def _run_baseline_path(
     terminate_early = _extract_terminate_early(termination_result)
     proposal_count = len(kernel_result["proposals"])
     return top_node, terminate_early, proposal_count
+
+
+def _run_baseline_path(
+    *, nodes: Sequence[str], edges: Sequence[tuple[str, str]]
+) -> tuple[str, bool, int]:
+    return _run_path(nodes=nodes, edges=edges)
 
 
 def _run_accelerated_path(
     *, nodes: Sequence[str], edges: Sequence[tuple[str, str]]
 ) -> tuple[str, bool, int]:
     # Deterministic simulation only: exact same logical outputs as baseline.
-    kernel_result = deterministic_gnn_decoder_kernel(nodes=nodes, edges=edges)
-    top_node = _extract_top_proposal_node(kernel_result)
-    termination_result = early_termination_via_dark_state_proofs(
-        kernel_result=kernel_result
-    )
-    terminate_early = _extract_terminate_early(termination_result)
-    proposal_count = len(kernel_result["proposals"])
-    return top_node, terminate_early, proposal_count
+    return _run_path(nodes=nodes, edges=edges)
 
 
 def run_neural_acceleration_simulation(
@@ -126,10 +135,18 @@ def run_neural_acceleration_simulation(
 ) -> dict[str, float]:
     if not isinstance(scenarios, Sequence) or isinstance(scenarios, (str, bytes)):
         raise ValueError("scenarios must be a non-empty sequence")
-    if not scenarios:
+
+    scenarios_list = list(scenarios)
+    if not scenarios_list:
         raise ValueError("scenarios must be a non-empty sequence")
 
-    normalized = [_validate_scenario(scenario) for scenario in scenarios]
+    normalized = [_validate_scenario(scenario) for scenario in scenarios_list]
+
+    scenario_ids = [scenario["id"] for scenario in normalized]
+    if len(set(scenario_ids)) != len(scenario_ids):
+        raise ValueError("scenario ids must be unique")
+
+    normalized.sort(key=lambda scenario: scenario["id"])
 
     total_baseline = 0.0
     total_accelerated = 0.0
@@ -162,7 +179,7 @@ def run_neural_acceleration_simulation(
         latency_baseline = float(node_count + edge_count + proposal_count)
         latency_accelerated = float(max(1, int(latency_baseline) // 2))
         latency_improvement = latency_baseline - latency_accelerated
-        normalized_speedup = latency_accelerated / latency_baseline
+        normalized_speedup = latency_baseline / latency_accelerated
 
         total_baseline += latency_baseline
         total_accelerated += latency_accelerated

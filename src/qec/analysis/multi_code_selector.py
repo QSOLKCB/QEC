@@ -258,10 +258,13 @@ def select_runtime_code(
     if not admissible_scores:
         raise ValueError("no admissible candidate remains after threshold filtering")
 
+    # All admissible scores must have a concrete weighted_score; enforce this invariant.
+    assert all(score.weighted_score is not None for score in admissible_scores)
+
     ranked_admissible = sorted(
         admissible_scores,
         key=lambda score: (
-            -float(score.weighted_score if score.weighted_score is not None else -1.0),
+            -float(score.weighted_score),
             -score.logical_stability,
             -score.hardware_alignment,
             score.code_family,

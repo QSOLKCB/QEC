@@ -29,6 +29,7 @@ def _validate_scenarios(scenarios: Sequence[Mapping[str, Any]]) -> list[Mapping[
     if len(set(scenario_ids)) != len(scenario_ids):
         raise ValueError("scenario ids must be unique")
 
+    scenarios_list = sorted(scenarios_list, key=lambda scenario: scenario["id"])
     return scenarios_list
 
 
@@ -87,7 +88,7 @@ def run_hardware_validation_governance(
     config: Mapping[str, float],
 ) -> dict[str, Any]:
     scenarios_list = _validate_scenarios(scenarios)
-    scenario_ids = [str(scenario["id"]) for scenario in scenarios_list]
+    scenario_ids = [scenario["id"] for scenario in scenarios_list]
     _validate_hardware_measurements(hardware_measurements, scenario_ids)
     max_mean_relative_error, max_mean_absolute_error, min_mean_agreement_score = (
         _validate_config(config)
@@ -95,9 +96,41 @@ def run_hardware_validation_governance(
 
     bridge_result = run_hardware_validation_bridge(scenarios_list, hardware_measurements)
 
-    mean_relative_error = float(bridge_result["mean_relative_error"])
-    mean_absolute_error = float(bridge_result["mean_absolute_error"])
-    mean_agreement_score = float(bridge_result["mean_agreement_score"])
+    required_bridge_keys = (
+        "mean_relative_error",
+        "mean_absolute_error",
+        "mean_agreement_score",
+    )
+    for key in required_bridge_keys:
+        if key not in bridge_result:
+            raise ValueError(f"bridge result missing required key '{key}'")
+
+    raw_mean_relative_error = bridge_result["mean_relative_error"]
+    raw_mean_absolute_error = bridge_result["mean_absolute_error"]
+    raw_mean_agreement_score = bridge_result["mean_agreement_score"]
+
+    for key, value in (
+        ("mean_relative_error", raw_mean_relative_error),
+        ("mean_absolute_error", raw_mean_absolute_error),
+        ("mean_agreement_score", raw_mean_agreement_score),
+    ):
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise ValueError(f"bridge result value for '{key}' must be numeric")
+        if not math.isfinite(value):
+            raise ValueError(f"bridge result value for '{key}' must be finite")
+
+    if raw_mean_relative_error < 0:
+        raise ValueError("bridge result value for 'mean_relative_error' must be >= 0")
+    if raw_mean_absolute_error < 0:
+        raise ValueError("bridge result value for 'mean_absolute_error' must be >= 0")
+    if not 0 <= raw_mean_agreement_score <= 1:
+        raise ValueError(
+            "bridge result value for 'mean_agreement_score' must be between 0 and 1"
+        )
+
+    mean_relative_error = float(raw_mean_relative_error)
+    mean_absolute_error = float(raw_mean_absolute_error)
+    mean_agreement_score = float(raw_mean_agreement_score)
 
     is_pass = (
         mean_relative_error <= max_mean_relative_error

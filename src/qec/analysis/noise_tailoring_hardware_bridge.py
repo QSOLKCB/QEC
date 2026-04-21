@@ -102,7 +102,15 @@ def _validate_hardware_entry(hardware_entry: Mapping[str, float | int], scenario
 
 
 def _mean_from_values(values: Mapping[Any, Any]) -> float:
-    numeric_values = [float(value) for value in values.values()]
+    numeric_values: list[float] = []
+    for value in values.values():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("Invalid weight: values must be finite non-negative numbers")
+        parsed = float(value)
+        if not math.isfinite(parsed) or parsed < 0.0:
+            raise ValueError("Invalid weight: values must be finite non-negative numbers")
+        numeric_values.append(parsed)
+
     if not numeric_values:
         return 0.0
     return float(sum(numeric_values) / len(numeric_values))
@@ -126,7 +134,6 @@ def compare_tailored_to_hardware(
         raise ValueError("Invalid tailored_result: 'node_weights' must be a mapping")
     if not isinstance(edge_weights, Mapping):
         raise ValueError("Invalid tailored_result: 'edge_weights' must be a mapping")
-
     tailored_mean_node_weight_after = _mean_from_values(node_weights)
     tailored_mean_edge_weight_after = _mean_from_values(edge_weights)
 

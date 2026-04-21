@@ -109,6 +109,51 @@ def test_negative_hardware_value_raises_value_error():
         run_noise_tailoring_hardware_bridge([_projected_result()], hardware, _bridge_config())
 
 
+def test_tailored_result_with_nan_weight_raises_value_error():
+    tailored_result = {
+        "id": "s1",
+        "node_weights": {"a": math.nan},
+        "edge_weights": {"a->b": 0.1},
+    }
+    hardware = {
+        "mean_node_weight_after": 0.1,
+        "mean_edge_weight_after": 0.1,
+    }
+
+    with pytest.raises(ValueError, match="Invalid weight"):
+        compare_tailored_to_hardware(tailored_result, hardware)
+
+
+def test_tailored_result_with_inf_weight_raises_value_error():
+    tailored_result = {
+        "id": "s1",
+        "node_weights": {"a": math.inf},
+        "edge_weights": {"a->b": 0.1},
+    }
+    hardware = {
+        "mean_node_weight_after": 0.1,
+        "mean_edge_weight_after": 0.1,
+    }
+
+    with pytest.raises(ValueError, match="Invalid weight"):
+        compare_tailored_to_hardware(tailored_result, hardware)
+
+
+def test_tailored_result_with_negative_weight_raises_value_error():
+    tailored_result = {
+        "id": "s1",
+        "node_weights": {"a": -0.1},
+        "edge_weights": {"a->b": 0.1},
+    }
+    hardware = {
+        "mean_node_weight_after": 0.1,
+        "mean_edge_weight_after": 0.1,
+    }
+
+    with pytest.raises(ValueError, match="Invalid weight"):
+        compare_tailored_to_hardware(tailored_result, hardware)
+
+
 def test_duplicate_projected_result_ids_raise_value_error():
     projected = [_projected_result("dup"), _projected_result("dup")]
     hardware = {

@@ -121,11 +121,10 @@ def _validate_scenario(scenario: Mapping[str, Any]) -> dict[str, Any]:
         node_weights[key] = float(value)
 
     edge_weights: dict[str, float] = {}
-    for key, value in edge_weights_raw.items():
-        if not isinstance(key, str):
-            raise ValueError("Invalid scenario: 'edge_weights' keys must be strings")
-        if key not in known_edge_keys:
-            raise ValueError("Invalid scenario: 'edge_weights' keys must match declared edges")
+    for key in known_edge_keys:
+        if key not in edge_weights_raw:
+            continue
+        value = edge_weights_raw[key]
         if not _is_valid_number(value):
             raise ValueError("Invalid scenario: 'edge_weights' values must be finite numeric values")
         edge_weights[key] = float(value)

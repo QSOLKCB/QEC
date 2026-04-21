@@ -109,6 +109,17 @@ def test_contradiction_above_policy_maximum_returns_not_ready() -> None:
     assert receipt.consensus_ready is False
 
 
+def test_disjoint_claims_do_not_form_consensus() -> None:
+    bundles = (
+        _bundle("n1", claims=(_claim("a", "accept", 0.9, "s1"),)),
+        _bundle("n2", claims=(_claim("b", "accept", 0.9, "s1"),)),
+        _bundle("n3", claims=(_claim("c", "accept", 0.9, "s1"),)),
+    )
+    receipt = run_byzantine_safe_proof_consensus(bundles, _policy(minimum_quorum_fraction=0.34))
+    assert receipt.consensus_ready is False
+    assert receipt.structurally_consistent is False
+
+
 def test_uncertain_claims_allowed_vs_blocked() -> None:
     bundles = (
         _bundle("n1", claims=(_claim("a", "uncertain", 0.9, "s1"), _claim("b", "reject", 0.9, "s2"))),
@@ -268,6 +279,12 @@ def test_receipt_stable_hash_must_match_payload() -> None:
     receipt = run_byzantine_safe_proof_consensus((_bundle("n1"), _bundle("n2")), _policy())
     with pytest.raises(ValueError, match="stable_hash must match"):
         replace(receipt, stable_hash=_h("tampered"))
+
+
+def test_replay_identity_mismatch_rejected() -> None:
+    receipt = run_byzantine_safe_proof_consensus((_bundle("n1"), _bundle("n2")), _policy())
+    with pytest.raises(ValueError, match="replay_identity mismatch"):
+        replace(receipt, replay_identity=_h("tampered"))
 
 
 def test_receipt_type_is_explicit() -> None:

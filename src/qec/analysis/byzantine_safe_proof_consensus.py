@@ -7,11 +7,10 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
-import hashlib
-import json
 import math
 from types import MappingProxyType
 from typing import Any, Mapping
+from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, sha256_hex
 
 _JSONScalar = str | int | float | bool | None
 _JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
@@ -27,43 +26,6 @@ ALLOWED_CONSENSUS_ACTION_TYPES: tuple[str, ...] = (
     "emit_proof_view",
 )
 BYZANTINE_SAFE_PROOF_CONSENSUS_SCHEMA_VERSION = "v139.2"
-
-
-def _canonicalize_json(value: Any) -> _JSONValue:
-    if value is None or isinstance(value, (str, int, bool)):
-        return value
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise ValueError("non-finite float values are not allowed")
-        return value
-    if isinstance(value, tuple):
-        return tuple(_canonicalize_json(v) for v in value)
-    if isinstance(value, list):
-        return tuple(_canonicalize_json(v) for v in value)
-    if isinstance(value, Mapping):
-        keys = tuple(value.keys())
-        if any(not isinstance(k, str) for k in keys):
-            raise ValueError("payload keys must be strings")
-        return {k: _canonicalize_json(value[k]) for k in sorted(keys)}
-    raise ValueError(f"unsupported canonical payload type: {type(value)!r}")
-
-
-def _canonical_json(value: Any) -> str:
-    return json.dumps(
-        _canonicalize_json(value),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        allow_nan=False,
-    )
-
-
-def _canonical_bytes(value: Any) -> bytes:
-    return _canonical_json(value).encode("utf-8")
-
-
-def _sha256_hex(value: Any) -> str:
-    return hashlib.sha256(_canonical_bytes(value)).hexdigest()
 
 
 def _is_sha256_hex(value: str) -> bool:
@@ -131,13 +93,13 @@ class ProofClaim:
         }
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return _canonical_bytes(self.to_dict())
+        return canonical_bytes(self.to_dict())
 
     def stable_hash_value(self) -> str:
-        return _sha256_hex(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -188,13 +150,13 @@ class NodeProofBundle:
         return out
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return _canonical_bytes(self.to_dict())
+        return canonical_bytes(self.to_dict())
 
     def stable_hash_value(self) -> str:
-        return _sha256_hex(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -240,13 +202,13 @@ class ProofConsensusPolicy:
         }
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return _canonical_bytes(self.to_dict())
+        return canonical_bytes(self.to_dict())
 
     def stable_hash_value(self) -> str:
-        return _sha256_hex(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -305,13 +267,13 @@ class NodeProofConsensusStatus:
         }
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return _canonical_bytes(self.to_dict())
+        return canonical_bytes(self.to_dict())
 
     def stable_hash_value(self) -> str:
-        return _sha256_hex(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -347,13 +309,13 @@ class ProofConsensusAction:
         }
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return _canonical_bytes(self.to_dict())
+        return canonical_bytes(self.to_dict())
 
     def stable_hash_value(self) -> str:
-        return _sha256_hex(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -399,6 +361,15 @@ class ByzantineProofConsensusReceipt:
         _validate_non_empty_str(self.schema_version, "schema_version")
         if not _is_sha256_hex(self.replay_identity):
             raise ValueError("replay_identity must be 64-char lowercase sha256 hex")
+        expected_replay_identity = _compute_replay_identity(
+            self.node_proof_bundles,
+            self.policy_snapshot,
+            self.cluster_epoch,
+            self.reference_node_id,
+            self.reference_bundle_hash,
+        )
+        if self.replay_identity != expected_replay_identity:
+            raise ValueError("replay_identity mismatch with receipt contents")
         if not _is_sha256_hex(self.stable_hash):
             raise ValueError("stable_hash must be 64-char lowercase sha256 hex")
         if self.stable_hash_value() != self.stable_hash:
@@ -428,13 +399,13 @@ class ByzantineProofConsensusReceipt:
         return out
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return _canonical_bytes(self.to_dict())
+        return canonical_bytes(self.to_dict())
 
     def stable_hash_value(self) -> str:
-        return _sha256_hex(self._hash_payload())
+        return sha256_hex(self._hash_payload())
 
 
 def _build_receipt_hash_payload(
@@ -579,91 +550,96 @@ def _build_replay_identity_payload(
     bundles: tuple[NodeProofBundle, ...],
     policy: ProofConsensusPolicy,
     cluster_epoch: int,
-    reference_bundle: NodeProofBundle,
+    reference_node_id: str,
+    reference_bundle_hash: str,
 ) -> dict[str, _JSONValue]:
     return {
         "node_proof_bundles": tuple(bundle.to_dict() for bundle in bundles),
         "policy_snapshot": policy.to_dict(),
         "cluster_epoch": cluster_epoch,
-        "reference_node_id": reference_bundle.node_id,
-        "reference_bundle_hash": reference_bundle.bundle_hash,
+        "reference_node_id": reference_node_id,
+        "reference_bundle_hash": reference_bundle_hash,
         "schema_version": BYZANTINE_SAFE_PROOF_CONSENSUS_SCHEMA_VERSION,
     }
 
 
-def run_byzantine_safe_proof_consensus(
-    node_proof_bundles: tuple[NodeProofBundle, ...],
+def _compute_replay_identity(
+    bundles: tuple[NodeProofBundle, ...],
     policy: ProofConsensusPolicy,
-) -> ByzantineProofConsensusReceipt:
-    bundles = _validate_input_bundles(node_proof_bundles)
-    if not isinstance(policy, ProofConsensusPolicy):
-        raise ValueError("policy must be ProofConsensusPolicy")
-
-    cluster_epoch = _cluster_epoch(bundles)
-    reference_bundle = _select_reference_bundle(bundles, cluster_epoch=cluster_epoch, policy=policy)
-
-    provisional: list[dict[str, Any]] = []
-    for bundle in bundles:
-        matched_fraction, contradiction_fraction, uncertain_shared, has_comparable = _compare_bundle(bundle, reference_bundle)
-        epoch_aligned = bundle.epoch_index == cluster_epoch
-        role_aligned = policy.allow_role_mixing or bundle.node_role == reference_bundle.node_role
-        bundle_hash_aligned = bundle.bundle_hash == reference_bundle.bundle_hash
-        avg_confidence = _average_confidence(bundle)
-        confidence_ok = avg_confidence >= policy.minimum_confidence_score
-        divergence_ok = contradiction_fraction <= policy.maximum_claim_divergence_fraction
-
-        reasons: list[str] = []
-        if epoch_aligned:
-            reasons.append("epoch aligned")
-        else:
-            reasons.append("epoch mismatch")
-        if role_aligned:
-            reasons.append("role aligned")
-        else:
-            reasons.append("role mismatch")
-        if confidence_ok:
-            reasons.append("confidence threshold met")
-        else:
-            reasons.append("confidence below threshold")
-        if divergence_ok:
-            reasons.append("contradiction within bounds")
-        else:
-            reasons.append("contradiction exceeds bounds")
-        if uncertain_shared:
-            reasons.append("uncertain claims present in shared comparison")
-        if not has_comparable:
-            reasons.append("no comparable claims with reference")
-
-        admissible = (
-            (epoch_aligned or not policy.require_matching_epoch)
-            and role_aligned
-            and confidence_ok
-            and divergence_ok
-            and (policy.allow_uncertain_claims or not uncertain_shared)
+    cluster_epoch: int,
+    reference_node_id: str,
+    reference_bundle_hash: str,
+) -> str:
+    return sha256_hex(
+        _build_replay_identity_payload(
+            bundles,
+            policy,
+            cluster_epoch,
+            reference_node_id,
+            reference_bundle_hash,
         )
+    )
 
-        confidence = _clamp01((matched_fraction + (1.0 - contradiction_fraction) + avg_confidence) / 3.0)
-        if uncertain_shared and not policy.allow_uncertain_claims:
-            confidence = _clamp01(confidence * 0.5)
 
-        provisional.append(
-            {
-                "bundle": bundle,
-                "epoch_aligned": epoch_aligned,
-                "role_aligned": role_aligned,
-                "bundle_hash_aligned": bundle_hash_aligned,
-                "matched_claim_fraction": matched_fraction,
-                "contradiction_fraction": contradiction_fraction,
-                "confidence_ok": confidence_ok,
-                "divergence_ok": divergence_ok,
-                "uncertain_shared": uncertain_shared,
-                "admissible": admissible,
-                "consensus_confidence": confidence,
-                "consensus_risk": _clamp01(1.0 - confidence),
-                "reasons": tuple(reasons),
-            }
-        )
+def _compute_node_proof_status(
+    bundle: NodeProofBundle,
+    reference_bundle: NodeProofBundle,
+    policy: ProofConsensusPolicy,
+    cluster_epoch: int,
+) -> dict[str, Any]:
+    matched_fraction, contradiction_fraction, uncertain_shared, has_comparable = _compare_bundle(bundle, reference_bundle)
+    epoch_aligned = bundle.epoch_index == cluster_epoch
+    role_aligned = policy.allow_role_mixing or bundle.node_role == reference_bundle.node_role
+    bundle_hash_aligned = bundle.bundle_hash == reference_bundle.bundle_hash
+    avg_confidence = _average_confidence(bundle)
+    confidence_ok = avg_confidence >= policy.minimum_confidence_score
+    divergence_ok = contradiction_fraction <= policy.maximum_claim_divergence_fraction
 
+    reasons: list[str] = []
+    reasons.append("epoch aligned" if epoch_aligned else "epoch mismatch")
+    reasons.append("role aligned" if role_aligned else "role mismatch")
+    reasons.append("confidence threshold met" if confidence_ok else "confidence below threshold")
+    reasons.append("contradiction within bounds" if divergence_ok else "contradiction exceeds bounds")
+    if uncertain_shared:
+        reasons.append("uncertain claims present in shared comparison")
+    if not has_comparable:
+        reasons.append("no comparable claims with reference")
+
+    admissible = (
+        has_comparable
+        and (epoch_aligned or not policy.require_matching_epoch)
+        and role_aligned
+        and confidence_ok
+        and divergence_ok
+        and (policy.allow_uncertain_claims or not uncertain_shared)
+    )
+
+    confidence = _clamp01((matched_fraction + (1.0 - contradiction_fraction) + avg_confidence) / 3.0)
+    if uncertain_shared and not policy.allow_uncertain_claims:
+        confidence = _clamp01(confidence * 0.5)
+
+    return {
+        "bundle": bundle,
+        "epoch_aligned": epoch_aligned,
+        "role_aligned": role_aligned,
+        "bundle_hash_aligned": bundle_hash_aligned,
+        "matched_claim_fraction": matched_fraction,
+        "contradiction_fraction": contradiction_fraction,
+        "confidence_ok": confidence_ok,
+        "divergence_ok": divergence_ok,
+        "uncertain_shared": uncertain_shared,
+        "has_comparable": has_comparable,
+        "admissible": admissible,
+        "consensus_confidence": confidence,
+        "consensus_risk": _clamp01(1.0 - confidence),
+        "reasons": tuple(reasons),
+    }
+
+
+def _evaluate_verdict_consensus(
+    provisional: tuple[dict[str, Any], ...],
+    policy: ProofConsensusPolicy,
+) -> tuple[tuple[NodeProofConsensusStatus, ...], tuple[NodeProofBundle, ...], bool]:
     admissible_bundles = tuple(item["bundle"] for item in provisional if item["admissible"])
     verdict_map, verdict_rule_satisfied = _build_claim_consensus(
         admissible_bundles,
@@ -677,9 +653,7 @@ def run_byzantine_safe_proof_consensus(
         for claim in bundle.proof_claims:
             key = (claim.claim_id, claim.proof_subject)
             expected = verdict_map.get(key)
-            if expected is None:
-                continue
-            if claim.proof_verdict != expected:
+            if expected is not None and claim.proof_verdict != expected:
                 node_verdict_aligned = False
                 break
 
@@ -700,49 +674,70 @@ def run_byzantine_safe_proof_consensus(
                 reasons=item["reasons"],
             )
         )
+    return tuple(statuses), admissible_bundles, verdict_rule_satisfied
 
-    statuses_t = tuple(statuses)
-    quorum_fraction = len(admissible_bundles) / len(bundles)
+
+def _compute_structural_consistency(
+    statuses: tuple[NodeProofConsensusStatus, ...],
+    provisional: tuple[dict[str, Any], ...],
+    admissible_bundles: tuple[NodeProofBundle, ...],
+    verdict_rule_satisfied: bool,
+    policy: ProofConsensusPolicy,
+    bundle_count: int,
+) -> tuple[bool, bool, bool, bool, bool, float]:
+    quorum_fraction = len(admissible_bundles) / bundle_count
     quorum_ok = quorum_fraction >= policy.minimum_quorum_fraction
 
-    all_epoch_ok = all((status.epoch_aligned or not policy.require_matching_epoch) for status in statuses_t if status.admissible)
-    all_role_ok = all(status.role_aligned for status in statuses_t if status.admissible)
-    all_divergence_ok = all(status.divergence_ok for status in statuses_t if status.admissible)
-
-    structural_consistent = bool(admissible_bundles) and all_divergence_ok and (
-        verdict_rule_satisfied if policy.require_unanimous_verdict else True
+    all_epoch_ok = all((s.epoch_aligned or not policy.require_matching_epoch) for s in statuses if s.admissible)
+    all_role_ok = all(s.role_aligned for s in statuses if s.admissible)
+    all_divergence_ok = all(s.divergence_ok for s in statuses if s.admissible)
+    all_comparable_ok = all(item["has_comparable"] for item in provisional)
+    structurally_consistent = (
+        bool(admissible_bundles)
+        and all_divergence_ok
+        and all_comparable_ok
+        and (verdict_rule_satisfied if policy.require_unanimous_verdict else True)
     )
-
     consensus_ready = (
-        structural_consistent
-        and bool(admissible_bundles)
+        structurally_consistent
         and quorum_ok
         and all_epoch_ok
         and all_role_ok
         and all_divergence_ok
         and verdict_rule_satisfied
     )
+    return structurally_consistent, consensus_ready, all_epoch_ok, all_role_ok, all_divergence_ok, quorum_fraction
 
+
+def _build_consensus_rationale(
+    *,
+    policy: ProofConsensusPolicy,
+    all_epoch_ok: bool,
+    all_role_ok: bool,
+    all_divergence_ok: bool,
+    quorum_ok: bool,
+    verdict_rule_satisfied: bool,
+    consensus_ready: bool,
+) -> tuple[str, ...]:
     rationale: list[str] = ["reference proof bundle selected deterministically"]
     rationale.append("epoch alignment satisfied" if all_epoch_ok else "epoch alignment unsatisfied")
-    if policy.allow_role_mixing:
-        rationale.append("role mixing allowed by policy")
-    else:
-        rationale.append("role alignment satisfied" if all_role_ok else "role mismatch disallowed by policy")
-    rationale.append(
-        "proof verdict agreement satisfies policy" if verdict_rule_satisfied else "proof verdict agreement violates policy"
-    )
-    rationale.append(
-        "contradiction fraction within policy maximum"
-        if all_divergence_ok
-        else "contradiction fraction exceeds policy maximum"
-    )
+    rationale.append("role mixing allowed by policy" if policy.allow_role_mixing else ("role alignment satisfied" if all_role_ok else "role mismatch disallowed by policy"))
+    rationale.append("proof verdict agreement satisfies policy" if verdict_rule_satisfied else "proof verdict agreement violates policy")
+    rationale.append("contradiction fraction within policy maximum" if all_divergence_ok else "contradiction fraction exceeds policy maximum")
     rationale.append("quorum fraction satisfies policy" if quorum_ok else "quorum fraction below policy minimum")
     rationale.append("proof consensus ready" if consensus_ready else "proof consensus not ready")
+    return tuple(rationale)
 
+
+def _build_consensus_actions(
+    statuses: tuple[NodeProofConsensusStatus, ...],
+    reference_bundle: NodeProofBundle,
+    policy: ProofConsensusPolicy,
+    consensus_ready: bool,
+) -> tuple[ProofConsensusAction, ...]:
     actions: list[ProofConsensusAction] = []
     next_index = 0
-    for status in statuses_t:
+    for status in statuses:
         actions.append(
             ProofConsensusAction(
                 action_index=next_index,
@@ -767,7 +762,6 @@ def run_byzantine_safe_proof_consensus(
             )
         )
         next_index += 1
-
         if not status.epoch_aligned:
             actions.append(
                 ProofConsensusAction(
@@ -781,7 +775,6 @@ def run_byzantine_safe_proof_consensus(
                 )
             )
             next_index += 1
-
         if status.contradiction_fraction > 0.0:
             actions.append(
                 ProofConsensusAction(
@@ -795,7 +788,6 @@ def run_byzantine_safe_proof_consensus(
                 )
             )
             next_index += 1
-
         actions.append(
             ProofConsensusAction(
                 action_index=next_index,
@@ -808,7 +800,6 @@ def run_byzantine_safe_proof_consensus(
             )
         )
         next_index += 1
-
     actions.append(
         ProofConsensusAction(
             action_index=next_index,
@@ -820,6 +811,51 @@ def run_byzantine_safe_proof_consensus(
             detail="emit advisory proof consensus view",
         )
     )
+    return tuple(actions)
+
+
+def run_byzantine_safe_proof_consensus(
+    node_proof_bundles: tuple[NodeProofBundle, ...],
+    policy: ProofConsensusPolicy,
+) -> ByzantineProofConsensusReceipt:
+    bundles = _validate_input_bundles(node_proof_bundles)
+    if not isinstance(policy, ProofConsensusPolicy):
+        raise ValueError("policy must be ProofConsensusPolicy")
+
+    cluster_epoch = _cluster_epoch(bundles)
+    reference_bundle = _select_reference_bundle(bundles, cluster_epoch=cluster_epoch, policy=policy)
+
+    provisional = tuple(
+        _compute_node_proof_status(bundle, reference_bundle, policy, cluster_epoch)
+        for bundle in bundles
+    )
+    statuses_t, admissible_bundles, verdict_rule_satisfied = _evaluate_verdict_consensus(provisional, policy)
+    (
+        structural_consistent,
+        consensus_ready,
+        all_epoch_ok,
+        all_role_ok,
+        all_divergence_ok,
+        quorum_fraction,
+    ) = _compute_structural_consistency(
+        statuses_t,
+        provisional,
+        admissible_bundles,
+        verdict_rule_satisfied,
+        policy,
+        len(bundles),
+    )
+    quorum_ok = quorum_fraction >= policy.minimum_quorum_fraction
+    rationale_tuple = _build_consensus_rationale(
+        policy=policy,
+        all_epoch_ok=all_epoch_ok,
+        all_role_ok=all_role_ok,
+        all_divergence_ok=all_divergence_ok,
+        quorum_ok=quorum_ok,
+        verdict_rule_satisfied=verdict_rule_satisfied,
+        consensus_ready=consensus_ready,
+    )
+    actions_tuple = _build_consensus_actions(statuses_t, reference_bundle, policy, consensus_ready)
 
     consensus_confidence = _clamp01(
         sum(status.consensus_confidence for status in statuses_t if status.admissible) / max(1, len(admissible_bundles))
@@ -827,16 +863,19 @@ def run_byzantine_safe_proof_consensus(
     consensus_confidence = _clamp01(consensus_confidence * quorum_fraction)
     consensus_risk = _clamp01(1.0 - consensus_confidence)
 
-    replay_identity = _sha256_hex(_build_replay_identity_payload(bundles, policy, cluster_epoch, reference_bundle))
+    replay_identity = _compute_replay_identity(
+        bundles,
+        policy,
+        cluster_epoch,
+        reference_bundle.node_id,
+        reference_bundle.bundle_hash,
+    )
 
-    statuses_tuple = tuple(statuses_t)
-    actions_tuple = tuple(actions)
-    rationale_tuple = tuple(rationale)
-    stable_hash = _sha256_hex(
+    stable_hash = sha256_hex(
         _build_receipt_hash_payload(
             node_proof_bundles=bundles,
             policy_snapshot=policy,
-            node_statuses=statuses_tuple,
+            node_statuses=statuses_t,
             consensus_actions=actions_tuple,
             cluster_epoch=cluster_epoch,
             reference_node_id=reference_bundle.node_id,
@@ -853,7 +892,7 @@ def run_byzantine_safe_proof_consensus(
     return ByzantineProofConsensusReceipt(
         node_proof_bundles=bundles,
         policy_snapshot=policy,
-        node_statuses=statuses_tuple,
+        node_statuses=statuses_t,
         consensus_actions=actions_tuple,
         cluster_epoch=cluster_epoch,
         reference_node_id=reference_bundle.node_id,

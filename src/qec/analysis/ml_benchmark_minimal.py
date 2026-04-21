@@ -285,8 +285,8 @@ def build_ml_benchmark_full_result(
     scenarios: Sequence[Mapping[str, Any]],
 ) -> MLAccuracyLatencyBenchmarkResult:
     """Run deterministic benchmark and return full canonical result dataclass."""
-    if not isinstance(scenarios, list) or not scenarios:
-        raise ValueError("scenarios must be a non-empty list")
+    if not isinstance(scenarios, Sequence) or not scenarios:
+        raise ValueError("scenarios must be a non-empty sequence")
 
     config = MLBenchmarkConfig()
     normalized_scenarios = _normalize_scenarios(scenarios)

@@ -7,7 +7,9 @@ import pytest
 
 from qec.analysis.replay_log_consensus_layer import (
     ALLOWED_CONSENSUS_ACTION_TYPES,
+    NodeReplayConsensusStatus,
     NodeReplayLog,
+    ReplayConsensusAction,
     ReplayConsensusPolicy,
     ReplayLogEntry,
     build_replay_log_consensus_receipt,
@@ -103,6 +105,18 @@ def test_log_hash_mismatch_allowed_vs_blocked() -> None:
     assert allowed.consensus_ready is True
 
 
+def test_role_mismatch_blocked_when_role_mixing_disallowed() -> None:
+    logs = (
+        _log("node-a", 1, ("a", "b"), role="leader"),
+        _log("node-b", 1, ("a", "b"), role="worker"),
+    )
+    receipt = build_replay_log_consensus_receipt(logs, _policy(allow_role_mixing=False, require_matching_log_hash=False))
+    assert receipt.consensus_ready is False
+    mismatched = next(status for status in receipt.node_statuses if status.node_id == "node-b")
+    assert mismatched.role_aligned is False
+    assert "node role mismatch disallowed by policy" in mismatched.reasons
+
+
 def test_prefix_divergence_returns_receipt_not_value_error() -> None:
     logs = (
         _log("node-a", 1, ("a", "b", "c")),
@@ -149,6 +163,22 @@ def test_deterministic_reference_log_selection() -> None:
     )
     receipt = build_replay_log_consensus_receipt(logs, _policy(require_matching_log_hash=False, allow_length_skew=True, maximum_length_delta=4, minimum_consensus_fraction=0.66))
     assert receipt.reference_node_id == "node-a"
+
+
+def test_length_delta_exceeds_maximum_even_when_skew_allowed() -> None:
+    logs = (
+        _log("node-a", 1, ("a", "b", "c")),
+        _log("node-b", 1, ("a",)),
+    )
+    policy = _policy(
+        allow_length_skew=True,
+        maximum_length_delta=1,
+        require_matching_log_hash=False,
+        require_full_prefix_agreement=False,
+        minimum_consensus_fraction=0.33,
+    )
+    receipt = build_replay_log_consensus_receipt(logs, policy)
+    assert receipt.consensus_ready is False
 
 
 def test_deterministic_action_ordering() -> None:
@@ -213,3 +243,35 @@ def test_frozen_dataclass_immutability() -> None:
     log = _log("node-a", 1, ("a",))
     with pytest.raises(FrozenInstanceError):
         log.node_id = "mutated"  # type: ignore[misc]
+
+
+def test_node_status_boolean_validation() -> None:
+    with pytest.raises(ValueError, match="admissible must be bool"):
+        NodeReplayConsensusStatus(
+            node_id="node-a",
+            admissible=1,  # type: ignore[arg-type]
+            role_aligned=True,
+            epoch_aligned=True,
+            log_hash_aligned=True,
+            prefix_aligned=True,
+            length_delta_ok=True,
+            consensus_fraction_ok=True,
+            matching_prefix_length=1,
+            local_log_length=1,
+            consensus_fraction=1.0,
+            consensus_risk=0.0,
+            reasons=("ok",),
+        )
+
+
+def test_action_boolean_validation() -> None:
+    with pytest.raises(ValueError, match="blocking must be a bool"):
+        ReplayConsensusAction(
+            action_index=0,
+            action_type="compare_prefix",
+            source_node_id="node-a",
+            target_node_id="node-b",
+            blocking=1,  # type: ignore[arg-type]
+            ready=True,
+            detail="x",
+        )

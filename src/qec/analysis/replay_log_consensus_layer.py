@@ -29,7 +29,7 @@ ALLOWED_CONSENSUS_ACTION_TYPES: tuple[str, ...] = (
     "emit_consensus_view",
 )
 
-_SHA256_HEX_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+_SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _is_valid_sha256_hex(value: str) -> bool:
@@ -219,6 +219,7 @@ class ReplayConsensusPolicy:
 class NodeReplayConsensusStatus:
     node_id: str
     admissible: bool
+    role_aligned: bool
     epoch_aligned: bool
     log_hash_aligned: bool
     prefix_aligned: bool
@@ -232,6 +233,17 @@ class NodeReplayConsensusStatus:
 
     def __post_init__(self) -> None:
         _require_non_empty_str(self.node_id, "node_id")
+        for field_name in (
+            "admissible",
+            "role_aligned",
+            "epoch_aligned",
+            "log_hash_aligned",
+            "prefix_aligned",
+            "length_delta_ok",
+            "consensus_fraction_ok",
+        ):
+            if not isinstance(getattr(self, field_name), bool):
+                raise ValueError(f"{field_name} must be bool")
         _require_non_negative_int(self.matching_prefix_length, "matching_prefix_length")
         _require_non_negative_int(self.local_log_length, "local_log_length")
         _require_float01(self.consensus_fraction, "consensus_fraction")
@@ -243,6 +255,7 @@ class NodeReplayConsensusStatus:
         return {
             "node_id": self.node_id,
             "admissible": self.admissible,
+            "role_aligned": self.role_aligned,
             "epoch_aligned": self.epoch_aligned,
             "log_hash_aligned": self.log_hash_aligned,
             "prefix_aligned": self.prefix_aligned,
@@ -281,6 +294,10 @@ class ReplayConsensusAction:
             raise ValueError(f"unsupported action_type: {self.action_type}")
         _require_non_empty_str(self.source_node_id, "source_node_id")
         _require_non_empty_str(self.target_node_id, "target_node_id")
+        if not isinstance(self.blocking, bool):
+            raise ValueError("blocking must be a bool")
+        if not isinstance(self.ready, bool):
+            raise ValueError("ready must be a bool")
         _require_non_empty_str(self.detail, "detail")
 
     def to_dict(self) -> dict[str, _JSONValue]:
@@ -408,6 +425,7 @@ def _compute_node_status(
     reference_length = len(reference_log.entries)
     epoch_aligned = node_log.epoch_index == cluster_epoch
     log_hash_aligned = node_log.log_hash == reference_log.log_hash
+    role_aligned = node_log.node_role == reference_log.node_role
     prefix_aligned = matching_prefix_length == min(reference_length, local_log_length)
 
     if policy.allow_length_skew:
@@ -433,6 +451,12 @@ def _compute_node_status(
     else:
         reasons.append("log hash aligned" if log_hash_aligned else "log hash mismatch tolerated")
 
+    if not policy.allow_role_mixing and not role_aligned:
+        admissible = False
+        reasons.append("node role mismatch disallowed by policy")
+    else:
+        reasons.append("node role aligned" if role_aligned else "node role mismatch tolerated")
+
     if policy.require_full_prefix_agreement and not prefix_aligned:
         admissible = False
         reasons.append("prefix mismatch")
@@ -454,6 +478,7 @@ def _compute_node_status(
     return NodeReplayConsensusStatus(
         node_id=node_log.node_id,
         admissible=admissible,
+        role_aligned=role_aligned,
         epoch_aligned=epoch_aligned,
         log_hash_aligned=log_hash_aligned,
         prefix_aligned=prefix_aligned,
@@ -529,6 +554,13 @@ def _assemble_rationale(
     else:
         rationale.append("log hash mismatch tolerated by policy")
 
+    if all(status.role_aligned for status in statuses):
+        rationale.append("node role alignment satisfied")
+    elif policy.allow_role_mixing:
+        rationale.append("node role mismatch tolerated by policy")
+    else:
+        rationale.append("node role mismatch blocks consensus readiness")
+
     if all(status.prefix_aligned for status in statuses):
         rationale.append("prefix agreement satisfies policy")
     elif policy.require_full_prefix_agreement:
@@ -560,6 +592,8 @@ def _validate_and_sort_logs(node_replay_logs: tuple[NodeReplayLog, ...]) -> tupl
 
 def _structural_consistency(statuses: tuple[NodeReplayConsensusStatus, ...], policy: ReplayConsensusPolicy) -> bool:
     for status in statuses:
+        if not policy.allow_role_mixing and not status.role_aligned:
+            return False
         if policy.require_matching_epoch and not status.epoch_aligned:
             return False
         if policy.require_matching_log_hash and not status.log_hash_aligned:

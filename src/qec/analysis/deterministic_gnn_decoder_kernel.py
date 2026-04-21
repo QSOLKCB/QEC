@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""v138.7.0 — deterministic GNN decoder kernel."""
+"""v138.7.1.1 — deterministic GNN decoder kernel."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from qec.analysis.canonical_hashing import (
     sha256_hex,
 )
 
-RELEASE_VERSION = "v138.7.0"
+RELEASE_VERSION = "v138.7.1.1"
 RUNTIME_KIND = "deterministic_gnn_decoder_kernel"
 
 _JSONScalar = str | int | float | bool | None
@@ -274,7 +274,7 @@ class DeterministicGNNKernelReceipt:
     kernel_result_hash: str
     replay_identity: str
     decoder_core_modified: bool
-    receipt_hash: str
+    receipt_hash: str | None
 
     def to_dict(self) -> dict[str, _JSONValue]:
         return {
@@ -308,7 +308,7 @@ class DeterministicGNNKernelReceipt:
         return _sha256_hex(self.to_hash_payload_dict())
 
     def __post_init__(self) -> None:
-        if self.receipt_hash and self.receipt_hash != self.stable_hash():
+        if self.receipt_hash is not None and self.receipt_hash != self.stable_hash():
             raise DeterministicGNNKernelError("receipt_hash must match stable_hash payload")
 
 
@@ -674,7 +674,7 @@ def build_deterministic_gnn_decoder_kernel(
         kernel_result_hash=result_hash,
         replay_identity=replay_identity,
         decoder_core_modified=False,
-        receipt_hash="",
+        receipt_hash=None,
     )
     receipt = DeterministicGNNKernelReceipt(**{**receipt_payload.to_dict(), "receipt_hash": receipt_payload.stable_hash()})
     result = DeterministicGNNKernelResult(

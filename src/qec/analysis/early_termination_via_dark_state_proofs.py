@@ -281,7 +281,7 @@ class EarlyTerminationReceipt:
     top_proposal_hash: str | None
     decision_label: str
     terminate_early: bool
-    receipt_hash: str
+    receipt_hash: str | None
 
     def to_dict(self) -> dict[str, _JSONValue]:
         return {
@@ -314,7 +314,7 @@ class EarlyTerminationReceipt:
         return _sha256_hex(self.to_hash_payload_dict())
 
     def __post_init__(self) -> None:
-        if self.receipt_hash and self.receipt_hash != self.stable_hash():
+        if self.receipt_hash is not None and self.receipt_hash != self.stable_hash():
             raise EarlyTerminationDarkStateProofError("receipt_hash must match stable_hash payload")
 
 
@@ -708,11 +708,12 @@ def classify_early_termination_decision(
         has_proposals
         and (top_confidence < config.minimum_top_proposal_confidence or top_score < config.minimum_top_proposal_score)
     )
-    convergence_missing_or_weak = config.require_convergence and (not converged or convergence_delta > config.maximum_convergence_delta)
+    convergence_observed_strong = converged and convergence_delta <= config.maximum_convergence_delta
+    convergence_missing_or_weak = config.require_convergence and (not convergence_observed_strong)
     proposal_strong = has_proposals and not (
         top_confidence < config.minimum_top_proposal_confidence or top_score < config.minimum_top_proposal_score
     )
-    convergence_strong = (not config.require_convergence) or (converged and convergence_delta <= config.maximum_convergence_delta)
+    convergence_strong = convergence_observed_strong
 
     if missing_proof and not config.allow_termination_without_dark_state_proof:
         label = "insufficient_proof"
@@ -723,13 +724,18 @@ def classify_early_termination_decision(
         dark_state_score_ok = proof_signals.dark_state_score >= config.minimum_dark_state_score
         dark_state_coverage_ok = proof_signals.dark_state_coverage >= config.minimum_dark_state_coverage
         proof_consistency_ok = proof_signals.proof_consistency_score >= config.minimum_proof_consistency_score
-        proof_weak = proof_supplied and not (dark_state_score_ok and dark_state_coverage_ok and proof_consistency_ok)
+        proof_thresholds_ok = dark_state_score_ok and dark_state_coverage_ok
         internal_proof_inconsistency = proof_supplied and (
             (dark_state_score_ok != dark_state_coverage_ok)
-            or (proof_consistency_ok and not (dark_state_score_ok and dark_state_coverage_ok))
+            or (proof_consistency_ok != proof_thresholds_ok)
         )
+        proof_weak = proof_supplied and not internal_proof_inconsistency and not (proof_thresholds_ok and proof_consistency_ok)
 
-        if proposal_strong and proof_weak:
+        if internal_proof_inconsistency:
+            label = "ambiguous_state"
+            terminate_early = False
+            rationale = "dark-state proof signals are internally inconsistent"
+        elif proposal_strong and proof_weak:
             label = "ambiguous_state"
             terminate_early = False
             rationale = "proposal signals are strong but dark-state proof evidence conflicts"
@@ -737,10 +743,6 @@ def classify_early_termination_decision(
             label = "ambiguous_state"
             terminate_early = False
             rationale = "convergence signal is strong but dark-state coverage evidence is insufficient"
-        elif internal_proof_inconsistency:
-            label = "ambiguous_state"
-            terminate_early = False
-            rationale = "dark-state proof signals are internally inconsistent"
         elif proposal_weak or convergence_missing_or_weak or proof_weak:
             label = "continue_iteration"
             terminate_early = False
@@ -818,7 +820,7 @@ def build_early_termination_analysis_result(
         top_proposal_hash=top_proposal_hash,
         decision_label=decision.decision_label,
         terminate_early=decision.terminate_early,
-        receipt_hash="",
+        receipt_hash=None,
     )
     receipt = EarlyTerminationReceipt(**{**receipt_seed.to_dict(), "receipt_hash": receipt_seed.stable_hash()})
 

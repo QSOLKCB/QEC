@@ -278,6 +278,36 @@ def test_strong_consistent_signals_never_produce_ambiguous_state() -> None:
         dark_state_inputs=_proof(dark_state_score=0.99, dark_state_coverage=0.99, proof_consistency_score=0.99),
     )
     assert result.decision.decision_label == "terminate_early"
+    assert result.decision.terminate_early is True
+
+
+def test_optional_convergence_policy_does_not_treat_weak_convergence_as_strong() -> None:
+    kernel = _kernel_result(confidence_boost=0.0, converged=False, delta=0.99)
+    kernel["proposals"] = []
+    kernel["result_hash"] = et._sha256_hex(
+        {
+            "release_version": kernel["release_version"],
+            "runtime_kind": kernel["runtime_kind"],
+            "proposals": kernel["proposals"],
+            "converged": kernel["converged"],
+            "convergence_delta": kernel["convergence_delta"],
+            "config_hash": kernel.get("config_hash"),
+            "input_hash": kernel.get("input_hash"),
+        }
+    )
+    kernel["replay_identity"] = et._sha256_hex({"result_hash": kernel["result_hash"], "input_hash": kernel.get("input_hash")})
+
+    result = et.build_early_termination_analysis_result(
+        config=_config(
+            require_convergence=False,
+            require_nonempty_proposals=False,
+            allow_termination_without_dark_state_proof=True,
+        ),
+        kernel_result=kernel,
+        dark_state_inputs=_proof(dark_state_score=0.1, dark_state_coverage=0.1, proof_consistency_score=0.1),
+    )
+    assert result.decision.decision_label == "continue_iteration"
+    assert result.decision.terminate_early is False
 
 
 def test_canonical_hashing_helpers_match_shared_module() -> None:

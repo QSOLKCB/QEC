@@ -61,11 +61,11 @@ def _validated_status(governance_result: Mapping[str, Any]) -> str:
     if status not in _VALID_STATUSES:
         raise ValueError("governance_result status must be one of: PASS, WARN, FAIL")
 
-    return str(status)
+    return status
 
 
 def update_hardware_validation_config(
-    config: Mapping[str, float],
+    config: Mapping[str, float | int],
     governance_result: Mapping[str, Any],
 ) -> dict[str, float]:
     r, a, g = _validated_config(config)
@@ -83,6 +83,9 @@ def update_hardware_validation_config(
         r_new = r * 1.05
         a_new = a * 1.05
         g_new = max(0.0, g * 0.98)
+
+    if not math.isfinite(r_new) or not math.isfinite(a_new) or not math.isfinite(g_new):
+        raise ValueError("updated thresholds must remain finite")
 
     if r_new < 0.0:
         raise ValueError("max_mean_relative_error post-condition violated")

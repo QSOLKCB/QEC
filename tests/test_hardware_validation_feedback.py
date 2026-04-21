@@ -71,7 +71,7 @@ def test_agreement_bounds_are_enforced() -> None:
         {
             "max_mean_relative_error": 0.1,
             "max_mean_absolute_error": 0.1,
-            "min_mean_agreement_score": 0.001,
+            "min_mean_agreement_score": 0.0,
         },
         {"status": "PASS"},
     )
@@ -123,3 +123,15 @@ def test_deterministic_replay_same_input_same_output() -> None:
     second = update_hardware_validation_config(config, governance_result)
 
     assert first == second
+
+
+def test_overflowing_pass_multiplier_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="must remain finite"):
+        update_hardware_validation_config(
+            {
+                "max_mean_relative_error": 1.79e308,
+                "max_mean_absolute_error": 1.79e308,
+                "min_mean_agreement_score": 0.5,
+            },
+            {"status": "PASS"},
+        )

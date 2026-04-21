@@ -71,13 +71,15 @@ def test_agreement_bounds_are_enforced() -> None:
         {
             "max_mean_relative_error": 0.1,
             "max_mean_absolute_error": 0.1,
-            "min_mean_agreement_score": 0.0,
+            "min_mean_agreement_score": 0.001,
         },
         {"status": "PASS"},
     )
 
-    assert fail_capped["min_mean_agreement_score"] <= 1.0
-    assert pass_floored["min_mean_agreement_score"] >= 0.0
+    # For failing runs, agreement is increased but capped at 1.0
+    assert fail_capped["min_mean_agreement_score"] == 1.0
+    # For passing runs with small positive agreement, agreement is decreased but floored at 0.0
+    assert pass_floored["min_mean_agreement_score"] == 0.0
 
 
 @pytest.mark.parametrize(

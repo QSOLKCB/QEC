@@ -244,8 +244,13 @@ def _validate_scenario(raw: Any) -> dict[str, Any]:
     }
 
 
-def _round_api_float(value: float) -> float:
-    return round(float(value), ROUNDING_DECIMALS)
+def _round_api_float(value: float, *, rounding_decimals: int = ROUNDING_DECIMALS) -> float:
+    """Round API-facing floats using the configured decimal precision."""
+    if not isinstance(rounding_decimals, int):
+        raise ValueError("rounding_decimals must be int")
+    if rounding_decimals < 0:
+        raise ValueError("rounding_decimals must be >= 0")
+    return round(float(value), rounding_decimals)
 
 
 def _normalize_scenarios(

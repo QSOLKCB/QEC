@@ -391,6 +391,12 @@ def _canonicalize_snapshots(node_snapshots: Sequence[NodeStateSnapshot]) -> tupl
     canonical = tuple(node_snapshots)
     if len(canonical) == 0:
         raise ValueError("node_snapshots must be non-empty")
+
+    for index, node in enumerate(canonical):
+        if not isinstance(node, NodeStateSnapshot):
+            raise TypeError(
+                f"node_snapshots[{index}] must be a NodeStateSnapshot, got {type(node).__name__}"
+            )
     ids = [node.node_id for node in canonical]
     if len(set(ids)) != len(ids):
         raise ValueError("duplicate node_id")

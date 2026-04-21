@@ -147,9 +147,9 @@ class NodeReplayLog:
         else:
             if not isinstance(self.metadata, Mapping):
                 raise ValueError("metadata must be a mapping[str, str] or None")
-            normalized = {str(k): str(v) for k, v in self.metadata.items()}
             if any(not isinstance(k, str) or not isinstance(v, str) for k, v in self.metadata.items()):
                 raise ValueError("metadata must only contain string keys and values")
+            normalized = {k: v for k, v in self.metadata.items()}
             object.__setattr__(self, "metadata", MappingProxyType({k: normalized[k] for k in sorted(normalized)}))
 
     def to_dict(self) -> dict[str, _JSONValue]:

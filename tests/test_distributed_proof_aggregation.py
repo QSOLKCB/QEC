@@ -121,6 +121,21 @@ def test_deterministic_reference_selection() -> None:
     assert receipt.reference_node_id == "n1"
 
 
+def test_reference_inadmissible_but_aggregation_valid() -> None:
+    nodes = (
+        _node("n1", confidence=0.95, risk=0.9),
+        _node("n2", confidence=0.9, risk=0.1),
+        _node("n3", confidence=0.85, risk=0.2),
+    )
+    receipt = run_distributed_proof_aggregation(nodes, _policy(maximum_risk_threshold=0.4))
+    assert receipt.reference_node_id == "n1"
+    statuses = {status.node_id: status for status in receipt.node_statuses}
+    assert statuses["n1"].admissible is False
+    assert statuses["n2"].admissible is True
+    assert statuses["n3"].admissible is True
+    assert receipt.aggregation_ready is True
+
+
 def test_deterministic_aggregation_hash() -> None:
     nodes = (
         _node("n1", proof_seed="p2"),

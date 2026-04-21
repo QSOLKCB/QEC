@@ -557,11 +557,13 @@ def run_distributed_proof_aggregation(
         aggregation_confidence = 0.0
         aggregation_risk = 1.0
 
-    reference_status = next(status for status in status_tuple if status.node_id == reference_node.node_id)
+    has_admissible_contributor = any(
+        status.admissible and status.contributes_to_aggregation for status in status_tuple
+    )
     aggregation_ready = (
         structurally_consistent
         and len(included_tuple) > 0
-        and reference_status.admissible
+        and has_admissible_contributor
         and participation_fraction >= policy.minimum_participation_fraction
     )
 

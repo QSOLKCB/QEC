@@ -29,7 +29,8 @@ class CodeCandidateProfile:
         if not isinstance(self.code_id, str) or not self.code_id:
             raise ValueError("code_id must be a non-empty str")
         if self.code_family not in _ALLOWED_CODE_FAMILIES:
-            raise ValueError("code_family must be one of: 'surface', 'qldpc'")
+            allowed_families = ", ".join(sorted(_ALLOWED_CODE_FAMILIES))
+            raise ValueError(f"code_family must be one of: {allowed_families}")
 
         for metric_name in (
             "logical_stability",

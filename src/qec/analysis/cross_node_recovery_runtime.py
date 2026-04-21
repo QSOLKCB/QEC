@@ -676,7 +676,11 @@ def _build_rationale(
     recovery_ready: bool,
 ) -> tuple[str, ...]:
     reasons: list[str] = ["reference recovery node selected deterministically"]
-    reasons.append("sync admissibility satisfies policy" if any(s.sync_ok for s in statuses) else "sync admissibility below policy")
+    reasons.append(
+        "at least one node reports sync ok"
+        if any(s.sync_ok for s in statuses)
+        else "no nodes report sync ok"
+    )
     if any(status.requires_replay_recovery for status in statuses):
         reasons.append("replay recovery required for node")
     if any(status.requires_proof_recovery for status in statuses):

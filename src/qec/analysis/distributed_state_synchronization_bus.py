@@ -543,13 +543,20 @@ def _build_sync_actions(
             ready=not status.epoch_aligned,
             detail="align node epoch to cluster epoch",
         )
+        hash_alignment_required = (
+            not status.state_hash_aligned and policy.require_matching_state_hash
+        )
         _append_action(
             action_type="align_hash",
             source_node_id=node.node_id,
             target_node_id=reference_node.node_id,
-            blocking=not status.state_hash_aligned,
-            ready=not status.state_hash_aligned,
-            detail="align node state hash to reference hash",
+            blocking=hash_alignment_required,
+            ready=hash_alignment_required,
+            detail=(
+                "align node state hash to reference hash"
+                if policy.require_matching_state_hash
+                else "state hash differs from reference, but policy permits mismatch"
+            ),
         )
 
     for status in node_statuses:

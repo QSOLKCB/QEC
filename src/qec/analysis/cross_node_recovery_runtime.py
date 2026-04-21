@@ -508,7 +508,7 @@ def _node_status(
 
     requires_replay_recovery = sync_ok and proof_ok and (not replay_ok) and (not gating_block)
     requires_proof_recovery = sync_ok and replay_ok and (not proof_ok) and (not gating_block)
-    requires_full_rejoin = (not sync_ok and (not replay_ok or not proof_ok)) or gating_block
+    requires_full_rejoin = (not sync_ok) or gating_block
     requires_hold = (not admissible) or ((not sync_ok) and (not replay_ok) and (not proof_ok))
 
     reasons: list[str] = []

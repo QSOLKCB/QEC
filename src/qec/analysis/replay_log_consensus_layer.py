@@ -611,24 +611,6 @@ def build_replay_log_consensus_receipt(
 
     actions = _synthesize_actions(statuses, reference_log.node_id, consensus_ready)
 
-    temporary = ReplayLogConsensusReceipt(
-        node_replay_logs=logs,
-        policy_snapshot=policy,
-        node_statuses=statuses,
-        consensus_actions=actions,
-        cluster_epoch=cluster_epoch,
-        reference_node_id=reference_log.node_id,
-        reference_log_hash=reference_log.log_hash,
-        structurally_consistent=structurally_consistent,
-        consensus_ready=consensus_ready,
-        consensus_confidence=consensus_confidence,
-        consensus_risk=consensus_risk,
-        rationale=(),
-        schema_version=SCHEMA_VERSION,
-        replay_identity="0" * 64,
-        stable_hash="0" * 64,
-    )
-
     replay_identity = _sha256_hex(
         {
             "schema_version": SCHEMA_VERSION,

@@ -74,6 +74,39 @@ def test_state_hash_mismatch_cluster_not_ready_without_error():
     assert "state hash mismatch blocks cluster readiness" in receipt.rationale
 
 
+def test_epoch_mismatch_allowed_by_policy():
+    receipt = build_distributed_sync_receipt(
+        (_node("n1", epoch=2), _node("n2", epoch=3)),
+        _policy(require_matching_epoch=False),
+    )
+    assert receipt.cluster_ready is True
+    assert "epoch mismatch noted but allowed by policy" in receipt.rationale
+
+
+def test_epoch_mismatch_blocked_by_policy():
+    receipt = build_distributed_sync_receipt(
+        (_node("n1", epoch=2), _node("n2", epoch=3)),
+        _policy(require_matching_epoch=True),
+    )
+    assert receipt.cluster_ready is False
+    assert "epoch mismatch blocks cluster readiness" in receipt.rationale
+
+
+def test_reference_node_epoch_alignment_when_required():
+    receipt = build_distributed_sync_receipt(
+        (
+            _node("n1", epoch=4, stability=0.99, hardware_alignment=0.99, state_hash=_h("c")),
+            _node("n2", epoch=3, stability=0.98, hardware_alignment=0.98, state_hash=_h("a")),
+            _node("n3", epoch=3, stability=0.97, hardware_alignment=0.97, state_hash=_h("b")),
+        ),
+        _policy(require_matching_epoch=True, require_matching_state_hash=False),
+    )
+
+    emit_action = next(action for action in receipt.sync_actions if action.action_type == "emit_cluster_view")
+    assert emit_action.source_node_id == "n2"
+    assert receipt.cluster_epoch == 3
+
+
 def test_duplicate_node_rejected():
     with pytest.raises(ValueError, match="duplicate node_id"):
         build_distributed_sync_receipt((_node("n1"), _node("n1")), _policy())

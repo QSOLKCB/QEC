@@ -417,6 +417,7 @@ def _select_reference_node(
     node_snapshots: tuple[NodeStateSnapshot, ...],
     policy: SyncBusPolicy,
     cluster_role: str,
+    cluster_epoch: int,
 ) -> NodeStateSnapshot:
     if policy.allow_role_mixing:
         eligible = node_snapshots
@@ -432,6 +433,10 @@ def _select_reference_node(
         and node.hardware_alignment >= policy.minimum_hardware_alignment
     )
     pool = admissible_seed if admissible_seed else eligible
+
+    epoch_aligned_nodes = tuple(node for node in pool if node.epoch_index == cluster_epoch)
+    if policy.require_matching_epoch and epoch_aligned_nodes:
+        pool = epoch_aligned_nodes
     return sorted(
         pool,
         key=lambda node: (
@@ -513,6 +518,7 @@ def _build_sync_actions(
     node_snapshots: tuple[NodeStateSnapshot, ...],
     node_statuses: tuple[NodeSyncStatus, ...],
     reference_node: NodeStateSnapshot,
+    policy: SyncBusPolicy,
     cluster_ready: bool,
 ) -> tuple[SyncAction, ...]:
     actions: list[SyncAction] = []
@@ -541,13 +547,20 @@ def _build_sync_actions(
             ready=True,
             detail="compare replay identity against reference",
         )
+        epoch_alignment_required = (
+            not status.epoch_aligned and policy.require_matching_epoch
+        )
         _append_action(
             action_type="align_epoch",
             source_node_id=node.node_id,
             target_node_id=reference_node.node_id,
-            blocking=not status.epoch_aligned,
-            ready=not status.epoch_aligned,
-            detail="align node epoch to cluster epoch",
+            blocking=epoch_alignment_required,
+            ready=epoch_alignment_required,
+            detail=(
+                "align node epoch to cluster epoch"
+                if policy.require_matching_epoch
+                else "epoch differs from cluster but policy permits mismatch"
+            ),
         )
         hash_alignment_required = (
             not status.state_hash_aligned and policy.require_matching_state_hash
@@ -597,6 +610,7 @@ def _build_rationale(
     cluster_ready: bool,
     structural_consistency: bool,
     require_matching_epoch: bool = True,
+    require_matching_state_hash: bool = True,
 ) -> tuple[str, ...]:
     """Build human-readable readiness rationale aligned with policy constraints."""
     out: list[str] = ["reference node selected deterministically"]
@@ -610,8 +624,10 @@ def _build_rationale(
 
     if all(status.state_hash_aligned for status in node_statuses):
         out.append("state hash alignment satisfied")
+    elif require_matching_state_hash:
+        out.append("state hash mismatch blocks cluster readiness")
     else:
-        out.append("state hash mismatch detected")
+        out.append("state hash mismatch noted but allowed by policy")
 
     if all(status.loss_delta_ok for status in node_statuses):
         out.append("projected loss delta within policy bounds")
@@ -681,7 +697,7 @@ def build_distributed_sync_receipt(
     canonical_nodes = _canonicalize_snapshots(node_snapshots)
     cluster_epoch = _cluster_epoch(canonical_nodes)
     cluster_role = _cluster_role(canonical_nodes)
-    reference_node = _select_reference_node(canonical_nodes, policy, cluster_role)
+    reference_node = _select_reference_node(canonical_nodes, policy, cluster_role, cluster_epoch)
     cluster_state_hash = reference_node.state_hash
 
     node_statuses = _build_node_statuses(canonical_nodes, reference_node, policy, cluster_epoch, cluster_state_hash, cluster_role)
@@ -705,8 +721,14 @@ def build_distributed_sync_receipt(
     sync_confidence = float(sum(status.sync_confidence for status in node_statuses) / len(node_statuses))
     sync_risk = float(1.0 - sync_confidence)
 
-    sync_actions = _build_sync_actions(canonical_nodes, node_statuses, reference_node, cluster_ready)
-    rationale = _build_rationale(node_statuses, cluster_ready, structural_consistency)
+    sync_actions = _build_sync_actions(canonical_nodes, node_statuses, reference_node, policy, cluster_ready)
+    rationale = _build_rationale(
+        node_statuses,
+        cluster_ready,
+        structural_consistency,
+        require_matching_epoch=policy.require_matching_epoch,
+        require_matching_state_hash=policy.require_matching_state_hash,
+    )
 
     replay_payload = _receipt_replay_payload(
         node_snapshots=canonical_nodes,

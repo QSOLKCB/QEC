@@ -14,7 +14,7 @@
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19099503-blue)](https://doi.org/10.5281/zenodo.19099503)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19104208-blue)](https://doi.org/10.5281/zenodo.19104208)
 
-[![Branch](https://img.shields.io/badge/branch-v138%20canonical-purple)]()
+[![Branch](https://img.shields.io/badge/branch-v139%20canonical-purple)]()
 [![Architecture](https://img.shields.io/badge/architecture-deterministic%20systems-blueviolet)]()
 [![Determinism](https://img.shields.io/badge/determinism-byte--identical-success)]()
 [![Replay](https://img.shields.io/badge/replay-hash--stable-green)]()

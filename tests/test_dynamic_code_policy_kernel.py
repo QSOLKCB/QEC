@@ -9,6 +9,7 @@ from qec.analysis.dynamic_code_policy_kernel import (
     DynamicCodePolicy,
     MigrationPolicyInput,
     OrchestrationPolicyInput,
+    PolicyDecisionReceipt,
     RuntimeCodeState,
     decide_dynamic_code_policy,
 )
@@ -140,6 +141,7 @@ def test_stay_decision_when_current_remains_best() -> None:
 
 
 def test_defer_decision_when_promising_but_thresholds_not_met() -> None:
+    runtime = _base_runtime()
     orchestration = OrchestrationPolicyInput(
         benchmark_best_candidate_id="code_candidate",
         benchmark_best_family="color",
@@ -159,11 +161,15 @@ def test_defer_decision_when_promising_but_thresholds_not_met() -> None:
         migration_confidence=0.75,
         migration_admissible=True,
     )
-    receipt = decide_dynamic_code_policy(_base_runtime(), _base_candidate(), migration, orchestration, _base_policy())
+    receipt = decide_dynamic_code_policy(runtime, _base_candidate(), migration, orchestration, _base_policy())
     assert receipt.decision.selected_action == "defer"
+    assert receipt.decision.stay_on_current_code is True
+    assert receipt.decision.target_code_id == runtime.current_code_id
+    assert receipt.decision.target_code_family == runtime.current_code_family
 
 
 def test_reject_decision_when_projected_loss_exceeds_policy() -> None:
+    runtime = _base_runtime()
     candidate = CandidatePolicyInput(
         candidate_code_id="code_candidate",
         candidate_code_family="color",
@@ -173,8 +179,11 @@ def test_reject_decision_when_projected_loss_exceeds_policy() -> None:
         candidate_hardware_alignment=0.9,
         candidate_execution_efficiency=0.9,
     )
-    receipt = decide_dynamic_code_policy(_base_runtime(), candidate, _base_migration(), _base_orchestration(), _base_policy())
+    receipt = decide_dynamic_code_policy(runtime, candidate, _base_migration(), _base_orchestration(), _base_policy())
     assert receipt.decision.selected_action == "reject"
+    assert receipt.decision.stay_on_current_code is True
+    assert receipt.decision.target_code_id == runtime.current_code_id
+    assert receipt.decision.target_code_family == runtime.current_code_family
 
 
 def test_require_cross_family_benefit_enforced() -> None:
@@ -256,4 +265,20 @@ def test_invalid_numeric_bool_rejected() -> None:
             candidate_projected_loss=0.15,
             candidate_hardware_alignment=0.8,
             candidate_execution_efficiency=0.8,
+        )
+
+
+def test_receipt_rejects_non_hex_hash_fields() -> None:
+    receipt = decide_dynamic_code_policy(_base_runtime(), _base_candidate(), _base_migration(), _base_orchestration(), _base_policy())
+    with pytest.raises(ValueError, match="replay_identity must be a 64-character SHA-256 hex string"):
+        PolicyDecisionReceipt(
+            runtime_state=receipt.runtime_state,
+            candidate_input=receipt.candidate_input,
+            migration_input=receipt.migration_input,
+            orchestration_input=receipt.orchestration_input,
+            policy_snapshot=receipt.policy_snapshot,
+            decision=receipt.decision,
+            schema_version=receipt.schema_version,
+            replay_identity="z" * 64,
+            stable_hash=receipt.stable_hash,
         )

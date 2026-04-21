@@ -21,6 +21,11 @@ ALLOWED_ACTIONS: tuple[str, ...] = ("stay", "switch", "migrate", "orchestrate", 
 ALLOWED_ESCALATION_LEVELS: tuple[str, ...] = ("none", "observe", "review", "high")
 _ACTION_PRIORITY: tuple[str, ...] = ("orchestrate", "migrate", "switch", "stay", "defer", "reject")
 _PRECISION: int = 12
+RISK_REJECT_THRESHOLD: float = 0.8
+REJECT_ESCALATION_HIGH_RISK_THRESHOLD: float = 0.7
+ORCHESTRATE_ESCALATION_REVIEW_RISK_THRESHOLD: float = 0.45
+MIGRATE_ESCALATION_REVIEW_RISK_THRESHOLD: float = 0.4
+SWITCH_ESCALATION_OBSERVE_RISK_THRESHOLD: float = 0.35
 
 
 def _round64(value: float) -> float:
@@ -45,6 +50,10 @@ def _sha256_hex(payload: bytes) -> str:
 
 def _hash_mapping(payload: Mapping[str, Any]) -> str:
     return _sha256_hex(_canonical_bytes(payload))
+
+
+def _is_valid_sha256_hex(value: str) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(char in "0123456789abcdef" for char in value.lower())
 
 
 def _require_non_empty_token(value: str, *, field: str) -> str:
@@ -101,7 +110,22 @@ def _average(values: tuple[float, ...]) -> float:
 
 
 @dataclass(frozen=True)
-class RuntimeCodeState:
+class _CanonicalSerializable:
+    def to_dict(self) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def to_canonical_json(self) -> str:
+        return _canonical_json(self.to_dict())
+
+    def to_canonical_bytes(self) -> bytes:
+        return _canonical_bytes(self.to_dict())
+
+    def stable_hash_value(self) -> str:
+        return _hash_mapping(self.to_dict())
+
+
+@dataclass(frozen=True)
+class RuntimeCodeState(_CanonicalSerializable):
     current_code_id: str
     current_code_family: str
     current_logical_stability: float
@@ -133,18 +157,8 @@ class RuntimeCodeState:
             "current_orchestration_depth": self.current_orchestration_depth,
         }
 
-    def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
-
-    def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
-
-    def stable_hash_value(self) -> str:
-        return _hash_mapping(self.to_dict())
-
-
 @dataclass(frozen=True)
-class CandidatePolicyInput:
+class CandidatePolicyInput(_CanonicalSerializable):
     candidate_code_id: str
     candidate_code_family: str
     selection_confidence: float
@@ -173,18 +187,8 @@ class CandidatePolicyInput:
             "candidate_execution_efficiency": self.candidate_execution_efficiency,
         }
 
-    def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
-
-    def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
-
-    def stable_hash_value(self) -> str:
-        return _hash_mapping(self.to_dict())
-
-
 @dataclass(frozen=True)
-class MigrationPolicyInput:
+class MigrationPolicyInput(_CanonicalSerializable):
     migration_target_family: str
     migration_compatibility: float
     migration_projected_loss: float
@@ -216,18 +220,8 @@ class MigrationPolicyInput:
             "migration_admissible": self.migration_admissible,
         }
 
-    def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
-
-    def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
-
-    def stable_hash_value(self) -> str:
-        return _hash_mapping(self.to_dict())
-
-
 @dataclass(frozen=True)
-class OrchestrationPolicyInput:
+class OrchestrationPolicyInput(_CanonicalSerializable):
     benchmark_best_candidate_id: str
     benchmark_best_family: str
     benchmark_best_utility: float
@@ -256,18 +250,8 @@ class OrchestrationPolicyInput:
             "benchmark_admissible": self.benchmark_admissible,
         }
 
-    def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
-
-    def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
-
-    def stable_hash_value(self) -> str:
-        return _hash_mapping(self.to_dict())
-
-
 @dataclass(frozen=True)
-class DynamicCodePolicy:
+class DynamicCodePolicy(_CanonicalSerializable):
     minimum_selection_confidence: float
     minimum_migration_confidence: float
     minimum_benchmark_utility: float
@@ -305,18 +289,8 @@ class DynamicCodePolicy:
             "prefer_hardware_alignment": self.prefer_hardware_alignment,
         }
 
-    def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
-
-    def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
-
-    def stable_hash_value(self) -> str:
-        return _hash_mapping(self.to_dict())
-
-
 @dataclass(frozen=True)
-class PolicyDecision:
+class PolicyDecision(_CanonicalSerializable):
     selected_action: str
     target_code_id: str
     target_code_family: str
@@ -364,18 +338,8 @@ class PolicyDecision:
             "escalation_level": self.escalation_level,
         }
 
-    def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
-
-    def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
-
-    def stable_hash_value(self) -> str:
-        return _hash_mapping(self.to_dict())
-
-
 @dataclass(frozen=True)
-class PolicyDecisionReceipt:
+class PolicyDecisionReceipt(_CanonicalSerializable):
     runtime_state: RuntimeCodeState
     candidate_input: CandidatePolicyInput
     migration_input: MigrationPolicyInput
@@ -388,9 +352,9 @@ class PolicyDecisionReceipt:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "schema_version", _require_non_empty_token(self.schema_version, field="schema_version"))
-        if not isinstance(self.replay_identity, str) or len(self.replay_identity) != 64:
+        if not _is_valid_sha256_hex(self.replay_identity):
             raise ValueError("replay_identity must be a 64-character SHA-256 hex string")
-        if not isinstance(self.stable_hash, str) or len(self.stable_hash) != 64:
+        if not _is_valid_sha256_hex(self.stable_hash):
             raise ValueError("stable_hash must be a 64-character SHA-256 hex string")
         expected_replay_identity = _compute_replay_identity(
             self.runtime_state,
@@ -402,7 +366,7 @@ class PolicyDecisionReceipt:
         )
         if self.replay_identity != expected_replay_identity:
             raise ValueError("replay_identity does not match canonical replay payload")
-        expected_stable_hash = _compute_receipt_hash_payload(
+        expected_stable_hash = _compute_receipt_hash_hex(
             self.runtime_state,
             self.candidate_input,
             self.migration_input,
@@ -427,13 +391,6 @@ class PolicyDecisionReceipt:
             "replay_identity": self.replay_identity,
             "stable_hash": self.stable_hash,
         }
-
-    def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
-
-    def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
-
 
 def _build_replay_identity_payload(
     runtime_state: RuntimeCodeState,
@@ -489,7 +446,7 @@ def _build_receipt_hash_payload(
     }
 
 
-def _compute_receipt_hash_payload(
+def _compute_receipt_hash_hex(
     runtime_state: RuntimeCodeState,
     candidate_input: CandidatePolicyInput,
     migration_input: MigrationPolicyInput,
@@ -554,16 +511,91 @@ def _compute_signals(
 
 def _select_escalation(action: str, risk_score: float) -> str:
     if action == "reject":
-        return "high" if risk_score >= 0.7 else "review"
+        return "high" if risk_score >= REJECT_ESCALATION_HIGH_RISK_THRESHOLD else "review"
     if action == "defer":
         return "observe"
     if action == "orchestrate":
-        return "review" if risk_score >= 0.45 else "none"
+        return "review" if risk_score >= ORCHESTRATE_ESCALATION_REVIEW_RISK_THRESHOLD else "none"
     if action == "migrate":
-        return "review" if risk_score >= 0.4 else "none"
+        return "review" if risk_score >= MIGRATE_ESCALATION_REVIEW_RISK_THRESHOLD else "none"
     if action == "switch":
-        return "observe" if risk_score >= 0.35 else "none"
+        return "observe" if risk_score >= SWITCH_ESCALATION_OBSERVE_RISK_THRESHOLD else "none"
     return "none"
+
+
+def _is_orchestrate_eligible(
+    *,
+    candidate_changes_runtime: bool,
+    selection_ok: bool,
+    benchmark_utility_ok: bool,
+    improvement_margin_ok: bool,
+    benchmark_candidate_ok: bool,
+    benchmark_admissible: bool,
+    cross_family_ok: bool,
+    hard_reject: bool,
+    improvement_score: float,
+) -> bool:
+    return (
+        candidate_changes_runtime
+        and selection_ok
+        and benchmark_utility_ok
+        and improvement_margin_ok
+        and benchmark_candidate_ok
+        and benchmark_admissible
+        and cross_family_ok
+        and not hard_reject
+        and improvement_score >= 0.5
+    )
+
+
+def _is_migrate_eligible(
+    *,
+    candidate_changes_runtime: bool,
+    selection_ok: bool,
+    migration_conf_ok: bool,
+    migration_family_ok: bool,
+    migration_admissibility_ok: bool,
+    cross_family_ok: bool,
+    candidate_loss_ok: bool,
+    overhead_ok: bool,
+    hard_reject: bool,
+    improvement_score: float,
+) -> bool:
+    return (
+        candidate_changes_runtime
+        and selection_ok
+        and migration_conf_ok
+        and migration_family_ok
+        and migration_admissibility_ok
+        and cross_family_ok
+        and candidate_loss_ok
+        and overhead_ok
+        and not hard_reject
+        and improvement_score >= 0.5
+    )
+
+
+def _is_switch_eligible(
+    *,
+    candidate_changes_runtime: bool,
+    selection_ok: bool,
+    improvement_margin_ok: bool,
+    cross_family_ok: bool,
+    candidate_loss_ok: bool,
+    overhead_ok: bool,
+    hard_reject: bool,
+    improvement_score: float,
+) -> bool:
+    return (
+        candidate_changes_runtime
+        and selection_ok
+        and improvement_margin_ok
+        and cross_family_ok
+        and candidate_loss_ok
+        and overhead_ok
+        and not hard_reject
+        and improvement_score >= 0.5
+    )
 
 
 def decide_dynamic_code_policy(
@@ -597,42 +629,42 @@ def decide_dynamic_code_policy(
         and orchestration_input.benchmark_best_family == candidate_input.candidate_code_family
     )
 
-    hard_reject = (not candidate_loss_ok) or (not overhead_ok) or risk_score >= 0.8
+    hard_reject = (not candidate_loss_ok) or (not overhead_ok) or risk_score >= RISK_REJECT_THRESHOLD
 
-    orchestrate_eligible = (
-        candidate_changes_runtime
-        and selection_ok
-        and benchmark_utility_ok
-        and improvement_margin_ok
-        and benchmark_candidate_ok
-        and orchestration_input.benchmark_admissible
-        and cross_family_ok
-        and not hard_reject
-        and improvement_score >= 0.5
+    orchestrate_eligible = _is_orchestrate_eligible(
+        candidate_changes_runtime=candidate_changes_runtime,
+        selection_ok=selection_ok,
+        benchmark_utility_ok=benchmark_utility_ok,
+        improvement_margin_ok=improvement_margin_ok,
+        benchmark_candidate_ok=benchmark_candidate_ok,
+        benchmark_admissible=orchestration_input.benchmark_admissible,
+        cross_family_ok=cross_family_ok,
+        hard_reject=hard_reject,
+        improvement_score=improvement_score,
     )
 
-    migrate_eligible = (
-        candidate_changes_runtime
-        and selection_ok
-        and migration_conf_ok
-        and migration_family_ok
-        and migration_admissibility_ok
-        and cross_family_ok
-        and candidate_loss_ok
-        and overhead_ok
-        and not hard_reject
-        and improvement_score >= 0.5
+    migrate_eligible = _is_migrate_eligible(
+        candidate_changes_runtime=candidate_changes_runtime,
+        selection_ok=selection_ok,
+        migration_conf_ok=migration_conf_ok,
+        migration_family_ok=migration_family_ok,
+        migration_admissibility_ok=migration_admissibility_ok,
+        cross_family_ok=cross_family_ok,
+        candidate_loss_ok=candidate_loss_ok,
+        overhead_ok=overhead_ok,
+        hard_reject=hard_reject,
+        improvement_score=improvement_score,
     )
 
-    switch_eligible = (
-        candidate_changes_runtime
-        and selection_ok
-        and improvement_margin_ok
-        and cross_family_ok
-        and candidate_loss_ok
-        and overhead_ok
-        and not hard_reject
-        and improvement_score >= 0.5
+    switch_eligible = _is_switch_eligible(
+        candidate_changes_runtime=candidate_changes_runtime,
+        selection_ok=selection_ok,
+        improvement_margin_ok=improvement_margin_ok,
+        cross_family_ok=cross_family_ok,
+        candidate_loss_ok=candidate_loss_ok,
+        overhead_ok=overhead_ok,
+        hard_reject=hard_reject,
+        improvement_score=improvement_score,
     )
 
     stay_eligible = (not candidate_changes_runtime or improvement_score < 0.5 or not selection_ok) and not hard_reject
@@ -665,7 +697,14 @@ def decide_dynamic_code_policy(
     rationale.append("migration admissibility satisfied" if migration_admissibility_ok else "migration admissibility required but not satisfied")
     rationale.append("cross-family benefit satisfied" if cross_family_ok else "cross-family benefit required but not demonstrated")
     rationale.append("benchmark candidate alignment satisfied" if benchmark_candidate_ok else "benchmark winner does not match candidate")
-    rationale.append("risk within bounded policy tolerance" if not hard_reject else "risk exceeds bounded policy tolerance")
+    if not candidate_loss_ok:
+        rationale.append("projected loss exceeds policy maximum")
+    elif not overhead_ok:
+        rationale.append("migration overhead exceeds policy maximum")
+    elif risk_score >= RISK_REJECT_THRESHOLD:
+        rationale.append("risk exceeds bounded policy tolerance")
+    else:
+        rationale.append("risk within bounded policy tolerance")
     rationale.append(f"selected action: {selected_action}")
 
     stays_on_current_code = selected_action in {"stay", "defer", "reject"}
@@ -701,7 +740,7 @@ def decide_dynamic_code_policy(
         DYNAMIC_CODE_POLICY_KERNEL_VERSION,
     )
 
-    stable_hash = _compute_receipt_hash_payload(
+    stable_hash = _compute_receipt_hash_hex(
         runtime_state,
         candidate_input,
         migration_input,

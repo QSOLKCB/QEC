@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from qec.analysis.canonical_hashing import canonical_json
 from qec.analysis.convergence_engine import CONVERGENCE_ENGINE_VERSION, evaluate_convergence_engine
 from qec.analysis.generalized_invariant_detector import (
     GENERALIZED_INVARIANT_DETECTOR_VERSION,
@@ -176,4 +177,4 @@ def test_canonical_serialization_replay_safe() -> None:
         _snapshot(1, "B", 0.6),
     )
 
-    assert out.to_canonical_json() == out.to_canonical_json()
+    assert out.to_canonical_json() == canonical_json(out.to_dict())

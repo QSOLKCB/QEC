@@ -472,3 +472,226 @@ v139 → distributed agreement
 v140 → hardware control
 v141 → self-healing
 v142 → universal compute
+
+---
+
+# v143.x — SPHAERA (FORMAL INVARIANT GEOMETRY RUNTIME)
+
+---
+
+## Purpose
+
+Extend QEC from:
+
+
+invariant-driven execution
+
+
+into:
+
+
+formal invariant geometry
+
+ensemble-consistent system evolution
+
+This arc integrates the **Quantum Sphaera Companion (v3.30.0)** formal structure into QEC.
+
+---
+
+## Core Principle
+
+
+invariants
+→ geometric structure
+→ ensemble consistency
+→ self-determined system evolution
+
+
+---
+
+## Sphaera Law
+
+All systems must satisfy:
+
+
+state
+→ invariant embedding
+→ geometric constraint
+→ ensemble agreement
+→ deterministic evolution
+
+
+---
+
+## Relationship to IRIS
+
+IRIS provides:
+
+
+invariant detection
+
+redundancy elimination
+convergence control
+
+SPHAERA extends this into:
+
+
+invariant structure
+→ geometric organization
+→ ensemble-level determinism
+
+
+---
+
+## v143.0 — Invariant Geometry Embedding Kernel
+
+### Purpose
+
+Map detected invariants into **structured geometric representations**
+
+### Model
+
+
+invariants
+→ equivalence classes
+→ geometric embedding
+→ structure-preserving mapping
+
+
+### Output
+
+
+InvariantGeometryReceipt
+
+
+---
+
+## v143.1 — Ensemble Consistency Engine
+
+### Purpose
+
+Ensure **global agreement across invariant-equivalent states**
+
+### Model
+
+
+state ensemble
+→ invariant grouping
+→ consistency enforcement
+→ ensemble-stable representation
+
+
+### Output
+
+
+EnsembleConsistencyReceipt
+
+
+---
+
+## v143.2 — Spectral / Random Matrix Structure Kernel
+
+### Purpose
+
+Introduce **spectral structure + GUE-like statistical behavior**
+
+### Model
+
+
+system state
+→ operator spectrum
+→ statistical structure
+→ invariant-constrained dynamics
+
+
+### Output
+
+
+SpectralStructureReceipt
+
+
+---
+
+## v143.3 — Self-Determination Kernel
+
+### Purpose
+
+Enable **internally determined system evolution**
+
+### Model
+
+
+current state
+
+invariant constraints
+→ allowed transitions
+→ deterministic selection
+
+### Output
+
+
+SelfDeterminationReceipt
+
+
+---
+
+## v143.4 — Sphaera Integration Bridge
+
+### Purpose
+
+Unify geometry, ensemble, and execution into a single runtime layer
+
+### Model
+
+
+execution state
+→ invariant detection
+→ geometric embedding
+→ ensemble validation
+→ self-determined evolution
+
+
+### Output
+
+
+SphaeraRuntimeReceipt
+
+
+---
+
+## v143 ARC — Final State
+
+
+system
+→ invariant detection
+→ geometric embedding
+→ ensemble consistency
+→ spectral structure
+→ self-determined evolution
+→ deterministic global state
+
+
+---
+
+## Resulting Capability
+
+QEC evolves into:
+
+
+deterministic runtime
+
+invariant-driven compute engine
+hardware-aware control system
+geometric invariant structure engine
+ensemble-consistent evolution system
+
+---
+
+## Strategic Outcome
+
+
+v139 → distributed agreement
+v140 → hardware control
+v141 → self-healing
+v142 → invariant runtime (IRIS)
+v143 → invariant geometry + self-determined systems (SPHAERA)

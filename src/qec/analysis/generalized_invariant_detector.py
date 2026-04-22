@@ -220,23 +220,38 @@ def _detect_plateau(snapshots: tuple[IterativeStateSnapshot, ...]) -> tuple[floa
 
 def _detect_oscillation(snapshots: tuple[IterativeStateSnapshot, ...]) -> tuple[float, InvariantPattern | None]:
     n = len(snapshots)
-    longest = 0
-    for start in range(0, max(n - 1, 0)):
-        a = snapshots[start].state_id
-        b = snapshots[start + 1].state_id
-        if a == b:
-            continue
-        run = 2
-        idx = start + 2
-        while idx < n:
-            expected = a if ((idx - start) % 2 == 0) else b
-            if snapshots[idx].state_id != expected:
-                break
-            run += 1
-            idx += 1
-        if run > longest:
-            longest = run
+    if n < 4:
+        return 0.0, None
 
+    previous_state = snapshots[0].state_id
+    current_run = 1
+    longest = 0
+    pair_a: str | None = None
+    pair_b: str | None = None
+
+    for idx in range(1, n):
+        current_state = snapshots[idx].state_id
+
+        if current_state == previous_state:
+            current_run = 1
+            pair_a = None
+            pair_b = None
+        elif current_run == 1:
+            pair_a = previous_state
+            pair_b = current_state
+            current_run = 2
+        else:
+            expected = pair_a if current_run % 2 == 0 else pair_b
+            if current_state == expected:
+                current_run += 1
+            else:
+                pair_a = previous_state
+                pair_b = current_state
+                current_run = 2
+
+        if current_run > longest:
+            longest = current_run
+        previous_state = current_state
     if longest < 4:
         return 0.0, None
     score = _clamp01((longest - 3) / max(n - 3, 1))

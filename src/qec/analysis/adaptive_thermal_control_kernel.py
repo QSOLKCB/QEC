@@ -211,6 +211,10 @@ class ThermalControlReceipt:
         return canonical_json(self.to_dict())
 
 
+_WORKLOAD_DERATE_START_PRESSURE = 0.35
+_WORKLOAD_DERATE_RAMP_SPAN = 0.65
+
+
 def _classify_action(thermal_pressure: float) -> str:
     if thermal_pressure < 0.25:
         return "hold"
@@ -234,7 +238,14 @@ def _decision_for_node(signal: ThermalNodeSignal, policy: ThermalPolicy) -> Ther
         + float(policy.utilization_weight) * normalized_util
     )
     cooling_bias = _clamp01(thermal_pressure * float(policy.max_cooling_delta))
-    workload_derate = _clamp01(max(0.0, thermal_pressure - 0.35) * float(policy.max_workload_derate) / 0.65)
+    # Derating begins in the "pre_cool" band and ramps to full scale by 1.0,
+    # which keeps the advisory behavior aligned with `_classify_action()`
+    # thresholds while preserving the existing formula.
+    workload_derate = _clamp01(
+        max(0.0, thermal_pressure - _WORKLOAD_DERATE_START_PRESSURE)
+        * float(policy.max_workload_derate)
+        / _WORKLOAD_DERATE_RAMP_SPAN
+    )
     stability_score = _clamp01(1.0 - thermal_pressure)
 
     return ThermalNodeDecision(

@@ -254,7 +254,6 @@ The QEC Rust TUI provides a **deterministic operator console** for observing, va
 
 ### ⚡ 0. Quick Start (One-Line Bootstrap)
 
-```bash
 curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
 
 ---

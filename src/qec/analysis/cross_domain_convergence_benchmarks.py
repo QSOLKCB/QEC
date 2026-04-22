@@ -248,8 +248,9 @@ def evaluate_cross_domain_benchmark(
             cutoff_step = iterations_total - 1
             structural_redundancy_ratio = 0.0
         else:
-            iterations_effective = cutoff_step + 1
-            structural_redundancy_ratio = _clamp01(1.0 - (iterations_effective / float(iterations_total)))
+            structural_redundancy_ratio = _clamp01(
+                1.0 - ((cutoff_step + 1) / float(iterations_total))
+            )
         iterations_effective = cutoff_step + 1
 
     redundancy_ratio = structural_redundancy_ratio

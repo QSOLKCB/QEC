@@ -78,6 +78,16 @@ def _convergence_receipt(
     early_termination_advised: bool,
     convergence_label: str = "unconverged",
 ) -> ConvergenceReceipt:
+    valid_labels = {
+        "unconverged",
+        "progressing",
+        "near_converged",
+        "converged",
+        "oscillating",
+    }
+    if convergence_label not in valid_labels:
+        raise ValueError(f"invalid convergence_label: {convergence_label}")
+
     return ConvergenceReceipt(
         version="v142.2",
         signal=ConvergenceSignal(
@@ -190,7 +200,7 @@ def test_convergence_cutoff_uses_threshold_crossing() -> None:
     assert out.signal.redundancy_ratio > 0.0
 
 
-def test_plateau_cutoff_uses_first_plateau_index() -> None:
+def test_plateau_cutoff_uses_first_three_snapshot_plateau_index() -> None:
     out = evaluate_cross_domain_benchmark(
         "compute",
         _execution_from_sequence((0.20, 0.30, 0.305, 0.308, 0.309, 0.60)),
@@ -199,8 +209,22 @@ def test_plateau_cutoff_uses_first_plateau_index() -> None:
         _wrapper_receipt(allowed_next_steps=6),
     )
 
-    assert out.signal.cutoff_step == 1
+    assert out.signal.cutoff_step == 2
 
+
+
+
+def test_plateau_cutoff_detects_exact_three_snapshot_plateau() -> None:
+    out = evaluate_cross_domain_benchmark(
+        "compute",
+        _execution_from_sequence((0.20, 0.204, 0.207)),
+        _invariant_receipt(0.0),
+        _convergence_receipt(0.0, early_termination_advised=False),
+        _wrapper_receipt(allowed_next_steps=3),
+    )
+
+    assert out.signal.cutoff_step == 0
+    assert out.signal.iterations_effective == 1
 
 def test_fixed_point_cutoff_uses_repeat_state() -> None:
     out = evaluate_cross_domain_benchmark(

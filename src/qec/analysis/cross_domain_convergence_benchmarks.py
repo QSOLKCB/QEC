@@ -220,15 +220,15 @@ def evaluate_cross_domain_benchmark(
     else:
         cutoff_step: int | None = None
         for idx, snapshot in enumerate(snapshots):
-            if snapshot.convergence_metric >= _CONVERGENCE_THRESHOLD:
+            if snapshot.convergence_metric >= CONVERGENCE_THRESHOLD:
                 cutoff_step = idx
                 break
-        if cutoff_step is None and iterations_total >= 4:
-            for idx in range(iterations_total - 3):
+        if cutoff_step is None and iterations_total >= 3:
+            for idx in range(iterations_total - 2):
                 plateau = True
-                for inner_idx in range(idx, idx + 3):
+                for inner_idx in range(idx, idx + 2):
                     delta = abs(snapshots[inner_idx + 1].convergence_metric - snapshots[inner_idx].convergence_metric)
-                    if delta >= _STABILIZE_DELTA_THRESHOLD:
+                    if delta >= STABILIZE_DELTA_THRESHOLD:
                         plateau = False
                         break
                 if plateau:

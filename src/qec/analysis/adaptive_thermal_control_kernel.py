@@ -176,7 +176,7 @@ class ThermalControlReceipt:
     hotspot_count: int
     control_mode: str
     observatory_only: bool
-    stable_hash: str
+    stable_hash: str = ""
 
     def __post_init__(self) -> None:
         if not isinstance(self.version, str) or self.version == "":
@@ -193,9 +193,9 @@ class ThermalControlReceipt:
             raise ValueError("control_mode must be thermal_advisory")
         if self.observatory_only is not True:
             raise ValueError("observatory_only must be True")
-        _require_sha256_hex(self.stable_hash, "stable_hash")
+        object.__setattr__(self, "stable_hash", self._derived_stable_hash())
 
-    def to_dict(self) -> dict[str, Any]:
+    def _hash_payload(self) -> dict[str, Any]:
         return {
             "version": self.version,
             "node_decisions": tuple(node.to_dict() for node in self.node_decisions),
@@ -204,8 +204,15 @@ class ThermalControlReceipt:
             "hotspot_count": self.hotspot_count,
             "control_mode": self.control_mode,
             "observatory_only": self.observatory_only,
-            "stable_hash": self.stable_hash,
         }
+
+    def _derived_stable_hash(self) -> str:
+        return _require_sha256_hex(sha256_hex(self._hash_payload()), "stable_hash")
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = self._hash_payload()
+        payload["stable_hash"] = self.stable_hash
+        return payload
 
     def to_canonical_json(self) -> str:
         return canonical_json(self.to_dict())
@@ -228,7 +235,7 @@ def _classify_action(thermal_pressure: float) -> str:
 def _decision_for_node(signal: ThermalNodeSignal, policy: ThermalPolicy) -> ThermalNodeDecision:
     temp_excess = max(0.0, float(signal.temperature_c) - float(signal.target_temperature_c))
     safety_gap = float(signal.max_safe_temperature_c) - float(signal.target_temperature_c)
-    normalized_temp = 0.0 if safety_gap == 0.0 else _clamp01(temp_excess / safety_gap)
+    normalized_temp = _clamp01(temp_excess / safety_gap)
     normalized_drift = _clamp01(max(0.0, float(signal.temperature_delta_c)) / float(policy.critical_margin_c))
     normalized_util = _clamp01(float(signal.utilization))
 
@@ -281,17 +288,6 @@ def evaluate_adaptive_thermal_control(
     mesh_stability_score = min((d.stability_score for d in decisions), default=1.0)
     hotspot_count = sum(1 for d in decisions if d.action_label in {"derate", "critical"})
 
-    payload = {
-        "version": version,
-        "node_decisions": tuple(d.to_dict() for d in decisions),
-        "mesh_thermal_pressure": float(mesh_thermal_pressure),
-        "mesh_stability_score": float(mesh_stability_score),
-        "hotspot_count": hotspot_count,
-        "control_mode": "thermal_advisory",
-        "observatory_only": True,
-    }
-    stable_hash = sha256_hex(payload)
-
     return ThermalControlReceipt(
         version=version,
         node_decisions=decisions,
@@ -300,7 +296,6 @@ def evaluate_adaptive_thermal_control(
         hotspot_count=hotspot_count,
         control_mode="thermal_advisory",
         observatory_only=True,
-        stable_hash=stable_hash,
     )
 
 

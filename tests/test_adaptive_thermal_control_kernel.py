@@ -13,7 +13,6 @@ from qec.analysis.adaptive_thermal_control_kernel import (
 
 def _policy() -> ThermalPolicy:
     return ThermalPolicy(
-        warning_margin_c=3.0,
         critical_margin_c=10.0,
         max_cooling_delta=0.9,
         max_workload_derate=0.8,
@@ -127,7 +126,6 @@ def test_validation_nan_inf_and_invalid_bounds_raise_value_error() -> None:
 
     with pytest.raises(ValueError):
         ThermalPolicy(
-            warning_margin_c=2.0,
             critical_margin_c=float("inf"),
             max_cooling_delta=0.5,
             max_workload_derate=0.5,
@@ -138,7 +136,6 @@ def test_validation_nan_inf_and_invalid_bounds_raise_value_error() -> None:
 
     with pytest.raises(ValueError):
         ThermalPolicy(
-            warning_margin_c=2.0,
             critical_margin_c=10.0,
             max_cooling_delta=1.2,
             max_workload_derate=0.5,
@@ -167,3 +164,49 @@ def test_hash_stability_repeated_runs_identical() -> None:
 
     hashes = [evaluate_adaptive_thermal_control(signals, policy).stable_hash for _ in range(5)]
     assert len(set(hashes)) == 1
+
+
+def test_clamping_and_hotspot_behavior_at_extremes() -> None:
+    policy = _policy()
+    receipt = evaluate_adaptive_thermal_control((_signal("extreme-hot", 200.0, 200.0, 1.0),), policy)
+
+    assert len(receipt.node_decisions) == 1
+    decision = receipt.node_decisions[0]
+    assert decision.thermal_pressure == pytest.approx(1.0)
+    assert decision.workload_derate == pytest.approx(policy.max_workload_derate)
+    assert decision.action_label == "critical"
+    assert receipt.hotspot_count == 1
+
+
+def test_duplicate_node_ids_raise_value_error() -> None:
+    policy = _policy()
+    duplicate_signals = (
+        _signal("dup", 70.0, 2.0, 0.4),
+        _signal("dup", 75.0, 6.0, 0.6),
+    )
+
+    with pytest.raises(ValueError, match="unique node_id"):
+        evaluate_adaptive_thermal_control(duplicate_signals, policy)
+
+
+def test_policy_type_validation_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="policy must be a ThermalPolicy"):
+        evaluate_adaptive_thermal_control((_signal("n1", 70.0, 1.0, 0.2),), object())  # type: ignore[arg-type]
+
+
+def test_receipt_stable_hash_is_derived_from_payload() -> None:
+    policy = _policy()
+    receipt = evaluate_adaptive_thermal_control((_signal("n1", 72.0, 5.0, 0.5),), policy)
+
+    rebuilt = receipt.__class__(
+        version=receipt.version,
+        node_decisions=receipt.node_decisions,
+        mesh_thermal_pressure=receipt.mesh_thermal_pressure,
+        mesh_stability_score=receipt.mesh_stability_score,
+        hotspot_count=receipt.hotspot_count,
+        control_mode=receipt.control_mode,
+        observatory_only=receipt.observatory_only,
+        stable_hash="not-a-valid-hash",
+    )
+
+    assert rebuilt.stable_hash == receipt.stable_hash

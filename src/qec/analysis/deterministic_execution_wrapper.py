@@ -11,9 +11,9 @@ import math
 from typing import Any
 
 from qec.analysis.canonical_hashing import canonical_json, sha256_hex
-from qec.analysis.convergence_engine import ConvergenceReceipt
-from qec.analysis.generalized_invariant_detector import InvariantDetectionReceipt
-from qec.analysis.iterative_system_abstraction_layer import IterativeExecutionReceipt
+from qec.analysis.convergence_engine import CONVERGENCE_ENGINE_VERSION, ConvergenceReceipt
+from qec.analysis.generalized_invariant_detector import GENERALIZED_INVARIANT_DETECTOR_VERSION, InvariantDetectionReceipt
+from qec.analysis.iterative_system_abstraction_layer import ITERATIVE_SYSTEM_ABSTRACTION_LAYER_VERSION, IterativeExecutionReceipt
 
 DETERMINISTIC_EXECUTION_WRAPPER_VERSION = "v142.3"
 _CONTROL_MODE = "execution_wrapper_advisory"
@@ -252,6 +252,12 @@ def evaluate_deterministic_execution_wrapper(
         raise ValueError("invalid input type")
     if not isinstance(version, str) or not version:
         raise ValueError("version must be non-empty str")
+    if execution_receipt.version != ITERATIVE_SYSTEM_ABSTRACTION_LAYER_VERSION:
+        raise ValueError("unsupported execution_receipt version")
+    if invariant_receipt.version != GENERALIZED_INVARIANT_DETECTOR_VERSION:
+        raise ValueError("unsupported invariant_receipt version")
+    if convergence_receipt.version != CONVERGENCE_ENGINE_VERSION:
+        raise ValueError("unsupported convergence_receipt version")
 
     total_steps = execution_receipt.trace.total_steps
     if isinstance(total_steps, bool) or not isinstance(total_steps, int) or total_steps < 0:
@@ -335,7 +341,7 @@ def evaluate_deterministic_execution_wrapper(
         execution_label=execution_label,
         execution_rank=_LABEL_TO_RANK[execution_label],
         early_termination_advised=(execution_label == "terminate_advisory"),
-        pruning_enabled=execution_label in {"prune", "terminate_advisory"},
+        pruning_enabled=execution_label in {"prune", "terminate_advisory", "oscillation_hold"},
         output_standardized=True,
         wrapper_confidence=wrapper_confidence,
         rationale=_LABEL_TO_RATIONALE[execution_label],

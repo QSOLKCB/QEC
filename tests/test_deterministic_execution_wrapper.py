@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from qec.analysis.canonical_hashing import canonical_json
@@ -167,6 +169,8 @@ def test_terminate_advisory_path() -> None:
     assert out.decision.execution_label == "terminate_advisory"
     assert out.decision.early_termination_advised is True
     assert out.plan.allowed_next_steps == 0
+    assert out.plan.pruning_budget == 0.0
+    assert out.plan.state_retention_budget == 1.0
     assert out.plan.canonical_output_mode == "terminal"
 
 
@@ -180,7 +184,9 @@ def test_oscillation_hold_path_precedence() -> None:
 
     assert out.signal.oscillation_component >= 0.5
     assert out.decision.execution_label == "oscillation_hold"
+    assert out.decision.pruning_enabled is True
     assert out.plan.allowed_next_steps == 1
+    assert out.plan.pruning_budget > 0.0
     assert out.plan.canonical_output_mode == "reduced"
 
 
@@ -217,6 +223,31 @@ def test_oscillation_reduces_wrapper_confidence() -> None:
 def test_validation_invalid_input_types_raise_value_error() -> None:
     with pytest.raises(ValueError, match="invalid input type"):
         evaluate_deterministic_execution_wrapper(object(), object(), object())  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("execution_version", "invariant_version", "convergence_version", "error_match"),
+    [
+        ("v0.0", "v142.1", "v142.2", "unsupported execution_receipt version"),
+        ("v142.0", "v0.0", "v142.2", "unsupported invariant_receipt version"),
+        ("v142.0", "v142.1", "v0.0", "unsupported convergence_receipt version"),
+    ],
+)
+def test_validation_rejects_unsupported_upstream_versions(
+    execution_version: str,
+    invariant_version: str,
+    convergence_version: str,
+    error_match: str,
+) -> None:
+    execution = _execution(total_steps=2)
+    invariant = _invariant_receipt(invariant_pressure=0.20, oscillation_score=0.0)
+    convergence = _convergence_receipt(0.60, 0.30, 0.30, early_termination_advised=False, termination_confidence=0.20)
+    execution = replace(execution, version=execution_version)
+    invariant = replace(invariant, version=invariant_version)
+    convergence = replace(convergence, version=convergence_version)
+
+    with pytest.raises(ValueError, match=error_match):
+        evaluate_deterministic_execution_wrapper(execution, invariant, convergence)
 
 
 def test_hash_stability_repeated_runs_identical_stable_hash() -> None:

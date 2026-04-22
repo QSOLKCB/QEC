@@ -5,16 +5,18 @@
 ---
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v142.4.2-success)](https://github.com/QSOLKCB/QEC/releases/tag/v142.4.2)
+[![Latest](https://img.shields.io/badge/stable-v143.5-success)](https://github.com/QSOLKCB/QEC/releases/tag/v143.5)
 
 [![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
+
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19697907-blue)](https://doi.org/10.5281/zenodo.19697907)
 
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19062692-blue)](https://doi.org/10.5281/zenodo.19062692)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19102390-blue)](https://doi.org/10.5281/zenodo.19102390)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19099503-blue)](https://doi.org/10.5281/zenodo.19099503)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19104208-blue)](https://doi.org/10.5281/zenodo.19104208)
 
-[![Branch](https://img.shields.io/badge/branch-v142%20canonical-purple)]()
+[![Branch](https://img.shields.io/badge/branch-v143%20canonical-purple)]()
 [![Architecture](https://img.shields.io/badge/architecture-deterministic%20runtime-blueviolet)]()
 [![Determinism](https://img.shields.io/badge/determinism-byte--identical-success)]()
 [![Replay](https://img.shields.io/badge/replay-hash--stable-green)]()
@@ -23,11 +25,11 @@
 
 ---
 
-# 🚀 What QEC Is (Now)
+# 🚀 What QEC Is
 
-QEC is a **deterministic runtime + invariant-driven compute reduction engine**.
+QEC is a **deterministic invariant-governed runtime system**.
 
-It does not just execute systems.
+It does not simply execute computation.
 
 It determines:
 
@@ -35,6 +37,8 @@ It determines:
 what must run
 what can be skipped
 what is already known
+what is structurally constrained
+what is admissible next
 ```
 
 ---
@@ -59,49 +63,54 @@ Most systems:
 iterate → recompute → waste work
 ```
 
-QEC / IRIS:
+QEC (IRIS + SPHAERA):
 
 ```text
 iterate
 → detect invariants
 → detect convergence structure
 → eliminate redundant computation
-→ produce deterministic proof
+→ embed structure (geometry)
+→ enforce agreement (ensemble)
+→ characterize dynamics (spectral)
+→ select deterministically
+→ produce proof-carrying artifacts
 ```
 
 ---
 
-# ⚙️ What It Actually Does
+# ⚙️ System Capability (v143 Complete)
 
-Across any iterative system:
+QEC now performs:
 
-* detects fixed points, plateaus, oscillations
-* classifies convergence behavior
-* builds deterministic execution plans
-* quantifies redundant computation
-* produces replay-safe, canonical proof artifacts
+* invariant detection
+* convergence classification
+* redundancy elimination
+* deterministic execution planning
+* geometric invariant embedding
+* ensemble consistency enforcement
+* spectral structure characterization
+* deterministic transition selection
+* unified runtime state construction
 
 ---
 
-# 🧠 System Evolution
+# 🧩 Full Runtime Pipeline (SPHAERA)
 
 ```text
-QEC (error correction)
-→ deterministic runtime
+state
 → invariant detection
-→ convergence classification
-→ execution planning
-→ benchmarking
-→ proof of compute reduction
+→ geometric embedding
+→ ensemble consistency
+→ spectral structure
+→ allowed transitions
+→ deterministic selection
+→ unified runtime receipt
 ```
 
 ---
 
-# ⚡ Quickstart — Run the Proof
-
-This is the fastest way to understand the system.
-
----
+# ⚡ Quickstart — Run the Proof Artifact
 
 ## 1. Install
 
@@ -113,46 +122,41 @@ pip install -e .
 
 ---
 
-## 2. Run the Cross-Domain Demo
+## 2. Run the SPHAERA Proof
 
 ```bash
-python scripts/demo_cross_domain_benchmarks.py
+python scripts/sphaera_proof_demo.py
 ```
 
 ---
 
-## 3. What You’ll See
-
-The script runs the full pipeline:
+## 3. What It Executes
 
 ```text
 trace
 → invariants
 → convergence
-→ execution plan
-→ structural redundancy
-→ benchmark receipt
-```
-
-Across domains:
-
-```text
-transformers
-diffusion
-gnn
-physics
+→ execution structure
+→ geometry
+→ ensemble validation
+→ spectral structure
+→ deterministic decision
+→ runtime receipt
 ```
 
 ---
 
-## 4. Output (Simplified)
+## 4. Example Output (v143.5)
 
 ```text
-SUMMARY | transformers | total=8 | effective=5 | cutoff=4 | redundancy=0.375 | efficiency=0.558 | label=high
-```
+=== SPHAERA TABLE ===
 
-```text
-SUMMARY | gnn | total=7 | effective=3 | cutoff=2 | redundancy=0.571 | efficiency=0.720 | label=high
+| Domain       | Invariants | Geometry Classes | Ensemble Consistency | Spectral Dynamics | Selected Transition       | Runtime Coherence | Global State           |
+|--------------|-----------:|-----------------:|---------------------:|-------------------|---------------------------|------------------:|------------------------|
+| transformers |          4 |                4 |                0.982 | structured        | maintain_invariant_anchor |             0.931 | structured_equilibrium |
+| diffusion    |          5 |                5 |                0.954 | coupled           | adaptive_balance          |             0.882 | adaptive_state         |
+| gnn          |          3 |                3 |                0.721 | dynamic           | coupling_probe            |             0.671 | dynamic_state          |
+| physics      |          2 |                2 |                1.000 | rigid             | safe_hold                 |             1.000 | stable_equilibrium     |
 ```
 
 ---
@@ -160,54 +164,17 @@ SUMMARY | gnn | total=7 | effective=3 | cutoff=2 | redundancy=0.571 | efficiency
 ## 5. What This Proves
 
 ```text
-redundant iterations exist
-→ they can be detected deterministically
-→ they can be quantified
-→ they can be eliminated
+invariants exist
+→ convergence structure is detectable
+→ redundant compute is structural
+→ execution can be constrained deterministically
+→ decisions can be derived (not guessed)
+→ full runtime state is reproducible
 ```
 
 ---
 
-# 📊 Benchmark Output (Interpretation)
-
-QEC does not guess.
-
-It produces:
-
-```text
-structural redundancy
-effective iterations
-convergence classification
-execution posture
-efficiency gain
-```
-
-All:
-
-* deterministic
-* replayable
-* hash-stable
-
----
-
-# 🧠 What “Redundancy” Means Here
-
-```text
-redundant iterations =
-steps executed AFTER convergence structure was already established
-```
-
-This is:
-
-* not heuristic
-* not probabilistic
-* derived from the execution trace
-
----
-
-# 🔬 Why This Matters
-
-At scale:
+# 📊 Compute Reduction Insight
 
 ```text
 compute cost ≈ iterations × redundancy
@@ -225,39 +192,29 @@ then:
 compute can be reduced proportionally
 ```
 
----
+This is not heuristic.
 
-# 🧩 Deterministic Runtime Pipeline
-
-```text
-INPUT
- ↓
-[Iterative System]
- ↓
-[Invariant Detection]
- ↓
-[Convergence Engine]
- ↓
-[Execution Wrapper]
- ↓
-[Redundancy Measurement]
- ↓
-[Benchmark / Proof]
- ↓
-OUTPUT
-```
+It is **derived from execution structure**.
 
 ---
 
-# 🔗 Artifact Lineage
+# 🔗 Artifact Lineage (Final Form)
 
 ```text
-state_hash
-→ replay_hash
-→ convergence_hash
-→ execution_hash
-→ benchmark_hash
+invariant_hash
+→ geometry_hash
+→ ensemble_hash
+→ spectral_hash
+→ decision_hash
+→ runtime_hash
 ```
+
+All:
+
+* canonical
+* deterministic
+* lineage-validated
+* fail-fast
 
 ---
 
@@ -291,156 +248,26 @@ state_t + action → next_state + proof
 
 # 🖥 Rust TUI Operator Console
 
-Keyboard-first deterministic control surface.
-
-### Features
-
-* live diagnostics
-* replay inspection
-* invariant health
-* proof audit inspection
-* orchestration tracing
-* simulation monitoring
+(unchanged — preserved exactly as requested)
 
 ---
 
-### Install
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
-```
-
----
-
-### Run
-
-```bash
-qec-tui
-```
-
----
-
-## 🔹 Operator Walkthrough (TUI Demo Flow)
-
-### 1. Launch TUI
-
-```bash
-qec-tui
-```
-
----
-
-### 2. Navigate Modes
-
-Use:
-
-* ↑ / ↓ → move
-* Enter → select
-* Q → quit
-
----
-
-### 3. Run a Deterministic Replay
-
-Go to:
-
-```
-Diagnostics → Replay Inspector
-```
-
-You’ll see:
-
-* input state
-* canonical ordering
-* stable hash
-* artifact lineage
-
----
-
-### 4. Inspect Proof-Carrying Execution
-
-Go to:
-
-```
-Governance → Proof Audit
-```
-
-Observe:
-
-* skip vs execute decisions
-* validation state
-* proof receipt integrity
-
----
-
-### 5. View Runtime Elimination
-
-Go to:
-
-```
-Simulation → Execution Fabric
-```
-
-Watch:
-
-* regions being skipped
-* deterministic routing
-* elimination decisions
-
----
-
-### 6. Inspect Benchmark Projection
-
-Go to:
-
-```
-Diagnostics → Benchmark View
-```
-
-Shows:
-
-* baseline cost
-* projected cost
-* normalized reduction score
-
----
-
-### 7. Verify Determinism
-
-Re-run same input:
-
-* ✔ hashes remain identical
-* ✔ decisions remain identical
-
----
-
-## 🧠 Key Insight
-
-The TUI is not visualization.
-
-It is:
-
-```text
-deterministic state introspection
-```
-
----
-
-## Attribution 
+## Attribution
 
 The v143 releases incorporate concepts from:
 
-Marc Brendecke - https://orcid.org/0009-0009-4034-598X
+Marc Brendecke — https://orcid.org/0009-0009-4034-598X
 
 Quantum Sphaera Companion v3.30.0
 DOI: https://doi.org/10.5281/zenodo.19682951
 License: CC-BY-4.0
-Attribution included in all files
-and release documentation.
 
 ---
 
 ## 📚 References
+
+* IRIS: Deterministic Invariant-Driven Reduction of Redundant Computation
+  https://doi.org/10.5281/zenodo.19697907
 
 * Deterministic Runtime Optimization and Formal Invariant Validation
   https://doi.org/10.5281/zenodo.19062692

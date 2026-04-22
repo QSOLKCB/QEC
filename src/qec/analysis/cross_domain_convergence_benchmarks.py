@@ -18,6 +18,8 @@ from qec.analysis.generalized_invariant_detector import InvariantDetectionReceip
 from qec.analysis.iterative_system_abstraction_layer import IterativeExecutionReceipt
 
 CROSS_DOMAIN_BENCHMARK_VERSION = "v142.4"
+CONVERGENCE_THRESHOLD = 0.995
+STABILIZE_DELTA_THRESHOLD = 0.005
 _CONTROL_MODE = "cross_domain_benchmark_advisory"
 _LABEL_TO_RANK: dict[str, int] = {
     "low": 0,
@@ -57,6 +59,8 @@ class BenchmarkSignal:
     iterations_total: int
     iterations_effective: int
     redundancy_ratio: float
+    cutoff_step: int
+    structural_redundancy_ratio: float
     invariant_density: float
     convergence_speedup: float
     early_termination_rate: float
@@ -69,7 +73,19 @@ class BenchmarkSignal:
             raise ValueError("iterations_effective must be int >= 0")
         if self.iterations_effective > self.iterations_total:
             raise ValueError("iterations_effective must be <= iterations_total")
+        if isinstance(self.cutoff_step, bool) or not isinstance(self.cutoff_step, int):
+            raise ValueError("cutoff_step must be int")
+        if self.iterations_total == 0:
+            if self.cutoff_step != -1:
+                raise ValueError("cutoff_step must be -1 when iterations_total is 0")
+        elif self.cutoff_step < 0 or self.cutoff_step >= self.iterations_total:
+            raise ValueError("cutoff_step must be in [0, iterations_total)")
         object.__setattr__(self, "redundancy_ratio", _bounded(self.redundancy_ratio, "redundancy_ratio"))
+        object.__setattr__(
+            self,
+            "structural_redundancy_ratio",
+            _bounded(self.structural_redundancy_ratio, "structural_redundancy_ratio"),
+        )
         object.__setattr__(self, "invariant_density", _bounded(self.invariant_density, "invariant_density"))
         object.__setattr__(self, "convergence_speedup", _bounded(self.convergence_speedup, "convergence_speedup"))
         object.__setattr__(self, "early_termination_rate", _bounded(self.early_termination_rate, "early_termination_rate"))
@@ -80,6 +96,8 @@ class BenchmarkSignal:
             "iterations_total": self.iterations_total,
             "iterations_effective": self.iterations_effective,
             "redundancy_ratio": self.redundancy_ratio,
+            "cutoff_step": self.cutoff_step,
+            "structural_redundancy_ratio": self.structural_redundancy_ratio,
             "invariant_density": self.invariant_density,
             "convergence_speedup": self.convergence_speedup,
             "early_termination_rate": self.early_termination_rate,
@@ -192,14 +210,50 @@ def evaluate_cross_domain_benchmark(
     if not isinstance(version, str) or not version:
         raise ValueError("version must be non-empty str")
 
-    iterations_total = execution_receipt.trace.total_steps
-    allowed_next_steps = wrapper_receipt.plan.allowed_next_steps
+    snapshots = execution_receipt.trace.snapshots
+    transitions = execution_receipt.trace.transitions
+    iterations_total = len(snapshots)
     if iterations_total == 0:
         iterations_effective = 0
+        cutoff_step = -1
+        structural_redundancy_ratio = 0.0
     else:
-        iterations_effective = min(iterations_total, allowed_next_steps)
+        cutoff_step: int | None = None
+        for idx, snapshot in enumerate(snapshots):
+            if snapshot.convergence_metric >= CONVERGENCE_THRESHOLD:
+                cutoff_step = idx
+                break
+        if cutoff_step is None and iterations_total >= 3:
+            for idx in range(iterations_total - 2):
+                plateau = True
+                for inner_idx in range(idx, idx + 2):
+                    delta = abs(snapshots[inner_idx + 1].convergence_metric - snapshots[inner_idx].convergence_metric)
+                    if delta >= STABILIZE_DELTA_THRESHOLD:
+                        plateau = False
+                        break
+                if plateau:
+                    cutoff_step = idx
+                    break
+        if cutoff_step is None:
+            for idx in range(1, iterations_total):
+                if (
+                    snapshots[idx].state_id == snapshots[idx - 1].state_id
+                    and transitions[idx - 1].transition_label in {"stabilize", "converge"}
+                ):
+                    cutoff_step = idx
+                    break
+        if cutoff_step is None:
+            cutoff_step = iterations_total - 1
+        if convergence_receipt.decision.convergence_label == "oscillating":
+            cutoff_step = iterations_total - 1
+            structural_redundancy_ratio = 0.0
+        else:
+            structural_redundancy_ratio = _clamp01(
+                1.0 - ((cutoff_step + 1) / float(iterations_total))
+            )
+        iterations_effective = cutoff_step + 1
 
-    redundancy_ratio = 0.0 if iterations_total == 0 else _clamp01(1.0 - (iterations_effective / float(iterations_total)))
+    redundancy_ratio = structural_redundancy_ratio
     invariant_density = _clamp01(invariant_receipt.signal.invariant_pressure)
     convergence_speedup = _clamp01(convergence_receipt.signal.convergence_pressure)
     early_termination_rate = 1.0 if convergence_receipt.decision.early_termination_advised else 0.0
@@ -212,6 +266,8 @@ def evaluate_cross_domain_benchmark(
         iterations_total=iterations_total,
         iterations_effective=iterations_effective,
         redundancy_ratio=redundancy_ratio,
+        cutoff_step=cutoff_step,
+        structural_redundancy_ratio=structural_redundancy_ratio,
         invariant_density=invariant_density,
         convergence_speedup=convergence_speedup,
         early_termination_rate=early_termination_rate,

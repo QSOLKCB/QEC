@@ -246,11 +246,15 @@ state_t + action → next_state + proof
 
 ---
 
-🔹 Operator Walkthrough — Rust TUI Control Surface
+## 🔹 Operator Walkthrough — Rust TUI Control Surface
 
-The QEC Rust TUI provides a deterministic operator console for observing, validating, and interacting with the runtime.
+The QEC Rust TUI provides a **deterministic operator console** for observing, validating, and interacting with the runtime.
 
-⚡ 0. Quick Start (One-Line Bootstrap)
+---
+
+### ⚡ 0. Quick Start (One-Line Bootstrap)
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
 
 This will:
@@ -270,6 +274,9 @@ Center → workspace
 Right  → system / invariant status
 Bottom → hotkeys
 🔍 2. Diagnostics Mode (D)
+
+Press:
+
 D
 
 View:
@@ -279,9 +286,13 @@ invariant metrics
 convergence signals
 anomaly indicators
 
-Purpose: understand system condition
+Purpose:
+Understand system condition
 
 📜 3. History Mode (H)
+
+Press:
+
 H
 
 View:
@@ -290,9 +301,13 @@ execution timeline
 state transitions
 replay checkpoints
 
-Purpose: trace deterministic evolution
+Purpose:
+Trace deterministic evolution
 
 🧠 4. Phase Workstation (P)
+
+Press:
+
 P
 
 View:
@@ -301,31 +316,53 @@ phase-space structure
 attractor behavior
 convergence regions
 
-Purpose: analyze structural dynamics
+Purpose:
+Analyze structural dynamics
 
 ⚙️ 5. Actions Mode (A)
+
+Press:
+
 A
+
+View:
+
 invariant-guided actions
 recovery pathways
 control sequences
 
-Purpose: apply deterministic interventions
+Purpose:
+Apply deterministic interventions
 
 🔁 6. Replay Mode (R)
+
+Press:
+
 R
+
+View:
+
 replay execution
 validate reconstruction
 verify hash stability
 
-Purpose: prove reproducibility
+Purpose:
+Prove reproducibility
 
 📊 7. System Status (S)
+
+Press:
+
 S
+
+View:
+
 invariant health
 convergence classification
 runtime integrity
 
-Purpose: confirm global correctness
+Purpose:
+Confirm global correctness
 
 🔒 Operator Model
 read-only by default

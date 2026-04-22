@@ -260,6 +260,8 @@ def evaluate_adaptive_thermal_control(
         raise ValueError("node_signals must be a tuple")
     if any(not isinstance(signal, ThermalNodeSignal) for signal in node_signals):
         raise ValueError("node_signals must contain ThermalNodeSignal values")
+    if not isinstance(policy, ThermalPolicy):
+        raise ValueError("policy must be a ThermalPolicy")
 
     decisions = tuple(sorted((_decision_for_node(signal, policy) for signal in node_signals), key=lambda d: d.node_id))
 

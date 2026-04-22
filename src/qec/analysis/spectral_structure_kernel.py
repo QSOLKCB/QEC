@@ -265,9 +265,19 @@ def evaluate_spectral_structure_kernel(
     dispersion_denominator = max(1.0, float(count))
     spectral_dispersion_score = _round_stable(max(0.0, min(1.0, eigen_std / dispersion_denominator)))
 
-    asymmetry = float(np.max(np.abs(operator - operator.T))) if count > 0 else 0.0
-    order_score = 1.0 if tuple(item.class_id for item in ensembles) == tuple(sorted(item.class_id for item in ensembles)) else 0.0
-    ensemble_symmetry_score = _round_stable(max(0.0, min(1.0, (1.0 - min(1.0, asymmetry)) * order_score)))
+    if count <= 1:
+        ensemble_symmetry_score = 1.0
+    else:
+        reflected_operator = operator[::-1, ::-1]
+        reflection_delta = operator - reflected_operator
+        reflection_baseline = max(
+            float(np.linalg.norm(operator, ord="fro")),
+            float(np.finfo(np.float64).eps),
+        )
+        reflection_asymmetry = float(np.linalg.norm(reflection_delta, ord="fro")) / reflection_baseline
+        ensemble_symmetry_score = _round_stable(
+            max(0.0, min(1.0, 1.0 - min(1.0, reflection_asymmetry)))
+        )
 
     dynamics_label = _classify_dynamics(
         spectral_dispersion_score=spectral_dispersion_score,

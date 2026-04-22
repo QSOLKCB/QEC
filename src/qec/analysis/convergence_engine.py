@@ -210,10 +210,6 @@ def evaluate_convergence_engine(
     plateau_component = _clamp01(invariant_receipt.signal.plateau_score)
     oscillation_component = _clamp01(invariant_receipt.signal.oscillation_score)
 
-    _ = invariant_receipt.decision.dominant_invariant
-    _ = invariant_receipt.decision.invariant_confidence
-    _ = invariant_receipt.decision.invariant_detected
-
     convergence_pressure = _clamp01(
         0.45 * terminal_convergence
         + 0.30 * mean_convergence

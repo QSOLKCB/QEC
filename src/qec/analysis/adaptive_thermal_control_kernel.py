@@ -263,6 +263,10 @@ def evaluate_adaptive_thermal_control(
     if not isinstance(policy, ThermalPolicy):
         raise ValueError("policy must be a ThermalPolicy")
 
+    node_ids = tuple(signal.node_id for signal in node_signals)
+    if len(node_ids) != len(set(node_ids)):
+        raise ValueError("node_signals must contain unique node_id values")
+
     decisions = tuple(sorted((_decision_for_node(signal, policy) for signal in node_signals), key=lambda d: d.node_id))
 
     mesh_thermal_pressure = max((d.thermal_pressure for d in decisions), default=0.0)

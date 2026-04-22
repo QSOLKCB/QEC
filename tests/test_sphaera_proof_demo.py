@@ -18,6 +18,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 DEMO_TIMEOUT_SECONDS = 60
 
@@ -47,14 +49,24 @@ def _run_script() -> bytes:
     return completed.stdout
 
 
-def test_sphaera_proof_demo_is_byte_identical_across_runs() -> None:
-    first = _run_script()
+@pytest.fixture(scope="module")
+def sphaera_proof_demo_output() -> bytes:
+    """Run the demo script once and share its output across related tests."""
+    return _run_script()
+
+
+def test_sphaera_proof_demo_is_byte_identical_across_runs(
+    sphaera_proof_demo_output: bytes,
+) -> None:
+    first = sphaera_proof_demo_output
     second = _run_script()
     assert first == second
 
 
-def test_sphaera_proof_demo_sections_present() -> None:
-    output = _run_script().decode("utf-8")
+def test_sphaera_proof_demo_sections_present(
+    sphaera_proof_demo_output: bytes,
+) -> None:
+    output = sphaera_proof_demo_output.decode("utf-8")
     assert "SPHAERA Proof Artifact Demo (v143.5)" in output
     assert "=== DOMAIN: transformers ===" in output
     assert "=== DOMAIN: diffusion ===" in output

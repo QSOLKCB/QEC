@@ -6,7 +6,10 @@ from qec.analysis.generalized_invariant_detector import (
     GENERALIZED_INVARIANT_DETECTOR_VERSION,
     evaluate_generalized_invariant_detector,
 )
-from qec.analysis.iterative_system_abstraction_layer import IterativeStateSnapshot, evaluate_iterative_system_abstraction
+from qec.analysis.iterative_system_abstraction_layer import (
+    IterativeStateSnapshot,
+    evaluate_iterative_system_abstraction,
+)
 
 
 def _snapshot(step_index: int, state_id: str, convergence_metric: float) -> IterativeStateSnapshot:

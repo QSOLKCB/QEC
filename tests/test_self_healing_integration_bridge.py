@@ -332,6 +332,28 @@ def test_apply_paths_validate_recovery_uses_rollback_mapping() -> None:
     assert full.decision.directive_label == "apply_full"
 
 
+def test_validate_recovery_rejects_none_action() -> None:
+    with pytest.raises(ValueError, match="invalid selected_action for validate_recovery"):
+        evaluate_self_healing_integration_bridge(
+            _inputs(
+                anomaly_score=0.6,
+                anomaly_label="recover",
+                selected_action="none",
+                rollback_strength=0.3,
+                severity_rank=0,
+                rollback_confidence=0.8,
+                policy_bias=0.5,
+                control_gain=0.5,
+                adaptation_label="tune",
+                validation_pressure=0.6,
+                recovery_alignment=0.95,
+                validation_label="validate_recovery",
+                recovery_viable=True,
+                validation_confidence=0.8,
+            )
+        )
+
+
 def test_coherence_behavior_aligned_signals_yield_higher_coherence() -> None:
     aligned = evaluate_self_healing_integration_bridge(
         _inputs(

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[1]
-_SRC_PATH = _REPO_ROOT / "src"
-if str(_SRC_PATH) not in sys.path:
-    sys.path.insert(0, str(_SRC_PATH))
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 from qec.analysis.convergence_engine import evaluate_convergence_engine
 from qec.analysis.cross_domain_convergence_benchmarks import evaluate_cross_domain_benchmark
@@ -80,6 +80,7 @@ def _run_domain(domain: str, state_ids: list[str], metrics: list[float]):
 
 
 def main() -> None:
+    print("IRIS Cross-Domain Benchmark Demo (v142.4.2)")
     domains: tuple[tuple[str, list[str], list[float]], ...] = (
         (
             "transformers",
@@ -110,20 +111,21 @@ def main() -> None:
 
     print("=== BENCHMARK TABLE ===")
     print(
-        "| Domain | Total Steps | Effective Steps | Cutoff | Structural Redundancy"
-        " | Invariant Density | Convergence Speedup | Efficiency Gain | Label |"
+        f"| {'Domain':<12} | {'Total Steps':>11} | {'Effective Steps':>15} | {'Cutoff':>6} | "
+        f"{'Structural Redundancy':>22} | {'Invariant Density':>18} | {'Convergence Speedup':>20} | "
+        f"{'Efficiency Gain':>16} | {'Label':<8} |"
     )
     for receipt in receipts:
         print(
-            f"| {receipt.domain}"
-            f" | {receipt.signal.iterations_total}"
-            f" | {receipt.signal.iterations_effective}"
-            f" | {receipt.signal.cutoff_step}"
-            f" | {receipt.signal.structural_redundancy_ratio:.3f}"
-            f" | {receipt.signal.invariant_density:.3f}"
-            f" | {receipt.signal.convergence_speedup:.3f}"
-            f" | {receipt.signal.efficiency_gain:.3f}"
-            f" | {receipt.decision.benchmark_label} |"
+            f"| {receipt.domain:<12} | "
+            f"{receipt.signal.iterations_total:>11} | "
+            f"{receipt.signal.iterations_effective:>15} | "
+            f"{receipt.signal.cutoff_step:>6} | "
+            f"{receipt.signal.structural_redundancy_ratio:>22.3f} | "
+            f"{receipt.signal.invariant_density:>18.3f} | "
+            f"{receipt.signal.convergence_speedup:>20.3f} | "
+            f"{receipt.signal.efficiency_gain:>16.3f} | "
+            f"{receipt.decision.benchmark_label:<8} |"
         )
 
     print("=== INTERPRETATION ===")

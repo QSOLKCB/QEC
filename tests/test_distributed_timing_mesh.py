@@ -118,6 +118,19 @@ def test_ordering_shuffled_node_states_identical_output() -> None:
     assert tuple(decision.node_id for decision in r1.node_decisions) == ("a", "b", "c")
 
 
+
+
+def test_inputs_hash_permutation_invariant() -> None:
+    a = _node_state("a", clock_offset_ms=1.2, clock_drift_ms=0.3, last_sync_error_ms=0.05)
+    b = _node_state("b", clock_offset_ms=-2.4, clock_drift_ms=0.6, last_sync_error_ms=0.10)
+    c = _node_state("c", clock_offset_ms=3.6, clock_drift_ms=0.9, last_sync_error_ms=0.15)
+
+    inputs_a = _inputs((a, b, c))
+    inputs_b = _inputs((c, a, b))
+
+    assert inputs_a.to_canonical_json() == inputs_b.to_canonical_json()
+    assert inputs_a.stable_hash() == inputs_b.stable_hash()
+
 def test_bounded_outputs_in_unit_interval() -> None:
     receipt = evaluate_distributed_timing_mesh(
         _inputs(

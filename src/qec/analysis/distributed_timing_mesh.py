@@ -111,7 +111,10 @@ class TimingMeshInputs:
 
     def to_dict(self) -> dict[str, _JSONValue]:
         return {
-            "node_states": tuple(item.to_dict() for item in self.node_states),
+            "node_states": tuple(
+                item.to_dict()
+                for item in sorted(self.node_states, key=lambda state: state.node_id)
+            ),
             "latency_receipt": self.latency_receipt.to_dict(),
             "thermal_receipt": self.thermal_receipt.to_dict(),
         }

@@ -65,7 +65,9 @@ def _classify_directive(*, validation_label: str, selected_action: str) -> str:
             return "apply_soft"
         if selected_action == "partial_rollback":
             return "apply_partial"
-        return "apply_full"
+        if selected_action == "full_rollback":
+            return "apply_full"
+        raise ValueError(f"invalid selected_action for validate_recovery: {selected_action}")
     raise ValueError("invalid validation_label")
 
 

@@ -33,7 +33,6 @@ It does not simply execute computation.
 
 It determines:
 
-```text
 what must run
 what can be skipped
 what is already known
@@ -180,6 +179,3 @@ https://doi.org/10.5281/zenodo.19104208
 
 Trent Slade
 https://orcid.org/0009-0002-4515-9237
-
-
----

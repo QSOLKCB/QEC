@@ -15,13 +15,11 @@ from qec.analysis.canonical_hashing import canonical_json, sha256_hex
 from qec.analysis.convergence_engine import ConvergenceReceipt
 from qec.analysis.deterministic_execution_wrapper import ExecutionWrapperReceipt
 from qec.analysis.generalized_invariant_detector import InvariantDetectionReceipt
-from qec.analysis.iterative_system_abstraction_layer import (
-    _CONVERGENCE_THRESHOLD,
-    _STABILIZE_DELTA_THRESHOLD,
-    IterativeExecutionReceipt,
-)
+from qec.analysis.iterative_system_abstraction_layer import IterativeExecutionReceipt
 
 CROSS_DOMAIN_BENCHMARK_VERSION = "v142.4"
+CONVERGENCE_THRESHOLD = 0.995
+STABILIZE_DELTA_THRESHOLD = 0.005
 _CONTROL_MODE = "cross_domain_benchmark_advisory"
 _LABEL_TO_RANK: dict[str, int] = {
     "low": 0,

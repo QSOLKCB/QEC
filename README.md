@@ -246,9 +246,97 @@ state_t + action → next_state + proof
 
 ---
 
-# 🖥 Rust TUI Operator Console
+🔹 Operator Walkthrough — Rust TUI Control Surface
 
-(unchanged — preserved exactly as requested)
+The QEC Rust TUI provides a deterministic operator console for observing, validating, and interacting with the runtime.
+
+⚡ 0. Quick Start (One-Line Bootstrap)
+curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
+
+This will:
+
+build the Rust TUI in release mode
+launch the operator console
+🟢 1. Launch the Console (Manual)
+cd tui
+cargo run --release
+
+Production binary:
+
+./target/release/qec-tui
+🧭 Layout
+Left   → navigation
+Center → workspace
+Right  → system / invariant status
+Bottom → hotkeys
+🔍 2. Diagnostics Mode (D)
+D
+
+View:
+
+system state
+invariant metrics
+convergence signals
+anomaly indicators
+
+Purpose: understand system condition
+
+📜 3. History Mode (H)
+H
+
+View:
+
+execution timeline
+state transitions
+replay checkpoints
+
+Purpose: trace deterministic evolution
+
+🧠 4. Phase Workstation (P)
+P
+
+View:
+
+phase-space structure
+attractor behavior
+convergence regions
+
+Purpose: analyze structural dynamics
+
+⚙️ 5. Actions Mode (A)
+A
+invariant-guided actions
+recovery pathways
+control sequences
+
+Purpose: apply deterministic interventions
+
+🔁 6. Replay Mode (R)
+R
+replay execution
+validate reconstruction
+verify hash stability
+
+Purpose: prove reproducibility
+
+📊 7. System Status (S)
+S
+invariant health
+convergence classification
+runtime integrity
+
+Purpose: confirm global correctness
+
+🔒 Operator Model
+read-only by default
+deterministic rendering
+invariant-aligned
+no hidden state
+⚡ Core Flow
+Observe → Validate → Decide → Act → Replay → Confirm
+🧠 Design Intent
+deterministic control surface
+for invariant-governed systems
 
 ---
 

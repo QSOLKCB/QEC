@@ -26,37 +26,15 @@ sys.path.insert(0, SRC_PATH)
 from qec.analysis.convergence_engine import evaluate_convergence_engine
 from qec.analysis.cross_domain_convergence_benchmarks import evaluate_cross_domain_benchmark
 from qec.analysis.deterministic_execution_wrapper import evaluate_deterministic_execution_wrapper
+from qec.analysis.demo_utils import build_snapshots
 from qec.analysis.ensemble_consistency_engine import evaluate_ensemble_consistency_engine
 from qec.analysis.generalized_invariant_detector import evaluate_generalized_invariant_detector
 from qec.analysis.invariant_geometry_embedding import evaluate_invariant_geometry_embedding
-from qec.analysis.iterative_system_abstraction_layer import (
-    IterativeStateSnapshot,
-    evaluate_iterative_system_abstraction,
-)
+from qec.analysis.iterative_system_abstraction_layer import evaluate_iterative_system_abstraction
 from qec.analysis.self_determination_kernel import evaluate_self_determination_kernel
 from qec.analysis.spectral_structure_kernel import evaluate_spectral_structure_kernel
 from qec.analysis.sphaera_runtime_bridge import evaluate_sphaera_runtime_bridge
 
-
-def build_snapshots(
-    state_ids: list[str],
-    metrics: list[float],
-) -> tuple[IterativeStateSnapshot, ...]:
-    if len(state_ids) != len(metrics):
-        raise ValueError("state_ids and metrics must have the same length")
-
-    snapshots: list[IterativeStateSnapshot] = []
-    for index, (state_id, metric) in enumerate(zip(state_ids, metrics)):
-        snapshots.append(
-            IterativeStateSnapshot(
-                step_index=index,
-                state_id=state_id,
-                state_payload={"state": state_id},
-                convergence_metric=metric,
-                active=True,
-            )
-        )
-    return tuple(snapshots)
 
 
 def _run_domain(domain: str, state_ids: list[str], metrics: list[float]):

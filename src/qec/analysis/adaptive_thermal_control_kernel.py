@@ -95,7 +95,6 @@ class ThermalNodeSignal:
 
 @dataclass(frozen=True)
 class ThermalPolicy:
-    warning_margin_c: float
     critical_margin_c: float
     max_cooling_delta: float
     max_workload_derate: float
@@ -104,7 +103,6 @@ class ThermalPolicy:
     utilization_weight: float
 
     def __post_init__(self) -> None:
-        _require_finite_number(self.warning_margin_c, "warning_margin_c")
         _require_finite_number(self.critical_margin_c, "critical_margin_c")
         if float(self.critical_margin_c) <= 0.0:
             raise ValueError("critical_margin_c must be > 0")
@@ -118,7 +116,6 @@ class ThermalPolicy:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "warning_margin_c": float(self.warning_margin_c),
             "critical_margin_c": float(self.critical_margin_c),
             "max_cooling_delta": float(self.max_cooling_delta),
             "max_workload_derate": float(self.max_workload_derate),

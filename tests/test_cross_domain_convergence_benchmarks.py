@@ -40,6 +40,11 @@ def _execution(total_steps: int) -> object:
 def _execution_from_sequence(convergence_values: tuple[float, ...], state_ids: tuple[str, ...] | None = None) -> object:
     if state_ids is None:
         state_ids = tuple(f"S{i}" for i in range(len(convergence_values)))
+    elif len(state_ids) != len(convergence_values):
+        raise ValueError(
+            "state_ids must have the same length as convergence_values: "
+            f"got {len(state_ids)} and {len(convergence_values)}"
+        )
     snapshots = tuple(_snapshot(i, state_ids[i], convergence_values[i]) for i in range(len(convergence_values)))
     return evaluate_iterative_system_abstraction(snapshots)
 

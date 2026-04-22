@@ -12,6 +12,19 @@ from typing import Any
 from .canonical_hashing import canonical_json, sha256_hex
 
 
+_SHA256_HEX_LENGTH = 64
+_LOWERCASE_HEX_DIGITS = frozenset("0123456789abcdef")
+
+
+def _require_sha256_hex(value: Any, field_name: str) -> str:
+    """Require a lowercase SHA-256 hex digest string."""
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a 64-character lowercase SHA-256 hex string")
+    if len(value) != _SHA256_HEX_LENGTH or any(ch not in _LOWERCASE_HEX_DIGITS for ch in value):
+        raise ValueError(f"{field_name} must be a 64-character lowercase SHA-256 hex string")
+    return value
+
+
 def _require_finite_number(value: Any, field_name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{field_name} must be numeric")
@@ -183,8 +196,7 @@ class ThermalControlReceipt:
             raise ValueError("control_mode must be thermal_advisory")
         if self.observatory_only is not True:
             raise ValueError("observatory_only must be True")
-        if not isinstance(self.stable_hash, str) or self.stable_hash == "":
-            raise ValueError("stable_hash must be a non-empty string")
+        _require_sha256_hex(self.stable_hash, "stable_hash")
 
     def to_dict(self) -> dict[str, Any]:
         return {

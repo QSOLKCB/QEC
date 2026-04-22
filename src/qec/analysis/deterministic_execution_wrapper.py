@@ -311,8 +311,12 @@ def evaluate_deterministic_execution_wrapper(
     else:
         allowed_next_steps = max(1, min(total_steps + 1, 3)) if total_steps > 0 else 1
 
-    pruning_budget = 0.0 if execution_label == "continue" else _clamp01(pruning_pressure)
-    state_retention_budget = _clamp01(1.0 - pruning_budget)
+    if execution_label == "terminate_advisory":
+        pruning_budget = 0.0
+        state_retention_budget = 1.0
+    else:
+        pruning_budget = 0.0 if execution_label == "continue" else _clamp01(pruning_pressure)
+        state_retention_budget = _clamp01(1.0 - pruning_budget)
     canonical_output_mode = _canonical_output_mode(execution_label)
     plan_signature = f"{execution_label}::{canonical_output_mode}::{allowed_next_steps}"
 

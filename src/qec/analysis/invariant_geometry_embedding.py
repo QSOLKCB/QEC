@@ -70,8 +70,12 @@ class InvariantClass:
                 raise ValueError("embedding_vector entries must be finite")
             if coordinate_value < 0.0 or coordinate_value > 1.0:
                 raise ValueError("embedding_vector entries must be in [0,1]")
-        if not isinstance(self.invariant_signature, str) or len(self.invariant_signature) != 64:
-            raise ValueError("invariant_signature must be 64-char sha256 hex")
+        if (
+            not isinstance(self.invariant_signature, str)
+            or len(self.invariant_signature) != 64
+            or any(character not in "0123456789abcdef" for character in self.invariant_signature)
+        ):
+            raise ValueError("invariant_signature must be 64-char lowercase sha256 hex")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -85,6 +89,11 @@ class InvariantClass:
 
 @dataclass(frozen=True)
 class InvariantGeometryReceipt:
+    version: str
+    control_mode: str
+    observatory_only: bool
+    convergence_label: str
+    trace_length: int | None
     invariant_classes: tuple[InvariantClass, ...]
     embedding_dimension: int
     class_count: int
@@ -93,6 +102,16 @@ class InvariantGeometryReceipt:
     stable_hash: str = field(init=False)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.version, str) or not self.version:
+            raise ValueError("version must be non-empty str")
+        if self.control_mode != _CONTROL_MODE:
+            raise ValueError(f"control_mode must be {_CONTROL_MODE!r}")
+        if self.observatory_only is not True:
+            raise ValueError("observatory_only must be True")
+        if not isinstance(self.convergence_label, str) or not self.convergence_label:
+            raise ValueError("convergence_label must be non-empty str")
+        if self.trace_length is not None and (isinstance(self.trace_length, bool) or not isinstance(self.trace_length, int) or self.trace_length < 0):
+            raise ValueError("trace_length must be int >= 0 when provided")
         if not isinstance(self.invariant_classes, tuple):
             raise ValueError("invariant_classes must be tuple[InvariantClass, ...]")
         for invariant_class in self.invariant_classes:
@@ -119,6 +138,11 @@ class InvariantGeometryReceipt:
 
     def _payload_without_hash(self) -> dict[str, Any]:
         return {
+            "version": self.version,
+            "control_mode": self.control_mode,
+            "observatory_only": self.observatory_only,
+            "convergence_label": self.convergence_label,
+            "trace_length": self.trace_length,
             "invariant_classes": tuple(invariant_class.to_dict() for invariant_class in self.invariant_classes),
             "embedding_dimension": self.embedding_dimension,
             "class_count": self.class_count,
@@ -215,6 +239,8 @@ def _geometric_consistency_score(invariant_classes: tuple[InvariantClass, ...]) 
 
     normalized_dispersion = min(1.0, mean_squared_distance / max_mean_squared_distance)
     return 1.0 - normalized_dispersion
+
+
 def _embedding_stability_score(invariant_classes: tuple[InvariantClass, ...]) -> float:
     """Return the deterministic self-consistency score for this module's embeddings.
 
@@ -264,7 +290,14 @@ def evaluate_invariant_geometry_embedding(
 
     invariant_classes = tuple(sorted(dedup.values(), key=lambda item: (item.invariant_signature, item.class_id)))
 
+    trace_length = execution_trace.total_steps if execution_trace is not None else None
+
     return InvariantGeometryReceipt(
+        version=version,
+        control_mode=_CONTROL_MODE,
+        observatory_only=True,
+        convergence_label=convergence_receipt.decision.convergence_label,
+        trace_length=trace_length,
         invariant_classes=invariant_classes,
         embedding_dimension=_EMBEDDING_DIMENSION,
         class_count=len(invariant_classes),

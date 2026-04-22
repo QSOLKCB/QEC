@@ -21,7 +21,13 @@ from qec.analysis.generalized_invariant_detector import (
 )
 from qec.analysis.invariant_geometry_embedding import (
     INVARIANT_GEOMETRY_EMBEDDING_VERSION,
+    InvariantClass,
     evaluate_invariant_geometry_embedding,
+)
+from qec.analysis.iterative_system_abstraction_layer import (
+    IterativeExecutionTrace,
+    IterativeStateSnapshot,
+    IterativeTransition,
 )
 
 
@@ -121,6 +127,36 @@ def test_permutation_invariance() -> None:
     )
 
 
+def _execution_trace(total_steps: int = 3) -> IterativeExecutionTrace:
+    snapshots = tuple(
+        IterativeStateSnapshot(
+            step_index=index,
+            state_id=f"S{index}",
+            state_payload={"index": index},
+            convergence_metric=min(1.0, 0.4 + 0.2 * index),
+            active=index == total_steps - 1,
+        )
+        for index in range(total_steps)
+    )
+    transitions = tuple(
+        IterativeTransition(
+            from_state_id=f"S{index}",
+            to_state_id=f"S{index + 1}",
+            delta_magnitude=0.2,
+            transition_label="advance",
+        )
+        for index in range(max(total_steps - 1, 0))
+    )
+    return IterativeExecutionTrace(
+        snapshots=snapshots,
+        transitions=transitions,
+        total_steps=total_steps,
+        final_state_id=snapshots[-1].state_id if snapshots else "",
+        mean_convergence=0.6,
+        converged=False,
+    )
+
+
 def test_geometric_constraint_stability() -> None:
     patterns = (
         InvariantPattern(pattern_type="oscillation", key="S0<->S1", support=8, confidence=1.0),
@@ -148,6 +184,69 @@ def test_geometric_constraint_stability() -> None:
 def test_invalid_input_raises_value_error(invariant_receipt: object, convergence_receipt: object, error_match: str) -> None:
     with pytest.raises(ValueError, match=error_match):
         evaluate_invariant_geometry_embedding(invariant_receipt, convergence_receipt)  # type: ignore[arg-type]
+
+
+def test_receipt_schema_and_input_usage() -> None:
+    patterns = (
+        InvariantPattern(pattern_type="fixed_point", key="S2", support=2, confidence=1.0),
+        InvariantPattern(pattern_type="plateau", key="plateau:1-4", support=4, confidence=0.6),
+    )
+    trace = _execution_trace(4)
+
+    receipt = evaluate_invariant_geometry_embedding(
+        _invariant_receipt(patterns),
+        _convergence_receipt(),
+        execution_trace=trace,
+        version="v143.0-test",
+    )
+
+    assert receipt.version == "v143.0-test"
+    assert receipt.control_mode == "invariant_geometry_embedding_advisory"
+    assert receipt.observatory_only is True
+    assert receipt.convergence_label == "oscillating"
+    assert receipt.trace_length == 4
+    payload = receipt.to_dict()
+    assert payload["version"] == "v143.0-test"
+    assert payload["control_mode"] == "invariant_geometry_embedding_advisory"
+    assert payload["observatory_only"] is True
+    assert payload["convergence_label"] == "oscillating"
+    assert payload["trace_length"] == 4
+
+
+def test_geometric_consistency_varies_across_inputs() -> None:
+    one_pattern = (
+        InvariantPattern(pattern_type="fixed_point", key="S2", support=2, confidence=1.0),
+    )
+    three_patterns = (
+        InvariantPattern(pattern_type="fixed_point", key="S2", support=2, confidence=1.0),
+        InvariantPattern(pattern_type="plateau", key="plateau:1-4", support=4, confidence=0.6),
+        InvariantPattern(pattern_type="oscillation", key="S0<->S1", support=5, confidence=0.8),
+    )
+
+    score_one = evaluate_invariant_geometry_embedding(_invariant_receipt(one_pattern), _convergence_receipt()).geometric_consistency_score
+    score_three = evaluate_invariant_geometry_embedding(_invariant_receipt(three_patterns), _convergence_receipt()).geometric_consistency_score
+
+    assert score_one != score_three
+
+
+def test_invariant_signature_requires_lowercase_hex() -> None:
+    valid = InvariantClass(
+        class_id="fixed_point:abc",
+        member_state_ids=("S1",),
+        invariant_type="fixed_point",
+        embedding_vector=(0.1, 0.2, 0.3, 0.4),
+        invariant_signature="a" * 64,
+    )
+    assert valid.invariant_signature == "a" * 64
+
+    with pytest.raises(ValueError, match="lowercase sha256 hex"):
+        InvariantClass(
+            class_id="fixed_point:def",
+            member_state_ids=("S2",),
+            invariant_type="fixed_point",
+            embedding_vector=(0.1, 0.2, 0.3, 0.4),
+            invariant_signature="A" * 64,
+        )
 
 
 def test_metric_bounds_in_unit_interval() -> None:

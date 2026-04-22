@@ -218,6 +218,28 @@ def test_invalid_input_types_raise_value_error() -> None:
         evaluate_spectral_structure_kernel(_ensemble_receipt((("a", (0.5, 0.5), 0.1),), invariant_hash=_invariant_receipt().stable_hash), object())  # type: ignore[arg-type]
 
 
+def test_invariant_receipt_mismatch_raises() -> None:
+    invariant = _invariant_receipt(support=2)
+    mismatched_invariant = _invariant_receipt(support=3)
+    geometry = _geometry_receipt()
+    ensemble = _ensemble_receipt(
+        (
+            ("a", (1.0, 0.5), 0.1),
+            ("b", (0.9, 0.8), 0.1),
+        ),
+        invariant_hash=invariant.stable_hash,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "invariant receipt stable_hash does not match "
+            "ensemble_receipt.invariant_receipt_stable_hash"
+        ),
+    ):
+        evaluate_spectral_structure_kernel(ensemble, geometry, mismatched_invariant)
+
+
 def test_upstream_hash_dependency_changes_receipt_hash() -> None:
     invariant = _invariant_receipt()
     geometry_one = _geometry_receipt()
@@ -244,6 +266,47 @@ def test_upstream_hash_dependency_changes_receipt_hash() -> None:
     assert receipt_one.ensemble_receipt_stable_hash != receipt_three.ensemble_receipt_stable_hash
     assert receipt_one.stable_hash != receipt_two.stable_hash
     assert receipt_one.stable_hash != receipt_three.stable_hash
+
+
+def test_ensemble_symmetry_score_varies_across_inputs() -> None:
+    invariant = _invariant_receipt()
+    geometry = _geometry_receipt()
+    reflection_symmetric = _ensemble_receipt(
+        (
+            ("a", (1.0, 0.5), 0.1),
+            ("b", (0.8, 0.8), 0.1),
+            ("c", (0.5, 1.0), 0.1),
+        ),
+        invariant_hash=invariant.stable_hash,
+    )
+    reflection_asymmetric = _ensemble_receipt(
+        (
+            ("a", (1.0, 0.5), 0.1),
+            ("b", (0.6, 0.9), 0.1),
+            ("c", (0.7, 0.6), 0.1),
+        ),
+        invariant_hash=invariant.stable_hash,
+    )
+
+    symmetric_receipt = evaluate_spectral_structure_kernel(reflection_symmetric, geometry, invariant)
+    asymmetric_receipt = evaluate_spectral_structure_kernel(reflection_asymmetric, geometry, invariant)
+
+    assert symmetric_receipt.ensemble_symmetry_score > asymmetric_receipt.ensemble_symmetry_score
+
+
+def test_stable_hash_depends_on_invariant_receipt_hash() -> None:
+    invariant_one = _invariant_receipt(support=2)
+    invariant_two = _invariant_receipt(support=3)
+    geometry = _geometry_receipt()
+    ensemble_one = _ensemble_receipt((("a", (0.5, 0.5), 0.1),), invariant_hash=invariant_one.stable_hash)
+    ensemble_two = _ensemble_receipt((("a", (0.5, 0.5), 0.1),), invariant_hash=invariant_two.stable_hash)
+
+    receipt_one = evaluate_spectral_structure_kernel(ensemble_one, geometry, invariant_one)
+    receipt_two = evaluate_spectral_structure_kernel(ensemble_two, geometry, invariant_two)
+
+    assert receipt_one.invariant_receipt_stable_hash == invariant_one.stable_hash
+    assert receipt_two.invariant_receipt_stable_hash == invariant_two.stable_hash
+    assert receipt_one.stable_hash != receipt_two.stable_hash
 
 
 def test_output_finite_value_enforcement() -> None:

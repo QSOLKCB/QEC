@@ -131,6 +131,7 @@ class SpectralStructureReceipt:
     dynamics_rank: int
     geometry_receipt_stable_hash: str
     ensemble_receipt_stable_hash: str
+    invariant_receipt_stable_hash: str
     version: str
     control_mode: str
     observatory_only: bool
@@ -161,6 +162,7 @@ class SpectralStructureReceipt:
 
         _validate_hash(self.geometry_receipt_stable_hash, "geometry_receipt_stable_hash")
         _validate_hash(self.ensemble_receipt_stable_hash, "ensemble_receipt_stable_hash")
+        _validate_hash(self.invariant_receipt_stable_hash, "invariant_receipt_stable_hash")
 
         if not isinstance(self.version, str) or not self.version:
             raise ValueError("version must be non-empty str")
@@ -188,6 +190,7 @@ class SpectralStructureReceipt:
             "dynamics_rank": self.dynamics_rank,
             "geometry_receipt_stable_hash": self.geometry_receipt_stable_hash,
             "ensemble_receipt_stable_hash": self.ensemble_receipt_stable_hash,
+            "invariant_receipt_stable_hash": self.invariant_receipt_stable_hash,
             "version": self.version,
             "control_mode": self.control_mode,
             "observatory_only": self.observatory_only,
@@ -301,6 +304,7 @@ def evaluate_spectral_structure_kernel(
         dynamics_rank=_DYNAMICS_RANK[dynamics_label],
         geometry_receipt_stable_hash=geometry_receipt.stable_hash,
         ensemble_receipt_stable_hash=ensemble_receipt.stable_hash,
+        invariant_receipt_stable_hash=ensemble_receipt.invariant_receipt_stable_hash,
         version=version,
         control_mode=_CONTROL_MODE,
         observatory_only=True,

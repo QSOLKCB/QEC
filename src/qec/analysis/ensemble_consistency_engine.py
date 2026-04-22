@@ -98,6 +98,7 @@ class EnsembleConsistencyReceipt:
     ensemble_count: int
     global_consistency_score: float
     inconsistent_count: int
+    invariant_receipt_stable_hash: str
     version: str
     control_mode: str
     observatory_only: bool
@@ -120,6 +121,12 @@ class EnsembleConsistencyReceipt:
             raise ValueError("inconsistent_count must be >= 0")
         if self.inconsistent_count > len(self.ensembles):
             raise ValueError("inconsistent_count out of range")
+        if (
+            not isinstance(self.invariant_receipt_stable_hash, str)
+            or len(self.invariant_receipt_stable_hash) != 64
+            or any(character not in "0123456789abcdef" for character in self.invariant_receipt_stable_hash)
+        ):
+            raise ValueError("invariant_receipt_stable_hash must be 64-char lowercase sha256 hex")
         if not isinstance(self.version, str) or not self.version:
             raise ValueError("version must be non-empty str")
         if self.control_mode != _CONTROL_MODE:
@@ -139,6 +146,7 @@ class EnsembleConsistencyReceipt:
             "ensemble_count": self.ensemble_count,
             "global_consistency_score": self.global_consistency_score,
             "inconsistent_count": self.inconsistent_count,
+            "invariant_receipt_stable_hash": self.invariant_receipt_stable_hash,
             "version": self.version,
             "control_mode": self.control_mode,
             "observatory_only": self.observatory_only,
@@ -195,7 +203,10 @@ def _member_vectors(
         return tuple(fallback_vector for _ in state_ids)
 
     trace_vectors: dict[str, tuple[float, ...]] = {}
+    target_member_ids = set(state_ids)
     for snapshot in execution_trace.snapshots:
+        if snapshot.state_id not in target_member_ids:
+            continue
         payload = snapshot.state_payload
         if not isinstance(payload, dict):
             continue
@@ -219,6 +230,40 @@ def _member_vectors(
     return tuple(trace_vectors.get(state_id, fallback_vector) for state_id in state_ids)
 
 
+def _parse_pattern_member_state_ids(pattern_key: str, pattern_type: str) -> tuple[str, ...]:
+    if pattern_type == "fixed_point":
+        return (pattern_key,)
+    if pattern_type == "plateau":
+        return (pattern_key,)
+    if pattern_type == "oscillation":
+        if "<->" in pattern_key:
+            left, right = pattern_key.split("<->", 1)
+            if left and right:
+                return tuple(sorted((left, right)))
+        return (pattern_key,)
+    raise ValueError("unsupported invariant pattern type")
+
+
+def _signature(invariant_type: str, member_state_ids: tuple[str, ...]) -> str:
+    return sha256_hex({"invariant_type": invariant_type, "member_state_ids": member_state_ids})
+
+
+def _validate_receipt_consistency(
+    geometry_receipt: InvariantGeometryReceipt,
+    invariant_receipt: InvariantDetectionReceipt,
+) -> None:
+    supported_types = {"fixed_point", "plateau", "oscillation"}
+    expected_signatures: set[str] = set()
+    for pattern in invariant_receipt.patterns:
+        if pattern.pattern_type not in supported_types:
+            continue
+        member_state_ids = _parse_pattern_member_state_ids(pattern.key, pattern.pattern_type)
+        expected_signatures.add(_signature(pattern.pattern_type, member_state_ids))
+    geometry_signatures = {invariant_class.invariant_signature for invariant_class in geometry_receipt.invariant_classes}
+    if geometry_signatures != expected_signatures:
+        raise ValueError("geometry and invariant receipts are inconsistent")
+
+
 def evaluate_ensemble_consistency_engine(
     geometry_receipt: InvariantGeometryReceipt,
     invariant_receipt: InvariantDetectionReceipt,
@@ -240,6 +285,7 @@ def evaluate_ensemble_consistency_engine(
         raise ValueError("epsilon must be in [0,1]")
     if not isinstance(version, str) or not version:
         raise ValueError("version must be non-empty str")
+    _validate_receipt_consistency(geometry_receipt, invariant_receipt)
 
     ensembles: list[EnsembleClass] = []
     mean_deviations: list[float] = []
@@ -283,6 +329,7 @@ def evaluate_ensemble_consistency_engine(
         ensemble_count=len(ensembles_sorted),
         global_consistency_score=global_score,
         inconsistent_count=inconsistent_count,
+        invariant_receipt_stable_hash=invariant_receipt.stable_hash,
         version=version,
         control_mode=_CONTROL_MODE,
         observatory_only=True,

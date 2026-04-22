@@ -206,7 +206,33 @@ def main() -> None:
 
     print()
     print("=== DETERMINISM CHECK ===")
-    print("Determinism check: PASS (script output is designed to be byte-identical across repeated runs)")
+    baseline_canonical_receipts = [
+        (domain, runtime_receipt.to_canonical_json()) for domain, runtime_receipt in receipts
+    ]
+    mismatched_domains: list[str] = []
+    for index, (domain, state_ids, metrics) in enumerate(domains):
+        rerun_receipt = _run_domain(domain=domain, state_ids=state_ids, metrics=metrics)
+        baseline_domain, baseline_canonical_json = baseline_canonical_receipts[index]
+        if baseline_domain != domain:
+            raise RuntimeError(
+                f"Determinism check configuration error: baseline domain {baseline_domain!r} "
+                f"does not match rerun domain {domain!r}"
+            )
+        rerun_canonical_json = rerun_receipt.to_canonical_json()
+        if rerun_canonical_json != baseline_canonical_json:
+            mismatched_domains.append(domain)
+
+    if mismatched_domains:
+        print(
+            "Determinism check: FAIL "
+            f"(canonical receipts differed on rerun for: {', '.join(mismatched_domains)})"
+        )
+        raise RuntimeError("Determinism check failed")
+
+    print(
+        "Determinism check: PASS "
+        "(canonical receipts matched across repeated runs for all domains)"
+    )
     print()
     print("=== INTERPRETATION ===")
     for domain, runtime_receipt in receipts:

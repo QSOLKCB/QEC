@@ -109,56 +109,138 @@ trace
 | diffusion    |          5 |                5 |                0.954 | coupled           | adaptive_balance          |             0.882 | adaptive_state         |
 | gnn          |          3 |                3 |                0.721 | dynamic           | coupling_probe            |             0.671 | dynamic_state          |
 | physics      |          2 |                2 |                1.000 | rigid             | safe_hold                 |             1.000 | stable_equilibrium     |
-🔹 Operator Walkthrough — Rust TUI Control Surface
 
-The QEC Rust TUI provides a deterministic operator console.
+## 🔹 Operator Walkthrough — Rust TUI Control Surface
 
-⚡ Quick Start
+The QEC Rust TUI provides a **deterministic operator console** for observing, validating, and interacting with the runtime.
+
+---
+
+### ⚡ 0. Quick Start (One-Line Bootstrap)
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
-🟢 Launch (Manual)
+
+This will:
+
+build the Rust TUI in release mode
+launch the operator console
+🟢 1. Launch the Console (Manual)
 cd tui
 cargo run --release
+
+Production binary:
+
 ./target/release/qec-tui
 🧭 Layout
 Left   → navigation
 Center → workspace
 Right  → system / invariant status
 Bottom → hotkeys
-🔍 Diagnostics (D)
+🔍 2. Diagnostics Mode (D)
+
+Press:
+
 D
+
+View:
+
 system state
 invariant metrics
 convergence signals
 anomaly indicators
-📜 History (H)
+
+Purpose:
+Understand system condition
+
+📜 3. History Mode (H)
+
+Press:
+
 H
+
+View:
+
 execution timeline
 state transitions
 replay checkpoints
-🧠 Phase (P)
+
+Purpose:
+Trace deterministic evolution
+
+🧠 4. Phase Workstation (P)
+
+Press:
+
 P
+
+View:
+
 phase-space structure
 attractor behavior
 convergence regions
-⚙️ Actions (A)
+
+Purpose:
+Analyze structural dynamics
+
+⚙️ 5. Actions Mode (A)
+
+Press:
+
 A
+
+View:
+
 invariant-guided actions
 recovery pathways
 control sequences
-🔁 Replay (R)
+
+Purpose:
+Apply deterministic interventions
+
+🔁 6. Replay Mode (R)
+
+Press:
+
 R
+
+View:
+
 replay execution
 validate reconstruction
 verify hash stability
-📊 Status (S)
+
+Purpose:
+Prove reproducibility
+
+📊 7. System Status (S)
+
+Press:
+
 S
+
+View:
+
 invariant health
 convergence classification
 runtime integrity
+
+Purpose:
+Confirm global correctness
+
 🔒 Operator Model
-read-only
-deterministic
+read-only by default
+deterministic rendering
 invariant-aligned
+no hidden state
+⚡ Core Flow
+Observe → Validate → Decide → Act → Replay → Confirm
+🧠 Design Intent
+deterministic control surface
+for invariant-governed systems
+
+---
+
 📚 Attribution
 
 Marc Brendecke

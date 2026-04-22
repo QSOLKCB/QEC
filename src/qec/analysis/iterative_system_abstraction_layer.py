@@ -15,6 +15,8 @@ from qec.analysis.canonical_hashing import CanonicalHashingError, canonical_json
 ITERATIVE_SYSTEM_ABSTRACTION_LAYER_VERSION = "v142.0"
 _CONTROL_MODE = "iterative_abstraction_advisory"
 _VALID_TRANSITION_LABELS: tuple[str, ...] = ("advance", "stabilize", "converge", "stall")
+_CONVERGENCE_THRESHOLD = 0.999
+_STABILIZE_DELTA_THRESHOLD = 0.01
 
 
 class _FrozenDict(dict[str, Any]):
@@ -30,7 +32,23 @@ class _FrozenDict(dict[str, Any]):
     popitem = _immutable
     setdefault = _immutable
     update = _immutable
+    __ior__ = _immutable
 
+
+def _deep_freeze(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        return _FrozenDict({k: _deep_freeze(v) for k, v in obj.items()})
+    if isinstance(obj, (list, tuple)):
+        return tuple(_deep_freeze(v) for v in obj)
+    return obj
+
+
+def _deep_thaw(obj: Any) -> Any:
+    if isinstance(obj, _FrozenDict):
+        return {k: _deep_thaw(v) for k, v in obj.items()}
+    if isinstance(obj, tuple):
+        return [_deep_thaw(v) for v in obj]
+    return obj
 
 
 def _float_in_unit_interval(value: Any, field_name: str) -> float:
@@ -60,6 +78,7 @@ class IterativeStateSnapshot:
     state_payload: dict[str, Any]
     convergence_metric: float
     active: bool
+    stable_hash: str = field(init=False)
 
     def __post_init__(self) -> None:
         if isinstance(self.step_index, bool) or not isinstance(self.step_index, int) or self.step_index < 0:
@@ -74,25 +93,23 @@ class IterativeStateSnapshot:
             raise ValueError("malformed payload") from exc
         if not isinstance(canonical_payload, dict):
             raise ValueError("malformed payload")
-        object.__setattr__(self, "state_payload", _FrozenDict(canonical_payload))
+        object.__setattr__(self, "state_payload", _deep_freeze(canonical_payload))
         object.__setattr__(self, "convergence_metric", _float_in_unit_interval(self.convergence_metric, "convergence_metric"))
         if not isinstance(self.active, bool):
             raise ValueError("active must be bool")
+        object.__setattr__(self, "stable_hash", sha256_hex(self.to_dict()))
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "step_index": self.step_index,
             "state_id": self.state_id,
-            "state_payload": dict(self.state_payload),
+            "state_payload": _deep_thaw(self.state_payload),
             "convergence_metric": self.convergence_metric,
             "active": self.active,
         }
 
     def to_canonical_json(self) -> str:
         return canonical_json(self.to_dict())
-
-    def stable_hash(self) -> str:
-        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -101,6 +118,7 @@ class IterativeTransition:
     to_state_id: str
     delta_magnitude: float
     transition_label: str
+    stable_hash: str = field(init=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.from_state_id, str) or not self.from_state_id:
@@ -110,6 +128,7 @@ class IterativeTransition:
         object.__setattr__(self, "delta_magnitude", _float_in_unit_interval(self.delta_magnitude, "delta_magnitude"))
         if self.transition_label not in _VALID_TRANSITION_LABELS:
             raise ValueError("invalid transition label")
+        object.__setattr__(self, "stable_hash", sha256_hex(self.to_dict()))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -122,9 +141,6 @@ class IterativeTransition:
     def to_canonical_json(self) -> str:
         return canonical_json(self.to_dict())
 
-    def stable_hash(self) -> str:
-        return sha256_hex(self.to_dict())
-
 
 @dataclass(frozen=True)
 class IterativeExecutionTrace:
@@ -134,6 +150,7 @@ class IterativeExecutionTrace:
     final_state_id: str
     mean_convergence: float
     converged: bool
+    stable_hash: str = field(init=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.snapshots, tuple):
@@ -166,6 +183,7 @@ class IterativeExecutionTrace:
         object.__setattr__(self, "mean_convergence", _float_in_unit_interval(self.mean_convergence, "mean_convergence"))
         if not isinstance(self.converged, bool):
             raise ValueError("converged must be bool")
+        object.__setattr__(self, "stable_hash", sha256_hex(self.to_dict()))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -179,9 +197,6 @@ class IterativeExecutionTrace:
 
     def to_canonical_json(self) -> str:
         return canonical_json(self.to_dict())
-
-    def stable_hash(self) -> str:
-        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -224,9 +239,9 @@ class IterativeExecutionReceipt:
 
 
 def _transition_label(previous: IterativeStateSnapshot, current: IterativeStateSnapshot, delta_magnitude: float) -> str:
-    if current.convergence_metric >= 0.999:
+    if current.convergence_metric >= _CONVERGENCE_THRESHOLD:
         return "converge"
-    if delta_magnitude < 0.01:
+    if delta_magnitude < _STABILIZE_DELTA_THRESHOLD:
         return "stabilize"
     if current.convergence_metric > previous.convergence_metric:
         return "advance"
@@ -271,7 +286,7 @@ def evaluate_iterative_system_abstraction(
     total_steps = len(snapshots)
     final_state_id = snapshots[-1].state_id if snapshots else ""
     mean_convergence = 0.0 if not snapshots else _clamp01(sum(s.convergence_metric for s in snapshots) / float(total_steps))
-    converged = bool(snapshots) and snapshots[-1].convergence_metric >= 0.999
+    converged = bool(snapshots) and snapshots[-1].convergence_metric >= _CONVERGENCE_THRESHOLD
 
     trace = IterativeExecutionTrace(
         snapshots=snapshots,

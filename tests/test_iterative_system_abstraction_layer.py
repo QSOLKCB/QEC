@@ -19,6 +19,16 @@ def _snapshot(step_index: int, state_id: str, convergence_metric: float, *, acti
     )
 
 
+def _snapshot_with_nested_payload() -> IterativeStateSnapshot:
+    return IterativeStateSnapshot(
+        step_index=0,
+        state_id="nested",
+        state_payload={"nested": {"x": 0}, "series": [1, {"k": "v"}]},
+        convergence_metric=0.4,
+        active=True,
+    )
+
+
 def test_deterministic_replay_identical_json_and_hash() -> None:
     snapshots = (
         _snapshot(0, "s0", 0.10),
@@ -117,3 +127,18 @@ def test_validation_rejects_malformed_payload_and_invalid_snapshot_types() -> No
 
     with pytest.raises(ValueError, match="invalid snapshot types"):
         evaluate_iterative_system_abstraction((object(),))  # type: ignore[arg-type]
+
+
+def test_payload_is_deeply_immutable() -> None:
+    snapshot = _snapshot_with_nested_payload()
+    with pytest.raises(TypeError):
+        snapshot.state_payload["nested"]["x"] = 1
+
+    with pytest.raises(TypeError):
+        snapshot.state_payload["series"][1]["k"] = "changed"
+
+
+def test_payload_union_mutation_blocked() -> None:
+    snapshot = _snapshot(0, "s0", 0.25)
+    with pytest.raises(TypeError):
+        snapshot.state_payload |= {"k": 1}

@@ -191,7 +191,7 @@ def _build_candidates(*, anomaly_score: float, anomaly_confidence: float, domina
         RollbackCandidate(
             candidate_type="none",
             priority_score=_clamp01(1.0 - anomaly_score),
-            justification=_justification("no_action", dominant_signal),
+            justification=_justification("none", dominant_signal),
         ),
         RollbackCandidate(
             candidate_type="soft_reset",

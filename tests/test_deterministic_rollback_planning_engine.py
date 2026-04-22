@@ -175,6 +175,24 @@ def test_justification_determinism_identical_inputs_identical_strings() -> None:
     )
 
 
+def test_candidate_justification_prefix_matches_candidate_type() -> None:
+    receipt = evaluate_deterministic_rollback_planning_engine(
+        _inputs(
+            anomaly_label="watch",
+            anomaly_score=0.41,
+            anomaly_confidence=0.68,
+            dominant_signal="latency",
+        )
+    )
+
+    assert tuple(candidate.justification for candidate in receipt.plan.candidates) == (
+        "none::latency",
+        "soft_reset::latency",
+        "partial_rollback::latency",
+        "full_rollback::latency",
+    )
+
+
 def test_validation_incorrect_input_type_raises_value_error() -> None:
     with pytest.raises(ValueError, match="inputs must be RollbackPlanningInputs"):
         evaluate_deterministic_rollback_planning_engine("bad-input")  # type: ignore[arg-type]

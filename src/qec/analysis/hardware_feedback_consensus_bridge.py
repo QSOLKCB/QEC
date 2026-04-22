@@ -342,8 +342,9 @@ def evaluate_hardware_feedback_consensus_bridge(
     consensus_pressure = _clamp01(sum(vote.pressure for vote in votes) / len(votes))
     consensus_stability = _clamp01(sum(vote.stability for vote in votes) / len(votes))
     conflict_count = len({vote.action_label for vote in votes}) - 1
+    max_conflict_count = max(len(votes) - 1, 1)
 
-    conflict_penalty = conflict_count / 3.0
+    conflict_penalty = conflict_count / max_conflict_count
     pressure_spread = max(vote.pressure for vote in votes) - min(vote.pressure for vote in votes)
     consensus_confidence = _clamp01(1.0 - 0.5 * conflict_penalty - 0.5 * pressure_spread)
 

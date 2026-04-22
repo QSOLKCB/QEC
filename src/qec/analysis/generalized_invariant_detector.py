@@ -126,7 +126,7 @@ class InvariantPattern:
 
     def __post_init__(self) -> None:
         if self.pattern_type not in _PATTERN_TYPES:
-            raise ValueError("invalid invariant label")
+            raise ValueError("invalid pattern_type")
         if not isinstance(self.key, str) or not self.key:
             raise ValueError("key must be non-empty str")
         if isinstance(self.support, bool) or not isinstance(self.support, int) or self.support < 1:

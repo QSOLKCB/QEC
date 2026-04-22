@@ -171,39 +171,50 @@ def _embedding_from_signature(invariant_signature: str, dimension: int) -> tuple
 
 
 def _geometric_consistency_score(invariant_classes: tuple[InvariantClass, ...]) -> float:
-    signatures: dict[str, list[tuple[float, ...]]] = {}
-    for invariant_class in invariant_classes:
-        signatures.setdefault(invariant_class.invariant_signature, []).append(invariant_class.embedding_vector)
+    """Score how tightly grouped distinct embedding vectors are.
 
-    group_variances: list[float] = []
-    for vectors in signatures.values():
-        if len(vectors) <= 1:
-            group_variances.append(0.0)
-            continue
-        dimension = len(vectors[0])
-        means = [0.0] * dimension
-        for vector in vectors:
-            for idx, value in enumerate(vector):
-                means[idx] += value
-        inv_count = 1.0 / float(len(vectors))
-        for idx in range(dimension):
-            means[idx] *= inv_count
-        variance = 0.0
-        for vector in vectors:
-            squared_distance = 0.0
-            for idx, value in enumerate(vector):
-                delta = value - means[idx]
-                squared_distance += delta * delta
-            variance += squared_distance
-        variance *= inv_count
-        group_variances.append(variance)
-
-    if not group_variances:
+    The caller may deduplicate invariant classes by signature before invoking this
+    function, so a within-signature variance metric would collapse to `1.0` for any
+    non-empty input. Measure normalized dispersion across the distinct embedding
+    vectors instead so the score can vary for deduplicated outputs.
+    """
+    if not invariant_classes:
         return 1.0
-    normalized = min(1.0, sum(group_variances) / float(len(group_variances)))
-    return 1.0 - normalized
 
+    vectors = [invariant_class.embedding_vector for invariant_class in invariant_classes]
+    if len(vectors) == 1:
+        return 1.0
 
+    dimension = len(vectors[0])
+    if dimension < 1:
+        raise ValueError("embedding vectors must have dimension >= 1")
+    if any(len(vector) != dimension for vector in vectors):
+        raise ValueError("all embedding vectors must have the same dimension")
+
+    means = [0.0] * dimension
+    for vector in vectors:
+        for idx, value in enumerate(vector):
+            means[idx] += value
+
+    inv_count = 1.0 / float(len(vectors))
+    for idx in range(dimension):
+        means[idx] *= inv_count
+
+    mean_squared_distance = 0.0
+    for vector in vectors:
+        squared_distance = 0.0
+        for idx, value in enumerate(vector):
+            delta = value - means[idx]
+            squared_distance += delta * delta
+        mean_squared_distance += squared_distance
+    mean_squared_distance *= inv_count
+
+    max_mean_squared_distance = float(dimension) * 0.25
+    if max_mean_squared_distance <= 0.0:
+        return 1.0
+
+    normalized_dispersion = min(1.0, mean_squared_distance / max_mean_squared_distance)
+    return 1.0 - normalized_dispersion
 def _embedding_stability_score(invariant_classes: tuple[InvariantClass, ...]) -> float:
     if not invariant_classes:
         return 1.0

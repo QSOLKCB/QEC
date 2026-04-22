@@ -242,17 +242,18 @@ def _decision_for_node(
 ) -> PowerNodeDecision:
     power_excess = max(0.0, signal.power_draw_w - signal.max_power_capacity_w)
     normalized_power = _clamp01(signal.power_draw_w / signal.max_power_capacity_w)
-    normalized_delta = _clamp01(abs(signal.power_delta_w) / signal.max_power_capacity_w)
+    normalized_delta = _clamp01(max(0.0, signal.power_delta_w) / signal.max_power_capacity_w)
     normalized_util = _clamp01(signal.utilization)
+    normalized_excess = _clamp01(power_excess / signal.max_power_capacity_w)
 
     power_pressure = _clamp01(
-        0.4 * normalized_power
+        0.35 * normalized_power
         + 0.2 * normalized_delta
-        + 0.2 * normalized_util
+        + 0.15 * normalized_util
+        + 0.15 * normalized_excess
         + 0.1 * thermal_pressure
-        + 0.05 * latency_pressure
-        + 0.05 * timing_drift
-        + 0.0 * power_excess
+        + 0.03 * latency_pressure
+        + 0.02 * timing_drift
     )
     modulation_strength = _clamp01(power_pressure)
     load_balance_score = _clamp01(1.0 - power_pressure)

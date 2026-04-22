@@ -180,6 +180,28 @@ def test_cross_signal_influence_increases_power_pressure() -> None:
     assert high_pressure.node_decisions[0].power_pressure > low_pressure.node_decisions[0].power_pressure
 
 
+def test_power_excess_increases_pressure() -> None:
+    mild_overload = evaluate_power_aware_control_modulation(
+        _inputs((_node("n1", power_draw_w=105.0, max_power_capacity_w=100.0, power_delta_w=0.0, utilization=0.3),))
+    )
+    high_overload = evaluate_power_aware_control_modulation(
+        _inputs((_node("n1", power_draw_w=200.0, max_power_capacity_w=100.0, power_delta_w=0.0, utilization=0.3),))
+    )
+
+    assert high_overload.node_decisions[0].power_pressure > mild_overload.node_decisions[0].power_pressure
+
+
+def test_negative_delta_does_not_increase_pressure() -> None:
+    rising = evaluate_power_aware_control_modulation(
+        _inputs((_node("n1", power_draw_w=80.0, power_delta_w=50.0, utilization=0.4),))
+    )
+    falling = evaluate_power_aware_control_modulation(
+        _inputs((_node("n1", power_draw_w=80.0, power_delta_w=-50.0, utilization=0.4),))
+    )
+
+    assert rising.node_decisions[0].power_pressure > falling.node_decisions[0].power_pressure
+
+
 def test_duplicate_node_id_rejection() -> None:
     with pytest.raises(ValueError, match="duplicate node_id"):
         PowerControlInputs(

@@ -60,15 +60,9 @@ def _validation_label(*, anomaly_label: str, recovery_ready: bool, validation_pr
 
 
 def _rationale(*, validation_label: str, anomaly_label: str, adaptation_label: str) -> str:
-    if validation_label == "stable":
-        return f"stable_recovery::{anomaly_label}::{adaptation_label}"
-    if validation_label == "monitor":
-        return f"monitor_recovery::{anomaly_label}::{adaptation_label}"
-    if validation_label == "validate_recovery":
-        return f"validate_recovery::{anomaly_label}::{adaptation_label}"
-    if validation_label == "recovery_failed":
-        return f"recovery_failed::{anomaly_label}::{adaptation_label}"
-    raise ValueError("invalid validation_label")
+    if validation_label not in _LABEL_TO_RANK:
+        raise ValueError("invalid validation_label")
+    return f"{validation_label}::{anomaly_label}::{adaptation_label}"
 
 
 @dataclass(frozen=True)

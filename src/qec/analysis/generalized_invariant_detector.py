@@ -7,10 +7,10 @@ iterative execution traces.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import hashlib
-import json
+import math
 from typing import Any
 
+from qec.analysis.canonical_hashing import canonical_json, sha256_hex
 from qec.analysis.iterative_system_abstraction_layer import (
     IterativeExecutionReceipt,
     IterativeExecutionTrace,
@@ -28,16 +28,6 @@ _LABEL_TO_RANK: dict[str, int] = {
     "oscillation": 4,
 }
 _PATTERN_TYPES: tuple[str, ...] = ("fixed_point", "repeated_state", "plateau", "oscillation")
-
-
-def _canonical_json(payload: Any) -> str:
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
-
-
-def _sha256_hex(payload: Any) -> str:
-    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
-
-
 def _clamp01(value: float) -> float:
     if value <= 0.0:
         return 0.0
@@ -50,6 +40,8 @@ def _bounded(value: float, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{name} must be numeric")
     out = float(value)
+    if not math.isfinite(out):
+        raise ValueError(f"{name} must be finite")
     if out < 0.0 or out > 1.0:
         raise ValueError(f"{name} must be in [0,1]")
     return out
@@ -168,7 +160,7 @@ class InvariantDetectionReceipt:
             raise ValueError(f"control_mode must be {_CONTROL_MODE!r}")
         if self.observatory_only is not True:
             raise ValueError("observatory_only must be True")
-        object.__setattr__(self, "stable_hash", _sha256_hex(self._payload_without_hash()))
+        object.__setattr__(self, "stable_hash", sha256_hex(self._payload_without_hash()))
 
     def _payload_without_hash(self) -> dict[str, Any]:
         return {
@@ -186,7 +178,7 @@ class InvariantDetectionReceipt:
         return payload
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
 
 def _detect_fixed_point(snapshots: tuple[IterativeStateSnapshot, ...], transitions: tuple[IterativeTransition, ...]) -> tuple[float, InvariantPattern | None]:
@@ -228,6 +220,7 @@ def _detect_oscillation(snapshots: tuple[IterativeStateSnapshot, ...]) -> tuple[
     longest = 0
     pair_a: str | None = None
     pair_b: str | None = None
+    best_pair: tuple[str, str] | None = None
 
     for idx in range(1, n):
         current_state = snapshots[idx].state_id
@@ -251,11 +244,15 @@ def _detect_oscillation(snapshots: tuple[IterativeStateSnapshot, ...]) -> tuple[
 
         if current_run > longest:
             longest = current_run
+            if pair_a is not None and pair_b is not None:
+                best_pair = tuple(sorted((pair_a, pair_b)))
         previous_state = current_state
     if longest < 4:
         return 0.0, None
     score = _clamp01((longest - 3) / max(n - 3, 1))
-    return score, InvariantPattern(pattern_type="oscillation", key="A<->B", support=longest, confidence=score)
+    if best_pair is None:
+        return 0.0, None
+    return score, InvariantPattern(pattern_type="oscillation", key=f"{best_pair[0]}<->{best_pair[1]}", support=longest, confidence=score)
 
 
 def _dominant_decision(signal: InvariantSignal) -> InvariantDecision:

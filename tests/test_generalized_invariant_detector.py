@@ -7,6 +7,7 @@ from qec.analysis.generalized_invariant_detector import (
     evaluate_generalized_invariant_detector,
 )
 from qec.analysis.iterative_system_abstraction_layer import (
+    IterativeExecutionReceipt,
     IterativeStateSnapshot,
     evaluate_iterative_system_abstraction,
 )
@@ -22,7 +23,7 @@ def _snapshot(step_index: int, state_id: str, convergence_metric: float) -> Iter
     )
 
 
-def _receipt_from_snapshots(*snapshots: IterativeStateSnapshot):
+def _receipt_from_snapshots(*snapshots: IterativeStateSnapshot) -> IterativeExecutionReceipt:
     return evaluate_iterative_system_abstraction(tuple(snapshots))
 
 
@@ -108,6 +109,20 @@ def test_oscillation_detection() -> None:
     assert oscillation[0].key == "A<->B"
 
 
+def test_oscillation_key_reflects_states() -> None:
+    receipt = _receipt_from_snapshots(
+        _snapshot(0, "X", 0.10),
+        _snapshot(1, "Y", 0.20),
+        _snapshot(2, "X", 0.30),
+        _snapshot(3, "Y", 0.40),
+    )
+    out = evaluate_generalized_invariant_detector(receipt, version=GENERALIZED_INVARIANT_DETECTOR_VERSION)
+
+    oscillation = [p for p in out.patterns if p.pattern_type == "oscillation"]
+    assert len(oscillation) == 1
+    assert oscillation[0].key == "X<->Y"
+
+
 def test_tie_break_prefers_fixed_point_then_repeated_then_plateau_then_oscillation() -> None:
     receipt = _receipt_from_snapshots(
         _snapshot(0, "A", 0.10),
@@ -148,6 +163,19 @@ def test_pattern_ordering_deterministic() -> None:
 def test_validation_failure_on_bad_input() -> None:
     with pytest.raises(ValueError, match="invalid input type"):
         evaluate_generalized_invariant_detector(object(), version=GENERALIZED_INVARIANT_DETECTOR_VERSION)  # type: ignore[arg-type]
+
+
+def test_nan_rejected() -> None:
+    from qec.analysis.generalized_invariant_detector import InvariantSignal
+
+    with pytest.raises(ValueError, match="repeated_state_score must be finite"):
+        InvariantSignal(
+            repeated_state_score=float("nan"),
+            fixed_point_score=0.0,
+            plateau_score=0.0,
+            oscillation_score=0.0,
+            invariant_pressure=0.0,
+        )
 
 
 def test_canonical_json_stable() -> None:

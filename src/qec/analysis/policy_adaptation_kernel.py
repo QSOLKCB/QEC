@@ -5,7 +5,7 @@ Deterministic analysis-only policy adaptation from rollback plan receipts.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 from typing import Any
 
@@ -54,15 +54,9 @@ def _clamp01(value: float) -> float:
 
 
 def _rationale(adaptation_label: str, selected_action: str) -> str:
-    if adaptation_label == "hold":
-        return f"hold_policy::{selected_action}"
-    if adaptation_label == "tune":
-        return f"tune_policy::{selected_action}"
-    if adaptation_label == "constrain":
-        return f"constrain_policy::{selected_action}"
-    if adaptation_label == "harden":
-        return f"harden_policy::{selected_action}"
-    raise ValueError("invalid adaptation_label")
+    if adaptation_label not in _LABEL_TO_RANK:
+        raise ValueError("invalid adaptation_label")
+    return f"{adaptation_label}_policy::{selected_action}"
 
 
 @dataclass(frozen=True)
@@ -158,7 +152,7 @@ class PolicyAdaptationReceipt:
     decision: AdaptivePolicyDecision
     control_mode: str
     observatory_only: bool
-    stable_hash: str = ""
+    stable_hash: str = field(init=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.version, str) or not self.version:

@@ -252,7 +252,7 @@ state_t + action → next_state + proof
 
 ---
 
-## Attribution
+## 📚 Attribution
 
 The v143 releases incorporate concepts from:
 

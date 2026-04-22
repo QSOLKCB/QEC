@@ -19,8 +19,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+SRC_PATH = str(SRC)
+sys.path = [path for path in sys.path if path != SRC_PATH]
+sys.path.insert(0, SRC_PATH)
 
 from qec.analysis.convergence_engine import evaluate_convergence_engine
 from qec.analysis.cross_domain_convergence_benchmarks import evaluate_cross_domain_benchmark

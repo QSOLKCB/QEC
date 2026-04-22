@@ -266,9 +266,6 @@ def evaluate_deterministic_execution_wrapper(
     terminal_convergence = _clamp01(convergence_receipt.signal.terminal_convergence)
     efficiency_score = _clamp01(convergence_receipt.signal.efficiency_score)
 
-    convergence_label = convergence_receipt.decision.convergence_label
-    if not isinstance(convergence_label, str) or not convergence_label:
-        raise ValueError("malformed upstream receipt fields")
     early_termination_input = convergence_receipt.decision.early_termination_advised
     if not isinstance(early_termination_input, bool):
         raise ValueError("malformed upstream receipt fields")

@@ -15,7 +15,7 @@ import pytest
 from qec.analysis.ensemble_consistency_engine import EnsembleClass, EnsembleConsistencyReceipt
 from qec.analysis.generalized_invariant_detector import InvariantDecision, InvariantDetectionReceipt, InvariantPattern, InvariantSignal
 from qec.analysis.invariant_geometry_embedding import InvariantClass, InvariantGeometryReceipt
-from qec.analysis.self_determination_kernel import evaluate_self_determination_kernel
+from qec.analysis.self_determination_kernel import SelfDeterminationReceipt, TransitionOption, evaluate_self_determination_kernel
 from qec.analysis.spectral_structure_kernel import evaluate_spectral_structure_kernel
 
 
@@ -138,7 +138,7 @@ def test_no_admissible_transitions_graceful_fallback() -> None:
     assert receipt.selection_confidence == 0.0
 
 
-def test_tie_breaking_determinism_lexicographic_transition_id() -> None:
+def test_transition_priorities_are_differentiated() -> None:
     invariant = _invariant_receipt()
     geometry = _geometry_receipt()
     ensemble = _ensemble_receipt(
@@ -149,12 +149,44 @@ def test_tie_breaking_determinism_lexicographic_transition_id() -> None:
 
     receipt = evaluate_self_determination_kernel(spectral, ensemble, geometry, invariant)
 
-    # In this symmetric setup multiple transitions receive equal score; ID order must decide.
-    assert receipt.selected_transition_id in {transition.transition_id for transition in receipt.allowed_transitions}
-    assert receipt.selected_transition_id == min(
-        (tr.transition_id for tr in receipt.allowed_transitions if tr.admissible),
-        default="no_admissible_transition",
+    priorities = {transition.transition_id: transition.priority_score for transition in receipt.allowed_transitions}
+    assert len(set(priorities.values())) > 1
+
+
+def test_selection_is_score_driven_not_lexicographic_fallback() -> None:
+    invariant = _invariant_receipt()
+    geometry = _geometry_receipt()
+    ensemble = _ensemble_receipt(
+        (("a", (1.0, 1.0), 0.9), ("b", (1.0, 1.0), 0.9), ("c", (1.0, 1.0), 0.9)),
+        invariant_hash=invariant.stable_hash,
+        global_consistency_score=0.8,
     )
+    spectral = _spectral_receipt(ensemble, geometry, invariant)
+
+    receipt = evaluate_self_determination_kernel(spectral, ensemble, geometry, invariant)
+
+    admissible_transition_ids = sorted(
+        transition.transition_id for transition in receipt.allowed_transitions if transition.admissible
+    )
+    assert receipt.selected_transition_id == "safe_hold"
+    assert receipt.selected_transition_id != admissible_transition_ids[0]
+
+
+def test_selection_confidence_uses_admissible_subset_only() -> None:
+    invariant = _invariant_receipt()
+    geometry = _geometry_receipt(geometric=0.25, stability=0.25)
+    ensemble = _ensemble_receipt(
+        (("a", (1.0, 1.0), 0.6), ("b", (1.0, 1.0), 0.6), ("c", (1.0, 1.0), 0.6)),
+        invariant_hash=invariant.stable_hash,
+        global_consistency_score=0.7,
+    )
+    spectral = _spectral_receipt(ensemble, geometry, invariant)
+
+    receipt = evaluate_self_determination_kernel(spectral, ensemble, geometry, invariant)
+
+    assert receipt.admissible_count > 0
+    assert any(not transition.admissible for transition in receipt.allowed_transitions)
+    assert receipt.selection_confidence == 1.0
 
 
 def test_score_bounds_are_in_unit_interval() -> None:
@@ -209,6 +241,23 @@ def test_upstream_hash_dependency_changes_receipt_hash() -> None:
     assert receipt_one.stable_hash != receipt_two.stable_hash
 
 
+def test_stable_hash_invariant_to_omitted_optional_invariant_receipt() -> None:
+    invariant = _invariant_receipt()
+    geometry = _geometry_receipt()
+    ensemble = _ensemble_receipt(
+        (("a", (0.9, 0.6), 0.1), ("b", (0.8, 0.7), 0.1)),
+        invariant_hash=invariant.stable_hash,
+    )
+    spectral = _spectral_receipt(ensemble, geometry, invariant)
+
+    with_optional = evaluate_self_determination_kernel(spectral, ensemble, geometry, invariant)
+    without_optional = evaluate_self_determination_kernel(spectral, ensemble, geometry)
+
+    assert with_optional.invariant_receipt_stable_hash == invariant.stable_hash
+    assert without_optional.invariant_receipt_stable_hash == invariant.stable_hash
+    assert with_optional.stable_hash == without_optional.stable_hash
+
+
 def test_invalid_input_raises_value_error() -> None:
     invariant = _invariant_receipt()
     geometry = _geometry_receipt()
@@ -224,3 +273,32 @@ def test_invalid_input_raises_value_error() -> None:
     mismatched_invariant = _invariant_receipt(support=3)
     with pytest.raises(ValueError, match="invariant receipt stable_hash mismatch"):
         evaluate_self_determination_kernel(spectral, ensemble, geometry, mismatched_invariant)
+
+
+def test_invalid_selected_transition_id_is_rejected() -> None:
+    transitions = (
+        TransitionOption(
+            transition_id="safe_hold",
+            description="hold",
+            priority_score=0.9,
+            admissible=True,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="selected_transition_id not in allowed_transitions"):
+        SelfDeterminationReceipt(
+            allowed_transitions=transitions,
+            selected_transition_id="not_a_real_transition",
+            selected_transition_score=0.9,
+            selection_confidence=1.0,
+            posture_label="highly_coupled_dynamic",
+            transition_count=1,
+            admissible_count=1,
+            spectral_receipt_stable_hash="1" * 64,
+            ensemble_receipt_stable_hash="2" * 64,
+            geometry_receipt_stable_hash="3" * 64,
+            invariant_receipt_stable_hash="4" * 64,
+            version="v143.3",
+            control_mode="self_determination_advisory",
+            observatory_only=True,
+        )

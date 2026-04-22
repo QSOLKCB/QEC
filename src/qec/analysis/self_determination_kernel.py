@@ -28,6 +28,14 @@ _CONSISTENCY_THRESHOLD = 0.6
 _W_CONSISTENCY = 0.5
 _W_SPECTRAL = 0.3
 _W_INVARIANT = 0.2
+_TRANSITION_WEIGHTS = {
+    "safe_hold": 1.0,
+    "maintain_invariant_anchor": 0.95,
+    "consistency_repair": 0.9,
+    "adaptive_balance": 0.85,
+    "structured_coupling_probe": 0.8,
+    "controlled_coupling_increase": 0.75,
+}
 
 
 def _round_stable(value: float) -> float:
@@ -137,6 +145,9 @@ class SelfDeterminationReceipt:
 
         if not isinstance(self.selected_transition_id, str):
             raise ValueError("selected_transition_id must be str")
+        valid_transition_ids = set(transition_ids)
+        if self.selected_transition_id != "no_admissible_transition" and self.selected_transition_id not in valid_transition_ids:
+            raise ValueError("selected_transition_id not in allowed_transitions")
 
         object.__setattr__(self, "selected_transition_score", _bounded01(self.selected_transition_score, "selected_transition_score"))
         object.__setattr__(self, "selection_confidence", _bounded01(self.selection_confidence, "selection_confidence"))
@@ -229,14 +240,15 @@ def _construct_allowed_transitions(
 ) -> tuple[TransitionOption, ...]:
     invariance_strength = _round_stable((geometry.geometric_consistency_score + geometry.embedding_stability_score) * 0.5)
     spectral_stability = _round_stable((spectral.diagonal_dominance_score + (1.0 - spectral.coupling_density_score)) * 0.5)
+    base_priority = _round_stable(
+        0.4 * ensemble.global_consistency_score
+        + 0.35 * spectral_stability
+        + 0.25 * invariance_strength
+    )
 
     output: list[TransitionOption] = []
     for transition_id, description in _build_transition_space(posture_label):
-        priority = _round_stable(
-            0.4 * ensemble.global_consistency_score
-            + 0.35 * spectral_stability
-            + 0.25 * invariance_strength
-        )
+        priority = _round_stable(base_priority * _TRANSITION_WEIGHTS.get(transition_id, 0.7))
 
         admissible = True
 
@@ -323,11 +335,10 @@ def evaluate_self_determination_kernel(
     if spectral_receipt.invariant_receipt_stable_hash != ensemble_receipt.invariant_receipt_stable_hash:
         raise ValueError("spectral and ensemble invariant_receipt_stable_hash mismatch")
 
-    invariant_hash: str | None = None
+    invariant_hash: str | None = spectral_receipt.invariant_receipt_stable_hash
     if invariant_receipt is not None:
         if invariant_receipt.stable_hash != spectral_receipt.invariant_receipt_stable_hash:
             raise ValueError("invariant receipt stable_hash mismatch")
-        invariant_hash = invariant_receipt.stable_hash
 
     posture_label = _posture_label(
         spectral_dispersion_score=spectral_receipt.spectral_dispersion_score,

@@ -19,14 +19,31 @@ import sys
 from pathlib import Path
 
 
+DEMO_TIMEOUT_SECONDS = 60
+
+
 def _run_script() -> bytes:
     root = Path(__file__).resolve().parents[1]
     script = root / "scripts" / "sphaera_proof_demo.py"
-    completed = subprocess.run(
-        [sys.executable, str(script)],
-        check=True,
-        capture_output=True,
-    )
+    try:
+        completed = subprocess.run(
+            [sys.executable, str(script)],
+            check=True,
+            capture_output=True,
+            timeout=DEMO_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stderr = exc.stderr.decode("utf-8", errors="replace") if exc.stderr else ""
+        raise AssertionError(
+            f"sphaera_proof_demo.py timed out after {DEMO_TIMEOUT_SECONDS}s.\n"
+            f"stderr:\n{stderr}"
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.decode("utf-8", errors="replace") if exc.stderr else ""
+        raise AssertionError(
+            f"sphaera_proof_demo.py failed with exit code {exc.returncode}.\n"
+            f"stderr:\n{stderr}"
+        ) from exc
     return completed.stdout
 
 

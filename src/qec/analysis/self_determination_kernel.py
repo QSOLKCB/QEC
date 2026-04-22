@@ -366,14 +366,19 @@ def evaluate_self_determination_kernel(
             selected_transition_score = _round_stable(score)
             break
 
-    max_score = max((score for score, _ in scored_transitions_sorted), default=0.0)
-    min_score = min((score for score, _ in scored_transitions_sorted), default=0.0)
+    admissible_scores = [
+        score for score, transition in scored_transitions_sorted if transition.admissible
+    ]
+    max_score = max(admissible_scores, default=0.0)
+    min_score = min(admissible_scores, default=0.0)
     if selected_transition_id == "no_admissible_transition":
         selection_confidence = 0.0
     elif max_score <= min_score:
         selection_confidence = 1.0
     else:
-        selection_confidence = _round_stable((selected_transition_score - min_score) / (max_score - min_score))
+        selection_confidence = _round_stable(
+            (selected_transition_score - min_score) / (max_score - min_score)
+        )
     selection_confidence = _round_stable(_clamp01(selection_confidence))
 
     admissible_count = sum(1 for transition in transitions if transition.admissible)

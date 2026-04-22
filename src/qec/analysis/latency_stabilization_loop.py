@@ -196,10 +196,10 @@ class LatencyControlReceipt:
         object.__setattr__(self, "mesh_stability_score", _unit_interval(self.mesh_stability_score, "mesh_stability_score"))
         if isinstance(self.instability_count, bool) or not isinstance(self.instability_count, int) or self.instability_count < 0:
             raise ValueError("instability_count must be int >= 0")
-        if not isinstance(self.control_mode, str) or not self.control_mode:
-            raise ValueError("control_mode must be a non-empty str")
-        if not isinstance(self.observatory_only, bool):
-            raise ValueError("observatory_only must be bool")
+        if self.control_mode != _CONTROL_MODE:
+            raise ValueError(f"control_mode must be {_CONTROL_MODE!r}")
+        if self.observatory_only is not True:
+            raise ValueError("observatory_only must be True")
         if not isinstance(self.stable_hash, str) or len(self.stable_hash) != 64:
             raise ValueError("stable_hash must be 64-char sha256 hex")
 

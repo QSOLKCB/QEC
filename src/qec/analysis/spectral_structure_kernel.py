@@ -215,6 +215,14 @@ def evaluate_spectral_structure_kernel(
         raise ValueError("invalid input type")
     if invariant_receipt is not None and not isinstance(invariant_receipt, InvariantDetectionReceipt):
         raise ValueError("invalid input type")
+    if invariant_receipt is not None:
+        expected_invariant_hash = ensemble_receipt.invariant_receipt_stable_hash
+        provided_invariant_hash = invariant_receipt.stable_hash
+        if provided_invariant_hash != expected_invariant_hash:
+            raise ValueError(
+                "invariant receipt stable_hash does not match "
+                "ensemble_receipt.invariant_receipt_stable_hash"
+            )
     if not isinstance(version, str) or not version:
         raise ValueError("version must be non-empty str")
 

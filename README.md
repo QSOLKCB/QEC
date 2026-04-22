@@ -257,6 +257,8 @@ The QEC Rust TUI provides a **deterministic operator console** for observing, va
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
 
+---
+
 This will:
 
 build the Rust TUI in release mode

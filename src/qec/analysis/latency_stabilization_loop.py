@@ -78,6 +78,8 @@ class LatencyNodeSignal:
         object.__setattr__(self, "latency_delta_ms", _finite_float(self.latency_delta_ms, "latency_delta_ms"))
         object.__setattr__(self, "jitter_ms", _non_negative(self.jitter_ms, "jitter_ms"))
         object.__setattr__(self, "utilization", _unit_interval(self.utilization, "utilization"))
+        if self.max_acceptable_latency_ms <= 0.0:
+            raise ValueError("max_acceptable_latency_ms must be > 0")
         if self.max_acceptable_latency_ms <= self.target_latency_ms:
             raise ValueError("max_acceptable_latency_ms must be > target_latency_ms")
 

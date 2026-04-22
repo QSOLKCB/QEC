@@ -115,6 +115,19 @@ def test_validation_nan_inf_and_invalid_bounds_raise() -> None:
         _policy(max_correction_strength=1.2)
 
 
+def test_zero_max_latency_rejected() -> None:
+    with pytest.raises(ValueError, match="max_acceptable_latency_ms must be > 0"):
+        LatencyNodeSignal(
+            node_id="n",
+            latency_ms=10.0,
+            target_latency_ms=-1.0,
+            max_acceptable_latency_ms=0.0,
+            latency_delta_ms=1.0,
+            jitter_ms=1.0,
+            utilization=0.5,
+        )
+
+
 def test_stability_score_is_one_minus_instability_pressure() -> None:
     receipt = run_latency_stabilization_loop((_signal("n1", latency_ms=13.0, jitter_ms=1.2),), _policy())
     decision = receipt.node_decisions[0]

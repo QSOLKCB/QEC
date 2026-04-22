@@ -70,6 +70,31 @@ def _validate_lineage(
     spectral_receipt: SpectralStructureReceipt,
     self_determination_receipt: SelfDeterminationReceipt,
 ) -> None:
+    supported_types = {"fixed_point", "plateau", "oscillation"}
+    expected_signatures: set[str] = set()
+    for pattern in invariant_receipt.patterns:
+        if pattern.pattern_type not in supported_types:
+            continue
+        member_state_ids: tuple[str, ...]
+        if pattern.pattern_type == "oscillation" and "<->" in pattern.key:
+            left, right = pattern.key.split("<->", 1)
+            if left and right:
+                member_state_ids = tuple(sorted((left, right)))
+            else:
+                member_state_ids = (pattern.key,)
+        else:
+            member_state_ids = (pattern.key,)
+        expected_signatures.add(
+            sha256_hex({"invariant_type": pattern.pattern_type, "member_state_ids": member_state_ids})
+        )
+    geometry_signatures = {invariant_class.invariant_signature for invariant_class in geometry_receipt.invariant_classes}
+    if geometry_signatures != expected_signatures:
+        raise ValueError("lineage mismatch: geometry does not match invariant")
+
+    ensemble_ids = {ensemble_class.class_id for ensemble_class in ensemble_receipt.ensembles}
+    if ensemble_ids != geometry_signatures:
+        raise ValueError("lineage mismatch: ensemble does not match geometry")
+
     if ensemble_receipt.invariant_receipt_stable_hash != invariant_receipt.stable_hash:
         raise ValueError("lineage mismatch: ensemble -> invariant")
     if spectral_receipt.geometry_receipt_stable_hash != geometry_receipt.stable_hash:
@@ -201,6 +226,13 @@ def evaluate_sphaera_runtime_bridge(
             execution_state,
             version=GENERALIZED_INVARIANT_DETECTOR_VERSION,
         )
+    else:
+        recomputed_invariant_receipt = evaluate_generalized_invariant_detector(
+            execution_state,
+            version=GENERALIZED_INVARIANT_DETECTOR_VERSION,
+        )
+        if recomputed_invariant_receipt.stable_hash != invariant_receipt.stable_hash:
+            raise ValueError("execution_state does not match invariant_receipt")
 
     if geometry_receipt is None:
         convergence_receipt = evaluate_convergence_engine(

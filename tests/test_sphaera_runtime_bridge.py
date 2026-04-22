@@ -12,8 +12,11 @@ from __future__ import annotations
 
 import pytest
 
+from qec.analysis.ensemble_consistency_engine import EnsembleClass, EnsembleConsistencyReceipt
 from qec.analysis.iterative_system_abstraction_layer import IterativeExecutionReceipt, IterativeStateSnapshot, evaluate_iterative_system_abstraction
+from qec.analysis.self_determination_kernel import evaluate_self_determination_kernel
 from qec.analysis.self_determination_kernel import SelfDeterminationReceipt
+from qec.analysis.spectral_structure_kernel import evaluate_spectral_structure_kernel
 from qec.analysis.spectral_structure_kernel import SpectralStructureReceipt
 from qec.analysis.sphaera_runtime_bridge import evaluate_sphaera_runtime_bridge
 
@@ -36,6 +39,18 @@ def _execution_state() -> IterativeExecutionReceipt:
             _snapshot(2, "A", 0.40),
             _snapshot(3, "B", 0.75),
             _snapshot(4, "A", 0.97),
+        )
+    )
+
+
+def _alternate_execution_state() -> IterativeExecutionReceipt:
+    return evaluate_iterative_system_abstraction(
+        (
+            _snapshot(0, "X", 0.08),
+            _snapshot(1, "Y", 0.31),
+            _snapshot(2, "X", 0.52),
+            _snapshot(3, "Y", 0.74),
+            _snapshot(4, "X", 0.94),
         )
     )
 
@@ -93,7 +108,7 @@ def test_lineage_mismatch_rejected() -> None:
         )
     ).invariant_receipt
 
-    with pytest.raises(ValueError, match="lineage mismatch"):
+    with pytest.raises(ValueError, match="execution_state does not match invariant_receipt"):
         evaluate_sphaera_runtime_bridge(
             execution_state,
             invariant_receipt=mismatch_invariant,
@@ -101,6 +116,86 @@ def test_lineage_mismatch_rejected() -> None:
             ensemble_receipt=ensemble,
             spectral_receipt=spectral,
             self_determination_receipt=self_det,
+        )
+
+
+def test_execution_state_mismatch_raises() -> None:
+    execution_state_a = _execution_state()
+    execution_state_b = _alternate_execution_state()
+    _, invariant_a, geometry_a, ensemble_a, spectral_a, self_det_a = _full_pipeline(execution_state_a)
+
+    with pytest.raises(ValueError, match="execution_state does not match invariant_receipt"):
+        evaluate_sphaera_runtime_bridge(
+            execution_state_b,
+            invariant_receipt=invariant_a,
+            geometry_receipt=geometry_a,
+            ensemble_receipt=ensemble_a,
+            spectral_receipt=spectral_a,
+            self_determination_receipt=self_det_a,
+        )
+
+
+def test_geometry_invariant_mismatch_raises() -> None:
+    execution_state = _execution_state()
+    _, invariant, _, ensemble, spectral, self_det = _full_pipeline(execution_state)
+    mismatch_geometry = _full_pipeline(_alternate_execution_state())[2]
+
+    with pytest.raises(ValueError, match="lineage mismatch: geometry does not match invariant"):
+        evaluate_sphaera_runtime_bridge(
+            execution_state,
+            invariant_receipt=invariant,
+            geometry_receipt=mismatch_geometry,
+            ensemble_receipt=ensemble,
+            spectral_receipt=spectral,
+            self_determination_receipt=self_det,
+        )
+
+
+def test_ensemble_geometry_mismatch_raises() -> None:
+    execution_state = _execution_state()
+    _, invariant, geometry, ensemble, _, _ = _full_pipeline(execution_state)
+
+    bad_ensembles = (
+        EnsembleClass(
+            class_id="0" * 64,
+            member_state_ids=ensemble.ensembles[0].member_state_ids,
+            centroid_vector=ensemble.ensembles[0].centroid_vector,
+            max_deviation=ensemble.ensembles[0].max_deviation,
+            mean_deviation=ensemble.ensembles[0].mean_deviation,
+            consistency_label=ensemble.ensembles[0].consistency_label,
+        ),
+    ) + ensemble.ensembles[1:]
+    bad_ensembles = tuple(sorted(bad_ensembles, key=lambda item: item.class_id))
+    bad_ensemble = EnsembleConsistencyReceipt(
+        ensembles=bad_ensembles,
+        ensemble_count=ensemble.ensemble_count,
+        global_consistency_score=ensemble.global_consistency_score,
+        inconsistent_count=ensemble.inconsistent_count,
+        invariant_receipt_stable_hash=ensemble.invariant_receipt_stable_hash,
+        version=ensemble.version,
+        control_mode=ensemble.control_mode,
+        observatory_only=True,
+    )
+    bad_spectral = evaluate_spectral_structure_kernel(
+        bad_ensemble,
+        geometry,
+        invariant,
+    )
+    bad_self = evaluate_self_determination_kernel(
+        bad_spectral,
+        bad_ensemble,
+        geometry,
+        invariant,
+    )
+
+    with pytest.raises(ValueError, match="lineage mismatch: ensemble does not match geometry"):
+        evaluate_sphaera_runtime_bridge(
+            execution_state,
+            invariant_receipt=invariant,
+            geometry_receipt=geometry,
+            ensemble_receipt=bad_ensemble,
+            spectral_receipt=bad_spectral,
+            self_determination_receipt=bad_self,
         )
 
 

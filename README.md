@@ -427,13 +427,16 @@ deterministic state introspection
 ---
 
 ## Attribution 
+
 The v143 releases incorporate concepts from:
-Marc Brendecke - 
+
+Marc Brendecke - https://orcid.org/0009-0009-4034-598X
+
 Quantum Sphaera Companion v3.30.0
 DOI: https://doi.org/10.5281/zenodo.19682951
-https://orcid.org/0009-0009-4034-598X
 License: CC-BY-4.0
-Attribution included in all files and release documentation.
+Attribution included in all files
+and release documentation.
 
 ---
 

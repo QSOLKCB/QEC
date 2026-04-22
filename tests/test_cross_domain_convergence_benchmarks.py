@@ -37,6 +37,13 @@ def _execution(total_steps: int) -> object:
     return evaluate_iterative_system_abstraction(snapshots)
 
 
+def _execution_from_sequence(convergence_values: tuple[float, ...], state_ids: tuple[str, ...] | None = None) -> object:
+    if state_ids is None:
+        state_ids = tuple(f"S{i}" for i in range(len(convergence_values)))
+    snapshots = tuple(_snapshot(i, state_ids[i], convergence_values[i]) for i in range(len(convergence_values)))
+    return evaluate_iterative_system_abstraction(snapshots)
+
+
 def _invariant_receipt(invariant_pressure: float) -> InvariantDetectionReceipt:
     return InvariantDetectionReceipt(
         version="v142.1",
@@ -60,7 +67,12 @@ def _invariant_receipt(invariant_pressure: float) -> InvariantDetectionReceipt:
     )
 
 
-def _convergence_receipt(convergence_pressure: float, *, early_termination_advised: bool) -> ConvergenceReceipt:
+def _convergence_receipt(
+    convergence_pressure: float,
+    *,
+    early_termination_advised: bool,
+    convergence_label: str = "unconverged",
+) -> ConvergenceReceipt:
     return ConvergenceReceipt(
         version="v142.2",
         signal=ConvergenceSignal(
@@ -73,11 +85,23 @@ def _convergence_receipt(convergence_pressure: float, *, early_termination_advis
             efficiency_score=0.0,
         ),
         decision=ConvergenceDecision(
-            convergence_label="unconverged",
-            convergence_rank=0,
+            convergence_label=convergence_label,
+            convergence_rank={
+                "unconverged": 0,
+                "progressing": 1,
+                "near_converged": 2,
+                "converged": 3,
+                "oscillating": 4,
+            }[convergence_label],
             early_termination_advised=early_termination_advised,
             termination_confidence=0.0,
-            rationale="unconverged_detected",
+            rationale={
+                "unconverged": "unconverged_detected",
+                "progressing": "progressing_detected",
+                "near_converged": "near_converged_detected",
+                "converged": "converged_detected",
+                "oscillating": "oscillating_detected",
+            }[convergence_label],
         ),
         control_mode="convergence_engine_advisory",
         observatory_only=True,
@@ -142,20 +166,75 @@ def test_zero_iteration_case() -> None:
 
     assert out.signal.iterations_total == 0
     assert out.signal.iterations_effective == 0
+    assert out.signal.cutoff_step == -1
     assert out.signal.redundancy_ratio == 0.0
+    assert out.signal.structural_redundancy_ratio == 0.0
 
 
-def test_redundancy_ratio_correctness() -> None:
+def test_convergence_cutoff_uses_threshold_crossing() -> None:
     out = evaluate_cross_domain_benchmark(
         "compute",
-        _execution(total_steps=5),
+        _execution_from_sequence((0.2, 0.5, 0.999, 0.999, 0.999)),
         _invariant_receipt(0.0),
         _convergence_receipt(0.0, early_termination_advised=False),
         _wrapper_receipt(allowed_next_steps=2),
     )
 
-    assert out.signal.iterations_effective == 2
-    assert out.signal.redundancy_ratio == pytest.approx(0.6)
+    assert out.signal.cutoff_step == 2
+    assert out.signal.iterations_effective == 3
+    assert out.signal.redundancy_ratio > 0.0
+
+
+def test_plateau_cutoff_uses_first_plateau_index() -> None:
+    out = evaluate_cross_domain_benchmark(
+        "compute",
+        _execution_from_sequence((0.20, 0.30, 0.305, 0.308, 0.309, 0.60)),
+        _invariant_receipt(0.0),
+        _convergence_receipt(0.0, early_termination_advised=False),
+        _wrapper_receipt(allowed_next_steps=6),
+    )
+
+    assert out.signal.cutoff_step == 1
+
+
+def test_fixed_point_cutoff_uses_repeat_state() -> None:
+    out = evaluate_cross_domain_benchmark(
+        "compute",
+        _execution_from_sequence((0.10, 0.30, 0.305, 0.36), state_ids=("A", "B", "B", "C")),
+        _invariant_receipt(0.0),
+        _convergence_receipt(0.0, early_termination_advised=False),
+        _wrapper_receipt(allowed_next_steps=4),
+    )
+
+    assert out.signal.cutoff_step == 2
+
+
+def test_oscillation_guard_disables_redundancy() -> None:
+    out = evaluate_cross_domain_benchmark(
+        "compute",
+        _execution_from_sequence((0.2, 0.4, 0.5, 0.6, 0.7)),
+        _invariant_receipt(0.0),
+        _convergence_receipt(0.0, early_termination_advised=False, convergence_label="oscillating"),
+        _wrapper_receipt(allowed_next_steps=0),
+    )
+
+    assert out.signal.cutoff_step == 4
+    assert out.signal.redundancy_ratio == 0.0
+    assert out.signal.structural_redundancy_ratio == 0.0
+
+
+def test_full_length_fallback_has_zero_redundancy() -> None:
+    out = evaluate_cross_domain_benchmark(
+        "compute",
+        _execution_from_sequence((0.10, 0.20, 0.30)),
+        _invariant_receipt(0.0),
+        _convergence_receipt(0.0, early_termination_advised=False),
+        _wrapper_receipt(allowed_next_steps=1),
+    )
+
+    assert out.signal.cutoff_step == 2
+    assert out.signal.iterations_effective == 3
+    assert out.signal.redundancy_ratio == 0.0
 
 
 def test_early_termination_propagation() -> None:
@@ -216,8 +295,8 @@ def test_classification_boundary_correctness() -> None:
     assert moderate.decision.benchmark_label == "moderate"
     assert high.signal.efficiency_gain == pytest.approx(0.5)
     assert high.decision.benchmark_label == "high"
-    assert extreme.signal.efficiency_gain == pytest.approx(1.0)
-    assert extreme.decision.benchmark_label == "extreme"
+    assert extreme.signal.efficiency_gain == pytest.approx(0.6)
+    assert extreme.decision.benchmark_label == "high"
 
 
 def test_domain_validation_empty_string_error() -> None:

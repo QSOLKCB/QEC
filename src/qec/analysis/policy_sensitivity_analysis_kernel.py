@@ -260,6 +260,14 @@ class PolicySensitivityReceipt:
             raise ValueError("summary policy_count mismatch")
         if self.summary.comparison_count != len(self.comparison_records):
             raise ValueError("summary comparison_count mismatch")
+        for field_name, policy_hash in (
+            ("most_permissive_policy_hash", self.summary.most_permissive_policy_hash),
+            ("most_restrictive_policy_hash", self.summary.most_restrictive_policy_hash),
+            ("highest_convergence_policy_hash", self.summary.highest_convergence_policy_hash),
+            ("lowest_convergence_policy_hash", self.summary.lowest_convergence_policy_hash),
+        ):
+            if policy_hash not in policy_hashes:
+                raise ValueError(f"summary {field_name} must reference a policy_run_records policy_hash")
         validate_sha256_hex(self.stable_hash, "stable_hash")
         if self.stable_hash != self.computed_stable_hash():
             raise ValueError("stable_hash mismatch")

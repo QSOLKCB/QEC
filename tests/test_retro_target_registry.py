@@ -61,7 +61,7 @@ def test_invalid_schema_rejection() -> None:
 
 def test_metric_bounds_enforced() -> None:
     receipt = _build()
-    for value in receipt.constraint_metrics.values():
+    for value in dict(receipt.constraint_metrics).values():
         assert 0.0 <= value <= 1.0
         assert isinstance(value, float)
 
@@ -136,8 +136,14 @@ def test_invalid_classification_label_rejected() -> None:
     with pytest.raises(RetroTargetValidationError, match="invalid classification_label"):
         RetroTargetReceipt(
             descriptor=receipt.descriptor,
-            constraint_metrics=receipt.constraint_metrics,
+            constraint_metrics=dict(receipt.constraint_metrics),
             classification_labels=("not_a_real_label",),
             registry_version=receipt.registry_version,
             stable_hash="0" * 64,
         )
+
+
+def test_constraint_metrics_are_immutable() -> None:
+    receipt = _build()
+    with pytest.raises(TypeError):
+        receipt.constraint_metrics["memory_constraint_pressure"] = 0.9

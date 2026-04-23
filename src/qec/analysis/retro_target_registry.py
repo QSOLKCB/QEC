@@ -286,7 +286,7 @@ class RetroTargetDescriptor:
 @dataclass(frozen=True)
 class RetroTargetReceipt:
     descriptor: RetroTargetDescriptor
-    constraint_metrics: Dict[str, float]
+    constraint_metrics: Tuple[Tuple[str, float], ...]
     classification_labels: Tuple[str, ...]
     registry_version: str
     stable_hash: str
@@ -312,7 +312,7 @@ class RetroTargetReceipt:
             if label not in _ALLOWED_LABELS:
                 raise RetroTargetValidationError(f"invalid classification_label: {label!r}")
 
-        object.__setattr__(self, "constraint_metrics", {k: float(metrics[k]) for k in sorted(metrics.keys())})
+        object.__setattr__(self, "constraint_metrics", tuple(sorted((k, float(v)) for k, v in metrics.items())))
         object.__setattr__(self, "classification_labels", labels)
 
         if len(self.stable_hash) != 64 or self.stable_hash.lower() != self.stable_hash:
@@ -324,7 +324,7 @@ class RetroTargetReceipt:
     def _hash_payload(self) -> Dict[str, Any]:
         return {
             "descriptor": self.descriptor.to_dict(),
-            "constraint_metrics": {k: float(self.constraint_metrics[k]) for k in sorted(self.constraint_metrics.keys())},
+            "constraint_metrics": dict(self.constraint_metrics),
             "classification_labels": list(self.classification_labels),
             "registry_version": self.registry_version,
         }

@@ -85,6 +85,9 @@ class GovernedCycleRecord:
             raise ValueError("governance_verdict is invalid")
         if not isinstance(self.governance_admissible, bool):
             raise ValueError("governance_admissible must be bool")
+        expected_governance_admissible = self.governance_verdict == "allow"
+        if self.governance_admissible != expected_governance_admissible:
+            raise ValueError('governance_admissible must equal (governance_verdict == "allow")')
         if not isinstance(self.governance_reason, str) or not self.governance_reason:
             raise ValueError("governance_reason must be non-empty str")
         object.__setattr__(self, "convergence_metric", _validate_unit_interval(self.convergence_metric, "convergence_metric"))

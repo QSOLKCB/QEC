@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+import string
 
 from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, sha256_hex
-from qec.analysis.state_conditioned_filter_mesh import FilterMeshReceipt
+from qec.analysis.state_conditioned_filter_mesh import FilterMeshReceipt, OrderingScore
 
 CLEAR_MARGIN_THRESHOLD = 0.15
 WEAK_MARGIN_THRESHOLD = 0.05
@@ -48,6 +49,14 @@ def _validate_unit_interval(value: float, field_name: str) -> float:
     if not math.isfinite(numeric) or not 0.0 <= numeric <= 1.0:
         raise ValueError(f"{field_name} must be finite and within [0,1]")
     return numeric
+
+
+def _validate_sha256_hex(value: str, field_name: str) -> str:
+    if not isinstance(value, str) or len(value) != 64:
+        raise ValueError(f"{field_name} must be 64-char hex string")
+    if any(ch not in string.hexdigits for ch in value) or value.lower() != value:
+        raise ValueError(f"{field_name} must be 64-char hex string")
+    return value
 
 
 def _round12(value: float) -> float:
@@ -121,7 +130,11 @@ class TransitionPolicyReceipt:
     stable_hash: str
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "input_receipt_hash", _normalize_string(self.input_receipt_hash, "input_receipt_hash"))
+        object.__setattr__(
+            self,
+            "input_receipt_hash",
+            _validate_sha256_hex(_normalize_string(self.input_receipt_hash, "input_receipt_hash"), "input_receipt_hash"),
+        )
         if isinstance(self.candidate_count, bool) or not isinstance(self.candidate_count, int) or self.candidate_count < 1:
             raise ValueError("candidate_count must be int >= 1")
         if not isinstance(self.selected_decision, TransitionDecision):
@@ -159,8 +172,14 @@ def select_deterministic_transition(receipt: FilterMeshReceipt) -> TransitionPol
         raise ValueError("receipt must be a FilterMeshReceipt")
     if receipt.stable_hash != receipt.computed_stable_hash():
         raise ValueError("receipt stable_hash is invalid")
+    if isinstance(receipt.candidate_count, bool) or not isinstance(receipt.candidate_count, int):
+        raise ValueError("candidate_count must be int")
     if receipt.candidate_count < 1:
         raise ValueError("candidate_count must be >= 1")
+    if not isinstance(receipt.ordered_scores, tuple):
+        raise ValueError("ordered_scores must be tuple")
+    if any(not isinstance(item, OrderingScore) for item in receipt.ordered_scores):
+        raise ValueError("ordered_scores must contain OrderingScore entries")
     if len(receipt.ordered_scores) != receipt.candidate_count:
         raise ValueError("candidate_count mismatch")
     if not receipt.ordered_scores:
@@ -179,8 +198,7 @@ def select_deterministic_transition(receipt: FilterMeshReceipt) -> TransitionPol
     for expected_rank, score in enumerate(receipt.ordered_scores, start=1):
         if score.rank != expected_rank:
             raise ValueError("invalid ranking state")
-        if not 0.0 <= score.total_score <= 1.0:
-            raise ValueError("scores out of bounds")
+        _validate_unit_interval(score.total_score, "total_score")
         if score.ordering_signature in seen_signatures:
             raise ValueError("duplicate ordering signatures")
         seen_signatures.add(score.ordering_signature)
@@ -190,8 +208,11 @@ def select_deterministic_transition(receipt: FilterMeshReceipt) -> TransitionPol
         raise ValueError("dominant_ordering_signature must match ordered_scores[0]")
     if _round12(receipt.dominant_score) != _round12(first.total_score):
         raise ValueError("dominant_score must match ordered_scores[0]")
-    second_score = receipt.ordered_scores[1].total_score if receipt.candidate_count > 1 else 0.0
-    margin = 1.0 if receipt.candidate_count == 1 else _round12(first.total_score - second_score)
+    first_score = _round12(first.total_score)
+    second_score = _round12(receipt.ordered_scores[1].total_score) if receipt.candidate_count > 1 else 0.0
+    margin = 1.0 if receipt.candidate_count == 1 else _round12(first_score - second_score)
+    if margin == -0.0:
+        margin = 0.0
 
     if receipt.candidate_count == 1 or margin >= CLEAR_MARGIN_THRESHOLD:
         decision_type = DECISION_TYPE_CLEAR_WINNER
@@ -200,7 +221,7 @@ def select_deterministic_transition(receipt: FilterMeshReceipt) -> TransitionPol
     else:
         decision_type = DECISION_TYPE_TIE_BREAK
 
-    confidence = _round12(_clamp01(first.total_score * (1.0 + margin)))
+    confidence = _round12(_clamp01(first_score * (1.0 + margin)))
     classification = (
         CLASSIFICATION_STABLE_TRANSITION
         if confidence >= STABLE_CONFIDENCE_THRESHOLD
@@ -209,7 +230,7 @@ def select_deterministic_transition(receipt: FilterMeshReceipt) -> TransitionPol
 
     decision_payload = {
         "selected_ordering_signature": first.ordering_signature,
-        "selected_score": _round12(first.total_score),
+        "selected_score": first_score,
         "decision_rank": first.rank,
         "margin_to_next": _round12(margin),
         "decision_confidence": confidence,
@@ -217,7 +238,7 @@ def select_deterministic_transition(receipt: FilterMeshReceipt) -> TransitionPol
     }
     selected_decision = TransitionDecision(
         selected_ordering_signature=first.ordering_signature,
-        selected_score=first.total_score,
+        selected_score=first_score,
         decision_rank=first.rank,
         margin_to_next=margin,
         decision_confidence=confidence,

@@ -14,6 +14,7 @@ from qec.analysis.deterministic_transition_policy import (
     TransitionPolicyReceipt,
     select_deterministic_transition,
 )
+from qec.analysis.state_conditioned_filter_mesh import _round12
 from qec.analysis.state_conditioned_filter_mesh import (
     CLASSIFICATION_CONFLICTED,
     FilterMeshReceipt,
@@ -153,6 +154,63 @@ def test_margin_correctness() -> None:
     receipt = _receipt((("sig_a", 0.812345678912), ("sig_b", 0.712345678901)))
     result = select_deterministic_transition(receipt)
     assert result.selected_decision.margin_to_next == round(0.812345678912 - 0.712345678901, 12)
+
+
+def test_canonical_margin_uses_rounded_scores_only() -> None:
+    receipt = _receipt((("sig_a", 0.5000000000004), ("sig_b", 0.50000000000049)))
+    result = select_deterministic_transition(receipt)
+    assert _round12(0.5000000000004) == _round12(0.50000000000049)
+    assert result.selected_decision.margin_to_next == 0.0
+
+
+def test_margin_normalizes_negative_zero() -> None:
+    receipt = _receipt((("sig_a", 0.5000000000004), ("sig_b", 0.50000000000049)))
+    result = select_deterministic_transition(receipt)
+    assert result.selected_decision.margin_to_next == 0.0
+    assert repr(result.selected_decision.margin_to_next) != "-0.0"
+
+
+def test_confidence_replay_stability_from_canonical_scores() -> None:
+    receipt_a = _receipt((("sig_a", 0.2499999999996),))
+    receipt_b = _receipt((("sig_a", 0.25),))
+    assert receipt_a.stable_hash == receipt_b.stable_hash
+    result_a = select_deterministic_transition(receipt_a)
+    result_b = select_deterministic_transition(receipt_b)
+    assert result_a.selected_decision.decision_confidence == result_b.selected_decision.decision_confidence
+    assert result_a.classification == result_b.classification
+
+
+@pytest.mark.parametrize("invalid_score", [True, float("nan"), float("inf")])
+def test_invalid_total_score_types_rejected(invalid_score: float) -> None:
+    receipt = _receipt((("sig_a", 0.8), ("sig_b", 0.4)))
+    tampered_first = receipt.ordered_scores[0]
+    with pytest.raises(ValueError):
+        object.__setattr__(tampered_first, "total_score", invalid_score)
+        object.__setattr__(tampered_first, "stable_hash", tampered_first.computed_stable_hash())
+        object.__setattr__(receipt, "stable_hash", receipt.computed_stable_hash())
+        select_deterministic_transition(receipt)
+
+
+def test_invalid_input_receipt_hash_rejected() -> None:
+    result = select_deterministic_transition(_receipt((("sig_a", 0.8), ("sig_b", 0.4))))
+    with pytest.raises(ValueError, match="input_receipt_hash must be 64-char hex string"):
+        TransitionPolicyReceipt(
+            input_receipt_hash="abc",
+            candidate_count=result.candidate_count,
+            selected_decision=result.selected_decision,
+            selection_rule=result.selection_rule,
+            classification=result.classification,
+            stable_hash=result.stable_hash,
+        )
+
+
+@pytest.mark.parametrize("candidate_count", [True, 1.5])
+def test_candidate_count_strict_typing_rejected(candidate_count: int) -> None:
+    receipt = _receipt((("sig_a", 0.9), ("sig_b", 0.1)))
+    object.__setattr__(receipt, "candidate_count", candidate_count)
+    object.__setattr__(receipt, "stable_hash", receipt.computed_stable_hash())
+    with pytest.raises(ValueError, match="candidate_count must be int"):
+        select_deterministic_transition(receipt)
 
 
 def test_receipt_hash_self_validation() -> None:

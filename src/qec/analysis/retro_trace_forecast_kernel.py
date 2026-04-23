@@ -75,8 +75,26 @@ class RetroTraceForecastStep:
             raise ValueError("step_index must be positive int")
         if not isinstance(self.projected_timing, int) or self.projected_timing < 0:
             raise ValueError("projected_timing must be non-negative int")
-        object.__setattr__(self, "projected_event_density", validate_unit_interval(self.projected_event_density, "projected_event_density"))
-        object.__setattr__(self, "stability_score", validate_unit_interval(self.stability_score, "stability_score"))
+        object.__setattr__(
+            self,
+            "projected_event_density",
+            _clamp01(
+                validate_unit_interval(
+                    self.projected_event_density,
+                    "projected_event_density",
+                )
+            ),
+        )
+        object.__setattr__(
+            self,
+            "stability_score",
+            _clamp01(
+                validate_unit_interval(
+                    self.stability_score,
+                    "stability_score",
+                )
+            ),
+        )
         if self._stable_hash != sha256_hex(self._payload_without_hash()):
             raise ValueError("stable_hash mismatch")
 

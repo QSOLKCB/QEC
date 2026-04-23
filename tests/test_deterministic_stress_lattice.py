@@ -108,8 +108,7 @@ def test_float_stability_to_12_decimals_in_export() -> None:
     exported = receipt.to_dict()
     for point in exported["points"]:
         for value in point["coordinates"].values():
-            text = f"{value:.12f}"
-            assert len(text.split(".")[1]) == 12
+            assert value == round(value, 12)
 
 
 def test_point_ordering_is_strict_by_point_index() -> None:

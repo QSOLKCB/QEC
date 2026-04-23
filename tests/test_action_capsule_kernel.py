@@ -571,6 +571,7 @@ def test_replay_identity_tamper_rejected() -> None:
     kwargs = capsule.to_dict()
     kwargs["action_descriptor"] = ActionDescriptor(**kwargs["action_descriptor"])
     kwargs["transition_receipt_hash"] = "a" * 64
+    kwargs["transition_hash"] = "a" * 64
     payload_without_hash = {k: v for k, v in kwargs.items() if k != "capsule_hash"}
     payload_without_hash["action_descriptor"] = kwargs["action_descriptor"].to_dict()
     kwargs["capsule_hash"] = sha256_hex(payload_without_hash)
@@ -625,6 +626,27 @@ def test_float_normalization_requires_pre_rounded_values() -> None:
         )
 
 
+def test_convergence_metric_int_normalized_to_float() -> None:
+    descriptor = ActionDescriptor(
+        action_type="governed_transition_commitment",
+        target_scope="orchestration",
+        action_payload={
+            "selected_transition": {"ordering_signature": "sig_a", "transition_hash": "1" * 64},
+            "refined_outcome": {
+                "classification": "bounded",
+                "convergence_metric": 1,
+                "refinement_hash": "2" * 64,
+            },
+            "governance_linkage": {"verdict": "allow", "verdict_hash": "3" * 64, "governance_hash": "4" * 64},
+        },
+        bound_constraints={"bounded_refinement": True},
+        representation_only=True,
+        payload_schema_version="v146.0",
+    )
+    assert descriptor.action_payload["refined_outcome"]["convergence_metric"] == 1.0
+    assert isinstance(descriptor.action_payload["refined_outcome"]["convergence_metric"], float)
+
+
 def test_cross_field_inconsistency_rejected() -> None:
     transition, refinement, governance = _triplet()
     capsule, _ = build_action_capsule(transition, refinement, governance)
@@ -638,6 +660,12 @@ def test_cross_field_inconsistency_rejected() -> None:
     kwargs["action_descriptor"] = ActionDescriptor(**descriptor_payload)
     kwargs["governance_verdict"] = "allow"
     kwargs["governance_hash"] = "b" * 64
+    kwargs["governance_receipt_hash"] = "b" * 64
+    kwargs["replay_identity"] = sha256_hex({
+        "transition_receipt_hash": kwargs["transition_receipt_hash"],
+        "refinement_receipt_hash": kwargs["refinement_receipt_hash"],
+        "governance_receipt_hash": kwargs["governance_receipt_hash"],
+    })
     payload_without_hash = {k: v for k, v in kwargs.items() if k != "capsule_hash"}
     payload_without_hash["action_descriptor"] = kwargs["action_descriptor"].to_dict()
     kwargs["capsule_hash"] = sha256_hex(payload_without_hash)
@@ -656,3 +684,34 @@ def test_input_mutation_safety() -> None:
     assert transition.to_canonical_json() == transition_before
     assert refinement.to_canonical_json() == refinement_before
     assert governance.to_canonical_json() == governance_before
+
+
+def test_hash_receipt_hash_equality_enforced() -> None:
+    transition, refinement, governance = _triplet()
+    capsule, _ = build_action_capsule(transition, refinement, governance)
+    kwargs = capsule.to_dict()
+    kwargs["action_descriptor"] = ActionDescriptor(**kwargs["action_descriptor"])
+    kwargs["transition_hash"] = "a" * 64
+    payload_without_hash = {k: v for k, v in kwargs.items() if k != "capsule_hash"}
+    payload_without_hash["action_descriptor"] = kwargs["action_descriptor"].to_dict()
+    kwargs["capsule_hash"] = sha256_hex(payload_without_hash)
+    with pytest.raises(ValueError, match="transition_hash must equal transition_receipt_hash"):
+        ProofCarryingActionCapsule(**kwargs)
+
+    kwargs2 = capsule.to_dict()
+    kwargs2["action_descriptor"] = ActionDescriptor(**kwargs2["action_descriptor"])
+    kwargs2["refinement_hash"] = "b" * 64
+    payload_without_hash2 = {k: v for k, v in kwargs2.items() if k != "capsule_hash"}
+    payload_without_hash2["action_descriptor"] = kwargs2["action_descriptor"].to_dict()
+    kwargs2["capsule_hash"] = sha256_hex(payload_without_hash2)
+    with pytest.raises(ValueError, match="refinement_hash must equal refinement_receipt_hash"):
+        ProofCarryingActionCapsule(**kwargs2)
+
+    kwargs3 = capsule.to_dict()
+    kwargs3["action_descriptor"] = ActionDescriptor(**kwargs3["action_descriptor"])
+    kwargs3["governance_hash"] = "c" * 64
+    payload_without_hash3 = {k: v for k, v in kwargs3.items() if k != "capsule_hash"}
+    payload_without_hash3["action_descriptor"] = kwargs3["action_descriptor"].to_dict()
+    kwargs3["capsule_hash"] = sha256_hex(payload_without_hash3)
+    with pytest.raises(ValueError, match="governance_hash must equal governance_receipt_hash"):
+        ProofCarryingActionCapsule(**kwargs3)

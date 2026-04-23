@@ -1,4 +1,4 @@
-"""v146.0 — Execution Bridge (Proof-Carrying Actions)."""
+"""v146.1 — Execution Bridge (Proof-Carrying Actions)."""
 
 from __future__ import annotations
 
@@ -236,6 +236,18 @@ class ActionDescriptor:
             raise ValueError("refined_outcome.convergence_metric must be finite")
         if normalized_metric != round(normalized_metric, 12):
             raise ValueError("refined_outcome.convergence_metric must be pre-rounded to 12 decimals")
+        if not isinstance(convergence_metric, float) or refined_outcome["convergence_metric"] != normalized_metric:
+            normalized_refined_outcome = {
+                "classification": refined_outcome["classification"],
+                "convergence_metric": normalized_metric,
+                "refinement_hash": refined_outcome["refinement_hash"],
+            }
+            normalized_full_payload = {
+                "governance_linkage": self.action_payload["governance_linkage"],
+                "refined_outcome": normalized_refined_outcome,
+                "selected_transition": self.action_payload["selected_transition"],
+            }
+            object.__setattr__(self, "action_payload", normalized_full_payload)
         _assert_canonical_round_trip(self.to_dict(), "ActionDescriptor")
 
     def _payload_without_hash(self) -> dict[str, _JSONValue]:
@@ -330,6 +342,13 @@ class ProofCarryingActionCapsule:
         _validate_reasons_tuple(self.certification_reasons, "certification_reasons")
         _validate_reasons_tuple(self.validation_notes, "validation_notes")
 
+        if self.transition_hash != self.transition_receipt_hash:
+            raise ValueError("transition_hash must equal transition_receipt_hash")
+        if self.refinement_hash != self.refinement_receipt_hash:
+            raise ValueError("refinement_hash must equal refinement_receipt_hash")
+        if self.governance_hash != self.governance_receipt_hash:
+            raise ValueError("governance_hash must equal governance_receipt_hash")
+
         expected_replay_identity = _compute_replay_identity(
             self.transition_receipt_hash,
             self.refinement_receipt_hash,
@@ -339,12 +358,12 @@ class ProofCarryingActionCapsule:
             raise ValueError("replay_identity mismatch")
 
         _ap = self.action_descriptor.action_payload
-        if _ap["selected_transition"]["transition_hash"] != self.transition_hash:
-            raise ValueError("action_descriptor transition_hash mismatch with transition_hash")
-        if _ap["refined_outcome"]["refinement_hash"] != self.refinement_hash:
-            raise ValueError("action_descriptor refinement_hash mismatch with refinement_hash")
-        if _ap["governance_linkage"]["governance_hash"] != self.governance_hash:
-            raise ValueError("action_descriptor governance_hash mismatch with governance_hash")
+        if _ap["selected_transition"]["transition_hash"] != self.transition_receipt_hash:
+            raise ValueError("action_descriptor transition_hash mismatch with transition_receipt_hash")
+        if _ap["refined_outcome"]["refinement_hash"] != self.refinement_receipt_hash:
+            raise ValueError("action_descriptor refinement_hash mismatch with refinement_receipt_hash")
+        if _ap["governance_linkage"]["governance_hash"] != self.governance_receipt_hash:
+            raise ValueError("action_descriptor governance_hash mismatch with governance_receipt_hash")
         if _ap["governance_linkage"]["verdict"] != self.governance_verdict:
             raise ValueError("action_descriptor verdict mismatch with governance_verdict")
 
@@ -549,7 +568,7 @@ def build_action_capsule(
         action_payload=action_payload,
         bound_constraints=bound_constraints,
         representation_only=True,
-        payload_schema_version="v146.0",
+        payload_schema_version="v146.1",
     )
 
     replay_identity = _compute_replay_identity(
@@ -559,7 +578,7 @@ def build_action_capsule(
     )
 
     capsule_payload = {
-        "capsule_version": "v146.0",
+        "capsule_version": "v146.1",
         "capsule_kind": "proof_carrying_action_capsule",
         "action_descriptor": descriptor,
         "transition_receipt_hash": transition_receipt_hash,
@@ -620,7 +639,7 @@ def build_action_capsule(
     )
 
     proof_payload = {
-        "receipt_version": "v146.0",
+        "receipt_version": "v146.1",
         "capsule_hash": capsule.capsule_hash,
         "replay_identity": capsule.replay_identity,
         "transition_receipt_hash": transition_receipt_hash,

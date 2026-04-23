@@ -207,7 +207,7 @@ class RefinementReceipt:
             raise ValueError("iteration_count must be int >= 1")
         if self.iteration_count != len(self.steps):
             raise ValueError("iteration_count must match number of steps")
-        if isinstance(self.converged, bool) is False:
+        if not isinstance(self.converged, bool):
             raise ValueError("converged must be bool")
         if isinstance(self.convergence_metric, bool) or not isinstance(self.convergence_metric, (int, float)):
             raise ValueError("convergence_metric must be numeric in [0,1]")

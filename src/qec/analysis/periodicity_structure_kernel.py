@@ -9,19 +9,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_EVEN
 from functools import reduce
-import hashlib
-import json
 import math
-from typing import Any
+
+from qec.analysis.canonical_hashing import (
+    canonical_bytes as to_canonical_bytes,
+    canonical_json as to_canonical_json,
+    sha256_hex,
+)
 
 MAX_TRACE_LENGTH = 4096
 MIN_MOTIF_SIZE = 2
 MAX_MOTIF_SIZE = 5
+STRONG_PERIODIC_THRESHOLD = 0.3
 _DECIMAL_12 = Decimal("0.000000000001")
-
-
-_JSONScalar = str | int | float | bool | None
-_JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
 
 
 def _round12(value: float) -> float:
@@ -38,43 +38,12 @@ def _clamp01(value: float) -> float:
     return value
 
 
-def _canonicalize(value: Any) -> _JSONValue:
-    if value is None or isinstance(value, (str, bool, int)):
-        return value
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise ValueError("non-finite float values are not allowed")
-        return value
-    if isinstance(value, (tuple, list)):
-        return tuple(_canonicalize(item) for item in value)
-    if isinstance(value, dict):
-        keys = tuple(value.keys())
-        if any(not isinstance(key, str) for key in keys):
-            raise ValueError("payload keys must be strings")
-        return {key: _canonicalize(value[key]) for key in sorted(keys)}
-    raise ValueError(f"unsupported canonical payload type: {type(value)!r}")
-
-
-def _canonical_json(value: Any) -> str:
-    return json.dumps(
-        _canonicalize(value),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        allow_nan=False,
-    )
-
-
-def _canonical_bytes(value: Any) -> bytes:
-    return _canonical_json(value).encode("utf-8")
-
-
-def _sha256_hex(value: Any) -> str:
-    return hashlib.sha256(_canonical_bytes(value)).hexdigest()
-
-
 def _is_canonical_trace_token(token: str) -> bool:
     return token == token.strip() and token != ""
+
+
+def _is_valid_sha256_hex(value: str) -> bool:
+    return len(value) == 64 and all(ch in "0123456789abcdef" for ch in value)
 
 
 @dataclass(frozen=True)
@@ -95,7 +64,7 @@ class PeriodicityCandidate:
         if self.confidence < 0.0 or self.confidence > 1.0:
             raise ValueError("confidence must be in [0,1]")
 
-    def to_dict(self) -> dict[str, _JSONValue]:
+    def to_dict(self) -> dict[str, str | int | float | bool | None | tuple[object, ...] | dict[str, object]]:
         return {
             "motif_signature": self.motif_signature,
             "gcd_period": self.gcd_period,
@@ -105,13 +74,13 @@ class PeriodicityCandidate:
         }
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return to_canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
+        return to_canonical_bytes(self.to_dict())
 
     def stable_hash(self) -> str:
-        return _sha256_hex(self.to_dict())
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -130,8 +99,12 @@ class PeriodicityReceipt:
             raise ValueError("dominant_confidence must be in [0,1]")
         if self.classification not in {"aperiodic", "weak_periodic", "strong_periodic"}:
             raise ValueError("invalid classification")
+        if not isinstance(self.stable_hash, str) or not _is_valid_sha256_hex(self.stable_hash):
+            raise ValueError("stable_hash must be 64-char hex string")
+        if self.stable_hash != self.computed_stable_hash():
+            raise ValueError("stable_hash mismatch with canonical payload")
 
-    def to_dict(self) -> dict[str, _JSONValue]:
+    def to_dict(self) -> dict[str, str | int | float | bool | None | tuple[object, ...] | dict[str, object]]:
         return {
             "trace_length": self.trace_length,
             "candidates": tuple(candidate.to_dict() for candidate in self.candidates),
@@ -142,10 +115,10 @@ class PeriodicityReceipt:
         }
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return to_canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
+        return to_canonical_bytes(self.to_dict())
 
     def computed_stable_hash(self) -> str:
         payload = {
@@ -155,7 +128,7 @@ class PeriodicityReceipt:
             "dominant_confidence": _round12(self.dominant_confidence),
             "classification": self.classification,
         }
-        return _sha256_hex(payload)
+        return sha256_hex(payload)
 
 
 def _distance_variance(distances: tuple[int, ...]) -> float:
@@ -170,7 +143,7 @@ def _normalized_variance(distances: tuple[int, ...], variance: float) -> float:
 
 
 def _motif_signature(motif: tuple[str, ...]) -> str:
-    return _canonical_json(motif)
+    return to_canonical_json(motif)
 
 
 def detect_periodicity(trace: list[str]) -> PeriodicityReceipt:
@@ -200,10 +173,10 @@ def detect_periodicity(trace: list[str]) -> PeriodicityReceipt:
     candidates: list[PeriodicityCandidate] = []
     for motif in sorted(motif_occurrences.keys()):
         indices = motif_occurrences[motif]
-        if len(indices) < 3:
+        if len(indices) < 2:
             continue
         distances = tuple(indices[i + 1] - indices[i] for i in range(len(indices) - 1))
-        repetition_count = len(distances)
+        repetition_count = len(indices)
         if repetition_count < 2:
             continue
         gcd_period = reduce(math.gcd, distances)
@@ -236,7 +209,11 @@ def detect_periodicity(trace: list[str]) -> PeriodicityReceipt:
         dominant = ordered_candidates[0]
         dominant_period = dominant.gcd_period
         dominant_confidence = dominant.confidence
-        classification = "strong_periodic" if dominant_confidence >= 0.3 else "weak_periodic"
+        classification = (
+            "strong_periodic"
+            if dominant_confidence >= STRONG_PERIODIC_THRESHOLD
+            else "weak_periodic"
+        )
 
     payload_wo_hash = {
         "trace_length": trace_len,
@@ -245,7 +222,7 @@ def detect_periodicity(trace: list[str]) -> PeriodicityReceipt:
         "dominant_confidence": _round12(dominant_confidence),
         "classification": classification,
     }
-    stable_hash = _sha256_hex(payload_wo_hash)
+    stable_hash = sha256_hex(payload_wo_hash)
 
     return PeriodicityReceipt(
         trace_length=trace_len,
@@ -259,6 +236,7 @@ def detect_periodicity(trace: list[str]) -> PeriodicityReceipt:
 
 __all__ = [
     "MAX_TRACE_LENGTH",
+    "STRONG_PERIODIC_THRESHOLD",
     "PeriodicityCandidate",
     "PeriodicityReceipt",
     "detect_periodicity",

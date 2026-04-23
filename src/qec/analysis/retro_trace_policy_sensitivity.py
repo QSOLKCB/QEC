@@ -109,7 +109,7 @@ class RetroTracePolicyComparison:
         object.__setattr__(self, "left_policy_hash", validate_sha256_hex(self.left_policy_hash, "left_policy_hash"))
         object.__setattr__(self, "right_policy_hash", validate_sha256_hex(self.right_policy_hash, "right_policy_hash"))
         if self.left_policy_hash > self.right_policy_hash:
-            raise ValueError("policy comparison must use canonical policy-hash ordering")
+            raise ValueError("policy comparison must use canonical hash ordering")
         object.__setattr__(self, "metric_distance", validate_unit_interval(self.metric_distance, "metric_distance"))
         object.__setattr__(self, "sensitivity_score", validate_unit_interval(self.sensitivity_score, "sensitivity_score"))
         for field in ("strictness_delta", "compatibility_delta"):
@@ -214,8 +214,11 @@ class RetroTracePolicySensitivityReceipt:
         expected = len(self.policy_runs) * (len(self.policy_runs) - 1) // 2
         if len(self.policy_comparisons) != expected:
             raise ValueError("policy_comparisons count mismatch")
+        # policy_runs are sorted by policy_hash, so combinations yields pairs in canonical order already.
+        # RetroTracePolicyComparison.__post_init__ enforces left_policy_hash <= right_policy_hash,
+        # so no extra sort is needed here.
         policy_hashes = tuple(run.policy_hash for run in self.policy_runs)
-        expected_pairs = Counter((left, right) for left, right in combinations(policy_hashes, 2))
+        expected_pairs = Counter(combinations(policy_hashes, 2))
         observed_pairs = Counter((cmp.left_policy_hash, cmp.right_policy_hash) for cmp in self.policy_comparisons)
         if observed_pairs != expected_pairs:
             raise ValueError("policy_comparisons must cover each unordered policy pair exactly once")
@@ -225,8 +228,14 @@ class RetroTracePolicySensitivityReceipt:
             raise ValueError("summary policy_count mismatch")
         if self.summary.comparison_count != len(self.policy_comparisons):
             raise ValueError("summary comparison_count mismatch")
+        canonical_comparisons = tuple(
+            sorted(
+                self.policy_comparisons,
+                key=lambda cmp: (cmp.left_policy_hash, cmp.right_policy_hash, cmp.stable_hash()),
+            )
+        )
         computed_sensitivity = _clamp01(
-            sum(comparison.sensitivity_score for comparison in self.policy_comparisons) / float(len(self.policy_comparisons))
+            sum(comparison.sensitivity_score for comparison in canonical_comparisons) / float(len(canonical_comparisons))
         )
         if self.summary.sensitivity_score != computed_sensitivity:
             raise ValueError("summary sensitivity_score mismatch")
@@ -307,25 +316,28 @@ def _run_for_policy(policy: GovernancePolicy, features: dict[str, float]) -> Ret
 
 
 def _comparison(left: RetroTracePolicyRun, right: RetroTracePolicyRun) -> RetroTracePolicyComparison:
-    metric_map_left = dict(left.metrics)
-    metric_map_right = dict(right.metrics)
+    # Canonical ordering: the policy with the lexicographically smaller hash is always left.
+    # Delta signs reflect right-minus-left in this canonical order, not the original argument order.
+    ordered_left, ordered_right = (left, right) if left.policy_hash <= right.policy_hash else (right, left)
+    metric_map_left = dict(ordered_left.metrics)
+    metric_map_right = dict(ordered_right.metrics)
     metric_distance = _clamp01(
         sum(abs(metric_map_right[key] - metric_map_left[key]) for key in sorted(metric_map_left)) / float(len(metric_map_left))
     )
-    strictness_delta = round12(right.strictness - left.strictness)
-    compatibility_delta = round12(right.compatibility - left.compatibility)
+    strictness_delta = round12(ordered_right.strictness - ordered_left.strictness)
+    compatibility_delta = round12(ordered_right.compatibility - ordered_left.compatibility)
     sensitivity = _clamp01(max(abs(strictness_delta), abs(compatibility_delta), metric_distance))
     payload = {
-        "left_policy_hash": left.policy_hash,
-        "right_policy_hash": right.policy_hash,
+        "left_policy_hash": ordered_left.policy_hash,
+        "right_policy_hash": ordered_right.policy_hash,
         "strictness_delta": strictness_delta,
         "compatibility_delta": compatibility_delta,
         "metric_distance": round12(metric_distance),
         "sensitivity_score": round12(sensitivity),
     }
     return RetroTracePolicyComparison(
-        left_policy_hash=left.policy_hash,
-        right_policy_hash=right.policy_hash,
+        left_policy_hash=ordered_left.policy_hash,
+        right_policy_hash=ordered_right.policy_hash,
         strictness_delta=strictness_delta,
         compatibility_delta=compatibility_delta,
         metric_distance=metric_distance,

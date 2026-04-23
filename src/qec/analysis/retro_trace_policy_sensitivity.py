@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections import Counter
 from itertools import combinations
 
 from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, sha256_hex
-from qec.analysis.closed_loop_simulation_kernel import round12, validate_unit_interval
+from qec.analysis.closed_loop_simulation_kernel import round12, validate_sha256_hex, validate_unit_interval
 from qec.analysis.governed_orchestration_layer import GovernancePolicy
 from qec.analysis.retro_trace_intake_bridge import RetroTraceReceipt
 
@@ -57,8 +58,7 @@ class RetroTracePolicyRun:
     _stable_hash: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.policy_hash, str) or len(self.policy_hash) != 64:
-            raise ValueError("policy_hash must be canonical SHA-256 hex")
+        object.__setattr__(self, "policy_hash", validate_sha256_hex(self.policy_hash, "policy_hash"))
         object.__setattr__(self, "strictness", validate_unit_interval(self.strictness, "strictness"))
         object.__setattr__(self, "compatibility", validate_unit_interval(self.compatibility, "compatibility"))
         if not isinstance(self.metrics, tuple):
@@ -106,11 +106,9 @@ class RetroTracePolicyComparison:
     _stable_hash: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.left_policy_hash, str) or len(self.left_policy_hash) != 64:
-            raise ValueError("left_policy_hash must be canonical SHA-256 hex")
-        if not isinstance(self.right_policy_hash, str) or len(self.right_policy_hash) != 64:
-            raise ValueError("right_policy_hash must be canonical SHA-256 hex")
-        if self.left_policy_hash >= self.right_policy_hash:
+        object.__setattr__(self, "left_policy_hash", validate_sha256_hex(self.left_policy_hash, "left_policy_hash"))
+        object.__setattr__(self, "right_policy_hash", validate_sha256_hex(self.right_policy_hash, "right_policy_hash"))
+        if self.left_policy_hash > self.right_policy_hash:
             raise ValueError("policy comparison must use canonical policy-hash ordering")
         object.__setattr__(self, "metric_distance", validate_unit_interval(self.metric_distance, "metric_distance"))
         object.__setattr__(self, "sensitivity_score", validate_unit_interval(self.sensitivity_score, "sensitivity_score"))
@@ -197,8 +195,7 @@ class RetroTracePolicySensitivityReceipt:
     _stable_hash: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.retro_trace_hash, str) or len(self.retro_trace_hash) != 64:
-            raise ValueError("retro_trace_hash must be canonical SHA-256 hex")
+        object.__setattr__(self, "retro_trace_hash", validate_sha256_hex(self.retro_trace_hash, "retro_trace_hash"))
         if not isinstance(self.policy_runs, tuple) or len(self.policy_runs) < _MIN_POLICY_COUNT:
             raise ValueError("policy_runs must contain at least two runs")
         if any(not isinstance(run, RetroTracePolicyRun) for run in self.policy_runs):
@@ -207,15 +204,34 @@ class RetroTracePolicySensitivityReceipt:
             raise ValueError("policy_runs must be canonically ordered")
         if any(not isinstance(cmp, RetroTracePolicyComparison) for cmp in self.policy_comparisons):
             raise ValueError("policy_comparisons contains invalid item")
+        if tuple(
+            sorted(
+                self.policy_comparisons,
+                key=lambda cmp: (cmp.left_policy_hash, cmp.right_policy_hash, cmp.stable_hash()),
+            )
+        ) != self.policy_comparisons:
+            raise ValueError("policy_comparisons must be canonically ordered")
         expected = len(self.policy_runs) * (len(self.policy_runs) - 1) // 2
         if len(self.policy_comparisons) != expected:
             raise ValueError("policy_comparisons count mismatch")
+        policy_hashes = tuple(run.policy_hash for run in self.policy_runs)
+        expected_pairs = Counter((left, right) for left, right in combinations(policy_hashes, 2))
+        observed_pairs = Counter((cmp.left_policy_hash, cmp.right_policy_hash) for cmp in self.policy_comparisons)
+        if observed_pairs != expected_pairs:
+            raise ValueError("policy_comparisons must cover each unordered policy pair exactly once")
         if not isinstance(self.summary, RetroTracePolicySensitivitySummary):
             raise ValueError("summary must be RetroTracePolicySensitivitySummary")
         if self.summary.policy_count != len(self.policy_runs):
             raise ValueError("summary policy_count mismatch")
         if self.summary.comparison_count != len(self.policy_comparisons):
             raise ValueError("summary comparison_count mismatch")
+        computed_sensitivity = _clamp01(
+            sum(comparison.sensitivity_score for comparison in self.policy_comparisons) / float(len(self.policy_comparisons))
+        )
+        if self.summary.sensitivity_score != computed_sensitivity:
+            raise ValueError("summary sensitivity_score mismatch")
+        if self.summary.classification != _classify(computed_sensitivity):
+            raise ValueError("summary classification mismatch")
         if self._stable_hash != sha256_hex(self._payload_without_hash()):
             raise ValueError("stable_hash mismatch")
 

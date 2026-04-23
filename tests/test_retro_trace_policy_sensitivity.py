@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from qec.analysis.canonical_hashing import sha256_hex
 from qec.analysis.governed_orchestration_layer import GovernancePolicy
 from qec.analysis.retro_target_registry import build_retro_target
 from qec.analysis.retro_trace_intake_bridge import build_retro_trace
-from qec.analysis.retro_trace_policy_sensitivity import analyze_retro_trace_policy_sensitivity
+from qec.analysis.retro_trace_policy_sensitivity import (
+    RetroTracePolicyComparison,
+    RetroTracePolicyRun,
+    RetroTracePolicySensitivityReceipt,
+    analyze_retro_trace_policy_sensitivity,
+)
 
 
 def _target_receipt():
@@ -144,3 +151,95 @@ def test_bounded_outputs() -> None:
         assert 0.0 <= comparison.sensitivity_score <= 1.0
         assert -1.0 <= comparison.strictness_delta <= 1.0
         assert -1.0 <= comparison.compatibility_delta <= 1.0
+
+
+def test_reject_non_canonical_hex_hash_fields() -> None:
+    receipt = analyze_retro_trace_policy_sensitivity(_retro_trace(), (_policy(min_required_score=0.9), _policy(min_required_score=0.3)))
+    run = receipt.policy_runs[0]
+    with pytest.raises(ValueError, match="64-char lowercase SHA-256 hex"):
+        RetroTracePolicyRun(
+            policy_hash="F" * 64,
+            strictness=run.strictness,
+            compatibility=run.compatibility,
+            metrics=run.metrics,
+            _stable_hash=run.stable_hash(),
+        )
+    cmp = receipt.policy_comparisons[0]
+    with pytest.raises(ValueError, match="64-char lowercase SHA-256 hex"):
+        RetroTracePolicyComparison(
+            left_policy_hash=cmp.left_policy_hash,
+            right_policy_hash="A" * 64,
+            strictness_delta=cmp.strictness_delta,
+            compatibility_delta=cmp.compatibility_delta,
+            metric_distance=cmp.metric_distance,
+            sensitivity_score=cmp.sensitivity_score,
+            _stable_hash=cmp.stable_hash(),
+        )
+    with pytest.raises(ValueError, match="64-char lowercase SHA-256 hex"):
+        RetroTracePolicySensitivityReceipt(
+            retro_trace_hash="B" * 64,
+            policy_runs=receipt.policy_runs,
+            policy_comparisons=receipt.policy_comparisons,
+            summary=receipt.summary,
+            _stable_hash=receipt.stable_hash(),
+        )
+
+
+def test_reject_duplicate_policy_comparison_pairs_with_matching_count() -> None:
+    receipt = analyze_retro_trace_policy_sensitivity(
+        _retro_trace(),
+        (
+            _policy(min_required_score=0.9),
+            _policy(min_required_score=0.3),
+            _policy(min_required_score=0.1, allow_tie_break=True),
+        ),
+    )
+    duplicated = (
+        receipt.policy_comparisons[0],
+        receipt.policy_comparisons[0],
+        receipt.policy_comparisons[2],
+    )
+    tampered_payload = {
+        "retro_trace_hash": receipt.retro_trace_hash,
+        "policy_runs": tuple(item.to_dict() for item in receipt.policy_runs),
+        "policy_comparisons": tuple(item.to_dict() for item in duplicated),
+        "summary": receipt.summary.to_dict(),
+    }
+    with pytest.raises(ValueError, match="cover each unordered policy pair exactly once"):
+        RetroTracePolicySensitivityReceipt(
+            retro_trace_hash=receipt.retro_trace_hash,
+            policy_runs=receipt.policy_runs,
+            policy_comparisons=duplicated,
+            summary=receipt.summary,
+            _stable_hash=sha256_hex(tampered_payload),
+        )
+
+
+def test_reject_summary_values_inconsistent_with_comparisons() -> None:
+    receipt = analyze_retro_trace_policy_sensitivity(_retro_trace(), (_policy(min_required_score=0.9), _policy(min_required_score=0.3)))
+    tampered_summary = replace(
+        receipt.summary,
+        sensitivity_score=0.0,
+        _stable_hash=sha256_hex(
+            {
+                "policy_count": receipt.summary.policy_count,
+                "comparison_count": receipt.summary.comparison_count,
+                "sensitivity_score": 0.0,
+                "classification": "LOW",
+            }
+        ),
+    )
+    tampered_payload = {
+        "retro_trace_hash": receipt.retro_trace_hash,
+        "policy_runs": tuple(item.to_dict() for item in receipt.policy_runs),
+        "policy_comparisons": tuple(item.to_dict() for item in receipt.policy_comparisons),
+        "summary": tampered_summary.to_dict(),
+    }
+    with pytest.raises(ValueError, match="summary sensitivity_score mismatch"):
+        RetroTracePolicySensitivityReceipt(
+            retro_trace_hash=receipt.retro_trace_hash,
+            policy_runs=receipt.policy_runs,
+            policy_comparisons=receipt.policy_comparisons,
+            summary=tampered_summary,
+            _stable_hash=sha256_hex(tampered_payload),
+        )

@@ -35,7 +35,7 @@ def test_canonical_axis_ordering_from_unsorted_input() -> None:
         StressAxis(name="latency_drift", lower_bound=0.0, upper_bound=1.0),
     ]
     receipt = generate_stress_lattice(axes, point_count=8, method="halton")
-    assert receipt.axis_names == ["consensus_instability", "latency_drift", "timing_skew"]
+    assert receipt.axis_names == ("consensus_instability", "latency_drift", "timing_skew")
 
 
 def test_halton_generation_boundedness() -> None:
@@ -115,3 +115,32 @@ def test_point_ordering_is_strict_by_point_index() -> None:
     receipt = generate_stress_lattice(_axes(), point_count=24, method="halton")
     point_indices = [point.point_index for point in receipt.points]
     assert point_indices == list(range(receipt.point_count))
+
+
+def test_lattice_stride_is_coprime_and_axes_do_not_collapse() -> None:
+    receipt = generate_stress_lattice(_axes()[:3], point_count=3, method="lattice")
+    for axis_name in receipt.axis_names:
+        unique_values = {point.coordinates[axis_name] for point in receipt.points}
+        assert len(unique_values) > 1
+
+
+@pytest.mark.parametrize("invalid_point_count", [1.9, True])
+def test_point_count_validation_rejects_float_and_bool(invalid_point_count: object) -> None:
+    with pytest.raises(ValueError, match="point_count must be an integer"):
+        generate_stress_lattice(_axes(), point_count=invalid_point_count)  # type: ignore[arg-type]
+
+
+def test_stress_point_coordinates_are_immutable() -> None:
+    receipt = generate_stress_lattice(_axes(), point_count=4, method="halton")
+    with pytest.raises(TypeError):
+        receipt.points[0].coordinates["thermal_pressure"] = 0.2
+
+
+def test_receipt_fields_are_immutable() -> None:
+    receipt = generate_stress_lattice(_axes(), point_count=4, method="halton")
+    with pytest.raises(TypeError):
+        receipt.axis_names[0] = "x"
+    with pytest.raises(TypeError):
+        receipt.points[0] = receipt.points[1]
+    with pytest.raises(TypeError):
+        receipt.min_per_axis["thermal_pressure"] = 0.0

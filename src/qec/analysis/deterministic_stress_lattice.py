@@ -5,12 +5,18 @@ from __future__ import annotations
 Deterministic analysis-layer stress coverage kernel for offline benchmarking.
 """
 
-import hashlib
-import json
 import math
 import re
 from dataclasses import dataclass
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Any
+
+from qec.analysis.canonical_hashing import (
+    canonical_bytes as to_canonical_bytes,
+    canonical_json as to_canonical_json,
+    sha256_hex,
+)
 
 ROUND_DIGITS: int = 12
 MAX_POINT_COUNT: int = 4096
@@ -42,18 +48,6 @@ _PRIMES: tuple[int, ...] = (
 
 def _round12(value: float) -> float:
     return float(round(float(value), ROUND_DIGITS))
-
-
-def _canonical_json(payload: Any) -> str:
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
-
-
-def _canonical_bytes(payload: Any) -> bytes:
-    return _canonical_json(payload).encode("utf-8")
-
-
-def _sha256_hex(payload: Any) -> str:
-    return hashlib.sha256(_canonical_bytes(payload)).hexdigest()
 
 
 def _validate_hash(value: str, *, field: str) -> str:
@@ -92,6 +86,13 @@ def _halton_value(index: int, base: int) -> float:
     return result
 
 
+def _coprime_stride(base: int, modulus: int) -> int:
+    candidate = base
+    while math.gcd(candidate, modulus) != 1:
+        candidate += 1
+    return candidate
+
+
 @dataclass(frozen=True)
 class StressAxis:
     name: str
@@ -116,10 +117,10 @@ class StressAxis:
         }
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return to_canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return _canonical_bytes(self.to_dict())
+        return to_canonical_bytes(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -151,11 +152,11 @@ class StressPoint:
         if self.signature != expected_signature:
             raise ValueError("signature mismatch")
 
-        expected_hash = _sha256_hex(self.to_hash_payload_dict())
+        expected_hash = sha256_hex(self.to_hash_payload_dict())
         if _validate_hash(self.stable_hash, field="stable_hash") != expected_hash:
             raise ValueError("stable_hash mismatch")
 
-        object.__setattr__(self, "coordinates", normalized)
+        object.__setattr__(self, "coordinates", MappingProxyType(normalized))
         object.__setattr__(self, "point_index", int(self.point_index))
 
     def to_hash_payload_dict(self) -> dict[str, Any]:
@@ -166,7 +167,7 @@ class StressPoint:
         }
 
     def computed_stable_hash(self) -> str:
-        return _sha256_hex(self.to_hash_payload_dict())
+        return sha256_hex(self.to_hash_payload_dict())
 
     def to_dict(self) -> dict[str, Any]:
         payload = self.to_hash_payload_dict()
@@ -174,10 +175,10 @@ class StressPoint:
         return payload
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return to_canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return _canonical_bytes(self.to_dict())
+        return to_canonical_bytes(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -206,14 +207,17 @@ class StressCoverageReceipt:
         if self.method not in SUPPORTED_METHODS:
             raise ValueError(f"method must be one of {SUPPORTED_METHODS}")
 
-        if int(self.point_count) < 1:
+        if not isinstance(self.point_count, int) or isinstance(self.point_count, bool):
+            raise ValueError("point_count must be an integer")
+        if self.point_count < 1:
             raise ValueError("point_count must be >= 1")
-        if int(self.point_count) > MAX_POINT_COUNT:
+        if self.point_count > MAX_POINT_COUNT:
             raise ValueError(f"point_count must be <= {MAX_POINT_COUNT}")
 
-        if len(self.points) != int(self.point_count):
+        points = tuple(self.points)
+        if len(points) != int(self.point_count):
             raise ValueError("points length must equal point_count")
-        for idx, point in enumerate(self.points):
+        for idx, point in enumerate(points):
             if point.point_index != idx:
                 raise ValueError("points must be ordered by point_index")
             if sorted(point.coordinates.keys()) != canonical_axis_names:
@@ -224,6 +228,8 @@ class StressCoverageReceipt:
             ("max_per_axis", self.max_per_axis),
             ("mean_per_axis", self.mean_per_axis),
         ):
+            if not isinstance(metric, Mapping):
+                raise ValueError(f"{metric_name} must be a mapping")
             if sorted(metric.keys()) != canonical_axis_names:
                 raise ValueError(f"{metric_name} keys must match axis_names")
             for axis in canonical_axis_names:
@@ -240,9 +246,27 @@ class StressCoverageReceipt:
         if self.classification not in {"sparse", "partial", "dense"}:
             raise ValueError("classification must be one of: sparse, partial, dense")
 
-        expected_hash = _sha256_hex(self.to_hash_payload_dict())
+        expected_hash = sha256_hex(self.to_hash_payload_dict())
         if _validate_hash(self.stable_hash, field="stable_hash") != expected_hash:
             raise ValueError("stable_hash mismatch")
+
+        object.__setattr__(self, "axis_names", tuple(canonical_axis_names))
+        object.__setattr__(self, "points", points)
+        object.__setattr__(
+            self,
+            "min_per_axis",
+            MappingProxyType({axis: _round12(float(self.min_per_axis[axis])) for axis in canonical_axis_names}),
+        )
+        object.__setattr__(
+            self,
+            "max_per_axis",
+            MappingProxyType({axis: _round12(float(self.max_per_axis[axis])) for axis in canonical_axis_names}),
+        )
+        object.__setattr__(
+            self,
+            "mean_per_axis",
+            MappingProxyType({axis: _round12(float(self.mean_per_axis[axis])) for axis in canonical_axis_names}),
+        )
 
     def to_hash_payload_dict(self) -> dict[str, Any]:
         return {
@@ -258,7 +282,7 @@ class StressCoverageReceipt:
         }
 
     def computed_stable_hash(self) -> str:
-        return _sha256_hex(self.to_hash_payload_dict())
+        return sha256_hex(self.to_hash_payload_dict())
 
     def to_dict(self) -> dict[str, Any]:
         payload = self.to_hash_payload_dict()
@@ -266,10 +290,10 @@ class StressCoverageReceipt:
         return payload
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return to_canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return _canonical_bytes(self.to_dict())
+        return to_canonical_bytes(self.to_dict())
 
 
 def generate_halton_points(axes: list[StressAxis], point_count: int) -> list[dict[str, float]]:
@@ -292,7 +316,8 @@ def generate_lattice_points(axes: list[StressAxis], point_count: int) -> list[di
     for point_index in range(point_count):
         coordinate_map: dict[str, float] = {}
         for axis_index, axis in enumerate(axes):
-            stride = (2 * axis_index) + 1
+            base_stride = (2 * axis_index) + 1
+            stride = _coprime_stride(base_stride, point_count)
             numerator = ((point_index * stride) % point_count) + 0.5
             u = numerator / float(point_count)
             span = axis.upper_bound - axis.lower_bound
@@ -317,11 +342,11 @@ def generate_stress_lattice(
     if not axes:
         raise ValueError("axes must not be empty")
 
-    bounded_point_count = int(point_count)
-    if bounded_point_count < 1:
-        raise ValueError("point_count must be >= 1")
-    if bounded_point_count > MAX_POINT_COUNT:
-        raise ValueError(f"point_count must be <= {MAX_POINT_COUNT}")
+    if not isinstance(point_count, int) or isinstance(point_count, bool):
+        raise ValueError("point_count must be an integer")
+    if point_count < 1 or point_count > MAX_POINT_COUNT:
+        raise ValueError("point_count out of bounds")
+    bounded_point_count = point_count
 
     canonical_axes = sorted(axes, key=lambda axis: axis.name)
     axis_names = [axis.name for axis in canonical_axes]
@@ -353,7 +378,7 @@ def generate_stress_lattice(
                 coordinates=coordinates,
                 point_index=point_index,
                 signature=signature,
-                stable_hash=_sha256_hex(point_payload),
+                stable_hash=sha256_hex(point_payload),
             )
         )
 
@@ -389,7 +414,7 @@ def generate_stress_lattice(
         "coverage_score": _round12(coverage_score),
         "classification": classification,
     }
-    stable_hash = _sha256_hex(payload_without_hash)
+    stable_hash = sha256_hex(payload_without_hash)
 
     return StressCoverageReceipt(
         axis_names=axis_names,

@@ -215,6 +215,51 @@ def test_reject_duplicate_policy_comparison_pairs_with_matching_count() -> None:
         )
 
 
+def test_reject_reversed_pair_hash_ordering() -> None:
+    receipt = analyze_retro_trace_policy_sensitivity(_retro_trace(), (_policy(min_required_score=0.9), _policy(min_required_score=0.3)))
+    comparison = receipt.policy_comparisons[0]
+    with pytest.raises(ValueError, match="canonical hash ordering"):
+        RetroTracePolicyComparison(
+            left_policy_hash=comparison.right_policy_hash,
+            right_policy_hash=comparison.left_policy_hash,
+            strictness_delta=comparison.strictness_delta,
+            compatibility_delta=comparison.compatibility_delta,
+            metric_distance=comparison.metric_distance,
+            sensitivity_score=comparison.sensitivity_score,
+            _stable_hash=comparison.stable_hash(),
+        )
+
+
+def test_reject_non_canonical_policy_comparison_ordering() -> None:
+    receipt = analyze_retro_trace_policy_sensitivity(
+        _retro_trace(),
+        (
+            _policy(min_required_score=0.9),
+            _policy(min_required_score=0.3),
+            _policy(min_required_score=0.1, allow_tie_break=True),
+        ),
+    )
+    non_canonical = (
+        receipt.policy_comparisons[1],
+        receipt.policy_comparisons[0],
+        receipt.policy_comparisons[2],
+    )
+    tampered_payload = {
+        "retro_trace_hash": receipt.retro_trace_hash,
+        "policy_runs": tuple(item.to_dict() for item in receipt.policy_runs),
+        "policy_comparisons": tuple(item.to_dict() for item in non_canonical),
+        "summary": receipt.summary.to_dict(),
+    }
+    with pytest.raises(ValueError, match="policy_comparisons must be canonically ordered"):
+        RetroTracePolicySensitivityReceipt(
+            retro_trace_hash=receipt.retro_trace_hash,
+            policy_runs=receipt.policy_runs,
+            policy_comparisons=non_canonical,
+            summary=receipt.summary,
+            _stable_hash=sha256_hex(tampered_payload),
+        )
+
+
 def test_reject_summary_values_inconsistent_with_comparisons() -> None:
     receipt = analyze_retro_trace_policy_sensitivity(_retro_trace(), (_policy(min_required_score=0.9), _policy(min_required_score=0.3)))
     tampered_summary = replace(

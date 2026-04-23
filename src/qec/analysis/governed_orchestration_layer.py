@@ -19,8 +19,8 @@ REASON_TIE_BREAK_DISALLOWED = "tie_break_disallowed"
 REASON_UNSTABLE_TRANSITION = "unstable_transition"
 REASON_LOW_CONVERGENCE = "low_convergence"
 REASON_NO_IMPROVEMENT = "no_improvement_disallowed"
-REASON_MARGIN_EXCEEDED = "margin_exceeded"
-REASON_SCORE_EXCEEDED = "score_exceeded"
+REASON_MARGIN_TOO_LOW = "margin_too_low"
+REASON_SCORE_TOO_LOW = "score_too_low"
 
 CHECK_SELECTED_SCORE = "selected_score_check"
 CHECK_CONFIDENCE = "confidence_check"
@@ -39,13 +39,13 @@ _ALLOWED_REASONS = frozenset(
         REASON_UNSTABLE_TRANSITION,
         REASON_LOW_CONVERGENCE,
         REASON_NO_IMPROVEMENT,
-        REASON_MARGIN_EXCEEDED,
-        REASON_SCORE_EXCEEDED,
+        REASON_MARGIN_TOO_LOW,
+        REASON_SCORE_TOO_LOW,
     }
 )
 _HARD_REJECT_REASON_ORDER = (
-    REASON_SCORE_EXCEEDED,
-    REASON_MARGIN_EXCEEDED,
+    REASON_SCORE_TOO_LOW,
+    REASON_MARGIN_TOO_LOW,
     REASON_TIE_BREAK_DISALLOWED,
 )
 _SOFT_HOLD_REASON_ORDER = (
@@ -110,9 +110,9 @@ def _validate_nested_stable_hash(value: object, field_name: str) -> None:
 
 @dataclass(frozen=True)
 class GovernancePolicy:
-    max_allowed_score: float
+    min_required_score: float
     min_required_confidence: float
-    max_allowed_margin: float
+    min_required_margin: float
     min_required_convergence: float
     allow_tie_break: bool
     allow_no_improvement: bool
@@ -120,13 +120,21 @@ class GovernancePolicy:
     stable_hash: str
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "max_allowed_score", _validate_unit_interval(self.max_allowed_score, "max_allowed_score"))
+        object.__setattr__(
+            self,
+            "min_required_score",
+            _validate_unit_interval(self.min_required_score, "min_required_score"),
+        )
         object.__setattr__(
             self,
             "min_required_confidence",
             _validate_unit_interval(self.min_required_confidence, "min_required_confidence"),
         )
-        object.__setattr__(self, "max_allowed_margin", _validate_unit_interval(self.max_allowed_margin, "max_allowed_margin"))
+        object.__setattr__(
+            self,
+            "min_required_margin",
+            _validate_unit_interval(self.min_required_margin, "min_required_margin"),
+        )
         object.__setattr__(
             self,
             "min_required_convergence",
@@ -144,9 +152,9 @@ class GovernancePolicy:
 
     def _payload_without_hash(self) -> dict[str, _JSONValue]:
         return {
-            "max_allowed_score": _round12(self.max_allowed_score),
+            "min_required_score": _round12(self.min_required_score),
             "min_required_confidence": _round12(self.min_required_confidence),
-            "max_allowed_margin": _round12(self.max_allowed_margin),
+            "min_required_margin": _round12(self.min_required_margin),
             "min_required_convergence": _round12(self.min_required_convergence),
             "allow_tie_break": self.allow_tie_break,
             "allow_no_improvement": self.allow_no_improvement,
@@ -370,10 +378,12 @@ def evaluate_governed_orchestration(
     checks = (
         _make_check(
             check_name=CHECK_SELECTED_SCORE,
-            passed=score <= policy.max_allowed_score,
+            passed=score >= policy.min_required_score,
             observed_value=score,
-            threshold_value=policy.max_allowed_score,
-            message="selected score is within allowed maximum" if score <= policy.max_allowed_score else "selected score exceeds allowed maximum",
+            threshold_value=policy.min_required_score,
+            message="score meets minimum requirement"
+            if score >= policy.min_required_score
+            else "score below required minimum",
         ),
         _make_check(
             check_name=CHECK_CONFIDENCE,
@@ -384,10 +394,12 @@ def evaluate_governed_orchestration(
         ),
         _make_check(
             check_name=CHECK_MARGIN,
-            passed=margin <= policy.max_allowed_margin,
+            passed=margin >= policy.min_required_margin,
             observed_value=margin,
-            threshold_value=policy.max_allowed_margin,
-            message="margin is within allowed maximum" if margin <= policy.max_allowed_margin else "margin exceeds allowed maximum",
+            threshold_value=policy.min_required_margin,
+            message="margin meets minimum requirement"
+            if margin >= policy.min_required_margin
+            else "margin below required minimum",
         ),
         _make_check(
             check_name=CHECK_TIE_BREAK,
@@ -428,9 +440,9 @@ def evaluate_governed_orchestration(
 
     failures = {check.check_name for check in checks if not check.passed}
     reason_by_check = {
-        CHECK_SELECTED_SCORE: REASON_SCORE_EXCEEDED,
+        CHECK_SELECTED_SCORE: REASON_SCORE_TOO_LOW,
         CHECK_CONFIDENCE: REASON_LOW_CONFIDENCE,
-        CHECK_MARGIN: REASON_MARGIN_EXCEEDED,
+        CHECK_MARGIN: REASON_MARGIN_TOO_LOW,
         CHECK_TIE_BREAK: REASON_TIE_BREAK_DISALLOWED,
         CHECK_STABLE_TRANSITION: REASON_UNSTABLE_TRANSITION,
         CHECK_CONVERGENCE: REASON_LOW_CONVERGENCE,
@@ -505,10 +517,10 @@ __all__ = [
     "OrchestrationVerdict",
     "REASON_LOW_CONFIDENCE",
     "REASON_LOW_CONVERGENCE",
-    "REASON_MARGIN_EXCEEDED",
+    "REASON_MARGIN_TOO_LOW",
     "REASON_NO_IMPROVEMENT",
     "REASON_OK",
-    "REASON_SCORE_EXCEEDED",
+    "REASON_SCORE_TOO_LOW",
     "REASON_TIE_BREAK_DISALLOWED",
     "REASON_UNSTABLE_TRANSITION",
     "VERDICT_ALLOW",

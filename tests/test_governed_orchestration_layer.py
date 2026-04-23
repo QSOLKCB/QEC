@@ -21,10 +21,12 @@ from qec.analysis.governed_orchestration_layer import (
     OrchestrationVerdict,
     REASON_LOW_CONFIDENCE,
     REASON_LOW_CONVERGENCE,
+    REASON_MARGIN_TOO_LOW,
     REASON_NO_IMPROVEMENT,
     REASON_OK,
-    REASON_SCORE_EXCEEDED,
+    REASON_SCORE_TOO_LOW,
     REASON_TIE_BREAK_DISALLOWED,
+    REASON_UNSTABLE_TRANSITION,
     VERDICT_ALLOW,
     VERDICT_HOLD,
     VERDICT_REJECT,
@@ -34,27 +36,27 @@ from qec.analysis.governed_orchestration_layer import (
 
 def _policy(
     *,
-    max_allowed_score: float = 0.8,
+    min_required_score: float = 0.6,
     min_required_confidence: float = 0.7,
-    max_allowed_margin: float = 0.6,
+    min_required_margin: float = 0.2,
     min_required_convergence: float = 0.45,
     allow_tie_break: bool = True,
     allow_no_improvement: bool = True,
     require_stable_transition: bool = False,
 ) -> GovernancePolicy:
     payload = {
-        "max_allowed_score": round(max_allowed_score, 12),
+        "min_required_score": round(min_required_score, 12),
         "min_required_confidence": round(min_required_confidence, 12),
-        "max_allowed_margin": round(max_allowed_margin, 12),
+        "min_required_margin": round(min_required_margin, 12),
         "min_required_convergence": round(min_required_convergence, 12),
         "allow_tie_break": allow_tie_break,
         "allow_no_improvement": allow_no_improvement,
         "require_stable_transition": require_stable_transition,
     }
     return GovernancePolicy(
-        max_allowed_score=max_allowed_score,
+        min_required_score=min_required_score,
         min_required_confidence=min_required_confidence,
-        max_allowed_margin=max_allowed_margin,
+        min_required_margin=min_required_margin,
         min_required_convergence=min_required_convergence,
         allow_tie_break=allow_tie_break,
         allow_no_improvement=allow_no_improvement,
@@ -171,13 +173,22 @@ def test_hold_on_low_confidence() -> None:
     assert result.verdict.reason_code == REASON_LOW_CONFIDENCE
 
 
-def test_reject_on_score_exceeded() -> None:
-    policy = _policy(max_allowed_score=0.6)
+def test_reject_on_low_score() -> None:
+    policy = _policy(min_required_score=0.8)
     transition = _transition(selected_score=0.7)
     refinement = _refinement(transition)
     result = evaluate_governed_orchestration(policy, transition, refinement)
     assert result.verdict.verdict == VERDICT_REJECT
-    assert result.verdict.reason_code == REASON_SCORE_EXCEEDED
+    assert result.verdict.reason_code == REASON_SCORE_TOO_LOW
+
+
+def test_reject_on_low_margin() -> None:
+    policy = _policy(min_required_margin=0.2)
+    transition = _transition(margin_to_next=0.1)
+    refinement = _refinement(transition)
+    receipt = evaluate_governed_orchestration(policy, transition, refinement)
+    assert receipt.verdict.verdict == VERDICT_REJECT
+    assert receipt.verdict.reason_code == REASON_MARGIN_TOO_LOW
 
 
 def test_hold_on_low_convergence() -> None:
@@ -200,6 +211,15 @@ def test_no_improvement_policy_behavior() -> None:
     assert held.verdict.verdict == VERDICT_HOLD
     assert held.verdict.reason_code == REASON_NO_IMPROVEMENT
     assert allowed.verdict.verdict == VERDICT_ALLOW
+
+
+def test_hold_on_unstable_transition_when_required() -> None:
+    policy = _policy(require_stable_transition=True)
+    transition = _transition(classification="uncertain_transition")
+    refinement = _refinement(transition)
+    receipt = evaluate_governed_orchestration(policy, transition, refinement)
+    assert receipt.verdict.verdict == VERDICT_HOLD
+    assert receipt.verdict.reason_code == REASON_UNSTABLE_TRANSITION
 
 
 def test_linkage_validation_mismatch_rejected() -> None:
@@ -289,5 +309,5 @@ def test_canonical_reconstruction_stability() -> None:
 
 @pytest.mark.parametrize("bad_value", [True, False])
 def test_policy_numeric_fields_reject_bool(bad_value: bool) -> None:
-    with pytest.raises(ValueError, match="max_allowed_score"):
-        _policy(max_allowed_score=bad_value)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="min_required_score"):
+        _policy(min_required_score=bad_value)  # type: ignore[arg-type]

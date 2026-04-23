@@ -38,6 +38,8 @@ _CLASSIFICATION_ORDER: Tuple[str, ...] = (
     "input_sparse",
 )
 
+_ALLOWED_LABELS: frozenset = frozenset(_CLASSIFICATION_ORDER) | {"balanced_retro"}
+
 
 class RetroTargetValidationError(ValueError):
     """Raised when retro target payload violates deterministic schema rules."""
@@ -76,7 +78,7 @@ def _canonicalize_budget_primitive(value: Any, *, field: str) -> Any:
     if isinstance(value, float):
         if math.isnan(value) or math.isinf(value):
             raise RetroTargetValidationError(f"{field} must not contain NaN/inf")
-        return float(value)
+        return float(round(value, 12))
     if isinstance(value, str):
         return value
     raise RetroTargetValidationError(f"{field} must contain only JSON-serializable primitives")
@@ -97,6 +99,10 @@ def _canonicalize_budget_mapping(value: Any, *, field: str) -> Dict[str, Any]:
     return result
 
 
+def _freeze_budget_mapping(value: Any, *, field: str) -> Tuple[Tuple[str, Any], ...]:
+    return tuple(sorted(_canonicalize_budget_mapping(value, field=field).items()))
+
+
 def _clamp_round_01(value: float) -> float:
     if math.isnan(value) or math.isinf(value):
         raise RetroTargetValidationError("metric must be finite")
@@ -114,10 +120,9 @@ def _ratio_pressure(numerator: float, baseline: float) -> float:
     return _clamp_round_01(float(numerator / denom))
 
 
-def _numeric_budget_mass(budget: Mapping[str, Any]) -> float:
+def _numeric_budget_mass(budget: Tuple[Tuple[str, Any], ...]) -> float:
     total = 0.0
-    for key in sorted(budget.keys()):
-        value = budget[key]
+    for _key, value in budget:
         if isinstance(value, bool):
             continue
         if isinstance(value, (int, float)):
@@ -199,9 +204,9 @@ class RetroTargetDescriptor:
     ram_budget: int
     rom_budget: int
     cycle_budget: int
-    display_budget: Dict[str, Any]
-    audio_budget: Dict[str, Any]
-    input_budget: Dict[str, Any]
+    display_budget: Tuple[Tuple[str, Any], ...]
+    audio_budget: Tuple[Tuple[str, Any], ...]
+    input_budget: Tuple[Tuple[str, Any], ...]
     fpu_policy: str
     provenance: str
 
@@ -246,9 +251,9 @@ class RetroTargetDescriptor:
         object.__setattr__(self, "ram_budget", ram_budget)
         object.__setattr__(self, "rom_budget", rom_budget)
         object.__setattr__(self, "cycle_budget", cycle_budget)
-        object.__setattr__(self, "display_budget", _canonicalize_budget_mapping(self.display_budget, field="display_budget"))
-        object.__setattr__(self, "audio_budget", _canonicalize_budget_mapping(self.audio_budget, field="audio_budget"))
-        object.__setattr__(self, "input_budget", _canonicalize_budget_mapping(self.input_budget, field="input_budget"))
+        object.__setattr__(self, "display_budget", _freeze_budget_mapping(self.display_budget, field="display_budget"))
+        object.__setattr__(self, "audio_budget", _freeze_budget_mapping(self.audio_budget, field="audio_budget"))
+        object.__setattr__(self, "input_budget", _freeze_budget_mapping(self.input_budget, field="input_budget"))
         object.__setattr__(self, "fpu_policy", fpu_policy)
         object.__setattr__(self, "provenance", provenance)
 
@@ -303,12 +308,18 @@ class RetroTargetReceipt:
         if not isinstance(labels_raw, tuple):
             raise RetroTargetValidationError("classification_labels must be tuple")
         labels = tuple(str(item) for item in labels_raw)
+        for label in labels:
+            if label not in _ALLOWED_LABELS:
+                raise RetroTargetValidationError(f"invalid classification_label: {label!r}")
 
         object.__setattr__(self, "constraint_metrics", {k: float(metrics[k]) for k in sorted(metrics.keys())})
         object.__setattr__(self, "classification_labels", labels)
 
         if len(self.stable_hash) != 64 or self.stable_hash.lower() != self.stable_hash:
             raise RetroTargetValidationError("stable_hash must be lowercase SHA-256 hex")
+        expected = _stable_hash(self._hash_payload())
+        if self.stable_hash != expected:
+            raise RetroTargetValidationError("stable_hash mismatch")
 
     def _hash_payload(self) -> Dict[str, Any]:
         return {
@@ -349,6 +360,9 @@ class RetroTargetRegistry:
         object.__setattr__(self, "targets", sorted_targets)
         if len(self.stable_hash) != 64 or self.stable_hash.lower() != self.stable_hash:
             raise RetroTargetValidationError("stable_hash must be lowercase SHA-256 hex")
+        expected = _stable_hash(self._hash_payload())
+        if self.stable_hash != expected:
+            raise RetroTargetValidationError("stable_hash mismatch")
 
     def _hash_payload(self) -> Dict[str, Any]:
         return {

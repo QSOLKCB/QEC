@@ -9,6 +9,8 @@ import pytest
 
 from qec.analysis.retro_target_registry import (
     RETRO_TARGET_REGISTRY_VERSION,
+    RetroTargetDescriptor,
+    RetroTargetReceipt,
     RetroTargetRegistry,
     RetroTargetValidationError,
     build_retro_target,
@@ -113,3 +115,29 @@ def test_canonical_json_round_trip() -> None:
     j1 = receipt.to_canonical_json()
     j2 = json.dumps(json.loads(j1), sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
     assert j1 == j2
+
+
+def test_hash_tamper_detection() -> None:
+    receipt = _build()
+    tampered_metrics = dict(receipt.constraint_metrics)
+    tampered_metrics["memory_constraint_pressure"] = 0.111
+    with pytest.raises(RetroTargetValidationError, match="stable_hash mismatch"):
+        RetroTargetReceipt(
+            descriptor=RetroTargetDescriptor(**receipt.descriptor.to_dict()),
+            constraint_metrics=tampered_metrics,
+            classification_labels=receipt.classification_labels,
+            registry_version=receipt.registry_version,
+            stable_hash=receipt.stable_hash,
+        )
+
+
+def test_invalid_classification_label_rejected() -> None:
+    receipt = _build()
+    with pytest.raises(RetroTargetValidationError, match="invalid classification_label"):
+        RetroTargetReceipt(
+            descriptor=receipt.descriptor,
+            constraint_metrics=receipt.constraint_metrics,
+            classification_labels=("not_a_real_label",),
+            registry_version=receipt.registry_version,
+            stable_hash="0" * 64,
+        )

@@ -14,8 +14,10 @@ from qec.analysis.closed_loop_simulation_kernel import (
     SimulationSummary,
     run_closed_loop_simulation,
 )
+from qec.analysis.deterministic_transition_policy import select_deterministic_transition
 from qec.analysis.deterministic_stress_lattice import StressAxis, generate_stress_lattice
-from qec.analysis.state_conditioned_filter_mesh import FilterMeshState, FilterOrdering
+from qec.analysis.periodicity_structure_kernel import PeriodicityReceipt
+from qec.analysis.state_conditioned_filter_mesh import FilterMeshState, FilterOrdering, score_filter_mesh
 
 
 def _axes() -> tuple[StressAxis, ...]:
@@ -37,8 +39,8 @@ def _orderings() -> tuple[FilterOrdering, ...]:
 
 
 def _config(*, cycle_count: int = 8, recurrence_window: int = 6, point_count: int = 4) -> SimulationConfig:
-    axes = _axes()
-    candidate_orderings = _orderings()
+    axes = tuple(sorted(_axes(), key=lambda axis: axis.name))
+    candidate_orderings = tuple(sorted(_orderings(), key=lambda o: (o.ordering_signature, o.stable_hash)))
     payload = {
         "axes": tuple(axis.to_dict() for axis in axes),
         "point_count": point_count,
@@ -108,7 +110,11 @@ def test_end_to_end_receipt_linkage() -> None:
 def test_summary_count_consistency() -> None:
     receipt = run_closed_loop_simulation(_config())
     summary = receipt.summary
+    expected_stable = sum(
+        1 for record in receipt.cycle_records if record.transition_classification == "stable_transition"
+    )
     assert summary.stable_transition_count + summary.uncertain_transition_count == summary.cycle_count
+    assert summary.stable_transition_count == expected_stable
     assert summary.converged_count + summary.bounded_count + summary.no_improvement_count == summary.cycle_count
 
 
@@ -217,3 +223,143 @@ def test_no_external_state_dependence() -> None:
     first = run_closed_loop_simulation(config)
     second = run_closed_loop_simulation(config)
     assert first.to_canonical_bytes() == second.to_canonical_bytes()
+
+
+def test_canonical_config_hashing_for_different_input_ordering() -> None:
+    axes = _axes()
+    orderings = _orderings()
+    reversed_axes = tuple(reversed(axes))
+    reordered_orderings = (orderings[2], orderings[0], orderings[1])
+    config_a = SimulationConfig(
+        axes=axes,
+        point_count=4,
+        stress_method="lattice",
+        cycle_count=8,
+        candidate_orderings=orderings,
+        recurrence_window=6,
+        stable_hash=sha256_hex(
+            {
+                "axes": tuple(axis.to_dict() for axis in sorted(axes, key=lambda axis: axis.name)),
+                "point_count": 4,
+                "stress_method": "lattice",
+                "cycle_count": 8,
+                "candidate_orderings": tuple(
+                    item.to_dict() for item in sorted(orderings, key=lambda o: (o.ordering_signature, o.stable_hash))
+                ),
+                "recurrence_window": 6,
+            }
+        ),
+    )
+    config_b = SimulationConfig(
+        axes=reversed_axes,
+        point_count=4,
+        stress_method="lattice",
+        cycle_count=8,
+        candidate_orderings=reordered_orderings,
+        recurrence_window=6,
+        stable_hash=config_a.stable_hash,
+    )
+    assert config_a.stable_hash == config_b.stable_hash
+    assert config_a.to_canonical_json() == config_b.to_canonical_json()
+
+
+def test_periodic_recurrence_maps_to_oscillatory_for_mesh_scoring(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _fake_detect_periodicity(trace: list[str]) -> PeriodicityReceipt:
+        payload = {
+            "trace_length": len(trace),
+            "candidates": (),
+            "dominant_period": 2,
+            "dominant_confidence": 0.25,
+            "classification": "weak_periodic",
+        }
+        return PeriodicityReceipt(stable_hash=sha256_hex(payload), **payload)
+
+    monkeypatch.setattr(
+        "qec.analysis.closed_loop_simulation_kernel.detect_periodicity",
+        _fake_detect_periodicity,
+    )
+
+    config = _config(cycle_count=12, recurrence_window=2, point_count=2)
+    receipt = run_closed_loop_simulation(config)
+    assert receipt.summary.recurrence_classification == "weak_periodic"
+    assert any(record.state.recurrence_class == "oscillatory" for record in receipt.cycle_records)
+
+    oscillatory_records = tuple(record for record in receipt.cycle_records if record.state.recurrence_class == "oscillatory")
+    assert oscillatory_records
+
+    sample_record = oscillatory_records[0]
+    point_hash_to_coords = {
+        point.stable_hash: point.coordinates
+        for point in generate_stress_lattice(list(config.axes), config.point_count, config.stress_method).points
+    }
+    coords = point_hash_to_coords[sample_record.stress_point_hash]
+    periodic_state = FilterMeshState(
+        invariant_class=sample_record.state.invariant_class,
+        geometry_class=sample_record.state.geometry_class,
+        spectral_regime=sample_record.state.spectral_regime,
+        hardware_class=sample_record.state.hardware_class,
+        recurrence_class="oscillatory",
+        thermal_pressure=coords.get("thermal_pressure", 0.0),
+        latency_drift=coords.get("latency_drift", 0.0),
+        timing_skew=coords.get("timing_skew", 0.0),
+        power_pressure=coords.get("power_pressure", 0.0),
+        consensus_instability=sample_record.state.consensus_instability,
+    )
+    aperiodic_state = FilterMeshState(
+        invariant_class=sample_record.state.invariant_class,
+        geometry_class=sample_record.state.geometry_class,
+        spectral_regime=sample_record.state.spectral_regime,
+        hardware_class=sample_record.state.hardware_class,
+        recurrence_class="aperiodic",
+        thermal_pressure=periodic_state.thermal_pressure,
+        latency_drift=periodic_state.latency_drift,
+        timing_skew=periodic_state.timing_skew,
+        power_pressure=periodic_state.power_pressure,
+        consensus_instability=periodic_state.consensus_instability,
+    )
+    periodic_mesh = score_filter_mesh(periodic_state, config.candidate_orderings)
+    aperiodic_mesh = score_filter_mesh(aperiodic_state, config.candidate_orderings)
+    periodic_transition = select_deterministic_transition(periodic_mesh)
+    aperiodic_transition = select_deterministic_transition(aperiodic_mesh)
+    assert periodic_transition.stable_hash != aperiodic_transition.stable_hash
+
+
+@pytest.mark.parametrize(
+    ("field_name", "field_value", "error_pattern"),
+    (
+        ("decision_type", "not_valid", "invalid decision_type"),
+        ("refinement_classification", "not_valid", "invalid refinement_classification"),
+        ("transition_classification", "not_valid", "invalid transition_classification"),
+    ),
+)
+def test_simulation_cycle_record_rejects_invalid_enum_fields(
+    field_name: str, field_value: str, error_pattern: str
+) -> None:
+    base_payload = {
+        "cycle_index": 0,
+        "stress_point_hash": "0" * 64,
+        "state": FilterMeshState(
+            invariant_class="thermal_dominant",
+            geometry_class="thermal_balanced",
+            spectral_regime="mixed_band",
+            hardware_class="stable",
+            recurrence_class="aperiodic",
+            thermal_pressure=0.2,
+            latency_drift=0.2,
+            timing_skew=0.2,
+            power_pressure=0.2,
+            consensus_instability=0.2,
+        ),
+        "filter_mesh_receipt_hash": "1" * 64,
+        "transition_policy_receipt_hash": "2" * 64,
+        "refinement_receipt_hash": "3" * 64,
+        "dominant_ordering_signature": "sig",
+        "decision_type": "tie_break",
+        "transition_classification": "uncertain_transition",
+        "refinement_classification": "bounded",
+        "convergence_metric": 0.5,
+    }
+    payload = {**base_payload, field_name: field_value}
+    payload["stable_hash"] = sha256_hex({k: v.to_dict() if k == "state" else v for k, v in payload.items()})
+    with pytest.raises(ValueError, match=error_pattern):
+        SimulationCycleRecord(**payload)

@@ -179,6 +179,8 @@ class SimulationConfig:
             raise ValueError("axes must be a non-empty tuple")
         if any(not isinstance(axis, StressAxis) for axis in self.axes):
             raise ValueError("axes must contain StressAxis entries")
+        axes_sorted = tuple(sorted(self.axes, key=lambda axis: axis.name))
+        object.__setattr__(self, "axes", axes_sorted)
         if not isinstance(self.point_count, int) or isinstance(self.point_count, bool):
             raise ValueError("point_count must be int")
         if self.point_count < 1:
@@ -193,6 +195,10 @@ class SimulationConfig:
             raise ValueError("candidate_orderings must be a non-empty tuple")
         if any(not isinstance(item, FilterOrdering) for item in self.candidate_orderings):
             raise ValueError("candidate_orderings must contain FilterOrdering entries")
+        orderings_sorted = tuple(
+            sorted(self.candidate_orderings, key=lambda ordering: (ordering.ordering_signature, ordering.stable_hash))
+        )
+        object.__setattr__(self, "candidate_orderings", orderings_sorted)
         signatures = tuple(item.ordering_signature for item in self.candidate_orderings)
         if len(set(signatures)) != len(signatures):
             raise ValueError("duplicate ordering signatures are not allowed")
@@ -239,6 +245,7 @@ class SimulationCycleRecord:
     refinement_receipt_hash: str
     dominant_ordering_signature: str
     decision_type: str
+    transition_classification: str
     refinement_classification: str
     convergence_metric: float
     stable_hash: str
@@ -254,10 +261,12 @@ class SimulationCycleRecord:
         _validate_sha256_hex(self.refinement_receipt_hash, "refinement_receipt_hash")
         if not isinstance(self.dominant_ordering_signature, str) or not self.dominant_ordering_signature:
             raise ValueError("dominant_ordering_signature must be non-empty str")
-        if not isinstance(self.decision_type, str) or not self.decision_type:
-            raise ValueError("decision_type must be non-empty str")
-        if not isinstance(self.refinement_classification, str) or not self.refinement_classification:
-            raise ValueError("refinement_classification must be non-empty str")
+        if self.decision_type not in {"clear_winner", "narrow_margin", "tie_break"}:
+            raise ValueError("invalid decision_type")
+        if self.refinement_classification not in {"converged", "bounded", "no_improvement"}:
+            raise ValueError("invalid refinement_classification")
+        if self.transition_classification not in {"stable_transition", "uncertain_transition"}:
+            raise ValueError("invalid transition_classification")
         object.__setattr__(self, "convergence_metric", _validate_unit_interval(self.convergence_metric, "convergence_metric"))
         _validate_sha256_hex(self.stable_hash, "stable_hash")
         if self.stable_hash != self.computed_stable_hash():
@@ -273,6 +282,7 @@ class SimulationCycleRecord:
             "refinement_receipt_hash": self.refinement_receipt_hash,
             "dominant_ordering_signature": self.dominant_ordering_signature,
             "decision_type": self.decision_type,
+            "transition_classification": self.transition_classification,
             "refinement_classification": self.refinement_classification,
             "convergence_metric": _round12(self.convergence_metric),
         }
@@ -422,8 +432,12 @@ def _make_summary(
     dominant_recurrence_period: int | None,
 ) -> SimulationSummary:
     cycle_count = len(cycle_records)
-    stable_transition_count = sum(1 for item in cycle_records if item.decision_type != "tie_break")
-    uncertain_transition_count = cycle_count - stable_transition_count
+    stable_transition_count = sum(
+        1 for item in cycle_records if item.transition_classification == "stable_transition"
+    )
+    uncertain_transition_count = sum(
+        1 for item in cycle_records if item.transition_classification == "uncertain_transition"
+    )
     converged_count = sum(1 for item in cycle_records if item.refinement_classification == "converged")
     bounded_count = sum(1 for item in cycle_records if item.refinement_classification == "bounded")
     no_improvement_count = cycle_count - converged_count - bounded_count
@@ -476,10 +490,13 @@ def run_closed_loop_simulation(config: SimulationConfig) -> ClosedLoopSimulation
     for cycle_index in range(config.cycle_count):
         point = stress_receipt.points[cycle_index % config.point_count]
         _ensure_stable_hash(point, "stress_point")
+        recurrence_class_for_mesh = (
+            "oscillatory" if recurrence_classification in {"weak_periodic", "strong_periodic"} else "aperiodic"
+        )
 
         state = _derive_state_from_stress_point(
             point,
-            recurrence_class="aperiodic" if recurrence_classification == DEFAULT_RECURRENCE_CLASSIFICATION else recurrence_classification,
+            recurrence_class=recurrence_class_for_mesh,
             previous_refinement_classification=prior_refinement_classification,
         )
         mesh_receipt = score_filter_mesh(state, config.candidate_orderings)
@@ -506,6 +523,7 @@ def run_closed_loop_simulation(config: SimulationConfig) -> ClosedLoopSimulation
             "refinement_receipt_hash": refinement_receipt.stable_hash,
             "dominant_ordering_signature": transition_receipt.selected_decision.selected_ordering_signature,
             "decision_type": transition_receipt.selected_decision.decision_type,
+            "transition_classification": transition_receipt.classification,
             "refinement_classification": refinement_receipt.classification,
             "convergence_metric": _round12(refinement_receipt.convergence_metric),
         }
@@ -519,6 +537,7 @@ def run_closed_loop_simulation(config: SimulationConfig) -> ClosedLoopSimulation
                 refinement_receipt_hash=refinement_receipt.stable_hash,
                 dominant_ordering_signature=transition_receipt.selected_decision.selected_ordering_signature,
                 decision_type=transition_receipt.selected_decision.decision_type,
+                transition_classification=transition_receipt.classification,
                 refinement_classification=refinement_receipt.classification,
                 convergence_metric=refinement_receipt.convergence_metric,
                 stable_hash=sha256_hex(cycle_payload),

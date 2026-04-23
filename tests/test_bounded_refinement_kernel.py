@@ -132,6 +132,16 @@ def test_tampered_receipt_hash_rejected() -> None:
         refine_transition_policy(tampered)
 
 
+@pytest.mark.parametrize("bad_margin", [1.1, -0.1, 2.0])
+def test_out_of_range_margin_to_next_rejected(bad_margin: float) -> None:
+    tampered = _policy_receipt("bad_margin")
+    object.__setattr__(tampered.selected_decision, "margin_to_next", bad_margin)
+    object.__setattr__(tampered.selected_decision, "stable_hash", tampered.selected_decision.computed_stable_hash())
+    object.__setattr__(tampered, "stable_hash", tampered.computed_stable_hash())
+    with pytest.raises(ValueError, match="margin_to_next"):
+        refine_transition_policy(tampered)
+
+
 def test_non_canonical_signature_rejected() -> None:
     receipt = _policy_receipt("sig_canon")
     object.__setattr__(receipt.selected_decision, "selected_ordering_signature", " sig_canon ")

@@ -275,6 +275,11 @@ def refine_transition_policy(receipt: TransitionPolicyReceipt) -> RefinementRece
     if receipt.selected_decision.stable_hash != receipt.selected_decision.computed_stable_hash():
         raise ValueError("selected_decision stable_hash is invalid")
     _validate_sha256_hex(receipt.input_receipt_hash, "input_receipt_hash")
+    _margin = receipt.selected_decision.margin_to_next
+    if isinstance(_margin, bool) or not isinstance(_margin, (int, float)):
+        raise ValueError("margin_to_next must be numeric")
+    if not math.isfinite(float(_margin)) or not 0.0 <= float(_margin) <= 1.0:
+        raise ValueError("margin_to_next must be in [0, 1]")
 
     ordering_signature = _normalize_string(
         receipt.selected_decision.selected_ordering_signature,

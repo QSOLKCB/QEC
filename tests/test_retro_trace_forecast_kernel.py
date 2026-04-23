@@ -194,6 +194,30 @@ def test_forecast_rejects_invalid_horizon_values(invalid_horizon: int) -> None:
         forecast_retro_trace(_stable_trace(), horizon=invalid_horizon)
 
 
+@pytest.mark.parametrize("invalid_step_index", [True, False])
+def test_forecast_step_rejects_bool_step_index(invalid_step_index: bool) -> None:
+    with pytest.raises(ValueError, match="step_index must be positive int"):
+        RetroTraceForecastStep(
+            step_index=invalid_step_index,
+            projected_timing=100,
+            projected_event_density=0.5,
+            stability_score=0.7,
+            _stable_hash="a" * 64,
+        )
+
+
+@pytest.mark.parametrize("invalid_projected_timing", [True, False])
+def test_forecast_step_rejects_bool_projected_timing(invalid_projected_timing: bool) -> None:
+    with pytest.raises(ValueError, match="projected_timing must be non-negative int"):
+        RetroTraceForecastStep(
+            step_index=1,
+            projected_timing=invalid_projected_timing,
+            projected_event_density=0.5,
+            stability_score=0.7,
+            _stable_hash="a" * 64,
+        )
+
+
 def test_forecast_near_boundary_float_stability() -> None:
     near_a = _trace_with_timing((100, 101, 102, 103, 104))
     near_b = _trace_with_timing((100, 101, 102, 103, 105))

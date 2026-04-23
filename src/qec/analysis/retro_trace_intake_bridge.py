@@ -279,11 +279,12 @@ def build_retro_trace(
 
     canonical_events = []
     for event_type in _ALLOWED_EVENT_TYPES:
-        ordered = sorted(
-            typed_events[event_type],
-            key=lambda event: (_canonical_json(dict(event[2])), event[0]),
+        sortable_events = tuple(
+            (_canonical_json(dict(event[2])), event[0], event[2])
+            for event in typed_events[event_type]
         )
-        canonical_events.extend((event_type, event[2]) for event in ordered)
+        ordered = sorted(sortable_events)
+        canonical_events.extend((event_type, payload) for _, _, payload in ordered)
 
     event_sequence = tuple((idx, event_type, payload) for idx, (event_type, payload) in enumerate(canonical_events))
 

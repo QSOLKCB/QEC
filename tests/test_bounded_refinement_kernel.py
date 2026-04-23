@@ -55,14 +55,26 @@ def _policy_receipt(ordering_signature: str = "sig_a") -> TransitionPolicyReceip
     )
 
 
+_SIGNATURE_SEARCH_LIMIT = 2000
+_CLASSIFICATION_RECEIPT_CACHE: dict[str, TransitionPolicyReceipt] = {}
+
+
 def _find_receipt_for_classification(target: str) -> TransitionPolicyReceipt:
-    for idx in range(2000):
+    """Return a deterministic receipt for a requested refinement classification."""
+    cached_receipt = _CLASSIFICATION_RECEIPT_CACHE.get(target)
+    if cached_receipt is not None:
+        return cached_receipt
+
+    for idx in range(_SIGNATURE_SEARCH_LIMIT):
         candidate = _policy_receipt(f"sig_{idx:04d}")
-        if refine_transition_policy(candidate).classification == target:
+        classification = refine_transition_policy(candidate).classification
+        _CLASSIFICATION_RECEIPT_CACHE.setdefault(classification, candidate)
+        if classification == target:
             return candidate
-    raise AssertionError(f"unable to find deterministic signature for classification={target}")
 
-
+    raise AssertionError(
+        f"unable to find deterministic signature for classification={target}"
+    )
 def test_deterministic_replay() -> None:
     receipt = _policy_receipt("deterministic_sig")
     first = refine_transition_policy(receipt)

@@ -73,6 +73,37 @@ def _canonical_kv_tuple(payload: Mapping[str, Any], *, field: str) -> Tuple[Tupl
     return tuple(items)
 
 
+def _canonical_kv_tuple_from_pairs(
+    pairs: Any,
+    *,
+    field: str,
+    value_type: str = "primitive",
+) -> Tuple[Tuple[str, Any], ...]:
+    if not isinstance(pairs, tuple):
+        raise ValueError(f"{field} must be tuple(sorted key/value pairs)")
+    seen = set()
+    normalized = []
+    for item in pairs:
+        if not isinstance(item, tuple) or len(item) != 2:
+            raise ValueError(f"{field} entries must be (key, value)")
+        key, value = item
+        if not isinstance(key, str):
+            raise ValueError(f"{field} keys must be strings")
+        if key in seen:
+            raise ValueError(f"{field} keys must be unique")
+        seen.add(key)
+        if value_type == "primitive":
+            normalized_value = _canonical_primitive(value, field=f"{field}.{key}")
+        elif value_type == "numeric":
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"{field} values must be numeric")
+            normalized_value = _clamp_round_01(float(value))
+        else:
+            raise ValueError("invalid value_type")
+        normalized.append((key, normalized_value))
+    return tuple(sorted(normalized))
+
+
 def _ensure_finite_iterable(trace: Iterable[Any], *, field: str) -> Tuple[Any, ...]:
     if isinstance(trace, (str, bytes, bytearray)):
         raise ValueError(f"{field} must be iterable of events")
@@ -118,7 +149,29 @@ def _normalize_timing_cycles(
         if cyc > int(cycle_budget):
             cyc = int(cycle_budget)
         cycles.append(cyc)
-    return tuple(sorted(cycles))
+    return tuple(cycles)
+
+
+def _normalize_timing_event_payload(
+    payload: Tuple[Tuple[str, Any], ...],
+    *,
+    normalized_cycle: int,
+    source_index: int,
+) -> Tuple[Tuple[str, Any], ...]:
+    payload_dict = dict(payload)
+    has_cycle = "cycle" in payload_dict
+    has_cycles = "cycles" in payload_dict
+    if not has_cycle and not has_cycles:
+        raise ValueError(
+            f"timing event at index {source_index} must include 'cycle' or 'cycles'"
+        )
+    payload_without_raw_cycle = {
+        key: value
+        for key, value in payload_dict.items()
+        if key not in {"cycle", "cycles"}
+    }
+    payload_without_raw_cycle["cycle"] = int(normalized_cycle)
+    return _canonical_kv_tuple(payload_without_raw_cycle, field=f"timing_trace[{source_index}]")
 
 
 def _clamp_round_01(value: float) -> float:
@@ -172,6 +225,8 @@ class RetroTraceReceipt:
 
         if not isinstance(self.event_sequence, tuple):
             raise ValueError("event_sequence must be tuple")
+        if self.trace_length != len(self.event_sequence):
+            raise ValueError("trace_length must equal len(event_sequence)")
         normalized_events = []
         for idx, event in enumerate(self.event_sequence):
             if not isinstance(event, tuple) or len(event) != 3:
@@ -181,9 +236,8 @@ class RetroTraceReceipt:
                 raise ValueError("event_index must be contiguous canonical ordering")
             if event_type not in _ALLOWED_EVENT_TYPES:
                 raise ValueError("invalid event_type")
-            if not isinstance(payload, tuple):
-                raise ValueError("event payload must be tuple(sorted key/value pairs)")
-            normalized_events.append((int(event_index), str(event_type), _canonical_kv_tuple(dict(payload), field="event.payload")))
+            canonical_payload = _canonical_kv_tuple_from_pairs(payload, field="event.payload")
+            normalized_events.append((int(event_index), str(event_type), canonical_payload))
         object.__setattr__(self, "event_sequence", tuple(normalized_events))
 
         if not isinstance(self.normalized_timing, tuple):
@@ -193,21 +247,27 @@ class RetroTraceReceipt:
         for value in self.normalized_timing:
             if isinstance(value, bool) or not isinstance(value, int):
                 raise ValueError("normalized_timing values must be int")
+            if value < 0:
+                raise ValueError("normalized_timing values must be non-negative")
             if value < last:
                 raise ValueError("normalized_timing must be monotonic non-decreasing")
             last = value
             norm_timing.append(int(value))
         object.__setattr__(self, "normalized_timing", tuple(norm_timing))
 
-        object.__setattr__(self, "metadata", _canonical_kv_tuple(dict(self.metadata), field="metadata"))
+        object.__setattr__(
+            self,
+            "metadata",
+            _canonical_kv_tuple_from_pairs(self.metadata, field="metadata"),
+        )
 
-        metrics: Dict[str, float] = {}
-        for key, value in dict(self.trace_metrics).items():
-            if not isinstance(key, str):
-                raise ValueError("trace_metrics keys must be strings")
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise ValueError("trace_metrics values must be numeric")
-            metrics[key] = _clamp_round_01(float(value))
+        metrics = dict(
+            _canonical_kv_tuple_from_pairs(
+                self.trace_metrics,
+                field="trace_metrics",
+                value_type="numeric",
+            )
+        )
         required = {
             "trace_completeness",
             "event_order_integrity",
@@ -277,21 +337,35 @@ def build_retro_trace(
         "input": tuple(_canonicalize_event(item, event_type="input", source_index=i) for i, item in enumerate(input_events_raw)),
     }
 
-    canonical_events = []
-    for event_type in _ALLOWED_EVENT_TYPES:
-        sortable_events = tuple(
-            (_canonical_json(dict(event[2])), event[0], event[2])
-            for event in typed_events[event_type]
-        )
-        ordered = sorted(sortable_events)
-        canonical_events.extend((event_type, payload) for _, _, payload in ordered)
-
-    event_sequence = tuple((idx, event_type, payload) for idx, (event_type, payload) in enumerate(canonical_events))
-
-    normalized_timing = _normalize_timing_cycles(
+    normalized_timing_by_event = _normalize_timing_cycles(
         typed_events["timing"],
         cycle_budget=int(target_receipt.descriptor.cycle_budget),
     )
+    normalized_typed_events = dict(typed_events)
+    normalized_typed_events["timing"] = tuple(
+        (
+            source_index,
+            event_type,
+            _normalize_timing_event_payload(
+                payload,
+                normalized_cycle=normalized_timing_by_event[position],
+                source_index=source_index,
+            ),
+        )
+        for position, (source_index, event_type, payload) in enumerate(typed_events["timing"])
+    )
+    normalized_timing = tuple(sorted(normalized_timing_by_event))
+
+    canonical_events = []
+    for event_type in _ALLOWED_EVENT_TYPES:
+        sortable_events = tuple(
+            (event[2], event[0], event[1])
+            for event in normalized_typed_events[event_type]
+        )
+        ordered = sorted(sortable_events)
+        canonical_events.extend((event_type_name, payload) for payload, _, event_type_name in ordered)
+
+    event_sequence = tuple((idx, event_type, payload) for idx, (event_type, payload) in enumerate(canonical_events))
 
     metadata_tuple = _canonical_kv_tuple(dict(metadata or {}), field="metadata")
 

@@ -218,7 +218,7 @@ def test_reject_duplicate_policy_comparison_pairs_with_matching_count() -> None:
 def test_reject_reversed_pair_hash_ordering() -> None:
     receipt = analyze_retro_trace_policy_sensitivity(_retro_trace(), (_policy(min_required_score=0.9), _policy(min_required_score=0.3)))
     comparison = receipt.policy_comparisons[0]
-    with pytest.raises(ValueError, match="canonical hash ordering"):
+    with pytest.raises(ValueError, match=r"^policy comparison must use canonical hash ordering$"):
         RetroTracePolicyComparison(
             left_policy_hash=comparison.right_policy_hash,
             right_policy_hash=comparison.left_policy_hash,

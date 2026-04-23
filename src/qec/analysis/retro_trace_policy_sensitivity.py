@@ -214,9 +214,12 @@ class RetroTracePolicySensitivityReceipt:
         expected = len(self.policy_runs) * (len(self.policy_runs) - 1) // 2
         if len(self.policy_comparisons) != expected:
             raise ValueError("policy_comparisons count mismatch")
+        # policy_runs are sorted by policy_hash, so combinations yields pairs in canonical order already.
+        # RetroTracePolicyComparison.__post_init__ enforces left_policy_hash <= right_policy_hash,
+        # so no extra sort is needed here.
         policy_hashes = tuple(run.policy_hash for run in self.policy_runs)
-        expected_pairs = Counter(tuple(sorted((left, right))) for left, right in combinations(policy_hashes, 2))
-        observed_pairs = Counter(tuple(sorted((cmp.left_policy_hash, cmp.right_policy_hash))) for cmp in self.policy_comparisons)
+        expected_pairs = Counter(combinations(policy_hashes, 2))
+        observed_pairs = Counter((cmp.left_policy_hash, cmp.right_policy_hash) for cmp in self.policy_comparisons)
         if observed_pairs != expected_pairs:
             raise ValueError("policy_comparisons must cover each unordered policy pair exactly once")
         if not isinstance(self.summary, RetroTracePolicySensitivitySummary):
@@ -313,6 +316,8 @@ def _run_for_policy(policy: GovernancePolicy, features: dict[str, float]) -> Ret
 
 
 def _comparison(left: RetroTracePolicyRun, right: RetroTracePolicyRun) -> RetroTracePolicyComparison:
+    # Canonical ordering: the policy with the lexicographically smaller hash is always left.
+    # Delta signs reflect right-minus-left in this canonical order, not the original argument order.
     ordered_left, ordered_right = (left, right) if left.policy_hash <= right.policy_hash else (right, left)
     metric_map_left = dict(ordered_left.metrics)
     metric_map_right = dict(ordered_right.metrics)

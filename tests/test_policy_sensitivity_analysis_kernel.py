@@ -270,5 +270,93 @@ def test_tuple_type_required() -> None:
         analyze_policy_sensitivity(_config(), [_policy(), _policy(min_required_score=0.1)])  # type: ignore[arg-type]
 
 
+
+
+def test_duplicate_pair_rejection() -> None:
+    policies = (_policy(min_required_score=0.2), _policy(min_required_score=0.5), _policy(min_required_score=0.8))
+    receipt = analyze_policy_sensitivity(_config(), policies)
+    duplicated_pairs = (
+        receipt.comparison_records[0],
+        receipt.comparison_records[0],
+        receipt.comparison_records[2],
+    )
+    with pytest.raises(ValueError, match="cover all unordered policy pairs exactly once"):
+        PolicySensitivityReceipt(
+            config=receipt.config,
+            policy_run_records=receipt.policy_run_records,
+            comparison_records=duplicated_pairs,
+            summary=receipt.summary,
+            stable_hash=receipt.stable_hash,
+        )
+
+
+def test_missing_pair_rejection() -> None:
+    policies = (_policy(min_required_score=0.2), _policy(min_required_score=0.5), _policy(min_required_score=0.8))
+    receipt = analyze_policy_sensitivity(_config(), policies)
+    missing_pair_payload = [record.to_dict() for record in receipt.comparison_records]
+    missing_pair_payload[1] = missing_pair_payload[0]
+    comparisons = tuple(PolicyComparisonRecord(**record) for record in missing_pair_payload)
+    summary_payload = receipt.summary.to_dict()
+    summary_payload["stable_hash"] = sha256_hex(
+        {
+            "policy_count": summary_payload["policy_count"],
+            "comparison_count": summary_payload["comparison_count"],
+            "most_permissive_policy_hash": summary_payload["most_permissive_policy_hash"],
+            "most_restrictive_policy_hash": summary_payload["most_restrictive_policy_hash"],
+            "highest_convergence_policy_hash": summary_payload["highest_convergence_policy_hash"],
+            "lowest_convergence_policy_hash": summary_payload["lowest_convergence_policy_hash"],
+            "global_sensitivity_classification": summary_payload["global_sensitivity_classification"],
+        }
+    )
+    summary = PolicySensitivitySummary(**summary_payload)
+    payload = {
+        "config": receipt.config.to_dict(),
+        "policy_run_records": tuple(item.to_dict() for item in receipt.policy_run_records),
+        "comparison_records": tuple(item.to_dict() for item in comparisons),
+        "summary": summary.to_dict(),
+    }
+    with pytest.raises(ValueError, match="cover all unordered policy pairs exactly once"):
+        PolicySensitivityReceipt(
+            config=receipt.config,
+            policy_run_records=receipt.policy_run_records,
+            comparison_records=comparisons,
+            summary=summary,
+            stable_hash=sha256_hex(payload),
+        )
+
+
+def test_summary_mismatch_rejection() -> None:
+    receipt = analyze_policy_sensitivity(_config(), (_policy(min_required_score=0.9), _policy(min_required_score=0.1)))
+    summary_payload = receipt.summary.to_dict()
+    summary_payload["global_sensitivity_classification"] = (
+        "high" if receipt.summary.global_sensitivity_classification != "high" else "low"
+    )
+    summary_payload["stable_hash"] = sha256_hex(
+        {
+            "policy_count": summary_payload["policy_count"],
+            "comparison_count": summary_payload["comparison_count"],
+            "most_permissive_policy_hash": summary_payload["most_permissive_policy_hash"],
+            "most_restrictive_policy_hash": summary_payload["most_restrictive_policy_hash"],
+            "highest_convergence_policy_hash": summary_payload["highest_convergence_policy_hash"],
+            "lowest_convergence_policy_hash": summary_payload["lowest_convergence_policy_hash"],
+            "global_sensitivity_classification": summary_payload["global_sensitivity_classification"],
+        }
+    )
+    summary = PolicySensitivitySummary(**summary_payload)
+    payload = {
+        "config": receipt.config.to_dict(),
+        "policy_run_records": tuple(item.to_dict() for item in receipt.policy_run_records),
+        "comparison_records": tuple(item.to_dict() for item in receipt.comparison_records),
+        "summary": summary.to_dict(),
+    }
+    with pytest.raises(ValueError, match="global_sensitivity_classification mismatch"):
+        PolicySensitivityReceipt(
+            config=receipt.config,
+            policy_run_records=receipt.policy_run_records,
+            comparison_records=receipt.comparison_records,
+            summary=summary,
+            stable_hash=sha256_hex(payload),
+        )
+
 def test_min_policy_count_constant() -> None:
     assert MIN_POLICY_COUNT == 2

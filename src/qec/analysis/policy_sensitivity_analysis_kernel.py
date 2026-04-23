@@ -245,14 +245,27 @@ class PolicySensitivityReceipt:
             raise ValueError("policy_run_records contains duplicate policy_hash")
         if not isinstance(self.comparison_records, tuple) or any(not isinstance(item, PolicyComparisonRecord) for item in self.comparison_records):
             raise ValueError("comparison_records must be tuple[PolicyComparisonRecord, ...]")
-        expected_pairs = len(self.policy_run_records) * (len(self.policy_run_records) - 1) // 2
-        if len(self.comparison_records) != expected_pairs:
+        expected_pair_count = len(self.policy_run_records) * (len(self.policy_run_records) - 1) // 2
+        if len(self.comparison_records) != expected_pair_count:
             raise ValueError("comparison_records length mismatch")
         sorted_pairs = tuple(
             sorted(self.comparison_records, key=lambda item: (item.left_policy_hash, item.right_policy_hash))
         )
         if self.comparison_records != sorted_pairs:
             raise ValueError("comparison_records must be sorted by policy-hash pair")
+
+        expected_pairs = {
+            (policy_hashes[i], policy_hashes[j])
+            for i in range(len(policy_hashes))
+            for j in range(i + 1, len(policy_hashes))
+        }
+        actual_pairs = {
+            (item.left_policy_hash, item.right_policy_hash)
+            for item in self.comparison_records
+        }
+        if actual_pairs != expected_pairs:
+            raise ValueError("comparison_records must cover all unordered policy pairs exactly once")
+
         if not isinstance(self.summary, PolicySensitivitySummary):
             raise ValueError("summary must be PolicySensitivitySummary")
         ensure_stable_hash(self.summary, "summary")
@@ -260,14 +273,29 @@ class PolicySensitivityReceipt:
             raise ValueError("summary policy_count mismatch")
         if self.summary.comparison_count != len(self.comparison_records):
             raise ValueError("summary comparison_count mismatch")
-        for field_name, policy_hash in (
-            ("most_permissive_policy_hash", self.summary.most_permissive_policy_hash),
-            ("most_restrictive_policy_hash", self.summary.most_restrictive_policy_hash),
-            ("highest_convergence_policy_hash", self.summary.highest_convergence_policy_hash),
-            ("lowest_convergence_policy_hash", self.summary.lowest_convergence_policy_hash),
-        ):
-            if policy_hash not in policy_hashes:
-                raise ValueError(f"summary {field_name} must reference a policy_run_records policy_hash")
+
+        most_perm = _choose_by_extrema(self.policy_run_records, metric_name="admissible_count", invert=True)
+        least_perm = _choose_by_extrema(self.policy_run_records, metric_name="admissible_count", invert=False)
+        max_conv = _choose_by_extrema(self.policy_run_records, metric_name="mean_convergence_metric", invert=True)
+        min_conv = _choose_by_extrema(self.policy_run_records, metric_name="mean_convergence_metric", invert=False)
+
+        if any(item.sensitivity_classification == "high_shift" for item in self.comparison_records):
+            global_class = "high"
+        elif any(item.sensitivity_classification == "moderate_shift" for item in self.comparison_records):
+            global_class = "moderate"
+        else:
+            global_class = "low"
+
+        if self.summary.most_permissive_policy_hash != most_perm:
+            raise ValueError("most_permissive_policy_hash mismatch")
+        if self.summary.most_restrictive_policy_hash != least_perm:
+            raise ValueError("most_restrictive_policy_hash mismatch")
+        if self.summary.highest_convergence_policy_hash != max_conv:
+            raise ValueError("highest_convergence_policy_hash mismatch")
+        if self.summary.lowest_convergence_policy_hash != min_conv:
+            raise ValueError("lowest_convergence_policy_hash mismatch")
+        if self.summary.global_sensitivity_classification != global_class:
+            raise ValueError("global_sensitivity_classification mismatch")
         validate_sha256_hex(self.stable_hash, "stable_hash")
         if self.stable_hash != self.computed_stable_hash():
             raise ValueError("stable_hash mismatch")

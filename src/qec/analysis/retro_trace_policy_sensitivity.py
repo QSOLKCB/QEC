@@ -110,6 +110,8 @@ class RetroTracePolicyComparison:
             raise ValueError("left_policy_hash must be canonical SHA-256 hex")
         if not isinstance(self.right_policy_hash, str) or len(self.right_policy_hash) != 64:
             raise ValueError("right_policy_hash must be canonical SHA-256 hex")
+        if self.left_policy_hash >= self.right_policy_hash:
+            raise ValueError("policy comparison must use canonical policy-hash ordering")
         object.__setattr__(self, "metric_distance", validate_unit_interval(self.metric_distance, "metric_distance"))
         object.__setattr__(self, "sensitivity_score", validate_unit_interval(self.sensitivity_score, "sensitivity_score"))
         for field in ("strictness_delta", "compatibility_delta"):

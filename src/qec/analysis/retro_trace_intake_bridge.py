@@ -78,6 +78,7 @@ def _canonical_kv_tuple_from_pairs(
     *,
     field: str,
     value_type: str = "primitive",
+    require_canonical_order: bool = False,
 ) -> Tuple[Tuple[str, Any], ...]:
     if not isinstance(pairs, tuple):
         raise ValueError(f"{field} must be tuple(sorted key/value pairs)")
@@ -101,7 +102,10 @@ def _canonical_kv_tuple_from_pairs(
         else:
             raise ValueError("invalid value_type")
         normalized.append((key, normalized_value))
-    return tuple(sorted(normalized))
+    canonical = tuple(sorted(normalized))
+    if require_canonical_order and tuple(normalized) != canonical:
+        raise ValueError(f"{field} must be canonical sorted key/value tuples")
+    return canonical
 
 
 def _ensure_finite_iterable(trace: Iterable[Any], *, field: str) -> Tuple[Any, ...]:
@@ -228,6 +232,7 @@ class RetroTraceReceipt:
         if self.trace_length != len(self.event_sequence):
             raise ValueError("trace_length must equal len(event_sequence)")
         normalized_events = []
+        normalized_timing_from_events = []
         for idx, event in enumerate(self.event_sequence):
             if not isinstance(event, tuple) or len(event) != 3:
                 raise ValueError("event_sequence entries must be (event_index, event_type, payload)")
@@ -236,7 +241,23 @@ class RetroTraceReceipt:
                 raise ValueError("event_index must be contiguous canonical ordering")
             if event_type not in _ALLOWED_EVENT_TYPES:
                 raise ValueError("invalid event_type")
-            canonical_payload = _canonical_kv_tuple_from_pairs(payload, field="event.payload")
+            canonical_payload = _canonical_kv_tuple_from_pairs(
+                payload,
+                field="event.payload",
+                require_canonical_order=True,
+            )
+            if event_type == "timing":
+                payload_dict = dict(canonical_payload)
+                if set(payload_dict.keys()).intersection({"cycle", "cycles"}) == {"cycles"}:
+                    raise ValueError("timing payload must use canonical 'cycle' key")
+                if "cycle" not in payload_dict:
+                    raise ValueError("timing payload must include canonical integer cycle")
+                cycle_value = payload_dict["cycle"]
+                if isinstance(cycle_value, bool) or not isinstance(cycle_value, int):
+                    raise ValueError("timing payload cycle must be canonical non-negative int")
+                if cycle_value < 0:
+                    raise ValueError("timing payload cycle must be canonical non-negative int")
+                normalized_timing_from_events.append(int(cycle_value))
             normalized_events.append((int(event_index), str(event_type), canonical_payload))
         object.__setattr__(self, "event_sequence", tuple(normalized_events))
 
@@ -258,7 +279,11 @@ class RetroTraceReceipt:
         object.__setattr__(
             self,
             "metadata",
-            _canonical_kv_tuple_from_pairs(self.metadata, field="metadata"),
+            _canonical_kv_tuple_from_pairs(
+                self.metadata,
+                field="metadata",
+                require_canonical_order=True,
+            ),
         )
 
         metrics = dict(
@@ -266,6 +291,7 @@ class RetroTraceReceipt:
                 self.trace_metrics,
                 field="trace_metrics",
                 value_type="numeric",
+                require_canonical_order=True,
             )
         )
         required = {
@@ -278,6 +304,10 @@ class RetroTraceReceipt:
         if set(metrics.keys()) != required:
             raise ValueError("trace_metrics must contain required metric keys")
         object.__setattr__(self, "trace_metrics", tuple(sorted((k, float(v)) for k, v in metrics.items())))
+
+        final_normalized_timing = tuple(sorted(normalized_timing_from_events))
+        if self.normalized_timing != final_normalized_timing:
+            raise ValueError("normalized_timing must match canonical timing event sequence")
 
         _validate_sha256_hex(self.stable_hash, field="stable_hash")
         if self.stable_hash != _stable_hash(self._hash_payload()):

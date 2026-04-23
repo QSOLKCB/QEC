@@ -207,3 +207,40 @@ def test_duplicate_keys_rejected(field_name: str, payload, match_text: str) -> N
 def test_missing_cycle_field_rejected() -> None:
     with pytest.raises(ValueError, match="must include 'cycle' or 'cycles'"):
         _build(timing_trace=({"frame": 1},))
+
+
+def test_empty_timing_trace_has_empty_normalized_timing_and_no_observability() -> None:
+    receipt = _build(timing_trace=())
+    assert receipt.normalized_timing == ()
+    assert dict(receipt.trace_metrics)["timing_observability"] == 0.0
+
+
+def test_float_and_int_timing_equivalence_have_identical_hash() -> None:
+    float_timing = _build(timing_trace=({"cycle": 5.4, "frame": 1}, {"cycle": 8.6, "frame": 2}))
+    int_timing = _build(timing_trace=({"cycle": 5, "frame": 1}, {"cycle": 9, "frame": 2}))
+    assert float_timing.stable_hash == int_timing.stable_hash
+    assert float_timing.to_canonical_json() == int_timing.to_canonical_json()
+
+
+def test_non_canonical_timing_payload_rejected_in_receipt_post_init() -> None:
+    receipt = _build()
+    timing_event = next(event for event in receipt.event_sequence if event[1] == "timing")
+    mutated_timing_event = (
+        timing_event[0],
+        timing_event[1],
+        (("cycle", 1.2), ("frame", 1)),
+    )
+    mutated_sequence = tuple(
+        mutated_timing_event if event[0] == timing_event[0] else event
+        for event in receipt.event_sequence
+    )
+    with pytest.raises(ValueError, match="timing payload cycle must be canonical non-negative int"):
+        RetroTraceReceipt(
+            target_id=receipt.target_id,
+            trace_length=receipt.trace_length,
+            event_sequence=mutated_sequence,
+            normalized_timing=receipt.normalized_timing,
+            metadata=receipt.metadata,
+            trace_metrics=receipt.trace_metrics,
+            stable_hash=receipt.stable_hash,
+        )

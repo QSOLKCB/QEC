@@ -128,7 +128,7 @@ class RetroTraceForecastSeries:
 
     def __post_init__(self) -> None:
         if isinstance(self.horizon, bool) or not isinstance(self.horizon, int) or not (_MIN_HORIZON <= self.horizon <= _MAX_HORIZON):
-            raise ValueError(f"horizon must be in [{_MIN_HORIZON},{_MAX_HORIZON}]")
+            raise ValueError(f"horizon must be int in [{_MIN_HORIZON},{_MAX_HORIZON}]")
         if not isinstance(self.features, tuple):
             raise ValueError("features must be tuple")
         expected_keys = (

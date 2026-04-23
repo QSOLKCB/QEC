@@ -69,6 +69,23 @@ def test_deterministic_replay_certification_75_runs_identical_bytes_and_hash() -
     assert len({receipt.to_canonical_json().encode("utf-8") for receipt in receipts}) == 1
 
 
+def test_canonical_json_snapshot_matches_known_good_fixture() -> None:
+    receipt = _build()
+    expected_canonical_json = (
+        '{"event_sequence":[[0,"cpu",{"a":16,"flags":48,"pc":4096}],[1,"cpu",{"a":17,"flags":49,"pc":4097}],'
+        '[2,"memory",{"address":16384,"op":"read","value":171}],[3,"memory",{"address":16385,"op":"write",'
+        '"value":205}],[4,"timing",{"cycle":100}],[5,"timing",{"cycle":100}],[6,"timing",{"cycle":120}],'
+        '[7,"display",{"event":"start","scanline":0}],[8,"audio",{"channel":1,"pattern":"pulse"}],[9,"input",'
+        '{"button":"A","port":1,"state":1}]],"intake_version":"v147.1","metadata":{"emulator":"retroarch",'
+        '"rom_hash":"abc123","version":"1.0.0"},"normalized_timing":[100,100,120],"stable_hash":'
+        '"a6182c811aa233b345ef17d8c2cfbb1abaab6f9af136d01a86c7350a5acc77c8","target_id":"z80-home-micro",'
+        '"trace_length":10,"trace_metrics":{"event_order_integrity":1.0,"input_sparsity":0.5,"replay_consistency":'
+        '1.0,"timing_observability":1.0,"trace_completeness":1.0}}'
+    )
+    assert receipt.to_canonical_json() == expected_canonical_json
+    assert receipt.stable_hash == "a6182c811aa233b345ef17d8c2cfbb1abaab6f9af136d01a86c7350a5acc77c8"
+
+
 def test_unordered_input_normalization() -> None:
     baseline = _build()
     shuffled = _build(

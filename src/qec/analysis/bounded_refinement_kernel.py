@@ -278,8 +278,6 @@ def refine_transition_policy(receipt: TransitionPolicyReceipt) -> RefinementRece
         receipt.selected_decision.selected_ordering_signature,
         "selected_ordering_signature",
     )
-    if ordering_signature != receipt.selected_decision.selected_ordering_signature:
-        raise ValueError("selected_ordering_signature must be canonical")
 
     state = _derive_refinement_state(ordering_signature)
     target_vector = _vector_from_signature(ordering_signature, "target")

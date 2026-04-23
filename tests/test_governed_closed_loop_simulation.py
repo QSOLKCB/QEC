@@ -215,6 +215,24 @@ def test_enum_validation_invalid_verdict() -> None:
         GovernedCycleRecord(**payload, stable_hash=sha256_hex(payload))
 
 
+def test_governance_invariant_rejects_verdict_admissible_mismatch() -> None:
+    payload = {
+        "cycle_index": 0,
+        "transition_classification": "stable_transition",
+        "refinement_classification": "bounded",
+        "governance_verdict": "allow",
+        "governance_admissible": False,
+        "governance_reason": "within_policy",
+        "convergence_metric": 0.5,
+        "mesh_receipt_hash": "0" * 64,
+        "transition_receipt_hash": "1" * 64,
+        "refinement_receipt_hash": "2" * 64,
+        "governance_receipt_hash": "3" * 64,
+    }
+    with pytest.raises(ValueError, match="governance_admissible must equal"):
+        GovernedCycleRecord(**payload, stable_hash=sha256_hex(payload))
+
+
 def test_canonical_reconstruction_stability() -> None:
     receipt = run_governed_closed_loop(_config(cycle_count=7), _policy())
     payload = json.loads(receipt.to_canonical_json())
@@ -249,6 +267,122 @@ def test_canonical_reconstruction_stability() -> None:
     )
     assert rebuilt.stable_hash == receipt.stable_hash
     assert rebuilt.to_canonical_json() == receipt.to_canonical_json()
+
+
+def test_policy_mismatch_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    import qec.analysis.governed_closed_loop_simulation as gcls
+
+    original_eval = gcls.evaluate_governed_orchestration
+
+    def _mismatched_policy(policy: GovernancePolicy, transition, refinement):
+        receipt = original_eval(policy, transition, refinement)
+        other_policy = _policy(min_required_score=0.0)
+        object.__setattr__(receipt, "policy", other_policy)
+        payload = {
+            "policy": other_policy.to_dict(),
+            "input_transition_hash": receipt.input_transition_hash,
+            "input_refinement_hash": receipt.input_refinement_hash,
+            "checks": tuple(check.to_dict() for check in receipt.checks),
+            "verdict": receipt.verdict.to_dict(),
+        }
+        object.__setattr__(receipt, "stable_hash", sha256_hex(payload))
+        return receipt
+
+    monkeypatch.setattr(gcls, "evaluate_governed_orchestration", _mismatched_policy)
+    with pytest.raises(ValueError, match="policy mismatch"):
+        run_governed_closed_loop(_config(), _policy())
+
+
+def test_admissible_count_derived_from_record_flags() -> None:
+    records = (
+        GovernedCycleRecord(
+            cycle_index=0,
+            transition_classification="stable_transition",
+            refinement_classification="bounded",
+            governance_verdict="allow",
+            governance_admissible=True,
+            governance_reason="within_policy",
+            convergence_metric=0.5,
+            mesh_receipt_hash="0" * 64,
+            transition_receipt_hash="1" * 64,
+            refinement_receipt_hash="2" * 64,
+            governance_receipt_hash="3" * 64,
+            stable_hash=sha256_hex(
+                {
+                    "cycle_index": 0,
+                    "transition_classification": "stable_transition",
+                    "refinement_classification": "bounded",
+                    "governance_verdict": "allow",
+                    "governance_admissible": True,
+                    "governance_reason": "within_policy",
+                    "convergence_metric": 0.5,
+                    "mesh_receipt_hash": "0" * 64,
+                    "transition_receipt_hash": "1" * 64,
+                    "refinement_receipt_hash": "2" * 64,
+                    "governance_receipt_hash": "3" * 64,
+                }
+            ),
+        ),
+        GovernedCycleRecord(
+            cycle_index=1,
+            transition_classification="uncertain_transition",
+            refinement_classification="no_improvement",
+            governance_verdict="hold",
+            governance_admissible=False,
+            governance_reason="low_confidence",
+            convergence_metric=0.25,
+            mesh_receipt_hash="4" * 64,
+            transition_receipt_hash="5" * 64,
+            refinement_receipt_hash="6" * 64,
+            governance_receipt_hash="7" * 64,
+            stable_hash=sha256_hex(
+                {
+                    "cycle_index": 1,
+                    "transition_classification": "uncertain_transition",
+                    "refinement_classification": "no_improvement",
+                    "governance_verdict": "hold",
+                    "governance_admissible": False,
+                    "governance_reason": "low_confidence",
+                    "convergence_metric": 0.25,
+                    "mesh_receipt_hash": "4" * 64,
+                    "transition_receipt_hash": "5" * 64,
+                    "refinement_receipt_hash": "6" * 64,
+                    "governance_receipt_hash": "7" * 64,
+                }
+            ),
+        ),
+    )
+
+    summary = GovernedSimulationSummary(
+        cycle_count=2,
+        allow_count=1,
+        hold_count=1,
+        reject_count=0,
+        admissible_count=sum(1 for record in records if record.governance_admissible),
+        non_admissible_count=sum(1 for record in records if not record.governance_admissible),
+        mean_convergence_metric=0.375,
+        stable_transition_count=1,
+        uncertain_transition_count=1,
+        recurrence_classification="aperiodic",
+        dominant_recurrence_period=None,
+        stable_hash=sha256_hex(
+            {
+                "cycle_count": 2,
+                "allow_count": 1,
+                "hold_count": 1,
+                "reject_count": 0,
+                "admissible_count": 1,
+                "non_admissible_count": 1,
+                "mean_convergence_metric": 0.375,
+                "stable_transition_count": 1,
+                "uncertain_transition_count": 1,
+                "recurrence_classification": "aperiodic",
+                "dominant_recurrence_period": None,
+            }
+        ),
+    )
+    assert summary.admissible_count == 1
+    assert summary.non_admissible_count == 1
 
 
 def test_governance_verdicts_do_not_influence_loop_progression() -> None:

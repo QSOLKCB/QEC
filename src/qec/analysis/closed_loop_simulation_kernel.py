@@ -71,7 +71,7 @@ _JSONScalar = str | int | float | bool | None
 _JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
 
 
-def _round12(value: float) -> float:
+def round12(value: float) -> float:
     return round(float(value), 12)
 
 
@@ -79,13 +79,13 @@ def _clamp01(value: float) -> float:
     return min(1.0, max(0.0, float(value)))
 
 
-def _validate_sha256_hex(value: str, field_name: str) -> str:
+def validate_sha256_hex(value: str, field_name: str) -> str:
     if not isinstance(value, str) or len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
         raise ValueError(f"{field_name} must be 64-char lowercase SHA-256 hex")
     return value
 
 
-def _validate_unit_interval(value: float, field_name: str) -> float:
+def validate_unit_interval(value: float, field_name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{field_name} must be numeric in [0,1]")
     numeric = float(value)
@@ -94,15 +94,15 @@ def _validate_unit_interval(value: float, field_name: str) -> float:
     return numeric
 
 
-def _ensure_stable_hash(value: Any, field_name: str) -> None:
+def ensure_stable_hash(value: Any, field_name: str) -> None:
     if not hasattr(value, "stable_hash") or not hasattr(value, "computed_stable_hash"):
         raise ValueError(f"{field_name} must expose stable_hash/computed_stable_hash")
-    _validate_sha256_hex(value.stable_hash, f"{field_name}.stable_hash")
+    validate_sha256_hex(value.stable_hash, f"{field_name}.stable_hash")
     if value.stable_hash != value.computed_stable_hash():
         raise ValueError(f"{field_name} stable_hash is invalid")
 
 
-def _derive_state_from_stress_point(
+def derive_state_from_stress_point(
     point: Any,
     recurrence_class: str,
     previous_refinement_classification: str,
@@ -164,6 +164,13 @@ def _derive_state_from_stress_point(
     )
 
 
+_round12 = round12
+_validate_sha256_hex = validate_sha256_hex
+_validate_unit_interval = validate_unit_interval
+_ensure_stable_hash = ensure_stable_hash
+_derive_state_from_stress_point = derive_state_from_stress_point
+
+
 @dataclass(frozen=True)
 class SimulationConfig:
     axes: tuple[StressAxis, ...]
@@ -207,8 +214,8 @@ class SimulationConfig:
         if self.recurrence_window < 2:
             raise ValueError("recurrence_window must be >= 2")
         for ordering in self.candidate_orderings:
-            _ensure_stable_hash(ordering, "candidate_ordering")
-        _validate_sha256_hex(self.stable_hash, "stable_hash")
+            ensure_stable_hash(ordering, "candidate_ordering")
+        validate_sha256_hex(self.stable_hash, "stable_hash")
         if self.stable_hash != self.computed_stable_hash():
             raise ValueError("stable_hash mismatch")
 
@@ -253,12 +260,12 @@ class SimulationCycleRecord:
     def __post_init__(self) -> None:
         if not isinstance(self.cycle_index, int) or isinstance(self.cycle_index, bool) or self.cycle_index < 0:
             raise ValueError("cycle_index must be int >= 0")
-        _validate_sha256_hex(self.stress_point_hash, "stress_point_hash")
+        validate_sha256_hex(self.stress_point_hash, "stress_point_hash")
         if not isinstance(self.state, FilterMeshState):
             raise ValueError("state must be a FilterMeshState")
-        _validate_sha256_hex(self.filter_mesh_receipt_hash, "filter_mesh_receipt_hash")
-        _validate_sha256_hex(self.transition_policy_receipt_hash, "transition_policy_receipt_hash")
-        _validate_sha256_hex(self.refinement_receipt_hash, "refinement_receipt_hash")
+        validate_sha256_hex(self.filter_mesh_receipt_hash, "filter_mesh_receipt_hash")
+        validate_sha256_hex(self.transition_policy_receipt_hash, "transition_policy_receipt_hash")
+        validate_sha256_hex(self.refinement_receipt_hash, "refinement_receipt_hash")
         if not isinstance(self.dominant_ordering_signature, str) or not self.dominant_ordering_signature:
             raise ValueError("dominant_ordering_signature must be non-empty str")
         if self.decision_type not in {"clear_winner", "narrow_margin", "tie_break"}:
@@ -267,8 +274,8 @@ class SimulationCycleRecord:
             raise ValueError("invalid refinement_classification")
         if self.transition_classification not in {"stable_transition", "uncertain_transition"}:
             raise ValueError("invalid transition_classification")
-        object.__setattr__(self, "convergence_metric", _validate_unit_interval(self.convergence_metric, "convergence_metric"))
-        _validate_sha256_hex(self.stable_hash, "stable_hash")
+        object.__setattr__(self, "convergence_metric", validate_unit_interval(self.convergence_metric, "convergence_metric"))
+        validate_sha256_hex(self.stable_hash, "stable_hash")
         if self.stable_hash != self.computed_stable_hash():
             raise ValueError("stable_hash mismatch")
 
@@ -284,7 +291,7 @@ class SimulationCycleRecord:
             "decision_type": self.decision_type,
             "transition_classification": self.transition_classification,
             "refinement_classification": self.refinement_classification,
-            "convergence_metric": _round12(self.convergence_metric),
+            "convergence_metric": round12(self.convergence_metric),
         }
 
     def computed_stable_hash(self) -> str:
@@ -330,7 +337,7 @@ class SimulationSummary:
             raise ValueError("transition count inconsistency")
         if self.converged_count + self.bounded_count + self.no_improvement_count != self.cycle_count:
             raise ValueError("refinement count inconsistency")
-        object.__setattr__(self, "mean_convergence_metric", _validate_unit_interval(self.mean_convergence_metric, "mean_convergence_metric"))
+        object.__setattr__(self, "mean_convergence_metric", validate_unit_interval(self.mean_convergence_metric, "mean_convergence_metric"))
         if self.recurrence_classification not in {
             DEFAULT_RECURRENCE_CLASSIFICATION,
             "aperiodic",
@@ -345,7 +352,7 @@ class SimulationSummary:
                 or self.dominant_recurrence_period < 2
             ):
                 raise ValueError("dominant_recurrence_period must be None or int >= 2")
-        _validate_sha256_hex(self.stable_hash, "stable_hash")
+        validate_sha256_hex(self.stable_hash, "stable_hash")
         if self.stable_hash != self.computed_stable_hash():
             raise ValueError("stable_hash mismatch")
 
@@ -357,7 +364,7 @@ class SimulationSummary:
             "converged_count": self.converged_count,
             "bounded_count": self.bounded_count,
             "no_improvement_count": self.no_improvement_count,
-            "mean_convergence_metric": _round12(self.mean_convergence_metric),
+            "mean_convergence_metric": round12(self.mean_convergence_metric),
             "recurrence_classification": self.recurrence_classification,
             "dominant_recurrence_period": self.dominant_recurrence_period,
         }
@@ -386,8 +393,8 @@ class ClosedLoopSimulationReceipt:
     def __post_init__(self) -> None:
         if not isinstance(self.config, SimulationConfig):
             raise ValueError("config must be SimulationConfig")
-        _ensure_stable_hash(self.config, "config")
-        _validate_sha256_hex(self.stress_receipt_hash, "stress_receipt_hash")
+        ensure_stable_hash(self.config, "config")
+        validate_sha256_hex(self.stress_receipt_hash, "stress_receipt_hash")
         if not isinstance(self.cycle_records, tuple) or any(not isinstance(item, SimulationCycleRecord) for item in self.cycle_records):
             raise ValueError("cycle_records must be tuple[SimulationCycleRecord, ...]")
         if len(self.cycle_records) != self.config.cycle_count:
@@ -395,13 +402,13 @@ class ClosedLoopSimulationReceipt:
         for idx, record in enumerate(self.cycle_records):
             if record.cycle_index != idx:
                 raise ValueError("cycle records must be contiguous by cycle_index")
-            _ensure_stable_hash(record, f"cycle_records[{idx}]")
+            ensure_stable_hash(record, f"cycle_records[{idx}]")
         if not isinstance(self.summary, SimulationSummary):
             raise ValueError("summary must be SimulationSummary")
-        _ensure_stable_hash(self.summary, "summary")
+        ensure_stable_hash(self.summary, "summary")
         if self.summary.cycle_count != self.config.cycle_count:
             raise ValueError("summary cycle_count mismatch")
-        _validate_sha256_hex(self.stable_hash, "stable_hash")
+        validate_sha256_hex(self.stable_hash, "stable_hash")
         if self.stable_hash != self.computed_stable_hash():
             raise ValueError("stable_hash mismatch")
 
@@ -441,7 +448,7 @@ def _make_summary(
     converged_count = sum(1 for item in cycle_records if item.refinement_classification == "converged")
     bounded_count = sum(1 for item in cycle_records if item.refinement_classification == "bounded")
     no_improvement_count = cycle_count - converged_count - bounded_count
-    mean_metric = _round12(sum(item.convergence_metric for item in cycle_records) / float(cycle_count))
+    mean_metric = round12(sum(item.convergence_metric for item in cycle_records) / float(cycle_count))
     payload = {
         "cycle_count": cycle_count,
         "stable_transition_count": stable_transition_count,
@@ -470,14 +477,14 @@ def _make_summary(
 def run_closed_loop_simulation(config: SimulationConfig) -> ClosedLoopSimulationReceipt:
     if not isinstance(config, SimulationConfig):
         raise ValueError("config must be SimulationConfig")
-    _ensure_stable_hash(config, "config")
+    ensure_stable_hash(config, "config")
 
     stress_receipt: StressCoverageReceipt = generate_stress_lattice(
         axes=list(config.axes),
         point_count=config.point_count,
         method=config.stress_method,
     )
-    _ensure_stable_hash(stress_receipt, "stress_receipt")
+    ensure_stable_hash(stress_receipt, "stress_receipt")
     if len(stress_receipt.points) != config.point_count:
         raise ValueError("stress receipt point_count mismatch")
 
@@ -489,24 +496,24 @@ def run_closed_loop_simulation(config: SimulationConfig) -> ClosedLoopSimulation
 
     for cycle_index in range(config.cycle_count):
         point = stress_receipt.points[cycle_index % config.point_count]
-        _ensure_stable_hash(point, "stress_point")
+        ensure_stable_hash(point, "stress_point")
         recurrence_class_for_mesh = (
             "oscillatory" if recurrence_classification in {"weak_periodic", "strong_periodic"} else "aperiodic"
         )
 
-        state = _derive_state_from_stress_point(
+        state = derive_state_from_stress_point(
             point,
             recurrence_class=recurrence_class_for_mesh,
             previous_refinement_classification=prior_refinement_classification,
         )
         mesh_receipt = score_filter_mesh(state, config.candidate_orderings)
-        _ensure_stable_hash(mesh_receipt, "mesh_receipt")
+        ensure_stable_hash(mesh_receipt, "mesh_receipt")
 
         transition_receipt: TransitionPolicyReceipt = select_deterministic_transition(mesh_receipt)
-        _ensure_stable_hash(transition_receipt, "transition_receipt")
+        ensure_stable_hash(transition_receipt, "transition_receipt")
 
         refinement_receipt: RefinementReceipt = refine_transition_policy(transition_receipt)
-        _ensure_stable_hash(refinement_receipt, "refinement_receipt")
+        ensure_stable_hash(refinement_receipt, "refinement_receipt")
 
         recurrence_trace.append(mesh_receipt.dominant_ordering_signature)
         if len(recurrence_trace) >= config.recurrence_window:
@@ -525,7 +532,7 @@ def run_closed_loop_simulation(config: SimulationConfig) -> ClosedLoopSimulation
             "decision_type": transition_receipt.selected_decision.decision_type,
             "transition_classification": transition_receipt.classification,
             "refinement_classification": refinement_receipt.classification,
-            "convergence_metric": _round12(refinement_receipt.convergence_metric),
+            "convergence_metric": round12(refinement_receipt.convergence_metric),
         }
         cycle_records.append(
             SimulationCycleRecord(
@@ -573,4 +580,9 @@ __all__ = [
     "SimulationCycleRecord",
     "SimulationSummary",
     "run_closed_loop_simulation",
+    "round12",
+    "validate_sha256_hex",
+    "validate_unit_interval",
+    "ensure_stable_hash",
+    "derive_state_from_stress_point",
 ]

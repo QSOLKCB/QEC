@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import math
-from typing import Any
-
 from qec.analysis.bounded_refinement_kernel import RefinementReceipt, refine_transition_policy
 from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, sha256_hex
 from qec.analysis.closed_loop_simulation_kernel import (
     DEFAULT_RECURRENCE_CLASSIFICATION,
     SimulationConfig,
-    _derive_state_from_stress_point,
+    derive_state_from_stress_point,
+    ensure_stable_hash,
+    round12,
+    validate_sha256_hex,
+    validate_unit_interval,
 )
 from qec.analysis.deterministic_stress_lattice import StressCoverageReceipt, generate_stress_lattice
 from qec.analysis.deterministic_transition_policy import TransitionPolicyReceipt, select_deterministic_transition
@@ -30,33 +31,6 @@ _JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
 _ALLOWED_GOVERNANCE_VERDICTS = frozenset({"allow", "hold", "reject"})
 _ALLOWED_TRANSITION_CLASSES = frozenset({"stable_transition", "uncertain_transition"})
 _ALLOWED_REFINEMENT_CLASSES = frozenset({"converged", "bounded", "no_improvement"})
-
-
-def _round12(value: float) -> float:
-    return round(float(value), 12)
-
-
-def _validate_sha256_hex(value: str, field_name: str) -> str:
-    if not isinstance(value, str) or len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
-        raise ValueError(f"{field_name} must be 64-char lowercase SHA-256 hex")
-    return value
-
-
-def _validate_unit_interval(value: float, field_name: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{field_name} must be numeric in [0,1]")
-    numeric = float(value)
-    if not math.isfinite(numeric) or not 0.0 <= numeric <= 1.0:
-        raise ValueError(f"{field_name} must be finite and in [0,1]")
-    return numeric
-
-
-def _ensure_stable_hash(value: Any, field_name: str) -> None:
-    if not hasattr(value, "stable_hash") or not hasattr(value, "computed_stable_hash"):
-        raise ValueError(f"{field_name} must expose stable_hash/computed_stable_hash")
-    _validate_sha256_hex(value.stable_hash, f"{field_name}.stable_hash")
-    if value.stable_hash != value.computed_stable_hash():
-        raise ValueError(f"{field_name} stable_hash is invalid")
 
 
 @dataclass(frozen=True)
@@ -90,12 +64,12 @@ class GovernedCycleRecord:
             raise ValueError('governance_admissible must equal (governance_verdict == "allow")')
         if not isinstance(self.governance_reason, str) or not self.governance_reason:
             raise ValueError("governance_reason must be non-empty str")
-        object.__setattr__(self, "convergence_metric", _validate_unit_interval(self.convergence_metric, "convergence_metric"))
-        _validate_sha256_hex(self.mesh_receipt_hash, "mesh_receipt_hash")
-        _validate_sha256_hex(self.transition_receipt_hash, "transition_receipt_hash")
-        _validate_sha256_hex(self.refinement_receipt_hash, "refinement_receipt_hash")
-        _validate_sha256_hex(self.governance_receipt_hash, "governance_receipt_hash")
-        _validate_sha256_hex(self.stable_hash, "stable_hash")
+        object.__setattr__(self, "convergence_metric", validate_unit_interval(self.convergence_metric, "convergence_metric"))
+        validate_sha256_hex(self.mesh_receipt_hash, "mesh_receipt_hash")
+        validate_sha256_hex(self.transition_receipt_hash, "transition_receipt_hash")
+        validate_sha256_hex(self.refinement_receipt_hash, "refinement_receipt_hash")
+        validate_sha256_hex(self.governance_receipt_hash, "governance_receipt_hash")
+        validate_sha256_hex(self.stable_hash, "stable_hash")
         if self.stable_hash != self.computed_stable_hash():
             raise ValueError("stable_hash mismatch")
 
@@ -107,7 +81,7 @@ class GovernedCycleRecord:
             "governance_verdict": self.governance_verdict,
             "governance_admissible": self.governance_admissible,
             "governance_reason": self.governance_reason,
-            "convergence_metric": _round12(self.convergence_metric),
+            "convergence_metric": round12(self.convergence_metric),
             "mesh_receipt_hash": self.mesh_receipt_hash,
             "transition_receipt_hash": self.transition_receipt_hash,
             "refinement_receipt_hash": self.refinement_receipt_hash,
@@ -159,13 +133,11 @@ class GovernedSimulationSummary:
                 raise ValueError(f"{field_name} out of bounds")
         if self.allow_count + self.hold_count + self.reject_count != self.cycle_count:
             raise ValueError("governance count inconsistency")
-        if self.admissible_count != self.allow_count:
-            raise ValueError("admissible_count must equal allow_count")
-        if self.non_admissible_count != self.hold_count + self.reject_count:
-            raise ValueError("non_admissible_count inconsistency")
+        if self.admissible_count + self.non_admissible_count != self.cycle_count:
+            raise ValueError("admissible/non_admissible count inconsistency")
         if self.stable_transition_count + self.uncertain_transition_count != self.cycle_count:
             raise ValueError("transition count inconsistency")
-        object.__setattr__(self, "mean_convergence_metric", _validate_unit_interval(self.mean_convergence_metric, "mean_convergence_metric"))
+        object.__setattr__(self, "mean_convergence_metric", validate_unit_interval(self.mean_convergence_metric, "mean_convergence_metric"))
         if self.recurrence_classification not in {
             DEFAULT_RECURRENCE_CLASSIFICATION,
             "aperiodic",
@@ -180,7 +152,7 @@ class GovernedSimulationSummary:
                 or self.dominant_recurrence_period < 2
             ):
                 raise ValueError("dominant_recurrence_period must be None or int >= 2")
-        _validate_sha256_hex(self.stable_hash, "stable_hash")
+        validate_sha256_hex(self.stable_hash, "stable_hash")
         if self.stable_hash != self.computed_stable_hash():
             raise ValueError("stable_hash mismatch")
 
@@ -192,7 +164,7 @@ class GovernedSimulationSummary:
             "reject_count": self.reject_count,
             "admissible_count": self.admissible_count,
             "non_admissible_count": self.non_admissible_count,
-            "mean_convergence_metric": _round12(self.mean_convergence_metric),
+            "mean_convergence_metric": round12(self.mean_convergence_metric),
             "stable_transition_count": self.stable_transition_count,
             "uncertain_transition_count": self.uncertain_transition_count,
             "recurrence_classification": self.recurrence_classification,
@@ -224,11 +196,11 @@ class GovernedClosedLoopReceipt:
     def __post_init__(self) -> None:
         if not isinstance(self.config, SimulationConfig):
             raise ValueError("config must be SimulationConfig")
-        _ensure_stable_hash(self.config, "config")
+        ensure_stable_hash(self.config, "config")
         if not isinstance(self.policy, GovernancePolicy):
             raise ValueError("policy must be GovernancePolicy")
-        _ensure_stable_hash(self.policy, "policy")
-        _validate_sha256_hex(self.stress_receipt_hash, "stress_receipt_hash")
+        ensure_stable_hash(self.policy, "policy")
+        validate_sha256_hex(self.stress_receipt_hash, "stress_receipt_hash")
         if not isinstance(self.cycle_records, tuple) or any(not isinstance(item, GovernedCycleRecord) for item in self.cycle_records):
             raise ValueError("cycle_records must be tuple[GovernedCycleRecord, ...]")
         if len(self.cycle_records) != self.config.cycle_count:
@@ -236,13 +208,13 @@ class GovernedClosedLoopReceipt:
         for index, record in enumerate(self.cycle_records):
             if record.cycle_index != index:
                 raise ValueError("cycle records must be contiguous by cycle_index")
-            _ensure_stable_hash(record, f"cycle_records[{index}]")
+            ensure_stable_hash(record, f"cycle_records[{index}]")
         if not isinstance(self.summary, GovernedSimulationSummary):
             raise ValueError("summary must be GovernedSimulationSummary")
-        _ensure_stable_hash(self.summary, "summary")
+        ensure_stable_hash(self.summary, "summary")
         if self.summary.cycle_count != self.config.cycle_count:
             raise ValueError("summary cycle_count mismatch")
-        _validate_sha256_hex(self.stable_hash, "stable_hash")
+        validate_sha256_hex(self.stable_hash, "stable_hash")
         if self.stable_hash != self.computed_stable_hash():
             raise ValueError("stable_hash mismatch")
 
@@ -277,11 +249,11 @@ def _make_summary(
     allow_count = sum(1 for record in cycle_records if record.governance_verdict == "allow")
     hold_count = sum(1 for record in cycle_records if record.governance_verdict == "hold")
     reject_count = cycle_count - allow_count - hold_count
-    admissible_count = allow_count
-    non_admissible_count = hold_count + reject_count
+    admissible_count = sum(1 for record in cycle_records if record.governance_admissible)
+    non_admissible_count = sum(1 for record in cycle_records if not record.governance_admissible)
     stable_transition_count = sum(1 for record in cycle_records if record.transition_classification == "stable_transition")
     uncertain_transition_count = cycle_count - stable_transition_count
-    mean_metric = _round12(sum(record.convergence_metric for record in cycle_records) / float(cycle_count))
+    mean_metric = round12(sum(record.convergence_metric for record in cycle_records) / float(cycle_count))
     payload = {
         "cycle_count": cycle_count,
         "allow_count": allow_count,
@@ -319,15 +291,15 @@ def run_governed_closed_loop(
         raise ValueError("config must be SimulationConfig")
     if not isinstance(policy, GovernancePolicy):
         raise ValueError("policy must be GovernancePolicy")
-    _ensure_stable_hash(config, "config")
-    _ensure_stable_hash(policy, "policy")
+    ensure_stable_hash(config, "config")
+    ensure_stable_hash(policy, "policy")
 
     stress_receipt: StressCoverageReceipt = generate_stress_lattice(
         axes=list(config.axes),
         point_count=config.point_count,
         method=config.stress_method,
     )
-    _ensure_stable_hash(stress_receipt, "stress_receipt")
+    ensure_stable_hash(stress_receipt, "stress_receipt")
     if len(stress_receipt.points) != config.point_count:
         raise ValueError("stress receipt point_count mismatch")
 
@@ -339,32 +311,34 @@ def run_governed_closed_loop(
 
     for cycle_index in range(config.cycle_count):
         point = stress_receipt.points[cycle_index % config.point_count]
-        _ensure_stable_hash(point, "stress_point")
+        ensure_stable_hash(point, "stress_point")
 
         recurrence_class_for_mesh = (
             "oscillatory" if recurrence_classification in {"weak_periodic", "strong_periodic"} else "aperiodic"
         )
-        state = _derive_state_from_stress_point(
+        state = derive_state_from_stress_point(
             point,
             recurrence_class=recurrence_class_for_mesh,
             previous_refinement_classification=prior_refinement_classification,
         )
 
         mesh_receipt = score_filter_mesh(state, config.candidate_orderings)
-        _ensure_stable_hash(mesh_receipt, "mesh_receipt")
+        ensure_stable_hash(mesh_receipt, "mesh_receipt")
 
         transition_receipt: TransitionPolicyReceipt = select_deterministic_transition(mesh_receipt)
-        _ensure_stable_hash(transition_receipt, "transition_receipt")
+        ensure_stable_hash(transition_receipt, "transition_receipt")
 
         refinement_receipt: RefinementReceipt = refine_transition_policy(transition_receipt)
-        _ensure_stable_hash(refinement_receipt, "refinement_receipt")
+        ensure_stable_hash(refinement_receipt, "refinement_receipt")
 
         governance_receipt: GovernedOrchestrationReceipt = evaluate_governed_orchestration(
             policy,
             transition_receipt,
             refinement_receipt,
         )
-        _ensure_stable_hash(governance_receipt, "governance_receipt")
+        ensure_stable_hash(governance_receipt, "governance_receipt")
+        if governance_receipt.policy.stable_hash != policy.stable_hash:
+            raise ValueError("governance_receipt policy mismatch")
 
         if refinement_receipt.input_policy_hash != transition_receipt.stable_hash:
             raise ValueError("refinement input_policy_hash must match transition_receipt.stable_hash")
@@ -386,7 +360,7 @@ def run_governed_closed_loop(
             "governance_verdict": governance_receipt.verdict.verdict,
             "governance_admissible": governance_receipt.verdict.admissible,
             "governance_reason": governance_receipt.verdict.reason_code,
-            "convergence_metric": _round12(refinement_receipt.convergence_metric),
+            "convergence_metric": round12(refinement_receipt.convergence_metric),
             "mesh_receipt_hash": mesh_receipt.stable_hash,
             "transition_receipt_hash": transition_receipt.stable_hash,
             "refinement_receipt_hash": refinement_receipt.stable_hash,

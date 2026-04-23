@@ -186,6 +186,10 @@ def select_deterministic_transition(receipt: FilterMeshReceipt) -> TransitionPol
         seen_signatures.add(score.ordering_signature)
 
     first = receipt.ordered_scores[0]
+    if receipt.dominant_ordering_signature != first.ordering_signature:
+        raise ValueError("dominant_ordering_signature must match ordered_scores[0]")
+    if _round12(receipt.dominant_score) != _round12(first.total_score):
+        raise ValueError("dominant_score must match ordered_scores[0]")
     second_score = receipt.ordered_scores[1].total_score if receipt.candidate_count > 1 else 0.0
     margin = 1.0 if receipt.candidate_count == 1 else _round12(first.total_score - second_score)
 

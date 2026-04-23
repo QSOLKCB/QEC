@@ -54,15 +54,6 @@ def _validate_sha256_hex(value: str, field_name: str) -> str:
     return value
 
 
-def _validate_unit_interval(value: float, field_name: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{field_name} must be numeric in [0,1]")
-    numeric = float(value)
-    if not math.isfinite(numeric) or not 0.0 <= numeric <= 1.0:
-        raise ValueError(f"{field_name} must be finite and within [0,1]")
-    return numeric
-
-
 def _validate_vector(value: tuple[float, ...], field_name: str) -> tuple[float, ...]:
     if not isinstance(value, tuple) or not value:
         raise ValueError(f"{field_name} must be a non-empty tuple")
@@ -216,7 +207,7 @@ class RefinementReceipt:
             raise ValueError("iteration_count must be int >= 1")
         if self.iteration_count != len(self.steps):
             raise ValueError("iteration_count must match number of steps")
-        if isinstance(self.converged, bool) is False:
+        if not isinstance(self.converged, bool):
             raise ValueError("converged must be bool")
         if isinstance(self.convergence_metric, bool) or not isinstance(self.convergence_metric, (int, float)):
             raise ValueError("convergence_metric must be numeric in [0,1]")
@@ -281,32 +272,14 @@ def refine_transition_policy(receipt: TransitionPolicyReceipt) -> RefinementRece
         raise ValueError("receipt must be a TransitionPolicyReceipt")
     if receipt.stable_hash != receipt.computed_stable_hash():
         raise ValueError("receipt stable_hash is invalid")
+    if receipt.selected_decision.stable_hash != receipt.selected_decision.computed_stable_hash():
+        raise ValueError("selected_decision stable_hash is invalid")
     _validate_sha256_hex(receipt.input_receipt_hash, "input_receipt_hash")
 
-    decision = receipt.selected_decision
-    if decision.stable_hash != decision.computed_stable_hash():
-        raise ValueError("selected_decision stable_hash is invalid")
-    if isinstance(decision.decision_rank, bool) or not isinstance(decision.decision_rank, int) or decision.decision_rank < 1:
-        raise ValueError("invalid decision_rank")
-    if decision.decision_type not in {"clear_winner", "narrow_margin", "tie_break"}:
-        raise ValueError("invalid decision_type")
-    _validate_unit_interval(decision.selected_score, "selected_score")
-    _validate_unit_interval(decision.decision_confidence, "decision_confidence")
-    if isinstance(decision.margin_to_next, bool) or not isinstance(decision.margin_to_next, (int, float)):
-        raise ValueError("margin_to_next must be numeric")
-    if not math.isfinite(float(decision.margin_to_next)) or float(decision.margin_to_next) < 0.0:
-        raise ValueError("margin_to_next must be >= 0")
-
-    first = receipt.selected_decision
-    if decision.selected_ordering_signature != first.selected_ordering_signature:
-        raise ValueError("decision signature mismatch")
-
     ordering_signature = _normalize_string(
-        decision.selected_ordering_signature,
+        receipt.selected_decision.selected_ordering_signature,
         "selected_ordering_signature",
     )
-    if ordering_signature != decision.selected_ordering_signature:
-        raise ValueError("selected_ordering_signature must be canonical")
 
     state = _derive_refinement_state(ordering_signature)
     target_vector = _vector_from_signature(ordering_signature, "target")

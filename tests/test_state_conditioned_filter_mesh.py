@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError, replace
+import json
 
 import pytest
 
+from qec.analysis import state_conditioned_filter_mesh as mesh
 from qec.analysis.state_conditioned_filter_mesh import (
     CLASSIFICATION_CONFLICTED,
     CLASSIFICATION_STABLE_PREFERENCE,
     FilterMeshReceipt,
     FilterMeshState,
     FilterOrdering,
+    OrderingScore,
     score_filter_mesh,
 )
 
@@ -104,6 +107,12 @@ def test_duplicate_ordering_signature_rejection() -> None:
         score_filter_mesh(state, (a, dup))
 
 
+def test_signature_injective_for_delimiter_content() -> None:
+    first = _candidate(("a,b",), ("ctrl",))
+    second = _candidate(("a", "b"), ("ctrl",))
+    assert first.ordering_signature != second.ordering_signature
+
+
 def test_invalid_metric_rejection() -> None:
     with pytest.raises(ValueError, match=r"within \[0,1\]"):
         _state(thermal_pressure=1.1)
@@ -135,6 +144,50 @@ def test_stable_hash_self_validation() -> None:
             classification=CLASSIFICATION_CONFLICTED,
             stable_hash=receipt.stable_hash,
         )
+
+
+def test_invalid_state_rejection() -> None:
+    with pytest.raises(ValueError, match="state must be a FilterMeshState"):
+        score_filter_mesh("invalid", (_candidate(("thermal",), ("ctrl",)),))  # type: ignore[arg-type]
+
+
+def test_rounding_stable_ordering(monkeypatch: pytest.MonkeyPatch) -> None:
+    state = _state()
+    a = _candidate(("a",), ("ctrl",))
+    b = _candidate(("b",), ("ctrl",))
+
+    def _invariant_score(_: FilterMeshState, ordering: FilterOrdering) -> float:
+        return 0.5000000000004 if ordering.ordering_signature == a.ordering_signature else 0.5000000000003
+
+    monkeypatch.setattr(mesh, "_score_invariant_alignment", _invariant_score)
+    monkeypatch.setattr(mesh, "_score_hardware_alignment", lambda *_: 0.5)
+    monkeypatch.setattr(mesh, "_score_recurrence_avoidance", lambda *_: 0.5)
+    monkeypatch.setattr(mesh, "_score_stability_alignment", lambda *_: 0.5)
+
+    receipt = score_filter_mesh(state, (b, a))
+    assert [item.ordering_signature for item in receipt.ordered_scores] == sorted([a.ordering_signature, b.ordering_signature])
+
+
+def test_receipt_rounding_stable_reconstruction() -> None:
+    state = _state()
+    receipt = score_filter_mesh(
+        state,
+        (
+            _candidate(("thermal_stabilize", "parity_gate"), ("boundary_control",)),
+            _candidate(("latency_buffer", "spectral_phase"), ("surface_sync",)),
+        ),
+    )
+    payload = json.loads(receipt.to_canonical_json())
+    reconstructed = FilterMeshReceipt(
+        state=FilterMeshState(**payload["state"]),
+        candidate_count=payload["candidate_count"],
+        ordered_scores=tuple(OrderingScore(**item) for item in payload["ordered_scores"]),
+        dominant_ordering_signature=payload["dominant_ordering_signature"],
+        dominant_score=payload["dominant_score"],
+        classification=payload["classification"],
+        stable_hash=payload["stable_hash"],
+    )
+    assert reconstructed.to_canonical_json() == receipt.to_canonical_json()
 
 
 def test_score_boundedness() -> None:

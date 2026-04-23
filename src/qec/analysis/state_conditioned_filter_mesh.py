@@ -95,7 +95,7 @@ def _has_hint(filters: tuple[str, ...], hints: tuple[str, ...]) -> bool:
 
 
 def _signature_for_filters(input_filters: tuple[str, ...], control_filters: tuple[str, ...]) -> str:
-    return f"in[{','.join(input_filters)}]|ctrl[{','.join(control_filters)}]"
+    return canonical_json({"in": list(input_filters), "ctrl": list(control_filters)})
 
 
 def _ordering_payload_without_hash(
@@ -290,6 +290,8 @@ class FilterMeshReceipt:
     stable_hash: str
 
     def __post_init__(self) -> None:
+        if not isinstance(self.state, FilterMeshState):
+            raise ValueError("state must be a FilterMeshState")
         if self.candidate_count < 1:
             raise ValueError("candidate_count must be >= 1")
         if not isinstance(self.ordered_scores, tuple) or len(self.ordered_scores) != self.candidate_count:
@@ -299,7 +301,7 @@ class FilterMeshReceipt:
         expected_sort = tuple(
             sorted(
                 self.ordered_scores,
-                key=lambda item: (-item.total_score, item.ordering_signature, item.stable_hash),
+                key=lambda item: (-_round12(item.total_score), item.ordering_signature, item.stable_hash),
             )
         )
         if expected_sort != self.ordered_scores:
@@ -434,6 +436,8 @@ def _classify_scores(ordered_scores: tuple[OrderingScore, ...]) -> str:
 
 
 def score_filter_mesh(state: FilterMeshState, candidates: tuple[FilterOrdering, ...]) -> FilterMeshReceipt:
+    if not isinstance(state, FilterMeshState):
+        raise ValueError("state must be a FilterMeshState")
     if not isinstance(candidates, tuple) or not candidates:
         raise ValueError("candidates must be a non-empty tuple")
     if any(not isinstance(candidate, FilterOrdering) for candidate in candidates):
@@ -473,7 +477,7 @@ def score_filter_mesh(state: FilterMeshState, candidates: tuple[FilterOrdering, 
             )
         )
 
-    scored.sort(key=lambda row: (-row[0], row[1], row[2]))
+    scored.sort(key=lambda row: (-_round12(row[0]), row[1], row[2]))
 
     ordered_scores: list[OrderingScore] = []
     for rank, item in enumerate(scored, start=1):

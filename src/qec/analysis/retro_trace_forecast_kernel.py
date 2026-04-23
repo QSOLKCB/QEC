@@ -40,7 +40,7 @@ def _extract_features(retro_trace: RetroTraceReceipt) -> dict[str, float]:
     if len(timing) >= 2:
         gradients = tuple(float(timing[idx] - timing[idx - 1]) for idx in range(1, len(timing)))
         span = float(max(1, timing[-1] - timing[0]))
-        normalized_gradients = tuple((value * float(len(gradients))) / span for value in gradients)
+        normalized_gradients = tuple(value / span for value in gradients)
         grad_mean = _clamp01(sum(normalized_gradients) / float(len(normalized_gradients)))
         grad_var = sum((value - grad_mean) ** 2 for value in normalized_gradients) / float(len(normalized_gradients))
         gradient_stability = _clamp01(1.0 - min(1.0, grad_var))
@@ -192,7 +192,7 @@ class RetroTraceForecastSummary:
         object.__setattr__(
             self,
             "overall_stability_forecast",
-            validate_unit_interval(self.overall_stability_forecast, "overall_stability_forecast"),
+            _clamp01(validate_unit_interval(self.overall_stability_forecast, "overall_stability_forecast")),
         )
         if self.collapse_risk_classification not in (_CLASS_STABLE, _CLASS_DRIFT, _CLASS_UNSTABLE):
             raise ValueError("collapse_risk_classification must be STABLE|DRIFT|UNSTABLE")

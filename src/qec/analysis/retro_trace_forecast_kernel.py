@@ -71,9 +71,9 @@ class RetroTraceForecastStep:
     _stable_hash: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.step_index, int) or self.step_index < 1:
+        if isinstance(self.step_index, bool) or not isinstance(self.step_index, int) or self.step_index < 1:
             raise ValueError("step_index must be positive int")
-        if not isinstance(self.projected_timing, int) or self.projected_timing < 0:
+        if isinstance(self.projected_timing, bool) or not isinstance(self.projected_timing, int) or self.projected_timing < 0:
             raise ValueError("projected_timing must be non-negative int")
         object.__setattr__(
             self,
@@ -127,7 +127,7 @@ class RetroTraceForecastSeries:
     _stable_hash: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.horizon, int) or not (_MIN_HORIZON <= self.horizon <= _MAX_HORIZON):
+        if isinstance(self.horizon, bool) or not isinstance(self.horizon, int) or not (_MIN_HORIZON <= self.horizon <= _MAX_HORIZON):
             raise ValueError(f"horizon must be in [{_MIN_HORIZON},{_MAX_HORIZON}]")
         if not isinstance(self.features, tuple):
             raise ValueError("features must be tuple")
@@ -275,7 +275,7 @@ def forecast_retro_trace(
 ) -> RetroTraceForecastReceipt:
     if not isinstance(retro_trace, RetroTraceReceipt):
         raise ValueError("retro_trace must be RetroTraceReceipt")
-    if not isinstance(horizon, int) or not (_MIN_HORIZON <= horizon <= _MAX_HORIZON):
+    if isinstance(horizon, bool) or not isinstance(horizon, int) or not (_MIN_HORIZON <= horizon <= _MAX_HORIZON):
         raise ValueError(f"horizon must be int in [{_MIN_HORIZON},{_MAX_HORIZON}]")
     retro_payload = retro_trace.to_dict()
     observed_hash = str(retro_payload.pop("stable_hash"))

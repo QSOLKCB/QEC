@@ -324,12 +324,8 @@ def test_family_classification(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_duplicate_generated_policy_rejection() -> None:
-    with pytest.raises(ValueError, match="duplicate generated policy"):
-        benchmark_policy_family(
-            _config(),
-            _policy(),
-            _family_spec((_axis("min_required_score", (0.25, 0.2500000000001)),)),
-        )
+    with pytest.raises(ValueError, match="duplicate"):
+        _axis("min_required_score", (0.25, 0.2500000000001))
 
 
 def test_tampered_policy_or_receipt_rejection() -> None:

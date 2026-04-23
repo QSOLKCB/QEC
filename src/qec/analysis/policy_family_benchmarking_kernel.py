@@ -138,7 +138,7 @@ class PolicySweepAxis:
             for value in self.values:
                 if not _is_strict_numeric(value):
                     raise ValueError("numeric sweep axis values must be strict numeric")
-                numeric = validate_unit_interval(float(value), "axis_value")
+                numeric = round12(validate_unit_interval(float(value), "axis_value"))
                 if numeric in seen:
                     raise ValueError("values must not contain duplicates")
                 seen.add(numeric)

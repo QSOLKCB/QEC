@@ -516,3 +516,143 @@ def test_build_validates_nested_stable_hashes() -> None:
 
     with pytest.raises(ValueError, match="selected_decision stable_hash"):
         build_action_capsule(tampered_transition, refinement, governance)
+
+
+def test_nested_replay_recompute_detects_step_hash_mismatch() -> None:
+    transition, refinement, governance = _triplet()
+    bad_refinement = refinement
+    bad_step = bad_refinement.steps[0]
+    tampered_step_payload = {
+        "iteration": bad_step.iteration,
+        "input_vector": tuple(round(v, 12) for v in bad_step.input_vector),
+        "output_vector": tuple(round(v, 12) for v in bad_step.output_vector),
+        "delta_norm": round(min(1.0, bad_step.delta_norm + 0.001), 12),
+    }
+    object.__setattr__(bad_step, "stable_hash", sha256_hex(tampered_step_payload))
+    bad_refinement_payload = {
+        "input_policy_hash": bad_refinement.input_policy_hash,
+        "steps": tuple(step.to_dict() for step in bad_refinement.steps),
+        "final_vector": tuple(round(v, 12) for v in bad_refinement.final_vector),
+        "iteration_count": bad_refinement.iteration_count,
+        "converged": bad_refinement.converged,
+        "convergence_metric": round(bad_refinement.convergence_metric, 12),
+        "classification": bad_refinement.classification,
+    }
+    object.__setattr__(bad_refinement, "stable_hash", sha256_hex(bad_refinement_payload))
+    with pytest.raises(ValueError, match="canonical field recomputation hash is invalid|stable_hash is invalid"):
+        build_action_capsule(transition, bad_refinement, governance)
+
+
+def test_canonical_round_trip_stability_for_capsule_objects() -> None:
+    transition, refinement, governance = _triplet()
+    capsule, proof = build_action_capsule(transition, refinement, governance)
+
+    descriptor_json = capsule.action_descriptor.to_canonical_json()
+    descriptor = ActionDescriptor(**json.loads(descriptor_json))
+    assert descriptor.to_canonical_json() == descriptor_json
+
+    capsule_payload = json.loads(capsule.to_canonical_json())
+    capsule_payload["action_descriptor"] = ActionDescriptor(**capsule_payload["action_descriptor"])
+    capsule_payload["admissibility_reasons"] = tuple(capsule_payload["admissibility_reasons"])
+    capsule_payload["certification_reasons"] = tuple(capsule_payload["certification_reasons"])
+    capsule_payload["validation_notes"] = tuple(capsule_payload["validation_notes"])
+    reconstructed_capsule = ProofCarryingActionCapsule(**capsule_payload)
+    assert reconstructed_capsule.to_canonical_json() == capsule.to_canonical_json()
+
+    proof_payload = json.loads(proof.to_canonical_json())
+    proof_payload["verification_checks"] = tuple(proof_payload["verification_checks"])
+    reconstructed_proof = ActionCapsuleProofReceipt(**proof_payload)
+    assert reconstructed_proof.to_canonical_json() == proof.to_canonical_json()
+
+
+def test_replay_identity_tamper_rejected() -> None:
+    transition, refinement, governance = _triplet()
+    capsule, _ = build_action_capsule(transition, refinement, governance)
+    kwargs = capsule.to_dict()
+    kwargs["action_descriptor"] = ActionDescriptor(**kwargs["action_descriptor"])
+    kwargs["transition_receipt_hash"] = "a" * 64
+    payload_without_hash = {k: v for k, v in kwargs.items() if k != "capsule_hash"}
+    payload_without_hash["action_descriptor"] = kwargs["action_descriptor"].to_dict()
+    kwargs["capsule_hash"] = sha256_hex(payload_without_hash)
+    with pytest.raises(ValueError, match="replay_identity mismatch"):
+        ProofCarryingActionCapsule(**kwargs)
+
+
+def test_capsule_and_proof_hash_recompute_match() -> None:
+    transition, refinement, governance = _triplet()
+    capsule, proof = build_action_capsule(transition, refinement, governance)
+    assert sha256_hex(capsule._payload_without_hash()) == capsule.capsule_hash
+    assert sha256_hex(proof._payload_without_hash()) == proof.proof_receipt_hash
+
+
+def test_deep_schema_extra_key_rejected() -> None:
+    with pytest.raises(ValueError, match="selected_transition must have exactly keys"):
+        ActionDescriptor(
+            action_type="governed_transition_commitment",
+            target_scope="orchestration",
+            action_payload={
+                "selected_transition": {
+                    "ordering_signature": "sig_a",
+                    "transition_hash": "1" * 64,
+                    "extra_key": "x",
+                },
+                "refined_outcome": {"classification": "bounded", "convergence_metric": 0.5, "refinement_hash": "2" * 64},
+                "governance_linkage": {"verdict": "allow", "verdict_hash": "3" * 64, "governance_hash": "4" * 64},
+            },
+            bound_constraints={"bounded_refinement": True},
+            representation_only=True,
+            payload_schema_version="v146.0",
+        )
+
+
+def test_float_normalization_requires_pre_rounded_values() -> None:
+    with pytest.raises(ValueError, match="pre-rounded"):
+        ActionDescriptor(
+            action_type="governed_transition_commitment",
+            target_scope="orchestration",
+            action_payload={
+                "selected_transition": {"ordering_signature": "sig_a", "transition_hash": "1" * 64},
+                "refined_outcome": {
+                    "classification": "bounded",
+                    "convergence_metric": 0.1234567890123,
+                    "refinement_hash": "2" * 64,
+                },
+                "governance_linkage": {"verdict": "allow", "verdict_hash": "3" * 64, "governance_hash": "4" * 64},
+            },
+            bound_constraints={"bounded_refinement": True},
+            representation_only=True,
+            payload_schema_version="v146.0",
+        )
+
+
+def test_cross_field_inconsistency_rejected() -> None:
+    transition, refinement, governance = _triplet()
+    capsule, _ = build_action_capsule(transition, refinement, governance)
+    kwargs = capsule.to_dict()
+    descriptor_payload = dict(kwargs["action_descriptor"])
+    descriptor_payload["action_payload"] = dict(descriptor_payload["action_payload"])
+    descriptor_payload["action_payload"]["governance_linkage"] = dict(
+        descriptor_payload["action_payload"]["governance_linkage"]
+    )
+    descriptor_payload["action_payload"]["governance_linkage"]["verdict"] = "allow"
+    kwargs["action_descriptor"] = ActionDescriptor(**descriptor_payload)
+    kwargs["governance_verdict"] = "allow"
+    kwargs["governance_hash"] = "b" * 64
+    payload_without_hash = {k: v for k, v in kwargs.items() if k != "capsule_hash"}
+    payload_without_hash["action_descriptor"] = kwargs["action_descriptor"].to_dict()
+    kwargs["capsule_hash"] = sha256_hex(payload_without_hash)
+    with pytest.raises(ValueError, match="governance_hash mismatch"):
+        ProofCarryingActionCapsule(**kwargs)
+
+
+def test_input_mutation_safety() -> None:
+    transition, refinement, governance = _triplet()
+    transition_before = transition.to_canonical_json()
+    refinement_before = refinement.to_canonical_json()
+    governance_before = governance.to_canonical_json()
+
+    build_action_capsule(transition, refinement, governance)
+
+    assert transition.to_canonical_json() == transition_before
+    assert refinement.to_canonical_json() == refinement_before
+    assert governance.to_canonical_json() == governance_before

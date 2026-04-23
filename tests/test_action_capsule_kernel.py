@@ -367,3 +367,152 @@ def test_strict_invariants_and_tuple_ordering_and_self_consistency() -> None:
     bad_hash_capsule3["mesh_hash"] = "a" * 63
     with pytest.raises(ValueError, match="64-char"):
         ProofCarryingActionCapsule(**bad_hash_capsule3)
+
+
+def test_nested_descriptor_schema_validation() -> None:
+    """Issue 4: ActionDescriptor enforces nested key sets and hash formats."""
+    _base_payload = {
+        "selected_transition": {"ordering_signature": "sig_a", "transition_hash": "1" * 64},
+        "refined_outcome": {"classification": "bounded", "convergence_metric": 0.5, "refinement_hash": "2" * 64},
+        "governance_linkage": {"verdict": "allow", "verdict_hash": "3" * 64, "governance_hash": "4" * 64},
+    }
+
+    def _make(**overrides: object) -> ActionDescriptor:
+        import copy
+        payload = copy.deepcopy(_base_payload)
+        for path, val in overrides.items():
+            section, _, key = path.partition(".")
+            if key:
+                payload[section][key] = val  # type: ignore[index]
+            else:
+                payload[section] = val  # type: ignore[assignment]
+        return ActionDescriptor(
+            action_type="governed_transition_commitment",
+            target_scope="orchestration",
+            action_payload=payload,
+            bound_constraints={"bounded_refinement": True},
+            representation_only=True,
+            payload_schema_version="v146.0",
+        )
+
+    # Missing key in selected_transition
+    with pytest.raises(ValueError, match="selected_transition"):
+        _make(**{"selected_transition": {"transition_hash": "1" * 64}})
+
+    # Extra key in selected_transition
+    with pytest.raises(ValueError, match="selected_transition"):
+        _make(**{"selected_transition": {"ordering_signature": "s", "transition_hash": "1" * 64, "extra": "x"}})
+
+    # Invalid SHA-256 in transition_hash
+    with pytest.raises(ValueError, match="transition_hash"):
+        _make(**{"selected_transition.transition_hash": "notahex"})
+
+    # Missing key in refined_outcome
+    with pytest.raises(ValueError, match="refined_outcome"):
+        _make(**{"refined_outcome": {"classification": "bounded", "refinement_hash": "2" * 64}})
+
+    # Extra key in refined_outcome
+    with pytest.raises(ValueError, match="refined_outcome"):
+        _make(**{"refined_outcome": {"classification": "bounded", "convergence_metric": 0.5, "refinement_hash": "2" * 64, "extra": "x"}})
+
+    # Invalid SHA-256 in refinement_hash
+    with pytest.raises(ValueError, match="refinement_hash"):
+        _make(**{"refined_outcome.refinement_hash": "short"})
+
+    # Missing key in governance_linkage
+    with pytest.raises(ValueError, match="governance_linkage"):
+        _make(**{"governance_linkage": {"verdict": "allow", "governance_hash": "4" * 64}})
+
+    # Extra key in governance_linkage
+    with pytest.raises(ValueError, match="governance_linkage"):
+        _make(**{"governance_linkage": {"verdict": "allow", "verdict_hash": "3" * 64, "governance_hash": "4" * 64, "extra": "x"}})
+
+    # governance_linkage.verdict != "allow"
+    with pytest.raises(ValueError, match="governance_linkage.verdict"):
+        _make(**{"governance_linkage.verdict": "hold"})
+
+    # Invalid SHA-256 in verdict_hash
+    with pytest.raises(ValueError, match="verdict_hash"):
+        _make(**{"governance_linkage.verdict_hash": "bad"})
+
+    # Invalid SHA-256 in governance_hash
+    with pytest.raises(ValueError, match="governance_hash"):
+        _make(**{"governance_linkage.governance_hash": "G" * 64})
+
+
+def test_descriptor_capsule_lineage_cross_check() -> None:
+    """Issue 1: ProofCarryingActionCapsule cross-checks descriptor lineage against top-level fields."""
+    transition, refinement, governance = _triplet()
+    capsule, _ = build_action_capsule(transition, refinement, governance)
+
+    ap = capsule.action_descriptor.action_payload
+    bc = capsule.action_descriptor.bound_constraints
+
+    # Build an alternative descriptor with a different transition_hash
+    alt_transition_hash = "a" * 64
+    alt_descriptor = ActionDescriptor(
+        action_type="governed_transition_commitment",
+        target_scope="orchestration",
+        action_payload={
+            "selected_transition": {
+                "ordering_signature": ap["selected_transition"]["ordering_signature"],
+                "transition_hash": alt_transition_hash,
+            },
+            "refined_outcome": dict(ap["refined_outcome"]),
+            "governance_linkage": dict(ap["governance_linkage"]),
+        },
+        bound_constraints=dict(bc),
+        representation_only=True,
+        payload_schema_version="v146.0",
+    )
+
+    # Build capsule kwargs with alt descriptor but original transition_receipt_hash
+    kwargs = capsule.to_dict()
+    kwargs["action_descriptor"] = alt_descriptor
+    # Recompute capsule_hash so the self-hash check passes, exposing the lineage cross-check
+    payload_without_hash = {k: v for k, v in kwargs.items() if k != "capsule_hash"}
+    payload_without_hash["action_descriptor"] = alt_descriptor.to_dict()
+    kwargs["capsule_hash"] = sha256_hex(payload_without_hash)
+
+    with pytest.raises(ValueError, match="transition_hash mismatch"):
+        ProofCarryingActionCapsule(**kwargs)
+
+
+def test_build_validates_nested_stable_hashes() -> None:
+    """Issue 2: build_action_capsule validates nested stable_hash fields."""
+    transition, refinement, governance = _triplet()
+
+    # Tamper with selected_decision.stable_hash and recompute parent receipt hash
+    original_decision = transition.selected_decision
+    tampered_decision_hash = "b" * 64
+    # Create a valid decision first, then bypass its validation to inject tampered hash
+    tampered_decision = TransitionDecision(
+        selected_ordering_signature=original_decision.selected_ordering_signature,
+        selected_score=original_decision.selected_score,
+        decision_rank=original_decision.decision_rank,
+        margin_to_next=original_decision.margin_to_next,
+        decision_confidence=original_decision.decision_confidence,
+        decision_type=original_decision.decision_type,
+        stable_hash=original_decision.stable_hash,
+    )
+    object.__setattr__(tampered_decision, "stable_hash", tampered_decision_hash)
+
+    # Recompute transition receipt hash so _require_self_hash passes (top-level)
+    t_payload = {
+        "input_receipt_hash": transition.input_receipt_hash,
+        "candidate_count": transition.candidate_count,
+        "selected_decision": tampered_decision.to_dict(),
+        "selection_rule": transition.selection_rule,
+        "classification": transition.classification,
+    }
+    tampered_transition = TransitionPolicyReceipt(
+        input_receipt_hash=transition.input_receipt_hash,
+        candidate_count=transition.candidate_count,
+        selected_decision=tampered_decision,
+        selection_rule=transition.selection_rule,
+        classification=transition.classification,
+        stable_hash=sha256_hex(t_payload),
+    )
+
+    with pytest.raises(ValueError, match="selected_decision stable_hash"):
+        build_action_capsule(tampered_transition, refinement, governance)

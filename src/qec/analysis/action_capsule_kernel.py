@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
-import json
 import math
 import string
 from typing import Any
 
 from qec.analysis.bounded_refinement_kernel import RefinementReceipt
+from qec.analysis.canonical_hashing import canonical_json, sha256_hex
 from qec.analysis.deterministic_transition_policy import TransitionPolicyReceipt
 from qec.analysis.governed_orchestration_layer import GovernedOrchestrationReceipt
 
@@ -19,22 +19,6 @@ _ALLOWED_ACTION_TYPE = "governed_transition_commitment"
 
 _JSONScalar = str | int | float | bool | None
 _JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
-
-
-def _canonical_json(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
-
-
-def _canonical_bytes(value: Any) -> bytes:
-    return _canonical_json(value).encode("utf-8")
-
-
-def _sha256_hex_bytes(payload: bytes) -> str:
-    return hashlib.sha256(payload).hexdigest()
-
-
-def _sha256_hex(value: Any) -> str:
-    return _sha256_hex_bytes(_canonical_bytes(value))
 
 
 def _validate_non_empty_string(value: str, field_name: str) -> str:
@@ -172,6 +156,37 @@ class ActionDescriptor:
         object.__setattr__(self, "action_payload", normalized_payload)
         object.__setattr__(self, "bound_constraints", normalized_constraints)
 
+        selected_transition = self.action_payload.get("selected_transition")
+        if not isinstance(selected_transition, dict) or tuple(sorted(selected_transition.keys())) != (
+            "ordering_signature",
+            "transition_hash",
+        ):
+            raise ValueError("selected_transition must have exactly keys: ordering_signature, transition_hash")
+        _validate_non_empty_string(selected_transition["ordering_signature"], "selected_transition.ordering_signature")
+        _validate_sha256_hex(selected_transition["transition_hash"], "selected_transition.transition_hash")
+
+        refined_outcome = self.action_payload.get("refined_outcome")
+        if not isinstance(refined_outcome, dict) or tuple(sorted(refined_outcome.keys())) != (
+            "classification",
+            "convergence_metric",
+            "refinement_hash",
+        ):
+            raise ValueError("refined_outcome must have exactly keys: classification, convergence_metric, refinement_hash")
+        _validate_non_empty_string(refined_outcome["classification"], "refined_outcome.classification")
+        _validate_sha256_hex(refined_outcome["refinement_hash"], "refined_outcome.refinement_hash")
+
+        governance_linkage = self.action_payload.get("governance_linkage")
+        if not isinstance(governance_linkage, dict) or tuple(sorted(governance_linkage.keys())) != (
+            "governance_hash",
+            "verdict",
+            "verdict_hash",
+        ):
+            raise ValueError("governance_linkage must have exactly keys: governance_hash, verdict, verdict_hash")
+        if governance_linkage["verdict"] != "allow":
+            raise ValueError("governance_linkage.verdict must be allow")
+        _validate_sha256_hex(governance_linkage["verdict_hash"], "governance_linkage.verdict_hash")
+        _validate_sha256_hex(governance_linkage["governance_hash"], "governance_linkage.governance_hash")
+
     def _payload_without_hash(self) -> dict[str, _JSONValue]:
         return {
             "action_type": self.action_type,
@@ -186,13 +201,13 @@ class ActionDescriptor:
         return self._payload_without_hash()
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash(self) -> str:
-        return _sha256_hex_bytes(self.to_canonical_bytes())
+        return sha256_hex(self._payload_without_hash())
 
 
 @dataclass(frozen=True)
@@ -264,15 +279,26 @@ class ProofCarryingActionCapsule:
         _validate_reasons_tuple(self.certification_reasons, "certification_reasons")
         _validate_reasons_tuple(self.validation_notes, "validation_notes")
 
-        expected_replay_identity = _sha256_hex_bytes(
+        expected_replay_identity = hashlib.sha256(
             (
                 f"{self.transition_receipt_hash}|"
                 f"{self.refinement_receipt_hash}|"
                 f"{self.governance_receipt_hash}"
             ).encode("utf-8")
-        )
+        ).hexdigest()
         if self.replay_identity != expected_replay_identity:
             raise ValueError("replay_identity mismatch")
+
+        _ap = self.action_descriptor.action_payload
+        if _ap["selected_transition"]["transition_hash"] != self.transition_receipt_hash:
+            raise ValueError("action_descriptor transition_hash mismatch with transition_receipt_hash")
+        if _ap["refined_outcome"]["refinement_hash"] != self.refinement_receipt_hash:
+            raise ValueError("action_descriptor refinement_hash mismatch with refinement_receipt_hash")
+        if _ap["governance_linkage"]["governance_hash"] != self.governance_receipt_hash:
+            raise ValueError("action_descriptor governance_hash mismatch with governance_receipt_hash")
+        if _ap["governance_linkage"]["verdict"] != self.governance_verdict:
+            raise ValueError("action_descriptor verdict mismatch with governance_verdict")
+
         if self.capsule_hash != self.stable_hash():
             raise ValueError("capsule_hash must match canonical capsule payload")
 
@@ -308,13 +334,13 @@ class ProofCarryingActionCapsule:
         return {**self._payload_without_hash(), "capsule_hash": self.capsule_hash}
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash(self) -> str:
-        return _sha256_hex(self._payload_without_hash())
+        return sha256_hex(self._payload_without_hash())
 
 
 @dataclass(frozen=True)
@@ -362,13 +388,13 @@ class ActionCapsuleProofReceipt:
         return {**self._payload_without_hash(), "proof_receipt_hash": self.proof_receipt_hash}
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
         return self.to_canonical_json().encode("utf-8")
 
     def stable_hash(self) -> str:
-        return _sha256_hex(self._payload_without_hash())
+        return sha256_hex(self._payload_without_hash())
 
 
 def build_action_capsule(
@@ -386,6 +412,19 @@ def build_action_capsule(
     transition_receipt_hash = _require_self_hash(transition_receipt, "transition_receipt")
     refinement_receipt_hash = _require_self_hash(refinement_receipt, "refinement_receipt")
     governance_receipt_hash = _require_self_hash(governance_receipt, "governance_receipt")
+
+    if transition_receipt.selected_decision.stable_hash != transition_receipt.selected_decision.computed_stable_hash():
+        raise ValueError("transition_receipt.selected_decision stable_hash is invalid")
+    for _i, _step in enumerate(refinement_receipt.steps):
+        if _step.stable_hash != _step.computed_stable_hash():
+            raise ValueError(f"refinement_receipt.steps[{_i}] stable_hash is invalid")
+    if governance_receipt.policy.stable_hash != governance_receipt.policy.computed_stable_hash():
+        raise ValueError("governance_receipt.policy stable_hash is invalid")
+    for _i, _check in enumerate(governance_receipt.checks):
+        if _check.stable_hash != _check.computed_stable_hash():
+            raise ValueError(f"governance_receipt.checks[{_i}] stable_hash is invalid")
+    if governance_receipt.verdict.stable_hash != governance_receipt.verdict.computed_stable_hash():
+        raise ValueError("governance_receipt.verdict stable_hash is invalid")
 
     transition_payload = _extract_mapping(transition_receipt, "transition_receipt")
     refinement_payload = _extract_mapping(refinement_receipt, "refinement_receipt")
@@ -459,9 +498,9 @@ def build_action_capsule(
         payload_schema_version="v146.0",
     )
 
-    replay_identity = _sha256_hex_bytes(
+    replay_identity = hashlib.sha256(
         f"{transition_receipt_hash}|{refinement_receipt_hash}|{governance_receipt_hash}".encode("utf-8")
-    )
+    ).hexdigest()
 
     capsule_payload = {
         "capsule_version": "v146.0",
@@ -498,7 +537,7 @@ def build_action_capsule(
         ),
         "replay_identity": replay_identity,
     }
-    capsule_hash = _sha256_hex(
+    capsule_hash = sha256_hex(
         {
             **capsule_payload,
             "action_descriptor": descriptor.to_dict(),
@@ -527,7 +566,7 @@ def build_action_capsule(
     }
     proof_receipt = ActionCapsuleProofReceipt(
         **proof_payload,
-        proof_receipt_hash=_sha256_hex(proof_payload),
+        proof_receipt_hash=sha256_hex(proof_payload),
     )
 
     return capsule, proof_receipt

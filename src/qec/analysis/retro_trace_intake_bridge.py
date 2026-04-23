@@ -105,7 +105,9 @@ def _normalize_timing_cycles(
         elif "cycles" in as_dict:
             raw = as_dict["cycles"]
         else:
-            raw = 0
+            raise ValueError(
+                f"timing event at index {_source_index} must include 'cycle' or 'cycles'"
+            )
         if isinstance(raw, bool) or not isinstance(raw, (int, float)):
             raise ValueError("timing values must be numeric")
         if isinstance(raw, float) and (math.isnan(raw) or math.isinf(raw)):

@@ -63,6 +63,12 @@ def test_deterministic_replay_same_input_same_hash() -> None:
     assert a.to_canonical_json() == b.to_canonical_json()
 
 
+def test_deterministic_replay_certification_75_runs_identical_bytes_and_hash() -> None:
+    receipts = [_build() for _ in range(75)]
+    assert len({receipt.stable_hash for receipt in receipts}) == 1
+    assert len({receipt.to_canonical_json().encode("utf-8") for receipt in receipts}) == 1
+
+
 def test_unordered_input_normalization() -> None:
     baseline = _build()
     shuffled = _build(
@@ -85,6 +91,7 @@ def test_timing_normalization_float_input() -> None:
     assert receipt.normalized_timing == (5, 6, 9)
     assert all(isinstance(v, int) for v in receipt.normalized_timing)
     timing_payloads = [dict(payload) for _, event_type, payload in receipt.event_sequence if event_type == "timing"]
+    assert all(set(payload.keys()) == {"cycle"} for payload in timing_payloads)
     assert all(payload["cycle"] in (5, 6, 9) for payload in timing_payloads)
     assert all(isinstance(payload["cycle"], int) for payload in timing_payloads)
     assert all("cycles" not in payload for payload in timing_payloads)
@@ -220,6 +227,62 @@ def test_float_and_int_timing_equivalence_have_identical_hash() -> None:
     int_timing = _build(timing_trace=({"cycle": 5, "frame": 1}, {"cycle": 9, "frame": 2}))
     assert float_timing.stable_hash == int_timing.stable_hash
     assert float_timing.to_canonical_json() == int_timing.to_canonical_json()
+
+
+def test_float_int_and_ordering_equivalence_have_identical_hash() -> None:
+    baseline = _build(
+        timing_trace=({"cycle": 9, "frame": 2}, {"cycle": 5, "frame": 1}),
+        cpu_trace=tuple(reversed(_trace_payload()["cpu_trace"])),
+    )
+    equivalent = _build(
+        timing_trace=({"cycle": 8.6, "frame": 2}, {"cycle": 5.4, "frame": 1}),
+        cpu_trace=_trace_payload()["cpu_trace"],
+    )
+    assert baseline.stable_hash == equivalent.stable_hash
+    assert baseline.to_canonical_json() == equivalent.to_canonical_json()
+
+
+def test_non_canonical_tuple_pair_inputs_rejected() -> None:
+    receipt = _build()
+    with pytest.raises(ValueError, match="metadata must be canonical sorted key/value tuples"):
+        RetroTraceReceipt(
+            target_id=receipt.target_id,
+            trace_length=receipt.trace_length,
+            event_sequence=receipt.event_sequence,
+            normalized_timing=receipt.normalized_timing,
+            metadata=tuple(reversed(receipt.metadata)),
+            trace_metrics=receipt.trace_metrics,
+            stable_hash=receipt.stable_hash,
+        )
+    with pytest.raises(ValueError, match="trace_metrics must be canonical sorted key/value tuples"):
+        RetroTraceReceipt(
+            target_id=receipt.target_id,
+            trace_length=receipt.trace_length,
+            event_sequence=receipt.event_sequence,
+            normalized_timing=receipt.normalized_timing,
+            metadata=receipt.metadata,
+            trace_metrics=tuple(reversed(receipt.trace_metrics)),
+            stable_hash=receipt.stable_hash,
+        )
+
+
+def test_zero_event_trace_sanity() -> None:
+    receipt = _build(
+        cpu_trace=(),
+        memory_trace=(),
+        timing_trace=(),
+        display_trace=(),
+        audio_trace=(),
+        input_trace=(),
+        metadata={},
+    )
+    assert receipt.trace_length == 0
+    assert receipt.normalized_timing == ()
+    metrics = dict(receipt.trace_metrics)
+    assert metrics["trace_completeness"] == 0.0
+    assert metrics["timing_observability"] == 0.0
+    assert metrics["input_sparsity"] == 1.0
+    assert metrics["replay_consistency"] == 1.0
 
 
 def test_non_canonical_timing_payload_rejected_in_receipt_post_init() -> None:

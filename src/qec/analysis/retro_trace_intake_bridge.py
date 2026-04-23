@@ -169,13 +169,10 @@ def _normalize_timing_event_payload(
         raise ValueError(
             f"timing event at index {source_index} must include 'cycle' or 'cycles'"
         )
-    payload_without_raw_cycle = {
-        key: value
-        for key, value in payload_dict.items()
-        if key not in {"cycle", "cycles"}
-    }
-    payload_without_raw_cycle["cycle"] = int(normalized_cycle)
-    return _canonical_kv_tuple(payload_without_raw_cycle, field=f"timing_trace[{source_index}]")
+    return _canonical_kv_tuple(
+        {"cycle": int(normalized_cycle)},
+        field=f"timing_trace[{source_index}]",
+    )
 
 
 def _clamp_round_01(value: float) -> float:

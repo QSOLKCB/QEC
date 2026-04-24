@@ -60,10 +60,6 @@ what is structurally constrained
 what is admissible next
 what policy should evolve
 what decisions are provably stable
-
-
----
-
 🧠 Core Law
 same input
 → same ordering
@@ -102,11 +98,7 @@ unified runtime state construction
 policy memory accumulation
 adaptive governance recommendation
 governance validation (v148.0)
-
-
-```
-
-# ⚡ Quickstart — Run the Proof Artifact
+⚡ Quickstart — Run the Proof Artifact
 
 ## 1. Install
 

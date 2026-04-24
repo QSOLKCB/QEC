@@ -205,7 +205,7 @@ class PolicyMemoryLedger:
             raise ValueError("replay_stability_score mismatch")
 
         if self._stable_hash != sha256_hex(self._payload_without_hash()):
-            raise ValueError("stable hash mismatch")
+            raise ValueError("stable_hash mismatch")
 
     def _payload_without_hash(self) -> dict[str, _JSONValue]:
         return {
@@ -251,7 +251,7 @@ class AdaptiveGovernanceSignal:
             raise ValueError("signal name must be canonical")
         object.__setattr__(self, "value", _clamp01(validate_unit_interval(self.value, "value")))
         if self._stable_hash != sha256_hex(self._payload_without_hash()):
-            raise ValueError("stable hash mismatch")
+            raise ValueError("stable_hash mismatch")
 
     def _payload_without_hash(self) -> dict[str, _JSONValue]:
         return {"name": self.name, "value": round12(self.value)}
@@ -291,7 +291,7 @@ class AdaptiveGovernanceRecommendation:
         if isinstance(self.rank, bool) or not isinstance(self.rank, int) or self.rank != expected_rank:
             raise ValueError("bool where int required")
         if self._stable_hash != sha256_hex(self._payload_without_hash()):
-            raise ValueError("stable hash mismatch")
+            raise ValueError("stable_hash mismatch")
 
     def _payload_without_hash(self) -> dict[str, _JSONValue]:
         return {"label": self.label, "rationale": self.rationale, "rank": self.rank}
@@ -333,7 +333,7 @@ class PolicyMemoryGovernanceSummary:
         if isinstance(self.entry_count, bool) or not isinstance(self.entry_count, int) or self.entry_count < 1:
             raise ValueError("entry_count must be positive int")
         if self._stable_hash != sha256_hex(self._payload_without_hash()):
-            raise ValueError("stable hash mismatch")
+            raise ValueError("stable_hash mismatch")
 
     def _payload_without_hash(self) -> dict[str, _JSONValue]:
         return {
@@ -388,7 +388,11 @@ class PolicyMemoryGovernanceReceipt:
         if not isinstance(self.summary, PolicyMemoryGovernanceSummary):
             raise ValueError("summary must be PolicyMemoryGovernanceSummary")
 
-        governance_confidence = dict((signal.name, signal.value) for signal in self.signals)["governance_confidence"]
+        signal_values = {signal.name: signal.value for signal in self.signals}
+        governance_confidence = signal_values["governance_confidence"]
+        expected_label = _recommendation_from_signals(signal_values)
+        if self.recommendation.label != expected_label:
+            raise ValueError("recommendation mismatch")
         if self.summary.recommendation_label != self.recommendation.label:
             raise ValueError("summary mismatch")
         if round12(self.summary.governance_confidence) != round12(governance_confidence):
@@ -398,7 +402,7 @@ class PolicyMemoryGovernanceReceipt:
         if self.summary.entry_count != self.ledger.ledger_size:
             raise ValueError("ledger count mismatch")
         if self._stable_hash != sha256_hex(self._payload_without_hash()):
-            raise ValueError("stable hash mismatch")
+            raise ValueError("stable_hash mismatch")
 
     def _payload_without_hash(self) -> dict[str, _JSONValue]:
         return {

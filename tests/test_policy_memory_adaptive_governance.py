@@ -210,18 +210,30 @@ def test_direct_receipt_reconstruction_fail_fast() -> None:
         rank=2,
         _stable_hash=sha256_hex({"label": "RELAX_POLICY", "rationale": receipt.recommendation.rationale, "rank": 2}),
     )
+    tampered_summary = replace(
+        receipt.summary,
+        recommendation_label="RELAX_POLICY",
+        _stable_hash=sha256_hex(
+            {
+                "recommendation_label": "RELAX_POLICY",
+                "governance_confidence": receipt.summary.governance_confidence,
+                "replay_stability_score": receipt.summary.replay_stability_score,
+                "entry_count": receipt.summary.entry_count,
+            }
+        ),
+    )
     payload = {
         "ledger": receipt.ledger.to_dict(),
         "signals": tuple(item.to_dict() for item in receipt.signals),
         "recommendation": tampered_recommendation.to_dict(),
-        "summary": receipt.summary.to_dict(),
+        "summary": tampered_summary.to_dict(),
     }
-    with pytest.raises(ValueError, match="summary mismatch"):
+    with pytest.raises(ValueError, match="recommendation mismatch"):
         PolicyMemoryGovernanceReceipt(
             ledger=receipt.ledger,
             signals=receipt.signals,
             recommendation=tampered_recommendation,
-            summary=receipt.summary,
+            summary=tampered_summary,
             _stable_hash=sha256_hex(payload),
         )
 

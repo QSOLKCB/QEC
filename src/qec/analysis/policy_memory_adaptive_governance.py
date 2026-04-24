@@ -477,9 +477,9 @@ def build_policy_memory_governance(
         sensitivity_hash = control.sensitivity_hash
         forecast_hash = control.forecast_hash
         if sensitivity_receipts and sensitivity_hash not in sensitivity_by_hash:
-            raise ValueError("duplicate or inconsistent hashes")
+            raise ValueError(f"missing sensitivity receipt for control_receipts[{idx}]")
         if forecast_receipts and forecast_hash not in forecast_by_hash:
-            raise ValueError("duplicate or inconsistent hashes")
+            raise ValueError(f"missing forecast receipt for control_receipts[{idx}]")
 
         memory_weight = _clamp01((0.6 * control.decision.confidence) + (0.4 * control.decision.control_score))
         entry_payload = {

@@ -98,6 +98,10 @@ unified runtime state construction
 policy memory accumulation
 adaptive governance recommendation
 governance validation (v148.0)
+
+---
+
+```
 ⚡ Quickstart — Run the Proof Artifact
 
 ## 1. Install

@@ -1,13 +1,13 @@
 # QSOLKCB / QEC
 
-**Deterministic Autonomous Control • Memory • Governance • Validation • Replay-Safe Systems**
+**Deterministic Autonomous Control • Memory • Governance • Validation • Counterfactual Reasoning • Replay-Safe Systems**
 
 ---
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v148.0-success)](https://github.com/QSOLKCB/QEC/releases/tag/v148.0)
+[![Latest](https://img.shields.io/badge/stable-v148.4-success)](https://github.com/QSOLKCB/QEC/releases/tag/v148.4)
 
 [![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
 
@@ -31,13 +31,14 @@
 [![Replay](https://img.shields.io/badge/replay-hash--stable-green)]()
 [![Governance](https://img.shields.io/badge/governance-adaptive%20validated-orange)]()
 [![Validation](https://img.shields.io/badge/validation-replay--proven-yellow)]()
+[![Counterfactual](https://img.shields.io/badge/counterfactual-necessary%20proof-blue)]()
 [![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
 ---
 
 # 🚀 What QEC Is
 
-QEC is a **deterministic autonomous control and governance system**.
+QEC is a **deterministic autonomous control, governance, and repair reasoning system**.
 
 It is not just a runtime.
 
@@ -49,6 +50,10 @@ It is a system that:
 * accumulates memory
 * governs future behavior
 * validates its own decisions
+* understands failure
+* proposes fixes
+* validates those fixes
+* proves which fixes are necessary
 
 It determines:
 
@@ -60,6 +65,10 @@ what is structurally constrained
 what is admissible next
 what policy should evolve
 what decisions are provably stable
+what failed
+what can fix it
+what fix is correct
+what fix is necessary
 ```
 
 ---
@@ -84,7 +93,7 @@ same input
 iterate → recompute → waste work
 ```
 
-### QEC (IRIS + SPHAERA → Control → Governance → Validation)
+### QEC (IRIS + SPHAERA → Control → Governance → Validation → Repair → Counterfactual)
 
 ```text
 iterate
@@ -99,11 +108,16 @@ iterate
 → accumulate memory
 → generate governance decisions
 → validate decision stability
+→ normalize failure
+→ generate fix proposals
+→ validate fixes
+→ compare alternatives
+→ prove necessity
 ```
 
 ---
 
-## ⚙️ System Capability (v148 State)
+## ⚙️ System Capability (v148.4 State)
 
 QEC now performs:
 
@@ -119,6 +133,23 @@ QEC now performs:
 * policy memory accumulation
 * adaptive governance recommendation
 * governance validation (v148.0)
+* issue normalization (v148.1)
+* fix proposal generation (v148.2)
+* fix validation (v148.3)
+* counterfactual replay (v148.4)
+
+---
+
+## 🧠 Repair Reasoning Pipeline (v148)
+
+```text
+issue
+→ canonical issue
+→ fix proposal
+→ validated fix
+→ counterfactual comparison
+→ necessary / equivalent / dominated / unresolved
+```
 
 ---
 

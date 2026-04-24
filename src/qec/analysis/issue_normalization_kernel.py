@@ -204,7 +204,7 @@ class CanonicalIssueSet:
 
     def _payload_dict(self) -> dict[str, Any]:
         return {
-            "issues": tuple(issue.to_dict() for issue in self.issues),
+            "issues": [issue.to_dict() for issue in self.issues],
             "issue_count": self.issue_count,
             "issue_hash": self.issue_hash,
         }

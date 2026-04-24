@@ -48,13 +48,14 @@ def _norm_timing_vector(retro_trace: RetroTraceReceipt) -> tuple[float, ...]:
     if not retro_trace.normalized_timing:
         return tuple(0.0 for _ in range(retro_trace.trace_length))
     max_cycle = float(max(1, retro_trace.normalized_timing[-1]))
-    values = []
-    for idx in range(retro_trace.trace_length):
-        if idx < len(retro_trace.normalized_timing):
-            cyc = retro_trace.normalized_timing[idx]
-        else:
-            cyc = retro_trace.normalized_timing[-1]
-        values.append(_clamp01(float(cyc) / max_cycle))
+    values: list[float] = []
+    timing_index = 0
+    latest_cycle = retro_trace.normalized_timing[0]
+    for _event_index, event_type, _payload in retro_trace.event_sequence:
+        if event_type == "timing" and timing_index < len(retro_trace.normalized_timing):
+            latest_cycle = retro_trace.normalized_timing[timing_index]
+            timing_index += 1
+        values.append(_clamp01(float(latest_cycle) / max_cycle))
     return tuple(values)
 
 
@@ -474,7 +475,6 @@ def forecast_retro_trace_lattice(
         )
         occupied_counts[coords] = occupied_counts.get(coords, 0) + 1
 
-    initial_total = max(1, retro_trace.trace_length)
     steps: list[RetroTraceLatticeForecastStep] = []
     for step_index in range(1, horizon + 1):
         synth_event_index = retro_trace.trace_length + step_index - 1
@@ -490,7 +490,7 @@ def forecast_retro_trace_lattice(
         )
         occupied_counts[synth_coords] = occupied_counts.get(synth_coords, 0) + 1
 
-        total_events = initial_total + step_index
+        total_events = max(1, sum(occupied_counts.values()))
         sorted_coords = tuple(sorted(occupied_counts.keys()))
         cells = []
         for coords in sorted_coords:

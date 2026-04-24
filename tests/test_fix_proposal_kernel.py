@@ -73,7 +73,11 @@ def test_category_strategy_mapping() -> None:
     proposal_receipt = generate_fix_proposals(issue_receipt)
 
     expected_by_category = {category: strategy for category, strategy in category_cases}
-    assert {proposal.category: proposal.fix_strategy for proposal in proposal_receipt.proposal_set.proposals} == expected_by_category
+    actual_by_category = {
+        proposal.category: proposal.fix_strategy
+        for proposal in proposal_receipt.proposal_set.proposals
+    }
+    assert actual_by_category == expected_by_category
 
 
 def test_sorting_stability_for_shuffled_input() -> None:

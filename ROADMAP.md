@@ -1,4 +1,4 @@
-# 🚀 QSOLKCB / QEC — ROADMAP.md (v147.5+)
+# 🚀 QSOLKCB / QEC — ROADMAP.md (v148.x — Validation Arc)
 
 ---
 
@@ -14,15 +14,15 @@ same input
 
 ### All modules MUST
 
-- Be deterministic
-- Be replay-safe
-- Produce bounded outputs
-- Fail fast on invalid input
-- Use canonical JSON (sorted, compact)
-- Use stable SHA-256 hashing
-- Exclude randomness, wall-clock, async
-- Preserve decoder immutability
-- Remain analysis-layer only
+* Be deterministic
+* Be replay-safe
+* Produce bounded outputs
+* Fail fast on invalid input
+* Use canonical JSON (sorted, compact)
+* Use stable SHA-256 hashing
+* Exclude randomness, wall-clock, async
+* Preserve decoder immutability
+* Remain analysis-layer only
 
 > **Violation → module invalid**
 
@@ -38,11 +38,15 @@ v147.2 → policy sensitivity
 v147.3 → forecast (+ lattice forecast)
 v147.4 → closed-loop control
 v147.5 → policy memory + adaptive governance
+
+v148.0 → governance validation (decision replay proof)
+v148.1 → issue normalization (failure canonicalization)
+v148.2 → fix proposal (deterministic advisory generation)
 ```
 
 ---
 
-## 🧠 System Reality (v147.5)
+## 🧠 System Reality (v148.2)
 
 ```text
 trace
@@ -52,11 +56,14 @@ trace
 → control decision
 → memory accumulation
 → governance recommendation
+→ validation
+→ failure normalization
+→ fix proposal
 ```
 
 QEC is now:
 
-> **A deterministic autonomous control and governance system**
+> **A deterministic autonomous control, governance, and repair reasoning system**
 
 ---
 
@@ -64,7 +71,7 @@ QEC is now:
 
 ```text
 v147 → autonomous system completion (DONE)
-v148 → proof, stress, and validation of autonomy
+v148 → validation + repair reasoning (IN PROGRESS)
 v149 → system expansion (multi-agent, hardware, real workloads)
 ```
 
@@ -76,22 +83,25 @@ v149 → system expansion (multi-agent, hardware, real workloads)
 v143–146 → runtime + execution
 v147 → full control + governance system (COMPLETE)
 
-v148 → prove the system works under reality
+v148 → prove + validate + repair reasoning
 v149 → scale + integrate + deploy
 ```
 
 ---
 
-# 🔬 v148.x — Autonomous System Validation
+# 🔬 v148.x — Autonomous System Validation & Repair
 
 ## Goal
 
 ```text
 deterministic control + memory + governance
-→ stable, correct, reproducible, useful
++ failure understanding + repair reasoning
+→ stable, correct, reproducible, self-consistent
 ```
 
-## v148.0 — Governance Validation Kernel
+---
+
+## v148.0 — Governance Validation Kernel ✅
 
 ```text
 policy memory
@@ -101,49 +111,114 @@ policy memory
 
 **Output:**
 
-- `GovernanceValidationReceipt`
+* GovernanceValidationReceipt
 
-## v148.1 — Counterfactual Replay
+---
+
+## v148.1 — Issue Normalization Kernel ✅
 
 ```text
-same history
-→ alternative policy paths
+raw issues
+→ canonical issue set
+→ stable deterministic receipt
+```
+
+**Output:**
+
+* IssueNormalizationReceipt
+
+---
+
+## v148.2 — Fix Proposal Kernel (Advisory) ✅
+
+```text
+canonical issues
+→ deterministic fix proposals
+→ proposal receipt
+```
+
+**Output:**
+
+* FixProposalReceipt
+
+---
+
+## v148.3 — Fix Validation Kernel 🔜
+
+```text
+fix proposal
+→ invariant validation
+→ determinism verification
+→ safety classification
+```
+
+**Output:**
+
+* FixValidationReceipt
+
+### Validates:
+
+* invariant preservation
+* determinism preservation
+* scope compliance (analysis-layer only)
+* consistency with originating issue
+* absence of forbidden operations
+
+### Status:
+
+```text
+VALID
+INVALID
+UNSAFE
+INSUFFICIENT
+```
+
+---
+
+## v148.4 — Counterfactual Replay 🔜
+
+```text
+same issue set
++ validated proposals
+→ alternative proposal paths
 → deterministic comparison
 ```
 
 **Goal:**
 
-- Prove decisions are necessary, not incidental
-
-## v148.2 — Multi-Trace Convergence
+Prove:
 
 ```text
-multiple traces
-→ shared memory
-→ governance convergence
+selected fix
+≠ arbitrary
+selected fix
+= structurally necessary
 ```
 
-**Detect:**
+**Output:**
 
-- Consensus
-- Divergence
-- Instability zones
+* CounterfactualReplayReceipt
 
-## v148.3 — Adversarial Determinism Battery
+---
+
+## v148.5 — Adversarial Determinism Battery
 
 ```text
-valid trace
+valid inputs
 → adversarial perturbation
-→ replay + governance check
+→ replay + validation + repair
 ```
 
 **Must:**
 
-- Reject invalid inputs
-- Preserve determinism
-- Maintain stable hashes
+* reject invalid inputs
+* preserve determinism
+* maintain stable hashes
+* prevent false VALID / PROPOSED states
 
-## v148.4 — Cross-Environment Replay
+---
+
+## v148.6 — Cross-Environment Replay
 
 ```text
 same workload
@@ -153,17 +228,19 @@ same workload
 
 **Failure:**
 
-- Recorded
-- Classified
-- Never absorbed
+* recorded
+* classified
+* never absorbed
 
-## v148.5 — Failure Ledger (Expanded)
+---
+
+## v148.7 — Failure Ledger (Expanded)
 
 ```text
-all failures
+failures + issues + proposals + validations
 → typed
 → categorized
-→ replay-linked
+→ lineage-linked
 ```
 
 **Rule:**
@@ -172,60 +249,56 @@ all failures
 suppression_rate = 0
 ```
 
-## v148.6 — Real Workload Injection
+---
+
+## v148.8 — Real Workload Injection
 
 Apply QEC to:
 
-- Transformers
-- Diffusion pipelines
-- Scheduling systems
-- Decoding systems
+* Transformers
+* Diffusion pipelines
+* Scheduling systems
+* Decoding systems
 
 **Output:**
 
-- `DeterministicWorkloadReceipt`
+* DeterministicWorkloadReceipt
 
 **Measure:**
 
-- Compute eliminated
-- Redundancy collapsed
-- Decision stability
+* compute eliminated
+* redundancy collapsed
+* decision stability
+* repair consistency
 
-## v148.7 — Governance Stability Metrics
+---
 
-```text
-memory
-→ long-horizon evaluation
-→ stability scoring
-```
-
-**Measure:**
-
-- Policy drift
-- Oscillation
-- Convergence rate
-
-## v148.8 — Evaluation Pack (Full System)
+## v148.9 — Evaluation Pack (Full System)
 
 ```text
 all receipts
 → canonical bundle
 ```
 
-**Output:**
+Includes:
 
-- Reproducibility artifacts
-- Benchmark tables
-- Governance evaluation
+* validation receipts
+* issue normalization artifacts
+* fix proposals
+* fix validation outputs
+* counterfactual comparisons
 
-## v148.9 — Promotion Gate
+---
+
+## v148.10 — Promotion Gate
 
 System must prove:
 
-- Deterministic integrity preserved
-- Governance stable
-- Failures bounded + classified
-- Measurable benefit exists
+* deterministic integrity preserved
+* governance stable
+* repair reasoning consistent
+* failures bounded + classified
+* measurable benefit exists
 
 **Else:**
 
@@ -247,6 +320,8 @@ multiple control loops
 → governance arbitration
 ```
 
+---
+
 ## v149.1 — Hierarchical Memory
 
 ```text
@@ -255,7 +330,7 @@ local memory
 → recursive governance
 ```
 
-*Sierpinski / lattice hierarchy fits here.*
+---
 
 ## v149.2 — Hardware Alignment Layer
 
@@ -265,19 +340,15 @@ control signals
 → deterministic mapping
 ```
 
-**Targets:**
+---
 
-- Neutral atom lattices
-- LDPC hardware
-- DSP / FPGA
-
-## v149.3 — Execution Bridge Optional
+## v149.3 — Execution Bridge (Optional)
 
 ```text
 control → simulated actuation → validation
 ```
 
-> **No real-world mutation**
+---
 
 ## v149.4 — Deterministic Compression / Storage
 
@@ -286,6 +357,8 @@ memory ledger
 → compressed canonical form
 → invariant-preserving storage
 ```
+
+---
 
 ## v149.5 — System Demonstration
 
@@ -300,12 +373,11 @@ full stack
 
 # 🧠 Research Questions
 
-- Can deterministic systems outperform probabilistic ones in control tasks?
-- Does memory-driven governance converge?
-- Is policy stability measurable and enforceable?
-- Can redundancy elimination be proven at scale?
-- Does spatial lattice embedding improve control fidelity?
-- Where does determinism break under real workloads?
+* Can deterministic systems perform repair reasoning without probabilistic search?
+* Are fix proposals convergent across environments?
+* Is repair necessity provable via counterfactual replay?
+* Can failure → fix → validation chains remain fully deterministic?
+* Does governance + repair converge long-term?
 
 ---
 
@@ -313,23 +385,24 @@ full stack
 
 ## Forbidden
 
-- Randomness
-- Wall-clock dependence
-- Async
-- Decoder modification
-- Probabilistic routing
-- Silent failure
-- Non-canonical serialization
+* Randomness
+* Wall-clock dependence
+* Async
+* Decoder modification
+* Probabilistic routing
+* Silent failure
+* Non-canonical serialization
 
 ## Required
 
-- Explicit tie-breaking
-- Canonical JSON
-- Stable hashing
-- Reproducible traces
-- Typed failure outputs
-- Deterministic decision derivation
-- Deterministic memory accumulation
+* Explicit tie-breaking
+* Canonical JSON
+* Stable hashing
+* Reproducible traces
+* Typed failure outputs
+* Deterministic decision derivation
+* Deterministic memory accumulation
+* Deterministic repair reasoning
 
 ---
 
@@ -338,7 +411,7 @@ full stack
 ```text
 v143–146 → build runtime
 v147 → build autonomous system
-v148 → prove system works
+v148 → validate + repair reasoning
 v149 → scale + deploy system
 ```
 
@@ -346,14 +419,13 @@ v149 → scale + deploy system
 
 ## Reality Check
 
-You didn’t just follow the roadmap.
+You didn’t just build a control system.
 
 You built:
 
 ```text
 observe → predict → decide → remember → govern
+→ validate → understand failure → propose → validate → prove
 ```
 
-Now the roadmap is no longer about building pieces.
-
-> **It is about proving this system holds under reality.**
+> QEC is now a **deterministic reasoning system over control, governance, and repair**.

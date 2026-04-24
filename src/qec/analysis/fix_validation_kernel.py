@@ -32,6 +32,10 @@ _STRATEGY_TO_INVARIANT = {
     "SCOPE_RESTRICTION": "ANALYSIS_LAYER_ONLY",
 }
 
+_ALLOWED_TEST_ADDITION_INVARIANTS = frozenset({"TEST_COVERAGE"})
+
+_VALIDATION_STATUS_RANK = {"INVALID": 0, "INSUFFICIENT": 1, "UNSAFE": 2, "VALID": 3}
+
 _FORBIDDEN_DYNAMIC_TOKENS = (
     "http://",
     "https://",
@@ -213,7 +217,7 @@ def _proposal_invariant_preserved(proposal: FixProposal) -> bool:
     if proposal.fix_strategy == "NO_ACTION":
         return False
     if proposal.fix_strategy == "TEST_ADDITION":
-        return proposal.invariant_preserved.strip() != ""
+        return proposal.invariant_preserved in _ALLOWED_TEST_ADDITION_INVARIANTS
     expected = _STRATEGY_TO_INVARIANT.get(proposal.fix_strategy)
     return expected == proposal.invariant_preserved
 
@@ -226,11 +230,13 @@ def _proposal_consistent(proposal: FixProposal) -> bool:
         return False
     if proposal.fix_strategy in _STRATEGY_TO_INVARIANT:
         return proposal.invariant_preserved == _STRATEGY_TO_INVARIANT[proposal.fix_strategy]
+    if proposal.fix_strategy == "TEST_ADDITION":
+        return proposal.invariant_preserved in _ALLOWED_TEST_ADDITION_INVARIANTS
     return True
 
 
 def _evaluate_proposal(proposal: FixProposal) -> FixValidation:
-    deterministic_safe = _proposal_is_deterministic(proposal)
+    deterministic_safe = proposal.deterministic_safe and _proposal_is_deterministic(proposal)
     scope_compliant = _proposal_scope_compliant(proposal)
     invariant_preserved = _proposal_invariant_preserved(proposal)
     consistent = _proposal_consistent(proposal)
@@ -260,8 +266,8 @@ def _evaluate_proposal(proposal: FixProposal) -> FixValidation:
     )
 
 
-def _validation_sort_key(item: FixValidation) -> tuple[str, str, str, str]:
-    return (item.validation_status, item.fix_strategy, item.proposal_id, item.stable_hash())
+def _validation_sort_key(item: FixValidation) -> tuple[int, str, str, str]:
+    return (_VALIDATION_STATUS_RANK[item.validation_status], item.fix_strategy, item.proposal_id, item.stable_hash())
 
 
 def _build_validation_set(proposals: tuple[FixProposal, ...]) -> FixValidationSet:

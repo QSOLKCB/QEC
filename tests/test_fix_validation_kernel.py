@@ -186,6 +186,52 @@ def test_empty_input() -> None:
     assert receipt.insufficient_count == 0
 
 
+
+
+def test_unsafe_when_proposal_marks_non_deterministic() -> None:
+    proposal = _proposal(
+        proposal_id="PROPOSAL-0007",
+        issue_hash="issue-0007",
+        category="ORDERING",
+        severity="MEDIUM",
+        fix_strategy="ORDERING_FIX",
+        invariant_preserved="DETERMINISTIC_ORDERING",
+        deterministic_safe=False,
+        fix_summary="Deterministic wording only",
+    )
+
+    receipt = validate_fix_proposals(_proposal_receipt((proposal,)))
+
+    assert receipt.validation_status == "HAS_UNSAFE"
+    validation = receipt.validation_set.validations[0]
+    assert validation.validation_status == "UNSAFE"
+    assert validation.deterministic_safe is False
+
+
+def test_test_addition_requires_allowed_invariant() -> None:
+    valid = _proposal(
+        proposal_id="PROPOSAL-0008",
+        issue_hash="issue-0008",
+        category="TEST_COVERAGE",
+        severity="LOW",
+        fix_strategy="TEST_ADDITION",
+        invariant_preserved="TEST_COVERAGE",
+    )
+    invalid = _proposal(
+        proposal_id="PROPOSAL-0009",
+        issue_hash="issue-0009",
+        category="TEST_COVERAGE",
+        severity="LOW",
+        fix_strategy="TEST_ADDITION",
+        invariant_preserved="NOT_ALLOWED",
+    )
+
+    receipt = validate_fix_proposals(_proposal_receipt((valid, invalid)))
+
+    statuses = {item.proposal_id: item.validation_status for item in receipt.validation_set.validations}
+    assert statuses["PROPOSAL-0008"] == "VALID"
+    assert statuses["PROPOSAL-0009"] == "INVALID"
+
 def test_frozen_dataclass_immutability() -> None:
     validation = FixValidation(
         proposal_id="PROPOSAL-IMMUT",

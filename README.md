@@ -39,33 +39,16 @@ what can be skipped
 what is already known
 what is structurally constrained
 what is admissible next
-```
-
----
-
-# 🧠 Core Law
-
-```text
+🧠 Core Law
 same input
 → same ordering
 → same canonical JSON
 → same stable hash
 → same bytes
-```
-
----
-
-# 🔥 The Big Idea
-
-Most systems:
-
-```text
+🔥 The Big Idea
+Most systems
 iterate → recompute → waste work
-```
-
-QEC (IRIS + SPHAERA):
-
-```text
+QEC (IRIS + SPHAERA)
 iterate
 → detect invariants
 → detect convergence structure
@@ -75,23 +58,22 @@ iterate
 → characterize dynamics (spectral)
 → select deterministically
 → produce proof-carrying artifacts
-```
-
----
-
-# ⚙️ System Capability (v143 Complete)
+⚙️ System Capability (v148 State)
 
 QEC now performs:
 
-- invariant detection
-- convergence classification
-- redundancy elimination
-- deterministic execution planning
-- geometric invariant embedding
-- ensemble consistency enforcement
-- spectral structure characterization
-- deterministic transition selection
-- unified runtime state construction
+invariant detection
+convergence classification
+redundancy elimination
+deterministic execution planning
+geometric invariant embedding
+ensemble consistency enforcement
+spectral structure characterization
+deterministic transition selection
+unified runtime state construction
+policy memory accumulation
+adaptive governance recommendation
+governance validation (v148.0)
 
 ---
 

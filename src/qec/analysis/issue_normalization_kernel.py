@@ -359,19 +359,26 @@ def _build_issue_set(issues: Sequence[CanonicalIssue]) -> CanonicalIssueSet:
 
 
 def normalize_review_issues(raw_issues: Sequence[Mapping[str, Any]]) -> IssueNormalizationReceipt:
+    if isinstance(raw_issues, (str, bytes, bytearray)):
+        raise ValueError("raw_issues must be a sequence of mappings, not a string-like value")
     if not isinstance(raw_issues, Sequence):
         raise ValueError("raw_issues must be a sequence")
 
-    normalized_issues = tuple(_normalize_raw_issue(raw_issue) for raw_issue in raw_issues)
+    raw_issue_items = tuple(raw_issues)
+    for index, raw_issue in enumerate(raw_issue_items):
+        if not isinstance(raw_issue, Mapping):
+            raise ValueError(f"raw_issues[{index}] must be a mapping")
+
+    normalized_issues = tuple(_normalize_raw_issue(raw_issue) for raw_issue in raw_issue_items)
     issue_set = _build_issue_set(normalized_issues)
 
-    status = "EMPTY" if len(raw_issues) == 0 else "NORMALIZED"
+    status = "EMPTY" if len(raw_issue_items) == 0 else "NORMALIZED"
 
     return IssueNormalizationReceipt(
         schema_version="1.0",
         module_version="v148.1",
         normalization_status=status,
-        source_count=len(raw_issues),
+        source_count=len(raw_issue_items),
         issue_count=issue_set.issue_count,
         canonical_issue_set=issue_set,
         issue_set_hash=issue_set.issue_hash,

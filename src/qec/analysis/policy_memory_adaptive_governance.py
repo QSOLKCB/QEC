@@ -22,8 +22,8 @@ _RECOMMENDATIONS = (
     "ESCALATE_GOVERNANCE",
     "REVIEW_MEMORY",
 )
-_ACTION_ORDER = ("ADJUST", "ESCALATE", "HOLD")
-_FACTOR_ORDER = ("divergence", "forecast", "locality", "stability")
+_ACTION_ORDER = ("HOLD", "ADJUST", "ESCALATE")
+_FACTOR_ORDER = ("stability", "locality", "forecast", "divergence")
 _FORECAST_RISK_BY_CLASS = {"STABLE": 0.15, "DRIFT": 0.55, "UNSTABLE": 0.9}
 
 

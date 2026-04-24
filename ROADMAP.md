@@ -1,26 +1,36 @@
-QSOLKCB / QEC — ROADMAP.md (v147.5+)
-Core Law (Invariant)
+# 🚀 QSOLKCB / QEC — ROADMAP.md (v147.5+)
+
+---
+
+## 🔒 Core Law (Invariant)
+
+```text
 same input
 → same ordering
 → same canonical JSON
 → same stable hash
 → same bytes
+```
 
-All modules MUST:
+### All modules MUST
 
-be deterministic
-be replay-safe
-produce bounded outputs
-fail fast on invalid input
-use canonical JSON (sorted, compact)
-use stable SHA-256 hashing
-exclude randomness, wall-clock, async
-preserve decoder immutability
-remain analysis-layer only
+- Be deterministic
+- Be replay-safe
+- Produce bounded outputs
+- Fail fast on invalid input
+- Use canonical JSON (sorted, compact)
+- Use stable SHA-256 hashing
+- Exclude randomness, wall-clock, async
+- Preserve decoder immutability
+- Remain analysis-layer only
 
-Violation → module invalid
+> **Violation → module invalid**
 
-State (Actual)
+---
+
+## 📊 State (Actual)
+
+```text
 v143.x → SPHAERA (deterministic runtime)
 v146.x → execution representation + proof capsules
 v147.1 → trace intake (canonical ingestion)
@@ -28,7 +38,13 @@ v147.2 → policy sensitivity
 v147.3 → forecast (+ lattice forecast)
 v147.4 → closed-loop control
 v147.5 → policy memory + adaptive governance
-System Reality (v147.5)
+```
+
+---
+
+## 🧠 System Reality (v147.5)
+
+```text
 trace
 → sensitivity
 → forecast
@@ -36,202 +52,308 @@ trace
 → control decision
 → memory accumulation
 → governance recommendation
+```
 
 QEC is now:
 
-a deterministic autonomous control and governance system
+> **A deterministic autonomous control and governance system**
 
-Correction to Previous Direction
+---
 
-Previous roadmap:
+## ✅ New Direction
 
-v147 → constraint proving ground
-
-❌ No longer valid
-
-New Direction
+```text
 v147 → autonomous system completion (DONE)
-v148 → validation + proof under real conditions
-v149 → system expansion + integration
-ROADMAP SPINE
+v148 → proof, stress, and validation of autonomy
+v149 → system expansion (multi-agent, hardware, real workloads)
+```
+
+---
+
+## 🧭 Roadmap Spine
+
+```text
 v143–146 → runtime + execution
 v147 → full control + governance system (COMPLETE)
 
-v148 → prove the system works
+v148 → prove the system works under reality
 v149 → scale + integrate + deploy
-v148.x — AUTONOMOUS SYSTEM VALIDATION
-Goal
+```
+
+---
+
+# 🔬 v148.x — Autonomous System Validation
+
+## Goal
+
+```text
 deterministic control + memory + governance
-→ must be stable, correct, reproducible, useful
-v148.0 — Governance Validation Kernel
+→ stable, correct, reproducible, useful
+```
+
+## v148.0 — Governance Validation Kernel
+
+```text
 policy memory
 → recompute governance
 → verify recommendation stability
+```
 
-Output:
+**Output:**
 
-GovernanceValidationReceipt
-v148.1 — Counterfactual Replay
+- `GovernanceValidationReceipt`
+
+## v148.1 — Counterfactual Replay
+
+```text
 same history
 → alternative policy paths
 → deterministic comparison
+```
 
-Goal:
+**Goal:**
 
-prove decisions are necessary, not incidental
-v148.2 — Multi-Trace Convergence
+- Prove decisions are necessary, not incidental
+
+## v148.2 — Multi-Trace Convergence
+
+```text
 multiple traces
 → shared memory
 → governance convergence
+```
 
-Detect:
+**Detect:**
 
-consensus
-divergence
-instability zones
-v148.3 — Adversarial Determinism Battery
+- Consensus
+- Divergence
+- Instability zones
+
+## v148.3 — Adversarial Determinism Battery
+
+```text
 valid trace
 → adversarial perturbation
 → replay + governance check
+```
 
-Must:
+**Must:**
 
-reject invalid inputs
-preserve determinism
-maintain stable hashes
-v148.4 — Cross-Environment Replay
+- Reject invalid inputs
+- Preserve determinism
+- Maintain stable hashes
+
+## v148.4 — Cross-Environment Replay
+
+```text
 same workload
 → multiple machines
 → identical outputs
+```
 
-Failure:
+**Failure:**
 
-recorded
-classified
-never absorbed
-v148.5 — Failure Ledger (Expanded)
+- Recorded
+- Classified
+- Never absorbed
+
+## v148.5 — Failure Ledger (Expanded)
+
+```text
 all failures
 → typed
 → categorized
 → replay-linked
+```
 
-Rule:
+**Rule:**
 
+```text
 suppression_rate = 0
-v148.6 — Real Workload Injection
+```
+
+## v148.6 — Real Workload Injection
 
 Apply QEC to:
 
-transformers
-diffusion pipelines
-scheduling systems
-decoding systems
+- Transformers
+- Diffusion pipelines
+- Scheduling systems
+- Decoding systems
 
-Output:
+**Output:**
 
-DeterministicWorkloadReceipt
+- `DeterministicWorkloadReceipt`
 
-Measure:
+**Measure:**
 
-compute eliminated
-redundancy collapsed
-decision stability
-v148.7 — Governance Stability Metrics
+- Compute eliminated
+- Redundancy collapsed
+- Decision stability
+
+## v148.7 — Governance Stability Metrics
+
+```text
 memory
 → long-horizon evaluation
 → stability scoring
+```
 
-Measure:
+**Measure:**
 
-policy drift
-oscillation
-convergence rate
-v148.8 — Evaluation Pack (Full System)
+- Policy drift
+- Oscillation
+- Convergence rate
+
+## v148.8 — Evaluation Pack (Full System)
+
+```text
 all receipts
 → canonical bundle
+```
 
-Output:
+**Output:**
 
-reproducibility artifacts
-benchmark tables
-governance evaluation
-v148.9 — Promotion Gate
+- Reproducibility artifacts
+- Benchmark tables
+- Governance evaluation
+
+## v148.9 — Promotion Gate
 
 System must prove:
 
-deterministic integrity preserved
-governance stable
-failures bounded + classified
-measurable benefit exists
+- Deterministic integrity preserved
+- Governance stable
+- Failures bounded + classified
+- Measurable benefit exists
 
-Else:
+**Else:**
 
+```text
 STOP
-v149.x — SYSTEM EXPANSION
+```
 
-Begins only after v148 passes.
+---
 
-v149.0 — Multi-Agent Governance
+# 🚀 v149.x — System Expansion
+
+> Begins only after v148 passes.
+
+## v149.0 — Multi-Agent Governance
+
+```text
 multiple control loops
 → shared / competing memory
 → governance arbitration
-v149.1 — Hierarchical Memory
+```
+
+## v149.1 — Hierarchical Memory
+
+```text
 local memory
 → global memory
 → recursive governance
+```
 
-(Sierpinski / lattice hierarchy fits here)
+*Sierpinski / lattice hierarchy fits here.*
 
-v149.2 — Hardware Alignment Layer
+## v149.2 — Hardware Alignment Layer
+
+```text
 control signals
 → hardware constraints
 → deterministic mapping
+```
 
-Targets:
+**Targets:**
 
-neutral atom lattices
-LDPC hardware
-DSP / FPGA
-v149.3 — Execution Bridge (Optional)
+- Neutral atom lattices
+- LDPC hardware
+- DSP / FPGA
+
+## v149.3 — Execution Bridge Optional
+
+```text
 control → simulated actuation → validation
+```
 
-No real-world mutation
+> **No real-world mutation**
 
-v149.4 — Deterministic Compression / Storage
+## v149.4 — Deterministic Compression / Storage
+
+```text
 memory ledger
 → compressed canonical form
 → invariant-preserving storage
-v149.5 — System Demonstration
+```
+
+## v149.5 — System Demonstration
+
+```text
 full stack
 → real workload
 → deterministic governance
 → measurable gain
-Research Questions
-Can deterministic systems outperform probabilistic ones in control tasks?
-Does memory-driven governance converge?
-Is policy stability measurable and enforceable?
-Can redundancy elimination be proven at scale?
-Does spatial (lattice) embedding improve control fidelity?
-Where does determinism break under real workloads?
-Guardrails
-Forbidden
-randomness
-wall-clock dependence
-async
-decoder modification
-probabilistic routing
-silent failure
-non-canonical serialization
-Required
-explicit tie-breaking
-canonical JSON
-stable hashing
-reproducible traces
-typed failure outputs
-deterministic decision derivation
-deterministic memory accumulation
-Final Direction
+```
+
+---
+
+# 🧠 Research Questions
+
+- Can deterministic systems outperform probabilistic ones in control tasks?
+- Does memory-driven governance converge?
+- Is policy stability measurable and enforceable?
+- Can redundancy elimination be proven at scale?
+- Does spatial lattice embedding improve control fidelity?
+- Where does determinism break under real workloads?
+
+---
+
+# 🔒 Guardrails
+
+## Forbidden
+
+- Randomness
+- Wall-clock dependence
+- Async
+- Decoder modification
+- Probabilistic routing
+- Silent failure
+- Non-canonical serialization
+
+## Required
+
+- Explicit tie-breaking
+- Canonical JSON
+- Stable hashing
+- Reproducible traces
+- Typed failure outputs
+- Deterministic decision derivation
+- Deterministic memory accumulation
+
+---
+
+# 🎯 Final Direction
+
+```text
 v143–146 → build runtime
 v147 → build autonomous system
 v148 → prove system works
 v149 → scale + deploy system
+```
+
+---
+
+## Reality Check
+
+You didn’t just follow the roadmap.
+
+You built:
+
+```text
+observe → predict → decide → remember → govern
+```
+
+Now the roadmap is no longer about building pieces.
+
+> **It is about proving this system holds under reality.**

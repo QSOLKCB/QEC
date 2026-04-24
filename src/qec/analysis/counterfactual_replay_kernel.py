@@ -268,7 +268,6 @@ def _classify_group(issue_hash: str, validations: tuple[FixValidation, ...]) -> 
     comparisons: list[CounterfactualComparison] = []
     for validation in validations:
         proposal_id = validation.proposal_id
-        vector = vectors[proposal_id]
         if len(nondominated_ids) == 1 and proposal_id == nondominated_ids[0]:
             status = "NECESSARY"
         elif len(nondominated_ids) > 1 and proposal_id in equivalence_ids and len(equivalence_ids) > 1:

@@ -27,18 +27,28 @@
 
 # 🚀 What QEC Is
 
-QEC is a **deterministic invariant-governed runtime system**.
+QEC is a **deterministic autonomous control and governance system**.
 
-It does not simply execute computation.
+It is not just a runtime.
+
+It is a system that:
+
+- observes state  
+- predicts evolution  
+- selects actions  
+- accumulates memory  
+- governs future behavior  
+- validates its own decisions  
 
 It determines:
 
-```text
 what must run
 what can be skipped
 what is already known
 what is structurally constrained
 what is admissible next
+what policy should evolve
+what decisions are provably stable
 🧠 Core Law
 same input
 → same ordering
@@ -48,7 +58,7 @@ same input
 🔥 The Big Idea
 Most systems
 iterate → recompute → waste work
-QEC (IRIS + SPHAERA)
+QEC (IRIS + SPHAERA → Control → Governance → Validation)
 iterate
 → detect invariants
 → detect convergence structure
@@ -58,6 +68,9 @@ iterate
 → characterize dynamics (spectral)
 → select deterministically
 → produce proof-carrying artifacts
+→ accumulate memory
+→ generate governance decisions
+→ validate decision stability
 ⚙️ System Capability (v148 State)
 
 QEC now performs:
@@ -74,21 +87,6 @@ unified runtime state construction
 policy memory accumulation
 adaptive governance recommendation
 governance validation (v148.0)
-
----
-
-# 🧩 Full Runtime Pipeline (SPHAERA)
-
-```text
-state
-→ invariant detection
-→ geometric embedding
-→ ensemble consistency
-→ spectral structure
-→ allowed transitions
-→ deterministic selection
-→ unified runtime receipt
-```
 
 ---
 

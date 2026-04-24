@@ -111,6 +111,7 @@ def test_missing_severity_defaults_to_medium() -> None:
 def test_empty_list_produces_empty_status() -> None:
     receipt = normalize_review_issues([])
     assert receipt.normalization_status == "EMPTY"
+    assert receipt.input_issue_count == 0
     assert receipt.issue_count == 0
 
 

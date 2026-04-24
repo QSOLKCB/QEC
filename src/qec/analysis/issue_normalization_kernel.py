@@ -229,7 +229,7 @@ class IssueNormalizationReceipt:
     schema_version: str
     module_version: str
     normalization_status: str
-    source_count: int
+    input_issue_count: int
     issue_count: int
     canonical_issue_set: CanonicalIssueSet
     issue_set_hash: str
@@ -239,7 +239,7 @@ class IssueNormalizationReceipt:
             "schema_version": self.schema_version,
             "module_version": self.module_version,
             "normalization_status": self.normalization_status,
-            "source_count": self.source_count,
+            "input_issue_count": self.input_issue_count,
             "issue_count": self.issue_count,
             "canonical_issue_set": self.canonical_issue_set.to_dict(),
             "issue_set_hash": self.issue_set_hash,
@@ -381,7 +381,7 @@ def normalize_review_issues(raw_issues: Sequence[Mapping[str, Any]]) -> IssueNor
         schema_version="1.0",
         module_version="v148.1",
         normalization_status=status,
-        source_count=len(raw_issue_items),
+        input_issue_count=len(raw_issue_items),
         issue_count=issue_set.issue_count,
         canonical_issue_set=issue_set,
         issue_set_hash=issue_set.issue_hash,

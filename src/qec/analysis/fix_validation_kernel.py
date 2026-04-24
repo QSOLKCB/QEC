@@ -191,9 +191,19 @@ def _proposal_is_deterministic(proposal: FixProposal) -> bool:
     return not any(token in lowered for token in _FORBIDDEN_DYNAMIC_TOKENS)
 
 
+def _normalize_target_path(target_path: str) -> str:
+    """Return a canonical relative path string for scope checks."""
+    normalized = target_path.strip().lower().replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    parts = tuple(part for part in normalized.split("/") if part not in {"", "."})
+    return "/".join(parts)
+
+
 def _proposal_scope_compliant(proposal: FixProposal) -> bool:
-    target = proposal.target_path.lower()
-    if target.startswith("src/qec/decoder/"):
+    normalized_target = _normalize_target_path(proposal.target_path)
+    target_parts = tuple(normalized_target.split("/")) if normalized_target else ()
+    if target_parts[:3] == ("src", "qec", "decoder"):
         return False
     lowered_summary = proposal.fix_summary.lower()
     return not any(token in lowered_summary for token in _FORBIDDEN_SCOPE_TOKENS)

@@ -339,19 +339,22 @@ def _normalize_raw_issue(raw_issue: Mapping[str, Any]) -> CanonicalIssue:
     )
 
 
-def _issue_sort_key(issue: CanonicalIssue) -> tuple[int, str, str, str, str]:
+def _issue_sort_key(item: tuple[CanonicalIssue, str]) -> tuple[int, str, str, str, str]:
+    issue, stable_hash = item
     return (
         -_SEVERITY_RANK[issue.severity],
         issue.category,
         issue.target_path,
         issue.summary,
-        issue.stable_hash(),
+        stable_hash,
     )
 
 
 def _build_issue_set(issues: Sequence[CanonicalIssue]) -> CanonicalIssueSet:
-    sorted_issues = tuple(sorted(issues, key=_issue_sort_key))
-    hashes = tuple(issue.stable_hash() for issue in sorted_issues)
+    issue_hash_pairs = tuple((issue, issue.stable_hash()) for issue in issues)
+    sorted_issue_hash_pairs = tuple(sorted(issue_hash_pairs, key=_issue_sort_key))
+    sorted_issues = tuple(issue for issue, _ in sorted_issue_hash_pairs)
+    hashes = tuple(stable_hash for _, stable_hash in sorted_issue_hash_pairs)
     if len(set(hashes)) != len(hashes):
         raise ValueError("duplicate normalized issues are not allowed")
     issue_hash = hashlib.sha256("|".join(hashes).encode("utf-8")).hexdigest()

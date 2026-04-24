@@ -107,6 +107,45 @@ def test_multiple_identical_proposals_are_equivalent() -> None:
     assert all(item.dominance_status == "EQUIVALENT" for item in receipt.replay_set.comparisons)
 
 
+def test_non_representative_identical_vectors_are_equivalent() -> None:
+    # Three non-dominated proposals: NR2 and NR3 share the same vector but are
+    # NOT the representative (NR1 sorts first).  The fix must still label them
+    # EQUIVALENT and give them an identical equivalence_class that differs from NR1's.
+    receipt = run_counterfactual_replay(
+        _validation_receipt(
+            (
+                _validation(
+                    proposal_id="PROPOSAL-NR1",
+                    issue_hash="issue-nr",
+                    fix_strategy="CANONICALIZATION_FIX",
+                    invariant_preserved=False,
+                ),
+                _validation(
+                    proposal_id="PROPOSAL-NR2",
+                    issue_hash="issue-nr",
+                    fix_strategy="ORDERING_FIX",
+                    invariant_preserved=True,
+                ),
+                _validation(
+                    proposal_id="PROPOSAL-NR3",
+                    issue_hash="issue-nr",
+                    fix_strategy="ORDERING_FIX",
+                    invariant_preserved=True,
+                ),
+            )
+        )
+    )
+
+    statuses = {item.proposal_id: item.dominance_status for item in receipt.replay_set.comparisons}
+    eq_classes = {item.proposal_id: item.equivalence_class for item in receipt.replay_set.comparisons}
+
+    assert statuses["PROPOSAL-NR2"] == "EQUIVALENT"
+    assert statuses["PROPOSAL-NR3"] == "EQUIVALENT"
+    assert eq_classes["PROPOSAL-NR2"] == eq_classes["PROPOSAL-NR3"]
+    assert eq_classes["PROPOSAL-NR1"] != eq_classes["PROPOSAL-NR2"]
+    assert receipt.equivalent_count == 2
+
+
 def test_clear_dominance_case() -> None:
     receipt = run_counterfactual_replay(
         _validation_receipt(

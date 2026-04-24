@@ -255,34 +255,44 @@ def _classify_group(issue_hash: str, validations: tuple[FixValidation, ...]) -> 
     nondominated_ids = tuple(
         sorted(item.proposal_id for item in validations if not dominated_by_id[item.proposal_id])
     )
-    if nondominated_ids:
-        representative_id = nondominated_ids[0]
-        representative_vector = vectors[representative_id]
-    else:
-        representative_id = ""
-        representative_vector = (-1, -1, -1)
-    equivalence_ids = tuple(
-        sorted(item.proposal_id for item in validations if vectors[item.proposal_id] == representative_vector)
-    )
+
+    # Group all proposals by their vector to detect every equivalence class deterministically.
+    vector_groups: dict[tuple[int, int, int], list[str]] = {}
+    for validation in validations:
+        vec = vectors[validation.proposal_id]
+        vector_groups.setdefault(vec, []).append(validation.proposal_id)
+
+    equivalence_sets: dict[tuple[int, int, int], tuple[str, ...]] = {
+        vec: tuple(sorted(ids))
+        for vec, ids in vector_groups.items()
+        if len(ids) > 1
+    }
 
     comparisons: list[CounterfactualComparison] = []
     for validation in validations:
         proposal_id = validation.proposal_id
+        vec = vectors[proposal_id]
         if len(nondominated_ids) == 1 and proposal_id == nondominated_ids[0]:
             status = "NECESSARY"
-        elif len(nondominated_ids) > 1 and proposal_id in equivalence_ids and len(equivalence_ids) > 1:
+        elif vec in equivalence_sets and not dominated_by_id[proposal_id]:
             status = "EQUIVALENT"
         elif dominated_by_id[proposal_id]:
             status = "DOMINATED"
         else:
             status = "UNRESOLVED"
 
+        if vec in equivalence_sets:
+            eq_id = "-".join(equivalence_sets[vec])
+            equivalence_class = f"eq-{issue_hash}-{eq_id}"
+        else:
+            equivalence_class = f"eq-{issue_hash}-{proposal_id}"
+
         comparisons.append(
             CounterfactualComparison(
                 proposal_id=proposal_id,
                 comparison_group_id=_group_id_for_issue(issue_hash),
                 dominance_status=status,
-                equivalence_class=f"eq-{issue_hash}-{representative_id}",
+                equivalence_class=equivalence_class,
                 necessity_score=_NECESSITY_SCORE[status],
             )
         )

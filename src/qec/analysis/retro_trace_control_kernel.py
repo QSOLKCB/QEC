@@ -37,6 +37,7 @@ _SIGNAL_ORDER = (
     "forecast_risk",
     "locality_pressure",
 )
+_REQUIRED_BASE_SIGNALS = _SIGNAL_ORDER[:3]
 
 _FACTOR_ORDER = ("stability", "divergence", "forecast", "locality")
 
@@ -164,14 +165,17 @@ class RetroTraceControlDecision:
         object.__setattr__(self, "confidence", _clamp01(validate_unit_interval(self.confidence, "confidence")))
         if self.action.action != _classify_action(self.control_score):
             raise ValueError("action must match control_score thresholds")
-        if not isinstance(self.signals, tuple) or not self.signals:
+        if not isinstance(self.signals, tuple):
             raise ValueError("signals must be non-empty tuple")
         if any(not isinstance(item, RetroTraceControlSignal) for item in self.signals):
             raise ValueError("signals must contain RetroTraceControlSignal")
+        if len(self.signals) not in (3, 4):
+            raise ValueError("signals must contain 3 base signals plus optional locality")
         observed_order = tuple(item.name for item in self.signals)
-        expected_order = tuple(name for name in _SIGNAL_ORDER if name in observed_order)
-        if observed_order != expected_order:
-            raise ValueError("signals must use canonical deterministic ordering")
+        if observed_order[:3] != _REQUIRED_BASE_SIGNALS:
+            raise ValueError("signals must start with required canonical base ordering")
+        if len(self.signals) == 4 and observed_order[3] != "locality_pressure":
+            raise ValueError("signals may include locality_pressure only as optional 4th signal")
         if len(set(observed_order)) != len(observed_order):
             raise ValueError("signals must be unique")
         if self._stable_hash != sha256_hex(self._payload_without_hash()):
@@ -258,6 +262,12 @@ class RetroTraceControlReceipt:
             raise ValueError("decision must be RetroTraceControlDecision")
         if not isinstance(self.summary, RetroTraceControlSummary):
             raise ValueError("summary must be RetroTraceControlSummary")
+        signal_names = tuple(item.name for item in self.decision.signals)
+        if self.lattice_hash is None:
+            if signal_names != _REQUIRED_BASE_SIGNALS:
+                raise ValueError("decision signals must match base canonical set when lattice_hash is absent")
+        elif signal_names != _SIGNAL_ORDER:
+            raise ValueError("decision signals must include locality_pressure when lattice_hash is present")
         dominant_map = {
             "stability_pressure": "stability",
             "divergence_pressure": "divergence",
@@ -328,7 +338,7 @@ def compute_retro_trace_control(
         raise ValueError("lattice retro_trace_hash mismatch")
 
     trace_metrics = dict(retro_trace.trace_metrics)
-    trace_length = max(1, int(retro_trace.trace_length))
+    trace_length = int(retro_trace.trace_length)
     sparsity = _clamp01(float(trace_metrics.get("input_sparsity", 1.0)))
     ordering_integrity = _clamp01(float(trace_metrics.get("event_order_integrity", 0.0)))
 

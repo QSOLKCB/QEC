@@ -75,6 +75,19 @@ def _trace_unstable():
     )
 
 
+def _trace_empty():
+    return build_retro_trace(
+        target_receipt=_target_receipt(),
+        cpu_trace=tuple(),
+        memory_trace=tuple(),
+        timing_trace=tuple(),
+        display_trace=tuple(),
+        audio_trace=tuple(),
+        input_trace=tuple(),
+        metadata={"emulator": "retroarch", "rom_hash": "ctrl-empty", "version": "1.0.0"},
+    )
+
+
 def _bundle(trace, *, with_lattice: bool = False):
     policy_a_payload = {
         "min_required_score": 0.55,
@@ -237,3 +250,81 @@ def test_reject_non_tuple_signals_structure() -> None:
             signals=list(receipt.decision.signals),
             _stable_hash=receipt.decision.stable_hash(),
         )
+
+
+def test_reject_incomplete_or_misordered_signal_set() -> None:
+    trace = _trace_a()
+    sensitivity, forecast, _ = _bundle(trace, with_lattice=False)
+    receipt = compute_retro_trace_control(trace, sensitivity, forecast)
+    truncated_signals = receipt.decision.signals[:2]
+    with pytest.raises(ValueError, match="signals must contain 3 base signals plus optional locality"):
+        RetroTraceControlDecision(
+            action=receipt.decision.action,
+            control_score=receipt.decision.control_score,
+            confidence=receipt.decision.confidence,
+            signals=truncated_signals,
+            _stable_hash=receipt.decision.stable_hash(),
+        )
+    misordered_signals = (
+        receipt.decision.signals[1],
+        receipt.decision.signals[0],
+        receipt.decision.signals[2],
+    )
+    misordered_payload = {
+        "action": receipt.decision.action.to_dict(),
+        "control_score": receipt.decision.control_score,
+        "confidence": receipt.decision.confidence,
+        "signals": tuple(item.to_dict() for item in misordered_signals),
+    }
+    with pytest.raises(ValueError, match="signals must start with required canonical base ordering"):
+        RetroTraceControlDecision(
+            action=receipt.decision.action,
+            control_score=receipt.decision.control_score,
+            confidence=receipt.decision.confidence,
+            signals=misordered_signals,
+            _stable_hash=sha256_hex(misordered_payload),
+        )
+
+
+def test_reject_lattice_hash_and_signal_mismatch() -> None:
+    trace = _trace_a()
+    sensitivity, forecast, lattice = _bundle(trace, with_lattice=True)
+    lattice_receipt = compute_retro_trace_control(trace, sensitivity, forecast, lattice)
+    non_lattice_receipt = compute_retro_trace_control(trace, sensitivity, forecast)
+    with pytest.raises(ValueError, match="decision signals must match base canonical set when lattice_hash is absent"):
+        RetroTraceControlReceipt(
+            retro_trace_hash=lattice_receipt.retro_trace_hash,
+            sensitivity_hash=lattice_receipt.sensitivity_hash,
+            forecast_hash=lattice_receipt.forecast_hash,
+            lattice_hash=None,
+            decision=lattice_receipt.decision,
+            summary=lattice_receipt.summary,
+            _stable_hash=lattice_receipt.stable_hash(),
+        )
+    with pytest.raises(ValueError, match="decision signals must include locality_pressure when lattice_hash is present"):
+        RetroTraceControlReceipt(
+            retro_trace_hash=non_lattice_receipt.retro_trace_hash,
+            sensitivity_hash=non_lattice_receipt.sensitivity_hash,
+            forecast_hash=non_lattice_receipt.forecast_hash,
+            lattice_hash="a" * 64,
+            decision=non_lattice_receipt.decision,
+            summary=non_lattice_receipt.summary,
+            _stable_hash=non_lattice_receipt.stable_hash(),
+        )
+
+
+def test_empty_trace_has_zero_trace_scale_contribution() -> None:
+    trace = _trace_empty()
+    sensitivity, forecast, _ = _bundle(trace, with_lattice=False)
+    receipt = compute_retro_trace_control(trace, sensitivity, forecast)
+    ordering_integrity = float(dict(trace.trace_metrics)["event_order_integrity"])
+    sparsity = float(dict(trace.trace_metrics)["input_sparsity"])
+    sensitivity_class_score = {"LOW": 0.2, "MODERATE": 0.55, "HIGH": 0.9}[sensitivity.summary.classification]
+    expected_confidence = (
+        (0.30 * ordering_integrity)
+        + (0.20 * (1.0 - sparsity))
+        + (0.20 * (1.0 - abs(receipt.decision.signals[1].value - sensitivity_class_score)))
+        + (0.20 * (1.0 - abs(receipt.decision.signals[0].value - receipt.decision.signals[2].value)))
+    )
+    assert trace.trace_length == 0
+    assert receipt.decision.confidence == pytest.approx(expected_confidence, abs=1e-12)

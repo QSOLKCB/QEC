@@ -1,11 +1,5 @@
-# QSOLKCB / QEC — ROADMAP.md
-## Post-v146.1
-
----
-
-## Core Law (Invariant)
-
-```text
+QSOLKCB / QEC — ROADMAP.md (v147.5+)
+Core Law (Invariant)
 same input
 → same ordering
 → same canonical JSON
@@ -24,207 +18,201 @@ exclude randomness, wall-clock, async
 preserve decoder immutability
 remain analysis-layer only
 
-Violation → module invalid.
+Violation → module invalid
 
-State
-v143.5 → proof
-v144.x → structure
-v145.x → governance
-v146.0 → action representation
-v146.1 → integrity + replay closure
+State (Actual)
+v143.x → SPHAERA (deterministic runtime)
+v146.x → execution representation + proof capsules
+v147.1 → trace intake (canonical ingestion)
+v147.2 → policy sensitivity
+v147.3 → forecast (+ lattice forecast)
+v147.4 → closed-loop control
+v147.5 → policy memory + adaptive governance
+System Reality (v147.5)
+trace
+→ sensitivity
+→ forecast
+→ spatial projection (lattice)
+→ control decision
+→ memory accumulation
+→ governance recommendation
 
-System is:
+QEC is now:
 
-deterministic proof system
-+ invariant analysis engine
-+ governance substrate
-+ proof-carrying action layer
+a deterministic autonomous control and governance system
 
-Architecture is complete.
+Correction to Previous Direction
 
-Direction
+Previous roadmap:
 
-NOT:
+v147 → constraint proving ground
 
-build more architecture
+❌ No longer valid
 
-YES:
-
-prove under constraint
-→ quantify under scarcity
-→ test under adversary
-→ validate across platforms
-→ extract measurable reductions
+New Direction
+v147 → autonomous system completion (DONE)
+v148 → validation + proof under real conditions
+v149 → system expansion + integration
 ROADMAP SPINE
-v146.x → complete (representation + integrity)
+v143–146 → runtime + execution
+v147 → full control + governance system (COMPLETE)
 
-v147.x → constraint proving ground
+v148 → prove the system works
+v149 → scale + integrate + deploy
+v148.x — AUTONOMOUS SYSTEM VALIDATION
+Goal
+deterministic control + memory + governance
+→ must be stable, correct, reproducible, useful
+v148.0 — Governance Validation Kernel
+policy memory
+→ recompute governance
+→ verify recommendation stability
 
-v148.x → promotion + publication
-v147.x — CONSTRAINT PROVING GROUND
+Output:
+
+GovernanceValidationReceipt
+v148.1 — Counterfactual Replay
+same history
+→ alternative policy paths
+→ deterministic comparison
 
 Goal:
 
-invalidate weak invariants
-measure redundancy
-test action capsules under constraint
-produce canonical receipts
+prove decisions are necessary, not incidental
+v148.2 — Multi-Trace Convergence
+multiple traces
+→ shared memory
+→ governance convergence
 
-All claims MUST produce receipts.
+Detect:
 
-v147.0 — Retro Target Registry
-target spec → canonical receipt
+consensus
+divergence
+instability zones
+v148.3 — Adversarial Determinism Battery
+valid trace
+→ adversarial perturbation
+→ replay + governance check
 
-Defines constraint space.
+Must:
 
-Module
-retro_target_registry.py
+reject invalid inputs
+preserve determinism
+maintain stable hashes
+v148.4 — Cross-Environment Replay
+same workload
+→ multiple machines
+→ identical outputs
 
-Output
-RetroTargetReceipt
+Failure:
 
-v147.1 — Trace Intake
-raw trace + target → canonical trace
+recorded
+classified
+never absorbed
+v148.5 — Failure Ledger (Expanded)
+all failures
+→ typed
+→ categorized
+→ replay-linked
 
-Unifies input surface.
+Rule:
 
-Module
-retro_trace_intake_bridge.py
-
-Output
-RetroTraceReceipt
-
-v147.2 — Constraint Profile
-target + trace → pressure profile
-
-Defines scarcity.
-
-Module
-retro_constraint_profile_kernel.py
-
-Output
-RetroConstraintProfileReceipt
-
-v147.3 — Arithmetic Scarcity (MANDATORY)
-full precision → reduced arithmetic → invariant test
-
-Filters valid invariants.
-
-Output
-ArithmeticScarcityReceipt
-
-Reject:
-
-invalid_under_budget
-instability_exposed
-v147.4 — Float Audit
-multi-regime comparison → equivalence map
-
-Separates structural vs precision-bound invariants.
-
-v147.5 — Projection (MANDATORY)
-state → minimal retro representation
-
-Forces structure into constraint.
-
-Output
-RetroProjectionReceipt
-
-v147.6 — Action Capsule Audit
-capsules + constraint → stability check
-
-Tests v146 under pressure.
-
-v147.7 — Redundancy Collapse (MANDATORY)
-system trace → invariant core → compute reduction
-
-Produces measurable:
-
-compute_waste_eliminated
-invariant_retention
-v147.8 — Cross-Emulator Determinism (MANDATORY)
-same workload → multiple environments → hash equality
-
-Failure → recorded, not absorbed.
-
-v147.9 — Offline Policy Audit
-fixed corpus → deterministic policy evaluation
-
-No stochastic environments.
-
-v147.10 — Operationalization (MANDATORY)
+suppression_rate = 0
+v148.6 — Real Workload Injection
 
 Apply QEC to:
 
 transformers
-diffusion
-decoding
-scheduling
+diffusion pipelines
+scheduling systems
+decoding systems
 
 Output:
 
-RedundancyReceipt
+DeterministicWorkloadReceipt
 
 Measure:
 
-compute_eliminated
-v147.11 — Adversarial Battery (MANDATORY)
-valid input → adversarial perturbation → invariant test
+compute eliminated
+redundancy collapsed
+decision stability
+v148.7 — Governance Stability Metrics
+memory
+→ long-horizon evaluation
+→ stability scoring
 
-Must:
+Measure:
 
-reject nondeterministic inputs
-preserve hash stability
-terminate within bounds
-v147.12 — Failure Ledger (MANDATORY)
-result → classified failure or success
-
-Rules:
-
-suppression_rate = 0
-all failures typed
-v147.13 — Evaluation Pack
-all receipts → canonical bundle
+policy drift
+oscillation
+convergence rate
+v148.8 — Evaluation Pack (Full System)
+all receipts
+→ canonical bundle
 
 Output:
 
 reproducibility artifacts
 benchmark tables
-evidence bundle
-Research Questions (Encoded)
-Which invariants survive constraint?
-Are capsules stable under reduction?
-Are results platform-invariant?
-Is redundancy measurable?
-Where does it break?
-v148.x — PROMOTION (CONDITIONAL)
+governance evaluation
+v148.9 — Promotion Gate
 
-Requires:
+System must prove:
 
 deterministic integrity preserved
+governance stable
 failures bounded + classified
-measurable results produced
-cross-target consensus observed
+measurable benefit exists
 
-Else: STOP.
+Else:
 
-v148.0 — Promotion Gate
-evaluation pack → admissibility check
-v148.1 — Experiment Capsules
-experiment → proof-carrying artifact
-v148.2 — Cross-Target Consensus
-multi-target invariants → consensus map
-v148.3 — Hardening Loop
-failure → mitigation → re-test
-v148.4 — Operational Publication
-receipts → benchmark report
-v148.5 — Final Release
-evaluation + consensus → publication
-v148.6 — Demonstration (Optional)
-receipt → deterministic visualization
+STOP
+v149.x — SYSTEM EXPANSION
 
-No execution.
+Begins only after v148 passes.
 
+v149.0 — Multi-Agent Governance
+multiple control loops
+→ shared / competing memory
+→ governance arbitration
+v149.1 — Hierarchical Memory
+local memory
+→ global memory
+→ recursive governance
+
+(Sierpinski / lattice hierarchy fits here)
+
+v149.2 — Hardware Alignment Layer
+control signals
+→ hardware constraints
+→ deterministic mapping
+
+Targets:
+
+neutral atom lattices
+LDPC hardware
+DSP / FPGA
+v149.3 — Execution Bridge (Optional)
+control → simulated actuation → validation
+
+No real-world mutation
+
+v149.4 — Deterministic Compression / Storage
+memory ledger
+→ compressed canonical form
+→ invariant-preserving storage
+v149.5 — System Demonstration
+full stack
+→ real workload
+→ deterministic governance
+→ measurable gain
+Research Questions
+Can deterministic systems outperform probabilistic ones in control tasks?
+Does memory-driven governance converge?
+Is policy stability measurable and enforceable?
+Can redundancy elimination be proven at scale?
+Does spatial (lattice) embedding improve control fidelity?
+Where does determinism break under real workloads?
 Guardrails
 Forbidden
 randomness
@@ -235,23 +223,15 @@ probabilistic routing
 silent failure
 non-canonical serialization
 Required
-explicit quantization
 explicit tie-breaking
 canonical JSON
 stable hashing
 reproducible traces
 typed failure outputs
+deterministic decision derivation
+deterministic memory accumulation
 Final Direction
-v143–146 → build + validate
-
-v147 → stress + prove
-
-v148 → certify + publish
-Law (unchanged)
-same input
-→ same ordering
-→ same canonical JSON
-→ same stable hash
-→ same bytes
-
----
+v143–146 → build runtime
+v147 → build autonomous system
+v148 → prove system works
+v149 → scale + deploy system

@@ -174,7 +174,7 @@ def _build_check(check_name: str, passed: bool, reason: str) -> PromotionGateChe
 
 
 def _evaluate_deterministic_integrity(evaluation_pack: EvaluationPackReceipt) -> PromotionGateCheck:
-    passed = bool(evaluation_pack.summary.determinism_preserved)
+    passed = evaluation_pack.summary.determinism_preserved is True
     reason = (
         "determinism_preserved is True"
         if passed

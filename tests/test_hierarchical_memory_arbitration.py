@@ -124,6 +124,26 @@ def test_multiple_memory_keys_consensus_uses_global_tie_break_order() -> None:
     assert receipt.decision.selected_recommendation == "MAINTAIN_POLICY"
     assert receipt.decision.selected_memory_key == "m-b"
 
+
+def test_global_same_recommendation_priority_tie_break() -> None:
+    receipt = arbitrate_hierarchical_memory(
+        (
+            _local(agent_id="a-1", memory_key="m-a", recommendation="MAINTAIN_POLICY", priority=5, confidence=0.70),
+            _local(agent_id="a-2", memory_key="m-b", recommendation="MAINTAIN_POLICY", priority=5, confidence=0.60),
+            _local(agent_id="a-3", memory_key="m-c", recommendation="MAINTAIN_POLICY", priority=4, confidence=0.99),
+        )
+    )
+    assert receipt.decision.decision_status == "GLOBAL_MEMORY_READY"
+    assert receipt.decision.selected_recommendation == "MAINTAIN_POLICY"
+    assert receipt.decision.selected_memory_key == "m-a"
+
+    projections = tuple(sorted(receipt.global_projections, key=lambda p: p.memory_key))
+    assert projections[0].memory_key == "m-a"
+    assert projections[0].selected_agent_id == "a-1"
+    assert projections[1].memory_key == "m-b"
+    assert projections[1].selected_agent_id == "a-2"
+
+
 def test_multiple_memory_keys_unresolved_global_conflict_requires_recursive_governance() -> None:
     receipt = arbitrate_hierarchical_memory(
         (

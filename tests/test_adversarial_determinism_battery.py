@@ -2,6 +2,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
+from qec.analysis import adversarial_determinism_battery as battery
 from qec.analysis.adversarial_determinism_battery import (
     AdversarialCase,
     AdversarialDeterminismReceipt,
@@ -98,3 +99,30 @@ def test_frozen_dataclass_immutability() -> None:
         result.observed_status = "REJECTED"  # type: ignore[misc]
     with pytest.raises(FrozenInstanceError):
         receipt.battery_status = "HAS_FAILURE"  # type: ignore[misc]
+
+
+def test_exception_path_is_not_treated_as_deterministic_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    case = AdversarialCase(
+        case_id="ADV-exc",
+        artifact_type="ISSUE_ARTIFACT",
+        perturbation_type="MISSING_FIELD",
+        original_hash="a" * 64,
+        perturbed_hash="b" * 64,
+        expected_outcome="REJECTED",
+    )
+    calls = {"count": 0}
+
+    def _flaky_run_pipeline(_: dict[str, object]) -> object:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise ValueError("first-run-failure")
+        return ("VALID", None, None, None, None)
+
+    monkeypatch.setattr(battery, "_run_pipeline", _flaky_run_pipeline)
+
+    result = battery._evaluate_case(case, {"issues": []})
+
+    assert result.observed_status == "REJECTED"
+    assert result.validity_preserved is True
+    assert result.determinism_preserved is False
+    assert result.hash_stable is False

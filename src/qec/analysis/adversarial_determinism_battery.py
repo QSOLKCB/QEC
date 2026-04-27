@@ -5,10 +5,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-import hashlib
-import json
 from typing import Any
 
+from qec.analysis.canonical_hashing import canonical_json, canonicalize_json, sha256_hex
 from qec.analysis.counterfactual_replay_kernel import CounterfactualReplayReceipt, run_counterfactual_replay
 from qec.analysis.fix_proposal_kernel import FixProposalReceipt, generate_fix_proposals
 from qec.analysis.fix_validation_kernel import FixValidationReceipt, validate_fix_proposals
@@ -47,31 +46,15 @@ _ALLOWED_OBSERVED_STATUS = frozenset({"REJECTED", "VALID", "INVALID", "UNSAFE", 
 
 
 def _canonical_json(payload: Mapping[str, Any]) -> str:
-    return json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        allow_nan=False,
-    )
+    return canonical_json(payload)
 
 
 def _canonicalize(value: Any) -> Any:
-    if isinstance(value, bool | str) or value is None:
-        return value
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return float(format(value, ".12g"))
-    if isinstance(value, Mapping):
-        return {k: _canonicalize(value[k]) for k in sorted(value)}
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return [_canonicalize(item) for item in value]
-    return str(value)
+    return canonicalize_json(value)
 
 
 def _stable_hash_payload(payload: Mapping[str, Any]) -> str:
-    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+    return sha256_hex(payload)
 
 
 def _status_from_validation(validation: FixValidationReceipt) -> str:
@@ -277,13 +260,26 @@ def _generate_perturbations(artifact: Mapping[str, Any]) -> tuple[tuple[str, Map
 
 def _evaluate_case(case: AdversarialCase, perturbed_artifact: Mapping[str, Any]) -> AdversarialResult:
     expected = case.expected_outcome
+    run1: tuple[str, IssueNormalizationReceipt, FixProposalReceipt, FixValidationReceipt, CounterfactualReplayReceipt] | None = None
+    run2: tuple[str, IssueNormalizationReceipt, FixProposalReceipt, FixValidationReceipt, CounterfactualReplayReceipt] | None = None
+    exc1: Exception | None = None
+    exc2: Exception | None = None
+
     try:
         run1 = _run_pipeline(perturbed_artifact)
-        run2 = _run_pipeline(perturbed_artifact)
-        observed = run1[0]
+    except (ValueError, TypeError) as error:
+        exc1 = error
 
+    try:
+        run2 = _run_pipeline(perturbed_artifact)
+    except (ValueError, TypeError) as error:
+        exc2 = error
+
+    if run1 is not None and run2 is not None:
+        observed = run1[0]
         determinism_preserved = (
-            run1[1].stable_hash() == run2[1].stable_hash()
+            run1[0] == run2[0]
+            and run1[1].stable_hash() == run2[1].stable_hash()
             and run1[2].stable_hash() == run2[2].stable_hash()
             and run1[3].stable_hash() == run2[3].stable_hash()
             and run1[4].stable_hash() == run2[4].stable_hash()
@@ -293,10 +289,16 @@ def _evaluate_case(case: AdversarialCase, perturbed_artifact: Mapping[str, Any])
             and run1[4].to_canonical_bytes() == run2[4].to_canonical_bytes()
         )
         hash_stable = run1[4].stable_hash() == run2[4].stable_hash()
-    except Exception:
+    elif exc1 is not None and exc2 is not None:
         observed = "REJECTED"
-        determinism_preserved = True
-        hash_stable = True
+        rejection_signature_1 = (type(exc1).__name__, str(exc1))
+        rejection_signature_2 = (type(exc2).__name__, str(exc2))
+        determinism_preserved = rejection_signature_1 == rejection_signature_2
+        hash_stable = determinism_preserved
+    else:
+        observed = "REJECTED"
+        determinism_preserved = False
+        hash_stable = False
 
     validity_preserved = observed == expected
     return AdversarialResult(

@@ -547,8 +547,9 @@ def plan_deterministic_compression_storage(
         plan_status = "NO_GAIN"
 
     if not compression_enabled:
-        overall_compression_ratio = 1.0
         total_compressed_size_bytes = total_canonical_size_bytes
+        if total_canonical_size_bytes > 0:
+            overall_compression_ratio = 1.0
         plan_status = "NO_GAIN"
 
     plan = CompressionStoragePlan(

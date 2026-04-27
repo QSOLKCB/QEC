@@ -271,14 +271,24 @@ class CompressionStoragePlan:
         elif self.plan_status == "COMPRESSED":
             if self.segment_count == 0 or float(self.overall_compression_ratio) >= 1.0:
                 raise ValueError("COMPRESSED plan_status requires segment_count > 0 and ratio < 1.0")
+            if self.total_canonical_size_bytes == 0:
+                if self.total_compressed_size_bytes != 0 or float(self.overall_compression_ratio) != 0.0:
+                    raise ValueError("COMPRESSED with zero canonical size requires zero compressed size and ratio 0.0")
+            elif self.total_compressed_size_bytes >= self.total_canonical_size_bytes:
+                raise ValueError("COMPRESSED plan_status requires compressed size < canonical size when canonical size is non-zero")
         elif self.plan_status == "NO_GAIN":
             if self.segment_count == 0:
                 raise ValueError("NO_GAIN plan_status requires segment_count > 0")
             if self.total_canonical_size_bytes == 0:
+                if self.total_compressed_size_bytes != 0:
+                    raise ValueError("NO_GAIN with zero canonical size requires zero compressed size")
                 if float(self.overall_compression_ratio) != 0.0:
                     raise ValueError("NO_GAIN with zero canonical size requires ratio 0.0")
-            elif float(self.overall_compression_ratio) != 1.0:
-                raise ValueError("NO_GAIN plan_status requires ratio 1.0 when canonical size is non-zero")
+            else:
+                if self.total_compressed_size_bytes != self.total_canonical_size_bytes:
+                    raise ValueError("NO_GAIN plan_status requires compressed size to equal canonical size when canonical size is non-zero")
+                if float(self.overall_compression_ratio) != 1.0:
+                    raise ValueError("NO_GAIN plan_status requires ratio 1.0 when canonical size is non-zero")
 
         computed = sha256_hex(self._payload_without_hash())
         if stable_hash_input is None:

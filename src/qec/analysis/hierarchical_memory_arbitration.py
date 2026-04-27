@@ -582,10 +582,13 @@ def arbitrate_hierarchical_memory(
 
     sorted_memories = tuple(sorted(canonical_memories, key=_local_sort_key))
 
-    memory_keys = tuple(sorted({local.memory_key for local in sorted_memories}))
+    grouped_memories: dict[str, list[LocalMemoryState]] = {}
+    for local in sorted_memories:
+        grouped_memories.setdefault(local.memory_key, []).append(local)
+
     projections = tuple(
-        _build_projection(key, tuple(local for local in sorted_memories if local.memory_key == key))
-        for key in memory_keys
+        _build_projection(memory_key, tuple(local_states))
+        for memory_key, local_states in grouped_memories.items()
     )
 
     projection_hashes = tuple(sorted(projection.stable_hash() for projection in projections))

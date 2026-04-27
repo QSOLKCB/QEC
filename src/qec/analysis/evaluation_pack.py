@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import types as _types
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -44,7 +45,7 @@ ALLOWED_ITEM_TYPES: tuple[str, ...] = (
     ITEM_TYPE_ISSUE_NORMALIZATION,
 )
 
-_ALLOWED_PACK_STATUSES = frozenset({"COMPLETE", "PARTIAL", "HAS_FAILURES", "EMPTY", "INVALID_INPUT"})
+_ALLOWED_PACK_STATUSES = frozenset({"COMPLETE", "PARTIAL", "HAS_FAILURES", "EMPTY"})
 
 _STATUS_FIELDS: tuple[str, ...] = (
     "validation_status",
@@ -141,26 +142,34 @@ def _extract_status(receipt: Any) -> str:
 
 
 
-def _failure_delta(receipt: Any) -> int:
-    if isinstance(receipt, FailureLedgerReceipt):
-        return int(receipt.failure_count)
-    if isinstance(receipt, AdversarialDeterminismReceipt):
-        return int(receipt.fail_count)
-    if isinstance(receipt, CrossEnvironmentReplayReceipt):
-        return 1 if bool(receipt.failure_recorded) else 0
-    if isinstance(receipt, FixValidationReceipt):
-        return int(receipt.invalid_count) + int(receipt.unsafe_count) + int(receipt.insufficient_count)
-    if isinstance(receipt, CounterfactualReplayReceipt):
-        return int(receipt.dominated_count) + int(receipt.unresolved_count)
+def _failure_delta(receipt: Any, item_type: str) -> int:
+    if item_type == ITEM_TYPE_FAILURE_LEDGER:
+        return int(getattr(receipt, "failure_count", 0))
+    if item_type == ITEM_TYPE_ADVERSARIAL_DETERMINISM:
+        return int(getattr(receipt, "fail_count", 0))
+    if item_type == ITEM_TYPE_CROSS_ENVIRONMENT_REPLAY:
+        return 1 if bool(getattr(receipt, "failure_recorded", False)) else 0
+    if item_type == ITEM_TYPE_FIX_VALIDATION:
+        return (
+            int(getattr(receipt, "invalid_count", 0))
+            + int(getattr(receipt, "unsafe_count", 0))
+            + int(getattr(receipt, "insufficient_count", 0))
+        )
+    if item_type == ITEM_TYPE_COUNTERFACTUAL_REPLAY:
+        return int(getattr(receipt, "dominated_count", 0)) + int(getattr(receipt, "unresolved_count", 0))
     return 0
 
 
 
-def _determinism_failed(receipt: Any) -> bool:
-    if isinstance(receipt, AdversarialDeterminismReceipt):
-        return (not bool(receipt.determinism_pass)) or (not bool(receipt.hash_stability_pass)) or int(receipt.fail_count) > 0
-    if isinstance(receipt, CrossEnvironmentReplayReceipt):
-        return not bool(receipt.determinism_preserved)
+def _determinism_failed(receipt: Any, item_type: str) -> bool:
+    if item_type == ITEM_TYPE_ADVERSARIAL_DETERMINISM:
+        return (
+            (not bool(getattr(receipt, "determinism_pass", True)))
+            or (not bool(getattr(receipt, "hash_stability_pass", True)))
+            or int(getattr(receipt, "fail_count", 0)) > 0
+        )
+    if item_type == ITEM_TYPE_CROSS_ENVIRONMENT_REPLAY:
+        return not bool(getattr(receipt, "determinism_preserved", True))
     return False
 
 
@@ -224,10 +233,14 @@ class EvaluationPackSummary:
             raise ValueError(
                 f"type_counts contains unsupported item types: {', '.join(unexpected_type_counts)}"
             )
-        normalized_type_counts = {item_type: int(self.type_counts.get(item_type, 0)) for item_type in ALLOWED_ITEM_TYPES}
+        normalized_type_counts = _types.MappingProxyType(
+            {item_type: int(self.type_counts.get(item_type, 0)) for item_type in ALLOWED_ITEM_TYPES}
+        )
         object.__setattr__(self, "type_counts", normalized_type_counts)
 
-        ordered_status_counts = {key: int(self.status_counts[key]) for key in sorted(self.status_counts)}
+        ordered_status_counts = _types.MappingProxyType(
+            {key: int(self.status_counts[key]) for key in sorted(self.status_counts)}
+        )
         object.__setattr__(self, "status_counts", ordered_status_counts)
 
         if self.failure_count < 0:
@@ -338,8 +351,8 @@ def build_evaluation_pack(receipts: Sequence[Any]) -> EvaluationPackReceipt:
 
         receipt_types_seen.add(item_type)
         status_counter[status] += 1
-        failure_count += _failure_delta(receipt)
-        if _determinism_failed(receipt):
+        failure_count += _failure_delta(receipt, item_type)
+        if _determinism_failed(receipt, item_type):
             determinism_preserved = False
 
     sorted_items = tuple(

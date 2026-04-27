@@ -202,3 +202,47 @@ def test_bundle_completeness_logic() -> None:
 
     assert full.summary.bundle_complete is True
     assert partial.summary.bundle_complete is False
+
+
+def test_summary_type_and_status_counts_are_immutable() -> None:
+    """type_counts and status_counts must be read-only mappings (P1)."""
+    receipt = build_evaluation_pack((_governance_receipt(),))
+    with pytest.raises(TypeError):
+        receipt.summary.type_counts["NEW_TYPE"] = 1  # type: ignore[index]
+    with pytest.raises(TypeError):
+        receipt.summary.status_counts["NEW_STATUS"] = 1  # type: ignore[index]
+
+
+def test_class_name_fallback_failure_and_determinism_accounting() -> None:
+    """Receipts matched only via class-name fallback must still contribute
+    correct failure counts and determinism flags (P2)."""
+    from qec.analysis.adversarial_determinism_battery import (
+        AdversarialDeterminismReceipt as _RealADR,
+    )
+    from qec.analysis.canonical_hashing import sha256_hex as _sha
+
+    # Local shadow: same class name but different identity — simulates a receipt
+    # loaded from another module/process that bypasses isinstance.
+    class AdversarialDeterminismReceipt:
+        def __init__(self) -> None:
+            self.fail_count = 3
+            self.determinism_pass = False
+            self.hash_stability_pass = False
+
+        def stable_hash(self) -> str:
+            return _sha({"shadow": "adversarial", "fail_count": 3})
+
+        def to_dict(self) -> dict[str, object]:
+            return {
+                "fail_count": self.fail_count,
+                "determinism_pass": self.determinism_pass,
+                "hash_stability_pass": self.hash_stability_pass,
+                "stable_hash": self.stable_hash(),
+            }
+
+    shadow = AdversarialDeterminismReceipt()
+    assert not isinstance(shadow, _RealADR), "shadow must NOT pass isinstance check"
+
+    pack = build_evaluation_pack((shadow,))
+    assert pack.summary.failure_count == 3
+    assert pack.summary.determinism_preserved is False

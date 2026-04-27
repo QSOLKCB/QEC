@@ -188,6 +188,8 @@ class SystemStackEvidence:
         if self.compression_plan_status == "NO_GAIN":
             expected_no_gain_ratio = 0.0 if self.total_canonical_size_bytes == 0 else 1.0
             if float(self.compression_ratio) != expected_no_gain_ratio:
+                if self.total_canonical_size_bytes == 0:
+                    raise ValueError("compression_ratio must be 0 for NO_GAIN plan when canonical size is zero")
                 raise ValueError("compression_ratio must be 1 for NO_GAIN plan when canonical size is non-zero")
 
         computed = sha256_hex(self._payload_without_hash())

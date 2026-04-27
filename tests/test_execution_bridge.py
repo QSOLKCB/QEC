@@ -84,17 +84,29 @@ def test_empty_alignment_returns_empty_receipt() -> None:
     assert receipt.overall_consistency_score == 0.0
 
 
-def test_blocked_alignment_produces_simulated_blocked() -> None:
+@pytest.mark.parametrize(
+    ("alignment_status", "decision_reason", "constraint_violations"),
+    (
+        ("REPLAY_UNSUPPORTED", "replay_not_supported", ("replay_not_supported",)),
+        ("CAPABILITY_MISMATCH", "capability_missing", ("capability_missing",)),
+        ("PRIORITY_EXCEEDED", "priority_exceeded", ("priority_exceeded",)),
+    ),
+)
+def test_blocked_alignment_produces_simulated_blocked(
+    alignment_status: str,
+    decision_reason: str,
+    constraint_violations: tuple[str, ...],
+) -> None:
     alignment = _alignment_receipt(
         (
             _decision(
                 signal_id="s-1",
                 hardware_id="h-1",
-                alignment_status="REPLAY_UNSUPPORTED",
+                alignment_status=alignment_status,
                 mapping_score=0.0,
-                selected_capability="NONE",
-                decision_reason="replay_not_supported",
-                constraint_violations=("replay_not_supported",),
+                selected_capability="NONE" if alignment_status != "PRIORITY_EXCEEDED" else "cap-alpha",
+                decision_reason=decision_reason,
+                constraint_violations=constraint_violations,
             ),
         )
     )
@@ -106,6 +118,29 @@ def test_blocked_alignment_produces_simulated_blocked() -> None:
     assert actuation.effect_class == "none"
     assert validation.validation_status == "VALID"
     assert validation.consistency_score == 0.0
+
+
+def test_no_op_actuation_result_is_supported() -> None:
+    simulation_hash = sha256_hex(
+        {
+            "signal_id": "s-1",
+            "hardware_id": "h-1",
+            "actuation_status": "NO_OP",
+            "effect_strength": 0.0,
+            "effect_class": "none",
+        }
+    )
+    result = SimulatedActuationResult(
+        signal_id="s-1",
+        hardware_id="h-1",
+        actuation_status="NO_OP",
+        effect_strength=0.0,
+        effect_class="none",
+        simulation_hash=simulation_hash,
+    )
+    assert result.actuation_status == "NO_OP"
+    assert result.effect_strength == 0.0
+    assert result.effect_class == "none"
 
 
 def test_aligned_alignment_produces_simulated_success() -> None:
@@ -250,6 +285,83 @@ def test_nan_mapping_score_rejected_in_request() -> None:
             input_hash=_hash("input"),
         )
 
+
+def test_blocked_status_requires_zero_mapping_score_in_request() -> None:
+    with pytest.raises(ValueError, match="mapping_score must be 0.0 for blocked hard-failure statuses"):
+        SimulatedActuationRequest(
+            signal_id="s-1",
+            hardware_id="h-1",
+            alignment_status="CAPABILITY_MISMATCH",
+            selected_capability="NONE",
+            mapping_score=0.1,
+            input_hash=_hash("input"),
+        )
+
+
+def test_replay_unsupported_requires_none_capability_in_request() -> None:
+    with pytest.raises(ValueError, match="selected_capability must be NONE"):
+        SimulatedActuationRequest(
+            signal_id="s-1",
+            hardware_id="h-1",
+            alignment_status="REPLAY_UNSUPPORTED",
+            selected_capability="cap-alpha",
+            mapping_score=0.0,
+            input_hash=_hash("input"),
+        )
+
+
+def test_aligned_requires_non_none_capability_in_request() -> None:
+    with pytest.raises(ValueError, match="selected_capability must be a capability token"):
+        SimulatedActuationRequest(
+            signal_id="s-1",
+            hardware_id="h-1",
+            alignment_status="ALIGNED",
+            selected_capability="NONE",
+            mapping_score=0.8,
+            input_hash=_hash("input"),
+        )
+
+
+def test_success_result_requires_aligned_effect_class() -> None:
+    simulation_hash = sha256_hex(
+        {
+            "signal_id": "s-1",
+            "hardware_id": "h-1",
+            "actuation_status": "SIMULATED_SUCCESS",
+            "effect_strength": 0.3,
+            "effect_class": "degraded",
+        }
+    )
+    with pytest.raises(ValueError, match="effect_class must be aligned"):
+        SimulatedActuationResult(
+            signal_id="s-1",
+            hardware_id="h-1",
+            actuation_status="SIMULATED_SUCCESS",
+            effect_strength=0.3,
+            effect_class="degraded",
+            simulation_hash=simulation_hash,
+        )
+
+
+def test_blocked_result_requires_none_and_zero_effect() -> None:
+    simulation_hash = sha256_hex(
+        {
+            "signal_id": "s-1",
+            "hardware_id": "h-1",
+            "actuation_status": "SIMULATED_BLOCKED",
+            "effect_strength": 0.1,
+            "effect_class": "none",
+        }
+    )
+    with pytest.raises(ValueError, match="effect_strength must be 0.0"):
+        SimulatedActuationResult(
+            signal_id="s-1",
+            hardware_id="h-1",
+            actuation_status="SIMULATED_BLOCKED",
+            effect_strength=0.1,
+            effect_class="none",
+            simulation_hash=simulation_hash,
+        )
 
 def test_validation_mismatch_can_be_encoded_as_inconsistent() -> None:
     validation = ExecutionValidationResult(

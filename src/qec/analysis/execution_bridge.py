@@ -105,6 +105,16 @@ class SimulatedActuationRequest:
         object.__setattr__(self, "mapping_score", _round_public_metric(_require_probability(self.mapping_score, name="mapping_score")))
         _require_sha256_hex(self.input_hash, name="input_hash")
 
+        zero_score_statuses = {"REPLAY_UNSUPPORTED", "CAPABILITY_MISMATCH", "PRIORITY_EXCEEDED"}
+        if self.alignment_status in zero_score_statuses and self.mapping_score != 0.0:
+            raise ValueError("mapping_score must be 0.0 for blocked hard-failure statuses")
+
+        none_capability_statuses = {"REPLAY_UNSUPPORTED", "CAPABILITY_MISMATCH"}
+        if self.alignment_status in none_capability_statuses and self.selected_capability != "NONE":
+            raise ValueError("selected_capability must be NONE for replay/capability blocked statuses")
+        if self.alignment_status not in none_capability_statuses and self.selected_capability == "NONE":
+            raise ValueError("selected_capability must be a capability token for this alignment_status")
+
         computed = sha256_hex(self._payload_without_hash())
         if stable_hash_input is None:
             object.__setattr__(self, "_stable_hash", computed)
@@ -156,6 +166,17 @@ class SimulatedActuationResult:
         object.__setattr__(self, "effect_strength", _round_public_metric(_require_probability(self.effect_strength, name="effect_strength")))
         if self.effect_class not in _ALLOWED_EFFECT_CLASSES:
             raise ValueError("effect_class is not supported")
+        if self.actuation_status in {"SIMULATED_BLOCKED", "NO_OP"}:
+            if self.effect_strength != 0.0:
+                raise ValueError("effect_strength must be 0.0 for blocked or no-op statuses")
+            if self.effect_class != "none":
+                raise ValueError("effect_class must be none for blocked or no-op statuses")
+        elif self.actuation_status == "SIMULATED_SUCCESS":
+            if self.effect_class != "aligned":
+                raise ValueError("effect_class must be aligned for SIMULATED_SUCCESS")
+        elif self.actuation_status == "SIMULATED_DEGRADED":
+            if self.effect_class not in {"degraded", "unstable"}:
+                raise ValueError("effect_class must be degraded or unstable for SIMULATED_DEGRADED")
 
         computed_simulation_hash = sha256_hex(self._simulation_payload())
         provided_simulation_hash = _require_sha256_hex(self.simulation_hash, name="simulation_hash")

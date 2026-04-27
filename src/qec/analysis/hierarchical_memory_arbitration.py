@@ -222,8 +222,6 @@ class GlobalMemoryProjection:
         paired_contributors = tuple(sorted(zip(participating_unsorted, local_hashes_unsorted, strict=True), key=lambda pair: (pair[0], pair[1])))
         if self.promotion_status != "EMPTY" and not paired_contributors:
             raise ValueError("non-empty projection must have contributors")
-        if len({agent_id for agent_id, _ in paired_contributors}) != len(paired_contributors):
-            raise ValueError("duplicate agent_id in contributors")
         participating = tuple(pair[0] for pair in paired_contributors)
         local_hashes = tuple(pair[1] for pair in paired_contributors)
 

@@ -7,7 +7,16 @@ from dataclasses import dataclass
 from typing import Any
 
 from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, sha256_hex
-from qec.analysis.evaluation_pack import EvaluationPackReceipt
+from qec.analysis.evaluation_pack import (
+    EvaluationPackReceipt,
+    ITEM_TYPE_COUNTERFACTUAL_REPLAY,
+    ITEM_TYPE_DETERMINISTIC_WORKLOAD,
+    ITEM_TYPE_FAILURE_LEDGER,
+    ITEM_TYPE_FIX_PROPOSAL,
+    ITEM_TYPE_FIX_VALIDATION,
+    ITEM_TYPE_GOVERNANCE_VALIDATION,
+    ITEM_TYPE_ISSUE_NORMALIZATION,
+)
 
 SCHEMA_VERSION = "v148.10"
 MODULE_VERSION = "v148.10"
@@ -32,19 +41,14 @@ CHECK_STATUS_FAIL = "FAIL"
 PROMOTION_STATUS_PROMOTE = "PROMOTE"
 PROMOTION_STATUS_STOP = "STOP"
 
-ITEM_TYPE_GOVERNANCE_VALIDATION = "GOVERNANCE_VALIDATION"
-ITEM_TYPE_ISSUE_NORMALIZATION = "ISSUE_NORMALIZATION"
-ITEM_TYPE_FIX_PROPOSAL = "FIX_PROPOSAL"
-ITEM_TYPE_FIX_VALIDATION = "FIX_VALIDATION"
-ITEM_TYPE_COUNTERFACTUAL_REPLAY = "COUNTERFACTUAL_REPLAY"
-ITEM_TYPE_FAILURE_LEDGER = "FAILURE_LEDGER"
-ITEM_TYPE_DETERMINISTIC_WORKLOAD = "DETERMINISTIC_WORKLOAD"
-
 _ALLOWED_CHECK_NAMES = frozenset(CANONICAL_CHECK_ORDER)
 _ALLOWED_CHECK_STATUSES = frozenset({CHECK_STATUS_PASS, CHECK_STATUS_FAIL})
 _ALLOWED_PROMOTION_STATUSES = frozenset({PROMOTION_STATUS_PROMOTE, PROMOTION_STATUS_STOP})
+STOP_REASON_NONE = "NONE"
 
-_GOVERNANCE_ACCEPTABLE_STATUSES = frozenset({"VALIDATED"})
+GOVERNANCE_STATUS_VALIDATED = "VALIDATED"
+WORKLOAD_STATUS_EVALUATED = "EVALUATED"
+_GOVERNANCE_ACCEPTABLE_STATUSES = frozenset({GOVERNANCE_STATUS_VALIDATED})
 _REPAIR_FAILURE_STATUSES = frozenset(
     {
         "INVALID",
@@ -104,6 +108,10 @@ class PromotionGateReceipt:
     stop_reason: str
 
     def __post_init__(self) -> None:
+        if self.schema_version != SCHEMA_VERSION:
+            raise ValueError("schema_version must match SCHEMA_VERSION")
+        if self.module_version != MODULE_VERSION:
+            raise ValueError("module_version must match MODULE_VERSION")
         if self.promotion_status not in _ALLOWED_PROMOTION_STATUSES:
             raise ValueError("invalid promotion_status")
         if not isinstance(self.input_pack_hash, str) or len(self.input_pack_hash) != 64:
@@ -131,22 +139,23 @@ class PromotionGateReceipt:
         if self.promotion_status == PROMOTION_STATUS_PROMOTE:
             if self.fail_count != 0:
                 raise ValueError("PROMOTE receipts must have fail_count == 0")
-            if self.stop_reason != "NONE":
+            if self.stop_reason != STOP_REASON_NONE:
                 raise ValueError("PROMOTE receipts must have stop_reason == 'NONE'")
         else:
             if self.fail_count == 0:
                 raise ValueError("STOP receipts must have fail_count > 0")
-            if self.stop_reason == "NONE":
+            if self.stop_reason == STOP_REASON_NONE:
                 raise ValueError("STOP receipts must not have stop_reason == 'NONE'")
             if self.stop_reason not in actual_fail_checks:
                 raise ValueError("STOP receipts must use a failed check name as stop_reason")
+
     def _payload(self) -> dict[str, Any]:
         return {
             "schema_version": self.schema_version,
             "module_version": self.module_version,
             "promotion_status": self.promotion_status,
             "input_pack_hash": self.input_pack_hash,
-            "checks": [check.to_dict() for check in self.checks],
+            "checks": [check._payload() for check in self.checks],
             "pass_count": self.pass_count,
             "fail_count": self.fail_count,
             "stop_reason": self.stop_reason,
@@ -187,8 +196,9 @@ def _evaluate_governance_stability(evaluation_pack: EvaluationPackReceipt) -> Pr
     governance_items = tuple(item for item in evaluation_pack.items if item.item_type == ITEM_TYPE_GOVERNANCE_VALIDATION)
     if int(evaluation_pack.summary.type_counts.get(ITEM_TYPE_GOVERNANCE_VALIDATION, 0)) <= 0 or not governance_items:
         return _build_check(CHECK_GOVERNANCE_STABILITY, False, "GOVERNANCE_VALIDATION missing")
+    governance_statuses = tuple(_item_status(item) for item in governance_items)
     invalid_statuses = tuple(
-        sorted({item.status for item in governance_items if item.status not in _GOVERNANCE_ACCEPTABLE_STATUSES})
+        sorted({status for status in governance_statuses if status not in _GOVERNANCE_ACCEPTABLE_STATUSES})
     )
     if invalid_statuses:
         return _build_check(
@@ -217,7 +227,9 @@ def _evaluate_repair_reasoning_consistency(evaluation_pack: EvaluationPackReceip
         )
 
     repair_items = tuple(item for item in evaluation_pack.items if item.item_type in required_types)
-    failure_statuses = tuple(sorted({item.status for item in repair_items if item.status in _REPAIR_FAILURE_STATUSES}))
+    failure_statuses = tuple(
+        sorted({_item_status(item) for item in repair_items if _item_status(item) in _REPAIR_FAILURE_STATUSES})
+    )
     if failure_statuses:
         return _build_check(
             CHECK_REPAIR_REASONING_CONSISTENCY,
@@ -240,10 +252,23 @@ def _evaluate_measurable_benefit(evaluation_pack: EvaluationPackReceipt) -> Prom
     workload_items = tuple(item for item in evaluation_pack.items if item.item_type == ITEM_TYPE_DETERMINISTIC_WORKLOAD)
     if int(evaluation_pack.summary.type_counts.get(ITEM_TYPE_DETERMINISTIC_WORKLOAD, 0)) <= 0 or not workload_items:
         return _build_check(CHECK_MEASURABLE_BENEFIT, False, "DETERMINISTIC_WORKLOAD missing")
-    has_evaluated = any(item.status == "EVALUATED" for item in workload_items)
-    if not has_evaluated:
-        return _build_check(CHECK_MEASURABLE_BENEFIT, False, "no workload status EVALUATED")
-    return _build_check(CHECK_MEASURABLE_BENEFIT, True, "deterministic workload evaluated")
+    workload_statuses = tuple(_item_status(item) for item in workload_items)
+    invalid_statuses = tuple(sorted({status for status in workload_statuses if status != WORKLOAD_STATUS_EVALUATED}))
+    if invalid_statuses:
+        return _build_check(
+            CHECK_MEASURABLE_BENEFIT,
+            False,
+            f"workload statuses not EVALUATED: {', '.join(invalid_statuses)}",
+        )
+    return _build_check(CHECK_MEASURABLE_BENEFIT, True, "all deterministic workload statuses are EVALUATED")
+
+
+def _item_status(item: Any) -> str:
+    for field_name in ("status", "validation_status", "workload_status"):
+        value = getattr(item, field_name, None)
+        if isinstance(value, str) and value:
+            return value
+    return "UNKNOWN"
 
 
 def evaluate_promotion_gate(evaluation_pack: EvaluationPackReceipt) -> PromotionGateReceipt:
@@ -265,7 +290,7 @@ def evaluate_promotion_gate(evaluation_pack: EvaluationPackReceipt) -> Promotion
         stop_reason = next(check.check_name for check in checks if check.check_status == CHECK_STATUS_FAIL)
     else:
         promotion_status = PROMOTION_STATUS_PROMOTE
-        stop_reason = "NONE"
+        stop_reason = STOP_REASON_NONE
 
     return PromotionGateReceipt(
         schema_version=SCHEMA_VERSION,

@@ -12,14 +12,26 @@ from qec.analysis.evaluation_pack import EvaluationPackReceipt, build_evaluation
 from qec.analysis.failure_ledger import build_failure_ledger
 from qec.analysis.fix_proposal_kernel import generate_fix_proposals
 from qec.analysis.fix_validation_kernel import validate_fix_proposals
+from qec.analysis.counterfactual_replay_kernel import CounterfactualReplayReceipt
+from qec.analysis.failure_ledger import FailureLedgerReceipt
 from qec.analysis.governance_validation_kernel import (
     GOVERNANCE_VALIDATION_MODULE_VERSION,
     GOVERNANCE_VALIDATION_SCHEMA_VERSION,
     GovernanceValidationReceipt,
 )
 from qec.analysis.issue_normalization_kernel import normalize_review_issues
-from qec.analysis.promotion_gate import CANONICAL_CHECK_ORDER, evaluate_promotion_gate
-from qec.analysis.real_workload_injection import WorkloadDescriptor, evaluate_deterministic_workload
+from qec.analysis.promotion_gate import (
+    CANONICAL_CHECK_ORDER,
+    MODULE_VERSION,
+    SCHEMA_VERSION,
+    PromotionGateReceipt,
+    evaluate_promotion_gate,
+)
+from qec.analysis.real_workload_injection import (
+    DeterministicWorkloadReceipt,
+    WorkloadDescriptor,
+    evaluate_deterministic_workload,
+)
 
 
 def _issue(summary: str, *, severity: str = "LOW", category: str = "VALIDATION") -> dict[str, str]:
@@ -149,7 +161,7 @@ def test_missing_governance_validation_stops() -> None:
 
 def test_repair_inconsistency_stops() -> None:
     pack = build_evaluation_pack(
-        tuple(item for item in _bundle(with_failures=False) if item.__class__.__name__ != "CounterfactualReplayReceipt")
+        tuple(item for item in _bundle(with_failures=False) if not isinstance(item, CounterfactualReplayReceipt))
     )
     gate = evaluate_promotion_gate(pack)
     assert gate.promotion_status == "STOP"
@@ -164,7 +176,7 @@ def test_failure_count_gt_zero_stops() -> None:
 
 def test_missing_failure_ledger_stops() -> None:
     pack = build_evaluation_pack(
-        tuple(item for item in _bundle(with_failures=False) if item.__class__.__name__ != "FailureLedgerReceipt")
+        tuple(item for item in _bundle(with_failures=False) if not isinstance(item, FailureLedgerReceipt))
     )
     gate = evaluate_promotion_gate(pack)
     assert gate.promotion_status == "STOP"
@@ -173,7 +185,7 @@ def test_missing_failure_ledger_stops() -> None:
 
 def test_missing_deterministic_workload_stops() -> None:
     pack = build_evaluation_pack(
-        tuple(item for item in _bundle(with_failures=False) if item.__class__.__name__ != "DeterministicWorkloadReceipt")
+        tuple(item for item in _bundle(with_failures=False) if not isinstance(item, DeterministicWorkloadReceipt))
     )
     gate = evaluate_promotion_gate(pack)
     assert gate.promotion_status == "STOP"
@@ -218,3 +230,53 @@ def test_canonical_json_ordering() -> None:
 def test_invalid_input_rejected() -> None:
     with pytest.raises(ValueError, match="EvaluationPackReceipt"):
         evaluate_promotion_gate({"not": "a pack"})  # type: ignore[arg-type]
+
+
+def test_invalid_workload_status_stops_measurable_benefit() -> None:
+    from qec.analysis.canonical_hashing import sha256_hex
+
+    workload = _workload_receipt()
+    invalid_workload = dataclasses.replace(
+        workload,
+        workload_status="INVALID_INPUT",
+        stable_hash=sha256_hex(
+            {
+                "schema_version": workload.schema_version,
+                "module_version": workload.module_version,
+                "workload_status": "INVALID_INPUT",
+                "workload": workload.workload.to_dict(),
+                "metrics": workload.metrics.to_dict(),
+                "classification": workload.classification,
+            }
+        ),
+    )
+    pack = build_evaluation_pack((*_bundle(with_failures=False), invalid_workload))
+    gate = evaluate_promotion_gate(pack)
+    assert gate.promotion_status == "STOP"
+    assert gate.stop_reason == "MEASURABLE_BENEFIT"
+
+
+def test_receipt_version_invariants_rejected_when_mismatched() -> None:
+    gate = evaluate_promotion_gate(_pack(with_failures=False))
+    with pytest.raises(ValueError, match="schema_version"):
+        PromotionGateReceipt(
+            schema_version="v0",
+            module_version=MODULE_VERSION,
+            promotion_status=gate.promotion_status,
+            input_pack_hash=gate.input_pack_hash,
+            checks=gate.checks,
+            pass_count=gate.pass_count,
+            fail_count=gate.fail_count,
+            stop_reason=gate.stop_reason,
+        )
+    with pytest.raises(ValueError, match="module_version"):
+        PromotionGateReceipt(
+            schema_version=SCHEMA_VERSION,
+            module_version="v0",
+            promotion_status=gate.promotion_status,
+            input_pack_hash=gate.input_pack_hash,
+            checks=gate.checks,
+            pass_count=gate.pass_count,
+            fail_count=gate.fail_count,
+            stop_reason=gate.stop_reason,
+        )

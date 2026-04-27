@@ -8,7 +8,8 @@ validations, counterfactual outcomes, and replay receipts.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from types import MappingProxyType
+from typing import Any, Mapping
 
 from qec.analysis.adversarial_determinism_battery import AdversarialDeterminismReceipt
 from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, sha256_hex
@@ -170,7 +171,7 @@ class FailureLedgerReceipt:
     input_hash: str
     ledger: FailureLedger
     failure_count: int
-    typed_counts: dict[str, int]
+    typed_counts: Mapping[str, int]
     suppression_rate: int
 
     def __post_init__(self) -> None:
@@ -185,6 +186,11 @@ class FailureLedgerReceipt:
         actual_keys = tuple(sorted(self.typed_counts.keys()))
         if actual_keys != expected_keys:
             raise ValueError("typed_counts must include all failure_type categories")
+        object.__setattr__(
+            self,
+            "typed_counts",
+            MappingProxyType({key: int(self.typed_counts[key]) for key in expected_keys}),
+        )
 
     def _payload_dict(self) -> dict[str, Any]:
         return {
@@ -276,6 +282,10 @@ def _severity_for_validation(status: str) -> str:
     return "LOW"
 
 
+def _stable_hash_value(value: Any) -> str:
+    return value() if callable(value) else str(value)
+
+
 def build_failure_ledger(
     issue_receipt: IssueNormalizationReceipt,
     proposal_receipt: FixProposalReceipt,
@@ -306,7 +316,7 @@ def build_failure_ledger(
     }
 
     adversarial_hash = adversarial_receipt.stable_hash()
-    cross_env_hash = cross_env_receipt.stable_hash
+    cross_env_hash = _stable_hash_value(cross_env_receipt.stable_hash)
 
     entries: list[FailureLedgerEntry] = []
     extracted_failure_ids: list[str] = []
@@ -540,9 +550,8 @@ def build_failure_ledger(
         typed_counts[entry.failure_record.failure_type] += 1
 
     represented = tuple(entry.failure_record.failure_id for entry in sorted_entries)
-    if tuple(extracted_failure_ids) != represented:
-        if len(tuple(extracted_failure_ids)) != len(represented) or set(extracted_failure_ids) != set(represented):
-            raise ValueError("suppression detected: extracted failures not fully represented")
+    if len(extracted_failure_ids) != len(represented) or set(extracted_failure_ids) != set(represented):
+        raise ValueError("suppression detected: extracted failures not fully represented")
 
     input_hash = sha256_hex(
         {
@@ -551,7 +560,7 @@ def build_failure_ledger(
             "validation_receipt_hash": validation_receipt.stable_hash(),
             "counterfactual_receipt_hash": counterfactual_receipt.stable_hash(),
             "adversarial_receipt_hash": adversarial_receipt.stable_hash(),
-            "cross_env_receipt_hash": cross_env_receipt.stable_hash,
+            "cross_env_receipt_hash": _stable_hash_value(cross_env_receipt.stable_hash),
         }
     )
 

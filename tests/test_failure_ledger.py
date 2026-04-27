@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from types import MappingProxyType
 
 import pytest
 
@@ -217,6 +218,9 @@ def test_frozen_dataclass_immutability() -> None:
         ledger.entry_count = 0  # type: ignore[misc]
     with pytest.raises(dataclasses.FrozenInstanceError):
         receipt.failure_count = 0  # type: ignore[misc]
+    assert isinstance(receipt.typed_counts, MappingProxyType)
+    with pytest.raises(TypeError):
+        receipt.typed_counts["UNKNOWN_FAILURE"] = 0  # type: ignore[index]
 
 
 def test_canonical_json_ordering() -> None:

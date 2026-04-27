@@ -293,5 +293,22 @@ def test_batch_ordering_stability() -> None:
         validated_repair_count=1,
     )
 
-    receipts = evaluate_deterministic_workloads((a, b))
+    # TRANSFORMER > DECODING alphabetically, so (b, a) must be reordered to (a, b)
+    receipts = evaluate_deterministic_workloads((b, a))
     assert tuple(r.workload.workload_id for r in receipts) == ("z-id", "a-id")
+
+    # secondary key: same type, different IDs — "a-id" < "z-id"
+    c = _descriptor(
+        workload_id="a-id",
+        workload_type="DECODING",
+        operation_count=2,
+        redundant_operation_count=1,
+        invariant_count=1,
+        decision_count=2,
+        stable_decision_count=1,
+        repair_action_count=2,
+        validated_repair_count=1,
+    )
+    # pass in reverse id order; expect "a-id" sorted before "z-id"
+    receipts2 = evaluate_deterministic_workloads((a, c))
+    assert tuple(r.workload.workload_id for r in receipts2) == ("a-id", "z-id")

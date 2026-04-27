@@ -140,7 +140,8 @@ class WorkloadMetricSet:
             metric = getattr(self, metric_name)
             if not isinstance(metric, float):
                 raise ValueError(f"{metric_name} must be a float")
-            _round_metric(metric)
+            rounded = _round_metric(metric)
+            object.__setattr__(self, metric_name, rounded)
 
         if not _is_sha256_hex(self.stable_hash):
             raise ValueError("stable_hash must be a valid SHA-256 hex string")
@@ -181,6 +182,14 @@ class DeterministicWorkloadReceipt:
     stable_hash: str
 
     def __post_init__(self) -> None:
+        if self.schema_version != REAL_WORKLOAD_INJECTION_SCHEMA_VERSION:
+            raise ValueError(
+                f"schema_version must be {REAL_WORKLOAD_INJECTION_SCHEMA_VERSION!r}"
+            )
+        if self.module_version != REAL_WORKLOAD_INJECTION_MODULE_VERSION:
+            raise ValueError(
+                f"module_version must be {REAL_WORKLOAD_INJECTION_MODULE_VERSION!r}"
+            )
         if self.workload_status not in _ALLOWED_WORKLOAD_STATUS:
             raise ValueError("workload_status must be EVALUATED or INVALID_INPUT")
         if self.classification not in _ALLOWED_CLASSIFICATIONS:

@@ -6,8 +6,11 @@ import pytest
 
 from qec.analysis.canonical_hashing import sha256_hex
 from qec.analysis.cross_environment_replay_kernel import (
+    COMPARISON_STATUS_MISMATCH,
     CrossEnvironmentReplayReceipt,
     EnvironmentReplayArtifact,
+    MISMATCH_CLASSIFICATION_WORKLOAD_ID,
+    RECEIPT_STATUS_MISMATCH,
     compare_cross_environment_replay,
 )
 
@@ -113,12 +116,34 @@ def test_workload_id_mismatch() -> None:
         )
     )
 
-    assert receipt.receipt_status == "CROSS_ENV_MISMATCH"
-    assert receipt.comparison.comparison_status == "MISMATCH"
-    assert receipt.comparison.mismatch_classification == "WORKLOAD_ID_MISMATCH"
+    assert receipt.receipt_status == RECEIPT_STATUS_MISMATCH
+    assert receipt.comparison.comparison_status == COMPARISON_STATUS_MISMATCH
+    assert receipt.comparison.mismatch_classification == MISMATCH_CLASSIFICATION_WORKLOAD_ID
+    assert receipt.comparison.reference_environment_id == "env-a"
+    assert receipt.workload_id == "workload-A"
     assert receipt.determinism_preserved is False
     assert receipt.failure_recorded is True
     assert receipt.failure_classified is True
+
+
+def test_workload_id_mismatch_is_input_order_deterministic() -> None:
+    first = compare_cross_environment_replay(
+        (
+            _artifact("env-b", workload_id="workload-B"),
+            _artifact("env-a", workload_id="workload-A"),
+        )
+    )
+    second = compare_cross_environment_replay(
+        (
+            _artifact("env-a", workload_id="workload-A"),
+            _artifact("env-b", workload_id="workload-B"),
+        )
+    )
+
+    assert first.to_canonical_json() == second.to_canonical_json()
+    assert first.stable_hash == second.stable_hash
+    assert first.workload_id == "workload-A"
+    assert second.workload_id == "workload-A"
 
 
 def test_insufficient_environments() -> None:
@@ -200,3 +225,13 @@ def test_canonical_json_and_hash_stability() -> None:
 def test_invalid_input_rejected() -> None:
     with pytest.raises(ValueError, match="artifacts must not be empty"):
         compare_cross_environment_replay(())
+
+
+def test_duplicate_environment_id_rejected() -> None:
+    with pytest.raises(ValueError, match="artifacts must contain unique environment_id values"):
+        compare_cross_environment_replay(
+            (
+                _artifact("env-a", artifact_hash="artifact-1"),
+                _artifact("env-a", artifact_hash="artifact-2"),
+            )
+        )

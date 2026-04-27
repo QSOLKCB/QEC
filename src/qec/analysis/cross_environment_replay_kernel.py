@@ -16,6 +16,22 @@ MODULE_VERSION = "v148.6"
 
 _VALID_SHA256_CHARS = frozenset("0123456789abcdef")
 
+COMPARISON_STATUS_MATCH = "MATCH"
+COMPARISON_STATUS_MISMATCH = "MISMATCH"
+COMPARISON_STATUS_INSUFFICIENT = "INSUFFICIENT"
+
+RECEIPT_STATUS_MATCH = "CROSS_ENV_MATCH"
+RECEIPT_STATUS_MISMATCH = "CROSS_ENV_MISMATCH"
+RECEIPT_STATUS_INSUFFICIENT = "INSUFFICIENT_ENVIRONMENTS"
+
+MISMATCH_CLASSIFICATION_NONE = "NONE"
+MISMATCH_CLASSIFICATION_ARTIFACT_HASH = "ARTIFACT_HASH_MISMATCH"
+MISMATCH_CLASSIFICATION_CANONICAL_PAYLOAD = "CANONICAL_PAYLOAD_MISMATCH"
+MISMATCH_CLASSIFICATION_RECEIPT_HASH = "RECEIPT_HASH_MISMATCH"
+MISMATCH_CLASSIFICATION_MIXED_HASH = "MIXED_HASH_MISMATCH"
+MISMATCH_CLASSIFICATION_WORKLOAD_ID = "WORKLOAD_ID_MISMATCH"
+MISMATCH_CLASSIFICATION_INSUFFICIENT_ENVIRONMENTS = "INSUFFICIENT_ENVIRONMENTS"
+
 
 def _validate_non_empty_string(value: Any, *, field_name: str) -> str:
     if not isinstance(value, str):
@@ -41,6 +57,14 @@ def _validate_sha256_hex(value: Any, *, field_name: str) -> str:
     if not isinstance(value, str) or len(value) != 64 or any(ch not in _VALID_SHA256_CHARS for ch in value):
         raise ValueError(f"{field_name} must be a valid SHA-256 hex string")
     return value
+
+
+def _validate_unique_environment_ids(
+    artifacts: tuple[EnvironmentReplayArtifact, ...],
+) -> None:
+    environment_ids = tuple(artifact.environment_id for artifact in artifacts)
+    if len(set(environment_ids)) != len(environment_ids):
+        raise ValueError("artifacts must contain unique environment_id values")
 
 
 @dataclass(frozen=True)
@@ -205,22 +229,26 @@ def compare_cross_environment_replay(
     if len(normalized) == 0:
         raise ValueError("artifacts must not be empty")
 
-    workload_ids = tuple(artifact.workload_id for artifact in normalized)
-    workload_id = workload_ids[0]
+    _validate_unique_environment_ids(normalized)
+
+    sorted_artifacts = tuple(sorted(normalized, key=lambda item: item.environment_id))
+    reference = sorted_artifacts[0]
+    workload_ids = tuple(artifact.workload_id for artifact in sorted_artifacts)
+    workload_id = reference.workload_id
 
     if len(normalized) < 2:
         comparison = EnvironmentReplayComparison(
             workload_id=workload_id,
-            comparison_status="INSUFFICIENT",
-            reference_environment_id=normalized[0].environment_id,
-            matching_environment_ids=(normalized[0].environment_id,),
+            comparison_status=COMPARISON_STATUS_INSUFFICIENT,
+            reference_environment_id=reference.environment_id,
+            matching_environment_ids=(reference.environment_id,),
             mismatching_environment_ids=(),
-            mismatch_classification="INSUFFICIENT_ENVIRONMENTS",
+            mismatch_classification=MISMATCH_CLASSIFICATION_INSUFFICIENT_ENVIRONMENTS,
         )
         return CrossEnvironmentReplayReceipt(
             schema_version=SCHEMA_VERSION,
             module_version=MODULE_VERSION,
-            receipt_status="INSUFFICIENT_ENVIRONMENTS",
+            receipt_status=RECEIPT_STATUS_INSUFFICIENT,
             workload_id=workload_id,
             environment_count=len(normalized),
             comparison=comparison,
@@ -230,20 +258,18 @@ def compare_cross_environment_replay(
         )
 
     if len(set(workload_ids)) != 1:
-        sorted_artifacts = tuple(sorted(normalized, key=lambda item: item.environment_id))
-        reference_environment = sorted_artifacts[0].environment_id
         comparison = EnvironmentReplayComparison(
             workload_id=workload_id,
-            comparison_status="MISMATCH",
-            reference_environment_id=reference_environment,
+            comparison_status=COMPARISON_STATUS_MISMATCH,
+            reference_environment_id=reference.environment_id,
             matching_environment_ids=(),
             mismatching_environment_ids=tuple(a.environment_id for a in sorted_artifacts),
-            mismatch_classification="WORKLOAD_ID_MISMATCH",
+            mismatch_classification=MISMATCH_CLASSIFICATION_WORKLOAD_ID,
         )
         return CrossEnvironmentReplayReceipt(
             schema_version=SCHEMA_VERSION,
             module_version=MODULE_VERSION,
-            receipt_status="CROSS_ENV_MISMATCH",
+            receipt_status=RECEIPT_STATUS_MISMATCH,
             workload_id=workload_id,
             environment_count=len(normalized),
             comparison=comparison,
@@ -252,8 +278,6 @@ def compare_cross_environment_replay(
             failure_classified=True,
         )
 
-    sorted_artifacts = tuple(sorted(normalized, key=lambda item: item.environment_id))
-    reference = sorted_artifacts[0]
     matching_ids: list[str] = [reference.environment_id]
     mismatching_ids: list[str] = []
 
@@ -280,26 +304,26 @@ def compare_cross_environment_replay(
 
     mismatch_categories = sum((artifact_mismatch, payload_mismatch, receipt_mismatch))
     if mismatch_categories == 0:
-        mismatch_classification = "NONE"
-        comparison_status = "MATCH"
-        receipt_status = "CROSS_ENV_MATCH"
+        mismatch_classification = MISMATCH_CLASSIFICATION_NONE
+        comparison_status = COMPARISON_STATUS_MATCH
+        receipt_status = RECEIPT_STATUS_MATCH
         determinism_preserved = True
         failure_recorded = False
     elif mismatch_categories == 1:
         if artifact_mismatch:
-            mismatch_classification = "ARTIFACT_HASH_MISMATCH"
+            mismatch_classification = MISMATCH_CLASSIFICATION_ARTIFACT_HASH
         elif payload_mismatch:
-            mismatch_classification = "CANONICAL_PAYLOAD_MISMATCH"
+            mismatch_classification = MISMATCH_CLASSIFICATION_CANONICAL_PAYLOAD
         else:
-            mismatch_classification = "RECEIPT_HASH_MISMATCH"
-        comparison_status = "MISMATCH"
-        receipt_status = "CROSS_ENV_MISMATCH"
+            mismatch_classification = MISMATCH_CLASSIFICATION_RECEIPT_HASH
+        comparison_status = COMPARISON_STATUS_MISMATCH
+        receipt_status = RECEIPT_STATUS_MISMATCH
         determinism_preserved = False
         failure_recorded = True
     else:
-        mismatch_classification = "MIXED_HASH_MISMATCH"
-        comparison_status = "MISMATCH"
-        receipt_status = "CROSS_ENV_MISMATCH"
+        mismatch_classification = MISMATCH_CLASSIFICATION_MIXED_HASH
+        comparison_status = COMPARISON_STATUS_MISMATCH
+        receipt_status = RECEIPT_STATUS_MISMATCH
         determinism_preserved = False
         failure_recorded = True
 

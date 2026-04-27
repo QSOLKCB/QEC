@@ -370,9 +370,9 @@ class HierarchicalMemoryArbitrationReceipt:
 
         if not isinstance(self.global_projections, tuple):
             raise ValueError("global_projections must be tuple")
-        sorted_projections = tuple(sorted(self.global_projections, key=lambda p: p.memory_key))
-        if any(not isinstance(p, GlobalMemoryProjection) for p in sorted_projections):
+        if any(not isinstance(p, GlobalMemoryProjection) for p in self.global_projections):
             raise ValueError("global_projections must contain GlobalMemoryProjection")
+        sorted_projections = tuple(sorted(self.global_projections, key=lambda p: p.memory_key))
         if len(set(p.memory_key for p in sorted_projections)) != len(sorted_projections):
             raise ValueError("global_projections must have unique memory_key")
 

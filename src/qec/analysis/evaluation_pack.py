@@ -218,6 +218,12 @@ class EvaluationPackSummary:
     def __post_init__(self) -> None:
         if self.item_count < 0:
             raise ValueError("item_count must be non-negative")
+
+        unexpected_type_counts = sorted(set(self.type_counts) - set(ALLOWED_ITEM_TYPES))
+        if unexpected_type_counts:
+            raise ValueError(
+                f"type_counts contains unsupported item types: {', '.join(unexpected_type_counts)}"
+            )
         normalized_type_counts = {item_type: int(self.type_counts.get(item_type, 0)) for item_type in ALLOWED_ITEM_TYPES}
         object.__setattr__(self, "type_counts", normalized_type_counts)
 

@@ -116,9 +116,30 @@ class PromotionGateReceipt:
             raise ValueError("checks must contain all canonical checks")
         if tuple(check.check_name for check in self.checks) != CANONICAL_CHECK_ORDER:
             raise ValueError("checks must follow canonical check order")
+
+        actual_fail_checks = tuple(
+            check.check_name for check in self.checks if check.check_status == CHECK_STATUS_FAIL
+        )
+        actual_fail_count = len(actual_fail_checks)
+        actual_pass_count = sum(1 for check in self.checks if check.check_status == CHECK_STATUS_PASS)
+
+        if self.pass_count != actual_pass_count or self.fail_count != actual_fail_count:
+            raise ValueError("pass_count/fail_count must match check statuses")
         if self.pass_count + self.fail_count != len(self.checks):
             raise ValueError("pass_count + fail_count must equal number of checks")
 
+        if self.promotion_status == PROMOTION_STATUS_PROMOTE:
+            if self.fail_count != 0:
+                raise ValueError("PROMOTE receipts must have fail_count == 0")
+            if self.stop_reason != "NONE":
+                raise ValueError("PROMOTE receipts must have stop_reason == 'NONE'")
+        else:
+            if self.fail_count == 0:
+                raise ValueError("STOP receipts must have fail_count > 0")
+            if self.stop_reason == "NONE":
+                raise ValueError("STOP receipts must not have stop_reason == 'NONE'")
+            if self.stop_reason not in actual_fail_checks:
+                raise ValueError("STOP receipts must use a failed check name as stop_reason")
     def _payload(self) -> dict[str, Any]:
         return {
             "schema_version": self.schema_version,

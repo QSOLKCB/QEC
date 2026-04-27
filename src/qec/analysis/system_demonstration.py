@@ -174,8 +174,13 @@ class SystemStackEvidence:
 
         if self.compression_plan_status == "COMPRESSED" and float(self.compression_ratio) <= 0.0:
             raise ValueError("compression_ratio must be > 0 for COMPRESSED plan")
-        if self.compression_plan_status == "EMPTY" and float(self.compression_ratio) != 0.0:
-            raise ValueError("compression_ratio must be 0 for EMPTY plan")
+        if self.compression_plan_status == "EMPTY":
+            if float(self.compression_ratio) != 0.0:
+                raise ValueError("compression_ratio must be 0 for EMPTY plan")
+            if self.total_canonical_size_bytes != 0:
+                raise ValueError("total_canonical_size_bytes must be 0 for EMPTY plan")
+            if self.total_compressed_size_bytes != 0:
+                raise ValueError("total_compressed_size_bytes must be 0 for EMPTY plan")
         if self.compression_plan_status == "NO_GAIN":
             expected_no_gain_ratio = 0.0 if self.total_canonical_size_bytes == 0 else 1.0
             if float(self.compression_ratio) != expected_no_gain_ratio:

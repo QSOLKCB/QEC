@@ -183,22 +183,27 @@ class GlobalMemoryProjection:
         if self.selected_recommendation != _RESERVED_NONE and self.selected_recommendation not in _ALLOWED_RECOMMENDATIONS:
             raise ValueError("selected_recommendation must be a supported governance label")
 
-        participating = _normalize_unique_sorted_tokens(self.participating_agent_ids, name="participating_agent_ids")
+        if not isinstance(self.participating_agent_ids, tuple):
+            raise ValueError("participating_agent_ids must be tuple")
+        participating_unsorted = tuple(_require_canonical_token(v, name="participating_agent_ids") for v in self.participating_agent_ids)
+        if len(set(participating_unsorted)) != len(participating_unsorted):
+            raise ValueError("participating_agent_ids must be unique")
         rejected = _normalize_unique_sorted_tokens(self.rejected_agent_ids, name="rejected_agent_ids")
 
         if not isinstance(self.contributing_local_hashes, tuple):
             raise ValueError("contributing_local_hashes must be tuple")
-        local_hashes = tuple(sorted(_require_sha256_hex(v, name="contributing_local_hashes") for v in self.contributing_local_hashes))
-        if len(set(local_hashes)) != len(local_hashes):
+        local_hashes_unsorted = tuple(_require_sha256_hex(v, name="contributing_local_hashes") for v in self.contributing_local_hashes)
+        if len(set(local_hashes_unsorted)) != len(local_hashes_unsorted):
             raise ValueError("contributing_local_hashes must be unique")
 
-        if any(agent_id not in set(participating) for agent_id in rejected):
+        participating_set = set(participating_unsorted)
+        if any(agent_id not in participating_set for agent_id in rejected):
             raise ValueError("rejected_agent_ids must be subset of participating_agent_ids")
 
         if self.selected_agent_id == _RESERVED_NONE:
             if self.promotion_status not in {"EMPTY", "RECURSIVE_ESCALATION"}:
                 raise ValueError('selected_agent_id "NONE" only allowed for EMPTY or RECURSIVE_ESCALATION')
-        elif self.selected_agent_id not in set(participating):
+        elif self.selected_agent_id not in participating_set:
             raise ValueError("selected_agent_id must participate")
 
         if self.selected_recommendation == _RESERVED_NONE:
@@ -212,8 +217,12 @@ class GlobalMemoryProjection:
         object.__setattr__(self, "consensus_score", _round_public_metric(_require_probability(self.consensus_score, name="consensus_score")))
         _require_non_negative_int(self.conflict_count, name="conflict_count")
 
-        if len(participating) != len(local_hashes):
+        if len(participating_unsorted) != len(local_hashes_unsorted):
             raise ValueError("participating_agent_ids and contributing_local_hashes length mismatch")
+        paired_contributors = tuple(sorted(zip(participating_unsorted, local_hashes_unsorted, strict=True), key=lambda pair: (pair[0], pair[1])))
+        participating = tuple(pair[0] for pair in paired_contributors)
+        local_hashes = tuple(pair[1] for pair in paired_contributors)
+
         if self.conflict_count > len(participating):
             raise ValueError("conflict_count must not exceed participant count")
 
@@ -307,6 +316,10 @@ class RecursiveGovernanceMemoryDecision:
 
         if not isinstance(self.recursive_governance_required, bool):
             raise ValueError("recursive_governance_required must be bool")
+        if self.decision_status == "RECURSIVE_GOVERNANCE_REQUIRED" and not self.recursive_governance_required:
+            raise ValueError("recursive_governance_required must be True when decision_status is RECURSIVE_GOVERNANCE_REQUIRED")
+        if self.decision_status in {"EMPTY", "GLOBAL_MEMORY_READY"} and self.recursive_governance_required:
+            raise ValueError("recursive_governance_required must be False when decision_status is EMPTY or GLOBAL_MEMORY_READY")
         _require_non_negative_int(self.recursion_depth, name="recursion_depth")
         _require_canonical_token(self.decision_reason, name="decision_reason")
 
@@ -378,6 +391,10 @@ class HierarchicalMemoryArbitrationReceipt:
 
         if self.global_memory_count != len(sorted_projections):
             raise ValueError("global_memory_count must match global_projections length")
+        projection_participant_count = sum(len(p.participating_agent_ids) for p in sorted_projections)
+        projection_hash_count = sum(len(p.contributing_local_hashes) for p in sorted_projections)
+        if self.local_memory_count != projection_participant_count or self.local_memory_count != projection_hash_count:
+            raise ValueError("local_memory_count must match projection participant and hash totals")
         if self.recursion_depth != self.decision.recursion_depth:
             raise ValueError("recursion_depth must match decision recursion_depth")
 
@@ -465,7 +482,7 @@ def _build_projection(memory_key: str, local_states: tuple[LocalMemoryState, ...
         selected = sorted_locals[0]
         selected_recommendation = selected.recommendation
         rejected = tuple(agent_id for agent_id in participating if agent_id != selected.agent_id)
-        consensus_score = aggregate_confidence
+        consensus_score = 1.0
         return GlobalMemoryProjection(
             memory_key=memory_key,
             promotion_status="CONSENSUS_PROMOTED",
@@ -622,7 +639,7 @@ def arbitrate_hierarchical_memory(
     else:
         selected_recommendations = {projection.selected_recommendation for projection in projections}
         if len(selected_recommendations) == 1:
-            selected = sorted(projections, key=lambda p: (p.memory_key, p.selected_agent_id, p.stable_hash()))[0]
+            selected = sorted(projections, key=_global_projection_sort_key)[0]
             decision = RecursiveGovernanceMemoryDecision(
                 decision_status="GLOBAL_MEMORY_READY",
                 selected_memory_key=selected.memory_key,

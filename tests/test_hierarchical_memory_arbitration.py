@@ -60,6 +60,7 @@ def test_local_consensus_promotes_to_global_memory() -> None:
     assert projection.promotion_status == "CONSENSUS_PROMOTED"
     assert projection.selected_recommendation == "MAINTAIN_POLICY"
     assert projection.selected_agent_id == "a-1"
+    assert projection.consensus_score == 1.0
 
 
 def test_priority_conflict_promotes_highest_priority() -> None:
@@ -111,6 +112,17 @@ def test_multiple_memory_keys_compatible_recommendations_global_memory_ready() -
     assert receipt.decision.decision_status == "GLOBAL_MEMORY_READY"
     assert receipt.decision.selected_recommendation == "MAINTAIN_POLICY"
 
+
+def test_multiple_memory_keys_consensus_uses_global_tie_break_order() -> None:
+    receipt = arbitrate_hierarchical_memory(
+        (
+            _local(agent_id="a-1", memory_key="m-a", recommendation="MAINTAIN_POLICY", priority=2, confidence=0.8),
+            _local(agent_id="a-2", memory_key="m-b", recommendation="MAINTAIN_POLICY", priority=5, confidence=0.4),
+        )
+    )
+    assert receipt.decision.decision_status == "GLOBAL_MEMORY_READY"
+    assert receipt.decision.selected_recommendation == "MAINTAIN_POLICY"
+    assert receipt.decision.selected_memory_key == "m-b"
 
 def test_multiple_memory_keys_unresolved_global_conflict_requires_recursive_governance() -> None:
     receipt = arbitrate_hierarchical_memory(
@@ -229,6 +241,71 @@ def test_receipt_count_mismatch_rejected() -> None:
             decision=decision,
         )
 
+
+def test_receipt_local_memory_count_mismatch_rejected() -> None:
+    projection = GlobalMemoryProjection(
+        memory_key="m-a",
+        promotion_status="CONSENSUS_PROMOTED",
+        selected_agent_id="a-1",
+        selected_recommendation="MAINTAIN_POLICY",
+        participating_agent_ids=("a-1",),
+        rejected_agent_ids=tuple(),
+        contributing_local_hashes=(_hash("h1"),),
+        aggregate_priority=1,
+        aggregate_confidence=0.9,
+        consensus_score=1.0,
+        conflict_count=0,
+    )
+    decision = RecursiveGovernanceMemoryDecision(
+        decision_status="GLOBAL_MEMORY_READY",
+        selected_memory_key="m-a",
+        selected_agent_id="a-1",
+        selected_recommendation="MAINTAIN_POLICY",
+        participating_memory_keys=("m-a",),
+        escalation_memory_keys=tuple(),
+        global_projection_hashes=(projection.stable_hash(),),
+        recursive_governance_required=False,
+        recursion_depth=1,
+        decision_reason="global_consensus",
+    )
+    with pytest.raises(ValueError, match="local_memory_count must match projection participant and hash totals"):
+        HierarchicalMemoryArbitrationReceipt(
+            module_version=HIERARCHICAL_MEMORY_ARBITRATION_MODULE_VERSION,
+            local_memory_count=2,
+            global_memory_count=1,
+            recursion_depth=1,
+            global_projections=(projection,),
+            decision=decision,
+        )
+
+
+def test_recursive_governance_flag_must_match_decision_status() -> None:
+    projection = GlobalMemoryProjection(
+        memory_key="m-a",
+        promotion_status="RECURSIVE_ESCALATION",
+        selected_agent_id="NONE",
+        selected_recommendation="NONE",
+        participating_agent_ids=("a-1",),
+        rejected_agent_ids=("a-1",),
+        contributing_local_hashes=(_hash("h2"),),
+        aggregate_priority=1,
+        aggregate_confidence=0.4,
+        consensus_score=0.0,
+        conflict_count=1,
+    )
+    with pytest.raises(ValueError, match="must be True"):
+        RecursiveGovernanceMemoryDecision(
+            decision_status="RECURSIVE_GOVERNANCE_REQUIRED",
+            selected_memory_key="NONE",
+            selected_agent_id="NONE",
+            selected_recommendation="NONE",
+            participating_memory_keys=("m-a",),
+            escalation_memory_keys=("m-a",),
+            global_projection_hashes=(projection.stable_hash(),),
+            recursive_governance_required=False,
+            recursion_depth=1,
+            decision_reason="global_memory_conflict",
+        )
 
 def test_projection_selected_agent_invariant_enforced() -> None:
     with pytest.raises(ValueError, match="selected_agent_id must participate"):

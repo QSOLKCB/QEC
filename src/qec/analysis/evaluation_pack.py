@@ -96,7 +96,9 @@ def _extract_receipt_hash(receipt: Any) -> str:
     else:
         hash_value = stable_hash_attr
     if not _is_hex_hash(hash_value):
-        raise ValueError("receipt.stable_hash() must yield a valid 64-char lowercase SHA-256 hex string")
+        raise ValueError(
+            "receipt.stable_hash must be or return a valid 64-char lowercase SHA-256 hex string"
+        )
     return hash_value
 
 

@@ -310,10 +310,33 @@ def evaluate_deterministic_workload(workload: WorkloadDescriptor) -> Determinist
     )
 
 
+def _validate_workloads_sequence(
+    workloads: Sequence[WorkloadDescriptor],
+) -> tuple[WorkloadDescriptor, ...]:
+    if not isinstance(workloads, Sequence):
+        raise ValueError("workloads must be a Sequence of WorkloadDescriptor")
+
+    validated_workloads = []
+    for index, workload in enumerate(workloads):
+        if not isinstance(workload, WorkloadDescriptor):
+            raise ValueError(
+                f"workloads[{index}] must be a WorkloadDescriptor"
+            )
+        validated_workloads.append(workload)
+
+    return tuple(validated_workloads)
+
+
 def evaluate_deterministic_workloads(
     workloads: Sequence[WorkloadDescriptor],
 ) -> tuple[DeterministicWorkloadReceipt, ...]:
-    ordered = tuple(sorted(workloads, key=lambda item: (item.workload_type, item.workload_id, item.stable_hash)))
+    validated_workloads = _validate_workloads_sequence(workloads)
+    ordered = tuple(
+        sorted(
+            validated_workloads,
+            key=lambda item: (item.workload_type, item.workload_id, item.stable_hash),
+        )
+    )
     return tuple(evaluate_deterministic_workload(workload) for workload in ordered)
 
 

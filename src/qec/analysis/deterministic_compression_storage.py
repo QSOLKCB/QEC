@@ -412,7 +412,7 @@ def _build_segment(
             compression_ratio = _round_public_metric(compressed_size / total_group_size)
     else:
         compressed_size = total_group_size
-        compression_ratio = 1.0
+        compression_ratio = 0.0 if total_group_size == 0 else 1.0
 
     segment_seed_hash = sha256_hex(
         {
@@ -558,8 +558,7 @@ def plan_deterministic_compression_storage(
 
     if not compression_enabled:
         total_compressed_size_bytes = total_canonical_size_bytes
-        if total_canonical_size_bytes > 0:
-            overall_compression_ratio = 1.0
+        overall_compression_ratio = 0.0 if total_canonical_size_bytes == 0 else 1.0
         plan_status = "NO_GAIN"
 
     plan = CompressionStoragePlan(

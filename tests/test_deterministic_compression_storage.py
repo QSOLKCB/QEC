@@ -122,6 +122,19 @@ def test_zero_size_artifact_remains_zero_size() -> None:
     assert receipt.plan.overall_compression_ratio == 0.0
 
 
+def test_compression_disabled_zero_size_artifacts_keep_zero_ratio() -> None:
+    artifacts = (
+        _artifact(artifact_id="a-1", canonical_size_bytes=0, retention_class="SESSION"),
+        _artifact(artifact_id="a-2", canonical_size_bytes=0, retention_class="ARCHIVAL"),
+    )
+    receipt = plan_deterministic_compression_storage(artifacts, compression_enabled=False)
+    assert receipt.plan.plan_status == "NO_GAIN"
+    assert receipt.plan.total_canonical_size_bytes == 0
+    assert receipt.plan.total_compressed_size_bytes == 0
+    assert receipt.plan.overall_compression_ratio == 0.0
+    assert all(segment.compression_ratio == 0.0 for segment in receipt.plan.segments)
+
+
 def test_deterministic_ordering_independent_of_input_order() -> None:
     artifacts = (
         _artifact(artifact_id="a-1", retention_class="RELEASE", artifact_type="execution", priority=1),

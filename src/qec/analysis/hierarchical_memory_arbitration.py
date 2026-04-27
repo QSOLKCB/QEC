@@ -220,6 +220,8 @@ class GlobalMemoryProjection:
         if len(participating_unsorted) != len(local_hashes_unsorted):
             raise ValueError("participating_agent_ids and contributing_local_hashes length mismatch")
         paired_contributors = tuple(sorted(zip(participating_unsorted, local_hashes_unsorted, strict=True), key=lambda pair: (pair[0], pair[1])))
+        if self.promotion_status != "EMPTY" and not paired_contributors:
+            raise ValueError("non-empty projection must have contributors")
         participating = tuple(pair[0] for pair in paired_contributors)
         local_hashes = tuple(pair[1] for pair in paired_contributors)
 
@@ -454,6 +456,10 @@ def _projection_tie_key(local_state: LocalMemoryState) -> tuple[Any, ...]:
 
 
 def _build_projection(memory_key: str, local_states: tuple[LocalMemoryState, ...]) -> GlobalMemoryProjection:
+    if not isinstance(local_states, tuple):
+        raise ValueError("local_states must be tuple")
+    if any(not isinstance(local, LocalMemoryState) for local in local_states):
+        raise ValueError("local_states must contain LocalMemoryState")
     if not local_states:
         return GlobalMemoryProjection(
             memory_key=memory_key,

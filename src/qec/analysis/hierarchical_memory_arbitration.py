@@ -611,12 +611,8 @@ def arbitrate_hierarchical_memory(
 
     projections = tuple(
         _build_projection(memory_key, tuple(local_states))
-        for memory_key, local_states in sorted(grouped_memories.items())
+        for memory_key, local_states in grouped_memories.items()
     )
-    expected = tuple(sorted(p.memory_key for p in projections))
-    actual = tuple(p.memory_key for p in projections)
-    if actual != expected:
-        raise ValueError("projections must be sorted by memory_key")
 
     projection_hashes = tuple(sorted(projection.stable_hash() for projection in projections))
 

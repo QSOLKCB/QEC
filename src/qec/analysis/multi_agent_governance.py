@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import InitVar, dataclass, field
+import math
 from typing import Any, Final, Sequence
 
 from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, sha256_hex
@@ -32,6 +33,7 @@ _RECOMMENDATION_SEVERITY: Final[dict[str, int]] = {
     "REVIEW_MEMORY": 3,
     "ESCALATE_GOVERNANCE": 4,
 }
+_RESERVED_NONE_AGENT_ID: Final[str] = "NONE"
 
 
 _JSONScalar = str | int | float | bool | None
@@ -77,6 +79,8 @@ class GovernanceAgentState:
 
     def __post_init__(self, stable_hash_input: str | None) -> None:
         _require_canonical_token(self.agent_id, name="agent_id")
+        if self.agent_id == _RESERVED_NONE_AGENT_ID:
+            raise ValueError('agent_id "NONE" is reserved')
         _require_canonical_token(self.control_loop_id, name="control_loop_id")
         _require_sha256_hex(self.memory_hash, name="memory_hash")
         _require_sha256_hex(self.governance_hash, name="governance_hash")
@@ -85,6 +89,8 @@ class GovernanceAgentState:
         if isinstance(self.confidence, bool) or not isinstance(self.confidence, (int, float)):
             raise ValueError("confidence must be bounded [0.0, 1.0]")
         confidence = float(self.confidence)
+        if not math.isfinite(confidence):
+            raise ValueError("confidence must be bounded [0.0, 1.0]")
         if confidence < 0.0 or confidence > 1.0:
             raise ValueError("confidence must be bounded [0.0, 1.0]")
         if isinstance(self.priority, bool) or not isinstance(self.priority, int) or self.priority < 0:
@@ -219,7 +225,10 @@ class MultiAgentGovernanceReceipt:
             raise ValueError("agent_count must match decision participating_agent_ids length")
         if isinstance(self.consensus_score, bool) or not isinstance(self.consensus_score, (int, float)):
             raise ValueError("consensus_score must be finite float")
-        consensus_score = _round_public_metric(float(self.consensus_score))
+        consensus_score = float(self.consensus_score)
+        if not math.isfinite(consensus_score):
+            raise ValueError("consensus_score must be finite float")
+        consensus_score = _round_public_metric(consensus_score)
         if consensus_score < 0.0 or consensus_score > 1.0:
             raise ValueError("consensus_score must be in [0.0, 1.0]")
         if isinstance(self.conflict_count, bool) or not isinstance(self.conflict_count, int) or self.conflict_count < 0:

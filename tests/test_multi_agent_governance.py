@@ -133,6 +133,16 @@ def test_confidence_bounds_enforced() -> None:
         _agent(agent_id="a-1", recommendation="MAINTAIN_POLICY", priority=1, confidence=1.1)
 
 
+def test_confidence_nan_rejected() -> None:
+    with pytest.raises(ValueError, match="confidence must be bounded"):
+        _agent(agent_id="a-1", recommendation="MAINTAIN_POLICY", priority=1, confidence=float("nan"))
+
+
+def test_reserved_none_agent_id_rejected() -> None:
+    with pytest.raises(ValueError, match='agent_id "NONE" is reserved'):
+        _agent(agent_id="NONE", recommendation="MAINTAIN_POLICY", priority=1, confidence=0.5)
+
+
 def test_duplicate_agent_id_rejected() -> None:
     with pytest.raises(ValueError, match="duplicate agent_id"):
         arbitrate_multi_agent_governance(
@@ -168,3 +178,16 @@ def test_canonical_json_hash_replay_stability() -> None:
     assert receipt_a.to_canonical_json() == receipt_b.to_canonical_json()
     assert receipt_a.to_canonical_bytes() == receipt_b.to_canonical_bytes()
     assert receipt_a.stable_hash() == receipt_b.stable_hash()
+
+
+def test_consensus_score_nan_rejected() -> None:
+    receipt = arbitrate_multi_agent_governance((_agent(agent_id="a-1", recommendation="MAINTAIN_POLICY", priority=1, confidence=0.8),))
+    with pytest.raises(ValueError, match="consensus_score must be finite float"):
+        MultiAgentGovernanceReceipt(
+            schema_version=receipt.schema_version,
+            module_version=receipt.module_version,
+            agent_count=receipt.agent_count,
+            decision=receipt.decision,
+            consensus_score=float("nan"),
+            conflict_count=receipt.conflict_count,
+        )

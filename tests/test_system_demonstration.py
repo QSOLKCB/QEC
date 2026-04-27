@@ -159,7 +159,7 @@ def test_zero_baseline_edge_case() -> None:
     ), _evidence(compression_plan_status="NO_GAIN", compression_ratio=0.0, total_canonical_size_bytes=0, total_compressed_size_bytes=0))
     metrics = _metric_map(receipt)
     assert metrics["cost_reduction"] == 0.0
-    assert metrics["bounded_failure_rate"] == 1.0
+    assert metrics["bounded_success_rate"] == 1.0
 
 
 def test_compression_no_gain_consistency() -> None:

@@ -373,7 +373,7 @@ def _compute_metrics(workloads: tuple[WorkloadDemonstrationDescriptor, ...], evi
         evidence.total_canonical_size_bytes - evidence.total_compressed_size_bytes,
         evidence.total_canonical_size_bytes,
     )
-    bounded_failure_rate = _bounded_ratio(
+    bounded_success_rate = _bounded_ratio(
         workload_count,
         workload_count + failure_total,
     )
@@ -413,9 +413,9 @@ def _compute_metrics(workloads: tuple[WorkloadDemonstrationDescriptor, ...], evi
                     metric_status="PASS" if storage_efficiency_gain > 0.0 else "WARN",
                 ),
                 SystemDemonstrationMetric(
-                    metric_name="bounded_failure_rate",
-                    metric_value=bounded_failure_rate,
-                    metric_status=_metric_status_from_thresholds(bounded_failure_rate, pass_min=0.75, warn_min=0.5),
+                    metric_name="bounded_success_rate",
+                    metric_value=bounded_success_rate,
+                    metric_status=_metric_status_from_thresholds(bounded_success_rate, pass_min=0.75, warn_min=0.5),
                 ),
                 SystemDemonstrationMetric(
                     metric_name="trace_reproducibility",
@@ -429,6 +429,10 @@ def _compute_metrics(workloads: tuple[WorkloadDemonstrationDescriptor, ...], evi
 
 
 def _enforce_compression_consistency(evidence: SystemStackEvidence, metrics: tuple[SystemDemonstrationMetric, ...]) -> None:
+    if evidence.total_canonical_size_bytes == 0 and evidence.total_compressed_size_bytes != 0:
+        raise ValueError(
+            "total_compressed_size_bytes must be 0 when total_canonical_size_bytes is 0"
+        )
     expected_ratio = 0.0
     if evidence.total_canonical_size_bytes > 0:
         expected_ratio = _round_public_metric(evidence.total_compressed_size_bytes / evidence.total_canonical_size_bytes)
@@ -482,7 +486,7 @@ def _promotion_status(workloads: tuple[WorkloadDemonstrationDescriptor, ...], me
             metric_map["repair_convergence"].metric_value >= 0.75,
             (cost_reduction > 0.0) or (compression_effectiveness > 0.0),
             (compression_effectiveness > 0.0) or (evidence.compression_plan_status == "NO_GAIN" and cost_reduction > 0.0),
-            metric_map["bounded_failure_rate"].metric_value >= 0.75,
+            metric_map["bounded_success_rate"].metric_value >= 0.75,
             metric_map["trace_reproducibility"].metric_value == 1.0,
         )
     ):
@@ -525,3 +529,13 @@ def demonstrate_full_system(
         measurable_gain_exists=measurable_gain_exists,
         research_questions_supported=_research_questions(metrics),
     )
+
+
+__all__ = [
+    "SYSTEM_DEMONSTRATION_MODULE_VERSION",
+    "WorkloadDemonstrationDescriptor",
+    "SystemStackEvidence",
+    "SystemDemonstrationMetric",
+    "SystemDemonstrationReceipt",
+    "demonstrate_full_system",
+]

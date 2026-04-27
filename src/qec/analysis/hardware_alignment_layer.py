@@ -438,7 +438,7 @@ def align_control_signals_to_hardware(
                 )
                 continue
 
-            if signal.required_capability not in set(hardware.capabilities):
+            if signal.required_capability not in hardware.capabilities:
                 decisions.append(
                     HardwareAlignmentDecision(
                         signal_id=signal.signal_id,

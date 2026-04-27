@@ -171,6 +171,10 @@ class SystemStackEvidence:
         object.__setattr__(self, "compression_ratio", _round_public_metric(_require_probability(self.compression_ratio, name="compression_ratio")))
         _require_non_negative_int(self.total_canonical_size_bytes, name="total_canonical_size_bytes")
         _require_non_negative_int(self.total_compressed_size_bytes, name="total_compressed_size_bytes")
+        if self.total_canonical_size_bytes == 0 and self.total_compressed_size_bytes != 0:
+            raise ValueError(
+                "total_compressed_size_bytes must be 0 when total_canonical_size_bytes is 0"
+            )
 
         if self.compression_plan_status == "COMPRESSED" and float(self.compression_ratio) <= 0.0:
             raise ValueError("compression_ratio must be > 0 for COMPRESSED plan")

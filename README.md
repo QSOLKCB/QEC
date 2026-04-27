@@ -1,13 +1,13 @@
 # QSOLKCB / QEC
 
-**Deterministic Autonomous Control • Memory • Governance • Validation • Counterfactual Reasoning • Replay-Safe Systems**
+**Deterministic Reasoning • Memory • Governance • Validation • Repair • Compression • Proof**
 
 ---
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v148.4-success)](https://github.com/QSOLKCB/QEC/releases/tag/v148.4)
+[![Latest](https://img.shields.io/badge/stable-v149.5-success)](https://github.com/QSOLKCB/QEC/releases/tag/v149.5)
 
 [![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
 
@@ -25,20 +25,21 @@
 
 ## 🧩 System Properties
 
-[![Branch](https://img.shields.io/badge/branch-v148%20canonical-purple)]()
-[![Architecture](https://img.shields.io/badge/architecture-autonomous%20control%20system-blueviolet)]()
+[![Branch](https://img.shields.io/badge/branch-v149%20canonical-purple)]()
+[![Architecture](https://img.shields.io/badge/architecture-deterministic%20reasoning%20system-blueviolet)]()
 [![Determinism](https://img.shields.io/badge/determinism-byte--identical-success)]()
 [![Replay](https://img.shields.io/badge/replay-hash--stable-green)]()
-[![Governance](https://img.shields.io/badge/governance-adaptive%20validated-orange)]()
-[![Validation](https://img.shields.io/badge/validation-replay--proven-yellow)]()
-[![Counterfactual](https://img.shields.io/badge/counterfactual-necessary%20proof-blue)]()
+[![Governance](https://img.shields.io/badge/governance-deterministic-orange)]()
+[![Validation](https://img.shields.io/badge/validation-proof--carrying-yellow)]()
+[![Compression](https://img.shields.io/badge/compression-invariant--preserving-blue)]()
+[![Proof](https://img.shields.io/badge/proof-system--level-critical)]()
 [![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
 ---
 
 # 🚀 What QEC Is
 
-QEC is a **deterministic autonomous control, governance, and repair reasoning system**.
+QEC is a **deterministic, replay-safe reasoning system for quantum error correction and invariant-driven computation**.
 
 It is not just a runtime.
 
@@ -54,6 +55,8 @@ It is a system that:
 * proposes fixes
 * validates those fixes
 * proves which fixes are necessary
+* compresses and preserves its reasoning
+* produces canonical proof artifacts
 
 It determines:
 
@@ -69,6 +72,8 @@ what failed
 what can fix it
 what fix is correct
 what fix is necessary
+what reasoning can be compressed
+what evidence is sufficient
 ```
 
 ---
@@ -93,7 +98,7 @@ same input
 iterate → recompute → waste work
 ```
 
-### QEC (IRIS + SPHAERA → Control → Governance → Validation → Repair → Counterfactual)
+### QEC (IRIS + SPHAERA → Control → Governance → Validation → Repair → Compression → Proof)
 
 ```text
 iterate
@@ -113,11 +118,13 @@ iterate
 → validate fixes
 → compare alternatives
 → prove necessity
+→ compress reasoning deterministically
+→ produce system-level proof
 ```
 
 ---
 
-## ⚙️ System Capability (v148.4 State)
+## ⚙️ System Capability (v149.5 State)
 
 QEC now performs:
 
@@ -132,15 +139,19 @@ QEC now performs:
 * unified runtime state construction
 * policy memory accumulation
 * adaptive governance recommendation
-* governance validation (v148.0)
-* issue normalization (v148.1)
-* fix proposal generation (v148.2)
-* fix validation (v148.3)
-* counterfactual replay (v148.4)
+* governance validation
+* issue normalization
+* fix proposal generation
+* fix validation
+* counterfactual replay
+* hardware alignment validation
+* simulated execution verification
+* invariant-preserving compression planning
+* full-system proof generation
 
 ---
 
-## 🧠 Repair Reasoning Pipeline (v148)
+## 🧠 Repair Reasoning Pipeline
 
 ```text
 issue
@@ -149,6 +160,23 @@ issue
 → validated fix
 → counterfactual comparison
 → necessary / equivalent / dominated / unresolved
+```
+
+---
+
+## 🧠 Full System Loop (v149)
+
+```text
+observe
+→ predict
+→ decide
+→ remember
+→ govern
+→ validate
+→ align
+→ simulate execution
+→ compress
+→ prove
 ```
 
 ---
@@ -267,6 +295,59 @@ Confirm global system integrity.
 
 ```text
 Observe → Validate → Decide → Act → Replay → Confirm
+```
+
+---
+
+---
+
+## 🌍 Why This Matters
+
+Most modern compute systems are:
+
+* probabilistic
+* non-reproducible across environments
+* opaque in decision-making
+* unable to prove why a fix was chosen
+* forced to recompute rather than reason
+
+QEC takes a different path.
+
+It enforces:
+
+```text
+determinism
+→ reproducibility
+→ traceability
+→ provability
+```
+
+This means:
+
+* the same input always produces the same output — down to the byte
+* every decision can be replayed, audited, and verified
+* failures are not just detected, but **understood structurally**
+* fixes are not guessed, but **proven necessary via counterfactual comparison**
+* redundant computation is eliminated through invariant detection
+* reasoning itself becomes a **compressible, persistent artifact**
+
+In practical terms, QEC enables:
+
+* reproducible research without hidden entropy
+* deterministic control systems that can be audited end-to-end
+* repair pipelines that do not rely on probabilistic search
+* systems that can prove improvement, not just claim it
+
+This shifts computation from:
+
+```text
+execution
+```
+
+to:
+
+```text
+deterministic reasoning with proof
 ```
 
 ---

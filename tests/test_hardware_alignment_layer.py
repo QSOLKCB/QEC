@@ -253,6 +253,75 @@ def test_duplicate_decision_pair_rejected() -> None:
         )
 
 
+def test_receipt_rejects_non_decision_items_with_value_error() -> None:
+    with pytest.raises(ValueError, match="alignment_decisions must contain HardwareAlignmentDecision"):
+        HardwareAlignmentReceipt(
+            module_version=HARDWARE_ALIGNMENT_MODULE_VERSION,
+            signal_count=1,
+            hardware_profile_count=1,
+            alignment_decisions=(123,),  # type: ignore[arg-type]
+            aligned_count=1,
+            degraded_count=0,
+            blocked_count=0,
+            overall_alignment_score=0.0,
+        )
+
+
+@pytest.mark.parametrize("status", ["REPLAY_UNSUPPORTED", "CAPABILITY_MISMATCH", "PRIORITY_EXCEEDED"])
+def test_hard_failure_statuses_require_zero_mapping_score(status: str) -> None:
+    violations_by_status = {
+        "REPLAY_UNSUPPORTED": ("replay_not_supported",),
+        "CAPABILITY_MISMATCH": ("capability_missing",),
+        "PRIORITY_EXCEEDED": ("priority_exceeded",),
+    }
+    capability_by_status = {
+        "REPLAY_UNSUPPORTED": "NONE",
+        "CAPABILITY_MISMATCH": "NONE",
+        "PRIORITY_EXCEEDED": "cap-alpha",
+    }
+    reason_by_status = {
+        "REPLAY_UNSUPPORTED": "replay_not_supported",
+        "CAPABILITY_MISMATCH": "capability_missing",
+        "PRIORITY_EXCEEDED": "priority_exceeded",
+    }
+    with pytest.raises(ValueError, match="mapping_score must be 0.0"):
+        HardwareAlignmentDecision(
+            signal_id="s-1",
+            hardware_id="h-1",
+            alignment_status=status,
+            mapping_score=0.1,
+            constraint_violations=violations_by_status[status],
+            selected_capability=capability_by_status[status],
+            decision_reason=reason_by_status[status],
+        )
+
+
+def test_none_selected_capability_is_restricted_to_none_capability_statuses() -> None:
+    with pytest.raises(ValueError, match="selected_capability must be a capability token"):
+        HardwareAlignmentDecision(
+            signal_id="s-1",
+            hardware_id="h-1",
+            alignment_status="ALIGNED",
+            mapping_score=0.9,
+            constraint_violations=tuple(),
+            selected_capability="NONE",
+            decision_reason="aligned",
+        )
+
+
+def test_replay_unsupported_requires_none_selected_capability() -> None:
+    with pytest.raises(ValueError, match="selected_capability must be NONE"):
+        HardwareAlignmentDecision(
+            signal_id="s-1",
+            hardware_id="h-1",
+            alignment_status="REPLAY_UNSUPPORTED",
+            mapping_score=0.0,
+            constraint_violations=("replay_not_supported",),
+            selected_capability="cap-alpha",
+            decision_reason="replay_not_supported",
+        )
+
+
 def test_frozen_dataclass_immutability() -> None:
     receipt = align_control_signals_to_hardware((_signal(),), (_hardware(),))
     with pytest.raises(FrozenInstanceError):

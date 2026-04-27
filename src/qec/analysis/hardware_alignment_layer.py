@@ -255,6 +255,16 @@ class HardwareAlignmentDecision:
         elif self.alignment_status == "UNSTABLE_HARDWARE" and violations != ("stability_below_tolerance",):
             raise ValueError("UNSTABLE_HARDWARE must include stability_below_tolerance")
 
+        zero_score_statuses = {"REPLAY_UNSUPPORTED", "CAPABILITY_MISMATCH", "PRIORITY_EXCEEDED"}
+        if self.alignment_status in zero_score_statuses and self.mapping_score != 0.0:
+            raise ValueError("mapping_score must be 0.0 for blocked hard-failure statuses")
+
+        none_capability_statuses = {"REPLAY_UNSUPPORTED", "CAPABILITY_MISMATCH"}
+        if self.alignment_status in none_capability_statuses and self.selected_capability != "NONE":
+            raise ValueError("selected_capability must be NONE for replay/capability blocked statuses")
+        if self.alignment_status not in none_capability_statuses and self.selected_capability == "NONE":
+            raise ValueError("selected_capability must be a capability token for this alignment_status")
+
         object.__setattr__(self, "constraint_violations", violations)
 
         computed = sha256_hex(self._payload_without_hash())
@@ -311,6 +321,10 @@ class HardwareAlignmentReceipt:
         if not isinstance(self.alignment_decisions, tuple):
             raise ValueError("alignment_decisions must be tuple")
 
+        for item in self.alignment_decisions:
+            if not isinstance(item, HardwareAlignmentDecision):
+                raise ValueError("alignment_decisions must contain HardwareAlignmentDecision")
+
         sorted_decisions = tuple(
             sorted(self.alignment_decisions, key=lambda d: (d.signal_id, d.hardware_id))
         )
@@ -319,8 +333,6 @@ class HardwareAlignmentReceipt:
 
         seen_pairs: set[tuple[str, str]] = set()
         for item in sorted_decisions:
-            if not isinstance(item, HardwareAlignmentDecision):
-                raise ValueError("alignment_decisions must contain HardwareAlignmentDecision")
             pair = (item.signal_id, item.hardware_id)
             if pair in seen_pairs:
                 raise ValueError("duplicate (signal_id, hardware_id) is not allowed")

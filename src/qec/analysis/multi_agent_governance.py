@@ -215,6 +215,8 @@ class MultiAgentGovernanceReceipt:
             raise ValueError("unsupported module_version")
         if isinstance(self.agent_count, bool) or not isinstance(self.agent_count, int) or self.agent_count < 0:
             raise ValueError("agent_count must be non-negative integer")
+        if self.agent_count != len(self.decision.participating_agent_ids):
+            raise ValueError("agent_count must match decision participating_agent_ids length")
         if isinstance(self.consensus_score, bool) or not isinstance(self.consensus_score, (int, float)):
             raise ValueError("consensus_score must be finite float")
         consensus_score = _round_public_metric(float(self.consensus_score))

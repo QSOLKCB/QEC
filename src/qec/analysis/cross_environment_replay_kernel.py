@@ -18,8 +18,16 @@ _VALID_SHA256_CHARS = frozenset("0123456789abcdef")
 
 
 def _validate_non_empty_string(value: Any, *, field_name: str) -> str:
-    if not isinstance(value, str) or value == "":
+    if not isinstance(value, str):
         raise ValueError(f"{field_name} must be a non-empty string")
+
+    stripped_value = value.strip()
+    if stripped_value == "":
+        raise ValueError(f"{field_name} must be a non-empty string")
+    if value != stripped_value:
+        raise ValueError(
+            f"{field_name} must not contain leading or trailing whitespace"
+        )
     return value
 
 

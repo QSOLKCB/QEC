@@ -1,122 +1,223 @@
-# Theoretical Grounding — v100.0.0
+# QSOLKCB / QEC — THEORY.md
 
-Theoretical foundations of the QEC deterministic adaptive control system.
+## Deterministic Reasoning & Control — Canonical Form
+
+---
+
+## 🧠 System Thesis
+
+> QEC is a deterministic, replay-safe reasoning system that operates as a decoder over system evolution, producing proof-carrying state transitions.
+
+The theory replaces stochastic exploration with **deterministic selection under bounded, observable signals**. All claims are enforced by invariants and validated by replay.
 
 ---
 
 ## 1. Deterministic Adaptive Control
 
-QEC implements a deterministic adaptive control system for belief propagation decoding dynamics. Unlike classical adaptive control, which typically relies on stochastic exploration (e.g., ε-greedy, Boltzmann sampling, gradient-based optimization with noise), QEC achieves adaptation through:
+QEC implements adaptive control without stochasticity.
 
-- **Deterministic scoring**: strategies are ranked by a closed-form multiplicative score composed of bounded factors.
-- **Memory-driven bias**: historical performance records shift strategy preferences without randomness.
-- **Signal-guided regulation**: physics-informed signals modulate adaptation strength based on system state.
+**Mechanisms**
 
-This design eliminates the exploration-exploitation tradeoff entirely. The system does not explore — it measures, scores, and selects deterministically.
+* **Deterministic scoring**: strategies are ranked by a closed-form multiplicative score.
+* **Memory-driven bias**: bounded, immutable history adjusts preferences.
+* **Signal-guided modulation**: bounded physical signals regulate adaptation.
 
----
+**Result**
 
-## 2. Convergence Without Stochastic Exploration
+* No exploration–exploitation tradeoff
+* No randomness, no sampling
+* Selection = argmax over deterministic score
 
-Classical results in adaptive control and reinforcement learning require stochastic exploration to guarantee convergence to optimal policies. QEC avoids this requirement by operating under different assumptions:
-
-- **Finite, known strategy space**: the set of strategies is fixed and fully enumerable.
-- **Observable state**: all regime, attractor, and metric information is directly computed, not estimated.
-- **Bounded feedback**: all adaptation signals are bounded, preventing runaway feedback loops.
-
-Convergence in this context means: given sufficient history, strategy scores stabilize and the system selects consistently optimal strategies for each regime. This follows from:
-
-1. Memory is bounded (cap = 10), so old observations are displaced.
-2. Bias adjustments are bounded (|bias| ≤ 0.2).
-3. All multiplicative factors are bounded away from zero (minimum product > 0).
-
-The system converges to a fixed point in score space for any stationary input distribution.
+Violation (any stochasticity) → system invalid
 
 ---
 
-## 3. Bounded Feedback Systems
+## 2. Convergence Without Exploration
 
-The scoring function is a product of bounded factors:
+Convergence is defined in **score space**.
+
+**Assumptions (enforced)**
+
+* finite, known strategy set
+* fully observable state (metrics, regime, attractor)
+* bounded feedback (all factors clamped)
+
+**Dynamics**
+
+* bounded memory (finite horizon)
+* bounded bias (|bias| ≤ constant)
+* bounded factors (∀fᵢ ∈ [aᵢ, bᵢ], aᵢ > 0)
+
+**Guarantee**
+
+* existence of a fixed point in score space under stationary inputs
+* deterministic convergence to stable strategy selection per regime
+
+Failure (divergence) → STOP
+
+---
+
+## 3. Bounded Multiplicative Scoring
+
+Score is a product of bounded factors:
 
 ```
 score = base × stability × transition × multi_step × modulation × cycle_penalty × trajectory
 ```
 
-Each factor `fᵢ` satisfies `fᵢ ∈ [aᵢ, bᵢ]` where `aᵢ > 0`. Therefore:
+**Bounds**
 
 ```
-∏ aᵢ  ≤  score  ≤  ∏ bᵢ
+∏ aᵢ ≤ score ≤ ∏ bᵢ,  with  aᵢ > 0
 ```
 
-This structural bound guarantees:
-- No score explosion (unbounded growth)
-- No score collapse to zero (all lower bounds > 0)
-- Monotonic response to factor changes (product is monotone in each factor)
+**Implications**
 
-The geometric mean modulation (v99.8.0) further prevents multiplicative collapse when individual signals approach zero, replacing raw products with `0.5 + (∏ sᵢ)^(1/n)`.
+* no explosion (upper bound finite)
+* no collapse (strictly positive lower bound)
+* monotone response to each factor
+
+**Stabilization**
+
+Geometric-mean modulation prevents collapse:
+
+```
+modulation = 0.5 + (∏ sᵢ)^(1/n)
+```
+
+Violation (unbounded or zeroing factor) → invalid score → reject
 
 ---
 
 ## 4. Signal-Guided Regulation
 
-The physics signal layer provides real-time system state information:
+Signals are **observed**, not inferred; they modulate scores multiplicatively and are bounded.
 
-| Signal | Measures | Regulation Effect |
-|--------|----------|-------------------|
-| system_energy | Disorder level | High energy → suppress adaptation |
-| phase_stability | Regime consistency | Low stability → dampen changes |
-| multiscale_coherence | Cross-scale agreement | Low coherence → reduce confidence |
-| control_alignment | Strategy-metric alignment | Low alignment → penalize strategy |
-| oscillation_strength | Regime switching frequency | High oscillation → extra damping |
+| Signal               | Measures                | Effect                   |
+| -------------------- | ----------------------- | ------------------------ |
+| system_energy        | disorder                | high → dampen adaptation |
+| phase_stability      | regime consistency      | low → dampen changes     |
+| multiscale_coherence | cross-scale agreement   | low → reduce confidence  |
+| control_alignment    | action–metric alignment | low → penalize strategy  |
+| oscillation_strength | switching frequency     | high → extra damping     |
 
-These signals form a feedback channel from the system to the adaptation layer, without modifying the decoder or its inputs. The regulation is purely multiplicative and bounded, ensuring stability.
+**Properties**
+
+* side-effect free
+* no mutation of decoder
+* bounded influence
+
+Violation (unbounded modulation) → invalid
 
 ---
 
 ## 5. Trajectory-Level Validation
 
-Beyond per-step evaluation, the system validates trajectories:
+Validation is applied over **paths**, not only steps.
 
-- **Transition validation**: scores each state transition on improvement vs. degradation across score, energy, and coherence.
-- **Monotonicity constraint**: penalizes trajectories that fail to improve consistently.
-- **Strategy consistency**: penalizes rapid flipping between strategies.
+**Constraints**
 
-These constraints implement a form of trajectory-level Lyapunov stability: the system discourages moves that increase a generalized "energy" function (degradation) while rewarding moves that decrease it (improvement).
+* transition improvement vs. degradation
+* monotonicity preference (penalize non-improving sequences)
+* strategy consistency (penalize rapid flips)
 
----
+**Interpretation**
 
-## 6. Cycle Suppression
+* Lyapunov-style: discourage increases in generalized energy
 
-Oscillatory traps (e.g., A→B→A→B) are a known failure mode of deterministic control systems. QEC addresses this through:
-
-- **Pattern detection**: scans recent history for period-2 and period-3 repeating patterns.
-- **Multiplicative penalty**: detected cycles reduce scores by up to 20%.
-- **Stability exemption**: uniform repetition (A→A→A) is not penalized, distinguishing stable convergence from oscillation.
-
-This mechanism prevents the system from entering limit cycles without introducing randomness.
+Failure (non-improving trajectory) → penalize / reject
 
 ---
 
-## 7. Relation to Classical Results
+## 6. Cycle Suppression (Dark-Mode Resolution)
 
-| Classical Assumption | QEC Alternative |
-|---------------------|-----------------|
-| Stochastic exploration required for convergence | Deterministic scoring over finite, known strategy space |
-| Unbounded learning rates | Bounded bias adjustments (|bias| ≤ 0.2) |
-| Infinite horizon discounting | Fixed horizon lookahead (H = 2) |
-| Model-free policy gradient | Direct scoring from observable metrics |
-| Neural function approximation | Closed-form multiplicative scoring |
+Oscillatory traps are treated as **dark modes**.
 
-QEC trades generality for guarantees: it cannot discover novel strategies, but it provably converges, reproduces exactly, and never degrades unpredictably.
+**Detection**
+
+* period-2 / period-3 pattern matching on recent history
+
+**Response**
+
+* multiplicative penalty (bounded)
+* stable repetition exempt (A→A→A allowed)
+
+**Mapping**
+
+```
+failure  := dark mode (blocked transfer)
+repair   := symmetry breaking (alter structure)
+validation := restored transfer
+proof    := deterministic confirmation
+```
+
+Failure to break cycle → STOP
 
 ---
 
-## 8. Stability via Bounded Modulation
+## 7. Relation to Classical Methods
 
-The adaptation modulation factor is the primary mechanism through which the system self-regulates. Its boundedness ensures:
+QEC replaces probabilistic learning with deterministic evaluation.
 
-1. **No runaway amplification**: modulation ≤ 1.5, so adaptation cannot grow unboundedly.
-2. **No signal extinction**: modulation ≥ 0.5, so adaptation is never fully suppressed.
-3. **Regime sensitivity**: oscillatory states with low phase stability receive additional damping, preventing positive feedback loops.
+| Classical                    | QEC                                   |
+| ---------------------------- | ------------------------------------- |
+| stochastic exploration       | deterministic scoring over finite set |
+| unbounded learning rate      | bounded bias                          |
+| infinite-horizon discounting | fixed horizon (H = 2)                 |
+| policy gradients             | closed-form scoring                   |
+| function approximation       | explicit metrics                      |
 
-Combined with bounded memory, bounded bias, and bounded cycle penalties, the system satisfies the sufficient conditions for bounded-input bounded-output (BIBO) stability.
+**Tradeoff**
+
+* loses discovery of unseen strategies
+* gains determinism, replayability, and proof
+
+---
+
+## 8. BIBO Stability (Bounded Modulation)
+
+All adaptation factors are bounded:
+
+* modulation ∈ [mₗ, mᵤ]
+* bias bounded
+* penalties bounded
+* memory bounded
+
+**Result**
+
+* bounded-input bounded-output (BIBO) stability
+* no runaway amplification
+* no total suppression
+
+Violation (unbounded output) → invalid
+
+---
+
+## 9. Deterministic Proof Alignment
+
+All theoretical claims must align with system invariants:
+
+* replay → identical hashes
+* scores → bounded and reproducible
+* decisions → deterministic argmax
+* trajectories → validated by constraints
+* compression → identity-preserving
+
+Mismatch → proof invalid
+
+---
+
+## 🧠 Final Statement
+
+QEC theory defines a system that:
+
+* replaces exploration with measurement
+* replaces learning with bounded adaptation
+* replaces probability with determinism
+* replaces approximation with proof
+
+The system does not search.
+
+It **converges, validates, and proves**.
+
+---

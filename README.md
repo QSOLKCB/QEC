@@ -1,5 +1,7 @@
 # QSOLKCB / QEC
 
+> QEC is a deterministic decoder over system evolution that produces proof-carrying state transitions.
+
 **Deterministic Reasoning • Memory • Governance • Validation • Repair • Compression • Proof**
 
 ---
@@ -41,7 +43,7 @@
 
 QEC is a **deterministic, replay-safe reasoning system for quantum error correction and invariant-driven computation**.
 
-It is not just a runtime.
+It is not a runtime.
 
 It is a system that:
 
@@ -50,7 +52,7 @@ It is a system that:
 * selects actions
 * accumulates memory
 * governs future behavior
-* validates its own decisions
+* validates decisions
 * understands failure
 * proposes fixes
 * validates those fixes
@@ -86,6 +88,8 @@ same input
 → same canonical JSON
 → same stable hash
 → same bytes
+→ same compressed representation
+→ same proof artifact
 ```
 
 ---
@@ -98,7 +102,7 @@ same input
 iterate → recompute → waste work
 ```
 
-### QEC (IRIS + SPHAERA → Control → Governance → Validation → Repair → Compression → Proof)
+### QEC
 
 ```text
 iterate
@@ -126,7 +130,7 @@ iterate
 
 ## ⚙️ System Capability (v149.5 State)
 
-QEC now performs:
+QEC performs:
 
 * invariant detection
 * convergence classification
@@ -215,6 +219,8 @@ trace
 
 ## 📊 SPHAERA — Sherpa Output Table
 
+Example deterministic output (SPHAERA proof run):
+
 ```text
 === SPHAERA TABLE ===
 
@@ -299,21 +305,17 @@ Observe → Validate → Decide → Act → Replay → Confirm
 
 ---
 
----
-
 ## 🌍 Why This Matters
 
-Most modern compute systems are:
+Most modern systems are:
 
 * probabilistic
-* non-reproducible across environments
-* opaque in decision-making
-* unable to prove why a fix was chosen
-* forced to recompute rather than reason
+* non-reproducible
+* opaque
+* unable to prove decisions
+* forced to recompute
 
-QEC takes a different path.
-
-It enforces:
+QEC enforces:
 
 ```text
 determinism
@@ -324,19 +326,12 @@ determinism
 
 This means:
 
-* the same input always produces the same output — down to the byte
-* every decision can be replayed, audited, and verified
-* failures are not just detected, but **understood structurally**
-* fixes are not guessed, but **proven necessary via counterfactual comparison**
-* redundant computation is eliminated through invariant detection
-* reasoning itself becomes a **compressible, persistent artifact**
-
-In practical terms, QEC enables:
-
-* reproducible research without hidden entropy
-* deterministic control systems that can be audited end-to-end
-* repair pipelines that do not rely on probabilistic search
-* systems that can prove improvement, not just claim it
+* same input → same output (byte-identical)
+* every decision is replayable and auditable
+* failures are structurally understood
+* fixes are proven, not guessed
+* redundant computation is eliminated
+* reasoning becomes a persistent artifact
 
 This shifts computation from:
 

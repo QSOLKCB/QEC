@@ -170,6 +170,58 @@ def test_hash_stability() -> None:
     assert receipt.governance_hash == _recompute_hash(receipt.governance_state, receipt.input_memory_hashes, receipt.selected_decision_hash)
 
 
+def test_governance_receipt_invalid_inputs() -> None:
+    shared_state, input_hashes, _ = _build_shared_state()
+    governance_state = arbitrate_decisions(shared_state, input_hashes, (_decision("a", 1), _decision("b", 2)))
+    selected_hash = _selected_hash_from_state(governance_state)
+    governance_hash = _recompute_hash(governance_state, input_hashes, selected_hash)
+
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        GovernanceReceipt(
+            governance_state=governance_state,
+            input_memory_hashes=input_hashes,
+            selected_decision_hash="0" * 64,
+            governance_hash=governance_hash,
+        )
+
+    malformed_hashes = ("abc",) + input_hashes[1:]
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        GovernanceReceipt(
+            governance_state=governance_state,
+            input_memory_hashes=malformed_hashes,
+            selected_decision_hash=selected_hash,
+            governance_hash=governance_hash,
+        )
+
+    modified_hashes = tuple(reversed(input_hashes))
+    modified_governance_hash = _recompute_hash(governance_state, modified_hashes, selected_hash)
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        GovernanceReceipt(
+            governance_state=governance_state,
+            input_memory_hashes=modified_hashes,
+            selected_decision_hash=selected_hash,
+            governance_hash=modified_governance_hash,
+        )
+
+    wrong_selected = governance_state.decisions[-1].decision_hash
+    wrong_selected_hash = _recompute_hash(governance_state, input_hashes, wrong_selected)
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        GovernanceReceipt(
+            governance_state=governance_state,
+            input_memory_hashes=input_hashes,
+            selected_decision_hash=wrong_selected,
+            governance_hash=wrong_selected_hash,
+        )
+
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        GovernanceReceipt(
+            governance_state=governance_state,
+            input_memory_hashes=input_hashes,
+            selected_decision_hash=selected_hash,
+            governance_hash="f" * 64,
+        )
+
+
 def test_immutability() -> None:
     shared_state, input_hashes, _ = _build_shared_state()
     payload = (("config", {"mode": "safe"}),)
@@ -187,6 +239,9 @@ def test_immutability() -> None:
     with pytest.raises(TypeError):
         nested["mode"] = "unsafe"  # type: ignore[index]
 
+    with pytest.raises(TypeError):
+        nested |= {"extra": 1}  # type: ignore[operator]
+
     with pytest.raises(FrozenInstanceError):
         governance_state.decisions = ()  # type: ignore[misc]
 
@@ -200,3 +255,9 @@ def test_invalid_hash_format_fails_fast() -> None:
 
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         AgentDecision(agent_id="a", decision_hash="ABC", decision_payload=(("a", 1),))
+
+
+def test_arbitrate_rejects_invalid_shared_memory_state() -> None:
+    _, input_hashes, _ = _build_shared_state()
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        arbitrate_decisions(object(), input_hashes, (_decision("a", 1),))  # type: ignore[arg-type]

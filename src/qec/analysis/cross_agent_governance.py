@@ -37,12 +37,13 @@ class _FrozenDict(dict[str, Any]):
     popitem = _immutable
     setdefault = _immutable
     update = _immutable
+    __ior__ = _immutable
 
 
 def _freeze_json_value(value: object) -> object:
     if isinstance(value, Mapping):
         return _FrozenDict({k: _freeze_json_value(v) for k, v in value.items()})
-    if isinstance(value, tuple):
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return tuple(_freeze_json_value(item) for item in value)
     return value
 
@@ -167,15 +168,25 @@ class GovernanceReceipt:
     governance_hash: str
 
     def __post_init__(self) -> None:
+        if not isinstance(self.governance_state, GovernanceState):
+            raise _invalid_input()
+
         validated_hashes = tuple(_require_sha256_hex(value) for value in self.input_memory_hashes)
+        expected_hashes = tuple(sorted(set(validated_hashes)))
+        if validated_hashes != expected_hashes:
+            raise _invalid_input()
         object.__setattr__(self, "input_memory_hashes", validated_hashes)
         selected_hash = _require_sha256_hex(self.selected_decision_hash)
         object.__setattr__(self, "selected_decision_hash", selected_hash)
 
+        if not self.governance_state.decisions:
+            raise _invalid_input()
         expected_selected_hash = self.governance_state.decisions[0].decision_hash
         if selected_hash != expected_selected_hash:
             raise _invalid_input()
 
+        validated_governance_hash = _require_sha256_hex(self.governance_hash)
+        object.__setattr__(self, "governance_hash", validated_governance_hash)
         computed_hash = sha256_hex(
             _governance_hash_payload(
                 governance_state=self.governance_state,
@@ -183,7 +194,7 @@ class GovernanceReceipt:
                 selected_decision_hash=selected_hash,
             )
         )
-        if self.governance_hash != computed_hash:
+        if validated_governance_hash != computed_hash:
             raise _invalid_input()
 
     def to_canonical_json(self) -> str:
@@ -204,6 +215,9 @@ def arbitrate_decisions(
     input_memory_hashes: tuple[str, ...],
     decisions: Sequence[AgentDecision],
 ) -> GovernanceState:
+    if not isinstance(shared_memory_state, SharedMemoryState):
+        raise _invalid_input()
+
     validated_hashes = tuple(_require_sha256_hex(value) for value in input_memory_hashes)
     expected_validated = tuple(sorted(set(validated_hashes)))
     if validated_hashes != expected_validated:

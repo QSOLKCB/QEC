@@ -169,8 +169,8 @@ class GovernanceReceipt:
         selected_hash = _require_sha256_hex(self.selected_decision_hash)
         object.__setattr__(self, "selected_decision_hash", selected_hash)
 
-        decision_hashes = {entry.decision_hash for entry in self.governance_state.decisions}
-        if selected_hash not in decision_hashes:
+        expected_selected_hash = self.governance_state.decisions[0].decision_hash
+        if selected_hash != expected_selected_hash:
             raise _invalid_input()
 
         computed_hash = sha256_hex(

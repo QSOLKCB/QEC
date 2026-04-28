@@ -51,16 +51,19 @@ def _payload_mapping(payload_pairs: Sequence[tuple[object, object]]) -> dict[str
     normalized: dict[str, object] = {}
     seen_keys: set[str] = set()
 
-    for item in payload_pairs:
-        if not isinstance(item, tuple) or len(item) != 2:
-            raise _invalid_input()
-        key, value = item
-        if not isinstance(key, str):
-            raise _invalid_input()
-        if key in seen_keys:
-            raise _invalid_input()
-        seen_keys.add(key)
-        normalized[key] = value
+    try:
+        for item in payload_pairs:
+            if not isinstance(item, tuple) or len(item) != 2:
+                raise _invalid_input()
+            key, value = item
+            if not isinstance(key, str):
+                raise _invalid_input()
+            if key in seen_keys:
+                raise _invalid_input()
+            seen_keys.add(key)
+            normalized[key] = value
+    except TypeError as exc:
+        raise _invalid_input() from exc
 
     return normalized
 

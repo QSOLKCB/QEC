@@ -1,153 +1,339 @@
-# Architecture
+# QSOLKCB / QEC — ARCHITECTURE.md
 
-## Overview
+## Deterministic System Architecture (Canonical)
 
-QEC is a deterministic structural analysis and adaptive control system for LDPC / QLDPC Tanner graphs. It operates as a closed-loop control system:
+---
+
+## 🧠 System Identity
+
+> QEC is a deterministic, replay-safe reasoning system operating as a decoder over system evolution.
+
+The architecture enforces strict separation between:
+
+* **decoder (measured system)**
+* **analysis (reasoning system)**
+
+Control is external. The decoder is never modified.
+
+---
+
+## 🔁 System Model
+
+QEC operates as a closed-loop deterministic reasoning pipeline:
 
 ```
-metrics -> attractor -> strategy -> evaluation -> adaptation -> memory
+metrics
+→ structure
+→ decision
+→ evaluation
+→ adaptation
+→ memory
 ```
 
-All operations are deterministic, reproducible, and externally controlled — the decoder core is never modified by the control loop.
+All transitions are:
 
-## Layer Model
+* deterministic
+* replay-safe
+* invariant-preserving
 
-Dependencies flow strictly downward. Lower layers must never import higher layers.
+---
 
-| Layer | Path | Role |
-|-------|------|------|
-| 1 | `src/qec/decoder/` | Decoder core (protected, never modified) |
-| 2 | `src/qec/channel/` | Channel models (BSC, oracle, syndrome) |
-| 3 | `src/qec/diagnostics/` | Observational diagnostics (BP dynamics, spectral analysis) |
-| 4 | `src/qec/predictors/` | Instability predictors (pre-decode risk signals) |
-| 5 | `src/qec/analysis/` | Core pipeline (metrics, attractors, strategies, memory) |
-| 6 | `src/qec/experiments/` | Experimental orchestration |
-| 7 | `src/bench/` | Benchmark harness |
+## 🧱 Layer Architecture (Strict Dependency Model)
 
-### Decoder Core (Layer 1) — Protected
+Dependencies flow downward only.
 
-The decoder (`src/qec/decoder/`) implements belief propagation and is treated as a fixed experimental object. It is:
+Violation → architecture invalid
 
-- Never modified by the adaptive system
-- Bit-stable across minor releases
-- Protected by architectural invariant
+| Layer | Path                   | Role                                      |
+| ----- | ---------------------- | ----------------------------------------- |
+| L1    | `src/qec/decoder/`     | Decoder core (protected, immutable)       |
+| L2    | `src/qec/channel/`     | Input generation (noise, syndromes, LLRs) |
+| L3    | `src/qec/diagnostics/` | Observation (decoder state measurement)   |
+| L4    | `src/qec/predictors/`  | Pre-decode signals (risk / instability)   |
+| L5    | `src/qec/analysis/`    | Deterministic reasoning pipeline          |
+| L6    | `src/qec/experiments/` | Orchestration (controlled execution)      |
+| L7    | `src/bench/`           | External benchmarking (non-importable)    |
 
-The BP reference implementation, energy computation, and structural configuration live here. All external interaction with the decoder is through its public interface — no hooks, no injection, no modifications.
+Rules:
 
-### Channel Models (Layer 2)
+* lower layers MUST NOT import higher layers
+* decoder MUST NOT depend on analysis
+* benchmark layer MUST NOT be imported internally
 
-Channel models (`src/qec/channel/`) provide syndrome generation, LLR computation, and noise modeling. These are the input interface to the decoder.
+---
 
-### Diagnostics (Layer 3)
+## 🔒 Decoder Core (L1) — Protected System
 
-Diagnostics (`src/qec/diagnostics/`) are observational only. They compute metrics from decoder outputs without modifying decoder inputs or behavior. Key modules:
+The decoder is a fixed experimental object.
 
-- `bp_dynamics.py` — BP trajectory metrics
-- `spectral_nb.py` — Non-backtracking spectrum analysis
-- `stability_*.py` — Stability prediction and classification
+Properties:
 
-Diagnostics operate on copies and are side-effect free.
+* immutable
+* bit-stable across releases
+* externally controlled only
 
-### Predictors (Layer 4)
+Constraints:
 
-Predictors (`src/qec/predictors/`) estimate instability before decoding. They consume diagnostics outputs and produce signals only — they never modify the decoder or its inputs.
+* no modification
+* no injection
+* no hooks
+* no adaptive logic inside decoder
 
-### Analysis (Layer 5) — Core Pipeline
+Interaction boundary:
 
-The analysis layer (`src/qec/analysis/`) contains the core adaptive pipeline with ~130 modules. The six pipeline stages live here:
+* inputs: LLRs, schedules, graph structure
+* outputs: beliefs, energies, syndromes
 
-**Metrics** — `field_metrics.py`, `multiscale_metrics.py`
-- Phi alignment, curvature, resonance, complexity
-- Scale consistency, scale divergence
+Violation → system invalid
 
-**Attractor analysis** — `attractor_analysis.py`
-- Regime classification (stable, transitional, oscillatory, unstable, mixed)
-- Basin score computation
-- Transition detection
+---
 
-**Strategy selection** — `strategy_transition.py`
-- Deterministic regime-action scoring table
-- Metric-driven adjustments
-- Deterministic tie-breaking (score, confidence, simplicity, lexicographic ID)
+## ⚡ Channel Layer (L2)
 
-**Evaluation** — `strategy_evaluation.py`
-- Before/after state comparison
-- Improvement scoring with weighted deltas
-- Outcome classification (stabilized, recovered, damped, regressed, neutral)
+Provides deterministic input generation:
 
-**Adaptation** — `strategy_adaptation.py`
-- Global bias from evaluation history
-- Trajectory scoring with recency weighting
-- Regime-aware evaluation weight overrides
+* syndrome generation
+* noise modeling
+* LLR computation
 
-**Memory** — three layers:
-- `strategy_memory.py` — Per-strategy and regime-indexed memory (v99.1–99.2)
-- `strategy_transition_learning.py` — Transition outcome recording and bias (v99.3)
-- `multi_step_evaluation.py` — Two-step lookahead scoring (v99.4)
+Constraint:
 
-### Experiments (Layer 6)
+* outputs must be canonical and reproducible
 
-Experiments (`src/qec/experiments/`) orchestrate runs using the analysis pipeline. Key module:
+---
 
-- `metrics_probe.py` — Full pipeline probe with deterministic test inputs
+## 🔍 Diagnostics Layer (L3)
 
-### Benchmarks (Layer 7)
+Pure observation layer.
 
-The benchmark harness (`src/bench/`) is external to the core package and must never be imported by it.
+Properties:
 
-## Determinism Guarantees
+* side-effect free
+* operates on copies
+* no mutation of inputs
 
-The system enforces bitwise reproducibility:
+Functions:
 
-- No hidden randomness
-- Explicit seed injection where RNG is needed
-- Deterministic iteration ordering (sorted keys)
-- Canonical serialization (JSON-safe outputs)
-- No use of Python `hash()` (unstable across runs)
-- No unordered floating-point reductions
-- Stable multi-key ranking for tie-breaking
+* BP dynamics tracking
+* spectral analysis
+* stability characterization
 
-With the same inputs and configuration, outputs are byte-identical across runs.
+Constraint:
 
-## Memory Architecture
+* diagnostics MUST NOT influence decoder execution
+
+---
+
+## 🧠 Predictor Layer (L4)
+
+Pre-decode signal generation.
+
+Properties:
+
+* consumes diagnostic outputs
+* produces signals only
+* no control authority
+
+Constraint:
+
+* predictors MUST NOT modify decoder inputs directly
+
+---
+
+## 🧩 Analysis Layer (L5) — Deterministic Reasoning Core
+
+This is the core reasoning system.
+
+Pipeline stages:
+
+### 1. Metrics
+
+* alignment
+* curvature
+* resonance
+* complexity
+* scale consistency
+
+### 2. Structure (Attractor Analysis)
+
+* regime classification
+* basin identification
+* transition detection
+
+### 3. Decision (Strategy Selection)
+
+Deterministic selection based on:
+
+* score
+* confidence
+* simplicity
+* lexicographic ordering
+
+Tie-breaking is fully deterministic.
+
+### 4. Evaluation
+
+* before/after comparison
+* improvement scoring
+* outcome classification
+
+### 5. Adaptation
+
+* global bias adjustment
+* trajectory weighting
+* regime-aware scaling
+
+### 6. Memory
+
+Stores deterministic historical signals for future decisions.
+
+Constraint:
+
+* no randomness
+* no mutation of prior state
+
+---
+
+## 🧠 Memory Architecture
 
 All memory is:
 
-- **Bounded** — capped at 10 events per key (configurable)
-- **Immutable** — updates return new dicts; inputs are never mutated
-- **Deterministic** — no stochastic learning, no randomness
-- **Indexed** — regime-aware keys for targeted adaptation
+* bounded
+* immutable
+* deterministic
+* indexed
 
-### Per-Strategy Memory (v99.1)
+### Memory Types
 
-Maps `strategy_id -> [events]`. Tracks score and outcome per strategy to compute local bias.
+**Strategy Memory**
 
-### Regime-Indexed Memory (v99.2)
+* per-strategy outcome tracking
 
-Maps `(regime_key, strategy_id) -> [events]` with fallback to global aggregation. Stability-weighted scoring reduces noise from volatile strategies.
+**Regime Memory**
 
-### Transition Learning (v99.3)
+* context-aware aggregation
 
-Maps `(regime_before, attractor_before, strategy_id, regime_after, attractor_after) -> stats`. Records transition outcomes and computes multiplicative bias in [0.8, 1.2] based on historical success rate.
+**Transition Memory**
 
-### Multi-Step Evaluation (v99.4)
+* state transition recording
+* bias computation
 
-Uses transition memory to estimate two-step expected value. For each candidate strategy, estimates the combined value of applying it now and the best follow-up, producing a multiplicative factor in [0.8, 1.2]. Fixed horizon of 2 — no recursion.
+**Multi-Step Evaluation**
 
-### Combined Scoring Formula (v99.4)
+* fixed horizon lookahead (depth = 2)
+
+Constraint:
+
+* no recursion
+* no stochastic updates
+
+---
+
+## ⚙️ Scoring Model
 
 ```
-final_score = base_score * stability_weight * transition_bias * multi_step_factor
+final_score = base_score
+            × stability_weight
+            × transition_bias
+            × multi_step_factor
 ```
 
-All factors are clamped to [0, 1] for the final score.
+Constraints:
 
-## Why the Decoder is Untouched
+* all factors bounded
+* all factors deterministic
+* final score clamped
 
-The decoder is a fixed experimental object — like an instrument being measured, not a variable being optimized. The adaptive system operates entirely outside the decoder:
+---
 
-- Metrics measure decoder behavior
-- Strategies adjust decoder inputs (LLR, schedules, graph structure)
-- The decoder itself is never modified
+## 🧪 Experiment Layer (L6)
 
-This separation ensures that experimental results are reproducible and that the decoder remains bit-stable across releases. Control happens at the boundary, not inside the system.
+Responsible for controlled execution.
+
+Properties:
+
+* deterministic orchestration
+* fixed inputs
+* reproducible runs
+
+Constraint:
+
+* no modification of analysis logic
+
+---
+
+## 📊 Benchmark Layer (L7)
+
+External evaluation only.
+
+Constraint:
+
+* MUST NOT be imported by core system
+
+---
+
+## 🔒 Determinism Guarantees
+
+The system enforces:
+
+* no hidden randomness
+* explicit seeded RNG only (if used)
+* deterministic ordering (sorted keys)
+* canonical serialization
+* no unstable hashing
+* stable floating-point handling
+* deterministic tie-breaking
+
+Result:
+
+```
+same input → same bytes
+```
+
+---
+
+## 🚫 Forbidden Operations
+
+* randomness (implicit or hidden)
+* wall-clock dependence
+* nondeterministic async behavior
+* decoder mutation
+* unordered iteration
+* non-canonical serialization
+
+Violation → system invalid
+
+---
+
+## 🧠 Architectural Principle
+
+The decoder is not optimized.
+
+It is measured.
+
+The system operates as:
+
+```
+external deterministic reasoning
+→ controlled input modification
+→ invariant observation
+→ proof of behavior
+```
+
+Control occurs at the boundary, never inside the decoder.
+
+---
+
+## 🧠 Final Statement
+
+QEC architecture enforces:
+
+* strict separation of execution and reasoning
+* deterministic control over stochastic domains
+* invariant-preserving system evolution
+
+The result is a system that does not approximate behavior.
+
+It explains, constrains, and proves it.
+
+---

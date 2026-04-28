@@ -230,9 +230,6 @@ def arbitrate_decisions(
     if not decisions_sorted:
         raise _invalid_input()
 
-    selected_decision = decisions_sorted[0]
-    _ = selected_decision
-
     return GovernanceState(decisions=decisions_sorted)
 
 

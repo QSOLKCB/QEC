@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import FrozenInstanceError
 import hashlib
 import itertools
-import json
 
 import pytest
 
+from qec.analysis.canonical_hashing import sha256_hex
 from qec.analysis.canonical_identity import canonical_hash_identity
 from qec.analysis.distributed_proof_consistency import (
     DistributedProofConsistencyReceipt,
@@ -118,9 +118,7 @@ def test_receipt_hash_stability_recomputes_exactly() -> None:
     receipt = verify_distributed_proof_consistency(_base_reports())
     payload = receipt.to_dict()
     payload.pop("consistency_hash")
-    recomputed = hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    recomputed = sha256_hex(payload)
     assert recomputed == receipt.consistency_hash
     assert recomputed == receipt.computed_stable_hash()
 
@@ -134,6 +132,16 @@ def test_immutability() -> None:
     with pytest.raises(FrozenInstanceError):
         receipt.consistency_hash = "0" * 64  # type: ignore[misc]
 
+
+
+def test_sha256_validation_rejects_prefixed_or_signed_values() -> None:
+    memory = canonical_hash_identity(_canonical_hashes("m0"))
+
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        _report("node", "0x" + ("a" * 62), _h("proof"), memory)
+
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        _report("node", ("+" + ("a" * 63)), _h("proof"), memory)
 
 def test_invalid_report_inputs_rejected() -> None:
     memory = canonical_hash_identity(_canonical_hashes("m0", "m1"))

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+import re
+
+_SHA256_HEX_RE = re.compile(r"[0-9a-f]{64}")
 
 
 def _invalid_input() -> ValueError:
@@ -10,13 +13,7 @@ def _invalid_input() -> ValueError:
 
 
 def _require_sha256_hex(value: object) -> str:
-    if isinstance(value, bool) or not isinstance(value, str) or len(value) != 64:
-        raise _invalid_input()
-    try:
-        int(value, 16)
-    except ValueError as exc:
-        raise _invalid_input() from exc
-    if value != value.lower():
+    if isinstance(value, bool) or not isinstance(value, str) or _SHA256_HEX_RE.fullmatch(value) is None:
         raise _invalid_input()
     return value
 

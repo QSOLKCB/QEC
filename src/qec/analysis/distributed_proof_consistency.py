@@ -4,30 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-import hashlib
-import json
 
-from qec.analysis.canonical_identity import canonical_hash_identity
-
-
-def _invalid_input() -> ValueError:
-    return ValueError("INVALID_INPUT")
-
-
-def _require_sha256_hex(value: object) -> str:
-    if isinstance(value, bool) or not isinstance(value, str) or len(value) != 64:
-        raise _invalid_input()
-    try:
-        int(value, 16)
-    except ValueError as exc:
-        raise _invalid_input() from exc
-    if value != value.lower():
-        raise _invalid_input()
-    return value
-
-
-def _canonical_json(payload: object) -> str:
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, sha256_hex
+from qec.analysis.canonical_identity import _invalid_input, _require_sha256_hex, canonical_hash_identity
 
 
 def _sorted_reports(reports: Sequence[NodeProofReport]) -> tuple[NodeProofReport, ...]:
@@ -71,13 +50,13 @@ class NodeProofReport:
         }
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
+        return canonical_bytes(self.to_dict())
 
     def computed_stable_hash(self) -> str:
-        return hashlib.sha256(self.to_canonical_bytes()).hexdigest()
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -113,9 +92,7 @@ class DistributedProofState:
         if self.consistent is not expected_consistent:
             raise _invalid_input()
 
-        expected_agreed = ordered_reports[0].proof_hash
-        if not expected_consistent:
-            expected_agreed = sorted(proof_hashes)[0]
+        expected_agreed = sorted(proof_hashes)[0]
         if validated_agreed != expected_agreed:
             raise _invalid_input()
 
@@ -127,13 +104,13 @@ class DistributedProofState:
         }
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
+        return canonical_bytes(self.to_dict())
 
     def computed_stable_hash(self) -> str:
-        return hashlib.sha256(self.to_canonical_bytes()).hexdigest()
+        return sha256_hex(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -194,13 +171,13 @@ class DistributedProofConsistencyReceipt:
         )
 
     def to_canonical_json(self) -> str:
-        return _canonical_json(self.to_dict())
+        return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
-        return self.to_canonical_json().encode("utf-8")
+        return canonical_bytes(self.to_dict())
 
     def computed_stable_hash(self) -> str:
-        return hashlib.sha256(_canonical_json(self._hash_payload()).encode("utf-8")).hexdigest()
+        return sha256_hex(self._hash_payload())
 
 
 def verify_distributed_proof_consistency(
@@ -223,10 +200,10 @@ def verify_distributed_proof_consistency(
 
     sorted_reports = _sorted_reports(canonical_reports)
     proof_hashes = tuple(report.proof_hash for report in sorted_reports)
-    unique_proof_hashes = tuple(sorted(set(proof_hashes)))
+    node_proof_hashes = canonical_hash_identity(tuple(sorted(set(proof_hashes))))
 
-    consistent = len(unique_proof_hashes) == 1
-    agreed_proof_hash = unique_proof_hashes[0]
+    consistent = len(node_proof_hashes) == 1
+    agreed_proof_hash = node_proof_hashes[0]
 
     distributed_state = DistributedProofState(
         reports=sorted_reports,
@@ -235,19 +212,16 @@ def verify_distributed_proof_consistency(
     )
 
     governance_hashes = canonical_hash_identity(tuple(sorted(set(report.governance_hash for report in sorted_reports))))
-    node_proof_hashes = canonical_hash_identity(unique_proof_hashes)
     input_memory_hashes = canonical_hash_identity(baseline_input_hashes)
 
-    consistency_hash = hashlib.sha256(
-        _canonical_json(
-            _consistency_hash_payload(
-                distributed_state=distributed_state,
-                input_memory_hashes=input_memory_hashes,
-                governance_hashes=governance_hashes,
-                node_proof_hashes=node_proof_hashes,
-            )
-        ).encode("utf-8")
-    ).hexdigest()
+    consistency_hash = sha256_hex(
+        _consistency_hash_payload(
+            distributed_state=distributed_state,
+            input_memory_hashes=input_memory_hashes,
+            governance_hashes=governance_hashes,
+            node_proof_hashes=node_proof_hashes,
+        )
+    )
     return DistributedProofConsistencyReceipt(
         distributed_state=distributed_state,
         input_memory_hashes=input_memory_hashes,

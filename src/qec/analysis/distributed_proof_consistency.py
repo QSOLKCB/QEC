@@ -1,4 +1,7 @@
-"""v150.2 — Distributed proof consistency verification."""
+"""This module adheres to the global canonical identity contract.
+
+See: qec.analysis.identity_contract.get_identity_contract()
+"""
 
 from __future__ import annotations
 
@@ -6,6 +9,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, sha256_hex
+from qec.analysis.identity_contract import get_identity_contract
 from qec.analysis.canonical_identity import _invalid_input, _require_sha256_hex, canonical_hash_identity
 
 

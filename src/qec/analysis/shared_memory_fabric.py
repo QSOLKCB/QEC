@@ -1,4 +1,7 @@
-"""v150.0 — Shared memory fabric deterministic merge primitives."""
+"""This module adheres to the global canonical identity contract.
+
+See: qec.analysis.identity_contract.get_identity_contract()
+"""
 
 from __future__ import annotations
 
@@ -7,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from qec.analysis.canonical_hashing import CanonicalHashingError, canonical_json, canonicalize_json, sha256_hex
+from qec.analysis.identity_contract import get_identity_contract
 
 
 def _invalid_input() -> ValueError:

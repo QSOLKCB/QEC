@@ -1,11 +1,14 @@
 # QSOLKCB / QEC — ROADMAP.md
+
 ## Post-v149.5 · Canonical System Definition
+
+> QEC is a deterministic decoder over system evolution that produces proof-carrying state transitions.
 
 ---
 
 ## 🧠 Core Law (Invariant)
 
-
+```
 same input
 → same ordering
 → same canonical JSON
@@ -14,43 +17,43 @@ same input
 → same compressed representation
 → same proof artifact
 → same outcome
+```
 
-
-This law governs **every layer, every module, every environment**.
-
-It is not an aspiration.  
-It is the definition of a valid system state.
+This law governs every layer, every module, every environment.
+It defines system validity.
 
 ### Extensions
 
-- **Cross-Layer Determinism**  
-  Canonical outputs must propagate unchanged through all layers to the final proof artifact.
+**Cross-Layer Determinism**
+Canonical outputs propagate unchanged through all layers to the final proof artifact.
 
-- **Cross-Environment Determinism**  
-  Execution on any compliant system must produce **byte-identical outputs**.
+**Cross-Environment Determinism**
+Execution on any compliant system produces byte-identical outputs.
 
-- **Compression-Preserving Identity**  
+**Compression-Preserving Identity**
 
+```
 decompress(compress(M)) = M
+```
 
-Compression must preserve reasoning identity.
+Compression preserves reasoning identity. Violation → proof invalid.
 
 ---
 
 ## 🧠 System Definition
 
-QEC is a **deterministic, replay-safe reasoning system**  
-operating as a **decoder over system evolution**,  
-producing **proof-carrying artifacts**.
+QEC is a deterministic, replay-safe reasoning system operating as a decoder over system evolution, producing proof-carrying artifacts.
 
-- State transitions are encoded signals  
-- Failures are **constraint violations (dark modes)**  
-- Repair is **structural transformation**  
-- Validation confirms restored transfer  
-- Proof is the deterministic record of the full chain  
+| Concept          | Definition                         |
+| ---------------- | ---------------------------------- |
+| State transition | encoded signal                     |
+| Failure          | constraint violation (dark mode)   |
+| Repair           | structural transformation          |
+| Validation       | restored transfer confirmed        |
+| Proof            | deterministic record of full chain |
 
-Every action produces a **typed, canonical, hashable receipt**.  
-The system proves itself through receipt composition.
+Every action produces a typed, canonical, hashable receipt.
+Proof is derived through deterministic receipt composition.
 
 ---
 
@@ -58,26 +61,28 @@ The system proves itself through receipt composition.
 
 Each layer:
 
-- consumes canonical input  
-- produces canonical output  
-- introduces no nondeterminism  
+* consumes canonical input
+* produces canonical output
+* introduces no nondeterminism
 
-| Layer | Name | Function |
-|------|------|---------|
-| L0 | Observation / Trace | Canonical ingestion of execution signals |
-| L1 | Interpretation | Extract invariants, structure, constraints |
-| L2 | Decision / Control | Deterministic control selection |
-| L3 | Memory / Governance | Policy accumulation and arbitration |
-| L4 | Validation / Repair | Dark-mode resolution and fix validation |
-| L5 | Alignment / Simulation | Map to constraints, simulate execution |
-| L6 | Compression / Storage | Identity-preserving reasoning compression |
-| L7 | Proof / Demonstration | Assemble final proof artifact |
+Violation → layer output invalid
+
+| Layer | Name                   | Function                                    |
+| ----- | ---------------------- | ------------------------------------------- |
+| L0    | Observation / Trace    | Canonical ingestion of execution signals    |
+| L1    | Interpretation         | Extract invariants, structure, constraints  |
+| L2    | Decision / Control     | Deterministic control selection             |
+| L3    | Memory / Governance    | Policy accumulation and arbitration         |
+| L4    | Validation / Repair    | Dark-mode resolution and fix validation     |
+| L5    | Alignment / Simulation | Constraint mapping and execution simulation |
+| L6    | Compression / Storage  | Identity-preserving reasoning compression   |
+| L7    | Proof / Demonstration  | Final proof artifact assembly               |
 
 ---
 
 ## 🔁 Execution Flow
 
-
+```
 trace
 → structure
 → decision
@@ -87,182 +92,152 @@ trace
 → comparison
 → compression
 → proof
+```
 
-
-- Each step is deterministic  
-- Each step produces a receipt  
-- The full chain forms the **proof bundle**
+Every step is deterministic and produces a receipt.
+The full chain forms the proof bundle.
 
 ---
 
-## 🏭 Factory Model
+## 🏭 Deterministic Factory Model
 
-All components are deterministic factories:
-
-| Factory | Input | Output | Invariant | Failure Mode |
-|--------|------|--------|----------|-------------|
-| Trace Factory | raw signals | trace receipt | canonical ordering | reject non-canonical input |
-| Governance Factory | trace + policy | governance receipt | immutability | contradiction → halt |
-| Repair Factory | dark-mode trace | correction receipt | structural fix | no valid fix → stop |
-| Validation Factory | fix + invariants | validation receipt | invariant preservation | mismatch → reject |
-| Compression Factory | receipt chain | compressed form | identity-preserving | hash mismatch → void |
-| Proof Factory | all receipts | proof artifact | full consistency | missing/invalid receipt → block |
+All components are deterministic factories.
 
 Factories:
 
-- share no mutable state  
-- use no randomness  
-- depend only on canonical inputs  
+* share no mutable state
+* use no randomness
+* depend only on canonical inputs
+
+| Factory     | Input            | Output             | Invariant              | Failure Mode                    |
+| ----------- | ---------------- | ------------------ | ---------------------- | ------------------------------- |
+| Trace       | raw signals      | trace receipt      | canonical ordering     | reject non-canonical input      |
+| Governance  | trace + policy   | governance receipt | immutability           | contradiction → halt            |
+| Repair      | dark-mode trace  | correction receipt | structural fix         | no valid fix → stop             |
+| Validation  | fix + invariants | validation receipt | invariant preservation | mismatch → reject               |
+| Compression | receipt chain    | compressed form    | identity-preserving    | hash mismatch → void            |
+| Proof       | all receipts     | proof artifact     | full consistency       | missing/invalid receipt → block |
 
 ---
 
 ## 🌑 Dark-State Model
 
-
-failure := dark mode (blocked computation path)
-repair := symmetry breaking (restore coupling)
+```
+failure    := dark mode (blocked computation path)
+repair     := symmetry breaking (restore coupling)
 validation := restored transfer (invariants preserved)
-proof := deterministic confirmation
+proof      := deterministic confirmation
+```
 
-
-- Failures cannot be resolved by retry  
-- Repair must change structure, not execution order  
-- Fixes must be validated and proven necessary  
+* Failure cannot be resolved by retry
+* Repair requires structural transformation
+* Fixes must be validated and proven necessary
 
 ---
 
 ## 📊 Proof Conditions
 
-All must hold simultaneously:
+All must hold simultaneously. Failure of any condition → proof invalid → promotion blocked.
 
-| Condition | Requirement |
-|----------|------------|
-| Determinism | identical hash across replays |
-| Convergence | finite repair sequence exists |
-| Repair Necessity | counterfactual fixes fail or are equivalent |
-| Cross-Environment Consistency | identical outputs across systems |
-| Compression Integrity | compressed form preserves identity |
-
-Failure of any condition:
-
-
-STOP → proof invalid → promotion blocked
-
+| Condition                     | Requirement                                 | Failure                            |
+| ----------------------------- | ------------------------------------------- | ---------------------------------- |
+| Determinism                   | identical hash across replays               | hash mismatch → void               |
+| Convergence                   | finite repair sequence exists               | divergence → stop                  |
+| Repair Necessity              | counterfactual fixes fail or are equivalent | unjustified fix → reject           |
+| Cross-Environment Consistency | byte-identical outputs across systems       | divergence → stop                  |
+| Compression Integrity         | compressed form preserves identity          | decompress(compress(M)) ≠ M → void |
 
 ---
 
 ## 🧾 Promotion System
 
-Promotion is:
+Promotion is system-level proof acceptance.
 
-> **system-level proof acceptance**
+A version is valid if and only if:
 
-A version is valid only if:
+* all receipts exist
+* all hashes match across replay
+* all proof conditions are satisfied
+* full chain is consistent L0 → L7
 
-- all receipts exist  
-- all hashes match across replay  
-- all proof conditions are satisfied  
-- full chain is consistent L0 → L7  
+Failure:
 
-If any condition fails:
-
-
-STOP
-no promotion
-no advancement
-
+```
+STOP — no promotion — no advancement
+```
 
 ---
 
 ## 🚫 Forbidden Operations
 
-Permanently disallowed:
-
-- randomness (any form)  
-- wall-clock dependence  
-- nondeterministic async behavior  
-- decoder mutation during execution  
-- probabilistic routing  
-- silent failure  
-- non-canonical serialization  
-
 Violation → system invalid
+
+* randomness (any form)
+* wall-clock dependence
+* nondeterministic async behavior
+* decoder mutation during execution
+* probabilistic routing
+* silent failure
+* non-canonical serialization
 
 ---
 
 ## 🧪 Required Module Properties
 
-All modules must be:
-
-- deterministic  
-- replay-safe  
-- bounded  
-- fail-fast  
-- canonical (sorted JSON)  
-- hash-stable (SHA-256)  
-- decoder-immutable  
-- analysis-layer only  
+| Property            | Enforcement                        |
+| ------------------- | ---------------------------------- |
+| Deterministic       | same input → same output           |
+| Replay-safe         | no divergence across replays       |
+| Bounded             | finite execution guaranteed        |
+| Fail-fast           | invalid state surfaces immediately |
+| Canonical           | sorted JSON serialization          |
+| Hash-stable         | SHA-256 across outputs             |
+| Decoder-immutable   | no mutation during decoding        |
+| Analysis-layer only | no side effects                    |
 
 ---
 
 ## 🧭 Completed Arc (v143 → v149.5)
 
-
+```
 v143–146 → deterministic runtime
-v147 → autonomous system
-v148 → validation + repair reasoning
-v149 → scaling + alignment + compression + proof
-v149.5 → full system proof artifact
+v147     → autonomous system
+v148     → validation + repair reasoning
+v149     → alignment + compression + proof
+v149.5   → full system proof artifact
+```
 
+QEC executes:
 
-QEC now executes:
-
-
-observe
-→ predict
-→ decide
-→ remember
-→ govern
-→ validate
-→ align
-→ simulate
-→ compress
-→ prove
-
+```
+observe → predict → decide → remember → govern
+→ validate → align → simulate → compress → prove
+```
 
 ---
 
 ## 🔮 Future Direction (v150+)
 
-### Reflection Arc
+All extensions must obey Core Law, preserve determinism, and produce verifiable receipts.
 
-System begins reasoning about its own reasoning.
-
-| Phase | Focus |
-|------|------|
-| v150.x | Meta-governance |
-| v151.x | Adaptive invariants |
-| v152.x | Self-optimizing reasoning |
-| v153.x | Formal convergence proofs |
-| v154.x | Minimal proof description |
-
-All extensions must:
-
-- obey Core Law  
-- preserve determinism  
-- produce verifiable receipts  
+| Version | Focus                     |
+| ------- | ------------------------- |
+| v150.x  | Meta-governance           |
+| v151.x  | Adaptive invariants       |
+| v152.x  | Self-optimizing reasoning |
+| v153.x  | Formal convergence proofs |
+| v154.x  | Minimal proof description |
 
 ---
 
 ## 🧠 Final Definition
 
+```
 QEC is:
-
-
-a deterministic decoder over system evolution
-producing proof-carrying state transitions
-with invariant-preserving compression
-and replay-safe verification
-
+  a deterministic decoder over system evolution
+  producing proof-carrying state transitions
+  with invariant-preserving compression
+  and replay-safe verification
+```
 
 ---

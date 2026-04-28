@@ -8,9 +8,6 @@ from typing import Any
 
 from qec.analysis.canonical_hashing import CanonicalHashingError, canonical_json, canonicalize_json, sha256_hex
 
-_JSONScalar = str | int | float | bool | None
-_JSONValue = _JSONScalar | tuple["_JSONValue", ...] | dict[str, "_JSONValue"]
-
 
 def _invalid_input() -> ValueError:
     return ValueError("INVALID_INPUT")
@@ -28,7 +25,28 @@ def _require_sha256_hex(value: object) -> str:
     return value
 
 
-def _canonical_payload_pairs(payload: object) -> tuple[tuple[str, _JSONValue], ...]:
+class _FrozenDict(dict[str, Any]):
+    def _immutable(self, *_args: object, **_kwargs: object) -> None:
+        raise TypeError("immutable mapping")
+
+    __setitem__ = _immutable
+    __delitem__ = _immutable
+    clear = _immutable
+    pop = _immutable
+    popitem = _immutable
+    setdefault = _immutable
+    update = _immutable
+
+
+def _freeze_json_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return _FrozenDict({k: _freeze_json_value(v) for k, v in value.items()})
+    if isinstance(value, tuple):
+        return tuple(_freeze_json_value(item) for item in value)
+    return value
+
+
+def _canonical_payload_pairs(payload: object) -> tuple[tuple[str, Any], ...]:
     try:
         canonical_payload = canonicalize_json(payload)
     except CanonicalHashingError as exc:
@@ -40,7 +58,25 @@ def _canonical_payload_pairs(payload: object) -> tuple[tuple[str, _JSONValue], .
     if any(not isinstance(key, str) for key in keys):
         raise _invalid_input()
 
-    return tuple((key, canonical_payload[key]) for key in sorted(keys))
+    return tuple((key, _freeze_json_value(canonical_payload[key])) for key in sorted(keys))
+
+
+def _memory_payload_mapping(payload_pairs: Sequence[tuple[object, object]]) -> dict[str, object]:
+    seen_keys: set[str] = set()
+    normalized: dict[str, object] = {}
+
+    for item in payload_pairs:
+        if not isinstance(item, tuple) or len(item) != 2:
+            raise _invalid_input()
+        key, value = item
+        if not isinstance(key, str):
+            raise _invalid_input()
+        if key in seen_keys:
+            raise _invalid_input()
+        seen_keys.add(key)
+        normalized[key] = value
+
+    return normalized
 
 
 def _entry_dict(entry: CanonicalMemoryEntry) -> dict[str, object]:
@@ -69,7 +105,8 @@ class CanonicalMemoryEntry:
             raise _invalid_input()
         object.__setattr__(self, "memory_hash", _require_sha256_hex(self.memory_hash))
 
-        normalized_payload = _canonical_payload_pairs(dict(self.memory_payload))
+        payload_mapping = _memory_payload_mapping(self.memory_payload)
+        normalized_payload = _canonical_payload_pairs(payload_mapping)
         if normalized_payload != self.memory_payload:
             raise _invalid_input()
 
@@ -79,16 +116,16 @@ class SharedMemoryState:
     entries: tuple[CanonicalMemoryEntry, ...]
 
     def __post_init__(self) -> None:
-        ordered = tuple(self.entries)
+        object.__setattr__(self, "entries", tuple(self.entries))
+        ordered = self.entries
         if tuple(sorted(ordered, key=lambda entry: (entry.memory_hash, entry.source_agent_id))) != ordered:
             raise _invalid_input()
 
-        seen_hashes: dict[str, CanonicalMemoryEntry] = {}
+        seen_hashes: set[str] = set()
         for entry in ordered:
-            existing = seen_hashes.get(entry.memory_hash)
-            if existing is not None and existing != entry:
+            if entry.memory_hash in seen_hashes:
                 raise _invalid_input()
-            seen_hashes[entry.memory_hash] = entry
+            seen_hashes.add(entry.memory_hash)
 
 
 @dataclass(frozen=True)
@@ -133,6 +170,10 @@ def merge_memory_receipts(receipts: Sequence[object]) -> SharedMemoryState:
             memory_hash=_require_sha256_hex(memory_hash),
             memory_payload=_canonical_payload_pairs(memory_payload),
         )
+
+        expected_hash = sha256_hex(dict(canonical_entry.memory_payload))
+        if canonical_entry.memory_hash != expected_hash:
+            raise _invalid_input()
 
         existing = entries_by_hash.get(canonical_entry.memory_hash)
         if existing is not None and existing != canonical_entry:

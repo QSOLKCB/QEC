@@ -8,7 +8,7 @@ import json
 import pytest
 
 from qec.analysis.canonical_hashing import sha256_hex
-from qec.analysis.shared_memory_fabric import SharedMemoryReceipt, merge_memory_receipts
+from qec.analysis.shared_memory_fabric import SharedMemoryReceipt, SharedMemoryState, merge_memory_receipts
 
 
 @dataclass(frozen=True)
@@ -106,6 +106,10 @@ def test_mutation_protection() -> None:
     state = merge_memory_receipts(_sample_receipts())
     with pytest.raises(TypeError):
         state.entries[0].memory_payload["x"] = 1  # type: ignore[index]
+    nested_entry = next(entry for entry in state.entries if "nested" in dict(entry.memory_payload))
+    nested_payload = dict(nested_entry.memory_payload)["nested"]
+    with pytest.raises(TypeError):
+        nested_payload["k"] = 1  # type: ignore[index]
 
 
 def test_invalid_hash_validation() -> None:
@@ -128,3 +132,17 @@ def test_duplicate_inconsistent_entries_fail_fast() -> None:
 
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         merge_memory_receipts((receipt_a, receipt_b))
+
+
+def test_receipt_hash_must_match_payload() -> None:
+    bad_hash_receipt = _MemoryReceipt(source_agent_id="a", memory_hash="2" * 64, memory_payload={"x": 1})
+
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        merge_memory_receipts((bad_hash_receipt,))
+
+
+def test_shared_state_rejects_duplicate_hashes() -> None:
+    entry = merge_memory_receipts((_MemoryReceipt(source_agent_id="a", memory_hash=_hash_payload({"x": 1}), memory_payload={"x": 1}),)).entries[0]
+
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        SharedMemoryState(entries=(entry, entry))

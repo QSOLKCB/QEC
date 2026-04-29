@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from qec.analysis.canonical_hashing import canonicalize_json, sha256_hex
+from qec.analysis.canonical_hashing import CanonicalHashingError, canonicalize_json, sha256_hex
 from qec.analysis.canonical_identity import canonical_hash_identity
 
 
@@ -52,7 +52,11 @@ def _canonical_payload(payload: object) -> tuple[tuple[str, Any], ...]:
         if prev_key is not None and key <= prev_key:
             raise _invalid_input()
         prev_key = key
-        out.append((key, canonicalize_json(value)))
+        try:
+            canonical_value = canonicalize_json(value)
+        except CanonicalHashingError as exc:
+            raise _invalid_input() from exc
+        out.append((key, canonical_value))
     return tuple(out)
 
 
@@ -73,11 +77,29 @@ class RoleAgentDecision:
     decision_hash: str
     decision_payload: tuple[tuple[str, Any], ...]
 
+    @classmethod
+    def create(cls, *, agent_id: str, agent_role: str, decision_payload: tuple[tuple[str, Any], ...]) -> "RoleAgentDecision":
+        role = _validate_role(agent_role)
+        payload = _canonical_payload(decision_payload)
+        decision_hash = _decision_payload_hash(
+            agent_id=agent_id,
+            agent_role=role,
+            decision_payload=payload,
+        )
+        return cls(
+            agent_id=agent_id,
+            agent_role=role,
+            decision_hash=decision_hash,
+            decision_payload=payload,
+        )
+
     def __post_init__(self) -> None:
         if not isinstance(self.agent_id, str) or not self.agent_id:
             raise _invalid_input()
         role = _validate_role(self.agent_role)
         payload = _canonical_payload(self.decision_payload)
+        object.__setattr__(self, "agent_role", role)
+        object.__setattr__(self, "decision_payload", payload)
         expected_hash = _decision_payload_hash(
             agent_id=self.agent_id,
             agent_role=role,
@@ -91,12 +113,48 @@ class RoleAgentDecision:
 class RoleDecisionState:
     decisions: tuple[RoleAgentDecision, ...]
 
+    def __post_init__(self) -> None:
+        prev_key: tuple[str, str, str] | None = None
+        for decision in self.decisions:
+            if not isinstance(decision, RoleAgentDecision):
+                raise _invalid_input()
+            key = (decision.agent_role, decision.decision_hash, decision.agent_id)
+            if prev_key is not None and key <= prev_key:
+                raise _invalid_input()
+            prev_key = key
+
 
 @dataclass(frozen=True)
 class RoleDecisionReceipt:
     role_state: RoleDecisionState
     input_memory_hashes: tuple[str, ...]
     role_decision_hash: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.role_state, RoleDecisionState):
+            raise _invalid_input()
+        identity = canonical_hash_identity(self.input_memory_hashes)
+        object.__setattr__(self, "input_memory_hashes", identity)
+        expected_hash = _role_decision_hash(input_memory_hashes=identity, role_state=self.role_state)
+        if self.role_decision_hash != expected_hash:
+            raise _invalid_input()
+
+
+def _role_decision_hash(*, input_memory_hashes: tuple[str, ...], role_state: RoleDecisionState) -> str:
+    return sha256_hex(
+        {
+            "decisions": [
+                {
+                    "agent_id": item.agent_id,
+                    "agent_role": item.agent_role,
+                    "decision_hash": item.decision_hash,
+                    "decision_payload": item.decision_payload,
+                }
+                for item in role_state.decisions
+            ],
+            "input_memory_hashes": input_memory_hashes,
+        }
+    )
 
 
 def build_role_decision_state(
@@ -123,20 +181,7 @@ def build_role_decision_state(
 
     ordered = tuple(sorted(unique.values(), key=lambda item: (item.agent_role, item.decision_hash, item.agent_id)))
     role_state = RoleDecisionState(decisions=ordered)
-    role_decision_hash = sha256_hex(
-        {
-            "decisions": [
-                {
-                    "agent_id": item.agent_id,
-                    "agent_role": item.agent_role,
-                    "decision_hash": item.decision_hash,
-                    "decision_payload": item.decision_payload,
-                }
-                for item in role_state.decisions
-            ],
-            "input_memory_hashes": identity,
-        }
-    )
+    role_decision_hash = _role_decision_hash(input_memory_hashes=identity, role_state=role_state)
     return RoleDecisionReceipt(
         role_state=role_state,
         input_memory_hashes=identity,

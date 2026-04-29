@@ -12,13 +12,9 @@ from qec.analysis.agent_specialization import (
 
 
 def _mk_decision(agent_id: str, role: str, payload: tuple[tuple[str, object], ...]) -> RoleAgentDecision:
-    from qec.analysis.agent_specialization import _decision_payload_hash
-
-    decision_hash = _decision_payload_hash(agent_id=agent_id, agent_role=role, decision_payload=payload)
-    return RoleAgentDecision(
+    return RoleAgentDecision.create(
         agent_id=agent_id,
         agent_role=role,
-        decision_hash=decision_hash,
         decision_payload=payload,
     )
 
@@ -92,3 +88,10 @@ def test_cross_role_independence() -> None:
     d2 = _mk_decision("agent-b", AgentRole.REPAIR, (("k", 1),))
     receipt = build_role_decision_state(_identity(), (d1, d2))
     assert len(receipt.role_state.decisions) == 2
+
+
+def test_payload_canonicalization_errors_use_invalid_input() -> None:
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        _mk_decision("agent-a", AgentRole.CONTROL, (("k", float("nan")),))
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        _mk_decision("agent-a", AgentRole.CONTROL, (("k", {1, 2, 3}),))

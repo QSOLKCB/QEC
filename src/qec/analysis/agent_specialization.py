@@ -1,4 +1,8 @@
-"""Deterministic role-constrained agent specialization for analysis receipts."""
+"""This module adheres to the QEC identity and hashing surface contract.
+
+See: qec.analysis.identity_hashing_contract.get_identity_hashing_contract()
+"""
+
 
 from __future__ import annotations
 

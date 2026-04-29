@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from qec.analysis.canonical_hashing import canonical_json, sha256_hex
+from qec.analysis.canonical_hashing import CanonicalHashingError, canonical_json, canonicalize_json, sha256_hex
 from qec.analysis.canonical_identity import canonical_hash_identity
 import re
 
@@ -26,21 +26,18 @@ def _require_sha256_hex(value: str) -> str:
 def _canonical_payload(payload: tuple[tuple[str, Any], ...]) -> tuple[tuple[str, Any], ...]:
     if not isinstance(payload, tuple):
         raise _invalid_input()
-    canonicalized: list[tuple[str, Any]] = []
+    by_key: dict[str, Any] = {}
     for item in payload:
         if not isinstance(item, tuple) or len(item) != 2:
             raise _invalid_input()
         key, value = item
         if not isinstance(key, str):
             raise _invalid_input()
-        canonicalized.append((key, value))
-    candidate = tuple(canonicalized)
-    if candidate != tuple(sorted(candidate, key=lambda pair: pair[0])):
-        raise _invalid_input()
-    keys = tuple(key for key, _ in candidate)
-    if len(keys) != len(set(keys)):
-        raise _invalid_input()
-    return candidate
+        normalized_value = canonicalize_json(value)
+        if key in by_key and by_key[key] != normalized_value:
+            raise _invalid_input()
+        by_key[key] = normalized_value
+    return tuple((key, by_key[key]) for key in sorted(by_key))
 
 
 def _payload_hash(payload: tuple[tuple[str, Any], ...]) -> str:
@@ -119,15 +116,20 @@ def classify_decision_conflict(
     decision_b_hash: str,
     decision_b_payload: tuple[tuple[str, Any], ...],
 ) -> ConflictReceipt:
-    hash_a = _require_sha256_hex(decision_a_hash)
-    hash_b = _require_sha256_hex(decision_b_hash)
-    canonical_a = _canonical_payload(decision_a_payload)
-    canonical_b = _canonical_payload(decision_b_payload)
-    hash_matches_a = _payload_hash(canonical_a) == hash_a
-    hash_matches_b = _payload_hash(canonical_b) == hash_b
-    if not (hash_matches_a and hash_matches_b):
-        if not (canonical_json(canonical_a) == canonical_json(canonical_b) and hash_a != hash_b):
+    try:
+        hash_a = _require_sha256_hex(decision_a_hash)
+        hash_b = _require_sha256_hex(decision_b_hash)
+        canonical_a = _canonical_payload(decision_a_payload)
+        canonical_b = _canonical_payload(decision_b_payload)
+        hash_matches_a = _payload_hash(canonical_a) == hash_a
+        hash_matches_b = _payload_hash(canonical_b) == hash_b
+        if hash_matches_a != hash_matches_b:
             raise _invalid_input()
+        if not (hash_matches_a and hash_matches_b):
+            if not (canonical_json(canonical_a) == canonical_json(canonical_b) and hash_a != hash_b):
+                raise _invalid_input()
+    except CanonicalHashingError as exc:
+        raise _invalid_input() from exc
 
     if hash_a <= hash_b:
         left_hash, right_hash = hash_a, hash_b

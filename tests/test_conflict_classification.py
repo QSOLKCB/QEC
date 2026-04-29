@@ -42,7 +42,7 @@ def test_identical_classification() -> None:
 
 def test_equivalent_classification_same_payload_different_hashes() -> None:
     p = _payload((('k', 'v'), ('n', 1)))
-    h1 = sha256_hex(p)
+    h1 = 'e' * 64
     h2 = 'f' * 64
     receipt = classify_decision_conflict((sha256_hex('mem'),), h1, p, h2, p)
     assert receipt.comparison.conflict_type == 'EQUIVALENT'
@@ -89,6 +89,20 @@ def test_payload_hash_mismatch_fails() -> None:
     mismatch = _payload((('x', 2),))
     with pytest.raises(ValueError, match='INVALID_INPUT'):
         classify_decision_conflict((sha256_hex('mem'),), good_hash, mismatch, good_hash, p)
+
+
+def test_unsorted_payload_is_canonicalized() -> None:
+    unsorted_payload = (('b', 2), ('a', 1), ('a', 1))
+    canonical_payload = _payload((('a', 1), ('b', 2)))
+    h, _ = _decision(canonical_payload)
+    receipt = classify_decision_conflict((sha256_hex('mem'),), h, unsorted_payload, h, canonical_payload)
+    assert receipt.comparison.conflict_type == 'IDENTICAL'
+
+
+def test_unsupported_payload_value_fails_with_invalid_input() -> None:
+    bad_payload = (('x', {1, 2}),)
+    with pytest.raises(ValueError, match='INVALID_INPUT'):
+        classify_decision_conflict((sha256_hex('mem'),), 'f' * 64, bad_payload, 'f' * 64, bad_payload)
 
 
 def test_canonical_identity_enforcement() -> None:

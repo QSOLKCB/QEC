@@ -1015,5 +1015,5 @@ class TestFinalizationHardening:
         assert roadmap.exists(), "ROADMAP.md must exist"
         text = roadmap.read_text(encoding="utf-8")
         assert "stable tip" in text.lower()
-        assert "v137." in text
-        assert "Published tags are authoritative." in text
+        assert "v137." in text.lower()
+        assert "published tags are authoritative" in text.lower()

@@ -243,6 +243,13 @@ pip install -e .
 python scripts/sphaera_proof_demo.py
 ```
 
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `python scripts/sphaera_proof_demo.py` | Runs the SPHAERA proof demo from the source tree |
+| `qec-exp` | Runs the packaged experiment entry point, if installed |
+
 ## 3. What It Executes
 
 ```text
@@ -344,6 +351,23 @@ Confirm global system integrity.
 ```text
 Observe → Validate → Decide → Act → Replay → Confirm
 ```
+
+---
+
+## Versioning Model
+
+QEC uses two related version lines:
+
+- Python package version: the installable package version declared in `pyproject.toml`.
+- Research / release tags: the QEC capability line published through GitHub tags, such as `v150.9` and `v151.0`.
+
+The release tags describe the deterministic reasoning/proof-system capability state. Published GitHub tags are authoritative for release lineage. Stable tip lineage remains anchored to `v137.*` compatibility contracts.
+
+## Capability Scope
+
+This repository contains implemented deterministic analysis modules, tests, receipts, and demo scripts, while `ROADMAP.md` tracks the forward research line.
+
+Current implemented line includes v150.9 distributed convergence proof and v151.0 extraction boundary. Future v151.x phases cover canonicalization, extraction validation, document governance, and replay validation.
 
 ---
 

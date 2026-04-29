@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "qec"
 version = "11.6.1"
-description = "Deterministic Tanner graph generation and QLDPC structure discovery engine"
+description = "Deterministic multi-agent reasoning, governance, validation, and proof-artifact system for quantum error correction and invariant-driven computation."
 readme = "README.md"
 requires-python = ">=3.10"
 
@@ -34,4 +34,9 @@ external = [
 testpaths = ["tests"]
 
 [project.scripts]
-qec-exp = "scripts.qec_exp:main"
+qec-exp = "qec.experiments.qec_exp_cli:main"
+
+[project.urls]
+Homepage = "https://github.com/QSOLKCB/QEC"
+Repository = "https://github.com/QSOLKCB/QEC"
+Issues = "https://github.com/QSOLKCB/QEC/issues"

@@ -38,3 +38,10 @@ def test_estimate_threshold_cli_runs(tmp_path: Path) -> None:
     payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert payload["experiment"] == "bp-threshold"
     assert payload["method"] == "50_percent_crossing"
+
+
+def test_pyproject_console_script_targets_packaged_module() -> None:
+    import tomllib
+
+    pyproject = tomllib.loads((Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8"))
+    assert pyproject["project"]["scripts"]["qec-exp"] == "qec.experiments.qec_exp_cli:main"

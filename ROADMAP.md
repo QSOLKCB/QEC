@@ -1,14 +1,12 @@
-# QSOLKCB / QEC — ROADMAP.md
+# 🚀 QSOLKCB / QEC — ROADMAP.md (Post v149.5 → v150+)
 
-## Post-v149.5 · Canonical System Definition
-
-> QEC is a deterministic decoder over system evolution that produces proof-carrying state transitions.
+## Deterministic Reasoning • Governance • Proof Systems • Distributed Identity
 
 ---
 
-## 🧠 Core Law (Invariant)
+# 🧠 Core Law (Invariant)
 
-```
+```text
 same input
 → same ordering
 → same canonical JSON
@@ -19,225 +17,362 @@ same input
 → same outcome
 ```
 
-This law governs every layer, every module, every environment.
-It defines system validity.
-
-### Extensions
-
-**Cross-Layer Determinism**
-Canonical outputs propagate unchanged through all layers to the final proof artifact.
-
-**Cross-Environment Determinism**
-Execution on any compliant system produces byte-identical outputs.
-
-**Compression-Preserving Identity**
-
-```
-decompress(compress(M)) = M
-```
-
-Compression preserves reasoning identity. Violation → proof invalid.
+Violation → SYSTEM INVALID
 
 ---
 
-## 🧠 System Definition
+# 🧠 System State (v150.2.1)
 
-QEC is a deterministic, replay-safe reasoning system operating as a decoder over system evolution, producing proof-carrying artifacts.
+QEC is now a:
 
-| Concept          | Definition                         |
-| ---------------- | ---------------------------------- |
-| State transition | encoded signal                     |
-| Failure          | constraint violation (dark mode)   |
-| Repair           | structural transformation          |
-| Validation       | restored transfer confirmed        |
-| Proof            | deterministic record of full chain |
-
-Every action produces a typed, canonical, hashable receipt.
-Proof is derived through deterministic receipt composition.
-
----
-
-## 🧱 System Layers (L0–L7)
-
-Each layer:
-
-* consumes canonical input
-* produces canonical output
-* introduces no nondeterminism
-
-Violation → layer output invalid
-
-| Layer | Name                   | Function                                    |
-| ----- | ---------------------- | ------------------------------------------- |
-| L0    | Observation / Trace    | Canonical ingestion of execution signals    |
-| L1    | Interpretation         | Extract invariants, structure, constraints  |
-| L2    | Decision / Control     | Deterministic control selection             |
-| L3    | Memory / Governance    | Policy accumulation and arbitration         |
-| L4    | Validation / Repair    | Dark-mode resolution and fix validation     |
-| L5    | Alignment / Simulation | Constraint mapping and execution simulation |
-| L6    | Compression / Storage  | Identity-preserving reasoning compression   |
-| L7    | Proof / Demonstration  | Final proof artifact assembly               |
-
----
-
-## 🔁 Execution Flow
-
-```
-trace
-→ structure
-→ decision
-→ memory
-→ validation
-→ repair
-→ comparison
-→ compression
-→ proof
+```text
+deterministic multi-agent reasoning system
+→ shared memory
+→ shared decisions
+→ distributed proof agreement
+→ canonical identity law
 ```
 
-Every step is deterministic and produces a receipt.
-The full chain forms the proof bundle.
+Completed:
+
+* v150.0 → Shared Memory Fabric
+* v150.1 → Cross-Agent Governance
+* v150.2 → Distributed Proof Consistency
+* v150.2.1 → Canonical Identity Contract
 
 ---
 
-## 🏭 Deterministic Factory Model
+# 🔥 Phase: v150.x — Multi-Agent Reasoning Systems
 
-All components are deterministic factories.
+Goal:
 
-Factories:
-
-* share no mutable state
-* use no randomness
-* depend only on canonical inputs
-
-| Factory     | Input            | Output             | Invariant              | Failure Mode                    |
-| ----------- | ---------------- | ------------------ | ---------------------- | ------------------------------- |
-| Trace       | raw signals      | trace receipt      | canonical ordering     | reject non-canonical input      |
-| Governance  | trace + policy   | governance receipt | immutability           | contradiction → halt            |
-| Repair      | dark-mode trace  | correction receipt | structural fix         | no valid fix → stop             |
-| Validation  | fix + invariants | validation receipt | invariant preservation | mismatch → reject               |
-| Compression | receipt chain    | compressed form    | identity-preserving    | hash mismatch → void            |
-| Proof       | all receipts     | proof artifact     | full consistency       | missing/invalid receipt → block |
-
----
-
-## 🌑 Dark-State Model
-
-```
-failure    := dark mode (blocked computation path)
-repair     := symmetry breaking (restore coupling)
-validation := restored transfer (invariants preserved)
-proof      := deterministic confirmation
-```
-
-* Failure cannot be resolved by retry
-* Repair requires structural transformation
-* Fixes must be validated and proven necessary
-
----
-
-## 📊 Proof Conditions
-
-All must hold simultaneously. Failure of any condition → proof invalid → promotion blocked.
-
-| Condition                     | Requirement                                 | Failure                            |
-| ----------------------------- | ------------------------------------------- | ---------------------------------- |
-| Determinism                   | identical hash across replays               | hash mismatch → void               |
-| Convergence                   | finite repair sequence exists               | divergence → stop                  |
-| Repair Necessity              | counterfactual fixes fail or are equivalent | unjustified fix → reject           |
-| Cross-Environment Consistency | byte-identical outputs across systems       | divergence → stop                  |
-| Compression Integrity         | compressed form preserves identity          | decompress(compress(M)) ≠ M → void |
-
----
-
-## 🧾 Promotion System
-
-Promotion is system-level proof acceptance.
-
-A version is valid if and only if:
-
-* all receipts exist
-* all hashes match across replay
-* all proof conditions are satisfied
-* full chain is consistent L0 → L7
-
-Failure:
-
-```
-STOP — no promotion — no advancement
+```text
+multiple agents
+→ shared context
+→ deterministic agreement
+→ provable convergence
 ```
 
 ---
 
-## 🚫 Forbidden Operations
+# 🧠 v150.3 — Agent Specialization
 
-Violation → system invalid
+## Goal
 
-* randomness (any form)
-* wall-clock dependence
-* nondeterministic async behavior
-* decoder mutation during execution
-* probabilistic routing
-* silent failure
-* non-canonical serialization
+Introduce **role-based deterministic agents**.
 
 ---
 
-## 🧪 Required Module Properties
+## Tasks
 
-| Property            | Enforcement                        |
-| ------------------- | ---------------------------------- |
-| Deterministic       | same input → same output           |
-| Replay-safe         | no divergence across replays       |
-| Bounded             | finite execution guaranteed        |
-| Fail-fast           | invalid state surfaces immediately |
-| Canonical           | sorted JSON serialization          |
-| Hash-stable         | SHA-256 across outputs             |
-| Decoder-immutable   | no mutation during decoding        |
-| Analysis-layer only | no side effects                    |
+* Define `AgentRole` (enum-like, deterministic)
+
+  * CONTROL
+  * VALIDATION
+  * REPAIR
+  * ADVERSARIAL
+  * COMPRESSION
+
+* Extend `AgentDecision`:
+
+  * include `agent_role`
+  * validate role deterministically
+
+* Enforce:
+
+```text
+same agent role + same input → same decision
+```
+
+* Add validation:
+
+  * no duplicate `(role, decision_hash)` conflicts
+  * fail-fast on inconsistent role outputs
 
 ---
 
-## 🧭 Completed Arc (v143 → v149.5)
+## Output
 
-```
-v143–146 → deterministic runtime
-v147     → autonomous system
-v148     → validation + repair reasoning
-v149     → alignment + compression + proof
-v149.5   → full system proof artifact
-```
-
-QEC executes:
-
-```
-observe → predict → decide → remember → govern
-→ validate → align → simulate → compress → prove
+```text
+Role-aware decision set
+→ feeds governance layer
 ```
 
 ---
 
-## 🔮 Future Direction (v150+)
+# 🧠 v150.4 — Inter-Agent Protocol
 
-All extensions must obey Core Law, preserve determinism, and produce verifiable receipts.
+## Goal
 
-| Version | Focus                     |
-| ------- | ------------------------- |
-| v150.x  | Meta-governance           |
-| v151.x  | Adaptive invariants       |
-| v152.x  | Self-optimizing reasoning |
-| v153.x  | Formal convergence proofs |
-| v154.x  | Minimal proof description |
+Define **deterministic communication between agents**.
 
 ---
 
-## 🧠 Final Definition
+## Tasks
 
+* Introduce `AgentMessage`:
+
+```text
+sender
+→ canonical payload
+→ receiver
+→ validated response
 ```
-QEC is:
-  a deterministic decoder over system evolution
-  producing proof-carrying state transitions
-  with invariant-preserving compression
-  and replay-safe verification
+
+* Enforce:
+
+```text
+message ordering is deterministic
+message encoding is canonical
+```
+
+* Add protocol validation:
+
+  * reject ambiguous message ordering
+  * reject duplicate message identities
+
+---
+
+## Output
+
+```text
+deterministic message graph
+→ replay-safe communication
 ```
 
 ---
+
+# 🧠 v150.5 — Multi-Agent Convergence
+
+## Goal
+
+Prove that agents **converge toward agreement**.
+
+---
+
+## Tasks
+
+* Define convergence metrics:
+
+  * disagreement count
+  * arbitration stability
+  * convergence depth
+
+* Implement:
+
+```text
+decision_t
+→ arbitration
+→ decision_t+1
+→ convergence analysis
+```
+
+* Enforce:
+
+```text
+convergence must be finite OR fail-fast
+```
+
+---
+
+## Output
+
+```text
+ConvergenceReceipt
+→ proves system stabilizes
+```
+
+---
+
+# 🧠 v150.6 — Conflict Classification
+
+## Goal
+
+Classify **types of disagreement** between agents.
+
+---
+
+## Tasks
+
+* Define conflict types:
+
+  * IDENTICAL
+  * EQUIVALENT
+  * DOMINATED
+  * INCONSISTENT
+
+* Implement classification:
+
+```text
+decision A vs decision B
+→ classify relationship
+```
+
+---
+
+## Output
+
+```text
+ConflictReceipt
+→ feeds governance + repair
+```
+
+---
+
+# 🧠 v150.7 — Governance Stability Validation
+
+## Goal
+
+Ensure governance decisions are **stable across replay + perturbation**.
+
+---
+
+## Tasks
+
+* Replay governance with:
+
+  * reordered inputs
+  * identical inputs
+  * equivalent decision sets
+
+* Enforce:
+
+```text
+same context → same selected decision
+```
+
+---
+
+## Output
+
+```text
+GovernanceStabilityReceipt
+```
+
+---
+
+# 🧠 v150.8 — Multi-Agent Failure Injection
+
+## Goal
+
+Stress-test the system under **adversarial disagreement**.
+
+---
+
+## Tasks
+
+* Inject:
+
+  * invalid decisions
+  * conflicting roles
+  * inconsistent memory
+
+* Enforce:
+
+```text
+system detects and rejects invalid states
+```
+
+---
+
+## Output
+
+```text
+AdversarialGovernanceReceipt
+```
+
+---
+
+# 🧠 v150.9 — Distributed Convergence Proof
+
+## Goal
+
+Extend convergence to **multi-node systems**.
+
+---
+
+## Tasks
+
+* Combine:
+
+  * distributed proof (v150.2)
+  * convergence (v150.5)
+
+* Prove:
+
+```text
+multi-node + multi-agent
+→ converges to same proof
+```
+
+---
+
+## Output
+
+```text
+DistributedConvergenceReceipt
+```
+
+---
+
+# 🧠 v151.x — Real-World Coupling
+
+(unchanged — now builds on stable multi-agent layer)
+
+---
+
+# 🧠 v152.x — Proof Compression & Equivalence
+
+Now enabled by:
+
+```text
+canonical identity contract (v150.2.1)
+```
+
+---
+
+# 🔒 Absolute Guardrails
+
+Forbidden:
+
+* randomness
+* wall-clock
+* async drift
+* silent normalization
+* non-canonical identity
+
+Required:
+
+* canonical JSON
+* stable SHA-256
+* explicit identity validation
+* replay-safe artifacts
+
+---
+
+# 🧠 Final Direction
+
+QEC evolves from:
+
+```text
+reasoning system
+→ multi-agent system
+→ distributed proof system
+→ global deterministic reasoning network
+```
+
+---
+
+# 🧠 Final Line
+
+QEC is no longer:
+
+```text
+a system that runs
+```
+
+It is:
+
+```text
+a system that proves — across agents, across nodes, across time
+```

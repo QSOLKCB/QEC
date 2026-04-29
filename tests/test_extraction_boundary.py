@@ -83,6 +83,7 @@ def test_valid_boundary_and_serialization_and_determinism() -> None:
 
 
 def test_determinism_status_none_previous_is_baseline_consistent() -> None:
+    """None previous hash is a baseline observation and therefore CONSISTENT."""
     extraction_input, config, result = _build_valid()
     receipt = run_extraction_boundary(extraction_input, config, result, previous_extraction_hash=None)
     assert receipt.determinism_status == "CONSISTENT"
@@ -92,6 +93,17 @@ def test_determinism_violation_detected() -> None:
     extraction_input, config, result = _build_valid()
     receipt = run_extraction_boundary(extraction_input, config, result, previous_extraction_hash=_h("4"))
     assert receipt.determinism_status == "DETERMINISM_VIOLATION"
+
+
+def test_determinism_status_equal_previous_is_consistent() -> None:
+    extraction_input, config, result = _build_valid()
+    receipt = run_extraction_boundary(
+        extraction_input,
+        config,
+        result,
+        previous_extraction_hash=result.extraction_hash,
+    )
+    assert receipt.determinism_status == "CONSISTENT"
 
 
 def test_query_field_alignment_errors() -> None:
@@ -116,7 +128,7 @@ def test_query_field_alignment_errors() -> None:
         query_fields=mismatch_query_fields,
         config_hash=mismatch_config_hash,
     )
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         run_extraction_boundary(extraction_input, bad_config, result)
 
     wrong_order_fields = (ExtractedField("amount", "10.00"), ExtractedField("invoice_id", "INV-1"))
@@ -124,7 +136,7 @@ def test_query_field_alignment_errors() -> None:
         extracted_fields=wrong_order_fields,
         extraction_hash=_stable_hash({"extracted_fields": tuple(field.to_dict() for field in wrong_order_fields)}),
     )
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         run_extraction_boundary(extraction_input, config, wrong_order_result)
 
     missing_fields = (ExtractedField("invoice_id", "INV-1"),)
@@ -132,10 +144,10 @@ def test_query_field_alignment_errors() -> None:
         extracted_fields=missing_fields,
         extraction_hash=_stable_hash({"extracted_fields": tuple(field.to_dict() for field in missing_fields)}),
     )
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         run_extraction_boundary(extraction_input, config, missing_field_result)
 
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         ExtractionInput(_h("1"), "pdf", _h("3"), ("x", "x"), _h("6"))
 
 
@@ -158,22 +170,27 @@ def test_extraction_config_hash_mismatch_rejected() -> None:
         query_fields=extraction_input.query_fields,
         input_hash=bad_input_hash,
     )
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         run_extraction_boundary(bad_input, config, result)
 
 def test_hash_validation_errors() -> None:
     extraction_input, config, result = _build_valid()
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         run_extraction_boundary(extraction_input, config, result, previous_extraction_hash="a" * 63)
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         run_extraction_boundary(extraction_input, config, result, previous_extraction_hash="A" * 64)
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         run_extraction_boundary(extraction_input, config, result, previous_extraction_hash="g" * 64)
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         ExtractionResult(
             extracted_fields=result.extracted_fields,
             extraction_hash=_h("9"),
         )
+
+
+def test_extracted_field_to_dict_is_raw_only() -> None:
+    field = ExtractedField("invoice_id", "INV-1")
+    assert set(field.to_dict().keys()) == {"field_name", "raw_value"}
 
 
 def test_immutability() -> None:

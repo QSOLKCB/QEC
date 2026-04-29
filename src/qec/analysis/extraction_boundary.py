@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
-import json
 import math
 import re
 from typing import Any
+from qec.analysis.canonical_hashing import CanonicalHashingError, canonical_json, sha256_hex
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _VERSION = "v151.0"
@@ -41,37 +40,18 @@ def _validate_query_fields(query_fields: tuple[str, ...]) -> None:
         raise _invalid()
 
 
-def _canonicalize_json(value: Any) -> _JSONValue:
-    if value is None or isinstance(value, (str, bool, int)):
-        return value
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise _invalid()
-        return value
-    if isinstance(value, tuple):
-        return tuple(_canonicalize_json(v) for v in value)
-    if isinstance(value, list):
-        return tuple(_canonicalize_json(v) for v in value)
-    if isinstance(value, dict):
-        keys = tuple(value.keys())
-        if any(not isinstance(key, str) for key in keys):
-            raise _invalid()
-        return {key: _canonicalize_json(value[key]) for key in sorted(keys)}
-    raise _invalid()
-
-
 def _canonical_json(value: Any) -> str:
-    return json.dumps(
-        _canonicalize_json(value),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        allow_nan=False,
-    )
+    try:
+        return canonical_json(value)
+    except CanonicalHashingError as exc:
+        raise _invalid() from exc
 
 
 def _sha256_hex(value: Any) -> str:
-    return hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
+    try:
+        return sha256_hex(value)
+    except CanonicalHashingError as exc:
+        raise _invalid() from exc
 
 
 @dataclass(frozen=True)
@@ -166,10 +146,10 @@ class ExtractionConfigContract:
 
 @dataclass(frozen=True)
 class ExtractedField:
-    """Raw untrusted field record for v151.0.
+    """ExtractedField is raw extraction-boundary data only.
 
-    Contains only ``field_name`` and ``raw_value``; no normalization or
-    semantic processing occurs in this boundary layer.
+    No normalization, semantic processing, anchors, confidence scores, or
+    canonical values are represented in v151.0.
     """
 
     field_name: str

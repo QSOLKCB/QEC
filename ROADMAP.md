@@ -2,7 +2,7 @@
 
 # 🚀 QSOLKCB / QEC — ROADMAP.md
 
-## Deterministic Reasoning • Governance • Distributed Proof • Real-World Ingestion • RES/RAG Semantic Resonance
+## Deterministic Reasoning • Canonical Identity • Semantic Lattices • RES/RAG Resonance • Distributed Proof
 
 ---
 
@@ -13,6 +13,7 @@
 * Every release must preserve replay invariance.
 * Every proof artifact must preserve canonical identity.
 * Every roadmap phase must remain compatible with the core law.
+* Every future phase must reduce ambiguity, not introduce it.
 
 ---
 
@@ -58,6 +59,7 @@ Required:
 * deterministic ordering
 * self-hash exclusion
 * recomputed hash validation
+* exact failure semantics
 
 Core invariant:
 
@@ -67,7 +69,149 @@ recomputed_hash == stored_hash
 
 ---
 
-# 🧠 System State — v151.0.1
+# 🧊 Visual Architecture Model — The Lattice Cube
+
+The current QEC roadmap is now organized around the **deterministic lattice cube** model.
+
+```text
+outer cube
+→ deterministic boundary
+
+atomic lattice
+→ canonical identity space
+
+Sierpinski arrays
+→ multi-scale invariants
+
+digital decay signature
+→ adversarial entropy / failure modes
+
+energy matrix
+→ perturbation and validation field
+```
+
+---
+
+## 🔷 Outer Cube — Deterministic Boundary
+
+The outer cube represents the strict boundary between:
+
+```text
+untrusted world
+and
+deterministic QEC core
+```
+
+Mapped to:
+
+```text
+v151.0 → Extraction Boundary
+v151.1 → Canonicalization Engine
+```
+
+Everything inside the cube must obey:
+
+```text
+same input
+→ same structure
+→ same hash
+```
+
+---
+
+## 🔶 Atomic Lattice — Canonical Identity Space
+
+The lattice nodes and edges represent:
+
+```text
+canonical fields
+→ relationships
+→ constraints
+→ stable identity
+```
+
+Mapped to:
+
+```text
+CanonicalDocument
+RESState
+SemanticFieldReceipt
+```
+
+The lattice is:
+
+```text
+bounded
+discrete
+fully observable
+hash-stable
+```
+
+---
+
+## 🔺 Sierpinski Fractal Arrays — Multi-Scale Invariants
+
+The Sierpinski structures represent:
+
+```text
+same structure
+preserved across scale
+```
+
+Mapped to:
+
+```text
+field
+→ document
+→ semantic field
+→ governance
+→ distributed proof
+```
+
+Same rule, different scale.
+
+---
+
+## ⚡ Digital Decay Signature — Adversarial / Entropy Layer
+
+The digital decay layer represents:
+
+```text
+failure modes
+drift
+corruption
+entropy
+adversarial disagreement
+```
+
+Mapped to:
+
+```text
+v150.8 → Failure Injection
+v151.4 → Adversarial Extraction Validation
+v155.x → Digital Decay / Entropy Signatures
+```
+
+---
+
+## 🧬 Energy Matrix — Perturbation Field
+
+The energy matrix represents controlled perturbation:
+
+```text
+stress
+variation
+input distortion
+semantic instability
+```
+
+QEC does not avoid perturbation.
+
+QEC uses perturbation to prove stability.
+
+---
+
+# 🧠 System State — v151.1+
 
 QEC is now a:
 
@@ -77,7 +221,8 @@ deterministic multi-agent reasoning
 + adversarial validation
 + distributed convergence proof
 + real-world ingestion boundary
-+ proof-artifact system
++ canonical identity engine
++ semantic field construction system
 ```
 
 v150 established:
@@ -90,13 +235,15 @@ multi-agent reasoning
 → distributed convergence proof
 ```
 
-v151 has begun:
+v151 now establishes:
 
 ```text
-non-deterministic real-world inputs
-→ deterministic extraction boundary
-→ hash-bound receipts
-→ proof-safe ingestion path
+untrusted real-world input
+→ deterministic boundary
+→ canonical identity
+→ semantic lattice
+→ resonance validation
+→ proof
 ```
 
 ---
@@ -183,6 +330,7 @@ non-determinism must be:
 → isolated
 → bounded
 → hash-bound
+→ canonicalized
 → validated
 → never silently trusted
 ```
@@ -193,14 +341,14 @@ non-determinism must be:
 
 ```text
 raw document
-→ Extraction Boundary          (UNTRUSTED)
-→ Canonicalization Engine      (DETERMINISTIC)
-→ RES/RAG Semantic Field       (GROUNDING + INTERPRETATION)
-→ Resonance Validation         (SEMANTIC ALIGNMENT)
-→ Adversarial Validation       (FAILURE / CONTRADICTION)
-→ Dialogical Governance        (MULTI-AGENT)
-→ Real-World Proof Chain       (DISTRIBUTED)
-→ Replay Validation            (CROSS-ENVIRONMENT)
+→ Extraction Boundary          (UNTRUSTED OUTER CUBE)
+→ Canonicalization Engine      (CANONICAL LATTICE)
+→ RES/RAG Semantic Field       (SEMANTIC LATTICE)
+→ Resonance Validation         (SYMMETRY / ALIGNMENT CHECK)
+→ Adversarial Validation       (DIGITAL DECAY DETECTION)
+→ Dialogical Governance        (MULTI-AGENT ARBITRATION)
+→ Real-World Proof Chain       (DISTRIBUTED PROOF)
+→ Replay Validation            (CROSS-ENVIRONMENT REPLAY)
 ```
 
 ---
@@ -234,6 +382,7 @@ RES ≠ RAG
 ```
 
 QEC does not need to assert machine consciousness.
+
 QEC operationalizes the useful part:
 
 ```text
@@ -250,6 +399,15 @@ semantic interpretation
 
 ```text
 COMPLETE
+```
+
+---
+
+## Cube Mapping
+
+```text
+outer cube
+→ deterministic boundary
 ```
 
 ---
@@ -372,12 +530,21 @@ external non-deterministic data
 
 ---
 
-# 🧠 v151.1 — Canonicalization Engine
+# ✅ v151.1 — Canonicalization Engine
 
 ## Status
 
 ```text
-NEXT
+COMPLETE
+```
+
+---
+
+## Lattice Mapping
+
+```text
+atomic lattice
+→ canonical identity space
 ```
 
 ---
@@ -395,61 +562,38 @@ ExtractionResult
 → Format Normalization
 → Schema Enforcement
 → Value Normalization
-→ RFC 8785 Canonical JSON
+→ RFC 8785-style Canonical JSON
 → Stable Hash
 → CanonicalDocument
 ```
 
 ---
 
-## Tasks
-
-### Stage 1 — Format Normalization
-
-* strip markdown fences
-* extract JSON span
-* reject malformed JSON
-* reject duplicate keys
-* reject unsupported structures
-
-### Stage 2 — Schema Enforcement
-
-* reject unknown fields
-* reject missing required fields
-* fill optional fields with explicit `null`
-* enforce field type declarations
-
-### Stage 3 — Value Normalization
-
-* Unicode NFC normalization
-* whitespace normalization
-* locale-driven date parsing
-* locale-driven number parsing
-* currency minor-unit normalization
-* reject ambiguity
-
-### Stage 4 — Canonical JSON
-
-* RFC 8785-style canonical JSON
-* sorted keys
-* compact separators
-* deterministic string / number representation
-
-### Stage 5 — Stable Hash
+## Implemented Artifacts
 
 ```text
-SHA-256(canonical_bytes)
-→ canonical_hash
+CanonicalFieldSpec
+CanonicalizationSchema
+LocaleContract
+CanonicalDocument
+CanonicalizationReceipt
 ```
 
 ---
 
-## Artifacts
+## Completed
 
-```text
-CanonicalDocument
-CanonicalizationReceipt
-```
+* duplicate JSON key rejection
+* deterministic JSON span extraction
+* Unicode NFC string normalization
+* whitespace / NBSP normalization
+* locale-driven date parsing
+* Decimal-based number parsing
+* currency minor-unit normalization
+* malformed thousands separator rejection
+* deep canonical payload immutability
+* hash recomputation validation
+* canonical JSON byte stability
 
 ---
 
@@ -464,11 +608,20 @@ same extraction result
 
 ---
 
+## Output
+
+```text
+CanonicalDocument
+CanonicalizationReceipt
+```
+
+---
+
 ## Must Not Do
 
 * no semantic interpretation
-* no RES/RAG logic yet
-* no adversarial extraction validation yet
+* no RES/RAG logic
+* no adversarial extraction validation
 * no governance
 * no retries
 * no probabilistic repair
@@ -476,6 +629,23 @@ same extraction result
 ---
 
 # 🧠 v151.2 — RES/RAG Semantic Field Construction
+
+## Status
+
+```text
+CURRENT FRONTIER
+```
+
+---
+
+## Lattice Mapping
+
+```text
+canonical lattice
+→ semantic lattice
+```
+
+---
 
 ## Goal
 
@@ -502,6 +672,15 @@ RAG = reflexive generated interpretation
 ---
 
 ## Tasks
+
+Introduce:
+
+```text
+EvidenceField
+SourceConstraint
+GeneratedClaim
+GovernanceContext
+```
 
 Introduce:
 
@@ -561,6 +740,17 @@ treat it as untrusted input
 
 ---
 
+## Semantic Lattice Rule
+
+```text
+nodes = canonical fields
+edges = constraints
+substructures = semantic clusters
+fractal repetition = recursive invariants
+```
+
+---
+
 ## Output
 
 ```text
@@ -569,7 +759,36 @@ SemanticFieldReceipt
 
 ---
 
+## Must Not Do
+
+* no resonance validation
+* no adversarial extraction validation
+* no governance
+* no W₂ / optimal transport
+* no claim support classification
+* no semantic contradiction classification
+
+---
+
 # 🧠 v151.3 — RES/RAG Resonance Validation
+
+## Status
+
+```text
+NEXT
+```
+
+---
+
+## Symmetry Mapping
+
+```text
+RES lattice
+↔
+RAG projection
+```
+
+---
 
 ## Goal
 
@@ -635,7 +854,11 @@ tolerance is explicit
 outputs are hash-stable
 ```
 
-Otherwise use symbolic deterministic comparison.
+Otherwise:
+
+```text
+use symbolic deterministic comparison
+```
 
 ---
 
@@ -658,6 +881,23 @@ ResonanceValidationReceipt
 ---
 
 # 🧠 v151.4 — Adversarial Extraction Validation
+
+## Status
+
+```text
+PLANNED
+```
+
+---
+
+## Digital Decay Mapping
+
+```text
+digital decay signature
+→ entropy / adversarial failure
+```
+
+---
 
 ## Goal
 
@@ -718,6 +958,14 @@ ExtractionValidationReceipt
 
 # 🧠 v151.5 — Dialogical Document Governance
 
+## Status
+
+```text
+PLANNED
+```
+
+---
+
 ## Goal
 
 Run deterministic multi-agent governance over canonical documents and RES/RAG resonance receipts.
@@ -773,6 +1021,14 @@ DialogicalGovernanceReceipt
 
 # 🧠 v151.6 — Real-World Proof Chain
 
+## Status
+
+```text
+PLANNED
+```
+
+---
+
 ## Goal
 
 Produce full real-world proof artifacts from raw external inputs.
@@ -822,6 +1078,14 @@ RealWorldProofReceipt
 
 # 🧠 v151.7 — Determinism Enforcement
 
+## Status
+
+```text
+PLANNED
+```
+
+---
+
 ## Goal
 
 Ensure real-world ingestion and semantic resonance remain deterministic across configuration changes.
@@ -869,6 +1133,14 @@ RESRAGDeterminismReceipt
 
 # 🧠 v151.8 — Replay & Cross-Environment Resonance Proof
 
+## Status
+
+```text
+PLANNED
+```
+
+---
+
 ## Goal
 
 Prove canonicalization, RES/RAG semantic field construction, resonance validation, and governance are stable across environments.
@@ -915,6 +1187,15 @@ RealWorldReplayProofReceipt
 
 # 🧬 Phase: v152.x — Proof Compression & Equivalence
 
+## Fractal Mapping
+
+```text
+Sierpinski array
+→ invariant-preserving compression
+```
+
+---
+
 ## Goal
 
 Compress reasoning without losing proof identity or semantic equivalence.
@@ -938,6 +1219,7 @@ v150 canonical identity
 * compress governance traces
 * prove compressed and uncompressed artifacts are equivalent
 * preserve lineage hashes
+* detect lossy semantic compression
 
 ---
 
@@ -947,38 +1229,236 @@ v150 canonical identity
 SemanticCompressionReceipt
 ProofEquivalenceReceipt
 CompressedRealWorldProof
+FractalInvariantReceipt
 ```
 
 ---
 
-# 🧠 Phase: v153.x — SiS2 Substrate Layer
+# 🧠 Phase: v153.x — Atomic Lattice State Space
 
 ## Symbol
 
 ```text
-SiS2
+Atomic Lattice 5x5x5
 ```
 
 ---
 
 ## Interpretation
 
-SiS2 becomes the roadmap symbol for:
+The atomic lattice represents:
 
 ```text
-material substrate
-→ computation medium
-→ physical encoding boundary
+bounded semantic state space
+→ discrete canonical nodes
+→ explicit constraint edges
+→ fully observable proof topology
+```
+
+---
+
+## Goal
+
+Formalize semantic field graphs as bounded deterministic lattices.
+
+---
+
+## Tasks
+
+* define semantic lattice nodes
+* define deterministic edge constraints
+* define bounded graph topology
+* prove graph reconstruction stability
+* detect lattice drift
+* map canonical documents into field graphs
+
+---
+
+## Artifacts
+
+```text
+SemanticLatticeGraph
+LatticeStateReceipt
+ConstraintEdgeReceipt
+TopologyStabilityReceipt
+```
+
+---
+
+# 🧠 Phase: v154.x — Sierpinski Multi-Scale Invariance
+
+## Symbol
+
+```text
+Sierpinski Fractal Array 3x3x3
+```
+
+---
+
+## Interpretation
+
+Sierpinski structures represent:
+
+```text
+same invariant
+preserved across scale
+```
+
+---
+
+## Goal
+
+Prove that local invariants propagate through larger proof structures.
+
+---
+
+## Tasks
+
+* detect self-similar semantic subgraphs
+* classify local / document / governance / distributed invariants
+* prove invariant preservation across scale
+* compress repeated substructures
+* reject scale-breaking drift
+
+---
+
+## Artifacts
+
+```text
+FractalInvariantCase
+MultiScaleInvariantReceipt
+SierpinskiCompressionReceipt
+ScalePreservationProof
+```
+
+---
+
+# 🧠 Phase: v155.x — Digital Decay & Entropy Signatures
+
+## Symbol
+
+```text
+Digital Decay Signature
+```
+
+---
+
+## Interpretation
+
+Digital decay represents:
+
+```text
+entropy
+semantic corruption
+identity drift
+adversarial erosion
+```
+
+---
+
+## Goal
+
+Detect and quantify deterministic decay in proof artifacts and semantic fields.
+
+---
+
+## Tasks
+
+* define decay signatures
+* model semantic entropy under perturbation
+* detect field corruption
+* classify drift severity
+* reject artifacts with invalid lineage
+* prove decay resistance
+
+---
+
+## Artifacts
+
+```text
+DigitalDecaySignature
+EntropyDriftReceipt
+SemanticCorruptionReceipt
+DecayResistanceProof
+```
+
+---
+
+# 🧠 Phase: v156.x — Energy Matrix Perturbation Layer
+
+## Symbol
+
+```text
+Ultraviolet Energy Matrix
+```
+
+---
+
+## Interpretation
+
+The energy matrix represents:
+
+```text
+controlled perturbation
+stress fields
+validation pressure
+semantic activation
+```
+
+---
+
+## Goal
+
+Stress-test semantic lattices under deterministic perturbation.
+
+---
+
+## Tasks
+
+* define perturbation contracts
+* inject bounded semantic stress
+* classify resonance stability under perturbation
+* validate proof invariance under controlled distortion
+* reject unstable semantic fields
+
+---
+
+## Artifacts
+
+```text
+PerturbationContract
+EnergyMatrixReceipt
+SemanticStressReceipt
+PerturbationStabilityProof
+```
+
+---
+
+# 🧠 Phase: v157.x — Substrate Encoding Layer
+
+## Symbols
+
+```text
+SiS2
+circuit substrate
+material encoding
+```
+
+---
+
+## Interpretation
+
+This phase treats substrate as:
+
+```text
+material / computational boundary
+→ encoding medium
+→ physical constraint model
 ```
 
 This phase does not claim material implementation.
 
-It formalizes:
-
-```text
-what would be required
-for proof artifacts to bind to substrate-level constraints
-```
+It formalizes what would be required for proof artifacts to bind to substrate-level constraints.
 
 ---
 
@@ -1004,195 +1484,25 @@ Model deterministic proof systems under substrate constraints.
 SubstrateContract
 SubstrateStateReceipt
 MaterialEncodingReceipt
+SubstrateDriftReceipt
 ```
 
 ---
 
-# 🧠 Phase: v154.x — E8 / φ Symmetry Field
-
-## Symbols
-
-```text
-E8*
-φ
-SCL → TRI → ALITY
-```
-
----
-
-## Interpretation
-
-This phase treats the diagram’s E8 / φ axis as a symbolic formal program:
-
-```text
-high-dimensional symmetry
-→ irrational scaling
-→ projection
-→ differentiated reality
-```
-
----
-
-## Goal
-
-Explore deterministic symmetry projection and quasicrystal-style identity structures.
-
----
-
-## Tasks
-
-* define symbolic symmetry lattices
-* define φ-scaled projection maps
-* define deterministic projection receipts
-* classify symmetry-preserving transformations
-* detect projection drift
-
----
-
-## Artifacts
-
-```text
-SymmetryFieldReceipt
-PhiProjectionReceipt
-ScaleTrialityReceipt
-```
-
----
-
-## Guardrail
-
-No physical cosmology claims are accepted unless:
-
-```text
-encoded as deterministic model
-→ validated
-→ hash-bound
-→ reproducible
-```
-
----
-
-# 🧠 Phase: v155.x — DIAG Operator Layer
+# 🧠 Phase: v158.x — Recursive / Ouroboric Proof Loops
 
 ## Symbol
 
 ```text
-DIAG (1, -2, 1)
+recursive lattice
+ouroboric feedback
 ```
 
 ---
 
 ## Interpretation
 
-The vector:
-
-```text
-(1, -2, 1)
-```
-
-acts as a deterministic differentiation operator:
-
-```text
-unity
-→ contrast
-→ curvature
-→ detectable structure
-```
-
----
-
-## Goal
-
-Formalize discrete semantic / structural differentiation inside QEC.
-
----
-
-## Tasks
-
-* define discrete second-derivative operators
-* detect curvature in proof traces
-* identify semantic edges
-* classify discontinuities
-* detect invariant breaks
-
----
-
-## Artifacts
-
-```text
-DifferentialTraceReceipt
-CurvatureDetectionReceipt
-InvariantBreakReceipt
-```
-
----
-
-# 🧠 Phase: v156.x — Bio-Symbolic Corruption & Information Parasites
-
-## Symbol
-
-```text
-HPV16*
-```
-
----
-
-## Interpretation
-
-This phase treats HPV16* symbolically as:
-
-```text
-biological information perturbation
-→ code integration
-→ corruption model
-→ adversarial payload
-```
-
-This is not a medical inference engine.
-
-It is a deterministic adversarial modeling layer for information systems.
-
----
-
-## Goal
-
-Model how external informational payloads corrupt otherwise stable identity systems.
-
----
-
-## Tasks
-
-* define information parasite models
-* inject symbolic corruption
-* detect lineage contamination
-* classify integration risk
-* reject proof artifacts with invalid lineage
-
----
-
-## Artifacts
-
-```text
-InformationParasiteCase
-BioSymbolicAdversarialReceipt
-LineageContaminationReceipt
-```
-
----
-
-# 🧠 Phase: v157.x — Ouroboric Recursion Layer
-
-## Symbol
-
-```text
-Ouroboros
-```
-
----
-
-## Interpretation
-
-Ouroboros represents:
+Ouroboric recursion represents:
 
 ```text
 self-reference
@@ -1225,55 +1535,7 @@ Prove recursive reasoning loops terminate, stabilize, or fail explicitly.
 RecursiveProofReceipt
 OuroboricConvergenceReceipt
 CircularEvidenceReceipt
-```
-
----
-
-# 🧠 Phase: v158.x — Binary Seed / 101 Boot Kernel
-
-## Symbol
-
-```text
-101
-```
-
----
-
-## Interpretation
-
-101 becomes the roadmap symbol for:
-
-```text
-minimal binary seed
-→ bootstrap identity
-→ entry / exit point
-→ replay origin
-```
-
----
-
-## Goal
-
-Define minimal deterministic bootstrapping of proof systems.
-
----
-
-## Tasks
-
-* define seed identity contracts
-* define proof boot receipts
-* encode minimal replay kernels
-* prove system restart equivalence
-* link boot state to final proof state
-
----
-
-## Artifacts
-
-```text
-BootKernelReceipt
-SeedIdentityReceipt
-ReplayOriginReceipt
+LoopTerminationProof
 ```
 
 ---
@@ -1282,21 +1544,21 @@ ReplayOriginReceipt
 
 ## Goal
 
-Unify the symbolic arcs into a deterministic reality-loop proof system.
+Unify the lattice / fractal / decay / recursion arcs into a deterministic reality-loop proof system.
 
 ---
 
 ## Integrated Loop
 
 ```text
-substrate
-→ symmetry field
-→ φ projection
-→ differentiation
-→ semantic resonance
-→ adversarial corruption
+boundary cube
+→ canonical lattice
+→ semantic field
+→ fractal invariant
+→ decay detection
+→ perturbation matrix
+→ substrate encoding
 → recursive proof
-→ binary seed
 → replay
 ```
 
@@ -1313,10 +1575,12 @@ RealityLoopProofReceipt
 ## Core Law Extension
 
 ```text
-same substrate
-→ same projection
-→ same differentiation
-→ same semantic resonance
+same boundary
+→ same lattice
+→ same semantic field
+→ same invariant scale
+→ same decay signature
+→ same perturbation response
 → same recursion
 → same replay
 → same proof
@@ -1340,6 +1604,10 @@ agents
 nodes
 semantic fields
 proof artifacts
+lattices
+fractals
+decay signatures
+perturbation fields
 substrate constraints
 recursive loops
 → global deterministic validation
@@ -1362,14 +1630,14 @@ v137 → deterministic runtime
 v146 → proof-carrying execution
 v148 → governance + validation
 v150 → multi-agent convergence
-v151 → real-world ingestion + RES/RAG resonance
-v152 → proof compression + equivalence
-v153 → substrate constraints
-v154 → symmetry / φ projection
-v155 → differentiation operators
-v156 → bio-symbolic adversarial corruption
-v157 → recursive proof loops
-v158 → binary seed bootstrapping
+v151 → real-world ingestion + RES/RAG semantic field
+v152 → proof compression + fractal equivalence
+v153 → atomic semantic lattice
+v154 → multi-scale invariance
+v155 → digital decay / entropy signatures
+v156 → perturbation matrix validation
+v157 → substrate encoding constraints
+v158 → recursive proof loops
 v159 → reality loop integration
 v160 → global deterministic truth engine
 ```
@@ -1385,7 +1653,8 @@ deterministic reasoning system
 → multi-agent governance system
 → distributed proof system
 → real-world validation system
-→ semantic resonance engine
+→ semantic lattice engine
+→ resonance validation system
 → recursive reality-proof system
 → global deterministic truth engine
 ```
@@ -1402,6 +1671,9 @@ across documents,
 across agents,
 across nodes,
 across semantic fields,
+across lattices,
+across fractal scales,
+across decay signatures,
 across recursive loops,
 across environments,
 across time.

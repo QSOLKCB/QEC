@@ -47,14 +47,27 @@ def _payload_hash(payload: tuple[tuple[str, Any], ...]) -> str:
     return sha256_hex(payload)
 
 
+def _is_strict_payload_subset(
+    subset_payload: tuple[tuple[str, Any], ...],
+    superset_payload: tuple[tuple[str, Any], ...],
+) -> bool:
+    """Return True when every key/value pair in one payload exists in the other."""
+    if len(subset_payload) >= len(superset_payload):
+        return False
+
+    superset_by_key = dict(superset_payload)
+    return all(
+        key in superset_by_key and superset_by_key[key] == value
+        for key, value in subset_payload
+    )
+
+
 def _classify(payload_a: tuple[tuple[str, Any], ...], payload_b: tuple[tuple[str, Any], ...], hash_a: str, hash_b: str) -> str:
     if hash_a == hash_b:
         return "IDENTICAL"
     if canonical_json(payload_a) == canonical_json(payload_b):
         return "EQUIVALENT"
-    items_a = frozenset(payload_a)
-    items_b = frozenset(payload_b)
-    if items_a < items_b or items_b < items_a:
+    if _is_strict_payload_subset(payload_a, payload_b) or _is_strict_payload_subset(payload_b, payload_a):
         return "DOMINATED"
     return "INCONSISTENT"
 

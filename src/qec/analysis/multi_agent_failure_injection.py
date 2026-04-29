@@ -190,20 +190,23 @@ def _evaluate_case(case: AdversarialFailureCase) -> AdversarialFailureResult:
     reason = case.expected_rejection_reason
     if case.failure_type == FAILURE_TYPE_INVALID_DECISION:
         decision_hash = case.payload.get("decision_hash")
-        if not isinstance(decision_hash, str) or len(decision_hash) != 64:
+        try:
+            _require_sha256(decision_hash)
+        except ValueError:
             reason = "MALFORMED_DECISION_HASH"
-        elif case.payload.get("status") not in {"ACCEPT", "REJECT", "ABSTAIN"}:
-            reason = "INVALID_DECISION_STATUS"
-        elif "score" in case.payload and (
-            isinstance(case.payload["score"], bool)
-            or not isinstance(case.payload["score"], (int, float))
-            or not (0.0 <= float(case.payload["score"]) <= 1.0)
-        ):
-            reason = "INVALID_DECISION_SCORE"
-        elif "score" in case.payload and not math.isfinite(float(case.payload["score"])):
-            reason = "INVALID_DECISION_SCORE"
-        elif bool(case.payload.get("conflicting_identity", False)):
-            reason = "CONFLICTING_DECISION_IDENTITY"
+        else:
+            if case.payload.get("status") not in {"ACCEPT", "REJECT", "ABSTAIN"}:
+                reason = "INVALID_DECISION_STATUS"
+            elif "score" in case.payload and (
+                isinstance(case.payload["score"], bool)
+                or not isinstance(case.payload["score"], (int, float))
+                or not (0.0 <= float(case.payload["score"]) <= 1.0)
+            ):
+                reason = "INVALID_DECISION_SCORE"
+            elif "score" in case.payload and not math.isfinite(float(case.payload["score"])):
+                reason = "INVALID_DECISION_SCORE"
+            elif bool(case.payload.get("conflicting_identity", False)):
+                reason = "CONFLICTING_DECISION_IDENTITY"
     elif case.failure_type == FAILURE_TYPE_CONFLICTING_ROLE:
         role = case.payload.get("role")
         if role not in KNOWN_ROLES:

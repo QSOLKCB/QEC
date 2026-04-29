@@ -31,6 +31,21 @@ def _scenario(
     )
 
 
+def test_non_sequence_input_rejected() -> None:
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_governance_stability(123)  # type: ignore[arg-type]
+
+
+def test_empty_scenarios_rejected() -> None:
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_governance_stability(())
+
+
+def test_non_scenario_element_rejected() -> None:
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_governance_stability(("not-a-scenario",))  # type: ignore[arg-type]
+
+
 def test_deterministic_replay_100_runs() -> None:
     mem = (_h("m1"), _h("m2"))
     decisions = (_h("d1"), _h("d2"), _h("d3"))

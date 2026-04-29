@@ -26,6 +26,30 @@ def _canonical_hashes(values: tuple[str, ...]) -> tuple[str, ...]:
     return canonical
 
 
+def _stability_payload(
+    scenarios: tuple["GovernanceStabilityScenario", ...],
+    result: "GovernanceStabilityResult",
+) -> dict[str, object]:
+    return {
+        "scenarios": tuple(
+            {
+                "scenario_id": scenario.scenario_id,
+                "input_memory_hashes": scenario.input_memory_hashes,
+                "decision_hashes": scenario.decision_hashes,
+                "selected_decision_hash": scenario.selected_decision_hash,
+            }
+            for scenario in scenarios
+        ),
+        "result": {
+            "baseline_selected_hash": result.baseline_selected_hash,
+            "stable": result.stable,
+            "scenario_count": result.scenario_count,
+            "perturbation_count": result.perturbation_count,
+            "stability_score": result.stability_score,
+        },
+    }
+
+
 @dataclass(frozen=True)
 class GovernanceStabilityScenario:
     scenario_id: str
@@ -88,24 +112,7 @@ class GovernanceStabilityReceipt:
         object.__setattr__(self, "stability_hash", stability_hash)
 
     def _payload_without_hash(self) -> dict[str, object]:
-        return {
-            "scenarios": tuple(
-                {
-                    "scenario_id": scenario.scenario_id,
-                    "input_memory_hashes": scenario.input_memory_hashes,
-                    "decision_hashes": scenario.decision_hashes,
-                    "selected_decision_hash": scenario.selected_decision_hash,
-                }
-                for scenario in self.scenarios
-            ),
-            "result": {
-                "baseline_selected_hash": self.result.baseline_selected_hash,
-                "stable": self.result.stable,
-                "scenario_count": self.result.scenario_count,
-                "perturbation_count": self.result.perturbation_count,
-                "stability_score": self.result.stability_score,
-            },
-        }
+        return _stability_payload(self.scenarios, self.result)
 
 
 def validate_governance_stability(
@@ -149,27 +156,10 @@ def validate_governance_stability(
         stability_score=1.0,
     )
 
-    payload = {
-        "scenarios": tuple(
-            {
-                "scenario_id": scenario.scenario_id,
-                "input_memory_hashes": scenario.input_memory_hashes,
-                "decision_hashes": scenario.decision_hashes,
-                "selected_decision_hash": scenario.selected_decision_hash,
-            }
-            for scenario in canonical_scenarios
-        ),
-        "result": {
-            "baseline_selected_hash": result.baseline_selected_hash,
-            "stable": result.stable,
-            "scenario_count": result.scenario_count,
-            "perturbation_count": result.perturbation_count,
-            "stability_score": result.stability_score,
-        },
-    }
-    stability_hash = sha256_hex(payload)
+    canonical_scenarios_tuple = tuple(canonical_scenarios)
+    stability_hash = sha256_hex(_stability_payload(canonical_scenarios_tuple, result))
     return GovernanceStabilityReceipt(
-        scenarios=tuple(canonical_scenarios),
+        scenarios=canonical_scenarios_tuple,
         result=result,
         stability_hash=stability_hash,
     )

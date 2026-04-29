@@ -301,6 +301,7 @@ def _normalize_resonance_source(resonance_receipt: Any) -> _NormalizedSource:
 
     lock_spans = payload.get("ordered_lock_spans", payload.get("lock_spans"))
     _ordered_tuple_of_mappings(lock_spans, field_name="resonance lock spans", required_keys=("start_index", "end_index", "lock_strength"))
+    classification = payload.get("resonance_classification")
 
     if not isinstance(classification, str) or not classification:
         raise ValueError("malformed resonance_receipt: resonance_classification must be a non-empty string")
@@ -682,6 +683,23 @@ def build_resonance_interface_bridge(
     bounded_confidence = _clamp01(
         0.35 * cross_source_consistency
         + 0.35 * completeness
+        + 0.15 * structural_alignment
+        + 0.15 * behavioral_alignment
+        - penalty
+    )
+
+    metrics = _immutable_mapping(
+        {
+            "interface_completeness_score": completeness,
+            "source_completeness_score": completeness,
+            "structural_alignment_score": structural_alignment,
+            "behavioral_alignment_score": behavioral_alignment,
+            "embedding_alignment_score": embedding_alignment,
+            "cross_source_consistency_score": cross_source_consistency,
+            "bounded_interface_confidence": bounded_confidence,
+        }
+    )
+
     resonance_lock_spans = ()
     strongest_lock = None
     if "resonance" in normalized:
@@ -716,63 +734,6 @@ def build_resonance_interface_bridge(
     decision = _build_decision(source_count=present_count, metrics=metrics, agreement=agreement)
 
     trajectory_length = next(iter(normalized.values())).trajectory_length
-
-    structure_summary = _immutable_mapping(
-        {
-    def _validated_topology_coordinate_key(item: Mapping[str, Any], position: int) -> tuple[float, int]:
-        """Validate a topology coordinate entry and return the ordering key."""
-        if not isinstance(item, Mapping):
-            raise ValueError(
-                f"Invalid topology ordered_coordinates entry at index {position}: expected a mapping"
-            )
-        if "value" not in item or "index" not in item:
-            raise ValueError(
-                f"Invalid topology ordered_coordinates entry at index {position}: missing 'value' or 'index'"
-            )
-
-        raw_value = item["value"]
-        raw_index = item["index"]
-
-        if isinstance(raw_index, bool) or not isinstance(raw_index, int):
-            raise ValueError(
-                f"Invalid topology ordered_coordinates entry at index {position}: 'index' must be an integer"
-            )
-
-        if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)):
-            raise ValueError(
-                f"Invalid topology ordered_coordinates entry at index {position}: 'value' must be numeric"
-            )
-
-        value = float(raw_value)
-        if not math.isfinite(value):
-            raise ValueError(
-                f"Invalid topology ordered_coordinates entry at index {position}: 'value' must be finite"
-            )
-
-        return (value, -raw_index)
-
-    embedding_summary = _immutable_mapping(
-        {
-            "topology_classification": None if "topology" not in normalized else normalized["topology"].classification,
-            "dominant_coordinate": None
-            if "topology" not in normalized or len(normalized["topology"].payload["ordered_coordinates"]) == 0
-            else max(
-                enumerate(normalized["topology"].payload["ordered_coordinates"]),
-                key=lambda entry: _validated_topology_coordinate_key(entry[1], entry[0]),
-            )[1],
-                        -int(span["start_index"]),
-                        -int(span["end_index"]),
-                    ),
-                )
-                if len(normalized["resonance"].payload.get("ordered_lock_spans", normalized["resonance"].payload.get("lock_spans", ()))) > 0
-                else None
-            ),
-            "fractal_classification": None if "fractal" not in normalized else normalized["fractal"].classification,
-            "dominant_invariant_motif": None
-            if "fractal" not in normalized or len(normalized["fractal"].payload["ordered_invariant_motifs"]) == 0
-            else normalized["fractal"].payload["ordered_invariant_motifs"][0].get("motif"),
-        }
-    )
 
     behavior_summary = _immutable_mapping(
         {

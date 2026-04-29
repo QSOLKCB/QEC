@@ -89,6 +89,15 @@ def _clamp01(value: float) -> float:
     return float(value)
 
 
+def _bounded_metric(value: Any, *, field_name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{field_name} must be numeric")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{field_name} must be finite")
+    return _clamp01(number)
+
+
 def _immutable_mapping(mapping: Mapping[str, _JSONValue]) -> Mapping[str, _JSONValue]:
     return types.MappingProxyType({key: _deep_freeze_json(_canonicalize_json(mapping[key])) for key in sorted(mapping.keys())})
 
@@ -126,13 +135,10 @@ def _validate_bounded_metrics(metrics_raw: Any, *, field_name: str) -> Mapping[s
     for key in sorted(metrics_raw.keys()):
         if not isinstance(key, str) or not key:
             raise ValueError(f"{field_name} keys must be non-empty strings")
-        value = metrics_raw[key]
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise ValueError(f"{field_name}[{key!r}] must be numeric")
-        number = float(value)
-        if not math.isfinite(number) or number < 0.0 or number > 1.0:
+        bounded = _bounded_metric(metrics_raw[key], field_name=f"{field_name}[{key!r}]")
+        if bounded != float(metrics_raw[key]):
             raise ValueError(f"{field_name}[{key!r}] must be in [0,1]")
-        normalized[key] = number
+        normalized[key] = bounded
     return types.MappingProxyType(normalized)
 
 
@@ -669,29 +675,33 @@ def build_resonance_interface_bridge(
     agreement = _precompute_interface_agreement(normalized)
 
     present_count = len(normalized)
-    completeness = _clamp01(present_count / 4.0)
-    structural_alignment = _clamp01(agreement.structural_consistency)
-    behavioral_alignment = _clamp01(agreement.behavioral_consistency)
-    embedding_alignment = _clamp01((agreement.embedding_consistency + agreement.multiscale_consistency) / 2.0)
-    cross_source_consistency = _clamp01(
+    completeness = _bounded_metric(present_count / 4.0, field_name="interface_completeness_score")
+    structural_alignment = _bounded_metric(agreement.structural_consistency, field_name="structural_alignment_score")
+    behavioral_alignment = _bounded_metric(agreement.behavioral_consistency, field_name="behavioral_alignment_score")
+    embedding_alignment = _bounded_metric(
+        (agreement.embedding_consistency + agreement.multiscale_consistency) / 2.0,
+        field_name="embedding_alignment_score",
+    )
+    cross_source_consistency = _bounded_metric(
         (agreement.structural_consistency + agreement.behavioral_consistency + agreement.embedding_consistency + agreement.multiscale_consistency)
-        / 4.0
+        / 4.0,
+        field_name="cross_source_consistency_score",
     )
     penalty = 0.0
     if agreement.source_agreement_interpretation == "cross_source_conflict_detected":
         penalty = 0.25
-    bounded_confidence = _clamp01(
+    bounded_confidence = _bounded_metric(
         0.35 * cross_source_consistency
         + 0.35 * completeness
         + 0.15 * structural_alignment
         + 0.15 * behavioral_alignment
-        - penalty
+        - penalty,
+        field_name="bounded_interface_confidence",
     )
 
     metrics = _immutable_mapping(
         {
             "interface_completeness_score": completeness,
-            "source_completeness_score": completeness,
             "structural_alignment_score": structural_alignment,
             "behavioral_alignment_score": behavioral_alignment,
             "embedding_alignment_score": embedding_alignment,
@@ -726,10 +736,6 @@ def build_resonance_interface_bridge(
             "bounded_interface_confidence": bounded_confidence,
         }
     )
-
-    for name, value in metrics.items():
-        if not math.isfinite(value) or value < 0.0 or value > 1.0:
-            raise ValueError(f"{name} must be in [0,1]")
 
     decision = _build_decision(source_count=present_count, metrics=metrics, agreement=agreement)
 

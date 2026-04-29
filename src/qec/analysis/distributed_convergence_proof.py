@@ -209,6 +209,24 @@ class DistributedConvergenceReceipt:
         if canonical_mismatches != sorted_mismatches:
             raise _invalid_input()
 
+        evidence_by_node_id = {e.node_id: e for e in canonical_evidence}
+        mismatched_node_ids_expected = {e.node_id for e in canonical_evidence if e.final_proof_hash != self.reference_final_proof_hash}
+        final_mismatched_node_ids_observed: set[str] = set()
+        for mismatch in canonical_mismatches:
+            for node_id in mismatch.node_ids:
+                evidence = evidence_by_node_id.get(node_id)
+                if evidence is None or evidence.final_proof_hash != mismatch.observed_final_proof_hash:
+                    raise _invalid_input()
+                if mismatch.reason == FINAL_PROOF_HASH_MISMATCH:
+                    final_mismatched_node_ids_observed.add(node_id)
+            if mismatch.reason == FINAL_PROOF_HASH_MISMATCH and mismatch.observed_final_proof_hash == self.reference_final_proof_hash:
+                raise _invalid_input()
+
+        if not final_mismatched_node_ids_observed.issubset(set(node_ids)):
+            raise _invalid_input()
+        if final_mismatched_node_ids_observed != mismatched_node_ids_expected:
+            raise _invalid_input()
+
         if self.node_count != len(canonical_evidence):
             raise _invalid_input()
         recomputed_agreement = sum(1 for e in canonical_evidence if e.final_proof_hash == self.reference_final_proof_hash)
@@ -217,14 +235,14 @@ class DistributedConvergenceReceipt:
             raise _invalid_input()
 
         if self.status == VALIDATED:
-            if self.node_count <= 0 or self.mismatch_count != 0 or self.agreement_count != self.node_count:
+            if self.node_count <= 0 or self.mismatch_count != 0 or self.agreement_count != self.node_count or canonical_mismatches:
                 raise _invalid_input()
             if any(e.final_proof_hash != self.reference_final_proof_hash for e in canonical_evidence):
                 raise _invalid_input()
             if self.expected_final_proof_hash is not None and self.expected_final_proof_hash != self.reference_final_proof_hash:
                 raise _invalid_input()
         elif self.status == DISTRIBUTED_CONVERGENCE_MISMATCH:
-            if self.mismatch_count == 0 and self.agreement_count == self.node_count:
+            if self.mismatch_count == 0 and self.agreement_count == self.node_count and not canonical_mismatches:
                 raise _invalid_input()
         else:
             raise _invalid_input()
@@ -259,15 +277,32 @@ class DistributedConvergenceReceipt:
         return sha256_hex(self._hash_payload())
 
 
-def _derive_reference_final_hash(
-    canonical_evidence: tuple[DistributedNodeConvergenceEvidence, ...],
-    expected_final_proof_hash: str | None,
-) -> str:
-    if expected_final_proof_hash is not None:
-        return expected_final_proof_hash
+def _derive_reference_final_hash(canonical_evidence: tuple[DistributedNodeConvergenceEvidence, ...]) -> str:
     counts = Counter(e.final_proof_hash for e in canonical_evidence)
     max_count = max(counts.values())
     return min(hash_value for hash_value, count in counts.items() if count == max_count)
+
+
+def _build_mismatch(
+    *,
+    reference_final_proof_hash: str,
+    observed_final_proof_hash: str,
+    node_ids: tuple[str, ...],
+    reason: str,
+) -> DistributedConvergenceMismatch:
+    payload = {
+        "reference_final_proof_hash": reference_final_proof_hash,
+        "observed_final_proof_hash": observed_final_proof_hash,
+        "node_ids": list(node_ids),
+        "reason": reason,
+    }
+    return DistributedConvergenceMismatch(
+        reference_final_proof_hash=reference_final_proof_hash,
+        observed_final_proof_hash=observed_final_proof_hash,
+        node_ids=node_ids,
+        reason=reason,
+        mismatch_hash=sha256_hex(payload),
+    )
 
 
 def run_distributed_convergence_proof(
@@ -287,7 +322,7 @@ def run_distributed_convergence_proof(
     if len(set(node_ids)) != len(node_ids):
         raise _invalid_input()
 
-    reference_final_proof_hash = _derive_reference_final_hash(canonical_node_evidence, validated_expected)
+    reference_final_proof_hash = _derive_reference_final_hash(canonical_node_evidence)
 
     agreement_count = sum(1 for e in canonical_node_evidence if e.final_proof_hash == reference_final_proof_hash)
     node_count = len(canonical_node_evidence)
@@ -301,52 +336,31 @@ def run_distributed_convergence_proof(
 
     for observed_hash in sorted(grouped_node_ids):
         node_id_group = tuple(sorted(grouped_node_ids[observed_hash]))
-        mismatch_payload = {
-            "reference_final_proof_hash": reference_final_proof_hash,
-            "observed_final_proof_hash": observed_hash,
-            "node_ids": list(node_id_group),
-            "reason": FINAL_PROOF_HASH_MISMATCH,
-        }
         mismatches.append(
-            DistributedConvergenceMismatch(
+            _build_mismatch(
                 reference_final_proof_hash=reference_final_proof_hash,
                 observed_final_proof_hash=observed_hash,
                 node_ids=node_id_group,
                 reason=FINAL_PROOF_HASH_MISMATCH,
-                mismatch_hash=sha256_hex(mismatch_payload),
             )
         )
 
-
-
-    observed_hashes = tuple(sorted(set(e.final_proof_hash for e in canonical_node_evidence)))
-    if (
-        validated_expected is not None
-        and len(observed_hashes) == 1
-        and observed_hashes[0] != validated_expected
-    ):
-        expected_mismatch_payload = {
-            "reference_final_proof_hash": reference_final_proof_hash,
-            "observed_final_proof_hash": observed_hashes[0],
-            "node_ids": list(node_ids),
-            "reason": EXPECTED_FINAL_PROOF_HASH_MISMATCH,
-        }
+    if validated_expected is not None and validated_expected != reference_final_proof_hash:
         mismatches.append(
-            DistributedConvergenceMismatch(
-                reference_final_proof_hash=reference_final_proof_hash,
-                observed_final_proof_hash=observed_hashes[0],
+            _build_mismatch(
+                reference_final_proof_hash=validated_expected,
+                observed_final_proof_hash=reference_final_proof_hash,
                 node_ids=node_ids,
                 reason=EXPECTED_FINAL_PROOF_HASH_MISMATCH,
-                mismatch_hash=sha256_hex(expected_mismatch_payload),
             )
         )
 
-    status = VALIDATED if mismatch_count == 0 else DISTRIBUTED_CONVERGENCE_MISMATCH
+    status = VALIDATED if mismatch_count == 0 and not mismatches else DISTRIBUTED_CONVERGENCE_MISMATCH
     if status == VALIDATED:
         if mismatch_count != 0 or agreement_count != node_count:
             raise _invalid_input()
     elif status == DISTRIBUTED_CONVERGENCE_MISMATCH:
-        if mismatch_count == 0 and agreement_count == node_count:
+        if mismatch_count == 0 and agreement_count == node_count and not mismatches:
             raise _invalid_input()
     else:
         raise _invalid_input()

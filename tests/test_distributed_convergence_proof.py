@@ -56,10 +56,9 @@ def test_expected_hash_mismatch() -> None:
     receipt = run_distributed_convergence_proof("s2", (_evidence("n1", shared), _evidence("n2", shared)), expected)
 
     assert receipt.status == DISTRIBUTED_CONVERGENCE_MISMATCH
-    assert receipt.mismatch_count == 2
-    reasons = {m.reason for m in receipt.mismatches}
-    assert EXPECTED_FINAL_PROOF_HASH_MISMATCH in reasons
-    assert FINAL_PROOF_HASH_MISMATCH in reasons
+    assert receipt.mismatch_count == 0
+    assert len(receipt.mismatches) == 1
+    assert receipt.mismatches[0].reason == EXPECTED_FINAL_PROOF_HASH_MISMATCH
 
 
 def test_node_disagreement_majority_tie_and_reorder_invariance() -> None:
@@ -85,6 +84,44 @@ def test_node_disagreement_majority_tie_and_reorder_invariance() -> None:
     assert run_distributed_convergence_proof("s5", (_evidence("n1", a), _evidence("n2", b), _evidence("n3", a))).stable_hash == original.stable_hash
 
 
+
+
+def test_multiple_mismatch_groups_and_sort_order() -> None:
+    a = _h("a")
+    b = _h("b")
+    c = _h("c")
+    receipt = run_distributed_convergence_proof(
+        "s5b",
+        (_evidence("n3", c), _evidence("n1", a), _evidence("n2", b)),
+    )
+
+    assert receipt.status == DISTRIBUTED_CONVERGENCE_MISMATCH
+    assert receipt.reference_final_proof_hash == min(a, b, c)
+    assert receipt.mismatch_count == 2
+    assert len(receipt.mismatches) == 2
+    mismatch_node_ids = {m.node_ids for m in receipt.mismatches}
+    expected_mismatch_ids = {(e.node_id,) for e in receipt.node_evidence if e.final_proof_hash != receipt.reference_final_proof_hash}
+    assert mismatch_node_ids == expected_mismatch_ids
+
+
+def test_allows_identical_payloads_for_distinct_nodes() -> None:
+    shared = _h("shared")
+    shared_payload = {
+        "node_role": "CONTROL",
+        "convergence_hash": _h("conv:shared"),
+        "governance_hash": _h("gov:shared"),
+        "adversarial_hash": _h("adv:shared"),
+        "final_proof_hash": shared,
+        "metadata": {"same": True},
+    }
+
+    n1_payload = {"node_id": "n1", **shared_payload}
+    n2_payload = {"node_id": "n2", **shared_payload}
+    n1 = DistributedNodeConvergenceEvidence(**n1_payload, evidence_hash=sha256_hex(n1_payload))
+    n2 = DistributedNodeConvergenceEvidence(**n2_payload, evidence_hash=sha256_hex(n2_payload))
+
+    receipt = run_distributed_convergence_proof("s5c", (n1, n2))
+    assert receipt.status == VALIDATED
 def test_invalid_hash_and_duplicates() -> None:
     shared = _h("shared")
     with pytest.raises(ValueError, match="INVALID_INPUT"):
@@ -191,5 +228,26 @@ def test_receipt_integrity_and_branch_reachability() -> None:
             agreement_count=1,
             mismatch_count=1,
             status="INVALID_STATUS",
+            stable_hash=sha256_hex(payload),
+        )
+
+    mismatch = mismatch_receipt.mismatches[0]
+    payload["scenario_id"] = "bad4"
+    payload["agreement_count"] = 2
+    payload["mismatch_count"] = 0
+    payload["status"] = VALIDATED
+    payload["mismatches"] = [mismatch.to_dict()]
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        DistributedConvergenceReceipt(
+            version="v150.9",
+            scenario_id="bad4",
+            node_evidence=tuple(sorted((n1, n2), key=lambda e: (e.node_id, e.node_role, e.final_proof_hash, e.evidence_hash))),
+            mismatches=(mismatch,),
+            expected_final_proof_hash=None,
+            reference_final_proof_hash=a,
+            node_count=2,
+            agreement_count=2,
+            mismatch_count=0,
+            status=VALIDATED,
             stable_hash=sha256_hex(payload),
         )

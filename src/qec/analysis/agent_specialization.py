@@ -1,5 +1,8 @@
-"""This module adheres to the QEC identity and hashing surface contract.
+"""Agent specialization and role-constrained decision helpers.
 
+This module defines supported agent roles and validates canonical
+decision payloads used to create deterministic role-based agent decisions.
+It adheres to the QEC identity and hashing surface contract.
 See: qec.analysis.identity_hashing_contract.get_identity_hashing_contract()
 """
 

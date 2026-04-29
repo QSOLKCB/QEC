@@ -1,485 +1,372 @@
 # QSOL QEC Architectural Constitution
 
-## Canonical Engineering Constitution — v133.x Hardened
+## Canonical Engineering Constitution — v150.x
 
 This document governs **all AI-assisted activity** inside the `QSOLKCB/QEC` repository.
 
-This file is treated as **always-active repository law**.
+This is the **constitutional layer of the system**.
 
-It is assumed to be read on **every prompt / every turn** by AI coding systems.
+All code generation, testing, refactoring, and architectural decisions must obey this file.
 
 This is not guidance.
 
-This is the **constitutional layer of the codebase**.
-
-All code generation, testing, refactoring, release preparation, commits, and architectural decisions must obey this file.
+This is **law**.
 
 ---
 
-# Core Values
+# Core System Principle
 
-The QEC framework is governed by **seven non-negotiable principles**:
+```text
+same input
+→ same ordering
+→ same canonical form
+→ same hash
+→ same bytes
+→ same proof
+```
 
-1. Determinism
-2. Safety
-3. Decoder Stability
-4. Architectural Layering
-5. Minimal Complexity
-6. Scientific Transparency
-7. Reproducibility Guarantees
-
-These principles override convenience.
+Any violation invalidates the system.
 
 ---
 
-# 0. Operating Mode — Direct Commit Constitutional Workflow
+# 0. Operating Model — Deterministic Direct-Commit System
 
-QEC is operated as a **direct-commit deterministic repository**.
+QEC operates as a **deterministic, proof-driven repository**.
 
 ## Rules
 
-* DO NOT create PRs
-* DO NOT create feature branches
-* DO NOT fork internal workflow
 * work directly on `main`
+* no feature branches
+* no PR-first workflow
 * commits must be minimal and single-purpose
-* tags are the release boundary
+* tags define release boundaries
 
-PR workflow is considered **architecturally invalid** for this repository.
+## Commit Preconditions
 
-## Safety Conditions
-
-Direct commits are allowed only if:
-
-* tests pass
+* full test suite passes
 * determinism preserved
+* identity + hashing invariants preserved
 * decoder untouched
 * schemas stable
-* no invariant regression
 
 ---
 
-# 0A. Dependency Acquisition Law
+# 1. Architectural Layer Model (HARD INVARIANT)
 
-Do not install from live package indexes unless explicitly approved.
-
-Preferred order:
-
-1. stdlib
-2. existing repository dependencies
-3. canonical upstream release tarball / source archive
-4. package index only as last resort
-
-All third-party additions must be:
-
-* version pinned
-* source traceable
-* checksum verifiable
-* minimally scoped
-
-Live package indexes are **disallowed by default**.
-
----
-
-# 1. Architectural Layer Model (NON-NEGOTIABLE)
-
-Dependency flow is strictly downward.
-
-| Layer | Path                   | Role                      |
-| ----- | ---------------------- | ------------------------- |
-| 1     | `src/qec/decoder/`     | Protected decoder core    |
-| 2     | `src/qec/channel/`     | Channel / LLR models      |
-| 3     | `src/qec/diagnostics/` | Observational signals     |
-| 4     | `src/qec/analysis/`    | Supervisory intelligence  |
-| 5     | `src/qec/experiments/` | Controlled experiments    |
-| 6     | `src/bench/`           | Deterministic harness     |
-| 7     | `src/qec/sims/`        | Simulation & universe lab |
+| Layer | Path                   | Role                       |
+| ----- | ---------------------- | -------------------------- |
+| 1     | `src/qec/decoder/`     | Protected core             |
+| 2     | `src/qec/channel/`     | Signal models              |
+| 3     | `src/qec/diagnostics/` | Observability              |
+| 4     | `src/qec/analysis/`    | Deterministic intelligence |
+| 5     | `src/qec/experiments/` | Controlled experiments     |
+| 6     | `src/bench/`           | Harness                    |
+| 7     | `src/qec/sims/`        | Simulation                 |
 
 ## Rules
 
-* lower layers must never import higher layers
-* decoder must never import analysis
-* decoder must never import experiments
-* decoder must never import sims
-* analysis must not mutate decoder internals
+* lower layers NEVER import higher layers
+* decoder NEVER imports analysis
 * no circular imports
 * no upward leakage
-
-Layer boundaries are **hard invariants**.
 
 Violation is forbidden.
 
 ---
 
-# 1A. Simulation Layer Law (v133.x)
+# 2. Determinism is Architecture
 
-Simulation systems are now a **first-class architectural layer**.
+Determinism is not optional.
 
-Protected simulation paths include:
+## Forbidden
 
-* `src/qec/sims/`
-* `src/qec/simulation/`
+* randomness
+* wall-clock dependence
+* async nondeterminism
+* implicit ordering
+
+## Required
+
+* canonical ordering everywhere
+* explicit identity
+* stable serialization
+* deterministic reduction
+
+---
+
+# 3. Identity Law (v150.x)
+
+Identity is the root of all system truth.
 
 ## Rules
 
-* simulation layers must remain additive
-* simulation code must never mutate decoder semantics
-* simulation adapters must remain optional
-* external backend integrations must not become hard dependencies
-* experiment layers must consume simulation layers, not redefine them
-* simulation outputs must remain replay-safe
-* tuple-only collections preferred
-* frozen dataclasses strongly preferred
+* ALL identity-bearing tuples MUST pass `canonical_hash_identity`
+* identity must be:
 
-Simulation kernels must remain:
+  * sorted
+  * unique
+  * canonical
+* identity MUST NOT be inferred or reconstructed heuristically
+* duplicate identity elements are forbidden
 
-* pure
-* immutable
-* deterministic
-* backend-agnostic
+Invalid identity → invalid system state
 
 ---
 
-# 2. Determinism is Architecture
+# 4. Hashing & Proof Law
 
-Determinism is not a feature.
+All proofs are hash-based.
 
-It is a hard structural requirement.
+## Rules
 
-All code must preserve **byte-identical replay**.
+* hashes MUST be computed over canonical JSON
+* keys sorted
+* compact separators
+* UTF-8 encoding
 
-## Required invariants
+## Critical Rule
 
-* no hidden randomness
-* no implicit RNG state
-* no time-based behavior
-* no async nondeterminism
-* deterministic ordering
-* stable floating reductions
-* canonical serialization
-* stable dict / tuple ordering
-* frozen dataclasses preferred
-
-## Required techniques
-
-* explicit seed injection
-* SHA-256 deterministic sub-seeds
-* sorted iteration everywhere
-* TypedDict / stable schemas
-* immutable state objects
+* self-referential hash fields MUST be excluded from hash bodies
 
 ## Guarantee
 
-If configuration is fixed:
-
-```text
-same input
-→ same output
-→ same bytes
-```
-
-Anything else is invalid.
+* all hashes MUST recompute exactly
+* mismatch = `ValueError("INVALID_INPUT")`
 
 ---
 
-# 3. Decoder Core Protection (SACRED)
+# 5. Decoder Core Protection (SACRED)
 
 Protected path:
 
-```text
+```
 src/qec/decoder/
 ```
 
-## Default rule
+## Forbidden
 
-Do not modify the decoder core.
+* modifying BP logic
+* scheduling changes
+* adaptive logic
+* supervisory leakage
 
-## Forbidden without explicit instruction
-
-* BP update equations
-* scheduling semantics
-* iteration ordering
-* decoder refactors
-* adaptive logic inside decoder
-* supervisory logic leakage
-* temporal verification logic inside decoder
-
-The decoder is sacred infrastructure.
-
-Minor releases must not alter decoder semantics.
+Decoder is immutable infrastructure.
 
 ---
 
-# 4. Supervisory Control Law
+# 6. Supervisory & Analysis Law
 
-System identity:
+System structure:
 
 ```text
 diagnostics
-→ control
-→ supervision
+→ analysis
+→ decision
 → verification
-→ explainability
+→ proof
 ```
 
 ## Allowed
 
-* deterministic control systems
-* supervisory state machines
-* hysteresis controllers
-* temporal verifiers
-* policy memory
-* theorem verification
-* explainability systems
+* deterministic control
+* governance systems
+* verification logic
+* explainability
 
 ## Forbidden
 
 * stochastic control
-* ML black-box control
 * hidden learning state
 * decoder-side supervision
 
 ---
 
-# 5. Safety Law
+# 7. Message & Protocol Law (v150.4)
 
-Safety always dominates performance.
+All inter-agent communication MUST be deterministic.
 
-Fail-safe precedence must be preserved.
+## Rules
 
-## Required
+* message identity = `message_hash`
+* payloads MUST be canonical
+* duplicate messages are forbidden
+* ordering MUST be canonical:
 
-* absorbing safe states
-* escalation locks
-* fail-safe latching
-* bounded-time recovery
-* deterministic temporal legality
+```text
+(message_hash, sender_id, receiver_id)
+```
 
 ## Forbidden
 
-* unsafe recovery bypass
-* fail-safe override without explicit approval
-* unsafe temporal transitions
+* timestamps
+* async ordering
+* external sequencing
 
 ---
 
-# 6. Minimal Diff Discipline
+# 8. Convergence Law (v150.5)
 
-Every commit must be minimal and single-purpose.
+Systems MUST stabilize or fail.
+
+## Rules
+
+* convergence MUST be finite
+* convergence MUST be deterministic
+* convergence MUST be provable
+* convergence flags MUST be derived, not set
+
+## Enforcement
+
+* inconsistent convergence state = INVALID_INPUT
+* non-convergent system = INVALID_INPUT
+
+---
+
+# 9. Receipt Integrity Law
+
+Receipts are proof artifacts.
+
+## Rules
+
+* receipts MUST be immutable
+* receipts MUST be canonical
+* receipts MUST be hash-verifiable
+* receipt hash MUST exclude itself
+
+## Guarantee
+
+* receipt MUST recompute exactly under replay
+
+Invalid receipt = invalid system
+
+---
+
+# 10. Safety Law
+
+Safety overrides all.
+
+## Required
+
+* fail-safe states
+* bounded recovery
+* deterministic transitions
+
+## Forbidden
+
+* unsafe bypass
+* hidden override
+
+---
+
+# 11. Minimal Diff Discipline
+
+Every change must be surgical.
 
 ## Forbidden
 
 * broad refactors
-* rename-only edits
-* style-only commits
-* formatting churn
+* style-only edits
 * unrelated cleanup
 
 ## Required
 
-* surgical changes
-* smallest viable diff
-* deterministic impact
-
-Parallelism is allowed only for independent modules and tests.
-
-Do not create merge ambiguity.
+* smallest viable change
+* single-purpose commits
 
 ---
 
-# 7. Dependency Policy
+# 12. Test Discipline
 
-## Rules
-
-* prefer stdlib
-* prefer NumPy / SciPy
-* NetworkX allowed when justified
-* no heavy frameworks
-* no new dependencies without explicit approval
-
-Architectural bloat is forbidden.
-
----
-
-# 8. Sparse Linear Algebra Rules
-
-Spectral and graph work must scale.
-
-## Forbidden
-
-* dense graph matrices
-* full eigendecomposition on large systems
-* O(N²) memory blowups
+Untested code is invalid.
 
 ## Required
 
-* sparse operators
-* `scipy.sparse`
-* iterative solvers
-* memory scaling with graph edges
-
----
-
-# 9. Formal Verification Direction
-
-Allowed future integrations:
-
-* Coq
-* Lean
-* TLA+
-* UPPAAL
-* SMT / SAT systems
-
-All integrations must remain deterministic and optional.
-
----
-
-# 10. Test Discipline
-
-Untested code is unshipped code.
-
-## Required
-
-* unit tests
 * deterministic replay tests
-* regression tests
-* schema stability tests
-* boundary-condition tests
+* invariant tests
+* boundary tests
+* hash stability tests
+
+## Rule
+
+* fix code, not tests
+
+---
+
+# 13. Full-System Validation Rule
+
+Before merge:
+
+```bash
+pytest -q
+```
+
+Must pass fully.
+
+No exceptions.
+
+---
+
+# 14. Parallelism Law
+
+Parallelism is allowed only when:
+
+* tasks are independent
+* determinism is preserved
+
+Sequential required when:
+
+* ordering affects outcome
+
+---
+
+# 15. Dependency Law
+
+## Order
+
+1. stdlib
+2. existing deps
+3. pinned source
+4. package index (last resort)
 
 ## Rules
 
-* do not widen tolerances to hide defects
-* fix code, not tests
-* every new module must ship with tests
+* version pinned
+* checksum verifiable
+* minimal scope
 
 ---
 
-# 10A. Experimental Reproducibility
+# 16. Escalation Rule
 
-All simulation experiments must be replayable.
+If change affects:
 
-## Required
-
-* deterministic initial state
-* explicit law configuration
-* fixed step count
-* stable sweep ordering
-* tuple-only result ordering
-* canonical summary serialization
-
-Comparative experiments must yield identical results under repeated execution.
-
----
-
-# 11. Commit Discipline
-
-Commit only if:
-
-* tests pass
-* schemas stable
-* determinism preserved
-* decoder untouched
-* safety invariants preserved
-
-Passing tests alone is insufficient.
-
----
-
-# 12. Escalation Rule
-
-If a change affects:
-
-* decoder semantics
-* schema contracts
-* determinism
-* fail-safe logic
-* supervisory transitions
-* serialization
+* identity
 * hashing
-* simulation law semantics
+* convergence
+* protocol
+* decoder
+* safety
 
 STOP.
 
 Explain risk.
 
-Request instruction.
-
 ---
 
-# 13A. Theory Ingestion Priority
-
-When ingesting theory from the `/papers` corpus:
-
-1. Use `ROADMAP.md` first
-2. Use existing Layer 4 modules second
-3. Use `papers/*.md` when available
-4. Use `papers/*.pdf` only when explicitly required
-
-## Rules
-
-* text-first ingestion is mandatory
-* PDF rendering toolchains (`pdftoppm`) are not guaranteed in all environments
-* missing `pdftoppm` is an environment-only limitation, not a repository failure
-* do not retry failed PDF render paths
-* do not treat PDF toolchain absence as a defect
-* always check for `.md` equivalent before attempting `.pdf`
-
-This rule is **durable workflow law** from `v137.0.19` onward.
-
----
-
-# 13B. Execution Parallelism Law
-
-Parallelism is **preferred by default**.
-
-Claude Code must use parallel execution whenever tasks are logically independent and can be executed concurrently. Sequential execution is permitted only when outputs are dependency-coupled, ordering affects correctness, or later steps require earlier results.
-
-## Mandatory parallel candidates
-
-The following operations must be parallelized when multiple instances occur in the same pass:
-
-* reading multiple markdown files
-* reading papers / theory documents
-* scanning roadmap + implementation docs simultaneously
-* running independent test groups
-* reading multiple source modules
-* analyzing multiple release artifacts
-* file discovery / glob operations
-* import hygiene checks across independent modules
-
-## Sequential execution conditions
-
-Sequential execution is allowed only when:
-
-* outputs are dependency-coupled (one result feeds into the next)
-* ordering affects correctness
-* later steps require earlier results
-
-## Rules
-
-* independent file reads must be batched into parallel tool calls
-* independent searches must be batched into parallel tool calls
-* do not serialize work that has no data dependency
-* do not wait for one independent result before requesting another
-* parallel execution must not compromise determinism guarantees
-
-This rule is **durable engineering law** from `v137.0.19` onward.
-
----
-
-# 13. Governing Principle
+# 17. Governing Principle
 
 When uncertain:
 
 * preserve determinism
-* preserve safety
-* preserve stability
+* preserve identity
+* preserve proof
 * prefer minimal change
-* read before writing
-* verify before committing
+* verify before commit
 
-Capability may grow.
+---
 
-Stability must never regress.
+# Final Law
 
-If it cannot be replayed byte-for-byte, it is not a valid result.
+If it cannot be reproduced byte-for-byte,
+
+it is not a valid result.

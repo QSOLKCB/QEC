@@ -202,22 +202,6 @@ class DistributedConvergenceReceipt:
         if len(set(node_ids)) != len(node_ids):
             raise _invalid_input()
 
-        identity_set: set[str] = set()
-        for evidence in canonical_evidence:
-            identity = sha256_hex(
-                {
-                    "node_role": evidence.node_role,
-                    "convergence_hash": evidence.convergence_hash,
-                    "governance_hash": evidence.governance_hash,
-                    "adversarial_hash": evidence.adversarial_hash,
-                    "final_proof_hash": evidence.final_proof_hash,
-                    "metadata": evidence.metadata,
-                }
-            )
-            if identity in identity_set:
-                raise _invalid_input()
-            identity_set.add(identity)
-
         canonical_mismatches = tuple(self.mismatches)
         if any(not isinstance(m, DistributedConvergenceMismatch) for m in canonical_mismatches):
             raise _invalid_input()

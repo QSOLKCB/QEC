@@ -63,7 +63,7 @@ class ConvergenceState:
             expected_converged = True
         else:
             expected_converged = selected[-1] == selected[-2]
-        if self.converged and not expected_converged:
+        if self.converged != expected_converged:
             raise _invalid_input()
 
 

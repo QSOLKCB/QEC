@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from shlex import quote
 from typing import Iterable
 
 _INVALID_INPUT = "INVALID_INPUT"
@@ -53,9 +54,7 @@ def normalize_paths(changed_paths: Iterable[str]) -> list[str]:
         if raw_path == "":
             _raise_invalid_input()
 
-        path = raw_path.replace("\\", "/")
-        while "//" in path:
-            path = path.replace("//", "/")
+        path = "/".join(segment for segment in raw_path.replace("\\", "/").split("/") if segment)
         if path == "":
             _raise_invalid_input()
 
@@ -69,9 +68,8 @@ def normalize_paths(changed_paths: Iterable[str]) -> list[str]:
 
 
 def requires_full_suite(normalized_paths: list[str]) -> bool:
-    """Return True when any changed path requires full-suite escalation."""
-    paths = normalize_paths(normalized_paths)
-    for path in paths:
+    """Return True when any normalized path requires full-suite escalation."""
+    for path in normalized_paths:
         if any(path.startswith(prefix) for prefix in _ESCALATION_PREFIXES):
             return True
         segments = [segment for segment in path.split("/") if segment]
@@ -104,4 +102,4 @@ def determine_pytest_command(changed_paths: Iterable[str]) -> str:
     if not test_files:
         return "pytest -q"
 
-    return "pytest -q " + " ".join(test_files)
+    return "pytest -q -- " + " ".join(quote(path) for path in test_files)

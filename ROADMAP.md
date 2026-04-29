@@ -1,15 +1,16 @@
 ---
 
-# 🚀 QSOLKCB / QEC — ROADMAP.md (Post v149.5 → v151+)
+# 🚀 QSOLKCB / QEC — ROADMAP.md (v150 → v151+ REFINED)
 
-## Deterministic Reasoning • Governance • Proof Systems • Distributed Identity • Real-World Ingestion
+## Deterministic Reasoning • Governance • Proof Systems • Distributed Identity • Real-World Validation
 
 ---
 
-## Stable Tip Metadata
+## 🧭 Stable Tip Metadata
 
-Stable tip lineage remains anchored to `v137.*` compatibility contracts.
-Published tags are authoritative.
+* Stable lineage anchored to `v137.*` compatibility contracts
+* All releases must preserve **replay invariance**
+* Published tags are authoritative
 
 ---
 
@@ -21,218 +22,295 @@ same input
 → same canonical JSON
 → same stable hash
 → same bytes
-→ same compressed representation
 → same proof artifact
 → same outcome
 ```
 
-Violation → SYSTEM INVALID
+Violation → **SYSTEM INVALID**
 
 ---
 
-# 🧠 System State (v150.8+)
+# 🧠 System State (v150.9)
 
 QEC is now a:
 
 ```text
-deterministic multi-agent reasoning + governance + validation system
+deterministic multi-agent governance system
 → shared memory
-→ shared decisions
-→ adversarial rejection
-→ canonical identity enforcement
-→ proof-carrying artifacts
+→ adversarial validation
+→ convergence enforcement
+→ distributed proof agreement
 ```
 
----
-
-# 🔥 Phase: v150.x — Multi-Agent Reasoning Systems
-
-Goal:
+v150 established:
 
 ```text
-multiple agents
-→ shared context
-→ deterministic agreement
-→ adversarial robustness
-→ provable convergence
+multi-agent reasoning
+→ adversarial rejection
+→ deterministic convergence
+→ distributed proof identity
 ```
-
-Completed / In Progress:
-
-* v150.0 → Shared Memory Fabric
-* v150.1 → Cross-Agent Governance
-* v150.2 → Distributed Proof Consistency
-* v150.2.1 → Canonical Identity Contract
-* v150.3 → Agent Specialization
-* v150.4 → Inter-Agent Protocol
-* v150.5 → Convergence
-* v150.6 → Conflict Classification
-* v150.7 → Governance Stability
-* v150.8 → Adversarial Failure Injection
-* v150.9 → Distributed Convergence Proof
 
 ---
 
-# 🧠 v151.x — Real-World Ingestion & Deterministic Extraction
+# 🔥 Phase: v150.x — Multi-Agent Deterministic Systems (Complete)
+
+### Achieved
+
+* Shared memory + arbitration
+* Conflict classification + convergence
+* Adversarial failure detection (v150.8)
+* Distributed convergence proof (v150.9)
+
+### Result
+
+```text
+agents
+→ deterministic decisions
+→ adversarial rejection
+→ convergence proof
+```
+
+---
+
+# 🧠 Phase: v151.x — Real-World Ingestion (Deterministic Boundary Layer)
+
+## 🧭 Core Principle
+
+From research:
+
+```text
+real world = non-deterministic
+QEC core = deterministic
+```
+
+Therefore:
+
+```text
+non-determinism must be:
+→ isolated
+→ bounded
+→ detected
+→ never trusted
+```
+
+---
+
+## 🧠 v151 Architecture (Canonical Form)
+
+```text
+raw document
+→ Extraction (UNTRUSTED)
+→ Canonicalization (DETERMINISTIC)
+→ Validation (ADVERSARIAL)
+→ Governance (MULTI-AGENT)
+→ Proof (DISTRIBUTED)
+```
+
+---
+
+# 🧠 v151.0 — Extraction Boundary (Untrusted Layer)
 
 ## Goal
 
-Bridge **unstructured real-world data → deterministic proof system**.
+Define a **strict ingestion contract** for non-deterministic systems.
+
+---
+
+## Key Insight
 
 ```text
-documents / inputs
-→ structured extraction
-→ canonicalization
-→ adversarial validation
-→ governance reasoning
-→ proof artifact
+Extraction is NOT part of the proof system
+```
+
+It is:
+
+```text
+an untrusted oracle
 ```
 
 ---
 
-## 🧠 v151.0 — Structured Extraction Interface
+## Tasks
 
-### Goal
-
-Define a **deterministic ingestion contract** for external structured extraction systems
-(e.g., OCR / document intelligence / API inputs).
-
----
-
-### Tasks
-
-* Introduce:
+Introduce:
 
 ```text
 ExtractionInput
+→ raw_bytes_hash (document identity)
 → source_type
-→ raw_bytes_hash
 → extraction_config_hash
 → query_fields
-→ locale
 ```
 
-* Introduce:
+Introduce:
+
+```text
+ExtractionConfigContract
+→ versioned
+→ hashed
+→ immutable
+→ full determinism anchor
+```
+
+Introduce:
 
 ```text
 ExtractionResult
-→ extracted_fields (raw)
-→ extraction_metadata
-→ extraction_hash
+→ ordered extracted_fields
+→ extraction_hash (stable identity)
 ```
-
-* Enforce:
-
-```text
-same document + same config → same extraction result
-```
-
-* Reject:
-
-* missing required fields
-
-* ambiguous extraction output
-
-* non-canonical field structures
 
 ---
 
-### Output
+## Hard Invariants
+
+```text
+same document + same config
+→ same extraction_hash
+ELSE:
+→ DETERMINISM_VIOLATION
+```
+
+---
+
+## Output
 
 ```text
 ExtractionReceipt
-→ deterministic representation of extracted structure
+→ binds document + config + extraction
 ```
 
 ---
 
-## 🧠 v151.1 — Canonicalization Layer
+## Important Boundary Rule
 
-### Goal
-
-Convert extracted structure into **canonical QEC identity space**.
+```text
+ExtractionResult is NOT proof-bearing
+```
 
 ---
 
-### Tasks
+# 🧠 v151.1 — Canonicalization Engine (Deterministic Compiler)
 
-* Transform:
+## Goal
 
-```text
-extracted fields
-→ canonical JSON
-→ normalized values
-→ deterministic ordering
-```
+Convert unstable extraction output into **deterministic identity space**
 
-* Enforce:
+---
+
+## Pipeline (Strict)
 
 ```text
-no empty payloads
-no NaN / inf
-no locale ambiguity
-consistent numeric formatting
+ExtractionResult
+→ Format Normalization
+→ Schema Enforcement
+→ Value Normalization
+→ RFC8785 Canonical JSON
+→ Stable Hash
 ```
 
-* Introduce:
+---
+
+## Tasks
+
+### Stage 1 — Format Normalization
+
+* strip fences
+* extract JSON span
+* repair syntax
+* reject malformed JSON
+
+### Stage 2 — Schema Enforcement
+
+* reject unknown fields
+* reject missing required fields
+* fill optional → null
+
+### Stage 3 — Value Normalization
+
+* Unicode NFC normalization
+* locale-driven parsing (dates, numbers, currency)
+* reject ambiguity (never guess)
+
+### Stage 4 — Canonical JSON
+
+* RFC 8785
+* sorted keys
+* minimal encoding
+
+### Stage 5 — Stable Hash
+
+* SHA-256(canonical bytes)
+
+---
+
+## Output
 
 ```text
 CanonicalDocument
 → canonical_json
-→ canonical_bytes
 → canonical_hash
 ```
 
 ---
 
-### Output
+## Core Rule
 
 ```text
-CanonicalizationReceipt
+same extraction
+→ same canonical document
 ```
 
 ---
 
-## 🧠 v151.2 — Extraction Validation (Adversarial Layer)
+# 🧠 v151.2 — Adversarial Validation (Reality Hardening)
 
-### Goal
+## Goal
 
-Apply v150.8-style adversarial validation to **real-world extracted data**.
+Apply v150.8 adversarial logic to real-world data
 
 ---
 
-### Tasks
+## Key Insight
 
-Inject and detect:
+Extraction errors = adversarial inputs
 
-```text
-missing fields
-inconsistent totals
-conflicting identities
-duplicate records
-invalid numeric relationships
-cross-field contradictions
-```
+---
 
-* Reuse:
+## Tasks
 
-```text
-AdversarialFailureCase
-AdversarialFailureResult
-```
-
-* Extend failure types:
+Detect:
 
 ```text
 INVALID_FIELD
 INCONSISTENT_VALUE
 DUPLICATE_IDENTITY
 CROSS_FIELD_CONFLICT
+LAYOUT_AMBIGUITY
+```
+
+Enforce:
+
+```text
+ambiguity → REJECT
+not resolve
 ```
 
 ---
 
-### Output
+## Examples
+
+```text
+total ≠ sum(line_items) → REJECT
+ambiguous date → REJECT
+multiple currencies → REJECT
+duplicate identity → REJECT
+```
+
+---
+
+## Output
 
 ```text
 ExtractionValidationReceipt
@@ -240,42 +318,46 @@ ExtractionValidationReceipt
 
 ---
 
-## 🧠 v151.3 — Document-Level Governance
+# 🧠 v151.3 — Multi-Agent Document Governance
 
-### Goal
+## Goal
 
-Run multi-agent reasoning **over extracted real-world data**.
+Apply QEC reasoning to real-world structured data
 
 ---
 
-### Tasks
+## Tasks
 
-* Feed:
+Agents operate on:
 
 ```text
-CanonicalDocument
-→ agents
-→ role-based reasoning
+CanonicalDocument + ValidationReceipt
 ```
 
-* Agents perform:
+Roles:
 
 ```text
-validation
-reconciliation
-anomaly detection
-consistency enforcement
-```
-
-* Enforce:
-
-```text
-same document → same decisions
+EXTRACTION_AUDITOR
+SEMANTIC_VALIDATOR
+RECONCILER
+ARBITRATOR
 ```
 
 ---
 
-### Output
+## Behavior
+
+```text
+agents
+→ detect anomalies
+→ reconcile inconsistencies
+→ enforce invariants
+→ produce deterministic decision
+```
+
+---
+
+## Output
 
 ```text
 DocumentGovernanceReceipt
@@ -283,34 +365,35 @@ DocumentGovernanceReceipt
 
 ---
 
-## 🧠 v151.4 — End-to-End Proof Chain
+# 🧠 v151.4 — End-to-End Proof Chain
 
-### Goal
+## Goal
 
-Produce full **real-world → proof artifact pipeline**.
+Produce a **complete real-world proof artifact**
 
 ---
 
-### Pipeline
+## Pipeline
 
 ```text
-document
-→ extraction
-→ canonicalization
-→ adversarial validation
-→ multi-agent governance
-→ convergence
-→ proof artifact
+raw document
+→ extraction (untrusted)
+→ canonicalization (deterministic)
+→ validation (adversarial)
+→ governance (multi-agent)
+→ convergence (v150.9)
+→ final proof
 ```
 
 ---
 
-### Output
+## Output
 
 ```text
 RealWorldProofReceipt
 
-Includes:
+includes:
+- raw_bytes_hash
 - extraction_hash
 - canonical_hash
 - validation_hash
@@ -320,46 +403,45 @@ Includes:
 
 ---
 
-## 🧠 v151.5 — Extraction Determinism Enforcement
+# 🧠 v151.5 — Determinism Enforcement Layer
 
-### Goal
+## Goal
 
-Ensure external systems do not break QEC determinism.
+Guarantee configuration-level determinism
 
 ---
 
-### Tasks
+## Tasks
 
-* Enforce:
+Enforce:
 
 ```text
+fixed schema
 fixed query_fields
-fixed extraction config
 fixed locale
-fixed index mode
+fixed backend config
 ```
 
-* Introduce:
+Reject:
 
 ```text
-ExtractionConfigContract
-→ versioned
-→ hashed
-→ validated
-```
-
-* Reject:
-
-```text
+schema drift
 config drift
-field drift
-schema mutation
 partial extraction
+backend inconsistency
 ```
 
 ---
 
-### Output
+## Core Rule
+
+```text
+contract_hash defines system behavior
+```
+
+---
+
+## Output
 
 ```text
 ExtractionDeterminismReceipt
@@ -367,34 +449,38 @@ ExtractionDeterminismReceipt
 
 ---
 
-## 🧠 v151.6 — Replay & Cross-Environment Validation
+# 🧠 v151.6 — Replay & Cross-Environment Proof
 
-### Goal
+## Goal
 
-Prove extraction + reasoning is stable across environments.
+Prove system stability across environments
 
 ---
 
-### Tasks
+## Tasks
 
 Replay:
 
 ```text
 same document
-→ different machines / environments
-→ identical canonical output
-```
-
-* Enforce:
-
-```text
-same canonical hash
-same proof artifact
+→ different hardware / environments
+→ identical canonical_hash
+→ identical proof
 ```
 
 ---
 
-### Output
+## Detect
+
+```text
+floating-point drift
+environment divergence
+backend inconsistency
+```
+
+---
+
+## Output
 
 ```text
 ExtractionReplayReceipt
@@ -402,62 +488,73 @@ ExtractionReplayReceipt
 
 ---
 
-# 🧠 v152.x — Proof Compression & Equivalence
+# 🧠 Phase: v152.x — Compression & Proof Equivalence
 
-Enabled by:
+Now unlocked by:
 
 ```text
-canonical identity contract (v150.2.1)
-+ real-world ingestion (v151.x)
+canonical identity (v150)
++ real-world ingestion (v151)
 ```
 
 ---
 
 # 🔒 Absolute Guardrails
 
-Forbidden:
+## Forbidden
 
 * randomness
 * wall-clock
 * async drift
 * silent normalization
-* schema drift
-* extraction ambiguity
+* schema mutation
+* ambiguity resolution
 
-Required:
+## Required
 
-* canonical JSON
-* stable SHA-256
-* explicit identity validation
-* fixed extraction configuration
+* RFC 8785 canonical JSON
+* stable SHA-256 hashing
+* explicit contracts
+* immutable dataclasses
 * replay-safe artifacts
+* fail-fast validation
+
+---
+
+# 🧠 System Evolution
+
+```text
+v137 → deterministic runtime
+v146 → proof-carrying execution
+v148 → governance + validation
+v150 → multi-agent convergence
+v151 → real-world ingestion
+v152 → compressed proof equivalence
+```
 
 ---
 
 # 🧠 Final Direction
 
-QEC evolves from:
+QEC evolves into:
 
 ```text
-reasoning system
-→ multi-agent system
+deterministic reasoning system
+→ multi-agent governance system
 → distributed proof system
 → real-world validation system
-→ global deterministic reasoning network
+→ global deterministic truth engine
 ```
 
 ---
 
 # 🧠 Final Line
 
-QEC is no longer:
-
 ```text
-a system that reasons about inputs
+QEC is no longer a system that computes results.
+
+It is a system that proves correctness of reality —
+across documents, across agents, across environments, across time.
 ```
 
-It is:
-
-```text
-a system that proves correctness of reality — across agents, across documents, across nodes, across time
-```
+---

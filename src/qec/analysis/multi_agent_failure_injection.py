@@ -125,6 +125,17 @@ class AdversarialFailureResult:
     case_hash: str
     result_hash: str
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "failure_type": self.failure_type,
+            "detected": self.detected,
+            "rejected": self.rejected,
+            "rejection_reason": self.rejection_reason,
+            "case_hash": self.case_hash,
+            "result_hash": self.result_hash,
+        }
+
 
 @dataclass(frozen=True)
 class AdversarialGovernanceReceipt:
@@ -174,7 +185,7 @@ class AdversarialGovernanceReceipt:
             "scenario_id": self.scenario_id,
             "input_hashes": self.input_hashes,
             "failure_cases": tuple(c.to_dict() for c in self.failure_cases),
-            "failure_results": tuple(r.__dict__ for r in self.failure_results),
+            "failure_results": tuple(r.to_dict() for r in self.failure_results),
             "detected_count": self.detected_count,
             "rejected_count": self.rejected_count,
             "accepted_invalid_count": self.accepted_invalid_count,
@@ -205,10 +216,9 @@ def _evaluate_case(case: AdversarialFailureCase) -> AdversarialFailureResult:
             elif "score" in case.payload and (
                 isinstance(case.payload["score"], bool)
                 or not isinstance(case.payload["score"], (int, float))
+                or not math.isfinite(float(case.payload["score"]))
                 or not (0.0 <= float(case.payload["score"]) <= 1.0)
             ):
-                reason = "INVALID_DECISION_SCORE"
-            elif "score" in case.payload and not math.isfinite(float(case.payload["score"])):
                 reason = "INVALID_DECISION_SCORE"
             elif bool(case.payload.get("conflicting_identity", False)):
                 reason = "CONFLICTING_DECISION_IDENTITY"
@@ -234,8 +244,8 @@ def _evaluate_case(case: AdversarialFailureCase) -> AdversarialFailureResult:
         elif bool(case.payload.get("unknown_decision_reference", False)):
             reason = "UNKNOWN_DECISION_REFERENCE"
 
-    detected = True
-    rejected = True
+    detected = reason == case.expected_rejection_reason
+    rejected = detected
     result_hash = sha256_hex(
         {
             "case_id": case.case_id,
@@ -299,12 +309,13 @@ def run_multi_agent_failure_injection(
     if accepted_invalid_count != 0 or detected_count != total_cases:
         status = "ADVERSARIAL_FAILURE_NOT_REJECTED"
 
+    canonical_input_hashes = tuple(sorted(_require_sha256(h) for h in input_hashes))
     payload = {
         "version": "v150.8",
         "scenario_id": scenario_id,
-        "input_hashes": tuple(sorted(_require_sha256(h) for h in input_hashes)),
+        "input_hashes": canonical_input_hashes,
         "failure_cases": tuple(c.to_dict() for c in canonical_cases),
-        "failure_results": tuple(r.__dict__ for r in results),
+        "failure_results": tuple(r.to_dict() for r in results),
         "detected_count": detected_count,
         "rejected_count": rejected_count,
         "accepted_invalid_count": accepted_invalid_count,
@@ -314,7 +325,7 @@ def run_multi_agent_failure_injection(
     return AdversarialGovernanceReceipt(
         version="v150.8",
         scenario_id=scenario_id,
-        input_hashes=tuple(sorted(_require_sha256(h) for h in input_hashes)),
+        input_hashes=canonical_input_hashes,
         failure_cases=canonical_cases,
         failure_results=results,
         detected_count=detected_count,

@@ -60,6 +60,43 @@ def test_permutation_invariance_and_ordering_stability() -> None:
     assert keys == tuple(sorted(keys))
 
 
+
+
+def test_invalid_agent_ids_fail() -> None:
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        _message(sender_id="", receiver_id="b", sender_role=AgentRole.CONTROL, message_type="proposal", payload=(("x", 1),))
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        _message(sender_id="a", receiver_id="", sender_role=AgentRole.CONTROL, message_type="proposal", payload=(("x", 1),))
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        _message(sender_id=None, receiver_id="b", sender_role=AgentRole.CONTROL, message_type="proposal", payload=(("x", 1),))  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        _message(sender_id="a", receiver_id=1, sender_role=AgentRole.CONTROL, message_type="proposal", payload=(("x", 1),))  # type: ignore[arg-type]
+
+
+def test_agent_message_rejects_hash_from_non_canonical_payload() -> None:
+    from qec.analysis.canonical_hashing import sha256_hex
+
+    canonical_payload = (("a", 1), ("b", 2))
+    non_canonical_probe = {
+        "sender_id": "sender",
+        "receiver_id": "receiver",
+        "sender_role": AgentRole.CONTROL,
+        "message_type": "proposal",
+        "payload": {"b": 2, "a": 1},
+    }
+    bad_hash = sha256_hex(non_canonical_probe)
+
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        AgentMessage(
+            sender_id="sender",
+            receiver_id="receiver",
+            sender_role=AgentRole.CONTROL,
+            message_type="proposal",
+            payload=canonical_payload,
+            message_hash=bad_hash,
+        )
+
+
 def test_invalid_message_type_fails() -> None:
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         _message(sender_id="a", receiver_id="b", sender_role=AgentRole.CONTROL, message_type="unknown", payload=(("x", 1),))
@@ -117,3 +154,29 @@ def test_immutability() -> None:
     receipt = build_agent_message_state(_identity(), (msg,))
     with pytest.raises(FrozenInstanceError):
         receipt.protocol_hash = "1" * 64
+
+
+def test_nested_payload_is_immutable() -> None:
+    from qec.analysis.canonical_hashing import sha256_hex
+
+    payload = (("x", (("k", (1, 2)),)),)
+    msg = AgentMessage(
+        sender_id="a",
+        receiver_id="b",
+        sender_role=AgentRole.CONTROL,
+        message_type="proposal",
+        payload=(("x", {"k": [1, 2]}),),
+        message_hash=sha256_hex(
+            {
+                "sender_id": "a",
+                "receiver_id": "b",
+                "sender_role": AgentRole.CONTROL,
+                "message_type": "proposal",
+                "payload": payload,
+            }
+        ),
+    )
+    nested = msg.payload[0][1]
+    assert isinstance(nested, tuple)
+    with pytest.raises((TypeError, AttributeError)):
+        nested[0][1].append(3)  # type: ignore[union-attr]

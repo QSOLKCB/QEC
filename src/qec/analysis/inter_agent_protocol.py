@@ -6,7 +6,7 @@ qec.analysis.identity_hashing_contract invariants.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,15 +15,13 @@ from qec.analysis.canonical_hashing import CanonicalHashingError, canonicalize_j
 from qec.analysis.canonical_identity import canonical_hash_identity
 
 MESSAGE_TYPES = frozenset({"proposal", "validation", "repair", "challenge", "confirmation"})
-_ALLOWED_ROLES = frozenset(
-    {
-        AgentRole.CONTROL,
-        AgentRole.VALIDATION,
-        AgentRole.REPAIR,
-        AgentRole.ADVERSARIAL,
-        AgentRole.COMPRESSION,
-    }
-)
+_ALLOWED_ROLES = frozenset({
+    AgentRole.CONTROL,
+    AgentRole.VALIDATION,
+    AgentRole.REPAIR,
+    AgentRole.ADVERSARIAL,
+    AgentRole.COMPRESSION,
+})
 
 
 def _invalid_input() -> ValueError:
@@ -48,6 +46,14 @@ def _validate_message_type(value: object) -> str:
     raise _invalid_input()
 
 
+def _freeze_json_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return tuple((str(k), _freeze_json_value(v)) for k, v in value.items())
+    if isinstance(value, list | tuple):
+        return tuple(_freeze_json_value(item) for item in value)
+    return value
+
+
 def _canonical_payload(payload: object) -> tuple[tuple[str, Any], ...]:
     if not isinstance(payload, tuple):
         raise _invalid_input()
@@ -66,7 +72,7 @@ def _canonical_payload(payload: object) -> tuple[tuple[str, Any], ...]:
             canonical_value = canonicalize_json(value)
         except CanonicalHashingError as exc:
             raise _invalid_input() from exc
-        out.append((key, canonical_value))
+        out.append((key, _freeze_json_value(canonical_value)))
     return tuple(out)
 
 
@@ -118,6 +124,8 @@ class AgentMessageState:
     messages: tuple[AgentMessage, ...]
 
     def __post_init__(self) -> None:
+        if not isinstance(self.messages, tuple):
+            raise _invalid_input()
         previous_key: tuple[str, str, str] | None = None
         seen_hashes: set[str] = set()
         for message in self.messages:

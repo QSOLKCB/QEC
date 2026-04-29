@@ -8,6 +8,7 @@ from qec.analysis.canonical_hashing import sha256_hex
 from qec.analysis.multi_agent_convergence import (
     ConvergenceReceipt,
     ConvergenceRound,
+    ConvergenceState,
     analyze_multi_agent_convergence,
 )
 
@@ -111,6 +112,21 @@ def test_canonical_identity_enforced(input_memory_hashes: tuple[str, ...], proto
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         analyze_multi_agent_convergence(input_memory_hashes, protocol_hashes, rounds)
 
+
+
+
+def test_convergence_state_rejects_inconsistent_converged_flag() -> None:
+    round0 = _round(0, ("a", "b"), "a")
+    round1 = _round(1, ("a", "b"), "a")
+
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ConvergenceState(
+            rounds=(round0, round1),
+            disagreement_count=2,
+            arbitration_stability=1.0,
+            convergence_depth=0,
+            converged=False,
+        )
 
 def test_round_validation_failures() -> None:
     with pytest.raises(ValueError, match="INVALID_INPUT"):

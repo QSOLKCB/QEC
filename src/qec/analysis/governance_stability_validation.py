@@ -81,9 +81,11 @@ class GovernanceStabilityReceipt:
             raise _invalid_input()
         if self.scenarios[0].selected_decision_hash != self.result.baseline_selected_hash:
             raise _invalid_input()
+        stability_hash = _require_sha256(self.stability_hash)
         expected = sha256_hex(self._payload_without_hash())
-        if self.stability_hash != expected:
+        if stability_hash != expected:
             raise _invalid_input()
+        object.__setattr__(self, "stability_hash", stability_hash)
 
     def _payload_without_hash(self) -> dict[str, object]:
         return {

@@ -309,6 +309,8 @@ def run_extraction_boundary(
 
     if extraction_input.query_fields != extraction_config.query_fields:
         raise _invalid()
+    if extraction_input.extraction_config_hash != extraction_config.config_hash:
+        raise _invalid()
 
     extracted_field_names = tuple(field.field_name for field in extraction_result.extracted_fields)
     if extracted_field_names != extraction_input.query_fields:

@@ -51,14 +51,14 @@ def _build_valid() -> tuple[ExtractionInput, ExtractionConfigContract, Extractio
         {
             "raw_bytes_hash": _h("1"),
             "source_type": "pdf",
-            "extraction_config_hash": _h("3"),
+            "extraction_config_hash": config_hash,
             "query_fields": query_fields,
         }
     )
     extraction_input = ExtractionInput(
         raw_bytes_hash=_h("1"),
         source_type="pdf",
-        extraction_config_hash=_h("3"),
+        extraction_config_hash=config_hash,
         query_fields=query_fields,
         input_hash=input_hash,
     )
@@ -138,6 +138,28 @@ def test_query_field_alignment_errors() -> None:
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         ExtractionInput(_h("1"), "pdf", _h("3"), ("x", "x"), _h("6"))
 
+
+
+
+def test_extraction_config_hash_mismatch_rejected() -> None:
+    extraction_input, config, result = _build_valid()
+    bad_input_hash = _stable_hash(
+        {
+            "raw_bytes_hash": extraction_input.raw_bytes_hash,
+            "source_type": extraction_input.source_type,
+            "extraction_config_hash": _h("3"),
+            "query_fields": extraction_input.query_fields,
+        }
+    )
+    bad_input = ExtractionInput(
+        raw_bytes_hash=extraction_input.raw_bytes_hash,
+        source_type=extraction_input.source_type,
+        extraction_config_hash=_h("3"),
+        query_fields=extraction_input.query_fields,
+        input_hash=bad_input_hash,
+    )
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        run_extraction_boundary(bad_input, config, result)
 
 def test_hash_validation_errors() -> None:
     extraction_input, config, result = _build_valid()

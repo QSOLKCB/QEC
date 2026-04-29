@@ -1,7 +1,8 @@
-"""This module adheres to the global canonical identity contract.
+"""This module adheres to the QEC identity and hashing surface contract.
 
-See: qec.analysis.identity_contract.get_identity_contract()
+See: qec.analysis.identity_hashing_contract.get_identity_hashing_contract()
 """
+
 
 from __future__ import annotations
 

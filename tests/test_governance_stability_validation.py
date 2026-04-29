@@ -16,7 +16,13 @@ def _h(label: str) -> str:
     return sha256_hex(label)
 
 
-def _scenario(*, scenario_id: str, mem: tuple[str, ...], decisions: tuple[str, ...], selected: str) -> GovernanceStabilityScenario:
+def _scenario(
+    *,
+    scenario_id: str,
+    mem: tuple[str, ...],
+    decisions: tuple[str, ...],
+    selected: str,
+) -> GovernanceStabilityScenario:
     return GovernanceStabilityScenario(
         scenario_id=scenario_id,
         input_memory_hashes=mem,

@@ -199,8 +199,7 @@ raw document
 → Resonance Validation         (SEMANTIC ALIGNMENT)
 → Adversarial Validation       (FAILURE / CONTRADICTION)
 → Dialogical Governance        (MULTI-AGENT)
-→ Real-World Proof Chain       (DISTRIBUTED)
-→ Replay Validation            (CROSS-ENVIRONMENT)
+→ Proof                        (DISTRIBUTED)
 ```
 
 ---
@@ -499,6 +498,15 @@ RES = grounded canonical reality
 RAG = reflexive generated interpretation
 ```
 
+## Semantic Lattice
+
+```text
+nodes = canonical fields
+edges = constraints
+substructures = semantic clusters
+no implicit edges — all relationships must be explicitly represented and hash-bound
+```
+
 ---
 
 ## Tasks
@@ -549,6 +557,11 @@ same canonical document
 + same supplied interpretation
 + same governance context
 → same RAG state
+```
+
+```text
+same RES + same RAG
+→ same resonance classification
 ```
 
 If generative output is supplied externally:
@@ -704,6 +717,7 @@ semantic contradiction between RES and RAG
 ambiguity → REJECT
 unsupported interpretation → REJECT
 semantic contradiction → REJECT
+digital decay signature is computed deterministically from divergence patterns
 ```
 
 ---
@@ -914,6 +928,12 @@ RealWorldReplayProofReceipt
 ---
 
 # 🧬 Phase: v152.x — Proof Compression & Equivalence
+
+## Global Guardrail
+
+```text
+All symbolic phases must compile to deterministic artifacts; symbolic meaning without receipts is not part of QEC.
+```
 
 ## Goal
 

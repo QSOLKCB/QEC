@@ -48,6 +48,50 @@ def _non_empty_string(value: Any) -> str:
     return value
 
 
+def _evidence_payload(field_name: str, canonical_value: Any) -> dict[str, Any]:
+    return {"field_name": field_name, "canonical_value": canonical_value}
+
+
+def _source_constraint_payload(constraint_type: str, constraint_value: Any) -> dict[str, Any]:
+    return {"constraint_type": constraint_type, "constraint_value": constraint_value}
+
+
+def _res_payload(
+    version: str,
+    canonical_document_hash: str,
+    grounded_field_hash: str,
+    evidence_fields: tuple["EvidenceField", ...],
+    source_constraints: tuple["SourceConstraint", ...],
+) -> dict[str, Any]:
+    return {
+        "version": version,
+        "canonical_document_hash": canonical_document_hash,
+        "grounded_field_hash": grounded_field_hash,
+        "evidence_fields": tuple(e.to_dict() for e in evidence_fields),
+        "source_constraints": tuple(c.to_dict() for c in source_constraints),
+    }
+
+
+def _rag_payload(
+    version: str,
+    canonical_document_hash: str,
+    interpretation_hash: str,
+    generated_claims: tuple["GeneratedClaim", ...],
+    governance_context_hash: str,
+) -> dict[str, Any]:
+    return {
+        "version": version,
+        "canonical_document_hash": canonical_document_hash,
+        "interpretation_hash": interpretation_hash,
+        "generated_claims": tuple(c.to_dict() for c in generated_claims),
+        "governance_context_hash": governance_context_hash,
+    }
+
+
+def _interpretation_payload(generated_claims: tuple["GeneratedClaim", ...], governance_context_hash: str) -> dict[str, Any]:
+    return {"generated_claims": tuple(c.to_dict() for c in generated_claims), "governance_context_hash": governance_context_hash}
+
+
 @dataclass(frozen=True)
 class EvidenceField:
     """Grounded evidence from one top-level canonical payload key.
@@ -74,7 +118,7 @@ class EvidenceField:
         return self.to_canonical_json().encode("utf-8")
 
     def computed_stable_hash(self) -> str:
-        return _sha256_hex({"field_name": self.field_name, "canonical_value": self.canonical_value})
+        return _sha256_hex(_evidence_payload(self.field_name, self.canonical_value))
 
 
 @dataclass(frozen=True)
@@ -100,7 +144,7 @@ class SourceConstraint:
         return self.to_canonical_json().encode("utf-8")
 
     def computed_stable_hash(self) -> str:
-        return _sha256_hex({"constraint_type": self.constraint_type, "constraint_value": self.constraint_value})
+        return _sha256_hex(_source_constraint_payload(self.constraint_type, self.constraint_value))
 
 
 @dataclass(frozen=True)
@@ -228,7 +272,9 @@ class RAGState:
             raise _invalid()
         if tuple(sorted(self.generated_claims, key=lambda c: (c.claim_id, c.claim_hash))) != self.generated_claims:
             raise _invalid()
-        if self.interpretation_hash != _sha256_hex({"generated_claims": tuple(c.to_dict() for c in self.generated_claims), "governance_context_hash": self.governance_context_hash}):
+        if len({claim.claim_id for claim in self.generated_claims}) != len(self.generated_claims):
+            raise _invalid()
+        if self.interpretation_hash != _sha256_hex(_interpretation_payload(self.generated_claims, self.governance_context_hash)):
             raise _invalid()
         if self.computed_stable_hash() != self.rag_hash:
             raise _invalid()
@@ -250,7 +296,15 @@ class RAGState:
         return self.to_canonical_json().encode("utf-8")
 
     def computed_stable_hash(self) -> str:
-        return _sha256_hex({k: v for k, v in self.to_dict().items() if k != "rag_hash"})
+        return _sha256_hex(
+            _rag_payload(
+                self.version,
+                self.canonical_document_hash,
+                self.interpretation_hash,
+                self.generated_claims,
+                self.governance_context_hash,
+            )
+        )
 
 
 @dataclass(frozen=True)
@@ -311,7 +365,7 @@ def run_res_rag_semantic_field(canonical_document: CanonicalDocument, generated_
     evidence = tuple(
         sorted(
             (
-                EvidenceField(field_name=k, canonical_value=v, value_hash=_sha256_hex({"field_name": k, "canonical_value": _canon(v)}))
+                EvidenceField(field_name=k, canonical_value=v, value_hash=_sha256_hex(_evidence_payload(k, v)))
                 for k, v in canonical_document.canonical_payload.items()
             ),
             key=lambda e: (e.field_name, e.value_hash),
@@ -323,17 +377,17 @@ def run_res_rag_semantic_field(canonical_document: CanonicalDocument, generated_
     constraints = tuple(
         sorted(
             [
-                SourceConstraint("CANONICAL_DOCUMENT_HASH", canonical_document.canonical_hash, _sha256_hex({"constraint_type": "CANONICAL_DOCUMENT_HASH", "constraint_value": canonical_document.canonical_hash})),
-                SourceConstraint("CANONICAL_SCHEMA_HASH", canonical_document.schema_hash, _sha256_hex({"constraint_type": "CANONICAL_SCHEMA_HASH", "constraint_value": canonical_document.schema_hash})),
-                SourceConstraint("CANONICAL_LOCALE_HASH", canonical_document.locale_hash, _sha256_hex({"constraint_type": "CANONICAL_LOCALE_HASH", "constraint_value": canonical_document.locale_hash})),
-                SourceConstraint("CANONICAL_EXTRACTION_HASH", canonical_document.extraction_hash, _sha256_hex({"constraint_type": "CANONICAL_EXTRACTION_HASH", "constraint_value": canonical_document.extraction_hash})),
-                SourceConstraint("FIELD_SET_HASH", field_set_hash, _sha256_hex({"constraint_type": "FIELD_SET_HASH", "constraint_value": field_set_hash})),
+                SourceConstraint("CANONICAL_DOCUMENT_HASH", canonical_document.canonical_hash, _sha256_hex(_source_constraint_payload("CANONICAL_DOCUMENT_HASH", canonical_document.canonical_hash))),
+                SourceConstraint("CANONICAL_SCHEMA_HASH", canonical_document.schema_hash, _sha256_hex(_source_constraint_payload("CANONICAL_SCHEMA_HASH", canonical_document.schema_hash))),
+                SourceConstraint("CANONICAL_LOCALE_HASH", canonical_document.locale_hash, _sha256_hex(_source_constraint_payload("CANONICAL_LOCALE_HASH", canonical_document.locale_hash))),
+                SourceConstraint("CANONICAL_EXTRACTION_HASH", canonical_document.extraction_hash, _sha256_hex(_source_constraint_payload("CANONICAL_EXTRACTION_HASH", canonical_document.extraction_hash))),
+                SourceConstraint("FIELD_SET_HASH", field_set_hash, _sha256_hex(_source_constraint_payload("FIELD_SET_HASH", field_set_hash))),
             ],
             key=lambda c: (c.constraint_type, c.constraint_hash),
         )
     )
     grounded_field_hash = _sha256_hex(tuple(e.to_dict() for e in evidence))
-    res_hash = _sha256_hex({"version": _VERSION, "canonical_document_hash": canonical_document.canonical_hash, "grounded_field_hash": grounded_field_hash, "evidence_fields": tuple(e.to_dict() for e in evidence), "source_constraints": tuple(c.to_dict() for c in constraints)})
+    res_hash = _sha256_hex(_res_payload(_VERSION, canonical_document.canonical_hash, grounded_field_hash, evidence, constraints))
     res = RESState(_VERSION, canonical_document.canonical_hash, grounded_field_hash, evidence, constraints, res_hash)
 
     if any(not isinstance(claim, GeneratedClaim) for claim in generated_claims):
@@ -342,8 +396,8 @@ def run_res_rag_semantic_field(canonical_document: CanonicalDocument, generated_
     for i in range(1, len(sorted_claims)):
         if sorted_claims[i - 1].claim_id == sorted_claims[i].claim_id:
             raise _invalid()
-    interp_hash = _sha256_hex({"generated_claims": tuple(c.to_dict() for c in sorted_claims), "governance_context_hash": governance_context.governance_context_hash})
-    rag_hash = _sha256_hex({"version": _VERSION, "canonical_document_hash": canonical_document.canonical_hash, "interpretation_hash": interp_hash, "generated_claims": tuple(c.to_dict() for c in sorted_claims), "governance_context_hash": governance_context.governance_context_hash})
+    interp_hash = _sha256_hex(_interpretation_payload(sorted_claims, governance_context.governance_context_hash))
+    rag_hash = _sha256_hex(_rag_payload(_VERSION, canonical_document.canonical_hash, interp_hash, sorted_claims, governance_context.governance_context_hash))
     rag = RAGState(_VERSION, canonical_document.canonical_hash, interp_hash, sorted_claims, governance_context.governance_context_hash, rag_hash)
 
     semantic_field_hash = _sha256_hex({"canonical_hash": canonical_document.canonical_hash, "res_hash": res.res_hash, "rag_hash": rag.rag_hash})

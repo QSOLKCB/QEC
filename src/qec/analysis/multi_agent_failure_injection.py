@@ -258,12 +258,15 @@ def run_multi_agent_failure_injection(
     failure_cases: Sequence[AdversarialFailureCase],
 ) -> AdversarialGovernanceReceipt:
     _require_non_empty_string(scenario_id)
-    canonical_cases = tuple(sorted(failure_cases, key=lambda c: (c.failure_type, c.case_id, c.case_hash(), c.target_hash)))
+    validated_cases = tuple(failure_cases)
+    if any(not isinstance(case, AdversarialFailureCase) for case in validated_cases):
+        raise _invalid_input()
+    canonical_cases = tuple(
+        sorted(validated_cases, key=lambda c: (c.failure_type, c.case_id, c.case_hash(), c.target_hash))
+    )
     seen_ids: set[str] = set()
     seen_identity: set[str] = set()
     for case in canonical_cases:
-        if not isinstance(case, AdversarialFailureCase):
-            raise _invalid_input()
         if case.case_id in seen_ids:
             raise _invalid_input()
         identity = sha256_hex(

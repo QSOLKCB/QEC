@@ -1,4 +1,4 @@
-# QSOL QEC Architectural Constitution
+# QSOL-IMC QEC Architectural Constitution
 
 ## Canonical Engineering Constitution — v150.x
 

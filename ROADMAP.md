@@ -9,7 +9,7 @@
 ## 🧭 Stable Tip Metadata
 
 * Stable lineage remains anchored to `v137.*` compatibility contracts.
-* Published GitHub release tags are authoritative.
+* Published tags are authoritative.
 * Every release must preserve replay invariance.
 * Every proof artifact must preserve canonical identity.
 * Every roadmap phase must remain compatible with the core law.

@@ -78,6 +78,14 @@ def _freeze(value: Any) -> Any:
     return value
 
 
+def _thaw(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {k: _thaw(v) for k, v in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw(v) for v in value]
+    return value
+
+
 @dataclass(frozen=True)
 class AdversarialFailureCase:
     case_id: str
@@ -114,7 +122,7 @@ class AdversarialFailureCase:
             "case_id": self.case_id,
             "failure_type": self.failure_type,
             "target_hash": self.target_hash,
-            "payload": self.payload,
+            "payload": _thaw(self.payload),
             "expected_rejection_reason": self.expected_rejection_reason,
         }
 
@@ -175,9 +183,11 @@ class AdversarialGovernanceReceipt:
             raise _invalid_input()
         case_key = lambda c: (c.failure_type, c.case_id, c.case_hash(), c.target_hash)
         result_key = lambda r: (r.failure_type, r.case_id, r.case_hash)
-        if self.failure_cases != tuple(sorted(self.failure_cases, key=case_key)):
+        sorted_failure_cases = tuple(sorted(self.failure_cases, key=case_key))
+        sorted_failure_results = tuple(sorted(self.failure_results, key=result_key))
+        if self.failure_cases != sorted_failure_cases:
             raise _invalid_input()
-        if self.failure_results != tuple(sorted(self.failure_results, key=result_key)):
+        if self.failure_results != sorted_failure_results:
             raise _invalid_input()
         if self.detected_count != sum(1 for r in self.failure_results if r.detected):
             raise _invalid_input()
@@ -325,10 +335,12 @@ def run_multi_agent_failure_injection(
     if accepted_invalid_count != 0 or detected_count != total_cases:
         status = "ADVERSARIAL_FAILURE_NOT_REJECTED"
     if status == "VALIDATED":
-        assert accepted_invalid_count == 0, "VALIDATED with accepted invalids"
-        assert detected_count == total_cases, "VALIDATED with incomplete detection"
-    else:
-        assert accepted_invalid_count != 0 or detected_count != total_cases
+        if accepted_invalid_count != 0:
+            raise _invalid_input()
+        if detected_count != total_cases:
+            raise _invalid_input()
+    elif accepted_invalid_count == 0 and detected_count == total_cases:
+        raise _invalid_input()
 
     canonical_input_hashes = tuple(sorted(_require_sha256(h) for h in input_hashes))
     payload = {

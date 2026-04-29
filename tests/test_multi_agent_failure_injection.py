@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
+import json
 
 import pytest
 
@@ -133,6 +134,7 @@ def test_payload_is_deeply_immutable() -> None:
         case.payload["x"] = 1  # type: ignore[index]
     with pytest.raises(TypeError):
         case.payload["nested"]["x"] = 2  # type: ignore[index]
+    json.dumps(case.to_dict())
 
 
 def test_receipt_enforces_sorted_case_and_result_ordering() -> None:

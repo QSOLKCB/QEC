@@ -7,6 +7,7 @@ import pytest
 from qec.analysis.canonical_hashing import sha256_hex
 from qec.analysis.multi_agent_failure_injection import (
     AdversarialFailureCase,
+    AdversarialGovernanceReceipt,
     run_multi_agent_failure_injection,
 )
 
@@ -119,3 +120,61 @@ def test_validation_failures() -> None:
     )
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         run_multi_agent_failure_injection("s", (_h("i0"),), ambiguous)
+
+
+def test_rejects_non_string_payload_keys() -> None:
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        _case("k1", "INVALID_DECISION", {1: "x"})  # type: ignore[arg-type]
+
+
+def test_payload_is_deeply_immutable() -> None:
+    case = _case("imm", "INCONSISTENT_MEMORY", {"nested": {"x": 1}})
+    with pytest.raises(TypeError):
+        case.payload["x"] = 1  # type: ignore[index]
+    with pytest.raises(TypeError):
+        case.payload["nested"]["x"] = 2  # type: ignore[index]
+
+
+def test_receipt_enforces_sorted_case_and_result_ordering() -> None:
+    c1 = _case("a", "CONFLICTING_ROLE", {"role": "UNKNOWN"}, expected="UNKNOWN_ROLE")
+    c2 = _case("b", "INVALID_DECISION", {"decision_hash": "bad", "status": "ACCEPT"}, expected="MALFORMED_DECISION_HASH")
+    valid = run_multi_agent_failure_injection("s", (_h("i0"),), (c1, c2))
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        AdversarialGovernanceReceipt(
+            version=valid.version,
+            scenario_id=valid.scenario_id,
+            input_hashes=valid.input_hashes,
+            failure_cases=tuple(reversed(valid.failure_cases)),
+            failure_results=valid.failure_results,
+            detected_count=valid.detected_count,
+            rejected_count=valid.rejected_count,
+            accepted_invalid_count=valid.accepted_invalid_count,
+            status=valid.status,
+            stable_hash=valid.stable_hash,
+        )
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        AdversarialGovernanceReceipt(
+            version=valid.version,
+            scenario_id=valid.scenario_id,
+            input_hashes=valid.input_hashes,
+            failure_cases=valid.failure_cases,
+            failure_results=tuple(reversed(valid.failure_results)),
+            detected_count=valid.detected_count,
+            rejected_count=valid.rejected_count,
+            accepted_invalid_count=valid.accepted_invalid_count,
+            status=valid.status,
+            stable_hash=valid.stable_hash,
+        )
+
+
+def test_validated_status_invariant_lock() -> None:
+    r = run_multi_agent_failure_injection(
+        "s",
+        (_h("i0"),),
+        (
+            _case("m1", "INCONSISTENT_MEMORY", {"hash_mismatch": True}, expected="MEMORY_HASH_MISMATCH"),
+        ),
+    )
+    if r.status == "VALIDATED":
+        assert r.accepted_invalid_count == 0
+        assert r.detected_count == len(r.failure_results)

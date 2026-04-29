@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import InitVar, dataclass, field
 import math
+from types import MappingProxyType
 from typing import Any, Final
 
 from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, canonicalize_json, sha256_hex
@@ -46,7 +47,7 @@ def _validate_json_value(value: Any) -> Any:
             raise _invalid_input()
         validated: dict[str, Any] = {}
         for key, item in value.items():
-            if not isinstance(key, str):
+            if not isinstance(key, str) or key == "":
                 raise _invalid_input()
             validated[key] = _validate_json_value(item)
         return validated
@@ -69,6 +70,14 @@ def _validate_json_value(value: Any) -> Any:
     raise _invalid_input()
 
 
+def _freeze(value: Any) -> Any:
+    if isinstance(value, dict):
+        return MappingProxyType({k: _freeze(v) for k, v in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze(v) for v in value)
+    return value
+
+
 @dataclass(frozen=True)
 class AdversarialFailureCase:
     case_id: str
@@ -88,7 +97,8 @@ class AdversarialFailureCase:
         if not isinstance(self.payload, Mapping) or len(self.payload) == 0:
             raise _invalid_input()
         canonical_payload = canonicalize_json(_validate_json_value(dict(self.payload)))
-        object.__setattr__(self, "payload", canonical_payload)
+        frozen_payload = _freeze(canonical_payload)
+        object.__setattr__(self, "payload", frozen_payload)
 
         computed = sha256_hex(self._payload_without_hash())
         if case_hash_input is None:
@@ -162,6 +172,12 @@ class AdversarialGovernanceReceipt:
         if any(not isinstance(c, AdversarialFailureCase) for c in self.failure_cases):
             raise _invalid_input()
         if any(not isinstance(r, AdversarialFailureResult) for r in self.failure_results):
+            raise _invalid_input()
+        case_key = lambda c: (c.failure_type, c.case_id, c.case_hash(), c.target_hash)
+        result_key = lambda r: (r.failure_type, r.case_id, r.case_hash)
+        if self.failure_cases != tuple(sorted(self.failure_cases, key=case_key)):
+            raise _invalid_input()
+        if self.failure_results != tuple(sorted(self.failure_results, key=result_key)):
             raise _invalid_input()
         if self.detected_count != sum(1 for r in self.failure_results if r.detected):
             raise _invalid_input()
@@ -308,6 +324,11 @@ def run_multi_agent_failure_injection(
     status = "VALIDATED"
     if accepted_invalid_count != 0 or detected_count != total_cases:
         status = "ADVERSARIAL_FAILURE_NOT_REJECTED"
+    if status == "VALIDATED":
+        assert accepted_invalid_count == 0, "VALIDATED with accepted invalids"
+        assert detected_count == total_cases, "VALIDATED with incomplete detection"
+    else:
+        assert accepted_invalid_count != 0 or detected_count != total_cases
 
     canonical_input_hashes = tuple(sorted(_require_sha256(h) for h in input_hashes))
     payload = {

@@ -44,7 +44,12 @@ def _validate_json_value(value: Any) -> Any:
     if isinstance(value, Mapping):
         if len(value) == 0:
             raise _invalid_input()
-        return {str(k): _validate_json_value(v) for k, v in value.items()}
+        validated: dict[str, Any] = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise _invalid_input()
+            validated[key] = _validate_json_value(item)
+        return validated
     if isinstance(value, list | tuple):
         return tuple(_validate_json_value(v) for v in value)
     if isinstance(value, bool):

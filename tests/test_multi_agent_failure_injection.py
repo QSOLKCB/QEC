@@ -34,7 +34,7 @@ def test_receipt_deterministic_and_frozen() -> None:
     r1 = run_multi_agent_failure_injection("s", (_h("i0"),), cases)
     r2 = run_multi_agent_failure_injection("s", (_h("i0"),), tuple(reversed(cases)))
     assert r1.stable_hash == r2.stable_hash
-    assert r1.to_canonical_json() == r1.to_canonical_json()
+    assert r1.to_canonical_json() == r2.to_canonical_json()
     with pytest.raises(FrozenInstanceError):
         r1.status = "X"
 

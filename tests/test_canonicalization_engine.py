@@ -1,4 +1,5 @@
 from dataclasses import FrozenInstanceError
+from types import MappingProxyType
 import pytest
 
 from qec.analysis.canonicalization_engine import (
@@ -46,6 +47,14 @@ def test_valid_canonicalization_and_hash_stability():
     schema = _schema([_field("name", "STRING"), _field("count", "INTEGER"), _field("price", "DECIMAL"), _field("active", "BOOLEAN"), _field("date", "DATE"), _field("money", "MONEY"), _field("meta", "JSON")])
     rec1 = run_canonicalization_engine(_extraction([("name", " A\u00A0 B "), ("count", "1,234"), ("price", "12.3400"), ("active", "YES"), ("date", "12/31/2024"), ("money", "USD 12.345"), ("meta", "```json\n{\"a\":1,\"b\":[2]}\n```")]), schema, _locale())
     rec2 = run_canonicalization_engine(_extraction([("name", " A\u00A0 B "), ("count", "1,234"), ("price", "12.3400"), ("active", "YES"), ("date", "12/31/2024"), ("money", "USD 12.345"), ("meta", "```json\n{\"a\":1,\"b\":[2]}\n```")]), schema, _locale())
+    payload = rec1.canonical_document.canonical_payload
+    assert payload["name"] == "A B"
+    assert payload["count"] == 1234
+    assert payload["price"] == "12.34"
+    assert payload["active"] is True
+    assert payload["date"] == "2024-12-31"
+    assert payload["money"] == MappingProxyType({"amount_minor_units": 1234, "currency_code": "USD", "minor_unit_exponent": 2})
+    assert payload["meta"] == MappingProxyType({"a": 1, "b": (2,)})
     assert rec1.status == "CANONICALIZED"
     assert rec1.canonical_hash == rec1.canonical_document.canonical_hash
     assert rec1.stable_hash == rec1.computed_stable_hash()
@@ -100,6 +109,36 @@ def test_json_span_and_nested_structures_and_immutability_and_scope_guard():
         rec.status = "X"
     as_dict = rec.to_dict()
     assert isinstance(as_dict["canonical_document"]["canonical_payload"], dict)
+    with pytest.raises(TypeError):
+        rec.canonical_document.canonical_payload["x"] = 1
+    with pytest.raises(TypeError):
+        rec.canonical_document.canonical_payload["j"]["k"] = ()
     assert "RES_RAG_DIVERGENCE" not in rec.to_canonical_json()
     assert isinstance(rec.canonical_document, CanonicalDocument)
     assert isinstance(rec, CanonicalizationReceipt)
+
+
+def test_thousands_separator_validation_and_nbsp_handling():
+    locale = _locale()
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        run_canonicalization_engine(_extraction([("i", "12,34")]), _schema([_field("i", "INTEGER")]), locale)
+
+    nbsp_locale_base = {
+        "locale_id": "fr_FR",
+        "date_format": "%d/%m/%Y",
+        "decimal_separator": ",",
+        "thousands_separator": "\u00A0",
+        "currency_code": "EUR",
+        "currency_minor_unit_exponent": 2,
+        "rounding_mode": "HALF_EVEN",
+    }
+    nbsp_locale = LocaleContract(**nbsp_locale_base, locale_hash=sha256_hex(nbsp_locale_base))
+    rec = run_canonicalization_engine(_extraction([("i", "1\u00A0234")]), _schema([_field("i", "INTEGER")]), nbsp_locale)
+    assert rec.canonical_document.canonical_payload["i"] == 1234
+
+
+def test_invalid_bounds_rejected_at_spec_construction():
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        _field("i", "INTEGER", min_value="1.5")
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        _field("d", "DECIMAL", min_value="bad")

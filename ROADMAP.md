@@ -669,6 +669,15 @@ RES = grounded canonical reality
 RAG = reflexive generated interpretation
 ```
 
+## Semantic Lattice
+
+```text
+nodes = canonical fields
+edges = constraints
+substructures = semantic clusters
+no implicit edges — all relationships must be explicitly represented and hash-bound
+```
+
 ---
 
 ## Tasks
@@ -728,6 +737,11 @@ same canonical document
 + same supplied interpretation
 + same governance context
 → same RAG state
+```
+
+```text
+same RES + same RAG
+→ same resonance classification
 ```
 
 If generative output is supplied externally:
@@ -944,6 +958,7 @@ semantic contradiction between RES and RAG
 ambiguity → REJECT
 unsupported interpretation → REJECT
 semantic contradiction → REJECT
+digital decay signature is computed deterministically from divergence patterns
 ```
 
 ---

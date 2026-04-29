@@ -4,6 +4,13 @@
 
 ---
 
+## Stable Tip Metadata
+
+Stable tip lineage remains anchored to `v137.*` compatibility contracts.
+Published tags are authoritative.
+
+---
+
 # 🧠 Core Law (Invariant)
 
 ```text

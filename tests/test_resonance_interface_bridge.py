@@ -314,6 +314,28 @@ def test_elimination_readiness_normalization_called_once_per_source(monkeypatch:
     assert counts == {"res": 1, "phase": 1, "top": 1, "frac": 1, "agree": 1}
 
 
+
+def test_resonance_classification_validation_rejected_when_missing_empty_or_non_string() -> None:
+    resonance, _, _, _ = _make_sources()
+
+    missing = resonance.to_dict()
+    missing.pop("resonance_classification", None)
+    _rehash_replay_identity(missing)
+    with pytest.raises(ValueError, match="resonance_classification must be a non-empty string"):
+        build_resonance_interface_bridge(resonance_receipt=missing)
+
+    empty = resonance.to_dict()
+    empty["resonance_classification"] = ""
+    _rehash_replay_identity(empty)
+    with pytest.raises(ValueError, match="resonance_classification must be a non-empty string"):
+        build_resonance_interface_bridge(resonance_receipt=empty)
+
+    non_string = resonance.to_dict()
+    non_string["resonance_classification"] = 123
+    _rehash_replay_identity(non_string)
+    with pytest.raises(ValueError, match="resonance_classification must be a non-empty string"):
+        build_resonance_interface_bridge(resonance_receipt=non_string)
+
 def test_invalid_metric_range_rejected() -> None:
     resonance, _, _, _ = _make_sources()
     bad = resonance.to_dict()

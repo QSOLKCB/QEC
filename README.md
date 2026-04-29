@@ -1,8 +1,8 @@
 # QSOLKCB / QEC
 
-> QEC is a deterministic decoder over system evolution that produces proof-carrying state transitions.
+> QEC is a deterministic, multi-agent reasoning system that produces proof-carrying state transitions and distributed convergence proofs.
 
-**Deterministic Reasoning • Memory • Governance • Validation • Repair • Compression • Proof**
+**Deterministic Reasoning • Governance • Validation • Convergence • Distributed Proof**
 
 ---
 
@@ -42,7 +42,7 @@
 
 # 🚀 What QEC Is
 
-QEC is a **deterministic, replay-safe reasoning system for quantum error correction and invariant-driven computation**.
+QEC is a deterministic, replay-safe multi-agent reasoning system for quantum error correction and invariant-driven computation, capable of proving convergence and agreement across distributed nodes.
 
 It is not a runtime.
 
@@ -129,7 +129,7 @@ iterate
 
 ---
 
-## ⚙️ System Capability (v149.5 State)
+## ⚙️ System Capability (v150.9 State)
 
 QEC performs:
 
@@ -153,6 +153,15 @@ QEC performs:
 * simulated execution verification
 * invariant-preserving compression planning
 * full-system proof generation
+* multi-agent role-based reasoning
+* inter-agent deterministic communication
+* convergence classification and enforcement
+* conflict classification (identical / equivalent / dominated / inconsistent)
+* adversarial failure detection and rejection
+* invariant-locked validation (no bypass paths)
+* distributed convergence proof across nodes
+* deterministic agreement verification (multi-node)
+* mismatch classification (node-level vs expected-hash)
 
 ---
 
@@ -166,6 +175,35 @@ issue
 → counterfactual comparison
 → necessary / equivalent / dominated / unresolved
 ```
+---
+
+
+## 🧠 Distributed Convergence Proof (v150.9)
+
+```text
+node₁ evidence
+node₂ evidence
+node₃ evidence
+...
+→ canonical comparison
+→ agreement classification
+→ mismatch classification
+→ deterministic reference proof
+→ distributed convergence receipt
+
+QEC now proves:
+
+all nodes agree
+OR
+exactly how and why they disagree
+This introduces:
+
+deterministic multi-node agreement
+explicit mismatch classification:
+FINAL_PROOF_HASH_MISMATCH (node divergence)
+EXPECTED_FINAL_PROOF_HASH_MISMATCH (expected vs observed)
+invariant-locked distributed validation
+```
 
 ---
 
@@ -178,6 +216,9 @@ observe
 → remember
 → govern
 → validate
+→ adversarial check
+→ converge (multi-agent)
+→ verify agreement (distributed)
 → align
 → simulate execution
 → compress
@@ -328,11 +369,11 @@ determinism
 This means:
 
 * same input → same output (byte-identical)
-* every decision is replayable and auditable
+* every decision is replayable, auditable, and verifiable across nodes
 * failures are structurally understood
 * fixes are proven, not guessed
 * redundant computation is eliminated
-* reasoning becomes a persistent artifact
+* reasoning becomes a persistent, distributed proof artifact
 
 This shifts computation from:
 

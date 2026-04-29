@@ -34,7 +34,7 @@ external = [
 testpaths = ["tests"]
 
 [project.scripts]
-qec-exp = "scripts.qec_exp:main"
+qec-exp = "qec.experiments.qec_exp_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/QSOLKCB/QEC"

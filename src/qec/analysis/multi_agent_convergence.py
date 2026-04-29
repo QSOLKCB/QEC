@@ -137,11 +137,14 @@ def analyze_multi_agent_convergence(
         converged = True
     else:
         final_selected = selected_hashes[-1]
-        convergence_depth = -1
-        for idx in range(len(selected_hashes)):
-            if selected_hashes[idx] == final_selected and all(candidate == final_selected for candidate in selected_hashes[idx:]):
-                convergence_depth = idx
-                break
+
+        # Find the first index from which the selection stays at final_selected.
+        # We walk backward from the penultimate element until we find a different selection.
+        i = len(selected_hashes) - 2
+        while i >= 0 and selected_hashes[i] == final_selected:
+            i -= 1
+        convergence_depth = i + 1
+
         if convergence_depth < 0:
             raise _invalid_input()
         total_transitions = len(selected_hashes) - 1

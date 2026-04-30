@@ -34,9 +34,11 @@ def test_import_attractor_analysis_does_not_raise():
 
 
 def test_import_does_not_pull_cffi():
-    """Importing attractor_analysis must not transitively load _cffi_backend."""
-    importlib.import_module("qec.analysis.attractor_analysis")
-    assert "_cffi_backend" not in sys.modules
+    """Importing attractor_analysis must not directly import cffi from QEC code."""
+    # Import helper from tests/conftest.py
+    from tests.conftest import assert_no_cffi_imports
+
+    assert_no_cffi_imports("qec.analysis.attractor_analysis")
 
 
 # ---------------------------------------------------------------------------

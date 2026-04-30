@@ -123,3 +123,21 @@ def test_implemented_rule_types_no_silent_bypass() -> None:
     assert any(r.failure_subtype == "TOTAL_MISMATCH" for r in out.results)
     assert any(r.failure_subtype == "DUPLICATE_IDENTITY_VALUE" for r in out.results)
     assert any(r.failure_subtype in {"RESONANCE_UNSUPPORTED", "UNSUPPORTED_GENERATED_CLAIM", "CLAIM_WITHOUT_EVIDENCE"} for r in out.results)
+
+
+def test_invalid_rule_element_raises_invalid_input() -> None:
+    d = _doc({"x": 1})
+    sfr, rr = _res_rag(d, [_claim("1", {"claim_type": "FIELD_PRESENT", "field_name": "x"})])
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        run_adversarial_extraction_validation(d, sfr, rr, [{"rule_id": "r1"}])
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        run_adversarial_extraction_validation(d, sfr, rr, ["not a rule"])
+
+
+def test_allow_resonance_classes_suppresses_failures() -> None:
+    d = _doc({"invoice_number": "A"})
+    sfr, rr = _res_rag(d, [_claim("1", {"claim_type": "FIELD_EQUALS", "field_name": "invoice_number", "claim_value": "B"})])
+    out_no_allow = run_adversarial_extraction_validation(d, sfr, rr, [])
+    assert any(r.failure_subtype == "RESONANCE_CONTRADICTORY" for r in out_no_allow.results)
+    out_allow = run_adversarial_extraction_validation(d, sfr, rr, [_rule("a1", "ALLOW_RESONANCE_CLASSES", {"allowed_classes": ["CONTRADICTORY"]})])
+    assert not any(r.failure_subtype == "RESONANCE_CONTRADICTORY" for r in out_allow.results)

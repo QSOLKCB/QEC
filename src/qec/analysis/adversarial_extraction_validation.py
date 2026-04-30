@@ -208,8 +208,10 @@ def run_adversarial_extraction_validation(canonical_document: CanonicalDocument,
         raise _invalid()
     if semantic_field_receipt.canonical_hash != canonical_document.canonical_hash or resonance_receipt.canonical_hash != canonical_document.canonical_hash or resonance_receipt.semantic_field_hash != semantic_field_receipt.semantic_field_hash:
         raise _invalid()
+    if any(not isinstance(r, ExtractionValidationRule) for r in rules):
+        raise _invalid()
     rs = tuple(sorted(rules, key=lambda r: (r.rule_type, r.rule_id, r.rule_hash)))
-    if any(not isinstance(r, ExtractionValidationRule) for r in rs) or len({r.rule_id for r in rs}) != len(rs):
+    if len({r.rule_id for r in rs}) != len(rs):
         raise _invalid()
     results: list[ExtractionValidationResult] = []
     payload = canonical_document.canonical_payload
@@ -282,15 +284,14 @@ def run_adversarial_extraction_validation(canonical_document: CanonicalDocument,
             allowed = p.get("allowed_classes")
             if not isinstance(allowed, (list, tuple)) or any(not isinstance(x, str) for x in allowed):
                 raise _invalid()
-            allowed_set = set(allowed)
-            for rr in resonance_receipt.results:
-                if rr.resonance_class in allowed_set:
-                    continue
-                mapped = _resonance_failure_for_class(rr.resonance_class, rr.reason)
-                if mapped is not None:
-                    ft, fs, _, reason = mapped
-                    results.append(_mk(rule, i, ft, fs, reason, {"field_name": rr.field_name}))
+    allowed_resonance_classes: set[str] = set()
+    for rule in rs:
+        if rule.rule_type == "ALLOW_RESONANCE_CLASSES":
+            p = rule.parameters
+            allowed_resonance_classes.update(p.get("allowed_classes", ()))
     for rr in resonance_receipt.results:
+        if rr.resonance_class in allowed_resonance_classes:
+            continue
         mapped = _resonance_failure_for_class(rr.resonance_class, rr.reason)
         if mapped is not None:
             ft, fs, sev, reason = mapped

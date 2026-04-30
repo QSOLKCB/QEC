@@ -427,14 +427,17 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
         if use_dense:
             vals, vecs = np.linalg.eig(B.toarray())
         else:
-            vals, vecs = scipy.sparse.linalg.eigs(
-                B,
-                k=k,
-                which='LR',
-                v0=np.ones(de, dtype=np.float64),
-                maxiter=max(100, 5 * de),
-                tol=0.0,
-            )
+            try:
+                vals, vecs = scipy.sparse.linalg.eigs(
+                    B,
+                    k=k,
+                    which='LR',
+                    v0=np.ones(de, dtype=np.float64),
+                    maxiter=max(100, 5 * de),
+                    tol=0.0,
+                )
+            except scipy.sparse.linalg.ArpackError:
+                vals, vecs = np.linalg.eig(B.toarray())
 
         order = np.argsort(-np.abs(vals), kind='stable')
         vals = vals[order]
@@ -504,14 +507,21 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
                 _, left_all = np.linalg.eig(dense.T)
                 left = left_all[:, order]
         else:
-            eigvals, right = scipy.sparse.linalg.eigs(
-                B,
-                k=k,
-                which='LR',
-                v0=np.ones(de, dtype=np.float64),
-                maxiter=max(100, 5 * de),
-                tol=0.0,
-            )
+            try:
+                eigvals, right = scipy.sparse.linalg.eigs(
+                    B,
+                    k=k,
+                    which='LR',
+                    v0=np.ones(de, dtype=np.float64),
+                    maxiter=max(100, 5 * de),
+                    tol=0.0,
+                )
+            except scipy.sparse.linalg.ArpackError:
+                vals, vecs = np.linalg.eig(B.toarray())
+                order = np.argsort(-np.abs(vals), kind='stable')
+                order = order[:k]
+                eigvals = vals[order]
+                right = vecs[:, order]
             if self.config.use_left_right_pairing:
                 _, left = scipy.sparse.linalg.eigs(
                     B.transpose().tocsr(),

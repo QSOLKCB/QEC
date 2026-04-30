@@ -114,3 +114,30 @@ def test_decision_basis_nan_inf_rejected() -> None:
         GovernanceAgentDecision(**payload, decision_basis={"x": float("nan")}, agent_decision_hash="0" * 64)
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         GovernanceAgentDecision(**payload, decision_basis={"x": float("inf")}, agent_decision_hash="0" * 64)
+
+
+def test_input_hashes_and_type_guards() -> None:
+    d, res, rag, rr, evr = _build({"x": 1}, [_claim("1", {"claim_type": "FIELD_PRESENT", "field_name": "x"})], [])
+    out = run_dialogical_document_governance(d, res, rag, rr, evr)
+
+    gd = out.agent_decisions[0].to_dict()
+    unsorted_hashes = tuple(reversed(gd["input_hashes"]))
+    payload = {**gd, "input_hashes": unsorted_hashes, "decision_basis": out.agent_decisions[0].decision_basis}
+    canonicalized = GovernanceAgentDecision(**payload)
+    assert canonicalized.input_hashes == tuple(sorted(set(unsorted_hashes)))
+    deduped = GovernanceAgentDecision(**{**payload, "input_hashes": (unsorted_hashes[0], unsorted_hashes[0]), "agent_decision_hash": payload["agent_decision_hash"]})
+    assert deduped.input_hashes == (unsorted_hashes[0],)
+
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        GovernanceDecisionSet((out.agent_decisions[0], "bad", *out.agent_decisions[2:]), "0" * 64)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        DialogicalGovernanceReceipt(**{**out.to_dict(), "agent_decisions": ("bad",)})  # type: ignore[arg-type]
+
+
+def test_semantic_field_lineage_must_match() -> None:
+    d, res, rag, rr, evr = _build({"x": 1}, [_claim("1", {"claim_type": "FIELD_PRESENT", "field_name": "x"})], [])
+    bad_payload = {**evr.to_dict(), "semantic_field_hash": "f" * 64}
+    bad_payload["stable_hash"] = sha256_hex({k: v for k, v in bad_payload.items() if k != "stable_hash"})
+    bad_evr = ExtractionValidationReceipt(**bad_payload)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        run_dialogical_document_governance(d, res, rag, rr, bad_evr)

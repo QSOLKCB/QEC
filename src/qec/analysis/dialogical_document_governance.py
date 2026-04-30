@@ -84,6 +84,7 @@ class GovernanceAgentDecision:
     def __post_init__(self) -> None:
         if self.agent_role not in _ALLOWED_ROLES or self.decision not in _ALLOWED_DECISIONS or self.reason not in _ALLOWED_REASONS: raise _invalid()
         if not isinstance(self.input_hashes, tuple) or not self.input_hashes or any(not _is_sha256_hex(h) for h in self.input_hashes): raise _invalid()
+        object.__setattr__(self, "input_hashes", tuple(sorted(set(self.input_hashes))))
         object.__setattr__(self, "decision_basis", _json_safe(self.decision_basis))
         if self.computed_stable_hash() != self.agent_decision_hash: raise _invalid()
     def to_dict(self) -> dict[str, Any]:
@@ -100,6 +101,7 @@ class GovernanceDecisionSet:
 
     def __post_init__(self) -> None:
         if not isinstance(self.agent_decisions, tuple) or len(self.agent_decisions) != len(_ALLOWED_ROLES): raise _invalid()
+        if any(not isinstance(d, GovernanceAgentDecision) for d in self.agent_decisions): raise _invalid()
         roles = tuple(d.agent_role for d in self.agent_decisions)
         if roles != _ALLOWED_ROLES or len(set(roles)) != len(roles): raise _invalid()
         if self.computed_stable_hash() != self.decision_set_hash: raise _invalid()
@@ -117,6 +119,7 @@ class DialogicalGovernanceReceipt:
     decision_count: int; accept_count: int; reject_count: int; repair_count: int; escalate_count: int; abstain_count: int; status: str; stable_hash: str
     def __post_init__(self) -> None:
         if self.version != _VERSION or self.status != "GOVERNANCE_DECIDED" or self.final_decision not in _ALLOWED_DECISIONS or self.final_reason not in _ALLOWED_REASONS: raise _invalid()
+        if not isinstance(self.agent_decisions, tuple) or any(not isinstance(d, GovernanceAgentDecision) for d in self.agent_decisions): raise _invalid()
         if tuple(d.agent_role for d in self.agent_decisions) != _ALLOWED_ROLES: raise _invalid()
         if self.decision_count != len(self.agent_decisions): raise _invalid()
         counts = {k: sum(1 for d in self.agent_decisions if d.decision == k) for k in _ALLOWED_DECISIONS}
@@ -133,7 +136,7 @@ class DialogicalGovernanceReceipt:
 
 
 def _mk(role: str, decision: str, reason: str, hashes: tuple[str, ...], basis: Any) -> GovernanceAgentDecision:
-    p = {"agent_role": role, "decision": decision, "reason": reason, "input_hashes": hashes, "decision_basis": basis}
+    p = {"agent_role": role, "decision": decision, "reason": reason, "input_hashes": tuple(sorted(set(hashes))), "decision_basis": basis}
     return GovernanceAgentDecision(**p, agent_decision_hash=_sha(p))
 
 
@@ -145,6 +148,7 @@ def run_dialogical_document_governance(canonical_document: CanonicalDocument, re
     if res_state.canonical_document_hash != canonical_document.canonical_hash or rag_state.canonical_document_hash != canonical_document.canonical_hash: raise _invalid()
     if resonance_receipt.canonical_hash != canonical_document.canonical_hash or resonance_receipt.res_hash != res_state.res_hash or resonance_receipt.rag_hash != rag_state.rag_hash: raise _invalid()
     if extraction_validation_receipt.canonical_hash != canonical_document.canonical_hash or extraction_validation_receipt.resonance_receipt_hash != resonance_receipt.stable_hash: raise _invalid()
+    if extraction_validation_receipt.semantic_field_hash != resonance_receipt.semantic_field_hash: raise _invalid()
 
     r = extraction_validation_receipt.results
     ex = _mk("EXTRACTION_AUDITOR", "REJECT" if extraction_validation_receipt.reject_count > 0 else ("REPAIR" if extraction_validation_receipt.flag_count > 0 else "ACCEPT"), "VALIDATION_REJECT_FAILURES" if extraction_validation_receipt.reject_count > 0 else ("VALIDATION_FLAG_FAILURES" if extraction_validation_receipt.flag_count > 0 else "VALIDATION_CLEAN"), (extraction_validation_receipt.stable_hash,), {"reject_count": extraction_validation_receipt.reject_count, "flag_count": extraction_validation_receipt.flag_count})

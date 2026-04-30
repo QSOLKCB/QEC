@@ -513,8 +513,9 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
                 _, left_all = np.linalg.eig(dense.T)
                 left = left_all[:, order]
         else:
-            _dense_B: np.ndarray | None = None
-            _right_order: np.ndarray | None = None
+            used_dense_fallback = False
+            dense_B: np.ndarray | None = None
+            right_order: np.ndarray | None = None
             try:
                 eigvals, right = scipy.sparse.linalg.eigs(
                     B,
@@ -531,15 +532,16 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
                 ValueError,
                 np.linalg.LinAlgError,
             ):
-                _dense_B = B.toarray()
-                vals, vecs = np.linalg.eig(_dense_B)
-                _right_order = np.argsort(-np.abs(vals), kind='stable')[:k]
-                eigvals = vals[_right_order]
-                right = vecs[:, _right_order]
+                used_dense_fallback = True
+                dense_B = B.toarray()
+                vals, vecs = np.linalg.eig(dense_B)
+                right_order = np.argsort(-np.abs(vals), kind='stable')[:k]
+                eigvals = vals[right_order]
+                right = vecs[:, right_order]
             if self.config.use_left_right_pairing:
-                if _dense_B is not None:
-                    _, left_all = np.linalg.eig(_dense_B.T)
-                    left = left_all[:, _right_order]
+                if used_dense_fallback:
+                    _, left_all = np.linalg.eig(dense_B.T)
+                    left = left_all[:, right_order]
                 else:
                     _, left = scipy.sparse.linalg.eigs(
                         B.transpose().tocsr(),

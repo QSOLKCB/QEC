@@ -236,6 +236,7 @@ class GovernanceContext:
             raise _invalid()
         _validate_json_safety(payload)
         object.__setattr__(self, "context_payload", payload)
+        legacy_ctor = self.allowed_keys is None and self.schema_version == "v151.3"
         if self.allowed_keys is None:
             allowed_keys = tuple(sorted(payload.keys()))
         else:
@@ -249,8 +250,11 @@ class GovernanceContext:
         if not set(payload.keys()).issubset(set(allowed_keys)):
             raise _invalid()
         object.__setattr__(self, "allowed_keys", allowed_keys)
+        stable_hash = self.computed_stable_hash()
+        if self.governance_context_hash == stable_hash:
+            return
         legacy_hash = _sha256_hex({"context_id": self.context_id, "context_payload": self.context_payload})
-        if self.computed_stable_hash() != self.governance_context_hash and legacy_hash != self.governance_context_hash:
+        if not legacy_ctor or self.governance_context_hash != legacy_hash:
             raise _invalid()
 
     def to_dict(self) -> dict[str, Any]:

@@ -132,6 +132,19 @@ def test_governance_context_contract_and_backward_compatibility() -> None:
     assert compat.allowed_keys == ("mode",)
     assert compat.governance_context_hash == valid.governance_context_hash
 
+    legacy_hash = sha256_hex({"context_id": "ctx", "context_payload": {"mode": "strict"}})
+    compat_legacy = GovernanceContext("ctx", {"mode": "strict"}, legacy_hash)
+    assert compat_legacy.governance_context_hash == legacy_hash
+
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        GovernanceContext(
+            "ctx",
+            {"mode": "strict"},
+            legacy_hash,
+            schema_version="v151.4",
+            allowed_keys=("mode",),
+        )
+
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         GovernanceContext("ctx", {"mode": "strict", "extra": 1}, sha256_hex({"context_id": "ctx", "schema_version": "v151.3", "context_payload": {"mode": "strict", "extra": 1}, "allowed_keys": ("mode",)}), allowed_keys=("mode",))
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):

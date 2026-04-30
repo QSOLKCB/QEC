@@ -61,11 +61,12 @@ def _receipt_payload(*, version: str, canonical_hash: str, semantic_field_hash: 
 def _json_safe(value: Any) -> Any:
     v = _canon(value)
     if isinstance(v, Mapping):
+        safe: dict[str, Any] = {}
         for k, vv in v.items():
             if not isinstance(k, str) or k == "":
                 raise _invalid()
-            _json_safe(vv)
-        return MappingProxyType({k: _json_safe(vv) for k, vv in v.items()})
+            safe[k] = _json_safe(vv)
+        return MappingProxyType(safe)
     if isinstance(v, list):
         return tuple(_json_safe(i) for i in v)
     if isinstance(v, tuple):
@@ -79,6 +80,20 @@ def _thaw_json(value: Any) -> Any:
     if isinstance(value, tuple):
         return [_thaw_json(v) for v in value]
     return value
+
+
+def _resonance_failure_for_class(resonance_class: str, reason: str) -> tuple[str, str, str, str] | None:
+    if resonance_class == "CONTRADICTORY":
+        return ("SEMANTIC_CONTRADICTION", "RESONANCE_CONTRADICTORY", "REJECT", "RESONANCE_CONTRADICTORY")
+    if resonance_class == "DIVERGENT":
+        return ("RES_RAG_DIVERGENCE", "RESONANCE_DIVERGENT", "REJECT", "RESONANCE_DIVERGENT")
+    if resonance_class == "UNSUPPORTED":
+        if reason == "CLAIM_WITHOUT_EVIDENCE":
+            return ("GROUNDING_FAILURE", "CLAIM_WITHOUT_EVIDENCE", "REJECT", "CLAIM_WITHOUT_EVIDENCE")
+        return ("UNSUPPORTED_RAG_CLAIM", "UNSUPPORTED_GENERATED_CLAIM", "REJECT", "UNSUPPORTED_GENERATED_CLAIM")
+    if resonance_class == "PARTIAL" and reason == "EVIDENCE_WITHOUT_INTERPRETATION":
+        return ("GROUNDING_FAILURE", "EVIDENCE_WITHOUT_INTERPRETATION", "FLAG", "EVIDENCE_WITHOUT_INTERPRETATION")
+    return None
 
 
 def _money(value: Any) -> Mapping[str, Any] | None:
@@ -200,6 +215,8 @@ def run_adversarial_extraction_validation(canonical_document: CanonicalDocument,
     payload = canonical_document.canonical_payload
     for i, rule in enumerate(rs):
         p = rule.parameters
+        if not isinstance(p, Mapping):
+            raise _invalid()
         if rule.rule_type == "REQUIRED_FIELD":
             fn = p.get("field_name")
             if not isinstance(fn, str) or fn == "": raise _invalid()
@@ -232,7 +249,7 @@ def run_adversarial_extraction_validation(canonical_document: CanonicalDocument,
             tgt = p.get("target_field")
             comps = p.get("component_fields")
             tol = p.get("tolerance_minor_units")
-            if not isinstance(tgt, str) or tgt == "" or not isinstance(comps, (list, tuple)) or not comps or any(not isinstance(c, str) or c == "" for c in comps) or not isinstance(tol, int) or tol < 0:
+            if not isinstance(tgt, str) or tgt == "" or not isinstance(comps, (list, tuple)) or not comps or any(not isinstance(c, str) or c == "" for c in comps) or not (isinstance(tol, int) and not isinstance(tol, bool)) or tol < 0:
                 raise _invalid()
             t = _money(payload.get(tgt))
             cms = [_money(payload.get(c)) for c in comps]
@@ -269,28 +286,17 @@ def run_adversarial_extraction_validation(canonical_document: CanonicalDocument,
             for rr in resonance_receipt.results:
                 if rr.resonance_class in allowed_set:
                     continue
-                if rr.resonance_class == "CONTRADICTORY":
-                    results.append(_mk(rule, i, "SEMANTIC_CONTRADICTION", "RESONANCE_CONTRADICTORY", "RESONANCE_CONTRADICTORY", {"field_name": rr.field_name}))
-                elif rr.resonance_class == "DIVERGENT":
-                    results.append(_mk(rule, i, "RES_RAG_DIVERGENCE", "RESONANCE_DIVERGENT", "RESONANCE_DIVERGENT", {"field_name": rr.field_name}))
-                elif rr.resonance_class == "UNSUPPORTED":
-                    reason = "CLAIM_WITHOUT_EVIDENCE" if rr.reason == "CLAIM_WITHOUT_EVIDENCE" else "UNSUPPORTED_GENERATED_CLAIM"
-                    subtype = "CLAIM_WITHOUT_EVIDENCE" if rr.reason == "CLAIM_WITHOUT_EVIDENCE" else "UNSUPPORTED_GENERATED_CLAIM"
-                    ftype = "GROUNDING_FAILURE" if rr.reason == "CLAIM_WITHOUT_EVIDENCE" else "UNSUPPORTED_RAG_CLAIM"
-                    results.append(_mk(rule, i, ftype, subtype, reason, {"field_name": rr.field_name}))
-                elif rr.resonance_class == "PARTIAL" and rr.reason == "EVIDENCE_WITHOUT_INTERPRETATION":
-                    results.append(_mk(rule, i, "GROUNDING_FAILURE", "EVIDENCE_WITHOUT_INTERPRETATION", "EVIDENCE_WITHOUT_INTERPRETATION", {"field_name": rr.field_name}))
+                mapped = _resonance_failure_for_class(rr.resonance_class, rr.reason)
+                if mapped is not None:
+                    ft, fs, _, reason = mapped
+                    results.append(_mk(rule, i, ft, fs, reason, {"field_name": rr.field_name}))
     for rr in resonance_receipt.results:
-        m = {
-            "CONTRADICTORY": ("SEMANTIC_CONTRADICTION", "RESONANCE_CONTRADICTORY", "REJECT", "RESONANCE_CONTRADICTORY"),
-            "DIVERGENT": ("RES_RAG_DIVERGENCE", "RESONANCE_DIVERGENT", "REJECT", "RESONANCE_DIVERGENT"),
-            "UNSUPPORTED": ("UNSUPPORTED_RAG_CLAIM", "RESONANCE_UNSUPPORTED", "REJECT", "RESONANCE_UNSUPPORTED"),
-        }
-        if rr.resonance_class in m:
-            ft, fs, sev, reason = m[rr.resonance_class]
+        mapped = _resonance_failure_for_class(rr.resonance_class, rr.reason)
+        if mapped is not None:
+            ft, fs, sev, reason = mapped
+            if rr.resonance_class == "UNSUPPORTED" and reason == "UNSUPPORTED_GENERATED_CLAIM":
+                fs = "RESONANCE_UNSUPPORTED"
             results.append(_mk_res(rr.case_id, ft, fs, sev, reason, {"field_name": rr.field_name}))
-        if rr.resonance_class == "PARTIAL" and rr.reason == "EVIDENCE_WITHOUT_INTERPRETATION":
-            results.append(_mk_res(rr.case_id, "GROUNDING_FAILURE", "EVIDENCE_WITHOUT_INTERPRETATION", "FLAG", "EVIDENCE_WITHOUT_INTERPRETATION", {"field_name": rr.field_name}))
 
     out = tuple(sorted(results, key=lambda r: (r.failure_type, r.failure_subtype, r.case_id, r.result_hash)))
     rule_set_hash = _sha(tuple(r.to_dict() for r in rs))

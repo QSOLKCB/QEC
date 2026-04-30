@@ -122,10 +122,8 @@ def generate_phase_surface_3d(
         def _axis_limits(values: np.ndarray) -> tuple[float, float]:
             lo = float(np.min(values))
             hi = float(np.max(values))
-            if lo == hi:
-                pad = 1.0 if lo == 0.0 else abs(lo) * 0.01
-                return lo - pad, hi + pad
-            return lo, hi
+            pad = 0.05 * (hi - lo) if hi > lo else 0.5
+            return lo - pad, hi + pad
 
         ax.set_xlim(*_axis_limits(all_x))
         ax.set_ylim(*_axis_limits(all_y))

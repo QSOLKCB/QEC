@@ -415,7 +415,7 @@ deterministic reasoning with proof
 
 ## 🧪 Optional Test Dependencies
 
-Some tests are environment-dependent and are marked `@pytest.mark.optional`.
+Some tests are environment-dependent and are marked with `pytest.mark.optional`.
 
 Optional test dependencies:
 

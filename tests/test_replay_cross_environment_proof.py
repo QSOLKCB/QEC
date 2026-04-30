@@ -1,9 +1,21 @@
+import hashlib
 import json
 import pytest
 from dataclasses import FrozenInstanceError
-from qec.analysis.replay_cross_environment_proof import *
+from qec.analysis.replay_cross_environment_proof import (
+    ExtractionReplayEvidence,
+    ExtractionReplayReceipt,
+    RealWorldReplayEvidence,
+    ResonanceReplayEvidence,
+    ResonanceReplayReceipt,
+    run_extraction_replay_validation,
+    run_real_world_replay_proof,
+    run_resonance_replay_validation,
+)
 
-h=lambda s: __import__('hashlib').sha256(s.encode()).hexdigest()
+
+def h(s: str) -> str:
+    return hashlib.sha256(s.encode()).hexdigest()
 
 def mk_ext(**kw):
     d=dict(evidence_id='e1',environment_hash=h('env1'),raw_bytes_hash=h('raw'),extraction_config_hash=h('ec'),schema_hash=h('s'),query_fields_hash=h('q'),locale_hash=h('l'),backend_config_hash=h('b'),canonicalization_rules_hash=h('c'),numeric_profile_hash=h('n'),extraction_hash=h('x'),canonical_hash=h('can'))

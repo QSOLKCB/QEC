@@ -436,7 +436,13 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
                     maxiter=max(100, 5 * de),
                     tol=0.0,
                 )
-            except scipy.sparse.linalg.ArpackError:
+            except (
+                scipy.sparse.linalg.ArpackError,
+                scipy.sparse.linalg.ArpackNoConvergence,
+                RuntimeError,
+                ValueError,
+                np.linalg.LinAlgError,
+            ):
                 vals, vecs = np.linalg.eig(B.toarray())
 
         order = np.argsort(-np.abs(vals), kind='stable')
@@ -507,6 +513,8 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
                 _, left_all = np.linalg.eig(dense.T)
                 left = left_all[:, order]
         else:
+            _dense_B: np.ndarray | None = None
+            _right_order: np.ndarray | None = None
             try:
                 eigvals, right = scipy.sparse.linalg.eigs(
                     B,
@@ -516,21 +524,31 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
                     maxiter=max(100, 5 * de),
                     tol=0.0,
                 )
-            except scipy.sparse.linalg.ArpackError:
-                vals, vecs = np.linalg.eig(B.toarray())
-                order = np.argsort(-np.abs(vals), kind='stable')
-                order = order[:k]
-                eigvals = vals[order]
-                right = vecs[:, order]
+            except (
+                scipy.sparse.linalg.ArpackError,
+                scipy.sparse.linalg.ArpackNoConvergence,
+                RuntimeError,
+                ValueError,
+                np.linalg.LinAlgError,
+            ):
+                _dense_B = B.toarray()
+                vals, vecs = np.linalg.eig(_dense_B)
+                _right_order = np.argsort(-np.abs(vals), kind='stable')[:k]
+                eigvals = vals[_right_order]
+                right = vecs[:, _right_order]
             if self.config.use_left_right_pairing:
-                _, left = scipy.sparse.linalg.eigs(
-                    B.transpose().tocsr(),
-                    k=k,
-                    which='LR',
-                    v0=np.ones(de, dtype=np.float64),
-                    maxiter=max(100, 5 * de),
-                    tol=0.0,
-                )
+                if _dense_B is not None:
+                    _, left_all = np.linalg.eig(_dense_B.T)
+                    left = left_all[:, _right_order]
+                else:
+                    _, left = scipy.sparse.linalg.eigs(
+                        B.transpose().tocsr(),
+                        k=k,
+                        which='LR',
+                        v0=np.ones(de, dtype=np.float64),
+                        maxiter=max(100, 5 * de),
+                        tol=0.0,
+                    )
 
         order = np.argsort(-np.abs(eigvals), kind='stable')
         eigvals = eigvals[order]

@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
-import json
 import math
 import re
 from typing import Any, Mapping
+
+from qec.analysis.canonical_hashing import (
+    CanonicalHashingError,
+    canonical_json as _canonical_json,
+    canonicalize_json as _canonicalize_base,
+    sha256_hex as _sha256_hex,
+)
 
 SCHEMA_VERSION = "v151.8"
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -16,32 +21,24 @@ def _invalid() -> ValueError:
 
 
 def _canonicalize(value: Any) -> Any:
-    if value is None or isinstance(value, (str, int, bool)):
-        return value
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise _invalid()
-        return value
-    if isinstance(value, tuple):
-        return tuple(_canonicalize(v) for v in value)
-    if isinstance(value, list):
-        return tuple(_canonicalize(v) for v in value)
-    if isinstance(value, Mapping):
-        out: dict[str, Any] = {}
-        for k in sorted(value.keys()):
-            if not isinstance(k, str) or k == "":
-                raise _invalid()
-            out[k] = _canonicalize(value[k])
-        return out
-    raise _invalid()
+    try:
+        return _canonicalize_base(value)
+    except CanonicalHashingError:
+        raise _invalid()
 
 
 def _cjson(value: Any) -> str:
-    return json.dumps(_canonicalize(value), sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
+    try:
+        return _canonical_json(value)
+    except CanonicalHashingError:
+        raise _invalid()
 
 
 def _sha(value: Any) -> str:
-    return hashlib.sha256(_cjson(value).encode("utf-8")).hexdigest()
+    try:
+        return _sha256_hex(value)
+    except CanonicalHashingError:
+        raise _invalid()
 
 
 def _req_str(value: Any) -> str:
@@ -77,10 +74,26 @@ class ReplayEnvironment:
         _req_str(self.environment_id); _req_str(self.python_version); _req_str(self.platform_id)
         _req_hash(self.dependency_lock_hash); _req_hash(self.backend_config_hash); _req_hash(self.numeric_profile_hash); _req_hash(self.environment_hash)
         if self.environment_hash != self.computed_stable_hash(): raise _invalid()
-    def to_dict(self) -> dict[str, Any]: return self.__class__.__dict__ and {"environment_id": self.environment_id,"python_version": self.python_version,"platform_id": self.platform_id,"dependency_lock_hash": self.dependency_lock_hash,"backend_config_hash": self.backend_config_hash,"numeric_profile_hash": self.numeric_profile_hash,"environment_hash": self.environment_hash}
-    def to_canonical_json(self) -> str: return _cjson(self.to_dict())
-    def to_canonical_bytes(self) -> bytes: return self.to_canonical_json().encode("utf-8")
-    def computed_stable_hash(self) -> str: return _sha(_environment_payload(self))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "environment_id": self.environment_id,
+            "python_version": self.python_version,
+            "platform_id": self.platform_id,
+            "dependency_lock_hash": self.dependency_lock_hash,
+            "backend_config_hash": self.backend_config_hash,
+            "numeric_profile_hash": self.numeric_profile_hash,
+            "environment_hash": self.environment_hash,
+        }
+
+    def to_canonical_json(self) -> str:
+        return _cjson(self.to_dict())
+
+    def to_canonical_bytes(self) -> bytes:
+        return self.to_canonical_json().encode("utf-8")
+
+    def computed_stable_hash(self) -> str:
+        return _sha(_environment_payload(self))
 
 
 def _environment_payload(v: ReplayEnvironment) -> dict[str, Any]:
@@ -88,15 +101,65 @@ def _environment_payload(v: ReplayEnvironment) -> dict[str, Any]:
 
 @dataclass(frozen=True)
 class ExtractionReplayEvidence:
-    evidence_id:str; environment_hash:str; raw_bytes_hash:str; extraction_config_hash:str; schema_hash:str; query_fields_hash:str; locale_hash:str; backend_config_hash:str; canonicalization_rules_hash:str; numeric_profile_hash:str; extraction_hash:str; canonical_hash:str; evidence_hash:str
-    def __post_init__(self)->None:
+    evidence_id: str
+    environment_hash: str
+    raw_bytes_hash: str
+    extraction_config_hash: str
+    schema_hash: str
+    query_fields_hash: str
+    locale_hash: str
+    backend_config_hash: str
+    canonicalization_rules_hash: str
+    numeric_profile_hash: str
+    extraction_hash: str
+    canonical_hash: str
+    evidence_hash: str
+
+    def __post_init__(self) -> None:
         _req_str(self.evidence_id)
-        for f in ("environment_hash","raw_bytes_hash","extraction_config_hash","schema_hash","query_fields_hash","locale_hash","backend_config_hash","canonicalization_rules_hash","numeric_profile_hash","extraction_hash","canonical_hash","evidence_hash"): _req_hash(getattr(self,f))
-        if self.evidence_hash!=self.computed_stable_hash(): raise _invalid()
-    def to_dict(self)->dict[str,Any]: return {k:getattr(self,k) for k in ("evidence_id","environment_hash","raw_bytes_hash","extraction_config_hash","schema_hash","query_fields_hash","locale_hash","backend_config_hash","canonicalization_rules_hash","numeric_profile_hash","extraction_hash","canonical_hash","evidence_hash")}
-    def to_canonical_json(self)->str:return _cjson(self.to_dict())
-    def to_canonical_bytes(self)->bytes:return self.to_canonical_json().encode("utf-8")
-    def computed_stable_hash(self)->str:return _sha(_extraction_evidence_payload(self))
+        for f in (
+            "environment_hash",
+            "raw_bytes_hash",
+            "extraction_config_hash",
+            "schema_hash",
+            "query_fields_hash",
+            "locale_hash",
+            "backend_config_hash",
+            "canonicalization_rules_hash",
+            "numeric_profile_hash",
+            "extraction_hash",
+            "canonical_hash",
+            "evidence_hash",
+        ):
+            _req_hash(getattr(self, f))
+        if self.evidence_hash != self.computed_stable_hash():
+            raise _invalid()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {k: getattr(self, k) for k in (
+            "evidence_id",
+            "environment_hash",
+            "raw_bytes_hash",
+            "extraction_config_hash",
+            "schema_hash",
+            "query_fields_hash",
+            "locale_hash",
+            "backend_config_hash",
+            "canonicalization_rules_hash",
+            "numeric_profile_hash",
+            "extraction_hash",
+            "canonical_hash",
+            "evidence_hash",
+        )}
+
+    def to_canonical_json(self) -> str:
+        return _cjson(self.to_dict())
+
+    def to_canonical_bytes(self) -> bytes:
+        return self.to_canonical_json().encode("utf-8")
+
+    def computed_stable_hash(self) -> str:
+        return _sha(_extraction_evidence_payload(self))
 
 def _extraction_evidence_payload(v:ExtractionReplayEvidence)->dict[str,Any]: d=v.to_dict().copy(); d.pop("evidence_hash"); return d
 
@@ -245,10 +308,10 @@ def run_extraction_replay_validation(baseline_evidence: ExtractionReplayEvidence
     if baseline_evidence.extraction_hash!=observed_evidence.extraction_hash: results.append(_mk_result("extraction_replay","BACKEND_INCONSISTENCY",baseline_evidence.extraction_hash,observed_evidence.extraction_hash,"BACKEND_OUTPUT_CHANGED","REJECT"))
     if baseline_evidence.canonical_hash!=observed_evidence.canonical_hash: results.append(_mk_result("extraction_replay","CANONICALIZATION_DRIFT",baseline_evidence.canonical_hash,observed_evidence.canonical_hash,"CANONICAL_HASH_CHANGED","REJECT"))
     if baseline_evidence.environment_hash!=observed_evidence.environment_hash and (baseline_evidence.extraction_hash!=observed_evidence.extraction_hash or baseline_evidence.canonical_hash!=observed_evidence.canonical_hash): results.append(_mk_result("extraction_replay","ENVIRONMENT_DIVERGENCE",baseline_evidence.environment_hash,observed_evidence.environment_hash,"ENVIRONMENT_HASH_CHANGED_WITH_OUTPUT_DRIFT","REJECT"))
-    order={"FLOATING_POINT_DRIFT":0,"BACKEND_INCONSISTENCY":1,"CANONICALIZATION_DRIFT":2,"ENVIRONMENT_DIVERGENCE":3}; tup=tuple(sorted(results,key=lambda r:(r.divergence_type,r.case_id,r.result_hash)))
-    status="EXTRACTION_REPLAY_DIVERGENCE_DETECTED" if tup else "EXTRACTION_REPLAY_VALIDATED"
-    rec=ExtractionReplayReceipt(SCHEMA_VERSION,baseline_evidence.evidence_hash,observed_evidence.evidence_hash,baseline_evidence.raw_bytes_hash,tup,len(tup),sum(1 for r in tup if r.severity=="REJECT"),sum(1 for r in tup if r.severity=="FLAG"),status,"")
-    return ExtractionReplayReceipt(*rec.to_dict().values()) if False else ExtractionReplayReceipt(rec.version,rec.baseline_evidence_hash,rec.observed_evidence_hash,rec.raw_bytes_hash,rec.results,rec.result_count,rec.reject_count,rec.flag_count,rec.status,rec.computed_stable_hash())
+    tup = tuple(sorted(results, key=lambda r: (r.divergence_type, r.case_id, r.result_hash)))
+    status = "EXTRACTION_REPLAY_DIVERGENCE_DETECTED" if tup else "EXTRACTION_REPLAY_VALIDATED"
+    rec = ExtractionReplayReceipt(SCHEMA_VERSION, baseline_evidence.evidence_hash, observed_evidence.evidence_hash, baseline_evidence.raw_bytes_hash, tup, len(tup), sum(1 for r in tup if r.severity == "REJECT"), sum(1 for r in tup if r.severity == "FLAG"), status, "")
+    return ExtractionReplayReceipt(rec.version, rec.baseline_evidence_hash, rec.observed_evidence_hash, rec.raw_bytes_hash, rec.results, rec.result_count, rec.reject_count, rec.flag_count, rec.status, rec.computed_stable_hash())
 
 
 def run_resonance_replay_validation(baseline_evidence: ResonanceReplayEvidence, observed_evidence: ResonanceReplayEvidence) -> ResonanceReplayReceipt:
@@ -261,7 +324,7 @@ def run_resonance_replay_validation(baseline_evidence: ResonanceReplayEvidence, 
     if baseline_evidence.rag_hash!=observed_evidence.rag_hash: results.append(_mk_result("resonance_replay","RAG_STATE_DRIFT",baseline_evidence.rag_hash,observed_evidence.rag_hash,"RAG_HASH_CHANGED","REJECT"))
     if baseline_evidence.aggregate_resonance_class!=observed_evidence.aggregate_resonance_class: results.append(_mk_result("resonance_replay","RESONANCE_CLASSIFICATION_DRIFT",_sha(baseline_evidence.aggregate_resonance_class),_sha(observed_evidence.aggregate_resonance_class),"RESONANCE_CLASS_CHANGED","REJECT"))
     if baseline_evidence.resonance_receipt_hash!=observed_evidence.resonance_receipt_hash: results.append(_mk_result("resonance_replay","RESONANCE_CLASSIFICATION_DRIFT",baseline_evidence.resonance_receipt_hash,observed_evidence.resonance_receipt_hash,"RESONANCE_RECEIPT_HASH_CHANGED","REJECT"))
-    order={"SEMANTIC_FIELD_DRIFT":0,"RES_STATE_DRIFT":1,"RAG_STATE_DRIFT":2,"RESONANCE_CLASSIFICATION_DRIFT":3}; tup=tuple(sorted(results,key=lambda r:(r.divergence_type,r.case_id,r.result_hash)))
+    tup=tuple(sorted(results,key=lambda r:(r.divergence_type,r.case_id,r.result_hash)))
     status="RESONANCE_REPLAY_DIVERGENCE_DETECTED" if tup else "RESONANCE_REPLAY_VALIDATED"
     rec=ResonanceReplayReceipt(SCHEMA_VERSION,baseline_evidence.evidence_hash,observed_evidence.evidence_hash,baseline_evidence.canonical_hash,tup,len(tup),sum(1 for r in tup if r.severity=="REJECT"),sum(1 for r in tup if r.severity=="FLAG"),status,"")
     return ResonanceReplayReceipt(rec.version,rec.baseline_evidence_hash,rec.observed_evidence_hash,rec.canonical_hash,rec.results,rec.result_count,rec.reject_count,rec.flag_count,rec.status,rec.computed_stable_hash())
@@ -280,9 +343,7 @@ def run_real_world_replay_proof(baseline_evidence: RealWorldReplayEvidence, obse
     if baseline_evidence.local_proof_hash!=observed_evidence.local_proof_hash: results.append(_mk_result("real_world_replay","PROOF_CHAIN_DRIFT",baseline_evidence.local_proof_hash,observed_evidence.local_proof_hash,"LOCAL_PROOF_HASH_CHANGED","REJECT"))
     if baseline_evidence.distributed_convergence_hash!=observed_evidence.distributed_convergence_hash: results.append(_mk_result("real_world_replay","PROOF_CHAIN_DRIFT",baseline_evidence.distributed_convergence_hash,observed_evidence.distributed_convergence_hash,"DISTRIBUTED_CONVERGENCE_HASH_CHANGED","REJECT"))
     if baseline_evidence.final_proof_hash!=observed_evidence.final_proof_hash: results.append(_mk_result("real_world_replay","FINAL_PROOF_DRIFT",baseline_evidence.final_proof_hash,observed_evidence.final_proof_hash,"FINAL_PROOF_HASH_CHANGED","REJECT"))
-    if extraction_replay_receipt.status=="EXTRACTION_REPLAY_DIVERGENCE_DETECTED": results.append(_mk_result("real_world_replay","CANONICALIZATION_DRIFT",baseline_evidence.canonical_hash,observed_evidence.canonical_hash,"CANONICAL_HASH_CHANGED","REJECT"))
-    if resonance_replay_receipt.status=="RESONANCE_REPLAY_DIVERGENCE_DETECTED": results.append(_mk_result("real_world_replay","RESONANCE_CLASSIFICATION_DRIFT",baseline_evidence.resonance_receipt_hash,observed_evidence.resonance_receipt_hash,"RESONANCE_RECEIPT_HASH_CHANGED","REJECT"))
-    order={"SEMANTIC_FIELD_DRIFT":0,"VALIDATION_DRIFT":1,"GOVERNANCE_DIVERGENCE":2,"PROOF_CHAIN_DRIFT":3,"FINAL_PROOF_DRIFT":4,"CANONICALIZATION_DRIFT":5,"RESONANCE_CLASSIFICATION_DRIFT":6}
+    if baseline_evidence.resonance_receipt_hash!=observed_evidence.resonance_receipt_hash: results.append(_mk_result("real_world_replay","RESONANCE_CLASSIFICATION_DRIFT",baseline_evidence.resonance_receipt_hash,observed_evidence.resonance_receipt_hash,"RESONANCE_RECEIPT_HASH_CHANGED","REJECT"))
     tup=tuple(sorted(results,key=lambda r:(r.divergence_type,r.case_id,r.result_hash)))
     status="REAL_WORLD_REPLAY_DIVERGENCE_DETECTED" if tup else "REAL_WORLD_REPLAY_VALIDATED"
     rec=RealWorldReplayProofReceipt(SCHEMA_VERSION,baseline_evidence.evidence_hash,observed_evidence.evidence_hash,baseline_evidence.canonical_hash,baseline_evidence.semantic_field_hash,extraction_replay_receipt.stable_hash,resonance_replay_receipt.stable_hash,tup,len(tup),sum(1 for r in tup if r.severity=="REJECT"),sum(1 for r in tup if r.severity=="FLAG"),status,"")

@@ -88,12 +88,15 @@ def test_local_chain_and_mapping_and_final_receipt() -> None:
 def test_mismatch_and_invalid_paths_and_determinism() -> None:
     ex, can, sf, rr, evr, gov = _build_receipts()
     local = build_local_real_world_proof(ex, can, sf, rr, evr, gov)
+    # Use two nodes with local.local_proof_hash so it becomes the reference (majority).
+    n0 = to_distributed_node_convergence_evidence(build_real_world_distributed_evidence("n0", "CONTROL", local))
     n1 = to_distributed_node_convergence_evidence(build_real_world_distributed_evidence("n1", "CONTROL", local))
     other_hash = sha256_hex({"x": "other"})
     from qec.analysis.distributed_convergence_proof import DistributedNodeConvergenceEvidence
     p = {"node_id": "n2", "node_role": "CONTROL", "convergence_hash": local.resonance_hash, "governance_hash": local.governance_hash, "adversarial_hash": local.validation_hash, "final_proof_hash": other_hash, "metadata": {"semantic_field_hash": local.semantic_field_hash, "distributed_evidence_hash": sha256_hex({"x": 1}), "source": "v151.6_real_world_proof_chain"}}
     n2 = DistributedNodeConvergenceEvidence(**p, evidence_hash=sha256_hex(p))
-    dcr = run_distributed_convergence_proof("scn2", (n1, n2))
+    dcr = run_distributed_convergence_proof("scn2", (n0, n1, n2))
+    assert dcr.reference_final_proof_hash == local.local_proof_hash
     out = run_real_world_proof_chain(ex, can, sf, rr, evr, gov, dcr)
     assert out.status == "DISTRIBUTED_CONVERGENCE_MISMATCH"
 
@@ -105,3 +108,39 @@ def test_mismatch_and_invalid_paths_and_determinism() -> None:
     with pytest.raises(dataclasses.FrozenInstanceError):
         out.status = "X"  # type: ignore[misc]
     json.dumps(out.to_dict())
+
+
+def test_mismatch_receipt_from_unrelated_proof_is_rejected() -> None:
+    ex, can, sf, rr, evr, gov = _build_receipts()
+    local = build_local_real_world_proof(ex, can, sf, rr, evr, gov)
+    # Build a distributed convergence receipt for a completely different proof hash.
+    unrelated_hash = sha256_hex({"proof": "unrelated"})
+    from qec.analysis.distributed_convergence_proof import DistributedNodeConvergenceEvidence
+    p = {"node_id": "n1", "node_role": "CONTROL", "convergence_hash": local.resonance_hash, "governance_hash": local.governance_hash, "adversarial_hash": local.validation_hash, "final_proof_hash": unrelated_hash, "metadata": {}}
+    n_unrelated = DistributedNodeConvergenceEvidence(**p, evidence_hash=sha256_hex(p))
+    dcr_unrelated = run_distributed_convergence_proof("scn_unrelated", (n_unrelated,), expected_final_proof_hash=unrelated_hash)
+    # That receipt is VALIDATED but references the wrong local proof — must be rejected.
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        run_real_world_proof_chain(ex, can, sf, rr, evr, gov, dcr_unrelated)
+
+
+def test_node_id_role_whitespace_and_bool_rejected() -> None:
+    ex, can, sf, rr, evr, gov = _build_receipts()
+    local = build_local_real_world_proof(ex, can, sf, rr, evr, gov)
+    for bad in (" n1", "n1 ", " ", True, False):
+        with pytest.raises((ValueError, TypeError)):
+            build_real_world_distributed_evidence(bad, "CONTROL", local)  # type: ignore[arg-type]
+        with pytest.raises((ValueError, TypeError)):
+            build_real_world_distributed_evidence("n1", bad, local)  # type: ignore[arg-type]
+
+
+def test_proof_receipt_rejects_non_link_elements() -> None:
+    ex, can, sf, rr, evr, gov = _build_receipts()
+    local = build_local_real_world_proof(ex, can, sf, rr, evr, gov)
+    n1 = to_distributed_node_convergence_evidence(build_real_world_distributed_evidence("n1", "CONTROL", local))
+    dcr = run_distributed_convergence_proof("scn", (n1,), expected_final_proof_hash=local.local_proof_hash)
+    good = run_real_world_proof_chain(ex, can, sf, rr, evr, gov, dcr)
+    # Replace one proof link with a plain dict — must raise INVALID_INPUT, not AttributeError.
+    bad_links = good.proof_links[:6] + ({"link_name": "DISTRIBUTED_CONVERGENCE"},)  # type: ignore[assignment]
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        dataclasses.replace(good, proof_links=bad_links)

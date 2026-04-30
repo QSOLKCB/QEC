@@ -7,11 +7,24 @@ collection instability.
 
 import random
 import os
+import warnings
 import numpy as np
 import pytest
 
 from qec.testing.experiment_harness import DeterministicExperimentHarness
 from qec.dev.test_selection import select_tests_for_changed_files
+
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    module="PIL",
+)
+
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    module="cffi",
+)
 
 
 def pytest_configure(config):

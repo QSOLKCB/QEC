@@ -21,6 +21,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.optional
+
 from qec.verification.release_integrity import (
     ASSET_NAME,
     BINARY_NAME,

@@ -7,6 +7,8 @@ import numpy as np
 import sys
 import os
 
+pytestmark = pytest.mark.optional
+
 pytest.importorskip("qutip")
 
 # Add src to path

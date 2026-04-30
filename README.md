@@ -413,6 +413,26 @@ deterministic reasoning with proof
 
 ---
 
+## 🧪 Optional Test Dependencies
+
+Some tests are environment-dependent and are marked `@pytest.mark.optional`.
+
+Optional test dependencies:
+
+* qldpc
+* gh CLI
+* qec-tui binary
+* qiskit (for alternate path testing)
+
+For reproducible local runs:
+
+```bash
+pytest -q
+PYTHONPATH=src pytest -q
+```
+
+---
+
 ## 📚 Attribution
 
 Marc Brendecke

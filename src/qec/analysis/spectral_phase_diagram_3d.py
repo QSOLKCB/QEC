@@ -119,9 +119,17 @@ def generate_phase_surface_3d(
     all_y = trajectory[:, 1] if (trajectory.shape[0] > 0 and Z.size == 0) else (np.concatenate((Y.reshape(-1), trajectory[:, 1])) if trajectory.shape[0] > 0 and Z.size > 0 else Y.reshape(-1))
     all_z = trajectory[:, 2] if (trajectory.shape[0] > 0 and Z.size == 0) else (np.concatenate((Z.reshape(-1), trajectory[:, 2])) if trajectory.shape[0] > 0 and Z.size > 0 else Z.reshape(-1))
     if all_x.size > 0:
-        ax.set_xlim(float(np.min(all_x)), float(np.max(all_x)))
-        ax.set_ylim(float(np.min(all_y)), float(np.max(all_y)))
-        ax.set_zlim(float(np.min(all_z)), float(np.max(all_z)))
+        def _axis_limits(values: np.ndarray) -> tuple[float, float]:
+            lo = float(np.min(values))
+            hi = float(np.max(values))
+            if lo == hi:
+                pad = 1.0 if lo == 0.0 else abs(lo) * 0.01
+                return lo - pad, hi + pad
+            return lo, hi
+
+        ax.set_xlim(*_axis_limits(all_x))
+        ax.set_ylim(*_axis_limits(all_y))
+        ax.set_zlim(*_axis_limits(all_z))
 
     ax.view_init(elev=30.0, azim=135.0)
     ax.set_xlabel("Spectral Radius")

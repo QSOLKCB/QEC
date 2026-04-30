@@ -9,6 +9,8 @@ import subprocess
 import tempfile
 import pytest
 
+pytestmark = pytest.mark.optional
+
 if shutil.which("gh") is None:
     pytest.skip(
         "gh CLI not installed; skipping mirror repo tests",

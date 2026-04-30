@@ -2,7 +2,7 @@
 
 # 🚀 QSOLKCB / QEC — ROADMAP.md
 
-## Deterministic Reasoning • Canonical Identity • Semantic Lattices • RES/RAG Resonance • Distributed Proof
+## Deterministic Reasoning • Canonical Identity • Semantic Lattices • RES/RAG Resonance • Reversible Layers • Distributed Proof
 
 ---
 
@@ -14,6 +14,7 @@
 * Every proof artifact must preserve canonical identity.
 * Every roadmap phase must remain compatible with the core law.
 * Every future phase must reduce ambiguity, not introduce it.
+* Every symbolic extension must compile into deterministic artifacts.
 
 ---
 
@@ -47,6 +48,8 @@ Forbidden:
 * unbounded outputs
 * non-canonical identity
 * proof artifacts without recomputable hashes
+* symbolic meaning without receipts
+* layered augmentation that mutates base identity
 
 Required:
 
@@ -60,6 +63,8 @@ Required:
 * self-hash exclusion
 * recomputed hash validation
 * exact failure semantics
+* lineage preservation
+* reversible-layer proofs where layers are removable
 
 Core invariant:
 
@@ -67,11 +72,17 @@ Core invariant:
 recomputed_hash == stored_hash
 ```
 
+Layer invariant:
+
+```text
+base_hash remains authoritative
+```
+
 ---
 
 # 🧊 Visual Architecture Model — The Lattice Cube
 
-The current QEC roadmap is now organized around the **deterministic lattice cube** model.
+The current QEC roadmap is organized around the **deterministic lattice cube** model.
 
 ```text
 outer cube
@@ -79,6 +90,9 @@ outer cube
 
 atomic lattice
 → canonical identity space
+
+semantic lattice
+→ RES/RAG structured meaning
 
 Sierpinski arrays
 → multi-scale invariants
@@ -88,6 +102,9 @@ digital decay signature
 
 energy matrix
 → perturbation and validation field
+
+removable coherence lattice
+→ reversible layered augmentation
 ```
 
 ---
@@ -211,7 +228,42 @@ QEC uses perturbation to prove stability.
 
 ---
 
-# 🧠 System State — v151.1+
+## 🌀 Removable Coherence Lattice — Reversible Augmentation
+
+The removable lattice represents:
+
+```text
+optional structure
+→ layered invariants
+→ reversible augmentation
+→ base identity preserved
+```
+
+This is the QEC-safe form of the QSOL principle:
+
+```text
+The source is never replaced.
+The lattice only serves the source.
+```
+
+In QEC terms:
+
+```text
+BaseState
+→ LayerSpec
+→ LayeredState
+→ LayeredReceipt
+→ RemovalProof
+→ BaseState unchanged
+```
+
+The layer may extend, constrain, or project the base state.
+
+It must never overwrite it.
+
+---
+
+# 🧠 System State — v151.2+
 
 QEC is now a:
 
@@ -222,7 +274,7 @@ deterministic multi-agent reasoning
 + distributed convergence proof
 + real-world ingestion boundary
 + canonical identity engine
-+ semantic field construction system
++ RES/RAG semantic field construction system
 ```
 
 v150 established:
@@ -244,6 +296,15 @@ untrusted real-world input
 → semantic lattice
 → resonance validation
 → proof
+```
+
+v152 will establish:
+
+```text
+base identity
+→ reversible coherence lattice
+→ optional deterministic extension
+→ removal without identity loss
 ```
 
 ---
@@ -628,12 +689,12 @@ CanonicalizationReceipt
 
 ---
 
-# 🧠 v151.2 — RES/RAG Semantic Field Construction
+# ✅ v151.2 — RES/RAG Semantic Field Construction
 
 ## Status
 
 ```text
-CURRENT FRONTIER
+COMPLETE
 ```
 
 ---
@@ -669,6 +730,8 @@ RES = grounded canonical reality
 RAG = reflexive generated interpretation
 ```
 
+---
+
 ## Semantic Lattice
 
 ```text
@@ -680,47 +743,16 @@ no implicit edges — all relationships must be explicitly represented and hash-
 
 ---
 
-## Tasks
-
-Introduce:
+## Implemented Artifacts
 
 ```text
 EvidenceField
 SourceConstraint
 GeneratedClaim
 GovernanceContext
-```
-
-Introduce:
-
-```text
 RESState
-→ canonical_document_hash
-→ grounded_field_hash
-→ evidence_fields
-→ source_constraints
-→ res_hash
-```
-
-Introduce:
-
-```text
 RAGState
-→ canonical_document_hash
-→ interpretation_hash
-→ generated_claims
-→ governance_context_hash
-→ rag_hash
-```
-
-Introduce:
-
-```text
 SemanticFieldReceipt
-→ canonical_hash
-→ res_hash
-→ rag_hash
-→ semantic_field_hash
 ```
 
 ---
@@ -739,28 +771,12 @@ same canonical document
 → same RAG state
 ```
 
-```text
-same RES + same RAG
-→ same resonance classification
-```
-
 If generative output is supplied externally:
 
 ```text
 treat it as untrusted input
 → hash-bind it
 → do not trust it
-```
-
----
-
-## Semantic Lattice Rule
-
-```text
-nodes = canonical fields
-edges = constraints
-substructures = semantic clusters
-fractal repetition = recursive invariants
 ```
 
 ---
@@ -789,7 +805,7 @@ SemanticFieldReceipt
 ## Status
 
 ```text
-NEXT
+CURRENT FRONTIER
 ```
 
 ---
@@ -818,6 +834,13 @@ RES = RAG
 
 RES ≠ RAG
 → semantic divergence detected
+```
+
+Determinism invariant:
+
+```text
+same RES + same RAG
+→ same resonance classification
 ```
 
 ---
@@ -1200,51 +1223,235 @@ RealWorldReplayProofReceipt
 
 ---
 
-# 🧬 Phase: v152.x — Proof Compression & Equivalence
+# 🧬 Phase: v152.x — Reversible Coherence Lattice + Proof Compression
 
-## Fractal Mapping
+## Reversible Layer Mapping
 
 ```text
-Sierpinski array
-→ invariant-preserving compression
+base identity
+→ removable coherence lattice
+→ optional deterministic augmentation
+→ removal proof
+→ base identity unchanged
+```
+
+---
+
+## Core QSOL Principle
+
+```text
+The source is never replaced.
+The lattice only serves the source.
+```
+
+---
+
+## QEC Translation
+
+```text
+BaseState is authoritative.
+All layers are derived.
+All derivations are provable.
+All layers are removable.
 ```
 
 ---
 
 ## Goal
 
-Compress reasoning without losing proof identity or semantic equivalence.
+Introduce reversible layered-state mechanics while preserving proof identity and semantic equivalence.
+
+This phase formalizes optional augmentation layers as deterministic artifacts.
+
+It does not treat layers as inherent truth.
+
+It treats layers as:
+
+```text
+derived
+hash-bound
+replay-safe
+removable
+validation-dependent
+```
 
 ---
 
-## Enabled By
+## Sub-Arc
+
+```text
+v152.0 → LayerSpec Contract
+v152.1 → LayeredState Receipt
+v152.2 → Layer Removal Proof
+v152.3 → Layered Compression Equivalence
+v152.4 → Fractal Invariant Compression
+```
+
+---
+
+## v152.0 — LayerSpec Contract
+
+### Goal
+
+Define deterministic specifications for optional coherence layers.
+
+### Artifacts
+
+```text
+LayerSpec
+LayerInvariantSet
+LayerSpecReceipt
+```
+
+### Rules
+
+```text
+same layer specification
+→ same layer_spec_hash
+```
+
+Layer specs must define:
+
+```text
+layer_id
+layer_version
+invariant_set
+activation_rules
+removal_rules
+compatibility_constraints
+```
+
+---
+
+## v152.1 — LayeredState Receipt
+
+### Goal
+
+Apply a deterministic layer over a base identity without mutating the base.
+
+### Artifacts
+
+```text
+BaseStateReference
+LayeredState
+LayeredReceipt
+```
+
+### Core Rule
+
+```text
+base_hash
++ layer_spec_hash
++ layer_payload_hash
+→ layered_hash
+```
+
+But:
+
+```text
+base_hash remains unchanged
+```
+
+---
+
+## v152.2 — Layer Removal Proof
+
+### Goal
+
+Prove a layer can be detached while preserving the original base identity.
+
+### Artifacts
+
+```text
+LayerRemovalReceipt
+ReturnPathProof
+BoundaryIntegrityReceipt
+```
+
+### Core Rule
+
+```text
+remove(layered_state)
+→ base_hash unchanged
+```
+
+No layer may be accepted unless its return path is provable.
+
+---
+
+## v152.3 — Layered Compression Equivalence
+
+### Goal
+
+Compress layered proofs without losing base/layer distinction.
+
+### Artifacts
+
+```text
+LayeredCompressionReceipt
+LayerEquivalenceReceipt
+CompressedLayeredProof
+```
+
+---
+
+## v152.4 — Fractal Invariant Compression
+
+### Fractal Mapping
+
+```text
+Sierpinski array
+→ invariant-preserving compression
+```
+
+### Goal
+
+Compress reasoning without losing proof identity or semantic equivalence.
+
+### Enabled By
 
 ```text
 v150 canonical identity
 + v151 real-world ingestion
 + RES/RAG semantic resonance
++ v152 reversible layering
 ```
 
----
-
-## Tasks
+### Tasks
 
 * compress canonical documents
 * compress semantic fields
+* compress layered states
 * compress governance traces
 * prove compressed and uncompressed artifacts are equivalent
 * preserve lineage hashes
 * detect lossy semantic compression
 
----
-
-## Artifacts
+### Artifacts
 
 ```text
 SemanticCompressionReceipt
 ProofEquivalenceReceipt
 CompressedRealWorldProof
 FractalInvariantReceipt
+```
+
+---
+
+## Guardrail
+
+```text
+Enhancement is not assumed.
+Enhancement must be validated.
+```
+
+Layered augmentation is invalid unless it preserves:
+
+```text
+base identity
+lineage
+reversibility
+hash stability
 ```
 
 ---
@@ -1286,6 +1493,7 @@ Formalize semantic field graphs as bounded deterministic lattices.
 * prove graph reconstruction stability
 * detect lattice drift
 * map canonical documents into field graphs
+* bind layered-state projections into lattice topology
 
 ---
 
@@ -1296,6 +1504,7 @@ SemanticLatticeGraph
 LatticeStateReceipt
 ConstraintEdgeReceipt
 TopologyStabilityReceipt
+LayeredLatticeProjectionReceipt
 ```
 
 ---
@@ -1334,6 +1543,7 @@ Prove that local invariants propagate through larger proof structures.
 * prove invariant preservation across scale
 * compress repeated substructures
 * reject scale-breaking drift
+* prove layered invariants remain reversible across scale
 
 ---
 
@@ -1344,6 +1554,7 @@ FractalInvariantCase
 MultiScaleInvariantReceipt
 SierpinskiCompressionReceipt
 ScalePreservationProof
+LayeredScaleEquivalenceReceipt
 ```
 
 ---
@@ -1373,7 +1584,7 @@ adversarial erosion
 
 ## Goal
 
-Detect and quantify deterministic decay in proof artifacts and semantic fields.
+Detect and quantify deterministic decay in proof artifacts, semantic fields, and layered states.
 
 ---
 
@@ -1384,6 +1595,7 @@ Detect and quantify deterministic decay in proof artifacts and semantic fields.
 * detect field corruption
 * classify drift severity
 * reject artifacts with invalid lineage
+* detect layer-induced decay
 * prove decay resistance
 
 ---
@@ -1395,6 +1607,7 @@ DigitalDecaySignature
 EntropyDriftReceipt
 SemanticCorruptionReceipt
 DecayResistanceProof
+LayerDecayReceipt
 ```
 
 ---
@@ -1418,13 +1631,22 @@ controlled perturbation
 stress fields
 validation pressure
 semantic activation
+layer tuning
 ```
+
+This roadmap treats “energy” as:
+
+```text
+a deterministic perturbation model
+```
+
+not as an unvalidated physical energy claim.
 
 ---
 
 ## Goal
 
-Stress-test semantic lattices under deterministic perturbation.
+Stress-test semantic lattices and reversible layers under deterministic perturbation.
 
 ---
 
@@ -1434,7 +1656,8 @@ Stress-test semantic lattices under deterministic perturbation.
 * inject bounded semantic stress
 * classify resonance stability under perturbation
 * validate proof invariance under controlled distortion
-* reject unstable semantic fields
+* test layer activation / removal under stress
+* reject unstable semantic fields or irreversible layers
 
 ---
 
@@ -1445,6 +1668,7 @@ PerturbationContract
 EnergyMatrixReceipt
 SemanticStressReceipt
 PerturbationStabilityProof
+LayerActivationStabilityReceipt
 ```
 
 ---
@@ -1490,6 +1714,7 @@ Model deterministic proof systems under substrate constraints.
 * define physical encoding receipts
 * bind computation identity to substrate identity
 * detect substrate drift
+* prove layered-state compatibility with substrate constraints
 
 ---
 
@@ -1500,6 +1725,7 @@ SubstrateContract
 SubstrateStateReceipt
 MaterialEncodingReceipt
 SubstrateDriftReceipt
+LayerSubstrateCompatibilityReceipt
 ```
 
 ---
@@ -1524,6 +1750,7 @@ self-reference
 feedback
 recursive proof loops
 autocatalytic reasoning
+return paths
 ```
 
 ---
@@ -1541,6 +1768,8 @@ Prove recursive reasoning loops terminate, stabilize, or fail explicitly.
 * classify productive vs invalid recursion
 * prove loop convergence
 * reject non-terminating proof loops
+* prove layer removal return paths
+* detect false-center drift
 
 ---
 
@@ -1551,6 +1780,8 @@ RecursiveProofReceipt
 OuroboricConvergenceReceipt
 CircularEvidenceReceipt
 LoopTerminationProof
+ReturnPathIntegrityReceipt
+FalseCenterDriftReceipt
 ```
 
 ---
@@ -1559,7 +1790,7 @@ LoopTerminationProof
 
 ## Goal
 
-Unify the lattice / fractal / decay / recursion arcs into a deterministic reality-loop proof system.
+Unify the boundary / lattice / resonance / layer / fractal / decay / recursion arcs into a deterministic reality-loop proof system.
 
 ---
 
@@ -1569,6 +1800,8 @@ Unify the lattice / fractal / decay / recursion arcs into a deterministic realit
 boundary cube
 → canonical lattice
 → semantic field
+→ resonance validation
+→ reversible layer
 → fractal invariant
 → decay detection
 → perturbation matrix
@@ -1593,6 +1826,8 @@ RealityLoopProofReceipt
 same boundary
 → same lattice
 → same semantic field
+→ same resonance
+→ same layer state
 → same invariant scale
 → same decay signature
 → same perturbation response
@@ -1620,6 +1855,7 @@ nodes
 semantic fields
 proof artifacts
 lattices
+layers
 fractals
 decay signatures
 perturbation fields
@@ -1646,7 +1882,7 @@ v146 → proof-carrying execution
 v148 → governance + validation
 v150 → multi-agent convergence
 v151 → real-world ingestion + RES/RAG semantic field
-v152 → proof compression + fractal equivalence
+v152 → reversible coherence lattice + proof compression
 v153 → atomic semantic lattice
 v154 → multi-scale invariance
 v155 → digital decay / entropy signatures
@@ -1670,6 +1906,7 @@ deterministic reasoning system
 → real-world validation system
 → semantic lattice engine
 → resonance validation system
+→ reversible layered-state system
 → recursive reality-proof system
 → global deterministic truth engine
 ```
@@ -1687,6 +1924,7 @@ across agents,
 across nodes,
 across semantic fields,
 across lattices,
+across reversible layers,
 across fractal scales,
 across decay signatures,
 across recursive loops,
@@ -1710,3 +1948,13 @@ deterministic replay test
 ```
 
 If it cannot produce those, it is not yet QEC.
+
+Layered-state reminder:
+
+```text
+A layer may extend.
+A layer may constrain.
+A layer may project.
+
+A layer may not replace the source.
+```

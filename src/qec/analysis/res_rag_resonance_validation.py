@@ -124,7 +124,7 @@ class ResonanceCase:
         return self.to_canonical_json().encode("utf-8")
 
     def computed_stable_hash(self) -> str:
-        return _sha({k: v for k, v in self.to_dict().items() if k != "case_hash"})
+        return _sha(_case_payload(case_id=self.case_id, case_type=self.case_type, field_name=self.field_name, claim_id=self.claim_id, claim_hash=self.claim_hash, evidence_value_hash=self.evidence_value_hash))
 
 
 @dataclass(frozen=True)
@@ -165,7 +165,7 @@ class ResonanceResult:
         return self.to_canonical_json().encode("utf-8")
 
     def computed_stable_hash(self) -> str:
-        return _sha({k: v for k, v in self.to_dict().items() if k != "result_hash"})
+        return _sha(_result_payload(case_id=self.case_id, field_name=self.field_name, resonance_class=self.resonance_class, reason=self.reason, case_hash=self.case_hash))
 
 
 @dataclass(frozen=True)
@@ -237,7 +237,7 @@ class ResonanceValidationReceipt:
         return self.to_canonical_json().encode("utf-8")
 
     def computed_stable_hash(self) -> str:
-        return _sha({k: v for k, v in self.to_dict().items() if k != "stable_hash"})
+        return _sha(_receipt_payload(version=self.version, semantic_field_hash=self.semantic_field_hash, canonical_hash=self.canonical_hash, res_hash=self.res_hash, rag_hash=self.rag_hash, aggregate_resonance_class=self.aggregate_resonance_class, status=self.status, results=tuple(r.to_dict() for r in self.results), result_count=self.result_count, identical_count=self.identical_count, aligned_count=self.aligned_count, partial_count=self.partial_count, divergent_count=self.divergent_count, contradictory_count=self.contradictory_count, unsupported_count=self.unsupported_count))
 
 
 def _aggregate(results: tuple[ResonanceResult, ...]) -> str:
@@ -263,6 +263,26 @@ def _status_for(aggregate: str) -> str:
 
 
 
+def _evidence_payload(*, field_name: str, canonical_value: Any) -> dict[str, Any]:
+    return {"field_name": field_name, "canonical_value": canonical_value}
+
+
+def _source_constraint_payload(*, constraint_type: str, constraint_value: str) -> dict[str, Any]:
+    return {"constraint_type": constraint_type, "constraint_value": constraint_value}
+
+
+def _interpretation_payload(*, generated_claims: tuple[dict[str, Any], ...], governance_context_hash: str) -> dict[str, Any]:
+    return {"generated_claims": generated_claims, "governance_context_hash": governance_context_hash}
+
+
+def _res_payload(*, version: str, canonical_document_hash: str, grounded_field_hash: str, evidence_fields: tuple[dict[str, Any], ...], source_constraints: tuple[dict[str, Any], ...]) -> dict[str, Any]:
+    return {"version": version, "canonical_document_hash": canonical_document_hash, "grounded_field_hash": grounded_field_hash, "evidence_fields": evidence_fields, "source_constraints": source_constraints}
+
+
+def _rag_payload(*, version: str, canonical_document_hash: str, interpretation_hash: str, generated_claims: tuple[dict[str, Any], ...], governance_context_hash: str) -> dict[str, Any]:
+    return {"version": version, "canonical_document_hash": canonical_document_hash, "interpretation_hash": interpretation_hash, "generated_claims": generated_claims, "governance_context_hash": governance_context_hash}
+
+
 def _semantic_field_lineage_hash(canonical_hash: str, res_hash: str, rag_hash: str) -> str:
     return _sha({"canonical_hash": canonical_hash, "res_hash": res_hash, "rag_hash": rag_hash})
 
@@ -285,6 +305,28 @@ def _result_payload(*, case_id: str, field_name: str, resonance_class: str, reas
         "resonance_class": resonance_class,
         "reason": reason,
         "case_hash": case_hash,
+    }
+
+
+
+
+def _receipt_payload(*, version: str, semantic_field_hash: str, canonical_hash: str, res_hash: str, rag_hash: str, aggregate_resonance_class: str, status: str, results: tuple[dict[str, Any], ...], result_count: int, identical_count: int, aligned_count: int, partial_count: int, divergent_count: int, contradictory_count: int, unsupported_count: int) -> dict[str, Any]:
+    return {
+        "version": version,
+        "semantic_field_hash": semantic_field_hash,
+        "canonical_hash": canonical_hash,
+        "res_hash": res_hash,
+        "rag_hash": rag_hash,
+        "aggregate_resonance_class": aggregate_resonance_class,
+        "status": status,
+        "results": results,
+        "result_count": result_count,
+        "identical_count": identical_count,
+        "aligned_count": aligned_count,
+        "partial_count": partial_count,
+        "divergent_count": divergent_count,
+        "contradictory_count": contradictory_count,
+        "unsupported_count": unsupported_count,
     }
 
 
@@ -356,6 +398,10 @@ def run_res_rag_resonance_validation(semantic_field_receipt: SemanticFieldReceip
                 ev = evidence.canonical_value
                 if _canon(cv) == _canon(ev):
                     rc, reason = "IDENTICAL", "FIELD_VALUE_IDENTICAL"
+                # Arrays are not subset-compared in v151.3.x.
+                # Exact equality only to preserve determinism.
+                elif isinstance(cv, (list, tuple)) or isinstance(ev, (list, tuple)):
+                    rc, reason = "DIVERGENT", "FIELD_SUBSET_DIVERGENT"
                 elif _is_subset(cv, ev):
                     rc, reason = "PARTIAL", "FIELD_SUBSET_PARTIAL"
                 else:
@@ -392,23 +438,23 @@ def run_res_rag_resonance_validation(semantic_field_receipt: SemanticFieldReceip
         divergent_count=counts["DIVERGENT"],
         contradictory_count=counts["CONTRADICTORY"],
         unsupported_count=counts["UNSUPPORTED"],
-        stable_hash=_sha({
-            "version": _VERSION,
-            "semantic_field_hash": semantic_field_receipt.semantic_field_hash,
-            "canonical_hash": semantic_field_receipt.canonical_hash,
-            "res_hash": res_state.res_hash,
-            "rag_hash": rag_state.rag_hash,
-            "aggregate_resonance_class": aggregate,
-            "status": status,
-            "results": tuple(r.to_dict() for r in sorted_results),
-            "result_count": len(sorted_results),
-            "identical_count": counts["IDENTICAL"],
-            "aligned_count": counts["ALIGNED"],
-            "partial_count": counts["PARTIAL"],
-            "divergent_count": counts["DIVERGENT"],
-            "contradictory_count": counts["CONTRADICTORY"],
-            "unsupported_count": counts["UNSUPPORTED"],
-        }),
+        stable_hash=_sha(_receipt_payload(
+            version=_VERSION,
+            semantic_field_hash=semantic_field_receipt.semantic_field_hash,
+            canonical_hash=semantic_field_receipt.canonical_hash,
+            res_hash=res_state.res_hash,
+            rag_hash=rag_state.rag_hash,
+            aggregate_resonance_class=aggregate,
+            status=status,
+            results=tuple(r.to_dict() for r in sorted_results),
+            result_count=len(sorted_results),
+            identical_count=counts["IDENTICAL"],
+            aligned_count=counts["ALIGNED"],
+            partial_count=counts["PARTIAL"],
+            divergent_count=counts["DIVERGENT"],
+            contradictory_count=counts["CONTRADICTORY"],
+            unsupported_count=counts["UNSUPPORTED"],
+        )),
     )
     if receipt.computed_stable_hash() != receipt.stable_hash:
         raise _invalid()

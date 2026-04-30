@@ -129,7 +129,7 @@ def assert_no_cffi_imports(module_name: str) -> None:
     module_name : str
         Fully qualified module name (e.g., ``"qec.analysis.attractor_analysis"``).
     """
-    # Remove the module and its parents/children to ensure fresh import
+    # Remove the module and its submodules to ensure fresh import
     to_remove = [k for k in sys.modules if k == module_name or k.startswith(module_name + ".")]
     for k in to_remove:
         del sys.modules[k]

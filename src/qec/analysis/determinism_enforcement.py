@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any
 
 from qec.analysis.canonical_hashing import CanonicalHashingError, canonical_json, canonicalize_json, sha256_hex
@@ -12,26 +13,28 @@ _EXTRACTION_ORDER = (
     "BACKEND_CONFIG_DRIFT", "CANONICALIZATION_RULE_DRIFT", "BACKEND_INCONSISTENCY", "CANONICAL_OUTPUT_DRIFT",
 )
 _RESRAG_ORDER = (
-    "RES_RAG_MAPPING_DRIFT", "RESONANCE_CLASSIFIER_DRIFT", "TOLERANCE_DRIFT", "SEMANTIC_FIELD_DRIFT",
-    "RES_STATE_DRIFT", "RAG_STATE_DRIFT", "RESONANCE_OUTPUT_DRIFT",
+    "RES_RAG_MAPPING_DRIFT", "RESONANCE_CLASSIFIER_DRIFT", "GOVERNANCE_CONTEXT_DRIFT", "TOLERANCE_DRIFT",
+    "SEMANTIC_FIELD_DRIFT", "RES_STATE_DRIFT", "RAG_STATE_DRIFT", "RESONANCE_OUTPUT_DRIFT",
 )
 _ALLOWED_DRIFT = set(_EXTRACTION_ORDER) | set(_RESRAG_ORDER)
-_ALLOWED_REASONS = {
-    "CONFIG_HASH_CHANGED", "SCHEMA_HASH_CHANGED", "LOCALE_HASH_CHANGED", "QUERY_FIELDS_CHANGED", "EXTRACTED_FIELDS_CHANGED",
-    "PARTIAL_EXTRACTION_DETECTED", "BACKEND_CONFIG_CHANGED", "EXTRACTION_HASH_CHANGED_UNDER_SAME_CONFIG",
-    "CANONICALIZATION_RULES_CHANGED", "CANONICAL_HASH_CHANGED_UNDER_SAME_RULES", "RES_RAG_MAPPING_CHANGED",
-    "RESONANCE_CLASSIFIER_CHANGED", "TOLERANCE_HASH_CHANGED", "SEMANTIC_FIELD_HASH_CHANGED", "RES_HASH_CHANGED",
-    "RAG_HASH_CHANGED", "RESONANCE_RECEIPT_HASH_CHANGED",
-}
 _REASON_BY_DRIFT = {
     "CONFIG_DRIFT": "CONFIG_HASH_CHANGED", "SCHEMA_DRIFT": "SCHEMA_HASH_CHANGED", "LOCALE_DRIFT": "LOCALE_HASH_CHANGED",
     "FIELD_DRIFT": {"query": "QUERY_FIELDS_CHANGED", "extracted": "EXTRACTED_FIELDS_CHANGED"},
     "PARTIAL_EXTRACTION": "PARTIAL_EXTRACTION_DETECTED", "BACKEND_CONFIG_DRIFT": "BACKEND_CONFIG_CHANGED",
     "BACKEND_INCONSISTENCY": "EXTRACTION_HASH_CHANGED_UNDER_SAME_CONFIG", "CANONICALIZATION_RULE_DRIFT": "CANONICALIZATION_RULES_CHANGED",
     "CANONICAL_OUTPUT_DRIFT": "CANONICAL_HASH_CHANGED_UNDER_SAME_RULES", "RES_RAG_MAPPING_DRIFT": "RES_RAG_MAPPING_CHANGED",
-    "RESONANCE_CLASSIFIER_DRIFT": "RESONANCE_CLASSIFIER_CHANGED", "TOLERANCE_DRIFT": "TOLERANCE_HASH_CHANGED",
-    "SEMANTIC_FIELD_DRIFT": "SEMANTIC_FIELD_HASH_CHANGED", "RES_STATE_DRIFT": "RES_HASH_CHANGED",
-    "RAG_STATE_DRIFT": "RAG_HASH_CHANGED", "RESONANCE_OUTPUT_DRIFT": "RESONANCE_RECEIPT_HASH_CHANGED",
+    "RESONANCE_CLASSIFIER_DRIFT": "RESONANCE_CLASSIFIER_CHANGED", "GOVERNANCE_CONTEXT_DRIFT": "GOVERNANCE_CONTEXT_CHANGED",
+    "TOLERANCE_DRIFT": "TOLERANCE_HASH_CHANGED", "SEMANTIC_FIELD_DRIFT": "SEMANTIC_FIELD_HASH_CHANGED",
+    "RES_STATE_DRIFT": "RES_HASH_CHANGED", "RAG_STATE_DRIFT": "RAG_HASH_CHANGED",
+    "RESONANCE_OUTPUT_DRIFT": "RESONANCE_RECEIPT_HASH_CHANGED",
+}
+_SEVERITY_BY_DRIFT = {
+    "CONFIG_DRIFT": "REJECT", "SCHEMA_DRIFT": "REJECT", "LOCALE_DRIFT": "REJECT",
+    "FIELD_DRIFT": "REJECT", "PARTIAL_EXTRACTION": "REJECT", "BACKEND_CONFIG_DRIFT": "REJECT",
+    "CANONICALIZATION_RULE_DRIFT": "REJECT", "BACKEND_INCONSISTENCY": "REJECT", "CANONICAL_OUTPUT_DRIFT": "REJECT",
+    "RES_RAG_MAPPING_DRIFT": "REJECT", "RESONANCE_CLASSIFIER_DRIFT": "REJECT", "GOVERNANCE_CONTEXT_DRIFT": "REJECT",
+    "TOLERANCE_DRIFT": "FLAG", "SEMANTIC_FIELD_DRIFT": "REJECT", "RES_STATE_DRIFT": "REJECT",
+    "RAG_STATE_DRIFT": "REJECT", "RESONANCE_OUTPUT_DRIFT": "REJECT",
 }
 
 
@@ -53,8 +56,13 @@ def _json_safe(value: Any) -> Any:
     if isinstance(v, dict):
         for k in v:
             if not isinstance(k, str) or k == "": raise _invalid()
-        return {k: _json_safe(vv) for k, vv in v.items()}
+        return MappingProxyType({k: _json_safe(vv) for k, vv in v.items()})
     if isinstance(v, tuple): return tuple(_json_safe(x) for x in v)
+    return v
+
+def _thaw(v: Any) -> Any:
+    if isinstance(v, MappingProxyType): return {k: _thaw(vv) for k, vv in v.items()}
+    if isinstance(v, tuple): return tuple(_thaw(x) for x in v)
     return v
 
 def _is_sha(v: Any) -> bool: return isinstance(v, str) and len(v) == 64 and all(c in "0123456789abcdef" for c in v)
@@ -74,8 +82,6 @@ def _require_tuple_str(v: Any, *, allow_empty: bool = False, unique: bool = Fals
         out.append(_require_str(item))
     if unique and len(set(out)) != len(out): raise _invalid()
     return tuple(out)
-
-def _mk_sha() -> str: return "0" * 64
 
 
 def _extraction_snapshot_payload(x: "ExtractionDeterminismSnapshot") -> dict[str, Any]:
@@ -131,7 +137,9 @@ class DeterminismDriftCase:
         _require_sha(self.baseline_value_hash); _require_sha(self.observed_value_hash)
         object.__setattr__(self, "target", _json_safe(self.target))
         if self.computed_stable_hash() != self.case_hash: raise _invalid()
-    def to_dict(self) -> dict[str, Any]: return {**_drift_case_payload(self), "case_hash": self.case_hash}
+    def to_dict(self) -> dict[str, Any]:
+        p = _drift_case_payload(self)
+        return {**p, "target": _thaw(p["target"]), "case_hash": self.case_hash}
     def to_canonical_json(self) -> str: return _canonical_json(self.to_dict())
     def to_canonical_bytes(self) -> bytes: return self.to_canonical_json().encode("utf-8")
     def computed_stable_hash(self) -> str: return _sha(_drift_case_payload(self))
@@ -141,7 +149,13 @@ class DeterminismDriftResult:
     case_id: str; drift_type: str; detected: bool; severity: str; reason: str; case_hash: str; result_hash: str
     def __post_init__(self) -> None:
         _require_str(self.case_id)
-        if self.drift_type not in _ALLOWED_DRIFT or not isinstance(self.detected, bool) or self.severity not in {"REJECT", "FLAG"} or self.reason not in _ALLOWED_REASONS: raise _invalid()
+        if self.drift_type not in _ALLOWED_DRIFT or not isinstance(self.detected, bool): raise _invalid()
+        expected_severity = _SEVERITY_BY_DRIFT.get(self.drift_type)
+        if expected_severity is None or self.severity != expected_severity: raise _invalid()
+        drift_reason_spec = _REASON_BY_DRIFT.get(self.drift_type)
+        if drift_reason_spec is None: raise _invalid()
+        allowed_reasons = set(drift_reason_spec.values()) if isinstance(drift_reason_spec, dict) else {drift_reason_spec}
+        if self.reason not in allowed_reasons: raise _invalid()
         _require_sha(self.case_hash); _require_sha(self.result_hash)
         if self.computed_stable_hash() != self.result_hash: raise _invalid()
     def to_dict(self) -> dict[str, Any]: return {**_drift_result_payload(self), "result_hash": self.result_hash}
@@ -232,6 +246,7 @@ def run_res_rag_determinism_enforcement(baseline_snapshot: RESRAGDeterminismSnap
     out: list[DeterminismDriftResult] = []
     if b.res_rag_mapping_hash != o.res_rag_mapping_hash: out.append(_mk_result(_mk_case("resrag", "RES_RAG_MAPPING_DRIFT", b.res_rag_mapping_hash, o.res_rag_mapping_hash, "res_rag_mapping_hash"), "REJECT", _REASON_BY_DRIFT["RES_RAG_MAPPING_DRIFT"]))
     if b.resonance_classifier_hash != o.resonance_classifier_hash: out.append(_mk_result(_mk_case("resrag", "RESONANCE_CLASSIFIER_DRIFT", b.resonance_classifier_hash, o.resonance_classifier_hash, "resonance_classifier_hash"), "REJECT", _REASON_BY_DRIFT["RESONANCE_CLASSIFIER_DRIFT"]))
+    if b.governance_context_hash != o.governance_context_hash: out.append(_mk_result(_mk_case("resrag", "GOVERNANCE_CONTEXT_DRIFT", b.governance_context_hash, o.governance_context_hash, "governance_context_hash"), "REJECT", _REASON_BY_DRIFT["GOVERNANCE_CONTEXT_DRIFT"]))
     if b.tolerance_hash != o.tolerance_hash: out.append(_mk_result(_mk_case("resrag", "TOLERANCE_DRIFT", b.tolerance_hash, o.tolerance_hash, "tolerance_hash"), "FLAG", _REASON_BY_DRIFT["TOLERANCE_DRIFT"]))
     if b.semantic_field_hash != o.semantic_field_hash: out.append(_mk_result(_mk_case("resrag", "SEMANTIC_FIELD_DRIFT", b.semantic_field_hash, o.semantic_field_hash, "semantic_field_hash"), "REJECT", _REASON_BY_DRIFT["SEMANTIC_FIELD_DRIFT"]))
     if b.res_hash != o.res_hash: out.append(_mk_result(_mk_case("resrag", "RES_STATE_DRIFT", b.res_hash, o.res_hash, "res_hash"), "REJECT", _REASON_BY_DRIFT["RES_STATE_DRIFT"]))

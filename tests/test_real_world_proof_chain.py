@@ -128,9 +128,9 @@ def test_node_id_role_whitespace_and_bool_rejected() -> None:
     ex, can, sf, rr, evr, gov = _build_receipts()
     local = build_local_real_world_proof(ex, can, sf, rr, evr, gov)
     for bad in (" n1", "n1 ", " ", True, False):
-        with pytest.raises((ValueError, TypeError)):
+        with pytest.raises(ValueError, match="^INVALID_INPUT$"):
             build_real_world_distributed_evidence(bad, "CONTROL", local)  # type: ignore[arg-type]
-        with pytest.raises((ValueError, TypeError)):
+        with pytest.raises(ValueError, match="^INVALID_INPUT$"):
             build_real_world_distributed_evidence("n1", bad, local)  # type: ignore[arg-type]
 
 

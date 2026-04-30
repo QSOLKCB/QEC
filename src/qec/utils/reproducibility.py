@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import numpy
@@ -58,7 +58,7 @@ def collect_environment_metadata(
         "python_version": sys.version.split()[0],
         "numpy_version": numpy.__version__,
         "scipy_version": scipy.__version__,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
 
     if spec is not None:

@@ -8,6 +8,8 @@ Run with:
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.optional
+
 sparse = pytest.importorskip("scipy.sparse")
 qldpc_field = pytest.importorskip("qldpc.field")
 pytest.importorskip("qldpc.css_code")

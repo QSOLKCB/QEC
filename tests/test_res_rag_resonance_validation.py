@@ -33,7 +33,7 @@ def _claim(cid: str, payload: object) -> GeneratedClaim:
 
 def _ctx() -> GovernanceContext:
     payload = {"mode": "strict"}
-    return GovernanceContext("ctx", payload, sha256_hex({"context_id": "ctx", "context_payload": payload}))
+    return GovernanceContext("ctx", payload, sha256_hex({"context_id": "ctx", "schema_version": "v151.3", "context_payload": payload, "allowed_keys": ("mode",)}))
 
 
 def _states(payload: dict[str, object], claims: list[GeneratedClaim]):
@@ -122,3 +122,50 @@ def test_classifications_and_determinism_and_integrity() -> None:
     with pytest.raises(dataclasses.FrozenInstanceError):
         out.results[0].reason = "X"  # type: ignore[misc]
     json.dumps(out.to_dict())
+
+
+def test_governance_context_contract_and_backward_compatibility() -> None:
+    valid = GovernanceContext("ctx", {"mode": "strict"}, sha256_hex({"context_id": "ctx", "schema_version": "v151.3", "context_payload": {"mode": "strict"}, "allowed_keys": ("mode",)}))
+    assert valid.governance_context_hash == valid.computed_stable_hash()
+
+    compat = GovernanceContext("ctx", {"mode": "strict"}, valid.governance_context_hash)
+    assert compat.allowed_keys == ("mode",)
+    assert compat.governance_context_hash == valid.governance_context_hash
+
+    legacy_hash = sha256_hex({"context_id": "ctx", "context_payload": {"mode": "strict"}})
+    compat_legacy = GovernanceContext("ctx", {"mode": "strict"}, legacy_hash)
+    assert compat_legacy.governance_context_hash == legacy_hash
+
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        GovernanceContext(
+            "ctx",
+            {"mode": "strict"},
+            legacy_hash,
+            schema_version="v151.4",
+            allowed_keys=("mode",),
+        )
+
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        GovernanceContext("ctx", {"mode": "strict", "extra": 1}, sha256_hex({"context_id": "ctx", "schema_version": "v151.3", "context_payload": {"mode": "strict", "extra": 1}, "allowed_keys": ("mode",)}), allowed_keys=("mode",))
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        GovernanceContext("ctx", {1: "bad"}, "0" * 64)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        GovernanceContext("ctx", {"mode": float("nan")}, "0" * 64)
+
+
+def test_array_subset_guardrail_exact_only() -> None:
+    r1, res1, rag1 = _states({"a": [1, 2, 3]}, [_claim("1", {"claim_type": "FIELD_SUBSET", "field_name": "a", "claim_value": [1, 2]})])
+    out1 = run_res_rag_resonance_validation(r1, res1, rag1)
+    assert any(r.reason == "FIELD_SUBSET_DIVERGENT" for r in out1.results)
+
+    r2, res2, rag2 = _states({"a": [1, 2, 3]}, [_claim("1", {"claim_type": "FIELD_SUBSET", "field_name": "a", "claim_value": [1, 2, 3]})])
+    out2 = run_res_rag_resonance_validation(r2, res2, rag2)
+    assert out2.aggregate_resonance_class in {"IDENTICAL", "ALIGNED"}
+
+
+def test_payload_builder_consistency() -> None:
+    receipt, res, rag = _states({"x": 1}, [_claim("1", {"claim_type": "FIELD_PRESENT", "field_name": "x"})])
+    out = run_res_rag_resonance_validation(receipt, res, rag)
+    for r in out.results:
+        assert r.result_hash == r.computed_stable_hash()
+    assert out.stable_hash == out.computed_stable_hash()

@@ -35,6 +35,38 @@ def _sha256_hex(value: Any) -> str:
         raise _invalid() from exc
 
 
+def _reject_nonfinite_float(value: Any) -> bool:
+    """Return False only for non-finite floats (NaN, inf, -inf); everything else passes."""
+    if isinstance(value, float) and not isinstance(value, bool):
+        return value == value and value not in (float("inf"), float("-inf"))
+    return True
+
+
+def _validate_json_safety(value: Any) -> None:
+    if isinstance(value, Mapping):
+        for k, v in value.items():
+            if not isinstance(k, str) or k == "":
+                raise _invalid()
+            _validate_json_safety(v)
+        return
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            _validate_json_safety(item)
+        return
+    if not _reject_nonfinite_float(value):
+        raise _invalid()
+    _canon(value)
+
+
+def _governance_context_payload(*, context_id: str, schema_version: str, context_payload: Mapping[str, Any], allowed_keys: tuple[str, ...]) -> dict[str, Any]:
+    return {
+        "context_id": context_id,
+        "schema_version": schema_version,
+        "context_payload": context_payload,
+        "allowed_keys": allowed_keys,
+    }
+
+
 def _canon(value: Any) -> Any:
     try:
         return canonicalize_json(value)
@@ -186,24 +218,51 @@ class GeneratedClaim:
 
 @dataclass(frozen=True)
 class GovernanceContext:
-    """Deterministic governance context identity (no governance execution).
+    """Deterministic governance context identity (no governance execution)."""
 
-    context_payload must be JSON-safe and hash-recomputable.
-    """
     context_id: str
-    context_payload: Any
+    context_payload: Mapping[str, Any]
     governance_context_hash: str
+    schema_version: str = "v151.3"
+    allowed_keys: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         _non_empty_string(self.context_id)
-        object.__setattr__(self, "context_payload", _canon(self.context_payload))
-        if self.computed_stable_hash() != self.governance_context_hash:
+        _non_empty_string(self.schema_version)
+        if not isinstance(self.context_payload, Mapping):
+            raise _invalid()
+        payload = _canon(dict(self.context_payload))
+        if not isinstance(payload, Mapping):
+            raise _invalid()
+        _validate_json_safety(payload)
+        object.__setattr__(self, "context_payload", payload)
+        legacy_ctor = self.allowed_keys is None and self.schema_version == "v151.3"
+        if self.allowed_keys is None:
+            allowed_keys = tuple(sorted(payload.keys()))
+        else:
+            allowed_keys = self.allowed_keys
+        if not isinstance(allowed_keys, tuple) or not allowed_keys:
+            raise _invalid()
+        if any((not isinstance(k, str) or k == "") for k in allowed_keys):
+            raise _invalid()
+        if len(set(allowed_keys)) != len(allowed_keys):
+            raise _invalid()
+        if not set(payload.keys()).issubset(set(allowed_keys)):
+            raise _invalid()
+        object.__setattr__(self, "allowed_keys", allowed_keys)
+        stable_hash = self.computed_stable_hash()
+        if self.governance_context_hash == stable_hash:
+            return
+        legacy_hash = _sha256_hex({"context_id": self.context_id, "context_payload": self.context_payload})
+        if not legacy_ctor or self.governance_context_hash != legacy_hash:
             raise _invalid()
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "context_id": self.context_id,
+            "schema_version": self.schema_version,
             "context_payload": self.context_payload,
+            "allowed_keys": self.allowed_keys,
             "governance_context_hash": self.governance_context_hash,
         }
 
@@ -214,7 +273,12 @@ class GovernanceContext:
         return self.to_canonical_json().encode("utf-8")
 
     def computed_stable_hash(self) -> str:
-        return _sha256_hex({"context_id": self.context_id, "context_payload": self.context_payload})
+        return _sha256_hex(_governance_context_payload(
+            context_id=self.context_id,
+            schema_version=self.schema_version,
+            context_payload=self.context_payload,
+            allowed_keys=self.allowed_keys,
+        ))
 
 
 @dataclass(frozen=True)

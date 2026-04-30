@@ -35,12 +35,9 @@ def _sha256_hex(value: Any) -> str:
         raise _invalid() from exc
 
 
-def _is_finite_json_number(value: Any) -> bool:
-    if isinstance(value, bool):
-        return True
-    if isinstance(value, int):
-        return True
-    if isinstance(value, float):
+def _reject_nonfinite_float(value: Any) -> bool:
+    """Return False only for non-finite floats (NaN, inf, -inf); everything else passes."""
+    if isinstance(value, float) and not isinstance(value, bool):
         return value == value and value not in (float("inf"), float("-inf"))
     return True
 
@@ -56,7 +53,7 @@ def _validate_json_safety(value: Any) -> None:
         for item in value:
             _validate_json_safety(item)
         return
-    if not _is_finite_json_number(value):
+    if not _reject_nonfinite_float(value):
         raise _invalid()
     _canon(value)
 
@@ -276,7 +273,7 @@ class GovernanceContext:
             context_id=self.context_id,
             schema_version=self.schema_version,
             context_payload=self.context_payload,
-            allowed_keys=self.allowed_keys if self.allowed_keys is not None else tuple(sorted(self.context_payload.keys())),
+            allowed_keys=self.allowed_keys,
         ))
 
 

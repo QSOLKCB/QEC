@@ -1,16 +1,15 @@
 # QSOLKCB / QEC
 
-> QEC is a deterministic, multi-agent reasoning system that produces proof-carrying state transitions and distributed convergence proofs.
+> QEC is a deterministic, multi-agent reasoning and proof system for quantum error correction, invariant-driven computation, real-world ingestion, semantic resonance, governance, distributed convergence, and cross-environment replay validation.
 
-**Deterministic Reasoning • Governance • Validation • Convergence • Distributed Proof**
+**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Replay Stability**
 
 ---
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v149.5-success)](https://github.com/QSOLKCB/QEC/releases/tag/v149.5)
-
+[![Latest](https://img.shields.io/badge/stable-v151.8-success)](https://github.com/QSOLKCB/QEC/releases/tag/v151.8)
 [![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
 
 ---
@@ -28,13 +27,13 @@
 
 ## 🧩 System Properties
 
-[![Branch](https://img.shields.io/badge/branch-v149%20canonical-purple)]()
-[![Architecture](https://img.shields.io/badge/architecture-deterministic%20reasoning%20system-blueviolet)]()
+[![Branch](https://img.shields.io/badge/branch-v151%20canonical-purple)]()
+[![Architecture](https://img.shields.io/badge/architecture-deterministic%20proof%20system-blueviolet)]()
 [![Determinism](https://img.shields.io/badge/determinism-byte--identical-success)]()
-[![Replay](https://img.shields.io/badge/replay-hash--stable-green)]()
-[![Governance](https://img.shields.io/badge/governance-deterministic-orange)]()
+[![Replay](https://img.shields.io/badge/replay-cross--environment-green)]()
+[![Governance](https://img.shields.io/badge/governance-dialogical-orange)]()
 [![Validation](https://img.shields.io/badge/validation-proof--carrying-yellow)]()
-[![Compression](https://img.shields.io/badge/compression-invariant--preserving-blue)]()
+[![RES/RAG](https://img.shields.io/badge/RES%2FRAG-semantic%20resonance-blue)]()
 [![Proof](https://img.shields.io/badge/proof-system--level-critical)]()
 [![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
@@ -42,194 +41,56 @@
 
 # 🚀 What QEC Is
 
-QEC is a deterministic, replay-safe multi-agent reasoning system for quantum error correction and invariant-driven computation, capable of proving convergence and agreement across distributed nodes.
+QEC is a deterministic, replay-safe reasoning system that turns computation, evidence, semantic alignment, validation, governance, and replay into **canonical proof artifacts**.
 
-It is not a runtime.
+It is designed for quantum error correction and invariant-driven computation, but its current architecture is broader:
 
-It is a system that:
+```text
+untrusted input
+→ deterministic boundary
+→ canonical identity
+→ semantic field
+→ resonance validation
+→ adversarial validation
+→ governance decision
+→ proof chain
+→ determinism enforcement
+→ cross-environment replay proof
+```
+
+QEC is not merely a runtime. It is a system that:
 
 * observes state
-* predicts evolution
-* selects actions
-* accumulates memory
-* governs future behavior
-* validates decisions
-* understands failure
-* proposes fixes
-* validates those fixes
-* proves which fixes are necessary
-* compresses and preserves its reasoning
-* produces canonical proof artifacts
+* detects invariants
+* canonicalizes identity
+* constructs semantic fields
+* validates RES/RAG resonance
+* detects adversarial failure
+* makes deterministic governance decisions
+* proves distributed convergence
+* validates configuration stability
+* proves replay across environments
+* emits hash-stable proof receipts
 
 It determines:
 
 ```text
-what must run
-what can be skipped
-what is already known
-what is structurally constrained
-what is admissible next
-what policy should evolve
-what decisions are provably stable
+what is known
+what changed
 what failed
-what can fix it
-what fix is correct
-what fix is necessary
-what reasoning can be compressed
-what evidence is sufficient
+what must be trusted
+what must be rejected
+what can be skipped
+what decision follows
+what proof binds the outcome
+whether the same result replays elsewhere
 ```
 
 ---
 
-## 🧠 Core Law
+## ⚡ Quickstart
 
-```text
-same input
-→ same ordering
-→ same canonical JSON
-→ same stable hash
-→ same bytes
-→ same compressed representation
-→ same proof artifact
-```
-
----
-
-## 🔥 The Big Idea
-
-### Most systems
-
-```text
-iterate → recompute → waste work
-```
-
-### QEC
-
-```text
-iterate
-→ detect invariants
-→ detect convergence structure
-→ eliminate redundant computation
-→ embed structure (geometry)
-→ enforce agreement (ensemble)
-→ characterize dynamics (spectral)
-→ select deterministically
-→ produce proof-carrying artifacts
-→ accumulate memory
-→ generate governance decisions
-→ validate decision stability
-→ normalize failure
-→ generate fix proposals
-→ validate fixes
-→ compare alternatives
-→ prove necessity
-→ compress reasoning deterministically
-→ produce system-level proof
-```
-
----
-
-## ⚙️ System Capability (v150.9 State)
-
-QEC performs:
-
-* invariant detection
-* convergence classification
-* redundancy elimination
-* deterministic execution planning
-* geometric invariant embedding
-* ensemble consistency enforcement
-* spectral structure characterization
-* deterministic transition selection
-* unified runtime state construction
-* policy memory accumulation
-* adaptive governance recommendation
-* governance validation
-* issue normalization
-* fix proposal generation
-* fix validation
-* counterfactual replay
-* hardware alignment validation
-* simulated execution verification
-* invariant-preserving compression planning
-* full-system proof generation
-* multi-agent role-based reasoning
-* inter-agent deterministic communication
-* convergence classification and enforcement
-* conflict classification (identical / equivalent / dominated / inconsistent)
-* adversarial failure detection and rejection
-* invariant-locked validation (no bypass paths)
-* distributed convergence proof across nodes
-* deterministic agreement verification (multi-node)
-* mismatch classification (node-level vs expected-hash)
-
----
-
-## 🧠 Repair Reasoning Pipeline
-
-```text
-issue
-→ canonical issue
-→ fix proposal
-→ validated fix
-→ counterfactual comparison
-→ necessary / equivalent / dominated / unresolved
-```
----
-
-
-## 🧠 Distributed Convergence Proof (v150.9)
-
-```text
-node₁ evidence
-node₂ evidence
-node₃ evidence
-...
-→ canonical comparison
-→ agreement classification
-→ mismatch classification
-→ deterministic reference proof
-→ distributed convergence receipt
-
-QEC now proves:
-
-all nodes agree
-OR
-exactly how and why they disagree
-This introduces:
-
-deterministic multi-node agreement
-explicit mismatch classification:
-FINAL_PROOF_HASH_MISMATCH (node divergence)
-EXPECTED_FINAL_PROOF_HASH_MISMATCH (expected vs observed)
-invariant-locked distributed validation
-```
-
----
-
-## 🧠 Full System Loop (v149)
-
-```text
-observe
-→ predict
-→ decide
-→ remember
-→ govern
-→ validate
-→ adversarial check
-→ converge (multi-agent)
-→ verify agreement (distributed)
-→ align
-→ simulate execution
-→ compress
-→ prove
-```
-
----
-
-# ⚡ Quickstart — Run the Proof Artifact
-
-## 1. Install
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/QSOLKCB/QEC.git
@@ -237,20 +98,19 @@ cd QEC
 pip install -e .
 ```
 
-## 2. Run the SPHAERA Proof
+For a minimal reproducible test environment:
+
+```bash
+pip install -r requirements-test.txt
+```
+
+### 2. Run the SPHAERA proof demo
 
 ```bash
 python scripts/sphaera_proof_demo.py
 ```
 
-## Commands
-
-| Command | Purpose |
-|---|---|
-| `python scripts/sphaera_proof_demo.py` | Runs the SPHAERA proof demo from the source tree |
-| `qec-exp` | Runs the packaged experiment entry point, if installed |
-
-## 3. What It Executes
+This executes a deterministic proof-style pipeline:
 
 ```text
 trace
@@ -264,11 +124,323 @@ trace
 → runtime receipt
 ```
 
+### 3. Run the packaged experiment CLI
+
+```bash
+qec-exp --help
+```
+
+Common usage:
+
+```bash
+qec-exp run
+qec-exp phase-diagram
+qec-exp estimate-threshold
+qec-exp policy-memory
+```
+
+### 4. Run tests
+
+```bash
+pytest -q
+PYTHONPATH=src pytest -q
+pytest -q -ra
+```
+
 ---
 
-## 📊 SPHAERA — Sherpa Output Table
+## Commands
 
-Example deterministic output (SPHAERA proof run):
+| Command | Purpose |
+|---|---|
+| `python scripts/sphaera_proof_demo.py` | Runs the SPHAERA proof demo from the source tree |
+| `qec-exp --help` | Shows the packaged experiment CLI |
+| `qec-exp run` | Runs the packaged deterministic experiment entry point |
+| `qec-exp phase-diagram` | Runs phase-diagram tooling |
+| `qec-exp estimate-threshold` | Runs threshold-estimation tooling |
+| `qec-exp policy-memory` | Runs policy-memory tooling |
+| `pytest -q` | Runs the deterministic test suite |
+| `pytest -q -ra` | Runs tests with skip/warning visibility |
+
+---
+
+# 🧠 Core Law
+
+```text
+same input
+→ same ordering
+→ same canonical JSON
+→ same stable hash
+→ same bytes
+→ same proof artifact
+→ same outcome
+```
+
+Violation → **SYSTEM INVALID**
+
+---
+
+# 🧱 Current Architecture — v151.8
+
+## Implemented proof chain
+
+```text
+ExtractionReceipt
+→ CanonicalizationReceipt
+→ SemanticFieldReceipt
+→ ResonanceValidationReceipt
+→ ExtractionValidationReceipt
+→ DialogicalGovernanceReceipt
+→ DistributedConvergenceReceipt
+→ RealWorldProofReceipt
+→ DeterminismReceipt
+→ ReplayProofReceipt
+```
+
+## Current capability line
+
+```text
+v150.9   → Distributed Convergence Proof
+v151.0   → Extraction Boundary
+v151.1   → Canonicalization Engine
+v151.2   → RES/RAG Semantic Field Construction
+v151.3   → RES/RAG Resonance Validation
+v151.4   → Adversarial Extraction Validation
+v151.5   → Dialogical Document Governance
+v151.6   → Real-World Proof Chain
+v151.7   → Determinism Enforcement
+v151.8   → Replay & Cross-Environment Resonance Proof
+```
+
+---
+
+## v151 Pipeline
+
+```text
+raw document
+→ Extraction Boundary          (UNTRUSTED)
+→ Canonicalization Engine      (DETERMINISTIC)
+→ RES/RAG Semantic Field       (GROUNDING + INTERPRETATION)
+→ Resonance Validation         (ALIGNMENT CHECK)
+→ Adversarial Validation       (FAILURE EVIDENCE)
+→ Dialogical Governance        (DETERMINISTIC DECISION)
+→ Real-World Proof Chain       (END-TO-END PROOF)
+→ Determinism Enforcement      (CONFIG STABILITY)
+→ Replay Validation            (CROSS-ENVIRONMENT PROOF)
+```
+
+---
+
+## RES/RAG in QEC
+
+In QEC, RES/RAG is operationalized as:
+
+```text
+RES = grounded canonical reality
+RAG = reflexive generated interpretation
+```
+
+Meaning:
+
+```text
+RES → evidence-bearing reality state
+RAG → supplied interpretive semantic state
+```
+
+QEC does not need to assert machine consciousness. It uses the useful deterministic form:
+
+```text
+semantic grounding
+must align with
+semantic interpretation
+```
+
+Then:
+
+```text
+RES = RAG
+→ resonance validated
+
+RES ≠ RAG
+→ divergence detected
+```
+
+---
+
+# 🔥 The Big Idea
+
+## Most systems
+
+```text
+iterate → recompute → drift → guess
+```
+
+## QEC
+
+```text
+observe
+→ canonicalize
+→ hash
+→ validate
+→ govern
+→ prove
+→ enforce determinism
+→ replay across environments
+```
+
+QEC shifts computation from:
+
+```text
+execution
+```
+
+to:
+
+```text
+deterministic reasoning with proof
+```
+
+---
+
+# ⚙️ System Capability — Current State
+
+QEC currently performs:
+
+* invariant detection
+* convergence classification
+* redundancy elimination
+* deterministic execution planning
+* geometric invariant embedding
+* ensemble consistency enforcement
+* spectral structure characterization
+* deterministic transition selection
+* policy memory accumulation
+* adaptive governance recommendation
+* governance validation
+* issue normalization
+* fix proposal validation
+* counterfactual replay
+* hardware alignment validation
+* simulated execution verification
+* invariant-preserving compression planning
+* multi-agent role-based reasoning
+* deterministic inter-agent communication
+* adversarial failure detection and rejection
+* distributed convergence proof across nodes
+* canonical extraction-boundary sealing
+* deterministic canonicalization
+* RES/RAG semantic field construction
+* resonance classification
+* adversarial extraction validation
+* dialogical document governance
+* real-world proof-chain construction
+* determinism enforcement across configuration snapshots
+* cross-environment replay validation
+
+---
+
+# 🧠 Proof Artifacts
+
+QEC proof artifacts follow a consistent contract:
+
+```text
+frozen artifact
+→ explicit to_dict()
+→ canonical JSON
+→ stable SHA-256
+→ self-hash exclusion
+→ recomputed hash validation
+```
+
+Core invariant:
+
+```text
+recomputed_hash == stored_hash
+```
+
+Current v151 artifact families include:
+
+| Layer | Artifact examples |
+|---|---|
+| Extraction boundary | `ExtractionReceipt` |
+| Canonicalization | `CanonicalDocument`, `CanonicalizationReceipt` |
+| Semantic field | `RESState`, `RAGState`, `SemanticFieldReceipt` |
+| Resonance | `ResonanceValidationReceipt` |
+| Adversarial validation | `ExtractionValidationReceipt`, `DigitalDecaySignature` |
+| Governance | `DialogicalGovernanceReceipt` |
+| Proof chain | `RealWorldProofReceipt` |
+| Determinism | `ExtractionDeterminismReceipt`, `RESRAGDeterminismReceipt` |
+| Replay | `ExtractionReplayReceipt`, `ResonanceReplayReceipt`, `RealWorldReplayProofReceipt` |
+
+---
+
+# 🧠 Distributed Convergence Proof
+
+```text
+node₁ evidence
+node₂ evidence
+node₃ evidence
+...
+→ canonical comparison
+→ agreement classification
+→ mismatch classification
+→ deterministic reference proof
+→ distributed convergence receipt
+```
+
+QEC proves:
+
+```text
+all nodes agree
+OR
+exactly how and why they disagree
+```
+
+Distributed mismatch classes include:
+
+```text
+FINAL_PROOF_HASH_MISMATCH
+EXPECTED_FINAL_PROOF_HASH_MISMATCH
+```
+
+---
+
+# 🧠 Repair Reasoning Pipeline
+
+```text
+issue
+→ canonical issue
+→ fix proposal
+→ validated fix
+→ counterfactual comparison
+→ necessary / equivalent / dominated / unresolved
+```
+
+This remains part of the broader QEC reasoning model. v151 focuses on real-world ingestion, semantic validation, governance, and replay.
+
+---
+
+# 🧠 Full System Loop
+
+```text
+observe
+→ bound input
+→ canonicalize
+→ construct semantic field
+→ validate resonance
+→ detect adversarial failure
+→ govern
+→ prove
+→ enforce determinism
+→ replay
+→ confirm
+```
+
+---
+
+# 📊 SPHAERA — Sherpa Output Table
+
+Example deterministic output from the SPHAERA proof run:
 
 ```text
 === SPHAERA TABLE ===
@@ -283,24 +455,25 @@ Example deterministic output (SPHAERA proof run):
 
 ---
 
-## 🔹 Operator Walkthrough — Rust TUI Control Surface
+# 🔹 Operator Walkthrough — Rust TUI Control Surface
 
-### ⚡ Quick Start
+The Rust TUI is an operator-facing control surface for viewing deterministic system state, replay checkpoints, diagnostics, and phase structure.
+
+## Install / launch
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
-```
-
-### Launch
-
-```bash
 cd tui
 cargo run --release
 ```
 
----
+If the TUI binary is installed:
 
-### 🧭 Layout
+```bash
+qec-tui
+```
+
+## Layout
 
 ```text
 Left   → navigation
@@ -309,69 +482,98 @@ Right  → system state
 Bottom → hotkeys
 ```
 
----
+## Panels
 
-### 🔍 Diagnostics (`D`)
+| Key | Panel | Purpose |
+|---|---|---|
+| `D` | Diagnostics | System state, invariants, convergence |
+| `H` | History | Deterministic timeline and replay checkpoints |
+| `P` | Phase | Attractor and phase-structure analysis |
+| `A` | Actions | Deterministic control pathways |
+| `R` | Replay | Reconstruction and hash-stability checks |
+| `S` | Status | Global system integrity |
 
-View system state, invariants, convergence.
-
-### 📜 History (`H`)
-
-View deterministic timeline + replay checkpoints.
-
-### 🧠 Phase (`P`)
-
-Analyze attractors + structure.
-
-### ⚙️ Actions (`A`)
-
-View deterministic control pathways.
-
-### 🔁 Replay (`R`)
-
-Verify reconstruction + hash stability.
-
-### 📊 Status (`S`)
-
-Confirm global system integrity.
-
----
-
-### 🔒 Operator Model
+## Operator model
 
 * read-only by default
 * deterministic rendering
 * invariant-aligned
 * no hidden state
 
----
-
-### ⚡ Core Flow
-
 ```text
-Observe → Validate → Decide → Act → Replay → Confirm
+Observe → Validate → Decide → Replay → Confirm
 ```
 
 ---
 
-## Versioning Model
+# 🧪 Testing
 
-QEC uses two related version lines:
+## Standard test run
 
-- Python package version: the installable package version declared in `pyproject.toml`.
-- Research / release tags: the QEC capability line published through GitHub tags, such as `v150.9` and `v151.0`.
+```bash
+pytest -q
+```
 
-The release tags describe the deterministic reasoning/proof-system capability state. Published GitHub tags are authoritative for release lineage. Stable tip lineage remains anchored to `v137.*` compatibility contracts.
+## Source-tree test run
 
-## Capability Scope
+```bash
+PYTHONPATH=src pytest -q
+```
 
-This repository contains implemented deterministic analysis modules, tests, receipts, and demo scripts, while `ROADMAP.md` tracks the forward research line.
+## Show skip and warning reasons
 
-Current implemented line includes v150.9 distributed convergence proof and v151.0 extraction boundary. Future v151.x phases cover canonicalization, extraction validation, document governance, and replay validation.
+```bash
+pytest -q -ra
+```
+
+## Optional test dependencies
+
+Some tests are environment-dependent and are marked with `pytest.mark.optional`.
+
+Optional dependencies / tools:
+
+* `qldpc`
+* `gh` CLI
+* `qec-tui` binary
+* `qiskit` for alternate backend-path tests
+
+Missing optional tools should produce explicit skips, not hidden failures.
 
 ---
 
-## 🌍 Why This Matters
+# 🧭 Versioning Model
+
+QEC uses two related version lines:
+
+* **Python package version** — the installable package version declared in `pyproject.toml`
+* **Research / capability release tags** — the QEC system state published through GitHub tags, such as `v150.9`, `v151.0`, and `v151.8`
+
+Release tags describe deterministic reasoning/proof-system capability state.
+
+Published GitHub tags are authoritative for release lineage.
+
+Stable tip lineage remains anchored to `v137.*` compatibility contracts.
+
+---
+
+# 🧭 Capability Scope
+
+This repository contains implemented deterministic analysis modules, proof receipts, tests, demos, and operator tooling.
+
+`ROADMAP.md` tracks the forward research line.
+
+Current implemented line includes:
+
+```text
+v150.9 distributed convergence proof
+v151.0–v151.8 real-world ingestion, semantic resonance, governance, proof, determinism, and replay validation
+```
+
+Future arcs move into reversible layered-state systems, proof compression, semantic lattices, multi-scale invariants, digital decay signatures, perturbation validation, and substrate/replay integration.
+
+---
+
+# 🌍 Why This Matters
 
 Most modern systems are:
 
@@ -392,53 +594,22 @@ determinism
 
 This means:
 
-* same input → same output (byte-identical)
-* every decision is replayable, auditable, and verifiable across nodes
-* failures are structurally understood
-* fixes are proven, not guessed
-* redundant computation is eliminated
-* reasoning becomes a persistent, distributed proof artifact
-
-This shifts computation from:
-
-```text
-execution
-```
-
-to:
-
-```text
-deterministic reasoning with proof
-```
-
----
-
-## 🧪 Optional Test Dependencies
-
-Some tests are environment-dependent and are marked with `pytest.mark.optional`.
-
-Optional test dependencies:
-
-* qldpc
-* gh CLI
-* qec-tui binary
-* qiskit (for alternate path testing)
-
-For reproducible local runs:
-
-```bash
-pytest -q
-PYTHONPATH=src pytest -q
-```
+* same input → same output
+* every decision is replayable and auditable
+* failures are structurally classified
+* governance decisions are deterministic
+* redundant computation can be eliminated
+* distributed nodes can prove agreement
+* replay can validate cross-environment stability
 
 ---
 
 ## 📚 Attribution
 
-Marc Brendecke
+Marc Brendecke  
 [https://orcid.org/0009-0009-4034-598X](https://orcid.org/0009-0009-4034-598X)
 
-Quantum Sphaera Companion v3.30.0
+Quantum Sphaera Companion v3.30.0  
 [https://doi.org/10.5281/zenodo.19682951](https://doi.org/10.5281/zenodo.19682951)
 
 License: CC-BY-4.0
@@ -447,24 +618,24 @@ License: CC-BY-4.0
 
 ## 📚 References
 
-* IRIS: Deterministic Invariant-Driven Reduction
+* IRIS: Deterministic Invariant-Driven Reduction  
   [https://doi.org/10.5281/zenodo.19697907](https://doi.org/10.5281/zenodo.19697907)
 
-* Deterministic Runtime Optimization
+* Deterministic Runtime Optimization  
   [https://doi.org/10.5281/zenodo.19062692](https://doi.org/10.5281/zenodo.19062692)
 
-* Invariant-Driven Computation Elimination
+* Invariant-Driven Computation Elimination  
   [https://doi.org/10.5281/zenodo.19102390](https://doi.org/10.5281/zenodo.19102390)
 
-* Deterministic Redundancy Elimination
+* Deterministic Redundancy Elimination  
   [https://doi.org/10.5281/zenodo.19099503](https://doi.org/10.5281/zenodo.19099503)
 
-* Dark-State Invariants
+* Dark-State Invariants  
   [https://doi.org/10.5281/zenodo.19104208](https://doi.org/10.5281/zenodo.19104208)
 
 ---
 
 ## 👤 Author
 
-Trent Slade
+Trent Slade  
 [https://orcid.org/0009-0002-4515-9237](https://orcid.org/0009-0002-4515-9237)

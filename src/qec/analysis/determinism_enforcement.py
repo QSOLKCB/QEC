@@ -61,7 +61,7 @@ def _json_safe(value: Any) -> Any:
     return v
 
 def _thaw(v: Any) -> Any:
-    if isinstance(v, MappingProxyType): return {k: _thaw(vv) for k, vv in v.items()}
+    if isinstance(v, (dict, MappingProxyType)): return {k: _thaw(vv) for k, vv in v.items()}
     if isinstance(v, tuple): return tuple(_thaw(x) for x in v)
     return v
 
@@ -138,8 +138,7 @@ class DeterminismDriftCase:
         object.__setattr__(self, "target", _json_safe(self.target))
         if self.computed_stable_hash() != self.case_hash: raise _invalid()
     def to_dict(self) -> dict[str, Any]:
-        p = _drift_case_payload(self)
-        return {**p, "target": _thaw(p["target"]), "case_hash": self.case_hash}
+        return {**_thaw(_drift_case_payload(self)), "case_hash": self.case_hash}
     def to_canonical_json(self) -> str: return _canonical_json(self.to_dict())
     def to_canonical_bytes(self) -> bytes: return self.to_canonical_json().encode("utf-8")
     def computed_stable_hash(self) -> str: return _sha(_drift_case_payload(self))

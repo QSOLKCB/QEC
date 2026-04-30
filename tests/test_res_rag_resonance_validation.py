@@ -101,21 +101,21 @@ def test_classifications_and_determinism_and_integrity() -> None:
     out6 = run_res_rag_resonance_validation(receipt6, res6, rag6)
     assert any(r.reason == "FIELD_SUBSET_DIVERGENT" for r in out6.results)
 
-    receipt7, res7, rag7 = _states({"x": 1}, [_claim("1", {"claim_type": "NOPE", "field_name": "x"}), _claim("2", {"field_name": "x"})])
+    receipt7, res7, rag7 = _states({"x": 1}, [_claim("1", {"claim_type": "NOPE", "field_name": "x"}), _claim("2", {"field_name": "x"}), _claim("3", {"claim_type": "FIELD_PRESENT"})])
     out7 = run_res_rag_resonance_validation(receipt7, res7, rag7)
     assert any(r.reason == "UNSUPPORTED_CLAIM_TYPE" for r in out7.results)
     assert any(r.reason == "UNSUPPORTED_CLAIM_SHAPE" for r in out7.results)
 
     out7b = run_res_rag_resonance_validation(receipt7, res7, rag7)
     assert out7.stable_hash == out7b.stable_hash
-    receipt7r, res7r, rag7r = _states({"x": 1}, [_claim("2", {"field_name": "x"}), _claim("1", {"claim_type": "NOPE", "field_name": "x"})])
+    receipt7r, res7r, rag7r = _states({"x": 1}, [_claim("3", {"claim_type": "FIELD_PRESENT"}), _claim("2", {"field_name": "x"}), _claim("1", {"claim_type": "NOPE", "field_name": "x"})])
     out7c = run_res_rag_resonance_validation(receipt7r, res7r, rag7r)
     assert out7.stable_hash == out7c.stable_hash
 
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
-        ResonanceValidationReceipt(**{**out.to_dict(), "status": "BAD"})
+        ResonanceValidationReceipt(**{**out.to_dict(), "results": out.results, "status": "BAD"})
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
-        ResonanceValidationReceipt(**{**out.to_dict(), "aligned_count": out.aligned_count + 1})
+        ResonanceValidationReceipt(**{**out.to_dict(), "results": out.results, "aligned_count": out.aligned_count + 1})
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         run_res_rag_resonance_validation(dataclasses.replace(receipt, semantic_field_hash="0" * 64), res, rag)
 

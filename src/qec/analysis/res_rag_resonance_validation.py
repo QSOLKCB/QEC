@@ -96,6 +96,8 @@ class ResonanceCase:
         if self.case_type == "EVIDENCE_WITHOUT_INTERPRETATION":
             if self.claim_id is not None or self.claim_hash is not None:
                 raise _invalid()
+            if not isinstance(self.evidence_value_hash, str) or self.evidence_value_hash == "":
+                raise _invalid()
         else:
             if not isinstance(self.claim_id, str) or self.claim_id == "":
                 raise _invalid()
@@ -188,6 +190,8 @@ class ResonanceValidationReceipt:
     def __post_init__(self) -> None:
         if self.version != _VERSION or self.aggregate_resonance_class not in _ALLOWED_CLASSES or self.status not in _ALLOWED_STATUS:
             raise _invalid()
+        if self.semantic_field_hash != _semantic_field_lineage_hash(self.canonical_hash, self.res_hash, self.rag_hash):
+            raise _invalid()
         if not isinstance(self.results, tuple) or any(not isinstance(r, ResonanceResult) for r in self.results):
             raise _invalid()
         if tuple(sorted(self.results, key=lambda r: (r.field_name, r.case_id, r.result_hash))) != self.results:
@@ -257,6 +261,43 @@ def _status_for(aggregate: str) -> str:
     return "RESONANCE_DIVERGENCE_DETECTED"
 
 
+
+
+def _semantic_field_lineage_hash(canonical_hash: str, res_hash: str, rag_hash: str) -> str:
+    return _sha({"canonical_hash": canonical_hash, "res_hash": res_hash, "rag_hash": rag_hash})
+
+
+def _case_payload(*, case_id: str, case_type: str, field_name: str, claim_id: str | None, claim_hash: str | None, evidence_value_hash: str | None) -> dict[str, Any]:
+    return {
+        "case_id": case_id,
+        "case_type": case_type,
+        "field_name": field_name,
+        "claim_id": claim_id,
+        "claim_hash": claim_hash,
+        "evidence_value_hash": evidence_value_hash,
+    }
+
+
+def _result_payload(*, case_id: str, field_name: str, resonance_class: str, reason: str, case_hash: str) -> dict[str, Any]:
+    return {
+        "case_id": case_id,
+        "field_name": field_name,
+        "resonance_class": resonance_class,
+        "reason": reason,
+        "case_hash": case_hash,
+    }
+
+
+def _build_case(*, case_id: str, case_type: str, field_name: str, claim_id: str | None, claim_hash: str | None, evidence_value_hash: str | None) -> ResonanceCase:
+    payload = _case_payload(case_id=case_id, case_type=case_type, field_name=field_name, claim_id=claim_id, claim_hash=claim_hash, evidence_value_hash=evidence_value_hash)
+    return ResonanceCase(**payload, case_hash=_sha(payload))
+
+
+def _build_result(*, case: ResonanceCase, field_name: str, resonance_class: str, reason: str) -> ResonanceResult:
+    payload = _result_payload(case_id=case.case_id, field_name=field_name, resonance_class=resonance_class, reason=reason, case_hash=case.case_hash)
+    return ResonanceResult(**payload, result_hash=_sha(payload))
+
+
 def run_res_rag_resonance_validation(semantic_field_receipt: SemanticFieldReceipt, res_state: RESState, rag_state: RAGState) -> ResonanceValidationReceipt:
     if not isinstance(semantic_field_receipt, SemanticFieldReceipt) or not isinstance(res_state, RESState) or not isinstance(rag_state, RAGState):
         raise _invalid()
@@ -277,31 +318,22 @@ def run_res_rag_resonance_validation(semantic_field_receipt: SemanticFieldReceip
         payload = claim.claim_payload
         if not isinstance(payload, Mapping) or "claim_type" not in payload or "field_name" not in payload:
             claim_type = payload.get("claim_type") if isinstance(payload, Mapping) else None
-            reason = "UNSUPPORTED_CLAIM_TYPE" if isinstance(claim_type, str) else "UNSUPPORTED_CLAIM_SHAPE"
+            reason = "UNSUPPORTED_CLAIM_SHAPE"
             field_name = payload.get("field_name") if isinstance(payload, Mapping) and isinstance(payload.get("field_name"), str) and payload.get("field_name") else "unsupported"
             ev = evidence_index.get(field_name)
-            c = ResonanceCase(f"claim:{claim.claim_id}", "CLAIM_TO_EVIDENCE", field_name, claim.claim_id, claim.claim_hash, ev.value_hash if ev else None, _sha({"case_id": f"claim:{claim.claim_id}", "case_type": "CLAIM_TO_EVIDENCE", "field_name": field_name, "claim_id": claim.claim_id, "claim_hash": claim.claim_hash, "evidence_value_hash": ev.value_hash if ev else None}))
-            r = ResonanceResult(c.case_id, field_name, "UNSUPPORTED", reason, c.case_hash, _sha({"case_id": c.case_id, "field_name": field_name, "resonance_class": "UNSUPPORTED", "reason": reason, "case_hash": c.case_hash}))
-            results.append(r)
+            c = _build_case(case_id=f"claim:{claim.claim_id}", case_type="CLAIM_TO_EVIDENCE", field_name=field_name, claim_id=claim.claim_id, claim_hash=claim.claim_hash, evidence_value_hash=ev.value_hash if ev else None)
+            results.append(_build_result(case=c, field_name=field_name, resonance_class="UNSUPPORTED", reason=reason))
             continue
         claim_type = payload["claim_type"]
         field_name = payload["field_name"]
         if not isinstance(claim_type, str) or not isinstance(field_name, str) or field_name == "":
-            c = ResonanceCase(f"claim:{claim.claim_id}", "CLAIM_TO_EVIDENCE", "unsupported", claim.claim_id, claim.claim_hash, None, _sha({"case_id": f"claim:{claim.claim_id}", "case_type": "CLAIM_TO_EVIDENCE", "field_name": "unsupported", "claim_id": claim.claim_id, "claim_hash": claim.claim_hash, "evidence_value_hash": None}))
-            results.append(ResonanceResult(c.case_id, c.field_name, "UNSUPPORTED", "UNSUPPORTED_CLAIM_SHAPE", c.case_hash, _sha({"case_id": c.case_id, "field_name": c.field_name, "resonance_class": "UNSUPPORTED", "reason": "UNSUPPORTED_CLAIM_SHAPE", "case_hash": c.case_hash})))
+            c = _build_case(case_id=f"claim:{claim.claim_id}", case_type="CLAIM_TO_EVIDENCE", field_name="unsupported", claim_id=claim.claim_id, claim_hash=claim.claim_hash, evidence_value_hash=None)
+            results.append(_build_result(case=c, field_name=c.field_name, resonance_class="UNSUPPORTED", reason="UNSUPPORTED_CLAIM_SHAPE"))
             continue
         evidence = evidence_index.get(field_name)
         if evidence is not None and claim_type in {"FIELD_EQUALS", "FIELD_PRESENT", "FIELD_SUBSET"}:
             referenced_fields.add(field_name)
-        case = ResonanceCase(
-            case_id=f"claim:{claim.claim_id}",
-            case_type="CLAIM_TO_EVIDENCE",
-            field_name=field_name,
-            claim_id=claim.claim_id,
-            claim_hash=claim.claim_hash,
-            evidence_value_hash=evidence.value_hash if evidence else None,
-            case_hash=_sha({"case_id": f"claim:{claim.claim_id}", "case_type": "CLAIM_TO_EVIDENCE", "field_name": field_name, "claim_id": claim.claim_id, "claim_hash": claim.claim_hash, "evidence_value_hash": evidence.value_hash if evidence else None}),
-        )
+        case = _build_case(case_id=f"claim:{claim.claim_id}", case_type="CLAIM_TO_EVIDENCE", field_name=field_name, claim_id=claim.claim_id, claim_hash=claim.claim_hash, evidence_value_hash=evidence.value_hash if evidence else None)
 
         if claim_type == "FIELD_EQUALS":
             if evidence is None:
@@ -331,12 +363,12 @@ def run_res_rag_resonance_validation(semantic_field_receipt: SemanticFieldReceip
         else:
             rc, reason = "UNSUPPORTED", "UNSUPPORTED_CLAIM_TYPE"
 
-        results.append(ResonanceResult(case.case_id, case.field_name, rc, reason, case.case_hash, _sha({"case_id": case.case_id, "field_name": case.field_name, "resonance_class": rc, "reason": reason, "case_hash": case.case_hash})))
+        results.append(_build_result(case=case, field_name=case.field_name, resonance_class=rc, reason=reason))
 
     for field_name, ev in evidence_index.items():
         if field_name not in referenced_fields:
-            case = ResonanceCase(f"evidence:{field_name}", "EVIDENCE_WITHOUT_INTERPRETATION", field_name, None, None, ev.value_hash, _sha({"case_id": f"evidence:{field_name}", "case_type": "EVIDENCE_WITHOUT_INTERPRETATION", "field_name": field_name, "claim_id": None, "claim_hash": None, "evidence_value_hash": ev.value_hash}))
-            results.append(ResonanceResult(case.case_id, field_name, "PARTIAL", "EVIDENCE_WITHOUT_INTERPRETATION", case.case_hash, _sha({"case_id": case.case_id, "field_name": field_name, "resonance_class": "PARTIAL", "reason": "EVIDENCE_WITHOUT_INTERPRETATION", "case_hash": case.case_hash})))
+            case = _build_case(case_id=f"evidence:{field_name}", case_type="EVIDENCE_WITHOUT_INTERPRETATION", field_name=field_name, claim_id=None, claim_hash=None, evidence_value_hash=ev.value_hash)
+            results.append(_build_result(case=case, field_name=field_name, resonance_class="PARTIAL", reason="EVIDENCE_WITHOUT_INTERPRETATION"))
 
     sorted_results = tuple(sorted(results, key=lambda r: (r.field_name, r.case_id, r.result_hash)))
     counts = {k: 0 for k in _ALLOWED_CLASSES}

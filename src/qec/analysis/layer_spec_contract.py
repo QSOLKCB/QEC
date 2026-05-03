@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping, Tuple
 
-from qec.analysis.canonical_hashing import canonicalize_json, sha256_hex
+from qec.analysis.canonical_hashing import canonical_json, sha256_hex
 
 
 def _ensure_json_safe(value: Any) -> None:
@@ -31,7 +31,14 @@ def _freeze_mapping(mapping: Mapping[str, Any]) -> Mapping[str, Any]:
         if isinstance(value, dict):
             ordered[key] = _freeze_mapping(value)
         elif isinstance(value, list):
-            ordered[key] = tuple(value)
+            ordered[key] = tuple(
+                _freeze_mapping(item)
+                if isinstance(item, dict)
+                else tuple(item)
+                if isinstance(item, list)
+                else item
+                for item in value
+            )
         else:
             ordered[key] = value
     return MappingProxyType(ordered)
@@ -60,10 +67,10 @@ class LayerInvariantSet:
         return dict(self._canonical_payload())
 
     def to_canonical_json(self) -> str:
-        return canonicalize_json(self._canonical_payload())
+        return canonical_json(self._canonical_payload())
 
     def stable_hash(self) -> str:
-        return sha256_hex(self.to_canonical_json())
+        return sha256_hex(self._canonical_payload())
 
     def __deepcopy__(self, memo: dict[int, Any]) -> "LayerInvariantSet":
         memo[id(self)] = self
@@ -97,10 +104,10 @@ class LayerCompatibilityConstraint:
         return dict(self._canonical_payload())
 
     def to_canonical_json(self) -> str:
-        return canonicalize_json(self._canonical_payload())
+        return canonical_json(self._canonical_payload())
 
     def stable_hash(self) -> str:
-        return sha256_hex(self.to_canonical_json())
+        return sha256_hex(self._canonical_payload())
 
     def __deepcopy__(self, memo: dict[int, Any]) -> "LayerCompatibilityConstraint":
         memo[id(self)] = self
@@ -145,10 +152,10 @@ class LayerSpec:
         return dict(self._canonical_payload())
 
     def to_canonical_json(self) -> str:
-        return canonicalize_json(self._canonical_payload())
+        return canonical_json(self._canonical_payload())
 
     def stable_hash(self) -> str:
-        return sha256_hex(self.to_canonical_json())
+        return sha256_hex(self._canonical_payload())
 
     def __deepcopy__(self, memo: dict[int, Any]) -> "LayerSpec":
         memo[id(self)] = self
@@ -171,10 +178,10 @@ class LayerSpecReceipt:
         return payload
 
     def to_canonical_json(self) -> str:
-        return canonicalize_json(self._canonical_payload())
+        return canonical_json(self._canonical_payload())
 
     def stable_hash(self) -> str:
-        return sha256_hex(self.to_canonical_json())
+        return sha256_hex(self._canonical_payload())
 
 
 def build_layer_spec_receipt(layer_spec: LayerSpec) -> LayerSpecReceipt:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any
 
 from qec.analysis.canonical_hashing import sha256_hex
@@ -20,6 +21,11 @@ _ALLOWED_STABILITY_STATUS = {"STABLE", "UNSTABLE"}
 _ALLOWED_STABILITY_REASON = {"ROUNDTRIP_MATCH", "ROUNDTRIP_MISMATCH"}
 
 
+def _freeze_shift_pair(pair: dict[str, Any]) -> MappingProxyType[str, Any]:
+    """Freeze a shift pair dict to prevent mutation."""
+    return MappingProxyType(dict(pair))
+
+
 def _scope_guard() -> None:
     forbidden = {
         "apply", "execute", "run",
@@ -36,6 +42,22 @@ def _scope_guard() -> None:
         for _name in forbidden:
             if hasattr(_cls, _name):
                 raise RuntimeError("INVALID_STATE")
+
+
+def _validate_filter_binding_hashes(hashes: tuple[str, ...]) -> tuple[str, ...]:
+    """Validate filter binding hashes: type, uniqueness, and canonical ordering."""
+    if not isinstance(hashes, tuple):
+        raise ValueError("INVALID_INPUT")
+    if len(hashes) > MAX_FILTER_BINDINGS:
+        raise ValueError("INVALID_INPUT")
+    if not all(isinstance(h, str) and h for h in hashes):
+        raise ValueError("INVALID_INPUT")
+    if len(set(hashes)) != len(hashes):
+        raise ValueError("INVALID_INPUT")
+    canonical = tuple(sorted(hashes))
+    if canonical != hashes:
+        raise ValueError("INVALID_INPUT")
+    return hashes
 
 
 def _validate_item_ids(item_ids: tuple[str, ...]) -> tuple[str, ...]:
@@ -115,7 +137,7 @@ class ShiftProjectionReceipt:
     shift_spec_hash: str
     input_item_ids: tuple[str, ...]
     shifted_item_ids: tuple[str, ...]
-    shift_pairs: tuple[dict[str, Any], ...]
+    shift_pairs: tuple[MappingProxyType[str, Any], ...]
     input_order_hash: str
     shifted_order_hash: str
     shift_projection_hash: str
@@ -124,16 +146,30 @@ class ShiftProjectionReceipt:
     def __post_init__(self) -> None:
         object.__setattr__(self, "input_item_ids", tuple(self.input_item_ids))
         object.__setattr__(self, "shifted_item_ids", tuple(self.shifted_item_ids))
-        object.__setattr__(self, "shift_pairs", tuple(dict(x) for x in self.shift_pairs))
+        try:
+            frozen_pairs = tuple(_freeze_shift_pair(x) for x in self.shift_pairs)
+        except (KeyError, TypeError) as exc:
+            raise ValueError("INVALID_INPUT") from exc
+        object.__setattr__(self, "shift_pairs", frozen_pairs)
         _validate_item_ids(self.input_item_ids)
         _validate_item_ids(self.shifted_item_ids)
         if set(self.input_item_ids) != set(self.shifted_item_ids):
             raise ValueError("INVALID_INPUT")
-        expected_pairs = tuple(sorted(self.shift_pairs, key=lambda x: (x["target_index"], x["item_id"])))
-        if expected_pairs != self.shift_pairs:
+        if len(self.shift_pairs) != len(self.input_item_ids):
             raise ValueError("INVALID_INPUT")
-        src = [p["source_index"] for p in self.shift_pairs]
-        tgt = [p["target_index"] for p in self.shift_pairs]
+        try:
+            for p in self.shift_pairs:
+                _ = p["item_id"], p["source_index"], p["target_index"]
+            expected_pairs = tuple(sorted(self.shift_pairs, key=lambda x: (x["target_index"], x["item_id"])))
+            if expected_pairs != self.shift_pairs:
+                raise ValueError("INVALID_INPUT")
+            src = [p["source_index"] for p in self.shift_pairs]
+            tgt = [p["target_index"] for p in self.shift_pairs]
+            item_ids_in_pairs = [p["item_id"] for p in self.shift_pairs]
+        except (KeyError, TypeError) as exc:
+            raise ValueError("INVALID_INPUT") from exc
+        if len(set(item_ids_in_pairs)) != len(self.input_item_ids):
+            raise ValueError("INVALID_INPUT")
         if len(set(src)) != len(self.input_item_ids) or len(set(tgt)) != len(self.input_item_ids):
             raise ValueError("INVALID_INPUT")
         if set(src) != set(range(len(self.input_item_ids))) or set(tgt) != set(range(len(self.input_item_ids))):
@@ -151,7 +187,7 @@ class ShiftProjectionReceipt:
             "shift_spec_hash": self.shift_spec_hash,
             "input_item_ids": list(self.input_item_ids),
             "shifted_item_ids": list(self.shifted_item_ids),
-            "shift_pairs": list(self.shift_pairs),
+            "shift_pairs": [dict(p) for p in self.shift_pairs],
             "input_order_hash": self.input_order_hash,
             "shifted_order_hash": self.shifted_order_hash,
         }
@@ -184,9 +220,8 @@ class FilterCompatibilityReceipt:
     receipt_hash: str
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "filter_binding_hashes", tuple(self.filter_binding_hashes))
-        if len(self.filter_binding_hashes) > MAX_FILTER_BINDINGS:
-            raise ValueError("INVALID_INPUT")
+        validated = _validate_filter_binding_hashes(self.filter_binding_hashes)
+        object.__setattr__(self, "filter_binding_hashes", validated)
         if self.compatibility_status not in _ALLOWED_COMPATIBILITY_STATUS or self.compatibility_reason not in _ALLOWED_COMPATIBILITY_REASON:
             raise ValueError("INVALID_INPUT")
         if self.compatibility_status == "COMPATIBLE" and self.compatibility_reason != "IDENTITY_PRESERVED":
@@ -286,6 +321,10 @@ def build_hilber_shift_spec(shift_id: str, source_type: str, source_id: str, sou
 
 
 def build_shift_projection_receipt(spec: HilberShiftSpec) -> ShiftProjectionReceipt:
+    if spec.spec_hash != spec.stable_hash():
+        raise ValueError("INVALID_INPUT")
+    if spec.shift_version != HILBER_SHIFT_VERSION or spec.shift_algorithm != SHIFT_ALGORITHM:
+        raise ValueError("INVALID_INPUT")
     n = len(spec.ordered_item_ids)
     pairs: list[dict[str, Any]] = []
     targets: set[int] = set()
@@ -334,14 +373,17 @@ def build_shift_projection_receipt(spec: HilberShiftSpec) -> ShiftProjectionRece
 
 
 def build_filter_compatibility_receipt(compatibility_id: str, shift_projection_receipt: ShiftProjectionReceipt, filter_binding_hashes: tuple[str, ...]) -> FilterCompatibilityReceipt:
-    status = "COMPATIBLE" if set(shift_projection_receipt.input_item_ids) == set(shift_projection_receipt.shifted_item_ids) else "INCOMPATIBLE"
+    canonical_bindings = tuple(sorted(filter_binding_hashes))
+    _validate_filter_binding_hashes(canonical_bindings)
+    order_preserved = shift_projection_receipt.input_order_hash == shift_projection_receipt.shifted_order_hash
+    status = "COMPATIBLE" if order_preserved else "INCOMPATIBLE"
     reason = "IDENTITY_PRESERVED" if status == "COMPATIBLE" else "IDENTITY_MISMATCH"
     payload = {
         "compatibility_id": compatibility_id,
         "shift_projection_receipt_hash": shift_projection_receipt.receipt_hash,
         "input_order_hash": shift_projection_receipt.input_order_hash,
         "shifted_order_hash": shift_projection_receipt.shifted_order_hash,
-        "filter_binding_hashes": tuple(filter_binding_hashes),
+        "filter_binding_hashes": canonical_bindings,
         "compatibility_status": status,
         "compatibility_reason": reason,
     }
@@ -370,8 +412,20 @@ def build_filter_compatibility_receipt(compatibility_id: str, shift_projection_r
 
 
 def build_shift_stability_receipt(stability_id: str, shift_projection_receipt: ShiftProjectionReceipt, filter_compatibility_receipt: FilterCompatibilityReceipt) -> ShiftStabilityReceipt:
-    inverse_hash = shift_projection_receipt.input_order_hash
-    roundtrip = inverse_hash == shift_projection_receipt.input_order_hash
+    if filter_compatibility_receipt.shift_projection_receipt_hash != shift_projection_receipt.receipt_hash:
+        raise ValueError("INVALID_INPUT")
+    if filter_compatibility_receipt.input_order_hash != shift_projection_receipt.input_order_hash:
+        raise ValueError("INVALID_INPUT")
+    if filter_compatibility_receipt.shifted_order_hash != shift_projection_receipt.shifted_order_hash:
+        raise ValueError("INVALID_INPUT")
+    n = len(shift_projection_receipt.shifted_item_ids)
+    inverse_items = [""] * n
+    for p in shift_projection_receipt.shift_pairs:
+        src = p["source_index"]
+        tgt = p["target_index"]
+        inverse_items[src] = shift_projection_receipt.shifted_item_ids[tgt]
+    inverse_order_hash = _order_hash(tuple(inverse_items))
+    roundtrip = inverse_order_hash == shift_projection_receipt.input_order_hash
     status = "STABLE" if roundtrip else "UNSTABLE"
     reason = "ROUNDTRIP_MATCH" if roundtrip else "ROUNDTRIP_MISMATCH"
     payload = {
@@ -380,7 +434,7 @@ def build_shift_stability_receipt(stability_id: str, shift_projection_receipt: S
         "filter_compatibility_receipt_hash": filter_compatibility_receipt.receipt_hash,
         "input_order_hash": shift_projection_receipt.input_order_hash,
         "shifted_order_hash": shift_projection_receipt.shifted_order_hash,
-        "inverse_order_hash": inverse_hash,
+        "inverse_order_hash": inverse_order_hash,
         "roundtrip_stable": roundtrip,
         "stability_status": status,
         "stability_reason": reason,

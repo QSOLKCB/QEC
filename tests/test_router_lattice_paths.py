@@ -1,7 +1,19 @@
 import pytest
 from qec.analysis.atomic_semantic_lattice_contract import AtomicLatticeBounds, SemanticLatticeNode, ConstraintEdgeReceipt, build_semantic_lattice_graph
 from qec.analysis.canonical_hashing import sha256_hex
-from qec.analysis.router_lattice_paths import *
+from qec.analysis.router_lattice_paths import (
+    RouteToken,
+    RouterPathSpec,
+    SpecialPathIndex,
+    ResolvedLatticePath,
+    ResolvedLatticePathSet,
+    RouterLatticePathReceipt,
+    build_router_path_spec,
+    build_special_path_index,
+    resolve_router_lattice_paths,
+    build_router_lattice_path_receipt,
+    validate_router_lattice_path_receipt,
+)
 
 def _bounds():
     b=AtomicLatticeBounds("b","153.1",5,5,5,"")
@@ -40,7 +52,7 @@ def test_router_lattice_receipt_rejects_mismatched_graph_spec_index_or_paths():
     rps=resolve_router_lattice_paths(g,s,idx); rec=build_router_lattice_path_receipt(g,s,idx,rps)
     bad=RouterLatticePathReceipt(**{**rec.__dict__,"path_count":9,"receipt_hash":""}); bad=RouterLatticePathReceipt(**{**bad.__dict__,"receipt_hash":bad.stable_hash()})
     with pytest.raises(ValueError,match="INVALID_INPUT"): validate_router_lattice_path_receipt(bad,g,s,idx,rps)
-def test_v153_1_does_not_implement_readout_search_mask_or_hilber_behavior():
+def test_v153_1_does_not_implement_readout_search_mask_or_hilbert_behavior():
     for cls in (RouterPathSpec,SpecialPathIndex,ResolvedLatticePathSet,RouterLatticePathReceipt):
         for n in ("readout","search","mask","hilber","hilbert","project","traverse","shortest_path"):
             assert not hasattr(cls,n)
@@ -74,3 +86,41 @@ def test_ambiguous_token_resolution_rejected():
     idx=build_special_path_index(g2,"i","1",("n1","n2","n3"),("e1","e2","e3"))
     s=_spec((_tok("x","CONSTRAINT_TYPE","adjacent",0),),max_paths=1)
     with pytest.raises(ValueError,match="INVALID_INPUT"): resolve_router_lattice_paths(g2,s,idx)
+
+def test_non_string_node_id_token_value_rejected():
+    with pytest.raises(ValueError,match="INVALID_INPUT"): RouteToken("t","NODE_ID",123,0,"")
+
+def test_non_string_edge_id_token_value_rejected():
+    with pytest.raises(ValueError,match="INVALID_INPUT"): RouteToken("t","EDGE_ID",{"x":1},0,"")
+
+def test_non_string_constraint_type_token_value_rejected():
+    with pytest.raises(ValueError,match="INVALID_INPUT"): RouteToken("t","CONSTRAINT_TYPE",["a","b"],0,"")
+
+def test_unmatched_constraint_type_token_rejected():
+    g=_graph(); idx=build_special_path_index(g,"i","1",("n1","n2","n3"),("e1","e2"))
+    s=_spec((_tok("x","CONSTRAINT_TYPE","nonexistent",0),))
+    with pytest.raises(ValueError,match="INVALID_INPUT"): resolve_router_lattice_paths(g,s,idx)
+
+def test_forged_path_set_hash_rejected_in_receipt_validation():
+    g=_graph(); idx=build_special_path_index(g,"i","1",("n1","n2","n3"),("e1","e2")); s=_spec((_tok("a","NODE_ID","n1",0),))
+    rps=resolve_router_lattice_paths(g,s,idx); rec=build_router_lattice_path_receipt(g,s,idx,rps)
+    # Create a forged path set with empty hash, which passes dataclass validation but should fail receipt validation
+    forged_rps=ResolvedLatticePathSet(rps.graph_hash,rps.router_path_spec_hash,rps.special_path_index_hash,rps.resolved_paths,"",rps.empty_result_reason)
+    forged_rec=RouterLatticePathReceipt(rec.graph_hash,rec.router_path_spec_hash,rec.special_path_index_hash,"",rec.path_count,"")
+    forged_rec=RouterLatticePathReceipt(**{**forged_rec.__dict__,"receipt_hash":forged_rec.stable_hash()})
+    # The validation should reject because resolved_path_hash does not equal stable_hash()
+    with pytest.raises(ValueError,match="INVALID_INPUT"): validate_router_lattice_path_receipt(forged_rec,g,s,idx,forged_rps)
+
+def test_empty_result_with_none_reason_rejected():
+    with pytest.raises(ValueError,match="INVALID_INPUT"): ResolvedLatticePathSet("gh","rph","sph",tuple(),"","NONE")
+
+def test_stale_token_hash_rejected_in_dataclass():
+    # RouteToken constructor validates hash when non-empty
+    with pytest.raises(ValueError,match="INVALID_INPUT"): RouteToken("t","NODE_ID","n1",0,"stale_hash_not_matching")
+
+def test_build_receipt_validates_path_set_belongs_to_graph():
+    g=_graph(); idx=build_special_path_index(g,"i","1",("n1","n2","n3"),("e1","e2")); s=_spec((_tok("a","NODE_ID","n1",0),))
+    rps=resolve_router_lattice_paths(g,s,idx)
+    forged_rps=ResolvedLatticePathSet("wrong_graph_hash",rps.router_path_spec_hash,rps.special_path_index_hash,rps.resolved_paths,"","NONE")
+    forged_rps=ResolvedLatticePathSet(**{**forged_rps.__dict__,"resolved_path_hash":forged_rps.stable_hash()})
+    with pytest.raises(ValueError,match="INVALID_INPUT"): build_router_lattice_path_receipt(g,s,idx,forged_rps)

@@ -24,6 +24,8 @@ class RouteToken:
             for k in ("x","y","z"):
                 v=self.token_value[k]
                 if not isinstance(v,int) or isinstance(v,bool): raise ValueError("INVALID_INPUT")
+        elif self.token_type in ("NODE_ID","EDGE_ID","CONSTRAINT_TYPE"):
+            if not isinstance(self.token_value,str): raise ValueError("INVALID_INPUT")
         _ensure_json_safe(self.token_value)
         if self.token_hash and self.token_hash!=self.stable_hash(): raise ValueError("INVALID_INPUT")
     def _canonical_payload(self)->dict:
@@ -79,6 +81,7 @@ class ResolvedLatticePathSet:
         object.__setattr__(self,"resolved_paths",tuple(self.resolved_paths))
         if self.empty_result_reason not in _ALLOWED_EMPTY_REASONS: raise ValueError("INVALID_INPUT")
         if self.resolved_paths and self.empty_result_reason!="NONE": raise ValueError("INVALID_INPUT")
+        if not self.resolved_paths and self.empty_result_reason=="NONE": raise ValueError("INVALID_INPUT")
         if tuple(sorted(self.resolved_paths,key=lambda p:(p.path_id,p.path_hash)))!=self.resolved_paths: raise ValueError("INVALID_INPUT")
         if len({p.path_id for p in self.resolved_paths})!=len(self.resolved_paths) or len({p.path_hash for p in self.resolved_paths})!=len(self.resolved_paths): raise ValueError("INVALID_INPUT")
         if self.resolved_path_hash and self.resolved_path_hash!=self.stable_hash(): raise ValueError("INVALID_INPUT")
@@ -97,6 +100,8 @@ class RouterLatticePathReceipt:
     def to_canonical_json(self)->str:return canonical_json(self._canonical_payload())
     def stable_hash(self)->str:return sha256_hex(self._canonical_payload())
 def build_router_path_spec(route_id:str,route_version:str,tokens:tuple[RouteToken,...],resolution_rules:Mapping[str,Any])->RouterPathSpec:
+    for t in tokens:
+        if t.token_hash!=t.stable_hash(): raise ValueError("INVALID_INPUT")
     st=tuple(sorted(tokens,key=lambda t:(t.token_index,t.token_type,t.token_id,t.token_hash)))
     s=RouterPathSpec(route_id,route_version,st,resolution_rules,"")
     return RouterPathSpec(**{**s.__dict__,"router_path_spec_hash":s.stable_hash()})
@@ -129,13 +134,21 @@ def resolve_router_lattice_paths(graph:SemanticLatticeGraph,router_path_spec:Rou
             matched_nodes.append(found[0]); matched_hashes.append(t.token_hash)
         else:
             cons=sorted([e.edge_id for e in edge_by_id.values() if e.constraint_type==t.token_value])
+            if len(cons)==0: raise ValueError("INVALID_INPUT")
             if len(cons)>router_path_spec.resolution_rules["max_paths"]: raise ValueError("INVALID_INPUT")
             matched_edges.extend(cons); matched_hashes.append(t.token_hash)
-    if router_path_spec.resolution_rules["require_connected_sequence"] and len(matched_nodes)>1:
-        for a,b in zip(matched_nodes,matched_nodes[1:]):
-            direct=[e.edge_id for e in edge_by_id.values() if e.source_node_id==a and e.target_node_id==b]
-            if len(direct)!=1: raise ValueError("INVALID_INPUT")
-            if direct[0] not in matched_edges: matched_edges.append(direct[0])
+    if router_path_spec.resolution_rules["require_connected_sequence"]:
+        if len(matched_nodes)>1:
+            for a,b in zip(matched_nodes,matched_nodes[1:]):
+                direct=[e.edge_id for e in edge_by_id.values() if e.source_node_id==a and e.target_node_id==b]
+                if len(direct)!=1: raise ValueError("INVALID_INPUT")
+                if direct[0] not in matched_edges: matched_edges.append(direct[0])
+        if matched_edges:
+            edge_objs=[e for e in edge_by_id.values() if e.edge_id in matched_edges]
+            edge_nodes=set()
+            for e in edge_objs: edge_nodes.add(e.source_node_id); edge_nodes.add(e.target_node_id)
+            for n in matched_nodes:
+                if n not in edge_nodes: raise ValueError("INVALID_INPUT")
     if not matched_nodes and not matched_edges:
         if not router_path_spec.resolution_rules["allow_empty_result"]: raise ValueError("INVALID_INPUT")
         rps=ResolvedLatticePathSet(graph.stable_hash(),router_path_spec.stable_hash(),special_path_index.stable_hash(),tuple(),"","NO_MATCH")
@@ -145,11 +158,17 @@ def resolve_router_lattice_paths(graph:SemanticLatticeGraph,router_path_spec:Rou
     rps=ResolvedLatticePathSet(graph.stable_hash(),router_path_spec.stable_hash(),special_path_index.stable_hash(),(path,),"","NONE")
     return ResolvedLatticePathSet(**{**rps.__dict__,"resolved_path_hash":rps.stable_hash()})
 def build_router_lattice_path_receipt(graph:SemanticLatticeGraph,router_path_spec:RouterPathSpec,special_path_index:SpecialPathIndex,resolved_path_set:ResolvedLatticePathSet)->RouterLatticePathReceipt:
+    _validate_graph(graph)
+    if resolved_path_set.graph_hash!=graph.stable_hash(): raise ValueError("INVALID_INPUT")
+    if resolved_path_set.router_path_spec_hash!=router_path_spec.stable_hash(): raise ValueError("INVALID_INPUT")
+    if resolved_path_set.special_path_index_hash!=special_path_index.stable_hash(): raise ValueError("INVALID_INPUT")
+    if resolved_path_set.resolved_path_hash!=resolved_path_set.stable_hash(): raise ValueError("INVALID_INPUT")
     r=RouterLatticePathReceipt(graph.stable_hash(),router_path_spec.stable_hash(),special_path_index.stable_hash(),resolved_path_set.resolved_path_hash,len(resolved_path_set.resolved_paths),"")
     return RouterLatticePathReceipt(**{**r.__dict__,"receipt_hash":r.stable_hash()})
 def validate_router_lattice_path_receipt(receipt:RouterLatticePathReceipt,graph:SemanticLatticeGraph,router_path_spec:RouterPathSpec,special_path_index:SpecialPathIndex,resolved_path_set:ResolvedLatticePathSet)->None:
     _validate_graph(graph)
     if receipt.graph_hash!=graph.stable_hash() or receipt.router_path_spec_hash!=router_path_spec.stable_hash() or receipt.special_path_index_hash!=special_path_index.stable_hash(): raise ValueError("INVALID_INPUT")
+    if resolved_path_set.resolved_path_hash!=resolved_path_set.stable_hash(): raise ValueError("INVALID_INPUT")
     if receipt.resolved_path_hash!=resolved_path_set.resolved_path_hash or receipt.path_count!=len(resolved_path_set.resolved_paths): raise ValueError("INVALID_INPUT")
     if resolved_path_set.graph_hash!=graph.stable_hash() or resolved_path_set.router_path_spec_hash!=router_path_spec.stable_hash() or resolved_path_set.special_path_index_hash!=special_path_index.stable_hash(): raise ValueError("INVALID_INPUT")
     if receipt.receipt_hash!=RouterLatticePathReceipt(**{**receipt.__dict__,"receipt_hash":""}).stable_hash(): raise ValueError("INVALID_INPUT")

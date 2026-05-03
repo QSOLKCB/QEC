@@ -167,3 +167,15 @@ def test_malformed_shift_pairs_keyerror():
             "",
             "",
         )
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ShiftProjectionReceipt(
+            "s1",
+            "x",
+            ("a", "b"),
+            ("a", "b"),
+            ({"item_id": "a", "target_index": 0}, {"item_id": "b", "source_index": 1, "target_index": 1}),
+            "x",
+            "y",
+            "",
+            "",
+        )

@@ -1,15 +1,15 @@
 # 🚀 QSOLKCB / QEC — ROADMAP.md
 
-## Deterministic Reasoning • Canonical Identity • RES/RAG Resonance • Reversible Layers • Atomic Lattices • Router Paths • Readout Projections • Distributed Proof
+## Deterministic Reasoning • Canonical Identity • RES/RAG Resonance • Reversible Layers • Atomic Lattices • Router Paths • Readout Projections • Multi-Scale Invariance • Decay Signatures • Perturbation Contracts • Substrate Constraints • Recursive Proof Loops • Reality Loop Integration • Global Deterministic Truth Engine
 
 ---
 
 # 🧭 Stable Tip Metadata
 
 ```text
-latest completed release → v153.1
-current frontier         → v153.2
-next work                → Readout Projection Receipts
+latest completed release → v153.6
+current frontier         → v153.7
+next work                → Functional Kernel + Readout Shell Architecture
 active arc               → v153.x — Atomic Semantic Lattice State Space
 ```
 
@@ -17,7 +17,12 @@ Stable lineage remains anchored to `v137.*` compatibility contracts.
 
 Published tags are authoritative.
 
-If this roadmap disagrees with published release history, release history wins and the roadmap must be corrected.
+If this roadmap disagrees with published release history:
+
+```text
+published release history wins
+→ roadmap/context must be corrected
+```
 
 Every release must preserve:
 
@@ -67,7 +72,17 @@ deterministic multi-agent reasoning
 + atomic semantic lattice
 + router-path proof
 + readout-projection proof
-+ compression-equivalence proof
++ search-mask compatibility proof
++ Hilber/Hilbert shift projection proof
++ functional kernel / readout-shell proof
++ readout-matrix / deterministic Markov-basis proof
++ multi-scale invariance proof
++ decay-signature proof
++ perturbation-stability proof
++ substrate-constraint proof
++ recursive-loop termination proof
++ reality-loop composition proof
++ global truth verification
 system
 ```
 
@@ -82,6 +97,13 @@ a layer system that replaces source identity
 a graph system that guesses topology
 a router that searches hidden paths
 a readout system that executes hidden behavior
+a mask system that uses Python built-in hash()
+a Hilber/Hilbert system that guesses geometry
+a Markov system that samples randomly
+a system that claims physical energy semantics
+a substrate system that depends on runtime hardware claims
+a system that allows infinite recursion
+a system that issues truth verdicts without hash-bound receipts
 ```
 
 QEC is:
@@ -101,6 +123,16 @@ a system that produces proof-carrying reasoning artifacts
 → across atomic semantic lattices
 → across router paths
 → across readout projections
+→ across masks
+→ across shifts
+→ across readout shells
+→ across deterministic matrices
+→ across scale levels
+→ across decay measurements
+→ across perturbation stress fields
+→ across substrate constraints
+→ across bounded recursive loops
+→ across reality-loop compositions
 → across time
 ```
 
@@ -127,7 +159,7 @@ same input
 
 Violation → **SYSTEM INVALID**
 
-Current extended form:
+Extended form:
 
 ```text
 same raw evidence
@@ -145,7 +177,25 @@ same raw evidence
 + same lattice nodes
 + same lattice edges
 + same router path specs
++ same special path indexes
++ same resolved path sets
 + same readout projection specs
++ same layered lattice projection specs
++ same QAM compatibility metadata
++ same SearchMask64 contracts
++ same HilberShiftSpec
++ same kernel specs
++ same readout shell stacks
++ same readout matrix construction rules
++ same replay alignment inputs
++ same subgraph invariant patterns
++ same scale indices
++ same decay threshold contracts
++ same perturbation contracts
++ same substrate constraint predicates
++ same loop termination contracts
++ same reality loop composition slots
++ same global threshold contracts
 → same canonical_hash
 → same semantic_field_hash
 → same resonance_hash
@@ -156,9 +206,29 @@ same raw evidence
 → same layered_receipt_hash
 → same removal_receipt_hash
 → same compression_equivalence_hash
+→ same fractal_equivalence_receipt_hash
 → same lattice_graph_hash
 → same router_path_receipt_hash
 → same readout_projection_receipt_hash
+→ same layered_lattice_projection_hash
+→ same qam_spec_hash
+→ same mask_reduction_hash
+→ same shift_projection_hash
+→ same kernel_composition_hash
+→ same readout_matrix_hash
+→ same lattice_replay_proof_hash
+→ same multi_scale_invariant_receipt_hash
+→ same sierpinski_compression_receipt_hash
+→ same digital_decay_signature_hash
+→ same entropy_drift_receipt_hash
+→ same energy_matrix_receipt_hash
+→ same perturbation_stability_proof_hash
+→ same substrate_state_receipt_hash
+→ same recursive_proof_receipt_hash
+→ same loop_termination_proof_hash
+→ same reality_loop_proof_receipt_hash
+→ same global_truth_receipt_hash
+→ same global_replay_proof_hash
 ```
 
 ---
@@ -167,44 +237,70 @@ same raw evidence
 
 Forbidden:
 
-* randomness
-* wall-clock dependence
-* async drift
-* hidden mutable state
-* silent normalization
-* schema drift
-* ambiguous ordering
-* unbounded outputs
-* non-canonical identity
-* proof artifacts without recomputable hashes
-* symbolic meaning without receipts
-* layered augmentation that mutates base identity
-* graph topology without structural/hash synchronization
-* router paths without deterministic resolution
-* readout projections without explicit source/path binding
-* search masks without fixed width and collision semantics
-* Hilber/Hilbert shift without exact operation definition
-* Markov-style transition systems with implicit randomness
+```text
+randomness
+wall-clock dependence
+async drift
+hidden mutable state
+silent normalization
+schema drift
+ambiguous ordering
+unbounded outputs
+non-canonical identity
+proof artifacts without recomputable hashes
+symbolic meaning without receipts
+layered augmentation that mutates base identity
+graph topology without structural/hash synchronization
+router paths without deterministic resolution
+router token drops or silent no-match behavior
+readout projections without explicit source/path binding
+search masks without fixed width and collision semantics
+Hilber/Hilbert shift without exact operation definition
+Markov-style transition systems with implicit randomness
+Python built-in hash() for identity or masks
+physical energy claims without deterministic artifact binding
+infinite recursion or undefined loop depth
+scale detection without explicit scale_index
+probabilistic entropy or decay estimation
+perturbation with floating-point or unbounded parameters
+substrate constraints referencing hardware or runtime state
+global truth verdicts without hash-bound GlobalThresholdContract
+parent canonical payloads that include child self-hash fields
+validation that trusts copied hashes instead of recomputing them
+```
 
 Required:
 
-* frozen dataclasses or equivalent immutability
-* canonical JSON
-* stable SHA-256 hashing
-* explicit contracts
-* deterministic ordering
-* deterministic tie-breaking
-* bounded outputs
-* fail-fast validation
-* exact failure semantics
-* replay-safe artifacts
-* lineage-preserving transformations
-* self-hash exclusion
-* recomputed hash validation
-* immutable payloads or deep-freeze / thaw discipline
-* deterministic router path resolution
-* source-bound readout projection
-* reversible layer proofs where layers are removable
+```text
+frozen dataclasses or equivalent immutability
+canonical JSON
+stable SHA-256 hashing
+explicit contracts
+deterministic ordering
+deterministic tie-breaking
+bounded outputs
+fail-fast validation
+exact failure semantics
+replay-safe artifacts
+lineage-preserving transformations
+self-hash exclusion
+recomputed hash validation
+immutable payloads or deep-freeze / thaw discipline
+deterministic router path resolution
+source-bound readout projection
+fixed-width SearchMask64 reduction
+exact Hilber/Hilbert shift operation
+pure functional readout shell composition
+deterministic readout matrix construction
+reversible layer proofs where layers are removable
+explicit scale_index in {0, 1, 2}
+integer-valued decay scores with exact threshold contracts
+enumerated perturbation types with bounded parameters
+predicate-based substrate contracts over canonical JSON
+bounded recursive loops with explicit max_depth in [1, 1024]
+exactly 18 slots in every RealityLoopCompositionSpec
+at least one RealityLoopProofReceipt in every GlobalTruthReceipt
+```
 
 Core invariant:
 
@@ -221,8 +317,9 @@ base_hash remains authoritative
 Graph invariant:
 
 ```text
-nodes + edges + bounds
-→ graph_hash
+node objects + edge objects
+== node/edge hash arrays
+== canonical graph hash
 ```
 
 Router invariant:
@@ -237,6 +334,92 @@ Readout invariant:
 ```text
 same graph + same resolved path set + same readout spec
 → same projection receipt
+```
+
+Mask invariant:
+
+```text
+same canonical input + same mask contract
+→ same uint64 mask
+```
+
+Shift invariant:
+
+```text
+same ordered input + same shift spec
+→ same shifted projection
+→ same stability receipt
+```
+
+Kernel/shell invariant:
+
+```text
+same kernel + same ordered shell stack + same input identity
+→ same composed readout identity
+```
+
+Matrix invariant:
+
+```text
+same readout shell set + same ordering rule + same matrix construction rule
+→ same readout_matrix_hash
+```
+
+Scale invariant:
+
+```text
+same subgraph pattern + same graph + same scale_index
+→ same occurrences (sorted)
+→ same receipt_hash
+```
+
+Decay invariant:
+
+```text
+same checkpoints (sorted) + same threshold contract
+→ same decay_class
+→ same digital_decay_signature_hash
+```
+
+Perturbation invariant:
+
+```text
+same artifact_canonical_json + same perturbation_contract_hash
+→ same perturbed_artifact_hash
+```
+
+Substrate invariant:
+
+```text
+same substrate_contract_hash + same artifact_canonical_json
+→ same verdict
+→ same substrate_state_receipt_hash
+```
+
+Loop invariant:
+
+```text
+same loop_termination_contract_hash + same iteration_records (sorted)
+→ same termination_reason
+→ same recursive_proof_receipt_hash
+```
+
+Reality loop invariant:
+
+```text
+same 18 slots (sorted by slot_index)
+→ same composition_spec_hash
+→ same reality_loop_proof_receipt_hash
+```
+
+Global truth invariant:
+
+```text
+same global_validation_index_hash
++ same reality_loop_proof_receipt_hashes (sorted)
++ same global_threshold_contract_hash
+→ same system_verdict
+→ same global_truth_receipt_hash
 ```
 
 ---
@@ -257,26 +440,50 @@ pytest -q
 
 if any of the following are touched:
 
-* identity / hashing
-* canonical JSON helpers
-* receipts
-* proof artifacts
-* multi-agent logic
-* convergence
-* conflict classification
-* governance
-* validation
-* replay
-* canonical ordering
-* analysis-layer proof modules
-* reversible layer logic
-* compression equivalence
-* lattice topology
-* router path resolution
-* readout projection
-* search-mask construction
-* Hilber/Hilbert shift projection
-* readout matrix / Markov-basis logic
+```text
+identity / hashing
+canonical JSON helpers
+receipts
+proof artifacts
+multi-agent logic
+convergence
+conflict classification
+governance
+validation
+replay
+canonical ordering
+analysis-layer proof modules
+reversible layer logic
+compression equivalence
+fractal invariant compression
+semantic lattice topology
+router path resolution
+readout projection
+layered lattice projection
+QAM compatibility metadata
+search-mask construction
+Hilber/Hilbert shift projection
+functional kernel / readout shell composition
+readout matrix / Markov-basis logic
+lattice drift / replay alignment
+subgraph invariant pattern detection
+multi-scale invariant receipts
+Sierpinski compression
+decay checkpoint / decay signature
+entropy drift receipts
+perturbation contracts / perturbation matrix
+semantic stress receipts / stability proofs
+substrate constraint predicates / substrate contracts
+substrate state receipts / material encoding receipts
+loop termination contracts
+loop iteration records / recursive proof receipts
+ouroboric convergence receipts / loop termination proofs
+reality loop composition specs / cross-arc identity links
+reality loop proof receipts
+global validation index
+global threshold contracts / global truth receipts
+global replay proofs
+```
 
 ## 🟡 Local Rule
 
@@ -335,55 +542,6 @@ no hidden runtime effects
 
 ---
 
-# 🧾 Release / Roadmap Reconciliation Ledger
-
-This roadmap corrects the earlier mismatch between planned v152 items and actual releases.
-
-The earlier roadmap incorrectly kept v152 as a combined arc for:
-
-```text
-reversible layers
-+ router paths
-+ SearchMask64
-+ Hilber/Hilbert shift
-+ readout kernels
-+ readout matrices
-```
-
-Actual release history shows:
-
-```text
-v152.0–v152.4 → reversible layering + compression/equivalence + fractal invariant compression
-v153.0        → atomic semantic lattice contract
-v153.1        → router lattice paths
-```
-
-Therefore:
-
-```text
-v152 is now closed as the Reversible Layer + Compression Equivalence arc.
-v153 is now the Atomic Semantic Lattice + Router/Readout Projection arc.
-Unimplemented v152-intake ideas are moved into explicit later v153.x / v154.x work.
-```
-
-## Deferred / Rescheduled Items
-
-| Earlier roadmap item | Actual state | Corrected destination |
-|---|---:|---|
-| RouterPathSpec Contract listed under v152.5 | Implemented as router lattice paths | v153.1 COMPLETE |
-| Readout projection / readout-visible lattice work | Not yet implemented | v153.2 CURRENT FRONTIER |
-| Layered lattice projection | Not yet implemented | v153.3 |
-| QAM compatibility profile | Not yet implemented | v153.4 |
-| SearchMask64 | Not yet implemented | v153.5 |
-| Hilber/Hilbert shift | Not yet implemented | v153.6 |
-| Functional kernel + readout shell stack | Not yet implemented | v153.7 |
-| Readout combination matrix / Markov basis | Not yet implemented | v153.8 |
-| Semantic/governance compression beyond layered proofs | Partially deferred | v154.x / v159.x |
-
-No roadmap section may claim these deferred items are complete until a published release implements their artifacts and tests.
-
----
-
 # 🧾 Attribution Policy — Marc Brendecke / QAM v4.1.0
 
 Marc Brendecke / QAM v4.1.0 attribution is release-note metadata only.
@@ -420,260 +578,11 @@ ORCID: https://orcid.org/0009-0009-4034-598X
 This attribution is informational only and does not influence canonical identity, hashing, or proof semantics within QEC.
 ```
 
----
-
-# 🧊 Visual Architecture Model — The Lattice Cube
-
-The roadmap is organized around the deterministic lattice cube model.
+System rule:
 
 ```text
-outer cube
-→ deterministic boundary
-
-canonical lattice
-→ stable identity space
-
-semantic lattice
-→ RES/RAG structured meaning
-
-reversible layer lattice
-→ optional derived augmentation with removal proof
-
-atomic semantic lattice
-→ bounded topology of explicit nodes and edges
-
-router paths
-→ deterministic special-path selection over topology
-
-readout projections
-→ deterministic observation of resolved paths
-
-Sierpinski arrays
-→ multi-scale invariants
-
-digital decay signature
-→ adversarial entropy / failure modes
-
-energy matrix
-→ perturbation and validation field
-```
-
-Interpretation:
-
-```text
-outer cube              = v151.0 / v151.1 boundary + identity
-canonical lattice        = CanonicalDocument / RESState / SemanticFieldReceipt
-semantic lattice         = RES/RAG evidence + interpretation structure
-reversible layer lattice = v152 layer + removal + compression proof system
-atomic semantic lattice  = v153.0 bounded graph topology
-router paths             = v153.1 deterministic route receipts
-readout projections      = v153.2 source-bound readout receipts
-Sierpinski arrays        = v154 multi-scale invariant propagation
-digital decay            = v155 adversarial entropy signatures
-energy matrix            = v156 deterministic perturbation model
-```
-
----
-
-# 🧩 External Architecture Intake — QAM v4.1.0 / Router / 64-bit Mask / Hilber-Shift / Kernel Readouts
-
-External architecture ideas are treated as design input, not authority, until implemented as deterministic artifacts.
-
-## Intake Idea 1 — QAM v4.1.0 Compatibility Profile
-
-QEC-safe interpretation:
-
-```text
-external QAM specification
-→ untrusted spec input
-→ canonical compatibility profile
-→ hash-bound validation receipt
-```
-
-Corrected destination:
-
-```text
-v153.4 — QAM Compatibility Profile
-```
-
-Required future artifacts:
-
-```text
-QAMCompatibilityProfile
-QAMSpecReceipt
-QAMCompatibilityValidationReceipt
-```
-
-## Intake Idea 2 — Router Notation for Data / Special Paths
-
-QEC-safe interpretation:
-
-```text
-validated lattice graph
-→ deterministic route spec
-→ explicit special-path index
-→ resolved path set
-→ router lattice path receipt
-```
-
-Actual implementation:
-
-```text
-v153.1 — Router Lattice Paths COMPLETE
-```
-
-Implemented artifacts:
-
-```text
-RouteToken
-RouterPathSpec
-SpecialPathIndex
-ResolvedLatticePath
-ResolvedLatticePathSet
-RouterLatticePathReceipt
-```
-
-## Intake Idea 3 — Constant 64-bit Search Mask
-
-QEC-safe interpretation:
-
-```text
-path/readout/filter search input
-→ fixed-width unsigned 64-bit mask
-→ deterministic reduction receipt
-→ explicit collision handling
-```
-
-Corrected destination:
-
-```text
-v153.5 — SearchMask64 Contract
-```
-
-Required future artifacts:
-
-```text
-SearchMask64
-MaskReductionReceipt
-MaskCollisionReceipt
-MaskCompatibilityReceipt
-```
-
-## Intake Idea 4 — Hilber / Hilbert Shift for Filters
-
-QEC-safe interpretation:
-
-```text
-ordered path/readout/filter view
-→ deterministic shift projection
-→ hash-bound shifted view
-→ base graph identity unchanged
-```
-
-Corrected destination:
-
-```text
-v153.6 — Hilber/Hilbert Shift Projection
-```
-
-Required future artifacts:
-
-```text
-HilberShiftSpec
-ShiftProjectionReceipt
-FilterCompatibilityReceipt
-ShiftStabilityReceipt
-```
-
-Important:
-
-```text
-QEC must not guess what “Hilber” means.
-The release must define the exact operation before implementation.
-```
-
-## Intake Idea 5 — Abstract Core Kernel + Derived Kernels
-
-QEC-safe interpretation:
-
-```text
-CoreKernelSpec
-→ DerivedKernelSpec
-→ KernelDerivationReceipt
-```
-
-Corrected destination:
-
-```text
-v153.7 — Functional Kernel + Readout Shell Architecture
-```
-
-Required future artifacts:
-
-```text
-CoreKernelSpec
-DerivedKernelSpec
-KernelDerivationReceipt
-KernelCompatibilityReceipt
-ReadoutShell
-ReadoutShellStack
-ReadoutCompositionReceipt
-ReadoutOrderReceipt
-```
-
-## Intake Idea 6 — Pure Functional Readout Shells
-
-QEC-safe interpretation:
-
-```text
-base readout
-→ ordered shell composition
-→ composed readout identity
-→ composition receipt
-```
-
-Corrected destination:
-
-```text
-v153.7 — Functional Kernel + Readout Shell Architecture
-```
-
-Rule:
-
-```text
-composition order is part of identity
-```
-
-## Intake Idea 7 — 2D Readout Combination Matrix as Markov Foundation
-
-QEC-safe interpretation:
-
-```text
-readout shells
-→ deterministic combination matrix
-→ transition basis
-→ replayable state movement
-```
-
-Corrected destination:
-
-```text
-v153.8 — Readout Combination Matrix + Markov Basis
-```
-
-Required future artifacts:
-
-```text
-ReadoutCombinationMatrix
-ReadoutMatrixReceipt
-MarkovBasisReceipt
-ReadoutTransitionReceipt
-```
-
-Guardrail:
-
-```text
-Markov-compatible does not mean random sampling.
+inspiration ≠ identity
+citation ≠ proof
 ```
 
 ---
@@ -710,8 +619,6 @@ RES ≠ RAG
 → semantic divergence detected
 ```
 
-QEC does not need to assert machine consciousness.
-
 QEC operationalizes the useful part:
 
 ```text
@@ -722,7 +629,45 @@ semantic interpretation
 
 ---
 
-# ✅ Phase: v150.x — Multi-Agent Deterministic Systems
+# 🧠 Phase Structure
+
+```text
+v137–v149 → legacy deterministic runtime + execution bridge
+v150      → multi-agent governance
+v151      → ingestion + RES/RAG + replay
+v152      → reversible layers + compression
+v153      → atomic lattice + router + readout + mask + shift + shells + matrix + replay
+v154      → multi-scale invariance
+v155      → deterministic decay
+v156      → perturbation matrix
+v157      → substrate constraints
+v158      → recursive proof loops
+v159      → reality loop integration
+v160      → global deterministic truth engine
+```
+
+---
+
+# Phase: v137–v149 — Legacy Deterministic Runtime + Execution Bridge
+
+## Status
+
+```text
+COMPLETE
+```
+
+## Summary
+
+Versions v137 through v149 established the deterministic runtime foundation of QEC:
+canonical identity contracts, proof-carrying execution, governance primitives, validation primitives, and the execution bridge that connects deterministic reasoning to external validation surfaces.
+
+Stable lineage remains anchored to `v137.*` compatibility contracts.
+
+Later arcs may extend QEC, but they may not silently rewrite the v137 lineage contracts.
+
+---
+
+# Phase: v150.x — Multi-Agent Deterministic Systems
 
 ## Status
 
@@ -772,7 +717,7 @@ exactly how and why they diverge
 
 ---
 
-# ✅ Phase: v151.x — Real-World Ingestion + RES/RAG + Replay
+# Phase: v151.x — Real-World Ingestion + RES/RAG + Replay
 
 ## Status
 
@@ -798,7 +743,7 @@ v151.7.1 → Import Hygiene Stabilization
 v151.8   → Replay & Cross-Environment Resonance Proof
 ```
 
-## v151 Result
+## v151 Artifact Chain
 
 ```text
 raw external input
@@ -829,7 +774,7 @@ whether the same proof replayed across environments
 
 ---
 
-# ✅ Phase: v152.x — Reversible Coherence Lattice + Proof Compression
+# Phase: v152.x — Reversible Coherence Lattice + Proof Compression
 
 ## Status
 
@@ -837,9 +782,9 @@ whether the same proof replayed across environments
 COMPLETE
 ```
 
-## Corrected Scope
+## Scope
 
-v152 is now the completed reversible-layer and compression-equivalence arc.
+v152 is the completed reversible-layer and compression-equivalence arc.
 
 It does NOT claim SearchMask64, Hilber/Hilbert shift, functional readout shells, or Markov readout matrices are complete.
 
@@ -892,11 +837,9 @@ Critical rule:
 base_hash remains unchanged through every step
 ```
 
----
+## v152.0 — LayerSpec Contract
 
-## ✅ v152.0 — LayerSpec Contract
-
-Implemented artifacts:
+Artifacts:
 
 ```text
 LayerInvariantSet
@@ -919,11 +862,9 @@ same layer specification
 → same layer_spec_hash
 ```
 
----
+## v152.1 — LayeredState Receipt
 
-## ✅ v152.1 — LayeredState Receipt
-
-Implemented artifacts:
+Artifacts:
 
 ```text
 BaseStateReference
@@ -947,17 +888,15 @@ base_reference
 → layered_hash
 ```
 
-But:
+Invariant:
 
 ```text
 base identity remains unchanged
 ```
 
----
+## v152.2 — Layer Removal Proof
 
-## ✅ v152.2 — Layer Removal Proof
-
-Implemented artifacts:
+Artifacts:
 
 ```text
 LayerRemovalReceipt
@@ -979,11 +918,9 @@ remove(layered_state)
 → base identity preserved
 ```
 
----
+## v152.3 — Layered Compression Equivalence
 
-## ✅ v152.3 — Layered Compression Equivalence
-
-Implemented artifacts:
+Artifacts:
 
 ```text
 LayeredCompressionContract
@@ -1003,15 +940,12 @@ Core rule:
 
 ```text
 compressed proof
-≡
-original layered + removal proof chain
+≡ original layered + removal proof chain
 ```
 
----
+## v152.4 — Fractal Invariant Compression
 
-## ✅ v152.4 — Fractal Invariant Compression
-
-Implemented artifacts:
+Artifacts:
 
 ```text
 FractalInvariantContract
@@ -1049,7 +983,7 @@ no v153+ behavior
 
 ---
 
-# 🧠 Phase: v153.x — Atomic Semantic Lattice State Space + Router/Readout Projection
+# Phase: v153.x — Atomic Semantic Lattice State Space + Router/Readout Projection
 
 ## Status
 
@@ -1057,17 +991,19 @@ no v153+ behavior
 ACTIVE
 ```
 
-## Completed So Far
+## Completed / Planned Releases
 
 ```text
-v153.0 → Atomic Semantic Lattice Contract
-v153.1 → Router Lattice Paths
-```
-
-## Current Frontier
-
-```text
-v153.2 → Readout Projection Receipts
+v153.0 → Atomic Semantic Lattice Contract COMPLETE
+v153.1 → Router Lattice Paths COMPLETE
+v153.2 → Readout Projection Receipts COMPLETE
+v153.3 → Layered Lattice Projection Receipt COMPLETE
+v153.4 → QAM Compatibility Profile COMPLETE
+v153.5 → SearchMask64 Contract COMPLETE
+v153.6 → Hilber/Hilbert Shift Projection COMPLETE
+v153.7 → Functional Kernel + Readout Shell Architecture CURRENT FRONTIER
+v153.8 → Readout Combination Matrix + Markov Basis
+v153.9 → Lattice Drift + Replay Alignment
 ```
 
 ## Interpretation
@@ -1079,12 +1015,14 @@ bounded semantic state space
 → tamper-proof topology
 → router-visible paths
 → source-bound readout projections
-→ optional later masks / shifts / shell matrices
+→ layered lattice binding
+→ QAM metadata sandbox
+→ fixed-width mask reduction
+→ deterministic shift transform
+→ functional kernel/shell composition
+→ deterministic readout matrix
+→ replay/drift alignment
 ```
-
-## Goal
-
-Formalize semantic field graphs as bounded deterministic lattices, then bind deterministic paths and projections over those lattices.
 
 ## v153 Artifact Chain
 
@@ -1101,13 +1039,20 @@ bounds_hash
 → router_lattice_path_receipt_hash
 → readout_projection_spec_hash
 → readout_projection_receipt_hash
+→ layered_lattice_projection_hash
+→ qam_spec_hash
+→ mask_reduction_hash
+→ shift_projection_hash
+→ kernel_composition_hash
+→ readout_matrix_hash
+→ lattice_replay_proof_hash
 ```
 
----
+## v153.0 — Atomic Semantic Lattice Contract
 
-## ✅ v153.0 — Atomic Semantic Lattice Contract
+Status: COMPLETE
 
-Implemented artifacts:
+Artifacts:
 
 ```text
 AtomicLatticeBounds
@@ -1139,7 +1084,7 @@ same lattice inputs
 → same topology_stability_receipt
 ```
 
-Scope guarantee:
+Must not do:
 
 ```text
 no traversal
@@ -1148,11 +1093,11 @@ no router resolution
 no readout projection
 ```
 
----
+## v153.1 — Router Lattice Paths
 
-## ✅ v153.1 — Router Lattice Paths
+Status: COMPLETE
 
-Implemented artifacts:
+Artifacts:
 
 ```text
 RouteToken
@@ -1181,7 +1126,7 @@ same graph + same route spec + same index
 → same router receipt
 ```
 
-Scope guarantee:
+Must not do:
 
 ```text
 explicit token-based resolution only
@@ -1193,27 +1138,13 @@ no SearchMask64
 no Hilber/Hilbert shift
 ```
 
-Attribution:
+Attribution: Marc/QAM attribution applies in release notes only.
 
-```text
-Marc/QAM attribution applies in release notes only.
-```
+## v153.2 — Readout Projection Receipts
 
----
+Status: COMPLETE
 
-## 🧠 v153.2 — Readout Projection Receipts
-
-### Status
-
-```text
-CURRENT FRONTIER
-```
-
-### Goal
-
-Bind explicit readout specifications to explicit resolved router paths and lattice topology.
-
-### Artifacts
+Artifacts:
 
 ```text
 ReadoutFieldSpec
@@ -1223,7 +1154,7 @@ ReadoutProjectionSet
 ReadoutProjectionReceipt
 ```
 
-### Helpers
+Helpers:
 
 ```text
 build_readout_projection_spec(...)
@@ -1232,7 +1163,7 @@ build_readout_projection_receipt(...)
 validate_readout_projection_receipt(...)
 ```
 
-### Core Rule
+Core rule:
 
 ```text
 same graph
@@ -1243,7 +1174,7 @@ same graph
 → same readout projection receipt
 ```
 
-### Projection Modes
+Projection modes:
 
 ```text
 IDENTITY_HASH
@@ -1253,7 +1184,7 @@ CONSTRAINT_PAYLOAD_VALUE
 PATH_IDENTITY
 ```
 
-### Must Not Do
+Must not do:
 
 ```text
 no readout execution
@@ -1265,31 +1196,32 @@ no graph traversal
 no semantic inference
 ```
 
-Attribution:
+Attribution: Marc/QAM attribution applies in release notes only.
+
+## v153.3 — Layered Lattice Projection Receipt
+
+Status: COMPLETE
+
+Artifacts:
 
 ```text
-Marc/QAM attribution applies in release notes only.
-```
-
----
-
-## 🧠 v153.3 — Layered Lattice Projection Receipt
-
-### Goal
-
-Project layered-state identities into atomic semantic lattice topology without mutating base identity.
-
-### Artifacts
-
-```text
-LayeredLatticeProjectionSpec
-LayeredLatticeProjectionReceipt
 LayeredNodeBinding
 LayeredEdgeBinding
+LayeredLatticeProjectionSpec
 LayeredTopologyIntegrityReceipt
+LayeredLatticeProjectionReceipt
 ```
 
-### Core Rule
+Helpers:
+
+```text
+build_layered_lattice_projection_spec(...)
+build_layered_topology_integrity_receipt(...)
+build_layered_lattice_projection_receipt(...)
+validate_layered_lattice_projection_receipt(...)
+```
+
+Core rule:
 
 ```text
 same layered receipt
@@ -1298,7 +1230,7 @@ same layered receipt
 → same layered_lattice_projection_hash
 ```
 
-### Must Not Do
+Must not do:
 
 ```text
 no base mutation
@@ -1307,15 +1239,11 @@ no implicit node creation
 no implicit edge creation
 ```
 
----
+## v153.4 — QAM Compatibility Profile
 
-## 🧠 v153.4 — QAM Compatibility Profile
+Status: COMPLETE
 
-### Goal
-
-Canonicalize external QAM v4.1.0 compatibility input as untrusted architecture metadata.
-
-### Artifacts
+Artifacts:
 
 ```text
 QAMCompatibilityProfile
@@ -1323,7 +1251,16 @@ QAMSpecReceipt
 QAMCompatibilityValidationReceipt
 ```
 
-### Core Rule
+Helpers:
+
+```text
+build_qam_compatibility_profile(...)
+build_qam_spec_receipt(...)
+build_qam_compatibility_validation_receipt(...)
+validate_qam_compatibility_validation_receipt(...)
+```
+
+Core rule:
 
 ```text
 same QAM document
@@ -1331,28 +1268,20 @@ same QAM document
 → same qam_spec_hash
 ```
 
-### Must Not Do
+Must not do:
 
 ```text
 no QAM feature affects QEC unless hash-bound and validated
 no external spec is trusted as authority
 ```
 
-Attribution:
+Attribution: Marc/QAM attribution applies in release notes only.
 
-```text
-Marc/QAM attribution applies in release notes only.
-```
+## v153.5 — SearchMask64 Contract
 
----
+Status: COMPLETE
 
-## 🧠 v153.5 — SearchMask64 Contract
-
-### Goal
-
-Reduce path/readout/filter search masks to deterministic unsigned 64-bit contracts.
-
-### Artifacts
+Artifacts:
 
 ```text
 SearchMask64
@@ -1361,7 +1290,17 @@ MaskCollisionReceipt
 MaskCompatibilityReceipt
 ```
 
-### Core Rule
+Helpers:
+
+```text
+build_search_mask64(...)
+build_mask_reduction_receipt(...)
+build_mask_collision_receipt(...)
+build_mask_compatibility_receipt(...)
+validate_mask_compatibility_receipt(...)
+```
+
+Core rule:
 
 ```text
 same search input
@@ -1369,7 +1308,7 @@ same search input
 → same uint64 mask
 ```
 
-### Requirements
+Requirements:
 
 ```text
 unsigned 64-bit range only
@@ -1388,21 +1327,13 @@ KNOWN_EQUIVALENT_COLLISION
 INVALID_COLLISION
 ```
 
-Attribution:
+Attribution: Marc/QAM attribution applies in release notes only.
 
-```text
-Marc/QAM attribution applies in release notes only.
-```
+## v153.6 — Hilber/Hilbert Shift Projection
 
----
+Status: COMPLETE
 
-## 🧠 v153.6 — Hilber/Hilbert Shift Projection
-
-### Goal
-
-Define deterministic shift projection for path, readout, or filter compatibility.
-
-### Artifacts
+Artifacts:
 
 ```text
 HilberShiftSpec
@@ -1411,38 +1342,72 @@ FilterCompatibilityReceipt
 ShiftStabilityReceipt
 ```
 
-### Core Rule
+Helpers:
+
+```text
+build_hilber_shift_spec(...)
+build_shift_projection_receipt(...)
+build_filter_compatibility_receipt(...)
+build_shift_stability_receipt(...)
+validate_shift_stability_receipt(...)
+```
+
+Core rule:
 
 ```text
 same ordered input
 + same shift spec
 → same shifted projection
+→ same stability receipt
 ```
 
-### Requirements
+Exact operation:
+
+```text
+DISCRETE_CYCLIC_INDEX_SHIFT_V1
+
+FORWARD: target_index = (i + shift_offset) % n
+REVERSE: target_index = (i - shift_offset) % n
+```
+
+Requirements:
 
 ```text
 exact operation defined before implementation
 fixed ordering before shift
 fixed ordering after shift
-fixed tolerance if numerical
+integer-only shift_offset
+no floats
 no hidden floating-point drift
+bijection enforced
 base graph identity unchanged
 ```
 
-Attribution:
+Must not do:
 
 ```text
-Marc/QAM attribution applies in release notes only.
+no geometric Hilbert curve
+no graph traversal
+no router resolution
+no readout projection
+no filter execution
+no search execution
+no readout shell
+no readout matrix
+no Markov basis
 ```
 
----
+Attribution: Marc/QAM attribution applies in release notes only.
 
-## 🧠 v153.7 — Functional Kernel + Readout Shell Architecture
+## v153.7 — Functional Kernel + Readout Shell Architecture
+
+Status: CURRENT FRONTIER
 
 ### Goal
 
 Define pure functional readout shell composition around explicit kernel contracts.
+
+This release replaces hidden dispatch / if-chain behavior with explicit kernel and shell contracts.
 
 ### Artifacts
 
@@ -1457,6 +1422,43 @@ ReadoutCompositionReceipt
 ReadoutOrderReceipt
 ```
 
+### Helpers
+
+```text
+build_core_kernel_spec(...)
+build_derived_kernel_spec(...)
+build_kernel_derivation_receipt(...)
+build_kernel_compatibility_receipt(...)
+build_readout_shell(...)
+build_readout_shell_stack(...)
+build_readout_composition_receipt(...)
+build_readout_order_receipt(...)
+validate_readout_composition_receipt(...)
+```
+
+### Deterministic Interpretation
+
+```text
+CoreKernelSpec:
+  base deterministic readout computation contract
+
+DerivedKernelSpec:
+  explicit derivation from CoreKernelSpec with bounded transformation rules
+
+ReadoutShell:
+  pure functional transformation over explicit input identity
+
+ReadoutShellStack:
+  ordered tuple of ReadoutShell artifacts
+  order is part of identity
+
+ReadoutCompositionReceipt:
+  proof of kernel + shell stack composition
+
+ReadoutOrderReceipt:
+  proof that shell ordering is canonical and preserved
+```
+
 ### Core Rule
 
 ```text
@@ -1464,6 +1466,7 @@ same kernel
 + same ordered shell stack
 + same input identity
 → same composed readout identity
+→ same readout_composition_hash
 ```
 
 ### Design Rule
@@ -1472,15 +1475,45 @@ same kernel
 composition replaces hidden if-chain dispatch
 ```
 
-Attribution:
+### Must Not Do
 
 ```text
-Marc/QAM attribution applies in release notes only.
+no implicit dispatch
+no runtime branching without receipt
+no unordered shell application
+no mutation of kernel identity
+no hidden execution paths
+no readout matrix
+no Markov basis
+no v153.8+ behavior
 ```
 
----
+### Failure Modes
 
-## 🧠 v153.8 — Readout Combination Matrix + Markov Basis
+```text
+duplicate shell in stack → ValueError("DUPLICATE_SHELL")
+unordered shell stack → ValueError("INVALID_ORDER")
+kernel incompatibility → ValueError("KERNEL_INCOMPATIBLE")
+derivation hash mismatch → ValueError("HASH_MISMATCH")
+composition hash mismatch → ValueError("HASH_MISMATCH")
+```
+
+### Dependency Boundaries
+
+```text
+DEPENDS ON:
+  v153.2 → readout projection
+  v153.3 → layered projection
+  v153.6 → shift projection
+
+PREPARES FOR:
+  v153.8 → readout combination matrix
+  v154.x → scale invariance
+```
+
+Attribution: Marc/QAM attribution applies in release notes only.
+
+## v153.8 — Readout Combination Matrix + Markov Basis
 
 ### Goal
 
@@ -1493,6 +1526,33 @@ ReadoutCombinationMatrix
 ReadoutMatrixReceipt
 MarkovBasisReceipt
 ReadoutTransitionReceipt
+```
+
+### Helpers
+
+```text
+build_readout_combination_matrix(...)
+build_readout_matrix_receipt(...)
+build_markov_basis_receipt(...)
+build_readout_transition_receipt(...)
+validate_readout_matrix_receipt(...)
+validate_markov_basis_receipt(...)
+```
+
+### Deterministic Interpretation
+
+```text
+ReadoutCombinationMatrix:
+  fixed 2D mapping from ordered shell/kernel slots to output identities
+
+ReadoutMatrixReceipt:
+  sealed receipt for the deterministic matrix identity
+
+MarkovBasisReceipt:
+  deterministic transition basis derived from the matrix
+
+ReadoutTransitionReceipt:
+  explicit transition from one readout state identity to another
 ```
 
 ### Core Rule
@@ -1510,19 +1570,50 @@ same readout shell set
 Markov-compatible does not mean stochastic execution.
 ```
 
-Attribution:
+### Additional Rule
 
 ```text
-Marc/QAM attribution applies in release notes only.
+all transitions must be deterministic and replayable
 ```
 
----
+### Must Not Do
 
-## 🧠 v153.9 — Lattice Drift + Replay Alignment
+```text
+no random sampling
+no probability distributions
+no implicit transitions
+no floating-point weighting
+no hidden state transitions
+no v153.9+ replay behavior
+```
+
+### Failure Modes
+
+```text
+matrix dimension mismatch → ValueError("DIMENSION_MISMATCH")
+invalid transition mapping → ValueError("INVALID_TRANSITION")
+non-deterministic matrix → ValueError("NON_DETERMINISTIC_MATRIX")
+hash mismatch → ValueError("HASH_MISMATCH")
+```
+
+### Dependency Boundaries
+
+```text
+DEPENDS ON:
+  v153.7 → kernel + shell composition
+
+PREPARES FOR:
+  v153.9 → replay validation
+  v155.x → decay detection
+```
+
+Attribution: Marc/QAM attribution applies in release notes only.
+
+## v153.9 — Lattice Drift + Replay Alignment
 
 ### Goal
 
-Detect topology, router, readout, mask, and projection drift across deterministic replay contexts.
+Detect topology, router, readout, mask, shift, kernel, shell, and matrix drift across deterministic replay contexts.
 
 ### Artifacts
 
@@ -1532,360 +1623,3069 @@ RouterReplayReceipt
 ReadoutReplayReceipt
 MaskReplayReceipt
 ShiftReplayReceipt
+KernelReplayReceipt
+ReadoutMatrixReplayReceipt
 LatticeReplayProofReceipt
+```
+
+### Helpers
+
+```text
+build_lattice_drift_receipt(...)
+build_router_replay_receipt(...)
+build_readout_replay_receipt(...)
+build_mask_replay_receipt(...)
+build_shift_replay_receipt(...)
+build_kernel_replay_receipt(...)
+build_readout_matrix_replay_receipt(...)
+build_lattice_replay_proof_receipt(...)
+validate_lattice_replay_proof_receipt(...)
+```
+
+### Deterministic Interpretation
+
+```text
+Replay:
+  recomputation of proof chain under identical inputs
+
+Drift:
+  any mismatch between expected_hash and recomputed_hash
+
+Alignment:
+  proof that no drift exists OR exact identification of drift positions
 ```
 
 ### Core Rule
 
 ```text
-same graph + same router/readout/mask/shift contracts
+same graph
++ same router/readout/mask/shift/kernel/shell/matrix contracts
 → same replay proof
+→ same lattice_replay_proof_hash
+```
+
+### Drift Rule
+
+```text
+recomputed_hash != stored_hash
+→ drift detected
+```
+
+### Must Not Do
+
+```text
+no tolerance thresholds
+no fuzzy matching
+no probabilistic drift estimation
+no silent normalization
+no mutation of replayed artifacts
+```
+
+### Failure Modes
+
+```text
+hash mismatch → ValueError("HASH_MISMATCH")
+missing receipt → ValueError("MISSING_RECEIPT")
+partial replay → ValueError("INCOMPLETE_REPLAY")
+inconsistent replay chain → ValueError("REPLAY_INCONSISTENT")
+```
+
+### Dependency Boundaries
+
+```text
+DEPENDS ON:
+  v153.0–v153.8 full pipeline
+
+PREPARES FOR:
+  v154.x → invariance baseline
+  v155.x → decay measurement
+  v156.x → perturbation stress testing
 ```
 
 ---
 
-# 🧠 Phase: v154.x — Sierpinski Multi-Scale Invariance
+# Phase: v154.x — Multi-Scale Subgraph Invariance
 
 ## Status
 
 ```text
-PLANNED
+PLANNED — fully specified below
 ```
 
-## Symbol
+## Arc Reinterpretation
 
 ```text
-Sierpinski Fractal Array 3x3x3
+SYMBOLIC INPUT:
+"Sierpinski Multi-Scale Invariance"
+"same invariant preserved across scale"
+
+DETERMINISTIC INTERPRETATION:
+A subgraph pattern G_sub is a scale-invariant subgraph of a parent graph G_parent
+if and only if:
+  canonical_hash(G_sub) == canonical_hash(any structurally identical subgraph
+  at any nesting depth within G_parent),
+  where structural identity is defined by:
+    - identical node label multisets (sorted, canonical)
+    - identical edge label multisets (sorted, canonical)
+    - identical constraint payload hashes
+  and the nesting depth is an explicit integer index, not an implicit traversal.
+
+"Multi-scale" means: the same SubgraphInvariantPattern is detectable and
+hash-verifiable at scale_index 0 (local), scale_index 1 (document), and
+scale_index 2 (distributed/governance), where scale_index is an explicit
+bounded integer in {0, 1, 2}.
+
+"Sierpinski compression" means: when N ≥ 2 structurally identical subgraph
+instances are detected at the same scale_index, they are replaced in the
+canonical proof by a single SierpinskiCompressionEntry carrying:
+  - the shared SubgraphInvariantPattern hash
+  - the count N (exact integer)
+  - the list of source_node_ids (sorted, canonical)
+  - a SierpinskiCompressionReceipt proving the replacement is lossless.
+
+Visual fractals, recursive rendering, and tree traversal are REJECTED.
 ```
 
-## Interpretation
+## Dependency Boundaries
 
 ```text
-same invariant
-preserved across scale
-```
+DEPENDS ON:
+  v152.4 — FractalInvariantCompressionReceipt (direct predecessor pattern)
+  v153.0 — SemanticLatticeGraph (source topology)
+  v153.1 — RouterLatticePathReceipt (scale-preserved path identity)
+  v153.2 — ReadoutProjectionReceipt (scale-preserved readout identity)
+  v153.9 — LatticeReplayProofReceipt (replay baseline)
 
-## Corrected Scope
+MUST NOT LEAK INTO:
+  v155 (decay detection is a separate concern)
+  v156 (perturbation is a separate concern)
 
-v152.4 implemented fractal invariant compression for layered/compressed proof identity.
-
-v154 extends that idea to semantic lattices, router paths, readout projections, and governance traces.
-
-## Goal
-
-Prove that local invariants propagate through larger proof structures.
-
-## Tasks
-
-* detect self-similar semantic subgraphs
-* classify local / document / governance / distributed invariants
-* prove invariant preservation across scale
-* compress repeated substructures
-* reject scale-breaking drift
-* prove layered invariants remain reversible across scale
-* prove router paths preserve meaning across scale
-* prove readout projections preserve identity across scale
-* prove deferred semantic/governance compression from old v152.4 scope
-
-## Artifacts
-
-```text
-FractalInvariantCase
-MultiScaleInvariantReceipt
-SierpinskiCompressionReceipt
-ScalePreservationProof
-LayeredScaleEquivalenceReceipt
-RouterScaleReceipt
-ReadoutScaleProjectionReceipt
-GovernanceCompressionReceipt
-SemanticCompressionReceipt
+PREPARES FOR:
+  v155 — decay signatures require a stable scale-invariant baseline to measure against
+  v159 — reality loop integration requires scale-invariant proof receipts
 ```
 
 ---
 
-# 🧠 Phase: v155.x — Digital Decay & Entropy Signatures
+## v154.0 — SubgraphInvariantPattern Contract
+
+### Goal
+
+Define the deterministic contract for identifying and hashing a canonical subgraph pattern, independent of its position or nesting depth within any parent graph.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class SubgraphInvariantPattern:
+    pattern_id: str                    # deterministic: sha256(canonical_json(node_labels + edge_labels + constraint_hashes))
+    node_label_multiset: tuple[str, ...]   # sorted ascending
+    edge_label_multiset: tuple[str, ...]   # sorted ascending
+    constraint_payload_hashes: tuple[str, ...]  # sorted ascending, each a SHA-256 hex string
+    pattern_hash: str                  # SHA-256 of canonical JSON of all above fields
+
+@dataclass(frozen=True)
+class SubgraphOccurrence:
+    pattern_id: str                    # must match a registered SubgraphInvariantPattern.pattern_id
+    scale_index: int                   # must be in {0, 1, 2}
+    source_node_ids: tuple[str, ...]   # sorted ascending; node IDs from SemanticLatticeGraph
+    occurrence_hash: str               # SHA-256 of canonical JSON of (pattern_id, scale_index, source_node_ids)
+
+@dataclass(frozen=True)
+class SubgraphInvariantPatternReceipt:
+    pattern: SubgraphInvariantPattern
+    occurrences: tuple[SubgraphOccurrence, ...]  # sorted by occurrence_hash ascending
+    total_occurrence_count: int        # must equal len(occurrences)
+    receipt_hash: str                  # SHA-256 of canonical JSON of all above
+```
+
+### Helpers
+
+```python
+def build_subgraph_invariant_pattern(
+    node_labels: list[str],
+    edge_labels: list[str],
+    constraint_payload_hashes: list[str],
+) -> SubgraphInvariantPattern: ...
+# sorts all inputs, computes pattern_id and pattern_hash deterministically
+
+def detect_subgraph_occurrences(
+    pattern: SubgraphInvariantPattern,
+    graph: SemanticLatticeGraph,
+    scale_index: int,
+) -> list[SubgraphOccurrence]: ...
+# iterates over explicit node_id sets in graph; no implicit traversal;
+# scale_index must be in {0, 1, 2} or raises ValueError("INVALID_SCALE_INDEX")
+
+def build_subgraph_invariant_pattern_receipt(
+    pattern: SubgraphInvariantPattern,
+    occurrences: list[SubgraphOccurrence],
+) -> SubgraphInvariantPatternReceipt: ...
+
+def validate_subgraph_invariant_pattern_receipt(
+    receipt: SubgraphInvariantPatternReceipt,
+) -> bool: ...
+# recomputes receipt_hash; raises ValueError("HASH_MISMATCH") on failure
+```
+
+### Core Rule
+
+```text
+same node_labels + same edge_labels + same constraint_payload_hashes
+→ same pattern_hash
+
+same pattern + same graph + same scale_index
+→ same occurrences (sorted)
+→ same receipt_hash
+```
+
+### Must Not Do
+
+```text
+no visual rendering
+no recursive graph traversal
+no implicit scale detection
+no floating-point comparison of node positions
+no pattern matching via probabilistic similarity
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `scale_index` not in `{0, 1, 2}` | `ValueError("INVALID_SCALE_INDEX")` |
+| `source_node_ids` contains ID absent from graph | `ValueError("INVALID_NODE_ID")` |
+| `constraint_payload_hashes` contains non-hex-64-char string | `ValueError("INVALID_CONSTRAINT_HASH")` |
+| `receipt_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+| `total_occurrence_count != len(occurrences)` | `ValueError("OCCURRENCE_COUNT_MISMATCH")` |
+
+---
+
+## v154.1 — MultiScaleInvariantReceipt
+
+### Goal
+
+Aggregate all SubgraphInvariantPatternReceipts across all three scale levels (0, 1, 2) into a single hash-bound multi-scale invariant receipt for a given SemanticLatticeGraph.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class ScaleLevelSummary:
+    scale_index: int                             # in {0, 1, 2}
+    pattern_receipt_hashes: tuple[str, ...]      # sorted ascending
+    total_patterns: int
+    total_occurrences: int
+    scale_summary_hash: str                      # SHA-256 of canonical JSON of above
+
+@dataclass(frozen=True)
+class MultiScaleInvariantReceipt:
+    lattice_graph_hash: str                      # from SemanticLatticeGraph
+    scale_summaries: tuple[ScaleLevelSummary, ...]  # exactly 3 entries, sorted by scale_index
+    cross_scale_pattern_ids: tuple[str, ...]     # pattern_ids present at ALL 3 scale levels, sorted
+    multi_scale_invariant_receipt_hash: str      # SHA-256 of canonical JSON of all above
+```
+
+### Helpers
+
+```python
+def build_multi_scale_invariant_receipt(
+    graph: SemanticLatticeGraph,
+    pattern_receipts_by_scale: dict[int, list[SubgraphInvariantPatternReceipt]],
+) -> MultiScaleInvariantReceipt: ...
+
+def validate_multi_scale_invariant_receipt(
+    receipt: MultiScaleInvariantReceipt,
+    graph: SemanticLatticeGraph,
+) -> bool: ...
+# recomputes multi_scale_invariant_receipt_hash; raises ValueError on mismatch
+```
+
+### Core Rule
+
+```text
+same lattice_graph_hash
++ same pattern_receipts_by_scale (all three scale levels)
+→ same cross_scale_pattern_ids
+→ same multi_scale_invariant_receipt_hash
+```
+
+### Must Not Do
+
+```text
+no partial scale coverage (all three scale levels are required)
+no implicit pattern merging across scales
+no mutation of the source SemanticLatticeGraph
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `pattern_receipts_by_scale` missing any of `{0, 1, 2}` | `ValueError("MISSING_SCALE_LEVEL")` |
+| `lattice_graph_hash` does not match provided graph | `ValueError("GRAPH_HASH_MISMATCH")` |
+| `multi_scale_invariant_receipt_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v154.2 — SierpinskiCompressionReceipt
+
+### Goal
+
+Produce a lossless compression receipt that replaces N ≥ 2 identical subgraph occurrences at the same scale level with a single canonical entry, while preserving the ability to reconstruct the full occurrence list from the receipt.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class SierpinskiCompressionEntry:
+    pattern_hash: str                      # from SubgraphInvariantPattern.pattern_hash
+    scale_index: int                       # in {0, 1, 2}
+    occurrence_count: int                  # must be >= 2
+    source_node_id_sets: tuple[tuple[str, ...], ...]
+    # each inner tuple is sorted ascending; outer tuple sorted by inner tuple's first element
+    compression_entry_hash: str            # SHA-256 of canonical JSON of all above
+
+@dataclass(frozen=True)
+class SierpinskiCompressionReceipt:
+    multi_scale_invariant_receipt_hash: str   # input receipt being compressed
+    compression_entries: tuple[SierpinskiCompressionEntry, ...]
+    # sorted by (scale_index ASC, pattern_hash ASC)
+    total_compressed_occurrences: int         # sum of all occurrence_counts
+    total_entries: int                        # len(compression_entries)
+    sierpinski_compression_receipt_hash: str  # SHA-256 of canonical JSON of all above
+```
+
+### Helpers
+
+```python
+def build_sierpinski_compression_receipt(
+    multi_scale_receipt: MultiScaleInvariantReceipt,
+    pattern_receipts: list[SubgraphInvariantPatternReceipt],
+) -> SierpinskiCompressionReceipt: ...
+# only compresses patterns with occurrence_count >= 2; single-occurrence patterns are excluded
+
+def validate_sierpinski_compression_receipt(
+    receipt: SierpinskiCompressionReceipt,
+) -> bool: ...
+
+def decompress_sierpinski_receipt(
+    receipt: SierpinskiCompressionReceipt,
+) -> list[SubgraphOccurrence]: ...
+# reconstructs the full occurrence list deterministically; must be lossless
+```
+
+### Core Rule
+
+```text
+same multi_scale_invariant_receipt_hash
++ same pattern_receipts (occurrence_count >= 2)
+→ same compression_entries (sorted)
+→ same sierpinski_compression_receipt_hash
+
+decompress(compress(occurrences)) == occurrences
+```
+
+### Must Not Do
+
+```text
+no lossy compression
+no approximate deduplication
+no compression of single-occurrence patterns
+no mutation of MultiScaleInvariantReceipt
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `occurrence_count < 2` in any entry | `ValueError("INSUFFICIENT_OCCURRENCES_FOR_COMPRESSION")` |
+| Decompressed list does not match original | `ValueError("DECOMPRESSION_IDENTITY_FAILURE")` |
+| `sierpinski_compression_receipt_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v154.3 — Scale-Preserving Router and Readout Receipts
+
+### Goal
+
+Extend RouterLatticePathReceipt and ReadoutProjectionReceipt with scale-invariant binding: prove that the same router path and readout projection identity is preserved when the underlying subgraph is identified as a scale-invariant pattern.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class RouterScaleReceipt:
+    router_lattice_path_receipt_hash: str    # from v153.1
+    pattern_hash: str                        # from SubgraphInvariantPattern
+    scale_index: int
+    scale_preserved: bool                    # True iff path identity hash is unchanged at this scale
+    router_scale_receipt_hash: str           # SHA-256 of canonical JSON of all above
+
+@dataclass(frozen=True)
+class ReadoutScaleProjectionReceipt:
+    readout_projection_receipt_hash: str     # from v153.2
+    pattern_hash: str
+    scale_index: int
+    scale_preserved: bool
+    readout_scale_projection_receipt_hash: str
+```
+
+### Helpers
+
+```python
+def build_router_scale_receipt(
+    router_receipt: RouterLatticePathReceipt,
+    pattern: SubgraphInvariantPattern,
+    scale_index: int,
+) -> RouterScaleReceipt: ...
+
+def build_readout_scale_projection_receipt(
+    readout_receipt: ReadoutProjectionReceipt,
+    pattern: SubgraphInvariantPattern,
+    scale_index: int,
+) -> ReadoutScaleProjectionReceipt: ...
+
+def validate_router_scale_receipt(r: RouterScaleReceipt) -> bool: ...
+def validate_readout_scale_projection_receipt(r: ReadoutScaleProjectionReceipt) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same router_lattice_path_receipt_hash
++ same pattern_hash
++ same scale_index
+→ same scale_preserved value
+→ same router_scale_receipt_hash
+```
+
+### Must Not Do
+
+```text
+no re-execution of router resolution at scale
+no re-projection of readout at scale
+no mutation of source receipts
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `router_lattice_path_receipt_hash` not found in registry | `ValueError("UNKNOWN_ROUTER_RECEIPT")` |
+| `scale_index` not in `{0, 1, 2}` | `ValueError("INVALID_SCALE_INDEX")` |
+| `scale_preserved` computed as `False` and caller asserts `True` | `ValueError("SCALE_INVARIANCE_VIOLATION")` |
+
+---
+
+## v154.4 — Governance and Semantic Compression at Scale
+
+### Goal
+
+Apply Sierpinski-style compression to governance traces and semantic field receipts that share identical canonical substructures, deferring the semantic/governance compression work originally scoped to v152.4.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class GovernanceCompressionEntry:
+    governance_decision_hash: str        # from v150.x GovernanceDecision
+    occurrence_count: int                # >= 2
+    source_agent_id_sets: tuple[tuple[str, ...], ...]
+    compression_entry_hash: str
+
+@dataclass(frozen=True)
+class GovernanceCompressionReceipt:
+    entries: tuple[GovernanceCompressionEntry, ...]
+    total_compressed_decisions: int
+    governance_compression_receipt_hash: str
+
+@dataclass(frozen=True)
+class SemanticCompressionEntry:
+    semantic_field_hash: str             # from v151.2 SemanticFieldReceipt
+    occurrence_count: int                # >= 2
+    source_document_ids: tuple[str, ...]
+    compression_entry_hash: str
+
+@dataclass(frozen=True)
+class SemanticCompressionReceipt:
+    entries: tuple[SemanticCompressionEntry, ...]
+    total_compressed_fields: int
+    semantic_compression_receipt_hash: str
+```
+
+### Helpers
+
+```python
+def build_governance_compression_receipt(
+    decisions: list[GovernanceDecision],
+) -> GovernanceCompressionReceipt: ...
+
+def build_semantic_compression_receipt(
+    semantic_field_receipts: list[SemanticFieldReceipt],
+) -> SemanticCompressionReceipt: ...
+
+def validate_governance_compression_receipt(r: GovernanceCompressionReceipt) -> bool: ...
+def validate_semantic_compression_receipt(r: SemanticCompressionReceipt) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same governance_decision_hashes (sorted)
+→ same GovernanceCompressionReceipt
+
+same semantic_field_hashes (sorted)
+→ same SemanticCompressionReceipt
+```
+
+### Must Not Do
+
+```text
+no semantic re-interpretation during compression
+no governance re-evaluation during compression
+no lossy merging of distinct hashes
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| Any `occurrence_count < 2` | `ValueError("INSUFFICIENT_OCCURRENCES_FOR_COMPRESSION")` |
+| Hash recomputation fails | `ValueError("HASH_MISMATCH")` |
+| Distinct hashes merged into one entry | `ValueError("IDENTITY_COLLISION")` |
+
+---
+
+## v154 Validation Strategy
+
+```text
+pytest coverage required:
+
+test_subgraph_invariant_pattern_determinism
+  → same inputs → same pattern_hash (10 independent runs)
+
+test_multi_scale_receipt_all_scales_required
+  → missing scale_index raises ValueError("MISSING_SCALE_LEVEL")
+
+test_sierpinski_compression_lossless
+  → decompress(compress(occurrences)) == occurrences
+
+test_router_scale_receipt_determinism
+  → same router receipt + same pattern + same scale_index → same hash
+
+test_readout_scale_projection_determinism
+  → same readout receipt + same pattern + same scale_index → same hash
+
+test_governance_compression_determinism
+  → same decision list → same receipt hash
+
+test_semantic_compression_determinism
+  → same semantic field list → same receipt hash
+
+test_tamper_detection
+  → mutate any field → validate raises ValueError("HASH_MISMATCH")
+
+test_cross_environment_invariance
+  → replay all receipts in fresh Python process → same hashes
+
+test_scale_invariance_violation_detection
+  → path identity changes at scale → scale_preserved == False
+```
+
+---
+
+## v154 Artifact Chain Extension
+
+```text
+lattice_graph_hash                          (v153.0)
+→ subgraph_invariant_pattern_hash           (v154.0)
+→ subgraph_occurrence_hash                  (v154.0)
+→ subgraph_invariant_pattern_receipt_hash   (v154.0)
+→ scale_level_summary_hash                  (v154.1)
+→ multi_scale_invariant_receipt_hash        (v154.1)
+→ sierpinski_compression_receipt_hash       (v154.2)
+→ router_scale_receipt_hash                 (v154.3)
+→ readout_scale_projection_receipt_hash     (v154.3)
+→ governance_compression_receipt_hash       (v154.4)
+→ semantic_compression_receipt_hash         (v154.4)
+```
+
+---
+
+# Phase: v155.x — Deterministic Entropy and Decay Signatures
 
 ## Status
 
 ```text
-PLANNED
+PLANNED — fully specified below
 ```
 
-## Interpretation
+## Arc Reinterpretation
 
 ```text
-entropy
-semantic corruption
-identity drift
-adversarial erosion
-router collapse
-mask collision
-readout-order instability
+SYMBOLIC INPUT:
+"Digital Decay / Entropy Signatures"
+"entropy, semantic corruption, identity drift, adversarial erosion"
+
+DETERMINISTIC INTERPRETATION:
+Decay is defined as a measurable, deterministic deviation between an expected
+canonical hash and an observed canonical hash at a specific artifact position
+in the proof chain.
+
+"Entropy" in QEC is NOT a probabilistic measure. It is an integer-valued
+classification of the number of hash positions that have drifted from their
+expected values, computed as:
+
+  decay_score: int = count of (expected_hash != observed_hash)
+  across a fixed, ordered list of artifact positions
+
+A DigitalDecaySignature is a deterministic receipt that records:
+  - which artifact positions were checked
+  - which hashes matched
+  - which hashes drifted
+  - the decay_score (integer count of drifted positions)
+  - a decay_class: one of {CLEAN, DEGRADED, CORRUPTED, ADVERSARIAL}
+    determined by exact integer thresholds (not probabilistic)
+
+"Adversarial" decay is distinguished from natural drift by the presence of
+a structurally valid but semantically inconsistent hash (i.e., a hash that
+recomputes correctly but whose payload has been substituted).
+
+Probabilistic entropy models are REJECTED.
 ```
 
-## Goal
-
-Detect and quantify deterministic decay in proof artifacts, semantic fields, layered states, router paths, masks, shifts, and readout projections.
-
-## Artifacts
+## Dependency Boundaries
 
 ```text
-DigitalDecaySignature
-EntropyDriftReceipt
-SemanticCorruptionReceipt
-DecayResistanceProof
-LayerDecayReceipt
-RouterDecayReceipt
-MaskCollisionDecayReceipt
-ShiftDecayReceipt
-ReadoutProjectionDecayReceipt
+DEPENDS ON:
+  v151.x — canonical_hash, semantic_field_hash (baseline identity)
+  v152.x — layered_hash, fractal_equivalence_receipt_hash
+  v153.x — lattice_graph_hash, router/readout/mask/shift hashes
+  v154.x — multi_scale_invariant_receipt_hash (scale baseline)
+
+MUST NOT LEAK INTO:
+  v156 (perturbation is active stress-testing; decay is passive measurement)
+
+PREPARES FOR:
+  v156 — perturbation contracts use decay signatures as pre/post measurement
+  v158 — recursive proof loops use decay detection to identify loop instability
+  v159 — reality loop integration requires decay-free proof chain
 ```
 
 ---
 
-# 🧠 Phase: v156.x — Energy Matrix Perturbation Layer
+## v155.0 — DecayCheckpoint Contract
+
+### Goal
+
+Define the deterministic contract for a single artifact position check: expected hash vs. observed hash, with explicit classification.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class DecayCheckpoint:
+    artifact_position_id: str          # deterministic identifier for this position in the proof chain
+    expected_hash: str                 # SHA-256 hex string; the stored/known-good value
+    observed_hash: str                 # SHA-256 hex string; the value found during this check
+    drifted: bool                      # True iff expected_hash != observed_hash
+    checkpoint_hash: str               # SHA-256 of canonical JSON of (artifact_position_id, expected_hash, observed_hash, drifted)
+
+@dataclass(frozen=True)
+class DecayCheckpointSet:
+    checkpoints: tuple[DecayCheckpoint, ...]   # sorted by artifact_position_id ascending
+    decay_score: int                           # exact count of checkpoints where drifted == True
+    checkpoint_set_hash: str                   # SHA-256 of canonical JSON of all above
+```
+
+### Helpers
+
+```python
+def build_decay_checkpoint(
+    artifact_position_id: str,
+    expected_hash: str,
+    observed_hash: str,
+) -> DecayCheckpoint: ...
+
+def build_decay_checkpoint_set(
+    checkpoints: list[DecayCheckpoint],
+) -> DecayCheckpointSet: ...
+
+def validate_decay_checkpoint_set(s: DecayCheckpointSet) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same artifact_position_id + same expected_hash + same observed_hash
+→ same drifted value
+→ same checkpoint_hash
+
+same checkpoints (sorted)
+→ same decay_score
+→ same checkpoint_set_hash
+```
+
+### Must Not Do
+
+```text
+no probabilistic drift estimation
+no floating-point comparison of hashes
+no partial hash matching
+no silent normalization of hash strings
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `expected_hash` or `observed_hash` not 64-char hex | `ValueError("INVALID_HASH_FORMAT")` |
+| `decay_score != count(drifted == True)` | `ValueError("DECAY_SCORE_MISMATCH")` |
+| `checkpoint_set_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v155.1 — DigitalDecaySignature
+
+### Goal
+
+Classify a DecayCheckpointSet into a deterministic decay class using exact integer thresholds, and produce a signed receipt.
+
+### Decay Classification Rule
+
+```text
+decay_score == 0
+→ decay_class = "CLEAN"
+
+1 <= decay_score <= DEGRADED_THRESHOLD
+→ decay_class = "DEGRADED"
+
+DEGRADED_THRESHOLD < decay_score <= CORRUPTED_THRESHOLD
+→ decay_class = "CORRUPTED"
+
+decay_score > CORRUPTED_THRESHOLD
+→ decay_class = "ADVERSARIAL"
+```
+
+Where thresholds are defined in a `DecayThresholdContract`:
+
+```python
+@dataclass(frozen=True)
+class DecayThresholdContract:
+    degraded_threshold: int     # must be >= 1
+    corrupted_threshold: int    # must be > degraded_threshold
+    threshold_contract_hash: str
+
+@dataclass(frozen=True)
+class DigitalDecaySignature:
+    checkpoint_set_hash: str              # from DecayCheckpointSet
+    threshold_contract_hash: str          # from DecayThresholdContract
+    decay_class: str                      # one of {"CLEAN", "DEGRADED", "CORRUPTED", "ADVERSARIAL"}
+    decay_score: int                      # copied from DecayCheckpointSet
+    adversarial_positions: tuple[str, ...]  # artifact_position_ids where adversarial substitution detected; sorted
+    digital_decay_signature_hash: str     # SHA-256 of canonical JSON of all above
+```
+
+### Adversarial Detection Rule
+
+```text
+A checkpoint is flagged as adversarial if:
+  drifted == True
+  AND the observed_hash is a valid SHA-256 hex string of length 64
+  AND the observed payload at that position recomputes to observed_hash
+  (i.e., the substitution is internally consistent but externally wrong)
+
+This is detected by:
+  validate_artifact_at_position(position_id, observed_hash) == True
+  AND observed_hash != expected_hash
+```
+
+### Helpers
+
+```python
+def build_decay_threshold_contract(
+    degraded_threshold: int,
+    corrupted_threshold: int,
+) -> DecayThresholdContract: ...
+
+def build_digital_decay_signature(
+    checkpoint_set: DecayCheckpointSet,
+    threshold_contract: DecayThresholdContract,
+    adversarial_positions: list[str],
+) -> DigitalDecaySignature: ...
+
+def validate_digital_decay_signature(sig: DigitalDecaySignature) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same checkpoint_set_hash
++ same threshold_contract_hash
++ same adversarial_positions (sorted)
+→ same decay_class
+→ same digital_decay_signature_hash
+```
+
+### Must Not Do
+
+```text
+no fuzzy threshold matching
+no runtime-variable threshold values
+no implicit adversarial inference without explicit position list
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `decay_class` not in `{"CLEAN", "DEGRADED", "CORRUPTED", "ADVERSARIAL"}` | `ValueError("INVALID_DECAY_CLASS")` |
+| `degraded_threshold < 1` | `ValueError("INVALID_THRESHOLD")` |
+| `corrupted_threshold <= degraded_threshold` | `ValueError("INVALID_THRESHOLD_ORDER")` |
+| `digital_decay_signature_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v155.2 — EntropyDriftReceipt (Layer, Router, Mask, Shift, Readout)
+
+### Goal
+
+Extend DigitalDecaySignature to cover the specific artifact positions of layered states, router paths, search masks, Hilbert shift projections, and readout projections, producing per-subsystem drift receipts.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class LayerDecayReceipt:
+    layered_hash: str                  # from v152.1
+    expected_layered_hash: str
+    decay_signature_hash: str          # from DigitalDecaySignature covering this layer
+    layer_decay_receipt_hash: str
+
+@dataclass(frozen=True)
+class RouterDecayReceipt:
+    router_lattice_path_receipt_hash: str   # from v153.1
+    expected_router_hash: str
+    decay_signature_hash: str
+    router_decay_receipt_hash: str
+
+@dataclass(frozen=True)
+class MaskCollisionDecayReceipt:
+    mask_reduction_receipt_hash: str        # from v153.5
+    expected_mask_hash: str
+    collision_type: str                     # one of {"NO_COLLISION", "KNOWN_EQUIVALENT_COLLISION", "INVALID_COLLISION"}
+    decay_signature_hash: str
+    mask_collision_decay_receipt_hash: str
+
+@dataclass(frozen=True)
+class ShiftDecayReceipt:
+    shift_projection_receipt_hash: str      # from v153.6
+    expected_shift_hash: str
+    decay_signature_hash: str
+    shift_decay_receipt_hash: str
+
+@dataclass(frozen=True)
+class ReadoutProjectionDecayReceipt:
+    readout_projection_receipt_hash: str    # from v153.2
+    expected_readout_hash: str
+    decay_signature_hash: str
+    readout_projection_decay_receipt_hash: str
+
+@dataclass(frozen=True)
+class EntropyDriftReceipt:
+    layer_decay_receipts: tuple[LayerDecayReceipt, ...]
+    router_decay_receipts: tuple[RouterDecayReceipt, ...]
+    mask_collision_decay_receipts: tuple[MaskCollisionDecayReceipt, ...]
+    shift_decay_receipts: tuple[ShiftDecayReceipt, ...]
+    readout_projection_decay_receipts: tuple[ReadoutProjectionDecayReceipt, ...]
+    aggregate_decay_score: int              # sum of all decay_scores across all subsystems
+    entropy_drift_receipt_hash: str
+```
+
+### Core Rule
+
+```text
+same set of subsystem receipts (all sorted by their respective hash fields)
+→ same aggregate_decay_score
+→ same entropy_drift_receipt_hash
+```
+
+### Must Not Do
+
+```text
+no cross-subsystem decay merging that loses position identity
+no implicit subsystem coverage (all five subsystems must be present)
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| Any subsystem receipt list is absent | `ValueError("MISSING_SUBSYSTEM_DECAY_RECEIPTS")` |
+| `aggregate_decay_score` does not equal sum | `ValueError("AGGREGATE_SCORE_MISMATCH")` |
+| `entropy_drift_receipt_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v155.3 — DecayResistanceProof
+
+### Goal
+
+Prove that a given proof artifact chain is decay-resistant: all checkpoints are CLEAN, no adversarial positions exist, and the proof can be replayed identically.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class DecayResistanceProof:
+    entropy_drift_receipt_hash: str         # must correspond to a CLEAN signature
+    replay_proof_hash: str                  # from LatticeReplayProofReceipt (v153.9) or equivalent
+    decay_class_at_proof: str               # must be "CLEAN"
+    adversarial_positions_at_proof: tuple[str, ...]  # must be empty tuple
+    decay_resistance_proof_hash: str
+```
+
+### Helpers
+
+```python
+def build_decay_resistance_proof(
+    entropy_drift_receipt: EntropyDriftReceipt,
+    replay_proof: LatticeReplayProofReceipt,
+) -> DecayResistanceProof: ...
+# raises ValueError("DECAY_RESISTANCE_IMPOSSIBLE") if decay_class != "CLEAN"
+
+def validate_decay_resistance_proof(proof: DecayResistanceProof) -> bool: ...
+```
+
+### Core Rule
+
+```text
+decay_class == "CLEAN"
+AND adversarial_positions == ()
+→ decay_resistance_proof_hash is valid
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `decay_class != "CLEAN"` | `ValueError("DECAY_RESISTANCE_IMPOSSIBLE")` |
+| `adversarial_positions != ()` | `ValueError("ADVERSARIAL_POSITIONS_PRESENT")` |
+| `decay_resistance_proof_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v155 Validation Strategy
+
+```text
+pytest coverage required:
+
+test_decay_checkpoint_determinism
+  → same inputs → same checkpoint_hash (10 independent runs)
+
+test_decay_score_exact_count
+  → inject N drifted checkpoints → decay_score == N
+
+test_decay_class_threshold_boundaries
+  → score == 0 → CLEAN
+  → score == degraded_threshold → DEGRADED
+  → score == corrupted_threshold → CORRUPTED
+  → score == corrupted_threshold + 1 → ADVERSARIAL
+
+test_adversarial_detection
+  → substitute valid payload at position → adversarial_positions non-empty
+
+test_entropy_drift_receipt_all_subsystems_required
+  → omit any subsystem → ValueError("MISSING_SUBSYSTEM_DECAY_RECEIPTS")
+
+test_decay_resistance_proof_requires_clean
+  → non-CLEAN signature → ValueError("DECAY_RESISTANCE_IMPOSSIBLE")
+
+test_tamper_detection
+  → mutate any field → ValueError("HASH_MISMATCH")
+
+test_cross_environment_invariance
+  → replay all receipts in fresh process → same hashes
+```
+
+---
+
+## v155 Artifact Chain Extension
+
+```text
+multi_scale_invariant_receipt_hash          (v154.1)
+→ decay_checkpoint_hash                     (v155.0)
+→ decay_checkpoint_set_hash                 (v155.0)
+→ decay_threshold_contract_hash             (v155.1)
+→ digital_decay_signature_hash              (v155.1)
+→ layer_decay_receipt_hash                  (v155.2)
+→ router_decay_receipt_hash                 (v155.2)
+→ mask_collision_decay_receipt_hash         (v155.2)
+→ shift_decay_receipt_hash                  (v155.2)
+→ readout_projection_decay_receipt_hash     (v155.2)
+→ entropy_drift_receipt_hash                (v155.2)
+→ decay_resistance_proof_hash               (v155.3)
+```
+
+---
+
+# Phase: v156.x — Deterministic Perturbation and Stress Contracts
 
 ## Status
 
 ```text
-PLANNED
+PLANNED — fully specified below
 ```
 
-## Interpretation
-
-The energy matrix represents:
+## Arc Reinterpretation
 
 ```text
-controlled perturbation
-stress fields
-validation pressure
-semantic activation
-layer tuning
-router stress
-readout stress
+SYMBOLIC INPUT:
+"Energy Matrix Perturbation Layer"
+"controlled perturbation, stress fields, validation pressure, semantic activation"
+
+DETERMINISTIC INTERPRETATION:
+"Energy" is REJECTED as a physical claim.
+
+A PerturbationContract is a deterministic specification of a bounded,
+parameterized modification applied to a named artifact field, where:
+  - the modification function is one of a fixed enumerated set
+  - all parameters are exact integers or bounded rational fractions
+    (expressed as (numerator: int, denominator: int) pairs)
+  - the perturbation is applied to a canonical JSON representation,
+    not to a runtime object
+  - the result is a new canonical JSON with a new hash
+  - the original artifact is never mutated
+
+"Energy Matrix" is reinterpreted as a PerturbationMatrix: a 2D array of
+PerturbationContracts indexed by (artifact_position_id, perturbation_type),
+where both dimensions are finite, explicitly enumerated, and hash-bound.
+
+"Stress testing" means: applying a PerturbationMatrix to a proof artifact chain
+and measuring the resulting DecayCheckpointSet (from v155.0), proving that
+the system either remains CLEAN or fails with an explicit, deterministic error.
+
+Physical energy claims, floating-point instability, and unbounded perturbation
+ranges are REJECTED.
 ```
 
-This roadmap treats “energy” as:
+## Dependency Boundaries
 
 ```text
-a deterministic perturbation model
-```
+DEPENDS ON:
+  v153.x — all lattice/router/readout artifacts (perturbation targets)
+  v154.x — multi_scale_invariant_receipt (scale-level stress testing)
+  v155.x — DecayCheckpointSet (pre/post perturbation measurement)
 
-not as an unvalidated physical energy claim.
+MUST NOT LEAK INTO:
+  v157 (substrate encoding is a separate constraint layer)
 
-## Goal
-
-Stress-test semantic lattices, reversible layers, router paths, masks, shifts, and readout projections under deterministic perturbation.
-
-## Artifacts
-
-```text
-PerturbationContract
-EnergyMatrixReceipt
-SemanticStressReceipt
-PerturbationStabilityProof
-LayerActivationStabilityReceipt
-RouterStressReceipt
-MaskStressReceipt
-ShiftStressReceipt
-ReadoutStressReceipt
+PREPARES FOR:
+  v157 — substrate constraints define which perturbations are physically admissible
+  v158 — recursive proof loops use perturbation to test loop stability
+  v159 — reality loop integration requires perturbation-stable proof chain
 ```
 
 ---
 
-# 🧠 Phase: v157.x — Substrate Encoding Layer
+## v156.0 — PerturbationContract
+
+### Goal
+
+Define the deterministic contract for a single bounded perturbation applied to a named artifact field.
+
+### Perturbation Types (Enumerated, Fixed Set)
+
+```text
+FIELD_SUBSTITUTION      — replace field value with a specified canonical substitute
+NODE_REMOVAL            — remove a named node from a lattice graph
+EDGE_REMOVAL            — remove a named edge from a lattice graph
+SCALE_INDEX_SHIFT       — change scale_index by a bounded integer delta in {-2, -1, 0, +1, +2}
+OCCURRENCE_COUNT_DELTA  — change occurrence_count by a bounded integer delta in {-1, +1}
+THRESHOLD_DELTA         — change a threshold value by a bounded integer delta in {-1, +1}
+PAYLOAD_FLIP            — flip a single bit at a specified byte offset in a canonical JSON payload
+```
+
+No perturbation type outside this enumerated set is permitted.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class BoundedRational:
+    numerator: int
+    denominator: int     # must be > 0
+    # represents numerator / denominator; used for bounded fractional parameters
+
+@dataclass(frozen=True)
+class PerturbationContract:
+    perturbation_id: str               # deterministic: sha256(canonical_json(all fields except perturbation_id))
+    artifact_position_id: str          # which position in the proof chain is being perturbed
+    perturbation_type: str             # one of the enumerated set above
+    field_name: str                    # the specific field being perturbed
+    parameter_int: int | None          # integer parameter (e.g., delta, byte_offset); None if unused
+    parameter_rational: BoundedRational | None  # rational parameter; None if unused
+    substitute_value: str | None       # canonical JSON string for FIELD_SUBSTITUTION; None if unused
+    perturbation_contract_hash: str    # SHA-256 of canonical JSON of all above (excluding perturbation_id)
+
+@dataclass(frozen=True)
+class PerturbationResult:
+    perturbation_contract_hash: str
+    original_artifact_hash: str
+    perturbed_artifact_hash: str       # hash of the artifact after perturbation
+    perturbation_applied: bool         # True if perturbation was valid and applied
+    rejection_reason: str | None       # None if applied; explicit reason string if rejected
+    perturbation_result_hash: str
+```
+
+### Helpers
+
+```python
+def build_perturbation_contract(
+    artifact_position_id: str,
+    perturbation_type: str,
+    field_name: str,
+    parameter_int: int | None,
+    parameter_rational: BoundedRational | None,
+    substitute_value: str | None,
+) -> PerturbationContract: ...
+# raises ValueError("INVALID_PERTURBATION_TYPE") if type not in enumerated set
+# raises ValueError("PARAMETER_OUT_OF_BOUNDS") if delta not in allowed range
+
+def apply_perturbation(
+    contract: PerturbationContract,
+    artifact_canonical_json: str,
+) -> PerturbationResult: ...
+# applies perturbation to canonical JSON string; returns new hash; never mutates input
+
+def validate_perturbation_result(result: PerturbationResult) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same artifact_canonical_json
++ same perturbation_contract_hash
+→ same perturbed_artifact_hash
+→ same perturbation_result_hash
+```
+
+### Must Not Do
+
+```text
+no perturbation outside the enumerated type set
+no floating-point parameters
+no unbounded integer deltas
+no mutation of the original artifact
+no perturbation of hash fields directly (only payload fields)
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `perturbation_type` not in enumerated set | `ValueError("INVALID_PERTURBATION_TYPE")` |
+| `parameter_int` outside allowed range for type | `ValueError("PARAMETER_OUT_OF_BOUNDS")` |
+| `denominator == 0` in `BoundedRational` | `ValueError("ZERO_DENOMINATOR")` |
+| `field_name` not present in artifact | `ValueError("FIELD_NOT_FOUND")` |
+| `perturbation_contract_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v156.1 — PerturbationMatrix (EnergyMatrix)
+
+### Goal
+
+Define a 2D matrix of PerturbationContracts indexed by (artifact_position_id, perturbation_type), where both dimensions are explicitly enumerated and the entire matrix is hash-bound.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class PerturbationMatrixCell:
+    row_artifact_position_id: str
+    col_perturbation_type: str
+    perturbation_contract_hash: str    # from PerturbationContract; None-equivalent is empty string ""
+    cell_hash: str                     # SHA-256 of canonical JSON of (row, col, contract_hash)
+
+@dataclass(frozen=True)
+class PerturbationMatrix:
+    artifact_position_ids: tuple[str, ...]    # row dimension; sorted ascending
+    perturbation_types: tuple[str, ...]       # col dimension; sorted ascending; subset of enumerated set
+    cells: tuple[PerturbationMatrixCell, ...]  # sorted by (row ASC, col ASC)
+    matrix_hash: str                           # SHA-256 of canonical JSON of all above
+    energy_matrix_receipt_hash: str            # alias for matrix_hash; same value
+```
+
+### Helpers
+
+```python
+def build_perturbation_matrix(
+    artifact_position_ids: list[str],
+    perturbation_types: list[str],
+    contracts: dict[tuple[str, str], PerturbationContract],
+) -> PerturbationMatrix: ...
+# contracts keyed by (artifact_position_id, perturbation_type)
+# missing cells are represented as empty-string contract_hash
+
+def validate_perturbation_matrix(matrix: PerturbationMatrix) -> bool: ...
+
+def get_perturbation_contract(
+    matrix: PerturbationMatrix,
+    artifact_position_id: str,
+    perturbation_type: str,
+) -> PerturbationContract | None: ...
+```
+
+### Core Rule
+
+```text
+same artifact_position_ids (sorted)
++ same perturbation_types (sorted)
++ same contracts (keyed)
+→ same cells (sorted)
+→ same matrix_hash
+```
+
+### Must Not Do
+
+```text
+no dynamic row/column addition after matrix construction
+no implicit cell population
+no perturbation_type outside enumerated set
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `perturbation_types` contains value outside enumerated set | `ValueError("INVALID_PERTURBATION_TYPE")` |
+| Duplicate `(row, col)` cell | `ValueError("DUPLICATE_MATRIX_CELL")` |
+| `matrix_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v156.2 — SemanticStressReceipt and PerturbationStabilityProof
+
+### Goal
+
+Apply a PerturbationMatrix to a proof artifact chain, measure the resulting DecayCheckpointSet for each perturbed artifact, and produce a stability proof showing whether the system remains within acceptable decay bounds.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class SemanticStressReceipt:
+    energy_matrix_receipt_hash: str           # from PerturbationMatrix
+    pre_perturbation_decay_signature_hash: str  # from v155.1 DigitalDecaySignature (baseline)
+    perturbation_results: tuple[PerturbationResult, ...]  # sorted by perturbation_contract_hash
+    post_perturbation_checkpoint_set_hash: str  # from DecayCheckpointSet after all perturbations
+    post_perturbation_decay_class: str          # one of {"CLEAN", "DEGRADED", "CORRUPTED", "ADVERSARIAL"}
+    semantic_stress_receipt_hash: str
+
+@dataclass(frozen=True)
+class PerturbationStabilityProof:
+    semantic_stress_receipt_hash: str
+    stability_verdict: str                    # one of {"STABLE", "DEGRADED_STABLE", "UNSTABLE"}
+    # STABLE: post_perturbation_decay_class == "CLEAN"
+    # DEGRADED_STABLE: post_perturbation_decay_class == "DEGRADED"
+    # UNSTABLE: post_perturbation_decay_class in {"CORRUPTED", "ADVERSARIAL"}
+    perturbation_stability_proof_hash: str
+```
+
+### Stability Verdict Rule
+
+```text
+post_perturbation_decay_class == "CLEAN"
+→ stability_verdict = "STABLE"
+
+post_perturbation_decay_class == "DEGRADED"
+→ stability_verdict = "DEGRADED_STABLE"
+
+post_perturbation_decay_class in {"CORRUPTED", "ADVERSARIAL"}
+→ stability_verdict = "UNSTABLE"
+```
+
+### Helpers
+
+```python
+def build_semantic_stress_receipt(
+    matrix: PerturbationMatrix,
+    artifact_chain: dict[str, str],  # position_id → canonical_json
+    pre_decay_signature: DigitalDecaySignature,
+    threshold_contract: DecayThresholdContract,
+) -> SemanticStressReceipt: ...
+
+def build_perturbation_stability_proof(
+    stress_receipt: SemanticStressReceipt,
+) -> PerturbationStabilityProof: ...
+
+def validate_perturbation_stability_proof(proof: PerturbationStabilityProof) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same energy_matrix_receipt_hash
++ same pre_perturbation_decay_signature_hash
++ same artifact_chain
+→ same perturbation_results (sorted)
+→ same post_perturbation_decay_class
+→ same stability_verdict
+→ same perturbation_stability_proof_hash
+```
+
+### Must Not Do
+
+```text
+no mutation of original artifact chain
+no perturbation applied outside matrix bounds
+no stability verdict outside {"STABLE", "DEGRADED_STABLE", "UNSTABLE"}
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `stability_verdict` not in allowed set | `ValueError("INVALID_STABILITY_VERDICT")` |
+| `perturbation_stability_proof_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+| Perturbation applied to hash field directly | `ValueError("HASH_FIELD_PERTURBATION_FORBIDDEN")` |
+
+---
+
+## v156.3 — Per-Subsystem Stress Receipts
+
+### Goal
+
+Produce dedicated stress receipts for each major subsystem (layer, router, mask, shift, readout), mirroring the per-subsystem structure of v155.2.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class LayerActivationStabilityReceipt:
+    layered_hash: str
+    perturbation_stability_proof_hash: str
+    layer_activation_stability_receipt_hash: str
+
+@dataclass(frozen=True)
+class RouterStressReceipt:
+    router_lattice_path_receipt_hash: str
+    perturbation_stability_proof_hash: str
+    router_stress_receipt_hash: str
+
+@dataclass(frozen=True)
+class MaskStressReceipt:
+    mask_reduction_receipt_hash: str
+    perturbation_stability_proof_hash: str
+    mask_stress_receipt_hash: str
+
+@dataclass(frozen=True)
+class ShiftStressReceipt:
+    shift_projection_receipt_hash: str
+    perturbation_stability_proof_hash: str
+    shift_stress_receipt_hash: str
+
+@dataclass(frozen=True)
+class ReadoutStressReceipt:
+    readout_projection_receipt_hash: str
+    perturbation_stability_proof_hash: str
+    readout_stress_receipt_hash: str
+```
+
+### Core Rule
+
+```text
+same subsystem receipt hash
++ same perturbation_stability_proof_hash
+→ same subsystem stress receipt hash
+```
+
+### Must Not Do
+
+```text
+no cross-subsystem stress merging that loses position identity
+no implicit subsystem coverage
+```
+
+---
+
+## v156 Validation Strategy
+
+```text
+pytest coverage required:
+
+test_perturbation_contract_determinism
+  → same inputs → same perturbation_contract_hash (10 independent runs)
+
+test_perturbation_type_rejection
+  → unknown type → ValueError("INVALID_PERTURBATION_TYPE")
+
+test_parameter_bounds_enforcement
+  → delta outside allowed range → ValueError("PARAMETER_OUT_OF_BOUNDS")
+
+test_perturbation_matrix_determinism
+  → same contracts → same matrix_hash
+
+test_perturbation_no_mutation
+  → original artifact unchanged after apply_perturbation
+
+test_semantic_stress_receipt_determinism
+  → same matrix + same chain → same receipt hash
+
+test_stability_verdict_clean
+  → zero drifted checkpoints after perturbation → "STABLE"
+
+test_stability_verdict_corrupted
+  → majority drifted checkpoints → "UNSTABLE"
+
+test_hash_field_perturbation_forbidden
+  → attempt to perturb a hash field → ValueError("HASH_FIELD_PERTURBATION_FORBIDDEN")
+
+test_cross_environment_invariance
+  → replay all receipts in fresh process → same hashes
+```
+
+---
+
+## v156 Artifact Chain Extension
+
+```text
+entropy_drift_receipt_hash                  (v155.2)
+→ perturbation_contract_hash                (v156.0)
+→ perturbation_result_hash                  (v156.0)
+→ perturbation_matrix_hash / energy_matrix_receipt_hash  (v156.1)
+→ semantic_stress_receipt_hash              (v156.2)
+→ perturbation_stability_proof_hash         (v156.2)
+→ layer_activation_stability_receipt_hash   (v156.3)
+→ router_stress_receipt_hash                (v156.3)
+→ mask_stress_receipt_hash                  (v156.3)
+→ shift_stress_receipt_hash                 (v156.3)
+→ readout_stress_receipt_hash               (v156.3)
+```
+
+---
+
+# Phase: v157.x — Substrate Encoding Constraint Layer
 
 ## Status
 
 ```text
-PLANNED
+PLANNED — fully specified below
 ```
 
-## Interpretation
-
-Substrate is treated as:
+## Arc Reinterpretation
 
 ```text
-material / computational boundary
-→ encoding medium
-→ physical constraint model
+SYMBOLIC INPUT:
+"Substrate Encoding Layer"
+"material / computational boundary → encoding medium → physical constraint model"
+
+DETERMINISTIC INTERPRETATION:
+A SubstrateContract is a deterministic specification of a named encoding
+constraint composed of an ordered list of SubstrateConstraintPredicates,
+where each predicate is an explicit boolean test over a named field of a
+canonical JSON artifact.
+
+"Substrate" does NOT mean hardware, material, or physical medium.
+It means: a named constraint profile that an artifact must satisfy to be
+considered compatible with a given encoding context.
+
+A SubstrateStateReceipt records whether a given artifact satisfies a
+SubstrateContract, producing a deterministic verdict in:
+  {"COMPATIBLE", "INCOMPATIBLE", "PARTIAL"}
+
+"PARTIAL" means: some predicates pass and some fail; the failing predicate
+IDs are explicitly listed in the receipt.
+
+Hardware claims, non-deterministic I/O, and runtime-environment-dependent
+behavior are REJECTED.
 ```
 
-This phase does not claim material implementation.
-
-It formalizes what would be required for proof artifacts to bind to substrate-level constraints.
-
-## Goal
-
-Model deterministic proof systems under substrate constraints.
-
-## Artifacts
+## Dependency Boundaries
 
 ```text
-SubstrateContract
-SubstrateStateReceipt
-MaterialEncodingReceipt
-SubstrateDriftReceipt
-LayerSubstrateCompatibilityReceipt
-MaskSubstrateReceipt
-RouterSubstrateReceipt
-ReadoutSubstrateReceipt
+DEPENDS ON:
+  v153.x — SemanticLatticeGraph, RouterLatticePathReceipt, ReadoutProjectionReceipt
+  v155.x — DigitalDecaySignature (decay-aware substrate compatibility)
+  v156.x — PerturbationStabilityProof (perturbation-tested substrate)
+
+MUST NOT LEAK INTO:
+  v158 (recursive proof loops are a separate concern)
+
+PREPARES FOR:
+  v158 — recursive proof loops check substrate compatibility at each iteration
+  v159 — reality loop integration requires substrate-compatible proof chain
 ```
 
 ---
 
-# 🧠 Phase: v158.x — Recursive / Ouroboric Proof Loops
+## v157.0 — SubstrateConstraintPredicate and SubstrateContract
+
+### Goal
+
+Define the deterministic contract for a single substrate constraint predicate and a named substrate contract composed of an ordered list of such predicates.
+
+### Predicate Operators (Enumerated, Fixed Set)
+
+```text
+EQ        — field value equals operand (exact string equality on canonical JSON value)
+NEQ       — field value does not equal operand
+LTE       — field integer value <= operand integer value
+GTE       — field integer value >= operand integer value
+IN        — field value is in operand list (sorted, canonical)
+NOT_IN    — field value is not in operand list (sorted, canonical)
+```
+
+No operator outside this enumerated set is permitted.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class SubstrateConstraintPredicate:
+    predicate_id: str                  # deterministic: sha256(canonical_json(field_name, operator, operand_canonical))
+    field_name: str                    # dot-separated path into canonical JSON; e.g., "scale_index" or "decay_class"
+    operator: str                      # one of {"EQ", "NEQ", "LTE", "GTE", "IN", "NOT_IN"}
+    operand_canonical: str             # canonical JSON string of the operand value or list
+    predicate_hash: str                # SHA-256 of canonical JSON of (predicate_id, field_name, operator, operand_canonical)
+
+@dataclass(frozen=True)
+class SubstrateContract:
+    substrate_id: str                  # deterministic: sha256(canonical_json(predicates))
+    predicates: tuple[SubstrateConstraintPredicate, ...]  # ordered; order is part of identity
+    substrate_contract_hash: str       # SHA-256 of canonical JSON of (substrate_id, predicates)
+```
+
+### Helpers
+
+```python
+def build_substrate_constraint_predicate(
+    field_name: str,
+    operator: str,
+    operand_canonical: str,
+) -> SubstrateConstraintPredicate: ...
+# raises ValueError("INVALID_OPERATOR") if operator not in enumerated set
+# raises ValueError("INVALID_OPERAND_JSON") if operand_canonical is not valid JSON
+
+def build_substrate_contract(
+    predicates: list[SubstrateConstraintPredicate],
+) -> SubstrateContract: ...
+# order of predicates is preserved; duplicates raise ValueError("DUPLICATE_PREDICATE_ID")
+
+def validate_substrate_contract(contract: SubstrateContract) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same field_name + same operator + same operand_canonical
+→ same predicate_id
+→ same predicate_hash
+
+same ordered predicates
+→ same substrate_id
+→ same substrate_contract_hash
+```
+
+### Must Not Do
+
+```text
+no operator outside the enumerated set
+no floating-point comparison
+no runtime-environment-dependent field resolution
+no implicit predicate ordering
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `operator` not in enumerated set | `ValueError("INVALID_OPERATOR")` |
+| `operand_canonical` is not valid JSON | `ValueError("INVALID_OPERAND_JSON")` |
+| Duplicate `predicate_id` in contract | `ValueError("DUPLICATE_PREDICATE_ID")` |
+| `substrate_contract_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v157.1 — SubstrateStateReceipt
+
+### Goal
+
+Evaluate a SubstrateContract against a canonical JSON artifact and produce a deterministic receipt recording the verdict and all per-predicate results.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class PredicateEvaluationResult:
+    predicate_id: str
+    passed: bool
+    observed_value_canonical: str      # canonical JSON string of the field value found in the artifact
+    evaluation_result_hash: str        # SHA-256 of canonical JSON of (predicate_id, passed, observed_value_canonical)
+
+@dataclass(frozen=True)
+class SubstrateStateReceipt:
+    substrate_contract_hash: str
+    artifact_hash: str                 # SHA-256 of the artifact being evaluated
+    predicate_results: tuple[PredicateEvaluationResult, ...]  # same order as SubstrateContract.predicates
+    verdict: str                       # one of {"COMPATIBLE", "INCOMPATIBLE", "PARTIAL"}
+    failing_predicate_ids: tuple[str, ...]  # sorted ascending; empty if verdict == "COMPATIBLE"
+    substrate_state_receipt_hash: str
+```
+
+### Verdict Rule
+
+```text
+all predicates passed
+→ verdict = "COMPATIBLE"
+
+no predicates passed
+→ verdict = "INCOMPATIBLE"
+
+some predicates passed, some failed
+→ verdict = "PARTIAL"
+```
+
+### Helpers
+
+```python
+def evaluate_substrate_contract(
+    contract: SubstrateContract,
+    artifact_canonical_json: str,
+) -> SubstrateStateReceipt: ...
+# raises ValueError("FIELD_NOT_FOUND") if any predicate field_name is absent from artifact
+# raises ValueError("TYPE_MISMATCH") if LTE/GTE applied to non-integer field
+
+def validate_substrate_state_receipt(receipt: SubstrateStateReceipt) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same substrate_contract_hash
++ same artifact_canonical_json
+→ same predicate_results (in contract order)
+→ same verdict
+→ same failing_predicate_ids
+→ same substrate_state_receipt_hash
+```
+
+### Must Not Do
+
+```text
+no partial field resolution
+no implicit type coercion
+no verdict outside {"COMPATIBLE", "INCOMPATIBLE", "PARTIAL"}
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `field_name` absent from artifact | `ValueError("FIELD_NOT_FOUND")` |
+| `LTE`/`GTE` applied to non-integer field | `ValueError("TYPE_MISMATCH")` |
+| `verdict` not in allowed set | `ValueError("INVALID_VERDICT")` |
+| `substrate_state_receipt_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v157.2 — MaterialEncodingReceipt and SubstrateDriftReceipt
+
+### Goal
+
+Detect substrate compatibility changes across proof chain positions (MaterialEncodingReceipt) and across time by comparing two SubstrateStateReceipts for the same artifact position (SubstrateDriftReceipt).
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class MaterialEncodingEntry:
+    artifact_position_id: str
+    substrate_state_receipt_hash: str
+    verdict: str                       # copied from SubstrateStateReceipt
+    encoding_entry_hash: str
+
+@dataclass(frozen=True)
+class MaterialEncodingReceipt:
+    substrate_contract_hash: str
+    encoding_entries: tuple[MaterialEncodingEntry, ...]  # sorted by artifact_position_id ascending
+    total_compatible: int
+    total_incompatible: int
+    total_partial: int
+    material_encoding_receipt_hash: str
+
+@dataclass(frozen=True)
+class SubstrateDriftReceipt:
+    artifact_position_id: str
+    earlier_substrate_state_receipt_hash: str
+    later_substrate_state_receipt_hash: str
+    verdict_changed: bool              # True iff earlier verdict != later verdict
+    earlier_verdict: str
+    later_verdict: str
+    substrate_drift_receipt_hash: str
+```
+
+### Helpers
+
+```python
+def build_material_encoding_receipt(
+    contract: SubstrateContract,
+    state_receipts: list[SubstrateStateReceipt],
+) -> MaterialEncodingReceipt: ...
+
+def build_substrate_drift_receipt(
+    artifact_position_id: str,
+    earlier: SubstrateStateReceipt,
+    later: SubstrateStateReceipt,
+) -> SubstrateDriftReceipt: ...
+
+def validate_material_encoding_receipt(r: MaterialEncodingReceipt) -> bool: ...
+def validate_substrate_drift_receipt(r: SubstrateDriftReceipt) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same contract + same state_receipts (sorted by position_id)
+→ same encoding_entries
+→ same total counts
+→ same material_encoding_receipt_hash
+
+same earlier + same later
+→ same verdict_changed
+→ same substrate_drift_receipt_hash
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `total_compatible + total_incompatible + total_partial != len(encoding_entries)` | `ValueError("VERDICT_COUNT_MISMATCH")` |
+| `substrate_drift_receipt_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v157.3 — Per-Subsystem Substrate Receipts
+
+### Goal
+
+Produce dedicated substrate compatibility receipts for each major subsystem (layer, mask, router, readout), binding each subsystem's primary receipt hash to a SubstrateStateReceipt.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class LayerSubstrateCompatibilityReceipt:
+    layered_hash: str
+    substrate_state_receipt_hash: str
+    layer_substrate_compatibility_receipt_hash: str
+
+@dataclass(frozen=True)
+class MaskSubstrateReceipt:
+    mask_reduction_receipt_hash: str
+    substrate_state_receipt_hash: str
+    mask_substrate_receipt_hash: str
+
+@dataclass(frozen=True)
+class RouterSubstrateReceipt:
+    router_lattice_path_receipt_hash: str
+    substrate_state_receipt_hash: str
+    router_substrate_receipt_hash: str
+
+@dataclass(frozen=True)
+class ReadoutSubstrateReceipt:
+    readout_projection_receipt_hash: str
+    substrate_state_receipt_hash: str
+    readout_substrate_receipt_hash: str
+```
+
+### Core Rule
+
+```text
+same subsystem receipt hash
++ same substrate_state_receipt_hash
+→ same subsystem substrate receipt hash
+```
+
+### Must Not Do
+
+```text
+no cross-subsystem substrate merging
+no implicit substrate assignment
+```
+
+---
+
+## v157 Validation Strategy
+
+```text
+pytest coverage required:
+
+test_predicate_determinism
+  → same inputs → same predicate_hash (10 independent runs)
+
+test_invalid_operator_rejection
+  → unknown operator → ValueError("INVALID_OPERATOR")
+
+test_substrate_contract_order_matters
+  → same predicates in different order → different substrate_contract_hash
+
+test_verdict_compatible
+  → all predicates pass → verdict == "COMPATIBLE"
+
+test_verdict_incompatible
+  → all predicates fail → verdict == "INCOMPATIBLE"
+
+test_verdict_partial
+  → mixed results → verdict == "PARTIAL" and failing_predicate_ids non-empty
+
+test_field_not_found
+  → missing field → ValueError("FIELD_NOT_FOUND")
+
+test_substrate_drift_detection
+  → verdict changes between receipts → verdict_changed == True
+
+test_material_encoding_counts
+  → counts must sum to total entries
+
+test_tamper_detection
+  → mutate any field → ValueError("HASH_MISMATCH")
+
+test_cross_environment_invariance
+  → replay all receipts in fresh process → same hashes
+```
+
+---
+
+## v157 Artifact Chain Extension
+
+```text
+perturbation_stability_proof_hash           (v156.2)
+→ substrate_constraint_predicate_hash       (v157.0)
+→ substrate_contract_hash                   (v157.0)
+→ predicate_evaluation_result_hash          (v157.1)
+→ substrate_state_receipt_hash              (v157.1)
+→ encoding_entry_hash                       (v157.2)
+→ material_encoding_receipt_hash            (v157.2)
+→ substrate_drift_receipt_hash              (v157.2)
+→ layer_substrate_compatibility_receipt_hash  (v157.3)
+→ mask_substrate_receipt_hash               (v157.3)
+→ router_substrate_receipt_hash             (v157.3)
+→ readout_substrate_receipt_hash            (v157.3)
+```
+
+---
+
+# Phase: v158.x — Bounded Recursive Proof Loops
 
 ## Status
 
 ```text
-PLANNED
+PLANNED — fully specified below
 ```
 
-## Interpretation
-
-Ouroboric recursion represents:
+## Arc Reinterpretation
 
 ```text
-self-reference
-feedback
-recursive proof loops
-autocatalytic reasoning
-return paths
-readout recursion
-router feedback
+SYMBOLIC INPUT:
+"Recursive / Ouroboric Proof Loops"
+"self-reference, feedback, recursive proof loops, autocatalytic reasoning,
+ return paths, readout recursion, router feedback"
+
+DETERMINISTIC INTERPRETATION:
+A RecursiveProofLoop is a bounded deterministic iteration where:
+  - the loop input at iteration i is a named receipt hash
+  - the loop output at iteration i is a new named receipt hash
+  - the loop terminates when:
+      (a) output_receipt_hash == input_receipt_hash (convergence), OR
+      (b) iteration_index == max_depth (depth limit reached), OR
+      (c) a LoopTerminationContract specifies halt_on_decay_class and the
+          current DecayCheckpointSet matches that class (explicit halt)
+  - max_depth is an explicit integer in [1, 1024]
+  - all iteration records are hash-bound and ordered by iteration_index
+
+"Ouroboric" means: the loop's final output receipt hash is compared to its
+initial input receipt hash. If they are equal, an OuroboricConvergenceReceipt
+is issued. If not, the loop is classified as NON_CONVERGENT.
+
+Infinite recursion, undefined recursion depth, and implicit loop termination
+are REJECTED.
 ```
 
-## Goal
-
-Prove recursive reasoning loops terminate, stabilize, or fail explicitly.
-
-## Artifacts
+## Dependency Boundaries
 
 ```text
-RecursiveProofReceipt
-OuroboricConvergenceReceipt
-CircularEvidenceReceipt
-LoopTerminationProof
-ReturnPathIntegrityReceipt
-FalseCenterDriftReceipt
-RouterLoopReceipt
-ReadoutLoopReceipt
-MarkovLoopStabilityReceipt
+DEPENDS ON:
+  v153.x — RouterLatticePathReceipt, ReadoutProjectionReceipt (loop subjects)
+  v155.x — DigitalDecaySignature (halt condition)
+  v157.x — SubstrateStateReceipt (substrate check per iteration)
+
+MUST NOT LEAK INTO:
+  v159 (reality loop composition is a separate cross-arc concern)
+
+PREPARES FOR:
+  v159 — reality loop integration requires bounded recursive proof receipts
+  v160 — global truth engine validates loop termination proofs
 ```
 
 ---
 
-# 🧠 Phase: v159.x — Reality Loop Integration
+## v158.0 — LoopTerminationContract
+
+### Goal
+
+Define the deterministic contract governing when a recursive proof loop must terminate, including maximum depth, convergence check type, and optional decay-class halt condition.
+
+### Convergence Check Types (Enumerated, Fixed Set)
+
+```text
+HASH_EQUALITY     — terminate when output_receipt_hash == input_receipt_hash
+DECAY_CLASS_HALT  — terminate when current decay_class matches halt_on_decay_class
+DEPTH_ONLY        — terminate only at max_depth; no convergence check
+```
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class LoopTerminationContract:
+    loop_id: str                       # deterministic: sha256(canonical_json(max_depth, convergence_check, halt_on_decay_class))
+    max_depth: int                     # must be in [1, 1024]
+    convergence_check: str             # one of {"HASH_EQUALITY", "DECAY_CLASS_HALT", "DEPTH_ONLY"}
+    halt_on_decay_class: str | None    # one of {"CLEAN", "DEGRADED", "CORRUPTED", "ADVERSARIAL"} or None
+    loop_termination_contract_hash: str  # SHA-256 of canonical JSON of all above
+```
+
+### Helpers
+
+```python
+def build_loop_termination_contract(
+    max_depth: int,
+    convergence_check: str,
+    halt_on_decay_class: str | None,
+) -> LoopTerminationContract: ...
+# raises ValueError("INVALID_MAX_DEPTH") if max_depth not in [1, 1024]
+# raises ValueError("INVALID_CONVERGENCE_CHECK") if not in enumerated set
+# raises ValueError("HALT_CLASS_REQUIRED") if convergence_check == "DECAY_CLASS_HALT" and halt_on_decay_class is None
+
+def validate_loop_termination_contract(contract: LoopTerminationContract) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same max_depth + same convergence_check + same halt_on_decay_class
+→ same loop_id
+→ same loop_termination_contract_hash
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `max_depth` not in `[1, 1024]` | `ValueError("INVALID_MAX_DEPTH")` |
+| `convergence_check` not in enumerated set | `ValueError("INVALID_CONVERGENCE_CHECK")` |
+| `convergence_check == "DECAY_CLASS_HALT"` and `halt_on_decay_class is None` | `ValueError("HALT_CLASS_REQUIRED")` |
+| `loop_termination_contract_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v158.1 — LoopIterationRecord and RecursiveProofReceipt
+
+### Goal
+
+Record each iteration of a recursive proof loop as a hash-bound LoopIterationRecord, and aggregate all records into a RecursiveProofReceipt that proves the loop terminated correctly.
+
+### Termination Reasons (Enumerated, Fixed Set)
+
+```text
+CONVERGED       — output_receipt_hash == input_receipt_hash
+MAX_DEPTH       — iteration_index reached max_depth
+EXPLICIT_HALT   — decay_class matched halt_on_decay_class
+```
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class LoopIterationRecord:
+    loop_id: str
+    iteration_index: int               # 0-based; must be < max_depth
+    input_receipt_hash: str
+    output_receipt_hash: str
+    decay_signature_hash: str          # from DigitalDecaySignature at this iteration
+    substrate_state_receipt_hash: str  # from SubstrateStateReceipt at this iteration
+    converged: bool                    # True iff output_receipt_hash == input_receipt_hash
+    iteration_record_hash: str         # SHA-256 of canonical JSON of all above
+
+@dataclass(frozen=True)
+class RecursiveProofReceipt:
+    loop_termination_contract_hash: str
+    iteration_records: tuple[LoopIterationRecord, ...]  # sorted by iteration_index ascending
+    total_iterations: int              # must equal len(iteration_records)
+    termination_reason: str            # one of {"CONVERGED", "MAX_DEPTH", "EXPLICIT_HALT"}
+    final_output_receipt_hash: str     # output_receipt_hash of the last iteration
+    recursive_proof_receipt_hash: str
+```
+
+### Helpers
+
+```python
+def build_loop_iteration_record(
+    loop_id: str,
+    iteration_index: int,
+    input_receipt_hash: str,
+    output_receipt_hash: str,
+    decay_signature_hash: str,
+    substrate_state_receipt_hash: str,
+) -> LoopIterationRecord: ...
+
+def build_recursive_proof_receipt(
+    contract: LoopTerminationContract,
+    iteration_records: list[LoopIterationRecord],
+    termination_reason: str,
+) -> RecursiveProofReceipt: ...
+# raises ValueError("ITERATION_INDEX_GAP") if iteration_index sequence has gaps
+# raises ValueError("INVALID_TERMINATION_REASON") if not in enumerated set
+
+def validate_recursive_proof_receipt(receipt: RecursiveProofReceipt) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same loop_termination_contract_hash
++ same iteration_records (sorted by iteration_index)
++ same termination_reason
+→ same final_output_receipt_hash
+→ same recursive_proof_receipt_hash
+```
+
+### Must Not Do
+
+```text
+no iteration_index >= max_depth
+no gaps in iteration_index sequence
+no termination_reason outside enumerated set
+no implicit loop continuation after termination
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `iteration_index >= max_depth` | `ValueError("ITERATION_EXCEEDS_MAX_DEPTH")` |
+| Gap in `iteration_index` sequence | `ValueError("ITERATION_INDEX_GAP")` |
+| `termination_reason` not in enumerated set | `ValueError("INVALID_TERMINATION_REASON")` |
+| `total_iterations != len(iteration_records)` | `ValueError("ITERATION_COUNT_MISMATCH")` |
+| `recursive_proof_receipt_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v158.2 — OuroboricConvergenceReceipt and LoopTerminationProof
+
+### Goal
+
+Prove ouroboric closure (final output == initial input) and produce a LoopTerminationProof that records remaining depth budget and convergence status.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class OuroboricConvergenceReceipt:
+    recursive_proof_receipt_hash: str
+    initial_input_receipt_hash: str    # input_receipt_hash of iteration_records[0]
+    final_output_receipt_hash: str     # from RecursiveProofReceipt
+    ouroboric_closed: bool             # True iff initial_input == final_output
+    ouroboric_convergence_receipt_hash: str
+
+@dataclass(frozen=True)
+class LoopTerminationProof:
+    recursive_proof_receipt_hash: str
+    ouroboric_convergence_receipt_hash: str
+    termination_reason: str
+    total_iterations: int
+    remaining_depth_budget: int        # max_depth - total_iterations; must be >= 0
+    loop_termination_proof_hash: str
+```
+
+### Helpers
+
+```python
+def build_ouroboric_convergence_receipt(
+    recursive_proof_receipt: RecursiveProofReceipt,
+) -> OuroboricConvergenceReceipt: ...
+
+def build_loop_termination_proof(
+    recursive_proof_receipt: RecursiveProofReceipt,
+    ouroboric_receipt: OuroboricConvergenceReceipt,
+    max_depth: int,
+) -> LoopTerminationProof: ...
+# raises ValueError("NEGATIVE_DEPTH_BUDGET") if remaining_depth_budget < 0
+
+def validate_loop_termination_proof(proof: LoopTerminationProof) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same recursive_proof_receipt_hash
+→ same ouroboric_closed value
+→ same remaining_depth_budget
+→ same loop_termination_proof_hash
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `remaining_depth_budget < 0` | `ValueError("NEGATIVE_DEPTH_BUDGET")` |
+| `loop_termination_proof_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v158.3 — Router, Readout, and Markov Loop Receipts
+
+### Goal
+
+Extend the recursive proof loop framework to router-path feedback, readout-projection feedback, and Markov-basis loop stability, producing dedicated receipts for each.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class RouterLoopReceipt:
+    router_lattice_path_receipt_hashes: tuple[str, ...]  # one per iteration; sorted by iteration_index
+    loop_termination_proof_hash: str
+    router_loop_receipt_hash: str
+
+@dataclass(frozen=True)
+class ReadoutLoopReceipt:
+    readout_projection_receipt_hashes: tuple[str, ...]   # one per iteration; sorted by iteration_index
+    loop_termination_proof_hash: str
+    readout_loop_receipt_hash: str
+
+@dataclass(frozen=True)
+class MarkovLoopStabilityReceipt:
+    readout_matrix_receipt_hashes: tuple[str, ...]       # one per iteration; sorted by iteration_index
+    loop_termination_proof_hash: str
+    all_transitions_deterministic: bool  # True iff all matrix receipts hash-match their expected values
+    markov_loop_stability_receipt_hash: str
+```
+
+### Core Rule
+
+```text
+same receipt_hashes (sorted by iteration_index)
++ same loop_termination_proof_hash
+→ same router/readout/markov loop receipt hash
+```
+
+### Must Not Do
+
+```text
+no stochastic transition in Markov loop
+no implicit iteration ordering
+no receipt count mismatch vs total_iterations
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `len(receipt_hashes) != total_iterations` | `ValueError("RECEIPT_COUNT_MISMATCH")` |
+| `all_transitions_deterministic == False` and caller asserts stability | `ValueError("MARKOV_LOOP_INSTABILITY")` |
+| Hash recomputation fails | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v158 Validation Strategy
+
+```text
+pytest coverage required:
+
+test_loop_termination_contract_determinism
+  → same inputs → same contract hash (10 independent runs)
+
+test_invalid_max_depth_rejection
+  → max_depth == 0 → ValueError("INVALID_MAX_DEPTH")
+  → max_depth == 1025 → ValueError("INVALID_MAX_DEPTH")
+
+test_convergence_at_iteration_0
+  → input == output at first iteration → termination_reason == "CONVERGED"
+
+test_max_depth_termination
+  → never converges → terminates at max_depth → termination_reason == "MAX_DEPTH"
+
+test_explicit_halt_termination
+  → decay_class matches halt_on_decay_class → termination_reason == "EXPLICIT_HALT"
+
+test_iteration_index_gap_rejection
+  → gap in iteration_index → ValueError("ITERATION_INDEX_GAP")
+
+test_ouroboric_closure_detection
+  → final output == initial input → ouroboric_closed == True
+
+test_remaining_depth_budget
+  → total_iterations + remaining_depth_budget == max_depth
+
+test_markov_loop_deterministic
+  → all matrix receipts match expected → all_transitions_deterministic == True
+
+test_tamper_detection
+  → mutate any field → ValueError("HASH_MISMATCH")
+
+test_cross_environment_invariance
+  → replay all receipts in fresh process → same hashes
+```
+
+---
+
+## v158 Artifact Chain Extension
+
+```text
+substrate_state_receipt_hash                (v157.1)
+→ loop_termination_contract_hash            (v158.0)
+→ iteration_record_hash                     (v158.1)
+→ recursive_proof_receipt_hash              (v158.1)
+→ ouroboric_convergence_receipt_hash        (v158.2)
+→ loop_termination_proof_hash               (v158.2)
+→ router_loop_receipt_hash                  (v158.3)
+→ readout_loop_receipt_hash                 (v158.3)
+→ markov_loop_stability_receipt_hash        (v158.3)
+```
+
+---
+
+# Phase: v159.x — Full-System Replay Composition (Reality Loop Integration)
 
 ## Status
 
 ```text
-PLANNED
+PLANNED — fully specified below
 ```
 
-## Goal
-
-Unify the boundary / lattice / resonance / layer / router / readout / fractal / decay / perturbation / substrate / recursion arcs into a deterministic reality-loop proof system.
-
-## Integrated Loop
+## Arc Reinterpretation
 
 ```text
-boundary cube
-→ canonical lattice
-→ semantic field
-→ resonance validation
-→ reversible layer
-→ atomic semantic lattice
-→ router path
-→ readout projection
-→ search mask
-→ Hilber/Hilbert shift
-→ readout kernel
-→ readout matrix
-→ fractal invariant
-→ decay detection
-→ perturbation matrix
-→ substrate encoding
-→ recursive proof
-→ replay
+SYMBOLIC INPUT:
+"Reality Loop Integration"
+"unify boundary / lattice / resonance / layer / router / readout / fractal /
+ decay / perturbation / substrate / recursion arcs into a deterministic
+ reality-loop proof system"
+
+DETERMINISTIC INTERPRETATION:
+A RealityLoopCompositionSpec is an ordered, canonical list of exactly 18
+named receipt hash slots, one per arc-phase output, indexed 0 through 17.
+
+Each slot is defined by:
+  - slot_index: int (0..17)
+  - arc_label: str (the arc that produced the receipt)
+  - receipt_field_name: str (the specific hash field being composed)
+  - receipt_hash: str (the actual SHA-256 value)
+
+The composition is valid if and only if:
+  - all 18 slots are present
+  - all receipt_hashes are 64-char hex strings
+  - the cross-arc identity links are satisfied (see v159.1)
+
+"Reality loop" does NOT mean a philosophical feedback cycle.
+It means: a single deterministic composition receipt that proves all 18
+arc-phase outputs are present, hash-bound, and cross-arc linked.
+
+Philosophical constructs without artifacts are REJECTED.
 ```
 
-## Output
+## Slot Definitions (Fixed, Ordered)
+
+| Slot Index | Arc Label | Receipt Field Name |
+|---|---|---|
+| 0 | v151 | canonical_hash |
+| 1 | v151 | semantic_field_hash |
+| 2 | v151 | resonance_hash |
+| 3 | v152 | layered_hash |
+| 4 | v152 | fractal_equivalence_receipt_hash |
+| 5 | v153 | lattice_graph_hash |
+| 6 | v153 | router_lattice_path_receipt_hash |
+| 7 | v153 | readout_projection_receipt_hash |
+| 8 | v153 | lattice_replay_proof_hash |
+| 9 | v154 | multi_scale_invariant_receipt_hash |
+| 10 | v154 | sierpinski_compression_receipt_hash |
+| 11 | v155 | digital_decay_signature_hash |
+| 12 | v155 | entropy_drift_receipt_hash |
+| 13 | v156 | energy_matrix_receipt_hash |
+| 14 | v156 | perturbation_stability_proof_hash |
+| 15 | v157 | substrate_state_receipt_hash |
+| 16 | v158 | recursive_proof_receipt_hash |
+| 17 | v158 | loop_termination_proof_hash |
+
+## Dependency Boundaries
 
 ```text
-RealityLoopProofReceipt
+DEPENDS ON:
+  v151 through v158 — all prior arc outputs (slots 0–17)
+
+MUST NOT LEAK INTO:
+  v160 (global truth engine aggregates v159 receipts; v159 does not aggregate v160)
+
+PREPARES FOR:
+  v160 — GlobalTruthReceipt requires at least one RealityLoopProofReceipt
 ```
 
 ---
 
-# 🧠 Phase: v160.x — Global Deterministic Truth Engine
+## v159.0 — RealityLoopCompositionSpec
+
+### Goal
+
+Define the deterministic contract for the 18-slot composition specification.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class RealityLoopCompositionSlot:
+    slot_index: int                    # must be in [0, 17]
+    arc_label: str                     # e.g., "v151", "v153"
+    receipt_field_name: str            # e.g., "canonical_hash"
+    receipt_hash: str                  # 64-char SHA-256 hex string
+    slot_hash: str                     # SHA-256 of canonical JSON of (slot_index, arc_label, receipt_field_name, receipt_hash)
+
+@dataclass(frozen=True)
+class RealityLoopCompositionSpec:
+    slots: tuple[RealityLoopCompositionSlot, ...]  # exactly 18 entries, sorted by slot_index
+    total_slots: int                   # must be 18
+    composition_spec_hash: str         # SHA-256 of canonical JSON of all slots
+```
+
+### Helpers
+
+```python
+def build_reality_loop_composition_spec(
+    slot_data: list[tuple[int, str, str, str]],  # (slot_index, arc_label, receipt_field_name, receipt_hash)
+) -> RealityLoopCompositionSpec: ...
+# raises ValueError("MISSING_SLOT") if any slot_index in [0,17] is absent
+# raises ValueError("DUPLICATE_SLOT") if any slot_index appears more than once
+# raises ValueError("INVALID_RECEIPT_HASH") if any receipt_hash is not 64-char hex
+
+def validate_reality_loop_composition_spec(spec: RealityLoopCompositionSpec) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same 18 slot definitions (sorted by slot_index)
+→ same composition_spec_hash
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| Any `slot_index` in `[0, 17]` absent | `ValueError("MISSING_SLOT")` |
+| Duplicate `slot_index` | `ValueError("DUPLICATE_SLOT")` |
+| `receipt_hash` not 64-char hex | `ValueError("INVALID_RECEIPT_HASH")` |
+| `total_slots != 18` | `ValueError("SLOT_COUNT_MISMATCH")` |
+| `composition_spec_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v159.1 — CrossArcIdentityLinkReceipt
+
+### Goal
+
+Validate that the output receipt hash of each slot is recognized as a valid input to the next slot, using an explicit lineage registry, and produce a receipt proving all cross-arc links are satisfied.
+
+### Cross-Arc Link Rules (Fixed)
+
+```text
+slot 0 → slot 3:  canonical_hash must appear in LayeredState.base_hash
+slot 3 → slot 5:  layered_hash must appear in SemanticLatticeGraph provenance
+slot 5 → slot 6:  lattice_graph_hash must appear in RouterLatticePathReceipt.lattice_graph_hash
+slot 6 → slot 7:  router_lattice_path_receipt_hash must appear in ReadoutProjectionReceipt.router_path_hash
+slot 5 → slot 9:  lattice_graph_hash must appear in MultiScaleInvariantReceipt.lattice_graph_hash
+slot 9 → slot 10: multi_scale_invariant_receipt_hash must appear in SierpinskiCompressionReceipt.multi_scale_invariant_receipt_hash
+slot 11 → slot 12: digital_decay_signature_hash must appear in EntropyDriftReceipt.decay_signature_hash
+slot 13 → slot 14: energy_matrix_receipt_hash must appear in SemanticStressReceipt.energy_matrix_receipt_hash
+slot 15 → slot 16: substrate_state_receipt_hash must appear in LoopIterationRecord.substrate_state_receipt_hash
+slot 16 → slot 17: recursive_proof_receipt_hash must appear in LoopTerminationProof.recursive_proof_receipt_hash
+```
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class CrossArcIdentityLink:
+    from_slot_index: int
+    to_slot_index: int
+    from_receipt_hash: str
+    to_receipt_hash: str
+    link_satisfied: bool               # True iff from_receipt_hash found in to-slot artifact's expected field
+    link_hash: str                     # SHA-256 of canonical JSON of (from_slot_index, to_slot_index, from_receipt_hash, to_receipt_hash, link_satisfied)
+
+@dataclass(frozen=True)
+class CrossArcIdentityLinkReceipt:
+    composition_spec_hash: str
+    links: tuple[CrossArcIdentityLink, ...]  # exactly 10 entries per the fixed rules above; sorted by (from_slot_index, to_slot_index)
+    all_links_satisfied: bool          # True iff all link.link_satisfied == True
+    cross_arc_identity_link_receipt_hash: str
+```
+
+### Helpers
+
+```python
+def build_cross_arc_identity_link_receipt(
+    spec: RealityLoopCompositionSpec,
+    lineage_registry: dict[str, set[str]],  # receipt_hash → set of artifact field values that reference it
+) -> CrossArcIdentityLinkReceipt: ...
+
+def validate_cross_arc_identity_link_receipt(r: CrossArcIdentityLinkReceipt) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same composition_spec_hash
++ same lineage_registry (deterministic dict)
+→ same links (sorted)
+→ same all_links_satisfied
+→ same cross_arc_identity_link_receipt_hash
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `len(links) != 10` | `ValueError("LINK_COUNT_MISMATCH")` |
+| `cross_arc_identity_link_receipt_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v159.2 — RealityLoopProofReceipt
+
+### Goal
+
+Seal the composition spec and cross-arc link receipt into a single RealityLoopProofReceipt that proves the full system replay is valid.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class RealityLoopProofReceipt:
+    composition_spec_hash: str
+    cross_arc_identity_link_receipt_hash: str
+    all_links_satisfied: bool          # must be True for a valid proof
+    total_slots: int                   # must be 18
+    reality_loop_proof_receipt_hash: str
+```
+
+### Helpers
+
+```python
+def build_reality_loop_proof_receipt(
+    spec: RealityLoopCompositionSpec,
+    link_receipt: CrossArcIdentityLinkReceipt,
+) -> RealityLoopProofReceipt: ...
+# raises ValueError("LINKS_NOT_SATISFIED") if all_links_satisfied == False
+
+def validate_reality_loop_proof_receipt(receipt: RealityLoopProofReceipt) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same composition_spec_hash
++ same cross_arc_identity_link_receipt_hash
+→ same reality_loop_proof_receipt_hash
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `all_links_satisfied == False` | `ValueError("LINKS_NOT_SATISFIED")` |
+| `total_slots != 18` | `ValueError("SLOT_COUNT_MISMATCH")` |
+| `reality_loop_proof_receipt_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v159 Validation Strategy
+
+```text
+pytest coverage required:
+
+test_composition_spec_determinism
+  → same 18 slots → same composition_spec_hash (10 independent runs)
+
+test_missing_slot_rejection
+  → omit any slot_index → ValueError("MISSING_SLOT")
+
+test_duplicate_slot_rejection
+  → duplicate slot_index → ValueError("DUPLICATE_SLOT")
+
+test_cross_arc_link_all_satisfied
+  → valid lineage registry → all_links_satisfied == True
+
+test_cross_arc_link_one_unsatisfied
+  → corrupt one lineage entry → all_links_satisfied == False
+
+test_reality_loop_proof_requires_all_links
+  → all_links_satisfied == False → ValueError("LINKS_NOT_SATISFIED")
+
+test_reality_loop_proof_determinism
+  → same inputs → same reality_loop_proof_receipt_hash
+
+test_tamper_detection
+  → mutate any slot → ValueError("HASH_MISMATCH")
+
+test_cross_environment_invariance
+  → replay all receipts in fresh process → same hashes
+```
+
+---
+
+## v159 Artifact Chain Extension
+
+```text
+loop_termination_proof_hash                 (v158.2)
+→ reality_loop_composition_slot_hash        (v159.0)
+→ composition_spec_hash                     (v159.0)
+→ cross_arc_identity_link_hash              (v159.1)
+→ cross_arc_identity_link_receipt_hash      (v159.1)
+→ reality_loop_proof_receipt_hash           (v159.2)
+```
+
+---
+
+# Phase: v160.x — Global Deterministic Truth Engine
 
 ## Status
 
 ```text
-PLANNED
+PLANNED — fully specified below
 ```
 
-## Goal
-
-Unify all prior phases into a globally replayable truth-verification framework.
-
-## System
+## Arc Reinterpretation
 
 ```text
-documents
-agents
-nodes
-semantic fields
-proof artifacts
-lattices
-layers
-router paths
-readout projections
-search masks
-readout kernels
-readout matrices
-fractals
-decay signatures
-perturbation fields
-substrate constraints
-recursive loops
-→ global deterministic validation
+SYMBOLIC INPUT:
+"Global Deterministic Truth Engine"
+"unify all prior phases into a globally replayable truth-verification framework"
+
+DETERMINISTIC INTERPRETATION:
+The Global Truth Engine is a system-wide validation aggregator that:
+  1. Accepts one or more RealityLoopProofReceipts (from v159)
+  2. Accepts per-arc validation receipts from v151–v158
+  3. Builds a GlobalValidationIndex: a sorted list of (arc_label,
+     receipt_field_name, receipt_hash, validation_status) entries
+     where validation_status is one of {"VALID", "INVALID", "UNVERIFIED"}
+  4. Applies a GlobalThresholdContract to compute a system_verdict:
+     one of {"PROVEN", "DEGRADED", "FAILED"}
+  5. Seals everything into a GlobalTruthReceipt
+
+"Truth" in QEC means: all registered receipt hashes recompute correctly
+and all cross-arc links are satisfied. It does NOT mean semantic truth,
+philosophical truth, or empirical correctness.
+
+Unverifiable "truth" claims are REJECTED.
 ```
 
-## Output
+## Dependency Boundaries
 
 ```text
-GlobalTruthReceipt
+DEPENDS ON:
+  v151 through v159 — all prior arc outputs
+
+MUST NOT LEAK INTO:
+  nothing; v160 is the terminal arc
+
+PREPARES FOR:
+  nothing; v160 is the system-wide terminal validation layer
 ```
 
 ---
 
-# 🧠 System Evolution
+## v160.0 — GlobalValidationIndex
+
+### Goal
+
+Build a sorted, hash-bound index of all registered receipt hashes across all arcs, with explicit validation status for each entry.
+
+### Validation Statuses (Enumerated, Fixed Set)
 
 ```text
-v137 → deterministic runtime
-v146 → proof-carrying execution
-v148 → governance + validation
-v150 → multi-agent convergence
-v151 → real-world ingestion + RES/RAG semantic field + replay
-v152 → reversible layer + compression equivalence
-v153 → atomic semantic lattice + router/readout projection
-v154 → multi-scale lattice invariance
-v155 → digital decay / entropy signatures
-v156 → perturbation matrix validation
-v157 → substrate encoding constraints
-v158 → recursive proof loops
-v159 → reality loop integration
-v160 → global deterministic truth engine
+VALID       — receipt_hash recomputes correctly and is recognized in the lineage registry
+INVALID     — receipt_hash does not recompute or is not recognized
+UNVERIFIED  — receipt_hash is present but has not been checked in this run
+```
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class GlobalValidationEntry:
+    arc_label: str                     # e.g., "v153", "v156"
+    receipt_field_name: str            # e.g., "lattice_graph_hash"
+    receipt_hash: str                  # 64-char SHA-256 hex string
+    validation_status: str             # one of {"VALID", "INVALID", "UNVERIFIED"}
+    entry_hash: str                    # SHA-256 of canonical JSON of (arc_label, receipt_field_name, receipt_hash, validation_status)
+
+@dataclass(frozen=True)
+class GlobalValidationIndex:
+    entries: tuple[GlobalValidationEntry, ...]  # sorted by (arc_label ASC, receipt_field_name ASC, receipt_hash ASC)
+    total_entries: int
+    valid_count: int
+    invalid_count: int
+    unverified_count: int
+    global_validation_index_hash: str  # SHA-256 of canonical JSON of all above
+```
+
+### Helpers
+
+```python
+def build_global_validation_index(
+    entries: list[GlobalValidationEntry],
+) -> GlobalValidationIndex: ...
+# raises ValueError("DUPLICATE_ENTRY") if (arc_label, receipt_field_name, receipt_hash) appears more than once
+# raises ValueError("COUNT_MISMATCH") if counts do not sum to total_entries
+
+def validate_global_validation_index(index: GlobalValidationIndex) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same entries (sorted)
+→ same valid_count, invalid_count, unverified_count
+→ same global_validation_index_hash
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| Duplicate `(arc_label, receipt_field_name, receipt_hash)` | `ValueError("DUPLICATE_ENTRY")` |
+| `valid_count + invalid_count + unverified_count != total_entries` | `ValueError("COUNT_MISMATCH")` |
+| `validation_status` not in enumerated set | `ValueError("INVALID_VALIDATION_STATUS")` |
+| `global_validation_index_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v160.1 — GlobalThresholdContract and GlobalTruthReceipt
+
+### Goal
+
+Apply a GlobalThresholdContract to the GlobalValidationIndex to compute a system_verdict, and seal the result into a GlobalTruthReceipt.
+
+### System Verdict Rule
+
+```text
+valid_count == total_entries
+→ system_verdict = "PROVEN"
+
+valid_count >= proven_threshold AND invalid_count == 0
+→ system_verdict = "PROVEN"
+
+valid_count >= degraded_threshold AND invalid_count <= max_invalid_for_degraded
+→ system_verdict = "DEGRADED"
+
+otherwise
+→ system_verdict = "FAILED"
+```
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class GlobalThresholdContract:
+    proven_threshold: int              # minimum valid_count for "PROVEN" (must be >= 1)
+    degraded_threshold: int            # minimum valid_count for "DEGRADED" (must be < proven_threshold)
+    max_invalid_for_degraded: int      # maximum invalid_count allowed for "DEGRADED" (must be >= 0)
+    global_threshold_contract_hash: str
+
+@dataclass(frozen=True)
+class GlobalTruthReceipt:
+    global_validation_index_hash: str
+    reality_loop_proof_receipt_hashes: tuple[str, ...]  # at least 1; sorted ascending
+    global_threshold_contract_hash: str
+    system_verdict: str                # one of {"PROVEN", "DEGRADED", "FAILED"}
+    valid_count: int
+    invalid_count: int
+    unverified_count: int
+    total_entries: int
+    global_truth_receipt_hash: str     # SHA-256 of canonical JSON of all above
+```
+
+### Helpers
+
+```python
+def build_global_threshold_contract(
+    proven_threshold: int,
+    degraded_threshold: int,
+    max_invalid_for_degraded: int,
+) -> GlobalThresholdContract: ...
+# raises ValueError("INVALID_THRESHOLD_ORDER") if degraded_threshold >= proven_threshold
+
+def build_global_truth_receipt(
+    index: GlobalValidationIndex,
+    reality_loop_receipts: list[RealityLoopProofReceipt],
+    threshold_contract: GlobalThresholdContract,
+) -> GlobalTruthReceipt: ...
+# raises ValueError("EMPTY_REALITY_LOOP_RECEIPTS") if reality_loop_receipts is empty
+
+def validate_global_truth_receipt(receipt: GlobalTruthReceipt) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same global_validation_index_hash
++ same reality_loop_proof_receipt_hashes (sorted)
++ same global_threshold_contract_hash
+→ same system_verdict
+→ same global_truth_receipt_hash
+```
+
+### Must Not Do
+
+```text
+no system_verdict outside {"PROVEN", "DEGRADED", "FAILED"}
+no empty reality_loop_proof_receipt_hashes list
+no threshold values that make "PROVEN" unreachable
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `degraded_threshold >= proven_threshold` | `ValueError("INVALID_THRESHOLD_ORDER")` |
+| `reality_loop_receipts` is empty | `ValueError("EMPTY_REALITY_LOOP_RECEIPTS")` |
+| `system_verdict` not in allowed set | `ValueError("INVALID_SYSTEM_VERDICT")` |
+| `global_truth_receipt_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v160.2 — GlobalReplayProof
+
+### Goal
+
+Prove that the GlobalTruthReceipt is cross-environment invariant by replaying it in at least two independent environments and confirming identical global_truth_receipt_hash values.
+
+### Artifacts
+
+```python
+@dataclass(frozen=True)
+class GlobalReplayRecord:
+    environment_id: str                # deterministic identifier for the replay environment
+    global_truth_receipt_hash: str     # the hash produced in this environment
+    replay_record_hash: str            # SHA-256 of canonical JSON of (environment_id, global_truth_receipt_hash)
+
+@dataclass(frozen=True)
+class GlobalReplayProof:
+    replay_records: tuple[GlobalReplayRecord, ...]  # at least 2; sorted by environment_id ascending
+    all_hashes_identical: bool         # True iff all global_truth_receipt_hash values are equal
+    reference_hash: str                # the common hash value; empty string if all_hashes_identical == False
+    global_replay_proof_hash: str
+```
+
+### Helpers
+
+```python
+def build_global_replay_proof(
+    replay_records: list[GlobalReplayRecord],
+) -> GlobalReplayProof: ...
+# raises ValueError("INSUFFICIENT_REPLAY_RECORDS") if len(replay_records) < 2
+
+def validate_global_replay_proof(proof: GlobalReplayProof) -> bool: ...
+```
+
+### Core Rule
+
+```text
+same replay_records (sorted by environment_id)
+→ same all_hashes_identical
+→ same reference_hash
+→ same global_replay_proof_hash
+```
+
+### Failure Modes
+
+| Condition | Error |
+|---|---|
+| `len(replay_records) < 2` | `ValueError("INSUFFICIENT_REPLAY_RECORDS")` |
+| `all_hashes_identical == True` but `reference_hash` is empty | `ValueError("REFERENCE_HASH_MISSING")` |
+| `global_replay_proof_hash` does not recompute | `ValueError("HASH_MISMATCH")` |
+
+---
+
+## v160 Validation Strategy
+
+```text
+pytest coverage required:
+
+test_global_validation_index_determinism
+  → same entries → same index hash (10 independent runs)
+
+test_duplicate_entry_rejection
+  → duplicate (arc_label, receipt_field_name, receipt_hash) → ValueError("DUPLICATE_ENTRY")
+
+test_count_consistency
+  → valid + invalid + unverified == total_entries
+
+test_system_verdict_proven
+  → all entries VALID → system_verdict == "PROVEN"
+
+test_system_verdict_degraded
+  → some entries VALID, none INVALID, meets degraded threshold → "DEGRADED"
+
+test_system_verdict_failed
+  → invalid_count > max_invalid_for_degraded → "FAILED"
+
+test_empty_reality_loop_rejection
+  → empty list → ValueError("EMPTY_REALITY_LOOP_RECEIPTS")
+
+test_global_replay_proof_requires_two_environments
+  → one record → ValueError("INSUFFICIENT_REPLAY_RECORDS")
+
+test_global_replay_proof_hash_mismatch_detection
+  → two records with different hashes → all_hashes_identical == False
+
+test_tamper_detection
+  → mutate any field → ValueError("HASH_MISMATCH")
+
+test_cross_environment_invariance
+  → replay all receipts in fresh process → same global_truth_receipt_hash
+```
+
+---
+
+## v160 Artifact Chain Extension
+
+```text
+reality_loop_proof_receipt_hash             (v159.2)
+→ global_validation_entry_hash              (v160.0)
+→ global_validation_index_hash              (v160.0)
+→ global_threshold_contract_hash            (v160.1)
+→ global_truth_receipt_hash                 (v160.1)
+→ replay_record_hash                        (v160.2)
+→ global_replay_proof_hash                  (v160.2)
+```
+
+---
+
+# Complete Artifact Hash Chain: v151 → v160
+
+```text
+canonical_hash                                    (v151)
+semantic_field_hash                               (v151)
+resonance_hash                                    (v151)
+layered_hash                                      (v152)
+fractal_equivalence_receipt_hash                  (v152)
+lattice_graph_hash                                (v153)
+router_lattice_path_receipt_hash                  (v153)
+readout_projection_receipt_hash                   (v153)
+lattice_replay_proof_hash                         (v153)
+subgraph_invariant_pattern_hash                   (v154.0)
+multi_scale_invariant_receipt_hash                (v154.1)
+sierpinski_compression_receipt_hash               (v154.2)
+router_scale_receipt_hash                         (v154.3)
+readout_scale_projection_receipt_hash             (v154.3)
+governance_compression_receipt_hash               (v154.4)
+semantic_compression_receipt_hash                 (v154.4)
+decay_checkpoint_hash                             (v155.0)
+digital_decay_signature_hash                      (v155.1)
+entropy_drift_receipt_hash                        (v155.2)
+decay_resistance_proof_hash                       (v155.3)
+perturbation_contract_hash                        (v156.0)
+energy_matrix_receipt_hash                        (v156.1)
+perturbation_stability_proof_hash                 (v156.2)
+layer_activation_stability_receipt_hash           (v156.3)
+router_stress_receipt_hash                        (v156.3)
+substrate_contract_hash                           (v157.0)
+substrate_state_receipt_hash                      (v157.1)
+material_encoding_receipt_hash                    (v157.2)
+substrate_drift_receipt_hash                      (v157.2)
+loop_termination_contract_hash                    (v158.0)
+recursive_proof_receipt_hash                      (v158.1)
+loop_termination_proof_hash                       (v158.2)
+ouroboric_convergence_receipt_hash                (v158.2)
+router_loop_receipt_hash                          (v158.3)
+readout_loop_receipt_hash                         (v158.3)
+markov_loop_stability_receipt_hash                (v158.3)
+composition_spec_hash                             (v159.0)
+cross_arc_identity_link_receipt_hash              (v159.1)
+reality_loop_proof_receipt_hash                   (v159.2)
+global_validation_index_hash                      (v160.0)
+global_threshold_contract_hash                    (v160.1)
+global_truth_receipt_hash                         (v160.1)
+global_replay_proof_hash                          (v160.2)
+```
+
+---
+
+# System Invariant Extension: v154–v160
+
+The core QEC law is extended as follows for arcs v154–v160:
+
+```text
+same raw evidence
++ same extraction config
++ same canonicalization config
++ same RES/RAG config
++ same validation rules
++ same governance inputs
++ same proof-chain inputs
++ same environment evidence
++ same layer specs
++ same layer payloads
++ same compression contracts
++ same lattice bounds
++ same lattice nodes
++ same lattice edges
++ same router path specs
++ same readout projection specs
++ same subgraph invariant patterns
++ same scale indices
++ same decay threshold contracts
++ same perturbation contracts
++ same substrate constraint predicates
++ same loop termination contracts
++ same reality loop composition slots
++ same global threshold contracts
+→ same canonical_hash
+→ same semantic_field_hash
+→ same resonance_hash
+→ same validation_hash
+→ same governance_hash
+→ same final_proof_hash
+→ same replay_receipt_hash
+→ same layered_receipt_hash
+→ same removal_receipt_hash
+→ same compression_equivalence_hash
+→ same lattice_graph_hash
+→ same router_path_receipt_hash
+→ same readout_projection_receipt_hash
+→ same multi_scale_invariant_receipt_hash
+→ same sierpinski_compression_receipt_hash
+→ same digital_decay_signature_hash
+→ same entropy_drift_receipt_hash
+→ same energy_matrix_receipt_hash
+→ same perturbation_stability_proof_hash
+→ same substrate_state_receipt_hash
+→ same recursive_proof_receipt_hash
+→ same loop_termination_proof_hash
+→ same reality_loop_proof_receipt_hash
+→ same global_truth_receipt_hash
+→ same global_replay_proof_hash
+```
+
+---
+
+# Operational Reminders for v154–v160
+
+**Scale reminder:**
+
+```text
+A scale_index may be 0 (local), 1 (document), or 2 (distributed).
+A scale_index may not be implicit.
+A scale_index may not be inferred from graph topology.
+```
+
+**Decay reminder:**
+
+```text
+A decay_score is an exact integer count.
+A decay_class is one of four explicit values.
+A decay_class may not be estimated probabilistically.
+```
+
+**Perturbation reminder:**
+
+```text
+A perturbation may modify a payload field.
+A perturbation may not modify a hash field.
+A perturbation may not be unbounded.
+A perturbation may not be floating-point.
+```
+
+**Substrate reminder:**
+
+```text
+A substrate constraint is a predicate over canonical JSON.
+A substrate constraint may not reference hardware state.
+A substrate constraint may not reference runtime environment.
+```
+
+**Loop reminder:**
+
+```text
+A recursive proof loop must have an explicit max_depth.
+A recursive proof loop must have an explicit termination reason.
+A recursive proof loop may not recurse infinitely.
+```
+
+**Reality loop reminder:**
+
+```text
+A reality loop composition must have exactly 18 slots.
+A reality loop composition may not have implicit slots.
+A reality loop proof may not be issued if any cross-arc link is unsatisfied.
+```
+
+**Global truth reminder:**
+
+```text
+A global truth receipt requires at least one reality loop proof receipt.
+A system_verdict may not be issued without a GlobalThresholdContract.
+A global truth receipt may not claim "PROVEN" if any entry is INVALID.
+```
+
+
+---
+
+# Global Artifact Chain (v151 → v160)
+
+```text
+canonical_hash                                      (v151)
+semantic_field_hash                                (v151)
+resonance_hash                                     (v151)
+layered_hash                                       (v152)
+fractal_equivalence_receipt_hash                   (v152)
+lattice_graph_hash                                 (v153.0)
+router_lattice_path_receipt_hash                   (v153.1)
+readout_projection_receipt_hash                    (v153.2)
+layered_lattice_projection_hash                    (v153.3)
+qam_spec_hash                                      (v153.4)
+mask_reduction_hash                                (v153.5)
+shift_projection_hash                              (v153.6)
+kernel_composition_hash                            (v153.7)
+readout_matrix_hash                                (v153.8)
+lattice_replay_proof_hash                          (v153.9)
+subgraph_invariant_pattern_hash                    (v154.0)
+multi_scale_invariant_receipt_hash                 (v154.1)
+sierpinski_compression_receipt_hash                (v154.2)
+digital_decay_signature_hash                       (v155.1)
+entropy_drift_receipt_hash                         (v155.2)
+decay_resistance_proof_hash                        (v155.3)
+perturbation_contract_hash                         (v156.0)
+energy_matrix_receipt_hash                         (v156.1)
+perturbation_stability_proof_hash                  (v156.2)
+substrate_contract_hash                            (v157.0)
+substrate_state_receipt_hash                       (v157.1)
+recursive_proof_receipt_hash                       (v158.1)
+loop_termination_proof_hash                        (v158.2)
+reality_loop_proof_receipt_hash                    (v159.2)
+global_truth_receipt_hash                          (v160.1)
+global_replay_proof_hash                           (v160.2)
 ```
 
 ---
 
 # 🧾 Operational Reminder
 
-Every future roadmap item must produce:
+Every roadmap item must produce:
 
 ```text
 receipt
@@ -1938,25 +4738,107 @@ A mask may collide only with explicit semantics.
 A mask may not use Python built-in hash().
 ```
 
+Shift reminder:
+
+```text
+A shift may transform explicit order.
+A shift may prove inverse stability.
+
+A shift may not guess geometry.
+```
+
+Kernel/shell reminder:
+
+```text
+A kernel may define computation identity.
+A shell may compose around it in explicit order.
+
+A shell may not hide dispatch.
+```
+
+Matrix reminder:
+
+```text
+A matrix may define deterministic transition basis.
+A matrix may be Markov-compatible.
+
+A matrix may not sample.
+```
+
+Scale reminder:
+
+```text
+A scale invariant may repeat.
+A scale invariant may compress.
+
+A scale invariant may not be visually inferred.
+```
+
+Decay reminder:
+
+```text
+Decay is expected_hash != observed_hash.
+Entropy is an integer count.
+
+Decay is not probability.
+```
+
+Perturbation reminder:
+
+```text
+Perturbation is bounded canonical transformation.
+Energy is not a physical claim.
+```
+
+Substrate reminder:
+
+```text
+Substrate is a constraint profile over canonical JSON.
+Substrate is not hardware authority.
+```
+
+Recursion reminder:
+
+```text
+A loop must terminate.
+A loop must have max_depth.
+A loop must produce receipts.
+
+No infinite recursion is QEC.
+```
+
+Reality loop reminder:
+
+```text
+Reality loop means 18 fixed slots + cross-arc links.
+It is not a philosophy claim.
+```
+
+Global truth reminder:
+
+```text
+Truth means registered receipts recompute and cross-arc links hold.
+It is not semantic or philosophical truth.
+```
+
 ---
 
 # 🧠 Immediate Next Work
 
 ```text
-v153.2 — Readout Projection Receipts
+v153.7 — Functional Kernel + Readout Shell Architecture
 ```
 
 The next implementation prompt should enforce:
 
 ```text
-validated graph required
-validated router path set required
-readout projection is not execution
-source must be inside resolved path
-projection hash must recompute
-no SearchMask64 yet
-no Hilber/Hilbert shift yet
-no Markov modeling yet
+kernel contracts are identity-bearing
+shell stacks are explicitly ordered
+composition replaces hidden if-chain dispatch
+no runtime hidden branching
+no readout matrix yet
+no Markov basis yet
+no v153.8+ behavior
 Marc/QAM attribution is release-note-only
 ```
 
@@ -1977,7 +4859,15 @@ deterministic reasoning system
 → atomic semantic lattice system
 → router-path proof system
 → readout-projection proof system
-→ recursive reality-proof system
+→ mask and shift compatibility system
+→ functional kernel / readout shell system
+→ deterministic readout matrix system
+→ multi-scale invariant proof system
+→ deterministic decay detection system
+→ perturbation stability system
+→ substrate constraint system
+→ bounded recursive proof-loop system
+→ full-system reality-loop proof system
 → global deterministic truth engine
 ```
 
@@ -2000,9 +4890,14 @@ across router paths,
 across readout projections,
 across masks,
 across shifts,
+across readout shells,
+across readout matrices,
 across fractal scales,
 across decay signatures,
+across perturbation contracts,
+across substrate constraints,
 across recursive loops,
+across reality-loop compositions,
 across environments,
 across time.
 ```

@@ -114,6 +114,13 @@ def test_forged_path_set_hash_rejected_in_receipt_validation():
 def test_empty_result_with_none_reason_rejected():
     with pytest.raises(ValueError,match="INVALID_INPUT"): ResolvedLatticePathSet("gh","rph","sph",tuple(),"","NONE")
 
+def test_non_empty_result_with_non_none_reason_rejected():
+    # Create a valid path first
+    path=ResolvedLatticePath("path-0",("h1",),("n1",),("e1",),"")
+    path=ResolvedLatticePath(**{**path.__dict__,"path_hash":path.stable_hash()})
+    # Non-empty paths with NO_MATCH or AMBIGUOUS reason should be rejected
+    with pytest.raises(ValueError,match="INVALID_INPUT"): ResolvedLatticePathSet("gh","rph","sph",(path,),"","NO_MATCH")
+
 def test_stale_token_hash_rejected_in_dataclass():
     # RouteToken constructor validates hash when non-empty
     with pytest.raises(ValueError,match="INVALID_INPUT"): RouteToken("t","NODE_ID","n1",0,"stale_hash_not_matching")

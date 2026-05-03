@@ -63,14 +63,16 @@ class BoundaryIntegrityReceipt:
     base_hash: str
     layered_hash: str
     layer_spec_hash: str
+    layer_payload_hash: str
     boundary_integrity_hash: str
 
     def __post_init__(self) -> None:
         expected = sha256_hex(
             {
                 "base_hash": self.base_hash,
-                "layered_hash": self.layered_hash,
+                "layer_payload_hash": self.layer_payload_hash,
                 "layer_spec_hash": self.layer_spec_hash,
+                "layered_hash": self.layered_hash,
             }
         )
         if expected != self.boundary_integrity_hash:
@@ -81,6 +83,7 @@ class BoundaryIntegrityReceipt:
             "base_hash": self.base_hash,
             "layered_hash": self.layered_hash,
             "layer_spec_hash": self.layer_spec_hash,
+            "layer_payload_hash": self.layer_payload_hash,
             "boundary_integrity_hash": self.boundary_integrity_hash,
         }
         _ensure_json_safe(payload)
@@ -154,14 +157,16 @@ def build_layer_removal_receipt(layered_receipt: LayeredReceipt) -> LayerRemoval
     boundary_integrity_hash = sha256_hex(
         {
             "base_hash": layered_receipt.base_hash,
-            "layered_hash": layered_receipt.layered_hash,
+            "layer_payload_hash": layered_receipt.layer_payload_hash,
             "layer_spec_hash": layered_receipt.layer_spec_hash,
+            "layered_hash": layered_receipt.layered_hash,
         }
     )
     boundary = BoundaryIntegrityReceipt(
         base_hash=layered_receipt.base_hash,
         layered_hash=layered_receipt.layered_hash,
         layer_spec_hash=layered_receipt.layer_spec_hash,
+        layer_payload_hash=layered_receipt.layer_payload_hash,
         boundary_integrity_hash=boundary_integrity_hash,
     )
 
@@ -191,6 +196,9 @@ def validate_layer_removal_receipt(
     removal_receipt: LayerRemovalReceipt,
     layered_receipt: LayeredReceipt,
 ) -> None:
+    if layered_receipt.stable_hash() != layered_receipt.receipt_hash:
+        raise ValueError("INVALID_INPUT")
+
     if removal_receipt.base_hash != layered_receipt.base_hash:
         raise ValueError("INVALID_INPUT")
     if removal_receipt.layered_hash != layered_receipt.layered_hash:
@@ -213,8 +221,9 @@ def validate_layer_removal_receipt(
     expected_boundary_hash = sha256_hex(
         {
             "base_hash": removal_receipt.base_hash,
-            "layered_hash": removal_receipt.layered_hash,
+            "layer_payload_hash": removal_receipt.layer_payload_hash,
             "layer_spec_hash": removal_receipt.layer_spec_hash,
+            "layered_hash": removal_receipt.layered_hash,
         }
     )
     if removal_receipt.boundary_integrity_receipt.boundary_integrity_hash != expected_boundary_hash:

@@ -15,7 +15,7 @@ from qec.analysis.layer_spec_contract import (
     LayerInvariantSet,
     LayerSpec,
 )
-from qec.analysis.layered_state_receipt import BaseStateReference, build_layered_receipt
+from qec.analysis.layered_state_receipt import BaseStateReference, LayeredReceipt, build_layered_receipt
 
 
 def _spec() -> LayerSpec:
@@ -31,7 +31,7 @@ def _spec() -> LayerSpec:
     )
 
 
-def _layered_receipt():
+def _layered_receipt() -> LayeredReceipt:
     base = BaseStateReference(base_hash="base-hash-1", base_type="canonical-doc", base_metadata={"v": 1})
     return build_layered_receipt(base, _spec(), {"x": {"y": [1, 2]}})
 

@@ -1,20 +1,23 @@
 # 🚀 QSOLKCB / QEC — ROADMAP.md
 
-## Deterministic Reasoning • Canonical Identity • RES/RAG Resonance • Reversible Layers • Router Paths • Readout Kernels • Distributed Proof
+## Deterministic Reasoning • Canonical Identity • RES/RAG Resonance • Reversible Layers • Atomic Lattices • Router Paths • Readout Projections • Distributed Proof
 
 ---
 
 # 🧭 Stable Tip Metadata
 
 ```text
-latest completed release → v151.8
-current frontier         → v152.0
-next arc                 → Reversible Coherence Lattice + Proof Compression
+latest completed release → v153.1
+current frontier         → v153.2
+next work                → Readout Projection Receipts
+active arc               → v153.x — Atomic Semantic Lattice State Space
 ```
 
 Stable lineage remains anchored to `v137.*` compatibility contracts.
 
 Published tags are authoritative.
+
+If this roadmap disagrees with published release history, release history wins and the roadmap must be corrected.
 
 Every release must preserve:
 
@@ -25,6 +28,8 @@ hash stability
 receipt integrity
 lineage preservation
 failure semantics
+self-hash exclusion
+recomputed-hash validation
 ```
 
 Every roadmap phase must reduce ambiguity.
@@ -40,7 +45,7 @@ hash
 receipt
 validation rule
 failure mode
-replay test
+deterministic replay test
 ```
 
 If an idea cannot produce those, it remains inspiration — not QEC.
@@ -59,7 +64,11 @@ deterministic multi-agent reasoning
 + distributed proof
 + replay verification
 + reversible layering
-+ router/readout composition system
++ atomic semantic lattice
++ router-path proof
++ readout-projection proof
++ compression-equivalence proof
+system
 ```
 
 QEC is NOT:
@@ -70,6 +79,9 @@ a loose AI-agent framework
 a symbolic metaphor engine without receipts
 a runtime that silently trusts external interpretation
 a layer system that replaces source identity
+a graph system that guesses topology
+a router that searches hidden paths
+a readout system that executes hidden behavior
 ```
 
 QEC is:
@@ -85,8 +97,10 @@ a system that produces proof-carrying reasoning artifacts
 → across distributed nodes
 → across environments
 → across reversible layers
+→ across compressed proof forms
+→ across atomic semantic lattices
 → across router paths
-→ across readout kernels
+→ across readout projections
 → across time
 ```
 
@@ -113,7 +127,7 @@ same input
 
 Violation → **SYSTEM INVALID**
 
-Extended current form:
+Current extended form:
 
 ```text
 same raw evidence
@@ -125,8 +139,13 @@ same raw evidence
 + same proof-chain inputs
 + same environment evidence
 + same layer specs
++ same layer payloads
++ same compression contracts
++ same lattice bounds
++ same lattice nodes
++ same lattice edges
 + same router path specs
-+ same readout kernel specs
++ same readout projection specs
 → same canonical_hash
 → same semantic_field_hash
 → same resonance_hash
@@ -135,6 +154,11 @@ same raw evidence
 → same final_proof_hash
 → same replay_receipt_hash
 → same layered_receipt_hash
+→ same removal_receipt_hash
+→ same compression_equivalence_hash
+→ same lattice_graph_hash
+→ same router_path_receipt_hash
+→ same readout_projection_receipt_hash
 ```
 
 ---
@@ -154,14 +178,17 @@ Forbidden:
 * non-canonical identity
 * proof artifacts without recomputable hashes
 * symbolic meaning without receipts
-* router paths without deterministic resolution
-* search masks without fixed width and collision semantics
-* readout composition without explicit order
 * layered augmentation that mutates base identity
+* graph topology without structural/hash synchronization
+* router paths without deterministic resolution
+* readout projections without explicit source/path binding
+* search masks without fixed width and collision semantics
+* Hilber/Hilbert shift without exact operation definition
+* Markov-style transition systems with implicit randomness
 
 Required:
 
-* frozen dataclasses
+* frozen dataclasses or equivalent immutability
 * canonical JSON
 * stable SHA-256 hashing
 * explicit contracts
@@ -175,8 +202,8 @@ Required:
 * self-hash exclusion
 * recomputed hash validation
 * immutable payloads or deep-freeze / thaw discipline
-* pure functional readout/kernel composition where possible
 * deterministic router path resolution
+* source-bound readout projection
 * reversible layer proofs where layers are removable
 
 Core invariant:
@@ -191,16 +218,25 @@ Layer invariant:
 base_hash remains authoritative
 ```
 
+Graph invariant:
+
+```text
+nodes + edges + bounds
+→ graph_hash
+```
+
 Router invariant:
 
 ```text
-same route spec + same base state → same resolved path set
+same graph + same route spec + same index
+→ same resolved path set
 ```
 
 Readout invariant:
 
 ```text
-same kernel + same ordered shells + same input → same readout
+same graph + same resolved path set + same readout spec
+→ same projection receipt
 ```
 
 ---
@@ -210,8 +246,6 @@ same kernel + same ordered shells + same input → same readout
 Validation is not manual.
 
 It is conditionally mandatory.
-
----
 
 ## 🔴 Escalation Rule
 
@@ -236,13 +270,13 @@ if any of the following are touched:
 * canonical ordering
 * analysis-layer proof modules
 * reversible layer logic
+* compression equivalence
+* lattice topology
 * router path resolution
+* readout projection
 * search-mask construction
 * Hilber/Hilbert shift projection
-* readout kernel composition
 * readout matrix / Markov-basis logic
-
----
 
 ## 🟡 Local Rule
 
@@ -252,8 +286,6 @@ If the escalation rule is not triggered:
 module tests are allowed
 BUT must be re-evaluated before merge
 ```
-
----
 
 ## 🔒 Enforcement
 
@@ -303,6 +335,93 @@ no hidden runtime effects
 
 ---
 
+# 🧾 Release / Roadmap Reconciliation Ledger
+
+This roadmap corrects the earlier mismatch between planned v152 items and actual releases.
+
+The earlier roadmap incorrectly kept v152 as a combined arc for:
+
+```text
+reversible layers
++ router paths
++ SearchMask64
++ Hilber/Hilbert shift
++ readout kernels
++ readout matrices
+```
+
+Actual release history shows:
+
+```text
+v152.0–v152.4 → reversible layering + compression/equivalence + fractal invariant compression
+v153.0        → atomic semantic lattice contract
+v153.1        → router lattice paths
+```
+
+Therefore:
+
+```text
+v152 is now closed as the Reversible Layer + Compression Equivalence arc.
+v153 is now the Atomic Semantic Lattice + Router/Readout Projection arc.
+Unimplemented v152-intake ideas are moved into explicit later v153.x / v154.x work.
+```
+
+## Deferred / Rescheduled Items
+
+| Earlier roadmap item | Actual state | Corrected destination |
+|---|---:|---|
+| RouterPathSpec Contract listed under v152.5 | Implemented as router lattice paths | v153.1 COMPLETE |
+| Readout projection / readout-visible lattice work | Not yet implemented | v153.2 CURRENT FRONTIER |
+| Layered lattice projection | Not yet implemented | v153.3 |
+| QAM compatibility profile | Not yet implemented | v153.4 |
+| SearchMask64 | Not yet implemented | v153.5 |
+| Hilber/Hilbert shift | Not yet implemented | v153.6 |
+| Functional kernel + readout shell stack | Not yet implemented | v153.7 |
+| Readout combination matrix / Markov basis | Not yet implemented | v153.8 |
+| Semantic/governance compression beyond layered proofs | Partially deferred | v154.x / v159.x |
+
+No roadmap section may claim these deferred items are complete until a published release implements their artifacts and tests.
+
+---
+
+# 🧾 Attribution Policy — Marc Brendecke / QAM v4.1.0
+
+Marc Brendecke / QAM v4.1.0 attribution is release-note metadata only.
+
+It must never appear inside:
+
+```text
+canonical payloads
+hash inputs
+receipts
+proof artifacts
+validation results
+```
+
+Use attribution only for releases that directly implement QAM/router/readout lineage, including:
+
+```text
+RouterPathSpec / RouterLatticePathReceipt
+ReadoutProjectionReceipt / ReadoutShellStack
+QAMCompatibilityProfile
+SearchMask64
+Hilber/Hilbert shift compatibility
+ReadoutCombinationMatrix / MarkovBasisReceipt
+```
+
+Do not add the attribution to native QEC-only releases unless they directly implement one of those lineage items.
+
+Standard release-note block when applicable:
+
+```text
+This release includes router/readout architecture lineage inspired by Marc Brendecke’s QAM Version v4.1.0
+ORCID: https://orcid.org/0009-0009-4034-598X
+
+This attribution is informational only and does not influence canonical identity, hashing, or proof semantics within QEC.
+```
+
+---
+
 # 🧊 Visual Architecture Model — The Lattice Cube
 
 The roadmap is organized around the deterministic lattice cube model.
@@ -311,17 +430,23 @@ The roadmap is organized around the deterministic lattice cube model.
 outer cube
 → deterministic boundary
 
-atomic lattice
-→ canonical identity space
+canonical lattice
+→ stable identity space
 
 semantic lattice
 → RES/RAG structured meaning
 
-router paths
-→ deterministic special-path selection
+reversible layer lattice
+→ optional derived augmentation with removal proof
 
-readout kernels
-→ pure functional interpretation shells
+atomic semantic lattice
+→ bounded topology of explicit nodes and edges
+
+router paths
+→ deterministic special-path selection over topology
+
+readout projections
+→ deterministic observation of resolved paths
 
 Sierpinski arrays
 → multi-scale invariants
@@ -331,54 +456,47 @@ digital decay signature
 
 energy matrix
 → perturbation and validation field
-
-removable coherence lattice
-→ reversible layered augmentation
 ```
 
 Interpretation:
 
 ```text
-outer cube          = v151.0 / v151.1 boundary + identity
-atomic lattice      = CanonicalDocument / RESState / SemanticFieldReceipt
-semantic lattice    = RES/RAG evidence + interpretation structure
-router paths        = deterministic path-seeking over canonical state
-readout kernels     = pure composable readout shells over a stable core
-Sierpinski arrays   = invariant-preserving compression across scale
-digital decay       = adversarial validation + entropy signatures
-energy matrix       = deterministic perturbation / stress field
-removable lattice   = v152 reversible layer system
+outer cube              = v151.0 / v151.1 boundary + identity
+canonical lattice        = CanonicalDocument / RESState / SemanticFieldReceipt
+semantic lattice         = RES/RAG evidence + interpretation structure
+reversible layer lattice = v152 layer + removal + compression proof system
+atomic semantic lattice  = v153.0 bounded graph topology
+router paths             = v153.1 deterministic route receipts
+readout projections      = v153.2 source-bound readout receipts
+Sierpinski arrays        = v154 multi-scale invariant propagation
+digital decay            = v155 adversarial entropy signatures
+energy matrix            = v156 deterministic perturbation model
 ```
 
 ---
 
 # 🧩 External Architecture Intake — QAM v4.1.0 / Router / 64-bit Mask / Hilber-Shift / Kernel Readouts
 
-This roadmap folds in the following external architecture ideas as QEC-safe contracts.
+External architecture ideas are treated as design input, not authority, until implemented as deterministic artifacts.
 
-They are treated as design input, not authority, until implemented as deterministic artifacts.
-
----
-
-## Idea 1 — QAM v4.1.0 Compatibility Intake
-
-Claimed value:
-
-```text
-new QAM document version may resolve earlier issues
-```
+## Intake Idea 1 — QAM v4.1.0 Compatibility Profile
 
 QEC-safe interpretation:
 
 ```text
 external QAM specification
 → untrusted spec input
-→ canonicalized compatibility profile
-→ hash-bound receipt
-→ deterministic acceptance or rejection
+→ canonical compatibility profile
+→ hash-bound validation receipt
 ```
 
-Required artifacts:
+Corrected destination:
+
+```text
+v153.4 — QAM Compatibility Profile
+```
+
+Required future artifacts:
 
 ```text
 QAMCompatibilityProfile
@@ -386,84 +504,53 @@ QAMSpecReceipt
 QAMCompatibilityValidationReceipt
 ```
 
-Rules:
-
-```text
-same QAM document
-+ same compatibility parser
-→ same qam_spec_hash
-```
-
-No QAM feature may affect QEC unless its contract is explicit and replayable.
-
----
-
-## Idea 2 — Router Notation for Data / Special Paths
-
-Claimed value:
-
-```text
-new router writing style for data may better support active special-path search
-```
+## Intake Idea 2 — Router Notation for Data / Special Paths
 
 QEC-safe interpretation:
 
 ```text
-canonical state
-→ deterministic route grammar
+validated lattice graph
+→ deterministic route spec
+→ explicit special-path index
 → resolved path set
-→ router receipt
+→ router lattice path receipt
 ```
 
-Required artifacts:
+Actual implementation:
 
 ```text
-RouterPathSpec
+v153.1 — Router Lattice Paths COMPLETE
+```
+
+Implemented artifacts:
+
+```text
 RouteToken
-ResolvedPathSet
-RouterPathReceipt
+RouterPathSpec
 SpecialPathIndex
+ResolvedLatticePath
+ResolvedLatticePathSet
+RouterLatticePathReceipt
 ```
 
-Rules:
-
-```text
-same base_hash
-+ same router_path_spec_hash
-→ same resolved_path_hash
-```
-
-Forbidden:
-
-```text
-implicit regex expansion
-ambient path discovery
-non-deterministic traversal
-silent fallback on missing paths
-```
-
-Ambiguous route resolution must fail explicitly.
-
----
-
-## Idea 3 — Constant 64-bit Search Mask
-
-Claimed value:
-
-```text
-search mask may be reducible consistently to 64 bits
-```
+## Intake Idea 3 — Constant 64-bit Search Mask
 
 QEC-safe interpretation:
 
 ```text
-path / readout / filter search
+path/readout/filter search input
 → fixed-width unsigned 64-bit mask
 → deterministic reduction receipt
 → explicit collision handling
 ```
 
-Required artifacts:
+Corrected destination:
+
+```text
+v153.5 — SearchMask64 Contract
+```
+
+Required future artifacts:
 
 ```text
 SearchMask64
@@ -472,57 +559,24 @@ MaskCollisionReceipt
 MaskCompatibilityReceipt
 ```
 
-Rules:
-
-```text
-same search input
-+ same mask contract
-→ same uint64 mask
-```
-
-Forbidden:
-
-```text
-Python built-in hash()
-platform-dependent integer behavior
-silent collision acceptance
-endianness ambiguity
-```
-
-Collision semantics must be explicit:
-
-```text
-NO_COLLISION
-KNOWN_EQUIVALENT_COLLISION
-INVALID_COLLISION
-```
-
----
-
-## Idea 4 — Hilber / Hilbert Shift for Filters
-
-Claimed value:
-
-```text
-new Hilber-Shift may work better with existing filters
-```
+## Intake Idea 4 — Hilber / Hilbert Shift for Filters
 
 QEC-safe interpretation:
 
 ```text
-filter/readout ordering
+ordered path/readout/filter view
 → deterministic shift projection
-→ hash-bound transformed view
-→ base identity unchanged
+→ hash-bound shifted view
+→ base graph identity unchanged
 ```
 
-The name may map to a Hilbert-style shift, route-space shift, or project-specific “Hilber-Shift”.
+Corrected destination:
 
-QEC must not guess.
+```text
+v153.6 — Hilber/Hilbert Shift Projection
+```
 
-The implementation must define the exact operation.
-
-Required artifacts:
+Required future artifacts:
 
 ```text
 HilberShiftSpec
@@ -531,123 +585,66 @@ FilterCompatibilityReceipt
 ShiftStabilityReceipt
 ```
 
-Rules:
+Important:
 
 ```text
-same input ordering
-+ same HilberShiftSpec
-→ same shifted ordering
+QEC must not guess what “Hilber” means.
+The release must define the exact operation before implementation.
 ```
 
-If numerical processing is required:
-
-```text
-fixed precision
-fixed tolerance
-fixed solver
-fixed rounding mode
-no hidden floating-point drift
-```
-
----
-
-## Idea 5 — Abstract Core Kernel + Derived Kernels
-
-Claimed value:
-
-```text
-model the system as a general abstract core
-then derive other kernels from it
-```
+## Intake Idea 5 — Abstract Core Kernel + Derived Kernels
 
 QEC-safe interpretation:
 
 ```text
 CoreKernelSpec
 → DerivedKernelSpec
-→ KernelReceipt
+→ KernelDerivationReceipt
 ```
 
-Required artifacts:
+Corrected destination:
+
+```text
+v153.7 — Functional Kernel + Readout Shell Architecture
+```
+
+Required future artifacts:
 
 ```text
 CoreKernelSpec
 DerivedKernelSpec
 KernelDerivationReceipt
 KernelCompatibilityReceipt
-```
-
-Rules:
-
-```text
-same core kernel
-+ same derivation spec
-→ same derived kernel hash
-```
-
-No derived kernel may mutate the core kernel identity.
-
----
-
-## Idea 6 — Pure Functional Readout Shells
-
-Claimed value:
-
-```text
-write Python code functionally
-extend core readouts with shells
-avoid long if-chains
-compose extensions in different orders
-```
-
-QEC-safe interpretation:
-
-```text
-base readout
-→ ordered shell composition
-→ composed readout
-→ composition receipt
-```
-
-Required artifacts:
-
-```text
 ReadoutShell
 ReadoutShellStack
 ReadoutCompositionReceipt
 ReadoutOrderReceipt
 ```
 
-Rules:
+## Intake Idea 6 — Pure Functional Readout Shells
+
+QEC-safe interpretation:
 
 ```text
-same base readout
-+ same shell stack
-+ same input
-→ same output
+base readout
+→ ordered shell composition
+→ composed readout identity
+→ composition receipt
 ```
 
-Forbidden:
+Corrected destination:
 
 ```text
-long implicit if-chain dispatch
-hidden global registries
-runtime monkey-patching
-order-dependent behavior without order receipt
+v153.7 — Functional Kernel + Readout Shell Architecture
 ```
 
-Composition order is part of identity.
-
----
-
-## Idea 7 — 2D Readout Combination Matrix as Markov Foundation
-
-Claimed value:
+Rule:
 
 ```text
-all possible readout combinations can be stored in a 2D array
-and used as a Markov foundation
+composition order is part of identity
 ```
+
+## Intake Idea 7 — 2D Readout Combination Matrix as Markov Foundation
 
 QEC-safe interpretation:
 
@@ -658,7 +655,13 @@ readout shells
 → replayable state movement
 ```
 
-Required artifacts:
+Corrected destination:
+
+```text
+v153.8 — Readout Combination Matrix + Markov Basis
+```
+
+Required future artifacts:
 
 ```text
 ReadoutCombinationMatrix
@@ -667,37 +670,10 @@ MarkovBasisReceipt
 ReadoutTransitionReceipt
 ```
 
-Rules:
-
-```text
-same readout shell set
-+ same ordering rule
-→ same matrix_hash
-```
-
-Important:
+Guardrail:
 
 ```text
 Markov-compatible does not mean random sampling.
-```
-
-QEC may use a Markov-style transition basis only if transitions are:
-
-```text
-bounded
-canonical
-deterministic
-hash-bound
-replayable
-```
-
-If probabilities are represented, they must be:
-
-```text
-Decimal or rational
-fixed precision
-canonicalized
-never sampled implicitly
 ```
 
 ---
@@ -746,59 +722,12 @@ semantic interpretation
 
 ---
 
-# ✅ Current System State — v151.8 Complete
-
-The v151 arc is complete.
-
-QEC now performs:
-
-```text
-untrusted input
-→ extraction boundary
-→ canonical identity
-→ RES/RAG semantic field
-→ resonance validation
-→ adversarial validation
-→ dialogical governance
-→ real-world proof chain
-→ determinism enforcement
-→ cross-environment replay proof
-```
-
-This means QEC can prove:
-
-```text
-what entered the system
-what it became canonically
-what semantic field it produced
-whether interpretation aligned with evidence
-where failures occurred
-what governance decision followed
-how the complete proof chain was sealed
-whether configuration drift occurred
-whether the same proof replayed across environments
-```
-
-v152 begins from this completed proof boundary.
-
----
-
-# 🔥 Phase: v150.x — Multi-Agent Deterministic Systems
+# ✅ Phase: v150.x — Multi-Agent Deterministic Systems
 
 ## Status
 
 ```text
 COMPLETE
-```
-
-## Goal
-
-```text
-multiple agents
-→ shared context
-→ deterministic agreement
-→ adversarial robustness
-→ distributed convergence proof
 ```
 
 ## Completed Releases
@@ -851,25 +780,6 @@ exactly how and why they diverge
 COMPLETE
 ```
 
-## Core Principle
-
-```text
-real world = non-deterministic
-QEC core = deterministic
-```
-
-Therefore:
-
-```text
-non-determinism must be:
-→ isolated
-→ bounded
-→ hash-bound
-→ canonicalized
-→ validated
-→ never silently trusted
-```
-
 ## Completed Releases
 
 ```text
@@ -888,412 +798,52 @@ v151.7.1 → Import Hygiene Stabilization
 v151.8   → Replay & Cross-Environment Resonance Proof
 ```
 
-## v151 Architecture
+## v151 Result
 
 ```text
-raw document
-→ Extraction Boundary          (UNTRUSTED OUTER CUBE)
-→ Canonicalization Engine      (CANONICAL LATTICE)
-→ RES/RAG Semantic Field       (SEMANTIC LATTICE)
-→ Resonance Validation         (ALIGNMENT CHECK)
-→ Adversarial Validation       (DIGITAL DECAY DETECTION)
-→ Dialogical Governance        (MULTI-AGENT ARBITRATION)
-→ Real-World Proof Chain       (DISTRIBUTED PROOF)
-→ Determinism Enforcement      (CONFIG DRIFT CONTROL)
-→ Replay Validation            (CROSS-ENVIRONMENT PROOF)
+raw external input
+→ deterministic boundary
+→ canonical identity
+→ semantic structure
+→ resonance classification
+→ adversarial evidence
+→ governance decision
+→ proof chain
+→ drift detection
+→ cross-environment replay proof
+```
+
+QEC can prove:
+
+```text
+what entered the system
+what it became canonically
+what semantic field it produced
+whether interpretation aligned with evidence
+where failures occurred
+what governance decision followed
+how the proof chain was sealed
+whether configuration drift occurred
+whether the same proof replayed across environments
 ```
 
 ---
 
-## ✅ v151.0 — Extraction Boundary
-
-Implemented artifacts:
-
-```text
-ExtractionInput
-ExtractionConfigContract
-ExtractedField
-ExtractionResult
-ExtractionReceipt
-```
-
-Core rule:
-
-```text
-ExtractionResult is not proof-bearing.
-It is an untrusted oracle output that is hash-bound at the boundary.
-```
-
----
-
-## ✅ v151.0.1 — Boundary Hardening + Packaging
-
-Completed:
-
-```text
-canonical helper reuse
-INVALID_INPUT preservation
-config binding regression
-raw-only ExtractedField discipline
-receipt schema documentation
-installable qec CLI hygiene
-```
-
----
-
-## ✅ v151.1 — Canonicalization Engine
-
-Implemented artifacts:
-
-```text
-CanonicalFieldSpec
-CanonicalizationSchema
-LocaleContract
-CanonicalDocument
-CanonicalizationReceipt
-```
-
-Core rule:
-
-```text
-same extraction result
-+ same schema
-+ same locale contract
-→ same canonical document
-```
-
----
-
-## ✅ v151.2 — RES/RAG Semantic Field Construction
-
-Implemented artifacts:
-
-```text
-EvidenceField
-SourceConstraint
-GeneratedClaim
-GovernanceContext
-RESState
-RAGState
-SemanticFieldReceipt
-```
-
-Core rule:
-
-```text
-same canonical document
-+ same supplied interpretation
-+ same governance context
-→ same semantic field receipt
-```
-
----
-
-## ✅ v151.3 — RES/RAG Resonance Validation
-
-Implemented artifacts:
-
-```text
-ResonanceCase
-ResonanceResult
-ResonanceValidationReceipt
-```
-
-Resonance classes:
-
-```text
-IDENTICAL
-ALIGNED
-PARTIAL
-DIVERGENT
-CONTRADICTORY
-UNSUPPORTED
-```
-
-Core rule:
-
-```text
-same RES + same RAG
-→ same resonance classification
-```
-
----
-
-## ✅ v151.3.1 — Resonance Contract Hardening
-
-Purpose:
-
-```text
-remove ambiguity from resonance classification
-harden receipt validation
-lock deterministic edge-case behavior
-```
-
----
-
-## ✅ v151.4 — Adversarial Extraction Validation
-
-Implemented output:
-
-```text
-ExtractionValidationReceipt
-```
-
-Detected:
-
-```text
-INVALID_FIELD
-INCONSISTENT_VALUE
-DUPLICATE_IDENTITY
-CROSS_FIELD_CONFLICT
-LAYOUT_AMBIGUITY
-RES_RAG_DIVERGENCE
-UNSUPPORTED_RAG_CLAIM
-GROUNDING_FAILURE
-SEMANTIC_CONTRADICTION
-```
-
-Core rule:
-
-```text
-ambiguity → REJECT
-unsupported interpretation → REJECT
-semantic contradiction → REJECT
-```
-
----
-
-## ✅ v151.5 — Dialogical Document Governance
-
-Implemented output:
-
-```text
-DialogicalGovernanceReceipt
-```
-
-Governance agents:
-
-```text
-EXTRACTION_AUDITOR
-RES_GROUNDING_AGENT
-RAG_INTERPRETATION_AGENT
-SEMANTIC_RESONANCE_VALIDATOR
-RECONCILER
-ARBITRATOR
-```
-
-Decisions:
-
-```text
-ACCEPT
-REJECT
-REPAIR
-ESCALATE
-ABSTAIN
-```
-
----
-
-## ✅ v151.6 — Real-World Proof Chain
-
-Implemented output:
-
-```text
-RealWorldProofReceipt
-```
-
-Receipt chain:
-
-```text
-raw_bytes_hash
-→ extraction_hash
-→ canonical_hash
-→ res_hash
-→ rag_hash
-→ semantic_field_hash
-→ resonance_hash
-→ validation_hash
-→ governance_hash
-→ local_proof_hash
-→ distributed_convergence_hash
-→ final_proof_hash
-```
-
----
-
-## ✅ v151.6.1 — Test Hygiene + Reproducibility + Visualization Consistency
-
-Purpose:
-
-```text
-stabilize tests
-remove environment assumptions
-preserve deterministic visualization output
-```
-
----
-
-## ✅ v151.7 — Determinism Enforcement
-
-Implemented outputs:
-
-```text
-ExtractionDeterminismReceipt
-RESRAGDeterminismReceipt
-```
-
-Detected:
-
-```text
-config drift
-schema drift
-locale drift
-field drift
-semantic mapping drift
-resonance classifier drift
-partial extraction
-backend inconsistency
-```
-
----
-
-## ✅ v151.7.1 — Import Hygiene Stabilization
-
-Purpose:
-
-```text
-stabilize module imports
-remove brittle test assumptions
-preserve reproducible package behavior
-```
-
----
-
-## ✅ v151.8 — Replay & Cross-Environment Resonance Proof
-
-Implemented artifacts:
-
-```text
-ExtractionReplayEvidence
-ResonanceReplayEvidence
-RealWorldReplayEvidence
-ExtractionReplayReceipt
-ResonanceReplayReceipt
-RealWorldReplayProofReceipt
-```
-
-Core replay rule:
-
-```text
-same raw document
-+ same extraction config
-+ same canonicalization config
-+ same RES/RAG config
-+ same validation config
-+ same governance inputs
-+ same environment evidence
-→ same canonical_hash
-→ same resonance_hash
-→ same final_proof_hash
-→ same replay receipt
-```
-
-Detected:
-
-```text
-FLOATING_POINT_DRIFT
-BACKEND_INCONSISTENCY
-CANONICALIZATION_DRIFT
-ENVIRONMENT_DIVERGENCE
-SEMANTIC_FIELD_DRIFT
-RES_STATE_DRIFT
-RAG_STATE_DRIFT
-RESONANCE_CLASSIFICATION_DRIFT
-VALIDATION_DRIFT
-GOVERNANCE_DIVERGENCE
-PROOF_CHAIN_DRIFT
-FINAL_PROOF_DRIFT
-```
-
-Final v151 result:
-
-```text
-QEC proves not only what is true,
-not only where it fails,
-not only what must be done,
-not only how it is proven,
-but that the same truth holds across environments.
-```
-
----
-
-# 🧾 v151 Artifact Chain
-
-```text
-raw_bytes_hash
-→ extraction_hash
-→ canonical_hash
-→ res_hash
-→ rag_hash
-→ semantic_field_hash
-→ resonance_hash
-→ validation_hash
-→ governance_hash
-→ local_proof_hash
-→ distributed_convergence_hash
-→ final_proof_hash
-→ determinism_receipt_hash
-→ replay_receipt_hash
-```
-
-Core v151 artifacts:
-
-```text
-ExtractionReceipt
-CanonicalizationReceipt
-SemanticFieldReceipt
-ResonanceValidationReceipt
-ExtractionValidationReceipt
-DialogicalGovernanceReceipt
-RealWorldProofReceipt
-ExtractionDeterminismReceipt
-RESRAGDeterminismReceipt
-ExtractionReplayReceipt
-ResonanceReplayReceipt
-RealWorldReplayProofReceipt
-```
-
-All artifacts must be:
-
-```text
-deterministic
-canonical
-immutable
-hash-stable
-self-hash-excluding
-lineage-linked
-JSON-serializable through to_dict()
-```
-
----
-
-# 🧬 Phase: v152.x — Reversible Coherence Lattice + Proof Compression + Router/Readout Architecture
+# ✅ Phase: v152.x — Reversible Coherence Lattice + Proof Compression
 
 ## Status
 
 ```text
-CURRENT FRONTIER
+COMPLETE
 ```
 
-## Reversible Layer Mapping
+## Corrected Scope
 
-```text
-base identity
-→ removable coherence lattice
-→ optional deterministic augmentation
-→ removal proof
-→ base identity unchanged
-```
+v152 is now the completed reversible-layer and compression-equivalence arc.
+
+It does NOT claim SearchMask64, Hilber/Hilbert shift, functional readout shells, or Markov readout matrices are complete.
+
+Those items are moved to later v153.x releases.
 
 ## Core QSOL Principle
 
@@ -1309,32 +859,20 @@ BaseState is authoritative.
 All layers are derived.
 All derivations are provable.
 All layers are removable.
-All router paths are deterministic.
-All readouts are composition-bound.
+All compression must preserve identity.
 ```
 
-## Goal
-
-Introduce reversible layered-state mechanics while preserving proof identity and semantic equivalence.
-
-Then extend the layer system with deterministic router paths, bounded search masks, Hilber/Hilbert shift projections, pure functional readout shells, and Markov-compatible readout matrices.
-
-This phase formalizes optional augmentation layers as deterministic artifacts.
-
-It does not treat layers as inherent truth.
-
-It treats layers as:
+## Completed Releases
 
 ```text
-derived
-hash-bound
-replay-safe
-removable
-validation-dependent
-composition-aware
+v152.0 → LayerSpec Contract
+v152.1 → LayeredState Receipt
+v152.2 → Layer Removal Proof
+v152.3 → Layered Compression Equivalence
+v152.4 → Fractal Invariant Compression
 ```
 
-## v152 Artifact Chain Extension
+## v152 Artifact Chain
 
 ```text
 base_hash
@@ -1342,14 +880,10 @@ base_hash
 → layer_payload_hash
 → layered_hash
 → removal_receipt_hash
-→ router_path_spec_hash
-→ resolved_path_hash
-→ search_mask64_hash
-→ hilber_shift_hash
-→ kernel_composition_hash
-→ readout_matrix_hash
-→ compressed_layered_hash
+→ compressed_proof_hash
 → equivalence_receipt_hash
+→ fractal_pattern_hash
+→ fractal_equivalence_receipt_hash
 ```
 
 Critical rule:
@@ -1360,61 +894,36 @@ base_hash remains unchanged through every step
 
 ---
 
-## v152.0 — LayerSpec Contract
+## ✅ v152.0 — LayerSpec Contract
 
-### Goal
-
-Define deterministic specifications for optional coherence layers.
-
-### Artifacts
+Implemented artifacts:
 
 ```text
-LayerSpec
 LayerInvariantSet
-LayerSpecReceipt
 LayerCompatibilityConstraint
+LayerSpec
+LayerSpecReceipt
 ```
 
-### Required Fields
+Helpers:
 
 ```text
-layer_id
-layer_version
-invariant_set
-activation_rules
-removal_rules
-compatibility_constraints
+build_layer_spec_receipt(...)
+validate_layer_spec_receipt(...)
 ```
 
-### Rules
+Core rule:
 
 ```text
 same layer specification
 → same layer_spec_hash
 ```
 
-Layer specs may reference router or readout constraints, but must not execute them.
-
-### Must Not Do
-
-```text
-no base mutation
-no runtime dispatch
-no router traversal
-no readout composition
-no compression
-no governance
-```
-
 ---
 
-## v152.1 — LayeredState Receipt
+## ✅ v152.1 — LayeredState Receipt
 
-### Goal
-
-Apply a deterministic layer over a base identity without mutating the base.
-
-### Artifacts
+Implemented artifacts:
 
 ```text
 BaseStateReference
@@ -1422,10 +931,17 @@ LayeredState
 LayeredReceipt
 ```
 
-### Core Rule
+Helpers:
 
 ```text
-base_hash
+build_layered_receipt(...)
+validate_layered_receipt(...)
+```
+
+Core rule:
+
+```text
+base_reference
 + layer_spec_hash
 + layer_payload_hash
 → layered_hash
@@ -1434,28 +950,14 @@ base_hash
 But:
 
 ```text
-base_hash remains unchanged
-```
-
-### Failure Modes
-
-```text
-INVALID_BASE_REFERENCE
-INVALID_LAYER_SPEC
-INVALID_LAYER_PAYLOAD
-BASE_HASH_MUTATION
-LAYER_HASH_MISMATCH
+base identity remains unchanged
 ```
 
 ---
 
-## v152.2 — Layer Removal Proof
+## ✅ v152.2 — Layer Removal Proof
 
-### Goal
-
-Prove a layer can be detached while preserving the original base identity.
-
-### Artifacts
+Implemented artifacts:
 
 ```text
 LayerRemovalReceipt
@@ -1463,158 +965,392 @@ ReturnPathProof
 BoundaryIntegrityReceipt
 ```
 
-### Core Rule
+Helpers:
+
+```text
+build_layer_removal_receipt(...)
+validate_layer_removal_receipt(...)
+```
+
+Core rule:
 
 ```text
 remove(layered_state)
-→ base_hash unchanged
-```
-
-No layer may be accepted unless its return path is provable.
-
-### Failure Modes
-
-```text
-NO_RETURN_PATH
-BASE_IDENTITY_LOSS
-LINEAGE_BREAK
-IRREVERSIBLE_LAYER
-BOUNDARY_INTEGRITY_FAILURE
+→ base identity preserved
 ```
 
 ---
 
-## v152.3 — Layered Compression Equivalence
+## ✅ v152.3 — Layered Compression Equivalence
 
-### Goal
-
-Compress layered proofs without losing base/layer distinction.
-
-### Artifacts
+Implemented artifacts:
 
 ```text
-LayeredCompressionReceipt
-LayerEquivalenceReceipt
+LayeredCompressionContract
 CompressedLayeredProof
+LayerEquivalenceReceipt
 ```
 
-### Core Rule
+Helpers:
 
 ```text
-uncompressed_layered_proof
-↔
-compressed_layered_proof
+build_compressed_layered_proof(...)
+build_layer_equivalence_receipt(...)
+validate_layer_equivalence_receipt(...)
 ```
 
-must preserve:
+Core rule:
 
 ```text
-base_hash
-layer_spec_hash
-layer_payload_hash
-lineage
-removal proof
-semantic equivalence
+compressed proof
+≡
+original layered + removal proof chain
 ```
 
 ---
 
-## v152.4 — Fractal Invariant Compression
+## ✅ v152.4 — Fractal Invariant Compression
 
-### Mapping
-
-```text
-Sierpinski array
-→ invariant-preserving compression
-```
-
-### Goal
-
-Compress reasoning without losing proof identity or semantic equivalence.
-
-### Enabled By
+Implemented artifacts:
 
 ```text
-v150 canonical identity
-+ v151 real-world ingestion
-+ RES/RAG semantic resonance
-+ v152 reversible layering
+FractalInvariantContract
+InvariantPatternNode
+FractalInvariantCompressionReceipt
+FractalInvariantEquivalenceReceipt
 ```
 
-### Artifacts
+Helpers:
 
 ```text
-SemanticCompressionReceipt
-ProofEquivalenceReceipt
-CompressedRealWorldProof
-FractalInvariantReceipt
+build_fractal_invariant_compression_receipt(...)
+build_fractal_invariant_equivalence_receipt(...)
+validate_fractal_invariant_equivalence_receipt(...)
 ```
 
-### Tasks
+Core rule:
 
-* compress canonical documents
-* compress semantic fields
-* compress layered states
-* compress governance traces
-* prove compressed and uncompressed artifacts are equivalent
-* preserve lineage hashes
-* detect lossy semantic compression
+```text
+fractal proof
+≡ compressed proof
+≡ layered proof
+≡ base identity
+```
+
+Scope guarantee:
+
+```text
+structural invariant compression only
+no runtime compression
+no rendering
+no traversal
+no v153+ behavior
+```
 
 ---
 
-## v152.5 — RouterPathSpec Contract
+# 🧠 Phase: v153.x — Atomic Semantic Lattice State Space + Router/Readout Projection
 
-### Goal
-
-Formalize deterministic router notation for data and special-path search.
-
-### Artifacts
+## Status
 
 ```text
-RouterPathSpec
-RouteToken
-ResolvedPathSet
-SpecialPathIndex
-RouterPathReceipt
+ACTIVE
 ```
 
-### Core Rule
+## Completed So Far
 
 ```text
-base_hash
-+ router_path_spec_hash
+v153.0 → Atomic Semantic Lattice Contract
+v153.1 → Router Lattice Paths
+```
+
+## Current Frontier
+
+```text
+v153.2 → Readout Projection Receipts
+```
+
+## Interpretation
+
+```text
+bounded semantic state space
+→ discrete canonical nodes
+→ explicit constraint edges
+→ tamper-proof topology
+→ router-visible paths
+→ source-bound readout projections
+→ optional later masks / shifts / shell matrices
+```
+
+## Goal
+
+Formalize semantic field graphs as bounded deterministic lattices, then bind deterministic paths and projections over those lattices.
+
+## v153 Artifact Chain
+
+```text
+bounds_hash
+→ node_hashes
+→ edge_receipt_hashes
+→ semantic_lattice_graph_hash
+→ lattice_state_receipt_hash
+→ topology_stability_receipt_hash
+→ router_path_spec_hash
+→ special_path_index_hash
 → resolved_path_hash
-```
-
-### Router Grammar Requirements
-
-```text
-bounded token length
-explicit path root
-explicit traversal order
-explicit missing-path behavior
-explicit duplicate-path behavior
-canonical token normalization
-```
-
-### Failure Modes
-
-```text
-INVALID_ROUTE_GRAMMAR
-AMBIGUOUS_ROUTE
-MISSING_ROUTE
-DUPLICATE_ROUTE
-UNBOUNDED_ROUTE_EXPANSION
-ROUTE_HASH_MISMATCH
+→ router_lattice_path_receipt_hash
+→ readout_projection_spec_hash
+→ readout_projection_receipt_hash
 ```
 
 ---
 
-## v152.6 — SearchMask64 Contract
+## ✅ v153.0 — Atomic Semantic Lattice Contract
+
+Implemented artifacts:
+
+```text
+AtomicLatticeBounds
+SemanticLatticeNode
+ConstraintEdgeReceipt
+SemanticLatticeGraph
+LatticeStateReceipt
+TopologyStabilityReceipt
+```
+
+Helpers:
+
+```text
+build_semantic_lattice_graph(...)
+build_lattice_state_receipt(...)
+build_topology_stability_receipt(...)
+validate_lattice_state_receipt(...)
+validate_topology_stability_receipt(...)
+```
+
+Core rule:
+
+```text
+same lattice inputs
+→ same node set
+→ same edge set
+→ same graph_hash
+→ same lattice_state_receipt
+→ same topology_stability_receipt
+```
+
+Scope guarantee:
+
+```text
+no traversal
+no pathfinding
+no router resolution
+no readout projection
+```
+
+---
+
+## ✅ v153.1 — Router Lattice Paths
+
+Implemented artifacts:
+
+```text
+RouteToken
+RouterPathSpec
+SpecialPathIndex
+ResolvedLatticePath
+ResolvedLatticePathSet
+RouterLatticePathReceipt
+```
+
+Helpers:
+
+```text
+build_router_path_spec(...)
+build_special_path_index(...)
+resolve_router_lattice_paths(...)
+build_router_lattice_path_receipt(...)
+validate_router_lattice_path_receipt(...)
+```
+
+Core rule:
+
+```text
+same graph + same route spec + same index
+→ same resolved path set
+→ same router receipt
+```
+
+Scope guarantee:
+
+```text
+explicit token-based resolution only
+no traversal
+no pathfinding
+no implicit edges
+no readout projection
+no SearchMask64
+no Hilber/Hilbert shift
+```
+
+Attribution:
+
+```text
+Marc/QAM attribution applies in release notes only.
+```
+
+---
+
+## 🧠 v153.2 — Readout Projection Receipts
+
+### Status
+
+```text
+CURRENT FRONTIER
+```
 
 ### Goal
 
-Reduce path/readout/filter search masks to a deterministic 64-bit contract.
+Bind explicit readout specifications to explicit resolved router paths and lattice topology.
+
+### Artifacts
+
+```text
+ReadoutFieldSpec
+ReadoutProjectionSpec
+ProjectedReadoutField
+ReadoutProjectionSet
+ReadoutProjectionReceipt
+```
+
+### Helpers
+
+```text
+build_readout_projection_spec(...)
+project_readout_fields(...)
+build_readout_projection_receipt(...)
+validate_readout_projection_receipt(...)
+```
+
+### Core Rule
+
+```text
+same graph
++ same router path spec
++ same special path index
++ same resolved path set
++ same readout projection spec
+→ same readout projection receipt
+```
+
+### Projection Modes
+
+```text
+IDENTITY_HASH
+METADATA_VALUE
+COORDINATE
+CONSTRAINT_PAYLOAD_VALUE
+PATH_IDENTITY
+```
+
+### Must Not Do
+
+```text
+no readout execution
+no signal/audio/visual output
+no Markov modeling
+no SearchMask64
+no Hilber/Hilbert shift
+no graph traversal
+no semantic inference
+```
+
+Attribution:
+
+```text
+Marc/QAM attribution applies in release notes only.
+```
+
+---
+
+## 🧠 v153.3 — Layered Lattice Projection Receipt
+
+### Goal
+
+Project layered-state identities into atomic semantic lattice topology without mutating base identity.
+
+### Artifacts
+
+```text
+LayeredLatticeProjectionSpec
+LayeredLatticeProjectionReceipt
+LayeredNodeBinding
+LayeredEdgeBinding
+LayeredTopologyIntegrityReceipt
+```
+
+### Core Rule
+
+```text
+same layered receipt
++ same lattice graph
++ same projection spec
+→ same layered_lattice_projection_hash
+```
+
+### Must Not Do
+
+```text
+no base mutation
+no layer execution
+no implicit node creation
+no implicit edge creation
+```
+
+---
+
+## 🧠 v153.4 — QAM Compatibility Profile
+
+### Goal
+
+Canonicalize external QAM v4.1.0 compatibility input as untrusted architecture metadata.
+
+### Artifacts
+
+```text
+QAMCompatibilityProfile
+QAMSpecReceipt
+QAMCompatibilityValidationReceipt
+```
+
+### Core Rule
+
+```text
+same QAM document
++ same compatibility parser
+→ same qam_spec_hash
+```
+
+### Must Not Do
+
+```text
+no QAM feature affects QEC unless hash-bound and validated
+no external spec is trusted as authority
+```
+
+Attribution:
+
+```text
+Marc/QAM attribution applies in release notes only.
+```
+
+---
+
+## 🧠 v153.5 — SearchMask64 Contract
+
+### Goal
+
+Reduce path/readout/filter search masks to deterministic unsigned 64-bit contracts.
 
 ### Artifacts
 
@@ -1644,23 +1380,27 @@ no Python built-in hash()
 no platform-dependent behavior
 ```
 
-### Failure Modes
+Collision semantics:
 
 ```text
-MASK_OUT_OF_RANGE
-INVALID_MASK_WIDTH
-MASK_ENDIANNESS_AMBIGUITY
-MASK_COLLISION
-MASK_REDUCTION_MISMATCH
+NO_COLLISION
+KNOWN_EQUIVALENT_COLLISION
+INVALID_COLLISION
+```
+
+Attribution:
+
+```text
+Marc/QAM attribution applies in release notes only.
 ```
 
 ---
 
-## v152.7 — Hilber/Hilbert Shift Filter Projection
+## 🧠 v153.6 — Hilber/Hilbert Shift Projection
 
 ### Goal
 
-Define a deterministic shift projection for router paths, readout ordering, or filter compatibility.
+Define deterministic shift projection for path, readout, or filter compatibility.
 
 ### Artifacts
 
@@ -1687,26 +1427,22 @@ fixed ordering before shift
 fixed ordering after shift
 fixed tolerance if numerical
 no hidden floating-point drift
-base_hash unchanged
+base graph identity unchanged
 ```
 
-### Failure Modes
+Attribution:
 
 ```text
-UNDEFINED_SHIFT_OPERATION
-SHIFT_ORDER_AMBIGUITY
-FILTER_INCOMPATIBILITY
-SHIFT_HASH_MISMATCH
-NUMERICAL_DRIFT
+Marc/QAM attribution applies in release notes only.
 ```
 
 ---
 
-## v152.8 — Functional Kernel + Readout Shell Architecture
+## 🧠 v153.7 — Functional Kernel + Readout Shell Architecture
 
 ### Goal
 
-Refactor readout logic around a general abstract kernel with derived kernels and pure functional readout shells.
+Define pure functional readout shell composition around explicit kernel contracts.
 
 ### Artifacts
 
@@ -1714,6 +1450,7 @@ Refactor readout logic around a general abstract kernel with derived kernels and
 CoreKernelSpec
 DerivedKernelSpec
 KernelDerivationReceipt
+KernelCompatibilityReceipt
 ReadoutShell
 ReadoutShellStack
 ReadoutCompositionReceipt
@@ -1725,32 +1462,25 @@ ReadoutOrderReceipt
 ```text
 same kernel
 + same ordered shell stack
-+ same input
-→ same readout output
++ same input identity
+→ same composed readout identity
 ```
 
 ### Design Rule
 
 ```text
-composition replaces long if-chains
+composition replaces hidden if-chain dispatch
 ```
 
-The core should be extended by explicit shell order, not hidden conditional dispatch.
-
-### Failure Modes
+Attribution:
 
 ```text
-INVALID_KERNEL_SPEC
-INVALID_DERIVATION
-READOUT_ORDER_AMBIGUITY
-SHELL_COMPOSITION_MISMATCH
-HIDDEN_DISPATCH_PATH
-SIDE_EFFECT_DETECTED
+Marc/QAM attribution applies in release notes only.
 ```
 
 ---
 
-## v152.9 — Readout Combination Matrix + Markov Foundation
+## 🧠 v153.8 — Readout Combination Matrix + Markov Basis
 
 ### Goal
 
@@ -1774,141 +1504,53 @@ same readout shell set
 → same readout_matrix_hash
 ```
 
-### Markov Guardrail
+### Guardrail
 
 ```text
 Markov-compatible does not mean stochastic execution.
 ```
 
-QEC may represent transition structure.
-
-QEC may not sample transitions unless sampling is replaced by deterministic selection and proof.
-
-### Failure Modes
+Attribution:
 
 ```text
-MATRIX_ORDER_AMBIGUITY
-UNBOUNDED_COMBINATION_SPACE
-TRANSITION_HASH_MISMATCH
-NON_CANONICAL_PROBABILITY
-IMPLICIT_RANDOM_TRANSITION
+Marc/QAM attribution applies in release notes only.
 ```
 
 ---
 
-# 🔒 Reversible Layer Doctrine
+## 🧠 v153.9 — Lattice Drift + Replay Alignment
 
-Layered augmentation is invalid unless it preserves:
+### Goal
+
+Detect topology, router, readout, mask, and projection drift across deterministic replay contexts.
+
+### Artifacts
 
 ```text
-base identity
-lineage
-reversibility
-hash stability
+LatticeDriftReceipt
+RouterReplayReceipt
+ReadoutReplayReceipt
+MaskReplayReceipt
+ShiftReplayReceipt
+LatticeReplayProofReceipt
 ```
 
-A layer may:
+### Core Rule
 
 ```text
-extend
-constrain
-project
-compress
-route
-read out
-```
-
-A layer may NOT:
-
-```text
-replace the source
-mutate base_hash
-erase lineage
-hide non-determinism
-create unremovable state
-silently reroute identity
-silently reorder readouts
-```
-
-Operational form:
-
-```text
-BaseState
-→ LayerSpec
-→ LayeredState
-→ LayeredReceipt
-→ LayerRemovalReceipt
-→ BaseState unchanged
-```
-
-Extended v152 form:
-
-```text
-BaseState
-→ LayerSpec
-→ LayeredState
-→ RouterPathSpec
-→ SearchMask64
-→ HilberShiftSpec
-→ ReadoutShellStack
-→ ReadoutCombinationMatrix
-→ EquivalenceReceipt
-→ LayerRemovalReceipt
-→ BaseState unchanged
-```
-
----
-
-# 🧠 Phase: v153.x — Atomic Semantic Lattice State Space
-
-## Symbol
-
-```text
-Atomic Lattice 5x5x5
-```
-
-## Interpretation
-
-```text
-bounded semantic state space
-→ discrete canonical nodes
-→ explicit constraint edges
-→ router-visible paths
-→ readout-visible state projections
-→ fully observable proof topology
-```
-
-## Goal
-
-Formalize semantic field graphs as bounded deterministic lattices.
-
-## Tasks
-
-* define semantic lattice nodes
-* define deterministic edge constraints
-* define bounded graph topology
-* prove graph reconstruction stability
-* detect lattice drift
-* map canonical documents into field graphs
-* bind layered-state projections into lattice topology
-* bind router paths to lattice paths
-* bind readout kernels to lattice projections
-
-## Artifacts
-
-```text
-SemanticLatticeGraph
-LatticeStateReceipt
-ConstraintEdgeReceipt
-TopologyStabilityReceipt
-LayeredLatticeProjectionReceipt
-RouterLatticePathReceipt
-ReadoutProjectionReceipt
+same graph + same router/readout/mask/shift contracts
+→ same replay proof
 ```
 
 ---
 
 # 🧠 Phase: v154.x — Sierpinski Multi-Scale Invariance
+
+## Status
+
+```text
+PLANNED
+```
 
 ## Symbol
 
@@ -1923,6 +1565,12 @@ same invariant
 preserved across scale
 ```
 
+## Corrected Scope
+
+v152.4 implemented fractal invariant compression for layered/compressed proof identity.
+
+v154 extends that idea to semantic lattices, router paths, readout projections, and governance traces.
+
 ## Goal
 
 Prove that local invariants propagate through larger proof structures.
@@ -1936,7 +1584,8 @@ Prove that local invariants propagate through larger proof structures.
 * reject scale-breaking drift
 * prove layered invariants remain reversible across scale
 * prove router paths preserve meaning across scale
-* prove readout matrices preserve combination identity across scale
+* prove readout projections preserve identity across scale
+* prove deferred semantic/governance compression from old v152.4 scope
 
 ## Artifacts
 
@@ -1947,17 +1596,19 @@ SierpinskiCompressionReceipt
 ScalePreservationProof
 LayeredScaleEquivalenceReceipt
 RouterScaleReceipt
-ReadoutScaleMatrixReceipt
+ReadoutScaleProjectionReceipt
+GovernanceCompressionReceipt
+SemanticCompressionReceipt
 ```
 
 ---
 
 # 🧠 Phase: v155.x — Digital Decay & Entropy Signatures
 
-## Symbol
+## Status
 
 ```text
-Digital Decay Signature
+PLANNED
 ```
 
 ## Interpretation
@@ -1974,21 +1625,7 @@ readout-order instability
 
 ## Goal
 
-Detect and quantify deterministic decay in proof artifacts, semantic fields, layered states, router paths, search masks, and readout matrices.
-
-## Tasks
-
-* define decay signatures
-* model semantic entropy under perturbation
-* detect field corruption
-* classify drift severity
-* reject artifacts with invalid lineage
-* detect layer-induced decay
-* detect router-path drift
-* detect 64-bit mask collision risk
-* detect Hilber/Hilbert shift instability
-* detect readout matrix divergence
-* prove decay resistance
+Detect and quantify deterministic decay in proof artifacts, semantic fields, layered states, router paths, masks, shifts, and readout projections.
 
 ## Artifacts
 
@@ -2001,17 +1638,17 @@ LayerDecayReceipt
 RouterDecayReceipt
 MaskCollisionDecayReceipt
 ShiftDecayReceipt
-ReadoutMatrixDecayReceipt
+ReadoutProjectionDecayReceipt
 ```
 
 ---
 
 # 🧠 Phase: v156.x — Energy Matrix Perturbation Layer
 
-## Symbol
+## Status
 
 ```text
-Ultraviolet Energy Matrix
+PLANNED
 ```
 
 ## Interpretation
@@ -2025,7 +1662,7 @@ validation pressure
 semantic activation
 layer tuning
 router stress
-readout shell stress
+readout stress
 ```
 
 This roadmap treats “energy” as:
@@ -2038,19 +1675,7 @@ not as an unvalidated physical energy claim.
 
 ## Goal
 
-Stress-test semantic lattices, reversible layers, router paths, masks, shifts, and readout matrices under deterministic perturbation.
-
-## Tasks
-
-* define perturbation contracts
-* inject bounded semantic stress
-* classify resonance stability under perturbation
-* validate proof invariance under controlled distortion
-* test layer activation / removal under stress
-* test router path stability under stress
-* test SearchMask64 collision behavior under stress
-* test Hilber/Hilbert shift stability under stress
-* reject unstable semantic fields or irreversible layers
+Stress-test semantic lattices, reversible layers, router paths, masks, shifts, and readout projections under deterministic perturbation.
 
 ## Artifacts
 
@@ -2070,17 +1695,15 @@ ReadoutStressReceipt
 
 # 🧠 Phase: v157.x — Substrate Encoding Layer
 
-## Symbols
+## Status
 
 ```text
-SiS2
-circuit substrate
-material encoding
+PLANNED
 ```
 
 ## Interpretation
 
-This phase treats substrate as:
+Substrate is treated as:
 
 ```text
 material / computational boundary
@@ -2095,17 +1718,6 @@ It formalizes what would be required for proof artifacts to bind to substrate-le
 ## Goal
 
 Model deterministic proof systems under substrate constraints.
-
-## Tasks
-
-* define substrate contracts
-* define material-state hashes
-* define physical encoding receipts
-* bind computation identity to substrate identity
-* detect substrate drift
-* prove layered-state compatibility with substrate constraints
-* prove 64-bit mask compatibility with substrate encoding
-* prove router/readout compatibility with substrate addressing
 
 ## Artifacts
 
@@ -2124,11 +1736,10 @@ ReadoutSubstrateReceipt
 
 # 🧠 Phase: v158.x — Recursive / Ouroboric Proof Loops
 
-## Symbol
+## Status
 
 ```text
-recursive lattice
-ouroboric feedback
+PLANNED
 ```
 
 ## Interpretation
@@ -2149,19 +1760,6 @@ router feedback
 
 Prove recursive reasoning loops terminate, stabilize, or fail explicitly.
 
-## Tasks
-
-* model self-referential proof chains
-* detect circular evidence
-* classify productive vs invalid recursion
-* prove loop convergence
-* reject non-terminating proof loops
-* prove layer removal return paths
-* detect false-center drift
-* detect recursive router loops
-* detect recursive readout shell loops
-* prove Markov-basis loops terminate or stabilize
-
 ## Artifacts
 
 ```text
@@ -2180,6 +1778,12 @@ MarkovLoopStabilityReceipt
 
 # 🧠 Phase: v159.x — Reality Loop Integration
 
+## Status
+
+```text
+PLANNED
+```
+
 ## Goal
 
 Unify the boundary / lattice / resonance / layer / router / readout / fractal / decay / perturbation / substrate / recursion arcs into a deterministic reality-loop proof system.
@@ -2192,7 +1796,9 @@ boundary cube
 → semantic field
 → resonance validation
 → reversible layer
+→ atomic semantic lattice
 → router path
+→ readout projection
 → search mask
 → Hilber/Hilbert shift
 → readout kernel
@@ -2211,29 +1817,15 @@ boundary cube
 RealityLoopProofReceipt
 ```
 
-## Core Law Extension
-
-```text
-same boundary
-→ same lattice
-→ same semantic field
-→ same resonance
-→ same layer state
-→ same router path
-→ same search mask
-→ same shift projection
-→ same readout composition
-→ same invariant scale
-→ same decay signature
-→ same perturbation response
-→ same recursion
-→ same replay
-→ same proof
-```
-
 ---
 
 # 🧠 Phase: v160.x — Global Deterministic Truth Engine
+
+## Status
+
+```text
+PLANNED
+```
 
 ## Goal
 
@@ -2250,6 +1842,7 @@ proof artifacts
 lattices
 layers
 router paths
+readout projections
 search masks
 readout kernels
 readout matrices
@@ -2277,9 +1870,9 @@ v146 → proof-carrying execution
 v148 → governance + validation
 v150 → multi-agent convergence
 v151 → real-world ingestion + RES/RAG semantic field + replay
-v152 → reversible coherence lattice + router/readout proof architecture
-v153 → atomic semantic lattice
-v154 → multi-scale invariance
+v152 → reversible layer + compression equivalence
+v153 → atomic semantic lattice + router/readout projection
+v154 → multi-scale lattice invariance
 v155 → digital decay / entropy signatures
 v156 → perturbation matrix validation
 v157 → substrate encoding constraints
@@ -2311,8 +1904,6 @@ Layered-state reminder:
 A layer may extend.
 A layer may constrain.
 A layer may project.
-A layer may route.
-A layer may read out.
 A layer may compress.
 
 A layer may not replace the source.
@@ -2321,21 +1912,30 @@ A layer may not replace the source.
 Router reminder:
 
 ```text
-A path may be searched.
-A path may be resolved.
-A path may be indexed.
+A route may be declared.
+A route may be indexed.
+A route may be resolved.
 
-A path may not be guessed.
+A route may not be guessed.
 ```
 
 Readout reminder:
 
 ```text
-A kernel may be derived.
-A shell may be composed.
-A matrix may encode transitions.
+A readout may project.
+A readout may bind identity.
+A readout may compose later by explicit shell order.
 
 A readout may not hide dispatch.
+```
+
+Mask reminder:
+
+```text
+A mask may reduce.
+A mask may collide only with explicit semantics.
+
+A mask may not use Python built-in hash().
 ```
 
 ---
@@ -2343,18 +1943,21 @@ A readout may not hide dispatch.
 # 🧠 Immediate Next Work
 
 ```text
-v152.0 — LayerSpec Contract
+v153.2 — Readout Projection Receipts
 ```
 
 The next implementation prompt should enforce:
 
 ```text
-base identity is authoritative
-layer specs are deterministic
-layer_hash cannot mutate base_hash
-layer removal must be provable
-router/readout hooks are declarative only
-no symbolic layer without receipts
+validated graph required
+validated router path set required
+readout projection is not execution
+source must be inside resolved path
+projection hash must recompute
+no SearchMask64 yet
+no Hilber/Hilbert shift yet
+no Markov modeling yet
+Marc/QAM attribution is release-note-only
 ```
 
 ---
@@ -2371,8 +1974,9 @@ deterministic reasoning system
 → semantic lattice engine
 → resonance validation system
 → reversible layered-state system
+→ atomic semantic lattice system
 → router-path proof system
-→ functional readout-kernel system
+→ readout-projection proof system
 → recursive reality-proof system
 → global deterministic truth engine
 ```
@@ -2391,9 +1995,11 @@ across nodes,
 across semantic fields,
 across lattices,
 across reversible layers,
+across compressed proofs,
 across router paths,
-across search masks,
-across readout kernels,
+across readout projections,
+across masks,
+across shifts,
 across fractal scales,
 across decay signatures,
 across recursive loops,

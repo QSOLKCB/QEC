@@ -9,6 +9,7 @@ from qec.analysis.layer_spec_contract import LayerCompatibilityConstraint, Layer
 from qec.analysis.layered_compression_equivalence import (
     CompressedLayeredProof,
     LayeredCompressionContract,
+    _REQUIRED_IDENTITY_FIELDS,
     build_compressed_layered_proof,
     build_layer_equivalence_receipt,
     validate_layer_equivalence_receipt,
@@ -241,3 +242,128 @@ def test_to_canonical_json_self_hash_exclusion_behavior():
 def test_no_v1524_fractal_behavior():
     contract = _contract()
     assert "fractal" not in contract.to_canonical_json().lower()
+
+
+def test_contract_with_extra_preserved_field_rejected():
+    layered = _layered()
+    removal = build_layer_removal_receipt(layered)
+    extra_fields = _REQUIRED_IDENTITY_FIELDS + ("extra_field",)
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        build_compressed_layered_proof(layered, removal, _contract(fields=extra_fields))
+
+
+def test_forged_source_layered_receipt_hash_rejected():
+    layered = _layered()
+    removal = build_layer_removal_receipt(layered)
+    proof = build_compressed_layered_proof(layered, removal, _contract())
+    eq = build_layer_equivalence_receipt(proof, layered, removal)
+    forged = CompressedLayeredProof(
+        compression_contract_hash=proof.compression_contract_hash,
+        source_layered_receipt_hash="0" * 64,
+        source_removal_receipt_hash=proof.source_removal_receipt_hash,
+        preserved_identity_hashes=proof.preserved_identity_hashes,
+        compressed_proof_hash="",
+    )
+    forged = CompressedLayeredProof(
+        compression_contract_hash=forged.compression_contract_hash,
+        source_layered_receipt_hash=forged.source_layered_receipt_hash,
+        source_removal_receipt_hash=forged.source_removal_receipt_hash,
+        preserved_identity_hashes=forged.preserved_identity_hashes,
+        compressed_proof_hash=forged.stable_hash(),
+    )
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_layer_equivalence_receipt(eq, forged, layered, removal)
+
+
+def test_forged_source_removal_receipt_hash_rejected():
+    layered = _layered()
+    removal = build_layer_removal_receipt(layered)
+    proof = build_compressed_layered_proof(layered, removal, _contract())
+    eq = build_layer_equivalence_receipt(proof, layered, removal)
+    forged = CompressedLayeredProof(
+        compression_contract_hash=proof.compression_contract_hash,
+        source_layered_receipt_hash=proof.source_layered_receipt_hash,
+        source_removal_receipt_hash="0" * 64,
+        preserved_identity_hashes=proof.preserved_identity_hashes,
+        compressed_proof_hash="",
+    )
+    forged = CompressedLayeredProof(
+        compression_contract_hash=forged.compression_contract_hash,
+        source_layered_receipt_hash=forged.source_layered_receipt_hash,
+        source_removal_receipt_hash=forged.source_removal_receipt_hash,
+        preserved_identity_hashes=forged.preserved_identity_hashes,
+        compressed_proof_hash=forged.stable_hash(),
+    )
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_layer_equivalence_receipt(eq, forged, layered, removal)
+
+
+def test_empty_equivalence_hash_rejected_in_validation():
+    from qec.analysis.layered_compression_equivalence import LayerEquivalenceReceipt as _Rec
+
+    layered = _layered()
+    removal = build_layer_removal_receipt(layered)
+    proof = build_compressed_layered_proof(layered, removal, _contract())
+    eq = build_layer_equivalence_receipt(proof, layered, removal)
+    forged = _Rec(
+        compressed_proof_hash=eq.compressed_proof_hash,
+        layered_receipt_hash=eq.layered_receipt_hash,
+        removal_receipt_hash=eq.removal_receipt_hash,
+        base_hash=eq.base_hash,
+        layered_hash=eq.layered_hash,
+        layer_spec_hash=eq.layer_spec_hash,
+        layer_payload_hash=eq.layer_payload_hash,
+        equivalence_hash="",
+        receipt_hash="",
+    )
+    forged = _Rec(
+        compressed_proof_hash=forged.compressed_proof_hash,
+        layered_receipt_hash=forged.layered_receipt_hash,
+        removal_receipt_hash=forged.removal_receipt_hash,
+        base_hash=forged.base_hash,
+        layered_hash=forged.layered_hash,
+        layer_spec_hash=forged.layer_spec_hash,
+        layer_payload_hash=forged.layer_payload_hash,
+        equivalence_hash=forged.equivalence_hash,
+        receipt_hash=forged.stable_hash(),
+    )
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_layer_equivalence_receipt(forged, proof, layered, removal)
+
+
+def test_equivalence_hash_verified_against_canonical_inputs():
+    """Validator must compute expected equivalence_hash from canonical inputs and reject mismatches."""
+    from qec.analysis.layered_compression_equivalence import LayerEquivalenceReceipt as _Rec
+
+    layered = _layered()
+    removal = build_layer_removal_receipt(layered)
+    proof = build_compressed_layered_proof(layered, removal, _contract())
+    eq = build_layer_equivalence_receipt(proof, layered, removal)
+    # Confirm that the correct receipt passes
+    validate_layer_equivalence_receipt(eq, proof, layered, removal)
+    # Construct a forged receipt with equivalence_hash="" (P2 attack vector):
+    # __post_init__ permits empty equivalence_hash, so this construction succeeds.
+    forged = _Rec(
+        compressed_proof_hash=eq.compressed_proof_hash,
+        layered_receipt_hash=eq.layered_receipt_hash,
+        removal_receipt_hash=eq.removal_receipt_hash,
+        base_hash=eq.base_hash,
+        layered_hash=eq.layered_hash,
+        layer_spec_hash=eq.layer_spec_hash,
+        layer_payload_hash=eq.layer_payload_hash,
+        equivalence_hash="",
+        receipt_hash="",
+    )
+    forged = _Rec(
+        compressed_proof_hash=forged.compressed_proof_hash,
+        layered_receipt_hash=forged.layered_receipt_hash,
+        removal_receipt_hash=forged.removal_receipt_hash,
+        base_hash=forged.base_hash,
+        layered_hash=forged.layered_hash,
+        layer_spec_hash=forged.layer_spec_hash,
+        layer_payload_hash=forged.layer_payload_hash,
+        equivalence_hash=forged.equivalence_hash,
+        receipt_hash=forged.stable_hash(),
+    )
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_layer_equivalence_receipt(forged, proof, layered, removal)

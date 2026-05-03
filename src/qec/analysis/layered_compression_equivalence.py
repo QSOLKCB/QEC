@@ -178,7 +178,7 @@ def build_compressed_layered_proof(
         raise ValueError("INVALID_INPUT")
     validate_layer_removal_receipt(removal_receipt, layered_receipt)
 
-    if not all(field in compression_contract.preserved_fields for field in _REQUIRED_IDENTITY_FIELDS):
+    if set(compression_contract.preserved_fields) != set(_REQUIRED_IDENTITY_FIELDS):
         raise ValueError("INVALID_INPUT")
 
     contract_hash = compression_contract.stable_hash()
@@ -265,6 +265,10 @@ def validate_layer_equivalence_receipt(
     validate_layer_removal_receipt(removal_receipt, layered_receipt)
     if compressed_proof.stable_hash() != compressed_proof.compressed_proof_hash:
         raise ValueError("INVALID_INPUT")
+    if compressed_proof.source_layered_receipt_hash != layered_receipt.receipt_hash:
+        raise ValueError("INVALID_INPUT")
+    if compressed_proof.source_removal_receipt_hash != removal_receipt.receipt_hash:
+        raise ValueError("INVALID_INPUT")
 
     preserved = compressed_proof.preserved_identity_hashes
     expected = {
@@ -294,6 +298,20 @@ def validate_layer_equivalence_receipt(
     if equivalence_receipt.layer_spec_hash != layered_receipt.layer_spec_hash:
         raise ValueError("INVALID_INPUT")
     if equivalence_receipt.layer_payload_hash != layered_receipt.layer_payload_hash:
+        raise ValueError("INVALID_INPUT")
+
+    expected_equivalence_hash = sha256_hex(
+        {
+            "compressed_proof_hash": compressed_proof.compressed_proof_hash,
+            "layered_receipt_hash": layered_receipt.receipt_hash,
+            "removal_receipt_hash": removal_receipt.receipt_hash,
+            "base_hash": layered_receipt.base_hash,
+            "layered_hash": layered_receipt.layered_hash,
+            "layer_spec_hash": layered_receipt.layer_spec_hash,
+            "layer_payload_hash": layered_receipt.layer_payload_hash,
+        }
+    )
+    if equivalence_receipt.equivalence_hash != expected_equivalence_hash:
         raise ValueError("INVALID_INPUT")
 
     recomputed_receipt_hash = LayerEquivalenceReceipt(

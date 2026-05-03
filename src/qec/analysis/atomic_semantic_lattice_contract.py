@@ -1,37 +1,21 @@
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
 
 from qec.analysis.canonical_hashing import canonical_json, sha256_hex
+from qec.analysis.layer_spec_contract import (
+    _deep_freeze,
+    _ensure_json_safe as _base_ensure_json_safe,
+)
 
 
 def _ensure_json_safe(value: Any) -> None:
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise ValueError("INVALID_INPUT")
-    elif isinstance(value, (dict, MappingProxyType)):
-        for key, item in value.items():
-            if not isinstance(key, str) or key == "":
-                raise ValueError("INVALID_INPUT")
-            _ensure_json_safe(item)
-    elif isinstance(value, (list, tuple)):
-        for item in value:
-            _ensure_json_safe(item)
-    elif callable(value):
+    """Validate JSON-safety, extending base check with callable rejection."""
+    if callable(value):
         raise ValueError("INVALID_INPUT")
-    elif not isinstance(value, (str, int, float, bool, type(None))):
-        raise ValueError("INVALID_INPUT")
-
-
-def _deep_freeze(value: Any) -> Any:
-    if isinstance(value, dict):
-        return _freeze_mapping(value)
-    if isinstance(value, (list, tuple)):
-        return tuple(_deep_freeze(v) for v in value)
-    return value
+    _base_ensure_json_safe(value)
 
 
 def _canonical_key(value: Any) -> tuple[str, str]:
@@ -39,6 +23,7 @@ def _canonical_key(value: Any) -> tuple[str, str]:
 
 
 def _freeze_mapping(mapping: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Freeze a mapping using canonical key ordering."""
     ordered: dict[str, Any] = {}
     for key in sorted(mapping, key=_canonical_key):
         ordered[key] = _deep_freeze(mapping[key])
@@ -202,7 +187,7 @@ class SemanticLatticeGraph:
     lattice_version: str
     bounds_hash: str
     node_hashes: tuple[str, ...]
-    edge_hashes: tuple[str, ...]
+    edge_receipt_hashes: tuple[str, ...]
     nodes: tuple[SemanticLatticeNode, ...]
     edges: tuple[ConstraintEdgeReceipt, ...]
     graph_hash: str
@@ -213,7 +198,7 @@ class SemanticLatticeGraph:
         object.__setattr__(self, "nodes", tuple(self.nodes))
         object.__setattr__(self, "edges", tuple(self.edges))
         object.__setattr__(self, "node_hashes", tuple(self.node_hashes))
-        object.__setattr__(self, "edge_hashes", tuple(self.edge_hashes))
+        object.__setattr__(self, "edge_receipt_hashes", tuple(self.edge_receipt_hashes))
         _validate_graph_internal_consistency(self)
 
     def _canonical_payload(self) -> dict:
@@ -222,7 +207,7 @@ class SemanticLatticeGraph:
             "lattice_version": self.lattice_version,
             "bounds_hash": self.bounds_hash,
             "node_hashes": list(self.node_hashes),
-            "edge_hashes": list(self.edge_hashes),
+            "edge_receipt_hashes": list(self.edge_receipt_hashes),
         }
         _ensure_json_safe(payload)
         return payload
@@ -382,13 +367,13 @@ def build_semantic_lattice_graph(
         seen_semantic.add(semantic_key)
 
     node_hashes = tuple(node.node_hash for node in sorted_nodes)
-    edge_hashes = tuple(edge.receipt_hash for edge in sorted_edges)
+    edge_receipt_hashes = tuple(edge.receipt_hash for edge in sorted_edges)
     graph = SemanticLatticeGraph(
         lattice_id=lattice_id,
         lattice_version=lattice_version,
         bounds_hash=bounds.stable_hash(),
         node_hashes=node_hashes,
-        edge_hashes=edge_hashes,
+        edge_receipt_hashes=edge_receipt_hashes,
         nodes=sorted_nodes,
         edges=sorted_edges,
         graph_hash="",
@@ -399,11 +384,12 @@ def build_semantic_lattice_graph(
 def _validate_graph_internal_consistency(graph: SemanticLatticeGraph) -> None:
     if len(graph.nodes) != len(graph.node_hashes):
         raise ValueError("INVALID_INPUT")
-    if len(graph.edges) != len(graph.edge_hashes):
+    if len(graph.edges) != len(graph.edge_receipt_hashes):
         raise ValueError("INVALID_INPUT")
 
     expected_nodes = tuple(sorted(graph.nodes, key=lambda n: (n.coordinate[0], n.coordinate[1], n.coordinate[2], n.node_id, n.node_hash)))
     expected_node_hashes: list[str] = []
+    node_id_set: set[str] = set()
     for index, node in enumerate(expected_nodes):
         canonical_hash = node.stable_hash()
         if node.node_hash != canonical_hash:
@@ -411,24 +397,27 @@ def _validate_graph_internal_consistency(graph: SemanticLatticeGraph) -> None:
         expected_node_hashes.append(canonical_hash)
         if graph.node_hashes[index] != canonical_hash:
             raise ValueError("INVALID_INPUT")
+        node_id_set.add(node.node_id)
     if tuple(expected_node_hashes) != graph.node_hashes:
         raise ValueError("INVALID_INPUT")
     if tuple(graph.nodes) != expected_nodes:
         raise ValueError("INVALID_INPUT")
 
     expected_edges = tuple(sorted(graph.edges, key=lambda e: (e.source_node_id, e.target_node_id, e.constraint_type, e.edge_id, e.edge_hash)))
-    expected_edge_hashes: list[str] = []
+    expected_edge_receipt_hashes: list[str] = []
     for index, edge in enumerate(expected_edges):
+        if edge.source_node_id not in node_id_set or edge.target_node_id not in node_id_set:
+            raise ValueError("INVALID_INPUT")
         if edge.constraint_payload_hash != sha256_hex(dict(edge.constraint_payload)):
             raise ValueError("INVALID_INPUT")
         if edge.edge_hash != edge._edge_stable_hash():
             raise ValueError("INVALID_INPUT")
         if edge.receipt_hash != edge.stable_hash():
             raise ValueError("INVALID_INPUT")
-        expected_edge_hashes.append(edge.receipt_hash)
-        if graph.edge_hashes[index] != edge.receipt_hash:
+        expected_edge_receipt_hashes.append(edge.receipt_hash)
+        if graph.edge_receipt_hashes[index] != edge.receipt_hash:
             raise ValueError("INVALID_INPUT")
-    if tuple(expected_edge_hashes) != graph.edge_hashes:
+    if tuple(expected_edge_receipt_hashes) != graph.edge_receipt_hashes:
         raise ValueError("INVALID_INPUT")
     if tuple(graph.edges) != expected_edges:
         raise ValueError("INVALID_INPUT")
@@ -441,7 +430,7 @@ def build_lattice_state_receipt(graph: SemanticLatticeGraph) -> LatticeStateRece
     if graph.graph_hash != graph.stable_hash():
         raise ValueError("INVALID_INPUT")
     node_set_hash = sha256_hex(list(graph.node_hashes))
-    edge_set_hash = sha256_hex(list(graph.edge_hashes))
+    edge_set_hash = sha256_hex(list(graph.edge_receipt_hashes))
     receipt = LatticeStateReceipt(graph.lattice_id, graph.lattice_version, graph.bounds_hash, node_set_hash, edge_set_hash, graph.graph_hash, "")
     return LatticeStateReceipt(**{**receipt.__dict__, "receipt_hash": receipt.stable_hash()})
 
@@ -468,13 +457,17 @@ def build_topology_stability_receipt(graph: SemanticLatticeGraph, lattice_receip
 
 def validate_lattice_state_receipt(receipt: LatticeStateReceipt, graph: SemanticLatticeGraph) -> None:
     _validate_graph_internal_consistency(graph)
+    if receipt.lattice_id != graph.lattice_id:
+        raise ValueError("INVALID_INPUT")
+    if receipt.lattice_version != graph.lattice_version:
+        raise ValueError("INVALID_INPUT")
     if graph.graph_hash != graph.stable_hash() or receipt.graph_hash != graph.graph_hash:
         raise ValueError("INVALID_INPUT")
     if receipt.bounds_hash != graph.bounds_hash:
         raise ValueError("INVALID_INPUT")
     if receipt.node_set_hash != sha256_hex(list(graph.node_hashes)):
         raise ValueError("INVALID_INPUT")
-    if receipt.edge_set_hash != sha256_hex(list(graph.edge_hashes)):
+    if receipt.edge_set_hash != sha256_hex(list(graph.edge_receipt_hashes)):
         raise ValueError("INVALID_INPUT")
     if receipt.receipt_hash != LatticeStateReceipt(**{**receipt.__dict__, "receipt_hash": ""}).stable_hash():
         raise ValueError("INVALID_INPUT")

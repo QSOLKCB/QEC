@@ -147,7 +147,7 @@ def test_graph_structural_node_tamper_rejected():
             lattice_version=g.lattice_version,
             bounds_hash=g.bounds_hash,
             node_hashes=g.node_hashes,
-            edge_hashes=g.edge_hashes,
+            edge_receipt_hashes=g.edge_receipt_hashes,
             nodes=(tampered_node, g.nodes[1]),
             edges=g.edges,
             graph_hash=g.graph_hash,
@@ -163,7 +163,7 @@ def test_graph_structural_edge_tamper_rejected():
             lattice_version=g.lattice_version,
             bounds_hash=g.bounds_hash,
             node_hashes=g.node_hashes,
-            edge_hashes=g.edge_hashes,
+            edge_receipt_hashes=g.edge_receipt_hashes,
             nodes=g.nodes,
             edges=(tampered_edge,),
             graph_hash=g.graph_hash,
@@ -181,7 +181,7 @@ def test_lattice_state_validator_rejects_desynchronized_node_hashes():
 def test_lattice_state_validator_rejects_desynchronized_edge_hashes():
     g = _graph()
     r = build_lattice_state_receipt(g)
-    object.__setattr__(g, "edge_hashes", ("0" * 64,))
+    object.__setattr__(g, "edge_receipt_hashes", ("0" * 64,))
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         validate_lattice_state_receipt(r, g)
 
@@ -209,3 +209,64 @@ def test_receipt_self_hash_enforcement_and_unsigned_pattern():
         TopologyStabilityReceipt(**{**t.__dict__, "receipt_hash": "2" * 64})
     unsigned_t = TopologyStabilityReceipt(**{**t.__dict__, "receipt_hash": ""})
     assert unsigned_t.receipt_hash == ""
+
+
+def test_validate_lattice_state_receipt_rejects_forged_lattice_id():
+    """Regression test: receipt.lattice_id must match graph.lattice_id."""
+    g = _graph()
+    r = build_lattice_state_receipt(g)
+    # Forge a receipt with different lattice_id but same graph_hash
+    forged = LatticeStateReceipt(
+        lattice_id="forged-id",
+        lattice_version=r.lattice_version,
+        bounds_hash=r.bounds_hash,
+        node_set_hash=r.node_set_hash,
+        edge_set_hash=r.edge_set_hash,
+        graph_hash=r.graph_hash,
+        receipt_hash="",
+    )
+    forged = LatticeStateReceipt(**{**forged.__dict__, "receipt_hash": forged.stable_hash()})
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_lattice_state_receipt(forged, g)
+
+
+def test_validate_lattice_state_receipt_rejects_forged_lattice_version():
+    """Regression test: receipt.lattice_version must match graph.lattice_version."""
+    g = _graph()
+    r = build_lattice_state_receipt(g)
+    # Forge a receipt with different lattice_version but same graph_hash
+    forged = LatticeStateReceipt(
+        lattice_id=r.lattice_id,
+        lattice_version="forged-version",
+        bounds_hash=r.bounds_hash,
+        node_set_hash=r.node_set_hash,
+        edge_set_hash=r.edge_set_hash,
+        graph_hash=r.graph_hash,
+        receipt_hash="",
+    )
+    forged = LatticeStateReceipt(**{**forged.__dict__, "receipt_hash": forged.stable_hash()})
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_lattice_state_receipt(forged, g)
+
+
+def test_graph_internal_consistency_rejects_dangling_edges():
+    """Regression test: edges with endpoints absent from node set must be rejected."""
+    from qec.analysis.atomic_semantic_lattice_contract import SemanticLatticeGraph
+
+    n1, n2 = _node("n1", (0, 0, 0)), _node("n2", (1, 0, 0))
+    # Create an edge that references a node not in the node set
+    dangling_edge = _edge("e1", "n1", "nonexistent")
+    # Build a valid graph first, then tamper it
+    g = build_semantic_lattice_graph("lattice-a", "153.0", _bounds(), (n1, n2), (_edge("e1", "n1", "n2"),))
+    # Attempt to create graph with dangling edge bypassing build function
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        SemanticLatticeGraph(
+            lattice_id=g.lattice_id,
+            lattice_version=g.lattice_version,
+            bounds_hash=g.bounds_hash,
+            node_hashes=g.node_hashes,
+            edge_receipt_hashes=(dangling_edge.receipt_hash,),
+            nodes=g.nodes,
+            edges=(dangling_edge,),
+            graph_hash="",
+        )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Mapping
 
@@ -24,12 +24,12 @@ def _freeze_mapping(mapping: Mapping[str, Any]) -> Mapping[str, Any]:
 class BaseStateReference:
     base_hash: str
     base_type: str
-    base_metadata: Mapping[str, Any] | None = None
+    base_metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.base_hash or not self.base_type:
             raise ValueError("INVALID_INPUT")
-        metadata = {} if self.base_metadata is None else dict(self.base_metadata)
+        metadata = dict(self.base_metadata)
         _ensure_json_safe(metadata)
         object.__setattr__(self, "base_metadata", _freeze_mapping(metadata))
 
@@ -37,7 +37,7 @@ class BaseStateReference:
         payload = {
             "base_hash": self.base_hash,
             "base_type": self.base_type,
-            "base_metadata": dict(self.base_metadata or {}),
+            "base_metadata": dict(self.base_metadata),
         }
         _ensure_json_safe(payload)
         return payload
@@ -89,7 +89,7 @@ class LayeredState:
         return canonical_json(self._canonical_payload())
 
     def stable_hash(self) -> str:
-        return sha256_hex(self._canonical_payload())
+        return self.layered_hash
 
 
 @dataclass(frozen=True)
@@ -116,7 +116,7 @@ class LayeredReceipt:
         return payload
 
     def to_canonical_json(self) -> str:
-        return canonical_json(self._canonical_payload())
+        return canonical_json(self.to_dict())
 
     def stable_hash(self) -> str:
         return sha256_hex(self._canonical_payload())
@@ -136,15 +136,16 @@ def build_layered_receipt(
     payload = _canonical_layer_payload(dict(layer_payload))
     layer_payload_hash = sha256_hex(dict(payload))
     layer_spec_hash = layer_spec.stable_hash()
+    base_ref_hash = base_state_ref.stable_hash()
     layered_hash = sha256_hex(
         {
-            "base_hash": base_state_ref.base_hash,
+            "base_hash": base_ref_hash,
             "layer_spec_hash": layer_spec_hash,
             "layer_payload_hash": layer_payload_hash,
         }
     )
     receipt = LayeredReceipt(
-        base_hash=base_state_ref.base_hash,
+        base_hash=base_ref_hash,
         layer_spec_hash=layer_spec_hash,
         layer_payload_hash=layer_payload_hash,
         layered_hash=layered_hash,
@@ -166,7 +167,7 @@ def validate_layered_receipt(
     layer_spec: LayerSpec,
     layer_payload: dict[str, Any],
 ) -> None:
-    if receipt.base_hash != base_state_ref.base_hash:
+    if receipt.base_hash != base_state_ref.stable_hash():
         raise ValueError("INVALID_INPUT")
     if receipt.layer_spec_hash != layer_spec.stable_hash():
         raise ValueError("INVALID_INPUT")

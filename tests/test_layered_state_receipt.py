@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from types import MappingProxyType
 
 import pytest
@@ -31,7 +33,11 @@ def _spec() -> LayerSpec:
 
 
 def _base() -> BaseStateReference:
-    return BaseStateReference(base_hash="base-hash-1", base_type="canonical-doc", base_metadata={"v": 1})
+    return BaseStateReference(
+        base_hash="base-hash-1",
+        base_type="canonical-doc",
+        base_metadata={"v": 1},
+    )
 
 
 def test_layered_state_does_not_mutate_base():
@@ -44,7 +50,7 @@ def test_layered_state_does_not_mutate_base():
         layered_hash=receipt.layered_hash,
     )
 
-    assert base.base_hash == layered.base_hash
+    assert base.stable_hash() == layered.base_hash
 
 
 def test_identical_inputs_produce_identical_layered_receipts():
@@ -99,12 +105,22 @@ def test_immutability_enforcement() -> None:
 
 
 def test_cross_instance_determinism() -> None:
-    base_a = BaseStateReference(base_hash="base-hash-1", base_type="canonical-doc", base_metadata={"v": 1})
-    base_b = BaseStateReference(base_hash="base-hash-1", base_type="canonical-doc", base_metadata={"v": 1})
+    base_a = BaseStateReference(
+        base_hash="base-hash-1",
+        base_type="canonical-doc",
+        base_metadata={"v": 1},
+    )
+    base_b = BaseStateReference(
+        base_hash="base-hash-1",
+        base_type="canonical-doc",
+        base_metadata={"v": 1},
+    )
     spec_a = _spec()
     spec_b = _spec()
     payload = {"k": [1, 2], "m": {"n": True}}
-    assert build_layered_receipt(base_a, spec_a, payload) == build_layered_receipt(base_b, spec_b, payload)
+    assert build_layered_receipt(base_a, spec_a, payload) == build_layered_receipt(
+        base_b, spec_b, payload
+    )
 
 
 def test_mixed_key_ordering_is_deterministic() -> None:
@@ -127,3 +143,50 @@ def test_identical_logical_payloads_produce_identical_layer_payload_hash() -> No
     receipt_a = build_layered_receipt(base, spec, {"x": 1, "y": {"b": 2, "a": 1}})
     receipt_b = build_layered_receipt(base, spec, {"y": {"a": 1, "b": 2}, "x": 1})
     assert receipt_a.layer_payload_hash == receipt_b.layer_payload_hash
+
+
+def test_receipt_base_hash_binds_full_reference() -> None:
+    """A receipt built for one BaseStateReference must not validate against another
+    that shares the same base_hash string but has different base_type or base_metadata."""
+    spec = _spec()
+    payload = {"x": 1}
+    base_a = BaseStateReference(
+        base_hash="shared-hash",
+        base_type="type-a",
+        base_metadata={"env": "prod"},
+    )
+    base_b = BaseStateReference(
+        base_hash="shared-hash",
+        base_type="type-b",
+        base_metadata={"env": "staging"},
+    )
+    receipt = build_layered_receipt(base_a, spec, payload)
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_layered_receipt(receipt, base_b, spec, payload)
+
+
+def test_to_canonical_json_includes_receipt_hash() -> None:
+    receipt = build_layered_receipt(_base(), _spec(), {"x": 1})
+    import json
+
+    data = json.loads(receipt.to_canonical_json())
+    assert "receipt_hash" in data
+    assert data["receipt_hash"] == receipt.receipt_hash
+
+
+def test_layered_state_stable_hash_equals_layered_hash() -> None:
+    base = _base()
+    receipt = build_layered_receipt(base, _spec(), {"x": 1})
+    layered = LayeredState(
+        base_hash=receipt.base_hash,
+        layer_spec_hash=receipt.layer_spec_hash,
+        layer_payload_hash=receipt.layer_payload_hash,
+        layered_hash=receipt.layered_hash,
+    )
+    assert layered.stable_hash() == layered.layered_hash
+
+
+def test_base_metadata_defaults_to_empty_mapping() -> None:
+    ref = BaseStateReference(base_hash="h", base_type="t")
+    assert isinstance(ref.base_metadata, MappingProxyType)
+    assert len(ref.base_metadata) == 0

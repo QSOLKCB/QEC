@@ -1,0 +1,85 @@
+import pytest
+
+from qec.analysis.hilber_shift_projection import (
+    SHIFT_ALGORITHM,
+    HILBER_SHIFT_VERSION,
+    build_filter_compatibility_receipt,
+    build_hilber_shift_spec,
+    build_shift_projection_receipt,
+    build_shift_stability_receipt,
+    validate_shift_stability_receipt,
+    ShiftProjectionReceipt,
+)
+
+
+def _spec(order=("a", "b", "c", "d"), direction="FORWARD", offset=1):
+    return build_hilber_shift_spec("s1", "GENERIC", "src", "h" * 64, tuple(order), direction, offset)
+
+
+def test_determinism_and_order_identity():
+    s1 = _spec()
+    s2 = _spec()
+    assert s1.spec_hash == s2.spec_hash
+    r1 = build_shift_projection_receipt(s1)
+    r2 = build_shift_projection_receipt(s2)
+    assert r1.receipt_hash == r2.receipt_hash
+
+    s3 = _spec(order=("b", "a", "c", "d"))
+    assert s3.spec_hash != s1.spec_hash
+
+
+def test_shift_correctness_forward_reverse_and_offset_bounds():
+    f = build_shift_projection_receipt(_spec(direction="FORWARD", offset=1))
+    assert f.shifted_item_ids == ("d", "a", "b", "c")
+    r = build_shift_projection_receipt(_spec(direction="REVERSE", offset=1))
+    assert r.shifted_item_ids == ("b", "c", "d", "a")
+
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        _spec(offset=4)
+
+
+def test_bijection_enforced():
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ShiftProjectionReceipt(
+            "s1",
+            "x",
+            ("a", "b"),
+            ("a", "b"),
+            ({"item_id": "a", "source_index": 0, "target_index": 0}, {"item_id": "b", "source_index": 1, "target_index": 0}),
+            "x",
+            "y",
+            "",
+            "",
+        )
+
+
+def test_hash_integrity_tampering_fails_validation():
+    spec = _spec()
+    projection = build_shift_projection_receipt(spec)
+    comp = build_filter_compatibility_receipt("c1", projection, tuple())
+    stability = build_shift_stability_receipt("st1", projection, comp)
+    validate_shift_stability_receipt(stability)
+
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        stability.__class__(**{**stability.__dict__, "stability_status": "UNSTABLE", "stability_reason": "ROUNDTRIP_MISMATCH"})
+
+
+def test_stability_and_immutability_and_json_safety():
+    spec = _spec()
+    projection = build_shift_projection_receipt(spec)
+    comp = build_filter_compatibility_receipt("c1", projection, ("f1",))
+    stability = build_shift_stability_receipt("st1", projection, comp)
+    assert stability.roundtrip_stable is True
+
+    with pytest.raises(Exception):
+        spec.shift_id = "x"
+
+    assert isinstance(spec.to_dict(), dict)
+    assert isinstance(projection.to_dict(), dict)
+
+
+def test_scope_and_version_constants():
+    assert HILBER_SHIFT_VERSION == "v153.6"
+    assert SHIFT_ALGORITHM == "DISCRETE_CYCLIC_INDEX_SHIFT_V1"
+    module_dict = __import__("qec.analysis.hilber_shift_projection", fromlist=["*"]).__dict__
+    assert not any(k.startswith("v153.7") for k in module_dict)

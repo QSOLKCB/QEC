@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from qec.analysis.canonical_hashing import sha256_hex
+from qec.analysis.canonical_hashing import CanonicalHashingError, canonical_json, sha256_hex
 from qec.analysis.layer_spec_contract import _ensure_json_safe
 
 QAM_COMPATIBILITY_VERSION = "v153.4"
@@ -51,7 +51,7 @@ class QAMCompatibilityProfile:
     profile_version: str
     qam_version: str
     source_name: str
-    source_orcid: str
+    source_orcid: str | None
     lineage_references: tuple[Mapping[str, Any], ...]
     compatibility_features: tuple[Mapping[str, Any], ...]
     compatibility_notes: tuple[Any, ...]
@@ -98,7 +98,7 @@ class QAMCompatibilityProfile:
             raise ValueError("INVALID_INPUT")
         if tuple(sorted(self.lineage_references, key=lambda x: (x["reference_id"], x.get("reference_uri", "")))) != self.lineage_references:
             raise ValueError("INVALID_INPUT")
-        if tuple(sorted(self.compatibility_notes, key=lambda x: str(_deep_thaw(x)))) != self.compatibility_notes:
+        if tuple(sorted(self.compatibility_notes, key=lambda x: canonical_json(_deep_thaw(x)))) != self.compatibility_notes:
             raise ValueError("INVALID_INPUT")
 
         _ensure_json_safe(self._canonical_payload())
@@ -130,7 +130,7 @@ class QAMSpecReceipt:
     profile_version: str
     qam_version: str
     source_name: str
-    source_orcid: str
+    source_orcid: str | None
     profile_hash: str
     spec_hash: str
     receipt_hash: str
@@ -286,9 +286,12 @@ def build_qam_compatibility_profile(
     compatibility_features: tuple[Mapping[str, Any], ...] = (),
     compatibility_notes: tuple[Any, ...] = (),
 ) -> QAMCompatibilityProfile:
-    ordered_refs = tuple(sorted((dict(r) for r in lineage_references), key=lambda x: (x["reference_id"], x.get("reference_uri", ""))))
-    ordered_features = tuple(sorted((dict(f) for f in compatibility_features), key=lambda x: (x["feature_id"], x.get("feature_name", ""), x.get("qec_target", ""))))
-    ordered_notes = tuple(sorted((_deep_thaw(_deep_freeze(n)) for n in compatibility_notes), key=lambda x: str(x)))
+    try:
+        ordered_refs = tuple(sorted((dict(r) for r in lineage_references), key=lambda x: (x["reference_id"], x.get("reference_uri", ""))))
+        ordered_features = tuple(sorted((dict(f) for f in compatibility_features), key=lambda x: (x["feature_id"], x.get("feature_name", ""), x.get("qec_target", ""))))
+        ordered_notes = tuple(sorted((_deep_thaw(_deep_freeze(n)) for n in compatibility_notes), key=lambda x: canonical_json(x)))
+    except (KeyError, TypeError, CanonicalHashingError):
+        raise ValueError("INVALID_INPUT")
     p = QAMCompatibilityProfile(profile_id, profile_version, qam_version, source_name, source_orcid, ordered_refs, ordered_features, ordered_notes, "")
     return QAMCompatibilityProfile(**{**p.__dict__, "profile_hash": p.stable_hash()})
 
@@ -316,6 +319,14 @@ def build_qam_compatibility_validation_receipt(profile: QAMCompatibilityProfile,
     if profile.profile_hash != profile.stable_hash():
         raise ValueError("INVALID_INPUT")
     if spec_receipt.profile_hash != profile.profile_hash or spec_receipt.spec_hash != spec_receipt._spec_hash() or spec_receipt.receipt_hash != spec_receipt.stable_hash():
+        raise ValueError("INVALID_INPUT")
+    if (
+        spec_receipt.profile_id != profile.profile_id
+        or spec_receipt.profile_version != profile.profile_version
+        or spec_receipt.qam_version != profile.qam_version
+        or spec_receipt.source_name != profile.source_name
+        or spec_receipt.source_orcid != profile.source_orcid
+    ):
         raise ValueError("INVALID_INPUT")
     accepted = sorted(f["feature_id"] for f in profile.compatibility_features if f["compatibility_status"] == "SUPPORTED_METADATA_ONLY")
     deferred = sorted(f["feature_id"] for f in profile.compatibility_features if f["compatibility_status"] == "DEFERRED")
@@ -368,7 +379,14 @@ def validate_qam_compatibility_validation_receipt(
 ) -> None:
     if profile.profile_hash != profile.stable_hash():
         raise ValueError("INVALID_INPUT")
-    if spec_receipt.profile_hash != profile.profile_hash:
+    if (
+        spec_receipt.profile_hash != profile.profile_hash
+        or spec_receipt.profile_id != profile.profile_id
+        or spec_receipt.profile_version != profile.profile_version
+        or spec_receipt.qam_version != profile.qam_version
+        or spec_receipt.source_name != profile.source_name
+        or spec_receipt.source_orcid != profile.source_orcid
+    ):
         raise ValueError("INVALID_INPUT")
     if spec_receipt.spec_hash != spec_receipt._spec_hash() or spec_receipt.receipt_hash != spec_receipt.stable_hash():
         raise ValueError("INVALID_INPUT")

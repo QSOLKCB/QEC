@@ -120,6 +120,50 @@ def test_scope_guards_and_no_v1535_exports():
             assert not hasattr(cls, name)
 
 
+def test_notes_mixed_type_sorting_stability():
+    # int 1 and str "1" share the same str() output but have distinct canonical_json
+    # representations, so ordering must be stable regardless of input permutation.
+    p1 = build_qam_compatibility_profile("p", compatibility_notes=(1, "1"))
+    p2 = build_qam_compatibility_profile("p", compatibility_notes=("1", 1))
+    assert p1.profile_hash == p2.profile_hash
+
+
+def test_forged_spec_receipt_identity_rejected():
+    from qec.analysis.canonical_hashing import sha256_hex as _sha256
+
+    p = build_qam_compatibility_profile(
+        "profile_A",
+        source_name="Legit Source",
+        compatibility_features=({"feature_id": "f1", "compatibility_status": "SUPPORTED_METADATA_ONLY"},),
+    )
+    s = build_qam_spec_receipt(p)
+    # Forge a spec receipt that reuses profile_hash but changes source_name.
+    # It is internally self-consistent so QAMSpecReceipt.__post_init__ accepts it.
+    forged_spec_payload = {
+        "profile_id": s.profile_id,
+        "profile_version": s.profile_version,
+        "qam_version": s.qam_version,
+        "source_name": "Forged Source",
+        "source_orcid": s.source_orcid,
+        "profile_hash": s.profile_hash,
+    }
+    forged_spec_hash = _sha256(forged_spec_payload)
+    forged_receipt_hash = _sha256({**forged_spec_payload, "spec_hash": forged_spec_hash})
+    forged = QAMSpecReceipt(
+        profile_id=s.profile_id,
+        profile_version=s.profile_version,
+        qam_version=s.qam_version,
+        source_name="Forged Source",
+        source_orcid=s.source_orcid,
+        profile_hash=s.profile_hash,
+        spec_hash=forged_spec_hash,
+        receipt_hash=forged_receipt_hash,
+    )
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        build_qam_compatibility_validation_receipt(p, forged)
+
+
+
 def test_metadata_boundary_no_dependency_on_qam_source_orcid():
     p1 = build_qam_compatibility_profile("p", source_orcid="https://orcid.org/0000-0000-0000-0001", compatibility_features=({"feature_id": "a", "compatibility_status": "SUPPORTED_METADATA_ONLY"},))
     p2 = build_qam_compatibility_profile("p", source_orcid="https://orcid.org/0000-0000-0000-0002", compatibility_features=({"feature_id": "a", "compatibility_status": "SUPPORTED_METADATA_ONLY"},))

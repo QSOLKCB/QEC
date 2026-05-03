@@ -1,4 +1,3 @@
-from copy import deepcopy
 from types import MappingProxyType
 
 import pytest
@@ -79,7 +78,7 @@ def test_empty_id_rejection():
 
 def test_json_safety_rejection():
     with pytest.raises(ValueError, match="INVALID_INPUT"):
-        LayerCompatibilityConstraint("cid", "router_path", {"v": float("inf")}).to_dict()
+        LayerCompatibilityConstraint("cid", "router_path", {"v": float("inf")})
 
 
 def test_receipt_recomputation():
@@ -121,7 +120,9 @@ def test_no_layered_state_creation():
 
 def test_identical_specs_produce_identical_receipts():
     spec1 = _make_spec()
-    spec2 = deepcopy(spec1)
+    spec2 = _make_spec()
+
+    assert spec1 is not spec2
 
     r1 = build_layer_spec_receipt(spec1)
     r2 = build_layer_spec_receipt(spec2)

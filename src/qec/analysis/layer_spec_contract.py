@@ -12,7 +12,7 @@ def _ensure_json_safe(value: Any) -> None:
     if isinstance(value, float):
         if not math.isfinite(value):
             raise ValueError("INVALID_INPUT")
-    elif isinstance(value, dict):
+    elif isinstance(value, (dict, MappingProxyType)):
         for k, v in value.items():
             if not isinstance(k, str) or k == "":
                 raise ValueError("INVALID_INPUT")
@@ -24,23 +24,19 @@ def _ensure_json_safe(value: Any) -> None:
         raise ValueError("INVALID_INPUT")
 
 
+def _deep_freeze(value: Any) -> Any:
+    """Recursively convert all nested dicts and lists to immutable equivalents."""
+    if isinstance(value, dict):
+        return _freeze_mapping(value)
+    if isinstance(value, (list, tuple)):
+        return tuple(_deep_freeze(v) for v in value)
+    return value
+
+
 def _freeze_mapping(mapping: Mapping[str, Any]) -> Mapping[str, Any]:
     ordered = {}
-    for key in sorted(mapping, key=lambda x: (type(x).__name__, str(x))):
-        value = mapping[key]
-        if isinstance(value, dict):
-            ordered[key] = _freeze_mapping(value)
-        elif isinstance(value, list):
-            ordered[key] = tuple(
-                _freeze_mapping(item)
-                if isinstance(item, dict)
-                else tuple(item)
-                if isinstance(item, list)
-                else item
-                for item in value
-            )
-        else:
-            ordered[key] = value
+    for key in sorted(mapping):
+        ordered[key] = _deep_freeze(mapping[key])
     return MappingProxyType(ordered)
 
 
@@ -56,9 +52,7 @@ class LayerInvariantSet:
 
     def _canonical_payload(self) -> dict:
         payload = {
-            "invariants": list(
-                sorted(self.invariants, key=lambda x: (type(x).__name__, str(x)))
-            )
+            "invariants": sorted(self.invariants)
         }
         _ensure_json_safe(payload)
         return payload
@@ -90,6 +84,7 @@ class LayerCompatibilityConstraint:
         if self.constraint_type not in allowed:
             raise ValueError("INVALID_INPUT")
         object.__setattr__(self, "params", _freeze_mapping(self.params))
+        _ensure_json_safe(self.params)
 
     def _canonical_payload(self) -> dict:
         payload = {
@@ -132,10 +127,13 @@ class LayerSpec:
             raise ValueError("INVALID_INPUT")
         object.__setattr__(self, "activation_rules", _freeze_mapping(self.activation_rules))
         object.__setattr__(self, "removal_rules", _freeze_mapping(self.removal_rules))
+        _ensure_json_safe(self.activation_rules)
+        _ensure_json_safe(self.removal_rules)
 
     def _canonical_payload(self) -> dict:
         ordered_constraints = sorted(
-            self.compatibility_constraints, key=lambda x: (type(x).__name__, str(x))
+            self.compatibility_constraints,
+            key=lambda x: (x.constraint_type, x.constraint_id),
         )
         payload = {
             "layer_id": self.layer_id,
@@ -199,5 +197,7 @@ def validate_layer_spec_receipt(layer_spec: LayerSpec, receipt: LayerSpecReceipt
         raise ValueError("INVALID_INPUT")
 
 
-assert not hasattr(LayerSpec, "apply")
-assert not hasattr(LayerSpec, "execute")
+if hasattr(LayerSpec, "apply"):
+    raise RuntimeError("LayerSpec must not implement 'apply': contract must remain declarative")
+if hasattr(LayerSpec, "execute"):
+    raise RuntimeError("LayerSpec must not implement 'execute': contract must remain declarative")

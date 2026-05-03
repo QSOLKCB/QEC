@@ -389,7 +389,7 @@ def _validate_graph_internal_consistency(graph: SemanticLatticeGraph) -> None:
 
     expected_nodes = tuple(sorted(graph.nodes, key=lambda n: (n.coordinate[0], n.coordinate[1], n.coordinate[2], n.node_id, n.node_hash)))
     expected_node_hashes: list[str] = []
-    node_id_set: set[str] = set()
+    valid_node_ids: set[str] = set()
     for index, node in enumerate(expected_nodes):
         canonical_hash = node.stable_hash()
         if node.node_hash != canonical_hash:
@@ -397,7 +397,7 @@ def _validate_graph_internal_consistency(graph: SemanticLatticeGraph) -> None:
         expected_node_hashes.append(canonical_hash)
         if graph.node_hashes[index] != canonical_hash:
             raise ValueError("INVALID_INPUT")
-        node_id_set.add(node.node_id)
+        valid_node_ids.add(node.node_id)
     if tuple(expected_node_hashes) != graph.node_hashes:
         raise ValueError("INVALID_INPUT")
     if tuple(graph.nodes) != expected_nodes:
@@ -406,7 +406,7 @@ def _validate_graph_internal_consistency(graph: SemanticLatticeGraph) -> None:
     expected_edges = tuple(sorted(graph.edges, key=lambda e: (e.source_node_id, e.target_node_id, e.constraint_type, e.edge_id, e.edge_hash)))
     expected_edge_receipt_hashes: list[str] = []
     for index, edge in enumerate(expected_edges):
-        if edge.source_node_id not in node_id_set or edge.target_node_id not in node_id_set:
+        if edge.source_node_id not in valid_node_ids or edge.target_node_id not in valid_node_ids:
             raise ValueError("INVALID_INPUT")
         if edge.constraint_payload_hash != sha256_hex(dict(edge.constraint_payload)):
             raise ValueError("INVALID_INPUT")

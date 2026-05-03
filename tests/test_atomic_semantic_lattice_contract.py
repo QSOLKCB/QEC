@@ -256,9 +256,9 @@ def test_graph_internal_consistency_rejects_dangling_edges():
     n1, n2 = _node("n1", (0, 0, 0)), _node("n2", (1, 0, 0))
     # Create an edge that references a node not in the node set
     dangling_edge = _edge("e1", "n1", "nonexistent")
-    # Build a valid graph first, then tamper it
+    # Build a valid graph to get properly formatted metadata fields
     g = build_semantic_lattice_graph("lattice-a", "153.0", _bounds(), (n1, n2), (_edge("e1", "n1", "n2"),))
-    # Attempt to create graph with dangling edge bypassing build function
+    # Attempt to create graph with dangling edge by directly constructing SemanticLatticeGraph
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         SemanticLatticeGraph(
             lattice_id=g.lattice_id,

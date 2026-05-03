@@ -5,7 +5,7 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 from qec.analysis.atomic_semantic_lattice_contract import SemanticLatticeGraph, _validate_graph_internal_consistency
-from qec.analysis.canonical_hashing import canonical_json, sha256_hex
+from qec.analysis.canonical_hashing import sha256_hex
 from qec.analysis.layer_spec_contract import _ensure_json_safe
 from qec.analysis.router_lattice_paths import ResolvedLatticePathSet, RouterPathSpec, SpecialPathIndex
 
@@ -74,6 +74,10 @@ class ReadoutFieldSpec:
         if any((not isinstance(k, str) or not k) for k in self.key_path):
             raise ValueError("INVALID_INPUT")
         if self.projection_mode in {"METADATA_VALUE", "CONSTRAINT_PAYLOAD_VALUE"} and not self.key_path:
+            raise ValueError("INVALID_INPUT")
+        if self.projection_mode in {"IDENTITY_HASH", "COORDINATE", "PATH_IDENTITY"} and self.key_path:
+            raise ValueError("INVALID_INPUT")
+        if self.projection_mode == "METADATA_VALUE" and self.source_type != "NODE":
             raise ValueError("INVALID_INPUT")
         if self.projection_mode == "COORDINATE" and self.source_type != "NODE":
             raise ValueError("INVALID_INPUT")
@@ -257,16 +261,20 @@ def project_readout_fields(graph: SemanticLatticeGraph, resolved_path_set: Resol
 
 def build_readout_projection_receipt(graph: SemanticLatticeGraph, router_path_spec: RouterPathSpec, special_path_index: SpecialPathIndex, resolved_path_set: ResolvedLatticePathSet, readout_projection_spec: ReadoutProjectionSpec) -> ReadoutProjectionReceipt:
     pset = project_readout_fields(graph, resolved_path_set, readout_projection_spec, router_path_spec, special_path_index)
-    r = ReadoutProjectionReceipt(graph.lattice_id, graph.lattice_version, graph.stable_hash(), router_path_spec.stable_hash(), special_path_index.stable_hash(), resolved_path_set.stable_hash(), readout_projection_spec.stable_hash(), pset.projection_hash, pset.field_count, "")
+    r = ReadoutProjectionReceipt(graph.lattice_id, graph.lattice_version, graph.stable_hash(), router_path_spec.stable_hash(), special_path_index.stable_hash(), resolved_path_set.resolved_path_hash, readout_projection_spec.stable_hash(), pset.projection_hash, pset.field_count, "")
     out = ReadoutProjectionReceipt(**{**r.__dict__, "receipt_hash": r.stable_hash()})
     validate_readout_projection_receipt(out, graph, router_path_spec, special_path_index, resolved_path_set, readout_projection_spec)
     return out
 
 
 def validate_readout_projection_receipt(receipt: ReadoutProjectionReceipt, graph: SemanticLatticeGraph, router_path_spec: RouterPathSpec, special_path_index: SpecialPathIndex, resolved_path_set: ResolvedLatticePathSet, readout_projection_spec: ReadoutProjectionSpec) -> None:
+    if receipt.lattice_id != graph.lattice_id or receipt.lattice_version != graph.lattice_version:
+        raise ValueError("INVALID_INPUT")
+    if resolved_path_set.resolved_path_hash != resolved_path_set.stable_hash():
+        raise ValueError("INVALID_INPUT")
     pset = project_readout_fields(graph, resolved_path_set, readout_projection_spec, router_path_spec, special_path_index)
     if receipt.semantic_lattice_graph_hash != graph.stable_hash() or receipt.router_path_spec_hash != router_path_spec.stable_hash() or receipt.special_path_index_hash != special_path_index.stable_hash(): raise ValueError("INVALID_INPUT")
-    if receipt.resolved_path_hash != resolved_path_set.stable_hash() or receipt.readout_projection_spec_hash != readout_projection_spec.stable_hash(): raise ValueError("INVALID_INPUT")
+    if receipt.resolved_path_hash != resolved_path_set.resolved_path_hash or receipt.readout_projection_spec_hash != readout_projection_spec.stable_hash(): raise ValueError("INVALID_INPUT")
     if receipt.projection_hash != pset.projection_hash or receipt.field_count != pset.field_count: raise ValueError("INVALID_INPUT")
     if receipt.receipt_hash != ReadoutProjectionReceipt(**{**receipt.__dict__, "receipt_hash": ""}).stable_hash(): raise ValueError("INVALID_INPUT")
 

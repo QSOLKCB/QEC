@@ -116,6 +116,43 @@ def test_projected_value_deep_immutability_and_to_dict_json_safety():
     json.dumps(field.to_dict(), sort_keys=True)
 
 
+def test_invalid_projection_mode_source_type_combinations():
+    _base = dict(field_id="x", path_id="path-0", source_id="n1", key_path=())
+    _base_kp = dict(field_id="x", path_id="path-0", source_id="n1", key_path=("k",))
+
+    invalid_combos = [
+        # METADATA_VALUE only allowed for NODE
+        dict(**_base_kp, source_type="EDGE", projection_mode="METADATA_VALUE"),
+        dict(field_id="x", source_type="PATH", path_id="path-0", source_id="path-0", projection_mode="METADATA_VALUE", key_path=("k",)),
+        # CONSTRAINT_PAYLOAD_VALUE only allowed for EDGE
+        dict(**_base_kp, source_type="NODE", projection_mode="CONSTRAINT_PAYLOAD_VALUE"),
+        dict(field_id="x", source_type="PATH", path_id="path-0", source_id="path-0", projection_mode="CONSTRAINT_PAYLOAD_VALUE", key_path=("k",)),
+        # COORDINATE only allowed for NODE
+        dict(**_base, source_type="EDGE", projection_mode="COORDINATE"),
+        dict(field_id="x", source_type="PATH", path_id="path-0", source_id="path-0", projection_mode="COORDINATE", key_path=()),
+        # PATH_IDENTITY only allowed for PATH
+        dict(**_base, source_type="NODE", projection_mode="PATH_IDENTITY"),
+        dict(field_id="x", source_type="EDGE", path_id="path-0", source_id="e1", projection_mode="PATH_IDENTITY", key_path=()),
+    ]
+    for kwargs in invalid_combos:
+        with pytest.raises(ValueError, match="INVALID_INPUT"):
+            ReadoutFieldSpec(**kwargs)
+
+    # key_path MUST be empty for IDENTITY_HASH, COORDINATE, PATH_IDENTITY
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ReadoutFieldSpec("x", "NODE", "path-0", "n1", "IDENTITY_HASH", ("k",))
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ReadoutFieldSpec("x", "NODE", "path-0", "n1", "COORDINATE", ("k",))
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ReadoutFieldSpec("x", "PATH", "path-0", "path-0", "PATH_IDENTITY", ("k",))
+
+    # key_path MUST be non-empty for METADATA_VALUE and CONSTRAINT_PAYLOAD_VALUE
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ReadoutFieldSpec("x", "NODE", "path-0", "n1", "METADATA_VALUE", ())
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ReadoutFieldSpec("x", "EDGE", "path-0", "e1", "CONSTRAINT_PAYLOAD_VALUE", ())
+
+
 def test_v153_2_does_not_implement_readout_execution_or_search_mask():
     forbidden = (
         "apply", "execute", "run", "readout", "project", "traverse", "search", "mask", "hilber", "hilbert",

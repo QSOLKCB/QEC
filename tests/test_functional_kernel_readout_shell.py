@@ -1,7 +1,26 @@
 import json
+
 import pytest
 
-from qec.analysis.functional_kernel_readout_shell import *
+from qec.analysis.functional_kernel_readout_shell import (
+    CoreKernelSpec,
+    DerivedKernelSpec,
+    KernelCompatibilityReceipt,
+    KernelDerivationReceipt,
+    ReadoutCompositionReceipt,
+    ReadoutOrderReceipt,
+    ReadoutShell,
+    ReadoutShellStack,
+    build_core_kernel_spec,
+    build_derived_kernel_spec,
+    build_kernel_compatibility_receipt,
+    build_kernel_derivation_receipt,
+    build_readout_composition_receipt,
+    build_readout_order_receipt,
+    build_readout_shell,
+    build_readout_shell_stack,
+    validate_readout_order_receipt,
+)
 
 H='a'*64
 B='b'*64
@@ -55,6 +74,9 @@ def test_failures_and_self_validation():
     with pytest.raises(ValueError): ReadoutOrderReceipt(**{**order.to_dict(),'receipt_hash':'f'*64})
     with pytest.raises(ValueError): ReadoutCompositionReceipt(**{**rc.to_dict(),'composition_hash':'f'*64})
     with pytest.raises(ValueError): ReadoutCompositionReceipt(**{**rc.to_dict(),'receipt_hash':'f'*64})
+
+    with pytest.raises(ValueError): ReadoutShellStack(**{**stack.to_dict(),'stack_hash':'f'*64})
+    with pytest.raises(ValueError): ReadoutShellStack(**{**stack.to_dict(),'stack_order_hash':'f'*64})
 
 def test_order_binding_and_tuple_coercion():
     _,_,_,_,_,_,stack,order,_=build_all()

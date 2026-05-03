@@ -157,6 +157,7 @@ class FractalInvariantCompressionReceipt:
 
     def to_dict(self) -> dict:
         payload = dict(self._canonical_payload())
+        payload["pattern_nodes"] = [n.to_dict() for n in self.pattern_nodes]
         payload["receipt_hash"] = self.receipt_hash
         return payload
 
@@ -245,6 +246,17 @@ def _validated_identity_fields(
     compressed_proof: CompressedLayeredProof,
     equivalence_receipt: LayerEquivalenceReceipt,
 ) -> Mapping[str, str]:
+    # Proof linkage: equivalence receipt must reference the same compressed proof
+    if equivalence_receipt.compressed_proof_hash != compressed_proof.compressed_proof_hash:
+        raise ValueError("INVALID_INPUT")
+    # Source receipt linkage: proof's source hashes must match equivalence receipt
+    if compressed_proof.source_layered_receipt_hash != equivalence_receipt.layered_receipt_hash:
+        raise ValueError("INVALID_INPUT")
+    if compressed_proof.source_removal_receipt_hash != equivalence_receipt.removal_receipt_hash:
+        raise ValueError("INVALID_INPUT")
+    # Equivalence hash must be non-empty (rejects receipts built without a valid equivalence hash)
+    if not equivalence_receipt.equivalence_hash:
+        raise ValueError("INVALID_INPUT")
     preserved = compressed_proof.preserved_identity_hashes
     if preserved["base_hash"] != equivalence_receipt.base_hash:
         raise ValueError("INVALID_INPUT")
@@ -351,7 +363,18 @@ def validate_fractal_invariant_equivalence_receipt(fractal_equivalence_receipt: 
         raise ValueError("INVALID_INPUT")
     if fractal_equivalence_receipt.fractal_receipt_hash != fractal_receipt.receipt_hash:
         raise ValueError("INVALID_INPUT")
-    if fractal_equivalence_receipt.fractal_pattern_hash != fractal_receipt.fractal_pattern_hash:
+    # Independently recompute expected fractal_pattern_hash from upstream inputs and verify
+    # both the fractal_receipt and the fractal_equivalence_receipt carry the correct value
+    node_base = InvariantPatternNode(
+        pattern_id="layered-equivalence",
+        scale_index=0,
+        identity_fields=identity,
+        pattern_hash="",
+    )
+    expected_fractal_pattern_hash = sha256_hex([node_base._canonical_payload()])
+    if fractal_equivalence_receipt.fractal_pattern_hash != expected_fractal_pattern_hash:
+        raise ValueError("INVALID_INPUT")
+    if fractal_receipt.fractal_pattern_hash != expected_fractal_pattern_hash:
         raise ValueError("INVALID_INPUT")
     if fractal_equivalence_receipt.equivalence_hash != fractal_equivalence_receipt._equivalence_hash():
         raise ValueError("INVALID_INPUT")

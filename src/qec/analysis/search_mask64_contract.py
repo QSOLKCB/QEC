@@ -20,6 +20,12 @@ _ALLOWED_SOURCE_TYPES = {"ROUTER_PATH", "READOUT_FIELD", "LAYERED_PROJECTION", "
 _ALLOWED_REDUCTION_ALGORITHMS = {"SHA256_FIRST_64_BITS"}
 _ALLOWED_BYTE_ORDERS = {"BIG_ENDIAN"}
 _ALLOWED_COLLISION_STATUS = {"NO_COLLISION", "KNOWN_EQUIVALENT_COLLISION", "INVALID_COLLISION"}
+_ALLOWED_COLLISION_REASON = {"SINGLE_PARTICIPANT", "EQUIVALENT_IDENTITY_PROVIDED", "MISSING_EQUIVALENCE_PROOF"}
+_COLLISION_STATUS_REASON_MAP = {
+    "NO_COLLISION": "SINGLE_PARTICIPANT",
+    "KNOWN_EQUIVALENT_COLLISION": "EQUIVALENT_IDENTITY_PROVIDED",
+    "INVALID_COLLISION": "MISSING_EQUIVALENCE_PROOF",
+}
 _ALLOWED_COMPATIBILITY_STATUS = {"MASK_COMPATIBLE", "MASK_COMPATIBLE_WITH_KNOWN_COLLISIONS", "MASK_INCOMPATIBLE"}
 _ALLOWED_COMPATIBILITY_REASON = {"NO_COLLISIONS_DETECTED", "KNOWN_EQUIVALENT_COLLISIONS_PRESENT", "INVALID_COLLISIONS_PRESENT"}
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -37,6 +43,8 @@ def _validate_canonical_input(canonical_input: Mapping[str, Any]) -> Mapping[str
     if not isinstance(canonical_input, Mapping):
         raise ValueError("INVALID_INPUT")
     if len(canonical_input) > MAX_MASK_INPUT_FIELDS:
+        raise ValueError("INVALID_INPUT")
+    if not all(isinstance(k, str) and k for k in canonical_input):
         raise ValueError("INVALID_INPUT")
     frozen = _freeze_mapping(dict(canonical_input))
     _ensure_json_safe(dict(frozen))
@@ -176,11 +184,16 @@ class MaskCollisionReceipt:
             raise ValueError("INVALID_INPUT")
         if self.collision_status not in _ALLOWED_COLLISION_STATUS:
             raise ValueError("INVALID_INPUT")
+        if self.collision_reason not in _ALLOWED_COLLISION_REASON:
+            raise ValueError("INVALID_INPUT")
+        if self.collision_reason != _COLLISION_STATUS_REASON_MAP[self.collision_status]:
+            raise ValueError("INVALID_INPUT")
         if len(self.participant_mask_hashes) != len(self.participant_source_ids):
             raise ValueError("INVALID_INPUT")
         if len(self.participant_mask_hashes) == 0 or len(self.participant_mask_hashes) > MAX_COLLISION_RECORDS:
             raise ValueError("INVALID_INPUT")
-        if tuple(sorted(self.participant_mask_hashes)) != self.participant_mask_hashes or tuple(sorted(self.participant_source_ids)) != self.participant_source_ids:
+        expected_pairs = tuple(sorted(zip(self.participant_mask_hashes, self.participant_source_ids)))
+        if tuple(p[0] for p in expected_pairs) != self.participant_mask_hashes or tuple(p[1] for p in expected_pairs) != self.participant_source_ids:
             raise ValueError("INVALID_INPUT")
         if len(set(self.participant_mask_hashes)) != len(self.participant_mask_hashes) or len(set(self.participant_source_ids)) != len(self.participant_source_ids):
             raise ValueError("INVALID_INPUT")
@@ -246,9 +259,11 @@ class MaskCompatibilityReceipt:
             raise ValueError("INVALID_INPUT")
         if self.compatibility_status not in _ALLOWED_COMPATIBILITY_STATUS or self.compatibility_reason not in _ALLOWED_COMPATIBILITY_REASON:
             raise ValueError("INVALID_INPUT")
-        if len(self.mask_reduction_receipt_hashes) > MAX_COMPATIBILITY_RECORDS or len(self.collision_receipt_hashes) > MAX_COLLISION_RECORDS:
+        if len(self.mask_reduction_receipt_hashes) > MAX_COMPATIBILITY_RECORDS or len(self.collision_receipt_hashes) > MAX_COMPATIBILITY_RECORDS:
             raise ValueError("INVALID_INPUT")
         if tuple(sorted(self.mask_reduction_receipt_hashes)) != self.mask_reduction_receipt_hashes or tuple(sorted(self.collision_receipt_hashes)) != self.collision_receipt_hashes:
+            raise ValueError("INVALID_INPUT")
+        if len(set(self.mask_reduction_receipt_hashes)) != len(self.mask_reduction_receipt_hashes) or len(set(self.collision_receipt_hashes)) != len(self.collision_receipt_hashes):
             raise ValueError("INVALID_INPUT")
         if self.mask_count != len(self.mask_reduction_receipt_hashes) or self.collision_count != len(self.collision_receipt_hashes):
             raise ValueError("INVALID_INPUT")
@@ -355,8 +370,9 @@ def build_mask_collision_receipt(collision_id: str, search_masks: Sequence[Searc
         status, reason, eq = "KNOWN_EQUIVALENT_COLLISION", "EQUIVALENT_IDENTITY_PROVIDED", equivalent_identity_hash
     else:
         status, reason, eq = "INVALID_COLLISION", "MISSING_EQUIVALENCE_PROOF", None
-    pmh = tuple(sorted(m.mask_hash for m in masks))
-    psi = tuple(sorted(m.source_id for m in masks))
+    pairs = tuple(sorted((m.mask_hash, m.source_id) for m in masks))
+    pmh = tuple(p[0] for p in pairs)
+    psi = tuple(p[1] for p in pairs)
     collision_payload = {
         "collision_id": collision_id,
         "mask_version": masks[0].mask_version,
@@ -390,6 +406,8 @@ def build_mask_compatibility_receipt(compatibility_id: str, reduction_receipts: 
         raise ValueError("INVALID_INPUT")
     if collisions and len({c.mask_version for c in collisions}) != 1:
         raise ValueError("INVALID_INPUT")
+    if reductions and collisions and reductions[0].mask_version != collisions[0].mask_version:
+        raise ValueError("INVALID_INPUT")
     mv = reductions[0].mask_version if reductions else (collisions[0].mask_version if collisions else SEARCH_MASK64_VERSION)
     statuses = {c.collision_status for c in collisions}
     if "INVALID_COLLISION" in statuses:
@@ -421,9 +439,27 @@ def validate_mask_compatibility_receipt(receipt: MaskCompatibilityReceipt, reduc
     MaskCompatibilityReceipt(**receipt.__dict__)
     if receipt.compatibility_hash != receipt._compatibility_stable_hash() or receipt.receipt_hash != receipt.stable_hash():
         raise ValueError("INVALID_INPUT")
-    reduction_hashes = tuple(sorted(r.receipt_hash for r in reduction_receipts))
-    collision_hashes = tuple(sorted(c.receipt_hash for c in collision_receipts))
+    reductions = tuple(reduction_receipts)
+    collisions = tuple(collision_receipts)
+    reduction_hashes = tuple(sorted(r.receipt_hash for r in reductions))
+    collision_hashes = tuple(sorted(c.receipt_hash for c in collisions))
     if receipt.mask_reduction_receipt_hashes != reduction_hashes or receipt.collision_receipt_hashes != collision_hashes:
+        raise ValueError("INVALID_INPUT")
+    if reductions and len({r.mask_version for r in reductions}) != 1:
+        raise ValueError("INVALID_INPUT")
+    if collisions and len({c.mask_version for c in collisions}) != 1:
+        raise ValueError("INVALID_INPUT")
+    if reductions and collisions and reductions[0].mask_version != collisions[0].mask_version:
+        raise ValueError("INVALID_INPUT")
+    mv = reductions[0].mask_version if reductions else (collisions[0].mask_version if collisions else SEARCH_MASK64_VERSION)
+    statuses = {c.collision_status for c in collisions}
+    if "INVALID_COLLISION" in statuses:
+        expected_st, expected_rs = "MASK_INCOMPATIBLE", "INVALID_COLLISIONS_PRESENT"
+    elif "KNOWN_EQUIVALENT_COLLISION" in statuses:
+        expected_st, expected_rs = "MASK_COMPATIBLE_WITH_KNOWN_COLLISIONS", "KNOWN_EQUIVALENT_COLLISIONS_PRESENT"
+    else:
+        expected_st, expected_rs = "MASK_COMPATIBLE", "NO_COLLISIONS_DETECTED"
+    if receipt.mask_version != mv or receipt.compatibility_status != expected_st or receipt.compatibility_reason != expected_rs:
         raise ValueError("INVALID_INPUT")
 
 

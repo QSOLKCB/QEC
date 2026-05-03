@@ -2,11 +2,13 @@ import json
 
 import pytest
 
-from qec.analysis.canonical_hashing import canonical_json
+from qec.analysis.canonical_hashing import canonical_json, sha256_hex
 from qec.analysis.search_mask64_contract import (
     MAX_COLLISION_RECORDS,
     MaskCollisionReceipt,
+    MaskCompatibilityReceipt,
     SearchMask64,
+    SEARCH_MASK64_VERSION,
     UINT64_MAX,
     build_mask_collision_receipt,
     build_mask_compatibility_receipt,
@@ -101,3 +103,54 @@ def test_validation_bounds_json_scope():
     for cls in (sm.SearchMask64, sm.MaskReductionReceipt, sm.MaskCollisionReceipt, sm.MaskCompatibilityReceipt):
         for attr in ("apply", "execute", "run", "traverse", "pathfind", "resolve", "project", "readout", "shift", "hilber", "hilbert", "shell", "matrix", "markov"):
             assert not hasattr(cls, attr)
+
+
+def test_version_mismatch_and_tampered_compatibility():
+    p = _payload()
+    m = build_search_mask64("m", "GENERIC", "s", p)
+    r1 = build_mask_reduction_receipt("r1", m, p)
+    c1 = build_mask_collision_receipt("c1", [m])
+
+    # Build a collision receipt with a different mask_version directly
+    c_diff_payload = {
+        "collision_id": "cx",
+        "mask_version": "v_other",
+        "mask_value": m.mask_value,
+        "mask_hex": m.mask_hex,
+        "participant_mask_hashes": [m.mask_hash],
+        "participant_source_ids": [m.source_id],
+        "collision_status": "NO_COLLISION",
+        "collision_reason": "SINGLE_PARTICIPANT",
+        "equivalent_identity_hash": None,
+    }
+    collision_hash = sha256_hex(c_diff_payload)
+    c_diff_receipt_payload = dict(c_diff_payload, collision_hash=collision_hash)
+    c_diff_receipt_hash = sha256_hex(c_diff_receipt_payload)
+    c_diff = MaskCollisionReceipt(**dict(c_diff_receipt_payload, receipt_hash=c_diff_receipt_hash))
+
+    # r1 version == SEARCH_MASK64_VERSION, c_diff version == "v_other" → cross-version mismatch
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        build_mask_compatibility_receipt("test_ver", [r1], [c_diff])
+
+    # Build a valid compatibility receipt (status = MASK_COMPATIBLE)
+    rc = build_mask_compatibility_receipt("ok2", [r1], [c1])
+    assert rc.compatibility_status == "MASK_COMPATIBLE"
+
+    # Tamper the derived fields (status + reason) but recompute hashes consistently
+    tampered_payload = {
+        "compatibility_id": rc.compatibility_id,
+        "mask_version": rc.mask_version,
+        "mask_reduction_receipt_hashes": list(rc.mask_reduction_receipt_hashes),
+        "collision_receipt_hashes": list(rc.collision_receipt_hashes),
+        "mask_count": rc.mask_count,
+        "collision_count": rc.collision_count,
+        "compatibility_status": "MASK_INCOMPATIBLE",
+        "compatibility_reason": "INVALID_COLLISIONS_PRESENT",
+    }
+    tampered_compatibility_hash = sha256_hex(tampered_payload)
+    tampered_receipt_payload = dict(tampered_payload, compatibility_hash=tampered_compatibility_hash)
+    tampered_receipt_hash = sha256_hex(tampered_receipt_payload)
+    tampered_rc = MaskCompatibilityReceipt(**dict(tampered_receipt_payload, receipt_hash=tampered_receipt_hash))
+    # validate must reject despite hash chain being self-consistent
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_mask_compatibility_receipt(tampered_rc, [r1], [c1])

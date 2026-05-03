@@ -6,7 +6,7 @@ from typing import Any, Mapping
 
 from qec.analysis.atomic_semantic_lattice_contract import SemanticLatticeGraph, _validate_graph_internal_consistency
 from qec.analysis.canonical_hashing import canonical_json, sha256_hex
-from qec.analysis.layer_spec_contract import _deep_freeze, _ensure_json_safe
+from qec.analysis.layer_spec_contract import _ensure_json_safe
 from qec.analysis.router_lattice_paths import ResolvedLatticePathSet, RouterPathSpec, SpecialPathIndex
 
 MAX_READOUT_FIELDS = 128
@@ -14,8 +14,20 @@ _ALLOWED_SOURCE_TYPES = {"NODE", "EDGE", "PATH"}
 _ALLOWED_PROJECTION_MODES = {"IDENTITY_HASH", "METADATA_VALUE", "COORDINATE", "CONSTRAINT_PAYLOAD_VALUE", "PATH_IDENTITY"}
 
 
+
+
+def _deep_freeze(value: Any) -> Any:
+    if isinstance(value, dict):
+        return MappingProxyType({k: _deep_freeze(value[k]) for k in sorted(value)})
+    if isinstance(value, list):
+        return tuple(_deep_freeze(v) for v in value)
+    if isinstance(value, tuple):
+        return tuple(_deep_freeze(v) for v in value)
+    return value
+
+
 def _freeze_mapping(mapping: Mapping[str, Any]) -> Mapping[str, Any]:
-    return MappingProxyType(dict((k, _deep_freeze(mapping[k])) for k in sorted(mapping)))
+    return _deep_freeze(dict(mapping))
 
 
 def _deep_thaw(value: Any) -> Any:

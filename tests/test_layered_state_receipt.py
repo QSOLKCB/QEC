@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from types import MappingProxyType
 
 import pytest
@@ -167,8 +168,6 @@ def test_receipt_base_hash_binds_full_reference() -> None:
 
 def test_to_canonical_json_includes_receipt_hash() -> None:
     receipt = build_layered_receipt(_base(), _spec(), {"x": 1})
-    import json
-
     data = json.loads(receipt.to_canonical_json())
     assert "receipt_hash" in data
     assert data["receipt_hash"] == receipt.receipt_hash

@@ -226,16 +226,38 @@ class LayeredTopologyIntegrityReceipt:
     edge_binding_count: int
     topology_integrity_hash: str
     receipt_hash: str
-    def __post_init__(self)->None:
-        if self.topology_integrity_hash and self.topology_integrity_hash != self._topology_hash(): raise ValueError("INVALID_INPUT")
-        if self.receipt_hash and self.receipt_hash != self.stable_hash(): raise ValueError("INVALID_INPUT")
-    def _topology_payload(self)->dict:
-        return {"projection_id":self.projection_id,"semantic_lattice_graph_hash":self.semantic_lattice_graph_hash,"layered_receipt_hash":self.layered_receipt_hash,"base_hash":self.base_hash,"layered_hash":self.layered_hash,"layer_spec_hash":self.layer_spec_hash,"layer_payload_hash":self.layer_payload_hash,"node_binding_hashes":list(self.node_binding_hashes),"edge_binding_hashes":list(self.edge_binding_hashes),"node_binding_count":self.node_binding_count,"edge_binding_count":self.edge_binding_count}
-    def _topology_hash(self)->str:
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "node_binding_hashes", tuple(self.node_binding_hashes))
+        object.__setattr__(self, "edge_binding_hashes", tuple(self.edge_binding_hashes))
+        if self.node_binding_count != len(self.node_binding_hashes):
+            raise ValueError("INVALID_INPUT")
+        if self.edge_binding_count != len(self.edge_binding_hashes):
+            raise ValueError("INVALID_INPUT")
+        _ensure_json_safe(self._topology_payload())
+        if self.topology_integrity_hash and self.topology_integrity_hash != self._topology_hash():
+            raise ValueError("INVALID_INPUT")
+        if self.receipt_hash and self.receipt_hash != self.stable_hash():
+            raise ValueError("INVALID_INPUT")
+
+    def _topology_payload(self) -> dict:
+        return {"projection_id": self.projection_id, "semantic_lattice_graph_hash": self.semantic_lattice_graph_hash, "layered_receipt_hash": self.layered_receipt_hash, "base_hash": self.base_hash, "layered_hash": self.layered_hash, "layer_spec_hash": self.layer_spec_hash, "layer_payload_hash": self.layer_payload_hash, "node_binding_hashes": list(self.node_binding_hashes), "edge_binding_hashes": list(self.edge_binding_hashes), "node_binding_count": self.node_binding_count, "edge_binding_count": self.edge_binding_count}
+
+    def _topology_hash(self) -> str:
         return sha256_hex(self._topology_payload())
-    def _canonical_payload(self)->dict:
-        p=dict(self._topology_payload(),topology_integrity_hash=self.topology_integrity_hash); _ensure_json_safe(p); return p
-    def stable_hash(self)->str: return sha256_hex(self._canonical_payload())
+
+    def _canonical_payload(self) -> dict:
+        p = dict(self._topology_payload(), topology_integrity_hash=self.topology_integrity_hash)
+        _ensure_json_safe(p)
+        return p
+
+    def stable_hash(self) -> str:
+        return sha256_hex(self._canonical_payload())
+
+    def to_dict(self) -> dict:
+        return dict(self._canonical_payload(), receipt_hash=self.receipt_hash)
+
+    def to_canonical_json(self) -> str:
+        return canonical_json(self._canonical_payload())
 
 
 @dataclass(frozen=True)
@@ -325,4 +347,5 @@ _assert_no_v153_3_forbidden_scope()
 __all__ = [
     "LayeredNodeBinding", "LayeredEdgeBinding", "LayeredLatticeProjectionSpec", "LayeredTopologyIntegrityReceipt", "LayeredLatticeProjectionReceipt",
     "build_layered_lattice_projection_spec", "build_layered_topology_integrity_receipt", "build_layered_lattice_projection_receipt", "validate_layered_lattice_projection_receipt",
+    "MAX_LAYERED_NODE_BINDINGS", "MAX_LAYERED_EDGE_BINDINGS",
 ]

@@ -1,15 +1,15 @@
 # QSOLKCB / QEC
 
-> QEC is a deterministic, multi-agent reasoning and proof system for quantum error correction, invariant-driven computation, real-world ingestion, semantic resonance, governance, distributed convergence, atomic semantic lattices, router/readout proof, reversible layers, search masks, Hilber/Hilbert shift projection, functional readout composition, deterministic Markov-compatible transition bases, and full lattice replay/drift alignment.
+> QEC is a deterministic, multi-agent reasoning and proof system for quantum error correction, invariant-driven computation, real-world ingestion, semantic resonance, governance, distributed convergence, atomic semantic lattices, router/readout proof, reversible layers, search masks, Hilber/Hilbert shift projection, functional readout composition, deterministic Markov-compatible transition bases, full lattice replay/drift alignment, and multi-scale subgraph invariance receipts.
 
-**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Stability**
+**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Stability • Multi-Scale Invariance**
 
 ---
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v153.9-success)](https://github.com/QSOLKCB/QEC/releases/tag/v153.9)
+[![Latest](https://img.shields.io/badge/stable-v154.1-success)](https://github.com/QSOLKCB/QEC/releases/tag/v154.1)
 [![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
 
 ---
@@ -27,7 +27,7 @@
 
 ## 🧩 System Properties
 
-[![Branch](https://img.shields.io/badge/branch-v153%20canonical-purple)]()
+[![Branch](https://img.shields.io/badge/branch-v154%20canonical-purple)]()
 [![Architecture](https://img.shields.io/badge/architecture-deterministic%20proof%20system-blueviolet)]()
 [![Determinism](https://img.shields.io/badge/determinism-byte--identical-success)]()
 [![Replay](https://img.shields.io/badge/replay-lattice%20drift%20aligned-green)]()
@@ -37,6 +37,7 @@
 [![Lattice](https://img.shields.io/badge/lattice-atomic%20semantic%20state%20space-blue)]()
 [![Router](https://img.shields.io/badge/router-deterministic%20path%20proof-blue)]()
 [![Readout](https://img.shields.io/badge/readout-source--bound%20projection-blue)]()
+[![Scale](https://img.shields.io/badge/scale-multi--scale%20invariance-blue)]()
 [![Proof](https://img.shields.io/badge/proof-system--level-critical)]()
 [![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
@@ -44,7 +45,7 @@
 
 # 🚀 What QEC Is
 
-QEC is a deterministic, replay-safe reasoning system that turns computation, evidence, semantic alignment, validation, governance, lattice topology, router paths, readout projections, compatibility masks, shift projections, kernel/shell composition, deterministic transition bases, and replay alignment into **canonical proof artifacts**.
+QEC is a deterministic, replay-safe reasoning system that turns computation, evidence, semantic alignment, validation, governance, lattice topology, router paths, readout projections, compatibility masks, shift projections, kernel/shell composition, deterministic transition bases, replay alignment, subgraph invariant patterns, and multi-scale occurrence aggregation into **canonical proof artifacts**.
 
 It is designed for quantum error correction and invariant-driven computation, but its current architecture is broader:
 
@@ -72,6 +73,8 @@ untrusted input
 → functional kernel + readout shell composition receipt
 → readout matrix / deterministic Markov-basis receipt
 → lattice drift + replay alignment proof
+→ subgraph invariant pattern receipt
+→ multi-scale invariant receipt
 ```
 
 QEC is not merely a runtime. It is a system that:
@@ -99,6 +102,8 @@ QEC is not merely a runtime. It is a system that:
 * stores readout combinations in deterministic matrix form
 * derives Markov-compatible transition bases without stochastic behavior
 * detects lattice/router/readout/mask/shift/kernel/matrix drift under replay
+* identifies canonical subgraph invariant patterns
+* aggregates invariant occurrences across explicit scale indices
 * emits hash-stable proof receipts
 
 It determines:
@@ -117,6 +122,8 @@ whether the lattice topology is stable
 whether router paths resolve identically
 whether readout projections remain source-bound
 whether masks, shifts, kernels, shells, matrices, and transitions replay exactly
+whether subgraph structure is invariant
+whether invariant occurrences aggregate consistently across scale
 ```
 
 ---
@@ -213,7 +220,7 @@ Violation → **SYSTEM INVALID**
 
 ---
 
-# 🧱 Current Architecture — v153.9
+# 🧱 Current Architecture — v154.1
 
 ## Implemented proof chain
 
@@ -245,6 +252,8 @@ ExtractionReceipt
 → ReadoutMatrixReceipt
 → MarkovBasisReceipt
 → LatticeReplayProofReceipt
+→ SubgraphInvariantPatternReceipt
+→ MultiScaleInvariantReceipt
 ```
 
 ## Current capability line
@@ -275,6 +284,9 @@ v153.6   → Hilber/Hilbert Shift Projection
 v153.7   → Functional Kernel + Readout Shell Architecture
 v153.8   → Readout Combination Matrix + Markov Basis
 v153.9   → Lattice Drift + Replay Alignment
+v154.0   → SubgraphInvariantPattern Contract
+v154.0.1 → Detection Semantics Clarification + Input Validation Hardening
+v154.1   → Multi-Scale Invariant Receipts
 ```
 
 ---
@@ -293,6 +305,37 @@ semantic lattice inputs
 → Functional Kernel + Readout Shells    (ORDERED COMPOSITION IDENTITY)
 → Readout Combination Matrix            (DETERMINISTIC 2D TRANSITION BASIS)
 → Lattice Drift + Replay Alignment      (FULL PIPELINE REPLAY PROOF)
+```
+
+---
+
+## v154 Pipeline
+
+```text
+lattice replay baseline
+→ SubgraphInvariantPattern Contract     (CANONICAL STRUCTURAL IDENTITY)
+→ Detection Semantics Hardening         (WHOLE-GRAPH MATCH CLARITY)
+→ Multi-Scale Invariant Receipts        (SCALE-LEVEL AGGREGATION)
+```
+
+v154 currently proves:
+
+```text
+same pattern
++ same occurrences
++ same explicit scale_index values
+→ same scale summaries
+→ same multi-scale invariant receipt
+```
+
+Current v154 scope:
+
+```text
+no traversal
+no recursive subgraph enumeration
+no implicit scale insertion
+no probabilistic matching
+no Sierpinski compression yet
 ```
 
 ---
@@ -360,6 +403,8 @@ observe
 → compose shells deterministically
 → build transition bases
 → detect drift exactly
+→ identify invariant subgraph structure
+→ aggregate occurrences across explicit scales
 ```
 
 QEC shifts computation from:
@@ -428,6 +473,11 @@ QEC currently performs:
 * deterministic readout combination matrix construction
 * deterministic Markov-compatible transition-basis construction
 * exact lattice drift and replay alignment across the v153 pipeline
+* canonical subgraph invariant pattern construction
+* scale-bound occurrence representation
+* deterministic scale-level summary construction
+* multi-scale invariant receipt aggregation
+* pattern-consistent cross-scale validation
 
 ---
 
@@ -475,6 +525,7 @@ Current artifact families include:
 | Functional readout shell | `CoreKernelSpec`, `DerivedKernelSpec`, `ReadoutShellStack`, `ReadoutCompositionReceipt` |
 | Matrix / Markov basis | `ReadoutCombinationMatrix`, `ReadoutMatrixReceipt`, `MarkovBasisReceipt`, `ReadoutTransitionReceipt` |
 | Lattice replay | `LatticeDriftReceipt`, `RouterReplayReceipt`, `ReadoutReplayReceipt`, `MaskReplayReceipt`, `ShiftReplayReceipt`, `KernelReplayReceipt`, `ReadoutMatrixReplayReceipt`, `LatticeReplayProofReceipt` |
+| Multi-scale invariance | `SubgraphInvariantPattern`, `SubgraphOccurrence`, `SubgraphInvariantPatternReceipt`, `ScaleLevelSummary`, `MultiScaleInvariantReceipt` |
 
 ---
 
@@ -520,7 +571,7 @@ issue
 → necessary / equivalent / dominated / unresolved
 ```
 
-This remains part of the broader QEC reasoning model. The current v153.9 line extends the same deterministic proof discipline into semantic lattice topology, router/readout proof, compatibility reduction, shift projection, kernel/shell composition, readout matrix construction, and replay/drift alignment.
+This remains part of the broader QEC reasoning model. The current v154.1 line extends the same deterministic proof discipline into semantic lattice topology, router/readout proof, compatibility reduction, shift projection, kernel/shell composition, readout matrix construction, replay/drift alignment, and multi-scale invariant aggregation.
 
 ---
 
@@ -547,6 +598,9 @@ observe
 → compose kernels and shells
 → build transition matrix
 → align replay and detect drift
+→ identify invariant subgraph pattern
+→ aggregate occurrences by scale
+→ validate multi-scale invariant receipt
 → confirm
 ```
 
@@ -660,7 +714,7 @@ Missing optional tools should produce explicit skips, not hidden failures.
 QEC uses two related version lines:
 
 * **Python package version** — the installable package version declared in `pyproject.toml`
-* **Research / capability release tags** — the QEC system state published through GitHub tags, such as `v150.9`, `v151.8`, `v152.4`, `v153.0`, and `v153.9`
+* **Research / capability release tags** — the QEC system state published through GitHub tags, such as `v150.9`, `v151.8`, `v152.4`, `v153.9`, and `v154.1`
 
 Release tags describe deterministic reasoning/proof-system capability state.
 
@@ -683,15 +737,16 @@ v150.9 distributed convergence proof
 v151.0–v151.8 real-world ingestion, semantic resonance, governance, proof, determinism, and replay validation
 v152.0–v152.4 reversible layered-state receipts, removal proof, compression equivalence, and fractal invariant compression
 v153.0–v153.9 atomic semantic lattice topology, router paths, readout projections, layered lattice projection, QAM compatibility metadata, SearchMask64, Hilber/Hilbert shift, functional readout shell composition, readout matrix / Markov basis, and lattice replay/drift alignment
+v154.0–v154.1 subgraph invariant pattern contracts, detection semantics hardening, and multi-scale invariant receipts
 ```
 
 Next roadmap frontier:
 
 ```text
-v154.0 → SubgraphInvariantPattern Contract
+v154.2 → Sierpinski Compression
 ```
 
-Future arcs move into multi-scale subgraph invariance, deterministic decay signatures, perturbation validation, substrate constraints, recursive proof loops, reality-loop integration, and global deterministic truth validation.
+Future arcs move into deterministic decay signatures, perturbation validation, substrate constraints, recursive proof loops, reality-loop integration, and global deterministic truth validation.
 
 ---
 
@@ -726,6 +781,8 @@ This means:
 * semantic lattice topology can be proven stable
 * router and readout identities can be replayed exactly
 * masks, shifts, kernels, shells, matrices, and transitions can be drift-checked deterministically
+* invariant subgraph structure can be identified canonically
+* multi-scale occurrence aggregation can be proven without traversal or inference
 
 ---
 
@@ -738,6 +795,8 @@ Quantum Sphaera Companion v3.30.0
 [https://doi.org/10.5281/zenodo.19682951](https://doi.org/10.5281/zenodo.19682951)
 
 Attribution is informational and does not influence QEC canonical identity, hashing, receipts, validators, or proof semantics.
+
+Note: v154.0, v154.0.1, and v154.1 are native QEC subgraph-invariance releases and do not introduce QAM/router/readout lineage attribution.
 
 License: CC-BY-4.0
 

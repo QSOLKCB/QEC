@@ -15,11 +15,9 @@ class SubgraphInvariantPattern:
     pattern_id: str
     node_label_multiset: tuple[str, ...]
     # NOTE:
-    # Constraint identity is defined as independent multisets of:
-    # - edge_label_multiset (constraint_type values in first tuple slot)
-    # - constraint_payload_hashes (second tuple slot)
-    # This does NOT preserve pairing between edge_label and constraint_payload_hash.
-    # This is intentional for v154.0 structural invariance and may be refined later.
+    # Constraint identity is defined as a sorted multiset of
+    # (constraint_type, constraint_payload_hash) pairs.
+    # Pairing between constraint_type and constraint_payload_hash IS preserved.
     constraint_edge_pairs: tuple[tuple[str, str], ...]
     pattern_hash: str
 

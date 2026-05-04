@@ -312,21 +312,6 @@ def test_build_subgraph_invariant_pattern_rejects_non_string_inputs():
         build_subgraph_invariant_pattern(["A"], [("x", 123)])
 
 
-def test_invalid_node_labels_type():
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
-        build_subgraph_invariant_pattern(["A", 1], [("adjacent", "a" * 64)])
-
-
-def test_invalid_edge_labels_type():
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
-        build_subgraph_invariant_pattern(["A"], [(1, "a" * 64)])
-
-
-def test_invalid_constraint_payload_hashes_type():
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
-        build_subgraph_invariant_pattern(["A"], [("adjacent", 1)])
-
-
 def test_scale_index_bool_rejected():
     g = _graph()
     p = build_subgraph_invariant_pattern(["A", "B"], [("adjacent", g.edges[0].constraint_payload_hash)])

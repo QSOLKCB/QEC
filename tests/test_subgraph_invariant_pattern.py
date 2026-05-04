@@ -310,3 +310,38 @@ def test_build_subgraph_invariant_pattern_rejects_non_string_inputs():
         build_subgraph_invariant_pattern(["A"], [(123, "a" * 64)])
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         build_subgraph_invariant_pattern(["A"], [("x", 123)])
+
+
+def test_invalid_node_labels_type():
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        build_subgraph_invariant_pattern(["A", 1], [("adjacent", "a" * 64)])
+
+
+def test_invalid_edge_labels_type():
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        build_subgraph_invariant_pattern(["A"], [(1, "a" * 64)])
+
+
+def test_invalid_constraint_payload_hashes_type():
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        build_subgraph_invariant_pattern(["A"], [("adjacent", 1)])
+
+
+def test_scale_index_bool_rejected():
+    g = _graph()
+    p = build_subgraph_invariant_pattern(["A", "B"], [("adjacent", g.edges[0].constraint_payload_hash)])
+    with pytest.raises(ValueError, match="INVALID_SCALE_INDEX"):
+        match_graph_to_pattern(p, g, True)
+
+
+def test_whole_graph_match_only():
+    g = _graph()
+    p = build_subgraph_invariant_pattern(["A", "B"], [("adjacent", g.edges[0].constraint_payload_hash)])
+    modified = build_semantic_lattice_graph(
+        "l",
+        "153.9",
+        _bounds(),
+        g.nodes,
+        (_edge("e1_mod", "n1", "n2", "adjacent", {"k": "modified"}),),
+    )
+    assert match_graph_to_pattern(p, modified, 0) == []

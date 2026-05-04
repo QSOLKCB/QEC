@@ -99,6 +99,59 @@ def test_transition_and_immutability_and_scope():
     assert forbidden.isdisjoint(module_exports)
 
 
+def test_receipt_count_invariants_reject_bool_and_inconsistent_counts():
+    m = _matrix()
+    r = build_readout_matrix_receipt("mr", m)
+    d = r.to_dict()
+    d["row_count"] = True
+    d["matrix_receipt_hash"] = _h("a")
+    d["receipt_hash"] = _h("b")
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ReadoutMatrixReceipt(**d)
+    d2 = r.to_dict()
+    d2["cell_count"] = 999
+    d2["matrix_receipt_hash"] = _h("a")
+    d2["receipt_hash"] = _h("b")
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ReadoutMatrixReceipt(**d2)
+    d3 = r.to_dict()
+    d3["row_count"] = 5
+    d3["matrix_receipt_hash"] = _h("a")
+    d3["receipt_hash"] = _h("b")
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ReadoutMatrixReceipt(**d3)
+
+
+def test_markov_basis_receipt_transition_count_rejects_bool():
+    m = _matrix()
+    r = build_readout_matrix_receipt("mr", m)
+    b = build_markov_basis_receipt("mb", m, r)
+    d = b.to_dict()
+    d["transition_count"] = True
+    d["deterministic_transition_basis_hash"] = _h("a")
+    d["receipt_hash"] = _h("b")
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        MarkovBasisReceipt(**d)
+
+
+def test_transition_receipt_validity_consistency():
+    m = _matrix()
+    r = build_readout_matrix_receipt("mr", m)
+    b = build_markov_basis_receipt("mb", m, r)
+    tr = build_readout_transition_receipt("tr", b, 0)
+    d = tr.to_dict()
+    d["transition_valid"] = False
+    d["transition_reason"] = "EXPLICIT_ADJACENT_TRANSITION"
+    d["receipt_hash"] = _h("x")
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ReadoutTransitionReceipt(**d)
+    d2 = tr.to_dict()
+    d2["transition_valid"] = 1
+    d2["receipt_hash"] = _h("y")
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ReadoutTransitionReceipt(**d2)
+
+
 def test_v153_8_scope_guard_uses_runtime_attribute_check(monkeypatch):
     import qec.analysis.readout_combination_matrix as m
 

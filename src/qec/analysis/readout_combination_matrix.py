@@ -31,7 +31,6 @@ _ALLOWED_COLUMN_SOURCE_TYPES = {
 }
 _ALLOWED_TRANSITION_REASONS = {
     "EXPLICIT_ADJACENT_TRANSITION",
-    "INVALID_TRANSITION_INDEX",
     "STATE_HASH_MISMATCH",
 }
 
@@ -204,6 +203,16 @@ class ReadoutMatrixReceipt:
             raise ValueError("INVALID_INPUT")
         if self.row_source_type not in _ALLOWED_ROW_SOURCE_TYPES or self.column_source_type not in _ALLOWED_COLUMN_SOURCE_TYPES:
             raise ValueError("INVALID_INPUT")
+        if isinstance(self.row_count, bool) or not isinstance(self.row_count, int) or self.row_count <= 0:
+            raise ValueError("INVALID_INPUT")
+        if isinstance(self.column_count, bool) or not isinstance(self.column_count, int) or self.column_count <= 0:
+            raise ValueError("INVALID_INPUT")
+        if isinstance(self.cell_count, bool) or not isinstance(self.cell_count, int) or self.cell_count <= 0:
+            raise ValueError("INVALID_INPUT")
+        if self.cell_count != self.row_count * self.column_count:
+            raise ValueError("INVALID_INPUT")
+        if self.cell_count != len(self.cell_identity_hashes):
+            raise ValueError("INVALID_INPUT")
         if any(not _is_sha256_hex(x) for x in (self.matrix_hash, self.row_order_hash, self.column_order_hash, self.matrix_receipt_hash, self.receipt_hash)):
             raise ValueError("INVALID_INPUT")
         if any(not _is_sha256_hex(x) for x in self.cell_identity_hashes):
@@ -264,6 +273,8 @@ class MarkovBasisReceipt:
             raise ValueError("INVALID_INPUT")
         if len(set(self.state_identity_hashes)) != len(self.state_identity_hashes):
             raise ValueError("INVALID_INPUT")
+        if isinstance(self.transition_count, bool) or not isinstance(self.transition_count, int) or self.transition_count < 0:
+            raise ValueError("INVALID_INPUT")
         if self.transition_count != len(self.transition_identity_hashes):
             raise ValueError("INVALID_INPUT")
         if self.transition_count != max(0, len(self.state_identity_hashes) - 1) or self.transition_count > MAX_TRANSITIONS:
@@ -315,7 +326,13 @@ class ReadoutTransitionReceipt:
             raise ValueError("INVALID_INPUT")
         if any(not _is_sha256_hex(x) for x in (self.markov_basis_receipt_hash, self.from_state_hash, self.to_state_hash, self.transition_identity_hash, self.receipt_hash)):
             raise ValueError("INVALID_INPUT")
+        if not isinstance(self.transition_valid, bool):
+            raise ValueError("INVALID_INPUT")
         if self.transition_reason not in _ALLOWED_TRANSITION_REASONS:
+            raise ValueError("INVALID_INPUT")
+        if self.transition_valid and self.transition_reason != "EXPLICIT_ADJACENT_TRANSITION":
+            raise ValueError("INVALID_INPUT")
+        if not self.transition_valid and self.transition_reason not in {"STATE_HASH_MISMATCH"}:
             raise ValueError("INVALID_INPUT")
         if self.transition_identity_hash != _transition_identity(self.from_state_hash, self.to_state_hash, self.transition_index):
             raise ValueError("INVALID_INPUT")

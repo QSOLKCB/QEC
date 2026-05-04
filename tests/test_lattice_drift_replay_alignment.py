@@ -38,6 +38,19 @@ def test_scope_guard_and_no_v154_exports():
         delattr(m.LatticeDriftReceipt, "execute")
 
 
+def test_source_receipt_hash_semantics():
+    expected_hash, recomputed_hash, source_hash = "a" * 64, "b" * 64, "c" * 64
+    # distinct source_receipt_hash is preserved in the receipt
+    receipt = m.build_lattice_drift_receipt("d_src", "ROUTER_PATH", "x", expected_hash, expected_hash, source_hash)
+    assert receipt.source_receipt_hash == source_hash
+    # tampering source_receipt_hash triggers INVALID_INPUT
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        m.LatticeDriftReceipt(**{**receipt.__dict__, "source_receipt_hash": "d" * 64})
+    # REPLAY_MISSING case forces source_receipt_hash to empty
+    missing_receipt = m.build_lattice_drift_receipt("d_miss", "ROUTER_PATH", "x", expected_hash, recomputed_hash, source_hash, missing=True)
+    assert missing_receipt.source_receipt_hash == ""
+
+
 def test_json_safe_dict_roundtrip():
     h1 = "a" * 64
     receipt = m.build_lattice_drift_receipt("d", "READOUT_MATRIX", "z", h1, h1, h1)

@@ -14,6 +14,10 @@ _VALID_SCALES = {0, 1, 2}
 class SubgraphInvariantPattern:
     pattern_id: str
     node_label_multiset: tuple[str, ...]
+    # NOTE:
+    # Constraint identity is defined as a sorted multiset of
+    # (constraint_type, constraint_payload_hash) pairs.
+    # Pairing between constraint_type and constraint_payload_hash IS preserved.
     constraint_edge_pairs: tuple[tuple[str, str], ...]
     pattern_hash: str
 
@@ -156,6 +160,10 @@ def _receipt_hash_payload(pattern: SubgraphInvariantPattern, occurrences: tuple[
 
 
 def build_subgraph_invariant_pattern(node_labels: list[str], constraint_edge_pairs: list[tuple[str, str]]) -> SubgraphInvariantPattern:
+    if not isinstance(node_labels, list):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(constraint_edge_pairs, list):
+        raise ValueError("INVALID_INPUT")
     if not all(isinstance(lbl, str) for lbl in node_labels):
         raise ValueError("INVALID_INPUT")
     if not all(isinstance(p, tuple) and len(p) == 2 and isinstance(p[0], str) and isinstance(p[1], str) for p in constraint_edge_pairs):
@@ -169,12 +177,16 @@ def build_subgraph_invariant_pattern(node_labels: list[str], constraint_edge_pai
 
 
 def match_graph_to_pattern(pattern: SubgraphInvariantPattern, graph: SemanticLatticeGraph, scale_index: int) -> list[SubgraphOccurrence]:
-    """Validate that the entire graph matches a pattern and return a single occurrence if it does.
+    """Perform whole-graph structural matching only.
 
-    This function checks if the whole graph's node label multiset and constraint edge pairs
-    exactly match the pattern. It does NOT perform subgraph enumeration. Returns an empty
-    list if the graph does not match, or a single-element list with a SubgraphOccurrence
-    representing all nodes in the graph.
+    This function checks if the entire graph's node label multiset and constraint edge pairs
+    exactly match the pattern. It does NOT enumerate subgraphs.
+
+    Returns:
+    - [SubgraphOccurrence] if the entire graph matches the pattern
+    - [] otherwise
+
+    Full subgraph enumeration is intentionally out of scope for v154.0.
     """
     _require_scale_index(scale_index)
     node_ids = {n.node_id for n in graph.nodes}

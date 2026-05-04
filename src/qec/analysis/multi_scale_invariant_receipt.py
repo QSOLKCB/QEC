@@ -3,7 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from qec.analysis.canonical_hashing import sha256_hex
-from qec.analysis.subgraph_invariant_pattern import SubgraphInvariantPattern, SubgraphOccurrence
+from qec.analysis.subgraph_invariant_pattern import (
+    SubgraphInvariantPattern,
+    SubgraphOccurrence,
+    _is_sorted_pair_tuple,
+    _is_sorted_str_tuple,
+    _pattern_hash_payload_raw,
+    _pattern_id_payload,
+    _require_constraint_edge_pairs,
+)
 
 _VALID_SCALES = {0, 1, 2}
 
@@ -20,6 +28,8 @@ class ScaleLevelSummary:
         if not isinstance(self.scale_index, int) or isinstance(self.scale_index, bool) or self.scale_index not in _VALID_SCALES:
             raise ValueError("INVALID_SCALE_INDEX")
         if tuple(sorted(self.occurrence_hashes)) != self.occurrence_hashes:
+            raise ValueError("INVALID_INPUT")
+        if not isinstance(self.occurrence_count, int) or isinstance(self.occurrence_count, bool):
             raise ValueError("INVALID_INPUT")
         if self.occurrence_count != len(self.occurrence_hashes):
             raise ValueError("OCCURRENCE_COUNT_MISMATCH")
@@ -74,6 +84,8 @@ class MultiScaleInvariantReceipt:
             if summary.pattern_id != self.pattern.pattern_id:
                 raise ValueError("INVALID_INPUT")
 
+        if not isinstance(self.total_occurrence_count, int) or isinstance(self.total_occurrence_count, bool):
+            raise ValueError("INVALID_INPUT")
         expected_total = sum(summary.occurrence_count for summary in self.scale_summaries)
         if self.total_occurrence_count != expected_total:
             raise ValueError("OCCURRENCE_COUNT_MISMATCH")
@@ -135,7 +147,8 @@ def build_scale_level_summary(
     scale_index: int,
     occurrences: list[SubgraphOccurrence],
 ) -> ScaleLevelSummary:
-    occurrence_hashes = tuple(sorted(o.occurrence_hash for o in occurrences if o.scale_index == scale_index))
+    filtered = [o for o in occurrences if o.scale_index == scale_index and o.pattern_id == pattern_id]
+    occurrence_hashes = tuple(sorted(o.occurrence_hash for o in filtered))
     occurrence_count = len(occurrence_hashes)
     scale_hash = sha256_hex(_scale_hash_payload(pattern_id, scale_index, occurrence_hashes, occurrence_count))
     return ScaleLevelSummary(pattern_id, scale_index, occurrence_hashes, occurrence_count, scale_hash)
@@ -154,6 +167,8 @@ def build_multi_scale_invariant_receipt(
 
     by_scale: dict[int, list[SubgraphOccurrence]] = {}
     for occurrence in occurrences:
+        if occurrence.pattern_id != pattern.pattern_id:
+            raise ValueError("INVALID_INPUT")
         by_scale.setdefault(occurrence.scale_index, []).append(occurrence)
 
     summaries = tuple(
@@ -174,7 +189,31 @@ def build_multi_scale_invariant_receipt(
 def validate_multi_scale_invariant_receipt(
     receipt: MultiScaleInvariantReceipt,
 ) -> bool:
+    """Validate receipt integrity including nested pattern and summary objects.
+
+    This function revalidates all nested objects to prevent accepting tampered receipts
+    where an attacker mutated nested data and recomputed the outer receipt_hash.
+    """
     if not isinstance(receipt.pattern, SubgraphInvariantPattern):
+        raise ValueError("INVALID_INPUT")
+
+    # Revalidate the nested pattern by reconstructing it
+    pattern = receipt.pattern
+    if not _is_sorted_str_tuple(pattern.node_label_multiset):
+        raise ValueError("INVALID_INPUT")
+    if not _is_sorted_pair_tuple(pattern.constraint_edge_pairs):
+        raise ValueError("INVALID_INPUT")
+    _require_constraint_edge_pairs(pattern.constraint_edge_pairs)
+
+    expected_pattern_id = sha256_hex(_pattern_id_payload(pattern.node_label_multiset, pattern.constraint_edge_pairs))
+    if pattern.pattern_id != expected_pattern_id:
+        raise ValueError("HASH_MISMATCH")
+    expected_pattern_hash = sha256_hex(_pattern_hash_payload_raw(pattern.pattern_id, pattern.node_label_multiset, pattern.constraint_edge_pairs))
+    if pattern.pattern_hash != expected_pattern_hash:
+        raise ValueError("HASH_MISMATCH")
+
+    # Validate total_occurrence_count type
+    if not isinstance(receipt.total_occurrence_count, int) or isinstance(receipt.total_occurrence_count, bool):
         raise ValueError("INVALID_INPUT")
 
     expected_scale_summaries = tuple(sorted(receipt.scale_summaries, key=lambda s: s.scale_index))
@@ -183,12 +222,28 @@ def validate_multi_scale_invariant_receipt(
 
     seen: set[int] = set()
     for summary in receipt.scale_summaries:
+        # Validate scale_index type, non-bool, and membership in valid scales
+        if not isinstance(summary.scale_index, int) or isinstance(summary.scale_index, bool) or summary.scale_index not in _VALID_SCALES:
+            raise ValueError("INVALID_SCALE_INDEX")
+
         if summary.scale_index in seen:
             raise ValueError("INVALID_INPUT")
         seen.add(summary.scale_index)
 
         if summary.pattern_id != receipt.pattern.pattern_id:
             raise ValueError("INVALID_INPUT")
+
+        # Validate occurrence_count type
+        if not isinstance(summary.occurrence_count, int) or isinstance(summary.occurrence_count, bool):
+            raise ValueError("INVALID_INPUT")
+
+        # Validate occurrence_hashes is sorted
+        if tuple(sorted(summary.occurrence_hashes)) != summary.occurrence_hashes:
+            raise ValueError("INVALID_INPUT")
+
+        # Validate occurrence_count matches len(occurrence_hashes)
+        if summary.occurrence_count != len(summary.occurrence_hashes):
+            raise ValueError("OCCURRENCE_COUNT_MISMATCH")
 
         expected_scale_hash = sha256_hex(
             _scale_hash_payload(

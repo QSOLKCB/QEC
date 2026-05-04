@@ -161,3 +161,197 @@ def test_scale_summary_pattern_id_mismatch():
             total_occurrence_count=1,
             receipt_hash="invalid",
         )
+
+
+def test_bool_occurrence_count_rejection_in_scale_summary():
+    """ScaleLevelSummary rejects boolean occurrence_count (bool is subclass of int)."""
+    pattern, occ = _pattern_and_occurrences()
+    summary = build_scale_level_summary(pattern.pattern_id, 0, occ)
+    # Try to create summary with bool occurrence_count bypassing __post_init__ would fail
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        ScaleLevelSummary(
+            pattern_id=summary.pattern_id,
+            scale_index=summary.scale_index,
+            occurrence_hashes=summary.occurrence_hashes,
+            occurrence_count=True,
+            scale_hash=summary.scale_hash,
+        )
+
+
+def test_bool_total_occurrence_count_rejection_in_receipt():
+    """MultiScaleInvariantReceipt rejects boolean total_occurrence_count."""
+    pattern, occ = _pattern_and_occurrences()
+    receipt = build_multi_scale_invariant_receipt(pattern, occ)
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        MultiScaleInvariantReceipt(
+            pattern=receipt.pattern,
+            scale_summaries=receipt.scale_summaries,
+            total_occurrence_count=True,
+            receipt_hash=receipt.receipt_hash,
+        )
+
+
+def test_mismatched_pattern_id_in_builder_rejected():
+    """build_multi_scale_invariant_receipt rejects occurrences with mismatched pattern_id."""
+    pattern, occ = _pattern_and_occurrences()
+    other_pattern = build_subgraph_invariant_pattern(["B"], [("edge", "b" * 64)])
+
+    # Create an occurrence with a different pattern_id
+    foreign_occ = SubgraphOccurrence(
+        other_pattern.pattern_id, 0, ("n_other",),
+        sha256_hex({"pattern_id": other_pattern.pattern_id, "scale_index": 0, "source_node_ids": ("n_other",)})
+    )
+
+    mixed_occurrences = occ + [foreign_occ]
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        build_multi_scale_invariant_receipt(pattern, mixed_occurrences)
+
+
+def test_validate_catches_tampered_pattern_id():
+    """validate_multi_scale_invariant_receipt catches tampered pattern.pattern_id."""
+    pattern, occ = _pattern_and_occurrences()
+    receipt = build_multi_scale_invariant_receipt(pattern, occ)
+
+    # Tamper pattern_id via __new__
+    tampered_pattern = type(receipt.pattern).__new__(type(receipt.pattern))
+    object.__setattr__(tampered_pattern, "pattern_id", "0" * 64)
+    object.__setattr__(tampered_pattern, "node_label_multiset", receipt.pattern.node_label_multiset)
+    object.__setattr__(tampered_pattern, "constraint_edge_pairs", receipt.pattern.constraint_edge_pairs)
+    object.__setattr__(tampered_pattern, "pattern_hash", receipt.pattern.pattern_hash)
+
+    tampered_receipt = MultiScaleInvariantReceipt.__new__(MultiScaleInvariantReceipt)
+    object.__setattr__(tampered_receipt, "pattern", tampered_pattern)
+    object.__setattr__(tampered_receipt, "scale_summaries", receipt.scale_summaries)
+    object.__setattr__(tampered_receipt, "total_occurrence_count", receipt.total_occurrence_count)
+    object.__setattr__(tampered_receipt, "receipt_hash", receipt.receipt_hash)
+
+    with pytest.raises(ValueError, match="HASH_MISMATCH"):
+        validate_multi_scale_invariant_receipt(tampered_receipt)
+
+
+def test_validate_catches_tampered_pattern_hash():
+    """validate_multi_scale_invariant_receipt catches tampered pattern.pattern_hash."""
+    pattern, occ = _pattern_and_occurrences()
+    receipt = build_multi_scale_invariant_receipt(pattern, occ)
+
+    tampered_pattern = type(receipt.pattern).__new__(type(receipt.pattern))
+    object.__setattr__(tampered_pattern, "pattern_id", receipt.pattern.pattern_id)
+    object.__setattr__(tampered_pattern, "node_label_multiset", receipt.pattern.node_label_multiset)
+    object.__setattr__(tampered_pattern, "constraint_edge_pairs", receipt.pattern.constraint_edge_pairs)
+    object.__setattr__(tampered_pattern, "pattern_hash", "0" * 64)
+
+    tampered_receipt = MultiScaleInvariantReceipt.__new__(MultiScaleInvariantReceipt)
+    object.__setattr__(tampered_receipt, "pattern", tampered_pattern)
+    object.__setattr__(tampered_receipt, "scale_summaries", receipt.scale_summaries)
+    object.__setattr__(tampered_receipt, "total_occurrence_count", receipt.total_occurrence_count)
+    object.__setattr__(tampered_receipt, "receipt_hash", receipt.receipt_hash)
+
+    with pytest.raises(ValueError, match="HASH_MISMATCH"):
+        validate_multi_scale_invariant_receipt(tampered_receipt)
+
+
+def test_validate_catches_tampered_scale_index_type():
+    """validate_multi_scale_invariant_receipt catches non-int or bool scale_index."""
+    pattern, occ = _pattern_and_occurrences()
+    receipt = build_multi_scale_invariant_receipt(pattern, occ)
+    original_summary = receipt.scale_summaries[0]
+
+    # Tamper scale_index to a boolean
+    tampered_summary = ScaleLevelSummary.__new__(ScaleLevelSummary)
+    object.__setattr__(tampered_summary, "pattern_id", original_summary.pattern_id)
+    object.__setattr__(tampered_summary, "scale_index", True)  # bool is subclass of int
+    object.__setattr__(tampered_summary, "occurrence_hashes", original_summary.occurrence_hashes)
+    object.__setattr__(tampered_summary, "occurrence_count", original_summary.occurrence_count)
+    object.__setattr__(tampered_summary, "scale_hash", original_summary.scale_hash)
+
+    tampered_receipt = MultiScaleInvariantReceipt.__new__(MultiScaleInvariantReceipt)
+    object.__setattr__(tampered_receipt, "pattern", receipt.pattern)
+    object.__setattr__(tampered_receipt, "scale_summaries", (tampered_summary,) + receipt.scale_summaries[1:])
+    object.__setattr__(tampered_receipt, "total_occurrence_count", receipt.total_occurrence_count)
+    object.__setattr__(tampered_receipt, "receipt_hash", receipt.receipt_hash)
+
+    with pytest.raises(ValueError, match="INVALID_SCALE_INDEX"):
+        validate_multi_scale_invariant_receipt(tampered_receipt)
+
+
+def test_validate_catches_unsorted_occurrence_hashes():
+    """validate_multi_scale_invariant_receipt catches unsorted occurrence_hashes in summaries."""
+    pattern, occ = _pattern_and_occurrences()
+    receipt = build_multi_scale_invariant_receipt(pattern, occ)
+    original_summary = receipt.scale_summaries[1]  # scale 1 has 2 hashes
+
+    # Tamper occurrence_hashes to be unsorted (reverse them)
+    if len(original_summary.occurrence_hashes) < 2:
+        pytest.skip("Need at least 2 hashes to test sorting")
+
+    unsorted_hashes = tuple(reversed(original_summary.occurrence_hashes))
+    if unsorted_hashes == original_summary.occurrence_hashes:
+        pytest.skip("Hashes are already the same reversed")
+
+    tampered_summary = ScaleLevelSummary.__new__(ScaleLevelSummary)
+    object.__setattr__(tampered_summary, "pattern_id", original_summary.pattern_id)
+    object.__setattr__(tampered_summary, "scale_index", original_summary.scale_index)
+    object.__setattr__(tampered_summary, "occurrence_hashes", unsorted_hashes)
+    object.__setattr__(tampered_summary, "occurrence_count", original_summary.occurrence_count)
+    object.__setattr__(tampered_summary, "scale_hash", original_summary.scale_hash)
+
+    # Replace the summary at scale 1
+    new_summaries = tuple(
+        tampered_summary if s.scale_index == 1 else s for s in receipt.scale_summaries
+    )
+
+    tampered_receipt = MultiScaleInvariantReceipt.__new__(MultiScaleInvariantReceipt)
+    object.__setattr__(tampered_receipt, "pattern", receipt.pattern)
+    object.__setattr__(tampered_receipt, "scale_summaries", new_summaries)
+    object.__setattr__(tampered_receipt, "total_occurrence_count", receipt.total_occurrence_count)
+    object.__setattr__(tampered_receipt, "receipt_hash", receipt.receipt_hash)
+
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_multi_scale_invariant_receipt(tampered_receipt)
+
+
+def test_validate_catches_occurrence_count_mismatch_in_summary():
+    """validate_multi_scale_invariant_receipt catches summary with mismatched occurrence_count."""
+    pattern, occ = _pattern_and_occurrences()
+    receipt = build_multi_scale_invariant_receipt(pattern, occ)
+    original_summary = receipt.scale_summaries[0]
+
+    # Tamper occurrence_count to not match len(occurrence_hashes)
+    tampered_summary = ScaleLevelSummary.__new__(ScaleLevelSummary)
+    object.__setattr__(tampered_summary, "pattern_id", original_summary.pattern_id)
+    object.__setattr__(tampered_summary, "scale_index", original_summary.scale_index)
+    object.__setattr__(tampered_summary, "occurrence_hashes", original_summary.occurrence_hashes)
+    object.__setattr__(tampered_summary, "occurrence_count", original_summary.occurrence_count + 99)
+    object.__setattr__(tampered_summary, "scale_hash", original_summary.scale_hash)
+
+    tampered_receipt = MultiScaleInvariantReceipt.__new__(MultiScaleInvariantReceipt)
+    object.__setattr__(tampered_receipt, "pattern", receipt.pattern)
+    object.__setattr__(tampered_receipt, "scale_summaries", (tampered_summary,) + receipt.scale_summaries[1:])
+    # Adjust total_occurrence_count to match the sum of tampered summaries
+    new_total = tampered_summary.occurrence_count + sum(s.occurrence_count for s in receipt.scale_summaries[1:])
+    object.__setattr__(tampered_receipt, "total_occurrence_count", new_total)
+    object.__setattr__(tampered_receipt, "receipt_hash", receipt.receipt_hash)
+
+    with pytest.raises(ValueError, match="OCCURRENCE_COUNT_MISMATCH"):
+        validate_multi_scale_invariant_receipt(tampered_receipt)
+
+
+def test_build_scale_level_summary_filters_by_pattern_id():
+    """build_scale_level_summary only includes occurrences matching both scale_index and pattern_id."""
+    pattern, occ = _pattern_and_occurrences()
+    other_pattern = build_subgraph_invariant_pattern(["B"], [("edge", "b" * 64)])
+
+    # Create an occurrence with a different pattern_id at scale 0
+    foreign_occ = SubgraphOccurrence(
+        other_pattern.pattern_id, 0, ("n_other",),
+        sha256_hex({"pattern_id": other_pattern.pattern_id, "scale_index": 0, "source_node_ids": ("n_other",)})
+    )
+
+    # Build summary for pattern.pattern_id at scale 0 from mixed list
+    mixed = occ + [foreign_occ]
+    summary = build_scale_level_summary(pattern.pattern_id, 0, mixed)
+
+    # Only the occurrence matching pattern.pattern_id and scale_index=0 should be included
+    expected_count = sum(1 for o in occ if o.scale_index == 0 and o.pattern_id == pattern.pattern_id)
+    assert summary.occurrence_count == expected_count
+    assert summary.occurrence_count == 1  # From _pattern_and_occurrences, scale 0 has 1 occurrence

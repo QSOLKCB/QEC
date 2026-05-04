@@ -9,6 +9,7 @@ from qec.analysis.subgraph_invariant_pattern import (
     SubgraphInvariantPattern,
     SubgraphInvariantPatternReceipt,
     SubgraphOccurrence,
+    _receipt_hash_payload,
     build_subgraph_invariant_pattern,
     build_subgraph_invariant_pattern_receipt,
     match_graph_to_pattern,
@@ -227,7 +228,6 @@ def test_validate_receipt_detects_tampered_nested_pattern():
     object.__setattr__(tampered_pattern, "pattern_hash", p.pattern_hash)
 
     # Recompute receipt_hash with tampered pattern
-    from qec.analysis.subgraph_invariant_pattern import _receipt_hash_payload
     tampered_receipt_hash = sha256_hex(_receipt_hash_payload(tampered_pattern, r.occurrences, r.total_occurrence_count))
 
     # Create tampered receipt bypassing __post_init__
@@ -257,7 +257,6 @@ def test_validate_receipt_detects_tampered_occurrence_scale_index():
     object.__setattr__(tampered_occ, "occurrence_hash", original_occ.occurrence_hash)
 
     # Recompute receipt_hash with tampered occurrence
-    from qec.analysis.subgraph_invariant_pattern import _receipt_hash_payload
     tampered_occurrences = (tampered_occ,)
     tampered_receipt_hash = sha256_hex(_receipt_hash_payload(p, tampered_occurrences, 1))
 
@@ -288,7 +287,6 @@ def test_validate_receipt_detects_tampered_occurrence_hash():
     object.__setattr__(tampered_occ, "occurrence_hash", "a" * 64)  # Corrupted hash
 
     # Recompute receipt_hash with tampered occurrence
-    from qec.analysis.subgraph_invariant_pattern import _receipt_hash_payload
     tampered_occurrences = (tampered_occ,)
     tampered_receipt_hash = sha256_hex(_receipt_hash_payload(p, tampered_occurrences, 1))
 

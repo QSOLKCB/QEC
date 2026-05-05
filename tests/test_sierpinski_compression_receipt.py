@@ -11,7 +11,11 @@ from qec.analysis.sierpinski_compression_receipt import (
     decompress_sierpinski_receipt,
     validate_sierpinski_compression_receipt,
 )
-from qec.analysis.subgraph_invariant_pattern import SubgraphOccurrence, build_subgraph_invariant_pattern, build_subgraph_invariant_pattern_receipt
+from qec.analysis.subgraph_invariant_pattern import (
+    SubgraphOccurrence,
+    build_subgraph_invariant_pattern,
+    build_subgraph_invariant_pattern_receipt,
+)
 
 
 def _occ(pattern_id: str, scale: int, src: tuple[str, ...]) -> SubgraphOccurrence:
@@ -22,7 +26,7 @@ def test_compression_only_for_n_ge_2():
     p = build_subgraph_invariant_pattern(["A"], [("edge", "a" * 64)])
     pr = build_subgraph_invariant_pattern_receipt(p, [_occ(p.pattern_id, 0, ("n0",)), _occ(p.pattern_id, 0, ("n1",)), _occ(p.pattern_id, 1, ("n2",))])
     ms = build_multi_scale_invariant_receipt(p, list(pr.occurrences))
-    r = build_sierpinski_compression_receipt(ms, [pr])
+    r = build_sierpinski_compression_receipt(ms.receipt_hash, [pr])
     assert r.total_entries == 1
 
 
@@ -32,7 +36,7 @@ def test_deterministic_compression_across_runs():
     pr1 = build_subgraph_invariant_pattern_receipt(p, occ)
     pr2 = build_subgraph_invariant_pattern_receipt(p, list(reversed(occ)))
     ms = build_multi_scale_invariant_receipt(p, occ)
-    assert build_sierpinski_compression_receipt(ms, [pr1]) == build_sierpinski_compression_receipt(ms, [pr2])
+    assert build_sierpinski_compression_receipt(ms.receipt_hash, [pr1]) == build_sierpinski_compression_receipt(ms.receipt_hash, [pr2])
 
 
 def test_ordering_invariance():
@@ -41,7 +45,7 @@ def test_ordering_invariance():
     pr1 = build_subgraph_invariant_pattern_receipt(p1, [_occ(p1.pattern_id, 2, ("a0",)), _occ(p1.pattern_id, 2, ("a1",))])
     pr2 = build_subgraph_invariant_pattern_receipt(p2, [_occ(p2.pattern_id, 0, ("b0",)), _occ(p2.pattern_id, 0, ("b1",))])
     ms = build_multi_scale_invariant_receipt(p1, list(pr1.occurrences))
-    r = build_sierpinski_compression_receipt(ms, [pr1, pr2])
+    r = build_sierpinski_compression_receipt(ms.receipt_hash, [pr1, pr2])
     assert tuple((e.scale_index, e.pattern_hash) for e in r.compression_entries) == tuple(sorted((e.scale_index, e.pattern_hash) for e in r.compression_entries))
 
 
@@ -54,7 +58,7 @@ def test_tampered_compression_entry_hash_detection():
     p = build_subgraph_invariant_pattern(["A"], [("edge", "a" * 64)])
     pr = build_subgraph_invariant_pattern_receipt(p, [_occ(p.pattern_id, 0, ("n0",)), _occ(p.pattern_id, 0, ("n1",))])
     ms = build_multi_scale_invariant_receipt(p, list(pr.occurrences))
-    r = build_sierpinski_compression_receipt(ms, [pr])
+    r = build_sierpinski_compression_receipt(ms.receipt_hash, [pr])
     e = r.compression_entries[0]
     bad = SierpinskiCompressionEntry.__new__(SierpinskiCompressionEntry)
     for k, v in e.__dict__.items():
@@ -74,7 +78,7 @@ def test_tampered_receipt_hash_detection():
     p = build_subgraph_invariant_pattern(["A"], [("edge", "a" * 64)])
     pr = build_subgraph_invariant_pattern_receipt(p, [_occ(p.pattern_id, 0, ("n0",)), _occ(p.pattern_id, 0, ("n1",))])
     ms = build_multi_scale_invariant_receipt(p, list(pr.occurrences))
-    r = build_sierpinski_compression_receipt(ms, [pr])
+    r = build_sierpinski_compression_receipt(ms.receipt_hash, [pr])
     with pytest.raises(ValueError, match="HASH_MISMATCH"):
         SierpinskiCompressionReceipt(r.multi_scale_invariant_receipt_hash, r.compression_entries, r.total_compressed_occurrences, r.total_entries, "0" * 64)
 
@@ -84,7 +88,7 @@ def test_decompression_identity_check_and_no_global_state():
     occ = [_occ(p.pattern_id, 2, ("n2",)), _occ(p.pattern_id, 2, ("n3",))]
     pr = build_subgraph_invariant_pattern_receipt(p, occ)
     ms = build_multi_scale_invariant_receipt(p, occ)
-    ctx: SierpinskiCompressionBuildResult = build_sierpinski_compression_context(ms, [pr])
+    ctx: SierpinskiCompressionBuildResult = build_sierpinski_compression_context(ms.receipt_hash, [pr])
     assert decompress_sierpinski_receipt(ctx.receipt, dict(ctx.pattern_id_map), ctx.original_occurrences) == sorted(occ, key=lambda o: o.occurrence_hash)
 
 
@@ -93,7 +97,7 @@ def test_decompression_requires_explicit_pattern_id_map_and_original_occurrences
     occ = [_occ(p.pattern_id, 0, ("n0",)), _occ(p.pattern_id, 0, ("n1",))]
     pr = build_subgraph_invariant_pattern_receipt(p, occ)
     ms = build_multi_scale_invariant_receipt(p, occ)
-    ctx = build_sierpinski_compression_context(ms, [pr])
+    ctx = build_sierpinski_compression_context(ms.receipt_hash, [pr])
     with pytest.raises(ValueError, match="DECOMPRESSION_IDENTITY_FAILURE"):
         decompress_sierpinski_receipt(ctx.receipt, {}, ctx.original_occurrences)
     with pytest.raises(ValueError, match="DECOMPRESSION_IDENTITY_FAILURE"):
@@ -105,7 +109,7 @@ def test_parent_hash_excludes_child_self_hash():
     occ = [_occ(p.pattern_id, 0, ("n0",)), _occ(p.pattern_id, 0, ("n1",))]
     pr = build_subgraph_invariant_pattern_receipt(p, occ)
     ms = build_multi_scale_invariant_receipt(p, occ)
-    r = build_sierpinski_compression_receipt(ms, [pr])
+    r = build_sierpinski_compression_receipt(ms.receipt_hash, [pr])
     e = r.compression_entries[0]
     tampered_entry = SierpinskiCompressionEntry.__new__(SierpinskiCompressionEntry)
     object.__setattr__(tampered_entry, "pattern_hash", e.pattern_hash)
@@ -136,7 +140,7 @@ def test_structural_sort_validation_and_occurrence_lt_2_validator_path():
     p = build_subgraph_invariant_pattern(["A"], [("edge", "a" * 64)])
     pr = build_subgraph_invariant_pattern_receipt(p, [_occ(p.pattern_id, 0, ("n0",)), _occ(p.pattern_id, 0, ("n1",))])
     ms = build_multi_scale_invariant_receipt(p, list(pr.occurrences))
-    r = build_sierpinski_compression_receipt(ms, [pr])
+    r = build_sierpinski_compression_receipt(ms.receipt_hash, [pr])
     e = r.compression_entries[0]
     bad_inner = SierpinskiCompressionEntry.__new__(SierpinskiCompressionEntry)
     object.__setattr__(bad_inner, "pattern_hash", e.pattern_hash)
@@ -150,7 +154,7 @@ def test_structural_sort_validation_and_occurrence_lt_2_validator_path():
     object.__setattr__(bad_r1, "total_compressed_occurrences", 2)
     object.__setattr__(bad_r1, "total_entries", 1)
     object.__setattr__(bad_r1, "sierpinski_compression_receipt_hash", r.sierpinski_compression_receipt_hash)
-    with pytest.raises(ValueError, match="HASH_MISMATCH"):
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
         validate_sierpinski_compression_receipt(bad_r1)
 
     bad_count = SierpinskiCompressionEntry.__new__(SierpinskiCompressionEntry)
@@ -180,15 +184,15 @@ def test_bool_count_rejection_and_multi_pattern_compression_included_and_empty_a
     pr1 = build_subgraph_invariant_pattern_receipt(p1, o1)
     pr2 = build_subgraph_invariant_pattern_receipt(p2, o2)
     ms = build_multi_scale_invariant_receipt(p1, o1)
-    rr = build_sierpinski_compression_receipt(ms, [pr1, pr2])
+    rr = build_sierpinski_compression_receipt(ms.receipt_hash, [pr1, pr2])
     assert rr.total_entries == 2
 
     singleton = build_subgraph_invariant_pattern_receipt(p1, [_occ(p1.pattern_id, 2, ("solo",))])
-    empty = build_sierpinski_compression_receipt(ms, [singleton])
+    empty = build_sierpinski_compression_receipt(ms.receipt_hash, [singleton])
     assert empty.compression_entries == ()
 
     cross = build_subgraph_invariant_pattern_receipt(p1, [_occ(p1.pattern_id, 0, ("n0",)), _occ(p1.pattern_id, 0, ("n1",)), _occ(p1.pattern_id, 2, ("n2",)), _occ(p1.pattern_id, 2, ("n3",))])
-    cross_r = build_sierpinski_compression_receipt(build_multi_scale_invariant_receipt(p1, list(cross.occurrences)), [cross])
+    cross_r = build_sierpinski_compression_receipt(build_multi_scale_invariant_receipt(p1, list(cross.occurrences)).receipt_hash, [cross])
     assert tuple((e.scale_index, e.occurrence_count) for e in cross_r.compression_entries) == ((0, 2), (2, 2))
 
     with pytest.raises(ValueError, match="INVALID_INPUT"):

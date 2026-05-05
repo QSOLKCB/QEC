@@ -5,10 +5,12 @@ from re import compile as re_compile
 from types import MappingProxyType
 
 from qec.analysis.canonical_hashing import sha256_hex
-from qec.analysis.multi_scale_invariant_receipt import MultiScaleInvariantReceipt
-from qec.analysis.subgraph_invariant_pattern import SubgraphInvariantPatternReceipt, SubgraphOccurrence
+from qec.analysis.subgraph_invariant_pattern import (
+    SubgraphInvariantPatternReceipt,
+    SubgraphOccurrence,
+    _VALID_SCALES,
+)
 
-_VALID_SCALES = {0, 1, 2}
 _SHA256_HEX_RE = re_compile(r"^[0-9a-f]{64}$")
 
 
@@ -21,27 +23,7 @@ class SierpinskiCompressionEntry:
     compression_entry_hash: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.pattern_hash, str) or _SHA256_HEX_RE.fullmatch(self.pattern_hash) is None:
-            raise ValueError("INVALID_INPUT")
-        if not isinstance(self.scale_index, int) or isinstance(self.scale_index, bool) or self.scale_index not in _VALID_SCALES:
-            raise ValueError("INVALID_INPUT")
-        if not isinstance(self.occurrence_count, int) or isinstance(self.occurrence_count, bool):
-            raise ValueError("INVALID_INPUT")
-        if self.occurrence_count < 2:
-            raise ValueError("INSUFFICIENT_OCCURRENCES_FOR_COMPRESSION")
-        if not isinstance(self.source_node_id_sets, tuple) or any(not isinstance(s, tuple) for s in self.source_node_id_sets):
-            raise ValueError("INVALID_INPUT")
-        if self.occurrence_count != len(self.source_node_id_sets):
-            raise ValueError("OCCURRENCE_COUNT_MISMATCH")
-        if any(any(not isinstance(v, str) for v in s) for s in self.source_node_id_sets):
-            raise ValueError("INVALID_INPUT")
-        if any(tuple(sorted(s)) != s for s in self.source_node_id_sets):
-            raise ValueError("INVALID_INPUT")
-        if tuple(sorted(self.source_node_id_sets)) != self.source_node_id_sets:
-            raise ValueError("INVALID_INPUT")
-        expected_hash = sha256_hex(_entry_hash_payload(self.pattern_hash, self.scale_index, self.occurrence_count, self.source_node_id_sets))
-        if self.compression_entry_hash != expected_hash:
-            raise ValueError("HASH_MISMATCH")
+        _validate_compression_entry(self)
 
 
 @dataclass(frozen=True)
@@ -99,12 +81,46 @@ def _receipt_hash_payload(multi_scale_invariant_receipt_hash: str, compression_e
     }
 
 
-def build_sierpinski_compression_context(multi_scale_receipt: MultiScaleInvariantReceipt, pattern_receipts: list[SubgraphInvariantPatternReceipt]) -> SierpinskiCompressionBuildResult:
-    if not isinstance(multi_scale_receipt, MultiScaleInvariantReceipt) or not isinstance(pattern_receipts, list):
+def _validate_compression_entry(entry: SierpinskiCompressionEntry) -> None:
+    """Shared validation logic for a SierpinskiCompressionEntry.
+
+    Called from SierpinskiCompressionEntry.__post_init__ and validate_sierpinski_compression_receipt
+    to enforce all structural and hash invariants in a single place.
+    """
+    if not isinstance(entry.pattern_hash, str) or _SHA256_HEX_RE.fullmatch(entry.pattern_hash) is None:
         raise ValueError("INVALID_INPUT")
-    if not hasattr(multi_scale_receipt, "receipt_hash"):
+    if not isinstance(entry.scale_index, int) or isinstance(entry.scale_index, bool) or entry.scale_index not in _VALID_SCALES:
         raise ValueError("INVALID_INPUT")
-    ms_hash = multi_scale_receipt.receipt_hash
+    if not isinstance(entry.occurrence_count, int) or isinstance(entry.occurrence_count, bool):
+        raise ValueError("INVALID_INPUT")
+    if entry.occurrence_count < 2:
+        raise ValueError("INSUFFICIENT_OCCURRENCES_FOR_COMPRESSION")
+    if not isinstance(entry.source_node_id_sets, tuple) or any(not isinstance(s, tuple) for s in entry.source_node_id_sets):
+        raise ValueError("INVALID_INPUT")
+    if entry.occurrence_count != len(entry.source_node_id_sets):
+        raise ValueError("INVALID_INPUT")
+    if any(any(not isinstance(v, str) for v in s) for s in entry.source_node_id_sets):
+        raise ValueError("INVALID_INPUT")
+    if any(tuple(sorted(s)) != s for s in entry.source_node_id_sets):
+        raise ValueError("INVALID_INPUT")
+    if tuple(sorted(entry.source_node_id_sets)) != entry.source_node_id_sets:
+        raise ValueError("INVALID_INPUT")
+    expected_hash = sha256_hex(_entry_hash_payload(entry.pattern_hash, entry.scale_index, entry.occurrence_count, entry.source_node_id_sets))
+    if entry.compression_entry_hash != expected_hash:
+        raise ValueError("HASH_MISMATCH")
+
+
+def build_sierpinski_compression_context(multi_scale_invariant_receipt_hash: str, pattern_receipts: list[SubgraphInvariantPatternReceipt]) -> SierpinskiCompressionBuildResult:
+    """Build a deterministic compression context anchored to a multi-scale invariant receipt hash.
+
+    The hash anchor binds the compression artifact to an external multi-scale analysis result.
+    Cross-pattern compression is intentionally supported; the anchor is a hash reference only.
+    """
+    if not isinstance(multi_scale_invariant_receipt_hash, str) or _SHA256_HEX_RE.fullmatch(multi_scale_invariant_receipt_hash) is None:
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(pattern_receipts, list):
+        raise ValueError("INVALID_INPUT")
+    ms_hash = multi_scale_invariant_receipt_hash
 
     entries: list[SierpinskiCompressionEntry] = []
     pattern_id_map: dict[str, str] = {}
@@ -143,50 +159,31 @@ def build_sierpinski_compression_context(multi_scale_receipt: MultiScaleInvarian
     return SierpinskiCompressionBuildResult(receipt, MappingProxyType(dict(sorted(pattern_id_map.items()))), canonical_original)
 
 
-def build_sierpinski_compression_receipt(multi_scale_receipt: MultiScaleInvariantReceipt, pattern_receipts: list[SubgraphInvariantPatternReceipt]) -> SierpinskiCompressionReceipt:
-    return build_sierpinski_compression_context(multi_scale_receipt, pattern_receipts).receipt
+def build_sierpinski_compression_receipt(multi_scale_invariant_receipt_hash: str, pattern_receipts: list[SubgraphInvariantPatternReceipt]) -> SierpinskiCompressionReceipt:
+    return build_sierpinski_compression_context(multi_scale_invariant_receipt_hash, pattern_receipts).receipt
 
 
 def validate_sierpinski_compression_receipt(receipt: SierpinskiCompressionReceipt) -> bool:
     if not isinstance(receipt, SierpinskiCompressionReceipt):
         raise ValueError("INVALID_INPUT")
     if not isinstance(receipt.multi_scale_invariant_receipt_hash, str) or _SHA256_HEX_RE.fullmatch(receipt.multi_scale_invariant_receipt_hash) is None:
-        raise ValueError("HASH_MISMATCH")
-    if not isinstance(receipt.compression_entries, tuple):
-        raise ValueError("HASH_MISMATCH")
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(receipt.compression_entries, tuple) or any(not isinstance(e, SierpinskiCompressionEntry) for e in receipt.compression_entries):
+        raise ValueError("INVALID_INPUT")
     if tuple(sorted(receipt.compression_entries, key=lambda e: (e.scale_index, e.pattern_hash))) != receipt.compression_entries:
-        raise ValueError("HASH_MISMATCH")
+        raise ValueError("INVALID_INPUT")
     if len({(e.scale_index, e.pattern_hash) for e in receipt.compression_entries}) != len(receipt.compression_entries):
-        raise ValueError("HASH_MISMATCH")
+        raise ValueError("INVALID_INPUT")
 
     for entry in receipt.compression_entries:
-        if not isinstance(entry.pattern_hash, str) or _SHA256_HEX_RE.fullmatch(entry.pattern_hash) is None:
-            raise ValueError("HASH_MISMATCH")
-        if not isinstance(entry.scale_index, int) or isinstance(entry.scale_index, bool) or entry.scale_index not in _VALID_SCALES:
-            raise ValueError("HASH_MISMATCH")
-        if not isinstance(entry.occurrence_count, int) or isinstance(entry.occurrence_count, bool):
-            raise ValueError("HASH_MISMATCH")
-        if entry.occurrence_count < 2:
-            raise ValueError("INSUFFICIENT_OCCURRENCES_FOR_COMPRESSION")
-        if not isinstance(entry.source_node_id_sets, tuple) or any(not isinstance(s, tuple) for s in entry.source_node_id_sets):
-            raise ValueError("HASH_MISMATCH")
-        if entry.occurrence_count != len(entry.source_node_id_sets):
-            raise ValueError("HASH_MISMATCH")
-        if any(any(not isinstance(v, str) for v in s) for s in entry.source_node_id_sets):
-            raise ValueError("HASH_MISMATCH")
-        if any(tuple(sorted(s)) != s for s in entry.source_node_id_sets):
-            raise ValueError("HASH_MISMATCH")
-        if tuple(sorted(entry.source_node_id_sets)) != entry.source_node_id_sets:
-            raise ValueError("HASH_MISMATCH")
-        if entry.compression_entry_hash != sha256_hex(_entry_hash_payload(entry.pattern_hash, entry.scale_index, entry.occurrence_count, entry.source_node_id_sets)):
-            raise ValueError("HASH_MISMATCH")
+        _validate_compression_entry(entry)
 
     if not isinstance(receipt.total_entries, int) or isinstance(receipt.total_entries, bool) or receipt.total_entries != len(receipt.compression_entries):
-        raise ValueError("HASH_MISMATCH")
+        raise ValueError("INVALID_INPUT")
     if not isinstance(receipt.total_compressed_occurrences, int) or isinstance(receipt.total_compressed_occurrences, bool):
-        raise ValueError("HASH_MISMATCH")
+        raise ValueError("INVALID_INPUT")
     if receipt.total_compressed_occurrences != sum(e.occurrence_count for e in receipt.compression_entries):
-        raise ValueError("HASH_MISMATCH")
+        raise ValueError("INVALID_INPUT")
     if receipt.sierpinski_compression_receipt_hash != sha256_hex(_receipt_hash_payload(receipt.multi_scale_invariant_receipt_hash, receipt.compression_entries, receipt.total_compressed_occurrences, receipt.total_entries)):
         raise ValueError("HASH_MISMATCH")
     return True
@@ -200,6 +197,8 @@ def decompress_sierpinski_receipt(receipt: SierpinskiCompressionReceipt, pattern
     validate_sierpinski_compression_receipt(receipt)
     if not isinstance(pattern_id_map, dict) or not isinstance(original_occurrences, tuple):
         raise ValueError("DECOMPRESSION_IDENTITY_FAILURE")
+    if any(not isinstance(o, SubgraphOccurrence) for o in original_occurrences):
+        raise ValueError("DECOMPRESSION_IDENTITY_FAILURE")
     reconstructed: list[SubgraphOccurrence] = []
     for entry in receipt.compression_entries:
         if entry.pattern_hash not in pattern_id_map:
@@ -209,7 +208,11 @@ def decompress_sierpinski_receipt(receipt: SierpinskiCompressionReceipt, pattern
             raise ValueError("DECOMPRESSION_IDENTITY_FAILURE")
         for source_node_ids in entry.source_node_id_sets:
             occ_hash = sha256_hex({"pattern_id": pattern_id, "scale_index": entry.scale_index, "source_node_ids": source_node_ids})
-            reconstructed.append(SubgraphOccurrence(pattern_id, entry.scale_index, source_node_ids, occ_hash))
+            try:
+                occ = SubgraphOccurrence(pattern_id, entry.scale_index, source_node_ids, occ_hash)
+            except ValueError:
+                raise ValueError("DECOMPRESSION_IDENTITY_FAILURE") from None
+            reconstructed.append(occ)
     reconstructed_sorted = sorted(reconstructed, key=lambda o: o.occurrence_hash)
     original_sorted = sorted(original_occurrences, key=lambda o: o.occurrence_hash)
     if reconstructed_sorted != original_sorted:

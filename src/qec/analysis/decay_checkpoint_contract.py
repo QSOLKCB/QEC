@@ -6,18 +6,28 @@ from typing import Any
 
 from qec.analysis.canonical_hashing import canonical_bytes, canonical_json, sha256_hex
 
+# ---------------------------------------------------------------------------
+# Error code constants – centralised so all raises and tests reference the
+# same literal values and refactoring only needs to touch one place.
+# ---------------------------------------------------------------------------
+_ERR_INVALID_INPUT = "INVALID_INPUT"
+_ERR_HASH_MISMATCH = "HASH_MISMATCH"
+_ERR_INVALID_HASH_FORMAT = "INVALID_HASH_FORMAT"
+_ERR_DUPLICATE_ARTIFACT_POSITION = "DUPLICATE_ARTIFACT_POSITION"
+_ERR_DECAY_SCORE_MISMATCH = "DECAY_SCORE_MISMATCH"
+
 _SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _validate_hash_string(value: Any) -> str:
     if not isinstance(value, str) or _SHA256_HEX_RE.fullmatch(value) is None:
-        raise ValueError("INVALID_HASH_FORMAT")
+        raise ValueError(_ERR_INVALID_HASH_FORMAT)
     return value
 
 
 def _validate_artifact_position_id(value: Any) -> str:
     if not isinstance(value, str) or value == "":
-        raise ValueError("INVALID_INPUT")
+        raise ValueError(_ERR_INVALID_INPUT)
     return value
 
 
@@ -91,10 +101,10 @@ def _validate_checkpoint_integrity(checkpoint: DecayCheckpoint) -> None:
     _validate_hash_string(checkpoint.expected_hash)
     _validate_hash_string(checkpoint.observed_hash)
     if checkpoint.drifted is not (checkpoint.expected_hash != checkpoint.observed_hash):
-        raise ValueError("INVALID_INPUT")
+        raise ValueError(_ERR_INVALID_INPUT)
     _validate_hash_string(checkpoint.checkpoint_hash)
     if checkpoint.checkpoint_hash != _recompute_checkpoint_hash(checkpoint):
-        raise ValueError("HASH_MISMATCH")
+        raise ValueError(_ERR_HASH_MISMATCH)
 
 
 def _recompute_checkpoint_set_hash(checkpoints: tuple[DecayCheckpoint, ...], decay_score: int) -> str:
@@ -119,6 +129,37 @@ def _checkpoint_set_payload(checkpoints: tuple[DecayCheckpoint, ...], decay_scor
     }
 
 
+def _validate_checkpoint_set_integrity(
+    checkpoints: tuple[DecayCheckpoint, ...],
+    decay_score: int,
+    checkpoint_set_hash: str,
+) -> None:
+    """Shared invariant checks used by both ``DecayCheckpointSet.__post_init__``
+    and ``validate_decay_checkpoint_set`` so both paths stay in sync."""
+    if not isinstance(checkpoints, tuple):
+        raise ValueError(_ERR_INVALID_INPUT)
+    for checkpoint in checkpoints:
+        if not isinstance(checkpoint, DecayCheckpoint):
+            raise ValueError(_ERR_INVALID_INPUT)
+        _validate_checkpoint_integrity(checkpoint)
+
+    position_ids = tuple(cp.artifact_position_id for cp in checkpoints)
+    if len(set(position_ids)) != len(position_ids):
+        raise ValueError(_ERR_DUPLICATE_ARTIFACT_POSITION)
+    if position_ids != tuple(sorted(position_ids)):
+        raise ValueError(_ERR_INVALID_INPUT)
+
+    if not isinstance(decay_score, int) or isinstance(decay_score, bool):
+        raise ValueError(_ERR_DECAY_SCORE_MISMATCH)
+    expected_decay_score = sum(checkpoint.drifted is True for checkpoint in checkpoints)
+    if decay_score != expected_decay_score:
+        raise ValueError(_ERR_DECAY_SCORE_MISMATCH)
+
+    _validate_hash_string(checkpoint_set_hash)
+    if checkpoint_set_hash != _recompute_checkpoint_set_hash(checkpoints, decay_score):
+        raise ValueError(_ERR_HASH_MISMATCH)
+
+
 @dataclass(frozen=True)
 class DecayCheckpointSet:
     checkpoints: tuple[DecayCheckpoint, ...]
@@ -126,31 +167,7 @@ class DecayCheckpointSet:
     checkpoint_set_hash: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.checkpoints, tuple):
-            raise ValueError("INVALID_INPUT")
-        for checkpoint in self.checkpoints:
-            if not isinstance(checkpoint, DecayCheckpoint):
-                raise ValueError("INVALID_INPUT")
-
-        for checkpoint in self.checkpoints:
-            _validate_checkpoint_integrity(checkpoint)
-
-        observed_order = tuple(cp.artifact_position_id for cp in self.checkpoints)
-        if len(set(observed_order)) != len(observed_order):
-            raise ValueError("DUPLICATE_ARTIFACT_POSITION")
-        sorted_order = tuple(sorted(observed_order))
-        if observed_order != sorted_order:
-            raise ValueError("INVALID_INPUT")
-
-        if not isinstance(self.decay_score, int) or isinstance(self.decay_score, bool):
-            raise ValueError("DECAY_SCORE_MISMATCH")
-        expected_decay_score = sum(checkpoint.drifted is True for checkpoint in self.checkpoints)
-        if self.decay_score != expected_decay_score:
-            raise ValueError("DECAY_SCORE_MISMATCH")
-
-        _validate_hash_string(self.checkpoint_set_hash)
-        if self.checkpoint_set_hash != self._stable_hash():
-            raise ValueError("HASH_MISMATCH")
+        _validate_checkpoint_set_integrity(self.checkpoints, self.decay_score, self.checkpoint_set_hash)
 
     def _hash_payload(self) -> dict[str, Any]:
         return _checkpoint_set_payload(self.checkpoints, self.decay_score)
@@ -202,15 +219,15 @@ def build_decay_checkpoint(
 
 def build_decay_checkpoint_set(checkpoints: list[DecayCheckpoint]) -> DecayCheckpointSet:
     if not isinstance(checkpoints, list):
-        raise ValueError("INVALID_INPUT")
+        raise ValueError(_ERR_INVALID_INPUT)
     for checkpoint in checkpoints:
         if not isinstance(checkpoint, DecayCheckpoint):
-            raise ValueError("INVALID_INPUT")
+            raise ValueError(_ERR_INVALID_INPUT)
 
     sorted_checkpoints = tuple(sorted(checkpoints, key=lambda cp: cp.artifact_position_id))
     position_ids = tuple(cp.artifact_position_id for cp in sorted_checkpoints)
     if len(set(position_ids)) != len(position_ids):
-        raise ValueError("DUPLICATE_ARTIFACT_POSITION")
+        raise ValueError(_ERR_DUPLICATE_ARTIFACT_POSITION)
     decay_score = sum(checkpoint.drifted is True for checkpoint in sorted_checkpoints)
     checkpoint_set_hash = _recompute_checkpoint_set_hash(sorted_checkpoints, decay_score)
     return DecayCheckpointSet(
@@ -222,29 +239,6 @@ def build_decay_checkpoint_set(checkpoints: list[DecayCheckpoint]) -> DecayCheck
 
 def validate_decay_checkpoint_set(s: DecayCheckpointSet) -> bool:
     if not isinstance(s, DecayCheckpointSet):
-        raise ValueError("INVALID_INPUT")
-    if not isinstance(s.checkpoints, tuple):
-        raise ValueError("INVALID_INPUT")
-
-    for checkpoint in s.checkpoints:
-        if not isinstance(checkpoint, DecayCheckpoint):
-            raise ValueError("INVALID_INPUT")
-        _validate_checkpoint_integrity(checkpoint)
-
-    position_ids = tuple(cp.artifact_position_id for cp in s.checkpoints)
-    if len(set(position_ids)) != len(position_ids):
-        raise ValueError("DUPLICATE_ARTIFACT_POSITION")
-    if position_ids != tuple(sorted(position_ids)):
-        raise ValueError("INVALID_INPUT")
-
-    if not isinstance(s.decay_score, int) or isinstance(s.decay_score, bool):
-        raise ValueError("DECAY_SCORE_MISMATCH")
-    expected_decay_score = sum(checkpoint.drifted is True for checkpoint in s.checkpoints)
-    if s.decay_score != expected_decay_score:
-        raise ValueError("DECAY_SCORE_MISMATCH")
-
-    _validate_hash_string(s.checkpoint_set_hash)
-    recomputed = _recompute_checkpoint_set_hash(s.checkpoints, s.decay_score)
-    if s.checkpoint_set_hash != recomputed:
-        raise ValueError("HASH_MISMATCH")
+        raise ValueError(_ERR_INVALID_INPUT)
+    _validate_checkpoint_set_integrity(s.checkpoints, s.decay_score, s.checkpoint_set_hash)
     return True

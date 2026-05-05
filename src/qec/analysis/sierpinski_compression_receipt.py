@@ -86,6 +86,14 @@ def _validate_compression_entry(entry: SierpinskiCompressionEntry) -> None:
 
     Called from SierpinskiCompressionEntry.__post_init__ and validate_sierpinski_compression_receipt
     to enforce all structural and hash invariants in a single place.
+
+    Args:
+        entry: The SierpinskiCompressionEntry to validate.
+
+    Raises:
+        ValueError("INVALID_INPUT"): If any field has an invalid type, format, or ordering.
+        ValueError("INSUFFICIENT_OCCURRENCES_FOR_COMPRESSION"): If occurrence_count < 2.
+        ValueError("HASH_MISMATCH"): If compression_entry_hash does not match the recomputed hash.
     """
     if not isinstance(entry.pattern_hash, str) or _SHA256_HEX_RE.fullmatch(entry.pattern_hash) is None:
         raise ValueError("INVALID_INPUT")
@@ -115,6 +123,21 @@ def build_sierpinski_compression_context(multi_scale_invariant_receipt_hash: str
 
     The hash anchor binds the compression artifact to an external multi-scale analysis result.
     Cross-pattern compression is intentionally supported; the anchor is a hash reference only.
+
+    Args:
+        multi_scale_invariant_receipt_hash: A valid SHA-256 hex string that anchors this
+            compression artifact to an external multi-scale invariant receipt.
+        pattern_receipts: A list of SubgraphInvariantPatternReceipt objects whose occurrences
+            are candidates for compression. Patterns with fewer than 2 occurrences per scale
+            are silently skipped.
+
+    Returns:
+        A SierpinskiCompressionBuildResult containing the frozen receipt, an immutable
+        pattern_id_map, and the canonical original_occurrences required for decompression.
+
+    Raises:
+        ValueError("INVALID_INPUT"): If multi_scale_invariant_receipt_hash is not a valid
+            SHA-256 hex string, pattern_receipts is not a list, or any receipt is invalid.
     """
     if not isinstance(multi_scale_invariant_receipt_hash, str) or _SHA256_HEX_RE.fullmatch(multi_scale_invariant_receipt_hash) is None:
         raise ValueError("INVALID_INPUT")

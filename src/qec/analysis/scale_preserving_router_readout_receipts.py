@@ -6,7 +6,12 @@ import re
 from qec.analysis.canonical_hashing import sha256_hex
 from qec.analysis.readout_projection_receipts import ReadoutProjectionReceipt
 from qec.analysis.router_lattice_paths import RouterLatticePathReceipt
-from qec.analysis.subgraph_invariant_pattern import SubgraphInvariantPattern, _VALID_SCALES
+from qec.analysis.subgraph_invariant_pattern import (
+    SubgraphInvariantPattern,
+    _VALID_SCALES,
+    _pattern_id_payload,
+    _pattern_hash_payload_raw,
+)
 
 _SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -19,6 +24,11 @@ def _require_sha256_hex(value: str) -> None:
 def _require_scale_index(scale_index: int) -> None:
     if not isinstance(scale_index, int) or isinstance(scale_index, bool) or scale_index not in _VALID_SCALES:
         raise ValueError("INVALID_SCALE_INDEX")
+
+
+def _require_bool(value: object) -> None:
+    if not isinstance(value, bool):
+        raise ValueError("INVALID_INPUT")
 
 
 def _router_scale_hash_payload(
@@ -50,12 +60,71 @@ def _readout_scale_hash_payload(
 
 
 def _validate_pattern_hash(pattern: SubgraphInvariantPattern) -> None:
-    _ = SubgraphInvariantPattern(
-        pattern.pattern_id,
-        pattern.node_label_multiset,
-        pattern.constraint_edge_pairs,
-        pattern.pattern_hash,
+    """Validate pattern integrity by recomputing and comparing hashes.
+    
+    Uses the canonical hash computation functions from subgraph_invariant_pattern
+    to verify the pattern's identity has not been tampered with.
+    """
+    expected_pattern_id = sha256_hex(
+        _pattern_id_payload(pattern.node_label_multiset, pattern.constraint_edge_pairs)
     )
+    if pattern.pattern_id != expected_pattern_id:
+        raise ValueError("HASH_MISMATCH")
+    expected_pattern_hash = sha256_hex(
+        _pattern_hash_payload_raw(
+            pattern.pattern_id, pattern.node_label_multiset, pattern.constraint_edge_pairs
+        )
+    )
+    if pattern.pattern_hash != expected_pattern_hash:
+        raise ValueError("HASH_MISMATCH")
+
+
+def _validate_router_scale_receipt_fields(
+    router_lattice_path_receipt_hash: str,
+    pattern_hash: str,
+    scale_index: int,
+    scale_preserved: bool,
+    router_scale_receipt_hash: str,
+) -> None:
+    """Shared internal validation logic for RouterScaleReceipt fields."""
+    _require_sha256_hex(router_lattice_path_receipt_hash)
+    _require_sha256_hex(pattern_hash)
+    _require_scale_index(scale_index)
+    _require_bool(scale_preserved)
+    expected = sha256_hex(
+        _router_scale_hash_payload(
+            router_lattice_path_receipt_hash,
+            pattern_hash,
+            scale_index,
+            scale_preserved,
+        )
+    )
+    if router_scale_receipt_hash != expected:
+        raise ValueError("HASH_MISMATCH")
+
+
+def _validate_readout_scale_projection_receipt_fields(
+    readout_projection_receipt_hash: str,
+    pattern_hash: str,
+    scale_index: int,
+    scale_preserved: bool,
+    readout_scale_projection_receipt_hash: str,
+) -> None:
+    """Shared internal validation logic for ReadoutScaleProjectionReceipt fields."""
+    _require_sha256_hex(readout_projection_receipt_hash)
+    _require_sha256_hex(pattern_hash)
+    _require_scale_index(scale_index)
+    _require_bool(scale_preserved)
+    expected = sha256_hex(
+        _readout_scale_hash_payload(
+            readout_projection_receipt_hash,
+            pattern_hash,
+            scale_index,
+            scale_preserved,
+        )
+    )
+    if readout_scale_projection_receipt_hash != expected:
+        raise ValueError("HASH_MISMATCH")
 
 
 @dataclass(frozen=True)
@@ -67,21 +136,13 @@ class RouterScaleReceipt:
     router_scale_receipt_hash: str
 
     def __post_init__(self) -> None:
-        _require_sha256_hex(self.router_lattice_path_receipt_hash)
-        _require_sha256_hex(self.pattern_hash)
-        _require_scale_index(self.scale_index)
-        if not isinstance(self.scale_preserved, bool):
-            raise ValueError("INVALID_INPUT")
-        expected = sha256_hex(
-            _router_scale_hash_payload(
-                self.router_lattice_path_receipt_hash,
-                self.pattern_hash,
-                self.scale_index,
-                self.scale_preserved,
-            )
+        _validate_router_scale_receipt_fields(
+            router_lattice_path_receipt_hash=self.router_lattice_path_receipt_hash,
+            pattern_hash=self.pattern_hash,
+            scale_index=self.scale_index,
+            scale_preserved=self.scale_preserved,
+            router_scale_receipt_hash=self.router_scale_receipt_hash,
         )
-        if self.router_scale_receipt_hash != expected:
-            raise ValueError("HASH_MISMATCH")
 
 
 @dataclass(frozen=True)
@@ -93,27 +154,21 @@ class ReadoutScaleProjectionReceipt:
     readout_scale_projection_receipt_hash: str
 
     def __post_init__(self) -> None:
-        _require_sha256_hex(self.readout_projection_receipt_hash)
-        _require_sha256_hex(self.pattern_hash)
-        _require_scale_index(self.scale_index)
-        if not isinstance(self.scale_preserved, bool):
-            raise ValueError("INVALID_INPUT")
-        expected = sha256_hex(
-            _readout_scale_hash_payload(
-                self.readout_projection_receipt_hash,
-                self.pattern_hash,
-                self.scale_index,
-                self.scale_preserved,
-            )
+        _validate_readout_scale_projection_receipt_fields(
+            readout_projection_receipt_hash=self.readout_projection_receipt_hash,
+            pattern_hash=self.pattern_hash,
+            scale_index=self.scale_index,
+            scale_preserved=self.scale_preserved,
+            readout_scale_projection_receipt_hash=self.readout_scale_projection_receipt_hash,
         )
-        if self.readout_scale_projection_receipt_hash != expected:
-            raise ValueError("HASH_MISMATCH")
 
 
 def build_router_scale_receipt(
     router_receipt: RouterLatticePathReceipt,
     pattern: SubgraphInvariantPattern,
     scale_index: int,
+    *,
+    scale_preserved: bool,
 ) -> RouterScaleReceipt:
     if not isinstance(router_receipt, RouterLatticePathReceipt):
         raise ValueError("UNKNOWN_ROUTER_RECEIPT")
@@ -124,14 +179,28 @@ def build_router_scale_receipt(
     _require_sha256_hex(pattern.pattern_hash)
     _validate_pattern_hash(pattern)
     _require_scale_index(scale_index)
-    payload = _router_scale_hash_payload(router_receipt.receipt_hash, pattern.pattern_hash, scale_index, True)
-    return RouterScaleReceipt(router_receipt.receipt_hash, pattern.pattern_hash, scale_index, True, sha256_hex(payload))
+    _require_bool(scale_preserved)
+    payload = _router_scale_hash_payload(
+        router_lattice_path_receipt_hash=router_receipt.receipt_hash,
+        pattern_hash=pattern.pattern_hash,
+        scale_index=scale_index,
+        scale_preserved=scale_preserved,
+    )
+    return RouterScaleReceipt(
+        router_lattice_path_receipt_hash=router_receipt.receipt_hash,
+        pattern_hash=pattern.pattern_hash,
+        scale_index=scale_index,
+        scale_preserved=scale_preserved,
+        router_scale_receipt_hash=sha256_hex(payload),
+    )
 
 
 def build_readout_scale_projection_receipt(
     readout_receipt: ReadoutProjectionReceipt,
     pattern: SubgraphInvariantPattern,
     scale_index: int,
+    *,
+    scale_preserved: bool,
 ) -> ReadoutScaleProjectionReceipt:
     if not isinstance(readout_receipt, ReadoutProjectionReceipt):
         raise ValueError("UNKNOWN_READOUT_RECEIPT")
@@ -142,35 +211,45 @@ def build_readout_scale_projection_receipt(
     _require_sha256_hex(pattern.pattern_hash)
     _validate_pattern_hash(pattern)
     _require_scale_index(scale_index)
-    payload = _readout_scale_hash_payload(readout_receipt.receipt_hash, pattern.pattern_hash, scale_index, True)
-    return ReadoutScaleProjectionReceipt(readout_receipt.receipt_hash, pattern.pattern_hash, scale_index, True, sha256_hex(payload))
+    _require_bool(scale_preserved)
+    payload = _readout_scale_hash_payload(
+        readout_projection_receipt_hash=readout_receipt.receipt_hash,
+        pattern_hash=pattern.pattern_hash,
+        scale_index=scale_index,
+        scale_preserved=scale_preserved,
+    )
+    return ReadoutScaleProjectionReceipt(
+        readout_projection_receipt_hash=readout_receipt.receipt_hash,
+        pattern_hash=pattern.pattern_hash,
+        scale_index=scale_index,
+        scale_preserved=scale_preserved,
+        readout_scale_projection_receipt_hash=sha256_hex(payload),
+    )
 
 
 def validate_router_scale_receipt(r: RouterScaleReceipt) -> bool:
     if not isinstance(r, RouterScaleReceipt):
         raise ValueError("INVALID_INPUT")
-    _require_sha256_hex(r.router_lattice_path_receipt_hash)
-    _require_sha256_hex(r.pattern_hash)
-    _require_scale_index(r.scale_index)
-    if not isinstance(r.scale_preserved, bool):
-        raise ValueError("INVALID_INPUT")
-    expected = sha256_hex(_router_scale_hash_payload(r.router_lattice_path_receipt_hash, r.pattern_hash, r.scale_index, r.scale_preserved))
-    if r.router_scale_receipt_hash != expected:
-        raise ValueError("HASH_MISMATCH")
+    _validate_router_scale_receipt_fields(
+        router_lattice_path_receipt_hash=r.router_lattice_path_receipt_hash,
+        pattern_hash=r.pattern_hash,
+        scale_index=r.scale_index,
+        scale_preserved=r.scale_preserved,
+        router_scale_receipt_hash=r.router_scale_receipt_hash,
+    )
     return True
 
 
 def validate_readout_scale_projection_receipt(r: ReadoutScaleProjectionReceipt) -> bool:
     if not isinstance(r, ReadoutScaleProjectionReceipt):
         raise ValueError("INVALID_INPUT")
-    _require_sha256_hex(r.readout_projection_receipt_hash)
-    _require_sha256_hex(r.pattern_hash)
-    _require_scale_index(r.scale_index)
-    if not isinstance(r.scale_preserved, bool):
-        raise ValueError("INVALID_INPUT")
-    expected = sha256_hex(_readout_scale_hash_payload(r.readout_projection_receipt_hash, r.pattern_hash, r.scale_index, r.scale_preserved))
-    if r.readout_scale_projection_receipt_hash != expected:
-        raise ValueError("HASH_MISMATCH")
+    _validate_readout_scale_projection_receipt_fields(
+        readout_projection_receipt_hash=r.readout_projection_receipt_hash,
+        pattern_hash=r.pattern_hash,
+        scale_index=r.scale_index,
+        scale_preserved=r.scale_preserved,
+        readout_scale_projection_receipt_hash=r.readout_scale_projection_receipt_hash,
+    )
     return True
 
 

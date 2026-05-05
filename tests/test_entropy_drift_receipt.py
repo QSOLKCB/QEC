@@ -85,11 +85,46 @@ def test_subsystem_stored_hash_format_and_tamper_rejected():
     object.__setattr__(l, "layer_decay_receipt_hash", "x")
     with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
         validate_layer_decay_receipt(l)
+    l = build_layer_decay_receipt(H[2], H[3], s)
+    object.__setattr__(l, "layer_decay_receipt_hash", "a" * 64)
+    with pytest.raises(ValueError, match="HASH_MISMATCH"):
+        validate_layer_decay_receipt(l)
 
+    r = build_router_decay_receipt(H[4], H[5], s)
+    object.__setattr__(r, "router_decay_receipt_hash", "x")
+    with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
+        validate_router_decay_receipt(r)
     r = build_router_decay_receipt(H[4], H[5], s)
     object.__setattr__(r, "router_decay_receipt_hash", "a" * 64)
     with pytest.raises(ValueError, match="HASH_MISMATCH"):
         validate_router_decay_receipt(r)
+
+    m = build_mask_collision_decay_receipt(H[6], H[7], "NO_COLLISION", s)
+    object.__setattr__(m, "mask_collision_decay_receipt_hash", "x")
+    with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
+        validate_mask_collision_decay_receipt(m)
+    m = build_mask_collision_decay_receipt(H[6], H[7], "NO_COLLISION", s)
+    object.__setattr__(m, "mask_collision_decay_receipt_hash", "a" * 64)
+    with pytest.raises(ValueError, match="HASH_MISMATCH"):
+        validate_mask_collision_decay_receipt(m)
+
+    sh = build_shift_decay_receipt(H[8], H[9], s)
+    object.__setattr__(sh, "shift_decay_receipt_hash", "x")
+    with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
+        validate_shift_decay_receipt(sh)
+    sh = build_shift_decay_receipt(H[8], H[9], s)
+    object.__setattr__(sh, "shift_decay_receipt_hash", "a" * 64)
+    with pytest.raises(ValueError, match="HASH_MISMATCH"):
+        validate_shift_decay_receipt(sh)
+
+    ro = build_readout_projection_decay_receipt(H[10], H[11], s)
+    object.__setattr__(ro, "readout_projection_decay_receipt_hash", "x")
+    with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
+        validate_readout_projection_decay_receipt(ro)
+    ro = build_readout_projection_decay_receipt(H[10], H[11], s)
+    object.__setattr__(ro, "readout_projection_decay_receipt_hash", "a" * 64)
+    with pytest.raises(ValueError, match="HASH_MISMATCH"):
+        validate_readout_projection_decay_receipt(ro)
 
 
 def test_entropy_drift_receipt_sorts_subsystem_receipts_and_determinism():
@@ -112,15 +147,24 @@ def test_entropy_drift_receipt_all_subsystems_required_and_invalid_items():
 
 
 def test_deep_child_validation_before_parent_binding_and_validation():
-    l, r, m, sh, ro, sigs = _bundle()
     for child, field in [
-        (l, "layer_decay_receipt_hash"),
-        (r, "router_decay_receipt_hash"),
-        (m, "mask_collision_decay_receipt_hash"),
-        (sh, "shift_decay_receipt_hash"),
-        (ro, "readout_projection_decay_receipt_hash"),
+        ("layer_decay_receipt_hash", "layer_decay_receipt_hash"),
+        ("router_decay_receipt_hash", "router_decay_receipt_hash"),
+        ("mask_collision_decay_receipt_hash", "mask_collision_decay_receipt_hash"),
+        ("shift_decay_receipt_hash", "shift_decay_receipt_hash"),
+        (
+            "readout_projection_decay_receipt_hash",
+            "readout_projection_decay_receipt_hash",
+        ),
     ]:
-        tampered = child
+        l, r, m, sh, ro, sigs = _bundle()
+        tampered = {
+            "layer_decay_receipt_hash": l,
+            "router_decay_receipt_hash": r,
+            "mask_collision_decay_receipt_hash": m,
+            "shift_decay_receipt_hash": sh,
+            "readout_projection_decay_receipt_hash": ro,
+        }[child]
         object.__setattr__(tampered, field, "a" * 64)
         with pytest.raises(ValueError, match="HASH_MISMATCH"):
             build_entropy_drift_receipt([l], [r], [m], [sh], [ro], sigs)
@@ -130,7 +174,6 @@ def test_deep_child_validation_before_parent_binding_and_validation():
                 EntropyDriftReceipt((l,), (r,), (m,), (sh,), (ro,), 10, "a" * 64),
                 sigs,
             )
-        break
 
 
 def test_aggregate_and_registry_rules():
@@ -207,3 +250,18 @@ def test_validators_frozen_scope_and_typeerror_leaks():
         "entropy_rate",
     ):
         assert not hasattr(e, missing)
+
+
+@pytest.mark.parametrize(
+    "validator,bad",
+    [
+        (validate_layer_decay_receipt, 123),
+        (validate_router_decay_receipt, "bad"),
+        (validate_mask_collision_decay_receipt, None),
+        (validate_shift_decay_receipt, []),
+        (validate_readout_projection_decay_receipt, {}),
+    ],
+)
+def test_subsystem_validators_reject_non_receipt_inputs(validator, bad):
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validator(bad)

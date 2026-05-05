@@ -32,7 +32,7 @@ def _validate_hash_string(value: Any) -> str:
 
 def _validate_exact_non_negative_int(value: Any) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-        raise ValueError(_ERR_AGGREGATE_SCORE_MISMATCH)
+        raise ValueError(_ERR_INVALID_INPUT)
     return value
 
 
@@ -142,26 +142,37 @@ def _recompute_readout_projection_decay_receipt_hash(
 
 
 def _entropy_drift_receipt_payload(receipt: EntropyDriftReceipt) -> dict[str, Any]:
+    return _entropy_drift_receipt_payload_from_parts(
+        receipt.layer_decay_receipts,
+        receipt.router_decay_receipts,
+        receipt.mask_collision_decay_receipts,
+        receipt.shift_decay_receipts,
+        receipt.readout_projection_decay_receipts,
+        receipt.aggregate_decay_score,
+    )
+
+
+def _entropy_drift_receipt_payload_from_parts(
+    layers: tuple[LayerDecayReceipt, ...],
+    routers: tuple[RouterDecayReceipt, ...],
+    masks: tuple[MaskCollisionDecayReceipt, ...],
+    shifts: tuple[ShiftDecayReceipt, ...],
+    reads: tuple[ReadoutProjectionDecayReceipt, ...],
+    aggregate_decay_score: int,
+) -> dict[str, Any]:
     return {
-        "layer_decay_receipts": [
-            _layer_decay_receipt_with_hash_payload(r) for r in receipt.layer_decay_receipts
-        ],
+        "layer_decay_receipts": [_layer_decay_receipt_with_hash_payload(r) for r in layers],
         "router_decay_receipts": [
-            _router_decay_receipt_with_hash_payload(r)
-            for r in receipt.router_decay_receipts
+            _router_decay_receipt_with_hash_payload(r) for r in routers
         ],
         "mask_collision_decay_receipts": [
-            _mask_collision_decay_receipt_with_hash_payload(r)
-            for r in receipt.mask_collision_decay_receipts
+            _mask_collision_decay_receipt_with_hash_payload(r) for r in masks
         ],
-        "shift_decay_receipts": [
-            _shift_decay_receipt_with_hash_payload(r) for r in receipt.shift_decay_receipts
-        ],
+        "shift_decay_receipts": [_shift_decay_receipt_with_hash_payload(r) for r in shifts],
         "readout_projection_decay_receipts": [
-            _readout_projection_decay_receipt_with_hash_payload(r)
-            for r in receipt.readout_projection_decay_receipts
+            _readout_projection_decay_receipt_with_hash_payload(r) for r in reads
         ],
-        "aggregate_decay_score": receipt.aggregate_decay_score,
+        "aggregate_decay_score": aggregate_decay_score,
     }
 
 
@@ -200,17 +211,15 @@ def _validate_subsystem_receipt_sequence(
     expected_type: type,
     hash_attr: str,
     validator: Callable[[Any], bool],
-    missing_error: bool,
+    missing_error_code: str,
     require_sorted: bool,
 ) -> tuple[Any, ...]:
-    if seq is None or not isinstance(seq, (list, tuple)):
-        raise ValueError(
-            _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS if missing_error else _ERR_INVALID_INPUT
-        )
+    if seq is None:
+        raise ValueError(missing_error_code)
+    if not isinstance(seq, (list, tuple)):
+        raise ValueError(_ERR_INVALID_INPUT)
     if len(seq) == 0:
-        raise ValueError(
-            _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS if missing_error else _ERR_INVALID_INPUT
-        )
+        raise ValueError(missing_error_code)
     items = tuple(seq)
     for item in items:
         if not isinstance(item, expected_type):
@@ -370,24 +379,12 @@ class EntropyDriftReceipt:
     entropy_drift_receipt_hash: str
 
     def __post_init__(self) -> None:
-        if not all(
-            isinstance(v, tuple)
-            for v in (
-                self.layer_decay_receipts,
-                self.router_decay_receipts,
-                self.mask_collision_decay_receipts,
-                self.shift_decay_receipts,
-                self.readout_projection_decay_receipts,
-            )
-        ):
-            raise ValueError(_ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS)
-
         _validate_subsystem_receipt_sequence(
             self.layer_decay_receipts,
             LayerDecayReceipt,
             "layer_decay_receipt_hash",
             validate_layer_decay_receipt,
-            True,
+            _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS,
             True,
         )
         _validate_subsystem_receipt_sequence(
@@ -395,7 +392,7 @@ class EntropyDriftReceipt:
             RouterDecayReceipt,
             "router_decay_receipt_hash",
             validate_router_decay_receipt,
-            True,
+            _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS,
             True,
         )
         _validate_subsystem_receipt_sequence(
@@ -403,7 +400,7 @@ class EntropyDriftReceipt:
             MaskCollisionDecayReceipt,
             "mask_collision_decay_receipt_hash",
             validate_mask_collision_decay_receipt,
-            True,
+            _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS,
             True,
         )
         _validate_subsystem_receipt_sequence(
@@ -411,7 +408,7 @@ class EntropyDriftReceipt:
             ShiftDecayReceipt,
             "shift_decay_receipt_hash",
             validate_shift_decay_receipt,
-            True,
+            _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS,
             True,
         )
         _validate_subsystem_receipt_sequence(
@@ -419,7 +416,7 @@ class EntropyDriftReceipt:
             ReadoutProjectionDecayReceipt,
             "readout_projection_decay_receipt_hash",
             validate_readout_projection_decay_receipt,
-            True,
+            _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS,
             True,
         )
         _validate_exact_non_negative_int(self.aggregate_decay_score)
@@ -554,7 +551,7 @@ def build_entropy_drift_receipt(
         LayerDecayReceipt,
         "layer_decay_receipt_hash",
         validate_layer_decay_receipt,
-        True,
+        _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS,
         False,
     )
     routers = _validate_subsystem_receipt_sequence(
@@ -562,7 +559,7 @@ def build_entropy_drift_receipt(
         RouterDecayReceipt,
         "router_decay_receipt_hash",
         validate_router_decay_receipt,
-        True,
+        _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS,
         False,
     )
     masks = _validate_subsystem_receipt_sequence(
@@ -570,7 +567,7 @@ def build_entropy_drift_receipt(
         MaskCollisionDecayReceipt,
         "mask_collision_decay_receipt_hash",
         validate_mask_collision_decay_receipt,
-        True,
+        _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS,
         False,
     )
     shifts = _validate_subsystem_receipt_sequence(
@@ -578,7 +575,7 @@ def build_entropy_drift_receipt(
         ShiftDecayReceipt,
         "shift_decay_receipt_hash",
         validate_shift_decay_receipt,
-        True,
+        _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS,
         False,
     )
     reads = _validate_subsystem_receipt_sequence(
@@ -586,7 +583,7 @@ def build_entropy_drift_receipt(
         ReadoutProjectionDecayReceipt,
         "readout_projection_decay_receipt_hash",
         validate_readout_projection_decay_receipt,
-        True,
+        _ERR_MISSING_SUBSYSTEM_DECAY_RECEIPTS,
         False,
     )
     registry = _validate_signature_registry(decay_signatures)
@@ -604,24 +601,14 @@ def build_entropy_drift_receipt(
         )
 
     entropy_hash = sha256_hex(
-        {
-            "layer_decay_receipts": [
-                _layer_decay_receipt_with_hash_payload(r) for r in layers
-            ],
-            "router_decay_receipts": [
-                _router_decay_receipt_with_hash_payload(r) for r in routers
-            ],
-            "mask_collision_decay_receipts": [
-                _mask_collision_decay_receipt_with_hash_payload(r) for r in masks
-            ],
-            "shift_decay_receipts": [
-                _shift_decay_receipt_with_hash_payload(r) for r in shifts
-            ],
-            "readout_projection_decay_receipts": [
-                _readout_projection_decay_receipt_with_hash_payload(r) for r in reads
-            ],
-            "aggregate_decay_score": aggregate_decay_score,
-        }
+        _entropy_drift_receipt_payload_from_parts(
+            layers,
+            routers,
+            masks,
+            shifts,
+            reads,
+            aggregate_decay_score,
+        )
     )
 
     return EntropyDriftReceipt(

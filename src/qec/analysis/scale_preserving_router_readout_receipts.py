@@ -167,9 +167,13 @@ def build_router_scale_receipt(
     router_receipt: RouterLatticePathReceipt,
     pattern: SubgraphInvariantPattern,
     scale_index: int,
-    *,
-    scale_preserved: bool,
 ) -> RouterScaleReceipt:
+    """Build a router scale receipt.
+    
+    In v154.3, scale_preserved is always True because this phase forbids
+    router re-execution. This ensures deterministic behavior:
+    same inputs → same canonical JSON → same hash → same outcome.
+    """
     if not isinstance(router_receipt, RouterLatticePathReceipt):
         raise ValueError("UNKNOWN_ROUTER_RECEIPT")
     if not hasattr(router_receipt, "receipt_hash") or router_receipt.receipt_hash != router_receipt.stable_hash():
@@ -179,7 +183,8 @@ def build_router_scale_receipt(
     _require_sha256_hex(pattern.pattern_hash)
     _validate_pattern_hash(pattern)
     _require_scale_index(scale_index)
-    _require_bool(scale_preserved)
+    # v154.3: scale_preserved is deterministically True (no router re-execution)
+    scale_preserved = True
     payload = _router_scale_hash_payload(
         router_lattice_path_receipt_hash=router_receipt.receipt_hash,
         pattern_hash=pattern.pattern_hash,
@@ -199,9 +204,13 @@ def build_readout_scale_projection_receipt(
     readout_receipt: ReadoutProjectionReceipt,
     pattern: SubgraphInvariantPattern,
     scale_index: int,
-    *,
-    scale_preserved: bool,
 ) -> ReadoutScaleProjectionReceipt:
+    """Build a readout scale projection receipt.
+    
+    In v154.3, scale_preserved is always True because this phase forbids
+    readout re-projection. This ensures deterministic behavior:
+    same inputs → same canonical JSON → same hash → same outcome.
+    """
     if not isinstance(readout_receipt, ReadoutProjectionReceipt):
         raise ValueError("UNKNOWN_READOUT_RECEIPT")
     if not hasattr(readout_receipt, "receipt_hash") or readout_receipt.receipt_hash != readout_receipt.stable_hash():
@@ -211,7 +220,8 @@ def build_readout_scale_projection_receipt(
     _require_sha256_hex(pattern.pattern_hash)
     _validate_pattern_hash(pattern)
     _require_scale_index(scale_index)
-    _require_bool(scale_preserved)
+    # v154.3: scale_preserved is deterministically True (no readout re-projection)
+    scale_preserved = True
     payload = _readout_scale_hash_payload(
         readout_projection_receipt_hash=readout_receipt.receipt_hash,
         pattern_hash=pattern.pattern_hash,

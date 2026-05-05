@@ -43,61 +43,61 @@ def _fx():
 
 def test_router_scale_receipt_determinism():
     rr, _, p = _fx()
-    a = build_router_scale_receipt(rr, p, 1, scale_preserved=True)
-    b = build_router_scale_receipt(rr, p, 1, scale_preserved=True)
+    a = build_router_scale_receipt(rr, p, 1)
+    b = build_router_scale_receipt(rr, p, 1)
     assert a.router_scale_receipt_hash == b.router_scale_receipt_hash
 
 
 def test_readout_scale_projection_determinism():
     _, rd, p = _fx()
-    a = build_readout_scale_projection_receipt(rd, p, 2, scale_preserved=True)
-    b = build_readout_scale_projection_receipt(rd, p, 2, scale_preserved=True)
+    a = build_readout_scale_projection_receipt(rd, p, 2)
+    b = build_readout_scale_projection_receipt(rd, p, 2)
     assert a.readout_scale_projection_receipt_hash == b.readout_scale_projection_receipt_hash
 
 
 def test_router_scale_receipt_invalid_scale():
     rr, _, p = _fx()
     with pytest.raises(ValueError, match="INVALID_SCALE_INDEX"):
-        build_router_scale_receipt(rr, p, 9, scale_preserved=True)
+        build_router_scale_receipt(rr, p, 9)
 
 
 def test_readout_scale_projection_invalid_scale():
     _, rd, p = _fx()
     with pytest.raises(ValueError, match="INVALID_SCALE_INDEX"):
-        build_readout_scale_projection_receipt(rd, p, -1, scale_preserved=True)
+        build_readout_scale_projection_receipt(rd, p, -1)
 
 
 def test_bool_scale_index_rejected():
     rr, rd, p = _fx()
     with pytest.raises(ValueError, match="INVALID_SCALE_INDEX"):
-        build_router_scale_receipt(rr, p, True, scale_preserved=True)
+        build_router_scale_receipt(rr, p, True)
     with pytest.raises(ValueError, match="INVALID_SCALE_INDEX"):
-        build_readout_scale_projection_receipt(rd, p, False, scale_preserved=True)
+        build_readout_scale_projection_receipt(rd, p, False)
 
 
 def test_router_unknown_receipt_rejected():
     rr, _, p = _fx()
     with pytest.raises(ValueError, match="UNKNOWN_ROUTER_RECEIPT"):
-        build_router_scale_receipt("x", p, 0, scale_preserved=True)
+        build_router_scale_receipt("x", p, 0)
     # Intentional tamper-path test: bypasses frozen dataclass guards to verify builder/validator recomputation.
     object.__setattr__(rr, "receipt_hash", "0" * 64)
     with pytest.raises(ValueError, match="UNKNOWN_ROUTER_RECEIPT"):
-        build_router_scale_receipt(rr, p, 0, scale_preserved=True)
+        build_router_scale_receipt(rr, p, 0)
 
 
 def test_readout_unknown_receipt_rejected():
     _, rd, p = _fx()
     with pytest.raises(ValueError, match="UNKNOWN_READOUT_RECEIPT"):
-        build_readout_scale_projection_receipt({}, p, 0, scale_preserved=True)
+        build_readout_scale_projection_receipt({}, p, 0)
     # Intentional tamper-path test: bypasses frozen dataclass guards to verify builder/validator recomputation.
     object.__setattr__(rd, "receipt_hash", "0" * 64)
     with pytest.raises(ValueError, match="UNKNOWN_READOUT_RECEIPT"):
-        build_readout_scale_projection_receipt(rd, p, 0, scale_preserved=True)
+        build_readout_scale_projection_receipt(rd, p, 0)
 
 
 def test_router_scale_receipt_hash_tamper_detection():
     rr, _, p = _fx()
-    r = build_router_scale_receipt(rr, p, 0, scale_preserved=True)
+    r = build_router_scale_receipt(rr, p, 0)
     # Intentional tamper-path test: bypasses frozen dataclass guards to verify builder/validator recomputation.
     object.__setattr__(r, "router_scale_receipt_hash", "0" * 64)
     with pytest.raises(ValueError, match="HASH_MISMATCH"):
@@ -106,32 +106,52 @@ def test_router_scale_receipt_hash_tamper_detection():
 
 def test_readout_scale_projection_hash_tamper_detection():
     _, rd, p = _fx()
-    r = build_readout_scale_projection_receipt(rd, p, 0, scale_preserved=True)
+    r = build_readout_scale_projection_receipt(rd, p, 0)
     # Intentional tamper-path test: bypasses frozen dataclass guards to verify builder/validator recomputation.
     object.__setattr__(r, "readout_scale_projection_receipt_hash", "0" * 64)
     with pytest.raises(ValueError, match="HASH_MISMATCH"):
         validate_readout_scale_projection_receipt(r)
 
 
-def test_scale_preserved_false_represents_violation():
+def test_scale_preserved_is_deterministic():
+    """v154.3 invariant: scale_preserved is always True and deterministic."""
     rr, rd, p = _fx()
-    # Test builder with scale_preserved=False
-    router_v = build_router_scale_receipt(rr, p, 0, scale_preserved=False)
-    assert validate_router_scale_receipt(router_v) is True
-    with pytest.raises(ValueError, match="SCALE_INVARIANCE_VIOLATION"):
-        assert_router_scale_preserved(router_v)
-    readout_v = build_readout_scale_projection_receipt(rd, p, 1, scale_preserved=False)
-    assert validate_readout_scale_projection_receipt(readout_v) is True
-    with pytest.raises(ValueError, match="SCALE_INVARIANCE_VIOLATION"):
-        assert_readout_scale_preserved(readout_v)
+
+    r1 = build_router_scale_receipt(rr, p, 0)
+    r2 = build_router_scale_receipt(rr, p, 0)
+
+    assert r1.scale_preserved is True
+    assert r2.scale_preserved is True
+    assert r1.router_scale_receipt_hash == r2.router_scale_receipt_hash
+
+
+def test_readout_scale_preserved_is_deterministic():
+    """v154.3 invariant: scale_preserved is always True and deterministic for readout."""
+    _, rd, p = _fx()
+
+    r = build_readout_scale_projection_receipt(rd, p, 1)
+
+    assert r.scale_preserved is True
+
+
+def test_scale_preserved_true_passes_assertion():
+    """Verify that scale_preserved=True receipts pass assertion helpers."""
+    rr, rd, p = _fx()
+    router = build_router_scale_receipt(rr, p, 0)
+    assert router.scale_preserved is True
+    assert assert_router_scale_preserved(router) is True
+    
+    readout = build_readout_scale_projection_receipt(rd, p, 1)
+    assert readout.scale_preserved is True
+    assert assert_readout_scale_preserved(readout) is True
 
 
 def test_no_router_reexecution_or_readout_reprojection(monkeypatch):
     rr, rd, p = _fx()
     monkeypatch.setattr(rlp, "resolve_router_lattice_paths", lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not call")))
     monkeypatch.setattr(rpr, "project_readout_fields", lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not call")))
-    build_router_scale_receipt(rr, p, 0, scale_preserved=True)
-    build_readout_scale_projection_receipt(rd, p, 0, scale_preserved=True)
+    build_router_scale_receipt(rr, p, 0)
+    build_readout_scale_projection_receipt(rd, p, 0)
 
 
 def test_no_v154_4_or_v155_scope_leak():
@@ -147,8 +167,8 @@ def test_no_v154_4_or_v155_scope_leak():
 def test_source_receipts_not_mutated():
     rr, rd, p = _fx()
     rr_before, rd_before, p_before = dict(rr.__dict__), dict(rd.__dict__), dict(p.__dict__)
-    build_router_scale_receipt(rr, p, 2, scale_preserved=True)
-    build_readout_scale_projection_receipt(rd, p, 2, scale_preserved=True)
+    build_router_scale_receipt(rr, p, 2)
+    build_readout_scale_projection_receipt(rd, p, 2)
     assert rr.__dict__ == rr_before
     assert rd.__dict__ == rd_before
     assert p.__dict__ == p_before
@@ -158,7 +178,7 @@ def test_cross_run_hash_stability():
     rr, rd, p = _fx()
     hashes = []
     for _ in range(3):
-        hashes.append((build_router_scale_receipt(rr, p, 1, scale_preserved=True).router_scale_receipt_hash, build_readout_scale_projection_receipt(rd, p, 1, scale_preserved=True).readout_scale_projection_receipt_hash))
+        hashes.append((build_router_scale_receipt(rr, p, 1).router_scale_receipt_hash, build_readout_scale_projection_receipt(rd, p, 1).readout_scale_projection_receipt_hash))
     assert len(set(hashes)) == 1
 
 
@@ -167,9 +187,9 @@ def test_tampered_pattern_hash_rejected():
     # Intentional tamper-path test: bypasses frozen dataclass guards to verify builder/validator recomputation.
     object.__setattr__(p, "pattern_hash", "a" * 64)
     with pytest.raises(ValueError, match="HASH_MISMATCH"):
-        build_router_scale_receipt(rr, p, 0, scale_preserved=True)
+        build_router_scale_receipt(rr, p, 0)
     with pytest.raises(ValueError, match="HASH_MISMATCH"):
-        build_readout_scale_projection_receipt(rd, p, 0, scale_preserved=True)
+        build_readout_scale_projection_receipt(rd, p, 0)
 
 
 def test_malformed_pattern_hash_rejected():
@@ -177,32 +197,6 @@ def test_malformed_pattern_hash_rejected():
     # Intentional tamper-path test: bypasses frozen dataclass guards to verify builder/validator recomputation.
     object.__setattr__(p, "pattern_hash", "not-a-hash")
     with pytest.raises(ValueError, match="INVALID_INPUT"):
-        build_router_scale_receipt(rr, p, 0, scale_preserved=True)
+        build_router_scale_receipt(rr, p, 0)
     with pytest.raises(ValueError, match="INVALID_INPUT"):
-        build_readout_scale_projection_receipt(rd, p, 0, scale_preserved=True)
-
-
-def test_scale_preserved_true_vs_false_produces_different_hashes():
-    """Verify that scale_preserved value affects the receipt hash."""
-    rr, rd, p = _fx()
-    router_preserved = build_router_scale_receipt(rr, p, 0, scale_preserved=True)
-    router_violated = build_router_scale_receipt(rr, p, 0, scale_preserved=False)
-    assert router_preserved.router_scale_receipt_hash != router_violated.router_scale_receipt_hash
-    assert router_preserved.scale_preserved is True
-    assert router_violated.scale_preserved is False
-    
-    readout_preserved = build_readout_scale_projection_receipt(rd, p, 1, scale_preserved=True)
-    readout_violated = build_readout_scale_projection_receipt(rd, p, 1, scale_preserved=False)
-    assert readout_preserved.readout_scale_projection_receipt_hash != readout_violated.readout_scale_projection_receipt_hash
-    assert readout_preserved.scale_preserved is True
-    assert readout_violated.scale_preserved is False
-
-
-def test_scale_preserved_true_passes_assertion():
-    """Verify that scale_preserved=True receipts pass assertion helpers."""
-    rr, rd, p = _fx()
-    router = build_router_scale_receipt(rr, p, 0, scale_preserved=True)
-    assert assert_router_scale_preserved(router) is True
-    
-    readout = build_readout_scale_projection_receipt(rd, p, 1, scale_preserved=True)
-    assert assert_readout_scale_preserved(readout) is True
+        build_readout_scale_projection_receipt(rd, p, 0)

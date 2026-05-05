@@ -29,7 +29,9 @@ def _checkpoint_set_with_drift_count(drift_count: int, total: int = 8):
 
 
 def test_decay_threshold_contract_determinism():
-    hashes = {build_decay_threshold_contract(2, 5).threshold_contract_hash for _ in range(10)}
+    hashes = {
+        build_decay_threshold_contract(2, 5).threshold_contract_hash for _ in range(10)
+    }
     assert len(hashes) == 1
 
 
@@ -55,37 +57,53 @@ def test_threshold_contract_malformed_hash_rejected():
 
 
 def test_decay_class_clean_at_zero():
-    sig = build_digital_decay_signature(_checkpoint_set_with_drift_count(0), build_decay_threshold_contract(2, 4), [])
+    sig = build_digital_decay_signature(
+        _checkpoint_set_with_drift_count(0), build_decay_threshold_contract(2, 4), []
+    )
     assert sig.decay_class == "CLEAN"
 
 
 def test_decay_class_degraded_at_lower_boundary():
-    sig = build_digital_decay_signature(_checkpoint_set_with_drift_count(1), build_decay_threshold_contract(2, 4), ["p0"])
+    sig = build_digital_decay_signature(
+        _checkpoint_set_with_drift_count(1),
+        build_decay_threshold_contract(2, 4),
+        ["p0"],
+    )
     assert sig.decay_class == "DEGRADED"
 
 
 def test_decay_class_degraded_at_threshold():
-    sig = build_digital_decay_signature(_checkpoint_set_with_drift_count(2), build_decay_threshold_contract(2, 4), ["p0"])
+    sig = build_digital_decay_signature(
+        _checkpoint_set_with_drift_count(2),
+        build_decay_threshold_contract(2, 4),
+        ["p0"],
+    )
     assert sig.decay_class == "DEGRADED"
 
 
 def test_decay_class_corrupted_above_degraded_threshold():
     sig = build_digital_decay_signature(
-        _checkpoint_set_with_drift_count(3), build_decay_threshold_contract(2, 4), ["p0", "p1"]
+        _checkpoint_set_with_drift_count(3),
+        build_decay_threshold_contract(2, 4),
+        ["p0", "p1"],
     )
     assert sig.decay_class == "CORRUPTED"
 
 
 def test_decay_class_corrupted_at_threshold():
     sig = build_digital_decay_signature(
-        _checkpoint_set_with_drift_count(4), build_decay_threshold_contract(2, 4), ["p0", "p1", "p2"]
+        _checkpoint_set_with_drift_count(4),
+        build_decay_threshold_contract(2, 4),
+        ["p0", "p1", "p2"],
     )
     assert sig.decay_class == "CORRUPTED"
 
 
 def test_decay_class_adversarial_above_corrupted_threshold():
     sig = build_digital_decay_signature(
-        _checkpoint_set_with_drift_count(5), build_decay_threshold_contract(2, 4), ["p0", "p1", "p2", "p3"]
+        _checkpoint_set_with_drift_count(5),
+        build_decay_threshold_contract(2, 4),
+        ["p0", "p1", "p2", "p3"],
     )
     assert sig.decay_class == "ADVERSARIAL"
 
@@ -93,7 +111,12 @@ def test_decay_class_adversarial_above_corrupted_threshold():
 def test_digital_decay_signature_determinism():
     cps = _checkpoint_set_with_drift_count(3)
     tc = build_decay_threshold_contract(2, 4)
-    hashes = {build_digital_decay_signature(cps, tc, ["p2", "p0", "p1"]).digital_decay_signature_hash for _ in range(10)}
+    hashes = {
+        build_digital_decay_signature(
+            cps, tc, ["p2", "p0", "p1"]
+        ).digital_decay_signature_hash
+        for _ in range(10)
+    }
     assert len(hashes) == 1
 
 
@@ -114,8 +137,6 @@ def test_adversarial_positions_must_be_drifted_positions():
         build_digital_decay_signature(cps, tc, ["missing"])
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         build_digital_decay_signature(cps, tc, ["p2"])
-
-
 
 
 def test_builder_rejects_invalid_adversarial_position_item_types() -> None:
@@ -207,12 +228,20 @@ def test_signature_malformed_hash_rejected():
 
 
 def test_validate_digital_decay_signature_returns_true_for_valid_signature():
-    sig = build_digital_decay_signature(_checkpoint_set_with_drift_count(2), build_decay_threshold_contract(2, 4), ["p0"])
+    sig = build_digital_decay_signature(
+        _checkpoint_set_with_drift_count(2),
+        build_decay_threshold_contract(2, 4),
+        ["p0"],
+    )
     assert validate_digital_decay_signature(sig) is True
 
 
 def test_validate_digital_decay_signature_rejects_tampered_signature():
-    sig = build_digital_decay_signature(_checkpoint_set_with_drift_count(2), build_decay_threshold_contract(2, 4), ["p0"])
+    sig = build_digital_decay_signature(
+        _checkpoint_set_with_drift_count(2),
+        build_decay_threshold_contract(2, 4),
+        ["p0"],
+    )
     object.__setattr__(sig, "decay_score", 3)
     with pytest.raises(ValueError, match="HASH_MISMATCH"):
         validate_digital_decay_signature(sig)
@@ -261,3 +290,33 @@ def test_same_process_determinism():
     assert s1.to_canonical_json() == s2.to_canonical_json()
     assert s1.to_canonical_bytes() == s2.to_canonical_bytes()
     assert s1.digital_decay_signature_hash == s2.digital_decay_signature_hash
+
+
+def test_negative_decay_score_rejected():
+    """decay_score must be >= 0."""
+    cps = _checkpoint_set_with_drift_count(2)
+    tc = build_decay_threshold_contract(2, 4)
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        DigitalDecaySignature(
+            checkpoint_set_hash=cps.checkpoint_set_hash,
+            threshold_contract_hash=tc.threshold_contract_hash,
+            decay_class="DEGRADED",
+            decay_score=-1,
+            adversarial_positions=("p0",),
+            digital_decay_signature_hash="0" * 64,
+        )
+
+
+def test_clean_decay_class_requires_zero_score():
+    """CLEAN decay_class is only valid when decay_score is 0."""
+    cps = _checkpoint_set_with_drift_count(0)
+    tc = build_decay_threshold_contract(2, 4)
+    with pytest.raises(ValueError, match="INVALID_DECAY_CLASS"):
+        DigitalDecaySignature(
+            checkpoint_set_hash=cps.checkpoint_set_hash,
+            threshold_contract_hash=tc.threshold_contract_hash,
+            decay_class="CLEAN",
+            decay_score=1,
+            adversarial_positions=(),
+            digital_decay_signature_hash="0" * 64,
+        )

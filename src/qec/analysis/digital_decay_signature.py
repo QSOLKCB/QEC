@@ -33,7 +33,9 @@ def _validate_threshold_int(value: Any) -> int:
     return value
 
 
-def _threshold_payload(degraded_threshold: int, corrupted_threshold: int) -> dict[str, Any]:
+def _threshold_payload(
+    degraded_threshold: int, corrupted_threshold: int
+) -> dict[str, Any]:
     return {
         "degraded_threshold": degraded_threshold,
         "corrupted_threshold": corrupted_threshold,
@@ -57,7 +59,9 @@ def _signature_payload(
 
 
 def _recompute_threshold_contract_hash(contract: DecayThresholdContract) -> str:
-    return sha256_hex(_threshold_payload(contract.degraded_threshold, contract.corrupted_threshold))
+    return sha256_hex(
+        _threshold_payload(contract.degraded_threshold, contract.corrupted_threshold)
+    )
 
 
 def _recompute_digital_decay_signature_hash(sig: DigitalDecaySignature) -> str:
@@ -72,7 +76,9 @@ def _recompute_digital_decay_signature_hash(sig: DigitalDecaySignature) -> str:
     )
 
 
-def _classify_decay_score(decay_score: int, degraded_threshold: int, corrupted_threshold: int) -> str:
+def _classify_decay_score(
+    decay_score: int, degraded_threshold: int, corrupted_threshold: int
+) -> str:
     if decay_score == 0:
         return "CLEAN"
     if 1 <= decay_score <= degraded_threshold:
@@ -94,7 +100,9 @@ def _validate_adversarial_positions(
     if len(set(adversarial_positions)) != len(adversarial_positions):
         raise ValueError(_ERR_INVALID_INPUT)
     sorted_positions = tuple(sorted(adversarial_positions))
-    checkpoint_by_id = {cp.artifact_position_id: cp for cp in checkpoint_set.checkpoints}
+    checkpoint_by_id = {
+        cp.artifact_position_id: cp for cp in checkpoint_set.checkpoints
+    }
     for position in sorted_positions:
         if position not in checkpoint_by_id:
             raise ValueError(_ERR_INVALID_INPUT)
@@ -120,6 +128,10 @@ def _validate_signature_integrity(sig: DigitalDecaySignature) -> None:
         raise ValueError(_ERR_INVALID_DECAY_CLASS)
     if not isinstance(sig.decay_score, int) or isinstance(sig.decay_score, bool):
         raise ValueError(_ERR_INVALID_INPUT)
+    if sig.decay_score < 0:
+        raise ValueError(_ERR_INVALID_INPUT)
+    if sig.decay_class == "CLEAN" and sig.decay_score != 0:
+        raise ValueError(_ERR_INVALID_DECAY_CLASS)
     if not isinstance(sig.adversarial_positions, tuple):
         raise ValueError(_ERR_INVALID_INPUT)
     for position in sig.adversarial_positions:
@@ -186,12 +198,16 @@ class DigitalDecaySignature:
         return canonical_bytes(self.to_dict())
 
 
-def build_decay_threshold_contract(degraded_threshold: int, corrupted_threshold: int) -> DecayThresholdContract:
+def build_decay_threshold_contract(
+    degraded_threshold: int, corrupted_threshold: int
+) -> DecayThresholdContract:
     _validate_threshold_int(degraded_threshold)
     _validate_threshold_int(corrupted_threshold)
     if corrupted_threshold <= degraded_threshold:
         raise ValueError(_ERR_INVALID_THRESHOLD_ORDER)
-    threshold_contract_hash = sha256_hex(_threshold_payload(degraded_threshold, corrupted_threshold))
+    threshold_contract_hash = sha256_hex(
+        _threshold_payload(degraded_threshold, corrupted_threshold)
+    )
     return DecayThresholdContract(
         degraded_threshold=degraded_threshold,
         corrupted_threshold=corrupted_threshold,
@@ -206,7 +222,9 @@ def build_digital_decay_signature(
 ) -> DigitalDecaySignature:
     validate_decay_checkpoint_set(checkpoint_set)
     _validate_threshold_contract_integrity(threshold_contract)
-    sorted_positions = _validate_adversarial_positions(checkpoint_set, adversarial_positions)
+    sorted_positions = _validate_adversarial_positions(
+        checkpoint_set, adversarial_positions
+    )
     decay_class = _classify_decay_score(
         checkpoint_set.decay_score,
         threshold_contract.degraded_threshold,

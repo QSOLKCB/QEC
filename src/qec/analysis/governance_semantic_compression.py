@@ -48,6 +48,88 @@ def _semantic_receipt_entry_payload(entry: "SemanticCompressionEntry") -> dict[s
     }
 
 
+def _validate_governance_entry(entry: "GovernanceCompressionEntry") -> None:
+    if not _is_sha256_hex(entry.governance_decision_hash):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(entry.occurrence_count, int) or isinstance(entry.occurrence_count, bool):
+        raise ValueError("INVALID_INPUT")
+    if entry.occurrence_count < 2:
+        raise ValueError("INSUFFICIENT_OCCURRENCES_FOR_COMPRESSION")
+    if not isinstance(entry.source_rule_id_sets, tuple) or any(not isinstance(s, tuple) for s in entry.source_rule_id_sets):
+        raise ValueError("INVALID_INPUT")
+    if len(entry.source_rule_id_sets) != entry.occurrence_count:
+        raise ValueError("INVALID_INPUT")
+    if any(any(not isinstance(v, str) for v in s) for s in entry.source_rule_id_sets):
+        raise ValueError("INVALID_INPUT")
+    if any(tuple(sorted(s)) != s for s in entry.source_rule_id_sets):
+        raise ValueError("INVALID_INPUT")
+    if tuple(sorted(entry.source_rule_id_sets)) != entry.source_rule_id_sets:
+        raise ValueError("INVALID_INPUT")
+    if not _is_sha256_hex(entry.compression_entry_hash):
+        raise ValueError("INVALID_INPUT")
+    expected = sha256_hex(_governance_entry_payload(entry.governance_decision_hash, entry.occurrence_count, entry.source_rule_id_sets))
+    if entry.compression_entry_hash != expected:
+        raise ValueError("HASH_MISMATCH")
+
+
+def _validate_governance_receipt(receipt: "GovernanceCompressionReceipt") -> None:
+    if not isinstance(receipt.entries, tuple) or any(not isinstance(e, GovernanceCompressionEntry) for e in receipt.entries):
+        raise ValueError("INVALID_INPUT")
+    if tuple(sorted(receipt.entries, key=lambda e: e.governance_decision_hash)) != receipt.entries:
+        raise ValueError("INVALID_INPUT")
+    if len({e.governance_decision_hash for e in receipt.entries}) != len(receipt.entries):
+        raise ValueError("IDENTITY_COLLISION")
+    if not isinstance(receipt.total_compressed_decisions, int) or isinstance(receipt.total_compressed_decisions, bool):
+        raise ValueError("INVALID_INPUT")
+    if receipt.total_compressed_decisions != sum(e.occurrence_count for e in receipt.entries):
+        raise ValueError("INVALID_INPUT")
+    if not _is_sha256_hex(receipt.governance_compression_receipt_hash):
+        raise ValueError("INVALID_INPUT")
+    expected = sha256_hex({"entries": [
+        _governance_receipt_entry_payload(e) for e in receipt.entries
+    ], "total_compressed_decisions": receipt.total_compressed_decisions})
+    if receipt.governance_compression_receipt_hash != expected:
+        raise ValueError("HASH_MISMATCH")
+
+
+def _validate_semantic_entry(entry: "SemanticCompressionEntry") -> None:
+    if not _is_sha256_hex(entry.semantic_field_hash):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(entry.occurrence_count, int) or isinstance(entry.occurrence_count, bool):
+        raise ValueError("INVALID_INPUT")
+    if entry.occurrence_count < 2:
+        raise ValueError("INSUFFICIENT_OCCURRENCES_FOR_COMPRESSION")
+    if not isinstance(entry.source_document_ids, tuple) or any(not isinstance(d, str) for d in entry.source_document_ids):
+        raise ValueError("INVALID_INPUT")
+    if len(entry.source_document_ids) != entry.occurrence_count or tuple(sorted(entry.source_document_ids)) != entry.source_document_ids:
+        raise ValueError("INVALID_INPUT")
+    if not _is_sha256_hex(entry.compression_entry_hash):
+        raise ValueError("INVALID_INPUT")
+    expected = sha256_hex(_semantic_entry_payload(entry.semantic_field_hash, entry.occurrence_count, entry.source_document_ids))
+    if entry.compression_entry_hash != expected:
+        raise ValueError("HASH_MISMATCH")
+
+
+def _validate_semantic_receipt(receipt: "SemanticCompressionReceipt") -> None:
+    if not isinstance(receipt.entries, tuple) or any(not isinstance(e, SemanticCompressionEntry) for e in receipt.entries):
+        raise ValueError("INVALID_INPUT")
+    if tuple(sorted(receipt.entries, key=lambda e: e.semantic_field_hash)) != receipt.entries:
+        raise ValueError("INVALID_INPUT")
+    if len({e.semantic_field_hash for e in receipt.entries}) != len(receipt.entries):
+        raise ValueError("IDENTITY_COLLISION")
+    if not isinstance(receipt.total_compressed_fields, int) or isinstance(receipt.total_compressed_fields, bool):
+        raise ValueError("INVALID_INPUT")
+    if receipt.total_compressed_fields != sum(e.occurrence_count for e in receipt.entries):
+        raise ValueError("INVALID_INPUT")
+    if not _is_sha256_hex(receipt.semantic_compression_receipt_hash):
+        raise ValueError("INVALID_INPUT")
+    expected = sha256_hex({"entries": [
+        _semantic_receipt_entry_payload(e) for e in receipt.entries
+    ], "total_compressed_fields": receipt.total_compressed_fields})
+    if receipt.semantic_compression_receipt_hash != expected:
+        raise ValueError("HASH_MISMATCH")
+
+
 @dataclass(frozen=True)
 class GovernanceCompressionEntry:
     governance_decision_hash: str
@@ -56,25 +138,7 @@ class GovernanceCompressionEntry:
     compression_entry_hash: str
 
     def __post_init__(self) -> None:
-        if not _is_sha256_hex(self.governance_decision_hash):
-            raise ValueError("INVALID_INPUT")
-        if not isinstance(self.occurrence_count, int) or isinstance(self.occurrence_count, bool):
-            raise ValueError("INVALID_INPUT")
-        if self.occurrence_count < 2:
-            raise ValueError("INSUFFICIENT_OCCURRENCES_FOR_COMPRESSION")
-        if not isinstance(self.source_rule_id_sets, tuple) or any(not isinstance(s, tuple) for s in self.source_rule_id_sets):
-            raise ValueError("INVALID_INPUT")
-        if len(self.source_rule_id_sets) != self.occurrence_count:
-            raise ValueError("INVALID_INPUT")
-        if any(tuple(sorted(s)) != s or any(not isinstance(v, str) for v in s) for s in self.source_rule_id_sets):
-            raise ValueError("INVALID_INPUT")
-        if tuple(sorted(self.source_rule_id_sets)) != self.source_rule_id_sets:
-            raise ValueError("INVALID_INPUT")
-        if not _is_sha256_hex(self.compression_entry_hash):
-            raise ValueError("INVALID_INPUT")
-        expected = sha256_hex(_governance_entry_payload(self.governance_decision_hash, self.occurrence_count, self.source_rule_id_sets))
-        if self.compression_entry_hash != expected:
-            raise ValueError("HASH_MISMATCH")
+        _validate_governance_entry(self)
 
 
 @dataclass(frozen=True)
@@ -84,21 +148,7 @@ class GovernanceCompressionReceipt:
     governance_compression_receipt_hash: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.entries, tuple) or any(not isinstance(e, GovernanceCompressionEntry) for e in self.entries):
-            raise ValueError("INVALID_INPUT")
-        if tuple(sorted(self.entries, key=lambda e: e.governance_decision_hash)) != self.entries:
-            raise ValueError("INVALID_INPUT")
-        if len({e.governance_decision_hash for e in self.entries}) != len(self.entries):
-            raise ValueError("IDENTITY_COLLISION")
-        if not isinstance(self.total_compressed_decisions, int) or isinstance(self.total_compressed_decisions, bool):
-            raise ValueError("INVALID_INPUT")
-        if self.total_compressed_decisions != sum(e.occurrence_count for e in self.entries):
-            raise ValueError("INVALID_INPUT")
-        expected = sha256_hex({"entries": [
-            _governance_receipt_entry_payload(e) for e in self.entries
-        ], "total_compressed_decisions": self.total_compressed_decisions})
-        if self.governance_compression_receipt_hash != expected:
-            raise ValueError("HASH_MISMATCH")
+        _validate_governance_receipt(self)
 
 
 @dataclass(frozen=True)
@@ -109,21 +159,7 @@ class SemanticCompressionEntry:
     compression_entry_hash: str
 
     def __post_init__(self) -> None:
-        if not _is_sha256_hex(self.semantic_field_hash):
-            raise ValueError("INVALID_INPUT")
-        if not isinstance(self.occurrence_count, int) or isinstance(self.occurrence_count, bool):
-            raise ValueError("INVALID_INPUT")
-        if self.occurrence_count < 2:
-            raise ValueError("INSUFFICIENT_OCCURRENCES_FOR_COMPRESSION")
-        if not isinstance(self.source_document_ids, tuple) or any(not isinstance(d, str) for d in self.source_document_ids):
-            raise ValueError("INVALID_INPUT")
-        if len(self.source_document_ids) != self.occurrence_count or tuple(sorted(self.source_document_ids)) != self.source_document_ids:
-            raise ValueError("INVALID_INPUT")
-        if not _is_sha256_hex(self.compression_entry_hash):
-            raise ValueError("INVALID_INPUT")
-        expected = sha256_hex(_semantic_entry_payload(self.semantic_field_hash, self.occurrence_count, self.source_document_ids))
-        if self.compression_entry_hash != expected:
-            raise ValueError("HASH_MISMATCH")
+        _validate_semantic_entry(self)
 
 
 @dataclass(frozen=True)
@@ -133,21 +169,7 @@ class SemanticCompressionReceipt:
     semantic_compression_receipt_hash: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.entries, tuple) or any(not isinstance(e, SemanticCompressionEntry) for e in self.entries):
-            raise ValueError("INVALID_INPUT")
-        if tuple(sorted(self.entries, key=lambda e: e.semantic_field_hash)) != self.entries:
-            raise ValueError("INVALID_INPUT")
-        if len({e.semantic_field_hash for e in self.entries}) != len(self.entries):
-            raise ValueError("IDENTITY_COLLISION")
-        if not isinstance(self.total_compressed_fields, int) or isinstance(self.total_compressed_fields, bool):
-            raise ValueError("INVALID_INPUT")
-        if self.total_compressed_fields != sum(e.occurrence_count for e in self.entries):
-            raise ValueError("INVALID_INPUT")
-        expected = sha256_hex({"entries": [
-            _semantic_receipt_entry_payload(e) for e in self.entries
-        ], "total_compressed_fields": self.total_compressed_fields})
-        if self.semantic_compression_receipt_hash != expected:
-            raise ValueError("HASH_MISMATCH")
+        _validate_semantic_receipt(self)
 
 
 def build_governance_compression_receipt(decisions: list[GovernanceDecision]) -> GovernanceCompressionReceipt:
@@ -198,16 +220,16 @@ def build_semantic_compression_receipt(semantic_field_receipts: list[SemanticFie
 def validate_governance_compression_receipt(r: GovernanceCompressionReceipt) -> bool:
     if not isinstance(r, GovernanceCompressionReceipt):
         raise ValueError("INVALID_INPUT")
-    for e in r.entries:
-        GovernanceCompressionEntry(e.governance_decision_hash, e.occurrence_count, e.source_rule_id_sets, e.compression_entry_hash)
-    GovernanceCompressionReceipt(r.entries, r.total_compressed_decisions, r.governance_compression_receipt_hash)
+    for entry in r.entries:
+        _validate_governance_entry(entry)
+    _validate_governance_receipt(r)
     return True
 
 
 def validate_semantic_compression_receipt(r: SemanticCompressionReceipt) -> bool:
     if not isinstance(r, SemanticCompressionReceipt):
         raise ValueError("INVALID_INPUT")
-    for e in r.entries:
-        SemanticCompressionEntry(e.semantic_field_hash, e.occurrence_count, e.source_document_ids, e.compression_entry_hash)
-    SemanticCompressionReceipt(r.entries, r.total_compressed_fields, r.semantic_compression_receipt_hash)
+    for entry in r.entries:
+        _validate_semantic_entry(entry)
+    _validate_semantic_receipt(r)
     return True

@@ -3,7 +3,9 @@ import pytest
 from qec.analysis.agent_governance_fence import GovernanceDecision, PolicyState
 from qec.analysis.canonical_hashing import sha256_hex
 from qec.analysis.governance_semantic_compression import (
+    GovernanceCompressionEntry,
     GovernanceCompressionReceipt,
+    SemanticCompressionEntry,
     build_governance_compression_receipt,
     build_semantic_compression_receipt,
     validate_governance_compression_receipt,
@@ -83,6 +85,40 @@ def test_hash_tamper_detection() -> None:
         validate_governance_compression_receipt(receipt)
 
 
+def test_governance_entry_payload_tamper_detection() -> None:
+    d = _decision("x", ("a",))
+    receipt = build_governance_compression_receipt([d, d])
+    entry = receipt.entries[0]
+    tampered = GovernanceCompressionEntry(
+        entry.governance_decision_hash,
+        entry.occurrence_count,
+        entry.source_rule_id_sets,
+        entry.compression_entry_hash,
+    )
+    object.__setattr__(tampered, "source_rule_id_sets", (("a",), ("b",)))
+    object.__setattr__(receipt, "entries", (tampered,))
+    object.__setattr__(receipt, "governance_compression_receipt_hash", "0" * 64)
+    with pytest.raises(ValueError, match="HASH_MISMATCH"):
+        validate_governance_compression_receipt(receipt)
+
+
+def test_governance_entry_hash_tamper_detection() -> None:
+    d = _decision("x", ("a",))
+    receipt = build_governance_compression_receipt([d, d])
+    entry = receipt.entries[0]
+    tampered = GovernanceCompressionEntry(
+        entry.governance_decision_hash,
+        entry.occurrence_count,
+        entry.source_rule_id_sets,
+        entry.compression_entry_hash,
+    )
+    object.__setattr__(tampered, "compression_entry_hash", "0" * 64)
+    object.__setattr__(receipt, "entries", (tampered,))
+    object.__setattr__(receipt, "governance_compression_receipt_hash", "0" * 64)
+    with pytest.raises(ValueError, match="HASH_MISMATCH"):
+        validate_governance_compression_receipt(receipt)
+
+
 def test_sorted_order_invariance() -> None:
     d1 = _decision("a", ("z", "x"))
     d2 = _decision("b", ("y",))
@@ -108,6 +144,37 @@ def test_no_single_occurrence_compression() -> None:
 def test_semantic_hash_tamper_detection() -> None:
     s = _semantic("x")
     receipt = build_semantic_compression_receipt([s, s])
+    object.__setattr__(receipt, "semantic_compression_receipt_hash", "0" * 64)
+    with pytest.raises(ValueError, match="HASH_MISMATCH"):
+        validate_semantic_compression_receipt(receipt)
+
+
+def test_receipt_hash_format_validation() -> None:
+    d = _decision("x", ("a",))
+    governance = build_governance_compression_receipt([d, d])
+    object.__setattr__(governance, "governance_compression_receipt_hash", "not-a-sha")
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_governance_compression_receipt(governance)
+
+    s = _semantic("x")
+    semantic = build_semantic_compression_receipt([s, s])
+    object.__setattr__(semantic, "semantic_compression_receipt_hash", "not-a-sha")
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_semantic_compression_receipt(semantic)
+
+
+def test_semantic_entry_hash_tamper_detection() -> None:
+    s = _semantic("x")
+    receipt = build_semantic_compression_receipt([s, s])
+    entry = receipt.entries[0]
+    tampered = SemanticCompressionEntry(
+        entry.semantic_field_hash,
+        entry.occurrence_count,
+        entry.source_document_ids,
+        entry.compression_entry_hash,
+    )
+    object.__setattr__(tampered, "compression_entry_hash", "0" * 64)
+    object.__setattr__(receipt, "entries", (tampered,))
     object.__setattr__(receipt, "semantic_compression_receipt_hash", "0" * 64)
     with pytest.raises(ValueError, match="HASH_MISMATCH"):
         validate_semantic_compression_receipt(receipt)

@@ -85,14 +85,29 @@ class DecayCheckpoint:
         return canonical_bytes(self.to_dict())
 
 
-def _recompute_checkpoint_hash(checkpoint: DecayCheckpoint) -> str:
+def _hash_checkpoint_fields(
+    artifact_position_id: str,
+    expected_hash: str,
+    observed_hash: str,
+    drifted: bool,
+) -> str:
+    """Single source of truth for the checkpoint hash preimage formula."""
     return sha256_hex(
         _checkpoint_payload(
-            artifact_position_id=checkpoint.artifact_position_id,
-            expected_hash=checkpoint.expected_hash,
-            observed_hash=checkpoint.observed_hash,
-            drifted=checkpoint.drifted,
+            artifact_position_id=artifact_position_id,
+            expected_hash=expected_hash,
+            observed_hash=observed_hash,
+            drifted=drifted,
         )
+    )
+
+
+def _recompute_checkpoint_hash(checkpoint: DecayCheckpoint) -> str:
+    return _hash_checkpoint_fields(
+        artifact_position_id=checkpoint.artifact_position_id,
+        expected_hash=checkpoint.expected_hash,
+        observed_hash=checkpoint.observed_hash,
+        drifted=checkpoint.drifted,
     )
 
 
@@ -200,13 +215,11 @@ def build_decay_checkpoint(
     _validate_hash_string(expected_hash)
     _validate_hash_string(observed_hash)
     drifted = expected_hash != observed_hash
-    checkpoint_hash = sha256_hex(
-        _checkpoint_payload(
-            artifact_position_id=artifact_position_id,
-            expected_hash=expected_hash,
-            observed_hash=observed_hash,
-            drifted=drifted,
-        )
+    checkpoint_hash = _hash_checkpoint_fields(
+        artifact_position_id=artifact_position_id,
+        expected_hash=expected_hash,
+        observed_hash=observed_hash,
+        drifted=drifted,
     )
     return DecayCheckpoint(
         artifact_position_id=artifact_position_id,
@@ -217,12 +230,18 @@ def build_decay_checkpoint(
     )
 
 
-def build_decay_checkpoint_set(checkpoints: list[DecayCheckpoint]) -> DecayCheckpointSet:
-    if not isinstance(checkpoints, list):
+def build_decay_checkpoint_set(
+    checkpoints: list[DecayCheckpoint] | tuple[DecayCheckpoint, ...],
+) -> DecayCheckpointSet:
+    if not isinstance(checkpoints, (list, tuple)):
         raise ValueError(_ERR_INVALID_INPUT)
     for checkpoint in checkpoints:
         if not isinstance(checkpoint, DecayCheckpoint):
             raise ValueError(_ERR_INVALID_INPUT)
+        # Validate each child's field integrity before sorting so that any
+        # tampered checkpoint raises a documented ValueError code rather than
+        # a raw TypeError from the sort comparator.
+        _validate_checkpoint_integrity(checkpoint)
 
     sorted_checkpoints = tuple(sorted(checkpoints, key=lambda cp: cp.artifact_position_id))
     position_ids = tuple(cp.artifact_position_id for cp in sorted_checkpoints)

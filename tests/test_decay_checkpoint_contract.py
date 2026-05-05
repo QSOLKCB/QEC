@@ -137,7 +137,8 @@ def test_artifacts_are_frozen() -> None:
         cp.drifted = False  # type: ignore[misc]
 
 
-def test_cross_run_stability() -> None:
+def test_same_process_determinism() -> None:
+    """Identical inputs produce identical hashes within the same interpreter run."""
     cp1 = build_decay_checkpoint("a", _h("a"), _h("b"))
     cp2 = build_decay_checkpoint("a", _h("a"), _h("b"))
     s1 = build_decay_checkpoint_set([cp1])
@@ -210,3 +211,25 @@ def test_bool_as_int_decay_score_rejected_when_expected_zero() -> None:
     valid = build_decay_checkpoint_set([cp])
     with pytest.raises(ValueError, match="DECAY_SCORE_MISMATCH"):
         DecayCheckpointSet(checkpoints=(cp,), decay_score=True, checkpoint_set_hash=valid.checkpoint_set_hash)
+
+
+def test_build_decay_checkpoint_set_accepts_tuple() -> None:
+    """Passing existing_set.checkpoints (a tuple) must work without raising."""
+    cp = build_decay_checkpoint("a", _h("a"), _h("b"))
+    original = build_decay_checkpoint_set([cp])
+    rebuilt = build_decay_checkpoint_set(original.checkpoints)
+    assert rebuilt.checkpoint_set_hash == original.checkpoint_set_hash
+
+
+def test_build_decay_checkpoint_set_rejects_non_sequence() -> None:
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        build_decay_checkpoint_set(build_decay_checkpoint("a", _h("a"), _h("b")))  # type: ignore[arg-type]
+
+
+def test_build_decay_checkpoint_set_validates_children_before_sorting() -> None:
+    """A checkpoint whose artifact_position_id has been tampered to a non-string
+    must raise INVALID_INPUT (not a raw TypeError from the sort comparator)."""
+    cp = build_decay_checkpoint("a", _h("a"), _h("b"))
+    object.__setattr__(cp, "artifact_position_id", 999)
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        build_decay_checkpoint_set([cp])

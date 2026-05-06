@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import hashlib
 import re
 import zipfile
@@ -32,8 +32,11 @@ _ALLOWED_WORLD_FAMILIES = {
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 _LANGUAGE_BY_EXT = {".py": "Python", ".java": "Java", ".kt": "Kotlin", ".js": "JavaScript", ".ts": "TypeScript", ".c": "C", ".cpp": "C++", ".cs": "C#", ".ipynb": "Jupyter"}
-_ENTRYPOINT_NAMES = {"main.py", "app.py", "run.py", "train.py", "setup.py", "build.gradle", "pom.xml", "package.json", "README.md"}
+_EXECUTABLE_ENTRYPOINT_NAMES = {"main.py", "app.py", "run.py", "train.py", "setup.py"}
+_NOTABLE_PROJECT_FILES = {"build.gradle", "pom.xml", "package.json", "README.md"}
 _ASSET_TYPE_BY_EXT = {".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".wav": "audio", ".mp3": "audio", ".ogg": "audio", ".wad": "doom_wad", ".json": "config", ".yaml": "config", ".yml": "config", ".pt": "model_weight", ".pth": "model_weight", ".ckpt": "model_weight", ".safetensors": "model_weight", ".txt": "text", ".md": "text"}
+_BUILD_FILE_NAMES = {"makefile", "cmakelists.txt"}
+_BUILD_FILE_SUFFIXES = ("build.gradle", "pom.xml")
 
 
 def _validate_hash_string(value: str) -> None:
@@ -63,7 +66,19 @@ def _validate_world_family(value: object) -> None:
 
 
 def _validate_archive_entry_path(name: str) -> None:
-    if "\x00" in name or name.startswith("/") or ".." in name or re.search(r"[a-zA-Z]:", name):
+    if "\x00" in name:
+        raise ValueError(_ERR_UNSAFE_ARCHIVE_PATH)
+    normalized = name.replace("\\", "/")
+    try:
+        parts = PurePosixPath(normalized).parts
+    except ValueError:
+        raise ValueError(_ERR_UNSAFE_ARCHIVE_PATH)
+    for part in parts:
+        if part == "..":
+            raise ValueError(_ERR_UNSAFE_ARCHIVE_PATH)
+        if re.match(r"^[a-zA-Z]:$", part):
+            raise ValueError(_ERR_UNSAFE_ARCHIVE_PATH)
+    if normalized.startswith("/"):
         raise ValueError(_ERR_UNSAFE_ARCHIVE_PATH)
 
 
@@ -88,6 +103,38 @@ def _detect_world_family(archive_name: str) -> str:
     return "UNKNOWN"
 
 
+def _has_native_build_files(entries: list[str]) -> bool:
+    for name in entries:
+        lower = name.lower()
+        filename = lower.rsplit("/", 1)[-1]
+        if lower.endswith(_BUILD_FILE_SUFFIXES) or filename in _BUILD_FILE_NAMES:
+            return True
+    return False
+
+
+def _compute_intake_warnings(
+    entries: list[str],
+    entrypoints: set[str],
+    asset_types: set[str],
+    languages: set[str],
+    world_family: str,
+) -> set[str]:
+    warnings: set[str] = set()
+    if entrypoints:
+        warnings.add("CONTAINS_EXECUTABLE_ENTRYPOINT")
+    if "model_weight" in asset_types:
+        warnings.add("CONTAINS_MODEL_WEIGHTS")
+    if "doom_wad" in asset_types:
+        warnings.add("CONTAINS_DOOM_WAD")
+    if _has_native_build_files(entries):
+        warnings.add("CONTAINS_NATIVE_BUILD_FILES")
+    if "Jupyter" in languages:
+        warnings.add("CONTAINS_JUPYTER_NOTEBOOK")
+    if world_family == "UNKNOWN":
+        warnings.add("UNKNOWN_WORLD_FAMILY")
+    return warnings
+
+
 @dataclass(frozen=True)
 class GameWorldArchive:
     archive_name: str
@@ -109,7 +156,6 @@ class GameWorldArchive:
     def _hash_payload(self) -> dict[str, object]:
         return {
             "archive_name": self.archive_name,
-            "archive_path": self.archive_path,
             "archive_sha256": self.archive_sha256,
             "file_count": self.file_count,
             "total_uncompressed_bytes": self.total_uncompressed_bytes,
@@ -123,6 +169,7 @@ class GameWorldArchive:
 
     def to_dict(self) -> dict[str, object]:
         payload = self._hash_payload().copy()
+        payload["archive_path"] = self.archive_path
         payload["archive_manifest_hash"] = self.archive_manifest_hash
         return payload
 
@@ -287,45 +334,41 @@ def build_game_world_archive(archive_path: str) -> GameWorldArchive:
         for ext, lang in _LANGUAGE_BY_EXT.items():
             if lower.endswith(ext):
                 languages.add(lang)
-        if file_name in _ENTRYPOINT_NAMES:
+        if file_name in _EXECUTABLE_ENTRYPOINT_NAMES:
             entrypoints.add(name)
         for ext, label in _ASSET_TYPE_BY_EXT.items():
             if lower.endswith(ext):
                 asset_types.add(label)
 
     world_family = _detect_world_family(path.name)
-    warnings: set[str] = set()
-    if entrypoints:
-        warnings.add("CONTAINS_EXECUTABLE_ENTRYPOINT")
-    if "model_weight" in asset_types:
-        warnings.add("CONTAINS_MODEL_WEIGHTS")
-    if "doom_wad" in asset_types:
-        warnings.add("CONTAINS_DOOM_WAD")
-    for n in entries:
-        lower = n.lower()
-        filename = lower.rsplit("/", 1)[-1]
-        if lower.endswith(("build.gradle", "pom.xml")) or filename in {"makefile", "cmakelists.txt"}:
-            warnings.add("CONTAINS_NATIVE_BUILD_FILES")
-            break
-    if "Jupyter" in languages:
-        warnings.add("CONTAINS_JUPYTER_NOTEBOOK")
-    if world_family == "UNKNOWN":
-        warnings.add("UNKNOWN_WORLD_FAMILY")
+    warnings = _compute_intake_warnings(entries, entrypoints, asset_types, languages, world_family)
 
-    payload = {
+    hash_payload = {
         "archive_name": path.name,
-        "archive_path": archive_path,
         "archive_sha256": hashlib.sha256(archive_bytes).hexdigest(),
         "file_count": sum(1 for zi in infos if not zi.is_dir()),
         "total_uncompressed_bytes": total_bytes,
-        "top_level_entries": tuple(sorted(top_levels)),
-        "detected_languages": tuple(sorted(languages)),
-        "detected_entrypoints": tuple(sorted(entrypoints)),
-        "detected_asset_types": tuple(sorted(asset_types)),
+        "top_level_entries": list(sorted(top_levels)),
+        "detected_languages": list(sorted(languages)),
+        "detected_entrypoints": list(sorted(entrypoints)),
+        "detected_asset_types": list(sorted(asset_types)),
         "world_family": world_family,
-        "intake_warnings": tuple(sorted(warnings)),
+        "intake_warnings": list(sorted(warnings)),
     }
-    return GameWorldArchive(**payload, archive_manifest_hash=sha256_hex(payload))
+    return GameWorldArchive(
+        archive_name=path.name,
+        archive_path=archive_path,
+        archive_sha256=hash_payload["archive_sha256"],
+        file_count=hash_payload["file_count"],
+        total_uncompressed_bytes=total_bytes,
+        top_level_entries=tuple(sorted(top_levels)),
+        detected_languages=tuple(sorted(languages)),
+        detected_entrypoints=tuple(sorted(entrypoints)),
+        detected_asset_types=tuple(sorted(asset_types)),
+        world_family=world_family,
+        intake_warnings=tuple(sorted(warnings)),
+        archive_manifest_hash=sha256_hex(hash_payload),
+    )
 
 
 def build_game_world_corpus_manifest(archive_paths: list[str] | tuple[str, ...]) -> GameWorldCorpusManifest:

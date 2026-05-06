@@ -45,12 +45,37 @@ def test_archive_sha256_changes_when_zip_bytes_change(tmp_path):
     assert a1.archive_manifest_hash != a2.archive_manifest_hash
 
 
+def test_archive_manifest_hash_portable_across_paths(tmp_path):
+    d1 = tmp_path / "d1"
+    d2 = tmp_path / "d2"
+    d1.mkdir()
+    d2.mkdir()
+    p1 = d1 / "sample.zip"
+    _make_zip(p1, [("main.py", "print(1)"), ("data.json", "{}")])
+    import shutil
+    p2 = d2 / "sample.zip"
+    shutil.copy(p1, p2)
+    a1 = build_game_world_archive(str(p1))
+    a2 = build_game_world_archive(str(p2))
+    assert a1.archive_path != a2.archive_path
+    assert a1.archive_manifest_hash == a2.archive_manifest_hash
+    assert a1.archive_sha256 == a2.archive_sha256
+
+
 def test_zip_path_traversal_rejected(tmp_path):
-    for i, name in enumerate(["../evil.py", "/abs/path.py", "C:/bad.py", "subdir/C:/evil.py", "nested/Z:/bad.py"]):
+    for i, name in enumerate(["../evil.py", "/abs/path.py", "C:/bad.py", "subdir/C:/evil.py", "nested/Z:/bad.py", "..\\evil.py", "dir\\..\\evil.py"]):
         p = tmp_path / f"bad{i}.zip"
         _make_zip(p, [(name, "x")])
         with pytest.raises(ValueError, match="UNSAFE_ARCHIVE_PATH"):
             build_game_world_archive(str(p))
+
+
+def test_benign_dotdot_filename_allowed(tmp_path):
+    p = tmp_path / "test.zip"
+    _make_zip(p, [("foo..bar.txt", "content"), ("a..b/file.py", "x")])
+    a = build_game_world_archive(str(p))
+    assert "foo..bar.txt" in a.top_level_entries
+    assert "a..b" in a.top_level_entries
 
 
 def test_non_zip_rejected(tmp_path):
@@ -72,6 +97,17 @@ def test_detected_languages_entrypoints_assets_are_sorted(tmp_path):
     assert a.detected_languages == tuple(sorted(a.detected_languages))
     assert a.detected_entrypoints == tuple(sorted(a.detected_entrypoints))
     assert a.detected_asset_types == tuple(sorted(a.detected_asset_types))
+
+
+def test_executable_entrypoint_warning_only_for_runnable_files(tmp_path):
+    non_exec = tmp_path / "non_exec.zip"
+    _make_zip(non_exec, [("README.md", "x"), ("pom.xml", "x"), ("build.gradle", "x"), ("package.json", "{}")])
+    warnings = build_game_world_archive(str(non_exec)).intake_warnings
+    assert "CONTAINS_EXECUTABLE_ENTRYPOINT" not in warnings
+    with_exec = tmp_path / "with_exec.zip"
+    _make_zip(with_exec, [("main.py", "x"), ("README.md", "x")])
+    warnings_exec = build_game_world_archive(str(with_exec)).intake_warnings
+    assert "CONTAINS_EXECUTABLE_ENTRYPOINT" in warnings_exec
 
 
 def test_world_family_detection(tmp_path):
@@ -205,12 +241,11 @@ def test_corpus_manifest_deep_validates_child_archives(tmp_path):
 def test_invalid_archive_tuple_contents(tmp_path):
     p = tmp_path / "a.zip"
     _make_zip(p, [("a.txt", "1")])
-    a = build_game_world_archive(str(p))
     for field, value in (("top_level_entries", None), ("detected_languages", 123), ("detected_entrypoints", ["a"]), ("detected_asset_types", ("a", 1)), ("intake_warnings", ("a", 1))):
+        a = build_game_world_archive(str(p))
         object.__setattr__(a, field, value)
         with pytest.raises(ValueError, match="INVALID_INPUT"):
             validate_game_world_archive(a)
-        object.__setattr__(a, field, build_game_world_archive(str(p)).to_dict()[field])
 
 
 def test_invalid_world_family_rejected(tmp_path):

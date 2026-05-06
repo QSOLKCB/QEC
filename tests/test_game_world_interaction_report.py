@@ -12,7 +12,18 @@ from qec.analysis.game_world_episode_trace import build_episode_step, build_epis
 from qec.analysis.game_world_strategy_probe import build_strategy_probe_receipt
 from qec.analysis.game_world_chaos_replay_verdict import build_chaos_replay_verdict_receipt
 from qec.analysis.canonical_hashing import sha256_hex
-from qec.analysis.game_world_interaction_report import *
+from qec.analysis.game_world_interaction_report import (
+    GameWorldInteractionReport,
+    GameWorldInteractionReportReceipt,
+    build_game_world_interaction_report,
+    build_game_world_interaction_report_receipt,
+    get_game_world_interaction_report_sections,
+    get_allowed_interaction_report_verdicts,
+    validate_game_world_interaction_report,
+    validate_game_world_interaction_report_receipt,
+    validate_game_world_interaction_report_with_artifacts,
+    validate_game_world_interaction_report_receipt_with_artifacts,
+)
 
 def _rehash_report(r: GameWorldInteractionReport, **changes) -> GameWorldInteractionReport:
     d=r.to_dict(); d.update(changes); d.pop("game_world_interaction_report_hash",None)

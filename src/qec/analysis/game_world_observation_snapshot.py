@@ -22,8 +22,8 @@ _ERR_PAYLOAD_TOO_LARGE = "PAYLOAD_TOO_LARGE"
 _ERR_OBSERVATION_INDEX_OUT_OF_BOUNDS = "OBSERVATION_INDEX_OUT_OF_BOUNDS"
 _ERR_ADAPTER_SPEC_NOT_IN_CONTRACT = "ADAPTER_SPEC_NOT_IN_CONTRACT"
 _ERR_ADAPTER_CONTRACT_MISMATCH = "ADAPTER_CONTRACT_MISMATCH"
-_ERR_ACTION_MASK_UNKNOWN_ACTION = "_ERR_ACTION_MASK_UNKNOWN_ACTION"
-_ERR_ACTION_MASK_ORDER_MISMATCH = "_ERR_ACTION_MASK_ORDER_MISMATCH"
+_ERR_ACTION_MASK_UNKNOWN_ACTION = "ACTION_MASK_UNKNOWN_ACTION"
+_ERR_ACTION_MASK_ORDER_MISMATCH = "ACTION_MASK_ORDER_MISMATCH"
 _ERR_DUPLICATE_OBSERVATION = "DUPLICATE_OBSERVATION"
 _ERR_OBSERVATION_COUNT_MISMATCH = "OBSERVATION_COUNT_MISMATCH"
 _ERR_SNAPSHOT_ADAPTER_MISMATCH = "SNAPSHOT_ADAPTER_MISMATCH"
@@ -368,7 +368,7 @@ def validate_observation_channel_spec(spec: ObservationChannelSpec) -> bool:
         raise ValueError(_ERR_INVALID_INPUT)
     _validate_hash_string(spec.observation_channel_hash)
     if spec.observation_channel_hash != sha256_hex(spec._hash_payload()):
-        raise ValueError(HASH_MISMATCH)
+        raise ValueError(_ERR_HASH_MISMATCH)
     return True
 
 
@@ -450,7 +450,7 @@ def validate_observation_snapshot_receipt(receipt: ObservationSnapshotReceipt) -
         raise ValueError(_ERR_SNAPSHOT_ADAPTER_MISMATCH)
     _validate_hash_string(receipt.observation_snapshot_receipt_hash)
     if receipt.observation_snapshot_receipt_hash != sha256_hex(receipt._hash_payload()):
-        raise ValueError(HASH_MISMATCH)
+        raise ValueError(_ERR_HASH_MISMATCH)
     return True
 
 
@@ -544,7 +544,7 @@ def validate_observation_snapshot_with_adapter(
         snapshot.adapter_contract_receipt_hash
         != adapter_contract_receipt.adapter_contract_receipt_hash
     ):
-        raise ValueError(ADAPTER_CONTRACT_MISMATCH)
+        raise ValueError(_ERR_ADAPTER_CONTRACT_MISMATCH)
     if snapshot.adapter_spec_hash != adapter_spec.adapter_spec_hash:
         raise ValueError(_ERR_SNAPSHOT_ADAPTER_MISMATCH)
     parsed = json.loads(snapshot.canonical_observation_payload)
@@ -565,7 +565,7 @@ def validate_observation_snapshot_receipt_with_adapter(
         receipt.adapter_contract_receipt_hash
         != adapter_contract_receipt.adapter_contract_receipt_hash
     ):
-        raise ValueError(ADAPTER_CONTRACT_MISMATCH)
+        raise ValueError(_ERR_ADAPTER_CONTRACT_MISMATCH)
     if receipt.adapter_spec_hash != adapter_spec.adapter_spec_hash:
         raise ValueError(_ERR_SNAPSHOT_ADAPTER_MISMATCH)
     validate_observation_snapshot_with_adapter(
@@ -585,7 +585,7 @@ def validate_observation_snapshot_set_with_adapter(
         snapshot_set.adapter_contract_receipt_hash
         != adapter_contract_receipt.adapter_contract_receipt_hash
     ):
-        raise ValueError(ADAPTER_CONTRACT_MISMATCH)
+        raise ValueError(_ERR_ADAPTER_CONTRACT_MISMATCH)
     if snapshot_set.adapter_spec_hash != adapter_spec.adapter_spec_hash:
         raise ValueError(_ERR_SNAPSHOT_ADAPTER_MISMATCH)
     for receipt in snapshot_set.observation_snapshot_receipts:

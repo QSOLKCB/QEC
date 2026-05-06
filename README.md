@@ -1,13 +1,15 @@
 ```md
 # QSOLKCB / QEC
 
-QEC is a deterministic, replay-safe reasoning system for quantum error correction and invariant-driven computation.
+QEC is a deterministic, replay-safe reasoning system for quantum error correction and invariant-driven
+computation.
 
 It transforms computation, evidence, semantic alignment, governance, replay validation, lattice topology,
 router/readout proof, multi-scale invariance, entropy drift analysis, and deterministic
 GameWorld interaction boundaries into **canonical proof artifacts**.
 
-The repository began with a Layer 1 QEC decoder and has evolved into a broader deterministic proof architecture spanning:
+The repository began with a Layer 1 QEC decoder and has evolved into a broader deterministic proof architecture
+spanning:
 
 - canonical identity
 - replay-safe validation
@@ -19,16 +21,9 @@ The repository began with a Layer 1 QEC decoder and has evolved into a broader d
 - replay-bound decay-resistance proofs
 - deterministic interaction receipts for messy external worlds
 
-In this README, **QEC denotes the QSOLKCB/QEC software system and release lineage**.
-
-The completed:
-- **v155.x** arc formalized deterministic entropy drift, decay signatures, subsystem drift localization, and replay-bound
-decay-resistance proofs.
-- **v156.x** arc extended that proof discipline to messy external game worlds through source intake contracts, static action
- alphabets, observation snapshots, episode traces, strategy probes, chaos replay verdicts, and final interaction reports.
-
-**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths •
- Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift •
+**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof •
+Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional
+Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift •
 Decay-Resistance Proofs • GameWorld Interaction Reports**
 ```
 ---

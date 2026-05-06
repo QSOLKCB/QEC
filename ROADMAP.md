@@ -7,14 +7,14 @@
 # 🧭 Stable Tip Metadata
 
 ```text
-latest completed release → v156.0
-current frontier         → v156.1
-next work                → World Adapter / Action Alphabet Contract
+latest completed release → v156.2
+current frontier         → v156.2.1
+next work                → ROADMAP Metadata Assertion Stabilization
 active arc               → v156.x — Deterministic Interaction with Messy Game Worlds
 completed arc            → v155.x — Deterministic Entropy and Decay Signatures
 ```
 
-Published GitHub tags are authoritative.
+Published tags are authoritative.
 
 If this roadmap disagrees with published release history:
 

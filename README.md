@@ -1,8 +1,12 @@
 # QSOLKCB / QEC
 
-> QEC is a deterministic, multi-agent reasoning and proof system for quantum error correction, invariant-driven computation, real-world ingestion, semantic resonance, governance, distributed convergence, atomic semantic lattices, router/readout proof, reversible layers, search masks, Hilber/Hilbert shift projection, functional readout composition, deterministic Markov-compatible transition bases, full lattice replay/drift alignment, multi-scale invariant compression, and deterministic entropy / decay-resistance receipts.
+QEC is a deterministic, replay-safe reasoning system that turns computation, evidence, semantic alignment, validation, governance, lattice topology, router paths, readout projections, compatibility masks, shift projections, kernel/shell composition, deterministic transition bases, replay alignment, subgraph invariant patterns, multi-scale occurrence aggregation, subsystem entropy drift, and decay-resistance proofs into canonical proof artifacts.
 
-**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Stability • Multi-Scale Invariance • Entropy Drift • Decay Resistance**
+It is designed for quantum error correction and invariant-driven computation. The repository began with a Layer 1 QEC decoder and now extends that foundation with a broader deterministic proof stack: canonical identity, replay validation, governance, lattice topology, router/readout proof, multi-scale invariance, subsystem entropy drift, and decay-resistance proof artifacts.
+
+In this README, QEC denotes the QSOLKCB/QEC software system and release lineage. The v155.x arc extends the stack with deterministic proof receipts, canonical hashing, explicit drift classification, subsystem entropy drift, and replay-bound decay-resistance proofs.
+
+**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift • Decay-Resistance Proofs**
 
 ---
 
@@ -54,7 +58,9 @@ Zenodo-ready preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay Sig
 
 QEC is a deterministic, replay-safe reasoning system that turns computation, evidence, semantic alignment, validation, governance, lattice topology, router paths, readout projections, compatibility masks, shift projections, kernel/shell composition, deterministic transition bases, replay alignment, subgraph invariant patterns, multi-scale occurrence aggregation, subsystem entropy drift, and decay-resistance proofs into **canonical proof artifacts**.
 
-It is designed for quantum error correction and invariant-driven computation, but its current architecture is broader. In this README, **QEC denotes the QSOLKCB/QEC software system and release lineage**. The v155.x arc concerns deterministic proof receipts, canonical hashing, replay validation, explicit drift classification, subsystem entropy drift, and decay-resistance proofs; it does not claim physical-layer quantum error correction, stabilizer decoding, syndrome processing, or thermodynamic entropy.
+It is designed for quantum error correction and invariant-driven computation. The repository began with a Layer 1 QEC decoder and has evolved into a broader deterministic proof architecture spanning replay validation, governance, lattice topology, router/readout proof, multi-scale invariance, subsystem entropy drift, and decay-resistance proofs.
+
+In this README, **QEC denotes the QSOLKCB/QEC software system and release lineage**. The v155.x arc extends the stack with deterministic proof receipts, canonical hashing, explicit drift classification, subsystem entropy drift, and replay-bound decay-resistance proofs.
 
 ```text
 untrusted input
@@ -845,14 +851,30 @@ v154.0–v154.4 subgraph invariant patterns, multi-scale invariant receipts, Sie
 v155.0–v155.3 deterministic decay checkpoints, digital decay signatures, subsystem entropy drift receipts, and replay-bound decay-resistance proofs
 ```
 
+````markdown
 Next roadmap frontier:
 
 ```text
-v156.0 → Perturbation Contracts
+v156.0 → GameWorld Source Intake Contract
+````
+
+The v156.x detour explores whether a deterministic proof system can safely interact with messy external game worlds while preserving canonical identity, replay validation, deterministic observation boundaries, and explicit action semantics.
+
+Current v156.x direction includes:
+
+```text
+v156.0 → GameWorld Source Intake Contract
+v156.1 → World Adapter / Action Alphabet Contract
+v156.2 → Observation Snapshot Receipts
+v156.3 → Deterministic Episode Trace
+v156.4 → Strategy Probe Receipts
+v156.5 → Chaos Replay Verdict
+v156.6 → GameWorld Interaction Report
 ```
 
-Future arcs move into perturbation validation, substrate constraints, recursive proof loops, reality-loop integration, and global deterministic truth validation.
+Future research arcs continue toward perturbation validation, substrate constraints, recursive proof loops, reality-loop integration, and global deterministic truth validation.
 
+````
 ---
 
 # 🌍 Why This Matters

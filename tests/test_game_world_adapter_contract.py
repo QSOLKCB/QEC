@@ -10,17 +10,30 @@ import qec.analysis.game_world_adapter_contract as gwac
 from qec.analysis.game_world_adapter_contract import (
     ActionAlphabet, ActionAtom, WorldAdapterContractReceipt, WorldAdapterSpec,
     build_action_alphabet, build_action_atom, build_world_adapter_contract_receipt, build_world_adapter_spec,
+    get_allowed_world_families,
     validate_action_alphabet, validate_action_atom, validate_world_adapter_contract_receipt, validate_world_adapter_spec,
 )
 from qec.analysis.canonical_hashing import sha256_hex
 
 
+_TEMP_DIRS: list[tempfile.TemporaryDirectory[str]] = []
+
+
 def _mkzip(name: str) -> str:
-    d = tempfile.mkdtemp()
-    p = Path(d) / name
+    td = tempfile.TemporaryDirectory()
+    _TEMP_DIRS.append(td)
+    p = Path(td.name) / name
     with zipfile.ZipFile(p, "w") as zf:
         zf.writestr("main.py", "print('x')")
     return str(p)
+
+
+@pytest.fixture(autouse=True, scope="module")
+def cleanup_temp_dirs():
+    yield
+    for td in _TEMP_DIRS:
+        td.cleanup()
+    _TEMP_DIRS.clear()
 
 
 def _mk_manifest_and_receipt(names=("doom.zip", "atari.zip")):
@@ -44,7 +57,7 @@ def test_invalid_action_kind_rejected():
         build_action_atom("NO_OP", "BAD", ())
 
 def test_parameter_slots_sorted_and_deduplicated_by_builder():
-    atom = build_action_atom("KEY_PRESS", "PIXEL_BUTTON", ["z", "a"]) 
+    atom = build_action_atom("KEY_PRESS", "PIXEL_BUTTON", ["z", "a"])
     assert atom.parameter_slots == ("a", "z")
 
 def test_duplicate_parameter_slots_rejected():
@@ -69,7 +82,7 @@ def test_action_atom_malformed_hash_rejected():
 # Alphabet tests
 
 def test_action_alphabet_determinism_for_all_world_families():
-    for wf in sorted(gwac._ALLOWED_WORLD_FAMILIES):
+    for wf in sorted(get_allowed_world_families()):
         hs = {build_action_alphabet(wf).action_alphabet_hash for _ in range(3)}
         assert len(hs) == 1
 

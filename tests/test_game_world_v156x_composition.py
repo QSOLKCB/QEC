@@ -27,7 +27,9 @@ from qec.analysis.game_world_strategy_probe import (
 def _mkzip(tmp_path: Path, name: str) -> str:
     p = tmp_path / name
     with zipfile.ZipFile(p, "w") as zf:
-        zf.writestr("main.py", "print(1)")
+        # Use fixed date_time to ensure deterministic archive bytes across calls
+        info = zipfile.ZipInfo("main.py", date_time=(2020, 1, 1, 0, 0, 0))
+        zf.writestr(info, "print(1)")
     return str(p)
 
 

@@ -1,10 +1,26 @@
 # QSOLKCB / QEC
 
-QEC is a deterministic, replay-safe reasoning system that turns computation, evidence, semantic alignment, validation, governance, lattice topology, router paths, readout projections, compatibility masks, shift projections, kernel/shell composition, deterministic transition bases, replay alignment, subgraph invariant patterns, multi-scale occurrence aggregation, subsystem entropy drift, decay-resistance proofs, game-world intake boundaries, adapter/action contracts, observation snapshots, episode traces, strategy probes, chaos replay verdicts, and interaction reports into canonical proof artifacts.
+QEC is a deterministic, replay-safe reasoning system for quantum error correction and invariant-driven computation.
 
-It is designed for quantum error correction and invariant-driven computation. The repository began with a Layer 1 QEC decoder and now extends that foundation with a broader deterministic proof stack: canonical identity, replay validation, governance, lattice topology, router/readout proof, multi-scale invariance, subsystem entropy drift, decay-resistance proof artifacts, and deterministic interaction boundaries for messy external worlds.
+It transforms computation, evidence, semantic alignment, governance, replay validation, lattice topology, router/readout proof, multi-scale invariance, entropy drift analysis, and deterministic GameWorld interaction boundaries into **canonical proof artifacts**.
 
-In this README, QEC denotes the QSOLKCB/QEC software system and release lineage. The completed v155.x arc extends the stack with deterministic proof receipts, canonical hashing, explicit drift classification, subsystem entropy drift, and replay-bound decay-resistance proofs. The completed v156.x arc extends that proof discipline to messy external game worlds by binding source intake, static action alphabets, observation snapshots, episode traces, strategy probes, chaos replay verdicts, and final interaction reports into deterministic receipts.
+The repository began with a Layer 1 QEC decoder and has evolved into a broader deterministic proof architecture spanning:
+
+- canonical identity
+- replay-safe validation
+- distributed proof
+- semantic lattice topology
+- router/readout projection systems
+- multi-scale invariant aggregation
+- deterministic entropy drift classification
+- replay-bound decay-resistance proofs
+- deterministic interaction receipts for messy external worlds
+
+In this README, **QEC denotes the QSOLKCB/QEC software system and release lineage**.
+
+The completed:
+- **v155.x** arc formalized deterministic entropy drift, decay signatures, subsystem drift localization, and replay-bound decay-resistance proofs.
+- **v156.x** arc extended that proof discipline to messy external game worlds through source intake contracts, static action alphabets, observation snapshots, episode traces, strategy probes, chaos replay verdicts, and final interaction reports.
 
 **Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift • Decay-Resistance Proofs • GameWorld Interaction Reports**
 

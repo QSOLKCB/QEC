@@ -28,6 +28,7 @@ _ERR_PROBE_RESULT_TOO_LARGE = "PROBE_RESULT_TOO_LARGE"
 _ERR_PROBE_TRACE_MISMATCH = "PROBE_TRACE_MISMATCH"
 _ERR_PROBE_ADAPTER_MISMATCH = "PROBE_ADAPTER_MISMATCH"
 _ERR_PROBE_TYPE_MISMATCH = "PROBE_TYPE_MISMATCH"
+_ERR_PROBE_SPEC_HASH_MISMATCH = "PROBE_SPEC_HASH_MISMATCH"
 _ERR_ACTION_NOT_IN_ALPHABET = "ACTION_NOT_IN_ALPHABET"
 _ERR_UNKNOWN_ACTION_NOT_REJECTED = "UNKNOWN_ACTION_NOT_REJECTED"
 _ERR_TRACE_TERMINAL_MISMATCH = "TRACE_TERMINAL_MISMATCH"
@@ -190,6 +191,13 @@ def validate_strategy_probe_receipt(receipt: StrategyProbeReceipt)->bool:
     _validate_hash_string(receipt.adapter_contract_receipt_hash); _validate_hash_string(receipt.adapter_spec_hash); _validate_hash_string(receipt.episode_trace_receipt_hash)
     validate_strategy_probe_spec(receipt.strategy_probe_spec); validate_strategy_probe_result(receipt.strategy_probe_result)
     if receipt.strategy_probe_spec.probe_type!=receipt.strategy_probe_result.probe_type: raise ValueError(_ERR_PROBE_TYPE_MISMATCH)
+    if receipt.adapter_contract_receipt_hash!=receipt.strategy_probe_spec.adapter_contract_receipt_hash: raise ValueError(_ERR_PROBE_ADAPTER_MISMATCH)
+    if receipt.adapter_spec_hash!=receipt.strategy_probe_spec.adapter_spec_hash: raise ValueError(_ERR_PROBE_ADAPTER_MISMATCH)
+    if receipt.episode_trace_receipt_hash!=receipt.strategy_probe_spec.episode_trace_receipt_hash: raise ValueError(_ERR_PROBE_TRACE_MISMATCH)
+    if receipt.adapter_contract_receipt_hash!=receipt.strategy_probe_result.adapter_contract_receipt_hash: raise ValueError(_ERR_PROBE_ADAPTER_MISMATCH)
+    if receipt.adapter_spec_hash!=receipt.strategy_probe_result.adapter_spec_hash: raise ValueError(_ERR_PROBE_ADAPTER_MISMATCH)
+    if receipt.episode_trace_receipt_hash!=receipt.strategy_probe_result.episode_trace_receipt_hash: raise ValueError(_ERR_PROBE_TRACE_MISMATCH)
+    if receipt.strategy_probe_result.strategy_probe_spec_hash!=receipt.strategy_probe_spec.strategy_probe_spec_hash: raise ValueError(_ERR_PROBE_SPEC_HASH_MISMATCH)
     _validate_hash_string(receipt.strategy_probe_receipt_hash)
     if receipt.strategy_probe_receipt_hash!=sha256_hex(receipt._hash_payload()): raise ValueError(_ERR_HASH_MISMATCH)
     return True
@@ -226,6 +234,7 @@ def build_strategy_probe_result(adapter_contract_receipt:WorldAdapterContractRec
 def validate_strategy_probe_result_with_adapter(result:StrategyProbeResult,strategy_probe_spec:StrategyProbeSpec,adapter_contract_receipt:WorldAdapterContractReceipt,adapter_spec:WorldAdapterSpec,episode_trace_receipt:EpisodeTraceReceipt)->bool:
     validate_strategy_probe_spec_with_adapter(strategy_probe_spec,adapter_contract_receipt,adapter_spec,episode_trace_receipt); validate_strategy_probe_result(result)
     if result.probe_type!=strategy_probe_spec.probe_type: raise ValueError(_ERR_PROBE_TYPE_MISMATCH)
+    if result.strategy_probe_spec_hash!=strategy_probe_spec.strategy_probe_spec_hash: raise ValueError(_ERR_PROBE_SPEC_HASH_MISMATCH)
     if result.adapter_contract_receipt_hash!=adapter_contract_receipt.adapter_contract_receipt_hash or result.adapter_spec_hash!=adapter_spec.adapter_spec_hash: raise ValueError(_ERR_PROBE_ADAPTER_MISMATCH)
     if result.episode_trace_receipt_hash!=episode_trace_receipt.episode_trace_receipt_hash: raise ValueError(_ERR_PROBE_TRACE_MISMATCH)
     exp=canonical_json(_derive_result_payload(strategy_probe_spec,adapter_spec,episode_trace_receipt))

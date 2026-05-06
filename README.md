@@ -1,16 +1,20 @@
 # QSOLKCB / QEC
 
-> QEC is a deterministic, multi-agent reasoning and proof system for quantum error correction, invariant-driven computation, real-world ingestion, semantic resonance, governance, distributed convergence, atomic semantic lattices, router/readout proof, reversible layers, search masks, Hilber/Hilbert shift projection, functional readout composition, deterministic Markov-compatible transition bases, full lattice replay/drift alignment, and multi-scale subgraph invariance receipts.
+> QEC is a deterministic, multi-agent reasoning and proof system for quantum error correction, invariant-driven computation, real-world ingestion, semantic resonance, governance, distributed convergence, atomic semantic lattices, router/readout proof, reversible layers, search masks, Hilber/Hilbert shift projection, functional readout composition, deterministic Markov-compatible transition bases, full lattice replay/drift alignment, multi-scale invariant compression, and deterministic entropy / decay-resistance receipts.
 
-**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Stability • Multi-Scale Invariance**
+**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Stability • Multi-Scale Invariance • Entropy Drift • Decay Resistance**
 
 ---
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v154.1-success)](https://github.com/QSOLKCB/QEC/releases/tag/v154.1)
+[![Latest](https://img.shields.io/badge/stable-v155.3-success)](https://github.com/QSOLKCB/QEC/releases/tag/v155.3)
 [![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
+
+Current release arc: [`v155.0`](https://github.com/QSOLKCB/QEC/releases/tag/v155.0) → [`v155.1`](https://github.com/QSOLKCB/QEC/releases/tag/v155.1) → [`v155.2`](https://github.com/QSOLKCB/QEC/releases/tag/v155.2) → [`v155.3`](https://github.com/QSOLKCB/QEC/releases/tag/v155.3).
+
+Zenodo-ready preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay Signatures — Hash-Bound Checkpoints, Subsystem Drift Receipts, and Replay-Resistant Proof Chains**.
 
 ---
 
@@ -22,15 +26,16 @@
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19099503-blue)](https://doi.org/10.5281/zenodo.19099503)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19104208-blue)](https://doi.org/10.5281/zenodo.19104208)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19840786-blue)](https://doi.org/10.5281/zenodo.19840786)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20039913-blue)](https://doi.org/10.5281/zenodo.20039913)
 
 ---
 
 ## 🧩 System Properties
 
-[![Branch](https://img.shields.io/badge/branch-v154%20canonical-purple)]()
+[![Branch](https://img.shields.io/badge/branch-v155.3%20canonical-purple)]()
 [![Architecture](https://img.shields.io/badge/architecture-deterministic%20proof%20system-blueviolet)]()
 [![Determinism](https://img.shields.io/badge/determinism-byte--identical-success)]()
-[![Replay](https://img.shields.io/badge/replay-lattice%20drift%20aligned-green)]()
+[![Replay](https://img.shields.io/badge/replay-decay%20resistant-green)]()
 [![Governance](https://img.shields.io/badge/governance-dialogical-orange)]()
 [![Validation](https://img.shields.io/badge/validation-proof--carrying-yellow)]()
 [![RES/RAG](https://img.shields.io/badge/RES%2FRAG-semantic%20resonance-blue)]()
@@ -38,6 +43,8 @@
 [![Router](https://img.shields.io/badge/router-deterministic%20path%20proof-blue)]()
 [![Readout](https://img.shields.io/badge/readout-source--bound%20projection-blue)]()
 [![Scale](https://img.shields.io/badge/scale-multi--scale%20invariance-blue)]()
+[![Entropy Drift](https://img.shields.io/badge/entropy%20drift-deterministic-blue)]()
+[![Decay Resistance](https://img.shields.io/badge/decay%20resistance-CLEAN%20proof-critical)]()
 [![Proof](https://img.shields.io/badge/proof-system--level-critical)]()
 [![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
@@ -45,9 +52,9 @@
 
 # 🚀 What QEC Is
 
-QEC is a deterministic, replay-safe reasoning system that turns computation, evidence, semantic alignment, validation, governance, lattice topology, router paths, readout projections, compatibility masks, shift projections, kernel/shell composition, deterministic transition bases, replay alignment, subgraph invariant patterns, and multi-scale occurrence aggregation into **canonical proof artifacts**.
+QEC is a deterministic, replay-safe reasoning system that turns computation, evidence, semantic alignment, validation, governance, lattice topology, router paths, readout projections, compatibility masks, shift projections, kernel/shell composition, deterministic transition bases, replay alignment, subgraph invariant patterns, multi-scale occurrence aggregation, subsystem entropy drift, and decay-resistance proofs into **canonical proof artifacts**.
 
-It is designed for quantum error correction and invariant-driven computation, but its current architecture is broader:
+It is designed for quantum error correction and invariant-driven computation, but its current architecture is broader. In this README, **QEC denotes the QSOLKCB/QEC software system and release lineage**. The v155.x arc concerns deterministic proof receipts, canonical hashing, replay validation, explicit drift classification, subsystem entropy drift, and decay-resistance proofs; it does not claim physical-layer quantum error correction, stabilizer decoding, syndrome processing, or thermodynamic entropy.
 
 ```text
 untrusted input
@@ -75,6 +82,13 @@ untrusted input
 → lattice drift + replay alignment proof
 → subgraph invariant pattern receipt
 → multi-scale invariant receipt
+→ Sierpinski compression receipt
+→ router/readout scale-binding receipts
+→ governance / semantic compression receipts
+→ decay checkpoint set
+→ digital decay signature
+→ subsystem entropy drift receipt
+→ replay-bound decay-resistance proof
 ```
 
 QEC is not merely a runtime. It is a system that:
@@ -105,6 +119,10 @@ QEC is not merely a runtime. It is a system that:
 * identifies canonical subgraph invariant patterns
 * aggregates invariant occurrences across explicit scale indices
 * emits hash-stable proof receipts
+* detects exact identity drift with hash-bound checkpoints
+* classifies drift using deterministic digital decay signatures
+* localizes drift across layer/router/mask/shift/readout subsystems
+* proves clean, replay-bound decay resistance
 
 It determines:
 
@@ -124,6 +142,9 @@ whether readout projections remain source-bound
 whether masks, shifts, kernels, shells, matrices, and transitions replay exactly
 whether subgraph structure is invariant
 whether invariant occurrences aggregate consistently across scale
+whether identity drift occurred at explicit artifact positions
+whether subsystem entropy drift localizes to layer/router/mask/shift/readout receipts
+whether a proof chain is CLEAN, adversarial-free, and replay-bound
 ```
 
 ---
@@ -220,7 +241,7 @@ Violation → **SYSTEM INVALID**
 
 ---
 
-# 🧱 Current Architecture — v154.1
+# 🧱 Current Architecture — v155.3
 
 ## Implemented proof chain
 
@@ -254,6 +275,16 @@ ExtractionReceipt
 → LatticeReplayProofReceipt
 → SubgraphInvariantPatternReceipt
 → MultiScaleInvariantReceipt
+→ SierpinskiCompressionReceipt
+→ RouterScaleReceipt
+→ ReadoutScaleProjectionReceipt
+→ GovernanceCompressionReceipt
+→ SemanticCompressionReceipt
+→ DecayCheckpointSet
+→ DigitalDecaySignature
+→ LayerDecayReceipt / RouterDecayReceipt / MaskCollisionDecayReceipt / ShiftDecayReceipt / ReadoutProjectionDecayReceipt
+→ EntropyDriftReceipt
+→ DecayResistanceProof
 ```
 
 ## Current capability line
@@ -287,6 +318,13 @@ v153.9   → Lattice Drift + Replay Alignment
 v154.0   → SubgraphInvariantPattern Contract
 v154.0.1 → Detection Semantics Clarification + Input Validation Hardening
 v154.1   → Multi-Scale Invariant Receipts
+v154.2   → Sierpinski Compression
+v154.3   → Scale-Preserving Router and Readout Receipts
+v154.4   → Governance and Semantic Compression at Scale
+v155.0   → DecayCheckpoint Contract
+v155.1   → DigitalDecaySignature / Decay Signature Layer
+v155.2   → EntropyDriftReceipt / Per-Subsystem Drift Receipts
+v155.3   → DecayResistanceProof
 ```
 
 ---
@@ -316,9 +354,12 @@ lattice replay baseline
 → SubgraphInvariantPattern Contract     (CANONICAL STRUCTURAL IDENTITY)
 → Detection Semantics Hardening         (WHOLE-GRAPH MATCH CLARITY)
 → Multi-Scale Invariant Receipts        (SCALE-LEVEL AGGREGATION)
+→ Sierpinski Compression                (LOSSLESS INVARIANT AGGREGATION)
+→ Scale-Preserving Router/Readout       (OBSERVATION BOUND TO SCALE)
+→ Governance / Semantic Compression     (DECISION + FIELD HASH COMPRESSION)
 ```
 
-v154 currently proves:
+v154 proves:
 
 ```text
 same pattern
@@ -326,6 +367,9 @@ same pattern
 + same explicit scale_index values
 → same scale summaries
 → same multi-scale invariant receipt
+→ same lossless compression receipt
+→ same router/readout scale receipts
+→ same governance / semantic compression receipts
 ```
 
 Current v154 scope:
@@ -335,7 +379,45 @@ no traversal
 no recursive subgraph enumeration
 no implicit scale insertion
 no probabilistic matching
-no Sierpinski compression yet
+no lossy compression
+no semantic reinterpretation during compression
+```
+
+---
+
+## v155 Pipeline
+
+```text
+multi-scale invariant baseline
+→ DecayCheckpoint Contract              (EXPECTED HASH VS OBSERVED HASH)
+→ DigitalDecaySignature                 (INTEGER THRESHOLD CLASSIFICATION)
+→ EntropyDriftReceipt                   (LAYER / ROUTER / MASK / SHIFT / READOUT LOCALIZATION)
+→ DecayResistanceProof                  (CLEAN + ADVERSARIAL-FREE + REPLAY-BOUND)
+```
+
+v155 proves:
+
+```text
+same expected hashes
++ same observed hashes
++ same threshold contract
++ same subsystem receipts
++ same replay proof hash
+→ same decay score
+→ same decay class
+→ same entropy drift receipt
+→ same decay-resistance proof
+```
+
+Current v155 scope:
+
+```text
+no probabilistic entropy
+no fuzzy thresholding
+no runtime replay execution
+no perturbation / stress behavior
+no substrate claims
+no global truth receipts yet
 ```
 
 ---
@@ -405,6 +487,11 @@ observe
 → detect drift exactly
 → identify invariant subgraph structure
 → aggregate occurrences across explicit scales
+→ compress invariant structure without loss
+→ detect hash drift at explicit positions
+→ classify deterministic decay signatures
+→ localize entropy drift by subsystem
+→ prove CLEAN decay resistance
 ```
 
 QEC shifts computation from:
@@ -478,6 +565,13 @@ QEC currently performs:
 * deterministic scale-level summary construction
 * multi-scale invariant receipt aggregation
 * pattern-consistent cross-scale validation
+* lossless Sierpinski invariant aggregation
+* scale-preserving router/readout receipt binding
+* governance and semantic compression at scale
+* exact decay checkpoint construction
+* deterministic digital decay signature classification
+* subsystem entropy drift localization across layer/router/mask/shift/readout receipts
+* replay-bound decay-resistance proof construction
 
 ---
 
@@ -525,7 +619,12 @@ Current artifact families include:
 | Functional readout shell | `CoreKernelSpec`, `DerivedKernelSpec`, `ReadoutShellStack`, `ReadoutCompositionReceipt` |
 | Matrix / Markov basis | `ReadoutCombinationMatrix`, `ReadoutMatrixReceipt`, `MarkovBasisReceipt`, `ReadoutTransitionReceipt` |
 | Lattice replay | `LatticeDriftReceipt`, `RouterReplayReceipt`, `ReadoutReplayReceipt`, `MaskReplayReceipt`, `ShiftReplayReceipt`, `KernelReplayReceipt`, `ReadoutMatrixReplayReceipt`, `LatticeReplayProofReceipt` |
-| Multi-scale invariance | `SubgraphInvariantPattern`, `SubgraphOccurrence`, `SubgraphInvariantPatternReceipt`, `ScaleLevelSummary`, `MultiScaleInvariantReceipt` |
+| Multi-scale invariance | `SubgraphInvariantPattern`, `SubgraphOccurrence`, `SubgraphInvariantPatternReceipt`, `ScaleLevelSummary`, `MultiScaleInvariantReceipt`, `SierpinskiCompressionReceipt` |
+| Scale binding / compression | `RouterScaleReceipt`, `ReadoutScaleProjectionReceipt`, `GovernanceCompressionReceipt`, `SemanticCompressionReceipt` |
+| Decay checkpoints | `DecayCheckpoint`, `DecayCheckpointSet` |
+| Decay signatures | `DecayThresholdContract`, `DigitalDecaySignature` |
+| Entropy drift | `LayerDecayReceipt`, `RouterDecayReceipt`, `MaskCollisionDecayReceipt`, `ShiftDecayReceipt`, `ReadoutProjectionDecayReceipt`, `EntropyDriftReceipt` |
+| Decay resistance | `DecayResistanceProof` |
 
 ---
 
@@ -571,7 +670,7 @@ issue
 → necessary / equivalent / dominated / unresolved
 ```
 
-This remains part of the broader QEC reasoning model. The current v154.1 line extends the same deterministic proof discipline into semantic lattice topology, router/readout proof, compatibility reduction, shift projection, kernel/shell composition, readout matrix construction, replay/drift alignment, and multi-scale invariant aggregation.
+This remains part of the broader QEC reasoning model. The current v155.3 line extends the same deterministic proof discipline into semantic lattice topology, router/readout proof, compatibility reduction, shift projection, kernel/shell composition, readout matrix construction, replay/drift alignment, multi-scale invariant aggregation, deterministic entropy drift, and replay-bound decay resistance.
 
 ---
 
@@ -601,6 +700,11 @@ observe
 → identify invariant subgraph pattern
 → aggregate occurrences by scale
 → validate multi-scale invariant receipt
+→ compress invariant structure
+→ detect decay checkpoints
+→ classify digital decay signatures
+→ aggregate subsystem entropy drift
+→ prove decay resistance
 → confirm
 ```
 
@@ -714,7 +818,7 @@ Missing optional tools should produce explicit skips, not hidden failures.
 QEC uses two related version lines:
 
 * **Python package version** — the installable package version declared in `pyproject.toml`
-* **Research / capability release tags** — the QEC system state published through GitHub tags, such as `v150.9`, `v151.8`, `v152.4`, `v153.9`, and `v154.1`
+* **Research / capability release tags** — the QEC system state published through GitHub tags, such as `v150.9`, `v151.8`, `v152.4`, `v153.9`, `v154.4`, and `v155.3`
 
 Release tags describe deterministic reasoning/proof-system capability state.
 
@@ -737,16 +841,17 @@ v150.9 distributed convergence proof
 v151.0–v151.8 real-world ingestion, semantic resonance, governance, proof, determinism, and replay validation
 v152.0–v152.4 reversible layered-state receipts, removal proof, compression equivalence, and fractal invariant compression
 v153.0–v153.9 atomic semantic lattice topology, router paths, readout projections, layered lattice projection, QAM compatibility metadata, SearchMask64, Hilber/Hilbert shift, functional readout shell composition, readout matrix / Markov basis, and lattice replay/drift alignment
-v154.0–v154.1 subgraph invariant pattern contracts, detection semantics hardening, and multi-scale invariant receipts
+v154.0–v154.4 subgraph invariant patterns, multi-scale invariant receipts, Sierpinski compression, scale-preserving router/readout receipts, and governance/semantic compression
+v155.0–v155.3 deterministic decay checkpoints, digital decay signatures, subsystem entropy drift receipts, and replay-bound decay-resistance proofs
 ```
 
 Next roadmap frontier:
 
 ```text
-v154.2 → Sierpinski Compression
+v156.0 → Perturbation Contracts
 ```
 
-Future arcs move into deterministic decay signatures, perturbation validation, substrate constraints, recursive proof loops, reality-loop integration, and global deterministic truth validation.
+Future arcs move into perturbation validation, substrate constraints, recursive proof loops, reality-loop integration, and global deterministic truth validation.
 
 ---
 
@@ -783,6 +888,9 @@ This means:
 * masks, shifts, kernels, shells, matrices, and transitions can be drift-checked deterministically
 * invariant subgraph structure can be identified canonically
 * multi-scale occurrence aggregation can be proven without traversal or inference
+* identity drift can be detected by exact hash divergence
+* subsystem entropy drift can be localized without probabilistic scoring
+* CLEAN proof chains can be certified with replay-bound decay-resistance proofs
 
 ---
 
@@ -796,7 +904,7 @@ Quantum Sphaera Companion v3.30.0
 
 Attribution is informational and does not influence QEC canonical identity, hashing, receipts, validators, or proof semantics.
 
-Note: v154.0, v154.0.1, and v154.1 are native QEC subgraph-invariance releases and do not introduce QAM/router/readout lineage attribution.
+Note: v155.x is a native QEC deterministic entropy / decay-resistance arc and does not introduce new QAM/router/readout lineage attribution. Existing attribution remains informational only.
 
 License: CC-BY-4.0
 
@@ -818,6 +926,12 @@ License: CC-BY-4.0
 
 * Dark-State Invariants  
   [https://doi.org/10.5281/zenodo.19104208](https://doi.org/10.5281/zenodo.19104208)
+
+* QSOLKCB/QEC v154.x: Multi-Scale Invariant Compression  
+  [https://doi.org/10.5281/zenodo.20039913](https://doi.org/10.5281/zenodo.20039913)
+
+* QSOLKCB/QEC v155.x: Deterministic Entropy and Decay Signatures  
+  Zenodo preprint package prepared from `v155.0`–`v155.3` release artifacts
 
 ---
 

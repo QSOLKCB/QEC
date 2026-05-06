@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 from dataclasses import dataclass
 import re
 from typing import Any
@@ -116,21 +115,6 @@ def _extract_replay_proof_hash(replay_proof: object) -> str:
     return _validate_hash_string(value)
 
 
-def _validate_replay_proof_artifact(replay_proof: object) -> None:
-    """Require replay_proof to be a frozen dataclass; re-run __post_init__ if present."""
-    if not dataclasses.is_dataclass(replay_proof) or isinstance(replay_proof, type):
-        raise ValueError(_ERR_INVALID_INPUT)
-    params = getattr(type(replay_proof), "__dataclass_params__", None)
-    if params is None or not params.frozen:
-        raise ValueError(_ERR_INVALID_INPUT)
-    post_init = getattr(type(replay_proof), "__post_init__", None)
-    if post_init is not None:
-        try:
-            post_init(replay_proof)
-        except (ValueError, TypeError):
-            raise ValueError(_ERR_INVALID_INPUT)
-
-
 def _validate_decay_resistance_proof_integrity(proof: DecayResistanceProof) -> None:
     _validate_hash_string(proof.entropy_drift_receipt_hash)
     _validate_hash_string(proof.replay_proof_hash)
@@ -188,7 +172,6 @@ def build_decay_resistance_proof(
             raise ValueError(_ERR_INVALID_INPUT)
 
     _validate_entropy_receipt_clean(entropy_drift_receipt)
-    _validate_replay_proof_artifact(replay_proof)
     replay_proof_hash = _extract_replay_proof_hash(replay_proof)
 
     temp = object.__new__(DecayResistanceProof)
@@ -208,26 +191,8 @@ def build_decay_resistance_proof(
     )
 
 
-def validate_decay_resistance_proof(
-    proof: DecayResistanceProof,
-    *,
-    entropy_drift_receipt: EntropyDriftReceipt | None = None,
-    decay_signatures: list[DigitalDecaySignature] | tuple[DigitalDecaySignature, ...] | None = None,
-) -> bool:
+def validate_decay_resistance_proof(proof: DecayResistanceProof) -> bool:
     if not isinstance(proof, DecayResistanceProof):
         raise ValueError(_ERR_INVALID_INPUT)
     _validate_decay_resistance_proof_integrity(proof)
-    if entropy_drift_receipt is not None or decay_signatures is not None:
-        if entropy_drift_receipt is None or decay_signatures is None:
-            raise ValueError(_ERR_INVALID_INPUT)
-        if not isinstance(entropy_drift_receipt, EntropyDriftReceipt):
-            raise ValueError(_ERR_INVALID_INPUT)
-        registry = _validate_signature_registry_clean(decay_signatures)
-        validate_entropy_drift_receipt(entropy_drift_receipt, decay_signatures)
-        for sig_hash in _referenced_signature_hashes_from_entropy_receipt(entropy_drift_receipt):
-            if sig_hash not in registry:
-                raise ValueError(_ERR_INVALID_INPUT)
-        _validate_entropy_receipt_clean(entropy_drift_receipt)
-        if proof.entropy_drift_receipt_hash != entropy_drift_receipt.entropy_drift_receipt_hash:
-            raise ValueError(_ERR_HASH_MISMATCH)
     return True

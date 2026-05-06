@@ -207,15 +207,9 @@ def test_replay_proof_hash_extraction():
 
 def test_replay_proof_hash_attribute_precedence_and_conflict():
     e, sigs = _clean_bundle()
-
-    @dataclass(frozen=True)
-    class BothHashStub:
-        lattice_replay_proof_hash: str
-        replay_proof_hash: str
-
-    both_ok = BothHashStub(lattice_replay_proof_hash=H[12], replay_proof_hash=H[12])
+    both_ok = type("R", (), {"lattice_replay_proof_hash": H[12], "replay_proof_hash": H[12]})()
     assert build_decay_resistance_proof(e, sigs, both_ok).replay_proof_hash == H[12]
-    both_bad = BothHashStub(lattice_replay_proof_hash=H[12], replay_proof_hash=H[11])
+    both_bad = type("R", (), {"lattice_replay_proof_hash": H[12], "replay_proof_hash": H[11]})()
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         build_decay_resistance_proof(e, sigs, both_bad)
 
@@ -226,17 +220,6 @@ def test_invalid_replay_proof_rejected():
         build_decay_resistance_proof(e, sigs, object())
     with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
         build_decay_resistance_proof(e, sigs, ReplayProofStub("x"))
-
-
-def test_non_frozen_dataclass_replay_proof_rejected():
-    e, sigs = _clean_bundle()
-
-    @dataclass
-    class MutableStub:
-        lattice_replay_proof_hash: str
-
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
-        build_decay_resistance_proof(e, sigs, MutableStub(H[12]))
 
 
 def test_entropy_receipt_validated_against_signature_registry():
@@ -270,31 +253,6 @@ def test_tampered_entropy_receipt_rejected_before_proof_build():
     object.__setattr__(e, "entropy_drift_receipt_hash", _different_hash(e.entropy_drift_receipt_hash))
     with pytest.raises(ValueError, match="HASH_MISMATCH|AGGREGATE_SCORE_MISMATCH|INVALID_HASH_FORMAT|INVALID_INPUT"):
         build_decay_resistance_proof(e, sigs, ReplayProofStub(H[12]))
-
-
-def test_validate_with_full_context_succeeds():
-    e, sigs = _clean_bundle()
-    p = build_decay_resistance_proof(e, sigs, ReplayProofStub(H[12]))
-    assert validate_decay_resistance_proof(p, entropy_drift_receipt=e, decay_signatures=sigs) is True
-
-
-def test_validate_with_partial_context_rejected():
-    e, sigs = _clean_bundle()
-    p = build_decay_resistance_proof(e, sigs, ReplayProofStub(H[12]))
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
-        validate_decay_resistance_proof(p, entropy_drift_receipt=e)
-    with pytest.raises(ValueError, match="INVALID_INPUT"):
-        validate_decay_resistance_proof(p, decay_signatures=sigs)
-
-
-def test_validate_with_mismatched_entropy_hash_rejected():
-    e, sigs = _clean_bundle()
-    p = build_decay_resistance_proof(e, sigs, ReplayProofStub(H[12]))
-    other_e, other_sigs = _clean_bundle()
-    # Tamper with other_e's receipt hash so it no longer matches the hash embedded in p.
-    object.__setattr__(other_e, "entropy_drift_receipt_hash", _different_hash(other_e.entropy_drift_receipt_hash))
-    with pytest.raises(ValueError, match="HASH_MISMATCH|INVALID_INPUT"):
-        validate_decay_resistance_proof(p, entropy_drift_receipt=other_e, decay_signatures=other_sigs)
 
 
 def test_v155_artifact_chain_extension():

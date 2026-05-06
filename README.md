@@ -13,7 +13,7 @@ In this README, QEC denotes the QSOLKCB/QEC software system and release lineage.
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v155.3-success)](https://github.com/QSOLKCB/QEC/releases/tag/v155.3)
+[![Latest](https://img.shields.io/badge/stable-v156.0-success)](https://github.com/QSOLKCB/QEC/releases/tag/v156.0)
 [![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
 
 Current release arc: [`v155.0`](https://github.com/QSOLKCB/QEC/releases/tag/v155.0) → [`v155.1`](https://github.com/QSOLKCB/QEC/releases/tag/v155.1) → [`v155.2`](https://github.com/QSOLKCB/QEC/releases/tag/v155.2) → [`v155.3`](https://github.com/QSOLKCB/QEC/releases/tag/v155.3).

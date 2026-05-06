@@ -1,3 +1,4 @@
+```md
 # QSOLKCB / QEC
 
 QEC is a deterministic, replay-safe reasoning system for quantum error correction and invariant-driven computation.
@@ -23,7 +24,7 @@ The completed:
 - **v156.x** arc extended that proof discipline to messy external game worlds through source intake contracts, static action alphabets, observation snapshots, episode traces, strategy probes, chaos replay verdicts, and final interaction reports.
 
 **Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift • Decay-Resistance Proofs • GameWorld Interaction Reports**
-
+```
 ---
 
 ## 📦 Release & Research

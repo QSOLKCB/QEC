@@ -394,13 +394,14 @@ def validate_observation_snapshot(snapshot: ObservationSnapshot) -> bool:
     validate_observation_channel_spec(snapshot.observation_channel)
     if not isinstance(snapshot.canonical_observation_payload, str):
         raise ValueError(_ERR_INVALID_INPUT)
+    # Parse canonical JSON once
+    try:
+        parsed = json.loads(snapshot.canonical_observation_payload)
+    except json.JSONDecodeError as exc:
+        raise ValueError(_ERR_INVALID_OBSERVATION_PAYLOAD) from exc
     # For string-typed channels, the size limit applies to the raw payload, not canonical JSON
     # For structured types, the canonical JSON size is checked
     if snapshot.observation_channel.channel_type in ("TEXT_EVENT", "PIXEL_HASH"):
-        try:
-            parsed = json.loads(snapshot.canonical_observation_payload)
-        except json.JSONDecodeError as exc:
-            raise ValueError(_ERR_INVALID_OBSERVATION_PAYLOAD) from exc
         if (
             isinstance(parsed, str)
             and len(parsed.encode("utf-8"))
@@ -413,10 +414,6 @@ def validate_observation_snapshot(snapshot: ObservationSnapshot) -> bool:
             > snapshot.observation_channel.max_payload_bytes
         ):
             raise ValueError(_ERR_PAYLOAD_TOO_LARGE)
-        try:
-            parsed = json.loads(snapshot.canonical_observation_payload)
-        except json.JSONDecodeError as exc:
-            raise ValueError(_ERR_INVALID_OBSERVATION_PAYLOAD) from exc
     if canonical_json(parsed) != snapshot.canonical_observation_payload:
         raise ValueError(_ERR_INVALID_OBSERVATION_PAYLOAD)
     _validate_channel_payload(snapshot.observation_channel, parsed)
@@ -648,11 +645,7 @@ def build_observation_snapshot(
     # Check raw payload size for string-typed channels (TEXT_EVENT, PIXEL_HASH)
     # to avoid rejecting valid payloads due to JSON encoding overhead
     if observation_channel.channel_type in ("TEXT_EVENT", "PIXEL_HASH"):
-        if (
-            isinstance(observation_payload, str)
-            and len(observation_payload.encode("utf-8"))
-            > observation_channel.max_payload_bytes
-        ):
+        if len(observation_payload.encode("utf-8")) > observation_channel.max_payload_bytes:
             raise ValueError(_ERR_PAYLOAD_TOO_LARGE)
     canonical_payload = canonical_json(observation_payload)
     payload_hash = sha256_hex(canonical_payload)

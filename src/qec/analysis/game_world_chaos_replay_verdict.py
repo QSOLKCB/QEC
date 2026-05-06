@@ -7,12 +7,31 @@ from typing import Any
 from .canonical_hashing import canonical_bytes, canonical_json, sha256_hex
 from .game_world_adapter_contract import WorldAdapterContractReceipt, WorldAdapterSpec, validate_world_adapter_contract_receipt, validate_world_adapter_spec
 from .game_world_observation_snapshot import validate_spec_in_contract
-from .game_world_episode_trace import EpisodeTraceReceipt, EpisodeStep, validate_episode_trace_receipt, validate_episode_trace_receipt_with_adapter
+from .game_world_episode_trace import EpisodeTraceReceipt, validate_episode_trace_receipt, validate_episode_trace_receipt_with_adapter
 from .game_world_strategy_probe import StrategyProbeReceipt, validate_strategy_probe_receipt, validate_strategy_probe_receipt_with_adapter
 
-_ERR_INVALID_INPUT="INVALID_INPUT"; _ERR_INVALID_HASH_FORMAT="INVALID_HASH_FORMAT"; _ERR_HASH_MISMATCH="HASH_MISMATCH"; _ERR_INVALID_COMPARISON_KIND="INVALID_COMPARISON_KIND"; _ERR_INVALID_VERDICT_CLASS="INVALID_VERDICT_CLASS"; _ERR_COMPARISON_INDEX_OUT_OF_BOUNDS="COMPARISON_INDEX_OUT_OF_BOUNDS"; _ERR_COMPARISON_COUNT_MISMATCH="COMPARISON_COUNT_MISMATCH"; _ERR_DRIFT_COUNT_MISMATCH="DRIFT_COUNT_MISMATCH"; _ERR_DUPLICATE_COMPARISON_POINT="DUPLICATE_COMPARISON_POINT"; _ERR_COMPARISON_ORDER_MISMATCH="COMPARISON_ORDER_MISMATCH"; _ERR_DRIFT_CLASS_MISMATCH="DRIFT_CLASS_MISMATCH"; _ERR_VERDICT_CLASS_MISMATCH="VERDICT_CLASS_MISMATCH"; _ERR_REPLAY_ARTIFACT_MISMATCH="REPLAY_ARTIFACT_MISMATCH"; _ERR_ADAPTER_SPEC_NOT_IN_CONTRACT="ADAPTER_SPEC_NOT_IN_CONTRACT"; _ERR_PROBE_PAIRING_MISMATCH="PROBE_PAIRING_MISMATCH"; _ERR_INCOMPLETE_REPLAY="INCOMPLETE_REPLAY"
-_MAX_COMPARISON_POINTS=10_000; _MAX_COMPARISON_INDEX=1_000_000; _MAX_COMPARISON_LABEL_LENGTH=96; _MAX_STRATEGY_PROBE_RECEIPTS=1_000
-_SHA256_RE=re.compile(r"^[0-9a-f]{64}$"); _LABEL_RE=re.compile(r"^[A-Z][A-Z0-9_]*$")
+_ERR_INVALID_INPUT = "INVALID_INPUT"
+_ERR_INVALID_HASH_FORMAT = "INVALID_HASH_FORMAT"
+_ERR_HASH_MISMATCH = "HASH_MISMATCH"
+_ERR_INVALID_COMPARISON_KIND = "INVALID_COMPARISON_KIND"
+_ERR_INVALID_VERDICT_CLASS = "INVALID_VERDICT_CLASS"
+_ERR_COMPARISON_INDEX_OUT_OF_BOUNDS = "COMPARISON_INDEX_OUT_OF_BOUNDS"
+_ERR_COMPARISON_COUNT_MISMATCH = "COMPARISON_COUNT_MISMATCH"
+_ERR_DRIFT_COUNT_MISMATCH = "DRIFT_COUNT_MISMATCH"
+_ERR_DUPLICATE_COMPARISON_POINT = "DUPLICATE_COMPARISON_POINT"
+_ERR_COMPARISON_ORDER_MISMATCH = "COMPARISON_ORDER_MISMATCH"
+_ERR_DRIFT_CLASS_MISMATCH = "DRIFT_CLASS_MISMATCH"
+_ERR_VERDICT_CLASS_MISMATCH = "VERDICT_CLASS_MISMATCH"
+_ERR_REPLAY_ARTIFACT_MISMATCH = "REPLAY_ARTIFACT_MISMATCH"
+_ERR_ADAPTER_SPEC_NOT_IN_CONTRACT = "ADAPTER_SPEC_NOT_IN_CONTRACT"
+_ERR_PROBE_PAIRING_MISMATCH = "PROBE_PAIRING_MISMATCH"
+_ERR_INCOMPLETE_REPLAY = "INCOMPLETE_REPLAY"
+_MAX_COMPARISON_POINTS = 10_000
+_MAX_COMPARISON_INDEX = 1_000_000
+_MAX_COMPARISON_LABEL_LENGTH = 96
+_MAX_STRATEGY_PROBE_RECEIPTS = 1_000
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_LABEL_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _ALLOWED_VERDICTS=frozenset({"CHAOS_REPLAY_CLEAN","OBSERVATION_DRIFT","ACTION_DRIFT","TRACE_DRIFT","PROBE_DRIFT","ADAPTER_DRIFT","INTAKE_DRIFT","INCOMPLETE_REPLAY"})
 _ALLOWED_KINDS=frozenset({"INTAKE_RECEIPT","ADAPTER_CONTRACT","ADAPTER_SPEC","EPISODE_TRACE","OBSERVATION_SNAPSHOT","ACTION_SELECTION","TERMINAL_FLAG","STRATEGY_PROBE"})
 _KIND_TO_DRIFT={"INTAKE_RECEIPT":"INTAKE_DRIFT","ADAPTER_CONTRACT":"ADAPTER_DRIFT","ADAPTER_SPEC":"ADAPTER_DRIFT","EPISODE_TRACE":"TRACE_DRIFT","OBSERVATION_SNAPSHOT":"OBSERVATION_DRIFT","ACTION_SELECTION":"ACTION_DRIFT","TERMINAL_FLAG":"TRACE_DRIFT","STRATEGY_PROBE":"PROBE_DRIFT"}
@@ -159,6 +178,7 @@ def build_chaos_replay_verdict(expected_adapter_contract_receipt:WorldAdapterCon
     add("EPISODE_TRACE","EPISODE_TRACE",expected_episode_trace_receipt.episode_trace_receipt_hash,observed_episode_trace_receipt.episode_trace_receipt_hash if observed_episode_trace_receipt else None)
     es=expected_episode_trace_receipt.episode_trace.episode_steps; os=observed_episode_trace_receipt.episode_trace.episode_steps if observed_episode_trace_receipt else ()
     n=max(len(es),len(os))
+    if 4+3*n+len(expected_strategy_probe_receipts)+len(observed_strategy_probe_receipts)>_MAX_COMPARISON_POINTS: raise ValueError(_ERR_INVALID_INPUT)
     for i in range(n):
         e=es[i] if i<len(es) else None; o=os[i] if i<len(os) else None
         add("OBSERVATION_SNAPSHOT",f"STEP_{i:06d}_OBSERVATION",e.observation_snapshot_receipt.observation_snapshot_receipt_hash if e else None,o.observation_snapshot_receipt.observation_snapshot_receipt_hash if o else None)
@@ -178,18 +198,18 @@ def build_chaos_replay_verdict(expected_adapter_contract_receipt:WorldAdapterCon
     t=tuple(points); c=len(t); d=sum(1 for p in t if p.drifted); vc=_derive_verdict_class(t); h=sha256_hex(_chaos_replay_verdict_payload(expected_adapter_contract_receipt.intake_receipt_hash,observed_adapter_contract_receipt.intake_receipt_hash if observed_adapter_contract_receipt else None,expected_adapter_contract_receipt.adapter_contract_receipt_hash,observed_adapter_contract_receipt.adapter_contract_receipt_hash if observed_adapter_contract_receipt else None,expected_adapter_spec.adapter_spec_hash,observed_adapter_spec.adapter_spec_hash if observed_adapter_spec else None,expected_episode_trace_receipt.episode_trace_receipt_hash,observed_episode_trace_receipt.episode_trace_receipt_hash if observed_episode_trace_receipt else None,t,c,d,vc))
     return ChaosReplayVerdict(expected_adapter_contract_receipt.intake_receipt_hash,observed_adapter_contract_receipt.intake_receipt_hash if observed_adapter_contract_receipt else None,expected_adapter_contract_receipt.adapter_contract_receipt_hash,observed_adapter_contract_receipt.adapter_contract_receipt_hash if observed_adapter_contract_receipt else None,expected_adapter_spec.adapter_spec_hash,observed_adapter_spec.adapter_spec_hash if observed_adapter_spec else None,expected_episode_trace_receipt.episode_trace_receipt_hash,observed_episode_trace_receipt.episode_trace_receipt_hash if observed_episode_trace_receipt else None,t,c,d,vc,h)
 
-def build_chaos_replay_verdict_receipt(*args:Any,**kwargs:Any)->ChaosReplayVerdictReceipt:
-    v=build_chaos_replay_verdict(*args,**kwargs); validate_chaos_replay_verdict(v); h=sha256_hex(_chaos_replay_verdict_receipt_payload(v)); return ChaosReplayVerdictReceipt(v,h)
+def build_chaos_replay_verdict_receipt(expected_adapter_contract_receipt:WorldAdapterContractReceipt,expected_adapter_spec:WorldAdapterSpec,expected_episode_trace_receipt:EpisodeTraceReceipt,observed_adapter_contract_receipt:WorldAdapterContractReceipt|None=None,observed_adapter_spec:WorldAdapterSpec|None=None,observed_episode_trace_receipt:EpisodeTraceReceipt|None=None,expected_strategy_probe_receipts:list[StrategyProbeReceipt]|tuple[StrategyProbeReceipt,...]=(),observed_strategy_probe_receipts:list[StrategyProbeReceipt]|tuple[StrategyProbeReceipt,...]=())->ChaosReplayVerdictReceipt:
+    v=build_chaos_replay_verdict(expected_adapter_contract_receipt,expected_adapter_spec,expected_episode_trace_receipt,observed_adapter_contract_receipt,observed_adapter_spec,observed_episode_trace_receipt,expected_strategy_probe_receipts,observed_strategy_probe_receipts); h=sha256_hex(_chaos_replay_verdict_receipt_payload(v)); return ChaosReplayVerdictReceipt(v,h)
 
-def validate_chaos_replay_verdict_with_artifacts(verdict:ChaosReplayVerdict,*args:Any,**kwargs:Any)->bool:
-    validate_chaos_replay_verdict(verdict); rebuilt=build_chaos_replay_verdict(*args,**kwargs)
+def validate_chaos_replay_verdict_with_artifacts(verdict:ChaosReplayVerdict,expected_adapter_contract_receipt:WorldAdapterContractReceipt,expected_adapter_spec:WorldAdapterSpec,expected_episode_trace_receipt:EpisodeTraceReceipt,observed_adapter_contract_receipt:WorldAdapterContractReceipt|None=None,observed_adapter_spec:WorldAdapterSpec|None=None,observed_episode_trace_receipt:EpisodeTraceReceipt|None=None,expected_strategy_probe_receipts:list[StrategyProbeReceipt]|tuple[StrategyProbeReceipt,...]=(),observed_strategy_probe_receipts:list[StrategyProbeReceipt]|tuple[StrategyProbeReceipt,...]=())->bool:
+    validate_chaos_replay_verdict(verdict); rebuilt=build_chaos_replay_verdict(expected_adapter_contract_receipt,expected_adapter_spec,expected_episode_trace_receipt,observed_adapter_contract_receipt,observed_adapter_spec,observed_episode_trace_receipt,expected_strategy_probe_receipts,observed_strategy_probe_receipts)
     if verdict.chaos_replay_verdict_hash!=rebuilt.chaos_replay_verdict_hash: raise ValueError(_ERR_HASH_MISMATCH)
     if verdict.to_dict()!=rebuilt.to_dict(): raise ValueError(_ERR_REPLAY_ARTIFACT_MISMATCH)
     return True
 
-def validate_chaos_replay_verdict_receipt_with_artifacts(receipt:ChaosReplayVerdictReceipt,*args:Any,**kwargs:Any)->bool:
+def validate_chaos_replay_verdict_receipt_with_artifacts(receipt:ChaosReplayVerdictReceipt,expected_adapter_contract_receipt:WorldAdapterContractReceipt,expected_adapter_spec:WorldAdapterSpec,expected_episode_trace_receipt:EpisodeTraceReceipt,observed_adapter_contract_receipt:WorldAdapterContractReceipt|None=None,observed_adapter_spec:WorldAdapterSpec|None=None,observed_episode_trace_receipt:EpisodeTraceReceipt|None=None,expected_strategy_probe_receipts:list[StrategyProbeReceipt]|tuple[StrategyProbeReceipt,...]=(),observed_strategy_probe_receipts:list[StrategyProbeReceipt]|tuple[StrategyProbeReceipt,...]=())->bool:
     validate_chaos_replay_verdict_receipt(receipt)
-    rb=build_chaos_replay_verdict_receipt(*args,**kwargs)
+    rb=build_chaos_replay_verdict_receipt(expected_adapter_contract_receipt,expected_adapter_spec,expected_episode_trace_receipt,observed_adapter_contract_receipt,observed_adapter_spec,observed_episode_trace_receipt,expected_strategy_probe_receipts,observed_strategy_probe_receipts)
     if receipt.chaos_replay_verdict_receipt_hash!=rb.chaos_replay_verdict_receipt_hash: raise ValueError(_ERR_HASH_MISMATCH)
     if receipt.to_dict()!=rb.to_dict(): raise ValueError(_ERR_REPLAY_ARTIFACT_MISMATCH)
     return True

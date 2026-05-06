@@ -69,10 +69,7 @@ def _validate_archive_entry_path(name: str) -> None:
     if "\x00" in name:
         raise ValueError(_ERR_UNSAFE_ARCHIVE_PATH)
     normalized = name.replace("\\", "/")
-    try:
-        parts = PurePosixPath(normalized).parts
-    except ValueError:
-        raise ValueError(_ERR_UNSAFE_ARCHIVE_PATH)
+    parts = PurePosixPath(normalized).parts
     for part in parts:
         if part == "..":
             raise ValueError(_ERR_UNSAFE_ARCHIVE_PATH)

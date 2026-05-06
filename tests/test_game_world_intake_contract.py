@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 from pathlib import Path
+import shutil
 import zipfile
 
 import pytest
@@ -52,7 +53,6 @@ def test_archive_manifest_hash_portable_across_paths(tmp_path):
     d2.mkdir()
     p1 = d1 / "sample.zip"
     _make_zip(p1, [("main.py", "print(1)"), ("data.json", "{}")])
-    import shutil
     p2 = d2 / "sample.zip"
     shutil.copy(p1, p2)
     a1 = build_game_world_archive(str(p1))

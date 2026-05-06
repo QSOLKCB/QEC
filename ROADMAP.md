@@ -15,6 +15,7 @@ completed arc            → v155.x — Deterministic Entropy and Decay Signatur
 ```
 
 Published GitHub tags are authoritative.
+Published tags are authoritative.
 
 If this roadmap disagrees with published release history:
 

@@ -8,19 +8,6 @@ It transforms computation, evidence, semantic alignment, governance, replay vali
 router/readout proof, multi-scale invariance, entropy drift analysis, and deterministic
 GameWorld interaction boundaries into **canonical proof artifacts**.
 
-The repository began with a Layer 1 QEC decoder and has evolved into a broader deterministic proof architecture
-spanning:
-
-- canonical identity
-- replay-safe validation
-- distributed proof
-- semantic lattice topology
-- router/readout projection systems
-- multi-scale invariant aggregation
-- deterministic entropy drift classification
-- replay-bound decay-resistance proofs
-- deterministic interaction receipts for messy external worlds
-
 **Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof •
 Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional
 Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift •

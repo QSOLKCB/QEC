@@ -99,3 +99,42 @@ def test_failure_summary_receipt_and_scope(ctx):
     with pytest.raises(FrozenInstanceError): rr.game_world_interaction_report_receipt_hash="x"
     text=Path("src/qec/analysis/game_world_interaction_report.py").read_text(encoding="utf-8")
     for t in ["zipfile.ZipFile",".extract(",".extractall(","importlib","__import__(","subprocess","exec(","eval(","pygame","gym","step_world","execute_action","run_game","play_game","train_policy","learned_policy","neural","fuzzy","tolerance","repair_replay","instability_metric","probability","best_action","optimal_action","reward","score_heuristic","PerturbationContract","SubstrateContract","RecursiveProofReceipt","RealityLoopProofReceipt","GlobalTruthReceipt"]: assert t not in text
+
+
+def test_section_validation_non_dict_json(ctx):
+    """Test that _validate_section rejects non-dict JSON payloads (list, string, etc.)."""
+    ir, c, s, tr, probes, cv = ctx
+    r = build_game_world_interaction_report(ir, c, s, tr, probes, cv)
+    # Test with a JSON list instead of dict
+    with pytest.raises(ValueError, match="INVALID_REPORT_SECTION"):
+        validate_game_world_interaction_report(replace(r, source_intake='[1, 2, 3]'))
+    # Test with a JSON string instead of dict
+    with pytest.raises(ValueError, match="INVALID_REPORT_SECTION"):
+        validate_game_world_interaction_report(replace(r, source_intake='"just a string"'))
+    # Test with a JSON number instead of dict
+    with pytest.raises(ValueError, match="INVALID_REPORT_SECTION"):
+        validate_game_world_interaction_report(replace(r, source_intake='42'))
+    # Test with JSON null instead of dict
+    with pytest.raises(ValueError, match="INVALID_REPORT_SECTION"):
+        validate_game_world_interaction_report(replace(r, source_intake='null'))
+
+
+def test_strategy_probe_bidirectional_set_equality(ctx, tmp_path):
+    """Test that strategy probe set must match exactly between provided probes and chaos verdict."""
+    ir, c, s, tr, probes, cv = ctx
+    # Test exact match scenario - should succeed
+    r = build_game_world_interaction_report(ir, c, s, tr, probes, cv)
+    assert r.final_report_verdict == "INTERACTION_REPLAY_CLEAN"
+
+    # Test provided probes missing from verdict - build verdict with more probes than provided
+    p3 = build_strategy_probe_receipt(c, s, tr, "LEGAL_ACTION_SCAN", "LEGAL_ACTION_SCAN", {})
+    cv_with_extra = build_chaos_replay_verdict_receipt(c, s, tr, c, s, tr, [probes[0], probes[1], p3], [probes[0], probes[1], p3])
+    # Providing only 2 probes when verdict expects 3 should fail
+    with pytest.raises(ValueError, match="STRATEGY_PROBE_REPORT_MISMATCH"):
+        build_game_world_interaction_report(ir, c, s, tr, probes, cv_with_extra)
+
+    # Test verdict probes missing from provided set - provide more probes than verdict expects
+    cv_with_fewer = build_chaos_replay_verdict_receipt(c, s, tr, c, s, tr, [probes[0]], [probes[0]])
+    # Providing 2 probes when verdict only expects 1 should fail
+    with pytest.raises(ValueError, match="STRATEGY_PROBE_REPORT_MISMATCH"):
+        build_game_world_interaction_report(ir, c, s, tr, probes, cv_with_fewer)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 import re
-from typing import Any
+from typing import Any, Callable
 
 from .canonical_hashing import canonical_bytes, canonical_json, sha256_hex
 from .perturbation_contract import (
@@ -106,7 +106,7 @@ def _validate_non_bool_int(value: object, *, minimum: int | None = None, maximum
 
 def _validate_type_counts(
     value: object,
-    key_validator: callable,
+    key_validator: Callable[[object], None],
     max_length: int | None = None,
 ) -> tuple[tuple[str, int], ...]:
     """Generic validator for type count tuples.

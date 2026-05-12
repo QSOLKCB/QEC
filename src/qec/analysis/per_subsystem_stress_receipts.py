@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 import re
 from typing import Any
 from .canonical_hashing import canonical_bytes, canonical_json, sha256_hex
@@ -47,9 +47,9 @@ def _select_entries_for_subsystem(perturbation_matrix:PerturbationMatrix, subsys
 def _derive_stress(c:int,ch:int,total:int)->str:
     if c==0: return "SUBSYSTEM_STRESS_EMPTY"
     if total==0 and ch==0: return "SUBSYSTEM_STRESS_STABLE"
-    if 0<total<100: return "SUBSYSTEM_STRESS_CHANGED"
-    if total>=100: return "SUBSYSTEM_STRESS_HEAVY"
-    raise ValueError(_ERR_IMPACT_SCORE_MISMATCH)
+    if total>0 and ch>0 and total<100: return "SUBSYSTEM_STRESS_CHANGED"
+    if total>=100 and ch>0: return "SUBSYSTEM_STRESS_HEAVY"
+    return "SUBSYSTEM_STRESS_STABLE"
 def _derive_stability(s:str)->tuple[str,bool]:
     return {"SUBSYSTEM_STRESS_EMPTY":("SUBSYSTEM_STABILITY_EMPTY",True),"SUBSYSTEM_STRESS_STABLE":("SUBSYSTEM_STABILITY_STABLE",True),"SUBSYSTEM_STRESS_CHANGED":("SUBSYSTEM_STABILITY_CHANGED",False),"SUBSYSTEM_STRESS_HEAVY":("SUBSYSTEM_STABILITY_HEAVY",False)}[s]
 def _subsystem_stress_receipt_payload(perturbation_matrix_hash:str,energy_matrix_receipt_hash:str,semantic_stress_receipt_hash:str,perturbation_stability_proof_hash:str,subsystem_type:str,subsystem_label:str,subsystem_entry_hashes:tuple[str,...],subsystem_entry_count:int,changed_entry_count:int,unchanged_entry_count:int,total_integer_impact_score:int,subsystem_stress_class:str,subsystem_stability_class:str,replay_stable:bool)->dict[str,Any]:
@@ -63,7 +63,7 @@ def _common_build(pm,em,sr,ps,stype,slabel):
     return p,sha256_hex(p)
 
 def _validate_core(r,etype,elabel,hfield):
-    _vsha(getattr(r,hfield)); payload={k:getattr(r,k) for k in r.__annotations__.keys() if k!=hfield}
+    _vsha(getattr(r,hfield)); payload={f.name:getattr(r,f.name) for f in fields(r) if f.name!=hfield}
     for k in ("perturbation_matrix_hash","energy_matrix_receipt_hash","semantic_stress_receipt_hash","perturbation_stability_proof_hash"): _vsha(payload[k])
     if payload["subsystem_type"]!=etype: raise ValueError(_ERR_INVALID_SUBSYSTEM_TYPE)
     lab=payload["subsystem_label"]
@@ -84,8 +84,37 @@ def _validate_core(r,etype,elabel,hfield):
     exp_stb,exp_rep=_derive_stability(exp_s)
     if payload["subsystem_stability_class"] not in _ALLOWED_STABILITY: raise ValueError(_ERR_INVALID_SUBSYSTEM_STABILITY_CLASS)
     if payload["subsystem_stability_class"]!=exp_stb or payload["replay_stable"] is not exp_rep: raise ValueError(_ERR_STABILITY_CLASS_MISMATCH)
-    if sha256_hex(_subsystem_stress_receipt_payload(**payload))!=getattr(r,hfield): raise ValueError(_ERR_HASH_MISMATCH)
+    base_payload=_subsystem_stress_receipt_payload(payload["perturbation_matrix_hash"],payload["energy_matrix_receipt_hash"],payload["semantic_stress_receipt_hash"],payload["perturbation_stability_proof_hash"],payload["subsystem_type"],payload["subsystem_label"],payload["subsystem_entry_hashes"],payload["subsystem_entry_count"],payload["changed_entry_count"],payload["unchanged_entry_count"],payload["total_integer_impact_score"],payload["subsystem_stress_class"],payload["subsystem_stability_class"],payload["replay_stable"])
+    if sha256_hex(base_payload)!=getattr(r,hfield): raise ValueError(_ERR_HASH_MISMATCH)
     return True
+
+def validate_layer_activation_stability_receipt(r:"LayerActivationStabilityReceipt")->bool:
+    return _validate_core(r,"LAYER","LAYER_ACTIVATION","layer_activation_stability_receipt_hash")
+
+def validate_router_stress_receipt(r:"RouterStressReceipt")->bool:
+    if not _validate_core(r,"ROUTER","ROUTER","layer_activation_stability_receipt_hash"): return False
+    full_payload={f.name:getattr(r,f.name) for f in fields(r) if f.name!="router_stress_receipt_hash"}
+    if sha256_hex(full_payload)!=r.router_stress_receipt_hash: raise ValueError(_ERR_HASH_MISMATCH)
+    return True
+
+def validate_mask_stress_receipt(r:"MaskStressReceipt")->bool:
+    if not _validate_core(r,"MASK","MASK","layer_activation_stability_receipt_hash"): return False
+    full_payload={f.name:getattr(r,f.name) for f in fields(r) if f.name!="mask_stress_receipt_hash"}
+    if sha256_hex(full_payload)!=r.mask_stress_receipt_hash: raise ValueError(_ERR_HASH_MISMATCH)
+    return True
+
+def validate_shift_stress_receipt(r:"ShiftStressReceipt")->bool:
+    if not _validate_core(r,"SHIFT","SHIFT","layer_activation_stability_receipt_hash"): return False
+    full_payload={f.name:getattr(r,f.name) for f in fields(r) if f.name!="shift_stress_receipt_hash"}
+    if sha256_hex(full_payload)!=r.shift_stress_receipt_hash: raise ValueError(_ERR_HASH_MISMATCH)
+    return True
+
+def validate_readout_stress_receipt(r:"ReadoutStressReceipt")->bool:
+    if not _validate_core(r,"READOUT","READOUT","layer_activation_stability_receipt_hash"): return False
+    full_payload={f.name:getattr(r,f.name) for f in fields(r) if f.name!="readout_stress_receipt_hash"}
+    if sha256_hex(full_payload)!=r.readout_stress_receipt_hash: raise ValueError(_ERR_HASH_MISMATCH)
+    return True
+
 
 @dataclass(frozen=True)
 class LayerActivationStabilityReceipt:
@@ -96,10 +125,51 @@ class LayerActivationStabilityReceipt:
     def to_canonical_bytes(self): return canonical_bytes(self.to_dict())
 # repeat classes
 @dataclass(frozen=True)
-class RouterStressReceipt(LayerActivationStabilityReceipt): router_stress_receipt_hash:str
+class RouterStressReceipt(LayerActivationStabilityReceipt):
+    router_stress_receipt_hash:str
+    def __post_init__(self): validate_router_stress_receipt(self)
+    def to_dict(self): return {**super().to_dict(),"router_stress_receipt_hash":self.router_stress_receipt_hash}
 @dataclass(frozen=True)
-class MaskStressReceipt(LayerActivationStabilityReceipt): mask_stress_receipt_hash:str
+class MaskStressReceipt(LayerActivationStabilityReceipt):
+    mask_stress_receipt_hash:str
+    def __post_init__(self): validate_mask_stress_receipt(self)
+    def to_dict(self): return {**super().to_dict(),"mask_stress_receipt_hash":self.mask_stress_receipt_hash}
 @dataclass(frozen=True)
-class ShiftStressReceipt(LayerActivationStabilityReceipt): shift_stress_receipt_hash:str
+class ShiftStressReceipt(LayerActivationStabilityReceipt):
+    shift_stress_receipt_hash:str
+    def __post_init__(self): validate_shift_stress_receipt(self)
+    def to_dict(self): return {**super().to_dict(),"shift_stress_receipt_hash":self.shift_stress_receipt_hash}
 @dataclass(frozen=True)
-class ReadoutStressReceipt(LayerActivationStabilityReceipt): readout_stress_receipt_hash:str
+class ReadoutStressReceipt(LayerActivationStabilityReceipt):
+    readout_stress_receipt_hash:str
+    def __post_init__(self): validate_readout_stress_receipt(self)
+    def to_dict(self): return {**super().to_dict(),"readout_stress_receipt_hash":self.readout_stress_receipt_hash}
+
+def build_layer_activation_stability_receipt(pm:PerturbationMatrix,em:EnergyMatrixReceipt,sr:SemanticStressReceipt,ps:PerturbationStabilityProof)->LayerActivationStabilityReceipt:
+    p,h=_common_build(pm,em,sr,ps,"LAYER","LAYER_ACTIVATION")
+    p["subsystem_entry_hashes"]=tuple(p["subsystem_entry_hashes"])
+    return LayerActivationStabilityReceipt(**p,layer_activation_stability_receipt_hash=h)
+
+def build_router_stress_receipt(pm:PerturbationMatrix,em:EnergyMatrixReceipt,sr:SemanticStressReceipt,ps:PerturbationStabilityProof)->RouterStressReceipt:
+    p,h=_common_build(pm,em,sr,ps,"ROUTER","ROUTER")
+    p["subsystem_entry_hashes"]=tuple(p["subsystem_entry_hashes"])
+    full={**p,"layer_activation_stability_receipt_hash":h,"router_stress_receipt_hash":sha256_hex({**p,"layer_activation_stability_receipt_hash":h})}
+    return RouterStressReceipt(**full)
+
+def build_mask_stress_receipt(pm:PerturbationMatrix,em:EnergyMatrixReceipt,sr:SemanticStressReceipt,ps:PerturbationStabilityProof)->MaskStressReceipt:
+    p,h=_common_build(pm,em,sr,ps,"MASK","MASK")
+    p["subsystem_entry_hashes"]=tuple(p["subsystem_entry_hashes"])
+    full={**p,"layer_activation_stability_receipt_hash":h,"mask_stress_receipt_hash":sha256_hex({**p,"layer_activation_stability_receipt_hash":h})}
+    return MaskStressReceipt(**full)
+
+def build_shift_stress_receipt(pm:PerturbationMatrix,em:EnergyMatrixReceipt,sr:SemanticStressReceipt,ps:PerturbationStabilityProof)->ShiftStressReceipt:
+    p,h=_common_build(pm,em,sr,ps,"SHIFT","SHIFT")
+    p["subsystem_entry_hashes"]=tuple(p["subsystem_entry_hashes"])
+    full={**p,"layer_activation_stability_receipt_hash":h,"shift_stress_receipt_hash":sha256_hex({**p,"layer_activation_stability_receipt_hash":h})}
+    return ShiftStressReceipt(**full)
+
+def build_readout_stress_receipt(pm:PerturbationMatrix,em:EnergyMatrixReceipt,sr:SemanticStressReceipt,ps:PerturbationStabilityProof)->ReadoutStressReceipt:
+    p,h=_common_build(pm,em,sr,ps,"READOUT","READOUT")
+    p["subsystem_entry_hashes"]=tuple(p["subsystem_entry_hashes"])
+    full={**p,"layer_activation_stability_receipt_hash":h,"readout_stress_receipt_hash":sha256_hex({**p,"layer_activation_stability_receipt_hash":h})}
+    return ReadoutStressReceipt(**full)

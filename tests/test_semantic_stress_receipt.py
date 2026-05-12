@@ -24,14 +24,12 @@ def _bundle(changed_count: int, unchanged_count: int = 0):
     idx = 0
     for _ in range(changed_count):
         before = _artifact(idx)
-        after = _artifact(idx + 1)
         contract = build_perturbation_contract("Artifact", "a" * 64, ["state","value"], "REPLACE_VALUE", {"value": idx + 1})
         result = execute_perturbation_contract(contract, canonical_json(before))
         entries.append(build_perturbation_matrix_entry(idx, 0, f"ENTRY_{idx}", contract, result))
         idx += 1
     for _ in range(unchanged_count):
         before = _artifact(idx)
-        after = _artifact(idx)
         contract = build_perturbation_contract("Artifact", "b" * 64, ["state","value"], "REPLACE_VALUE", {"value": idx})
         result = execute_perturbation_contract(contract, canonical_json(before))
         entries.append(build_perturbation_matrix_entry(idx, 0, f"ENTRY_{idx}", contract, result))
@@ -136,6 +134,29 @@ def test_proof_failures_complete_validation_and_scope_scan():
         "exec(", "eval(", "random", "time.time", "datetime.now", "probability", "probabilistic", "neural", "learned_policy",
         "physical_energy", "joule", "voltage", "current", "substrate", "recursive", "global_truth",
     ]
-    src = open("src/qec/analysis/semantic_stress_receipt.py", "r", encoding="utf-8").read().lower()
+    with open("src/qec/analysis/semantic_stress_receipt.py", "r", encoding="utf-8") as f:
+        src = f.read().lower()
     for token in banned:
         assert token not in src
+
+
+def test_stable_proof_with_flipped_replay_stable_or_stability_class():
+    """Regression test: ensure proofs with changed_entry_count==0 and total_integer_impact_score==0
+    but flipped replay_stable or stability_class are rejected by validate_perturbation_stability_proof."""
+    matrix, energy, stress, proof = _bundle(0, 1)
+    assert proof.changed_entry_count == 0
+    assert proof.total_integer_impact_score == 0
+    assert proof.replay_stable is True
+    assert proof.stability_class == "PERTURBATION_STABLE"
+
+    with pytest.raises(ValueError, match="STABILITY_CLASS_MISMATCH|HASH_MISMATCH"):
+        validate_perturbation_stability_proof(replace(proof, replay_stable=False))
+
+    with pytest.raises(ValueError, match="STABILITY_CLASS_MISMATCH|HASH_MISMATCH"):
+        validate_perturbation_stability_proof(replace(proof, stability_class="PERTURBATION_INVALID"))
+
+    with pytest.raises(ValueError, match="STABILITY_CLASS_MISMATCH|HASH_MISMATCH"):
+        validate_perturbation_stability_proof(replace(proof, stability_class="PERTURBATION_CHANGED"))
+
+    with pytest.raises(ValueError, match="STABILITY_CLASS_MISMATCH|HASH_MISMATCH"):
+        validate_perturbation_stability_proof(replace(proof, stability_class="PERTURBATION_HEAVY"))

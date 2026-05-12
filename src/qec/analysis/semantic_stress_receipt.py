@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from collections import Counter
 import re
 from typing import Any
 
@@ -25,8 +24,6 @@ _ERR_STABILITY_CLASS_MISMATCH = "STABILITY_CLASS_MISMATCH"
 _ERR_STRESS_RECEIPT_MISMATCH = "STRESS_RECEIPT_MISMATCH"
 _ERR_STABILITY_PROOF_MISMATCH = "STABILITY_PROOF_MISMATCH"
 _ERR_COUNT_MISMATCH = "COUNT_MISMATCH"
-_ERR_OPERATION_COUNTS_MISMATCH = "OPERATION_COUNTS_MISMATCH"
-_ERR_TARGET_COUNTS_MISMATCH = "TARGET_COUNTS_MISMATCH"
 _ERR_IMPACT_SCORE_MISMATCH = "IMPACT_SCORE_MISMATCH"
 
 _MAX_OPERATION_TYPE_COUNTS = 128
@@ -79,8 +76,7 @@ def _validate_counts(value: object, *, max_length: int) -> tuple[tuple[str, int]
     return tuple(out)
 
 
-def _canonicalize_counts(counter: Counter[str]) -> tuple[tuple[str, int], ...]:
-    return tuple(sorted(counter.items(), key=lambda x: x[0]))
+
 
 
 def _derive_stress_classification(total_integer_impact_score: int, changed_entry_count: int) -> str:
@@ -254,6 +250,9 @@ def build_perturbation_stability_proof(perturbation_matrix: PerturbationMatrix, 
         raise ValueError(_ERR_STABILITY_PROOF_MISMATCH)
     if semantic_stress_receipt.energy_matrix_receipt_hash != energy_matrix_receipt.energy_matrix_receipt_hash:
         raise ValueError(_ERR_STABILITY_PROOF_MISMATCH)
+    rebuilt_stress = build_semantic_stress_receipt(perturbation_matrix, energy_matrix_receipt)
+    if rebuilt_stress.to_dict() != semantic_stress_receipt.to_dict():
+        raise ValueError(_ERR_STRESS_RECEIPT_MISMATCH)
     replay_stable, stability_class = _derive_stability(
         semantic_stress_receipt.stress_classification,
         semantic_stress_receipt.total_integer_impact_score,
@@ -311,7 +310,8 @@ def validate_perturbation_stability_proof(proof: PerturbationStabilityProof) -> 
     _validate_non_bool_int(proof.changed_entry_count, min_value=0, err=_ERR_INVALID_INPUT)
     _validate_non_bool_int(proof.unchanged_entry_count, min_value=0, err=_ERR_INVALID_INPUT)
     _validate_non_bool_int(proof.total_integer_impact_score, min_value=-_MAX_ABS_TOTAL_IMPACT_SCORE, max_value=_MAX_ABS_TOTAL_IMPACT_SCORE, err=_ERR_INVALID_INPUT)
-    expected_replay_stable, expected_class = _derive_stability("STRESS_STABLE" if proof.replay_stable and proof.total_integer_impact_score == 0 and proof.changed_entry_count == 0 else "STRESS_CHANGED", proof.total_integer_impact_score, proof.changed_entry_count)
+    expected_stress_class = _derive_stress_classification(proof.total_integer_impact_score, proof.changed_entry_count)
+    expected_replay_stable, expected_class = _derive_stability(expected_stress_class, proof.total_integer_impact_score, proof.changed_entry_count)
     if proof.replay_stable != expected_replay_stable or proof.stability_class != expected_class:
         raise ValueError(_ERR_STABILITY_CLASS_MISMATCH)
     _validate_sha256_hex(proof.perturbation_stability_proof_hash)

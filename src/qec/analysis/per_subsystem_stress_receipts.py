@@ -92,25 +92,33 @@ def validate_layer_activation_stability_receipt(r:"LayerActivationStabilityRecei
     return _validate_core(r,"LAYER","LAYER_ACTIVATION","layer_activation_stability_receipt_hash")
 
 def validate_router_stress_receipt(r:"RouterStressReceipt")->bool:
+    # Two-level validation: (1) validate base receipt fields → layer_activation_stability_receipt_hash
     if not _validate_core(r,"ROUTER","ROUTER","layer_activation_stability_receipt_hash"): return False
+    # (2) validate full receipt (including base hash) → router_stress_receipt_hash
     full_payload={f.name:getattr(r,f.name) for f in fields(r) if f.name!="router_stress_receipt_hash"}
     if sha256_hex(full_payload)!=r.router_stress_receipt_hash: raise ValueError(_ERR_HASH_MISMATCH)
     return True
 
 def validate_mask_stress_receipt(r:"MaskStressReceipt")->bool:
+    # Two-level validation: (1) validate base receipt fields → layer_activation_stability_receipt_hash
     if not _validate_core(r,"MASK","MASK","layer_activation_stability_receipt_hash"): return False
+    # (2) validate full receipt (including base hash) → mask_stress_receipt_hash
     full_payload={f.name:getattr(r,f.name) for f in fields(r) if f.name!="mask_stress_receipt_hash"}
     if sha256_hex(full_payload)!=r.mask_stress_receipt_hash: raise ValueError(_ERR_HASH_MISMATCH)
     return True
 
 def validate_shift_stress_receipt(r:"ShiftStressReceipt")->bool:
+    # Two-level validation: (1) validate base receipt fields → layer_activation_stability_receipt_hash
     if not _validate_core(r,"SHIFT","SHIFT","layer_activation_stability_receipt_hash"): return False
+    # (2) validate full receipt (including base hash) → shift_stress_receipt_hash
     full_payload={f.name:getattr(r,f.name) for f in fields(r) if f.name!="shift_stress_receipt_hash"}
     if sha256_hex(full_payload)!=r.shift_stress_receipt_hash: raise ValueError(_ERR_HASH_MISMATCH)
     return True
 
 def validate_readout_stress_receipt(r:"ReadoutStressReceipt")->bool:
+    # Two-level validation: (1) validate base receipt fields → layer_activation_stability_receipt_hash
     if not _validate_core(r,"READOUT","READOUT","layer_activation_stability_receipt_hash"): return False
+    # (2) validate full receipt (including base hash) → readout_stress_receipt_hash
     full_payload={f.name:getattr(r,f.name) for f in fields(r) if f.name!="readout_stress_receipt_hash"}
     if sha256_hex(full_payload)!=r.readout_stress_receipt_hash: raise ValueError(_ERR_HASH_MISMATCH)
     return True

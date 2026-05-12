@@ -195,15 +195,15 @@ def test_application_and_result_integrity_and_no_mutation_and_scan():
         r1.changed = False
     assert r1.to_canonical_json().encode("utf-8") == r1.to_canonical_bytes()
 
-    text = open("src/qec/analysis/perturbation_contract.py", "r", encoding="utf-8").read()
+    import qec.analysis.perturbation_contract as pc_module
+    with open(pc_module.__file__, "r", encoding="utf-8") as f:
+        text = f.read()
     banned = ["EnergyMatrix", "PerturbationMatrix", "SemanticStressReceipt", "PerturbationStabilityProof", "SubstrateContract", "RecursiveProofReceipt", "RealityLoopProofReceipt", "GlobalTruthReceipt", "gameplay", "render", "step_world", "execute_action", "run_game", "importlib", "__import__(", "subprocess", "exec(", "eval(", "random", "time.time", "datetime.now", "probability", "probabilistic", "neural", "learned_policy"]
     for token in banned:
         assert token not in text
 
 
 def test_oversized_operation_parameters_rejected():
-    import json
-
     big_value = "x" * (_MAX_OPERATION_PARAMETER_BYTES + 1)
     with pytest.raises(ValueError, match=_ERR_OPERATION_PARAMETER_TOO_LARGE):
         build_perturbation_contract("Artifact", H, ["x"], "REPLACE_VALUE", {"value": big_value})
@@ -345,3 +345,45 @@ def test_tuple_and_numeric_bound_coverage():
         build_perturbation_contract("Artifact", H, ["x"], "INTEGER_DELTA", {"delta": 0, "min_value": _MAX_ABS_INTEGER_VALUE + 1, "max_value": None})
     with pytest.raises(ValueError, match=_ERR_INTEGER_BOUND_VIOLATION):
         build_perturbation_contract("Artifact", H, ["x"], "INTEGER_DELTA", {"delta": 0, "min_value": None, "max_value": _MAX_ABS_INTEGER_VALUE + 1})
+
+
+def test_max_result_bytes_applies_to_result_not_input():
+    """Verify that max_result_bytes only constrains the result, not the input.
+
+    A perturbation that shrinks a large input below max_result_bytes should succeed.
+    """
+    large_value = "x" * 100
+    original = canonical_json({"a": large_value})
+    original_size = len(original.encode("utf-8"))
+    small_max = 20
+    assert original_size > small_max
+
+    c = build_perturbation_contract("Artifact", H, ["a"], "REPLACE_VALUE", {"value": 1}, max_result_bytes=small_max)
+    r = apply_perturbation_contract(c, original)
+    assert len(r.perturbed_canonical_json.encode("utf-8")) <= small_max
+    assert json.loads(r.perturbed_canonical_json)["a"] == 1
+
+    c_remove = build_perturbation_contract("Artifact", H, ["a"], "REMOVE_FIELD", {}, max_result_bytes=small_max)
+    r_remove = apply_perturbation_contract(c_remove, original)
+    assert len(r_remove.perturbed_canonical_json.encode("utf-8")) <= small_max
+
+    c_grow = build_perturbation_contract("Artifact", H, ["a"], "REPLACE_VALUE", {"value": "y" * 200}, max_result_bytes=small_max)
+    with pytest.raises(ValueError, match=_ERR_CANONICAL_JSON_TOO_LARGE):
+        apply_perturbation_contract(c_grow, original)
+
+
+def test_validate_contract_rejects_non_string_canonical_operation_parameters():
+    """Verify that validate_perturbation_contract rejects non-string canonical_operation_parameters."""
+    c = build_perturbation_contract("Artifact", H, ["x"], "REPLACE_VALUE", {"value": 1})
+    bad_contract = object.__new__(PerturbationContract)
+    object.__setattr__(bad_contract, "target_artifact_type", c.target_artifact_type)
+    object.__setattr__(bad_contract, "target_artifact_hash", c.target_artifact_hash)
+    object.__setattr__(bad_contract, "perturbation_mode", c.perturbation_mode)
+    object.__setattr__(bad_contract, "target_field_path", c.target_field_path)
+    object.__setattr__(bad_contract, "operation_type", c.operation_type)
+    object.__setattr__(bad_contract, "canonical_operation_parameters", None)
+    object.__setattr__(bad_contract, "operation_parameters_hash", c.operation_parameters_hash)
+    object.__setattr__(bad_contract, "max_result_bytes", c.max_result_bytes)
+    object.__setattr__(bad_contract, "perturbation_contract_hash", c.perturbation_contract_hash)
+    with pytest.raises(ValueError, match=_ERR_INVALID_CANONICAL_JSON):
+        validate_perturbation_contract(bad_contract)

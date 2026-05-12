@@ -259,7 +259,7 @@ def build_perturbation_contract(target_artifact_type: str, target_artifact_hash:
 
 def apply_perturbation_contract(perturbation_contract: PerturbationContract, original_canonical_json: str) -> PerturbationResult:
     validate_perturbation_contract(perturbation_contract)
-    original_obj = _validate_canonical_json_text(original_canonical_json, perturbation_contract.max_result_bytes)
+    original_obj = _validate_canonical_json_text(original_canonical_json, _MAX_CANONICAL_JSON_BYTES)
     if not isinstance(original_obj, dict):
         raise ValueError(_ERR_INVALID_CANONICAL_JSON)
     work_obj = json.loads(canonical_json(original_obj))
@@ -328,7 +328,7 @@ def apply_perturbation_contract(perturbation_contract: PerturbationContract, ori
         perturbation_result_hash=sha256_hex(payload),
     )
 
-build_perturbation_result = apply_perturbation_contract
+execute_perturbation_contract = apply_perturbation_contract
 
 
 def validate_perturbation_contract(contract: PerturbationContract) -> bool:
@@ -342,6 +342,8 @@ def validate_perturbation_contract(contract: PerturbationContract) -> bool:
     _validate_operation_type(contract.operation_type)
     if not isinstance(contract.max_result_bytes, int) or isinstance(contract.max_result_bytes, bool) or not (1 <= contract.max_result_bytes <= _MAX_CANONICAL_JSON_BYTES):
         raise ValueError(_ERR_INVALID_INPUT)
+    if not isinstance(contract.canonical_operation_parameters, str):
+        raise ValueError(_ERR_INVALID_CANONICAL_JSON)
     if len(contract.canonical_operation_parameters.encode("utf-8")) > _MAX_OPERATION_PARAMETER_BYTES:
         raise ValueError(_ERR_OPERATION_PARAMETER_TOO_LARGE)
     params_obj = _validate_canonical_json_text(contract.canonical_operation_parameters, _MAX_OPERATION_PARAMETER_BYTES)

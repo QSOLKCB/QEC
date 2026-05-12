@@ -45,6 +45,8 @@ _MATRIX_MODE = "CANONICAL_PERTURBATION_MATRIX"
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _LABEL_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+_ARTIFACT_TYPE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+_MAX_TARGET_ARTIFACT_TYPE_LENGTH = 96
 
 
 def _validate_sha256_hex(value: object) -> None:
@@ -76,6 +78,14 @@ def _validate_int_score(value: object) -> int:
     return value
 
 
+def _validate_target_artifact_type(value: object) -> str:
+    if not isinstance(value, str) or not value or len(value) > _MAX_TARGET_ARTIFACT_TYPE_LENGTH:
+        raise ValueError(_ERR_INVALID_INPUT)
+    if _ARTIFACT_TYPE_RE.fullmatch(value) is None:
+        raise ValueError(_ERR_INVALID_INPUT)
+    return value
+
+
 def _derive_integer_impact_score(changed: bool) -> int:
     return 1 if changed else 0
 
@@ -94,8 +104,23 @@ def _validate_non_bool_int(value: object, *, minimum: int | None = None, maximum
     return value
 
 
-def _validate_operation_type_counts(value: object) -> tuple[tuple[str, int], ...]:
+def _validate_type_counts(
+    value: object,
+    key_validator: callable,
+    max_length: int | None = None,
+) -> tuple[tuple[str, int], ...]:
+    """Generic validator for type count tuples.
+
+    Validates that value is a tuple of (key, count) pairs where:
+    - Each item is a tuple of exactly 2 elements
+    - Keys pass the provided key_validator
+    - Counts are positive integers (non-bool)
+    - Keys are unique and sorted in ascending order
+    - Total length does not exceed max_length (if provided)
+    """
     if not isinstance(value, tuple):
+        raise ValueError(_ERR_INVALID_INPUT)
+    if max_length is not None and len(value) > max_length:
         raise ValueError(_ERR_INVALID_INPUT)
     out: list[tuple[str, int]] = []
     last_key: str | None = None
@@ -104,8 +129,7 @@ def _validate_operation_type_counts(value: object) -> tuple[tuple[str, int], ...
         if not isinstance(item, tuple) or len(item) != 2:
             raise ValueError(_ERR_INVALID_INPUT)
         key, count = item
-        if not isinstance(key, str) or key not in get_allowed_perturbation_operation_types():
-            raise ValueError(_ERR_INVALID_INPUT)
+        key_validator(key)
         if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
             raise ValueError(_ERR_INVALID_INPUT)
         if key in seen:
@@ -118,28 +142,23 @@ def _validate_operation_type_counts(value: object) -> tuple[tuple[str, int], ...
     return tuple(out)
 
 
-def _validate_target_artifact_type_counts(value: object) -> tuple[tuple[str, int], ...]:
-    if not isinstance(value, tuple):
+def _validate_operation_type_key(key: object) -> None:
+    """Validate that key is an allowed operation type."""
+    if not isinstance(key, str) or key not in get_allowed_perturbation_operation_types():
         raise ValueError(_ERR_INVALID_INPUT)
-    out: list[tuple[str, int]] = []
-    last_key: str | None = None
-    seen: set[str] = set()
-    for item in value:
-        if not isinstance(item, tuple) or len(item) != 2:
-            raise ValueError(_ERR_INVALID_INPUT)
-        key, count = item
-        if not isinstance(key, str) or not key:
-            raise ValueError(_ERR_INVALID_INPUT)
-        if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
-            raise ValueError(_ERR_INVALID_INPUT)
-        if key in seen:
-            raise ValueError(_ERR_INVALID_INPUT)
-        if last_key is not None and key < last_key:
-            raise ValueError(_ERR_INVALID_INPUT)
-        seen.add(key)
-        last_key = key
-        out.append((key, count))
-    return tuple(out)
+
+
+def _validate_operation_type_counts(value: object, max_length: int | None = None) -> tuple[tuple[str, int], ...]:
+    return _validate_type_counts(value, _validate_operation_type_key, max_length)
+
+
+def _validate_target_artifact_type_counts(value: object, max_length: int | None = None) -> tuple[tuple[str, int], ...]:
+    return _validate_type_counts(value, _validate_target_artifact_type, max_length)
+
+
+def _canonicalize_counts(counter: Counter) -> tuple[tuple[str, int], ...]:
+    """Produce a canonicalized count tuple from a Counter, sorted by key."""
+    return tuple(sorted(counter.items(), key=lambda x: x[0]))
 
 
 def _perturbation_matrix_entry_payload(row_index: int, column_index: int, entry_label: str, perturbation_contract_hash: str, perturbation_result_hash: str, target_artifact_type: str, target_artifact_hash: str, operation_type: str, changed: bool, integer_impact_score: int) -> dict[str, Any]:
@@ -325,8 +344,8 @@ def build_energy_matrix_receipt(perturbation_matrix: PerturbationMatrix) -> Ener
     unchanged_count = len(perturbation_matrix.entries) - changed_count
     if changed_count != perturbation_matrix.changed_entry_count or unchanged_count != perturbation_matrix.unchanged_entry_count:
         raise ValueError(_ERR_ENERGY_RECEIPT_MISMATCH)
-    op_counts = tuple(sorted(Counter(e.operation_type for e in perturbation_matrix.entries).items(), key=lambda x: x[0]))
-    tt_counts = tuple(sorted(Counter(e.target_artifact_type for e in perturbation_matrix.entries).items(), key=lambda x: x[0]))
+    op_counts = _canonicalize_counts(Counter(e.operation_type for e in perturbation_matrix.entries))
+    tt_counts = _canonicalize_counts(Counter(e.target_artifact_type for e in perturbation_matrix.entries))
     hash_payload = _energy_matrix_receipt_payload(perturbation_matrix.perturbation_matrix_hash, perturbation_matrix.matrix_label, perturbation_matrix.matrix_mode, total_integer_impact_score, changed_count, unchanged_count, op_counts, tt_counts, perturbation_matrix)
     return EnergyMatrixReceipt(
         perturbation_matrix_hash=perturbation_matrix.perturbation_matrix_hash,
@@ -351,8 +370,7 @@ def validate_perturbation_matrix_entry(entry: PerturbationMatrixEntry) -> bool:
     _validate_sha256_hex(entry.perturbation_contract_hash)
     _validate_sha256_hex(entry.perturbation_result_hash)
     _validate_sha256_hex(entry.target_artifact_hash)
-    if not isinstance(entry.target_artifact_type, str) or not entry.target_artifact_type:
-        raise ValueError(_ERR_INVALID_INPUT)
+    _validate_target_artifact_type(entry.target_artifact_type)
     if not isinstance(entry.operation_type, str) or entry.operation_type not in get_allowed_perturbation_operation_types():
         raise ValueError(_ERR_ENTRY_OPERATION_MISMATCH)
     if not isinstance(entry.changed, bool):
@@ -429,8 +447,11 @@ def validate_energy_matrix_receipt(receipt: EnergyMatrixReceipt) -> bool:
     _validate_non_bool_int(receipt.total_integer_impact_score, minimum=-_MAX_ABS_TOTAL_IMPACT_SCORE, maximum=_MAX_ABS_TOTAL_IMPACT_SCORE, err=_ERR_INVALID_INPUT)
     _validate_non_bool_int(receipt.changed_entry_count, minimum=0, err=_ERR_INVALID_INPUT)
     _validate_non_bool_int(receipt.unchanged_entry_count, minimum=0, err=_ERR_INVALID_INPUT)
-    normalized_operation_counts = _validate_operation_type_counts(receipt.operation_type_counts)
-    normalized_target_counts = _validate_target_artifact_type_counts(receipt.target_artifact_type_counts)
+    # O(1) length caps before iterating to prevent DoS from huge count lists
+    max_operation_types = len(get_allowed_perturbation_operation_types())
+    max_target_types = receipt.perturbation_matrix.entry_count
+    normalized_operation_counts = _validate_operation_type_counts(receipt.operation_type_counts, max_length=max_operation_types)
+    normalized_target_counts = _validate_target_artifact_type_counts(receipt.target_artifact_type_counts, max_length=max_target_types)
     total = sum(e.integer_impact_score for e in receipt.perturbation_matrix.entries)
     if receipt.total_integer_impact_score != total:
         raise ValueError(_ERR_IMPACT_SCORE_MISMATCH)
@@ -438,8 +459,8 @@ def validate_energy_matrix_receipt(receipt: EnergyMatrixReceipt) -> bool:
     unchanged = len(receipt.perturbation_matrix.entries) - changed
     if receipt.changed_entry_count != changed or receipt.unchanged_entry_count != unchanged:
         raise ValueError(_ERR_ENERGY_RECEIPT_MISMATCH)
-    op_counts = tuple(sorted(Counter(e.operation_type for e in receipt.perturbation_matrix.entries).items(), key=lambda x: x[0]))
-    tt_counts = tuple(sorted(Counter(e.target_artifact_type for e in receipt.perturbation_matrix.entries).items(), key=lambda x: x[0]))
+    op_counts = _canonicalize_counts(Counter(e.operation_type for e in receipt.perturbation_matrix.entries))
+    tt_counts = _canonicalize_counts(Counter(e.target_artifact_type for e in receipt.perturbation_matrix.entries))
     if normalized_operation_counts != op_counts or normalized_target_counts != tt_counts:
         raise ValueError(_ERR_ENERGY_RECEIPT_MISMATCH)
     _validate_sha256_hex(receipt.energy_matrix_receipt_hash)

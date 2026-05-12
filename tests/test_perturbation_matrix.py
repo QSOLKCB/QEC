@@ -234,6 +234,11 @@ def test_hardening_matrix_and_receipt_validation_edges():
         (("Artifact", 0),),
         (("Artifact", -1),),
         (("Artifact", 1), ("Artifact", 1)),
+        # Invalid artifact type format (spaces, punctuation, too long)
+        (("Invalid Type", 1),),
+        (("invalid-type", 1),),
+        (("123invalid", 1),),
+        (("a" * 97, 1),),  # exceeds max length of 96
     ]
     for value in bad_target_shapes:
         with pytest.raises(ValueError, match=_ERR_INVALID_INPUT):
@@ -267,5 +272,6 @@ def test_hardening_matrix_and_receipt_validation_edges():
         validate_energy_matrix_receipt(_make_rehashed_receipt(r, target_artifact_type_counts=()))
     with pytest.raises(ValueError, match=_ERR_ENERGY_RECEIPT_MISMATCH):
         validate_energy_matrix_receipt(_make_rehashed_receipt(r, target_artifact_type_counts=(("Artifact", 2),)))
-    with pytest.raises(ValueError, match=_ERR_ENERGY_RECEIPT_MISMATCH):
+    # Length cap catches oversized target_artifact_type_counts early (2 types > 1 entry)
+    with pytest.raises(ValueError, match=_ERR_INVALID_INPUT):
         validate_energy_matrix_receipt(_make_rehashed_receipt(r, target_artifact_type_counts=(("Artifact", 1), ("Other", 1))))

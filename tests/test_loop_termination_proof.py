@@ -106,3 +106,114 @@ def test_boundaries_and_scope_scan():
         "neural", "learned_policy", "global_truth",
     ]:
         assert bad not in prod
+
+
+def test_iteration_count_exceeds_max_depth_rejected():
+    """P1: Reject proofs whose iteration_count exceeds max_depth."""
+    c = _contract(TERMINATION_POLICY_MAX_DEPTH_ONLY, max_depth=2)
+    r = _receipt(c, [("a", "b", "ITERATION_CONTINUED"), ("b", "c", "ITERATION_MAX_DEPTH_REACHED")])
+    p = build_loop_termination_proof(c, r)
+    # Forge a proof with max_depth smaller than iteration_count
+    # The validation happens in __post_init__, so we expect the exception during replace
+    with pytest.raises(ValueError, match="ITERATION_COUNT_MISMATCH"):
+        replace(p, max_depth=1)
+
+
+def test_termination_satisfied_class_consistency():
+    """Enforce termination_satisfied/termination_class consistency."""
+    c = _contract(TERMINATION_POLICY_MAX_DEPTH_ONLY, max_depth=2)
+    r = _receipt(c, [("a", "b", "ITERATION_CONTINUED"), ("b", "c", "ITERATION_MAX_DEPTH_REACHED")])
+    p = build_loop_termination_proof(c, r)
+    assert p.termination_satisfied is True
+    assert p.termination_class == "LOOP_TERMINATED_BY_MAX_DEPTH"
+    # Forge a proof with termination_satisfied=True but class=UNSATISFIED
+    # The validation happens in __post_init__, so we expect the exception during replace
+    from qec.analysis.canonical_hashing import sha256_hex
+    payload = {
+        "loop_termination_contract_hash": p.loop_termination_contract_hash,
+        "recursive_proof_receipt_hash": p.recursive_proof_receipt_hash,
+        "source_artifact_type": p.source_artifact_type,
+        "source_artifact_hash": p.source_artifact_hash,
+        "loop_label": p.loop_label,
+        "loop_mode": p.loop_mode,
+        "termination_policy": p.termination_policy,
+        "max_depth": p.max_depth,
+        "iteration_count": p.iteration_count,
+        "terminal_iteration_index": p.terminal_iteration_index,
+        "terminal_iteration_status": p.terminal_iteration_status,
+        "first_input_receipt_hash": p.first_input_receipt_hash,
+        "final_output_receipt_hash": p.final_output_receipt_hash,
+        "changed_iteration_count": p.changed_iteration_count,
+        "termination_satisfied": True,
+        "termination_class": "LOOP_TERMINATION_UNSATISFIED",
+    }
+    with pytest.raises(ValueError, match="TERMINATION_CLASS_MISMATCH"):
+        replace(p, termination_satisfied=True, termination_class="LOOP_TERMINATION_UNSATISFIED", loop_termination_proof_hash=sha256_hex(payload))
+    # Forge a proof with termination_satisfied=False but class != UNSATISFIED
+    payload2 = {
+        "loop_termination_contract_hash": p.loop_termination_contract_hash,
+        "recursive_proof_receipt_hash": p.recursive_proof_receipt_hash,
+        "source_artifact_type": p.source_artifact_type,
+        "source_artifact_hash": p.source_artifact_hash,
+        "loop_label": p.loop_label,
+        "loop_mode": p.loop_mode,
+        "termination_policy": p.termination_policy,
+        "max_depth": p.max_depth,
+        "iteration_count": p.iteration_count,
+        "terminal_iteration_index": p.terminal_iteration_index,
+        "terminal_iteration_status": p.terminal_iteration_status,
+        "first_input_receipt_hash": p.first_input_receipt_hash,
+        "final_output_receipt_hash": p.final_output_receipt_hash,
+        "changed_iteration_count": p.changed_iteration_count,
+        "termination_satisfied": False,
+        "termination_class": "LOOP_TERMINATED_BY_MAX_DEPTH",
+    }
+    with pytest.raises(ValueError, match="TERMINATION_CLASS_MISMATCH"):
+        replace(p, termination_satisfied=False, termination_class="LOOP_TERMINATED_BY_MAX_DEPTH", loop_termination_proof_hash=sha256_hex(payload2))
+
+
+def test_convergence_class_flag_consistency():
+    """P2: Enforce convergence_class consistency with convergence flags."""
+    c = _contract(TERMINATION_POLICY_MAX_DEPTH_ONLY, max_depth=2)
+    r = _receipt(c, [("a", "b", "ITERATION_CONTINUED"), ("b", "a", "ITERATION_MAX_DEPTH_REACHED")])
+    p = build_loop_termination_proof(c, r)
+    o = build_ouroboric_convergence_receipt(c, r, p)
+    assert o.convergence_class == "OUROBORIC_CLOSED_LOOP"
+    assert o.cycle_closed is True
+    assert o.convergence_stable is True
+    # Forge a receipt claiming OUROBORIC_TERMINATED_NONCONVERGED while cycle_closed is true
+    # The validation happens in __post_init__, so we expect the exception during replace
+    from qec.analysis.canonical_hashing import sha256_hex
+    payload = {
+        "loop_termination_contract_hash": o.loop_termination_contract_hash,
+        "recursive_proof_receipt_hash": o.recursive_proof_receipt_hash,
+        "loop_termination_proof_hash": o.loop_termination_proof_hash,
+        "loop_label": o.loop_label,
+        "convergence_mode": o.convergence_mode,
+        "first_input_receipt_hash": o.first_input_receipt_hash,
+        "final_output_receipt_hash": o.final_output_receipt_hash,
+        "final_input_receipt_hash": o.final_input_receipt_hash,
+        "cycle_closed": True,
+        "fixed_point_reached": o.fixed_point_reached,
+        "convergence_stable": False,
+        "convergence_class": "OUROBORIC_TERMINATED_NONCONVERGED",
+        "iteration_count": o.iteration_count,
+    }
+    with pytest.raises(ValueError, match="CONVERGENCE_CLASS_MISMATCH"):
+        replace(o, convergence_stable=False, convergence_class="OUROBORIC_TERMINATED_NONCONVERGED", ouroboric_convergence_receipt_hash=sha256_hex(payload))
+
+
+def test_fixed_point_hash_stable_hash_field_validation():
+    """FIXED_POINT_HASH should validate stable_hash_field matches output_receipt_hash_field."""
+    # When stable_hash_field matches output_receipt_hash_field, termination should be satisfied
+    c = _contract(TERMINATION_POLICY_FIXED_POINT_HASH, max_depth=2, params={"stable_hash_field": "out_hash"})
+    r = _receipt(c, [("a", "a", "ITERATION_FIXED_POINT")])
+    p = build_loop_termination_proof(c, r)
+    assert p.termination_satisfied is True
+    assert p.termination_class == "LOOP_TERMINATED_BY_FIXED_POINT"
+    # When stable_hash_field does NOT match output_receipt_hash_field, termination should be unsatisfied
+    c2 = _contract(TERMINATION_POLICY_FIXED_POINT_HASH, max_depth=2, params={"stable_hash_field": "in_hash"})
+    r2 = _receipt(c2, [("a", "a", "ITERATION_FIXED_POINT")])
+    p2 = build_loop_termination_proof(c2, r2)
+    assert p2.termination_satisfied is False
+    assert p2.termination_class == "LOOP_TERMINATION_UNSATISFIED"

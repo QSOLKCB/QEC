@@ -38,12 +38,16 @@ _ALLOWED_SUBSYSTEM_LOOP_TYPES = frozenset({"ROUTER", "READOUT", "MARKOV"})
 _ALLOWED_SUBSYSTEM_LOOP_STABILITY_CLASSES = frozenset({"SUBSYSTEM_LOOP_STABLE", "SUBSYSTEM_LOOP_TERMINATED_NONCONVERGED", "SUBSYSTEM_LOOP_INCOMPLETE", "SUBSYSTEM_LOOP_EMPTY"})
 
 
-def get_allowed_subsystem_loop_types() -> frozenset[str]: return _ALLOWED_SUBSYSTEM_LOOP_TYPES
+def get_allowed_subsystem_loop_types() -> frozenset[str]:
+    return _ALLOWED_SUBSYSTEM_LOOP_TYPES
 
-def get_allowed_subsystem_loop_stability_classes() -> frozenset[str]: return _ALLOWED_SUBSYSTEM_LOOP_STABILITY_CLASSES
+
+def get_allowed_subsystem_loop_stability_classes() -> frozenset[str]:
+    return _ALLOWED_SUBSYSTEM_LOOP_STABILITY_CLASSES
 
 def _validate_sha(v: object) -> str:
-    if not isinstance(v, str) or _SHA256_RE.fullmatch(v) is None: raise ValueError(_ERR_INVALID_HASH_FORMAT)
+    if not isinstance(v, str) or _SHA256_RE.fullmatch(v) is None:
+        raise ValueError(_ERR_INVALID_HASH_FORMAT)
     return v
 
 def _validate_i(v: object) -> int:
@@ -114,9 +118,17 @@ class ReadoutLoopReceipt:
     def to_canonical_bytes(self) -> bytes: return canonical_bytes(self.to_dict())
 
 @dataclass(frozen=True)
-class MarkovLoopStabilityReceipt(ReadoutLoopReceipt):
-    markov_loop_stability_receipt_hash: str
+class MarkovLoopStabilityReceipt:
+    loop_termination_contract_hash: str; recursive_proof_receipt_hash: str; loop_termination_proof_hash: str; ouroboric_convergence_receipt_hash: str
+    source_artifact_type: str; source_artifact_hash: str; subsystem_loop_type: str; subsystem_loop_label: str; loop_label: str; loop_mode: str; max_depth: int
+    iteration_record_hashes: tuple[str, ...]; subsystem_iteration_count: int; changed_iteration_count: int; terminal_iteration_index: int | None; final_output_receipt_hash: str | None
+    termination_class: str; convergence_class: str; subsystem_loop_stable: bool; subsystem_loop_stability_class: str; markov_loop_stability_receipt_hash: str
     def __post_init__(self) -> None: validate_markov_loop_stability_receipt(self)
+    def to_dict(self) -> dict[str, Any]:
+        p = _subsystem_loop_receipt_payload(**{k:getattr(self,k) for k in self.__dataclass_fields__ if k!="markov_loop_stability_receipt_hash"})
+        return {**p, "markov_loop_stability_receipt_hash": self.markov_loop_stability_receipt_hash}
+    def to_canonical_json(self) -> str: return canonical_json(self.to_dict())
+    def to_canonical_bytes(self) -> bytes: return canonical_bytes(self.to_dict())
 
 
 def _build_common(contract: LoopTerminationContract, recursive: RecursiveProofReceipt, proof: LoopTerminationProof, conv: OuroboricConvergenceReceipt, subtype: str, sublabel: str):
@@ -186,7 +198,8 @@ def _validate_common(r: Any, t: str, l: str, hf: str) -> bool:
     if c>0 and (r.final_output_receipt_hash is None or r.terminal_iteration_index is None): raise ValueError(_ERR_SUBSYSTEM_LOOP_COUNT_MISMATCH)
     if r.final_output_receipt_hash is not None: _validate_sha(r.final_output_receipt_hash)
     if r.subsystem_loop_stability_class not in _ALLOWED_SUBSYSTEM_LOOP_STABILITY_CLASSES: raise ValueError(_ERR_INVALID_SUBSYSTEM_LOOP_STABILITY_CLASS)
-    exp_s, exp_c = _derive_stability(c, r.subsystem_loop_stable, r.convergence_class)
+    convergence_stable = r.convergence_class != "OUROBORIC_INCOMPLETE"
+    exp_s, exp_c = _derive_stability(c, convergence_stable, r.convergence_class)
     if exp_s != r.subsystem_loop_stable or exp_c != r.subsystem_loop_stability_class: raise ValueError(_ERR_SUBSYSTEM_LOOP_STABILITY_CLASS_MISMATCH)
     d = r.to_dict(); got = d.pop(hf); expected = sha256_hex(d)
     if expected != got: raise ValueError(_ERR_HASH_MISMATCH)

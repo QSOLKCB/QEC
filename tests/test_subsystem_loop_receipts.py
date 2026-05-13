@@ -1,10 +1,18 @@
+from pathlib import Path
 from dataclasses import FrozenInstanceError, replace
 import pytest
 
 from qec.analysis.loop_termination_contract import build_loop_termination_contract, TERMINATION_POLICY_MAX_DEPTH_ONLY
 from qec.analysis.recursive_proof_receipt import build_loop_iteration_record, build_recursive_proof_receipt
 from qec.analysis.loop_termination_proof import build_loop_termination_proof, build_ouroboric_convergence_receipt
-from qec.analysis.subsystem_loop_receipts import *
+from qec.analysis.subsystem_loop_receipts import (
+    build_markov_loop_stability_receipt,
+    build_router_loop_receipt,
+    validate_markov_loop_stability_receipt,
+    validate_markov_loop_stability_receipt_with_artifacts,
+    validate_router_loop_receipt,
+    validate_router_loop_receipt_with_artifacts,
+)
 
 H1='1'*64;H2='2'*64;H3='3'*64
 
@@ -36,6 +44,19 @@ def test_empty_and_mismatch_and_complete_validators():
         build_markov_loop_stability_receipt(rc,rrc,pc,oc)
     assert validate_router_loop_receipt_with_artifacts(r,c,rr,p,o)
 
+
+
+def test_markov_happy_path_build_and_validate():
+    c, rr, p, o = _art(
+        loop_label='MARKOV_FLOW',
+        source='MarkovArtifact',
+        in_field='markov_input_hash',
+        out_field='markov_output_hash',
+    )
+    receipt = build_markov_loop_stability_receipt(c, rr, p, o)
+    assert validate_markov_loop_stability_receipt(receipt)
+    assert validate_markov_loop_stability_receipt_with_artifacts(receipt, c, rr, p, o)
+
 def test_invalid_cases():
     c,rr,p,o=_art()
     r=build_router_loop_receipt(c,rr,p,o)
@@ -47,6 +68,6 @@ def test_invalid_cases():
 
 
 def test_scope_scan():
-    txt=open('src/qec/analysis/subsystem_loop_receipts.py',encoding='utf-8').read()
+    txt = (Path(__file__).resolve().parents[1] / 'src/qec/analysis/subsystem_loop_receipts.py').read_text(encoding='utf-8')
     for bad in ['RealityLoopProofReceipt','GlobalTruthReceipt','CrossArcIdentityLink','RealityLoopCompositionSpec','global_validation','global_truth','while True','recursive_execution','gameplay','render','step_world','execute_action','run_game','importlib','__import__(','subprocess','exec(','eval(','random','time.time','datetime.now','probability','probabilistic','neural','learned_policy']:
         assert bad not in txt

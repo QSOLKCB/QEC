@@ -1,5 +1,4 @@
 from dataclasses import FrozenInstanceError, replace
-import json
 import pytest
 
 from qec.analysis.canonical_hashing import canonical_json
@@ -117,6 +116,7 @@ def test_complete_validators_and_canonical_boundaries_and_scope_scan():
         build_substrate_state_receipt(c, '{"a":NaN}')
     with pytest.raises(ValueError, match=_ERR_CANONICAL_JSON_TOO_LARGE):
         build_substrate_state_receipt(c, '"' + ('a' * 1_000_001) + '"')
-    text = open("src/qec/analysis/substrate_state_receipt.py", encoding="utf-8").read().lower()
+    with open("src/qec/analysis/substrate_state_receipt.py", encoding="utf-8") as f:
+        text = f.read().lower()
     for forbidden in ["materialencodingreceipt", "substratedriftreceipt", "importlib", "subprocess", "exec(", "eval(", "gpu", "hardware", "global_truth"]:
         assert forbidden not in text

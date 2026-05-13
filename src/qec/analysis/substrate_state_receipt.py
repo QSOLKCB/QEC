@@ -203,7 +203,11 @@ def _derive_status(predicate: SubstrateConstraintPredicate, source: object, sour
             return t, vhash, False, "TYPE_MISMATCH"
         return t, vhash, *_substate("HASH_FORMAT_MISMATCH", _SHA256_RE.fullmatch(observed) is not None)
     if k == "CANONICAL_BYTES_MAX":
-        measured = len(source_canonical_json.encode("utf-8")) if len(predicate.field_path) == 0 else len(canonical_json(observed).encode("utf-8"))
+        if len(predicate.field_path) == 0:
+            measured = len(source_canonical_json.encode("utf-8"))
+        else:
+            observed_canonical = canonical_json(observed)
+            measured = len(observed_canonical.encode("utf-8"))
         return t, vhash, *_substate("CANONICAL_BYTES_TOO_LARGE", measured <= params["max_bytes"])
     raise ValueError(_ERR_INVALID_INPUT)
 
@@ -211,7 +215,7 @@ def _derive_status(predicate: SubstrateConstraintPredicate, source: object, sour
 def build_predicate_evaluation_result(substrate_contract: SubstrateContract, predicate: SubstrateConstraintPredicate, source_canonical_json: str) -> PredicateEvaluationResult:
     validate_substrate_contract(substrate_contract)
     validate_substrate_constraint_predicate(predicate)
-    if tuple(1 for p in substrate_contract.predicates if p.substrate_constraint_predicate_hash == predicate.substrate_constraint_predicate_hash) != (1,):
+    if sum(1 for p in substrate_contract.predicates if p.substrate_constraint_predicate_hash == predicate.substrate_constraint_predicate_hash) != 1:
         raise ValueError(_ERR_SUBSTRATE_CONTRACT_MISMATCH)
     source = _validate_source_canonical_json(source_canonical_json)
     ch = _canonical_json_text_hash(source_canonical_json)
@@ -244,12 +248,11 @@ def validate_predicate_evaluation_result(result: PredicateEvaluationResult) -> b
         payload = _predicate_evaluation_result_payload(source_artifact_type=result.source_artifact_type, source_artifact_hash=result.source_artifact_hash, source_canonical_json_hash=result.source_canonical_json_hash, substrate_contract_hash=result.substrate_contract_hash, substrate_constraint_predicate_hash=result.substrate_constraint_predicate_hash, predicate_id=result.predicate_id, predicate_kind=result.predicate_kind, field_path=result.field_path, observed_json_type=result.observed_json_type, observed_value_hash=result.observed_value_hash, passed=result.passed, evaluation_status=result.evaluation_status)
         if sha256_hex(payload) != result.predicate_evaluation_result_hash:
             raise ValueError(_ERR_HASH_MISMATCH)
+        if result.predicate_kind not in get_allowed_substrate_predicate_kinds():
+            raise ValueError(_ERR_INVALID_INPUT)
         return True
     except (TypeError, AttributeError) as e:
         raise ValueError(_ERR_INVALID_INPUT) from e
-
-
-# Receipt omitted for brevity? no implement fully
 
 @dataclass(frozen=True)
 class SubstrateStateReceipt:
@@ -321,12 +324,24 @@ def validate_substrate_state_receipt(receipt: SubstrateStateReceipt) -> bool:
         raise ValueError(_ERR_PREDICATE_COUNT_MISMATCH)
     for r in receipt.predicate_evaluation_results:
         validate_predicate_evaluation_result(r)
+        if r.source_artifact_type != receipt.source_artifact_type:
+            raise ValueError(_ERR_PREDICATE_RESULT_MISMATCH)
+        if r.source_artifact_hash != receipt.source_artifact_hash:
+            raise ValueError(_ERR_PREDICATE_RESULT_MISMATCH)
+        if r.source_canonical_json_hash != receipt.source_canonical_json_hash:
+            raise ValueError(_ERR_PREDICATE_RESULT_MISMATCH)
+        if r.substrate_contract_hash != receipt.substrate_contract_hash:
+            raise ValueError(_ERR_PREDICATE_RESULT_MISMATCH)
     if tuple(sorted(receipt.predicate_evaluation_results, key=lambda r: (r.predicate_id, r.predicate_kind, r.field_path, r.predicate_evaluation_result_hash))) != receipt.predicate_evaluation_results:
         raise ValueError(_ERR_PREDICATE_EVALUATION_ORDER_MISMATCH)
     ids = [r.predicate_id for r in receipt.predicate_evaluation_results]; hs = [r.substrate_constraint_predicate_hash for r in receipt.predicate_evaluation_results]
     if len(ids) != len(set(ids)) or len(hs) != len(set(hs)):
         raise ValueError(_ERR_DUPLICATE_PREDICATE_EVALUATION)
-    all_passed = receipt.failed_count == 0
+    recomputed_passed = sum(1 for r in receipt.predicate_evaluation_results if r.passed)
+    recomputed_failed = len(receipt.predicate_evaluation_results) - recomputed_passed
+    if receipt.passed_count != recomputed_passed or receipt.failed_count != recomputed_failed:
+        raise ValueError(_ERR_PREDICATE_COUNT_MISMATCH)
+    all_passed = recomputed_failed == 0
     expected_state = "SUBSTRATE_STATE_COMPATIBLE" if all_passed else "SUBSTRATE_STATE_INCOMPATIBLE"
     if receipt.all_predicates_passed != all_passed or receipt.substrate_state_class != expected_state:
         raise ValueError(_ERR_SUBSTRATE_STATE_CLASS_MISMATCH)

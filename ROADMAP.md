@@ -1679,32 +1679,6 @@ It is not semantic or philosophical truth.
 
 ---
 
-# 🧠 Immediate Next Work
-
-```text
-v156.1 — World Adapter / Action Alphabet Contract
-```
-
-The next implementation prompt should enforce:
-
-```text
-Read CLAUDE.md first
-analysis-layer only
-src/qec/decoder/ untouched
-consume v156.0 artifacts only
-no zipfile usage
-no archive inspection beyond v156.0 manifests
-no game execution
-no observation snapshots yet
-no episode traces yet
-static action alphabet only
-adapter mode STATIC_ACTION_ALPHABET_ONLY
-validators recompute all hashes
-pytest -q required
-```
-
----
-
 # Final Line
 
 QEC is now testing the boundary between:

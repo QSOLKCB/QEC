@@ -27,6 +27,7 @@ _ERR_CHANGED_FLAG_MISMATCH = "CHANGED_FLAG_MISMATCH"
 _ERR_TERMINAL_ITERATION_MISMATCH = "TERMINAL_ITERATION_MISMATCH"
 _ERR_FINAL_OUTPUT_HASH_MISMATCH = "FINAL_OUTPUT_HASH_MISMATCH"
 _ERR_RECURSIVE_PROOF_RECEIPT_MISMATCH = "RECURSIVE_PROOF_RECEIPT_MISMATCH"
+_ERR_HASH_CHAIN_CONTINUITY_BROKEN = "HASH_CHAIN_CONTINUITY_BROKEN"
 
 _MAX_ITERATION_RECORDS = 10_000
 _MAX_ITERATION_INDEX = 9_999
@@ -158,6 +159,8 @@ class LoopIterationRecord:
 def build_loop_iteration_record(loop_termination_contract: LoopTerminationContract, iteration_index: int, input_receipt_hash: str, output_receipt_hash: str, iteration_status: str) -> LoopIterationRecord:
     validate_loop_termination_contract(loop_termination_contract)
     idx = _validate_iteration_index(iteration_index)
+    if idx >= loop_termination_contract.max_depth:
+        raise ValueError(_ERR_ITERATION_INDEX_OUT_OF_BOUNDS)
     _validate_sha(input_receipt_hash)
     _validate_sha(output_receipt_hash)
     status = _validate_iteration_status(iteration_status)
@@ -186,6 +189,8 @@ def validate_loop_iteration_record(record: LoopIterationRecord) -> bool:
     _validate_sha(record.input_receipt_hash)
     _validate_receipt_hash_field(record.output_receipt_hash_field)
     _validate_sha(record.output_receipt_hash)
+    if record.input_receipt_hash_field == record.output_receipt_hash_field:
+        raise ValueError(_ERR_RECEIPT_HASH_FIELD_MISMATCH)
     _validate_iteration_status(record.iteration_status)
     if not isinstance(record.changed, bool):
         raise ValueError(_ERR_CHANGED_FLAG_MISMATCH)
@@ -299,6 +304,8 @@ def build_recursive_proof_receipt(loop_termination_contract: LoopTerminationCont
         validate_loop_iteration_record(rec)
         if rec.loop_termination_contract_hash != loop_termination_contract.loop_termination_contract_hash:
             raise ValueError(_ERR_LOOP_CONTRACT_MISMATCH)
+        if rec.iteration_index >= loop_termination_contract.max_depth:
+            raise ValueError(_ERR_ITERATION_INDEX_OUT_OF_BOUNDS)
         if rec.iteration_index in seen:
             raise ValueError(_ERR_DUPLICATE_ITERATION)
         seen.add(rec.iteration_index)
@@ -307,6 +314,10 @@ def build_recursive_proof_receipt(loop_termination_contract: LoopTerminationCont
     for i, rec in enumerate(ordered):
         if rec.iteration_index != i:
             raise ValueError(_ERR_ITERATION_ORDER_MISMATCH)
+    # P1: Enforce hash-chain continuity
+    for i in range(1, len(ordered)):
+        if ordered[i].input_receipt_hash != ordered[i - 1].output_receipt_hash:
+            raise ValueError(_ERR_HASH_CHAIN_CONTINUITY_BROKEN)
     _validate_terminal_rules(ordered)
     count = len(ordered)
     if count > loop_termination_contract.max_depth:
@@ -366,6 +377,9 @@ def validate_recursive_proof_receipt(receipt: RecursiveProofReceipt) -> bool:
         raise ValueError(_ERR_ITERATION_COUNT_MISMATCH)
     for rec in receipt.iteration_records:
         validate_loop_iteration_record(rec)
+        # P2: Verify per-record contract hash matches receipt header
+        if rec.loop_termination_contract_hash != receipt.loop_termination_contract_hash:
+            raise ValueError(_ERR_LOOP_CONTRACT_MISMATCH)
     indices = [r.iteration_index for r in receipt.iteration_records]
     if len(set(indices)) != len(indices):
         raise ValueError(_ERR_DUPLICATE_ITERATION)
@@ -374,6 +388,10 @@ def validate_recursive_proof_receipt(receipt: RecursiveProofReceipt) -> bool:
     for i, idx in enumerate(indices):
         if idx != i:
             raise ValueError(_ERR_ITERATION_ORDER_MISMATCH)
+    # P1: Enforce hash-chain continuity
+    for i in range(1, len(receipt.iteration_records)):
+        if receipt.iteration_records[i].input_receipt_hash != receipt.iteration_records[i - 1].output_receipt_hash:
+            raise ValueError(_ERR_HASH_CHAIN_CONTINUITY_BROKEN)
     _validate_terminal_rules(receipt.iteration_records)
     count = _validate_count(receipt.iteration_count)
     if count != len(receipt.iteration_records):
@@ -410,6 +428,8 @@ def validate_recursive_proof_receipt(receipt: RecursiveProofReceipt) -> bool:
 def validate_loop_iteration_record_with_contract(record: LoopIterationRecord, loop_termination_contract: LoopTerminationContract) -> bool:
     validate_loop_termination_contract(loop_termination_contract)
     validate_loop_iteration_record(record)
+    if record.iteration_index >= loop_termination_contract.max_depth:
+        raise ValueError(_ERR_ITERATION_INDEX_OUT_OF_BOUNDS)
     expected = build_loop_iteration_record(
         loop_termination_contract,
         record.iteration_index,

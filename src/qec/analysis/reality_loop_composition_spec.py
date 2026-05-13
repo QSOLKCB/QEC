@@ -171,14 +171,12 @@ def validate_composition_slot(slot: CompositionSlot) -> bool:
 def _reality_loop_composition_spec_payload(
     composition_mode: str,
     composition_slots: tuple[CompositionSlot, ...],
-    slot_count: int,
-    required_slot_count: int,
 ) -> dict[str, Any]:
     return {
         "composition_mode": composition_mode,
         "composition_slots": [slot.to_dict() for slot in composition_slots],
-        "slot_count": slot_count,
-        "required_slot_count": required_slot_count,
+        "slot_count": len(composition_slots),
+        "required_slot_count": _REQUIRED_SLOT_COUNT,
     }
 
 
@@ -197,8 +195,6 @@ class RealityLoopCompositionSpec:
         payload = _reality_loop_composition_spec_payload(
             composition_mode=self.composition_mode,
             composition_slots=self.composition_slots,
-            slot_count=self.slot_count,
-            required_slot_count=self.required_slot_count,
         )
         payload["composition_spec_hash"] = self.composition_spec_hash
         return payload
@@ -217,8 +213,6 @@ def build_reality_loop_composition_spec(receipt_hashes_by_field: dict[str, str])
     required_fields = tuple(field for _, _, field in _REALITY_LOOP_SLOT_DEFINITIONS)
     supplied_fields = set()
     for key, value in receipt_hashes_by_field.items():
-        if not isinstance(key, str):
-            raise ValueError(_ERR_INVALID_RECEIPT_FIELD_NAME)
         _validate_receipt_field_name(key)
         _validate_sha(value)
         supplied_fields.add(key)
@@ -238,8 +232,6 @@ def build_reality_loop_composition_spec(receipt_hashes_by_field: dict[str, str])
     payload = _reality_loop_composition_spec_payload(
         composition_mode=COMPOSITION_MODE_FIXED_19_SLOT_REALITY_LOOP_COMPOSITION,
         composition_slots=slots,
-        slot_count=_REQUIRED_SLOT_COUNT,
-        required_slot_count=_REQUIRED_SLOT_COUNT,
     )
     return RealityLoopCompositionSpec(
         composition_mode=COMPOSITION_MODE_FIXED_19_SLOT_REALITY_LOOP_COMPOSITION,
@@ -302,8 +294,6 @@ def validate_reality_loop_composition_spec(spec: RealityLoopCompositionSpec) -> 
             _reality_loop_composition_spec_payload(
                 composition_mode=spec.composition_mode,
                 composition_slots=spec.composition_slots,
-                slot_count=spec.slot_count,
-                required_slot_count=spec.required_slot_count,
             )
     )
     if stored_hash != expected_hash:

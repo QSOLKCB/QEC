@@ -189,7 +189,9 @@ def test_boundary_and_scope_scan():
 
     # Use inspect to get source file path instead of hard-coded path
     source_file = inspect.getsourcefile(rlpr_module)
-    text = open(source_file, "r", encoding="utf-8").read()
+    assert source_file is not None, "Could not find source file for module"
+    with open(source_file, "r", encoding="utf-8") as f:
+        text = f.read()
     forbidden = [
         "GlobalTruthReceipt", "GlobalValidationIndex", "GlobalThresholdContract", "GlobalReplayProof",
         "global_truth", "global_validation", "runtime_replay_execution", "recursive_execution",

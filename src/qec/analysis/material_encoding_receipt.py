@@ -108,13 +108,44 @@ def _drift_class(obs_hash: str | None, missing: tuple[str,...], unexpected: tupl
     return "SUBSTRATE_DRIFT_CLEAN"
 
 def build_encoding_entry(substrate_state_receipt: SubstrateStateReceipt, predicate_evaluation_result: PredicateEvaluationResult, encoding_index: int) -> EncodingEntry:
-    validate_substrate_state_receipt(substrate_state_receipt); validate_predicate_evaluation_result(predicate_evaluation_result)
-    if not isinstance(encoding_index, int) or isinstance(encoding_index, bool) or not (0 <= encoding_index <= _MAX_ENCODING_INDEX): raise ValueError(_ERR_ENCODING_INDEX_OUT_OF_BOUNDS)
-    matches = [r for r in substrate_state_receipt.predicate_evaluation_results if r.predicate_evaluation_result_hash == predicate_evaluation_result.predicate_evaluation_result_hash]
-    if len(matches) != 1: raise ValueError(_ERR_INVALID_INPUT)
+    validate_substrate_state_receipt(substrate_state_receipt)
+    validate_predicate_evaluation_result(predicate_evaluation_result)
+    
+    if (
+        not isinstance(encoding_index, int)
+        or isinstance(encoding_index, bool)
+        or not (0 <= encoding_index <= _MAX_ENCODING_INDEX)
+    ):
+        raise ValueError(_ERR_ENCODING_INDEX_OUT_OF_BOUNDS)
+    
+    matches = [
+        r for r in substrate_state_receipt.predicate_evaluation_results
+        if r.predicate_evaluation_result_hash == predicate_evaluation_result.predicate_evaluation_result_hash
+    ]
+    if len(matches) != 1:
+        raise ValueError(_ERR_INVALID_INPUT)
+    
     label = f"ENCODING_{encoding_index:06d}_{predicate_evaluation_result.predicate_id}"
-    status = _status_from_passed(predicate_evaluation_result.passed); evh = _encoded_value_hash_from_result(predicate_evaluation_result)
-    p = _encoding_entry_payload(substrate_state_receipt_hash=substrate_state_receipt.substrate_state_receipt_hash, substrate_contract_hash=substrate_state_receipt.substrate_contract_hash, substrate_profile_id=substrate_state_receipt.substrate_profile_id, predicate_evaluation_result_hash=predicate_evaluation_result.predicate_evaluation_result_hash, predicate_id=predicate_evaluation_result.predicate_id, predicate_kind=predicate_evaluation_result.predicate_kind, encoding_index=encoding_index, encoding_label=label, encoded_status=status, encoded_value_hash=evh)
+    
+    # Validate constructed label length
+    if len(label) > _MAX_ENCODING_LABEL_LENGTH:
+        raise ValueError(_ERR_INVALID_ENCODING_LABEL)
+    
+    status = _status_from_passed(predicate_evaluation_result.passed)
+    evh = _encoded_value_hash_from_result(predicate_evaluation_result)
+    
+    p = _encoding_entry_payload(
+        substrate_state_receipt_hash=substrate_state_receipt.substrate_state_receipt_hash,
+        substrate_contract_hash=substrate_state_receipt.substrate_contract_hash,
+        substrate_profile_id=substrate_state_receipt.substrate_profile_id,
+        predicate_evaluation_result_hash=predicate_evaluation_result.predicate_evaluation_result_hash,
+        predicate_id=predicate_evaluation_result.predicate_id,
+        predicate_kind=predicate_evaluation_result.predicate_kind,
+        encoding_index=encoding_index,
+        encoding_label=label,
+        encoded_status=status,
+        encoded_value_hash=evh
+    )
     return EncodingEntry(**p, encoding_entry_hash=sha256_hex(p))
 
 def validate_encoding_entry(entry: EncodingEntry) -> bool:
@@ -180,11 +211,36 @@ def validate_encoding_entry(entry: EncodingEntry) -> bool:
 
 def build_material_encoding_receipt(substrate_state_receipt: SubstrateStateReceipt) -> MaterialEncodingReceipt:
     validate_substrate_state_receipt(substrate_state_receipt)
-    entries = tuple(build_encoding_entry(substrate_state_receipt, r, i) for i, r in enumerate(substrate_state_receipt.predicate_evaluation_results))
-    if len(entries) == 0 or len(entries) > _MAX_ENCODING_ENTRIES: raise ValueError(_ERR_ENCODING_COUNT_MISMATCH)
-    passed = sum(1 for e in entries if e.encoded_status == "ENCODED_PASS"); failed = len(entries)-passed; mclass = _class_from_failed(failed)
-    p = _material_encoding_receipt_payload(substrate_state_receipt_hash=substrate_state_receipt.substrate_state_receipt_hash, substrate_contract_hash=substrate_state_receipt.substrate_contract_hash, substrate_profile_id=substrate_state_receipt.substrate_profile_id, encoding_mode=_ENCODING_MODE, encoding_entries=entries, encoding_entry_count=len(entries), passed_encoding_count=passed, failed_encoding_count=failed, material_encoding_class=mclass)
-    return MaterialEncodingReceipt(**{k:v for k,v in p.items() if k!="encoding_entries"}, encoding_entries=entries, material_encoding_receipt_hash=sha256_hex(p))
+    
+    entries = tuple(
+        build_encoding_entry(substrate_state_receipt, r, i)
+        for i, r in enumerate(substrate_state_receipt.predicate_evaluation_results)
+    )
+    
+    if len(entries) == 0 or len(entries) > _MAX_ENCODING_ENTRIES:
+        raise ValueError(_ERR_ENCODING_COUNT_MISMATCH)
+    
+    passed = sum(1 for e in entries if e.encoded_status == "ENCODED_PASS")
+    failed = len(entries) - passed
+    mclass = _class_from_failed(failed)
+    
+    p = _material_encoding_receipt_payload(
+        substrate_state_receipt_hash=substrate_state_receipt.substrate_state_receipt_hash,
+        substrate_contract_hash=substrate_state_receipt.substrate_contract_hash,
+        substrate_profile_id=substrate_state_receipt.substrate_profile_id,
+        encoding_mode=_ENCODING_MODE,
+        encoding_entries=entries,
+        encoding_entry_count=len(entries),
+        passed_encoding_count=passed,
+        failed_encoding_count=failed,
+        material_encoding_class=mclass
+    )
+    
+    return MaterialEncodingReceipt(
+        **{k: v for k, v in p.items() if k != "encoding_entries"},
+        encoding_entries=entries,
+        material_encoding_receipt_hash=sha256_hex(p)
+    )
 
 def validate_material_encoding_receipt(receipt: MaterialEncodingReceipt) -> bool:
     try:
@@ -295,27 +351,74 @@ def validate_material_encoding_receipt(receipt: MaterialEncodingReceipt) -> bool
     except (TypeError, AttributeError) as e:
         raise ValueError(_ERR_INVALID_INPUT) from e
 
-def build_substrate_drift_receipt(expected_material_encoding_receipt: MaterialEncodingReceipt, observed_material_encoding_receipt: MaterialEncodingReceipt | None = None) -> SubstrateDriftReceipt:
+def build_substrate_drift_receipt(
+    expected_material_encoding_receipt: MaterialEncodingReceipt,
+    observed_material_encoding_receipt: MaterialEncodingReceipt | None = None
+) -> SubstrateDriftReceipt:
     validate_material_encoding_receipt(expected_material_encoding_receipt)
+    
     if observed_material_encoding_receipt is not None:
         validate_material_encoding_receipt(observed_material_encoding_receipt)
-        if observed_material_encoding_receipt.substrate_contract_hash != expected_material_encoding_receipt.substrate_contract_hash or observed_material_encoding_receipt.substrate_profile_id != expected_material_encoding_receipt.substrate_profile_id:
+        if (
+            observed_material_encoding_receipt.substrate_contract_hash
+            != expected_material_encoding_receipt.substrate_contract_hash
+            or observed_material_encoding_receipt.substrate_profile_id
+            != expected_material_encoding_receipt.substrate_profile_id
+        ):
             raise ValueError(_ERR_MATERIAL_ENCODING_RECEIPT_MISMATCH)
-    exp = expected_material_encoding_receipt.encoding_entries; obs = tuple() if observed_material_encoding_receipt is None else observed_material_encoding_receipt.encoding_entries
-    em, om = {e.predicate_id:e for e in exp}, {e.predicate_id:e for e in obs}
-    if len(em)!=len(exp) or len(om)!=len(obs): raise ValueError(_ERR_DUPLICATE_ENCODING_ENTRY)
-    expected_hashes = tuple(e.encoding_entry_hash for e in exp); observed_hashes = tuple(e.encoding_entry_hash for e in obs)
-    drifted=[]; missing=[]; unexpected=[]
+    
+    exp = expected_material_encoding_receipt.encoding_entries
+    obs = tuple() if observed_material_encoding_receipt is None else observed_material_encoding_receipt.encoding_entries
+    
+    em = {e.predicate_id: e for e in exp}
+    om = {e.predicate_id: e for e in obs}
+    
+    if len(em) != len(exp) or len(om) != len(obs):
+        raise ValueError(_ERR_DUPLICATE_ENCODING_ENTRY)
+    
+    expected_hashes = tuple(e.encoding_entry_hash for e in exp)
+    observed_hashes = tuple(e.encoding_entry_hash for e in obs)
+    
+    drifted = []
+    missing = []
+    unexpected = []
+    
     for e in exp:
-        if e.predicate_id not in om: missing.append(e.encoding_entry_hash)
-        elif om[e.predicate_id].encoding_entry_hash != e.encoding_entry_hash: drifted.append(e.encoding_entry_hash)
+        if e.predicate_id not in om:
+            missing.append(e.encoding_entry_hash)
+        elif om[e.predicate_id].encoding_entry_hash != e.encoding_entry_hash:
+            drifted.append(e.encoding_entry_hash)
+    
     for o in obs:
-        if o.predicate_id not in em: unexpected.append(o.encoding_entry_hash)
-    drifted_t, missing_t, unexpected_t = tuple(drifted), tuple(missing), tuple(unexpected)
-    drift_count = len(drifted_t)+len(missing_t)+len(unexpected_t)
-    obs_hash = None if observed_material_encoding_receipt is None else observed_material_encoding_receipt.material_encoding_receipt_hash
+        if o.predicate_id not in em:
+            unexpected.append(o.encoding_entry_hash)
+    
+    drifted_t = tuple(drifted)
+    missing_t = tuple(missing)
+    unexpected_t = tuple(unexpected)
+    drift_count = len(drifted_t) + len(missing_t) + len(unexpected_t)
+    
+    obs_hash = (
+        None if observed_material_encoding_receipt is None
+        else observed_material_encoding_receipt.material_encoding_receipt_hash
+    )
     dclass = _drift_class(obs_hash, missing_t, unexpected_t, drift_count)
-    p = _substrate_drift_receipt_payload(expected_material_encoding_receipt_hash=expected_material_encoding_receipt.material_encoding_receipt_hash, observed_material_encoding_receipt_hash=obs_hash, substrate_contract_hash=expected_material_encoding_receipt.substrate_contract_hash, substrate_profile_id=expected_material_encoding_receipt.substrate_profile_id, expected_encoding_entry_hashes=expected_hashes, observed_encoding_entry_hashes=observed_hashes, drifted_encoding_entry_hashes=drifted_t, missing_encoding_entry_hashes=missing_t, unexpected_encoding_entry_hashes=unexpected_t, encoding_entry_count=len(exp), drift_count=drift_count, substrate_drift_class=dclass)
+    
+    p = _substrate_drift_receipt_payload(
+        expected_material_encoding_receipt_hash=expected_material_encoding_receipt.material_encoding_receipt_hash,
+        observed_material_encoding_receipt_hash=obs_hash,
+        substrate_contract_hash=expected_material_encoding_receipt.substrate_contract_hash,
+        substrate_profile_id=expected_material_encoding_receipt.substrate_profile_id,
+        expected_encoding_entry_hashes=expected_hashes,
+        observed_encoding_entry_hashes=observed_hashes,
+        drifted_encoding_entry_hashes=drifted_t,
+        missing_encoding_entry_hashes=missing_t,
+        unexpected_encoding_entry_hashes=unexpected_t,
+        encoding_entry_count=len(exp),
+        drift_count=drift_count,
+        substrate_drift_class=dclass
+    )
+    
     return SubstrateDriftReceipt(**p, substrate_drift_receipt_hash=sha256_hex(p))
 
 def validate_substrate_drift_receipt(receipt: SubstrateDriftReceipt) -> bool:
@@ -431,21 +534,59 @@ def validate_substrate_drift_receipt(receipt: SubstrateDriftReceipt) -> bool:
     except (TypeError, AttributeError) as e:
         raise ValueError(_ERR_INVALID_INPUT) from e
 
-def validate_encoding_entry_with_state(entry: EncodingEntry, substrate_state_receipt: SubstrateStateReceipt, predicate_evaluation_result: PredicateEvaluationResult) -> bool:
-    validate_encoding_entry(entry); validate_substrate_state_receipt(substrate_state_receipt); validate_predicate_evaluation_result(predicate_evaluation_result)
-    rebuilt = build_encoding_entry(substrate_state_receipt, predicate_evaluation_result, entry.encoding_index)
-    if rebuilt.to_dict() != entry.to_dict(): raise ValueError(_ERR_ENCODING_ENTRY_MISMATCH)
+def validate_encoding_entry_with_state(
+    entry: EncodingEntry,
+    substrate_state_receipt: SubstrateStateReceipt,
+    predicate_evaluation_result: PredicateEvaluationResult
+) -> bool:
+    validate_encoding_entry(entry)
+    validate_substrate_state_receipt(substrate_state_receipt)
+    validate_predicate_evaluation_result(predicate_evaluation_result)
+    
+    rebuilt = build_encoding_entry(
+        substrate_state_receipt,
+        predicate_evaluation_result,
+        entry.encoding_index
+    )
+    
+    if rebuilt.to_dict() != entry.to_dict():
+        raise ValueError(_ERR_ENCODING_ENTRY_MISMATCH)
+    
     return True
 
-def validate_material_encoding_receipt_with_state(receipt: MaterialEncodingReceipt, substrate_state_receipt: SubstrateStateReceipt) -> bool:
-    validate_material_encoding_receipt(receipt); validate_substrate_state_receipt(substrate_state_receipt)
+
+def validate_material_encoding_receipt_with_state(
+    receipt: MaterialEncodingReceipt,
+    substrate_state_receipt: SubstrateStateReceipt
+) -> bool:
+    validate_material_encoding_receipt(receipt)
+    validate_substrate_state_receipt(substrate_state_receipt)
+    
     rebuilt = build_material_encoding_receipt(substrate_state_receipt)
-    if rebuilt.to_dict() != receipt.to_dict(): raise ValueError(_ERR_MATERIAL_ENCODING_RECEIPT_MISMATCH)
+    
+    if rebuilt.to_dict() != receipt.to_dict():
+        raise ValueError(_ERR_MATERIAL_ENCODING_RECEIPT_MISMATCH)
+    
     return True
 
-def validate_substrate_drift_receipt_with_materials(receipt: SubstrateDriftReceipt, expected_material_encoding_receipt: MaterialEncodingReceipt, observed_material_encoding_receipt: MaterialEncodingReceipt | None = None) -> bool:
-    validate_substrate_drift_receipt(receipt); validate_material_encoding_receipt(expected_material_encoding_receipt)
-    if observed_material_encoding_receipt is not None: validate_material_encoding_receipt(observed_material_encoding_receipt)
-    rebuilt = build_substrate_drift_receipt(expected_material_encoding_receipt, observed_material_encoding_receipt)
-    if rebuilt.to_dict() != receipt.to_dict(): raise ValueError(_ERR_SUBSTRATE_DRIFT_RECEIPT_MISMATCH)
+
+def validate_substrate_drift_receipt_with_materials(
+    receipt: SubstrateDriftReceipt,
+    expected_material_encoding_receipt: MaterialEncodingReceipt,
+    observed_material_encoding_receipt: MaterialEncodingReceipt | None = None
+) -> bool:
+    validate_substrate_drift_receipt(receipt)
+    validate_material_encoding_receipt(expected_material_encoding_receipt)
+    
+    if observed_material_encoding_receipt is not None:
+        validate_material_encoding_receipt(observed_material_encoding_receipt)
+    
+    rebuilt = build_substrate_drift_receipt(
+        expected_material_encoding_receipt,
+        observed_material_encoding_receipt
+    )
+    
+    if rebuilt.to_dict() != receipt.to_dict():
+        raise ValueError(_ERR_SUBSTRATE_DRIFT_RECEIPT_MISMATCH)
+    
     return True

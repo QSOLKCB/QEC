@@ -2,7 +2,7 @@
 
 Coverage:
 - install.sh exists and is well-formed
-- README/USAGE advertised curl path is correct
+- README/USAGE/INSTALL advertised curl path is correct
 - installer is idempotent (re-parse yields same results)
 - version tag resolves correctly from Cargo.toml
 - qec-tui binary launch semantics (help/version commands)
@@ -111,38 +111,65 @@ class TestInstallShExists:
 
 
 # ---------------------------------------------------------------------------
-# 2. README/USAGE advertised curl path is correct
+# 2. README/USAGE/INSTALL advertised curl path is correct
 # ---------------------------------------------------------------------------
 
 class TestReadmeCurlPath:
-    """Verify the README/USAGE curl install command matches install.sh location."""
+    """Verify the README/USAGE/INSTALL curl install command matches install.sh location."""
 
-    def _get_doc_texts(self, repo_root: Path) -> list[str]:
+    def _get_docs(self, repo_root: Path) -> list[tuple[Path, str]]:
+        """Return list of (path, text) for existing docs."""
         usage = repo_root / "USAGE.md"
         readme = repo_root / "README.md"
-        docs = [doc for doc in (readme, usage) if doc.exists()]
-        return [doc.read_text(encoding="utf-8") for doc in docs]
+        install_doc = repo_root / "INSTALL.md"
+        docs = [doc for doc in (readme, usage, install_doc) if doc.exists()]
+        return [(doc, doc.read_text(encoding="utf-8")) for doc in docs]
+
+    def _get_doc_texts(self, repo_root: Path) -> list[str]:
+        return [text for _, text in self._get_docs(repo_root)]
 
     def test_readme_exists(self, readme: Path) -> None:
         assert readme.exists(), "README.md must exist"
 
     def test_readme_contains_curl_command(self, readme: Path) -> None:
         texts = self._get_doc_texts(REPO_ROOT)
-        assert any("curl" in text for text in texts), "README/USAGE must contain a curl install command"
+        assert any("curl" in text for text in texts), "README/USAGE/INSTALL must contain a curl install command"
 
     def test_readme_curl_url_matches(self, readme: Path) -> None:
         texts = self._get_doc_texts(REPO_ROOT)
         assert any(CANONICAL_CURL_URL in text for text in texts), \
-            f"README/USAGE must contain the canonical install URL: {CANONICAL_CURL_URL}"
+            f"README/USAGE/INSTALL must contain the canonical install URL: {CANONICAL_CURL_URL}"
 
     def test_readme_curl_flags(self, readme: Path) -> None:
         texts = self._get_doc_texts(REPO_ROOT)
         assert any("curl -fsSL" in text for text in texts), \
-            "README/USAGE curl command must use -fsSL flags"
+            "README/USAGE/INSTALL curl command must use -fsSL flags"
 
     def test_readme_pipes_to_sh(self, readme: Path) -> None:
         texts = self._get_doc_texts(REPO_ROOT)
-        assert any("| sh" in text for text in texts), "README/USAGE curl command must pipe to sh"
+        assert any("| sh" in text for text in texts), "README/USAGE/INSTALL curl command must pipe to sh"
+
+    def test_all_curl_commands_use_canonical_url(self, readme: Path) -> None:
+        """Ensure every document with a curl install command uses the canonical URL.
+
+        This prevents a document from advertising a non-canonical installer URL
+        while the test passes because another document contains the canonical one.
+        """
+        docs = self._get_docs(REPO_ROOT)
+        # Pattern to find curl commands that fetch an install.sh script
+        curl_install_pattern = re.compile(
+            r'curl\s+-fsSL\s+(https://raw\.githubusercontent\.com/[^\s|]+install\.sh)'
+        )
+        violations = []
+        for doc_path, text in docs:
+            matches = curl_install_pattern.findall(text)
+            for url in matches:
+                if url != CANONICAL_CURL_URL:
+                    violations.append(f"{doc_path.name}: found {url!r}")
+        assert not violations, (
+            f"All curl install commands must use the canonical URL {CANONICAL_CURL_URL}. "
+            f"Violations: {violations}"
+        )
 
 
 # ---------------------------------------------------------------------------

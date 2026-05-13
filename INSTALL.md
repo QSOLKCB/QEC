@@ -1,63 +1,77 @@
-# Installation Guide
+# INSTALL
 
-## Requirements
+## Overview
 
-- Python >= 3.10
-- numpy >= 1.24
-- scipy >= 1.10
+This guide covers environment setup, installation, testing, and common
+QEC developer workflows for the v161.2 release line.
 
-Optional (development):
+## Python requirements
 
-- pytest >= 7.0
-- pytest-repeat >= 0.9
-- matplotlib >= 3.5
+- Python 3.10+
+- pip (latest recommended)
+- virtual environment tooling (`venv`)
 
-## Setup
-
-### 1. Create a virtual environment
+## Create a virtual environment
 
 ```bash
-python3 -m venv .venv
+git clone https://github.com/QSOLKCB/QEC.git
+cd QEC
+python -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
 ```
 
-### 2. Install in editable mode
+## Install package and dependencies
+
+Install QEC plus developer and scientific extras:
 
 ```bash
-pip install -e .
+python -m pip install -e ".[dev,science]"
 ```
 
-This installs the `qec` package and the `qec-exp` CLI entry point.
-Dependencies (numpy, scipy) are installed automatically from `pyproject.toml`.
+Scientific extras may include packages used by test and analysis paths,
+including `scipy`, `pandas`, `matplotlib`, `qutip`, and `qiskit`.
 
-### 3. Install development dependencies (optional)
+## Run tests
 
 ```bash
-pip install -e ".[dev]"
+pytest -q
+pytest -q -ra
 ```
 
-## Verification
-
-Run the test suite:
+## Run targeted tests
 
 ```bash
-pytest tests/
+pytest -q tests/test_tui_installer_flow.py
+pytest -q tests/test_global_replay_proof.py
+pytest -q tests/test_global_truth_receipt.py
+pytest -q tests/test_global_validation_index.py
 ```
 
-Run the demo script:
+## Run the SPHAERA proof demo
 
 ```bash
-python scripts/qec_demo.py
+python scripts/sphaera_proof_demo.py
 ```
 
-Verify the CLI entry point:
+## Rust TUI Control Surface
+
+Rust `qec-tui` installation and usage are documented in [`USAGE.md`](USAGE.md).
+
+Canonical installer command:
 
 ```bash
-qec-exp --help
+curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
 ```
 
 ## Troubleshooting
 
-- If `import qec` fails, ensure you ran `pip install -e .` from the repository root.
-- If tests fail with import errors, confirm your virtual environment is activated and the editable install completed without errors.
-- The project has no binary or platform-specific dependencies beyond numpy and scipy.
+- **`qec-tui` tests skip**: local binary may be missing. Install via `USAGE.md`
+  if you need runtime launch tests.
+- **`gh` mirror tests skip**: GitHub CLI (`gh`) is optional and required only for
+  mirror-tool tests.
+- **Scientific warning from `scipy.linalg.logm`**: a known singular-matrix
+  warning can appear in one entropy test path; it is not caused by missing
+  SciPy.
+- **Missing optional backends**: some tests intentionally skip when optional
+  backend packages are absent.

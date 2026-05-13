@@ -2,7 +2,7 @@
 
 Stdlib only.  No decoder changes.  No TUI feature changes.
 Verifies that install paths, binary versions, and release tags are consistent
-across the repository artifacts (Cargo.toml, README.md/USAGE.md, install.sh).
+across the repository artifacts (Cargo.toml, README.md/USAGE.md/INSTALL.md, install.sh).
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
     - install.sh REPO matches QSOLKCB/QEC
     - install.sh BINARY_NAME matches qec-tui
     - install.sh INSTALL_DIR matches /usr/local/bin
-    - README or USAGE curl URL points to the same install.sh path used in the repo
+    - README, USAGE, or INSTALL curl URL points to the same install.sh path used in the repo
     """
     root = resolve_repo_root(repo_root)
     results: List[IntegrityResult] = []
@@ -98,6 +98,7 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
     install_sh = root / "tui" / "install.sh"
     readme = root / "README.md"
     usage = root / "USAGE.md"
+    install_doc = root / "INSTALL.md"
 
     # --- install.sh checks ---
     if not install_sh.exists():
@@ -132,12 +133,12 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
         f"INSTALL_DIR={dir_val!r}",
     ))
 
-    # --- README/USAGE curl path ---
-    if not readme.exists() and not usage.exists():
-        results.append(IntegrityResult("docs_exists", False, "README.md and USAGE.md not found"))
+    # --- README/USAGE/INSTALL curl path ---
+    if not readme.exists() and not usage.exists() and not install_doc.exists():
+        results.append(IntegrityResult("docs_exists", False, "README.md, USAGE.md, and INSTALL.md not found"))
         return _make_report(results)
 
-    docs = [doc for doc in (readme, usage) if doc.exists()]
+    docs = [doc for doc in (readme, usage, install_doc) if doc.exists()]
     results.append(IntegrityResult("docs_exists", True, ", ".join(str(doc) for doc in docs)))
     docs_with_curl = [str(doc) for doc in docs if CANONICAL_CURL_URL in _read_text(doc)]
     results.append(IntegrityResult(

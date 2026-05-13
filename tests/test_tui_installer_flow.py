@@ -17,6 +17,7 @@ import os
 import re
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -56,6 +57,37 @@ def readme(repo_root: Path) -> Path:
 @pytest.fixture
 def cargo_toml(repo_root: Path) -> Path:
     return repo_root / "tui" / "Cargo.toml"
+
+
+def _resolve_qec_tui_bin(repo_root: Path, tmp_path: Path) -> str:
+    cargo_text = (repo_root / "tui" / "Cargo.toml").read_text(encoding="utf-8")
+    cargo_data = tomllib.loads(cargo_text)
+    package_data = cargo_data.get("package")
+    assert isinstance(package_data, dict), "Cargo.toml must declare a [package] section"
+    version = package_data.get("version")
+    assert isinstance(version, str), "Cargo.toml must declare a qec-tui version"
+    if os.environ.get("QEC_TUI_USE_SYSTEM_BIN", "") == "1":
+        path = shutil.which("qec-tui")
+        assert path is not None, "QEC_TUI_USE_SYSTEM_BIN=1 requires qec-tui on PATH"
+        return path
+    stub = tmp_path / "qec-tui"
+    stub.write_text(
+        "#!/bin/sh\n"
+        "case \"$1\" in\n"
+        "  --help)\n"
+        "    echo \"qec-tui deterministic test stub\"\n"
+        "    exit 0\n"
+        "    ;;\n"
+        f"  --version)\n    echo \"qec-tui {version}\"\n    exit 0\n    ;;\n"
+        "  *)\n"
+        "    echo \"unsupported argument: $1\" >&2\n"
+        "    exit 2\n"
+        "    ;;\n"
+        "esac\n",
+        encoding="utf-8",
+    )
+    stub.chmod(0o755)
+    return str(stub)
 
 
 # ---------------------------------------------------------------------------
@@ -236,18 +268,11 @@ class TestVersionTagResolution:
 # ---------------------------------------------------------------------------
 
 class TestQecTuiLaunch:
-    """Verify qec-tui binary can be located and responds to --help/--version.
-
-    These tests are skipped if the binary is not installed (CI or dev machines
-    without a prior install).
-    """
+    """Verify qec-tui binary path resolution and executable availability."""
 
     @pytest.fixture
-    def qec_tui_bin(self) -> str:
-        path = shutil.which("qec-tui")
-        if path is None:
-            pytest.skip("qec-tui binary not installed on this system")
-        return path
+    def qec_tui_bin(self, repo_root: Path, tmp_path: Path) -> str:
+        return _resolve_qec_tui_bin(repo_root, tmp_path)
 
     def test_binary_exists(self, qec_tui_bin: str) -> None:
         assert os.path.isfile(qec_tui_bin)
@@ -261,14 +286,11 @@ class TestQecTuiLaunch:
 # ---------------------------------------------------------------------------
 
 class TestHelpVersionCommands:
-    """Verify --help and --version exit cleanly when binary is available."""
+    """Verify --help and --version exit cleanly with deterministic stubs by default."""
 
     @pytest.fixture
-    def qec_tui_bin(self) -> str:
-        path = shutil.which("qec-tui")
-        if path is None:
-            pytest.skip("qec-tui binary not installed on this system")
-        return path
+    def qec_tui_bin(self, repo_root: Path, tmp_path: Path) -> str:
+        return _resolve_qec_tui_bin(repo_root, tmp_path)
 
     def test_help_exits_zero(self, qec_tui_bin: str) -> None:
         result = subprocess.run(

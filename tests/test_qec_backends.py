@@ -14,6 +14,7 @@ pytest.importorskip("qutip")
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
+import qec_steane
 from qec_steane import (
     create_steane_code, QISKIT_AVAILABLE,
     SteaneCode, SteaneCodeQiskit
@@ -39,9 +40,9 @@ def test_backend_factory_qiskit():
     assert code.distance == 3
 
 
-@pytest.mark.skipif(QISKIT_AVAILABLE, reason="Qiskit installed; ImportError path not applicable")
-def test_backend_factory_qiskit_importerror_when_unavailable():
-    """Test that requesting Qiskit backend raises ImportError when Qiskit is unavailable."""
+def test_backend_factory_qiskit_importerror_when_unavailable(monkeypatch):
+    """Test ImportError path by forcing Qiskit backend availability flag off."""
+    monkeypatch.setattr(qec_steane, "QISKIT_AVAILABLE", False)
     with pytest.raises(ImportError):
         create_steane_code('qiskit')
 

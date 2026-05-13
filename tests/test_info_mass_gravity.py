@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 
 pytest.importorskip("qutip")
+LinAlgWarning = pytest.importorskip("scipy.linalg").LinAlgWarning
 
 from qutip import basis, bell_state, tensor, Qobj
 from info_mass_gravity import InfoMassGravity
@@ -258,7 +259,8 @@ def test_relative_entropy():
     rho = basis(2, 0) * basis(2, 0).dag()
     sigma = 0.5 * basis(2, 0) * basis(2, 0).dag() + 0.5 * basis(2, 1) * basis(2, 1).dag()
     
-    rel_entropy = img.relative_entropy(rho, sigma)
+    with pytest.warns(LinAlgWarning, match="exactly singular"):
+        rel_entropy = img.relative_entropy(rho, sigma)
     
     # Relative entropy should be non-negative
     assert rel_entropy >= 0.0

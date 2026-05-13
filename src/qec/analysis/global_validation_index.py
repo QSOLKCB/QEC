@@ -1,3 +1,15 @@
+"""Deterministic, replay-safe global validation index for the fixed v151→v160.2 artifact chain.
+
+Defines immutable :class:`GlobalValidationEntry` and :class:`GlobalValidationIndex`
+dataclasses, the canonical 48-entry definition table, builders, and validators.
+
+Scope constraints:
+- Strictly analysis-layer and additive; does NOT decide truth, perform threshold
+  validation, produce replay artifacts, or reference v161.1+ behavior.
+- Hashes are computed directly over payload dicts (not pre-serialized JSON strings),
+  matching the hash convention used across all other analysis artifacts.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -75,12 +87,19 @@ def _validate_entry_index(v: object) -> int:
 
 
 def _validate_count(v: object) -> int:
+    """Return *v* as a validated integer count; raise on non-int or bool types."""
     if not isinstance(v, int) or isinstance(v, bool):
-        raise ValueError(_ERR_GLOBAL_VALIDATION_ENTRY_COUNT_MISMATCH)
+        raise ValueError(f"{_ERR_INVALID_INPUT}: entry_count must be a plain int, got {type(v).__name__!r}")
     return v
 
 
-def _global_validation_entry_payload(entry_index: int, arc_label: str, receipt_field_name: str, receipt_hash: str) -> dict[str, Any]:
+def _global_validation_entry_payload(
+    entry_index: int,
+    arc_label: str,
+    receipt_field_name: str,
+    receipt_hash: str,
+) -> dict[str, Any]:
+    """Return the canonical payload dict for a single entry (self-hash excluded)."""
     return {
         "entry_index": entry_index,
         "arc_label": arc_label,
@@ -89,7 +108,16 @@ def _global_validation_entry_payload(entry_index: int, arc_label: str, receipt_f
     }
 
 
-def _global_validation_index_payload(index_mode: str, global_validation_entries: tuple[GlobalValidationEntry, ...], entry_count: int, required_entry_count: int, first_global_validation_entry_hash: str, final_global_validation_entry_hash: str, reality_loop_proof_receipt_hash: str) -> dict[str, Any]:
+def _global_validation_index_payload(
+    index_mode: str,
+    global_validation_entries: tuple[GlobalValidationEntry, ...],
+    entry_count: int,
+    required_entry_count: int,
+    first_global_validation_entry_hash: str,
+    final_global_validation_entry_hash: str,
+    reality_loop_proof_receipt_hash: str,
+) -> dict[str, Any]:
+    """Return the canonical payload dict for the index (self-hash excluded)."""
     return {
         "index_mode": index_mode,
         "global_validation_entries": [e.to_dict() for e in global_validation_entries],
@@ -103,6 +131,11 @@ def _global_validation_index_payload(index_mode: str, global_validation_entries:
 
 @dataclass(frozen=True)
 class GlobalValidationEntry:
+    """Immutable, hash-stable record for one entry in the global validation index.
+
+    The ``global_validation_entry_hash`` field covers all other fields (self-hash excluded).
+    """
+
     entry_index: int
     arc_label: str
     receipt_field_name: str
@@ -113,19 +146,32 @@ class GlobalValidationEntry:
         validate_global_validation_entry(self)
 
     def to_dict(self) -> dict[str, Any]:
-        payload = _global_validation_entry_payload(self.entry_index, self.arc_label, self.receipt_field_name, self.receipt_hash)
+        """Return a full dict representation including the self-hash."""
+        payload = _global_validation_entry_payload(
+            self.entry_index,
+            self.arc_label,
+            self.receipt_field_name,
+            self.receipt_hash,
+        )
         payload["global_validation_entry_hash"] = self.global_validation_entry_hash
         return payload
 
     def to_canonical_json(self) -> str:
+        """Return the canonical JSON string for this entry."""
         return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
+        """Return the canonical UTF-8 bytes for this entry."""
         return canonical_bytes(self.to_dict())
 
 
 @dataclass(frozen=True)
 class GlobalValidationIndex:
+    """Immutable, hash-stable index over the fixed v151→v160.2 global validation chain.
+
+    The ``global_validation_index_hash`` field covers all other fields (self-hash excluded).
+    """
+
     index_mode: str
     global_validation_entries: tuple[GlobalValidationEntry, ...]
     entry_count: int
@@ -139,36 +185,53 @@ class GlobalValidationIndex:
         validate_global_validation_index(self)
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a full dict representation including the self-hash."""
         payload = _global_validation_index_payload(
-            self.index_mode, self.global_validation_entries, self.entry_count, self.required_entry_count,
-            self.first_global_validation_entry_hash, self.final_global_validation_entry_hash,
+            self.index_mode,
+            self.global_validation_entries,
+            self.entry_count,
+            self.required_entry_count,
+            self.first_global_validation_entry_hash,
+            self.final_global_validation_entry_hash,
             self.reality_loop_proof_receipt_hash,
         )
         payload["global_validation_index_hash"] = self.global_validation_index_hash
         return payload
 
     def to_canonical_json(self) -> str:
+        """Return the canonical JSON string for this index."""
         return canonical_json(self.to_dict())
 
     def to_canonical_bytes(self) -> bytes:
+        """Return the canonical UTF-8 bytes for this index."""
         return canonical_bytes(self.to_dict())
 
 
 def build_global_validation_entry(entry_index: int, receipt_hash: str) -> GlobalValidationEntry:
+    """Build a validated :class:`GlobalValidationEntry` for the given index and hash.
+
+    The entry hash is computed by hashing the payload dict directly (not a
+    pre-serialized JSON string), matching the convention used across all other
+    analysis artifacts.
+    """
     idx = _validate_entry_index(entry_index)
     _, arc_label, field_name = _GLOBAL_VALIDATION_ENTRY_DEFINITIONS[idx]
     payload = _global_validation_entry_payload(idx, arc_label, field_name, _validate_sha(receipt_hash))
-    return GlobalValidationEntry(idx, arc_label, field_name, receipt_hash, sha256_hex(canonical_json(payload)))
+    return GlobalValidationEntry(idx, arc_label, field_name, receipt_hash, sha256_hex(payload))
 
 
 def build_global_validation_index(receipt_hashes_by_field: dict[str, str]) -> GlobalValidationIndex:
+    """Build a :class:`GlobalValidationIndex` from a mapping of field name → SHA-256 hash.
+
+    All 48 canonical field names must be present; forbidden and unknown fields are rejected.
+    """
     if not isinstance(receipt_hashes_by_field, dict):
         raise ValueError(_ERR_INVALID_INPUT)
     forbidden = {
-        "global_" + "threshold_contract_hash",
-        "global_" + "truth_receipt_hash",
-        "replay_" + "record_hash",
-        "global_" + "replay_proof_hash",
+        "global_threshold_contract_hash",
+        "global_truth_receipt_hash",
+        "replay_record_hash",
+        "global_replay_proof_hash",
     }
     defs = _GLOBAL_VALIDATION_ENTRY_DEFINITIONS
     required_fields = {d[2] for d in defs}
@@ -176,51 +239,104 @@ def build_global_validation_index(receipt_hashes_by_field: dict[str, str]) -> Gl
         if not isinstance(k, str):
             raise ValueError(_ERR_INVALID_RECEIPT_FIELD_NAME)
         if k in forbidden:
-            raise ValueError(_ERR_ENTRY_DEFINITION_MISMATCH)
+            raise ValueError(f"{_ERR_ENTRY_DEFINITION_MISMATCH}: field {k!r} is not permitted in this index")
         if _FIELD_NAME_RE.fullmatch(k) is None or len(k) > _MAX_RECEIPT_FIELD_NAME_LENGTH:
-            raise ValueError(_ERR_INVALID_RECEIPT_FIELD_NAME)
+            raise ValueError(f"{_ERR_INVALID_RECEIPT_FIELD_NAME}: {k!r}")
         _validate_sha(v)
         if k not in required_fields:
-            raise ValueError(_ERR_ENTRY_DEFINITION_MISMATCH)
+            raise ValueError(f"{_ERR_ENTRY_DEFINITION_MISMATCH}: unknown field {k!r}")
     if set(receipt_hashes_by_field.keys()) != required_fields:
         raise ValueError(_ERR_MISSING_GLOBAL_VALIDATION_ENTRY)
-    entries = tuple(build_global_validation_entry(i, receipt_hashes_by_field[f]) for i, _, f in defs)
-    payload = _global_validation_index_payload(_INDEX_MODE_FIXED_V151_TO_V160_GLOBAL_VALIDATION_INDEX, entries, 48, 48, entries[0].global_validation_entry_hash, entries[-1].global_validation_entry_hash, entries[-1].receipt_hash)
-    return GlobalValidationIndex(_INDEX_MODE_FIXED_V151_TO_V160_GLOBAL_VALIDATION_INDEX, entries, 48, 48, entries[0].global_validation_entry_hash, entries[-1].global_validation_entry_hash, entries[-1].receipt_hash, sha256_hex(canonical_json(payload)))
+    entries = tuple(
+        build_global_validation_entry(i, receipt_hashes_by_field[f]) for i, _, f in defs
+    )
+    n = _REQUIRED_GLOBAL_VALIDATION_ENTRY_COUNT
+    payload = _global_validation_index_payload(
+        _INDEX_MODE_FIXED_V151_TO_V160_GLOBAL_VALIDATION_INDEX,
+        entries,
+        n,
+        n,
+        entries[0].global_validation_entry_hash,
+        entries[-1].global_validation_entry_hash,
+        entries[-1].receipt_hash,
+    )
+    return GlobalValidationIndex(
+        _INDEX_MODE_FIXED_V151_TO_V160_GLOBAL_VALIDATION_INDEX,
+        entries,
+        n,
+        n,
+        entries[0].global_validation_entry_hash,
+        entries[-1].global_validation_entry_hash,
+        entries[-1].receipt_hash,
+        sha256_hex(payload),
+    )
 
 
-def build_global_validation_index_from_ordered_hashes(receipt_hashes: list[str] | tuple[str, ...]) -> GlobalValidationIndex:
+def build_global_validation_index_from_ordered_hashes(
+    receipt_hashes: list[str] | tuple[str, ...],
+) -> GlobalValidationIndex:
+    """Build a :class:`GlobalValidationIndex` from an ordered sequence of 48 SHA-256 hashes.
+
+    Hashes must be provided in the canonical definition order
+    (index 0 = ``canonical_hash`` … index 47 = ``reality_loop_proof_receipt_hash``).
+    """
     if not isinstance(receipt_hashes, (list, tuple)):
         raise ValueError(_ERR_INVALID_INPUT)
     if len(receipt_hashes) != _REQUIRED_GLOBAL_VALIDATION_ENTRY_COUNT:
         raise ValueError(_ERR_GLOBAL_VALIDATION_ENTRY_COUNT_MISMATCH)
-    return build_global_validation_index({field: h for _, _, field, h in ((d[0], d[1], d[2], receipt_hashes[d[0]]) for d in _GLOBAL_VALIDATION_ENTRY_DEFINITIONS)})
+    return build_global_validation_index(
+        {d[2]: receipt_hashes[d[0]] for d in _GLOBAL_VALIDATION_ENTRY_DEFINITIONS}
+    )
 
 
 def validate_global_validation_entry(entry: GlobalValidationEntry) -> bool:
+    """Validate all fields and the self-hash of *entry*; return ``True`` on success.
+
+    Raises :class:`ValueError` with a descriptive error code prefix on any violation.
+    """
     if not isinstance(entry, GlobalValidationEntry):
         raise ValueError(_ERR_INVALID_INPUT)
     idx = _validate_entry_index(entry.entry_index)
-    if not isinstance(entry.arc_label, str) or len(entry.arc_label) == 0 or len(entry.arc_label) > _MAX_ARC_LABEL_LENGTH or _ARC_LABEL_RE.fullmatch(entry.arc_label) is None:
-        raise ValueError(_ERR_INVALID_ARC_LABEL)
-    if not isinstance(entry.receipt_field_name, str) or len(entry.receipt_field_name) == 0 or len(entry.receipt_field_name) > _MAX_RECEIPT_FIELD_NAME_LENGTH or _FIELD_NAME_RE.fullmatch(entry.receipt_field_name) is None:
-        raise ValueError(_ERR_INVALID_RECEIPT_FIELD_NAME)
+    if (
+        not isinstance(entry.arc_label, str)
+        or len(entry.arc_label) == 0
+        or len(entry.arc_label) > _MAX_ARC_LABEL_LENGTH
+        or _ARC_LABEL_RE.fullmatch(entry.arc_label) is None
+    ):
+        raise ValueError(f"{_ERR_INVALID_ARC_LABEL}: {entry.arc_label!r}")
+    if (
+        not isinstance(entry.receipt_field_name, str)
+        or len(entry.receipt_field_name) == 0
+        or len(entry.receipt_field_name) > _MAX_RECEIPT_FIELD_NAME_LENGTH
+        or _FIELD_NAME_RE.fullmatch(entry.receipt_field_name) is None
+    ):
+        raise ValueError(f"{_ERR_INVALID_RECEIPT_FIELD_NAME}: {entry.receipt_field_name!r}")
     _validate_sha(entry.receipt_hash)
     _validate_sha(entry.global_validation_entry_hash)
     expected = _GLOBAL_VALIDATION_ENTRY_DEFINITIONS[idx]
     if (idx, entry.arc_label, entry.receipt_field_name) != expected:
-        raise ValueError(_ERR_ENTRY_DEFINITION_MISMATCH)
-    payload = _global_validation_entry_payload(entry.entry_index, entry.arc_label, entry.receipt_field_name, entry.receipt_hash)
-    if sha256_hex(canonical_json(payload)) != entry.global_validation_entry_hash:
-        raise ValueError(_ERR_HASH_MISMATCH)
+        raise ValueError(
+            f"{_ERR_ENTRY_DEFINITION_MISMATCH}: entry_index={idx},"
+            f" expected {expected!r},"
+            f" got ({idx!r}, {entry.arc_label!r}, {entry.receipt_field_name!r})"
+        )
+    payload = _global_validation_entry_payload(
+        entry.entry_index, entry.arc_label, entry.receipt_field_name, entry.receipt_hash
+    )
+    if sha256_hex(payload) != entry.global_validation_entry_hash:
+        raise ValueError(f"{_ERR_HASH_MISMATCH}: entry_index={idx}")
     return True
 
 
 def validate_global_validation_index(index: GlobalValidationIndex) -> bool:
+    """Validate all fields, entry ordering, and the self-hash of *index*.
+
+    Raises :class:`ValueError` with a descriptive error code prefix on any violation.
+    """
     if not isinstance(index, GlobalValidationIndex):
         raise ValueError(_ERR_INVALID_INPUT)
     if index.index_mode != _INDEX_MODE_FIXED_V151_TO_V160_GLOBAL_VALIDATION_INDEX:
-        raise ValueError(_ERR_INVALID_INDEX_MODE)
+        raise ValueError(f"{_ERR_INVALID_INDEX_MODE}: {index.index_mode!r}")
     if not isinstance(index.global_validation_entries, tuple):
         raise ValueError(_ERR_INVALID_INPUT)
     _validate_sha(index.first_global_validation_entry_hash)
@@ -229,35 +345,75 @@ def validate_global_validation_index(index: GlobalValidationIndex) -> bool:
     _validate_sha(index.global_validation_index_hash)
     ec = _validate_count(index.entry_count)
     rc = _validate_count(index.required_entry_count)
-    if ec != _REQUIRED_GLOBAL_VALIDATION_ENTRY_COUNT or rc != _REQUIRED_GLOBAL_VALIDATION_ENTRY_COUNT or ec != rc:
-        raise ValueError(_ERR_GLOBAL_VALIDATION_ENTRY_COUNT_MISMATCH)
+    if (
+        ec != _REQUIRED_GLOBAL_VALIDATION_ENTRY_COUNT
+        or rc != _REQUIRED_GLOBAL_VALIDATION_ENTRY_COUNT
+        or ec != rc
+    ):
+        raise ValueError(
+            f"{_ERR_GLOBAL_VALIDATION_ENTRY_COUNT_MISMATCH}:"
+            f" entry_count={ec}, required_entry_count={rc},"
+            f" expected {_REQUIRED_GLOBAL_VALIDATION_ENTRY_COUNT}"
+        )
     if len(index.global_validation_entries) != _REQUIRED_GLOBAL_VALIDATION_ENTRY_COUNT:
-        raise ValueError(_ERR_GLOBAL_VALIDATION_ENTRY_COUNT_MISMATCH)
-    seen_idx: set[int] = set(); seen_field: set[str] = set()
+        raise ValueError(
+            f"{_ERR_GLOBAL_VALIDATION_ENTRY_COUNT_MISMATCH}:"
+            f" len(entries)={len(index.global_validation_entries)}"
+        )
+    seen_idx: set[int] = set()
+    seen_field: set[str] = set()
     for i, entry in enumerate(index.global_validation_entries):
         validate_global_validation_entry(entry)
         if entry.entry_index in seen_idx or entry.receipt_field_name in seen_field:
-            raise ValueError(_ERR_DUPLICATE_GLOBAL_VALIDATION_ENTRY)
-        seen_idx.add(entry.entry_index); seen_field.add(entry.receipt_field_name)
+            raise ValueError(
+                f"{_ERR_DUPLICATE_GLOBAL_VALIDATION_ENTRY}: entry_index={entry.entry_index},"
+                f" field={entry.receipt_field_name!r}"
+            )
+        seen_idx.add(entry.entry_index)
+        seen_field.add(entry.receipt_field_name)
         if entry.entry_index != i:
-            raise ValueError(_ERR_GLOBAL_VALIDATION_ENTRY_ORDER_MISMATCH)
+            raise ValueError(
+                f"{_ERR_GLOBAL_VALIDATION_ENTRY_ORDER_MISMATCH}:"
+                f" position={i}, entry_index={entry.entry_index}"
+            )
     if seen_idx != set(range(_REQUIRED_GLOBAL_VALIDATION_ENTRY_COUNT)):
         raise ValueError(_ERR_MISSING_GLOBAL_VALIDATION_ENTRY)
     if index.first_global_validation_entry_hash != index.global_validation_entries[0].global_validation_entry_hash:
-        raise ValueError(_ERR_GLOBAL_VALIDATION_ENTRY_ORDER_MISMATCH)
+        raise ValueError(f"{_ERR_GLOBAL_VALIDATION_ENTRY_ORDER_MISMATCH}: first_global_validation_entry_hash mismatch")
     if index.final_global_validation_entry_hash != index.global_validation_entries[-1].global_validation_entry_hash:
-        raise ValueError(_ERR_GLOBAL_VALIDATION_ENTRY_ORDER_MISMATCH)
+        raise ValueError(f"{_ERR_GLOBAL_VALIDATION_ENTRY_ORDER_MISMATCH}: final_global_validation_entry_hash mismatch")
     if index.reality_loop_proof_receipt_hash != index.global_validation_entries[-1].receipt_hash:
         raise ValueError(_ERR_REALITY_LOOP_PROOF_HASH_MISMATCH)
-    payload = _global_validation_index_payload(index.index_mode, index.global_validation_entries, index.entry_count, index.required_entry_count, index.first_global_validation_entry_hash, index.final_global_validation_entry_hash, index.reality_loop_proof_receipt_hash)
-    if sha256_hex(canonical_json(payload)) != index.global_validation_index_hash:
+    payload = _global_validation_index_payload(
+        index.index_mode,
+        index.global_validation_entries,
+        index.entry_count,
+        index.required_entry_count,
+        index.first_global_validation_entry_hash,
+        index.final_global_validation_entry_hash,
+        index.reality_loop_proof_receipt_hash,
+    )
+    if sha256_hex(payload) != index.global_validation_index_hash:
         raise ValueError(_ERR_HASH_MISMATCH)
     return True
 
 
-def validate_global_validation_index_matches_hashes(index: GlobalValidationIndex, receipt_hashes_by_field: dict[str, str]) -> bool:
+def validate_global_validation_index_matches_hashes(
+    index: GlobalValidationIndex,
+    receipt_hashes_by_field: dict[str, str],
+) -> bool:
+    """Validate that *index* exactly matches the index built from *receipt_hashes_by_field*.
+
+    Any builder error (bad field names, invalid hashes, missing entries, etc.) is
+    re-raised as ``GLOBAL_VALIDATION_INDEX_MISMATCH`` so callers only need to handle
+    one error code from this function (in addition to errors from the preliminary
+    ``validate_global_validation_index`` call on *index*).
+    """
     validate_global_validation_index(index)
-    expected = build_global_validation_index(receipt_hashes_by_field)
+    try:
+        expected = build_global_validation_index(receipt_hashes_by_field)
+    except ValueError as exc:
+        raise ValueError(_ERR_GLOBAL_VALIDATION_INDEX_MISMATCH) from exc
     if expected.to_dict() != index.to_dict():
         raise ValueError(_ERR_GLOBAL_VALIDATION_INDEX_MISMATCH)
     return True

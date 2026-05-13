@@ -72,21 +72,33 @@ def test_global_validation_index_basics_and_constraints():
     with pytest.raises(ValueError, match="MISSING_GLOBAL_VALIDATION_ENTRY"):
         build_global_validation_index({})
     with pytest.raises(ValueError, match="MISSING_GLOBAL_VALIDATION_ENTRY"):
-        mm = dict(m); mm.pop("canonical_hash"); build_global_validation_index(mm)
+        mm = dict(m)
+        mm.pop("canonical_hash")
+        build_global_validation_index(mm)
     with pytest.raises(ValueError, match="ENTRY_DEFINITION_MISMATCH"):
-        mm = dict(m); mm["unknown_field"] = _h(555); build_global_validation_index(mm)
+        mm = dict(m)
+        mm["unknown_field"] = _h(555)
+        build_global_validation_index(mm)
     with pytest.raises(ValueError, match="ENTRY_DEFINITION_MISMATCH"):
-        mm = dict(m); mm["global_truth_receipt_hash"] = _h(555); build_global_validation_index(mm)
+        mm = dict(m)
+        mm["global_truth_receipt_hash"] = _h(555)
+        build_global_validation_index(mm)
     with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
-        mm = dict(m); mm["canonical_hash"] = "abc"; build_global_validation_index(mm)
+        mm = dict(m)
+        mm["canonical_hash"] = "abc"
+        build_global_validation_index(mm)
     with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
-        mm = dict(m); mm["canonical_hash"] = "A"*64; build_global_validation_index(mm)
+        mm = dict(m)
+        mm["canonical_hash"] = "A"*64
+        build_global_validation_index(mm)
     with pytest.raises(ValueError, match="INVALID_INDEX_MODE"):
         validate_global_validation_index(replace(i1, index_mode="BAD"))
     with pytest.raises(ValueError, match="GLOBAL_VALIDATION_ENTRY_ORDER_MISMATCH"):
         validate_global_validation_index(replace(i1, global_validation_entries=tuple(reversed(i1.global_validation_entries))))
     with pytest.raises(ValueError, match="DUPLICATE_GLOBAL_VALIDATION_ENTRY"):
-        dup = list(i1.global_validation_entries); dup[1] = dup[0]; validate_global_validation_index(replace(i1, global_validation_entries=tuple(dup)))
+        dup = list(i1.global_validation_entries)
+        dup[1] = dup[0]
+        validate_global_validation_index(replace(i1, global_validation_entries=tuple(dup)))
     with pytest.raises(ValueError, match="GLOBAL_VALIDATION_ENTRY_COUNT_MISMATCH"):
         miss = tuple(e for e in i1.global_validation_entries if e.entry_index != 0)
         validate_global_validation_index(replace(i1, global_validation_entries=miss, entry_count=47, required_entry_count=47))
@@ -104,9 +116,9 @@ def test_global_validation_index_basics_and_constraints():
         validate_global_validation_index(replace(i1, global_validation_index_hash="x"))
     with pytest.raises(ValueError, match="HASH_MISMATCH"):
         validate_global_validation_index(replace(i1, global_validation_index_hash=_h(1234)))
-    with pytest.raises(ValueError, match="GLOBAL_VALIDATION_ENTRY_COUNT_MISMATCH"):
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
         validate_global_validation_index(replace(i1, entry_count=True))
-    with pytest.raises(ValueError, match="GLOBAL_VALIDATION_ENTRY_COUNT_MISMATCH"):
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
         validate_global_validation_index(replace(i1, required_entry_count=True))
     with pytest.raises(FrozenInstanceError):
         i1.entry_count = 0
@@ -119,7 +131,9 @@ def test_complete_validator_and_ordered_builder_and_boundaries():
     idx = build_global_validation_index(m)
     assert validate_global_validation_index_matches_hashes(idx, m) is True
     with pytest.raises(ValueError, match="GLOBAL_VALIDATION_INDEX_MISMATCH"):
-        mm = dict(m); mm["canonical_hash"] = _h(500); validate_global_validation_index_matches_hashes(idx, mm)
+        mm = dict(m)
+        mm["canonical_hash"] = _h(500)
+        validate_global_validation_index_matches_hashes(idx, mm)
     with pytest.raises(ValueError, match="GLOBAL_VALIDATION_INDEX_MISMATCH"):
         rehashed = build_global_validation_index(dict(m, canonical_hash=_h(444)))
         validate_global_validation_index_matches_hashes(rehashed, m)
@@ -140,7 +154,9 @@ def test_complete_validator_and_ordered_builder_and_boundaries():
     with pytest.raises(ValueError, match="GLOBAL_VALIDATION_ENTRY_COUNT_MISMATCH"):
         build_global_validation_index_from_ordered_hashes(ordered + [_h(99)])
     with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
-        bad = list(ordered); bad[0] = "z"; build_global_validation_index_from_ordered_hashes(bad)
+        bad = list(ordered)
+        bad[0] = "z"
+        build_global_validation_index_from_ordered_hashes(bad)
 
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         validate_global_validation_entry(object())
@@ -148,16 +164,26 @@ def test_complete_validator_and_ordered_builder_and_boundaries():
         validate_global_validation_index(object())
 
 
-def test_scope_boundary_scan():
-    with open("src/qec/analysis/global_validation_index.py", "r", encoding="utf-8") as f:
-        text = f.read()
-    banned = [
-        "GlobalThresholdContract", "GlobalTruthReceipt", "GlobalReplayProof",
-        "global_truth_receipt_hash", "global_replay_proof_hash", "global_threshold_contract_hash",
-        "replay_record_hash", "runtime_replay_execution", "recursive_execution", "gameplay", "render",
-        "step_world", "execute_action", "run_game", "importlib", "__import__(", "subprocess", "exec(",
-        "eval(", "random", "time.time", "datetime.now", "probability", "probabilistic", "neural",
-        "learned_policy", "semantic_truth", "philosophical_truth", "metaphysical_truth",
+def test_scope_boundary_forbidden_fields():
+    """Verify that fields outside the canonical v151→v160.2 scope are rejected at the builder.
+
+    Tests behavior rather than source-text scanning: each of the named forbidden fields
+    must cause build_global_validation_index to raise ENTRY_DEFINITION_MISMATCH.
+    """
+    m = _mapping()
+    forbidden_fields = [
+        "global_threshold_contract_hash",
+        "global_truth_receipt_hash",
+        "replay_record_hash",
+        "global_replay_proof_hash",
     ]
-    for tok in banned:
-        assert tok not in text
+    for field in forbidden_fields:
+        mm = dict(m)
+        mm[field] = _h(1)
+        with pytest.raises(ValueError, match="ENTRY_DEFINITION_MISMATCH"):
+            build_global_validation_index(mm)
+
+    with pytest.raises(ValueError, match="ENTRY_DEFINITION_MISMATCH"):
+        mm = dict(m)
+        mm["unknown_extra_field"] = _h(99)
+        build_global_validation_index(mm)

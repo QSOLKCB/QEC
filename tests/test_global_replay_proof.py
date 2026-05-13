@@ -103,12 +103,12 @@ def test_global_replay_proof_basics():
     unsorted = (p1.replay_records[1], p1.replay_records[0])
     with pytest.raises(ValueError, match="REPLAY_RECORD_ORDER_MISMATCH"):
         validate_global_replay_proof(replace(p1, replay_records=unsorted))
-    with pytest.raises(ValueError, match="GLOBAL_ARTIFACT_MISMATCH"):
+    with pytest.raises(ValueError, match="THRESHOLD_CONTRACT_ARTIFACT_MISMATCH"):
         r0_bad = build_replay_record(0, "GLOBAL_THRESHOLD_CONTRACT_REPLAY", _h(444), _h(444))
         bad_threshold = replace(p1, replay_records=(r0_bad, p1.replay_records[1]))
         bad_threshold = replace(bad_threshold, global_replay_proof_hash=sha256_hex(bad_threshold.to_dict()))
         validate_global_replay_proof(bad_threshold)
-    with pytest.raises(ValueError, match="GLOBAL_ARTIFACT_MISMATCH"):
+    with pytest.raises(ValueError, match="TRUTH_RECEIPT_ARTIFACT_MISMATCH"):
         r1_bad = build_replay_record(1, "GLOBAL_TRUTH_RECEIPT_REPLAY", _h(555), _h(555))
         bad_truth = replace(p1, replay_records=(p1.replay_records[0], r1_bad))
         bad_truth = replace(bad_truth, global_replay_proof_hash=sha256_hex(bad_truth.to_dict()))

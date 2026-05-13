@@ -111,6 +111,7 @@ def test_complete_validators_and_boundaries_and_scope_scan():
     with pytest.raises(ValueError): validate_substrate_drift_receipt(object())
     assert isinstance(m.to_dict()["encoding_entries"], list)
     assert isinstance(d.to_dict()["expected_encoding_entry_hashes"], list)
-    txt = open("src/qec/analysis/material_encoding_receipt.py", "r", encoding="utf-8").read().lower()
+    with open("src/qec/analysis/material_encoding_receipt.py", "r", encoding="utf-8") as f:
+        txt = f.read().lower()
     for token in ["layersubstratecompatibilityreceipt", "masksubstratereceipt", "routersubstratereceipt", "readoutsubstratereceipt", "hardware", "cpu", "gpu", "device", "physical_substrate", "gameplay", "render", "step_world", "execute_action", "run_game", "importlib", "__import__(", "subprocess", "exec(", "eval(", "random", "time.time", "datetime.now", "probability", "probabilistic", "neural", "learned_policy", "recursive", "global_truth"]:
         assert token not in txt

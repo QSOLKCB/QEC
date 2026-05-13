@@ -7,12 +7,8 @@ from typing import Any
 
 from .canonical_hashing import canonical_bytes, canonical_json, sha256_hex
 from .global_validation_index import (
-    GlobalValidationEntry,
     GlobalValidationIndex,
-    get_global_validation_entry_definitions,
-    validate_global_validation_entry,
     validate_global_validation_index,
-    validate_global_validation_index_matches_hashes,
 )
 
 _ERR_INVALID_INPUT = "INVALID_INPUT"
@@ -341,6 +337,14 @@ def validate_global_truth_receipt(receipt: GlobalTruthReceipt) -> bool:
         raise ValueError(_ERR_FINAL_ANCHOR_MISMATCH)
     _validate_sha(receipt.final_anchor_hash)
     if not isinstance(receipt.final_anchor_present, bool) or not isinstance(receipt.final_anchor_hash_matches, bool) or not isinstance(receipt.threshold_contract_satisfied, bool):
+        raise ValueError(_ERR_INVALID_INPUT)
+    if receipt.final_anchor_hash_matches and not receipt.final_anchor_present:
+        raise ValueError(_ERR_INVALID_INPUT)
+    if receipt.threshold_contract_satisfied and not receipt.entry_count_threshold_satisfied:
+        raise ValueError(_ERR_INVALID_INPUT)
+    # Presence is a derived invariant: a valid anchor hash implies the anchor is present.
+    anchor_present_expected = _SHA256_RE.fullmatch(receipt.final_anchor_hash) is not None
+    if receipt.final_anchor_present != anchor_present_expected:
         raise ValueError(_ERR_INVALID_INPUT)
     expected_class = _derive_truth_class(receipt.entry_count_threshold_satisfied, receipt.final_anchor_present, receipt.final_anchor_hash_matches, receipt.threshold_contract_satisfied)
     if receipt.global_truth_class not in get_allowed_global_truth_classes():

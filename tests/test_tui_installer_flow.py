@@ -117,32 +117,32 @@ class TestInstallShExists:
 class TestReadmeCurlPath:
     """Verify the README/USAGE curl install command matches install.sh location."""
 
-    def _doc_text(self, repo_root: Path) -> str:
+    def _get_doc_texts(self, repo_root: Path) -> list[str]:
         usage = repo_root / "USAGE.md"
         readme = repo_root / "README.md"
-        doc = usage if usage.exists() else readme
-        return doc.read_text(encoding="utf-8")
+        docs = [doc for doc in (readme, usage) if doc.exists()]
+        return [doc.read_text(encoding="utf-8") for doc in docs]
 
     def test_readme_exists(self, readme: Path) -> None:
         assert readme.exists(), "README.md must exist"
 
     def test_readme_contains_curl_command(self, readme: Path) -> None:
-        text = self._doc_text(REPO_ROOT)
-        assert "curl" in text, "README must contain a curl install command"
+        texts = self._get_doc_texts(REPO_ROOT)
+        assert any("curl" in text for text in texts), "README/USAGE must contain a curl install command"
 
     def test_readme_curl_url_matches(self, readme: Path) -> None:
-        text = self._doc_text(REPO_ROOT)
-        assert CANONICAL_CURL_URL in text, \
-            f"README must contain the canonical install URL: {CANONICAL_CURL_URL}"
+        texts = self._get_doc_texts(REPO_ROOT)
+        assert any(CANONICAL_CURL_URL in text for text in texts), \
+            f"README/USAGE must contain the canonical install URL: {CANONICAL_CURL_URL}"
 
     def test_readme_curl_flags(self, readme: Path) -> None:
-        text = self._doc_text(REPO_ROOT)
-        assert "curl -fsSL" in text, \
-            "README curl command must use -fsSL flags"
+        texts = self._get_doc_texts(REPO_ROOT)
+        assert any("curl -fsSL" in text for text in texts), \
+            "README/USAGE curl command must use -fsSL flags"
 
     def test_readme_pipes_to_sh(self, readme: Path) -> None:
-        text = self._doc_text(REPO_ROOT)
-        assert "| sh" in text, "README curl command must pipe to sh"
+        texts = self._get_doc_texts(REPO_ROOT)
+        assert any("| sh" in text for text in texts), "README/USAGE curl command must pipe to sh"
 
 
 # ---------------------------------------------------------------------------

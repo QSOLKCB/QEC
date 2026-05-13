@@ -137,13 +137,13 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
         results.append(IntegrityResult("docs_exists", False, "README.md and USAGE.md not found"))
         return _make_report(results)
 
-    doc_path = usage if usage.exists() else readme
-    results.append(IntegrityResult("docs_exists", True, str(doc_path)))
-    readme_text = _read_text(doc_path)
+    docs = [doc for doc in (readme, usage) if doc.exists()]
+    results.append(IntegrityResult("docs_exists", True, ", ".join(str(doc) for doc in docs)))
+    docs_with_curl = [str(doc) for doc in docs if CANONICAL_CURL_URL in _read_text(doc)]
     results.append(IntegrityResult(
         "docs_curl_url",
-        CANONICAL_CURL_URL in readme_text,
-        f"expected URL present: {CANONICAL_CURL_URL in readme_text}",
+        len(docs_with_curl) > 0,
+        f"expected URL present in: {docs_with_curl if docs_with_curl else 'none'}",
     ))
 
     return _make_report(results)

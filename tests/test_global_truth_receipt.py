@@ -117,6 +117,10 @@ def test_global_truth_receipt_basics_and_derivation():
         validate_global_truth_receipt(replace(r1, threshold_contract_satisfied=False))
     with pytest.raises(ValueError):
         validate_global_truth_receipt(replace(r1, final_anchor_hash="f" * 64, final_anchor_hash_matches=False))
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_global_truth_receipt(replace(r1, final_anchor_present=False, final_anchor_hash_matches=True))
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        validate_global_truth_receipt(replace(r1, registered_entry_count=0, entry_count_threshold_satisfied=False, threshold_contract_satisfied=True))
     with pytest.raises(FrozenInstanceError):
         r1.global_truth_class = "x"
     assert r1.to_canonical_json() == r1.to_canonical_json()

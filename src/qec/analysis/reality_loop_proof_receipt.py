@@ -310,9 +310,19 @@ def validate_reality_loop_proof_receipt(receipt: RealityLoopProofReceipt) -> boo
     if not isinstance(receipt.slots_complete, bool) or not isinstance(receipt.links_complete, bool) or not isinstance(receipt.slot_link_topology_aligned, bool) or not isinstance(receipt.reality_loop_complete, bool):
         raise ValueError(_ERR_INVALID_INPUT)
 
+    derived_slots_complete = slot_count == required_slot_count
+    derived_links_complete = link_count == required_link_count
+    if receipt.slots_complete != derived_slots_complete or receipt.links_complete != derived_links_complete:
+        raise ValueError(_ERR_INVALID_INPUT)
+
     expected_complete, expected_class = _derive_completion_and_class(
-        slot_count, required_slot_count, link_count, required_link_count,
-        receipt.slots_complete, receipt.links_complete, receipt.slot_link_topology_aligned
+        slot_count,
+        required_slot_count,
+        link_count,
+        required_link_count,
+        derived_slots_complete,
+        derived_links_complete,
+        receipt.slot_link_topology_aligned,
     )
     if receipt.reality_loop_complete != expected_complete:
         raise ValueError(_ERR_REALITY_LOOP_COMPLETION_MISMATCH)

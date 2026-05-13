@@ -35,6 +35,8 @@ _ERR_REPLAY_RECORD_COUNT_MISMATCH = "REPLAY_RECORD_COUNT_MISMATCH"
 _ERR_GLOBAL_REPLAY_CLASS_MISMATCH = "GLOBAL_REPLAY_CLASS_MISMATCH"
 _ERR_GLOBAL_REPLAY_PROOF_MISMATCH = "GLOBAL_REPLAY_PROOF_MISMATCH"
 _ERR_GLOBAL_ARTIFACT_MISMATCH = "GLOBAL_ARTIFACT_MISMATCH"
+_ERR_THRESHOLD_CONTRACT_ARTIFACT_MISMATCH = "THRESHOLD_CONTRACT_ARTIFACT_MISMATCH"
+_ERR_TRUTH_RECEIPT_ARTIFACT_MISMATCH = "TRUTH_RECEIPT_ARTIFACT_MISMATCH"
 
 _REQUIRED_REPLAY_RECORD_COUNT = 2
 _MAX_REPLAY_INDEX = 1
@@ -294,6 +296,10 @@ def validate_global_replay_proof(proof: GlobalReplayProof) -> bool:
         seen_kind.add(rec.replay_kind)
         if (rec.replay_index, rec.replay_label, rec.replay_kind) != plan[pos]:
             raise ValueError(_ERR_REPLAY_RECORD_ORDER_MISMATCH)
+    if proof.replay_records[0].expected_artifact_hash != proof.global_threshold_contract_hash:
+        raise ValueError(_ERR_THRESHOLD_CONTRACT_ARTIFACT_MISMATCH)
+    if proof.replay_records[1].expected_artifact_hash != proof.global_truth_receipt_hash:
+        raise ValueError(_ERR_TRUTH_RECEIPT_ARTIFACT_MISMATCH)
     count = _validate_count(proof.replay_record_count)
     if count != _REQUIRED_REPLAY_RECORD_COUNT:
         raise ValueError(_ERR_REPLAY_RECORD_COUNT_MISMATCH)

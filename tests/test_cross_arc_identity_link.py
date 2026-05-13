@@ -179,7 +179,8 @@ def test_complete_validators_and_boundaries():
 
 
 def test_scope_boundary_scan():
-    text = open("src/qec/analysis/cross_arc_identity_link.py", "r", encoding="utf-8").read()
+    with open("src/qec/analysis/cross_arc_identity_link.py", "r", encoding="utf-8") as f:
+        text = f.read()
     forbidden = [
         "RealityLoopProofReceipt", "GlobalTruthReceipt", "GlobalValidationIndex", "GlobalThresholdContract",
         "GlobalReplayProof", "global_truth", "global_validation", "runtime_replay_execution", "recursive_execution",

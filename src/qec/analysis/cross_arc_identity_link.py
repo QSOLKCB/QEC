@@ -6,8 +6,9 @@ from typing import Any
 
 from .canonical_hashing import canonical_bytes, canonical_json, sha256_hex
 from .reality_loop_composition_spec import (
-    CompositionSlot,
+    COMPOSITION_MODE_FIXED_19_SLOT_REALITY_LOOP_COMPOSITION,
     RealityLoopCompositionSpec,
+    get_reality_loop_slot_definitions,
     validate_composition_slot,
     validate_reality_loop_composition_spec,
 )
@@ -19,6 +20,9 @@ _ERR_INVALID_LINK_KIND = "INVALID_LINK_KIND"
 _ERR_INVALID_LINK_INDEX = "INVALID_LINK_INDEX"
 _ERR_INVALID_LINK_LABEL = "INVALID_LINK_LABEL"
 _ERR_INVALID_SLOT_INDEX = "INVALID_SLOT_INDEX"
+_ERR_INVALID_ARC_LABEL = "INVALID_ARC_LABEL"
+_ERR_INVALID_RECEIPT_FIELD_NAME = "INVALID_RECEIPT_FIELD_NAME"
+_ERR_INVALID_COMPOSITION_MODE = "INVALID_COMPOSITION_MODE"
 _ERR_LINK_DEFINITION_MISMATCH = "LINK_DEFINITION_MISMATCH"
 _ERR_SLOT_LINK_MISMATCH = "SLOT_LINK_MISMATCH"
 _ERR_DUPLICATE_CROSS_ARC_LINK = "DUPLICATE_CROSS_ARC_LINK"
@@ -26,6 +30,7 @@ _ERR_MISSING_CROSS_ARC_LINK = "MISSING_CROSS_ARC_LINK"
 _ERR_CROSS_ARC_LINK_ORDER_MISMATCH = "CROSS_ARC_LINK_ORDER_MISMATCH"
 _ERR_CROSS_ARC_LINK_COUNT_MISMATCH = "CROSS_ARC_LINK_COUNT_MISMATCH"
 _ERR_CROSS_ARC_IDENTITY_LINK_RECEIPT_MISMATCH = "CROSS_ARC_IDENTITY_LINK_RECEIPT_MISMATCH"
+_ERR_COMPOSITION_SPEC_HASH_MISMATCH = "COMPOSITION_SPEC_HASH_MISMATCH"
 
 _REQUIRED_LINK_COUNT = 18
 _MAX_LINK_INDEX = 17
@@ -86,7 +91,7 @@ def _validate_link_kind(v: object) -> str:
 
 def _validate_arc_label(v: object) -> str:
     if not isinstance(v, str) or not v or len(v) > _MAX_ARC_LABEL_LENGTH or _ARC_LABEL_RE.fullmatch(v) is None:
-        raise ValueError(_ERR_INVALID_INPUT)
+        raise ValueError(_ERR_INVALID_ARC_LABEL)
     return v
 
 
@@ -97,7 +102,13 @@ def _validate_receipt_field_name(v: object) -> str:
         or len(v) > _MAX_RECEIPT_FIELD_NAME_LENGTH
         or _FIELD_NAME_RE.fullmatch(v) is None
     ):
-        raise ValueError(_ERR_INVALID_INPUT)
+        raise ValueError(_ERR_INVALID_RECEIPT_FIELD_NAME)
+    return v
+
+
+def _validate_composition_mode(v: object) -> str:
+    if v != COMPOSITION_MODE_FIXED_19_SLOT_REALITY_LOOP_COMPOSITION:
+        raise ValueError(_ERR_INVALID_COMPOSITION_MODE)
     return v
 
 
@@ -285,13 +296,13 @@ def build_cross_arc_identity_link_receipt(composition_spec: RealityLoopCompositi
         final_composition_slot_hash=composition_spec.composition_slots[_MAX_SLOT_INDEX].composition_slot_hash,
     )
     return CrossArcIdentityLinkReceipt(
-        composition_spec_hash=composition_spec.composition_spec_hash,
-        composition_mode=composition_spec.composition_mode,
+        composition_spec_hash=payload["composition_spec_hash"],
+        composition_mode=payload["composition_mode"],
         cross_arc_identity_links=links,
-        link_count=_REQUIRED_LINK_COUNT,
-        required_link_count=_REQUIRED_LINK_COUNT,
-        first_composition_slot_hash=composition_spec.composition_slots[0].composition_slot_hash,
-        final_composition_slot_hash=composition_spec.composition_slots[_MAX_SLOT_INDEX].composition_slot_hash,
+        link_count=payload["link_count"],
+        required_link_count=payload["required_link_count"],
+        first_composition_slot_hash=payload["first_composition_slot_hash"],
+        final_composition_slot_hash=payload["final_composition_slot_hash"],
         cross_arc_identity_link_receipt_hash=sha256_hex(payload),
     )
 
@@ -312,6 +323,16 @@ def validate_cross_arc_identity_link(link: CrossArcIdentityLink) -> bool:
     target_arc_label = _validate_arc_label(link.target_arc_label)
     source_receipt_field_name = _validate_receipt_field_name(link.source_receipt_field_name)
     target_receipt_field_name = _validate_receipt_field_name(link.target_receipt_field_name)
+
+    # Enforce arc label/field name match expected values for slot index
+    slot_defs = get_reality_loop_slot_definitions()
+    expected_source_idx, expected_source_arc, expected_source_field = slot_defs[source_slot_index]
+    expected_target_idx, expected_target_arc, expected_target_field = slot_defs[target_slot_index]
+    if expected_source_idx != source_slot_index or source_arc_label != expected_source_arc or source_receipt_field_name != expected_source_field:
+        raise ValueError(_ERR_LINK_DEFINITION_MISMATCH)
+    if expected_target_idx != target_slot_index or target_arc_label != expected_target_arc or target_receipt_field_name != expected_target_field:
+        raise ValueError(_ERR_LINK_DEFINITION_MISMATCH)
+
     source_receipt_hash = _validate_sha(link.source_receipt_hash)
     target_receipt_hash = _validate_sha(link.target_receipt_hash)
     source_composition_slot_hash = _validate_sha(link.source_composition_slot_hash)
@@ -344,6 +365,7 @@ def validate_cross_arc_identity_link_receipt(receipt: CrossArcIdentityLinkReceip
     if not isinstance(receipt, CrossArcIdentityLinkReceipt):
         raise ValueError(_ERR_INVALID_INPUT)
     composition_spec_hash = _validate_sha(receipt.composition_spec_hash)
+    _validate_composition_mode(receipt.composition_mode)
     if not isinstance(receipt.cross_arc_identity_links, tuple):
         raise ValueError(_ERR_INVALID_INPUT)
     if not isinstance(receipt.link_count, int) or isinstance(receipt.link_count, bool):
@@ -359,6 +381,9 @@ def validate_cross_arc_identity_link_receipt(receipt: CrossArcIdentityLinkReceip
     seen_pairs: set[tuple[int, int]] = set()
     for pos, link in enumerate(receipt.cross_arc_identity_links):
         validate_cross_arc_identity_link(link)
+        # Enforce per-link composition_spec_hash matches receipt header
+        if link.composition_spec_hash != composition_spec_hash:
+            raise ValueError(_ERR_COMPOSITION_SPEC_HASH_MISMATCH)
         if link.link_index in seen_indexes or (link.source_slot_index, link.target_slot_index) in seen_pairs:
             raise ValueError(_ERR_DUPLICATE_CROSS_ARC_LINK)
         seen_indexes.add(link.link_index)

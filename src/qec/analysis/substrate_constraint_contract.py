@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 import json
 import re
 from typing import Any
@@ -85,9 +85,9 @@ def _validate_int(v: object, err: str, minv: int | None = None, maxv: int | None
     return v
 
 
-def _validate_field_path(field_path: object, allow_empty: bool) -> tuple[str, ...]:
+def _validate_field_path(field_path: object, allow_empty: bool, *, allow_list: bool = False) -> tuple[str, ...]:
     if not isinstance(field_path, tuple):
-        if isinstance(field_path, list):
+        if allow_list and isinstance(field_path, list):
             field_path = tuple(field_path)
         else:
             raise ValueError(_ERR_INVALID_FIELD_PATH)
@@ -139,16 +139,16 @@ def _validate_predicate_semantics(kind: str, params: dict[str, Any]) -> None:
         raise ValueError(_ERR_INVALID_PREDICATE_KIND)
 
 
-def _subtrate_sort_key(p: "SubstrateConstraintPredicate") -> tuple[Any, ...]:
+def _substrate_sort_key(p: "SubstrateConstraintPredicate") -> tuple[Any, ...]:
     return (p.predicate_id, p.predicate_kind, p.field_path, p.substrate_constraint_predicate_hash)
 
 
 def _substrate_constraint_predicate_payload(predicate_id: str, predicate_kind: str, field_path: tuple[str, ...], canonical_predicate_parameters: str, predicate_parameters_hash: str) -> dict[str, Any]:
-    return {"predicate_id": predicate_id, "predicate_kind": predicate_kind, "field_path": list(field_path), "canonical_predicate_parameters": canonical_predicate_parameters, "predicate_parameters_hash": predicate_parameters_hash}
+    return {"predicate_id": predicate_id, "predicate_kind": predicate_kind, "field_path": field_path, "canonical_predicate_parameters": canonical_predicate_parameters, "predicate_parameters_hash": predicate_parameters_hash}
 
 
 def _substrate_contract_payload(source_artifact_type: str, source_artifact_hash: str, substrate_profile_id: str, substrate_mode: str, predicates: tuple["SubstrateConstraintPredicate", ...], predicate_count: int) -> dict[str, Any]:
-    return {"source_artifact_type": source_artifact_type, "source_artifact_hash": source_artifact_hash, "substrate_profile_id": substrate_profile_id, "substrate_mode": substrate_mode, "predicates": tuple(p.to_dict() for p in predicates), "predicate_count": predicate_count}
+    return {"source_artifact_type": source_artifact_type, "source_artifact_hash": source_artifact_hash, "substrate_profile_id": substrate_profile_id, "substrate_mode": substrate_mode, "predicates": [p.to_dict() for p in predicates], "predicate_count": predicate_count}
 
 
 @dataclass(frozen=True)
@@ -164,7 +164,8 @@ class SubstrateConstraintPredicate:
         validate_substrate_constraint_predicate(self)
 
     def to_dict(self) -> dict[str, Any]:
-        return {**_substrate_constraint_predicate_payload(self.predicate_id, self.predicate_kind, self.field_path, self.canonical_predicate_parameters, self.predicate_parameters_hash), "substrate_constraint_predicate_hash": self.substrate_constraint_predicate_hash}
+        payload = _substrate_constraint_predicate_payload(self.predicate_id, self.predicate_kind, self.field_path, self.canonical_predicate_parameters, self.predicate_parameters_hash)
+        return {**payload, "field_path": list(self.field_path), "substrate_constraint_predicate_hash": self.substrate_constraint_predicate_hash}
 
     def to_canonical_json(self) -> str:
         return canonical_json(self.to_dict())
@@ -206,13 +207,12 @@ def build_substrate_constraint_predicate(predicate_id: str, predicate_kind: str,
     if not isinstance(parsed, dict):
         raise ValueError(_ERR_INVALID_PREDICATE_PARAMETERS)
     _validate_predicate_semantics(predicate_kind, parsed)
-    fp = _validate_field_path(field_path, predicate_kind == "CANONICAL_BYTES_MAX")
+    fp = _validate_field_path(field_path, predicate_kind == "CANONICAL_BYTES_MAX", allow_list=True)
     cp = canonical_json(parsed)
     if len(cp.encode("utf-8")) > _MAX_PREDICATE_PARAMETER_BYTES:
         raise ValueError(_ERR_PREDICATE_PARAMETER_TOO_LARGE)
     ph = _canonical_json_text_hash(cp)
-    p_payload = _substrate_constraint_predicate_payload(predicate_id, predicate_kind, fp, cp, ph)
-    return SubstrateConstraintPredicate(**p_payload, substrate_constraint_predicate_hash=sha256_hex(p_payload))
+    return SubstrateConstraintPredicate(predicate_id=predicate_id, predicate_kind=predicate_kind, field_path=fp, canonical_predicate_parameters=cp, predicate_parameters_hash=ph, substrate_constraint_predicate_hash=sha256_hex(_substrate_constraint_predicate_payload(predicate_id, predicate_kind, fp, cp, ph)))
 
 
 def validate_substrate_constraint_predicate(predicate: SubstrateConstraintPredicate) -> bool:
@@ -258,7 +258,7 @@ def build_substrate_contract(source_artifact_type: str, source_artifact_hash: st
     hs = [p.substrate_constraint_predicate_hash for p in predicates]
     if len(ids) != len(set(ids)) or len(hs) != len(set(hs)):
         raise ValueError(_ERR_DUPLICATE_PREDICATE)
-    sorted_preds = tuple(sorted(predicates, key=_subtrate_sort_key))
+    sorted_preds = tuple(sorted(predicates, key=_substrate_sort_key))
     hash_payload = _substrate_contract_payload(source_artifact_type, source_artifact_hash, substrate_profile_id, _SUBSTRATE_MODE, sorted_preds, len(sorted_preds))
     return SubstrateContract(source_artifact_type=source_artifact_type, source_artifact_hash=source_artifact_hash, substrate_profile_id=substrate_profile_id, substrate_mode=_SUBSTRATE_MODE, predicates=sorted_preds, predicate_count=len(sorted_preds), substrate_contract_hash=sha256_hex(hash_payload))
 
@@ -286,7 +286,7 @@ def validate_substrate_contract(contract: SubstrateContract) -> bool:
     hs = [p.substrate_constraint_predicate_hash for p in contract.predicates]
     if len(ids) != len(set(ids)) or len(hs) != len(set(hs)):
         raise ValueError(_ERR_DUPLICATE_PREDICATE)
-    sorted_preds = tuple(sorted(contract.predicates, key=_subtrate_sort_key))
+    sorted_preds = tuple(sorted(contract.predicates, key=_substrate_sort_key))
     if sorted_preds != contract.predicates:
         raise ValueError(_ERR_PREDICATE_ORDER_MISMATCH)
     payload = _substrate_contract_payload(contract.source_artifact_type, contract.source_artifact_hash, contract.substrate_profile_id, contract.substrate_mode, contract.predicates, contract.predicate_count)

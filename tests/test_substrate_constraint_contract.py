@@ -2,7 +2,14 @@ from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
-from qec.analysis.substrate_constraint_contract import *
+from qec.analysis.substrate_constraint_contract import (
+    build_substrate_constraint_predicate,
+    build_substrate_contract,
+    get_allowed_substrate_predicate_kinds,
+    validate_substrate_constraint_predicate,
+    validate_substrate_contract,
+    validate_substrate_contract_matches_predicates,
+)
 
 
 def _valid_hash() -> str:
@@ -120,10 +127,8 @@ def test_contract_basics_and_validation_paths():
     with pytest.raises(ValueError, match="INVALID_SUBSTRATE_MODE"):
         validate_substrate_contract(replace(c1, substrate_mode="OTHER"))
     with pytest.raises(ValueError):
-        tampered_p = replace(pa, canonical_predicate_parameters='{"x":1}')
-        t_payload = {"source_artifact_type": c1.source_artifact_type, "source_artifact_hash": c1.source_artifact_hash, "substrate_profile_id": c1.substrate_profile_id, "substrate_mode": c1.substrate_mode, "predicates": (tampered_p.to_dict(), pz.to_dict()), "predicate_count": 2}
-        t_contract = replace(c1, predicates=(tampered_p, pz), substrate_contract_hash=sha256_hex(t_payload))
-        validate_substrate_contract(t_contract)
+        # Tampering with predicate parameters invalidates the predicate during __post_init__
+        replace(pa, canonical_predicate_parameters='{"x":1}')
     with pytest.raises(FrozenInstanceError):
         c1.substrate_profile_id = "B"
     assert c1.to_canonical_json() == c2.to_canonical_json()
@@ -146,6 +151,7 @@ def test_complete_validator_and_scope_boundary_scan():
         validate_substrate_contract_matches_predicates(replace(c, source_artifact_hash="b" * 64), [p1, p2])
     with pytest.raises(ValueError):
         validate_substrate_contract_matches_predicates(replace(c, substrate_profile_id="ProfileB"), [p1, p2])
-    text = open("src/qec/analysis/substrate_constraint_contract.py", "r", encoding="utf-8").read().lower()
+    with open("src/qec/analysis/substrate_constraint_contract.py", "r", encoding="utf-8") as f:
+        text = f.read().lower()
     banned = ["predicateevaluationresult","substratestatereceipt","materialencodingreceipt","substratedriftreceipt","layersubstratecompatibilityreceipt","masksubstratereceipt","routersubstratereceipt","readoutsubstratereceipt","hardware","cpu","gpu","device","physical_substrate","gameplay","render","step_world","execute_action","run_game","importlib","__import__(","subprocess","exec(","eval(","random","time.time","datetime.now","probability","probabilistic","neural","learned_policy","recursive","global_truth"]
     assert all(x not in text for x in banned)

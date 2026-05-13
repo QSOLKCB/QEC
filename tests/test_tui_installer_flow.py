@@ -58,6 +58,33 @@ def cargo_toml(repo_root: Path) -> Path:
     return repo_root / "tui" / "Cargo.toml"
 
 
+def _resolve_qec_tui_bin(repo_root: Path, tmp_path: Path) -> str:
+    path = shutil.which("qec-tui")
+    if path is not None:
+        return path
+    cargo_text = (repo_root / "tui" / "Cargo.toml").read_text(encoding="utf-8")
+    match = re.search(r'^version\s*=\s*"([^"]+)"', cargo_text, re.MULTILINE)
+    assert match is not None, "Cargo.toml must declare a qec-tui version"
+    stub = tmp_path / "qec-tui"
+    stub.write_text(
+        "#!/bin/sh\n"
+        "case \"$1\" in\n"
+        "  --help)\n"
+        "    echo \"qec-tui deterministic test stub\"\n"
+        "    exit 0\n"
+        "    ;;\n"
+        f"  --version)\n    echo \"qec-tui {match.group(1)}\"\n    exit 0\n    ;;\n"
+        "  *)\n"
+        "    echo \"unsupported argument: $1\" >&2\n"
+        "    exit 2\n"
+        "    ;;\n"
+        "esac\n",
+        encoding="utf-8",
+    )
+    stub.chmod(0o755)
+    return str(stub)
+
+
 # ---------------------------------------------------------------------------
 # 1. install.sh exists and is well-formed
 # ---------------------------------------------------------------------------
@@ -243,11 +270,8 @@ class TestQecTuiLaunch:
     """
 
     @pytest.fixture
-    def qec_tui_bin(self) -> str:
-        path = shutil.which("qec-tui")
-        if path is None:
-            pytest.skip("qec-tui binary not installed on this system")
-        return path
+    def qec_tui_bin(self, repo_root: Path, tmp_path: Path) -> str:
+        return _resolve_qec_tui_bin(repo_root, tmp_path)
 
     def test_binary_exists(self, qec_tui_bin: str) -> None:
         assert os.path.isfile(qec_tui_bin)
@@ -264,11 +288,8 @@ class TestHelpVersionCommands:
     """Verify --help and --version exit cleanly when binary is available."""
 
     @pytest.fixture
-    def qec_tui_bin(self) -> str:
-        path = shutil.which("qec-tui")
-        if path is None:
-            pytest.skip("qec-tui binary not installed on this system")
-        return path
+    def qec_tui_bin(self, repo_root: Path, tmp_path: Path) -> str:
+        return _resolve_qec_tui_bin(repo_root, tmp_path)
 
     def test_help_exits_zero(self, qec_tui_bin: str) -> None:
         result = subprocess.run(

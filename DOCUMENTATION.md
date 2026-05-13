@@ -134,6 +134,9 @@ Treat all such failures as proof-boundary protection, not recoverable noise.
 - Keep canonical serialization stable.
 - Maintain float64 and explicit typing discipline.
 - Avoid hidden dependencies in validators.
+- Normalize external scientific dependencies through authoritative upstream
+  sources with explicit deterministic review; QEC intentionally avoids
+  unrestricted PyPI dependency resolution for optional dependency gating.
 - Add tests for deterministic replay when changing behavior.
 
 For historical context and release planning lineage, see [`ROADMAP.md`](ROADMAP.md).

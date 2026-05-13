@@ -11,11 +11,13 @@ import pytest
 
 pytestmark = pytest.mark.optional
 
-if shutil.which("gh") is None:
-    pytest.skip(
-        "gh CLI not installed; skipping mirror repo tests",
-        allow_module_level=True,
-    )
+
+@pytest.fixture
+def gh_stub_dir(tmp_path):
+    gh = tmp_path / "gh"
+    gh.write_text("#!/bin/sh\necho 'gh test stub'\n", encoding="utf-8")
+    gh.chmod(0o755)
+    return tmp_path
 
 
 class TestMirrorReposScript:
@@ -38,11 +40,12 @@ class TestMirrorReposScript:
         assert os.path.exists(self.script_path), "mirror_repos.sh script not found"
         assert os.access(self.script_path, os.X_OK), "mirror_repos.sh is not executable"
 
-    def test_dependency_check_function(self):
+    def test_dependency_check_function(self, gh_stub_dir):
         """Test the dependency checking functionality."""
         # Test with existing command - should succeed
         test_script_success = f'''
         #!/bin/bash
+        export PATH="{gh_stub_dir}:$PATH"
         source {self.script_path}
 
         # Test with existing command
@@ -53,6 +56,7 @@ class TestMirrorReposScript:
         # Test with non-existent command - should fail
         test_script_fail = f'''
         #!/bin/bash
+        export PATH="{gh_stub_dir}:$PATH"
         source {self.script_path}
 
         # Test with non-existent command (should fail)
@@ -87,10 +91,11 @@ class TestMirrorReposScript:
             finally:
                 os.unlink(f.name)
 
-    def test_timestamp_function(self):
+    def test_timestamp_function(self, gh_stub_dir):
         """Test the timestamp function."""
         test_script = f'''
         #!/bin/bash
+        export PATH="{gh_stub_dir}:$PATH"
         source {self.script_path}
         timestamp
         '''
@@ -111,10 +116,11 @@ class TestMirrorReposScript:
             finally:
                 os.unlink(f.name)
 
-    def test_log_function(self):
+    def test_log_function(self, gh_stub_dir):
         """Test the log function."""
         test_script = f'''
         #!/bin/bash
+        export PATH="{gh_stub_dir}:$PATH"
         source {self.script_path}
         log "Test message"
         '''
@@ -134,7 +140,7 @@ class TestMirrorReposScript:
             finally:
                 os.unlink(f.name)
 
-    def test_dry_run_mode(self):
+    def test_dry_run_mode(self, gh_stub_dir):
         """Test that dry run mode is respected."""
         # Test with DRY_RUN=1, should not fail even without gh/git
         env = os.environ.copy()
@@ -144,6 +150,7 @@ class TestMirrorReposScript:
         test_script = f'''
         #!/bin/bash
         set -euo pipefail
+        export PATH="{gh_stub_dir}:$PATH"
         source {self.script_path}
 
         # Test a simple log message
@@ -165,10 +172,11 @@ class TestMirrorReposScript:
             finally:
                 os.unlink(f.name)
 
-    def test_environment_variables(self):
+    def test_environment_variables(self, gh_stub_dir):
         """Test that environment variables are properly handled."""
         test_script = f'''
         #!/bin/bash
+        export PATH="{gh_stub_dir}:$PATH"
         source {self.script_path}
 
         echo "ORG_TEST: $ORG_TEST"

@@ -39,11 +39,15 @@ def test_backend_factory_qiskit():
     assert code.distance == 3
 
 
-@pytest.mark.skipif(QISKIT_AVAILABLE, reason="Qiskit installed; ImportError path not applicable")
 def test_backend_factory_qiskit_importerror_when_unavailable():
-    """Test that requesting Qiskit backend raises ImportError when Qiskit is unavailable."""
-    with pytest.raises(ImportError):
-        create_steane_code('qiskit')
+    """Test ImportError path by forcing Qiskit backend availability flag off."""
+    original = create_steane_code.__globals__["QISKIT_AVAILABLE"]
+    create_steane_code.__globals__["QISKIT_AVAILABLE"] = False
+    try:
+        with pytest.raises(ImportError):
+            create_steane_code('qiskit')
+    finally:
+        create_steane_code.__globals__["QISKIT_AVAILABLE"] = original
 
 
 def test_backend_factory_invalid():

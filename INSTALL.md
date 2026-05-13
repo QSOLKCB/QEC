@@ -73,5 +73,9 @@ curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | s
 - **Scientific warning from `scipy.linalg.logm`**: a known singular-matrix
   warning can appear in one entropy test path; it is not caused by missing
   SciPy.
-- **Missing optional backends**: some tests intentionally skip when optional
-  backend packages are absent.
+- **`qldpc` CSS construction skip**: `tests/test_css_construction.py` is
+  intentionally optional until `qldpc` is normalized into the repository's
+  approved upstream-source dependency workflow. QEC intentionally avoids
+  unrestricted PyPI dependency resolution; external scientific dependencies are
+  expected to come from authoritative upstream repositories and pass explicit
+  deterministic review before inclusion.

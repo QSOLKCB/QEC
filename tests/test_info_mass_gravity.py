@@ -258,7 +258,8 @@ def test_relative_entropy():
     rho = basis(2, 0) * basis(2, 0).dag()
     sigma = 0.5 * basis(2, 0) * basis(2, 0).dag() + 0.5 * basis(2, 1) * basis(2, 1).dag()
     
-    rel_entropy = img.relative_entropy(rho, sigma)
+    with pytest.warns(Warning, match="exactly singular"):
+        rel_entropy = img.relative_entropy(rho, sigma)
     
     # Relative entropy should be non-negative
     assert rel_entropy >= 0.0

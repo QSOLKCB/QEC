@@ -61,7 +61,7 @@ Rust `qec-tui` installation and usage are documented in [`USAGE.md`](USAGE.md).
 Canonical installer command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/QSOLKCB/qec-tui/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
 ```
 
 ## Troubleshooting

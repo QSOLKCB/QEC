@@ -120,7 +120,7 @@ Rust TUI Control Surface: see [`USAGE.md`](USAGE.md).
 | `qec-exp --help` | Shows packaged experiment CLI commands |
 | `pytest -q` | Runs the deterministic test suite |
 | `pytest -q -ra` | Shows skip/warning diagnostics |
-| `curl -fsSL https://raw.githubusercontent.com/QSOLKCB/qec-tui/main/install.sh \| sh` | Installs the Rust `qec-tui` launcher |
+| `curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh \| sh` | Installs the Rust `qec-tui` launcher |
 
 ## Why This Matters
 

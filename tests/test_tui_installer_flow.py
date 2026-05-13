@@ -59,12 +59,15 @@ def cargo_toml(repo_root: Path) -> Path:
 
 
 def _resolve_qec_tui_bin(repo_root: Path, tmp_path: Path) -> str:
-    path = shutil.which("qec-tui")
-    if path is not None:
-        return path
     cargo_text = (repo_root / "tui" / "Cargo.toml").read_text(encoding="utf-8")
-    match = re.search(r'^version\s*=\s*"([^"]+)"', cargo_text, re.MULTILINE)
+    package_match = re.search(r"^\[package\]\s*$([\s\S]*?)(?=^\[|\Z)", cargo_text, re.MULTILINE)
+    assert package_match is not None, "Cargo.toml must declare a [package] section"
+    match = re.search(r'^version\s*=\s*"([^"]+)"', package_match.group(1), re.MULTILINE)
     assert match is not None, "Cargo.toml must declare a qec-tui version"
+    if os.environ.get("QEC_TUI_USE_SYSTEM_BIN", "") == "1":
+        path = shutil.which("qec-tui")
+        assert path is not None, "QEC_TUI_USE_SYSTEM_BIN=1 requires qec-tui on PATH"
+        return path
     stub = tmp_path / "qec-tui"
     stub.write_text(
         "#!/bin/sh\n"
@@ -263,11 +266,7 @@ class TestVersionTagResolution:
 # ---------------------------------------------------------------------------
 
 class TestQecTuiLaunch:
-    """Verify qec-tui binary can be located and responds to --help/--version.
-
-    These tests are skipped if the binary is not installed (CI or dev machines
-    without a prior install).
-    """
+    """Verify qec-tui binary path resolution and executable availability."""
 
     @pytest.fixture
     def qec_tui_bin(self, repo_root: Path, tmp_path: Path) -> str:
@@ -285,7 +284,7 @@ class TestQecTuiLaunch:
 # ---------------------------------------------------------------------------
 
 class TestHelpVersionCommands:
-    """Verify --help and --version exit cleanly when binary is available."""
+    """Verify --help and --version exit cleanly with deterministic stubs by default."""
 
     @pytest.fixture
     def qec_tui_bin(self, repo_root: Path, tmp_path: Path) -> str:

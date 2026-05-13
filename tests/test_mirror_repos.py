@@ -4,7 +4,6 @@ Tests for the repository mirroring script.
 """
 
 import os
-import shutil
 import subprocess
 import tempfile
 import pytest

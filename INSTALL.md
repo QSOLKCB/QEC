@@ -23,14 +23,16 @@ python -m pip install --upgrade pip
 
 ## Install package and dependencies
 
-Install QEC plus developer and scientific extras:
+Install QEC with deterministic developer extras:
 
 ```bash
-python -m pip install -e ".[dev,science]"
+python -m pip install -e ".[dev]"
 ```
 
-Scientific extras may include packages used by test and analysis paths,
-including `scipy`, `pandas`, `matplotlib`, `qutip`, and `qiskit`.
+For optional scientific dependencies (`qutip`, `qiskit`, `pandas`, etc.), use
+authoritative upstream releases pinned to reviewed versions before enabling
+tests that require them. Avoid unrestricted `pip install .[science]` resolution
+for deterministic validation/proof workflows.
 
 ## Run tests
 
@@ -66,10 +68,11 @@ curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | s
 
 ## Troubleshooting
 
-- **`qec-tui` tests skip**: local binary may be missing. Install via `USAGE.md`
-  if you need runtime launch tests.
-- **`gh` mirror tests skip**: GitHub CLI (`gh`) is optional and required only for
-  mirror-tool tests.
+- **`qec-tui` test binary source**: tests use a deterministic local stub by
+  default. To run against a real install, set `QEC_TUI_USE_SYSTEM_BIN=1` and
+  ensure `qec-tui` is on `PATH`.
+- **`gh` mirror tests**: tests inject a deterministic `gh` stub and do not
+  require a host-installed GitHub CLI binary.
 - **Scientific warning from `scipy.linalg.logm`**: a known singular-matrix
   warning can appear in one entropy test path; it is not caused by missing
   SciPy.

@@ -4,6 +4,7 @@ Tests for info-mass-gravity module.
 
 import pytest
 import numpy as np
+from scipy.linalg import LinAlgWarning
 
 pytest.importorskip("qutip")
 
@@ -258,7 +259,7 @@ def test_relative_entropy():
     rho = basis(2, 0) * basis(2, 0).dag()
     sigma = 0.5 * basis(2, 0) * basis(2, 0).dag() + 0.5 * basis(2, 1) * basis(2, 1).dag()
     
-    with pytest.warns(Warning, match="exactly singular"):
+    with pytest.warns(LinAlgWarning, match="exactly singular"):
         rel_entropy = img.relative_entropy(rho, sigma)
     
     # Relative entropy should be non-negative

@@ -2,7 +2,7 @@
 
 Stdlib only.  No decoder changes.  No TUI feature changes.
 Verifies that install paths, binary versions, and release tags are consistent
-across the repository artifacts (Cargo.toml, README.md, install.sh).
+across the repository artifacts (Cargo.toml, README.md/USAGE.md, install.sh).
 """
 
 from __future__ import annotations
@@ -84,19 +84,20 @@ def _read_text(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 def verify_install_path_consistency(repo_root: Optional[str] = None) -> IntegrityReport:
-    """Verify that install.sh, README, and Cargo.toml reference consistent paths.
+    """Verify that install.sh and docs reference consistent installer paths.
 
     Checks:
     - install.sh REPO matches QSOLKCB/QEC
     - install.sh BINARY_NAME matches qec-tui
     - install.sh INSTALL_DIR matches /usr/local/bin
-    - README curl URL points to the same install.sh path used in the repo
+    - README or USAGE curl URL points to the same install.sh path used in the repo
     """
     root = resolve_repo_root(repo_root)
     results: List[IntegrityResult] = []
 
     install_sh = root / "tui" / "install.sh"
     readme = root / "README.md"
+    usage = root / "USAGE.md"
 
     # --- install.sh checks ---
     if not install_sh.exists():
@@ -131,18 +132,18 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
         f"INSTALL_DIR={dir_val!r}",
     ))
 
-    # --- README curl path ---
-    if not readme.exists():
-        results.append(IntegrityResult("readme_exists", False, "README.md not found"))
+    # --- README/USAGE curl path ---
+    if not readme.exists() and not usage.exists():
+        results.append(IntegrityResult("docs_exists", False, "README.md and USAGE.md not found"))
         return _make_report(results)
 
-    results.append(IntegrityResult("readme_exists", True, str(readme)))
-
-    readme_text = _read_text(readme)
+    docs = [doc for doc in (readme, usage) if doc.exists()]
+    results.append(IntegrityResult("docs_exists", True, ", ".join(str(doc) for doc in docs)))
+    docs_with_curl = [str(doc) for doc in docs if CANONICAL_CURL_URL in _read_text(doc)]
     results.append(IntegrityResult(
-        "readme_curl_url",
-        CANONICAL_CURL_URL in readme_text,
-        f"expected URL present: {CANONICAL_CURL_URL in readme_text}",
+        "docs_curl_url",
+        len(docs_with_curl) > 0,
+        f"expected URL present in: {docs_with_curl if docs_with_curl else 'none'}",
     ))
 
     return _make_report(results)

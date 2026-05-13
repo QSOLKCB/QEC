@@ -2,7 +2,7 @@
 
 Coverage:
 - install.sh exists and is well-formed
-- README advertised curl path is correct
+- README/USAGE advertised curl path is correct
 - installer is idempotent (re-parse yields same results)
 - version tag resolves correctly from Cargo.toml
 - qec-tui binary launch semantics (help/version commands)
@@ -111,32 +111,38 @@ class TestInstallShExists:
 
 
 # ---------------------------------------------------------------------------
-# 2. README advertised curl path is correct
+# 2. README/USAGE advertised curl path is correct
 # ---------------------------------------------------------------------------
 
 class TestReadmeCurlPath:
-    """Verify the README curl install command matches install.sh location."""
+    """Verify the README/USAGE curl install command matches install.sh location."""
+
+    def _get_doc_texts(self, repo_root: Path) -> list[str]:
+        usage = repo_root / "USAGE.md"
+        readme = repo_root / "README.md"
+        docs = [doc for doc in (readme, usage) if doc.exists()]
+        return [doc.read_text(encoding="utf-8") for doc in docs]
 
     def test_readme_exists(self, readme: Path) -> None:
         assert readme.exists(), "README.md must exist"
 
     def test_readme_contains_curl_command(self, readme: Path) -> None:
-        text = readme.read_text(encoding="utf-8")
-        assert "curl" in text, "README must contain a curl install command"
+        texts = self._get_doc_texts(REPO_ROOT)
+        assert any("curl" in text for text in texts), "README/USAGE must contain a curl install command"
 
     def test_readme_curl_url_matches(self, readme: Path) -> None:
-        text = readme.read_text(encoding="utf-8")
-        assert CANONICAL_CURL_URL in text, \
-            f"README must contain the canonical install URL: {CANONICAL_CURL_URL}"
+        texts = self._get_doc_texts(REPO_ROOT)
+        assert any(CANONICAL_CURL_URL in text for text in texts), \
+            f"README/USAGE must contain the canonical install URL: {CANONICAL_CURL_URL}"
 
     def test_readme_curl_flags(self, readme: Path) -> None:
-        text = readme.read_text(encoding="utf-8")
-        assert "curl -fsSL" in text, \
-            "README curl command must use -fsSL flags"
+        texts = self._get_doc_texts(REPO_ROOT)
+        assert any("curl -fsSL" in text for text in texts), \
+            "README/USAGE curl command must use -fsSL flags"
 
     def test_readme_pipes_to_sh(self, readme: Path) -> None:
-        text = readme.read_text(encoding="utf-8")
-        assert "| sh" in text, "README curl command must pipe to sh"
+        texts = self._get_doc_texts(REPO_ROOT)
+        assert any("| sh" in text for text in texts), "README/USAGE curl command must pipe to sh"
 
 
 # ---------------------------------------------------------------------------

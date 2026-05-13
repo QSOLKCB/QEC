@@ -60,7 +60,7 @@ def cargo_toml(repo_root: Path) -> Path:
 
 def _resolve_qec_tui_bin(repo_root: Path, tmp_path: Path) -> str:
     cargo_text = (repo_root / "tui" / "Cargo.toml").read_text(encoding="utf-8")
-    package_match = re.search(r"^\[package\]\s*$([\s\S]*?)(?=^\[|\Z)", cargo_text, re.MULTILINE)
+    package_match = re.search(r"^\[package\]\s*\n([\s\S]*?)(?=^\[|\Z)", cargo_text, re.MULTILINE)
     assert package_match is not None, "Cargo.toml must declare a [package] section"
     match = re.search(r'^version\s*=\s*"([^"]+)"', package_match.group(1), re.MULTILINE)
     assert match is not None, "Cargo.toml must declare a qec-tui version"

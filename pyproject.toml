@@ -18,8 +18,14 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-repeat>=0.9",
-    "matplotlib>=3.5",
     "networkx>=2.6"
+]
+
+science = [
+    "matplotlib>=3.5",
+    "pandas>=2.0",
+    "qutip>=5.0",
+    "qiskit>=1.0"
 ]
 
 # Optional external backends — not installed by default.

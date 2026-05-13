@@ -1,31 +1,35 @@
-```md
 # QSOLKCB / QEC
 
-QEC is a deterministic, replay-safe reasoning system for quantum error correction and invariant-driven
-computation.
+QEC is a deterministic, replay-safe reasoning system for quantum error correction
+and invariant-driven computation.
 
-It transforms computation, evidence, semantic alignment, governance, replay validation, lattice topology,
-router/readout proof, multi-scale invariance, entropy drift analysis, and deterministic
-GameWorld interaction boundaries into **canonical proof artifacts**.
+It turns computation, evidence, semantic alignment, governance, replay
+validation, lattice topology, router/readout proof, multi-scale invariance,
+entropy drift analysis, GameWorld interaction boundaries,
+perturbation/stress contracts, substrate constraints, bounded recursive loops,
+reality-loop composition, and global replay proofs into canonical proof
+artifacts.
 
-**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof •
-Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional
-Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift •
-Decay-Resistance Proofs • GameWorld Interaction Reports**
-```
----
+The repository began with a Layer 1 QEC decoder and now extends that foundation
+into a broader deterministic proof stack.
+
+In this README, QEC means the QSOLKCB/QEC software system and release lineage.
+
+**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift • Decay-Resistance Proofs • GameWorld Interaction Reports • Perturbation Contracts • Substrate Constraints • Recursive Proof Loops • Reality Loop Proofs • Global Replay Proofs**
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v156.6-success)](https://github.com/QSOLKCB/QEC/releases/tag/v156.6)
+[![Latest](https://img.shields.io/badge/stable-v161.2-success)](https://github.com/QSOLKCB/QEC/releases/tag/v161.2)
+[![Branch](https://img.shields.io/badge/branch-v161.2%20canonical-purple)]()
 [![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
 
-Current completed release arc: [`v156.0`](https://github.com/QSOLKCB/QEC/releases/tag/v156.0) → [`v156.1`](https://github.com/QSOLKCB/QEC/releases/tag/v156.1) → [`v156.2`](https://github.com/QSOLKCB/QEC/releases/tag/v156.2) → [`v156.2.1`](https://github.com/QSOLKCB/QEC/releases/tag/v156.2.1) → [`v156.3`](https://github.com/QSOLKCB/QEC/releases/tag/v156.3) → [`v156.4`](https://github.com/QSOLKCB/QEC/releases/tag/v156.4) → [`v156.4.1`](https://github.com/QSOLKCB/QEC/releases/tag/v156.4.1) → [`v156.5`](https://github.com/QSOLKCB/QEC/releases/tag/v156.5) → [`v156.6`](https://github.com/QSOLKCB/QEC/releases/tag/v156.6).
+Current completed release arc: [`v151.x`](https://github.com/QSOLKCB/QEC/releases)
+through [`v161.2`](https://github.com/QSOLKCB/QEC/releases/tag/v161.2).
 
-Recent preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay Signatures — Hash-Bound Checkpoints, Subsystem Drift Receipts, and Replay-Resistant Proof Chains**.
-
----
+Recent preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay
+Signatures — Hash-Bound Checkpoints, Subsystem Drift Receipts, and
+Replay-Resistant Proof Chains**.
 
 ## 📚 DOIs
 
@@ -38,981 +42,134 @@ Recent preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay Signature
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20039913-blue)](https://doi.org/10.5281/zenodo.20039913)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20045771-blue)](https://doi.org/10.5281/zenodo.20045771)
 
----
+# ✅ System Properties
 
-## 🧩 System Properties
+| Property | Status |
+|---|---|
+| Deterministic canonical hashing | Stable |
+| Frozen proof artifacts | Stable |
+| Replay-safe validation | Stable |
+| Self-hash exclusion | Stable |
+| Recomputed-hash validation | Stable |
+| GameWorld interaction receipts | Complete through v156.6 |
+| Perturbation/stress contracts | Complete through v157.3 |
+| Substrate constraint receipts | Complete through v158.3 |
+| Bounded recursive proof loops | Complete through v159.3 |
+| Reality-loop composition | Complete through v160.2 |
+| Global validation/truth/replay receipts | Complete through v161.2 |
 
-[![Branch](https://img.shields.io/badge/branch-v156.6%20canonical-purple)]()
-[![Architecture](https://img.shields.io/badge/architecture-deterministic%20proof%20system-blueviolet)]()
-[![Determinism](https://img.shields.io/badge/determinism-byte--identical-success)]()
-[![Replay](https://img.shields.io/badge/replay-decay%20resistant-green)]()
-[![Governance](https://img.shields.io/badge/governance-dialogical-orange)]()
-[![Validation](https://img.shields.io/badge/validation-proof--carrying-yellow)]()
-[![RES/RAG](https://img.shields.io/badge/RES%2FRAG-semantic%20resonance-blue)]()
-[![Lattice](https://img.shields.io/badge/lattice-atomic%20semantic%20state%20space-blue)]()
-[![Router](https://img.shields.io/badge/router-deterministic%20path%20proof-blue)]()
-[![Readout](https://img.shields.io/badge/readout-source--bound%20projection-blue)]()
-[![Scale](https://img.shields.io/badge/scale-multi--scale%20invariance-blue)]()
-[![Entropy Drift](https://img.shields.io/badge/entropy%20drift-deterministic-blue)]()
-[![Decay Resistance](https://img.shields.io/badge/decay%20resistance-CLEAN%20proof-critical)]()
-[![GameWorld](https://img.shields.io/badge/gameworld-deterministic%20interaction-blue)]()
-[![Proof](https://img.shields.io/badge/proof-system--level-critical)]()
-[![License](https://img.shields.io/badge/license-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
+# 🧠 What QEC Is
 
----
+QEC is a deterministic proof system.
 
-# 🚀 What QEC Is
+It does three things:
 
-QEC is a deterministic, replay-safe reasoning system that turns computation, evidence, semantic alignment, validation, governance, lattice topology, router paths, readout projections, compatibility masks, shift projections, kernel/shell composition, deterministic transition bases, replay alignment, subgraph invariant patterns, multi-scale occurrence aggregation, subsystem entropy drift, decay-resistance proofs, game-world intake boundaries, adapter/action contracts, observation snapshots, episode traces, strategy probes, chaos replay verdicts, and interaction reports into **canonical proof artifacts**.
+1. Receives structured inputs.
+2. Converts them into canonical, hash-bound proof artifacts.
+3. Revalidates those artifacts by recomputing their canonical hashes.
 
-It is designed for quantum error correction and invariant-driven computation. The repository began with a Layer 1 QEC decoder and has evolved into a broader deterministic proof architecture spanning replay validation, governance, lattice topology, router/readout proof, multi-scale invariance, subsystem entropy drift, decay-resistance proofs, and replay-safe GameWorld interaction receipts.
+QEC is useful when you need proof objects that are:
 
-In this README, **QEC denotes the QSOLKCB/QEC software system and release lineage**. The completed v155.x arc extends the stack with deterministic proof receipts, canonical hashing, explicit drift classification, subsystem entropy drift, and replay-bound decay-resistance proofs. The completed v156.x arc extends that proof discipline to messy external game worlds by binding source intake, static action alphabets, observation snapshots, episode traces, strategy probes, chaos replay verdicts, and final interaction reports into deterministic receipts.
+- replay-safe
+- tamper-evident
+- deterministic
+- canonical JSON based
+- explicit about failure modes
+- bounded rather than open-ended
 
-```text
-untrusted input
-→ deterministic boundary
-→ canonical identity
-→ semantic field
-→ resonance validation
-→ adversarial validation
-→ governance decision
-→ proof chain
-→ determinism enforcement
-→ cross-environment replay proof
-→ reversible layer proof
-→ compression equivalence
-→ fractal invariant compression
-→ atomic semantic lattice
-→ deterministic router path receipt
-→ source-bound readout projection receipt
-→ layered lattice projection receipt
-→ QAM compatibility metadata receipt
-→ SearchMask64 reduction/collision receipt
-→ Hilber/Hilbert shift stability receipt
-→ functional kernel + readout shell composition receipt
-→ readout matrix / deterministic Markov-basis receipt
-→ lattice drift + replay alignment proof
-→ subgraph invariant pattern receipt
-→ multi-scale invariant receipt
-→ Sierpinski compression receipt
-→ router/readout scale-binding receipts
-→ governance / semantic compression receipts
-→ decay checkpoint set
-→ digital decay signature
-→ subsystem entropy drift receipt
-→ replay-bound decay-resistance proof
-→ game-world source intake receipt
-→ world adapter / action alphabet receipt
-→ observation snapshot receipt
-→ deterministic episode trace receipt
-→ strategy probe receipt
-→ chaos replay verdict receipt
-→ game-world interaction report receipt
-```
+QEC does not make the world deterministic.
 
-QEC is not merely a runtime. It is a system that:
+QEC makes the boundary deterministic.
 
-* observes state
-* detects invariants
-* canonicalizes identity
-* constructs semantic fields
-* validates RES/RAG resonance
-* detects adversarial failure
-* makes deterministic governance decisions
-* proves distributed convergence
-* validates configuration stability
-* proves replay across environments
-* constructs reversible layered-state receipts
-* proves layer removal and compression equivalence
-* represents bounded semantic state spaces as atomic lattices
-* resolves router-visible paths without hidden traversal
-* projects readout-visible state from explicitly resolved paths
-* binds layered identity into lattice topology
-* treats external QAM/router/readout lineage as metadata unless hash-bound
-* reduces search/mask inputs to deterministic unsigned 64-bit contracts
-* defines Hilber/Hilbert shift as deterministic cyclic index projection
-* composes readout shells around explicit kernel contracts
-* stores readout combinations in deterministic matrix form
-* derives Markov-compatible transition bases without stochastic behavior
-* detects lattice/router/readout/mask/shift/kernel/matrix drift under replay
-* identifies canonical subgraph invariant patterns
-* aggregates invariant occurrences across explicit scale indices
-* emits hash-stable proof receipts
-* detects exact identity drift with hash-bound checkpoints
-* classifies drift using deterministic digital decay signatures
-* localizes drift across layer/router/mask/shift/readout subsystems
-* proves clean, replay-bound decay resistance
-* safely ingests external game-world source archives without execution
-* binds static adapter/action alphabets to source intake receipts
-* records bounded observation snapshot receipts
-* constructs deterministic episode trace receipts
-* derives deterministic strategy probe receipts without policy optimization
-* compares replay attempts through chaos replay verdict receipts
-* aggregates the v156.x chain into GameWorld interaction reports
-
-It determines:
+Pipeline:
 
 ```text
-what is known
-what changed
-what failed
-what must be trusted
-what must be rejected
-what can be skipped
-what decision follows
-what proof binds the outcome
-whether the same result replays elsewhere
-whether the lattice topology is stable
-whether router paths resolve identically
-whether readout projections remain source-bound
-whether masks, shifts, kernels, shells, matrices, and transitions replay exactly
-whether subgraph structure is invariant
-whether invariant occurrences aggregate consistently across scale
-whether identity drift occurred at explicit artifact positions
-whether subsystem entropy drift localizes to layer/router/mask/shift/readout receipts
-whether a proof chain is CLEAN, adversarial-free, and replay-bound
-whether a messy external world was observed at a deterministic boundary
-which static action alphabet was allowed
-which observations and actions were represented
-whether episode traces and strategy probes replay cleanly
-whether final GameWorld interaction reports bind the complete chain
+input
+→ canonical JSON
+→ stable SHA-256 hash
+→ frozen receipt
+→ validator recomputes hash
+→ replay-safe proof result
 ```
-
----
 
 ## ⚡ Quickstart
-
-### 1. Clone and install
 
 ```bash
 git clone https://github.com/QSOLKCB/QEC.git
 cd QEC
-pip install -e .
+python -m pip install -e ".[dev,science]"
 ```
 
-For a minimal reproducible test environment:
+For full setup, environment, and troubleshooting details, see
+[`INSTALL.md`](INSTALL.md).
 
-```bash
-pip install -r requirements-test.txt
-```
-
-### 2. Run the SPHAERA proof demo
-
-```bash
-python scripts/sphaera_proof_demo.py
-```
-
-This executes a deterministic proof-style pipeline:
-
-```text
-trace
-→ invariants
-→ convergence
-→ execution structure
-→ geometry
-→ ensemble validation
-→ spectral structure
-→ deterministic decision
-→ runtime receipt
-```
-
-### 3. Run the packaged experiment CLI
-
-```bash
-qec-exp --help
-```
-
-Common usage:
-
-```bash
-qec-exp run
-qec-exp phase-diagram
-qec-exp estimate-threshold
-qec-exp policy-memory
-```
-
-### 4. Run tests
+### Testing
 
 ```bash
 pytest -q
-PYTHONPATH=src pytest -q
 pytest -q -ra
 ```
 
----
+Rust TUI Control Surface: see [`USAGE.md`](USAGE.md).
 
 ## Commands
 
 | Command | Purpose |
 |---|---|
-| `python scripts/sphaera_proof_demo.py` | Runs the SPHAERA proof demo from the source tree |
-| `qec-exp --help` | Shows the packaged experiment CLI |
-| `qec-exp run` | Runs the packaged deterministic experiment entry point |
-| `qec-exp phase-diagram` | Runs phase-diagram tooling |
-| `qec-exp estimate-threshold` | Runs threshold-estimation tooling |
-| `qec-exp policy-memory` | Runs policy-memory tooling |
+| `python scripts/sphaera_proof_demo.py` | Runs the SPHAERA proof demo |
+| `qec-exp --help` | Shows packaged experiment CLI commands |
 | `pytest -q` | Runs the deterministic test suite |
-| `pytest -q -ra` | Runs tests with skip/warning visibility |
+| `pytest -q -ra` | Shows skip/warning diagnostics |
+| `curl -fsSL https://raw.githubusercontent.com/QSOLKCB/qec-tui/main/install.sh \| sh` | Installs the Rust `qec-tui` launcher |
 
----
+## Why This Matters
+
+QEC matters because deterministic proof artifacts make it possible to:
+
+- replay validation instead of trusting claims
+- detect tampering through stable hashes
+- represent messy external systems without executing them
+- compare expected and observed proof chains
+- bind long research arcs into a single canonical replay chain
+- separate symbolic language from deterministic artifacts
+
+The world may be chaotic.
+The receipt must not be.
+
+## Proof Artifacts
+
+QEC emits canonical JSON proof artifacts with stable SHA-256 identity and
+validator-backed replay checks.
+
+For full artifact families, schemas, and failure semantics, see
+[`DOCUMENTATION.md`](DOCUMENTATION.md).
 
 # 🧠 Core Law
 
 ```text
 same input
 → same ordering
-→ same canonical JSON
-→ same stable hash
+→ same canonical form
+→ same hash
 → same bytes
-→ same proof artifact
-→ same outcome
+→ same proof
 ```
 
-Violation → **SYSTEM INVALID**
+## Attribution
 
----
+If you build on QEC in publications, software, or research artifacts,
+please cite both the repository and DOI-backed records above.
 
-# 🧱 Current Architecture — v156.6
+## References
 
-## Implemented proof chain
+- Roadmap and historical progression: [`ROADMAP.md`](ROADMAP.md)
+- Install and test instructions: [`INSTALL.md`](INSTALL.md)
+- Full system documentation: [`DOCUMENTATION.md`](DOCUMENTATION.md)
+- Rust TUI installer/usage: [`USAGE.md`](USAGE.md)
 
-```text
-ExtractionReceipt
-→ CanonicalizationReceipt
-→ SemanticFieldReceipt
-→ ResonanceValidationReceipt
-→ ExtractionValidationReceipt
-→ DialogicalGovernanceReceipt
-→ DistributedConvergenceReceipt
-→ RealWorldProofReceipt
-→ DeterminismReceipt
-→ ReplayProofReceipt
-→ LayerSpecReceipt
-→ LayeredReceipt
-→ LayerRemovalReceipt
-→ LayerEquivalenceReceipt
-→ FractalInvariantEquivalenceReceipt
-→ LatticeStateReceipt
-→ TopologyStabilityReceipt
-→ RouterLatticePathReceipt
-→ ReadoutProjectionReceipt
-→ LayeredLatticeProjectionReceipt
-→ QAMCompatibilityValidationReceipt
-→ MaskCompatibilityReceipt
-→ ShiftStabilityReceipt
-→ ReadoutCompositionReceipt
-→ ReadoutMatrixReceipt
-→ MarkovBasisReceipt
-→ LatticeReplayProofReceipt
-→ SubgraphInvariantPatternReceipt
-→ MultiScaleInvariantReceipt
-→ SierpinskiCompressionReceipt
-→ RouterScaleReceipt
-→ ReadoutScaleProjectionReceipt
-→ GovernanceCompressionReceipt
-→ SemanticCompressionReceipt
-→ DecayCheckpointSet
-→ DigitalDecaySignature
-→ LayerDecayReceipt / RouterDecayReceipt / MaskCollisionDecayReceipt / ShiftDecayReceipt / ReadoutProjectionDecayReceipt
-→ EntropyDriftReceipt
-→ DecayResistanceProof
-→ GameWorldArchive / GameWorldCorpusManifest / GameWorldIntakeReceipt
-→ ActionAtom / ActionAlphabet / WorldAdapterSpec / WorldAdapterContractReceipt
-→ ObservationChannelSpec / ObservationSnapshot / ObservationSnapshotReceipt / ObservationSnapshotSet
-→ EpisodeStep / EpisodeTrace / EpisodeTraceReceipt
-→ StrategyProbeSpec / StrategyProbeResult / StrategyProbeReceipt
-→ ReplayComparisonPoint / ChaosReplayVerdict / ChaosReplayVerdictReceipt
-→ GameWorldInteractionReport / GameWorldInteractionReportReceipt
-```
+## Author
 
-## Current capability line
+**Quantized SOL Core Labs (QSOL)**
 
-```text
-v150.9   → Distributed Convergence Proof
-v151.0   → Extraction Boundary
-v151.1   → Canonicalization Engine
-v151.2   → RES/RAG Semantic Field Construction
-v151.3   → RES/RAG Resonance Validation
-v151.4   → Adversarial Extraction Validation
-v151.5   → Dialogical Document Governance
-v151.6   → Real-World Proof Chain
-v151.7   → Determinism Enforcement
-v151.8   → Replay & Cross-Environment Resonance Proof
-v152.0   → LayerSpec Contract
-v152.1   → LayeredState Receipt
-v152.2   → Layer Removal Proof
-v152.3   → Layered Compression Equivalence
-v152.4   → Fractal Invariant Compression
-v153.0   → Atomic Semantic Lattice Contract
-v153.1   → Router Lattice Paths
-v153.2   → Readout Projection Receipts
-v153.3   → Layered Lattice Projection Receipt
-v153.4   → QAM Compatibility Profile
-v153.5   → SearchMask64 Contract
-v153.6   → Hilber/Hilbert Shift Projection
-v153.7   → Functional Kernel + Readout Shell Architecture
-v153.8   → Readout Combination Matrix + Markov Basis
-v153.9   → Lattice Drift + Replay Alignment
-v154.0   → SubgraphInvariantPattern Contract
-v154.0.1 → Detection Semantics Clarification + Input Validation Hardening
-v154.1   → Multi-Scale Invariant Receipts
-v154.2   → Sierpinski Compression
-v154.3   → Scale-Preserving Router and Readout Receipts
-v154.4   → Governance and Semantic Compression at Scale
-v155.0   → DecayCheckpoint Contract
-v155.1   → DigitalDecaySignature / Decay Signature Layer
-v155.2   → EntropyDriftReceipt / Per-Subsystem Drift Receipts
-v155.3   → DecayResistanceProof
-v156.0   → GameWorld Source Intake Contract
-v156.1   → World Adapter / Action Alphabet Contract
-v156.2   → Observation Snapshot Receipts
-v156.2.1 → ROADMAP Metadata Assertion Stabilization
-v156.3   → Deterministic Episode Trace
-v156.4   → Strategy Probe Receipts
-v156.4.1 → Deterministic Test Coverage and Validation Cadence Hardening
-v156.5   → Chaos Replay Verdict
-v156.6   → GameWorld Interaction Report
-```
-
----
-
-## v153 Pipeline
-
-```text
-semantic lattice inputs
-→ Atomic Semantic Lattice Contract      (EXPLICIT TOPOLOGY)
-→ Router Lattice Paths                  (DETERMINISTIC SPECIAL PATHS)
-→ Readout Projection Receipts           (SOURCE-BOUND OBSERVATION)
-→ Layered Lattice Projection Receipt    (LAYERED IDENTITY BINDING)
-→ QAM Compatibility Profile             (UNTRUSTED METADATA SANDBOX)
-→ SearchMask64 Contract                 (FIXED-WIDTH MASK REDUCTION)
-→ Hilber/Hilbert Shift Projection       (DETERMINISTIC INDEX SHIFT)
-→ Functional Kernel + Readout Shells    (ORDERED COMPOSITION IDENTITY)
-→ Readout Combination Matrix            (DETERMINISTIC 2D TRANSITION BASIS)
-→ Lattice Drift + Replay Alignment      (FULL PIPELINE REPLAY PROOF)
-```
-
----
-
-## v154 Pipeline
-
-```text
-lattice replay baseline
-→ SubgraphInvariantPattern Contract     (CANONICAL STRUCTURAL IDENTITY)
-→ Detection Semantics Hardening         (WHOLE-GRAPH MATCH CLARITY)
-→ Multi-Scale Invariant Receipts        (SCALE-LEVEL AGGREGATION)
-→ Sierpinski Compression                (LOSSLESS INVARIANT AGGREGATION)
-→ Scale-Preserving Router/Readout       (OBSERVATION BOUND TO SCALE)
-→ Governance / Semantic Compression     (DECISION + FIELD HASH COMPRESSION)
-```
-
-v154 proves:
-
-```text
-same pattern
-+ same occurrences
-+ same explicit scale_index values
-→ same scale summaries
-→ same multi-scale invariant receipt
-→ same lossless compression receipt
-→ same router/readout scale receipts
-→ same governance / semantic compression receipts
-```
-
-Current v154 scope:
-
-```text
-no traversal
-no recursive subgraph enumeration
-no implicit scale insertion
-no probabilistic matching
-no lossy compression
-no semantic reinterpretation during compression
-```
-
----
-
-## v155 Pipeline
-
-```text
-multi-scale invariant baseline
-→ DecayCheckpoint Contract              (EXPECTED HASH VS OBSERVED HASH)
-→ DigitalDecaySignature                 (INTEGER THRESHOLD CLASSIFICATION)
-→ EntropyDriftReceipt                   (LAYER / ROUTER / MASK / SHIFT / READOUT LOCALIZATION)
-→ DecayResistanceProof                  (CLEAN + ADVERSARIAL-FREE + REPLAY-BOUND)
-```
-
-v155 proves:
-
-```text
-same expected hashes
-+ same observed hashes
-+ same threshold contract
-+ same subsystem receipts
-+ same replay proof hash
-→ same decay score
-→ same decay class
-→ same entropy drift receipt
-→ same decay-resistance proof
-```
-
-Current v155 scope:
-
-```text
-no probabilistic entropy
-no fuzzy thresholding
-no runtime replay execution
-no perturbation / stress behavior
-no substrate claims
-no global truth receipts yet
-```
-
-
----
-
-## v156 Pipeline
-
-```text
-messy external world boundary
-→ GameWorld Source Intake Contract       (NON-EXECUTING SOURCE MANIFEST)
-→ World Adapter / Action Alphabet        (STATIC ACTION VOCABULARY)
-→ Observation Snapshot Receipts          (BOUNDED OBSERVATION IDENTITY)
-→ Deterministic Episode Trace            (ORDERED TEMPORAL REPRESENTATION)
-→ Strategy Probe Receipts                (DETERMINISTIC TRACE PROBES)
-→ Chaos Replay Verdict                   (EXPECTED VS OBSERVED REPLAY COMPARISON)
-→ GameWorld Interaction Report           (COMPLETE ARC AGGREGATION)
-```
-
-v156 proves:
-
-```text
-same source intake
-+ same adapter/action alphabet
-+ same observation receipts
-+ same episode trace
-+ same strategy probes
-+ same replay verdict
-→ same GameWorld interaction report
-```
-
-Current v156 scope:
-
-```text
-no gameplay execution
-no runtime replay
-no reinforcement learning
-no policy optimization
-no fuzzy replay scoring
-no probabilistic instability metric
-no hidden environment stepping
-no archive execution
-```
-
----
-
-## RES/RAG in QEC
-
-In QEC, RES/RAG is operationalized as:
-
-```text
-RES = grounded canonical reality
-RAG = reflexive generated interpretation
-```
-
-Meaning:
-
-```text
-RES → evidence-bearing reality state
-RAG → supplied interpretive semantic state
-```
-
-QEC does not need to assert machine consciousness. It uses the useful deterministic form:
-
-```text
-semantic grounding
-must align with
-semantic interpretation
-```
-
-Then:
-
-```text
-RES = RAG
-→ resonance validated
-
-RES ≠ RAG
-→ divergence detected
-```
-
----
-
-# 🔥 The Big Idea
-
-## Most systems
-
-```text
-iterate → recompute → drift → guess
-```
-
-## QEC
-
-```text
-observe
-→ canonicalize
-→ hash
-→ validate
-→ govern
-→ prove
-→ enforce determinism
-→ replay across environments
-→ bind topology
-→ resolve paths deterministically
-→ project readouts source-bound
-→ reduce masks fixed-width
-→ shift order explicitly
-→ compose shells deterministically
-→ build transition bases
-→ detect drift exactly
-→ identify invariant subgraph structure
-→ aggregate occurrences across explicit scales
-→ compress invariant structure without loss
-→ detect hash drift at explicit positions
-→ classify deterministic decay signatures
-→ localize entropy drift by subsystem
-→ prove CLEAN decay resistance
-→ bind messy external worlds at deterministic boundaries
-→ record observations and episode traces
-→ apply deterministic strategy probes
-→ compare replay attempts
-→ emit final GameWorld interaction reports
-```
-
-QEC shifts computation from:
-
-```text
-execution
-```
-
-to:
-
-```text
-deterministic reasoning with proof
-```
-
----
-
-# ⚙️ System Capability — Current State
-
-QEC currently performs:
-
-* invariant detection
-* convergence classification
-* redundancy elimination
-* deterministic execution planning
-* geometric invariant embedding
-* ensemble consistency enforcement
-* spectral structure characterization
-* deterministic transition selection
-* policy memory accumulation
-* adaptive governance recommendation
-* governance validation
-* issue normalization
-* fix proposal validation
-* counterfactual replay
-* hardware alignment validation
-* simulated execution verification
-* invariant-preserving compression planning
-* multi-agent role-based reasoning
-* deterministic inter-agent communication
-* adversarial failure detection and rejection
-* distributed convergence proof across nodes
-* canonical extraction-boundary sealing
-* deterministic canonicalization
-* RES/RAG semantic field construction
-* resonance classification
-* adversarial extraction validation
-* dialogical document governance
-* real-world proof-chain construction
-* determinism enforcement across configuration snapshots
-* cross-environment replay validation
-* reversible layer specification
-* layered-state receipt construction
-* layer removal proof
-* layered compression equivalence
-* fractal invariant compression
-* atomic semantic lattice topology construction
-* topology stability receipt validation
-* deterministic router path resolution
-* special-path index binding
-* source-bound readout projection
-* layered lattice projection
-* QAM compatibility metadata validation
-* deterministic SearchMask64 reduction and collision handling
-* deterministic Hilber/Hilbert shift projection
-* functional kernel and readout-shell composition
-* deterministic readout combination matrix construction
-* deterministic Markov-compatible transition-basis construction
-* exact lattice drift and replay alignment across the v153 pipeline
-* canonical subgraph invariant pattern construction
-* scale-bound occurrence representation
-* deterministic scale-level summary construction
-* multi-scale invariant receipt aggregation
-* pattern-consistent cross-scale validation
-* lossless Sierpinski invariant aggregation
-* scale-preserving router/readout receipt binding
-* governance and semantic compression at scale
-* exact decay checkpoint construction
-* deterministic digital decay signature classification
-* subsystem entropy drift localization across layer/router/mask/shift/readout receipts
-* replay-bound decay-resistance proof construction
-* non-executing game-world source intake
-* static world adapter and action alphabet construction
-* deterministic observation snapshot receipt construction
-* bounded episode trace receipt construction
-* deterministic strategy probe receipt construction
-* chaos replay verdict construction
-* GameWorld interaction report receipt construction
-* v156.x cross-layer validation and scope-boundary enforcement
-
----
-
-# 🧠 Proof Artifacts
-
-QEC proof artifacts follow a consistent contract:
-
-```text
-frozen artifact
-→ explicit to_dict()
-→ canonical JSON
-→ stable SHA-256
-→ self-hash exclusion
-→ recomputed hash validation
-```
-
-Core invariant:
-
-```text
-recomputed_hash == stored_hash
-```
-
-Current artifact families include:
-
-| Layer | Artifact examples |
-|---|---|
-| Extraction boundary | `ExtractionReceipt` |
-| Canonicalization | `CanonicalDocument`, `CanonicalizationReceipt` |
-| Semantic field | `RESState`, `RAGState`, `SemanticFieldReceipt` |
-| Resonance | `ResonanceValidationReceipt` |
-| Adversarial validation | `ExtractionValidationReceipt`, `DigitalDecaySignature` |
-| Governance | `DialogicalGovernanceReceipt` |
-| Proof chain | `RealWorldProofReceipt` |
-| Determinism | `ExtractionDeterminismReceipt`, `RESRAGDeterminismReceipt` |
-| Replay | `ExtractionReplayReceipt`, `ResonanceReplayReceipt`, `RealWorldReplayProofReceipt` |
-| Reversible layers | `LayerSpecReceipt`, `LayeredReceipt`, `LayerRemovalReceipt` |
-| Compression | `LayerEquivalenceReceipt`, `FractalInvariantEquivalenceReceipt` |
-| Atomic lattice | `SemanticLatticeGraph`, `LatticeStateReceipt`, `TopologyStabilityReceipt` |
-| Router paths | `RouterPathSpec`, `SpecialPathIndex`, `RouterLatticePathReceipt` |
-| Readout projection | `ReadoutProjectionSpec`, `ReadoutProjectionReceipt` |
-| Layered lattice | `LayeredLatticeProjectionReceipt`, `LayeredTopologyIntegrityReceipt` |
-| QAM compatibility | `QAMCompatibilityProfile`, `QAMSpecReceipt`, `QAMCompatibilityValidationReceipt` |
-| Search masks | `SearchMask64`, `MaskReductionReceipt`, `MaskCollisionReceipt`, `MaskCompatibilityReceipt` |
-| Hilber/Hilbert shift | `HilberShiftSpec`, `ShiftProjectionReceipt`, `FilterCompatibilityReceipt`, `ShiftStabilityReceipt` |
-| Functional readout shell | `CoreKernelSpec`, `DerivedKernelSpec`, `ReadoutShellStack`, `ReadoutCompositionReceipt` |
-| Matrix / Markov basis | `ReadoutCombinationMatrix`, `ReadoutMatrixReceipt`, `MarkovBasisReceipt`, `ReadoutTransitionReceipt` |
-| Lattice replay | `LatticeDriftReceipt`, `RouterReplayReceipt`, `ReadoutReplayReceipt`, `MaskReplayReceipt`, `ShiftReplayReceipt`, `KernelReplayReceipt`, `ReadoutMatrixReplayReceipt`, `LatticeReplayProofReceipt` |
-| Multi-scale invariance | `SubgraphInvariantPattern`, `SubgraphOccurrence`, `SubgraphInvariantPatternReceipt`, `ScaleLevelSummary`, `MultiScaleInvariantReceipt`, `SierpinskiCompressionReceipt` |
-| Scale binding / compression | `RouterScaleReceipt`, `ReadoutScaleProjectionReceipt`, `GovernanceCompressionReceipt`, `SemanticCompressionReceipt` |
-| Decay checkpoints | `DecayCheckpoint`, `DecayCheckpointSet` |
-| Decay signatures | `DecayThresholdContract`, `DigitalDecaySignature` |
-| Entropy drift | `LayerDecayReceipt`, `RouterDecayReceipt`, `MaskCollisionDecayReceipt`, `ShiftDecayReceipt`, `ReadoutProjectionDecayReceipt`, `EntropyDriftReceipt` |
-| Decay resistance | `DecayResistanceProof` |
-| GameWorld intake | `GameWorldArchive`, `GameWorldCorpusManifest`, `GameWorldIntakeReceipt` |
-| World adapters | `ActionAtom`, `ActionAlphabet`, `WorldAdapterSpec`, `WorldAdapterContractReceipt` |
-| Observation snapshots | `ObservationChannelSpec`, `ObservationSnapshot`, `ObservationSnapshotReceipt`, `ObservationSnapshotSet` |
-| Episode traces | `EpisodeStep`, `EpisodeTrace`, `EpisodeTraceReceipt` |
-| Strategy probes | `StrategyProbeSpec`, `StrategyProbeResult`, `StrategyProbeReceipt` |
-| Chaos replay | `ReplayComparisonPoint`, `ChaosReplayVerdict`, `ChaosReplayVerdictReceipt` |
-| Interaction report | `GameWorldInteractionReport`, `GameWorldInteractionReportReceipt` |
-
----
-
-# 🧠 Distributed Convergence Proof
-
-```text
-node₁ evidence
-node₂ evidence
-node₃ evidence
-...
-→ canonical comparison
-→ agreement classification
-→ mismatch classification
-→ deterministic reference proof
-→ distributed convergence receipt
-```
-
-QEC proves:
-
-```text
-all nodes agree
-OR
-exactly how and why they disagree
-```
-
-Distributed mismatch classes include:
-
-```text
-FINAL_PROOF_HASH_MISMATCH
-EXPECTED_FINAL_PROOF_HASH_MISMATCH
-```
-
----
-
-# 🧠 Repair Reasoning Pipeline
-
-```text
-issue
-→ canonical issue
-→ fix proposal
-→ validated fix
-→ counterfactual comparison
-→ necessary / equivalent / dominated / unresolved
-```
-
-This remains part of the broader QEC reasoning model. The current v156.6 line extends the same deterministic proof discipline into semantic lattice topology, router/readout proof, compatibility reduction, shift projection, kernel/shell composition, readout matrix construction, replay/drift alignment, multi-scale invariant aggregation, deterministic entropy drift, replay-bound decay resistance, and deterministic GameWorld interaction reports.
-
----
-
-# 🧠 Full System Loop
-
-```text
-observe
-→ bound input
-→ canonicalize
-→ construct semantic field
-→ validate resonance
-→ detect adversarial failure
-→ govern
-→ prove
-→ enforce determinism
-→ replay
-→ build lattice topology
-→ resolve router paths
-→ project readouts
-→ bind layers
-→ validate compatibility metadata
-→ reduce masks
-→ shift order
-→ compose kernels and shells
-→ build transition matrix
-→ align replay and detect drift
-→ identify invariant subgraph pattern
-→ aggregate occurrences by scale
-→ validate multi-scale invariant receipt
-→ compress invariant structure
-→ detect decay checkpoints
-→ classify digital decay signatures
-→ aggregate subsystem entropy drift
-→ prove decay resistance
-→ ingest game-world source boundary
-→ bind adapter/action alphabet
-→ record observation snapshots
-→ construct episode trace
-→ derive strategy probe receipts
-→ compare chaos replay verdict
-→ aggregate GameWorld interaction report
-→ confirm
-```
-
----
-
-# 📊 SPHAERA — Sherpa Output Table
-
-Example deterministic output from the SPHAERA proof run:
-
-```text
-=== SPHAERA TABLE ===
-
-| Domain       | Invariants | Geometry Classes | Ensemble Consistency | Spectral Dynamics | Selected Transition       | Runtime Coherence | Global State           |
-|--------------|-----------:|-----------------:|---------------------:|-------------------|---------------------------|------------------:|------------------------|
-| transformers |          4 |                4 |                0.982 | structured        | maintain_invariant_anchor |             0.931 | structured_equilibrium |
-| diffusion    |          5 |                5 |                0.954 | coupled           | adaptive_balance          |             0.882 | adaptive_state         |
-| gnn          |          3 |                3 |                0.721 | dynamic           | coupling_probe            |             0.671 | dynamic_state          |
-| physics      |          2 |                2 |                1.000 | rigid             | safe_hold                 |             1.000 | stable_equilibrium     |
-```
-
----
-
-Rust TUI Control Surface: USAGE.md / https://github.com/QSOLKCB/QEC/blob/main/USAGE.md
-
----
-
-# 🧪 Testing
-
-## Standard test run
-
-```bash
-pytest -q
-```
-
-## Source-tree test run
-
-```bash
-PYTHONPATH=src pytest -q
-```
-
-## Show skip and warning reasons
-
-```bash
-pytest -q -ra
-```
-
-## Optional test dependencies
-
-Some tests are environment-dependent and are marked with `pytest.mark.optional`.
-
-Optional dependencies / tools:
-
-* `qldpc`
-* `gh` CLI
-* `qec-tui` binary
-* `qiskit` for alternate backend-path tests
-
-Missing optional tools should produce explicit skips, not hidden failures.
-
----
-
-# 🧭 Versioning Model
-
-QEC uses two related version lines:
-
-* **Python package version** — the installable package version declared in `pyproject.toml`
-* **Research / capability release tags** — the QEC system state published through GitHub tags, such as `v150.9`, `v151.8`, `v152.4`, `v153.9`, `v154.4`, `v155.3`, and `v156.6`
-
-Release tags describe deterministic reasoning/proof-system capability state.
-
-Published GitHub tags are authoritative for release lineage.
-
-Stable tip lineage remains anchored to `v137.*` compatibility contracts.
-
----
-
-# 🧭 Capability Scope
-
-This repository contains implemented deterministic analysis modules, proof receipts, tests, demos, and operator tooling.
-
-`ROADMAP.md` tracks the forward research line.
-
-Current implemented line includes:
-
-```text
-v150.9 distributed convergence proof
-v151.0–v151.8 real-world ingestion, semantic resonance, governance, proof, determinism, and replay validation
-v152.0–v152.4 reversible layered-state receipts, removal proof, compression equivalence, and fractal invariant compression
-v153.0–v153.9 atomic semantic lattice topology, router paths, readout projections, layered lattice projection, QAM compatibility metadata, SearchMask64, Hilber/Hilbert shift, functional readout shell composition, readout matrix / Markov basis, and lattice replay/drift alignment
-v154.0–v154.4 subgraph invariant patterns, multi-scale invariant receipts, Sierpinski compression, scale-preserving router/readout receipts, and governance/semantic compression
-v155.0–v155.3 deterministic decay checkpoints, digital decay signatures, subsystem entropy drift receipts, and replay-bound decay-resistance proofs
-v156.0–v156.6 deterministic interaction with messy game worlds, including source intake, static adapter/action alphabets, observation snapshots, episode traces, strategy probes, chaos replay verdicts, and final GameWorld interaction reports
-```
-
-Next roadmap frontier:
-
-```text
-v157.0 → PerturbationContract
-```
-
-The completed v156.x detour explored whether a deterministic proof system can safely interact with messy external game worlds while preserving canonical identity, replay validation, deterministic observation boundaries, explicit action semantics, bounded episode traces, deterministic strategy probes, chaos replay verdicts, and final interaction reports.
-
-Future research arcs continue toward perturbation validation, substrate constraints, recursive proof loops, reality-loop integration, and global deterministic truth validation.
-
----
-
-# 🌍 Why This Matters
-
-Most modern systems are:
-
-* probabilistic
-* non-reproducible
-* opaque
-* unable to prove decisions
-* forced to recompute
-
-QEC enforces:
-
-```text
-determinism
-→ reproducibility
-→ traceability
-→ provability
-```
-
-This means:
-
-* same input → same output
-* every decision is replayable and auditable
-* failures are structurally classified
-* governance decisions are deterministic
-* redundant computation can be eliminated
-* distributed nodes can prove agreement
-* replay can validate cross-environment stability
-* semantic lattice topology can be proven stable
-* router and readout identities can be replayed exactly
-* masks, shifts, kernels, shells, matrices, and transitions can be drift-checked deterministically
-* invariant subgraph structure can be identified canonically
-* multi-scale occurrence aggregation can be proven without traversal or inference
-* identity drift can be detected by exact hash divergence
-* subsystem entropy drift can be localized without probabilistic scoring
-* CLEAN proof chains can be certified with replay-bound decay-resistance proofs
-* messy external worlds can be bound at deterministic proof boundaries
-* allowed action alphabets can be proven before interaction traces are represented
-* observations, actions, and terminal states can be represented without runtime execution
-* replay drift can be classified without fuzzy scoring or probabilistic metrics
-* complete GameWorld interaction reports can bind source, adapter, observation, trace, probe, and replay verdict receipts
-
----
-
-## 📚 Attribution
-
-Marc Brendecke  
-[https://orcid.org/0009-0009-4034-598X](https://orcid.org/0009-0009-4034-598X)
-
-Quantum Sphaera Companion v3.30.0  
-[https://doi.org/10.5281/zenodo.19682951](https://doi.org/10.5281/zenodo.19682951)
-
-Attribution is informational and does not influence QEC canonical identity, hashing, receipts, validators, or proof semantics.
-
-Note: v155.x and v156.x are native QEC deterministic proof arcs and do not introduce new QAM/router/readout lineage attribution. Existing attribution remains informational only.
-
-License: CC-BY-4.0
-
----
-
-## 📚 References
-
-* IRIS: Deterministic Invariant-Driven Reduction  
-  [https://doi.org/10.5281/zenodo.19697907](https://doi.org/10.5281/zenodo.19697907)
-
-* Deterministic Runtime Optimization  
-  [https://doi.org/10.5281/zenodo.19062692](https://doi.org/10.5281/zenodo.19062692)
-
-* Invariant-Driven Computation Elimination  
-  [https://doi.org/10.5281/zenodo.19102390](https://doi.org/10.5281/zenodo.19102390)
-
-* Deterministic Redundancy Elimination  
-  [https://doi.org/10.5281/zenodo.19099503](https://doi.org/10.5281/zenodo.19099503)
-
-* Dark-State Invariants  
-  [https://doi.org/10.5281/zenodo.19104208](https://doi.org/10.5281/zenodo.19104208)
-
-* QSOLKCB/QEC v154.x: Multi-Scale Invariant Compression  
-  [https://doi.org/10.5281/zenodo.20039913](https://doi.org/10.5281/zenodo.20039913)
-
-* QSOLKCB/QEC v155.x: Deterministic Entropy and Decay Signatures  
-  [https://doi.org/10.5281/zenodo.20045771](https://doi.org/10.5281/zenodo.20045771)
-
----
-
-## 👤 Author
-
-Trent Slade  
-[https://orcid.org/0009-0002-4515-9237](https://orcid.org/0009-0002-4515-9237)
+- ORCID: https://orcid.org/0009-0006-5966-1243
+- GitHub: https://github.com/QSOLKCB

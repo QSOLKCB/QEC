@@ -2,7 +2,7 @@
 
 Coverage:
 - install.sh exists and is well-formed
-- README/USAGE advertised curl path is correct
+- README/USAGE/INSTALL advertised curl path is correct
 - installer is idempotent (re-parse yields same results)
 - version tag resolves correctly from Cargo.toml
 - qec-tui binary launch semantics (help/version commands)
@@ -111,16 +111,17 @@ class TestInstallShExists:
 
 
 # ---------------------------------------------------------------------------
-# 2. README/USAGE advertised curl path is correct
+# 2. README/USAGE/INSTALL advertised curl path is correct
 # ---------------------------------------------------------------------------
 
 class TestReadmeCurlPath:
-    """Verify the README/USAGE curl install command matches install.sh location."""
+    """Verify the README/USAGE/INSTALL curl install command matches install.sh location."""
 
     def _get_doc_texts(self, repo_root: Path) -> list[str]:
         usage = repo_root / "USAGE.md"
         readme = repo_root / "README.md"
-        docs = [doc for doc in (readme, usage) if doc.exists()]
+        install_doc = repo_root / "INSTALL.md"
+        docs = [doc for doc in (readme, usage, install_doc) if doc.exists()]
         return [doc.read_text(encoding="utf-8") for doc in docs]
 
     def test_readme_exists(self, readme: Path) -> None:
@@ -128,21 +129,21 @@ class TestReadmeCurlPath:
 
     def test_readme_contains_curl_command(self, readme: Path) -> None:
         texts = self._get_doc_texts(REPO_ROOT)
-        assert any("curl" in text for text in texts), "README/USAGE must contain a curl install command"
+        assert any("curl" in text for text in texts), "README/USAGE/INSTALL must contain a curl install command"
 
     def test_readme_curl_url_matches(self, readme: Path) -> None:
         texts = self._get_doc_texts(REPO_ROOT)
         assert any(CANONICAL_CURL_URL in text for text in texts), \
-            f"README/USAGE must contain the canonical install URL: {CANONICAL_CURL_URL}"
+            f"README/USAGE/INSTALL must contain the canonical install URL: {CANONICAL_CURL_URL}"
 
     def test_readme_curl_flags(self, readme: Path) -> None:
         texts = self._get_doc_texts(REPO_ROOT)
         assert any("curl -fsSL" in text for text in texts), \
-            "README/USAGE curl command must use -fsSL flags"
+            "README/USAGE/INSTALL curl command must use -fsSL flags"
 
     def test_readme_pipes_to_sh(self, readme: Path) -> None:
         texts = self._get_doc_texts(REPO_ROOT)
-        assert any("| sh" in text for text in texts), "README/USAGE curl command must pipe to sh"
+        assert any("| sh" in text for text in texts), "README/USAGE/INSTALL curl command must pipe to sh"
 
 
 # ---------------------------------------------------------------------------

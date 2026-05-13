@@ -17,6 +17,7 @@ import os
 import re
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -60,10 +61,11 @@ def cargo_toml(repo_root: Path) -> Path:
 
 def _resolve_qec_tui_bin(repo_root: Path, tmp_path: Path) -> str:
     cargo_text = (repo_root / "tui" / "Cargo.toml").read_text(encoding="utf-8")
-    package_match = re.search(r"^\[package\]\s*\n([\s\S]*?)(?=^\[|\Z)", cargo_text, re.MULTILINE)
-    assert package_match is not None, "Cargo.toml must declare a [package] section"
-    match = re.search(r'^version\s*=\s*"([^"]+)"', package_match.group(1), re.MULTILINE)
-    assert match is not None, "Cargo.toml must declare a qec-tui version"
+    cargo_data = tomllib.loads(cargo_text)
+    package_data = cargo_data.get("package")
+    assert isinstance(package_data, dict), "Cargo.toml must declare a [package] section"
+    version = package_data.get("version")
+    assert isinstance(version, str), "Cargo.toml must declare a qec-tui version"
     if os.environ.get("QEC_TUI_USE_SYSTEM_BIN", "") == "1":
         path = shutil.which("qec-tui")
         assert path is not None, "QEC_TUI_USE_SYSTEM_BIN=1 requires qec-tui on PATH"
@@ -76,7 +78,7 @@ def _resolve_qec_tui_bin(repo_root: Path, tmp_path: Path) -> str:
         "    echo \"qec-tui deterministic test stub\"\n"
         "    exit 0\n"
         "    ;;\n"
-        f"  --version)\n    echo \"qec-tui {match.group(1)}\"\n    exit 0\n    ;;\n"
+        f"  --version)\n    echo \"qec-tui {version}\"\n    exit 0\n    ;;\n"
         "  *)\n"
         "    echo \"unsupported argument: $1\" >&2\n"
         "    exit 2\n"

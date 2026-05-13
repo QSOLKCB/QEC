@@ -4,9 +4,9 @@ Tests for info-mass-gravity module.
 
 import pytest
 import numpy as np
-from scipy.linalg import LinAlgWarning
 
 pytest.importorskip("qutip")
+LinAlgWarning = pytest.importorskip("scipy.linalg").LinAlgWarning
 
 from qutip import basis, bell_state, tensor, Qobj
 from info_mass_gravity import InfoMassGravity

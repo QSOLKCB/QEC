@@ -47,6 +47,7 @@ _LABEL_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _ALLOWED_SUBSYSTEM_TYPES = frozenset({"LAYER", "MASK", "ROUTER", "READOUT"})
 _ALLOWED_SUBSYSTEM_CLASSES = frozenset({"SUBSYSTEM_SUBSTRATE_COMPATIBLE", "SUBSYSTEM_SUBSTRATE_INCOMPATIBLE", "SUBSYSTEM_SUBSTRATE_EMPTY"})
 _ALLOWED_SUBSYSTEM_DRIFT_CLASSES = frozenset({"SUBSYSTEM_SUBSTRATE_DRIFT_CLEAN", "SUBSYSTEM_SUBSTRATE_DRIFT_CHANGED", "SUBSYSTEM_SUBSTRATE_DRIFT_INCOMPLETE", "SUBSYSTEM_SUBSTRATE_DRIFT_UNEXPECTED", "SUBSYSTEM_SUBSTRATE_DRIFT_EMPTY"})
+_ERR_DRIFT_HASH_NOT_IN_SUBSYSTEM = "DRIFT_HASH_NOT_IN_SUBSYSTEM"
 
 
 def get_allowed_substrate_subsystem_types() -> frozenset[str]: return _ALLOWED_SUBSYSTEM_TYPES
@@ -86,13 +87,17 @@ def _classify_encoding_entry_subsystem(encoding_entry: EncodingEntry, predicate_
     toks.extend(encoding_entry.encoding_label.split("_"))
     toks.extend([predicate_result.predicate_id, encoding_entry.encoding_label, substrate_profile_id])
     matches = set()
+    # Exact-token matching: only match if the token exactly equals one of the allowed forms
+    _LAYER_TOKENS = frozenset({"layer", "layers", "Layer", "Layers", "LAYER", "LAYERS", "Layered", "LayerToken"})
+    _MASK_TOKENS = frozenset({"mask", "masks", "Mask", "Masks", "MASK", "MASKS", "SearchMask", "MaskCollision", "MaskToken"})
+    _ROUTER_TOKENS = frozenset({"router", "routers", "Router", "Routers", "ROUTER", "ROUTERS", "RouterToken"})
+    _READOUT_TOKENS = frozenset({"readout", "readouts", "Readout", "Readouts", "READOUT", "READOUTS", "ReadoutToken"})
     for t in toks:
         if not isinstance(t, str): continue
-        l = t.lower()
-        if t.startswith("Layer") or "Layered" in t or l in {"layer", "layers"} or "layer" in l: matches.add("LAYER")
-        if t.startswith("Mask") or "SearchMask" in t or "MaskCollision" in t or l in {"mask", "masks"} or "mask" in l: matches.add("MASK")
-        if t.startswith("Router") or l in {"router", "routers"} or "router" in l: matches.add("ROUTER")
-        if t.startswith("Readout") or l in {"readout", "readouts"} or "readout" in l: matches.add("READOUT")
+        if t in _LAYER_TOKENS: matches.add("LAYER")
+        if t in _MASK_TOKENS: matches.add("MASK")
+        if t in _ROUTER_TOKENS: matches.add("ROUTER")
+        if t in _READOUT_TOKENS: matches.add("READOUT")
     if len(matches) > 1: raise ValueError(_ERR_SUBSYSTEM_CLASSIFICATION_AMBIGUOUS)
     return next(iter(matches)) if matches else None
 
@@ -109,13 +114,15 @@ def _select_entries_for_subsystem(substrate_state_receipt: SubstrateStateReceipt
         if cls == subsystem_type: out.append((e, r))
     return tuple(out)
 
-def _build_common(ssr: SubstrateStateReceipt, mer: MaterialEncodingReceipt, sdr: SubstrateDriftReceipt, subsystem_type: str, subsystem_label: str) -> dict[str, Any]:
+def _build_common(ssr: SubstrateStateReceipt, mer: MaterialEncodingReceipt, sdr: SubstrateDriftReceipt, subsystem_type: str, subsystem_label: str, observed_mer: MaterialEncodingReceipt | None = None) -> dict[str, Any]:
     validate_substrate_state_receipt(ssr)
     validate_material_encoding_receipt_with_state(mer, ssr)
     validate_substrate_drift_receipt(sdr)
     if sdr.expected_material_encoding_receipt_hash != mer.material_encoding_receipt_hash: raise ValueError(_ERR_SUBSYSTEM_ENTRY_MISMATCH)
     if sdr.observed_material_encoding_receipt_hash is not None:
-        validate_substrate_drift_receipt_with_materials(sdr, mer, mer)
+        # Use provided observed_mer if available, otherwise fall back to mer (clean case)
+        obs = observed_mer if observed_mer is not None else mer
+        validate_substrate_drift_receipt_with_materials(sdr, mer, obs)
     if mer.substrate_contract_hash != ssr.substrate_contract_hash or sdr.substrate_contract_hash != ssr.substrate_contract_hash: raise ValueError(_ERR_SUBSYSTEM_ENTRY_MISMATCH)
     if mer.substrate_profile_id != ssr.substrate_profile_id or sdr.substrate_profile_id != ssr.substrate_profile_id: raise ValueError(_ERR_SUBSYSTEM_ENTRY_MISMATCH)
     sel = _select_entries_for_subsystem(ssr, mer, subsystem_type)
@@ -151,7 +158,8 @@ def _build_common(ssr: SubstrateStateReceipt, mer: MaterialEncodingReceipt, sdr:
 
 def _validate_core(receipt: object, etype: str, elabel: str, hfield: str) -> bool:
     try:
-        if type(receipt).__name__ not in {"LayerSubstrateCompatibilityReceipt","MaskSubstrateReceipt","RouterSubstrateReceipt","ReadoutSubstrateReceipt"}: raise ValueError(_ERR_INVALID_INPUT)
+        # Use isinstance check against base class instead of string-based type checking
+        if not isinstance(receipt, LayerSubstrateCompatibilityReceipt): raise ValueError(_ERR_INVALID_INPUT)
         _validate_sha(getattr(receipt, hfield))
         payload = {f.name: getattr(receipt, f.name) for f in fields(receipt) if f.name not in {hfield, "mask_substrate_receipt_hash", "router_substrate_receipt_hash", "readout_substrate_receipt_hash"}}
         for k in ("substrate_state_receipt_hash","material_encoding_receipt_hash","substrate_drift_receipt_hash","substrate_contract_hash"): _validate_sha(payload[k])
@@ -168,6 +176,11 @@ def _validate_core(receipt: object, etype: str, elabel: str, hfield: str) -> boo
         c = _validate_int(payload["subsystem_entry_count"], _ERR_SUBSYSTEM_COUNT_MISMATCH); p = _validate_int(payload["passed_encoding_count"], _ERR_SUBSYSTEM_COUNT_MISMATCH); f = _validate_int(payload["failed_encoding_count"], _ERR_SUBSYSTEM_COUNT_MISMATCH); d = _validate_int(payload["drift_count"], _ERR_SUBSYSTEM_COUNT_MISMATCH)
         if c != len(payload["encoding_entry_hashes"]) or c != len(payload["predicate_evaluation_result_hashes"]) or p + f != c: raise ValueError(_ERR_SUBSYSTEM_COUNT_MISMATCH)
         if d != len(payload["drifted_encoding_entry_hashes"]) + len(payload["missing_encoding_entry_hashes"]) + len(payload["unexpected_encoding_entry_hashes"]): raise ValueError(_ERR_SUBSYSTEM_COUNT_MISMATCH)
+        # P2 fix: Verify drift hashes are members of encoding_entry_hashes
+        encoding_entry_set = set(payload["encoding_entry_hashes"])
+        for drift_key in ("drifted_encoding_entry_hashes", "missing_encoding_entry_hashes", "unexpected_encoding_entry_hashes"):
+            for h in payload[drift_key]:
+                if h not in encoding_entry_set: raise ValueError(_ERR_DRIFT_HASH_NOT_IN_SUBSYSTEM)
         if payload["subsystem_substrate_class"] not in _ALLOWED_SUBSYSTEM_CLASSES: raise ValueError(_ERR_INVALID_SUBSYSTEM_SUBSTRATE_CLASS)
         if payload["subsystem_substrate_drift_class"] not in _ALLOWED_SUBSYSTEM_DRIFT_CLASSES: raise ValueError(_ERR_INVALID_SUBSYSTEM_SUBSTRATE_DRIFT_CLASS)
         if payload["subsystem_substrate_class"] != _derive_subsystem_class(c, f): raise ValueError(_ERR_SUBSYSTEM_SUBSTRATE_CLASS_MISMATCH)
@@ -210,20 +223,20 @@ class ReadoutSubstrateReceipt(LayerSubstrateCompatibilityReceipt):
     def __post_init__(self) -> None: validate_readout_substrate_receipt(self)
     def to_dict(self) -> dict[str, Any]: return {**super().to_dict(), "readout_substrate_receipt_hash": self.readout_substrate_receipt_hash}
 
-def build_layer_substrate_compatibility_receipt(substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt) -> LayerSubstrateCompatibilityReceipt:
-    p = _build_common(substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, "LAYER", "LAYER_SUBSTRATE_COMPATIBILITY")
+def build_layer_substrate_compatibility_receipt(substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt, observed_material_encoding_receipt: MaterialEncodingReceipt | None = None) -> LayerSubstrateCompatibilityReceipt:
+    p = _build_common(substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, "LAYER", "LAYER_SUBSTRATE_COMPATIBILITY", observed_material_encoding_receipt)
     return LayerSubstrateCompatibilityReceipt(**p, layer_substrate_compatibility_receipt_hash=sha256_hex(p))
 
-def build_mask_substrate_receipt(substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt) -> MaskSubstrateReceipt:
-    p = _build_common(substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, "MASK", "MASK_SUBSTRATE")
+def build_mask_substrate_receipt(substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt, observed_material_encoding_receipt: MaterialEncodingReceipt | None = None) -> MaskSubstrateReceipt:
+    p = _build_common(substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, "MASK", "MASK_SUBSTRATE", observed_material_encoding_receipt)
     return MaskSubstrateReceipt(**p, layer_substrate_compatibility_receipt_hash=sha256_hex(p), mask_substrate_receipt_hash=sha256_hex({**p, "layer_substrate_compatibility_receipt_hash": sha256_hex(p)}))
 
-def build_router_substrate_receipt(substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt) -> RouterSubstrateReceipt:
-    p = _build_common(substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, "ROUTER", "ROUTER_SUBSTRATE")
+def build_router_substrate_receipt(substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt, observed_material_encoding_receipt: MaterialEncodingReceipt | None = None) -> RouterSubstrateReceipt:
+    p = _build_common(substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, "ROUTER", "ROUTER_SUBSTRATE", observed_material_encoding_receipt)
     return RouterSubstrateReceipt(**p, layer_substrate_compatibility_receipt_hash=sha256_hex(p), router_substrate_receipt_hash=sha256_hex({**p, "layer_substrate_compatibility_receipt_hash": sha256_hex(p)}))
 
-def build_readout_substrate_receipt(substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt) -> ReadoutSubstrateReceipt:
-    p = _build_common(substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, "READOUT", "READOUT_SUBSTRATE")
+def build_readout_substrate_receipt(substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt, observed_material_encoding_receipt: MaterialEncodingReceipt | None = None) -> ReadoutSubstrateReceipt:
+    p = _build_common(substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, "READOUT", "READOUT_SUBSTRATE", observed_material_encoding_receipt)
     return ReadoutSubstrateReceipt(**p, layer_substrate_compatibility_receipt_hash=sha256_hex(p), readout_substrate_receipt_hash=sha256_hex({**p, "layer_substrate_compatibility_receipt_hash": sha256_hex(p)}))
 
 def validate_layer_substrate_compatibility_receipt(receipt: LayerSubstrateCompatibilityReceipt) -> bool: return _validate_core(receipt, "LAYER", "LAYER_SUBSTRATE_COMPATIBILITY", "layer_substrate_compatibility_receipt_hash")
@@ -242,22 +255,23 @@ def validate_readout_substrate_receipt(receipt: ReadoutSubstrateReceipt) -> bool
     if sha256_hex({f.name: getattr(receipt, f.name) for f in fields(receipt) if f.name != "readout_substrate_receipt_hash"}) != receipt.readout_substrate_receipt_hash: raise ValueError(_ERR_HASH_MISMATCH)
     return True
 
-def _complete_validate(receipt: Any, ssr: SubstrateStateReceipt, mer: MaterialEncodingReceipt, sdr: SubstrateDriftReceipt, build_fn: Any, validate_fn: Any) -> bool:
+def _complete_validate(receipt: Any, ssr: SubstrateStateReceipt, mer: MaterialEncodingReceipt, sdr: SubstrateDriftReceipt, build_fn: Any, validate_fn: Any, hash_field: str, observed_mer: MaterialEncodingReceipt | None = None) -> bool:
     validate_fn(receipt)
-    exp = build_fn(ssr, mer, sdr)
+    exp = build_fn(ssr, mer, sdr, observed_mer)
     if receipt.to_dict() != exp.to_dict():
-        if getattr(receipt, list(receipt.__dataclass_fields__.keys())[-1]) != getattr(exp, list(exp.__dataclass_fields__.keys())[-1]): raise ValueError(_ERR_HASH_MISMATCH)
+        # Use explicit hash field name instead of relying on field order
+        if getattr(receipt, hash_field) != getattr(exp, hash_field): raise ValueError(_ERR_HASH_MISMATCH)
         raise ValueError(_ERR_SUBSYSTEM_RECEIPT_MISMATCH)
     return True
 
-def validate_layer_substrate_compatibility_receipt_with_artifacts(receipt: LayerSubstrateCompatibilityReceipt, substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt) -> bool:
-    return _complete_validate(receipt, substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, build_layer_substrate_compatibility_receipt, validate_layer_substrate_compatibility_receipt)
+def validate_layer_substrate_compatibility_receipt_with_artifacts(receipt: LayerSubstrateCompatibilityReceipt, substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt, observed_material_encoding_receipt: MaterialEncodingReceipt | None = None) -> bool:
+    return _complete_validate(receipt, substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, build_layer_substrate_compatibility_receipt, validate_layer_substrate_compatibility_receipt, "layer_substrate_compatibility_receipt_hash", observed_material_encoding_receipt)
 
-def validate_mask_substrate_receipt_with_artifacts(receipt: MaskSubstrateReceipt, substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt) -> bool:
-    return _complete_validate(receipt, substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, build_mask_substrate_receipt, validate_mask_substrate_receipt)
+def validate_mask_substrate_receipt_with_artifacts(receipt: MaskSubstrateReceipt, substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt, observed_material_encoding_receipt: MaterialEncodingReceipt | None = None) -> bool:
+    return _complete_validate(receipt, substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, build_mask_substrate_receipt, validate_mask_substrate_receipt, "mask_substrate_receipt_hash", observed_material_encoding_receipt)
 
-def validate_router_substrate_receipt_with_artifacts(receipt: RouterSubstrateReceipt, substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt) -> bool:
-    return _complete_validate(receipt, substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, build_router_substrate_receipt, validate_router_substrate_receipt)
+def validate_router_substrate_receipt_with_artifacts(receipt: RouterSubstrateReceipt, substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt, observed_material_encoding_receipt: MaterialEncodingReceipt | None = None) -> bool:
+    return _complete_validate(receipt, substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, build_router_substrate_receipt, validate_router_substrate_receipt, "router_substrate_receipt_hash", observed_material_encoding_receipt)
 
-def validate_readout_substrate_receipt_with_artifacts(receipt: ReadoutSubstrateReceipt, substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt) -> bool:
-    return _complete_validate(receipt, substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, build_readout_substrate_receipt, validate_readout_substrate_receipt)
+def validate_readout_substrate_receipt_with_artifacts(receipt: ReadoutSubstrateReceipt, substrate_state_receipt: SubstrateStateReceipt, material_encoding_receipt: MaterialEncodingReceipt, substrate_drift_receipt: SubstrateDriftReceipt, observed_material_encoding_receipt: MaterialEncodingReceipt | None = None) -> bool:
+    return _complete_validate(receipt, substrate_state_receipt, material_encoding_receipt, substrate_drift_receipt, build_readout_substrate_receipt, validate_readout_substrate_receipt, "readout_substrate_receipt_hash", observed_material_encoding_receipt)

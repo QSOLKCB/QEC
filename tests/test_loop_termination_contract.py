@@ -154,7 +154,8 @@ def test_boundary_and_scope_scan():
         "subprocess", "exec(", "eval(", "random", "time.time", "datetime.now", "probability", "probabilistic",
         "neural", "learned_policy", "global_truth",
     ]
-    text = open("src/qec/analysis/loop_termination_contract.py", encoding="utf-8").read()
+    with open("src/qec/analysis/loop_termination_contract.py", encoding="utf-8") as f:
+        text = f.read()
     for token in blocked:
         assert token not in text
 

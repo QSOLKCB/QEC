@@ -1,10 +1,12 @@
 from dataclasses import FrozenInstanceError, replace
+import inspect
 
 import pytest
 
 from qec.analysis.cross_arc_identity_link import build_cross_arc_identity_link_receipt
 from qec.analysis.reality_loop_composition_spec import build_reality_loop_composition_spec, get_reality_loop_slot_definitions
 from qec.analysis.canonical_hashing import sha256_hex
+import qec.analysis.reality_loop_proof_receipt as rlpr_module
 from qec.analysis.reality_loop_proof_receipt import (
     _reality_loop_proof_receipt_payload,
     RealityLoopProofReceipt,
@@ -133,10 +135,14 @@ def test_intrinsic_validation():
         validate_reality_loop_proof_receipt(replace(receipt, first_composition_slot_hash=_h(1234)))
     with pytest.raises(ValueError, match="SLOT_LINK_TOPOLOGY_MISMATCH"):
         validate_reality_loop_proof_receipt(replace(receipt, final_composition_slot_hash=_h(1234)))
-    with pytest.raises(ValueError, match="REALITY_LOOP_COMPLETION_MISMATCH"):
+    # slots_complete and links_complete are now validated against derived values from counts
+    # Setting them to False when counts match required counts raises INVALID_INPUT
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
         validate_reality_loop_proof_receipt(replace(receipt, slots_complete=False))
-    with pytest.raises(ValueError, match="REALITY_LOOP_COMPLETION_MISMATCH"):
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
         validate_reality_loop_proof_receipt(replace(receipt, links_complete=False))
+    # slot_link_topology_aligned=False with complete counts triggers REALITY_LOOP_COMPLETION_MISMATCH
+    # because derived completion would be False but receipt claims reality_loop_complete=True
     with pytest.raises(ValueError, match="REALITY_LOOP_COMPLETION_MISMATCH"):
         validate_reality_loop_proof_receipt(replace(receipt, slot_link_topology_aligned=False))
     with pytest.raises(ValueError, match="REALITY_LOOP_COMPLETION_MISMATCH"):
@@ -181,7 +187,9 @@ def test_boundary_and_scope_scan():
     with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
         validate_reality_loop_proof_receipt(replace(receipt, first_composition_slot_hash="A" * 64))
 
-    text = open("src/qec/analysis/reality_loop_proof_receipt.py", "r", encoding="utf-8").read()
+    # Use inspect to get source file path instead of hard-coded path
+    source_file = inspect.getsourcefile(rlpr_module)
+    text = open(source_file, "r", encoding="utf-8").read()
     forbidden = [
         "GlobalTruthReceipt", "GlobalValidationIndex", "GlobalThresholdContract", "GlobalReplayProof",
         "global_truth", "global_validation", "runtime_replay_execution", "recursive_execution",

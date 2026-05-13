@@ -196,6 +196,19 @@ def build_reality_loop_proof_receipt(
     composition_spec: RealityLoopCompositionSpec,
     cross_arc_identity_link_receipt: CrossArcIdentityLinkReceipt,
 ) -> RealityLoopProofReceipt:
+    """Build a deterministic reality loop proof receipt from validated upstream artifacts.
+
+    The slot_link_topology_aligned flag is set to True when upstream validators pass.
+    Topology validation is delegated entirely to upstream validators:
+    - validate_reality_loop_composition_spec validates slot structure
+    - validate_cross_arc_identity_link_receipt validates link structure
+    - validate_cross_arc_identity_link_receipt_with_composition_spec validates
+      that links correctly reference composition slots
+    - composition_spec_hash equality check ensures artifacts are from the same spec
+
+    This builder does not perform independent topology validation beyond what
+    upstream validators provide.
+    """
     validate_reality_loop_composition_spec(composition_spec)
     validate_cross_arc_identity_link_receipt(cross_arc_identity_link_receipt)
     validate_cross_arc_identity_link_receipt_with_composition_spec(cross_arc_identity_link_receipt, composition_spec)
@@ -216,6 +229,7 @@ def build_reality_loop_proof_receipt(
 
     slots_complete = len(composition_slot_hashes) == _REQUIRED_SLOT_COUNT
     links_complete = len(cross_arc_identity_link_hashes) == _REQUIRED_LINK_COUNT
+    # Topology alignment is True when upstream validators pass (see docstring)
     slot_link_topology_aligned = True
     reality_loop_complete, proof_class = _derive_completion_and_class(
         len(composition_slot_hashes), _REQUIRED_SLOT_COUNT, len(cross_arc_identity_link_hashes), _REQUIRED_LINK_COUNT,
@@ -362,6 +376,8 @@ def validate_reality_loop_proof_receipt_with_artifacts(
     cross_arc_identity_link_receipt: CrossArcIdentityLinkReceipt,
 ) -> bool:
     validate_reality_loop_composition_spec(composition_spec)
+    # Validate cross-arc receipt generically first, then with composition spec
+    validate_cross_arc_identity_link_receipt(cross_arc_identity_link_receipt)
     validate_cross_arc_identity_link_receipt_with_composition_spec(cross_arc_identity_link_receipt, composition_spec)
     validate_reality_loop_proof_receipt(receipt)
     rebuilt = build_reality_loop_proof_receipt(composition_spec, cross_arc_identity_link_receipt)

@@ -7,6 +7,7 @@ repository tests and local deterministic construction flows.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Union
 
 import numpy as np
 from scipy import sparse
@@ -31,18 +32,68 @@ class ProtographPair:
             raise ValueError("H_X_base and H_Z_base must be 2D arrays")
         if hx.shape[1] != hz.shape[1]:
             raise ValueError("H_X_base and H_Z_base must have same column count")
+        # Validate GF(2^e) element range: entries must be in [0, q)
+        q = self.gf.q
+        if np.any(hx < 0) or np.any(hx >= q):
+            raise ValueError(
+                f"H_X_base entries must be in range [0, {q}), "
+                f"got values in [{hx.min()}, {hx.max()}]"
+            )
+        if np.any(hz < 0) or np.any(hz >= q):
+            raise ValueError(
+                f"H_Z_base entries must be in range [0, {q}), "
+                f"got values in [{hz.min()}, {hz.max()}]"
+            )
         object.__setattr__(self, "H_X_base", hx)
         object.__setattr__(self, "H_Z_base", hz)
+
+
+def _extract_proto_attrs(proto) -> tuple:
+    """
+    Extract (field, H_X_base, H_Z_base) from a protograph pair object.
+
+    Supports both:
+    - ProtographPair from this module (gf, H_X_base, H_Z_base)
+    - ProtographPair from protograph.py (field, B_X, B_Z)
+    """
+    # Try the canonical protograph.py interface first (field, B_X, B_Z)
+    if hasattr(proto, "field") and hasattr(proto, "B_X") and hasattr(proto, "B_Z"):
+        return proto.field, proto.B_X, proto.B_Z
+    # Fall back to this module's interface (gf, H_X_base, H_Z_base)
+    if hasattr(proto, "gf") and hasattr(proto, "H_X_base") and hasattr(proto, "H_Z_base"):
+        return proto.gf, proto.H_X_base, proto.H_Z_base
+    raise TypeError(
+        "proto must have either (field, B_X, B_Z) or (gf, H_X_base, H_Z_base) attributes"
+    )
 
 
 class CSSCode:
     """Deterministic CSS code lifted from a protograph pair."""
 
-    def __init__(self, gf: GF2e, proto: ProtographPair, P: int, seed: int = 0):
+    def __init__(self, gf: GF2e, proto, P: int, seed: int = 0):
         if P < 1:
             raise ValueError("P must be >= 1")
-        if proto.gf.e != gf.e or proto.gf.q != gf.q or proto.gf.poly != gf.poly:
-            raise ValueError("proto.gf must match gf")
+
+        # Extract attributes from either protograph pair type
+        proto_field, H_X_base, H_Z_base = _extract_proto_attrs(proto)
+
+        if proto_field.e != gf.e or proto_field.q != gf.q or proto_field.poly != gf.poly:
+            raise ValueError("proto field must match gf")
+
+        # Validate GF(2^e) element range
+        q = gf.q
+        hx = np.asarray(H_X_base, dtype=np.int32)
+        hz = np.asarray(H_Z_base, dtype=np.int32)
+        if np.any(hx < 0) or np.any(hx >= q):
+            raise ValueError(
+                f"H_X_base entries must be in range [0, {q}), "
+                f"got values in [{hx.min()}, {hx.max()}]"
+            )
+        if np.any(hz < 0) or np.any(hz >= q):
+            raise ValueError(
+                f"H_Z_base entries must be in range [0, {q}), "
+                f"got values in [{hz.min()}, {hz.max()}]"
+            )
 
         self.gf = gf
         self.proto = proto
@@ -50,10 +101,10 @@ class CSSCode:
         self.seed = int(seed)
         self.lift_table = LiftTable(self.P, self.seed)
 
-        self.H_X = self._build_binary_parity(proto.H_X_base)
-        self.H_Z = self._build_binary_parity(proto.H_Z_base)
+        self.H_X = self._build_binary_parity(hx)
+        self.H_Z = self._build_binary_parity(hz)
 
-        if not self._verify_gf_orthogonality(proto.H_X_base, proto.H_Z_base):
+        if not self._verify_gf_orthogonality(hx, hz):
             raise ConstructionInvariantError("GF-level protograph orthogonality failed")
         if not verify_css_orthogonality_sparse(self.H_X, self.H_Z):
             raise ConstructionInvariantError("Binary CSS orthogonality failed")

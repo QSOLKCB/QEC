@@ -12,16 +12,16 @@ current frontier         → v162.0
 next work                → Local IRC Server Core
 active arc               → v162.x — IRC Operator Control Surface
 completed arc            → v161.x — Global Deterministic Truth Engine
+```
 
 Published tags are authoritative.
 
 If this roadmap disagrees with published release history:
 
-published release history wins
-→ roadmap/context/prompt must be corrected
+- published release history wins
+- roadmap/context/prompt must be corrected
 
 Stable lineage remains anchored to v137.* compatibility contracts.
-```
 
 ## 🧠 Core Identity
 
@@ -837,12 +837,12 @@ Blog posts, code examples, and hardware tutorials are research signals only.
 5. [fp16-bf16-guide] Complete Guide to Floating Point Representation: IEEE 754 & Half Precision Formats — https://medium.com/@adnaan525/complete-guide-to-floating-point-representation-ieee-754-half-precision-formats-ff4c4aa49227 (research signal).
 6. [kaatinga-ieee754] Deep understanding of IEEE754 floating point numbers — https://gist.github.com/kaatinga/cecd8c26f544e270dd2008290818a20c (research signal).
 7. Google Quantum AI updates (research signal).
-2. Riverlane QEC roadmap and public benchmarking notes.
-3. Stim documentation and source repository.
-4. PyMatching documentation and source repository.
-5. Qiskit v2.4 and Qiskit Aer documentation.
-6. Debian reproducible builds documentation.
-7. Nature/npj publications referenced in roadmap extension materials.
-8. qec_theory_diagram.txt (repository symbolic grammar reference).
+8. Riverlane QEC roadmap and public benchmarking notes.
+9. Stim documentation and source repository.
+10. PyMatching documentation and source repository.
+11. Qiskit v2.4 and Qiskit Aer documentation.
+12. Debian reproducible builds documentation.
+13. Nature/npj publications referenced in roadmap extension materials.
+14. qec_theory_diagram.txt (repository symbolic grammar reference).
 
 Do not modify src/qec/decoder/.

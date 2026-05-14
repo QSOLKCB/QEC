@@ -116,9 +116,14 @@ class InfoMassGravity:
             term1 = np.trace(rho_mat @ logm(rho_mat))
             term2 = np.trace(rho_mat @ logm(sigma_mat))
 
+        # Re-emit all caught warnings, classifying singular-matrix warnings as LinAlgWarning
         for caught in caught_warnings:
-            if "exactly singular" in str(caught.message).lower():
-                warnings.warn(str(caught.message), LinAlgWarning, stacklevel=2)
+            msg = str(caught.message)
+            if "exactly singular" in msg.lower():
+                warnings.warn(msg, LinAlgWarning, stacklevel=2)
+            else:
+                # Preserve original warning category for non-singular warnings
+                warnings.warn(msg, caught.category, stacklevel=2)
 
         return np.real(term1 - term2) / np.log(2)  # Convert to base 2
     

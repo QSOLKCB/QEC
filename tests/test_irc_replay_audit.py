@@ -98,6 +98,7 @@ def test_counts_first_final_and_replay_determinism():
     assert r.error_event_count == 1
     assert r.first_event_hash == e0.event_hash
     assert r.final_event_hash == e1.event_hash
+    assert r.truncated is False
 
     interactions = [("c1", "PRIVMSG #qec :!help", (":qec-ircd NOTICE #qec :ok",)), ("c1", "PRIVMSG #qec :hi", ("ok",))]
     a = replay_irc_audit_from_interactions(interactions)
@@ -105,3 +106,25 @@ def test_counts_first_final_and_replay_determinism():
     assert a.command_manifest_hash == b.command_manifest_hash
     assert a.irc_replay_audit_hash == b.irc_replay_audit_hash
     assert "IRC_EVENT_OK" in get_allowed_irc_audit_event_statuses()
+
+
+def test_numeric_error_codes_detected():
+    e_401 = build_irc_replay_audit_event(0, "c1", "PRIVMSG #qec :hi", (":qec-ircd 401 * :No such nick/channel",))
+    assert e_401.event_status == "IRC_EVENT_ERROR"
+    e_421 = build_irc_replay_audit_event(1, "c1", "WHAT", (":qec-ircd 421 WHAT :Unknown command",))
+    assert e_421.event_status == "IRC_EVENT_ERROR"
+    e_451 = build_irc_replay_audit_event(2, "c1", "JOIN #qec", (":qec-ircd 451 * :You have not registered",))
+    assert e_451.event_status == "IRC_EVENT_ERROR"
+    e_500 = build_irc_replay_audit_event(3, "c1", "NICK bob", (":qec-ircd 500 * :Server is full",))
+    assert e_500.event_status == "IRC_EVENT_ERROR"
+    e_ok = build_irc_replay_audit_event(4, "c1", "PING :tok", ("PONG tok",))
+    assert e_ok.event_status == "IRC_EVENT_OK"
+
+
+def test_truncated_receipt():
+    e0 = _event(0)
+    r = build_irc_replay_audit_receipt((e0,), truncated=True)
+    assert r.truncated is True
+    r2 = build_irc_replay_audit_receipt((e0,), truncated=False)
+    assert r2.truncated is False
+    assert r.irc_replay_audit_hash != r2.irc_replay_audit_hash

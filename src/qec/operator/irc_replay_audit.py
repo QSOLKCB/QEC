@@ -18,6 +18,7 @@ _MAX_OUTPUT_LINE_LENGTH = 512
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _ALLOWED_EVENT_STATUSES = frozenset({"IRC_EVENT_OK", "IRC_EVENT_ERROR"})
+_IRC_ERROR_NUMERIC_RE = re.compile(r"^:\S+\s+([45]\d{2})\s+")
 
 
 def _canonical_json(payload: object) -> str:
@@ -47,6 +48,13 @@ def _validate_line_input(line: str) -> str:
 
 def get_allowed_irc_audit_event_statuses() -> frozenset[str]:
     return _ALLOWED_EVENT_STATUSES
+
+
+def _is_irc_error_line(line: str) -> bool:
+    """Check if a line is an IRC error reply (4xx/5xx numeric) or literal ERROR."""
+    if line.startswith("ERROR") or " ERROR " in f" {line} ":
+        return True
+    return _IRC_ERROR_NUMERIC_RE.match(line) is not None
 
 
 def normalize_audit_line(line: str) -> str:
@@ -133,7 +141,7 @@ def build_irc_replay_audit_event(event_index: int, client_id: str, input_line: s
 
     command_name = _detect_command_name(normalized_input_line)
     command_detected = command_name is not None
-    is_error = any((" ERROR " in f" {line} " or line.startswith("ERROR")) for line in normalized_output_lines)
+    is_error = any(_is_irc_error_line(line) for line in normalized_output_lines)
     event_status = "IRC_EVENT_ERROR" if is_error else "IRC_EVENT_OK"
 
     payload = {
@@ -171,6 +179,7 @@ class IRCReplayAuditReceipt:
     first_event_hash: str
     final_event_hash: str
     events: tuple[IRCReplayAuditEvent, ...]
+    truncated: bool
     irc_replay_audit_hash: str
 
     def _payload_without_hash(self) -> dict[str, object]:
@@ -184,6 +193,7 @@ class IRCReplayAuditReceipt:
             "first_event_hash": self.first_event_hash,
             "final_event_hash": self.final_event_hash,
             "events": [event.to_dict() for event in self.events],
+            "truncated": self.truncated,
         }
 
     def to_dict(self) -> dict[str, object]:
@@ -198,7 +208,7 @@ class IRCReplayAuditReceipt:
         return self.to_canonical_json().encode("utf-8")
 
 
-def build_irc_replay_audit_receipt(events: tuple[IRCReplayAuditEvent, ...] | list[IRCReplayAuditEvent], *, command_manifest: dict[str, object] | None = None) -> IRCReplayAuditReceipt:
+def build_irc_replay_audit_receipt(events: tuple[IRCReplayAuditEvent, ...] | list[IRCReplayAuditEvent], *, command_manifest: dict[str, object] | None = None, truncated: bool = False) -> IRCReplayAuditReceipt:
     if not isinstance(events, (tuple, list)):
         raise ValueError("INVALID_INPUT")
     event_items = tuple(events)
@@ -232,6 +242,7 @@ def build_irc_replay_audit_receipt(events: tuple[IRCReplayAuditEvent, ...] | lis
         "first_event_hash": first_event_hash,
         "final_event_hash": final_event_hash,
         "events": [event.to_dict() for event in sorted_events],
+        "truncated": truncated,
     }
     return IRCReplayAuditReceipt(
         schema_version=_AUDIT_SCHEMA_VERSION,
@@ -243,6 +254,7 @@ def build_irc_replay_audit_receipt(events: tuple[IRCReplayAuditEvent, ...] | lis
         first_event_hash=first_event_hash,
         final_event_hash=final_event_hash,
         events=sorted_events,
+        truncated=truncated,
         irc_replay_audit_hash=_sha256_hex(payload),
     )
 
@@ -254,7 +266,6 @@ def validate_irc_replay_audit_event(event: IRCReplayAuditEvent) -> bool:
         raise ValueError("INVALID_EVENT_INDEX")
     if not isinstance(event.client_id, str) or not event.client_id or len(event.client_id) > _MAX_CLIENT_ID_LENGTH:
         raise ValueError("INVALID_INPUT")
-    normalize_audit_line(event.input_line)
     if event.normalized_input_line != normalize_audit_line(event.input_line):
         raise ValueError("AUDIT_RECEIPT_MISMATCH")
     if not isinstance(event.output_lines, tuple) or len(event.output_lines) > _MAX_OUTPUT_LINES_PER_EVENT:
@@ -304,7 +315,7 @@ def validate_irc_replay_audit_receipt(receipt: IRCReplayAuditReceipt) -> bool:
     return True
 
 
-def replay_irc_audit_from_interactions(interactions: tuple[tuple[str, str, tuple[str, ...]], ...] | list[tuple[str, str, tuple[str, ...]]]) -> IRCReplayAuditReceipt:
+def replay_irc_audit_from_interactions(interactions: tuple[tuple[str, str, tuple[str, ...]], ...] | list[tuple[str, str, tuple[str, ...]]], *, truncated: bool = False) -> IRCReplayAuditReceipt:
     if not isinstance(interactions, (tuple, list)):
         raise ValueError("INVALID_INPUT")
     events = []
@@ -313,4 +324,4 @@ def replay_irc_audit_from_interactions(interactions: tuple[tuple[str, str, tuple
             raise ValueError("INVALID_INPUT")
         client_id, input_line, output_lines = interaction
         events.append(build_irc_replay_audit_event(i, client_id, input_line, output_lines))
-    return build_irc_replay_audit_receipt(events)
+    return build_irc_replay_audit_receipt(events, truncated=truncated)

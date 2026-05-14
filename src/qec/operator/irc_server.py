@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import NamedTuple
 
 from .irc_commands import format_command_response, parse_operator_command, route_operator_command
-from .irc_replay_audit import _MAX_AUDIT_EVENTS, IRCReplayAuditReceipt, replay_irc_audit_from_interactions
+from .irc_replay_audit import _MAX_AUDIT_EVENTS, IRCReplayAuditReceipt, replay_irc_audit_from_interactions, build_irc_replay_audit_receipt, build_irc_replay_audit_event
 from .irc_protocol import (
     _DEFAULT_HOST,
     _DEFAULT_PORT,
@@ -64,6 +64,7 @@ class IRCServer:
         self._client_seq = 0
         self._enable_replay_audit = enable_replay_audit
         self._audit_interactions: list[tuple[str, str, tuple[str, ...]]] = []
+        self._audit_truncated = False
 
     def _sorted_clients(self) -> list[str]:
         return sorted(self.state.clients)
@@ -102,7 +103,7 @@ class IRCServer:
         if not ch.members:
             self.state.channels.pop(channel, None)
 
-    def _handle_message_routed(self, client_id: str, raw_line: str) -> tuple[RoutedReply, ...]:
+    def _handle_message_routed(self, client_id: str, raw_line: str, *, record_audit: bool = True) -> tuple[RoutedReply, ...]:
         if client_id not in self.state.clients:
             try:
                 self.add_client(client_id)
@@ -112,16 +113,18 @@ class IRCServer:
             msg = parse_irc_line(raw_line)
         except IRCParseError as exc:
             return ((client_id, self._make_reply("461", "*", trailing=str(exc))),)
-        return tuple(self._dispatch(client_id, msg))
+        routed = tuple(self._dispatch(client_id, msg))
+        if record_audit and self._enable_replay_audit and not self._audit_truncated:
+            output_lines = tuple(line for target_client, line in routed if target_client == client_id)
+            if len(self._audit_interactions) >= _MAX_AUDIT_EVENTS:
+                self._audit_truncated = True
+            else:
+                self._audit_interactions.append((client_id, raw_line, output_lines))
+        return routed
 
     def handle_message(self, client_id: str, raw_line: str) -> tuple[str, ...]:
         routed = self._handle_message_routed(client_id, raw_line)
-        output_lines = tuple(line for target_client, line in routed if target_client == client_id)
-        if self._enable_replay_audit:
-            if len(self._audit_interactions) >= _MAX_AUDIT_EVENTS:
-                raise ValueError("AUDIT_EVENT_LIMIT_EXCEEDED")
-            self._audit_interactions.append((client_id, raw_line, output_lines))
-        return output_lines
+        return tuple(line for target_client, line in routed if target_client == client_id)
 
     def _dispatch(self, client_id: str, msg: IRCMessage) -> list[RoutedReply]:
         c = self.state.clients[client_id]
@@ -215,11 +218,11 @@ class IRCServer:
             return []
         return [(client_id, self._make_reply("421", cmd, trailing="Unknown command"))]
 
-
     def export_replay_audit_receipt(self) -> IRCReplayAuditReceipt:
         if not self._enable_replay_audit:
-            return replay_irc_audit_from_interactions(())
-        return replay_irc_audit_from_interactions(tuple(self._audit_interactions))
+            raise RuntimeError("REPLAY_AUDIT_DISABLED")
+        return replay_irc_audit_from_interactions(tuple(self._audit_interactions), truncated=self._audit_truncated)
+
     async def start(self) -> None:
         self._server = await asyncio.start_server(self._handle_socket_client, self.host, self.port)
 

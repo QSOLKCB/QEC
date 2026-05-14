@@ -147,12 +147,30 @@ def test_replay_audit_export_deterministic_when_enabled():
     receipt2 = s.export_replay_audit_receipt()
     assert receipt1.irc_replay_audit_hash == receipt2.irc_replay_audit_hash
     assert receipt1.event_count >= 1
+    assert receipt1.truncated is False
 
 
-def test_replay_audit_limit_enforced_when_enabled():
+def test_replay_audit_limit_sets_truncated_flag():
     s = IRCServer(enable_replay_audit=True)
     _register(s, "c1", "alice")
     for i in range(254):
         s.handle_message("c1", f"PING :{i}")
-    with pytest.raises(ValueError, match="AUDIT_EVENT_LIMIT_EXCEEDED"):
-        s.handle_message("c1", "PING :overflow")
+    s.handle_message("c1", "PING :overflow")
+    receipt = s.export_replay_audit_receipt()
+    assert receipt.truncated is True
+    assert receipt.event_count == 256
+
+
+def test_replay_audit_disabled_raises_error():
+    s = IRCServer(enable_replay_audit=False)
+    _register(s, "c1", "alice")
+    with pytest.raises(RuntimeError, match="REPLAY_AUDIT_DISABLED"):
+        s.export_replay_audit_receipt()
+
+
+def test_replay_audit_detects_numeric_error_codes():
+    s = IRCServer(enable_replay_audit=True)
+    s.handle_message("c1", "PRIVMSG #qec :hi")
+    receipt = s.export_replay_audit_receipt()
+    assert receipt.event_count == 1
+    assert receipt.error_event_count == 1

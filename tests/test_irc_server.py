@@ -128,3 +128,11 @@ def test_direct_command_and_unknown_command_do_not_crash():
     assert any("NOTICE alice" in line and "same input" in line for line in out)
     out2 = s.handle_message("c1", "PRIVMSG qec-ircd :!doesnotexist")
     assert any("UNKNOWN_COMMAND" in line for line in out2)
+
+
+def test_direct_command_to_unknown_target_returns_401():
+    s = IRCServer()
+    _register(s, "c1", "alice")
+    out = s.handle_message("c1", "PRIVMSG doesnotexist :!help")
+    assert any("401" in line and "No such nick/channel" in line for line in out)
+    assert not any("NOTICE" in line for line in out)

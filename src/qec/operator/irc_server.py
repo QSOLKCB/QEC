@@ -192,14 +192,15 @@ class IRCServer:
                     for response_line in format_command_response(result):
                         lines.append((client_id, format_irc_message(IRCReply(prefix=_SERVER_NAME, command="NOTICE", params=(target,), trailing=response_line)).rstrip("\r\n")))
                 return lines
-            request = parse_operator_command(msg.trailing, target=target, nick=c.nick)
-            if request is not None:
-                result = route_operator_command(request)
-                lines = [
-                    (client_id, format_irc_message(IRCReply(prefix=_SERVER_NAME, command="NOTICE", params=(c.nick or "*",), trailing=response_line)).rstrip("\r\n"))
-                    for response_line in format_command_response(result)
-                ]
-                return lines
+            if target == _SERVER_NAME:
+                request = parse_operator_command(msg.trailing, target=target, nick=c.nick)
+                if request is not None:
+                    result = route_operator_command(request)
+                    lines = [
+                        (client_id, format_irc_message(IRCReply(prefix=_SERVER_NAME, command="NOTICE", params=(c.nick or "*",), trailing=response_line)).rstrip("\r\n"))
+                        for response_line in format_command_response(result)
+                    ]
+                    return lines
             return [(client_id, self._make_reply("401", c.nick or "*", trailing="No such nick/channel"))]
         if cmd == "QUIT":
             self.remove_client(client_id)

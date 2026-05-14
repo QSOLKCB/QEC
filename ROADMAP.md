@@ -7,11 +7,11 @@
 # 🧭 Stable Tip Metadata
 
 ```text
-latest completed release → v161.2.2
-current frontier         → v162.0
-next work                → Local IRC Server Core
-active arc               → v162.x — IRC Operator Control Surface
-completed arc            → v161.x — Global Deterministic Truth Engine
+latest completed release → v162.2
+current frontier → v163.0
+next work                → Heavy Dependency Invariant Discovery
+active arc               → v163.x — Heavy Dependency Invariant Discovery
+completed arc            → v162.x — IRC Operator Control Surface
 ```
 
 Published tags are authoritative.
@@ -127,6 +127,52 @@ reality_loop_proof_receipt_hash
 → global_truth_receipt_hash
 → replay_record_hash
 → global_replay_proof_hash
+→ irc_replay_audit_hash                             (v162.2)
+→ heavy_dependency_discovery_manifest_hash          (v163.0)
+→ dependency_hotpath_receipt_hash                   (v163.1)
+→ backend_invariant_candidate_hash                  (v163.2)
+→ cross_backend_equivalence_receipt_hash            (v163.3)
+→ optimization_opportunity_index_hash               (v163.4)
+→ optimization_contract_hash                        (v164.0)
+→ lightweight_adapter_spec_hash                     (v164.1)
+→ cached_canonical_kernel_receipt_hash              (v164.2)
+→ fast_path_equivalence_receipt_hash                (v164.3)
+→ optimization_implementation_receipt_hash          (v164.4)
+→ dependency_reduction_receipt_hash                 (v164.5)
+→ optimized_simulation_spec_hash                    (v165.0)
+→ backend_equivalence_replay_receipt_hash           (v165.1)
+→ optimized_qec_benchmark_receipt_hash              (v165.2)
+→ optimized_telemetry_receipt_hash                  (v165.3)
+→ optimized_simulation_report_hash                  (v165.4)
+→ qldpc_construction_receipt_hash (v166.x)
+→ syndrome_stream_receipt_hash
+→ control_plane_manifest_hash
+→ resource_overhead_receipt_hash
+→ ieee754_precision_format_manifest_hash
+→ safe_bit_reinterpretation_policy_hash
+→ fast_approximation_receipts_hash
+→ fast_inv_sqrt_receipt_hash
+→ fast_exp_receipt_hash
+→ sign_bit_operation_receipts_hash
+→ ulp_epsilon_receipt_hash
+→ float_ordering_receipt_hash
+→ reduced_precision_adapter_receipt_hash
+→ float_integer_test_receipt_hash
+→ hardware_float_adapter_boundary_hash
+→ contextuality_threshold_receipt_hash
+→ qml_boundary_receipt_hash
+→ tool_dispatch_replay_proof_hash
+→ interpretability_boundary_receipt_hash
+→ reproducible_publication_receipt_hash
+→ benchmark_ladder_receipt_hash
+→ materials_signal_boundary_receipt_v2_hash
+→ symbolic_compiler_manifest_hash
+→ audit_trail_receipt_hash
+→ experiment_scheduler_replay_proof_hash
+→ cross_environment_replay_receipt_hash
+→ federated_operator_audit_receipt_hash
+→ hermetic_environment_receipt_hash
+→ global_proof_composition_v2_hash
 ```
 
 ## ✅ Stabilization Releases
@@ -198,156 +244,248 @@ same local command stream
 **Relationship to Existing Roadmap**
 Retains v162 scope while tightening local-only and replay-audit constraints.
 
-## Phase: v163.x — Scientific Backend Normalization
+## Phase: v163.x — Heavy Dependency Invariant Discovery
 
 **Status**
 PLANNED
 
 **Source-Grounded Motivation**
-Scientific backends are useful for comparison and simulation but cannot be proof authorities. This phase normalizes adapter manifests so backend outputs are wrapped as deterministic receipts.
+QEC now deliberately supports heavyweight scientific dependencies because they are useful for simulation, comparison, visualization, and quantum-toolchain interoperability. However, accepting heavy dependencies does not mean trusting them silently or letting them become permanent runtime burdens.
+
+The purpose of v163.x is to inspect heavy dependencies and discover deterministic invariants:
+
+- stable input/output equivalence classes
+- import-time and runtime hot paths
+- matrix-shape / dtype invariants
+- sparse/dense conversion boundaries
+- backend parity relationships
+- repeated canonicalization opportunities
+- render-free plotting data paths
+- simulator configuration invariants
+- deterministic fast-path candidates
+- cacheable kernels
+- dependency surface minimization opportunities
+
+This is discovery only.
+
+v163.x does not implement optimizations yet.
+
+It produces receipt-bound evidence about where optimizations may safely exist.
 
 **Arc Reinterpretation**
-"Backend integrations are deterministic adapters with explicit provenance."
+"Heavy dependency" means an external scientific backend whose useful behavior must be mapped into deterministic invariants before QEC can rely on it.
+
+The dependency is not the authority.
+The invariant is not the optimization.
+The discovery receipt is the boundary.
 
 **Planned Releases**
-- v163.0 → ScientificDependencyManifest
-- v163.1 → BackendAdapterReceiptSchema
-- v163.2 → BackendParityValidationReceipt
+- v163.0 → HeavyDependencyDiscoveryManifest
+- v163.1 → DependencyImportAndHotPathReceipt
+- v163.2 → BackendInvariantCandidateReceipt
+- v163.3 → CrossBackendEquivalenceReceipt
+- v163.4 → OptimizationOpportunityIndex
 
 **Expected Modules**
-- dependency manifest loader
-- backend adapter wrappers
-- parity comparator
+- src/qec/analysis/heavy_dependency_discovery.py
+- src/qec/analysis/dependency_hotpath_receipts.py
+- src/qec/analysis/backend_invariant_candidate_receipts.py
+- src/qec/analysis/cross_backend_equivalence_receipts.py
+- src/qec/analysis/optimization_opportunity_index.py
 
 **Expected Artifacts**
-- `scientific_dependency_manifest.json`
-- `backend_adapter_receipt.json`
-- `backend_parity_validation_hash`
+- HeavyDependencyDiscoveryManifest
+- DependencyImportAndHotPathReceipt
+- BackendInvariantCandidateReceipt
+- CrossBackendEquivalenceReceipt
+- OptimizationOpportunityIndex
+- HeavyDependencyDiscoveryReceipt
+
+**Expected Hashes**
+- heavy_dependency_discovery_manifest_hash
+- dependency_hotpath_receipt_hash
+- backend_invariant_candidate_hash
+- cross_backend_equivalence_receipt_hash
+- optimization_opportunity_index_hash
+- heavy_dependency_discovery_receipt_hash
 
 **Core Rule**
 ```text
-same adapter inputs
-+ same pinned backend versions
-→ same backend_parity_validation_hash
+same dependency manifest
++ same canonical input corpus
++ same backend versions
++ same precision policy
++ same discovery probes
+→ same invariant candidates
+→ same heavy_dependency_discovery_receipt_hash
 ```
 
 **Acceptance Gates**
-- pytest: adapter canonicalization tests pass
-- pytest: optional backend skip-policy tests pass
-- dependency boundary: pinned versions only for supported adapters
+- pytest: discovery manifest canonical JSON is stable
+- pytest: backend inventory ordering is deterministic
+- pytest: optional missing backend is represented as unavailable, not failure
+- pytest: no unrestricted PyPI resolution
+- pytest: no live network calls
+- pytest: import hotpath receipt is deterministic across PYTHONHASHSEED values
+- pytest: invariant candidates include source backend, input corpus hash, and precision policy
+- pytest: cross-backend equivalence uses declared ULP / exact / structural comparison mode
+- pytest: optimization opportunity index is deterministic and sorted by declared ranking tuple
+- dependency boundary: no import from src/qec/decoder/
+- dependency boundary: external backends are adapters, never authorities
 
 **Must Not Do**
-- no backend output accepted as canonical truth without receipt wrapping
-- no unpinned dependency intake
+- no optimization implementation in v163.x
+- no replacing dependencies yet
+- no performance claim without benchmark receipt
+- no hidden randomness
+- no live cloud backend calls
+- no network dependency in tests
+- no unbounded benchmark loops
+- no backend output accepted without receipt wrapping
+- no mutation of proof artifacts
 
 **Dependency Boundaries**
-- depends on: v162 operator manifest surfaces
+- depends on: v162.x operator surface for local inspection commands later
+- depends on: v161 global replay contracts for deterministic receipt discipline
+- uses: QuTiP / Qiskit / Qiskit Aer / SciPy / NumPy / pandas / matplotlib / qldpc / Stim / PyMatching / mido as optional adapters
 - does not modify: src/qec/decoder/
+- does not implement: optimization fast paths
 
 **Relationship to Existing Roadmap**
-Preserves v163 goals and aligns them with strict adapter-receipt governance.
+v163.x replaces and expands the prior Scientific Backend Normalization arc. It keeps backend normalization but adds invariant discovery, hot-path analysis, equivalence class detection, and optimization opportunity indexing.
 
-## Phase: v164.x — QLDPC / Hashing-Bound Code Receipts
+This prepares v164.x to safely exploit the discovered invariants.
+
+## Phase: v164.x — Invariant-Based Heavy Dependency Optimization
 
 **Status**
 PLANNED
 
 **Source-Grounded Motivation**
-QLDPC research signals motivate deterministic field/protograph receipts and hashing-bound code descriptors. QEC records code construction claims as canonical artifacts, not implied performance claims.
+v163.x discovers deterministic invariants in heavy dependencies. v164.x turns those invariants into explicit optimization contracts.
 
 **Arc Reinterpretation**
-"QLDPC descriptors become hash-bound receipts with explicit source provenance."
+"Optimization" means exploiting a discovered deterministic invariant under a declared equivalence contract.
+
+A fast path is not accepted because it is fast.
+A fast path is accepted only if replay proves equivalence.
 
 **Planned Releases**
-- v164.0 → QLDPCFieldProtographReceipt
-- v164.1 → HashingBoundStatementReceipt
-- v164.2 → QLDPCReplayValidationReceipt
+- v164.0 → OptimizationContract
+- v164.1 → LightweightAdapterSpec
+- v164.2 → CachedCanonicalKernelReceipt
+- v164.3 → FastPathEquivalenceReceipt
+- v164.4 → OptimizationImplementationReceipt
+- v164.5 → DependencyReductionReceipt
 
 **Expected Modules**
-- qldpc descriptor normalizer
-- protograph serializer
-- hashing-bound statement validator
+- src/qec/analysis/optimization_contracts.py
+- src/qec/analysis/lightweight_adapter_specs.py
+- src/qec/analysis/cached_canonical_kernel_receipts.py
+- src/qec/analysis/fast_path_equivalence_receipts.py
+- src/qec/analysis/optimization_implementation_receipts.py
+- src/qec/analysis/dependency_reduction_receipts.py
 
 **Expected Artifacts**
-- `qldpc_field_protograph_receipt.json`
-- `hashing_bound_statement_receipt.json`
-- `qldpc_replay_validation_hash`
+- OptimizationContract
+- LightweightAdapterSpec
+- CachedCanonicalKernelReceipt
+- FastPathEquivalenceReceipt
+- OptimizationImplementationReceipt
+- DependencyReductionReceipt
 
-**Core Rule**
-```text
-same code descriptor inputs
-+ same canonical protograph serialization
-→ same qldpc_replay_validation_hash
-```
-
-**Acceptance Gates**
-- pytest: QLDPC receipt schema tests pass
-- pytest: canonical hash identity tests for code descriptors pass
-- dependency boundary: qldpc policy documented as upstream-source controlled
-
-**Must Not Do**
-- no unstated performance guarantees
-- no ambiguous code family naming
+**Expected Hashes**
+- optimization_contract_hash
+- lightweight_adapter_spec_hash
+- cached_canonical_kernel_receipt_hash
+- fast_path_equivalence_receipt_hash
+- optimization_implementation_receipt_hash
+- dependency_reduction_receipt_hash
 
 **Dependency Boundaries**
-- depends on: v163 backend adapter schema
+- depends on: v163.x HeavyDependencyDiscoveryReceipt
 - does not modify: src/qec/decoder/
 
-**Relationship to Existing Roadmap**
-Direct continuation of v164 with tighter hashing-bound constraints.
+## Phase: v165.x — Optimized QEC Simulation Backends
 
-## Phase: v165.x — Qudit / Ququart / High-Dimensional Stabilizer Receipts
+**Status**
+PLANNED
+
+**Source-Grounded Motivation**
+After v163.x discovers invariants and v164.x implements optimization contracts, QEC needs an applied simulation layer that uses those contracts safely.
+
+**Planned Releases**
+- v165.0 → OptimizedSimulationSpec
+- v165.1 → BackendEquivalenceReplayReceipt
+- v165.2 → OptimizedQECBenchmarkReceipt
+- v165.3 → OptimizedTelemetryReceipt
+- v165.4 → OptimizedSimulationReport
+
+**Expected Hashes**
+- optimized_simulation_spec_hash
+- backend_equivalence_replay_receipt_hash
+- optimized_qec_benchmark_receipt_hash
+- optimized_telemetry_receipt_hash
+- optimized_simulation_report_hash
+
+**Dependency Boundaries**
+- depends on: v164.x OptimizationImplementationReceipt
+- depends on: v163.x HeavyDependencyDiscoveryReceipt
+- does not modify: src/qec/decoder/
+
+## Phase: v166.x — QLDPC / Hashing-Bound Code Receipts
+
+**Status**
+PLANNED
+
+## Phase: v167.x — Qudit / Ququart / High-Dimensional Stabilizer Receipts
 
 **Status**: PLANNED
 
-Deterministic high-dimensional stabilizer representations are introduced as bounded, canonical receipts.
-
-(Phases v165.x through v173.x are retained with the same deterministic structure: planned releases, expected artifacts, core rules, acceptance gates, must-not-do constraints, and dependency boundaries; no decoder or analysis modifications.)
-
-## Phase: v166.x — Proof Telemetry / MIDI / Sonification Receipts
+## Phase: v168.x — Proof Telemetry / MIDI / Sonification Receipts
 **Status**: PLANNED
 
-## Phase: v167.x — Symbolic Geometry Grammar / Cosmovirus Sandbox
+## Phase: v169.x — Symbolic Geometry Grammar / Cosmovirus Sandbox
 **Status**: PLANNED
 
-## Phase: v168.x — Reproducible Build / Supply-Chain Receipts
+## Phase: v170.x — Reproducible Build / Supply-Chain Receipts
 **Status**: PLANNED
 
-## Phase: v169.x — Deterministic Knowledge Base / Agent Memory Receipts
+## Phase: v171.x — Deterministic Knowledge Base / Agent Memory Receipts
 **Status**: PLANNED
 
-## Phase: v170.x — Graphene / Photonic / Diamond / Materials Signal Receipts
+## Phase: v172.x — Graphene / Photonic / Diamond / Materials Signal Receipts
 **Status**: PLANNED
 
-## Phase: v171.x — Interactive Proof Worlds / Citizen-Science Game Receipts
+## Phase: v173.x — Interactive Proof Worlds / Citizen-Science Game Receipts
 **Status**: PLANNED
 
-## Phase: v172.x — BP Dynamics / Fixed-Point Trap Receipts
+## Phase: v174.x — BP Dynamics / Fixed-Point Trap Receipts
 **Status**: PLANNED
 
-## Phase: v173.x — Operator Console Unification
+## Phase: v175.x — Operator Console Unification
 **Status**: PLANNED
 
-## Phase: v174.x — Real-Time Syndrome Streaming Receipts
+## Phase: v176.x — Real-Time Syndrome Streaming Receipts
 **Status**: PLANNED
 
 **Planned Releases**
-- v174.0 → SyndromeStreamManifest
-- v174.1 → StreamingWindowReceipt
-- v174.2 → SyndromeReplayReceipt
+- v176.0 → SyndromeStreamManifest
+- v176.1 → StreamingWindowReceipt
+- v176.2 → SyndromeReplayReceipt
 
-## Phase: v175.x — Hardware Abstraction / Control-Plane Receipts
+## Phase: v177.x — Hardware Abstraction / Control-Plane Receipts
 **Status**: PLANNED
 
-## Phase: v176.x — Fault-Tolerant Resource Accounting Receipts
+## Phase: v178.x — Fault-Tolerant Resource Accounting Receipts
 **Status**: PLANNED
 
 **Planned Releases**
-- v176.0 → DistillationOverheadReceipt
-- v176.1 → LogicalCycleOverheadReceipt
-- v176.2 → ResourceBudgetReplayReceipt
+- v178.0 → DistillationOverheadReceipt
+- v178.1 → LogicalCycleOverheadReceipt
+- v178.2 → ResourceBudgetReplayReceipt
 
-## Phase: v176.5.x — IEEE 754 Precision & Approximation Receipts
+## Phase: v178.5.x — IEEE 754 Precision & Approximation Receipts
 
 **Status**
 PLANNED
@@ -538,70 +676,70 @@ same float input
 - no hardware authority claim
 
 **Dependency Boundaries**
-- depends on: v176.x resource accounting receipts
-- used by: v177.x contextuality / topology receipts
-- used by: v178.x QML boundary receipts
-- used by: v182.x benchmark ladder receipts
-- used by: v183.x materials / photonic / device signal receipts
-- used by: v187.x cross-environment replay receipts
+- depends on: v178.x resource accounting receipts
+- used by: v179.x contextuality / topology receipts
+- used by: v180.x QML boundary receipts
+- used by: v184.x benchmark ladder receipts
+- used by: v185.x materials / photonic / device signal receipts
+- used by: v189.x cross-environment replay receipts
 - does not modify: src/qec/decoder/
 - does not require: hardware SDKs, SIMD intrinsics, C extensions
 - authoritative standard: IEEE 754-2019
 - source signals: leegao/float-hacks, randomascii, AMD Vitis tutorial, FP16/BF16 guides, kaatinga IEEE754 notes
 
 **Relationship to Existing Roadmap**
-v176.x establishes resource accounting receipts with float-bearing metrics. v176.5.x adds the precision-contract layer before v177+ phases consume those values.
+v178.x establishes resource accounting receipts with float-bearing metrics. v178.5.x adds the precision-contract layer before v179+ phases consume those values.
 
-## Phase: v177.x — Quantum Geometry / Contextuality / Topological Toolkit Receipts
+## Phase: v179.x — Quantum Geometry / Contextuality / Topological Toolkit Receipts
 **Status**: PLANNED
 
 **Planned Releases**
-- v177.0 → ContextualityThresholdReceipt
-- v177.1 → TopologicalBoundaryReceipt
-- v177.2 → GeometryReplayValidationReceipt
+- v179.0 → ContextualityThresholdReceipt
+- v179.1 → TopologicalBoundaryReceipt
+- v179.2 → GeometryReplayValidationReceipt
 
-## Phase: v178.x — Deterministic Quantum ML Boundary Receipts
+## Phase: v180.x — Deterministic Quantum ML Boundary Receipts
 **Status**: PLANNED
 
-## Phase: v179.x — Local Agent / Tool Dispatch Receipts
+## Phase: v181.x — Local Agent / Tool Dispatch Receipts
 **Status**: PLANNED
 
-## Phase: v180.x — Interpretability / Sparse Feature Receipts
+## Phase: v182.x — Interpretability / Sparse Feature Receipts
 **Status**: PLANNED
 
-## Phase: v181.x — Reproducible Research Publication Receipts
+## Phase: v183.x — Reproducible Research Publication Receipts
 **Status**: PLANNED
 
-## Phase: v182.x — Benchmark Ladder / External Comparator Receipts
+## Phase: v184.x — Benchmark Ladder / External Comparator Receipts
 **Status**: PLANNED
 
-## Phase: v183.x — Photonic / Materials / Device Signal Receipts v2
+## Phase: v185.x — Photonic / Materials / Device Signal Receipts v2
 **Status**: PLANNED
 
-## Phase: v184.x — Symbolic Diagram Compiler v2 / Grammar Extension
+## Phase: v186.x — Symbolic Diagram Compiler v2 / Grammar Extension
 **Status**: PLANNED
 
 **Planned Releases**
-- v184.0 → SymbolicTokenizerReceipt v2
-- v184.1 → DiagramCompilerManifest v2
-- v184.2 → SymbolicBoundaryReplayReceipt v2
+- v186.0 → SymbolicTokenizerReceipt v2
+- v186.1 → DiagramCompilerManifest v2
+- v186.2 → SymbolicBoundaryReplayReceipt v2
 
-## Phase: v185.x — Human Audit / Red-Team Receipts
+## Phase: v187.x — Human Audit / Red-Team Receipts
 **Status**: PLANNED
 
-## Phase: v186.x — Deterministic Experiment Scheduler
+## Phase: v188.x — Deterministic Experiment Scheduler
 **Status**: PLANNED
 
-## Phase: v187.x — Cross-Environment Hardware/OS Replay Receipts
+## Phase: v189.x — Cross-Environment Hardware/OS Replay Receipts
 **Status**: PLANNED
 
-## Phase: v188.x — Operator / IRC / TUI / CLI Federation Receipts v2
+## Phase: v190.x — Operator / IRC / TUI / CLI Federation Receipts v2
 **Status**: PLANNED
 
-## Phase: v189.x — Reproducible Build / Hermetic Environment Receipts v2
+## Phase: v191.x — Reproducible Build / Hermetic Environment Receipts v2
 **Status**: PLANNED
 
-## Phase: v190.x — Global Proof Composition v2
+## Phase: v192.x — Global Proof Composition v2
 
 **Status**
 PLANNED
@@ -616,10 +754,10 @@ Purpose:
 - produce `global_proof_composition_v2_hash`
 
 **Planned Releases**
-- v190.0 → PostV173ArtifactRegistry
-- v190.1 → SourceClaimCompositionReceipt
-- v190.2 → BenchmarkAndHardwareBoundaryCompositionReceipt
-- v190.3 → GlobalProofCompositionV2
+- v192.0 → PostV173ArtifactRegistry
+- v192.1 → SourceClaimCompositionReceipt
+- v192.2 → BenchmarkAndHardwareBoundaryCompositionReceipt
+- v192.3 → GlobalProofCompositionV2
 
 **Core rule**
 ```text
@@ -651,13 +789,16 @@ same post-v173 artifact registry
 | Interpretability | Qwen-Scope SAE |
 | Recursive multi-agent | RecursiveMAS |
 | Scientific backends | Qiskit v2.4, Stim, PyMatching, Qiskit Aer |
+| Heavy dependency invariant discovery | QuTiP, Qiskit, Qiskit Aer, SciPy, NumPy, pandas, matplotlib, qldpc, Stim, PyMatching |
+| Invariant-based dependency optimization | import hot-path analysis, sparse/dense boundary detection, backend equivalence testing, canonical kernel caching |
+| Optimized QEC simulation backends | QuTiP/Qiskit parity, internal QLDPC construction, optimized telemetry, benchmark receipts |
 | Symbolic grammar | qec_theory_diagram.txt |
 | Benchmarking | Riverlane, Google Willow, Qiskit, Phoronix, quantization comparison |
 | IEEE 754 precision / approximation | IEEE 754-2019, leegao/float-hacks, randomascii floating-point format tricks, AMD Vitis IEEE-754 Format Trick, FP16/BF16 precision guides, kaatinga IEEE754 bit-inspection notes |
 
 Some sources are research signals rather than primary authority. Inaccessible sources must be marked as `source_inaccessible` and cannot be sole justification for a phase.
 
-## Updated Global Artifact Hash Chain (v151 → v190)
+## Updated Global Artifact Hash Chain (v151 → v192)
 
 ```text
 reality_loop_proof_receipt_hash
@@ -699,44 +840,54 @@ reality_loop_proof_receipt_hash
 
 ## Near-Term Implementation Priority
 
-1. v161.2.2 finalization (if not already tagged)
-2. repository hygiene: license/SPDX clarity
-3. repository hygiene: version-line policy
-4. repository hygiene: installer provenance hardening
-5. repository hygiene: dependency policy / lockfile story
-6. v162.0 Local IRC Server Core
-7. v162.1 QEC IRC Command Router
-8. v163.0 ScientificDependencyManifest
-9. v164.0 QLDPC field/protograph receipts
-10. v174.0 SyndromeStreamManifest
-11. v176.0 DistillationOverheadReceipt
-12. v176.5.0 IEEE754PrecisionFormatManifest — precision contracts before contextuality, QML, benchmark, materials, and cross-environment replay receipts consume floats
-13. v177.0 ContextualityThresholdReceipt
-13. v184.0 SymbolicTokenizerReceipt v2
+1. v163.0 → HeavyDependencyDiscoveryManifest
+2. v163.1 → DependencyImportAndHotPathReceipt
+3. v163.2 → BackendInvariantCandidateReceipt
+4. v163.3 → CrossBackendEquivalenceReceipt
+5. v163.4 → OptimizationOpportunityIndex
+6. v164.0 → OptimizationContract
+7. v164.1 → LightweightAdapterSpec
+8. v164.2 → CachedCanonicalKernelReceipt
+9. v164.3 → FastPathEquivalenceReceipt
+10. v164.4 → OptimizationImplementationReceipt
+11. v165.0 → OptimizedSimulationSpec
+12. v165.1 → BackendEquivalenceReplayReceipt
+13. v165.2 → OptimizedQECBenchmarkReceipt
 
 Execution order rationale:
-`operator access → backend visibility → scientific receipts → streaming/resource/contextuality → symbolic boundary compiler`
+discover invariants
+→ define optimization contracts
+→ prove equivalence
+→ implement safe fast paths
+→ apply to optimized QEC simulations
 
 ## Publication / Zenodo Opportunities
 
 | Phase | Publication Opportunity |
 |---|---|
-| v174.x | Syndrome streaming receipt schema |
-| v176.x | Fault-tolerant resource accounting receipts |
-| v176.5.x | IEEE 754 precision and bounded approximation receipts |
-| v177.x | Contextuality classification receipts |
-| v181.x | Reproducible publication receipts |
-| v182.x | Benchmark ladder receipts |
-| v184.x | Symbolic diagram compiler |
-| v187.x | Cross-environment replay receipts |
-| v189.x | Hermetic environment receipts |
-| v190.x | Global proof composition v2 |
+| v176.x | Syndrome streaming receipt schema |
+| v178.x | Fault-tolerant resource accounting receipts |
+| v178.5.x | IEEE 754 precision and bounded approximation receipts |
+| v179.x | Contextuality classification receipts |
+| v183.x | Reproducible publication receipts |
+| v184.x | Benchmark ladder receipts |
+| v186.x | Symbolic diagram compiler |
+| v189.x | Cross-environment replay receipts |
+| v191.x | Hermetic environment receipts |
+| v192.x | Global proof composition v2 |
 
 ## Risk Register
 
 | Risk | Preventing Receipt/Gate |
 |---|---|
-| dependency bloat | scientific_dependency_manifest + pinned dependency gate |
+| dependency bloat | heavy_dependency_discovery_manifest + pinned dependency gate |
+| heavy dependency becomes silent authority | BackendInvariantCandidateReceipt + CrossBackendEquivalenceReceipt |
+| optimization changes numerical semantics | FastPathEquivalenceReceipt + IEEE754 precision receipts |
+| speedup claim without benchmark | OptimizedQECBenchmarkReceipt |
+| lightweight adapter diverges from reference backend | BackendEquivalenceReplayReceipt |
+| cache key hides input mutation | CachedCanonicalKernelReceipt |
+| dependency reduction removes required behavior | DependencyReductionReceipt + rollback condition |
+| optimized simulation claims hardware relevance | OptimizedSimulationReport hardware-claim boundary |
 | unsafe pointer-punning becomes implementation guidance | SafeBitReinterpretationPolicy |
 | fast inverse square root uses undeclared magic constant | FastInvSqrtReceipt |
 | fast exp overflows silently | FastExpReceipt input-domain policy |
@@ -767,6 +918,36 @@ Execution order rationale:
 | declarative registry drift | hash-bound registry consistency gate |
 
 ## Safety / Interpretation Notes
+
+**Heavy Dependency Reminder**
+A heavy dependency is an adapter, not an authority.
+
+QEC may use QuTiP, Qiskit, SciPy, matplotlib, pandas, NumPy, Stim,
+PyMatching, qldpc, and related tools as reference backends, discovery
+surfaces, or simulation helpers.
+
+QEC must not trust their output silently.
+
+Every useful backend behavior must be wrapped as:
+  - invariant candidate
+  - equivalence receipt
+  - optimization contract
+  - replay test
+before becoming a QEC fast path.
+
+**Optimization Reminder**
+Optimization is not proof.
+
+A faster path is valid only when:
+  - its invariant source is recorded
+  - its equivalence policy is declared
+  - its benchmark is bounded
+  - its rollback condition is explicit
+  - its replay hash is stable
+
+No speedup claim without a benchmark receipt.
+No optimization without equivalence proof.
+
 
 - GameWorld Reminder: observation contracts do not grant world authority.
 - Perturbation Reminder: stress inputs must stay contract-bounded.

@@ -13,10 +13,11 @@ quantum error correction and entanglement structure.
 
 from __future__ import annotations
 
+import warnings
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 from scipy.spatial.distance import cdist
-from scipy.linalg import logm
+from scipy.linalg import LinAlgWarning, logm
 
 
 class InfoMassGravity:
@@ -110,9 +111,20 @@ class InfoMassGravity:
         sigma_mat = sigma.full()
         
         # S(ρ||σ) = Tr(ρ log ρ - ρ log σ)
-        term1 = np.trace(rho_mat @ logm(rho_mat))
-        term2 = np.trace(rho_mat @ logm(sigma_mat))
-        
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")
+            term1 = np.trace(rho_mat @ logm(rho_mat))
+            term2 = np.trace(rho_mat @ logm(sigma_mat))
+
+        # Re-emit all caught warnings, classifying singular-matrix warnings as LinAlgWarning
+        for caught in caught_warnings:
+            msg = str(caught.message)
+            if "exactly singular" in msg.lower():
+                warnings.warn(msg, LinAlgWarning, stacklevel=2)
+            else:
+                # Preserve original warning category for non-singular warnings
+                warnings.warn(msg, caught.category, stacklevel=2)
+
         return np.real(term1 - term2) / np.log(2)  # Convert to base 2
     
     def purity(self, state: Qobj) -> float:

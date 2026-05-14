@@ -1,1698 +1,848 @@
-# 🚀 QSOLKCB / QEC — ROADMAP.md
+# QSOLKCB / QEC — ROADMAP.md
 
-## Deterministic Reasoning • Canonical Identity • RES/RAG Resonance • Reversible Layers • Atomic Lattices • Router Paths • Readout Projections • Multi-Scale Invariance • Decay Signatures • GameWorld Interaction Boundaries • Perturbation Contracts • Substrate Constraints • Recursive Proof Loops • Reality Loop Integration • Global Deterministic Truth Engine
+## Deterministic Reasoning • Canonical Identity • Replay-Safe Proof Artifacts • QEC Systems • Operator Surfaces • Reproducible Scientific Workflows
 
 ---
 
 # 🧭 Stable Tip Metadata
 
 ```text
-latest completed release → v156.2
-current frontier         → v156.2.1
-next work                → ROADMAP Metadata Assertion Stabilization
-active arc               → v156.x — Deterministic Interaction with Messy Game Worlds
-completed arc            → v155.x — Deterministic Entropy and Decay Signatures
+latest completed release → v161.2.2
+current frontier         → v162.0
+next work                → Local IRC Server Core
+active arc               → v162.x — IRC Operator Control Surface
+completed arc            → v161.x — Global Deterministic Truth Engine
 ```
 
 Published tags are authoritative.
 
 If this roadmap disagrees with published release history:
 
-```text
-published release history wins
-→ roadmap/context/prompt must be corrected
-```
+- published release history wins
+- roadmap/context/prompt must be corrected
 
-Stable lineage remains anchored to `v137.*` compatibility contracts.
+Stable lineage remains anchored to v137.* compatibility contracts.
 
-Every release must preserve:
+## 🧠 Core Identity
 
-```text
-canonical identity
-replay invariance
-hash stability
-receipt integrity
-lineage preservation
-failure semantics
-self-hash exclusion
-recomputed-hash validation
-```
+QEC is a deterministic, replay-safe proof system for:
 
-Every roadmap phase must reduce ambiguity.
-
-Every symbolic extension must compile into deterministic artifacts:
-
-```text
-contract
-artifact
-hash
-receipt
-validation rule
-failure mode
-deterministic replay test
-```
-
-If an idea cannot produce those, it remains inspiration — not QEC.
-
----
-
-# ⚠️ Anti-Drift Workflow Protocol
-
-Use the stage requested by the user.
-
-```text
-If user asks for a Codex prompt:
-  produce a Codex prompt only.
-
-If user asks for a hardening pass:
-  produce a hardening prompt only.
-
-If user asks for release notes:
-  produce release notes only.
-
-If user asks "ready to merge?":
-  give a merge verdict and release notes if requested.
-
-If user has not asked for merge status:
-  do not provide a merge verdict.
-```
-
-This section is intentional. Do not auto-advance lifecycle state.
-
----
-
-# 🧠 Core Identity
-
-QEC is a deterministic, replay-safe reasoning and proof system for:
-
-```text
-quantum error correction
-invariant-driven computation
-canonical identity
-proof receipts
-semantic resonance
-governance
-distributed convergence
-atomic semantic lattices
-router/readout proof
-multi-scale invariance
-deterministic entropy and decay signatures
-game-world source intake
-static action alphabets
-observation snapshots
-episode traces
-strategy probes
-chaos replay verdicts
-interaction reports
-perturbation contracts
-substrate constraints
-recursive proof loops
-reality-loop composition
-global deterministic truth receipts
-```
+- quantum error correction
+- invariant-driven computation
+- canonical identity
+- proof receipts
+- semantic resonance
+- governance
+- distributed convergence
+- lattice/router/readout proof
+- multi-scale invariance
+- entropy and decay signatures
+- GameWorld interaction boundaries
+- perturbation and substrate contracts
+- bounded recursive proof loops
+- reality-loop composition
+- global validation / truth / replay receipts
+- operator control surfaces
+- scientific backend receipts
+- reproducible build receipts
+- symbolic grammar boundaries
 
 QEC is NOT:
 
-```text
-a probabilistic optimizer
-a loose AI-agent framework
-a symbolic metaphor engine without receipts
-a runtime that silently trusts external interpretation
-a game-playing bot
-an RL trainer
-a source-code execution sandbox
-a world simulator
-a gameplay automation framework
-a renderer
-a stochastic policy engine
-a substrate/hardware authority
-a philosophical truth engine
-```
+- a probabilistic optimizer
+- a loose AI-agent framework
+- a symbolic metaphor engine without receipts
+- a runtime that silently trusts external interpretation
+- a game-playing bot
+- an RL trainer
+- a source-code execution sandbox
+- a world simulator
+- a gameplay automation framework
+- a renderer
+- a stochastic policy engine
+- a substrate/hardware authority
+- a philosophical truth engine
+- a medical or biological claim engine
 
 QEC does not need to make messy worlds deterministic.
 
-QEC makes the **boundary** deterministic.
+QEC makes the boundary deterministic.
 
 Core identity:
 
-```text
-QEC does not merely compute.
-QEC proves.
-```
+**QEC does not merely compute. QEC proves.**
 
----
-
-# 🧠 Core Law — System Invariant
+## 🧠 Core Law — System Invariant
 
 ```text
 same input
 → same ordering
 → same canonical JSON
-→ same stable hash
+→ same stable SHA-256 hash
 → same bytes
 → same proof artifact
 → same outcome
 ```
 
-Violation → **SYSTEM INVALID**
+Violation:
 
-v156 extension:
-
-```text
-same game-world source archive
-+ same intake policy
-+ same adapter/action alphabet rules
-+ same observation rules
-+ same bounded action sequence
-+ same replay rules
-→ same game_world_intake_receipt_hash
-→ same world_adapter_contract_receipt_hash
-→ same observation_snapshot_receipt_hash
-→ same episode_trace_receipt_hash
-→ same strategy_probe_receipt_hash
-→ same chaos_replay_verdict_hash
-→ same game_world_interaction_report_hash
-```
-
-Future shifted arcs extend the chain:
-
-```text
-same perturbation contracts
-+ same substrate predicates
-+ same loop termination contracts
-+ same reality-loop slots
-+ same global truth thresholds
-→ same perturbation_stability_proof_hash
-→ same substrate_state_receipt_hash
-→ same recursive_proof_receipt_hash
-→ same reality_loop_proof_receipt_hash
-→ same global_truth_receipt_hash
-```
-
----
-
-# 🔒 Non-Negotiable System Rules
-
-Forbidden:
-
-```text
-randomness
-wall-clock dependence
-async drift
-hidden mutable state
-silent normalization
-schema drift
-ambiguous ordering
-unbounded outputs
-non-canonical identity
-Python built-in hash()
-floating-point scoring
-probabilistic policy selection
-implicit action inference
-implicit world-family mutation
-archive extraction
-dynamic imports from archive code
-executing game code during static phases
-hidden runtime adapters
-unbounded episode traces
-unbounded observation payloads
-implicit replay claims
-physical energy claims without deterministic artifact binding
-substrate claims tied to runtime hardware state
-infinite recursion or undefined loop depth
-global truth verdicts without hash-bound receipts
-```
-
-Required:
-
-```text
-frozen dataclasses or equivalent immutability
-canonical JSON
-stable SHA-256 hashing
-explicit contracts
-deterministic ordering
-deterministic tie-breaking
-bounded outputs
-fail-fast validation
-exact failure semantics
-replay-safe artifacts
-self-hash exclusion
-recomputed hash validation
-deep child validation before parent hash recomputation
-safe source-boundary handling
-explicit action alphabets
-explicit observation channels
-explicit episode bounds
-no TypeError / AttributeError leakage
-```
-
-Core invariant:
-
-```text
-recomputed_hash == stored_hash
-```
-
-Self-hash rule:
-
-```text
-For artifact A with stored hash h_A:
-A_without_h = A without h_A
-h_A = sha256(canonical_json(A_without_h))
-```
-
-Parent-child hash rule:
-
-```text
-Self-hash exclusion applies only to the artifact actively being hashed.
-Parent payloads may include child hashes as data if the module contract requires it.
-Do not generalize blindly.
-Always use the module's centralized payload helper.
-Never use to_dict() blindly if it includes self-hash fields.
-```
-
----
-
-# 🧪 Validation Law
-
-Validation is not manual.
-
-It is conditionally mandatory.
-
-## 🔴 Escalation Rule
-
-Run:
-
-```bash
-pytest -q
-```
-
-if any of the following are touched:
-
-```text
-identity / hashing
-canonical JSON helpers
-receipts
-proof artifacts
-multi-agent logic
-convergence
-conflict classification
-governance
-validation
-replay
-canonical ordering
-analysis-layer proof modules
-reversible layer logic
-compression equivalence
-fractal invariant compression
-semantic lattice topology
-router path resolution
-readout projection
-layered lattice projection
-QAM compatibility metadata
-search-mask construction
-Hilber/Hilbert shift projection
-functional kernel / readout shell composition
-readout matrix / Markov-basis logic
-lattice drift / replay alignment
-subgraph invariant pattern detection
-multi-scale invariant receipts
-Sierpinski compression
-decay checkpoint / decay signature
-entropy drift receipts
-decay resistance proofs
-game-world intake contracts
-world adapter / action alphabet contracts
-observation snapshot receipts
-episode trace receipts
-strategy probe receipts
-chaos replay verdicts
-game-world interaction reports
-perturbation contracts / perturbation matrix
-semantic stress receipts / stability proofs
-substrate constraint predicates / substrate contracts
-substrate state receipts / material encoding receipts
-loop termination contracts
-loop iteration records / recursive proof receipts
-reality loop composition specs / cross-arc identity links
-reality loop proof receipts
-global validation index
-global threshold contracts / global truth receipts
-global replay proofs
-```
-
-## 🟡 Local Rule
-
-If the escalation rule is not triggered:
-
-```text
-module tests are allowed
-BUT must be re-evaluated before merge
-```
-
----
-
-# 🧱 Repository Guardrail
-
-NEVER modify:
-
-```text
-src/qec/decoder/
-```
-
-unless explicitly required by a separate decoder-specific release.
-
-Current development rule:
-
-```text
-analysis-layer only
-additive
-deterministic
-receipt-producing
-no hidden runtime effects
-```
-
----
-
-# 🧾 Attribution Policy — Marc Brendecke / QAM v4.1.0
-
-Marc Brendecke / QAM v4.1.0 attribution is release-note metadata only.
-
-It must never appear inside:
-
-```text
-canonical payloads
-hash inputs
-receipts
-proof artifacts
-validation results
-```
-
-Use attribution only for releases that directly implement QAM/router/readout lineage, including:
-
-```text
-RouterPathSpec / RouterLatticePathReceipt
-ReadoutProjectionReceipt / ReadoutShellStack
-QAMCompatibilityProfile
-SearchMask64
-Hilber/Hilbert shift compatibility
-ReadoutCombinationMatrix / MarkovBasisReceipt
-```
-
-Do not add the attribution to native QEC-only releases unless they directly implement one of those lineage items.
-
-System rule:
-
-```text
-inspiration ≠ identity
-citation ≠ proof
-```
-
----
-
-# 🧠 RES/RAG Meaning Inside QEC
-
-Important:
-
-```text
-RAG does NOT mean ordinary Retrieval-Augmented Generation in this roadmap.
-```
-
-QEC uses RES/RAG as:
-
-```text
-RES = grounded canonical reality
-RAG = reflexive generated interpretation
-```
-
-Operationally:
-
-```text
-RES → evidence-bearing reality state
-RAG → reflexive / generative semantic state
-```
-
-Then:
-
-```text
-RES = RAG
-→ semantic resonance validated
-
-RES ≠ RAG
-→ semantic divergence detected
-```
-
-QEC operationalizes:
-
-```text
-semantic grounding
-must align with
-semantic interpretation
-```
-
----
-
-# 🧠 Phase Structure
-
-```text
-v137–v149 → legacy deterministic runtime + execution bridge
-v150      → multi-agent governance
-v151      → ingestion + RES/RAG + replay
-v152      → reversible layers + compression
-v153      → atomic lattice + router + readout + mask + shift + shells + matrix + replay
-v154      → multi-scale invariance
-v155      → deterministic decay
-v156      → deterministic interaction with messy game worlds
-v157      → perturbation matrix / stress contracts      (shifted from original v156)
-v158      → substrate constraints                      (shifted from original v157)
-v159      → recursive proof loops                      (shifted from original v158)
-v160      → reality loop integration                   (shifted from original v159)
-v161      → global deterministic truth engine          (shifted from original v160)
-```
-
----
-
-# Phase: v137–v149 — Legacy Deterministic Runtime + Execution Bridge
-
-## Status
-
-```text
-COMPLETE
-```
-
-## Summary
-
-Versions v137 through v149 established the deterministic runtime foundation of QEC:
-canonical identity contracts, proof-carrying execution, governance primitives, validation primitives, and the execution bridge that connects deterministic reasoning to external validation surfaces.
-
-Stable lineage remains anchored to `v137.*` compatibility contracts.
-
-Later arcs may extend QEC, but they may not silently rewrite the v137 lineage contracts.
-
----
-
-# Phase: v150.x — Multi-Agent Deterministic Systems
-
-## Status
-
-```text
-COMPLETE
-```
-
-## Completed Releases
-
-```text
-v150.0   → Shared Memory Fabric
-v150.1   → Cross-Agent Governance
-v150.2   → Distributed Proof Consistency
-v150.2.1 → Canonical Identity Contract
-v150.3   → Agent Specialization
-v150.4   → Inter-Agent Protocol
-v150.5   → Multi-Agent Convergence
-v150.6   → Conflict Classification
-v150.7   → Governance Stability Validation
-v150.7.1 → Validation Enforcement
-v150.8   → Multi-Agent Failure Injection
-v150.8.1 → Invariant Lock Hardening
-v150.9   → Distributed Convergence Proof
-v150.9.1 → Metadata / Test Stability Patch
-```
-
-## Result
-
-```text
-agents
-→ decisions
-→ communication
-→ convergence
-→ conflict classification
-→ governance stability
-→ adversarial rejection
-→ distributed proof agreement
-```
-
-QEC can prove:
-
-```text
-all nodes agree
-OR
-exactly how and why they diverge
-```
-
----
-
-# Phase: v151.x — Real-World Ingestion + RES/RAG + Replay
-
-## Status
-
-```text
-COMPLETE
-```
-
-## Completed Releases
-
-```text
-v151.0   → Extraction Boundary
-v151.0.1 → Boundary Hardening + Packaging
-v151.1   → Canonicalization Engine
-v151.2   → RES/RAG Semantic Field Construction
-v151.3   → RES/RAG Resonance Validation
-v151.3.1 → Resonance Contract Hardening
-v151.4   → Adversarial Extraction Validation
-v151.5   → Dialogical Document Governance
-v151.6   → Real-World Proof Chain
-v151.6.1 → Test Hygiene + Reproducibility + Visualization Consistency
-v151.7   → Determinism Enforcement
-v151.7.1 → Import Hygiene Stabilization
-v151.8   → Replay & Cross-Environment Resonance Proof
-```
-
-## Result
-
-```text
-raw external input
-→ deterministic boundary
-→ canonical identity
-→ semantic structure
-→ resonance classification
-→ adversarial evidence
-→ governance decision
-→ proof chain
-→ drift detection
-→ cross-environment replay proof
-```
-
----
-
-# Phase: v152.x — Reversible Coherence Lattice + Proof Compression
-
-## Status
-
-```text
-COMPLETE
-```
-
-## Completed Releases
-
-```text
-v152.0 → LayerSpec Contract
-v152.1 → LayeredState Receipt
-v152.2 → Layer Removal Proof
-v152.3 → Layered Compression Equivalence
-v152.4 → Fractal Invariant Compression
-```
-
-## Result
-
-```text
-base_hash remains authoritative
-layer definition → layer composition → layer removal proof → layered compression equivalence → fractal invariant compression
-```
-
----
-
-# Phase: v153.x — Atomic Semantic Lattice State Space + Router/Readout Projection
-
-## Status
-
-```text
-COMPLETE
-```
-
-## Completed Releases
-
-```text
-v153.0 → Atomic Semantic Lattice Contract
-v153.1 → Router Lattice Paths
-v153.2 → Readout Projection Receipts
-v153.3 → Layered Lattice Projection Receipt
-v153.4 → QAM Compatibility Profile
-v153.5 → SearchMask64 Contract
-v153.6 → Hilber/Hilbert Shift Projection
-v153.7 → Functional Kernel + Readout Shell Architecture
-v153.8 → Readout Combination Matrix + Markov Basis
-v153.9 → Lattice Drift + Replay Alignment
-```
-
-## Result
-
-```text
-bounded semantic state space
-→ discrete canonical nodes
-→ explicit constraint edges
-→ tamper-proof topology
-→ router-visible paths
-→ source-bound readout projections
-→ layered lattice binding
-→ QAM metadata sandbox
-→ fixed-width mask reduction
-→ deterministic shift transform
-→ functional kernel/shell composition
-→ deterministic readout matrix
-→ replay/drift alignment
-```
-
----
-
-# Phase: v154.x — Multi-Scale Subgraph Invariance
-
-## Status
-
-```text
-COMPLETE
-```
-
-## Completed Releases
-
-```text
-v154.0   → SubgraphInvariantPattern Contract
-v154.0.1 → Detection Semantics Clarification + Input Validation Hardening
-v154.1   → Multi-Scale Invariant Receipts
-v154.2   → Sierpinski Compression (Lossless Invariant Aggregation)
-v154.3   → Scale-Preserving Router and Readout Receipts
-v154.4   → Governance and Semantic Compression at Scale
-```
-
-## Result
-
-```text
-v154.0 → invariant identity
-v154.1 → invariant across scale
-v154.2 → invariant compressed without loss
-v154.3 → invariant bound to router/readout observation
-v154.4 → invariant compression across governance and semantics
-```
-
----
-
-# Phase: v155.x — Deterministic Entropy and Decay Signatures
-
-## Status
-
-```text
-COMPLETE
-```
-
-## Completed Releases
-
-```text
-v155.0 → DecayCheckpoint Contract
-v155.1 → DigitalDecaySignature / Decay Signature Layer
-v155.2 → EntropyDriftReceipt / Per-Subsystem Drift Receipts
-v155.3 → DecayResistanceProof
-```
-
-## Result
-
-```text
-detect drift
-→ classify drift
-→ localize drift by subsystem
-→ prove clean replay-bound resistance
-```
-
-## v155 Artifact Chain Extension
-
-```text
-multi_scale_invariant_receipt_hash
-→ decay_checkpoint_hash
-→ decay_checkpoint_set_hash
-→ decay_threshold_contract_hash
-→ digital_decay_signature_hash
-→ layer_decay_receipt_hash
-→ router_decay_receipt_hash
-→ mask_collision_decay_receipt_hash
-→ shift_decay_receipt_hash
-→ readout_projection_decay_receipt_hash
-→ entropy_drift_receipt_hash
-→ decay_resistance_proof_hash
-```
-
----
-
-# Phase: v156.x — Deterministic Interaction with Messy Game Worlds
-
-## Status
-
-```text
-ACTIVE
-```
-
-## Arc Premise
-
-The v156.x arc is an intentional detour from the earlier perturbation/substrate roadmap.
-
-Instead of immediately moving into perturbation contracts, QEC now asks:
-
-```text
-Can a deterministic proof system safely interact with messy, stateful,
-externally sourced game worlds while preserving canonical identity,
-bounded observation, explicit action semantics, and replay validation?
-```
-
-The worlds may be messy.
-
-QEC must not be.
-
-## Source Families
-
-The arc is motivated by external source archives and game-world families such as:
-
-```text
-Wolfenstein / raycasting-style worlds
-Doom-like 2.5D engines
-Atari / RL-style environments
-abstract strategy game frameworks
-game-AI frameworks
-pixel/action interfaces
-rhythm-generation systems
-board/economic strategy simulators
-```
-
-These are treated as untrusted source corpora.
-
-They are not imported, executed, or trusted by default.
-
-## v156.x Arc Structure
-
-```text
-v156.0 → GameWorld Source Intake Contract
-v156.1 → World Adapter / Action Alphabet Contract
-v156.2 → Observation Snapshot Receipts
-v156.3 → Deterministic Episode Trace
-v156.4 → Strategy Probe Receipts
-v156.5 → Chaos Replay Verdict
-v156.6 → GameWorld Interaction Report
-```
-
-## v156.x Artifact Chain
-
-```text
-archive bytes
-→ game_world_archive_manifest_hash
-→ game_world_corpus_manifest_hash
-→ game_world_intake_receipt_hash
-→ action_atom_hash
-→ action_alphabet_hash
-→ world_adapter_spec_hash
-→ world_adapter_contract_receipt_hash
-→ observation_channel_hash
-→ observation_snapshot_hash
-→ episode_step_hash
-→ episode_trace_hash
-→ strategy_probe_hash
-→ chaos_replay_verdict_hash
-→ game_world_interaction_report_hash
-```
-
----
-
-## ✅ v156.0 — GameWorld Source Intake Contract
-
-### Status
-
-```text
-COMPLETE
-```
-
-### Goal
-
-Safely ingest external game-world source `.zip` archives as deterministic, canonical, non-executing source manifests.
-
-v156.0 answers:
-
-```text
-What archive exists?
-What bytes identify it?
-What files does it contain?
-What languages/assets/entrypoints are visible?
-What world-family does it resemble?
-What warnings are deterministically detectable?
-Was execution prohibited?
-```
-
-### Implemented Module
-
-```text
-src/qec/analysis/game_world_intake_contract.py
-```
-
-### Artifacts
-
-```text
-GameWorldArchive
-GameWorldCorpusManifest
-GameWorldIntakeReceipt
-```
-
-### Public Helpers
-
-```text
-build_game_world_archive(...)
-build_game_world_corpus_manifest(...)
-build_game_world_intake_receipt(...)
-
-validate_game_world_archive(...)
-validate_game_world_corpus_manifest(...)
-validate_game_world_intake_receipt(...)
-```
-
-### Core Rule
-
-```text
-same archive bytes
-+ same intake policy
-→ same archive manifest
-→ same corpus manifest
-→ same intake receipt
-```
-
-### Final Semantics
-
-```text
-no zip extraction
-no archive imports
-no game execution
-no runtime interaction
-no dynamic loading
-static metadata only
-deterministic filename / extension detection only
-archive_manifest_hash excludes local archive_path for portability
-archive_path remains non-hashed metadata
-```
-
-### Failure Modes
-
-```text
-INVALID_INPUT
-INVALID_HASH_FORMAT
-HASH_MISMATCH
-ARCHIVE_NOT_FOUND
-INVALID_ARCHIVE_FORMAT
-UNSAFE_ARCHIVE_PATH
-DUPLICATE_ARCHIVE
-EXECUTION_NOT_ALLOWED
-```
-
----
-
-## 🚧 v156.1 — World Adapter / Action Alphabet Contract
-
-### Status
-
-```text
-CURRENT FRONTIER
-```
-
-### Goal
-
-Define deterministic static adapter contracts and explicit action alphabets for each game-world family discovered in v156.0.
-
-v156.1 does **not** execute games.
-
-It only defines:
-
-```text
-what actions are representable
-what parameters they may accept later
-which action alphabet belongs to which world family
-which adapter spec binds an archive manifest to an action alphabet
-```
-
-### Expected Module
-
-```text
-src/qec/analysis/game_world_adapter_contract.py
-```
-
-### Artifacts
-
-```text
-ActionAtom
-ActionAlphabet
-WorldAdapterSpec
-WorldAdapterContractReceipt
-```
-
-### Core Rule
-
-```text
-same validated archive manifest
-+ same world_family
-+ same static action rules
-→ same action alphabet
-→ same adapter spec
-→ same adapter contract receipt
-```
-
-### Adapter Mode
-
-```text
-STATIC_ACTION_ALPHABET_ONLY
-```
-
-### Action Kind Vocabulary
-
 ```text
-META
-MOVEMENT
-COMBAT
-MENU
-PIXEL_BUTTON
-STRATEGY
-FRAMEWORK_CONTROL
-RHYTHM_EDIT
-BOARD_ACTION
+SYSTEM INVALID
 ```
-
-### Failure Modes
-
-```text
-INVALID_INPUT
-INVALID_HASH_FORMAT
-HASH_MISMATCH
-DUPLICATE_PARAMETER_SLOT
-DUPLICATE_ACTION
-ACTION_COUNT_MISMATCH
-ADAPTER_FAMILY_MISMATCH
-CORPUS_RECEIPT_MISMATCH
-DUPLICATE_ADAPTER
-ADAPTER_COUNT_MISMATCH
-```
-
-### Must Not Do
-
-```text
-no game execution
-no action execution
-no observation snapshots
-no episode traces
-no strategy probes
-no zipfile usage
-no archive inspection beyond v156.0 artifacts
-no dynamic imports
-no runtime world stepping
-```
-
----
-
-## 🚧 v156.2 — Observation Snapshot Receipts
-
-### Status
-
-```text
-PLANNED
-```
-
-### Goal
-
-Define deterministic observation snapshots at the boundary between QEC and a messy game world.
-
-v156.2 answers:
-
-```text
-What was observed?
-Through which channel?
-At which bounded observation index?
-Under which adapter/action alphabet contract?
-What canonical hash identifies the observation?
-```
-
-### Expected Module
-
-```text
-src/qec/analysis/game_world_observation_snapshot.py
-```
-
-### Expected Artifacts
-
-```text
-ObservationChannelSpec
-ObservationSnapshot
-ObservationSnapshotReceipt
-ObservationSnapshotSet
-```
-
-### Observation Channel Types
-
-```text
-SYMBOLIC_STATE
-PIXEL_HASH
-TEXT_EVENT
-SCORE_VALUE
-POSITION_VECTOR
-ACTION_MASK
-TERMINAL_FLAG
-UNKNOWN
-```
-
-### Core Rule
-
-```text
-same adapter contract
-+ same observation channel
-+ same canonical observation payload
-+ same observation_index
-→ same observation_snapshot_hash
-→ same observation_snapshot_receipt_hash
-```
-
-### Must Not Do
-
-```text
-no gameplay
-no strategy
-no episode trace yet
-no runtime rendering
-no probabilistic feature extraction
-no hidden observation normalization
-no unbounded payloads
-```
-
----
-
-## 🚧 v156.3 — Deterministic Episode Trace
-
-### Status
-
-```text
-PLANNED
-```
-
-### Goal
-
-Represent a bounded sequence of observations and action selections as a deterministic episode trace.
-
-### Expected Module
-
-```text
-src/qec/analysis/game_world_episode_trace.py
-```
-
-### Expected Artifacts
-
-```text
-EpisodeStep
-EpisodeTrace
-EpisodeTraceReceipt
-```
-
-### Core Rule
-
-```text
-same observation receipts
-+ same action atoms
-+ same step indices
-+ same terminal flags
-→ same episode trace
-→ same episode_trace_receipt_hash
-```
-
-### Must Not Do
-
-```text
-no RL training
-no policy optimization
-no scoring heuristic
-no runtime gameplay
-no hidden environment stepping
-no unbounded episode loops
-```
-
----
-
-## 🚧 v156.4 — Strategy Probe Receipts
-
-### Status
-
-```text
-PLANNED
-```
-
-### Goal
-
-Represent deterministic strategy probes over episode traces without claiming optimal play.
-
-This is **not** reinforcement learning.
-
-This is **not** score maximization.
-
-It is deterministic probing.
-
-### Expected Module
-
-```text
-src/qec/analysis/game_world_strategy_probe.py
-```
-
-### Expected Artifacts
-
-```text
-StrategyProbeSpec
-StrategyProbeResult
-StrategyProbeReceipt
-```
-
-### Probe Types
-
-```text
-NO_OP_BASELINE
-LEGAL_ACTION_SCAN
-REPEAT_ACTION_STABILITY
-TRACE_DIVERGENCE_SCAN
-TERMINAL_STATE_SCAN
-SCORE_DELTA_SCAN
-UNKNOWN_ACTION_REJECTION
-```
-
-### Must Not Do
-
-```text
-no learned policy
-no neural scoring
-no probabilistic ranking
-no hidden action simulation
-no claiming best action
-no runtime environment stepping
-```
-
----
-
-## 🚧 v156.5 — Chaos Replay Verdict
-
-### Status
-
-```text
-PLANNED
-```
-
-### Goal
-
-Compare expected episode traces, observation hashes, action selections, and strategy probes across replay attempts to produce a deterministic verdict.
-
-### Expected Module
-
-```text
-src/qec/analysis/game_world_chaos_replay_verdict.py
-```
-
-### Expected Artifacts
-
-```text
-ReplayComparisonPoint
-ChaosReplayVerdict
-ChaosReplayVerdictReceipt
-```
-
-### Verdict Classes
-
-```text
-CHAOS_REPLAY_CLEAN
-OBSERVATION_DRIFT
-ACTION_DRIFT
-TRACE_DRIFT
-PROBE_DRIFT
-ADAPTER_DRIFT
-INTAKE_DRIFT
-INCOMPLETE_REPLAY
-```
-
-### Must Not Do
-
-```text
-no fuzzy replay scoring
-no tolerance thresholds unless exact integer contract
-no probabilistic instability metric
-no runtime replay execution
-no auto-repair
-```
-
----
-
-## 🚧 v156.6 — GameWorld Interaction Report
-
-### Status
-
-```text
-PLANNED
-```
-
-### Goal
-
-Aggregate the complete v156.x chain into a deterministic interaction report.
-
-### Expected Module
-
-```text
-src/qec/analysis/game_world_interaction_report.py
-```
-
-### Expected Artifacts
-
-```text
-GameWorldInteractionReport
-GameWorldInteractionReportReceipt
-```
-
-### Report Sections
-
-```text
-source_intake
-adapter_contract
-observation_summary
-episode_trace_summary
-strategy_probe_summary
-chaos_replay_summary
-scope_boundary
-failure_summary
-```
-
-### Final Report Verdicts
-
-```text
-INTERACTION_REPLAY_CLEAN
-INTERACTION_REPLAY_DRIFTED
-INTERACTION_INCOMPLETE
-INTERACTION_INVALID
-```
-
-### Arc Completion Result
-
-At v156.6, QEC can prove:
-
-```text
-what world source was observed
-what action alphabet was allowed
-what observations were recorded
-what episode trace was represented
-what strategy probe was applied
-whether replay stayed clean or drifted
-what final interaction report binds the chain
-```
-
----
-
-# Phase: v157.x — Deterministic Perturbation and Stress Contracts
-
-## Status
-
-```text
-PLANNED — shifted from original v156.x
-```
-
-## Arc Reinterpretation
-
-```text
-SYMBOLIC INPUT:
-"Energy Matrix Perturbation Layer"
-"controlled perturbation, stress fields, validation pressure, semantic activation"
-
-DETERMINISTIC INTERPRETATION:
-"Energy" is REJECTED as a physical claim.
-
-A PerturbationContract is a deterministic specification of a bounded,
-parameterized modification applied to a named artifact field.
-
-The perturbation is applied to canonical JSON, not to a runtime object.
-The original artifact is never mutated.
-```
-
-## Dependency Boundaries
-
-```text
-DEPENDS ON:
-  v153.x — lattice/router/readout artifacts
-  v154.x — multi_scale_invariant_receipt
-  v155.x — DecayCheckpointSet / DigitalDecaySignature
-  v156.x — optional GameWorld interaction report targets
-
-MUST NOT LEAK INTO:
-  v158 (substrate encoding is a separate constraint layer)
-
-PREPARES FOR:
-  v158 — substrate constraints define which perturbations are admissible
-  v159 — recursive proof loops use perturbation to test loop stability
-  v160 — reality loop integration requires perturbation-stable proof chains
-```
-
-## Planned Releases
-
-```text
-v157.0 → PerturbationContract
-v157.1 → PerturbationMatrix / EnergyMatrix
-v157.2 → SemanticStressReceipt and PerturbationStabilityProof
-v157.3 → Per-Subsystem Stress Receipts
-```
-
-## v157 Artifact Chain Extension
-
-```text
-game_world_interaction_report_hash           (v156.6)
-→ perturbation_contract_hash                 (v157.0)
-→ perturbation_result_hash                   (v157.0)
-→ perturbation_matrix_hash / energy_matrix_receipt_hash  (v157.1)
-→ semantic_stress_receipt_hash               (v157.2)
-→ perturbation_stability_proof_hash          (v157.2)
-→ layer_activation_stability_receipt_hash    (v157.3)
-→ router_stress_receipt_hash                 (v157.3)
-→ mask_stress_receipt_hash                   (v157.3)
-→ shift_stress_receipt_hash                  (v157.3)
-→ readout_stress_receipt_hash                (v157.3)
-```
-
----
-
-# Phase: v158.x — Substrate Encoding Constraint Layer
-
-## Status
-
-```text
-PLANNED — shifted from original v157.x
-```
-
-## Arc Reinterpretation
-
-```text
-A SubstrateContract is a deterministic constraint profile over canonical JSON.
-
-"Substrate" does NOT mean hardware authority.
-It means: a named compatibility profile that an artifact must satisfy.
-```
-
-## Planned Releases
-
-```text
-v158.0 → SubstrateConstraintPredicate / SubstrateContract
-v158.1 → SubstrateStateReceipt
-v158.2 → MaterialEncodingReceipt / SubstrateDriftReceipt
-v158.3 → Per-Subsystem Substrate Receipts
-```
-
-## v158 Artifact Chain Extension
-
-```text
-perturbation_stability_proof_hash            (v157.2)
-→ substrate_constraint_predicate_hash        (v158.0)
-→ substrate_contract_hash                    (v158.0)
-→ predicate_evaluation_result_hash           (v158.1)
-→ substrate_state_receipt_hash               (v158.1)
-→ encoding_entry_hash                        (v158.2)
-→ material_encoding_receipt_hash             (v158.2)
-→ substrate_drift_receipt_hash               (v158.2)
-→ layer_substrate_compatibility_receipt_hash (v158.3)
-→ mask_substrate_receipt_hash                (v158.3)
-→ router_substrate_receipt_hash              (v158.3)
-→ readout_substrate_receipt_hash             (v158.3)
-```
-
----
-
-# Phase: v159.x — Bounded Recursive Proof Loops
-
-## Status
-
-```text
-PLANNED — shifted from original v158.x
-```
-
-## Arc Reinterpretation
-
-```text
-A RecursiveProofLoop is a bounded deterministic iteration where:
-  - each iteration input is a named receipt hash
-  - each iteration output is a named receipt hash
-  - termination is explicit
-  - max_depth is explicit and bounded
-```
-
-Infinite recursion is rejected.
-
-## Planned Releases
-
-```text
-v159.0 → LoopTerminationContract
-v159.1 → RecursiveProofReceipt
-v159.2 → LoopTerminationProof / OuroboricConvergenceReceipt
-v159.3 → Router / Readout / Markov Loop Receipts
-```
-
-## v159 Artifact Chain Extension
-
-```text
-substrate_state_receipt_hash                 (v158.1)
-→ loop_termination_contract_hash             (v159.0)
-→ loop_iteration_record_hash                 (v159.1)
-→ recursive_proof_receipt_hash               (v159.1)
-→ loop_termination_proof_hash                (v159.2)
-→ ouroboric_convergence_receipt_hash         (v159.2)
-→ router_loop_receipt_hash                   (v159.3)
-→ readout_loop_receipt_hash                  (v159.3)
-→ markov_loop_stability_receipt_hash         (v159.3)
-```
-
----
-
-# Phase: v160.x — Full-System Replay Composition / Reality Loop Integration
-
-## Status
-
-```text
-PLANNED — shifted from original v159.x
-```
-
-## Arc Reinterpretation
-
-```text
-A RealityLoopCompositionSpec is an ordered, canonical list of fixed receipt hash slots,
-one per major arc-phase output.
-
-"Reality loop" does NOT mean a philosophical feedback cycle.
-It means: a deterministic composition receipt proving that all required arc outputs
-are present, hash-bound, and cross-arc linked.
-```
-
-## Updated Slot Count
-
-Because v156.x is now the GameWorld interaction arc and the original perturbation/substrate/recursion arcs shifted forward, the reality loop composition expands from the old 18-slot plan to a **19-slot plan**.
-
-## Slot Definitions (Fixed, Ordered)
-
-| Slot Index | Arc Label | Receipt Field Name |
-|---:|---|---|
-| 0 | v151 | canonical_hash |
-| 1 | v151 | semantic_field_hash |
-| 2 | v151 | resonance_hash |
-| 3 | v152 | layered_hash |
-| 4 | v152 | fractal_equivalence_receipt_hash |
-| 5 | v153 | lattice_graph_hash |
-| 6 | v153 | router_lattice_path_receipt_hash |
-| 7 | v153 | readout_projection_receipt_hash |
-| 8 | v153 | lattice_replay_proof_hash |
-| 9 | v154 | multi_scale_invariant_receipt_hash |
-| 10 | v154 | sierpinski_compression_receipt_hash |
-| 11 | v155 | digital_decay_signature_hash |
-| 12 | v155 | entropy_drift_receipt_hash |
-| 13 | v156 | game_world_interaction_report_hash |
-| 14 | v157 | energy_matrix_receipt_hash |
-| 15 | v157 | perturbation_stability_proof_hash |
-| 16 | v158 | substrate_state_receipt_hash |
-| 17 | v159 | recursive_proof_receipt_hash |
-| 18 | v159 | loop_termination_proof_hash |
-
-## Planned Releases
-
-```text
-v160.0 → RealityLoopCompositionSpec
-v160.1 → Cross-Arc Identity Links
-v160.2 → RealityLoopProofReceipt
-```
-
-## v160 Artifact Chain Extension
-
-```text
-loop_termination_proof_hash                  (v159.2)
-→ composition_slot_hash                      (v160.0)
-→ composition_spec_hash                      (v160.0)
-→ cross_arc_identity_link_receipt_hash       (v160.1)
-→ reality_loop_proof_receipt_hash            (v160.2)
-```
-
----
-
-# Phase: v161.x — Global Deterministic Truth Engine
-
-## Status
-
-```text
-PLANNED — shifted from original v160.x
-```
-
-## Arc Reinterpretation
-
-```text
-"Truth" means registered receipts recompute and cross-arc links hold.
-It is not semantic, philosophical, or metaphysical truth.
-```
-
-## Planned Releases
-
-```text
-v161.0 → GlobalValidationIndex
-v161.1 → GlobalThresholdContract / GlobalTruthReceipt
-v161.2 → GlobalReplayProof
-```
-
-## v161 Artifact Chain Extension
-
-```text
-reality_loop_proof_receipt_hash              (v160.2)
-→ global_validation_entry_hash               (v161.0)
-→ global_validation_index_hash               (v161.0)
-→ global_threshold_contract_hash             (v161.1)
-→ global_truth_receipt_hash                  (v161.1)
-→ replay_record_hash                         (v161.2)
-→ global_replay_proof_hash                   (v161.2)
-```
-
----
-
-# Global Artifact Hash Chain: v151 → v161
-
-```text
-canonical_hash                                      (v151)
-semantic_field_hash                                (v151)
-resonance_hash                                     (v151)
-layered_hash                                       (v152)
-fractal_equivalence_receipt_hash                   (v152)
-lattice_graph_hash                                 (v153.0)
-router_lattice_path_receipt_hash                   (v153.1)
-readout_projection_receipt_hash                    (v153.2)
-layered_lattice_projection_hash                    (v153.3)
-qam_spec_hash                                      (v153.4)
-mask_reduction_hash                                (v153.5)
-shift_projection_hash                              (v153.6)
-kernel_composition_hash                            (v153.7)
-readout_matrix_hash                                (v153.8)
-lattice_replay_proof_hash                          (v153.9)
-subgraph_invariant_pattern_hash                    (v154.0)
-multi_scale_invariant_receipt_hash                 (v154.1)
-sierpinski_compression_receipt_hash                (v154.2)
-router_scale_receipt_hash                          (v154.3)
-readout_scale_projection_receipt_hash              (v154.3)
-governance_compression_receipt_hash                (v154.4)
-semantic_compression_receipt_hash                  (v154.4)
-decay_checkpoint_hash                              (v155.0)
-decay_checkpoint_set_hash                          (v155.0)
-decay_threshold_contract_hash                      (v155.1)
-digital_decay_signature_hash                       (v155.1)
-entropy_drift_receipt_hash                         (v155.2)
-decay_resistance_proof_hash                        (v155.3)
-game_world_archive_manifest_hash                   (v156.0)
-game_world_corpus_manifest_hash                    (v156.0)
-game_world_intake_receipt_hash                     (v156.0)
-action_atom_hash                                   (v156.1)
-action_alphabet_hash                               (v156.1)
-world_adapter_spec_hash                            (v156.1)
-world_adapter_contract_receipt_hash                (v156.1)
-observation_snapshot_receipt_hash                  (v156.2)
-episode_trace_receipt_hash                         (v156.3)
-strategy_probe_receipt_hash                        (v156.4)
-chaos_replay_verdict_hash                          (v156.5)
-game_world_interaction_report_hash                 (v156.6)
-perturbation_contract_hash                         (v157.0)
-energy_matrix_receipt_hash                         (v157.1)
-perturbation_stability_proof_hash                  (v157.2)
-substrate_contract_hash                            (v158.0)
-substrate_state_receipt_hash                       (v158.1)
-recursive_proof_receipt_hash                       (v159.1)
-loop_termination_proof_hash                        (v159.2)
-reality_loop_proof_receipt_hash                    (v160.2)
-global_truth_receipt_hash                          (v161.1)
-global_replay_proof_hash                           (v161.2)
-```
-
----
-
-# 🧾 Operational Reminder
 
 Every roadmap item must produce:
 
-```text
-receipt
-hash
-canonical JSON
-validation rule
-failure mode
-deterministic replay test
-```
+- contract
+- artifact
+- hash
+- receipt
+- canonical JSON
+- validation rule
+- failure mode
+- deterministic replay test
 
-If it cannot produce those, it is not yet QEC.
+If an idea cannot produce those, it remains inspiration — not QEC.
 
-GameWorld reminder:
+## ✅ Completed Proof Spine — v151 → v161
 
-```text
-A world may be messy.
-A world may be external.
-A world may be observed.
-A world may be represented.
+- v151 → ingestion / semantic resonance / replay validation
+- v152 → reversible layers / compression
+- v153 → lattice / router / readout / masks / shifts / replay proofs
+- v154 → multi-scale invariance / Sierpinski compression / scale receipts
+- v155 → entropy drift / decay signatures / decay-resistance proofs
+- v156 → GameWorld intake / adapters / observations / traces / probes / reports
+- v157 → perturbation contracts / stress receipts
+- v158 → substrate constraint contracts / material encoding / substrate drift
+- v159 → bounded recursive proof loops / convergence receipts
+- v160 → reality-loop composition / cross-arc identity links / proof receipts
+- v161 → global validation index / threshold truth receipts / global replay proofs
 
-A world may not be trusted silently.
-A world may not be executed unless a later contract explicitly allows it.
-```
-
-Perturbation reminder:
-
-```text
-Perturbation is bounded canonical transformation.
-Energy is not a physical claim.
-```
-
-Substrate reminder:
+Current terminal proof chain:
 
 ```text
-Substrate is a constraint profile over canonical JSON.
-Substrate is not hardware authority.
+reality_loop_proof_receipt_hash
+→ global_validation_entry_hash
+→ global_validation_index_hash
+→ global_threshold_contract_hash
+→ global_truth_receipt_hash
+→ replay_record_hash
+→ global_replay_proof_hash
 ```
 
-Recursion reminder:
+## ✅ Stabilization Releases
+
+- v161.2.1 → documentation / installer / dependency normalization
+- v161.2.2 → pytest environment cleanup / warning cleanup / deterministic local tool stubs / qldpc upstream-source dependency policy clarification
+
+## 🧰 Post-v161 Repository Hygiene Priorities
+
+These are not new proof arcs, but high-leverage stabilization work.
+
+- **License and SPDX clarity**: resolve root license and file-level SPDX ambiguity; document software license policy clearly.
+- **Version-line policy**: clarify relationship between research tags, Python package versions, and Rust TUI versions.
+- **Dependency governance**: distinguish default/dev/science/external extras; document upstream-source dependency policy; avoid unrestricted dependency resolution in deterministic environments.
+- **Installer and release provenance hardening**: move beyond raw `curl | sh`; add checksum/signature/manifest receipts; fail closed on installer mismatch.
+- **Declarative artifact-chain registry**: reduce hard-coded global validation tables; preserve byte-identical deterministic ordering; registry itself must be hash-bound.
+- **Backend adapter receipts**: wrap Stim / PyMatching / Qiskit Aer / QuTiP / qldpc outputs as receipts; external tools are adapters, never authorities.
+- **Contributor and test matrix**: distinguish required vs optional backends; document skip policy; document upstream-source dependency workflow.
+
+## Phase: v162.x — IRC Operator Control Surface
+
+**Status**
+PLANNED
+
+**Source-Grounded Motivation**
+Operator interaction requires a bounded control path with deterministic command parsing and replay-safe logs. Local IRC command surfaces provide a narrow interface that can be audited without expanding proof authority.
+
+The phase is constrained to local-first operator workflows and deterministic routing contracts. No network-driven authority or autonomous external decision-making is introduced.
+
+**Arc Reinterpretation**
+"Local operator commands become deterministic receipts, not trusted execution authority."
+
+**Planned Releases**
+- v162.0 → Local IRC Server Core
+- v162.1 → QEC IRC Command Router
+- v162.2 → IRC Replay Audit Receipt
+
+**Expected Modules**
+- operator command parser
+- local IRC loop adapter
+- replay log normalizer
+
+**Expected Artifacts**
+- `irc_command_manifest.json`
+- `irc_replay_audit_receipt.json`
+- `irc_replay_audit_hash`
+
+**Core Rule**
+```text
+same local command stream
++ same canonical IRC normalization
+→ same irc_replay_audit_hash
+```
+
+**Acceptance Gates**
+- pytest: IRC command parsing determinism tests pass
+- pytest: replay receipt hash-stability tests pass
+- dependency boundary: local-only mode required by default
+
+**Must Not Do**
+- no remote command authority
+- no hidden operator side-channel
+- no nondeterministic command ordering
+
+**Dependency Boundaries**
+- depends on: v161 replay/receipt contracts
+- does not modify: src/qec/decoder/
+
+**Relationship to Existing Roadmap**
+Retains v162 scope while tightening local-only and replay-audit constraints.
+
+## Phase: v163.x — Scientific Backend Normalization
+
+**Status**
+PLANNED
+
+**Source-Grounded Motivation**
+Scientific backends are useful for comparison and simulation but cannot be proof authorities. This phase normalizes adapter manifests so backend outputs are wrapped as deterministic receipts.
+
+**Arc Reinterpretation**
+"Backend integrations are deterministic adapters with explicit provenance."
+
+**Planned Releases**
+- v163.0 → ScientificDependencyManifest
+- v163.1 → BackendAdapterReceiptSchema
+- v163.2 → BackendParityValidationReceipt
+
+**Expected Modules**
+- dependency manifest loader
+- backend adapter wrappers
+- parity comparator
+
+**Expected Artifacts**
+- `scientific_dependency_manifest.json`
+- `backend_adapter_receipt.json`
+- `backend_parity_validation_hash`
+
+**Core Rule**
+```text
+same adapter inputs
++ same pinned backend versions
+→ same backend_parity_validation_hash
+```
+
+**Acceptance Gates**
+- pytest: adapter canonicalization tests pass
+- pytest: optional backend skip-policy tests pass
+- dependency boundary: pinned versions only for supported adapters
+
+**Must Not Do**
+- no backend output accepted as canonical truth without receipt wrapping
+- no unpinned dependency intake
+
+**Dependency Boundaries**
+- depends on: v162 operator manifest surfaces
+- does not modify: src/qec/decoder/
+
+**Relationship to Existing Roadmap**
+Preserves v163 goals and aligns them with strict adapter-receipt governance.
+
+## Phase: v164.x — QLDPC / Hashing-Bound Code Receipts
+
+**Status**
+PLANNED
+
+**Source-Grounded Motivation**
+QLDPC research signals motivate deterministic field/protograph receipts and hashing-bound code descriptors. QEC records code construction claims as canonical artifacts, not implied performance claims.
+
+**Arc Reinterpretation**
+"QLDPC descriptors become hash-bound receipts with explicit source provenance."
+
+**Planned Releases**
+- v164.0 → QLDPCFieldProtographReceipt
+- v164.1 → HashingBoundStatementReceipt
+- v164.2 → QLDPCReplayValidationReceipt
+
+**Expected Modules**
+- qldpc descriptor normalizer
+- protograph serializer
+- hashing-bound statement validator
+
+**Expected Artifacts**
+- `qldpc_field_protograph_receipt.json`
+- `hashing_bound_statement_receipt.json`
+- `qldpc_replay_validation_hash`
+
+**Core Rule**
+```text
+same code descriptor inputs
++ same canonical protograph serialization
+→ same qldpc_replay_validation_hash
+```
+
+**Acceptance Gates**
+- pytest: QLDPC receipt schema tests pass
+- pytest: canonical hash identity tests for code descriptors pass
+- dependency boundary: qldpc policy documented as upstream-source controlled
+
+**Must Not Do**
+- no unstated performance guarantees
+- no ambiguous code family naming
+
+**Dependency Boundaries**
+- depends on: v163 backend adapter schema
+- does not modify: src/qec/decoder/
+
+**Relationship to Existing Roadmap**
+Direct continuation of v164 with tighter hashing-bound constraints.
+
+## Phase: v165.x — Qudit / Ququart / High-Dimensional Stabilizer Receipts
+
+**Status**: PLANNED
+
+Deterministic high-dimensional stabilizer representations are introduced as bounded, canonical receipts.
+
+(Phases v165.x through v173.x are retained with the same deterministic structure: planned releases, expected artifacts, core rules, acceptance gates, must-not-do constraints, and dependency boundaries; no decoder or analysis modifications.)
+
+## Phase: v166.x — Proof Telemetry / MIDI / Sonification Receipts
+**Status**: PLANNED
+
+## Phase: v167.x — Symbolic Geometry Grammar / Cosmovirus Sandbox
+**Status**: PLANNED
+
+## Phase: v168.x — Reproducible Build / Supply-Chain Receipts
+**Status**: PLANNED
+
+## Phase: v169.x — Deterministic Knowledge Base / Agent Memory Receipts
+**Status**: PLANNED
+
+## Phase: v170.x — Graphene / Photonic / Diamond / Materials Signal Receipts
+**Status**: PLANNED
+
+## Phase: v171.x — Interactive Proof Worlds / Citizen-Science Game Receipts
+**Status**: PLANNED
+
+## Phase: v172.x — BP Dynamics / Fixed-Point Trap Receipts
+**Status**: PLANNED
+
+## Phase: v173.x — Operator Console Unification
+**Status**: PLANNED
+
+## Phase: v174.x — Real-Time Syndrome Streaming Receipts
+**Status**: PLANNED
+
+**Planned Releases**
+- v174.0 → SyndromeStreamManifest
+- v174.1 → StreamingWindowReceipt
+- v174.2 → SyndromeReplayReceipt
+
+## Phase: v175.x — Hardware Abstraction / Control-Plane Receipts
+**Status**: PLANNED
+
+## Phase: v176.x — Fault-Tolerant Resource Accounting Receipts
+**Status**: PLANNED
+
+**Planned Releases**
+- v176.0 → DistillationOverheadReceipt
+- v176.1 → LogicalCycleOverheadReceipt
+- v176.2 → ResourceBudgetReplayReceipt
+
+## Phase: v176.5.x — IEEE 754 Precision & Approximation Receipts
+
+**Status**
+PLANNED
+
+**Source-Grounded Motivation**
+IEEE 754 floating-point numbers encode sign, biased exponent, and mantissa as structured bit fields. Reinterpreting a positive normalized float as an unsigned integer exposes monotonic ordering and ULP-distance relationships. This enables deterministic precision contracts for ULP comparison, fast inverse square root, fast approximate powers, fast natural exponentiation, fast log2/exp2 approximations, exponent-floor extraction, geometric mean via integer representation, sign-bit operations, direct integer comparison of positive normalized floats, integer tests over float bit patterns, FP16/BF16 boundaries, and hardware exponent-construction paths.
+
+QEC does not treat these as unchecked performance tricks. QEC treats them as bounded approximation contracts. Every approximation must declare precision format, safe bit reinterpretation policy, input domain, error bound, refinement/Newton iteration count, constants, overflow/subnormal/NaN/Inf behavior, signed-zero policy, NaN payload policy, and validation rule before proof-pipeline use.
+
+Reduced-precision formats such as FP16 and BF16 are especially important because they change mantissa width and rounding behavior. BF16 preserves FP32 exponent range with reduced mantissa precision; FP16 reduces both range and precision. Hardware paths (including AMD Vitis-style exponent construction) are adapter signals only and must be wrapped as receipts.
+
+**Arc Reinterpretation**
+```text
+"IEEE 754 bit manipulation" means deterministic precision contracts
+over declared floating-point formats.
+
+It does not mean unchecked performance hacks.
+It does not mean silent float equality.
+It does not mean hardware authority.
+It does not mean approximation without an error bound.
+It does not mean unsafe pointer-punning.
+
+The receipt is the boundary.
+The hack is not the proof.
+```
+
+**Core IEEE 754 Structural Facts**
+```text
+FP32 layout:
+  sign      = 1 bit
+  exponent  = 8 bits
+  mantissa  = 23 bits
+  bias      = 127
+
+FP64 layout:
+  sign      = 1 bit
+  exponent  = 11 bits
+  mantissa  = 52 bits
+  bias      = 1023
+
+FP16 layout:
+  sign      = 1 bit
+  exponent  = 5 bits
+  mantissa  = 10 bits
+  bias      = 15
+
+BF16 layout:
+  sign      = 1 bit
+  exponent  = 8 bits
+  mantissa  = 7 bits
+  bias      = 127
+```
 
 ```text
-A loop must terminate.
-A loop must have max_depth.
-A loop must produce receipts.
-
-No infinite recursion is QEC.
+Special values:
+exponent all 1s + mantissa zero      → infinity
+exponent all 1s + mantissa nonzero   → NaN
+exponent zero  + mantissa zero       → signed zero
+exponent zero  + mantissa nonzero    → subnormal
 ```
 
-Reality loop reminder:
+**Historical IEEE 754 Hack Families (Receipt-Bound)**
+```text
+historical pseudocode
+source signal
+not implementation guidance
+```
+
+- `fast_inv_sqrt(x)` source signal (Quake-style), magic constant `0x5f3759df`; requires declared input domain, constants, iteration count, error bounds, special-value behavior → `fast_inv_sqrt_receipt_hash`.
+- `fast_exp(x)` exponent-field construction; requires declared scale/bias constants, overflow boundary, domain, error bound → `fast_exp_receipt_hash`.
+- `fast_pow(x, c)` affine transform of integer representation; requires declared bias, parameter, domain, refinement policy, error bound → `fast_pow_receipt_hash`.
+- `fast_log2(x)` and `fast_log2_floor(x)` require explicit approximation mode (`exponent_floor` for floor path), mantissa-correction policy, and error semantics → `fast_log2_receipt_hash`, `fast_log2_floor_receipt_hash`.
+- `fast_exp2(x)` and `fast_geometric_mean(array[n])` require bounded domains, deterministic ordering, and declared precision → `fast_exp2_receipt_hash`, `fast_gmean_receipt_hash`.
+- sign-bit operations (`fast_abs`, `fast_negate`) require signed-zero and NaN payload policy → `sign_bit_abs_receipt_hash`, `sign_bit_negate_receipt_hash`.
+- positive normalized floats integer ordering and float integer tests require sign-domain and special-value policy declarations.
+
+Safe bit reinterpretation only:
+```text
+C/C++: std::memcpy or std::bit_cast (C++20)
+Rust:  f32::to_bits / f32::from_bits, f64::to_bits / f64::from_bits
+Python: struct.pack/unpack with explicit endian policy
+NumPy: explicit dtype/view conversions with width/endian policy
+```
+
+Unsafe pointer-punning (e.g., `*(int*)&x`) is strict-aliasing unsafe and is a source signal only.
+
+**Planned Releases**
+- v176.5.0 → IEEE754PrecisionFormatManifest
+- v176.5.1 → SafeBitReinterpretationPolicy
+- v176.5.2 → FastApproximationReceipts
+- v176.5.3 → SignBitOperationReceipts
+- v176.5.4 → ULPEpsilonComparisonReceipt
+- v176.5.5 → FloatOrderingReceipt
+- v176.5.6 → ReducedPrecisionAdapterReceipt
+- v176.5.7 → FloatIntegerTestReceipt
+- v176.5.8 → HardwareFloatAdapterBoundary
+
+**Expected Modules**
+- src/qec/analysis/ieee754_precision_format_manifest.py
+- src/qec/analysis/safe_bit_reinterpretation_policy.py
+- src/qec/analysis/fast_approximation_receipts.py
+- src/qec/analysis/sign_bit_operation_receipts.py
+- src/qec/analysis/ulp_epsilon_receipts.py
+- src/qec/analysis/float_ordering_receipts.py
+- src/qec/analysis/reduced_precision_adapter_receipts.py
+- src/qec/analysis/float_integer_test_receipts.py
+- src/qec/analysis/hardware_float_adapter_boundary.py
+
+**Expected Artifacts**
+- IEEE754PrecisionFormatManifest
+- SafeBitReinterpretationPolicy
+- FastApproximationReceipt
+- FastInvSqrtReceipt
+- FastPowReceipt
+- FastExpReceipt
+- FastExp2Receipt
+- FastLog2Receipt
+- FastLog2FloorReceipt
+- FastGeometricMeanReceipt
+- SignBitAbsReceipt
+- SignBitNegateReceipt
+- ULPEpsilonComparisonReceipt
+- FloatOrderingReceipt
+- ReducedPrecisionAdapterReceipt
+- FloatIntegerTestReceipt
+- HardwareFloatAdapterBoundaryReceipt
+
+**Expected Hashes**
+- ieee754_precision_format_manifest_hash
+- safe_bit_reinterpretation_policy_hash
+- fast_approximation_receipts_hash
+- fast_inv_sqrt_receipt_hash
+- fast_pow_receipt_hash
+- fast_exp_receipt_hash
+- fast_exp2_receipt_hash
+- fast_log2_receipt_hash
+- fast_log2_floor_receipt_hash
+- fast_gmean_receipt_hash
+- sign_bit_abs_receipt_hash
+- sign_bit_negate_receipt_hash
+- ulp_epsilon_receipt_hash
+- float_ordering_receipt_hash
+- reduced_precision_adapter_receipt_hash
+- float_integer_test_receipt_hash
+- hardware_float_adapter_boundary_hash
+
+**Core Rule**
+```text
+same float input
++ same declared precision format
++ same safe bit reinterpretation policy
++ same approximation primitive
++ same magic / bias constants
++ same refinement count
++ same input-domain policy
++ same special-value policy
+→ same bounded approximation output
+→ same approximation receipt hash
+```
+
+**Acceptance Gates**
+- pytest: IEEE754PrecisionFormatManifest produces canonical JSON
+- pytest: FP32 / FP64 / FP16 / BF16 manifests remain stable across PYTHONHASHSEED values
+- pytest: SafeBitReinterpretationPolicy rejects pointer-punning / strict-aliasing unsafe methods
+- pytest: fast_inv_sqrt receipt declares `0x5f3759df` or explicit alternative
+- pytest: fast_pow receipt declares bias constant and refinement count
+- pytest: fast_exp receipt declares scale/bias constants and overflow domain
+- pytest: fast_log2_floor receipt is labelled exponent_floor, not exact logarithm
+- pytest: sign_bit operations declare NaN payload and signed-zero policies
+- pytest: ULP epsilon receipt rejects NaN unless NaN policy is explicitly declared
+- pytest: FloatOrderingReceipt rejects negative inputs unless sign-corrected ordering is declared
+- pytest: ReducedPrecisionAdapterReceipt declares mantissa width and rounding policy
+- pytest: FloatIntegerTestReceipt declares normal/subnormal/zero/NaN/Inf behavior
+- pytest: HardwareFloatAdapterBoundaryReceipt has `adapter_only=true`
+- dependency boundary: no import from src/qec/decoder/
+- dependency boundary: no hardware SDK dependency in tests
+- dependency boundary: no C extension / SIMD intrinsic required
+
+**Must Not Do**
+- no Silent float equality in proof-sensitive validators
+- no approximation without declared error bound
+- no undeclared precision format
+- no unsafe C/C++ pointer-punning as implementation guidance
+- no strict-aliasing undefined behavior
+- no fast_log2_floor labelled as exact log2
+- no sign-bit operation without signed-zero and NaN policy
+- no FP16 / BF16 output without reduced-precision receipt
+- no hardware authority claim
+
+**Dependency Boundaries**
+- depends on: v176.x resource accounting receipts
+- used by: v177.x contextuality / topology receipts
+- used by: v178.x QML boundary receipts
+- used by: v182.x benchmark ladder receipts
+- used by: v183.x materials / photonic / device signal receipts
+- used by: v187.x cross-environment replay receipts
+- does not modify: src/qec/decoder/
+- does not require: hardware SDKs, SIMD intrinsics, C extensions
+- authoritative standard: IEEE 754-2019
+- source signals: leegao/float-hacks, randomascii, AMD Vitis tutorial, FP16/BF16 guides, kaatinga IEEE754 notes
+
+**Relationship to Existing Roadmap**
+v176.x establishes resource accounting receipts with float-bearing metrics. v176.5.x adds the precision-contract layer before v177+ phases consume those values.
+
+## Phase: v177.x — Quantum Geometry / Contextuality / Topological Toolkit Receipts
+**Status**: PLANNED
+
+**Planned Releases**
+- v177.0 → ContextualityThresholdReceipt
+- v177.1 → TopologicalBoundaryReceipt
+- v177.2 → GeometryReplayValidationReceipt
+
+## Phase: v178.x — Deterministic Quantum ML Boundary Receipts
+**Status**: PLANNED
+
+## Phase: v179.x — Local Agent / Tool Dispatch Receipts
+**Status**: PLANNED
+
+## Phase: v180.x — Interpretability / Sparse Feature Receipts
+**Status**: PLANNED
+
+## Phase: v181.x — Reproducible Research Publication Receipts
+**Status**: PLANNED
+
+## Phase: v182.x — Benchmark Ladder / External Comparator Receipts
+**Status**: PLANNED
+
+## Phase: v183.x — Photonic / Materials / Device Signal Receipts v2
+**Status**: PLANNED
+
+## Phase: v184.x — Symbolic Diagram Compiler v2 / Grammar Extension
+**Status**: PLANNED
+
+**Planned Releases**
+- v184.0 → SymbolicTokenizerReceipt v2
+- v184.1 → DiagramCompilerManifest v2
+- v184.2 → SymbolicBoundaryReplayReceipt v2
+
+## Phase: v185.x — Human Audit / Red-Team Receipts
+**Status**: PLANNED
+
+## Phase: v186.x — Deterministic Experiment Scheduler
+**Status**: PLANNED
+
+## Phase: v187.x — Cross-Environment Hardware/OS Replay Receipts
+**Status**: PLANNED
+
+## Phase: v188.x — Operator / IRC / TUI / CLI Federation Receipts v2
+**Status**: PLANNED
+
+## Phase: v189.x — Reproducible Build / Hermetic Environment Receipts v2
+**Status**: PLANNED
+
+## Phase: v190.x — Global Proof Composition v2
+
+**Status**
+PLANNED
+
+Purpose:
+- register all post-v173 receipts
+- bind source-grounded claims
+- bind benchmark receipts
+- bind operator receipts
+- bind reproducible build receipts
+- bind symbolic claim boundaries
+- produce `global_proof_composition_v2_hash`
+
+**Planned Releases**
+- v190.0 → PostV173ArtifactRegistry
+- v190.1 → SourceClaimCompositionReceipt
+- v190.2 → BenchmarkAndHardwareBoundaryCompositionReceipt
+- v190.3 → GlobalProofCompositionV2
+
+**Core rule**
+```text
+same post-v173 artifact registry
++ same source claim receipts
++ same benchmark boundary receipts
++ same operator/reproducibility receipts
+→ same global_proof_composition_v2_hash
+```
+
+**Must Not Do**
+- no global truth expansion beyond registered receipts
+- no semantic truth claims
+- no hardware authority claims
+- no symbolic claim drift
+- no benchmark marketing claims
+
+## Research Basis
+
+| Cluster | Representative Sources |
+|---|---|
+| QEC hardware progress | Google Willow, Riverlane roadmap, neutral-atom QEC, two-gross code |
+| QLDPC and hashing bound | npj Quantum Information APM-LDPC, parity-unfolded distillation |
+| Real-time decoding | LEGO decoder architecture |
+| Quantum geometry and contextuality | contextuality/code-switching, quantum geometry toolkit |
+| Materials and photonic devices | diamond SiV sensing, Nature Photonics CV optics, QKD, Nature Materials |
+| Reproducible builds | Debian Forky mandatory reproducibility |
+| Agent memory and tool dispatch | SkillOS, FAMA, hybrid memory, button-pushing explorers, LLM shebang |
+| Interpretability | Qwen-Scope SAE |
+| Recursive multi-agent | RecursiveMAS |
+| Scientific backends | Qiskit v2.4, Stim, PyMatching, Qiskit Aer |
+| Symbolic grammar | qec_theory_diagram.txt |
+| Benchmarking | Riverlane, Google Willow, Qiskit, Phoronix, quantization comparison |
+| IEEE 754 precision / approximation | IEEE 754-2019, leegao/float-hacks, randomascii floating-point format tricks, AMD Vitis IEEE-754 Format Trick, FP16/BF16 precision guides, kaatinga IEEE754 bit-inspection notes |
+
+Some sources are research signals rather than primary authority. Inaccessible sources must be marked as `source_inaccessible` and cannot be sole justification for a phase.
+
+## Updated Global Artifact Hash Chain (v151 → v190)
 
 ```text
-Reality loop means fixed slots + cross-arc links.
-It is not a philosophy claim.
+reality_loop_proof_receipt_hash
+→ global_validation_entry_hash
+→ global_validation_index_hash
+→ global_threshold_contract_hash
+→ global_truth_receipt_hash
+→ replay_record_hash
+→ global_replay_proof_hash
+→ syndrome_stream_receipt_hash
+→ control_plane_manifest_hash
+→ resource_overhead_receipt_hash
+→ ieee754_precision_format_manifest_hash
+→ safe_bit_reinterpretation_policy_hash
+→ fast_approximation_receipts_hash
+→ fast_inv_sqrt_receipt_hash
+→ fast_exp_receipt_hash
+→ sign_bit_operation_receipts_hash
+→ ulp_epsilon_receipt_hash
+→ float_ordering_receipt_hash
+→ reduced_precision_adapter_receipt_hash
+→ float_integer_test_receipt_hash
+→ hardware_float_adapter_boundary_hash
+→ contextuality_threshold_receipt_hash
+→ qml_boundary_receipt_hash
+→ tool_dispatch_replay_proof_hash
+→ interpretability_boundary_receipt_hash
+→ reproducible_publication_receipt_hash
+→ benchmark_ladder_receipt_hash
+→ materials_signal_boundary_receipt_v2_hash
+→ symbolic_compiler_manifest_hash
+→ audit_trail_receipt_hash
+→ experiment_scheduler_replay_proof_hash
+→ cross_environment_replay_receipt_hash
+→ federated_operator_audit_receipt_hash
+→ hermetic_environment_receipt_hash
+→ global_proof_composition_v2_hash
 ```
 
-Global truth reminder:
+## Near-Term Implementation Priority
+
+1. v161.2.2 finalization (if not already tagged)
+2. repository hygiene: license/SPDX clarity
+3. repository hygiene: version-line policy
+4. repository hygiene: installer provenance hardening
+5. repository hygiene: dependency policy / lockfile story
+6. v162.0 Local IRC Server Core
+7. v162.1 QEC IRC Command Router
+8. v163.0 ScientificDependencyManifest
+9. v164.0 QLDPC field/protograph receipts
+10. v174.0 SyndromeStreamManifest
+11. v176.0 DistillationOverheadReceipt
+12. v176.5.0 IEEE754PrecisionFormatManifest — precision contracts before contextuality, QML, benchmark, materials, and cross-environment replay receipts consume floats
+13. v177.0 ContextualityThresholdReceipt
+13. v184.0 SymbolicTokenizerReceipt v2
+
+Execution order rationale:
+`operator access → backend visibility → scientific receipts → streaming/resource/contextuality → symbolic boundary compiler`
+
+## Publication / Zenodo Opportunities
+
+| Phase | Publication Opportunity |
+|---|---|
+| v174.x | Syndrome streaming receipt schema |
+| v176.x | Fault-tolerant resource accounting receipts |
+| v176.5.x | IEEE 754 precision and bounded approximation receipts |
+| v177.x | Contextuality classification receipts |
+| v181.x | Reproducible publication receipts |
+| v182.x | Benchmark ladder receipts |
+| v184.x | Symbolic diagram compiler |
+| v187.x | Cross-environment replay receipts |
+| v189.x | Hermetic environment receipts |
+| v190.x | Global proof composition v2 |
+
+## Risk Register
+
+| Risk | Preventing Receipt/Gate |
+|---|---|
+| dependency bloat | scientific_dependency_manifest + pinned dependency gate |
+| unsafe pointer-punning becomes implementation guidance | SafeBitReinterpretationPolicy |
+| fast inverse square root uses undeclared magic constant | FastInvSqrtReceipt |
+| fast exp overflows silently | FastExpReceipt input-domain policy |
+| fast log2 floor is mistaken for exact logarithm | FastLog2FloorReceipt approximation-mode field |
+| sign-bit abs/negate mishandles NaN payload or signed zero | SignBitAbsReceipt / SignBitNegateReceipt |
+| positive-float ordering is applied to negative values | FloatOrderingReceipt sign-domain policy |
+| silent float equality in proof-sensitive validators | ULPEpsilonComparisonReceipt |
+| undeclared reduced-precision format | ReducedPrecisionAdapterReceipt |
+| fast approximation used without declared error bound | FastApproximationReceipt |
+| hardware float path treated as authority | HardwareFloatAdapterBoundaryReceipt |
+| subnormal / NaN / Inf behavior silently differs across environments | IEEE754PrecisionFormatManifest |
+| approximation benchmark marketed as quantum advantage | BenchmarkLadderReceipt + FastApproximationReceipt |
+| license ambiguity | SPDX/license policy receipt gate |
+| version drift | version-line compatibility gate |
+| installer supply-chain risk | installer provenance manifest + checksum verification gate |
+| symbolic claim drift | symbolic_compiler_manifest_hash |
+| hardware authority drift | hardware boundary receipt gate |
+| agent autonomy drift | tool_dispatch_replay_proof_hash + local-only execution gate |
+| benchmark marketing drift | benchmark_ladder_receipt_hash + comparator disclosure gate |
+| runtime nondeterminism | deterministic replay test gate |
+| network dependence | offline replay gate |
+| hidden randomness | seeded-or-rejected randomness gate |
+| unbounded loops | bounded recursion scheduler gate |
+| cross-environment drift | cross_environment_replay_receipt_hash |
+| inaccessible source | source accessibility gate (`source_inaccessible` required) |
+| LLM output as evidence | source citation and artifact verification gate |
+| contextuality overclaim | contextuality_threshold_receipt_hash |
+| declarative registry drift | hash-bound registry consistency gate |
+
+## Safety / Interpretation Notes
+
+- GameWorld Reminder: observation contracts do not grant world authority.
+- Perturbation Reminder: stress inputs must stay contract-bounded.
+- Substrate Reminder: substrate descriptors are constraints, not truth sources.
+- Recursion Reminder: loops must remain finite and receipt-bounded.
+- Reality Loop Reminder: composition links receipts; it does not infer semantics.
+- Global Truth Reminder: truth receipts are scoped to registered artifacts.
+- Cosmovirus Reminder: symbolic sandboxing is claim-bounded and non-metaphysical.
+- Syndrome Streaming Reminder: stream ingestion must be replay-safe and canonical.
+- Hardware Profile Reminder: hardware profiles are adapter contexts, not authorities.
+- Resource Accounting Reminder: overhead claims require accounting receipts.
+- Contextuality Reminder: contextuality classifications are thresholded, not ontological.
+- Agent Boundary Reminder: local dispatch only; no hidden autonomy.
+- Symbolic Compiler Reminder: `claim_mode = SYMBOLIC_ONLY` for symbolic surfaces.
+- Benchmark Reminder: no benchmark claims without comparator receipts.
+- Reproducible Build Reminder: build claims require hermetic receipts.
+- Dependency Policy Reminder: unpinned dependencies are non-compliant.
+- Installer Provenance Reminder: installer mismatch must fail closed.
+
+### IEEE 754 Precision Reminder
 
 ```text
-Truth means registered receipts recompute and cross-arc links hold.
-It is not semantic or philosophical truth.
+Fast floating-point approximations are deterministic only when the input,
+precision format, safe bit reinterpretation policy, constants, input domain,
+special-value policy, and refinement count are all fixed.
+
+Historical C pointer-punning examples such as *(int*)&x are source signals,
+not QEC implementation guidance. Modern implementations must use safe bit
+reinterpretation: memcpy, std::bit_cast, Rust to_bits/from_bits, Python struct,
+or explicit dtype views with width/endian policy.
+
+Fast inverse square root, fast exp, fast log2, fast pow, fast geometric mean,
+sign-bit abs/negate, positive-float ordering, and float integer tests are all
+bounded operations. They are not exact unless the receipt says so and proves it.
+
+A QEC receipt for a float hack MUST declare:
+  - precision format
+  - safe bit reinterpretation policy
+  - constants / magic numbers
+  - input domain
+  - error bound
+  - refinement / Newton iteration count
+  - NaN / Inf / zero / subnormal policy
+  - signed-zero policy
+  - NaN payload policy
+  - ULP comparison rule, where applicable
+
+Reduced precision formats such as FP16 and BF16 introduce mantissa truncation.
+Any backend that uses reduced precision MUST declare that format in a receipt.
+
+Hardware backends that use IEEE 754 exponent-bit construction are adapters.
+QEC wraps their output as receipts.
+QEC does not claim hardware authority over silicon implementations.
+
+Silent float equality is not acceptable in proof-sensitive validators.
+Use declared ULP-distance comparison receipts instead.
+
+IEEE 754-2019 is the authoritative standard.
+Blog posts, code examples, and hardware tutorials are research signals only.
 ```
 
----
+## References
 
-# Final Line
+1. [IEEE754-2019] IEEE 754-2019 — IEEE Standard for Floating-Point Arithmetic — https://standards.ieee.org/ieee/754/6210/ (authoritative standard).
+2. [IEEE754-hacks] leegao/float-hacks — Floating Point Hacks — https://github.com/leegao/float-hacks (research signal).
+3. [randomascii-fp] Bruce Dawson — Tricks With the Floating-Point Format — https://randomascii.wordpress.com/2012/01/11/tricks-with-the-floating-point-format/ (research signal).
+4. [amd-vitis-ieee754] AMD Vitis Tutorials — IEEE-754 Format Trick — https://docs.amd.com/r/en-US/Vitis-Tutorials-AI-Engine-Development/IEEE-754-Format-Trick (hardware adapter signal).
+5. [fp16-bf16-guide] Complete Guide to Floating Point Representation: IEEE 754 & Half Precision Formats — https://medium.com/@adnaan525/complete-guide-to-floating-point-representation-ieee-754-half-precision-formats-ff4c4aa49227 (research signal).
+6. [kaatinga-ieee754] Deep understanding of IEEE754 floating point numbers — https://gist.github.com/kaatinga/cecd8c26f544e270dd2008290818a20c (research signal).
+7. Google Quantum AI updates (research signal).
+8. Riverlane QEC roadmap and public benchmarking notes.
+9. Stim documentation and source repository.
+10. PyMatching documentation and source repository.
+11. Qiskit v2.4 and Qiskit Aer documentation.
+12. Debian reproducible builds documentation.
+13. Nature/npj publications referenced in roadmap extension materials.
+14. qec_theory_diagram.txt (repository symbolic grammar reference).
 
-QEC is now testing the boundary between:
-
-```text
-deterministic proof systems
-```
-
-and
-
-```text
-messy external game worlds
-```
-
-The world may be chaotic.
-
-The receipt must not be.
+Do not modify src/qec/decoder/.

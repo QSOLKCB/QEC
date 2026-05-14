@@ -122,6 +122,30 @@ Rust TUI Control Surface: see [`USAGE.md`](USAGE.md).
 | `pytest -q -ra` | Shows skip/warning diagnostics |
 | `curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh \| sh` | Installs the Rust `qec-tui` launcher |
 
+
+## IRC Operator Surface
+
+- v162.x adds a local-only IRC operator surface.
+- v162.0 provides the local IRC server core.
+- v162.1 adds deterministic read-only commands.
+- v162.2 adds replay audit receipts for local IRC command streams.
+- Default bind is `127.0.0.1`.
+- No command execution authority is granted.
+- No LLM/API integration is enabled.
+
+```bash
+python scripts/qec_irc_server.py --host 127.0.0.1 --port 6667
+```
+
+Example IRC usage:
+
+```text
+/join #qec
+!help
+!corelaw
+!hashchain
+```
+
 ## Why This Matters
 
 QEC matters because deterministic proof artifacts make it possible to:

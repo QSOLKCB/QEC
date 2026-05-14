@@ -37,6 +37,19 @@ def test_target_hash_and_json_stability_and_frozen():
         t1.dependency_name = "x"
 
 
+def test_target_builder_rejects_non_registry_field_combinations():
+    from qec.analysis.heavy_dependency_discovery import build_heavy_dependency_target
+    with pytest.raises(ValueError, match="REGISTRY_FIELD_MISMATCH"):
+        build_heavy_dependency_target("numpy", "wrong_import", "NUMERIC_CORE", "AUTHORITATIVE_UPSTREAM_REQUIRED", False, ())
+    with pytest.raises(ValueError, match="REGISTRY_FIELD_MISMATCH"):
+        build_heavy_dependency_target("numpy", "numpy", "WRONG_CATEGORY", "AUTHORITATIVE_UPSTREAM_REQUIRED", False, ())
+    with pytest.raises(ValueError, match="REGISTRY_FIELD_MISMATCH"):
+        build_heavy_dependency_target("numpy", "numpy", "NUMERIC_CORE", "WRONG_POLICY", False, ())
+    with pytest.raises(ValueError, match="REGISTRY_FIELD_MISMATCH"):
+        build_heavy_dependency_target("numpy", "numpy", "NUMERIC_CORE", "AUTHORITATIVE_UPSTREAM_REQUIRED", True, ())
+
+
+
 def test_probe_hash_deterministic_and_validation_rejections():
     p1 = build_probe_result("numpy", "AVAILABLE", version="1.0")
     p2 = build_probe_result("numpy", "AVAILABLE", version="1.0")
@@ -49,6 +62,10 @@ def test_probe_hash_deterministic_and_validation_rejections():
         build_probe_result("numpy", "AVAILABLE", probe_mode="BAD")
     with pytest.raises(ValueError, match="INVALID_SOURCE_POLICY"):
         build_probe_result("numpy", "AVAILABLE", policy_status="BAD")
+    with pytest.raises(ValueError, match="POLICY_STATUS_CONFLICT"):
+        build_probe_result("qldpc_external", "AVAILABLE")
+    with pytest.raises(ValueError, match="POLICY_STATUS_CONFLICT"):
+        build_probe_result("qldpc_internal", "AVAILABLE")
 
 
 def test_default_manifest_deterministic_and_counts_and_hashes():
@@ -120,7 +137,7 @@ def test_probe_current_environment_monkeypatched_and_no_direct_imports(monkeypat
 
     def fake_find_spec(name):
         calls.append(("find_spec", name))
-        return object() if name in {"numpy", "qldpc.css_code"} else None
+        return object() if name in {"numpy"} else None
 
     def fake_version(name):
         calls.append(("version", name))
@@ -138,6 +155,7 @@ def test_probe_current_environment_monkeypatched_and_no_direct_imports(monkeypat
 
         @staticmethod
         def version(name):
+            calls.append(("version", name))
             if name == "numpy":
                 return "1.2.3"
             raise _Meta.PackageNotFoundError()
@@ -148,7 +166,10 @@ def test_probe_current_environment_monkeypatched_and_no_direct_imports(monkeypat
     assert by_name["qldpc_external"].availability_status == "BLOCKED_BY_POLICY"
     assert by_name["qldpc_internal"].availability_status == "INTERNAL_AVAILABLE"
     assert by_name["numpy"].availability_status == "AVAILABLE"
+    assert by_name["numpy"].version == "1.2.3"
+    assert by_name["numpy"].version_source == "importlib.metadata.version"
     assert ("find_spec", "numpy") in calls
+    assert ("version", "numpy") in calls
 
 
 def test_source_scan_forbidden_tokens_absent():

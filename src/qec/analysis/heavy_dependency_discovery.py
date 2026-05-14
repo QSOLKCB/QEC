@@ -216,8 +216,12 @@ def build_heavy_dependency_target(
     optional: bool,
     notes: tuple[str, ...] = (),
 ) -> HeavyDependencyTarget:
-    if dependency_name not in {d[0] for d in _registry_defs()}:
+    registry = {d[0]: d for d in _registry_defs()}
+    if dependency_name not in registry:
         raise ValueError("INVALID_DEPENDENCY_NAME")
+    expected = registry[dependency_name]
+    if (import_name, category, source_policy, optional, notes) != expected[1:]:
+        raise ValueError("REGISTRY_FIELD_MISMATCH")
     if category not in _ALLOWED_CATEGORIES:
         raise ValueError("INVALID_CATEGORY")
     if source_policy not in _ALLOWED_SOURCE_POLICIES:
@@ -257,6 +261,11 @@ def build_probe_result(dependency_name: str, availability_status: str, *, versio
         policy_status = targets[dependency_name].source_policy
     if policy_status not in _ALLOWED_SOURCE_POLICIES:
         raise ValueError("INVALID_SOURCE_POLICY")
+    target = targets[dependency_name]
+    if target.source_policy == "UNNORMALIZED_EXTERNAL_BLOCKED" and availability_status == "AVAILABLE":
+        raise ValueError("POLICY_STATUS_CONFLICT")
+    if target.source_policy == "INTERNAL_REPOSITORY" and availability_status not in {"INTERNAL_AVAILABLE", "UNAVAILABLE", "NOT_PROBED"}:
+        raise ValueError("POLICY_STATUS_CONFLICT")
     if version is not None and (not isinstance(version, str) or len(version) > _MAX_VERSION_LENGTH):
         raise ValueError("INVALID_INPUT")
     if version_source is not None and not isinstance(version_source, str):
@@ -361,12 +370,22 @@ def probe_current_environment() -> HeavyDependencyDiscoveryManifest:
         if target.dependency_name == "qldpc_external":
             probes.append(build_probe_result("qldpc_external", "BLOCKED_BY_POLICY", probe_mode="EXPLICIT"))
             continue
-        spec = importlib_util.find_spec(target.import_name)
-        if spec is None:
+        if target.dependency_name == "qldpc_internal":
+            import os
+            import sys
+            qldpc_css_path = os.path.join(os.path.dirname(sys.modules["qec"].__file__), "..", "qldpc", "css_code.py")
+            if os.path.exists(qldpc_css_path):
+                probes.append(build_probe_result("qldpc_internal", "INTERNAL_AVAILABLE", probe_mode="INTERNAL_MODULE"))
+            else:
+                probes.append(build_probe_result("qldpc_internal", "UNAVAILABLE", probe_mode="INTERNAL_MODULE"))
+            continue
+        try:
+            spec = importlib_util.find_spec(target.import_name)
+        except ModuleNotFoundError:
             probes.append(build_probe_result(target.dependency_name, "UNAVAILABLE", probe_mode="IMPORTLIB_FIND_SPEC"))
             continue
-        if target.dependency_name == "qldpc_internal":
-            probes.append(build_probe_result("qldpc_internal", "INTERNAL_AVAILABLE", probe_mode="INTERNAL_MODULE"))
+        if spec is None:
+            probes.append(build_probe_result(target.dependency_name, "UNAVAILABLE", probe_mode="IMPORTLIB_FIND_SPEC"))
             continue
         try:
             version = importlib_metadata.version(target.dependency_name)
@@ -415,7 +434,11 @@ def validate_heavy_dependency_discovery_manifest(manifest: HeavyDependencyDiscov
     if manifest.to_dict() != rebuilt.to_dict():
         if manifest.heavy_dependency_discovery_manifest_hash != rebuilt.heavy_dependency_discovery_manifest_hash:
             raise ValueError("HASH_MISMATCH")
-        raise ValueError("DISCOVERY_COUNT_MISMATCH")
+        count_fields = ["target_count", "available_count", "unavailable_count", "not_probed_count", "blocked_by_policy_count", "internal_available_count"]
+        for field in count_fields:
+            if getattr(manifest, field) != getattr(rebuilt, field):
+                raise ValueError("DISCOVERY_COUNT_MISMATCH")
+        raise ValueError("MANIFEST_FIELD_MISMATCH")
     return True
 
 

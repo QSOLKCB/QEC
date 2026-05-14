@@ -136,3 +136,41 @@ def test_direct_command_to_unknown_target_returns_401():
     out = s.handle_message("c1", "PRIVMSG doesnotexist :!help")
     assert any("401" in line and "No such nick/channel" in line for line in out)
     assert not any("NOTICE" in line for line in out)
+
+
+def test_replay_audit_export_deterministic_when_enabled():
+    s = IRCServer(enable_replay_audit=True)
+    _register(s, "c1", "alice")
+    s.handle_message("c1", "JOIN #qec")
+    s.handle_message("c1", "PRIVMSG #qec :!help")
+    receipt1 = s.export_replay_audit_receipt()
+    receipt2 = s.export_replay_audit_receipt()
+    assert receipt1.irc_replay_audit_hash == receipt2.irc_replay_audit_hash
+    assert receipt1.event_count >= 1
+    assert receipt1.truncated is False
+
+
+def test_replay_audit_limit_sets_truncated_flag():
+    s = IRCServer(enable_replay_audit=True)
+    _register(s, "c1", "alice")
+    for i in range(254):
+        s.handle_message("c1", f"PING :{i}")
+    s.handle_message("c1", "PING :overflow")
+    receipt = s.export_replay_audit_receipt()
+    assert receipt.truncated is True
+    assert receipt.event_count == 256
+
+
+def test_replay_audit_disabled_raises_error():
+    s = IRCServer(enable_replay_audit=False)
+    _register(s, "c1", "alice")
+    with pytest.raises(RuntimeError, match="REPLAY_AUDIT_DISABLED"):
+        s.export_replay_audit_receipt()
+
+
+def test_replay_audit_detects_numeric_error_codes():
+    s = IRCServer(enable_replay_audit=True)
+    s.handle_message("c1", "PRIVMSG #qec :hi")
+    receipt = s.export_replay_audit_receipt()
+    assert receipt.event_count == 1
+    assert receipt.error_event_count == 1

@@ -1,6 +1,16 @@
 """Local IRC operator surface for deterministic control-plane input."""
 
 from .irc_protocol import IRCMessage, IRCParseError, IRCReply, format_irc_message, parse_irc_line
+from .irc_commands import (
+    IRCCommandRequest,
+    IRCCommandResult,
+    IRCCommandSpec,
+    command_manifest_to_dict,
+    format_command_response,
+    get_command_specs,
+    parse_operator_command,
+    route_operator_command,
+)
 from .irc_server import IRCServer
 
 __all__ = [
@@ -8,6 +18,14 @@ __all__ = [
     "IRCParseError",
     "IRCReply",
     "IRCServer",
+    "IRCCommandRequest",
+    "IRCCommandResult",
+    "IRCCommandSpec",
+    "command_manifest_to_dict",
+    "format_command_response",
+    "get_command_specs",
+    "parse_operator_command",
+    "route_operator_command",
     "format_irc_message",
     "parse_irc_line",
 ]

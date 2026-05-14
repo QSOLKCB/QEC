@@ -44,6 +44,14 @@ _ALLOWED_SOURCE_POLICIES = {
     "UNNORMALIZED_EXTERNAL_BLOCKED",
 }
 _HASH_RE = re.compile(r"^[0-9a-f]{64}$")
+_COUNT_FIELD_NAMES = None  # Lazy-initialized on first use
+
+
+def _get_count_field_names() -> list[str]:
+    global _COUNT_FIELD_NAMES
+    if _COUNT_FIELD_NAMES is None:
+        _COUNT_FIELD_NAMES = [f.name for f in dataclass_fields(HeavyDependencyDiscoveryManifest) if f.name.endswith("_count")]
+    return _COUNT_FIELD_NAMES
 
 
 @dataclass(frozen=True)
@@ -439,8 +447,7 @@ def validate_heavy_dependency_discovery_manifest(manifest: HeavyDependencyDiscov
     if manifest.to_dict() != rebuilt.to_dict():
         if manifest.heavy_dependency_discovery_manifest_hash != rebuilt.heavy_dependency_discovery_manifest_hash:
             raise ValueError("HASH_MISMATCH")
-        count_field_names = [f.name for f in dataclass_fields(HeavyDependencyDiscoveryManifest) if f.name.endswith("_count")]
-        for field_name in count_field_names:
+        for field_name in _get_count_field_names():
             if getattr(manifest, field_name) != getattr(rebuilt, field_name):
                 raise ValueError("DISCOVERY_COUNT_MISMATCH")
         raise ValueError("MANIFEST_FIELD_MISMATCH")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from typing import NamedTuple
 
 from .irc_protocol import (
     _DEFAULT_HOST,
@@ -21,7 +22,12 @@ from .irc_protocol import (
 
 _SERVER_NAME = "qec-ircd"
 
-RoutedReply = tuple[str, str]
+
+class RoutedReply(NamedTuple):
+    """A serialized IRC line routed to an internal server-assigned client_id."""
+
+    target_client_id: str
+    irc_line: str
 
 
 @dataclass
@@ -97,7 +103,7 @@ class IRCServer:
             try:
                 self.add_client(client_id)
             except ValueError:
-                return ((client_id, self._make_reply("461", "*", trailing="Server is full")),)
+                return ((client_id, self._make_reply("500", "*", trailing="Server is full")),)
         try:
             msg = parse_irc_line(raw_line)
         except IRCParseError as exc:
@@ -201,7 +207,7 @@ class IRCServer:
         try:
             self.add_client(client_id)
         except ValueError:
-            writer.write((self._make_reply("461", "*", trailing="Server is full") + "\r\n").encode("utf-8"))
+            writer.write((self._make_reply("500", "*", trailing="Server is full") + "\r\n").encode("utf-8"))
             await writer.drain()
             writer.close()
             await writer.wait_closed()
@@ -214,14 +220,19 @@ class IRCServer:
                     break
                 line = data.decode("utf-8", errors="strict").rstrip("\r\n")
                 replies = self._handle_message_routed(client_id, line)
-                touched_writers: set[asyncio.StreamWriter] = set()
+                pending_writers: list[asyncio.StreamWriter] = []
+                queued_writer_ids: set[int] = set()
                 for target_client, reply in replies:
                     target_writer = self._writer_by_client.get(target_client)
                     if target_writer is None:
                         continue
                     target_writer.write((reply + "\r\n").encode("utf-8"))
-                    touched_writers.add(target_writer)
-                for target_writer in touched_writers:
+                    writer_id = id(target_writer)
+                    if writer_id in queued_writer_ids:
+                        continue
+                    queued_writer_ids.add(writer_id)
+                    pending_writers.append(target_writer)
+                for target_writer in pending_writers:
                     await target_writer.drain()
         finally:
             self.remove_client(client_id)

@@ -4,6 +4,8 @@ import pytest
 
 from qec.operator.irc_server import IRCServer
 
+_SOCKET_READ_TIMEOUT = 2
+
 
 def _register(server: IRCServer, client: str, nick: str = "alice"):
     server.handle_message(client, f"NICK {nick}")
@@ -64,12 +66,13 @@ def test_local_defaults_and_nonlocal_bind_requirement():
     assert args.host == "0.0.0.0"
 
 
-def test_server_full_returns_deterministic_error():
+def test_server_full_returns_error():
     s = IRCServer(max_clients=1)
     _register(s, "c1", "alice")
     replies = s.handle_message("c2", "NICK bob")
-    assert "461" in replies[0]
+    assert "500" in replies[0]
     assert "Server is full" in replies[0]
+    assert len(s.state.clients) == 1
 
 
 def test_socket_smoke_and_shutdown_cleanly():
@@ -86,17 +89,17 @@ def test_socket_smoke_and_shutdown_cleanly():
         writer2.write(b"USER u 0 * :r\r\n")
         await writer1.drain()
         await writer2.drain()
-        assert b"001" in await asyncio.wait_for(reader1.readline(), timeout=2)
-        assert b"001" in await asyncio.wait_for(reader2.readline(), timeout=2)
+        assert b" 001 a :Welcome to qec-ircd" in await asyncio.wait_for(reader1.readline(), timeout=_SOCKET_READ_TIMEOUT)
+        assert b" 001 b :Welcome to qec-ircd" in await asyncio.wait_for(reader2.readline(), timeout=_SOCKET_READ_TIMEOUT)
         writer1.write(b"JOIN #qec\r\n")
         writer2.write(b"JOIN #qec\r\n")
         await writer1.drain()
         await writer2.drain()
-        assert b"JOIN #qec" in await asyncio.wait_for(reader1.readline(), timeout=2)
-        assert b"JOIN #qec" in await asyncio.wait_for(reader2.readline(), timeout=2)
+        assert b":a JOIN #qec" in await asyncio.wait_for(reader1.readline(), timeout=_SOCKET_READ_TIMEOUT)
+        assert b":b JOIN #qec" in await asyncio.wait_for(reader2.readline(), timeout=_SOCKET_READ_TIMEOUT)
         writer1.write(b"PRIVMSG #qec :hello\r\n")
         await writer1.drain()
-        assert b":a PRIVMSG #qec :hello" in await asyncio.wait_for(reader2.readline(), timeout=2)
+        assert b":a PRIVMSG #qec :hello" in await asyncio.wait_for(reader2.readline(), timeout=_SOCKET_READ_TIMEOUT)
         writer1.close()
         writer2.close()
         await writer1.wait_closed()

@@ -163,7 +163,12 @@ def build_backend_observation(**kwargs: Any) -> BackendObservation:
     k = dict(kwargs)
     k.pop("observation_hash", None)
     payload = k.get("payload")
-    k["payload_hash"] = _hash_payload(payload)
+    # Issue 1: For HASH_ONLY observations, allow explicit payload_hash without payload
+    if k.get("observation_kind") == "HASH_ONLY" and "payload_hash" in k and payload is None:
+        # Keep the provided payload_hash for HASH_ONLY observations
+        pass
+    else:
+        k["payload_hash"] = _hash_payload(payload)
     o = BackendObservation(observation_hash="", **k)
     validate_backend_observation(o, allow_blank_hash=True)
     return BackendObservation(**{**o.to_dict(), "observation_hash": _hash_payload(_base_payload(o, "observation_hash"))})
@@ -197,8 +202,17 @@ def validate_backend_observation(observation: BackendObservation, allow_blank_ha
     if observation.error_code is not None and (not isinstance(observation.error_code, str) or len(observation.error_code) > _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
     if observation.unavailable_reason is not None and (not isinstance(observation.unavailable_reason, str) or len(observation.unavailable_reason) > _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
     if observation.source_invariant_candidate_hash is not None: _validate_hash_format(observation.source_invariant_candidate_hash)
-    if len(_canonical_json(observation.payload).encode("utf-8")) > _MAX_JSON_PAYLOAD_BYTES: raise ValueError("INVALID_PAYLOAD")
-    if observation.payload_hash != _hash_payload(observation.payload): raise ValueError("HASH_MISMATCH")
+    # Issue 2: Normalize invalid JSON payloads to INVALID_PAYLOAD error
+    try:
+        payload_json = _canonical_json(observation.payload)
+        if len(payload_json.encode("utf-8")) > _MAX_JSON_PAYLOAD_BYTES: raise ValueError("INVALID_PAYLOAD")
+    except (TypeError, ValueError):
+        raise ValueError("INVALID_PAYLOAD")
+    # Issue 1: For HASH_ONLY, allow payload=None with explicit payload_hash
+    if observation.observation_kind == "HASH_ONLY" and observation.payload is None:
+        pass  # Skip payload_hash verification for HASH_ONLY with None payload
+    elif observation.payload_hash != _hash_payload(observation.payload): 
+        raise ValueError("HASH_MISMATCH")
     expected = _hash_payload(_base_payload(observation, "observation_hash"))
     if observation.observation_hash == "" and allow_blank_hash: return True
     _validate_hash_format(observation.observation_hash)
@@ -208,6 +222,10 @@ def validate_backend_observation(observation: BackendObservation, allow_blank_ha
 
 def validate_cross_backend_comparison_case(case: CrossBackendComparisonCase, allow_blank_hash: bool = False) -> bool:
     if not isinstance(case, CrossBackendComparisonCase): raise ValueError("INVALID_INPUT")
+    # Issue 8: Validate case_index, case_name, case_reason
+    if not isinstance(case.case_index, int) or isinstance(case.case_index, bool) or case.case_index < 0: raise ValueError("INVALID_INPUT")
+    if not isinstance(case.case_name, str) or not case.case_name or len(case.case_name) > _MAX_OBSERVATION_NAME_LENGTH: raise ValueError("INVALID_INPUT")
+    if not isinstance(case.case_reason, str) or len(case.case_reason) > _MAX_REASON_LENGTH: raise ValueError("INVALID_INPUT")
     if case.equivalence_policy not in _ALLOWED_EQUIVALENCE_POLICIES: raise ValueError("INVALID_EQUIVALENCE_POLICY")
     _validate_hash_format(case.reference_observation_hash)
     if not case.candidate_observation_hashes: raise ValueError("MISSING_CANDIDATE_OBSERVATION")
@@ -222,6 +240,9 @@ def validate_cross_backend_comparison_case(case: CrossBackendComparisonCase, all
 
 def validate_cross_backend_comparison_result(result: CrossBackendComparisonResult, allow_blank_hash: bool = False) -> bool:
     if not isinstance(result, CrossBackendComparisonResult): raise ValueError("INVALID_INPUT")
+    # Issue 9: Validate result_index and mismatch_reason
+    if not isinstance(result.result_index, int) or isinstance(result.result_index, bool) or result.result_index < 0: raise ValueError("INVALID_INPUT")
+    if result.mismatch_reason is not None and (not isinstance(result.mismatch_reason, str) or len(result.mismatch_reason) > _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
     _validate_hash_format(result.case_hash)
     if result.equivalence_policy not in _ALLOWED_EQUIVALENCE_POLICIES: raise ValueError("INVALID_EQUIVALENCE_POLICY")
     if result.result_status not in _ALLOWED_RESULT_STATUSES: raise ValueError("INVALID_RESULT_STATUS")
@@ -237,8 +258,14 @@ def validate_cross_backend_comparison_result(result: CrossBackendComparisonResul
 def evaluate_cross_backend_case(case: CrossBackendComparisonCase, observations_by_hash: dict[str, BackendObservation], *, result_index: int) -> CrossBackendComparisonResult:
     ref = observations_by_hash.get(case.reference_observation_hash)
     if ref is None: raise ValueError("MISSING_REFERENCE_OBSERVATION")
+    # Issue 10: Validate observation roles
+    if ref.backend_role != "REFERENCE": raise ValueError("INVALID_BACKEND_ROLE")
     cands = [observations_by_hash.get(h) for h in case.candidate_observation_hashes]
     if any(x is None for x in cands): raise ValueError("MISSING_CANDIDATE_OBSERVATION")
+    # Issue 10: Validate candidate roles and prevent reference in candidates
+    for c in [x for x in cands if x is not None]:
+        if c.backend_role not in ("CANDIDATE", "AUXILIARY"): raise ValueError("INVALID_BACKEND_ROLE")
+        if c.observation_hash == ref.observation_hash: raise ValueError("INVALID_INPUT")
     cand_payload_hashes = tuple(x.payload_hash for x in cands if x is not None)
     status = "EQUIVALENT"
     reason = None
@@ -255,8 +282,15 @@ def evaluate_cross_backend_case(case: CrossBackendComparisonCase, observations_b
         elif case.equivalence_policy == "SET_LIKE_SORTED_EXACT":
             if isinstance(ref.payload, list) and isinstance(c.payload, list): ok = sorted(_canonical_json(x) for x in ref.payload) == sorted(_canonical_json(x) for x in c.payload)
             else: status, reason = "INVALID_OBSERVATION", "INVALID_PAYLOAD"; break
-        elif case.equivalence_policy == "DECLARED_UNAVAILABLE_MATCH": ok = ref.observation_kind == c.observation_kind == "UNAVAILABLE_RESULT" and ref.unavailable_reason == c.unavailable_reason
-        elif case.equivalence_policy == "DECLARED_ERROR_MATCH": ok = ref.observation_kind == c.observation_kind == "ERROR_RESULT" and ref.error_code == c.error_code
+        # Issue 3: Require explicit error_code/unavailable_reason for declared policies
+        elif case.equivalence_policy == "DECLARED_UNAVAILABLE_MATCH": 
+            ok = (ref.observation_kind == c.observation_kind == "UNAVAILABLE_RESULT" and 
+                  ref.unavailable_reason is not None and c.unavailable_reason is not None and
+                  ref.unavailable_reason == c.unavailable_reason)
+        elif case.equivalence_policy == "DECLARED_ERROR_MATCH": 
+            ok = (ref.observation_kind == c.observation_kind == "ERROR_RESULT" and 
+                  ref.error_code is not None and c.error_code is not None and
+                  ref.error_code == c.error_code)
         if not ok and status == "EQUIVALENT": status, reason = "NOT_EQUIVALENT", "PAYLOAD_MISMATCH"
     return build_cross_backend_comparison_result(result_index=result_index, case_hash=case.case_hash, equivalence_policy=case.equivalence_policy, result_status=status, reference_payload_hash=ref.payload_hash, candidate_payload_hashes=cand_payload_hashes, mismatch_reason=reason)
 
@@ -270,6 +304,15 @@ def build_cross_backend_equivalence_receipt(invariant_candidate_receipt: Backend
     for c in cs: validate_cross_backend_comparison_case(c)
     if tuple(x.observation_index for x in os) != tuple(range(len(os))): raise ValueError("OBSERVATION_ORDER_MISMATCH")
     if tuple(x.case_index for x in cs) != tuple(range(len(cs))): raise ValueError("CASE_ORDER_MISMATCH")
+    # Issue 4: Validate observation source_invariant_candidate_hash belongs to receipt
+    candidate_hashes = {cand.candidate_hash for cand in invariant_candidate_receipt.candidates}
+    for o in os:
+        if o.source_invariant_candidate_hash is not None and o.source_invariant_candidate_hash not in candidate_hashes:
+            raise ValueError("INVALID_SOURCE_CANDIDATE_HASH")
+    # Issue 4: Validate case source_candidate_hash belongs to receipt
+    for c in cs:
+        if c.source_candidate_hash is not None and c.source_candidate_hash not in candidate_hashes:
+            raise ValueError("INVALID_SOURCE_CANDIDATE_HASH")
     idx = {o.observation_hash: o for o in os}
     rs = tuple(evaluate_cross_backend_case(c, idx, result_index=i) for i, c in enumerate(cs))
     if len(rs) > _MAX_COMPARISON_RESULTS: raise ValueError("INVALID_INPUT")
@@ -279,18 +322,19 @@ def build_cross_backend_equivalence_receipt(invariant_candidate_receipt: Backend
 
 def build_equivalence_receipt_from_observations(invariant_candidate_receipt: BackendInvariantCandidateReceipt, observations: tuple[BackendObservation, ...] | list[BackendObservation], *, equivalence_policy: str) -> CrossBackendEquivalenceReceipt:
     if equivalence_policy not in _ALLOWED_EQUIVALENCE_POLICIES: raise ValueError("INVALID_EQUIVALENCE_POLICY")
-    grouped: dict[str, list[BackendObservation]] = {}
-    for o in sorted(tuple(observations), key=lambda x: (x.observation_name, x.observation_index)):
-        grouped.setdefault(o.observation_name, []).append(o)
+    # Issue 5: Group by (observation_name, source_invariant_candidate_hash) to avoid mixing unrelated observations
+    grouped: dict[tuple[str, str | None], list[BackendObservation]] = {}
+    for o in sorted(tuple(observations), key=lambda x: (x.observation_name, x.source_invariant_candidate_hash or "", x.observation_index)):
+        grouped.setdefault((o.observation_name, o.source_invariant_candidate_hash), []).append(o)
     cases = []
     i = 0
-    for name, items in grouped.items():
+    for (name, source_hash), items in grouped.items():
         refs = [x for x in items if x.backend_role == "REFERENCE"]
         cands = [x for x in items if x.backend_role == "CANDIDATE"]
         if not refs: raise ValueError("MISSING_REFERENCE_OBSERVATION")
         if len(refs) > 1: raise ValueError("AMBIGUOUS_REFERENCE_OBSERVATION")
         if not cands: raise ValueError("MISSING_CANDIDATE_OBSERVATION")
-        cases.append(build_cross_backend_comparison_case(case_index=i, case_name=name, equivalence_policy=equivalence_policy, reference_observation_hash=refs[0].observation_hash, candidate_observation_hashes=tuple(x.observation_hash for x in cands), source_candidate_hash=refs[0].source_invariant_candidate_hash, case_reason="AUTO_GROUPED"))
+        cases.append(build_cross_backend_comparison_case(case_index=i, case_name=name, equivalence_policy=equivalence_policy, reference_observation_hash=refs[0].observation_hash, candidate_observation_hashes=tuple(x.observation_hash for x in cands), source_candidate_hash=source_hash, case_reason="AUTO_GROUPED"))
         i += 1
     return build_cross_backend_equivalence_receipt(invariant_candidate_receipt, observations, tuple(cases))
 
@@ -306,7 +350,28 @@ def validate_cross_backend_equivalence_receipt(receipt: CrossBackendEquivalenceR
     if tuple(x.observation_index for x in receipt.observations) != tuple(range(len(receipt.observations))): raise ValueError("OBSERVATION_ORDER_MISMATCH")
     if tuple(x.case_index for x in receipt.comparison_cases) != tuple(range(len(receipt.comparison_cases))): raise ValueError("CASE_ORDER_MISMATCH")
     if tuple(x.result_index for x in receipt.comparison_results) != tuple(range(len(receipt.comparison_results))): raise ValueError("RESULT_ORDER_MISMATCH")
+    # Issue 6 (P1): Validate ALL receipt count fields
+    if receipt.observation_count != len(receipt.observations): raise ValueError("OBSERVATION_COUNT_MISMATCH")
+    if receipt.comparison_case_count != len(receipt.comparison_cases): raise ValueError("CASE_COUNT_MISMATCH")
+    if receipt.comparison_result_count != len(receipt.comparison_results): raise ValueError("RESULT_COUNT_MISMATCH")
     if receipt.equivalent_count != sum(1 for x in receipt.comparison_results if x.result_status == "EQUIVALENT"): raise ValueError("EQUIVALENCE_COUNT_MISMATCH")
+    if receipt.not_equivalent_count != sum(1 for x in receipt.comparison_results if x.result_status == "NOT_EQUIVALENT"): raise ValueError("NOT_EQUIVALENT_COUNT_MISMATCH")
+    if receipt.incomplete_count != sum(1 for x in receipt.comparison_results if x.result_status == "INCOMPLETE"): raise ValueError("INCOMPLETE_COUNT_MISMATCH")
+    if receipt.blocked_by_policy_count != sum(1 for x in receipt.comparison_results if x.result_status == "BLOCKED_BY_POLICY"): raise ValueError("BLOCKED_BY_POLICY_COUNT_MISMATCH")
+    if receipt.invalid_observation_count != sum(1 for x in receipt.comparison_results if x.result_status == "INVALID_OBSERVATION"): raise ValueError("INVALID_OBSERVATION_COUNT_MISMATCH")
+    # Issue 7: Verify embedded results match their cases and observations
+    obs_by_hash = {o.observation_hash: o for o in receipt.observations}
+    case_by_hash = {c.case_hash: c for c in receipt.comparison_cases}
+    for r in receipt.comparison_results:
+        case = case_by_hash.get(r.case_hash)
+        if case is None: raise ValueError("RESULT_CASE_MISMATCH")
+        if r.equivalence_policy != case.equivalence_policy: raise ValueError("RESULT_CASE_MISMATCH")
+        # Verify result is deterministic evaluation of case and observations
+        expected_result = evaluate_cross_backend_case(case, obs_by_hash, result_index=r.result_index)
+        if r.result_status != expected_result.result_status: raise ValueError("RESULT_EVALUATION_MISMATCH")
+        if r.reference_payload_hash != expected_result.reference_payload_hash: raise ValueError("RESULT_EVALUATION_MISMATCH")
+        if r.candidate_payload_hashes != expected_result.candidate_payload_hashes: raise ValueError("RESULT_EVALUATION_MISMATCH")
+        if r.mismatch_reason != expected_result.mismatch_reason: raise ValueError("RESULT_EVALUATION_MISMATCH")
     if receipt.first_observation_hash != (receipt.observations[0].observation_hash if receipt.observations else "") or receipt.final_observation_hash != (receipt.observations[-1].observation_hash if receipt.observations else ""): raise ValueError("HASH_MISMATCH")
     if receipt.first_case_hash != (receipt.comparison_cases[0].case_hash if receipt.comparison_cases else "") or receipt.final_case_hash != (receipt.comparison_cases[-1].case_hash if receipt.comparison_cases else ""): raise ValueError("HASH_MISMATCH")
     if receipt.first_result_hash != (receipt.comparison_results[0].result_hash if receipt.comparison_results else "") or receipt.final_result_hash != (receipt.comparison_results[-1].result_hash if receipt.comparison_results else ""): raise ValueError("HASH_MISMATCH")

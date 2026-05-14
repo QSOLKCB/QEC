@@ -53,6 +53,7 @@ def _inputs():
     s4 = build_dependency_import_site(dependency_name="pandas", import_name="pandas", source_path="src/qec/analysis/d.py", line_number=13, import_kind="IMPORT", import_placement="FUNCTION_BODY", imported_symbol=None, is_heavy_target=True)
     s5 = build_dependency_import_site(dependency_name="mido", import_name="mido", source_path="src/qec/analysis/e.py", line_number=14, import_kind="IMPORT", import_placement="FUNCTION_BODY", imported_symbol=None, is_heavy_target=True)
     s6 = build_dependency_import_site(dependency_name="qiskit", import_name="qiskit", source_path="src/qec/analysis/f.py", line_number=15, import_kind="IMPORT", import_placement="MODULE_TOP_LEVEL", imported_symbol=None, is_heavy_target=True)
+    s7 = build_dependency_import_site(dependency_name="qldpc_internal", import_name="qldpc_internal", source_path="src/qec/analysis/g.py", line_number=16, import_kind="IMPORT", import_placement="FUNCTION_BODY", imported_symbol=None, is_heavy_target=True)
     cands = [
         build_dependency_hotpath_candidate(candidate_index=0, dependency_name="qutip", source_path=s1.source_path, line_number=10, candidate_kind="MODULE_TOP_LEVEL_HEAVY_IMPORT", candidate_status="NEEDS_BENCHMARK_RECEIPT", reason="top-level import", related_import_site_hashes=(s1.import_site_hash,)),
         build_dependency_hotpath_candidate(candidate_index=1, dependency_name="scipy", source_path=s2.source_path, line_number=11, candidate_kind="DENSE_SPARSE_BOUNDARY", candidate_status="NEEDS_EQUIVALENCE_PROOF", reason="sparse boundary", related_import_site_hashes=(s2.import_site_hash,)),
@@ -60,8 +61,13 @@ def _inputs():
         build_dependency_hotpath_candidate(candidate_index=3, dependency_name="pandas", source_path=s4.source_path, line_number=13, candidate_kind="DATAFRAME_BOUNDARY", candidate_status="NEEDS_EQUIVALENCE_PROOF", reason="df boundary", related_import_site_hashes=(s4.import_site_hash,)),
         build_dependency_hotpath_candidate(candidate_index=4, dependency_name="mido", source_path=s5.source_path, line_number=14, candidate_kind="AUDIO_MIDI_BOUNDARY", candidate_status="CANDIDATE_ONLY", reason="midi boundary", related_import_site_hashes=(s5.import_site_hash,)),
         build_dependency_hotpath_candidate(candidate_index=5, dependency_name="qiskit", source_path=s6.source_path, line_number=15, candidate_kind="REPEATED_IMPORT_REFERENCE", candidate_status="CANDIDATE_ONLY", reason="repeated ref", related_import_site_hashes=(s6.import_site_hash,)),
+        # Add QUANTUM_BACKEND_BOUNDARY candidates for qutip and qiskit to test boundary invariants
+        build_dependency_hotpath_candidate(candidate_index=6, dependency_name="qutip", source_path=s1.source_path, line_number=10, candidate_kind="QUANTUM_BACKEND_BOUNDARY", candidate_status="NEEDS_EQUIVALENCE_PROOF", reason="quantum boundary", related_import_site_hashes=(s1.import_site_hash,)),
+        build_dependency_hotpath_candidate(candidate_index=7, dependency_name="qiskit", source_path=s6.source_path, line_number=15, candidate_kind="QUANTUM_BACKEND_BOUNDARY", candidate_status="NEEDS_EQUIVALENCE_PROOF", reason="quantum boundary", related_import_site_hashes=(s6.import_site_hash,)),
+        # Add INTERNAL_QEC_BOUNDARY candidate for qldpc_internal
+        build_dependency_hotpath_candidate(candidate_index=8, dependency_name="qldpc_internal", source_path=s7.source_path, line_number=16, candidate_kind="INTERNAL_QEC_BOUNDARY", candidate_status="CANDIDATE_ONLY", reason="internal qec boundary", related_import_site_hashes=(s7.import_site_hash,)),
     ]
-    hot = build_dependency_import_and_hotpath_receipt([s1, s2, s3, s4, s5, s6], cands, source_root_label="src", scanned_file_count=6)
+    hot = build_dependency_import_and_hotpath_receipt([s1, s2, s3, s4, s5, s6, s7], cands, source_root_label="src", scanned_file_count=7)
     return manifest, hot
 
 
@@ -95,6 +101,7 @@ def test_hashes_and_canonical_stability_and_derivation():
     assert any(c.invariant_kind == "AUDIO_MIDI_BOUNDARY_INVARIANT" for c in r1.candidates)
     assert any(c.invariant_kind == "REPEATED_IMPORT_SURFACE_INVARIANT" for c in r1.candidates)
     assert any(c.invariant_kind == "TOP_LEVEL_IMPORT_BOUNDARY_INVARIANT" and c.required_next_receipt == "OptimizedQECBenchmarkReceipt" for c in r1.candidates)
+    assert any(c.invariant_kind == "INTERNAL_QEC_SURFACE_INVARIANT" and c.dependency_name == "qldpc_internal" for c in r1.candidates)
 
 
 def test_validation_errors_and_constraints_and_source_scan():

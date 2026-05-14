@@ -38,10 +38,13 @@ def test_privmsg_and_unregistered_policy_and_no_module_cache_scan():
     s = IRCServer()
     _register(s, "c1", "alice")
     _register(s, "c2", "bob")
+    _register(s, "c3", "carol")
     s.handle_message("c1", "JOIN #qec")
     s.handle_message("c2", "JOIN #qec")
     out = s.handle_message("c1", "PRIVMSG #qec :hi")
-    assert out == (":alice PRIVMSG #qec :hi",)
+    assert out == ()
+    denied = s.handle_message("c3", "PRIVMSG #qec :hi")
+    assert "404" in denied[0]
     out2 = s.handle_message("cx", "PRIVMSG #qec :hi")
     assert "451" in out2[0]
     banned = ["eval(", "exec(", "subprocess", "os.system", "shell=True", "importlib", "__import__(", "requests", "urllib.request", "openai", "anthropic", "random.", "time.time", "datetime.now"]
@@ -61,19 +64,43 @@ def test_local_defaults_and_nonlocal_bind_requirement():
     assert args.host == "0.0.0.0"
 
 
+def test_server_full_returns_deterministic_error():
+    s = IRCServer(max_clients=1)
+    _register(s, "c1", "alice")
+    replies = s.handle_message("c2", "NICK bob")
+    assert "461" in replies[0]
+    assert "Server is full" in replies[0]
+
+
 def test_socket_smoke_and_shutdown_cleanly():
     async def _run():
         s = IRCServer(host="127.0.0.1", port=0)
         await s.start()
         sock = s._server.sockets[0]
         host, port = sock.getsockname()[0], sock.getsockname()[1]
-        reader, writer = await asyncio.open_connection(host, port)
-        writer.write(b"NICK a\r\n")
-        writer.write(b"USER u 0 * :r\r\n")
-        await writer.drain()
-        data = await reader.readline()
-        assert b"001" in data
-        writer.close()
-        await writer.wait_closed()
+        reader1, writer1 = await asyncio.open_connection(host, port)
+        reader2, writer2 = await asyncio.open_connection(host, port)
+        writer1.write(b"NICK a\r\n")
+        writer1.write(b"USER u 0 * :r\r\n")
+        writer2.write(b"NICK b\r\n")
+        writer2.write(b"USER u 0 * :r\r\n")
+        await writer1.drain()
+        await writer2.drain()
+        assert b"001" in await asyncio.wait_for(reader1.readline(), timeout=2)
+        assert b"001" in await asyncio.wait_for(reader2.readline(), timeout=2)
+        writer1.write(b"JOIN #qec\r\n")
+        writer2.write(b"JOIN #qec\r\n")
+        await writer1.drain()
+        await writer2.drain()
+        assert b"JOIN #qec" in await asyncio.wait_for(reader1.readline(), timeout=2)
+        assert b"JOIN #qec" in await asyncio.wait_for(reader2.readline(), timeout=2)
+        writer1.write(b"PRIVMSG #qec :hello\r\n")
+        await writer1.drain()
+        assert b":a PRIVMSG #qec :hello" in await asyncio.wait_for(reader2.readline(), timeout=2)
+        writer1.close()
+        writer2.close()
+        await writer1.wait_closed()
+        await writer2.wait_closed()
         await s.stop()
+
     asyncio.run(_run())

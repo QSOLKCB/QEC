@@ -404,7 +404,6 @@ A fast path is accepted only if replay proves equivalence.
 
 **Dependency Boundaries**
 - depends on: v163.x HeavyDependencyDiscoveryReceipt
-- depends on: v178.5.x IEEE 754 Precision & Approximation Receipts where float equivalence is used
 - does not modify: src/qec/decoder/
 
 ## Phase: v165.x — Optimized QEC Simulation Backends
@@ -432,7 +431,6 @@ After v163.x discovers invariants and v164.x implements optimization contracts, 
 **Dependency Boundaries**
 - depends on: v164.x OptimizationImplementationReceipt
 - depends on: v163.x HeavyDependencyDiscoveryReceipt
-- depends on: v178.5.x IEEE 754 precision receipts for float-sensitive comparisons
 - does not modify: src/qec/decoder/
 
 ## Phase: v166.x — QLDPC / Hashing-Bound Code Receipts
@@ -441,6 +439,7 @@ After v163.x discovers invariants and v164.x implements optimization contracts, 
 PLANNED
 
 ## Phase: v167.x — Qudit / Ququart / High-Dimensional Stabilizer Receipts
+
 **Status**: PLANNED
 
 ## Phase: v168.x — Proof Telemetry / MIDI / Sonification Receipts
@@ -465,9 +464,6 @@ PLANNED
 **Status**: PLANNED
 
 ## Phase: v175.x — Operator Console Unification
-**Status**: PLANNED
-
-## Phase: v176.x — Real-Time Syndrome Streaming Receipts
 **Status**: PLANNED
 
 ## Phase: v176.x — Real-Time Syndrome Streaming Receipts
@@ -692,7 +688,7 @@ same float input
 - source signals: leegao/float-hacks, randomascii, AMD Vitis tutorial, FP16/BF16 guides, kaatinga IEEE754 notes
 
 **Relationship to Existing Roadmap**
-v176.x establishes resource accounting receipts with float-bearing metrics. v178.5.x adds the precision-contract layer before v179+ phases consume those values.
+v178.x establishes resource accounting receipts with float-bearing metrics. v178.5.x adds the precision-contract layer before v179+ phases consume those values.
 
 ## Phase: v179.x — Quantum Geometry / Contextuality / Topological Toolkit Receipts
 **Status**: PLANNED
@@ -851,11 +847,12 @@ reality_loop_proof_receipt_hash
 5. v163.4 → OptimizationOpportunityIndex
 6. v164.0 → OptimizationContract
 7. v164.1 → LightweightAdapterSpec
-8. v164.3 → FastPathEquivalenceReceipt
-9. v164.4 → OptimizationImplementationReceipt
-10. v165.0 → OptimizedSimulationSpec
-11. v165.1 → BackendEquivalenceReplayReceipt
-12. v165.2 → OptimizedQECBenchmarkReceipt
+8. v164.2 → CachedCanonicalKernelReceipt
+9. v164.3 → FastPathEquivalenceReceipt
+10. v164.4 → OptimizationImplementationReceipt
+11. v165.0 → OptimizedSimulationSpec
+12. v165.1 → BackendEquivalenceReplayReceipt
+13. v165.2 → OptimizedQECBenchmarkReceipt
 
 Execution order rationale:
 discover invariants
@@ -883,7 +880,7 @@ discover invariants
 
 | Risk | Preventing Receipt/Gate |
 |---|---|
-| dependency bloat | scientific_dependency_manifest + pinned dependency gate |
+| dependency bloat | heavy_dependency_discovery_manifest + pinned dependency gate |
 | heavy dependency becomes silent authority | BackendInvariantCandidateReceipt + CrossBackendEquivalenceReceipt |
 | optimization changes numerical semantics | FastPathEquivalenceReceipt + IEEE754 precision receipts |
 | speedup claim without benchmark | OptimizedQECBenchmarkReceipt |

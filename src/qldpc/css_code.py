@@ -7,7 +7,6 @@ repository tests and local deterministic construction flows.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Union
 
 import numpy as np
 from scipy import sparse
@@ -15,6 +14,15 @@ from scipy import sparse
 from .field import GF2e
 from .invariants import ConstructionInvariantError, verify_css_orthogonality_sparse
 from .lift import LiftTable, kron_companion_circulant
+
+
+def _validate_gf_entries(arr: np.ndarray, q: int, name: str) -> None:
+    """Validate that array entries are valid GF(2^e) elements in [0, q)."""
+    if np.any(arr < 0) or np.any(arr >= q):
+        raise ValueError(
+            f"{name} entries must be in range [0, {q}), "
+            f"got values in [{arr.min()}, {arr.max()}]"
+        )
 
 
 @dataclass(frozen=True)
@@ -34,21 +42,13 @@ class ProtographPair:
             raise ValueError("H_X_base and H_Z_base must have same column count")
         # Validate GF(2^e) element range: entries must be in [0, q)
         q = self.gf.q
-        if np.any(hx < 0) or np.any(hx >= q):
-            raise ValueError(
-                f"H_X_base entries must be in range [0, {q}), "
-                f"got values in [{hx.min()}, {hx.max()}]"
-            )
-        if np.any(hz < 0) or np.any(hz >= q):
-            raise ValueError(
-                f"H_Z_base entries must be in range [0, {q}), "
-                f"got values in [{hz.min()}, {hz.max()}]"
-            )
+        _validate_gf_entries(hx, q, "H_X_base")
+        _validate_gf_entries(hz, q, "H_Z_base")
         object.__setattr__(self, "H_X_base", hx)
         object.__setattr__(self, "H_Z_base", hz)
 
 
-def _extract_proto_attrs(proto) -> tuple:
+def _extract_proto_attrs(proto) -> tuple[GF2e, np.ndarray, np.ndarray]:
     """
     Extract (field, H_X_base, H_Z_base) from a protograph pair object.
 
@@ -84,16 +84,8 @@ class CSSCode:
         q = gf.q
         hx = np.asarray(H_X_base, dtype=np.int32)
         hz = np.asarray(H_Z_base, dtype=np.int32)
-        if np.any(hx < 0) or np.any(hx >= q):
-            raise ValueError(
-                f"H_X_base entries must be in range [0, {q}), "
-                f"got values in [{hx.min()}, {hx.max()}]"
-            )
-        if np.any(hz < 0) or np.any(hz >= q):
-            raise ValueError(
-                f"H_Z_base entries must be in range [0, {q}), "
-                f"got values in [{hz.min()}, {hz.max()}]"
-            )
+        _validate_gf_entries(hx, q, "H_X_base")
+        _validate_gf_entries(hz, q, "H_Z_base")
 
         self.gf = gf
         self.proto = proto

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields as dataclass_fields
 from importlib import metadata as importlib_metadata
 from importlib import util as importlib_util
 import hashlib
 import json
+import os
 import re
+import sys
 from typing import Any
 
 _SCHEMA_VERSION = "HEAVY_DEPENDENCY_DISCOVERY_V1"
@@ -371,11 +373,14 @@ def probe_current_environment() -> HeavyDependencyDiscoveryManifest:
             probes.append(build_probe_result("qldpc_external", "BLOCKED_BY_POLICY", probe_mode="EXPLICIT"))
             continue
         if target.dependency_name == "qldpc_internal":
-            import os
-            import sys
-            qldpc_css_path = os.path.join(os.path.dirname(sys.modules["qec"].__file__), "..", "qldpc", "css_code.py")
-            if os.path.exists(qldpc_css_path):
-                probes.append(build_probe_result("qldpc_internal", "INTERNAL_AVAILABLE", probe_mode="INTERNAL_MODULE"))
+            qec_module = sys.modules.get("qec")
+            if qec_module and hasattr(qec_module, "__file__") and qec_module.__file__:
+                qec_dir = os.path.dirname(os.path.abspath(qec_module.__file__))
+                qldpc_css_path = os.path.join(os.path.dirname(qec_dir), "qldpc", "css_code.py")
+                if os.path.exists(qldpc_css_path):
+                    probes.append(build_probe_result("qldpc_internal", "INTERNAL_AVAILABLE", probe_mode="INTERNAL_MODULE"))
+                else:
+                    probes.append(build_probe_result("qldpc_internal", "UNAVAILABLE", probe_mode="INTERNAL_MODULE"))
             else:
                 probes.append(build_probe_result("qldpc_internal", "UNAVAILABLE", probe_mode="INTERNAL_MODULE"))
             continue
@@ -434,9 +439,9 @@ def validate_heavy_dependency_discovery_manifest(manifest: HeavyDependencyDiscov
     if manifest.to_dict() != rebuilt.to_dict():
         if manifest.heavy_dependency_discovery_manifest_hash != rebuilt.heavy_dependency_discovery_manifest_hash:
             raise ValueError("HASH_MISMATCH")
-        count_fields = ["target_count", "available_count", "unavailable_count", "not_probed_count", "blocked_by_policy_count", "internal_available_count"]
-        for field in count_fields:
-            if getattr(manifest, field) != getattr(rebuilt, field):
+        count_field_names = [f.name for f in dataclass_fields(HeavyDependencyDiscoveryManifest) if f.name.endswith("_count")]
+        for field_name in count_field_names:
+            if getattr(manifest, field_name) != getattr(rebuilt, field_name):
                 raise ValueError("DISCOVERY_COUNT_MISMATCH")
         raise ValueError("MANIFEST_FIELD_MISMATCH")
     return True

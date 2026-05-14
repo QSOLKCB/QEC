@@ -49,7 +49,6 @@ def test_target_builder_rejects_non_registry_field_combinations():
         build_heavy_dependency_target("numpy", "numpy", "NUMERIC_CORE", "AUTHORITATIVE_UPSTREAM_REQUIRED", True, ())
 
 
-
 def test_probe_hash_deterministic_and_validation_rejections():
     p1 = build_probe_result("numpy", "AVAILABLE", version="1.0")
     p2 = build_probe_result("numpy", "AVAILABLE", version="1.0")

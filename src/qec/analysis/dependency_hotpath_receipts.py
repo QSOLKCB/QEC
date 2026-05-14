@@ -383,10 +383,10 @@ def scan_dependency_imports(source_root: str | Path, *, targets: tuple[HeavyDepe
     by_dep: dict[str, list[DependencyImportSite]] = {}
     for s in sites_t: by_dep.setdefault(s.dependency_name, []).append(s)
     cand: list[DependencyHotPathCandidate] = []
-    def add(dep: str, sp: str, ln: int, kind: str, status: str, reason: str, hashes: list[str]) -> None:
+    def add(dep: str, source_path: str, line_number: int, kind: str, status: str, reason: str, hashes: list[str]) -> None:
         if len(cand) >= _MAX_HOTPATH_CANDIDATES:
             raise ValueError("MAX_HOTPATH_CANDIDATES_EXCEEDED")
-        cand.append(build_dependency_hotpath_candidate(candidate_index=len(cand), dependency_name=dep, source_path=sp, line_number=ln, candidate_kind=kind, candidate_status=status, reason=reason, related_import_site_hashes=tuple(sorted(hashes))))
+        cand.append(build_dependency_hotpath_candidate(candidate_index=len(cand), dependency_name=dep, source_path=source_path, line_number=line_number, candidate_kind=kind, candidate_status=status, reason=reason, related_import_site_hashes=tuple(sorted(hashes))))
     for dep, arr in by_dep.items():
         if len(arr) > 1: add(dep, arr[0].source_path, arr[0].line_number, "REPEATED_IMPORT_REFERENCE", "NEEDS_BENCHMARK_RECEIPT", "dependency appears in multiple import sites", [x.import_site_hash for x in arr])
         for s in arr:

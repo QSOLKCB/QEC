@@ -111,12 +111,16 @@ def test_qldpc_internal_mapping_preserved(tmp_path: Path):
     _write(tmp_path, "src/pkg/a.py", "from qldpc.css_code import CSSCode\n")
     _write(tmp_path, "src/pkg/b.py", "import qldpc\n")
     receipt = scan_dependency_imports(tmp_path)
-    dep_names = {s.dependency_name for s in receipt.import_sites}
     # qldpc.css_code should map to qldpc_internal
     qldpc_css_sites = [s for s in receipt.import_sites if s.import_name == "qldpc.css_code"]
     assert len(qldpc_css_sites) == 1
     assert qldpc_css_sites[0].dependency_name == "qldpc_internal"
     assert qldpc_css_sites[0].is_heavy_target is True
+    # import qldpc should map to qldpc_external (top-level import)
+    qldpc_top_sites = [s for s in receipt.import_sites if s.import_name == "qldpc"]
+    assert len(qldpc_top_sites) == 1
+    assert qldpc_top_sites[0].dependency_name == "qldpc_external"
+    assert qldpc_top_sites[0].is_heavy_target is True
     # Check that INTERNAL_QEC_BOUNDARY candidate is generated
     kinds = {c.candidate_kind for c in receipt.hotpath_candidates}
     assert "INTERNAL_QEC_BOUNDARY" in kinds
@@ -129,19 +133,43 @@ def test_schema_and_scan_mode_validation():
         _SCHEMA_VERSION,
         _SCAN_MODE,
     )
-    s = build_dependency_import_site(dependency_name="numpy", import_name="numpy", source_path="a.py", line_number=1, import_kind="IMPORT", import_placement="MODULE_TOP_LEVEL", imported_symbol=None, is_heavy_target=True)
-    c = build_dependency_hotpath_candidate(candidate_index=0, dependency_name="numpy", source_path="a.py", line_number=1, candidate_kind="MODULE_TOP_LEVEL_HEAVY_IMPORT", candidate_status="NEEDS_BENCHMARK_RECEIPT", reason="x", related_import_site_hashes=(s.import_site_hash,))
-    r = build_dependency_import_and_hotpath_receipt((s,), (c,), source_root_label="src", scanned_file_count=1)
+    s = build_dependency_import_site(
+        dependency_name="numpy",
+        import_name="numpy",
+        source_path="a.py",
+        line_number=1,
+        import_kind="IMPORT",
+        import_placement="MODULE_TOP_LEVEL",
+        imported_symbol=None,
+        is_heavy_target=True,
+    )
+    c = build_dependency_hotpath_candidate(
+        candidate_index=0,
+        dependency_name="numpy",
+        source_path="a.py",
+        line_number=1,
+        candidate_kind="MODULE_TOP_LEVEL_HEAVY_IMPORT",
+        candidate_status="NEEDS_BENCHMARK_RECEIPT",
+        reason="x",
+        related_import_site_hashes=(s.import_site_hash,),
+    )
+    r = build_dependency_import_and_hotpath_receipt(
+        (s,), (c,), source_root_label="src", scanned_file_count=1
+    )
     
     # Valid receipt should pass
     assert validate_dependency_import_and_hotpath_receipt(r)
     
     # Invalid schema_version should fail
-    r_bad_schema = DependencyImportAndHotPathReceipt(**{**r.to_dict(), "schema_version": "INVALID_SCHEMA"})
+    r_bad_schema = DependencyImportAndHotPathReceipt(
+        **{**r.to_dict(), "schema_version": "INVALID_SCHEMA"}
+    )
     with pytest.raises(ValueError, match="INVALID_SCHEMA_VERSION"):
         validate_dependency_import_and_hotpath_receipt(r_bad_schema)
     
     # Invalid scan_mode should fail
-    r_bad_mode = DependencyImportAndHotPathReceipt(**{**r.to_dict(), "scan_mode": "INVALID_MODE"})
+    r_bad_mode = DependencyImportAndHotPathReceipt(
+        **{**r.to_dict(), "scan_mode": "INVALID_MODE"}
+    )
     with pytest.raises(ValueError, match="INVALID_SCAN_MODE"):
         validate_dependency_import_and_hotpath_receipt(r_bad_mode)

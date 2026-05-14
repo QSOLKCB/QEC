@@ -340,10 +340,8 @@ def scan_dependency_imports(source_root: str | Path, *, targets: tuple[HeavyDepe
     tups = targets if targets is not None else get_heavy_dependency_targets()
     # Build full path mapping (sorted by path length descending for deterministic longest-match)
     target_by_full = {t.import_name: t.dependency_name for t in sorted(tups, key=lambda t: -len(t.import_name))}
-    # Build top-level mapping, but exclude entries that have more specific full-path entries
-    # to avoid collisions (e.g., qldpc_external should not override qldpc_internal for qldpc.css_code)
-    full_path_tops = {t.import_name.split(".")[0] for t in tups if "." in t.import_name}
-    target_by_top = {t.import_name.split(".")[0]: t.dependency_name for t in tups if t.import_name.split(".")[0] not in full_path_tops}
+    # Build top-level mapping - _resolve_dependency handles precedence by checking full paths first
+    target_by_top = {t.import_name.split(".")[0]: t.dependency_name for t in tups}
     files = []
     for p in sorted(scan_root.rglob("*.py")):
         if p.is_symlink():

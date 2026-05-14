@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
+from functools import lru_cache
 import hashlib
 import json
 from pathlib import Path
@@ -9,7 +10,6 @@ import re
 from typing import Any
 
 from .heavy_dependency_discovery import (
-    HeavyDependencyDiscoveryManifest,
     HeavyDependencyTarget,
     build_default_unprobed_manifest,
     get_heavy_dependency_targets,
@@ -51,6 +51,12 @@ _ALLOWED_CANDIDATE_STATUS = {
     "BLOCKED_BY_POLICY",
 }
 _HASH_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+@lru_cache(maxsize=1)
+def _get_heavy_dependency_registry() -> frozenset[str]:
+    """Return cached set of heavy dependency names."""
+    return frozenset(t.dependency_name for t in get_heavy_dependency_targets())
 
 
 @dataclass(frozen=True)
@@ -184,6 +190,11 @@ def build_dependency_hotpath_candidate(**kwargs: Any) -> DependencyHotPathCandid
 def build_dependency_import_and_hotpath_receipt(import_sites, hotpath_candidates, *, source_root_label: str, target_registry_hash: str | None = None, scanned_file_count: int) -> DependencyImportAndHotPathReceipt:
     sites = tuple(sorted(tuple(import_sites), key=lambda s: (s.source_path, s.line_number, s.dependency_name, s.import_name, s.import_kind, s.imported_symbol or "")))
     cands = tuple(hotpath_candidates)
+    # Enforce limits
+    if len(sites) > _MAX_IMPORT_SITES:
+        raise ValueError("MAX_IMPORT_SITES_EXCEEDED")
+    if len(cands) > _MAX_HOTPATH_CANDIDATES:
+        raise ValueError("MAX_HOTPATH_CANDIDATES_EXCEEDED")
     for s in sites:
         validate_dependency_import_site(s)
     for c in cands:
@@ -194,9 +205,14 @@ def build_dependency_import_and_hotpath_receipt(import_sites, hotpath_candidates
         raise ValueError("DUPLICATE_CANDIDATE")
     if tuple(c.candidate_index for c in cands) != tuple(range(len(cands))):
         raise ValueError("CANDIDATE_ORDER_MISMATCH")
-    manifest = build_default_unprobed_manifest()
-    validate_heavy_dependency_discovery_manifest(manifest)
-    registry_hash = target_registry_hash or manifest.heavy_dependency_discovery_manifest_hash
+    # Compute registry_hash from default targets if not provided
+    if target_registry_hash is None:
+        manifest = build_default_unprobed_manifest()
+        validate_heavy_dependency_discovery_manifest(manifest)
+        registry_hash = manifest.heavy_dependency_discovery_manifest_hash
+    else:
+        _validate_hash_format(target_registry_hash)
+        registry_hash = target_registry_hash
     receipt = DependencyImportAndHotPathReceipt(
         schema_version=_SCHEMA_VERSION, scan_mode=_SCAN_MODE, source_root_label=source_root_label,
         target_registry_hash=registry_hash, scanned_file_count=scanned_file_count,
@@ -226,7 +242,13 @@ def build_dependency_import_and_hotpath_receipt(import_sites, hotpath_candidates
 
 def validate_dependency_import_site(site: DependencyImportSite, allow_blank_hash: bool = False) -> bool:
     if not isinstance(site, DependencyImportSite): raise ValueError("INVALID_INPUT")
-    registry = {t.dependency_name for t in get_heavy_dependency_targets()}
+    registry = _get_heavy_dependency_registry()
+    # Validate dependency_name
+    if not isinstance(site.dependency_name, str) or not site.dependency_name or len(site.dependency_name) > _MAX_IMPORT_NAME_LENGTH: raise ValueError("INVALID_INPUT")
+    # Validate import_name
+    if not isinstance(site.import_name, str) or not site.import_name or len(site.import_name) > _MAX_IMPORT_NAME_LENGTH: raise ValueError("INVALID_INPUT")
+    # Validate imported_symbol
+    if site.imported_symbol is not None and (not isinstance(site.imported_symbol, str) or not site.imported_symbol or len(site.imported_symbol) > _MAX_SYMBOL_NAME_LENGTH): raise ValueError("INVALID_INPUT")
     if not isinstance(site.source_path, str) or not site.source_path or len(site.source_path) > _MAX_SOURCE_PATH_LENGTH: raise ValueError("INVALID_SOURCE_PATH")
     if not isinstance(site.line_number, int) or isinstance(site.line_number, bool) or site.line_number <= 0: raise ValueError("INVALID_INPUT")
     if site.import_kind not in _ALLOWED_IMPORT_KINDS: raise ValueError("INVALID_IMPORT_KIND")
@@ -241,6 +263,10 @@ def validate_dependency_import_site(site: DependencyImportSite, allow_blank_hash
 
 def validate_dependency_hotpath_candidate(c: DependencyHotPathCandidate, allow_blank_hash: bool = False) -> bool:
     if not isinstance(c, DependencyHotPathCandidate): raise ValueError("INVALID_INPUT")
+    # Validate source_path
+    if not isinstance(c.source_path, str) or not c.source_path or len(c.source_path) > _MAX_SOURCE_PATH_LENGTH: raise ValueError("INVALID_SOURCE_PATH")
+    # Validate line_number
+    if not isinstance(c.line_number, int) or isinstance(c.line_number, bool) or c.line_number <= 0: raise ValueError("INVALID_INPUT")
     if c.candidate_kind not in _ALLOWED_CANDIDATE_KINDS: raise ValueError("INVALID_CANDIDATE_KIND")
     if c.candidate_status not in _ALLOWED_CANDIDATE_STATUS: raise ValueError("INVALID_CANDIDATE_STATUS")
     if not isinstance(c.reason, str) or len(c.reason) > _MAX_REASON_LENGTH: raise ValueError("INVALID_INPUT")
@@ -255,6 +281,13 @@ def validate_dependency_hotpath_candidate(c: DependencyHotPathCandidate, allow_b
 
 def validate_dependency_import_and_hotpath_receipt(receipt: DependencyImportAndHotPathReceipt) -> bool:
     if not isinstance(receipt, DependencyImportAndHotPathReceipt): raise ValueError("INVALID_INPUT")
+    # Enforce schema_version and scan_mode (P2 fix)
+    if receipt.schema_version != _SCHEMA_VERSION: raise ValueError("INVALID_SCHEMA_VERSION")
+    if receipt.scan_mode != _SCAN_MODE: raise ValueError("INVALID_SCAN_MODE")
+    # Validate target_registry_hash format
+    _validate_hash_format(receipt.target_registry_hash)
+    # Validate scanned_file_count type and range
+    if not isinstance(receipt.scanned_file_count, int) or isinstance(receipt.scanned_file_count, bool) or receipt.scanned_file_count < 0: raise ValueError("INVALID_INPUT")
     if receipt.import_site_count != len(receipt.import_sites) or receipt.hotpath_candidate_count != len(receipt.hotpath_candidates): raise ValueError("HOTPATH_COUNT_MISMATCH")
     for s in receipt.import_sites: validate_dependency_import_site(s)
     for c in receipt.hotpath_candidates: validate_dependency_hotpath_candidate(c)
@@ -281,12 +314,36 @@ def _placement(ancestors: list[ast.AST]) -> str:
     return "MODULE_TOP_LEVEL" if ancestors and isinstance(ancestors[0], ast.Module) else "UNKNOWN_PLACEMENT"
 
 
+def _resolve_dependency(import_name: str, target_by_full: dict[str, str], target_by_top: dict[str, str]) -> tuple[str, bool]:
+    """Resolve import name to dependency name, preferring full path matches over top-level matches.
+    
+    Returns (dependency_name, is_heavy_target).
+    """
+    # First try full import path match (handles qldpc.css_code -> qldpc_internal)
+    if import_name in target_by_full:
+        return target_by_full[import_name], True
+    # Then try prefix matches for submodule imports (e.g., qldpc.css_code.foo -> qldpc_internal)
+    for full_path, dep_name in target_by_full.items():
+        if import_name.startswith(full_path + "."):
+            return dep_name, True
+    # Fall back to top-level module match
+    top = import_name.split(".")[0]
+    if top in target_by_top:
+        return target_by_top[top], True
+    return top, False
+
+
 def scan_dependency_imports(source_root: str | Path, *, targets: tuple[HeavyDependencyTarget, ...] | None = None, include_tests: bool = False) -> DependencyImportAndHotPathReceipt:
     root = Path(source_root)
     if not root.exists() or not root.is_dir(): raise ValueError("INVALID_INPUT")
     scan_root = root / "src" if (root / "src").is_dir() else root
     tups = targets if targets is not None else get_heavy_dependency_targets()
-    target_by_top = {t.import_name.split(".")[0]: t.dependency_name for t in tups}
+    # Build full path mapping (sorted by path length descending for deterministic longest-match)
+    target_by_full = {t.import_name: t.dependency_name for t in sorted(tups, key=lambda t: -len(t.import_name))}
+    # Build top-level mapping, but exclude entries that have more specific full-path entries
+    # to avoid collisions (e.g., qldpc_external should not override qldpc_internal for qldpc.css_code)
+    full_path_tops = {t.import_name.split(".")[0] for t in tups if "." in t.import_name}
+    target_by_top = {t.import_name.split(".")[0]: t.dependency_name for t in tups if t.import_name.split(".")[0] not in full_path_tops}
     files = []
     for p in sorted(scan_root.rglob("*.py")):
         if p.is_symlink():
@@ -295,7 +352,9 @@ def scan_dependency_imports(source_root: str | Path, *, targets: tuple[HeavyDepe
         if not include_tests and rel.startswith("tests/"):
             continue
         files.append(p)
-    sites = []
+    if len(files) > _MAX_IMPORT_SITES:
+        raise ValueError("MAX_IMPORT_SITES_EXCEEDED")
+    sites: list[DependencyImportSite] = []
     for p in files:
         text = p.read_text(encoding="utf-8")
         try:
@@ -309,24 +368,26 @@ def scan_dependency_imports(source_root: str | Path, *, targets: tuple[HeavyDepe
                 stack.append(child)
                 if isinstance(child, ast.Import):
                     for alias in child.names:
-                        top = alias.name.split(".")[0]
-                        dep = target_by_top.get(top, top)
-                        is_heavy = top in target_by_top
+                        dep, is_heavy = _resolve_dependency(alias.name, target_by_full, target_by_top)
                         sites.append(build_dependency_import_site(dependency_name=dep, import_name=alias.name, source_path=rel, line_number=child.lineno, import_kind="IMPORT", import_placement=_placement(stack), imported_symbol=None, is_heavy_target=is_heavy))
+                        if len(sites) > _MAX_IMPORT_SITES:
+                            raise ValueError("MAX_IMPORT_SITES_EXCEEDED")
                 elif isinstance(child, ast.ImportFrom) and child.module:
-                    top = child.module.split(".")[0]
-                    dep = target_by_top.get(top, top)
-                    is_heavy = top in target_by_top
+                    dep, is_heavy = _resolve_dependency(child.module, target_by_full, target_by_top)
                     for alias in child.names:
                         sites.append(build_dependency_import_site(dependency_name=dep, import_name=child.module, source_path=rel, line_number=child.lineno, import_kind="IMPORT_FROM", import_placement=_placement(stack), imported_symbol=alias.name, is_heavy_target=is_heavy))
+                        if len(sites) > _MAX_IMPORT_SITES:
+                            raise ValueError("MAX_IMPORT_SITES_EXCEEDED")
                 walk(child)
                 stack.pop()
         walk(tree)
     sites_t = tuple(sorted(sites, key=lambda s: (s.source_path, s.line_number, s.dependency_name, s.import_name, s.import_kind, s.imported_symbol or "")))
     by_dep: dict[str, list[DependencyImportSite]] = {}
     for s in sites_t: by_dep.setdefault(s.dependency_name, []).append(s)
-    cand = []
-    def add(dep, sp, ln, kind, status, reason, hashes):
+    cand: list[DependencyHotPathCandidate] = []
+    def add(dep: str, sp: str, ln: int, kind: str, status: str, reason: str, hashes: list[str]) -> None:
+        if len(cand) >= _MAX_HOTPATH_CANDIDATES:
+            raise ValueError("MAX_HOTPATH_CANDIDATES_EXCEEDED")
         cand.append(build_dependency_hotpath_candidate(candidate_index=len(cand), dependency_name=dep, source_path=sp, line_number=ln, candidate_kind=kind, candidate_status=status, reason=reason, related_import_site_hashes=tuple(sorted(hashes))))
     for dep, arr in by_dep.items():
         if len(arr) > 1: add(dep, arr[0].source_path, arr[0].line_number, "REPEATED_IMPORT_REFERENCE", "NEEDS_BENCHMARK_RECEIPT", "dependency appears in multiple import sites", [x.import_site_hash for x in arr])
@@ -339,11 +400,13 @@ def scan_dependency_imports(source_root: str | Path, *, targets: tuple[HeavyDepe
         if dep == "mido": add(dep, arr[0].source_path, arr[0].line_number, "AUDIO_MIDI_BOUNDARY", "CANDIDATE_ONLY", "audio/MIDI boundary detected", [x.import_site_hash for x in arr])
         if dep == "scipy": add(dep, arr[0].source_path, arr[0].line_number, "DENSE_SPARSE_BOUNDARY", "NEEDS_EQUIVALENCE_PROOF", "dense/sparse boundary detected", [x.import_site_hash for x in arr])
         if dep == "qldpc_internal": add(dep, arr[0].source_path, arr[0].line_number, "INTERNAL_QEC_BOUNDARY", "NEEDS_EQUIVALENCE_PROOF", "internal qec boundary detected", [x.import_site_hash for x in arr])
-    return build_dependency_import_and_hotpath_receipt(sites_t, tuple(cand), source_root_label=scan_root.name, scanned_file_count=len(files))
+    # Compute target_registry_hash from actual targets used
+    target_registry_hash = _hash_payload([t.to_dict() for t in sorted(tups, key=lambda t: t.dependency_name)])
+    return build_dependency_import_and_hotpath_receipt(sites_t, tuple(cand), source_root_label=scan_root.name, scanned_file_count=len(files), target_registry_hash=target_registry_hash)
 
 
-def validate_receipt_matches_scan(receipt: DependencyImportAndHotPathReceipt, source_root: str | Path, *, include_tests: bool = False) -> bool:
-    rescan = scan_dependency_imports(source_root, include_tests=include_tests)
+def validate_receipt_matches_scan(receipt: DependencyImportAndHotPathReceipt, source_root: str | Path, *, targets: tuple[HeavyDependencyTarget, ...] | None = None, include_tests: bool = False) -> bool:
+    rescan = scan_dependency_imports(source_root, targets=targets, include_tests=include_tests)
     if rescan.to_dict() != receipt.to_dict():
         raise ValueError("HOTPATH_RECEIPT_MISMATCH")
     return True

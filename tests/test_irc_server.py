@@ -50,7 +50,7 @@ def test_privmsg_and_unregistered_policy_and_no_module_cache_scan():
     out2 = s.handle_message("cx", "PRIVMSG #qec :hi")
     assert "451" in out2[0]
     banned = ["eval(", "exec(", "subprocess", "os.system", "shell=True", "importlib", "__import__(", "requests", "urllib.request", "openai", "anthropic", "random.", "time.time", "datetime.now"]
-    for file in ("src/qec/operator/irc_protocol.py", "src/qec/operator/irc_server.py"):
+    for file in ("src/qec/operator/irc_protocol.py", "src/qec/operator/irc_server.py", "src/qec/operator/irc_commands.py"):
         text = open(file, encoding="utf-8").read()
         for token in banned:
             assert token not in text
@@ -107,3 +107,32 @@ def test_socket_smoke_and_shutdown_cleanly():
         await s.stop()
 
     asyncio.run(_run())
+
+
+def test_command_help_channel_response_and_routing():
+    s = IRCServer()
+    _register(s, "c1", "alice")
+    _register(s, "c2", "bob")
+    s.handle_message("c1", "JOIN #qec")
+    s.handle_message("c2", "JOIN #qec")
+    out = s.handle_message("c1", "PRIVMSG #qec :!help")
+    assert any(" NOTICE #qec :!help -" in line for line in out)
+    routed = s._handle_message_routed("c1", "PRIVMSG #qec :!corelaw")
+    assert any(target == "c2" and "PRIVMSG #qec :!corelaw" in line for target, line in routed)
+
+
+def test_direct_command_and_unknown_command_do_not_crash():
+    s = IRCServer()
+    _register(s, "c1", "alice")
+    out = s.handle_message("c1", "PRIVMSG qec-ircd :!corelaw")
+    assert any("NOTICE alice" in line and "same input" in line for line in out)
+    out2 = s.handle_message("c1", "PRIVMSG qec-ircd :!doesnotexist")
+    assert any("UNKNOWN_COMMAND" in line for line in out2)
+
+
+def test_direct_command_to_unknown_target_returns_401():
+    s = IRCServer()
+    _register(s, "c1", "alice")
+    out = s.handle_message("c1", "PRIVMSG doesnotexist :!help")
+    assert any("401" in line and "No such nick/channel" in line for line in out)
+    assert not any("NOTICE" in line for line in out)

@@ -125,12 +125,18 @@ def _evaluate_case(policy: str, ref: FastPathObservation, cand: FastPathObservat
     if policy not in _ALLOWED_EQUIVALENCE_POLICY: raise ValueError("INVALID_EQUIVALENCE_POLICY")
     if policy == "EXACT_CANONICAL_JSON":
         if ref.observation_kind != "CANONICAL_JSON" or cand.observation_kind != "CANONICAL_JSON": return False, "OBSERVATION_KIND_POLICY_MISMATCH"
-        return (_canonical_json(_normalise_payload_like(ref.payload)) == _canonical_json(_normalise_payload_like(cand.payload)), None if _canonical_json(_normalise_payload_like(ref.payload)) == _canonical_json(_normalise_payload_like(cand.payload)) else "CANONICAL_JSON_MISMATCH")
+        ref_canonical = _canonical_json(_normalise_payload_like(ref.payload))
+        cand_canonical = _canonical_json(_normalise_payload_like(cand.payload))
+        matches = ref_canonical == cand_canonical
+        return (matches, None if matches else "CANONICAL_JSON_MISMATCH")
     if policy == "EXACT_HASH": return (ref.payload_hash == cand.payload_hash, None if ref.payload_hash == cand.payload_hash else "HASH_MISMATCH")
     if policy == "STRUCTURAL_SHAPE_DTYPE": return (ref.shape == cand.shape and ref.dtype == cand.dtype, None if ref.shape == cand.shape and ref.dtype == cand.dtype else "SHAPE_DTYPE_MISMATCH")
     if policy == "ORDERED_SEQUENCE_EXACT":
         if ref.ordered_sequence is None or cand.ordered_sequence is None: raise ValueError("INVALID_INPUT")
-        return (_canonical_json(_normalise_payload_like(list(ref.ordered_sequence))) == _canonical_json(_normalise_payload_like(list(cand.ordered_sequence))), None if _canonical_json(_normalise_payload_like(list(ref.ordered_sequence))) == _canonical_json(_normalise_payload_like(list(cand.ordered_sequence))) else "ORDERED_SEQUENCE_MISMATCH")
+        ref_canonical = _canonical_json(_normalise_payload_like(list(ref.ordered_sequence)))
+        cand_canonical = _canonical_json(_normalise_payload_like(list(cand.ordered_sequence)))
+        matches = ref_canonical == cand_canonical
+        return (matches, None if matches else "ORDERED_SEQUENCE_MISMATCH")
     if policy == "SET_LIKE_SORTED_EXACT":
         if ref.set_like_sequence is None or cand.set_like_sequence is None: raise ValueError("INVALID_INPUT")
         sref = sorted(_canonical_json(_normalise_payload_like(x)) for x in ref.set_like_sequence)

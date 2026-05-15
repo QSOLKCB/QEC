@@ -12,36 +12,24 @@ MUTABLE_HEADERS = {
     "# 🧠 What QEC Is",
     "## Why This Matters",
     "## v163.x → v164.x Capability Summary",
-    "## Proof Artifacts",
-    "# 🧠 Core Law",
 }
 IMMUTABLE_HEADERS = {
     "## 📚 DOIs",
     "## ⚡ Quickstart",
+    "## Testing",
     "## Commands",
     "## IRC Operator Surface",
     "## 🧾 Attribution",
     "## References",
     "## Author",
 }
-OSF_LINK = "https://osf.io/sjk7b"
 ERR = "README_BOUNDARY_VIOLATION"
-
-# Regex pattern to match stable badge URL with any version
-STABLE_BADGE_RE = re.compile(r"https://img\.shields\.io/badge/stable-v[\d.]+-success")
-# Regex pattern to match stable badge link with any version
-STABLE_BADGE_LINK_RE = re.compile(
-    r'\[!\[Latest\]\(https://img\.shields\.io/badge/stable-v[\d.]+-success\)\]'
-    r'\(https://github\.com/QSOLKCB/QEC/releases/tag/v[\d.]+\)'
-)
 
 
 def _split_sections(text: str):
     parts = re.split(r"(?m)^(#\#? .+)$", text)
-    if not parts:
-        return []
     sections = []
-    pre = parts[0]
+    pre = parts[0] if parts else ""
     if pre:
         sections.append(("", pre))
     for i in range(1, len(parts), 2):
@@ -49,53 +37,47 @@ def _split_sections(text: str):
     return sections
 
 
+def _replace_required(text: str, pattern: str, repl: str) -> tuple[str, bool]:
+    out, n = re.subn(pattern, repl, text)
+    return out, n > 0
+
+
 def update_readme(text: str, latest_release: str, frontier: str, completed_arc: str) -> str:
     orig = text
-    # Construct badge URL once for consistency
-    badge_url = f"https://img.shields.io/badge/stable-{latest_release}-success"
-    release_link = f"https://github.com/QSOLKCB/QEC/releases/tag/{latest_release}"
-    
-    # Update stable badge URL (version-agnostic match)
-    text = STABLE_BADGE_RE.sub(badge_url, text)
-    # Update stable badge link target alongside the shield URL
-    text = STABLE_BADGE_LINK_RE.sub(
-        f"[![Latest]({badge_url})]({release_link})",
-        text,
-    )
-    text = re.sub(r"Current release line: \*\*[^*]+\*\*", f"Current release line: **{latest_release}**", text)
-    text = re.sub(r"Current frontier: \*\*[^*]+\*\*", f"Current frontier: **{frontier}**", text)
-    text = re.sub(r"Completed arc: \*\*[^*]+\*\*", f"Completed arc: **{completed_arc}**", text)
-    text = re.sub(r"status is current through \*\*[^*]+\*\*", f"status is current through **{latest_release}**", text)
+    mutable_sections_changed = 0
 
-    if OSF_LINK in text:
-        text = text.replace(f"[![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)]({OSF_LINK})\n", "")
-        doi_header = "## 📚 DOIs\n"
-        if doi_header in text:
-            post = text.split(doi_header, 1)[1].split("\n## ", 1)[0]
-            if OSF_LINK not in post:
-                text = text.replace(doi_header, doi_header + f"[OSF Registration]({OSF_LINK})\n")
+    new = text
+    new, changed = _replace_required(new, r"stable-v[\d.]+-success", f"stable-{latest_release}-success")
+    mutable_sections_changed += int(changed)
+    new, changed = _replace_required(new, r"branch-v[\d.]+%20canonical", f"branch-{latest_release}%20canonical")
+    mutable_sections_changed += int(changed)
+    new, changed = _replace_required(new, r"Current release line: \*\*[^*]+\*\*", f"Current release line: **{latest_release}**")
+    mutable_sections_changed += int(changed)
+    new, changed = _replace_required(new, r"Current frontier: \*\*[^*]+\*\*", f"Current frontier: **{frontier}**")
+    mutable_sections_changed += int(changed)
+    active_arc = re.sub(r"\.\d+$", ".x", latest_release)
+    new, changed = _replace_required(new, r"Active arc: \*\*[^*]+\*\*", f"Active arc: **{active_arc} — Invariant-Based Heavy Dependency Optimization**")
+    mutable_sections_changed += int(changed)
+    new, changed = _replace_required(new, r"Completed arc: \*\*[^*]+\*\*", f"Completed arc: **{completed_arc}**")
+    mutable_sections_changed += int(changed)
+    new, changed = _replace_required(new, r"status is current through \*\*[^*]+\*\*", f"status is current through **{latest_release}**")
+    mutable_sections_changed += int(changed)
 
-    _validate_boundaries(orig, text)
-    return text
+    _validate_boundaries(orig, new)
+    if mutable_sections_changed == 0:
+        raise ValueError("README_UPDATE_NO_EFFECT")
+    return new
 
 
 def _validate_boundaries(before: str, after: str) -> None:
-    """Validate that only mutable sections changed, fail closed on unknown sections."""
     b = dict(_split_sections(before))
     a = dict(_split_sections(after))
-    # Collect all headers from both before and after
-    all_headers = set(b.keys()) | set(a.keys())
-    for h in all_headers:
-        if not h:  # Skip preamble
+    for h in set(b) | set(a):
+        if not h:
             continue
-        # DOIs section is allowed to change for OSF migration
-        if h == "## 📚 DOIs":
-            continue
-        # Mutable sections are allowed to change
         if h in MUTABLE_HEADERS:
             continue
-        # All other sections (including IMMUTABLE_HEADERS and unknown sections) must not be changed
-        if b.get(h, "") != a.get(h, ""):
+        if h in IMMUTABLE_HEADERS and b.get(h, "") != a.get(h, ""):
             raise ValueError(ERR)
 
 

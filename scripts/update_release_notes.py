@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Iterable
 
 HEADER = "# RELEASE NOTES\n\n"
-MAX_ENTRY_CHARS = 500
 GENERIC_SUMMARY = (
     "Historical QEC release preserved from canonical release-history manifest. "
     "Detailed metadata unavailable in the canonical archive."
@@ -63,10 +62,16 @@ def _validate_release_history(manifest_tags: list[str], generated_release_tags: 
 
 
 def _summary_for(entry: dict[str, object]) -> str:
+    """Build release summary preserving original body formatting."""
     title = str(entry.get("title") or "").strip()
     body = str(entry.get("body") or "").strip()
-    merged = " ".join(x for x in [title, body] if x).strip()
-    return (merged or GENERIC_SUMMARY)[:MAX_ENTRY_CHARS]
+    if title and body:
+        return f"{title}\n\n{body}"
+    elif title:
+        return title
+    elif body:
+        return body
+    return GENERIC_SUMMARY
 
 
 def generate_release_notes_from_history(history: list[dict[str, object]]) -> str:

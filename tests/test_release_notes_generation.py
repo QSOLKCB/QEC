@@ -4,7 +4,6 @@ import pytest
 
 from scripts.update_release_notes import (
     GENERIC_SUMMARY,
-    MAX_ENTRY_CHARS,
     ReleaseHistoryError,
     _validate_release_history,
     build_release_notes_from_tags,
@@ -80,11 +79,12 @@ def test_release_history_json_rejects_malformed_entries(tmp_path):
         load_release_history(tmp_path)
 
 
-def test_release_notes_summary_length_bound():
-    body = "x" * (MAX_ENTRY_CHARS + 50)
+def test_release_notes_preserves_full_body():
+    """Verify that full body content is preserved without truncation."""
+    body = "x" * 1000
     notes = generate_release_notes_from_history([{"tag": "v1.0.0", "body": body}])
-    summary = notes.splitlines()[3]
-    assert len(summary) == MAX_ENTRY_CHARS
+    # Body should be fully preserved, not truncated
+    assert body in notes
 
 
 def test_release_notes_generation_from_canonical_archive(tmp_path):

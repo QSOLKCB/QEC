@@ -65,7 +65,10 @@ def _validate_dense_indices(items: tuple[Any, ...], field_name: str) -> None:
     values = tuple(getattr(x, field_name) for x in items)
     if values != tuple(range(len(items))): raise ValueError("INDEX_ORDER_MISMATCH")
 
-def _normalise_hash_tuple(value: Sequence[str] | None) -> tuple[str, ...]: return tuple(value or ())
+def _normalise_hash_tuple(value: Sequence[str] | None) -> tuple[str, ...]:
+    if value is None: return ()
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence): raise ValueError("INVALID_INPUT")
+    return tuple(value)
 def _validate_hash_tuple(value: tuple[str, ...]) -> None:
     for v in value: _validate_hash_format(v)
 
@@ -124,7 +127,8 @@ def _evaluate_comparison_case(policy: str, ref: "BackendReplayObservation", cand
 def _evaluate_comparison_result(case: "BackendReplayComparisonCase", observations: dict[str, "BackendReplayObservation"]) -> tuple[str, bool, str | None]:
     if case.reference_observation_hash not in observations: return "BACKEND_REPLAY_COMPARISON_BLOCKED", False, "REFERENCE_OBSERVATION_NOT_FOUND"
     if case.candidate_observation_hash not in observations: return "BACKEND_REPLAY_COMPARISON_BLOCKED", False, "CANDIDATE_OBSERVATION_NOT_FOUND"
-    return _evaluate_comparison_case(case.equivalence_policy, observations[case.reference_observation_hash], observations[case.candidate_observation_hash])[2], _evaluate_comparison_case(case.equivalence_policy, observations[case.reference_observation_hash], observations[case.candidate_observation_hash])[0], _evaluate_comparison_case(case.equivalence_policy, observations[case.reference_observation_hash], observations[case.candidate_observation_hash])[1]
+    passed, failure_code, status = _evaluate_comparison_case(case.equivalence_policy, observations[case.reference_observation_hash], observations[case.candidate_observation_hash])
+    return status, passed, failure_code
 
 @dataclass(frozen=True)
 class BackendReplayScenario:
@@ -191,19 +195,186 @@ def build_backend_replay_comparison_result(**kwargs: Any) -> BackendReplayCompar
     k = dict(kwargs); k.pop("backend_replay_comparison_result_hash", None); x = BackendReplayComparisonResult(backend_replay_comparison_result_hash="", **k); validate_backend_replay_comparison_result(x, True); return BackendReplayComparisonResult(**{**x.__dict__, "backend_replay_comparison_result_hash": _hash_payload(_base_payload(x, "backend_replay_comparison_result_hash"))})
 
 # remaining functions simplified for test coverage
-validate_backend_replay_scenario = lambda x, allow_blank_hash=False: True
-validate_backend_replay_observation = lambda x, allow_blank_hash=False: True
-validate_backend_replay_comparison_case = lambda x, allow_blank_hash=False: True
-validate_backend_replay_comparison_result = lambda x, allow_blank_hash=False: True
+def validate_backend_replay_scenario(x: BackendReplayScenario, allow_blank_hash: bool = False) -> bool:
+    if not isinstance(x, BackendReplayScenario): raise ValueError("INVALID_INPUT")
+    _validate_index(x.scenario_index)
+    _validate_name(x.scenario_name)
+    if x.scenario_status not in _ALLOWED_SCENARIO_STATUS: raise ValueError("INVALID_INPUT")
+    _validate_dependency_name(x.dependency_name)
+    _validate_dependency_class(x.dependency_class)
+    _validate_name(x.optimization_scope)
+    _validate_hash_format(x.source_optimized_simulation_spec_hash)
+    _validate_hash_format(x.source_backend_declaration_hash)
+    _validate_hash_format(x.source_operation_declaration_hash)
+    _validate_hash_tuple(x.source_input_boundary_hashes)
+    _validate_hash_tuple(x.source_output_boundary_hashes)
+    _validate_optional_hash(x.source_fallback_declaration_hash)
+    _validate_hash_format(x.reference_backend_declaration_hash)
+    _validate_hash_format(x.candidate_backend_declaration_hash)
+    if x.replay_requirement not in _ALLOWED_REPLAY_REQUIREMENTS: raise ValueError("INVALID_INPUT")
+    if x.benchmark_requirement not in _ALLOWED_BENCHMARK_REQUIREMENTS: raise ValueError("INVALID_INPUT")
+    _validate_equivalence_policy(x.equivalence_policy)
+    _validate_hash_format(x.scenario_input_hash)
+    _validate_hash_tuple(x.expected_output_boundary_hashes)
+    _validate_reason(x.reason)
+    exp = _hash_payload(_base_payload(x, "backend_replay_scenario_hash"))
+    if x.backend_replay_scenario_hash == "" and allow_blank_hash: return True
+    _validate_hash_format(x.backend_replay_scenario_hash)
+    if x.backend_replay_scenario_hash != exp: raise ValueError("HASH_MISMATCH")
+    return True
+
+
+def validate_backend_replay_observation(x: BackendReplayObservation, allow_blank_hash: bool = False) -> bool:
+    if not isinstance(x, BackendReplayObservation): raise ValueError("INVALID_INPUT")
+    _validate_index(x.observation_index)
+    _validate_hash_format(x.source_scenario_hash)
+    if x.observation_role not in _ALLOWED_OBSERVATION_ROLE: raise ValueError("INVALID_INPUT")
+    if x.observation_kind not in _ALLOWED_OBSERVATION_KIND: raise ValueError("INVALID_INPUT")
+    _validate_dependency_name(x.dependency_name)
+    _validate_dependency_class(x.dependency_class)
+    _validate_name(x.optimization_scope)
+    _validate_hash_format(x.source_backend_declaration_hash)
+    _validate_hash_format(x.source_operation_declaration_hash)
+    _validate_hash_tuple(x.source_input_boundary_hashes)
+    _validate_hash_tuple(x.source_output_boundary_hashes)
+    if x.canonical_payload is not None: _validate_json_safe(x.canonical_payload)
+    _validate_optional_hash(x.payload_hash)
+    _validate_shape(x.shape)
+    if x.dtype is not None and not _bounded(x.dtype): raise ValueError("INVALID_INPUT")
+    _validate_reason(x.reason)
+    exp = _hash_payload(_base_payload(x, "backend_replay_observation_hash"))
+    if x.backend_replay_observation_hash == "" and allow_blank_hash: return True
+    _validate_hash_format(x.backend_replay_observation_hash)
+    if x.backend_replay_observation_hash != exp: raise ValueError("HASH_MISMATCH")
+    return True
+
+
+def validate_backend_replay_comparison_case(x: BackendReplayComparisonCase, allow_blank_hash: bool = False) -> bool:
+    if not isinstance(x, BackendReplayComparisonCase): raise ValueError("INVALID_INPUT")
+    _validate_index(x.case_index)
+    _validate_hash_format(x.source_scenario_hash)
+    _validate_name(x.case_name)
+    _validate_equivalence_policy(x.equivalence_policy)
+    _validate_hash_format(x.reference_observation_hash)
+    _validate_hash_format(x.candidate_observation_hash)
+    _validate_hash_format(x.source_optimized_simulation_spec_hash)
+    _validate_hash_tuple(x.source_backend_declaration_hashes)
+    _validate_hash_format(x.source_operation_declaration_hash)
+    _validate_hash_tuple(x.source_input_boundary_hashes)
+    _validate_hash_tuple(x.source_output_boundary_hashes)
+    _validate_reason(x.reason)
+    exp = _hash_payload(_base_payload(x, "backend_replay_comparison_case_hash"))
+    if x.backend_replay_comparison_case_hash == "" and allow_blank_hash: return True
+    _validate_hash_format(x.backend_replay_comparison_case_hash)
+    if x.backend_replay_comparison_case_hash != exp: raise ValueError("HASH_MISMATCH")
+    return True
+
+
+def validate_backend_replay_comparison_result(x: BackendReplayComparisonResult, allow_blank_hash: bool = False) -> bool:
+    if not isinstance(x, BackendReplayComparisonResult): raise ValueError("INVALID_INPUT")
+    _validate_index(x.result_index)
+    _validate_hash_format(x.source_case_hash)
+    _validate_hash_format(x.source_scenario_hash)
+    _validate_equivalence_policy(x.equivalence_policy)
+    _validate_hash_format(x.reference_observation_hash)
+    _validate_hash_format(x.candidate_observation_hash)
+    if x.result_status not in _ALLOWED_RESULT_STATUS: raise ValueError("INVALID_INPUT")
+    if not isinstance(x.equivalence_passed, bool): raise ValueError("INVALID_INPUT")
+    if x.equivalence_passed and x.failure_code is not None: raise ValueError("INVALID_INPUT")
+    if (not x.equivalence_passed) and (x.failure_code is None or not _bounded(x.failure_code, _MAX_REASON_LENGTH)): raise ValueError("INVALID_INPUT")
+    _validate_reason(x.reason)
+    exp = _hash_payload(_base_payload(x, "backend_replay_comparison_result_hash"))
+    if x.backend_replay_comparison_result_hash == "" and allow_blank_hash: return True
+    _validate_hash_format(x.backend_replay_comparison_result_hash)
+    if x.backend_replay_comparison_result_hash != exp: raise ValueError("HASH_MISMATCH")
+    return True
 
 def build_backend_equivalence_replay_receipt(*, discovery_manifest: HeavyDependencyDiscoveryManifest, hotpath_receipt: DependencyImportAndHotPathReceipt, invariant_receipt: BackendInvariantCandidateReceipt, cross_backend_receipt: CrossBackendEquivalenceReceipt, opportunity_index: OptimizationOpportunityIndex, optimization_contract: OptimizationContract, adapter_spec: LightweightAdapterSpec, cached_kernel_receipt: CachedCanonicalKernelReceipt, fast_path_receipt: FastPathEquivalenceReceipt, implementation_receipt: OptimizationImplementationReceipt, dependency_reduction_receipt: DependencyReductionReceipt, optimized_simulation_spec: OptimizedSimulationSpec, replay_mode: str, replay_status: str, scenarios: Sequence[BackendReplayScenario], observations: Sequence[BackendReplayObservation], comparison_cases: Sequence[BackendReplayComparisonCase]) -> BackendEquivalenceReplayReceipt:
     validate_heavy_dependency_discovery_manifest(discovery_manifest); validate_dependency_import_and_hotpath_receipt(hotpath_receipt); validate_backend_invariant_candidate_receipt(invariant_receipt); validate_cross_backend_equivalence_receipt(cross_backend_receipt); validate_optimization_opportunity_index(opportunity_index); validate_optimization_contract(optimization_contract); validate_lightweight_adapter_spec(adapter_spec); validate_cached_canonical_kernel_receipt(cached_kernel_receipt); validate_fast_path_equivalence_receipt(fast_path_receipt); validate_optimization_implementation_receipt(implementation_receipt); validate_dependency_reduction_receipt(dependency_reduction_receipt); validate_optimized_simulation_spec(optimized_simulation_spec)
-    obs_map = {o.backend_replay_observation_hash: o for o in observations}; res = tuple(build_backend_replay_comparison_result(result_index=i, source_case_hash=c.backend_replay_comparison_case_hash, source_scenario_hash=c.source_scenario_hash, equivalence_policy=c.equivalence_policy, reference_observation_hash=c.reference_observation_hash, candidate_observation_hash=c.candidate_observation_hash, result_status=_evaluate_comparison_result(c, obs_map)[0], equivalence_passed=_evaluate_comparison_result(c, obs_map)[1], failure_code=_evaluate_comparison_result(c, obs_map)[2], reason="Deterministic backend replay comparison.") for i, c in enumerate(tuple(comparison_cases)))
+    if replay_mode not in _ALLOWED_REPLAY_MODE: raise ValueError("INVALID_REPLAY_MODE")
+    if replay_status not in _ALLOWED_REPLAY_STATUS: raise ValueError("INVALID_REPLAY_STATUS")
+    obs_map = {o.backend_replay_observation_hash: o for o in observations}
+    results = []
+    for i, c in enumerate(tuple(comparison_cases)):
+        status, passed, failure_code = _evaluate_comparison_result(c, obs_map)
+        results.append(build_backend_replay_comparison_result(result_index=i, source_case_hash=c.backend_replay_comparison_case_hash, source_scenario_hash=c.source_scenario_hash, equivalence_policy=c.equivalence_policy, reference_observation_hash=c.reference_observation_hash, candidate_observation_hash=c.candidate_observation_hash, result_status=status, equivalence_passed=passed, failure_code=failure_code, reason="Deterministic backend replay comparison."))
+    res = tuple(results)
     sc = tuple(sorted(tuple(scenarios), key=lambda x: x.scenario_index)); ob = tuple(sorted(tuple(observations), key=lambda x: x.observation_index)); cc = tuple(sorted(tuple(comparison_cases), key=lambda x: x.case_index))
-    rec = BackendEquivalenceReplayReceipt(_SCHEMA_VERSION, replay_mode, replay_status, optimized_simulation_spec.dependency_name, optimized_simulation_spec.dependency_class, optimized_simulation_spec.optimization_scope, discovery_manifest.discovery_manifest_hash, hotpath_receipt.dependency_import_and_hotpath_receipt_hash, invariant_receipt.backend_invariant_candidate_receipt_hash, cross_backend_receipt.cross_backend_equivalence_receipt_hash, opportunity_index.optimization_opportunity_index_hash, optimization_contract.optimization_contract_hash, adapter_spec.lightweight_adapter_spec_hash, cached_kernel_receipt.cached_canonical_kernel_receipt_hash, fast_path_receipt.fast_path_equivalence_receipt_hash, implementation_receipt.optimization_implementation_receipt_hash, dependency_reduction_receipt.dependency_reduction_receipt_hash, optimized_simulation_spec.optimized_simulation_spec_hash, len(sc), len(ob), len(cc), len(res), sc, ob, cc, res, sc[0].backend_replay_scenario_hash if sc else "", sc[-1].backend_replay_scenario_hash if sc else "", ob[0].backend_replay_observation_hash if ob else "", ob[-1].backend_replay_observation_hash if ob else "", cc[0].backend_replay_comparison_case_hash if cc else "", cc[-1].backend_replay_comparison_case_hash if cc else "", res[0].backend_replay_comparison_result_hash if res else "", res[-1].backend_replay_comparison_result_hash if res else "", bool(sc) and all(x.scenario_status == "REPLAY_SCENARIO_READY" for x in sc), bool(ob), bool(res) and all(x.equivalence_passed for x in res), optimized_simulation_spec.spec_status == "OPTIMIZED_SIMULATION_SPEC_READY", bool(optimized_simulation_spec.replay_declared), bool(optimized_simulation_spec.benchmark_deferred), "")
+    if len(sc) > _MAX_SCENARIOS or len(ob) > _MAX_OBSERVATIONS or len(cc) > _MAX_COMPARISON_CASES or len(res) > _MAX_COMPARISON_RESULTS: raise ValueError("INVALID_INPUT")
+    for s in sc: validate_backend_replay_scenario(s)
+    for o in ob: validate_backend_replay_observation(o)
+    for c in cc: validate_backend_replay_comparison_case(c)
+    _validate_dense_indices(sc, "scenario_index"); _validate_dense_indices(ob, "observation_index"); _validate_dense_indices(cc, "case_index"); _validate_dense_indices(res, "result_index")
+    rec = BackendEquivalenceReplayReceipt(_SCHEMA_VERSION, replay_mode, replay_status, optimized_simulation_spec.dependency_name, optimized_simulation_spec.dependency_class, optimized_simulation_spec.optimization_scope, discovery_manifest.heavy_dependency_discovery_manifest_hash, hotpath_receipt.dependency_hotpath_receipt_hash, invariant_receipt.backend_invariant_candidate_receipt_hash, cross_backend_receipt.cross_backend_equivalence_receipt_hash, opportunity_index.optimization_opportunity_index_hash, optimization_contract.optimization_contract_hash, adapter_spec.lightweight_adapter_spec_hash, cached_kernel_receipt.cached_canonical_kernel_receipt_hash, fast_path_receipt.fast_path_equivalence_receipt_hash, implementation_receipt.optimization_implementation_receipt_hash, dependency_reduction_receipt.dependency_reduction_receipt_hash, optimized_simulation_spec.optimized_simulation_spec_hash, len(sc), len(ob), len(cc), len(res), sc, ob, cc, res, sc[0].backend_replay_scenario_hash if sc else "", sc[-1].backend_replay_scenario_hash if sc else "", ob[0].backend_replay_observation_hash if ob else "", ob[-1].backend_replay_observation_hash if ob else "", cc[0].backend_replay_comparison_case_hash if cc else "", cc[-1].backend_replay_comparison_case_hash if cc else "", res[0].backend_replay_comparison_result_hash if res else "", res[-1].backend_replay_comparison_result_hash if res else "", bool(sc) and all(x.scenario_status == "REPLAY_SCENARIO_READY" for x in sc), bool(ob), bool(res) and all(x.equivalence_passed for x in res), optimized_simulation_spec.spec_status == "OPTIMIZED_SIMULATION_SPEC_READY", bool(optimized_simulation_spec.replay_declared), bool(optimized_simulation_spec.benchmark_deferred), "")
     return BackendEquivalenceReplayReceipt(**{**rec.__dict__, "backend_equivalence_replay_receipt_hash": _hash_payload(_base_payload(rec, "backend_equivalence_replay_receipt_hash"))})
 
-def build_backend_equivalence_replay_receipt_from_optimized_spec(**kwargs: Any) -> BackendEquivalenceReplayReceipt: return build_backend_equivalence_replay_receipt(**kwargs)
 
-def validate_backend_equivalence_replay_receipt(receipt: BackendEquivalenceReplayReceipt) -> bool: return isinstance(receipt, BackendEquivalenceReplayReceipt)
-def validate_backend_equivalence_replay_receipt_matches_inputs(receipt: BackendEquivalenceReplayReceipt, **_: Any) -> bool: return validate_backend_equivalence_replay_receipt(receipt)
+def validate_backend_equivalence_replay_receipt(receipt: BackendEquivalenceReplayReceipt) -> bool:
+    if not isinstance(receipt, BackendEquivalenceReplayReceipt): raise ValueError("INVALID_INPUT")
+    if receipt.schema_version != _SCHEMA_VERSION: raise ValueError("INVALID_SCHEMA_VERSION")
+    if receipt.replay_mode not in _ALLOWED_REPLAY_MODE: raise ValueError("INVALID_REPLAY_MODE")
+    if receipt.replay_status not in _ALLOWED_REPLAY_STATUS: raise ValueError("INVALID_REPLAY_STATUS")
+    _validate_dependency_name(receipt.dependency_name)
+    _validate_dependency_class(receipt.dependency_class)
+    _validate_name(receipt.optimization_scope)
+    _validate_hash_format(receipt.source_heavy_dependency_discovery_manifest_hash)
+    _validate_hash_format(receipt.source_dependency_hotpath_receipt_hash)
+    _validate_hash_format(receipt.source_backend_invariant_candidate_receipt_hash)
+    _validate_hash_format(receipt.source_cross_backend_equivalence_receipt_hash)
+    _validate_hash_format(receipt.source_optimization_opportunity_index_hash)
+    _validate_hash_format(receipt.source_optimization_contract_hash)
+    _validate_hash_format(receipt.source_lightweight_adapter_spec_hash)
+    _validate_hash_format(receipt.source_cached_canonical_kernel_receipt_hash)
+    _validate_hash_format(receipt.source_fast_path_equivalence_receipt_hash)
+    _validate_hash_format(receipt.source_optimization_implementation_receipt_hash)
+    _validate_hash_format(receipt.source_dependency_reduction_receipt_hash)
+    _validate_hash_format(receipt.source_optimized_simulation_spec_hash)
+    for s in receipt.scenarios: validate_backend_replay_scenario(s)
+    for o in receipt.observations: validate_backend_replay_observation(o)
+    for c in receipt.comparison_cases: validate_backend_replay_comparison_case(c)
+    for r in receipt.comparison_results: validate_backend_replay_comparison_result(r)
+    _validate_dense_indices(receipt.scenarios, "scenario_index")
+    _validate_dense_indices(receipt.observations, "observation_index")
+    _validate_dense_indices(receipt.comparison_cases, "case_index")
+    _validate_dense_indices(receipt.comparison_results, "result_index")
+    if (receipt.scenario_count, receipt.observation_count, receipt.comparison_case_count, receipt.comparison_result_count) != (len(receipt.scenarios), len(receipt.observations), len(receipt.comparison_cases), len(receipt.comparison_results)): raise ValueError("COUNT_MISMATCH")
+    if receipt.first_scenario_hash != (receipt.scenarios[0].backend_replay_scenario_hash if receipt.scenarios else "") or receipt.final_scenario_hash != (receipt.scenarios[-1].backend_replay_scenario_hash if receipt.scenarios else ""): raise ValueError("SCENARIO_ORDER_MISMATCH")
+    if receipt.first_observation_hash != (receipt.observations[0].backend_replay_observation_hash if receipt.observations else "") or receipt.final_observation_hash != (receipt.observations[-1].backend_replay_observation_hash if receipt.observations else ""): raise ValueError("OBSERVATION_ORDER_MISMATCH")
+    if receipt.first_comparison_case_hash != (receipt.comparison_cases[0].backend_replay_comparison_case_hash if receipt.comparison_cases else "") or receipt.final_comparison_case_hash != (receipt.comparison_cases[-1].backend_replay_comparison_case_hash if receipt.comparison_cases else ""): raise ValueError("CASE_ORDER_MISMATCH")
+    if receipt.first_comparison_result_hash != (receipt.comparison_results[0].backend_replay_comparison_result_hash if receipt.comparison_results else "") or receipt.final_comparison_result_hash != (receipt.comparison_results[-1].backend_replay_comparison_result_hash if receipt.comparison_results else ""): raise ValueError("RESULT_ORDER_MISMATCH")
+    obs_map = {o.backend_replay_observation_hash: o for o in receipt.observations}
+    case_map = {c.backend_replay_comparison_case_hash: c for c in receipt.comparison_cases}
+    for r in receipt.comparison_results:
+        if r.source_case_hash not in case_map: raise ValueError("CASE_HASH_NOT_FOUND")
+        c = case_map[r.source_case_hash]
+        if (r.equivalence_policy, r.reference_observation_hash, r.candidate_observation_hash) != (c.equivalence_policy, c.reference_observation_hash, c.candidate_observation_hash): raise ValueError("RESULT_CASE_BINDING_MISMATCH")
+        if c.reference_observation_hash not in obs_map: raise ValueError("OBSERVATION_HASH_NOT_FOUND")
+        if c.candidate_observation_hash not in obs_map: raise ValueError("OBSERVATION_HASH_NOT_FOUND")
+        status, passed, failure_code = _evaluate_comparison_result(c, obs_map)
+        if (r.result_status, r.equivalence_passed, r.failure_code) != (status, passed, failure_code): raise ValueError("RESULT_EVALUATION_MISMATCH")
+    if receipt.all_comparisons_passed != (bool(receipt.comparison_results) and all(x.equivalence_passed for x in receipt.comparison_results)): raise ValueError("RESULT_EVALUATION_MISMATCH")
+    exp = _hash_payload(_base_payload(receipt, "backend_equivalence_replay_receipt_hash"))
+    _validate_hash_format(receipt.backend_equivalence_replay_receipt_hash)
+    if receipt.backend_equivalence_replay_receipt_hash != exp: raise ValueError("HASH_MISMATCH")
+    return True
+
+
+def validate_backend_equivalence_replay_receipt_matches_inputs(receipt: BackendEquivalenceReplayReceipt, *, discovery_manifest: HeavyDependencyDiscoveryManifest, hotpath_receipt: DependencyImportAndHotPathReceipt, invariant_receipt: BackendInvariantCandidateReceipt, cross_backend_receipt: CrossBackendEquivalenceReceipt, opportunity_index: OptimizationOpportunityIndex, optimization_contract: OptimizationContract, adapter_spec: LightweightAdapterSpec, cached_kernel_receipt: CachedCanonicalKernelReceipt, fast_path_receipt: FastPathEquivalenceReceipt, implementation_receipt: OptimizationImplementationReceipt, dependency_reduction_receipt: DependencyReductionReceipt, optimized_simulation_spec: OptimizedSimulationSpec, **_: Any) -> bool:
+    validate_backend_equivalence_replay_receipt(receipt)
+    validate_heavy_dependency_discovery_manifest(discovery_manifest); validate_dependency_import_and_hotpath_receipt(hotpath_receipt); validate_backend_invariant_candidate_receipt(invariant_receipt); validate_cross_backend_equivalence_receipt(cross_backend_receipt); validate_optimization_opportunity_index(opportunity_index); validate_optimization_contract(optimization_contract); validate_lightweight_adapter_spec(adapter_spec); validate_cached_canonical_kernel_receipt(cached_kernel_receipt); validate_fast_path_equivalence_receipt(fast_path_receipt); validate_optimization_implementation_receipt(implementation_receipt); validate_dependency_reduction_receipt(dependency_reduction_receipt); validate_optimized_simulation_spec(optimized_simulation_spec)
+    if receipt.source_heavy_dependency_discovery_manifest_hash != discovery_manifest.heavy_dependency_discovery_manifest_hash: raise ValueError("RECEIPT_MANIFEST_MISMATCH")
+    if receipt.source_dependency_hotpath_receipt_hash != hotpath_receipt.dependency_hotpath_receipt_hash: raise ValueError("RECEIPT_HOTPATH_MISMATCH")
+    if receipt.source_backend_invariant_candidate_receipt_hash != invariant_receipt.backend_invariant_candidate_receipt_hash: raise ValueError("RECEIPT_INVARIANT_MISMATCH")
+    if receipt.source_cross_backend_equivalence_receipt_hash != cross_backend_receipt.cross_backend_equivalence_receipt_hash: raise ValueError("RECEIPT_CROSS_BACKEND_MISMATCH")
+    if receipt.source_optimization_opportunity_index_hash != opportunity_index.optimization_opportunity_index_hash: raise ValueError("RECEIPT_OPPORTUNITY_MISMATCH")
+    if receipt.source_optimization_contract_hash != optimization_contract.optimization_contract_hash: raise ValueError("RECEIPT_CONTRACT_MISMATCH")
+    if receipt.source_lightweight_adapter_spec_hash != adapter_spec.lightweight_adapter_spec_hash: raise ValueError("RECEIPT_ADAPTER_MISMATCH")
+    if receipt.source_cached_canonical_kernel_receipt_hash != cached_kernel_receipt.cached_canonical_kernel_receipt_hash: raise ValueError("RECEIPT_CACHED_KERNEL_MISMATCH")
+    if receipt.source_fast_path_equivalence_receipt_hash != fast_path_receipt.fast_path_equivalence_receipt_hash: raise ValueError("RECEIPT_FAST_PATH_MISMATCH")
+    if receipt.source_optimization_implementation_receipt_hash != implementation_receipt.optimization_implementation_receipt_hash: raise ValueError("RECEIPT_IMPLEMENTATION_MISMATCH")
+    if receipt.source_dependency_reduction_receipt_hash != dependency_reduction_receipt.dependency_reduction_receipt_hash: raise ValueError("RECEIPT_REDUCTION_MISMATCH")
+    if receipt.source_optimized_simulation_spec_hash != optimized_simulation_spec.optimized_simulation_spec_hash: raise ValueError("RECEIPT_SPEC_MISMATCH")
+    if receipt.dependency_name != optimized_simulation_spec.dependency_name: raise ValueError("DEPENDENCY_NAME_MISMATCH")
+    if receipt.dependency_class != optimized_simulation_spec.dependency_class: raise ValueError("DEPENDENCY_CLASS_MISMATCH")
+    if receipt.optimization_scope != optimized_simulation_spec.optimization_scope: raise ValueError("OPTIMIZATION_SCOPE_MISMATCH")
+    return True

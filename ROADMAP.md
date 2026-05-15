@@ -246,30 +246,6 @@ The phase is constrained to local-first operator workflows and deterministic rou
 - `irc_replay_audit_receipt.json`
 - `irc_replay_audit_hash`
 
-
-
-**Inference Optimization Cross-Reference**
-Inference optimization phases that use reduced-precision formats (FP16, BF16, INT8, INT4) MUST produce a ReducedPrecisionAdapterReceipt.
-
-Any ParameterGolfCompressionReceipt that uses quantization MUST declare precision format via ReducedPrecisionAdapterReceipt.
-
-Any ByteLevelModelBoundaryReceipt that claims memory bandwidth reduction MUST declare precision format for model weights and KV cache.
-
-Any InferenceBackendManifest referencing hardware kernel optimization MUST produce HardwareFloatAdapterBoundaryReceipt with adapter_only=true.
-
-Any KVCachePolicyReceipt that claims memory footprint reduction MUST declare the precision format of the shared cache.
-
-These connections do not change the IEEE 754 section's core boundary. They extend its reach into inference-specific contexts.
-
-- v178.5.9 → InferenceMemoryBandwidthReceipt
-- v178.5.10 → TokenizationPolicyReceipt
-- v178.5.11 → ParameterGolfCompressionReceipt
-- v178.5.12 → ReducedPrecisionAdapterReceipt
-- inference_memory_bandwidth_receipt_hash           (v178.5.9)
-- tokenization_policy_receipt_hash                  (v178.5.10)
-- parameter_golf_compression_receipt_hash           (v178.5.11)
-- reduced_precision_adapter_receipt_hash            (v178.5.12)
-
 **Core Rule**
 ```text
 same local command stream
@@ -1153,6 +1129,31 @@ same float input
 - authoritative standard: IEEE 754-2019
 - source signals: leegao/float-hacks, randomascii, AMD Vitis tutorial, FP16/BF16 guides, kaatinga IEEE754 notes
 
+**Inference Optimization Cross-Reference**
+Inference optimization phases that use reduced-precision formats (FP16, BF16, INT8, INT4) MUST produce a ReducedPrecisionAdapterReceipt.
+
+Any ParameterGolfCompressionReceipt that uses quantization MUST declare precision format via ReducedPrecisionAdapterReceipt.
+
+Any ByteLevelModelBoundaryReceipt that claims memory bandwidth reduction MUST declare precision format for model weights and KV cache.
+
+Any InferenceBackendManifest referencing hardware kernel optimization MUST produce HardwareFloatAdapterBoundaryReceipt with adapter_only=true.
+
+Any KVCachePolicyReceipt that claims memory footprint reduction MUST declare the precision format of the shared cache.
+
+These connections do not change the IEEE 754 section's core boundary. They extend its reach into inference-specific contexts.
+
+**Planned Releases (Inference Cross-Reference)**
+- v178.5.9 → IEEE754InferenceMemoryBandwidthReceipt
+- v178.5.10 → IEEE754TokenizationPolicyReceipt
+- v178.5.11 → IEEE754ParameterGolfCompressionReceipt
+- v178.5.12 → ReducedPrecisionAdapterReceipt
+
+**Expected Hashes (Inference Cross-Reference)**
+- ieee754_inference_memory_bandwidth_receipt_hash   (v178.5.9)
+- ieee754_tokenization_policy_receipt_hash          (v178.5.10)
+- ieee754_parameter_golf_compression_receipt_hash   (v178.5.11)
+- reduced_precision_adapter_receipt_hash            (v178.5.12)
+
 **Relationship to Existing Roadmap**
 v178.x establishes resource accounting receipts with float-bearing metrics. v178.5.x adds the precision-contract layer before v179+ phases consume those values.
 
@@ -1212,13 +1213,14 @@ v178.x establishes resource accounting receipts with float-bearing metrics. v178
 
 ## Phase: v188.x — Deterministic Experiment Scheduler
 
+**Status**: PLANNED
+
 **Enhancements**
 - FeedbackLoopStabilityReceipt
 - RealTimeBoundaryReceipt
 - TransportBackpressureReceipt
 - CollapsePreventionSignalReceipt
 - no live control authority
-**Status**: PLANNED
 
 ## Phase: v189.x — Cross-Environment Hardware/OS Replay Receipts
 **Status**: PLANNED

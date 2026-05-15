@@ -1,1 +1,7 @@
+# Test dependencies with lower bounds matching pyproject.toml extras.
+# These are minimum version constraints, not exact pins.
 pytest
+networkx>=2.6.0
+matplotlib>=3.5.0
+qutip>=5.0
+mido>=1.2.10

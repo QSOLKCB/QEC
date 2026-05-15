@@ -61,6 +61,8 @@ def test_hash_and_schema_validations_and_match_validator_and_source_scan():
     with pytest.raises(ValueError, match="INVALID_SCHEMA_VERSION"): validate_optimization_contract(OptimizationContract(**{**c.__dict__, "schema_version":"BAD"}))
     with pytest.raises(ValueError, match="INVALID_CONTRACT_MODE"): validate_optimization_contract(OptimizationContract(**{**c.__dict__, "contract_mode":"BAD"}))
     with pytest.raises(ValueError, match="PRECONDITION_ORDER_MISMATCH"): validate_optimization_contract(OptimizationContract(**{**c.__dict__, "first_precondition_hash":"0"*64}))
+    with pytest.raises(ValueError, match="INVALID_REQUIRED_NEXT_RECEIPT"): validate_optimization_contract(OptimizationContract(**{**c.__dict__, "required_next_receipt":"INVALID_RECEIPT"}))
+    with pytest.raises(ValueError, match="EQUIVALENCE_REQUIREMENT_MISSING"): validate_optimization_contract(OptimizationContract(**{**c.__dict__, "equivalence_requirements":(), "equivalence_requirement_count":0, "first_requirement_hash":"", "final_requirement_hash":""}))
     assert c.precondition_count == len(c.preconditions) and c.equivalence_requirement_count == len(c.equivalence_requirements) and c.rollback_condition_count == len(c.rollback_conditions)
     assert [x.precondition_index for x in c.preconditions] == list(range(len(c.preconditions)))
     assert [x.requirement_index for x in c.equivalence_requirements] == list(range(len(c.equivalence_requirements)))

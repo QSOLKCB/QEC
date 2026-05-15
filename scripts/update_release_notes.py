@@ -72,9 +72,19 @@ def main() -> int:
     args = p.parse_args()
 
     repo_root = args.repo_root.resolve()
-    tags = parse_release_tags(_run_git_tags(repo_root))
-    content = generate_release_notes(tags)
     output = (repo_root / args.output).resolve()
+    tags = parse_release_tags(_run_git_tags(repo_root))
+    
+    # Fail-fast: if no release tags are discovered, preserve existing release notes
+    if not tags:
+        if output.exists():
+            # Preserve existing release notes when no tags found (e.g., shallow CI checkout)
+            return 0
+        # No tags and no existing file - write header only
+        output.write_text(HEADER, encoding="utf-8")
+        return 0
+    
+    content = generate_release_notes(tags)
     output.write_text(content, encoding="utf-8")
     return 0
 

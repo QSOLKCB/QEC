@@ -12,6 +12,8 @@ MUTABLE_HEADERS = {
     "# 🧠 What QEC Is",
     "## Why This Matters",
     "## v163.x → v164.x Capability Summary",
+    "## Proof Artifacts",
+    "# 🧠 Core Law",
 }
 IMMUTABLE_HEADERS = {
     "## 📚 DOIs",
@@ -24,6 +26,14 @@ IMMUTABLE_HEADERS = {
 }
 OSF_LINK = "https://osf.io/sjk7b"
 ERR = "README_BOUNDARY_VIOLATION"
+
+# Regex pattern to match stable badge URL with any version
+STABLE_BADGE_RE = re.compile(r"https://img\.shields\.io/badge/stable-v[\d.]+-success")
+# Regex pattern to match stable badge link with any version
+STABLE_BADGE_LINK_RE = re.compile(
+    r'\[!\[Latest\]\(https://img\.shields\.io/badge/stable-v[\d.]+-success\)\]'
+    r'\(https://github\.com/QSOLKCB/QEC/releases/tag/v[\d.]+\)'
+)
 
 
 def _split_sections(text: str):
@@ -41,9 +51,16 @@ def _split_sections(text: str):
 
 def update_readme(text: str, latest_release: str, frontier: str, completed_arc: str) -> str:
     orig = text
-    text = text.replace(
-        "https://img.shields.io/badge/stable-v164.2-success",
+    # Update stable badge URL (version-agnostic match)
+    text = STABLE_BADGE_RE.sub(
         f"https://img.shields.io/badge/stable-{latest_release}-success",
+        text,
+    )
+    # Update stable badge link target alongside the shield URL
+    text = STABLE_BADGE_LINK_RE.sub(
+        f"[![Latest](https://img.shields.io/badge/stable-{latest_release}-success)]"
+        f"(https://github.com/QSOLKCB/QEC/releases/tag/{latest_release})",
+        text,
     )
     text = re.sub(r"Current release line: \*\*[^*]+\*\*", f"Current release line: **{latest_release}**", text)
     text = re.sub(r"Current frontier: \*\*[^*]+\*\*", f"Current frontier: **{frontier}**", text)
@@ -63,11 +80,21 @@ def update_readme(text: str, latest_release: str, frontier: str, completed_arc: 
 
 
 def _validate_boundaries(before: str, after: str) -> None:
+    """Validate that only mutable sections changed, fail closed on unknown sections."""
     b = dict(_split_sections(before))
     a = dict(_split_sections(after))
-    for h in IMMUTABLE_HEADERS:
+    # Collect all headers from both before and after
+    all_headers = set(b.keys()) | set(a.keys())
+    for h in all_headers:
+        if not h:  # Skip preamble
+            continue
+        # DOIs section is allowed to change for OSF migration
         if h == "## 📚 DOIs":
             continue
+        # Mutable sections are allowed to change
+        if h in MUTABLE_HEADERS:
+            continue
+        # All other sections (including IMMUTABLE_HEADERS and unknown sections) must not change
         if b.get(h, "") != a.get(h, ""):
             raise ValueError(ERR)
 

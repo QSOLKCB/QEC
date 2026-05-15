@@ -1,4 +1,4 @@
-from scripts.update_release_notes import MAX_ENTRY_CHARS, generate_release_notes, parse_release_tags
+from scripts.update_release_notes import HEADER, MAX_ENTRY_CHARS, generate_release_notes, parse_release_tags
 
 
 def test_ordering_and_no_duplicates():
@@ -21,3 +21,11 @@ def test_summary_bounded():
     notes = generate_release_notes(tags)
     summary = notes.splitlines()[3]
     assert len(summary) <= MAX_ENTRY_CHARS
+
+
+def test_empty_tags_returns_header_only():
+    """Test that empty tag list generates header-only content."""
+    tags = parse_release_tags([])
+    notes = generate_release_notes(tags)
+    # Header without trailing newline in the generated output
+    assert notes.strip() == HEADER.strip()

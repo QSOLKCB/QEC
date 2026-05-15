@@ -1417,6 +1417,14 @@ discover invariants
 | autonomous crawler behavior | CrawlerBoundaryReceipt + test-mode network rejection |
 | self-hosting secret leakage | SelfHostingManifest + no-secrets-in-receipts gate |
 
+## Planned Self-Hosting Artifact
+
+- phase: v164.3
+- planned release: v164.3
+- expected artifact: `SelfHostingManifest`
+- expected hash: `self_hosting_manifest_hash`
+- purpose: declare the self-hosted build/runtime surface and attest that receipts contain no embedded secrets
+
 ## Safety / Interpretation Notes
 
 **Heavy Dependency Reminder**

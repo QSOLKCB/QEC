@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from qec.analysis.optimized_qec_benchmark_receipts import (
     BenchmarkClaim,
     BenchmarkComparisonCase,
@@ -438,7 +440,6 @@ def test_receipt_with_non_empty_children_hash_stability() -> None:
 
 def test_validation_rejects_invalid_hash() -> None:
     """Test that validation rejects receipts with invalid hashes."""
-    import pytest
     env = BenchmarkEnvironmentDeclaration(
         environment_index=0,
         environment_name="test_env",
@@ -464,7 +465,6 @@ def test_validation_rejects_invalid_hash() -> None:
 
 def test_validation_rejects_invalid_status() -> None:
     """Test that validation rejects invalid status values."""
-    import pytest
     with pytest.raises(ValueError, match="INVALID_INPUT"):
         build_benchmark_environment_declaration(
             environment_index=0,
@@ -488,7 +488,6 @@ def test_validation_rejects_invalid_status() -> None:
 
 def test_validation_rejects_count_mismatch() -> None:
     """Test that validation rejects receipts with count mismatches."""
-    import pytest
     from qec.analysis.optimized_qec_benchmark_receipts import OptimizedQECBenchmarkReceipt
     r = OptimizedQECBenchmarkReceipt(
         schema_version="OPTIMIZED_QEC_BENCHMARK_RECEIPT_V1",

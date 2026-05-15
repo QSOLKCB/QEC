@@ -4,6 +4,7 @@ import pytest
 
 from scripts.update_readme_release_metadata import _validate_boundaries, update_readme
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
 LATEST_RELEASE = "v165.4"
 FRONTIER = "v165.5.0 — DataframeBackendManifest"
 ACTIVE_ARC = "v165.5.x — Deterministic Dataframe / Columnar Backend Receipts"
@@ -23,7 +24,7 @@ def _run_update(text: str) -> str:
 
 
 def test_readme_updater_byte_identical_when_already_current():
-    readme = Path("README.md").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     out = _run_update(readme)
     assert out == readme
 
@@ -59,14 +60,14 @@ No mutable release metadata tokens are present here.
 
 
 def test_readme_immutable_sections_unchanged():
-    readme = Path("README.md").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     bad = readme.replace("## ⚡ Quickstart", "## ⚡ Quickstart\nMUTATED", 1)
     with pytest.raises(ValueError, match="README_BOUNDARY_VIOLATION"):
         _validate_boundaries(readme, bad)
 
 
 def test_osf_stays_in_dois():
-    readme = Path("README.md").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     out = _run_update(readme)
     dois_idx = out.index("## 📚 DOIs")
     release_idx = out.index("## 📦 Release & Research")
@@ -76,7 +77,7 @@ def test_osf_stays_in_dois():
 
 
 def test_capability_summary_heading_current():
-    readme = Path("README.md").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     out = _run_update(readme)
     assert "## Capability Summary" in out
     assert "## v163.x → v164.x Capability Summary" not in out

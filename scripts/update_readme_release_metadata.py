@@ -67,7 +67,7 @@ def update_readme(
     # Update badge link target URL in addition to shield text
     new, changed = _replace_required(new, r"releases/tag/v[\d.]+", f"releases/tag/{latest_release}")
     mutable_sections_changed += int(changed)
-    new, changed = _replace_required(new, r"branch-v[\d.]+%20canonical", f"branch-{latest_release}%20canonical")
+    new, changed = _replace_required(new, r"branch-v[\d.]+%20canonical(?:-purple)?", f"branch-{latest_release}%20canonical-purple")
     mutable_sections_changed += int(changed)
     new, changed = _replace_required(new, r"Current release line: \*\*[^*]+\*\*", f"Current release line: **{latest_release}**")
     mutable_sections_changed += int(changed)

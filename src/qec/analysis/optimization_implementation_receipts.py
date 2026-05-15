@@ -127,14 +127,14 @@ def _evaluate_verification(v: OptimizationImplementationVerification, b: Optimiz
 
 def build_optimization_implementation_guard(**kwargs: Any) -> OptimizationImplementationGuard:
     k=dict(kwargs);k.pop("guard_hash",None);k["expected_shape"]=tuple(k["expected_shape"]) if k.get("expected_shape") is not None else None
-    # Validate guard_passed is bool and failure_code consistency
+    # Validate caller-provided guard_passed/failure_code: callers are responsible for providing correct evaluation outcomes
     if not isinstance(k.get("guard_passed"), bool): raise ValueError("INVALID_INPUT")
     if k.get("guard_passed") and k.get("failure_code") is not None: raise ValueError("INVALID_INPUT")
     if not k.get("guard_passed") and k.get("failure_code") is None: raise ValueError("INVALID_INPUT")
     if k.get("failure_code") is not None and not _bounded(k.get("failure_code"), _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
     if not _bounded(k.get("reason", ""), _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
     x=OptimizationImplementationGuard(guard_hash="",**k);validate_optimization_implementation_guard(x,allow_blank_hash=True)
-    # Preserve caller-provided guard_passed/failure_code - do not recompute
+    # Preserve caller-provided guard_passed/failure_code - builder validates but does not recompute
     return OptimizationImplementationGuard(**{**x.__dict__,"guard_hash":_hash_payload(_base_payload(x,"guard_hash"))})
 
 def build_optimization_implementation_rollback_binding(**kwargs: Any) -> OptimizationImplementationRollbackBinding:
@@ -278,7 +278,9 @@ def build_optimization_implementation_receipt_from_fast_path(contract: Optimizat
     # Validate cached receipt has at least one kernel
     if not cached_receipt.kernel_descriptors: raise ValueError("NO_KERNEL_DESCRIPTORS")
     kh=cached_receipt.kernel_descriptors[0].kernel_hash
-    # Validate the kernel is proven by the fast-path receipt (check observations reference it)
+    # Validate the kernel is referenced by the fast-path receipt observations.
+    # Observation existence is sufficient because fast_path_receipt.equivalence_status and all_cases_passed
+    # are checked below to derive guard/verification outcomes - if the receipt failed, the guard will fail.
     kernel_proven = any(obs.source_kernel_hash == kh for obs in fast_path_receipt.observations)
     if not kernel_proven: raise ValueError("KERNEL_NOT_PROVEN_BY_FAST_PATH")
     # Derive guard_passed and verification status from fast_path_receipt

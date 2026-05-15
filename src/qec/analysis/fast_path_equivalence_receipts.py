@@ -249,6 +249,8 @@ def validate_fast_path_equivalence_receipt(receipt: FastPathEquivalenceReceipt) 
         if r.source_case_hash not in cm: raise ValueError("CASE_HASH_NOT_FOUND")
         c = cm[r.source_case_hash]
         if (r.equivalence_policy, r.reference_observation_hash, r.candidate_observation_hash) != (c.equivalence_policy, c.reference_observation_hash, c.candidate_observation_hash): raise ValueError("RESULT_CASE_BINDING_MISMATCH")
+        if c.reference_observation_hash not in om: raise ValueError("OBSERVATION_HASH_NOT_FOUND")
+        if c.candidate_observation_hash not in om: raise ValueError("OBSERVATION_HASH_NOT_FOUND")
         passed, code = _evaluate_case(c.equivalence_policy, om[c.reference_observation_hash], om[c.candidate_observation_hash])
         if (r.equivalence_passed, r.failure_code) != (passed, code): raise ValueError("RESULT_EVALUATION_MISMATCH")
     if receipt.all_cases_passed != (bool(receipt.comparison_results) and all(x.equivalence_passed for x in receipt.comparison_results)): raise ValueError("RESULT_EVALUATION_MISMATCH")

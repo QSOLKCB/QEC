@@ -63,15 +63,32 @@ def test_fast_path_comparison_policy_pass_and_fail():
 
 
 def test_fast_path_sequence_policy_kind_mismatch_is_structured_failure():
-    assert fper._evaluate_case("ORDERED_SEQUENCE_EXACT", _obs(0, "REFERENCE", "HASH_ONLY", payload_hash="a" * 64), _obs(1, "CANDIDATE", "HASH_ONLY", payload_hash="b" * 64)) == (False, "OBSERVATION_KIND_POLICY_MISMATCH")
-    assert fper._evaluate_case("SET_LIKE_SORTED_EXACT", _obs(0, "REFERENCE", "HASH_ONLY", payload_hash="a" * 64), _obs(1, "CANDIDATE", "HASH_ONLY", payload_hash="b" * 64)) == (False, "OBSERVATION_KIND_POLICY_MISMATCH")
+    ref = _obs(0, "REFERENCE", "HASH_ONLY", payload_hash="a" * 64)
+    cand = _obs(1, "CANDIDATE", "HASH_ONLY", payload_hash="b" * 64)
+    assert fper._evaluate_case("ORDERED_SEQUENCE_EXACT", ref, cand) == (
+        False,
+        "OBSERVATION_KIND_POLICY_MISMATCH",
+    )
+    assert fper._evaluate_case("SET_LIKE_SORTED_EXACT", ref, cand) == (
+        False,
+        "OBSERVATION_KIND_POLICY_MISMATCH",
+    )
 
 
 def test_fast_path_receipt_validation_handles_sequence_policy_kind_mismatch():
     contract, adapter, cache, kh = _chain()
     r = _obs(0, "REFERENCE", "HASH_ONLY", payload_hash="a" * 64)
     c = _obs(1, "CANDIDATE", "HASH_ONLY", payload_hash="b" * 64)
-    case = build_fast_path_comparison_case(case_index=0, case_name="k", equivalence_policy="ORDERED_SEQUENCE_EXACT", reference_observation_hash=r.observation_hash, candidate_observation_hash=c.observation_hash, source_kernel_hash=kh, source_cached_canonical_kernel_receipt_hash=cache.cached_canonical_kernel_receipt_hash, reason="r")
+    case = build_fast_path_comparison_case(
+        case_index=0,
+        case_name="k",
+        equivalence_policy="ORDERED_SEQUENCE_EXACT",
+        reference_observation_hash=r.observation_hash,
+        candidate_observation_hash=c.observation_hash,
+        source_kernel_hash=kh,
+        source_cached_canonical_kernel_receipt_hash=cache.cached_canonical_kernel_receipt_hash,
+        reason="r",
+    )
     rec = build_fast_path_equivalence_receipt(contract, adapter, cache, "FAST_PATH_EQUIVALENCE_FAILED", (r, c), (case,))
     assert rec.comparison_results[0].failure_code == "OBSERVATION_KIND_POLICY_MISMATCH"
     assert validate_fast_path_equivalence_receipt(rec)

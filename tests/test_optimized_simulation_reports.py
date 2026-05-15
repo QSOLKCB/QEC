@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import shutil
 from pathlib import Path
+from subprocess import CalledProcessError, check_output
 
 import pytest
 
+import qec.analysis.optimized_simulation_reports as reports_module
 from qec.analysis.optimized_simulation_reports import (
     _SCHEMA_VERSION,
     OptimizedSimulationReport,
@@ -117,9 +120,14 @@ def test_invalid_source_hashes_rejected() -> None:
         )
 
 
-import shutil
-
-import qec.analysis.optimized_simulation_reports as reports_module
+def _find_git_root(start_path: Path) -> Path | None:
+    """Find the git repository root starting from the given path."""
+    current = start_path
+    while current != current.parent:
+        if (current / ".git").exists():
+            return current
+        current = current.parent
+    return None
 
 
 def test_forbidden_import_scanning_and_decoder_boundary() -> None:
@@ -131,14 +139,9 @@ def test_forbidden_import_scanning_and_decoder_boundary() -> None:
     # Guard git-based test: skip if git is not available or not in a git repo
     if shutil.which("git") is None:
         pytest.skip("git not available on PATH")
-    git_dir = module_path.parent
-    while git_dir != git_dir.parent:
-        if (git_dir / ".git").exists():
-            break
-        git_dir = git_dir.parent
-    else:
+    git_dir = _find_git_root(module_path.parent)
+    if git_dir is None:
         pytest.skip("not in a git repository")
-    from subprocess import check_output, CalledProcessError
     try:
         diff = check_output(["git", "diff", "--name-only"], cwd=git_dir).decode("utf-8")
     except CalledProcessError:

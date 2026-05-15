@@ -23,16 +23,14 @@ python -m pip install --upgrade pip
 
 ## Install package and dependencies
 
-Install QEC with deterministic developer extras:
+Install QEC with the full deterministic developer/science test extras:
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,science]"
 ```
 
-For optional scientific dependencies (`qutip`, `qiskit`, `pandas`, etc.), use
-authoritative upstream releases pinned to reviewed versions before enabling
-tests that require them. Avoid unrestricted `pip install .[science]` resolution
-for deterministic validation/proof workflows.
+This install path includes `networkx`, `qutip`, `mido`, and `matplotlib`, which
+are required for a full `pytest -q -ra` run without optional-dependency skips.
 
 ## Run tests
 

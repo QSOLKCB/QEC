@@ -1,1 +1,5 @@
 pytest
+networkx>=2.6.0
+matplotlib>=3.5.0
+qutip>=4.6.0
+mido>=1.2.10

@@ -39,7 +39,7 @@ def _split_sections(text: str):
 
 def _replace_required(text: str, pattern: str, repl: str) -> tuple[str, bool]:
     out, n = re.subn(pattern, repl, text)
-    # Only report change if text actually changed
+    # Compare actual text to detect real changes (pattern may match but replacement may be identical)
     return out, out != text
 
 
@@ -50,7 +50,7 @@ def update_readme(text: str, latest_release: str, frontier: str, completed_arc: 
     new = text
     new, changed = _replace_required(new, r"stable-v[\d.]+-success", f"stable-{latest_release}-success")
     mutable_sections_changed += int(changed)
-    # P1: Update badge link target URL in addition to shield text
+    # Update badge link target URL in addition to shield text
     new, changed = _replace_required(new, r"releases/tag/v[\d.]+", f"releases/tag/{latest_release}")
     mutable_sections_changed += int(changed)
     new, changed = _replace_required(new, r"branch-v[\d.]+%20canonical", f"branch-{latest_release}%20canonical")
@@ -81,7 +81,7 @@ def _validate_boundaries(before: str, after: str) -> None:
             continue
         if h in MUTABLE_HEADERS:
             continue
-        # P2: Fail-closed - raise for ANY section outside MUTABLE_HEADERS that changed
+        # Fail-closed: raise for ANY section outside MUTABLE_HEADERS that changed
         if b.get(h, "") != a.get(h, ""):
             raise ValueError(ERR)
 

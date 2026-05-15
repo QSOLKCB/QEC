@@ -74,7 +74,26 @@ def test_cached_kernel_receipt_validation_and_source_scan():
     assert rec.source_optimization_contract_hash == c.optimization_contract_hash
     text = rec.to_canonical_json().lower(); assert "runtime cache" not in text and "speedup" not in text and "implementation complete" not in text
     assert validate_cached_kernel_receipt_matches_inputs(rec, c, s) is True
-    with pytest.raises(ValueError, match="HASH_MISMATCH"): validate_cached_kernel_receipt_matches_inputs(CachedCanonicalKernelReceipt(**{**rec.__dict__, "dependency_name": "x"}), c, s)
+    with pytest.raises(ValueError, match="KERNEL_DEPENDENCY_NAME_MISMATCH"): validate_cached_kernel_receipt_matches_inputs(CachedCanonicalKernelReceipt(**{**rec.__dict__, "dependency_name": "x"}), c, s)
     src = Path("src/qec/analysis/cached_canonical_kernel_receipts.py").read_text(encoding="utf-8").lower()
     for token in ["import qutip", "import qiskit", "import matplotlib", "import pandas", "import stim", "import pymatching", "import mido", "import requests", "urllib.request", "subprocess", "os.system", "shell=true", "eval(", "exec(", "__import__(", "importlib.import_module", "pip", "time.time", "datetime.now", "random."]:
         assert token not in src
+
+
+def test_cached_kernel_receipt_referential_integrity():
+    c, s = _contract_and_adapter()
+    rec = build_cached_canonical_kernel_receipt_from_adapter(c, s)
+    k = rec.kernel_descriptors[0]; r = rec.cache_rules[0]; i = rec.invalidation_rules[0]
+    bad_k = build_canonical_kernel_descriptor(**{**k.to_dict(), "dependency_name": "wrong_dep"})
+    bad_rec = CachedCanonicalKernelReceipt(**{**rec.__dict__, "kernel_descriptors": (bad_k,), "first_kernel_hash": bad_k.kernel_hash, "final_kernel_hash": bad_k.kernel_hash})
+    with pytest.raises(ValueError, match="KERNEL_DEPENDENCY_NAME_MISMATCH"): validate_cached_canonical_kernel_receipt(bad_rec)
+    bad_k2 = build_canonical_kernel_descriptor(**{**k.to_dict(), "source_adapter_hash": "0" * 64})
+    bad_rec2 = CachedCanonicalKernelReceipt(**{**rec.__dict__, "kernel_descriptors": (bad_k2,), "first_kernel_hash": bad_k2.kernel_hash, "final_kernel_hash": bad_k2.kernel_hash})
+    with pytest.raises(ValueError, match="KERNEL_ADAPTER_HASH_MISMATCH"): validate_cached_canonical_kernel_receipt(bad_rec2)
+    bad_r = build_cache_eligibility_rule(**{**r.to_dict(), "source_kernel_hash": "0" * 64})
+    bad_rec3 = CachedCanonicalKernelReceipt(**{**rec.__dict__, "cache_rules": (bad_r,), "cache_rule_count": 1, "first_rule_hash": bad_r.rule_hash, "final_rule_hash": bad_r.rule_hash})
+    with pytest.raises(ValueError, match="RULE_KERNEL_HASH_NOT_FOUND"): validate_cached_canonical_kernel_receipt(bad_rec3)
+    bad_i = build_cache_invalidation_rule(**{**i.to_dict(), "source_kernel_hash": "0" * 64})
+    bad_rec4 = CachedCanonicalKernelReceipt(**{**rec.__dict__, "invalidation_rules": (bad_i,), "invalidation_rule_count": 1, "first_invalidation_hash": bad_i.invalidation_hash, "final_invalidation_hash": bad_i.invalidation_hash})
+    with pytest.raises(ValueError, match="INVALIDATION_KERNEL_HASH_NOT_FOUND"): validate_cached_canonical_kernel_receipt(bad_rec4)
+    assert validate_cached_canonical_kernel_receipt(rec) is True

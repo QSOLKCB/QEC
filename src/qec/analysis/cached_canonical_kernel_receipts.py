@@ -236,6 +236,14 @@ def validate_cached_canonical_kernel_receipt(receipt: CachedCanonicalKernelRecei
     if receipt.first_kernel_hash != (receipt.kernel_descriptors[0].kernel_hash if receipt.kernel_descriptors else "") or receipt.final_kernel_hash != (receipt.kernel_descriptors[-1].kernel_hash if receipt.kernel_descriptors else ""): raise ValueError("KERNEL_ORDER_MISMATCH")
     if receipt.first_rule_hash != (receipt.cache_rules[0].rule_hash if receipt.cache_rules else "") or receipt.final_rule_hash != (receipt.cache_rules[-1].rule_hash if receipt.cache_rules else ""): raise ValueError("RULE_ORDER_MISMATCH")
     if receipt.first_invalidation_hash != (receipt.invalidation_rules[0].invalidation_hash if receipt.invalidation_rules else "") or receipt.final_invalidation_hash != (receipt.invalidation_rules[-1].invalidation_hash if receipt.invalidation_rules else ""): raise ValueError("INVALIDATION_ORDER_MISMATCH")
+    kernel_hashes = {x.kernel_hash for x in receipt.kernel_descriptors}
+    for x in receipt.kernel_descriptors:
+        if x.dependency_name != receipt.dependency_name: raise ValueError("KERNEL_DEPENDENCY_NAME_MISMATCH")
+        if x.source_adapter_hash != receipt.source_lightweight_adapter_spec_hash: raise ValueError("KERNEL_ADAPTER_HASH_MISMATCH")
+    for x in receipt.cache_rules:
+        if x.source_kernel_hash not in kernel_hashes: raise ValueError("RULE_KERNEL_HASH_NOT_FOUND")
+    for x in receipt.invalidation_rules:
+        if x.source_kernel_hash not in kernel_hashes: raise ValueError("INVALIDATION_KERNEL_HASH_NOT_FOUND")
     txt = receipt.to_canonical_json().lower()
     if "runtime cache" in txt or "memoization" in txt: raise ValueError("RUNTIME_CACHE_CLAIM_FORBIDDEN")
     if "speedup" in txt or "benchmark proven" in txt: raise ValueError("SPEEDUP_CLAIM_FORBIDDEN")

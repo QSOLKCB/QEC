@@ -72,6 +72,8 @@ def generate_release_notes(discovered_release_tags: list[str]) -> str:
 
 
 def build_release_notes_from_tags(tags: Iterable[str], min_release_count: int = 800) -> str:
+    if min_release_count < 1:
+        raise ReleaseHistoryError("INVALID_MIN_RELEASE_COUNT")
     discovered = discover_release_tags(tags)
     if not discovered:
         raise ReleaseHistoryError("NO_RELEASE_TAGS_FOUND")

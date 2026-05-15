@@ -22,14 +22,13 @@ In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
 [![Latest](https://img.shields.io/badge/stable-v164.2-success)](https://github.com/QSOLKCB/QEC/releases/tag/v164.2)
 [![Branch](https://img.shields.io/badge/branch-v164.2%20canonical-purple)]()
-[![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
 
-Current release line: **v164.2**  
-Current frontier: **v164.3 — FastPathEquivalenceReceipt**  
-Active arc: **v164.x — Invariant-Based Heavy Dependency Optimization**  
-Completed arc: **v163.x — Heavy Dependency Invariant Discovery**
+Current release line: **v165.3.3**  
+Current frontier: **v165.5.0 → DataframeBackendManifest**  
+Active arc: **v165.5.x — Deterministic Dataframe / Columnar Backend Receipts**  
+Completed arc: **v165.x — Optimized QEC Simulation Backends**
 
-Repository status is current through **v164.2 → CachedCanonicalKernelReceipt**.
+Repository status is current through **v163.4 → OptimizationOpportunityIndex**.
 
 Recent preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay
 Signatures — Hash-Bound Checkpoints, Subsystem Drift Receipts, and
@@ -45,6 +44,7 @@ Replay-Resistant Proof Chains**.
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19840786-blue)](https://doi.org/10.5281/zenodo.19840786)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20039913-blue)](https://doi.org/10.5281/zenodo.20039913)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20045771-blue)](https://doi.org/10.5281/zenodo.20045771)
+[![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
 
 # ✅ System Properties
 

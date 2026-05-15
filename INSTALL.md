@@ -23,7 +23,7 @@ python -m pip install --upgrade pip
 
 ## Install package and dependencies
 
-Install QEC with the full deterministic developer/science test extras:
+Install QEC with the developer and science test extras:
 
 ```bash
 python -m pip install -e ".[dev,science]"

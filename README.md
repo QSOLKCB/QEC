@@ -1,13 +1,16 @@
 # QSOLKCB / QEC
 
-QEC is a deterministic, replay-safe reasoning system for quantum error correction
-and invariant-driven computation.
+QEC is a deterministic, replay-safe reasoning system for quantum error correction,
+invariant-driven computation, canonical proof artifacts, and receipt-bound
+simulation analysis.
 
 It turns computation, evidence, semantic alignment, governance, replay
 validation, lattice topology, router/readout proof, multi-scale invariance,
 entropy drift analysis, GameWorld interaction boundaries,
 perturbation/stress contracts, substrate constraints, bounded recursive loops,
-reality-loop composition, and global replay proofs into canonical proof
+reality-loop composition, global replay proofs, heavy-dependency optimization,
+optimized simulation specifications, backend replay equivalence, benchmark
+receipts, telemetry receipts, and simulation reports into canonical proof
 artifacts.
 
 The repository began with a Layer 1 QEC decoder and now extends that foundation
@@ -15,20 +18,20 @@ into a broader deterministic proof stack.
 
 In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 
-**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift • Decay-Resistance Proofs • GameWorld Interaction Reports • Perturbation Contracts • Substrate Constraints • Recursive Proof Loops • Reality Loop Proofs • Global Replay Proofs**
+**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift • Decay-Resistance Proofs • GameWorld Interaction Reports • Perturbation Contracts • Substrate Constraints • Recursive Proof Loops • Reality Loop Proofs • Global Replay Proofs • Heavy-Dependency Invariants • Optimization Contracts • Adapter Specs • Canonical Kernel Receipts • Fast-Path Equivalence • Dependency Reduction • Optimized Simulation Specs • Backend Replay Receipts • Benchmark Receipts • Telemetry Receipts • Simulation Reports**
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v164.2-success)](https://github.com/QSOLKCB/QEC/releases/tag/v164.2)
-[![Branch](https://img.shields.io/badge/branch-v164.2%20canonical-purple)]()
+[![Latest](https://img.shields.io/badge/stable-v165.4-success)](https://github.com/QSOLKCB/QEC/releases/tag/v165.4)
+[![Branch](https://img.shields.io/badge/branch-v165.4%20canonical-purple)]()
 
-Current release line: **v165.3.3**  
-Current frontier: **v165.5.0 → DataframeBackendManifest**  
+Current release line: **v165.4**  
+Current frontier: **v165.5.0 — DataframeBackendManifest**  
 Active arc: **v165.5.x — Deterministic Dataframe / Columnar Backend Receipts**  
 Completed arc: **v165.x — Optimized QEC Simulation Backends**
 
-Repository status is current through **v163.4 → OptimizationOpportunityIndex**.
+Repository status is current through **v165.4 → OptimizedSimulationReport**.
 
 Recent preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay
 Signatures — Hash-Bound Checkpoints, Subsystem Drift Receipts, and
@@ -61,6 +64,11 @@ Replay-Resistant Proof Chains**.
 | Bounded recursive proof loops | Complete through v159.3 |
 | Reality-loop composition | Complete through v160.2 |
 | Global validation/truth/replay receipts | Complete through v161.2 |
+| IRC operator replay receipts | Complete through v162.2 |
+| Heavy-dependency invariant discovery | Complete through v163.4 |
+| Invariant-based optimization receipts | Complete through v164.5 |
+| Optimized simulation backend receipts | Complete through v165.4 |
+| Release metadata safety tooling | Hardened through v165.3.3 |
 
 # 🧠 What QEC Is
 
@@ -80,6 +88,9 @@ QEC is useful when you need proof objects that are:
 - canonical JSON based
 - explicit about failure modes
 - bounded rather than open-ended
+- lineage-preserving across release arcs
+- safe around external backends and heavy dependencies
+- strict about simulation, benchmark, telemetry, and report boundaries
 
 QEC does not make the world deterministic.
 
@@ -163,11 +174,16 @@ QEC matters because deterministic proof artifacts make it possible to:
 - compare expected and observed proof chains
 - bind long research arcs into a single canonical replay chain
 - separate symbolic language from deterministic artifacts
+- wrap heavy scientific dependencies as adapters rather than authorities
+- prove optimization boundaries before accepting fast paths
+- require replay equivalence before benchmark claims
+- require benchmark receipts before telemetry/report claims
+- produce simulation reports without executing simulations
 
 The world may be chaotic.
 The receipt must not be.
 
-## v163.x → v164.x Capability Summary
+## Capability Summary
 
 - v163.0 → HeavyDependencyDiscoveryManifest
 - v163.1 → DependencyImportAndHotPathReceipt
@@ -178,22 +194,45 @@ The receipt must not be.
 - v164.0 → OptimizationContract
 - v164.1 → LightweightAdapterSpec
 - v164.2 → CachedCanonicalKernelReceipt
+- v164.3 → FastPathEquivalenceReceipt
+- v164.4 → OptimizationImplementationReceipt
+- v164.5 → DependencyReductionReceipt
+- v165.0 → OptimizedSimulationSpec
+- v165.1 → BackendEquivalenceReplayReceipt
+- v165.2 → OptimizedQECBenchmarkReceipt
+- v165.2.1 → Release Documentation Automation + README Boundary Enforcement
+- v165.3 → OptimizedTelemetryReceipt
+- v165.3.1 → Canonical Release History Reconstruction
+- v165.3.2 → Release Metadata Infrastructure Hardening
+- v165.3.3 → Canonical Release Manifest Infrastructure
+- v165.4 → OptimizedSimulationReport
 
 QEC now supports deterministic heavy-dependency discovery, static import /
-hot-path receipts, backend invariant candidate receipts, cross-backend
-equivalence receipts, optimization opportunity indexing, optimization
-contracts, lightweight adapter specs, and cached canonical kernel receipts.
+hot-path receipts, backend invariant candidates, cross-backend equivalence,
+optimization opportunity indexing, optimization contracts, lightweight adapter
+specs, cached canonical kernel receipts, fast-path equivalence receipts,
+implementation receipts, dependency-reduction receipts, optimized simulation
+specs, backend replay receipts, benchmark receipts, telemetry receipts, and
+final optimized simulation reports.
 
-The v164.x arc turns discovered invariants into deterministic optimization
-contracts and adapter/cache receipts. These artifacts define replay-safe
-optimization boundaries before any runtime fast path exists.
+The v163.x arc discovered deterministic invariants in heavy dependencies.
 
-v164.2 does **not** implement runtime caches, fast paths, backend execution,
-benchmarking, dependency reduction, or optimized simulation execution.
+The v164.x arc turned those invariants into replay-safe optimization contracts,
+adapter/cache receipts, fast-path equivalence proofs, implementation receipts,
+and dependency-reduction receipts.
+
+The v165.x arc applies those contracts to optimized QEC simulation backends
+through declarative specs, backend replay equivalence, bounded benchmark
+receipts, telemetry receipts, and final report receipts.
+
+v165.4 completes the optimized simulation backend reporting arc.
 
 - External dependencies are adapters, never authorities.
-- Speedups require benchmark receipts.
-- Optimizations require equivalence receipts.
+- Simulation output is not truth.
+- Simulation speed is not proof.
+- Benchmarks require replay equivalence.
+- Telemetry requires benchmark and replay lineage.
+- Reports aggregate receipts; they do not execute systems.
 - The decoder remains untouched.
 
 ## Proof Artifacts

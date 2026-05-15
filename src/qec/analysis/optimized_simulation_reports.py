@@ -4,12 +4,12 @@ from dataclasses import dataclass
 import hashlib
 import json
 import re
-from typing import Any, Sequence
+from typing import Any
 
 from .backend_equivalence_replay_receipts import BackendEquivalenceReplayReceipt, validate_backend_equivalence_replay_receipt
-from .optimized_qec_benchmark_receipts import OptimizedQECBenchmarkReceipt, validate_optimized_qec_benchmark_receipt
+from .optimized_qec_benchmark_receipts import OptimizedQECBenchmarkReceipt, validate_optimized_qec_benchmark_receipt, validate_optimized_qec_benchmark_receipt_matches_inputs
 from .optimized_simulation_specs import OptimizedSimulationSpec, validate_optimized_simulation_spec
-from .optimized_telemetry_receipts import OptimizedTelemetryReceipt, validate_optimized_telemetry_receipt
+from .optimized_telemetry_receipts import OptimizedTelemetryReceipt, validate_optimized_telemetry_receipt, validate_optimized_telemetry_receipt_matches_inputs
 
 _SCHEMA_VERSION = "OPTIMIZED_SIMULATION_REPORT_V1"
 _REPORT_MODE = "DETERMINISTIC_OPTIMIZED_SIMULATION_REPORT"
@@ -101,18 +101,169 @@ class OptimizedSimulationReport:
 def _hash_mint(cls: Any, field: str, kwargs: dict[str, Any]) -> Any:
     k=dict(kwargs); k.pop(field,None); x=cls(**{field:"",**k}); return cls(**{**x.__dict__,field:_hash_payload(_base_payload(x,field))})
 
-build_simulation_report_section=lambda **k:_hash_mint(SimulationReportSection,"simulation_report_section_hash",{**k,"source_hashes":tuple(k.get("source_hashes",()))})
-build_simulation_replay_summary=lambda **k:_hash_mint(SimulationReplaySummary,"replay_summary_hash",k)
-build_simulation_benchmark_summary=lambda **k:_hash_mint(SimulationBenchmarkSummary,"benchmark_summary_hash",k)
-build_simulation_telemetry_summary=lambda **k:_hash_mint(SimulationTelemetrySummary,"telemetry_summary_hash",k)
-build_simulation_optimization_lineage=lambda **k:_hash_mint(SimulationOptimizationLineage,"lineage_hash",k)
-build_simulation_report_summary=lambda **k:_hash_mint(SimulationReportSummary,"report_summary_hash",k)
+
+def build_simulation_report_section(**k: Any) -> SimulationReportSection:
+    result = _hash_mint(SimulationReportSection, "simulation_report_section_hash", {**k, "source_hashes": tuple(k.get("source_hashes", ()))})
+    validate_simulation_section(result)
+    return result
+
+
+def build_simulation_replay_summary(**k: Any) -> SimulationReplaySummary:
+    result = _hash_mint(SimulationReplaySummary, "replay_summary_hash", k)
+    validate_simulation_replay(result)
+    return result
+
+
+def build_simulation_benchmark_summary(**k: Any) -> SimulationBenchmarkSummary:
+    result = _hash_mint(SimulationBenchmarkSummary, "benchmark_summary_hash", k)
+    validate_simulation_benchmark(result)
+    return result
+
+
+def build_simulation_telemetry_summary(**k: Any) -> SimulationTelemetrySummary:
+    result = _hash_mint(SimulationTelemetrySummary, "telemetry_summary_hash", k)
+    validate_simulation_telemetry(result)
+    return result
+
+
+def build_simulation_optimization_lineage(**k: Any) -> SimulationOptimizationLineage:
+    result = _hash_mint(SimulationOptimizationLineage, "lineage_hash", k)
+    validate_simulation_lineage(result)
+    return result
+
+
+def build_simulation_report_summary(**k: Any) -> SimulationReportSummary:
+    result = _hash_mint(SimulationReportSummary, "report_summary_hash", k)
+    validate_simulation_report_summary(result)
+    return result
 
 def build_optimized_simulation_report(**kwargs: Any) -> OptimizedSimulationReport:
     k=dict(kwargs); k.pop("optimized_simulation_report_hash",None); k["report_sections"]=tuple(k.get("report_sections",())); x=OptimizedSimulationReport(optimized_simulation_report_hash="",**k); validate_optimized_simulation_report(x,True); return OptimizedSimulationReport(**{**x.__dict__,"optimized_simulation_report_hash":_hash_payload(_base_payload(x,"optimized_simulation_report_hash"))})
 
-for _n,_cls,_field in (("section",SimulationReportSection,"simulation_report_section_hash"),("replay",SimulationReplaySummary,"replay_summary_hash"),("benchmark",SimulationBenchmarkSummary,"benchmark_summary_hash"),("telemetry",SimulationTelemetrySummary,"telemetry_summary_hash"),("lineage",SimulationOptimizationLineage,"lineage_hash"),("summary",SimulationReportSummary,"report_summary_hash")):
-    globals()[f"validate_simulation_{_n if _n!='summary' else 'report_summary'}"] = (lambda cls=_cls,field=_field: (lambda x: (_validate_hash_format(getattr(x,field)), (_hash_payload(_base_payload(x,field))==getattr(x,field)) or (_ for _ in ()).throw(ValueError("HASH_MISMATCH")), True)[-1]))()
+
+def _validate_hash_tuple(hashes: tuple[str, ...]) -> None:
+    if not isinstance(hashes, tuple):
+        raise ValueError("INVALID_INPUT")
+    for h in hashes:
+        _validate_hash_format(h)
+
+
+def validate_simulation_section(x: SimulationReportSection) -> bool:
+    if not isinstance(x, SimulationReportSection):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.section_index, int) or x.section_index < 0:
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.section_name, str) or not x.section_name:
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.section_kind, str) or not x.section_kind:
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.section_summary, str):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.source_hashes, tuple):
+        raise ValueError("INVALID_INPUT")
+    _validate_hash_tuple(x.source_hashes)
+    if not isinstance(x.section_status, str) or not x.section_status:
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.reason, str):
+        raise ValueError("INVALID_INPUT")
+    _validate_hash_format(x.simulation_report_section_hash)
+    if _hash_payload(_base_payload(x, "simulation_report_section_hash")) != x.simulation_report_section_hash:
+        raise ValueError("HASH_MISMATCH")
+    return True
+
+
+def validate_simulation_replay(x: SimulationReplaySummary) -> bool:
+    if not isinstance(x, SimulationReplaySummary):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.replay_passed, bool):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.replay_failure_count, int) or x.replay_failure_count < 0:
+        raise ValueError("INVALID_INPUT")
+    if x.replay_passed and x.replay_failure_count != 0:
+        raise ValueError("PASSED_FAILURE_COUNT_MISMATCH")
+    if not x.replay_passed and x.replay_failure_count < 1:
+        raise ValueError("FAILED_FAILURE_COUNT_MISMATCH")
+    _validate_hash_format(x.replay_receipt_hash)
+    _validate_hash_format(x.replay_summary_hash)
+    if _hash_payload(_base_payload(x, "replay_summary_hash")) != x.replay_summary_hash:
+        raise ValueError("HASH_MISMATCH")
+    return True
+
+
+def validate_simulation_benchmark(x: SimulationBenchmarkSummary) -> bool:
+    if not isinstance(x, SimulationBenchmarkSummary):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.benchmark_passed, bool):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.benchmark_failure_count, int) or x.benchmark_failure_count < 0:
+        raise ValueError("INVALID_INPUT")
+    if x.benchmark_passed and x.benchmark_failure_count != 0:
+        raise ValueError("PASSED_FAILURE_COUNT_MISMATCH")
+    if not x.benchmark_passed and x.benchmark_failure_count < 1:
+        raise ValueError("FAILED_FAILURE_COUNT_MISMATCH")
+    _validate_hash_format(x.benchmark_receipt_hash)
+    _validate_hash_format(x.benchmark_summary_hash)
+    if _hash_payload(_base_payload(x, "benchmark_summary_hash")) != x.benchmark_summary_hash:
+        raise ValueError("HASH_MISMATCH")
+    return True
+
+
+def validate_simulation_telemetry(x: SimulationTelemetrySummary) -> bool:
+    if not isinstance(x, SimulationTelemetrySummary):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.telemetry_passed, bool):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.telemetry_failure_count, int) or x.telemetry_failure_count < 0:
+        raise ValueError("INVALID_INPUT")
+    if x.telemetry_passed and x.telemetry_failure_count != 0:
+        raise ValueError("PASSED_FAILURE_COUNT_MISMATCH")
+    if not x.telemetry_passed and x.telemetry_failure_count < 1:
+        raise ValueError("FAILED_FAILURE_COUNT_MISMATCH")
+    _validate_hash_format(x.telemetry_receipt_hash)
+    _validate_hash_format(x.telemetry_summary_hash)
+    if _hash_payload(_base_payload(x, "telemetry_summary_hash")) != x.telemetry_summary_hash:
+        raise ValueError("HASH_MISMATCH")
+    return True
+
+
+def validate_simulation_lineage(x: SimulationOptimizationLineage) -> bool:
+    if not isinstance(x, SimulationOptimizationLineage):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.optimization_scope, str) or not x.optimization_scope:
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.dependency_name, str) or not x.dependency_name:
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.dependency_class, str) or not x.dependency_class:
+        raise ValueError("INVALID_INPUT")
+    _validate_hash_format(x.optimized_simulation_spec_hash)
+    _validate_hash_format(x.backend_equivalence_replay_receipt_hash)
+    _validate_hash_format(x.optimized_qec_benchmark_receipt_hash)
+    _validate_hash_format(x.optimized_telemetry_receipt_hash)
+    _validate_hash_format(x.lineage_hash)
+    if _hash_payload(_base_payload(x, "lineage_hash")) != x.lineage_hash:
+        raise ValueError("HASH_MISMATCH")
+    return True
+
+
+def validate_simulation_report_summary(x: SimulationReportSummary) -> bool:
+    if not isinstance(x, SimulationReportSummary):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.report_passed, bool):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.replay_passed, bool):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.benchmark_passed, bool):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.telemetry_passed, bool):
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.report_section_count, int) or x.report_section_count < 0:
+        raise ValueError("INVALID_INPUT")
+    if not isinstance(x.report_failure_count, int) or x.report_failure_count < 0:
+        raise ValueError("INVALID_INPUT")
+    _validate_hash_format(x.report_summary_hash)
+    if _hash_payload(_base_payload(x, "report_summary_hash")) != x.report_summary_hash:
+        raise ValueError("HASH_MISMATCH")
+    return True
 
 def validate_optimized_simulation_report(x: OptimizedSimulationReport, allow_blank_hash: bool=False) -> bool:
     if x.schema_version != _SCHEMA_VERSION: raise ValueError("INVALID_SCHEMA_VERSION")
@@ -150,6 +301,23 @@ def build_optimized_simulation_report_from_receipts(*, optimized_simulation_spec
     dep_class=optimized_simulation_spec.dependency_class; scope=optimized_simulation_spec.optimization_scope
     if any(x.dependency_class!=dep_class for x in (backend_equivalence_replay_receipt, optimized_qec_benchmark_receipt, optimized_telemetry_receipt)): raise ValueError("DEPENDENCY_CLASS_MISMATCH")
     if any(x.optimization_scope!=scope for x in (backend_equivalence_replay_receipt, optimized_qec_benchmark_receipt, optimized_telemetry_receipt)): raise ValueError("OPTIMIZATION_SCOPE_MISMATCH")
+    # Cross-receipt lineage validation (P1): verify receipts reference the same upstream hashes
+    # Replay receipt must reference the spec
+    if backend_equivalence_replay_receipt.source_optimized_simulation_spec_hash != optimized_simulation_spec.optimized_simulation_spec_hash:
+        raise ValueError("REPLAY_SPEC_LINEAGE_MISMATCH")
+    # Benchmark receipt must reference the spec and replay receipt
+    validate_optimized_qec_benchmark_receipt_matches_inputs(
+        optimized_qec_benchmark_receipt,
+        optimized_simulation_spec=optimized_simulation_spec,
+        backend_equivalence_replay_receipt=backend_equivalence_replay_receipt
+    )
+    # Telemetry receipt must reference the spec, replay receipt, and benchmark receipt
+    validate_optimized_telemetry_receipt_matches_inputs(
+        optimized_telemetry_receipt=optimized_telemetry_receipt,
+        optimized_simulation_spec=optimized_simulation_spec,
+        backend_equivalence_replay_receipt=backend_equivalence_replay_receipt,
+        optimized_qec_benchmark_receipt=optimized_qec_benchmark_receipt
+    )
     rs=build_simulation_replay_summary(replay_passed=backend_equivalence_replay_receipt.all_comparisons_passed,replay_receipt_hash=backend_equivalence_replay_receipt.backend_equivalence_replay_receipt_hash,replay_scenario_count=backend_equivalence_replay_receipt.scenario_count,replay_observation_count=backend_equivalence_replay_receipt.observation_count,replay_comparison_count=backend_equivalence_replay_receipt.comparison_result_count,replay_failure_count=0 if backend_equivalence_replay_receipt.all_comparisons_passed else 1)
     bs=build_simulation_benchmark_summary(benchmark_passed=optimized_qec_benchmark_receipt.all_claims_accepted,benchmark_receipt_hash=optimized_qec_benchmark_receipt.optimized_qec_benchmark_receipt_hash,benchmark_measurement_count=optimized_qec_benchmark_receipt.measurement_count,benchmark_claim_count=optimized_qec_benchmark_receipt.claim_count,benchmark_failure_count=0 if optimized_qec_benchmark_receipt.all_claims_accepted else 1)
     ts=build_simulation_telemetry_summary(telemetry_passed=optimized_telemetry_receipt.all_claims_accepted,telemetry_receipt_hash=optimized_telemetry_receipt.optimized_telemetry_receipt_hash,telemetry_metric_count=optimized_telemetry_receipt.metric_count,telemetry_aggregation_count=optimized_telemetry_receipt.aggregation_count,telemetry_claim_count=optimized_telemetry_receipt.claim_count,telemetry_failure_count=0 if optimized_telemetry_receipt.all_claims_accepted else 1)

@@ -8,6 +8,10 @@ import pytest
 from qec.analysis.optimized_simulation_reports import (
     _SCHEMA_VERSION,
     OptimizedSimulationReport,
+    SimulationReportSection,
+    SimulationReplaySummary,
+    SimulationBenchmarkSummary,
+    SimulationTelemetrySummary,
     build_optimized_simulation_report,
     build_simulation_benchmark_summary,
     build_simulation_optimization_lineage,
@@ -16,6 +20,10 @@ from qec.analysis.optimized_simulation_reports import (
     build_simulation_report_summary,
     build_simulation_telemetry_summary,
     validate_optimized_simulation_report,
+    validate_simulation_section,
+    validate_simulation_replay,
+    validate_simulation_benchmark,
+    validate_simulation_telemetry,
 )
 
 
@@ -68,10 +76,71 @@ def test_no_runtime_benchmark_or_telemetry_claim_tokens() -> None:
         validate_optimized_simulation_report(x, True)
 
 
+def test_passed_failure_count_consistency() -> None:
+    # Test replay: passed=True but failure_count > 0 should fail
+    with pytest.raises(ValueError, match="PASSED_FAILURE_COUNT_MISMATCH"):
+        build_simulation_replay_summary(
+            replay_passed=True, replay_receipt_hash=_h("r"),
+            replay_scenario_count=1, replay_observation_count=1,
+            replay_comparison_count=1, replay_failure_count=1
+        )
+    # Test replay: passed=False but failure_count == 0 should fail
+    with pytest.raises(ValueError, match="FAILED_FAILURE_COUNT_MISMATCH"):
+        build_simulation_replay_summary(
+            replay_passed=False, replay_receipt_hash=_h("r"),
+            replay_scenario_count=1, replay_observation_count=1,
+            replay_comparison_count=1, replay_failure_count=0
+        )
+    # Test benchmark: passed=True but failure_count > 0 should fail
+    with pytest.raises(ValueError, match="PASSED_FAILURE_COUNT_MISMATCH"):
+        build_simulation_benchmark_summary(
+            benchmark_passed=True, benchmark_receipt_hash=_h("b"),
+            benchmark_measurement_count=1, benchmark_claim_count=1,
+            benchmark_failure_count=1
+        )
+    # Test telemetry: passed=True but failure_count > 0 should fail
+    with pytest.raises(ValueError, match="PASSED_FAILURE_COUNT_MISMATCH"):
+        build_simulation_telemetry_summary(
+            telemetry_passed=True, telemetry_receipt_hash=_h("t"),
+            telemetry_metric_count=1, telemetry_aggregation_count=1,
+            telemetry_claim_count=1, telemetry_failure_count=1
+        )
+
+
+def test_invalid_source_hashes_rejected() -> None:
+    # Test that invalid source_hashes (non-64-char hex) are rejected
+    with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
+        build_simulation_report_section(
+            section_index=0, section_name="replay", section_kind="REPLAY",
+            section_summary="summary", source_hashes=("not-a-hash",),
+            section_status="PASS", reason="ok"
+        )
+
+
+import shutil
+
+import qec.analysis.optimized_simulation_reports as reports_module
+
+
 def test_forbidden_import_scanning_and_decoder_boundary() -> None:
-    src = Path("src/qec/analysis/optimized_simulation_reports.py").read_text(encoding="utf-8")
+    # Use module's __file__ to locate the source file reliably
+    module_path = Path(reports_module.__file__)
+    src = module_path.read_text(encoding="utf-8")
     for token in ("numpy", "scipy", "pandas", "matplotlib", "qiskit", "stim", "pymatching", "requests", "urllib", "subprocess", "eval(", "exec(", "os.system"):
         assert token not in src
-    from subprocess import check_output
-    diff = check_output(["git", "diff", "--name-only"]).decode("utf-8")
+    # Guard git-based test: skip if git is not available or not in a git repo
+    if shutil.which("git") is None:
+        pytest.skip("git not available on PATH")
+    git_dir = module_path.parent
+    while git_dir != git_dir.parent:
+        if (git_dir / ".git").exists():
+            break
+        git_dir = git_dir.parent
+    else:
+        pytest.skip("not in a git repository")
+    from subprocess import check_output, CalledProcessError
+    try:
+        diff = check_output(["git", "diff", "--name-only"], cwd=git_dir).decode("utf-8")
+    except CalledProcessError:
+        pytest.skip("git diff failed")
     assert not any(line.startswith("src/qec/decoder/") for line in diff.splitlines())

@@ -20,12 +20,16 @@ In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v161.2-success)](https://github.com/QSOLKCB/QEC/releases/tag/v161.2)
-[![Branch](https://img.shields.io/badge/branch-v161.2%20canonical-purple)]()
+[![Latest](https://img.shields.io/badge/stable-v164.2-success)](https://github.com/QSOLKCB/QEC/releases/tag/v164.2)
+[![Branch](https://img.shields.io/badge/branch-v164.2%20canonical-purple)]()
 [![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
 
-Current completed release arc: [`v151.x`](https://github.com/QSOLKCB/QEC/releases)
-through [`v161.2`](https://github.com/QSOLKCB/QEC/releases/tag/v161.2).
+Current release line: **v164.2**  
+Current frontier: **v164.3 — FastPathEquivalenceReceipt**  
+Active arc: **v164.x — Invariant-Based Heavy Dependency Optimization**  
+Completed arc: **v163.x — Heavy Dependency Invariant Discovery**
+
+Repository status is current through **v164.2 → CachedCanonicalKernelReceipt**.
 
 Recent preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay
 Signatures — Hash-Bound Checkpoints, Subsystem Drift Receipts, and
@@ -106,9 +110,12 @@ For full setup, environment, and troubleshooting details, see
 ### Testing
 
 ```bash
-pytest -q
+python -m pip install -e ".[dev,science]"
 pytest -q -ra
 ```
+
+For full local validation, install the developer/science extras, then run
+`pytest -q -ra`.
 
 Rust TUI Control Surface: see [`USAGE.md`](USAGE.md).
 
@@ -160,6 +167,35 @@ QEC matters because deterministic proof artifacts make it possible to:
 The world may be chaotic.
 The receipt must not be.
 
+## v163.x → v164.x Capability Summary
+
+- v163.0 → HeavyDependencyDiscoveryManifest
+- v163.1 → DependencyImportAndHotPathReceipt
+- v163.2 → BackendInvariantCandidateReceipt
+- v163.3 → CrossBackendEquivalenceReceipt
+- v163.3.1 → Optional Scientific Dependency Test Normalization
+- v163.4 → OptimizationOpportunityIndex
+- v164.0 → OptimizationContract
+- v164.1 → LightweightAdapterSpec
+- v164.2 → CachedCanonicalKernelReceipt
+
+QEC now supports deterministic heavy-dependency discovery, static import /
+hot-path receipts, backend invariant candidate receipts, cross-backend
+equivalence receipts, optimization opportunity indexing, optimization
+contracts, lightweight adapter specs, and cached canonical kernel receipts.
+
+The v164.x arc turns discovered invariants into deterministic optimization
+contracts and adapter/cache receipts. These artifacts define replay-safe
+optimization boundaries before any runtime fast path exists.
+
+v164.2 does **not** implement runtime caches, fast paths, backend execution,
+benchmarking, dependency reduction, or optimized simulation execution.
+
+- External dependencies are adapters, never authorities.
+- Speedups require benchmark receipts.
+- Optimizations require equivalence receipts.
+- The decoder remains untouched.
+
 ## Proof Artifacts
 
 QEC emits canonical JSON proof artifacts with stable SHA-256 identity and
@@ -173,16 +209,42 @@ For full artifact families, schemas, and failure semantics, see
 ```text
 same input
 → same ordering
-→ same canonical form
-→ same hash
+→ same canonical JSON
+→ same stable SHA-256 hash
 → same bytes
-→ same proof
+→ same proof artifact
+→ same outcome
 ```
 
-## Attribution
+Violation:
+
+```text
+SYSTEM INVALID
+```
+
+## 🧾 Attribution
 
 If you build on QEC in publications, software, or research artifacts,
 please cite both the repository and DOI-backed records above.
+
+### Marc Brendecke — QAM / Quantum Sphaera Lineage
+
+Selected QEC releases include informational attribution to work by **Marc Brendecke**.
+
+**ORCID:** https://orcid.org/0009-0009-4034-598X
+
+Relevant attributed works:
+
+- **Quantum Sphaera Companion v3.30.0**  
+  DOI: https://doi.org/10.5281/zenodo.19682951  
+  License: CC-BY-4.0  
+  Applied where relevant to the v143.x release lineage, including v143.5.
+
+- **QAM Version v4.1.0**  
+  Informational router/readout architecture lineage attribution.  
+  Applied where relevant across the QEC release lineage from **v143.5 through v154.3**.
+
+This attribution is informational only and does not influence canonical identity, hashing, proof semantics, receipt semantics, validation behavior, or release identity within QEC.
 
 ## References
 
@@ -193,7 +255,7 @@ please cite both the repository and DOI-backed records above.
 
 ## Author
 
-**Quantized SOL Core Labs (QSOL)**
+**Author / Maintainer: Trent Slade, QSOL-IMC**
 
 - ORCID: https://orcid.org/0009-0006-5966-1243
 - GitHub: https://github.com/QSOLKCB

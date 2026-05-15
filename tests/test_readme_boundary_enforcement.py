@@ -47,6 +47,8 @@ def test_readme_updates_required_mutable_sections():
     assert "stable-v165.3.2-success" in out
     assert "branch-v165.3.2%20canonical" in out
     assert "Current release line: **v165.3.2**" in out
+    # Assert Active arc is updated with correct arc derivation
+    assert "Active arc: **v165.3.x — Invariant-Based Heavy Dependency Optimization**" in out
 
 
 def test_readme_noop_update_rejected():
@@ -63,6 +65,10 @@ def test_readme_immutable_sections_unchanged():
 def test_readme_stable_badge_and_release_line_updated():
     out = update_readme(README, "v165.3.2", "v165.4 — Frontier", "v164.x — Arc")
     assert "stable-v165.3.2-success" in out and "Current release line: **v165.3.2**" in out
+    # Assert Active arc is updated with correct arc derivation
+    assert "Active arc: **v165.3.x — Invariant-Based Heavy Dependency Optimization**" in out
+    # Assert badge link target is updated
+    assert "releases/tag/v165.3.2" in out
 
 
 def test_readme_frontier_updated():

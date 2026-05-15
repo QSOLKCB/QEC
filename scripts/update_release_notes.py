@@ -42,7 +42,12 @@ def discover_release_tags(tags: Iterable[str]) -> list[str]:
 def load_release_history_tags(repo_root: Path) -> list[str]:
     p = repo_root / "release_history.json"
     if p.exists():
-        data = json.loads(p.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            raise ReleaseHistoryError(f"INVALID_RELEASE_HISTORY_JSON: {e}") from e
+        if not isinstance(data, list):
+            raise ReleaseHistoryError("INVALID_RELEASE_HISTORY_SCHEMA: expected list")
         tags = [str(item["tag"]).strip() for item in data if isinstance(item, dict) and item.get("tag")]
         if len(tags) != len(set(tags)):
             raise ReleaseHistoryError("DUPLICATE_RELEASE_ENTRY")
@@ -114,7 +119,12 @@ def main() -> int:
 
     history_path = repo_root / "release_history.json"
     if history_path.exists():
-        history = json.loads(history_path.read_text(encoding="utf-8"))
+        try:
+            history = json.loads(history_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            raise ReleaseHistoryError(f"INVALID_RELEASE_HISTORY_JSON: {e}") from e
+        if not isinstance(history, list):
+            raise ReleaseHistoryError("INVALID_RELEASE_HISTORY_SCHEMA: expected list")
     else:
         history = [{"tag": t, "title": "", "body": ""} for t in tags]
 

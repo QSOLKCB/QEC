@@ -5,7 +5,6 @@ from scripts.update_release_notes import (
     ReleaseHistoryError,
     _validate_release_history,
     build_release_notes_from_tags,
-    discover_release_tags,
     generate_release_notes_from_history,
 )
 
@@ -62,3 +61,16 @@ def test_release_history_no_tags_and_incomplete_fail_closed():
 def test_release_history_invalid_min_release_count_rejected():
     with pytest.raises(ReleaseHistoryError, match="INVALID_MIN_RELEASE_COUNT"):
         build_release_notes_from_tags(["v1.0.0"], min_release_count=MIN_CANONICAL_RELEASE_COUNT - 1)
+
+
+def test_release_history_invalid_json_raises_controlled_error(tmp_path):
+    from scripts.update_release_notes import load_release_history_tags
+    # Test malformed JSON
+    bad_json = tmp_path / "release_history.json"
+    bad_json.write_text("{invalid json", encoding="utf-8")
+    with pytest.raises(ReleaseHistoryError, match="INVALID_RELEASE_HISTORY_JSON"):
+        load_release_history_tags(tmp_path)
+    # Test non-list JSON
+    bad_json.write_text('{"not": "a list"}', encoding="utf-8")
+    with pytest.raises(ReleaseHistoryError, match="INVALID_RELEASE_HISTORY_SCHEMA"):
+        load_release_history_tags(tmp_path)

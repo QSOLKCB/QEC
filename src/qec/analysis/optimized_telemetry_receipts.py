@@ -8,62 +8,20 @@ import math
 import re
 from typing import Any, Sequence
 
-from .heavy_dependency_discovery import (
-    HeavyDependencyDiscoveryManifest,
-    validate_heavy_dependency_discovery_manifest,
-)
-from .dependency_hotpath_receipts import (
-    DependencyImportAndHotPathReceipt,
-    validate_dependency_import_and_hotpath_receipt,
-)
-from .backend_invariant_candidate_receipts import (
-    BackendInvariantCandidateReceipt,
-    validate_backend_invariant_candidate_receipt,
-)
-from .cross_backend_equivalence_receipts import (
-    CrossBackendEquivalenceReceipt,
-    validate_cross_backend_equivalence_receipt,
-)
-from .optimization_opportunity_index import (
-    OptimizationOpportunityIndex,
-    validate_optimization_opportunity_index,
-)
-from .optimization_contracts import OptimizationContract, validate_optimization_contract
-from .lightweight_adapter_specs import (
-    LightweightAdapterSpec,
-    validate_lightweight_adapter_spec,
-)
-from .cached_canonical_kernel_receipts import (
-    CachedCanonicalKernelReceipt,
-    validate_cached_canonical_kernel_receipt,
-)
-from .fast_path_equivalence_receipts import (
-    FastPathEquivalenceReceipt,
-    validate_fast_path_equivalence_receipt,
-)
-from .optimization_implementation_receipts import (
-    OptimizationImplementationReceipt,
-    validate_optimization_implementation_receipt,
-)
-from .dependency_reduction_receipts import (
-    DependencyReductionReceipt,
-    validate_dependency_reduction_receipt,
-)
-from .optimized_simulation_specs import (
-    OptimizedSimulationSpec,
-    validate_optimized_simulation_spec,
-    validate_optimized_simulation_spec_matches_inputs,
-)
-from .backend_equivalence_replay_receipts import (
-    BackendEquivalenceReplayReceipt,
-    validate_backend_equivalence_replay_receipt,
-    validate_backend_equivalence_replay_receipt_matches_inputs,
-)
-from .optimized_qec_benchmark_receipts import (
-    OptimizedQECBenchmarkReceipt,
-    validate_optimized_qec_benchmark_receipt,
-    validate_optimized_qec_benchmark_receipt_matches_inputs,
-)
+from .heavy_dependency_discovery import HeavyDependencyDiscoveryManifest
+from .dependency_hotpath_receipts import DependencyImportAndHotPathReceipt
+from .backend_invariant_candidate_receipts import BackendInvariantCandidateReceipt
+from .cross_backend_equivalence_receipts import CrossBackendEquivalenceReceipt
+from .optimization_opportunity_index import OptimizationOpportunityIndex
+from .optimization_contracts import OptimizationContract
+from .lightweight_adapter_specs import LightweightAdapterSpec
+from .cached_canonical_kernel_receipts import CachedCanonicalKernelReceipt
+from .fast_path_equivalence_receipts import FastPathEquivalenceReceipt
+from .optimization_implementation_receipts import OptimizationImplementationReceipt
+from .dependency_reduction_receipts import DependencyReductionReceipt
+from .optimized_simulation_specs import OptimizedSimulationSpec
+from .backend_equivalence_replay_receipts import BackendEquivalenceReplayReceipt
+from .optimized_qec_benchmark_receipts import OptimizedQECBenchmarkReceipt
 
 _SCHEMA_VERSION = "OPTIMIZED_TELEMETRY_RECEIPT_V1"
 _MAX_NAME_LENGTH = 128

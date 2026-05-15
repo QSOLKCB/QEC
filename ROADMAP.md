@@ -264,11 +264,11 @@ These connections do not change the IEEE 754 section's core boundary. They exten
 - v178.5.9 → InferenceMemoryBandwidthReceipt
 - v178.5.10 → TokenizationPolicyReceipt
 - v178.5.11 → ParameterGolfCompressionReceipt
-- v178.5.12 → InferencePrecisionBoundaryReceipt
+- v178.5.12 → ReducedPrecisionAdapterReceipt
 - inference_memory_bandwidth_receipt_hash           (v178.5.9)
 - tokenization_policy_receipt_hash                  (v178.5.10)
 - parameter_golf_compression_receipt_hash           (v178.5.11)
-- inference_precision_boundary_receipt_hash         (v178.5.12)
+- reduced_precision_adapter_receipt_hash            (v178.5.12)
 
 **Core Rule**
 ```text

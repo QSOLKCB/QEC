@@ -38,10 +38,29 @@ def test_optimized_simulation_from_dependency_reduction_lineage():
     c, s = _spec_chain(); assert validate_optimized_simulation_spec_matches_inputs(s, *c)
 
 
+def test_optimized_simulation_lineage_mismatch():
+    """Test that mismatched lineage hashes are rejected."""
+    c, s = _spec_chain()
+    # Mutate the source_dependency_reduction_receipt_hash to simulate a mismatch
+    bad_spec = replace(s, source_dependency_reduction_receipt_hash="0" * 64)
+    # Recompute the hash so the spec itself is valid but lineage is wrong
+    from qec.analysis.optimized_simulation_specs import _hash_payload, _base_payload
+    bad_spec = replace(bad_spec, optimized_simulation_spec_hash=_hash_payload(_base_payload(bad_spec, "optimized_simulation_spec_hash")))
+    with pytest.raises(ValueError, match="DEPENDENCY_REDUCTION_RECEIPT_MISMATCH"):
+        validate_optimized_simulation_spec_matches_inputs(bad_spec, *c)
+
+
 def test_optimized_simulation_hash_validation():
     _, s = _spec_chain()
     with pytest.raises(ValueError, match="INVALID_HASH_FORMAT"):
         validate_optimized_simulation_spec(replace(s, optimized_simulation_spec_hash="x"))
+
+
+def test_optimized_simulation_empty_hash_rejected():
+    """Test that empty spec hash is rejected."""
+    _, s = _spec_chain()
+    with pytest.raises(ValueError, match="MISSING_SPEC_HASH"):
+        validate_optimized_simulation_spec(replace(s, optimized_simulation_spec_hash=""))
 
 
 def test_optimized_simulation_counts_and_ordering():
@@ -58,13 +77,20 @@ def test_optimized_simulation_status_semantics():
 
 
 def test_optimized_simulation_source_scan_and_decoder_boundary():
+    """Verify no heavy imports and no decoder layer imports of OptimizedSimulationSpec."""
     root = Path(__file__).parent.parent
     text = (root / "src/qec/analysis/optimized_simulation_specs.py").read_text(encoding="utf-8")
     assert "import numpy" not in text
+    # Check that decoder layer does not import from optimized_simulation_specs module
     for p in (root / "src/qec/decoder").glob("**/*.py"):
         t = p.read_text(encoding="utf-8")
-        assert "OptimizedSimulationSpec" not in t
+        assert "from qec.analysis.optimized_simulation_specs import" not in t
+        assert "from qec.analysis import optimized_simulation_specs" not in t
 
 
-def test_optimized_simulation_final_count_baseline_documented():
-    assert 17744 == 17744
+def test_optimized_simulation_spec_has_valid_hash():
+    """Test that built specs always have a valid non-empty hash."""
+    _, s = _spec_chain()
+    assert s.optimized_simulation_spec_hash
+    assert len(s.optimized_simulation_spec_hash) == 64
+    assert validate_optimized_simulation_spec(s)

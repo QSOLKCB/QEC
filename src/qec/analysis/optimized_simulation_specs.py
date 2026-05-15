@@ -92,7 +92,7 @@ class SimulationBackendDeclaration:
     backend_index:int; backend_name:str; backend_role:str; backend_kind:str; dependency_name:str; dependency_class:str; optimization_scope:str
     source_heavy_dependency_discovery_manifest_hash:str; source_dependency_hotpath_receipt_hash:str; source_backend_invariant_candidate_receipt_hash:str; source_cross_backend_equivalence_receipt_hash:str; source_optimization_opportunity_index_hash:str; source_optimization_contract_hash:str; source_lightweight_adapter_spec_hash:str; source_cached_canonical_kernel_receipt_hash:str; source_fast_path_equivalence_receipt_hash:str; source_optimization_implementation_receipt_hash:str; source_dependency_reduction_receipt_hash:str
     backend_identity_hash:str; backend_capability_hashes:tuple[str,...]; required_replay_mode:str; reason:str; simulation_backend_declaration_hash:str
-    def to_dict(self)->dict[str,Any]: return self.__dict__.copy()
+    def to_dict(self)->dict[str,Any]: return {**self.__dict__, "backend_capability_hashes": list(self.backend_capability_hashes)}
     def to_canonical_json(self)->str: return _canonical_json(self.to_dict())
     def to_canonical_bytes(self)->bytes: return self.to_canonical_json().encode()
 
@@ -100,28 +100,28 @@ class SimulationBackendDeclaration:
 @dataclass(frozen=True)
 class SimulationOperationDeclaration:
     operation_index:int; operation_name:str; operation_kind:str; dependency_name:str; dependency_class:str; optimization_scope:str; source_backend_declaration_hash:str; source_operation_hash:str|None; source_kernel_hash:str|None; source_fast_path_equivalence_receipt_hash:str; source_optimization_implementation_receipt_hash:str; source_dependency_reduction_receipt_hash:str; input_boundary_hashes:tuple[str,...]; output_boundary_hashes:tuple[str,...]; fallback_declaration_hash:str|None; operation_identity_hash:str; replay_requirement:str; benchmark_requirement:str; reason:str; simulation_operation_declaration_hash:str
-    def to_dict(self)->dict[str,Any]: return self.__dict__.copy()
+    def to_dict(self)->dict[str,Any]: return {**self.__dict__, "input_boundary_hashes": list(self.input_boundary_hashes), "output_boundary_hashes": list(self.output_boundary_hashes)}
     def to_canonical_json(self)->str: return _canonical_json(self.to_dict())
     def to_canonical_bytes(self)->bytes: return self.to_canonical_json().encode()
 
 @dataclass(frozen=True)
 class SimulationInputBoundary:
     input_boundary_index:int; boundary_name:str; boundary_kind:str; dependency_name:str; dependency_class:str; optimization_scope:str; source_backend_declaration_hash:str; canonical_input_hash:str|None; shape:tuple[int,...]|None; dtype:str|None; ordered_sequence_hash:str|None; set_like_sequence_hash:str|None; unavailable_reason:str|None; error_code:str|None; reason:str; simulation_input_boundary_hash:str
-    def to_dict(self)->dict[str,Any]: return self.__dict__.copy()
+    def to_dict(self)->dict[str,Any]: d = self.__dict__.copy(); d["shape"] = list(self.shape) if self.shape is not None else None; return d
     def to_canonical_json(self)->str: return _canonical_json(self.to_dict())
     def to_canonical_bytes(self)->bytes: return self.to_canonical_json().encode()
 
 @dataclass(frozen=True)
 class SimulationOutputBoundary:
     output_boundary_index:int; boundary_name:str; boundary_kind:str; dependency_name:str; dependency_class:str; optimization_scope:str; source_backend_declaration_hash:str; source_input_boundary_hashes:tuple[str,...]; canonical_output_hash:str|None; shape:tuple[int,...]|None; dtype:str|None; ordered_sequence_hash:str|None; set_like_sequence_hash:str|None; unavailable_reason:str|None; error_code:str|None; required_equivalence_policy:str; reason:str; simulation_output_boundary_hash:str
-    def to_dict(self)->dict[str,Any]: return self.__dict__.copy()
+    def to_dict(self)->dict[str,Any]: d = self.__dict__.copy(); d["source_input_boundary_hashes"] = list(self.source_input_boundary_hashes); d["shape"] = list(self.shape) if self.shape is not None else None; return d
     def to_canonical_json(self)->str: return _canonical_json(self.to_dict())
     def to_canonical_bytes(self)->bytes: return self.to_canonical_json().encode()
 
 @dataclass(frozen=True)
 class SimulationFallbackDeclaration:
     fallback_index:int; fallback_name:str; fallback_kind:str; dependency_name:str; dependency_class:str; optimization_scope:str; source_backend_declaration_hash:str; source_dependency_reduction_receipt_hash:str; source_optimization_implementation_receipt_hash:str; fallback_target_name:str; fallback_target_hash:str|None; rollback_condition_hashes:tuple[str,...]; fallback_ready:bool; failure_code:str|None; reason:str; simulation_fallback_declaration_hash:str
-    def to_dict(self)->dict[str,Any]: return self.__dict__.copy()
+    def to_dict(self)->dict[str,Any]: return {**self.__dict__, "rollback_condition_hashes": list(self.rollback_condition_hashes)}
     def to_canonical_json(self)->str: return _canonical_json(self.to_dict())
     def to_canonical_bytes(self)->bytes: return self.to_canonical_json().encode()
 
@@ -198,6 +198,7 @@ def validate_simulation_input_boundary(x:SimulationInputBoundary)->bool:
     _validate_index(x.input_boundary_index); _validate_name(x.boundary_name); _validate_hash_format(x.source_backend_declaration_hash); _validate_shape(x.shape)
     if x.boundary_kind not in _ALLOWED_BOUNDARY_KIND: raise ValueError("INVALID_BOUNDARY_KIND")
     if x.boundary_kind=="CANONICAL_JSON_INPUT" and not x.canonical_input_hash: raise ValueError("INVALID_INPUT")
+    _validate_optional_hash(x.canonical_input_hash); _validate_optional_hash(x.ordered_sequence_hash); _validate_optional_hash(x.set_like_sequence_hash)
     if x.simulation_input_boundary_hash:
         _validate_hash_format(x.simulation_input_boundary_hash)
         if _hash_payload(_base_payload(x,"simulation_input_boundary_hash"))!=x.simulation_input_boundary_hash: raise ValueError("HASH_MISMATCH")
@@ -205,7 +206,9 @@ def validate_simulation_input_boundary(x:SimulationInputBoundary)->bool:
 
 def validate_simulation_output_boundary(x:SimulationOutputBoundary)->bool:
     _validate_index(x.output_boundary_index); _validate_name(x.boundary_name); _validate_hash_format(x.source_backend_declaration_hash); _validate_shape(x.shape); _validate_equivalence_policy(x.required_equivalence_policy)
+    if x.boundary_kind not in _ALLOWED_BOUNDARY_KIND: raise ValueError("INVALID_BOUNDARY_KIND")
     if x.boundary_kind=="CANONICAL_JSON_OUTPUT" and not x.canonical_output_hash: raise ValueError("INVALID_INPUT")
+    _validate_optional_hash(x.canonical_output_hash); _validate_optional_hash(x.ordered_sequence_hash); _validate_optional_hash(x.set_like_sequence_hash); _validate_hash_tuple(x.source_input_boundary_hashes)
     if x.simulation_output_boundary_hash:
         _validate_hash_format(x.simulation_output_boundary_hash)
         if _hash_payload(_base_payload(x,"simulation_output_boundary_hash"))!=x.simulation_output_boundary_hash: raise ValueError("HASH_MISMATCH")
@@ -231,22 +234,61 @@ def validate_optimized_simulation_spec_verification(x:OptimizedSimulationSpecVer
 
 def build_optimized_simulation_spec(**kwargs:Any)->OptimizedSimulationSpec:
     obj=OptimizedSimulationSpec(optimized_simulation_spec_hash="", **{k:v for k,v in kwargs.items() if k!="optimized_simulation_spec_hash"})
-    validate_optimized_simulation_spec(obj)
+    validate_optimized_simulation_spec(obj, allow_blank_hash=True)
     payload = obj.__dict__.copy()
     payload["optimized_simulation_spec_hash"] = _hash_payload(_base_payload(obj,"optimized_simulation_spec_hash"))
     return OptimizedSimulationSpec(**payload)
 
-def validate_optimized_simulation_spec(x:OptimizedSimulationSpec)->bool:
+def validate_optimized_simulation_spec(x:OptimizedSimulationSpec, allow_blank_hash: bool = False)->bool:
     if x.spec_status not in _ALLOWED_SPEC_STATUS: raise ValueError("INVALID_SPEC_STATUS")
     if x.spec_mode not in _ALLOWED_SPEC_MODES: raise ValueError("INVALID_SPEC_MODE")
     _validate_dense_indices(x.backend_declarations,"backend_index"); _validate_dense_indices(x.operation_declarations,"operation_index"); _validate_dense_indices(x.input_boundaries,"input_boundary_index"); _validate_dense_indices(x.output_boundaries,"output_boundary_index"); _validate_dense_indices(x.fallback_declarations,"fallback_index"); _validate_dense_indices(x.verifications,"verification_index")
-    if x.optimized_simulation_spec_hash:
+    if not x.optimized_simulation_spec_hash:
+        if not allow_blank_hash: raise ValueError("MISSING_SPEC_HASH")
+    else:
         _validate_hash_format(x.optimized_simulation_spec_hash)
         if _hash_payload(_base_payload(x,"optimized_simulation_spec_hash"))!=x.optimized_simulation_spec_hash: raise ValueError("HASH_MISMATCH")
     return True
 
-def validate_optimized_simulation_spec_matches_inputs(spec:OptimizedSimulationSpec, *inputs:Any)->bool:
-    return validate_optimized_simulation_spec(spec)
+def validate_optimized_simulation_spec_matches_inputs(
+    spec: OptimizedSimulationSpec,
+    discovery_manifest: HeavyDependencyDiscoveryManifest,
+    hotpath_receipt: DependencyImportAndHotPathReceipt,
+    invariant_receipt: BackendInvariantCandidateReceipt,
+    equivalence_receipt: CrossBackendEquivalenceReceipt,
+    opportunity_index: OptimizationOpportunityIndex,
+    contract: OptimizationContract,
+    adapter_spec: LightweightAdapterSpec,
+    cached_kernel_receipt: CachedCanonicalKernelReceipt,
+    fast_path_receipt: FastPathEquivalenceReceipt,
+    implementation_receipt: OptimizationImplementationReceipt,
+    dependency_reduction_receipt: DependencyReductionReceipt,
+) -> bool:
+    """Validate that spec matches all upstream input artifacts."""
+    validate_optimized_simulation_spec(spec)
+    if spec.source_heavy_dependency_discovery_manifest_hash != discovery_manifest.heavy_dependency_discovery_manifest_hash:
+        raise ValueError("DISCOVERY_MANIFEST_MISMATCH")
+    if spec.source_dependency_hotpath_receipt_hash != hotpath_receipt.dependency_hotpath_receipt_hash:
+        raise ValueError("HOTPATH_RECEIPT_MISMATCH")
+    if spec.source_backend_invariant_candidate_receipt_hash != invariant_receipt.backend_invariant_candidate_receipt_hash:
+        raise ValueError("INVARIANT_RECEIPT_MISMATCH")
+    if spec.source_cross_backend_equivalence_receipt_hash != equivalence_receipt.cross_backend_equivalence_receipt_hash:
+        raise ValueError("EQUIVALENCE_RECEIPT_MISMATCH")
+    if spec.source_optimization_opportunity_index_hash != opportunity_index.optimization_opportunity_index_hash:
+        raise ValueError("OPPORTUNITY_INDEX_MISMATCH")
+    if spec.source_optimization_contract_hash != contract.optimization_contract_hash:
+        raise ValueError("CONTRACT_MISMATCH")
+    if spec.source_lightweight_adapter_spec_hash != adapter_spec.lightweight_adapter_spec_hash:
+        raise ValueError("ADAPTER_SPEC_MISMATCH")
+    if spec.source_cached_canonical_kernel_receipt_hash != cached_kernel_receipt.cached_canonical_kernel_receipt_hash:
+        raise ValueError("CACHED_KERNEL_RECEIPT_MISMATCH")
+    if spec.source_fast_path_equivalence_receipt_hash != fast_path_receipt.fast_path_equivalence_receipt_hash:
+        raise ValueError("FAST_PATH_RECEIPT_MISMATCH")
+    if spec.source_optimization_implementation_receipt_hash != implementation_receipt.optimization_implementation_receipt_hash:
+        raise ValueError("IMPLEMENTATION_RECEIPT_MISMATCH")
+    if spec.source_dependency_reduction_receipt_hash != dependency_reduction_receipt.dependency_reduction_receipt_hash:
+        raise ValueError("DEPENDENCY_REDUCTION_RECEIPT_MISMATCH")
+    return True
 
 def build_optimized_simulation_spec_from_dependency_reduction(discovery_manifest:HeavyDependencyDiscoveryManifest, hotpath_receipt:DependencyImportAndHotPathReceipt, invariant_receipt:BackendInvariantCandidateReceipt, equivalence_receipt:CrossBackendEquivalenceReceipt, opportunity_index:OptimizationOpportunityIndex, contract:OptimizationContract, adapter_spec:LightweightAdapterSpec, cached_kernel_receipt:CachedCanonicalKernelReceipt, fast_path_receipt:FastPathEquivalenceReceipt, implementation_receipt:OptimizationImplementationReceipt, dependency_reduction_receipt:DependencyReductionReceipt) -> OptimizedSimulationSpec:
     for f,a in ((validate_heavy_dependency_discovery_manifest,discovery_manifest),(validate_dependency_import_and_hotpath_receipt,hotpath_receipt),(validate_backend_invariant_candidate_receipt,invariant_receipt),(validate_cross_backend_equivalence_receipt,equivalence_receipt),(validate_optimization_opportunity_index,opportunity_index),(validate_optimization_contract,contract),(validate_lightweight_adapter_spec,adapter_spec),(validate_cached_canonical_kernel_receipt,cached_kernel_receipt),(validate_fast_path_equivalence_receipt,fast_path_receipt),(validate_optimization_implementation_receipt,implementation_receipt),(validate_dependency_reduction_receipt,dependency_reduction_receipt)): f(a)

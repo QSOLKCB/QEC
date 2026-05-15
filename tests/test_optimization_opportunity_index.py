@@ -6,8 +6,14 @@ from qec.analysis.dependency_hotpath_receipts import build_dependency_hotpath_ca
 from qec.analysis.backend_invariant_candidate_receipts import build_backend_invariant_evidence, build_backend_invariant_candidate, build_backend_invariant_candidate_receipt
 from qec.analysis.cross_backend_equivalence_receipts import build_backend_observation, build_equivalence_receipt_from_observations
 from qec.analysis.optimization_opportunity_index import (
-    build_optimization_opportunity_index,
-    optimization_opportunity_index_to_canonical_json_bytes,
+    derive_optimization_opportunity_index,
+    validate_optimization_opportunity_evidence,
+    validate_optimization_opportunity_entry,
+    validate_optimization_opportunity_index,
+    validate_index_matches_inputs,
+    OptimizationOpportunityEvidence,
+    OptimizationOpportunityEntry,
+    OptimizationOpportunityIndex,
 )
 
 

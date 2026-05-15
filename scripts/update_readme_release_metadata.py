@@ -11,14 +11,16 @@ MUTABLE_HEADERS = {
     "# ✅ System Properties",
     "# 🧠 What QEC Is",
     "## Why This Matters",
-    "## v163.x → v164.x Capability Summary",
+    "## Capability Summary",
 }
 IMMUTABLE_HEADERS = {
     "## 📚 DOIs",
     "## ⚡ Quickstart",
-    "## Testing",
+    "### Testing",
     "## Commands",
     "## IRC Operator Surface",
+    "## Proof Artifacts",
+    "# 🧠 Core Law",
     "## 🧾 Attribution",
     "## References",
     "## Author",
@@ -43,9 +45,21 @@ def _replace_required(text: str, pattern: str, repl: str) -> tuple[str, bool]:
     return out, out != text
 
 
-def update_readme(text: str, latest_release: str, frontier: str, completed_arc: str) -> str:
+def update_readme(
+    text: str,
+    latest_release: str,
+    frontier: str,
+    completed_arc: str,
+    active_arc: str | None = None,
+    repository_status: str | None = None,
+) -> str:
     orig = text
     mutable_sections_changed = 0
+
+    if active_arc is None:
+        active_arc = re.sub(r"\.\d+$", ".x", latest_release)
+    if repository_status is None:
+        repository_status = latest_release
 
     new = text
     new, changed = _replace_required(new, r"stable-v[\d.]+-success", f"stable-{latest_release}-success")
@@ -53,22 +67,33 @@ def update_readme(text: str, latest_release: str, frontier: str, completed_arc: 
     # Update badge link target URL in addition to shield text
     new, changed = _replace_required(new, r"releases/tag/v[\d.]+", f"releases/tag/{latest_release}")
     mutable_sections_changed += int(changed)
-    new, changed = _replace_required(new, r"branch-v[\d.]+%20canonical", f"branch-{latest_release}%20canonical")
+    new, changed = _replace_required(new, r"branch-v[\d.]+%20canonical(?:-purple)?", f"branch-{latest_release}%20canonical-purple")
     mutable_sections_changed += int(changed)
     new, changed = _replace_required(new, r"Current release line: \*\*[^*]+\*\*", f"Current release line: **{latest_release}**")
     mutable_sections_changed += int(changed)
     new, changed = _replace_required(new, r"Current frontier: \*\*[^*]+\*\*", f"Current frontier: **{frontier}**")
     mutable_sections_changed += int(changed)
-    active_arc = re.sub(r"\.\d+$", ".x", latest_release)
-    new, changed = _replace_required(new, r"Active arc: \*\*[^*]+\*\*", f"Active arc: **{active_arc} — Invariant-Based Heavy Dependency Optimization**")
+    new, changed = _replace_required(new, r"Active arc: \*\*[^*]+\*\*", f"Active arc: **{active_arc}**")
     mutable_sections_changed += int(changed)
     new, changed = _replace_required(new, r"Completed arc: \*\*[^*]+\*\*", f"Completed arc: **{completed_arc}**")
     mutable_sections_changed += int(changed)
-    new, changed = _replace_required(new, r"status is current through \*\*[^*]+\*\*", f"status is current through **{latest_release}**")
+    new, changed = _replace_required(new, r"status is current through \*\*[^*]+\*\*", f"status is current through **{repository_status}**")
     mutable_sections_changed += int(changed)
 
     _validate_boundaries(orig, new)
     if mutable_sections_changed == 0:
+        expected_tokens = (
+            f"stable-{latest_release}-success",
+            f"releases/tag/{latest_release}",
+            f"branch-{latest_release}%20canonical-purple",
+            f"Current release line: **{latest_release}**",
+            f"Current frontier: **{frontier}**",
+            f"Active arc: **{active_arc}**",
+            f"Completed arc: **{completed_arc}**",
+            f"status is current through **{repository_status}**",
+        )
+        if all(token in new for token in expected_tokens):
+            return new
         raise ValueError("README_UPDATE_NO_EFFECT")
     return new
 
@@ -91,10 +116,19 @@ def main() -> int:
     p.add_argument("--readme", type=Path, default=Path("README.md"))
     p.add_argument("--latest-release", required=True)
     p.add_argument("--frontier", required=True)
+    p.add_argument("--active-arc", required=True)
     p.add_argument("--completed-arc", required=True)
+    p.add_argument("--repository-status", required=True)
     args = p.parse_args()
     text = args.readme.read_text(encoding="utf-8")
-    updated = update_readme(text, args.latest_release, args.frontier, args.completed_arc)
+    updated = update_readme(
+        text,
+        args.latest_release,
+        args.frontier,
+        args.completed_arc,
+        args.active_arc,
+        args.repository_status,
+    )
     args.readme.write_text(updated, encoding="utf-8")
     return 0
 

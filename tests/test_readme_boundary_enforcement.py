@@ -45,16 +45,12 @@ def test_badge_link_updated_with_version():
     assert "releases/tag/v164.2)" not in out
 
 
-def test_unknown_section_change_rejected():
-    """Test that changes to unknown sections by the updater are rejected (fail-closed).
+def test_unknown_section_preserved():
+    """Test that unknown sections pass through unchanged.
     
-    Note: The boundary validation ensures the updater itself doesn't modify unknown sections.
-    Pre-existing drift in the input README is a separate concern that would require
-    baseline comparison against a canonical reference file.
+    The boundary validation ensures the updater itself doesn't modify unknown sections.
+    Unknown sections are preserved unchanged in the output.
     """
-    # The current implementation validates that update_readme's own modifications
-    # don't change unknown sections. Since update_readme doesn't modify unknown sections,
-    # this test verifies that unknown sections pass through unchanged.
     readme_with_unknown = README + "\n## Unknown Section\nOriginal content\n"
     out = update_readme(readme_with_unknown, "v165.2", "v165.3 — Frontier", "v164.x — Arc")
     # Unknown section should be preserved unchanged

@@ -51,15 +51,15 @@ def _split_sections(text: str):
 
 def update_readme(text: str, latest_release: str, frontier: str, completed_arc: str) -> str:
     orig = text
+    # Construct badge URL once for consistency
+    badge_url = f"https://img.shields.io/badge/stable-{latest_release}-success"
+    release_link = f"https://github.com/QSOLKCB/QEC/releases/tag/{latest_release}"
+    
     # Update stable badge URL (version-agnostic match)
-    text = STABLE_BADGE_RE.sub(
-        f"https://img.shields.io/badge/stable-{latest_release}-success",
-        text,
-    )
+    text = STABLE_BADGE_RE.sub(badge_url, text)
     # Update stable badge link target alongside the shield URL
     text = STABLE_BADGE_LINK_RE.sub(
-        f"[![Latest](https://img.shields.io/badge/stable-{latest_release}-success)]"
-        f"(https://github.com/QSOLKCB/QEC/releases/tag/{latest_release})",
+        f"[![Latest]({badge_url})]({release_link})",
         text,
     )
     text = re.sub(r"Current release line: \*\*[^*]+\*\*", f"Current release line: **{latest_release}**", text)
@@ -94,7 +94,7 @@ def _validate_boundaries(before: str, after: str) -> None:
         # Mutable sections are allowed to change
         if h in MUTABLE_HEADERS:
             continue
-        # All other sections (including IMMUTABLE_HEADERS and unknown sections) must not change
+        # All other sections (including IMMUTABLE_HEADERS and unknown sections) must not be changed
         if b.get(h, "") != a.get(h, ""):
             raise ValueError(ERR)
 

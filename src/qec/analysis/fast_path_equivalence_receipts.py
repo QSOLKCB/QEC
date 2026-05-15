@@ -132,13 +132,15 @@ def _evaluate_case(policy: str, ref: FastPathObservation, cand: FastPathObservat
     if policy == "EXACT_HASH": return (ref.payload_hash == cand.payload_hash, None if ref.payload_hash == cand.payload_hash else "HASH_MISMATCH")
     if policy == "STRUCTURAL_SHAPE_DTYPE": return (ref.shape == cand.shape and ref.dtype == cand.dtype, None if ref.shape == cand.shape and ref.dtype == cand.dtype else "SHAPE_DTYPE_MISMATCH")
     if policy == "ORDERED_SEQUENCE_EXACT":
-        if ref.ordered_sequence is None or cand.ordered_sequence is None: raise ValueError("INVALID_INPUT")
+        if ref.observation_kind != "ORDERED_SEQUENCE" or cand.observation_kind != "ORDERED_SEQUENCE": return False, "OBSERVATION_KIND_POLICY_MISMATCH"
+        if ref.ordered_sequence is None or cand.ordered_sequence is None: return False, "OBSERVATION_KIND_POLICY_MISMATCH"
         ref_canonical = _canonical_json(_normalise_payload_like(list(ref.ordered_sequence)))
         cand_canonical = _canonical_json(_normalise_payload_like(list(cand.ordered_sequence)))
         matches = ref_canonical == cand_canonical
         return (matches, None if matches else "ORDERED_SEQUENCE_MISMATCH")
     if policy == "SET_LIKE_SORTED_EXACT":
-        if ref.set_like_sequence is None or cand.set_like_sequence is None: raise ValueError("INVALID_INPUT")
+        if ref.observation_kind != "SET_LIKE_SEQUENCE" or cand.observation_kind != "SET_LIKE_SEQUENCE": return False, "OBSERVATION_KIND_POLICY_MISMATCH"
+        if ref.set_like_sequence is None or cand.set_like_sequence is None: return False, "OBSERVATION_KIND_POLICY_MISMATCH"
         sref = sorted(_canonical_json(_normalise_payload_like(x)) for x in ref.set_like_sequence)
         scan = sorted(_canonical_json(_normalise_payload_like(x)) for x in cand.set_like_sequence)
         return (sref == scan, None if sref == scan else "SET_LIKE_SEQUENCE_MISMATCH")

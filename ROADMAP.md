@@ -7,11 +7,11 @@
 # 🧭 Stable Tip Metadata
 
 ```text
-latest completed release → v162.2
-current frontier → v163.0
-next work                → Heavy Dependency Invariant Discovery
-active arc               → v163.x — Heavy Dependency Invariant Discovery
-completed arc            → v162.x — IRC Operator Control Surface
+latest completed release → v164.2
+current frontier         → v164.3
+next work                → FastPathEquivalenceReceipt
+active arc               → v164.x — Invariant-Based Heavy Dependency Optimization
+completed arc            → v163.x — Heavy Dependency Invariant Discovery
 ```
 
 Published tags are authoritative.
@@ -144,6 +144,32 @@ reality_loop_proof_receipt_hash
 → optimized_qec_benchmark_receipt_hash              (v165.2)
 → optimized_telemetry_receipt_hash                  (v165.3)
 → optimized_simulation_report_hash                  (v165.4)
+→ dataframe_backend_manifest_hash                   (v165.5.0)
+→ lazy_plan_canonical_receipt_hash                  (v165.5.1)
+→ polars_pandas_equivalence_receipt_hash            (v165.5.2)
+→ schema_equivalence_receipt_hash                   (v165.5.3)
+→ columnar_optimization_opportunity_receipt_hash    (v165.5.4)
+→ research_automation_manifest_hash                 (v165.6.0)
+→ paper_generation_provenance_receipt_hash          (v165.6.1)
+→ human_review_boundary_receipt_hash                (v165.6.2)
+→ citation_integrity_receipt_hash                   (v165.6.3)
+→ claim_scope_receipt_hash                          (v165.6.4)
+→ inference_backend_manifest_hash                   (v165.7.0)
+→ byte_level_model_boundary_receipt_hash            (v165.7.1)
+→ tokenization_policy_receipt_hash                  (v165.7.2)
+→ parameter_golf_compression_receipt_hash           (v165.7.3)
+→ inference_memory_bandwidth_receipt_hash           (v165.7.4)
+→ kv_cache_policy_receipt_hash                      (v165.7.5)
+→ agent_observation_trace_receipt_hash              (v165.8.0)
+→ skill_library_manifest_hash                       (v165.8.1)
+→ tool_dispatch_telemetry_receipt_hash              (v165.8.2)
+→ crawler_boundary_receipt_hash                     (v165.8.3)
+→ agent_pattern_decision_receipt_hash               (v165.8.4)
+→ qpe_toolbox_adapter_receipt_hash                  (v165.9.0)
+→ quantum_memory_signal_receipt_hash                (v165.9.1)
+→ self_correcting_memory_claim_boundary_receipt_hash (v165.9.2)
+→ quantum_geometry_signal_receipt_hash              (v165.9.3)
+→ graph_universe_claim_boundary_receipt_hash        (v165.9.4)
 → qldpc_construction_receipt_hash (v166.x)
 → syndrome_stream_receipt_hash
 → control_plane_manifest_hash
@@ -219,6 +245,30 @@ The phase is constrained to local-first operator workflows and deterministic rou
 - `irc_command_manifest.json`
 - `irc_replay_audit_receipt.json`
 - `irc_replay_audit_hash`
+
+
+
+**Inference Optimization Cross-Reference**
+Inference optimization phases that use reduced-precision formats (FP16, BF16, INT8, INT4) MUST produce a ReducedPrecisionAdapterReceipt.
+
+Any ParameterGolfCompressionReceipt that uses quantization MUST declare precision format via ReducedPrecisionAdapterReceipt.
+
+Any ByteLevelModelBoundaryReceipt that claims memory bandwidth reduction MUST declare precision format for model weights and KV cache.
+
+Any InferenceBackendManifest referencing hardware kernel optimization MUST produce HardwareFloatAdapterBoundaryReceipt with adapter_only=true.
+
+Any KVCachePolicyReceipt that claims memory footprint reduction MUST declare the precision format of the shared cache.
+
+These connections do not change the IEEE 754 section's core boundary. They extend its reach into inference-specific contexts.
+
+- v178.5.9 → InferenceMemoryBandwidthReceipt
+- v178.5.10 → TokenizationPolicyReceipt
+- v178.5.11 → ParameterGolfCompressionReceipt
+- v178.5.12 → InferencePrecisionBoundaryReceipt
+- inference_memory_bandwidth_receipt_hash           (v178.5.9)
+- tokenization_policy_receipt_hash                  (v178.5.10)
+- parameter_golf_compression_receipt_hash           (v178.5.11)
+- inference_precision_boundary_receipt_hash         (v178.5.12)
 
 **Core Rule**
 ```text
@@ -433,6 +483,408 @@ After v163.x discovers invariants and v164.x implements optimization contracts, 
 - depends on: v163.x HeavyDependencyDiscoveryReceipt
 - does not modify: src/qec/decoder/
 
+## Phase: v165.5.x — Deterministic Dataframe / Columnar Backend Receipts
+
+**Status**
+PLANNED
+
+**Source-Grounded Motivation**
+Polars/pandas performance signals justify a receipt-bound dataframe adapter phase. Polars is not automatically better; Polars and pandas are adapters. Row order, dtype, null policy, rounding policy, schema, and lazy/eager execution boundaries must be receipt-bound.
+
+**Arc Reinterpretation**
+A faster dataframe engine is an adapter, not an authority.
+
+Schema, row order, dtype, null policy, lazy/eager execution boundary, and rounding policy must all be declared in receipts before any dataframe output enters a QEC proof pipeline.
+
+No speedup claim without a benchmark receipt.
+No silent dtype coercion.
+No hidden row-order drift.
+
+**Planned Releases**
+- v165.5.0 → DataframeBackendManifest
+- v165.5.1 → LazyPlanCanonicalReceipt
+- v165.5.2 → PolarsPandasEquivalenceReceipt
+- v165.5.3 → SchemaEquivalenceReceipt
+- v165.5.4 → ColumnarOptimizationOpportunityReceipt
+
+**Expected Modules**
+- src/qec/analysis/dataframe_backend_manifest.py
+- src/qec/analysis/lazy_plan_canonical_receipts.py
+- src/qec/analysis/polars_pandas_equivalence_receipts.py
+- src/qec/analysis/schema_equivalence_receipts.py
+- src/qec/analysis/columnar_optimization_opportunity_receipts.py
+
+**Expected Artifacts**
+- DataframeBackendManifest
+- LazyPlanCanonicalReceipt
+- PolarsPandasEquivalenceReceipt
+- SchemaEquivalenceReceipt
+- ColumnarOptimizationOpportunityReceipt
+
+**Expected Hashes**
+- dataframe_backend_manifest_hash
+- lazy_plan_canonical_receipt_hash
+- polars_pandas_equivalence_receipt_hash
+- schema_equivalence_receipt_hash
+- columnar_optimization_opportunity_receipt_hash
+
+**Core Rule**
+same dataframe backend
++ same schema declaration
++ same row-order policy
++ same dtype policy
++ same null policy
++ same lazy/eager execution boundary
++ same rounding policy
+→ same canonical dataframe output
+→ same dataframe_backend_manifest_hash
+
+**Acceptance Gates**
+- pytest: DataframeBackendManifest produces canonical JSON stable across PYTHONHASHSEED values
+- pytest: LazyPlanCanonicalReceipt captures query plan before execution
+- pytest: PolarsPandasEquivalenceReceipt declares sort keys, dtype policy, and rounding policy
+- pytest: SchemaEquivalenceReceipt rejects schema drift between backends
+- pytest: ColumnarOptimizationOpportunityReceipt requires benchmark receipt for any speedup claim
+- pytest: no live network calls
+- pytest: no unbounded dataframe operations
+- dependency boundary: no import from src/qec/decoder/
+- dependency boundary: Polars and pandas are adapters, never authorities
+
+**Must Not Do**
+- no speedup claim without benchmark receipt
+- no silent dtype coercion
+- no hidden row-order drift
+- no lazy/eager boundary crossing without receipt
+- no rounding policy assumption
+
+**Dependency Boundaries**
+- depends on: v165.x OptimizedSimulationReport
+- depends on: v163.x HeavyDependencyDiscoveryReceipt
+- does not modify: src/qec/decoder/
+- does not implement: query engine internals
+
+**Relationship to Existing Roadmap**
+v165.5.x slots immediately after v165.4 and before v166.x. It formalizes the dataframe adapter discipline that v163.x–v165.x implicitly relied on, before QLDPC and higher-dimensional phases consume dataframe outputs.
+
+## Phase: v165.6.x — AI-Scientist / Research Automation Provenance Receipts
+
+**Status**
+PLANNED
+
+**Source-Grounded Motivation**
+Use AI Scientist / NanoResearch materials as source-grounded signals. Generated papers are not evidence and automated science claims must remain bounded.
+
+**Arc Reinterpretation**
+Generated research is not evidence.
+
+A paper-generation system may emit provenance receipts, but claims require source-bound validation and human review.
+
+No model output as source authority.
+No citation hallucination.
+No automated paper treated as primary evidence.
+
+**Planned Releases**
+- v165.6.0 → ResearchAutomationManifest
+- v165.6.1 → PaperGenerationProvenanceReceipt
+- v165.6.2 → HumanReviewBoundaryReceipt
+- v165.6.3 → CitationIntegrityReceipt
+- v165.6.4 → ClaimScopeReceipt
+
+**Expected Modules**
+- src/qec/analysis/research_automation_manifest.py
+- src/qec/analysis/paper_generation_provenance_receipts.py
+- src/qec/analysis/human_review_boundary_receipts.py
+- src/qec/analysis/citation_integrity_receipts.py
+- src/qec/analysis/claim_scope_receipts.py
+
+**Expected Artifacts**
+- ResearchAutomationManifest
+- PaperGenerationProvenanceReceipt
+- HumanReviewBoundaryReceipt
+- CitationIntegrityReceipt
+- ClaimScopeReceipt
+
+**Expected Hashes**
+- research_automation_manifest_hash
+- paper_generation_provenance_receipt_hash
+- human_review_boundary_receipt_hash
+- citation_integrity_receipt_hash
+- claim_scope_receipt_hash
+
+**Core Rule**
+same research artifact
++ same declared generation system
++ same human review status
++ same citation source verification
++ same claim scope declaration
+→ same research_automation_manifest_hash
+
+**Acceptance Gates**
+- pytest: ResearchAutomationManifest declares generation system, model version, and human review status
+- pytest: PaperGenerationProvenanceReceipt rejects any artifact with human_reviewed=false as evidence
+- pytest: HumanReviewBoundaryReceipt requires explicit human reviewer identity or UNREVIEWED flag
+- pytest: CitationIntegrityReceipt verifies each citation against a declared source list
+- pytest: ClaimScopeReceipt rejects claims that exceed declared evidence scope
+- pytest: no live network calls in tests
+- dependency boundary: no import from src/qec/decoder/
+
+**Must Not Do**
+- no generated paper treated as evidence
+- no citation hallucination
+- no model output as source authority
+- no automated research artifact without provenance receipt
+- no claim scope expansion beyond declared evidence
+
+**Dependency Boundaries**
+- depends on: v165.x optimized simulation reports may feed automated research pipelines
+- feeds into: v183.x Reproducible Research Publication Receipts
+- feeds into: v187.x Human Audit / Red-Team Receipts
+- does not modify: src/qec/decoder/
+
+## Phase: v165.7.x — LLM Inference / Parameter-Golf / Tokenization Receipts
+
+**Status**
+PLANNED
+
+**Source-Grounded Motivation**
+Use BLT, OpenAI Parameter Golf, TokenSpeed, and MELT materials as signals. Do not claim performance without benchmark receipts. Reduced precision and quantization are cross-referenced to IEEE 754 boundaries.
+
+**Arc Reinterpretation**
+Smaller or faster models do not prove truth.
+
+Parameter golf and tokenization changes require benchmark and boundary receipts before any QEC tool-dispatch surface may rely on them.
+
+No model performance claim without benchmark receipt.
+No hidden quantization.
+No replacing proof semantics with model output.
+
+Connect to v178.5.x for reduced-precision claims as a boundary cross-reference, not a backward prerequisite.
+
+**Planned Releases**
+- v165.7.0 → InferenceBackendManifest
+- v165.7.1 → ByteLevelModelBoundaryReceipt
+- v165.7.2 → TokenizationPolicyReceipt
+- v165.7.3 → ParameterGolfCompressionReceipt
+- v165.7.4 → InferenceMemoryBandwidthReceipt
+- v165.7.5 → KVCachePolicyReceipt
+
+**Expected Modules**
+- src/qec/analysis/inference_backend_manifest.py
+- src/qec/analysis/byte_level_model_boundary_receipts.py
+- src/qec/analysis/tokenization_policy_receipts.py
+- src/qec/analysis/parameter_golf_compression_receipts.py
+- src/qec/analysis/inference_memory_bandwidth_receipts.py
+- src/qec/analysis/kv_cache_policy_receipts.py
+
+**Expected Artifacts**
+- InferenceBackendManifest
+- ByteLevelModelBoundaryReceipt
+- TokenizationPolicyReceipt
+- ParameterGolfCompressionReceipt
+- InferenceMemoryBandwidthReceipt
+- KVCachePolicyReceipt
+
+**Expected Hashes**
+- inference_backend_manifest_hash
+- byte_level_model_boundary_receipt_hash
+- tokenization_policy_receipt_hash
+- parameter_golf_compression_receipt_hash
+- inference_memory_bandwidth_receipt_hash
+- kv_cache_policy_receipt_hash
+
+**Core Rule**
+same inference backend
++ same declared tokenization policy
++ same declared quantization / compression policy
++ same declared precision format
++ same declared KV cache policy
++ same benchmark corpus and hardware declaration
+→ same inference_backend_manifest_hash
+
+**Acceptance Gates**
+- pytest: InferenceBackendManifest declares model name, version, tokenization policy, quantization policy, and precision format
+- pytest: ByteLevelModelBoundaryReceipt declares patch size, entropy threshold, and byte-level encoding policy
+- pytest: TokenizationPolicyReceipt rejects tokenization changes without declared equivalence proof
+- pytest: ParameterGolfCompressionReceipt declares compression technique, quantization method, and benchmark corpus
+- pytest: InferenceMemoryBandwidthReceipt requires benchmark hardware declaration and measured throughput
+- pytest: KVCachePolicyReceipt declares cache sharing policy, loop count, and memory footprint
+- pytest: any reduced-precision format triggers ReducedPrecisionAdapterReceipt from v178.5.x
+- pytest: any hardware kernel path triggers HardwareFloatAdapterBoundaryReceipt from v178.5.x
+- pytest: no live model inference calls in tests
+- dependency boundary: no import from src/qec/decoder/
+
+**Must Not Do**
+- no model performance claim without benchmark receipt
+- no hidden quantization
+- no replacing proof semantics with model output
+- no tokenization drift without declared equivalence
+- no hardware authority claim
+- no reduced precision without ReducedPrecisionAdapterReceipt
+
+**Dependency Boundaries**
+- depends on: v165.x OptimizedSimulationReport
+- explicit connection: v178.5.x IEEE 754 Precision & Approximation Receipts
+- feeds into: v180.x Deterministic Quantum ML Boundary Receipts
+- feeds into: v181.x Local Agent / Tool Dispatch Receipts
+- feeds into: v184.x Benchmark Ladder / External Comparator Receipts
+- does not modify: src/qec/decoder/
+
+**IEEE 754 Connection Note**
+GPTQ quantization and parameter-golf style compression directly manipulate weight representations. Any ParameterGolfCompressionReceipt that uses INT8, INT4, FP16, or BF16 quantization MUST also declare precision format via ReducedPrecisionAdapterReceipt.
+
+Any InferenceBackendManifest referencing hardware kernel optimization MUST produce a HardwareFloatAdapterBoundaryReceipt with adapter_only=true.
+
+The inference optimization phase does not replace v178.5.x. It extends the reach of v178.5.x into inference-specific contexts.
+
+## Phase: v165.8.x — Agent Observability / Skill-Library Receipts
+
+**Status**
+PLANNED
+
+**Arc Reinterpretation**
+Agent observability traces are receipts, not dashboards.
+
+Skill libraries must be versioned, hash-bound, and auditable. Tool dispatch must be logged deterministically. Agent pattern decisions must be declared before execution.
+
+No hidden tool calls.
+No autonomous network crawling in tests.
+No agent output as evidence.
+
+**Planned Releases**
+- v165.8.0 → AgentObservationTraceReceipt
+- v165.8.1 → SkillLibraryManifest
+- v165.8.2 → ToolDispatchTelemetryReceipt
+- v165.8.3 → CrawlerBoundaryReceipt
+- v165.8.4 → AgentPatternDecisionReceipt
+
+**Expected Modules**
+- src/qec/analysis/agent_observation_trace_receipts.py
+- src/qec/analysis/skill_library_manifest.py
+- src/qec/analysis/tool_dispatch_telemetry_receipts.py
+- src/qec/analysis/crawler_boundary_receipts.py
+- src/qec/analysis/agent_pattern_decision_receipts.py
+
+**Expected Artifacts**
+- AgentObservationTraceReceipt
+- SkillLibraryManifest
+- ToolDispatchTelemetryReceipt
+- CrawlerBoundaryReceipt
+- AgentPatternDecisionReceipt
+
+**Expected Hashes**
+- agent_observation_trace_receipt_hash
+- skill_library_manifest_hash
+- tool_dispatch_telemetry_receipt_hash
+- crawler_boundary_receipt_hash
+- agent_pattern_decision_receipt_hash
+
+**Core Rule**
+same agent pattern declaration
++ same skill library version
++ same tool dispatch log
++ same observability trace
+→ same agent_observation_trace_receipt_hash
+
+**Acceptance Gates**
+- pytest: AgentObservationTraceReceipt captures every tool call, intermediate step, and decision point
+- pytest: SkillLibraryManifest is hash-bound and version-controlled
+- pytest: ToolDispatchTelemetryReceipt declares tool name, input hash, output hash, and execution time
+- pytest: CrawlerBoundaryReceipt rejects autonomous network crawling in test mode
+- pytest: AgentPatternDecisionReceipt declares pattern type before execution
+- pytest: no live network calls in tests
+- pytest: no hidden tool calls
+- dependency boundary: no import from src/qec/decoder/
+
+**Must Not Do**
+- no hidden tool calls
+- no autonomous network crawling in tests
+- no agent output as evidence
+- no unversioned skill files
+- no pattern selection without declaration
+
+**Dependency Boundaries**
+- depends on: v165.x simulation backends may be wrapped as agent tools
+- feeds into: v181.x Local Agent / Tool Dispatch Receipts
+- feeds into: v183.x Reproducible Research Publication Receipts
+- feeds into: v187.x Human Audit / Red-Team Receipts
+- does not modify: src/qec/decoder/
+
+## Phase: v165.9.x — Quantum Memory / QPE / Geometry Signal Receipts
+
+**Status**
+PLANNED
+
+**Source-Grounded Motivation**
+Use ROADMAP_UPGRADE_FULL.md source wording as claim-boundary guidance only. Do not overstate quantum-memory or graph-universe claims.
+
+**Arc Reinterpretation**
+Hardware research signals are source-bound claims, not QEC authority.
+
+QPE toolbox outputs are adapter signals.
+Self-correcting memory claims are unreviewed preprints.
+Quantum geometry signals are claim-bounded.
+
+No hardware authority claims.
+No cosmological truth claims.
+No QEC advantage claims without source-bound evidence.
+
+**Planned Releases**
+- v165.9.0 → QPEToolboxAdapterReceipt
+- v165.9.1 → QuantumMemorySignalReceipt
+- v165.9.2 → SelfCorrectingMemoryClaimBoundaryReceipt
+- v165.9.3 → QuantumGeometrySignalReceipt
+- v165.9.4 → GraphUniverseClaimBoundaryReceipt
+
+**Expected Modules**
+- src/qec/analysis/qpe_toolbox_adapter_receipts.py
+- src/qec/analysis/quantum_memory_signal_receipts.py
+- src/qec/analysis/self_correcting_memory_claim_boundary_receipts.py
+- src/qec/analysis/quantum_geometry_signal_receipts.py
+- src/qec/analysis/graph_universe_claim_boundary_receipts.py
+
+**Expected Artifacts**
+- QPEToolboxAdapterReceipt
+- QuantumMemorySignalReceipt
+- SelfCorrectingMemoryClaimBoundaryReceipt
+- QuantumGeometrySignalReceipt
+- GraphUniverseClaimBoundaryReceipt
+
+**Expected Hashes**
+- qpe_toolbox_adapter_receipt_hash
+- quantum_memory_signal_receipt_hash
+- self_correcting_memory_claim_boundary_receipt_hash
+- quantum_geometry_signal_receipt_hash
+- graph_universe_claim_boundary_receipt_hash
+
+**Core Rule**
+same quantum signal source
++ same declared claim scope
++ same review status declaration
++ same hardware adapter boundary
+→ same quantum_memory_signal_receipt_hash
+
+**Acceptance Gates**
+- pytest: QPEToolboxAdapterReceipt declares source, version, system size, and adapter_only=true
+- pytest: QuantumMemorySignalReceipt declares source paper, review status, and claim scope
+- pytest: SelfCorrectingMemoryClaimBoundaryReceipt marks unreviewed preprints as UNREVIEWED_PREPRINT
+- pytest: QuantumGeometrySignalReceipt rejects cosmological truth claims
+- pytest: GraphUniverseClaimBoundaryReceipt rejects source_inaccessible sources as sole justification
+- pytest: no hardware SDK dependency in tests
+- dependency boundary: no import from src/qec/decoder/
+
+**Must Not Do**
+- no hardware authority claims
+- no cosmological truth claims
+- no QEC advantage claims without source-bound evidence
+- no unreviewed preprint treated as established result
+- no source_inaccessible source as sole phase justification
+
+**Dependency Boundaries**
+- depends on: v165.x OptimizedSimulationReport
+- feeds into: v166.x QLDPC / Hashing-Bound Code Receipts
+- feeds into: v179.x Quantum Geometry / Contextuality / Topological Toolkit Receipts
+- does not modify: src/qec/decoder/
+
 ## Phase: v166.x — QLDPC / Hashing-Bound Code Receipts
 
 **Status**
@@ -448,6 +900,14 @@ PLANNED
 ## Phase: v169.x — Symbolic Geometry Grammar / Cosmovirus Sandbox
 **Status**: PLANNED
 
+**Enhancements**
+- SymbolicHypothesisReceipt
+- MathematicalIdentityCandidateReceipt
+- CosmologicalClaimBoundaryReceipt
+- no theorem claim without proof receipt
+- no numerology as proof
+- cosmology signals require sigma threshold gate and source-bound evidence
+
 ## Phase: v170.x — Reproducible Build / Supply-Chain Receipts
 **Status**: PLANNED
 
@@ -456,6 +916,12 @@ PLANNED
 
 ## Phase: v172.x — Graphene / Photonic / Diamond / Materials Signal Receipts
 **Status**: PLANNED
+
+**Enhancements**
+- MaterialsMemoryClaimBoundaryReceipt
+- FiberOpticSignalReceipt
+- HardwareLibraryProvenanceReceipt
+- source_inaccessible notes for unavailable phys.org / paywalled materials links
 
 ## Phase: v173.x — Interactive Proof Worlds / Citizen-Science Game Receipts
 **Status**: PLANNED
@@ -710,11 +1176,28 @@ v178.x establishes resource accounting receipts with float-bearing metrics. v178
 ## Phase: v183.x — Reproducible Research Publication Receipts
 **Status**: PLANNED
 
+**Enhancements**
+- PaperGenerationProvenanceReceipt
+- CitationIntegrityReceipt
+- HumanReviewBoundaryReceipt
+- generated papers are not evidence
+
 ## Phase: v184.x — Benchmark Ladder / External Comparator Receipts
 **Status**: PLANNED
 
+**Enhancements**
+- ParameterGolfCompressionReceipt
+- InferenceMemoryBandwidthReceipt
+- ByteLevelModelBoundaryReceipt
+- benchmark receipt requirement
+
 ## Phase: v185.x — Photonic / Materials / Device Signal Receipts v2
 **Status**: PLANNED
+
+**Enhancements**
+- MaterialsMemoryClaimBoundaryReceipt
+- FiberOpticSignalReceipt
+- HardwareLibraryProvenanceReceipt
 
 ## Phase: v186.x — Symbolic Diagram Compiler v2 / Grammar Extension
 **Status**: PLANNED
@@ -728,6 +1211,13 @@ v178.x establishes resource accounting receipts with float-bearing metrics. v178
 **Status**: PLANNED
 
 ## Phase: v188.x — Deterministic Experiment Scheduler
+
+**Enhancements**
+- FeedbackLoopStabilityReceipt
+- RealTimeBoundaryReceipt
+- TransportBackpressureReceipt
+- CollapsePreventionSignalReceipt
+- no live control authority
 **Status**: PLANNED
 
 ## Phase: v189.x — Cross-Environment Hardware/OS Replay Receipts
@@ -917,6 +1407,18 @@ discover invariants
 | contextuality overclaim | contextuality_threshold_receipt_hash |
 | declarative registry drift | hash-bound registry consistency gate |
 
+
+| dataframe row-order drift | PolarsPandasEquivalenceReceipt + declared sort keys |
+| dtype coercion drift | SchemaEquivalenceReceipt + dtype policy declaration |
+| lazy execution nondeterminism | LazyPlanCanonicalReceipt + pre-execution plan capture |
+| rounding policy difference | PolarsPandasEquivalenceReceipt + declared rounding policy |
+| model-generated research treated as evidence | PaperGenerationProvenanceReceipt + human_reviewed=false rejection gate |
+| citation hallucination | CitationIntegrityReceipt + declared source list |
+| claim scope expansion beyond evidence | ClaimScopeReceipt + scope boundary gate |
+| hidden quantization | ReducedPrecisionAdapterReceipt trigger gate |
+| autonomous crawler behavior | CrawlerBoundaryReceipt + test-mode network rejection |
+| self-hosting secret leakage | SelfHostingManifest + no-secrets-in-receipts gate |
+
 ## Safety / Interpretation Notes
 
 **Heavy Dependency Reminder**
@@ -1009,6 +1511,69 @@ IEEE 754-2019 is the authoritative standard.
 Blog posts, code examples, and hardware tutorials are research signals only.
 ```
 
+
+
+### Dataframe Backend Reminder
+A faster dataframe engine is an adapter, not an authority.
+Schema, row order, dtype, null policy, lazy/eager execution, and rounding policy must be receipt-bound.
+No speedup claim without a benchmark receipt.
+No silent dtype coercion.
+No hidden row-order drift.
+
+### AI Scientist Reminder
+Generated research is not evidence.
+A paper-generation system may emit provenance receipts, but claims require source-bound validation and human review.
+No model output as source authority.
+No citation hallucination.
+No automated paper treated as primary evidence.
+
+### Inference Optimization Reminder
+Smaller or faster models do not prove truth.
+Parameter golf, bandwidth compression, and tokenization changes require benchmark and boundary receipts.
+Reduced precision formats require ReducedPrecisionAdapterReceipt.
+Hardware kernel paths require HardwareFloatAdapterBoundaryReceipt with adapter_only=true.
+
+### Agent Observability Reminder
+Agent observability traces are receipts, not dashboards.
+Skill libraries must be versioned, hash-bound, and auditable.
+No hidden tool calls.
+No autonomous network crawling in tests.
+No agent output as evidence.
+
+### Quantum Hardware Signal Reminder
+Hardware research signals are source-bound claims, not QEC authority.
+QPE toolbox outputs are adapter signals.
+Unreviewed preprints must be marked UNREVIEWED_PREPRINT.
+source_inaccessible sources cannot be sole phase justification.
+No hardware authority claims.
+No QEC advantage claims without source-bound evidence.
+
+### Materials Signal Reminder
+Materials may exhibit interesting dynamics, but QEC records signal boundaries only.
+Physical learning language is a metaphor unless bounded by MaterialsMemoryClaimBoundaryReceipt.
+No material intelligence claims without boundary receipts.
+No hardware extrapolation.
+
+### Real-Time Control Reminder
+Control-loop claims require latency envelopes and safety-bound receipts.
+No live control authority.
+No safety-critical automation.
+No real-time guarantee without measurement receipt.
+Feedback-loop stability is bounded, not guaranteed.
+
+### Self-Hosting Reminder
+Self-hosted services are local operator surfaces, not public endpoints.
+No public exposure by default.
+No secrets in receipts.
+No remote authority.
+
+### Mathematical Discovery Reminder
+Mathematical identity candidates require proof receipts.
+No theorem claim without proof receipt.
+No numerology as proof.
+No model-generated theorem authority.
+Cosmological signals are claim-boundary inputs, not truth claims.
+
 ## References
 
 1. [IEEE754-2019] IEEE 754-2019 — IEEE Standard for Floating-Point Arithmetic — https://standards.ieee.org/ieee/754/6210/ (authoritative standard).
@@ -1027,3 +1592,6 @@ Blog posts, code examples, and hardware tutorials are research signals only.
 14. qec_theory_diagram.txt (repository symbolic grammar reference).
 
 Do not modify src/qec/decoder/.
+
+The world may be chaotic.
+The receipt must not be.

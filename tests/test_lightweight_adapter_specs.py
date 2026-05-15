@@ -77,7 +77,17 @@ def test_validation_errors_and_contract_binding_and_scans():
     bad_ops = (bad_o,) + s.operations[1:]
     bad_spec = type(s)(**{**s.__dict__, "operations": bad_ops, "first_operation_hash": bad_ops[0].operation_hash, "final_operation_hash": bad_ops[-1].operation_hash})
     with pytest.raises(ValueError, match="OPERATION_BOUNDARY_MISMATCH"): validate_lightweight_adapter_spec(bad_spec)
-    with pytest.raises(ValueError, match="LIGHTWEIGHT_ADAPTER_SPEC_MISMATCH"): validate_adapter_spec_matches_contract(type(s)(**{**s.__dict__, "adapter_name": "x"}), c)
+    with pytest.raises(ValueError, match="HASH_MISMATCH"): validate_adapter_spec_matches_contract(type(s)(**{**s.__dict__, "adapter_name": "x"}), c)
+    bad_boundary = build_adapter_boundary_spec(boundary_index=0, boundary_kind="INPUT_BOUNDARY", boundary_name="input_payload", dependency_name="wrong_dep", allowed_payload_kind="CANONICAL_JSON", validation_policy="EXACT_CANONICAL_JSON", reason="Adapter input boundary declaration.")
+    bad_boundaries = (bad_boundary,) + s.boundaries[1:]
+    with pytest.raises(ValueError, match="DEPENDENCY_NAME_MISMATCH"): validate_lightweight_adapter_spec(type(s)(**{**s.__dict__, "boundaries": bad_boundaries}))
+    bad_operation = build_adapter_operation_spec(operation_index=0, operation_kind="NORMALIZE_INPUT", operation_name="normalize_input::wrong_dep", dependency_name="wrong_dep", input_boundary_hashes=(s.boundaries[0].boundary_hash,), output_boundary_hashes=(s.boundaries[1].boundary_hash,), required=True, reason="Deterministic adapter operation declaration: NORMALIZE_INPUT")
+    bad_operations = (bad_operation,) + s.operations[1:]
+    with pytest.raises(ValueError, match="DEPENDENCY_NAME_MISMATCH"): validate_lightweight_adapter_spec(type(s)(**{**s.__dict__, "operations": bad_operations}))
+    bad_capability = build_adapter_capability_spec(capability_index=0, capability_kind="READ_ONLY", dependency_name="wrong_dep", capability_name="read_only::wrong_dep", enabled=True, reason="Deterministic adapter capability declaration: READ_ONLY")
+    bad_capabilities = (bad_capability,) + s.capabilities[1:]
+    with pytest.raises(ValueError, match="DEPENDENCY_NAME_MISMATCH"): validate_lightweight_adapter_spec(type(s)(**{**s.__dict__, "capabilities": bad_capabilities}))
+    with pytest.raises(ValueError, match="ADAPTER_KIND_SCOPE_MISMATCH"): validate_lightweight_adapter_spec(type(s)(**{**s.__dict__, "adapter_kind": "IMPORT_SURFACE_ADAPTER"}))
     src = Path("src/qec/analysis/lightweight_adapter_specs.py").read_text(encoding="utf-8").lower()
     for token in ["import qutip", "import qiskit", "import matplotlib", "import pandas", "import stim", "import pymatching", "import mido", "import requests", "urllib.request", "subprocess", "os.system", "shell=true", "eval(", "exec(", "__import__(", "importlib.import_module", "pip", "time.time", "datetime.now", "random."]:
         assert token not in src

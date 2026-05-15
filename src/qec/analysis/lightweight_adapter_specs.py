@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any
 
-from .optimization_contracts import OptimizationContract, validate_optimization_contract
+from .optimization_contracts import OptimizationContract, validate_optimization_contract, _ALLOWED_NEXT_RECEIPTS
 
 _SCHEMA_VERSION = "LIGHTWEIGHT_ADAPTER_SPEC_V1"
 _SPEC_MODE = "DETERMINISTIC_LIGHTWEIGHT_ADAPTER_SPEC"
@@ -217,6 +217,9 @@ def build_lightweight_adapter_spec(contract: OptimizationContract, adapter_name:
     if tuple(x.boundary_index for x in bs) != tuple(range(len(bs))): raise ValueError("BOUNDARY_ORDER_MISMATCH")
     if tuple(x.operation_index for x in os) != tuple(range(len(os))): raise ValueError("OPERATION_ORDER_MISMATCH")
     if tuple(x.capability_index for x in cs) != tuple(range(len(cs))): raise ValueError("CAPABILITY_ORDER_MISMATCH")
+    all_bh = {b.boundary_hash for b in bs}
+    for o in os:
+        if any(h not in all_bh for h in (o.input_boundary_hashes + o.output_boundary_hashes)): raise ValueError("OPERATION_BOUNDARY_MISMATCH")
     s = LightweightAdapterSpec(_SCHEMA_VERSION, _SPEC_MODE, adapter_name, adapter_status, adapter_kind, dependency_name, contract.optimization_contract_hash, contract.source_opportunity_hash, contract.optimization_scope, contract.required_next_receipt, len(bs), len(os), len(cs), bs, os, cs, bs[0].boundary_hash if bs else "", bs[-1].boundary_hash if bs else "", os[0].operation_hash if os else "", os[-1].operation_hash if os else "", cs[0].capability_hash if cs else "", cs[-1].capability_hash if cs else "", "")
     return LightweightAdapterSpec(**{**s.__dict__, "lightweight_adapter_spec_hash": _hash_payload(_base_payload(s, "lightweight_adapter_spec_hash"))})
 
@@ -229,7 +232,7 @@ def _derive_adapter_kind(scope: str) -> str:
 def build_lightweight_adapter_spec_from_contract(contract: OptimizationContract, *, adapter_name: str | None = None) -> LightweightAdapterSpec:
     validate_optimization_contract(contract)
     if contract.contract_status != "CONTRACT_READY": raise ValueError("INVALID_INPUT")
-    if contract.required_next_receipt not in {"LightweightAdapterSpec", "OptimizationContract", "FastPathEquivalenceReceipt", "NONE"}: raise ValueError("INVALID_INPUT")
+    if contract.required_next_receipt not in _ALLOWED_NEXT_RECEIPTS: raise ValueError("INVALID_INPUT")
     adapter_kind = _derive_adapter_kind(contract.optimization_scope)
     dep = contract.dependency_name
     name = adapter_name or f"{dep}_{adapter_kind.lower()}"
@@ -272,10 +275,17 @@ def validate_lightweight_adapter_spec(spec: LightweightAdapterSpec) -> bool:
     if spec.spec_mode != _SPEC_MODE: raise ValueError("INVALID_SPEC_MODE")
     if spec.adapter_status not in _ALLOWED_ADAPTER_STATUS: raise ValueError("INVALID_ADAPTER_STATUS")
     if spec.adapter_kind not in _ALLOWED_ADAPTER_KIND: raise ValueError("INVALID_ADAPTER_KIND")
+    if spec.optimization_scope in _SCOPE_TO_ADAPTER_KIND and spec.adapter_kind != _derive_adapter_kind(spec.optimization_scope): raise ValueError("ADAPTER_KIND_SCOPE_MISMATCH")
     _validate_hash_format(spec.source_optimization_contract_hash); _validate_hash_format(spec.source_opportunity_hash)
     for x in spec.boundaries: validate_adapter_boundary_spec(x)
     for x in spec.operations: validate_adapter_operation_spec(x)
     for x in spec.capabilities: validate_adapter_capability_spec(x)
+    for x in spec.boundaries:
+        if x.dependency_name != spec.dependency_name: raise ValueError("DEPENDENCY_NAME_MISMATCH")
+    for x in spec.operations:
+        if x.dependency_name != spec.dependency_name: raise ValueError("DEPENDENCY_NAME_MISMATCH")
+    for x in spec.capabilities:
+        if x.dependency_name != spec.dependency_name: raise ValueError("DEPENDENCY_NAME_MISMATCH")
     if tuple(x.boundary_index for x in spec.boundaries) != tuple(range(len(spec.boundaries))): raise ValueError("BOUNDARY_ORDER_MISMATCH")
     if tuple(x.operation_index for x in spec.operations) != tuple(range(len(spec.operations))): raise ValueError("OPERATION_ORDER_MISMATCH")
     if tuple(x.capability_index for x in spec.capabilities) != tuple(range(len(spec.capabilities))): raise ValueError("CAPABILITY_ORDER_MISMATCH")
@@ -297,6 +307,7 @@ def validate_lightweight_adapter_spec(spec: LightweightAdapterSpec) -> bool:
 
 def validate_adapter_spec_matches_contract(spec: LightweightAdapterSpec, contract: OptimizationContract) -> bool:
     if not isinstance(spec, LightweightAdapterSpec) or not isinstance(contract, OptimizationContract): raise ValueError("INVALID_INPUT")
+    validate_lightweight_adapter_spec(spec)
     rebuilt = build_lightweight_adapter_spec_from_contract(contract, adapter_name=spec.adapter_name)
     if rebuilt.to_dict() != spec.to_dict(): raise ValueError("LIGHTWEIGHT_ADAPTER_SPEC_MISMATCH")
     return True

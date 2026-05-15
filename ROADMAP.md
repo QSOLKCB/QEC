@@ -1406,8 +1406,6 @@ discover invariants
 | LLM output as evidence | source citation and artifact verification gate |
 | contextuality overclaim | contextuality_threshold_receipt_hash |
 | declarative registry drift | hash-bound registry consistency gate |
-
-
 | dataframe row-order drift | PolarsPandasEquivalenceReceipt + declared sort keys |
 | dtype coercion drift | SchemaEquivalenceReceipt + dtype policy declaration |
 | lazy execution nondeterminism | LazyPlanCanonicalReceipt + pre-execution plan capture |

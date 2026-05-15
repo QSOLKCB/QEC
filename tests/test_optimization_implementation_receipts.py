@@ -52,8 +52,8 @@ def test_optimization_implementation_hash_validation():
 
 def test_optimization_implementation_source_scan_and_decoder_boundary():
     text=Path("src/qec/analysis/optimization_implementation_receipts.py").read_text(encoding="utf-8")
-    for token in ["import numpy","import scipy","import pandas","import matplotlib","import qiskit","subprocess","urllib","eval(","exec(","time.time","datetime.now","random."]:
-        assert token not in text
+    for token in ["import numpy", "import scipy", "import pandas", "import matplotlib", "import qutip", "import qiskit", "import qiskit_aer", "import stim", "import pymatching", "import mido", "import qldpc", "import requests", "urllib", "subprocess", "importlib.import_module", "__import__(", "eval(", "exec(", "os.system", "shell=True", "pip", "time.time", "datetime.now", "random."]:
+        assert token not in text, f"Forbidden token found: {token}"
     for p in Path("src/qec/decoder").glob("**/*.py"):
         t=p.read_text(encoding="utf-8")
         assert "OptimizationImplementationReceipt" not in t and "optimization_implementation_receipt_hash" not in t

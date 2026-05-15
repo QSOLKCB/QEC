@@ -127,9 +127,14 @@ def _evaluate_verification(v: OptimizationImplementationVerification, b: Optimiz
 
 def build_optimization_implementation_guard(**kwargs: Any) -> OptimizationImplementationGuard:
     k=dict(kwargs);k.pop("guard_hash",None);k["expected_shape"]=tuple(k["expected_shape"]) if k.get("expected_shape") is not None else None
+    # Validate guard_passed is bool and failure_code consistency
+    if not isinstance(k.get("guard_passed"), bool): raise ValueError("INVALID_INPUT")
+    if k.get("guard_passed") and k.get("failure_code") is not None: raise ValueError("INVALID_INPUT")
+    if not k.get("guard_passed") and k.get("failure_code") is None: raise ValueError("INVALID_INPUT")
+    if k.get("failure_code") is not None and not _bounded(k.get("failure_code"), _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
+    if not _bounded(k.get("reason", ""), _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
     x=OptimizationImplementationGuard(guard_hash="",**k);validate_optimization_implementation_guard(x,allow_blank_hash=True)
-    passed, code = _evaluate_guard(x, x.dependency_name, x.optimization_scope, {x.source_kernel_hash}, True, (), True)
-    x = OptimizationImplementationGuard(**{**x.__dict__, "guard_passed": passed, "failure_code": code})
+    # Preserve caller-provided guard_passed/failure_code - do not recompute
     return OptimizationImplementationGuard(**{**x.__dict__,"guard_hash":_hash_payload(_base_payload(x,"guard_hash"))})
 
 def build_optimization_implementation_rollback_binding(**kwargs: Any) -> OptimizationImplementationRollbackBinding:
@@ -153,6 +158,12 @@ def validate_optimization_implementation_guard(x: OptimizationImplementationGuar
     if x.guard_kind not in _ALLOWED_GUARD_KIND: raise ValueError("INVALID_GUARD_KIND")
     for s in [x.guard_name,x.dependency_name,x.optimization_scope]:
         if not _bounded(s): raise ValueError("INVALID_INPUT")
+    # Validate guard_passed is bool and failure_code consistency
+    if not isinstance(x.guard_passed, bool): raise ValueError("INVALID_INPUT")
+    if x.guard_passed and x.failure_code is not None: raise ValueError("INVALID_INPUT")
+    if not x.guard_passed and x.failure_code is None: raise ValueError("INVALID_INPUT")
+    if x.failure_code is not None and not _bounded(x.failure_code, _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
+    if not _bounded(x.reason, _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
     for h in [x.source_kernel_hash,x.source_optimization_contract_hash,x.source_lightweight_adapter_spec_hash,x.source_cached_canonical_kernel_receipt_hash,x.source_fast_path_equivalence_receipt_hash]: _validate_hash_format(h)
     if x.expected_value_hash is not None: _validate_hash_format(x.expected_value_hash)
     _validate_shape(x.expected_shape)
@@ -164,10 +175,12 @@ def validate_optimization_implementation_guard(x: OptimizationImplementationGuar
     return True
 
 def validate_optimization_implementation_rollback_binding(x: OptimizationImplementationRollbackBinding, allow_blank_hash: bool=False) -> bool:
+    if not isinstance(x, OptimizationImplementationRollbackBinding): raise ValueError("INVALID_INPUT")
     _validate_index(x.rollback_index)
     if x.rollback_kind not in _ALLOWED_ROLLBACK_KIND: raise ValueError("INVALID_INPUT")
     for s in [x.rollback_name,x.dependency_name,x.optimization_scope,x.fallback_target_name]:
         if not _bounded(s): raise ValueError("INVALID_INPUT")
+    if not _bounded(x.reason, _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
     for h in [x.source_optimization_contract_hash,x.source_fast_path_equivalence_receipt_hash]: _validate_hash_format(h)
     for h in x.source_rollback_condition_hashes: _validate_hash_format(h)
     if x.fallback_target_hash is not None: _validate_hash_format(x.fallback_target_hash)
@@ -178,10 +191,12 @@ def validate_optimization_implementation_rollback_binding(x: OptimizationImpleme
     return True
 
 def validate_optimization_implementation_binding(x: OptimizationImplementationBinding, allow_blank_hash: bool=False) -> bool:
+    if not isinstance(x, OptimizationImplementationBinding): raise ValueError("INVALID_INPUT")
     _validate_index(x.binding_index)
     if x.implementation_kind not in _ALLOWED_IMPLEMENTATION_KIND or x.activation_status not in _ALLOWED_ACTIVATION_STATUS: raise ValueError("INVALID_INPUT")
     for s in [x.implementation_name,x.dependency_name,x.optimization_scope]:
         if not _bounded(s): raise ValueError("INVALID_INPUT")
+    if not _bounded(x.reason, _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
     _validate_path_like(x.target_module_path);_validate_path_like(x.implementation_module_path);_validate_symbol_name(x.target_symbol_name);_validate_symbol_name(x.implementation_symbol_name)
     for h in [x.implementation_source_hash,x.source_kernel_hash,x.source_optimization_contract_hash,x.source_lightweight_adapter_spec_hash,x.source_cached_canonical_kernel_receipt_hash,x.source_fast_path_equivalence_receipt_hash,x.rollback_binding_hash]: _validate_hash_format(h)
     for h in x.guard_hashes: _validate_hash_format(h)
@@ -192,8 +207,18 @@ def validate_optimization_implementation_binding(x: OptimizationImplementationBi
     return True
 
 def validate_optimization_implementation_verification(x: OptimizationImplementationVerification, allow_blank_hash: bool=False) -> bool:
+    if not isinstance(x, OptimizationImplementationVerification): raise ValueError("INVALID_INPUT")
     _validate_index(x.verification_index)
     if x.verification_status not in _ALLOWED_VERIFICATION_STATUS or x.activation_status not in _ALLOWED_ACTIVATION_STATUS: raise ValueError("INVALID_VERIFICATION_STATUS")
+    # Validate boolean fields
+    if not isinstance(x.all_guards_passed, bool): raise ValueError("INVALID_INPUT")
+    if not isinstance(x.fast_path_equivalence_passed, bool): raise ValueError("INVALID_INPUT")
+    if not isinstance(x.implementation_binding_valid, bool): raise ValueError("INVALID_INPUT")
+    # Validate failure_code consistency with verification_status
+    if x.verification_status == "IMPLEMENTATION_VERIFICATION_PASSED" and x.failure_code is not None: raise ValueError("INVALID_INPUT")
+    if x.verification_status != "IMPLEMENTATION_VERIFICATION_PASSED" and x.failure_code is None: raise ValueError("INVALID_INPUT")
+    if x.failure_code is not None and not _bounded(x.failure_code, _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
+    if not _bounded(x.reason, _MAX_REASON_LENGTH): raise ValueError("INVALID_INPUT")
     _validate_hash_format(x.source_implementation_binding_hash);_validate_hash_format(x.source_fast_path_equivalence_receipt_hash)
     for h in x.guard_hashes:_validate_hash_format(h)
     exp=_hash_payload(_base_payload(x,"implementation_verification_hash"))
@@ -202,32 +227,137 @@ def validate_optimization_implementation_verification(x: OptimizationImplementat
     if x.implementation_verification_hash!=exp: raise ValueError("HASH_MISMATCH")
     return True
 
-# simplified parent builders/validators omitted for brevity in generation constraints
+# Parent builders and validators
 
 def build_optimization_implementation_receipt(contract: OptimizationContract, adapter_spec: LightweightAdapterSpec, cached_receipt: CachedCanonicalKernelReceipt, fast_path_receipt: FastPathEquivalenceReceipt, implementation_mode: str, implementation_status: str, guards, rollback_bindings, implementation_bindings, verifications) -> OptimizationImplementationReceipt:
+    # Validate upstream artifacts
     validate_optimization_contract(contract); validate_lightweight_adapter_spec(adapter_spec); validate_cached_canonical_kernel_receipt(cached_receipt); validate_fast_path_equivalence_receipt(fast_path_receipt)
+    # Validate lineage: adapter, cached receipt, and fast-path receipt must belong to contract
+    validate_cached_kernel_receipt_matches_inputs(cached_receipt, contract, adapter_spec)
+    validate_fast_path_equivalence_receipt_matches_inputs(fast_path_receipt, contract, adapter_spec, cached_receipt)
+    # Validate implementation_mode and implementation_status
+    if implementation_mode not in _ALLOWED_IMPLEMENTATION_MODE: raise ValueError("INVALID_IMPLEMENTATION_MODE")
+    if implementation_status not in _ALLOWED_RECEIPT_STATUS: raise ValueError("INVALID_IMPLEMENTATION_STATUS")
+    # Sort and convert to tuples
     gs=tuple(sorted(tuple(guards), key=lambda x: x.guard_index)); rbs=tuple(sorted(tuple(rollback_bindings), key=lambda x: x.rollback_index)); bs=tuple(sorted(tuple(implementation_bindings), key=lambda x: x.binding_index)); vs=tuple(sorted(tuple(verifications), key=lambda x: x.verification_index))
-    rec=OptimizationImplementationReceipt(_SCHEMA_VERSION, implementation_mode, implementation_status, contract.dependency_name, contract.optimization_scope, contract.optimization_contract_hash, adapter_spec.lightweight_adapter_spec_hash, cached_receipt.cached_canonical_kernel_receipt_hash, fast_path_receipt.fast_path_equivalence_receipt_hash, len(gs), len(rbs), len(bs), len(vs), gs, rbs, bs, vs, gs[0].guard_hash if gs else "", gs[-1].guard_hash if gs else "", rbs[0].rollback_binding_hash if rbs else "", rbs[-1].rollback_binding_hash if rbs else "", bs[0].implementation_binding_hash if bs else "", bs[-1].implementation_binding_hash if bs else "", vs[0].implementation_verification_hash if vs else "", vs[-1].implementation_verification_hash if vs else "", bool(gs) and all(g.guard_passed for g in gs), bool(vs) and all(v.verification_status=="IMPLEMENTATION_VERIFICATION_PASSED" for v in vs), fast_path_receipt.equivalence_status=="FAST_PATH_EQUIVALENCE_PASSED" and fast_path_receipt.all_cases_passed, "")
-    return OptimizationImplementationReceipt(**{**rec.__dict__,"optimization_implementation_receipt_hash":_hash_payload(_base_payload(rec,"optimization_implementation_receipt_hash"))})
+    # Enforce collection size limits
+    if len(gs) > _MAX_GUARDS: raise ValueError("GUARD_LIMIT_EXCEEDED")
+    if len(rbs) > _MAX_ROLLBACK_BINDINGS: raise ValueError("ROLLBACK_BINDING_LIMIT_EXCEEDED")
+    if len(bs) > _MAX_IMPLEMENTATION_BINDINGS: raise ValueError("IMPLEMENTATION_BINDING_LIMIT_EXCEEDED")
+    if len(vs) > _MAX_VERIFICATIONS: raise ValueError("VERIFICATION_LIMIT_EXCEEDED")
+    # Build guard and rollback hash sets for cross-reference validation
+    guard_hashes = {g.guard_hash for g in gs}
+    rollback_hashes = {rb.rollback_binding_hash for rb in rbs}
+    # Validate bindings reference existing guards and rollbacks
+    for b in bs:
+        for gh in b.guard_hashes:
+            if gh not in guard_hashes: raise ValueError("BINDING_REFERENCES_UNKNOWN_GUARD")
+        if b.rollback_binding_hash not in rollback_hashes: raise ValueError("BINDING_REFERENCES_UNKNOWN_ROLLBACK")
+    # Validate verifications reference existing bindings
+    binding_hashes = {b.implementation_binding_hash for b in bs}
+    for v in vs:
+        if v.source_implementation_binding_hash not in binding_hashes: raise ValueError("VERIFICATION_REFERENCES_UNKNOWN_BINDING")
+        for gh in v.guard_hashes:
+            if gh not in guard_hashes: raise ValueError("VERIFICATION_REFERENCES_UNKNOWN_GUARD")
+    # Compute summary fields
+    all_guards_passed = bool(gs) and all(g.guard_passed for g in gs)
+    all_implementations_verified = bool(vs) and all(v.verification_status=="IMPLEMENTATION_VERIFICATION_PASSED" for v in vs)
+    fast_path_equivalence_passed = fast_path_receipt.equivalence_status=="FAST_PATH_EQUIVALENCE_PASSED" and fast_path_receipt.all_cases_passed
+    # Validate implementation_status consistency with computed outcomes
+    if implementation_status == "OPTIMIZATION_IMPLEMENTATION_READY":
+        if not all_guards_passed: raise ValueError("STATUS_INCONSISTENT_WITH_GUARDS")
+        if not all_implementations_verified: raise ValueError("STATUS_INCONSISTENT_WITH_VERIFICATIONS")
+        if not fast_path_equivalence_passed: raise ValueError("STATUS_INCONSISTENT_WITH_FAST_PATH")
+    rec=OptimizationImplementationReceipt(_SCHEMA_VERSION, implementation_mode, implementation_status, contract.dependency_name, contract.optimization_scope, contract.optimization_contract_hash, adapter_spec.lightweight_adapter_spec_hash, cached_receipt.cached_canonical_kernel_receipt_hash, fast_path_receipt.fast_path_equivalence_receipt_hash, len(gs), len(rbs), len(bs), len(vs), gs, rbs, bs, vs, gs[0].guard_hash if gs else "", gs[-1].guard_hash if gs else "", rbs[0].rollback_binding_hash if rbs else "", rbs[-1].rollback_binding_hash if rbs else "", bs[0].implementation_binding_hash if bs else "", bs[-1].implementation_binding_hash if bs else "", vs[0].implementation_verification_hash if vs else "", vs[-1].implementation_verification_hash if vs else "", all_guards_passed, all_implementations_verified, fast_path_equivalence_passed, "")
+    result = OptimizationImplementationReceipt(**{**rec.__dict__,"optimization_implementation_receipt_hash":_hash_payload(_base_payload(rec,"optimization_implementation_receipt_hash"))})
+    # Validate the built receipt
+    validate_optimization_implementation_receipt(result)
+    return result
 
 def build_optimization_implementation_receipt_from_fast_path(contract: OptimizationContract, adapter_spec: LightweightAdapterSpec, cached_receipt: CachedCanonicalKernelReceipt, fast_path_receipt: FastPathEquivalenceReceipt, implementation_mode: str = "DECLARATIVE_IMPLEMENTATION_RECEIPT", implementation_status: str = "OPTIMIZATION_IMPLEMENTATION_DRAFT") -> OptimizationImplementationReceipt:
+    # Validate cached receipt has at least one kernel
+    if not cached_receipt.kernel_descriptors: raise ValueError("NO_KERNEL_DESCRIPTORS")
     kh=cached_receipt.kernel_descriptors[0].kernel_hash
-    g=build_optimization_implementation_guard(guard_index=0,guard_name="guard",guard_kind="FAST_PATH_EQUIVALENCE_PASSED",dependency_name=contract.dependency_name,optimization_scope=contract.optimization_scope,source_kernel_hash=kh,source_optimization_contract_hash=contract.optimization_contract_hash,source_lightweight_adapter_spec_hash=adapter_spec.lightweight_adapter_spec_hash,source_cached_canonical_kernel_receipt_hash=cached_receipt.cached_canonical_kernel_receipt_hash,source_fast_path_equivalence_receipt_hash=fast_path_receipt.fast_path_equivalence_receipt_hash,expected_value_hash=None,expected_shape=None,expected_dtype=None,guard_passed=True,failure_code=None,reason="r")
-    rb=build_optimization_implementation_rollback_binding(rollback_index=0,rollback_name="rollback",rollback_kind="USE_REFERENCE_BACKEND",dependency_name=contract.dependency_name,optimization_scope=contract.optimization_scope,source_optimization_contract_hash=contract.optimization_contract_hash,source_fast_path_equivalence_receipt_hash=fast_path_receipt.fast_path_equivalence_receipt_hash,source_rollback_condition_hashes=(),fallback_target_name="reference_backend",fallback_target_hash=None,reason="r")
-    b=build_optimization_implementation_binding(binding_index=0,implementation_name="impl",implementation_kind="HASH_ONLY_FAST_PATH",activation_status="ENABLED_BY_RECEIPT",dependency_name=contract.dependency_name,optimization_scope=contract.optimization_scope,target_module_path="qec.analysis.target",target_symbol_name="target",implementation_module_path="qec.analysis.impl",implementation_symbol_name="impl",implementation_source_hash="a"*64,source_kernel_hash=kh,source_optimization_contract_hash=contract.optimization_contract_hash,source_lightweight_adapter_spec_hash=adapter_spec.lightweight_adapter_spec_hash,source_cached_canonical_kernel_receipt_hash=cached_receipt.cached_canonical_kernel_receipt_hash,source_fast_path_equivalence_receipt_hash=fast_path_receipt.fast_path_equivalence_receipt_hash,guard_hashes=(g.guard_hash,),rollback_binding_hash=rb.rollback_binding_hash,reason="r")
-    v=build_optimization_implementation_verification(verification_index=0,source_implementation_binding_hash=b.implementation_binding_hash,source_fast_path_equivalence_receipt_hash=fast_path_receipt.fast_path_equivalence_receipt_hash,verification_status="IMPLEMENTATION_VERIFICATION_PASSED",activation_status="ENABLED_BY_RECEIPT",guard_hashes=(g.guard_hash,),all_guards_passed=True,fast_path_equivalence_passed=True,implementation_binding_valid=True,failure_code=None,reason="r")
+    # Validate the kernel is proven by the fast-path receipt (check observations reference it)
+    kernel_proven = any(obs.source_kernel_hash == kh for obs in fast_path_receipt.observations)
+    if not kernel_proven: raise ValueError("KERNEL_NOT_PROVEN_BY_FAST_PATH")
+    # Derive guard_passed and verification status from fast_path_receipt
+    fast_path_ok = fast_path_receipt.equivalence_status == "FAST_PATH_EQUIVALENCE_PASSED" and fast_path_receipt.all_cases_passed
+    guard_passed = fast_path_ok
+    guard_failure_code = None if guard_passed else "FAST_PATH_EQUIVALENCE_NOT_PASSED"
+    verification_status = "IMPLEMENTATION_VERIFICATION_PASSED" if fast_path_ok else "IMPLEMENTATION_VERIFICATION_BLOCKED"
+    verification_failure_code = None if fast_path_ok else "FAST_PATH_EQUIVALENCE_NOT_PASSED"
+    activation_status = "ENABLED_BY_RECEIPT" if fast_path_ok else "BLOCKED_BY_GUARD"
+    g=build_optimization_implementation_guard(guard_index=0,guard_name="fast_path_equivalence_guard",guard_kind="FAST_PATH_EQUIVALENCE_PASSED",dependency_name=contract.dependency_name,optimization_scope=contract.optimization_scope,source_kernel_hash=kh,source_optimization_contract_hash=contract.optimization_contract_hash,source_lightweight_adapter_spec_hash=adapter_spec.lightweight_adapter_spec_hash,source_cached_canonical_kernel_receipt_hash=cached_receipt.cached_canonical_kernel_receipt_hash,source_fast_path_equivalence_receipt_hash=fast_path_receipt.fast_path_equivalence_receipt_hash,expected_value_hash=None,expected_shape=None,expected_dtype=None,guard_passed=guard_passed,failure_code=guard_failure_code,reason="derived_from_fast_path_receipt")
+    rb=build_optimization_implementation_rollback_binding(rollback_index=0,rollback_name="default_rollback",rollback_kind="USE_REFERENCE_BACKEND",dependency_name=contract.dependency_name,optimization_scope=contract.optimization_scope,source_optimization_contract_hash=contract.optimization_contract_hash,source_fast_path_equivalence_receipt_hash=fast_path_receipt.fast_path_equivalence_receipt_hash,source_rollback_condition_hashes=(),fallback_target_name="reference_backend",fallback_target_hash=None,reason="default_rollback_binding")
+    b=build_optimization_implementation_binding(binding_index=0,implementation_name=f"{contract.dependency_name}_fast_path",implementation_kind="HASH_ONLY_FAST_PATH",activation_status=activation_status,dependency_name=contract.dependency_name,optimization_scope=contract.optimization_scope,target_module_path=f"qec.backends.{contract.dependency_name}",target_symbol_name=contract.optimization_scope,implementation_module_path=f"qec.analysis.fast_paths.{contract.dependency_name}",implementation_symbol_name=f"{contract.optimization_scope}_fast_path",implementation_source_hash=fast_path_receipt.fast_path_equivalence_receipt_hash,source_kernel_hash=kh,source_optimization_contract_hash=contract.optimization_contract_hash,source_lightweight_adapter_spec_hash=adapter_spec.lightweight_adapter_spec_hash,source_cached_canonical_kernel_receipt_hash=cached_receipt.cached_canonical_kernel_receipt_hash,source_fast_path_equivalence_receipt_hash=fast_path_receipt.fast_path_equivalence_receipt_hash,guard_hashes=(g.guard_hash,),rollback_binding_hash=rb.rollback_binding_hash,reason="derived_from_fast_path_receipt")
+    v=build_optimization_implementation_verification(verification_index=0,source_implementation_binding_hash=b.implementation_binding_hash,source_fast_path_equivalence_receipt_hash=fast_path_receipt.fast_path_equivalence_receipt_hash,verification_status=verification_status,activation_status=activation_status,guard_hashes=(g.guard_hash,),all_guards_passed=guard_passed,fast_path_equivalence_passed=fast_path_ok,implementation_binding_valid=True,failure_code=verification_failure_code,reason="derived_from_fast_path_receipt")
     return build_optimization_implementation_receipt(contract, adapter_spec, cached_receipt, fast_path_receipt, implementation_mode, implementation_status, (g,), (rb,), (b,), (v,))
 
 def validate_optimization_implementation_receipt(receipt: OptimizationImplementationReceipt) -> bool:
+    if not isinstance(receipt, OptimizationImplementationReceipt): raise ValueError("INVALID_INPUT")
     if receipt.schema_version != _SCHEMA_VERSION: raise ValueError("INVALID_SCHEMA_VERSION")
     if receipt.implementation_mode not in _ALLOWED_IMPLEMENTATION_MODE: raise ValueError("INVALID_IMPLEMENTATION_MODE")
     if receipt.implementation_status not in _ALLOWED_RECEIPT_STATUS: raise ValueError("INVALID_IMPLEMENTATION_STATUS")
+    # Validate top-level lineage fields format
+    if not _bounded(receipt.dependency_name): raise ValueError("INVALID_INPUT")
+    if not _bounded(receipt.optimization_scope): raise ValueError("INVALID_INPUT")
+    for h in [receipt.source_optimization_contract_hash, receipt.source_lightweight_adapter_spec_hash, receipt.source_cached_canonical_kernel_receipt_hash, receipt.source_fast_path_equivalence_receipt_hash]:
+        _validate_hash_format(h)
+    # Enforce collection size limits
+    if len(receipt.guards) > _MAX_GUARDS: raise ValueError("GUARD_LIMIT_EXCEEDED")
+    if len(receipt.rollback_bindings) > _MAX_ROLLBACK_BINDINGS: raise ValueError("ROLLBACK_BINDING_LIMIT_EXCEEDED")
+    if len(receipt.implementation_bindings) > _MAX_IMPLEMENTATION_BINDINGS: raise ValueError("IMPLEMENTATION_BINDING_LIMIT_EXCEEDED")
+    if len(receipt.verifications) > _MAX_VERIFICATIONS: raise ValueError("VERIFICATION_LIMIT_EXCEEDED")
+    # Validate children
     for x in receipt.guards: validate_optimization_implementation_guard(x)
     for x in receipt.rollback_bindings: validate_optimization_implementation_rollback_binding(x)
     for x in receipt.implementation_bindings: validate_optimization_implementation_binding(x)
     for x in receipt.verifications: validate_optimization_implementation_verification(x)
     _validate_dense_indices(receipt.guards,"guard_index"); _validate_dense_indices(receipt.rollback_bindings,"rollback_index"); _validate_dense_indices(receipt.implementation_bindings,"binding_index"); _validate_dense_indices(receipt.verifications,"verification_index")
     if (receipt.guard_count,receipt.rollback_binding_count,receipt.implementation_binding_count,receipt.verification_count)!=(len(receipt.guards),len(receipt.rollback_bindings),len(receipt.implementation_bindings),len(receipt.verifications)): raise ValueError("COUNT_MISMATCH")
+    # Build hash sets for cross-reference validation
+    guard_hashes = {g.guard_hash for g in receipt.guards}
+    rollback_hashes = {rb.rollback_binding_hash for rb in receipt.rollback_bindings}
+    binding_hashes = {b.implementation_binding_hash for b in receipt.implementation_bindings}
+    # Validate bindings reference existing guards and rollbacks
+    for b in receipt.implementation_bindings:
+        for gh in b.guard_hashes:
+            if gh not in guard_hashes: raise ValueError("BINDING_REFERENCES_UNKNOWN_GUARD")
+        if b.rollback_binding_hash not in rollback_hashes: raise ValueError("BINDING_REFERENCES_UNKNOWN_ROLLBACK")
+    # Validate verifications reference existing bindings and guards
+    for v in receipt.verifications:
+        if v.source_implementation_binding_hash not in binding_hashes: raise ValueError("VERIFICATION_REFERENCES_UNKNOWN_BINDING")
+        for gh in v.guard_hashes:
+            if gh not in guard_hashes: raise ValueError("VERIFICATION_REFERENCES_UNKNOWN_GUARD")
+    # Validate first/final child hashes
+    if receipt.guards:
+        if receipt.first_guard_hash != receipt.guards[0].guard_hash: raise ValueError("FIRST_GUARD_HASH_MISMATCH")
+        if receipt.final_guard_hash != receipt.guards[-1].guard_hash: raise ValueError("FINAL_GUARD_HASH_MISMATCH")
+    else:
+        if receipt.first_guard_hash != "" or receipt.final_guard_hash != "": raise ValueError("EMPTY_GUARD_HASH_EXPECTED")
+    if receipt.rollback_bindings:
+        if receipt.first_rollback_binding_hash != receipt.rollback_bindings[0].rollback_binding_hash: raise ValueError("FIRST_ROLLBACK_HASH_MISMATCH")
+        if receipt.final_rollback_binding_hash != receipt.rollback_bindings[-1].rollback_binding_hash: raise ValueError("FINAL_ROLLBACK_HASH_MISMATCH")
+    else:
+        if receipt.first_rollback_binding_hash != "" or receipt.final_rollback_binding_hash != "": raise ValueError("EMPTY_ROLLBACK_HASH_EXPECTED")
+    if receipt.implementation_bindings:
+        if receipt.first_implementation_binding_hash != receipt.implementation_bindings[0].implementation_binding_hash: raise ValueError("FIRST_BINDING_HASH_MISMATCH")
+        if receipt.final_implementation_binding_hash != receipt.implementation_bindings[-1].implementation_binding_hash: raise ValueError("FINAL_BINDING_HASH_MISMATCH")
+    else:
+        if receipt.first_implementation_binding_hash != "" or receipt.final_implementation_binding_hash != "": raise ValueError("EMPTY_BINDING_HASH_EXPECTED")
+    if receipt.verifications:
+        if receipt.first_verification_hash != receipt.verifications[0].implementation_verification_hash: raise ValueError("FIRST_VERIFICATION_HASH_MISMATCH")
+        if receipt.final_verification_hash != receipt.verifications[-1].implementation_verification_hash: raise ValueError("FINAL_VERIFICATION_HASH_MISMATCH")
+    else:
+        if receipt.first_verification_hash != "" or receipt.final_verification_hash != "": raise ValueError("EMPTY_VERIFICATION_HASH_EXPECTED")
+    # Validate summary fields match computed values
+    computed_all_guards_passed = bool(receipt.guards) and all(g.guard_passed for g in receipt.guards)
+    computed_all_implementations_verified = bool(receipt.verifications) and all(v.verification_status == "IMPLEMENTATION_VERIFICATION_PASSED" for v in receipt.verifications)
+    if receipt.all_guards_passed != computed_all_guards_passed: raise ValueError("ALL_GUARDS_PASSED_MISMATCH")
+    if receipt.all_implementations_verified != computed_all_implementations_verified: raise ValueError("ALL_IMPLEMENTATIONS_VERIFIED_MISMATCH")
+    # Note: fast_path_equivalence_passed cannot be recomputed without the fast_path_receipt, so we validate it's a bool
+    if not isinstance(receipt.fast_path_equivalence_passed, bool): raise ValueError("INVALID_INPUT")
     exp = _hash_payload(_base_payload(receipt,"optimization_implementation_receipt_hash")); _validate_hash_format(receipt.optimization_implementation_receipt_hash)
     if receipt.optimization_implementation_receipt_hash != exp: raise ValueError("HASH_MISMATCH")
     return True
@@ -236,8 +366,15 @@ def validate_optimization_implementation_receipt_matches_inputs(receipt: Optimiz
     validate_optimization_implementation_receipt(receipt)
     validate_cached_kernel_receipt_matches_inputs(cached_receipt, contract, adapter_spec)
     validate_fast_path_equivalence_receipt_matches_inputs(fast_path_receipt, contract, adapter_spec, cached_receipt)
+    # Validate source hash links
     if receipt.source_optimization_contract_hash != contract.optimization_contract_hash: raise ValueError("RECEIPT_CONTRACT_MISMATCH")
     if receipt.source_lightweight_adapter_spec_hash != adapter_spec.lightweight_adapter_spec_hash: raise ValueError("RECEIPT_ADAPTER_MISMATCH")
     if receipt.source_cached_canonical_kernel_receipt_hash != cached_receipt.cached_canonical_kernel_receipt_hash: raise ValueError("RECEIPT_CACHED_MISMATCH")
     if receipt.source_fast_path_equivalence_receipt_hash != fast_path_receipt.fast_path_equivalence_receipt_hash: raise ValueError("RECEIPT_FAST_PATH_MISMATCH")
+    # Validate dependency_name and optimization_scope match contract
+    if receipt.dependency_name != contract.dependency_name: raise ValueError("RECEIPT_DEPENDENCY_NAME_MISMATCH")
+    if receipt.optimization_scope != contract.optimization_scope: raise ValueError("RECEIPT_OPTIMIZATION_SCOPE_MISMATCH")
+    # Validate fast_path_equivalence_passed matches fast_path_receipt
+    computed_fast_path_passed = fast_path_receipt.equivalence_status == "FAST_PATH_EQUIVALENCE_PASSED" and fast_path_receipt.all_cases_passed
+    if receipt.fast_path_equivalence_passed != computed_fast_path_passed: raise ValueError("FAST_PATH_EQUIVALENCE_PASSED_MISMATCH")
     return True

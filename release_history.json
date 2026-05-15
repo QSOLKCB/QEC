@@ -1,0 +1,38 @@
+[
+  {
+    "tag": "43.0.0",
+    "title": "Autonomous Discovery Scheduling",
+    "body": "- Added deterministic spectral landscape gap detection for under-explored regions.\n- Added deterministic experiment target generation from discovered landscape gaps.\n- Added opt-in autonomous experiment scheduler integrated into discovery engine.\n- Added deterministic FIFO experiment queue for scheduling workflows.\n- Added scheduling metrics utilities and scheduler artifact export fields.",
+    "published_at": null
+  },
+  {
+    "tag": "42.0.0",
+    "title": "Persistent Spectral Landscape Learning",
+    "body": "- Added persistent spectral landscape memory across experiments.\n- Added deterministic clustering of explored spectral regions.\n- Added JSON persistence helpers for landscape save/load.\n- Added novelty scoring helper for exploration guidance.\n- Added landscape coverage metric and discovery artifact export fields.",
+    "published_at": null
+  },
+  {
+    "tag": "38.0.0",
+    "title": "Non-Backtracking Eigenmode Mutation",
+    "body": "- Added non-backtracking matrix utilities.\n- Added leading eigenmode detection for Tanner graphs.\n- Added eigenmode-guided mutation scoring.\n- Added optional mutation operator guidance using spectral instability directions.\n- Added integration with spectral trajectory recording (`nb_eigenvalue` per step).",
+    "published_at": null
+  },
+  {
+    "tag": "v2.8.0",
+    "title": "Deterministic Scheduling & State-Aware Enhancements",
+    "body": "Belief Propagation decoder enhancements for QLDPC codes.\n\n### `improved_norm` / `improved_offset` modes\n\n- Extended min-sum variants with dual scaling parameters `alpha1` and `alpha2`.\n- Deterministic, invariant-preserving check-node update modifications.\n- Fully backward-compatible with existing min-sum modes.\n\n### `hybrid_residual` schedule\n\n- Deterministic even/odd check-node partitioning.\n- Within each layer, checks are ordered by descending residual.\n- Optional `hybrid_residual_threshold` prioritizes high-residual checks within each layer.\n- No randomness; stable tie-breaking by ascending check index.\n\n### Deterministic ensemble decoding (`ensemble_k`)\n\n- Runs K independent BP passes with deterministic, zero-mean alternating LLR perturbations.\n- Member 0 uses exact baseline LLR.\n- Selection criteria:\n  - Converged solutions preferred.\n  - Lowest syndrome weight.\n  - Deterministic member index tie-break.\n- No RNG usage; fully reproducible.\n\n### State-aware residual weighting (`state_aware_residual`)\n\n- Residual ordering can be modulated by per-check state weights:\n  - `weight = s_by_state[label] * |cos(phi_by_state[label])|`\n- Applied multiplicatively to raw residuals.\n- Strict validation of state labels (non-negative, in-range, length `m`).\n- Disabled by default — baseline behavior unchanged when off.\n\n### Test Boundary Stabilization\n\n- Added `pytest.ini` to scope test discovery to `tests/`.\n- Full regression: 339 passed, 7 skipped, 0 failed.\n- Determinism verified across repeated runs.",
+    "published_at": null
+  },
+  {
+    "tag": "v0.3 – Qiskit Backend Integration",
+    "title": "",
+    "body": "- **NEW: Dual backend support** - Choose between QuTiP or Qiskit for quantum simulations\n- `SteaneCodeQiskit` class implementing [[7,1,3]] code with Qiskit framework\n- Runtime backend switching via `!backend` command in IRC bot\n- Factory function `create_steane_code(backend)` for flexible instantiation\n- Environment variable `QEC_BACKEND` for default backend selection\n- Full test coverage for both backends (13 new tests)\n- Updated documentation and examples showing backend comparison\n- Backward compatible - QuTiP remains the default backend",
+    "published_at": null
+  },
+  {
+    "tag": "v0.2 – Unified QEC Toolkit Global Demo Release",
+    "title": "",
+    "body": "- Added robust, modular, and globally accessible QEC demo notebook: `notebooks/qec_demo_global.ipynb`\n- Harmonized backend selection and simulation interfaces for Qiskit/QuTiP\n- Enhanced LMIC/Colab/qBraid compatibility\n- Improved documentation for reproducibility, user guidance, and global outreach\n- Unified batch simulation/benchmarking for surface and color codes\n- Static and real-time syndrome visualization (MIDI/cube)\n- Export capability for DAW/producer workflows\n- LMIC/global accessibility and ethics statement\n\nAll files and features ready for research, education, and music/producer integration.",
+    "published_at": null
+  }
+]

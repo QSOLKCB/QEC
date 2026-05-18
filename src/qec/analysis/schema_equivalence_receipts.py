@@ -232,6 +232,8 @@ def build_schema_field_equivalence(left_field_hash: str, right_field_hash: str, 
 def validate_schema_field_equivalence(item: SchemaFieldEquivalence) -> None:
     if item.equivalence_mode not in _ALLOWED_EQUIVALENCE_MODES:
         raise ValueError("invalid equivalence mode")
+    if not isinstance(item.fields_equivalent, bool):
+        raise ValueError("fields_equivalent must be a bool")
     _validate_hash_format(item.left_field_hash, "left_field_hash")
     _validate_hash_format(item.right_field_hash, "right_field_hash")
     _validate_hash_format(item.field_equivalence_hash, "field_equivalence_hash")
@@ -250,6 +252,8 @@ def build_schema_ordering_equivalence(ordering_mode: str, ordering_equivalent: b
 def validate_schema_ordering_equivalence(item: SchemaOrderingEquivalence) -> None:
     if item.ordering_mode not in _ALLOWED_ORDERING_MODES:
         raise ValueError("invalid ordering equivalence")
+    if not isinstance(item.ordering_equivalent, bool):
+        raise ValueError("ordering_equivalent must be a bool")
     _validate_hash_format(item.ordering_equivalence_hash, "ordering_equivalence_hash")
     expected = _hash_payload(_base_payload(item.__dict__, "ordering_equivalence_hash"))
     if expected != item.ordering_equivalence_hash:
@@ -266,6 +270,8 @@ def build_schema_nullability_equivalence(nullability_mode: str, nullability_equi
 def validate_schema_nullability_equivalence(item: SchemaNullabilityEquivalence) -> None:
     if item.nullability_mode not in _ALLOWED_NULLABILITY_MODES:
         raise ValueError("invalid nullability equivalence")
+    if not isinstance(item.nullability_equivalent, bool):
+        raise ValueError("nullability_equivalent must be a bool")
     _validate_hash_format(item.nullability_equivalence_hash, "nullability_equivalence_hash")
     expected = _hash_payload(_base_payload(item.__dict__, "nullability_equivalence_hash"))
     if expected != item.nullability_equivalence_hash:
@@ -282,6 +288,8 @@ def build_schema_dtype_equivalence(dtype_equivalence_mode: str, dtype_equivalent
 def validate_schema_dtype_equivalence(item: SchemaDTypeEquivalence) -> None:
     if item.dtype_equivalence_mode not in _ALLOWED_DTYPE_EQUIVALENCE_MODES:
         raise ValueError("invalid dtype equivalence")
+    if not isinstance(item.dtype_equivalent, bool):
+        raise ValueError("dtype_equivalent must be a bool")
     _validate_hash_format(item.dtype_equivalence_hash, "dtype_equivalence_hash")
     expected = _hash_payload(_base_payload(item.__dict__, "dtype_equivalence_hash"))
     if expected != item.dtype_equivalence_hash:
@@ -298,6 +306,8 @@ def build_schema_evolution_transition(transition_type: str, left_schema_hash: st
 def validate_schema_evolution_transition(item: SchemaEvolutionTransition) -> None:
     if item.transition_type not in _ALLOWED_SCHEMA_TRANSITIONS:
         raise ValueError("invalid schema transition")
+    if not isinstance(item.transition_allowed, bool):
+        raise ValueError("transition_allowed must be a bool")
     _validate_hash_format(item.left_schema_hash, "left_schema_hash")
     _validate_hash_format(item.right_schema_hash, "right_schema_hash")
     _validate_hash_format(item.schema_evolution_transition_hash, "schema_evolution_transition_hash")
@@ -371,9 +381,15 @@ def build_schema_equivalence_receipt(
         raise ValueError("schema_comparison.left_schema_manifest_hash must match left_schema_manifest.schema_manifest_hash")
     if schema_comparison.right_schema_manifest_hash != right_schema_manifest.schema_manifest_hash:
         raise ValueError("schema_comparison.right_schema_manifest_hash must match right_schema_manifest.schema_manifest_hash")
+    # P1: Bind evolution_transition hashes to manifest hashes
+    if evolution_transition.left_schema_hash != left_schema_manifest.schema_manifest_hash:
+        raise ValueError("evolution_transition.left_schema_hash must match left_schema_manifest.schema_manifest_hash")
+    if evolution_transition.right_schema_hash != right_schema_manifest.schema_manifest_hash:
+        raise ValueError("evolution_transition.right_schema_hash must match right_schema_manifest.schema_manifest_hash")
 
     field_eqs = tuple(field_equivalences)
-    mm = tuple(mismatches)
+    # P2: Canonicalize mismatch ordering by mismatch_index for deterministic hashing
+    mm = tuple(sorted(mismatches, key=lambda m: m.mismatch_index))
     # Compute mismatch_count and schemas_equivalent directly from inputs
     mismatch_count = len(mm)
     all_fields = all(f.fields_equivalent for f in field_eqs)

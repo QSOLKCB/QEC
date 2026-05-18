@@ -359,3 +359,106 @@ def test_schema_comparison_binding_to_manifests():
             build_schema_compatibility_policy("STRICT_COMPATIBILITY", "declared"),
             (), True,
         )
+
+
+def test_evolution_transition_binding_to_manifests():
+    """Verify that evolution_transition hashes must match the provided manifests."""
+    left, right, cmp, fe = _fixtures(False)
+    # Create an evolution_transition with wrong hashes
+    wrong_et = build_schema_evolution_transition("NO_CHANGE", _h(), _h(), True)
+    with pytest.raises(ValueError, match="evolution_transition.left_schema_hash must match"):
+        build_schema_equivalence_receipt(
+            left, right, cmp, fe,
+            build_schema_ordering_equivalence("EXACT_ORDER", True),
+            build_schema_nullability_equivalence("EXACT_NULLABILITY", True),
+            build_schema_dtype_equivalence("EXACT_DTYPE", True),
+            wrong_et,
+            build_schema_compatibility_policy("STRICT_COMPATIBILITY", "declared"),
+            (), True,
+        )
+
+
+def test_strict_bool_type_enforcement():
+    """Verify that boolean fields must be actual bools, not truthy strings."""
+    from qec.analysis.schema_equivalence_receipts import (
+        SchemaFieldEquivalence,
+        SchemaOrderingEquivalence,
+        SchemaNullabilityEquivalence,
+        SchemaDTypeEquivalence,
+        SchemaEvolutionTransition,
+        _hash_payload,
+        validate_schema_field_equivalence,
+        validate_schema_ordering_equivalence,
+        validate_schema_nullability_equivalence,
+        validate_schema_dtype_equivalence,
+        validate_schema_evolution_transition,
+    )
+    # SchemaFieldEquivalence with string "false" instead of bool
+    bad_fe_payload = {"left_field_hash": _h(), "right_field_hash": _h(), "equivalence_mode": "EXACT_SCHEMA", "fields_equivalent": "false"}
+    bad_fe = SchemaFieldEquivalence(**bad_fe_payload, field_equivalence_hash=_hash_payload(bad_fe_payload))
+    with pytest.raises(ValueError, match="fields_equivalent must be a bool"):
+        validate_schema_field_equivalence(bad_fe)
+
+    # SchemaOrderingEquivalence with string "true" instead of bool
+    bad_oe_payload = {"ordering_mode": "EXACT_ORDER", "ordering_equivalent": "true"}
+    bad_oe = SchemaOrderingEquivalence(**bad_oe_payload, ordering_equivalence_hash=_hash_payload(bad_oe_payload))
+    with pytest.raises(ValueError, match="ordering_equivalent must be a bool"):
+        validate_schema_ordering_equivalence(bad_oe)
+
+    # SchemaNullabilityEquivalence with int 1 instead of bool
+    bad_ne_payload = {"nullability_mode": "EXACT_NULLABILITY", "nullability_equivalent": 1}
+    bad_ne = SchemaNullabilityEquivalence(**bad_ne_payload, nullability_equivalence_hash=_hash_payload(bad_ne_payload))
+    with pytest.raises(ValueError, match="nullability_equivalent must be a bool"):
+        validate_schema_nullability_equivalence(bad_ne)
+
+    # SchemaDTypeEquivalence with string "True" instead of bool
+    bad_de_payload = {"dtype_equivalence_mode": "EXACT_DTYPE", "dtype_equivalent": "True"}
+    bad_de = SchemaDTypeEquivalence(**bad_de_payload, dtype_equivalence_hash=_hash_payload(bad_de_payload))
+    with pytest.raises(ValueError, match="dtype_equivalent must be a bool"):
+        validate_schema_dtype_equivalence(bad_de)
+
+    # SchemaEvolutionTransition with int 0 instead of bool
+    bad_et_payload = {"transition_type": "NO_CHANGE", "left_schema_hash": _h(), "right_schema_hash": _h(), "transition_allowed": 0}
+    bad_et = SchemaEvolutionTransition(**bad_et_payload, schema_evolution_transition_hash=_hash_payload(bad_et_payload))
+    with pytest.raises(ValueError, match="transition_allowed must be a bool"):
+        validate_schema_evolution_transition(bad_et)
+
+
+def test_mismatch_ordering_canonicalization():
+    """Verify that mismatches are sorted by mismatch_index for deterministic hashing."""
+    left, right, cmp, fe = _fixtures(False)
+    m0 = build_schema_mismatch_record(0, "DTYPE_MISMATCH", _h(), _h(), "reason0")
+    m1 = build_schema_mismatch_record(1, "ORDERING_MISMATCH", _h(), _h(), "reason1")
+    m2 = build_schema_mismatch_record(2, "FIELD_NAME_MISMATCH", _h(), _h(), "reason2")
+
+    # Build receipt with mismatches in order
+    r1 = build_schema_equivalence_receipt(
+        left, right, cmp, fe,
+        build_schema_ordering_equivalence("EXACT_ORDER", False),
+        build_schema_nullability_equivalence("EXACT_NULLABILITY", False),
+        build_schema_dtype_equivalence("EXACT_DTYPE", False),
+        build_schema_evolution_transition("DTYPE_CHANGED", left.schema_manifest_hash, right.schema_manifest_hash, False),
+        build_schema_compatibility_policy("FORWARD_COMPATIBLE", "declared"),
+        (m0, m1, m2), True,
+    )
+
+    # Build receipt with mismatches in reverse order
+    r2 = build_schema_equivalence_receipt(
+        left, right, cmp, fe,
+        build_schema_ordering_equivalence("EXACT_ORDER", False),
+        build_schema_nullability_equivalence("EXACT_NULLABILITY", False),
+        build_schema_dtype_equivalence("EXACT_DTYPE", False),
+        build_schema_evolution_transition("DTYPE_CHANGED", left.schema_manifest_hash, right.schema_manifest_hash, False),
+        build_schema_compatibility_policy("FORWARD_COMPATIBLE", "declared"),
+        (m2, m1, m0), True,  # Reverse order!
+    )
+
+    # Hashes should be identical due to canonicalization
+    assert r1.schema_equivalence_receipt_hash == r2.schema_equivalence_receipt_hash
+    # Mismatches should be in canonical order
+    assert r1.mismatches[0].mismatch_index == 0
+    assert r1.mismatches[1].mismatch_index == 1
+    assert r1.mismatches[2].mismatch_index == 2
+    assert r2.mismatches[0].mismatch_index == 0
+    assert r2.mismatches[1].mismatch_index == 1
+    assert r2.mismatches[2].mismatch_index == 2

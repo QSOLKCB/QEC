@@ -127,6 +127,16 @@ reality_loop_proof_receipt_hash
 → global_truth_receipt_hash
 → replay_record_hash
 → global_replay_proof_hash
+→ graph_universe_claim_boundary_receipt_hash
+→ canonical_decoder_baseline_receipt_hash
+→ decoder_candidate_manifest_hash
+→ decoder_replay_equivalence_receipt_hash
+→ decoder_optimization_contract_hash
+→ decoder_fast_path_equivalence_receipt_hash
+→ decoder_implementation_boundary_receipt_hash
+→ decoder_benchmark_ladder_receipt_hash
+→ decoder_rollback_receipt_hash
+→ decoder_promotion_receipt_hash
 → irc_replay_audit_hash                             (v162.2)
 → heavy_dependency_discovery_manifest_hash          (v163.0)
 → dependency_hotpath_receipt_hash                   (v163.1)
@@ -170,6 +180,15 @@ reality_loop_proof_receipt_hash
 → self_correcting_memory_claim_boundary_receipt_hash (v165.9.2)
 → quantum_geometry_signal_receipt_hash              (v165.9.3)
 → graph_universe_claim_boundary_receipt_hash        (v165.9.4)
+→ canonical_decoder_baseline_receipt_hash           (v166.0)
+→ decoder_candidate_manifest_hash                    (v166.1)
+→ decoder_replay_equivalence_receipt_hash           (v166.2)
+→ decoder_optimization_contract_hash                 (v166.3)
+→ decoder_fast_path_equivalence_receipt_hash        (v166.4)
+→ decoder_implementation_boundary_receipt_hash      (v166.5)
+→ decoder_benchmark_ladder_receipt_hash             (v166.6)
+→ decoder_rollback_receipt_hash                      (v166.7)
+→ decoder_promotion_receipt_hash                     (v166.8)
 → qldpc_construction_receipt_hash (v166.x)
 → syndrome_stream_receipt_hash
 → control_plane_manifest_hash
@@ -866,6 +885,113 @@ same quantum signal source
 **Status**
 PLANNED
 
+**Source-Grounded Motivation**
+The current decoder in `src/qec/decoder/` is intentionally frozen as the deterministic baseline reference implementation. It is sacred infrastructure for replay identity and canonical output stability.
+
+Future decoder architectures may improve speed, memory efficiency, sparse handling, convergence, hardware utilization, graph construction, and scaling behavior.
+
+Optimization does not grant authority.
+
+Future decoder candidates are treated as:
+- candidate backends
+- adapter implementations
+- fast-path candidates
+- replay-bound optimization layers
+
+before they may become trusted execution surfaces.
+
+**Arc Reinterpretation**
+"A decoder upgrade is not accepted because it is faster.
+
+A decoder upgrade is accepted only if deterministic replay equivalence is proven against the canonical baseline decoder."
+
+"The sacred decoder is the oracle.
+The upgrade candidate is the hypothesis."
+
+**Planned Releases**
+- v166.0 → CanonicalDecoderBaselineReceipt
+- v166.1 → DecoderCandidateManifest
+- v166.2 → DecoderReplayEquivalenceReceipt
+- v166.3 → DecoderOptimizationContract
+- v166.4 → DecoderFastPathEquivalenceReceipt
+- v166.5 → DecoderImplementationBoundaryReceipt
+- v166.6 → DecoderBenchmarkLadderReceipt
+- v166.7 → DecoderRollbackReceipt
+- v166.8 → DecoderPromotionReceipt
+
+**Expected Modules**
+- src/qec/analysis/canonical_decoder_baseline_receipts.py
+- src/qec/analysis/decoder_candidate_manifests.py
+- src/qec/analysis/decoder_replay_equivalence_receipts.py
+- src/qec/analysis/decoder_optimization_contracts.py
+- src/qec/analysis/decoder_fast_path_equivalence_receipts.py
+- src/qec/analysis/decoder_implementation_boundary_receipts.py
+- src/qec/analysis/decoder_benchmark_ladder_receipts.py
+- src/qec/analysis/decoder_rollback_receipts.py
+- src/qec/analysis/decoder_promotion_receipts.py
+
+**Expected Artifacts**
+- CanonicalDecoderBaselineReceipt
+- DecoderCandidateManifest
+- DecoderReplayEquivalenceReceipt
+- DecoderOptimizationContract
+- DecoderFastPathEquivalenceReceipt
+- DecoderImplementationBoundaryReceipt
+- DecoderBenchmarkLadderReceipt
+- DecoderRollbackReceipt
+- DecoderPromotionReceipt
+
+**Expected Hashes**
+- canonical_decoder_baseline_receipt_hash
+- decoder_candidate_manifest_hash
+- decoder_replay_equivalence_receipt_hash
+- decoder_optimization_contract_hash
+- decoder_fast_path_equivalence_receipt_hash
+- decoder_implementation_boundary_receipt_hash
+- decoder_benchmark_ladder_receipt_hash
+- decoder_rollback_receipt_hash
+- decoder_promotion_receipt_hash
+
+**Core Rule**
+same syndrome input
++ same canonical ordering
++ same replay corpus
++ same precision policy
++ same equivalence contract
+→ same canonical decoder output
+→ same decoder_replay_equivalence_receipt_hash
+
+**Acceptance Gates**
+- pytest: candidate decoder outputs match canonical baseline under declared equivalence mode
+- pytest: replay equivalence receipts remain hash-stable across PYTHONHASHSEED values
+- pytest: optimization contracts declare rollback conditions
+- pytest: benchmark claims require benchmark receipts
+- pytest: decoder promotion requires replay equivalence + benchmark ladder + rollback receipt
+- pytest: candidate decoders remain adapter_only=true before promotion
+- dependency boundary: canonical baseline decoder remains immutable
+- dependency boundary: no silent decoder replacement
+- dependency boundary: no probabilistic decoder promotion
+
+**Must Not Do**
+- no replacing canonical decoder because of speed alone
+- no probabilistic decoder authority
+- no ML decoder authority without replay receipts
+- no silent decoder swap
+- no hardware authority claims
+- no benchmark marketing without replay equivalence
+- no mutation of baseline decoder receipts
+- no deleting rollback path
+- no hidden precision drift
+- no undeclared approximation policy
+
+**Dependency Boundaries**
+- depends on: v163.x invariant discovery
+- depends on: v164.x optimization contracts
+- depends on: v165.x optimized simulation reports
+- canonical baseline decoder remains authoritative until promotion receipt exists
+- candidate decoders are adapters before promotion
+- does not directly mutate: src/qec/decoder/
+
 ## Phase: v167.x — Qudit / Ququart / High-Dimensional Stabilizer Receipts
 
 **Status**: PLANNED
@@ -1375,6 +1501,11 @@ discover invariants
 | dependency bloat | heavy_dependency_discovery_manifest + pinned dependency gate |
 | heavy dependency becomes silent authority | BackendInvariantCandidateReceipt + CrossBackendEquivalenceReceipt |
 | optimization changes numerical semantics | FastPathEquivalenceReceipt + IEEE754 precision receipts |
+| decoder optimization changes canonical output semantics | DecoderReplayEquivalenceReceipt |
+| decoder promotion without rollback | DecoderRollbackReceipt |
+| benchmark-driven decoder drift | DecoderBenchmarkLadderReceipt |
+| silent decoder replacement | DecoderPromotionReceipt |
+| probabilistic decoder authority | CanonicalDecoderBaselineReceipt |
 | speedup claim without benchmark | OptimizedQECBenchmarkReceipt |
 | lightweight adapter diverges from reference backend | BackendEquivalenceReplayReceipt |
 | cache key hides input mutation | CachedCanonicalKernelReceipt |
@@ -1457,6 +1588,26 @@ A faster path is valid only when:
 
 No speedup claim without a benchmark receipt.
 No optimization without equivalence proof.
+
+### Decoder Upgrade Reminder
+The decoder is sacred because it anchors replay identity.
+
+A faster decoder is not automatically a better decoder.
+
+Candidate decoders are adapter hypotheses, not authorities.
+
+Replay equivalence is mandatory before promotion.
+
+Benchmark receipts do not replace proof receipts.
+
+Rollback must remain possible.
+
+The baseline decoder remains the canonical oracle until promotion receipts succeed.
+
+Optimization does not grant execution authority.
+
+"The sacred decoder is the oracle.
+The candidate decoder is the hypothesis."
 
 
 - GameWorld Reminder: observation contracts do not grant world authority.

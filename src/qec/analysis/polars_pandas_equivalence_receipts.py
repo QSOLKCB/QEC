@@ -199,6 +199,9 @@ def build_dataframe_equivalence_policy(equivalence_mode: str, dtype_policy: str,
     keys = tuple(declared_sort_keys)
     for key in keys:
         _validate_strict_str(key, "declared_sort_keys element")
+    # Validate uniqueness at construction time
+    if len(keys) != len(set(keys)):
+        raise ValueError("declared_sort_keys must be unique")
     payload = {"equivalence_mode": equivalence_mode, "dtype_policy": dtype_policy, "row_order_policy": row_order_policy, "declared_sort_keys": keys, "null_policy": null_policy, "rounding_policy": rounding_policy}
     obj = DataframeEquivalencePolicy(**payload, equivalence_policy_hash=_hash_payload(payload))
     validate_dataframe_equivalence_policy(obj)

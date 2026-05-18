@@ -244,3 +244,32 @@ def test_manifest_hash_binding_to_output_digests():
     with pytest.raises(ValueError, match="left_backend_manifest hash must match left_output_digest.backend_manifest_hash"):
         pper.validate_polars_pandas_equivalence_receipt(receipt, left_backend_manifest=manifest)
 
+
+def test_manifest_hash_binding_success():
+    """Test P2: validation passes when backend_manifest hash matches output_digest.backend_manifest_hash."""
+    from qec.analysis.dataframe_backend_manifest import (
+        build_dataframe_backend_manifest,
+        build_execution_policy,
+        build_null_policy,
+        build_ordering_policy,
+        build_precision_policy,
+        build_schema_field,
+        build_schema_manifest,
+    )
+    # Create a valid manifest
+    fields = [build_schema_field("a", "int64", False, 0)]
+    sm = build_schema_manifest(fields)
+    ep = build_execution_policy("HYBRID", True, True)
+    pp = build_precision_policy("IEEE754", 64)
+    op = build_ordering_policy("PRESERVE_INPUT_ORDER", [])
+    np = build_null_policy("DECLARED_NULLABLE", True)
+    manifest = build_dataframe_backend_manifest("POLARS", "1.0.0", True, sm, ep, pp, op, np)
+    # Create digests with the manifest's hash
+    left = pper.build_dataframe_output_digest("POLARS", manifest.dataframe_backend_manifest_hash, "a" * 64, 10, 2, "b" * 64)
+    right = pper.build_dataframe_output_digest("PANDAS", manifest.dataframe_backend_manifest_hash, "a" * 64, 10, 2, "b" * 64)
+    policy = _policy()
+    schema = _schema()
+    receipt = pper.build_polars_pandas_equivalence_receipt("POLARS", "PANDAS", left, right, policy, schema)
+    # Validation should pass with matching manifest
+    pper.validate_polars_pandas_equivalence_receipt(receipt, left_backend_manifest=manifest, right_backend_manifest=manifest)
+

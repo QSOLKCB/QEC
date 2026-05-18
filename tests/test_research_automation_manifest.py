@@ -170,7 +170,7 @@ def test_idempotent_rebuild_behavior():
 
 
 def test_no_forbidden_imports_and_decoder_boundary_enforcement():
-    module_text = pathlib.Path("src/qec/analysis/research_automation_manifest.py").read_text()
+    module_text = pathlib.Path(ram.__file__).read_text(encoding="utf-8")
     forbidden = ["requests", "urllib", "selenium", "playwright", "pandas", "polars", "qiskit", "qutip", "scipy", "openai", "anthropic", "transformers", "torch", "tensorflow", "os.system"]
     for token in forbidden:
         assert token not in module_text

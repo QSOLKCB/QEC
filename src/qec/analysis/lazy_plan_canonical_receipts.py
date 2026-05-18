@@ -123,7 +123,7 @@ def _to_canonical_obj(value: Any) -> Any:
 
 def _canonical_json(payload: Mapping[str, Any]) -> str:
     """Serialize payload to canonical JSON, rejecting non-string keys."""
-    _canonicalize_json(payload)  # Validate keys are strings
+    _canonicalize_json(payload)  # Validate keys are strings (result not used, validation only)
     return json.dumps(_to_canonical_obj(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
 
 

@@ -148,7 +148,6 @@ def test_execution_boundary_strict_bool_enforcement():
 
 def test_receipt_validates_nested_components():
     """Verify that validate_lazy_plan_canonical_receipt validates nested components."""
-    from types import MappingProxyType
     # Build a valid receipt first
     valid_receipt = _receipt()
     # Create a receipt with an invalid nested join type

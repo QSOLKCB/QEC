@@ -235,6 +235,9 @@ def validate_schema_field_equivalence(item: SchemaFieldEquivalence) -> None:
     _validate_hash_format(item.left_field_hash, "left_field_hash")
     _validate_hash_format(item.right_field_hash, "right_field_hash")
     _validate_hash_format(item.field_equivalence_hash, "field_equivalence_hash")
+    expected = _hash_payload(_base_payload(item.__dict__, "field_equivalence_hash"))
+    if expected != item.field_equivalence_hash:
+        raise ValueError("field equivalence hash mismatch")
 
 
 def build_schema_ordering_equivalence(ordering_mode: str, ordering_equivalent: bool) -> SchemaOrderingEquivalence:
@@ -248,6 +251,9 @@ def validate_schema_ordering_equivalence(item: SchemaOrderingEquivalence) -> Non
     if item.ordering_mode not in _ALLOWED_ORDERING_MODES:
         raise ValueError("invalid ordering equivalence")
     _validate_hash_format(item.ordering_equivalence_hash, "ordering_equivalence_hash")
+    expected = _hash_payload(_base_payload(item.__dict__, "ordering_equivalence_hash"))
+    if expected != item.ordering_equivalence_hash:
+        raise ValueError("ordering equivalence hash mismatch")
 
 
 def build_schema_nullability_equivalence(nullability_mode: str, nullability_equivalent: bool) -> SchemaNullabilityEquivalence:
@@ -261,6 +267,9 @@ def validate_schema_nullability_equivalence(item: SchemaNullabilityEquivalence) 
     if item.nullability_mode not in _ALLOWED_NULLABILITY_MODES:
         raise ValueError("invalid nullability equivalence")
     _validate_hash_format(item.nullability_equivalence_hash, "nullability_equivalence_hash")
+    expected = _hash_payload(_base_payload(item.__dict__, "nullability_equivalence_hash"))
+    if expected != item.nullability_equivalence_hash:
+        raise ValueError("nullability equivalence hash mismatch")
 
 
 def build_schema_dtype_equivalence(dtype_equivalence_mode: str, dtype_equivalent: bool) -> SchemaDTypeEquivalence:
@@ -274,6 +283,9 @@ def validate_schema_dtype_equivalence(item: SchemaDTypeEquivalence) -> None:
     if item.dtype_equivalence_mode not in _ALLOWED_DTYPE_EQUIVALENCE_MODES:
         raise ValueError("invalid dtype equivalence")
     _validate_hash_format(item.dtype_equivalence_hash, "dtype_equivalence_hash")
+    expected = _hash_payload(_base_payload(item.__dict__, "dtype_equivalence_hash"))
+    if expected != item.dtype_equivalence_hash:
+        raise ValueError("dtype equivalence hash mismatch")
 
 
 def build_schema_evolution_transition(transition_type: str, left_schema_hash: str, right_schema_hash: str, transition_allowed: bool) -> SchemaEvolutionTransition:
@@ -289,6 +301,9 @@ def validate_schema_evolution_transition(item: SchemaEvolutionTransition) -> Non
     _validate_hash_format(item.left_schema_hash, "left_schema_hash")
     _validate_hash_format(item.right_schema_hash, "right_schema_hash")
     _validate_hash_format(item.schema_evolution_transition_hash, "schema_evolution_transition_hash")
+    expected = _hash_payload(_base_payload(item.__dict__, "schema_evolution_transition_hash"))
+    if expected != item.schema_evolution_transition_hash:
+        raise ValueError("schema evolution transition hash mismatch")
 
 
 def build_schema_mismatch_record(mismatch_index: int, mismatch_kind: str, left_hash: str, right_hash: str, reason: str) -> SchemaMismatchRecord:
@@ -301,10 +316,15 @@ def build_schema_mismatch_record(mismatch_index: int, mismatch_kind: str, left_h
 def validate_schema_mismatch_record(item: SchemaMismatchRecord) -> None:
     if item.mismatch_kind not in _ALLOWED_MISMATCH_KINDS:
         raise ValueError("invalid mismatch kind")
+    if len(item.reason) > _MAX_NAME_LENGTH:
+        raise ValueError("reason exceeds max length")
     _validate_hash_format(item.left_hash, "left_hash")
     _validate_hash_format(item.right_hash, "right_hash")
     _validate_hash_format(item.schema_mismatch_record_hash, "schema_mismatch_record_hash")
     _check_no_forbidden_runtime_semantics({"reason": item.reason})
+    expected = _hash_payload(_base_payload(item.__dict__, "schema_mismatch_record_hash"))
+    if expected != item.schema_mismatch_record_hash:
+        raise ValueError("schema mismatch record hash mismatch")
 
 
 def build_schema_compatibility_policy(compatibility_policy: str, policy_reason: str) -> SchemaCompatibilityPolicy:
@@ -317,8 +337,13 @@ def build_schema_compatibility_policy(compatibility_policy: str, policy_reason: 
 def validate_schema_compatibility_policy(item: SchemaCompatibilityPolicy) -> None:
     if item.compatibility_policy not in _ALLOWED_COMPATIBILITY_POLICIES:
         raise ValueError("invalid compatibility policy")
+    if len(item.policy_reason) > _MAX_NAME_LENGTH:
+        raise ValueError("policy_reason exceeds max length")
     _validate_hash_format(item.compatibility_policy_hash, "compatibility_policy_hash")
     _check_no_forbidden_runtime_semantics({"policy_reason": item.policy_reason})
+    expected = _hash_payload(_base_payload(item.__dict__, "compatibility_policy_hash"))
+    if expected != item.compatibility_policy_hash:
+        raise ValueError("compatibility policy hash mismatch")
 
 
 def build_schema_equivalence_receipt(
@@ -341,25 +366,25 @@ def build_schema_equivalence_receipt(
     for f in right_schema_manifest.fields:
         validate_schema_field(DataframeSchemaField(**f.__dict__))
     validate_dataframe_schema_comparison(schema_comparison)
+    # P1: Bind schema_comparison to manifest hashes
+    if schema_comparison.left_schema_manifest_hash != left_schema_manifest.schema_manifest_hash:
+        raise ValueError("schema_comparison.left_schema_manifest_hash must match left_schema_manifest.schema_manifest_hash")
+    if schema_comparison.right_schema_manifest_hash != right_schema_manifest.schema_manifest_hash:
+        raise ValueError("schema_comparison.right_schema_manifest_hash must match right_schema_manifest.schema_manifest_hash")
 
     field_eqs = tuple(field_equivalences)
     mm = tuple(mismatches)
-    temp = SchemaEquivalenceReceipt(
-        schema_version=_SCHEMA_VERSION,
-        left_schema_manifest_hash=left_schema_manifest.schema_manifest_hash,
-        right_schema_manifest_hash=right_schema_manifest.schema_manifest_hash,
-        field_equivalences=field_eqs,
-        ordering_equivalence=ordering_equivalence,
-        nullability_equivalence=nullability_equivalence,
-        dtype_equivalence=dtype_equivalence,
-        evolution_transition=evolution_transition,
-        compatibility_policy=compatibility_policy,
-        mismatches=mm,
-        mismatch_count=len(mm),
-        schemas_equivalent=False,
-        adapter_only=adapter_only,
+    # Compute mismatch_count and schemas_equivalent directly from inputs
+    mismatch_count = len(mm)
+    all_fields = all(f.fields_equivalent for f in field_eqs)
+    schemas_equivalent = (
+        all_fields
+        and ordering_equivalence.ordering_equivalent
+        and nullability_equivalence.nullability_equivalent
+        and dtype_equivalence.dtype_equivalent
+        and evolution_transition.transition_allowed
+        and mismatch_count == 0
     )
-    mismatch_count, schemas_equivalent = _validate_equivalence_semantics(temp)
     obj = SchemaEquivalenceReceipt(
         schema_version=_SCHEMA_VERSION,
         left_schema_manifest_hash=left_schema_manifest.schema_manifest_hash,
@@ -374,10 +399,23 @@ def build_schema_equivalence_receipt(
         mismatch_count=mismatch_count,
         schemas_equivalent=schemas_equivalent,
         adapter_only=adapter_only,
+        schema_equivalence_receipt_hash=_hash_payload(_base_payload({
+            "schema_version": _SCHEMA_VERSION,
+            "left_schema_manifest_hash": left_schema_manifest.schema_manifest_hash,
+            "right_schema_manifest_hash": right_schema_manifest.schema_manifest_hash,
+            "field_equivalences": field_eqs,
+            "ordering_equivalence": ordering_equivalence,
+            "nullability_equivalence": nullability_equivalence,
+            "dtype_equivalence": dtype_equivalence,
+            "evolution_transition": evolution_transition,
+            "compatibility_policy": compatibility_policy,
+            "mismatches": mm,
+            "mismatch_count": mismatch_count,
+            "schemas_equivalent": schemas_equivalent,
+            "adapter_only": adapter_only,
+            "schema_equivalence_receipt_hash": "",
+        }, "schema_equivalence_receipt_hash")),
     )
-    obj_payload = dict(obj.__dict__)
-    obj_payload["schema_equivalence_receipt_hash"] = _hash_payload(_base_payload(obj.__dict__, "schema_equivalence_receipt_hash"))
-    obj = SchemaEquivalenceReceipt(**obj_payload)
     validate_schema_equivalence_receipt(obj)
     return obj
 

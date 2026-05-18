@@ -95,6 +95,8 @@ def _to_canonical_obj(value: Any) -> Any:
             if not isinstance(k, str):
                 raise TypeError("payload keys must be strings")
         return {k: _to_canonical_obj(v) for k, v in value.items()}
+    if isinstance(value, (str, bytes)):
+        return value
     if is_dataclass(value):
         return {k: _to_canonical_obj(v) for k, v in value.__dict__.items()}
     if isinstance(value, (tuple, list)):
@@ -121,7 +123,7 @@ def _validate_hash_format(value: str, field_name: str) -> None:
         raise ValueError(f"{field_name} must be a lowercase 64-character hex digest")
 
 
-def _is_non_bool_int(value: Any) -> bool:
+def _is_strict_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
@@ -168,7 +170,7 @@ def build_optimization_precondition(precondition_index: int, precondition_name: 
 
 
 def validate_optimization_precondition(item: OptimizationPrecondition) -> None:
-    if not _is_non_bool_int(item.precondition_index) or item.precondition_index < 0:
+    if not _is_strict_int(item.precondition_index) or item.precondition_index < 0:
         raise ValueError("precondition_index must be non-negative")
     if not isinstance(item.precondition_satisfied, bool):
         raise ValueError("precondition_satisfied must be bool")
@@ -187,7 +189,7 @@ def build_optimization_constraint(constraint_index: int, constraint_type: str, c
 
 
 def validate_optimization_constraint(item: OptimizationConstraint) -> None:
-    if not _is_non_bool_int(item.constraint_index) or item.constraint_index < 0:
+    if not _is_strict_int(item.constraint_index) or item.constraint_index < 0:
         raise ValueError("constraint_index must be non-negative")
     if item.constraint_type not in _ALLOWED_CONSTRAINT_TYPES:
         raise ValueError("invalid constraint type")
@@ -207,7 +209,7 @@ def build_optimization_risk_declaration(risk_index: int, risk_level: str, risk_r
 
 
 def validate_optimization_risk_declaration(item: OptimizationRiskDeclaration) -> None:
-    if not _is_non_bool_int(item.risk_index) or item.risk_index < 0:
+    if not _is_strict_int(item.risk_index) or item.risk_index < 0:
         raise ValueError("risk_index must be non-negative")
     if item.risk_level not in _ALLOWED_RISK_LEVELS:
         raise ValueError("invalid risk level")
@@ -246,7 +248,7 @@ def build_columnar_optimization_scope(optimization_scope: str, referenced_operat
 def validate_columnar_optimization_scope(item: ColumnarOptimizationScope) -> None:
     if item.optimization_scope not in _ALLOWED_OPTIMIZATION_SCOPES:
         raise ValueError("invalid optimization scope")
-    if any((not _is_non_bool_int(x) or x < 0) for x in item.referenced_operation_indices):
+    if any((not _is_strict_int(x) or x < 0) for x in item.referenced_operation_indices):
         raise ValueError("referenced_operation_indices must be non-negative ints")
     _validate_hash_format(item.optimization_scope_hash, "optimization_scope_hash")
     if _hash_payload(_base_payload(item.__dict__, "optimization_scope_hash")) != item.optimization_scope_hash:

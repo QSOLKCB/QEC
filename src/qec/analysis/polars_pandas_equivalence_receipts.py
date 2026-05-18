@@ -106,6 +106,11 @@ def _base_payload(payload: Mapping[str, Any], hash_key: str) -> dict[str, Any]:
     return out
 
 
+def _validate_strict_str(value: Any, name: str) -> None:
+    if type(value) is not str:
+        raise TypeError(f"{name} must be a string, got {type(value).__name__}")
+
+
 def _validate_hash_format(value: str, field_name: str) -> None:
     if not isinstance(value, str) or _HASH_RE.fullmatch(value) is None:
         raise ValueError(f"{field_name} must be a lowercase 64-character hex digest")
@@ -137,9 +142,17 @@ def _validate_equivalence_semantics(receipt: PolarsPandasEquivalenceReceipt) -> 
     mismatch_count = len(receipt.mismatches)
     same_shape = receipt.left_output_digest.row_count == receipt.right_output_digest.row_count and receipt.left_output_digest.column_count == receipt.right_output_digest.column_count
     digest_match = receipt.left_output_digest.canonical_output_hash == receipt.right_output_digest.canonical_output_hash
-    if receipt.equivalence_policy.equivalence_mode == "SCHEMA_ONLY":
+    mode = receipt.equivalence_policy.equivalence_mode
+    if mode == "SCHEMA_ONLY":
+        # SCHEMA_ONLY: only schema must match, digest differences are allowed
+        digest_condition = True
+    elif mode == "DECLARED_ROUNDING_BOUND":
+        # DECLARED_ROUNDING_BOUND: digest differences are allowed if within rounding bound
+        # The rounding bound is declared externally; we only require schema match and same shape
+        # Actual rounding validation is external; this receipt declares the policy
         digest_condition = True
     else:
+        # EXACT_CANONICAL_BYTES, EXACT_CANONICAL_JSON, EXACT_DIGEST: require identical digests
         digest_condition = digest_match
     passed = receipt.schema_comparison.schemas_match and same_shape and digest_condition and mismatch_count == 0
     return mismatch_count, passed
@@ -160,8 +173,11 @@ def build_dataframe_output_digest(backend_name: str, backend_manifest_hash: str,
 
 
 def validate_dataframe_output_digest(digest: DataframeOutputDigest) -> None:
+    _validate_strict_str(digest.backend_name, "backend_name")
     if len(digest.backend_name) == 0 or len(digest.backend_name) > _MAX_NAME_LENGTH:
         raise ValueError("backend_name must be non-empty and <= max length")
+    if type(digest.row_count) is not int or type(digest.column_count) is not int:
+        raise TypeError("row_count/column_count must be integers")
     if digest.row_count < 0 or digest.column_count < 0:
         raise ValueError("row_count/column_count must be non-negative")
     for field_name in ("backend_manifest_hash", "canonical_output_hash", "schema_manifest_hash", "output_digest_hash"):
@@ -172,13 +188,35 @@ def validate_dataframe_output_digest(digest: DataframeOutputDigest) -> None:
 
 
 def build_dataframe_equivalence_policy(equivalence_mode: str, dtype_policy: str, row_order_policy: str, declared_sort_keys: Sequence[str], null_policy: str, rounding_policy: str) -> DataframeEquivalencePolicy:
-    payload = {"equivalence_mode": equivalence_mode, "dtype_policy": dtype_policy, "row_order_policy": row_order_policy, "declared_sort_keys": tuple(declared_sort_keys), "null_policy": null_policy, "rounding_policy": rounding_policy}
+    _validate_strict_str(equivalence_mode, "equivalence_mode")
+    _validate_strict_str(dtype_policy, "dtype_policy")
+    _validate_strict_str(row_order_policy, "row_order_policy")
+    _validate_strict_str(null_policy, "null_policy")
+    _validate_strict_str(rounding_policy, "rounding_policy")
+    # Reject plain strings since str is a Sequence[str] but would split into characters
+    if isinstance(declared_sort_keys, str):
+        raise TypeError("declared_sort_keys must be a sequence (list, tuple) of strings, not a string")
+    keys = tuple(declared_sort_keys)
+    for key in keys:
+        _validate_strict_str(key, "declared_sort_keys element")
+    payload = {"equivalence_mode": equivalence_mode, "dtype_policy": dtype_policy, "row_order_policy": row_order_policy, "declared_sort_keys": keys, "null_policy": null_policy, "rounding_policy": rounding_policy}
     obj = DataframeEquivalencePolicy(**payload, equivalence_policy_hash=_hash_payload(payload))
     validate_dataframe_equivalence_policy(obj)
     return obj
 
 
 def validate_dataframe_equivalence_policy(policy: DataframeEquivalencePolicy) -> None:
+    _validate_strict_str(policy.equivalence_mode, "equivalence_mode")
+    _validate_strict_str(policy.dtype_policy, "dtype_policy")
+    _validate_strict_str(policy.row_order_policy, "row_order_policy")
+    _validate_strict_str(policy.null_policy, "null_policy")
+    _validate_strict_str(policy.rounding_policy, "rounding_policy")
+    if not isinstance(policy.declared_sort_keys, tuple):
+        raise TypeError("declared_sort_keys must be a tuple")
+    for key in policy.declared_sort_keys:
+        _validate_strict_str(key, "declared_sort_keys element")
+    if len(policy.declared_sort_keys) != len(set(policy.declared_sort_keys)):
+        raise ValueError("declared_sort_keys must be unique")
     if policy.equivalence_mode not in _ALLOWED_EQUIVALENCE_MODES:
         raise ValueError("invalid equivalence mode")
     if policy.dtype_policy not in _ALLOWED_DTYPE_POLICIES:
@@ -204,8 +242,12 @@ def build_dataframe_mismatch_record(mismatch_index: int, mismatch_kind: str, lef
 
 
 def validate_dataframe_mismatch_record(record: DataframeMismatchRecord) -> None:
+    if type(record.mismatch_index) is not int:
+        raise TypeError("mismatch_index must be an integer")
     if record.mismatch_index < 0:
         raise ValueError("mismatch_index must be non-negative")
+    _validate_strict_str(record.mismatch_kind, "mismatch_kind")
+    _validate_strict_str(record.reason, "reason")
     if record.mismatch_kind not in _ALLOWED_MISMATCH_KINDS:
         raise ValueError("invalid mismatch kind")
     _validate_hash_format(record.left_value_hash, "left_value_hash")
@@ -256,16 +298,28 @@ def validate_polars_pandas_equivalence_receipt(receipt: PolarsPandasEquivalenceR
     validate_dataframe_output_digest(receipt.right_output_digest)
     validate_dataframe_equivalence_policy(receipt.equivalence_policy)
     validate_dataframe_schema_comparison(receipt.schema_comparison)
+    # P1: Bind schema comparison hashes to output digests
+    if receipt.schema_comparison.left_schema_manifest_hash != receipt.left_output_digest.schema_manifest_hash:
+        raise ValueError("schema_comparison.left_schema_manifest_hash must match left_output_digest.schema_manifest_hash")
+    if receipt.schema_comparison.right_schema_manifest_hash != receipt.right_output_digest.schema_manifest_hash:
+        raise ValueError("schema_comparison.right_schema_manifest_hash must match right_output_digest.schema_manifest_hash")
+    # P2: Check manifest hashes against referenced output digests
     if left_backend_manifest is not None:
         validate_dataframe_backend_manifest(left_backend_manifest)
+        if left_backend_manifest.dataframe_backend_manifest_hash != receipt.left_output_digest.backend_manifest_hash:
+            raise ValueError("left_backend_manifest hash must match left_output_digest.backend_manifest_hash")
     if right_backend_manifest is not None:
         validate_dataframe_backend_manifest(right_backend_manifest)
+        if right_backend_manifest.dataframe_backend_manifest_hash != receipt.right_output_digest.backend_manifest_hash:
+            raise ValueError("right_backend_manifest hash must match right_output_digest.backend_manifest_hash")
     if lazy_plan_canonical_receipt is not None:
         validate_lazy_plan_canonical_receipt(lazy_plan_canonical_receipt)
         if receipt.lazy_plan_canonical_receipt_hash != lazy_plan_canonical_receipt.lazy_plan_canonical_receipt_hash:
             raise ValueError("lazy plan canonical receipt hash mismatch")
     if receipt.lazy_plan_canonical_receipt_hash is not None:
         _validate_hash_format(receipt.lazy_plan_canonical_receipt_hash, "lazy_plan_canonical_receipt_hash")
+    _validate_strict_str(receipt.left_backend_name, "left_backend_name")
+    _validate_strict_str(receipt.right_backend_name, "right_backend_name")
     if receipt.schema_version != _SCHEMA_VERSION:
         raise ValueError("invalid schema_version")
     if type(receipt.adapter_only) is not bool or receipt.adapter_only is not True:

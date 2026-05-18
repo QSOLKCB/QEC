@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import ast
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -39,9 +41,12 @@ def test_exact_digest_and_schema_only_equivalence_pass():
 def test_output_digest_mismatch_and_schema_mismatch_failure_and_mismatch_semantics():
     with pytest.raises(ValueError):
         pper.validate_polars_pandas_equivalence_receipt(_receipt(left_out="1" * 64, right_out="2" * 64))
+    # Create digests with different schema hashes to match the bad_schema
+    left_digest = _digest("POLARS", schema="b" * 64)
+    right_digest = _digest("PANDAS", schema="c" * 64)
     bad_schema = pper.build_dataframe_schema_comparison("b" * 64, "c" * 64, False)
     mismatch = pper.build_dataframe_mismatch_record(0, "SCHEMA_HASH_MISMATCH", "b" * 64, "c" * 64, "schema mismatch")
-    r = pper.build_polars_pandas_equivalence_receipt("POLARS", "PANDAS", _digest("POLARS"), _digest("PANDAS"), _policy(), bad_schema, (mismatch,))
+    r = pper.build_polars_pandas_equivalence_receipt("POLARS", "PANDAS", left_digest, right_digest, _policy(), bad_schema, (mismatch,))
     assert r.equivalence_passed is False
 
 
@@ -94,9 +99,26 @@ def test_equivalence_passed_recomputed_adapter_only_and_child_validation_schema_
 
 
 def test_no_forbidden_imports_decoder_boundary_immutable_payload_pythonhashseed_forbidden_claims():
-    src = open("src/qec/analysis/polars_pandas_equivalence_receipts.py", encoding="utf-8").read()
-    forbidden = ["import pandas", "import polars", "import pyarrow", "import requests", "import subprocess", "urllib", "from qec.decoder", "import qec.decoder"]
-    assert not any(x in src for x in forbidden)
+    # AST-based forbidden import check
+    source_path = Path("src/qec/analysis/polars_pandas_equivalence_receipts.py")
+    source = source_path.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    forbidden_modules = {"pandas", "polars", "pyarrow", "requests", "subprocess", "urllib", "os"}
+    decoder_modules = {"qec.decoder"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                module_name = alias.name.split(".")[0]
+                assert module_name not in forbidden_modules, f"Forbidden import: {alias.name}"
+                assert alias.name not in decoder_modules and not alias.name.startswith("qec.decoder"), f"Forbidden decoder import: {alias.name}"
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                module_name = node.module.split(".")[0]
+                assert module_name not in forbidden_modules, f"Forbidden import from: {node.module}"
+                assert node.module not in decoder_modules and not node.module.startswith("qec.decoder"), f"Forbidden decoder import from: {node.module}"
+        elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name):
+                assert node.func.id not in {"eval", "exec", "__import__"}, f"Forbidden call: {node.func.id}"
     r = _receipt()
     with pytest.raises(TypeError):
         pper.validate_polars_pandas_equivalence_receipt(pper.PolarsPandasEquivalenceReceipt(**{**r.__dict__, "mismatches": []}))
@@ -114,3 +136,111 @@ def test_no_forbidden_imports_decoder_boundary_immutable_payload_pythonhashseed_
     out1 = subprocess.check_output([sys.executable, "-c", code], env={"PYTHONPATH": "src", "PYTHONHASHSEED": "0"}, text=True).strip()
     out2 = subprocess.check_output([sys.executable, "-c", code], env={"PYTHONPATH": "src", "PYTHONHASHSEED": "1"}, text=True).strip()
     assert out1 == out2
+
+
+def test_strict_string_type_validation():
+    """Test that backend_name and other string fields must be actual strings."""
+    # backend_name must be a string, not a list
+    with pytest.raises(TypeError, match="backend_name must be a string"):
+        pper.build_dataframe_output_digest(["POLARS"], "0" * 64, "a" * 64, 10, 2, "b" * 64)  # type: ignore[arg-type]
+    # equivalence_mode must be a string
+    with pytest.raises(TypeError, match="equivalence_mode must be a string"):
+        pper.build_dataframe_equivalence_policy(123, "EXACT_DTYPE_MATCH", "DECLARED_SORT_KEYS", ("id",), "NULL_EQUALS_NULL", "IEEE754")  # type: ignore[arg-type]
+
+
+def test_declared_sort_keys_rejects_plain_string():
+    """Test that declared_sort_keys rejects a plain string."""
+    with pytest.raises(TypeError, match="declared_sort_keys must be a sequence"):
+        pper.build_dataframe_equivalence_policy("EXACT_DIGEST", "EXACT_DTYPE_MATCH", "DECLARED_SORT_KEYS", "column_name", "NULL_EQUALS_NULL", "IEEE754")  # type: ignore[arg-type]
+
+
+def test_declared_sort_keys_must_be_tuple_in_validator():
+    """Test that declared_sort_keys must be a tuple in the validator."""
+    policy = _policy()
+    bad_policy = pper.DataframeEquivalencePolicy(
+        equivalence_mode=policy.equivalence_mode,
+        dtype_policy=policy.dtype_policy,
+        row_order_policy=policy.row_order_policy,
+        declared_sort_keys=["id"],  # type: ignore[arg-type]
+        null_policy=policy.null_policy,
+        rounding_policy=policy.rounding_policy,
+        equivalence_policy_hash=policy.equivalence_policy_hash,
+    )
+    with pytest.raises(TypeError, match="declared_sort_keys must be a tuple"):
+        pper.validate_dataframe_equivalence_policy(bad_policy)
+
+
+def test_declared_sort_keys_must_be_unique():
+    """Test that declared_sort_keys must have unique elements."""
+    with pytest.raises(ValueError, match="declared_sort_keys must be unique"):
+        pper.build_dataframe_equivalence_policy("EXACT_DIGEST", "EXACT_DTYPE_MATCH", "DECLARED_SORT_KEYS", ("id", "id"), "NULL_EQUALS_NULL", "IEEE754")
+
+
+def test_declared_rounding_bound_mode():
+    """Test that DECLARED_ROUNDING_BOUND mode allows different digests."""
+    # DECLARED_ROUNDING_BOUND requires non-EXACT rounding policy
+    with pytest.raises(ValueError, match="DECLARED_ROUNDING_BOUND requires non-EXACT rounding policy"):
+        pper.build_dataframe_equivalence_policy("DECLARED_ROUNDING_BOUND", "EXACT_DTYPE_MATCH", "DECLARED_SORT_KEYS", ("id",), "NULL_EQUALS_NULL", "EXACT")
+    # DECLARED_ROUNDING_BOUND with IEEE754 rounding should allow different digests
+    policy = pper.build_dataframe_equivalence_policy("DECLARED_ROUNDING_BOUND", "EXACT_DTYPE_MATCH", "DECLARED_SORT_KEYS", ("id",), "NULL_EQUALS_NULL", "IEEE754")
+    left = _digest("POLARS", "1" * 64)
+    right = _digest("PANDAS", "2" * 64)
+    schema = _schema()
+    receipt = pper.build_polars_pandas_equivalence_receipt("POLARS", "PANDAS", left, right, policy, schema)
+    assert receipt.equivalence_passed is True
+
+
+def test_schema_comparison_hash_binding_to_output_digests():
+    """Test P1: schema_comparison hashes must match output_digest schema_manifest_hash."""
+    left = _digest("POLARS", schema="a" * 64)
+    right = _digest("PANDAS", schema="a" * 64)
+    # Create schema comparison with different hashes
+    bad_schema = pper.build_dataframe_schema_comparison("b" * 64, "b" * 64, True)
+    policy = _policy()
+    # Build receipt manually to bypass builder validation
+    receipt = pper.PolarsPandasEquivalenceReceipt(
+        schema_version="POLARS_PANDAS_EQUIVALENCE_RECEIPT_V1",
+        left_backend_name="POLARS",
+        right_backend_name="PANDAS",
+        left_output_digest=left,
+        right_output_digest=right,
+        equivalence_policy=policy,
+        schema_comparison=bad_schema,
+        mismatches=(),
+        mismatch_count=0,
+        lazy_plan_canonical_receipt_hash=None,
+        equivalence_passed=True,
+        adapter_only=True,
+        polars_pandas_equivalence_receipt_hash="0" * 64,
+    )
+    with pytest.raises(ValueError, match="schema_comparison.left_schema_manifest_hash must match left_output_digest.schema_manifest_hash"):
+        pper.validate_polars_pandas_equivalence_receipt(receipt)
+
+
+def test_manifest_hash_binding_to_output_digests():
+    """Test P2: backend_manifest hash must match output_digest.backend_manifest_hash."""
+    from qec.analysis.dataframe_backend_manifest import (
+        build_dataframe_backend_manifest,
+        build_execution_policy,
+        build_null_policy,
+        build_ordering_policy,
+        build_precision_policy,
+        build_schema_field,
+        build_schema_manifest,
+    )
+    # Create a valid manifest
+    fields = [build_schema_field("a", "int64", False, 0)]
+    sm = build_schema_manifest(fields)
+    ep = build_execution_policy("HYBRID", True, True)
+    pp = build_precision_policy("IEEE754", 64)
+    op = build_ordering_policy("PRESERVE_INPUT_ORDER", [])
+    np = build_null_policy("DECLARED_NULLABLE", True)
+    manifest = build_dataframe_backend_manifest("POLARS", "1.0.0", True, sm, ep, pp, op, np)
+    # Create a receipt with a different backend_manifest_hash
+    left = _digest("POLARS")  # Uses "0" * 64 as backend_manifest_hash
+    right = _digest("PANDAS")
+    receipt = _receipt()
+    # Validate with mismatched manifest
+    with pytest.raises(ValueError, match="left_backend_manifest hash must match left_output_digest.backend_manifest_hash"):
+        pper.validate_polars_pandas_equivalence_receipt(receipt, left_backend_manifest=manifest)
+

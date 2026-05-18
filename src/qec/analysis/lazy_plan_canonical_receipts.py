@@ -7,6 +7,9 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
+from qec.analysis.canonical_hashing import canonicalize_json as _canonicalize_json
+from qec.analysis.canonical_hashing import CanonicalHashingError
+
 _SCHEMA_VERSION = "LAZY_PLAN_CANONICAL_RECEIPT_V1"
 _MAX_OPERATIONS = 4096
 _MAX_COLUMNS = 4096
@@ -105,8 +108,12 @@ class LazyPlanCanonicalReceipt:
 
 
 def _to_canonical_obj(value: Any) -> Any:
+    """Convert value to canonical form, rejecting non-string mapping keys."""
     if isinstance(value, Mapping):
-        return {str(k): _to_canonical_obj(v) for k, v in value.items()}
+        for k in value.keys():
+            if not isinstance(k, str):
+                raise CanonicalHashingError("payload keys must be strings")
+        return {k: _to_canonical_obj(v) for k, v in value.items()}
     if isinstance(value, tuple):
         return [_to_canonical_obj(v) for v in value]
     if isinstance(value, list):
@@ -115,6 +122,8 @@ def _to_canonical_obj(value: Any) -> Any:
 
 
 def _canonical_json(payload: Mapping[str, Any]) -> str:
+    """Serialize payload to canonical JSON, rejecting non-string keys."""
+    _canonicalize_json(payload)  # Validate keys are strings
     return json.dumps(_to_canonical_obj(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
 
 
@@ -195,6 +204,10 @@ def validate_lazy_plan_projection(projection: LazyPlanProjection) -> None:
     if len(projection.projected_columns) > _MAX_COLUMNS:
         raise ValueError("projection exceeds max columns")
     _validate_hash_format(projection.projection_hash, "projection_hash")
+    expected_payload = {"projected_columns": projection.projected_columns}
+    expected_hash = _hash_payload(expected_payload)
+    if expected_hash != projection.projection_hash:
+        raise ValueError("projection hash mismatch")
 
 
 def build_lazy_plan_filter(filter_expression: str, referenced_columns: Sequence[str]) -> LazyPlanFilter:
@@ -207,6 +220,10 @@ def build_lazy_plan_filter(filter_expression: str, referenced_columns: Sequence[
 def validate_lazy_plan_filter(filter_obj: LazyPlanFilter) -> None:
     _check_no_forbidden_runtime_semantics({"filter_expression": filter_obj.filter_expression})
     _validate_hash_format(filter_obj.filter_hash, "filter_hash")
+    expected_payload = {"filter_expression": filter_obj.filter_expression, "referenced_columns": filter_obj.referenced_columns}
+    expected_hash = _hash_payload(expected_payload)
+    if expected_hash != filter_obj.filter_hash:
+        raise ValueError("filter hash mismatch")
 
 
 def build_lazy_plan_aggregation(grouping_columns: Sequence[str], aggregation_functions: Sequence[str]) -> LazyPlanAggregation:
@@ -218,6 +235,10 @@ def build_lazy_plan_aggregation(grouping_columns: Sequence[str], aggregation_fun
 
 def validate_lazy_plan_aggregation(aggregation: LazyPlanAggregation) -> None:
     _validate_hash_format(aggregation.aggregation_hash, "aggregation_hash")
+    expected_payload = {"grouping_columns": aggregation.grouping_columns, "aggregation_functions": aggregation.aggregation_functions}
+    expected_hash = _hash_payload(expected_payload)
+    if expected_hash != aggregation.aggregation_hash:
+        raise ValueError("aggregation hash mismatch")
 
 
 def build_lazy_plan_join(join_type: str, left_keys: Sequence[str], right_keys: Sequence[str]) -> LazyPlanJoin:
@@ -231,6 +252,10 @@ def validate_lazy_plan_join(join_obj: LazyPlanJoin) -> None:
     if join_obj.join_type not in _ALLOWED_JOIN_TYPES:
         raise ValueError("invalid join type")
     _validate_hash_format(join_obj.join_hash, "join_hash")
+    expected_payload = {"join_type": join_obj.join_type, "left_keys": join_obj.left_keys, "right_keys": join_obj.right_keys}
+    expected_hash = _hash_payload(expected_payload)
+    if expected_hash != join_obj.join_hash:
+        raise ValueError("join hash mismatch")
 
 
 def build_lazy_plan_sort(sort_columns: Sequence[str], sort_directions: Sequence[str]) -> LazyPlanSort:
@@ -246,6 +271,10 @@ def validate_lazy_plan_sort(sort_obj: LazyPlanSort) -> None:
         if direction not in _ALLOWED_SORT_DIRECTIONS:
             raise ValueError("invalid sort direction")
     _validate_hash_format(sort_obj.sort_hash, "sort_hash")
+    expected_payload = {"sort_columns": sort_obj.sort_columns, "sort_directions": sort_obj.sort_directions}
+    expected_hash = _hash_payload(expected_payload)
+    if expected_hash != sort_obj.sort_hash:
+        raise ValueError("sort hash mismatch")
 
 
 def build_lazy_plan_schema_transition(transition_type: str, input_schema_hash: str, output_schema_hash: str) -> LazyPlanSchemaTransition:
@@ -261,6 +290,10 @@ def validate_lazy_plan_schema_transition(transition: LazyPlanSchemaTransition) -
     _validate_hash_format(transition.input_schema_hash, "input_schema_hash")
     _validate_hash_format(transition.output_schema_hash, "output_schema_hash")
     _validate_hash_format(transition.schema_transition_hash, "schema_transition_hash")
+    expected_payload = {"transition_type": transition.transition_type, "input_schema_hash": transition.input_schema_hash, "output_schema_hash": transition.output_schema_hash}
+    expected_hash = _hash_payload(expected_payload)
+    if expected_hash != transition.schema_transition_hash:
+        raise ValueError("schema transition hash mismatch")
 
 
 def build_lazy_execution_boundary(execution_boundary: str, eager_materialization_allowed: bool, lazy_reordering_allowed: bool) -> LazyExecutionBoundary:
@@ -277,7 +310,19 @@ def build_lazy_execution_boundary(execution_boundary: str, eager_materialization
 def validate_lazy_execution_boundary(boundary: LazyExecutionBoundary) -> None:
     if boundary.execution_boundary not in _ALLOWED_EXECUTION_BOUNDARIES:
         raise ValueError("invalid execution boundary")
+    if type(boundary.eager_materialization_allowed) is not bool:
+        raise TypeError("eager_materialization_allowed must be strict bool")
+    if type(boundary.lazy_reordering_allowed) is not bool:
+        raise TypeError("lazy_reordering_allowed must be strict bool")
     _validate_hash_format(boundary.execution_boundary_hash, "execution_boundary_hash")
+    expected_payload = {
+        "execution_boundary": boundary.execution_boundary,
+        "eager_materialization_allowed": boundary.eager_materialization_allowed,
+        "lazy_reordering_allowed": boundary.lazy_reordering_allowed,
+    }
+    expected_hash = _hash_payload(expected_payload)
+    if expected_hash != boundary.execution_boundary_hash:
+        raise ValueError("execution boundary hash mismatch")
 
 
 def build_lazy_plan_canonical_receipt(backend_name: str, backend_version: str, adapter_only: bool, operations: Sequence[LazyPlanOperation], projection: LazyPlanProjection, filters: Sequence[LazyPlanFilter] = (), aggregations: Sequence[LazyPlanAggregation] = (), joins: Sequence[LazyPlanJoin] = (), sorts: Sequence[LazyPlanSort] = (), schema_transitions: Sequence[LazyPlanSchemaTransition] = (), execution_boundary: LazyExecutionBoundary | None = None) -> LazyPlanCanonicalReceipt:
@@ -347,6 +392,22 @@ def validate_lazy_plan_canonical_receipt(receipt: LazyPlanCanonicalReceipt) -> N
         raise ValueError("operations must be in deterministic index order")
     if receipt.operation_count != len(receipt.operations):
         raise ValueError("operation count mismatch")
+    # Validate all nested components
+    for op in receipt.operations:
+        validate_lazy_plan_operation(op)
+    validate_lazy_plan_projection(receipt.projection)
+    for f in receipt.filters:
+        validate_lazy_plan_filter(f)
+    for a in receipt.aggregations:
+        validate_lazy_plan_aggregation(a)
+    for j in receipt.joins:
+        validate_lazy_plan_join(j)
+    for s in receipt.sorts:
+        validate_lazy_plan_sort(s)
+    for st in receipt.schema_transitions:
+        validate_lazy_plan_schema_transition(st)
+    if receipt.execution_boundary is not None:
+        validate_lazy_execution_boundary(receipt.execution_boundary)
     _validate_hash_format(receipt.lazy_plan_canonical_receipt_hash, "lazy_plan_canonical_receipt_hash")
     payload = {
         "schema_version": receipt.schema_version,

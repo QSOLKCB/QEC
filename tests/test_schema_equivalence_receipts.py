@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 
 import pytest
 
@@ -116,7 +117,6 @@ def test_no_forbidden_imports_decoder_boundary_and_pythonhashseed_stability():
     forbidden = ["import pandas", "import polars", "import pyarrow", "import scipy", "import matplotlib", "import qutip", "import qiskit", "import requests", "import urllib", "import subprocess", "eval(", "exec(", "os.system("]
     assert not any(tok in text for tok in forbidden)
     assert "src/qec/decoder/" not in "src/qec/analysis/schema_equivalence_receipts.py"
-    import sys
     cmd = "import os;from qec.analysis.schema_equivalence_receipts import _hash_payload;print(_hash_payload({'a':1,'b':2}))"
     env = {**os.environ, "PYTHONPATH": "src", "PYTHONHASHSEED": "777"}
     a = subprocess.check_output([sys.executable, "-c", cmd], env=env, text=True).strip()

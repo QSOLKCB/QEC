@@ -282,7 +282,7 @@ def build_ordering_policy(ordering_policy: str, declared_sort_keys: Sequence[str
     _validate_strict_str(ordering_policy, "ordering_policy")
     # Reject plain strings since str is a Sequence[str] but would split into characters
     if isinstance(declared_sort_keys, str):
-        raise TypeError("declared_sort_keys must be a sequence of strings, not a single string")
+        raise TypeError("declared_sort_keys must be a sequence (list, tuple) of strings, not a string")
     keys = tuple(declared_sort_keys)
     for key in keys:
         _validate_strict_str(key, "declared_sort_keys element")

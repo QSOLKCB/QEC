@@ -36,7 +36,7 @@ from qec.analysis.dataframe_backend_manifest import (
 def _manifest():
     fields = [
         build_schema_field("b", "int64", False, 1),
-        build_schema_field("a", "float64", False, 0),  # Changed to nullable=False
+        build_schema_field("a", "float64", False, 0),
     ]
     sm = build_schema_manifest(fields)
     ep = build_execution_policy("HYBRID", True, True)
@@ -156,14 +156,18 @@ def test_schema_count_recomputation_rejection():
 
 def test_stable_hashing_across_pythonhashseed():
     code = """
-from qec.analysis.dataframe_backend_manifest import build_schema_field, build_schema_manifest, build_execution_policy, build_precision_policy, build_ordering_policy, build_null_policy, build_dataframe_backend_manifest
-f=[build_schema_field('a','float64',False,0),build_schema_field('b','int64',False,1)]
-sm=build_schema_manifest(f)
-e=build_execution_policy('HYBRID',True,True)
-p=build_precision_policy('IEEE754',64)
-o=build_ordering_policy('DECLARED_SORT_KEYS',['a','b'])
-n=build_null_policy('DECLARED_NULLABLE',True)
-m=build_dataframe_backend_manifest('PANDAS','2.0.0',True,sm,e,p,o,n)
+from qec.analysis.dataframe_backend_manifest import (
+    build_schema_field, build_schema_manifest, build_execution_policy,
+    build_precision_policy, build_ordering_policy, build_null_policy,
+    build_dataframe_backend_manifest
+)
+f = [build_schema_field('a', 'float64', False, 0), build_schema_field('b', 'int64', False, 1)]
+sm = build_schema_manifest(f)
+e = build_execution_policy('HYBRID', True, True)
+p = build_precision_policy('IEEE754', 64)
+o = build_ordering_policy('DECLARED_SORT_KEYS', ['a', 'b'])
+n = build_null_policy('DECLARED_NULLABLE', True)
+m = build_dataframe_backend_manifest('PANDAS', '2.0.0', True, sm, e, p, o, n)
 print(m.dataframe_backend_manifest_hash)
 """
     env0 = {"PYTHONPATH": "src", "PYTHONHASHSEED": "0"}
@@ -222,7 +226,7 @@ def test_strict_bool_validation_null_policy():
 
 def test_declared_sort_keys_rejects_plain_string():
     """Test that declared_sort_keys rejects a plain string."""
-    with pytest.raises(TypeError, match="declared_sort_keys must be a sequence of strings"):
+    with pytest.raises(TypeError, match="declared_sort_keys must be a sequence"):
         build_ordering_policy("DECLARED_SORT_KEYS", "column_name")  # type: ignore[arg-type]
 
 
@@ -367,9 +371,9 @@ def test_no_forbidden_imports_ast_based():
     source_path = Path("src/qec/analysis/dataframe_backend_manifest.py")
     source = source_path.read_text(encoding="utf-8")
     tree = ast.parse(source)
-    
+
     forbidden_modules = {"pandas", "polars", "pyarrow", "requests", "subprocess", "os"}
-    
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:

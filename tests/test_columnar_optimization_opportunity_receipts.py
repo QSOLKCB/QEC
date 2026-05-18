@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from collections import UserDict
 
 import pytest
 
@@ -59,8 +60,57 @@ def _build(status="ELIGIBLE", pre_ok=True, risk="LOW"):
 
 def test_hash_and_canonical_json_stability_and_idempotent_rebuild():
     assert coor._canonical_json({"b": 1, "a": 2}) == '{"a":2,"b":1}'
+    assert coor._canonical_json(UserDict({"b": 1, "a": 2})) == '{"a":2,"b":1}'
     r1, r2 = _build(), _build()
     assert r1.columnar_optimization_opportunity_receipt_hash == r2.columnar_optimization_opportunity_receipt_hash
+
+
+def test_builder_sorts_components_and_validation_enforces_deterministic_index_order():
+    lr, sr = _lazy_receipt(), _schema_receipt()
+    p0 = coor.build_optimization_precondition(0, "p0", True)
+    p1 = coor.build_optimization_precondition(1, "p1", True)
+    c0 = coor.build_optimization_constraint(0, "ROW_ORDER_MUST_PRESERVE", "ok")
+    c1 = coor.build_optimization_constraint(1, "NULLABILITY_MUST_PRESERVE", "ok")
+    r0 = coor.build_optimization_risk_declaration(0, "LOW", "ok")
+    r1 = coor.build_optimization_risk_declaration(1, "LOW", "ok")
+    ordered = coor.build_columnar_optimization_opportunity_receipt(
+        lr.lazy_plan_canonical_receipt_hash,
+        sr.schema_equivalence_receipt_hash,
+        coor.build_columnar_optimization_candidate("COLUMN_PRUNING", "ELIGIBLE"),
+        coor.build_columnar_optimization_scope("LOCAL_OPERATION", (0,)),
+        (p0, p1),
+        (c0, c1),
+        (r0, r1),
+        lazy_plan_canonical_receipt=lr,
+        schema_equivalence_receipt=sr,
+    )
+    reversed_order = coor.build_columnar_optimization_opportunity_receipt(
+        lr.lazy_plan_canonical_receipt_hash,
+        sr.schema_equivalence_receipt_hash,
+        coor.build_columnar_optimization_candidate("COLUMN_PRUNING", "ELIGIBLE"),
+        coor.build_columnar_optimization_scope("LOCAL_OPERATION", (0,)),
+        (p1, p0),
+        (c1, c0),
+        (r1, r0),
+        lazy_plan_canonical_receipt=lr,
+        schema_equivalence_receipt=sr,
+    )
+    assert reversed_order.preconditions == ordered.preconditions
+    assert reversed_order.constraints == ordered.constraints
+    assert reversed_order.risks == ordered.risks
+    assert reversed_order.columnar_optimization_opportunity_receipt_hash == ordered.columnar_optimization_opportunity_receipt_hash
+    invalid = type(ordered)(**{
+        **ordered.__dict__,
+        "preconditions": (ordered.preconditions[1], ordered.preconditions[0]),
+        "columnar_optimization_opportunity_receipt_hash": coor._hash_payload(
+            coor._base_payload(
+                {**ordered.__dict__, "preconditions": (ordered.preconditions[1], ordered.preconditions[0])},
+                "columnar_optimization_opportunity_receipt_hash",
+            )
+        ),
+    })
+    with pytest.raises(ValueError, match="deterministic index order"):
+        coor.validate_columnar_optimization_opportunity_receipt(invalid)
 
 
 def test_eligibility_semantics_and_recomputed_not_trusted():
@@ -93,6 +143,21 @@ def test_dense_unique_indices_and_invalid_enums_and_hash_rejection():
         coor.build_optimization_constraint(0, "BAD", "x")
     with pytest.raises(ValueError):
         coor.validate_optimization_precondition(type(r.preconditions[0])(**{**r.preconditions[0].__dict__, "optimization_precondition_hash": "abc"}))
+    with pytest.raises(ValueError):
+        coor.build_optimization_precondition(True, "x", True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        coor.build_columnar_optimization_scope("LOCAL_OPERATION", (True,))  # type: ignore[arg-type]
+
+
+def test_reason_fields_require_string_and_bound_length():
+    with pytest.raises(ValueError, match="constraint_reason"):
+        coor.build_optimization_constraint(0, "ROW_ORDER_MUST_PRESERVE", None)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="constraint_reason"):
+        coor.build_optimization_constraint(0, "ROW_ORDER_MUST_PRESERVE", "x" * 257)
+    with pytest.raises(ValueError, match="risk_reason"):
+        coor.build_optimization_risk_declaration(0, "LOW", None)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="risk_reason"):
+        coor.build_optimization_risk_declaration(0, "LOW", "x" * 257)
 
 
 def test_adapter_only_child_validation_lineage_binding_and_forbidden_semantics():

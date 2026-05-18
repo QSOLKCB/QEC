@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, is_dataclass
 from typing import Any, Mapping, Sequence
 
 from qec.analysis.lazy_plan_canonical_receipts import validate_lazy_plan_canonical_receipt
@@ -14,6 +14,7 @@ _MAX_PRECONDITIONS = 4096
 _MAX_CONSTRAINTS = 4096
 _MAX_RISKS = 4096
 _MAX_NAME_LENGTH = 128
+_MAX_REASON_LENGTH = 256
 _HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
 _ALLOWED_OPTIMIZATION_CLASSES = {
@@ -89,13 +90,13 @@ class ColumnarOptimizationOpportunityReceipt:
 
 
 def _to_canonical_obj(value: Any) -> Any:
-    if hasattr(value, "__dict__") and not isinstance(value, (str, bytes)):
-        return {k: _to_canonical_obj(v) for k, v in value.__dict__.items()}
     if isinstance(value, Mapping):
         for k in value.keys():
             if not isinstance(k, str):
                 raise TypeError("payload keys must be strings")
         return {k: _to_canonical_obj(v) for k, v in value.items()}
+    if is_dataclass(value):
+        return {k: _to_canonical_obj(v) for k, v in value.__dict__.items()}
     if isinstance(value, (tuple, list)):
         return [_to_canonical_obj(v) for v in value]
     return value
@@ -118,6 +119,10 @@ def _base_payload(payload: Mapping[str, Any], hash_key: str) -> dict[str, Any]:
 def _validate_hash_format(value: str, field_name: str) -> None:
     if not isinstance(value, str) or _HASH_RE.fullmatch(value) is None:
         raise ValueError(f"{field_name} must be a lowercase 64-character hex digest")
+
+
+def _is_non_bool_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
 
 
 def _validate_dense_indices(indices: Sequence[int], label: str) -> None:
@@ -163,7 +168,7 @@ def build_optimization_precondition(precondition_index: int, precondition_name: 
 
 
 def validate_optimization_precondition(item: OptimizationPrecondition) -> None:
-    if item.precondition_index < 0:
+    if not _is_non_bool_int(item.precondition_index) or item.precondition_index < 0:
         raise ValueError("precondition_index must be non-negative")
     if not isinstance(item.precondition_satisfied, bool):
         raise ValueError("precondition_satisfied must be bool")
@@ -174,8 +179,6 @@ def validate_optimization_precondition(item: OptimizationPrecondition) -> None:
     if _hash_payload(_base_payload(item.__dict__, "optimization_precondition_hash")) != item.optimization_precondition_hash:
         raise ValueError("optimization precondition hash mismatch")
 
-# similar for others
-
 def build_optimization_constraint(constraint_index: int, constraint_type: str, constraint_reason: str) -> OptimizationConstraint:
     payload = {"constraint_index": constraint_index, "constraint_type": constraint_type, "constraint_reason": constraint_reason}
     obj = OptimizationConstraint(**payload, optimization_constraint_hash=_hash_payload(payload))
@@ -184,10 +187,12 @@ def build_optimization_constraint(constraint_index: int, constraint_type: str, c
 
 
 def validate_optimization_constraint(item: OptimizationConstraint) -> None:
-    if item.constraint_index < 0:
+    if not _is_non_bool_int(item.constraint_index) or item.constraint_index < 0:
         raise ValueError("constraint_index must be non-negative")
     if item.constraint_type not in _ALLOWED_CONSTRAINT_TYPES:
         raise ValueError("invalid constraint type")
+    if not isinstance(item.constraint_reason, str) or len(item.constraint_reason) > _MAX_REASON_LENGTH:
+        raise ValueError("invalid constraint_reason")
     _check_no_forbidden_runtime_semantics(item.__dict__)
     _validate_hash_format(item.optimization_constraint_hash, "optimization_constraint_hash")
     if _hash_payload(_base_payload(item.__dict__, "optimization_constraint_hash")) != item.optimization_constraint_hash:
@@ -202,10 +207,12 @@ def build_optimization_risk_declaration(risk_index: int, risk_level: str, risk_r
 
 
 def validate_optimization_risk_declaration(item: OptimizationRiskDeclaration) -> None:
-    if item.risk_index < 0:
+    if not _is_non_bool_int(item.risk_index) or item.risk_index < 0:
         raise ValueError("risk_index must be non-negative")
     if item.risk_level not in _ALLOWED_RISK_LEVELS:
         raise ValueError("invalid risk level")
+    if not isinstance(item.risk_reason, str) or len(item.risk_reason) > _MAX_REASON_LENGTH:
+        raise ValueError("invalid risk_reason")
     _check_no_forbidden_runtime_semantics(item.__dict__)
     _validate_hash_format(item.optimization_risk_declaration_hash, "optimization_risk_declaration_hash")
     if _hash_payload(_base_payload(item.__dict__, "optimization_risk_declaration_hash")) != item.optimization_risk_declaration_hash:
@@ -239,7 +246,7 @@ def build_columnar_optimization_scope(optimization_scope: str, referenced_operat
 def validate_columnar_optimization_scope(item: ColumnarOptimizationScope) -> None:
     if item.optimization_scope not in _ALLOWED_OPTIMIZATION_SCOPES:
         raise ValueError("invalid optimization scope")
-    if any((not isinstance(x, int) or x < 0) for x in item.referenced_operation_indices):
+    if any((not _is_non_bool_int(x) or x < 0) for x in item.referenced_operation_indices):
         raise ValueError("referenced_operation_indices must be non-negative ints")
     _validate_hash_format(item.optimization_scope_hash, "optimization_scope_hash")
     if _hash_payload(_base_payload(item.__dict__, "optimization_scope_hash")) != item.optimization_scope_hash:
@@ -259,18 +266,21 @@ def build_columnar_optimization_opportunity_receipt(
     lazy_plan_canonical_receipt: Any | None = None,
     schema_equivalence_receipt: Any | None = None,
 ) -> ColumnarOptimizationOpportunityReceipt:
+    sorted_preconditions = tuple(sorted(tuple(preconditions), key=lambda x: x.precondition_index))
+    sorted_constraints = tuple(sorted(tuple(constraints), key=lambda x: x.constraint_index))
+    sorted_risks = tuple(sorted(tuple(risks), key=lambda x: x.risk_index))
     receipt = ColumnarOptimizationOpportunityReceipt(
         schema_version=_SCHEMA_VERSION,
         lazy_plan_canonical_receipt_hash=lazy_plan_canonical_receipt_hash,
         schema_equivalence_receipt_hash=schema_equivalence_receipt_hash,
         optimization_candidate=optimization_candidate,
         optimization_scope=optimization_scope,
-        preconditions=tuple(preconditions),
-        constraints=tuple(constraints),
-        risks=tuple(risks),
-        precondition_count=len(preconditions),
-        constraint_count=len(constraints),
-        risk_count=len(risks),
+        preconditions=sorted_preconditions,
+        constraints=sorted_constraints,
+        risks=sorted_risks,
+        precondition_count=len(sorted_preconditions),
+        constraint_count=len(sorted_constraints),
+        risk_count=len(sorted_risks),
         optimization_eligible=False,
         adapter_only=adapter_only,
     )
@@ -306,10 +316,16 @@ def validate_columnar_optimization_opportunity_receipt(receipt: ColumnarOptimiza
 
     _validate_dense_indices([x.precondition_index for x in receipt.preconditions], "precondition")
     _validate_unique_indices([x.precondition_index for x in receipt.preconditions], "precondition")
+    if tuple(sorted(receipt.preconditions, key=lambda x: x.precondition_index)) != receipt.preconditions:
+        raise ValueError("preconditions must be in deterministic index order")
     _validate_dense_indices([x.constraint_index for x in receipt.constraints], "constraint")
     _validate_unique_indices([x.constraint_index for x in receipt.constraints], "constraint")
+    if tuple(sorted(receipt.constraints, key=lambda x: x.constraint_index)) != receipt.constraints:
+        raise ValueError("constraints must be in deterministic index order")
     _validate_dense_indices([x.risk_index for x in receipt.risks], "risk")
     _validate_unique_indices([x.risk_index for x in receipt.risks], "risk")
+    if tuple(sorted(receipt.risks, key=lambda x: x.risk_index)) != receipt.risks:
+        raise ValueError("risks must be in deterministic index order")
 
     _validate_hash_format(receipt.lazy_plan_canonical_receipt_hash, "lazy_plan_canonical_receipt_hash")
     _validate_hash_format(receipt.schema_equivalence_receipt_hash, "schema_equivalence_receipt_hash")

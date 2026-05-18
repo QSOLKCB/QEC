@@ -127,16 +127,6 @@ reality_loop_proof_receipt_hash
 → global_truth_receipt_hash
 → replay_record_hash
 → global_replay_proof_hash
-→ graph_universe_claim_boundary_receipt_hash
-→ canonical_decoder_baseline_receipt_hash
-→ decoder_candidate_manifest_hash
-→ decoder_replay_equivalence_receipt_hash
-→ decoder_optimization_contract_hash
-→ decoder_fast_path_equivalence_receipt_hash
-→ decoder_implementation_boundary_receipt_hash
-→ decoder_benchmark_ladder_receipt_hash
-→ decoder_rollback_receipt_hash
-→ decoder_promotion_receipt_hash
 → irc_replay_audit_hash                             (v162.2)
 → heavy_dependency_discovery_manifest_hash          (v163.0)
 → dependency_hotpath_receipt_hash                   (v163.1)
@@ -181,14 +171,14 @@ reality_loop_proof_receipt_hash
 → quantum_geometry_signal_receipt_hash              (v165.9.3)
 → graph_universe_claim_boundary_receipt_hash        (v165.9.4)
 → canonical_decoder_baseline_receipt_hash           (v166.0)
-→ decoder_candidate_manifest_hash                    (v166.1)
+→ decoder_candidate_manifest_hash                   (v166.1)
 → decoder_replay_equivalence_receipt_hash           (v166.2)
-→ decoder_optimization_contract_hash                 (v166.3)
+→ decoder_optimization_contract_hash                (v166.3)
 → decoder_fast_path_equivalence_receipt_hash        (v166.4)
 → decoder_implementation_boundary_receipt_hash      (v166.5)
 → decoder_benchmark_ladder_receipt_hash             (v166.6)
-→ decoder_rollback_receipt_hash                      (v166.7)
-→ decoder_promotion_receipt_hash                     (v166.8)
+→ decoder_rollback_receipt_hash                     (v166.7)
+→ decoder_promotion_receipt_hash                    (v166.8)
 → qldpc_construction_receipt_hash (v166.x)
 → syndrome_stream_receipt_hash
 → control_plane_manifest_hash
@@ -906,7 +896,7 @@ before they may become trusted execution surfaces.
 A decoder upgrade is accepted only if deterministic replay equivalence is proven against the canonical baseline decoder."
 
 "The sacred decoder is the oracle.
-The upgrade candidate is the hypothesis."
+The candidate decoder is the hypothesis."
 
 **Planned Releases**
 - v166.0 → CanonicalDecoderBaselineReceipt
@@ -1426,6 +1416,59 @@ reality_loop_proof_receipt_hash
 → global_truth_receipt_hash
 → replay_record_hash
 → global_replay_proof_hash
+→ irc_replay_audit_hash                             (v162.2)
+→ heavy_dependency_discovery_manifest_hash          (v163.0)
+→ dependency_hotpath_receipt_hash                   (v163.1)
+→ backend_invariant_candidate_hash                  (v163.2)
+→ cross_backend_equivalence_receipt_hash            (v163.3)
+→ optimization_opportunity_index_hash               (v163.4)
+→ optimization_contract_hash                        (v164.0)
+→ lightweight_adapter_spec_hash                     (v164.1)
+→ cached_canonical_kernel_receipt_hash              (v164.2)
+→ fast_path_equivalence_receipt_hash                (v164.3)
+→ optimization_implementation_receipt_hash          (v164.4)
+→ dependency_reduction_receipt_hash                 (v164.5)
+→ optimized_simulation_spec_hash                    (v165.0)
+→ backend_equivalence_replay_receipt_hash           (v165.1)
+→ optimized_qec_benchmark_receipt_hash              (v165.2)
+→ optimized_telemetry_receipt_hash                  (v165.3)
+→ optimized_simulation_report_hash                  (v165.4)
+→ dataframe_backend_manifest_hash                   (v165.5.0)
+→ lazy_plan_canonical_receipt_hash                  (v165.5.1)
+→ polars_pandas_equivalence_receipt_hash            (v165.5.2)
+→ schema_equivalence_receipt_hash                   (v165.5.3)
+→ columnar_optimization_opportunity_receipt_hash    (v165.5.4)
+→ research_automation_manifest_hash                 (v165.6.0)
+→ paper_generation_provenance_receipt_hash          (v165.6.1)
+→ human_review_boundary_receipt_hash                (v165.6.2)
+→ citation_integrity_receipt_hash                   (v165.6.3)
+→ claim_scope_receipt_hash                          (v165.6.4)
+→ inference_backend_manifest_hash                   (v165.7.0)
+→ byte_level_model_boundary_receipt_hash            (v165.7.1)
+→ tokenization_policy_receipt_hash                  (v165.7.2)
+→ parameter_golf_compression_receipt_hash           (v165.7.3)
+→ inference_memory_bandwidth_receipt_hash           (v165.7.4)
+→ kv_cache_policy_receipt_hash                      (v165.7.5)
+→ agent_observation_trace_receipt_hash              (v165.8.0)
+→ skill_library_manifest_hash                       (v165.8.1)
+→ tool_dispatch_telemetry_receipt_hash              (v165.8.2)
+→ crawler_boundary_receipt_hash                     (v165.8.3)
+→ agent_pattern_decision_receipt_hash               (v165.8.4)
+→ qpe_toolbox_adapter_receipt_hash                  (v165.9.0)
+→ quantum_memory_signal_receipt_hash                (v165.9.1)
+→ self_correcting_memory_claim_boundary_receipt_hash (v165.9.2)
+→ quantum_geometry_signal_receipt_hash              (v165.9.3)
+→ graph_universe_claim_boundary_receipt_hash        (v165.9.4)
+→ canonical_decoder_baseline_receipt_hash           (v166.0)
+→ decoder_candidate_manifest_hash                   (v166.1)
+→ decoder_replay_equivalence_receipt_hash           (v166.2)
+→ decoder_optimization_contract_hash                (v166.3)
+→ decoder_fast_path_equivalence_receipt_hash        (v166.4)
+→ decoder_implementation_boundary_receipt_hash      (v166.5)
+→ decoder_benchmark_ladder_receipt_hash             (v166.6)
+→ decoder_rollback_receipt_hash                     (v166.7)
+→ decoder_promotion_receipt_hash                    (v166.8)
+→ qldpc_construction_receipt_hash                   (v166.x)
 → syndrome_stream_receipt_hash
 → control_plane_manifest_hash
 → resource_overhead_receipt_hash

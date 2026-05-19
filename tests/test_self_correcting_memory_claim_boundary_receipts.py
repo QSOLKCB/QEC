@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from qec.analysis import self_correcting_memory_claim_boundary_receipts as scm
+from qec.analysis import quantum_memory_signal_receipts as qmsr
 from qec.analysis.self_correcting_memory_claim_boundary_receipts import (
     build_self_correcting_memory_claim_boundary_receipt,
     build_self_correcting_memory_claim_identity,
@@ -18,7 +19,7 @@ from qec.analysis.self_correcting_memory_claim_boundary_receipts import (
 from tests.test_quantum_memory_signal_receipts import _receipt as _qms_receipt
 
 
-def _identity(claim_type: str = "DECLARED_SELF_CORRECTING_MEMORY_CLAIM"):
+def _identity(claim_type: str = "DECLARED_RESEARCH_CLAIM"):
     return build_self_correcting_memory_claim_identity("scm-claim", "1.0", claim_type)
 
 
@@ -125,16 +126,16 @@ def test_preprint_review_enforcement_and_custom_context_modes_non_replay_safe():
     rec, qms, qpe, apd, trace, manifest, dispatch, crawler, deps = _receipt()
     for candidate in (
         build_self_correcting_memory_claim_boundary_receipt(qms, _identity("DECLARED_CUSTOM_CLAIM"), _source(), _review(), _scope(), _evidence(), True),
-        build_self_correcting_memory_claim_boundary_receipt(qms, _identity(), _source("DECLARED_CUSTOM_SOURCE"), _review(), _scope(), _evidence(), True),
-        build_self_correcting_memory_claim_boundary_receipt(qms, _identity(), _source("SOURCE_INACCESSIBLE"), _review(), _scope(), _evidence(), True),
-        build_self_correcting_memory_claim_boundary_receipt(qms, _identity(), _source(), _review("UNREVIEWED_PREPRINT"), _scope(), _evidence(), True),
-        build_self_correcting_memory_claim_boundary_receipt(qms, _identity(), _source(), _review("DECLARED_CONTEXT_REVIEW"), _scope(), _evidence(), True),
-        build_self_correcting_memory_claim_boundary_receipt(qms, _identity(), _source(), _review(), _scope("CLAIM_SCOPE_CONTEXT_ONLY"), _evidence(), True),
-        build_self_correcting_memory_claim_boundary_receipt(qms, _identity(), _source(), _review(), _scope("CLAIM_SCOPE_PREPRINT_ONLY"), _evidence(), True),
-        build_self_correcting_memory_claim_boundary_receipt(qms, _identity(), _source(), _review(), _scope("DECLARED_CUSTOM_CLAIM_SCOPE"), _evidence(), True),
-        build_self_correcting_memory_claim_boundary_receipt(qms, _identity(), _source(), _review(), _scope(), _evidence("EVIDENCE_BOUNDARY_PREPRINT_ONLY"), True),
-        build_self_correcting_memory_claim_boundary_receipt(qms, _identity(), _source(), _review(), _scope(), _evidence("EVIDENCE_BOUNDARY_CONTEXT_ONLY"), True),
-        build_self_correcting_memory_claim_boundary_receipt(qms, _identity(), _source(), _review(), _scope(), _evidence("DECLARED_CUSTOM_EVIDENCE_BOUNDARY"), True),
+        build_self_correcting_memory_claim_boundary_receipt(qms, _identity("DECLARED_SELF_CORRECTING_MEMORY_CLAIM"), _source("DECLARED_CUSTOM_SOURCE"), _review("UNREVIEWED_PREPRINT"), _scope(), _evidence(), True),
+        build_self_correcting_memory_claim_boundary_receipt(qms, _identity("DECLARED_SELF_CORRECTING_MEMORY_CLAIM"), _source("SOURCE_INACCESSIBLE"), _review("UNREVIEWED_PREPRINT"), _scope(), _evidence(), True),
+        build_self_correcting_memory_claim_boundary_receipt(qms, _identity("DECLARED_SELF_CORRECTING_MEMORY_CLAIM"), _source(), _review("UNREVIEWED_PREPRINT"), _scope(), _evidence(), True),
+        build_self_correcting_memory_claim_boundary_receipt(qms, _identity("DECLARED_RESEARCH_CLAIM"), _source(), _review("DECLARED_CONTEXT_REVIEW"), _scope(), _evidence(), True),
+        build_self_correcting_memory_claim_boundary_receipt(qms, _identity("DECLARED_RESEARCH_CLAIM"), _source(), _review(), _scope("CLAIM_SCOPE_CONTEXT_ONLY"), _evidence(), True),
+        build_self_correcting_memory_claim_boundary_receipt(qms, _identity("DECLARED_RESEARCH_CLAIM"), _source(), _review("UNREVIEWED_PREPRINT"), _scope("CLAIM_SCOPE_PREPRINT_ONLY"), _evidence(), True),
+        build_self_correcting_memory_claim_boundary_receipt(qms, _identity("DECLARED_RESEARCH_CLAIM"), _source(), _review(), _scope("DECLARED_CUSTOM_CLAIM_SCOPE"), _evidence(), True),
+        build_self_correcting_memory_claim_boundary_receipt(qms, _identity("DECLARED_RESEARCH_CLAIM"), _source(), _review("UNREVIEWED_PREPRINT"), _scope(), _evidence("EVIDENCE_BOUNDARY_PREPRINT_ONLY"), True),
+        build_self_correcting_memory_claim_boundary_receipt(qms, _identity("DECLARED_RESEARCH_CLAIM"), _source(), _review(), _scope(), _evidence("EVIDENCE_BOUNDARY_CONTEXT_ONLY"), True),
+        build_self_correcting_memory_claim_boundary_receipt(qms, _identity("DECLARED_RESEARCH_CLAIM"), _source(), _review(), _scope(), _evidence("DECLARED_CUSTOM_EVIDENCE_BOUNDARY"), True),
     ):
         assert candidate.replay_safe_self_correcting_memory_claim is False
         scm.validate_self_correcting_memory_claim_boundary_receipt(candidate, qms, qpe_toolbox_adapter_receipt=qpe, agent_pattern_decision_receipt=apd, agent_observation_trace_receipt=trace, skill_library_manifest=manifest, tool_dispatch_telemetry_receipt=dispatch, crawler_boundary_receipt=crawler, **deps)
@@ -148,3 +149,39 @@ def test_source_bound_claim_enforcement_and_import_guards_and_upstream_hash_vali
     rec, qms, qpe, apd, trace, manifest, dispatch, crawler, deps = _receipt()
     with pytest.raises(ValueError):
         scm.validate_self_correcting_memory_claim_boundary_receipt(rec, replace(qms, quantum_memory_signal_receipt_hash="0" * 64), qpe_toolbox_adapter_receipt=qpe, agent_pattern_decision_receipt=apd, agent_observation_trace_receipt=trace, skill_library_manifest=manifest, tool_dispatch_telemetry_receipt=dispatch, crawler_boundary_receipt=crawler, **deps)
+
+
+def test_preprint_modes_and_upstream_unreviewed_status_must_remain_unreviewed():
+    rec, qms, qpe, apd, trace, manifest, dispatch, crawler, deps = _receipt()
+
+    reviewed_self_correcting = build_self_correcting_memory_claim_boundary_receipt(
+        qms, _identity("DECLARED_SELF_CORRECTING_MEMORY_CLAIM"), _source(), _review("REVIEWED_SOURCE"), _scope(), _evidence(), True
+    )
+    with pytest.raises(ValueError, match="self-correcting memory claims must be UNREVIEWED_PREPRINT"):
+        scm.validate_self_correcting_memory_claim_boundary_receipt(reviewed_self_correcting, qms, qpe_toolbox_adapter_receipt=qpe, agent_pattern_decision_receipt=apd, agent_observation_trace_receipt=trace, skill_library_manifest=manifest, tool_dispatch_telemetry_receipt=dispatch, crawler_boundary_receipt=crawler, **deps)
+
+    upstream_unreviewed = replace(
+        qms,
+        review_boundary=qmsr.build_quantum_memory_review_boundary("UNREVIEWED_PREPRINT", "unreviewed preprint upstream receipt"),
+    )
+    validated_upstream_unreviewed = replace(
+        upstream_unreviewed,
+        quantum_memory_signal_receipt_hash=scm._hash_payload(scm._base_payload(upstream_unreviewed.__dict__, "quantum_memory_signal_receipt_hash")),
+    )
+    reviewed_receipt = build_self_correcting_memory_claim_boundary_receipt(
+        validated_upstream_unreviewed, _identity("DECLARED_RESEARCH_CLAIM"), _source(), _review("REVIEWED_SOURCE"), _scope(), _evidence(), True
+    )
+    with pytest.raises(ValueError, match="upstream status must be preserved"):
+        scm.validate_self_correcting_memory_claim_boundary_receipt(reviewed_receipt, validated_upstream_unreviewed, qpe_toolbox_adapter_receipt=qpe, agent_pattern_decision_receipt=apd, agent_observation_trace_receipt=trace, skill_library_manifest=manifest, tool_dispatch_telemetry_receipt=dispatch, crawler_boundary_receipt=crawler, **deps)
+
+    preprint_scope_reviewed = build_self_correcting_memory_claim_boundary_receipt(
+        qms, _identity("DECLARED_RESEARCH_CLAIM"), _source(), _review("REVIEWED_SOURCE"), _scope("CLAIM_SCOPE_PREPRINT_ONLY"), _evidence(), True
+    )
+    with pytest.raises(ValueError, match="CLAIM_SCOPE_PREPRINT_ONLY requires UNREVIEWED_PREPRINT"):
+        scm.validate_self_correcting_memory_claim_boundary_receipt(preprint_scope_reviewed, qms, qpe_toolbox_adapter_receipt=qpe, agent_pattern_decision_receipt=apd, agent_observation_trace_receipt=trace, skill_library_manifest=manifest, tool_dispatch_telemetry_receipt=dispatch, crawler_boundary_receipt=crawler, **deps)
+
+    preprint_evidence_reviewed = build_self_correcting_memory_claim_boundary_receipt(
+        qms, _identity("DECLARED_RESEARCH_CLAIM"), _source(), _review("REVIEWED_SOURCE"), _scope(), _evidence("EVIDENCE_BOUNDARY_PREPRINT_ONLY"), True
+    )
+    with pytest.raises(ValueError, match="EVIDENCE_BOUNDARY_PREPRINT_ONLY requires UNREVIEWED_PREPRINT"):
+        scm.validate_self_correcting_memory_claim_boundary_receipt(preprint_evidence_reviewed, qms, qpe_toolbox_adapter_receipt=qpe, agent_pattern_decision_receipt=apd, agent_observation_trace_receipt=trace, skill_library_manifest=manifest, tool_dispatch_telemetry_receipt=dispatch, crawler_boundary_receipt=crawler, **deps)

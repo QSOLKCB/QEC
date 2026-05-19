@@ -396,6 +396,17 @@ def validate_self_correcting_memory_claim_boundary_receipt(
     validate_quantum_memory_signal_receipt(quantum_memory_signal_receipt, **upstream_kwargs)
     if receipt.quantum_memory_signal_receipt_hash != quantum_memory_signal_receipt.quantum_memory_signal_receipt_hash:
         raise ValueError("quantum_memory_signal_receipt_hash mismatch")
+    if (
+        receipt.claim_identity.claim_type == "DECLARED_SELF_CORRECTING_MEMORY_CLAIM"
+        and receipt.review_boundary.review_mode != "UNREVIEWED_PREPRINT"
+    ):
+        raise ValueError("self-correcting memory claims must be UNREVIEWED_PREPRINT")
+    if quantum_memory_signal_receipt.review_boundary.review_mode == "UNREVIEWED_PREPRINT" and receipt.review_boundary.review_mode != "UNREVIEWED_PREPRINT":
+        raise ValueError("UNREVIEWED_PREPRINT upstream status must be preserved")
+    if receipt.claim_scope_boundary.claim_scope_mode == "CLAIM_SCOPE_PREPRINT_ONLY" and receipt.review_boundary.review_mode != "UNREVIEWED_PREPRINT":
+        raise ValueError("CLAIM_SCOPE_PREPRINT_ONLY requires UNREVIEWED_PREPRINT")
+    if receipt.evidence_boundary.evidence_boundary_mode == "EVIDENCE_BOUNDARY_PREPRINT_ONLY" and receipt.review_boundary.review_mode != "UNREVIEWED_PREPRINT":
+        raise ValueError("EVIDENCE_BOUNDARY_PREPRINT_ONLY requires UNREVIEWED_PREPRINT")
 
     _validate_self_correcting_memory_claim_semantics(
         receipt.source_boundary.source_reason,

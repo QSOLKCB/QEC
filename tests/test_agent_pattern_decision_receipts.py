@@ -55,9 +55,9 @@ def test_hash_and_canonical_stability_hashseed_and_idempotent_rebuild():
 
 def test_replay_safe_recomputed_not_trusted():
     rec, trace, manifest, dispatch, crawler, deps = _receipt()
-    assert rec.replay_safe_pattern_decision is True
+    assert rec.replay_safe_pattern_decision is False
     apdr.validate_agent_pattern_decision_receipt(rec, trace, manifest, dispatch, crawler, **deps)
-    forged = replace(rec, replay_safe_pattern_decision=False, agent_pattern_decision_receipt_hash="0" * 64)
+    forged = replace(rec, replay_safe_pattern_decision=True, agent_pattern_decision_receipt_hash="0" * 64)
     forged = replace(forged, agent_pattern_decision_receipt_hash=apdr._hash_payload(apdr._base_payload(forged.__dict__, "agent_pattern_decision_receipt_hash")))
     with pytest.raises(ValueError, match="recomputed"):
         apdr.validate_agent_pattern_decision_receipt(forged, trace, manifest, dispatch, crawler, **deps)
@@ -118,9 +118,12 @@ def test_child_before_aggregate_validation_enforced():
         "autonomous evaluation",
         "semantic equivalence guaranteed",
         "agent output is evidence",
+        "agent output as evidence",
         "hidden runtime execution",
         "hidden tool execution",
+        "hidden tool call",
         "hidden crawler execution",
+        "autonomous network crawling",
         "hidden network semantics",
         "hidden replay equivalence",
         "hidden mutable pattern",
@@ -150,6 +153,27 @@ def test_replay_safe_rejection_for_custom_modes_context_modes_and_non_replay_lin
     non, trace2, manifest2, dispatch2, crawler2, deps2 = _receipt(replay_upstream=False)
     assert non.replay_safe_pattern_decision is False
     apdr.validate_agent_pattern_decision_receipt(non, trace2, manifest2, dispatch2, crawler2, **deps2)
+
+
+def test_replay_safe_requires_pattern_identity_match_with_trace_declaration():
+    rec, trace, manifest, dispatch, crawler, deps = _receipt()
+    mismatched = apdr.build_agent_pattern_decision_receipt(
+        trace,
+        manifest,
+        dispatch,
+        crawler,
+        _identity("DECLARED_AUDIT_PATTERN"),
+        _selection(),
+        _decision(),
+        _execution(),
+        _audit(),
+        True,
+    )
+    assert trace.pattern_declaration.pattern_type == "SEQUENTIAL_TOOL_PATTERN"
+    assert mismatched.pattern_identity.pattern_type != trace.pattern_declaration.pattern_type
+    assert rec.replay_safe_pattern_decision is False
+    assert mismatched.replay_safe_pattern_decision is False
+    apdr.validate_agent_pattern_decision_receipt(mismatched, trace, manifest, dispatch, crawler, **deps)
 
 
 def test_pattern_declared_before_execution_boundary_and_replay_safe_audit_enforcement():

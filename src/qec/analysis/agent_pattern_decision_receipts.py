@@ -85,12 +85,15 @@ _FORBIDDEN_TOKENS = (
     "runtime dispatch",
     "live crawler",
     "agent output is evidence",
+    "agent output as evidence",
     "automatic reasoning correctness",
     "semantic equivalence guaranteed",
     "autonomous evaluation",
     "hidden runtime execution",
     "hidden tool execution",
+    "hidden tool call",
     "hidden crawler execution",
+    "autonomous network crawling",
     "hidden network semantics",
     "hidden autonomous",
     "hidden replay equivalence",
@@ -306,6 +309,7 @@ def _recompute_replay_safe_pattern_decision(
         and skill_library_manifest.replay_safe_skill_library is True
         and tool_dispatch_telemetry_receipt.replay_safe_dispatch is True
         and crawler_boundary_receipt.replay_safe_crawler is True
+        and pattern_identity.pattern_type == agent_observation_trace_receipt.pattern_declaration.pattern_type
         and pattern_identity.pattern_type != "DECLARED_CUSTOM_PATTERN"
         and selection_declaration.selection_mode in _REPLAY_SAFE_SELECTION_MODES
         and decision_boundary.decision_boundary_mode in _REPLAY_SAFE_DECISION_BOUNDARY_MODES

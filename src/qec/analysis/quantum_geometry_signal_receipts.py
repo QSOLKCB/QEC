@@ -397,6 +397,13 @@ def validate_quantum_geometry_signal_receipt(
     validate_self_correcting_memory_claim_boundary_receipt(self_correcting_memory_claim_boundary_receipt, **upstream_kwargs)
     if receipt.self_correcting_memory_claim_boundary_receipt_hash != self_correcting_memory_claim_boundary_receipt.self_correcting_memory_claim_boundary_receipt_hash:
         raise ValueError("self_correcting_memory_claim_boundary_receipt_hash mismatch")
+    if (
+        self_correcting_memory_claim_boundary_receipt.review_boundary.review_mode == "UNREVIEWED_PREPRINT"
+        and receipt.review_boundary.review_mode != "UNREVIEWED_PREPRINT"
+    ):
+        raise ValueError("UNREVIEWED_PREPRINT upstream status must be preserved")
+    if receipt.claim_scope_boundary.claim_scope_mode == "CLAIM_SCOPE_PREPRINT_ONLY" and receipt.review_boundary.review_mode != "UNREVIEWED_PREPRINT":
+        raise ValueError("CLAIM_SCOPE_PREPRINT_ONLY requires UNREVIEWED_PREPRINT")
 
     _validate_quantum_geometry_signal_semantics(
         receipt.source_boundary.source_reason,

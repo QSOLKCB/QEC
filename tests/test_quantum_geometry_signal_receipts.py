@@ -15,6 +15,7 @@ from qec.analysis.quantum_geometry_signal_receipts import (
     build_quantum_geometry_source_boundary,
     build_quantum_geometry_topology_boundary,
 )
+from qec.analysis import self_correcting_memory_claim_boundary_receipts as scmr
 from tests.test_self_correcting_memory_claim_boundary_receipts import _receipt as _scm_receipt
 
 
@@ -144,3 +145,32 @@ def test_review_and_source_bound_enforcement_custom_context_modes_and_import_gua
 
     with pytest.raises(ValueError):
         qgsr.validate_quantum_geometry_signal_receipt(rec, replace(scm, self_correcting_memory_claim_boundary_receipt_hash="0" * 64), quantum_memory_signal_receipt=qms, qpe_toolbox_adapter_receipt=qpe, agent_pattern_decision_receipt=apd, agent_observation_trace_receipt=trace, skill_library_manifest=manifest, tool_dispatch_telemetry_receipt=dispatch, crawler_boundary_receipt=crawler, **deps)
+
+
+def test_preserve_unreviewed_upstream_status_and_preprint_scope_requires_unreviewed():
+    rec, scm, qms, qpe, apd, trace, manifest, dispatch, crawler, deps = _receipt()
+    upstream_unreviewed = scmr.build_self_correcting_memory_claim_boundary_receipt(
+        qms,
+        scmr.build_self_correcting_memory_claim_identity("scm-claim", "1.0", "DECLARED_RESEARCH_CLAIM"),
+        scmr.build_self_correcting_memory_source_boundary("SOURCE_HASH_BOUND", "a" * 64, "source-bound claim declaration"),
+        scmr.build_self_correcting_memory_review_boundary("UNREVIEWED_PREPRINT", "unreviewed preprint upstream"),
+        scmr.build_self_correcting_memory_claim_scope_boundary("CLAIM_SCOPE_REPLAY_ONLY", "source-bound claim scope"),
+        scmr.build_self_correcting_memory_evidence_boundary("EVIDENCE_BOUNDARY_SOURCE_ONLY", "source-bound evidence boundary"),
+        True,
+    )
+
+    upgraded_review = build_quantum_geometry_signal_receipt(
+        upstream_unreviewed,
+        _identity(),
+        _source(),
+        _review("REVIEWED_SOURCE", "reviewed source"),
+        _scope(),
+        _topology(),
+        True,
+    )
+    with pytest.raises(ValueError, match="UNREVIEWED_PREPRINT upstream status must be preserved"):
+        qgsr.validate_quantum_geometry_signal_receipt(upgraded_review, upstream_unreviewed, quantum_memory_signal_receipt=qms, qpe_toolbox_adapter_receipt=qpe, agent_pattern_decision_receipt=apd, agent_observation_trace_receipt=trace, skill_library_manifest=manifest, tool_dispatch_telemetry_receipt=dispatch, crawler_boundary_receipt=crawler, **deps)
+
+    preprint_scope_with_reviewed = replace(rec, claim_scope_boundary=_scope("CLAIM_SCOPE_PREPRINT_ONLY"), review_boundary=_review("REVIEWED_SOURCE"), quantum_geometry_signal_receipt_hash="0" * 64)
+    with pytest.raises(ValueError, match="CLAIM_SCOPE_PREPRINT_ONLY requires UNREVIEWED_PREPRINT"):
+        qgsr.validate_quantum_geometry_signal_receipt(preprint_scope_with_reviewed, scm, quantum_memory_signal_receipt=qms, qpe_toolbox_adapter_receipt=qpe, agent_pattern_decision_receipt=apd, agent_observation_trace_receipt=trace, skill_library_manifest=manifest, tool_dispatch_telemetry_receipt=dispatch, crawler_boundary_receipt=crawler, **deps)

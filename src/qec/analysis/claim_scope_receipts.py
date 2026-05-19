@@ -112,7 +112,9 @@ def _hash_payload(payload: Mapping[str, Any]) -> str:
 
 
 def _base_payload(payload: Mapping[str, Any], hash_key: str) -> dict[str, Any]:
-    out = dict(payload); out.pop(hash_key, None); return out
+    out = dict(payload)
+    out.pop(hash_key, None)
+    return out
 
 
 def _validate_hash_format(value: str, field_name: str) -> None:
@@ -148,10 +150,14 @@ def _validate_claim_scope_semantics(
     citation_ok: bool,
     review_ok: bool,
 ) -> bool:
-    if receipt.schema_version != _SCHEMA_VERSION: raise ValueError("invalid schema version")
-    if receipt.claim_review_state not in _ALLOWED_CLAIM_REVIEW_STATES: raise ValueError("invalid claim review state")
-    if not isinstance(receipt.adapter_only, bool) or receipt.adapter_only is not True: raise ValueError("adapter_only must be True")
-    if receipt.escalation_boundary.escalation_mode not in _ALLOWED_ESCALATION_MODES: raise ValueError("invalid escalation mode")
+    if receipt.schema_version != _SCHEMA_VERSION:
+        raise ValueError("invalid schema version")
+    if receipt.claim_review_state not in _ALLOWED_CLAIM_REVIEW_STATES:
+        raise ValueError("invalid claim review state")
+    if not isinstance(receipt.adapter_only, bool) or receipt.adapter_only is not True:
+        raise ValueError("adapter_only must be True")
+    if receipt.escalation_boundary.escalation_mode not in _ALLOWED_ESCALATION_MODES:
+        raise ValueError("invalid escalation mode")
     empirical_claim = receipt.claim_identity.claim_category == "EMPIRICAL_OBSERVATION"
     if empirical_claim and receipt.evidence_scope.evidence_scope_mode in {"SYMBOLIC_ONLY", "NON_EMPIRICAL_ONLY"}:
         raise ValueError("non-empirical evidence scope cannot support empirical observation")
@@ -179,42 +185,49 @@ def _validate_claim_scope_semantics(
 # builders
 
 def build_claim_identity(claim_key: str, claim_category: str, claim_summary: str) -> ClaimIdentity:
-    _check_name(claim_key, "claim_key"); _check_reason(claim_summary, "claim_summary")
-    if claim_category not in _ALLOWED_CLAIM_CATEGORIES: raise ValueError("invalid claim category")
+    _check_name(claim_key, "claim_key")
+    _check_reason(claim_summary, "claim_summary")
+    if claim_category not in _ALLOWED_CLAIM_CATEGORIES:
+        raise ValueError("invalid claim category")
     p = {"claim_key": claim_key, "claim_category": claim_category, "claim_summary": claim_summary}
     return ClaimIdentity(**p, claim_identity_hash=_hash_payload(p))
 
 
 def build_claim_evidence_scope(evidence_scope_mode: str, evidence_scope_reason: str) -> ClaimEvidenceScope:
-    if evidence_scope_mode not in _ALLOWED_EVIDENCE_SCOPES: raise ValueError("invalid evidence scope")
+    if evidence_scope_mode not in _ALLOWED_EVIDENCE_SCOPES:
+        raise ValueError("invalid evidence scope")
     _check_reason(evidence_scope_reason, "evidence_scope_reason")
     p = {"evidence_scope_mode": evidence_scope_mode, "evidence_scope_reason": evidence_scope_reason}
     return ClaimEvidenceScope(**p, claim_evidence_scope_hash=_hash_payload(p))
 
 
 def build_claim_support_boundary(support_boundary_mode: str, support_boundary_reason: str) -> ClaimSupportBoundary:
-    if support_boundary_mode not in _ALLOWED_SUPPORT_BOUNDARIES: raise ValueError("invalid support boundary")
+    if support_boundary_mode not in _ALLOWED_SUPPORT_BOUNDARIES:
+        raise ValueError("invalid support boundary")
     _check_reason(support_boundary_reason, "support_boundary_reason")
     p = {"support_boundary_mode": support_boundary_mode, "support_boundary_reason": support_boundary_reason}
     return ClaimSupportBoundary(**p, claim_support_boundary_hash=_hash_payload(p))
 
 
 def build_claim_escalation_boundary(escalation_mode: str, escalation_reason: str) -> ClaimEscalationBoundary:
-    if escalation_mode not in _ALLOWED_ESCALATION_MODES: raise ValueError("invalid escalation mode")
+    if escalation_mode not in _ALLOWED_ESCALATION_MODES:
+        raise ValueError("invalid escalation mode")
     _check_reason(escalation_reason, "escalation_reason")
     p = {"escalation_mode": escalation_mode, "escalation_reason": escalation_reason}
     return ClaimEscalationBoundary(**p, claim_escalation_boundary_hash=_hash_payload(p))
 
 
 def build_claim_uncertainty_declaration(uncertainty_mode: str, uncertainty_reason: str) -> ClaimUncertaintyDeclaration:
-    if uncertainty_mode not in _ALLOWED_UNCERTAINTY_MODES: raise ValueError("invalid uncertainty mode")
+    if uncertainty_mode not in _ALLOWED_UNCERTAINTY_MODES:
+        raise ValueError("invalid uncertainty mode")
     _check_reason(uncertainty_reason, "uncertainty_reason")
     p = {"uncertainty_mode": uncertainty_mode, "uncertainty_reason": uncertainty_reason}
     return ClaimUncertaintyDeclaration(**p, claim_uncertainty_declaration_hash=_hash_payload(p))
 
 
 def build_claim_benchmark_interpretation(benchmark_interpretation_mode: str, benchmark_interpretation_reason: str) -> ClaimBenchmarkInterpretation:
-    if benchmark_interpretation_mode not in _ALLOWED_BENCHMARK_INTERPRETATION_MODES: raise ValueError("invalid benchmark interpretation mode")
+    if benchmark_interpretation_mode not in _ALLOWED_BENCHMARK_INTERPRETATION_MODES:
+        raise ValueError("invalid benchmark interpretation mode")
     _check_reason(benchmark_interpretation_reason, "benchmark_interpretation_reason")
     p = {"benchmark_interpretation_mode": benchmark_interpretation_mode, "benchmark_interpretation_reason": benchmark_interpretation_reason}
     return ClaimBenchmarkInterpretation(**p, claim_benchmark_interpretation_hash=_hash_payload(p))
@@ -225,8 +238,12 @@ def build_claim_scope_receipt(*, manifest: ResearchAutomationManifest, paper_gen
     validate_paper_generation_provenance_receipt(paper_generation_provenance_receipt, manifest)
     validate_human_review_boundary_receipt(human_review_boundary_receipt, paper_generation_provenance_receipt, manifest)
     validate_citation_integrity_receipt(citation_integrity_receipt, manifest, paper_generation_provenance_receipt, human_review_boundary_receipt)
-    validate_claim_identity(claim_identity); validate_claim_evidence_scope(evidence_scope); validate_claim_support_boundary(support_boundary)
-    validate_claim_escalation_boundary(escalation_boundary); validate_claim_uncertainty_declaration(uncertainty_declaration); validate_claim_benchmark_interpretation(benchmark_interpretation)
+    validate_claim_identity(claim_identity)
+    validate_claim_evidence_scope(evidence_scope)
+    validate_claim_support_boundary(support_boundary)
+    validate_claim_escalation_boundary(escalation_boundary)
+    validate_claim_uncertainty_declaration(uncertainty_declaration)
+    validate_claim_benchmark_interpretation(benchmark_interpretation)
     r = ClaimScopeReceipt(_SCHEMA_VERSION, manifest.research_automation_manifest_hash, paper_generation_provenance_receipt.paper_generation_provenance_receipt_hash, human_review_boundary_receipt.human_review_boundary_receipt_hash, citation_integrity_receipt.citation_integrity_receipt_hash, claim_identity, evidence_scope, support_boundary, escalation_boundary, uncertainty_declaration, benchmark_interpretation, claim_review_state, False, adapter_only, "")
     valid = _validate_claim_scope_semantics(r, manifest, paper_generation_provenance_receipt, citation_integrity_receipt, citation_integrity_receipt.citation_integrity_passed, human_review_boundary_receipt.review_complete)
     with_valid = ClaimScopeReceipt(**{**r.__dict__, "claim_scope_valid": valid})
@@ -236,53 +253,91 @@ def build_claim_scope_receipt(*, manifest: ResearchAutomationManifest, paper_gen
 
 def _validate_decl_hash(obj: Any, h: str, t: str) -> None:
     _validate_hash_format(h, t)
-    if h != _hash_payload(_base_payload(obj.__dict__, t)): raise ValueError(f"{t} mismatch")
+    if h != _hash_payload(_base_payload(obj.__dict__, t)):
+        raise ValueError(f"{t} mismatch")
 
 def validate_claim_identity(decl: ClaimIdentity) -> bool:
-    if not isinstance(decl, ClaimIdentity): raise ValueError("claim identity has invalid type")
-    _check_name(decl.claim_key, "claim_key"); _check_reason(decl.claim_summary, "claim_summary")
-    if decl.claim_category not in _ALLOWED_CLAIM_CATEGORIES: raise ValueError("invalid claim category")
-    _validate_decl_hash(decl, decl.claim_identity_hash, "claim_identity_hash"); return True
+    if not isinstance(decl, ClaimIdentity):
+        raise ValueError("claim identity has invalid type")
+    _check_name(decl.claim_key, "claim_key")
+    _check_reason(decl.claim_summary, "claim_summary")
+    if decl.claim_category not in _ALLOWED_CLAIM_CATEGORIES:
+        raise ValueError("invalid claim category")
+    _validate_decl_hash(decl, decl.claim_identity_hash, "claim_identity_hash")
+    return True
 
 def validate_claim_evidence_scope(decl: ClaimEvidenceScope) -> bool:
-    if not isinstance(decl, ClaimEvidenceScope): raise ValueError("claim evidence scope has invalid type")
-    if decl.evidence_scope_mode not in _ALLOWED_EVIDENCE_SCOPES: raise ValueError("invalid evidence scope")
-    _check_reason(decl.evidence_scope_reason, "evidence_scope_reason"); _validate_decl_hash(decl, decl.claim_evidence_scope_hash, "claim_evidence_scope_hash"); return True
+    if not isinstance(decl, ClaimEvidenceScope):
+        raise ValueError("claim evidence scope has invalid type")
+    if decl.evidence_scope_mode not in _ALLOWED_EVIDENCE_SCOPES:
+        raise ValueError("invalid evidence scope")
+    _check_reason(decl.evidence_scope_reason, "evidence_scope_reason")
+    _validate_decl_hash(decl, decl.claim_evidence_scope_hash, "claim_evidence_scope_hash")
+    return True
 
 def validate_claim_support_boundary(decl: ClaimSupportBoundary) -> bool:
-    if not isinstance(decl, ClaimSupportBoundary): raise ValueError("claim support boundary has invalid type")
-    if decl.support_boundary_mode not in _ALLOWED_SUPPORT_BOUNDARIES: raise ValueError("invalid support boundary")
-    _check_reason(decl.support_boundary_reason, "support_boundary_reason"); _validate_decl_hash(decl, decl.claim_support_boundary_hash, "claim_support_boundary_hash"); return True
+    if not isinstance(decl, ClaimSupportBoundary):
+        raise ValueError("claim support boundary has invalid type")
+    if decl.support_boundary_mode not in _ALLOWED_SUPPORT_BOUNDARIES:
+        raise ValueError("invalid support boundary")
+    _check_reason(decl.support_boundary_reason, "support_boundary_reason")
+    _validate_decl_hash(decl, decl.claim_support_boundary_hash, "claim_support_boundary_hash")
+    return True
 
 def validate_claim_escalation_boundary(decl: ClaimEscalationBoundary) -> bool:
-    if not isinstance(decl, ClaimEscalationBoundary): raise ValueError("claim escalation boundary has invalid type")
-    if decl.escalation_mode not in _ALLOWED_ESCALATION_MODES: raise ValueError("invalid escalation mode")
-    _check_reason(decl.escalation_reason, "escalation_reason"); _validate_decl_hash(decl, decl.claim_escalation_boundary_hash, "claim_escalation_boundary_hash"); return True
+    if not isinstance(decl, ClaimEscalationBoundary):
+        raise ValueError("claim escalation boundary has invalid type")
+    if decl.escalation_mode not in _ALLOWED_ESCALATION_MODES:
+        raise ValueError("invalid escalation mode")
+    _check_reason(decl.escalation_reason, "escalation_reason")
+    _validate_decl_hash(decl, decl.claim_escalation_boundary_hash, "claim_escalation_boundary_hash")
+    return True
 
 def validate_claim_uncertainty_declaration(decl: ClaimUncertaintyDeclaration) -> bool:
-    if not isinstance(decl, ClaimUncertaintyDeclaration): raise ValueError("claim uncertainty declaration has invalid type")
-    if decl.uncertainty_mode not in _ALLOWED_UNCERTAINTY_MODES: raise ValueError("invalid uncertainty mode")
-    _check_reason(decl.uncertainty_reason, "uncertainty_reason"); _validate_decl_hash(decl, decl.claim_uncertainty_declaration_hash, "claim_uncertainty_declaration_hash"); return True
+    if not isinstance(decl, ClaimUncertaintyDeclaration):
+        raise ValueError("claim uncertainty declaration has invalid type")
+    if decl.uncertainty_mode not in _ALLOWED_UNCERTAINTY_MODES:
+        raise ValueError("invalid uncertainty mode")
+    _check_reason(decl.uncertainty_reason, "uncertainty_reason")
+    _validate_decl_hash(decl, decl.claim_uncertainty_declaration_hash, "claim_uncertainty_declaration_hash")
+    return True
 
 def validate_claim_benchmark_interpretation(decl: ClaimBenchmarkInterpretation) -> bool:
-    if not isinstance(decl, ClaimBenchmarkInterpretation): raise ValueError("claim benchmark interpretation has invalid type")
-    if decl.benchmark_interpretation_mode not in _ALLOWED_BENCHMARK_INTERPRETATION_MODES: raise ValueError("invalid benchmark interpretation mode")
-    _check_reason(decl.benchmark_interpretation_reason, "benchmark_interpretation_reason"); _validate_decl_hash(decl, decl.claim_benchmark_interpretation_hash, "claim_benchmark_interpretation_hash"); return True
+    if not isinstance(decl, ClaimBenchmarkInterpretation):
+        raise ValueError("claim benchmark interpretation has invalid type")
+    if decl.benchmark_interpretation_mode not in _ALLOWED_BENCHMARK_INTERPRETATION_MODES:
+        raise ValueError("invalid benchmark interpretation mode")
+    _check_reason(decl.benchmark_interpretation_reason, "benchmark_interpretation_reason")
+    _validate_decl_hash(decl, decl.claim_benchmark_interpretation_hash, "claim_benchmark_interpretation_hash")
+    return True
 
 def validate_claim_scope_receipt(receipt: ClaimScopeReceipt, manifest: ResearchAutomationManifest, paper_generation_provenance_receipt: PaperGenerationProvenanceReceipt, human_review_boundary_receipt: HumanReviewBoundaryReceipt, citation_integrity_receipt: CitationIntegrityReceipt) -> bool:
-    if not isinstance(receipt, ClaimScopeReceipt): raise ValueError("claim scope receipt has invalid type")
-    validate_research_automation_manifest(manifest); validate_paper_generation_provenance_receipt(paper_generation_provenance_receipt, manifest)
+    if not isinstance(receipt, ClaimScopeReceipt):
+        raise ValueError("claim scope receipt has invalid type")
+    validate_research_automation_manifest(manifest)
+    validate_paper_generation_provenance_receipt(paper_generation_provenance_receipt, manifest)
     validate_human_review_boundary_receipt(human_review_boundary_receipt, paper_generation_provenance_receipt, manifest)
     validate_citation_integrity_receipt(citation_integrity_receipt, manifest, paper_generation_provenance_receipt, human_review_boundary_receipt)
-    validate_claim_identity(receipt.claim_identity); validate_claim_evidence_scope(receipt.evidence_scope); validate_claim_support_boundary(receipt.support_boundary)
-    validate_claim_escalation_boundary(receipt.escalation_boundary); validate_claim_uncertainty_declaration(receipt.uncertainty_declaration); validate_claim_benchmark_interpretation(receipt.benchmark_interpretation)
-    if receipt.research_automation_manifest_hash != manifest.research_automation_manifest_hash: raise ValueError("research manifest lineage mismatch")
-    if receipt.paper_generation_provenance_receipt_hash != paper_generation_provenance_receipt.paper_generation_provenance_receipt_hash: raise ValueError("paper provenance lineage mismatch")
-    if receipt.human_review_boundary_receipt_hash != human_review_boundary_receipt.human_review_boundary_receipt_hash: raise ValueError("human review lineage mismatch")
-    if receipt.citation_integrity_receipt_hash != citation_integrity_receipt.citation_integrity_receipt_hash: raise ValueError("citation integrity lineage mismatch")
-    if not isinstance(receipt.claim_scope_valid, bool): raise ValueError("claim_scope_valid must be bool")
+    validate_claim_identity(receipt.claim_identity)
+    validate_claim_evidence_scope(receipt.evidence_scope)
+    validate_claim_support_boundary(receipt.support_boundary)
+    validate_claim_escalation_boundary(receipt.escalation_boundary)
+    validate_claim_uncertainty_declaration(receipt.uncertainty_declaration)
+    validate_claim_benchmark_interpretation(receipt.benchmark_interpretation)
+    if receipt.research_automation_manifest_hash != manifest.research_automation_manifest_hash:
+        raise ValueError("research manifest lineage mismatch")
+    if receipt.paper_generation_provenance_receipt_hash != paper_generation_provenance_receipt.paper_generation_provenance_receipt_hash:
+        raise ValueError("paper provenance lineage mismatch")
+    if receipt.human_review_boundary_receipt_hash != human_review_boundary_receipt.human_review_boundary_receipt_hash:
+        raise ValueError("human review lineage mismatch")
+    if receipt.citation_integrity_receipt_hash != citation_integrity_receipt.citation_integrity_receipt_hash:
+        raise ValueError("citation integrity lineage mismatch")
+    if not isinstance(receipt.claim_scope_valid, bool):
+        raise ValueError("claim_scope_valid must be bool")
     expected = _validate_claim_scope_semantics(receipt, manifest, paper_generation_provenance_receipt, citation_integrity_receipt, citation_integrity_receipt.citation_integrity_passed, human_review_boundary_receipt.review_complete)
-    if receipt.claim_scope_valid != expected: raise ValueError("claim_scope_valid mismatch")
+    if receipt.claim_scope_valid != expected:
+        raise ValueError("claim_scope_valid mismatch")
     _validate_hash_format(receipt.claim_scope_receipt_hash, "claim_scope_receipt_hash")
-    if receipt.claim_scope_receipt_hash != _hash_payload(_base_payload(receipt.__dict__, "claim_scope_receipt_hash")): raise ValueError("claim_scope_receipt_hash mismatch")
+    if receipt.claim_scope_receipt_hash != _hash_payload(_base_payload(receipt.__dict__, "claim_scope_receipt_hash")):
+        raise ValueError("claim_scope_receipt_hash mismatch")
     return True

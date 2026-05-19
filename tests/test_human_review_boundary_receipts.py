@@ -18,6 +18,7 @@ from qec.analysis.human_review_boundary_receipts import HumanReviewBoundaryRecei
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _MODULE_PATH = _REPO_ROOT / "src/qec/analysis/human_review_boundary_receipts.py"
 _DECODER_PATH = _REPO_ROOT / "src/qec/decoder"
+_PLACEHOLDER_HASH = "0" * 64
 
 def _manifest(scope: str = "SOURCE_BOUND", review_status: str = "HUMAN_REVIEWED"):
     return ram.build_research_automation_manifest(
@@ -35,7 +36,7 @@ def _manifest(scope: str = "SOURCE_BOUND", review_status: str = "HUMAN_REVIEWED"
         ),
     )
 
-def _paper(manifest, intent: str = "INTERNAL_ONLY", inheritance: str = "SOURCE_BOUND_INHERITANCE",
+def _paper(manifest, intent: str = "INTERNAL_ONLY", inheritance: str = "SOURCE_BOUND_INHERITANCE", *,
            review_boundary_mode: str = "HUMAN_REVIEW_COMPLETED", reviewer_required: bool = True):
     return pgr.build_paper_generation_provenance_receipt(
         manifest,
@@ -72,7 +73,7 @@ def test_review_complete_recomputation_and_gap_enforcement():
     gap = hr.build_review_gap_declaration(0, "UNVERIFIED_CITATIONS", "pending")
     r = _receipt(m, p, gaps=(gap,))
     assert r.review_complete is False and r.review_gap_count == 1
-    forged = replace(r, review_complete=True, human_review_boundary_receipt_hash="0" * 64)
+    forged = replace(r, review_complete=True, human_review_boundary_receipt_hash=_PLACEHOLDER_HASH)
     with pytest.raises(ValueError, match="review_complete"):
         hr.validate_human_review_boundary_receipt(forged, p, m)
 
@@ -90,13 +91,13 @@ def test_dense_unique_indices_and_adapter_only_and_child_validation_order():
     m = _manifest(); p = _paper(m)
     g0 = hr.build_review_gap_declaration(0, "UNVERIFIED_CITATIONS", "a")
     g2 = hr.build_review_gap_declaration(2, "UNVERIFIED_EXPERIMENTS", "b")
-    with pytest.raises(ValueError, match=r"dense\+unique"):
+    with pytest.raises(ValueError, match="sequential indices"):
         _receipt(m, p, gaps=(g0, g2))
     r = _receipt(m, p)
-    forged = replace(r, adapter_only=False, human_review_boundary_receipt_hash="0" * 64)
+    forged = replace(r, adapter_only=False, human_review_boundary_receipt_hash=_PLACEHOLDER_HASH)
     with pytest.raises(ValueError, match="adapter_only"):
         hr.validate_human_review_boundary_receipt(forged, p, m)
-    bad_child = replace(r, reviewer_identity=replace(r.reviewer_identity, reviewer_type="BOT"), human_review_boundary_receipt_hash="0" * 64)
+    bad_child = replace(r, reviewer_identity=replace(r.reviewer_identity, reviewer_type="BOT"), human_review_boundary_receipt_hash=_PLACEHOLDER_HASH)
     with pytest.raises(ValueError, match="invalid reviewer type"):
         hr.validate_human_review_boundary_receipt(bad_child, p, m)
 
@@ -229,15 +230,15 @@ def test_noncanonical_gap_ordering_rejected():
     g1 = hr.build_review_gap_declaration(1, "UNVERIFIED_EXPERIMENTS", "b")
     r = _receipt(m, p, gaps=(g0, g1))
     # Forge a receipt with gaps in reverse (non-canonical) order and a placeholder hash.
-    forged = replace(r, review_gaps=(r.review_gaps[1], r.review_gaps[0]), human_review_boundary_receipt_hash="0" * 64)
-    with pytest.raises(ValueError, match="canonical order"):
+    forged = replace(r, review_gaps=(r.review_gaps[1], r.review_gaps[0]), human_review_boundary_receipt_hash=_PLACEHOLDER_HASH)
+    with pytest.raises(ValueError, match="sequential indices"):
         hr.validate_human_review_boundary_receipt(forged, p, m)
 
 
 def test_duplicate_authority_boundaries_rejected():
     m = _manifest(); p = _paper(m); r = _receipt(m, p)
     dup = hr.build_review_authority_boundary("NO_TRUTH_AUTHORITY", "declared")
-    forged = replace(r, authority_boundaries=(*r.authority_boundaries, dup), human_review_boundary_receipt_hash="0" * 64)
+    forged = replace(r, authority_boundaries=(*r.authority_boundaries, dup), human_review_boundary_receipt_hash=_PLACEHOLDER_HASH)
     with pytest.raises(ValueError, match="duplicate"):
         hr.validate_human_review_boundary_receipt(forged, p, m)
 
@@ -245,7 +246,7 @@ def test_duplicate_authority_boundaries_rejected():
 def test_noncanonical_authority_boundary_ordering_rejected():
     m = _manifest(); p = _paper(m); r = _receipt(m, p)
     # Reverse the sorted authority boundaries tuple and reuse a placeholder hash.
-    forged = replace(r, authority_boundaries=tuple(reversed(r.authority_boundaries)), human_review_boundary_receipt_hash="0" * 64)
+    forged = replace(r, authority_boundaries=tuple(reversed(r.authority_boundaries)), human_review_boundary_receipt_hash=_PLACEHOLDER_HASH)
     with pytest.raises(ValueError, match="canonical sorted order"):
         hr.validate_human_review_boundary_receipt(forged, p, m)
 

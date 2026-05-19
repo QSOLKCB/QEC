@@ -238,7 +238,7 @@ def _validate_gap_indices(gaps: tuple[ReviewGapDeclaration, ...]) -> None:
     indices = [g.gap_index for g in gaps]
     # Require dense, unique, and canonically ordered (0, 1, 2, ...) indices.
     if indices != list(range(len(indices))):
-        raise ValueError("review gaps must have dense+unique indices in canonical order")
+        raise ValueError("review gaps must have sequential indices starting from 0 in ascending order")
 
 
 def validate_reviewer_identity_declaration(decl: ReviewerIdentityDeclaration) -> bool:

@@ -66,10 +66,10 @@ def test_hash_canonical_replay_recompute_and_idempotent_rebuild():
     r2, *_ = _receipt()
     assert r1.agent_observation_trace_receipt_hash == r2.agent_observation_trace_receipt_hash
     assert aotr._canonical_json(r1.__dict__) == aotr._canonical_json(r2.__dict__)
-    assert r1.replay_safe_observation_trace is True
+    assert r1.replay_safe_observation_trace is False
     assert aotr.validate_agent_observation_trace_receipt(r1, m, kv, **deps) == r1
     with pytest.raises(ValueError):
-        aotr.validate_agent_observation_trace_receipt(replace(r1, replay_safe_observation_trace=False), m, kv, **deps)
+        aotr.validate_agent_observation_trace_receipt(replace(r1, replay_safe_observation_trace=True), m, kv, **deps)
 
 
 def test_replay_safe_false_for_contextual_custom_and_count_mismatch_and_strict_enforcement():
@@ -80,6 +80,39 @@ def test_replay_safe_false_for_contextual_custom_and_count_mismatch_and_strict_e
     bad = replace(r, observation_sequence_boundary=_boundary("STRICT_ORDERED_SEQUENCE", 99))
     with pytest.raises(ValueError):
         aotr.validate_agent_observation_trace_receipt(bad, m, kv, **deps)
+
+
+def test_replay_safe_requires_upstream_replay_safe_cache_and_unmixed_observations():
+    r, m, kv, deps = _receipt()
+    non_replay_kv = replace(kv, replay_safe_cache=False, kv_cache_policy_receipt_hash="0" * 64)
+    non_replay_kv = replace(
+        non_replay_kv,
+        kv_cache_policy_receipt_hash=aotr._hash_payload(aotr._base_payload(non_replay_kv.__dict__, "kv_cache_policy_receipt_hash")),
+    )
+    non_replay_trace = aotr.build_agent_observation_trace_receipt(
+        m,
+        non_replay_kv,
+        r.agent_identity,
+        r.pattern_declaration,
+        r.tool_call_observations,
+        r.intermediate_decision_observations,
+        r.observation_sequence_boundary,
+        r.adapter_only,
+    )
+    assert non_replay_trace.replay_safe_observation_trace is False
+
+    tool_only = aotr.build_agent_observation_trace_receipt(
+        m, kv, r.agent_identity, r.pattern_declaration, r.tool_call_observations, tuple(), _boundary(count=1), True
+    )
+    assert tool_only.replay_safe_observation_trace is True
+    mixed = replace(
+        tool_only,
+        intermediate_decision_observations=(_decision(0),),
+        observation_sequence_boundary=_boundary(count=2),
+        agent_observation_trace_receipt_hash="0" * 64,
+    )
+    with pytest.raises(ValueError, match="recomputed"):
+        aotr.validate_agent_observation_trace_receipt(mixed, m, kv, **deps)
 
 
 @pytest.mark.parametrize(
@@ -112,6 +145,15 @@ def test_exact_type_bool_int_alias_immutable_and_malformed_hash_rejection():
     object.__setattr__(bad_child, "agent_identity_hash", "a" * 63)
     with pytest.raises(ValueError):
         aotr.validate_agent_observation_trace_receipt(replace(r, agent_identity=bad_child), m, kv, **deps)
+
+    forged = object.__new__(aotr.AgentIdentity)
+    object.__setattr__(forged, "agent_name", "agent")
+    object.__setattr__(forged, "agent_version", "1.0")
+    object.__setattr__(forged, "agent_type", "BAD_TYPE")
+    object.__setattr__(forged, "agent_identity_hash", "f" * 64)
+    forged_receipt = replace(r, agent_identity=forged, agent_observation_trace_receipt_hash="0" * 64)
+    with pytest.raises(ValueError, match="invalid agent_type"):
+        aotr.validate_agent_observation_trace_receipt(forged_receipt, m, kv, **deps)
 
 
 def test_child_before_aggregate_duplicate_and_out_of_order_decisions_rejected():

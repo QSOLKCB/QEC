@@ -137,6 +137,12 @@ def _validate_sequence_ordering(decisions: tuple["IntermediateDecisionObservatio
         expected += 1
 
 
+def _revalidate_exact_instance(value: Any, cls: type[Any]) -> None:
+    if type(value) is not cls:
+        raise _invalid_input()
+    cls(**value.__dict__)
+
+
 @dataclass(frozen=True)
 class AgentIdentity:
     agent_name: str
@@ -269,10 +275,13 @@ def build_agent_observation_trace_receipt(
     adapter_only: bool,
 ) -> AgentObservationTraceReceipt:
     observed_count = len(tool_call_observations) + len(intermediate_decision_observations)
+    has_deterministic_cross_order = len(tool_call_observations) == 0 or len(intermediate_decision_observations) == 0
     replay_safe = (
         adapter_only is True
         and observation_sequence_boundary.sequence_mode == "STRICT_ORDERED_SEQUENCE"
         and observation_sequence_boundary.declared_step_count == observed_count
+        and kv_cache_policy_receipt.replay_safe_cache is True
+        and has_deterministic_cross_order
     )
     payload = {
         "schema_version": _SCHEMA_VERSION,
@@ -316,17 +325,14 @@ def validate_agent_observation_trace_receipt(
     _validate_hash_format(receipt.kv_cache_policy_receipt_hash, "kv_cache_policy_receipt_hash")
     _validate_hash_format(receipt.agent_observation_trace_receipt_hash, "agent_observation_trace_receipt_hash")
 
-    if type(receipt.agent_identity) is not AgentIdentity or type(receipt.pattern_declaration) is not AgentPatternDeclaration:
-        raise _invalid_input()
-    if type(receipt.observation_sequence_boundary) is not ObservationSequenceBoundary:
-        raise _invalid_input()
+    _revalidate_exact_instance(receipt.agent_identity, AgentIdentity)
+    _revalidate_exact_instance(receipt.pattern_declaration, AgentPatternDeclaration)
+    _revalidate_exact_instance(receipt.observation_sequence_boundary, ObservationSequenceBoundary)
 
     for item in receipt.tool_call_observations:
-        if type(item) is not ToolCallObservation:
-            raise _invalid_input()
+        _revalidate_exact_instance(item, ToolCallObservation)
     for item in receipt.intermediate_decision_observations:
-        if type(item) is not IntermediateDecisionObservation:
-            raise _invalid_input()
+        _revalidate_exact_instance(item, IntermediateDecisionObservation)
 
     _validate_sequence_ordering(receipt.intermediate_decision_observations)
     _validate_agent_observation_semantics(
@@ -345,6 +351,8 @@ def validate_agent_observation_trace_receipt(
         receipt.adapter_only is True
         and receipt.observation_sequence_boundary.sequence_mode == "STRICT_ORDERED_SEQUENCE"
         and receipt.observation_sequence_boundary.declared_step_count == observed_count
+        and kv_cache_policy_receipt.replay_safe_cache is True
+        and (len(receipt.tool_call_observations) == 0 or len(receipt.intermediate_decision_observations) == 0)
     )
     if receipt.replay_safe_observation_trace is not recomputed_replay:
         raise ValueError("replay_safe_observation_trace must be recomputed")

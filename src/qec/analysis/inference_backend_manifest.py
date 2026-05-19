@@ -70,8 +70,8 @@ _ALLOWED_KV_CACHE_MODES = {
     "SHARED_CACHE",
     "DECLARED_CUSTOM_CACHE",
 }
-_REDUCED_QUANTIZATION = {"FP16", "BF16", "INT8", "INT4", "GPTQ", "AWQ"}
-_REDUCED_PRECISION = {"FP16", "BF16", "INT8", "INT4", "MIXED_PRECISION"}
+_REDUCED_QUANTIZATION = {"FP16", "BF16", "INT8", "INT4", "GPTQ", "AWQ", "DECLARED_CUSTOM_QUANTIZATION"}
+_REDUCED_PRECISION = {"FP16", "BF16", "INT8", "INT4", "MIXED_PRECISION", "DECLARED_CUSTOM_PRECISION"}
 _FORBIDDEN_RUNTIME_TOKENS = (
     "model proven superior",
     "scientifically validated intelligence",
@@ -267,6 +267,7 @@ def build_hardware_kernel_boundary(hardware_mode: str, hardware_boundary_reason:
     if adapter_only is not True:
         raise ValueError("adapter_only must be True")
     _check_text(hardware_boundary_reason, "hardware_boundary_reason", _MAX_REASON_LENGTH)
+    _check_no_forbidden_runtime_semantics(hardware_boundary_reason)
     payload = {"hardware_mode": hardware_mode, "hardware_boundary_reason": hardware_boundary_reason, "adapter_only": True}
     return HardwareKernelBoundary(**payload, hardware_kernel_boundary_hash=_hash_payload(payload))
 

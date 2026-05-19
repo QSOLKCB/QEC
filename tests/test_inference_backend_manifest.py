@@ -120,3 +120,24 @@ def test_hidden_tokenization_drift_semantics_rejected():
 def test_benchmark_context_only_semantics_allowed():
     b = ibm.build_benchmark_corpus_declaration("SYNTHETIC_BENCHMARK_ONLY", "synthetic", "context only; no authority")
     assert b.benchmark_mode == "SYNTHETIC_BENCHMARK_ONLY"
+
+
+def test_hardware_boundary_forbidden_semantics_rejected_when_built_directly():
+    with pytest.raises(ValueError):
+        ibm.build_hardware_kernel_boundary("GPU_DECLARED", "hardware superiority established", True)
+
+
+def test_custom_quantization_is_treated_as_reduced_precision():
+    m = _build_manifest(
+        quant=ibm.build_quantization_declaration("DECLARED_CUSTOM_QUANTIZATION", "declared custom"),
+        prec=ibm.build_precision_format_declaration("FP32", "full precision declaration"),
+    )
+    assert m.reduced_precision_declared is True
+
+
+def test_custom_precision_is_treated_as_reduced_precision():
+    m = _build_manifest(
+        quant=ibm.build_quantization_declaration("NO_QUANTIZATION", "none"),
+        prec=ibm.build_precision_format_declaration("DECLARED_CUSTOM_PRECISION", "declared custom precision"),
+    )
+    assert m.reduced_precision_declared is True

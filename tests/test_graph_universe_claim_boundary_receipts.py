@@ -7,6 +7,10 @@ from pathlib import Path
 import pytest
 
 from qec.analysis import graph_universe_claim_boundary_receipts as gucbr
+from qec.analysis.quantum_geometry_signal_receipts import (
+    build_quantum_geometry_review_boundary,
+    build_quantum_geometry_signal_receipt,
+)
 from qec.analysis.graph_universe_claim_boundary_receipts import (
     build_graph_universe_claim_boundary_receipt,
     build_graph_universe_claim_identity,
@@ -118,6 +122,21 @@ def test_enforcement_unreviewed_preprint_source_inaccessible_custom_context_and_
     )
     with pytest.raises(ValueError, match="CLAIM_SCOPE_PREPRINT_ONLY requires UNREVIEWED_PREPRINT"):
         gucbr.validate_graph_universe_claim_boundary_receipt(invalid_scope_receipt, qg, self_correcting_memory_claim_boundary_receipt=scm, quantum_memory_signal_receipt=qms, qpe_toolbox_adapter_receipt=qpe, agent_pattern_decision_receipt=apd, agent_observation_trace_receipt=trace, skill_library_manifest=manifest, tool_dispatch_telemetry_receipt=dispatch, crawler_boundary_receipt=crawler, **deps)
+
+    upstream_unreviewed = build_quantum_geometry_signal_receipt(
+        scm,
+        qg.signal_identity,
+        qg.source_boundary,
+        build_quantum_geometry_review_boundary("UNREVIEWED_PREPRINT", "unreviewed preprint"),
+        qg.claim_scope_boundary,
+        qg.topology_boundary,
+        True,
+    )
+    downgraded_review = build_graph_universe_claim_boundary_receipt(
+        upstream_unreviewed, _identity(), _source(), _review("REVIEWED_SOURCE"), _scope(), _evidence(), True
+    )
+    with pytest.raises(ValueError, match="UNREVIEWED_PREPRINT upstream status must be preserved"):
+        gucbr.validate_graph_universe_claim_boundary_receipt(downgraded_review, upstream_unreviewed, self_correcting_memory_claim_boundary_receipt=scm, quantum_memory_signal_receipt=qms, qpe_toolbox_adapter_receipt=qpe, agent_pattern_decision_receipt=apd, agent_observation_trace_receipt=trace, skill_library_manifest=manifest, tool_dispatch_telemetry_receipt=dispatch, crawler_boundary_receipt=crawler, **deps)
 
     source = (Path(__file__).parent.parent / "src/qec/analysis/graph_universe_claim_boundary_receipts.py").read_text(encoding="utf-8")
     for token in ("qiskit", "qutip", "cirq", "pennylane", "qulacs", "cudaq", "torch", "tensorflow", "requests", "urllib", "subprocess", "asyncio", "multiprocessing", "os.system", "eval(", "exec("):

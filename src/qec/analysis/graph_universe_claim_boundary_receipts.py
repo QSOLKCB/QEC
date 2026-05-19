@@ -298,6 +298,11 @@ def validate_graph_universe_claim_boundary_receipt(receipt: GraphUniverseClaimBo
     validate_quantum_geometry_signal_receipt(quantum_geometry_signal_receipt, **upstream_kwargs)
     if receipt.quantum_geometry_signal_receipt_hash != quantum_geometry_signal_receipt.quantum_geometry_signal_receipt_hash:
         raise ValueError("upstream hash mismatch")
+    if (
+        quantum_geometry_signal_receipt.review_boundary.review_mode == "UNREVIEWED_PREPRINT"
+        and receipt.review_boundary.review_mode != "UNREVIEWED_PREPRINT"
+    ):
+        raise ValueError("UNREVIEWED_PREPRINT upstream status must be preserved")
     if receipt.review_boundary.review_mode == "REVIEWED_SOURCE" and "unreviewed preprint" in _normalize_semantics_text(receipt.review_boundary.review_reason):
         raise ValueError("review_reason conflicts with review_mode")
     if receipt.claim_scope_boundary.claim_scope_mode == "CLAIM_SCOPE_PREPRINT_ONLY" and receipt.review_boundary.review_mode != "UNREVIEWED_PREPRINT":

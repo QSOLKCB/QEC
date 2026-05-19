@@ -32,15 +32,15 @@ In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v165.9.4-success)](https://github.com/QSOLKCB/QEC/releases/tag/v165.9.4)
-[![Branch](https://img.shields.io/badge/branch-v165.9.4%20canonical-purple)]()
+[![Latest](https://img.shields.io/badge/stable-v165.4-success)](https://github.com/QSOLKCB/QEC/releases/tag/v165.4)
+[![Branch](https://img.shields.io/badge/branch-v165.4%20canonical-purple)]()
 
-Current release line: **v165.9.4**  
-Current frontier: **v166.x — QLDPC / Hashing-Bound Code Receipts**  
-Active arc: **v166.x — QLDPC / Hashing-Bound Code Receipts**  
-Completed arc: **v165.9.x — Quantum Memory / QPE / Geometry Signal Receipts**
+Current release line: **v165.4**  
+Current frontier: **v165.5.0 — DataframeBackendManifest**  
+Active arc: **v165.5.x — Deterministic Dataframe / Columnar Backend Receipts**  
+Completed arc: **v165.x — Optimized QEC Simulation Backends**
 
-Repository status is current through **v165.9.4 → GraphUniverseClaimBoundaryReceipt**.
+Repository status is current through **v165.4 → OptimizedSimulationReport**.
 
 Recent release arcs completed:
 

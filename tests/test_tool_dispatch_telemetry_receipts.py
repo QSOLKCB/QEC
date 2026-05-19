@@ -14,17 +14,17 @@ def _mk_hash(payload, key):
 
 
 def _identity(tool_type: str = "DECLARED_ANALYSIS_TOOL"):
-    base = {"tool_name": "dispatch-tool", "tool_version": "1.0", "tool_type": tool_type}
+    base = {"tool_name": "search", "tool_version": "1.0", "tool_type": tool_type}
     return tdr.ToolDispatchIdentity(**base, tool_dispatch_identity_hash=_mk_hash(base, "tool_dispatch_identity_hash"))
 
 
 def _in(mode: str = "HASH_BOUND_INPUT", reason: str = "hash bound"):
-    base = {"input_mode": mode, "input_hash": "1" * 64, "input_reason": reason}
+    base = {"input_mode": mode, "input_hash": "a" * 64, "input_reason": reason}
     return tdr.ToolDispatchInputBoundary(**base, tool_dispatch_input_boundary_hash=_mk_hash(base, "tool_dispatch_input_boundary_hash"))
 
 
 def _out(mode: str = "HASH_BOUND_OUTPUT", reason: str = "hash bound"):
-    base = {"output_mode": mode, "output_hash": "2" * 64, "output_reason": reason}
+    base = {"output_mode": mode, "output_hash": "b" * 64, "output_reason": reason}
     return tdr.ToolDispatchOutputBoundary(**base, tool_dispatch_output_boundary_hash=_mk_hash(base, "tool_dispatch_output_boundary_hash"))
 
 
@@ -104,6 +104,7 @@ def test_child_before_aggregate_validation_and_negative_execution_time_rejected(
         tdr.validate_tool_dispatch_telemetry_receipt(replace(rec, dispatch_identity=bad_child, tool_dispatch_telemetry_receipt_hash="0" * 64), manifest, trace, **deps)
     with pytest.raises(ValueError):
         _exe(ms=-1)
+    assert _exe(ms=5000).declared_execution_time_ms == 5000
 
 
 @pytest.mark.parametrize("text", [
@@ -132,6 +133,26 @@ def test_replay_safe_false_for_custom_modes_context_audit_and_nonreplay_lineage(
     non, nmanifest, ntrace, ndeps = _receipt(replay_upstream=False)
     assert non.replay_safe_dispatch is False
     tdr.validate_tool_dispatch_telemetry_receipt(non, nmanifest, ntrace, **ndeps)
+
+
+def test_replay_safe_false_for_custom_tool_type():
+    rec, manifest, trace, deps = _receipt()
+    custom = tdr.build_tool_dispatch_telemetry_receipt(manifest, trace, _identity("DECLARED_CUSTOM_TOOL"), _in(), _out(), _exe(), _audit(), True)
+    assert custom.replay_safe_dispatch is False
+    tdr.validate_tool_dispatch_telemetry_receipt(custom, manifest, trace, **deps)
+
+
+def test_validator_binds_receipt_to_observed_tool_call():
+    rec, manifest, trace, deps = _receipt()
+    tdr.validate_tool_dispatch_telemetry_receipt(rec, manifest, trace, **deps)
+    mismatched_identity = tdr.build_tool_dispatch_identity("another-tool", rec.dispatch_identity.tool_version, rec.dispatch_identity.tool_type)
+    with pytest.raises(ValueError, match="not bound to an observed tool call"):
+        tdr.validate_tool_dispatch_telemetry_receipt(
+            replace(rec, dispatch_identity=mismatched_identity, tool_dispatch_telemetry_receipt_hash="0" * 64),
+            manifest,
+            trace,
+            **deps,
+        )
 
 
 def test_upstream_validation_and_forbidden_imports():

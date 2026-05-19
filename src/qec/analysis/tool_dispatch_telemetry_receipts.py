@@ -16,7 +16,6 @@ _SCHEMA_VERSION = "TOOL_DISPATCH_TELEMETRY_RECEIPT_V1"
 
 _MAX_NAME_LENGTH = 128
 _MAX_REASON_LENGTH = 1024
-_MAX_TOOL_CALLS = 4096
 
 _HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -214,7 +213,7 @@ class ToolDispatchExecutionBoundary:
             raise ValueError("invalid execution_mode")
         if isinstance(self.declared_execution_time_ms, bool) or not isinstance(self.declared_execution_time_ms, int):
             raise ValueError("declared_execution_time_ms must be int")
-        if self.declared_execution_time_ms < 0 or self.declared_execution_time_ms > _MAX_TOOL_CALLS:
+        if self.declared_execution_time_ms < 0:
             raise ValueError("declared_execution_time_ms out of bounds")
         _check_text(self.execution_reason, "execution_reason", _MAX_REASON_LENGTH)
         _check_no_forbidden_runtime_semantics(self.__dict__)
@@ -288,6 +287,7 @@ def build_tool_dispatch_audit_boundary(audit_mode: str, audit_reason: str) -> To
 def _recompute_replay_safe_dispatch(
     skill_library_manifest: SkillLibraryManifest,
     agent_observation_trace_receipt: AgentObservationTraceReceipt,
+    dispatch_identity: ToolDispatchIdentity,
     input_boundary: ToolDispatchInputBoundary,
     output_boundary: ToolDispatchOutputBoundary,
     execution_boundary: ToolDispatchExecutionBoundary,
@@ -296,6 +296,7 @@ def _recompute_replay_safe_dispatch(
 ) -> bool:
     return (
         adapter_only is True
+        and dispatch_identity.tool_type != "DECLARED_CUSTOM_TOOL"
         and skill_library_manifest.replay_safe_skill_library is True
         and agent_observation_trace_receipt.replay_safe_observation_trace is True
         and execution_boundary.execution_mode in _REPLAY_SAFE_EXECUTION_MODES
@@ -319,6 +320,7 @@ def build_tool_dispatch_telemetry_receipt(
     replay_safe_dispatch = _recompute_replay_safe_dispatch(
         skill_library_manifest,
         agent_observation_trace_receipt,
+        dispatch_identity,
         input_boundary,
         output_boundary,
         execution_boundary,
@@ -392,6 +394,15 @@ def validate_tool_dispatch_telemetry_receipt(
         raise ValueError("skill_library_manifest_hash mismatch")
     if receipt.agent_observation_trace_receipt_hash != agent_observation_trace_receipt.agent_observation_trace_receipt_hash:
         raise ValueError("agent_observation_trace_receipt_hash mismatch")
+    for observed_call in agent_observation_trace_receipt.tool_call_observations:
+        if (
+            observed_call.tool_name == receipt.dispatch_identity.tool_name
+            and observed_call.tool_input_hash == receipt.input_boundary.input_hash
+            and observed_call.tool_output_hash == receipt.output_boundary.output_hash
+        ):
+            break
+    else:
+        raise ValueError("dispatch telemetry receipt is not bound to an observed tool call")
 
     _validate_tool_dispatch_semantics(
         receipt.input_boundary.input_reason,
@@ -403,6 +414,7 @@ def validate_tool_dispatch_telemetry_receipt(
     recomputed = _recompute_replay_safe_dispatch(
         skill_library_manifest,
         agent_observation_trace_receipt,
+        receipt.dispatch_identity,
         receipt.input_boundary,
         receipt.output_boundary,
         receipt.execution_boundary,

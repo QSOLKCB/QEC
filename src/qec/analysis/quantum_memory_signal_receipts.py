@@ -61,6 +61,7 @@ _FORBIDDEN_TOKENS = (
     "quantum advantage established",
     "qec advantage established",
     "qec advantage proven",
+    "quantum advantage proven",
     "hardware superiority",
     "hardware authority",
     "cosmological truth",
@@ -116,11 +117,17 @@ def _check_text(value: str, field_name: str, max_len: int) -> None:
         raise ValueError(f"{field_name} must be non-empty and bounded")
 
 
+def _normalize_semantics_text(value: str) -> str:
+    lowered = value.lower()
+    lowered = re.sub(r"\\[nrt]", " ", lowered)
+    return " ".join(re.sub(r"[^\w]+", " ", lowered).split())
+
+
 def _check_no_forbidden_runtime_semantics(payload: Any) -> None:
     canonical = payload if isinstance(payload, str) else _canonical_json({"payload": payload})
-    lowered = canonical.lower().replace("_", " ").replace("-", " ")
+    lowered = _normalize_semantics_text(canonical)
     for token in _FORBIDDEN_TOKENS:
-        if token.lower().replace("_", " ").replace("-", " ") in lowered:
+        if _normalize_semantics_text(token) in lowered:
             raise ValueError("forbidden runtime or hidden semantics")
 
 
@@ -194,6 +201,8 @@ class QuantumMemoryReviewBoundary:
         if self.review_mode not in _ALLOWED_REVIEW_MODES:
             raise ValueError("invalid review_mode")
         _check_text(self.review_reason, "review_reason", _MAX_REASON_LENGTH)
+        if self.review_mode == "REVIEWED_SOURCE" and "unreviewed preprint" in _normalize_semantics_text(self.review_reason):
+            raise ValueError("review_reason conflicts with review_mode")
         _check_no_forbidden_runtime_semantics(self.__dict__)
         _validate_hash_format(self.quantum_memory_review_boundary_hash, "quantum_memory_review_boundary_hash")
         if _hash_payload(_base_payload(self.__dict__, "quantum_memory_review_boundary_hash")) != self.quantum_memory_review_boundary_hash:

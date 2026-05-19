@@ -104,11 +104,28 @@ def test_exact_type_immutable_and_bool_int_alias_rejected_child_before_aggregate
     "hidden mutable signal semantics",
     "runtime quantum execution",
     "QEC advantage established",
+    "quantum advantage proven",
 ])
 def test_hidden_semantics_and_forbidden_content_rejected(text):
     with pytest.raises(ValueError):
         _source(reason=text)
 
+
+
+
+def test_reviewed_source_rejects_unreviewed_preprint_reason():
+    with pytest.raises(ValueError, match="conflicts"):
+        _review("REVIEWED_SOURCE", "this is an unreviewed preprint")
+
+
+@pytest.mark.parametrize("text", [
+    "hardware\nauthority",
+    "hardware   authority",
+    "hardware.authority",
+])
+def test_forbidden_semantics_separator_normalization_rejected(text):
+    with pytest.raises(ValueError):
+        _source(reason=text)
 
 def test_replay_safe_rejection_custom_context_unreviewed_and_review_enforcement_and_source_bound_claim_enforcement():
     rec, qpe, apd, trace, manifest, dispatch, crawler, deps = _receipt()

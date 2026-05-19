@@ -9,7 +9,6 @@ from typing import Any, Mapping
 from qec.analysis.research_automation_manifest import ResearchAutomationManifest, validate_research_automation_manifest
 
 _SCHEMA_VERSION = "PAPER_GENERATION_PROVENANCE_RECEIPT_V1"
-_MAX_REFERENCES = 4096
 _MAX_NAME_LENGTH = 128
 _HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 

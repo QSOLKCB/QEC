@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Any, Mapping
 
 from qec.analysis.paper_generation_provenance_receipts import (
@@ -15,6 +15,7 @@ from qec.analysis.research_automation_manifest import ResearchAutomationManifest
 _SCHEMA_VERSION = "HUMAN_REVIEW_BOUNDARY_RECEIPT_V1"
 _MAX_REVIEW_GAPS = 4096
 _MAX_NAME_LENGTH = 128
+_MAX_REASON_LENGTH = 1024
 _HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
 _ALLOWED_REVIEWER_TYPES = {"HUMAN_INDIVIDUAL", "HUMAN_TEAM", "DECLARED_EXTERNAL_REVIEWER", "INTERNAL_REVIEW_GROUP"}
@@ -92,13 +93,15 @@ def _canonical_json(payload: Mapping[str, Any]) -> str:
 
 
 def _to_canonical_obj(value: Any) -> Any:
-    if hasattr(value, "__dict__") and not isinstance(value, (str, bytes)):
-        return {k: _to_canonical_obj(v) for k, v in value.__dict__.items()}
+    if is_dataclass(value) and not isinstance(value, type):
+        return _to_canonical_obj(asdict(value))
     if isinstance(value, Mapping):
         return {k: _to_canonical_obj(v) for k, v in value.items()}
     if isinstance(value, (tuple, list)):
         return [_to_canonical_obj(v) for v in value]
-    return value
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    raise TypeError(f"unsupported type for canonical serialization: {type(value)!r}")
 
 
 def _hash_payload(payload: Mapping[str, Any]) -> str:
@@ -116,10 +119,18 @@ def _validate_hash_format(value: str, field_name: str) -> None:
         raise ValueError(f"{field_name} must be a lowercase 64-character hex digest")
 
 
-def _check_text(value: str, field_name: str) -> None:
+def _check_name(value: str, field_name: str) -> None:
     if not isinstance(value, str) or not value:
         raise ValueError(f"{field_name} must be a non-empty string")
     if len(value) > _MAX_NAME_LENGTH:
+        raise ValueError(f"{field_name} exceeds maximum length")
+    _check_no_forbidden_runtime_semantics(value)
+
+
+def _check_reason(value: str, field_name: str) -> None:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{field_name} must be a non-empty string")
+    if len(value) > _MAX_REASON_LENGTH:
         raise ValueError(f"{field_name} exceeds maximum length")
     _check_no_forbidden_runtime_semantics(value)
 
@@ -155,7 +166,7 @@ def _validate_review_semantics(receipt: HumanReviewBoundaryReceipt, upstream: Pa
     return gap_count, review_complete
 
 def build_reviewer_identity_declaration(reviewer_name: str, reviewer_type: str) -> ReviewerIdentityDeclaration:
-    _check_text(reviewer_name, "reviewer_name")
+    _check_name(reviewer_name, "reviewer_name")
     if reviewer_type not in _ALLOWED_REVIEWER_TYPES:
         raise ValueError("invalid reviewer type")
     payload = {"reviewer_name": reviewer_name, "reviewer_type": reviewer_type}
@@ -165,7 +176,7 @@ def build_reviewer_identity_declaration(reviewer_name: str, reviewer_type: str) 
 def build_review_scope_declaration(review_scope: str, review_scope_reason: str) -> ReviewScopeDeclaration:
     if review_scope not in _ALLOWED_REVIEW_SCOPES:
         raise ValueError("invalid review scope")
-    _check_text(review_scope_reason, "review_scope_reason")
+    _check_reason(review_scope_reason, "review_scope_reason")
     payload = {"review_scope": review_scope, "review_scope_reason": review_scope_reason}
     return ReviewScopeDeclaration(**payload, review_scope_declaration_hash=_hash_payload(payload))
 
@@ -175,7 +186,7 @@ def build_review_gap_declaration(gap_index: int, gap_type: str, gap_reason: str)
         raise ValueError("gap_index must be a non-negative int")
     if gap_type not in _ALLOWED_REVIEW_GAP_TYPES:
         raise ValueError("invalid review gap type")
-    _check_text(gap_reason, "gap_reason")
+    _check_reason(gap_reason, "gap_reason")
     payload = {"gap_index": gap_index, "gap_type": gap_type, "gap_reason": gap_reason}
     return ReviewGapDeclaration(**payload, review_gap_declaration_hash=_hash_payload(payload))
 
@@ -183,7 +194,7 @@ def build_review_gap_declaration(gap_index: int, gap_type: str, gap_reason: str)
 def build_review_authority_boundary(authority_boundary: str, boundary_reason: str) -> ReviewAuthorityBoundary:
     if authority_boundary not in _ALLOWED_AUTHORITY_BOUNDARIES:
         raise ValueError("invalid authority boundary")
-    _check_text(boundary_reason, "boundary_reason")
+    _check_reason(boundary_reason, "boundary_reason")
     payload = {"authority_boundary": authority_boundary, "boundary_reason": boundary_reason}
     return ReviewAuthorityBoundary(**payload, review_authority_boundary_hash=_hash_payload(payload))
 
@@ -191,14 +202,14 @@ def build_review_authority_boundary(authority_boundary: str, boundary_reason: st
 def build_review_inheritance_declaration(review_inheritance_mode: str, inheritance_reason: str) -> ReviewInheritanceDeclaration:
     if review_inheritance_mode not in _ALLOWED_REVIEW_INHERITANCE_MODES:
         raise ValueError("invalid review inheritance mode")
-    _check_text(inheritance_reason, "inheritance_reason")
+    _check_reason(inheritance_reason, "inheritance_reason")
     payload = {"review_inheritance_mode": review_inheritance_mode, "inheritance_reason": inheritance_reason}
     return ReviewInheritanceDeclaration(**payload, review_inheritance_declaration_hash=_hash_payload(payload))
 
 
 def build_review_session_reference(review_session_identifier: str, review_session_timestamp: str) -> ReviewSessionReference:
-    _check_text(review_session_identifier, "review_session_identifier")
-    _check_text(review_session_timestamp, "review_session_timestamp")
+    _check_name(review_session_identifier, "review_session_identifier")
+    _check_name(review_session_timestamp, "review_session_timestamp")
     payload = {"review_session_identifier": review_session_identifier, "review_session_timestamp": review_session_timestamp}
     return ReviewSessionReference(**payload, review_session_reference_hash=_hash_payload(payload))
 
@@ -214,7 +225,7 @@ def _validate_gap_indices(gaps: tuple[ReviewGapDeclaration, ...]) -> None:
 def validate_reviewer_identity_declaration(decl: ReviewerIdentityDeclaration) -> bool:
     if not isinstance(decl, ReviewerIdentityDeclaration):
         raise ValueError("reviewer identity declaration has invalid type")
-    _check_text(decl.reviewer_name, "reviewer_name")
+    _check_name(decl.reviewer_name, "reviewer_name")
     if decl.reviewer_type not in _ALLOWED_REVIEWER_TYPES:
         raise ValueError("invalid reviewer type")
     _validate_hash_format(decl.reviewer_identity_declaration_hash, "reviewer_identity_declaration_hash")
@@ -228,7 +239,7 @@ def validate_review_scope_declaration(decl: ReviewScopeDeclaration) -> bool:
         raise ValueError("review scope declaration has invalid type")
     if decl.review_scope not in _ALLOWED_REVIEW_SCOPES:
         raise ValueError("invalid review scope")
-    _check_text(decl.review_scope_reason, "review_scope_reason")
+    _check_reason(decl.review_scope_reason, "review_scope_reason")
     _validate_hash_format(decl.review_scope_declaration_hash, "review_scope_declaration_hash")
     if decl.review_scope_declaration_hash != _hash_payload(_base_payload(decl.__dict__, "review_scope_declaration_hash")):
         raise ValueError("review_scope_declaration_hash mismatch")
@@ -242,7 +253,7 @@ def validate_review_gap_declaration(decl: ReviewGapDeclaration) -> bool:
         raise ValueError("gap_index must be a non-negative int")
     if decl.gap_type not in _ALLOWED_REVIEW_GAP_TYPES:
         raise ValueError("invalid review gap type")
-    _check_text(decl.gap_reason, "gap_reason")
+    _check_reason(decl.gap_reason, "gap_reason")
     _validate_hash_format(decl.review_gap_declaration_hash, "review_gap_declaration_hash")
     if decl.review_gap_declaration_hash != _hash_payload(_base_payload(decl.__dict__, "review_gap_declaration_hash")):
         raise ValueError("review_gap_declaration_hash mismatch")
@@ -254,7 +265,7 @@ def validate_review_authority_boundary(decl: ReviewAuthorityBoundary) -> bool:
         raise ValueError("review authority boundary has invalid type")
     if decl.authority_boundary not in _ALLOWED_AUTHORITY_BOUNDARIES:
         raise ValueError("invalid authority boundary")
-    _check_text(decl.boundary_reason, "boundary_reason")
+    _check_reason(decl.boundary_reason, "boundary_reason")
     _validate_hash_format(decl.review_authority_boundary_hash, "review_authority_boundary_hash")
     if decl.review_authority_boundary_hash != _hash_payload(_base_payload(decl.__dict__, "review_authority_boundary_hash")):
         raise ValueError("review_authority_boundary_hash mismatch")
@@ -266,7 +277,7 @@ def validate_review_inheritance_declaration(decl: ReviewInheritanceDeclaration) 
         raise ValueError("review inheritance declaration has invalid type")
     if decl.review_inheritance_mode not in _ALLOWED_REVIEW_INHERITANCE_MODES:
         raise ValueError("invalid review inheritance mode")
-    _check_text(decl.inheritance_reason, "inheritance_reason")
+    _check_reason(decl.inheritance_reason, "inheritance_reason")
     _validate_hash_format(decl.review_inheritance_declaration_hash, "review_inheritance_declaration_hash")
     if decl.review_inheritance_declaration_hash != _hash_payload(_base_payload(decl.__dict__, "review_inheritance_declaration_hash")):
         raise ValueError("review_inheritance_declaration_hash mismatch")
@@ -276,8 +287,8 @@ def validate_review_inheritance_declaration(decl: ReviewInheritanceDeclaration) 
 def validate_review_session_reference(ref: ReviewSessionReference) -> bool:
     if not isinstance(ref, ReviewSessionReference):
         raise ValueError("review session reference has invalid type")
-    _check_text(ref.review_session_identifier, "review_session_identifier")
-    _check_text(ref.review_session_timestamp, "review_session_timestamp")
+    _check_name(ref.review_session_identifier, "review_session_identifier")
+    _check_name(ref.review_session_timestamp, "review_session_timestamp")
     _validate_hash_format(ref.review_session_reference_hash, "review_session_reference_hash")
     if ref.review_session_reference_hash != _hash_payload(_base_payload(ref.__dict__, "review_session_reference_hash")):
         raise ValueError("review_session_reference_hash mismatch")

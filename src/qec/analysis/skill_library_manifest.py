@@ -131,6 +131,14 @@ def _validate_skill_indices(entries: tuple["SkillDefinitionEntry", ...]) -> None
         seen.add(entry.skill_index)
 
 
+def _skill_entries_replay_safe(entries: tuple["SkillDefinitionEntry", ...]) -> bool:
+    try:
+        _validate_skill_indices(entries)
+    except ValueError:
+        return False
+    return all(e.skill_mode != "DECLARED_CUSTOM_SKILL_MODE" for e in entries)
+
+
 def _revalidate_exact_instance(value: Any, cls: type[Any]) -> None:
     if type(value) is not cls:
         raise _invalid_input()
@@ -292,10 +300,12 @@ def build_skill_library_manifest(
     replay_safe = (
         adapter_only is True
         and agent_observation_trace_receipt.replay_safe_observation_trace is True
+        and skill_library_identity.library_type != "DECLARED_CUSTOM_SKILL_LIBRARY"
         and version_declaration.version_mode in {"FIXED_VERSION", "HASH_BOUND_VERSION", "DECLARED_SEMVER_VERSION"}
         and capability_boundary.capability_mode in {"CAPABILITY_CONTEXT_ONLY", "CAPABILITY_AUDIT_ONLY", "CAPABILITY_REPLAY_ONLY", "CAPABILITY_DECLARED_NOT_EXECUTED"}
         and dependency_boundary.dependency_mode in {"NO_DEPENDENCIES", "DECLARED_STATIC_DEPENDENCIES", "DECLARED_HASH_BOUND_DEPENDENCIES", "DECLARED_CONTEXT_DEPENDENCIES"}
         and type(skill_entries) is tuple
+        and _skill_entries_replay_safe(skill_entries)
     )
     payload = {
         "schema_version": _SCHEMA_VERSION,
@@ -385,8 +395,10 @@ def validate_skill_library_manifest(
     recomputed_replay = (
         manifest.adapter_only is True
         and agent_observation_trace_receipt.replay_safe_observation_trace is True
+        and manifest.skill_library_identity.library_type != "DECLARED_CUSTOM_SKILL_LIBRARY"
         and recomputed_count == manifest.skill_count
         and type(manifest.skill_entries) is tuple
+        and _skill_entries_replay_safe(manifest.skill_entries)
         and manifest.version_declaration.version_mode in {"FIXED_VERSION", "HASH_BOUND_VERSION", "DECLARED_SEMVER_VERSION"}
         and manifest.capability_boundary.capability_mode in {"CAPABILITY_CONTEXT_ONLY", "CAPABILITY_AUDIT_ONLY", "CAPABILITY_REPLAY_ONLY", "CAPABILITY_DECLARED_NOT_EXECUTED"}
         and manifest.dependency_boundary.dependency_mode in {"NO_DEPENDENCIES", "DECLARED_STATIC_DEPENDENCIES", "DECLARED_HASH_BOUND_DEPENDENCIES", "DECLARED_CONTEXT_DEPENDENCIES"}

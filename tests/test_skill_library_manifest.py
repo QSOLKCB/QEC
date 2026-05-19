@@ -151,6 +151,55 @@ def test_custom_modes_and_upstream_non_replay_safe_force_false():
     slm.validate_skill_library_manifest(nonreplay, ntrace, **ntkw)
 
 
+def test_custom_skill_mode_forces_non_replay_safe():
+    m, trace, tkw = _manifest()
+    custom_entries = (_entry(0, "DECLARED_CUSTOM_SKILL_MODE"), _entry(1, "SKILL_DECLARED_CONTEXT_ONLY"))
+    rebuilt = slm.build_skill_library_manifest(
+        trace,
+        m.skill_library_identity,
+        custom_entries,
+        m.version_declaration,
+        m.capability_boundary,
+        m.dependency_boundary,
+        m.adapter_only,
+    )
+    assert rebuilt.replay_safe_skill_library is False
+    slm.validate_skill_library_manifest(rebuilt, trace, **tkw)
+
+
+def test_custom_library_type_forces_non_replay_safe():
+    m, trace, tkw = _manifest()
+    custom_identity = _identity("DECLARED_CUSTOM_SKILL_LIBRARY")
+    rebuilt = slm.build_skill_library_manifest(
+        trace,
+        custom_identity,
+        m.skill_entries,
+        m.version_declaration,
+        m.capability_boundary,
+        m.dependency_boundary,
+        m.adapter_only,
+    )
+    assert rebuilt.replay_safe_skill_library is False
+    slm.validate_skill_library_manifest(rebuilt, trace, **tkw)
+
+
+def test_invalid_skill_ordering_forces_non_replay_safe_in_builder():
+    m, trace, tkw = _manifest()
+    bad_entries = (_entry(0), _entry(0))
+    rebuilt = slm.build_skill_library_manifest(
+        trace,
+        m.skill_library_identity,
+        bad_entries,
+        m.version_declaration,
+        m.capability_boundary,
+        m.dependency_boundary,
+        m.adapter_only,
+    )
+    assert rebuilt.replay_safe_skill_library is False
+    with pytest.raises(ValueError, match="duplicate"):
+        slm.validate_skill_library_manifest(rebuilt, trace, **tkw)
+
+
 def test_upstream_validation_and_forbidden_imports():
     m, trace, tkw = _manifest()
     assert slm.validate_skill_library_manifest(m, trace, **tkw) == m

@@ -182,7 +182,7 @@ def build_byte_level_model_identity(model_family: str, model_mode: str, model_id
         raise ValueError("invalid model_mode")
     _check_text(model_identity_reason, "model_identity_reason", _MAX_REASON_LENGTH)
     _check_no_forbidden_runtime_semantics(model_identity_reason)
-    _validate_byte_boundary_semantics(model_identity_reason)
+    _validate_byte_boundary_semantics(model_family, model_identity_reason)
     payload = {"model_family": model_family, "model_mode": model_mode, "model_identity_reason": model_identity_reason}
     return ByteLevelModelIdentity(**payload, byte_level_model_identity_hash=_hash_payload(payload))
 
@@ -190,21 +190,23 @@ def build_byte_level_model_identity(model_family: str, model_mode: str, model_id
 def build_patch_segmentation_declaration(patch_mode: str, patch_size: int, patch_reason: str) -> PatchSegmentationDeclaration:
     if patch_mode not in _ALLOWED_PATCH_MODES:
         raise ValueError("invalid patch_mode")
-    if not isinstance(patch_size, int) or patch_size <= 0 or patch_size > _MAX_PATCH_SIZE:
+    if isinstance(patch_size, bool) or not isinstance(patch_size, int) or patch_size <= 0 or patch_size > _MAX_PATCH_SIZE:
         raise ValueError("invalid patch_size")
     _check_text(patch_reason, "patch_reason", _MAX_REASON_LENGTH)
     _check_no_forbidden_runtime_semantics(patch_reason)
+    _validate_byte_boundary_semantics(patch_reason)
     payload = {"patch_mode": patch_mode, "patch_size": patch_size, "patch_reason": patch_reason}
     return PatchSegmentationDeclaration(**payload, patch_segmentation_declaration_hash=_hash_payload(payload))
 
 
 def build_byte_window_declaration(window_size: int, overlapping_windows: bool, byte_window_reason: str) -> ByteWindowDeclaration:
-    if not isinstance(window_size, int) or window_size <= 0:
+    if isinstance(window_size, bool) or not isinstance(window_size, int) or window_size <= 0:
         raise ValueError("window_size must be a positive integer")
     if not isinstance(overlapping_windows, bool):
         raise ValueError("overlapping_windows must be bool")
     _check_text(byte_window_reason, "byte_window_reason", _MAX_REASON_LENGTH)
     _check_no_forbidden_runtime_semantics(byte_window_reason)
+    _validate_byte_boundary_semantics(byte_window_reason)
     payload = {"window_size": window_size, "overlapping_windows": overlapping_windows, "byte_window_reason": byte_window_reason}
     return ByteWindowDeclaration(**payload, byte_window_declaration_hash=_hash_payload(payload))
 
@@ -212,10 +214,11 @@ def build_byte_window_declaration(window_size: int, overlapping_windows: bool, b
 def build_entropy_threshold_declaration(entropy_mode: str, entropy_threshold: float, entropy_reason: str) -> EntropyThresholdDeclaration:
     if entropy_mode not in _ALLOWED_ENTROPY_MODES:
         raise ValueError("invalid entropy_mode")
-    if not isinstance(entropy_threshold, (int, float)) or entropy_threshold < 0:
+    if isinstance(entropy_threshold, bool) or not isinstance(entropy_threshold, (int, float)) or entropy_threshold < 0:
         raise ValueError("entropy_threshold must be non-negative")
     _check_text(entropy_reason, "entropy_reason", _MAX_REASON_LENGTH)
     _check_no_forbidden_runtime_semantics(entropy_reason)
+    _validate_byte_boundary_semantics(entropy_reason)
     payload = {"entropy_mode": entropy_mode, "entropy_threshold": float(entropy_threshold), "entropy_reason": entropy_reason}
     return EntropyThresholdDeclaration(**payload, entropy_threshold_declaration_hash=_hash_payload(payload))
 
@@ -271,6 +274,8 @@ def build_byte_level_model_boundary_receipt(
     tokenizer_bypass: TokenizerBypassDeclaration,
     adapter_only: bool,
 ) -> ByteLevelModelBoundaryReceipt:
+    if adapter_only is not True:
+        raise ValueError("adapter_only must be True")
     validated_upstream = validate_inference_backend_manifest(inference_backend_manifest)
     validate_byte_level_model_identity(model_identity)
     validate_patch_segmentation_declaration(patch_segmentation)
@@ -303,7 +308,7 @@ def validate_byte_level_model_identity(item: ByteLevelModelIdentity) -> ByteLeve
     _check_text(item.model_identity_reason, "model_identity_reason", _MAX_REASON_LENGTH)
     _validate_hash_format(item.byte_level_model_identity_hash, "byte_level_model_identity_hash")
     _check_no_forbidden_runtime_semantics(item.__dict__)
-    _validate_byte_boundary_semantics(item.model_identity_reason)
+    _validate_byte_boundary_semantics(item.model_family, item.model_identity_reason)
     if _hash_payload(_base_payload(item.__dict__, "byte_level_model_identity_hash")) != item.byte_level_model_identity_hash:
         raise ValueError("byte_level_model_identity_hash mismatch")
     return item
@@ -312,24 +317,26 @@ def validate_byte_level_model_identity(item: ByteLevelModelIdentity) -> ByteLeve
 def validate_patch_segmentation_declaration(item: PatchSegmentationDeclaration) -> PatchSegmentationDeclaration:
     if item.patch_mode not in _ALLOWED_PATCH_MODES:
         raise ValueError("invalid patch_mode")
-    if not isinstance(item.patch_size, int) or item.patch_size <= 0 or item.patch_size > _MAX_PATCH_SIZE:
+    if isinstance(item.patch_size, bool) or not isinstance(item.patch_size, int) or item.patch_size <= 0 or item.patch_size > _MAX_PATCH_SIZE:
         raise ValueError("invalid patch_size")
     _check_text(item.patch_reason, "patch_reason", _MAX_REASON_LENGTH)
     _validate_hash_format(item.patch_segmentation_declaration_hash, "patch_segmentation_declaration_hash")
     _check_no_forbidden_runtime_semantics(item.__dict__)
+    _validate_byte_boundary_semantics(item.patch_reason)
     if _hash_payload(_base_payload(item.__dict__, "patch_segmentation_declaration_hash")) != item.patch_segmentation_declaration_hash:
         raise ValueError("patch_segmentation_declaration_hash mismatch")
     return item
 
 
 def validate_byte_window_declaration(item: ByteWindowDeclaration) -> ByteWindowDeclaration:
-    if not isinstance(item.window_size, int) or item.window_size <= 0:
+    if isinstance(item.window_size, bool) or not isinstance(item.window_size, int) or item.window_size <= 0:
         raise ValueError("window_size must be positive")
     if not isinstance(item.overlapping_windows, bool):
         raise ValueError("overlapping_windows must be bool")
     _check_text(item.byte_window_reason, "byte_window_reason", _MAX_REASON_LENGTH)
     _validate_hash_format(item.byte_window_declaration_hash, "byte_window_declaration_hash")
     _check_no_forbidden_runtime_semantics(item.__dict__)
+    _validate_byte_boundary_semantics(item.byte_window_reason)
     if _hash_payload(_base_payload(item.__dict__, "byte_window_declaration_hash")) != item.byte_window_declaration_hash:
         raise ValueError("byte_window_declaration_hash mismatch")
     return item
@@ -338,11 +345,12 @@ def validate_byte_window_declaration(item: ByteWindowDeclaration) -> ByteWindowD
 def validate_entropy_threshold_declaration(item: EntropyThresholdDeclaration) -> EntropyThresholdDeclaration:
     if item.entropy_mode not in _ALLOWED_ENTROPY_MODES:
         raise ValueError("invalid entropy_mode")
-    if not isinstance(item.entropy_threshold, (int, float)) or item.entropy_threshold < 0:
+    if isinstance(item.entropy_threshold, bool) or not isinstance(item.entropy_threshold, (int, float)) or item.entropy_threshold < 0:
         raise ValueError("entropy_threshold must be non-negative")
     _check_text(item.entropy_reason, "entropy_reason", _MAX_REASON_LENGTH)
     _validate_hash_format(item.entropy_threshold_declaration_hash, "entropy_threshold_declaration_hash")
     _check_no_forbidden_runtime_semantics(item.__dict__)
+    _validate_byte_boundary_semantics(item.entropy_reason)
     if _hash_payload(_base_payload(item.__dict__, "entropy_threshold_declaration_hash")) != item.entropy_threshold_declaration_hash:
         raise ValueError("entropy_threshold_declaration_hash mismatch")
     return item

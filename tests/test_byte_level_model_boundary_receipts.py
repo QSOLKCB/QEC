@@ -46,6 +46,8 @@ def test_replay_safe_layout_recomputed_and_adapter_only_enforced():
         blmbr.validate_byte_level_model_boundary_receipt(replace(receipt, replay_safe_layout=False), _upstream_manifest())
     with pytest.raises(ValueError):
         blmbr.validate_byte_level_model_boundary_receipt(replace(receipt, adapter_only=False), _upstream_manifest())
+    with pytest.raises(ValueError):
+        _build_receipt(adapter_only=False)
 
 
 @pytest.mark.parametrize(
@@ -67,11 +69,35 @@ def test_invalid_enum_rejections(builder, args):
 def test_invalid_patch_size_rejection(size):
     with pytest.raises(ValueError):
         blmbr.build_patch_segmentation_declaration("FIXED_PATCH", size, "x")
+    with pytest.raises(ValueError):
+        blmbr.build_patch_segmentation_declaration("FIXED_PATCH", True, "x")
 
 
 def test_negative_entropy_threshold_rejection():
     with pytest.raises(ValueError):
         blmbr.build_entropy_threshold_declaration("FIXED_THRESHOLD", -0.1, "x")
+    with pytest.raises(ValueError):
+        blmbr.build_entropy_threshold_declaration("FIXED_THRESHOLD", True, "x")
+
+
+def test_bool_window_size_rejection():
+    with pytest.raises(ValueError):
+        blmbr.build_byte_window_declaration(True, False, "declared")
+
+
+@pytest.mark.parametrize("builder,args", [
+    (blmbr.build_patch_segmentation_declaration, ("FIXED_PATCH", 64, "hidden tokenizer used here")),
+    (blmbr.build_byte_window_declaration, (128, True, "hidden normalization declaration")),
+    (blmbr.build_entropy_threshold_declaration, ("FIXED_THRESHOLD", 0.1, "hidden tokenizer drift")),
+])
+def test_hidden_boundary_drift_rejected_in_reason_fields(builder, args):
+    with pytest.raises(ValueError):
+        builder(*args)
+
+
+def test_hidden_boundary_drift_rejected_in_model_family():
+    with pytest.raises(ValueError):
+        blmbr.build_byte_level_model_identity("hidden tokenizer family", "PURE_BYTE_MODEL", "declared boundary")
 
 
 def test_child_validation_before_aggregate_and_malformed_hash_rejection():

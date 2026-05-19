@@ -1,4 +1,4 @@
-````markdown
+
 # QSOLKCB / QEC
 
 QEC is a deterministic, replay-safe proof and systems architecture for quantum

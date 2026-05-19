@@ -18,12 +18,14 @@ _MAX_NAME_LENGTH = 128
 _MAX_REASON_LENGTH = 1024
 _HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
-_ALLOWED_REVIEWER_TYPES = {"HUMAN_INDIVIDUAL", "HUMAN_TEAM", "DECLARED_EXTERNAL_REVIEWER", "INTERNAL_REVIEW_GROUP"}
+_ALLOWED_REVIEWER_TYPES = {"HUMAN_INDIVIDUAL", "HUMAN_TEAM", "DECLARED_EXTERNAL_REVIEWER", "INTERNAL_REVIEW_GROUP", "UNREVIEWED"}
 _ALLOWED_REVIEW_SCOPES = {"STRUCTURAL_ONLY", "CITATION_ONLY", "SOURCE_ACCESSIBILITY_ONLY", "CLAIM_BOUNDARY_ONLY", "BENCHMARK_ONLY", "SYMBOLIC_ONLY", "FULL_HUMAN_REVIEW"}
 _ALLOWED_REVIEW_GAP_TYPES = {"UNVERIFIED_CITATIONS", "UNVERIFIED_EXPERIMENTS", "UNVERIFIED_MATHEMATICS", "SOURCE_ACCESS_GAP", "REPRODUCIBILITY_GAP", "CLAIM_SCOPE_GAP", "PUBLICATION_GAP"}
 _ALLOWED_AUTHORITY_BOUNDARIES = {"NO_TRUTH_AUTHORITY", "NO_PUBLICATION_AUTHORITY", "NO_EXPERIMENTAL_AUTHORITY", "NO_AUTONOMOUS_AUTHORITY", "HUMAN_VALIDATION_REQUIRED"}
 _ALLOWED_REVIEW_INHERITANCE_MODES = {"STRICT_REVIEW_INHERITANCE", "SOURCE_BOUND_REVIEW_INHERITANCE", "SYMBOLIC_ONLY_REVIEW_INHERITANCE", "HUMAN_REVIEW_REQUIRED_INHERITANCE"}
 _FORBIDDEN_RUNTIME_TOKENS = ("scientifically proven", "theorem verified", "publication approved", "experiment validated", "automatic peer review", "ai verified correctness", "truth established", "research authority", "runtime execution", "execute inference", "autonomous review")
+# Review boundary modes that indicate review has not been completed.
+_INCOMPLETE_REVIEW_BOUNDARY_MODES = {"NO_REVIEW", "HUMAN_REVIEW_PENDING", "PEER_REVIEW_PENDING"}
 
 
 @dataclass(frozen=True)
@@ -144,14 +146,20 @@ def _check_no_forbidden_runtime_semantics(payload: Any) -> None:
             raise ValueError("forbidden runtime, scientific-authority, or autonomous-review semantics are not allowed")
 
 
-def _validate_review_semantics(receipt: HumanReviewBoundaryReceipt, upstream: PaperGenerationProvenanceReceipt) -> tuple[int, bool]:
+def _validate_review_semantics(receipt: HumanReviewBoundaryReceipt, upstream: PaperGenerationProvenanceReceipt, manifest: ResearchAutomationManifest) -> tuple[int, bool]:
     if receipt.schema_version != _SCHEMA_VERSION:
         raise ValueError("schema_version is invalid")
     if receipt.paper_generation_provenance_receipt_hash != upstream.paper_generation_provenance_receipt_hash:
         raise ValueError("provenance lineage mismatch")
     if not isinstance(receipt.adapter_only, bool) or receipt.adapter_only is not True:
         raise ValueError("adapter_only must be True")
-    names = {b.authority_boundary for b in receipt.authority_boundaries}
+    # Enforce canonical ordering and uniqueness of authority boundaries.
+    boundary_names = [b.authority_boundary for b in receipt.authority_boundaries]
+    if len(boundary_names) != len(set(boundary_names)):
+        raise ValueError("authority_boundaries must not contain duplicates")
+    if boundary_names != sorted(boundary_names):
+        raise ValueError("authority_boundaries must be in canonical sorted order")
+    names = set(boundary_names)
     if "NO_TRUTH_AUTHORITY" not in names:
         raise ValueError("authority boundaries must include NO_TRUTH_AUTHORITY")
     if "NO_AUTONOMOUS_AUTHORITY" not in names:
@@ -160,6 +168,15 @@ def _validate_review_semantics(receipt: HumanReviewBoundaryReceipt, upstream: Pa
         raise ValueError("symbolic-only inheritance must not silently escalate to full human review")
     force_incomplete = receipt.review_scope.review_scope == "SYMBOLIC_ONLY"
     if upstream.publication_intent.publication_intent == "HUMAN_REVIEW_REQUIRED" and receipt.review_scope.review_scope != "FULL_HUMAN_REVIEW":
+        force_incomplete = True
+    # UNREVIEWED manifest: review lineage does not support a completed receipt.
+    if manifest.review_status.review_status == "UNREVIEWED":
+        force_incomplete = True
+    # UNREVIEWED reviewer_type: no human reviewer is assigned yet.
+    if receipt.reviewer_identity.reviewer_type == "UNREVIEWED":
+        force_incomplete = True
+    # Incomplete upstream review boundary: honour the upstream paper lineage.
+    if upstream.review_boundary.review_boundary_mode in _INCOMPLETE_REVIEW_BOUNDARY_MODES or not upstream.review_boundary.reviewer_required:
         force_incomplete = True
     gap_count = len(receipt.review_gaps)
     review_complete = gap_count == 0 and "HUMAN_VALIDATION_REQUIRED" in names and "NO_AUTONOMOUS_AUTHORITY" in names and receipt.adapter_only is True and not force_incomplete
@@ -183,7 +200,7 @@ def build_review_scope_declaration(review_scope: str, review_scope_reason: str) 
 
 
 def build_review_gap_declaration(gap_index: int, gap_type: str, gap_reason: str) -> ReviewGapDeclaration:
-    if not isinstance(gap_index, int) or gap_index < 0:
+    if isinstance(gap_index, bool) or not isinstance(gap_index, int) or gap_index < 0:
         raise ValueError("gap_index must be a non-negative int")
     if gap_type not in _ALLOWED_REVIEW_GAP_TYPES:
         raise ValueError("invalid review gap type")
@@ -219,8 +236,9 @@ def _validate_gap_indices(gaps: tuple[ReviewGapDeclaration, ...]) -> None:
     if len(gaps) > _MAX_REVIEW_GAPS:
         raise ValueError("review gaps exceed maximum")
     indices = [g.gap_index for g in gaps]
-    if sorted(indices) != list(range(len(indices))):
-        raise ValueError("review gaps must have dense+unique indices")
+    # Require dense, unique, and canonically ordered (0, 1, 2, ...) indices.
+    if indices != list(range(len(indices))):
+        raise ValueError("review gaps must have dense+unique indices in canonical order")
 
 
 def validate_reviewer_identity_declaration(decl: ReviewerIdentityDeclaration) -> bool:
@@ -250,7 +268,7 @@ def validate_review_scope_declaration(decl: ReviewScopeDeclaration) -> bool:
 def validate_review_gap_declaration(decl: ReviewGapDeclaration) -> bool:
     if not isinstance(decl, ReviewGapDeclaration):
         raise ValueError("review gap declaration has invalid type")
-    if not isinstance(decl.gap_index, int) or decl.gap_index < 0:
+    if isinstance(decl.gap_index, bool) or not isinstance(decl.gap_index, int) or decl.gap_index < 0:
         raise ValueError("gap_index must be a non-negative int")
     if decl.gap_type not in _ALLOWED_REVIEW_GAP_TYPES:
         raise ValueError("invalid review gap type")
@@ -330,7 +348,7 @@ def build_human_review_boundary_receipt(
         adapter_only=True,
         human_review_boundary_receipt_hash="",
     )
-    gap_count, complete = _validate_review_semantics(receipt, paper_generation_provenance_receipt)
+    gap_count, complete = _validate_review_semantics(receipt, paper_generation_provenance_receipt, research_automation_manifest)
     payload = {**receipt.__dict__, "review_gap_count": gap_count, "review_complete": complete}
     payload.pop("human_review_boundary_receipt_hash", None)
     return HumanReviewBoundaryReceipt(**payload, human_review_boundary_receipt_hash=_hash_payload(payload))
@@ -343,6 +361,10 @@ def validate_human_review_boundary_receipt(
 ) -> bool:
     if not isinstance(receipt, HumanReviewBoundaryReceipt):
         raise ValueError("human review boundary receipt has invalid type")
+    if not isinstance(receipt.review_gaps, tuple):
+        raise ValueError("review_gaps must be a tuple")
+    if not isinstance(receipt.authority_boundaries, tuple):
+        raise ValueError("authority_boundaries must be a tuple")
     validate_paper_generation_provenance_receipt(paper_generation_provenance_receipt, research_automation_manifest)
     validate_reviewer_identity_declaration(receipt.reviewer_identity)
     validate_review_scope_declaration(receipt.review_scope)
@@ -355,7 +377,7 @@ def validate_human_review_boundary_receipt(
     validate_review_session_reference(receipt.review_session)
     _validate_hash_format(receipt.paper_generation_provenance_receipt_hash, "paper_generation_provenance_receipt_hash")
     _validate_hash_format(receipt.human_review_boundary_receipt_hash, "human_review_boundary_receipt_hash")
-    gap_count, complete = _validate_review_semantics(receipt, paper_generation_provenance_receipt)
+    gap_count, complete = _validate_review_semantics(receipt, paper_generation_provenance_receipt, research_automation_manifest)
     if receipt.review_gap_count != gap_count:
         raise ValueError("review_gap_count must be recomputed")
     if receipt.review_complete != complete:

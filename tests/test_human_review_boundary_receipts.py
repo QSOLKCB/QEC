@@ -13,6 +13,7 @@ import pytest
 from qec.analysis import human_review_boundary_receipts as hr
 from qec.analysis import paper_generation_provenance_receipts as pgr
 from qec.analysis import research_automation_manifest as ram
+from qec.analysis.human_review_boundary_receipts import HumanReviewBoundaryReceipt
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _MODULE_PATH = _REPO_ROOT / "src/qec/analysis/human_review_boundary_receipts.py"
@@ -34,13 +35,14 @@ def _manifest(scope: str = "SOURCE_BOUND", review_status: str = "HUMAN_REVIEWED"
         ),
     )
 
-def _paper(manifest, intent: str = "INTERNAL_ONLY", inheritance: str = "SOURCE_BOUND_INHERITANCE"):
+def _paper(manifest, intent: str = "INTERNAL_ONLY", inheritance: str = "SOURCE_BOUND_INHERITANCE",
+           review_boundary_mode: str = "HUMAN_REVIEW_COMPLETED", reviewer_required: bool = True):
     return pgr.build_paper_generation_provenance_receipt(
         manifest,
         pgr.build_generated_document_identity("paper", "TECHNICAL_REPORT", "v1"),
         pgr.build_generation_session_reference("sess", "2026-05-18T00:00:00Z"),
         pgr.build_citation_boundary_reference("STRICT_SOURCE_BOUND", "declared"),
-        pgr.build_review_boundary_reference("HUMAN_REVIEW_COMPLETED", True),
+        pgr.build_review_boundary_reference(review_boundary_mode, reviewer_required),
         pgr.build_document_claim_inheritance(inheritance, "declared"),
         pgr.build_publication_intent_declaration(intent, False),
     )
@@ -199,3 +201,101 @@ def test_no_forbidden_imports_and_decoder_boundary():
     assert "exec(" not in source
     changed = {p.as_posix() for p in _DECODER_PATH.rglob("*") if p.is_file()}
     assert "src/qec/analysis/human_review_boundary_receipts.py" not in changed
+
+
+def test_unreviewed_reviewer_type_allowed_and_forces_incomplete():
+    m = _manifest(); p = _paper(m)
+    r = hr.build_human_review_boundary_receipt(
+        p, m,
+        hr.build_reviewer_identity_declaration("pending", "UNREVIEWED"),
+        hr.build_review_scope_declaration("FULL_HUMAN_REVIEW", "declared"),
+        (),
+        tuple(hr.build_review_authority_boundary(b, "declared") for b in ("NO_TRUTH_AUTHORITY", "NO_AUTONOMOUS_AUTHORITY", "HUMAN_VALIDATION_REQUIRED")),
+        hr.build_review_inheritance_declaration("STRICT_REVIEW_INHERITANCE", "declared"),
+        hr.build_review_session_reference("rsess", "2026-05-18T00:00:00Z"),
+    )
+    assert r.review_complete is False
+
+
+def test_unreviewed_manifest_forces_incomplete():
+    m = _manifest(review_status="UNREVIEWED"); p = _paper(m)
+    r = _receipt(m, p)
+    assert r.review_complete is False
+
+
+def test_noncanonical_gap_ordering_rejected():
+    m = _manifest(); p = _paper(m)
+    g0 = hr.build_review_gap_declaration(0, "UNVERIFIED_CITATIONS", "a")
+    g1 = hr.build_review_gap_declaration(1, "UNVERIFIED_EXPERIMENTS", "b")
+    r = _receipt(m, p, gaps=(g0, g1))
+    # Forge a receipt with gaps in reverse (non-canonical) order and a placeholder hash.
+    forged = replace(r, review_gaps=(r.review_gaps[1], r.review_gaps[0]), human_review_boundary_receipt_hash="0" * 64)
+    with pytest.raises(ValueError, match="canonical order"):
+        hr.validate_human_review_boundary_receipt(forged, p, m)
+
+
+def test_duplicate_authority_boundaries_rejected():
+    m = _manifest(); p = _paper(m); r = _receipt(m, p)
+    dup = hr.build_review_authority_boundary("NO_TRUTH_AUTHORITY", "declared")
+    forged = replace(r, authority_boundaries=(*r.authority_boundaries, dup), human_review_boundary_receipt_hash="0" * 64)
+    with pytest.raises(ValueError, match="duplicate"):
+        hr.validate_human_review_boundary_receipt(forged, p, m)
+
+
+def test_noncanonical_authority_boundary_ordering_rejected():
+    m = _manifest(); p = _paper(m); r = _receipt(m, p)
+    # Reverse the sorted authority boundaries tuple and reuse a placeholder hash.
+    forged = replace(r, authority_boundaries=tuple(reversed(r.authority_boundaries)), human_review_boundary_receipt_hash="0" * 64)
+    with pytest.raises(ValueError, match="canonical sorted order"):
+        hr.validate_human_review_boundary_receipt(forged, p, m)
+
+
+def test_mutable_collections_rejected():
+    m = _manifest(); p = _paper(m); r = _receipt(m, p)
+    # Python doesn't enforce type annotations at runtime; lists can be passed.
+    forged_list_gaps = hr.HumanReviewBoundaryReceipt(
+        schema_version=r.schema_version,
+        paper_generation_provenance_receipt_hash=r.paper_generation_provenance_receipt_hash,
+        reviewer_identity=r.reviewer_identity,
+        review_scope=r.review_scope,
+        review_gaps=list(r.review_gaps),  # list instead of tuple
+        authority_boundaries=r.authority_boundaries,
+        review_inheritance=r.review_inheritance,
+        review_session=r.review_session,
+        review_gap_count=r.review_gap_count,
+        review_complete=r.review_complete,
+        adapter_only=r.adapter_only,
+        human_review_boundary_receipt_hash=r.human_review_boundary_receipt_hash,
+    )
+    with pytest.raises(ValueError, match="review_gaps must be a tuple"):
+        hr.validate_human_review_boundary_receipt(forged_list_gaps, p, m)
+    forged_list_bounds = hr.HumanReviewBoundaryReceipt(
+        schema_version=r.schema_version,
+        paper_generation_provenance_receipt_hash=r.paper_generation_provenance_receipt_hash,
+        reviewer_identity=r.reviewer_identity,
+        review_scope=r.review_scope,
+        review_gaps=r.review_gaps,
+        authority_boundaries=list(r.authority_boundaries),  # list instead of tuple
+        review_inheritance=r.review_inheritance,
+        review_session=r.review_session,
+        review_gap_count=r.review_gap_count,
+        review_complete=r.review_complete,
+        adapter_only=r.adapter_only,
+        human_review_boundary_receipt_hash=r.human_review_boundary_receipt_hash,
+    )
+    with pytest.raises(ValueError, match="authority_boundaries must be a tuple"):
+        hr.validate_human_review_boundary_receipt(forged_list_bounds, p, m)
+
+
+def test_no_review_boundary_forces_incomplete():
+    m = _manifest()
+    p_no_review = _paper(m, review_boundary_mode="NO_REVIEW", reviewer_required=False)
+    r = _receipt(m, p_no_review)
+    assert r.review_complete is False
+
+
+def test_boolean_gap_index_rejected():
+    with pytest.raises(ValueError, match="non-negative int"):
+        hr.build_review_gap_declaration(True, "UNVERIFIED_CITATIONS", "x")
+    with pytest.raises(ValueError, match="non-negative int"):
+        hr.build_review_gap_declaration(False, "UNVERIFIED_CITATIONS", "x")

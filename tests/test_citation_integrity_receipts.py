@@ -79,3 +79,104 @@ def test_forbidden_semantics_imports_decoder_boundary_and_upstream_validation():
     with pytest.raises(ValueError): cir.validate_citation_integrity_receipt(r, bad_m, p, h)
     bad_h = replace(h, human_review_boundary_receipt_hash=_PLACEHOLDER_HASH)
     with pytest.raises(ValueError): cir.validate_citation_integrity_receipt(r, m, p, bad_h)
+
+
+def test_manifest_source_accessibility_gates_pass():
+    # Manifest source with source_accessible=False: citation declaring ACCESSIBLE must not pass.
+    m_inacc = ram.build_research_automation_manifest(
+        "m", ram.build_research_generation_backend("b", "1", "HUMAN_PLUS_LLM"),
+        (ram.build_research_source_reference(0, "s", "urn:s", False),),
+        ram.build_citation_policy_declaration("STRICT_SOURCE_ONLY", False),
+        ram.build_human_review_status("HUMAN_REVIEWED", "r", "2026-05-18T00:00:00Z"),
+        ram.build_claim_scope_declaration("SOURCE_BOUND", "reason"),
+        (ram.build_automation_boundary_declaration("CITATION_VALIDATION_REQUIRED", "r"),
+         ram.build_automation_boundary_declaration("HUMAN_GATE_REQUIRED", "r"),
+         ram.build_automation_boundary_declaration("NO_AUTONOMOUS_AUTHORITY", "r"),
+         ram.build_automation_boundary_declaration("SOURCE_VALIDATION_REQUIRED", "r")))
+    p = _paper(m_inacc)
+    h = _hr(m_inacc, p)
+    r = cir.build_citation_integrity_receipt(
+        manifest=m_inacc, paper_generation_provenance_receipt=p, human_review_receipt=h,
+        citation_identity=cir.build_citation_identity("c1", "PRIMARY_SOURCE", "title"),
+        source_binding=cir.build_citation_source_binding(0, m_inacc.source_references[0].source_hash, "bind"),
+        accessibility=cir.build_citation_accessibility_declaration("ACCESSIBLE", "declared"),
+        claim_boundary=cir.build_citation_claim_boundary("SUPPORTS_METHOD_ONLY", "declared"),
+        review_reference=cir.build_citation_review_reference("HUMAN_REVIEW_COMPLETED", "a" * 64),
+        citation_issues=())
+    assert r.citation_integrity_passed is False
+    # DECLARED_OFFLINE_SOURCE should pass when source_accessible=False.
+    r2 = cir.build_citation_integrity_receipt(
+        manifest=m_inacc, paper_generation_provenance_receipt=p, human_review_receipt=h,
+        citation_identity=cir.build_citation_identity("c1", "PRIMARY_SOURCE", "title"),
+        source_binding=cir.build_citation_source_binding(0, m_inacc.source_references[0].source_hash, "bind"),
+        accessibility=cir.build_citation_accessibility_declaration("DECLARED_OFFLINE_SOURCE", "declared"),
+        claim_boundary=cir.build_citation_claim_boundary("SUPPORTS_METHOD_ONLY", "declared"),
+        review_reference=cir.build_citation_review_reference("HUMAN_REVIEW_COMPLETED", "a" * 64),
+        citation_issues=())
+    assert r2.citation_integrity_passed is True
+
+
+def test_review_complete_gates_pass():
+    # Manifest with UNREVIEWED status makes review.review_complete=False;
+    # citation with review_mode=HUMAN_REVIEW_COMPLETED must still not pass.
+    m_unrev = ram.build_research_automation_manifest(
+        "m", ram.build_research_generation_backend("b", "1", "HUMAN_PLUS_LLM"),
+        (ram.build_research_source_reference(0, "s", "urn:s", True),),
+        ram.build_citation_policy_declaration("STRICT_SOURCE_ONLY", False),
+        ram.build_human_review_status("UNREVIEWED", "r", "2026-05-18T00:00:00Z"),
+        ram.build_claim_scope_declaration("SOURCE_BOUND", "reason"),
+        (ram.build_automation_boundary_declaration("CITATION_VALIDATION_REQUIRED", "r"),
+         ram.build_automation_boundary_declaration("HUMAN_GATE_REQUIRED", "r"),
+         ram.build_automation_boundary_declaration("NO_AUTONOMOUS_AUTHORITY", "r"),
+         ram.build_automation_boundary_declaration("SOURCE_VALIDATION_REQUIRED", "r")))
+    p = _paper(m_unrev)
+    h = _hr(m_unrev, p)
+    assert h.review_complete is False  # upstream receipt confirms review is incomplete
+    r = cir.build_citation_integrity_receipt(
+        manifest=m_unrev, paper_generation_provenance_receipt=p, human_review_receipt=h,
+        citation_identity=cir.build_citation_identity("c1", "PRIMARY_SOURCE", "title"),
+        source_binding=cir.build_citation_source_binding(0, m_unrev.source_references[0].source_hash, "bind"),
+        accessibility=cir.build_citation_accessibility_declaration("ACCESSIBLE", "declared"),
+        claim_boundary=cir.build_citation_claim_boundary("SUPPORTS_METHOD_ONLY", "declared"),
+        review_reference=cir.build_citation_review_reference("HUMAN_REVIEW_COMPLETED", "a" * 64),
+        citation_issues=())
+    assert r.citation_integrity_passed is False
+
+
+def test_builder_validates_child_declarations():
+    m, p, h, r = _receipt()
+    # Forge a CitationIdentity with a mismatched hash (different citation_key but old hash).
+    forged_id = replace(r.citation_identity, citation_key="forged_key")
+    with pytest.raises(ValueError):
+        cir.build_citation_integrity_receipt(
+            manifest=m, paper_generation_provenance_receipt=p, human_review_receipt=h,
+            citation_identity=forged_id, source_binding=r.source_binding,
+            accessibility=r.accessibility, claim_boundary=r.claim_boundary,
+            review_reference=r.review_reference, citation_issues=r.citation_issues)
+    # Forge a CitationSourceBinding with a mismatched hash.
+    forged_src = replace(r.source_binding, source_binding_reason="forged_reason")
+    with pytest.raises(ValueError):
+        cir.build_citation_integrity_receipt(
+            manifest=m, paper_generation_provenance_receipt=p, human_review_receipt=h,
+            citation_identity=r.citation_identity, source_binding=forged_src,
+            accessibility=r.accessibility, claim_boundary=r.claim_boundary,
+            review_reference=r.review_reference, citation_issues=r.citation_issues)
+
+
+def test_type_checks_on_recomputed_fields():
+    i0 = cir.build_citation_issue_declaration(0, "DOI_MISSING", "r")
+    m, p, h, r = _receipt(issue=(i0,))  # citation_issue_count=1, citation_integrity_passed=False
+    # Forge citation_issue_count=True (True==1 in Python, exploiting bool/int aliasing).
+    forged_count = replace(r, citation_issue_count=True)
+    forged_count_hash = replace(
+        forged_count,
+        citation_integrity_receipt_hash=cir._hash_payload(cir._base_payload(forged_count.__dict__, "citation_integrity_receipt_hash")))
+    with pytest.raises(ValueError, match="plain int"):
+        cir.validate_citation_integrity_receipt(forged_count_hash, m, p, h)
+    # Forge citation_integrity_passed=0 (0==False in Python).
+    forged_pass = replace(r, citation_integrity_passed=0)
+    forged_pass_hash = replace(
+        forged_pass,
+        citation_integrity_receipt_hash=cir._hash_payload(cir._base_payload(forged_pass.__dict__, "citation_integrity_receipt_hash")))
+    with pytest.raises(ValueError, match="bool"):
+        cir.validate_citation_integrity_receipt(forged_pass_hash, m, p, h)

@@ -168,9 +168,10 @@ def _validate_citation_semantics(receipt: CitationIntegrityReceipt, manifest: Re
     passed = (
         issue_count == 0
         and receipt.accessibility.accessibility_state in {"ACCESSIBLE", "DECLARED_OFFLINE_SOURCE"}
+        and (receipt.accessibility.accessibility_state != "ACCESSIBLE" or source.source_accessible is True)
         and receipt.claim_boundary.claim_boundary_mode != "DOES_NOT_SUPPORT_CLAIM"
         and receipt.claim_boundary.claim_boundary_mode != "HUMAN_INTERPRETATION_REQUIRED"
-        and receipt.review_reference.review_mode in {"HUMAN_REVIEW_COMPLETED", "SOURCE_ACCESS_CHECKED", "CLAIM_SUPPORT_CHECKED"}
+        and review.review_complete is True
         and receipt.adapter_only is True
     )
     if receipt.accessibility.accessibility_state == "ACCESS_NOT_CHECKED" or receipt.review_reference.review_mode == "UNREVIEWED" or issue_count > 0 or receipt.claim_boundary.claim_boundary_mode == "HUMAN_INTERPRETATION_REQUIRED":
@@ -230,6 +231,14 @@ def build_citation_integrity_receipt(*, manifest: ResearchAutomationManifest, pa
     issues = tuple(sorted(tuple(citation_issues), key=lambda i: i.issue_index))
     validate_research_automation_manifest(manifest)
     validate_human_review_boundary_receipt(human_review_receipt, paper_generation_provenance_receipt, manifest)
+    validate_citation_identity(citation_identity)
+    validate_citation_source_binding(source_binding)
+    validate_citation_accessibility_declaration(accessibility)
+    validate_citation_claim_boundary(claim_boundary)
+    validate_citation_review_reference(review_reference)
+    for _issue in issues:
+        validate_citation_issue_declaration(_issue)
+    _validate_issue_indices(issues)
     receipt = CitationIntegrityReceipt(_SCHEMA_VERSION, manifest.research_automation_manifest_hash, human_review_receipt.human_review_boundary_receipt_hash, citation_identity, source_binding, accessibility, claim_boundary, review_reference, issues, 0, False, adapter_only, "")
     count, passed = _validate_citation_semantics(receipt, manifest, human_review_receipt)
     with_hash = CitationIntegrityReceipt(**{**receipt.__dict__, "citation_issue_count": count, "citation_integrity_passed": passed})
@@ -291,6 +300,10 @@ def validate_citation_integrity_receipt(receipt: CitationIntegrityReceipt, manif
     for issue in receipt.citation_issues: validate_citation_issue_declaration(issue)
     _validate_issue_indices(receipt.citation_issues)
     count, passed = _validate_citation_semantics(receipt, manifest, human_review_receipt)
+    if isinstance(receipt.citation_issue_count, bool) or not isinstance(receipt.citation_issue_count, int):
+        raise ValueError("citation_issue_count must be a plain int")
+    if not isinstance(receipt.citation_integrity_passed, bool):
+        raise ValueError("citation_integrity_passed must be a bool")
     if receipt.citation_issue_count != count: raise ValueError("citation_issue_count mismatch")
     if receipt.citation_integrity_passed != passed: raise ValueError("citation_integrity_passed mismatch")
     _validate_hash_format(receipt.citation_integrity_receipt_hash, "citation_integrity_receipt_hash")

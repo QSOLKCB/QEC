@@ -55,6 +55,18 @@ _ALLOWED_BENCHMARK_MODES = {
     "RESEARCH_CONTEXT_ONLY",
     "SYNTHETIC_BENCHMARK_ONLY",
 }
+_ALLOWED_REPLAY_SAFE_BENCHMARK_MODES = {
+    "MEMORY_CONTEXT_ONLY",
+    "TOKEN_SPEED_CONTEXT_ONLY",
+    "SYNTHETIC_BENCHMARK_ONLY",
+}
+_ALLOWED_THROUGHPUT_UNITS = {
+    "TOKENS_PER_SECOND",
+    "BYTES_PER_SECOND",
+    "MB_PER_SECOND",
+    "GB_PER_SECOND",
+    "DECLARED_CUSTOM_THROUGHPUT_UNIT",
+}
 _REDUCED_PRECISION_MEMORY_MODES = {
     "FP16_MEMORY",
     "BF16_MEMORY",
@@ -121,6 +133,8 @@ class HardwareBandwidthBoundary:
 class BenchmarkBandwidthBoundary:
     benchmark_mode: str
     benchmark_reason: str
+    measured_throughput_value: float
+    throughput_unit: str
     benchmark_bandwidth_boundary_hash: str
 
 
@@ -193,13 +207,15 @@ def _validate_memory_bandwidth_semantics(*reasons: str) -> None:
 
 
 def _recompute_reduced_precision_memory(precision_mode: str, cache_mode: str) -> bool:
-    return precision_mode in _REDUCED_PRECISION_MEMORY_MODES or cache_mode in {"KV_CACHE", "DECLARED_CUSTOM_CACHE"}
+    del cache_mode
+    return precision_mode in _REDUCED_PRECISION_MEMORY_MODES
 
 
 def _recompute_replay_safe_bandwidth_layout(
     memory_layout_mode: str,
     benchmark_mode: str,
     hardware_boundary_mode: str,
+    manifest_hardware_mode: str,
     adapter_only: bool,
     manifest_valid: bool,
     compression_valid: bool,
@@ -209,8 +225,9 @@ def _recompute_replay_safe_bandwidth_layout(
         and manifest_valid
         and compression_valid
         and memory_layout_mode in _FIXED_REPLAY_SAFE_MEMORY_LAYOUTS
-        and benchmark_mode != "RESEARCH_CONTEXT_ONLY"
+        and benchmark_mode in _ALLOWED_REPLAY_SAFE_BENCHMARK_MODES
         and hardware_boundary_mode == "ADAPTER_ONLY_HARDWARE"
+        and manifest_hardware_mode == "ADAPTER_ONLY_HARDWARE"
     )
 
 
@@ -284,6 +301,12 @@ def _validate_benchmark_bandwidth_boundary(d: BenchmarkBandwidthBoundary) -> Ben
     if d.benchmark_mode not in _ALLOWED_BENCHMARK_MODES:
         raise ValueError("invalid benchmark_mode")
     _check_text(d.benchmark_reason, "benchmark_reason")
+    if isinstance(d.measured_throughput_value, bool) or not isinstance(d.measured_throughput_value, (int, float)):
+        raise ValueError("measured_throughput_value must be numeric")
+    if float(d.measured_throughput_value) <= 0:
+        raise ValueError("measured_throughput_value must be > 0")
+    if d.throughput_unit not in _ALLOWED_THROUGHPUT_UNITS:
+        raise ValueError("invalid throughput_unit")
     _check_no_forbidden_runtime_semantics(d.__dict__)
     _validate_hash_format(d.benchmark_bandwidth_boundary_hash, "benchmark_bandwidth_boundary_hash")
     if _hash_payload(_base_payload(d.__dict__, "benchmark_bandwidth_boundary_hash")) != d.benchmark_bandwidth_boundary_hash:
@@ -339,16 +362,26 @@ def validate_inference_memory_bandwidth_receipt(
         != parameter_golf_compression_receipt.parameter_golf_compression_receipt_hash
     ):
         raise ValueError("parameter_golf_compression_receipt_hash mismatch")
+    if receipt.cache_bandwidth_declaration.cache_mode != inference_backend_manifest.kv_cache_declaration.kv_cache_mode:
+        raise ValueError("cache_mode must match upstream manifest")
+    if (
+        inference_backend_manifest.benchmark_corpus.benchmark_mode == "NO_BENCHMARK_DECLARED"
+        and receipt.benchmark_bandwidth_boundary.benchmark_mode != "NO_BENCHMARK_DECLARED"
+    ):
+        raise ValueError("benchmark_mode must match upstream manifest lineage")
+    if receipt.hardware_bandwidth_boundary.hardware_boundary_mode != inference_backend_manifest.hardware_boundary.hardware_mode:
+        raise ValueError("hardware_boundary_mode must match upstream manifest")
     recomputed_reduced = _recompute_reduced_precision_memory(
         receipt.precision_bandwidth_declaration.precision_bandwidth_mode,
         receipt.cache_bandwidth_declaration.cache_mode,
-    )
+    ) or parameter_golf_compression_receipt.reduced_precision_declared
     if receipt.reduced_precision_memory is not recomputed_reduced:
         raise ValueError("reduced_precision_memory must be recomputed")
     recomputed_replay = _recompute_replay_safe_bandwidth_layout(
         receipt.memory_transfer_declaration.memory_layout_mode,
         receipt.benchmark_bandwidth_boundary.benchmark_mode,
         receipt.hardware_bandwidth_boundary.hardware_boundary_mode,
+        inference_backend_manifest.hardware_boundary.hardware_mode,
         receipt.adapter_only,
         manifest_valid,
         compression_valid,

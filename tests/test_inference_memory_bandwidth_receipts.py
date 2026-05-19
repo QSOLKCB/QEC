@@ -70,7 +70,13 @@ def _receipt(**kwargs):
         cache_bandwidth_declaration=imbr.CacheBandwidthDeclaration(kwargs.get("cache", "NO_CACHE"), "declared", ""),
         precision_bandwidth_declaration=imbr.PrecisionBandwidthDeclaration(kwargs.get("precision", "FP32_MEMORY"), "declared", ""),
         hardware_bandwidth_boundary=imbr.HardwareBandwidthBoundary(kwargs.get("hw", "ADAPTER_ONLY_HARDWARE"), "declared", ""),
-        benchmark_bandwidth_boundary=imbr.BenchmarkBandwidthBoundary(kwargs.get("bench", "NO_BENCHMARK_DECLARED"), "declared", ""),
+        benchmark_bandwidth_boundary=imbr.BenchmarkBandwidthBoundary(
+            kwargs.get("bench", "NO_BENCHMARK_DECLARED"),
+            "declared",
+            kwargs.get("throughput_value", 1.0),
+            kwargs.get("throughput_unit", "TOKENS_PER_SECOND"),
+            "",
+        ),
         reduced_precision_memory=False,
         replay_safe_bandwidth_layout=False,
         adapter_only=kwargs.get("adapter_only", True),
@@ -89,16 +95,19 @@ def _receipt(**kwargs):
         hardware_bandwidth_boundary=with_hash(receipt.hardware_bandwidth_boundary, "hardware_bandwidth_boundary_hash"),
         benchmark_bandwidth_boundary=with_hash(receipt.benchmark_bandwidth_boundary, "benchmark_bandwidth_boundary_hash"),
     )
-    reduced = imbr._recompute_reduced_precision_memory(r.precision_bandwidth_declaration.precision_bandwidth_mode, r.cache_bandwidth_declaration.cache_mode)
+    reduced = imbr._recompute_reduced_precision_memory(
+        r.precision_bandwidth_declaration.precision_bandwidth_mode, r.cache_bandwidth_declaration.cache_mode
+    )
     replay = imbr._recompute_replay_safe_bandwidth_layout(
         r.memory_transfer_declaration.memory_layout_mode,
         r.benchmark_bandwidth_boundary.benchmark_mode,
         r.hardware_bandwidth_boundary.hardware_boundary_mode,
+        m.hardware_boundary.hardware_mode,
         r.adapter_only,
         True,
         True,
     )
-    r = replace(r, reduced_precision_memory=reduced, replay_safe_bandwidth_layout=replay)
+    r = replace(r, reduced_precision_memory=(reduced or c.reduced_precision_declared), replay_safe_bandwidth_layout=replay)
     r = replace(r, inference_memory_bandwidth_receipt_hash=imbr._hash_payload(imbr._base_payload(r.__dict__, "inference_memory_bandwidth_receipt_hash")))
     return r, m, c, t, b
 
@@ -120,6 +129,10 @@ def test_recomputed_fields_and_custom_precision_and_dynamic_layout_replay_reject
     assert rd.replay_safe_bandwidth_layout is False
     with pytest.raises(ValueError):
         imbr.validate_inference_memory_bandwidth_receipt(replace(rd, replay_safe_bandwidth_layout=True), md, cd, td, bd)
+    rn, *_ = _receipt(bench="NO_BENCHMARK_DECLARED")
+    assert rn.replay_safe_bandwidth_layout is False
+    rr, *_ = _receipt(bench="RESEARCH_CONTEXT_ONLY")
+    assert rr.replay_safe_bandwidth_layout is False
 
 
 def test_malformed_hash_enum_bool_alias_adapter_only_and_hidden_semantics_rejected():
@@ -183,7 +196,7 @@ def test_custom_layout_and_cache_implied_recompute_enforced():
     assert rc.replay_safe_bandwidth_layout is False
     with pytest.raises(ValueError):
         imbr.validate_inference_memory_bandwidth_receipt(replace(rc, replay_safe_bandwidth_layout=True), mc, cc, tc, bc)
-    rk, mk, ck, tk, bk = _receipt(cache="KV_CACHE")
+    rk, mk, ck, tk, bk = _receipt(cache="KV_CACHE", precision="FP32_MEMORY")
     assert rk.reduced_precision_memory is True
     with pytest.raises(ValueError):
         imbr.validate_inference_memory_bandwidth_receipt(replace(rk, reduced_precision_memory=False), mk, ck, tk, bk)
@@ -191,6 +204,50 @@ def test_custom_layout_and_cache_implied_recompute_enforced():
     assert rd.reduced_precision_memory is True
     with pytest.raises(ValueError):
         imbr.validate_inference_memory_bandwidth_receipt(replace(rd, reduced_precision_memory=False), md, cd, td, bd)
+
+
+def test_upstream_reduced_precision_lineage_and_cache_not_implying_precision():
+    r, m, c, t, b = _receipt(precision="FP32_MEMORY", cache="KV_CACHE")
+    assert c.reduced_precision_declared is True
+    assert r.reduced_precision_memory is True
+    with pytest.raises(ValueError):
+        imbr.validate_inference_memory_bandwidth_receipt(replace(r, reduced_precision_memory=False), m, c, t, b)
+
+
+def test_manifest_lineage_mismatch_rejected_for_hardware_cache_and_benchmark():
+    r, m, c, t, b = _receipt(cache="STATIC_CACHE")
+    with pytest.raises(ValueError):
+        imbr.validate_inference_memory_bandwidth_receipt(r, m, c, t, b)
+    rh, mh, ch, th, bh = _receipt(hw="CPU_BOUNDARY_ONLY")
+    with pytest.raises(ValueError):
+        imbr.validate_inference_memory_bandwidth_receipt(rh, mh, ch, th, bh)
+    rb, mb, cb, tb, bb = _receipt(bench="MEMORY_CONTEXT_ONLY")
+    with pytest.raises(ValueError):
+        imbr.validate_inference_memory_bandwidth_receipt(rb, mb, cb, tb, bb)
+
+
+def test_benchmark_throughput_validation():
+    r, m, c, t, b = _receipt(bench="NO_BENCHMARK_DECLARED", throughput_value=100.0, throughput_unit="MB_PER_SECOND")
+    assert imbr.validate_inference_memory_bandwidth_receipt(r, m, c, t, b) == r
+    bad_unit = replace(r.benchmark_bandwidth_boundary, throughput_unit="BAD_UNIT")
+    bad_unit = replace(
+        bad_unit,
+        benchmark_bandwidth_boundary_hash=imbr._hash_payload(
+            imbr._base_payload(bad_unit.__dict__, "benchmark_bandwidth_boundary_hash")
+        ),
+    )
+    with pytest.raises(ValueError):
+        imbr.validate_inference_memory_bandwidth_receipt(replace(r, benchmark_bandwidth_boundary=bad_unit), m, c, t, b)
+    for val in (True, 0, -1):
+        bad_v = replace(r.benchmark_bandwidth_boundary, measured_throughput_value=val)
+        bad_v = replace(
+            bad_v,
+            benchmark_bandwidth_boundary_hash=imbr._hash_payload(
+                imbr._base_payload(bad_v.__dict__, "benchmark_bandwidth_boundary_hash")
+            ),
+        )
+        with pytest.raises(ValueError):
+            imbr.validate_inference_memory_bandwidth_receipt(replace(r, benchmark_bandwidth_boundary=bad_v), m, c, t, b)
 
 
 def test_child_before_aggregate_immutable_and_no_runtime_imports_hashseed_replay_stability():

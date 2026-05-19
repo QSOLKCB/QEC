@@ -121,7 +121,7 @@ def _build_identity(reason: str = "declared"):
     return kcp.build_kv_cache_identity("kv", "1", reason)
 
 
-def _build_storage(mode: str = "STATIC_CACHE_STORAGE", size: int = 4096, reason: str = "declared"):
+def _build_storage(mode: str = "STATIC_CACHE", size: int = 4096, reason: str = "declared"):
     return kcp.build_cache_storage_declaration(mode, size, reason)
 
 
@@ -144,32 +144,18 @@ def _build_eviction(mode: str = "NO_EVICTION", reason: str = "declared"):
 def _receipt(**kwargs):
     m = _manifest()
     c, t, b, bw = _compression_bundle(m)
-    r = kcp.KVCachePolicyReceipt(
-        schema_version="KV_CACHE_POLICY_RECEIPT_V1",
-        inference_backend_manifest_hash=m.inference_backend_manifest_hash,
-        inference_memory_bandwidth_receipt_hash=bw.inference_memory_bandwidth_receipt_hash,
-        cache_identity=_build_identity(kwargs.get("identity_reason", "declared")),
-        storage_declaration=_build_storage(kwargs.get("storage", "STATIC_CACHE_STORAGE"), kwargs.get("size", 4096), kwargs.get("storage_reason", "declared")),
-        sharing_declaration=_build_sharing(kwargs.get("sharing", "NO_CACHE_SHARING"), kwargs.get("sharing_reason", "declared")),
-        precision_declaration=_build_precision(kwargs.get("precision", "FP32_CACHE"), kwargs.get("precision_reason", "declared")),
-        replay_boundary=_build_replay(kwargs.get("replay", "REPLAY_SAFE_CACHE"), kwargs.get("replay_reason", "declared")),
-        eviction_boundary=_build_eviction(kwargs.get("eviction", "NO_EVICTION"), kwargs.get("eviction_reason", "declared")),
-        reduced_precision_cache=False,
-        replay_safe_cache=False,
+    r = kcp.build_kv_cache_policy_receipt(
+        m,
+        bw,
+        _build_identity(kwargs.get("identity_reason", "declared")),
+        _build_storage(kwargs.get("storage", "STATIC_CACHE_STORAGE"), kwargs.get("size", 4096), kwargs.get("storage_reason", "declared")),
+        _build_sharing(kwargs.get("sharing", "NO_CACHE_SHARING"), kwargs.get("sharing_reason", "declared")),
+        _build_precision(kwargs.get("precision", "FP32_CACHE"), kwargs.get("precision_reason", "declared")),
+        _build_replay(kwargs.get("replay", "REPLAY_SAFE_CACHE"), kwargs.get("replay_reason", "declared")),
+        _build_eviction(kwargs.get("eviction", "NO_EVICTION"), kwargs.get("eviction_reason", "declared")),
+        loop_count=kwargs.get("loop_count", 1),
         adapter_only=kwargs.get("adapter_only", True),
-        kv_cache_policy_receipt_hash="",
     )
-    reduced = r.precision_declaration.precision_mode != "FP32_CACHE"
-    replay = (
-        r.adapter_only
-        and r.storage_declaration.storage_mode == "STATIC_CACHE_STORAGE"
-        and r.sharing_declaration.sharing_mode == "NO_CACHE_SHARING"
-        and r.precision_declaration.precision_mode == "FP32_CACHE"
-        and r.replay_boundary.replay_mode == "REPLAY_SAFE_CACHE"
-        and r.eviction_boundary.eviction_mode == "NO_EVICTION"
-    )
-    r = replace(r, reduced_precision_cache=reduced, replay_safe_cache=replay)
-    r = replace(r, kv_cache_policy_receipt_hash=kcp._hash_payload(kcp._base_payload(r.__dict__, "kv_cache_policy_receipt_hash")))
     return r, m, bw, c, t, b
 
 
@@ -322,3 +308,27 @@ def test_fail_fast_child_validation_and_immutability_and_import_safety():
         "os.system",
     ):
         assert token not in source
+
+
+def test_loop_count_required_and_validated():
+    r, m, bw, c, t, b = _receipt(loop_count=2)
+    assert r.loop_count == 2
+    with pytest.raises(ValueError):
+        kcp.validate_kv_cache_policy_receipt(replace(r, loop_count=0), m, bw, c, t, b)
+
+
+def test_rejects_upstream_no_cache_contradictions_and_non_replay_safe_bandwidth():
+    r, m, bw, c, t, b = _receipt()
+    bad_manifest = replace(m, kv_cache_declaration=ibm.build_kv_cache_declaration("STATIC_CACHE", "declared"))
+    with pytest.raises(ValueError):
+        kcp.validate_kv_cache_policy_receipt(r, bad_manifest, bw, c, t, b)
+
+    bad_bw = replace(
+        bw,
+        replay_safe_bandwidth_layout=False,
+        inference_memory_bandwidth_receipt_hash=imbr._hash_payload(
+            imbr._base_payload(replace(bw, replay_safe_bandwidth_layout=False).__dict__, "inference_memory_bandwidth_receipt_hash")
+        ),
+    )
+    with pytest.raises(ValueError):
+        kcp.validate_kv_cache_policy_receipt(r, m, bad_bw, c, t, b)

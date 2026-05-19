@@ -200,6 +200,7 @@ class KVCachePolicyReceipt:
     precision_declaration: CachePrecisionDeclaration
     replay_boundary: CacheReplayBoundary
     eviction_boundary: CacheEvictionBoundary
+    loop_count: int
     reduced_precision_cache: bool
     replay_safe_cache: bool
     adapter_only: bool
@@ -316,6 +317,51 @@ def build_cache_replay_boundary(replay_mode: str, replay_reason: str) -> CacheRe
 def build_cache_eviction_boundary(eviction_mode: str, eviction_reason: str) -> CacheEvictionBoundary:
     payload = {"eviction_mode": eviction_mode, "eviction_reason": eviction_reason}
     return CacheEvictionBoundary(**payload, cache_eviction_boundary_hash=_hash_payload(payload))
+
+
+def build_kv_cache_policy_receipt(
+    inference_backend_manifest: InferenceBackendManifest,
+    inference_memory_bandwidth_receipt: InferenceMemoryBandwidthReceipt,
+    cache_identity: KVCacheIdentity,
+    storage_declaration: CacheStorageDeclaration,
+    sharing_declaration: CacheSharingDeclaration,
+    precision_declaration: CachePrecisionDeclaration,
+    replay_boundary: CacheReplayBoundary,
+    eviction_boundary: CacheEvictionBoundary,
+    loop_count: int,
+    adapter_only: bool = True,
+) -> KVCachePolicyReceipt:
+    if isinstance(loop_count, bool) or not isinstance(loop_count, int) or loop_count <= 0:
+        raise ValueError("loop_count must be a positive int")
+    reduced_precision_cache = precision_declaration.precision_mode != "FP32_CACHE"
+    replay_safe_cache = (
+        adapter_only is True
+        and inference_backend_manifest.kv_cache_declaration.kv_cache_mode == "NO_CACHE"
+        and inference_memory_bandwidth_receipt.cache_bandwidth_declaration.cache_mode == "NO_CACHE"
+        and inference_memory_bandwidth_receipt.replay_safe_bandwidth_layout is True
+        and storage_declaration.storage_mode == "STATIC_CACHE_STORAGE"
+        and sharing_declaration.sharing_mode == "NO_CACHE_SHARING"
+        and precision_declaration.precision_mode == "FP32_CACHE"
+        and replay_boundary.replay_mode == "REPLAY_SAFE_CACHE"
+        and eviction_boundary.eviction_mode == "NO_EVICTION"
+    )
+    payload = {
+        "schema_version": _SCHEMA_VERSION,
+        "inference_backend_manifest_hash": inference_backend_manifest.inference_backend_manifest_hash,
+        "inference_memory_bandwidth_receipt_hash": inference_memory_bandwidth_receipt.inference_memory_bandwidth_receipt_hash,
+        "cache_identity": cache_identity,
+        "storage_declaration": storage_declaration,
+        "sharing_declaration": sharing_declaration,
+        "precision_declaration": precision_declaration,
+        "replay_boundary": replay_boundary,
+        "eviction_boundary": eviction_boundary,
+        "loop_count": loop_count,
+        "reduced_precision_cache": reduced_precision_cache,
+        "replay_safe_cache": replay_safe_cache,
+        "adapter_only": adapter_only,
+    }
+    return KVCachePolicyReceipt(**payload, kv_cache_policy_receipt_hash=_hash_payload(payload))
+
 def validate_kv_cache_policy_receipt(
     receipt: KVCachePolicyReceipt,
     inference_backend_manifest: InferenceBackendManifest,
@@ -358,6 +404,8 @@ def validate_kv_cache_policy_receipt(
         raise ValueError("reduced_precision_cache must be bool")
     if type(receipt.replay_safe_cache) is not bool:
         raise ValueError("replay_safe_cache must be bool")
+    if isinstance(receipt.loop_count, bool) or not isinstance(receipt.loop_count, int) or receipt.loop_count <= 0:
+        raise ValueError("loop_count must be a positive int")
     if receipt.adapter_only is not True:
         raise ValueError("adapter_only must be True")
     _validate_hash_format(receipt.inference_backend_manifest_hash, "inference_backend_manifest_hash")
@@ -366,6 +414,10 @@ def validate_kv_cache_policy_receipt(
         raise ValueError("inference_backend_manifest_hash mismatch")
     if receipt.inference_memory_bandwidth_receipt_hash != inference_memory_bandwidth_receipt.inference_memory_bandwidth_receipt_hash:
         raise ValueError("inference_memory_bandwidth_receipt_hash mismatch")
+    if inference_backend_manifest.kv_cache_declaration.kv_cache_mode != "NO_CACHE":
+        raise ValueError("inference_backend_manifest cache_mode must be NO_CACHE")
+    if inference_memory_bandwidth_receipt.cache_bandwidth_declaration.cache_mode != "NO_CACHE":
+        raise ValueError("inference_memory_bandwidth_receipt cache_mode must be NO_CACHE")
 
     recomputed_reduced = receipt.precision_declaration.precision_mode != "FP32_CACHE"
     if receipt.reduced_precision_cache is not recomputed_reduced:
@@ -375,6 +427,7 @@ def validate_kv_cache_policy_receipt(
         receipt.adapter_only is True
         and manifest_valid
         and bandwidth_valid
+        and inference_memory_bandwidth_receipt.replay_safe_bandwidth_layout is True
         and receipt.storage_declaration.storage_mode == "STATIC_CACHE_STORAGE"
         and receipt.sharing_declaration.sharing_mode == "NO_CACHE_SHARING"
         and receipt.precision_declaration.precision_mode == "FP32_CACHE"

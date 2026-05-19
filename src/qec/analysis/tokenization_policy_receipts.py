@@ -76,6 +76,10 @@ _FORBIDDEN_HIDDEN_TOKENS = (
 )
 
 
+def _normalize_for_semantic_scan(text: str) -> str:
+    return re.sub(r"[-_\s]+", " ", text.lower())
+
+
 @dataclass(frozen=True)
 class TokenizerIdentity:
     tokenizer_name: str
@@ -183,9 +187,9 @@ def _check_no_forbidden_runtime_semantics(payload: Any) -> None:
 
 
 def _validate_tokenization_semantics(*reasons: str) -> None:
-    lowered = "\n".join(reasons).lower()
+    lowered = _normalize_for_semantic_scan("\n".join(reasons))
     for token in _FORBIDDEN_HIDDEN_TOKENS:
-        if token in lowered:
+        if _normalize_for_semantic_scan(token) in lowered:
             raise ValueError("hidden tokenizer boundary semantics not allowed")
 
 
@@ -194,6 +198,9 @@ def build_tokenizer_identity(tokenizer_name: str, tokenizer_version: str, tokeni
     _check_text(tokenizer_version, "tokenizer_version", _MAX_NAME_LENGTH)
     if tokenizer_type not in _ALLOWED_TOKENIZER_TYPES:
         raise ValueError("invalid tokenizer_type")
+    _check_no_forbidden_runtime_semantics(tokenizer_name)
+    _check_no_forbidden_runtime_semantics(tokenizer_version)
+    _validate_tokenization_semantics(tokenizer_name, tokenizer_version)
     payload = {"tokenizer_name": tokenizer_name, "tokenizer_version": tokenizer_version, "tokenizer_type": tokenizer_type}
     return TokenizerIdentity(**payload, tokenizer_identity_hash=_hash_payload(payload))
 
@@ -267,7 +274,30 @@ def _compute_replay_safe_tokenization(
         validate_tokenizer_drift_boundary(tokenizer_drift_boundary)
     except ValueError:
         return False
-    return vocabulary_policy.vocabulary_size > 0 and adapter_only is True
+    return (
+        vocabulary_policy.vocabulary_size > 0
+        and adapter_only is True
+        and vocabulary_policy.vocabulary_mode in {"FIXED_VOCABULARY", "BYTE_NATIVE_VOCABULARY", "PATCH_NATIVE_VOCABULARY"}
+        and merge_rule_declaration.merge_rule_mode in {"STATIC_MERGE_RULES", "BYTE_NATIVE_SEGMENTATION", "PATCH_NATIVE_SEGMENTATION"}
+        and tokenizer_drift_boundary.tokenizer_drift_mode == "DRIFT_PROHIBITED"
+    )
+
+
+def _validate_byte_compatibility_constraints(
+    receipt: TokenizationPolicyReceipt,
+    inference_backend_manifest: InferenceBackendManifest,
+    byte_level_model_boundary_receipt: ByteLevelModelBoundaryReceipt,
+) -> None:
+    claims_byte_compatible = (
+        receipt.vocabulary_policy.vocabulary_mode == "BYTE_NATIVE_VOCABULARY"
+        and receipt.merge_rule_declaration.merge_rule_mode == "BYTE_NATIVE_SEGMENTATION"
+        and receipt.token_boundary_declaration.token_boundary_mode == "BYTE_COMPATIBLE_BOUNDARY"
+    )
+    if claims_byte_compatible:
+        if inference_backend_manifest.tokenization_policy.tokenization_mode != "BYTE_LEVEL":
+            raise ValueError("byte-compatible tokenization claims require BYTE_LEVEL upstream tokenization_mode")
+        if byte_level_model_boundary_receipt.tokenizer_bypass.tokenizer_bypass_mode != "TOKENIZER_REMOVED":
+            raise ValueError("byte-compatible tokenization claims require TOKENIZER_REMOVED upstream bypass mode")
 
 
 def build_tokenization_policy_receipt(
@@ -316,6 +346,9 @@ def validate_tokenizer_identity(identity: TokenizerIdentity) -> TokenizerIdentit
     _check_text(identity.tokenizer_version, "tokenizer_version", _MAX_NAME_LENGTH)
     if identity.tokenizer_type not in _ALLOWED_TOKENIZER_TYPES:
         raise ValueError("invalid tokenizer_type")
+    _check_no_forbidden_runtime_semantics(identity.tokenizer_name)
+    _check_no_forbidden_runtime_semantics(identity.tokenizer_version)
+    _validate_tokenization_semantics(identity.tokenizer_name, identity.tokenizer_version)
     _validate_hash_format(identity.tokenizer_identity_hash, "tokenizer_identity_hash")
     if _hash_payload(_base_payload(identity.__dict__, "tokenizer_identity_hash")) != identity.tokenizer_identity_hash:
         raise ValueError("tokenizer_identity_hash mismatch")
@@ -405,6 +438,7 @@ def validate_tokenization_policy_receipt(
     validate_token_boundary_declaration(receipt.token_boundary_declaration)
     validate_tokenizer_equivalence_declaration(receipt.tokenizer_equivalence)
     validate_tokenizer_drift_boundary(receipt.tokenizer_drift_boundary)
+    _validate_byte_compatibility_constraints(receipt, inference_backend_manifest, byte_level_model_boundary_receipt)
 
     _check_no_forbidden_runtime_semantics(receipt.__dict__)
     recomputed = _compute_replay_safe_tokenization(
@@ -414,7 +448,9 @@ def validate_tokenization_policy_receipt(
         receipt.tokenizer_drift_boundary,
         receipt.adapter_only,
     )
-    if receipt.replay_safe_tokenization != recomputed:
+    if not isinstance(receipt.replay_safe_tokenization, bool):
+        raise ValueError("replay_safe_tokenization must be a bool")
+    if receipt.replay_safe_tokenization is not recomputed:
         raise ValueError("replay_safe_tokenization must be recomputed")
     _validate_hash_format(receipt.tokenization_policy_receipt_hash, "tokenization_policy_receipt_hash")
     if _hash_payload(_base_payload(receipt.__dict__, "tokenization_policy_receipt_hash")) != receipt.tokenization_policy_receipt_hash:

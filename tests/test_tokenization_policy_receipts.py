@@ -116,6 +116,14 @@ def test_hidden_and_forbidden_semantics_rejected(text):
         tpr.build_tokenizer_equivalence_declaration("DECLARED_PARTIAL_EQUIVALENCE", text)
 
 
+@pytest.mark.parametrize("value", ["runtime tokenization v1", "hidden semantic equivalence"])
+def test_tokenizer_identity_rejects_forbidden_or_hidden_semantics(value):
+    with pytest.raises(ValueError):
+        tpr.build_tokenizer_identity(value, "1", "BYTE_LEVEL_TOKENIZER")
+    with pytest.raises(ValueError):
+        tpr.build_tokenizer_identity("tok", value, "BYTE_LEVEL_TOKENIZER")
+
+
 def test_upstream_manifest_and_byte_boundary_validation_enforced():
     r = _build_receipt()
     bad_manifest = replace(_upstream_manifest(), adapter_only=False)
@@ -129,6 +137,54 @@ def test_upstream_manifest_and_byte_boundary_validation_enforced():
 def test_byte_compatible_boundary_and_boundary_modes_supported():
     r = _build_receipt(boundary=tpr.build_token_boundary_declaration("BYTE_COMPATIBLE_BOUNDARY", "replay-safe byte boundary only"))
     assert r.token_boundary_declaration.token_boundary_mode == "BYTE_COMPATIBLE_BOUNDARY"
+
+
+def test_byte_compatible_claims_must_match_upstream_artifacts():
+    manifest = ibm.build_inference_backend_manifest(
+        ibm.build_inference_backend_identity("backend", "1.0", "BYTE_LEVEL_MODEL"),
+        ibm.build_tokenization_policy_declaration("BPE", "declared", "boundary only"),
+        ibm.build_quantization_declaration("NO_QUANTIZATION", "none"),
+        ibm.build_precision_format_declaration("FP32", "full precision"),
+        ibm.build_hardware_kernel_boundary("ADAPTER_ONLY_HARDWARE", "boundary only", True),
+        ibm.build_benchmark_corpus_declaration("NO_BENCHMARK_DECLARED", "none", "context only"),
+        ibm.build_kv_cache_declaration("NO_CACHE", "none"),
+    )
+    byte_receipt = _upstream_byte_receipt(manifest)
+    receipt = _build_receipt(manifest=manifest, byte_receipt=byte_receipt)
+    with pytest.raises(ValueError):
+        tpr.validate_tokenization_policy_receipt(receipt, manifest, byte_receipt)
+
+    manifest_ok = _upstream_manifest()
+    byte_not_bypassed = blmbr.build_byte_level_model_boundary_receipt(
+        manifest_ok,
+        blmbr.build_byte_level_model_identity("family", "PURE_BYTE_MODEL", "declared boundary"),
+        blmbr.build_patch_segmentation_declaration("FIXED_PATCH", 64, "segmentation only"),
+        blmbr.build_byte_window_declaration(128, True, "replay layout only"),
+        blmbr.build_entropy_threshold_declaration("FIXED_THRESHOLD", 0.0, "declared only"),
+        blmbr.build_byte_normalization_policy("NO_NORMALIZATION", "declared only"),
+        blmbr.build_tokenizer_bypass_declaration("TOKENIZER_NOT_BYPASSED", "declared only"),
+        True,
+    )
+    receipt2 = _build_receipt(manifest=manifest_ok, byte_receipt=byte_not_bypassed)
+    with pytest.raises(ValueError):
+        tpr.validate_tokenization_policy_receipt(receipt2, manifest_ok, byte_not_bypassed)
+
+
+def test_replay_safe_rejects_mutable_or_drift_modes_and_non_bool_values():
+    dynamic_vocab = tpr.build_vocabulary_policy_declaration("DECLARED_DYNAMIC_VOCABULARY", 256, "declared")
+    r = _build_receipt(vocab=dynamic_vocab)
+    assert r.replay_safe_tokenization is False
+
+    mutable_merge = tpr.build_merge_rule_declaration("DECLARED_MUTABLE_MERGE_RULES", "declared")
+    r2 = _build_receipt(merge=mutable_merge)
+    assert r2.replay_safe_tokenization is False
+
+    drifted = tpr.build_tokenizer_drift_boundary("DRIFT_DECLARED", "declared")
+    r3 = _build_receipt(drift=drifted)
+    assert r3.replay_safe_tokenization is False
+
+    with pytest.raises(ValueError):
+        tpr.validate_tokenization_policy_receipt(replace(_build_receipt(), replay_safe_tokenization=1), _upstream_manifest(), _upstream_byte_receipt())
 
 
 def test_no_runtime_imports_no_autonomous_semantics_and_decoder_boundary_untouched():

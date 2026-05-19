@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from typing import Any, Mapping
 
 from qec.analysis.agent_pattern_decision_receipts import AgentPatternDecisionReceipt, validate_agent_pattern_decision_receipt
@@ -51,6 +51,9 @@ _REPLAY_SAFE_CLAIM_SCOPE_MODES = {"CLAIM_SCOPE_REPLAY_ONLY", "CLAIM_SCOPE_AUDIT_
 
 _FORBIDDEN_TOKENS = (
     "quantum advantage established",
+    "quantum advantage proven",
+    "qec advantage established",
+    "qec advantage proven",
     "cosmological truth",
     "hardware superiority",
     "automatic reasoning correctness",
@@ -60,6 +63,7 @@ _FORBIDDEN_TOKENS = (
     "self-correcting memory proven",
     "hidden runtime execution",
     "hidden hardware authority",
+    "hardware authority",
     "hidden cosmological",
     "hidden autonomous",
     "hidden replay equivalence",
@@ -120,7 +124,15 @@ def _validate_qpe_adapter_semantics(*texts: str) -> None:
 def _revalidate_exact_instance(value: Any, cls: type[Any]) -> None:
     if type(value) is not cls:
         raise _invalid_input()
-    cls(**value.__dict__)
+    if not is_dataclass(value):
+        raise _invalid_input()
+    expected = {f.name for f in fields(cls)}
+    actual = set(value.__dict__.keys())
+    if actual != expected:
+        raise _invalid_input()
+    post_init = getattr(value, "__post_init__", None)
+    if callable(post_init):
+        post_init()
 
 
 @dataclass(frozen=True)
@@ -156,6 +168,8 @@ class QPESourceBoundary:
         if self.source_mode not in _ALLOWED_SOURCE_MODES:
             raise ValueError("invalid source_mode")
         _check_text(self.source_reference, "source_reference", _MAX_NAME_LENGTH)
+        if self.source_mode == "SOURCE_HASH_BOUND":
+            _validate_hash_format(self.source_reference, "source_reference")
         _check_text(self.source_reason, "source_reason", _MAX_REASON_LENGTH)
         _check_no_forbidden_runtime_semantics(self.__dict__)
         _validate_hash_format(self.qpe_source_boundary_hash, "qpe_source_boundary_hash")
@@ -195,6 +209,9 @@ class QPEReviewBoundary:
         if self.review_mode not in _ALLOWED_REVIEW_MODES:
             raise ValueError("invalid review_mode")
         _check_text(self.review_reason, "review_reason", _MAX_REASON_LENGTH)
+        normalized_reason = self.review_reason.lower().replace("_", " ").replace("-", " ")
+        if "unreviewed preprint" in normalized_reason and self.review_mode != "UNREVIEWED_PREPRINT":
+            raise ValueError("review_mode must be UNREVIEWED_PREPRINT when review_reason declares unreviewed preprint")
         _check_no_forbidden_runtime_semantics(self.__dict__)
         _validate_hash_format(self.qpe_review_boundary_hash, "qpe_review_boundary_hash")
         if _hash_payload(_base_payload(self.__dict__, "qpe_review_boundary_hash")) != self.qpe_review_boundary_hash:
@@ -345,6 +362,8 @@ def validate_qpe_toolbox_adapter_receipt(
         raise ValueError("invalid schema_version")
     if isinstance(receipt.adapter_only, bool) is False:
         raise ValueError("adapter_only must be bool")
+    if receipt.adapter_only is not True:
+        raise ValueError("adapter_only must be True")
     if isinstance(receipt.replay_safe_qpe_adapter, bool) is False:
         raise ValueError("replay_safe_qpe_adapter must be bool")
 

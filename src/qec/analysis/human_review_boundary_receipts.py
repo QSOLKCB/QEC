@@ -93,6 +93,7 @@ def _canonical_json(payload: Mapping[str, Any]) -> str:
 
 
 def _to_canonical_obj(value: Any) -> Any:
+    # Exclude dataclass *classes* (isinstance(value, type)) — only instances are serialized.
     if is_dataclass(value) and not isinstance(value, type):
         return _to_canonical_obj(asdict(value))
     if isinstance(value, Mapping):

@@ -177,6 +177,7 @@ def test_provenance_lineage_authority_publication_and_inheritance_enforcement():
     assert incomplete.review_complete is False
 
 def test_no_forbidden_imports_and_decoder_boundary():
+    # Reads and parses the production source module (_MODULE_PATH), not this test file.
     source = _MODULE_PATH.read_text()
     tree = ast.parse(source)
     imported_modules: set[str] = set()

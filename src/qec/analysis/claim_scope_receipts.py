@@ -140,15 +140,31 @@ def _check_no_forbidden_runtime_semantics(payload: Any) -> None:
             raise ValueError("forbidden runtime or authority/causal/truth semantics are not allowed")
 
 
-def _validate_claim_scope_semantics(receipt: ClaimScopeReceipt, citation_ok: bool, review_ok: bool) -> bool:
+def _validate_claim_scope_semantics(
+    receipt: ClaimScopeReceipt,
+    manifest: ResearchAutomationManifest,
+    paper_generation_provenance_receipt: PaperGenerationProvenanceReceipt,
+    citation_integrity_receipt: CitationIntegrityReceipt,
+    citation_ok: bool,
+    review_ok: bool,
+) -> bool:
     if receipt.schema_version != _SCHEMA_VERSION: raise ValueError("invalid schema version")
     if receipt.claim_review_state not in _ALLOWED_CLAIM_REVIEW_STATES: raise ValueError("invalid claim review state")
     if not isinstance(receipt.adapter_only, bool) or receipt.adapter_only is not True: raise ValueError("adapter_only must be True")
     if receipt.escalation_boundary.escalation_mode not in _ALLOWED_ESCALATION_MODES: raise ValueError("invalid escalation mode")
-    if receipt.evidence_scope.evidence_scope_mode == "SYMBOLIC_ONLY" and receipt.claim_identity.claim_category == "EMPIRICAL_OBSERVATION":
-        raise ValueError("symbolic-only scope cannot support empirical observation")
-    if receipt.benchmark_interpretation.benchmark_interpretation_mode == "BENCHMARK_CONTEXT_ONLY" and receipt.claim_identity.claim_category == "EMPIRICAL_OBSERVATION":
+    empirical_claim = receipt.claim_identity.claim_category == "EMPIRICAL_OBSERVATION"
+    if empirical_claim and receipt.evidence_scope.evidence_scope_mode in {"SYMBOLIC_ONLY", "NON_EMPIRICAL_ONLY"}:
+        raise ValueError("non-empirical evidence scope cannot support empirical observation")
+    if empirical_claim and manifest.claim_scope.claim_scope in {"SYMBOLIC_ONLY", "CHARACTERIZATION_ONLY"}:
+        raise ValueError("manifest claim-scope declaration blocks empirical observation")
+    if empirical_claim and paper_generation_provenance_receipt.claim_inheritance.claim_inheritance_mode == "SYMBOLIC_ONLY_INHERITANCE":
+        raise ValueError("paper claim inheritance blocks empirical observation")
+    if empirical_claim and citation_integrity_receipt.claim_boundary.claim_boundary_mode in {"SUPPORTS_BACKGROUND_ONLY", "SUPPORTS_SYMBOLIC_CONTEXT"}:
+        raise ValueError("citation claim-boundary mode cannot support empirical observation")
+    if empirical_claim and receipt.benchmark_interpretation.benchmark_interpretation_mode == "BENCHMARK_CONTEXT_ONLY":
         raise ValueError("benchmark-context-only blocks scientific conclusion escalation")
+    if receipt.claim_identity.claim_category == "REPRODUCIBILITY_STATEMENT" and receipt.benchmark_interpretation.benchmark_interpretation_mode == "REPRODUCIBILITY_NOT_ESTABLISHED":
+        raise ValueError("reproducibility-not-established blocks reproducibility statement")
     _check_no_forbidden_runtime_semantics(receipt.__dict__)
     return (
         citation_ok
@@ -212,7 +228,7 @@ def build_claim_scope_receipt(*, manifest: ResearchAutomationManifest, paper_gen
     validate_claim_identity(claim_identity); validate_claim_evidence_scope(evidence_scope); validate_claim_support_boundary(support_boundary)
     validate_claim_escalation_boundary(escalation_boundary); validate_claim_uncertainty_declaration(uncertainty_declaration); validate_claim_benchmark_interpretation(benchmark_interpretation)
     r = ClaimScopeReceipt(_SCHEMA_VERSION, manifest.research_automation_manifest_hash, paper_generation_provenance_receipt.paper_generation_provenance_receipt_hash, human_review_boundary_receipt.human_review_boundary_receipt_hash, citation_integrity_receipt.citation_integrity_receipt_hash, claim_identity, evidence_scope, support_boundary, escalation_boundary, uncertainty_declaration, benchmark_interpretation, claim_review_state, False, adapter_only, "")
-    valid = _validate_claim_scope_semantics(r, citation_integrity_receipt.citation_integrity_passed, human_review_boundary_receipt.review_complete)
+    valid = _validate_claim_scope_semantics(r, manifest, paper_generation_provenance_receipt, citation_integrity_receipt, citation_integrity_receipt.citation_integrity_passed, human_review_boundary_receipt.review_complete)
     with_valid = ClaimScopeReceipt(**{**r.__dict__, "claim_scope_valid": valid})
     return ClaimScopeReceipt(**{**with_valid.__dict__, "claim_scope_receipt_hash": _hash_payload(_base_payload(with_valid.__dict__, "claim_scope_receipt_hash"))})
 
@@ -265,7 +281,7 @@ def validate_claim_scope_receipt(receipt: ClaimScopeReceipt, manifest: ResearchA
     if receipt.human_review_boundary_receipt_hash != human_review_boundary_receipt.human_review_boundary_receipt_hash: raise ValueError("human review lineage mismatch")
     if receipt.citation_integrity_receipt_hash != citation_integrity_receipt.citation_integrity_receipt_hash: raise ValueError("citation integrity lineage mismatch")
     if not isinstance(receipt.claim_scope_valid, bool): raise ValueError("claim_scope_valid must be bool")
-    expected = _validate_claim_scope_semantics(receipt, citation_integrity_receipt.citation_integrity_passed, human_review_boundary_receipt.review_complete)
+    expected = _validate_claim_scope_semantics(receipt, manifest, paper_generation_provenance_receipt, citation_integrity_receipt, citation_integrity_receipt.citation_integrity_passed, human_review_boundary_receipt.review_complete)
     if receipt.claim_scope_valid != expected: raise ValueError("claim_scope_valid mismatch")
     _validate_hash_format(receipt.claim_scope_receipt_hash, "claim_scope_receipt_hash")
     if receipt.claim_scope_receipt_hash != _hash_payload(_base_payload(receipt.__dict__, "claim_scope_receipt_hash")): raise ValueError("claim_scope_receipt_hash mismatch")

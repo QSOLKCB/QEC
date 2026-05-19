@@ -18,21 +18,21 @@ _MODULE_PATH = _REPO_ROOT / "src/qec/analysis/claim_scope_receipts.py"
 _DECODER_PATH = _REPO_ROOT / "src/qec/decoder"
 
 
-def _manifest(status="HUMAN_REVIEWED"):
-    return ram.build_research_automation_manifest("m", ram.build_research_generation_backend("b", "1", "HUMAN_PLUS_LLM"), (ram.build_research_source_reference(0, "s", "urn:s", True),), ram.build_citation_policy_declaration("STRICT_SOURCE_ONLY", False), ram.build_human_review_status(status, "r", "2026-05-18T00:00:00Z"), ram.build_claim_scope_declaration("SOURCE_BOUND", "reason"), (ram.build_automation_boundary_declaration("CITATION_VALIDATION_REQUIRED", "r"), ram.build_automation_boundary_declaration("HUMAN_GATE_REQUIRED", "r"), ram.build_automation_boundary_declaration("NO_AUTONOMOUS_AUTHORITY", "r"), ram.build_automation_boundary_declaration("SOURCE_VALIDATION_REQUIRED", "r")))
+def _manifest(status="HUMAN_REVIEWED", claim_scope="SOURCE_BOUND"):
+    return ram.build_research_automation_manifest("m", ram.build_research_generation_backend("b", "1", "HUMAN_PLUS_LLM"), (ram.build_research_source_reference(0, "s", "urn:s", True),), ram.build_citation_policy_declaration("STRICT_SOURCE_ONLY", False), ram.build_human_review_status(status, "r", "2026-05-18T00:00:00Z"), ram.build_claim_scope_declaration(claim_scope, "reason"), (ram.build_automation_boundary_declaration("CITATION_VALIDATION_REQUIRED", "r"), ram.build_automation_boundary_declaration("HUMAN_GATE_REQUIRED", "r"), ram.build_automation_boundary_declaration("NO_AUTONOMOUS_AUTHORITY", "r"), ram.build_automation_boundary_declaration("SOURCE_VALIDATION_REQUIRED", "r")))
 
-def _paper(m):
-    return pgr.build_paper_generation_provenance_receipt(m, pgr.build_generated_document_identity("paper", "TECHNICAL_REPORT", "v1"), pgr.build_generation_session_reference("sess", "2026-05-18T00:00:00Z"), pgr.build_citation_boundary_reference("STRICT_SOURCE_BOUND", "declared"), pgr.build_review_boundary_reference("HUMAN_REVIEW_COMPLETED", True), pgr.build_document_claim_inheritance("SOURCE_BOUND_INHERITANCE", "declared"), pgr.build_publication_intent_declaration("INTERNAL_ONLY", False))
+def _paper(m, claim_inheritance="SOURCE_BOUND_INHERITANCE"):
+    return pgr.build_paper_generation_provenance_receipt(m, pgr.build_generated_document_identity("paper", "TECHNICAL_REPORT", "v1"), pgr.build_generation_session_reference("sess", "2026-05-18T00:00:00Z"), pgr.build_citation_boundary_reference("STRICT_SOURCE_BOUND", "declared"), pgr.build_review_boundary_reference("HUMAN_REVIEW_COMPLETED", True), pgr.build_document_claim_inheritance(claim_inheritance, "declared"), pgr.build_publication_intent_declaration("INTERNAL_ONLY", False))
 
 def _hr(m, p):
     return hr.build_human_review_boundary_receipt(p, m, hr.build_reviewer_identity_declaration("alice", "HUMAN_INDIVIDUAL"), hr.build_review_scope_declaration("FULL_HUMAN_REVIEW", "declared"), (), (hr.build_review_authority_boundary("HUMAN_VALIDATION_REQUIRED", "d"), hr.build_review_authority_boundary("NO_AUTONOMOUS_AUTHORITY", "d"), hr.build_review_authority_boundary("NO_TRUTH_AUTHORITY", "d")), hr.build_review_inheritance_declaration("STRICT_REVIEW_INHERITANCE", "declared"), hr.build_review_session_reference("rsess", "2026-05-18T00:00:00Z"))
 
-def _cir(m,p,h,passed=True):
+def _cir(m,p,h,passed=True,claim_boundary_mode="SUPPORTS_METHOD_ONLY"):
     issues = () if passed else (cir.build_citation_issue_declaration(0, "DOI_MISSING", "x"),)
-    return cir.build_citation_integrity_receipt(manifest=m, paper_generation_provenance_receipt=p, human_review_receipt=h, citation_identity=cir.build_citation_identity("c1", "PRIMARY_SOURCE", "title"), source_binding=cir.build_citation_source_binding(0, m.source_references[0].source_hash, "bind"), accessibility=cir.build_citation_accessibility_declaration("ACCESSIBLE", "declared"), claim_boundary=cir.build_citation_claim_boundary("SUPPORTS_METHOD_ONLY", "declared"), review_reference=cir.build_citation_review_reference("HUMAN_REVIEW_COMPLETED", "a"*64), citation_issues=issues)
+    return cir.build_citation_integrity_receipt(manifest=m, paper_generation_provenance_receipt=p, human_review_receipt=h, citation_identity=cir.build_citation_identity("c1", "PRIMARY_SOURCE", "title"), source_binding=cir.build_citation_source_binding(0, m.source_references[0].source_hash, "bind"), accessibility=cir.build_citation_accessibility_declaration("ACCESSIBLE", "declared"), claim_boundary=cir.build_citation_claim_boundary(claim_boundary_mode, "declared"), review_reference=cir.build_citation_review_reference("HUMAN_REVIEW_COMPLETED", "a"*64), citation_issues=issues)
 
 def _receipt(**kw):
-    m = _manifest(kw.pop("manifest_status", "HUMAN_REVIEWED")); p = _paper(m); h = _hr(m,p); c = _cir(m,p,h, kw.pop("citation_passed", True))
+    m = _manifest(kw.pop("manifest_status", "HUMAN_REVIEWED"), kw.pop("manifest_claim_scope", "SOURCE_BOUND")); p = _paper(m, kw.pop("claim_inheritance", "SOURCE_BOUND_INHERITANCE")); h = _hr(m,p); c = _cir(m,p,h, kw.pop("citation_passed", True), kw.pop("citation_claim_boundary", "SUPPORTS_METHOD_ONLY"))
     return m,p,h,c, csr.build_claim_scope_receipt(manifest=m, paper_generation_provenance_receipt=p, human_review_boundary_receipt=h, citation_integrity_receipt=c, claim_identity=csr.build_claim_identity("k", kw.pop("category", "IMPLEMENTATION_DESCRIPTION"), "summary"), evidence_scope=csr.build_claim_evidence_scope(kw.pop("evidence", "SOURCE_BOUND_ONLY"), "scope"), support_boundary=csr.build_claim_support_boundary(kw.pop("support", "SUPPORTS_METHOD_REFERENCE"), "support"), escalation_boundary=csr.build_claim_escalation_boundary(kw.pop("escalation", "ESCALATION_PROHIBITED"), "no escalation"), uncertainty_declaration=csr.build_claim_uncertainty_declaration(kw.pop("uncertainty", "UNCERTAINTY_DECLARED"), "uncertain"), benchmark_interpretation=csr.build_claim_benchmark_interpretation(kw.pop("benchmark", "NO_SCIENTIFIC_CONCLUSION"), "bounded"), claim_review_state=kw.pop("review_state", "CLAIM_SCOPE_VALIDATED"), adapter_only=kw.pop("adapter_only", True))
 
 
@@ -77,8 +77,13 @@ def test_upstream_validation_and_child_validation_before_aggregate():
 
 
 def test_symbolic_empirical_benchmark_hardware_and_forbidden_semantics():
-    with pytest.raises(ValueError, match="symbolic-only"): _receipt(evidence="SYMBOLIC_ONLY", category="EMPIRICAL_OBSERVATION")
+    with pytest.raises(ValueError, match="non-empirical evidence scope"): _receipt(evidence="SYMBOLIC_ONLY", category="EMPIRICAL_OBSERVATION")
+    with pytest.raises(ValueError, match="non-empirical evidence scope"): _receipt(evidence="NON_EMPIRICAL_ONLY", category="EMPIRICAL_OBSERVATION")
+    with pytest.raises(ValueError, match="manifest claim-scope declaration"): _receipt(category="EMPIRICAL_OBSERVATION", manifest_claim_scope="SYMBOLIC_ONLY")
+    with pytest.raises(ValueError, match="symbolic-only inheritance|paper claim inheritance"): _receipt(category="EMPIRICAL_OBSERVATION", claim_inheritance="SYMBOLIC_ONLY_INHERITANCE")
+    with pytest.raises(ValueError, match="citation claim-boundary mode"): _receipt(category="EMPIRICAL_OBSERVATION", citation_claim_boundary="SUPPORTS_BACKGROUND_ONLY")
     with pytest.raises(ValueError, match="benchmark-context-only"): _receipt(benchmark="BENCHMARK_CONTEXT_ONLY", category="EMPIRICAL_OBSERVATION")
+    with pytest.raises(ValueError, match="reproducibility-not-established"): _receipt(category="REPRODUCIBILITY_STATEMENT", benchmark="REPRODUCIBILITY_NOT_ESTABLISHED")
     assert _receipt(escalation="HARDWARE_ADVANTAGE_PROHIBITED")[4].escalation_boundary.escalation_mode == "HARDWARE_ADVANTAGE_PROHIBITED"
     with pytest.raises(ValueError): csr.build_claim_support_boundary("SUPPORTS_CONTEXT_ONLY", "scientifically proven")
     with pytest.raises(ValueError): csr.build_claim_identity("k", "IMPLEMENTATION_DESCRIPTION", "citation proves")

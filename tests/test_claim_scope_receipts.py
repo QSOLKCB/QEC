@@ -32,6 +32,24 @@ def _cir(m,p,h,passed=True,claim_boundary_mode="SUPPORTS_METHOD_ONLY"):
     return cir.build_citation_integrity_receipt(manifest=m, paper_generation_provenance_receipt=p, human_review_receipt=h, citation_identity=cir.build_citation_identity("c1", "PRIMARY_SOURCE", "title"), source_binding=cir.build_citation_source_binding(0, m.source_references[0].source_hash, "bind"), accessibility=cir.build_citation_accessibility_declaration("ACCESSIBLE", "declared"), claim_boundary=cir.build_citation_claim_boundary(claim_boundary_mode, "declared"), review_reference=cir.build_citation_review_reference("HUMAN_REVIEW_COMPLETED", "a"*64), citation_issues=issues)
 
 def _receipt(**kw):
+    allowed = {
+        "manifest_status",
+        "manifest_claim_scope",
+        "claim_inheritance",
+        "citation_passed",
+        "citation_claim_boundary",
+        "category",
+        "evidence",
+        "support",
+        "escalation",
+        "uncertainty",
+        "benchmark",
+        "review_state",
+        "adapter_only",
+    }
+    unknown = sorted(set(kw) - allowed)
+    if unknown:
+        raise ValueError(f"Unknown _receipt overrides: {unknown}")
     m = _manifest(kw.pop("manifest_status", "HUMAN_REVIEWED"), kw.pop("manifest_claim_scope", "SOURCE_BOUND"))
     p = _paper(m, kw.pop("claim_inheritance", "SOURCE_BOUND_INHERITANCE"))
     h = _hr(m,p)
@@ -123,7 +141,12 @@ def test_symbolic_empirical_benchmark_hardware_and_forbidden_semantics():
 def test_import_boundary_decoder_boundary_and_pythonhashseed_stability():
     src = _MODULE_PATH.read_text(encoding="utf-8")
     tree = ast.parse(src)
-    names = {n.names[0].name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import)}
+    names = {
+        alias.name.split(".")[0]
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Import)
+        for alias in n.names
+    }
     names |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module}
     assert names.isdisjoint({"requests","urllib","selenium","playwright","bs4","pandas","polars","openai","anthropic","transformers","torch","tensorflow","qiskit","qutip","subprocess"})
     assert _DECODER_PATH.exists() and not any(_DECODER_PATH.glob("claim_scope_receipts.py"))

@@ -8,6 +8,10 @@ import pytest
 from qec.analysis import paper_generation_provenance_receipts as pgr
 from qec.analysis import research_automation_manifest as ram
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_PROVENANCE_MODULE_PATH = _REPO_ROOT / "src/qec/analysis/paper_generation_provenance_receipts.py"
+_DECODER_PATH = _REPO_ROOT / "src/qec/decoder"
+
 
 def _backend():
     return ram.build_research_generation_backend("backend", "1", "HUMAN_PLUS_LLM")
@@ -100,10 +104,10 @@ def test_hash_stability():
 
 
 def test_canonical_json_stability():
-    identity = _doc()
-    payload_a = {"b": 2, "a": identity}
-    payload_b = {"a": identity, "b": 2}
-    assert pgr._canonical_json(payload_a) == pgr._canonical_json(payload_b)
+    manifest = _manifest()
+    first = _receipt(manifest)
+    second = _receipt(manifest)
+    assert first.to_canonical_json() == second.to_canonical_json()
 
 
 def test_provenance_chain_complete_recomputation():
@@ -203,7 +207,7 @@ def test_idempotent_rebuild_behavior():
 
 
 def test_no_forbidden_imports():
-    source = Path("src/qec/analysis/paper_generation_provenance_receipts.py").read_text()
+    source = _PROVENANCE_MODULE_PATH.read_text()
     forbidden = ("requests", "urllib", "selenium", "playwright", "pandas", "polars", "openai", "anthropic", "transformers", "torch", "tensorflow", "qiskit", "qutip", "subprocess", "importlib", "os.system")
     for token in forbidden:
         assert token not in source
@@ -212,7 +216,7 @@ def test_no_forbidden_imports():
 
 
 def test_decoder_boundary_enforcement():
-    changed = {p.as_posix() for p in Path("src/qec/decoder").rglob("*") if p.is_file()}
+    changed = {p.as_posix() for p in _DECODER_PATH.rglob("*") if p.is_file()}
     assert "src/qec/analysis/paper_generation_provenance_receipts.py" not in changed
 
 

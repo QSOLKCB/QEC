@@ -283,6 +283,7 @@ def _comparison_exact(record: "DecoderReplayComparisonRecord") -> bool:
     return (
         record.record_id == record.baseline_output.record_id == record.candidate_output.record_id
         and record.baseline_output.output_schema_hash == record.candidate_output.output_schema_hash
+        and record.baseline_output.output_ordering_key == record.candidate_output.output_ordering_key
         and record.baseline_output.output_payload_hash == record.candidate_output.output_payload_hash
         and record.baseline_output.correction_bits == record.candidate_output.correction_bits
     )
@@ -291,12 +292,13 @@ def _comparison_exact(record: "DecoderReplayComparisonRecord") -> bool:
 def _ordered_corpus_items(items: Sequence["DecoderReplayCorpusItem"]) -> tuple["DecoderReplayCorpusItem", ...]:
     if not isinstance(items, (tuple, list)):
         raise _invalid_input("corpus_items:SEQUENCE")
-    ordered = tuple(sorted(items, key=lambda item: (item.canonical_ordering_key, item.record_id, item.syndrome_input_hash) if type(item) is DecoderReplayCorpusItem else ("", "", "")))
-    if not ordered:
+    if not items:
         raise _invalid_input("corpus_items:EMPTY")
+    for item in items:
+        _revalidate_exact_instance(item, DecoderReplayCorpusItem)
+    ordered = tuple(sorted(items, key=lambda item: (item.canonical_ordering_key, item.record_id, item.syndrome_input_hash)))
     seen: set[str] = set()
     for item in ordered:
-        _revalidate_exact_instance(item, DecoderReplayCorpusItem)
         if item.record_id in seen:
             raise _invalid_input("corpus_items:DUPLICATE_RECORD_ID")
         seen.add(item.record_id)
@@ -306,12 +308,13 @@ def _ordered_corpus_items(items: Sequence["DecoderReplayCorpusItem"]) -> tuple["
 def _ordered_comparison_records(records: Sequence["DecoderReplayComparisonRecord"]) -> tuple["DecoderReplayComparisonRecord", ...]:
     if not isinstance(records, (tuple, list)):
         raise _invalid_input("comparison_records:SEQUENCE")
-    ordered = tuple(sorted(records, key=lambda record: (record.record_id, record.syndrome_input_hash, record.decoder_replay_comparison_record_hash) if type(record) is DecoderReplayComparisonRecord else ("", "", "")))
-    if not ordered:
+    if not records:
         raise _invalid_input("comparison_records:EMPTY")
+    for record in records:
+        _revalidate_exact_instance(record, DecoderReplayComparisonRecord)
+    ordered = tuple(sorted(records, key=lambda record: (record.record_id, record.syndrome_input_hash, record.decoder_replay_comparison_record_hash)))
     seen: set[tuple[str, str]] = set()
     for record in ordered:
-        _revalidate_exact_instance(record, DecoderReplayComparisonRecord)
         key = (record.record_id, record.syndrome_input_hash)
         if key in seen:
             raise _invalid_input("comparison_records:DUPLICATE_RECORD")
@@ -330,6 +333,32 @@ def _sorted_unique_hashes(values: Sequence[str], field_name: str) -> tuple[str, 
     for value in ordered:
         _validate_hash_format(value, field_name)
     return ordered
+
+
+def _child_schemas_match(
+    replay_corpus_summary: "DecoderReplayCorpusSummary",
+    corpus_items: tuple["DecoderReplayCorpusItem", ...],
+    comparison_records: tuple["DecoderReplayComparisonRecord", ...],
+) -> bool:
+    return (
+        all(item.syndrome_schema_hash == replay_corpus_summary.syndrome_schema_hash for item in corpus_items)
+        and all(record.baseline_output.output_schema_hash == replay_corpus_summary.output_schema_hash for record in comparison_records)
+        and all(record.candidate_output.output_schema_hash == replay_corpus_summary.output_schema_hash for record in comparison_records)
+    )
+
+
+def _canonical_ordering_keys_match(
+    corpus_items: tuple["DecoderReplayCorpusItem", ...],
+    comparison_records: tuple["DecoderReplayComparisonRecord", ...],
+) -> bool:
+    item_by_key = {(item.record_id, item.syndrome_input_hash): item for item in corpus_items}
+    if set(item_by_key) != {(record.record_id, record.syndrome_input_hash) for record in comparison_records}:
+        return False
+    return all(
+        record.baseline_output.output_ordering_key == item_by_key[(record.record_id, record.syndrome_input_hash)].canonical_ordering_key
+        and record.candidate_output.output_ordering_key == item_by_key[(record.record_id, record.syndrome_input_hash)].canonical_ordering_key
+        for record in comparison_records
+    )
 
 
 @dataclass(frozen=True)
@@ -657,6 +686,22 @@ class DecoderReplayEquivalenceReceipt:
             raise _invalid_equivalence("replay_corpus_summary:CORPUS_ITEM_HASHES")
         if self.coverage_summary.comparison_record_hashes != tuple(sorted(record.decoder_replay_comparison_record_hash for record in comparison_records)):
             raise _invalid_equivalence("coverage_summary:COMPARISON_RECORD_HASHES")
+        item_by_key = {(item.record_id, item.syndrome_input_hash): item for item in corpus_items}
+        for item in corpus_items:
+            if item.syndrome_schema_hash != self.replay_corpus_summary.syndrome_schema_hash:
+                raise _invalid_equivalence("replay_corpus_summary:SYNDROME_SCHEMA_HASH")
+        for record in comparison_records:
+            item = item_by_key[(record.record_id, record.syndrome_input_hash)]
+            if (
+                record.baseline_output.output_schema_hash != self.replay_corpus_summary.output_schema_hash
+                or record.candidate_output.output_schema_hash != self.replay_corpus_summary.output_schema_hash
+            ):
+                raise _invalid_equivalence("replay_corpus_summary:OUTPUT_SCHEMA_HASH")
+            if (
+                record.baseline_output.output_ordering_key != item.canonical_ordering_key
+                or record.candidate_output.output_ordering_key != item.canonical_ordering_key
+            ):
+                raise _invalid_equivalence("canonical_ordering_key:MISMATCH")
         for name in ("replay_equivalence_proven", "candidate_remains_adapter_only", "promotion_allowed", "benchmark_claim_allowed", "global_correctness_claim_allowed"):
             _require_exact_bool(getattr(self, name), name)
         candidate_adapter_only = _binding_adapter_only(self.upstream_binding)
@@ -755,7 +800,9 @@ def _compute_replay_equivalence_proven(
             coverage_summary.payload_mismatch_count == 0,
             coverage_summary.all_records_exact_match is True,
             coverage_summary.replay_equivalence_proven_for_declared_corpus is True,
+            _child_schemas_match(replay_corpus_summary, corpus_items, comparison_records),
             all(_comparison_exact(record) for record in comparison_records),
+            _canonical_ordering_keys_match(corpus_items, comparison_records),
         )
     )
 
@@ -925,6 +972,7 @@ def build_decoder_replay_comparison_record(
     exact = (
         rid == baseline_output.record_id == candidate_output.record_id
         and schema_match
+        and baseline_output.output_ordering_key == candidate_output.output_ordering_key
         and payload_match
         and baseline_output.correction_bits == candidate_output.correction_bits
     )

@@ -260,6 +260,8 @@ def test_comparison_record_validation_rejects_mismatches_and_forged_booleans():
     _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.build_decoder_replay_comparison_record, items[0].syndrome_input_hash, baseline[0], wrong_candidate)
     schema_candidate = dre.build_decoder_replay_output_record(items[0].record_id, "CANDIDATE_DECODER", items[0].syndrome_bits, HEX_D, "k")
     _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.build_decoder_replay_comparison_record, items[0].syndrome_input_hash, baseline[0], schema_candidate)
+    ordering_candidate = dre.build_decoder_replay_output_record(items[0].record_id, "CANDIDATE_DECODER", items[0].syndrome_bits, HEX_E, "other-key")
+    _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.build_decoder_replay_comparison_record, items[0].syndrome_input_hash, baseline[0], ordering_candidate)
     bit_candidate = dre.build_decoder_replay_output_record(items[0].record_id, "CANDIDATE_DECODER", (0, 0, 0), HEX_E, "k")
     _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.build_decoder_replay_comparison_record, items[0].syndrome_input_hash, baseline[0], bit_candidate)
     for field, value in (("exact_output_match", False), ("output_schema_match", False), ("output_payload_match", False), ("mismatch_reason", "SOMETHING"), ("equivalence_mode", "CUSTOM")):
@@ -279,6 +281,7 @@ def test_corpus_summary_validation():
         ("output_schema_hash", "A" * 64, "INVALID_HASH"),
         ("corpus_item_hashes", tuple(), "INVALID_INPUT"),
         ("corpus_item_hashes", (HEX_A, HEX_A), "INVALID_INPUT"),
+        ("corpus_item_hashes", (HEX_A, "x"), "INVALID_HASH"),
         ("corpus_item_count", 99, "INVALID_INPUT"),
         ("replay_corpus_hash", HEX_A, "HASH_MISMATCH"),
         ("canonical_ordering_policy", "OTHER", "INVALID_INPUT"),
@@ -292,6 +295,7 @@ def test_coverage_summary_validation():
     cases = [
         ("comparison_record_hashes", tuple(), "INVALID_INPUT"),
         ("comparison_record_hashes", (HEX_A, HEX_A), "INVALID_INPUT"),
+        ("comparison_record_hashes", (HEX_A, "x"), "INVALID_HASH"),
         ("comparison_count", 99, "INVALID_REPLAY_EQUIVALENCE"),
         ("matched_count", 0, "INVALID_REPLAY_EQUIVALENCE"),
         ("mismatched_count", 1, "INVALID_REPLAY_EQUIVALENCE"),
@@ -319,6 +323,21 @@ def test_aggregate_receipt_validation_rejects_unsafe_coverage_and_claims():
     _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.build_decoder_replay_equivalence_receipt, upstream, policy, boundary, corpus_summary, items, (wrong_syndrome, comparisons[1]), dre.build_decoder_replay_coverage_summary((wrong_syndrome, comparisons[1])))
     wrong_summary = dre.build_decoder_replay_corpus_summary("declared replay", "1", (items[0],), HEX_D, HEX_E)
     _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.build_decoder_replay_equivalence_receipt, upstream, policy, boundary, wrong_summary, items, comparisons, coverage)
+    wrong_syndrome_schema_summary = dre.build_decoder_replay_corpus_summary("declared replay", "1", items, HEX_A, HEX_E)
+    _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.build_decoder_replay_equivalence_receipt, upstream, policy, boundary, wrong_syndrome_schema_summary, items, comparisons, coverage)
+    wrong_output_schema_summary = dre.build_decoder_replay_corpus_summary("declared replay", "1", items, HEX_D, HEX_A)
+    _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.build_decoder_replay_equivalence_receipt, upstream, policy, boundary, wrong_output_schema_summary, items, comparisons, coverage)
+    wrong_order_candidate = dre.build_decoder_replay_output_record(comparisons[0].record_id, "CANDIDATE_DECODER", comparisons[0].candidate_output.correction_bits, HEX_E, "wrong-order-key")
+    forged_order_comparison = _rehash_clone(comparisons[0], "_comparison_record_payload", "decoder_replay_comparison_record_hash", candidate_output=wrong_order_candidate)
+    forged_order_coverage = dre.build_decoder_replay_coverage_summary((forged_order_comparison, comparisons[1]))
+    _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.validate_decoder_replay_comparison_record, forged_order_comparison)
+    _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.build_decoder_replay_equivalence_receipt, upstream, policy, boundary, corpus_summary, items, (forged_order_comparison, comparisons[1]), forged_order_coverage)
+    wrong_order_baseline = dre.build_decoder_replay_output_record(comparisons[0].record_id, "CANONICAL_BASELINE_DECODER", comparisons[0].baseline_output.correction_bits, HEX_E, "wrong-order-key")
+    wrong_order_candidate = dre.build_decoder_replay_output_record(comparisons[0].record_id, "CANDIDATE_DECODER", comparisons[0].candidate_output.correction_bits, HEX_E, "wrong-order-key")
+    wrong_order_comparison = dre.build_decoder_replay_comparison_record(comparisons[0].syndrome_input_hash, wrong_order_baseline, wrong_order_candidate)
+    assert dre.validate_decoder_replay_comparison_record(wrong_order_comparison) is wrong_order_comparison
+    wrong_order_coverage = dre.build_decoder_replay_coverage_summary((wrong_order_comparison, comparisons[1]))
+    _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.build_decoder_replay_equivalence_receipt, upstream, policy, boundary, corpus_summary, items, (wrong_order_comparison, comparisons[1]), wrong_order_coverage)
     wrong_coverage = dre.build_decoder_replay_coverage_summary((comparisons[0],))
     _expect_error("INVALID_REPLAY_EQUIVALENCE", dre.build_decoder_replay_equivalence_receipt, upstream, policy, boundary, corpus_summary, items, comparisons, wrong_coverage)
     for field in ("promotion_allowed", "benchmark_claim_allowed", "global_correctness_claim_allowed"):

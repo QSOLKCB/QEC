@@ -4,8 +4,9 @@
 QEC is a deterministic, replay-safe proof and systems architecture for quantum
 error correction, invariant-driven computation, canonical hashing, replay
 validation, semantic/citation boundary enforcement, proof telemetry,
-inference/tokenization boundary receipts, agent observability receipts, and
-source-bound quantum signal claim boundaries.
+inference/tokenization boundary receipts, agent observability receipts,
+source-bound quantum signal claim boundaries, and receipt-governed decoder
+promotion.
 
 It turns computation, evidence, semantic alignment, governance, replay
 validation, lattice topology, router/readout proof, multi-scale invariance,
@@ -17,30 +18,36 @@ research automation provenance, citation and claim-scope receipts,
 inference/tokenization/compression/memory boundaries, agent observability and
 tool-dispatch telemetry, crawler and pattern-decision boundaries, QPE adapter
 signals, quantum-memory signals, self-correcting-memory claim boundaries,
-quantum-geometry signals, and graph-universe claim boundaries into canonical
-proof artifacts.
+quantum-geometry signals, graph-universe claim boundaries, and decoder
+governance receipts into canonical proof artifacts.
 
 The repository began with a Layer 1 QEC decoder and now extends that foundation
 into a broader deterministic proof stack for replay-safe computation,
-provenance validation, adapter-bound external systems, and bounded semantic
-reasoning.
+provenance validation, adapter-bound external systems, bounded semantic
+reasoning, and receipt-chain decoder governance.
+
+The v166.x decoder-governance arc declares the existing decoder baseline,
+registers candidate decoders as adapter-only hypotheses, verifies replay and
+fast-path transcript equivalence, bounds implementation and benchmark surfaces,
+requires rollback readiness, and records promotion as a receipt-chain decision
+without mutating `src/qec/decoder/`.
 
 In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 
-**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift • Decay-Resistance Proofs • GameWorld Interaction Reports • Perturbation Contracts • Substrate Constraints • Recursive Proof Loops • Reality Loop Proofs • Global Replay Proofs • Heavy-Dependency Invariants • Optimization Contracts • Adapter Specs • Canonical Kernel Receipts • Fast-Path Equivalence • Dependency Reduction • Optimized Simulation Specs • Backend Replay Receipts • Benchmark Receipts • Telemetry Receipts • Simulation Reports • Dataframe Backend Receipts • Research Automation Provenance • Citation Integrity • Claim Scope • Inference Backend Manifests • Byte-Level Model Boundaries • Tokenization Policies • Parameter-Golf Compression • Memory Bandwidth Receipts • KV Cache Policies • Agent Observation Traces • Skill Library Manifests • Tool Dispatch Telemetry • Crawler Boundaries • Agent Pattern Decisions • QPE Toolbox Adapters • Quantum Memory Signals • Self-Correcting Memory Claim Boundaries • Quantum Geometry Signals • Graph-Universe Claim Boundaries**
+**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift • Decay-Resistance Proofs • GameWorld Interaction Reports • Perturbation Contracts • Substrate Constraints • Recursive Proof Loops • Reality Loop Proofs • Global Replay Proofs • Heavy-Dependency Invariants • Optimization Contracts • Adapter Specs • Canonical Kernel Receipts • Fast-Path Equivalence • Dependency Reduction • Optimized Simulation Specs • Backend Replay Receipts • Benchmark Receipts • Telemetry Receipts • Simulation Reports • Dataframe Backend Receipts • Research Automation Provenance • Citation Integrity • Claim Scope • Inference Backend Manifests • Byte-Level Model Boundaries • Tokenization Policies • Parameter-Golf Compression • Memory Bandwidth Receipts • KV Cache Policies • Agent Observation Traces • Skill Library Manifests • Tool Dispatch Telemetry • Crawler Boundaries • Agent Pattern Decisions • QPE Toolbox Adapters • Quantum Memory Signals • Self-Correcting Memory Claim Boundaries • Quantum Geometry Signals • Graph-Universe Claim Boundaries • Canonical Decoder Baselines • Decoder Candidate Manifests • Decoder Replay Equivalence • Decoder Optimization Contracts • Decoder Fast-Path Equivalence • Decoder Implementation Boundaries • Decoder Benchmark Ladders • Decoder Rollback Receipts • Decoder Promotion Receipts**
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v165.4-success)](https://github.com/QSOLKCB/QEC/releases/tag/v165.4)
-[![Branch](https://img.shields.io/badge/branch-v165.4%20canonical-purple)]()
+[![Latest](https://img.shields.io/badge/stable-v166.8-success)](https://github.com/QSOLKCB/QEC/releases/tag/v166.8)
+[![Branch](https://img.shields.io/badge/branch-v166.8%20canonical-purple)]()
 
-Current release line: **v165.4**  
-Current frontier: **v165.5.0 — DataframeBackendManifest**  
-Active arc: **v165.5.x — Deterministic Dataframe / Columnar Backend Receipts**  
-Completed arc: **v165.x — Optimized QEC Simulation Backends**
+Current release line: **v166.8**  
+Current frontier: **v167.0 — QuditDimensionPolicyManifest**  
+Active arc: **v167.x — Qudit / Ququart / High-Dimensional Stabilizer Receipts**  
+Completed arc: **v166.x — QLDPC / Hashing-Bound Code Receipts / Decoder Governance**
 
-Repository status is current through **v165.4 → OptimizedSimulationReport**.
+Repository status is current through **v166.8 → DecoderPromotionReceipt**.
 
 Recent release arcs completed:
 
@@ -49,6 +56,9 @@ Recent release arcs completed:
 - **v165.7.x** → LLM inference / parameter-golf / tokenization receipts.
 - **v165.8.x** → Agent observability / skill-library receipts.
 - **v165.9.x** → Quantum memory / QPE / geometry signal receipts.
+- **v166.x** → Canonical decoder baseline, candidate, replay, optimization,
+  fast-path, implementation-boundary, benchmark-ladder, rollback, and
+  promotion receipts.
 
 Recent preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay
 Signatures — Hash-Bound Checkpoints, Subsystem Drift Receipts, and
@@ -82,6 +92,10 @@ Replay-Resistant Proof Chains**.
 | Adapter-only external boundary handling | Stable |
 | Hidden runtime execution rejection | Stable |
 | Hidden authority semantic rejection | Stable |
+| Exact bool / int alias rejection | Stable |
+| Forbidden semantic normalization | Stable |
+| Decoder source immutability boundary | Stable |
+| No silent decoder replacement | Stable |
 | GameWorld interaction receipts | Complete through v156.6 |
 | Perturbation/stress contracts | Complete through v157.3 |
 | Substrate constraint receipts | Complete through v158.3 |
@@ -97,6 +111,15 @@ Replay-Resistant Proof Chains**.
 | Inference / tokenization / compression receipts | Complete through v165.7.5 |
 | Agent observability / skill-library receipts | Complete through v165.8.4 |
 | Quantum memory / QPE / geometry signal receipts | Complete through v165.9.4 |
+| Canonical decoder baseline receipts | Complete through v166.0 |
+| Decoder candidate manifests | Complete through v166.1 |
+| Decoder replay equivalence receipts | Complete through v166.2 |
+| Decoder optimization contracts | Complete through v166.3 |
+| Decoder fast-path equivalence receipts | Complete through v166.4 |
+| Decoder implementation boundary receipts | Complete through v166.5 |
+| Decoder benchmark ladder receipts | Complete through v166.6 |
+| Decoder rollback receipts | Complete through v166.7 |
+| Decoder promotion receipts | Complete through v166.8 |
 | Release metadata safety tooling | Hardened through v165.3.3 |
 
 # 🧠 What QEC Is
@@ -124,6 +147,8 @@ QEC is useful when you need proof objects that are:
 - strict about inference, tokenization, compression, memory, and cache boundaries
 - strict about agent observation, tool dispatch, crawler, and pattern-decision boundaries
 - source-bound around QPE, quantum-memory, quantum-geometry, and graph-universe claims
+- explicit about decoder baseline immutability and candidate-governance boundaries
+- strict about decoder replay equivalence, benchmark ladders, rollback, and promotion receipts
 
 QEC does not make the world deterministic.
 
@@ -139,6 +164,10 @@ A benchmark is not truth.
 
 A faster or smaller model is not correctness.
 
+A faster decoder is not automatically a better decoder.
+
+Decoder promotion is a receipt-chain governance decision, not source replacement.
+
 Agent traces are receipts, not dashboards.
 
 Hardware research signals are source-bound claims, not QEC authority.
@@ -152,7 +181,21 @@ input
 → frozen receipt
 → validator recomputes hash
 → replay-safe proof result
-````
+```
+
+Decoder governance pipeline:
+
+```text
+canonical baseline
+→ candidate manifest
+→ replay equivalence
+→ optimization contract
+→ fast-path equivalence
+→ implementation boundary
+→ benchmark ladder
+→ rollback receipt
+→ promotion receipt
+```
 
 ## ⚡ Quickstart
 
@@ -232,6 +275,12 @@ QEC matters because deterministic proof artifacts make it possible to:
 * prevent hidden tool calls, hidden crawler behavior, and agent output from becoming evidence
 * keep quantum-memory, QPE, geometry, and graph-universe signals source-bound and claim-bounded
 * prevent hardware authority, cosmological truth, or QEC advantage claims without source-bound evidence
+* preserve a canonical decoder baseline as sacred replay infrastructure
+* treat decoder candidates as adapter hypotheses before promotion
+* require deterministic replay equivalence before decoder-governance decisions
+* keep benchmark ladders bounded to declared corpus/environment/comparator surfaces
+* require rollback readiness before promotion
+* declare promotion through receipts without mutating decoder source
 
 The world may be chaotic.
 The receipt must not be.
@@ -285,6 +334,15 @@ The receipt must not be.
 * v165.9.2 → SelfCorrectingMemoryClaimBoundaryReceipt
 * v165.9.3 → QuantumGeometrySignalReceipt
 * v165.9.4 → GraphUniverseClaimBoundaryReceipt
+* v166.0 → CanonicalDecoderBaselineReceipt
+* v166.1 → DecoderCandidateManifest
+* v166.2 → DecoderReplayEquivalenceReceipt
+* v166.3 → DecoderOptimizationContract
+* v166.4 → DecoderFastPathEquivalenceReceipt
+* v166.5 → DecoderImplementationBoundaryReceipt
+* v166.6 → DecoderBenchmarkLadderReceipt
+* v166.7 → DecoderRollbackReceipt
+* v166.8 → DecoderPromotionReceipt
 
 QEC now supports deterministic heavy-dependency discovery, static import /
 hot-path receipts, backend invariant candidates, cross-backend equivalence,
@@ -300,7 +358,8 @@ cache policy receipts, agent observation traces, skill-library manifests, tool
 dispatch telemetry receipts, crawler boundary receipts, agent pattern-decision
 receipts, QPE toolbox adapter receipts, quantum-memory signal receipts,
 self-correcting-memory claim-boundary receipts, quantum-geometry signal
-receipts, and graph-universe claim-boundary receipts.
+receipts, graph-universe claim-boundary receipts, and full decoder-governance
+receipts from canonical baseline through promotion.
 
 The v163.x arc discovered deterministic invariants in heavy dependencies.
 
@@ -328,7 +387,13 @@ The v165.9.x bridge arc added source-bound QPE, quantum-memory,
 self-correcting-memory, quantum-geometry, and graph-universe claim-boundary
 receipts.
 
-v165.9.4 completes the quantum memory / QPE / geometry signal receipt bridge arc.
+The v166.x decoder-governance arc added canonical decoder baseline receipts,
+decoder candidate manifests, replay equivalence receipts, optimization
+contracts, fast-path equivalence receipts, implementation boundary receipts,
+benchmark ladder receipts, rollback receipts, and promotion receipts.
+
+v166.8 completes the QLDPC / Hashing-Bound Code Receipts decoder-governance
+arc and moves the active frontier to v167.0 → QuditDimensionPolicyManifest.
 
 * External dependencies are adapters, never authorities.
 * Simulation output is not truth.
@@ -347,7 +412,12 @@ v165.9.4 completes the quantum memory / QPE / geometry signal receipt bridge arc
 * Crawler receipts do not grant network authority.
 * Quantum-memory and geometry signals are source-bound claims, not QEC authority.
 * Graph-universe claims are claim boundaries, not cosmological truth.
-* The decoder remains untouched.
+* Candidate decoders are adapter hypotheses before promotion.
+* Decoder replay equivalence is required before promotion.
+* Decoder benchmarks are bounded observations, not correctness proofs.
+* Decoder rollback remains required before promotion.
+* Decoder promotion is receipt-chain governance, not source replacement.
+* The decoder source remains untouched.
 
 ## Proof Artifacts
 

@@ -82,7 +82,7 @@ def make_plan(**overrides):
     cand = build_decoder_rollback_target(target_id="candidate", target_kind="CANDIDATE_DECLARATION_TARGET", target_hash=H["1"], target_role="DISABLE_CANDIDATE", pre_rollback_status="DECLARED_ADAPTER_ONLY", post_rollback_status="CANDIDATE_DISABLED", disable_required=True, restore_required=False)
     fast = build_decoder_rollback_target(target_id="fast-path", target_kind="FAST_PATH_IDENTITY_TARGET", target_hash=H["2"], target_role="DISABLE_FAST_PATH", pre_rollback_status="DECLARED_ADAPTER_ONLY", post_rollback_status="FAST_PATH_DISABLED", disable_required=True, restore_required=False)
     impl = build_decoder_rollback_target(target_id="implementation", target_kind="IMPLEMENTATION_BOUNDARY_TARGET", target_hash=H["3"], target_role="DISABLE_IMPLEMENTATION", pre_rollback_status="DECLARED_BOUNDARY_ONLY", post_rollback_status="IMPLEMENTATION_DISABLED", disable_required=True, restore_required=False)
-    promo = build_decoder_rollback_target(target_id="promotion", target_kind="PROMOTION_GATE_TARGET", target_hash=H["4"], target_role="BLOCK_PROMOTION", pre_rollback_status="DECLARED_PROMOTION_BLOCKED", post_rollback_status="PROMOTION_BLOCKED", disable_required=False, restore_required=False)
+    promo = build_decoder_rollback_target(target_id="promotion", target_kind="PROMOTION_GATE_TARGET", target_hash=H["d"], target_role="BLOCK_PROMOTION", pre_rollback_status="DECLARED_PROMOTION_BLOCKED", post_rollback_status="PROMOTION_BLOCKED", disable_required=False, restore_required=False)
     triggers = (t_replay, t_fast, t_bench)
     targets = (base, cand, fast, impl, promo)
     th = tuple(t.decoder_rollback_trigger_hash for t in triggers)
@@ -91,7 +91,7 @@ def make_plan(**overrides):
         build_decoder_rollback_plan_step(step_id="candidate", step_index=1, step_kind="DECLARE_CANDIDATE_DISABLE", target_hash=cand.decoder_rollback_target_hash, trigger_hashes=th, precondition_hashes=(H["1"],), postcondition_hashes=(cand.decoder_rollback_target_hash,)),
         build_decoder_rollback_plan_step(step_id="fast", step_index=2, step_kind="DECLARE_FAST_PATH_DISABLE", target_hash=fast.decoder_rollback_target_hash, trigger_hashes=th, precondition_hashes=(H["2"],), postcondition_hashes=(fast.decoder_rollback_target_hash,)),
         build_decoder_rollback_plan_step(step_id="impl", step_index=3, step_kind="DECLARE_IMPLEMENTATION_DISABLE", target_hash=impl.decoder_rollback_target_hash, trigger_hashes=th, precondition_hashes=(H["3"],), postcondition_hashes=(impl.decoder_rollback_target_hash,)),
-        build_decoder_rollback_plan_step(step_id="promotion", step_index=4, step_kind="DECLARE_PROMOTION_BLOCK", target_hash=promo.decoder_rollback_target_hash, trigger_hashes=th, precondition_hashes=(H["4"],), postcondition_hashes=(promo.decoder_rollback_target_hash,)),
+        build_decoder_rollback_plan_step(step_id="promotion", step_index=4, step_kind="DECLARE_PROMOTION_BLOCK", target_hash=promo.decoder_rollback_target_hash, trigger_hashes=th, precondition_hashes=(H["d"],), postcondition_hashes=(promo.decoder_rollback_target_hash,)),
     )
     payload = {"plan_id": "declared-plan", "plan_version": "1", "rollback_triggers": triggers, "rollback_targets": targets, "rollback_steps": steps}
     payload.update(overrides)
@@ -232,6 +232,59 @@ def test_target_validation_rejects_unsafe_fields(field, bad):
         build_decoder_rollback_target(**payload)
     with pytest.raises(DecoderRollbackError):
         build_decoder_rollback_target(target_id="baseline", target_kind="CANONICAL_BASELINE_TARGET", target_hash=H["a"], target_role="DISABLE_CANDIDATE", pre_rollback_status="DECLARED_ACTIVE", post_rollback_status="BASELINE_RESTORED", disable_required=True, restore_required=True)
+
+
+def _rebuild_plan_with(triggers=None, targets=None, steps=None):
+    plan = make_plan()
+    return build_decoder_rollback_plan(
+        plan_id=plan.plan_id,
+        plan_version=plan.plan_version,
+        rollback_triggers=triggers or plan.rollback_triggers,
+        rollback_targets=targets or plan.rollback_targets,
+        rollback_steps=steps or plan.rollback_steps,
+    )
+
+
+def test_target_validation_enforces_kind_role_and_status_semantics():
+    with pytest.raises(DecoderRollbackError):
+        build_decoder_rollback_target(target_id="candidate", target_kind="CANDIDATE_DECLARATION_TARGET", target_hash=H["1"], target_role="RESTORE_BASELINE", pre_rollback_status="DECLARED_ADAPTER_ONLY", post_rollback_status="CANDIDATE_DISABLED", disable_required=True, restore_required=False)
+    with pytest.raises(DecoderRollbackError):
+        build_decoder_rollback_target(target_id="candidate", target_kind="CANDIDATE_DECLARATION_TARGET", target_hash=H["1"], target_role="DISABLE_CANDIDATE", pre_rollback_status="DECLARED_ACTIVE", post_rollback_status="CANDIDATE_DISABLED", disable_required=True, restore_required=False)
+    with pytest.raises(DecoderRollbackError):
+        build_decoder_rollback_target(target_id="benchmark", target_kind="BENCHMARK_LADDER_TARGET", target_hash=H["0"], target_role="AUDIT_BENCHMARK_LADDER", pre_rollback_status="DECLARED_BENCHMARK_ONLY", post_rollback_status="AUDIT_REQUIRED", disable_required=True, restore_required=False)
+
+
+def test_plan_validation_rejects_step_target_role_swaps():
+    plan = make_plan()
+    baseline_step, candidate_step = plan.rollback_steps[0], plan.rollback_steps[1]
+    swapped_candidate_step = build_decoder_rollback_plan_step(step_id=candidate_step.step_id, step_index=candidate_step.step_index, step_kind=candidate_step.step_kind, target_hash=baseline_step.target_hash, trigger_hashes=candidate_step.trigger_hashes, precondition_hashes=candidate_step.precondition_hashes, postcondition_hashes=candidate_step.postcondition_hashes)
+    with pytest.raises(DecoderRollbackError):
+        _rebuild_plan_with(steps=(baseline_step, swapped_candidate_step, *plan.rollback_steps[2:]))
+
+
+def test_aggregate_receipt_binds_trigger_sources_to_upstream_hashes():
+    plan = make_plan()
+    bad_trigger = build_decoder_rollback_trigger(trigger_id="a-replay", trigger_kind="REPLAY_EQUIVALENCE_FAILURE", trigger_source_receipt_hash=H["5"], trigger_source_release="v166.2", trigger_severity="BLOCK_PROMOTION")
+    triggers = (bad_trigger, *plan.rollback_triggers[1:])
+    trigger_hashes = tuple(t.decoder_rollback_trigger_hash for t in triggers)
+    steps = tuple(build_decoder_rollback_plan_step(step_id=s.step_id, step_index=s.step_index, step_kind=s.step_kind, target_hash=s.target_hash, trigger_hashes=trigger_hashes, precondition_hashes=s.precondition_hashes, postcondition_hashes=s.postcondition_hashes) for s in plan.rollback_steps)
+    with pytest.raises(DecoderRollbackError):
+        make_receipt(rollback_plan=_rebuild_plan_with(triggers=triggers, steps=steps))
+    wrong_release = build_decoder_rollback_trigger(trigger_id="a-replay", trigger_kind="REPLAY_EQUIVALENCE_FAILURE", trigger_source_receipt_hash=H["c"], trigger_source_release="v166.4", trigger_severity="BLOCK_PROMOTION")
+    triggers = (wrong_release, *plan.rollback_triggers[1:])
+    trigger_hashes = tuple(t.decoder_rollback_trigger_hash for t in triggers)
+    steps = tuple(build_decoder_rollback_plan_step(step_id=s.step_id, step_index=s.step_index, step_kind=s.step_kind, target_hash=s.target_hash, trigger_hashes=trigger_hashes, precondition_hashes=s.precondition_hashes, postcondition_hashes=s.postcondition_hashes) for s in plan.rollback_steps)
+    with pytest.raises(DecoderRollbackError):
+        make_receipt(rollback_plan=_rebuild_plan_with(triggers=triggers, steps=steps))
+
+
+def test_aggregate_receipt_binds_targets_to_upstream_hashes():
+    plan = make_plan()
+    bad_candidate = build_decoder_rollback_target(target_id="candidate", target_kind="CANDIDATE_DECLARATION_TARGET", target_hash=H["5"], target_role="DISABLE_CANDIDATE", pre_rollback_status="DECLARED_ADAPTER_ONLY", post_rollback_status="CANDIDATE_DISABLED", disable_required=True, restore_required=False)
+    targets = tuple(bad_candidate if t.target_id == "candidate" else t for t in plan.rollback_targets)
+    steps = tuple(build_decoder_rollback_plan_step(step_id=s.step_id, step_index=s.step_index, step_kind=s.step_kind, target_hash=bad_candidate.decoder_rollback_target_hash if s.step_kind == "DECLARE_CANDIDATE_DISABLE" else s.target_hash, trigger_hashes=s.trigger_hashes, precondition_hashes=s.precondition_hashes, postcondition_hashes=s.postcondition_hashes) for s in plan.rollback_steps)
+    with pytest.raises(DecoderRollbackError):
+        make_receipt(rollback_plan=_rebuild_plan_with(targets=targets, steps=steps))
 
 
 @pytest.mark.parametrize("field,bad", [

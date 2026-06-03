@@ -60,6 +60,48 @@ STEP_KINDS = frozenset({
     "DECLARE_AUDIT_REQUIRED",
     "DECLARE_BENCHMARK_REGRESSION_HANDLING",
 })
+_TARGET_KIND_CONSTRAINTS = {
+    "CANONICAL_BASELINE_TARGET": ("RESTORE_BASELINE", "DECLARED_ACTIVE", "BASELINE_RESTORED", False, True),
+    "CANDIDATE_DECLARATION_TARGET": ("DISABLE_CANDIDATE", "DECLARED_ADAPTER_ONLY", "CANDIDATE_DISABLED", True, False),
+    "FAST_PATH_IDENTITY_TARGET": ("DISABLE_FAST_PATH", "DECLARED_ADAPTER_ONLY", "FAST_PATH_DISABLED", True, False),
+    "IMPLEMENTATION_BOUNDARY_TARGET": ("DISABLE_IMPLEMENTATION", "DECLARED_BOUNDARY_ONLY", "IMPLEMENTATION_DISABLED", True, False),
+    "BENCHMARK_LADDER_TARGET": ("AUDIT_BENCHMARK_LADDER", "DECLARED_BENCHMARK_ONLY", "AUDIT_REQUIRED", False, False),
+    "PROMOTION_GATE_TARGET": ("BLOCK_PROMOTION", "DECLARED_PROMOTION_BLOCKED", "PROMOTION_BLOCKED", False, False),
+}
+_STEP_KIND_TARGET_ROLES = {
+    "DECLARE_BASELINE_RESTORE": frozenset({"RESTORE_BASELINE"}),
+    "DECLARE_CANDIDATE_DISABLE": frozenset({"DISABLE_CANDIDATE"}),
+    "DECLARE_FAST_PATH_DISABLE": frozenset({"DISABLE_FAST_PATH"}),
+    "DECLARE_IMPLEMENTATION_DISABLE": frozenset({"DISABLE_IMPLEMENTATION"}),
+    "DECLARE_PROMOTION_BLOCK": frozenset({"BLOCK_PROMOTION"}),
+    "DECLARE_AUDIT_REQUIRED": frozenset({"AUDIT_BENCHMARK_LADDER"}),
+    "DECLARE_BENCHMARK_REGRESSION_HANDLING": frozenset({"AUDIT_BENCHMARK_LADDER"}),
+}
+_TRIGGER_KIND_UPSTREAM_FIELDS = {
+    "REPLAY_EQUIVALENCE_FAILURE": ("v166.2", "upstream_decoder_replay_equivalence_receipt_hash"),
+    "OUTPUT_SCHEMA_DRIFT": ("v166.2", "upstream_decoder_replay_equivalence_receipt_hash"),
+    "OUTPUT_PAYLOAD_DRIFT": ("v166.2", "upstream_decoder_replay_equivalence_receipt_hash"),
+    "CANONICAL_ORDERING_DRIFT": ("v166.2", "upstream_decoder_replay_equivalence_receipt_hash"),
+    "PRECISION_POLICY_DRIFT": ("v166.3", "upstream_decoder_optimization_contract_hash"),
+    "FAST_PATH_EQUIVALENCE_FAILURE": ("v166.4", "upstream_decoder_fast_path_equivalence_receipt_hash"),
+    "BENCHMARK_LADDER_REGRESSION": ("v166.6", "upstream_decoder_benchmark_ladder_receipt_hash"),
+    "BENCHMARK_LADDER_LINKAGE_FAILURE": ("v166.6", "upstream_decoder_benchmark_ladder_receipt_hash"),
+    "IMPLEMENTATION_BOUNDARY_VIOLATION": ("v166.5", "upstream_decoder_implementation_boundary_receipt_hash"),
+    "RUNTIME_AUTHORITY_DETECTED": ("v166.5", "upstream_decoder_implementation_boundary_receipt_hash"),
+    "HARDWARE_AUTHORITY_CLAIM_DETECTED": ("v166.5", "upstream_decoder_implementation_boundary_receipt_hash"),
+    "QEC_ADVANTAGE_CLAIM_DETECTED": ("v166.5", "upstream_decoder_implementation_boundary_receipt_hash"),
+    "BASELINE_MUTATION_DETECTED": ("v166.2", "upstream_canonical_decoder_baseline_receipt_hash"),
+    "CANDIDATE_PROMOTION_WITHOUT_RECEIPT": ("v166.3", "upstream_decoder_candidate_manifest_hash"),
+}
+_TARGET_KIND_UPSTREAM_FIELDS = {
+    "CANONICAL_BASELINE_TARGET": "upstream_canonical_decoder_baseline_receipt_hash",
+    "CANDIDATE_DECLARATION_TARGET": "candidate_declaration_hash",
+    "FAST_PATH_IDENTITY_TARGET": "fast_path_identity_hash",
+    "IMPLEMENTATION_BOUNDARY_TARGET": "implementation_identity_hash",
+    "BENCHMARK_LADDER_TARGET": "upstream_decoder_benchmark_ladder_receipt_hash",
+    "PROMOTION_GATE_TARGET": "upstream_decoder_optimization_contract_hash",
+}
+
 
 _FORBIDDEN_DECLARATION_TOKENS = (
     "silent decoder replacement", "candidate replaces baseline", "decoder replaced because faster",
@@ -437,15 +479,9 @@ class DecoderRollbackTarget:
         for name in ("disable_required","restore_required"):
             _require_exact_bool(getattr(self, name), name)
         _require_flags(self, {"mutation_allowed": False, "deletion_allowed": False, "runtime_disable_only": True, "rollback_target_authority_allowed": False}, "TARGET_FLAGS")
-        if self.target_kind == "CANONICAL_BASELINE_TARGET":
-            if self.target_role != "RESTORE_BASELINE" or self.restore_required is not True or self.disable_required is not False:
-                raise _invalid_input("CANONICAL_BASELINE_TARGET")
-        if self.target_kind in {"CANDIDATE_DECLARATION_TARGET", "FAST_PATH_IDENTITY_TARGET", "IMPLEMENTATION_BOUNDARY_TARGET"}:
-            if self.disable_required is not True or self.restore_required is not False:
-                raise _invalid_input("DISABLE_TARGET")
-        if self.target_kind == "PROMOTION_GATE_TARGET":
-            if self.target_role != "BLOCK_PROMOTION" or self.restore_required is not False:
-                raise _invalid_input("PROMOTION_GATE_TARGET")
+        expected = _TARGET_KIND_CONSTRAINTS[self.target_kind]
+        if (self.target_role, self.pre_rollback_status, self.post_rollback_status, self.disable_required, self.restore_required) != expected:
+            raise _invalid_input(f"{self.target_kind}:SEMANTICS")
         _assert_hash_matches(self, "decoder_rollback_target_hash", lambda o: _payload_without(o, "decoder_rollback_target_hash"))
 
 @dataclass(frozen=True)
@@ -514,10 +550,12 @@ class DecoderRollbackPlan:
         for name, expected in (("trigger_count", len(self.rollback_triggers)), ("target_count", len(self.rollback_targets)), ("step_count", len(self.rollback_steps))):
             _require_exact_int(getattr(self, name), name)
             if getattr(self, name) != expected: raise _invalid_input(f"{name}:COUNT")
-        target_hashes = {t.decoder_rollback_target_hash for t in self.rollback_targets}
         trigger_hashes = {t.decoder_rollback_trigger_hash for t in self.rollback_triggers}
+        targets_by_receipt_hash = {t.decoder_rollback_target_hash: t for t in self.rollback_targets}
         for step in self.rollback_steps:
-            if step.target_hash not in target_hashes: raise _invalid_rollback("step:target_hash")
+            target = targets_by_receipt_hash.get(step.target_hash)
+            if target is None: raise _invalid_rollback("step:target_hash")
+            if target.target_role not in _STEP_KIND_TARGET_ROLES[step.step_kind]: raise _invalid_rollback("step:target_role")
             for h in step.trigger_hashes:
                 if h not in trigger_hashes: raise _invalid_rollback("step:trigger_hash")
             for h in step.precondition_hashes + step.postcondition_hashes:
@@ -695,6 +733,13 @@ class DecoderRollbackReceipt:
         if self.rollback_identity.associated_implementation_identity_hash != self.upstream_binding.implementation_identity_hash: raise _invalid_rollback("implementation_identity_hash:MISMATCH")
         if self.rollback_identity.associated_benchmark_ladder_receipt_hash != self.upstream_binding.upstream_decoder_benchmark_ladder_receipt_hash: raise _invalid_rollback("benchmark_ladder_hash:MISMATCH")
         if self.restoration_policy.canonical_baseline_receipt_hash != self.upstream_binding.upstream_canonical_decoder_baseline_receipt_hash: raise _invalid_rollback("baseline_hash:MISMATCH")
+        for trigger in self.rollback_plan.rollback_triggers:
+            expected_release, upstream_field = _TRIGGER_KIND_UPSTREAM_FIELDS[trigger.trigger_kind]
+            if trigger.trigger_source_release != expected_release: raise _invalid_rollback("trigger_source_release:MISMATCH")
+            if trigger.trigger_source_receipt_hash != getattr(self.upstream_binding, upstream_field): raise _invalid_rollback("trigger_source_receipt_hash:MISMATCH")
+        for target in self.rollback_plan.rollback_targets:
+            upstream_field = _TARGET_KIND_UPSTREAM_FIELDS[target.target_kind]
+            if target.target_hash != getattr(self.upstream_binding, upstream_field): raise _invalid_rollback("target_hash:MISMATCH")
         recomputed_adapter = _candidate_remains_adapter_only(self)
         recomputed_baseline = self.rollback_plan.baseline_restore_declared and self.restoration_policy.baseline_restore_required
         recomputed_ready = self.rollback_identity.rollback_receipt_ready_for_future_promotion_gate and self.verification_boundary.verification_complete_for_declaration and self.audit_boundary.future_promotion_receipt_required

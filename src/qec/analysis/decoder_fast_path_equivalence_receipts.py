@@ -131,6 +131,7 @@ def _invalid_equivalence(detail: str) -> DecoderFastPathEquivalenceError:
 
 def _normalize_semantics_text(value: str) -> str:
     lowered = value.lower()
+    lowered = re.sub(r"[\n\r\t]", " ", lowered)
     lowered = re.sub(r"\\[nrt]", " ", lowered)
     lowered = lowered.replace("_", " ").replace("-", " ")
     lowered = re.sub(r"[^a-z0-9]+", " ", lowered)
@@ -263,7 +264,7 @@ def _validate_source_file(path: str, root: str) -> None:
         raise _invalid_input("declared_source_file:OUTSIDE_ROOT")
 
 
-def _sorted_unique_hashes(values: Sequence[str], field_name: str) -> tuple[str, ...]:
+def _sorted_unique_hashes(values: tuple[str, ...], field_name: str) -> tuple[str, ...]:
     if not isinstance(values, tuple) or not values:
         raise _invalid_input(f"{field_name}:TUPLE")
     for value in values:
@@ -322,18 +323,48 @@ def _summary_transcript_hash_payload(obj: "DecoderFastPathTranscriptSummary") ->
     }
 
 
-# payload helpers
-_upstream_binding_payload = lambda obj: _payload_without(obj, "decoder_fast_path_upstream_binding_hash")
-_identity_payload = lambda obj: _payload_without(obj, "decoder_fast_path_identity_hash")
-_source_boundary_payload = lambda obj: _payload_without(obj, "decoder_fast_path_source_boundary_hash")
-_contract_binding_payload = lambda obj: _payload_without(obj, "decoder_fast_path_contract_binding_hash")
-_equivalence_policy_payload = lambda obj: _payload_without(obj, "decoder_fast_path_equivalence_policy_hash")
-_execution_boundary_payload = lambda obj: _payload_without(obj, "decoder_fast_path_execution_boundary_hash")
-_corpus_item_payload = lambda obj: _payload_without(obj, "decoder_fast_path_corpus_item_hash")
-_output_record_payload = lambda obj: _payload_without(obj, "decoder_fast_path_output_record_hash")
-_comparison_record_payload = lambda obj: _payload_without(obj, "decoder_fast_path_comparison_record_hash")
-_transcript_summary_payload = lambda obj: _payload_without(obj, "decoder_fast_path_transcript_summary_hash")
-_receipt_payload = lambda obj: _payload_without(obj, "decoder_fast_path_equivalence_receipt_hash")
+def _upstream_binding_payload(obj: Any) -> dict[str, Any]:
+    return _payload_without(obj, "decoder_fast_path_upstream_binding_hash")
+
+
+def _identity_payload(obj: Any) -> dict[str, Any]:
+    return _payload_without(obj, "decoder_fast_path_identity_hash")
+
+
+def _source_boundary_payload(obj: Any) -> dict[str, Any]:
+    return _payload_without(obj, "decoder_fast_path_source_boundary_hash")
+
+
+def _contract_binding_payload(obj: Any) -> dict[str, Any]:
+    return _payload_without(obj, "decoder_fast_path_contract_binding_hash")
+
+
+def _equivalence_policy_payload(obj: Any) -> dict[str, Any]:
+    return _payload_without(obj, "decoder_fast_path_equivalence_policy_hash")
+
+
+def _execution_boundary_payload(obj: Any) -> dict[str, Any]:
+    return _payload_without(obj, "decoder_fast_path_execution_boundary_hash")
+
+
+def _corpus_item_payload(obj: Any) -> dict[str, Any]:
+    return _payload_without(obj, "decoder_fast_path_corpus_item_hash")
+
+
+def _output_record_payload(obj: Any) -> dict[str, Any]:
+    return _payload_without(obj, "decoder_fast_path_output_record_hash")
+
+
+def _comparison_record_payload(obj: Any) -> dict[str, Any]:
+    return _payload_without(obj, "decoder_fast_path_comparison_record_hash")
+
+
+def _transcript_summary_payload(obj: Any) -> dict[str, Any]:
+    return _payload_without(obj, "decoder_fast_path_transcript_summary_hash")
+
+
+def _receipt_payload(obj: Any) -> dict[str, Any]:
+    return _payload_without(obj, "decoder_fast_path_equivalence_receipt_hash")
 
 
 @dataclass(frozen=True)
@@ -653,8 +684,11 @@ class DecoderFastPathTranscriptSummary:
         for n in ("corpus_item_count", "comparison_count", "matched_count", "mismatched_count", "schema_mismatch_count", "payload_mismatch_count", "ordering_mismatch_count"):
             _require_exact_int(getattr(self, n), n)
         if self.corpus_item_count != len(self.corpus_item_hashes): raise _invalid_equivalence("corpus_item_count")
+        if len(self.reference_output_hashes) != self.corpus_item_count: raise _invalid_equivalence("reference_output_hashes:COVERAGE")
+        if len(self.fast_path_output_hashes) != self.corpus_item_count: raise _invalid_equivalence("fast_path_output_hashes:COVERAGE")
         if self.comparison_count != len(self.comparison_record_hashes): raise _invalid_equivalence("comparison_count")
-        if self.matched_count != self.comparison_count: raise _invalid_equivalence("matched_count")
+        if self.comparison_count != self.corpus_item_count: raise _invalid_equivalence("comparison_count:COVERAGE")
+        if self.matched_count != self.corpus_item_count: raise _invalid_equivalence("matched_count")
         if self.mismatched_count != 0: raise _invalid_equivalence("mismatched_count")
         if self.schema_mismatch_count != 0: raise _invalid_equivalence("schema_mismatch_count")
         if self.payload_mismatch_count != 0: raise _invalid_equivalence("payload_mismatch_count")
@@ -738,6 +772,7 @@ class DecoderFastPathEquivalenceReceipt:
         proven = _receipt_proven(self)
         _require_exact_bool(self.fast_path_equivalence_proven, "fast_path_equivalence_proven")
         if self.fast_path_equivalence_proven is not proven: raise _invalid_equivalence("fast_path_equivalence_proven:FORGED")
+        if not proven: raise _invalid_equivalence("fast_path_equivalence_proven:UNPROVEN")
         if self.fast_path_equivalence_scope != _SCOPE: raise _invalid_equivalence("fast_path_equivalence_scope")
         _require_flags(self, {"implementation_allowed": False, "runtime_enabled": False, "promotion_allowed": False, "benchmark_claim_allowed": False, "speedup_claim_allowed": False, "global_correctness_claim_allowed": False}, "receipt:UNSAFE", equivalence=True)
         _assert_hash_matches(self, "decoder_fast_path_equivalence_receipt_hash", _receipt_payload)
@@ -751,42 +786,63 @@ def _unique_by_record_id(items: Sequence[Any], name: str) -> dict[str, Any]:
     return by_id
 
 
-def _receipt_proven(obj: DecoderFastPathEquivalenceReceipt) -> bool:
+def _receipt_components_proven(
+    upstream_binding: DecoderFastPathUpstreamBinding,
+    fast_path_identity: DecoderFastPathIdentity,
+    source_boundary: DecoderFastPathSourceBoundary,
+    contract_binding: DecoderFastPathContractBinding,
+    equivalence_policy: DecoderFastPathEquivalencePolicy,
+    execution_boundary: DecoderFastPathExecutionBoundary,
+    comparison_records: tuple[DecoderFastPathComparisonRecord, ...],
+    transcript_summary: DecoderFastPathTranscriptSummary,
+) -> bool:
     return (
-        obj.upstream_binding.replay_equivalence_proven_for_declared_corpus is True
-        and obj.upstream_binding.optimization_contract_safe is True
-        and obj.upstream_binding.candidate_adapter_only is True
-        and obj.upstream_binding.candidate_promoted is False
-        and obj.upstream_binding.baseline_immutable is True
-        and obj.upstream_binding.baseline_mutation_allowed is False
-        and obj.upstream_binding.implementation_allowed_by_contract is False
-        and obj.upstream_binding.runtime_authority_allowed is False
-        and obj.fast_path_identity.fast_path_status == _IDENTITY_STATUS
-        and obj.fast_path_identity.fast_path_source_mode == _SOURCE_IDENTITY_MODE
-        and obj.fast_path_identity.runtime_enabled is False
-        and obj.fast_path_identity.implementation_allowed is False
-        and obj.source_boundary.source_boundary_mode == _SOURCE_MODE
-        and obj.source_boundary.runtime_import_allowed is False
-        and obj.source_boundary.runtime_execution_allowed is False
-        and obj.contract_binding.required_future_implementation_boundary_release == _REQUIRED_FUTURE_IMPL_RELEASE
-        and obj.contract_binding.implementation_boundary_required_before_runtime is True
-        and obj.equivalence_policy.equivalence_mode == _EQUIVALENCE_MODE
-        and obj.execution_boundary.execution_boundary_mode == _EXECUTION_MODE
-        and obj.execution_boundary.baseline_decoder_import_allowed is False
-        and obj.execution_boundary.candidate_decoder_import_allowed is False
-        and obj.execution_boundary.fast_path_import_allowed is False
-        and obj.execution_boundary.runtime_decoder_execution_allowed is False
-        and obj.execution_boundary.fast_path_runtime_execution_allowed is False
-        and obj.execution_boundary.optimization_execution_allowed is False
-        and obj.execution_boundary.benchmark_execution_allowed is False
-        and obj.execution_boundary.network_allowed is False
-        and obj.execution_boundary.heavy_backend_import_allowed is False
-        and obj.execution_boundary.hardware_sdk_allowed is False
-        and obj.transcript_summary.mismatched_count == 0
-        and obj.transcript_summary.fast_path_equivalence_proven_for_declared_corpus is True
-        and all(c.exact_fast_path_match for c in obj.comparison_records)
+        upstream_binding.replay_equivalence_proven_for_declared_corpus is True
+        and upstream_binding.optimization_contract_safe is True
+        and upstream_binding.candidate_adapter_only is True
+        and upstream_binding.candidate_promoted is False
+        and upstream_binding.baseline_immutable is True
+        and upstream_binding.baseline_mutation_allowed is False
+        and upstream_binding.implementation_allowed_by_contract is False
+        and upstream_binding.runtime_authority_allowed is False
+        and fast_path_identity.fast_path_status == _IDENTITY_STATUS
+        and fast_path_identity.fast_path_source_mode == _SOURCE_IDENTITY_MODE
+        and fast_path_identity.runtime_enabled is False
+        and fast_path_identity.implementation_allowed is False
+        and source_boundary.source_boundary_mode == _SOURCE_MODE
+        and source_boundary.runtime_import_allowed is False
+        and source_boundary.runtime_execution_allowed is False
+        and contract_binding.required_future_implementation_boundary_release == _REQUIRED_FUTURE_IMPL_RELEASE
+        and contract_binding.implementation_boundary_required_before_runtime is True
+        and equivalence_policy.equivalence_mode == _EQUIVALENCE_MODE
+        and execution_boundary.execution_boundary_mode == _EXECUTION_MODE
+        and execution_boundary.baseline_decoder_import_allowed is False
+        and execution_boundary.candidate_decoder_import_allowed is False
+        and execution_boundary.fast_path_import_allowed is False
+        and execution_boundary.runtime_decoder_execution_allowed is False
+        and execution_boundary.fast_path_runtime_execution_allowed is False
+        and execution_boundary.optimization_execution_allowed is False
+        and execution_boundary.benchmark_execution_allowed is False
+        and execution_boundary.network_allowed is False
+        and execution_boundary.heavy_backend_import_allowed is False
+        and execution_boundary.hardware_sdk_allowed is False
+        and transcript_summary.mismatched_count == 0
+        and transcript_summary.fast_path_equivalence_proven_for_declared_corpus is True
+        and all(c.exact_fast_path_match for c in comparison_records)
     )
 
+
+def _receipt_proven(obj: DecoderFastPathEquivalenceReceipt) -> bool:
+    return _receipt_components_proven(
+        obj.upstream_binding,
+        obj.fast_path_identity,
+        obj.source_boundary,
+        obj.contract_binding,
+        obj.equivalence_policy,
+        obj.execution_boundary,
+        obj.comparison_records,
+        obj.transcript_summary,
+    )
 
 # builders and validators
 
@@ -929,20 +985,63 @@ def build_decoder_fast_path_comparison_record(syndrome_input_hash: str, corpus_o
 
 
 def build_decoder_fast_path_transcript_summary(transcript_name: str, transcript_version: str, corpus_items_or_hashes: Sequence[DecoderFastPathCorpusItem | str], reference_outputs_or_hashes: Sequence[DecoderFastPathOutputRecord | str], fast_path_outputs_or_hashes: Sequence[DecoderFastPathOutputRecord | str], comparison_records_or_hashes: Sequence[DecoderFastPathComparisonRecord | str], syndrome_schema_hash: str, output_schema_hash: str, *, transcript_mode: str = _TRANSCRIPT_MODE) -> DecoderFastPathTranscriptSummary:
-    comps = tuple(x for x in comparison_records_or_hashes if type(x) is DecoderFastPathComparisonRecord)
-    corpus_hashes = tuple(sorted(x.decoder_fast_path_corpus_item_hash if type(x) is DecoderFastPathCorpusItem else x for x in corpus_items_or_hashes))
-    ref_hashes = tuple(sorted(x.decoder_fast_path_output_record_hash if type(x) is DecoderFastPathOutputRecord else x for x in reference_outputs_or_hashes))
-    fp_hashes = tuple(sorted(x.decoder_fast_path_output_record_hash if type(x) is DecoderFastPathOutputRecord else x for x in fast_path_outputs_or_hashes))
-    comp_hashes = tuple(sorted(x.decoder_fast_path_comparison_record_hash if type(x) is DecoderFastPathComparisonRecord else x for x in comparison_records_or_hashes))
-    mismatches = sum(1 for c in comps if not c.exact_fast_path_match) if comps else 0
-    schema_m = sum(1 for c in comps if not c.output_schema_match) if comps else 0
-    payload_m = sum(1 for c in comps if not c.output_payload_match) if comps else 0
-    ordering_m = sum(1 for c in comps if not c.ordering_key_match) if comps else 0
-    matched = (len(comp_hashes) - mismatches) if comps else len(comp_hashes)
-    pre = {"transcript_name": transcript_name, "transcript_version": transcript_version, "transcript_mode": transcript_mode, "syndrome_schema_hash": syndrome_schema_hash, "output_schema_hash": output_schema_hash, "corpus_item_hashes": corpus_hashes, "reference_output_hashes": ref_hashes, "fast_path_output_hashes": fp_hashes, "comparison_record_hashes": comp_hashes, "corpus_item_count": len(corpus_hashes), "comparison_count": len(comp_hashes), "matched_count": matched, "mismatched_count": mismatches, "schema_mismatch_count": schema_m, "payload_mismatch_count": payload_m, "ordering_mismatch_count": ordering_m, "fast_path_equivalence_proven_for_declared_corpus": bool(comp_hashes) and mismatches == 0 and matched == len(comp_hashes)}
+    _validate_hash_format(syndrome_schema_hash, "syndrome_schema_hash")
+    _validate_hash_format(output_schema_hash, "output_schema_hash")
+    corpus_records = tuple(corpus_items_or_hashes)
+    reference_records = tuple(reference_outputs_or_hashes)
+    fast_path_records = tuple(fast_path_outputs_or_hashes)
+    comparison_records = tuple(comparison_records_or_hashes)
+    for seq, cls, name in (
+        (corpus_records, DecoderFastPathCorpusItem, "corpus_items"),
+        (reference_records, DecoderFastPathOutputRecord, "reference_outputs"),
+        (fast_path_records, DecoderFastPathOutputRecord, "fast_path_outputs"),
+        (comparison_records, DecoderFastPathComparisonRecord, "comparison_records"),
+    ):
+        if not seq:
+            raise _invalid_equivalence(f"{name}:EMPTY")
+        for item in seq:
+            _revalidate_exact_instance(item, cls)
+
+    corpus_by_id = _unique_by_record_id(corpus_records, "corpus_items")
+    refs_by_id = _unique_by_record_id(reference_records, "reference_outputs")
+    fps_by_id = _unique_by_record_id(fast_path_records, "fast_path_outputs")
+    comps_by_id = _unique_by_record_id(comparison_records, "comparison_records")
+    ids = set(corpus_by_id)
+    if set(refs_by_id) != ids:
+        raise _invalid_equivalence("reference_outputs:COVERAGE")
+    if set(fps_by_id) != ids:
+        raise _invalid_equivalence("fast_path_outputs:COVERAGE")
+    if set(comps_by_id) != ids:
+        raise _invalid_equivalence("comparison_records:COVERAGE")
+    for rid, item in corpus_by_id.items():
+        ref = refs_by_id[rid]
+        fast = fps_by_id[rid]
+        comp = comps_by_id[rid]
+        if item.syndrome_schema_hash != syndrome_schema_hash:
+            raise _invalid_equivalence("syndrome_schema_hash:COVERAGE")
+        if ref.output_role != _REFERENCE_ROLE or fast.output_role != _FAST_PATH_ROLE:
+            raise _invalid_equivalence("output_role:COVERAGE")
+        if ref.output_schema_hash != output_schema_hash or fast.output_schema_hash != output_schema_hash:
+            raise _invalid_equivalence("output_schema_hash:COVERAGE")
+        if comp.syndrome_input_hash != item.syndrome_input_hash:
+            raise _invalid_equivalence("comparison_records:SYNDROME")
+        if comp.corpus_ordering_key != item.canonical_ordering_key:
+            raise _invalid_equivalence("comparison_records:ORDERING_KEY")
+        if comp.reference_output != ref or comp.fast_path_output != fast:
+            raise _invalid_equivalence("comparison_records:OUTPUT_BINDING")
+
+    corpus_hashes = tuple(sorted(x.decoder_fast_path_corpus_item_hash for x in corpus_records))
+    ref_hashes = tuple(sorted(x.decoder_fast_path_output_record_hash for x in reference_records))
+    fp_hashes = tuple(sorted(x.decoder_fast_path_output_record_hash for x in fast_path_records))
+    comp_hashes = tuple(sorted(x.decoder_fast_path_comparison_record_hash for x in comparison_records))
+    mismatches = sum(1 for c in comparison_records if not c.exact_fast_path_match)
+    schema_m = sum(1 for c in comparison_records if not c.output_schema_match)
+    payload_m = sum(1 for c in comparison_records if not c.output_payload_match)
+    ordering_m = sum(1 for c in comparison_records if not c.ordering_key_match)
+    matched = len(comparison_records) - mismatches
+    pre = {"transcript_name": transcript_name, "transcript_version": transcript_version, "transcript_mode": transcript_mode, "syndrome_schema_hash": syndrome_schema_hash, "output_schema_hash": output_schema_hash, "corpus_item_hashes": corpus_hashes, "reference_output_hashes": ref_hashes, "fast_path_output_hashes": fp_hashes, "comparison_record_hashes": comp_hashes, "corpus_item_count": len(corpus_hashes), "comparison_count": len(comp_hashes), "matched_count": matched, "mismatched_count": mismatches, "schema_mismatch_count": schema_m, "payload_mismatch_count": payload_m, "ordering_mismatch_count": ordering_m, "fast_path_equivalence_proven_for_declared_corpus": bool(comparison_records) and mismatches == 0 and matched == len(comparison_records)}
     payload = dict(pre); payload["transcript_hash"] = _hash_payload(pre)
     return _build_dataclass(DecoderFastPathTranscriptSummary, "decoder_fast_path_transcript_summary_hash", payload)
-
 
 def build_decoder_fast_path_equivalence_receipt(upstream_binding: DecoderFastPathUpstreamBinding, fast_path_identity: DecoderFastPathIdentity, source_boundary: DecoderFastPathSourceBoundary, contract_binding: DecoderFastPathContractBinding, equivalence_policy: DecoderFastPathEquivalencePolicy, execution_boundary: DecoderFastPathExecutionBoundary, corpus_items: Sequence[DecoderFastPathCorpusItem], reference_outputs: Sequence[DecoderFastPathOutputRecord], fast_path_outputs: Sequence[DecoderFastPathOutputRecord], comparison_records: Sequence[DecoderFastPathComparisonRecord], transcript_summary: DecoderFastPathTranscriptSummary, *, receipt_version: str = FAST_PATH_RELEASE, receipt_kind: str = RECEIPT_KIND, previous_release_tag: str = PREVIOUS_RELEASE_TAG, previous_release_url: str = PREVIOUS_RELEASE_URL, fast_path_equivalence_scope: str = _SCOPE, implementation_allowed: bool = False, runtime_enabled: bool = False, promotion_allowed: bool = False, benchmark_claim_allowed: bool = False, speedup_claim_allowed: bool = False, global_correctness_claim_allowed: bool = False) -> DecoderFastPathEquivalenceReceipt:
     corpus = tuple(sorted(corpus_items, key=lambda i: (i.canonical_ordering_key, i.record_id, i.syndrome_input_hash)))
@@ -950,7 +1049,8 @@ def build_decoder_fast_path_equivalence_receipt(upstream_binding: DecoderFastPat
     fps = tuple(sorted(fast_path_outputs, key=lambda i: (i.output_ordering_key, i.record_id, i.output_payload_hash)))
     comps = tuple(sorted(comparison_records, key=lambda i: (i.record_id, i.syndrome_input_hash, i.decoder_fast_path_comparison_record_hash)))
     adapter = upstream_binding.candidate_adapter_only is True and upstream_binding.candidate_promoted is False and fast_path_identity.adapter_only is True
-    payload = {"receipt_version": receipt_version, "receipt_kind": receipt_kind, "previous_release_tag": previous_release_tag, "previous_release_url": previous_release_url, "upstream_binding": upstream_binding, "fast_path_identity": fast_path_identity, "source_boundary": source_boundary, "contract_binding": contract_binding, "equivalence_policy": equivalence_policy, "execution_boundary": execution_boundary, "corpus_items": corpus, "reference_outputs": refs, "fast_path_outputs": fps, "comparison_records": comps, "transcript_summary": transcript_summary, "fast_path_equivalence_proven": True, "fast_path_equivalence_scope": fast_path_equivalence_scope, "candidate_remains_adapter_only": adapter, "implementation_allowed": implementation_allowed, "runtime_enabled": runtime_enabled, "promotion_allowed": promotion_allowed, "benchmark_claim_allowed": benchmark_claim_allowed, "speedup_claim_allowed": speedup_claim_allowed, "global_correctness_claim_allowed": global_correctness_claim_allowed}
+    proven = _receipt_components_proven(upstream_binding, fast_path_identity, source_boundary, contract_binding, equivalence_policy, execution_boundary, comps, transcript_summary)
+    payload = {"receipt_version": receipt_version, "receipt_kind": receipt_kind, "previous_release_tag": previous_release_tag, "previous_release_url": previous_release_url, "upstream_binding": upstream_binding, "fast_path_identity": fast_path_identity, "source_boundary": source_boundary, "contract_binding": contract_binding, "equivalence_policy": equivalence_policy, "execution_boundary": execution_boundary, "corpus_items": corpus, "reference_outputs": refs, "fast_path_outputs": fps, "comparison_records": comps, "transcript_summary": transcript_summary, "fast_path_equivalence_proven": proven, "fast_path_equivalence_scope": fast_path_equivalence_scope, "candidate_remains_adapter_only": adapter, "implementation_allowed": implementation_allowed, "runtime_enabled": runtime_enabled, "promotion_allowed": promotion_allowed, "benchmark_claim_allowed": benchmark_claim_allowed, "speedup_claim_allowed": speedup_claim_allowed, "global_correctness_claim_allowed": global_correctness_claim_allowed}
     obj = DecoderFastPathEquivalenceReceipt(**payload, decoder_fast_path_equivalence_receipt_hash=_hash_payload(payload))
     return obj
 

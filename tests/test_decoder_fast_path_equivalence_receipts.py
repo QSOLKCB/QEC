@@ -4,7 +4,7 @@ import ast
 import os
 import subprocess
 import sys
-from dataclasses import FrozenInstanceError, replace
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import pytest
@@ -213,6 +213,9 @@ def test_corpus_output_comparison_summary_and_aggregate_rejections():
         def make(kwargs=kwargs):
             return fp.build_decoder_fast_path_transcript_summary(kwargs.get("transcript_name", "n"), kwargs.get("transcript_version", "1"), fx["items"], fx["refs"], fx["fast"], fx["comps"], kwargs.get("syndrome_schema_hash", S), kwargs.get("output_schema_hash", O), transcript_mode=kwargs.get("transcript_mode", "DECLARED_STATIC_FAST_PATH_TRANSCRIPT"))
         _assert_code(make, fp.DecoderFastPathEquivalenceErrorCode.INVALID_HASH if "hash" in next(iter(kwargs)) else fp.DecoderFastPathEquivalenceErrorCode.INVALID_INPUT)
+    _assert_code(lambda: fp.build_decoder_fast_path_transcript_summary("n", "1", (fx["i1"].decoder_fast_path_corpus_item_hash,), (fx["r1"].decoder_fast_path_output_record_hash,), (fx["f1"].decoder_fast_path_output_record_hash,), (fx["c1"].decoder_fast_path_comparison_record_hash,), S, O), fp.DecoderFastPathEquivalenceErrorCode.INVALID_INPUT)
+    _assert_code(lambda: fp.build_decoder_fast_path_transcript_summary("n", "1", fx["items"], fx["refs"][:1], fx["fast"][:1], fx["comps"][:1], S, O), fp.DecoderFastPathEquivalenceErrorCode.INVALID_FAST_PATH_EQUIVALENCE)
+    _assert_code(lambda: fp.build_decoder_fast_path_transcript_summary("n", "1", (fx["i2"],), (fx["r1"],), (fx["f1"],), (fx["c1"],), S, O), fp.DecoderFastPathEquivalenceErrorCode.INVALID_FAST_PATH_EQUIVALENCE)
     dup_receipt = _unsafe_replace(fx["receipt"], corpus_items=(fx["i1"], fx["i1"]), decoder_fast_path_equivalence_receipt_hash=A)
     _assert_code(lambda: fp.validate_decoder_fast_path_equivalence_receipt(dup_receipt), fp.DecoderFastPathEquivalenceErrorCode.INVALID_FAST_PATH_EQUIVALENCE)
     _assert_code(lambda: fp.build_decoder_fast_path_equivalence_receipt(fx["upstream"], fx["ident"], fx["source"], fx["contract"], fx["policy"], fx["boundary"], (), fx["refs"], fx["fast"], fx["comps"], fx["summary"]), fp.DecoderFastPathEquivalenceErrorCode.INVALID_FAST_PATH_EQUIVALENCE)
@@ -230,6 +233,16 @@ def test_forbidden_semantic_hardening_and_positive_controls():
         fp.build_decoder_fast_path_identity(fast_path_id=f"legit {phrase}")
 
 
+def _is_banned_import_name(name: str, banned_roots: set[str]) -> bool:
+    return (
+        name == "qec.decoder"
+        or name.startswith("qec.decoder.")
+        or name.split(".")[0] in banned_roots
+        or name == "importlib"
+        or name.startswith("importlib.")
+    )
+
+
 def test_boundary_static_inspection_and_no_decoder_diff():
     module_path = Path("src/qec/analysis/decoder_fast_path_equivalence_receipts.py")
     test_path = Path(__file__)
@@ -238,14 +251,12 @@ def test_boundary_static_inspection_and_no_decoder_diff():
         tree = ast.parse(path.read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                names = {alias.name for alias in node.names}
-                assert "qec.decoder" not in names
-                assert not (names & banned_imports)
-                assert "importlib" not in names
+                for alias in node.names:
+                    assert not _is_banned_import_name(alias.name, banned_imports)
             if isinstance(node, ast.ImportFrom):
-                assert not (node.module or "").startswith("qec.decoder")
-                assert (node.module or "").split(".")[0] not in banned_imports
-    diff = subprocess.check_output(["git", "diff", "--name-only", "--", "src/qec/decoder/"], text=True)
+                assert not _is_banned_import_name(node.module or "", banned_imports)
+    base = subprocess.check_output(["git", "rev-parse", "HEAD^"], text=True).strip()
+    diff = subprocess.check_output(["git", "diff", "--name-only", f"{base}..HEAD", "--", "src/qec/decoder/"], text=True)
     assert diff == ""
 
 

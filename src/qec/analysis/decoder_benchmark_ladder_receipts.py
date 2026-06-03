@@ -687,12 +687,12 @@ def build_decoder_benchmark_ladder_receipt(**kwargs: Any) -> DecoderBenchmarkLad
     p["measurements"]=tuple(sorted(p["measurements"],key=lambda m:(m.measurement_id,m.measurement_role,m.metric_name,m.decoder_benchmark_measurement_record_hash)))
     p["comparison_results"]=tuple(sorted(p["comparison_results"],key=lambda c:(c.comparison_id,c.metric_name,c.decoder_benchmark_comparison_result_hash)))
     p["rungs"]=tuple(sorted(p["rungs"],key=lambda r:(r.rung_index,r.rung_id,r.decoder_benchmark_rung_hash)))
-    p["comparator_count"]=len(p["comparators"]) if p.get("comparator_count") is None else p["comparator_count"]
-    p["corpus_count"]=len(p["corpora"]) if p.get("corpus_count") is None else p["corpus_count"]
-    p["environment_count"]=len(p["environments"]) if p.get("environment_count") is None else p["environment_count"]
-    p["measurement_count"]=len(p["measurements"]) if p.get("measurement_count") is None else p["measurement_count"]
-    p["comparison_result_count"]=len(p["comparison_results"]) if p.get("comparison_result_count") is None else p["comparison_result_count"]
-    p["rung_count"]=len(p["rungs"]) if p.get("rung_count") is None else p["rung_count"]
+    p["comparator_count"]=len(p["comparators"])
+    p["corpus_count"]=len(p["corpora"])
+    p["environment_count"]=len(p["environments"])
+    p["measurement_count"]=len(p["measurements"])
+    p["comparison_result_count"]=len(p["comparison_results"])
+    p["rung_count"]=len(p["rungs"])
     safe=_ladder_safe(p["upstream_binding"],p["ladder_identity"],p["comparators"],p["corpora"],p["environments"],p["measurements"],p["comparison_results"],p["rungs"],p["claim_scope"],p["execution_boundary"],p["audit_boundary"],p["rollback_gate"],p["authority_boundary"])
     adapter=_candidate_remains_adapter_only(p["upstream_binding"],p["authority_boundary"])
     p.setdefault("benchmark_ladder_safe",safe); p.setdefault("bounded_benchmark_observation_allowed",p["claim_scope"].bounded_speed_observation_allowed); p.setdefault("benchmark_execution_performed_by_receipt",False); p.setdefault("candidate_remains_adapter_only",adapter); p.setdefault("promotion_allowed",False); p.setdefault("correctness_claim_allowed",False); p.setdefault("global_correctness_claim_allowed",False); p.setdefault("qec_advantage_claim_allowed",False); p.setdefault("hardware_authority_allowed",False)

@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
 from pathlib import PurePosixPath
-from typing import Any, Mapping, Sequence
+from typing import Any, ClassVar, Mapping, Sequence
 
 IMPLEMENTATION_BOUNDARY_RELEASE = "v166.5"
 RECEIPT_KIND = "DecoderImplementationBoundaryReceipt"
@@ -216,34 +216,132 @@ def _source_tree_hash_payload(mode: str, artifacts: tuple["DecoderImplementation
     return {"source_boundary_mode": mode, "implementation_artifacts": tuple({"artifact_path": a.artifact_path, "artifact_sha256": a.artifact_sha256, "artifact_role": a.artifact_role, "artifact_schema_hash": a.artifact_schema_hash} for a in artifacts)}
 def _compute_source_tree_hash(mode: str, artifacts: tuple["DecoderImplementationArtifact", ...]) -> str:
     return _hash_payload(_source_tree_hash_payload(mode, artifacts))
-def _boundary_safe(upstream: Any, ident: Any, source: Any, runtime: Any, config: Any, build: Any, equiv: Any, audit: Any, rollback: Any, authority: Any) -> bool:
+_RUNTIME_DENIED_FLAGS = ("baseline_decoder_import_allowed", "candidate_decoder_import_allowed", "fast_path_import_allowed", "implementation_import_allowed", "runtime_decoder_execution_allowed", "candidate_runtime_execution_allowed", "fast_path_runtime_execution_allowed", "implementation_runtime_execution_allowed", "replay_execution_allowed", "optimization_execution_allowed", "benchmark_execution_allowed", "network_allowed", "heavy_backend_import_allowed", "hardware_sdk_allowed", "filesystem_mutation_allowed")
+_CONFIG_DENIED_FLAGS = ("mutable_runtime_config_allowed", "environment_variable_dependency_allowed", "wall_clock_dependency_allowed", "randomness_dependency_allowed", "filesystem_probe_dependency_allowed", "network_dependency_allowed", "hardware_probe_dependency_allowed")
+_BUILD_DENIED_FLAGS = ("build_execution_allowed", "dependency_install_allowed", "network_resolution_allowed", "native_extension_build_allowed", "hardware_specific_build_allowed", "unpinned_dependency_allowed", "build_cache_authority_allowed")
+_AUTHORITY_DENIED_FLAGS = ("runtime_authority_allowed", "implementation_authority_allowed", "benchmark_authority_allowed", "hardware_authority_allowed", "ml_decoder_authority_allowed", "probabilistic_decoder_authority_allowed", "qec_advantage_claim_allowed", "global_correctness_claim_allowed", "silent_replacement_allowed", "baseline_mutation_allowed", "candidate_promotion_allowed")
+
+def _all_flags_false(obj: Any, names: tuple[str, ...]) -> bool:
+    return all(getattr(obj, name) is False for name in names)
+
+def _upstream_safe(upstream: Any) -> bool:
     return (
-        upstream.replay_equivalence_proven_for_declared_corpus is True and upstream.optimization_contract_safe is True and upstream.fast_path_equivalence_proven_for_declared_corpus is True and
-        upstream.candidate_adapter_only is True and upstream.candidate_promoted is False and upstream.baseline_immutable is True and upstream.baseline_mutation_allowed is False and upstream.runtime_authority_allowed is False and
-        ident.adapter_only is True and ident.boundary_only is True and ident.runtime_enabled is False and ident.importable_runtime_allowed is False and ident.implementation_authority_allowed is False and ident.promotion_allowed is False and ident.benchmark_claim_allowed is False and ident.speedup_claim_allowed is False and ident.hardware_authority_allowed is False and ident.qec_advantage_claim_allowed is False and
-        source.source_boundary_mode == _SOURCE_BOUNDARY_MODE and source.source_files_exist_required is False and source.repository_walk_allowed is False and source.runtime_import_allowed is False and source.runtime_execution_allowed is False and source.implementation_file_creation_allowed is False and source.baseline_mutation_allowed is False and source.filesystem_mutation_allowed is False and
-        runtime.declared_boundary_only is True and all(getattr(runtime, n) is False for n in ("baseline_decoder_import_allowed", "candidate_decoder_import_allowed", "fast_path_import_allowed", "implementation_import_allowed", "runtime_decoder_execution_allowed", "candidate_runtime_execution_allowed", "fast_path_runtime_execution_allowed", "implementation_runtime_execution_allowed", "replay_execution_allowed", "optimization_execution_allowed", "benchmark_execution_allowed", "network_allowed", "heavy_backend_import_allowed", "hardware_sdk_allowed", "filesystem_mutation_allowed")) and
-        config.config_mode == _CONFIG_MODE and config.deterministic_config_ordering is True and all(getattr(config, n) is False for n in ("mutable_runtime_config_allowed", "environment_variable_dependency_allowed", "wall_clock_dependency_allowed", "randomness_dependency_allowed", "filesystem_probe_dependency_allowed", "network_dependency_allowed", "hardware_probe_dependency_allowed")) and
-        build.build_boundary_mode == _BUILD_BOUNDARY_MODE and all(getattr(build, n) is False for n in ("build_execution_allowed", "dependency_install_allowed", "network_resolution_allowed", "native_extension_build_allowed", "hardware_specific_build_allowed", "unpinned_dependency_allowed", "build_cache_authority_allowed")) and
-        equiv.equivalence_required_before_runtime is True and equiv.implementation_valid_without_fast_path_equivalence is False and equiv.equivalence_mode == _EQUIVALENCE_MODE and equiv.fast_path_equivalence_scope == _EQUIVALENCE_SCOPE and
-        audit.future_benchmark_ladder_required is True and audit.future_rollback_receipt_required is True and audit.future_promotion_receipt_required is True and audit.audit_complete is False and
-        rollback.rollback_receipt_required_before_promotion is True and rollback.required_future_rollback_receipt_kind == _REQUIRED_ROLLBACK_KIND and rollback.required_future_rollback_release == _REQUIRED_ROLLBACK_RELEASE and rollback.promotion_blocked_without_rollback_receipt is True and
-        authority.candidate_adapter_only is True and authority.boundary_only is True and all(getattr(authority, n) is False for n in ("runtime_authority_allowed", "implementation_authority_allowed", "benchmark_authority_allowed", "hardware_authority_allowed", "ml_decoder_authority_allowed", "probabilistic_decoder_authority_allowed", "qec_advantage_claim_allowed", "global_correctness_claim_allowed", "silent_replacement_allowed", "baseline_mutation_allowed", "candidate_promotion_allowed"))
+        upstream.replay_equivalence_proven_for_declared_corpus is True
+        and upstream.optimization_contract_safe is True
+        and upstream.fast_path_equivalence_proven_for_declared_corpus is True
+        and upstream.candidate_adapter_only is True
+        and upstream.candidate_promoted is False
+        and upstream.baseline_immutable is True
+        and upstream.baseline_mutation_allowed is False
+        and upstream.runtime_authority_allowed is False
     )
+
+def _identity_safe(ident: Any) -> bool:
+    return (
+        ident.adapter_only is True
+        and ident.boundary_only is True
+        and ident.runtime_enabled is False
+        and ident.importable_runtime_allowed is False
+        and ident.implementation_authority_allowed is False
+        and ident.promotion_allowed is False
+        and ident.benchmark_claim_allowed is False
+        and ident.speedup_claim_allowed is False
+        and ident.hardware_authority_allowed is False
+        and ident.qec_advantage_claim_allowed is False
+    )
+
+def _source_safe(source: Any) -> bool:
+    return (
+        source.source_boundary_mode == _SOURCE_BOUNDARY_MODE
+        and source.source_files_exist_required is False
+        and source.repository_walk_allowed is False
+        and source.runtime_import_allowed is False
+        and source.runtime_execution_allowed is False
+        and source.implementation_file_creation_allowed is False
+        and source.baseline_mutation_allowed is False
+        and source.filesystem_mutation_allowed is False
+    )
+
+def _runtime_safe(runtime: Any) -> bool:
+    return runtime.declared_boundary_only is True and _all_flags_false(runtime, _RUNTIME_DENIED_FLAGS)
+
+def _config_safe(config: Any) -> bool:
+    return (
+        config.config_mode == _CONFIG_MODE
+        and config.deterministic_config_ordering is True
+        and _all_flags_false(config, _CONFIG_DENIED_FLAGS)
+    )
+
+def _build_safe(build: Any) -> bool:
+    return build.build_boundary_mode == _BUILD_BOUNDARY_MODE and _all_flags_false(build, _BUILD_DENIED_FLAGS)
+
+def _equivalence_safe(equiv: Any) -> bool:
+    return (
+        equiv.equivalence_required_before_runtime is True
+        and equiv.implementation_valid_without_fast_path_equivalence is False
+        and equiv.equivalence_mode == _EQUIVALENCE_MODE
+        and equiv.fast_path_equivalence_scope == _EQUIVALENCE_SCOPE
+    )
+
+def _audit_safe(audit: Any) -> bool:
+    return (
+        audit.future_benchmark_ladder_required is True
+        and audit.future_rollback_receipt_required is True
+        and audit.future_promotion_receipt_required is True
+        and audit.audit_complete is False
+    )
+
+def _rollback_safe(rollback: Any) -> bool:
+    return (
+        rollback.rollback_receipt_required_before_promotion is True
+        and rollback.required_future_rollback_receipt_kind == _REQUIRED_ROLLBACK_KIND
+        and rollback.required_future_rollback_release == _REQUIRED_ROLLBACK_RELEASE
+        and rollback.promotion_blocked_without_rollback_receipt is True
+    )
+
+def _authority_safe(authority: Any) -> bool:
+    return (
+        authority.candidate_adapter_only is True
+        and authority.boundary_only is True
+        and _all_flags_false(authority, _AUTHORITY_DENIED_FLAGS)
+    )
+
+def _boundary_safe(upstream: Any, ident: Any, source: Any, runtime: Any, config: Any, build: Any, equiv: Any, audit: Any, rollback: Any, authority: Any) -> bool:
+    return all((
+        _upstream_safe(upstream),
+        _identity_safe(ident),
+        _source_safe(source),
+        _runtime_safe(runtime),
+        _config_safe(config),
+        _build_safe(build),
+        _equivalence_safe(equiv),
+        _audit_safe(audit),
+        _rollback_safe(rollback),
+        _authority_safe(authority),
+    ))
 def _candidate_remains_adapter_only(upstream: Any, ident: Any, authority: Any) -> bool:
     return upstream.candidate_adapter_only is True and upstream.candidate_promoted is False and ident.adapter_only is True and authority.candidate_adapter_only is True and authority.candidate_promotion_allowed is False
 
-def _build_dataclass(cls: type[Any], hash_field: str, payload: Mapping[str, Any]) -> Any:
+def _hash_field_name(obj_or_cls: Any) -> str:
+    cls = obj_or_cls if isinstance(obj_or_cls, type) else type(obj_or_cls)
+    name = getattr(cls, "_HASH_FIELD", None)
+    if not isinstance(name, str) or not name:
+        raise _invalid_input(f"{cls.__name__}:HASH_FIELD")
+    if not any(field.name == name for field in fields(cls)):
+        raise _invalid_input(f"{cls.__name__}:HASH_FIELD")
+    return name
+
+def _build_dataclass(cls: type[Any], payload: Mapping[str, Any]) -> Any:
+    hash_field = _hash_field_name(cls)
     h = _hash_payload(payload)
     return cls(**dict(payload), **{hash_field: h})
 
 # payload helpers
-_NAMES = {
-"DecoderImplementationUpstreamBinding":"decoder_implementation_upstream_binding_hash","DecoderImplementationIdentity":"decoder_implementation_identity_hash","DecoderImplementationArtifact":"decoder_implementation_artifact_hash","DecoderImplementationSourceBoundary":"decoder_implementation_source_boundary_hash","DecoderImplementationRuntimeBoundary":"decoder_implementation_runtime_boundary_hash","DecoderImplementationConfigBoundary":"decoder_implementation_config_boundary_hash","DecoderImplementationBuildBoundary":"decoder_implementation_build_boundary_hash","DecoderImplementationEquivalenceBinding":"decoder_implementation_equivalence_binding_hash","DecoderImplementationAuditBoundary":"decoder_implementation_audit_boundary_hash","DecoderImplementationRollbackGate":"decoder_implementation_rollback_gate_hash","DecoderImplementationAuthorityBoundary":"decoder_implementation_authority_boundary_hash","DecoderImplementationBoundaryReceipt":"decoder_implementation_boundary_receipt_hash"}
-def _payload(obj: Any) -> dict[str, Any]: return _payload_without(obj, _NAMES[type(obj).__name__])
+def _payload(obj: Any) -> dict[str, Any]: return _payload_without(obj, _hash_field_name(obj))
 
 @dataclass(frozen=True)
 class DecoderImplementationUpstreamBinding:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_upstream_binding_hash"
     previous_release_tag: str; previous_release_url: str; implementation_boundary_release: str
     upstream_canonical_decoder_baseline_receipt_hash: str; upstream_decoder_candidate_manifest_hash: str; upstream_decoder_replay_equivalence_receipt_hash: str; upstream_decoder_optimization_contract_hash: str; upstream_decoder_fast_path_equivalence_receipt_hash: str
     candidate_declaration_hash: str; fast_path_identity_hash: str; candidate_name: str; candidate_version: str
@@ -261,6 +359,7 @@ class DecoderImplementationUpstreamBinding:
 
 @dataclass(frozen=True)
 class DecoderImplementationIdentity:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_identity_hash"
     implementation_id: str; implementation_name: str; implementation_version: str; implementation_kind: str; implementation_status: str; implementation_mode: str
     associated_candidate_declaration_hash: str; associated_fast_path_identity_hash: str; associated_fast_path_equivalence_receipt_hash: str
     adapter_only: bool; boundary_only: bool; runtime_enabled: bool; importable_runtime_allowed: bool; implementation_authority_allowed: bool; promotion_allowed: bool; benchmark_claim_allowed: bool; speedup_claim_allowed: bool; hardware_authority_allowed: bool; qec_advantage_claim_allowed: bool
@@ -277,6 +376,7 @@ class DecoderImplementationIdentity:
 
 @dataclass(frozen=True)
 class DecoderImplementationArtifact:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_artifact_hash"
     artifact_id: str; artifact_path: str; artifact_sha256: str; artifact_role: str; artifact_mode: str; artifact_language: str; artifact_schema_hash: str
     executable_runtime_artifact: bool; import_allowed: bool; execution_allowed: bool; benchmark_allowed: bool
     decoder_implementation_artifact_hash: str
@@ -292,6 +392,7 @@ class DecoderImplementationArtifact:
 
 @dataclass(frozen=True)
 class DecoderImplementationSourceBoundary:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_source_boundary_hash"
     implementation_source_root: str; source_boundary_mode: str; implementation_artifacts: tuple[DecoderImplementationArtifact, ...]; implementation_artifact_count: int; source_tree_hash: str
     source_files_exist_required: bool; repository_walk_allowed: bool; runtime_import_allowed: bool; runtime_execution_allowed: bool; implementation_file_creation_allowed: bool; baseline_mutation_allowed: bool; filesystem_mutation_allowed: bool
     decoder_implementation_source_boundary_hash: str
@@ -312,6 +413,7 @@ class DecoderImplementationSourceBoundary:
 
 @dataclass(frozen=True)
 class DecoderImplementationRuntimeBoundary:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_runtime_boundary_hash"
     runtime_boundary_id: str; runtime_boundary_mode: str; declared_boundary_only: bool; baseline_decoder_import_allowed: bool; candidate_decoder_import_allowed: bool; fast_path_import_allowed: bool; implementation_import_allowed: bool; runtime_decoder_execution_allowed: bool; candidate_runtime_execution_allowed: bool; fast_path_runtime_execution_allowed: bool; implementation_runtime_execution_allowed: bool; replay_execution_allowed: bool; optimization_execution_allowed: bool; benchmark_execution_allowed: bool; network_allowed: bool; heavy_backend_import_allowed: bool; hardware_sdk_allowed: bool; filesystem_mutation_allowed: bool; decoder_implementation_runtime_boundary_hash: str
     def __post_init__(self) -> None:
         if type(self) is not DecoderImplementationRuntimeBoundary: raise _invalid_input()
@@ -322,6 +424,7 @@ class DecoderImplementationRuntimeBoundary:
 
 @dataclass(frozen=True)
 class DecoderImplementationConfigBoundary:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_config_boundary_hash"
     config_boundary_id: str; config_mode: str; config_schema_hash: str; config_payload_hash: str; deterministic_config_ordering: bool; mutable_runtime_config_allowed: bool; environment_variable_dependency_allowed: bool; wall_clock_dependency_allowed: bool; randomness_dependency_allowed: bool; filesystem_probe_dependency_allowed: bool; network_dependency_allowed: bool; hardware_probe_dependency_allowed: bool; decoder_implementation_config_boundary_hash: str
     def __post_init__(self) -> None:
         if type(self) is not DecoderImplementationConfigBoundary: raise _invalid_input()
@@ -333,6 +436,7 @@ class DecoderImplementationConfigBoundary:
 
 @dataclass(frozen=True)
 class DecoderImplementationBuildBoundary:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_build_boundary_hash"
     build_boundary_id: str; build_boundary_mode: str; build_manifest_hash: str; dependency_manifest_hash: str; source_boundary_hash: str; build_execution_allowed: bool; dependency_install_allowed: bool; network_resolution_allowed: bool; native_extension_build_allowed: bool; hardware_specific_build_allowed: bool; unpinned_dependency_allowed: bool; build_cache_authority_allowed: bool; decoder_implementation_build_boundary_hash: str
     def __post_init__(self) -> None:
         if type(self) is not DecoderImplementationBuildBoundary: raise _invalid_input()
@@ -344,6 +448,7 @@ class DecoderImplementationBuildBoundary:
 
 @dataclass(frozen=True)
 class DecoderImplementationEquivalenceBinding:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_equivalence_binding_hash"
     equivalence_binding_id: str; required_replay_equivalence_receipt_hash: str; required_fast_path_equivalence_receipt_hash: str; required_optimization_contract_hash: str; equivalence_mode: str; fast_path_equivalence_scope: str; declared_corpus_only: bool; output_schema_match_required: bool; output_payload_match_required: bool; canonical_ordering_match_required: bool; precision_policy: str; approximation_policy: str; equivalence_required_before_runtime: bool; implementation_valid_without_fast_path_equivalence: bool; decoder_implementation_equivalence_binding_hash: str
     def __post_init__(self) -> None:
         if type(self) is not DecoderImplementationEquivalenceBinding: raise _invalid_input()
@@ -358,6 +463,7 @@ class DecoderImplementationEquivalenceBinding:
 
 @dataclass(frozen=True)
 class DecoderImplementationAuditBoundary:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_audit_boundary_hash"
     audit_boundary_id: str; audit_mode: str; static_boundary_review_required: bool; source_hash_review_required: bool; no_decoder_mutation_review_required: bool; no_runtime_import_review_required: bool; no_runtime_execution_review_required: bool; no_benchmark_claim_review_required: bool; future_benchmark_ladder_required: bool; future_rollback_receipt_required: bool; future_promotion_receipt_required: bool; audit_complete: bool; decoder_implementation_audit_boundary_hash: str
     def __post_init__(self) -> None:
         if type(self) is not DecoderImplementationAuditBoundary: raise _invalid_input()
@@ -368,6 +474,7 @@ class DecoderImplementationAuditBoundary:
 
 @dataclass(frozen=True)
 class DecoderImplementationRollbackGate:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_rollback_gate_hash"
     rollback_gate_id: str; rollback_gate_mode: str; rollback_receipt_required_before_promotion: bool; required_future_rollback_receipt_kind: str; required_future_rollback_release: str; rollback_path_deletion_allowed: bool; baseline_restore_required: bool; candidate_disable_required_on_failure: bool; promotion_blocked_without_rollback_receipt: bool; implementation_disable_required_on_failure: bool; decoder_implementation_rollback_gate_hash: str
     def __post_init__(self) -> None:
         if type(self) is not DecoderImplementationRollbackGate: raise _invalid_input()
@@ -380,6 +487,7 @@ class DecoderImplementationRollbackGate:
 
 @dataclass(frozen=True)
 class DecoderImplementationAuthorityBoundary:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_authority_boundary_hash"
     authority_boundary_id: str; authority_mode: str; candidate_adapter_only: bool; boundary_only: bool; runtime_authority_allowed: bool; implementation_authority_allowed: bool; benchmark_authority_allowed: bool; hardware_authority_allowed: bool; ml_decoder_authority_allowed: bool; probabilistic_decoder_authority_allowed: bool; qec_advantage_claim_allowed: bool; global_correctness_claim_allowed: bool; silent_replacement_allowed: bool; baseline_mutation_allowed: bool; candidate_promotion_allowed: bool; decoder_implementation_authority_boundary_hash: str
     def __post_init__(self) -> None:
         if type(self) is not DecoderImplementationAuthorityBoundary: raise _invalid_input()
@@ -390,6 +498,7 @@ class DecoderImplementationAuthorityBoundary:
 
 @dataclass(frozen=True)
 class DecoderImplementationBoundaryReceipt:
+    _HASH_FIELD: ClassVar[str] = "decoder_implementation_boundary_receipt_hash"
     receipt_version: str; receipt_kind: str; previous_release_tag: str; previous_release_url: str
     upstream_binding: DecoderImplementationUpstreamBinding; implementation_identity: DecoderImplementationIdentity; source_boundary: DecoderImplementationSourceBoundary; runtime_boundary: DecoderImplementationRuntimeBoundary; config_boundary: DecoderImplementationConfigBoundary; build_boundary: DecoderImplementationBuildBoundary; equivalence_binding: DecoderImplementationEquivalenceBinding; audit_boundary: DecoderImplementationAuditBoundary; rollback_gate: DecoderImplementationRollbackGate; authority_boundary: DecoderImplementationAuthorityBoundary
     implementation_artifact_count: int; implementation_boundary_safe: bool; candidate_remains_adapter_only: bool; runtime_enabled: bool; implementation_authority_allowed: bool; benchmark_claim_allowed: bool; speedup_claim_allowed: bool; promotion_allowed: bool; global_correctness_claim_allowed: bool
@@ -422,35 +531,35 @@ class DecoderImplementationBoundaryReceipt:
 # builders
 def build_decoder_implementation_upstream_binding(upstream_canonical_decoder_baseline_receipt_hash: str="a"*64, upstream_decoder_candidate_manifest_hash: str="b"*64, upstream_decoder_replay_equivalence_receipt_hash: str="c"*64, upstream_decoder_optimization_contract_hash: str="d"*64, upstream_decoder_fast_path_equivalence_receipt_hash: str="e"*64, candidate_declaration_hash: str="f"*64, fast_path_identity_hash: str="1"*64, candidate_name: str="declared candidate", candidate_version: str="1", replay_equivalence_proven_for_declared_corpus: bool=True, optimization_contract_safe: bool=True, fast_path_equivalence_proven_for_declared_corpus: bool=True, candidate_adapter_only: bool=True, candidate_promoted: bool=False, baseline_immutable: bool=True, baseline_mutation_allowed: bool=False, runtime_authority_allowed: bool=False, *, previous_release_tag: str=PREVIOUS_RELEASE_TAG, previous_release_url: str=PREVIOUS_RELEASE_URL, implementation_boundary_release: str=IMPLEMENTATION_BOUNDARY_RELEASE) -> DecoderImplementationUpstreamBinding:
     p = {"previous_release_tag": previous_release_tag, "previous_release_url": previous_release_url, "implementation_boundary_release": implementation_boundary_release, "upstream_canonical_decoder_baseline_receipt_hash": upstream_canonical_decoder_baseline_receipt_hash, "upstream_decoder_candidate_manifest_hash": upstream_decoder_candidate_manifest_hash, "upstream_decoder_replay_equivalence_receipt_hash": upstream_decoder_replay_equivalence_receipt_hash, "upstream_decoder_optimization_contract_hash": upstream_decoder_optimization_contract_hash, "upstream_decoder_fast_path_equivalence_receipt_hash": upstream_decoder_fast_path_equivalence_receipt_hash, "candidate_declaration_hash": candidate_declaration_hash, "fast_path_identity_hash": fast_path_identity_hash, "candidate_name": candidate_name, "candidate_version": candidate_version, "replay_equivalence_proven_for_declared_corpus": replay_equivalence_proven_for_declared_corpus, "optimization_contract_safe": optimization_contract_safe, "fast_path_equivalence_proven_for_declared_corpus": fast_path_equivalence_proven_for_declared_corpus, "candidate_adapter_only": candidate_adapter_only, "candidate_promoted": candidate_promoted, "baseline_immutable": baseline_immutable, "baseline_mutation_allowed": baseline_mutation_allowed, "runtime_authority_allowed": runtime_authority_allowed}
-    return _build_dataclass(DecoderImplementationUpstreamBinding,"decoder_implementation_upstream_binding_hash",p)
+    return _build_dataclass(DecoderImplementationUpstreamBinding, p)
 def build_decoder_implementation_identity(implementation_id: str="declared_decoder_implementation_boundary", implementation_name: str="Declared decoder implementation boundary", implementation_version: str="1", implementation_kind: str="DECLARED_DECODER_IMPLEMENTATION_BOUNDARY", associated_candidate_declaration_hash: str="f"*64, associated_fast_path_identity_hash: str="1"*64, associated_fast_path_equivalence_receipt_hash: str="e"*64, adapter_only: bool=True, boundary_only: bool=True, runtime_enabled: bool=False, importable_runtime_allowed: bool=False, implementation_authority_allowed: bool=False, promotion_allowed: bool=False, benchmark_claim_allowed: bool=False, speedup_claim_allowed: bool=False, hardware_authority_allowed: bool=False, qec_advantage_claim_allowed: bool=False, *, implementation_status: str=_IMPLEMENTATION_STATUS, implementation_mode: str=_IMPLEMENTATION_MODE) -> DecoderImplementationIdentity:
     p = {"implementation_id": implementation_id, "implementation_name": implementation_name, "implementation_version": implementation_version, "implementation_kind": implementation_kind, "implementation_status": implementation_status, "implementation_mode": implementation_mode, "associated_candidate_declaration_hash": associated_candidate_declaration_hash, "associated_fast_path_identity_hash": associated_fast_path_identity_hash, "associated_fast_path_equivalence_receipt_hash": associated_fast_path_equivalence_receipt_hash, "adapter_only": adapter_only, "boundary_only": boundary_only, "runtime_enabled": runtime_enabled, "importable_runtime_allowed": importable_runtime_allowed, "implementation_authority_allowed": implementation_authority_allowed, "promotion_allowed": promotion_allowed, "benchmark_claim_allowed": benchmark_claim_allowed, "speedup_claim_allowed": speedup_claim_allowed, "hardware_authority_allowed": hardware_authority_allowed, "qec_advantage_claim_allowed": qec_advantage_claim_allowed}
-    return _build_dataclass(DecoderImplementationIdentity,"decoder_implementation_identity_hash",p)
+    return _build_dataclass(DecoderImplementationIdentity, p)
 def build_decoder_implementation_artifact(artifact_id: str="artifact", artifact_path: str="implementation_boundaries/artifact.json", artifact_sha256: str="a"*64, artifact_role: str="IMPLEMENTATION_BOUNDARY_DECLARATION", artifact_language: str="JSON_DECLARATION", artifact_schema_hash: str="b"*64, executable_runtime_artifact: bool=False, import_allowed: bool=False, execution_allowed: bool=False, benchmark_allowed: bool=False, *, artifact_mode: str=_ARTIFACT_MODE) -> DecoderImplementationArtifact:
     p = {"artifact_id": artifact_id, "artifact_path": artifact_path, "artifact_sha256": artifact_sha256, "artifact_role": artifact_role, "artifact_mode": artifact_mode, "artifact_language": artifact_language, "artifact_schema_hash": artifact_schema_hash, "executable_runtime_artifact": executable_runtime_artifact, "import_allowed": import_allowed, "execution_allowed": execution_allowed, "benchmark_allowed": benchmark_allowed}
-    return _build_dataclass(DecoderImplementationArtifact,"decoder_implementation_artifact_hash",p)
+    return _build_dataclass(DecoderImplementationArtifact, p)
 def build_decoder_implementation_source_boundary(implementation_artifacts: Sequence[DecoderImplementationArtifact], implementation_source_root: str="implementation_boundaries/", source_files_exist_required: bool=False, repository_walk_allowed: bool=False, runtime_import_allowed: bool=False, runtime_execution_allowed: bool=False, implementation_file_creation_allowed: bool=False, baseline_mutation_allowed: bool=False, filesystem_mutation_allowed: bool=False, *, source_boundary_mode: str=_SOURCE_BOUNDARY_MODE, implementation_artifact_count: int|None=None, source_tree_hash: str|None=None) -> DecoderImplementationSourceBoundary:
     arts=_sorted_artifacts(tuple(implementation_artifacts)); count=len(arts) if implementation_artifact_count is None else implementation_artifact_count; sth=_compute_source_tree_hash(source_boundary_mode, arts) if source_tree_hash is None else source_tree_hash
     p={"implementation_source_root":implementation_source_root,"source_boundary_mode":source_boundary_mode,"implementation_artifacts":arts,"implementation_artifact_count":count,"source_tree_hash":sth,"source_files_exist_required":source_files_exist_required,"repository_walk_allowed":repository_walk_allowed,"runtime_import_allowed":runtime_import_allowed,"runtime_execution_allowed":runtime_execution_allowed,"implementation_file_creation_allowed":implementation_file_creation_allowed,"baseline_mutation_allowed":baseline_mutation_allowed,"filesystem_mutation_allowed":filesystem_mutation_allowed}
-    return _build_dataclass(DecoderImplementationSourceBoundary,"decoder_implementation_source_boundary_hash",p)
+    return _build_dataclass(DecoderImplementationSourceBoundary, p)
 def build_decoder_implementation_runtime_boundary(runtime_boundary_id: str="runtime-boundary", runtime_boundary_mode: str=_RUNTIME_BOUNDARY_MODE, declared_boundary_only: bool=True, **kwargs: Any) -> DecoderImplementationRuntimeBoundary:
-    flags={"baseline_decoder_import_allowed":False,"candidate_decoder_import_allowed":False,"fast_path_import_allowed":False,"implementation_import_allowed":False,"runtime_decoder_execution_allowed":False,"candidate_runtime_execution_allowed":False,"fast_path_runtime_execution_allowed":False,"implementation_runtime_execution_allowed":False,"replay_execution_allowed":False,"optimization_execution_allowed":False,"benchmark_execution_allowed":False,"network_allowed":False,"heavy_backend_import_allowed":False,"hardware_sdk_allowed":False,"filesystem_mutation_allowed":False}; flags.update(kwargs); p={"runtime_boundary_id":runtime_boundary_id,"runtime_boundary_mode":runtime_boundary_mode,"declared_boundary_only":declared_boundary_only,**flags}; return _build_dataclass(DecoderImplementationRuntimeBoundary,"decoder_implementation_runtime_boundary_hash",p)
+    flags={"baseline_decoder_import_allowed":False,"candidate_decoder_import_allowed":False,"fast_path_import_allowed":False,"implementation_import_allowed":False,"runtime_decoder_execution_allowed":False,"candidate_runtime_execution_allowed":False,"fast_path_runtime_execution_allowed":False,"implementation_runtime_execution_allowed":False,"replay_execution_allowed":False,"optimization_execution_allowed":False,"benchmark_execution_allowed":False,"network_allowed":False,"heavy_backend_import_allowed":False,"hardware_sdk_allowed":False,"filesystem_mutation_allowed":False}; flags.update(kwargs); p={"runtime_boundary_id":runtime_boundary_id,"runtime_boundary_mode":runtime_boundary_mode,"declared_boundary_only":declared_boundary_only,**flags}; return _build_dataclass(DecoderImplementationRuntimeBoundary, p)
 def build_decoder_implementation_config_boundary(config_boundary_id: str="config-boundary", config_schema_hash: str="a"*64, config_payload_hash: str="b"*64, config_mode: str=_CONFIG_MODE, deterministic_config_ordering: bool=True, **kwargs: Any) -> DecoderImplementationConfigBoundary:
-    flags={"mutable_runtime_config_allowed":False,"environment_variable_dependency_allowed":False,"wall_clock_dependency_allowed":False,"randomness_dependency_allowed":False,"filesystem_probe_dependency_allowed":False,"network_dependency_allowed":False,"hardware_probe_dependency_allowed":False}; flags.update(kwargs); p={"config_boundary_id":config_boundary_id,"config_mode":config_mode,"config_schema_hash":config_schema_hash,"config_payload_hash":config_payload_hash,"deterministic_config_ordering":deterministic_config_ordering,**flags}; return _build_dataclass(DecoderImplementationConfigBoundary,"decoder_implementation_config_boundary_hash",p)
+    flags={"mutable_runtime_config_allowed":False,"environment_variable_dependency_allowed":False,"wall_clock_dependency_allowed":False,"randomness_dependency_allowed":False,"filesystem_probe_dependency_allowed":False,"network_dependency_allowed":False,"hardware_probe_dependency_allowed":False}; flags.update(kwargs); p={"config_boundary_id":config_boundary_id,"config_mode":config_mode,"config_schema_hash":config_schema_hash,"config_payload_hash":config_payload_hash,"deterministic_config_ordering":deterministic_config_ordering,**flags}; return _build_dataclass(DecoderImplementationConfigBoundary, p)
 def build_decoder_implementation_build_boundary(source_boundary_hash: str="3"*64, build_boundary_id: str="build-boundary", build_manifest_hash: str="c"*64, dependency_manifest_hash: str="d"*64, build_boundary_mode: str=_BUILD_BOUNDARY_MODE, **kwargs: Any) -> DecoderImplementationBuildBoundary:
-    flags={"build_execution_allowed":False,"dependency_install_allowed":False,"network_resolution_allowed":False,"native_extension_build_allowed":False,"hardware_specific_build_allowed":False,"unpinned_dependency_allowed":False,"build_cache_authority_allowed":False}; flags.update(kwargs); p={"build_boundary_id":build_boundary_id,"build_boundary_mode":build_boundary_mode,"build_manifest_hash":build_manifest_hash,"dependency_manifest_hash":dependency_manifest_hash,"source_boundary_hash":source_boundary_hash,**flags}; return _build_dataclass(DecoderImplementationBuildBoundary,"decoder_implementation_build_boundary_hash",p)
+    flags={"build_execution_allowed":False,"dependency_install_allowed":False,"network_resolution_allowed":False,"native_extension_build_allowed":False,"hardware_specific_build_allowed":False,"unpinned_dependency_allowed":False,"build_cache_authority_allowed":False}; flags.update(kwargs); p={"build_boundary_id":build_boundary_id,"build_boundary_mode":build_boundary_mode,"build_manifest_hash":build_manifest_hash,"dependency_manifest_hash":dependency_manifest_hash,"source_boundary_hash":source_boundary_hash,**flags}; return _build_dataclass(DecoderImplementationBuildBoundary, p)
 def build_decoder_implementation_equivalence_binding(required_replay_equivalence_receipt_hash: str="c"*64, required_fast_path_equivalence_receipt_hash: str="e"*64, required_optimization_contract_hash: str="d"*64, equivalence_binding_id: str="equivalence-binding", equivalence_mode: str=_EQUIVALENCE_MODE, fast_path_equivalence_scope: str=_EQUIVALENCE_SCOPE, precision_policy: str=_PRECISION_POLICY, approximation_policy: str=_APPROXIMATION_POLICY, **kwargs: Any) -> DecoderImplementationEquivalenceBinding:
-    flags={"declared_corpus_only":True,"output_schema_match_required":True,"output_payload_match_required":True,"canonical_ordering_match_required":True,"equivalence_required_before_runtime":True,"implementation_valid_without_fast_path_equivalence":False}; flags.update(kwargs); p={"equivalence_binding_id":equivalence_binding_id,"required_replay_equivalence_receipt_hash":required_replay_equivalence_receipt_hash,"required_fast_path_equivalence_receipt_hash":required_fast_path_equivalence_receipt_hash,"required_optimization_contract_hash":required_optimization_contract_hash,"equivalence_mode":equivalence_mode,"fast_path_equivalence_scope":fast_path_equivalence_scope,"precision_policy":precision_policy,"approximation_policy":approximation_policy,**flags}; return _build_dataclass(DecoderImplementationEquivalenceBinding,"decoder_implementation_equivalence_binding_hash",p)
+    flags={"declared_corpus_only":True,"output_schema_match_required":True,"output_payload_match_required":True,"canonical_ordering_match_required":True,"equivalence_required_before_runtime":True,"implementation_valid_without_fast_path_equivalence":False}; flags.update(kwargs); p={"equivalence_binding_id":equivalence_binding_id,"required_replay_equivalence_receipt_hash":required_replay_equivalence_receipt_hash,"required_fast_path_equivalence_receipt_hash":required_fast_path_equivalence_receipt_hash,"required_optimization_contract_hash":required_optimization_contract_hash,"equivalence_mode":equivalence_mode,"fast_path_equivalence_scope":fast_path_equivalence_scope,"precision_policy":precision_policy,"approximation_policy":approximation_policy,**flags}; return _build_dataclass(DecoderImplementationEquivalenceBinding, p)
 def build_decoder_implementation_audit_boundary(audit_boundary_id: str="audit-boundary", audit_mode: str=_AUDIT_MODE, **kwargs: Any) -> DecoderImplementationAuditBoundary:
-    flags={"static_boundary_review_required":True,"source_hash_review_required":True,"no_decoder_mutation_review_required":True,"no_runtime_import_review_required":True,"no_runtime_execution_review_required":True,"no_benchmark_claim_review_required":True,"future_benchmark_ladder_required":True,"future_rollback_receipt_required":True,"future_promotion_receipt_required":True,"audit_complete":False}; flags.update(kwargs); p={"audit_boundary_id":audit_boundary_id,"audit_mode":audit_mode,**flags}; return _build_dataclass(DecoderImplementationAuditBoundary,"decoder_implementation_audit_boundary_hash",p)
+    flags={"static_boundary_review_required":True,"source_hash_review_required":True,"no_decoder_mutation_review_required":True,"no_runtime_import_review_required":True,"no_runtime_execution_review_required":True,"no_benchmark_claim_review_required":True,"future_benchmark_ladder_required":True,"future_rollback_receipt_required":True,"future_promotion_receipt_required":True,"audit_complete":False}; flags.update(kwargs); p={"audit_boundary_id":audit_boundary_id,"audit_mode":audit_mode,**flags}; return _build_dataclass(DecoderImplementationAuditBoundary, p)
 def build_decoder_implementation_rollback_gate(rollback_gate_id: str="rollback-gate", rollback_gate_mode: str=_ROLLBACK_GATE_MODE, required_future_rollback_receipt_kind: str=_REQUIRED_ROLLBACK_KIND, required_future_rollback_release: str=_REQUIRED_ROLLBACK_RELEASE, **kwargs: Any) -> DecoderImplementationRollbackGate:
-    flags={"rollback_receipt_required_before_promotion":True,"rollback_path_deletion_allowed":False,"baseline_restore_required":True,"candidate_disable_required_on_failure":True,"promotion_blocked_without_rollback_receipt":True,"implementation_disable_required_on_failure":True}; flags.update(kwargs); p={"rollback_gate_id":rollback_gate_id,"rollback_gate_mode":rollback_gate_mode,"required_future_rollback_receipt_kind":required_future_rollback_receipt_kind,"required_future_rollback_release":required_future_rollback_release,**flags}; return _build_dataclass(DecoderImplementationRollbackGate,"decoder_implementation_rollback_gate_hash",p)
+    flags={"rollback_receipt_required_before_promotion":True,"rollback_path_deletion_allowed":False,"baseline_restore_required":True,"candidate_disable_required_on_failure":True,"promotion_blocked_without_rollback_receipt":True,"implementation_disable_required_on_failure":True}; flags.update(kwargs); p={"rollback_gate_id":rollback_gate_id,"rollback_gate_mode":rollback_gate_mode,"required_future_rollback_receipt_kind":required_future_rollback_receipt_kind,"required_future_rollback_release":required_future_rollback_release,**flags}; return _build_dataclass(DecoderImplementationRollbackGate, p)
 def build_decoder_implementation_authority_boundary(authority_boundary_id: str="authority-boundary", authority_mode: str=_AUTHORITY_MODE, **kwargs: Any) -> DecoderImplementationAuthorityBoundary:
-    flags={"candidate_adapter_only":True,"boundary_only":True,"runtime_authority_allowed":False,"implementation_authority_allowed":False,"benchmark_authority_allowed":False,"hardware_authority_allowed":False,"ml_decoder_authority_allowed":False,"probabilistic_decoder_authority_allowed":False,"qec_advantage_claim_allowed":False,"global_correctness_claim_allowed":False,"silent_replacement_allowed":False,"baseline_mutation_allowed":False,"candidate_promotion_allowed":False}; flags.update(kwargs); p={"authority_boundary_id":authority_boundary_id,"authority_mode":authority_mode,**flags}; return _build_dataclass(DecoderImplementationAuthorityBoundary,"decoder_implementation_authority_boundary_hash",p)
+    flags={"candidate_adapter_only":True,"boundary_only":True,"runtime_authority_allowed":False,"implementation_authority_allowed":False,"benchmark_authority_allowed":False,"hardware_authority_allowed":False,"ml_decoder_authority_allowed":False,"probabilistic_decoder_authority_allowed":False,"qec_advantage_claim_allowed":False,"global_correctness_claim_allowed":False,"silent_replacement_allowed":False,"baseline_mutation_allowed":False,"candidate_promotion_allowed":False}; flags.update(kwargs); p={"authority_boundary_id":authority_boundary_id,"authority_mode":authority_mode,**flags}; return _build_dataclass(DecoderImplementationAuthorityBoundary, p)
 def build_decoder_implementation_boundary_receipt(upstream_binding: DecoderImplementationUpstreamBinding, implementation_identity: DecoderImplementationIdentity, source_boundary: DecoderImplementationSourceBoundary, runtime_boundary: DecoderImplementationRuntimeBoundary, config_boundary: DecoderImplementationConfigBoundary, build_boundary: DecoderImplementationBuildBoundary, equivalence_binding: DecoderImplementationEquivalenceBinding, audit_boundary: DecoderImplementationAuditBoundary, rollback_gate: DecoderImplementationRollbackGate, authority_boundary: DecoderImplementationAuthorityBoundary, *, receipt_version: str=IMPLEMENTATION_BOUNDARY_RELEASE, receipt_kind: str=RECEIPT_KIND, previous_release_tag: str=PREVIOUS_RELEASE_TAG, previous_release_url: str=PREVIOUS_RELEASE_URL, implementation_artifact_count: int|None=None, implementation_boundary_safe: bool|None=None, candidate_remains_adapter_only: bool|None=None, runtime_enabled: bool=False, implementation_authority_allowed: bool=False, benchmark_claim_allowed: bool=False, speedup_claim_allowed: bool=False, promotion_allowed: bool=False, global_correctness_claim_allowed: bool=False) -> DecoderImplementationBoundaryReceipt:
     count=source_boundary.implementation_artifact_count if implementation_artifact_count is None else implementation_artifact_count; safe=_boundary_safe(upstream_binding,implementation_identity,source_boundary,runtime_boundary,config_boundary,build_boundary,equivalence_binding,audit_boundary,rollback_gate,authority_boundary) if implementation_boundary_safe is None else implementation_boundary_safe; adapter=_candidate_remains_adapter_only(upstream_binding,implementation_identity,authority_boundary) if candidate_remains_adapter_only is None else candidate_remains_adapter_only
     p={"receipt_version":receipt_version,"receipt_kind":receipt_kind,"previous_release_tag":previous_release_tag,"previous_release_url":previous_release_url,"upstream_binding":upstream_binding,"implementation_identity":implementation_identity,"source_boundary":source_boundary,"runtime_boundary":runtime_boundary,"config_boundary":config_boundary,"build_boundary":build_boundary,"equivalence_binding":equivalence_binding,"audit_boundary":audit_boundary,"rollback_gate":rollback_gate,"authority_boundary":authority_boundary,"implementation_artifact_count":count,"implementation_boundary_safe":safe,"candidate_remains_adapter_only":adapter,"runtime_enabled":runtime_enabled,"implementation_authority_allowed":implementation_authority_allowed,"benchmark_claim_allowed":benchmark_claim_allowed,"speedup_claim_allowed":speedup_claim_allowed,"promotion_allowed":promotion_allowed,"global_correctness_claim_allowed":global_correctness_claim_allowed}
-    return _build_dataclass(DecoderImplementationBoundaryReceipt,"decoder_implementation_boundary_receipt_hash",p)
+    return _build_dataclass(DecoderImplementationBoundaryReceipt, p)
 
 # validators
 def validate_decoder_implementation_upstream_binding(value: DecoderImplementationUpstreamBinding) -> DecoderImplementationUpstreamBinding: _revalidate_exact_instance(value,DecoderImplementationUpstreamBinding); return value

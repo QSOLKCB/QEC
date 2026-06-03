@@ -138,6 +138,19 @@ def test_canonical_json_hash_determinism_and_ordering():
     assert ib._hash_payload(payload) == ib._hash_payload(payload)
 
 
+def test_hash_field_is_declared_on_dataclass_not_name_mapping():
+    fx = _fixture()
+    objects = (
+        fx["upstream"], fx["ident"], fx["art1"], fx["source"], fx["runtime"], fx["config"],
+        fx["build"], fx["equiv"], fx["audit"], fx["rollback"], fx["authority"], fx["receipt"],
+    )
+    assert not hasattr(ib, "_NAMES")
+    for obj in objects:
+        hash_field = obj._HASH_FIELD
+        assert hash_field in {field.name for field in ib.fields(obj)}
+        assert ib._payload(obj) == ib._dataclass_payload(obj, exclude_hash_field=hash_field)
+
+
 def test_self_hash_exclusion_and_stale_hashes_fail():
     fx = _fixture()
     art = _unsafe_replace(fx["art1"], artifact_role="IMPLEMENTATION_CONFIG_DECLARATION")

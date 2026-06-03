@@ -259,6 +259,22 @@ def test_aggregate_contract_validation_rejects_bad_fields_and_cross_links():
     bad_adapter = _rehash(contract, "_contract_payload", "decoder_optimization_contract_hash", candidate_remains_adapter_only=False)
     _expect_error("INVALID_DECODER_OPTIMIZATION_CONTRACT", doc.validate_decoder_optimization_contract, bad_adapter)
 
+    single_child_contract = doc.build_decoder_optimization_contract(
+        upstream_binding=upstream,
+        invariant_sources=(invariants[0],),
+        optimization_targets=(targets[0],),
+        equivalence_gate=gate,
+        transformation_boundary=transformation,
+        precision_boundary=precision,
+        benchmark_boundary=benchmark,
+        rollback_policy=rollback,
+        authority_boundary=authority,
+    )
+    for field in ("invariant_source_count", "optimization_target_count"):
+        malformed = _rehash(single_child_contract, "_contract_payload", "decoder_optimization_contract_hash", **{field: True})
+        error = _expect_error("INVALID_INPUT", doc.validate_decoder_optimization_contract, malformed)
+        assert error.detail == f"{field}:INT"
+
 
 def test_forbidden_semantic_hardening_and_positive_controls():
     phrases = [
@@ -269,6 +285,7 @@ def test_forbidden_semantic_hardening_and_positive_controls():
         "output accepted as universal canonical truth", "global correctness proven", "replay equivalence implies promotion",
         "replay equivalence implies speedup", "optimization implies correctness", "optimization grants execution authority",
         "contract permits implementation", "fast path accepted", "benchmark proves optimization", "candidate\\nreplaces\\tbaseline",
+        "candidate\nreplaces\tbaseline",
     ]
     for phrase in phrases:
         _expect_error("INVALID_INPUT", doc.build_decoder_optimization_target, target_id="bad", target_kind="SPARSE_HANDLING_TARGET", target_description=phrase)

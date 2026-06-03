@@ -269,7 +269,7 @@ def _cmp_values(an: int, ad: int, bn: int, bd: int) -> int:
     return -1 if left < right else (1 if left > right else 0)
 def _ratio(num_n: int, num_d: int, den_n: int, den_d: int) -> tuple[int, int]:
     if den_n == 0:
-        return (0, 1)
+        return (0, 1) if num_n == 0 else (1, 0)
     return _reduced(num_n * den_d, num_d * den_n)
 
 def _measurement_payload_hash_payload(obj: Any) -> dict[str, Any]:
@@ -289,11 +289,11 @@ def _comparison_recomputed_fields(baseline: Any, candidate: Any) -> dict[str, An
     cmp = _cmp_values(candidate.measured_value_numerator, candidate.measured_value_denominator, baseline.measured_value_numerator, baseline.measured_value_denominator)
     if baseline.lower_is_better:
         regression = cmp > 0
-        improvement = cmp <= 0 and candidate.measured_value_numerator != 0
+        improvement = cmp < 0
         rn, rd = _ratio(baseline.measured_value_numerator, baseline.measured_value_denominator, candidate.measured_value_numerator, candidate.measured_value_denominator) if not regression else _ratio(candidate.measured_value_numerator, candidate.measured_value_denominator, baseline.measured_value_numerator, baseline.measured_value_denominator)
     else:
         regression = cmp < 0
-        improvement = cmp >= 0 and baseline.measured_value_numerator != 0
+        improvement = cmp > 0
         rn, rd = _ratio(candidate.measured_value_numerator, candidate.measured_value_denominator, baseline.measured_value_numerator, baseline.measured_value_denominator) if not regression else _ratio(baseline.measured_value_numerator, baseline.measured_value_denominator, candidate.measured_value_numerator, candidate.measured_value_denominator)
     return {
         "metric_name": baseline.metric_name,
@@ -329,12 +329,6 @@ def _comparison_payload_hash_payload(obj: Any) -> dict[str, Any]:
     }
 def _claim_scope_hash_payload(obj: Any) -> dict[str, Any]:
     return {"allowed_claims": obj.allowed_claims, "forbidden_claims": obj.forbidden_claims, "declared_claim_scope": obj.declared_claim_scope}
-
-def _child_hash(value: Any) -> str:
-    for f in fields(value):
-        if f.name.endswith("_hash") and f.name.startswith("decoder_benchmark_"):
-            return getattr(value, f.name)
-    raise _invalid_input("CHILD_HASH")
 
 @dataclass(frozen=True)
 class DecoderBenchmarkUpstreamBinding:
@@ -469,6 +463,12 @@ class DecoderBenchmarkComparisonResult:
         if (self.baseline_measurement.metric_name,self.candidate_measurement.metric_name) != (self.metric_name,self.metric_name): raise _invalid_input("metric_name:MISMATCH")
         if (self.baseline_measurement.metric_unit,self.candidate_measurement.metric_unit) != (self.metric_unit,self.metric_unit): raise _invalid_input("metric_unit:MISMATCH")
         if (self.baseline_measurement.lower_is_better,self.candidate_measurement.lower_is_better) != (self.lower_is_better,self.lower_is_better): raise _invalid_input("lower_is_better:MISMATCH")
+        if self.baseline_measurement.corpus_hash != self.candidate_measurement.corpus_hash: raise _invalid_input("corpus_hash:MISMATCH")
+        if self.baseline_measurement.environment_hash != self.candidate_measurement.environment_hash: raise _invalid_input("environment_hash:MISMATCH")
+        for n in ("baseline_value_numerator","baseline_value_denominator","candidate_value_numerator","candidate_value_denominator","improvement_ratio_numerator","improvement_ratio_denominator"):
+            _require_exact_int(getattr(self,n), n)
+        for n in ("regression_detected","improvement_observed","exact_metric_match"):
+            _require_exact_bool(getattr(self,n), n)
         recomputed = _comparison_recomputed_fields(self.baseline_measurement,self.candidate_measurement)
         for n,v in recomputed.items():
             if getattr(self,n) != v: raise _invalid_input(f"comparison:{n}")
@@ -501,7 +501,7 @@ class DecoderBenchmarkClaimScope:
         if self.claim_scope_mode != "BOUNDED_BENCHMARK_OBSERVATION_ONLY": raise _invalid_input("claim_scope_mode")
         if self.declared_claim_scope != "DECLARED_CORPUS_AND_ENVIRONMENT_ONLY": raise _invalid_input("declared_claim_scope")
         _sorted_unique_enum_tuple(self.allowed_claims,"allowed_claims",ALLOWED_CLAIMS)
-        _sorted_unique_enum_tuple(self.forbidden_claims,"forbidden_claims",self.forbidden_claims and frozenset(self.forbidden_claims) or frozenset(), required=MANDATORY_FORBIDDEN_CLAIMS)
+        _sorted_unique_enum_tuple(self.forbidden_claims,"forbidden_claims",MANDATORY_FORBIDDEN_CLAIMS, required=MANDATORY_FORBIDDEN_CLAIMS)
         _require_flags(self,{"bounded_speed_observation_allowed":True,"benchmark_marketing_allowed":False,"correctness_claim_allowed":False,"global_correctness_claim_allowed":False,"qec_advantage_claim_allowed":False,"hardware_authority_allowed":False,"promotion_claim_allowed":False},"claim_scope")
         _validate_hash_format(self.claim_scope_hash,"claim_scope_hash")
         if self.claim_scope_hash != _hash_payload(_claim_scope_hash_payload(self)): raise _hash_mismatch("claim_scope_hash")
@@ -576,6 +576,57 @@ def _check_unique(items: Sequence[Any], attr: str) -> None:
     vals = [getattr(i, attr) for i in items]
     if len(vals) != len(set(vals)): raise _invalid_input(f"{attr}:DUPLICATE")
 
+_MEASUREMENT_ROLE_TO_COMPARATOR_ROLE = {
+    "BASELINE_MEASUREMENT": "CANONICAL_BASELINE_COMPARATOR",
+    "CANDIDATE_MEASUREMENT": "CANDIDATE_DECODER_COMPARATOR",
+    "FAST_PATH_MEASUREMENT": "FAST_PATH_COMPARATOR",
+    "EXTERNAL_COMPARATOR_MEASUREMENT": "EXTERNAL_ADAPTER_COMPARATOR",
+}
+
+def _check_dense_rung_indices(rungs: Sequence[Any]) -> None:
+    indices = [r.rung_index for r in rungs]
+    if len(indices) != len(set(indices)): raise _invalid_input("rung_index:DUPLICATE")
+    if sorted(indices) != list(range(len(indices))): raise _invalid_input("rung_index:DENSE")
+
+def _check_measurement_comparator_role(measurement: Any, comparators_by_hash: Mapping[str, Any]) -> None:
+    comparator = comparators_by_hash.get(measurement.comparator_hash)
+    if comparator is None: raise _invalid_ladder("measurement:LINKAGE")
+    if comparator.comparator_role != _MEASUREMENT_ROLE_TO_COMPARATOR_ROLE[measurement.measurement_role]: raise _invalid_ladder("measurement:COMPARATOR_ROLE")
+
+def _check_comparison_scope(comparison: Any, measurements_by_hash: Mapping[str, Any]) -> None:
+    baseline_hash = comparison.baseline_measurement.decoder_benchmark_measurement_record_hash
+    candidate_hash = comparison.candidate_measurement.decoder_benchmark_measurement_record_hash
+    if baseline_hash not in measurements_by_hash or candidate_hash not in measurements_by_hash: raise _invalid_ladder("comparison:LINKAGE")
+    baseline = measurements_by_hash[baseline_hash]
+    candidate = measurements_by_hash[candidate_hash]
+    if baseline.corpus_hash != candidate.corpus_hash or baseline.environment_hash != candidate.environment_hash: raise _invalid_ladder("comparison:SCOPE")
+
+def _check_rung_scope(rung: Any, measurements_by_hash: Mapping[str, Any], comparisons_by_hash: Mapping[str, Any]) -> None:
+    baseline_hashes = set(rung.baseline_measurement_hashes)
+    candidate_hashes = set(rung.candidate_measurement_hashes)
+    for measurement_hash in rung.baseline_measurement_hashes:
+        measurement = measurements_by_hash.get(measurement_hash)
+        if measurement is None: raise _invalid_ladder("rung:CHILD_LINKAGE")
+        if measurement.measurement_role != "BASELINE_MEASUREMENT" or measurement.corpus_hash != rung.corpus_hash or measurement.environment_hash != rung.environment_hash or measurement.comparator_hash != rung.baseline_comparator_hash: raise _invalid_ladder("rung:BASELINE_SCOPE")
+    for measurement_hash in rung.candidate_measurement_hashes:
+        measurement = measurements_by_hash.get(measurement_hash)
+        if measurement is None: raise _invalid_ladder("rung:CHILD_LINKAGE")
+        if measurement.measurement_role not in CANDIDATE_MEASUREMENT_ROLES or measurement.corpus_hash != rung.corpus_hash or measurement.environment_hash != rung.environment_hash or measurement.comparator_hash != rung.candidate_comparator_hash: raise _invalid_ladder("rung:CANDIDATE_SCOPE")
+    comparisons = []
+    for comparison_hash in rung.comparison_result_hashes:
+        comparison = comparisons_by_hash.get(comparison_hash)
+        if comparison is None: raise _invalid_ladder("rung:CHILD_LINKAGE")
+        baseline_hash = comparison.baseline_measurement.decoder_benchmark_measurement_record_hash
+        candidate_hash = comparison.candidate_measurement.decoder_benchmark_measurement_record_hash
+        if baseline_hash not in baseline_hashes or candidate_hash not in candidate_hashes: raise _invalid_ladder("rung:COMPARISON_MEASUREMENT_SCOPE")
+        if comparison.baseline_measurement.corpus_hash != rung.corpus_hash or comparison.baseline_measurement.environment_hash != rung.environment_hash or comparison.baseline_measurement.comparator_hash != rung.baseline_comparator_hash: raise _invalid_ladder("rung:COMPARISON_BASELINE_SCOPE")
+        if comparison.candidate_measurement.corpus_hash != rung.corpus_hash or comparison.candidate_measurement.environment_hash != rung.environment_hash or comparison.candidate_measurement.comparator_hash != rung.candidate_comparator_hash: raise _invalid_ladder("rung:COMPARISON_CANDIDATE_SCOPE")
+        comparisons.append(comparison)
+    if not {c.metric_name for c in comparisons}.issubset(set(rung.rung_metric_names)): raise _invalid_ladder("rung:METRIC_SCOPE")
+    regression_detected = any(c.regression_detected for c in comparisons)
+    if rung.rung_regression_detected is not regression_detected: raise _invalid_ladder("rung:rung_regression_detected")
+    if rung.rung_passed is not (not regression_detected): raise _invalid_ladder("rung:rung_passed")
+
 @dataclass(frozen=True)
 class DecoderBenchmarkLadderReceipt:
     receipt_version: str; receipt_kind: str; previous_release_tag: str; previous_release_url: str
@@ -599,17 +650,19 @@ class DecoderBenchmarkLadderReceipt:
         comparisons=_ordered_tuple(self.comparison_results,DecoderBenchmarkComparisonResult,lambda c:(c.comparison_id,c.metric_name,c.decoder_benchmark_comparison_result_hash),"comparison_results")
         rungs=_ordered_tuple(self.rungs,DecoderBenchmarkRung,lambda r:(r.rung_index,r.rung_id,r.decoder_benchmark_rung_hash),"rungs")
         for seq, attr in ((comparators,"comparator_id"),(corpora,"corpus_id"),(environments,"environment_id"),(measurements,"measurement_id"),(comparisons,"comparison_id"),(rungs,"rung_id")): _check_unique(seq, attr)
+        _check_dense_rung_indices(rungs)
         for name, expected in (("comparator_count",len(comparators)),("corpus_count",len(corpora)),("environment_count",len(environments)),("measurement_count",len(measurements)),("comparison_result_count",len(comparisons)),("rung_count",len(rungs))):
             _require_exact_int(getattr(self,name), name)
             if getattr(self,name) != expected: raise _invalid_input(f"{name}:COUNT")
-        comp_hashes={c.decoder_benchmark_comparator_identity_hash for c in comparators}; corp_hashes={c.decoder_benchmark_corpus_declaration_hash for c in corpora}; env_hashes={e.decoder_benchmark_environment_declaration_hash for e in environments}; meas_hashes={m.decoder_benchmark_measurement_record_hash for m in measurements}; cmp_hashes={c.decoder_benchmark_comparison_result_hash for c in comparisons}
+        comparators_by_hash={c.decoder_benchmark_comparator_identity_hash:c for c in comparators}; corp_hashes={c.decoder_benchmark_corpus_declaration_hash for c in corpora}; env_hashes={e.decoder_benchmark_environment_declaration_hash for e in environments}; measurements_by_hash={m.decoder_benchmark_measurement_record_hash:m for m in measurements}; comparisons_by_hash={c.decoder_benchmark_comparison_result_hash:c for c in comparisons}
         for m in measurements:
-            if m.comparator_hash not in comp_hashes or m.corpus_hash not in corp_hashes or m.environment_hash not in env_hashes: raise _invalid_ladder("measurement:LINKAGE")
+            if m.corpus_hash not in corp_hashes or m.environment_hash not in env_hashes: raise _invalid_ladder("measurement:LINKAGE")
+            _check_measurement_comparator_role(m, comparators_by_hash)
         for c in comparisons:
-            if c.baseline_measurement.decoder_benchmark_measurement_record_hash not in meas_hashes or c.candidate_measurement.decoder_benchmark_measurement_record_hash not in meas_hashes: raise _invalid_ladder("comparison:LINKAGE")
+            _check_comparison_scope(c, measurements_by_hash)
         for r in rungs:
-            if r.corpus_hash not in corp_hashes or r.environment_hash not in env_hashes or r.baseline_comparator_hash not in comp_hashes or r.candidate_comparator_hash not in comp_hashes: raise _invalid_ladder("rung:LINKAGE")
-            if not set(r.baseline_measurement_hashes).issubset(meas_hashes) or not set(r.candidate_measurement_hashes).issubset(meas_hashes) or not set(r.comparison_result_hashes).issubset(cmp_hashes): raise _invalid_ladder("rung:CHILD_LINKAGE")
+            if r.corpus_hash not in corp_hashes or r.environment_hash not in env_hashes or r.baseline_comparator_hash not in comparators_by_hash or r.candidate_comparator_hash not in comparators_by_hash: raise _invalid_ladder("rung:LINKAGE")
+            _check_rung_scope(r, measurements_by_hash, comparisons_by_hash)
         if self.ladder_identity.associated_candidate_declaration_hash != self.upstream_binding.candidate_declaration_hash: raise _invalid_ladder("identity:candidate_hash")
         if self.ladder_identity.associated_fast_path_identity_hash != self.upstream_binding.fast_path_identity_hash: raise _invalid_ladder("identity:fast_path_hash")
         if self.ladder_identity.associated_implementation_boundary_receipt_hash != self.upstream_binding.upstream_decoder_implementation_boundary_receipt_hash: raise _invalid_ladder("identity:implementation_boundary_hash")

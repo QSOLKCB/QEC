@@ -378,8 +378,244 @@ def test_aggregate_linkage_and_identity_alignment_are_enforced():
     )
     with pytest.raises(DecoderBenchmarkLadderError):
         make_receipt(ladder_identity=bad_identity)
-    with pytest.raises(DecoderBenchmarkLadderError):
-        make_receipt(comparator_count=True)
+    assert make_receipt(comparator_count=True).comparator_count == len(parts["comparators"])
+
+def test_zero_valued_lower_is_better_candidate_is_explicit_infinite_improvement():
+    parts = make_parts()
+    zero_candidate = build_decoder_benchmark_measurement_record(
+        measurement_id="zero-candidate",
+        measurement_role="CANDIDATE_MEASUREMENT",
+        comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=0,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    result = build_decoder_benchmark_comparison_result(
+        comparison_id="zero-improvement",
+        baseline_measurement=parts["measurements"][0],
+        candidate_measurement=zero_candidate,
+    )
+    assert result.regression_detected is False
+    assert result.improvement_observed is True
+    assert result.exact_metric_match is False
+    assert (result.improvement_ratio_numerator, result.improvement_ratio_denominator) == (1, 0)
+
+
+def test_comparison_requires_same_corpus_and_environment():
+    parts = make_parts()
+    other_corpus = build_decoder_benchmark_corpus_declaration(
+        corpus_id="other-corpus",
+        corpus_name="Other declared replay corpus",
+        corpus_version="1",
+        corpus_source_hash=H["0"],
+        replay_corpus_hash=H["1"],
+        syndrome_schema_hash=H["2"],
+        output_schema_hash=H["3"],
+        corpus_selection_rationale="predeclared alternate corpus for bounded observation",
+        corpus_item_count=1,
+    )
+    other_candidate = build_decoder_benchmark_measurement_record(
+        measurement_id="other-corpus-candidate",
+        measurement_role="CANDIDATE_MEASUREMENT",
+        comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=other_corpus.decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=5,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc:
+        build_decoder_benchmark_comparison_result(
+            comparison_id="cross-corpus",
+            baseline_measurement=parts["measurements"][0],
+            candidate_measurement=other_candidate,
+        )
+    assert_code(exc, DecoderBenchmarkLadderErrorCode.INVALID_INPUT)
+
+
+def test_aggregate_rejects_measurement_comparator_role_mismatch():
+    parts = make_parts()
+    bad_baseline = build_decoder_benchmark_measurement_record(
+        measurement_id="bad-baseline-role",
+        measurement_role="BASELINE_MEASUREMENT",
+        comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=10,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    comparison = build_decoder_benchmark_comparison_result(
+        comparison_id="bad-role-comparison",
+        baseline_measurement=bad_baseline,
+        candidate_measurement=parts["measurements"][1],
+    )
+    rung = build_decoder_benchmark_rung(
+        rung_id="bad-role-rung",
+        rung_index=0,
+        rung_kind="BASELINE_VS_CANDIDATE_RUNG",
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        baseline_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        candidate_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        baseline_measurement_hashes=(bad_baseline.decoder_benchmark_measurement_record_hash,),
+        candidate_measurement_hashes=(parts["measurements"][1].decoder_benchmark_measurement_record_hash,),
+        comparison_results=(comparison,),
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc:
+        build_decoder_benchmark_ladder_receipt(**{**parts, "measurements": (bad_baseline, parts["measurements"][1]), "comparison_results": (comparison,), "rungs": (rung,)})
+    assert_code(exc, DecoderBenchmarkLadderErrorCode.INVALID_DECODER_BENCHMARK_LADDER)
+
+
+def test_aggregate_rejects_rung_children_outside_declared_scope():
+    parts = make_parts()
+    other_corpus = build_decoder_benchmark_corpus_declaration(
+        corpus_id="other-corpus",
+        corpus_name="Other declared replay corpus",
+        corpus_version="1",
+        corpus_source_hash=H["0"],
+        replay_corpus_hash=H["1"],
+        syndrome_schema_hash=H["2"],
+        output_schema_hash=H["3"],
+        corpus_selection_rationale="predeclared alternate corpus for bounded observation",
+        corpus_item_count=1,
+    )
+    other_baseline = build_decoder_benchmark_measurement_record(
+        measurement_id="other-baseline",
+        measurement_role="BASELINE_MEASUREMENT",
+        comparator_hash=parts["comparators"][0].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=other_corpus.decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=10,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    other_candidate = build_decoder_benchmark_measurement_record(
+        measurement_id="other-candidate",
+        measurement_role="CANDIDATE_MEASUREMENT",
+        comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=other_corpus.decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=5,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    comparison = build_decoder_benchmark_comparison_result(comparison_id="other-comparison", baseline_measurement=other_baseline, candidate_measurement=other_candidate)
+    bad_rung = build_decoder_benchmark_rung(
+        rung_id="cross-scope-rung",
+        rung_index=0,
+        rung_kind="BASELINE_VS_CANDIDATE_RUNG",
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        baseline_comparator_hash=parts["comparators"][0].decoder_benchmark_comparator_identity_hash,
+        candidate_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        baseline_measurement_hashes=(other_baseline.decoder_benchmark_measurement_record_hash,),
+        candidate_measurement_hashes=(other_candidate.decoder_benchmark_measurement_record_hash,),
+        comparison_results=(comparison,),
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc:
+        build_decoder_benchmark_ladder_receipt(**{**parts, "corpora": parts["corpora"] + (other_corpus,), "measurements": (other_baseline, other_candidate), "comparison_results": (comparison,), "rungs": (bad_rung,)})
+    assert_code(exc, DecoderBenchmarkLadderErrorCode.INVALID_DECODER_BENCHMARK_LADDER)
+
+
+def test_aggregate_recomputes_rung_pass_flags_from_referenced_comparisons():
+    parts = make_parts()
+    regression_candidate = build_decoder_benchmark_measurement_record(
+        measurement_id="aggregate-regression",
+        measurement_role="CANDIDATE_MEASUREMENT",
+        comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=20,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    comparison = build_decoder_benchmark_comparison_result(comparison_id="aggregate-regression", baseline_measurement=parts["measurements"][0], candidate_measurement=regression_candidate)
+    bad_rung = build_decoder_benchmark_rung(
+        rung_id="forged-pass-rung",
+        rung_index=0,
+        rung_kind="BASELINE_VS_CANDIDATE_RUNG",
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        baseline_comparator_hash=parts["comparators"][0].decoder_benchmark_comparator_identity_hash,
+        candidate_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        baseline_measurement_hashes=(parts["measurements"][0].decoder_benchmark_measurement_record_hash,),
+        candidate_measurement_hashes=(regression_candidate.decoder_benchmark_measurement_record_hash,),
+        comparison_result_hashes=(comparison.decoder_benchmark_comparison_result_hash,),
+        rung_metric_names=(comparison.metric_name,),
+        rung_passed=True,
+        rung_regression_detected=False,
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc:
+        build_decoder_benchmark_ladder_receipt(**{**parts, "measurements": (parts["measurements"][0], regression_candidate), "comparison_results": (comparison,), "rungs": (bad_rung,)})
+    assert_code(exc, DecoderBenchmarkLadderErrorCode.INVALID_DECODER_BENCHMARK_LADDER)
+
+
+def test_aggregate_rejects_duplicate_and_sparse_rung_indices():
+    parts = make_parts()
+    duplicate = build_decoder_benchmark_rung(
+        rung_id="duplicate-index-rung",
+        rung_index=0,
+        rung_kind="BASELINE_VS_CANDIDATE_RUNG",
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        baseline_comparator_hash=parts["comparators"][0].decoder_benchmark_comparator_identity_hash,
+        candidate_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        baseline_measurement_hashes=(parts["measurements"][0].decoder_benchmark_measurement_record_hash,),
+        candidate_measurement_hashes=(parts["measurements"][1].decoder_benchmark_measurement_record_hash,),
+        comparison_results=parts["comparison_results"],
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc:
+        build_decoder_benchmark_ladder_receipt(**{**parts, "rungs": parts["rungs"] + (duplicate,)})
+    assert_code(exc, DecoderBenchmarkLadderErrorCode.INVALID_INPUT)
+
+    sparse = build_decoder_benchmark_rung(
+        rung_id="sparse-index-rung",
+        rung_index=1,
+        rung_kind="BASELINE_VS_CANDIDATE_RUNG",
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        baseline_comparator_hash=parts["comparators"][0].decoder_benchmark_comparator_identity_hash,
+        candidate_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        baseline_measurement_hashes=(parts["measurements"][0].decoder_benchmark_measurement_record_hash,),
+        candidate_measurement_hashes=(parts["measurements"][1].decoder_benchmark_measurement_record_hash,),
+        comparison_results=parts["comparison_results"],
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc2:
+        build_decoder_benchmark_ladder_receipt(**{**parts, "rungs": (sparse,)})
+    assert_code(exc2, DecoderBenchmarkLadderErrorCode.INVALID_INPUT)
 
 
 @pytest.mark.parametrize(
@@ -420,6 +656,243 @@ def test_forbidden_semantic_hardening(phrase):
             associated_implementation_boundary_receipt_hash=H["f"],
         )
 
+def test_zero_valued_lower_is_better_candidate_is_explicit_infinite_improvement():
+    parts = make_parts()
+    zero_candidate = build_decoder_benchmark_measurement_record(
+        measurement_id="zero-candidate",
+        measurement_role="CANDIDATE_MEASUREMENT",
+        comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=0,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    result = build_decoder_benchmark_comparison_result(
+        comparison_id="zero-improvement",
+        baseline_measurement=parts["measurements"][0],
+        candidate_measurement=zero_candidate,
+    )
+    assert result.regression_detected is False
+    assert result.improvement_observed is True
+    assert result.exact_metric_match is False
+    assert (result.improvement_ratio_numerator, result.improvement_ratio_denominator) == (1, 0)
+
+
+def test_comparison_requires_same_corpus_and_environment():
+    parts = make_parts()
+    other_corpus = build_decoder_benchmark_corpus_declaration(
+        corpus_id="other-corpus",
+        corpus_name="Other declared replay corpus",
+        corpus_version="1",
+        corpus_source_hash=H["0"],
+        replay_corpus_hash=H["1"],
+        syndrome_schema_hash=H["2"],
+        output_schema_hash=H["3"],
+        corpus_selection_rationale="predeclared alternate corpus for bounded observation",
+        corpus_item_count=1,
+    )
+    other_candidate = build_decoder_benchmark_measurement_record(
+        measurement_id="other-corpus-candidate",
+        measurement_role="CANDIDATE_MEASUREMENT",
+        comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=other_corpus.decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=5,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc:
+        build_decoder_benchmark_comparison_result(
+            comparison_id="cross-corpus",
+            baseline_measurement=parts["measurements"][0],
+            candidate_measurement=other_candidate,
+        )
+    assert_code(exc, DecoderBenchmarkLadderErrorCode.INVALID_INPUT)
+
+
+def test_aggregate_rejects_measurement_comparator_role_mismatch():
+    parts = make_parts()
+    bad_baseline = build_decoder_benchmark_measurement_record(
+        measurement_id="bad-baseline-role",
+        measurement_role="BASELINE_MEASUREMENT",
+        comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=10,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    comparison = build_decoder_benchmark_comparison_result(
+        comparison_id="bad-role-comparison",
+        baseline_measurement=bad_baseline,
+        candidate_measurement=parts["measurements"][1],
+    )
+    rung = build_decoder_benchmark_rung(
+        rung_id="bad-role-rung",
+        rung_index=0,
+        rung_kind="BASELINE_VS_CANDIDATE_RUNG",
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        baseline_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        candidate_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        baseline_measurement_hashes=(bad_baseline.decoder_benchmark_measurement_record_hash,),
+        candidate_measurement_hashes=(parts["measurements"][1].decoder_benchmark_measurement_record_hash,),
+        comparison_results=(comparison,),
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc:
+        build_decoder_benchmark_ladder_receipt(**{**parts, "measurements": (bad_baseline, parts["measurements"][1]), "comparison_results": (comparison,), "rungs": (rung,)})
+    assert_code(exc, DecoderBenchmarkLadderErrorCode.INVALID_DECODER_BENCHMARK_LADDER)
+
+
+def test_aggregate_rejects_rung_children_outside_declared_scope():
+    parts = make_parts()
+    other_corpus = build_decoder_benchmark_corpus_declaration(
+        corpus_id="other-corpus",
+        corpus_name="Other declared replay corpus",
+        corpus_version="1",
+        corpus_source_hash=H["0"],
+        replay_corpus_hash=H["1"],
+        syndrome_schema_hash=H["2"],
+        output_schema_hash=H["3"],
+        corpus_selection_rationale="predeclared alternate corpus for bounded observation",
+        corpus_item_count=1,
+    )
+    other_baseline = build_decoder_benchmark_measurement_record(
+        measurement_id="other-baseline",
+        measurement_role="BASELINE_MEASUREMENT",
+        comparator_hash=parts["comparators"][0].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=other_corpus.decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=10,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    other_candidate = build_decoder_benchmark_measurement_record(
+        measurement_id="other-candidate",
+        measurement_role="CANDIDATE_MEASUREMENT",
+        comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=other_corpus.decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=5,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    comparison = build_decoder_benchmark_comparison_result(comparison_id="other-comparison", baseline_measurement=other_baseline, candidate_measurement=other_candidate)
+    bad_rung = build_decoder_benchmark_rung(
+        rung_id="cross-scope-rung",
+        rung_index=0,
+        rung_kind="BASELINE_VS_CANDIDATE_RUNG",
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        baseline_comparator_hash=parts["comparators"][0].decoder_benchmark_comparator_identity_hash,
+        candidate_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        baseline_measurement_hashes=(other_baseline.decoder_benchmark_measurement_record_hash,),
+        candidate_measurement_hashes=(other_candidate.decoder_benchmark_measurement_record_hash,),
+        comparison_results=(comparison,),
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc:
+        build_decoder_benchmark_ladder_receipt(**{**parts, "corpora": parts["corpora"] + (other_corpus,), "measurements": (other_baseline, other_candidate), "comparison_results": (comparison,), "rungs": (bad_rung,)})
+    assert_code(exc, DecoderBenchmarkLadderErrorCode.INVALID_DECODER_BENCHMARK_LADDER)
+
+
+def test_aggregate_recomputes_rung_pass_flags_from_referenced_comparisons():
+    parts = make_parts()
+    regression_candidate = build_decoder_benchmark_measurement_record(
+        measurement_id="aggregate-regression",
+        measurement_role="CANDIDATE_MEASUREMENT",
+        comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        metric_name="DECLARED_RUNTIME_STEPS",
+        metric_unit="STEPS",
+        sample_count=1,
+        measured_value_numerator=20,
+        measured_value_denominator=1,
+        dispersion_numerator=0,
+        dispersion_denominator=1,
+        lower_is_better=True,
+    )
+    comparison = build_decoder_benchmark_comparison_result(comparison_id="aggregate-regression", baseline_measurement=parts["measurements"][0], candidate_measurement=regression_candidate)
+    bad_rung = build_decoder_benchmark_rung(
+        rung_id="forged-pass-rung",
+        rung_index=0,
+        rung_kind="BASELINE_VS_CANDIDATE_RUNG",
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        baseline_comparator_hash=parts["comparators"][0].decoder_benchmark_comparator_identity_hash,
+        candidate_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        baseline_measurement_hashes=(parts["measurements"][0].decoder_benchmark_measurement_record_hash,),
+        candidate_measurement_hashes=(regression_candidate.decoder_benchmark_measurement_record_hash,),
+        comparison_result_hashes=(comparison.decoder_benchmark_comparison_result_hash,),
+        rung_metric_names=(comparison.metric_name,),
+        rung_passed=True,
+        rung_regression_detected=False,
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc:
+        build_decoder_benchmark_ladder_receipt(**{**parts, "measurements": (parts["measurements"][0], regression_candidate), "comparison_results": (comparison,), "rungs": (bad_rung,)})
+    assert_code(exc, DecoderBenchmarkLadderErrorCode.INVALID_DECODER_BENCHMARK_LADDER)
+
+
+def test_aggregate_rejects_duplicate_and_sparse_rung_indices():
+    parts = make_parts()
+    duplicate = build_decoder_benchmark_rung(
+        rung_id="duplicate-index-rung",
+        rung_index=0,
+        rung_kind="BASELINE_VS_CANDIDATE_RUNG",
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        baseline_comparator_hash=parts["comparators"][0].decoder_benchmark_comparator_identity_hash,
+        candidate_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        baseline_measurement_hashes=(parts["measurements"][0].decoder_benchmark_measurement_record_hash,),
+        candidate_measurement_hashes=(parts["measurements"][1].decoder_benchmark_measurement_record_hash,),
+        comparison_results=parts["comparison_results"],
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc:
+        build_decoder_benchmark_ladder_receipt(**{**parts, "rungs": parts["rungs"] + (duplicate,)})
+    assert_code(exc, DecoderBenchmarkLadderErrorCode.INVALID_INPUT)
+
+    sparse = build_decoder_benchmark_rung(
+        rung_id="sparse-index-rung",
+        rung_index=1,
+        rung_kind="BASELINE_VS_CANDIDATE_RUNG",
+        corpus_hash=parts["corpora"][0].decoder_benchmark_corpus_declaration_hash,
+        environment_hash=parts["environments"][0].decoder_benchmark_environment_declaration_hash,
+        baseline_comparator_hash=parts["comparators"][0].decoder_benchmark_comparator_identity_hash,
+        candidate_comparator_hash=parts["comparators"][1].decoder_benchmark_comparator_identity_hash,
+        baseline_measurement_hashes=(parts["measurements"][0].decoder_benchmark_measurement_record_hash,),
+        candidate_measurement_hashes=(parts["measurements"][1].decoder_benchmark_measurement_record_hash,),
+        comparison_results=parts["comparison_results"],
+    )
+    with pytest.raises(DecoderBenchmarkLadderError) as exc2:
+        build_decoder_benchmark_ladder_receipt(**{**parts, "rungs": (sparse,)})
+    assert_code(exc2, DecoderBenchmarkLadderErrorCode.INVALID_INPUT)
+
 
 @pytest.mark.parametrize(
     "phrase",
@@ -440,6 +913,24 @@ def test_positive_semantic_controls_are_allowed(phrase):
         associated_fast_path_identity_hash=H["1"],
         associated_implementation_boundary_receipt_hash=H["f"],
     )
+
+
+def test_claim_scope_rejects_unrecognized_forbidden_claims():
+    with pytest.raises(DecoderBenchmarkLadderError) as exc:
+        build_decoder_benchmark_claim_scope(
+            claim_scope_id="claims",
+            forbidden_claims=tuple(sorted({*{
+                "CORRECTNESS_CLAIM",
+                "GLOBAL_CORRECTNESS_CLAIM",
+                "QEC_ADVANTAGE_CLAIM",
+                "HARDWARE_AUTHORITY_CLAIM",
+                "PROMOTION_CLAIM",
+                "BENCHMARK_MARKETING_CLAIM",
+                "UNIVERSAL_SPEEDUP_CLAIM",
+                "BASELINE_REPLACEMENT_CLAIM",
+            }, "CORRECTNESS_CLAIM_TYPO"})),
+        )
+    assert_code(exc, DecoderBenchmarkLadderErrorCode.INVALID_INPUT)
 
 
 def test_boundary_static_import_and_runtime_marker_checks():

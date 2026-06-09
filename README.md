@@ -2,39 +2,39 @@
 # QSOLKCB / QEC
 
 QEC is a deterministic, replay-safe proof and systems architecture for quantum
-error correction, invariant-driven computation, canonical hashing, replay
-validation, semantic/citation boundary enforcement, proof telemetry,
-inference/tokenization boundary receipts, agent observability receipts,
-source-bound quantum signal claim boundaries, and receipt-governed decoder
-promotion.
+error correction, canonical hashing, replay validation, decoder governance, and
+now executable QEC OS runtime/benchmark work.
 
-It turns computation, evidence, semantic alignment, governance, replay
-validation, lattice topology, router/readout proof, multi-scale invariance,
-entropy drift analysis, GameWorld interaction boundaries,
-perturbation/stress contracts, substrate constraints, bounded recursive loops,
-reality-loop composition, global replay proofs, heavy-dependency optimization,
-optimized simulation specifications, dataframe/columnar backend declarations,
-research automation provenance, citation and claim-scope receipts,
-inference/tokenization/compression/memory boundaries, agent observability and
-tool-dispatch telemetry, crawler and pattern-decision boundaries, QPE adapter
-signals, quantum-memory signals, self-correcting-memory claim boundaries,
-quantum-geometry signals, graph-universe claim boundaries, and decoder
-governance receipts into canonical proof artifacts.
+It turns computation, evidence, governance, replay validation, adapter-bound
+external systems, quantum-signal claim boundaries, decoder-governance receipts,
+and runtime/benchmark contracts into canonical JSON / SHA-256 proof artifacts.
 
 The repository began with a Layer 1 QEC decoder and now extends that foundation
 into a broader deterministic proof stack for replay-safe computation,
 provenance validation, adapter-bound external systems, bounded semantic
-reasoning, and receipt-chain decoder governance.
+reasoning, receipt-chain decoder governance, and the post-v166.8 pivot toward a
+QEC OS.
 
-The v166.x decoder-governance arc declares the existing decoder baseline,
-registers candidate decoders as adapter-only hypotheses, verifies replay and
-fast-path transcript equivalence, bounds implementation and benchmark surfaces,
-requires rollback readiness, and records promotion as a receipt-chain decision
-without mutating `src/qec/decoder/`.
+The v166.x decoder-governance arc completed through v166.8: it declares the
+existing decoder baseline, registers candidate decoders as adapter-only
+hypotheses, verifies replay and fast-path transcript equivalence, bounds
+implementation and benchmark surfaces, requires rollback readiness, and records
+promotion eligibility as a receipt-chain decision without mutating
+`src/qec/decoder/`.
+
+After v166.8, the v167.x frontier pivots back toward executable Quantum Error
+Correction OS work: runtime APIs, golden fixtures, benchmark harnesses, explicit
+decoder routing, GF(2) / stabilizer construction, QLDPC construction,
+syndrome/noise runtime, cross-backend differential testing, and Odin migration
+readiness.
+
+QEC is not claiming to be a production QEC OS yet. The project is pivoting
+toward a QEC OS by making runtime activation explicit, fixture-gated,
+benchmark-observed, and replay-validated.
 
 In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 
-**Deterministic Reasoning • Canonical Identity • RES/RAG Semantics • Governance • Distributed Proof • Atomic Lattices • Router Paths • Readout Projections • SearchMask64 • Hilber/Hilbert Shift • Functional Readout Shells • Replay Validation • Multi-Scale Invariance • Entropy Drift • Decay-Resistance Proofs • GameWorld Interaction Reports • Perturbation Contracts • Substrate Constraints • Recursive Proof Loops • Reality Loop Proofs • Global Replay Proofs • Heavy-Dependency Invariants • Optimization Contracts • Adapter Specs • Canonical Kernel Receipts • Fast-Path Equivalence • Dependency Reduction • Optimized Simulation Specs • Backend Replay Receipts • Benchmark Receipts • Telemetry Receipts • Simulation Reports • Dataframe Backend Receipts • Research Automation Provenance • Citation Integrity • Claim Scope • Inference Backend Manifests • Byte-Level Model Boundaries • Tokenization Policies • Parameter-Golf Compression • Memory Bandwidth Receipts • KV Cache Policies • Agent Observation Traces • Skill Library Manifests • Tool Dispatch Telemetry • Crawler Boundaries • Agent Pattern Decisions • QPE Toolbox Adapters • Quantum Memory Signals • Self-Correcting Memory Claim Boundaries • Quantum Geometry Signals • Graph-Universe Claim Boundaries • Canonical Decoder Baselines • Decoder Candidate Manifests • Decoder Replay Equivalence • Decoder Optimization Contracts • Decoder Fast-Path Equivalence • Decoder Implementation Boundaries • Decoder Benchmark Ladders • Decoder Rollback Receipts • Decoder Promotion Receipts**
+**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • QEC OS Pivot • Runtime APIs • Golden Fixtures • Explicit Decoder Routing • GF(2) / Stabilizer Core • QLDPC Construction Harness • Syndrome / Noise Runtime • Benchmark Harnesses • Logical Error Rate • Cross-Backend Differential Testing • Odin Migration Readiness • Adapter Boundaries • Source-Bound Claims • Canonical Decoder Baselines • Decoder Candidate Manifests • Decoder Replay Equivalence • Decoder Optimization Contracts • Decoder Fast-Path Equivalence • Decoder Implementation Boundaries • Decoder Benchmark Ladders • Decoder Rollback Receipts • Decoder Promotion Receipts**
 
 ## 📦 Release & Research
 
@@ -43,13 +43,13 @@ In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 [![Branch](https://img.shields.io/badge/branch-v166.8%20canonical-purple)]()
 
 Current release line: **v166.8**  
-Current frontier: **v167.0 — QuditDimensionPolicyManifest**  
-Active arc: **v167.x — Qudit / Ququart / High-Dimensional Stabilizer Receipts**  
+Current frontier: **v167.0 — QECOSRuntimeSkeleton**  
+Active arc: **v167.x — QEC OS Runtime & Benchmark Reset**  
 Completed arc: **v166.x — QLDPC / Hashing-Bound Code Receipts / Decoder Governance**
 
 Repository status is current through **v166.8 → DecoderPromotionReceipt**.
 
-Recent release arcs completed:
+Recent release arcs completed or active:
 
 - **v165.5.x** → Deterministic dataframe / columnar backend receipts.
 - **v165.6.x** → AI-scientist / research automation provenance receipts.
@@ -59,6 +59,10 @@ Recent release arcs completed:
 - **v166.x** → Canonical decoder baseline, candidate, replay, optimization,
   fast-path, implementation-boundary, benchmark-ladder, rollback, and
   promotion receipts.
+- **v167.x** → Executable QEC OS runtime skeleton, golden corpus, decoder
+  runtime API, explicit decoder router, GF(2)/stabilizer core, QLDPC
+  construction harness, syndrome/noise runtime, benchmark harness,
+  cross-backend differential tests, and Odin readiness.
 
 Recent preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay
 Signatures — Hash-Bound Checkpoints, Subsystem Drift Receipts, and
@@ -120,6 +124,16 @@ Replay-Resistant Proof Chains**.
 | Decoder benchmark ladder receipts | Complete through v166.6 |
 | Decoder rollback receipts | Complete through v166.7 |
 | Decoder promotion receipts | Complete through v166.8 |
+| QEC OS runtime skeleton | Planned v167.0 |
+| Golden corpus fixtures | Planned v167.1 |
+| Baseline decoder runtime API | Planned v167.2 |
+| Promoted decoder runtime router | Planned v167.3 |
+| GF(2) / stabilizer core | Planned v167.4 |
+| QLDPC construction harness | Planned v167.5 |
+| Syndrome / noise runtime | Planned v167.6 |
+| Benchmark harness + logical error rate | Planned v167.7 |
+| Cross-backend differential harness | Planned v167.8 |
+| Odin port readiness and parity spec | Planned v167.9 |
 | Release metadata safety tooling | Hardened through v165.3.3 |
 
 # 🧠 What QEC Is
@@ -131,6 +145,10 @@ It does three things:
 1. Receives structured inputs.
 2. Converts them into canonical, hash-bound proof artifacts.
 3. Revalidates those artifacts by recomputing their canonical hashes.
+
+QEC does not make the world deterministic.
+
+QEC makes boundaries deterministic.
 
 QEC is useful when you need proof objects that are:
 
@@ -149,28 +167,36 @@ QEC is useful when you need proof objects that are:
 - source-bound around QPE, quantum-memory, quantum-geometry, and graph-universe claims
 - explicit about decoder baseline immutability and candidate-governance boundaries
 - strict about decoder replay equivalence, benchmark ladders, rollback, and promotion receipts
+- ready to gate runtime work through fixtures, routers, benchmarks, and parity tests
 
-QEC does not make the world deterministic.
+QEC has completed decoder-governance receipts through v166.8.
 
-QEC makes the boundary deterministic.
+Post-v166.8, QEC pivots toward executable Quantum Error Correction OS work.
 
-External tools are adapters, not authorities.
+Governance approval is not runtime activation.
+
+v166.8 declares receipt-chain promotion eligibility. It does not replace decoder
+source, activate runtime execution, or mutate `src/qec/decoder/`.
+
+Runtime activation requires a tested router plus golden corpus verification.
+
+External tools remain adapters, not authorities.
 
 Generated research is not evidence by default.
 
 A citation is not proof.
 
-A benchmark is not truth.
+Benchmarks are observations, not correctness.
 
 A faster or smaller model is not correctness.
 
 A faster decoder is not automatically a better decoder.
 
-Decoder promotion is a receipt-chain governance decision, not source replacement.
-
 Agent traces are receipts, not dashboards.
 
 Hardware research signals are source-bound claims, not QEC authority.
+
+Odin migration requires golden fixtures and parity tests first.
 
 Pipeline:
 
@@ -183,18 +209,19 @@ input
 → replay-safe proof result
 ```
 
-Decoder governance pipeline:
+Executable QEC OS pivot pipeline:
 
 ```text
-canonical baseline
-→ candidate manifest
-→ replay equivalence
-→ optimization contract
-→ fast-path equivalence
-→ implementation boundary
-→ benchmark ladder
-→ rollback receipt
-→ promotion receipt
+governance-complete decoder chain
+→ golden corpus
+→ runtime API
+→ explicit decoder router
+→ GF(2) / stabilizer core
+→ QLDPC construction harness
+→ syndrome/noise runtime
+→ benchmark harness
+→ differential testing
+→ Odin readiness
 ```
 
 ## ⚡ Quickstart
@@ -281,6 +308,12 @@ QEC matters because deterministic proof artifacts make it possible to:
 * keep benchmark ladders bounded to declared corpus/environment/comparator surfaces
 * require rollback readiness before promotion
 * declare promotion through receipts without mutating decoder source
+* move from receipt-only governance to executable QEC work
+* preserve the canonical baseline while testing runtime activation explicitly
+* build golden fixtures before an Odin rewrite
+* require benchmarks before performance claims
+* require differential tests against external adapters without treating adapters as authority
+* make the future Odin fork less painful by defining fixture and parity contracts now
 
 The world may be chaotic.
 The receipt must not be.
@@ -343,6 +376,16 @@ The receipt must not be.
 * v166.6 → DecoderBenchmarkLadderReceipt
 * v166.7 → DecoderRollbackReceipt
 * v166.8 → DecoderPromotionReceipt
+* v167.0 → QECOSRuntimeSkeleton
+* v167.1 → GoldenCorpusSeed
+* v167.2 → BaselineDecoderRuntimeAPI
+* v167.3 → PromotedDecoderRuntimeRouter
+* v167.4 → GF2AndStabilizerCore
+* v167.5 → QLDPCConstructionHarness
+* v167.6 → SyndromeNoiseRuntime
+* v167.7 → BenchmarkHarnessAndLER
+* v167.8 → CrossBackendDifferentialHarness
+* v167.9 → OdinPortReadinessAndParitySpec
 
 QEC now supports deterministic heavy-dependency discovery, static import /
 hot-path receipts, backend invariant candidates, cross-backend equivalence,
@@ -392,8 +435,12 @@ decoder candidate manifests, replay equivalence receipts, optimization
 contracts, fast-path equivalence receipts, implementation boundary receipts,
 benchmark ladder receipts, rollback receipts, and promotion receipts.
 
-v166.8 completes the QLDPC / Hashing-Bound Code Receipts decoder-governance
-arc and moves the active frontier to v167.0 → QuditDimensionPolicyManifest.
+v166.8 completes the QLDPC / Hashing-Bound Code Receipts decoder-governance arc.
+
+v167.x pivots the project back toward executable Quantum Error Correction OS
+work: runtime APIs, golden fixtures, explicit decoder routing, GF(2)/stabilizer
+construction, QLDPC construction, syndrome/noise runtime, benchmark harnesses,
+differential testing, and Odin migration readiness.
 
 * External dependencies are adapters, never authorities.
 * Simulation output is not truth.
@@ -418,6 +465,11 @@ arc and moves the active frontier to v167.0 → QuditDimensionPolicyManifest.
 * Decoder rollback remains required before promotion.
 * Decoder promotion is receipt-chain governance, not source replacement.
 * The decoder source remains untouched.
+* Governance approval is not runtime activation.
+* Runtime activation requires an explicit tested router and golden corpus verification.
+* Receipt-only near-term releases are no longer accepted after v166.8.
+* Benchmarks are bounded observations, not correctness proofs.
+* Odin migration must be gated by golden fixtures and parity tests.
 
 ## Proof Artifacts
 

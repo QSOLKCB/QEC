@@ -3,7 +3,7 @@
 
 QEC is a deterministic, replay-safe proof and systems architecture for quantum
 error correction, canonical hashing, replay validation, decoder governance, and
-now executable symbolic sonification runtime/event-mapping work, with QEC OS runtime/benchmark work deferred to v180.x.
+now executable symbolic sonification runtime/event-mapping work, with QEC OS runtime/benchmark work deferred to v193.x.
 
 It turns computation, evidence, governance, replay validation, adapter-bound
 external systems, quantum-signal claim boundaries, decoder-governance receipts,
@@ -23,11 +23,11 @@ promotion eligibility as a receipt-chain decision without mutating
 
 After v166.8, the v167.x frontier pivots toward executable symbolic sonification runtime work: deterministic event schemas, mapping packs, ternary/fuzzy state mapping, graph traversal, φ/Fibonacci rhythm and pitch mapping, MIDI-like export, lyric prompt compilation, QEC proof telemetry sonification, CLI fixtures, and demo benchmarks.
 
-QEC is not claiming that symbolic sonification proves physics, biology, medicine, cosmology, QEC advantage, or decoder correctness. The prior QEC OS runtime and benchmark reset is deferred to the v180.x sequence.
+QEC is not claiming that symbolic sonification proves physics, biology, medicine, cosmology, QEC advantage, or decoder correctness. The prior QEC OS runtime and benchmark reset is deferred to the v193.x sequence.
 
 In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 
-**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • Symbolic Sonification Runtime Pivot • Event Schemas • Mapping Packs • Ternary / Fuzzy Music State • Graph Music Mapping • φ / Fibonacci Rhythm and Pitch • MIDI-like Export • Lyric Prompt Compilation • QEC Proof Telemetry Sonification • CLI Fixtures • Demo Benchmarks • Deferred v180.x QEC OS Runtime Reset • Adapter Boundaries • Source-Bound Claims • Canonical Decoder Baselines • Decoder Candidate Manifests • Decoder Replay Equivalence • Decoder Optimization Contracts • Decoder Fast-Path Equivalence • Decoder Implementation Boundaries • Decoder Benchmark Ladders • Decoder Rollback Receipts • Decoder Promotion Receipts**
+**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • Symbolic Sonification Runtime Pivot • Event Schemas • Mapping Packs • Ternary / Fuzzy Music State • Graph Music Mapping • φ / Fibonacci Rhythm and Pitch • MIDI-like Export • Lyric Prompt Compilation • QEC Proof Telemetry Sonification • CLI Fixtures • Demo Benchmarks • Deferred v193.x QEC OS Runtime Reset • Adapter Boundaries • Source-Bound Claims • Canonical Decoder Baselines • Decoder Candidate Manifests • Decoder Replay Equivalence • Decoder Optimization Contracts • Decoder Fast-Path Equivalence • Decoder Implementation Boundaries • Decoder Benchmark Ladders • Decoder Rollback Receipts • Decoder Promotion Receipts**
 
 ## 📦 Release & Research
 
@@ -38,7 +38,7 @@ In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 Current release line: **v166.8**
 Current frontier: **v167.0 — SymbolicSonificationRuntimeSkeleton**
 Active arc: **v167.x — Symbolic Sonification Runtime & Event Mapping**
-Deferred arc: **v180.x — QEC OS Runtime & Benchmark Reset**
+Deferred arc: **v193.x — QEC OS Runtime & Benchmark Reset**
 Completed arc: **v166.x — QLDPC / Hashing-Bound Code Receipts / Decoder Governance**
 
 Repository status is current through **v166.8 → DecoderPromotionReceipt**.
@@ -57,7 +57,7 @@ Recent release arcs completed or active:
   mapping pack, ternary/fuzzy music state, graph music mapper, φ/Fibonacci
   rhythm and pitch, MIDI-like export, lyric prompt compiler, proof telemetry
   sonifier, CLI fixtures, and demo benchmarks.
-- **v180.x** → Deferred QEC OS runtime skeleton, golden corpus, decoder
+- **v193.x** → Deferred QEC OS runtime skeleton, golden corpus, decoder
   runtime API, explicit decoder router, GF(2)/stabilizer core, QLDPC
   construction harness, syndrome/noise runtime, benchmark harness,
   cross-backend differential tests, and Odin readiness.
@@ -132,16 +132,16 @@ Replay-Resistant Proof Chains**.
 | QEC proof telemetry sonifier | Planned v167.7 |
 | Sonification CLI and fixtures | Planned v167.8 |
 | Sonification demo corpus and benchmark | Planned v167.9 |
-| QEC OS runtime skeleton | Deferred v180.0 |
-| Golden corpus fixtures | Deferred v180.1 |
-| Baseline decoder runtime API | Deferred v180.2 |
-| Promoted decoder runtime router | Deferred v180.3 |
-| GF(2) / stabilizer core | Deferred v180.4 |
-| QLDPC construction harness | Deferred v180.5 |
-| Syndrome / noise runtime | Deferred v180.6 |
-| Benchmark harness + logical error rate | Deferred v180.7 |
-| Cross-backend differential harness | Deferred v180.8 |
-| Odin port readiness and parity spec | Deferred v180.9 |
+| QEC OS runtime skeleton | Deferred v193.0 |
+| Golden corpus fixtures | Deferred v193.1 |
+| Baseline decoder runtime API | Deferred v193.2 |
+| Promoted decoder runtime router | Deferred v193.3 |
+| GF(2) / stabilizer core | Deferred v193.4 |
+| QLDPC construction harness | Deferred v193.5 |
+| Syndrome / noise runtime | Deferred v193.6 |
+| Benchmark harness + logical error rate | Deferred v193.7 |
+| Cross-backend differential harness | Deferred v193.8 |
+| Odin port readiness and parity spec | Deferred v193.9 |
 | Release metadata safety tooling | Hardened through v165.3.3 |
 
 # 🧠 What QEC Is
@@ -179,14 +179,14 @@ QEC is useful when you need proof objects that are:
 
 QEC has completed decoder-governance receipts through v166.8.
 
-Post-v166.8, QEC pivots toward executable symbolic sonification runtime work; QEC OS runtime work is deferred to v180.x.
+Post-v166.8, QEC pivots toward executable symbolic sonification runtime work; QEC OS runtime work is deferred to v193.x.
 
 Governance approval is not runtime activation.
 
 v166.8 declares receipt-chain promotion eligibility. It does not replace decoder
 source, activate runtime execution, or mutate `src/qec/decoder/`.
 
-QEC OS runtime activation is deferred to v180.x and will still require a tested router plus golden corpus verification.
+QEC OS runtime activation is deferred to v193.x and will still require a tested router plus golden corpus verification.
 
 External tools remain adapters, not authorities.
 
@@ -204,7 +204,7 @@ Agent traces are receipts, not dashboards.
 
 Hardware research signals are source-bound claims, not QEC authority.
 
-Odin migration remains deferred behind v180.x golden fixtures and parity tests.
+Odin migration remains deferred behind v193.x golden fixtures and parity tests.
 
 Pipeline:
 
@@ -314,11 +314,11 @@ QEC matters because deterministic proof artifacts make it possible to:
 * require rollback readiness before promotion
 * declare promotion through receipts without mutating decoder source
 * move from receipt-only governance to executable symbolic sonification work
-* preserve the canonical baseline while keeping QEC OS runtime activation deferred to v180.x
+* preserve the canonical baseline while keeping QEC OS runtime activation deferred to v193.x
 * build deterministic sonification fixtures before returning to QEC OS golden fixtures
 * require benchmarks before performance claims
-* require differential tests against external adapters without treating adapters as authority when the v180.x QEC OS arc resumes
-* make the future Odin fork less painful by deferring fixture and parity contracts to the v180.x QEC OS sequence
+* require differential tests against external adapters without treating adapters as authority when the v193.x QEC OS arc resumes
+* make the future Odin fork less painful by deferring fixture and parity contracts to the v193.x QEC OS sequence
 
 The world may be chaotic.
 The receipt must not be.
@@ -391,16 +391,16 @@ The receipt must not be.
 * v167.7 → QECProofTelemetrySonifier
 * v167.8 → SonificationCLIAndFixtures
 * v167.9 → SonificationDemoCorpusAndBenchmark
-* v180.0 → QECOSRuntimeSkeleton
-* v180.1 → GoldenCorpusSeed
-* v180.2 → BaselineDecoderRuntimeAPI
-* v180.3 → PromotedDecoderRuntimeRouter
-* v180.4 → GF2AndStabilizerCore
-* v180.5 → QLDPCConstructionHarness
-* v180.6 → SyndromeNoiseRuntime
-* v180.7 → BenchmarkHarnessAndLER
-* v180.8 → CrossBackendDifferentialHarness
-* v180.9 → OdinPortReadinessAndParitySpec
+* v193.0 → QECOSRuntimeSkeleton
+* v193.1 → GoldenCorpusSeed
+* v193.2 → BaselineDecoderRuntimeAPI
+* v193.3 → PromotedDecoderRuntimeRouter
+* v193.4 → GF2AndStabilizerCore
+* v193.5 → QLDPCConstructionHarness
+* v193.6 → SyndromeNoiseRuntime
+* v193.7 → BenchmarkHarnessAndLER
+* v193.8 → CrossBackendDifferentialHarness
+* v193.9 → OdinPortReadinessAndParitySpec
 
 QEC now supports deterministic heavy-dependency discovery, static import /
 hot-path receipts, backend invariant candidates, cross-backend equivalence,
@@ -452,11 +452,10 @@ benchmark ladder receipts, rollback receipts, and promotion receipts.
 
 v166.8 completes the QLDPC / Hashing-Bound Code Receipts decoder-governance arc.
 
-v167.x pivots the project back toward executable Quantum Error Correction OS
-work: runtime APIs, golden fixtures, explicit decoder routing, GF(2)/stabilizer
-symbolic sonification runtime, event mapping, MIDI-like export, prompt compilation,
-telemetry sonification, CLI fixtures, and demo benchmarks while QEC OS construction,
-syndrome/noise runtime, differential testing, and Odin migration readiness wait for v180.x.
+v167.x pivots the project toward executable symbolic sonification runtime work:
+event mapping, MIDI-like export, prompt compilation, telemetry sonification, CLI
+fixtures, and demo benchmarks while QEC OS construction, syndrome/noise runtime,
+differential testing, and Odin migration readiness wait for v193.x.
 
 * External dependencies are adapters, never authorities.
 * Simulation output is not truth.
@@ -482,10 +481,10 @@ syndrome/noise runtime, differential testing, and Odin migration readiness wait 
 * Decoder promotion is receipt-chain governance, not source replacement.
 * The decoder source remains untouched.
 * Governance approval is not runtime activation.
-* QEC OS runtime activation is deferred to v180.x and still requires an explicit tested router and golden corpus verification.
+* QEC OS runtime activation is deferred to v193.x and still requires an explicit tested router and golden corpus verification.
 * Receipt-only near-term releases are no longer accepted after v166.8.
 * Benchmarks are bounded observations, not correctness proofs.
-* Odin migration must be gated by v180.x golden fixtures and parity tests.
+* Odin migration must be gated by v193.x golden fixtures and parity tests.
 
 ## Proof Artifacts
 

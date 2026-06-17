@@ -1086,7 +1086,8 @@ mapping pack that the sonification runtime can load.
 
 Files / Modules to Add:
 
-src/qec/sonify/packs.py
+src/qec/sonify/packs/__init__.py
+src/qec/sonify/packs/loader.py
 src/qec/sonify/packs/cosmovirus_v1.json
 tests/sonify/test_cosmovirus_pack.py
 
@@ -1365,20 +1366,23 @@ symbolic sonification runtime iteration.
 
 Deferred target:
 
-v180.x — QEC OS Runtime & Benchmark Reset
+v193.x — QEC OS Runtime & Benchmark Reset
+
+This uses v193.x rather than v180.x so it does not collide with the existing
+v180.x Deterministic Quantum ML Boundary Receipts dependency target.
 
 Deferred sequence:
 
-v180.0 → QECOSRuntimeSkeleton
-v180.1 → GoldenCorpusSeed
-v180.2 → BaselineDecoderRuntimeAPI
-v180.3 → PromotedDecoderRuntimeRouter
-v180.4 → GF2AndStabilizerCore
-v180.5 → QLDPCConstructionHarness
-v180.6 → SyndromeNoiseRuntime
-v180.7 → BenchmarkHarnessAndLER
-v180.8 → CrossBackendDifferentialHarness
-v180.9 → OdinPortReadinessAndParitySpec
+v193.0 → QECOSRuntimeSkeleton
+v193.1 → GoldenCorpusSeed
+v193.2 → BaselineDecoderRuntimeAPI
+v193.3 → PromotedDecoderRuntimeRouter
+v193.4 → GF2AndStabilizerCore
+v193.5 → QLDPCConstructionHarness
+v193.6 → SyndromeNoiseRuntime
+v193.7 → BenchmarkHarnessAndLER
+v193.8 → CrossBackendDifferentialHarness
+v193.9 → OdinPortReadinessAndParitySpec
 
 The deferred QEC OS arc remains important. It should resume after the sonification
 runtime proves the project can ship executable Python releases quickly and cleanly.

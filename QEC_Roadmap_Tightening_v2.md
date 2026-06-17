@@ -3,8 +3,8 @@
 > **Superseded planning note:** This document records the earlier second-pass QEC OS
 > tightening plan. The active roadmap now reserves v167.x for Symbolic
 > Sonification Runtime & Event Mapping and defers this QEC OS Runtime & Benchmark
-> Reset sequence to v180.0–v180.9. Treat any v167.x QEC OS references below as
-> historical aliases for the deferred v180.x sequence.
+> Reset sequence to v193.0–v193.9. Treat any v167.x QEC OS references below as
+> historical aliases for the deferred v193.x sequence.
 
 **Repository:** QSOLKCB/QEC  
 **Completed Release:** v166.8 — DecoderPromotionReceipt  

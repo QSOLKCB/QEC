@@ -1,3 +1,8 @@
+> **Superseded planning note:** The active roadmap now reserves v167.x for
+> Symbolic Sonification Runtime & Event Mapping. QEC OS Runtime & Benchmark Reset
+> work described here has been deferred to v180.0–v180.9; v167.x QEC OS labels in
+> this historical pivot note should be read as old aliases, not current targets.
+
 ---
 
 ## 🔄 Roadmap Pivot — Post-v166.8

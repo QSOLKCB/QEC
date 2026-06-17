@@ -1024,6 +1024,29 @@ symbolic mapping tokens unless independently supported elsewhere.
 HPV16 references are symbolic motif labels only. No medical or biological claim is
 made or implied.
 
+### Shared v167.x Sonification Release Constraints
+
+The following acceptance gates and prohibitions apply to every v167.x symbolic
+sonification subrelease unless a subrelease explicitly adds a stricter rule.
+Per-release sections list only deliverable-specific gates and additional
+constraints to avoid repeating the same boilerplate across the roadmap.
+
+Shared Acceptance Gates:
+
+- deterministic canonical output for any generated event, mapping, prompt, MIDI JSON, fixture, benchmark, or demo artifact
+- pytest coverage for the relevant `tests/sonify/` surface
+- no live network, LLM, audio-device, or hardware dependency in tests
+- symbolic/creative status is recorded wherever generated artifacts could be misread as scientific evidence
+
+Shared Must Not Do:
+
+- no receipt-only artifact
+- no prose-only release
+- no hidden randomness or unbounded loops
+- no medical, biological, cosmological, physics, QEC-advantage, decoder-correctness, or musical-superiority claims
+- no mutation of `src/qec/decoder/`
+- no source signal, symbolic token, backend, benchmark, model output, or generated audio treated as authority
+
 v167.0 — SymbolicSonificationRuntimeSkeleton
 
 Purpose: Create the Python package skeleton for deterministic symbolic
@@ -1050,17 +1073,11 @@ Acceptance Gates:
 
 event stream round-trip is hash-stable
 event ordering is deterministic
-no audio rendering required
 no MIDI export yet
-pytest tests/sonify/ passes
 
-Must Not Do:
+Additional Must Not Do:
 
-no receipt-only artifact
-no audio device dependency
-no live network calls
-no medical / biological / cosmological claims
-no decoder changes
+no MIDI exporter scope creep before v167.5
 
 v167.1 — CosmovirusMappingPack
 
@@ -1091,14 +1108,9 @@ Acceptance Gates:
 mapping pack loads without error
 every symbolic token has a declared musical mapping
 HPV16 token is labelled symbolic_motif_only=true
-no source signal is treated as authority
-pytest tests/sonify/ passes
 
-Must Not Do:
+Additional Must Not Do:
 
-no medical claims
-no biological causality claims
-no cosmology claims
 no generated audio yet
 
 v167.2 — TernaryFuzzyMusicStateEngine
@@ -1127,12 +1139,9 @@ Acceptance Gates:
 state transitions are deterministic
 invalid fuzzy values outside [0, 1] are rejected
 ternary states round-trip through canonical JSON
-pytest tests/sonify/ passes
 
-Must Not Do:
+Additional Must Not Do:
 
-no stochastic state transitions
-no hidden randomness
 no claim that fuzzy/ternary music is proof
 
 v167.3 — TopologicalGraphMusicMapper
@@ -1157,16 +1166,12 @@ Traversals become deterministic event streams.
 Acceptance Gates:
 
 graph traversal order is deterministic
-cycles do not create unbounded loops
-max traversal depth is required
+cycles are bounded by required max traversal depth
 same graph + same traversal policy → same event hash
-pytest tests/sonify/ passes
 
-Must Not Do:
+Additional Must Not Do:
 
 no real E8 implementation required
-no graph treated as physical truth
-no unbounded recursion
 
 v167.4 — GoldenRatioRhythmPitchEngine
 
@@ -1188,12 +1193,10 @@ Acceptance Gates:
 no floating-point nondeterminism in canonical identity
 rational approximations are used for hash-sensitive values
 same parameters → same rhythm/pitch event stream
-pytest tests/sonify/ passes
 
-Must Not Do:
+Additional Must Not Do:
 
 no hidden float drift in canonical hashes
-no musical superiority claims
 no mystical numerology claims
 
 v167.5 — SymbolicEventMIDIExporter
@@ -1217,14 +1220,10 @@ Acceptance Gates:
 
 MIDI JSON output is deterministic
 note-on/note-off pairs are balanced
-no audio rendering required
 no external MIDI dependency required
-pytest tests/sonify/ passes
 
-Must Not Do:
+Additional Must Not Do:
 
-no hardware MIDI device dependency
-no audio playback requirement
 no live rendering
 
 v167.6 — LyricPromptCompiler
@@ -1251,16 +1250,12 @@ instrumental_prompt
 Acceptance Gates:
 
 same mapping pack + same template → same prompt hash
-no LLM/API call
 forbidden claim phrases are rejected
 symbolic/creative status is included in prompt metadata
-pytest tests/sonify/ passes
 
-Must Not Do:
+Additional Must Not Do:
 
-no API calls
-no model output as evidence
-no medical/cosmological truth claims
+no generated prompt treated as evidence
 
 v167.7 — QECProofTelemetrySonifier
 
@@ -1287,9 +1282,8 @@ Acceptance Gates:
 same telemetry fixture → same event stream
 pytest-like summary fixtures are supported
 hash mismatch events are visibly/audibly distinct in event metadata
-pytest tests/sonify/ passes
 
-Must Not Do:
+Additional Must Not Do:
 
 no test execution in this module
 no dashboard claims
@@ -1322,13 +1316,10 @@ Acceptance Gates:
 CLI exits zero for valid pack
 CLI exits nonzero for invalid pack
 CLI output matches golden fixtures
-pytest tests/sonify/ passes
 
-Must Not Do:
+Additional Must Not Do:
 
-no network calls
-no audio playback
-no LLM calls
+no CLI flag that performs network, playback, or LLM calls
 
 v167.9 — SonificationDemoCorpusAndBenchmark
 
@@ -1356,15 +1347,12 @@ Acceptance Gates:
 demo corpus is deterministic
 benchmark script runs locally
 benchmark output is JSON
-no performance marketing
-pytest tests/sonify/ passes
 
-Must Not Do:
+Additional Must Not Do:
 
 no audio quality claims
 no QEC performance claims
-no hardware authority
-no medical/biological/cosmological claims
+no benchmark marketing
 
 Deferred QEC OS Runtime & Benchmark Reset
 

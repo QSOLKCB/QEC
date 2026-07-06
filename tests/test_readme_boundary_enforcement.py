@@ -5,11 +5,11 @@ import pytest
 from scripts.update_readme_release_metadata import _validate_boundaries, update_readme
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-LATEST_RELEASE = "v165.4"
-FRONTIER = "v165.5.0 — DataframeBackendManifest"
-ACTIVE_ARC = "v165.5.x — Deterministic Dataframe / Columnar Backend Receipts"
-COMPLETED_ARC = "v165.x — Optimized QEC Simulation Backends"
-REPOSITORY_STATUS = "v165.4 → OptimizedSimulationReport"
+LATEST_RELEASE = "v166.8"
+FRONTIER = "v167.0 — SymbolicSonificationRuntimeSkeleton"
+ACTIVE_ARC = "v167.x — Symbolic Sonification Runtime & Event Mapping"
+COMPLETED_ARC = "v166.x — QLDPC / Hashing-Bound Code Receipts / Decoder Governance"
+REPOSITORY_STATUS = "v166.8 → DecoderPromotionReceipt"
 
 
 def _run_update(text: str) -> str:
@@ -41,14 +41,14 @@ Completed arc: **v163.x — z**
 Repository status is current through **v164.2 → OldStatus**.
 """
     out = _run_update(stale)
-    assert "stable-v165.4-success" in out
-    assert "releases/tag/v165.4" in out
-    assert "branch-v165.4%20canonical-purple" in out
-    assert "Current release line: **v165.4**" in out
-    assert "Current frontier: **v165.5.0 — DataframeBackendManifest**" in out
-    assert "Active arc: **v165.5.x — Deterministic Dataframe / Columnar Backend Receipts**" in out
-    assert "Completed arc: **v165.x — Optimized QEC Simulation Backends**" in out
-    assert "Repository status is current through **v165.4 → OptimizedSimulationReport**." in out
+    assert "stable-v166.8-success" in out
+    assert "releases/tag/v166.8" in out
+    assert "branch-v166.8%20canonical-purple" in out
+    assert "Current release line: **v166.8**" in out
+    assert "Current frontier: **v167.0 — SymbolicSonificationRuntimeSkeleton**" in out
+    assert "Active arc: **v167.x — Symbolic Sonification Runtime & Event Mapping**" in out
+    assert "Completed arc: **v166.x — QLDPC / Hashing-Bound Code Receipts / Decoder Governance**" in out
+    assert "Repository status is current through **v166.8 → DecoderPromotionReceipt**." in out
 
 
 def test_readme_updater_rejects_no_effect_when_stale():

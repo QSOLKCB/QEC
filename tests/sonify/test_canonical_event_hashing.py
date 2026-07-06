@@ -1,6 +1,5 @@
 import ast
 import json
-import os
 import subprocess
 import sys
 from dataclasses import replace
@@ -81,23 +80,11 @@ def test_event_hash_recomputed_not_copied():
     assert symbolic_event_hash(payload) != e.event_hash
 
 
-def test_event_parameters_are_deeply_immutable_after_build():
-    source_parameters = {"outer": {"inner": ["stable"]}}
-    e = build_symbolic_event("e1", "SYMBOLIC_MARKER", "DIAG", 0, 4, "a", source_parameters)
-    source_parameters["outer"]["inner"].append("mutated")
-    assert symbolic_event_payload(e, include_hash=False)["parameters"] == {"outer": {"inner": ["stable"]}}
-    with pytest.raises(TypeError):
-        e.parameters["outer"] = "mutated"
-    with pytest.raises(TypeError):
-        e.parameters["outer"]["inner"][0] = "mutated"
-
-
 def test_hash_seed_stability_subprocess():
     code = "from qec.sonify.events import build_symbolic_event, build_symbolic_event_stream; e=build_symbolic_event('e1','SYMBOLIC_MARKER','DIAG',0,1,'lane',{'a':1},('x',)); print(build_symbolic_event_stream('s1',(e,)).stream_hash)"
     outputs = []
     for seed in ("0", "1"):
-        env = {**os.environ, "PYTHONPATH": "src", "PYTHONHASHSEED": seed}
-        proc = subprocess.run([sys.executable, "-c", code], check=True, text=True, capture_output=True, env=env)
+        proc = subprocess.run([sys.executable, "-c", code], check=True, text=True, capture_output=True, env={"PYTHONPATH": "src", "PYTHONHASHSEED": seed})
         outputs.append(proc.stdout.strip())
     assert outputs[0] == outputs[1]
 

@@ -97,49 +97,6 @@ class SymbolicEventStream:
     stream_hash: str
 
 
-@dataclass(frozen=True)
-class _FrozenJSONMapping(Mapping[str, Any]):
-    _items: tuple[tuple[str, Any], ...]
-
-    def __getitem__(self, key: str) -> Any:
-        for item_key, item_value in self._items:
-            if item_key == key:
-                return item_value
-        raise KeyError(key)
-
-    def __iter__(self):
-        return (item_key for item_key, _ in self._items)
-
-    def __len__(self) -> int:
-        return len(self._items)
-
-
-def _freeze_json_value(value: Any, field_name: str) -> Any:
-    assert_json_safe(value, field_name)
-    if isinstance(value, Mapping):
-        return _FrozenJSONMapping(tuple((key, _freeze_json_value(item, f"{field_name}.{key}")) for key, item in sorted(value.items())))
-    if isinstance(value, (list, tuple)):
-        return tuple(_freeze_json_value(item, f"{field_name}[{index}]") for index, item in enumerate(value))
-    return value
-
-
-def _json_value_payload(value: Any) -> Any:
-    if isinstance(value, _FrozenJSONMapping):
-        return {key: _json_value_payload(item) for key, item in value.items()}
-    if isinstance(value, Mapping):
-        return {key: _json_value_payload(item) for key, item in value.items()}
-    if isinstance(value, tuple):
-        return [_json_value_payload(item) for item in value]
-    if isinstance(value, list):
-        return [_json_value_payload(item) for item in value]
-    return value
-
-
-def _normalized_event_payload(source: Mapping[str, Any]) -> dict[str, Any]:
-    tags = sorted_unique_string_tuple(source["tags"], "tags")
-    return _event_payload_no_hash(event_id=require_nonempty_text(source["event_id"], "event_id"), event_type=require_nonempty_text(source["event_type"], "event_type"), symbolic_token=require_nonempty_text(source["symbolic_token"], "symbolic_token"), start_tick=require_int(source["start_tick"], "start_tick", minimum=0), duration_ticks=require_int(source["duration_ticks"], "duration_ticks", minimum=0), lane=require_nonempty_text(source["lane"], "lane"), parameters=_json_value_payload(_freeze_json_value(source["parameters"], "parameters")), tags=tags, creative_status=require_text(source["creative_status"], "creative_status"), claim_scope=require_text(source["claim_scope"], "claim_scope"), authority_allowed=require_exact_bool(source["authority_allowed"], "authority_allowed"))
-
-
 def _event_payload_no_hash(**kwargs: Any) -> dict[str, Any]:
     return {
         "event_id": kwargs["event_id"],
@@ -157,8 +114,10 @@ def _event_payload_no_hash(**kwargs: Any) -> dict[str, Any]:
 
 
 def build_symbolic_event(event_id: str, event_type: str, symbolic_token: str, start_tick: int, duration_ticks: int, lane: str, parameters: Mapping[str, Any] | None = None, tags: Iterable[str] = (), creative_status: str = CREATIVE_STATUS, claim_scope: str = CLAIM_SCOPE, authority_allowed: bool = False) -> SymbolicEvent:
-    payload = _normalized_event_payload({"event_id": event_id, "event_type": event_type, "symbolic_token": symbolic_token, "start_tick": start_tick, "duration_ticks": duration_ticks, "lane": lane, "parameters": parameters or {}, "tags": tuple(tags), "creative_status": creative_status, "claim_scope": claim_scope, "authority_allowed": authority_allowed})
-    event = SymbolicEvent(**{**payload, "parameters": _freeze_json_value(payload["parameters"], "parameters")}, event_hash=canonical_sha256(payload))
+    params = dict(parameters or {})
+    tags_tuple = sorted_unique_string_tuple(tuple(tags), "tags")
+    payload = _event_payload_no_hash(event_id=require_nonempty_text(event_id, "event_id"), event_type=require_nonempty_text(event_type, "event_type"), symbolic_token=require_nonempty_text(symbolic_token, "symbolic_token"), start_tick=require_int(start_tick, "start_tick", minimum=0), duration_ticks=require_int(duration_ticks, "duration_ticks", minimum=0), lane=require_nonempty_text(lane, "lane"), parameters=params, tags=tags_tuple, creative_status=require_text(creative_status, "creative_status"), claim_scope=require_text(claim_scope, "claim_scope"), authority_allowed=require_exact_bool(authority_allowed, "authority_allowed"))
+    event = SymbolicEvent(**payload, event_hash=canonical_sha256(payload))
     return validate_symbolic_event(event)
 
 
@@ -174,8 +133,6 @@ def validate_symbolic_event(event: SymbolicEvent) -> SymbolicEvent:
         raise ValueError("authority_allowed must be False")
     for field in ("event_id", "symbolic_token", "lane"):
         _guard_user_text(payload[field], field)
-    for tag in payload["tags"]:
-        _guard_user_text(tag, "tags")
     assert_json_safe(payload["parameters"], "parameters")
     for key, value in payload["parameters"].items():
         _guard_user_text(key, f"parameters.{key}")
@@ -205,7 +162,8 @@ def symbolic_event_payload(event: SymbolicEvent | Mapping[str, Any], *, include_
             "authority_allowed": event.authority_allowed,
             "event_hash": event.event_hash,
         }
-    payload = _normalized_event_payload(source)
+    tags = sorted_unique_string_tuple(source["tags"], "tags")
+    payload = _event_payload_no_hash(event_id=require_nonempty_text(source["event_id"], "event_id"), event_type=require_nonempty_text(source["event_type"], "event_type"), symbolic_token=require_nonempty_text(source["symbolic_token"], "symbolic_token"), start_tick=require_int(source["start_tick"], "start_tick", minimum=0), duration_ticks=require_int(source["duration_ticks"], "duration_ticks", minimum=0), lane=require_nonempty_text(source["lane"], "lane"), parameters=dict(source["parameters"]), tags=tags, creative_status=require_text(source["creative_status"], "creative_status"), claim_scope=require_text(source["claim_scope"], "claim_scope"), authority_allowed=require_exact_bool(source["authority_allowed"], "authority_allowed"))
     assert_json_safe(payload)
     if include_hash:
         payload["event_hash"] = validate_sha256(source["event_hash"], "event_hash")

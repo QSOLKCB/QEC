@@ -66,36 +66,32 @@ Recent preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay
 Signatures — Hash-Bound Checkpoints, Subsystem Drift Receipts, and
 Replay-Resistant Proof Chains**.
 
-## Exact qutrit decoder and harmonic lab
+## Qutrit harmonic QEC update
 
-QEC now contains an opt-in, mathematically exact qutrit stabilizer path under
-`src/qec/decoder/qutrit/`. It keeps the legacy ternary message decoder frozen as
-a regression baseline while adding:
+This update adds:
 
-- exact symplectic \(GF(3)\) stabilizer validation and bounded coset decoding;
+- an opt-in exact \(GF(3)\) stabilizer decoder under
+  `src/qec/decoder/qutrit/`;
 - cyclic \([[5,1,3]]_3\), Shor \([[9,1,3]]_3\), and ternary Golay
-  \([[11,1,5]]_3\) reference codes;
-- exhaustive correction of 40, 72, and 3,608 respective non-identity errors;
-- harmonic syndrome reads with informative H1/H2 redundancy and a state-dark
-  H3 distortion invariant;
-- a unitary collective-mode spectrum and typed ETQ-303 observation addresses;
+  \([[11,1,5]]_3\) codes;
+- fail-closed H1/H2 syndrome redundancy, an H3 state-dark distortion
+  invariant, collective modes, and ETQ-303 observation addresses;
+- exact finite-code curves, correctable-radius bounds, deterministic
+  false-positive stress tests, and a hash-bound benchmark report;
 - a dependency-free offline [Qutrit Harmonic Lab](viz/index.html).
 
-Run `qec-qutrit` for the canonical exact-enumeration certificate. See
-[the mathematical and research boundary](docs/QUTRIT_HARMONIC_QEC.md).
+The historical decoder and byte-identical v3 baseline remain unchanged.
 
-The opt-in benchmark battery leaves the historical decoder and its v3 baseline
-untouched. Run:
+Run:
 
 ```bash
+qec-qutrit
 qec-qutrit-bench
+npm test
 ```
 
-It produces exact bounded-decoder curves for tractable finite codes, rigorous
-correctable-radius bounds for larger references, deterministic all-weight
-false-positive stress results, an immutable v3.0.0–v3.9.1 overlay, and a
-separate source-bound industry evidence table. See the
-[benchmark methodology and claim boundary](docs/QUTRIT_DECODER_BENCHMARKS.md).
+See the [decoder boundary](docs/QUTRIT_HARMONIC_QEC.md) and
+[benchmark methodology](docs/QUTRIT_DECODER_BENCHMARKS.md).
 
 ## 📚 DOIs
 

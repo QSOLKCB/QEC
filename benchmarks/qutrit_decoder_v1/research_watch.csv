@@ -1,0 +1,6 @@
+topic,result,adoption,reason,source_url
+spectral_qldpc_absorbing_sets,"DFT block diagonalisation, cycle counts, and Fourier absorbing-set expressions for lifted-product codes",future_code_design_diagnostic,structural diagnostic; does not replace exact decoding,https://arxiv.org/abs/2607.13666
+bivariate_bicycle_qldpc,"[[144,12,12]] high-rate memory target",radius_bound_only,no common circuit-level decoder installed,https://arxiv.org/abs/2308.07915
+qudit_qldpc,"constructions over GF(q), including q=3",research_target,not interchangeable with the finite qutrit codes,https://arxiv.org/abs/2510.06495
+maximum_likelihood_decoding,logical-class likelihood is the optimal objective,principle_only,bounded exact decoder retained; no approximate heuristic added,https://arxiv.org/abs/2605.17230
+real_time_surface_decoding,550 ns closed loop; 124 ns decoder at distance 3,external_latency_reference,neural hardware result is not a common-model comparator,https://arxiv.org/abs/2605.04892

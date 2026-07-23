@@ -58,12 +58,15 @@ dmypy.json
 
 # CSV files
 *.csv
+!benchmarks/qutrit_decoder_v1/
+!benchmarks/qutrit_decoder_v1/*.csv
 
 # PDF files
 *.pdf
 
 # HTML files
 *.html
+!viz/index.html
 
 # Benchmark output artifacts
 benchmark_v68_*.json

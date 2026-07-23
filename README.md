@@ -66,6 +66,37 @@ Recent preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay
 Signatures — Hash-Bound Checkpoints, Subsystem Drift Receipts, and
 Replay-Resistant Proof Chains**.
 
+## Exact qutrit decoder and harmonic lab
+
+QEC now contains an opt-in, mathematically exact qutrit stabilizer path under
+`src/qec/decoder/qutrit/`. It keeps the legacy ternary message decoder frozen as
+a regression baseline while adding:
+
+- exact symplectic \(GF(3)\) stabilizer validation and bounded coset decoding;
+- cyclic \([[5,1,3]]_3\), Shor \([[9,1,3]]_3\), and ternary Golay
+  \([[11,1,5]]_3\) reference codes;
+- exhaustive correction of 40, 72, and 3,608 respective non-identity errors;
+- harmonic syndrome reads with informative H1/H2 redundancy and a state-dark
+  H3 distortion invariant;
+- a unitary collective-mode spectrum and typed ETQ-303 observation addresses;
+- a dependency-free offline [Qutrit Harmonic Lab](viz/index.html).
+
+Run `qec-qutrit` for the canonical exact-enumeration certificate. See
+[the mathematical and research boundary](docs/QUTRIT_HARMONIC_QEC.md).
+
+The opt-in benchmark battery leaves the historical decoder and its v3 baseline
+untouched. Run:
+
+```bash
+qec-qutrit-bench
+```
+
+It produces exact bounded-decoder curves for tractable finite codes, rigorous
+correctable-radius bounds for larger references, deterministic all-weight
+false-positive stress results, an immutable v3.0.0–v3.9.1 overlay, and a
+separate source-bound industry evidence table. See the
+[benchmark methodology and claim boundary](docs/QUTRIT_DECODER_BENCHMARKS.md).
+
 ## 📚 DOIs
 
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19697907-blue)](https://doi.org/10.5281/zenodo.19697907)
@@ -76,6 +107,9 @@ Replay-Resistant Proof Chains**.
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19840786-blue)](https://doi.org/10.5281/zenodo.19840786)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20039913-blue)](https://doi.org/10.5281/zenodo.20039913)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20045771-blue)](https://doi.org/10.5281/zenodo.20045771)
+[![ETQ-303](https://img.shields.io/badge/ETQ--303-10.5281%2Fzenodo.21494678-blue)](https://doi.org/10.5281/zenodo.21494678)
+[![Spectral Algebraics](https://img.shields.io/badge/Spectral_Algebraics-10.5281%2Fzenodo.21308248-blue)](https://doi.org/10.5281/zenodo.21308248)
+[![Collective Modes](https://img.shields.io/badge/Collective_Modes-10.5281%2Fzenodo.21293821-blue)](https://doi.org/10.5281/zenodo.21293821)
 [![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
 
 # ✅ System Properties
@@ -547,7 +581,7 @@ This attribution is informational only and does not influence canonical identity
 
 **Author / Maintainer: Trent Slade, QSOL-IMC**
 
-* ORCID: [https://orcid.org/0009-0006-5966-1243](https://orcid.org/0009-0006-5966-1243)
+* ORCID: [https://orcid.org/0009-0002-4515-9237](https://orcid.org/0009-0002-4515-9237)
 * GitHub: [https://github.com/QSOLKCB](https://github.com/QSOLKCB)
 
 ```

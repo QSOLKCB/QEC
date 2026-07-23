@@ -1,0 +1,10 @@
+code_id,certified_radius,fault_case,errors_tested,accepted,successful,false_accepts,expected,claim_scope
+qutrit_cyclic_5,1,clean,40,40,40,0,accept_and_correct_all,classical_harmonic_observation_fault_injection
+qutrit_cyclic_5,1,h2_disagreement,40,0,0,0,reject_all,classical_harmonic_observation_fault_injection
+qutrit_cyclic_5,1,h3_dark_distortion,40,0,0,0,reject_all,classical_harmonic_observation_fault_injection
+qutrit_shor_9,1,clean,72,72,72,0,accept_and_correct_all,classical_harmonic_observation_fault_injection
+qutrit_shor_9,1,h2_disagreement,72,0,0,0,reject_all,classical_harmonic_observation_fault_injection
+qutrit_shor_9,1,h3_dark_distortion,72,0,0,0,reject_all,classical_harmonic_observation_fault_injection
+qutrit_golay_11,2,clean,3608,3608,3608,0,accept_and_correct_all,classical_harmonic_observation_fault_injection
+qutrit_golay_11,2,h2_disagreement,3608,0,0,0,reject_all,classical_harmonic_observation_fault_injection
+qutrit_golay_11,2,h3_dark_distortion,3608,0,0,0,reject_all,classical_harmonic_observation_fault_injection

@@ -2,6 +2,11 @@
   "name": "demo-repo",
   "version": "0.2.0",
   "description": "A sample package.json",
+  "private": true,
+  "scripts": {
+    "test": "node viz/test-core.js",
+    "check": "node --check viz/qutrit-core.js && node --check viz/qutrit-draw.js && node --check viz/qutrit-viz.js"
+  },
   "dependencies": {
     "@primer/css": "17.0.1"
   },

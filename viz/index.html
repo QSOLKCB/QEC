@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Offline exact qutrit QEC and harmonic syndrome visual laboratory.">
+  <title>QEC · Qutrit Harmonic Lab</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="mark" aria-hidden="true">Q³<b>GF(3)</b></div>
+    <div>
+      <p class="eyebrow">QSOL-IMC · EXACT FINITE DECODER</p>
+      <h1>Qutrit Harmonic Lab</h1>
+      <p>Symplectic correction, spectral observation, and fail-closed sound.</p>
+    </div>
+    <span class="status"><i></i>offline-ready</span>
+  </header>
+
+  <main class="shell">
+    <aside class="rack" aria-label="Simulation controls">
+      <section>
+        <p class="section-label"><span>01</span> Code</p>
+        <label for="code">Qutrit stabilizer
+          <select id="code">
+            <option value="five">Cyclic [[5,1,3]]₃</option>
+            <option value="shor">Shor [[9,1,3]]₃</option>
+            <option value="golay" selected>Golay [[11,1,5]]₃</option>
+          </select>
+        </label>
+        <p id="code-note" class="note"></p>
+      </section>
+
+      <section>
+        <p class="section-label"><span>02</span> Weyl error</p>
+        <div class="error-grid">
+          <label for="site-a">Site A<select id="site-a"></select></label>
+          <label for="x-a">X power<select id="x-a"></select></label>
+          <label for="z-a">Z power<select id="z-a"></select></label>
+        </div>
+        <label class="check"><input id="second" type="checkbox" checked> Add a second-site error</label>
+        <div id="second-row" class="error-grid">
+          <label for="site-b">Site B<select id="site-b"></select></label>
+          <label for="x-b">X power<select id="x-b"></select></label>
+          <label for="z-b">Z power<select id="z-b"></select></label>
+        </div>
+      </section>
+
+      <section>
+        <p class="section-label"><span>03</span> Harmonic channel</p>
+        <label for="fault">Deterministic condition
+          <select id="fault">
+            <option value="none">Clean H1 + H2 + H3</option>
+            <option value="h2">H2 symbol discord</option>
+            <option value="h3">H3 dark-invariant break</option>
+          </select>
+        </label>
+        <button id="hear" class="primary" type="button">Hear syndrome</button>
+        <p class="note">H1 and H2 identify GF(3). H3 is state-dark and detects channel distortion.</p>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <div class="metrics" aria-label="Current exact result">
+        <article><span>Code</span><strong id="parameter"></strong><small id="radius"></small></article>
+        <article><span>Error</span><strong id="weight"></strong><small id="coverage"></small></article>
+        <article><span>Readout</span><strong id="trust"></strong><small id="outcome"></small></article>
+      </div>
+
+      <div class="visual-grid">
+        <article class="panel topology-panel">
+          <header><p class="eyebrow">SYMPLECTIC CODE SPACE</p><h2>Physical qutrits and residual</h2></header>
+          <canvas id="topology" role="img" aria-label="Circular qutrit code view showing error, correction, and residual support."></canvas>
+          <div class="legend"><span><i class="error"></i>error</span><span><i class="correction"></i>correction</span><span><i class="clean"></i>clean residual</span></div>
+        </article>
+
+        <article class="panel receiver-panel">
+          <header><p class="eyebrow">SPECTRAL RECEIVER</p><h2>Harmonic phase and collective modes</h2></header>
+          <canvas id="harmonics" role="img" aria-label="Harmonic qutrit syndrome phase receiver for orders one, two, and three."></canvas>
+          <canvas id="modes" role="img" aria-label="Collective mode power spectrum of the syndrome phasor field."></canvas>
+        </article>
+      </div>
+
+      <section class="inspector">
+        <header><p class="eyebrow">EXACT SYNDROME</p><h2 id="cycle-status"></h2></header>
+        <div id="syndrome" class="syndrome" aria-label="GF(3) syndrome symbols"></div>
+        <dl>
+          <div><dt>ETQ-303 address</dt><dd id="etq"></dd></div>
+          <div><dt>H1 ↔ H2</dt><dd id="agreement"></dd></div>
+          <div><dt>H3 invariant</dt><dd id="dark"></dd></div>
+          <div><dt>Residual weight</dt><dd id="residual"></dd></div>
+        </dl>
+      </section>
+
+      <section class="boundary">
+        <b>≠</b><p><span>Claim boundary</span>Sound is a redundant classical syndrome receiver. Quantum protection comes from the GF(3) stabilizer code and exact correction conditions.</p>
+      </section>
+    </section>
+  </main>
+  <script src="qutrit-core.js"></script>
+  <script src="qutrit-draw.js"></script>
+  <script src="qutrit-viz.js"></script>
+</body>
+</html>

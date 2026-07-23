@@ -951,12 +951,39 @@ def test_boundary_static_import_and_runtime_marker_checks():
     assert not [marker for marker in forbidden_markers if marker in text]
 
 
-def test_no_decoder_source_modified_and_no_runtime_files_created():
-    diff = subprocess.run(["git", "diff", "--name-only", "--", "src/qec/decoder/"], cwd=ROOT, check=True, text=True, capture_output=True)
-    assert diff.stdout == ""
+def test_legacy_decoder_source_unchanged_and_no_forbidden_runtime_created():
+    diff = subprocess.run(
+        ["git", "diff", "--name-only", "--", "src/qec/decoder/"],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.splitlines()
+    assert not [
+        path
+        for path in diff
+        if not path.startswith("src/qec/decoder/qutrit/")
+    ]
+
     created = subprocess.run(["git", "status", "--short"], cwd=ROOT, check=True, text=True, capture_output=True).stdout
-    forbidden_paths = ["src/qec/decoder/", "fast_path_runtime", "candidate_decoder", "benchmark_runtime", "implementation_runtime"]
-    assert not [line for line in created.splitlines() for path in forbidden_paths if path in line]
+    paths = [line[3:] for line in created.splitlines() if len(line) > 3]
+    assert not [
+        path
+        for path in paths
+        if path.startswith("src/qec/decoder/")
+        and not path.startswith("src/qec/decoder/qutrit/")
+    ]
+    forbidden_markers = [
+        "fast_path_runtime",
+        "candidate_decoder",
+        "benchmark_runtime",
+        "implementation_runtime",
+    ]
+    assert not [
+        path
+        for path in paths
+        if any(marker in path for marker in forbidden_markers)
+    ]
 
 
 def test_hash_seed_stability_subprocess():

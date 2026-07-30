@@ -193,6 +193,12 @@ def exact_fer_row(error_rate: str | Decimal) -> dict[str, str]:
     p = Decimal(error_rate)
     if p < 0 or p > 1:
         raise ValueError("physical error rate must be in [0, 1]")
+    enumerator = exact_weight_enumerator()
+    weights = tuple(row["weight"] for row in enumerator)
+    n = max(weights)
+    if weights != tuple(range(n + 1)):
+        raise AssertionError("weight enumerator must cover every weight from 0 through n")
+
     with localcontext() as context:
         context.prec = 60
         local = p / Decimal(15)
@@ -200,15 +206,11 @@ def exact_fer_row(error_rate: str | Decimal) -> dict[str, str]:
         corrected = Decimal(0)
         detected = Decimal(0)
         logical = Decimal(0)
-        for row in exact_weight_enumerator():
+        for row in enumerator:
             weight = row["weight"]
-            local_factor = Decimal(1) if weight == 0 else local ** weight
-            identity_factor = (
-                Decimal(1)
-                if weight == 5
-                else one_minus ** (5 - weight)
+            probability_per_pattern = (
+                (local ** weight) * (one_minus ** (n - weight))
             )
-            probability_per_pattern = local_factor * identity_factor
             corrected += Decimal(row["corrected"]) * probability_per_pattern
             detected += (
                 Decimal(row["detected_uncorrectable"])

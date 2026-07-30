@@ -41,6 +41,7 @@ def test_exact_fer_is_zero_at_zero_and_quadratic_at_small_p():
 
 
 def test_exact_probabilities_sum_to_one():
-    row = exact_fer_row("0.03")
-    total = Decimal(row["success_rate"]) + Decimal(row["frame_error_rate"])
-    assert abs(total - Decimal(1)) < Decimal("1e-16")
+    for error_rate in ("0.03", "1"):
+        row = exact_fer_row(error_rate)
+        total = Decimal(row["success_rate"]) + Decimal(row["frame_error_rate"])
+        assert abs(total - Decimal(1)) < Decimal("1e-16")

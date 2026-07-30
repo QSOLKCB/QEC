@@ -1,6 +1,18 @@
 name: Ququart FER Pages
 
 on:
+  pull_request:
+    paths:
+      - "src/qec/decoder/ququart/**"
+      - "src/qec/benchmark/ququart_battery/**"
+      - "src/qec/sonify/ququart_harmonics.py"
+      - "tests/test_ququart_fer_oracle.py"
+      - "tests/test_ququart_battery_channels.py"
+      - "tests/test_ququart_harmonic_battery.py"
+      - "tests/test_ququart_battery_report.py"
+      - "viz/**"
+      - "pyproject.toml"
+      - ".github/workflows/ququart-fer-pages.yml"
   push:
     branches: [main]
     paths:
@@ -22,7 +34,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ququart-fer-pages
+  group: ququart-fer-pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -63,14 +75,17 @@ jobs:
         run: touch viz/.nojekyll
 
       - name: Configure Pages
+        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4
         with:
           path: viz
 
   deploy:
+    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

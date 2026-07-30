@@ -65,9 +65,15 @@
     `<option value="${channel}">${channel.replaceAll("_", " ")}</option>`
   ).join("");
 
-  function logBounds(values) {
-    const positive = values.filter(value => value > 0);
-    return [Math.min(...positive), Math.max(...positive)];
+  function logBounds(values, fallback) {
+    const positive = values
+      .map(Number)
+      .filter(value => Number.isFinite(value) && value > 0);
+    if (positive.length === 0) return [...fallback];
+    const minimum = Math.min(...positive);
+    const maximum = Math.max(...positive);
+    if (minimum === maximum) return [minimum / 10, maximum * 10];
+    return [minimum, maximum];
   }
 
   function drawChart(channel) {
@@ -85,8 +91,8 @@
     const margin = {left: 78, right: 28, top: 35, bottom: 62};
     const allX = [...exact, ...mc].map(point => point.x);
     const allY = [...exact, ...mc].map(point => point.y);
-    const [xmin, xmax] = logBounds(allX);
-    const [yminRaw, ymax] = logBounds(allY);
+    const [xmin, xmax] = logBounds(allX, [1e-5, 1]);
+    const [yminRaw, ymax] = logBounds(allY, [1e-10, 1]);
     const ymin = Math.min(yminRaw, 1e-10);
     const lx = value => Math.log10(value);
     const xScale = value => margin.left + (lx(value) - lx(xmin)) / (lx(xmax) - lx(xmin)) * (width - margin.left - margin.right);

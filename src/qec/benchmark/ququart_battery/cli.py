@@ -1,4 +1,4 @@
-"""CLI for the v170.1.0 exact ququart FER and harmonic battery."""
+"""CLI for the v170.1.1 ququart evidence and claim-validation battery."""
 
 from __future__ import annotations
 
@@ -14,14 +14,15 @@ from .report import build_report
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         description=(
-            "Build exact ququart FER, corrected Monte Carlo, and harmonic "
-            "fault-battery artifacts."
+            "Build exact channel FER oracles, corrected Monte Carlo evidence, "
+            "harmonic receiver telemetry, replication receipts, and validated "
+            "report claims."
         )
     )
     result.add_argument(
         "--output",
         type=Path,
-        default=Path("benchmarks/ququart_fer_v170_1_0"),
+        default=Path("benchmarks/ququart_fer_v170_1_1"),
     )
     result.add_argument(
         "--trials",

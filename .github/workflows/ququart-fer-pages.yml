@@ -6,10 +6,9 @@ on:
       - "src/qec/decoder/ququart/**"
       - "src/qec/benchmark/ququart_battery/**"
       - "src/qec/sonify/ququart_harmonics.py"
-      - "tests/test_ququart_fer_oracle.py"
-      - "tests/test_ququart_battery_channels.py"
-      - "tests/test_ququart_harmonic_battery.py"
-      - "tests/test_ququart_battery_report.py"
+      - "tests/test_ququart_*.py"
+      - "docs/QUQUART_FER_BATTERY.md"
+      - "docs/replications/**"
       - "viz/**"
       - "pyproject.toml"
       - ".github/workflows/ququart-fer-pages.yml"
@@ -19,10 +18,9 @@ on:
       - "src/qec/decoder/ququart/**"
       - "src/qec/benchmark/ququart_battery/**"
       - "src/qec/sonify/ququart_harmonics.py"
-      - "tests/test_ququart_fer_oracle.py"
-      - "tests/test_ququart_battery_channels.py"
-      - "tests/test_ququart_harmonic_battery.py"
-      - "tests/test_ququart_battery_report.py"
+      - "tests/test_ququart_*.py"
+      - "docs/QUQUART_FER_BATTERY.md"
+      - "docs/replications/**"
       - "viz/**"
       - "pyproject.toml"
       - ".github/workflows/ququart-fer-pages.yml"
@@ -53,23 +51,32 @@ jobs:
       - name: Install QEC
         run: python -m pip install -e ".[dev]"
 
-      - name: Run focused ququart battery tests
+      - name: Run focused ququart evidence tests
         run: >-
           python -m pytest -q
           tests/test_ququart_fer_oracle.py
+          tests/test_ququart_exact_channels.py
           tests/test_ququart_battery_channels.py
           tests/test_ququart_harmonic_battery.py
+          tests/test_ququart_report_claims.py
+          tests/test_ququart_replication_receipt.py
           tests/test_ququart_battery_report.py
           tests/test_ququart_stabilizer.py
           tests/test_ququart_harmonics.py
 
-      - name: Generate v170.1.0 evidence
+      - name: Generate v170.1.1 evidence
         run: >-
           qec-ququart-bench
           --output viz/ququart-fer/results
           --trials 10000
           --harmonic-trials 4000
           --seed 1701001
+
+      - name: Validate generated report claims
+        run: >-
+          qec-ququart-validate-report
+          --claims viz/ququart-fer/results/report_claims.json
+          --evidence viz/ququart-fer/results
 
       - name: Disable Jekyll processing
         run: touch viz/.nojekyll

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qec"
-version = "170.1.0"
+version = "170.1.1"
 description = "Deterministic multi-agent reasoning, governance, validation, and proof-artifact system for quantum error correction and invariant-driven computation."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -47,6 +47,7 @@ qec-qutrit = "qec.decoder.qutrit.demo:main"
 qec-ququart = "qec.decoder.ququart.demo:main"
 qec-qutrit-bench = "qec.benchmark.qutrit_battery.cli:main"
 qec-ququart-bench = "qec.benchmark.ququart_battery.cli:main"
+qec-ququart-validate-report = "qec.benchmark.ququart_battery.validate_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/QSOLKCB/QEC"

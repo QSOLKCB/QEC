@@ -4,46 +4,47 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <meta name="description" content="Exact finite ququart FER oracle and harmonic receiver fault battery for QEC v170.1.0.">
-  <title>QEC v170.1.0 · Ququart FER Oracle</title>
+  <meta name="description" content="Exact finite ququart FER oracles, replication receipts, and report-claim validation for QEC v170.1.1.">
+  <title>QEC v170.1.1 · Ququart Evidence Lab</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="masthead">
-    <div class="sigil" aria-hidden="true">Q⁴<span>170.1</span></div>
+    <div class="sigil" aria-hidden="true">Q⁴<span>170.1.1</span></div>
     <div>
       <p class="eyebrow">QSOL-IMC · EXACT FINITE EVIDENCE</p>
-      <h1>Ququart FER Oracle</h1>
-      <p class="lede">All 1,048,576 packed-Pauli patterns, corrected iid channels, and a fail-closed H1/H3/H2/H4 receiver battery.</p>
+      <h1>Ququart Evidence Lab</h1>
+      <p class="lede">Exact channel oracles, fail-closed harmonic telemetry, independent replication receipts, and claims that must agree with their own evidence.</p>
     </div>
     <a class="back" href="../">Qutrit lab ↗</a>
   </header>
 
   <main>
-    <section id="loading" class="notice">Loading generated v170.1.0 evidence…</section>
+    <section id="loading" class="notice">Loading generated v170.1.1 evidence…</section>
 
     <section id="report" hidden>
       <div class="metrics">
         <article><span>Exact basis</span><strong id="patterns"></strong><small>16⁵ packed patterns</small></article>
-        <article><span>Certified radius</span><strong>75 / 75</strong><small>all weight-one errors</small></article>
-        <article><span>Distance</span><strong id="distance"></strong><small>FER ≈ 10p²</small></article>
+        <article><span>Claim validation</span><strong id="claim-state"></strong><small>evidence-derived and fail-closed</small></article>
+        <article><span>Lane symmetry</span><strong id="lane-state"></strong><small>lane 0 ↔ lane 1 exact invariant</small></article>
+        <article><span>Replication</span><strong id="replication-state"></strong><small>qBraid parameter-bound receipt</small></article>
         <article><span>Manifest seed</span><strong id="seed"></strong><small>cell-local SHA-256 seeds</small></article>
       </div>
 
       <section class="panel chart-panel">
         <header>
-          <div><p class="eyebrow">CODE-CAPACITY PERFORMANCE</p><h2>Exact FER and Monte Carlo cross-check</h2></div>
+          <div><p class="eyebrow">EXACT CHANNEL PERFORMANCE</p><h2>Exact FER and Monte Carlo cross-check</h2></div>
           <label>Channel
             <select id="channel"></select>
           </label>
         </header>
-        <svg id="fer-chart" viewBox="0 0 960 460" role="img" aria-label="Log-log frame error rate chart"></svg>
-        <p class="caption">The exact curve applies to the full iid packed-depolarizing channel. Other selections show declared diagnostic channels only.</p>
+        <svg id="fer-chart" viewBox="0 0 960 460" role="img" aria-label="Log-log exact and Monte Carlo frame error rate chart"></svg>
+        <p id="chart-caption" class="caption"></p>
       </section>
 
       <div class="grid">
         <section class="panel">
-          <header><div><p class="eyebrow">EXHAUSTIVE ORACLE</p><h2>Outcome by physical weight</h2></div></header>
+          <header><div><p class="eyebrow">EXHAUSTIVE ORACLE</p><h2>Selected channel by physical weight</h2></div></header>
           <div class="table-wrap"><table id="weight-table"></table></div>
         </section>
 
@@ -53,9 +54,22 @@
         </section>
       </div>
 
+      <div class="grid">
+        <section class="panel evidence-card">
+          <header><div><p class="eyebrow">REPORT-CLAIM VALIDATOR</p><h2>Claims derived from evidence</h2></div></header>
+          <dl id="claim-facts" class="fact-list"></dl>
+        </section>
+
+        <section class="panel evidence-card">
+          <header><div><p class="eyebrow">INDEPENDENT REPLICATION</p><h2>qBraid v170.1.0 receipt</h2></div></header>
+          <dl id="replication-facts" class="fact-list"></dl>
+          <p class="caption">Hash-prefix agreement is preserved as prefix consistency; it is never promoted to a full SHA-256 match.</p>
+        </section>
+      </div>
+
       <section class="panel">
         <header>
-          <div><p class="eyebrow">END-TO-END READOUT</p><h2>Physical faults × complex harmonic noise</h2></div>
+          <div><p class="eyebrow">RECEIVER OPERATING CURVE</p><h2>Physical faults × complex harmonic noise</h2></div>
           <label>Physical p
             <select id="heat-rate"></select>
           </label>
@@ -66,11 +80,18 @@
       <section class="downloads panel">
         <header><div><p class="eyebrow">HASH-BOUND OUTPUT</p><h2>Evidence bundle</h2></div></header>
         <div class="download-grid">
-          <a href="results/exact_weight_enumerator.csv">Exact enumerator CSV</a>
-          <a href="results/exact_fer_curve.csv">Exact FER CSV</a>
-          <a href="results/monte_carlo_fer.csv">Monte Carlo CSV</a>
-          <a href="results/harmonic_fault_matrix.csv">Fault matrix CSV</a>
-          <a href="results/harmonic_end_to_end.csv">Harmonic sweep CSV</a>
+          <a href="results/exact_weight_enumerator.csv">Full exact enumerator</a>
+          <a href="results/exact_fer_curve.csv">Full exact FER</a>
+          <a href="results/exact_channel_weight_enumerator.csv">All channel enumerators</a>
+          <a href="results/exact_channel_fer.csv">All exact channel FER</a>
+          <a href="results/monte_carlo_fer.csv">Monte Carlo cross-checks</a>
+          <a href="results/harmonic_fault_matrix.csv">Harmonic fault matrix</a>
+          <a href="results/harmonic_end_to_end.csv">Harmonic end-to-end</a>
+          <a href="results/receiver_operating_curve.csv">Receiver operating curve</a>
+          <a href="results/lane_symmetry_certificate.json">Lane symmetry certificate</a>
+          <a href="results/report_claims.json">Report claims</a>
+          <a href="results/claim_validation.json">Claim validation</a>
+          <a href="results/qbraid_replication_receipt.json">qBraid replication receipt</a>
           <a href="results/methodology.json">Methodology JSON</a>
           <a href="results/benchmark_manifest.json">Manifest JSON</a>
         </div>
@@ -79,7 +100,7 @@
 
       <section class="boundary">
         <b>≠</b>
-        <p><span>Claim boundary</span>Exact finite code-capacity analysis is not a hardware threshold. Harmonic sound is a redundant classical receiver; protection comes from the packed stabilizer code and verified residual.</p>
+        <p><span>Claim boundary</span>Exact finite code-capacity behaviour is not a hardware threshold. Replication receipts bind software evidence and parameters; hardware claims require device, circuit, leakage, timing, and readout declarations.</p>
       </section>
     </section>
   </main>

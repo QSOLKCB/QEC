@@ -196,6 +196,7 @@ def build_report(
                 "decoder_rejection",
                 "trusted_correct_syndrome",
                 "receiver_false_trust",
+                "accepted_incorrect_syndrome",
                 "accepted_logical_residual",
             ],
         },

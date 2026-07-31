@@ -1,6 +1,31 @@
 
 # QSOLKCB / QEC
 
+<!-- LAB-LAUNCHER:START -->
+<p align="center">
+  <strong>Deterministic quantum error-correction labs, proof receipts, and reproducible evidence.</strong>
+</p>
+
+<p align="center">
+  <a href="https://qsolkcb.github.io/QEC/"><img alt="Open Qutrit Harmonic Lab" src="https://img.shields.io/badge/OPEN-QUTRIT_HARMONIC_LAB-d4a84b?style=for-the-badge&logo=githubpages&logoColor=111827"></a>
+  <a href="https://qsolkcb.github.io/QEC/ququart-fer/"><img alt="Open Ququart Evidence Lab" src="https://img.shields.io/badge/OPEN-QUQUART_EVIDENCE_LAB-6f9f9b?style=for-the-badge&logo=githubpages&logoColor=111827"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/QSOLKCB/QEC/releases/tag/v170.1.1"><img alt="QEC v170.1.1" src="https://img.shields.io/badge/QEC-v170.1.1-6f7f8f?style=flat-square"></a>
+  <img alt="Offline ready" src="https://img.shields.io/badge/LABS-OFFLINE--READY-7f9f88?style=flat-square">
+  <img alt="No install required" src="https://img.shields.io/badge/NO_INSTALL-BROWSER_NATIVE-8b8175?style=flat-square">
+</p>
+
+<p align="center">
+  <sub>
+    <a href="https://qsolkcb.github.io/QEC/">Qutrit Harmonic Lab</a>
+    ·
+    <a href="https://qsolkcb.github.io/QEC/ququart-fer/">Ququart FER, replication receipts, and report-claim validation</a>
+  </sub>
+</p>
+<!-- LAB-LAUNCHER:END -->
+
 QEC is a deterministic, replay-safe proof and systems architecture for quantum
 error correction, canonical hashing, replay validation, decoder governance, and
 now executable symbolic sonification runtime/event-mapping work, with QEC OS runtime/benchmark work deferred to v193.x.

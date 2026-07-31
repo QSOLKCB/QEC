@@ -36,6 +36,11 @@ def test_report_hashes_every_declared_artifact(tmp_path):
         "window.QEC_QUQUART_REPORT="
     )
 
+    methodology = json.loads((tmp_path / "methodology.json").read_text())
+    assert "accepted_incorrect_syndrome" in (
+        methodology["harmonic_receiver"]["telemetry_layers"]
+    )
+
     validation = json.loads((tmp_path / "claim_validation.json").read_text())
     assert validation["passed"] is True
     replication = json.loads(

@@ -51,18 +51,8 @@ jobs:
       - name: Install QEC
         run: python -m pip install -e ".[dev]"
 
-      - name: Run focused ququart evidence tests
-        run: >-
-          python -m pytest -q
-          tests/test_ququart_fer_oracle.py
-          tests/test_ququart_exact_channels.py
-          tests/test_ququart_battery_channels.py
-          tests/test_ququart_harmonic_battery.py
-          tests/test_ququart_report_claims.py
-          tests/test_ququart_replication_receipt.py
-          tests/test_ququart_battery_report.py
-          tests/test_ququart_stabilizer.py
-          tests/test_ququart_harmonics.py
+      - name: Run full repository test suite
+        run: python -m pytest -q
 
       - name: Generate v170.1.1 evidence
         run: >-

@@ -19,12 +19,15 @@
     return n === 0 ? "0" : n.toExponential(3);
   };
   const pct = value => `${(100 * number(value)).toFixed(2)}%`;
+  const pretty = value => String(value).replaceAll("_", " ");
 
   document.querySelector("#patterns").textContent = data.summary.exact_patterns.toLocaleString();
-  document.querySelector("#distance").textContent = `d = ${data.summary.distance}`;
+  document.querySelector("#claim-state").textContent = data.claim_validation.passed ? "PASS" : "FAIL";
+  document.querySelector("#lane-state").textContent = data.lane_symmetry_certificate.weight_enumerators_equal ? "VERIFIED" : "FAILED";
+  document.querySelector("#replication-state").textContent = pretty(data.qbraid_replication_receipt.verification.deterministic_artifacts);
   document.querySelector("#seed").textContent = data.summary.seed;
   document.querySelector("#hash").textContent =
-    `methodology sha256: ${data.methodology_sha256} · v170.0 certificate: ${data.certificate_sha256}`;
+    `methodology sha256: ${data.methodology_sha256} · claim validation: ${data.claim_validation.sha256} · v170.0 certificate: ${data.certificate_sha256}`;
 
   const weightHeaders = [
     ["weight", "w"],
@@ -34,35 +37,39 @@
     ["logical_failure", "logical"],
   ];
   const weightTable = document.querySelector("#weight-table");
-  weightTable.innerHTML = `<thead><tr>${weightHeaders.map(([, label]) => `<th>${label}</th>`).join("")}</tr></thead><tbody>${
-    data.exact_weight_enumerator.map(row =>
-      `<tr>${weightHeaders.map(([key]) => `<td>${Number(row[key]).toLocaleString()}</td>`).join("")}</tr>`
-    ).join("")
-  }</tbody>`;
+  function drawWeightTable(channel) {
+    const rows = data.exact_channel_weight_enumerator.filter(row => row.channel === channel);
+    weightTable.innerHTML = `<thead><tr>${weightHeaders.map(([, label]) => `<th>${label}</th>`).join("")}</tr></thead><tbody>${
+      rows.map(row =>
+        `<tr>${weightHeaders.map(([key]) => `<td>${Number(row[key]).toLocaleString()}</td>`).join("")}</tr>`
+      ).join("")
+    }</tbody>`;
+  }
 
   const faultHeaders = [
     ["fault_case", "case"],
     ["accepted", "accept"],
-    ["rejected", "reject"],
+    ["receiver_rejections", "receiver reject"],
+    ["decoder_rejections", "decoder reject"],
     ["successful", "success"],
-    ["false_accepts", "false accept"],
+    ["receiver_false_trust", "false trust"],
   ];
   const faultTable = document.querySelector("#fault-table");
   faultTable.innerHTML = `<thead><tr>${faultHeaders.map(([, label]) => `<th>${label}</th>`).join("")}</tr></thead><tbody>${
     data.harmonic_fault_matrix.map(row => {
       const expectedPass = row.expected === "accept_and_correct_all"
         ? row.successful === row.errors_tested && row.false_accepts === 0
-        : row.accepted === 0 && row.false_accepts === 0;
+        : row.accepted === 0 && row.receiver_false_trust === 0;
       return `<tr class="${expectedPass ? "pass" : "fail"}">${
         faultHeaders.map(([key]) => `<td>${row[key]}</td>`).join("")
       }</tr>`;
     }).join("")
   }</tbody>`;
 
-  const channels = [...new Set(data.monte_carlo_fer.map(row => row.channel))];
+  const channels = [...new Set(data.exact_channel_fer.map(row => row.channel))];
   const channelSelect = document.querySelector("#channel");
   channelSelect.innerHTML = channels.map(channel =>
-    `<option value="${channel}">${channel.replaceAll("_", " ")}</option>`
+    `<option value="${channel}">${pretty(channel)}</option>`
   ).join("");
 
   function logBounds(values, fallback) {
@@ -77,7 +84,7 @@
   }
 
   function drawChart(channel) {
-    const exact = data.exact_fer_curve.map(row => ({
+    const exact = data.exact_channel_fer.filter(row => row.channel === channel).map(row => ({
       x: number(row.physical_error_rate),
       y: number(row.frame_error_rate),
     })).filter(point => point.x > 0 && point.y > 0);
@@ -92,14 +99,15 @@
     const allX = [...exact, ...mc].map(point => point.x);
     const allY = [...exact, ...mc].map(point => point.y);
     const [xmin, xmax] = logBounds(allX, [1e-5, 1]);
-    const [yminRaw, ymax] = logBounds(allY, [1e-10, 1]);
+    const [yminRaw, ymaxRaw] = logBounds(allY, [1e-10, 1]);
     const ymin = Math.min(yminRaw, 1e-10);
+    const ymax = Math.max(ymaxRaw, ymin * 10);
     const lx = value => Math.log10(value);
     const xScale = value => margin.left + (lx(value) - lx(xmin)) / (lx(xmax) - lx(xmin)) * (width - margin.left - margin.right);
     const yScale = value => height - margin.bottom - (lx(value) - lx(ymin)) / (lx(ymax) - lx(ymin)) * (height - margin.top - margin.bottom);
     const line = points => points.map((point, index) => `${index ? "L" : "M"}${xScale(point.x).toFixed(2)},${yScale(point.y).toFixed(2)}`).join(" ");
 
-    const xTicks = [-5, -4, -3, -2, -1].map(power => 10 ** power).filter(v => v >= xmin && v <= xmax);
+    const xTicks = [-5, -4, -3, -2, -1, 0].map(power => 10 ** power).filter(v => v >= xmin && v <= xmax);
     const yTicks = Array.from({length: 11}, (_, i) => 10 ** (-10 + i)).filter(v => v >= ymin && v <= ymax);
     svg.innerHTML = `
       ${xTicks.map(v => `<line class="gridline" x1="${xScale(v)}" x2="${xScale(v)}" y1="${margin.top}" y2="${height-margin.bottom}"/><text class="chart-label" x="${xScale(v)}" y="${height-30}" text-anchor="middle">${v.toExponential(0)}</text>`).join("")}
@@ -111,12 +119,35 @@
       ${mc.map(point => `<circle class="point" cx="${xScale(point.x)}" cy="${yScale(point.y)}" r="4"/>`).join("")}
       <text class="chart-label" x="${width/2}" y="${height-7}" text-anchor="middle">independent physical error probability p per ququart</text>
       <text class="chart-label" transform="translate(18 ${height/2}) rotate(-90)" text-anchor="middle">frame error rate</text>
-      <text class="chart-label legend-exact" x="${width-250}" y="28">━━ exact full channel</text>
-      <text class="chart-label legend-mc" x="${width-125}" y="28">┄ MC selected</text>
+      <text class="chart-label legend-exact" x="${width-250}" y="28">━━ exact selected channel</text>
+      <text class="chart-label legend-mc" x="${width-115}" y="28">┄ MC selected</text>
     `;
+    document.querySelector("#chart-caption").textContent =
+      `Exact and sampled evidence now use the same declared ${pretty(channel)} channel. No cross-channel overlay is implied.`;
+    drawWeightTable(channel);
   }
   channelSelect.addEventListener("change", () => drawChart(channelSelect.value));
   drawChart(channelSelect.value);
+
+  const facts = data.evidence_facts;
+  document.querySelector("#claim-facts").innerHTML = [
+    ["End-to-end cells", facts.end_to_end_cells],
+    ["Deterministic evaluations", facts.deterministic_fault_evaluations],
+    ["Expected accepts", facts.expected_accept_evaluations],
+    ["Adversarial rejects", facts.adversarial_rejection_evaluations],
+    ["Receiver false trust", facts.receiver_false_trust],
+    ["Threshold claim made", data.report_claims.threshold_claim ? "yes — invalid" : "no"],
+  ].map(([term, value]) => `<div><dt>${term}</dt><dd>${value}</dd></div>`).join("");
+
+  const replication = data.qbraid_replication_receipt;
+  document.querySelector("#replication-facts").innerHTML = [
+    ["Environment", replication.environment.platform],
+    ["Seed", replication.parameters.seed],
+    ["Monte Carlo trials", replication.parameters.monte_carlo_trials_per_cell],
+    ["Harmonic trials", replication.parameters.harmonic_trials_per_cell],
+    ["Deterministic evidence", pretty(replication.verification.deterministic_artifacts)],
+    ["Sampled evidence", pretty(replication.verification.sampled_artifacts)],
+  ].map(([term, value]) => `<div><dt>${term}</dt><dd>${value}</dd></div>`).join("");
 
   const rates = [...new Set(data.harmonic_end_to_end.map(row => row.physical_error_rate))];
   const heatRate = document.querySelector("#heat-rate");
@@ -127,7 +158,8 @@
       <article>
         <span>σ = ${row.harmonic_noise_sigma}</span>
         <strong>${pct(row.frame_error_rate)}</strong>
-        <small>${row.receiver_rejections} rejected · ${row.false_accepts} false accepts</small>
+        <small>${row.receiver_rejections} receiver reject · ${row.decoder_rejections} decoder reject</small>
+        <small>${row.receiver_false_trust} false trust · ${row.accepted_logical_residual} logical residual</small>
         <small>95% CI ${sci(row.wilson95_low)} — ${sci(row.wilson95_high)}</small>
       </article>
     `).join("");

@@ -108,7 +108,10 @@ def harmonic_fault_rows() -> tuple[dict[str, str | int], ...]:
         accepted = 0
         successful = 0
         false_accepts = 0
-        incorrect_trusted_syndrome = 0
+        receiver_rejections = 0
+        decoder_rejections = 0
+        receiver_false_trust = 0
+        accepted_logical_residual = 0
         for error in errors:
             binary = code.syndrome(error)
             syndrome = pack_binary_syndrome(binary)
@@ -118,20 +121,29 @@ def harmonic_fault_rows() -> tuple[dict[str, str | int], ...]:
                 error,
                 samples=fault(samples, syndrome),
             )
+            trusted = result.observation.trusted
+            syndrome_correct = trusted and result.observation.syndrome == syndrome
             accepted += int(result.accepted)
             successful += int(result.success)
             false_accepts += int(result.accepted and not result.success)
-            incorrect_trusted_syndrome += int(
-                result.accepted and result.observation.syndrome != syndrome
+            receiver_rejections += int(not trusted)
+            decoder_rejections += int(trusted and not result.accepted)
+            receiver_false_trust += int(trusted and not syndrome_correct)
+            accepted_logical_residual += int(
+                result.accepted and syndrome_correct and not result.success
             )
         rows.append({
             "fault_case": name,
             "errors_tested": len(errors),
             "accepted": accepted,
             "rejected": len(errors) - accepted,
+            "receiver_rejections": receiver_rejections,
+            "decoder_rejections": decoder_rejections,
             "successful": successful,
             "false_accepts": false_accepts,
-            "incorrect_trusted_syndrome": incorrect_trusted_syndrome,
+            "receiver_false_trust": receiver_false_trust,
+            "incorrect_trusted_syndrome": receiver_false_trust,
+            "accepted_logical_residual": accepted_logical_residual,
             "expected": expected,
             "claim_scope": "classical_harmonic_observation_fault_injection",
         })
@@ -156,6 +168,8 @@ def _noisy_samples(
 
 
 def _ratio(numerator: int, denominator: int) -> str:
+    if denominator <= 0:
+        raise ValueError("denominator must be positive")
     return format(Decimal(numerator) / Decimal(denominator), ".12E")
 
 
@@ -167,7 +181,12 @@ def harmonic_end_to_end_rows(
     seed: int = 1701001,
     tolerance: float = 0.35,
 ) -> tuple[dict[str, str | int], ...]:
-    """Combine iid packed faults with noisy H1/H3/H2/H4 observation."""
+    """Combine iid packed faults with noisy H1/H3/H2/H4 observation.
+
+    Receiver trust, decoder boundedness, and residual correctness are counted as
+    separate layers so an accepted logical residual is not mislabeled as a
+    harmonic false-trust event.
+    """
 
     if isinstance(trials, bool) or not isinstance(trials, int):
         raise TypeError("trials must be an integer")
@@ -188,10 +207,14 @@ def harmonic_end_to_end_rows(
                 sigma_text,
             )
             accepted = 0
-            rejected = 0
+            receiver_rejections = 0
+            decoder_rejections = 0
             successful = 0
             false_accepts = 0
-            incorrect_trusted = 0
+            trusted_correct = 0
+            receiver_false_trust = 0
+            accepted_incorrect_syndrome = 0
+            accepted_logical_residual = 0
             for _ in range(trials):
                 error = sample_error(
                     rng,
@@ -206,14 +229,24 @@ def harmonic_end_to_end_rows(
                     samples=_noisy_samples(rng, exact_syndrome, sigma),
                     tolerance=tolerance,
                 )
-                accepted += int(result.accepted)
-                rejected += int(not result.accepted)
-                successful += int(result.success)
-                false_accepts += int(result.accepted and not result.success)
-                incorrect_trusted += int(
-                    result.accepted
-                    and result.observation.syndrome != exact_syndrome
+                trusted = result.observation.trusted
+                syndrome_correct = (
+                    trusted and result.observation.syndrome == exact_syndrome
                 )
+                accepted += int(result.accepted)
+                successful += int(result.success)
+                receiver_rejections += int(not trusted)
+                decoder_rejections += int(trusted and not result.accepted)
+                trusted_correct += int(syndrome_correct)
+                receiver_false_trust += int(trusted and not syndrome_correct)
+                accepted_incorrect_syndrome += int(
+                    result.accepted and trusted and not syndrome_correct
+                )
+                accepted_logical_residual += int(
+                    result.accepted and syndrome_correct and not result.success
+                )
+                false_accepts += int(result.accepted and not result.success)
+
             frame_errors = trials - successful
             lower, upper = wilson_interval(frame_errors, trials)
             rows.append({
@@ -223,13 +256,52 @@ def harmonic_end_to_end_rows(
                 "trials": trials,
                 "seed": seed,
                 "accepted": accepted,
-                "receiver_rejections": rejected,
+                "rejected": trials - accepted,
+                "receiver_rejections": receiver_rejections,
+                "decoder_rejections": decoder_rejections,
+                "trusted_correct_syndrome": trusted_correct,
+                "receiver_false_trust": receiver_false_trust,
+                "incorrect_trusted_syndrome": receiver_false_trust,
+                "accepted_incorrect_syndrome": accepted_incorrect_syndrome,
+                "accepted_logical_residual": accepted_logical_residual,
                 "successful": successful,
                 "false_accepts": false_accepts,
-                "incorrect_trusted_syndrome": incorrect_trusted,
                 "frame_errors": frame_errors,
                 "frame_error_rate": _ratio(frame_errors, trials),
                 "wilson95_low": lower,
                 "wilson95_high": upper,
             })
+    return tuple(rows)
+
+
+def receiver_operating_rows(
+    harmonic_rows: Iterable[Mapping[str, str | int]],
+) -> tuple[dict[str, str | int], ...]:
+    """Project end-to-end rows into disjoint receiver/decoder operating rates."""
+
+    rows: list[dict[str, str | int]] = []
+    for row in harmonic_rows:
+        trials = int(row["trials"])
+        rows.append({
+            "physical_error_rate": str(row["physical_error_rate"]),
+            "harmonic_noise_sigma": str(row["harmonic_noise_sigma"]),
+            "trials": trials,
+            "receiver_rejection_rate": _ratio(
+                int(row["receiver_rejections"]), trials
+            ),
+            "decoder_rejection_rate": _ratio(
+                int(row["decoder_rejections"]), trials
+            ),
+            "trusted_correct_syndrome_rate": _ratio(
+                int(row["trusted_correct_syndrome"]), trials
+            ),
+            "receiver_false_trust_rate": _ratio(
+                int(row["receiver_false_trust"]), trials
+            ),
+            "accepted_logical_residual_rate": _ratio(
+                int(row["accepted_logical_residual"]), trials
+            ),
+            "success_rate": _ratio(int(row["successful"]), trials),
+            "frame_error_rate": str(row["frame_error_rate"]),
+        })
     return tuple(rows)

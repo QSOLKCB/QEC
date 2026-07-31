@@ -59,6 +59,12 @@ def _prefix(value: Any, field: str) -> str:
     return value
 
 
+def _nonempty_text(value: Any, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ReplicationReceiptError(f"{field} must be a non-empty string")
+    return value
+
+
 def _artifact_status(observation: Mapping[str, Any]) -> dict[str, object]:
     name = observation.get("name")
     if not isinstance(name, str) or not name:
@@ -119,6 +125,8 @@ def build_replication_receipt(
     if isinstance(observations, str) or not isinstance(observations, Sequence):
         raise ReplicationReceiptError("artifacts must be a sequence")
 
+    target_release = _nonempty_text(target.get("release"), "target.release")
+    target_commit = _nonempty_text(target.get("commit"), "target.commit")
     release_manifest = _sha256(
         target.get("release_manifest_sha256"),
         "target.release_manifest_sha256",
@@ -170,8 +178,8 @@ def build_replication_receipt(
     receipt: dict[str, object] = {
         "schema": REPLICATION_SCHEMA,
         "target": {
-            "release": str(target.get("release")),
-            "commit": str(target.get("commit")),
+            "release": target_release,
+            "commit": target_commit,
             "release_manifest_sha256": release_manifest,
         },
         "environment": dict(environment),

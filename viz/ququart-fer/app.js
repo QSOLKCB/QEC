@@ -136,7 +136,7 @@
     ["Expected accepts", facts.expected_accept_evaluations],
     ["Adversarial rejects", facts.adversarial_rejection_evaluations],
     ["Receiver false trust", facts.receiver_false_trust],
-    ["Threshold claim", data.report_claims.threshold_claim ? "permitted" : "forbidden"],
+    ["Threshold claim made", data.report_claims.threshold_claim ? "yes — invalid" : "no"],
   ].map(([term, value]) => `<div><dt>${term}</dt><dd>${value}</dd></div>`).join("");
 
   const replication = data.qbraid_replication_receipt;

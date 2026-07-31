@@ -187,6 +187,17 @@ def _rate(value: Decimal) -> str:
     return format(value, ".18E")
 
 
+def _nonnegative_integer_power(base: Decimal, exponent: int) -> Decimal:
+    """Return ``base**exponent`` with the empty product defined as one."""
+
+    if exponent < 0:
+        raise ValueError("exponent must be non-negative")
+    result = Decimal(1)
+    for _ in range(exponent):
+        result *= base
+    return result
+
+
 def exact_fer_row(error_rate: str | Decimal) -> dict[str, str]:
     """Evaluate the exact iid packed-depolarizing FER polynomial."""
 
@@ -209,7 +220,8 @@ def exact_fer_row(error_rate: str | Decimal) -> dict[str, str]:
         for row in enumerator:
             weight = row["weight"]
             probability_per_pattern = (
-                (local ** weight) * (one_minus ** (n - weight))
+                _nonnegative_integer_power(local, weight)
+                * _nonnegative_integer_power(one_minus, n - weight)
             )
             corrected += Decimal(row["corrected"]) * probability_per_pattern
             detected += (

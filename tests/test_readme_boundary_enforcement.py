@@ -51,6 +51,26 @@ Repository status is current through **v164.2 → OldStatus**.
     assert "Repository status is current through **v166.8 → DecoderPromotionReceipt**." in out
 
 
+def test_readme_updater_preserves_independent_lab_release_link():
+    stale = """# QSOLKCB / QEC
+<a href="https://github.com/QSOLKCB/QEC/releases/tag/v170.1.1">Lab release</a>
+
+## 📦 Release & Research
+[![Latest](https://img.shields.io/badge/stable-v164.2-success)](https://github.com/QSOLKCB/QEC/releases/tag/v164.2)
+[![Branch](https://img.shields.io/badge/branch-v164.2%20canonical-purple)]()
+Current release line: **v164.2**
+Current frontier: **v164.3 — x**
+Active arc: **v164.x — y**
+Completed arc: **v163.x — z**
+
+Repository status is current through **v164.2 → OldStatus**.
+"""
+    out = _run_update(stale)
+    assert "releases/tag/v170.1.1\">Lab release" in out
+    assert "[![Latest]" in out
+    assert "releases/tag/v166.8" in out
+
+
 def test_readme_updater_rejects_no_effect_when_stale():
     stale_without_patterns = """## 📦 Release & Research
 No mutable release metadata tokens are present here.

@@ -40,7 +40,8 @@ def build_attestation(
         },
         "build": {
             "toolchain": toolchain,
-            "source_checkout_pinned": True,
+            "source_checkout_commit": source.commit,
+            "source_checkout_binding": "caller_attested",
             "reproducible_binary_claim": False,
         },
         "claim_boundary": {
@@ -64,6 +65,10 @@ def validate_build_attestation(
         raise NexusAttestationError(
             "unexpected NEXUS build-attestation schema"
         )
+    if attestation.get("qec_version") != "170.2.0":
+        raise NexusAttestationError(
+            "unexpected QEC version in build attestation"
+        )
     observed = attestation.get("sha256")
     if not isinstance(observed, str) or not _SHA256_RE.fullmatch(observed):
         raise NexusAttestationError(
@@ -79,12 +84,33 @@ def validate_build_attestation(
         raise NexusAttestationError(
             "build attestation source identity does not match profile"
         )
+    build = attestation.get("build")
+    if not isinstance(build, dict):
+        raise NexusAttestationError(
+            "build attestation build record is missing"
+        )
+    if build.get("source_checkout_commit") != expected_source["commit"]:
+        raise NexusAttestationError(
+            "build attestation checkout commit does not match profile"
+        )
+    if build.get("source_checkout_binding") != "caller_attested":
+        raise NexusAttestationError(
+            "build attestation checkout binding is invalid"
+        )
+    if build.get("reproducible_binary_claim") is not False:
+        raise NexusAttestationError(
+            "build attestation may not claim reproducible binary bytes"
+        )
     binary_record = attestation.get("binary")
     if not isinstance(binary_record, dict):
         raise NexusAttestationError(
             "build attestation binary record is missing"
         )
     digest = binary_record.get("sha256")
+    if not isinstance(digest, str) or not _SHA256_RE.fullmatch(digest):
+        raise NexusAttestationError(
+            "build attestation binary requires a full SHA-256"
+        )
     if digest != file_sha256(binary):
         raise NexusAttestationError(
             "NEXUS binary bytes do not match build attestation"

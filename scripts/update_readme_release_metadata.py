@@ -64,8 +64,18 @@ def update_readme(
     new = text
     new, changed = _replace_required(new, r"stable-v[\d.]+-success", f"stable-{latest_release}-success")
     mutable_sections_changed += int(changed)
-    # Update badge link target URL in addition to shield text
-    new, changed = _replace_required(new, r"releases/tag/v[\d.]+", f"releases/tag/{latest_release}")
+    # Update only the canonical Latest badge target. Other release links in the
+    # mutable README header (for example the interactive lab launcher) carry
+    # their own independent release identity and must remain byte-identical.
+    new, changed = _replace_required(
+        new,
+        (
+            r"(\[!\[Latest\]\([^\n]+\)\]"
+            r"\(https://github\.com/QSOLKCB/QEC/releases/tag/)"
+            r"v[\d.]+(\))"
+        ),
+        rf"\g<1>{latest_release}\g<2>",
+    )
     mutable_sections_changed += int(changed)
     new, changed = _replace_required(new, r"branch-v[\d.]+%20canonical(?:-purple)?", f"branch-{latest_release}%20canonical-purple")
     mutable_sections_changed += int(changed)

@@ -114,7 +114,12 @@ def run_nexus(
 
 
 def validate_receipt_file(path: Path) -> dict[str, object]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise NexusExecutionError(
+            f"cannot read NEXUS execution receipt: {exc}"
+        ) from exc
     if not isinstance(payload, dict):
         raise NexusExecutionError(
             "receipt file must contain a JSON object"

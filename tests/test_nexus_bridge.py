@@ -121,15 +121,15 @@ CSV
 def test_ternary_semantics_are_recomputed(tmp_path: Path) -> None:
     body = """cat <<'CSV'
 step,progress,x,y,radius,orientation,trit,trit_value,lane,frequency_hz,amplitude,pan
-0,0,-0.56,0,0.56,-1,inbound,-1,lane-2,432,1,-1
-1,0.5,0,0,0,0,nexus,0,lane-2,432,1,0
-2,1,0.56,0,0.56,1,outbound,1,lane-2,432,1,1
+0,0,-0.56,0,0.56,-1,inbound,-1,lane-0,384.868246237,1,-1
+1,0.5,0,0,0,0,nexus,0,lane-0,432.000000000,1,0
+2,1,0.56,0,0.56,1,outbound,1,lane-0,484.903604870,1,1
 CSV
 """
     binary = _fake_binary(tmp_path, body)
     invocation = NexusInvocation(
         operation="ternary",
-        channel=17,
+        channel=0,
         steps=2,
         base_frequency_hz="432",
     )
@@ -140,6 +140,7 @@ CSV
         output_dir=tmp_path / "ternary",
     )
     assert receipt["invariants"]["triality_lane_verified"] is True
+    assert receipt["invariants"]["geometry_recomputed"] is True
 
 
 def test_receipt_rows_match_nexus_v4_contract(tmp_path: Path) -> None:

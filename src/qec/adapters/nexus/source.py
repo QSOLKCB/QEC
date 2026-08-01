@@ -64,8 +64,8 @@ NEXUS_V4: Final = NexusSourceIdentity(
     version="4.0.0",
     repository="https://github.com/QSOLKCB/NEXUS",
     commit="1e93a509a28144d70a17fa76b330ae042db7beab",
-    doi=None,
-    doi_status="pending",
+    doi="10.5281/zenodo.21748514",
+    doi_status="published",
     capabilities=(
         "fibonacci",
         "receipt",

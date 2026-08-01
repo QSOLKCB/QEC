@@ -44,7 +44,7 @@ def _attestation(
     return path
 
 
-def test_source_profiles_pin_published_v3_and_pending_v4() -> None:
+def test_source_profiles_pin_published_v3_and_v4() -> None:
     assert NEXUS_V3.doi == "10.5281/zenodo.21745329"
     assert (
         NEXUS_V3.commit
@@ -54,8 +54,8 @@ def test_source_profiles_pin_published_v3_and_pending_v4() -> None:
         NEXUS_V4.commit
         == "1e93a509a28144d70a17fa76b330ae042db7beab"
     )
-    assert NEXUS_V4.doi is None
-    assert NEXUS_V4.doi_status == "pending"
+    assert NEXUS_V4.doi == "10.5281/zenodo.21748514"
+    assert NEXUS_V4.doi_status == "published"
 
 
 def test_v3_cannot_claim_v4_capabilities() -> None:

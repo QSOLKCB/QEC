@@ -1,0 +1,162 @@
+name: NEXUS Bridge
+
+on:
+  pull_request:
+    paths:
+      - "src/qec/adapters/nexus/**"
+      - "src/qec/adapters/__init__.py"
+      - "tests/test_nexus_bridge.py"
+      - "docs/NEXUS_QEC_BRIDGE.md"
+      - "pyproject.toml"
+      - ".github/workflows/nexus-bridge.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "src/qec/adapters/nexus/**"
+      - "src/qec/adapters/__init__.py"
+      - "tests/test_nexus_bridge.py"
+      - "docs/NEXUS_QEC_BRIDGE.md"
+      - "pyproject.toml"
+      - ".github/workflows/nexus-bridge.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout QEC with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install QEC
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run complete QEC validation suite
+        run: python -m pytest -q
+
+      - name: Checkout published NEXUS v3 baseline
+        uses: actions/checkout@v4
+        with:
+          repository: QSOLKCB/NEXUS
+          ref: e078b135322dc12a2565b9c512fc4ba75193dea7
+          path: external/NEXUS-v3
+          fetch-depth: 1
+
+      - name: Build NEXUS v3 baseline
+        working-directory: external/NEXUS-v3
+        run: cargo build --release --locked
+
+      - name: Attest NEXUS v3 build
+        run: >-
+          qec-nexus-bridge attest-build
+          --profile v3.0.0
+          --binary external/NEXUS-v3/target/release/nexus
+          --toolchain "$(rustc --version) / $(cargo --version)"
+          --output artifacts/v3-build-attestation.json
+
+      - name: Verify NEXUS v3 through QEC
+        run: >-
+          qec-nexus-bridge verify
+          --profile v3.0.0
+          --binary external/NEXUS-v3/target/release/nexus
+          --attestation artifacts/v3-build-attestation.json
+          --output artifacts/v3-verify
+
+      - name: Trace NEXUS v3 through QEC
+        run: >-
+          qec-nexus-bridge trace
+          --profile v3.0.0
+          --binary external/NEXUS-v3/target/release/nexus
+          --attestation artifacts/v3-build-attestation.json
+          --channel 17
+          --steps 32
+          --output artifacts/v3-trace
+
+      - name: Checkout merged NEXUS v4 profile
+        uses: actions/checkout@v4
+        with:
+          repository: QSOLKCB/NEXUS
+          ref: 1e93a509a28144d70a17fa76b330ae042db7beab
+          path: external/NEXUS-v4
+          fetch-depth: 1
+
+      - name: Build NEXUS v4 profile
+        working-directory: external/NEXUS-v4
+        run: cargo build --release --locked
+
+      - name: Attest NEXUS v4 build
+        run: >-
+          qec-nexus-bridge attest-build
+          --profile v4.0.0
+          --binary external/NEXUS-v4/target/release/nexus
+          --toolchain "$(rustc --version) / $(cargo --version)"
+          --output artifacts/v4-build-attestation.json
+
+      - name: Verify scalar NEXUS v4
+        run: >-
+          qec-nexus-bridge verify
+          --profile v4.0.0
+          --binary external/NEXUS-v4/target/release/nexus
+          --attestation artifacts/v4-build-attestation.json
+          --output artifacts/v4-verify
+
+      - name: Verify parallel NEXUS v4
+        run: >-
+          qec-nexus-bridge verify-parallel
+          --profile v4.0.0
+          --binary external/NEXUS-v4/target/release/nexus
+          --attestation artifacts/v4-build-attestation.json
+          --workers 2
+          --output artifacts/v4-verify-parallel
+
+      - name: Verify Fibonacci representative ordering
+        run: >-
+          qec-nexus-bridge fibonacci
+          --profile v4.0.0
+          --binary external/NEXUS-v4/target/release/nexus
+          --attestation artifacts/v4-build-attestation.json
+          --channel 17
+          --steps 32
+          --output artifacts/v4-fibonacci
+
+      - name: Verify ternary sonification events
+        run: >-
+          qec-nexus-bridge ternary
+          --profile v4.0.0
+          --binary external/NEXUS-v4/target/release/nexus
+          --attestation artifacts/v4-build-attestation.json
+          --channel 17
+          --steps 32
+          --base-frequency-hz 432
+          --output artifacts/v4-ternary
+
+      - name: Verify native triality receipts
+        run: >-
+          qec-nexus-bridge receipt
+          --profile v4.0.0
+          --binary external/NEXUS-v4/target/release/nexus
+          --attestation artifacts/v4-build-attestation.json
+          --samples 99
+          --output artifacts/v4-receipts
+
+      - name: Revalidate generated QEC parent receipts
+        run: |
+          find artifacts -name execution_receipt.json -print0 |
+            while IFS= read -r -d '' receipt; do
+              qec-nexus-bridge validate --receipt "$receipt"
+            done
+
+      - name: Upload NEXUS bridge evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: qec-v170.2.0-nexus-bridge-evidence
+          path: artifacts/

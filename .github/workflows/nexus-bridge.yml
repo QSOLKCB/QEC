@@ -5,7 +5,7 @@ on:
     paths:
       - "src/qec/adapters/nexus/**"
       - "src/qec/adapters/__init__.py"
-      - "tests/test_nexus_bridge.py"
+      - "tests/test_nexus_bridge*.py"
       - "docs/NEXUS_QEC_BRIDGE.md"
       - "pyproject.toml"
       - ".github/workflows/nexus-bridge.yml"
@@ -15,7 +15,7 @@ on:
     paths:
       - "src/qec/adapters/nexus/**"
       - "src/qec/adapters/__init__.py"
-      - "tests/test_nexus_bridge.py"
+      - "tests/test_nexus_bridge*.py"
       - "docs/NEXUS_QEC_BRIDGE.md"
       - "pyproject.toml"
       - ".github/workflows/nexus-bridge.yml"

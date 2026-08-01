@@ -18,6 +18,17 @@ class NexusEvidenceError(ValueError):
     pass
 
 
+def _claim_boundary() -> dict[str, object]:
+    return {
+        "adapter_only": True,
+        "decoder_mutation": False,
+        "physical_claim": False,
+        "qutrit_or_gf3_claim": False,
+        "receipt_proves": "byte_identity_and_declared_execution_invariants",
+        "receipt_does_not_prove": "physical_truth_or_quantum_advantage",
+    }
+
+
 def parse_csv(text: str) -> list[dict[str, str]]:
     try:
         rows = list(csv.DictReader(io.StringIO(text)))
@@ -351,18 +362,7 @@ def build_execution_receipt(
         },
         "build_attestation_sha256": build_attestation_sha256,
         "invariants": invariants,
-        "claim_boundary": {
-            "adapter_only": True,
-            "decoder_mutation": False,
-            "physical_claim": False,
-            "qutrit_or_gf3_claim": False,
-            "receipt_proves": (
-                "byte_identity_and_declared_execution_invariants"
-            ),
-            "receipt_does_not_prove": (
-                "physical_truth_or_quantum_advantage"
-            ),
-        },
+        "claim_boundary": _claim_boundary(),
     }
     payload["sha256"] = canonical_sha256(payload)
     return payload
@@ -419,10 +419,8 @@ def validate_execution_receipt(
                 f"receipt {name} must be a full SHA-256"
             )
     boundary = receipt.get("claim_boundary")
-    if not isinstance(boundary, dict) or boundary.get(
-        "physical_claim"
-    ) is not False:
+    if boundary != _claim_boundary():
         raise NexusEvidenceError(
-            "NEXUS receipt must preserve the no-physical-claim boundary"
+            "NEXUS receipt claim boundary does not match the adapter contract"
         )
     return {"valid": True, "sha256": observed}

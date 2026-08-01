@@ -15,9 +15,32 @@ The division of responsibility is explicit:
   emitted CSV, binds executable bytes through a build attestation, and creates a
   canonical parent receipt.
 
+## Presented v4.0.0 result set
+
+QEC presents **NEXUS v4.0.0 as the current result set**. It is merged on the
+NEXUS `main` branch, pinned to an exact commit and used as the authoritative
+execution profile for the bridge. The pending Zenodo record is publication
+metadata only; it does not make the merged v4 code or its results provisional.
+
+The v4 result surface presented by QEC includes:
+
+- preserved continuous gate → exact centre → mouth geometry;
+- inbound `-1`, nexus `0` and outbound `+1` transfer trits;
+- deterministic three-lane triality partitioning;
+- scalar and ordered parallel invariant verification;
+- uniform-floor and optional Fibonacci representative ordering;
+- ternary sonification-event streams;
+- per-lane, all-lane and chained SHA-256 receipts;
+- D1 untwisted and D2 twisted two-mouth visual contracts.
+
+The CI evidence bundle records the actual v4 CSV rows, executable digest,
+build-attestation digest and QEC parent-receipt digest generated from the pinned
+commit. Numeric results and hashes are presented from that run rather than
+predeclared in documentation.
+
 ## Pinned source profiles
 
-### Published v3 baseline
+### Archived published v3 baseline
 
 ```text
 version: 3.0.0
@@ -27,9 +50,10 @@ capabilities: verify, trace
 ```
 
 The DOI is the frozen published source identity for the historical NEXUS v3
-baseline.
+baseline. It remains available for historical comparison and does not replace
+the current v4 result set.
 
-### Merged v4 execution profile
+### Current v4.0.0 result profile
 
 ```text
 version: 4.0.0
@@ -64,8 +88,8 @@ QEC will not silently use a v4 command under the v3 profile. For example,
 `ternary`, `receipt`, `fibonacci` and `verify-parallel` fail before subprocess
 execution when the source profile is `v3.0.0`.
 
-This prevents a receipt from combining an old DOI identity with newer,
-unpublished capabilities.
+This prevents a receipt from combining the historical v3 DOI identity with the
+current v4 capability surface.
 
 ## Build attestation
 

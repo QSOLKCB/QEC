@@ -132,7 +132,6 @@ def _verify_metrics(
         "logical",
         "rendered",
         "particles",
-        "workers",
         "max_radius_error",
         "max_antipodal_error",
         "max_sampling_gap_error",
@@ -164,14 +163,23 @@ def _verify_metrics(
         "particles",
     ) != invocation.config.particles:
         raise NexusEvidenceError("particle count does not match invocation")
-    requested_workers = 1
+    reported_workers: int | None = None
     if invocation.operation == "verify-parallel":
-        requested_workers = invocation.workers  # type: ignore[assignment]
-    reported_workers = _exact_int(metrics["workers"], "workers")
-    if reported_workers != requested_workers:
-        raise NexusEvidenceError(
-            "reported requested worker count does not match invocation"
-        )
+        if "workers" not in metrics:
+            raise NexusEvidenceError(
+                "parallel verification must report requested workers"
+            )
+        reported_workers = _exact_int(metrics["workers"], "workers")
+        if reported_workers != invocation.workers:
+            raise NexusEvidenceError(
+                "reported requested worker count does not match invocation"
+            )
+    elif "workers" in metrics:
+        reported_workers = _exact_int(metrics["workers"], "workers")
+        if reported_workers != 1:
+            raise NexusEvidenceError(
+                "scalar verification must report one requested worker"
+            )
     centre = _decimal(metrics["centre_error"], "centre_error")
     antipodal = _decimal(
         metrics["max_antipodal_error"],
@@ -205,7 +213,9 @@ def _verify_metrics(
         "antipodal_exact": True,
         "orientation_sign_change": True,
         "floor_sampling_gap_bounded": True,
-        "requested_workers_bound": True,
+        "requested_workers_bound": (
+            invocation.operation == "verify-parallel"
+        ),
         "reported_requested_workers": reported_workers,
         "effective_workers_claim": False,
         "row_count": len(rows),

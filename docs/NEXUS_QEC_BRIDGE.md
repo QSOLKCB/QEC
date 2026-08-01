@@ -18,9 +18,8 @@ The division of responsibility is explicit:
 ## Presented v4.0.0 result set
 
 QEC presents **NEXUS v4.0.0 as the current result set**. It is merged on the
-NEXUS `main` branch, pinned to an exact commit and used as the authoritative
-execution profile for the bridge. The pending Zenodo record is publication
-metadata only; it does not make the merged v4 code or its results provisional.
+NEXUS `main` branch, pinned to an exact commit, published on Zenodo and used as
+the authoritative execution profile for the bridge.
 
 The v4 result surface presented by QEC includes:
 
@@ -53,18 +52,21 @@ The DOI is the frozen published source identity for the historical NEXUS v3
 baseline. It remains available for historical comparison and does not replace
 the current v4 result set.
 
-### Current v4.0.0 result profile
+### Current published v4.0.0 result profile
 
 ```text
 version: 4.0.0
 commit: 1e93a509a28144d70a17fa76b330ae042db7beab
-doi status: pending
+doi: 10.5281/zenodo.21748514
 capabilities: verify, verify-parallel, trace, fibonacci, ternary, receipt
 ```
 
-The v4 profile is pinned to the merged `main` commit. No Zenodo DOI is invented
-or inferred. Its DOI field remains `null` with `doi_status: pending` until the
-record is published and deliberately added in a later QEC release.
+The v4 profile binds the merged `main` commit to the published software record:
+
+> Verschoor, D. L. & Slade, T. (2026). *VORTEX-N: A Deterministic Variable-N
+> Centre-Transfer Receiver with Native Verification, Ternary Triality
+> Execution, and Bounded Logical Sampling* (Version v4.0.0) [Computer
+> software]. Zenodo. DOI: `10.5281/zenodo.21748514`.
 
 ## Four proof layers
 

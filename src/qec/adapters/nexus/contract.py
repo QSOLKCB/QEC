@@ -1,7 +1,7 @@
 """Canonical, capability-gated NEXUS invocation contracts."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Final
@@ -93,7 +93,7 @@ class NexusConfig:
 class NexusInvocation:
     operation: str
     profile: str = "v4.0.0"
-    config: NexusConfig = NexusConfig()
+    config: NexusConfig = field(default_factory=NexusConfig)
     channel: int | None = None
     steps: int | None = None
     samples: int | None = None

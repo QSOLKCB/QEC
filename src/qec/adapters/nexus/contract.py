@@ -16,6 +16,24 @@ OPERATIONS: Final = (
     "fibonacci",
     "verify-parallel",
 )
+_CONFIG_FIELDS: Final = {
+    "logical",
+    "rendered",
+    "particles",
+    "radius",
+    "phase",
+    "turns",
+}
+_INVOCATION_FIELDS: Final = {
+    "operation",
+    "profile",
+    "config",
+    "channel",
+    "steps",
+    "samples",
+    "workers",
+    "base_frequency_hz",
+}
 
 
 def _decimal_text(
@@ -61,6 +79,21 @@ class NexusConfig:
         _decimal_text(self.radius, "radius", positive=True)
         _decimal_text(self.phase, "phase")
         _decimal_text(self.turns, "turns", nonnegative=True)
+
+    @classmethod
+    def from_dict(cls, payload: object) -> NexusConfig:
+        if not isinstance(payload, dict) or set(payload) != _CONFIG_FIELDS:
+            raise ValueError(
+                "NEXUS config must contain exactly the canonical fields"
+            )
+        return cls(
+            logical=payload["logical"],
+            rendered=payload["rendered"],
+            particles=payload["particles"],
+            radius=payload["radius"],
+            phase=payload["phase"],
+            turns=payload["turns"],
+        )
 
     def cli_args(self) -> list[str]:
         return [
@@ -139,6 +172,32 @@ class NexusInvocation:
             )
         elif self.base_frequency_hz is not None:
             raise ValueError("base_frequency_hz is only valid for ternary")
+
+    @classmethod
+    def from_dict(cls, payload: object) -> NexusInvocation:
+        if not isinstance(payload, dict):
+            raise ValueError("NEXUS invocation must be a JSON object")
+        if not {"operation", "profile", "config"} <= set(payload):
+            raise ValueError("NEXUS invocation is missing canonical fields")
+        if set(payload) - _INVOCATION_FIELDS:
+            raise ValueError("NEXUS invocation contains unknown fields")
+        operation = payload["operation"]
+        profile = payload["profile"]
+        if not isinstance(operation, str) or not isinstance(profile, str):
+            raise ValueError("NEXUS operation and profile must be text")
+        invocation = cls(
+            operation=operation,
+            profile=profile,
+            config=NexusConfig.from_dict(payload["config"]),
+            channel=payload.get("channel"),
+            steps=payload.get("steps"),
+            samples=payload.get("samples"),
+            workers=payload.get("workers"),
+            base_frequency_hz=payload.get("base_frequency_hz"),
+        )
+        if invocation.as_dict() != payload:
+            raise ValueError("NEXUS invocation is not canonically encoded")
+        return invocation
 
     @property
     def source(self) -> NexusSourceIdentity:

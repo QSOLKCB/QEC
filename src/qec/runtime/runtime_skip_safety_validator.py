@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.6.2 — deterministic runtime skip safety validator."""
 
 from __future__ import annotations

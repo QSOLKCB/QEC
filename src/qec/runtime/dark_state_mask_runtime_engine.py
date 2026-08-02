@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.6.0 — deterministic dark-state mask runtime engine."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Phase map generator — v133.6.0.
 
 Converts LawSweepResult tuples into structured regime matrices

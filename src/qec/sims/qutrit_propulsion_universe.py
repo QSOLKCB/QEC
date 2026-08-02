@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic qutrit propulsion universe engine.
 
 Models a single craft moving through a 2-D lattice field

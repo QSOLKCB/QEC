@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Qudit lattice field engine — v134.2.0.
 
 Per-cell qudit field state evolution on a spatiotemporal lattice.

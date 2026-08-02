@@ -7,7 +7,11 @@ name = "qec"
 version = "170.2.1"
 description = "Deterministic multi-agent reasoning, governance, validation, and proof-artifact system for quantum error correction and invariant-driven computation."
 readme = "README.md"
+license = { text = "MPL-2.0" }
 requires-python = ">=3.10"
+classifiers = [
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+]
 
 dependencies = [
     "numpy>=1.24",

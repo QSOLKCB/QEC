@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for the quantum ecosystem sandbox (v136.2.0)."""
 
 from __future__ import annotations

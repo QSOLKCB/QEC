@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for the qutrit life automata engine (v136)."""
 
 from __future__ import annotations

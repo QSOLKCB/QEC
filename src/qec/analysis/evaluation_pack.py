@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v148.9 — Evaluation pack receipt builder for bundled analysis receipts."""
 
 from __future__ import annotations

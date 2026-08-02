@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic counterfactual replay kernel for validated fix proposals."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Constrained flight & mandatory gravity assist — v135.3.0.
 
 Law-bound mission simulator with ferrite-core flight computer constraints.

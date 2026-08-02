@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Shared canonical JSON serialization and SHA-256 helpers for analysis modules."""
 
 from __future__ import annotations

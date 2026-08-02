@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for qudit lattice field engine — v134.2.0.
 
 Deterministic tests covering immutability, cyclic state evolution,

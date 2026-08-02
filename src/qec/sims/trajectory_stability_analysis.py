@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Trajectory stability and slingshot dynamics analysis — v135.1.0.
 
 Deterministic trajectory analysis for the qutrit propulsion universe.

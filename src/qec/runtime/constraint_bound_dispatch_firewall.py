@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.3.3 — deterministic constraint-bound dispatch firewall."""
 
 from __future__ import annotations

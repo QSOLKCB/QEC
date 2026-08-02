@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.3.1 — deterministic quadratic tension functional kernel."""
 
 from __future__ import annotations

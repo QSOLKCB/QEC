@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """UFF-style rotation-curve observable probe.
 
 Deterministic circular velocity law and rotation-curve observation

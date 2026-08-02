@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for the lattice civilization engine (v136.1)."""
 
 from __future__ import annotations

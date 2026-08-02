@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for supervisory feedback controller — v134.5.0.
 
 Deterministic replay-safe tests covering:

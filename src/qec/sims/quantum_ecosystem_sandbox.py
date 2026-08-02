@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic quantum ecosystem sandbox — emergence automaton.
 
 Each cell has one of seven states:

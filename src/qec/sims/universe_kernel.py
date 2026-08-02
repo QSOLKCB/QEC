@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic micro-universe simulation kernel.
 
 Provides frozen immutable state objects and a pure evolution function.

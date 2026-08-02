@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.2.15 — deterministic stable evaluation receipt pack layer."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for v138.2.11 multi-model invocation matrix."""
 
 from __future__ import annotations

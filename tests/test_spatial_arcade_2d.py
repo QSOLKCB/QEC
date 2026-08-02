@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for the 2D spatial arcade sandbox."""
 
 from __future__ import annotations

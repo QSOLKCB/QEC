@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.2.0 — FPGA / ASIC control dispatch module.
 
 Deterministic hardware-coupled abstraction layer for simulation dispatch intent,

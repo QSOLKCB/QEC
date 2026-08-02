@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.1.2 — Multi-Code Orchestration Simulator.
 
 Deterministic supervisory simulator that coordinates multiple simulation lanes

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for law sweep engine — v133.5.0."""
 
 from __future__ import annotations

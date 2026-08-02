@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for control policy sweep benchmarking — v134.6.0."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic normalization of raw review issues into canonical receipts."""
 
 from __future__ import annotations

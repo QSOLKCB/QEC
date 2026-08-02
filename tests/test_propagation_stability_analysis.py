@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for propagation stability and attractor analysis — v134.4.0.
 
 Deterministic replay-safe tests covering:

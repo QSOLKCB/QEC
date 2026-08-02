@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.6.5 — deterministic proof-carrying skip receipts."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.2.11 — deterministic multi-model invocation matrix layer."""
 
 from __future__ import annotations

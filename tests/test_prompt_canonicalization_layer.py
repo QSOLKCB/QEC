@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for v138.2.10 prompt canonicalization layer."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for spatiotemporal phase lattice — v134.0.0.
 
 Deterministic tests covering immutability, coordinate assignment,

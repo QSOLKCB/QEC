@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.2.1 — deterministic latency-budget enforcement hardware layer.
 
 This module is additive to v138.2.0 hardware control dispatch and provides

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic universe field objectives — v135.4.0.
 
 Objective-driven traversal layer for the propulsion universe.

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Spatiotemporal phase lattice — v134.0.0.
 
 Deterministic spatiotemporal lattice framework that combines spatial phase

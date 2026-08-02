@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.3.2 — deterministic recovery operator.
 
 Recovery is always projection-aligned: the recovered state equals the projected

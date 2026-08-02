@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Temporal phase drift analyzer — v133.8.0.
 
 Compares two PhaseMap snapshots to detect regime drift over time.

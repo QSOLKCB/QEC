@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.9.4 — deterministic additive analysis-layer multi-code bridge."""
 
 from __future__ import annotations

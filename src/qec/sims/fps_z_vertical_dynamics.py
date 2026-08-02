@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic FPS-Z vertical dynamics — jump, jetpack, ski physics.
 
 Simulates vertical movement intelligence: jump arcs, jetpack thrust,

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v148.10 — deterministic promotion gate over EvaluationPackReceipt."""
 
 from __future__ import annotations

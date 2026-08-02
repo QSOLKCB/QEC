@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for recovery tunnel engine — v134.1.0.
 
 Deterministic tests covering frozen dataclass immutability, state machine

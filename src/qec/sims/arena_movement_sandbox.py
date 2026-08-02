@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic arena movement sandbox — 3D traversal physics.
 
 Simulates movement through arena-like spaces with gravity, collisions,

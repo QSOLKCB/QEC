@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic advisory fix proposal generation from canonical issue receipts."""
 
 from __future__ import annotations

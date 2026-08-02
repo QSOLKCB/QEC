@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for qudit coupling dynamics — v134.3.0.
 
 Deterministic tests covering neighbor coupling, boundary safety,

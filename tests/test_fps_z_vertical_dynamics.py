@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for FPS-Z vertical dynamics."""
 
 from __future__ import annotations

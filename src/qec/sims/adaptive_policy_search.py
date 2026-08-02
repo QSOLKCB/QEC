@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Adaptive Policy Search — v134.7.0.
 
 Deterministic policy search layer.

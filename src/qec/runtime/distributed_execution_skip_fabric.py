@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.6.3 — deterministic distributed execution skip fabric."""
 
 from __future__ import annotations

@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from .events import EventLog
 from .model import (
@@ -52,6 +52,15 @@ class StrowgerExchange:
                 return index
         return None
 
+    def state_snapshot(self) -> dict[str, object]:
+        return {
+            "linefinders": [state.value for state in self.linefinder_states],
+            "trunks": {
+                stage.name: [state.value for state in self.trunk_states[stage.name]]
+                for stage in self.config.selectors
+            },
+        }
+
     def route(
         self,
         request: RouteRequest,
@@ -72,12 +81,14 @@ class StrowgerExchange:
                 )
             prepare_operator(desk, self.trunk_states)
 
+        pre_route_state = self.state_snapshot()
         linefinder = self._first_free(self.linefinder_states)
         if linefinder is None:
             receipt = build_receipt(
                 config=self.config,
                 request=request,
                 mode=self.mode.value,
+                pre_route_state=pre_route_state,
                 linefinder=None,
                 selector_trunks=(),
                 connector=None,
@@ -261,6 +272,7 @@ class StrowgerExchange:
             config=self.config,
             request=request,
             mode=self.mode.value,
+            pre_route_state=pre_route_state,
             linefinder=linefinder,
             selector_trunks=tuple(selected),
             connector=connector,

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for autopilot route policy search."""
 
 from __future__ import annotations
@@ -42,7 +42,6 @@ class TestStableBeatsOscillatory:
     def test_stable_route_preferred(self) -> None:
         snap = _make_snapshot(velocity=1.0)
         steps = 10
-        # Gentle thrust then coast -> stable trajectory (score ~22.6)
         stable_schedule = (
             PROPULSION_THRUST,
             PROPULSION_IDLE,
@@ -55,7 +54,6 @@ class TestStableBeatsOscillatory:
             PROPULSION_IDLE,
             PROPULSION_IDLE,
         )
-        # Alternating warp/idle -> slingshot trajectory (score ~10.7)
         oscillatory_schedule = (
             PROPULSION_WARP,
             PROPULSION_IDLE,
@@ -86,7 +84,6 @@ class TestSlingshotBonus:
     """Slingshot detection should add the slingshot bonus to the score."""
 
     def test_slingshot_route_gets_bonus(self) -> None:
-        # High velocity + warp on small grid -> slingshot detection
         snap = _make_snapshot(velocity=5.0, width=10)
         steps = 10
         warp_schedule = (PROPULSION_WARP,) * steps
@@ -102,11 +99,9 @@ class TestSlingshotBonus:
             candidate_schedules=(idle_schedule,),
             steps=steps,
         )
-        # Warp schedule on small grid triggers slingshot
         assert report_warp.slingshot_bonus > 0.0
         assert report_idle.slingshot_bonus == 0.0
 
-        # Idle route still wins overall due to stability bonus + lower penalty
         combined = search_best_route_policy(
             snap,
             candidate_schedules=(warp_schedule, idle_schedule),
@@ -119,8 +114,6 @@ class TestDivergentPenalized:
     """A divergent route should receive a heavy penalty."""
 
     def test_divergent_route_penalized(self) -> None:
-        # Velocity at 1e6: warp pushes past divergence threshold,
-        # idle decays below it via 0.99 multiplier.
         snap = _make_snapshot(velocity=1e6, width=20)
         steps = 10
         divergent_schedule = (PROPULSION_WARP,) * steps
@@ -133,7 +126,6 @@ class TestDivergentPenalized:
         )
         assert report.candidate_count == 2
         assert report.best_schedule == mild_schedule
-        # Divergent route should have negative stability score component
         report_div = search_best_route_policy(
             snap,
             candidate_schedules=(divergent_schedule,),
@@ -146,14 +138,11 @@ class TestTieBreakPropulsionSum:
     """When total scores are equal, lower propulsion sum wins."""
 
     def test_lower_sum_wins(self) -> None:
-        # V=-50, width=100, field_energy=0, steps=1 produces exact tie:
-        # idle score = 55.5, thrust score = 55.5
         snap = _make_snapshot(velocity=-50.0, field_energy=0.0, width=100)
         steps = 1
-        idle_schedule = (PROPULSION_IDLE,)    # sum = 0
-        thrust_schedule = (PROPULSION_THRUST,)  # sum = 1
+        idle_schedule = (PROPULSION_IDLE,)
+        thrust_schedule = (PROPULSION_THRUST,)
 
-        # Verify regardless of candidate order
         report_a = search_best_route_policy(
             snap,
             candidate_schedules=(idle_schedule, thrust_schedule),
@@ -164,10 +153,8 @@ class TestTieBreakPropulsionSum:
             candidate_schedules=(thrust_schedule, idle_schedule),
             steps=steps,
         )
-        # Both must select idle (lower propulsion sum)
         assert report_a.best_schedule == idle_schedule
         assert report_b.best_schedule == idle_schedule
-        # Confirm scores are genuinely tied
         assert report_a.best_score == report_b.best_score
 
 
@@ -181,8 +168,6 @@ class TestTieBreakLexicographic:
         sched_low = (PROPULSION_IDLE, PROPULSION_IDLE, PROPULSION_THRUST)
         sched_high = (PROPULSION_IDLE, PROPULSION_THRUST, PROPULSION_IDLE)
 
-        # Patch _score_candidate to return identical scores for both,
-        # forcing the tie-break to rely on lexicographic ordering.
         fixed_scores = (10.0, 5.0, -2.0, 5.0, 0.0)
         with patch(
             "qec.sims.autopilot_policy_search._score_candidate",
@@ -199,7 +184,6 @@ class TestTieBreakLexicographic:
                 steps=steps,
             )
 
-        # Lower lex wins regardless of candidate order
         assert report_a.best_schedule == sched_low
         assert report_b.best_schedule == sched_low
 
@@ -239,7 +223,6 @@ class TestReplayDeterminism:
         assert report_1.slingshot_bonus == report_2.slingshot_bonus
         assert report_1.steps_evaluated == report_2.steps_evaluated
         assert report_1.candidate_count == report_2.candidate_count
-        # Frozen dataclass equality
         assert report_1 == report_2
 
 

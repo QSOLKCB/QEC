@@ -87,6 +87,24 @@ The lab and Python API support deterministic:
 The same request, topology, initial trunk state, operator command sequence and
 fault plan produce the same event chain and receipt SHA-256.
 
+## Offline browser laboratory
+
+`viz/strowger/` is a dependency-free visual and audio laboratory. It animates
+selectors, exposes the optional Operator Desk, plays route tones, renders WAV
+files and exports a local demonstration record.
+
+The browser export is intentionally labelled:
+
+```text
+qec.strowger-browser-demonstration.v1
+```
+
+It uses a lightweight deterministic demonstration digest so it can run directly
+from static files without presenting that digest as cryptographic evidence. The
+record declares `browser_demo_only: true` and `canonical_receipt: false`.
+Canonical SHA-256 evidence is produced and validated only through the Python API
+and `qec-strowger` CLI.
+
 ## CLI
 
 ```bash

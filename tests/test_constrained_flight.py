@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for constrained flight & mandatory gravity assist.
 
 Covers:

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for temporal phase drift analysis — v133.8.0."""
 
 from __future__ import annotations

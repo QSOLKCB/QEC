@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.2.10 — deterministic prompt canonicalization layer.
 
 This module defines deterministic prompt artifacts and replay-safe receipts for

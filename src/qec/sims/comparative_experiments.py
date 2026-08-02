@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Comparative universe experiment framework — v133.4.0.
 
 Runs multiple universes under different law sets from identical

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Simulation Adapter Interface Layer — v133.3.0.
 
 Deterministic adapter interface for exporting simulation states

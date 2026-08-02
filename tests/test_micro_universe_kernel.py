@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for the micro-universe simulation kernel (v133.0.0)."""
 
 from __future__ import annotations

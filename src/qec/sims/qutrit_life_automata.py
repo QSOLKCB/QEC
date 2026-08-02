@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic qutrit cellular automaton — three-state Life.
 
 Each cell has one of three states:

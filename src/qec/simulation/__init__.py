@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Correlated-noise simulator export bridge."""
 
 from .experiment_packaging_format import (

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for the comparative universe experiment framework — v133.4.0."""
 
 from __future__ import annotations

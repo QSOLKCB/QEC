@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Observable probes for the micro-universe kernel.
 
 All observations are deterministic pure functions of state.

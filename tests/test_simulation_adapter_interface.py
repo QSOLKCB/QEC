@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for the Simulation Adapter Interface — v133.3.0."""
 
 from __future__ import annotations

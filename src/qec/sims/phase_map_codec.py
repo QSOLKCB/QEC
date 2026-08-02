@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Phase map export codec — v133.7.0.
 
 Canonical export, load, and hashing for PhaseMap artifacts.

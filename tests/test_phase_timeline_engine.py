@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Tests for phase timeline engine — v133.9.0."""
 
 from __future__ import annotations

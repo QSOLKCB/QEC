@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for v147.0 retro target registry."""
 
 from __future__ import annotations

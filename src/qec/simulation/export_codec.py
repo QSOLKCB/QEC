@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic JSON codec for simulation export artifacts.
 
 Guarantees:

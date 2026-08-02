@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic 2D spatial arcade sandbox — planar movement physics.
 
 Simulates 2D arcade-like movement on a toroidal arena grid with

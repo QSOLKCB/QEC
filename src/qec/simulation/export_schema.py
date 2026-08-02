@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Frozen immutable export schema for deterministic simulation traces.
 
 All dataclasses are frozen to guarantee immutability and byte-identical replay.

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for the simulation export bridge (v132.5.0)."""
 
 from __future__ import annotations

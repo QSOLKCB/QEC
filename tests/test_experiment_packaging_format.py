@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for v138.1.1 experiment packaging format."""
 
 from __future__ import annotations

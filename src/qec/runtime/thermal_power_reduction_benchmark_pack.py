@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.6.4 — deterministic thermal / power reduction benchmark pack."""
 
 from __future__ import annotations

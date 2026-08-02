@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v148.7 — Failure Ledger (Expanded).
 
 Deterministic, immutable failure ledger linking review issues, proposals,

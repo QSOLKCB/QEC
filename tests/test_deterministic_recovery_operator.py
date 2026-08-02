@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for v138.3.2 deterministic recovery operator."""
 
 from __future__ import annotations

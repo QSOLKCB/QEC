@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Recovery tunnel engine — v134.1.0.
 
 Deterministic recovery tunnel framework for transitioning lattice snapshots

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic lattice civilization engine — infrastructure-growth automaton.
 
 Each cell has one of five states:

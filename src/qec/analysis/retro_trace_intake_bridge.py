@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v147.1 — Retro Trace Intake Bridge.
 
 Deterministic analysis-layer conversion from heterogeneous retro traces into

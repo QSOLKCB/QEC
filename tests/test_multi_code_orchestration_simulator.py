@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for v138.1.2 multi-code orchestration simulator."""
 
 from __future__ import annotations

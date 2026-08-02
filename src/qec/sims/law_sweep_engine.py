@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Law sweep engine — v133.5.0.
 
 Deterministic parameter sweep across law configurations.

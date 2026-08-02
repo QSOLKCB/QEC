@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.3.0 — deterministic runtime admissibility projection engine."""
 
 from __future__ import annotations

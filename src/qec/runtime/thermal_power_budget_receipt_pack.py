@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.2.3 — deterministic thermal / power budget receipt pack layer.
 
 This module is additive to v138.2.2 throughput scaling study and provides

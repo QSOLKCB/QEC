@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Control policy sweep benchmarking — v134.6.0.
 
 Deterministic benchmarking layer for comparing multiple supervisory

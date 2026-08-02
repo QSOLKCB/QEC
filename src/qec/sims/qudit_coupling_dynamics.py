@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Qudit coupling dynamics — v134.3.0.
 
 Local nearest-neighbor coupling on a qudit lattice.

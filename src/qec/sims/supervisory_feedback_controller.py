@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Supervisory feedback controller — v134.5.0.
 
 Deterministic supervisory control law that reads a

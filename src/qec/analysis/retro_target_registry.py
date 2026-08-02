@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v147.0 — Retro Target Registry.
 
 Deterministic analysis-layer registry for retro-constrained compute targets.

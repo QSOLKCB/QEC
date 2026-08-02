@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.1.1 — Deterministic experiment packaging format.
 
 Canonical, replay-safe package schema for correlated-noise simulation artifacts.

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.7.1.1 — deterministic GNN decoder kernel."""
 
 from __future__ import annotations

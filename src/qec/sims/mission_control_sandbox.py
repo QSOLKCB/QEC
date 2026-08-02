@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Mission control sandbox & space anomalies — v135.5.0.
 
 Deterministic sandbox layer for running reusable mission scenarios with

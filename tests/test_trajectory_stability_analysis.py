@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic tests for trajectory stability analysis — v135.1.0."""
 
 from __future__ import annotations

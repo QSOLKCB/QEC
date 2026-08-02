@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic adversarial perturbation battery for analysis-layer receipts."""
 
 from __future__ import annotations

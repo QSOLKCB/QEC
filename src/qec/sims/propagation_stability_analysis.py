@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Propagation stability and attractor analysis — v134.4.0.
 
 Deterministic stability diagnostics for coupled qudit lattice propagation.

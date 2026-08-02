@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """v138.1.3 — Non-Clifford / Truncated Polytope Bounds Pack.
 
 Deterministic approximation-bound analysis for non-Clifford simulation lanes.

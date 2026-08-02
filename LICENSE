@@ -58,7 +58,7 @@ Mozilla Public License Version 2.0
 
 1.11. "Patent Claims" of a Contributor
     means any patent claim(s), including without limitation, method,
-    process, and apparatus claims, in any Patent Licensable by such
+    process, and apparatus claims, in any patent Licensable by such
     Contributor that would be infringed, but for the grant of the
     License, by the making, using, selling, offering for sale, having
     made, import, or transfer of either its Contributions or its
@@ -209,7 +209,7 @@ You may choose to offer, and to charge a fee for, warranty, support,
 indemnity or liability obligations to one or more recipients of Covered
 Software. However, You may do so only on Your own behalf, and not on
 behalf of any Contributor. You must make it absolutely clear that any
-such warranty, support, indemnity or liability obligation is offered by
+such warranty, support, indemnity, or liability obligation is offered by
 You alone, and You hereby agree to indemnify every Contributor for any
 liability incurred by such Contributor as a result of warranty, support,
 indemnity or liability terms You offer. You may include additional
@@ -371,3 +371,4 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
   This Source Code Form is "Incompatible With Secondary Licenses", as
   defined by the Mozilla Public License, v. 2.0.
+

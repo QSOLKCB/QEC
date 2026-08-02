@@ -13,6 +13,7 @@ from qec.routing.strowger import (
     RouteRequest,
     StageConfig,
     StrowgerExchange,
+    TrunkState,
     validate_receipt,
 )
 
@@ -119,7 +120,7 @@ def test_unrecorded_operator_state_mutation_is_rejected() -> None:
     exchange = StrowgerExchange(config(), mode=ExchangeMode.MANUAL)
 
     def prepare(_desk, trunks) -> None:
-        trunks["family"][0] = trunks["family"][1]
+        trunks["family"][0] = TrunkState.BUSY
 
     with pytest.raises(ValueError, match="not explained"):
         exchange.route(request(), prepare_operator=prepare)

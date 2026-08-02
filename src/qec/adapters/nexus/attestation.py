@@ -7,6 +7,10 @@ from pathlib import Path
 
 from qec.sonify.canonical import canonical_sha256
 from .source import source_profile
+from .version import (
+    NEXUS_EXECUTION_CONTRACT_VERSION,
+    SUPPORTED_NEXUS_BRIDGE_VERSIONS,
+)
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -50,7 +54,7 @@ def build_attestation(
     source = source_profile(profile)
     payload: dict[str, object] = {
         "schema": "qec.nexus-build-attestation.v1",
-        "qec_version": "170.2.0",
+        "qec_version": NEXUS_EXECUTION_CONTRACT_VERSION,
         "source": source.as_dict(),
         "binary": {
             "name": binary.name,
@@ -77,7 +81,7 @@ def validate_build_attestation_record(
         raise NexusAttestationError(
             "unexpected NEXUS build-attestation schema"
         )
-    if attestation.get("qec_version") != "170.2.0":
+    if attestation.get("qec_version") not in SUPPORTED_NEXUS_BRIDGE_VERSIONS:
         raise NexusAttestationError(
             "unexpected QEC version in build attestation"
         )

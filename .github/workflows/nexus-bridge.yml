@@ -6,7 +6,9 @@ on:
       - "src/qec/adapters/nexus/**"
       - "src/qec/adapters/__init__.py"
       - "tests/test_nexus_bridge*.py"
+      - "tests/test_nexus_replication.py"
       - "docs/NEXUS_QEC_BRIDGE.md"
+      - "docs/replications/**"
       - "pyproject.toml"
       - ".github/workflows/nexus-bridge.yml"
   push:
@@ -16,7 +18,9 @@ on:
       - "src/qec/adapters/nexus/**"
       - "src/qec/adapters/__init__.py"
       - "tests/test_nexus_bridge*.py"
+      - "tests/test_nexus_replication.py"
       - "docs/NEXUS_QEC_BRIDGE.md"
+      - "docs/replications/**"
       - "pyproject.toml"
       - ".github/workflows/nexus-bridge.yml"
 
@@ -42,6 +46,11 @@ jobs:
 
       - name: Run complete QEC validation suite
         run: python -m pytest -q
+
+      - name: Validate committed NEXUS v4.0.1 qBraid receipt
+        run: >-
+          qec-nexus-validate-replication receipt
+          --receipt docs/replications/nexus_v4_0_1_qbraid_receipt.json
 
       - name: Checkout published NEXUS v3 baseline
         uses: actions/checkout@v4
@@ -81,7 +90,7 @@ jobs:
           --steps 32
           --output artifacts/v3-trace
 
-      - name: Checkout merged NEXUS v4 profile
+      - name: Checkout frozen NEXUS v4 source profile
         uses: actions/checkout@v4
         with:
           repository: QSOLKCB/NEXUS
@@ -89,7 +98,7 @@ jobs:
           path: external/NEXUS-v4
           fetch-depth: 1
 
-      - name: Build NEXUS v4 profile
+      - name: Build NEXUS v4 source profile
         working-directory: external/NEXUS-v4
         run: cargo build --release --locked
 
@@ -155,8 +164,13 @@ jobs:
               qec-nexus-bridge validate --receipt "$receipt"
             done
 
+      - name: Copy canonical replication receipt into evidence bundle
+        run: >-
+          cp docs/replications/nexus_v4_0_1_qbraid_receipt.json
+          artifacts/nexus_v4_0_1_qbraid_receipt.json
+
       - name: Upload NEXUS bridge evidence
         uses: actions/upload-artifact@v4
         with:
-          name: qec-v170.2.0-nexus-bridge-evidence
+          name: qec-v170.2.1-nexus-bridge-evidence
           path: artifacts/

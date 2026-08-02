@@ -10,7 +10,16 @@ let audioContext = null;
 let operatorEvents = [];
 
 function parseCsv(id) {
-  return $(id).value.split(",").map((part) => Number.parseInt(part.trim(), 10));
+  return $(id).value.split(",").map((part) => Number(part.trim()));
+}
+
+function validRadices(radices) {
+  if (radices.length < 3) return false;
+  return radices.every((radix, index) => (
+    Number.isInteger(radix)
+    && radix >= 2
+    && radix <= (index === radices.length - 1 ? 4096 : 256)
+  ));
 }
 
 function hash32(text) {
@@ -110,7 +119,12 @@ function renderEvents(events) {
   eventList.replaceChildren();
   for (const event of events) {
     const item = document.createElement("li");
-    item.innerHTML = `<b>${String(event.sequence).padStart(3, "0")} · ${event.device}</b><br>${event.action} ${JSON.stringify(event.details)}`;
+    const summary = document.createElement("b");
+    summary.textContent = `${String(event.sequence).padStart(3, "0")} · ${event.device}`;
+    const details = document.createTextNode(
+      `${event.action} ${JSON.stringify(event.details)}`
+    );
+    item.append(summary, document.createElement("br"), details);
     eventList.append(item);
   }
   eventList.scrollTop = eventList.scrollHeight;
@@ -172,7 +186,7 @@ function operatorAction(action) {
   const command = {
     action,
     operator_id: "local-console",
-    target: action === "quarantine" ? "selector-1:0" : "exchange",
+    target: action === "quarantine" ? "selector-0:0" : "exchange",
     reason: "operator-desk action"
   };
   operatorEvents.push(command);
@@ -189,7 +203,7 @@ function route() {
   const radices = parseCsv("#radices");
   if (
     digits.length !== radices.length
-    || radices.length < 3
+    || !validRadices(radices)
     || digits.some((digit, index) => (
       !Number.isInteger(digit) || digit < 0 || digit >= radices[index]
     ))

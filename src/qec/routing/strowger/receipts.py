@@ -26,6 +26,7 @@ def build_receipt(
     config: ExchangeConfig,
     request: RouteRequest,
     mode: str,
+    initial_state: dict[str, object],
     pre_route_state: dict[str, object],
     linefinder: int | None,
     selector_trunks: tuple[int, ...],
@@ -45,6 +46,7 @@ def build_receipt(
         "request": request.as_dict(),
         "request_sha256": request.sha256(),
         "mode": mode,
+        "initial_state": initial_state,
         "pre_route_state": pre_route_state,
         "route": {
             "linefinder": linefinder,
@@ -60,7 +62,7 @@ def build_receipt(
         "events": [event.as_dict() for event in events],
         "operator_commands": list(operator_commands),
         "fault_plan": fault_plan,
-        "claim_boundary": CLAIM_BOUNDARY,
+        "claim_boundary": dict(CLAIM_BOUNDARY),
     }
     payload["sha256"] = canonical_sha256(payload)
     return payload
@@ -70,6 +72,7 @@ def _validate_event_chain(events: object) -> int:
     if not isinstance(events, list):
         raise ValueError("receipt events are missing")
     previous: str | None = None
+    previous_tick = -1
     for sequence, event in enumerate(events):
         if not isinstance(event, dict):
             raise ValueError("receipt event must be an object")
@@ -80,48 +83,50 @@ def _validate_event_chain(events: object) -> int:
         unsigned_event.pop("event_sha256", None)
         if unsigned_event.get("sequence") != sequence:
             raise ValueError("event sequence is not contiguous")
+        tick = unsigned_event.get("tick")
+        if type(tick) is not int or tick < previous_tick:
+            raise ValueError("event ticks must be non-negative and monotonic")
         if unsigned_event.get("previous_event_sha256") != previous:
             raise ValueError("event hash chain is broken")
         if canonical_sha256(unsigned_event) != event_hash:
             raise ValueError("event hash mismatch")
         previous = event_hash
+        previous_tick = tick
     return len(events)
 
 
-def _restore_pre_route_state(
+def _restore_state(
     config: ExchangeConfig,
     payload: object,
+    *,
+    label: str,
 ) -> tuple[list[TrunkState], dict[str, list[TrunkState]]]:
     if not isinstance(payload, dict) or set(payload) != {"linefinders", "trunks"}:
-        raise ValueError("pre-route state must contain linefinders and trunks")
+        raise ValueError(f"{label} must contain linefinders and trunks")
     linefinders_raw = payload["linefinders"]
     trunks_raw = payload["trunks"]
     if not isinstance(linefinders_raw, list):
-        raise ValueError("pre-route linefinders must be a list")
+        raise ValueError(f"{label} linefinders must be a list")
     if len(linefinders_raw) != config.linefinders:
-        raise ValueError("pre-route linefinder count does not match config")
+        raise ValueError(f"{label} linefinder count does not match config")
     try:
         linefinders = [TrunkState(value) for value in linefinders_raw]
     except (TypeError, ValueError) as exc:
-        raise ValueError("invalid pre-route linefinder state") from exc
+        raise ValueError(f"invalid {label} linefinder state") from exc
     if not isinstance(trunks_raw, dict):
-        raise ValueError("pre-route trunks must be an object")
+        raise ValueError(f"{label} trunks must be an object")
     expected_names = {stage.name for stage in config.selectors}
     if set(trunks_raw) != expected_names:
-        raise ValueError("pre-route trunk stages do not match config")
+        raise ValueError(f"{label} trunk stages do not match config")
     trunks: dict[str, list[TrunkState]] = {}
     for stage in config.selectors:
         values = trunks_raw[stage.name]
         if not isinstance(values, list) or len(values) != stage.trunks:
-            raise ValueError(
-                f"pre-route trunk count does not match stage {stage.name}"
-            )
+            raise ValueError(f"{label} trunk count does not match stage {stage.name}")
         try:
             trunks[stage.name] = [TrunkState(value) for value in values]
         except (TypeError, ValueError) as exc:
-            raise ValueError(
-                f"invalid pre-route trunk state for {stage.name}"
-            ) from exc
+            raise ValueError(f"invalid {label} trunk state for {stage.name}") from exc
     return linefinders, trunks
 
 
@@ -135,7 +140,7 @@ def validate_receipt(receipt: dict[str, object]) -> dict[str, object]:
     unsigned.pop("sha256", None)
     if canonical_sha256(unsigned) != observed:
         raise ValueError("Strowger receipt hash mismatch")
-    if receipt.get("claim_boundary") != CLAIM_BOUNDARY:
+    if receipt.get("claim_boundary") != dict(CLAIM_BOUNDARY):
         raise ValueError("Strowger claim boundary mismatch")
 
     config = ExchangeConfig.from_dict(receipt.get("config"))
@@ -159,20 +164,21 @@ def validate_receipt(receipt: dict[str, object]) -> dict[str, object]:
     commands = tuple(OperatorCommand.from_dict(item) for item in commands_raw)
     if mode is ExchangeMode.AUTOMATIC and commands:
         raise ValueError("automatic receipts may not contain operator commands")
-    linefinders, trunks = _restore_pre_route_state(
-        config,
-        receipt.get("pre_route_state"),
+
+    initial_linefinders, initial_trunks = _restore_state(
+        config, receipt.get("initial_state"), label="initial state"
     )
+    _restore_state(config, receipt.get("pre_route_state"), label="pre-route state")
 
     from .exchange import StrowgerExchange
 
     exchange = StrowgerExchange(config, mode=mode)
-    exchange.linefinder_states = linefinders
-    exchange.trunk_states = trunks
+    exchange.linefinder_states = initial_linefinders
+    exchange.trunk_states = initial_trunks
 
-    def replay_operator(desk, _trunk_states) -> None:
+    def replay_operator(desk, trunk_states) -> None:
         for command in commands:
-            desk.record(command)
+            desk.apply(command, trunk_states)
 
     replay = exchange.route(
         request,

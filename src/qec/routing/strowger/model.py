@@ -58,6 +58,25 @@ CLAIM_BOUNDARY: Final = {
 }
 
 
+def _exact_object(
+    payload: object,
+    *,
+    label: str,
+    fields: set[str],
+) -> dict[str, object]:
+    if not isinstance(payload, dict):
+        raise ValueError(f"{label} must be an object")
+    if set(payload) != fields:
+        raise ValueError(f"{label} must contain exactly the canonical fields")
+    return payload
+
+
+def _exact_list(payload: object, *, label: str) -> list[object]:
+    if not isinstance(payload, list):
+        raise ValueError(f"{label} must be a list")
+    return payload
+
+
 @dataclass(frozen=True)
 class StageConfig:
     """One selector stage in a mixed-radix exchange."""
@@ -70,6 +89,19 @@ class StageConfig:
         require_nonempty_text(self.name, "name")
         require_int(self.radix, "radix", minimum=2, maximum=256)
         require_int(self.trunks, "trunks", minimum=1, maximum=4096)
+
+    @classmethod
+    def from_dict(cls, payload: object) -> "StageConfig":
+        record = _exact_object(
+            payload,
+            label="stage config",
+            fields={"name", "radix", "trunks"},
+        )
+        return cls(
+            name=record["name"],
+            radix=record["radix"],
+            trunks=record["trunks"],
+        )
 
     def as_dict(self) -> dict[str, object]:
         return {"name": self.name, "radix": self.radix, "trunks": self.trunks}
@@ -91,6 +123,8 @@ class ExchangeConfig:
         require_int(self.linefinders, "linefinders", minimum=1, maximum=4096)
         if not self.selectors:
             raise ValueError("selectors must contain at least one stage")
+        if len({stage.name for stage in self.selectors}) != len(self.selectors):
+            raise ValueError("selector stage names must be unique")
         require_int(
             self.connector_vertical_radix,
             "connector_vertical_radix",
@@ -120,6 +154,32 @@ class ExchangeConfig:
             "tone_tolerance_hz",
             minimum=0,
             maximum=1000,
+        )
+
+    @classmethod
+    def from_dict(cls, payload: object) -> "ExchangeConfig":
+        record = _exact_object(
+            payload,
+            label="exchange config",
+            fields={
+                "linefinders",
+                "selectors",
+                "connector_vertical_radix",
+                "connector_rotary_radix",
+                "route_tone_base_hz",
+                "dark_reference_hz",
+                "tone_tolerance_hz",
+            },
+        )
+        selectors = _exact_list(record["selectors"], label="selectors")
+        return cls(
+            linefinders=record["linefinders"],
+            selectors=tuple(StageConfig.from_dict(item) for item in selectors),
+            connector_vertical_radix=record["connector_vertical_radix"],
+            connector_rotary_radix=record["connector_rotary_radix"],
+            route_tone_base_hz=record["route_tone_base_hz"],
+            dark_reference_hz=record["dark_reference_hz"],
+            tone_tolerance_hz=record["tone_tolerance_hz"],
         )
 
     @property
@@ -158,6 +218,21 @@ class RouteRequest:
             raise ValueError("digits must not be empty")
         for index, digit in enumerate(self.digits):
             require_int(digit, f"digits[{index}]", minimum=0)
+
+    @classmethod
+    def from_dict(cls, payload: object) -> "RouteRequest":
+        record = _exact_object(
+            payload,
+            label="route request",
+            fields={"request_id", "digits", "epoch", "destination"},
+        )
+        digits = _exact_list(record["digits"], label="request digits")
+        return cls(
+            request_id=record["request_id"],
+            digits=tuple(digits),
+            epoch=record["epoch"],
+            destination=record["destination"],
+        )
 
     def validate_against(self, config: ExchangeConfig) -> None:
         if len(self.digits) != len(config.route_radices):
@@ -205,6 +280,40 @@ class FaultPlan:
             raise ValueError("tone_offsets_hz must contain three offsets")
         for value in self.tone_offsets_hz:
             require_int(value, "tone_offset_hz", minimum=-20000, maximum=20000)
+
+    @classmethod
+    def from_dict(cls, payload: object) -> "FaultPlan":
+        record = _exact_object(
+            payload,
+            label="fault plan",
+            fields={
+                "missed_pulses",
+                "duplicate_pulses",
+                "stuck_selectors",
+                "tone_offsets_hz",
+            },
+        )
+
+        def pairs(name: str) -> tuple[tuple[int, int], ...]:
+            values = _exact_list(record[name], label=name)
+            result: list[tuple[int, int]] = []
+            for index, pair in enumerate(values):
+                pair_list = _exact_list(pair, label=f"{name}[{index}]")
+                if len(pair_list) != 2:
+                    raise ValueError(f"{name}[{index}] must contain two integers")
+                result.append((pair_list[0], pair_list[1]))
+            return tuple(result)
+
+        stuck = _exact_list(record["stuck_selectors"], label="stuck_selectors")
+        offsets = _exact_list(record["tone_offsets_hz"], label="tone_offsets_hz")
+        if len(offsets) != 3:
+            raise ValueError("tone_offsets_hz must contain three integers")
+        return cls(
+            missed_pulses=pairs("missed_pulses"),
+            duplicate_pulses=pairs("duplicate_pulses"),
+            stuck_selectors=tuple(stuck),
+            tone_offsets_hz=(offsets[0], offsets[1], offsets[2]),
+        )
 
     def as_dict(self) -> dict[str, object]:
         return {

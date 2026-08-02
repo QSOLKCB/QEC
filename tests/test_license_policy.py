@@ -8,7 +8,11 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 THIS_FILE = Path(__file__).resolve()
-SPDX_RE = re.compile(r"SPDX-License-Identifier:\s*([^\s*]+)")
+SPDX_RE = re.compile(
+    r"^\s*(?:#|//|/\*+|\*|<!--|;)\s*"
+    r"SPDX-License-Identifier:\s*([A-Za-z0-9.+-]+)",
+    re.MULTILINE,
+)
 TEXT_SUFFIXES = {
     ".c",
     ".cc",
@@ -42,6 +46,7 @@ EXCLUDED_PARTS = {
     "external",
     "node_modules",
     "third_party",
+    "THIRD_PARTY_LICENSES",
     "vendor",
 }
 

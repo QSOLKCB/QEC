@@ -1,0 +1,127 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Offline deterministic Strowger syndrome-routing exchange and Operator Desk.">
+  <title>QEC · Strowger Syndrome Exchange</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="logo" aria-hidden="true">S<br><small>170.3</small></div>
+    <div>
+      <p class="eyebrow">QSOLKCB/QEC · AUTOMATIC CORRECTION ROUTING</p>
+      <h1>Strowger Syndrome Exchange</h1>
+      <p>Pulse-routed correction lines, contact-tone verification, and replay-safe operator evidence.</p>
+    </div>
+    <a class="back" href="../">QEC LABS ↗</a>
+  </header>
+
+  <main>
+    <aside class="controls">
+      <section>
+        <h2>Call register</h2>
+        <label>Mixed-radix digits
+          <input id="digits" value="2,3,4,11" spellcheck="false">
+        </label>
+        <label>Radices
+          <input id="radices" value="3,4,10,16" spellcheck="false">
+        </label>
+        <label>Destination
+          <input id="destination" value="ququart/site-4/pauli-11" spellcheck="false">
+        </label>
+        <div class="button-row">
+          <button id="route" class="primary">Route request</button>
+          <button id="reset">Return home</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Deterministic fault</h2>
+        <label>Injection
+          <select id="fault">
+            <option value="none">None</option>
+            <option value="missed">Miss first pulse</option>
+            <option value="duplicate">Duplicate first pulse</option>
+            <option value="stuck">Stick selector 2</option>
+            <option value="tone">Offset route tone +7 Hz</option>
+            <option value="busy">Mark first two trunks busy</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="operator">
+        <div class="operator-title">
+          <h2>Operator Desk</h2>
+          <span id="desk-state">DISABLED</span>
+        </div>
+        <label>Operating mode
+          <select id="mode">
+            <option value="automatic">Automatic</option>
+            <option value="supervised">Supervised</option>
+            <option value="manual">Manual laboratory</option>
+          </select>
+        </label>
+        <div class="button-grid">
+          <button data-op="inspect">Inspect</button>
+          <button data-op="quarantine">Quarantine trunk 1</button>
+          <button data-op="release">Release route</button>
+          <button data-op="replay">Replay request</button>
+          <button data-op="step">Manual step</button>
+          <button data-op="seize">Seize trunk</button>
+        </div>
+        <p class="boundary">No force-accept control exists. Operator actions enter the same receipt chain.</p>
+      </section>
+
+      <section>
+        <h2>Sound and evidence</h2>
+        <div class="button-row">
+          <button id="hear">Play contact tones</button>
+          <button id="wav">Render WAV</button>
+        </div>
+        <button id="download">Download receipt JSON</button>
+      </section>
+    </aside>
+
+    <section class="exchange">
+      <div class="status-strip">
+        <article><span>STATE</span><strong id="state">HOME</strong></article>
+        <article><span>LINEFINDER</span><strong id="linefinder">—</strong></article>
+        <article><span>ROUTE</span><strong id="route-path">—</strong></article>
+        <article><span>VERIFY</span><strong id="verify">—</strong></article>
+      </div>
+
+      <div id="rack" class="rack" aria-label="Virtual selector rack"></div>
+
+      <section class="tone-panel">
+        <div>
+          <p class="eyebrow">CONTACT VERIFICATION</p>
+          <h2>Three-tone route signature</h2>
+        </div>
+        <canvas id="scope" width="900" height="180" aria-label="Tone waveform display"></canvas>
+        <div class="tone-values">
+          <span>Route <b id="route-tone">—</b></span>
+          <span>Check <b id="check-tone">—</b></span>
+          <span>Dark ref <b id="dark-tone">—</b></span>
+        </div>
+      </section>
+
+      <section class="log-panel">
+        <header>
+          <div><p class="eyebrow">CHAIN OF CUSTODY</p><h2>Exchange event log</h2></div>
+          <code id="receipt-hash">no receipt</code>
+        </header>
+        <ol id="events"></ol>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    Classical routing and verification only · no decoder replacement · no quantum-hardware claim
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>

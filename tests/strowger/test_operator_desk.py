@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: MPL-2.0
+"""Optional Operator Desk permissions and evidence tests."""
+
+from __future__ import annotations
+
+import pytest
+
+from qec.routing.strowger import (
+    ExchangeConfig,
+    ExchangeMode,
+    OperatorAction,
+    OperatorCommand,
+    RouteRequest,
+    StageConfig,
+    StrowgerExchange,
+    TrunkState,
+)
+
+
+def config() -> ExchangeConfig:
+    return ExchangeConfig(
+        linefinders=1,
+        selectors=(StageConfig("family", 3, trunks=2),),
+        connector_vertical_radix=10,
+        connector_rotary_radix=10,
+    )
+
+
+def request() -> RouteRequest:
+    return RouteRequest("operator-demo", (1, 2, 3), 0, "qutrit/site-2/X")
+
+
+def test_automatic_mode_rejects_operator_callback() -> None:
+    exchange = StrowgerExchange(config(), mode=ExchangeMode.AUTOMATIC)
+    with pytest.raises(PermissionError, match="requires supervised"):
+        exchange.route(request(), prepare_operator=lambda desk, trunks: None)
+
+
+def test_supervised_operator_quarantine_is_hash_chained() -> None:
+    exchange = StrowgerExchange(config(), mode=ExchangeMode.SUPERVISED)
+
+    def prepare(desk, trunks) -> None:
+        desk.quarantine(
+            trunks,
+            selector="family",
+            contact=0,
+            operator_id="local-console",
+            reason="contact-bounce-detected",
+        )
+        desk.inspect(
+            operator_id="local-console",
+            target="family:1",
+            reason="confirm alternate trunk",
+        )
+
+    result = exchange.route(request(), prepare_operator=prepare)
+    assert result.receipt["route"]["selector_trunks"] == [1]
+    assert len(result.receipt["operator_commands"]) == 2
+    assert result.receipt["operator_commands"][0]["action"] == "quarantine_trunk"
+    assert any(
+        event["action"] == "operator_quarantine_trunk"
+        for event in result.receipt["events"]
+    )
+
+
+def test_manual_actions_require_manual_mode() -> None:
+    exchange = StrowgerExchange(config(), mode=ExchangeMode.SUPERVISED)
+
+    def prepare(desk, trunks) -> None:
+        desk.record(
+            OperatorCommand(
+                action=OperatorAction.MANUAL_STEP,
+                operator_id="operator-1",
+                target="selector-0",
+                reason="maintenance exercise",
+                value=1,
+            )
+        )
+
+    with pytest.raises(PermissionError, match="requires manual"):
+        exchange.route(request(), prepare_operator=prepare)
+
+
+def test_manual_step_is_recorded_but_cannot_force_accept() -> None:
+    exchange = StrowgerExchange(config(), mode=ExchangeMode.MANUAL)
+
+    def prepare(desk, trunks) -> None:
+        desk.record(
+            OperatorCommand(
+                action=OperatorAction.MANUAL_STEP,
+                operator_id="operator-1",
+                target="selector-0",
+                reason="demonstration",
+                value=1,
+            )
+        )
+        trunks["family"][0] = TrunkState.BUSY
+
+    result = exchange.route(request(), prepare_operator=prepare)
+    assert result.receipt["route"]["selector_trunks"] == [1]
+    assert result.receipt["claim_boundary"]["operator_may_force_accept"] is False

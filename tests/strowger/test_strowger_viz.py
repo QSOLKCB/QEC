@@ -24,6 +24,17 @@ def test_lab_has_operator_desk_and_no_network_runtime() -> None:
     assert "WebSocket" not in script
 
 
+def test_browser_download_is_explicitly_noncanonical() -> None:
+    script = (LAB / "app.js").read_text(encoding="utf-8")
+    assert 'schema: "qec.strowger-browser-demonstration.v1"' in script
+    assert "browser_demo_only: true" in script
+    assert "canonical_receipt: false" in script
+    assert 'digest_algorithm: "fnv1a-derived-demo-digest-v1"' in script
+    assert "pseudoSha" not in script
+    assert "event_sha256" not in script
+    assert "previous_event_sha256" not in script
+
+
 def test_lab_supports_audio_and_wav_without_dependencies() -> None:
     script = (LAB / "app.js").read_text(encoding="utf-8")
     assert "AudioContext" in script

@@ -36,6 +36,29 @@ class OperatorCommand:
         if self.value is not None and type(self.value) is not int:
             raise TypeError("value must be an exact int when present")
 
+    @classmethod
+    def from_dict(cls, payload: object) -> "OperatorCommand":
+        if not isinstance(payload, dict):
+            raise ValueError("operator command must be an object")
+        required = {"action", "operator_id", "target", "reason"}
+        allowed = required | {"value"}
+        if not required <= set(payload) or set(payload) - allowed:
+            raise ValueError("operator command fields do not match the contract")
+        try:
+            action = OperatorAction(payload["action"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("unknown operator action") from exc
+        command = cls(
+            action=action,
+            operator_id=payload["operator_id"],
+            target=payload["target"],
+            reason=payload["reason"],
+            value=payload.get("value"),
+        )
+        if command.as_dict() != payload:
+            raise ValueError("operator command is not canonically encoded")
+        return command
+
     def as_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
             "action": self.action.value,

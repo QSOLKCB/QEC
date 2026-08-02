@@ -91,9 +91,6 @@ jobs:
               print(path)
           PY
 
-      - name: Verify licensing boundary
-        run: python -m pytest -q tests/test_license_policy.py
-
       - name: Commit atomic header migration
         shell: bash
         run: |

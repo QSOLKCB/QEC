@@ -7,6 +7,7 @@ import zipfile
 
 import pytest
 
+import qec.adapters.nexus.replication as replication_module
 from qec.adapters.nexus import (
     EXPECTED_ARCHIVE_SHA256,
     NEXUS_EXECUTION_CONTRACT_VERSION,
@@ -15,6 +16,7 @@ from qec.adapters.nexus import (
     validate_qbraid_replication_archive,
     validate_replication_receipt,
 )
+from qec.adapters.nexus.replication import EXPECTED_RECEIPT_SHA256
 from qec.sonify.canonical import canonical_sha256
 
 ROOT = "nexus-v4-qbraid-rerun2-results-1e93a509"
@@ -134,10 +136,24 @@ def test_execution_and_replication_versions_are_separate() -> None:
     assert NEXUS_REPLICATION_RECEIPT_VERSION == "170.2.1"
 
 
+def test_noncanonical_archive_hash_override_is_rejected(tmp_path: Path) -> None:
+    archive, digest = _write_bundle(tmp_path)
+    with pytest.raises(
+        NexusReplicationError,
+        match="pinned publication SHA-256",
+    ):
+        validate_qbraid_replication_archive(
+            archive,
+            expected_archive_sha256=digest,
+        )
+
+
 def test_qbraid_archive_builds_anomaly_preserving_receipt(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     archive, digest = _write_bundle(tmp_path)
+    monkeypatch.setattr(replication_module, "EXPECTED_ARCHIVE_SHA256", digest)
     receipt = validate_qbraid_replication_archive(
         archive,
         expected_archive_sha256=digest,
@@ -156,6 +172,7 @@ def test_committed_receipt_is_canonical_and_valid() -> None:
     path = Path("docs/replications/nexus_v4_0_1_qbraid_receipt.json")
     receipt = json.loads(path.read_text(encoding="utf-8"))
     assert receipt["archive"]["sha256"] == EXPECTED_ARCHIVE_SHA256
+    assert receipt["sha256"] == EXPECTED_RECEIPT_SHA256
     assert receipt["sha256"] == canonical_sha256(
         {key: value for key, value in receipt.items() if key != "sha256"}
     )
@@ -175,6 +192,19 @@ def test_resigned_blanket_valid_claim_is_rejected() -> None:
         validate_replication_receipt(receipt)
 
 
+def test_resigned_evidence_mutation_is_rejected() -> None:
+    path = Path("docs/replications/nexus_v4_0_1_qbraid_receipt.json")
+    receipt = json.loads(path.read_text(encoding="utf-8"))
+    receipt["performance"]["speedup_at_7_workers"] = "999"
+    unsigned = {key: value for key, value in receipt.items() if key != "sha256"}
+    receipt["sha256"] = canonical_sha256(unsigned)
+    with pytest.raises(
+        NexusReplicationError,
+        match="receipt identity mismatch",
+    ):
+        validate_replication_receipt(receipt)
+
+
 def test_archive_hash_mismatch_fails_closed(tmp_path: Path) -> None:
     archive, _ = _write_bundle(tmp_path)
     with pytest.raises(
@@ -184,11 +214,15 @@ def test_archive_hash_mismatch_fails_closed(tmp_path: Path) -> None:
         validate_qbraid_replication_archive(archive)
 
 
-def test_zip_traversal_is_rejected(tmp_path: Path) -> None:
+def test_zip_traversal_is_rejected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     archive = tmp_path / "unsafe.zip"
     with zipfile.ZipFile(archive, "w") as zf:
         zf.writestr("root/../escape", b"bad")
     digest = _sha(archive.read_bytes())
+    monkeypatch.setattr(replication_module, "EXPECTED_ARCHIVE_SHA256", digest)
     with pytest.raises(NexusReplicationError, match="unsafe ZIP path"):
         validate_qbraid_replication_archive(
             archive,

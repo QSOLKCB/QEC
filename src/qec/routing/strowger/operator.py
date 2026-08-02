@@ -21,6 +21,13 @@ class OperatorAction(str, Enum):
     SEIZE_TRUNK = "seize_trunk"
 
 
+_STATEFUL_ACTIONS = {
+    OperatorAction.QUARANTINE_TRUNK,
+    OperatorAction.RELEASE_ROUTE,
+    OperatorAction.SEIZE_TRUNK,
+}
+
+
 @dataclass(frozen=True)
 class OperatorCommand:
     action: OperatorAction
@@ -35,6 +42,11 @@ class OperatorCommand:
         require_nonempty_text(self.reason, "reason")
         if self.value is not None and type(self.value) is not int:
             raise TypeError("value must be an exact int when present")
+        if self.action is OperatorAction.MANUAL_STEP:
+            if self.value is None or self.value < 1:
+                raise ValueError("manual_step requires a positive exact value")
+        elif self.value is not None:
+            raise ValueError("value is only valid for manual_step")
 
     @classmethod
     def from_dict(cls, payload: object) -> "OperatorCommand":
@@ -72,11 +84,7 @@ class OperatorCommand:
 
 
 class OperatorDesk:
-    """Receipt-bound maintenance surface.
-
-    It can inspect, quarantine, release, replay, seize, and step devices.
-    It has no force-accept operation and cannot mutate decoder outputs.
-    """
+    """Receipt-bound maintenance surface without any force-accept path."""
 
     def __init__(self, mode: ExchangeMode, event_log: EventLog) -> None:
         self.mode = mode
@@ -87,7 +95,7 @@ class OperatorDesk:
         if self.mode is ExchangeMode.AUTOMATIC:
             raise PermissionError("Operator Desk is disabled in automatic mode")
 
-    def record(self, command: OperatorCommand) -> None:
+    def _check_permission(self, command: OperatorCommand) -> None:
         self._require_enabled()
         if command.action in {
             OperatorAction.MANUAL_STEP,
@@ -96,6 +104,24 @@ class OperatorDesk:
             raise PermissionError(
                 f"{command.action.value} requires manual exchange mode"
             )
+
+    @staticmethod
+    def _resolve_target(
+        trunk_states: dict[str, list[TrunkState]], target: str
+    ) -> tuple[str, int, list[TrunkState]]:
+        selector, separator, raw_contact = target.rpartition(":")
+        if not separator or not selector:
+            raise ValueError("state-changing operator target must be selector:contact")
+        try:
+            contact = int(raw_contact)
+        except ValueError as exc:
+            raise ValueError("operator contact must be an integer") from exc
+        states = trunk_states.get(selector)
+        if states is None or not 0 <= contact < len(states):
+            raise ValueError("unknown selector/contact")
+        return selector, contact, states
+
+    def _record(self, command: OperatorCommand) -> None:
         self.commands.append(command)
         self.event_log.append(
             device="operator-desk",
@@ -104,6 +130,36 @@ class OperatorDesk:
             action=f"operator_{command.action.value}",
             details=command.as_dict(),
         )
+
+    def record(self, command: OperatorCommand) -> None:
+        """Record a non-state-changing command.
+
+        Stateful commands must use ``apply`` so the recorded target and the
+        resulting exchange state cannot diverge.
+        """
+        self._check_permission(command)
+        if command.action in _STATEFUL_ACTIONS:
+            raise ValueError("state-changing operator commands must use apply")
+        self._record(command)
+
+    def apply(
+        self,
+        command: OperatorCommand,
+        trunk_states: dict[str, list[TrunkState]],
+    ) -> None:
+        self._check_permission(command)
+        if command.action in _STATEFUL_ACTIONS:
+            _selector, _contact, states = self._resolve_target(
+                trunk_states, command.target
+            )
+            contact = int(command.target.rpartition(":")[2])
+            if command.action is OperatorAction.QUARANTINE_TRUNK:
+                states[contact] = TrunkState.QUARANTINED
+            elif command.action is OperatorAction.SEIZE_TRUNK:
+                states[contact] = TrunkState.BUSY
+            else:
+                states[contact] = TrunkState.FREE
+        self._record(command)
 
     def quarantine(
         self,
@@ -114,18 +170,52 @@ class OperatorDesk:
         operator_id: str,
         reason: str,
     ) -> None:
-        self._require_enabled()
-        states = trunk_states.get(selector)
-        if states is None or not 0 <= contact < len(states):
-            raise ValueError("unknown selector/contact")
-        states[contact] = TrunkState.QUARANTINED
-        self.record(
+        self.apply(
             OperatorCommand(
                 action=OperatorAction.QUARANTINE_TRUNK,
                 operator_id=operator_id,
                 target=f"{selector}:{contact}",
                 reason=reason,
-            )
+            ),
+            trunk_states,
+        )
+
+    def seize(
+        self,
+        trunk_states: dict[str, list[TrunkState]],
+        *,
+        selector: str,
+        contact: int,
+        operator_id: str,
+        reason: str,
+    ) -> None:
+        self.apply(
+            OperatorCommand(
+                action=OperatorAction.SEIZE_TRUNK,
+                operator_id=operator_id,
+                target=f"{selector}:{contact}",
+                reason=reason,
+            ),
+            trunk_states,
+        )
+
+    def release(
+        self,
+        trunk_states: dict[str, list[TrunkState]],
+        *,
+        selector: str,
+        contact: int,
+        operator_id: str,
+        reason: str,
+    ) -> None:
+        self.apply(
+            OperatorCommand(
+                action=OperatorAction.RELEASE_ROUTE,
+                operator_id=operator_id,
+                target=f"{selector}:{contact}",
+                reason=reason,
+            ),
+            trunk_states,
         )
 
     def inspect(self, *, operator_id: str, target: str, reason: str) -> None:
@@ -135,5 +225,33 @@ class OperatorDesk:
                 operator_id=operator_id,
                 target=target,
                 reason=reason,
+            )
+        )
+
+    def replay(self, *, operator_id: str, target: str, reason: str) -> None:
+        self.record(
+            OperatorCommand(
+                action=OperatorAction.REPLAY_REQUEST,
+                operator_id=operator_id,
+                target=target,
+                reason=reason,
+            )
+        )
+
+    def manual_step(
+        self,
+        *,
+        operator_id: str,
+        target: str,
+        reason: str,
+        value: int,
+    ) -> None:
+        self.record(
+            OperatorCommand(
+                action=OperatorAction.MANUAL_STEP,
+                operator_id=operator_id,
+                target=target,
+                reason=reason,
+                value=value,
             )
         )

@@ -1,0 +1,85 @@
+name: One-shot MPL SPDX migration
+
+on:
+  push:
+    branches:
+      - legal/mpl-2.0
+    paths:
+      - .github/workflows/relicense-spdx.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout licensing branch
+        uses: actions/checkout@v4
+        with:
+          ref: legal/mpl-2.0
+          fetch-depth: 0
+
+      - name: Replace legacy QEC MIT SPDX headers
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          suffixes = {
+              ".c", ".cc", ".cpp", ".css", ".h", ".hpp", ".html",
+              ".js", ".json", ".md", ".py", ".rs", ".sh", ".toml",
+              ".ts", ".tsx", ".txt", ".yaml", ".yml",
+          }
+          excluded = {
+              ".git", ".mypy_cache", ".pytest_cache", ".ruff_cache",
+              ".venv", "artifacts", "build", "dist", "external",
+              "node_modules", "third_party", "vendor",
+              "THIRD_PARTY_LICENSES",
+          }
+          old = "SPDX-License-Identifier: MIT"
+          new = "SPDX-License-Identifier: MPL-2.0"
+          paths = subprocess.check_output(
+              ["git", "ls-files", "-z"]
+          ).decode("utf-8").split("\0")
+          changed = []
+          for raw in paths:
+              if not raw:
+                  continue
+              path = Path(raw)
+              if path.suffix.lower() not in suffixes:
+                  continue
+              if any(part in excluded for part in path.parts):
+                  continue
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              lines = text.splitlines(keepends=True)
+              replaced = False
+              for index, line in enumerate(lines[:20]):
+                  if old in line:
+                      lines[index] = line.replace(old, new)
+                      replaced = True
+              if replaced:
+                  path.write_text("".join(lines), encoding="utf-8")
+                  changed.append(raw)
+          if not changed:
+              raise SystemExit("no legacy MIT SPDX headers found")
+          print(f"converted {len(changed)} QEC-owned SPDX headers")
+          for path in changed:
+              print(path)
+          PY
+
+      - name: Verify licensing boundary
+        run: python -m pytest -q tests/test_license_policy.py
+
+      - name: Commit atomic header migration
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src tests
+          git commit -m "Convert all QEC SPDX headers to MPL-2.0 [skip ci]"
+          git push origin HEAD:legal/mpl-2.0

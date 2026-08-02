@@ -35,6 +35,28 @@ def test_browser_download_is_explicitly_noncanonical() -> None:
     assert "previous_event_sha256" not in script
 
 
+def test_event_log_uses_text_nodes_for_untrusted_details() -> None:
+    script = (LAB / "app.js").read_text(encoding="utf-8")
+    assert 'const summary = document.createElement("b")' in script
+    assert "summary.textContent =" in script
+    assert "document.createTextNode(" in script
+    assert "item.innerHTML" not in script
+
+
+def test_operator_target_matches_quarantined_selector() -> None:
+    script = (LAB / "app.js").read_text(encoding="utf-8")
+    assert 'action === "quarantine" ? "selector-0:0"' in script
+    assert 'action === "quarantine" ? "selector-1:0"' not in script
+
+
+def test_browser_validates_radix_domain_before_routing() -> None:
+    script = (LAB / "app.js").read_text(encoding="utf-8")
+    assert "function validRadices(radices)" in script
+    assert "Number.isInteger(radix)" in script
+    assert "radix >= 2" in script
+    assert "!validRadices(radices)" in script
+
+
 def test_lab_supports_audio_and_wav_without_dependencies() -> None:
     script = (LAB / "app.js").read_text(encoding="utf-8")
     assert "AudioContext" in script

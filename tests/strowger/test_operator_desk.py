@@ -13,7 +13,6 @@ from qec.routing.strowger import (
     RouteRequest,
     StageConfig,
     StrowgerExchange,
-    TrunkState,
     validate_receipt,
 )
 
@@ -56,6 +55,11 @@ def test_supervised_operator_quarantine_is_hash_chained() -> None:
 
     result = exchange.route(request(), prepare_operator=prepare)
     assert result.receipt["route"]["selector_trunks"] == [1]
+    assert result.receipt["initial_state"]["trunks"]["family"] == ["free", "free"]
+    assert result.receipt["pre_route_state"]["trunks"]["family"] == [
+        "quarantined",
+        "free",
+    ]
     assert len(result.receipt["operator_commands"]) == 2
     assert result.receipt["operator_commands"][0]["action"] == "quarantine_trunk"
     assert any(
@@ -83,22 +87,39 @@ def test_manual_actions_require_manual_mode() -> None:
         exchange.route(request(), prepare_operator=prepare)
 
 
-def test_manual_step_is_recorded_but_cannot_force_accept() -> None:
+def test_manual_step_and_seizure_are_executed_but_cannot_force_accept() -> None:
     exchange = StrowgerExchange(config(), mode=ExchangeMode.MANUAL)
 
     def prepare(desk, trunks) -> None:
-        desk.record(
-            OperatorCommand(
-                action=OperatorAction.MANUAL_STEP,
-                operator_id="operator-1",
-                target="selector-0",
-                reason="demonstration",
-                value=1,
-            )
+        desk.manual_step(
+            operator_id="operator-1",
+            target="selector-0",
+            reason="demonstration",
+            value=1,
         )
-        trunks["family"][0] = TrunkState.BUSY
+        desk.seize(
+            trunks,
+            selector="family",
+            contact=0,
+            operator_id="operator-1",
+            reason="maintenance exercise",
+        )
 
     result = exchange.route(request(), prepare_operator=prepare)
     assert result.receipt["route"]["selector_trunks"] == [1]
+    assert result.receipt["pre_route_state"]["trunks"]["family"] == [
+        "busy",
+        "free",
+    ]
     assert result.receipt["claim_boundary"]["operator_may_force_accept"] is False
     assert validate_receipt(result.receipt)["replayed"] is True
+
+
+def test_unrecorded_operator_state_mutation_is_rejected() -> None:
+    exchange = StrowgerExchange(config(), mode=ExchangeMode.MANUAL)
+
+    def prepare(_desk, trunks) -> None:
+        trunks["family"][0] = trunks["family"][1]
+
+    with pytest.raises(ValueError, match="not explained"):
+        exchange.route(request(), prepare_operator=prepare)

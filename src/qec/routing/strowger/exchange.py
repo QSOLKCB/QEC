@@ -142,12 +142,19 @@ class StrowgerExchange:
                     "radix": stage.radix,
                 },
             )
+            log.append(
+                device=device,
+                from_state=DeviceState.RECEIVING_PULSES.value,
+                to_state=DeviceState.VERTICAL_STEPPING.value,
+                action="begin_vertical_stepping",
+                details={"pulse_count": len(expected_pulses)},
+            )
             for ordinal in expected_pulses:
                 if (stage_index, ordinal) in fault_plan.missed_pulses:
                     log.append(
                         device=device,
-                        from_state=DeviceState.RECEIVING_PULSES.value,
-                        to_state=DeviceState.RECEIVING_PULSES.value,
+                        from_state=DeviceState.VERTICAL_STEPPING.value,
+                        to_state=DeviceState.VERTICAL_STEPPING.value,
                         action="missed_pulse",
                         details={"ordinal": ordinal},
                     )

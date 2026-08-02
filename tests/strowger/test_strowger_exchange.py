@@ -9,7 +9,6 @@ import pytest
 
 from qec.routing.strowger import (
     ExchangeConfig,
-    ExchangeMode,
     FaultPlan,
     RouteOutcome,
     RouteRequest,
@@ -18,6 +17,7 @@ from qec.routing.strowger import (
     TrunkState,
     validate_receipt,
 )
+from qec.sonify.canonical import canonical_sha256
 
 
 def config() -> ExchangeConfig:
@@ -41,12 +41,20 @@ def request() -> RouteRequest:
     )
 
 
+def resign(receipt: dict[str, object]) -> None:
+    unsigned = dict(receipt)
+    unsigned.pop("sha256", None)
+    receipt["sha256"] = canonical_sha256(unsigned)
+
+
 def test_same_input_produces_same_receipt() -> None:
     first = StrowgerExchange(config()).route(request())
     second = StrowgerExchange(config()).route(request())
     assert first.outcome is RouteOutcome.COMMITTED
     assert first.receipt == second.receipt
-    assert validate_receipt(first.receipt)["valid"] is True
+    validation = validate_receipt(first.receipt)
+    assert validation["valid"] is True
+    assert validation["replayed"] is True
     assert first.receipt["route"]["selector_trunks"] == [0, 0]
 
 
@@ -57,6 +65,7 @@ def test_first_free_trunk_hunting_skips_busy_and_quarantined() -> None:
     result = exchange.route(request())
     assert result.outcome is RouteOutcome.COMMITTED
     assert result.receipt["route"]["selector_trunks"][0] == 2
+    assert validate_receipt(result.receipt)["replayed"] is True
 
 
 def test_all_trunks_busy_fails_closed() -> None:
@@ -65,6 +74,7 @@ def test_all_trunks_busy_fails_closed() -> None:
     result = exchange.route(request())
     assert result.outcome is RouteOutcome.ALL_TRUNKS_BUSY
     assert result.receipt["tones"]["expected"] is None
+    assert validate_receipt(result.receipt)["replayed"] is True
 
 
 def test_missed_pulse_is_detected() -> None:
@@ -77,6 +87,7 @@ def test_missed_pulse_is_detected() -> None:
         event["action"] == "pulse_count_mismatch"
         for event in result.receipt["events"]
     )
+    assert validate_receipt(result.receipt)["replayed"] is True
 
 
 def test_tone_mismatch_is_rejected() -> None:
@@ -86,6 +97,7 @@ def test_tone_mismatch_is_rejected() -> None:
     )
     assert result.outcome is RouteOutcome.TONE_MISMATCH
     assert result.receipt["tones"]["verification"]["verified"] is False
+    assert validate_receipt(result.receipt)["replayed"] is True
 
 
 def test_receipt_tampering_breaks_hash() -> None:
@@ -93,4 +105,13 @@ def test_receipt_tampering_breaks_hash() -> None:
     tampered = copy.deepcopy(receipt)
     tampered["outcome"] = "tone_mismatch"
     with pytest.raises(ValueError, match="hash mismatch"):
+        validate_receipt(tampered)
+
+
+def test_resigned_receipt_forgery_fails_replay() -> None:
+    receipt = StrowgerExchange(config()).route(request()).receipt
+    tampered = copy.deepcopy(receipt)
+    tampered["outcome"] = "tone_mismatch"
+    resign(tampered)
+    with pytest.raises(ValueError, match="replay mismatch"):
         validate_receipt(tampered)

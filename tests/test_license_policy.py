@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
+THIS_FILE = Path(__file__).resolve()
 SPDX_RE = re.compile(r"SPDX-License-Identifier:\s*([^\s*]+)")
 TEXT_SUFFIXES = {
     ".c",
@@ -49,6 +50,8 @@ def _owned_text_files() -> list[Path]:
     files: list[Path] = []
     for path in ROOT.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
+            continue
+        if path.resolve() == THIS_FILE:
             continue
         relative = path.relative_to(ROOT)
         if any(part in EXCLUDED_PARTS for part in relative.parts):

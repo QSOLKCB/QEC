@@ -5,7 +5,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final
+from types import MappingProxyType
+from typing import Final, Mapping
 
 from qec.sonify.canonical import canonical_sha256, require_int, require_nonempty_text
 
@@ -41,13 +42,15 @@ class TrunkState(str, Enum):
 
 class RouteOutcome(str, Enum):
     COMMITTED = "committed"
+    NO_LINEFINDER_AVAILABLE = "no_linefinder_available"
     ALL_TRUNKS_BUSY = "all_trunks_busy"
     TONE_MISMATCH = "tone_mismatch"
     SELECTOR_FAULT = "selector_fault"
+    CONNECTOR_FAULT = "connector_fault"
     OPERATOR_RELEASED = "operator_released"
 
 
-CLAIM_BOUNDARY: Final = {
+_CLAIM_BOUNDARY_VALUES: Final = {
     "classical_routing_only": True,
     "decoder_replacement": False,
     "quantum_hardware_claim": False,
@@ -56,6 +59,9 @@ CLAIM_BOUNDARY: Final = {
     "receipt_proves": "deterministic_route_and_declared_verification_events",
     "receipt_does_not_prove": "physical_truth_or_quantum_advantage",
 }
+CLAIM_BOUNDARY: Final[Mapping[str, object]] = MappingProxyType(
+    _CLAIM_BOUNDARY_VALUES
+)
 
 
 def _exact_object(

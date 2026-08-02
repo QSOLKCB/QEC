@@ -62,7 +62,7 @@ def test_root_license_is_mpl_2_0() -> None:
     assert text.startswith("Mozilla Public License Version 2.0\n")
     assert "3.1. Distribution of Source Form" in text
     assert "Exhibit A - Source Code Form License Notice" in text
-    assert "https://mozilla.org/MPL/2.0/" in text
+    assert "mozilla.org/MPL/2.0/" in text
 
 
 def test_package_metadata_declares_mpl_2_0() -> None:

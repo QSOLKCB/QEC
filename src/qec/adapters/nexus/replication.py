@@ -17,6 +17,7 @@ from .version import QEC_NEXUS_BRIDGE_VERSION
 RECEIPT_SCHEMA = "qec.nexus-qbraid-replication-receipt.v1"
 ARCHIVE_FILENAME = "nexus-v4-qbraid-rerun2-results-1e93a509.zip"
 EXPECTED_ARCHIVE_SHA256 = "659e493a1b80b391db99b79dd6ee4e7a9b23c1821ff11eadbc3c5c36b10660d8"
+EXPECTED_RECEIPT_SHA256 = "6137a128f73a950f0da12f54df10090005d23dfb5e771897e7af70fd55468dcd"
 PUBLICATION_DOI = "10.5281/zenodo.21751929"
 PUBLICATION_VERSION = "4.0.1"
 PROTOCOL = "NEXUS-v4-qBraid-rerun2"
@@ -204,6 +205,10 @@ def validate_qbraid_replication_archive(
     *,
     expected_archive_sha256: str = EXPECTED_ARCHIVE_SHA256,
 ) -> dict[str, object]:
+    if expected_archive_sha256 != EXPECTED_ARCHIVE_SHA256:
+        raise NexusReplicationError(
+            "expected archive hash must equal the pinned publication SHA-256"
+        )
     if not _SHA256.fullmatch(expected_archive_sha256):
         raise NexusReplicationError("expected archive hash must be full SHA-256")
     archive_sha = _file_sha(archive_path)
@@ -510,6 +515,10 @@ def validate_replication_receipt(receipt: dict[str, object]) -> dict[str, object
     }
     if receipt.get("claim_boundary") != expected_boundary:
         raise NexusReplicationError("replication claim boundary mismatch")
+    # A self-hash proves only internal consistency. Pin the published receipt
+    # identity so re-signed changes to any evidence-bearing field fail closed.
+    if observed != EXPECTED_RECEIPT_SHA256:
+        raise NexusReplicationError("replication receipt identity mismatch")
     return {
         "valid": True,
         "sha256": observed,

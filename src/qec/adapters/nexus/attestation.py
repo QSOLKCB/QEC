@@ -8,7 +8,7 @@ from pathlib import Path
 from qec.sonify.canonical import canonical_sha256
 from .source import source_profile
 from .version import (
-    QEC_NEXUS_BRIDGE_VERSION,
+    NEXUS_EXECUTION_CONTRACT_VERSION,
     SUPPORTED_NEXUS_BRIDGE_VERSIONS,
 )
 
@@ -54,7 +54,7 @@ def build_attestation(
     source = source_profile(profile)
     payload: dict[str, object] = {
         "schema": "qec.nexus-build-attestation.v1",
-        "qec_version": QEC_NEXUS_BRIDGE_VERSION,
+        "qec_version": NEXUS_EXECUTION_CONTRACT_VERSION,
         "source": source.as_dict(),
         "binary": {
             "name": binary.name,

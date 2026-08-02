@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MPL-2.0
 """Deterministic autopilot route policy search.
 
 Evaluates candidate propulsion schedules against a universe snapshot,

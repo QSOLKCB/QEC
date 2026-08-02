@@ -90,6 +90,25 @@ def test_missed_pulse_is_detected() -> None:
     assert validate_receipt(result.receipt)["replayed"] is True
 
 
+def test_selector_state_transitions_are_contiguous() -> None:
+    result = StrowgerExchange(config()).route(
+        request(),
+        faults=FaultPlan(duplicate_pulses=((0, 1),)),
+    )
+    selector_events = [
+        event
+        for event in result.receipt["events"]
+        if event["device"] == "selector-0:code-family"
+    ]
+    assert [event["action"] for event in selector_events[:2]] == [
+        "receive_digit",
+        "begin_vertical_stepping",
+    ]
+    for previous, current in zip(selector_events, selector_events[1:]):
+        assert current["from_state"] == previous["to_state"]
+    assert validate_receipt(result.receipt)["replayed"] is True
+
+
 def test_tone_mismatch_is_rejected() -> None:
     result = StrowgerExchange(config()).route(
         request(),

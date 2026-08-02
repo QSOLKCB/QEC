@@ -14,6 +14,7 @@ from qec.routing.strowger import (
     StageConfig,
     StrowgerExchange,
     TrunkState,
+    validate_receipt,
 )
 
 
@@ -61,6 +62,7 @@ def test_supervised_operator_quarantine_is_hash_chained() -> None:
         event["action"] == "operator_quarantine_trunk"
         for event in result.receipt["events"]
     )
+    assert validate_receipt(result.receipt)["replayed"] is True
 
 
 def test_manual_actions_require_manual_mode() -> None:
@@ -99,3 +101,4 @@ def test_manual_step_is_recorded_but_cannot_force_accept() -> None:
     result = exchange.route(request(), prepare_operator=prepare)
     assert result.receipt["route"]["selector_trunks"] == [1]
     assert result.receipt["claim_boundary"]["operator_may_force_accept"] is False
+    assert validate_receipt(result.receipt)["replayed"] is True

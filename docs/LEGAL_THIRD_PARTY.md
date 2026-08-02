@@ -1,5 +1,10 @@
 # Third-Party Tool Legal Matrix
 
+This QEC-authored document is governed by the Mozilla Public License 2.0
+(`MPL-2.0`) under the repository-wide licensing policy. Third-party tools,
+dependencies and referenced upstream materials retain their own licences and
+notices; their inclusion here does not relicense them.
+
 This document defines the legal and licensing status of all third-party tools
 referenced by the QEC benchmarking interop layer (`bench/interop/`).
 
@@ -49,11 +54,14 @@ versions may be used.
    never imported by core modules under `src/`.
 3. Run the import hygiene test (`test_interop_import_hygiene.py`) to verify
    no leakage.
+4. Preserve every upstream copyright, attribution, patent and licence notice.
 
 ## Contributor Checklist
 
+- [ ] New QEC-authored files are contributed under `MPL-2.0`.
 - [ ] New third-party tool? Add it to the appropriate category above.
 - [ ] Verify SPDX license ID matches upstream `LICENSE` file.
 - [ ] Confirm the tool is used only in `bench/interop/` (Category A).
 - [ ] Confirm no proprietary algorithms are reverse-engineered (Category C).
+- [ ] Preserve all third-party notices without replacing them with MPL 2.0.
 - [ ] Run `pytest tests/test_interop_import_hygiene.py` before merging.

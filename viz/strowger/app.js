@@ -4,10 +4,16 @@
 const $ = (selector) => document.querySelector(selector);
 const rack = $("#rack");
 const eventList = $("#events");
+const DEFAULT_RADICES = [3, 4, 10, 16];
 let lastReceipt = null;
 let lastTones = null;
 let audioContext = null;
 let operatorEvents = [];
+let operatorState = {
+  quarantined: new Set(),
+  seized: new Set(),
+  manualStep: 0
+};
 
 function parseCsv(id) {
   return $(id).value.split(",").map((part) => Number(part.trim()));
@@ -20,6 +26,11 @@ function validRadices(radices) {
     && radix >= 2
     && radix <= (index === radices.length - 1 ? 4096 : 256)
   ));
+}
+
+function safeRadices() {
+  const radices = parseCsv("#radices");
+  return validRadices(radices) ? radices : DEFAULT_RADICES;
 }
 
 function hash32(text) {
@@ -163,8 +174,37 @@ function operatorEnabled() {
   return $("#mode").value !== "automatic";
 }
 
+function resetOperatorState() {
+  operatorEvents = [];
+  operatorState = {
+    quarantined: new Set(),
+    seized: new Set(),
+    manualStep: 0
+  };
+}
+
+function clearResult(state = "HOME") {
+  lastReceipt = null;
+  lastTones = null;
+  $("#state").textContent = state;
+  $("#linefinder").textContent = "—";
+  $("#route-path").textContent = "—";
+  $("#verify").textContent = "—";
+  $("#receipt-hash").textContent = "no receipt";
+  $("#route-tone").textContent = "—";
+  $("#check-tone").textContent = "—";
+  $("#dark-tone").textContent = "—";
+  eventList.replaceChildren();
+  renderRack(safeRadices());
+  drawScope(null);
+}
+
 function updateDesk() {
   const mode = $("#mode").value;
+  if (mode === "automatic" && operatorEvents.length) {
+    resetOperatorState();
+    clearResult("HOME");
+  }
   $("#desk-state").textContent = mode === "automatic" ? "DISABLED" : mode.toUpperCase();
   $("#desk-state").style.color = mode === "automatic" ? "#b75b4f" : "#8ea86d";
   document.querySelectorAll("[data-op]").forEach((button) => {
@@ -181,17 +221,83 @@ function refreshDemoDigest() {
   $("#receipt-hash").textContent = `demo:${lastReceipt.digest}`;
 }
 
-function operatorAction(action) {
-  if (!operatorEnabled()) return;
-  const command = {
-    action,
+function commandForAction(action) {
+  const map = {
+    inspect: {action: "inspect", target: "exchange"},
+    quarantine: {action: "quarantine_trunk", target: "selector-0:0"},
+    release: {action: "release_route", target: "exchange"},
+    replay: {action: "replay_request", target: "exchange"},
+    step: {
+      action: "manual_step",
+      target: "selector-0",
+      value: operatorState.manualStep + 1
+    },
+    seize: {action: "seize_trunk", target: "selector-0:0"}
+  };
+  return {
+    ...map[action],
     operator_id: "local-console",
-    target: action === "quarantine" ? "selector-0:0" : "exchange",
     reason: "operator-desk action"
   };
+}
+
+function appendOperatorEvents(events) {
+  if (!operatorEnabled()) return;
+  for (const command of operatorEvents) {
+    appendEvent(events, "operator-desk", `operator_${command.action}`, command);
+  }
+}
+
+function operatorAction(action) {
+  if (!operatorEnabled()) return;
+  const command = commandForAction(action);
   operatorEvents.push(command);
+
+  if (action === "quarantine") {
+    operatorState.quarantined.add(command.target);
+    route();
+    return;
+  }
+  if (action === "seize") {
+    operatorState.seized.add(command.target);
+    route();
+    return;
+  }
+  if (action === "replay") {
+    route();
+    return;
+  }
+  if (action === "step") {
+    const radices = safeRadices();
+    operatorState.manualStep = command.value % radices[0];
+    if (lastReceipt) {
+      appendEvent(lastReceipt.events, "operator-desk", "operator_manual_step", command);
+      lastReceipt.operator_commands.push(command);
+      refreshDemoDigest();
+      renderEvents(lastReceipt.events);
+    }
+    $("#state").textContent = "MANUAL STEP";
+    renderRack(radices, [operatorState.manualStep]);
+    return;
+  }
+  if (action === "release") {
+    if (lastReceipt) {
+      appendEvent(lastReceipt.events, "operator-desk", "operator_release_route", command);
+      lastReceipt.operator_commands.push(command);
+      lastReceipt.outcome = "operator_released";
+      lastReceipt.observed_tones = null;
+      refreshDemoDigest();
+      renderEvents(lastReceipt.events);
+    }
+    lastTones = null;
+    $("#state").textContent = "OPERATOR RELEASED";
+    $("#linefinder").textContent = "—";
+    $("#verify").textContent = "—";
+    drawScope(null);
+    return;
+  }
   if (lastReceipt) {
-    appendEvent(lastReceipt.events, "operator-desk", `operator_${action}`, command);
+    appendEvent(lastReceipt.events, "operator-desk", "operator_inspect", command);
     lastReceipt.operator_commands.push(command);
     refreshDemoDigest();
     renderEvents(lastReceipt.events);
@@ -208,11 +314,12 @@ function route() {
       !Number.isInteger(digit) || digit < 0 || digit >= radices[index]
     ))
   ) {
-    $("#state").textContent = "INVALID REQUEST";
+    clearResult("INVALID REQUEST");
     return;
   }
 
   const events = [];
+  appendOperatorEvents(events);
   appendEvent(events, "linefinder-0", "seize_first_free_linefinder", {
     request_id: "browser-call"
   });
@@ -227,23 +334,21 @@ function route() {
       state[0] = "busy";
       state[1] = "busy";
     }
-    if (
-      operatorEvents.some((event) => event.action === "quarantine")
-      && stage === 0
-    ) {
-      state[0] = "quarantined";
+    if (operatorEnabled() && stage === 0) {
+      if (operatorState.quarantined.has("selector-0:0")) state[0] = "quarantined";
+      if (operatorState.seized.has("selector-0:0")) state[0] = "busy";
     }
     states.push(state);
-    let observed = pulseCount(digits[stage], radices[stage]);
-    if (fault === "missed" && stage === 0) observed -= 1;
-    if (fault === "duplicate" && stage === 0) observed += 1;
+    let observedPulses = pulseCount(digits[stage], radices[stage]);
+    if (fault === "missed" && stage === 0) observedPulses -= 1;
+    if (fault === "duplicate" && stage === 0) observedPulses += 1;
     appendEvent(events, `selector-${stage}`, "receive_digit", {
       digit: digits[stage],
       expected_pulses: pulseCount(digits[stage], radices[stage]),
-      observed_pulses: observed
+      observed_pulses: observedPulses
     });
     if (
-      observed !== pulseCount(digits[stage], radices[stage])
+      observedPulses !== pulseCount(digits[stage], radices[stage])
       || (fault === "stuck" && stage === 1)
     ) {
       appendEvent(events, `selector-${stage}`, "selector_fault", {reason: fault});
@@ -263,7 +368,8 @@ function route() {
     });
   }
 
-  let tones = null;
+  let expectedTones = null;
+  let observedTones = null;
   let verified = false;
   if (outcome === "committed") {
     appendEvent(events, "connector", "two_axis_destination_selected", {
@@ -271,13 +377,13 @@ function route() {
       rotary: digits.at(-1),
       destination: $("#destination").value
     });
-    tones = deriveTones(`${digits}|${selected}|${$("#destination").value}`);
-    const observed = {...tones};
-    if (fault === "tone") observed.route_hz += 7;
-    verified = JSON.stringify(tones) === JSON.stringify(observed);
+    expectedTones = deriveTones(`${digits}|${selected}|${$("#destination").value}`);
+    observedTones = {...expectedTones};
+    if (fault === "tone") observedTones.route_hz += 7;
+    verified = JSON.stringify(expectedTones) === JSON.stringify(observedTones);
     appendEvent(events, "tone-verifier", "verify_route_tones", {
-      expected: tones,
-      observed,
+      expected: expectedTones,
+      observed: observedTones,
       verified
     });
     if (!verified) outcome = "tone_mismatch";
@@ -289,6 +395,7 @@ function route() {
     );
   }
 
+  const activeCommands = operatorEnabled() ? [...operatorEvents] : [];
   lastReceipt = {
     schema: "qec.strowger-browser-demonstration.v1",
     qec_version: "170.3.0",
@@ -301,8 +408,10 @@ function route() {
     destination: $("#destination").value,
     selected,
     outcome,
+    expected_tones: expectedTones,
+    observed_tones: observedTones,
     events,
-    operator_commands: [...operatorEvents],
+    operator_commands: activeCommands,
     claim_boundary: {
       classical_routing_only: true,
       decoder_replacement: false,
@@ -313,45 +422,41 @@ function route() {
     }
   };
   refreshDemoDigest();
-  lastTones = tones;
+  lastTones = observedTones;
   $("#state").textContent = outcome.toUpperCase();
   $("#linefinder").textContent = "0";
   $("#route-path").textContent = selected.length ? selected.join(" → ") : "—";
-  $("#verify").textContent = tones ? (verified ? "MATCH" : "REJECT") : "—";
-  $("#route-tone").textContent = tones ? `${tones.route_hz} Hz` : "—";
-  $("#check-tone").textContent = tones ? `${tones.check_hz} Hz` : "—";
-  $("#dark-tone").textContent = tones ? `${tones.dark_reference_hz} Hz` : "—";
+  $("#verify").textContent = observedTones ? (verified ? "MATCH" : "REJECT") : "—";
+  $("#route-tone").textContent = observedTones ? `${observedTones.route_hz} Hz` : "—";
+  $("#check-tone").textContent = observedTones ? `${observedTones.check_hz} Hz` : "—";
+  $("#dark-tone").textContent = observedTones ? `${observedTones.dark_reference_hz} Hz` : "—";
   renderRack(radices, [...selected, digits.at(-1)], states);
   renderEvents(events);
-  drawScope(tones);
+  drawScope(observedTones);
 }
 
 function playTones() {
   if (!lastTones) return;
   audioContext ||= new AudioContext();
   const start = audioContext.currentTime;
-  [
-    lastTones.route_hz,
-    lastTones.check_hz,
-    lastTones.dark_reference_hz
-  ].forEach((frequency, index) => {
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    oscillator.type = index === 2 ? "sine" : "triangle";
-    oscillator.frequency.value = frequency;
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(index === 2 ? 0.035 : 0.08, start + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.8);
-    oscillator.connect(gain).connect(audioContext.destination);
-    oscillator.start(start);
-    oscillator.stop(start + 0.82);
-  });
+  [lastTones.route_hz, lastTones.check_hz, lastTones.dark_reference_hz]
+    .forEach((frequency, index) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = index === 2 ? "sine" : "triangle";
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(index === 2 ? 0.035 : 0.08, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.8);
+      oscillator.connect(gain).connect(audioContext.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.82);
+    });
 }
 
 function wavBytes(tones) {
   const rate = 48000;
-  const seconds = 1;
-  const samples = rate * seconds;
+  const samples = rate;
   const bytes = 44 + samples * 2;
   const buffer = new ArrayBuffer(bytes);
   const view = new DataView(buffer);
@@ -398,17 +503,8 @@ function saveBlob(blob, name) {
 
 $("#route").addEventListener("click", route);
 $("#reset").addEventListener("click", () => {
-  lastReceipt = null;
-  lastTones = null;
-  operatorEvents = [];
-  $("#state").textContent = "HOME";
-  $("#linefinder").textContent = "—";
-  $("#route-path").textContent = "—";
-  $("#verify").textContent = "—";
-  $("#receipt-hash").textContent = "no receipt";
-  eventList.replaceChildren();
-  renderRack(parseCsv("#radices"));
-  drawScope(null);
+  resetOperatorState();
+  clearResult("HOME");
 });
 $("#mode").addEventListener("change", updateDesk);
 document.querySelectorAll("[data-op]").forEach((button) => {
@@ -428,5 +524,5 @@ $("#download").addEventListener("click", () => {
 });
 
 updateDesk();
-renderRack(parseCsv("#radices"));
+renderRack(DEFAULT_RADICES);
 drawScope(null);

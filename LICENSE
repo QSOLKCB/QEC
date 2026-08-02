@@ -35,7 +35,7 @@ Mozilla Public License Version 2.0
     means any form of the work other than Source Code Form.
 
 1.7. "Larger Work"
-    means a work that combines Covered Software with other material, in
+    means a work that combines Covered Software with other material, in 
     a separate file or files, that is not Covered Software.
 
 1.8. "License"
@@ -206,12 +206,12 @@ the extent required to remedy known factual inaccuracies.
 3.5. Application of Additional Terms
 
 You may choose to offer, and to charge a fee for, warranty, support,
-indemnity or liability obligations to one or more recipients. However,
-You may do so only on Your own behalf, and not on behalf of any
-Contributor. You must make it absolutely clear that any such warranty,
-support, indemnity, or liability obligation is offered by You alone, and
-You hereby agree to indemnify every Contributor for any liability
-incurred by such Contributor as a result of warranty, support,
+indemnity or liability obligations to one or more recipients of Covered
+Software. However, You may do so only on Your own behalf, and not on
+behalf of any Contributor. You must make it absolutely clear that any
+such warranty, support, indemnity or liability obligation is offered by
+You alone, and You hereby agree to indemnify every Contributor for any
+liability incurred by such Contributor as a result of warranty, support,
 indemnity or liability terms You offer. You may include additional
 disclaimers of warranty and limitations of liability specific to any
 jurisdiction.
@@ -340,10 +340,10 @@ steward.
 10.3. Modified Versions
 
 If you create software not governed by this License, and you want to
-create a new license for such software, you may create and use a modified
-version of this License if you rename the license and remove any
-references to the name of the license steward (except to note that such
-modified license differs from this License).
+create a new license for such software, you may create and use a
+modified version of this License if you rename the license and remove
+any references to the name of the license steward (except to note that
+such modified license differs from this License).
 
 10.4. Distributing Source Code Form that is Incompatible With Secondary
 Licenses
@@ -357,7 +357,7 @@ Exhibit A - Source Code Form License Notice
 
   This Source Code Form is subject to the terms of the Mozilla Public
   License, v. 2.0. If a copy of the MPL was not distributed with this
-  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 If it is not possible or desirable to put the notice in a particular
 file, then You may include the notice in a location (such as a LICENSE
@@ -370,4 +370,4 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ---------------------------------------------------------
 
   This Source Code Form is "Incompatible With Secondary Licenses", as
-defined by the Mozilla Public License, v. 2.0.
+  defined by the Mozilla Public License, v. 2.0.

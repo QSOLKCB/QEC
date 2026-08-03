@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MPL-2.0 -->
 # QSOLKCB / QEC — ROADMAP
 
-## Deterministic switching • canonical routing • replay-safe proof artifacts • bounded operator control • cross-era equivalence
+## Deterministic switching • canonical routing • replay-safe proof artifacts • cross-era equivalence
 
 ---
 
@@ -17,33 +17,23 @@ completed baseline       → v170.3.0 — Deterministic Strowger Syndrome Exchan
 deferred runtime arc     → v193.x — QEC OS Runtime & Benchmark Reset
 ```
 
-Published tags are authoritative.
+Published tags are authoritative. If this roadmap conflicts with published
+release history, release history wins and the roadmap must be corrected.
 
-If this roadmap disagrees with published release history:
+The pre-v170 planning document is preserved through
+[`docs/archive/ROADMAP_PRE_V170.md`](docs/archive/ROADMAP_PRE_V170.md).
 
-- published release history wins;
-- the roadmap must be corrected;
-- no future release may rewrite the meaning of an existing receipt.
+## Companion documents
 
-Stable compatibility remains anchored to the established QEC canonical-identity,
-SHA-256, replay, claim-boundary, and decoder-governance contracts.
+| Document | Purpose |
+|---|---|
+| [Switching Safety and Acceptance Rules](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md) | Normative deterministic law, release gates, forbidden behaviours, claim boundaries and phase acceptance criteria |
+| [Switching Artifact Registry](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md) | Central inventory of planned canonical artifacts, receipts and proof-chain roles |
+| [Telecommunications Switching Design References](docs/roadmap/TELECOM_SWITCHING_REFERENCES.md) | Historical architecture context and citation boundaries |
 
 ---
 
-# 🧠 Core Identity
-
-QEC is a deterministic, replay-safe proof system for:
-
-- quantum error-correction research;
-- exact and sampled finite-code evidence;
-- canonical JSON and SHA-256 proof artifacts;
-- decoder governance and immutable decoder boundaries;
-- deterministic routing and switching;
-- bounded operator control;
-- external-adapter receipts;
-- cross-environment and cross-architecture replay;
-- source-bound scientific claims;
-- reproducible reports and replication evidence.
+# 🧠 Programme Law
 
 QEC does not make the physical world deterministic.
 
@@ -62,30 +52,14 @@ same declared input
 → same validated outcome
 ```
 
-Violation:
-
-```text
-SYSTEM INVALID
-```
-
-Every roadmap item must produce:
-
-- a contract;
-- a canonical artifact;
-- a SHA-256 identity;
-- a validation rule;
-- an explicit failure mode;
-- a deterministic replay test;
-- a claim boundary.
-
-If an idea cannot produce those, it remains inspiration rather than QEC.
+Every phase must produce versioned contracts, canonical artifacts, validation,
+replay tests, explicit failures and claim boundaries. The complete normative
+rules live in the
+[Switching Safety and Acceptance Rules](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md).
 
 ---
 
-# ☎️ Telecommunications Lineage as an Engineering Programme
-
-The post-v170 roadmap follows the development of automatic telecommunications
-switching as an architectural sequence:
+# ☎️ Telecommunications Switching Lineage
 
 ```text
 Strowger step-by-step
@@ -97,37 +71,12 @@ Strowger step-by-step
 → cross-era replay and migration proof
 ```
 
-This sequence is a design grammar, not a claim that QEC is telephone hardware.
-It is also not a claim that every historical network migrated through one
-identical sequence. The Bell System lineage is used because each era introduced
-a useful deterministic systems idea that can be expressed as a QEC contract.
+The sequence is a design grammar rather than a claim that QEC is telephone
+hardware. Each era contributes a deterministic systems idea that can be
+expressed as a QEC contract.
 
-| Historical era | Systems idea | QEC interpretation |
-|---|---|---|
-| Strowger | Direct step-by-step route progression | Explicit state transitions, first-free selection, pulse decoding and route receipts |
-| Panel | Sender/register separates control from the talking path | Route intent is compiled before path actuation; control and payload paths receive separate identities |
-| Crossbar | Coordinate matrix with common control | Central deterministic path computation over a bounded switching matrix |
-| ESS | Stored-program control | Versioned immutable switch programmes, deterministic scheduling and software-defined features |
-| Digital circuit switching | Time-division multiplexing | Canonical frames, fixed time slots, frame alignment and deterministic multiplexing |
-| Packet switching / softswitch | Software-routed packet envelopes | Canonical packets, deterministic route tables, bounded queues, replay-safe failover and adapter-only networking |
-
-## Historical claim boundary
-
-The roadmap may describe historical design concepts, but implementation receipts
-prove only QEC software behaviour under declared models.
-
-No roadmap release may claim:
-
-- physical telephone-network fidelity;
-- quantum hardware behaviour;
-- hardware fault tolerance;
-- real-world carrier reliability;
-- network latency guarantees;
-- universal superiority of one switching architecture;
-- that a historical analogy validates decoder correctness.
-
-The decoder remains responsible for mathematical correction validity. Switching
-layers route declared requests and preserve evidence; they do not invent truth.
+Historical context and source boundaries are maintained separately in
+[Telecommunications Switching Design References](docs/roadmap/TELECOM_SWITCHING_REFERENCES.md).
 
 ---
 
@@ -135,28 +84,20 @@ layers route declared requests and preserve evidence; they do not invent truth.
 
 ## v166.x — Decoder Governance
 
-Completed contracts include:
-
-- canonical decoder baseline;
-- candidate manifests;
-- replay equivalence;
-- optimization contracts;
-- fast-path equivalence;
-- implementation boundaries;
-- benchmark ladders;
-- rollback readiness;
-- promotion receipts.
+Completed contracts established the canonical decoder baseline, candidate
+manifests, replay and fast-path equivalence, implementation boundaries,
+benchmark ladders, rollback readiness and promotion receipts.
 
 Governance approval is not silent runtime replacement.
 
 ## v167.x — Symbolic Sonification Runtime
 
 Completed work established deterministic symbolic event schemas, mapping packs,
-ternary/fuzzy music state, graph mapping, φ/Fibonacci rhythm and pitch, MIDI-like
+ternary/fuzzy state, graph mapping, φ/Fibonacci rhythm and pitch, MIDI-like
 export, lyric prompt compilation, proof telemetry sonification, CLI fixtures and
 demo benchmarks.
 
-Sonification remains an interpretation surface, not proof authority.
+Sonification remains an interpretation surface rather than proof authority.
 
 ## v170.x — Exact Ququart Evidence, NEXUS Replication and Strowger Routing
 
@@ -168,15 +109,14 @@ The v170 line established:
 - replication receipts and report-claim validation;
 - NEXUS execution and replication evidence boundaries;
 - the deterministic Strowger Syndrome Exchange;
-- mixed-radix pulse routing, selector stages, first-free trunk hunting and
-  vertical/rotary connector resolution;
+- mixed-radix pulse routing and first-free trunk hunting;
 - route, check and state-dark tone verification;
 - canonical Operator Desk events;
 - replayable pre-route state and hash-chained route receipts;
 - strict separation between browser demonstrations and canonical evidence.
 
-The Strowger exchange is now the baseline switching implementation against which
-later architectures will be compared.
+The Strowger exchange is the baseline implementation against which later
+switching architectures will be compared.
 
 ---
 
@@ -206,18 +146,32 @@ canonical_decoder_baseline_receipt_hash
 
 Each arrow extends lineage. It does not erase the preceding architecture.
 
+## Artifact overview
+
+| Phase | Primary model | Primary evidence | Proof-chain role |
+|---|---|---|---|
+| v170.3.0 | Strowger route topology and pre-route state | Canonical Strowger route receipt | Mechanical step-by-step baseline |
+| v171.x | `panel_topology.json`, `panel_sender_program.json` | `panel_route_receipt.json` | Separate compiled control intent from payload and actuation |
+| v172.x | `crossbar_matrix_manifest.json` | `crossbar_continuity_receipt.json` | Prove bounded coordinate selection and complete-path continuity |
+| v173.x | `ess_program_store_manifest.json` | `ess_call_processing_receipt.json` | Bind immutable programmes, logical scheduling and fabric commands |
+| v174.x | `digital_frame_schema.json` | `timeslot_interchange_receipt.json` | Prove frames, deterministic slot allocation and reassembly |
+| v175.x | `canonical_packet_schema.json`, `route_table_manifest.json` | `packet_hop_receipt_chain.json` | Preserve payload identity through queues, hops and failover |
+| v176.x | `switch_migration_contract.json` | `cross_era_equivalence_receipt.json` | Prove declared invariants survive architecture migration |
+
+The complete artifact inventory and role definitions live in the
+[Switching Artifact Registry](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md).
+
 ---
 
 # Phase v171.x — Panel Separated-Control Exchange
 
 **Status:** PLANNED
 
-## Motivation
+## Goal
 
-Panel switching introduced a useful separation between collected dialled intent
-and the machinery that established the path. QEC will translate that idea into
-a sender/register architecture where routing logic is compiled and sealed before
-switch actuation.
+Translate the Panel sender/register concept into a QEC architecture where the
+complete request is collected, compiled and sealed before path actuation.
+Control intent and transported payload receive separate canonical identities.
 
 ## Architectural rule
 
@@ -230,15 +184,12 @@ request intake
 → commit or fail closed
 ```
 
-The control path and transported correction request must have separate hashes.
-Neither may silently mutate the other.
-
 ## Planned releases
 
 - **v171.0 — Panel Exchange Skeleton**  
   Canonical panel topology, motor-group abstraction, banks and bounded selector movement.
 - **v171.1 — Sender and Register Contract**  
-  Capture the complete request before route actuation; emit a sender programme receipt.
+  Capture the complete request before route actuation and emit a sender programme receipt.
 - **v171.2 — Separated Control-Path Receipt**  
   Bind control intent, payload identity and selected route without conflating them.
 - **v171.3 — Deterministic Panel Translation Tables**  
@@ -246,29 +197,12 @@ Neither may silently mutate the other.
 - **v171.4 — Panel Fault and Capacity Battery**  
   Busy banks, motor stalls, translation corruption, sender disagreement and fail-closed recovery.
 - **v171.5 — Offline Panel Laboratory**  
-  Dependency-free visualisation and sonification clearly marked as demonstration evidence.
+  Dependency-free visualisation and sonification labelled as demonstration evidence.
 
-## Expected artifacts
-
-```text
-panel_topology.json
-panel_digit_register.json
-panel_sender_program.json
-panel_route_receipt.json
-panel_fault_battery.json
-panel_claim_validation.json
-```
-
-## Acceptance gates
-
-- same request and translation table produce the same sender programme;
-- route actuation cannot begin before sender sealing;
-- payload bytes remain unchanged across route compilation;
-- a changed translation table changes the programme hash;
-- motor/path faults are explicit and reproducible;
-- no fallback route is chosen without a declared deterministic rule;
-- Strowger and Panel may differ in event sequence while preserving declared
-  destination and outcome equivalence.
+Evidence names are registered under
+[v171.x Panel artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v171x--panel-separated-control-artifacts).
+Acceptance criteria are maintained under
+[v171.x Panel separated control](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v171x--panel-separated-control).
 
 ---
 
@@ -276,14 +210,11 @@ panel_claim_validation.json
 
 **Status:** PLANNED
 
-## Motivation
+## Goal
 
-Crossbar systems replace sequential wiper movement with coordinate selection over
-horizontal and vertical bars. Common control computes a path, establishes it,
-and becomes available for the next request.
-
-QEC will use this model to introduce a bounded coordinate switching matrix and a
-central marker that has no authority beyond the declared route contract.
+Replace sequential route progression with bounded coordinate selection over an
+immutable horizontal/vertical matrix. A central marker computes and reserves a
+complete admissible path, but has no authority beyond the route contract.
 
 ## Architectural rule
 
@@ -302,36 +233,20 @@ canonical request
 - **v172.0 — Crossbar Matrix Core**  
   Immutable coordinate matrix, link states and canonical intersection identity.
 - **v172.1 — Marker/Common-Control Contract**  
-  Central route computation with bounded authority and complete input/output receipts.
+  Central route computation with bounded authority and complete receipts.
 - **v172.2 — Multi-Stage Link Selection**  
-  Deterministic look-ahead over declared stages and first admissible complete path.
+  Deterministic look-ahead and first admissible complete path.
 - **v172.3 — Contention and Busy-Link Receipts**  
   Exact tie-breaking, reservation, release, quarantine and replay-safe contention tests.
 - **v172.4 — Crossbar Continuity Verification**  
-  End-to-end proof that every selected coordinate belongs to one continuous route.
+  Prove that every selected coordinate belongs to one continuous route.
 - **v172.5 — Strowger/Panel/Crossbar Equivalence Battery**  
-  Shared corpus proving declared route/outcome equivalence without requiring identical traces.
+  Shared corpus proving declared route and outcome equivalence without identical traces.
 
-## Expected artifacts
-
-```text
-crossbar_matrix_manifest.json
-crossbar_marker_program.json
-crossbar_path_search_receipt.json
-crossbar_contention_receipt.json
-crossbar_continuity_receipt.json
-switch_equivalence_matrix.json
-```
-
-## Acceptance gates
-
-- matrix ordering is canonical;
-- path search is bounded and deterministic;
-- tie-breaking never depends on set or dictionary iteration order;
-- a marker cannot alter decoder output or payload identity;
-- reservations and releases are included in the event chain;
-- no partial path may be committed;
-- equivalent outcomes across switch types are machine validated.
+Evidence names are registered under
+[v172.x Crossbar artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v172x--crossbar-artifacts).
+Acceptance criteria are maintained under
+[v172.x Crossbar coordinate switching](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v172x--crossbar-coordinate-switching).
 
 ---
 
@@ -339,12 +254,11 @@ switch_equivalence_matrix.json
 
 **Status:** PLANNED
 
-## Motivation
+## Goal
 
-Electronic Switching Systems moved call control from hardwired relay logic into
-stored programmes while early networks could still use physical switching
-matrices. QEC will separate a versioned switch programme from its switching
-fabric and require every programme, table and feature module to be hash-bound.
+Separate versioned stored-program control from the switching fabric. Every
+programme, translation table, schedule and optional feature module is hash-bound
+and unable to override validation.
 
 ## Architectural rule
 
@@ -363,37 +277,20 @@ immutable programme store
 - **v173.0 — Stored-Program Switch Skeleton**  
   Programme store, call store, event queue and switching-fabric adapter boundary.
 - **v173.1 — Immutable Programme Store Manifest**  
-  Full source/version/hash identity for executable routing logic and translation tables.
+  Full source, version and hash identity for routing logic and translation tables.
 - **v173.2 — Deterministic Call-Processing State Machine**  
-  Exact transitions for intake, analyse, select, connect, verify, release and reject.
+  Exact intake, analyse, select, connect, verify, release and reject transitions.
 - **v173.3 — Interrupt and Timing Schedule Receipt**  
-  Logical ticks and fixed priority classes replace wall-clock-dependent scheduling.
+  Logical ticks and fixed priority classes replace wall-clock scheduling.
 - **v173.4 — Feature Module Boundary**  
-  Optional forwarding, retry, conference-like fan-out and policy modules remain bounded,
-  explicit and unable to override validation.
+  Optional forwarding, retry and fan-out modules remain bounded and explicit.
 - **v173.5 — ESS/Fabric Equivalence Receipt**  
-  Prove that the stored programme issues a deterministic command stream to each
-  supported fabric adapter.
+  Prove deterministic command streams across supported fabric adapters.
 
-## Expected artifacts
-
-```text
-ess_program_store_manifest.json
-ess_translation_table_manifest.json
-ess_event_schedule_receipt.json
-ess_call_processing_receipt.json
-ess_feature_module_manifest.json
-ess_fabric_equivalence_receipt.json
-```
-
-## Acceptance gates
-
-- programme and data identities are separate;
-- modifying a programme or translation table changes the execution identity;
-- scheduling uses logical time only;
-- feature modules cannot force acceptance;
-- external or historical hardware models remain adapters, never authorities;
-- the same programme/input corpus produces byte-identical command streams.
+Evidence names are registered under
+[v173.x ESS artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v173x--ess-stored-program-artifacts).
+Acceptance criteria are maintained under
+[v173.x ESS stored-program control](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v173x--ess-stored-program-control).
 
 ---
 
@@ -401,11 +298,11 @@ ess_fabric_equivalence_receipt.json
 
 **Status:** PLANNED
 
-## Motivation
+## Goal
 
-Digital switching replaces a dedicated physical path with framed symbols assigned
-to time slots. QEC will model deterministic multiplexing without claiming to
-simulate a carrier-grade voice network.
+Replace dedicated path state with canonical fixed-width frames assigned to
+logical time slots. Missing, duplicated, reordered and shifted frames become
+explicit fail-closed evidence.
 
 ## Architectural rule
 
@@ -431,27 +328,12 @@ canonical correction symbols
 - **v174.4 — Digital Channel Fault Battery**  
   Bit corruption, slot collision, frame loss, duplicate frames and alignment faults.
 - **v174.5 — Digital Switch Evidence Lab**  
-  Offline frame visualisation and optional sonification separated from canonical evidence.
+  Offline frame visualisation and sonification separated from canonical evidence.
 
-## Expected artifacts
-
-```text
-digital_frame_schema.json
-timeslot_allocation_receipt.json
-frame_sync_receipt.json
-timeslot_interchange_receipt.json
-digital_fault_battery.json
-digital_switch_report.json
-```
-
-## Acceptance gates
-
-- frame width and byte order are explicit;
-- slot allocation is deterministic under saturation;
-- frame sequence uses logical indices rather than wall-clock timestamps;
-- idle, missing and invalid symbols are distinct;
-- reassembly reproduces the original payload identity or rejects;
-- no frame-level result is described as physical quantum evidence.
+Evidence names are registered under
+[v174.x Digital artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v174x--digital-time-division-artifacts).
+Acceptance criteria are maintained under
+[v174.x Digital time-division switching](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v174x--digital-time-division-switching).
 
 ---
 
@@ -459,14 +341,11 @@ digital_switch_report.json
 
 **Status:** PLANNED
 
-## Motivation
+## Goal
 
-Packet switching replaces fixed circuits with independently routed envelopes.
-Modern softswitches and VoIP systems move increasing control into software, but
-QEC must not import ordinary network nondeterminism into its proof core.
-
-The packet fabric will therefore be an offline deterministic model first. Any
-real network integration remains an adapter with separately captured evidence.
+Move from fixed circuits to independently routed canonical envelopes without
+importing ordinary network nondeterminism into the proof core. The core model is
+offline and deterministic; live networks remain receipt-bound adapters.
 
 ## Architectural rule
 
@@ -483,41 +362,24 @@ canonical payload
 ## Planned releases
 
 - **v175.0 — Canonical Packet Envelope**  
-  Versioned header schema, payload hash, sequence identity and explicit provenance.
+  Versioned header schema, payload hash, sequence identity and provenance.
 - **v175.1 — Deterministic Route Table**  
   Canonically ordered routes, exact longest-match semantics and stable tie-breaking.
 - **v175.2 — Bounded Queue and Scheduling Contract**  
   Fixed capacity, declared priority policy, explicit drops and no ambient timing.
 - **v175.3 — Hop-by-Hop Receipt Chain**  
-  Every transformation, queue decision and forwarding action extends packet lineage.
+  Every transformation, queue decision and forwarding action extends lineage.
 - **v175.4 — Replay-Safe Failover**  
   Declared alternate routes, fixed failure injection and deterministic recovery.
 - **v175.5 — Softswitch/VoIP Adapter Boundary**  
-  Real protocols may be observed through adapters, but live networks cannot become proof authority.
+  Real protocols may be observed, but live networks cannot become proof authority.
 - **v175.6 — Packet Fabric Evidence Lab**  
-  Offline topology, queue, route and fault visualisation with exportable demonstration records.
+  Offline topology, queue, route and fault visualisation with demonstration exports.
 
-## Expected artifacts
-
-```text
-canonical_packet_schema.json
-route_table_manifest.json
-queue_policy_manifest.json
-packet_hop_receipt_chain.json
-packet_failover_receipt.json
-softswitch_adapter_receipt.json
-packet_fabric_report.json
-```
-
-## Acceptance gates
-
-- packet identity excludes mutable transport metadata unless explicitly declared;
-- routing and queue ordering are canonical;
-- queue overflow has one declared outcome;
-- failover never uses random route selection;
-- every accepted reassembly recomputes the original payload hash;
-- live network observations are labelled external and non-authoritative;
-- no cloud service is required for core tests.
+Evidence names are registered under
+[v175.x Packet artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v175x--packet-and-softswitch-artifacts).
+Acceptance criteria are maintained under
+[v175.x Canonical packet fabric](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v175x--canonical-packet-fabric).
 
 ---
 
@@ -525,10 +387,11 @@ packet_fabric_report.json
 
 **Status:** PLANNED
 
-## Motivation
+## Goal
 
-The value of the switching lineage is not five unrelated demonstrations. QEC must
-prove what remains invariant while the switching substrate changes.
+Prove which payload, destination, outcome and failure invariants survive when the
+switching substrate changes. Architecture-specific traces remain visible; only
+declared semantic and proof-boundary equivalence is required.
 
 ## Equivalence law
 
@@ -543,9 +406,6 @@ same canonical correction request
 → one cross-era equivalence receipt
 ```
 
-Byte-identical traces are not required across architectures. Declared semantic
-and proof-boundary equivalence is required.
-
 ## Planned releases
 
 - **v176.0 — Historical Switch Compatibility Corpus**  
@@ -553,36 +413,19 @@ and proof-boundary equivalence is required.
 - **v176.1 — Cross-Era Replay Harness**  
   Execute the corpus against Strowger, Panel, Crossbar, ESS, Digital and Packet models.
 - **v176.2 — Switch Migration Contract**  
-  Canonical translation of routes, capacities, policies and claim boundaries between eras.
+  Canonical translation of routes, capacities, policies and claim boundaries.
 - **v176.3 — Cross-Era Equivalence Receipt**  
   Machine-validated destination, payload, outcome and failure-class equivalence.
 - **v176.4 — Deterministic Architecture Selection Policy**  
-  Select an architecture from declared requirements using a canonical ranking tuple;
-  never infer that newer automatically means better.
+  Rank architectures from declared requirements without assuming newer is better.
 - **v176.5 — Switching Evolution Report**  
-  Reproducible report comparing complexity, capacity model, fault surfaces, event counts
-  and receipt size without making hardware-performance claims.
+  Compare complexity, capacity model, fault surfaces, event counts and receipt size
+  without making hardware-performance claims.
 
-## Expected artifacts
-
-```text
-switch_compatibility_corpus_manifest.json
-cross_era_replay_receipt.json
-switch_migration_contract.json
-cross_era_equivalence_receipt.json
-architecture_selection_policy.json
-switching_evolution_report.json
-```
-
-## Acceptance gates
-
-- all architectures consume one canonical request schema;
-- migration is explicit and hash-bound;
-- outcome equivalence is machine checked;
-- architecture-specific failures remain visible rather than normalized away;
-- comparison metrics are observations, not correctness proofs;
-- architecture selection uses declared requirements and deterministic ordering;
-- no historical switch is deleted after a newer model lands.
+Evidence names are registered under
+[v176.x Cross-era artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v176x--cross-era-artifacts).
+Acceptance criteria are maintained under
+[v176.x Cross-era equivalence and migration](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v176x--cross-era-equivalence-and-migration).
 
 ---
 
@@ -590,10 +433,10 @@ switching_evolution_report.json
 
 The v193.x runtime programme remains deferred.
 
-The telecommunications switching lineage prepares reusable routing, scheduling,
-queueing, failover, migration and equivalence contracts for that future work. It
-does not activate a QEC operating system, silently replace the decoder, or turn
-historical switch models into production network infrastructure.
+The switching lineage prepares reusable routing, scheduling, queueing, failover,
+migration and equivalence contracts. It does not activate a QEC operating system,
+silently replace the decoder or turn historical switch models into production
+network infrastructure.
 
 Expected v193 concerns remain:
 
@@ -611,66 +454,10 @@ completion of v171.x–v176.x.
 
 ---
 
-# 🧪 Global Acceptance Law
-
-Every switching-era release must pass:
-
-```text
-python -m pytest -q
-```
-
-A focused suite may be used during development, but the full repository suite is
-the release gate when routing, receipts, canonicalisation, claims, operator state,
-shared schemas or proof-chain identities change.
-
-Required release evidence:
-
-- source commit SHA;
-- package version;
-- environment manifest;
-- canonical fixtures;
-- deterministic test receipt;
-- generated artifact manifest;
-- full 64-character SHA-256 identities;
-- claim-validation result;
-- clean working-tree declaration;
-- explicit limitations.
-
-## Global forbidden behaviours
-
-- randomness without a declared deterministic seed and receipt;
-- wall-clock-dependent outcomes;
-- hidden mutable state;
-- unordered traversal affecting results;
-- silent route fallback;
-- force-accept operator commands;
-- external adapters acting as authorities;
-- browser demonstration digests presented as cryptographic evidence;
-- decoder mutation by a switching layer;
-- hardware, threshold or quantum-advantage claims from routing simulations;
-- deleting historical implementations when a later architecture is added.
-
----
-
-# 📚 Historical Design References
-
-These sources motivate the architectural sequence; they are not QEC proof inputs.
-
-- *A History of Engineering and Science in the Bell System: Switching Technology* — Panel, coordinate and common-control development.
-- Western Electric, *Fundamentals of Telephone Communication Systems* — Panel senders and crossbar common control.
-- Bell System Technical Journal, *Organization of the No. 1 ESS Stored Program* — stored-program switching control.
-- ITU historical material on digital circuit-switched data networks, X.25 and the transition toward packet networks.
-
-Any historical fact used in an implementation document should be cited there and
-kept separate from canonical benchmark evidence.
-
----
-
 # Final Direction
 
-QEC's switching programme is not nostalgia pasted onto a decoder.
-
-It is a deterministic systems experiment in architectural evolution:
+QEC's switching programme is a deterministic systems experiment in architectural
+evolution:
 
 ```text
 movement becomes compiled control
@@ -681,7 +468,5 @@ movement becomes compiled control
 → every migration remains replayable and provable
 ```
 
-The design objective is not to imitate an old exchange room.
-
-The objective is to prove that QEC can change its switching substrate without
-losing payload identity, failure semantics, claim discipline or replay truth.
+The objective is to change the switching substrate without losing payload
+identity, failure semantics, claim discipline or replay truth.

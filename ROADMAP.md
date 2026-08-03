@@ -20,15 +20,22 @@ deferred runtime arc     → v193.x — QEC OS Runtime & Benchmark Reset
 Published tags are authoritative. If this roadmap conflicts with published
 release history, release history wins and the roadmap must be corrected.
 
+Stable compatibility remains explicitly anchored to the `v137.*` contract
+lineage. Later roadmap programmes may extend those contracts, but must not
+silently reinterpret or remove them.
+
 The pre-v170 planning document is preserved through
 [`docs/archive/ROADMAP_PRE_V170.md`](docs/archive/ROADMAP_PRE_V170.md).
+The former extension documents are retained as superseded historical pointers:
+[`ROADMAP_EXTENSION.md`](ROADMAP_EXTENSION.md) and
+[`ROADMAP_EXTENSION_v2.md`](ROADMAP_EXTENSION_v2.md).
 
 ## Companion documents
 
 | Document | Purpose |
 |---|---|
 | [Switching Safety and Acceptance Rules](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md) | Normative deterministic law, release gates, forbidden behaviours, claim boundaries and phase acceptance criteria |
-| [Switching Artifact Registry](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md) | Central inventory of planned canonical artifacts, receipts and proof-chain roles |
+| [Switching Artifact Registry](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md) | Central inventory of planned canonical artifacts, receipts and programme-lineage roles |
 | [Telecommunications Switching Design References](docs/roadmap/TELECOM_SWITCHING_REFERENCES.md) | Historical architecture context and citation boundaries |
 
 ---
@@ -90,12 +97,14 @@ benchmark ladders, rollback readiness and promotion receipts.
 
 Governance approval is not silent runtime replacement.
 
-## v167.x — Symbolic Sonification Runtime
+## v167.0 — Symbolic Sonification Runtime Skeleton
 
-Completed work established deterministic symbolic event schemas, mapping packs,
-ternary/fuzzy state, graph mapping, φ/Fibonacci rhythm and pitch, MIDI-like
-export, lyric prompt compilation, proof telemetry sonification, CLI fixtures and
-demo benchmarks.
+Only the v167.0 deterministic symbolic-event runtime skeleton is implemented.
+The former v167.1–v167.9 mapping-pack, graph-mapping, MIDI-export, prompt,
+telemetry, CLI and demo-benchmark assignments remain unimplemented historical
+planning boundaries. They are not completed capabilities and are not the active
+frontier. Any future sonification continuation must receive non-conflicting
+release numbers and preserve the v167.0 schema boundary.
 
 Sonification remains an interpretation surface rather than proof authority.
 
@@ -120,35 +129,42 @@ switching architectures will be compared.
 
 ---
 
-# 🔗 Switching Proof Chain
+# 🔗 Switching Programme Artifact Chronology
+
+The entries below are a chronological registry of released and planned hash
+identities. They are not a transitive cryptographic proof chain. Existing v170
+artifact families validate their own declared inputs, but do not automatically
+bind the preceding entry unless that upstream hash is explicitly present in the
+artifact schema. Explicit cross-era binding is a planned v176.x deliverable.
 
 ```text
-canonical_decoder_baseline_receipt_hash
-→ ququart_exact_fer_manifest_hash
-→ replication_receipt_hash
-→ report_claim_validation_hash
-→ nexus_replication_receipt_hash
-→ strowger_route_receipt_hash                         (v170.3.0)
-→ panel_sender_register_receipt_hash                  (v171.x)
-→ panel_separated_control_receipt_hash                (v171.x)
-→ crossbar_matrix_receipt_hash                        (v172.x)
-→ crossbar_common_control_receipt_hash                (v172.x)
-→ ess_program_store_manifest_hash                     (v173.x)
-→ ess_call_processing_receipt_hash                    (v173.x)
-→ digital_frame_switch_receipt_hash                   (v174.x)
-→ deterministic_timeslot_allocation_receipt_hash      (v174.x)
-→ canonical_packet_fabric_receipt_hash                (v175.x)
-→ deterministic_failover_receipt_hash                 (v175.x)
-→ cross_era_switch_equivalence_receipt_hash           (v176.x)
-→ switch_migration_receipt_hash                       (v176.x)
-→ qec_os_runtime_contract_hash                        (deferred v193.x)
-```
+RELEASED
+  canonical_decoder_baseline_receipt_hash             (v166.0)
+  ququart_exact_fer_manifest_hash                      (v170.1.x)
+  replication_receipt_hash                            (v170.1.1)
+  report_claim_validation_hash                        (v170.1.1)
+  nexus_replication_receipt_hash                       (v170.2.x)
+  strowger_route_receipt_hash                          (v170.3.0)
 
-Each arrow extends lineage. It does not erase the preceding architecture.
+PLANNED
+  panel_sender_register_receipt_hash                   (v171.x)
+  panel_separated_control_receipt_hash                 (v171.x)
+  crossbar_matrix_receipt_hash                         (v172.x)
+  crossbar_common_control_receipt_hash                 (v172.x)
+  ess_program_store_manifest_hash                      (v173.x)
+  ess_call_processing_receipt_hash                     (v173.x)
+  digital_frame_switch_receipt_hash                    (v174.x)
+  deterministic_timeslot_allocation_receipt_hash       (v174.x)
+  canonical_packet_fabric_receipt_hash                 (v175.x)
+  deterministic_failover_receipt_hash                  (v175.x)
+  cross_era_switch_equivalence_receipt_hash            (v176.x)
+  switch_migration_receipt_hash                        (v176.x)
+  qec_os_runtime_contract_hash                         (deferred v193.x)
+```
 
 ## Artifact overview
 
-| Phase | Primary model | Primary evidence | Proof-chain role |
+| Phase | Primary model | Primary evidence | Programme-lineage role |
 |---|---|---|---|
 | v170.3.0 | Strowger route topology and pre-route state | Canonical Strowger route receipt | Mechanical step-by-step baseline |
 | v171.x | `panel_topology.json`, `panel_sender_program.json` | `panel_route_receipt.json` | Separate compiled control intent from payload and actuation |
@@ -156,7 +172,7 @@ Each arrow extends lineage. It does not erase the preceding architecture.
 | v173.x | `ess_program_store_manifest.json` | `ess_call_processing_receipt.json` | Bind immutable programmes, logical scheduling and fabric commands |
 | v174.x | `digital_frame_schema.json` | `timeslot_interchange_receipt.json` | Prove frames, deterministic slot allocation and reassembly |
 | v175.x | `canonical_packet_schema.json`, `route_table_manifest.json` | `packet_hop_receipt_chain.json` | Preserve payload identity through queues, hops and failover |
-| v176.x | `switch_migration_contract.json` | `cross_era_equivalence_receipt.json` | Prove declared invariants survive architecture migration |
+| v176.x | `switch_migration_contract.json` | `cross_era_equivalence_receipt.json` | Explicitly bind declared invariants across architecture migration |
 
 The complete artifact inventory and role definitions live in the
 [Switching Artifact Registry](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md).

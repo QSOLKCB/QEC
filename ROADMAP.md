@@ -38,6 +38,13 @@ The former extension documents are retained as superseded historical pointers:
 | [Switching Artifact Registry](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md) | Central inventory of planned canonical artifacts, receipts and programme-lineage roles |
 | [Telecommunications Switching Design References](docs/roadmap/TELECOM_SWITCHING_REFERENCES.md) | Historical architecture context and citation boundaries |
 
+## Visual overview
+
+[![QEC deterministic switching roadmap mind map](docs/roadmap/QEC_DETERMINISTIC_SWITCHING_MIND_MAP.jpg)](docs/roadmap/QEC_DETERMINISTIC_SWITCHING_MIND_MAP.jpg)
+
+*NotebookLM-generated visual overview. `ROADMAP.md` and its companion documents
+remain authoritative for release assignments, contracts and acceptance rules.*
+
 ---
 
 # 🧠 Programme Law

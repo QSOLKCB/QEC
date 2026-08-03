@@ -7,9 +7,15 @@ telecommunications switching programme in [`ROADMAP.md`](../../ROADMAP.md).
 Artifact names are planning contracts until their release lands. Published
 schemas and release tags become authoritative once implemented.
 
-## Proof-chain overview
+## Programme-lineage overview
 
-| Phase | Architecture | Primary model artifact | Primary receipt or report | Role in the proof chain |
+The table records architectural sequence and each artifact family's intended
+role. It does not assert that one row cryptographically binds the preceding row.
+A binding exists only when the downstream schema explicitly includes and
+validates the upstream artifact's full hash. The planned v176.x migration and
+cross-era receipts are where explicit multi-architecture binding is introduced.
+
+| Phase | Architecture | Primary model artifact | Primary receipt or report | Programme-lineage role |
 |---|---|---|---|---|
 | v170.3.0 | Strowger | route topology and pre-route state in the canonical route receipt | `strowger_route_receipt_hash` | Mechanical step-by-step routing baseline |
 | v171.x | Panel | `panel_topology.json`, `panel_sender_program.json` | `panel_route_receipt.json` | Separates compiled control intent from payload and path actuation |
@@ -17,7 +23,7 @@ schemas and release tags become authoritative once implemented.
 | v173.x | ESS | `ess_program_store_manifest.json` | `ess_call_processing_receipt.json` | Binds immutable stored programmes, logical scheduling and fabric commands |
 | v174.x | Digital TDM | `digital_frame_schema.json` | `timeslot_interchange_receipt.json` | Proves framed symbols, deterministic slot allocation and reassembly |
 | v175.x | Packet fabric | `canonical_packet_schema.json`, `route_table_manifest.json` | `packet_hop_receipt_chain.json` | Preserves payload identity through queues, hops and deterministic failover |
-| v176.x | Cross-era | `switch_migration_contract.json` | `cross_era_equivalence_receipt.json` | Proves declared invariants survive architecture migration |
+| v176.x | Cross-era | `switch_migration_contract.json` | `cross_era_equivalence_receipt.json` | Explicitly binds declared invariants across architecture migration |
 
 ## v171.x — Panel separated-control artifacts
 
@@ -133,6 +139,7 @@ switch_migration_receipt_hash
 - every artifact must declare a schema and version;
 - canonical JSON ordering and encoding must be explicit;
 - receipts recompute identities rather than trusting embedded hashes;
+- an upstream binding may be claimed only when the full upstream hash is part of the validated downstream schema;
 - reports are derived views and cannot override source evidence;
 - renamed or superseded artifacts require an explicit migration contract;
 - browser-only demonstration exports must not reuse canonical receipt schemas;

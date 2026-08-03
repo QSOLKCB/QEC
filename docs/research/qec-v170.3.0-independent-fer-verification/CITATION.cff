@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "Please cite the Zenodo record for this independent verification package."
+title: "QEC v170.3.0 Independent Verification Package: Exact Ququart Frame-Error Rate and Harmonic Receiver Evidence"
+type: dataset
+authors:
+  - family-names: Slade
+    given-names: Trent
+    affiliation: "Independent Researcher, QSOL-IMC"
+version: 1.0.0
+date-released: 2026-08-03
+license: MPL-2.0
+repository-code: "https://github.com/QSOLKCB/QEC"
+url: "https://github.com/QSOLKCB/QEC/releases/tag/v170.3.0"
+abstract: >-
+  Independent execution, evidence review, and archival package for the QEC
+  v170.3.0 exact ququart frame-error-rate and harmonic receiver battery. The
+  full-depth checkout passed 19,172 tests with zero failures.
+keywords:
+  - quantum error correction
+  - ququart
+  - frame error rate
+  - exact enumeration
+  - reproducibility
+  - harmonic receiver

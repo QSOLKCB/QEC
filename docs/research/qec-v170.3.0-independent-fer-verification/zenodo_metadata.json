@@ -1,0 +1,24 @@
+{
+  "metadata": {
+    "upload_type": "publication",
+    "publication_type": "report",
+    "publication_date": "2026-08-03",
+    "title": "QEC v170.3.0 Independent Verification Package: Exact Ququart Frame-Error Rate and Harmonic Receiver Evidence",
+    "creators": [{"name": "Slade, Trent", "affiliation": "Independent Researcher, QSOL-IMC"}],
+    "contributors": [
+      {"name": "Monica AI", "type": "DataCollector"},
+      {"name": "OpenAI GPT-5.6 Thinking", "type": "Other"}
+    ],
+    "description": "<p>This record formalizes an independent execution and evidence review of the QSOLKCB/QEC v170.3.0 ququart frame-error-rate (FER) battery at pinned commit <code>dada8b7a20a75753db43acc01a6a9e723ebaa6b6</code>.</p><p>A full-depth checkout passed the complete available pytest suite with 19,172 tests passed, zero failures, four expected optional-backend skips, and four warnings. The focused ququart FER battery passed 18 of 18 tests. The evidence package contains exhaustive classification of all 16^5 = 1,048,576 packed Pauli patterns for the packed [[5,1,3]]_4 code, deterministic Monte Carlo results over four declared channels, a deterministic harmonic receiver fault matrix, a 28-cell end-to-end harmonic battery, claim-validation artifacts, raw logs, source report files, and SHA-256 manifests.</p><p>The corrected statistical audit finds that 38 of 40 Wilson 95% intervals contain the exact FER: all 20 zero-event cells and 18 of 20 nonzero-event cells. Two misses are consistent with expected interval noncoverage and low-count fluctuation. The deterministic harmonic fault battery records 375 adversarial evaluations with zero false accepts and zero receiver false-trust events.</p><p>Scope is limited to exact finite-code capacity analysis and deterministic classical harmonic-readout simulation. No hardware threshold, fault-tolerance threshold, quantum advantage, circuit-level performance, leakage, SPAM, pulse-fidelity, or physical-device claim is made.</p>",
+    "access_right": "open",
+    "license": "MPL-2.0",
+    "version": "1.0.0",
+    "language": "eng",
+    "keywords": ["quantum error correction", "ququart", "frame error rate", "stabilizer code", "exact enumeration", "deterministic Monte Carlo", "reproducibility", "harmonic receiver", "fail-closed validation", "SHA-256 evidence"],
+    "related_identifiers": [
+      {"identifier": "https://github.com/QSOLKCB/QEC/releases/tag/v170.3.0", "relation": "isSupplementTo", "resource_type": "software"},
+      {"identifier": "https://github.com/QSOLKCB/QEC/commit/dada8b7a20a75753db43acc01a6a9e723ebaa6b6", "relation": "isDerivedFrom", "resource_type": "software"}
+    ],
+    "notes": "The autonomous executor and AI reviewer are recorded as computational contributors. Trent Slade is the citation creator and package curator."
+  }
+}

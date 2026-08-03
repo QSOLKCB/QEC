@@ -1,0 +1,19 @@
+{
+  "schema": "qec.zenodo-independent-fer-package.v1",
+  "package_version": "1.0.0",
+  "title": "QEC v170.3.0 Independent Verification Package: Exact Ququart Frame-Error Rate and Harmonic Receiver Evidence",
+  "publication_date": "2026-08-03",
+  "source": {
+    "repository": "https://github.com/QSOLKCB/QEC",
+    "release": "v170.3.0",
+    "commit": "dada8b7a20a75753db43acc01a6a9e723ebaa6b6"
+  },
+  "primary_object": "report/QEC_v170.3.0_Independent_FER_Verification_Report_v1.0.0.pdf",
+  "source_report": "report/QEC_v170.3.0_Independent_FER_Verification_Report_v1.0.0.md",
+  "evidence_directory": "evidence/",
+  "provenance_directory": "provenance/",
+  "metadata_directory": "metadata/",
+  "hash_manifest": "SHA256SUMS.txt",
+  "external_zip_hash": "ZENODO_UPLOAD_SHA256.txt",
+  "scope": "Exact finite-code capacity analysis and deterministic classical harmonic-readout simulation. No physical hardware or threshold claim."
+}

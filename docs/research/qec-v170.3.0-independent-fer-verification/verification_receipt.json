@@ -1,0 +1,44 @@
+{
+  "schema": "qec.independent-fer-verification-package.v1",
+  "package_version": "1.0.0",
+  "release_tag": "v170.3.0",
+  "source_commit": "dada8b7a20a75753db43acc01a6a9e723ebaa6b6",
+  "parent_commit": "6e7dc3fb33d6b668012f5327ad58b9268f309d3b",
+  "publication_date": "2026-08-03",
+  "execution": {
+    "clone_method": "full_depth",
+    "pytest_timeout": "none",
+    "full_suite": {"passed": 19172, "failed": 0, "skipped": 4, "warnings": 4, "seconds": 198.84, "exit_code": 0},
+    "focused_fer": {"passed": 18, "failed": 0, "skipped": 0, "seconds": 2.21}
+  },
+  "monte_carlo_interval_audit": {
+    "cells": 40,
+    "zero_event_cells": 20,
+    "zero_event_cells_covering_exact": 20,
+    "nonzero_event_cells": 20,
+    "nonzero_event_cells_covering_exact": 18,
+    "total_covering_exact": 38,
+    "misses": [
+      {"channel": "full_packed_depolarizing", "physical_error_rate": 0.2, "frame_errors": 2518, "mc_fer": 0.2518, "wilson95_low": 0.2433892439372, "wilson95_high": 0.260401372854, "exact_fer": 0.2621281848888889},
+      {"channel": "same_pauli_correlated", "physical_error_rate": 0.001, "frame_errors": 1, "mc_fer": 0.0001, "wilson95_low": 0.00001765267360112, "wilson95_high": 0.0005662688974013, "exact_fer": 0.000009977795550814817}
+    ]
+  },
+  "harmonic_fault_audit": {"adversarial_evaluations": 375, "expected_accept_evaluations": 150, "total_evaluations": 525, "false_accepts": 0, "receiver_false_trust": 0, "end_to_end_cells": 28},
+  "benchmark_identity": {
+    "canonical_bundle_sha256": "1daec95984d2c914ede2b207ce8f6e2402ddbd5889c8095969838ce8700d66af",
+    "benchmark_manifest_file_sha256": "3dbd0bbb068c379ffbb402fe1a5863a5c5cc2797a2d078c55706e88839dd4a64",
+    "claim_validation_sha256": "7211dba1b71ddca9bcbd47e9599344270882f4851dbd4d507603924573005822",
+    "lane_symmetry_sha256": "a9073805c2c3d85c5b37824b3d2462b400d8e71be723739fcc96cf92539bfca7",
+    "seed": 1701001,
+    "trials_per_cell": 10000,
+    "harmonic_trials_per_cell": 4000
+  },
+  "deliverables": {
+    "markdown_report_sha256": "e5d0042721ca88c3b4714a40b1bcf8f10a22cdb83fe69c7d143468f415f46264",
+    "latex_report_sha256": "0d36f1c9da7adeb6d1f073ae9c7ec58b66aec106baa8abc56b66cfd3e5e35c09",
+    "pdf_report_sha256": "d2438d793284de21481854f36fbe27f03b968103a9cbb23eb5cd12790df8186d",
+    "raw_log_sha256": "153219bb6e34583a773b51e31d28e14e322166d7954e39b962c6cb11cabe608b",
+    "zenodo_zip_sha256": "8f1acd545ab56364ec9389ffaad2068983216f5fc616fd0f33bf3857602f11a9"
+  },
+  "scope": {"analysis_scope": "finite_code_capacity", "hardware_claim": false, "threshold_claim": false}
+}

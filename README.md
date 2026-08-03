@@ -27,17 +27,20 @@
 <!-- LAB-LAUNCHER:END -->
 
 QEC is a deterministic, replay-safe proof and systems architecture for quantum
-error correction, canonical hashing, replay validation, decoder governance, and
-now executable symbolic sonification runtime/event-mapping work, with QEC OS runtime/benchmark work deferred to v193.x.
+error correction, canonical hashing, replay validation, decoder governance,
+exact finite-code evidence, replication receipts, and deterministic switching.
+QEC OS runtime and benchmark work remains deferred to the v193.x sequence.
 
 It turns computation, evidence, governance, replay validation, adapter-bound
 external systems, quantum-signal claim boundaries, decoder-governance receipts,
-symbolic sonification runtime contracts, and deferred runtime/benchmark contracts into canonical JSON / SHA-256 proof artifacts.
+finite-code benchmark evidence, deterministic route state, and deferred runtime
+contracts into canonical JSON / SHA-256 proof artifacts.
 
 The repository began with a Layer 1 QEC decoder and now extends that foundation
 into a broader deterministic proof stack for replay-safe computation,
-provenance validation, adapter-bound external systems, bounded semantic
-reasoning, receipt-chain decoder governance, and the post-v166.8 pivot toward an executable symbolic sonification runtime.
+provenance validation, bounded semantic reasoning, receipt-chain decoder
+governance, exact ququart FER evidence, NEXUS replication, and the v170.3.0
+Deterministic Strowger Syndrome Exchange.
 
 The v166.x decoder-governance arc completed through v166.8: it declares the
 existing decoder baseline, registers candidate decoders as adapter-only
@@ -46,27 +49,35 @@ implementation and benchmark surfaces, requires rollback readiness, and records
 promotion eligibility as a receipt-chain decision without mutating
 `src/qec/decoder/`.
 
-After v166.8, the v167.x frontier pivots toward executable symbolic sonification runtime work: deterministic event schemas, mapping packs, ternary/fuzzy state mapping, graph traversal, φ/Fibonacci rhythm and pitch mapping, MIDI-like export, lyric prompt compilation, QEC proof telemetry sonification, CLI fixtures, and demo benchmarks.
+v167.0 delivered the deterministic symbolic-sonification runtime skeleton.
+The former v167.1–v167.9 mapping-pack, graph-mapping, MIDI-export, prompt,
+telemetry, CLI and demo-benchmark assignments remain unimplemented historical
+planning boundaries; they are not completed capabilities or the current
+frontier.
 
-QEC is not claiming that symbolic sonification proves physics, biology, medicine, cosmology, QEC advantage, or decoder correctness. The prior QEC OS runtime and benchmark reset is deferred to the v193.x sequence.
+The v170.x line adds exact packed-ququart FER analysis, deterministic Monte Carlo
+and harmonic fault batteries, report-claim validation, replication receipts,
+NEXUS evidence boundaries, and deterministic Strowger request routing. These
+software models do not establish hardware thresholds, physical fault tolerance,
+or quantum advantage.
 
 In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 
-**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • Symbolic Sonification Runtime Pivot • Event Schemas • Mapping Packs • Ternary / Fuzzy Music State • Graph Music Mapping • φ / Fibonacci Rhythm and Pitch • MIDI-like Export • Lyric Prompt Compilation • QEC Proof Telemetry Sonification • CLI Fixtures • Demo Benchmarks • Deferred v193.x QEC OS Runtime Reset • Adapter Boundaries • Source-Bound Claims • Canonical Decoder Baselines • Decoder Candidate Manifests • Decoder Replay Equivalence • Decoder Optimization Contracts • Decoder Fast-Path Equivalence • Decoder Implementation Boundaries • Decoder Benchmark Ladders • Decoder Rollback Receipts • Decoder Promotion Receipts**
+**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • Symbolic Sonification Skeleton v167.0 • Exact Ququart FER Evidence • Replication and Claim Validation • NEXUS Evidence Boundaries • Deterministic Strowger Syndrome Exchange v170.3.0 • Planned Panel / Crossbar / ESS / Digital / Packet Switching Lineage • Deferred v193.x QEC OS Runtime Reset • Adapter Boundaries • Source-Bound Claims**
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v166.8-success)](https://github.com/QSOLKCB/QEC/releases/tag/v166.8)
-[![Branch](https://img.shields.io/badge/branch-v166.8%20canonical-purple)]()
+[![Latest](https://img.shields.io/badge/stable-v170.3.0-success)](https://github.com/QSOLKCB/QEC/releases/tag/v170.3.0)
+[![Branch](https://img.shields.io/badge/branch-v170.3.0%20canonical-purple)]()
 
-Current release line: **v166.8**
-Current frontier: **v167.0 — SymbolicSonificationRuntimeSkeleton**
-Active arc: **v167.x — Symbolic Sonification Runtime & Event Mapping**
+Current release line: **v170.3.0**
+Current frontier: **v171.0 — PanelSeparatedControlExchange**
+Active arc: **v171.x–v176.x — Deterministic Telecommunications Switching Lineage**
 Deferred arc: **v193.x — QEC OS Runtime & Benchmark Reset**
-Completed arc: **v166.x — QLDPC / Hashing-Bound Code Receipts / Decoder Governance**
+Completed arc: **v170.x — Exact Ququart Evidence / NEXUS / Strowger Routing**
 
-Repository status is current through **v166.8 → DecoderPromotionReceipt**.
+Repository status is current through **v170.3.0 → DeterministicStrowgerSyndromeExchange**.
 
 Recent release arcs completed or active:
 
@@ -78,10 +89,12 @@ Recent release arcs completed or active:
 - **v166.x** → Canonical decoder baseline, candidate, replay, optimization,
   fast-path, implementation-boundary, benchmark-ladder, rollback, and
   promotion receipts.
-- **v167.x** → Executable symbolic sonification runtime skeleton, Cosmovirus
-  mapping pack, ternary/fuzzy music state, graph music mapper, φ/Fibonacci
-  rhythm and pitch, MIDI-like export, lyric prompt compiler, proof telemetry
-  sonifier, CLI fixtures, and demo benchmarks.
+- **v167.0** → Executable symbolic-sonification runtime skeleton. The former
+  v167.1–v167.9 assignments remain unimplemented historical plans.
+- **v170.x** → Exact packed-ququart decoding and FER evidence, replication and
+  claim validation, NEXUS evidence boundaries, and deterministic Strowger routing.
+- **v171.x–v176.x** → Planned Panel, Crossbar, ESS, digital TDM, packet fabric,
+  migration, and cross-era equivalence contracts.
 - **v193.x** → Deferred QEC OS runtime skeleton, golden corpus, decoder
   runtime API, explicit decoder router, GF(2)/stabilizer core, QLDPC
   construction harness, syndrome/noise runtime, benchmark harness,
@@ -177,16 +190,20 @@ See the [decoder boundary](docs/QUTRIT_HARMONIC_QEC.md) and
 | Decoder benchmark ladder receipts | Complete through v166.6 |
 | Decoder rollback receipts | Complete through v166.7 |
 | Decoder promotion receipts | Complete through v166.8 |
-| Symbolic sonification runtime skeleton | Planned v167.0 |
-| Cosmovirus mapping pack | Planned v167.1 |
-| Ternary/fuzzy music state engine | Planned v167.2 |
-| Topological graph music mapper | Planned v167.3 |
-| Golden-ratio rhythm/pitch engine | Planned v167.4 |
-| Symbolic event MIDI exporter | Planned v167.5 |
-| Lyric prompt compiler | Planned v167.6 |
-| QEC proof telemetry sonifier | Planned v167.7 |
-| Sonification CLI and fixtures | Planned v167.8 |
-| Sonification demo corpus and benchmark | Planned v167.9 |
+| Symbolic sonification runtime skeleton | Complete v167.0 |
+| Cosmovirus mapping pack | Unimplemented historical v167.1 plan |
+| Ternary/fuzzy music state engine | Unimplemented historical v167.2 plan |
+| Topological graph music mapper | Unimplemented historical v167.3 plan |
+| Golden-ratio rhythm/pitch engine | Unimplemented historical v167.4 plan |
+| Symbolic event MIDI exporter | Unimplemented historical v167.5 plan |
+| Lyric prompt compiler | Unimplemented historical v167.6 plan |
+| QEC proof telemetry sonifier | Unimplemented historical v167.7 plan |
+| Sonification CLI and fixtures | Unimplemented historical v167.8 plan |
+| Sonification demo corpus and benchmark | Unimplemented historical v167.9 plan |
+| Exact ququart FER evidence | Complete through v170.1.1 |
+| NEXUS replication evidence | Complete through v170.2.1 |
+| Deterministic Strowger routing | Complete v170.3.0 |
+| Telecommunications switching lineage | Planned v171.x–v176.x |
 | QEC OS runtime skeleton | Deferred v193.0 |
 | Golden corpus fixtures | Deferred v193.1 |
 | Baseline decoder runtime API | Deferred v193.2 |
@@ -223,25 +240,31 @@ QEC is useful when you need proof objects that are:
 - bounded rather than open-ended
 - lineage-preserving across release arcs
 - safe around external backends and heavy dependencies
-- strict about simulation, benchmark, telemetry, and report boundaries
+- strict around simulation, benchmark, telemetry, and report boundaries
 - explicit about research provenance, citation integrity, and claim scope
-- strict about inference, tokenization, compression, memory, and cache boundaries
-- strict about agent observation, tool dispatch, crawler, and pattern-decision boundaries
+- strict around inference, tokenization, compression, memory, and cache boundaries
+- strict around agent observation, tool dispatch, crawler, and pattern-decision boundaries
 - source-bound around QPE, quantum-memory, quantum-geometry, and graph-universe claims
 - explicit about decoder baseline immutability and candidate-governance boundaries
 - strict about decoder replay equivalence, benchmark ladders, rollback, and promotion receipts
-- ready to gate v167.x sonification runtime work through deterministic fixtures, generated artifacts, CLI checks, and demo benchmarks
+- capable of exact finite-code FER evidence and deterministic route receipts
+- ready to develop later switching fabrics without treating historical analogy as proof
 
-QEC has completed decoder-governance receipts through v166.8.
+QEC has completed decoder-governance receipts through v166.8, the symbolic
+sonification skeleton at v167.0, and the v170.x ququart, replication, NEXUS, and
+Strowger evidence line through v170.3.0.
 
-Post-v166.8, QEC pivots toward executable symbolic sonification runtime work; QEC OS runtime work is deferred to v193.x.
+The current planned frontier is v171.0, beginning the deterministic
+telecommunications-switching programme. QEC OS runtime work remains deferred to
+v193.x.
 
 Governance approval is not runtime activation.
 
 v166.8 declares receipt-chain promotion eligibility. It does not replace decoder
 source, activate runtime execution, or mutate `src/qec/decoder/`.
 
-QEC OS runtime activation is deferred to v193.x and will still require a tested router plus golden corpus verification.
+QEC OS runtime activation is deferred to v193.x and will still require a tested
+router plus golden corpus verification.
 
 External tools remain adapters, not authorities.
 
@@ -272,16 +295,13 @@ input
 → replay-safe proof result
 ```
 
-Executable symbolic sonification pivot pipeline:
+Historical v167 sonification plan boundary:
 
 ```text
-governance-complete decoder chain
-→ symbolic mapping pack
-→ deterministic event schema
-→ graph/state/rhythm mapping
-→ MIDI-like JSON / prompt / telemetry artifact
-→ CLI fixtures
-→ demo benchmark
+deterministic event schema skeleton                    (implemented v167.0)
+→ mapping packs / graph-state-rhythm mapping           (not implemented)
+→ MIDI-like export / prompt / telemetry artifacts      (not implemented)
+→ CLI fixtures / demo benchmark                        (not implemented)
 ```
 
 ## ⚡ Quickstart
@@ -368,9 +388,11 @@ QEC matters because deterministic proof artifacts make it possible to:
 * keep benchmark ladders bounded to declared corpus/environment/comparator surfaces
 * require rollback readiness before promotion
 * declare promotion through receipts without mutating decoder source
-* move from receipt-only governance to executable symbolic sonification work
+* preserve the v167.0 symbolic-sonification schema without claiming unfinished features
+* distinguish exact finite-code evidence from Monte Carlo observations and hardware claims
+* route correction requests through deterministic, replayable switching receipts
+* evolve switching substrates without erasing architecture-specific failures
 * preserve the canonical baseline while keeping QEC OS runtime activation deferred to v193.x
-* build deterministic sonification fixtures before returning to QEC OS golden fixtures
 * require benchmarks before performance claims
 * require differential tests against external adapters without treating adapters as authority when the v193.x QEC OS arc resumes
 * make the future Odin fork less painful by deferring fixture and parity contracts to the v193.x QEC OS sequence
@@ -437,15 +459,12 @@ The receipt must not be.
 * v166.7 → DecoderRollbackReceipt
 * v166.8 → DecoderPromotionReceipt
 * v167.0 → SymbolicSonificationRuntimeSkeleton
-* v167.1 → CosmovirusMappingPack
-* v167.2 → TernaryFuzzyMusicStateEngine
-* v167.3 → TopologicalGraphMusicMapper
-* v167.4 → GoldenRatioRhythmPitchEngine
-* v167.5 → SymbolicEventMIDIExporter
-* v167.6 → LyricPromptCompiler
-* v167.7 → QECProofTelemetrySonifier
-* v167.8 → SonificationCLIAndFixtures
-* v167.9 → SonificationDemoCorpusAndBenchmark
+* v170.0 → ExactPackedQuquartDecoder
+* v170.1.0 → ExactQuquartFEROracleAndHarmonicFaultBattery
+* v170.1.1 → ReplicationReceiptsAndReportClaimValidation
+* v170.2.x → NEXUSExecutionAndReplicationEvidence
+* v170.3.0 → DeterministicStrowgerSyndromeExchange
+* v171.x–v176.x → PlannedDeterministicTelecommunicationsSwitchingLineage
 * v193.0 → QECOSRuntimeSkeleton
 * v193.1 → GoldenCorpusSeed
 * v193.2 → BaselineDecoderRuntimeAPI
@@ -471,8 +490,10 @@ cache policy receipts, agent observation traces, skill-library manifests, tool
 dispatch telemetry receipts, crawler boundary receipts, agent pattern-decision
 receipts, QPE toolbox adapter receipts, quantum-memory signal receipts,
 self-correcting-memory claim-boundary receipts, quantum-geometry signal
-receipts, graph-universe claim-boundary receipts, and full decoder-governance
-receipts from canonical baseline through promotion.
+receipts, graph-universe claim-boundary receipts, full decoder-governance
+receipts from canonical baseline through promotion, exact ququart FER evidence,
+replication and claim-validation receipts, NEXUS evidence boundaries, and
+replayable deterministic Strowger route receipts.
 
 The v163.x arc discovered deterministic invariants in heavy dependencies.
 
@@ -507,10 +528,17 @@ benchmark ladder receipts, rollback receipts, and promotion receipts.
 
 v166.8 completes the QLDPC / Hashing-Bound Code Receipts decoder-governance arc.
 
-v167.x pivots the project toward executable symbolic sonification runtime work:
-event mapping, MIDI-like export, prompt compilation, telemetry sonification, CLI
-fixtures, and demo benchmarks while QEC OS construction, syndrome/noise runtime,
-differential testing, and Odin migration readiness wait for v193.x.
+v167.0 implements only the symbolic-sonification runtime skeleton. The former
+v167.1–v167.9 assignments remain unimplemented historical plans and must not be
+presented as available capabilities.
+
+v170.x establishes the exact packed-ququart evidence line, replication and
+report-claim validation, NEXUS execution/replication boundaries, and the
+Deterministic Strowger Syndrome Exchange.
+
+v171.x–v176.x is the planned telecommunications-switching lineage. QEC OS
+construction, syndrome/noise runtime, differential testing, and Odin migration
+readiness remain deferred to v193.x.
 
 * External dependencies are adapters, never authorities.
 * Simulation output is not truth.
@@ -536,9 +564,10 @@ differential testing, and Odin migration readiness wait for v193.x.
 * Decoder promotion is receipt-chain governance, not source replacement.
 * The decoder source remains untouched.
 * Governance approval is not runtime activation.
+* Exact finite-code FER is not a hardware threshold.
+* Switching receipts route declared requests; they do not validate decoder mathematics.
 * QEC OS runtime activation is deferred to v193.x and still requires an explicit tested router and golden corpus verification.
 * Receipt-only near-term releases are no longer accepted after v166.8.
-* Benchmarks are bounded observations, not correctness proofs.
 * Odin migration must be gated by v193.x golden fixtures and parity tests.
 
 ## Proof Artifacts

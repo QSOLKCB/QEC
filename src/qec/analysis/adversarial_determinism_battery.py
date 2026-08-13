@@ -240,7 +240,9 @@ def _generate_perturbations(artifact: Mapping[str, Any]) -> tuple[tuple[str, Map
 
     null_byte_issue = _issue_with_updated_path(first, f"{first.get('target_path', 'src/qec/analysis/kernel.py')}\x00")
 
-    path_variation_issue = _issue_with_updated_path(first, f"./{str(first.get('target_path', '')).replace('/', '\\\\')}")
+    target_path = str(first.get("target_path", ""))
+    converted_path = target_path.replace("/", "\\")
+    path_variation_issue = _issue_with_updated_path(first, f"./{converted_path}")
 
     float_drift_issue = dict(first)
     float_drift_issue["confidence"] = 0.30000000000000004

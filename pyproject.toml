@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "qec"
 version = "171.5.0"
 description = "Deterministic multi-agent reasoning, governance, validation, and proof-artifact system for quantum error correction and invariant-driven computation."
-readme = "README.md"
+readme = "PACKAGE_README.md"
 license = { text = "MPL-2.0" }
 requires-python = ">=3.10"
 classifiers = [

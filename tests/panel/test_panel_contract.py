@@ -2,9 +2,11 @@
 import pytest
 from qec.routing.panel import (
     MotorGroup, PanelBank, PanelExchange, PanelPath, PanelRequest, PanelTopology,
-    TranslationEntry, TranslationTable, build_claim_validation, compile_sender_program,
-    demo_topology, demo_translation, seal_digit_register, validate_route_receipt,
+    TranslationEntry, TranslationTable, build_claim_validation, build_sender_register_receipt,
+    compile_sender_program, demo_topology, demo_translation, seal_digit_register,
+    validate_route_receipt,
 )
+from qec.sonify.canonical import canonical_sha256
 
 DEST = "ququart/site-4/pauli-11"
 DIGITS = (2, 3, 4, 11)
@@ -43,3 +45,26 @@ def test_fallback_requires_declared_deterministic_rule():
 def test_selector_inventory_is_bounded():
     with pytest.raises(ValueError, match="bounded selector movement"):
         PanelTopology("bad", (MotorGroup("motor-a", ("bank-a",)),), (PanelBank("bank-a", "motor-a", 1, 0, 3),), (PanelPath("path-a", "bank-a", 4, DEST),))
+
+def test_paths_may_not_share_the_same_actuation_coordinate():
+    with pytest.raises(ValueError, match="actuation coordinate"):
+        PanelTopology(
+            "duplicate-coordinate",
+            (MotorGroup("motor-a", ("bank-a",)),),
+            (PanelBank("bank-a", "motor-a", 2, 0, 9),),
+            (
+                PanelPath("path-a", "bank-a", 4, DEST),
+                PanelPath("path-b", "bank-a", 4, "different/destination"),
+            ),
+        )
+
+def test_sender_register_receipt_requires_complete_canonical_program():
+    register = seal_digit_register(make_request())
+    program = compile_sender_program(demo_topology(DEST), demo_translation(DIGITS, DEST), register)
+    incomplete = dict(program)
+    incomplete.pop("contract_version")
+    unsigned = dict(incomplete)
+    unsigned.pop("sha256")
+    incomplete["sha256"] = canonical_sha256(unsigned)
+    with pytest.raises(ValueError, match="fields are not canonical"):
+        build_sender_register_receipt(register, incomplete)

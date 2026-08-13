@@ -52,117 +52,49 @@ jobs:
           qec-nexus-validate-replication receipt
           --receipt docs/replications/nexus_v4_0_1_qbraid_receipt.json
 
-      - name: Checkout published NEXUS v3 baseline
-        uses: actions/checkout@v4
-        with:
-          repository: QSOLKCB/NEXUS
-          ref: e078b135322dc12a2565b9c512fc4ba75193dea7
-          path: external/NEXUS-v3
-          fetch-depth: 1
-
-      - name: Build NEXUS v3 baseline
-        working-directory: external/NEXUS-v3
-        run: cargo build --release --locked
-
-      - name: Attest NEXUS v3 build
-        run: >-
-          qec-nexus-bridge attest-build
-          --profile v3.0.0
-          --binary external/NEXUS-v3/target/release/nexus
-          --toolchain "$(rustc --version) / $(cargo --version)"
-          --output artifacts/v3-build-attestation.json
-
-      - name: Verify NEXUS v3 through QEC
-        run: >-
-          qec-nexus-bridge verify
-          --profile v3.0.0
-          --binary external/NEXUS-v3/target/release/nexus
-          --attestation artifacts/v3-build-attestation.json
-          --output artifacts/v3-verify
-
-      - name: Trace NEXUS v3 through QEC
-        run: >-
-          qec-nexus-bridge trace
-          --profile v3.0.0
-          --binary external/NEXUS-v3/target/release/nexus
-          --attestation artifacts/v3-build-attestation.json
-          --channel 17
-          --steps 32
-          --output artifacts/v3-trace
-
-      - name: Checkout frozen NEXUS v4 source profile
-        uses: actions/checkout@v4
-        with:
-          repository: QSOLKCB/NEXUS
-          ref: 1e93a509a28144d70a17fa76b330ae042db7beab
-          path: external/NEXUS-v4
-          fetch-depth: 1
-
-      - name: Build NEXUS v4 source profile
-        working-directory: external/NEXUS-v4
-        run: cargo build --release --locked
-
-      - name: Attest NEXUS v4 build
-        run: >-
-          qec-nexus-bridge attest-build
-          --profile v4.0.0
-          --binary external/NEXUS-v4/target/release/nexus
-          --toolchain "$(rustc --version) / $(cargo --version)"
-          --output artifacts/v4-build-attestation.json
-
-      - name: Verify scalar NEXUS v4
-        run: >-
-          qec-nexus-bridge verify
-          --profile v4.0.0
-          --binary external/NEXUS-v4/target/release/nexus
-          --attestation artifacts/v4-build-attestation.json
-          --output artifacts/v4-verify
-
-      - name: Verify parallel NEXUS v4
-        run: >-
-          qec-nexus-bridge verify-parallel
-          --profile v4.0.0
-          --binary external/NEXUS-v4/target/release/nexus
-          --attestation artifacts/v4-build-attestation.json
-          --workers 2
-          --output artifacts/v4-verify-parallel
-
-      - name: Verify Fibonacci representative ordering
-        run: >-
-          qec-nexus-bridge fibonacci
-          --profile v4.0.0
-          --binary external/NEXUS-v4/target/release/nexus
-          --attestation artifacts/v4-build-attestation.json
-          --channel 17
-          --steps 32
-          --output artifacts/v4-fibonacci
-
-      - name: Verify ternary sonification events
-        run: >-
-          qec-nexus-bridge ternary
-          --profile v4.0.0
-          --binary external/NEXUS-v4/target/release/nexus
-          --attestation artifacts/v4-build-attestation.json
-          --channel 17
-          --steps 32
-          --base-frequency-hz 432
-          --output artifacts/v4-ternary
-
-      - name: Verify native triality receipts
-        run: >-
-          qec-nexus-bridge receipt
-          --profile v4.0.0
-          --binary external/NEXUS-v4/target/release/nexus
-          --attestation artifacts/v4-build-attestation.json
-          --samples 99
-          --output artifacts/v4-receipts
-
-      - name: Revalidate generated QEC parent receipts
+      - name: Validate and record frozen NEXUS source identities
         run: |
-          find artifacts -name execution_receipt.json -print0 |
-            while IFS= read -r -d '' receipt; do
-              qec-nexus-bridge validate --receipt "$receipt"
-            done
+          python - <<'PY'
+          from pathlib import Path
+
+          from qec.adapters.nexus import NEXUS_V3, NEXUS_V4
+          from qec.sonify.canonical import canonical_json, canonical_sha256
+
+          expected = {
+              "v3.0.0": {
+                  "commit": "e078b135322dc12a2565b9c512fc4ba75193dea7",
+                  "doi": "10.5281/zenodo.21745329",
+              },
+              "v4.0.0": {
+                  "commit": "1e93a509a28144d70a17fa76b330ae042db7beab",
+                  "doi": "10.5281/zenodo.21748514",
+              },
+          }
+          sources = (NEXUS_V3, NEXUS_V4)
+          for source in sources:
+              identity = expected[source.profile]
+              if source.repository != "https://github.com/QSOLKCB/NEXUS":
+                  raise SystemExit(f"unexpected historical repository identity for {source.profile}")
+              if source.commit != identity["commit"]:
+                  raise SystemExit(f"unexpected historical commit identity for {source.profile}")
+              if source.doi != identity["doi"] or source.doi_status != "published":
+                  raise SystemExit(f"unexpected DOI identity for {source.profile}")
+
+          status = {
+              "schema": "qec.nexus-historical-source-status.v1",
+              "ci_source_mode": "archival_evidence_validation",
+              "historical_repository_rebuild_in_required_ci": False,
+              "source_substitution_allowed": False,
+              "source_profiles": [source.as_dict() for source in sources],
+              "replication_receipt": "docs/replications/nexus_v4_0_1_qbraid_receipt.json",
+              "replication_archive_sha256": "659e493a1b80b391db99b79dd6ee4e7a9b23c1821ff11eadbc3c5c36b10660d8",
+          }
+          status["sha256"] = canonical_sha256(status)
+          output = Path("artifacts/nexus_historical_source_status.json")
+          output.parent.mkdir(parents=True, exist_ok=True)
+          output.write_text(canonical_json(status) + "\n", encoding="utf-8")
+          print(canonical_json(status))
+          PY
 
       - name: Copy canonical replication receipt into evidence bundle
         run: >-

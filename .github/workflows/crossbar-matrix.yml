@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: MPL-2.0
+name: Crossbar Matrix Validation
+
+on:
+  pull_request:
+    paths:
+      - "src/qec/routing/crossbar/**"
+      - "tests/crossbar/**"
+      - "docs/CROSSBAR_COORDINATE_MATRIX.md"
+      - "pyproject.toml"
+      - "PACKAGE_README.md"
+      - ".github/workflows/crossbar-matrix.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/qec/routing/crossbar/**"
+      - "tests/crossbar/**"
+      - "docs/CROSSBAR_COORDINATE_MATRIX.md"
+      - "pyproject.toml"
+      - "PACKAGE_README.md"
+      - ".github/workflows/crossbar-matrix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install QEC
+        run: python -m pip install -e .[dev]
+      - name: Crossbar focused suite
+        run: python -m pytest -q tests/crossbar
+      - name: Full QEC regression gate
+        run: python -m pytest -q
+      - name: Crossbar CLI round-trip
+        run: |
+          rm -rf artifacts/crossbar-ci
+          qec-crossbar matrix \
+            --matrix-id ci-crossbar \
+            --horizontal-count 4 \
+            --vertical-count 3 \
+            --link-state H001=busy \
+            --output-dir artifacts/crossbar-ci
+          qec-crossbar validate \
+            --manifest artifacts/crossbar-ci/crossbar_matrix_manifest.json

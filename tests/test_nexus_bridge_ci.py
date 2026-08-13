@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 WORKFLOW = Path(".github/workflows/nexus-bridge.yml")
-DOC = Path("docs/NEXUS_QEC_BRIDGE.md")
+DOC = Path("docs/replications/NEXUS_HISTORICAL_SOURCE_BOUNDARY.md")
 
 
 def test_required_nexus_ci_uses_archival_evidence_not_dead_checkout() -> None:

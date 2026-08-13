@@ -1,0 +1,10 @@
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QEC Panel Laboratory</title><link rel="stylesheet" href="style.css"></head>
+<body><main>
+<header><p>QEC v171.5 · offline demonstration laboratory</p><h1>Panel Separated-Control Exchange</h1><p class="boundary"><strong>Demonstration evidence only.</strong> This browser surface does not emit canonical QEC receipts or cryptographic proof artifacts.</p></header>
+<section class="controls"><label>Digits <input id="digits" value="2,3,4,11"></label><button id="run">Run deterministic route</button><button id="sound">Sonify events</button></section>
+<section class="exchange"><article class="bank" id="bank-a"><h2>Bank A</h2><div class="shaft"><span class="selector" id="selector-a"></span></div><p>motor-a · path-a · position 4</p></article><article class="bank" id="bank-b"><h2>Bank B</h2><div class="shaft"><span class="selector" id="selector-b"></span></div><p>motor-b · path-b · position 5</p></article></section>
+<section><h2>Separated control trace</h2><ol id="events"></ol><pre id="record"></pre></section>
+</main><script src="app.js"></script></body></html>

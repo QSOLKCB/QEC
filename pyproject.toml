@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qec"
-version = "170.3.0"
+version = "171.5.0"
 description = "Deterministic multi-agent reasoning, governance, validation, and proof-artifact system for quantum error correction and invariant-driven computation."
-readme = "README.md"
+readme = "PACKAGE_README.md"
 license = { text = "MPL-2.0" }
 requires-python = ">=3.10"
 classifiers = [
@@ -55,6 +55,7 @@ qec-ququart-validate-report = "qec.benchmark.ququart_battery.validate_cli:main"
 qec-nexus-bridge = "qec.adapters.nexus.cli:main"
 qec-nexus-validate-replication = "qec.adapters.nexus.replication_cli:main"
 qec-strowger = "qec.routing.strowger.cli:main"
+qec-panel = "qec.routing.panel.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/QSOLKCB/QEC"

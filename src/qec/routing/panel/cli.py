@@ -27,6 +27,7 @@ def parser() -> argparse.ArgumentParser:
     r.add_argument("--destination", default="correction/demo"); r.add_argument("--epoch", type=int, default=0)
     r.add_argument("--payload-text", default="qec-correction-request"); r.add_argument("--translation-version", default="1")
     r.add_argument("--busy-banks", type=csv_names, default=()); r.add_argument("--stalled-motor-groups", type=csv_names, default=())
+    r.add_argument("--unavailable-paths", type=csv_names, default=())
     r.add_argument("--translation-corruption", action="store_true"); r.add_argument("--sender-disagreement", action="store_true")
     r.add_argument("--output-dir", type=Path, default=Path("artifacts/panel"))
     v = sub.add_parser("validate"); v.add_argument("--receipt", required=True, type=Path)
@@ -41,7 +42,13 @@ def main(argv: list[str] | None = None) -> int:
             print(canonical_json(validate_route_receipt(value))); return 0
         request = PanelRequest(args.request_id, args.digits, args.epoch, args.destination, args.payload_text.encode())
         exchange = PanelExchange(demo_topology(args.destination), demo_translation(args.digits, args.destination, version=args.translation_version))
-        faults = PanelFaultPlan(args.busy_banks, args.stalled_motor_groups, args.translation_corruption, args.sender_disagreement)
+        faults = PanelFaultPlan(
+            busy_banks=args.busy_banks,
+            stalled_motor_groups=args.stalled_motor_groups,
+            translation_corruption=args.translation_corruption,
+            sender_disagreement=args.sender_disagreement,
+            unavailable_paths=args.unavailable_paths,
+        )
         result = exchange.route(request, faults=faults)
         claims = build_claim_validation(result.receipt); battery = build_fault_battery(exchange, request)
         files = {"panel_topology.json": result.receipt["topology"], "panel_digit_register.json": result.receipt["digit_register"], "panel_sender_program.json": result.receipt["sender_program"], "panel_route_receipt.json": result.receipt, "panel_fault_battery.json": battery, "panel_claim_validation.json": claims}

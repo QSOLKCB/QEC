@@ -3,10 +3,10 @@ name: Panel Exchange Validation
 
 on:
   pull_request:
-    paths: ["src/qec/routing/panel/**", "tests/panel/**", "viz/panel/**", "pyproject.toml"]
+    paths: ["src/qec/routing/panel/**", "tests/panel/**", "viz/panel/**", "pyproject.toml", "PACKAGE_README.md"]
   push:
     branches: [main]
-    paths: ["src/qec/routing/panel/**", "tests/panel/**", "viz/panel/**", "pyproject.toml"]
+    paths: ["src/qec/routing/panel/**", "tests/panel/**", "viz/panel/**", "pyproject.toml", "PACKAGE_README.md"]
   workflow_dispatch:
 
 permissions:
@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

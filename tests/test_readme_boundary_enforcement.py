@@ -5,11 +5,11 @@ import pytest
 from scripts.update_readme_release_metadata import _validate_boundaries, update_readme
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-LATEST_RELEASE = "v172.1"
-FRONTIER = "v172.2 — Multi-Stage Link Selection (unreleased candidate)"
+LATEST_RELEASE = "v172.2"
+FRONTIER = "v172.3 — Contention and Busy-Link Receipts (unreleased candidate)"
 ACTIVE_ARC = "v171.x–v176.x — Deterministic Telecommunications Switching Lineage"
-COMPLETED_ARC = "v172.1 — Bounded Marker/Common-Control"
-REPOSITORY_STATUS = "v172.1 → BoundedMarkerCommonControl"
+COMPLETED_ARC = "v172.2 — Multi-Stage Link Selection"
+REPOSITORY_STATUS = "v172.2 → MultiStageLinkSelection"
 
 
 def _run_update(text: str) -> str:
@@ -41,16 +41,16 @@ Completed arc: **v163.x — z**
 Repository status is current through **v164.2 → OldStatus**.
 """
     out = _run_update(stale)
-    assert "stable-v172.1-success" in out
-    assert "releases/tag/v172.1" in out
-    assert "branch-v172.1%20canonical-purple" in out
-    assert "Current release line: **v172.1**" in out
-    assert "Current frontier: **v172.2 — Multi-Stage Link Selection (unreleased candidate)**" in out
+    assert "stable-v172.2-success" in out
+    assert "releases/tag/v172.2" in out
+    assert "branch-v172.2%20canonical-purple" in out
+    assert "Current release line: **v172.2**" in out
+    assert "Current frontier: **v172.3 — Contention and Busy-Link Receipts (unreleased candidate)**" in out
     assert "Active arc: **v171.x–v176.x — Deterministic Telecommunications Switching Lineage**" in out
-    assert "Completed arc: **v172.1 — Bounded Marker/Common-Control**" in out
+    assert "Completed arc: **v172.2 — Multi-Stage Link Selection**" in out
     assert (
         "Repository status is current through "
-        "**v172.1 → BoundedMarkerCommonControl**."
+        "**v172.2 → MultiStageLinkSelection**."
     ) in out
 
 
@@ -71,7 +71,7 @@ Repository status is current through **v164.2 → OldStatus**.
     out = _run_update(stale)
     assert "releases/tag/v170.1.1\">Lab release" in out
     assert "[![Latest]" in out
-    assert "releases/tag/v172.1" in out
+    assert "releases/tag/v172.2" in out
 
 
 def test_readme_updater_rejects_no_effect_when_stale():

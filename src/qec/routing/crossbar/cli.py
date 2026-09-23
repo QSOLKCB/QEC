@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-"""CLI for the published matrix/marker and v172.2 multi-stage contracts."""
+"""CLI for immutable Crossbar contracts and bounded owned contention."""
 
 from __future__ import annotations
 
@@ -10,6 +10,10 @@ from pathlib import Path
 
 from qec.sonify.canonical import canonical_json
 
+from .contention import (
+    MAX_BATCH_SEARCH_EVALUATIONS, ContentionBatch, compile_contention_program,
+    execute_contention_program, validate_contention_receipt, demo_contention_batch,
+)
 from .core import LINK_STATES, demo_matrix, validate_matrix_manifest
 from .marker import (
     MAX_PAYLOAD_BYTES,
@@ -114,12 +118,54 @@ def parser() -> argparse.ArgumentParser:
     path_validate.add_argument("--expected-fabric-sha256")
     path_validate.add_argument("--expected-request-sha256")
     path_validate.add_argument("--expected-program-sha256")
+    contention_demo = sub.add_parser("contention-demo", help="emit a bounded contention input fixture")
+    contention_demo.add_argument("--output-dir", type=Path, default=Path("artifacts/crossbar-contention"))
+    contention = sub.add_parser("contend", help="execute a canonical reservation/release/quarantine batch")
+    contention.add_argument("--input", required=True, type=Path)
+    contention.add_argument("--marker-id", default="marker-0")
+    contention.add_argument("--max-search-evaluations", type=int, default=MAX_BATCH_SEARCH_EVALUATIONS)
+    contention.add_argument("--output-dir", type=Path, default=Path("artifacts/crossbar-contention"))
+    contention_validate = sub.add_parser("contention-validate", help="replay all contention and resource transitions")
+    contention_validate.add_argument("--receipt", required=True, type=Path)
+    contention_validate.add_argument("--expected-input-sha256")
+    contention_validate.add_argument("--expected-program-sha256")
+    contention_validate.add_argument("--expected-fabric-sha256")
     return command
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "contention-demo":
+            batch = demo_contention_batch().as_dict()
+            _write(args.output_dir / "crossbar_contention_input.json", batch)
+            print(canonical_json({"input_sha256": batch["sha256"]}))
+            return 0
+        if args.command == "contention-validate":
+            validation = validate_contention_receipt(
+                _read_json(args.receipt), expected_input_sha256=args.expected_input_sha256,
+                expected_program_sha256=args.expected_program_sha256,
+                expected_fabric_sha256=args.expected_fabric_sha256)
+            print(canonical_json(validation))
+            return 0
+        if args.command == "contend":
+            batch = ContentionBatch.from_dict(_read_json(args.input))
+            program = compile_contention_program(batch, marker_id=args.marker_id,
+                max_search_evaluations=args.max_search_evaluations)
+            receipt = execute_contention_program(batch, program)
+            validation = validate_contention_receipt(receipt,
+                expected_input_sha256=batch.as_dict()["sha256"],
+                expected_program_sha256=program["sha256"],
+                expected_fabric_sha256=batch.fabric.as_dict()["sha256"])
+            for name, value in (
+                ("crossbar_contention_input.json", batch.as_dict()),
+                ("crossbar_contention_program.json", program),
+                ("crossbar_contention_receipt.json", receipt),
+                ("crossbar_contention_validation.json", validation),
+            ):
+                _write(args.output_dir / name, value)
+            print(canonical_json(validation))
+            return 0
         if args.command == "fabric-demo":
             fabric = demo_fabric(dead_end_first=not args.all_idle).as_dict()
             _write(args.output_dir / "crossbar_fabric_manifest.json", fabric)

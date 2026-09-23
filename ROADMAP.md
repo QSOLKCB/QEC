@@ -8,12 +8,12 @@
 # 🧭 Stable Tip Metadata
 
 ```text
-latest completed release → v172.1
-stable commit            → 532a0bb077c37973df013521f7ec884f280b272f
-current frontier         → v172.2 development candidate
-next work                → v172.2 validation/release; then v172.3 contention and busy-link receipts
+latest completed release → v172.2
+stable commit            → 6000c66b6b0e176702de3776cdca38b8c97ceb4b
+current frontier         → v172.3 development candidate
+next work                → v172.3 validation/release; then v172.4 continuity verification
 active programme         → v171.x–v176.x — Deterministic Telecommunications Switching Lineage
-completed baseline       → v172.1 — Bounded Marker/Common-Control
+completed baseline       → v172.2 — Multi-Stage Link Selection
 deferred runtime arc     → v193.x — QEC OS Runtime & Benchmark Reset
 ```
 
@@ -156,9 +156,10 @@ RELEASED
   panel_separated_control_receipt_hash                 (v171.x)
   crossbar_matrix_receipt_hash                         (v172.0)
   crossbar_common_control_receipt_hash                 (v172.1)
+  crossbar_path_search_receipt_hash                    (v172.2)
 
 IMPLEMENTED — UNRELEASED
-  crossbar_path_search_receipt_hash                    (v172.2)
+  crossbar_contention_receipt_hash                     (v172.3)
 
 PLANNED
   ess_program_store_manifest_hash                      (v173.x)
@@ -234,7 +235,7 @@ Acceptance criteria are maintained under
 
 # Phase v172.x — Crossbar Coordinate Matrix and Common Control
 
-**Status:** v172.0–v172.1 RELEASED; v172.2 IMPLEMENTED (development candidate); v172.3–v172.5 PLANNED
+**Status:** v172.0–v172.2 RELEASED; v172.3 IMPLEMENTED (development candidate); v172.4–v172.5 PLANNED
 
 ## Goal
 
@@ -262,12 +263,13 @@ canonical request
   Exact single-matrix coordinate planning, sealed request/programme binding,
   explicit rejection, marker release, complete event receipts and replay validation.
   See [the v172.1 contract](docs/CROSSBAR_COMMON_CONTROL.md).
-- **v172.2 — Multi-Stage Link Selection** — IMPLEMENTED (unreleased)
+- **v172.2 — Multi-Stage Link Selection** — RELEASED
   Immutable layered fabrics, bounded reverse reachability and first admissible
   complete path selection with replayable search receipts.
   See [the v172.2 contract](docs/CROSSBAR_MULTISTAGE_SELECTION.md).
-- **v172.3 — Contention and Busy-Link Receipts**  
-  Exact tie-breaking, reservation, release, quarantine and replay-safe contention tests.
+- **v172.3 — Contention and Busy-Link Receipts** — IMPLEMENTED (unreleased)
+  Exact logical ordering, atomic owned reservations, release, quarantine revocation
+  and replay-safe contention evidence. See [the v172.3 contract](docs/CROSSBAR_CONTENTION.md).
 - **v172.4 — Crossbar Continuity Verification**  
   Prove that every selected coordinate belongs to one continuous route.
 - **v172.5 — Strowger/Panel/Crossbar Equivalence Battery**  

@@ -74,3 +74,18 @@ __all__ += [
     "validate_path_search_receipt",
     "demo_fabric",
 ]
+
+# Additive v172.3 owned contention and resource-transition contracts.
+from .contention import (
+    CONTENTION_CONTRACT_VERSION, CONTENTION_CLAIM_BOUNDARY,
+    CrossbarResource, ContentionCommand, ContentionBatch,
+    compile_contention_program, execute_contention_program,
+    validate_contention_receipt, demo_contention_batch,
+)
+
+__all__ += [
+    "CONTENTION_CONTRACT_VERSION", "CONTENTION_CLAIM_BOUNDARY",
+    "CrossbarResource", "ContentionCommand", "ContentionBatch",
+    "compile_contention_program", "execute_contention_program",
+    "validate_contention_receipt", "demo_contention_batch",
+]

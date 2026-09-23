@@ -20,7 +20,7 @@ def test_v171_contract_versions():
 def test_package_description_distinguishes_candidate_from_published_stable():
     pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
     package_readme = Path("PACKAGE_README.md").read_text(encoding="utf-8")
-    assert 'version = "172.4.0"' in pyproject
+    assert 'version = "172.5.0"' in pyproject
     assert 'readme = "PACKAGE_README.md"' in pyproject
-    assert "172.4.0 development/package" in package_readme
-    assert "published stable release is **v172.3**" in package_readme
+    assert "172.5.0 development/package" in package_readme
+    assert "published stable release is **v172.4**" in package_readme

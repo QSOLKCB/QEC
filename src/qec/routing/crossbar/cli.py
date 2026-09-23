@@ -10,6 +10,10 @@ from pathlib import Path
 
 from qec.sonify.canonical import canonical_json
 
+from ..equivalence import (
+    EquivalenceCorpus, demo_equivalence_corpus, equivalence_adapter_manifest,
+    run_equivalence_battery, validate_equivalence_matrix,
+)
 from .contention import (
     MAX_BATCH_SEARCH_EVALUATIONS, ContentionBatch, compile_contention_program,
     execute_contention_program, validate_contention_receipt, demo_contention_batch,
@@ -141,12 +145,48 @@ def parser() -> argparse.ArgumentParser:
             continuity.add_argument("--expected-" + identity + "-sha256")
         if name == "continuity":
             continuity.add_argument("--output-dir", type=Path, default=Path("artifacts/crossbar-continuity"))
+    equivalence_demo = sub.add_parser("equivalence-demo", help="emit the shared 41-case equivalence corpus")
+    equivalence_demo.add_argument("--output-dir", type=Path, default=Path("artifacts/crossbar-equivalence"))
+    equivalence = sub.add_parser("equivalence", help="run the Strowger/Panel/Crossbar comparison battery")
+    equivalence.add_argument("--corpus", required=True, type=Path)
+    equivalence.add_argument("--output-dir", type=Path, default=Path("artifacts/crossbar-equivalence"))
+    equivalence_validate = sub.add_parser("equivalence-validate", help="replay every native source and comparison")
+    equivalence_validate.add_argument("--matrix", required=True, type=Path)
+    equivalence_validate.add_argument("--expected-corpus-sha256")
+    equivalence_validate.add_argument("--expected-adapter-sha256")
     return command
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "equivalence-demo":
+            corpus = demo_equivalence_corpus().as_dict()
+            _write(args.output_dir / "switch_equivalence_corpus.json", corpus)
+            _write(args.output_dir / "switch_equivalence_adapter_manifest.json", equivalence_adapter_manifest())
+            print(canonical_json({"corpus_sha256": corpus["sha256"]}))
+            return 0
+        if args.command == "equivalence-validate":
+            validation = validate_equivalence_matrix(_read_json(args.matrix),
+                expected_corpus_sha256=args.expected_corpus_sha256,
+                expected_adapter_sha256=args.expected_adapter_sha256)
+            print(canonical_json(validation))
+            return 0 if validation["all_passed"] else 2
+        if args.command == "equivalence":
+            corpus = EquivalenceCorpus.from_dict(_read_json(args.corpus))
+            matrix = run_equivalence_battery(corpus)
+            validation = validate_equivalence_matrix(matrix,
+                expected_corpus_sha256=corpus.as_dict()["sha256"],
+                expected_adapter_sha256=matrix["adapter_manifest"]["sha256"])
+            for name, value in (
+                ("switch_equivalence_corpus.json", corpus.as_dict()),
+                ("switch_equivalence_adapter_manifest.json", matrix["adapter_manifest"]),
+                ("switch_equivalence_matrix.json", matrix),
+                ("switch_equivalence_validation.json", validation),
+            ):
+                _write(args.output_dir / name, value)
+            print(canonical_json(validation))
+            return 0 if validation["all_passed"] else 2
         if args.command in ("continuity", "continuity-validate"):
             bindings = {"expected_" + name + "_sha256": getattr(args, "expected_" + name + "_sha256")
                         for name in ("source", "fabric", "input", "program")}

@@ -63,7 +63,10 @@ panel_separated_control_receipt_hash
 | `crossbar_contention_validation.json` | v172.3 reconstructed lifecycle and optional trusted input bindings |
 | `crossbar_continuity_receipt.json` | v172.4 full source replay and independent forward witnesses for every selected route |
 | `crossbar_continuity_validation.json` | v172.4 complete replay, nonempty continuity status and trusted source bindings |
-| `switch_equivalence_matrix.json` | Declared Strowger, Panel and Crossbar outcome comparison |
+| `switch_equivalence_corpus.json` | v172.5 bounded shared cases and native fault controls |
+| `switch_equivalence_adapter_manifest.json` | v172.5 fixed native topologies and explicit comparison mappings |
+| `switch_equivalence_matrix.json` | v172.5 source-bound Strowger/Panel/Crossbar route-decision comparisons |
+| `switch_equivalence_validation.json` | v172.5 native replay, corpus coverage and expected-difference validation |
 
 Primary hashes:
 
@@ -73,12 +76,14 @@ crossbar_common_control_receipt_hash
 crossbar_path_search_receipt_hash
 crossbar_contention_receipt_hash
 crossbar_continuity_receipt_hash
+switch_equivalence_matrix_hash
 ```
 
-v172.0–v172.3 artifacts retain their published schemas. v172.4 continuity is
-an implemented unreleased candidate; equivalence remains a future contract.
-Continuity proves the selected route in its bound pre-selection snapshot.
-Model reservations and continuity witnesses do not establish actuated connections.
+v172.0–v172.4 artifacts retain their published schemas. v172.5 equivalence is
+an implemented unreleased candidate completing the v172.x implementation.
+It compares only declared route decisions for a bounded corpus. Native commit,
+payload capabilities and reservation lifecycles remain explicitly distinct.
+Broader cross-era migration stays assigned to v176.x.
 
 ## v173.x — ESS stored-program artifacts
 

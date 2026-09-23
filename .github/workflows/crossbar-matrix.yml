@@ -1,16 +1,20 @@
 # SPDX-License-Identifier: MPL-2.0
-name: Crossbar Matrix, Common-Control, Multi-Stage, Contention and Continuity Validation
+name: Crossbar and Switching Equivalence Validation
 
 on:
   pull_request:
     paths:
       - "src/qec/routing/crossbar/**"
+      - "src/qec/routing/equivalence.py"
+      - "src/qec/routing/panel/**"
+      - "src/qec/routing/strowger/**"
       - "tests/crossbar/**"
       - "docs/CROSSBAR_COORDINATE_MATRIX.md"
       - "docs/CROSSBAR_COMMON_CONTROL.md"
       - "docs/CROSSBAR_MULTISTAGE_SELECTION.md"
       - "docs/CROSSBAR_CONTENTION.md"
       - "docs/CROSSBAR_CONTINUITY.md"
+      - "docs/SWITCH_EQUIVALENCE_BATTERY.md"
       - "pyproject.toml"
       - "PACKAGE_README.md"
       - "README.md"
@@ -20,12 +24,16 @@ on:
     branches: [main]
     paths:
       - "src/qec/routing/crossbar/**"
+      - "src/qec/routing/equivalence.py"
+      - "src/qec/routing/panel/**"
+      - "src/qec/routing/strowger/**"
       - "tests/crossbar/**"
       - "docs/CROSSBAR_COORDINATE_MATRIX.md"
       - "docs/CROSSBAR_COMMON_CONTROL.md"
       - "docs/CROSSBAR_MULTISTAGE_SELECTION.md"
       - "docs/CROSSBAR_CONTENTION.md"
       - "docs/CROSSBAR_CONTINUITY.md"
+      - "docs/SWITCH_EQUIVALENCE_BATTERY.md"
       - "pyproject.toml"
       - "PACKAGE_README.md"
       - "README.md"
@@ -107,3 +115,11 @@ jobs:
             --output-dir artifacts/crossbar-ci/contention-continuity
           qec-crossbar continuity-validate \
             --receipt artifacts/crossbar-ci/contention-continuity/crossbar_continuity_receipt.json
+      - name: Switching equivalence CLI round-trip
+        run: |
+          qec-crossbar equivalence-demo --output-dir artifacts/crossbar-ci/equivalence
+          qec-crossbar equivalence \
+            --corpus artifacts/crossbar-ci/equivalence/switch_equivalence_corpus.json \
+            --output-dir artifacts/crossbar-ci/equivalence
+          qec-crossbar equivalence-validate \
+            --matrix artifacts/crossbar-ci/equivalence/switch_equivalence_matrix.json

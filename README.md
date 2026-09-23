@@ -63,25 +63,25 @@ or quantum advantage.
 
 In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 
-**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • Symbolic Sonification Skeleton v167.0 • Exact Ququart FER Evidence • Replication and Claim Validation • NEXUS Evidence Boundaries • Deterministic Strowger Syndrome Exchange v170.3.0 • Panel Exchange v171.5 • Crossbar Matrix v172.0 • Marker/Common-Control v172.1 • Multi-Stage Selection v172.2 • Contention v172.3 • Continuity v172.4 Candidate • Planned ESS / Digital / Packet Switching Lineage • Deferred v193.x QEC OS Runtime Reset • Adapter Boundaries • Source-Bound Claims**
+**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • Symbolic Sonification Skeleton v167.0 • Exact Ququart FER Evidence • Replication and Claim Validation • NEXUS Evidence Boundaries • Deterministic Strowger Syndrome Exchange v170.3.0 • Panel Exchange v171.5 • Crossbar Matrix v172.0 • Marker/Common-Control v172.1 • Multi-Stage Selection v172.2 • Contention v172.3 • Continuity v172.4 • Equivalence Battery v172.5 Candidate • Planned ESS / Digital / Packet Switching Lineage • Deferred v193.x QEC OS Runtime Reset • Adapter Boundaries • Source-Bound Claims**
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v172.3-success)](https://github.com/QSOLKCB/QEC/releases/tag/v172.3)
-[![Branch](https://img.shields.io/badge/branch-v172.3%20canonical-purple)]()
+[![Latest](https://img.shields.io/badge/stable-v172.4-success)](https://github.com/QSOLKCB/QEC/releases/tag/v172.4)
+[![Branch](https://img.shields.io/badge/branch-v172.4%20canonical-purple)]()
 
-Current release line: **v172.3**
-Current frontier: **v172.4 — Crossbar Continuity Verification (unreleased candidate)**
+Current release line: **v172.4**
+Current frontier: **v172.5 — Strowger/Panel/Crossbar Equivalence Battery (unreleased candidate)**
 Active arc: **v171.x–v176.x — Deterministic Telecommunications Switching Lineage**
 Deferred arc: **v193.x — QEC OS Runtime & Benchmark Reset**
-Completed arc: **v172.3 — Contention and Busy-Link Receipts**
+Completed arc: **v172.4 — Crossbar Continuity Verification**
 
-Repository status is current through **v172.3 → ContentionAndBusyLinkReceipts**.
+Repository status is current through **v172.4 → CrossbarContinuityVerification**.
 
-The published v172.0–v172.3 contracts are preserved; v172.4 adds independent
-forward continuity evidence over selected routes and their reservation history.
-See the [roadmap](ROADMAP.md) for later phases.
+The published switching contracts are preserved; v172.5 adds a shared
+Strowger/Panel/Crossbar route-decision battery with explicit capability limits
+and negative fault controls. See the [roadmap](ROADMAP.md) for later phases.
 
 Recent release arcs completed or active:
 
@@ -104,10 +104,12 @@ Recent release arcs completed or active:
   with immutable fabrics, bounded look-ahead, complete plans and replay receipts.
 - **v172.3** → Released [Contention and Busy-Link Receipts](docs/CROSSBAR_CONTENTION.md)
   with exact ordering, owned atomic reservations, release, quarantine and replay.
-- **v172.4** → Unreleased [Crossbar Continuity Verification](docs/CROSSBAR_CONTINUITY.md)
+- **v172.4** → Released [Crossbar Continuity Verification](docs/CROSSBAR_CONTINUITY.md)
   with complete forward route checks, source replay and historical lifecycle scope.
-- **v172.5–v176.x** → Planned cross-era equivalence, ESS,
-  digital TDM, packet fabric and migration contracts.
+- **v172.5** → Unreleased [Strowger/Panel/Crossbar Equivalence Battery](docs/SWITCH_EQUIVALENCE_BATTERY.md)
+  completing the v172.x implementation with 36 shared cases and five negative controls.
+- **v173.x–v176.x** → Planned ESS, digital TDM, packet fabric and broader
+  cross-era equivalence and migration contracts.
 - **v193.x** → Deferred QEC OS runtime skeleton, golden corpus, decoder
   runtime API, explicit decoder router, GF(2)/stabilizer core, QLDPC
   construction harness, syndrome/noise runtime, benchmark harness,

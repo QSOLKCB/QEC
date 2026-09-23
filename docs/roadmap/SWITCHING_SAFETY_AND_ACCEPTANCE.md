@@ -132,7 +132,11 @@ become proof authority.
 - continuity evidence replays its complete source and covers every selection;
 - valid rejection evidence never claims that a route exists;
 - historical continuity is distinct from reservation activity at batch end;
-- equivalent outcomes across switch types are machine validated.
+- equivalent outcomes across switch types are machine validated;
+- comparison adapters bind each native input, topology, state and outcome;
+- architecture-specific faults remain visible and negative controls must detect differences;
+- native commit and payload capability gaps cannot become false equivalence claims;
+- custom corpus results cannot claim frozen default-corpus coverage.
 
 ### v173.x — ESS stored-program control
 

@@ -1,27 +1,33 @@
-# QEC 172.4.0 — Crossbar Continuity Verification Development Package
+# QEC 172.5.0 — Strowger/Panel/Crossbar Equivalence Battery Development Package
 
-This package describes the **172.4.0 development/package candidate**.
-The authoritative published stable release is **v172.3**. Package metadata
-and published tags remain separate; v172.4 is not yet released.
+This package describes the **172.5.0 development/package candidate**.
+The authoritative published stable release is **v172.4**. Package metadata
+and published tags remain separate; v172.5 is not yet released.
 
-The candidate adds independent forward continuity verification over replayed
-multi-stage selection and contention receipts. Every selected coordinate and
-wire must form one complete idle route with exact requested endpoints. Payload
-bytes and the caller-declared decoder identity retain their upstream bindings.
+The candidate completes the planned v172.x implementation with a bounded shared
+corpus comparing Strowger, Panel and Crossbar route decisions. Fixed adapters map
+four destinations and two lanes into the unchanged native models. Full native
+receipts, Crossbar continuity evidence and an independent admission oracle bind
+every result to its exact case, initial state and adapter contract.
 
-Contention evidence covers every reserve attempt, binds each effective snapshot
-and reservation, and distinguishes continuity at selection from reservation
-activity at batch end. Released and quarantined routes retain historical proof
-without a current-connection claim. Rejected attempts have no witness.
+The default battery contains 36 equivalent availability cases and five native
+fault controls that must remain different. A passing battery therefore does not
+mean every case is equivalent. Exact default-corpus coverage is explicit.
 
-New commands: `qec-crossbar continuity`, `continuity-validate`.
-Primary identity: `crossbar_continuity_receipt_hash`.
+New commands: `qec-crossbar equivalence-demo`, `equivalence`, `equivalence-validate`.
+Primary identity: `switch_equivalence_matrix_hash`.
 
-Published v172.0–v172.3 contracts remain unchanged. This is bounded classical
-software-model verification, not connection commit or physical actuation.
-Cross-era equivalence remains v172.5.
+The comparison covers requested/reached destination, routing outcome and selected
+lane. Native commit semantics, event traces and reservation lifecycles are not
+claimed equivalent. Strowger has no native payload field; payload preservation
+is checked natively for Panel and Crossbar only. Only Crossbar carries a native
+caller-declared decoder-output reference.
 
-See [the continuity contract](docs/CROSSBAR_CONTINUITY.md) for the walk,
-source coverage, bounds, trusted bindings, CLI examples and evidence boundary.
-Replay does not establish authenticated provenance, current liveness, physical
-switching behaviour, decoder correctness or quantum advantage.
+Published Strowger, Panel and v172.0–v172.4 contracts and decoder code remain
+unchanged. The next implementation phase is v173.x ESS stored-program control;
+full cross-era migration remains v176.x.
+
+See [the equivalence contract](docs/SWITCH_EQUIVALENCE_BATTERY.md) for mappings,
+bounds, replay, trusted input pins and the evidence boundary. These software
+checks do not establish universal equivalence, authenticated provenance,
+physical switching fidelity, decoder correctness or quantum advantage.

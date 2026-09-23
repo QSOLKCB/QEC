@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-"""CLI for the v172.0 matrix and v172.1 marker contracts."""
+"""CLI for the published matrix/marker and v172.2 multi-stage contracts."""
 
 from __future__ import annotations
 
@@ -17,6 +17,15 @@ from .marker import (
     compile_marker_program,
     execute_marker_program,
     validate_common_control_receipt,
+)
+
+from .multistage import (
+    MAX_SEARCH_EVALUATIONS,
+    MultiStageRequest,
+    compile_path_program,
+    demo_fabric,
+    execute_path_program,
+    validate_path_search_receipt,
 )
 
 
@@ -83,12 +92,76 @@ def parser() -> argparse.ArgumentParser:
     marker_validate.add_argument("--expected-matrix-sha256")
     marker_validate.add_argument("--expected-request-sha256")
     marker_validate.add_argument("--expected-program-sha256")
+    fabric = sub.add_parser("fabric-demo", help="emit a three-stage look-ahead fixture")
+    fabric.add_argument("--all-idle", action="store_true")
+    fabric.add_argument("--output-dir", type=Path, default=Path("artifacts/crossbar-fabric"))
+
+    path = sub.add_parser("path-search", help="select the first complete admissible path")
+    path.add_argument("--fabric", required=True, type=Path)
+    path.add_argument("--source-matrix-id", required=True)
+    path.add_argument("--destination-matrix-id", required=True)
+    path.add_argument("--request-id", required=True)
+    path.add_argument("--horizontal-link-id", required=True)
+    path.add_argument("--vertical-link-id", required=True)
+    path.add_argument("--payload-file", required=True, type=Path)
+    path.add_argument("--decoder-output-sha256", required=True)
+    path.add_argument("--marker-id", default="marker-0")
+    path.add_argument("--max-search-evaluations", type=int, default=MAX_SEARCH_EVALUATIONS)
+    path.add_argument("--output-dir", type=Path, default=Path("artifacts/crossbar-path"))
+
+    path_validate = sub.add_parser("path-validate", help="replay a multi-stage search receipt")
+    path_validate.add_argument("--receipt", required=True, type=Path)
+    path_validate.add_argument("--expected-fabric-sha256")
+    path_validate.add_argument("--expected-request-sha256")
+    path_validate.add_argument("--expected-program-sha256")
     return command
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "fabric-demo":
+            fabric = demo_fabric(dead_end_first=not args.all_idle).as_dict()
+            _write(args.output_dir / "crossbar_fabric_manifest.json", fabric)
+            print(canonical_json({"fabric_sha256": fabric["sha256"]}))
+            return 0
+        if args.command == "path-validate":
+            validation = validate_path_search_receipt(
+                _read_json(args.receipt),
+                expected_fabric_sha256=args.expected_fabric_sha256,
+                expected_request_sha256=args.expected_request_sha256,
+                expected_program_sha256=args.expected_program_sha256,
+            )
+            print(canonical_json(validation))
+            return 0
+        if args.command == "path-search":
+            fabric = _read_json(args.fabric)
+            with args.payload_file.open("rb") as stream:
+                payload = stream.read(MAX_PAYLOAD_BYTES + 1)
+            request = MultiStageRequest(
+                args.source_matrix_id, args.destination_matrix_id,
+                CrossbarRequest(args.request_id, args.horizontal_link_id,
+                                args.vertical_link_id, payload, args.decoder_output_sha256),
+            )
+            program = compile_path_program(
+                fabric, request, marker_id=args.marker_id,
+                max_search_evaluations=args.max_search_evaluations,
+            )
+            receipt = execute_path_program(fabric, request, program)
+            validation = validate_path_search_receipt(
+                receipt, expected_fabric_sha256=fabric["sha256"],
+                expected_request_sha256=request.as_dict()["sha256"],
+                expected_program_sha256=program["sha256"],
+            )
+            for name, value in (
+                ("crossbar_path_input_register.json", request.as_dict()),
+                ("crossbar_path_search_program.json", program),
+                ("crossbar_path_search_receipt.json", receipt),
+                ("crossbar_path_search_validation.json", validation),
+            ):
+                _write(args.output_dir / name, value)
+            print(canonical_json(validation))
+            return 0 if receipt["outcome"] == "plan_selected" else 2
         if args.command == "marker-validate":
             validation = validate_common_control_receipt(
                 _read_json(args.receipt),

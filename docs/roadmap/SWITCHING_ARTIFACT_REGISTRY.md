@@ -52,7 +52,11 @@ panel_separated_control_receipt_hash
 | `crossbar_marker_program.json` | v172.1 matrix/request-bound exact-coordinate policy and authority limits |
 | `crossbar_common_control_receipt.json` | v172.1 complete input snapshots, logical event chain, plan/rejection and marker release |
 | `crossbar_common_control_validation.json` | v172.1 replay result and optional trusted-input binding checks |
-| `crossbar_path_search_receipt.json` | Bounded path-search trace and selected complete path |
+| `crossbar_fabric_manifest.json` | v172.2 immutable ordered matrix stages and canonical adjacent-stage wires |
+| `crossbar_path_input_register.json` | v172.2 qualified endpoints and embedded v172.1 request |
+| `crossbar_path_search_program.json` | v172.2 fabric/request-bound policy and evaluation budget |
+| `crossbar_path_search_receipt.json` | v172.2 bounded look-ahead trace and first complete plan or rejection |
+| `crossbar_path_search_validation.json` | v172.2 replay and optional trusted-input bindings |
 | `crossbar_contention_receipt.json` | Reservation, tie-break, release and quarantine evidence |
 | `crossbar_continuity_receipt.json` | End-to-end proof that selected coordinates form one route |
 | `switch_equivalence_matrix.json` | Declared Strowger, Panel and Crossbar outcome comparison |
@@ -62,11 +66,13 @@ Primary hashes:
 ```text
 crossbar_matrix_receipt_hash
 crossbar_common_control_receipt_hash
+crossbar_path_search_receipt_hash
 ```
 
-v172.0 matrix artifacts retain their original schemas. v172.1 is an implemented
-unreleased candidate; path search, contention, continuity and equivalence rows
-remain future contracts. A v172.1 selected plan does not establish a connection.
+v172.0 matrix and v172.1 marker artifacts retain their published schemas.
+v172.2 is an implemented unreleased candidate; contention, continuity and
+equivalence rows remain future contracts. Selected plans do not establish
+actuated connections.
 
 ## v173.x — ESS stored-program artifacts
 

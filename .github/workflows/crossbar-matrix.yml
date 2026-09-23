@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-name: Crossbar Matrix and Common-Control Validation
+name: Crossbar Matrix, Common-Control and Multi-Stage Validation
 
 on:
   pull_request:
@@ -8,6 +8,7 @@ on:
       - "tests/crossbar/**"
       - "docs/CROSSBAR_COORDINATE_MATRIX.md"
       - "docs/CROSSBAR_COMMON_CONTROL.md"
+      - "docs/CROSSBAR_MULTISTAGE_SELECTION.md"
       - "pyproject.toml"
       - "PACKAGE_README.md"
       - "README.md"
@@ -20,6 +21,7 @@ on:
       - "tests/crossbar/**"
       - "docs/CROSSBAR_COORDINATE_MATRIX.md"
       - "docs/CROSSBAR_COMMON_CONTROL.md"
+      - "docs/CROSSBAR_MULTISTAGE_SELECTION.md"
       - "pyproject.toml"
       - "PACKAGE_README.md"
       - "README.md"
@@ -69,3 +71,15 @@ jobs:
             --output-dir artifacts/crossbar-ci/marker
           qec-crossbar marker-validate \
             --receipt artifacts/crossbar-ci/marker/crossbar_common_control_receipt.json
+      - name: Multi-stage CLI round-trip
+        run: |
+          qec-crossbar fabric-demo --output-dir artifacts/crossbar-ci/fabric
+          qec-crossbar path-search \
+            --fabric artifacts/crossbar-ci/fabric/crossbar_fabric_manifest.json \
+            --source-matrix-id ingress --destination-matrix-id egress \
+            --request-id ci-path --horizontal-link-id H000 --vertical-link-id V001 \
+            --payload-file artifacts/crossbar-ci/payload.bin \
+            --decoder-output-sha256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+            --output-dir artifacts/crossbar-ci/path
+          qec-crossbar path-validate \
+            --receipt artifacts/crossbar-ci/path/crossbar_path_search_receipt.json

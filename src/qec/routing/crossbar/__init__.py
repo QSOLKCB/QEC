@@ -49,3 +49,28 @@ __all__ += [
     "execute_marker_program",
     "validate_common_control_receipt",
 ]
+
+# Additive v172.2 contracts; published matrix and marker names stay unchanged.
+from .multistage import (
+    PATH_CONTRACT_VERSION,
+    PATH_CLAIM_BOUNDARY,
+    CrossbarFabric,
+    InterstageLink,
+    MultiStageRequest,
+    compile_path_program,
+    execute_path_program,
+    validate_path_search_receipt,
+    demo_fabric,
+)
+
+__all__ += [
+    "PATH_CONTRACT_VERSION",
+    "PATH_CLAIM_BOUNDARY",
+    "CrossbarFabric",
+    "InterstageLink",
+    "MultiStageRequest",
+    "compile_path_program",
+    "execute_path_program",
+    "validate_path_search_receipt",
+    "demo_fabric",
+]

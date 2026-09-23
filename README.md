@@ -63,24 +63,24 @@ or quantum advantage.
 
 In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 
-**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • Symbolic Sonification Skeleton v167.0 • Exact Ququart FER Evidence • Replication and Claim Validation • NEXUS Evidence Boundaries • Deterministic Strowger Syndrome Exchange v170.3.0 • Panel Exchange v171.5 • Crossbar Matrix v172.0 • Marker/Common-Control v172.1 Candidate • Planned ESS / Digital / Packet Switching Lineage • Deferred v193.x QEC OS Runtime Reset • Adapter Boundaries • Source-Bound Claims**
+**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • Symbolic Sonification Skeleton v167.0 • Exact Ququart FER Evidence • Replication and Claim Validation • NEXUS Evidence Boundaries • Deterministic Strowger Syndrome Exchange v170.3.0 • Panel Exchange v171.5 • Crossbar Matrix v172.0 • Marker/Common-Control v172.1 • Multi-Stage Selection v172.2 Candidate • Planned ESS / Digital / Packet Switching Lineage • Deferred v193.x QEC OS Runtime Reset • Adapter Boundaries • Source-Bound Claims**
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v172.0-success)](https://github.com/QSOLKCB/QEC/releases/tag/v172.0)
-[![Branch](https://img.shields.io/badge/branch-v172.0%20canonical-purple)]()
+[![Latest](https://img.shields.io/badge/stable-v172.1-success)](https://github.com/QSOLKCB/QEC/releases/tag/v172.1)
+[![Branch](https://img.shields.io/badge/branch-v172.1%20canonical-purple)]()
 
-Current release line: **v172.0**
-Current frontier: **v172.1 — Marker/Common-Control (unreleased candidate)**
+Current release line: **v172.1**
+Current frontier: **v172.2 — Multi-Stage Link Selection (unreleased candidate)**
 Active arc: **v171.x–v176.x — Deterministic Telecommunications Switching Lineage**
 Deferred arc: **v193.x — QEC OS Runtime & Benchmark Reset**
-Completed arc: **v172.0 — Crossbar Matrix Core**
+Completed arc: **v172.1 — Bounded Marker/Common-Control**
 
-Repository status is current through **v172.0 → CrossbarMatrixCore**.
+Repository status is current through **v172.1 → BoundedMarkerCommonControl**.
 
-The published matrix contract is preserved; v172.1 adds single-matrix control
-planning and replay validation. See the [roadmap](ROADMAP.md) for later phases.
+The published matrix and single-matrix marker contracts are preserved; v172.2
+adds multi-stage look-ahead and first-complete-path selection. See the [roadmap](ROADMAP.md) for later phases.
 
 Recent release arcs completed or active:
 
@@ -96,11 +96,13 @@ Recent release arcs completed or active:
   v167.1–v167.9 assignments remain unimplemented historical plans.
 - **v170.x** → Exact packed-ququart decoding and FER evidence, replication and
   claim validation, NEXUS evidence boundaries, and deterministic Strowger routing.
-- **v172.0** → Released Crossbar matrix core. **v172.1** adds an unreleased
+- **v172.0** → Released Crossbar matrix core. **v172.1** adds the released
   [Marker/Common-Control contract](docs/CROSSBAR_COMMON_CONTROL.md) with sealed
   inputs, exact-coordinate planning and replayable selection/rejection receipts.
-- **v172.2–v176.x** → Planned multi-stage Crossbar control, ESS, digital TDM,
-  packet fabric, migration, and cross-era equivalence contracts.
+- **v172.2** → Unreleased [Multi-Stage Link Selection](docs/CROSSBAR_MULTISTAGE_SELECTION.md)
+  with immutable fabrics, bounded look-ahead, complete plans and replay receipts.
+- **v172.3–v176.x** → Planned contention, continuity, cross-era equivalence, ESS,
+  digital TDM, packet fabric and migration contracts.
 - **v193.x** → Deferred QEC OS runtime skeleton, golden corpus, decoder
   runtime API, explicit decoder router, GF(2)/stabilizer core, QLDPC
   construction harness, syndrome/noise runtime, benchmark harness,

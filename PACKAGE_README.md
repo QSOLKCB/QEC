@@ -1,35 +1,33 @@
-# QEC 172.1.0 — Marker/Common-Control Development Package
+# QEC 172.2.0 — Multi-Stage Link Selection Development Package
 
-This package description applies to the **172.1.0 development/package
+This package description applies to the **172.2.0 development/package
 candidate** for the v172.x Crossbar coordinate-switching phase.
 
-The authoritative published stable release is **v172.0**. Package-version
-metadata and published tags are separate; v172.1 is not yet a published release.
+The authoritative published stable release is **v172.1**. Package-version
+metadata and published tags remain separate; v172.2 is not yet released.
 
-## v172.1 Marker/Common-Control Contract
+## v172.2 Multi-Stage Link Selection
 
-The candidate adds a sealed input register, a matrix/request-bound marker
-programme, and a deterministic exact-coordinate plan or rejection receipt.
-Replay validation reconstructs every event and decision. Optional trusted input
-hashes bind validation to a known run.
+The candidate adds immutable layered fabrics, explicit adjacent-stage wiring,
+and deterministic reverse reachability followed by first-complete-path
+selection. Each stage can contain multiple published v172.0 matrices.
 
-The marker reads one immutable matrix snapshot and evaluates at most one
-requested intersection. Both links must be idle. It cannot mutate payloads,
-change the caller-declared decoder identity, reserve links, commit connections,
-or choose fallback routes. Marker release is recorded on selection and rejection.
+Search binds the fabric, complete request, policy and evaluation budget.
+Receipts distinguish selection, no admissible complete path, unknown endpoints
+and budget exhaustion. Every decision is replayed; optional trusted input
+hashes bind validation to the intended run. All outcomes record marker release.
 
-`qec-crossbar marker` emits the register, programme, common-control receipt and
-validation artifact. `qec-crossbar marker-validate` replays a receipt.
+New CLI commands: `qec-crossbar fabric-demo`, `path-search`, and `path-validate`.
+Primary identity: `crossbar_path_search_receipt_hash`.
 
-Primary new identity: `crossbar_common_control_receipt_hash`.
+The published v172.0 matrix and v172.1 single-matrix marker contracts are
+preserved. Selected paths are plans: reservations, contention, connection
+commit, separate continuity receipts and cross-era equivalence remain later
+milestones. Payload bytes and declared decoder identity remain unchanged.
 
-The published v172.0 matrix schemas, hashes and CLI commands are preserved.
-Multi-stage selection, reservation/contention, continuity proof and cross-era
-equivalence remain assigned to later milestones.
+See [Multi-Stage Link Selection](docs/CROSSBAR_MULTISTAGE_SELECTION.md) for
+ordering, bounds, failure modes, APIs, CLI examples and the trust boundary.
 
-See [the marker contract](docs/CROSSBAR_COMMON_CONTROL.md) for the API, CLI,
-ordering, failure modes, trust boundary and examples.
-
-This software proves declared classical software behaviour only. It does not
-establish physical Crossbar fidelity, carrier-grade reliability, decoder
-correctness, quantum hardware behaviour or quantum advantage.
+This software establishes declared classical software behaviour only. It does
+not establish physical Crossbar fidelity, carrier-grade reliability, decoder
+correctness, authenticated provenance, quantum hardware behaviour or advantage.

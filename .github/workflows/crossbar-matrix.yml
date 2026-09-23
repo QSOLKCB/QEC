@@ -10,6 +10,8 @@ on:
       - "docs/CROSSBAR_COMMON_CONTROL.md"
       - "pyproject.toml"
       - "PACKAGE_README.md"
+      - "README.md"
+      - "tests/test_readme_boundary_enforcement.py"
       - ".github/workflows/crossbar-matrix.yml"
   push:
     branches: [main]
@@ -20,6 +22,8 @@ on:
       - "docs/CROSSBAR_COMMON_CONTROL.md"
       - "pyproject.toml"
       - "PACKAGE_README.md"
+      - "README.md"
+      - "tests/test_readme_boundary_enforcement.py"
       - ".github/workflows/crossbar-matrix.yml"
   workflow_dispatch:
 

@@ -5,11 +5,11 @@ import pytest
 from scripts.update_readme_release_metadata import _validate_boundaries, update_readme
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-LATEST_RELEASE = "v170.3.0"
-FRONTIER = "v171.0 — PanelSeparatedControlExchange"
+LATEST_RELEASE = "v172.0"
+FRONTIER = "v172.1 — Marker/Common-Control (unreleased candidate)"
 ACTIVE_ARC = "v171.x–v176.x — Deterministic Telecommunications Switching Lineage"
-COMPLETED_ARC = "v170.x — Exact Ququart Evidence / NEXUS / Strowger Routing"
-REPOSITORY_STATUS = "v170.3.0 → DeterministicStrowgerSyndromeExchange"
+COMPLETED_ARC = "v172.0 — Crossbar Matrix Core"
+REPOSITORY_STATUS = "v172.0 → CrossbarMatrixCore"
 
 
 def _run_update(text: str) -> str:
@@ -41,16 +41,16 @@ Completed arc: **v163.x — z**
 Repository status is current through **v164.2 → OldStatus**.
 """
     out = _run_update(stale)
-    assert "stable-v170.3.0-success" in out
-    assert "releases/tag/v170.3.0" in out
-    assert "branch-v170.3.0%20canonical-purple" in out
-    assert "Current release line: **v170.3.0**" in out
-    assert "Current frontier: **v171.0 — PanelSeparatedControlExchange**" in out
+    assert "stable-v172.0-success" in out
+    assert "releases/tag/v172.0" in out
+    assert "branch-v172.0%20canonical-purple" in out
+    assert "Current release line: **v172.0**" in out
+    assert "Current frontier: **v172.1 — Marker/Common-Control (unreleased candidate)**" in out
     assert "Active arc: **v171.x–v176.x — Deterministic Telecommunications Switching Lineage**" in out
-    assert "Completed arc: **v170.x — Exact Ququart Evidence / NEXUS / Strowger Routing**" in out
+    assert "Completed arc: **v172.0 — Crossbar Matrix Core**" in out
     assert (
         "Repository status is current through "
-        "**v170.3.0 → DeterministicStrowgerSyndromeExchange**."
+        "**v172.0 → CrossbarMatrixCore**."
     ) in out
 
 
@@ -71,7 +71,7 @@ Repository status is current through **v164.2 → OldStatus**.
     out = _run_update(stale)
     assert "releases/tag/v170.1.1\">Lab release" in out
     assert "[![Latest]" in out
-    assert "releases/tag/v170.3.0" in out
+    assert "releases/tag/v172.0" in out
 
 
 def test_readme_updater_rejects_no_effect_when_stale():

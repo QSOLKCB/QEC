@@ -69,13 +69,15 @@ In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
 [![Latest](https://img.shields.io/badge/stable-v172.0-success)](https://github.com/QSOLKCB/QEC/releases/tag/v172.0)
-[![Branch](https://img.shields.io/badge/branch-v172.1%20candidate-purple)]()
+[![Branch](https://img.shields.io/badge/branch-v172.0%20canonical-purple)]()
 
-Current published release: **v172.0 — Crossbar Matrix Core**
+Current release line: **v172.0**
 Current frontier: **v172.1 — Marker/Common-Control (unreleased candidate)**
 Active arc: **v171.x–v176.x — Deterministic Telecommunications Switching Lineage**
 Deferred arc: **v193.x — QEC OS Runtime & Benchmark Reset**
-Completed arc: **v170.x — Exact Ququart Evidence / NEXUS / Strowger Routing**
+Completed arc: **v172.0 — Crossbar Matrix Core**
+
+Repository status is current through **v172.0 → CrossbarMatrixCore**.
 
 The published matrix contract is preserved; v172.1 adds single-matrix control
 planning and replay validation. See the [roadmap](ROADMAP.md) for later phases.

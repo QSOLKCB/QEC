@@ -61,7 +61,8 @@ panel_separated_control_receipt_hash
 | `crossbar_contention_program.json` | v172.3 input-bound ordering policy, marker and shared search budget |
 | `crossbar_contention_receipt.json` | v172.3 owned reservations, busy inventories, release, quarantine and full replay evidence |
 | `crossbar_contention_validation.json` | v172.3 reconstructed lifecycle and optional trusted input bindings |
-| `crossbar_continuity_receipt.json` | End-to-end proof that selected coordinates form one route |
+| `crossbar_continuity_receipt.json` | v172.4 full source replay and independent forward witnesses for every selected route |
+| `crossbar_continuity_validation.json` | v172.4 complete replay, nonempty continuity status and trusted source bindings |
 | `switch_equivalence_matrix.json` | Declared Strowger, Panel and Crossbar outcome comparison |
 
 Primary hashes:
@@ -71,12 +72,13 @@ crossbar_matrix_receipt_hash
 crossbar_common_control_receipt_hash
 crossbar_path_search_receipt_hash
 crossbar_contention_receipt_hash
+crossbar_continuity_receipt_hash
 ```
 
-v172.0 matrix, v172.1 marker and v172.2 selection artifacts retain their
-published schemas. v172.3 contention is an implemented unreleased candidate;
-continuity and equivalence remain future contracts. Model reservations do not
-establish actuated connections.
+v172.0–v172.3 artifacts retain their published schemas. v172.4 continuity is
+an implemented unreleased candidate; equivalence remains a future contract.
+Continuity proves the selected route in its bound pre-selection snapshot.
+Model reservations and continuity witnesses do not establish actuated connections.
 
 ## v173.x — ESS stored-program artifacts
 

@@ -1,30 +1,27 @@
-# QEC 172.3.0 — Contention and Busy-Link Receipts Development Package
+# QEC 172.4.0 — Crossbar Continuity Verification Development Package
 
-This package describes the **172.3.0 development/package candidate**.
-The authoritative published stable release is **v172.2**. Package metadata
-and published tags remain separate; v172.3 is not yet released.
+This package describes the **172.4.0 development/package candidate**.
+The authoritative published stable release is **v172.3**. Package metadata
+and published tags remain separate; v172.4 is not yet released.
 
-The candidate adds bounded logical contention over immutable layered Crossbar
-fabrics. Canonical commands release, quarantine and reserve resources with exact
-request-hash tie-breaking. Successful selection reserves the whole path atomically;
-rejections leave no partial reservation. Owned releases check reservation and
-request identities. Quarantine revokes a held path in full and blocks the target.
+The candidate adds independent forward continuity verification over replayed
+multi-stage selection and contention receipts. Every selected coordinate and
+wire must form one complete idle route with exact requested endpoints. Payload
+bytes and the caller-declared decoder identity retain their upstream bindings.
 
-Receipts include busy-resource inventories, ownership, state transitions, nested
-path-search evidence, marker release and replay validation with optional trusted
-input hashes. A shared search budget bounds the complete batch. Initial external
-busy links have no invented owner; marker release does not release a held path.
+Contention evidence covers every reserve attempt, binds each effective snapshot
+and reservation, and distinguishes continuity at selection from reservation
+activity at batch end. Released and quarantined routes retain historical proof
+without a current-connection claim. Rejected attempts have no witness.
 
-New commands: `qec-crossbar contention-demo`, `contend`, `contention-validate`.
-Primary identity: `crossbar_contention_receipt_hash`.
+New commands: `qec-crossbar continuity`, `continuity-validate`.
+Primary identity: `crossbar_continuity_receipt_hash`.
 
-Published v172.0, v172.1 and v172.2 contracts remain unchanged. This is a closed
-classical model batch, not a persistent or concurrent reservation service.
-Connection commit, separate continuity receipts and cross-era equivalence remain
-later milestones. Payload bytes and declared decoder identity remain unchanged.
+Published v172.0–v172.3 contracts remain unchanged. This is bounded classical
+software-model verification, not connection commit or physical actuation.
+Cross-era equivalence remains v172.5.
 
-See [the contention contract](docs/CROSSBAR_CONTENTION.md) for ordering, ownership,
-bounds, lifecycle semantics, CLI examples and the evidence boundary.
-
-Replay does not establish authenticated provenance, physical switching behaviour,
-decoder correctness or quantum advantage.
+See [the continuity contract](docs/CROSSBAR_CONTINUITY.md) for the walk,
+source coverage, bounds, trusted bindings, CLI examples and evidence boundary.
+Replay does not establish authenticated provenance, current liveness, physical
+switching behaviour, decoder correctness or quantum advantage.

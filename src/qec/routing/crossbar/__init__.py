@@ -89,3 +89,14 @@ __all__ += [
     "compile_contention_program", "execute_contention_program",
     "validate_contention_receipt", "demo_contention_batch",
 ]
+
+# Additive v172.4 source-bound, independent forward continuity verification.
+from .continuity import (
+    CONTINUITY_CONTRACT_VERSION, CONTINUITY_CLAIM_BOUNDARY,
+    verify_path_continuity, create_continuity_receipt, validate_continuity_receipt,
+)
+
+__all__ += [
+    "CONTINUITY_CONTRACT_VERSION", "CONTINUITY_CLAIM_BOUNDARY",
+    "verify_path_continuity", "create_continuity_receipt", "validate_continuity_receipt",
+]

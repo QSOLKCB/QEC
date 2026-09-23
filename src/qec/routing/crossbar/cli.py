@@ -14,6 +14,7 @@ from .contention import (
     MAX_BATCH_SEARCH_EVALUATIONS, ContentionBatch, compile_contention_program,
     execute_contention_program, validate_contention_receipt, demo_contention_batch,
 )
+from .continuity import create_continuity_receipt, validate_continuity_receipt
 from .core import LINK_STATES, demo_matrix, validate_matrix_manifest
 from .marker import (
     MAX_PAYLOAD_BYTES,
@@ -130,12 +131,35 @@ def parser() -> argparse.ArgumentParser:
     contention_validate.add_argument("--expected-input-sha256")
     contention_validate.add_argument("--expected-program-sha256")
     contention_validate.add_argument("--expected-fabric-sha256")
+    for name, help_text in (
+        ("continuity", "verify all selected routes in a path-search or contention receipt"),
+        ("continuity-validate", "replay a source-bound continuity receipt"),
+    ):
+        continuity = sub.add_parser(name, help=help_text)
+        continuity.add_argument("--receipt", required=True, type=Path)
+        for identity in ("source", "fabric", "input", "program"):
+            continuity.add_argument("--expected-" + identity + "-sha256")
+        if name == "continuity":
+            continuity.add_argument("--output-dir", type=Path, default=Path("artifacts/crossbar-continuity"))
     return command
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command in ("continuity", "continuity-validate"):
+            bindings = {"expected_" + name + "_sha256": getattr(args, "expected_" + name + "_sha256")
+                        for name in ("source", "fabric", "input", "program")}
+            value = _read_json(args.receipt)
+            if args.command == "continuity-validate":
+                print(canonical_json(validate_continuity_receipt(value, **bindings)))
+                return 0
+            receipt = create_continuity_receipt(value, **bindings)
+            validation = validate_continuity_receipt(receipt, **bindings)
+            _write(args.output_dir / "crossbar_continuity_receipt.json", receipt)
+            _write(args.output_dir / "crossbar_continuity_validation.json", validation)
+            print(canonical_json(validation))
+            return 0 if validation["continuity_verified"] else 2
         if args.command == "contention-demo":
             batch = demo_contention_batch().as_dict()
             _write(args.output_dir / "crossbar_contention_input.json", batch)

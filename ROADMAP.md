@@ -8,12 +8,12 @@
 # 🧭 Stable Tip Metadata
 
 ```text
-latest completed release → v172.2
-stable commit            → 6000c66b6b0e176702de3776cdca38b8c97ceb4b
-current frontier         → v172.3 development candidate
-next work                → v172.3 validation/release; then v172.4 continuity verification
+latest completed release → v172.3
+stable commit            → 504391f936ad14a3077a59a0261b461eaa3fccaf
+current frontier         → v172.4 development candidate
+next work                → v172.4 validation/release; then v172.5 cross-era equivalence
 active programme         → v171.x–v176.x — Deterministic Telecommunications Switching Lineage
-completed baseline       → v172.2 — Multi-Stage Link Selection
+completed baseline       → v172.3 — Contention and Busy-Link Receipts
 deferred runtime arc     → v193.x — QEC OS Runtime & Benchmark Reset
 ```
 
@@ -157,9 +157,10 @@ RELEASED
   crossbar_matrix_receipt_hash                         (v172.0)
   crossbar_common_control_receipt_hash                 (v172.1)
   crossbar_path_search_receipt_hash                    (v172.2)
+  crossbar_contention_receipt_hash                     (v172.3)
 
 IMPLEMENTED — UNRELEASED
-  crossbar_contention_receipt_hash                     (v172.3)
+  crossbar_continuity_receipt_hash                     (v172.4)
 
 PLANNED
   ess_program_store_manifest_hash                      (v173.x)
@@ -235,7 +236,7 @@ Acceptance criteria are maintained under
 
 # Phase v172.x — Crossbar Coordinate Matrix and Common Control
 
-**Status:** v172.0–v172.2 RELEASED; v172.3 IMPLEMENTED (development candidate); v172.4–v172.5 PLANNED
+**Status:** v172.0–v172.3 RELEASED; v172.4 IMPLEMENTED (development candidate); v172.5 PLANNED
 
 ## Goal
 
@@ -267,11 +268,13 @@ canonical request
   Immutable layered fabrics, bounded reverse reachability and first admissible
   complete path selection with replayable search receipts.
   See [the v172.2 contract](docs/CROSSBAR_MULTISTAGE_SELECTION.md).
-- **v172.3 — Contention and Busy-Link Receipts** — IMPLEMENTED (unreleased)
+- **v172.3 — Contention and Busy-Link Receipts** — RELEASED
   Exact logical ordering, atomic owned reservations, release, quarantine revocation
   and replay-safe contention evidence. See [the v172.3 contract](docs/CROSSBAR_CONTENTION.md).
-- **v172.4 — Crossbar Continuity Verification**  
-  Prove that every selected coordinate belongs to one continuous route.
+- **v172.4 — Crossbar Continuity Verification** — IMPLEMENTED (unreleased)
+  Independent forward walks prove complete coordinate/wire continuity over replayed
+  selections, with reservation lifecycle scope and trusted source bindings.
+  See [the v172.4 contract](docs/CROSSBAR_CONTINUITY.md).
 - **v172.5 — Strowger/Panel/Crossbar Equivalence Battery**  
   Shared corpus proving declared route and outcome equivalence without identical traces.
 

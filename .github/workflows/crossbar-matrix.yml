@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-name: Crossbar Matrix, Common-Control, Multi-Stage and Contention Validation
+name: Crossbar Matrix, Common-Control, Multi-Stage, Contention and Continuity Validation
 
 on:
   pull_request:
@@ -10,6 +10,7 @@ on:
       - "docs/CROSSBAR_COMMON_CONTROL.md"
       - "docs/CROSSBAR_MULTISTAGE_SELECTION.md"
       - "docs/CROSSBAR_CONTENTION.md"
+      - "docs/CROSSBAR_CONTINUITY.md"
       - "pyproject.toml"
       - "PACKAGE_README.md"
       - "README.md"
@@ -24,6 +25,7 @@ on:
       - "docs/CROSSBAR_COMMON_CONTROL.md"
       - "docs/CROSSBAR_MULTISTAGE_SELECTION.md"
       - "docs/CROSSBAR_CONTENTION.md"
+      - "docs/CROSSBAR_CONTINUITY.md"
       - "pyproject.toml"
       - "PACKAGE_README.md"
       - "README.md"
@@ -93,3 +95,15 @@ jobs:
             --output-dir artifacts/crossbar-ci/contention
           qec-crossbar contention-validate \
             --receipt artifacts/crossbar-ci/contention/crossbar_contention_receipt.json
+      - name: Continuity CLI round-trips
+        run: |
+          qec-crossbar continuity \
+            --receipt artifacts/crossbar-ci/path/crossbar_path_search_receipt.json \
+            --output-dir artifacts/crossbar-ci/path-continuity
+          qec-crossbar continuity-validate \
+            --receipt artifacts/crossbar-ci/path-continuity/crossbar_continuity_receipt.json
+          qec-crossbar continuity \
+            --receipt artifacts/crossbar-ci/contention/crossbar_contention_receipt.json \
+            --output-dir artifacts/crossbar-ci/contention-continuity
+          qec-crossbar continuity-validate \
+            --receipt artifacts/crossbar-ci/contention-continuity/crossbar_continuity_receipt.json

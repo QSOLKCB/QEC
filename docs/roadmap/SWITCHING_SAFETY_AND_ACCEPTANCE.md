@@ -128,6 +128,10 @@ become proof authority.
 - a marker cannot alter decoder output or payload identity;
 - reservations and releases are included in the event chain;
 - no partial path may be committed;
+- every selected coordinate and interstage wire belongs to one endpoint-bound route;
+- continuity evidence replays its complete source and covers every selection;
+- valid rejection evidence never claims that a route exists;
+- historical continuity is distinct from reservation activity at batch end;
 - equivalent outcomes across switch types are machine validated.
 
 ### v173.x — ESS stored-program control

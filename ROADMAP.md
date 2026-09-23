@@ -8,12 +8,12 @@
 # 🧭 Stable Tip Metadata
 
 ```text
-latest completed release → v172.4
-stable commit            → 52b1819472c8a1fd44bab33f3cba1fd75c876917
-current frontier         → v172.5 development candidate; v172.x implementation complete
-next work                → v172.5 validation/release; then v173.0 Stored-Program Switch Skeleton
+latest completed release → v172.5
+stable commit            → d80fbb1c020f03034297d612917b05bfac4a6e90
+current frontier         → v173.0 Stored-Program Switch Skeleton development candidate
+next work                → v173.0 validation/release; then v173.1 Immutable Programme Store Manifest
 active programme         → v171.x–v176.x — Deterministic Telecommunications Switching Lineage
-completed baseline       → v172.4 — Crossbar Continuity Verification
+completed baseline       → v172.5 — Strowger/Panel/Crossbar Equivalence Battery
 deferred runtime arc     → v193.x — QEC OS Runtime & Benchmark Reset
 ```
 
@@ -237,7 +237,7 @@ Acceptance criteria are maintained under
 
 # Phase v172.x — Crossbar Coordinate Matrix and Common Control
 
-**Status:** v172.0–v172.4 RELEASED; v172.5 IMPLEMENTED (development candidate); v172.x implementation complete
+**Status:** v172.0–v172.5 RELEASED; v172.x complete
 
 ## Goal
 
@@ -276,7 +276,7 @@ canonical request
   Independent forward walks prove complete coordinate/wire continuity over replayed
   selections, with reservation lifecycle scope and trusted source bindings.
   See [the v172.4 contract](docs/CROSSBAR_CONTINUITY.md).
-- **v172.5 — Strowger/Panel/Crossbar Equivalence Battery** — IMPLEMENTED (unreleased)
+- **v172.5 — Strowger/Panel/Crossbar Equivalence Battery** — RELEASED
   Shared bounded corpus comparing destination, route admission and selected lane
   with native receipts, continuity evidence and explicit capability differences.
   Thirty-six availability cases agree; five architecture-specific fault controls
@@ -291,7 +291,7 @@ Acceptance criteria are maintained under
 
 # Phase v173.x — Electronic Switching System / Stored-Program Control
 
-**Status:** PLANNED
+**Status:** v173.0 IMPLEMENTED (development candidate); v173.1–v173.5 PLANNED
 
 ## Goal
 
@@ -313,8 +313,11 @@ immutable programme store
 
 ## Planned releases
 
-- **v173.0 — Stored-Program Switch Skeleton**  
-  Programme store, call store, event queue and switching-fabric adapter boundary.
+- **v173.0 — Stored-Program Switch Skeleton** — IMPLEMENTED (unreleased)
+  Separate immutable programme/call stores, a bounded logical event queue and
+  Crossbar adapter boundary with complete native replay and continuity evidence.
+  Independent planning only; no full call lifecycle or resource mutation.
+  See [the v173.0 contract](docs/ESS_STORED_PROGRAM_SKELETON.md).
 - **v173.1 — Immutable Programme Store Manifest**  
   Full source, version and hash identity for routing logic and translation tables.
 - **v173.2 — Deterministic Call-Processing State Machine**  

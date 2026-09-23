@@ -79,13 +79,27 @@ crossbar_continuity_receipt_hash
 switch_equivalence_matrix_hash
 ```
 
-v172.0–v172.4 artifacts retain their published schemas. v172.5 equivalence is
-an implemented unreleased candidate completing the v172.x implementation.
+v172.0–v172.5 artifacts retain their published schemas; the v172.x arc is released.
 It compares only declared route decisions for a bounded corpus. Native commit,
 payload capabilities and reservation lifecycles remain explicitly distinct.
 Broader cross-era migration stays assigned to v176.x.
 
 ## v173.x — ESS stored-program artifacts
+
+v173.0 implements the following skeleton artifacts; the programme/source manifest,
+full lifecycle, scheduling and equivalence artifacts below remain planned.
+
+| Artifact | Role |
+|---|---|
+| `ess_switch_input.json` | v173.0 separate programme, call, queue and adapter snapshots |
+| `ess_command_stream.json` | v173.0 input-bound ordered native planning commands |
+| `ess_switch_skeleton_receipt.json` | v173.0 dispatch results with complete validated native evidence |
+| `ess_switch_skeleton_validation.json` | v173.0 complete replay and optional trusted input bindings |
+
+Primary v173.0 hashes: `ess_switch_skeleton_receipt_hash`, `ess_command_stream_hash`.
+See [the skeleton contract](../ESS_STORED_PROGRAM_SKELETON.md).
+
+Planned v173.1–v173.5 artifacts:
 
 | Artifact | Role |
 |---|---|

@@ -140,6 +140,18 @@ become proof authority.
 
 ### v173.x — ESS stored-program control
 
+Implemented in v173.0:
+
+- immutable programme and call snapshots retain separate identities;
+- a closed queue contains exactly one event per stored call in explicit logical order;
+- adapter results must replay against the exact fabric, request and native programme;
+- rehashed, substituted or omitted evidence fails complete receipt replay;
+- native rejections remain visible and cannot become successful connections;
+- independent snapshot planning cannot claim reservations or simultaneous capacity;
+- empty input validation cannot claim nonempty route evidence.
+
+Further v173.x phase-wide requirements (not all implemented by the skeleton):
+
 - programme and data identities are separate;
 - modifying a programme or translation table changes execution identity;
 - scheduling uses logical time only;

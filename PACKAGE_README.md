@@ -1,33 +1,30 @@
-# QEC 172.5.0 — Strowger/Panel/Crossbar Equivalence Battery Development Package
+# QEC 173.0.0 — Stored-Program Switch Skeleton Development Package
 
-This package describes the **172.5.0 development/package candidate**.
-The authoritative published stable release is **v172.4**. Package metadata
-and published tags remain separate; v172.5 is not yet released.
+This package describes the **173.0.0 development/package candidate**.
+The authoritative published stable release is **v172.5**. Package metadata
+and published tags remain separate; v173.0 is not yet released.
 
-The candidate completes the planned v172.x implementation with a bounded shared
-corpus comparing Strowger, Panel and Crossbar route decisions. Fixed adapters map
-four destinations and two lanes into the unchanged native models. Full native
-receipts, Crossbar continuity evidence and an independent admission oracle bind
-every result to its exact case, initial state and adapter contract.
+The candidate begins the v173.x ESS arc with separate immutable programme and
+call stores, a bounded logical event queue and a switching-fabric adapter boundary.
+The fixed built-in programme dispatches one independent planning command per
+call through the existing Crossbar path selector. The controller requires native
+replay and continuity verification against the exact request, programme and fabric.
 
-The default battery contains 36 equivalent availability cases and five native
-fault controls that must remain different. A passing battery therefore does not
-mean every case is equivalent. Exact default-corpus coverage is explicit.
+Complete snapshots, ordered commands, native evidence and derived result counts
+are hash-bound and replayable. Malformed queues, substituted adapter receipts and
+rehashed evidence mutations are rejected. Native planning rejections remain valid
+recorded outcomes; a passing validation does not imply that every route exists.
 
-New commands: `qec-crossbar equivalence-demo`, `equivalence`, `equivalence-validate`.
-Primary identity: `switch_equivalence_matrix_hash`.
+New commands: `qec-ess demo`, `qec-ess run`, `qec-ess validate`.
+Primary identities: `ess_switch_skeleton_receipt_hash`, `ess_command_stream_hash`.
 
-The comparison covers requested/reached destination, routing outcome and selected
-lane. Native commit semantics, event traces and reservation lifecycles are not
-claimed equivalent. Strowger has no native payload field; payload preservation
-is checked natively for Panel and Crossbar only. Only Crossbar carries a native
-caller-declared decoder-output reference.
+Every call plans against the same immutable fabric snapshot. This skeleton does
+not reserve resources or commit connections. Full programme source manifests and
+translation tables, call-processing transitions, priority scheduling, feature
+modules and ESS/Fabric equivalence remain v173.1–v173.5 work.
 
-Published Strowger, Panel and v172.0–v172.4 contracts and decoder code remain
-unchanged. The next implementation phase is v173.x ESS stored-program control;
-full cross-era migration remains v176.x.
-
-See [the equivalence contract](docs/SWITCH_EQUIVALENCE_BATTERY.md) for mappings,
-bounds, replay, trusted input pins and the evidence boundary. These software
-checks do not establish universal equivalence, authenticated provenance,
-physical switching fidelity, decoder correctness or quantum advantage.
+Published Strowger, Panel and v172.0–v172.5 contracts and decoder code remain
+unchanged. See [the ESS skeleton contract](docs/ESS_STORED_PROGRAM_SKELETON.md)
+for APIs, bounds, replay and trusted input pins. These software checks do not
+establish physical switching fidelity, authenticated provenance, decoder
+correctness or quantum advantage.

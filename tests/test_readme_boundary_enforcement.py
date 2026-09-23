@@ -5,11 +5,11 @@ import pytest
 from scripts.update_readme_release_metadata import _validate_boundaries, update_readme
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-LATEST_RELEASE = "v172.4"
-FRONTIER = "v172.5 — Strowger/Panel/Crossbar Equivalence Battery (unreleased candidate)"
+LATEST_RELEASE = "v172.5"
+FRONTIER = "v173.0 — Stored-Program Switch Skeleton (unreleased candidate)"
 ACTIVE_ARC = "v171.x–v176.x — Deterministic Telecommunications Switching Lineage"
-COMPLETED_ARC = "v172.4 — Crossbar Continuity Verification"
-REPOSITORY_STATUS = "v172.4 → CrossbarContinuityVerification"
+COMPLETED_ARC = "v172.5 — Strowger/Panel/Crossbar Equivalence Battery"
+REPOSITORY_STATUS = "v172.5 → StrowgerPanelCrossbarEquivalenceBattery"
 
 
 def _run_update(text: str) -> str:
@@ -41,16 +41,16 @@ Completed arc: **v163.x — z**
 Repository status is current through **v164.2 → OldStatus**.
 """
     out = _run_update(stale)
-    assert "stable-v172.4-success" in out
-    assert "releases/tag/v172.4" in out
-    assert "branch-v172.4%20canonical-purple" in out
-    assert "Current release line: **v172.4**" in out
-    assert "Current frontier: **v172.5 — Strowger/Panel/Crossbar Equivalence Battery (unreleased candidate)**" in out
+    assert "stable-v172.5-success" in out
+    assert "releases/tag/v172.5" in out
+    assert "branch-v172.5%20canonical-purple" in out
+    assert "Current release line: **v172.5**" in out
+    assert "Current frontier: **v173.0 — Stored-Program Switch Skeleton (unreleased candidate)**" in out
     assert "Active arc: **v171.x–v176.x — Deterministic Telecommunications Switching Lineage**" in out
-    assert "Completed arc: **v172.4 — Crossbar Continuity Verification**" in out
+    assert "Completed arc: **v172.5 — Strowger/Panel/Crossbar Equivalence Battery**" in out
     assert (
         "Repository status is current through "
-        "**v172.4 → CrossbarContinuityVerification**."
+        "**v172.5 → StrowgerPanelCrossbarEquivalenceBattery**."
     ) in out
 
 
@@ -71,7 +71,7 @@ Repository status is current through **v164.2 → OldStatus**.
     out = _run_update(stale)
     assert "releases/tag/v170.1.1\">Lab release" in out
     assert "[![Latest]" in out
-    assert "releases/tag/v172.4" in out
+    assert "releases/tag/v172.5" in out
 
 
 def test_readme_updater_rejects_no_effect_when_stale():

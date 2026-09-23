@@ -30,3 +30,22 @@ __all__ = [
     "demo_matrix",
     "validate_matrix_manifest",
 ]
+
+# The v172.0 names above retain their published schemas and version constants.
+from .marker import (
+    MARKER_CLAIM_BOUNDARY,
+    MARKER_CONTRACT_VERSION,
+    CrossbarRequest,
+    compile_marker_program,
+    execute_marker_program,
+    validate_common_control_receipt,
+)
+
+__all__ += [
+    "MARKER_CLAIM_BOUNDARY",
+    "MARKER_CONTRACT_VERSION",
+    "CrossbarRequest",
+    "compile_marker_program",
+    "execute_marker_program",
+    "validate_common_control_receipt",
+]

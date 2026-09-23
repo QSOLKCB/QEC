@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MPL-2.0
-name: Crossbar Matrix Validation
+name: Crossbar Matrix and Common-Control Validation
 
 on:
   pull_request:
@@ -7,6 +7,7 @@ on:
       - "src/qec/routing/crossbar/**"
       - "tests/crossbar/**"
       - "docs/CROSSBAR_COORDINATE_MATRIX.md"
+      - "docs/CROSSBAR_COMMON_CONTROL.md"
       - "pyproject.toml"
       - "PACKAGE_README.md"
       - ".github/workflows/crossbar-matrix.yml"
@@ -16,6 +17,7 @@ on:
       - "src/qec/routing/crossbar/**"
       - "tests/crossbar/**"
       - "docs/CROSSBAR_COORDINATE_MATRIX.md"
+      - "docs/CROSSBAR_COMMON_CONTROL.md"
       - "pyproject.toml"
       - "PACKAGE_README.md"
       - ".github/workflows/crossbar-matrix.yml"
@@ -51,3 +53,15 @@ jobs:
             --output-dir artifacts/crossbar-ci
           qec-crossbar validate \
             --manifest artifacts/crossbar-ci/crossbar_matrix_manifest.json
+      - name: Marker CLI round-trip
+        run: |
+          python -c 'from pathlib import Path; Path("artifacts/crossbar-ci/payload.bin").write_bytes(b"opaque-correction")'
+          qec-crossbar marker \
+            --manifest artifacts/crossbar-ci/crossbar_matrix_manifest.json \
+            --request-id ci-marker \
+            --horizontal-link-id H000 --vertical-link-id V001 \
+            --payload-file artifacts/crossbar-ci/payload.bin \
+            --decoder-output-sha256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+            --output-dir artifacts/crossbar-ci/marker
+          qec-crossbar marker-validate \
+            --receipt artifacts/crossbar-ci/marker/crossbar_common_control_receipt.json

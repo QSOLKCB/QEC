@@ -8,12 +8,12 @@
 # 🧭 Stable Tip Metadata
 
 ```text
-latest completed release → v170.3.0
-stable commit            → dada8b7a20a75753db43acc01a6a9e723ebaa6b6
-current frontier         → v171.0
-next work                → PanelSeparatedControlExchange
+latest completed release → v172.0
+stable commit            → 67ef759b2f769b922ba16f78ca40c6661e6e8181
+current frontier         → v172.1 development candidate
+next work                → v172.1 validation/release; then v172.2 multi-stage selection
 active programme         → v171.x–v176.x — Deterministic Telecommunications Switching Lineage
-completed baseline       → v170.3.0 — Deterministic Strowger Syndrome Exchange
+completed baseline       → v172.0 — Crossbar Matrix Core
 deferred runtime arc     → v193.x — QEC OS Runtime & Benchmark Reset
 ```
 
@@ -152,12 +152,14 @@ RELEASED
   report_claim_validation_hash                        (v170.1.1)
   nexus_replication_receipt_hash                       (v170.2.x)
   strowger_route_receipt_hash                          (v170.3.0)
-
-PLANNED
   panel_sender_register_receipt_hash                   (v171.x)
   panel_separated_control_receipt_hash                 (v171.x)
-  crossbar_matrix_receipt_hash                         (v172.x)
-  crossbar_common_control_receipt_hash                 (v172.x)
+  crossbar_matrix_receipt_hash                         (v172.0)
+
+IMPLEMENTED — UNRELEASED
+  crossbar_common_control_receipt_hash                 (v172.1)
+
+PLANNED
   ess_program_store_manifest_hash                      (v173.x)
   ess_call_processing_receipt_hash                     (v173.x)
   digital_frame_switch_receipt_hash                    (v174.x)
@@ -188,7 +190,7 @@ The complete artifact inventory and role definitions live in the
 
 # Phase v171.x — Panel Separated-Control Exchange
 
-**Status:** PLANNED
+**Status:** RELEASED through v171.5.0
 
 ## Goal
 
@@ -231,7 +233,7 @@ Acceptance criteria are maintained under
 
 # Phase v172.x — Crossbar Coordinate Matrix and Common Control
 
-**Status:** PLANNED
+**Status:** v172.0 RELEASED; v172.1 IMPLEMENTED (development candidate); v172.2–v172.5 PLANNED
 
 ## Goal
 
@@ -253,10 +255,12 @@ canonical request
 
 ## Planned releases
 
-- **v172.0 — Crossbar Matrix Core**  
+- **v172.0 — Crossbar Matrix Core** — RELEASED
   Immutable coordinate matrix, link states and canonical intersection identity.
-- **v172.1 — Marker/Common-Control Contract**  
-  Central route computation with bounded authority and complete receipts.
+- **v172.1 — Marker/Common-Control Contract** — IMPLEMENTED (unreleased)
+  Exact single-matrix coordinate planning, sealed request/programme binding,
+  explicit rejection, marker release, complete event receipts and replay validation.
+  See [the v172.1 contract](docs/CROSSBAR_COMMON_CONTROL.md).
 - **v172.2 — Multi-Stage Link Selection**  
   Deterministic look-ahead and first admissible complete path.
 - **v172.3 — Contention and Busy-Link Receipts**  

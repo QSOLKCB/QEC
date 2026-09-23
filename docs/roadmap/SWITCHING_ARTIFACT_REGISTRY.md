@@ -48,7 +48,10 @@ panel_separated_control_receipt_hash
 | Artifact | Role |
 |---|---|
 | `crossbar_matrix_manifest.json` | Immutable horizontal/vertical matrix and link-state ordering |
-| `crossbar_marker_program.json` | Canonical common-control route computation input and policy |
+| `crossbar_marker_input_register.json` | v172.1 sealed request, endpoint intent, payload bytes and declared decoder identity |
+| `crossbar_marker_program.json` | v172.1 matrix/request-bound exact-coordinate policy and authority limits |
+| `crossbar_common_control_receipt.json` | v172.1 complete input snapshots, logical event chain, plan/rejection and marker release |
+| `crossbar_common_control_validation.json` | v172.1 replay result and optional trusted-input binding checks |
 | `crossbar_path_search_receipt.json` | Bounded path-search trace and selected complete path |
 | `crossbar_contention_receipt.json` | Reservation, tie-break, release and quarantine evidence |
 | `crossbar_continuity_receipt.json` | End-to-end proof that selected coordinates form one route |
@@ -60,6 +63,10 @@ Primary hashes:
 crossbar_matrix_receipt_hash
 crossbar_common_control_receipt_hash
 ```
+
+v172.0 matrix artifacts retain their original schemas. v172.1 is an implemented
+unreleased candidate; path search, contention, continuity and equivalence rows
+remain future contracts. A v172.1 selected plan does not establish a connection.
 
 ## v173.x — ESS stored-program artifacts
 

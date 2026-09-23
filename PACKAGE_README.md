@@ -1,37 +1,35 @@
-# QEC 172.0.0 — Crossbar Matrix Core Development Package
+# QEC 172.1.0 — Marker/Common-Control Development Package
 
-This package description applies to the **172.0.0 development/package
-candidate** that begins the v172.x Crossbar coordinate-switching phase.
+This package description applies to the **172.1.0 development/package
+candidate** for the v172.x Crossbar coordinate-switching phase.
 
-The authoritative published stable release is **v171.5.0**. Package-version
-metadata and published-tag status remain intentionally separate so this
-unreleased v172.0 candidate is not presented as an already-published stable tag.
+The authoritative published stable release is **v172.0**. Package-version
+metadata and published tags are separate; v172.1 is not yet a published release.
 
-## v172.0 Crossbar Matrix Core
+## v172.1 Marker/Common-Control Contract
 
-The candidate introduces:
+The candidate adds a sealed input register, a matrix/request-bound marker
+programme, and a deterministic exact-coordinate plan or rejection receipt.
+Replay validation reconstructs every event and decision. Optional trusted input
+hashes bind validation to a known run.
 
-- immutable horizontal and vertical link records;
-- contiguous canonical axis ordinals;
-- exact initial link-state vocabulary;
-- deterministic row-major matrix closure;
-- canonical identity for every horizontal/vertical intersection;
-- `qec.crossbar-matrix-manifest.v1`;
-- replay-not-trust matrix validation;
-- the `qec-crossbar` CLI;
-- dedicated Crossbar CI and regression coverage.
+The marker reads one immutable matrix snapshot and evaluates at most one
+requested intersection. Both links must be idle. It cannot mutate payloads,
+change the caller-declared decoder identity, reserve links, commit connections,
+or choose fallback routes. Marker release is recorded on selection and rejection.
 
-Primary identity:
+`qec-crossbar marker` emits the register, programme, common-control receipt and
+validation artifact. `qec-crossbar marker-validate` replays a receipt.
 
-```text
-crossbar_matrix_receipt_hash
-```
+Primary new identity: `crossbar_common_control_receipt_hash`.
 
-v172.0 deliberately contains no marker/common-control authority, route search,
-reservation, connection commit, continuity proof or cross-era equivalence.
-Those remain assigned to later v172.x releases.
+The published v172.0 matrix schemas, hashes and CLI commands are preserved.
+Multi-stage selection, reservation/contention, continuity proof and cross-era
+equivalence remain assigned to later milestones.
 
-This software makes deterministic classical software-model and artifact-identity
-claims only. It does not establish physical Crossbar fidelity, carrier-grade
-reliability, decoder correctness, quantum hardware behavior, physical truth or
-quantum advantage.
+See [the marker contract](docs/CROSSBAR_COMMON_CONTROL.md) for the API, CLI,
+ordering, failure modes, trust boundary and examples.
+
+This software proves declared classical software behaviour only. It does not
+establish physical Crossbar fidelity, carrier-grade reliability, decoder
+correctness, quantum hardware behaviour or quantum advantage.

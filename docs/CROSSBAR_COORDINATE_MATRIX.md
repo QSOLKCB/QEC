@@ -169,3 +169,7 @@ It does **not** yet claim or implement:
 - quantum advantage.
 
 The marker/common-control contract begins at v172.1.
+
+The additive v172.1 development contract is documented in
+[Marker/Common-Control](CROSSBAR_COMMON_CONTROL.md). The v172.0 schema and
+claim boundary above remain unchanged.

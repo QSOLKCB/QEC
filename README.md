@@ -63,21 +63,22 @@ or quantum advantage.
 
 In this README, QEC means the QSOLKCB/QEC software system and release lineage.
 
-**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • Symbolic Sonification Skeleton v167.0 • Exact Ququart FER Evidence • Replication and Claim Validation • NEXUS Evidence Boundaries • Deterministic Strowger Syndrome Exchange v170.3.0 • Planned Panel / Crossbar / ESS / Digital / Packet Switching Lineage • Deferred v193.x QEC OS Runtime Reset • Adapter Boundaries • Source-Bound Claims**
+**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • Symbolic Sonification Skeleton v167.0 • Exact Ququart FER Evidence • Replication and Claim Validation • NEXUS Evidence Boundaries • Deterministic Strowger Syndrome Exchange v170.3.0 • Panel Exchange v171.5 • Crossbar Matrix v172.0 • Marker/Common-Control v172.1 Candidate • Planned ESS / Digital / Packet Switching Lineage • Deferred v193.x QEC OS Runtime Reset • Adapter Boundaries • Source-Bound Claims**
 
 ## 📦 Release & Research
 
 [![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v170.3.0-success)](https://github.com/QSOLKCB/QEC/releases/tag/v170.3.0)
-[![Branch](https://img.shields.io/badge/branch-v170.3.0%20canonical-purple)]()
+[![Latest](https://img.shields.io/badge/stable-v172.0-success)](https://github.com/QSOLKCB/QEC/releases/tag/v172.0)
+[![Branch](https://img.shields.io/badge/branch-v172.1%20candidate-purple)]()
 
-Current release line: **v170.3.0**
-Current frontier: **v171.0 — PanelSeparatedControlExchange**
+Current published release: **v172.0 — Crossbar Matrix Core**
+Current frontier: **v172.1 — Marker/Common-Control (unreleased candidate)**
 Active arc: **v171.x–v176.x — Deterministic Telecommunications Switching Lineage**
 Deferred arc: **v193.x — QEC OS Runtime & Benchmark Reset**
 Completed arc: **v170.x — Exact Ququart Evidence / NEXUS / Strowger Routing**
 
-Repository status is current through **v170.3.0 → DeterministicStrowgerSyndromeExchange**.
+The published matrix contract is preserved; v172.1 adds single-matrix control
+planning and replay validation. See the [roadmap](ROADMAP.md) for later phases.
 
 Recent release arcs completed or active:
 
@@ -93,8 +94,11 @@ Recent release arcs completed or active:
   v167.1–v167.9 assignments remain unimplemented historical plans.
 - **v170.x** → Exact packed-ququart decoding and FER evidence, replication and
   claim validation, NEXUS evidence boundaries, and deterministic Strowger routing.
-- **v171.x–v176.x** → Planned Panel, Crossbar, ESS, digital TDM, packet fabric,
-  migration, and cross-era equivalence contracts.
+- **v172.0** → Released Crossbar matrix core. **v172.1** adds an unreleased
+  [Marker/Common-Control contract](docs/CROSSBAR_COMMON_CONTROL.md) with sealed
+  inputs, exact-coordinate planning and replayable selection/rejection receipts.
+- **v172.2–v176.x** → Planned multi-stage Crossbar control, ESS, digital TDM,
+  packet fabric, migration, and cross-era equivalence contracts.
 - **v193.x** → Deferred QEC OS runtime skeleton, golden corpus, decoder
   runtime API, explicit decoder router, GF(2)/stabilizer core, QLDPC
   construction harness, syndrome/noise runtime, benchmark harness,

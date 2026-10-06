@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::Path;
 
 use crate::commands::{
-    dispatch_mode, execute_action, fetch_engine_diagnostics, fetch_history_timeline,
+    demo_enabled, dispatch_mode, execute_action, fetch_engine_diagnostics, fetch_history_timeline,
     fetch_invariant_status, fetch_phase_diagnostics,
 };
 
@@ -161,12 +161,7 @@ pub struct HistoryData {
 impl HistoryData {
     fn placeholder() -> Self {
         Self {
-            timeline: vec![
-                "stable".to_string(),
-                "rising".to_string(),
-                "oscillatory".to_string(),
-                "locked".to_string(),
-            ],
+            timeline: Vec::new(),
             error: None,
         }
     }
@@ -341,6 +336,7 @@ impl PhaseDiagnosticsData {
 }
 
 pub struct App {
+    pub demo_mode: bool,
     pub nav_items: &'static [&'static str],
     pub selected_index: usize,
     pub mode: &'static str,
@@ -384,6 +380,7 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         let mut app = Self {
+            demo_mode: demo_enabled(),
             nav_items: NAV_ITEMS,
             selected_index: 0,
             mode: "Diagnostics",
@@ -446,8 +443,30 @@ impl App {
 
     pub fn select_mode(&mut self) {
         self.mode = dispatch_mode(self.selected_index);
-        if self.mode == "Phase Dynamics" {
-            self.refresh_phase_diagnostics();
+        match self.mode {
+            "Diagnostics" => self.refresh_diagnostics(),
+            HISTORY_WINDOW_MODE => self.history = HistoryData::from_engine(),
+            "Invariants" => {
+                self.invariants = InvariantData::from_engine();
+                self.build_invariant_summary();
+            }
+            "Phase Dynamics" => self.refresh_phase_diagnostics(),
+            _ => {}
+        }
+    }
+
+    pub fn engine_status(&self) -> &'static str {
+        if self.demo_mode {
+            "DEMO"
+        } else if [
+            &self.diagnostics.error,
+            &self.history.error,
+            &self.invariants.error,
+            &self.phase_diagnostics.error,
+        ].iter().any(|error| error.is_some()) {
+            "UNAVAILABLE"
+        } else {
+            "READY"
         }
     }
 
@@ -677,6 +696,8 @@ impl App {
         let path = "qec_tui_session.log";
         let mut file =
             fs::File::create(path).map_err(|e| format!("Failed to create log file: {e}"))?;
+        writeln!(file, "data_source: {}", if self.demo_mode { "DEMO" } else { "PYTHON_ADAPTER" })
+            .map_err(|e| format!("Write error: {e}"))?;
         for entry in &self.command_history {
             writeln!(file, "{entry}").map_err(|e| format!("Write error: {e}"))?;
         }
@@ -925,6 +946,29 @@ mod tests {
         assert_eq!(app.action_status, "IDLE");
         assert!(app.command_history.is_empty());
         assert!(app.last_action_time.is_empty());
+    }
+
+    #[test]
+    fn test_engine_status_uses_panel_results_and_marks_demo() {
+        let mut app = App::new();
+        app.demo_mode = false;
+        app.diagnostics.error = None;
+        app.history.error = None;
+        app.invariants.error = None;
+        app.phase_diagnostics.error = None;
+        assert_eq!(app.engine_status(), "READY");
+        for index in 0..4 {
+            let errors = [
+                &mut app.diagnostics.error,
+                &mut app.history.error,
+                &mut app.invariants.error,
+                &mut app.phase_diagnostics.error,
+            ];
+            *errors.into_iter().nth(index).unwrap() = Some("adapter failed".into());
+            assert_eq!(app.engine_status(), "UNAVAILABLE");
+        }
+        app.demo_mode = true;
+        assert_eq!(app.engine_status(), "DEMO");
     }
 
     #[test]
@@ -1360,24 +1404,20 @@ mod tests {
     }
 
     #[test]
-    fn test_phase_diagnostics_refresh_populates_snapshot() {
+    fn test_phase_diagnostics_failure_does_not_create_snapshot() {
         let mut app = App::new();
         let before = app.phase_snapshots.len();
-        app.refresh_phase_diagnostics();
-        assert!(app.phase_diagnostics.error.is_none());
-        assert!(app.phase_diagnostics.phase_transition_index.is_finite());
-        assert!(app.phase_snapshots.len() >= before);
-        assert!(app
-            .phase_snapshots
-            .last()
-            .map(PhaseSnapshot::to_log_line)
-            .unwrap_or_default()
-            .contains("confidence="));
+        app.phase_diagnostics.error = Some("missing adapter".to_string());
+        app.record_phase_snapshot();
+        assert_eq!(app.phase_snapshots.len(), before);
+        app.demo_mode = false;
+        assert_eq!(app.engine_status(), "UNAVAILABLE");
     }
 
     #[test]
     fn test_phase_snapshot_retention_cap() {
         let mut app = App::new();
+        app.phase_diagnostics.error = None;
         for _ in 0..(MAX_PHASE_SNAPSHOTS + 5) {
             app.record_phase_snapshot();
         }

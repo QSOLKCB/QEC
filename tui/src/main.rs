@@ -24,11 +24,30 @@ fn main() -> io::Result<()> {
                 return Ok(());
             }
             [flag] if flag == "--help" || flag == "-h" => {
-                println!("QEC Rust TUI control surface\nUsage: qec-tui [--help | --version]\nRun without arguments in a terminal to open the TUI.");
+                println!("QEC Rust TUI control surface\nUsage: qec-tui [--help | --version | --check-engine]\nRun without arguments in a terminal to open the TUI.\nQEC_PYTHON: Python executable for the QEC environment\nQEC_TUI_DEMO=1: explicit sample display without a live engine");
+                return Ok(());
+            }
+            [flag] if flag == "--check-engine" => {
+                let app = App::new();
+                println!("ENGINE: {}", app.engine_status());
+                for (panel, error) in [
+                    ("Diagnostics", &app.diagnostics.error),
+                    ("History Window", &app.history.error),
+                    ("Invariants", &app.invariants.error),
+                    ("Phase Dynamics", &app.phase_diagnostics.error),
+                ] {
+                    match error {
+                        Some(error) => println!("{panel}: {error}"),
+                        None => println!("{panel}: {}", if app.demo_mode { "DEMO" } else { "OK" }),
+                    }
+                }
+                if app.engine_status() == "UNAVAILABLE" {
+                    std::process::exit(1);
+                }
                 return Ok(());
             }
             _ => {
-                eprintln!("Unsupported arguments. Usage: qec-tui [--help | --version]");
+                eprintln!("Unsupported arguments. Usage: qec-tui [--help | --version | --check-engine]");
                 std::process::exit(2);
             }
         }

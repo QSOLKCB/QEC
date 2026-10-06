@@ -1,4 +1,7 @@
-use std::process::Command;
+use std::ffi::OsString;
+use std::io::ErrorKind;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
 
 /// Stub dispatcher — returns mode name string for a given nav index.
 /// No engine calls. Display only.
@@ -19,329 +22,147 @@ pub fn dispatch_mode(index: usize) -> &'static str {
     }
 }
 
-/// Invoke the Python engine and return raw JSON diagnostics.
-///
-/// Calls `python -m qec.cli.diagnostics` first; if that module is unavailable,
-/// falls back to an inline placeholder that emits the expected JSON shape.
-pub fn fetch_engine_diagnostics() -> Result<String, String> {
-    // Try the real CLI entry point first
-    let output = Command::new("python")
-        .args(["-m", "qec.cli.diagnostics"])
-        .output();
-
-    match output {
-        Ok(o) if o.status.success() => {
-            let stdout = String::from_utf8_lossy(&o.stdout).to_string();
-            if stdout.trim().is_empty() {
-                return Err("Engine returned empty output".to_string());
-            }
-            Ok(stdout)
-        }
-        _ => {
-            // Fallback: inline placeholder
-            let fallback = Command::new("python")
-                .args([
-                    "-c",
-                    "import json; print(json.dumps({\"collapse_score\": 0.12, \"trend_state\": \"stable\", \"adaptive_damping\": 0.8, \"healing_mode\": \"hold\", \"history_behavior\": \"stable_window\"}))",
-                ])
-                .output()
-                .map_err(|e| format!("Failed to invoke Python: {e}"))?;
-
-            if !fallback.status.success() {
-                let stderr = String::from_utf8_lossy(&fallback.stderr);
-                return Err(format!("Python subprocess failed: {stderr}"));
-            }
-
-            let stdout = String::from_utf8_lossy(&fallback.stdout).to_string();
-            if stdout.trim().is_empty() {
-                return Err("Fallback engine returned empty output".to_string());
-            }
-            Ok(stdout)
-        }
-    }
+/// Demo fixtures are explicit and never stand in for a failed live request.
+pub fn demo_enabled() -> bool {
+    std::env::var("QEC_TUI_DEMO").as_deref() == Ok("1")
 }
 
-/// Invoke Python to fetch history timeline JSON.
-///
-/// Calls `python -m qec.cli.history`; falls back to inline placeholder.
-pub fn fetch_history_timeline() -> Result<String, String> {
-    let output = Command::new("python")
-        .args(["-m", "qec.cli.history"])
-        .output();
-
-    match output {
-        Ok(o) if o.status.success() => {
-            let stdout = String::from_utf8_lossy(&o.stdout).to_string();
-            if stdout.trim().is_empty() {
-                return Err("History returned empty output".to_string());
-            }
-            Ok(stdout)
-        }
-        _ => {
-            let fallback = Command::new("python")
-                .args([
-                    "-c",
-                    "import json; print(json.dumps({\"timeline\": [\"stable\", \"rising\", \"oscillatory\", \"locked\"]}))",
-                ])
-                .output()
-                .map_err(|e| format!("Failed to invoke Python: {e}"))?;
-
-            if !fallback.status.success() {
-                let stderr = String::from_utf8_lossy(&fallback.stderr);
-                return Err(format!("Python subprocess failed: {stderr}"));
-            }
-
-            let stdout = String::from_utf8_lossy(&fallback.stdout).to_string();
-            if stdout.trim().is_empty() {
-                return Err("Fallback history returned empty output".to_string());
-            }
-            Ok(stdout)
-        }
+fn python_candidates(explicit: Option<OsString>, venv: Option<OsString>) -> Vec<OsString> {
+    if let Some(python) = explicit {
+        // An explicit configuration is authoritative, even when invalid.
+        return vec![python];
     }
+    if let Some(venv) = venv.filter(|value| !value.is_empty()) {
+        let relative = if cfg!(windows) { "Scripts/python.exe" } else { "bin/python" };
+        return vec![PathBuf::from(venv).join(relative).into_os_string()];
+    }
+    vec![OsString::from("python3"), OsString::from("python")]
 }
 
-/// Invoke Python to fetch invariant status JSON.
-///
-/// Calls `python -m qec.cli.invariants`; falls back to inline placeholder.
-pub fn fetch_invariant_status() -> Result<String, String> {
-    let output = Command::new("python")
-        .args(["-m", "qec.cli.invariants"])
-        .output();
-
-    match output {
-        Ok(o) if o.status.success() => {
-            let stdout = String::from_utf8_lossy(&o.stdout).to_string();
-            if stdout.trim().is_empty() {
-                return Err("Invariants returned empty output".to_string());
+fn invoke_python(module: &str, candidates: &[OsString]) -> Result<String, String> {
+    for python in candidates {
+        let result = Command::new(python)
+            .args(["-m", module])
+            .stdin(Stdio::null())
+            .output();
+        match result {
+            Err(error) if error.kind() == ErrorKind::NotFound && candidates.len() > 1 => {
+                continue;
             }
-            Ok(stdout)
-        }
-        _ => {
-            let fallback = Command::new("python")
-                .args([
-                    "-c",
-                    "import json; print(json.dumps({\"determinism\": \"PASS\", \"bounds\": \"PASS\", \"stability\": \"PASS\", \"law_engine\": \"PASS\"}))",
-                ])
-                .output()
-                .map_err(|e| format!("Failed to invoke Python: {e}"))?;
-
-            if !fallback.status.success() {
-                let stderr = String::from_utf8_lossy(&fallback.stderr);
-                return Err(format!("Python subprocess failed: {stderr}"));
-            }
-
-            let stdout = String::from_utf8_lossy(&fallback.stdout).to_string();
-            if stdout.trim().is_empty() {
-                return Err("Fallback invariants returned empty output".to_string());
-            }
-            Ok(stdout)
-        }
-    }
-}
-
-/// Invoke Python to fetch phase diagnostics JSON.
-///
-/// Calls `python -m qec.cli.phase_diagnostics`; falls back to inline placeholder.
-pub fn fetch_phase_diagnostics() -> Result<String, String> {
-    let output = Command::new("python")
-        .args(["-m", "qec.cli.phase_diagnostics"])
-        .output();
-
-    match output {
-        Ok(o) if o.status.success() => {
-            let stdout = String::from_utf8_lossy(&o.stdout).to_string();
-            if stdout.trim().is_empty() {
-                return Err("Phase diagnostics returned empty output".to_string());
-            }
-            Ok(stdout)
-        }
-        primary => {
-            let primary_context = match primary {
-                Ok(o) => {
-                    let stderr = String::from_utf8_lossy(&o.stderr).trim().to_string();
-                    if stderr.is_empty() {
-                        format!("exit status {}", o.status)
-                    } else {
-                        format!("exit status {} stderr: {}", o.status, stderr)
-                    }
-                }
-                Err(e) => format!("invoke error: {e}"),
-            };
-
-            let fallback = Command::new("python")
-                .args([
-                    "-c",
-                    "import json; print(json.dumps({\"attractor_state\": \"fixed_point\", \"attractor_cycle_length\": 1, \"phase_transition_index\": 0.0, \"attractor_entry_cycle\": 0, \"transition_sharpness_score\": 1.0, \"attractor_confidence_score\": 1.0, \"detected_cycle_period\": 1, \"cycle_spectrum_class\": \"mono\"}))",
-                ])
-                .output()
-                .map_err(|e| {
-                    format!(
-                        "Phase diagnostics primary failed: {primary_context}; fallback invoke failed: {e}"
-                    )
-                })?;
-
-            if !fallback.status.success() {
-                let stderr = String::from_utf8_lossy(&fallback.stderr);
-                eprintln!("phase diagnostics primary failure: {primary_context}");
+            Err(error) => {
                 return Err(format!(
-                    "Phase diagnostics primary failed: {primary_context}; fallback failed: {stderr}"
+                    "Cannot invoke Python {:?}: {error}. Set QEC_PYTHON to your QEC virtual environment's Python executable.",
+                    python
                 ));
             }
-
-            let stdout = String::from_utf8_lossy(&fallback.stdout).to_string();
-            if stdout.trim().is_empty() {
-                return Err("Fallback phase diagnostics returned empty output".to_string());
+            Ok(output) if !output.status.success() => {
+                return Err(format!(
+                    "Python {:?} -m {module} failed ({}): {}. Activate the QEC environment and check that this CLI adapter is installed.",
+                    python, output.status, String::from_utf8_lossy(&output.stderr).trim()
+                ));
             }
-            Ok(stdout)
+            Ok(output) => {
+                let stdout = String::from_utf8(output.stdout)
+                    .map_err(|error| format!("{module} returned invalid UTF-8: {error}"))?;
+                if stdout.trim().is_empty() {
+                    return Err(format!("{module} returned empty output"));
+                }
+                return Ok(stdout.trim().to_string());
+            }
         }
+    }
+    Err("No Python interpreter found (tried python3, python). Install Python 3 or set QEC_PYTHON to your QEC virtual environment's Python executable.".to_string())
+}
+
+fn run_module(module: &str) -> Result<String, String> {
+    invoke_python(module, &python_candidates(std::env::var_os("QEC_PYTHON"), std::env::var_os("VIRTUAL_ENV")))
+}
+
+fn panel_data(module: &str, fixture: &str) -> Result<String, String> {
+    if demo_enabled() {
+        Ok(fixture.to_string())
+    } else {
+        run_module(module)
     }
 }
 
-/// Execute a law engine action by dispatching to Python CLI modules.
-///
-/// Supported actions: "diagnostics", "invariants", "law", "phase_diagnostics", "refresh".
-/// Falls back to `python -c "print('ACTION OK')"` if the CLI module is unavailable.
+pub fn fetch_engine_diagnostics() -> Result<String, String> {
+    panel_data("qec.cli.diagnostics", r#"{"collapse_score":0.12,"trend_state":"stable","adaptive_damping":0.8,"healing_mode":"hold","history_behavior":"stable_window"}"#)
+}
+
+pub fn fetch_history_timeline() -> Result<String, String> {
+    panel_data("qec.cli.history", r#"{"timeline":["stable","rising","oscillatory","locked"]}"#)
+}
+
+pub fn fetch_invariant_status() -> Result<String, String> {
+    panel_data("qec.cli.invariants", r#"{"determinism":"PASS","bounds":"PASS","stability":"PASS","law_engine":"PASS"}"#)
+}
+
+pub fn fetch_phase_diagnostics() -> Result<String, String> {
+    panel_data("qec.cli.phase_diagnostics", r#"{"attractor_state":"fixed_point","attractor_cycle_length":1,"phase_transition_index":0.0,"attractor_entry_cycle":0,"transition_sharpness_score":1.0,"attractor_confidence_score":1.0,"detected_cycle_period":1,"cycle_spectrum_class":"mono"}"#)
+}
+
+fn collect_refresh(mut run: impl FnMut(&str) -> Result<String, String>) -> Result<String, String> {
+    let mut combined = String::new();
+    let mut failed = false;
+    for action in ["diagnostics", "invariants", "law", "phase_diagnostics"] {
+        match run(action) {
+            Ok(output) => combined.push_str(&format!("[{action}] {}\n", output.trim())),
+            Err(error) => {
+                failed = true;
+                combined.push_str(&format!("[{action}] ERROR: {error}\n"));
+            }
+        }
+    }
+    if failed { Err(combined) } else { Ok(combined) }
+}
+
 pub fn execute_action(action: &str) -> Result<String, String> {
     let module = match action {
         "diagnostics" => "qec.cli.diagnostics",
         "invariants" => "qec.cli.invariants",
         "law" => "qec.cli.law_engine",
         "phase_diagnostics" => "qec.cli.phase_diagnostics",
-        "refresh" => {
-            // Run all three, collect output
-            let mut combined = String::new();
-            for sub in &["diagnostics", "invariants", "law", "phase_diagnostics"] {
-                match execute_action(sub) {
-                    Ok(out) => {
-                        combined.push_str(&format!("[{sub}] {}\n", out.trim()));
-                    }
-                    Err(e) => {
-                        combined.push_str(&format!("[{sub}] ERROR: {e}\n"));
-                    }
-                }
-            }
-            return Ok(combined);
-        }
+        "refresh" => return collect_refresh(execute_action),
         other => return Err(format!("Unknown action: {other}")),
     };
-
-    let output = Command::new("python").args(["-m", module]).output();
-
-    match output {
-        Ok(o) if o.status.success() => {
-            let stdout = String::from_utf8_lossy(&o.stdout).to_string();
-            if stdout.trim().is_empty() {
-                return Err(format!("{module} returned empty output"));
-            }
-            Ok(stdout.trim().to_string())
-        }
-        _ => {
-            // Fallback: module unavailable
-            let fallback = Command::new("python")
-                .args(["-c", "print('ACTION OK')"])
-                .output()
-                .map_err(|e| format!("Failed to invoke Python: {e}"))?;
-
-            if !fallback.status.success() {
-                let stderr = String::from_utf8_lossy(&fallback.stderr);
-                return Err(format!("Python fallback failed: {stderr}"));
-            }
-
-            Ok(String::from_utf8_lossy(&fallback.stdout).trim().to_string())
-        }
+    if demo_enabled() {
+        return Ok(format!("DEMO: simulated {action}; no Python engine was invoked"));
     }
+    run_module(module)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, OnceLock};
 
-    fn test_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
+    #[test]
+    fn configured_python_is_authoritative() {
+        assert_eq!(python_candidates(Some("/missing/custom python".into()), Some("/venv".into())), vec![OsString::from("/missing/custom python")]);
     }
 
     #[test]
-    fn test_fetch_engine_diagnostics_returns_json() {
-        let result = fetch_engine_diagnostics();
-        assert!(
-            result.is_ok(),
-            "fetch_engine_diagnostics failed: {:?}",
-            result.err()
-        );
-        let json: serde_json::Value =
-            serde_json::from_str(&result.unwrap()).expect("output is not valid JSON");
-        assert!(json.get("collapse_score").is_some());
-        assert!(json.get("trend_state").is_some());
+    fn active_virtual_environment_is_preferred() {
+        let candidates = python_candidates(None, Some("/my venv".into()));
+        let relative = if cfg!(windows) { "Scripts/python.exe" } else { "bin/python" };
+        assert_eq!(candidates, vec![PathBuf::from("/my venv").join(relative).into_os_string()]);
+        assert_eq!(python_candidates(None, None), vec![OsString::from("python3"), OsString::from("python")]);
     }
 
     #[test]
-    fn test_fetch_history_timeline_returns_json() {
-        let result = fetch_history_timeline();
-        assert!(
-            result.is_ok(),
-            "fetch_history_timeline failed: {:?}",
-            result.err()
-        );
-        let json: serde_json::Value =
-            serde_json::from_str(&result.unwrap()).expect("output is not valid JSON");
-        assert!(json.get("timeline").is_some());
+    fn missing_interpreter_is_an_error() {
+        let error = invoke_python("qec.cli.diagnostics", &["/qec-missing-interpreter".into()]).unwrap_err();
+        assert!(error.contains("QEC_PYTHON"));
+        assert!(error.contains("qec-missing-interpreter"));
     }
 
     #[test]
-    fn test_execute_action_diagnostics() {
-        let result = execute_action("diagnostics");
-        assert!(
-            result.is_ok(),
-            "execute_action(diagnostics) failed: {:?}",
-            result.err()
-        );
-    }
-
-    #[test]
-    fn test_fetch_invariant_status_returns_json() {
-        let result = fetch_invariant_status();
-        assert!(
-            result.is_ok(),
-            "fetch_invariant_status failed: {:?}",
-            result.err()
-        );
-        let json: serde_json::Value =
-            serde_json::from_str(&result.unwrap()).expect("output is not valid JSON");
-        assert!(json.get("determinism").is_some());
-    }
-
-    #[test]
-    fn test_fetch_phase_diagnostics_returns_json() {
-        let result = fetch_phase_diagnostics();
-        assert!(
-            result.is_ok(),
-            "fetch_phase_diagnostics failed: {:?}",
-            result.err()
-        );
-        let json: serde_json::Value =
-            serde_json::from_str(&result.unwrap()).expect("output is not valid JSON");
-        assert!(json.get("attractor_state").is_some());
-        assert!(json.get("transition_sharpness_score").is_some());
-        assert!(json.get("cycle_spectrum_class").is_some());
-    }
-
-    #[test]
-    fn test_fetch_phase_diagnostics_preserves_primary_error_context() {
-        let _guard = test_lock().lock().unwrap();
-        let original_path = std::env::var("PATH").ok();
-        std::env::set_var("PATH", "");
-
-        let result = fetch_phase_diagnostics();
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.contains("primary failed"));
-
-        if let Some(path) = original_path {
-            std::env::set_var("PATH", path);
-        } else {
-            std::env::remove_var("PATH");
-        }
+    fn refresh_propagates_partial_failure_and_retains_all_outputs() {
+        let error = collect_refresh(|action| {
+            if action == "invariants" { Err("missing adapter".into()) } else { Ok("real result".into()) }
+        }).unwrap_err();
+        assert!(error.contains("[invariants] ERROR: missing adapter"));
+        assert!(error.contains("[phase_diagnostics] real result"));
+        assert!(collect_refresh(|_| Ok("real result".into())).is_ok());
     }
 }

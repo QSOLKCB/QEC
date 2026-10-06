@@ -110,4 +110,4 @@ case ":${PATH}:" in
     *":${INSTALL_DIR}:"*) ;;
     *) printf 'Add %s to PATH to run qec-tui by name.\n' "${INSTALL_DIR}" ;;
 esac
-printf 'For Python engine commands, activate your QEC virtual environment (see INSTALL.md).\n'
+printf 'For Python adapter setup and current integration limitations, see USAGE.md.\n'

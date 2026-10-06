@@ -68,8 +68,11 @@ If the latest release has no matching uploaded TUI binary, the installer builds
 from that release's source with its committed `Cargo.lock`. On Ubuntu, prepare
 the source-build tools with `sudo apt install curl python3 cargo build-essential`.
 See [`USAGE.md`](USAGE.md) for custom install paths and launch instructions.
-The installer installs the Rust control surface only; activate the QEC Python
-virtual environment above when using its engine commands.
+The installer installs the Rust control surface only. Its Python-backed panels
+also need CLI adapters that are currently missing from this repository; see
+[`USAGE.md`](USAGE.md) for interpreter selection, `--check-engine`, and the
+explicit demo mode. Activating a virtual environment alone does not supply
+those unfinished adapters.
 
 ## Troubleshooting
 

@@ -4,7 +4,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Gauge, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Wrap},
     Frame,
 };
 
@@ -132,7 +132,7 @@ fn draw_workspace(f: &mut Frame, app: &App, area: Rect) {
         .split(area);
 
     let content = workspace_content(app);
-    let paragraph = Paragraph::new(content).block(
+    let paragraph = Paragraph::new(content).wrap(Wrap { trim: false }).block(
         Block::default()
             .borders(Borders::ALL)
             .title(format!(" {} ", app.mode)),
@@ -180,6 +180,27 @@ fn draw_command_history(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn workspace_content(app: &App) -> Vec<Line<'static>> {
+    let static_panel = matches!(app.mode,
+        "Control Flow" | "Memory" | "Adaptive" | "Regime Jump" | "Self-Healing" | "Law Engine"
+    );
+    if static_panel && !app.demo_mode {
+        return vec![
+            Line::from(""),
+            Line::from("  This panel has no live engine adapter."),
+            Line::from("  Sample layout: QEC_TUI_DEMO=1 qec-tui"),
+        ];
+    }
+    let mut lines = raw_workspace_content(app);
+    if app.demo_mode {
+        lines.insert(0, Line::from(Span::styled(
+            "  DEMO / SAMPLE DATA — NO LIVE ENGINE",
+            Style::default().fg(Color::Yellow),
+        )));
+    }
+    lines
+}
+
+fn raw_workspace_content(app: &App) -> Vec<Line<'static>> {
     let mode = app.mode;
     match mode {
         "Diagnostics" => return diagnostics_content(app),
@@ -228,10 +249,10 @@ fn workspace_content(app: &App) -> Vec<Line<'static>> {
 }
 
 fn status_color(value: &str) -> Color {
-    if value == "FAIL" {
-        Color::Red
-    } else {
-        Color::Green
+    match value {
+        "FAIL" => Color::Red,
+        "PASS" => Color::Green,
+        _ => Color::Yellow,
     }
 }
 
@@ -253,8 +274,12 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
     let lines = vec![
         Line::from(""),
         Line::from(Span::styled(
-            "  ENGINE:       READY",
-            Style::default().fg(Color::Green),
+            format!("  ENGINE:       {}", app.engine_status()),
+            Style::default().fg(match app.engine_status() {
+                "READY" => Color::Green,
+                "DEMO" => Color::Yellow,
+                _ => Color::Red,
+            }),
         )),
         Line::from(Span::styled(
             format!("  DETERMINISM:  {}", inv.determinism),
@@ -292,15 +317,21 @@ fn draw_health_and_view(f: &mut Frame, app: &App, area: Rect) {
         .constraints([Constraint::Length(4), Constraint::Length(4)])
         .split(area);
 
-    let health_color = match app.health_status {
+    let health_color = if app.engine_status() == "UNAVAILABLE" {
+        Color::Red
+    } else { match app.health_status {
         HealthStatus::Healthy => Color::Green,
         HealthStatus::Degraded => Color::Yellow,
         HealthStatus::Critical => Color::Red,
-    };
+    }};
     let health_panel = Paragraph::new(vec![
         Line::from(""),
         Line::from(Span::styled(
-            format!("  {}", app.health_status),
+            format!("  {}", if app.engine_status() == "UNAVAILABLE" {
+                "ENGINE UNAVAILABLE".to_string()
+            } else if app.demo_mode {
+                "DEMO".to_string()
+            } else { app.health_status.to_string() }),
             Style::default()
                 .fg(health_color)
                 .add_modifier(Modifier::BOLD),
@@ -423,6 +454,14 @@ fn draw_ratio_gauge(f: &mut Frame, area: Rect, title: &str, percent: u16, color:
 
 fn draw_phase_health(f: &mut Frame, app: &App, area: Rect) {
     let phase = &app.phase_diagnostics;
+    if phase.error.is_some() {
+        f.render_widget(
+            Paragraph::new("  Phase data unavailable")
+                .block(Block::default().borders(Borders::ALL).title(" Phase Health ")),
+            area,
+        );
+        return;
+    }
     let snapshots = recent_phase_snapshots(app, 12);
     let confidence_values: Vec<f64> = snapshots
         .iter()
@@ -1079,12 +1118,38 @@ fn replay_timeline_strip(frame_count: usize) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::{status_color, workspace_content};
+    use ratatui::style::Color;
     use super::{
         attractor_signature, bounded_percent, confidence_velocity_strip, has_recent_inflection,
         latest_delta_marker, latest_u64_delta_marker, period_timeline, phase_dynamics_content,
         replay_timeline_strip, signature_timeline, sparkline, INSUFFICIENT_HISTORY_PLACEHOLDER,
     };
     use crate::app::{App, PhaseDiagnosticsData};
+
+    #[test]
+    fn test_unconnected_static_panels_do_not_claim_live_values() {
+        let mut app = App::new();
+        app.demo_mode = false;
+        for mode in ["Control Flow", "Memory", "Adaptive", "Regime Jump", "Self-Healing", "Law Engine"] {
+            app.mode = mode;
+            let text = workspace_content(&app).iter().map(ToString::to_string).collect::<Vec<_>>().join("\n");
+            assert!(text.contains("no live engine adapter"));
+            assert!(!text.contains("enforcement:      active"));
+        }
+        app.demo_mode = true;
+        for mode in app.nav_items {
+            app.mode = mode;
+            assert!(workspace_content(&app)[0].to_string().contains("DEMO / SAMPLE DATA"));
+        }
+    }
+
+    #[test]
+    fn test_unknown_invariant_status_is_not_green() {
+        assert_eq!(status_color("PASS"), Color::Green);
+        assert_eq!(status_color("FAIL"), Color::Red);
+        assert_eq!(status_color("—"), Color::Yellow);
+    }
 
     #[test]
     fn test_bounded_percent_non_finite_guard() {

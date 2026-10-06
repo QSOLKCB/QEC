@@ -35,7 +35,40 @@ qec-tui
 
 The installer does not install the Python engine or its dependencies. Follow
 [`INSTALL.md`](INSTALL.md) and activate that virtual environment before launching
-the TUI; its Python dispatch commands use `python` from your `PATH`.
+the TUI. Python selection is `QEC_PYTHON` (an explicit executable path), then
+`VIRTUAL_ENV`'s interpreter, then `python3` or `python` on `PATH`. An explicitly
+configured interpreter or active environment is authoritative: errors do not
+silently switch to a different installation.
+
+```bash
+QEC_PYTHON="/path/to/QEC/.venv/bin/python" qec-tui --check-engine
+```
+
+`--check-engine` reports the four Python panel results without opening a terminal
+UI and exits nonzero if any adapter fails or returns invalid panel data.
+
+### Live adapter boundary
+
+Diagnostics, History Window, Invariants, and Phase Dynamics request
+`qec.cli.diagnostics`, `qec.cli.history`, `qec.cli.invariants`, and
+`qec.cli.phase_diagnostics`. The Law action requests `qec.cli.law_engine`.
+These five modules are **not currently shipped by this repository**. Activating
+a virtual environment fixes interpreter discovery; it does not supply missing
+CLI adapters. Their live engine integration remains unfinished.
+
+Backend failures are shown with the Python error, and the status reports
+`UNAVAILABLE`. Refresh propagates any failed action. Control Flow, Memory,
+Adaptive, Regime Jump, Self-Healing, and the Law Engine display also have no live
+adapter and are identified as unconnected.
+
+For an explicit sample display with no Python dependency:
+
+```bash
+QEC_TUI_DEMO=1 qec-tui
+```
+
+Sample data and simulated actions are labelled **DEMO**, including exported
+session logs. Demo PASS values are layout examples, not invariant verification.
 
 To build the current checkout instead:
 
@@ -46,7 +79,8 @@ cargo build --locked --release
 ./target/release/qec-tui
 ```
 
-Current source supports noninteractive `--help` and `--version`. Older releases,
+Current source supports noninteractive `--help`, `--version`, and
+`--check-engine`. Older releases,
 including v173.0, open the TUI regardless of arguments; the installer therefore
 does not launch the binary as an installation check. Current source derives
 `--version` from QEC's `pyproject.toml` at build time, so updating the QEC release

@@ -7,12 +7,14 @@ on:
       - 'tui/**'
       - 'pyproject.toml'
       - 'tests/test_tui_install_script.py'
+      - 'tests/test_tui_python_dispatch.py'
       - '.github/workflows/tui-install.yml'
   pull_request:
     paths:
       - 'tui/**'
       - 'pyproject.toml'
       - 'tests/test_tui_install_script.py'
+      - 'tests/test_tui_python_dispatch.py'
       - '.github/workflows/tui-install.yml'
   workflow_dispatch:
 
@@ -30,6 +32,10 @@ jobs:
           python3 -m unittest discover -s tests -p test_tui_install_script.py -v
       - name: Build the real TUI with the committed lockfile
         run: cargo build --locked --release --manifest-path tui/Cargo.toml
+      - name: Test TUI state and Python dispatch
+        run: |
+          cargo test --locked --manifest-path tui/Cargo.toml -- --test-threads=1
+          QEC_TUI_TEST_BIN="$PWD/tui/target/release/qec-tui" python3 -m unittest discover -s tests -p test_tui_python_dispatch.py -v
       - name: Verify real CLI probes without a terminal
         run: |
           python3 - <<'PY'

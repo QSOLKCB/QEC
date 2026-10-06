@@ -15,6 +15,25 @@ use ratatui::prelude::{CrosstermBackend, Terminal};
 use app::{App, OperatorView};
 
 fn main() -> io::Result<()> {
+    // Handle CLI probes before touching terminal state (including curl | sh).
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if !args.is_empty() {
+        match args.as_slice() {
+            [flag] if flag == "--version" || flag == "-V" => {
+                println!("qec-tui {}", env!("QEC_RELEASE_VERSION"));
+                return Ok(());
+            }
+            [flag] if flag == "--help" || flag == "-h" => {
+                println!("QEC Rust TUI control surface\nUsage: qec-tui [--help | --version]\nRun without arguments in a terminal to open the TUI.");
+                return Ok(());
+            }
+            _ => {
+                eprintln!("Unsupported arguments. Usage: qec-tui [--help | --version]");
+                std::process::exit(2);
+            }
+        }
+    }
+
     enable_raw_mode()?;
     io::stdout().execute(EnterAlternateScreen)?;
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;

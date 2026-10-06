@@ -1,0 +1,78 @@
+name: TUI installer and CLI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tui/**'
+      - 'pyproject.toml'
+      - 'tests/test_tui_install_script.py'
+      - '.github/workflows/tui-install.yml'
+  pull_request:
+    paths:
+      - 'tui/**'
+      - 'pyproject.toml'
+      - 'tests/test_tui_install_script.py'
+      - '.github/workflows/tui-install.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer-and-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check POSIX installer syntax and execute offline regressions
+        run: |
+          sh -n tui/install.sh
+          python3 -m unittest discover -s tests -p test_tui_install_script.py -v
+      - name: Build the real TUI with the committed lockfile
+        run: cargo build --locked --release --manifest-path tui/Cargo.toml
+      - name: Verify real CLI probes without a terminal
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          import tomllib
+          from pathlib import Path
+
+          binary = str(Path('tui/target/release/qec-tui').resolve())
+          version = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          for flag, expected in [('--version', f'qec-tui {version}'), ('--help', 'Usage: qec-tui')]:
+              result = subprocess.run([binary, flag], stdin=subprocess.DEVNULL,
+                                      capture_output=True, text=True, timeout=10)
+              assert result.returncode == 0, (flag, result.stderr)
+              assert expected in result.stdout, (flag, result.stdout)
+              assert '\x1b' not in result.stdout, 'CLI probe entered terminal mode'
+          result = subprocess.run([binary, '--unknown'], stdin=subprocess.DEVNULL,
+                                  capture_output=True, text=True, timeout=10)
+          assert result.returncode == 2, result
+          PY
+      - name: Verify a QEC version bump updates the TUI automatically
+        run: |
+          python3 - <<'PY'
+          import re
+          import subprocess
+          import tomllib
+          from pathlib import Path
+
+          path = Path('pyproject.toml')
+          original = path.read_text()
+          version = tomllib.loads(original)['project']['version']
+          parts = version.split('.')
+          parts[-1] = str(int(parts[-1]) + 1)
+          updated = '.'.join(parts)
+          changed, count = re.subn(r'^version = "' + re.escape(version) + r'"$',
+                                   f'version = "{updated}"', original, flags=re.MULTILINE)
+          assert count == 1
+          try:
+              path.write_text(changed)
+              subprocess.run(['cargo', 'build', '--locked', '--release', '--manifest-path',
+                              'tui/Cargo.toml'], check=True)
+              result = subprocess.run(['tui/target/release/qec-tui', '--version'],
+                                      capture_output=True, text=True, timeout=10, check=True)
+              assert result.stdout.strip() == f'qec-tui {updated}', result.stdout
+          finally:
+              path.write_text(original)
+          PY

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from qec.sonify.canonical import canonical_json
+from qec.command_specs import QUQUART_VALIDATION
 
 from .claims import derive_evidence_facts, validate_report_claims
 
@@ -18,17 +19,7 @@ def _csv_rows(path: Path) -> list[dict[str, str]]:
 
 
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(
-        description=(
-            "Validate a machine-readable report-claims declaration against "
-            "generated ququart FER evidence."
-        )
-    )
-    result.add_argument("--claims", type=Path, required=True)
-    result.add_argument("--evidence", type=Path, required=True)
-    result.add_argument("--test-receipt", type=Path)
-    result.add_argument("--output", type=Path)
-    return result
+    return QUQUART_VALIDATION.parser()
 
 
 def main() -> None:

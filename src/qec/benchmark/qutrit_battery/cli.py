@@ -3,34 +3,15 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from qec.sonify.canonical import canonical_json
+from qec.command_specs import QUTRIT_BATTERY
 
 from .report import build_report
 
 
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(
-        description="Build deterministic qutrit QEC benchmark artifacts.",
-    )
-    result.add_argument(
-        "--output",
-        type=Path,
-        default=Path("benchmarks/qutrit_decoder_v1"),
-    )
-    result.add_argument(
-        "--v3-baseline",
-        type=Path,
-        default=Path("qec_data_prepared.csv"),
-    )
-    result.add_argument(
-        "--stress-limit",
-        type=int,
-        default=2048,
-        help="Maximum deterministic corpus patterns per code and weight.",
-    )
-    return result
+    return QUTRIT_BATTERY.parser()
 
 
 def main() -> None:

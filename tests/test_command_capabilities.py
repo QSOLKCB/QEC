@@ -82,3 +82,32 @@ def test_existing_backend_bounds_are_exported_without_scientific_reinterpretatio
             if "minimum" in field} == {"trials": 1, "harmonic_trials": 1}
     assert QUTRIT_BATTERY.descriptor()["fields"][-1]["minimum"] == 1
     assert QUQUART_VALIDATION.descriptor()["output"]["success_field"] == "passed"
+
+
+@pytest.mark.parametrize('module,flag', [
+    ('qec.benchmark.ququart_battery.cli', '--trials=0'),
+    ('qec.benchmark.ququart_battery.cli', '--harmonic-trials=0'),
+    ('qec.benchmark.qutrit_battery.cli', '--stress-limit=0'),
+])
+def test_declared_minimum_fails_before_scientific_effects(module, flag, tmp_path):
+    output = tmp_path / 'must-not-exist'
+    result = subprocess.run([sys.executable, '-m', module, '--output=' + str(output), flag],
+                            capture_output=True, text=True)
+    assert result.returncode == 2
+    assert 'must be at least 1' in result.stderr and 'Traceback' not in result.stderr
+    assert not output.exists()
+
+
+def test_shared_float_bounds_and_defaults():
+    option = ScalarOption('ratio', 'number', '0.5', minimum=0, maximum=1)
+    parser = argparse.ArgumentParser()
+    option.add_to(parser)
+    assert parser.parse_args([]).ratio == option.descriptor()['default'] == 0.5
+    assert parser.parse_args(['--ratio=1']).ratio == 1.0
+    for value in ('-0.1', '1.1', 'nan', 'inf'):
+        with pytest.raises(SystemExit) as error:
+            parser.parse_args(['--ratio=' + value])
+        assert error.value.code == 2
+    for default in ('2', 2):
+        with pytest.raises(argparse.ArgumentTypeError):
+            replace(option, default=default).descriptor()

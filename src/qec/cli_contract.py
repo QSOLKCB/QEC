@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import math
 from pathlib import Path
 
 
@@ -37,10 +38,35 @@ class ScalarOption:
             if self.kind != "string" or self.path_role not in ("read-file", "write-file", "read-directory", "write-directory"):
                 raise ValueError(f"Unsupported path contract: {self.name}")
             return Path
-        return converters[self.kind]
+        converter = converters[self.kind]
+        if self.minimum is None and self.maximum is None:
+            return converter
+        if (self.kind not in ("integer", "number") or
+                any(type(bound) not in (int, float) or not math.isfinite(bound)
+                    for bound in (self.minimum, self.maximum) if bound is not None) or
+                (self.minimum is not None and self.maximum is not None and self.minimum > self.maximum)):
+            raise ValueError(f"Invalid numeric bounds: {self.name}")
+
+        def bounded(text):
+            return self.check_bounds(converter(text))
+
+        return bounded
+
+    def check_bounds(self, value):
+        if self.minimum is None and self.maximum is None:
+            return value
+        if (isinstance(value, float) and not math.isfinite(value)):
+            raise argparse.ArgumentTypeError(f"{self.name} must be finite")
+        if self.minimum is not None and value < self.minimum:
+            raise argparse.ArgumentTypeError(f"{self.name} must be at least {self.minimum}")
+        if self.maximum is not None and value > self.maximum:
+            raise argparse.ArgumentTypeError(f"{self.name} must be at most {self.maximum}")
+        return value
 
     def add_to(self, parser: argparse.ArgumentParser) -> None:
         converter = self.converter
+        if self.default is not None and self.default != argparse.SUPPRESS and not isinstance(self.default, str):
+            self.check_bounds(self.default)
         choices = None if self.choices is None else tuple(
             Path(value) if self.path_role else value for value in self.choices)
         parser.add_argument(self.flag, type=converter, default=self.default,
@@ -53,6 +79,7 @@ class ScalarOption:
                   "help": self.help}
         if self.default is not None and self.default != argparse.SUPPRESS:
             default = converter(self.default) if isinstance(self.default, str) else self.default
+            self.check_bounds(default)
             result["default"] = str(default) if isinstance(default, Path) else default
         if self.choices is not None:
             result["choices"] = [str(value) if isinstance(value, Path) else value for value in self.choices]

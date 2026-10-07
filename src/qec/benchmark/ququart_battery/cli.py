@@ -3,46 +3,15 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from qec.sonify.canonical import canonical_json
+from qec.command_specs import QUQUART_BATTERY
 
-from .oracle import DEFAULT_ERROR_RATES
 from .report import build_report
 
 
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(
-        description=(
-            "Build exact channel FER oracles, corrected Monte Carlo evidence, "
-            "harmonic receiver telemetry, replication receipts, and validated "
-            "report claims."
-        )
-    )
-    result.add_argument(
-        "--output",
-        type=Path,
-        default=Path("benchmarks/ququart_fer_v170_1_1"),
-    )
-    result.add_argument(
-        "--trials",
-        type=int,
-        default=5000,
-        help="Monte Carlo trials per physical-channel/error-rate cell.",
-    )
-    result.add_argument(
-        "--harmonic-trials",
-        type=int,
-        default=2000,
-        help="Trials per harmonic physical-rate/noise-sigma cell.",
-    )
-    result.add_argument("--seed", type=int, default=1701001)
-    result.add_argument(
-        "--error-rates",
-        default=",".join(DEFAULT_ERROR_RATES),
-        help="Comma-separated independent per-site physical error rates.",
-    )
-    return result
+    return QUQUART_BATTERY.parser()
 
 
 def main() -> None:

@@ -5,11 +5,12 @@ from __future__ import annotations
 import hashlib
 from decimal import Decimal
 from math import comb
+from qec.command_specs import QUTRIT_STRESS_LIMIT
 
 from .curves import decimal_text
 from .prime import PrimeStabilizerModel, error_pattern_count
 
-CORPUS_LIMIT_PER_WEIGHT = 2048
+CORPUS_LIMIT_PER_WEIGHT = QUTRIT_STRESS_LIMIT
 SELECTION_POLICY = "exact_or_evenly_spaced_ordinal_v1"
 
 

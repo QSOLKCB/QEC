@@ -1,0 +1,37 @@
+name: Public command capabilities
+on:
+  pull_request:
+    paths:
+      - 'pyproject.toml'
+      - 'src/qec/capabilities.py'
+      - 'src/qec/cli_contract.py'
+      - 'src/qec/command_specs.py'
+      - 'src/qec/benchmark/ququart_battery/**'
+      - 'src/qec/benchmark/qutrit_battery/**'
+      - 'tests/test_command_capabilities.py'
+      - '.github/workflows/command-capabilities.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'pyproject.toml'
+      - 'src/qec/capabilities.py'
+      - 'src/qec/cli_contract.py'
+      - 'src/qec/command_specs.py'
+      - 'src/qec/benchmark/ququart_battery/**'
+      - 'src/qec/benchmark/qutrit_battery/**'
+      - 'tests/test_command_capabilities.py'
+      - '.github/workflows/command-capabilities.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/test_command_capabilities.py tests/test_ququart_battery_report.py tests/test_qutrit_benchmark_report.py tests/test_ququart_report_claims.py
+      - run: python -m qec.capabilities > "$RUNNER_TEMP/qec-capabilities.json"

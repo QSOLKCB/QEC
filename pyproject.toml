@@ -46,6 +46,7 @@ external = [
 testpaths = ["tests"]
 
 [project.scripts]
+qec-capabilities = "qec.capabilities:main"
 qec-exp = "qec.experiments.qec_exp_cli:main"
 qec-qutrit = "qec.decoder.qutrit.demo:main"
 qec-ququart = "qec.decoder.ququart.demo:main"

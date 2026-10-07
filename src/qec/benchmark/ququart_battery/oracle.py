@@ -16,19 +16,9 @@ from typing import Iterable
 from qec.decoder.ququart.codes import packed_five_ququart_code
 from qec.decoder.ququart.gf2 import Vector, add, in_row_span
 from qec.decoder.ququart.packed import symplectic
+from qec.command_specs import QUQUART_ERROR_RATES
 
-DEFAULT_ERROR_RATES = (
-    "0.00001",
-    "0.00003",
-    "0.0001",
-    "0.0003",
-    "0.001",
-    "0.003",
-    "0.01",
-    "0.03",
-    "0.1",
-    "0.2",
-)
+DEFAULT_ERROR_RATES = QUQUART_ERROR_RATES
 
 _LOCAL_BITS = {
     "I": (0, 0),

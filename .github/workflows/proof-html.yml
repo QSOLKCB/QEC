@@ -1,14 +1,18 @@
+# SPDX-License-Identifier: MPL-2.0
 name: Proof HTML
 on:
   push:
+  pull_request:
   workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: anishathalye/proof-html@v1.1.0
+      - uses: actions/setup-python@v5
         with:
-          directory: ./
+          python-version: '3.12'
+      - name: Check repository HTML local links and fragments
+        run: python scripts/check_html_links.py

@@ -426,7 +426,7 @@ else:
 
 @pytest.mark.skipif(os.name != "posix", reason="portable symlink creation is not available to every Windows user")
 @pytest.mark.parametrize("kind", ["symlink_file", "symlink_directory", "socket"])
-def test_unlisted_nonregular_inventory_entries_are_rejected(tmp_path, export_module, kind):
+def test_unlisted_nonregular_inventory_entries_are_rejected(tmp_path, export_module, monkeypatch, kind):
     import socket
     kwargs = _minimal_export_manifest(tmp_path, export_module)
     node = tmp_path / "unlisted"
@@ -435,7 +435,10 @@ def test_unlisted_nonregular_inventory_entries_are_rejected(tmp_path, export_mod
         if kind == "socket":
             try:
                 connection = socket.socket(socket.AF_UNIX)
-                connection.bind(str(node))
+                # AF_UNIX pathname limits are shorter than some hosted pytest
+                # temporary paths; bind the same real socket by its short name.
+                monkeypatch.chdir(tmp_path)
+                connection.bind(node.name)
             except PermissionError:
                 pytest.skip("sandbox denies creation of a Unix-domain socket")
         elif kind == "symlink_file":
@@ -491,11 +494,33 @@ def test_bounded_descriptor_read_rejects_growth_or_short_read(tmp_path, export_m
     assert requested == [initial_size + 1]
 
 
-def test_file_reader_accepts_only_regular_bounded_bytes(tmp_path, export_module):
+def test_file_reader_accepts_only_regular_bounded_bytes(tmp_path, export_module, monkeypatch):
     path = tmp_path / "regular"
+    observed = []
+    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+    original_lstat, original_fstat = Path.lstat, os.fstat
+    def record_lstat(target, *args, **kwargs):
+        info = original_lstat(target, *args, **kwargs)
+        if target == path:
+            observed.append({"api": "lstat", **{field: getattr(info, field) for field in fields}})
+        return info
+    def record_fstat(descriptor):
+        info = original_fstat(descriptor)
+        observed.append({"api": "fstat", **{field: getattr(info, field) for field in fields}})
+        return info
+    monkeypatch.setattr(Path, "lstat", record_lstat)
+    monkeypatch.setattr(os, "fstat", record_fstat)
     for content in (b"", b"{}\n", bytes(range(256)) * 300):
         path.write_bytes(content)
-        assert export_module._read_regular_bytes(path) == content
+        observed.clear()
+        try:
+            actual = export_module._read_regular_bytes(path)
+        except ValueError:
+            # Record only the actual guard's metadata, never payload bytes or
+            # paths. Keep the failure and all production checks unchanged.
+            pytest.fail(f"valid regular file rejected; platform={sys.platform}; "
+                        f"python={sys.version_info[:3]}; metadata={observed!r}", pytrace=False)
+        assert actual == content
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         export_module._read_regular_bytes(tmp_path)
 

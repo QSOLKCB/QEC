@@ -578,6 +578,10 @@ def test_generation_pins_source_before_any_fixture_builder(tmp_path, export_modu
         return result
     monkeypatch.setattr(export_module, "_code_manifest", source_manifest)
     monkeypatch.setattr(export_module, builder_name, mutate_during_builder)
+    # This fixture deliberately replaces executable functions. Isolate the
+    # existing mid-generation source-pin check from the separate attestation
+    # guard, which correctly rejects monkeypatched loaded code up front.
+    monkeypatch.setattr(export_module, "_loaded_code_matches_disk", lambda: None)
     output = tmp_path / "export"
     with pytest.raises(ValueError, match="source changed during export"):
         export_module.generate(output, cases=("clean",), alphabets=(3,))

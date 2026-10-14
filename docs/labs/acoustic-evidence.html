@@ -1,0 +1,84 @@
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'none'; media-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta name="color-scheme" content="light dark">
+  <title>Acoustic evidence viewer · QEC v177.5</title>
+  <style>
+    :root{font:16px/1.5 system-ui,sans-serif;color:#172f38;background:#eef2f1;color-scheme:light}*{box-sizing:border-box}body{margin:0}main{max-width:1240px;margin:auto;padding:28px 4vw 50px}header{border-top:4px solid #176858;padding-top:18px}.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#37665c}h1{font-size:clamp(32px,5vw,58px);line-height:1.08;letter-spacing:-.04em;margin:18px 0}h2{font-size:21px;margin:0 0 12px}h3{font-size:17px;margin:0 0 8px}p{margin:10px 0}.boundary{background:#fff2cd;border-left:4px solid #b67500;padding:16px;margin:22px 0}.muted{color:#52656c;font-size:14px}.card{background:#fff;border:1px solid #c4d2d0;border-radius:12px;padding:20px;margin:18px 0;min-width:0}.row{display:flex;gap:16px;align-items:end;flex-wrap:wrap}.row>label{flex:1;min-width:220px}label{display:block;font-weight:650;font-size:14px}input,select,button{font:inherit;max-width:100%}input[type=file],select{display:block;width:100%;margin-top:7px;padding:8px;border:1px solid #b9cbc6;border-radius:6px;background:#fff;color:#172f38}button{padding:8px 14px;border:1px solid #758f87;border-radius:6px;background:#edf5f1;color:#174d41;font-weight:650;cursor:pointer}button:hover:enabled{background:#d7eae2}button:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #a56700;outline-offset:3px}.error{color:#942c36;min-height:24px;overflow-wrap:anywhere}.badge{font-size:12px;font-weight:750;color:#854f00;letter-spacing:.04em}.waves{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.wave{border:1px solid #c4d2d0;border-radius:9px;padding:14px;min-width:0}.wave svg{width:100%;height:160px;display:block;background:#f0f6f4;border-radius:6px;margin:12px 0}.wave svg path{stroke:#176858;stroke-width:1;fill:none}.wave svg line{stroke:#adbbb5;stroke-width:1}.wave-info{font:12px/1.5 ui-monospace,monospace;overflow-wrap:anywhere;white-space:pre-wrap;min-height:95px}.decisions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.decision{border-top:3px solid #728c86;padding-top:12px;min-width:0}.decision:last-child{border-color:#be821b}pre{font:12px/1.6 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;max-height:360px;overflow:auto}.note{font-size:13px}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.metadata{overflow-wrap:anywhere}.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}a{color:#176858}footer{font-size:13px;color:#52656c;margin-top:24px}details{margin-top:14px}summary{cursor:pointer;font-weight:650}@media(max-width:850px){.waves,.decisions{grid-template-columns:1fr}.wave-info{min-height:0}.card{padding:16px}main{padding:20px 18px 36px}}
+  </style>
+  <script src="acoustic-evidence.js" defer></script>
+</head>
+<body>
+<main>
+<header>
+  <div class="eyebrow">QEC · 177.5 · Local evidence inspection</div>
+  <h1>Hear the samples.<br>Inspect the decision.</h1>
+  <p>Original, observed and filtered PCM, alongside the receiver candidate and independent-reference gate.</p>
+  <p class="boundary"><strong>Browser visualization and audible demonstration only.</strong> Canonical evidence requires Python independent replay with externally retained source and reference pins. Imported outcomes and hashes are unverified claims here. No physical quantum protection or SPECTRAL repository/UI integration is claimed.</p>
+</header>
+<section class="card" aria-labelledby="import-title">
+  <h2 id="import-title">1. Open local evidence</h2>
+  <div class="row">
+    <label for="evidence-file">Receipt, source, trial or battery JSON (maximum 8 MiB)<input id="evidence-file" type="file" accept=".json,application/json"></label>
+    <button id="reset" type="button">Reset everything</button>
+  </div>
+  <p class="muted">Nothing is uploaded or fetched. Loading new evidence clears manual stage attachments. Source-only files show only the PCM they contain; missing stages and decisions stay empty.</p>
+  <p id="import-status" role="status" aria-live="polite">No evidence loaded.</p>
+  <p id="import-error" class="error" role="alert"></p>
+  <div class="row">
+    <label for="trial-select">Imported trial / source<select id="trial-select" disabled></select></label>
+    <label for="method-select">Comparative method<select id="method-select" disabled></select></label>
+  </div>
+  <p id="evidence-meta" class="metadata muted"></p>
+  <p class="badge">STRUCTURE INSPECTION ONLY · CONTENT UNVERIFIED</p>
+</section>
+<section class="card" aria-labelledby="wave-title">
+  <h2 id="wave-title">2. Actual PCM stages</h2>
+  <p class="muted">Full-scale signed PCM16 axes are identical across stages. Traces show per-column minimum/maximum samples, preserving peaks. No synthetic replacement, normalization or filtering is performed in this viewer.</p>
+  <div class="waves">
+    <article class="wave">
+      <h3>Original</h3><svg id="original-wave" viewBox="0 0 800 160" role="img" aria-label="Original PCM waveform"></svg>
+      <p id="original-info" class="wave-info"></p>
+      <button id="original-play" type="button" disabled>Play original</button>
+      <label for="original-file">Attach actual PCM JSON or WAV<input id="original-file" type="file" accept=".json,.wav,application/json,audio/wav"></label>
+    </article>
+    <article class="wave">
+      <h3>Observed</h3><svg id="observed-wave" viewBox="0 0 800 160" role="img" aria-label="Observed PCM waveform"></svg>
+      <p id="observed-info" class="wave-info"></p>
+      <button id="observed-play" type="button" disabled>Play observed</button>
+      <label for="observed-file">Attach actual PCM JSON or WAV<input id="observed-file" type="file" accept=".json,.wav,application/json,audio/wav"></label>
+    </article>
+    <article class="wave">
+      <h3>Filtered</h3><svg id="filtered-wave" viewBox="0 0 800 160" role="img" aria-label="Filtered PCM waveform"></svg>
+      <p id="filtered-info" class="wave-info"></p>
+      <button id="filtered-play" type="button" disabled>Play filtered</button>
+      <label for="filtered-file">Attach actual PCM JSON or WAV<input id="filtered-file" type="file" accept=".json,.wav,application/json,audio/wav"></label>
+    </article>
+  </div>
+  <p id="stage-error" class="error" role="alert"></p>
+  <p id="association" class="note"></p>
+  <div class="actions"><button id="stop" type="button" disabled>Stop playback</button><span id="audio-status" role="status" aria-live="polite">Audio is off. Play starts only when clicked.</span></div>
+  <p class="muted">Playback uses the imported sample rate at fixed 25% gain. Start with a low device volume. Your browser/audio hardware may resample playback; listening cannot establish recovery, provenance or quantum protection. At most 73,728 mono samples at 24 or 48 kHz per stage.</p>
+</section>
+<section class="card" aria-labelledby="decision-title">
+  <h2 id="decision-title">3. Keep the claims separate</h2>
+  <p class="muted">A receiver can accept a wrong symbol word. The caller-declared measured reference is a separate gate. A decoder correction and finite-model logical outcome are additional claims, never proof from sound.</p>
+  <div class="decisions">
+    <article class="decision"><h3>Receiver candidate</h3><pre id="candidate"></pre></article>
+    <article class="decision"><h3>Rejections / vetoes</h3><pre id="rejected"></pre></article>
+    <article class="decision"><h3>Reference-gated decision</h3><pre id="verified"></pre></article>
+  </div>
+  <details><summary>Imported method metrics and resource accounting</summary><pre id="metrics"></pre></details>
+</section>
+<footer>
+  <p>Standard mono PCM16 WAV and JSON interoperability with SPECTRAL means ordinary local file interchange only. This page does not edit or connect to SPECTRAL, rerun the receiver, authenticate hashes, export canonical receipts, or claim real-world measurements.</p>
+  <p><a href="../ACOUSTIC_OFFLINE_LAB.md">Viewer contract and replay guide</a> · <a href="../ACOUSTIC_CHANNEL_CONTRACT.md">PCM contract</a> · <a href="../ACOUSTIC_SYNDROME_BRIDGE.md">Independent-reference boundary</a></p>
+</footer>
+<noscript>This offline viewer requires JavaScript. Use the Python replay tools for canonical validation.</noscript>
+</main>
+</body>
+</html>

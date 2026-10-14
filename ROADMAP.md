@@ -10,8 +10,8 @@
 ```text
 latest completed release → v173.0
 stable commit            → 2c94351e667bc05aba26fe101dcf41fa8d4c9735
-current frontier         → v174.0–v174.5 Digital TDM implementation candidate
-next work                → Digital final-head validation/review; then v175.x Packet Fabric
+current frontier         → v175.0–v175.6 Packet Fabric implementation candidate
+next work                → Packet final-head validation/review; then v176.x cross-era proof
 active programme         → v171.x–v176.x — Deterministic Telecommunications Switching Lineage
 completed baseline       → v173.0 — Stored-Program Switch Skeleton
 deferred runtime arc     → v193.x — QEC OS Runtime & Benchmark Reset
@@ -174,10 +174,10 @@ IMPLEMENTED — UNRELEASED, FINAL VALIDATION PENDING
   ess_call_processing_receipt_hash                     (v173.1–v173.5)
   digital_frame_switch_receipt_hash                    (v174.x)
   deterministic_timeslot_allocation_receipt_hash       (v174.x)
-
-PLANNED
   canonical_packet_fabric_receipt_hash                 (v175.x)
   deterministic_failover_receipt_hash                  (v175.x)
+
+PLANNED
   cross_era_switch_equivalence_receipt_hash            (v176.x)
   switch_migration_receipt_hash                        (v176.x)
   qec_os_runtime_contract_hash                         (deferred v193.x)
@@ -403,7 +403,7 @@ Acceptance criteria are maintained under
 
 # Phase v175.x — Canonical Packet Fabric and Softswitch Boundary
 
-**Status:** PLANNED
+**Status:** IMPLEMENTED, UNRELEASED (final validation/review pending)
 
 ## Goal
 
@@ -439,6 +439,13 @@ canonical payload
   Real protocols may be observed, but live networks cannot become proof authority.
 - **v175.6 — Packet Fabric Evidence Lab**  
   Offline topology, queue, route and fault visualisation with demonstration exports.
+
+Immutable envelopes, exact binary-prefix routes, bounded priority queues, hop
+chains, declared failover and verified reassembly are implemented. Softswitch
+observations remain external, offline and non-authoritative. The packet lab is
+a separate demonstration. See [the Packet contract](docs/PACKET_FABRIC_AND_SOFTSWITCH.md).
+Browser rendering/acoustic QA is not claimed; native replay and Node interaction
+tests are separate from that remaining presentation check.
 
 Evidence names are registered under
 [v175.x Packet artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v175x--packet-and-softswitch-artifacts).

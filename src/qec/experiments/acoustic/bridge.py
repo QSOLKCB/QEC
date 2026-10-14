@@ -10,8 +10,8 @@ quantum protection.
 """
 from __future__ import annotations
 
-from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
+import json
 
 from qec.decoder.qutrit.codes import cyclic_five_qutrit_code
 from qec.decoder.qutrit.exact import ExactDecoder as QutritDecoder
@@ -22,6 +22,7 @@ from qec.decoder.ququart.exact import ExactDecoder as QuquartDecoder
 from qec.decoder.ququart.exact import UncorrectableSyndrome as QuquartUncorrectable
 from qec.decoder.ququart.packed import PackedPauli
 from qec.decoder.ququart.syndrome import pack_binary_syndrome, unpack_ququart_syndrome
+from qec.sonify.canonical import canonical_json
 
 from ._common import CLAIM_BOUNDARY, digest, exact, integer, read, seal, sequence
 from .channel import ChannelConfig, PCM
@@ -68,13 +69,26 @@ class MeasuredSyndromeReference:
         return read(cls, value, ("alphabet_size", "measured_syndrome", "authority", "source_id"))
 
 
+def _snapshot(value, cls):
+    """Revalidate stored fields before any serialization or model arithmetic."""
+    if type(value) is not cls:
+        raise ValueError("INVALID_INPUT")
+    # Inspect stored values, not class-level defaults that could hide a deleted
+    # field in an object whose frozen-dataclass protection was bypassed.
+    stored = vars(value)
+    return cls(**{field.name: stored.get(field.name) for field in fields(cls) if field.init})
+
+
 def _reference(reference, config, expected_reference_sha256):
-    if type(reference) is not MeasuredSyndromeReference or type(config) is not ChannelConfig:
+    if type(config) is not ChannelConfig:
         raise ValueError("INVALID_INPUT")
     digest(expected_reference_sha256)
-    if reference.alphabet_size != config.alphabet_size or reference.as_dict()["sha256"] != expected_reference_sha256:
+    # Validate a detached field snapshot before serialization: a corrupted
+    # frozen instance may have absent or non-iterable syndrome/label fields.
+    reference = _snapshot(reference, MeasuredSyndromeReference)
+    if reference.alphabet_size != getattr(config, "alphabet_size", None) or reference.as_dict()["sha256"] != expected_reference_sha256:
         raise ValueError("INVALID_INPUT")
-    return MeasuredSyndromeReference.from_dict(reference.as_dict())
+    return reference
 
 
 def _code(alphabet_size):
@@ -98,6 +112,29 @@ def _pauli_from_dict(value, alphabet_size):
     return PackedPauli(*(tuple(value[key]) for key in ("lane0_x", "lane0_z", "lane1_x", "lane1_z")))
 
 
+def _validated_error(error, alphabet_size):
+    """Snapshot canonical coordinates before model algebra can normalize them.
+
+    Frozen dataclasses can still be corrupted with ``object.__setattr__``.
+    Reconstructing alone is insufficient because GF(3) constructors reduce
+    integers modulo three, concealing an out-of-range fixture coordinate.
+    """
+    expected_type = Pauli if alphabet_size == 3 else PackedPauli
+    if type(error) is not expected_type:
+        raise ValueError("INVALID_INPUT")
+    fields = ("x", "z") if alphabet_size == 3 else ("lane0_x", "lane0_z", "lane1_x", "lane1_z")
+    maximum = 2 if alphabet_size == 3 else 1
+    coordinates = []
+    for field in fields:
+        values = getattr(error, field, None)
+        if type(values) is not tuple or len(values) != 5:
+            raise ValueError("INVALID_INPUT")
+        for value in values:
+            integer(value, maximum)
+        coordinates.append(values)
+    return expected_type(*coordinates)
+
+
 def run_pcm_bridge(
     pcm: PCM,
     config: ChannelConfig,
@@ -114,10 +151,17 @@ def run_pcm_bridge(
     Arbitrary ``accepted``/hash fields are insufficient: receiver evidence is
     recomputed from ``pcm`` with the explicit configuration and policy.
     """
+    config = _snapshot(config, ChannelConfig)
+    pcm = _snapshot(pcm, PCM)
+    policy = _snapshot(policy, ReceiverPolicy)
     reference = _reference(reference, config, expected_reference_sha256)
     try:
-        recovered = deepcopy(observation)
-    except (TypeError, ValueError, RecursionError) as exc:
+        if type(observation) is not dict:
+            raise ValueError("INVALID_INPUT")
+        # Receiver replay compares canonical JSON, which equates list/tuple
+        # arrays. Make the decision from that same detached representation.
+        recovered = json.loads(canonical_json(observation))
+    except (TypeError, ValueError, UnicodeError, RecursionError) as exc:
         raise ValueError("INVALID_INPUT") from exc
     validation = validate_observation(recovered, expected_pcm=pcm, config=config,
                                       symbol_count=4, policy=policy)
@@ -191,16 +235,16 @@ def evaluate_logical_outcome(
     bridge = validate_bridge_receipt(receipt, pcm=pcm, config=config, observation=observation,
                                      reference=reference, expected_reference_sha256=expected_reference_sha256,
                                      policy=policy)
-    expected_type = Pauli if config.alphabet_size == 3 else PackedPauli
-    if type(error) is not expected_type or error.width != 5:
-        raise ValueError("INVALID_INPUT")
-    code = _code(config.alphabet_size)
+    alphabet_size = bridge["config"]["alphabet_size"]
+    measured_syndrome = list(bridge["measured_syndrome"])
+    error = _validated_error(error, alphabet_size)
+    code = _code(alphabet_size)
     ideal = code.syndrome(error)
-    acoustic_ideal = ideal if config.alphabet_size == 3 else pack_binary_syndrome(ideal)
+    acoustic_ideal = ideal if alphabet_size == 3 else pack_binary_syndrome(ideal)
     decision = bridge["decoder_decision"]
     residual = error
     if decision["accepted"]:
-        residual = error.compose(_pauli_from_dict(decision["correction"], config.alphabet_size))
+        residual = error.compose(_pauli_from_dict(decision["correction"], alphabet_size))
     stabilizer = code.is_stabilizer(residual)
     success = decision["accepted"] and stabilizer
     logical_outcome = {"success": success, "residual": _pauli_dict(residual),
@@ -209,8 +253,8 @@ def evaluate_logical_outcome(
                                   "exact_model_failure" if decision["accepted"] else "no_correction")}
     return _seal("logical-fixture-evaluation", bridge_sha256=bridge["sha256"],
                 error=_pauli_dict(error), ideal_syndrome=list(acoustic_ideal),
-                ideal_decoder_syndrome=list(ideal), measured_syndrome=list(reference.measured_syndrome),
-                measured_matches_ideal=list(acoustic_ideal) == list(reference.measured_syndrome),
+                ideal_decoder_syndrome=list(ideal), measured_syndrome=measured_syndrome,
+                measured_matches_ideal=list(acoustic_ideal) == measured_syndrome,
                 estimated_syndrome=bridge["estimated_syndrome"], decoder_decision=decision,
                 logical_outcome=logical_outcome, claim_boundary=dict(CLAIM_BOUNDARY))
 

@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: MPL-2.0
+name: NB eigensolver compatibility
+
+on:
+  pull_request:
+    paths:
+      - 'src/qec/analysis/**'
+      - 'src/qec/discovery/**'
+      - 'tests/test_*nb*.py'
+      - 'tests/test_nonbacktracking*.py'
+      - 'tests/test_spectral*.py'
+      - 'tests/test_threshold_search.py'
+      - 'tests/test_bp_diagnostics.py'
+      - 'tests/test_phase_diagram_surrogate.py'
+      - 'tests/test_prediction_ranking.py'
+      - 'tests/test_predictor_recalibration.py'
+      - 'docs/NB_EIGENSOLVER_REPRODUCIBILITY.md'
+      - 'pyproject.toml'
+      - '.github/workflows/nb-eigensolver-compatibility.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/qec/analysis/**'
+      - 'src/qec/discovery/**'
+      - 'tests/test_*nb*.py'
+      - 'tests/test_nonbacktracking*.py'
+      - 'tests/test_spectral*.py'
+      - 'tests/test_threshold_search.py'
+      - 'tests/test_bp_diagnostics.py'
+      - 'tests/test_phase_diagram_surrogate.py'
+      - 'tests/test_prediction_ranking.py'
+      - 'tests/test_predictor_recalibration.py'
+      - 'docs/NB_EIGENSOLVER_REPRODUCIBILITY.md'
+      - 'pyproject.toml'
+      - '.github/workflows/nb-eigensolver-compatibility.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    name: SciPy ${{ matrix.scipy }} / Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: '3.10'
+            numpy: '1.24.4'
+            scipy: '1.10.1'
+          - python: '3.12'
+            numpy: '2.3.5'
+            scipy: '1.16.3'
+          - python: '3.12'
+            numpy: '2.3.5'
+            scipy: '1.17.0'
+          - python: '3.12'
+            numpy: '2.5.4'
+            scipy: '1.18.1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install actual legacy or modern SciPy API
+        run: >-
+          python -m pip install -e '.[dev]'
+          'numpy==${{ matrix.numpy }}' 'scipy==${{ matrix.scipy }}'
+      - name: Record runtime and solver capability
+        run: |
+          python - <<'PY'
+          import inspect, sys
+          import numpy, scipy, scipy.sparse.linalg
+          print(sys.version)
+          print('NumPy:', numpy.__version__, 'SciPy:', scipy.__version__)
+          print('eigs:', inspect.signature(scipy.sparse.linalg.eigs))
+          numpy.show_config()
+          scipy.show_config()
+          PY
+      - name: Run affected spectral and downstream regressions
+        run: >-
+          python -m pytest -q
+          tests/test_*nb*.py tests/test_nonbacktracking*.py
+          tests/test_spectral*.py tests/test_threshold_search.py
+          tests/test_bp_diagnostics.py tests/test_phase_diagram_surrogate.py
+          tests/test_prediction_ranking.py tests/test_predictor_recalibration.py

@@ -7,6 +7,7 @@ import json
 import math
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import wave
@@ -131,9 +132,10 @@ def test_fresh_process_hash_seed_determinism():
     assert outputs[0] == outputs[1]
 
 
-def _exporter():
+def _exporter(path=None):
     import importlib.util
-    path=Path(__file__).resolve().parents[2]/"scripts/generate_acoustic_channel_evidence.py"
+    if path is None:
+        path=Path(__file__).resolve().parents[2]/"scripts/generate_acoustic_channel_evidence.py"
     spec=importlib.util.spec_from_file_location("acoustic_channel_export_test",path)
     module=importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -178,3 +180,53 @@ def test_exporter_metadata_uses_script_repository_not_caller_cwd(tmp_path,monkey
     exporter.generate(tmp_path/"evidence")
     metadata=json.loads((tmp_path/"evidence"/"environment.json").read_text())
     assert metadata["source_commit_sha"]==expected
+
+
+@pytest.mark.parametrize("preexisting_change", ["none", "tracked", "untracked"])
+def test_exporter_snapshots_git_before_unignored_output(tmp_path,monkeypatch,preexisting_change):
+    # A real, committed Git fixture is needed: mocking status misses the output
+    # directory itself changing Git's answer during generation.
+    root=tmp_path/"checkout"
+    (root/"scripts").mkdir(parents=True)
+    script=Path(__file__).resolve().parents[2]/"scripts/generate_acoustic_channel_evidence.py"
+    shutil.copy2(script,root/"scripts"/script.name)
+    shutil.copytree(FIXTURES,root/"tests/acoustic/fixtures")
+    tracked=root/"tracked.txt"
+    tracked.write_text("committed input\n",encoding="utf-8")
+    subprocess.run(["git","init","-q",str(root)],check=True)
+    subprocess.run(["git","add","."],cwd=root,check=True)
+    subprocess.run(["git","-c","user.name=Acoustic Fixture","-c","user.email=acoustic-fixture@example.invalid",
+                    "-c","commit.gpgsign=false","-c","core.hooksPath=/dev/null",
+                    "commit","-qm","Commit test fixture"],cwd=root,check=True)
+    expected_commit=subprocess.check_output(["git","rev-parse","HEAD"],cwd=root,text=True).strip()
+    assert not subprocess.check_output(["git","status","--porcelain"],cwd=root,text=True).strip()
+    if preexisting_change=="tracked":
+        tracked.write_text("preexisting modification\n",encoding="utf-8")
+    elif preexisting_change=="untracked":
+        (root/"untracked.txt").write_text("preexisting untracked input\n",encoding="utf-8")
+    # Loading the copied script binds its own repository root; bytecode output
+    # must not itself dirty the fixture before the generator starts.
+    monkeypatch.setattr(sys,"dont_write_bytecode",True)
+    exporter=_exporter(root/"scripts"/script.name)
+    before=subprocess.check_output(["git","status","--porcelain"],cwd=root,text=True).strip()
+    assert bool(before)==(preexisting_change!="none")
+    unrelated=tmp_path/"caller"
+    unrelated.mkdir()
+    monkeypatch.chdir(unrelated)
+    output=root/"unignored-evidence"
+    assert not output.exists()
+    identity=exporter.generate(output)
+    metadata=json.loads((output/"environment.json").read_text(encoding="utf-8"))
+    assert metadata["source_commit_sha"]==expected_commit
+    assert metadata["clean_working_tree"]==(preexisting_change=="none")
+    assert metadata["canonical_channel_identity_sha256"]==identity["sha256"]
+    after=subprocess.check_output(["git","status","--porcelain"],cwd=root,text=True)
+    assert "?? unignored-evidence/" in after
+    if preexisting_change=="tracked":
+        assert " M tracked.txt" in after
+    elif preexisting_change=="untracked":
+        assert "?? untracked.txt" in after
+    for d in (3,4):
+        expected=json.loads((FIXTURES/f"clean_q{d}.json").read_text(encoding="utf-8"))
+        assert json.loads((output/f"clean_q{d}.json").read_text(encoding="utf-8"))==expected["source"]
+        assert (output/f"clean_q{d}.wav").read_bytes()==(FIXTURES/f"clean_q{d}.wav").read_bytes()

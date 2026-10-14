@@ -11,9 +11,11 @@ import argparse
 import hashlib
 from importlib.metadata import PackageNotFoundError, version
 import json
+import os
 from pathlib import Path
 import platform
 import re
+import stat
 import subprocess
 import time
 import tracemalloc
@@ -74,17 +76,89 @@ def _write_json(path, value):
     path.write_bytes(canonical_bytes(value) + b"\n")
 
 
-def _read_json(path):
+def _file_identity(info):
+    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def _regular_stat(path):
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or not 0 <= info.st_size <= MAX_EXPORT_FILE_BYTES:
+        raise ValueError("INVALID_INPUT")
+    return info
+
+
+def _read_regular_bytes(path, *, expected_stat=None):
+    """Read one bounded regular-file snapshot without blocking on a FIFO race.
+
+    POSIX nonblocking/no-follow flags are used when available. Every platform
+    checks both lstat and descriptor fstat before reading; identity, size and
+    timestamps must remain stable through the bounded read. No special file or
+    symlink is accepted. The extra byte detects growth beyond the declared size.
+    """
+    descriptor = None
     try:
-        if path.stat().st_size > MAX_EXPORT_FILE_BYTES:
+        before = _regular_stat(path)
+        if expected_stat is not None and _file_identity(before) != _file_identity(expected_stat):
             raise ValueError("INVALID_INPUT")
-        data = path.read_bytes()
+        flags = os.O_RDONLY
+        for name in ("O_NONBLOCK", "O_NOFOLLOW", "O_CLOEXEC", "O_BINARY", "O_NOINHERIT"):
+            flags |= getattr(os, name, 0)
+        descriptor = os.open(path, flags)
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or _file_identity(opened) != _file_identity(before):
+            raise ValueError("INVALID_INPUT")
+        chunks, count = [], 0
+        while count <= opened.st_size:
+            chunk = os.read(descriptor, min(65536, opened.st_size + 1 - count))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            count += len(chunk)
+        if count != opened.st_size or _file_identity(os.fstat(descriptor)) != _file_identity(opened):
+            raise ValueError("INVALID_INPUT")
+        return b"".join(chunks)
+    except (OSError, TypeError, ValueError) as exc:
+        raise ValueError("INVALID_INPUT") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def _parse_json(data):
+    try:
         value = json.loads(data)
         if type(value) is not dict or canonical_bytes(value) + b"\n" != data:
             raise ValueError("INVALID_INPUT")
         return value
-    except (OSError, TypeError, ValueError, RecursionError, UnicodeError) as exc:
+    except (TypeError, ValueError, RecursionError, UnicodeError) as exc:
         raise ValueError("INVALID_INPUT") from exc
+
+
+def _read_json(path):
+    return _parse_json(_read_regular_bytes(path))
+
+
+def _inventory_files(output):
+    """Bound discovery and reject every special entry; exempt only root manifest."""
+    names, pending, directories = [], [(output, 0)], 0
+    while pending:
+        directory, depth = pending.pop()
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                path = Path(entry.path)
+                info = entry.stat(follow_symlinks=False)
+                if stat.S_ISDIR(info.st_mode):
+                    directories += 1
+                    if directories > 16 or depth >= 4:
+                        raise ValueError("INVALID_INPUT")
+                    pending.append((path, depth + 1))
+                elif not stat.S_ISREG(info.st_mode):
+                    raise ValueError("INVALID_INPUT")
+                elif path != output / "manifest.json":
+                    names.append(_portable_relative(path, output))
+                    if len(names) > 128:
+                        raise ValueError("INVALID_INPUT")
+    return sorted(names)
 
 
 _MANIFEST_FIXED = {
@@ -281,37 +355,40 @@ def validate_export(output: Path, *, expected_manifest_sha256: str, expected_bat
                     or not (output / relative).resolve().is_relative_to(output.resolve())):
                 raise ValueError("INVALID_INPUT")
             path = output / relative
-            size = path.stat().st_size
+            info = _regular_stat(path)
+            size = info.st_size
             total_bytes += size
             if size > MAX_EXPORT_FILE_BYTES or total_bytes > MAX_EXPORT_TOTAL_BYTES:
                 raise ValueError("INVALID_INPUT")
-            inventory.append((row["path"], path, size))
-        expected_files = [{"path": name, "sha256": _sha(path.read_bytes()), "bytes": size}
-                          for name, path, size in inventory]
-        exact({"files": manifest["files"]}, {"files": expected_files})
-        actual_files = sorted(_portable_relative(p, output) for p in output.rglob("*") if p.is_file() and p.name != "manifest.json")
-        if actual_files != sorted(row["path"] for row in expected_files):
+            inventory.append((row["path"], path, info))
+        if _inventory_files(output) != sorted(name for name, _, _ in inventory):
             raise ValueError("INVALID_INPUT")
-        battery = _read_json(output / "battery.json")
-        exact(_read_json(output / "battery_source.json"), battery["source"])
+        contents = {name: _read_regular_bytes(path, expected_stat=info) for name, path, info in inventory}
+        expected_files = [{"path": name, "sha256": _sha(contents[name]), "bytes": len(contents[name])}
+                          for name, _, _ in inventory]
+        exact({"files": manifest["files"]}, {"files": expected_files})
+        def read_json(path):
+            return _parse_json(contents[_portable_relative(path, output)])
+        battery = read_json(output / "battery.json")
+        exact(read_json(output / "battery_source.json"), battery["source"])
         validation = validate_comparative_battery(battery, expected_source_sha256=expected_battery_source_sha256)
-        exact(_read_json(output / "battery_validation.json"), validation)
+        exact(read_json(output / "battery_validation.json"), validation)
         if manifest["canonical_battery_sha256"] != battery["sha256"]:
             raise ValueError("INVALID_INPUT")
         for index, trial in enumerate(battery["trials"]):
             stem = f"{index:02d}_q{trial['source']['alphabet_size']}_{trial['source']['case_name']}"
-            exact(_read_json(output / "trials" / (stem + ".json")), trial)
-            exact(_read_json(output / "trials" / (stem + "_source.json")), trial["source"])
-        demo = _read_json(output / "demonstration.json")
-        exact(_read_json(output / "demonstration_source.json"), demo["source"])
+            exact(read_json(output / "trials" / (stem + ".json")), trial)
+            exact(read_json(output / "trials" / (stem + "_source.json")), trial["source"])
+        demo = read_json(output / "demonstration.json")
+        exact(read_json(output / "demonstration_source.json"), demo["source"])
         demo_validation = validate_demonstration(demo, expected_source_sha256=expected_demonstration_source_sha256,
                                                 expected_reference_sha256=expected_reference_sha256)
-        exact(_read_json(output / "demonstration_validation.json"), demo_validation)
+        exact(read_json(output / "demonstration_validation.json"), demo_validation)
         for role in ARTIFACT_ROLES:
-            value = _read_json(output / "lab" / (role + ".json"))
+            value = read_json(output / "lab" / (role + ".json"))
             exact(value, demo["roles"][role])
             if role in ("original", "observed", "filtered"):
-                exact(read_wav((output / "lab" / (role + ".wav")).read_bytes()).as_dict(), value)
+                exact(read_wav(contents["lab/" + role + ".wav"]).as_dict(), value)
         if type(manifest["transport_demonstration"]) is not list or not 6 <= len(manifest["transport_demonstration"]) <= 12:
             raise ValueError("INVALID_INPUT")
         seen = set()
@@ -324,7 +401,7 @@ def validate_export(output: Path, *, expected_manifest_sha256: str, expected_bat
                 raise ValueError("INVALID_INPUT")
             artifact = AcousticTransportArtifact.from_artifact(demo["roles"][role], role=role,
                                                                source_sha256=expected_demonstration_source_sha256)
-            receipt = _read_json(output / row["path"])
+            receipt = read_json(output / row["path"])
             result = validate_acoustic_transport_receipt(receipt,
                 expected_artifact_sha256=artifact.as_dict()["sha256"], expected_source_sha256=expected_demonstration_source_sha256,
                 expected_input_sha256=row["input_sha256"])
@@ -341,14 +418,14 @@ def validate_export(output: Path, *, expected_manifest_sha256: str, expected_bat
                              "source_sha256": expected_demonstration_source_sha256,
                              "candidate_observation_sha256": demo["roles"]["candidate"]["sha256"],
                              "scope": "binding_record_only; not_full_observation_or_PCM"}
-        exact(_read_json(output / "lab/digital_binding_specimen.json"), expected_specimen)
+        exact(read_json(output / "lab/digital_binding_specimen.json"), expected_specimen)
         artifact = AcousticTransportArtifact.from_artifact(expected_specimen, role="candidate",
                                                            source_sha256=expected_demonstration_source_sha256)
         entry = manifest["digital_binding_specimen"]
         if (entry["path"] != "transport/digital_binding_specimen.json" or
                 entry["artifact_sha256"] != artifact.as_dict()["sha256"] or entry["payload_bytes"] != len(artifact.payload)):
             raise ValueError("INVALID_INPUT")
-        digital_receipt = _read_json(output / entry["path"])
+        digital_receipt = read_json(output / entry["path"])
         result = validate_acoustic_transport_receipt(digital_receipt,
             expected_artifact_sha256=artifact.as_dict()["sha256"], expected_source_sha256=expected_demonstration_source_sha256,
             expected_input_sha256=entry["input_sha256"])
@@ -360,7 +437,7 @@ def validate_export(output: Path, *, expected_manifest_sha256: str, expected_bat
             raise ValueError("INVALID_INPUT")
         if manifest["artifact_total_bytes_excluding_manifest"] != sum(f["bytes"] for f in expected_files):
             raise ValueError("INVALID_INPUT")
-        environment = _read_json(output / "environment.json")
+        environment = read_json(output / "environment.json")
         _validate_environment(environment)
         for key in ("source_commit_sha", "source_files", "clean_working_tree_at_start", "dependencies"):
             exact({key: manifest[key]}, {key: environment[key]})

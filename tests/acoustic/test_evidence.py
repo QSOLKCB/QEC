@@ -235,6 +235,15 @@ def test_export_wav_json_sources_native_bytes_manifest_and_tamper(tmp_path, expo
               "expected_demonstration_source_sha256": result["demonstration_source_sha256"],
               "expected_reference_sha256": result["measured_reference_sha256"]}
     assert export_module.validate_export(output, **kwargs)["all_passed"]
+    # The manifest exemption applies only to the root file, never a basename
+    # elsewhere in the exported directory. The original external pins remain.
+    extra = output / "extra"
+    extra.mkdir()
+    (extra / "manifest.json").write_bytes(b"{}\n")
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        export_module.validate_export(output, **kwargs)
+    (extra / "manifest.json").unlink()
+    extra.rmdir()
     manifest = export_module._read_json(output / "manifest.json")
     environment = export_module._read_json(output / "environment.json")
     assert type(environment["runtime_ns"]) is int and environment["runtime_ns"] > 0
@@ -327,16 +336,186 @@ def test_export_inventory_preflight_rejects_cumulative_size_before_payload_read(
         manifest["files"].append({"path": name, "sha256": "0" * 64, "bytes": path.stat().st_size})
     manifest = rehash(manifest)
     export_module._write_json(tmp_path / "manifest.json", manifest)
-    original = Path.read_bytes
+    original = export_module._read_regular_bytes
     payload_reads = []
-    def guarded_read(path):
+    def guarded_read(path, **kwargs):
         if path.name != "manifest.json":
             payload_reads.append(path.name)
             pytest.fail("oversized inventory read artifact bytes before total-size preflight")
-        return original(path)
-    monkeypatch.setattr(Path, "read_bytes", guarded_read)
+        return original(path, **kwargs)
+    monkeypatch.setattr(export_module, "_read_regular_bytes", guarded_read)
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         export_module.validate_export(tmp_path, expected_manifest_sha256=manifest["sha256"],
             expected_battery_source_sha256="a" * 64, expected_demonstration_source_sha256="b" * 64,
             expected_reference_sha256="c" * 64)
     assert payload_reads == []
+
+
+def _minimal_export_manifest(output, export_module, files=()):
+    manifest = rehash({**export_module._MANIFEST_FIXED,
+        **{key: None for key in export_module._MANIFEST_DYNAMIC},
+        "battery_source_sha256": "a" * 64, "demonstration_source_sha256": "b" * 64,
+        "measured_reference_sha256": "c" * 64, "files": list(files)})
+    export_module._write_json(output / "manifest.json", manifest)
+    return {"expected_manifest_sha256": manifest["sha256"], "expected_battery_source_sha256": "a" * 64,
+            "expected_demonstration_source_sha256": "b" * 64, "expected_reference_sha256": "c" * 64}
+
+
+def _bounded_subprocess(script, export_module):
+    header = ("import importlib.util, pathlib, os\n"
+              f"spec=importlib.util.spec_from_file_location('export', {export_module.__file__!r})\n"
+              "module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)\n")
+    result = subprocess.run([sys.executable, "-c", header + script], text=True, capture_output=True,
+                            timeout=5, env={**os.environ, "PYTHONPATH": str(export_module.ROOT / "src")})
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.strip() == "INVALID_INPUT"
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="POSIX FIFO support required")
+@pytest.mark.parametrize("name", ["manifest.json", "battery.json", "lab/original.wav", "unlisted.fifo"])
+def test_export_fifo_entries_fail_closed_without_blocking(tmp_path, export_module, name):
+    files = [] if name in ("manifest.json", "unlisted.fifo") else [{"path": name, "sha256": "0" * 64, "bytes": 0}]
+    kwargs = _minimal_export_manifest(tmp_path, export_module, files)
+    path = tmp_path / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        path.unlink()
+    os.mkfifo(path)
+    # A broken implementation is killed by the parent test after five seconds;
+    # the FIFO has no writer and is never left in an unbounded pytest read.
+    _bounded_subprocess(f"""
+try:
+    module.validate_export(pathlib.Path({str(tmp_path)!r}), **{kwargs!r})
+except ValueError as error:
+    assert str(error) == 'INVALID_INPUT'
+    print(str(error))
+else:
+    raise AssertionError('FIFO evidence was accepted')
+""", export_module)
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo") or not hasattr(os, "O_NONBLOCK"), reason="POSIX nonblocking FIFO support required")
+def test_regular_file_swapped_to_fifo_during_open_cannot_block(tmp_path, export_module):
+    target = tmp_path / "payload.json"
+    target.write_bytes(b"{}\n")
+    _bounded_subprocess(f"""
+target = pathlib.Path({str(target)!r})
+original_open = os.open
+original_read = os.read
+reads = []
+def raced_open(path, flags, *args, **kwargs):
+    assert flags & os.O_NONBLOCK
+    target.unlink()
+    os.mkfifo(target)
+    return original_open(path, flags, *args, **kwargs)
+def guarded_read(*args):
+    reads.append(args)
+    raise AssertionError('nonregular descriptor reached read')
+os.open = raced_open
+os.read = guarded_read
+try:
+    module._read_regular_bytes(target)
+except ValueError as error:
+    assert str(error) == 'INVALID_INPUT'
+    assert not reads
+    print(str(error))
+else:
+    raise AssertionError('FIFO replacement was accepted')
+""", export_module)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="portable symlink creation is not available to every Windows user")
+@pytest.mark.parametrize("kind", ["symlink_file", "symlink_directory", "socket"])
+def test_unlisted_nonregular_inventory_entries_are_rejected(tmp_path, export_module, kind):
+    import socket
+    kwargs = _minimal_export_manifest(tmp_path, export_module)
+    node = tmp_path / "unlisted"
+    connection = None
+    try:
+        if kind == "socket":
+            try:
+                connection = socket.socket(socket.AF_UNIX)
+                connection.bind(str(node))
+            except PermissionError:
+                pytest.skip("sandbox denies creation of a Unix-domain socket")
+        elif kind == "symlink_file":
+            node.symlink_to(tmp_path / "manifest.json")
+        else:
+            node.symlink_to(tmp_path, target_is_directory=True)
+        with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+            export_module.validate_export(tmp_path, **kwargs)
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+@pytest.mark.parametrize("change", ["grow", "truncate", "replace"])
+def test_descriptor_identity_rejects_preopen_mutation_before_read(tmp_path, export_module, monkeypatch, change):
+    path = tmp_path / "payload"
+    path.write_bytes(b"original")
+    original_open = os.open
+    reads = []
+    def raced_open(target, flags, *args, **kwargs):
+        if change == "replace":
+            replacement = tmp_path / "replacement"
+            replacement.write_bytes(b"different")
+            replacement.replace(path)
+        else:
+            path.write_bytes(b"changed-and-longer" if change == "grow" else b"")
+        return original_open(target, flags, *args, **kwargs)
+    def forbidden_read(*args):
+        reads.append(args)
+        pytest.fail("changed descriptor should be rejected before any read")
+    monkeypatch.setattr(os, "open", raced_open)
+    monkeypatch.setattr(os, "read", forbidden_read)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        export_module._read_regular_bytes(path)
+    assert not reads
+
+
+@pytest.mark.parametrize("change", ["grow", "truncate"])
+def test_bounded_descriptor_read_rejects_growth_or_short_read(tmp_path, export_module, monkeypatch, change):
+    path = tmp_path / "payload"
+    path.write_bytes(b"original")
+    initial_size = path.stat().st_size
+    original_read = os.read
+    requested = []
+    def raced_read(descriptor, count):
+        requested.append(count)
+        if len(requested) == 1:
+            path.write_bytes(b"much-longer-than-original" if change == "grow" else b"")
+        return original_read(descriptor, count)
+    monkeypatch.setattr(os, "read", raced_read)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        export_module._read_regular_bytes(path)
+    assert requested == [initial_size + 1]
+
+
+def test_file_reader_accepts_only_regular_bounded_bytes(tmp_path, export_module):
+    path = tmp_path / "regular"
+    for content in (b"", b"{}\n", bytes(range(256)) * 300):
+        path.write_bytes(content)
+        assert export_module._read_regular_bytes(path) == content
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        export_module._read_regular_bytes(tmp_path)
+
+
+def test_inventory_excludes_exact_root_manifest_only(tmp_path, export_module):
+    (tmp_path / "manifest.json").write_bytes(b"{}\n")
+    (tmp_path / "extra").mkdir()
+    (tmp_path / "extra/manifest.json").write_bytes(b"{}\n")
+    assert export_module._inventory_files(tmp_path) == ["extra/manifest.json"]
+
+
+@pytest.mark.parametrize("kind", ["files", "directories", "depth"])
+def test_inventory_discovery_has_finite_file_directory_and_depth_bounds(tmp_path, export_module, kind):
+    if kind == "files":
+        for index in range(129):
+            (tmp_path / f"{index}.json").write_bytes(b"{}\n")
+    elif kind == "directories":
+        for index in range(17):
+            (tmp_path / str(index)).mkdir()
+    else:
+        (tmp_path / "a/b/c/d/e").mkdir(parents=True)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        export_module._inventory_files(tmp_path)

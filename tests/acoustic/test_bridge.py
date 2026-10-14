@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import replace
 from itertools import product
 
+import numpy as np
 import pytest
 
 from qec.decoder.qutrit.codes import cyclic_five_qutrit_code
@@ -383,3 +384,220 @@ def test_public_validators_reject_evidence_level_promotion(level):
     forged_outcome["claim_boundary"]["evidence_level"] = level
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         bridge.validate_logical_outcome(_rehash(forged_outcome), bridge_receipt=result, error=error, **inputs)
+
+
+def test_corrupted_qutrit_multiple_of_three_cannot_be_graded_or_replayed():
+    """Regression: GF(3) normalization previously hid the invalid coordinate."""
+    config = ChannelConfig()
+    reference = _reference(3)
+    inputs = _inputs(encode_symbols(reference.measured_syndrome, config), config, reference)
+    bridge_receipt = run_pcm_bridge(**inputs)
+    error = Pauli((0,) * 5, (0,) * 5)
+    outcome = evaluate_logical_outcome(bridge_receipt, error, **inputs)
+    object.__setattr__(error, "x", (3, 0, 0, 0, 0))
+    forged = deepcopy(outcome)
+    forged["error"]["x"] = [3, 0, 0, 0, 0]
+    # Before the fix, both the grade and this self-consistent rehashed result
+    # were accepted with success=True and the invalid error coordinate intact.
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        evaluate_logical_outcome(bridge_receipt, error, **inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        bridge.validate_logical_outcome(_rehash(forged), bridge_receipt=bridge_receipt, error=error, **inputs)
+
+
+@pytest.mark.parametrize(("alphabet", "field"), [
+    (3, "x"), (3, "z"),
+    (4, "lane0_x"), (4, "lane0_z"), (4, "lane1_x"), (4, "lane1_z"),
+])
+@pytest.mark.parametrize("mutation", [
+    "above", "negative", "bool_true", "bool_false", "float", "numpy_integer", "string_coordinate", "null_coordinate",
+    "short", "long", "empty", "mutable_list", "null_lane", "string_lane", "missing_lane",
+])
+def test_all_corrupted_pauli_coordinates_reject_in_evaluator_and_validator(alphabet, field, mutation):
+    config = ChannelConfig(alphabet_size=alphabet)
+    reference = _reference(alphabet)
+    inputs = _inputs(encode_symbols(reference.measured_syndrome, config), config, reference)
+    bridge_receipt = run_pcm_bridge(**inputs)
+    error = Pauli((0,) * 5, (0,) * 5) if alphabet == 3 else PackedPauli(*((0,) * 5,) * 4)
+    outcome = evaluate_logical_outcome(bridge_receipt, error, **inputs)
+    mutations = {
+        "above": (3 if alphabet == 3 else 2, 0, 0, 0, 0),
+        "negative": (-1, 0, 0, 0, 0),
+        "bool_true": (True, 0, 0, 0, 0), "bool_false": (False, 0, 0, 0, 0),
+        "float": (0.0, 0, 0, 0, 0), "numpy_integer": (np.int64(0), 0, 0, 0, 0),
+        "string_coordinate": ("0", 0, 0, 0, 0),
+        "null_coordinate": (None, 0, 0, 0, 0),
+        "short": (0,) * 4, "long": (0,) * 6, "empty": (),
+        "mutable_list": [0] * 5, "null_lane": None, "string_lane": "00000",
+    }
+    if mutation == "missing_lane":
+        object.__delattr__(error, field)
+    else:
+        object.__setattr__(error, field, mutations[mutation])
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        evaluate_logical_outcome(bridge_receipt, error, **inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        bridge.validate_logical_outcome(outcome, bridge_receipt=bridge_receipt, error=error, **inputs)
+
+
+@pytest.mark.parametrize("alphabet", [3, 4])
+@pytest.mark.parametrize("tuple_shape", ["syndrome", "all_arrays"])
+def test_canonical_observation_shapes_preserve_bridge_and_outcome(alphabet, tuple_shape):
+    config = ChannelConfig(alphabet_size=alphabet)
+    reference = _reference(alphabet)
+    inputs = _inputs(encode_symbols(reference.measured_syndrome, config), config, reference)
+    expected_bridge = run_pcm_bridge(**inputs)
+    error = Pauli((0,) * 5, (0,) * 5) if alphabet == 3 else PackedPauli(*((0,) * 5,) * 4)
+    expected_outcome = evaluate_logical_outcome(expected_bridge, error, **inputs)
+
+    def tuple_arrays(value):
+        if type(value) is list:
+            return tuple(tuple_arrays(item) for item in value)
+        if type(value) is dict:
+            return {key: tuple_arrays(item) for key, item in value.items()}
+        return value
+
+    equivalent = deepcopy(inputs["observation"])
+    if tuple_shape == "syndrome":
+        equivalent["estimated_syndrome"] = tuple(equivalent["estimated_syndrome"])
+    else:
+        equivalent = tuple_arrays(equivalent)
+    assert canonical_json(equivalent) == canonical_json(inputs["observation"])
+    inputs["observation"] = equivalent
+    result = run_pcm_bridge(**inputs)
+    assert result == expected_bridge
+    assert result["verified_recovery"] and result["decoder_decision"]["accepted"]
+    assert type(result["estimated_syndrome"]) is list
+    assert type(result["receiver_observation"]["estimated_syndrome"]) is list
+    assert validate_bridge_receipt(expected_bridge, **inputs) == expected_bridge
+    assert evaluate_logical_outcome(expected_bridge, error, **inputs) == expected_outcome
+    assert bridge.validate_logical_outcome(expected_outcome, bridge_receipt=expected_bridge, error=error, **inputs) == expected_outcome
+    # The normalization does not mutate the caller's equivalent representation.
+    assert type(equivalent["estimated_syndrome"]) is tuple
+
+
+@pytest.mark.parametrize(("field", "malformed"), [
+    ("alphabet_size", None), ("alphabet_size", True), ("alphabet_size", 3.0), ("alphabet_size", 2),
+    ("alphabet_size", "3"), ("alphabet_size", [3]),
+    ("measured_syndrome", None), ("measured_syndrome", 0), ("measured_syndrome", "0000"),
+    ("measured_syndrome", {}), ("measured_syndrome", (0, 0, 0)),
+    ("measured_syndrome", (0, 0, 0, 0, 0)), ("measured_syndrome", (True, 0, 0, 0)),
+    ("measured_syndrome", (0.0, 0, 0, 0)), ("measured_syndrome", (3, 0, 0, 0)),
+    ("authority", None), ("authority", []), ("authority", 1), ("authority", ""),
+    ("authority", "bad\nlabel"), ("source_id", None), ("source_id", {}),
+    ("source_id", False), ("source_id", ""), ("source_id", "nonascii-λ"),
+])
+def test_corrupted_reference_fields_fail_closed_across_bridge_entrypoints(monkeypatch, field, malformed):
+    config = ChannelConfig()
+    reference = _reference(3)
+    inputs = _inputs(encode_symbols(reference.measured_syndrome, config), config, reference)
+    result = run_pcm_bridge(**inputs)
+    error = Pauli((0,) * 5, (0,) * 5)
+    outcome = evaluate_logical_outcome(result, error, **inputs)
+    object.__setattr__(reference, field, malformed)
+    _no_decode(monkeypatch)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        run_pcm_bridge(**inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        validate_bridge_receipt(result, **inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        evaluate_logical_outcome(result, error, **inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        bridge.validate_logical_outcome(outcome, bridge_receipt=result, error=error, **inputs)
+
+
+@pytest.mark.parametrize("field", ["alphabet_size", "measured_syndrome", "authority", "source_id"])
+def test_missing_reference_fields_fail_closed_before_decode(monkeypatch, field):
+    config = ChannelConfig()
+    reference = _reference(3)
+    inputs = _inputs(encode_symbols(reference.measured_syndrome, config), config, reference)
+    result = run_pcm_bridge(**inputs)
+    error = Pauli((0,) * 5, (0,) * 5)
+    outcome = evaluate_logical_outcome(result, error, **inputs)
+    object.__delattr__(reference, field)
+    _no_decode(monkeypatch)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        run_pcm_bridge(**inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        validate_bridge_receipt(result, **inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        evaluate_logical_outcome(result, error, **inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        bridge.validate_logical_outcome(outcome, bridge_receipt=result, error=error, **inputs)
+
+
+@pytest.mark.parametrize(("target", "field", "malformed"), [
+    ("pcm", "samples", None), ("pcm", "samples", 0), ("pcm", "samples", "000"),
+    ("pcm", "samples", [False]), ("pcm", "samples", [[0]]),
+    ("pcm", "samples", (True,)), ("pcm", "samples", (0.0,)), ("pcm", "samples", (32768,)),
+    ("pcm", "sample_rate", None), ("pcm", "sample_rate", 48000.0),
+    ("config", "alphabet_size", None), ("config", "alphabet_size", True),
+    ("config", "sample_rate", None), ("config", "sample_rate", "48000"),
+    ("config", "cycles", None), ("config", "amplitude", False),
+    ("config", "harmonics", None), ("config", "harmonics", 1),
+    ("config", "harmonics", "1234"), ("config", "harmonics", (1.0,)),
+    ("config", "harmonics", [1, []]),
+    ("config", "harmonics", (1, 1)), ("config", "repetitions", []),
+    ("policy", "fec", None), ("policy", "fec", []),
+    ("policy", "tolerance_per_mille", None), ("policy", "max_residual_per_mille", True),
+    ("policy", "minimum_margin_per_mille", 100.0), ("policy", "estimator", {}),
+])
+def test_malformed_pcm_config_policy_reject_before_receiver(monkeypatch, target, field, malformed):
+    config = ChannelConfig()
+    reference = _reference(3)
+    inputs = _inputs(encode_symbols(reference.measured_syndrome, config), config, reference, ReceiverPolicy())
+    result = run_pcm_bridge(**inputs)
+    error = Pauli((0,) * 5, (0,) * 5)
+    outcome = evaluate_logical_outcome(result, error, **inputs)
+    object.__setattr__(inputs[target], field, malformed)
+    def no_scientific_computation(*args, **kwargs):
+        pytest.fail("malformed input reached receiver replay")
+    monkeypatch.setattr(bridge, "validate_observation", no_scientific_computation)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        run_pcm_bridge(**inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        validate_bridge_receipt(result, **inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        evaluate_logical_outcome(result, error, **inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        bridge.validate_logical_outcome(outcome, bridge_receipt=result, error=error, **inputs)
+
+
+@pytest.mark.parametrize(("target", "field"), [
+    ("pcm", "samples"), ("pcm", "sample_rate"),
+    ("config", "alphabet_size"), ("config", "sample_rate"), ("config", "cycles"),
+    ("config", "amplitude"), ("config", "harmonics"), ("config", "repetitions"),
+    ("policy", "fec"), ("policy", "tolerance_per_mille"), ("policy", "max_residual_per_mille"),
+    ("policy", "minimum_margin_per_mille"), ("policy", "estimator"),
+])
+def test_deleted_input_fields_cannot_fall_back_to_class_defaults(monkeypatch, target, field):
+    config = ChannelConfig()
+    reference = _reference(3)
+    inputs = _inputs(encode_symbols(reference.measured_syndrome, config), config, reference, ReceiverPolicy())
+    object.__delattr__(inputs[target], field)
+    _no_decode(monkeypatch)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        run_pcm_bridge(**inputs)
+
+
+@pytest.mark.parametrize("alphabet", [3, 4])
+@pytest.mark.parametrize("entrypoint", ["evaluator", "validator"])
+def test_logical_grading_uses_only_validated_bridge_snapshots(monkeypatch, alphabet, entrypoint):
+    config = ChannelConfig(alphabet_size=alphabet)
+    reference = _reference(alphabet)
+    inputs = _inputs(encode_symbols(reference.measured_syndrome, config), config, reference)
+    result = run_pcm_bridge(**inputs)
+    error = Pauli((0,) * 5, (0,) * 5) if alphabet == 3 else PackedPauli(*((0,) * 5,) * 4)
+    expected = evaluate_logical_outcome(result, error, **inputs)
+    original = bridge.validate_bridge_receipt
+    def mutate_caller_after_validation(*args, **kwargs):
+        checked = original(*args, **kwargs)
+        object.__setattr__(kwargs["reference"], "measured_syndrome", None)
+        object.__setattr__(kwargs["config"], "alphabet_size", None)
+        return checked
+    monkeypatch.setattr(bridge, "validate_bridge_receipt", mutate_caller_after_validation)
+    if entrypoint == "evaluator":
+        actual = evaluate_logical_outcome(result, error, **inputs)
+    else:
+        actual = bridge.validate_logical_outcome(expected, bridge_receipt=result, error=error, **inputs)
+    assert actual == expected

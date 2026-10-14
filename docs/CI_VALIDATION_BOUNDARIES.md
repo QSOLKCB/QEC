@@ -17,6 +17,8 @@ key files and local environments. CI mounts the credential-free checkout read-on
 at `/app`, runs with the checkout owner’s UID/GID, and exercises this gate on
 pull requests as well as main when running the complete container suite, because some repository
 regression tests inspect Git history. Checkout uses `persist-credentials: false`.
+The source checkout stays read-only; separate temporary writable HOME and artifact
+mounts support existing mirror/discovery tests without changing source files.
 No credentials are copied into the image. A stand-alone image without the declared
 checkout is not sufficient to run history-dependent repository assertions.
 
@@ -36,3 +38,8 @@ links are counted and reported as unchecked rather than silently accepted as liv
 The existing Pages publishing behavior is unchanged. Changes to its declared
 paths can still cause its existing main-branch deployment. New telecom labs stay
 offline demonstrations; no live telecom adapter is activated by these workflows.
+
+The opened-only Auto Assign workflow also used a disallowed third-party action.
+It now uses GitHub’s own `actions/github-script` to assign the same sole maintainer,
+EmergentMonk, on the same issue/PR-open events with the same permissions. It is an
+administrative workflow, not a test result or proof gate.

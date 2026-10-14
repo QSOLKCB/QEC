@@ -17,6 +17,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -33,7 +34,15 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Build with runner-provided Docker
         run: docker build -t qsolkcb-qec:ci -f Dockerfile .
       - name: Run complete container suite without swallowing failures
-        run: docker run --rm --user "$(id -u):$(id -g)" --mount "type=bind,src=$PWD,dst=/app,readonly" qsolkcb-qec:ci python -m pytest -q
+        run: |
+          mkdir -p artifacts "$RUNNER_TEMP/qec-home" "$RUNNER_TEMP/qec-artifacts"
+          docker run --rm --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp/qec-home \
+            --mount "type=bind,src=$PWD,dst=/app,readonly" \
+            --mount "type=bind,src=$RUNNER_TEMP/qec-home,dst=/tmp/qec-home" \
+            --mount "type=bind,src=$RUNNER_TEMP/qec-artifacts,dst=/app/artifacts" \
+            qsolkcb-qec:ci python -m pytest -q

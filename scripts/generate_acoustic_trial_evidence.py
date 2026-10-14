@@ -556,8 +556,10 @@ def _loaded_code_matches_disk():
                         check(accessor)
                 return
             if inspect.isfunction(candidate) and candidate.__module__ == module.__name__:
-                runtime = inspect.unwrap(candidate).__code__
-                source = compiled.get(runtime.co_qualname)
+                unwrapped = inspect.unwrap(candidate)
+                runtime = unwrapped.__code__
+                # CPython 3.10 code objects lack co_qualname.
+                source = compiled.get(getattr(runtime, "co_qualname", unwrapped.__qualname__))
                 if source is not None and runtime != source:
                     raise ValueError("imported source changed; restart against a stable checkout")
         for item in vars(module).values():

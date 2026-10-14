@@ -21,6 +21,10 @@ FIXTURES = ROOT / "tests/acoustic/fixtures"
 def generate(output: Path):
     if output.exists() and any(output.iterdir()):
         raise ValueError("output must be empty")
+    # Record the source checkout before generated, unignored output can make
+    # it dirty. Metadata describes this input snapshot, not our own writes.
+    commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+    dirty=subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).strip()
     output.mkdir(parents=True, exist_ok=True)
     sources=[]
     for d in (3,4):
@@ -40,8 +44,6 @@ def generate(output: Path):
     identity={'schema':'qec.acoustic-clean-identity.v1','sources':sources,'physical_quantum_protection':False}
     identity['sha256']=canonical_sha256(identity)
     (output/'channel_identity.json').write_text(canonical_json(identity)+'\n',encoding='utf-8',newline='\n')
-    commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
-    dirty=subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).strip()
     environment={'schema':'qec.acoustic-run-metadata.v1','source_commit_sha':commit,
                  'python':platform.python_version(),'platform':platform.platform(),'package_version':version('qec'),
                  'numpy_version':version('numpy'),'scipy_version':version('scipy'),'pytest_version':version('pytest'),

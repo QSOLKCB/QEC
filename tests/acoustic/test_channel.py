@@ -129,3 +129,52 @@ def test_fresh_process_hash_seed_determinism():
     code = "from qec.experiments.acoustic.channel import *;print(AcousticSource(ChannelConfig(),(0,1,2),'a'*64).as_dict()['sha256'])"
     outputs = [subprocess.check_output([sys.executable,"-c",code], env={**os.environ,"PYTHONHASHSEED":seed}).strip() for seed in ("1","123")]
     assert outputs[0] == outputs[1]
+
+
+def _exporter():
+    import importlib.util
+    path=Path(__file__).resolve().parents[2]/"scripts/generate_acoustic_channel_evidence.py"
+    spec=importlib.util.spec_from_file_location("acoustic_channel_export_test",path)
+    module=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_exporter_pins_independent_frozen_source_and_waveform(tmp_path):
+    exporter=_exporter()
+    identity=exporter.generate(tmp_path/"evidence")
+    for d,row in zip((3,4),identity["sources"]):
+        expected=json.loads((FIXTURES/f"clean_q{d}.json").read_text())
+        assert row["source_sha256"]==expected["source"]["sha256"]
+        assert row["wav_sha256"]==expected["wav_sha256"]
+        assert (tmp_path/"evidence"/f"clean_q{d}.wav").read_bytes()==(FIXTURES/f"clean_q{d}.wav").read_bytes()
+
+
+def test_exporter_rejects_self_consistent_substituted_source(tmp_path,monkeypatch):
+    exporter=_exporter()
+    real=exporter.AcousticSource
+    monkeypatch.setattr(exporter,"AcousticSource",lambda config,symbols,source_sha256:real(config,(2,2,2),source_sha256))
+    with pytest.raises(ValueError,match="INVALID_INPUT"):
+        exporter.generate(tmp_path/"substituted-source")
+    assert not (tmp_path/"substituted-source"/"channel_identity.json").exists()
+
+
+def test_exporter_rejects_substituted_wav(tmp_path,monkeypatch):
+    exporter=_exporter()
+    real=exporter.wav_bytes
+    monkeypatch.setattr(exporter,"wav_bytes",lambda pcm:real(PCM((0,)*len(pcm.samples),pcm.sample_rate)))
+    with pytest.raises(ValueError,match="INVALID_INPUT"):
+        exporter.generate(tmp_path/"substituted-wav")
+    assert not (tmp_path/"substituted-wav"/"channel_identity.json").exists()
+
+
+def test_exporter_metadata_uses_script_repository_not_caller_cwd(tmp_path,monkeypatch):
+    exporter=_exporter()
+    expected=subprocess.check_output(["git","rev-parse","HEAD"],cwd=exporter.ROOT,text=True).strip()
+    unrelated=tmp_path/"unrelated"
+    unrelated.mkdir()
+    subprocess.run(["git","init","-q",str(unrelated)],check=True)
+    monkeypatch.chdir(unrelated)
+    exporter.generate(tmp_path/"evidence")
+    metadata=json.loads((tmp_path/"evidence"/"environment.json").read_text())
+    assert metadata["source_commit_sha"]==expected

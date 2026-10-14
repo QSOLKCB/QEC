@@ -10,8 +10,8 @@
 ```text
 latest completed release → v173.0
 stable commit            → 2c94351e667bc05aba26fe101dcf41fa8d4c9735
-current frontier         → v173.1–v173.5 ESS lifecycle implementation candidate
-next work                → ESS final-head validation/review; then v174.x Digital TDM
+current frontier         → v174.0–v174.5 Digital TDM implementation candidate
+next work                → Digital final-head validation/review; then v175.x Packet Fabric
 active programme         → v171.x–v176.x — Deterministic Telecommunications Switching Lineage
 completed baseline       → v173.0 — Stored-Program Switch Skeleton
 deferred runtime arc     → v193.x — QEC OS Runtime & Benchmark Reset
@@ -172,10 +172,10 @@ RELEASED
 IMPLEMENTED — UNRELEASED, FINAL VALIDATION PENDING
   ess_program_store_manifest_hash                      (v173.1–v173.5)
   ess_call_processing_receipt_hash                     (v173.1–v173.5)
-
-PLANNED
   digital_frame_switch_receipt_hash                    (v174.x)
   deterministic_timeslot_allocation_receipt_hash       (v174.x)
+
+PLANNED
   canonical_packet_fabric_receipt_hash                 (v175.x)
   deterministic_failover_receipt_hash                  (v175.x)
   cross_era_switch_equivalence_receipt_hash            (v176.x)
@@ -353,7 +353,7 @@ Acceptance criteria are maintained under
 
 # Phase v174.x — Deterministic Digital Time-Division Switching
 
-**Status:** PLANNED
+**Status:** IMPLEMENTED, UNRELEASED (final validation/review pending)
 
 ## Goal
 
@@ -386,6 +386,13 @@ canonical correction symbols
   Bit corruption, slot collision, frame loss, duplicate frames and alignment faults.
 - **v174.5 — Digital Switch Evidence Lab**  
   Offline frame visualisation and sonification separated from canonical evidence.
+
+Native frames, deterministic owned slot allocation/release, synchronization,
+interchange, verified payload reassembly and fault evidence are implemented.
+The offline lab and SVG/WAV exports are separately labelled demonstrations.
+See [the Digital contract](docs/DIGITAL_TIME_DIVISION_SWITCHING.md). Browser
+rendering/acoustic QA is not claimed; native replay and Node interaction tests
+are separate from that remaining presentation check.
 
 Evidence names are registered under
 [v174.x Digital artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v174x--digital-time-division-artifacts).

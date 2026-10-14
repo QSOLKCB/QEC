@@ -120,6 +120,10 @@ ess_call_processing_receipt_hash
 
 ## v174.x — Digital time-division artifacts
 
+Implemented/unreleased native phase contracts and separate demonstration exports.
+See [the Digital implementation contract](../DIGITAL_TIME_DIVISION_SWITCHING.md).
+Final-head review and complete CI remain required before acceptance.
+
 | Artifact | Role |
 |---|---|
 | `digital_frame_schema.json` | Fixed-width frame, slot, byte-order and idle-symbol contract |

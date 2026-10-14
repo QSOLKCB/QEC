@@ -7,11 +7,14 @@ represents the dominant structural shear direction in the graph.
 
 Layer 3 — Analysis.
 Does not import or modify the decoder (Layer 1).
-Fully deterministic: no randomness, no global state, no input mutation.
+No input mutation. Sparse eigensolver restarts use a fresh local seeded stream
+when the installed SciPy API supports it. Raw bulk-boundary selection is unchanged;
+see docs/NB_EIGENSOLVER_REPRODUCIBILITY.md for the supported replay scope.
 """
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass
 from typing import Any
 
@@ -383,8 +386,19 @@ def project_directed_pressure_to_undirected(
     return edge_pressure, edge_pressure_map
 
 
+def _eigs_with_local_rng(B: scipy.sparse.spmatrix, **kwargs: Any) -> tuple[np.ndarray, np.ndarray]:
+    """Use a fresh local restart stream where SciPy exposes one (>=1.17).
+
+    Older supported SciPy APIs retain their existing behavior. This controls
+    restart randomness only; it does not change the strict bulk comparison.
+    """
+    if "rng" in inspect.signature(scipy.sparse.linalg.eigs).parameters:
+        kwargs["rng"] = np.random.Generator(np.random.PCG64(0))
+    return scipy.sparse.linalg.eigs(B, **kwargs)
+
+
 class NonBacktrackingEigenvectorFlowAnalyzer:
-    """v14.2.0 deterministic NB eigenvector flow on directed Tanner edges."""
+    """NB eigenvector flow with deterministic ordering and a local RNG policy."""
 
     def __init__(self, config: NBFlowConfig | None = None) -> None:
         self.config = config or NBFlowConfig()
@@ -428,7 +442,7 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
             vals, vecs = np.linalg.eig(B.toarray())
         else:
             try:
-                vals, vecs = scipy.sparse.linalg.eigs(
+                vals, vecs = _eigs_with_local_rng(
                     B,
                     k=k,
                     which='LR',
@@ -517,7 +531,7 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
             dense_B: np.ndarray | None = None
             right_order: np.ndarray | None = None
             try:
-                eigvals, right = scipy.sparse.linalg.eigs(
+                eigvals, right = _eigs_with_local_rng(
                     B,
                     k=k,
                     which='LR',
@@ -543,7 +557,7 @@ class NonBacktrackingEigenvectorFlowAnalyzer:
                     _, left_all = np.linalg.eig(dense_B.T)
                     left = left_all[:, right_order]
                 else:
-                    _, left = scipy.sparse.linalg.eigs(
+                    _, left = _eigs_with_local_rng(
                         B.transpose().tocsr(),
                         k=k,
                         which='LR',

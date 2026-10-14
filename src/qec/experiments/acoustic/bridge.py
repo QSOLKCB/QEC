@@ -98,6 +98,29 @@ def _pauli_from_dict(value, alphabet_size):
     return PackedPauli(*(tuple(value[key]) for key in ("lane0_x", "lane0_z", "lane1_x", "lane1_z")))
 
 
+def _validated_error(error, alphabet_size):
+    """Snapshot canonical coordinates before model algebra can normalize them.
+
+    Frozen dataclasses can still be corrupted with ``object.__setattr__``.
+    Reconstructing alone is insufficient because GF(3) constructors reduce
+    integers modulo three, concealing an out-of-range fixture coordinate.
+    """
+    expected_type = Pauli if alphabet_size == 3 else PackedPauli
+    if type(error) is not expected_type:
+        raise ValueError("INVALID_INPUT")
+    fields = ("x", "z") if alphabet_size == 3 else ("lane0_x", "lane0_z", "lane1_x", "lane1_z")
+    maximum = 2 if alphabet_size == 3 else 1
+    coordinates = []
+    for field in fields:
+        values = getattr(error, field, None)
+        if type(values) is not tuple or len(values) != 5:
+            raise ValueError("INVALID_INPUT")
+        for value in values:
+            integer(value, maximum)
+        coordinates.append(values)
+    return expected_type(*coordinates)
+
+
 def run_pcm_bridge(
     pcm: PCM,
     config: ChannelConfig,
@@ -191,9 +214,7 @@ def evaluate_logical_outcome(
     bridge = validate_bridge_receipt(receipt, pcm=pcm, config=config, observation=observation,
                                      reference=reference, expected_reference_sha256=expected_reference_sha256,
                                      policy=policy)
-    expected_type = Pauli if config.alphabet_size == 3 else PackedPauli
-    if type(error) is not expected_type or error.width != 5:
-        raise ValueError("INVALID_INPUT")
+    error = _validated_error(error, config.alphabet_size)
     code = _code(config.alphabet_size)
     ideal = code.syndrome(error)
     acoustic_ideal = ideal if config.alphabet_size == 3 else pack_binary_syndrome(ideal)

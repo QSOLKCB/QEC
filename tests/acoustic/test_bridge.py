@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import replace
 from itertools import product
 
+import numpy as np
 import pytest
 
 from qec.decoder.qutrit.codes import cyclic_five_qutrit_code
@@ -383,3 +384,57 @@ def test_public_validators_reject_evidence_level_promotion(level):
     forged_outcome["claim_boundary"]["evidence_level"] = level
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         bridge.validate_logical_outcome(_rehash(forged_outcome), bridge_receipt=result, error=error, **inputs)
+
+
+def test_corrupted_qutrit_multiple_of_three_cannot_be_graded_or_replayed():
+    """Regression: GF(3) normalization previously hid the invalid coordinate."""
+    config = ChannelConfig()
+    reference = _reference(3)
+    inputs = _inputs(encode_symbols(reference.measured_syndrome, config), config, reference)
+    bridge_receipt = run_pcm_bridge(**inputs)
+    error = Pauli((0,) * 5, (0,) * 5)
+    outcome = evaluate_logical_outcome(bridge_receipt, error, **inputs)
+    object.__setattr__(error, "x", (3, 0, 0, 0, 0))
+    forged = deepcopy(outcome)
+    forged["error"]["x"] = [3, 0, 0, 0, 0]
+    # Before the fix, both the grade and this self-consistent rehashed result
+    # were accepted with success=True and the invalid error coordinate intact.
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        evaluate_logical_outcome(bridge_receipt, error, **inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        bridge.validate_logical_outcome(_rehash(forged), bridge_receipt=bridge_receipt, error=error, **inputs)
+
+
+@pytest.mark.parametrize(("alphabet", "field"), [
+    (3, "x"), (3, "z"),
+    (4, "lane0_x"), (4, "lane0_z"), (4, "lane1_x"), (4, "lane1_z"),
+])
+@pytest.mark.parametrize("mutation", [
+    "above", "negative", "bool_true", "bool_false", "float", "numpy_integer", "string_coordinate", "null_coordinate",
+    "short", "long", "empty", "mutable_list", "null_lane", "string_lane", "missing_lane",
+])
+def test_all_corrupted_pauli_coordinates_reject_in_evaluator_and_validator(alphabet, field, mutation):
+    config = ChannelConfig(alphabet_size=alphabet)
+    reference = _reference(alphabet)
+    inputs = _inputs(encode_symbols(reference.measured_syndrome, config), config, reference)
+    bridge_receipt = run_pcm_bridge(**inputs)
+    error = Pauli((0,) * 5, (0,) * 5) if alphabet == 3 else PackedPauli(*((0,) * 5,) * 4)
+    outcome = evaluate_logical_outcome(bridge_receipt, error, **inputs)
+    mutations = {
+        "above": (3 if alphabet == 3 else 2, 0, 0, 0, 0),
+        "negative": (-1, 0, 0, 0, 0),
+        "bool_true": (True, 0, 0, 0, 0), "bool_false": (False, 0, 0, 0, 0),
+        "float": (0.0, 0, 0, 0, 0), "numpy_integer": (np.int64(0), 0, 0, 0, 0),
+        "string_coordinate": ("0", 0, 0, 0, 0),
+        "null_coordinate": (None, 0, 0, 0, 0),
+        "short": (0,) * 4, "long": (0,) * 6, "empty": (),
+        "mutable_list": [0] * 5, "null_lane": None, "string_lane": "00000",
+    }
+    if mutation == "missing_lane":
+        object.__delattr__(error, field)
+    else:
+        object.__setattr__(error, field, mutations[mutation])
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        evaluate_logical_outcome(bridge_receipt, error, **inputs)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        bridge.validate_logical_outcome(outcome, bridge_receipt=bridge_receipt, error=error, **inputs)

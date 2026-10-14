@@ -10,6 +10,9 @@ from __future__ import annotations
 import argparse
 from contextlib import contextmanager
 import hashlib
+import inspect
+import sys
+import types
 from importlib.metadata import PackageNotFoundError, version
 import json
 import os
@@ -23,6 +26,7 @@ import time
 import tracemalloc
 
 from qec.experiments.acoustic.channel import PCM, read_wav, wav_bytes
+from qec.experiments.acoustic.export_fs import SecureExportWriter
 from qec.experiments.acoustic.evidence import (
     CASE_NAMES, build_battery_source, build_demonstration, build_trial_source,
     run_comparative_battery, validate_comparative_battery, validate_demonstration,
@@ -161,14 +165,19 @@ class _InventoryAccess:
     def stat(self, name):
         if self._stat_file is not None:
             return self._stat_file(name)
-        path, parent = self._locations[name]
-        return _regular_stat(path, dir_fd=parent)
+        path, parent, discovered = self._locations[name]
+        observed = _regular_stat(path, dir_fd=parent)
+        if _file_identity(observed) != _file_identity(discovered):
+            raise ValueError("INVALID_INPUT")
+        return observed
 
     def read(self, name, *, expected_stat=None):
         if self._read_file is not None:
             return self._read_file(name, expected_stat=expected_stat)
-        path, parent = self._locations[name]
-        return _read_regular_bytes(path, expected_stat=expected_stat, dir_fd=parent)
+        path, parent, discovered = self._locations[name]
+        if expected_stat is not None and _file_identity(expected_stat) != _file_identity(discovered):
+            raise ValueError("INVALID_INPUT")
+        return _read_regular_bytes(path, expected_stat=discovered, dir_fd=parent)
 
 
 @contextmanager
@@ -208,7 +217,7 @@ def _inventory_posix(output, *, file_access=False):
                     elif not stat.S_ISREG(info.st_mode):
                         raise ValueError("INVALID_INPUT")
                     else:
-                        locations[relative] = (Path(entry.name), descriptor)
+                        locations[relative] = (Path(entry.name), descriptor, info)
                         if relative != "manifest.json":
                             names.append(relative)
                             if len(names) > 128:
@@ -504,6 +513,56 @@ def _validate_environment(value):
         raise ValueError("INVALID_INPUT")
 
 
+
+def _source_code_objects(code):
+    """Index compiled functions without executing source."""
+    result = {}
+    def walk(node):
+        for item in node.co_consts:
+            if isinstance(item, types.CodeType):
+                result[item.co_qualname] = item
+                walk(item)
+    walk(code)
+    return result
+
+
+def _loaded_code_matches_disk():
+    """Compare imported functions with freshly compiled tracked source bytes."""
+    tracked = {row["path"] for row in _code_manifest()}
+    for module in tuple(sys.modules.values()):
+        if module is None or not str(getattr(module, "__name__", "")).startswith("qec."):
+            continue
+        origin = getattr(module, "__file__", None)
+        if not origin:
+            continue
+        path = Path(origin).resolve()
+        try:
+            relative = path.relative_to(ROOT).as_posix()
+        except ValueError:
+            continue
+        if relative not in tracked:
+            continue
+        compiled = _source_code_objects(compile(path.read_bytes(), origin, "exec", dont_inherit=True))
+        def check(candidate):
+            if isinstance(candidate, (staticmethod, classmethod)):
+                candidate = candidate.__func__
+            if isinstance(candidate, property):
+                for accessor in (candidate.fget, candidate.fset, candidate.fdel):
+                    if accessor:
+                        check(accessor)
+                return
+            if inspect.isfunction(candidate) and candidate.__module__ == module.__name__:
+                runtime = inspect.unwrap(candidate).__code__
+                source = compiled.get(runtime.co_qualname)
+                if source is not None and runtime != source:
+                    raise ValueError("imported source changed; restart against a stable checkout")
+        for item in vars(module).values():
+            check(item)
+            if inspect.isclass(item) and item.__module__ == module.__name__:
+                for attribute in vars(item).values():
+                    check(attribute)
+
+
 def _environment_snapshot(commit, dirty, code_files):
     return {"schema": "qec.acoustic-environment.v1", "source_commit_sha": commit,
                    "clean_working_tree_at_start": not bool(dirty), "git_status_porcelain_at_start": dirty,
@@ -535,103 +594,112 @@ def generate(output: Path, *, cases=CASE_NAMES, alphabets=(3, 4), seed=1775, tra
     commit, dirty, code_files = _git("rev-parse", "HEAD"), _git("status", "--porcelain"), _code_manifest()
     environment = _environment_snapshot(commit, dirty, code_files)
     _validate_environment(environment)
+    _loaded_code_matches_disk()
     source = build_battery_source(cases=cases, alphabets=alphabets, seed=seed)
     demo_source = build_trial_source("broadband", alphabet_size=3, seed=seed)
     _ensure_source_snapshot(commit, code_files)
-    output.mkdir(parents=True, exist_ok=True)
-    def save(path, value):
-        data = canonical_bytes(value) + b"\n"
-        written = sum(p.stat().st_size for p in output.rglob("*") if p.is_file())
-        if len(data) > MAX_EXPORT_FILE_BYTES or written + len(data) > MAX_EXPORT_TOTAL_BYTES:
-            raise ValueError("export exceeds 32 MiB bound; choose fewer full-stage transports")
-        path.write_bytes(data)
-    tracemalloc.start()
-    start = time.perf_counter_ns()
-    try:
-        battery = run_comparative_battery(source)
-        validation = validate_comparative_battery(battery, expected_source_sha256=source["sha256"])
-        demo = build_demonstration(demo_source)
-        demo_validation = validate_demonstration(demo, expected_source_sha256=demo_source["sha256"],
-                                                expected_reference_sha256=demo_source["measured_reference"]["sha256"])
-        save(output / "battery.json", battery)
-        save(output / "battery_source.json", source)
-        save(output / "battery_validation.json", validation)
-        save(output / "demonstration.json", demo)
-        save(output / "demonstration_source.json", demo_source)
-        save(output / "demonstration_validation.json", demo_validation)
-        (output / "trials").mkdir()
-        for index, trial in enumerate(battery["trials"]):
-            stem = f"{index:02d}_q{trial['source']['alphabet_size']}_{trial['source']['case_name']}"
-            save(output / "trials" / (stem + ".json"), trial)
-            save(output / "trials" / (stem + "_source.json"), trial["source"])
-        (output / "lab").mkdir()
-        (output / "transport").mkdir()
-        transport_index = []
-        for role in ARTIFACT_ROLES:
-            value = demo["roles"][role]
-            save(output / "lab" / (role + ".json"), value)
-            if role in ("original", "observed", "filtered"):
-                (output / "lab" / (role + ".wav")).write_bytes(wav_bytes(PCM.from_dict(value)))
-            artifact = AcousticTransportArtifact.from_artifact(value, role=role, source_sha256=demo_source["sha256"])
-            for transport in transports:
-                receipt = execute_acoustic_transport(artifact, transport=transport)
-                result = validate_acoustic_transport_receipt(
-                    receipt, expected_artifact_sha256=artifact.as_dict()["sha256"],
-                    expected_source_sha256=demo_source["sha256"], expected_input_sha256=receipt["input"]["sha256"])
-                name = f"transport/{role}_{transport}.json"
-                save(output / name, receipt)
-                transport_index.append({"role": role, "transport": transport, "path": name,
-                                        "artifact_sha256": artifact.as_dict()["sha256"],
-                                        "input_sha256": receipt["input"]["sha256"],
-                                        "receipt_sha256": receipt["sha256"], "native_replay": result["native_replay"],
-                                        "payload_bytes": len(artifact.payload)})
-        # A short Digital binding record is intentionally distinct from the six
-        # full Packet stage payloads. It does not claim to transport PCM.
-        digital_specimen = {"schema": "qec.acoustic-digital-binding-specimen.v1",
-                            "source_sha256": demo_source["sha256"],
-                            "candidate_observation_sha256": demo["roles"]["candidate"]["sha256"],
-                            "scope": "binding_record_only; not_full_observation_or_PCM"}
-        digital_artifact = AcousticTransportArtifact.from_artifact(
-            digital_specimen, role="candidate", source_sha256=demo_source["sha256"])
-        digital_receipt = execute_acoustic_transport(digital_artifact, transport="digital")
-        validate_acoustic_transport_receipt(digital_receipt,
-            expected_artifact_sha256=digital_artifact.as_dict()["sha256"], expected_source_sha256=demo_source["sha256"],
-            expected_input_sha256=digital_receipt["input"]["sha256"])
-        save(output / "lab/digital_binding_specimen.json", digital_specimen)
-        save(output / "transport/digital_binding_specimen.json", digital_receipt)
-        elapsed_ns = time.perf_counter_ns() - start
-        _, peak_bytes = tracemalloc.get_traced_memory()
-    finally:
-        tracemalloc.stop()
-    _ensure_source_snapshot(commit, code_files)
-    environment.update(runtime_ns=elapsed_ns, peak_python_tracemalloc_bytes=peak_bytes)
-    _validate_environment(environment)
-    save(output / "environment.json", environment)
-    files = [{"path": _portable_relative(p, output), "sha256": _sha(p.read_bytes()), "bytes": p.stat().st_size}
-             for p in sorted(output.rglob("*")) if p.is_file()]
-    manifest = {"schema": "qec.acoustic-export-manifest.v1", "contract_version": "177.5",
-                "canonical_battery_sha256": battery["sha256"], "battery_source_sha256": source["sha256"],
+    with SecureExportWriter(output, MAX_EXPORT_FILE_BYTES, MAX_EXPORT_TOTAL_BYTES) as writer:
+        def save(path, value):
+            writer.save(_portable_relative(path, output), canonical_bytes(value) + b"\n")
+        tracemalloc.start()
+        start = time.perf_counter_ns()
+        try:
+            battery = run_comparative_battery(source)
+            validation = validate_comparative_battery(battery, expected_source_sha256=source["sha256"])
+            demo = build_demonstration(demo_source)
+            demo_validation = validate_demonstration(demo, expected_source_sha256=demo_source["sha256"],
+                                                    expected_reference_sha256=demo_source["measured_reference"]["sha256"])
+            save(output / "battery.json", battery)
+            save(output / "battery_source.json", source)
+            save(output / "battery_validation.json", validation)
+            save(output / "demonstration.json", demo)
+            save(output / "demonstration_source.json", demo_source)
+            save(output / "demonstration_validation.json", demo_validation)
+            writer.mkdir("trials")
+            for index, trial in enumerate(battery["trials"]):
+                stem = f"{index:02d}_q{trial['source']['alphabet_size']}_{trial['source']['case_name']}"
+                save(output / "trials" / (stem + ".json"), trial)
+                save(output / "trials" / (stem + "_source.json"), trial["source"])
+            writer.mkdir("lab")
+            writer.mkdir("transport")
+            transport_index = []
+            for role in ARTIFACT_ROLES:
+                value = demo["roles"][role]
+                save(output / "lab" / (role + ".json"), value)
+                if role in ("original", "observed", "filtered"):
+                    writer.save("lab/" + role + ".wav", wav_bytes(PCM.from_dict(value)))
+                artifact = AcousticTransportArtifact.from_artifact(value, role=role, source_sha256=demo_source["sha256"])
+                for transport in transports:
+                    receipt = execute_acoustic_transport(artifact, transport=transport)
+                    result = validate_acoustic_transport_receipt(
+                        receipt, expected_artifact_sha256=artifact.as_dict()["sha256"],
+                        expected_source_sha256=demo_source["sha256"], expected_input_sha256=receipt["input"]["sha256"])
+                    name = f"transport/{role}_{transport}.json"
+                    save(output / name, receipt)
+                    transport_index.append({"role": role, "transport": transport, "path": name,
+                                            "artifact_sha256": artifact.as_dict()["sha256"],
+                                            "input_sha256": receipt["input"]["sha256"],
+                                            "receipt_sha256": receipt["sha256"], "native_replay": result["native_replay"],
+                                            "payload_bytes": len(artifact.payload)})
+            # A short Digital binding record is intentionally distinct from the six
+            # full Packet stage payloads. It does not claim to transport PCM.
+            digital_specimen = {"schema": "qec.acoustic-digital-binding-specimen.v1",
+                                "source_sha256": demo_source["sha256"],
+                                "candidate_observation_sha256": demo["roles"]["candidate"]["sha256"],
+                                "scope": "binding_record_only; not_full_observation_or_PCM"}
+            digital_artifact = AcousticTransportArtifact.from_artifact(
+                digital_specimen, role="candidate", source_sha256=demo_source["sha256"])
+            digital_receipt = execute_acoustic_transport(digital_artifact, transport="digital")
+            validate_acoustic_transport_receipt(digital_receipt,
+                expected_artifact_sha256=digital_artifact.as_dict()["sha256"], expected_source_sha256=demo_source["sha256"],
+                expected_input_sha256=digital_receipt["input"]["sha256"])
+            save(output / "lab/digital_binding_specimen.json", digital_specimen)
+            save(output / "transport/digital_binding_specimen.json", digital_receipt)
+            elapsed_ns = time.perf_counter_ns() - start
+            _, peak_bytes = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        _ensure_source_snapshot(commit, code_files)
+        environment.update(runtime_ns=elapsed_ns, peak_python_tracemalloc_bytes=peak_bytes)
+        _validate_environment(environment)
+        save(output / "environment.json", environment)
+        files = list(writer.files)
+        manifest = {"schema": "qec.acoustic-export-manifest.v1", "contract_version": "177.5",
+                    "canonical_battery_sha256": battery["sha256"], "battery_source_sha256": source["sha256"],
+                    "demonstration_source_sha256": demo_source["sha256"],
+                    "measured_reference_sha256": demo_source["measured_reference"]["sha256"],
+                    "source_commit_sha": commit, "source_files": code_files,
+                    "clean_working_tree_at_start": not bool(dirty), "dependencies": environment["dependencies"],
+                    "files": files, "transport_demonstration": transport_index,
+                    "artifact_total_bytes_excluding_manifest": sum(f["bytes"] for f in files),
+                    "digital_binding_specimen": {"path": "transport/digital_binding_specimen.json",
+                        "input_sha256": digital_receipt["input"]["sha256"],
+                        "artifact_sha256": digital_artifact.as_dict()["sha256"], "payload_bytes": len(digital_artifact.payload),
+                        "scope": "binding_record_only; not_one_of_six_full_stage_payloads"},
+                    "transport_scope": "six_actual_role_payloads_in_separate_demo; no_per_battery_transport_claim",
+                    "spectral_compatibility": "ordinary_mono_PCM16_WAV_and_canonical_JSON_export_only",
+                    "spectral_repository_or_ui_integration": False, "environment_metadata_is_canonical_scientific_proof": False}
+        manifest["sha256"] = canonical_sha256(manifest)
+        save(output / "manifest.json", manifest)
+        _ensure_source_snapshot(commit, code_files)
+        result = {"battery_sha256": battery["sha256"], "battery_source_sha256": source["sha256"],
                 "demonstration_source_sha256": demo_source["sha256"],
                 "measured_reference_sha256": demo_source["measured_reference"]["sha256"],
-                "source_commit_sha": commit, "source_files": code_files,
-                "clean_working_tree_at_start": not bool(dirty), "dependencies": environment["dependencies"],
-                "files": files, "transport_demonstration": transport_index,
-                "artifact_total_bytes_excluding_manifest": sum(f["bytes"] for f in files),
-                "digital_binding_specimen": {"path": "transport/digital_binding_specimen.json",
-                    "input_sha256": digital_receipt["input"]["sha256"],
-                    "artifact_sha256": digital_artifact.as_dict()["sha256"], "payload_bytes": len(digital_artifact.payload),
-                    "scope": "binding_record_only; not_one_of_six_full_stage_payloads"},
-                "transport_scope": "six_actual_role_payloads_in_separate_demo; no_per_battery_transport_claim",
-                "spectral_compatibility": "ordinary_mono_PCM16_WAV_and_canonical_JSON_export_only",
-                "spectral_repository_or_ui_integration": False, "environment_metadata_is_canonical_scientific_proof": False}
-    manifest["sha256"] = canonical_sha256(manifest)
-    save(output / "manifest.json", manifest)
-    _ensure_source_snapshot(commit, code_files)
-    return {"battery_sha256": battery["sha256"], "battery_source_sha256": source["sha256"],
-            "demonstration_source_sha256": demo_source["sha256"],
-            "measured_reference_sha256": demo_source["measured_reference"]["sha256"],
-            "manifest_sha256": manifest["sha256"], "trial_count": len(battery["trials"])}
+                "manifest_sha256": manifest["sha256"], "trial_count": len(battery["trials"])}
 
+        writer.check_root()
+    # Recheck every artifact through the retained validation inventory
+    # after releasing the writer's exclusive claim.
+    with _open_inventory(output, file_access=True) as access:
+        if access.names != sorted(row["path"] for row in files):
+            raise ValueError("INVALID_INPUT")
+        for row in files:
+            observed = access.stat(row["path"])
+            if observed.st_size != row["bytes"] or _sha(access.read(row["path"], expected_stat=observed)) != row["sha256"]:
+                raise ValueError("INVALID_INPUT")
+        if _parse_json(access.read("manifest.json")) != manifest:
+            raise ValueError("INVALID_INPUT")
+    return result
 
 def validate_export(output: Path, *, expected_manifest_sha256: str, expected_battery_source_sha256: str,
                     expected_demonstration_source_sha256: str, expected_reference_sha256: str):

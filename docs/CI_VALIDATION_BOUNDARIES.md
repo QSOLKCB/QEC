@@ -19,6 +19,8 @@ pull requests as well as main when running the complete container suite, because
 regression tests inspect Git history. Checkout uses `persist-credentials: false`.
 The source checkout stays read-only; separate temporary writable HOME and artifact
 mounts support existing mirror/discovery tests without changing source files.
+The writable artifacts directory is first seeded with the checkout’s tracked
+artifact fixtures, so the overlay cannot hide historical regression evidence.
 No credentials are copied into the image. A stand-alone image without the declared
 checkout is not sufficient to run history-dependent repository assertions.
 

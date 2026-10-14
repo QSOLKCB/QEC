@@ -40,6 +40,7 @@ jobs:
       - name: Run complete container suite without swallowing failures
         run: |
           mkdir -p artifacts "$RUNNER_TEMP/qec-home" "$RUNNER_TEMP/qec-artifacts"
+          cp -a artifacts/. "$RUNNER_TEMP/qec-artifacts/"
           docker run --rm --user "$(id -u):$(id -g)" \
             --env HOME=/tmp/qec-home \
             --mount "type=bind,src=$PWD,dst=/app,readonly" \

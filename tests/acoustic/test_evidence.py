@@ -7,7 +7,7 @@ import os
 from pathlib import Path, PureWindowsPath
 import subprocess
 import sys
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -1096,3 +1096,80 @@ def test_windows_id_capability_retry_never_bypasses_denials_or_full_id_checks(tm
     assert (2, 0x13) not in state.queries
     assert state.reads == []
     assert sorted(state.closed) == state.opened
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX retained descriptor tests")
+def test_writer_survives_child_symlink_substitution_without_external_writes(tmp_path, export_module):
+    # Reproduces the published generation-time substitution; writing to a
+    # held directory descriptor must not follow its replaced pathname.
+    from qec.experiments.acoustic.export_fs import SecureExportWriter
+    output, outside = tmp_path / "export", tmp_path / "outside"
+    outside.mkdir()
+    with SecureExportWriter(output, 4096, 4096) as writer:
+        writer.mkdir("lab")
+        (output / "lab").rename(output / "held-lab")
+        (output / "lab").symlink_to(outside, target_is_directory=True)
+        writer.save("lab/payload.json", b"safe artifact")
+        assert list(outside.iterdir()) == []
+        assert (output / "held-lab/payload.json").read_bytes() == b"safe artifact"
+        writer.check_root()
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        export_module._inventory_files(output)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX atomic claim test")
+def test_simultaneous_writers_cannot_claim_the_same_empty_export(tmp_path):
+    from qec.experiments.acoustic.export_fs import SecureExportWriter
+    output = tmp_path / "export"
+    with SecureExportWriter(output, 4096, 4096) as first:
+        with pytest.raises((FileExistsError, ValueError, OSError)):
+            with SecureExportWriter(output, 4096, 4096) as second:
+                second.save("payload.json", b"competing")
+        first.save("payload.json", b"first")
+    assert (output / "payload.json").read_bytes() == b"first"
+    assert not (output / ".qec-acoustic-export-claim").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX identity observation test")
+def test_posix_inventory_retains_enumerated_file_identity(tmp_path, export_module):
+    observed = tmp_path / "artifact.json"
+    observed.write_bytes(b"same bytes")
+    replacement = tmp_path / "replacement"
+    with export_module._inventory_posix(tmp_path, file_access=True) as access:
+        replacement.write_bytes(b"same bytes")
+        replacement.replace(observed)
+        with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+            access.stat("artifact.json")
+        with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+            access.read("artifact.json")
+
+
+def test_imported_code_source_mismatch_is_rejected(tmp_path, export_module, monkeypatch):
+    # A module was imported from old source, then the tracked bytes changed
+    # *before* generation's manifest snapshot.
+    path = tmp_path / "loaded.py"
+    module = ModuleType("qec.provenance_fixture")
+    module.__file__ = str(path)
+    before = "def build():\\n    return 1\\n".replace("\\\\n", "\\n")
+    after = "def build():\\n    return 2\\n".replace("\\\\n", "\\n")
+    path.write_text(before)
+    exec(compile(before, str(path), "exec"), module.__dict__)
+    path.write_text(after)
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    monkeypatch.setattr(export_module, "ROOT", tmp_path)
+    monkeypatch.setattr(export_module, "_code_manifest",
+                        lambda: [{"path": "loaded.py", "sha256": export_module._sha(path.read_bytes()),
+                                  "bytes": path.stat().st_size}])
+    with pytest.raises(ValueError, match="imported source changed"):
+        export_module._loaded_code_matches_disk()
+
+
+def test_windows_native_directory_record_layout_has_88_byte_header(export_module):
+    import struct
+    # The documented layout has two DWORDs, six 64-bit quantities, four
+    # DWORDs, one 16-byte FILE_ID_128, then the filename (offset 88).
+    assert struct.calcsize("<II6q4I16s") == 88
+    record = struct.pack("<II6q4I16s", 0, 0, *([0] * 6), 0x20, 6, 0, 0, bytes(range(16)))
+    parsed = export_module._parse_windows_directory_buffer(record + "abc".encode("utf-16-le"))
+    assert parsed == [("abc", 0x20, 0, bytes(range(16)))]
+

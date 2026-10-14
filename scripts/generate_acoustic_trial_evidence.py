@@ -587,8 +587,8 @@ def generate(output: Path, *, cases=CASE_NAMES, alphabets=(3, 4), seed=1775, tra
             or any(type(t) is not str or t not in TRANSPORTS for t in transports)
             or len(set(transports)) != len(transports)):
         raise ValueError("INVALID_INPUT")
-    if output.exists() and (not output.is_dir() or any(output.iterdir())):
-        raise ValueError("output must be an empty directory")
+    # The writer performs its empty-directory check under an exclusive claim.
+    # Do not traverse the destination via mutable pathnames before claiming it.
     # Pin and validate the environment before any fixture computation. Inputs
     # built under an earlier source state may never be labelled with a later one.
     commit, dirty, code_files = _git("rev-parse", "HEAD"), _git("status", "--porcelain"), _code_manifest()

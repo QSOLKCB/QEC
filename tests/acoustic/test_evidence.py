@@ -1135,13 +1135,14 @@ def test_posix_inventory_retains_enumerated_file_identity(tmp_path, export_modul
     observed = tmp_path / "artifact.json"
     observed.write_bytes(b"same bytes")
     replacement = tmp_path / "replacement"
-    with export_module._inventory_posix(tmp_path, file_access=True) as access:
-        replacement.write_bytes(b"same bytes")
-        replacement.replace(observed)
-        with pytest.raises(ValueError, match="^INVALID_INPUT$"):
-            access.stat("artifact.json")
-        with pytest.raises(ValueError, match="^INVALID_INPUT$"):
-            access.read("artifact.json")
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        with export_module._inventory_posix(tmp_path, file_access=True) as access:
+            replacement.write_bytes(b"same bytes")
+            replacement.replace(observed)
+            with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+                access.stat("artifact.json")
+            with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+                access.read("artifact.json")
 
 
 def test_imported_code_source_mismatch_is_rejected(tmp_path, export_module, monkeypatch):
@@ -1150,8 +1151,8 @@ def test_imported_code_source_mismatch_is_rejected(tmp_path, export_module, monk
     path = tmp_path / "loaded.py"
     module = ModuleType("qec.provenance_fixture")
     module.__file__ = str(path)
-    before = "def build():\\n    return 1\\n".replace("\\\\n", "\\n")
-    after = "def build():\\n    return 2\\n".replace("\\\\n", "\\n")
+    before = "def build():\n    return 1\n"
+    after = "def build():\n    return 2\n"
     path.write_text(before)
     exec(compile(before, str(path), "exec"), module.__dict__)
     path.write_text(after)

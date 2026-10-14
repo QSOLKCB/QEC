@@ -517,11 +517,15 @@ def _validate_environment(value):
 def _source_code_objects(code):
     """Index compiled functions without executing source."""
     result = {}
-    def walk(node):
+    def walk(node, prefix=""):
         for item in node.co_consts:
             if isinstance(item, types.CodeType):
-                result[item.co_qualname] = item
-                walk(item)
+                # co_qualname was introduced in CPython 3.11; 3.10 exposes
+                # only co_name, so derive lexical class/function nesting.
+                qualified = getattr(item, "co_qualname", None) or (
+                    prefix + "." + item.co_name if prefix else item.co_name)
+                result[qualified] = item
+                walk(item, qualified)
     walk(code)
     return result
 

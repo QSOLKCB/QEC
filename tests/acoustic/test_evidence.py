@@ -337,14 +337,14 @@ def test_export_inventory_preflight_rejects_cumulative_size_before_payload_read(
         manifest["files"].append({"path": name, "sha256": "0" * 64, "bytes": path.stat().st_size})
     manifest = rehash(manifest)
     export_module._write_json(tmp_path / "manifest.json", manifest)
-    original = export_module._read_regular_bytes
+    original = export_module._InventoryAccess.read
     payload_reads = []
-    def guarded_read(path, **kwargs):
-        if path.name != "manifest.json":
-            payload_reads.append(path.name)
+    def guarded_read(self, name, **kwargs):
+        if name != "manifest.json":
+            payload_reads.append(name)
             pytest.fail("oversized inventory read artifact bytes before total-size preflight")
-        return original(path, **kwargs)
-    monkeypatch.setattr(export_module, "_read_regular_bytes", guarded_read)
+        return original(self, name, **kwargs)
+    monkeypatch.setattr(export_module._InventoryAccess, "read", guarded_read)
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         export_module.validate_export(tmp_path, expected_manifest_sha256=manifest["sha256"],
             expected_battery_source_sha256="a" * 64, expected_demonstration_source_sha256="b" * 64,
@@ -556,3 +556,543 @@ def test_inventory_discovery_has_finite_file_directory_and_depth_bounds(tmp_path
         (tmp_path / "a/b/c/d/e").mkdir(parents=True)
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         export_module._inventory_files(tmp_path)
+
+
+@pytest.mark.parametrize("builder_name", ["build_battery_source", "build_trial_source"])
+def test_generation_pins_source_before_any_fixture_builder(tmp_path, export_module, monkeypatch, builder_name):
+    source_file = tmp_path / "source.py"
+    source_file.write_bytes(b"before")
+    snapshots = []
+    def source_manifest():
+        value = [{"path": "source.py", "sha256": export_module._sha(source_file.read_bytes()),
+                  "bytes": source_file.stat().st_size}]
+        snapshots.append(value)
+        return value
+    original = getattr(export_module, builder_name)
+    invoked = []
+    def mutate_during_builder(*args, **kwargs):
+        assert snapshots, "source snapshot must precede the first fixture computation"
+        result = original(*args, **kwargs)
+        source_file.write_bytes(b"after")
+        invoked.append(True)
+        return result
+    monkeypatch.setattr(export_module, "_code_manifest", source_manifest)
+    monkeypatch.setattr(export_module, builder_name, mutate_during_builder)
+    output = tmp_path / "export"
+    with pytest.raises(ValueError, match="source changed during export"):
+        export_module.generate(output, cases=("clean",), alphabets=(3,))
+    assert invoked and not output.exists()
+    assert snapshots[0] != snapshots[-1]
+
+
+def test_generation_rejects_oversized_environment_before_computation(tmp_path, export_module, monkeypatch):
+    original_git = export_module._git
+    calls = []
+    def oversized_status(*args):
+        return "x" * 1_000_001 if args == ("status", "--porcelain") else original_git(*args)
+    def forbidden_generation(*args, **kwargs):
+        calls.append(True)
+        pytest.fail("invalid environment must fail before source generation")
+    monkeypatch.setattr(export_module, "_git", oversized_status)
+    monkeypatch.setattr(export_module, "build_battery_source", forbidden_generation)
+    output = tmp_path / "oversized"
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        export_module.generate(output, cases=("clean",), alphabets=(3,))
+    assert not calls and not output.exists()
+
+
+def test_generation_environment_schema_accepts_exact_status_boundary(export_module):
+    value = export_module._environment_snapshot("a" * 40, "x" * 1_000_000, export_module._code_manifest())
+    export_module._validate_environment(value)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        export_module._validate_environment({**value, "git_status_porcelain_at_start": "x" * 1_000_001})
+
+
+def _different_stat(info, **changes):
+    from types import SimpleNamespace
+    keys = ("st_mode", "st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+    return SimpleNamespace(**{**{key: getattr(info, key) for key in keys}, **changes})
+
+
+def test_windows_cross_api_ctime_semantics_keep_valid_reader_bytes(tmp_path, export_module, monkeypatch):
+    path = tmp_path / "valid"
+    path.write_bytes(b"known bytes")
+    original_identity, original_fstat = export_module._same_file_identity, os.fstat
+    def windows_identity(left, right, *, path_descriptor=False):
+        with monkeypatch.context() as context:
+            context.setattr(export_module, "os", SimpleNamespace(name="nt"))
+            return original_identity(left, right, path_descriptor=path_descriptor)
+    monkeypatch.setattr(export_module, "_same_file_identity", windows_identity)
+    monkeypatch.setattr(os, "fstat", lambda fd: _different_stat(original_fstat(fd), st_ctime_ns=original_fstat(fd).st_ctime_ns + 1000))
+    assert export_module._read_regular_bytes(path) == b"known bytes"
+
+
+@pytest.mark.parametrize("api", ["lstat", "fstat"])
+def test_windows_compatibility_still_checks_full_same_api_ctime(tmp_path, export_module, monkeypatch, api):
+    path = tmp_path / "payload"
+    path.write_bytes(b"fixed")
+    identity = export_module._same_file_identity
+    def windows_identity(left, right, *, path_descriptor=False):
+        with monkeypatch.context() as context:
+            context.setattr(export_module, "os", SimpleNamespace(name="nt"))
+            return identity(left, right, path_descriptor=path_descriptor)
+    monkeypatch.setattr(export_module, "_same_file_identity", windows_identity)
+    calls = []
+    if api == "lstat":
+        original = Path.lstat
+        def changed(target, *args, **kwargs):
+            info = original(target, *args, **kwargs)
+            if target == path:
+                calls.append(True)
+                return _different_stat(info, st_ctime_ns=info.st_ctime_ns + int(len(calls) > 1))
+            return info
+        monkeypatch.setattr(Path, "lstat", changed)
+    else:
+        original = os.fstat
+        def changed(descriptor):
+            info = original(descriptor)
+            calls.append(True)
+            return _different_stat(info, st_ctime_ns=info.st_ctime_ns + 1000 + int(len(calls) > 1))
+        monkeypatch.setattr(os, "fstat", changed)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        export_module._read_regular_bytes(path)
+    assert len(calls) >= 2
+
+
+def test_regular_mode_reparse_file_is_rejected_before_open(tmp_path, export_module, monkeypatch):
+    path = tmp_path / "reparse"
+    path.write_bytes(b"data")
+    original = path.lstat()
+    info = _different_stat(original, st_file_attributes=0x400)
+    monkeypatch.setattr(Path, "lstat", lambda *args, **kwargs: info)
+    monkeypatch.setattr(os, "open", lambda *args, **kwargs: pytest.fail("reparse file opened"))
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        export_module._read_regular_bytes(path)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX directory descriptor regression")
+@pytest.mark.parametrize("stage", ["before_open", "before_scan", "during_snapshot"])
+def test_directory_symlink_replacement_never_traverses_outside(tmp_path, export_module, stage):
+    root, outside = tmp_path / "root", tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    (root / "child").mkdir()
+    (outside / "must_not_visit").write_bytes(b"outside")
+    _bounded_subprocess(f"""
+root, outside = pathlib.Path({str(root)!r}), pathlib.Path({str(outside)!r})
+child = root / 'child'
+initial_inode = child.stat().st_ino
+outside_inode = outside.stat().st_ino
+original_open, original_scan = os.open, os.scandir
+changed = []
+def replace_child():
+    if not changed:
+        child.rename(root / 'old-child')
+        child.symlink_to(outside, target_is_directory=True)
+        changed.append(True)
+def checked_scan(fd):
+    assert isinstance(fd, int), 'directory traversal must use a retained fd'
+    assert os.fstat(fd).st_ino != outside_inode, 'outside directory was visited'
+    if {stage!r} == 'before_scan' and os.fstat(fd).st_ino == initial_inode:
+        replace_child()
+    return original_scan(fd)
+def raced_open(path, flags, *args, **kwargs):
+    if {stage!r} == 'before_open' and path == 'child':
+        replace_child()
+    return original_open(path, flags, *args, **kwargs)
+os.open, os.scandir = raced_open, checked_scan
+os.supports_dir_fd = os.supports_dir_fd | {{raced_open}}
+os.supports_fd = os.supports_fd | {{checked_scan}}
+try:
+    with module._open_inventory(root) as names:
+        assert 'child/must_not_visit' not in names
+        if {stage!r} == 'during_snapshot':
+            replace_child()
+except ValueError as error:
+    assert changed, 'race injection was not reached'
+    assert str(error) == 'INVALID_INPUT'
+    print(str(error))
+else:
+    raise AssertionError('directory replacement should fail closed')
+""", export_module)
+
+
+def _windows_directory_record(name, *, attributes=0x80, file_id=b"f" * 16, tag=0, following=0):
+    import struct
+    encoded = name.encode("utf-16-le")
+    return struct.pack("<II6q4I16s", following, 0, 10, 20, 30, 40, 0, 0,
+                       attributes, len(encoded), 0, tag, file_id) + encoded
+
+
+def test_windows_directory_parser_preserves_full_identity_and_undefined_tag(export_module):
+    value = _windows_directory_record("valid.json", file_id=bytes(range(16)), tag=0x12345678)
+    assert export_module._parse_windows_directory_buffer(value) == [("valid.json", 0x80, 0x12345678, bytes(range(16)))]
+
+
+@pytest.mark.parametrize("kind", ["odd_name", "truncated", "backward", "outside", "misaligned", "separator", "nul", "utf16", "too_many"])
+def test_windows_directory_parser_rejects_malformed_native_records(export_module, kind):
+    import struct
+    value = bytearray(_windows_directory_record("name"))
+    if kind == "odd_name":
+        struct.pack_into("<I", value, 60, 3)
+    elif kind == "truncated":
+        value = value[:-1]
+    elif kind == "backward":
+        struct.pack_into("<I", value, 0, 8)
+    elif kind == "outside":
+        struct.pack_into("<I", value, 0, 65536)
+    elif kind == "misaligned":
+        struct.pack_into("<I", value, 0, len(value) + 1)
+    elif kind == "separator":
+        value = _windows_directory_record("a/b")
+    elif kind == "nul":
+        value = _windows_directory_record("a\0b")
+    elif kind == "utf16":
+        value[88:90] = b"\x00\xdc"
+    else:
+        record = _windows_directory_record("abcd", following=96)
+        value = record * 160 + _windows_directory_record("last")
+    with pytest.raises(ValueError):
+        export_module._parse_windows_directory_buffer(bytes(value))
+
+
+def _mock_windows_kernel(monkeypatch, mode):
+    import ctypes
+    import struct
+    from types import SimpleNamespace
+    state = SimpleNamespace(opened=[], closed=[], queries=[], enumerated={}, error=0, mutation=False,
+                            open_paths=[], id_opens=[], id_kinds=[], reads=[], offsets={}, file_handles=set(), data=b"retained payload")
+    class NativeFunction:
+        def __init__(self, callback):
+            self.callback = callback
+        def __call__(self, *args):
+            return self.callback(*args)
+    def identifier(value):
+        return value[:8] + b"\0" * 8 if mode in ("ntfs_low64", "low64_denied", "low64_sharing", "low64_mismatch", "low64_volume") else value
+    def create(path, access, sharing, security, disposition, flags, template):
+        assert access == 0x81 and sharing == 1 and disposition == 3 and flags == 0x02200000
+        assert state.opened == [], "only the root may be opened by pathname"
+        state.open_paths.append(path)
+        handle = len(state.opened) + 1
+        state.opened.append(handle)
+        return handle
+    def open_id(hint, descriptor, access, sharing, security, flags):
+        assert hint == 1 and access in (0x81, 0x80000000) and sharing == 1 and flags == 0x02200000
+        size, kind, native_id = struct.unpack("<II16s", ctypes.string_at(descriptor, 24))
+        assert size == 24 and kind in (0, 2)
+        assert kind != 0 or native_id[8:] == b"\0" * 8
+        state.id_opens.append((native_id, access))
+        state.id_kinds.append(kind)
+        if mode == "id_unsupported" or mode in ("ntfs_low64", "low64_denied", "low64_sharing", "low64_mismatch", "low64_volume") and kind == 2:
+            state.error = 5 if mode == "low64_denied" else 32 if mode == "low64_sharing" else 87
+            return ctypes.c_void_p(-1).value
+        handle = len(state.opened) + 1
+        state.opened.append(handle)
+        if access == 0x80000000:
+            state.file_handles.add(handle)
+        return handle
+    def query(handle, kind, buffer, size):
+        state.queries.append((handle, kind))
+        attributes = 0x80 if handle in state.file_handles else 0x10
+        if handle == 2 and (mode == "reparse_child" or state.mutation and mode == "junction"):
+            attributes |= 0x400
+        if handle >= 3 and mode == "reparse_file":
+            attributes |= 0x400
+        if kind == 9:
+            # Tag is undefined for a non-reparse directory; arbitrary values
+            # must not make otherwise valid directory metadata fail.
+            value = struct.pack("<II", attributes, 0x12345678)
+        elif kind == 18:
+            native_id = identifier(b"f" * 16 if handle in state.file_handles else bytes([handle]) * 16)
+            if handle >= 3 and mode == "wrong_file_id":
+                native_id = native_id[:15] + b"x"
+            if handle == 2 and mode in ("wrong_high_id", "low64_mismatch"):
+                native_id = native_id[:15] + b"z"
+            if mode == "zero_id":
+                native_id = b"\0" * 16
+            volume = 99 + int(handle == 2 and mode in ("wrong_volume", "low64_volume"))
+            value = struct.pack("<Q16s", volume, native_id)
+        elif kind == 0:
+            change = 40 + int(state.mutation and (handle == 2 or mode == "file_mutation"))
+            value = struct.pack("<4qI4x", 10, 20, 30, change, attributes)
+        elif kind == 1:
+            file_size = 32 * 1024 * 1024 + 1 if mode == "oversize_file" else len(state.data)
+            value = struct.pack("<qqIBB2x", file_size, file_size, 1, 0, 0)
+        elif kind == 0x13:
+            count = state.enumerated.get(handle, 0)
+            state.enumerated[handle] = count + 1
+            if mode == "endless_dots":
+                value = _windows_directory_record(".", attributes=0x10)
+            elif mode == "unsupported" and handle == 2:
+                state.error = 87
+                return 0
+            elif count:
+                state.error = 18
+                return 0
+            elif handle == 1 and mode == "root_manifest":
+                value = _windows_directory_record("manifest.json")
+            elif handle == 1:
+                value = _windows_directory_record("child", attributes=0x10, file_id=identifier(b"\x02" * 16), tag=0xFFFFFFFF)
+            else:
+                value = _windows_directory_record("payload.json", file_id=identifier(b"f" * 16), tag=0xFFFFFFFF)
+        else:
+            pytest.fail(f"unexpected native information class {kind}")
+        assert len(value) <= size
+        ctypes.memmove(buffer, value, len(value))
+        return 1
+    def read(handle, buffer, requested, returned, overlapped):
+        assert handle in state.file_handles and requested <= 65536 and overlapped is None
+        state.reads.append((handle, requested))
+        if mode == "read_error":
+            return 0
+        data = state.data[:-1] if mode == "short_read" else state.data + b"x" if mode == "growing_read" else state.data
+        offset = state.offsets.get(handle, 0)
+        chunk = data[offset:offset + requested]
+        state.offsets[handle] = offset + len(chunk)
+        ctypes.memmove(buffer, chunk, len(chunk))
+        from ctypes import wintypes
+        ctypes.cast(returned, ctypes.POINTER(wintypes.DWORD)).contents.value = len(chunk)
+        if mode == "file_mutation":
+            state.mutation = True
+        return 1
+    def seek(handle, distance, new_position, method):
+        assert distance == 0 and method == 0 and new_position is None
+        state.offsets[handle] = 0
+        return int(mode != "seek_error")
+    def close(handle):
+        state.closed.append(handle)
+        return 1
+    kernel = SimpleNamespace(CreateFileW=NativeFunction(create), GetFileInformationByHandleEx=NativeFunction(query),
+        OpenFileById=NativeFunction(open_id), GetFileType=NativeFunction(lambda handle: 3 if mode == "pipe_file" else 1),
+        ReadFile=NativeFunction(read), SetFilePointerEx=NativeFunction(seek), CloseHandle=NativeFunction(close))
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *args, **kwargs: kernel, raising=False)
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: state.error, raising=False)
+    return state
+
+
+def test_windows_native_inventory_retains_handles_and_ignores_undefined_tags(tmp_path, export_module, monkeypatch):
+    state = _mock_windows_kernel(monkeypatch, "valid")
+    with export_module._inventory_windows(tmp_path) as names:
+        assert names == ["child/payload.json"]
+        assert state.closed == []
+    assert state.closed == [2, 1]
+
+
+@pytest.mark.parametrize("mode", ["wrong_high_id", "wrong_volume", "reparse_child", "zero_id", "unsupported", "endless_dots", "mutation", "junction"])
+def test_windows_native_inventory_fails_closed_and_closes_handles(tmp_path, export_module, monkeypatch, mode):
+    state = _mock_windows_kernel(monkeypatch, mode)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        with export_module._inventory_windows(tmp_path) as names:
+            assert mode in ("mutation", "junction")
+            assert names == ["child/payload.json"]
+            state.mutation = True
+    assert sorted(state.closed) == state.opened
+    if mode in ("wrong_high_id", "wrong_volume", "reparse_child"):
+        assert (2, 0x13) not in state.queries, "rejected child must never be enumerated"
+    if mode == "endless_dots":
+        assert state.queries.count((1, 0x13)) == 256
+
+
+@pytest.mark.skipif(os.name != "nt", reason="actual Windows junction mutation regression")
+def test_windows_held_directory_reparse_mutation_is_prevented_or_rejected(tmp_path, export_module):
+    import ctypes
+    from ctypes import wintypes
+    import struct
+    root, outside = tmp_path / "root", tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    child = root / "child"
+    child.mkdir()
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    create = kernel.CreateFileW
+    create.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                       wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+    create.restype = wintypes.HANDLE
+    control = kernel.DeviceIoControl
+    control.argtypes = (wintypes.HANDLE, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD,
+                        wintypes.LPVOID, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID)
+    control.restype = wintypes.BOOL
+    close = kernel.CloseHandle
+    close.argtypes, close.restype = (wintypes.HANDLE,), wintypes.BOOL
+    changed = False
+    try:
+        try:
+            with export_module._open_inventory(root):
+                handle = create(str(child), 0x100, 7, None, 3, 0x02200000, None)  # FILE_WRITE_ATTRIBUTES
+                if handle in (None, ctypes.c_void_p(-1).value):
+                    assert ctypes.get_last_error() in (5, 32), "unexpected directory-write failure"
+                    return  # Sharing/permission protection prevented the mutation.
+                try:
+                    substitute = ("\\??\\" + str(outside)).encode("utf-16-le")
+                    printable = str(outside).encode("utf-16-le")
+                    names = substitute + b"\0\0" + printable + b"\0\0"
+                    value = struct.pack("<I6H", 0xA0000003, 8 + len(names), 0,
+                                        0, len(substitute), len(substitute) + 2, len(printable)) + names
+                    data = ctypes.create_string_buffer(value)
+                    returned = wintypes.DWORD()
+                    if not control(handle, 0x000900A4, data, len(value), None, 0, ctypes.byref(returned), None):
+                        assert ctypes.get_last_error() in (5, 32), "unexpected reparse mutation failure"
+                        return
+                    changed = True
+                finally:
+                    close(handle)
+        except ValueError as error:
+            assert changed and str(error) == "INVALID_INPUT"
+        else:
+            pytest.fail("successful junction mutation was accepted after snapshot")
+    finally:
+        if changed:
+            child.rmdir()  # Remove the junction itself, never its target contents.
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX descriptor-relative payload regression")
+@pytest.mark.parametrize("stage", ["manifest", "payload_stat", "payload_open", "payload_read"])
+def test_parent_replacement_never_stats_opens_or_reads_outside(tmp_path, export_module, stage):
+    root, outside = tmp_path / "root", tmp_path / "outside"
+    (root / "lab").mkdir(parents=True)
+    (outside / "lab").mkdir(parents=True)
+    payload = b"original payload"
+    (root / "lab/payload.json").write_bytes(payload)
+    (outside / "lab/payload.json").write_bytes(b"outside payload")
+    (outside / "manifest.json").write_bytes(b"outside manifest")
+    kwargs = _minimal_export_manifest(root, export_module, [{"path": "lab/payload.json",
+        "sha256": export_module._sha(payload), "bytes": len(payload)}])
+    _bounded_subprocess(f"""
+root, outside = pathlib.Path({str(root)!r}), pathlib.Path({str(outside)!r})
+outside_inodes = {{p.stat().st_ino for p in outside.rglob('*')}} | {{outside.stat().st_ino}}
+payload_inode = (root / 'lab/payload.json').stat().st_ino
+original_stat, original_lstat, original_open, original_read = os.stat, os.lstat, os.open, os.read
+original_access_read, original_access_stat = module._InventoryAccess.read, module._InventoryAccess.stat
+changed, payload_reads = [], []
+def replace_parent():
+    if not changed:
+        if {stage!r} == 'manifest':
+            root.rename(root.with_name('retained-root'))
+            root.symlink_to(outside, target_is_directory=True)
+        else:
+            (root / 'lab').rename(root / 'retained-lab')
+            (root / 'lab').symlink_to(outside / 'lab', target_is_directory=True)
+        changed.append(True)
+def checked_stat(function):
+    def check(path, *args, **kwargs):
+        info = function(path, *args, **kwargs)
+        assert info.st_ino not in outside_inodes, 'outside inode metadata was observed'
+        return info
+    return check
+def checked_open(path, flags, *args, **kwargs):
+    if {stage!r} == 'payload_open' and pathlib.Path(path).name == 'payload.json':
+        replace_parent()
+    if changed:
+        assert kwargs.get('dir_fd') is not None, 'file opened through an ancestor pathname'
+        assert len(pathlib.Path(path).parts) == 1, 'file open must use a discovered basename'
+    descriptor = original_open(path, flags, *args, **kwargs)
+    assert os.fstat(descriptor).st_ino not in outside_inodes, 'outside descriptor opened'
+    return descriptor
+def checked_read(descriptor, count):
+    inode = os.fstat(descriptor).st_ino
+    assert inode not in outside_inodes, 'outside descriptor reached read'
+    if inode == payload_inode:
+        payload_reads.append(True)
+        if {stage!r} == 'payload_read':
+            replace_parent()
+    return original_read(descriptor, count)
+def access_read(self, name, **kwargs):
+    if {stage!r} == 'manifest' and name == 'manifest.json':
+        replace_parent()
+    return original_access_read(self, name, **kwargs)
+def access_stat(self, name):
+    if {stage!r} == 'payload_stat':
+        replace_parent()
+    return original_access_stat(self, name)
+os.stat, os.lstat = checked_stat(original_stat), checked_stat(original_lstat)
+os.open, os.read = checked_open, checked_read
+os.supports_dir_fd = os.supports_dir_fd | {{os.open, os.stat}}
+os.supports_follow_symlinks = os.supports_follow_symlinks | {{os.stat}}
+module._InventoryAccess.read, module._InventoryAccess.stat = access_read, access_stat
+try:
+    module.validate_export(root, **{kwargs!r})
+except ValueError as error:
+    assert changed, 'race injection was not reached'
+    assert payload_reads, 'descriptor-relative original payload was not reached'
+    assert str(error) == 'INVALID_INPUT'
+    print(str(error))
+else:
+    raise AssertionError('parent replacement was accepted')
+""", export_module)
+
+
+@pytest.mark.parametrize("name", ["../outside.json", "/outside.json", "lab//data.json", "./data.json",
+                                  "lab/../data.json", "C:/outside.json", "lab\\data.json", "unknown.json"])
+def test_manifest_unknown_or_aliased_names_fail_before_payload_access(tmp_path, export_module, monkeypatch, name):
+    kwargs = _minimal_export_manifest(tmp_path, export_module, [{"path": name, "sha256": "0" * 64, "bytes": 0}])
+    monkeypatch.setattr(export_module._InventoryAccess, "stat", lambda *args: pytest.fail("unknown payload stat"))
+    original = export_module._InventoryAccess.read
+    def read(self, name, **kwargs):
+        assert name == "manifest.json", "unknown payload read"
+        return original(self, name, **kwargs)
+    monkeypatch.setattr(export_module._InventoryAccess, "read", read)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        export_module.validate_export(tmp_path, **kwargs)
+
+
+def test_windows_payload_snapshot_uses_only_native_file_ids(tmp_path, export_module, monkeypatch):
+    state = _mock_windows_kernel(monkeypatch, "valid")
+    monkeypatch.setattr(Path, "lstat", lambda *args: pytest.fail("pathname payload metadata"))
+    monkeypatch.setattr(os, "open", lambda *args, **kwargs: pytest.fail("pathname payload open"))
+    with export_module._inventory_windows(tmp_path, file_access=True) as access:
+        info = access.stat("child/payload.json")
+        assert info.st_size == len(state.data)
+        assert state.reads == []
+        assert access.read("child/payload.json", expected_stat=info) == state.data
+        assert access.read("child/payload.json", expected_stat=info) == state.data
+        assert state.closed == []
+    assert len(state.open_paths) == 1
+    assert state.id_opens == [(b"\x02" * 16, 0x81), (b"f" * 16, 0x80000000)]
+    assert state.closed == [3, 2, 1]
+
+
+@pytest.mark.parametrize("mode", ["id_unsupported", "wrong_file_id", "pipe_file", "reparse_file", "oversize_file",
+                                  "short_read", "growing_read", "read_error", "seek_error", "file_mutation"])
+def test_windows_payload_native_guards_fail_closed(tmp_path, export_module, monkeypatch, mode):
+    state = _mock_windows_kernel(monkeypatch, mode)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        with export_module._inventory_windows(tmp_path, file_access=True) as access:
+            info = access.stat("child/payload.json")
+            access.read("child/payload.json", expected_stat=info)
+    assert sorted(state.closed) == state.opened
+    if mode in ("id_unsupported", "wrong_file_id", "pipe_file", "reparse_file", "oversize_file", "seek_error"):
+        assert state.reads == []
+    if mode == "id_unsupported":
+        assert state.id_kinds == [2], "nonzero high ID bits must never be truncated for a retry"
+
+
+def test_windows_manifest_read_uses_inventoried_file_id(tmp_path, export_module, monkeypatch):
+    state = _mock_windows_kernel(monkeypatch, "root_manifest")
+    monkeypatch.setattr(Path, "lstat", lambda *args: pytest.fail("manifest pathname metadata"))
+    monkeypatch.setattr(os, "open", lambda *args, **kwargs: pytest.fail("manifest pathname open"))
+    with export_module._inventory_windows(tmp_path, file_access=True) as access:
+        assert access.names == []
+        assert access.read("manifest.json") == state.data
+    assert len(state.open_paths) == 1
+    assert state.id_opens == [(b"f" * 16, 0x80000000)]
+    assert state.closed == [2, 1]
+
+
+def test_windows_low64_id_capability_retry_keeps_full_identity_checks(tmp_path, export_module, monkeypatch):
+    state = _mock_windows_kernel(monkeypatch, "ntfs_low64")
+    with export_module._inventory_windows(tmp_path, file_access=True) as access:
+        assert access.read("child/payload.json") == state.data
+    assert state.id_kinds == [2, 0, 2, 0]
+    assert state.closed == [3, 2, 1]
+
+
+@pytest.mark.parametrize("mode", ["low64_denied", "low64_sharing", "low64_mismatch", "low64_volume"])
+def test_windows_id_capability_retry_never_bypasses_denials_or_full_id_checks(tmp_path, export_module, monkeypatch, mode):
+    state = _mock_windows_kernel(monkeypatch, mode)
+    with pytest.raises(ValueError, match="^INVALID_INPUT$"):
+        with export_module._inventory_windows(tmp_path, file_access=True):
+            pytest.fail("invalid child reached snapshot")
+    assert state.id_kinds == ([2] if mode in ("low64_denied", "low64_sharing") else [2, 0])
+    assert (2, 0x13) not in state.queries
+    assert state.reads == []
+    assert sorted(state.closed) == state.opened

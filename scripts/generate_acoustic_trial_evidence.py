@@ -8,6 +8,7 @@ No installation, hardware testing, SPECTRAL UI integration or publishing occurs.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import hashlib
 from importlib.metadata import PackageNotFoundError, version
 import json
@@ -16,6 +17,7 @@ from pathlib import Path
 import platform
 import re
 import stat
+import struct
 import subprocess
 import time
 import tracemalloc
@@ -88,14 +90,15 @@ def _same_file_identity(left, right, *, path_descriptor=False):
     return left_identity == right_identity
 
 
-def _regular_stat(path):
-    info = path.lstat()
-    if not stat.S_ISREG(info.st_mode) or not 0 <= info.st_size <= MAX_EXPORT_FILE_BYTES:
+def _regular_stat(path, *, dir_fd=None):
+    info = path.lstat() if dir_fd is None else os.stat(path, dir_fd=dir_fd, follow_symlinks=False)
+    if (not stat.S_ISREG(info.st_mode) or not 0 <= info.st_size <= MAX_EXPORT_FILE_BYTES
+            or getattr(info, "st_file_attributes", 0) & 0x400):
         raise ValueError("INVALID_INPUT")
     return info
 
 
-def _read_regular_bytes(path, *, expected_stat=None):
+def _read_regular_bytes(path, *, expected_stat=None, dir_fd=None):
     """Read one bounded regular-file snapshot without blocking on a FIFO race.
 
     POSIX nonblocking/no-follow flags are used when available. Every platform
@@ -105,15 +108,17 @@ def _read_regular_bytes(path, *, expected_stat=None):
     """
     descriptor = None
     try:
-        before = _regular_stat(path)
+        before = _regular_stat(path, dir_fd=dir_fd)
         if expected_stat is not None and _file_identity(before) != _file_identity(expected_stat):
             raise ValueError("INVALID_INPUT")
         flags = os.O_RDONLY
         for name in ("O_NONBLOCK", "O_NOFOLLOW", "O_CLOEXEC", "O_BINARY", "O_NOINHERIT"):
             flags |= getattr(os, name, 0)
-        descriptor = os.open(path, flags)
+        descriptor = os.open(path, flags) if dir_fd is None else os.open(path, flags, dir_fd=dir_fd)
         opened = os.fstat(descriptor)
         if not stat.S_ISREG(opened.st_mode) or not _same_file_identity(before, opened, path_descriptor=True):
+            raise ValueError("INVALID_INPUT")
+        if _file_identity(_regular_stat(path, dir_fd=dir_fd)) != _file_identity(before):
             raise ValueError("INVALID_INPUT")
         chunks, count = [], 0
         while count <= opened.st_size:
@@ -122,7 +127,8 @@ def _read_regular_bytes(path, *, expected_stat=None):
                 break
             chunks.append(chunk)
             count += len(chunk)
-        if count != opened.st_size or _file_identity(os.fstat(descriptor)) != _file_identity(opened):
+        if (count != opened.st_size or _file_identity(os.fstat(descriptor)) != _file_identity(opened)
+                or _file_identity(_regular_stat(path, dir_fd=dir_fd)) != _file_identity(before)):
             raise ValueError("INVALID_INPUT")
         return b"".join(chunks)
     except (OSError, TypeError, ValueError) as exc:
@@ -146,27 +152,306 @@ def _read_json(path):
     return _parse_json(_read_regular_bytes(path))
 
 
-def _inventory_files(output):
-    """Bound discovery and reject every special entry; exempt only root manifest."""
-    names, pending, directories = [], [(output, 0)], 0
-    while pending:
-        directory, depth = pending.pop()
-        with os.scandir(directory) as entries:
-            for entry in entries:
-                path = Path(entry.path)
-                info = entry.stat(follow_symlinks=False)
-                if stat.S_ISDIR(info.st_mode):
-                    directories += 1
-                    if directories > 16 or depth >= 4:
+class _InventoryAccess:
+    """File access restricted to names discovered under retained directory guards."""
+    def __init__(self, names, locations, *, stat_file=None, read_file=None):
+        self.names, self._locations = sorted(names), locations
+        self._stat_file, self._read_file = stat_file, read_file
+
+    def stat(self, name):
+        if self._stat_file is not None:
+            return self._stat_file(name)
+        path, parent = self._locations[name]
+        return _regular_stat(path, dir_fd=parent)
+
+    def read(self, name, *, expected_stat=None):
+        if self._read_file is not None:
+            return self._read_file(name, expected_stat=expected_stat)
+        path, parent = self._locations[name]
+        return _read_regular_bytes(path, expected_stat=expected_stat, dir_fd=parent)
+
+
+@contextmanager
+def _inventory_posix(output, *, file_access=False):
+    """Walk retained no-follow directory descriptors, never queued pathnames."""
+    if (os.scandir not in os.supports_fd or os.open not in os.supports_dir_fd
+            or os.stat not in os.supports_dir_fd or os.stat not in os.supports_follow_symlinks
+            or not all(hasattr(os, flag) for flag in ("O_DIRECTORY", "O_NOFOLLOW", "O_NONBLOCK"))):
+        raise ValueError("INVALID_INPUT")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NONBLOCK | getattr(os, "O_CLOEXEC", 0)
+    retained, snapshots, names, locations, directories = [], [], [], {}, 0
+    def open_directory(name, expected, parent=None):
+        descriptor = os.open(name, flags, dir_fd=parent)
+        retained.append(descriptor)
+        observed = os.fstat(descriptor)
+        if not stat.S_ISDIR(observed.st_mode) or _file_identity(observed) != _file_identity(expected):
+            raise ValueError("INVALID_INPUT")
+        snapshots.append((descriptor, observed))
+        return descriptor, observed
+    try:
+        root, root_info = open_directory(output, output.lstat())
+        pending = [(root, "", 0, root_info)]
+        while pending:
+            descriptor, prefix, depth, initial = pending.pop()
+            if _file_identity(os.fstat(descriptor)) != _file_identity(initial):
+                raise ValueError("INVALID_INPUT")
+            with os.scandir(descriptor) as entries:
+                for entry in entries:
+                    relative = (Path(prefix) / entry.name).as_posix()
+                    info = entry.stat(follow_symlinks=False)
+                    if stat.S_ISDIR(info.st_mode):
+                        directories += 1
+                        if directories > 16 or depth >= 4:
+                            raise ValueError("INVALID_INPUT")
+                        child, child_info = open_directory(entry.name, info, descriptor)
+                        pending.append((child, relative, depth + 1, child_info))
+                    elif not stat.S_ISREG(info.st_mode):
                         raise ValueError("INVALID_INPUT")
-                    pending.append((path, depth + 1))
-                elif not stat.S_ISREG(info.st_mode):
+                    else:
+                        locations[relative] = (Path(entry.name), descriptor)
+                        if relative != "manifest.json":
+                            names.append(relative)
+                            if len(names) > 128:
+                                raise ValueError("INVALID_INPUT")
+            if _file_identity(os.fstat(descriptor)) != _file_identity(initial):
+                raise ValueError("INVALID_INPUT")
+        yield _InventoryAccess(names, locations) if file_access else sorted(names)
+        for descriptor, initial in snapshots:
+            if _file_identity(os.fstat(descriptor)) != _file_identity(initial):
+                raise ValueError("INVALID_INPUT")
+    finally:
+        for descriptor in reversed(retained):
+            os.close(descriptor)
+
+
+def _parse_windows_directory_buffer(data):
+    """Parse bounded FILE_ID_EXTD_DIR_INFO records; no pathname traversal here."""
+    header = struct.Struct("<II6q4I16s")
+    if type(data) is not bytes or not header.size <= len(data) <= 65536:
+        raise ValueError("INVALID_INPUT")
+    records, offset = [], 0
+    while True:
+        if offset + header.size > len(data) or len(records) >= 160:
+            raise ValueError("INVALID_INPUT")
+        fields = header.unpack_from(data, offset)
+        following, attributes, length, reparse_tag, file_id = fields[0], fields[8], fields[9], fields[11], fields[12]
+        end = offset + header.size + length
+        if not length or length % 2 or end > len(data):
+            raise ValueError("INVALID_INPUT")
+        name = data[offset + header.size:end].decode("utf-16-le")
+        if any(character in name for character in ("/", "\\", ":", "\0")):
+            raise ValueError("INVALID_INPUT")
+        records.append((name, attributes, reparse_tag, file_id))
+        if not following:
+            return records
+        if following < header.size + length or following % 8:
+            raise ValueError("INVALID_INPUT")
+        offset += following
+
+
+@contextmanager
+def _inventory_windows(output, *, file_access=False):
+    """Enumerate guarded Windows handles, with native 128-bit child identity.
+
+    GetFileInformationByHandleEx(FileIdExtdDirectoryInfo) enumerates the retained
+    handle itself. Only the root uses CreateFileW; descendants and payloads
+    use inventoried file IDs with OpenFileById and OPEN_REPARSE_POINT. Unsupported
+    APIs/filesystems fail closed, without pathname fallbacks. All acquired handles
+    remain open through the caller's byte snapshot.
+    Microsoft API contracts: https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-getfileinformationbyhandleex
+    and https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-openfilebyid
+    """
+    import ctypes
+    from ctypes import wintypes
+    from types import SimpleNamespace
+    if not hasattr(ctypes, "WinDLL"):
+        raise ValueError("INVALID_INPUT")
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    create = kernel.CreateFileW
+    create.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                       wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+    create.restype = wintypes.HANDLE
+    query = kernel.GetFileInformationByHandleEx
+    query.argtypes = (wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD)
+    query.restype = wintypes.BOOL
+    close = kernel.CloseHandle
+    close.argtypes, close.restype = (wintypes.HANDLE,), wintypes.BOOL
+    open_id = kernel.OpenFileById
+    open_id.argtypes = (wintypes.HANDLE, wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD,
+                        wintypes.LPVOID, wintypes.DWORD)
+    open_id.restype = wintypes.HANDLE
+    file_type = kernel.GetFileType
+    file_type.argtypes, file_type.restype = (wintypes.HANDLE,), wintypes.DWORD
+    read = kernel.ReadFile
+    read.argtypes = (wintypes.HANDLE, wintypes.LPVOID, wintypes.DWORD,
+                     ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID)
+    read.restype = wintypes.BOOL
+    seek = kernel.SetFilePointerEx
+    seek.argtypes = (wintypes.HANDLE, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), wintypes.DWORD)
+    seek.restype = wintypes.BOOL
+    file_handles = {}
+    retained, snapshots, names, locations, directories, calls = [], [], [], {}, 0, 0
+    def native_failure(operation):
+        # Keep API/error diagnostics in the chain, without file paths or bytes.
+        raise ValueError("INVALID_INPUT") from OSError(ctypes.get_last_error(), operation)
+    def info(handle, kind, size):
+        buffer = ctypes.create_string_buffer(size)
+        if not query(handle, kind, buffer, size):
+            native_failure(f"GetFileInformationByHandleEx({kind})")
+        return buffer.raw
+    def open_by_id(expected, access):
+        # FILE_ID_DESCRIPTOR is two DWORDs followed by the 16-byte union.
+        # The retained root is a volume hint, not a pathname resolution base.
+        descriptor = ctypes.create_string_buffer(struct.pack("<II16s", 24, 2, expected[1]))
+        handle = open_id(root, descriptor, access, 0x1, None, 0x02200000)
+        if (handle in (None, ctypes.c_void_p(-1).value) and ctypes.get_last_error() == 87
+                and expected[1][8:] == b"\0" * 8):
+            # Some filesystems accept only FileIdType (64 bits). This capability
+            # retry loses no ID bits, changes no access flags, and still requires
+            # exact full 128-bit/volume verification before enumeration or reads.
+            # ACCESS_DENIED and sharing errors are never retried.
+            descriptor = ctypes.create_string_buffer(struct.pack("<II16s", 24, 0, expected[1]))
+            handle = open_id(root, descriptor, access, 0x1, None, 0x02200000)
+        if handle in (None, ctypes.c_void_p(-1).value):
+            native_failure("OpenFileById")
+        return handle
+    def open_directory(path, expected=None):
+        # FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES; FILE_SHARE_READ only;
+        # OPEN_EXISTING; BACKUP_SEMANTICS | OPEN_REPARSE_POINT.
+        handle = (create(str(path), 0x81, 0x1, None, 3, 0x02200000, None)
+                  if expected is None else open_by_id(expected, 0x81))
+        if handle in (None, ctypes.c_void_p(-1).value):
+            native_failure("CreateFileW")
+        retained.append(handle)
+        snapshot = directory_snapshot(handle)
+        identity = snapshot[0]
+        if expected is not None and identity != expected:
+            raise ValueError("INVALID_INPUT")
+        snapshots.append((handle, snapshot))
+        return handle, identity
+    def directory_snapshot(handle):
+        attributes, reparse_tag = struct.unpack("<II", info(handle, 9, 8))
+        identity = struct.unpack("<Q16s", info(handle, 18, 24))
+        basic = struct.unpack_from("<4qI", info(handle, 0, 40))
+        if (not attributes & 0x10 or attributes & (0x400 | 0x40)
+                or not any(identity[1]) or basic[4] != attributes):
+            raise ValueError("INVALID_INPUT")
+        # Access time can change due to reading. Creation/write/change time and
+        # reparse attributes must stay exact, including after caller snapshot reads.
+        return identity, attributes, basic[0], basic[2], basic[3]
+    def file_snapshot(handle, expected):
+        if file_type(handle) != 1:  # FILE_TYPE_DISK, never a pipe/device.
+            raise ValueError("INVALID_INPUT")
+        attributes, _ = struct.unpack("<II", info(handle, 9, 8))
+        identity = struct.unpack("<Q16s", info(handle, 18, 24))
+        basic = struct.unpack_from("<4qI", info(handle, 0, 40))
+        standard = struct.unpack("<qqIBB2x", info(handle, 1, 24))
+        if (identity != expected or not any(identity[1]) or attributes & (0x10 | 0x400 | 0x40)
+                or basic[4] != attributes or standard[3] or standard[4]
+                or not 0 <= standard[1] <= MAX_EXPORT_FILE_BYTES):
+            raise ValueError("INVALID_INPUT")
+        return identity, standard[1], attributes, basic[0], basic[2], basic[3], standard
+    def stat_file(name):
+        expected = locations[name]
+        if name not in file_handles:
+            handle = open_by_id(expected, 0x80000000)  # GENERIC_READ
+            retained.append(handle)
+            initial = file_snapshot(handle, expected)
+            file_handles[name] = handle, initial
+        handle, initial = file_handles[name]
+        if file_snapshot(handle, expected) != initial:
+            raise ValueError("INVALID_INPUT")
+        return SimpleNamespace(st_size=initial[1], native_snapshot=initial)
+    def read_file(name, *, expected_stat=None):
+        observed = stat_file(name)
+        if expected_stat is not None and expected_stat.native_snapshot != observed.native_snapshot:
+            raise ValueError("INVALID_INPUT")
+        handle, initial = file_handles[name]
+        if not seek(handle, 0, None, 0):  # FILE_BEGIN
+            native_failure("SetFilePointerEx")
+        chunks, count, calls = [], 0, 0
+        while count <= observed.st_size:
+            calls += 1
+            if calls > MAX_EXPORT_FILE_BYTES // 65536 + 2:
+                raise ValueError("INVALID_INPUT")
+            requested = min(65536, observed.st_size + 1 - count)
+            buffer, received = ctypes.create_string_buffer(requested), wintypes.DWORD()
+            if not read(handle, buffer, requested, ctypes.byref(received), None):
+                native_failure("ReadFile")
+            if received.value > requested:
+                raise ValueError("INVALID_INPUT")
+            if not received.value:
+                break
+            chunks.append(buffer.raw[:received.value])
+            count += received.value
+        if count != observed.st_size or file_snapshot(handle, locations[name]) != initial:
+            raise ValueError("INVALID_INPUT")
+        return b"".join(chunks)
+    try:
+        output = output.absolute()
+        root, root_id = open_directory(output)
+        pending = [(root, "", 0, root_id)]
+        while pending:
+            handle, prefix, depth, directory_id = pending.pop()
+            while True:
+                calls += 1
+                if calls > 256:
                     raise ValueError("INVALID_INPUT")
-                elif path != output / "manifest.json":
-                    names.append(_portable_relative(path, output))
-                    if len(names) > 128:
+                buffer = ctypes.create_string_buffer(65536)
+                if not query(handle, 0x13, buffer, len(buffer)):
+                    if ctypes.get_last_error() == 18:  # ERROR_NO_MORE_FILES
+                        break
+                    native_failure("GetFileInformationByHandleEx(19)")
+                for name, attributes, reparse_tag, file_id in _parse_windows_directory_buffer(buffer.raw):
+                    if name in (".", ".."):
+                        continue
+                    if attributes & (0x400 | 0x40):
                         raise ValueError("INVALID_INPUT")
-    return sorted(names)
+                    relative = (Path(prefix) / name).as_posix()
+                    if attributes & 0x10:
+                        directories += 1
+                        if directories > 16 or depth >= 4:
+                            raise ValueError("INVALID_INPUT")
+                        child, child_id = open_directory(output / relative, (directory_id[0], file_id))
+                        pending.append((child, relative, depth + 1, child_id))
+                    else:
+                        locations[relative] = (directory_id[0], file_id)
+                        if relative != "manifest.json":
+                            names.append(relative)
+                            if len(names) > 128:
+                                raise ValueError("INVALID_INPUT")
+        for handle, initial in snapshots:
+            if directory_snapshot(handle) != initial:
+                raise ValueError("INVALID_INPUT")
+        yield (_InventoryAccess(names, locations, stat_file=stat_file, read_file=read_file)
+               if file_access else sorted(names))
+        for name, (handle, initial) in file_handles.items():
+            if file_snapshot(handle, locations[name]) != initial:
+                raise ValueError("INVALID_INPUT")
+        for handle, initial in snapshots:
+            if directory_snapshot(handle) != initial:
+                raise ValueError("INVALID_INPUT")
+    finally:
+        for handle in reversed(retained):
+            close(handle)
+
+
+@contextmanager
+def _open_inventory(output, *, file_access=False):
+    """Retain no-follow directory guards until snapshot reads finish."""
+    try:
+        implementation = _inventory_posix if os.name == "posix" else _inventory_windows if os.name == "nt" else None
+        if implementation is None:
+            raise ValueError("INVALID_INPUT")
+        with implementation(output, file_access=file_access) as names:
+            yield names
+    except (OSError, TypeError, ValueError, AttributeError) as exc:
+        raise ValueError("INVALID_INPUT") from exc
+
+
+def _inventory_files(output):
+    with _open_inventory(output) as names:
+        return names
 
 
 _MANIFEST_FIXED = {
@@ -219,6 +504,22 @@ def _validate_environment(value):
         raise ValueError("INVALID_INPUT")
 
 
+def _environment_snapshot(commit, dirty, code_files):
+    return {"schema": "qec.acoustic-environment.v1", "source_commit_sha": commit,
+                   "clean_working_tree_at_start": not bool(dirty), "git_status_porcelain_at_start": dirty,
+                   "source_files": code_files, "python": platform.python_version(), "platform": platform.platform(),
+                   "dependencies": {name: _version(name) for name in ("qec", "numpy", "scipy", "pytest")},
+                   "runtime_ns": 0, "peak_python_tracemalloc_bytes": 0,
+                   "measurement_scope": "battery_build_and_replay_plus_export_and_native_demo; not_process_RSS",
+                   "performance_is_environment_dependent": True, "performance_is_canonical_proof": False,
+                   "physical_latency_or_hardware_QA": False, "full_suite_gate": "separate_exact_commit_test_run"}
+
+
+def _ensure_source_snapshot(commit, code_files):
+    if _git("rev-parse", "HEAD") != commit or _code_manifest() != code_files:
+        raise ValueError("source changed during export; rerun against a stable checkout")
+
+
 def generate(output: Path, *, cases=CASE_NAMES, alphabets=(3, 4), seed=1775, transports=("packet",)):
     """Create an empty-directory export; return canonical identity and source pins."""
     if type(output) is not Path:
@@ -227,11 +528,16 @@ def generate(output: Path, *, cases=CASE_NAMES, alphabets=(3, 4), seed=1775, tra
             or any(type(t) is not str or t not in TRANSPORTS for t in transports)
             or len(set(transports)) != len(transports)):
         raise ValueError("INVALID_INPUT")
-    source = build_battery_source(cases=cases, alphabets=alphabets, seed=seed)
-    demo_source = build_trial_source("broadband", alphabet_size=3, seed=seed)
     if output.exists() and (not output.is_dir() or any(output.iterdir())):
         raise ValueError("output must be an empty directory")
+    # Pin and validate the environment before any fixture computation. Inputs
+    # built under an earlier source state may never be labelled with a later one.
     commit, dirty, code_files = _git("rev-parse", "HEAD"), _git("status", "--porcelain"), _code_manifest()
+    environment = _environment_snapshot(commit, dirty, code_files)
+    _validate_environment(environment)
+    source = build_battery_source(cases=cases, alphabets=alphabets, seed=seed)
+    demo_source = build_trial_source("broadband", alphabet_size=3, seed=seed)
+    _ensure_source_snapshot(commit, code_files)
     output.mkdir(parents=True, exist_ok=True)
     def save(path, value):
         data = canonical_bytes(value) + b"\n"
@@ -297,16 +603,9 @@ def generate(output: Path, *, cases=CASE_NAMES, alphabets=(3, 4), seed=1775, tra
         _, peak_bytes = tracemalloc.get_traced_memory()
     finally:
         tracemalloc.stop()
-    if _git("rev-parse", "HEAD") != commit or _code_manifest() != code_files:
-        raise ValueError("source changed during export; rerun against a stable checkout")
-    environment = {"schema": "qec.acoustic-environment.v1", "source_commit_sha": commit,
-                   "clean_working_tree_at_start": not bool(dirty), "git_status_porcelain_at_start": dirty,
-                   "source_files": code_files, "python": platform.python_version(), "platform": platform.platform(),
-                   "dependencies": {name: _version(name) for name in ("qec", "numpy", "scipy", "pytest")},
-                   "runtime_ns": elapsed_ns, "peak_python_tracemalloc_bytes": peak_bytes,
-                   "measurement_scope": "battery_build_and_replay_plus_export_and_native_demo; not_process_RSS",
-                   "performance_is_environment_dependent": True, "performance_is_canonical_proof": False,
-                   "physical_latency_or_hardware_QA": False, "full_suite_gate": "separate_exact_commit_test_run"}
+    _ensure_source_snapshot(commit, code_files)
+    environment.update(runtime_ns=elapsed_ns, peak_python_tracemalloc_bytes=peak_bytes)
+    _validate_environment(environment)
     save(output / "environment.json", environment)
     files = [{"path": _portable_relative(p, output), "sha256": _sha(p.read_bytes()), "bytes": p.stat().st_size}
              for p in sorted(output.rglob("*")) if p.is_file()]
@@ -327,6 +626,7 @@ def generate(output: Path, *, cases=CASE_NAMES, alphabets=(3, 4), seed=1775, tra
                 "spectral_repository_or_ui_integration": False, "environment_metadata_is_canonical_scientific_proof": False}
     manifest["sha256"] = canonical_sha256(manifest)
     save(output / "manifest.json", manifest)
+    _ensure_source_snapshot(commit, code_files)
     return {"battery_sha256": battery["sha256"], "battery_source_sha256": source["sha256"],
             "demonstration_source_sha256": demo_source["sha256"],
             "measured_reference_sha256": demo_source["measured_reference"]["sha256"],
@@ -342,38 +642,41 @@ def validate_export(output: Path, *, expected_manifest_sha256: str, expected_bat
         for pin in (expected_manifest_sha256, expected_battery_source_sha256,
                     expected_demonstration_source_sha256, expected_reference_sha256):
             digest(pin)
-        manifest = _read_json(output / "manifest.json")
-        _strict_metadata(manifest, _MANIFEST_FIXED, _MANIFEST_DYNAMIC)
-        unsigned = {k: v for k, v in manifest.items() if k != "sha256"}
-        if (manifest["sha256"] != expected_manifest_sha256 or canonical_sha256(unsigned) != expected_manifest_sha256
-                or manifest["battery_source_sha256"] != expected_battery_source_sha256
-                or manifest["demonstration_source_sha256"] != expected_demonstration_source_sha256
-                or manifest["measured_reference_sha256"] != expected_reference_sha256):
-            raise ValueError("INVALID_INPUT")
-        if type(manifest["files"]) is not list or len(manifest["files"]) > 128:
-            raise ValueError("INVALID_INPUT")
-        inventory, total_bytes = [], 0
-        # Stat the complete bounded inventory before reading any artifact bytes.
-        # A hostile manifest cannot turn the 32 MiB total into 128 x 32 MiB reads.
-        for row in manifest["files"]:
-            if type(row["path"]) is not str or "\\" in row["path"]:
+        # Discover/retain the complete tree before opening even the root manifest.
+        # POSIX file access uses only a discovered basename and its retained
+        # parent descriptor, so ancestor replacement cannot redirect stat/open.
+        with _open_inventory(output, file_access=True) as access:
+            manifest = _parse_json(access.read("manifest.json"))
+            _strict_metadata(manifest, _MANIFEST_FIXED, _MANIFEST_DYNAMIC)
+            unsigned = {k: v for k, v in manifest.items() if k != "sha256"}
+            if (manifest["sha256"] != expected_manifest_sha256 or canonical_sha256(unsigned) != expected_manifest_sha256
+                    or manifest["battery_source_sha256"] != expected_battery_source_sha256
+                    or manifest["demonstration_source_sha256"] != expected_demonstration_source_sha256
+                    or manifest["measured_reference_sha256"] != expected_reference_sha256):
                 raise ValueError("INVALID_INPUT")
-            relative = Path(row["path"])
-            if (relative.is_absolute() or ".." in relative.parts or (output / relative).is_symlink()
-                    or not (output / relative).resolve().is_relative_to(output.resolve())):
+            if type(manifest["files"]) is not list or len(manifest["files"]) > 128:
                 raise ValueError("INVALID_INPUT")
-            path = output / relative
-            info = _regular_stat(path)
-            size = info.st_size
-            total_bytes += size
-            if size > MAX_EXPORT_FILE_BYTES or total_bytes > MAX_EXPORT_TOTAL_BYTES:
+            requested = []
+            for row in manifest["files"]:
+                name = row["path"]
+                if (type(name) is not str or not 1 <= len(name) <= 4096
+                        or any(character in name for character in ("\\", ":", "\0"))
+                        or any(part in ("", ".", "..") for part in name.split("/"))):
+                    raise ValueError("INVALID_INPUT")
+                requested.append(name)
+            # Unknown/aliased paths must fail before any payload lookup or stat.
+            if access.names != sorted(requested):
                 raise ValueError("INVALID_INPUT")
-            inventory.append((row["path"], path, info))
-        if _inventory_files(output) != sorted(name for name, _, _ in inventory):
-            raise ValueError("INVALID_INPUT")
-        contents = {name: _read_regular_bytes(path, expected_stat=info) for name, path, info in inventory}
+            inventory, total_bytes = [], 0
+            for name in requested:
+                info = access.stat(name)
+                total_bytes += info.st_size
+                if total_bytes > MAX_EXPORT_TOTAL_BYTES:
+                    raise ValueError("INVALID_INPUT")
+                inventory.append((name, info))
+            contents = {name: access.read(name, expected_stat=info) for name, info in inventory}
         expected_files = [{"path": name, "sha256": _sha(contents[name]), "bytes": len(contents[name])}
-                          for name, _, _ in inventory]
+                          for name, _ in inventory]
         exact({"files": manifest["files"]}, {"files": expected_files})
         def read_json(path):
             return _parse_json(contents[_portable_relative(path, output)])

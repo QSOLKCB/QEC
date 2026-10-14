@@ -163,6 +163,24 @@ frames. The entire export is capped at 32 MiB; an oversized full-stage Digital
 selection fails explicitly. Keep those runs separate from normal comparative
 battery exports.
 
+Filesystem replay rejects special files, symlinks/reparse points, unlisted files
+and detected entry replacement or mutation. Directory guards remain open while
+bounded file snapshots are collected; downstream replay uses those retained
+bytes. This is identity-guarded snapshotting, not a globally atomic filesystem
+snapshot. POSIX requires descriptor-based directory enumeration, relative opens,
+and no-follow/directory/nonblocking flags. Windows requires native
+`GetFileInformationByHandleEx` support for 128-bit `FileIdInfo` and
+`FileIdExtdDirectoryInfo`, plus `OpenFileById` for descendant directories and
+payloads. A 64-bit identifier-open fallback is allowed only after
+`ERROR_INVALID_PARAMETER` with zero high bits, and the complete 128-bit ID
+and volume are still verified. SMB and unsupported primitives, filesystems or
+metadata queries fail closed. There is no descendant pathname fallback for
+directory enumeration, payload metadata or payload reads; the root manifest
+uses the same guarded access.
+Windows path-stat creation time is not compared with descriptor metadata-change
+time. Shared-meaning cross-API identity fields and full same-API mutation checks
+remain enforced.
+
 This is SPECTRAL-compatible only in the ordinary-file sense: PCM16 WAV and JSON
 can be imported or inspected by suitable external tools. No SPECTRAL repository,
 UI, project format or hardware integration has been implemented or tested.

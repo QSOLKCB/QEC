@@ -111,3 +111,37 @@ def test_prediction_metrics_and_rejection_gate(tmp_path, monkeypatch):
     assert "predicted_threshold" in metrics
     assert "prediction_score" in metrics
     assert metrics["rejected"] is True
+
+
+def test_artifacts_remain_identical_after_global_state_changes(tmp_path, monkeypatch):
+    """Keep the original exact-byte assertion and add a state-order regression."""
+    import random
+    import scipy.sparse
+    import scipy.sparse.linalg
+
+    H0 = _small_graph()
+    monkeypatch.setattr(
+        PhaseDiagramOrchestrator,
+        "evaluate",
+        lambda self, H, *, max_phase_diagram_size, seed: {"measured_boundary": {"mean_boundary_spectral_radius": 0.045}},
+    )
+    config = SpectralSearchConfig(iterations=2, max_phase_diagram_size=1, output_dir=str(tmp_path))
+    names = ["search_history.json", "candidate_metrics.json", "best_graph.json"]
+    reference = None
+    py_state, np_state = random.getstate(), np.random.get_state()
+    try:
+        for seed in [0, 1, 42, 12345]:
+            random.seed(seed)
+            np.random.seed(seed)
+            for _ in range(4):
+                random.random()
+                np.random.random(19)
+                scipy.sparse.linalg.eigs(scipy.sparse.diags(np.arange(1.0, 25.0)), k=3, v0=np.ones(24))
+                run_spectral_threshold_search(H0, config=config)
+                artifacts = {name: (tmp_path / name).read_bytes() for name in names}
+                if reference is None:
+                    reference = artifacts
+                assert artifacts == reference
+    finally:
+        random.setstate(py_state)
+        np.random.set_state(np_state)

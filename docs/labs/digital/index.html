@@ -1,0 +1,284 @@
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="color-scheme" content="light">
+  <title>Digital Switch Evidence Lab · QEC v174.5</title>
+  <style>
+    :root{--paper:#f3f2eb;--card:#fffef9;--ink:#1c3439;--muted:#536a6d;--line:#ced8d1;--green:#19695d;--green-light:#dceee1;--amber:#f0c26a;--red:#a32f37;--red-light:#fbe5df;--blue:#254a85;--radius:14px}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select,textarea{font:inherit}button,select,input,textarea{border:1px solid var(--line);border-radius:7px}button{padding:10px 14px;cursor:pointer;background:var(--card);color:var(--ink);font-weight:650}button:hover:not(:disabled){background:var(--green-light);border-color:var(--green)}button:disabled{opacity:.5;cursor:default}button.primary{background:var(--green);border-color:var(--green);color:#fff}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #c17c11;outline-offset:3px}a{color:var(--green)}main{max-width:1440px;margin:auto;padding:30px 4vw 45px}header{border-top:4px solid var(--ink);padding-top:17px}.eyebrow{text-transform:uppercase;letter-spacing:.15em;font-size:11px;font-weight:750;display:flex;gap:16px;justify-content:space-between;flex-wrap:wrap}.eyebrow span:last-child{color:var(--green)}h1{font-size:clamp(35px,4.3vw,65px);letter-spacing:-.055em;line-height:1.05;margin:23px 0 15px;font-weight:700}h1 span{color:var(--green)}.intro{max-width:720px;color:var(--muted);font-size:17px;margin:0 0 23px}.boundary{border-left:4px solid var(--amber);background:#fff3d9;padding:13px 17px;margin:0 0 25px;font-size:13px}.layout{display:grid;grid-template-columns:290px minmax(0,1fr);gap:20px}.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;min-width:0}.card h2{font-size:17px;margin:0 0 17px;letter-spacing:-.02em}.section-number{color:var(--green);font:12px ui-monospace,monospace;margin-right:10px}.control{display:block;margin:0 0 15px}.control>span{display:block;font-size:12px;font-weight:750;margin:0 0 6px}.control input,.control select,.control textarea{width:100%;padding:9px 10px;background:#fff;color:var(--ink)}textarea{resize:vertical;min-height:75px}.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.hint{font-size:12px;color:var(--muted);margin:6px 0 15px}.divider{border:0;border-top:1px solid var(--line);margin:22px 0}.actions{display:flex;gap:9px;flex-wrap:wrap}.controls .primary{width:100%}.mini{font:12px ui-monospace,SFMono-Regular,Consolas,monospace}.stage{display:flex;flex-direction:column;gap:18px}.statusbar{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:17px}.pill{display:inline-block;padding:5px 10px;border-radius:30px;font:750 11px ui-monospace,monospace;letter-spacing:.05em;background:var(--green-light);color:var(--green)}.pill.reject{background:var(--red-light);color:var(--red)}.pill.neutral{background:#e4e9ef;color:var(--blue)}.stats{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:9px;margin-bottom:20px}.stat{padding:13px 15px;border-right:1px solid var(--line)}.stat:last-child{border:0}.stat strong{font-size:23px;display:block;line-height:1.15}.stat span{font-size:11px;color:var(--muted)}.fabric{background:#183b3f;border-radius:11px;color:#e6eee4;padding:24px}.fabric-head{display:flex;justify-content:space-between;gap:10px;font:11px ui-monospace,monospace;letter-spacing:.06em;color:#c1d1ce;margin-bottom:18px}.slot-map{display:grid;gap:9px}.slot-row{display:grid;grid-template-columns:1fr 90px 1fr;gap:10px;align-items:center}.slot{padding:11px 13px;background:#294a4d;border:1px solid #537071;border-radius:7px;display:flex;justify-content:space-between;gap:8px;align-items:center;font:12px ui-monospace,monospace}.slot small{font-size:10px;color:#c5d5d4}.slot.active{background:#c8e5c9;border-color:#c8e5c9;color:#153d33}.slot.active small{color:#275344}.slot.invalid{background:#ffdacf;border-color:#ffc0b3;color:#7f282d}.wire{height:2px;background:#6b8684;position:relative;text-align:center}.wire::after{content:"→";position:absolute;right:-2px;top:-14px;color:#b8d4ca;font-size:17px}.wire.active{background:var(--amber);height:3px}.wire-label{font:9px ui-monospace,monospace;position:relative;top:-17px;color:#e5eecf}.mapping-note{margin:15px 0 0;font-size:11px;color:#d0ded9}.legend{display:flex;gap:17px;flex-wrap:wrap;font-size:11px;margin-top:14px;color:var(--muted)}.key::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:var(--green)}.key.idle::before{background:#90a6a2}.key.invalid::before{background:var(--red)}.key.missing::before{background:var(--card);border:1px dashed var(--red)}.timeline{display:flex;gap:5px;overflow-x:auto;padding:4px 2px 14px;scrollbar-color:var(--green) var(--paper)}.tick{min-width:43px;padding:9px 4px;font:11px ui-monospace,monospace;line-height:1.6;flex:0 0 auto}.tick span{display:block;font-size:9px;color:var(--muted)}.tick[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:1px;background:var(--green-light)}.tick.bad{background:var(--red-light);border-color:#d59790;color:var(--red)}.tick.missing{border-style:dashed}.scrubber{display:flex;gap:10px;align-items:center}.scrubber input{min-width:0;flex:1;accent-color:var(--green)}.scrubber button{padding:5px 10px}.frame-detail{margin-top:15px;background:var(--paper);border-radius:8px;padding:13px 15px;overflow-wrap:anywhere;font:12px/1.7 ui-monospace,monospace}.frame-detail p{margin:0}.frame-detail .meta{color:var(--muted)}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:18px}.outcome{font-size:14px;overflow-wrap:anywhere}.outcome p{margin:9px 0}.byte-string{font:12px/1.6 ui-monospace,monospace;overflow-wrap:anywhere;background:var(--paper);padding:11px;border-radius:7px}.checks{list-style:none;padding:0;margin:13px 0 0;font-size:12px}.checks li{margin:7px 0;padding-left:19px;position:relative}.checks li:before{content:"✓";color:var(--green);position:absolute;left:0}.checks li.fail:before{content:"×";color:var(--red)}.checks li.fail{color:var(--red)}.audio-note{font-size:11px;color:var(--muted);margin-top:10px}.wide{margin-top:20px}.import-layout{display:grid;grid-template-columns:1fr 1fr;gap:22px}.import-layout textarea{width:100%;min-height:108px;background:#fff;padding:12px}.file-label{display:block;font-size:12px;margin:13px 0}.file-label input{display:block;max-width:100%;border:0;margin-top:8px;font-size:12px}.notice{font-size:13px;color:var(--muted);margin:0 0 14px}.error{color:var(--red);font-size:12px;min-height:18px;margin:8px 0}.native-result{font-size:12px;overflow-wrap:anywhere}.native-result p{margin:8px 0}details{margin-top:15px}summary{cursor:pointer;font-size:12px;font-weight:650}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.6 ui-monospace,monospace;max-height:360px;overflow:auto;background:var(--paper);padding:15px;border-radius:8px}footer{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin-top:25px}footer p{margin:0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:1050px){.layout{grid-template-columns:260px minmax(0,1fr)}.bottom{grid-template-columns:1fr}.stat{padding:11px}.stat strong{font-size:20px}}@media(max-width:720px){main{padding:20px 17px 30px}.layout,.import-layout{grid-template-columns:1fr}.card{padding:18px}.controls{display:grid;grid-template-columns:1fr 1fr;gap:0 15px}.controls h2,.controls .full,.controls .divider,.controls .actions,.controls .error{grid-column:1/-1}.control{margin-bottom:12px}.stats{grid-template-columns:1fr 1fr}.stat:nth-child(2){border-right:0}.stat:nth-child(-n+2){border-bottom:1px solid var(--line)}.fabric{padding:18px 12px}.slot-row{grid-template-columns:1fr 49px 1fr;gap:5px}.slot{padding:10px 8px}.fabric-head{font-size:9px}.wire-label{font-size:8px}.statusbar{align-items:flex-start;flex-wrap:wrap}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+    .slot-map{position:relative}.slot-row{height:44px}.slot{height:44px}.slot-row>.wire{visibility:hidden}.map-wires{position:absolute;left:calc(50% - 45px);top:0;width:90px;height:100%;overflow:visible;pointer-events:none}@media(max-width:720px){.map-wires{left:calc(50% - 24.5px);width:49px}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow"><span>QEC / Telecommunications lineage</span><span>174.5 · Offline laboratory</span></div>
+    <h1>Digital time.<br><span>One declared path.</span></h1>
+    <p class="intro">Follow a byte through a fixed-width frame, a logical time slot and an interchange memory. Then break the channel and see exactly why it stops.</p>
+    <p class="boundary"><strong>Demonstration only.</strong> This browser model is not the native QEC validator. Exports are noncanonical demonstrations, never cryptographic evidence. No physical-network, quantum-hardware, decoder-correctness or reliability claims.</p>
+  </header>
+  <div class="layout">
+    <section class="card controls" aria-labelledby="configure-title">
+      <h2 id="configure-title"><span class="section-number">01</span>Declare the experiment</h2>
+      <label class="control full"><span>Payload</span><textarea id="payload" rows="2" spellcheck="false" maxlength="192">SAME INPUT. SAME OUTPUT.</textarea></label>
+      <label class="control"><span>Payload encoding</span><select id="encoding"><option value="text">UTF-8 text</option><option value="hex">Hex bytes</option></select></label>
+      <label class="control"><span>Slots per frame</span><select id="slot-count"><option value="4">4 slots</option><option value="8">8 slots</option></select></label>
+      <div class="two full">
+        <label class="control"><span>Input slot</span><select id="input-slot" aria-label="Input slot"></select></label>
+        <label class="control"><span>Output slot</span><select id="output-slot" aria-label="Output slot"></select></label>
+      </div>
+      <p class="hint full">Up to 64 bytes. One payload byte per logical frame. Empty payloads produce one all-IDLE frame. Hex 00 is DATA, not IDLE.</p>
+      <hr class="divider">
+      <label class="control full"><span>Declared channel fault</span><select id="fault"><option value="none">None · intact channel</option><option value="bit">Bit corruption · payload XOR 01</option><option value="loss">Frame loss</option><option value="duplicate">Duplicate frame</option><option value="reorder">Reorder adjacent frames</option><option value="slip">Byte alignment slip</option><option value="collision">Output slot collision</option></select></label>
+      <label class="control full"><span>Target logical frame</span><input id="fault-frame" type="number" min="0" max="63" value="3" step="1"></label>
+      <p class="hint full">Fault targets clamp to the last frame. Reorder swaps with the next frame, or the previous at the end; a one-frame input is rejected as inapplicable.</p>
+      <div class="actions"><button id="run" class="primary">Run deterministic demo</button></div>
+      <p id="input-error" class="error full" role="alert"></p>
+      <p class="hint full">No random seed, wall-clock input, storage, network access or external assets. Editing controls does not alter the displayed run until you run it again.</p>
+    </section>
+    <div class="stage">
+      <section class="card" aria-labelledby="fabric-title">
+        <div class="statusbar"><h2 id="fabric-title" style="margin:0"><span class="section-number">02</span>Time-slot interchange</h2><span id="result-pill" class="pill">DEMO ACCEPT</span></div>
+        <div class="stats"><div class="stat"><strong id="stat-bytes">0</strong><span>payload bytes</span></div><div class="stat"><strong id="stat-width">0</strong><span>bytes / frame</span></div><div class="stat"><strong id="stat-frames">0</strong><span>observed / expected</span></div><div class="stat"><strong id="stat-map">0 → 1</strong><span>declared slot mapping</span></div></div>
+        <div class="fabric"><div class="fabric-head"><span>INPUT MEMORY / RECEIVED FRAME</span><span>OUTPUT MEMORY / CANDIDATE</span></div><div id="slot-map" class="slot-map"></div><p id="mapping-note" class="mapping-note"></p></div>
+        <div class="legend" aria-label="Symbol legend"><span class="key">DATA byte</span><span class="key idle">IDLE (00 00)</span><span class="key invalid">INVALID / blocked</span><span class="key missing">MISSING frame</span></div>
+      </section>
+      <section class="card" aria-labelledby="timeline-title">
+        <div class="statusbar"><h2 id="timeline-title" style="margin:0"><span class="section-number">03</span>Logical frame trace</h2><span id="frame-position" class="mini"></span></div>
+        <div id="timeline" class="timeline" aria-label="Select an observed logical frame"></div>
+        <div class="scrubber"><button id="previous" aria-label="Previous frame">←</button><label class="sr-only" for="cursor">Observed frame position</label><input id="cursor" type="range" min="0" max="0" value="0"><button id="next" aria-label="Next frame">→</button></div>
+        <div id="frame-detail" class="frame-detail"></div>
+      </section>
+      <div class="bottom">
+        <section class="card outcome" aria-labelledby="outcome-title"><h2 id="outcome-title"><span class="section-number">04</span>Reassembly gate</h2><p id="outcome" role="status" aria-live="polite"></p><div id="reassembled" class="byte-string"></div><ul id="checks" class="checks"></ul></section>
+        <section class="card" aria-labelledby="audio-title"><h2 id="audio-title"><span class="section-number">05</span>Listen &amp; replay</h2><p class="notice">One short tone per displayed frame: byte value sets pitch, IDLE is quiet, and an invalid or missing frame is a low warning tone.</p><div class="actions"><button id="sound">Sonify trace</button><button id="stop" disabled>Stop</button></div><p id="audio-state" class="audio-note" role="status">Audio stays off until you click. Quiet playback; first 48 positions only. Sound timing is presentation only.</p><hr class="divider"><button id="export">Export demo JSON</button><p class="audio-note">qec.digital-lab-demo.v1 · canonical_evidence: false. The same declared run exports the same sorted JSON bytes. Cursor and audio state are excluded.</p></section>
+      </div>
+    </div>
+  </div>
+  <section class="card wide" aria-labelledby="native-title">
+    <div class="statusbar"><h2 id="native-title" style="margin:0"><span class="section-number">06</span>Inspect a native receipt</h2><span class="pill neutral">READ-ONLY · UNVERIFIED</span></div>
+    <div class="import-layout"><div><p class="notice">Load qec.digital-frame-switch-receipt.v1 JSON from the native implementation. Inspection checks shape only. Native outcome and hashes remain unverified here; use the native validator for evidence.</p><label class="sr-only" for="native-json">Native receipt JSON</label><textarea id="native-json" placeholder="Paste native receipt JSON…" spellcheck="false" maxlength="1048576"></textarea><div class="actions"><button id="inspect">Inspect pasted JSON</button><button id="clear-import">Clear</button></div><label class="file-label">Or choose a local JSON file (maximum 1 MiB)<input id="native-file" type="file" accept=".json,application/json"></label><p id="import-error" class="error" role="alert"></p></div><div id="native-result" class="native-result"><p>No receipt loaded. Imported bytes remain local to this page and cannot change the demo run.</p></div></div>
+  </section>
+  <section class="card wide" aria-labelledby="contract-title"><h2 id="contract-title">What this model declares</h2><p class="notice">The independent demo wire format is big-endian: D1 74 marker, 16-bit sequence, 8-bit slot count, then one 2-byte symbol per slot. DATA is 01 followed by its byte; IDLE is 00 00. Frame width is 5 + 2 × slot count. Logical indices begin at zero. This teaching format is not a native wire-format specification.</p><p class="notice">The receiver checks exact frame count, ordered sequence, framing and symbols, single-writer slot allocation, and full byte-for-byte payload reassembly. It never sorts, repairs, substitutes, or accepts a partial payload. Bit corruption can retain valid framing and still fail the payload gate. Collision creates a declared second writer for the selected output and rejects the entire run.</p><details><summary>View the current deterministic demo export</summary><pre id="demo-json"></pre></details></section>
+  <footer><p>QEC v174.5 / Digital Switch Evidence Lab<br>Offline interpretation surface. Sonification is not proof authority.</p><p><a href="../../../ROADMAP.md">Roadmap</a> · <a href="../../roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md">Safety &amp; acceptance</a> · <a href="../../roadmap/SWITCHING_ARTIFACT_REGISTRY.md">Artifact registry</a></p></footer>
+</main>
+<script>
+'use strict';
+/* Independent, bounded teaching model. No canonical receipt generation or validation. */
+const $ = id => document.getElementById(id);
+const MAX_BYTES = 64;
+const hex = bytes => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+const spaced = bytes => Array.from(bytes, b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+const equal = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+const stable = value => Array.isArray(value) ? value.map(stable) : value !== null && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(k => [k, stable(value[k])])) : value;
+const serialize = value => JSON.stringify(stable(value), null, 2) + '\n';
+let run = null, cursor = 0, audio = null, audioGeneration = 0;
+
+function options() {
+  const n = Number($('slot-count').value);
+  for (const [id, fallback] of [['input-slot', 0], ['output-slot', 2]]) {
+    const el = $(id), old = el.options.length ? Number(el.value) : fallback;
+    el.replaceChildren();
+    for (let i = 0; i < n; i++) { const option = document.createElement('option'); option.value = i; option.textContent = 'Slot ' + i; el.append(option); }
+    el.value = String(Math.min(old, n - 1));
+  }
+}
+function readInput() {
+  const raw = $('payload').value;
+  let payload;
+  if ($('encoding').value === 'hex') {
+    const clean = raw.replace(/\s/g, '');
+    if (!/^(?:[0-9a-fA-F]{2})*$/.test(clean)) throw new Error('Hex input needs complete byte pairs, such as 00 41 FF.');
+    payload = clean.match(/../g)?.map(v => parseInt(v, 16)) || [];
+  } else payload = Array.from(new TextEncoder().encode(raw));
+  if (payload.length > MAX_BYTES) throw new Error('Payload exceeds the 64-byte demo limit. UTF-8 characters may use several bytes.');
+  const target = Number($('fault-frame').value);
+  if ($('fault-frame').value === '' || !Number.isInteger(target) || target < 0 || target > 63) throw new Error('Fault target must be an integer from 0 to 63.');
+  return {payload_hex: hex(payload), slot_count: Number($('slot-count').value), input_slot: Number($('input-slot').value), output_slot: Number($('output-slot').value), fault: $('fault').value, requested_fault_frame: target};
+}
+function encodeFrame(sequence, n, input, value) {
+  const wire = [0xd1, 0x74, sequence >>> 8, sequence & 255, n];
+  for (let s = 0; s < n; s++) wire.push(value !== undefined && s === input ? 1 : 0, value !== undefined && s === input ? value : 0);
+  return wire;
+}
+function decodeFrame(wire, n) {
+  if (wire.length !== 5 + 2 * n || wire[0] !== 0xd1 || wire[1] !== 0x74 || wire[4] !== n) return {valid: false, sequence: null, slots: Array(n).fill(null)};
+  const slots = [];
+  let valid = true;
+  for (let s = 0; s < n; s++) {
+    const tag = wire[5 + 2 * s], value = wire[6 + 2 * s];
+    if (tag === 0 && value === 0) slots.push({kind: 'IDLE', value: null});
+    else if (tag === 1) slots.push({kind: 'DATA', value});
+    else { slots.push(null); valid = false; }
+  }
+  return {valid, sequence: wire[2] * 256 + wire[3], slots};
+}
+function simulate(input) {
+  const payload = input.payload_hex.match(/../g)?.map(v => parseInt(v, 16)) || [];
+  const count = Math.max(1, payload.length), target = Math.min(input.requested_fault_frame, count - 1);
+  const original = Array.from({length: count}, (_, i) => ({source: i, wire: encodeFrame(i, input.slot_count, input.input_slot, payload[i])}));
+  const observed = original.map(frame => ({source: frame.source, wire: frame.wire.slice()}));
+  const fault = input.fault;
+  if (fault === 'bit') observed[target].wire[6 + 2 * input.input_slot] ^= 1;
+  if (fault === 'loss') observed.splice(target, 1);
+  if (fault === 'duplicate') observed.splice(target + 1, 0, {source: target, wire: observed[target].wire.slice()});
+  if (fault === 'slip') observed[target].wire = [0, ...observed[target].wire.slice(0, -1)];
+  if (fault === 'reorder' && count > 1) { const other = target < count - 1 ? target + 1 : target - 1; [observed[target], observed[other]] = [observed[other], observed[target]]; }
+  const decoded = observed.map(frame => decodeFrame(frame.wire, input.slot_count));
+  const framing = decoded.every(frame => frame.valid);
+  const continuity = observed.length === count && decoded.every((frame, i) => frame.sequence === i);
+  const allocation = fault !== 'collision';
+  const applicable = fault !== 'reorder' || count > 1;
+  const candidate = decoded.flatMap(frame => frame.valid && frame.slots[input.input_slot]?.kind === 'DATA' ? [frame.slots[input.input_slot].value] : []);
+  const unchanged = equal(candidate, payload);
+  const accepted = framing && continuity && allocation && applicable && unchanged;
+  const checks = [{name: 'Fixed width, marker and explicit symbols', pass: framing}, {name: 'Exact count and ordered logical sequence', pass: continuity}, {name: 'Single writer for the output slot', pass: allocation}, {name: 'Declared fault is applicable', pass: applicable}, {name: 'Byte-for-byte payload equality', pass: unchanged}];
+  const display = observed.map((frame, i) => ({...frame, decoded: decoded[i], arrival: i, missing: false}));
+  // Missing positions are presentation markers, never inserted into the received stream.
+  if (fault === 'loss') display.splice(target, 0, {source: target, arrival: null, wire: [], decoded: {valid: false, sequence: null, slots: Array(input.slot_count).fill(null)}, missing: true});
+  const events = [{logical_tick: 0, kind: 'DECLARE', payload_bytes: payload.length, frame_count: count}, {logical_tick: 1, kind: allocation ? 'ALLOCATE' : 'COLLISION_REJECT', input_slot: input.input_slot, output_slot: input.output_slot}];
+  observed.forEach((frame, i) => events.push({logical_tick: i + 2, kind: 'OBSERVE_FRAME', arrival_index: i, sequence: decoded[i].sequence, frame_valid: decoded[i].valid, wire_hex: hex(frame.wire)}));
+  events.push({logical_tick: observed.length + 2, kind: accepted ? 'DEMO_ACCEPT' : 'DEMO_REJECT', failed_checks: checks.filter(c => !c.pass).map(c => c.name)});
+  const artifact = {schema: 'qec.digital-lab-demo.v1', contract_version: '174.5-demo', canonical_evidence: false, claim_boundary: {native_receipt_validation: false, cryptographic_evidence: false, physical_network_claim: false, quantum_hardware_claim: false, decoder_correctness_claim: false, sonification_authority: false}, input, demo_frame_schema: {byte_order: 'big', marker_hex: 'd174', sequence_bits: 16, slot_count: input.slot_count, bytes_per_frame: 5 + 2 * input.slot_count, idle_symbol_hex: '0000', data_symbol_tag_hex: '01'}, applied_fault_frame: target, frames: observed.map((f, i) => ({arrival_index: i, source_sequence: f.source, wire_hex: hex(f.wire)})), checks, events, outcome: accepted ? 'DEMO_ACCEPT' : 'DEMO_REJECT', reassembled_payload_hex: accepted ? hex(candidate) : null};
+  return {input, payload, original, observed, display, checks, accepted, artifact, count, target};
+}
+function node(tag, text, className) { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; }
+function slotCell(index, symbol, state) {
+  const el = node('div', undefined, 'slot' + (state === 'DATA' ? ' active' : ['INVALID', 'BLOCKED', 'MISSING'].includes(state) ? ' invalid' : ''));
+  el.append(node('small', 'S' + index), node('span', state === 'DATA' ? '01 ' + hex([symbol.value]).toUpperCase() : state));
+  return el;
+}
+function renderFrame() {
+  const frame = run.display[cursor], n = run.input.slot_count;
+  const slots = $('slot-map'); slots.replaceChildren();
+  const intact = frame.decoded.valid && !frame.missing;
+  for (let i = 0; i < n; i++) {
+    const row = node('div', undefined, 'slot-row'), source = frame.decoded.slots[i];
+    const state = frame.missing ? 'MISSING' : source?.kind || 'INVALID';
+    const inputCell = slotCell(i, source, state);
+    const line = node('div', undefined, 'wire' + (i === run.input.input_slot ? ' active' : ''));
+    if (i === run.input.input_slot) line.append(node('span', 'S' + i + ' → S' + run.input.output_slot, 'wire-label'));
+    const output = i === run.input.output_slot ? frame.decoded.slots[run.input.input_slot] : {kind: 'IDLE', value: null};
+    const outputState = !run.accepted ? 'BLOCKED' : intact ? output?.kind || 'INVALID' : 'INVALID';
+    row.append(inputCell, line, slotCell(i, output, outputState)); slots.append(row);
+  }
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'map-wires'); svg.setAttribute('viewBox', '0 0 100 ' + (n * 53 - 9)); svg.setAttribute('preserveAspectRatio', 'none'); svg.setAttribute('aria-hidden', 'true');
+  const from = run.input.input_slot * 53 + 22, to = run.input.output_slot * 53 + 22;
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M 0 ' + from + ' C 50 ' + from + ', 50 ' + to + ', 94 ' + to); path.setAttribute('fill', 'none'); path.setAttribute('stroke', '#f0c26a'); path.setAttribute('stroke-width', '2');
+  const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+  arrow.setAttribute('points', '92,' + (to - 5) + ' 100,' + to + ' 92,' + (to + 5)); arrow.setAttribute('fill', '#f0c26a'); svg.append(path, arrow); slots.append(svg);
+  $('mapping-note').textContent = 'Declared mapping: memory read S' + run.input.input_slot + ' → write S' + run.input.output_slot + '. ' + (run.accepted ? 'Unused output slots remain IDLE.' : 'Global rejection: no output memory is committed.');
+  $('frame-position').textContent = 'Position ' + (cursor + 1) + ' / ' + run.display.length;
+  $('cursor').value = cursor;
+  $('previous').disabled = cursor === 0; $('next').disabled = cursor === run.display.length - 1;
+  Array.from($('timeline').children).forEach((el, i) => el.setAttribute('aria-pressed', String(i === cursor)));
+  const detail = $('frame-detail'); detail.replaceChildren();
+  detail.append(node('p', frame.missing ? 'MISSING · expected sequence ' + frame.source + ' · no received bytes' : 'arrival ' + frame.arrival + ' · sequence ' + (frame.decoded.sequence ?? 'INVALID') + ' · logical tick ' + (frame.arrival + 2)));
+  detail.append(node('p', frame.missing ? 'This is an absence marker, not an IDLE frame or a repaired frame.' : 'WIRE  ' + spaced(frame.wire), 'meta'));
+  if (!frame.missing) detail.append(node('p', 'SOURCE ' + spaced(run.original[frame.source].wire), 'meta'));
+  if (!frame.missing && !equal(frame.wire, run.original[frame.source].wire)) detail.append(node('p', 'Observed bytes differ from the declared source frame.'));
+}
+function render() {
+  $('stat-bytes').textContent = run.payload.length; $('stat-width').textContent = 5 + 2 * run.input.slot_count;
+  $('stat-frames').textContent = run.observed.length + ' / ' + run.count; $('stat-map').textContent = run.input.input_slot + ' → ' + run.input.output_slot;
+  $('result-pill').textContent = run.artifact.outcome.replace('_', ' '); $('result-pill').className = 'pill' + (run.accepted ? '' : ' reject');
+  $('outcome').textContent = run.accepted ? 'Demo accepted. Every payload byte is reproduced exactly.' : 'Demo rejected. No payload or output memory is committed.';
+  $('reassembled').textContent = run.accepted ? (run.artifact.reassembled_payload_hex || '(empty payload)') : 'REASSEMBLY WITHHELD';
+  const checks = $('checks'); checks.replaceChildren(); run.checks.forEach(c => checks.append(node('li', (c.pass ? 'PASS · ' : 'FAIL · ') + c.name, c.pass ? '' : 'fail')));
+  const timeline = $('timeline'); timeline.replaceChildren();
+  run.display.forEach((frame, i) => {
+    const bad = frame.missing || !frame.decoded.valid || frame.decoded.sequence !== frame.arrival || !equal(frame.wire, run.original[frame.source].wire);
+    const button = node('button', frame.missing ? '—' : frame.decoded.sequence === null ? '?' : String(frame.decoded.sequence).padStart(2, '0'), 'tick' + (bad ? ' bad' : '') + (frame.missing ? ' missing' : ''));
+    button.append(node('span', frame.missing ? 'ABSENT' : 't' + (frame.arrival + 2))); button.setAttribute('aria-label', 'Position ' + (i + 1) + ', ' + (frame.missing ? 'missing sequence ' + frame.source : 'received sequence ' + (frame.decoded.sequence ?? 'invalid'))); button.setAttribute('aria-pressed', 'false'); button.addEventListener('click', () => {cursor = i; renderFrame();}); timeline.append(button);
+  });
+  $('cursor').max = run.display.length - 1; $('demo-json').textContent = serialize(run.artifact); renderFrame();
+}
+function stopAudio() {
+  audioGeneration++;
+  const current = audio; audio = null;
+  if (current && current.state !== 'closed') current.close().catch(() => {});
+  $('stop').disabled = true; $('sound').disabled = false;
+}
+function execute() {
+  try { const input = readInput(); const next = simulate(input); stopAudio(); run = next; cursor = 0; $('input-error').textContent = ''; $('audio-state').textContent = 'Audio stays off until you click. Quiet playback; first 48 positions only. Sound timing is presentation only.'; render(); }
+  catch (error) { $('input-error').textContent = error.message + ' The previous run remains displayed.'; }
+}
+async function sonify() {
+  stopAudio();
+  const Audio = window.AudioContext || window.webkitAudioContext;
+  if (!Audio) { $('audio-state').textContent = 'Web Audio is unavailable in this browser. The visual trace and export still work.'; return; }
+  const generation = audioGeneration;
+  try {
+    const context = new Audio(); audio = context; $('sound').disabled = true; $('stop').disabled = false;
+    await context.resume(); if (generation !== audioGeneration) return;
+    const frames = run.display.slice(0, 48), start = context.currentTime + .04;
+    frames.forEach((frame, i) => {
+      const symbol = frame.decoded.slots[run.input.input_slot];
+      const invalid = frame.missing || !frame.decoded.valid || frame.decoded.sequence !== frame.arrival || !equal(frame.wire, run.original[frame.source].wire) || run.input.fault === 'collision';
+      const idle = !invalid && symbol?.kind === 'IDLE';
+      const oscillator = context.createOscillator(), gain = context.createGain(), at = start + i * .1;
+      oscillator.type = invalid ? 'triangle' : 'sine'; oscillator.frequency.value = invalid ? 110 : idle ? 165 : 220 + symbol.value * 2;
+      gain.gain.setValueAtTime(0, at); gain.gain.linearRampToValueAtTime(idle ? .008 : .035, at + .008); gain.gain.linearRampToValueAtTime(0, at + .075);
+      oscillator.connect(gain); gain.connect(context.destination); oscillator.start(at); oscillator.stop(at + .085);
+      if (i === frames.length - 1) oscillator.onended = () => { if (generation === audioGeneration) {stopAudio(); $('audio-state').textContent = 'Playback finished. Presentation timing never enters the demo artifact.';} };
+    });
+    $('audio-state').textContent = 'Playing ' + frames.length + ' logical positions. Audio is an interpretation, not a validation result.';
+  } catch { if (generation === audioGeneration) {stopAudio(); $('audio-state').textContent = 'Audio could not start. The visual trace and export are still available.';} }
+}
+function inspectNative(text) {
+  $('native-result').replaceChildren(); $('import-error').textContent = '';
+  try {
+    if (new TextEncoder().encode(text).length > 1048576) throw new Error('Receipt exceeds the 1 MiB inspection limit.');
+    const value = JSON.parse(text);
+    if (!value || typeof value !== 'object' || Array.isArray(value) || value.schema !== 'qec.digital-frame-switch-receipt.v1') throw new Error('Expected schema qec.digital-frame-switch-receipt.v1. Demo exports cannot be imported as native receipts.');
+    const input = value.input, payload = input?.request?.payload_hex, slots = input?.frame_schema?.slot_count;
+    const receiptShape = name => Object.hasOwn(value, name) && (value[name] === null || (typeof value[name] === 'object' && !Array.isArray(value[name])));
+    if (String(value.contract_version) !== '174.0' || typeof payload !== 'string' || !/^(?:[0-9a-fA-F]{2})*$/.test(payload) || !Number.isInteger(slots) || slots < 1 || slots > 16 || !Array.isArray(value.frames) || value.frames.length > 1024 || !receiptShape('sync_receipt') || !receiptShape('interchange_receipt')) throw new Error('Unsupported native shape: need contract_version 174.0, input.request.payload_hex, input.frame_schema.slot_count, frames, sync_receipt and interchange_receipt.');
+    if (value.frames.some(f => !f || typeof f.wire_hex !== 'string' || f.wire_hex.length > 16384 || !/^(?:[0-9a-fA-F]{2})+$/.test(f.wire_hex))) throw new Error('Native frame preview requires bounded, nonempty wire_hex byte strings.');
+    const result = $('native-result');
+    result.append(node('p', 'STRUCTURE RECOGNIZED · CONTENT UNVERIFIED', 'pill neutral'));
+    result.append(node('p', payload.length / 2 + ' declared payload bytes · ' + slots + ' declared slots · ' + value.frames.length + ' frames'));
+    result.append(node('p', 'Import is read-only. The browser has not recomputed native hashes, checked receipt replay, or verified any native outcome. A recognized shape is not acceptance.'));
+    if (typeof value.outcome === 'string' && typeof value.reason === 'string') result.append(node('p', 'File-reported outcome (unverified): ' + value.outcome + ' / ' + value.reason));
+    if (value.sync_receipt === null || value.interchange_receipt === null) result.append(node('p', 'A synchronization or interchange receipt is absent (null). The source may report rejection before transport.'));
+    result.append(node('p', 'Native symbol legend: 0–255 = DATA; 256 = IDLE; 257–65535 = INVALID. Values below are reported by the file, not derived or validated.'));
+    const summary = node('details'); summary.open = true; summary.append(node('summary', 'Encoded source frames · first ' + Math.min(32, value.frames.length)));
+    summary.append(node('pre', value.frames.slice(0, 32).map((f, i) => {
+      const symbols = Array.isArray(f.symbols) ? f.symbols.slice(0, 256).map((s, j) => 'S' + j + ':' + (s === 256 ? 'IDLE' : Number.isInteger(s) && s >= 0 && s < 256 ? hex([s]).toUpperCase() : 'INVALID')).join(' ') : '(symbols not supplied)';
+      return 'frame[' + i + '] ' + f.wire_hex + '\n  ' + symbols;
+    }).join('\n\n') || '(no frames)')); result.append(summary);
+    if (Array.isArray(value.observations)) {
+      const observed = node('details'); observed.append(node('summary', 'Received observations (may differ from source) · first ' + Math.min(32, value.observations.length)));
+      observed.append(node('pre', value.observations.slice(0, 32).map((o, i) => 'observation[' + i + '] ' + (typeof o?.wire_hex === 'string' ? o.wire_hex : '(unrecognized wire)') + '\n  boundary_offset=' + JSON.stringify(o?.boundary_offset) + ' colliding_slots=' + JSON.stringify(o?.colliding_slots)).join('\n\n') || '(no observations)')); result.append(observed);
+    }
+    const raw = node('details'); raw.append(node('summary', 'Source JSON (unverified, unchanged)'), node('pre', text)); result.append(raw);
+  } catch (error) { $('import-error').textContent = error instanceof SyntaxError ? 'Could not parse JSON. Paste a complete native receipt object.' : error.message; $('native-result').append(node('p', 'No receipt loaded. The demo remains unchanged.')); }
+}
+$('slot-count').addEventListener('change', options);
+$('run').addEventListener('click', execute);
+$('cursor').addEventListener('input', event => {cursor = Number(event.target.value); renderFrame();});
+$('previous').addEventListener('click', () => {cursor = Math.max(0, cursor - 1); renderFrame();});
+$('next').addEventListener('click', () => {cursor = Math.min(run.display.length - 1, cursor + 1); renderFrame();});
+$('sound').addEventListener('click', sonify);
+$('stop').addEventListener('click', () => {stopAudio(); $('audio-state').textContent = 'Playback stopped. The deterministic demo is unchanged.';});
+$('export').addEventListener('click', () => { const blob = new Blob([serialize(run.artifact)], {type: 'application/json'}), url = URL.createObjectURL(blob), link = node('a'); link.href = url; link.download = 'qec-digital-lab-demo-v174.5.json'; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); });
+let importGeneration = 0;
+$('inspect').addEventListener('click', () => {importGeneration++; inspectNative($('native-json').value);});
+$('native-file').addEventListener('change', async event => {
+  const generation = ++importGeneration, file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 1048576) { $('native-result').replaceChildren(node('p', 'No receipt loaded. The demo remains unchanged.')); $('import-error').textContent = 'Receipt exceeds the 1 MiB inspection limit.'; return; }
+  try { const text = await file.text(); if (generation !== importGeneration) return; $('native-json').value = text; inspectNative(text); } catch { if (generation === importGeneration) { $('native-result').replaceChildren(node('p', 'No receipt loaded. The demo remains unchanged.')); $('import-error').textContent = 'This file could not be read.'; } }
+});
+$('clear-import').addEventListener('click', () => { importGeneration++; $('native-json').value = ''; $('native-file').value = ''; $('import-error').textContent = ''; $('native-result').replaceChildren(node('p', 'No receipt loaded. Imported bytes remain local to this page and cannot change the demo run.')); });
+window.addEventListener('pagehide', stopAudio);
+options(); execute();
+</script>
+</body>
+</html>

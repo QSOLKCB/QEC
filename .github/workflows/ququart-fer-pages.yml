@@ -70,6 +70,9 @@ jobs:
           --claims viz/ququart-fer/results/report_claims.json
           --evidence viz/ququart-fer/results
 
+      - name: Check local HTML links including generated evidence
+        run: python scripts/check_html_links.py --require-generated
+
       - name: Disable Jekyll processing
         run: touch viz/.nojekyll
 

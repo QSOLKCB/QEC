@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+*.pem
+*.key
+.venv
+venv
+__pycache__
+**/__pycache__
+.pytest_cache
+artifacts
+tui/target

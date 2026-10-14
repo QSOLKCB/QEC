@@ -150,7 +150,8 @@ Implemented in v173.0:
 - independent snapshot planning cannot claim reservations or simultaneous capacity;
 - empty input validation cannot claim nonempty route evidence.
 
-Further v173.x phase-wide requirements (not all implemented by the skeleton):
+Further v173.x phase-wide requirements, implemented by the additive unreleased
+[lifecycle contract](../ESS_CALL_PROCESSING.md), remain acceptance gates:
 
 - programme and data identities are separate;
 - modifying a programme or translation table changes execution identity;

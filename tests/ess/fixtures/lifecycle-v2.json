@@ -1,0 +1,604 @@
+{
+  "input": {
+    "schema": "qec.ess-lifecycle-input.v2",
+    "contract_version": "173.5",
+    "programme": {
+      "schema": "qec.ess-program-store-manifest.v2",
+      "contract_version": "173.5",
+      "program_id": "ess-native-lifecycle",
+      "program_version": "1",
+      "marker_id": "ess-lifecycle-marker",
+      "max_search_evaluations": 65536,
+      "source_manifest": {
+        "schema": "qec.ess-source-manifest.v2",
+        "contract_version": "173.5",
+        "files": [
+          {
+            "path": "qec/routing/ess/programme.py",
+            "byte_count": 13577,
+            "sha256": "fd79b7302e62179fdaa50a6f4f09d553fc23c81df05a0f1b7b886661687474f2"
+          },
+          {
+            "path": "qec/routing/ess/lifecycle.py",
+            "byte_count": 27358,
+            "sha256": "fe59a38308b25a5f2fbc2498e7821fce7889fa966b5af4fdf58949d86bde405c"
+          },
+          {
+            "path": "qec/routing/crossbar/core.py",
+            "byte_count": 9723,
+            "sha256": "72394b841cd0230a8d8339bda5b4a20a3d8e769e6e154915bd866c5233a3755c"
+          },
+          {
+            "path": "qec/routing/crossbar/marker.py",
+            "byte_count": 11626,
+            "sha256": "1b846667ab345dab8af8227b154f17e15291c20974af5a33d5a4d8333197e3b4"
+          },
+          {
+            "path": "qec/routing/crossbar/multistage.py",
+            "byte_count": 21202,
+            "sha256": "54257787d1d4fa3561aa462210fd34d88e5222b49274326e0573570f7b99166a"
+          },
+          {
+            "path": "qec/routing/crossbar/contention.py",
+            "byte_count": 21024,
+            "sha256": "0a98063034d49c8dbbec8529a853b45f9b2b207bb30548372d719f7269400a10"
+          },
+          {
+            "path": "qec/routing/crossbar/continuity.py",
+            "byte_count": 13682,
+            "sha256": "f0aa65fed5830edc50bc16e71200d5f686c9ca0d2e299ad03ea8feeef2ee1dc5"
+          },
+          {
+            "path": "qec/sonify/canonical.py",
+            "byte_count": 3557,
+            "sha256": "67f20ae0c4fe01951beeeb323636d238f33581a11ac67fa564e31d018ab2f16f"
+          }
+        ],
+        "identity": "sha256-of-complete-installed-source-bytes",
+        "authenticated_provenance": false,
+        "sha256": "563bea0448b0f471abaaa717daa4b446f6d823595c8ee5d0315c6109d91b0206"
+      },
+      "source_sha256": "563bea0448b0f471abaaa717daa4b446f6d823595c8ee5d0315c6109d91b0206",
+      "routing_logic": {
+        "schema": "qec.ess-routing-logic.v2",
+        "contract_version": "173.5",
+        "states": [
+          "intake",
+          "analyse",
+          "select",
+          "connect",
+          "verify",
+          "release",
+          "reject"
+        ],
+        "transitions": [
+          [
+            "intake",
+            "analyse"
+          ],
+          [
+            "analyse",
+            "select"
+          ],
+          [
+            "analyse",
+            "reject"
+          ],
+          [
+            "select",
+            "connect"
+          ],
+          [
+            "select",
+            "reject"
+          ],
+          [
+            "connect",
+            "verify"
+          ],
+          [
+            "verify",
+            "release"
+          ]
+        ],
+        "scheduler_order": [
+          "logical_tick",
+          "fixed_priority",
+          "call_id",
+          "branch",
+          "attempt"
+        ],
+        "fixed_priority": {
+          "release": 0,
+          "retry": 1,
+          "arrival": 2
+        },
+        "retry_creates_new_attempt": true,
+        "hold_ticks_minimum": 1,
+        "connect_semantics": "atomic-native-owned-path-reservation",
+        "verify_semantics": "independent-native-replay-and-forward-continuity",
+        "release_semantics": "native-owner-bound-whole-path-release",
+        "native_tick_semantics": "monotonic-fabric-command-ordinal-with-logical-schedule-binding",
+        "max_native_commands": 32,
+        "sha256": "80cd0bd502e1dfea15b6b4c1702c38e90a3a01e632bfd7b6caff8ec8b60e1704"
+      },
+      "routing_logic_sha256": "80cd0bd502e1dfea15b6b4c1702c38e90a3a01e632bfd7b6caff8ec8b60e1704",
+      "translations": {
+        "schema": "qec.ess-translation-table-manifest.v2",
+        "contract_version": "173.5",
+        "rows": [
+          {
+            "dialed": "dial",
+            "destinations": [
+              "out"
+            ]
+          }
+        ],
+        "policy": "exact-lookup-preserve-declared-target-order.v1",
+        "sha256": "c0a9bd33c604d2cbb339fc45f12270162e0d7364e3c9f3f7bf1d6de153e1a5d7"
+      },
+      "translation_table_sha256": "c0a9bd33c604d2cbb339fc45f12270162e0d7364e3c9f3f7bf1d6de153e1a5d7",
+      "features": {
+        "schema": "qec.ess-feature-module-manifest.v2",
+        "contract_version": "173.5",
+        "forwarding": [],
+        "retry_delays": [
+          2
+        ],
+        "max_fanout": 1,
+        "retry_policy": "after-native-rejection-only-delay-from-previous-attempt.v1",
+        "fanout_policy": "independent-branches-no-atomic-group-claim.v1",
+        "forwarding_policy": "single-exact-lookup-no-recursion.v1",
+        "force_accept_permitted": false,
+        "payload_mutation_permitted": false,
+        "native_validation_required": true,
+        "sha256": "c50bfaf978e262bdbc61af68224dbd21ebb77cc305de16b75d6c0d8d405c779d"
+      },
+      "feature_module_sha256": "c50bfaf978e262bdbc61af68224dbd21ebb77cc305de16b75d6c0d8d405c779d",
+      "sha256": "6acec6341f958db8e607dc5fbb823b9208eacbb123f6617b23a4590c9d70f567"
+    },
+    "call_store": {
+      "schema": "qec.ess-lifecycle-call-store.v2",
+      "contract_version": "173.5",
+      "calls": [
+        {
+          "schema": "qec.ess-lifecycle-call.v2",
+          "contract_version": "173.5",
+          "call_id": "call-a",
+          "source": "in",
+          "destination": "dial",
+          "payload_hex": "6f70617175652d636f7272656374696f6e",
+          "payload_sha256": "a276ca5cd151c407525fc94abb2240e96c9f92add205a302c07bd050e646a609",
+          "decoder_output_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "arrival_tick": 0,
+          "hold_ticks": 2,
+          "sha256": "bc43278ba3f4bc8eb2db4332e88e82246543d68f6b9458e29fe86670602fefe7"
+        },
+        {
+          "schema": "qec.ess-lifecycle-call.v2",
+          "contract_version": "173.5",
+          "call_id": "call-b",
+          "source": "in",
+          "destination": "dial",
+          "payload_hex": "6f70617175652d636f7272656374696f6e",
+          "payload_sha256": "a276ca5cd151c407525fc94abb2240e96c9f92add205a302c07bd050e646a609",
+          "decoder_output_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "arrival_tick": 0,
+          "hold_ticks": 1,
+          "sha256": "4fbd2590a429aa77fce4b09fe0c40e3c9d4cd3aed86f8ec7a774b257f817156f"
+        }
+      ],
+      "sha256": "8f57af135f063d2054fa6d582dfb282e6eba47e339c1644643060ddb96add8da"
+    },
+    "adapter": {
+      "schema": "qec.ess-lifecycle-fabric-adapter.v2",
+      "contract_version": "173.5",
+      "adapter_id": "crossbar-owned-reservations-v172.3-continuity-v172.4",
+      "fabric_manifest": {
+        "schema": "qec.crossbar-fabric-manifest.v1",
+        "contract_version": "172.2",
+        "fabric_id": "multistage-demo",
+        "stages": [
+          [
+            {
+              "schema": "qec.crossbar-matrix-manifest.v1",
+              "contract_version": "172.0",
+              "matrix_id": "ingress",
+              "link_state_vocabulary": [
+                "busy",
+                "idle",
+                "quarantined",
+                "unavailable"
+              ],
+              "horizontal_links": [
+                {
+                  "axis": "horizontal",
+                  "link_id": "H000",
+                  "ordinal": 0,
+                  "state": "idle"
+                },
+                {
+                  "axis": "horizontal",
+                  "link_id": "H001",
+                  "ordinal": 1,
+                  "state": "idle"
+                }
+              ],
+              "vertical_links": [
+                {
+                  "axis": "vertical",
+                  "link_id": "V000",
+                  "ordinal": 0,
+                  "state": "idle"
+                },
+                {
+                  "axis": "vertical",
+                  "link_id": "V001",
+                  "ordinal": 1,
+                  "state": "idle"
+                }
+              ],
+              "intersections": [
+                {
+                  "horizontal_link_id": "H000",
+                  "horizontal_ordinal": 0,
+                  "vertical_link_id": "V000",
+                  "vertical_ordinal": 0,
+                  "intersection_id": "9232244843706d99e476e671873e46b312b93fb4349ce8e4466373635324135d"
+                },
+                {
+                  "horizontal_link_id": "H000",
+                  "horizontal_ordinal": 0,
+                  "vertical_link_id": "V001",
+                  "vertical_ordinal": 1,
+                  "intersection_id": "8a3e5d3e7f8e7fb87a479db433904b4fd62a35582a6b7873969ec02e8c0be371"
+                },
+                {
+                  "horizontal_link_id": "H001",
+                  "horizontal_ordinal": 1,
+                  "vertical_link_id": "V000",
+                  "vertical_ordinal": 0,
+                  "intersection_id": "962e38e1b8aed20c452ed8ea15f4bf40981fe0675391d56ca318c2046d9e6a86"
+                },
+                {
+                  "horizontal_link_id": "H001",
+                  "horizontal_ordinal": 1,
+                  "vertical_link_id": "V001",
+                  "vertical_ordinal": 1,
+                  "intersection_id": "d0d0df53e79c13f739865d29772ae20cf91c1dc03fcd6a8adf964419d5a8b599"
+                }
+              ],
+              "claim_boundary": {
+                "classical_software_model_only": true,
+                "physical_crossbar_fidelity": false,
+                "marker_authority_present": false,
+                "route_search_present": false,
+                "reservation_present": false,
+                "connection_commit_present": false,
+                "decoder_output_mutation_permitted": false,
+                "payload_mutation_permitted": false,
+                "browser_demo_is_canonical_evidence": false,
+                "receipt_proves": "immutable_matrix_identity_and_declared_initial_link_state",
+                "receipt_does_not_prove": "end_to_end_route_continuity_or_physical_network_behavior"
+              },
+              "sha256": "ff021b7c003d14abca88797fc089106ec3961c96c1eaf36a8e621307d615b197"
+            }
+          ],
+          [
+            {
+              "schema": "qec.crossbar-matrix-manifest.v1",
+              "contract_version": "172.0",
+              "matrix_id": "middle-a",
+              "link_state_vocabulary": [
+                "busy",
+                "idle",
+                "quarantined",
+                "unavailable"
+              ],
+              "horizontal_links": [
+                {
+                  "axis": "horizontal",
+                  "link_id": "H000",
+                  "ordinal": 0,
+                  "state": "idle"
+                },
+                {
+                  "axis": "horizontal",
+                  "link_id": "H001",
+                  "ordinal": 1,
+                  "state": "idle"
+                }
+              ],
+              "vertical_links": [
+                {
+                  "axis": "vertical",
+                  "link_id": "V000",
+                  "ordinal": 0,
+                  "state": "idle"
+                },
+                {
+                  "axis": "vertical",
+                  "link_id": "V001",
+                  "ordinal": 1,
+                  "state": "idle"
+                }
+              ],
+              "intersections": [
+                {
+                  "horizontal_link_id": "H000",
+                  "horizontal_ordinal": 0,
+                  "vertical_link_id": "V000",
+                  "vertical_ordinal": 0,
+                  "intersection_id": "298c504ce6250f0c29653bea7e514667fe9a679e4c9d5b5ef46fc85292a054e8"
+                },
+                {
+                  "horizontal_link_id": "H000",
+                  "horizontal_ordinal": 0,
+                  "vertical_link_id": "V001",
+                  "vertical_ordinal": 1,
+                  "intersection_id": "183154577908c6c070072bb32dfac47d7d014b40429b62613a4724035faf58ce"
+                },
+                {
+                  "horizontal_link_id": "H001",
+                  "horizontal_ordinal": 1,
+                  "vertical_link_id": "V000",
+                  "vertical_ordinal": 0,
+                  "intersection_id": "d1d58bff8f0e71bb17a4f030c0cea0b18c4bc7b896ab19104038ddd905603ab1"
+                },
+                {
+                  "horizontal_link_id": "H001",
+                  "horizontal_ordinal": 1,
+                  "vertical_link_id": "V001",
+                  "vertical_ordinal": 1,
+                  "intersection_id": "59d7d3c44a9b36b66b26731a42a75668c3bc3b622d68912238286d849dd9026d"
+                }
+              ],
+              "claim_boundary": {
+                "classical_software_model_only": true,
+                "physical_crossbar_fidelity": false,
+                "marker_authority_present": false,
+                "route_search_present": false,
+                "reservation_present": false,
+                "connection_commit_present": false,
+                "decoder_output_mutation_permitted": false,
+                "payload_mutation_permitted": false,
+                "browser_demo_is_canonical_evidence": false,
+                "receipt_proves": "immutable_matrix_identity_and_declared_initial_link_state",
+                "receipt_does_not_prove": "end_to_end_route_continuity_or_physical_network_behavior"
+              },
+              "sha256": "e03c4cef67ca80903c1af9da355459fb47dffa101ce57bcc361bc79169c1862e"
+            },
+            {
+              "schema": "qec.crossbar-matrix-manifest.v1",
+              "contract_version": "172.0",
+              "matrix_id": "middle-b",
+              "link_state_vocabulary": [
+                "busy",
+                "idle",
+                "quarantined",
+                "unavailable"
+              ],
+              "horizontal_links": [
+                {
+                  "axis": "horizontal",
+                  "link_id": "H000",
+                  "ordinal": 0,
+                  "state": "idle"
+                },
+                {
+                  "axis": "horizontal",
+                  "link_id": "H001",
+                  "ordinal": 1,
+                  "state": "idle"
+                }
+              ],
+              "vertical_links": [
+                {
+                  "axis": "vertical",
+                  "link_id": "V000",
+                  "ordinal": 0,
+                  "state": "idle"
+                },
+                {
+                  "axis": "vertical",
+                  "link_id": "V001",
+                  "ordinal": 1,
+                  "state": "idle"
+                }
+              ],
+              "intersections": [
+                {
+                  "horizontal_link_id": "H000",
+                  "horizontal_ordinal": 0,
+                  "vertical_link_id": "V000",
+                  "vertical_ordinal": 0,
+                  "intersection_id": "fad6cf0a0006a151288bc58e948de989289c1d4d8e6f7a65410c00e1b19df032"
+                },
+                {
+                  "horizontal_link_id": "H000",
+                  "horizontal_ordinal": 0,
+                  "vertical_link_id": "V001",
+                  "vertical_ordinal": 1,
+                  "intersection_id": "5063c1db73cf3eee9a0f9a58702cc2f0e29e3cb9a036bdff100ee7d89f56f466"
+                },
+                {
+                  "horizontal_link_id": "H001",
+                  "horizontal_ordinal": 1,
+                  "vertical_link_id": "V000",
+                  "vertical_ordinal": 0,
+                  "intersection_id": "1d4b3dbc42eab53753815f3787da4ecce8e146abd2e796722d361646d8dca517"
+                },
+                {
+                  "horizontal_link_id": "H001",
+                  "horizontal_ordinal": 1,
+                  "vertical_link_id": "V001",
+                  "vertical_ordinal": 1,
+                  "intersection_id": "ba623ff27032277c5dc7fa3a08660c3a81da6bb3837e22acbf94fa166143edd2"
+                }
+              ],
+              "claim_boundary": {
+                "classical_software_model_only": true,
+                "physical_crossbar_fidelity": false,
+                "marker_authority_present": false,
+                "route_search_present": false,
+                "reservation_present": false,
+                "connection_commit_present": false,
+                "decoder_output_mutation_permitted": false,
+                "payload_mutation_permitted": false,
+                "browser_demo_is_canonical_evidence": false,
+                "receipt_proves": "immutable_matrix_identity_and_declared_initial_link_state",
+                "receipt_does_not_prove": "end_to_end_route_continuity_or_physical_network_behavior"
+              },
+              "sha256": "9d617aa401362af411ce947dec81b506902139428772ec3b2707f21ac000dbbe"
+            }
+          ],
+          [
+            {
+              "schema": "qec.crossbar-matrix-manifest.v1",
+              "contract_version": "172.0",
+              "matrix_id": "egress",
+              "link_state_vocabulary": [
+                "busy",
+                "idle",
+                "quarantined",
+                "unavailable"
+              ],
+              "horizontal_links": [
+                {
+                  "axis": "horizontal",
+                  "link_id": "H000",
+                  "ordinal": 0,
+                  "state": "idle"
+                },
+                {
+                  "axis": "horizontal",
+                  "link_id": "H001",
+                  "ordinal": 1,
+                  "state": "idle"
+                }
+              ],
+              "vertical_links": [
+                {
+                  "axis": "vertical",
+                  "link_id": "V000",
+                  "ordinal": 0,
+                  "state": "idle"
+                },
+                {
+                  "axis": "vertical",
+                  "link_id": "V001",
+                  "ordinal": 1,
+                  "state": "idle"
+                }
+              ],
+              "intersections": [
+                {
+                  "horizontal_link_id": "H000",
+                  "horizontal_ordinal": 0,
+                  "vertical_link_id": "V000",
+                  "vertical_ordinal": 0,
+                  "intersection_id": "a8d116244a75eb28888f4695d61ce9be965fb094bc83fb5eb5299b4a09d6475d"
+                },
+                {
+                  "horizontal_link_id": "H000",
+                  "horizontal_ordinal": 0,
+                  "vertical_link_id": "V001",
+                  "vertical_ordinal": 1,
+                  "intersection_id": "458d7c2b3fe03035a2ee79adc1ddcc6fd1a4f66d5e7dbc469dd97f79b036cf7b"
+                },
+                {
+                  "horizontal_link_id": "H001",
+                  "horizontal_ordinal": 1,
+                  "vertical_link_id": "V000",
+                  "vertical_ordinal": 0,
+                  "intersection_id": "bd6a9b5d38ec9f72abbbd63e4279af6f69f8681e8003bab8f880db0cf885963d"
+                },
+                {
+                  "horizontal_link_id": "H001",
+                  "horizontal_ordinal": 1,
+                  "vertical_link_id": "V001",
+                  "vertical_ordinal": 1,
+                  "intersection_id": "5a5c62d967538d8623650dfa96e6d96fdeb8994af0391318bb1200064ba0a9e9"
+                }
+              ],
+              "claim_boundary": {
+                "classical_software_model_only": true,
+                "physical_crossbar_fidelity": false,
+                "marker_authority_present": false,
+                "route_search_present": false,
+                "reservation_present": false,
+                "connection_commit_present": false,
+                "decoder_output_mutation_permitted": false,
+                "payload_mutation_permitted": false,
+                "browser_demo_is_canonical_evidence": false,
+                "receipt_proves": "immutable_matrix_identity_and_declared_initial_link_state",
+                "receipt_does_not_prove": "end_to_end_route_continuity_or_physical_network_behavior"
+              },
+              "sha256": "ec53c86a793765c898d88ea195e5efed350ea34e61f0b962a08de7ed1396f99b"
+            }
+          ]
+        ],
+        "interstage_links": [
+          {
+            "link_id": "entry-a",
+            "source_matrix_id": "ingress",
+            "source_vertical_link_id": "V000",
+            "target_matrix_id": "middle-a",
+            "target_horizontal_link_id": "H000",
+            "state": "idle"
+          },
+          {
+            "link_id": "entry-b",
+            "source_matrix_id": "ingress",
+            "source_vertical_link_id": "V001",
+            "target_matrix_id": "middle-b",
+            "target_horizontal_link_id": "H000",
+            "state": "idle"
+          },
+          {
+            "link_id": "exit-a",
+            "source_matrix_id": "middle-a",
+            "source_vertical_link_id": "V000",
+            "target_matrix_id": "egress",
+            "target_horizontal_link_id": "H000",
+            "state": "unavailable"
+          },
+          {
+            "link_id": "exit-b",
+            "source_matrix_id": "middle-b",
+            "source_vertical_link_id": "V000",
+            "target_matrix_id": "egress",
+            "target_horizontal_link_id": "H001",
+            "state": "idle"
+          }
+        ],
+        "sha256": "aad1ea9852d061ec8236fdd7a2ffa554ec724bef04c859184afb27a1e25ddac2"
+      },
+      "sources": [
+        {
+          "logical": "in",
+          "matrix_id": "ingress",
+          "link_id": "H000"
+        }
+      ],
+      "destinations": [
+        {
+          "logical": "out",
+          "matrix_id": "egress",
+          "link_id": "V001"
+        }
+      ],
+      "operations": [
+        "reserve",
+        "release"
+      ],
+      "initial_owned_reservations": [],
+      "authority": "untrusted-until-independent-native-replay-with-trusted-pins",
+      "sha256": "ab106297ee6665d5494e2b7ff618e2580a8bbf863e327855ade3f6b87905412a"
+    },
+    "sha256": "9297e6751d611cb9eb7b309552399613b914552a4509db0d13c80619e25ac41d"
+  },
+  "receipt_sha256": "ceedc6497e2d6551c2f9b21e6648976d3c7658bbb0eb9a361b736ecaa2ce422a",
+  "command_stream_sha256": "a914f36f8876dce6cc3189ab4ae56136025effbe330d7838619938f53c4c85ae",
+  "schedule_sha256": "1897ba4a91775e4cb20fa2e6b511dd8d7c7185a1d28c0756534ae416e6a12739"
+}

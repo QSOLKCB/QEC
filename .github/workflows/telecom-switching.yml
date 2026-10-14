@@ -54,9 +54,9 @@ jobs:
       - name: Install QEC
         run: python -m pip install -e '.[dev]'
       - name: Switching and frozen-boundary regression tests
-        run: python -m pytest -q tests/ess tests/crossbar tests/panel tests/strowger tests/digital
+        run: python -m pytest -q tests/ess tests/crossbar tests/panel tests/strowger tests/digital tests/packet
       - name: Generate independently replayed candidate artifacts
-        run: python scripts/generate_switching_evidence.py --eras ess,digital --output artifacts/telecom --require-clean
+        run: python scripts/generate_switching_evidence.py --eras ess,digital,packet --output artifacts/telecom --require-clean
       - name: Upload canonical artifacts and explicit environment metadata
         uses: actions/upload-artifact@v4
         with:

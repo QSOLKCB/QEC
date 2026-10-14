@@ -142,6 +142,10 @@ deterministic_timeslot_allocation_receipt_hash
 
 ## v175.x — Packet and softswitch artifacts
 
+Implemented/unreleased under the assembled 175.6/v1 native contract.
+See [the Packet implementation contract](../PACKET_FABRIC_AND_SOFTSWITCH.md).
+Final-head review and complete CI remain required before acceptance.
+
 | Artifact | Role |
 |---|---|
 | `canonical_packet_schema.json` | Versioned packet envelope, payload hash and sequence identity |

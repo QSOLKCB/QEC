@@ -532,6 +532,12 @@ def _source_code_objects(code):
 
 def _loaded_code_matches_disk():
     """Compare imported functions with freshly compiled tracked source bytes."""
+    # The exporter itself is usually imported through a script loader, so it
+    # need not appear in sys.modules. Attest its executed functions explicitly.
+    own_codes = _source_code_objects(compile(Path(__file__).read_bytes(), __file__, "exec", dont_inherit=True))
+    for name in ("generate", "validate_export", "_code_manifest", "_loaded_code_matches_disk"):
+        if globals()[name].__code__ != own_codes[name]:
+            raise ValueError("imported source changed; restart against a stable checkout")
     tracked = {row["path"] for row in _code_manifest()}
     for module in tuple(sys.modules.values()):
         if module is None or not str(getattr(module, "__name__", "")).startswith("qec."):

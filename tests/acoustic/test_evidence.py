@@ -1117,7 +1117,6 @@ def test_writer_survives_child_symlink_substitution_without_external_writes(tmp_
         export_module._inventory_files(output)
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX atomic claim test")
 def test_simultaneous_writers_cannot_claim_the_same_empty_export(tmp_path):
     from qec.experiments.acoustic.export_fs import SecureExportWriter
     output = tmp_path / "export"

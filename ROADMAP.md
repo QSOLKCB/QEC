@@ -8,17 +8,23 @@
 # 🧭 Stable Tip Metadata
 
 ```text
-latest completed release → v172.5
-stable commit            → d80fbb1c020f03034297d612917b05bfac4a6e90
-current frontier         → v173.0 Stored-Program Switch Skeleton development candidate
-next work                → v173.0 validation/release; then v173.1 Immutable Programme Store Manifest
+latest completed release → v173.0
+stable commit            → 2c94351e667bc05aba26fe101dcf41fa8d4c9735
+current frontier         → v173.1–v173.5 ESS lifecycle implementation candidate
+next work                → ESS final-head validation/review; then v174.x Digital TDM
 active programme         → v171.x–v176.x — Deterministic Telecommunications Switching Lineage
-completed baseline       → v172.5 — Strowger/Panel/Crossbar Equivalence Battery
+completed baseline       → v173.0 — Stored-Program Switch Skeleton
 deferred runtime arc     → v193.x — QEC OS Runtime & Benchmark Reset
 ```
 
 Published tags are authoritative. If this roadmap conflicts with published
 release history, release history wins and the roadmap must be corrected.
+
+The v173.1–v176.5 labels below identify implementation/contract milestones, not
+a requirement to publish one release per milestone. The remaining programme is
+being delivered through independently validated PRs; the repository owner plans
+one combined release later. No tag, release or package-version bump is implied
+by a milestone becoming implemented or merged.
 
 Stable compatibility remains explicitly anchored to the `v137.*` contract
 lineage. Later roadmap programmes may extend those contracts, but must not
@@ -160,12 +166,14 @@ RELEASED
   crossbar_contention_receipt_hash                     (v172.3)
   crossbar_continuity_receipt_hash                     (v172.4)
 
-IMPLEMENTED — UNRELEASED
   switch_equivalence_matrix_hash                      (v172.5)
+  ess_switch_skeleton_receipt_hash                     (v173.0)
+
+IMPLEMENTED — UNRELEASED, FINAL VALIDATION PENDING
+  ess_program_store_manifest_hash                      (v173.1–v173.5)
+  ess_call_processing_receipt_hash                     (v173.1–v173.5)
 
 PLANNED
-  ess_program_store_manifest_hash                      (v173.x)
-  ess_call_processing_receipt_hash                     (v173.x)
   digital_frame_switch_receipt_hash                    (v174.x)
   deterministic_timeslot_allocation_receipt_hash       (v174.x)
   canonical_packet_fabric_receipt_hash                 (v175.x)
@@ -291,7 +299,7 @@ Acceptance criteria are maintained under
 
 # Phase v173.x — Electronic Switching System / Stored-Program Control
 
-**Status:** v173.0 IMPLEMENTED (development candidate); v173.1–v173.5 PLANNED
+**Status:** v173.0 RELEASED; v173.1–v173.5 IMPLEMENTED, UNRELEASED (final validation/review pending)
 
 ## Goal
 
@@ -313,7 +321,7 @@ immutable programme store
 
 ## Planned releases
 
-- **v173.0 — Stored-Program Switch Skeleton** — IMPLEMENTED (unreleased)
+- **v173.0 — Stored-Program Switch Skeleton** — RELEASED
   Separate immutable programme/call stores, a bounded logical event queue and
   Crossbar adapter boundary with complete native replay and continuity evidence.
   Independent planning only; no full call lifecycle or resource mutation.
@@ -328,6 +336,13 @@ immutable programme store
   Optional forwarding, retry and fan-out modules remain bounded and explicit.
 - **v173.5 — ESS/Fabric Equivalence Receipt**  
   Prove deterministic command streams across supported fabric adapters.
+
+The additive v173.1–v173.5 implementation has source-bound programmes, real native
+reservations/releases, logical scheduling, bounded features and explicitly scoped
+two-fabric equivalence. See [the lifecycle contract](docs/ESS_CALL_PROCESSING.md).
+It preserves the released v173.0 schemas and package version. Implementation is
+not a release: final-head review, full regressions and CI are required before merge,
+and release tags remain a separate owner decision.
 
 Evidence names are registered under
 [v173.x ESS artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v173x--ess-stored-program-artifacts).

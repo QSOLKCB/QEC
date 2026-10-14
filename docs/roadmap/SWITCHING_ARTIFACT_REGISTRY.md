@@ -86,8 +86,8 @@ Broader cross-era migration stays assigned to v176.x.
 
 ## v173.x — ESS stored-program artifacts
 
-v173.0 implements the following skeleton artifacts; the programme/source manifest,
-full lifecycle, scheduling and equivalence artifacts below remain planned.
+v173.0 released the following skeleton artifacts. The separate source-bound
+lifecycle family below is implemented/unreleased and retains the old schemas.
 
 | Artifact | Role |
 |---|---|
@@ -99,7 +99,8 @@ full lifecycle, scheduling and equivalence artifacts below remain planned.
 Primary v173.0 hashes: `ess_switch_skeleton_receipt_hash`, `ess_command_stream_hash`.
 See [the skeleton contract](../ESS_STORED_PROGRAM_SKELETON.md).
 
-Planned v173.1–v173.5 artifacts:
+Implemented/unreleased v173.1–v173.5 artifacts (assembled by the new 173.5/v2
+contract; final validation/review pending). See [the lifecycle contract](../ESS_CALL_PROCESSING.md):
 
 | Artifact | Role |
 |---|---|

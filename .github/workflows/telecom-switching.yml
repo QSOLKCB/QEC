@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: MPL-2.0
+name: Telecommunications Switching Evidence
+on:
+  pull_request:
+    paths:
+      - 'src/qec/routing/**'
+      - 'tests/ess/**'
+      - 'tests/digital/**'
+      - 'tests/packet/**'
+      - 'tests/cross_era/**'
+      - 'docs/ESS_CALL_PROCESSING.md'
+      - 'docs/DIGITAL_TIME_DIVISION_SWITCHING.md'
+      - 'docs/PACKET_FABRIC_AND_SOFTSWITCH.md'
+      - 'docs/CROSS_ERA_MIGRATION_AND_SELECTION.md'
+      - 'docs/roadmap/**'
+      - 'docs/labs/**'
+      - 'ROADMAP.md'
+      - 'scripts/generate_switching_evidence.py'
+      - '.github/workflows/telecom-switching.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/qec/routing/**'
+      - 'tests/ess/**'
+      - 'tests/digital/**'
+      - 'tests/packet/**'
+      - 'tests/cross_era/**'
+      - 'docs/ESS_CALL_PROCESSING.md'
+      - 'docs/DIGITAL_TIME_DIVISION_SWITCHING.md'
+      - 'docs/PACKET_FABRIC_AND_SOFTSWITCH.md'
+      - 'docs/CROSS_ERA_MIGRATION_AND_SELECTION.md'
+      - 'docs/roadmap/**'
+      - 'docs/labs/**'
+      - 'ROADMAP.md'
+      - 'scripts/generate_switching_evidence.py'
+      - '.github/workflows/telecom-switching.yml'
+permissions:
+  contents: read
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install QEC
+        run: python -m pip install -e '.[dev]'
+      - name: Switching and frozen-boundary regression tests
+        run: python -m pytest -q tests/ess tests/crossbar tests/panel tests/strowger
+      - name: Generate independently replayed candidate artifacts
+        run: python scripts/generate_switching_evidence.py --eras ess --output artifacts/telecom --require-clean
+      - name: Upload canonical artifacts and explicit environment metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: switching-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/telecom
+          if-no-files-found: error

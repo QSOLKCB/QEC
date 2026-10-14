@@ -7,6 +7,7 @@ import os
 from pathlib import Path, PureWindowsPath
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -523,6 +524,17 @@ def test_file_reader_accepts_only_regular_bounded_bytes(tmp_path, export_module,
         assert actual == content
     with pytest.raises(ValueError, match="^INVALID_INPUT$"):
         export_module._read_regular_bytes(tmp_path)
+
+
+def test_windows_path_descriptor_identity_ignores_ctime_difference(export_module, monkeypatch):
+    monkeypatch.setattr(export_module.os, "name", "nt")
+    path_stat = SimpleNamespace(st_dev=1, st_ino=2, st_size=3, st_mtime_ns=4, st_ctime_ns=5)
+    descriptor_stat = SimpleNamespace(st_dev=1, st_ino=2, st_size=3, st_mtime_ns=4, st_ctime_ns=6)
+
+    assert not export_module._same_file_identity(path_stat, descriptor_stat)
+    assert export_module._same_file_identity(path_stat, descriptor_stat, path_descriptor=True)
+    descriptor_stat.st_ino = 7
+    assert not export_module._same_file_identity(path_stat, descriptor_stat, path_descriptor=True)
 
 
 def test_inventory_excludes_exact_root_manifest_only(tmp_path, export_module):

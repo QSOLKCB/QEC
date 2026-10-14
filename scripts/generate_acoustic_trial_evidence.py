@@ -80,6 +80,14 @@ def _file_identity(info):
     return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
+def _same_file_identity(left, right, *, path_descriptor=False):
+    left_identity, right_identity = _file_identity(left), _file_identity(right)
+    if path_descriptor and os.name == "nt":
+        # Windows path stat reports creation time as ctime; fstat reports change time.
+        left_identity, right_identity = left_identity[:-1], right_identity[:-1]
+    return left_identity == right_identity
+
+
 def _regular_stat(path):
     info = path.lstat()
     if not stat.S_ISREG(info.st_mode) or not 0 <= info.st_size <= MAX_EXPORT_FILE_BYTES:
@@ -105,7 +113,7 @@ def _read_regular_bytes(path, *, expected_stat=None):
             flags |= getattr(os, name, 0)
         descriptor = os.open(path, flags)
         opened = os.fstat(descriptor)
-        if not stat.S_ISREG(opened.st_mode) or _file_identity(opened) != _file_identity(before):
+        if not stat.S_ISREG(opened.st_mode) or not _same_file_identity(before, opened, path_descriptor=True):
             raise ValueError("INVALID_INPUT")
         chunks, count = [], 0
         while count <= opened.st_size:

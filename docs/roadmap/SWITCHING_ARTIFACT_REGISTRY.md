@@ -1,19 +1,20 @@
 <!-- SPDX-License-Identifier: MPL-2.0 -->
 # QEC Switching Artifact Registry
 
-This registry centralises the planned canonical artifacts introduced by the
+This registry centralises released, implemented and planned canonical artifacts in the
 telecommunications switching programme in [`ROADMAP.md`](../../ROADMAP.md).
 
-Artifact names are planning contracts until their release lands. Published
-schemas and release tags become authoritative once implemented.
+The status sections below distinguish implemented development contracts from
+released schemas and deferred plans. Roadmap phase identifiers are not release
+tags; published release tags remain authoritative for release status.
 
 ## Programme-lineage overview
 
 The table records architectural sequence and each artifact family's intended
 role. It does not assert that one row cryptographically binds the preceding row.
 A binding exists only when the downstream schema explicitly includes and
-validates the upstream artifact's full hash. The planned v176.x migration and
-cross-era receipts are where explicit multi-architecture binding is introduced.
+validates the upstream artifact's full hash. The additive unreleased v176.x migration and
+cross-era receipts introduce explicit multi-architecture binding.
 
 | Phase | Architecture | Primary model artifact | Primary receipt or report | Programme-lineage role |
 |---|---|---|---|---|
@@ -164,6 +165,12 @@ deterministic_failover_receipt_hash
 ```
 
 ## v176.x — Cross-era artifacts
+
+Implemented/unreleased under the assembled 176.5/v1 native contract.
+See [the cross-era implementation contract](../CROSS_ERA_MIGRATION_AND_SELECTION.md).
+Each native input and complete source receipt is reconstructed during validation;
+Strowger’s native payload gap and different lifecycle scopes remain explicit.
+Final-head review and complete CI remain required before acceptance.
 
 | Artifact | Role |
 |---|---|

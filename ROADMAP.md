@@ -10,8 +10,8 @@
 ```text
 latest completed release → v173.0
 stable commit            → 2c94351e667bc05aba26fe101dcf41fa8d4c9735
-current frontier         → v175.0–v175.6 Packet Fabric implementation candidate
-next work                → Packet final-head validation/review; then v176.x cross-era proof
+current frontier         → v176.0–v176.5 six-era replay/migration implementation candidate
+next work                → final-head acceptance across programme; owner-managed combined release
 active programme         → v171.x–v176.x — Deterministic Telecommunications Switching Lineage
 completed baseline       → v173.0 — Stored-Program Switch Skeleton
 deferred runtime arc     → v193.x — QEC OS Runtime & Benchmark Reset
@@ -148,7 +148,8 @@ The entries below are a chronological registry of released and planned hash
 identities. They are not a transitive cryptographic proof chain. Existing v170
 artifact families validate their own declared inputs, but do not automatically
 bind the preceding entry unless that upstream hash is explicitly present in the
-artifact schema. Explicit cross-era binding is a planned v176.x deliverable.
+artifact schema. The additive unreleased v176.x migration/replay contracts bind
+the complete declared native inputs and resulting six-era evidence explicitly.
 
 ```text
 RELEASED
@@ -176,10 +177,10 @@ IMPLEMENTED — UNRELEASED, FINAL VALIDATION PENDING
   deterministic_timeslot_allocation_receipt_hash       (v174.x)
   canonical_packet_fabric_receipt_hash                 (v175.x)
   deterministic_failover_receipt_hash                  (v175.x)
-
-PLANNED
   cross_era_switch_equivalence_receipt_hash            (v176.x)
   switch_migration_receipt_hash                        (v176.x)
+
+PLANNED
   qec_os_runtime_contract_hash                         (deferred v193.x)
 ```
 
@@ -456,7 +457,7 @@ Acceptance criteria are maintained under
 
 # Phase v176.x — Cross-Era Equivalence, Migration and Architecture Selection
 
-**Status:** PLANNED
+**Status:** IMPLEMENTED, UNRELEASED (final validation/review pending)
 
 ## Goal
 
@@ -472,7 +473,7 @@ same canonical correction request
 + declared equivalent availability and fault assumptions
 → same semantic destination
 → same accepted/rejected outcome class
-→ same payload identity
+→ same payload identity where natively supported (explicit Strowger capability gap)
 → architecture-specific event streams
 → one cross-era equivalence receipt
 ```
@@ -492,6 +493,13 @@ same canonical correction request
 - **v176.5 — Switching Evolution Report**  
   Compare complexity, capacity model, fault surfaces, event counts and receipt size
   without making hardware-performance claims.
+
+The implemented corpus executes all six native architectures: 36 shared
+availability cases and 15 architecture-specific fault controls (306 executions).
+Migration binds native inputs and evidence, exact rejection classes remain visible,
+and architecture selection follows declared capabilities/preferences. Strowger’s
+missing native payload capability and all lifecycle differences remain explicit.
+See [the cross-era contract](docs/CROSS_ERA_MIGRATION_AND_SELECTION.md).
 
 Evidence names are registered under
 [v176.x Cross-era artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v176x--cross-era-artifacts).

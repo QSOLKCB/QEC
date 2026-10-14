@@ -163,6 +163,44 @@ frames. The entire export is capped at 32 MiB; an oversized full-stage Digital
 selection fails explicitly. Keep those runs separate from normal comparative
 battery exports.
 
+Generation now claims a destination exclusively before writing artifacts; a
+second generator targeting the same empty destination fails without writing.
+On POSIX, output-parent traversal and descendant creation are anchored to
+retained no-follow directory descriptors, and exclusive artifact creation uses
+`O_EXCL`. On Windows, the writer creates descendants relative to retained
+directory handles using native `NtCreateFile` and a delete-on-close exclusive
+claim; missing native capabilities fail closed. The writer constructs manifest
+file digests from bytes written through these handles, not mutable `rglob`
+pathnames. It then reopens a guarded inventory to verify the complete written
+snapshot. Source compilation is compared with loaded Python function code so
+a file modified after import cannot be silently attested as the executed code.
+
+POSIX inventories also retain each discovered regular file's size, inode,
+device, and timestamps and require subsequent stat/open reads to match that
+same identity. These are identity-guarded snapshots, **not** a global atomic
+filesystem transaction: a sufficiently privileged concurrent process can
+rename directories after they have been opened or mutate exports after return.
+Run in a private, access-controlled working directory when adversarial
+same-user processes are in scope; keep external digest pins independent.
+
+Filesystem replay rejects special files, symlinks/reparse points, unlisted files
+and detected entry replacement or mutation. Directory guards remain open while
+bounded file snapshots are collected; downstream replay uses those retained
+bytes. This is identity-guarded snapshotting, not a globally atomic filesystem
+snapshot. POSIX requires descriptor-based directory enumeration, relative opens,
+and no-follow/directory/nonblocking flags. Windows requires native
+`GetFileInformationByHandleEx` support for 128-bit `FileIdInfo` and
+`FileIdExtdDirectoryInfo`, plus `OpenFileById` for descendant directories and
+payloads. A 64-bit identifier-open fallback is allowed only after
+`ERROR_INVALID_PARAMETER` with zero high bits, and the complete 128-bit ID
+and volume are still verified. SMB and unsupported primitives, filesystems or
+metadata queries fail closed. There is no descendant pathname fallback for
+directory enumeration, payload metadata or payload reads; the root manifest
+uses the same guarded access.
+Windows path-stat creation time is not compared with descriptor metadata-change
+time. Shared-meaning cross-API identity fields and full same-API mutation checks
+remain enforced.
+
 This is SPECTRAL-compatible only in the ordinary-file sense: PCM16 WAV and JSON
 can be imported or inspected by suitable external tools. No SPECTRAL repository,
 UI, project format or hardware integration has been implemented or tested.

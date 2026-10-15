@@ -2,6 +2,13 @@
 
 ## Canonical Engineering Constitution — v150.x
 
+**Narrow approved exception:** The owner-approved 2026-10-15 qutrit
+syndrome-table construction optimization in PR #608 is governed by the
+[specific exception in ARCHITECTURE.md](ARCHITECTURE.md#narrow-qutrit-construction-exception-2026-10-15-pr-608).
+It does not relax legacy three-message/BP decoder stability, scheduling/adaptive
+logic restrictions, analysis boundaries, historical fixtures, or v166.x receipt
+authorization/promotion semantics. All other constraints below remain in force.
+
 This document governs **all AI-assisted activity** inside the `QSOLKCB/QEC` repository.
 
 This is the **constitutional layer of the system**.

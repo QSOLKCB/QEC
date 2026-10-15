@@ -1,0 +1,2021 @@
+{
+  "cases": [
+    {
+      "case": "cyclic_five",
+      "cold_plan_preparation": {
+        "latency": {
+          "median": 69288,
+          "raw_samples": [
+            71478,
+            71001,
+            68520,
+            67058,
+            69382,
+            62842,
+            69779,
+            69288,
+            69227
+          ],
+          "unit": "ns"
+        },
+        "peak_traced_allocation": {
+          "median": 5712,
+          "raw_samples": [
+            5712,
+            5712,
+            5712
+          ],
+          "unit": "bytes"
+        },
+        "scalar_reference": "not applicable: scalar builder has no preparation plan",
+        "scope": "live private preparation helper only; also included in full constructor"
+      },
+      "constructor_scalar_over_live_median_ratio": 1.5398842218435276,
+      "correct_batch": {
+        "calls_per_sample": 160,
+        "errors": [
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              1,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              2,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              2,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              2,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              2
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              2
+            ]
+          ]
+        ],
+        "repeats": 10
+      },
+      "k": 1,
+      "max_weight": 1,
+      "measurements": {
+        "live": {
+          "constructor_peak_traced_allocation": {
+            "median": 18384,
+            "raw_samples": [
+              18400,
+              18384,
+              18376
+            ],
+            "unit": "bytes"
+          },
+          "full_constructor": {
+            "median": 546908,
+            "raw_samples": [
+              585296,
+              546908,
+              554900,
+              416981,
+              416547,
+              527409,
+              544259,
+              571749,
+              553445
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch": {
+            "median": 23242165,
+            "raw_samples": [
+              23726557,
+              23994210,
+              27873339,
+              16979704,
+              16803093,
+              23237004,
+              23242165,
+              23135808,
+              24096562
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch_peak_traced_allocation": {
+            "median": 133408,
+            "raw_samples": [
+              133408,
+              133408,
+              133408
+            ],
+            "unit": "bytes"
+          }
+        },
+        "scalar_reference": {
+          "constructor_peak_traced_allocation": {
+            "median": 17776,
+            "raw_samples": [
+              17792,
+              17776,
+              17768
+            ],
+            "unit": "bytes"
+          },
+          "full_constructor": {
+            "median": 842175,
+            "raw_samples": [
+              842175,
+              829631,
+              1076632,
+              750965,
+              631194,
+              791734,
+              883369,
+              1070433,
+              1038119
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch": {
+            "median": 22963704,
+            "raw_samples": [
+              24057481,
+              22963704,
+              16797571,
+              16432184,
+              21513369,
+              25182536,
+              23973192,
+              23222633,
+              22862579
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch_peak_traced_allocation": {
+            "median": 133408,
+            "raw_samples": [
+              133408,
+              133408,
+              133408
+            ],
+            "unit": "bytes"
+          }
+        }
+      },
+      "n": 5,
+      "verification": {
+        "all_bounded_corrections_equal_and_successful": true,
+        "ordered_table_entries": 41,
+        "ordered_table_equal": true,
+        "verified_errors": 41
+      }
+    },
+    {
+      "case": "shor_nine",
+      "cold_plan_preparation": {
+        "latency": {
+          "median": 154401,
+          "raw_samples": [
+            158761,
+            153677,
+            154401,
+            149013,
+            164992,
+            152101,
+            165323,
+            154365,
+            161065
+          ],
+          "unit": "ns"
+        },
+        "peak_traced_allocation": {
+          "median": 11312,
+          "raw_samples": [
+            11312,
+            11312,
+            11312
+          ],
+          "unit": "bytes"
+        },
+        "scalar_reference": "not applicable: scalar builder has no preparation plan",
+        "scope": "live private preparation helper only; also included in full constructor"
+      },
+      "constructor_scalar_over_live_median_ratio": 1.2667651797799757,
+      "correct_batch": {
+        "calls_per_sample": 160,
+        "errors": [
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2
+            ]
+          ]
+        ],
+        "repeats": 10
+      },
+      "k": 1,
+      "max_weight": 1,
+      "measurements": {
+        "live": {
+          "constructor_peak_traced_allocation": {
+            "median": 90416,
+            "raw_samples": [
+              90416,
+              90416,
+              90416
+            ],
+            "unit": "bytes"
+          },
+          "full_constructor": {
+            "median": 5937619,
+            "raw_samples": [
+              6303409,
+              5758424,
+              6155830,
+              5781993,
+              5925537,
+              5937619,
+              5925873,
+              6497550,
+              6110170
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch": {
+            "median": 63662554,
+            "raw_samples": [
+              62894710,
+              63656492,
+              63662554,
+              63997321,
+              63181872,
+              64028829,
+              65626042,
+              62598129,
+              64672886
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch_peak_traced_allocation": {
+            "median": 554080,
+            "raw_samples": [
+              554080,
+              554080,
+              554080
+            ],
+            "unit": "bytes"
+          }
+        },
+        "scalar_reference": {
+          "constructor_peak_traced_allocation": {
+            "median": 87808,
+            "raw_samples": [
+              87808,
+              87808,
+              87808
+            ],
+            "unit": "bytes"
+          },
+          "full_constructor": {
+            "median": 7521569,
+            "raw_samples": [
+              7649531,
+              7196100,
+              7606937,
+              7636395,
+              7330171,
+              7466393,
+              7521569,
+              10013975,
+              7429237
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch": {
+            "median": 63174868,
+            "raw_samples": [
+              63512319,
+              65551327,
+              61612567,
+              62881778,
+              62638701,
+              63174868,
+              66910418,
+              64008054,
+              62707272
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch_peak_traced_allocation": {
+            "median": 554080,
+            "raw_samples": [
+              554080,
+              554080,
+              554080
+            ],
+            "unit": "bytes"
+          }
+        }
+      },
+      "n": 9,
+      "verification": {
+        "all_bounded_corrections_equal_and_successful": true,
+        "ordered_table_entries": 61,
+        "ordered_table_equal": true,
+        "verified_errors": 73
+      }
+    },
+    {
+      "case": "golay_eleven",
+      "cold_plan_preparation": {
+        "latency": {
+          "median": 218673,
+          "raw_samples": [
+            209369,
+            257455,
+            217304,
+            263555,
+            218673,
+            221078,
+            206896,
+            203708,
+            311774
+          ],
+          "unit": "ns"
+        },
+        "peak_traced_allocation": {
+          "median": 14976,
+          "raw_samples": [
+            14976,
+            14976,
+            14976
+          ],
+          "unit": "bytes"
+        },
+        "scalar_reference": "not applicable: scalar builder has no preparation plan",
+        "scope": "live private preparation helper only; also included in full constructor"
+      },
+      "constructor_scalar_over_live_median_ratio": 2.2392585034828874,
+      "correct_batch": {
+        "calls_per_sample": 160,
+        "errors": [
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              1,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ]
+          ],
+          [
+            [
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              2,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              2,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              2,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              1
+            ]
+          ],
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              2
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              2
+            ]
+          ]
+        ],
+        "repeats": 10
+      },
+      "k": 1,
+      "max_weight": 2,
+      "measurements": {
+        "live": {
+          "constructor_peak_traced_allocation": {
+            "median": 1799792,
+            "raw_samples": [
+              1799792,
+              1799792,
+              1799792
+            ],
+            "unit": "bytes"
+          },
+          "full_constructor": {
+            "median": 82773848,
+            "raw_samples": [
+              82361312,
+              83463145,
+              83721746,
+              83301577,
+              82513424,
+              82773848,
+              82016340,
+              83768585,
+              82706657
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch": {
+            "median": 102202830,
+            "raw_samples": [
+              101712881,
+              102608360,
+              103335656,
+              101969190,
+              101828286,
+              102111468,
+              102349144,
+              102202830,
+              102966485
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch_peak_traced_allocation": {
+            "median": 174072,
+            "raw_samples": [
+              174072,
+              174072,
+              174072
+            ],
+            "unit": "bytes"
+          }
+        },
+        "scalar_reference": {
+          "constructor_peak_traced_allocation": {
+            "median": 1797648,
+            "raw_samples": [
+              1797648,
+              1797648,
+              1797648
+            ],
+            "unit": "bytes"
+          },
+          "full_constructor": {
+            "median": 185352043,
+            "raw_samples": [
+              183794834,
+              185779024,
+              185268362,
+              185533445,
+              184746201,
+              184406911,
+              185729098,
+              185352043,
+              185606283
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch": {
+            "median": 103113430,
+            "raw_samples": [
+              103002355,
+              101785856,
+              103113430,
+              102471448,
+              103208578,
+              103477925,
+              103405693,
+              103614956,
+              102166347
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch_peak_traced_allocation": {
+            "median": 174072,
+            "raw_samples": [
+              174072,
+              174072,
+              174072
+            ],
+            "unit": "bytes"
+          }
+        }
+      },
+      "n": 11,
+      "verification": {
+        "all_bounded_corrections_equal_and_successful": true,
+        "ordered_table_entries": 3609,
+        "ordered_table_equal": true,
+        "verified_errors": 3609
+      }
+    },
+    {
+      "case": "small_k0",
+      "cold_plan_preparation": {
+        "latency": {
+          "median": 24697,
+          "raw_samples": [
+            26180,
+            23626,
+            25071,
+            23338,
+            26921,
+            24605,
+            23361,
+            27516,
+            24697
+          ],
+          "unit": "ns"
+        },
+        "peak_traced_allocation": {
+          "median": 3160,
+          "raw_samples": [
+            3160,
+            3160,
+            3160
+          ],
+          "unit": "bytes"
+        },
+        "scalar_reference": "not applicable: scalar builder has no preparation plan",
+        "scope": "live private preparation helper only; also included in full constructor"
+      },
+      "constructor_scalar_over_live_median_ratio": 1.047983178000384,
+      "correct_batch": {
+        "calls_per_sample": 160,
+        "errors": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            [
+              1,
+              0
+            ],
+            [
+              2,
+              0
+            ]
+          ],
+          [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              0,
+              2
+            ],
+            [
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              2
+            ]
+          ],
+          [
+            [
+              0,
+              0
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          [
+            [
+              0,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          [
+            [
+              1,
+              1
+            ],
+            [
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              1,
+              0
+            ],
+            [
+              1,
+              2
+            ]
+          ],
+          [
+            [
+              1,
+              2
+            ],
+            [
+              1,
+              2
+            ]
+          ],
+          [
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          [
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              2,
+              2
+            ],
+            [
+              0,
+              2
+            ]
+          ],
+          [
+            [
+              2,
+              1
+            ],
+            [
+              1,
+              2
+            ]
+          ],
+          [
+            [
+              2,
+              0
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          [
+            [
+              2,
+              2
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        ],
+        "repeats": 10
+      },
+      "k": 0,
+      "max_weight": 2,
+      "measurements": {
+        "live": {
+          "constructor_peak_traced_allocation": {
+            "median": 81696,
+            "raw_samples": [
+              81696,
+              81696,
+              81696
+            ],
+            "unit": "bytes"
+          },
+          "full_constructor": {
+            "median": 3883486,
+            "raw_samples": [
+              4051193,
+              3759348,
+              4191153,
+              4000460,
+              3733477,
+              3883486,
+              4007201,
+              3762994,
+              3777460
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch": {
+            "median": 8527259,
+            "raw_samples": [
+              8079160,
+              8619632,
+              8195250,
+              8031675,
+              8654391,
+              8346935,
+              8527259,
+              8540840,
+              8624138
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch_peak_traced_allocation": {
+            "median": 154120,
+            "raw_samples": [
+              154120,
+              154120,
+              154120
+            ],
+            "unit": "bytes"
+          }
+        },
+        "scalar_reference": {
+          "constructor_peak_traced_allocation": {
+            "median": 81344,
+            "raw_samples": [
+              81344,
+              81344,
+              81344
+            ],
+            "unit": "bytes"
+          },
+          "full_constructor": {
+            "median": 4069828,
+            "raw_samples": [
+              4140812,
+              4099123,
+              4151473,
+              4015791,
+              3917632,
+              4063016,
+              3959794,
+              4069828,
+              4304204
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch": {
+            "median": 8254799,
+            "raw_samples": [
+              8186852,
+              8242265,
+              8337121,
+              8792257,
+              8201031,
+              8254799,
+              8412573,
+              8115498,
+              8679534
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch_peak_traced_allocation": {
+            "median": 154120,
+            "raw_samples": [
+              154120,
+              154120,
+              154120
+            ],
+            "unit": "bytes"
+          }
+        }
+      },
+      "n": 2,
+      "verification": {
+        "all_bounded_corrections_equal_and_successful": true,
+        "ordered_table_entries": 9,
+        "ordered_table_equal": true,
+        "verified_errors": 81
+      }
+    },
+    {
+      "case": "zero_weight",
+      "cold_plan_preparation": null,
+      "constructor_scalar_over_live_median_ratio": 0.9490165073432522,
+      "correct_batch": {
+        "calls_per_sample": 10,
+        "errors": [
+          [
+            [
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        ],
+        "repeats": 10
+      },
+      "k": 1,
+      "max_weight": 0,
+      "measurements": {
+        "live": {
+          "constructor_peak_traced_allocation": {
+            "median": 2224,
+            "raw_samples": [
+              2224,
+              2224,
+              2224
+            ],
+            "unit": "bytes"
+          },
+          "full_constructor": {
+            "median": 41739,
+            "raw_samples": [
+              44489,
+              45086,
+              41739,
+              41675,
+              45694,
+              64024,
+              40053,
+              39977,
+              40960
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch": {
+            "median": 1446948,
+            "raw_samples": [
+              1348776,
+              1572312,
+              1560466,
+              1459489,
+              1403652,
+              1446948,
+              1362389,
+              1508415,
+              1378982
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch_peak_traced_allocation": {
+            "median": 15808,
+            "raw_samples": [
+              15808,
+              15808,
+              15808
+            ],
+            "unit": "bytes"
+          }
+        },
+        "scalar_reference": {
+          "constructor_peak_traced_allocation": {
+            "median": 2224,
+            "raw_samples": [
+              2224,
+              2224,
+              2224
+            ],
+            "unit": "bytes"
+          },
+          "full_constructor": {
+            "median": 39611,
+            "raw_samples": [
+              41735,
+              35144,
+              42723,
+              40554,
+              41409,
+              35199,
+              37303,
+              39611,
+              36315
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch": {
+            "median": 1415729,
+            "raw_samples": [
+              1472576,
+              1415729,
+              1576113,
+              1418759,
+              1382364,
+              1408860,
+              1452122,
+              1381666,
+              1352187
+            ],
+            "unit": "ns"
+          },
+          "reused_correct_batch_peak_traced_allocation": {
+            "median": 15808,
+            "raw_samples": [
+              15808,
+              15808,
+              15808
+            ],
+            "unit": "bytes"
+          }
+        }
+      },
+      "n": 5,
+      "verification": {
+        "all_bounded_corrections_equal_and_successful": true,
+        "ordered_table_entries": 1,
+        "ordered_table_equal": true,
+        "verified_errors": 1
+      }
+    }
+  ],
+  "configuration": {
+    "correction_repeats": 10,
+    "memory_samples": 3,
+    "samples": 9
+  },
+  "environment": {
+    "gc_enabled": true,
+    "implementation": "CPython",
+    "machine": "x86_64",
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+    "processor": "",
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "timer": "time.perf_counter_ns"
+  },
+  "reference": {
+    "embedded_builder_source_sha256": "25d707f69d2674b10cae91f87cdd88455b148f4ed99601b24628502169d075fe",
+    "independence": "original scalar constructor; shared unchanged Pauli, code algebra and public correct/decode",
+    "origin": "pre-optimization qec/decoder/qutrit/exact.py",
+    "pinned_original_file_sha256": "11b5cad38e88fad36dc37a9ab916496b17b75eb3d56df765ce90dd2e4153bfce"
+  },
+  "schema": "qutrit-construction-benchmark-v1",
+  "scope": {
+    "claim": "constructor cost only, not FER, physical performance or general decoding throughput",
+    "cold": "fresh decoder and fresh plan each call; imports and CPU caches are not cold",
+    "excluded": "code factories, error generation, parity validation, GC collection and imports",
+    "memory": "separate tracemalloc passes; Python traced allocations, not RSS or total native memory",
+    "timing": "raw observations vary by host/load; no pass/fail thresholds"
+  },
+  "source_sha256": {
+    "scripts/benchmark_qutrit_construction.py": "d8514742b4927836b866df607140921054ab405a8058387f0ffd3a00b80f60f5",
+    "src/qec/decoder/qutrit/codes.py": "19f430bed1bbc395db78b3dee7233b4c5a20aa2477900ae42c452557938a30b1",
+    "src/qec/decoder/qutrit/exact.py": "48a234720bc482413416fdd7fb414cfbdab2df5e60d47fde7a16040aa0096f87",
+    "src/qec/decoder/qutrit/gf3.py": "bec08021efed0bf42b6043d0626e3bcf2c4bd40f1dc236512b199989e4c3b5b7",
+    "src/qec/decoder/qutrit/stabilizer.py": "8f88f0477e6e34b94bd520dabf09caed81a5c34270eeca73a84fbe9f05e45824"
+  }
+}

@@ -2,6 +2,33 @@
 
 ## Deterministic System Architecture (Canonical)
 
+### Narrow qutrit construction exception (2026-10-15, PR #608)
+
+The repository owner explicitly approved a behavior-preserving optimization of
+syndrome-table construction in `src/qec/decoder/qutrit/exact.py`. This is a narrow
+exception to the decoder-source freeze below, not a general permission to change
+decoder behavior or promote a candidate because it is faster.
+
+Only the bounded-error constructor's syndrome calculation may use precomputed
+one-site GF(3) contributions. The public API, scalar syndrome/correction path,
+error enumeration and insertion order, first representatives, collision checks,
+immutable tables, validation behavior and correction outputs must remain equal
+to the existing scalar implementation. Custom code subclasses retain their
+scalar construction path.
+
+The legacy three-message/BP decoder, scheduling, adaptive logic, analysis-layer
+boundary, accepted historical fixtures and v166.x receipt authorization and
+promotion flags remain unchanged. Receipt construction/validation must still
+leave decoder source filenames and bytes unchanged and must not import the
+decoder. A receipt does not authorize runtime activation or future optimization.
+
+This exception requires scalar-conformance regressions, full repository tests
+and explicitly scoped construction benchmarks. It establishes no FER, physical
+performance or general simulation-throughput claim. See
+[`docs/QUTRIT_CONSTRUCTION_BENCHMARK.md`](docs/QUTRIT_CONSTRUCTION_BENCHMARK.md)
+for measurements and limitations. All other protected-core constraints below
+continue to apply.
+
 ---
 
 ## 🧠 System Identity

@@ -19,6 +19,36 @@ class UncorrectableSyndrome(ValueError):
     """Raised when no bounded-weight representative has the syndrome."""
 
 
+def _one_site_syndromes(code: QutritStabilizerCode) -> tuple[tuple[Syndrome, ...], ...]:
+    """Prepare immutable GF(3) contributions, indexed by site and ``3*x+z``.
+
+    The sign matches symplectic(check, error): check_x*z - check_z*x.
+    This plan is local to one construction, never cached by a code's name.
+    """
+    return tuple(
+        tuple(
+            tuple((check[site] * z - check[code.n + site] * x) % 3
+                  for check in code.stabilizers)
+            for x in range(3) for z in range(3)
+        )
+        for site in range(code.n)
+    )
+
+
+def _sparse_syndrome(error: Pauli, plan: tuple[tuple[Syndrome, ...], ...]) -> Syndrome:
+    """Combine nonzero-site contributions for a Pauli of the plan's width."""
+    contributions = [
+        site[3 * x + z]
+        for site, x, z in zip(plan, error.x, error.z)
+        if x or z
+    ]
+    if not contributions:
+        return plan[0][0]
+    if len(contributions) == 1:
+        return contributions[0]
+    return tuple(sum(values) % 3 for values in zip(*contributions))
+
+
 @dataclass(frozen=True)
 class DecodeResult:
     syndrome: Syndrome
@@ -40,9 +70,19 @@ class ExactDecoder:
             raise ValueError("max_weight must be non-negative")
         identity = Pauli((0,) * self.code.n, (0,) * self.code.n)
         table: dict[Syndrome, Pauli] = {self.code.syndrome(identity): identity}
+        # Preserve custom syndrome semantics on subclasses. The public scalar
+        # syndrome path (including correct()) remains unchanged and independent.
+        plan = (
+            _one_site_syndromes(self.code)
+            if type(self.code) is QutritStabilizerCode and self.max_weight > 0
+            else None
+        )
         for weight in range(1, self.max_weight + 1):
             for candidate in paulis_of_weight(self.code.n, weight):
-                syndrome = self.code.syndrome(candidate)
+                syndrome = (
+                    _sparse_syndrome(candidate, plan)
+                    if plan is not None else self.code.syndrome(candidate)
+                )
                 previous = table.get(syndrome)
                 if previous is None:
                     table[syndrome] = candidate

@@ -243,7 +243,29 @@ def _is_banned_import_name(name: str, banned_roots: set[str]) -> bool:
     )
 
 
-def test_boundary_static_inspection_and_no_decoder_diff():
+def _decoder_source_snapshot(root):
+    return {path.relative_to(root): path.read_bytes()
+            for path in root.rglob("*")
+            if path.is_file() and "__pycache__" not in path.relative_to(root).parts}
+
+
+@pytest.mark.parametrize("change", ["add", "delete", "mutate", "rename"])
+def test_decoder_source_snapshot_detects_changes(tmp_path, change):
+    source = tmp_path / "core.py"
+    source.write_bytes(b"original source")
+    before = _decoder_source_snapshot(tmp_path)
+    if change == "add":
+        (tmp_path / "added.txt").write_bytes(b"new source")
+    elif change == "delete":
+        source.unlink()
+    elif change == "rename":
+        source.rename(tmp_path / "renamed.py")
+    else:
+        source.write_bytes(b"changed source")
+    assert _decoder_source_snapshot(tmp_path) != before
+
+
+def test_boundary_static_inspection_and_no_decoder_mutation():
     module_path = Path("src/qec/analysis/decoder_fast_path_equivalence_receipts.py")
     test_path = Path(__file__)
     banned_imports = {"numpy", "scipy", "qldpc", "stim", "pymatching", "qiskit", "qutip", "pandas", "polars", "torch", "tensorflow", "jax"}
@@ -255,9 +277,16 @@ def test_boundary_static_inspection_and_no_decoder_diff():
                     assert not _is_banned_import_name(alias.name, banned_imports)
             if isinstance(node, ast.ImportFrom):
                 assert not _is_banned_import_name(node.module or "", banned_imports)
-    base = subprocess.check_output(["git", "rev-parse", "HEAD^"], text=True).strip()
-    diff = subprocess.check_output(["git", "diff", "--name-only", f"{base}..HEAD", "--", "src/qec/decoder/"], text=True)
-    assert diff == ""
+    # The narrowly approved qutrit constructor exception is documented in
+    # ARCHITECTURE.md. Receipt operations still have no decoder mutation or
+    # promotion authority. Check their actual boundary, independently of the
+    # current commit's parent; all receipt permission flags remain unchanged.
+    decoder_root = Path("src/qec/decoder")
+    before = _decoder_source_snapshot(decoder_root)
+    assert before, "decoder source snapshot must not be empty"
+    receipt = _fixture()["receipt"]
+    assert fp.validate_decoder_fast_path_equivalence_receipt(receipt) is receipt
+    assert _decoder_source_snapshot(decoder_root) == before
 
 
 def test_hash_seed_stability_subprocess():

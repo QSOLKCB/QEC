@@ -8,6 +8,7 @@ from pathlib import Path
 MUTABLE_HEADERS = {
     "# QSOLKCB / QEC",
     "## 📦 Release & Research",
+    "## Release",
     "# ✅ System Properties",
     "# 🧠 What QEC Is",
     "## Why This Matters",
@@ -53,6 +54,15 @@ def update_readme(
     active_arc: str | None = None,
     repository_status: str | None = None,
 ) -> str:
+    headers = [header for header, _ in _split_sections(text)]
+    compact = "<!-- README-RELEASE:COMPACT -->" in text or "## Release" in headers
+    if compact:
+        if "<!-- README-RELEASE:COMPACT -->" not in text or "## 📦 Release & Research" in headers:
+            raise ValueError("README_COMPACT_METADATA_INVALID")
+        return _update_compact_readme(text, latest_release)
+    if headers.count("## 📦 Release & Research") != 1:
+        raise ValueError("README_FORMAT_INVALID")
+
     orig = text
     mutable_sections_changed = 0
 
@@ -108,6 +118,49 @@ def update_readme(
     return new
 
 
+def _update_compact_readme(text: str, latest_release: str) -> str:
+    """Update only the compact release badge and release line, never its prose.
+
+    Supported format: one literal Latest badge and release-line marker, each
+    on its exact canonical line in its unique section. Duplicate markers in
+    prose, comments, quoted text or code fail closed; this is not a general
+    Markdown renderer and does not reinterpret alternate badge syntaxes.
+    """
+    if not re.fullmatch(r"v[0-9]+(?:\.[0-9]+)*", latest_release):
+        raise ValueError("README_INVALID_RELEASE")
+    # Count metadata markers anywhere, including indented/rendered duplicates.
+    # Exact canonical placement and syntax are checked separately below.
+    if text.count("[![Latest]") != 1 or text.count("Current release line:") != 1:
+        raise ValueError("README_COMPACT_METADATA_INVALID")
+    sections = _split_sections(text)
+    patterns = {
+        "# QSOLKCB / QEC": (
+            (r"(?m)^\[!\[Latest\]\(https://img\.shields\.io/badge/stable-v[\d.]+-success\)\]\(https://github\.com/QSOLKCB/QEC/releases/tag/v[\d.]+\)$",
+             f"[![Latest](https://img.shields.io/badge/stable-{latest_release}-success)](https://github.com/QSOLKCB/QEC/releases/tag/{latest_release})"),
+        ),
+        "## Release": (
+            (r"(?m)^Current release line: \*\*v[\d.]+\*\*$",
+             f"Current release line: **{latest_release}**"),
+        ),
+    }
+    for header, replacements in patterns.items():
+        matching = [i for i, (h, _) in enumerate(sections) if h == header]
+        if len(matching) != 1:
+            raise ValueError("README_COMPACT_METADATA_INVALID")
+        i = matching[0]
+        body = sections[i][1]
+        for pattern, replacement in replacements:
+            if len(re.findall(pattern, text)) != 1:
+                raise ValueError("README_COMPACT_METADATA_INVALID")
+            body, count = re.subn(pattern, replacement, body)
+            if count != 1:
+                raise ValueError("README_COMPACT_METADATA_INVALID")
+        sections[i] = (header, body)
+    updated = "".join(header + body for header, body in sections)
+    _validate_boundaries(text, updated)
+    return updated
+
+
 def _validate_boundaries(before: str, after: str) -> None:
     b = dict(_split_sections(before))
     a = dict(_split_sections(after))
@@ -125,17 +178,23 @@ def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--readme", type=Path, default=Path("README.md"))
     p.add_argument("--latest-release", required=True)
-    p.add_argument("--frontier", required=True)
-    p.add_argument("--active-arc", required=True)
-    p.add_argument("--completed-arc", required=True)
-    p.add_argument("--repository-status", required=True)
+    p.add_argument("--frontier")
+    p.add_argument("--active-arc")
+    p.add_argument("--completed-arc")
+    p.add_argument("--repository-status")
     args = p.parse_args()
     text = args.readme.read_text(encoding="utf-8")
+    headers = [header for header, _ in _split_sections(text)]
+    if "## 📦 Release & Research" in headers and "## Release" not in headers:
+        missing = [flag for flag in ("frontier", "active_arc", "completed_arc", "repository_status")
+                   if getattr(args, flag) is None]
+        if missing:
+            p.error("legacy README requires " + ", ".join("--" + flag.replace("_", "-") for flag in missing))
     updated = update_readme(
         text,
         args.latest_release,
-        args.frontier,
-        args.completed_arc,
+        args.frontier or "",
+        args.completed_arc or "",
         args.active_arc,
         args.repository_status,
     )

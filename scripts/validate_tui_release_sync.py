@@ -34,6 +34,77 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+LOCAL_INSTALL_PROMPT = (
+    "For the optional Rust TUI launcher, review the [installer](tui/install.sh) before running:"
+)
+LOCAL_INSTALL_BLOCK = LOCAL_INSTALL_PROMPT + "\n\n```sh\nsh tui/install.sh\n```"
+COMPACT_MARKER = "<!-- README-RELEASE:COMPACT -->"
+
+
+def _validate_installation_guidance(text: str) -> list[str]:
+    """Check the exact supported installation block, not arbitrary Markdown/shell.
+
+    Compact documents require the literal prose prompt and shell block above,
+    followed only by whitespace until the next heading. Comments become line
+    breaks so they cannot join tokens. Raw HTML and multiline inline-code spans
+    are unsupported. Legacy mode requires its positive, visible release heading.
+    """
+    source = re.sub(r"<!--.*?(?:-->|\Z)", "\n", text.replace("\r\n", "\n"), flags=re.DOTALL)
+    lines = source.splitlines()
+    headings, prompts = [], []
+    fence = None
+    unsupported_inline = False
+    for index, line in enumerate(lines):
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+        if marker:
+            run, suffix = marker.groups()
+            if fence is None:
+                fence = run
+            elif run[0] == fence[0] and len(run) >= len(fence) and not suffix.strip():
+                fence = None
+            continue
+        if fence is not None or line.startswith(("    ", "\t")):
+            continue
+        if re.match(r"^#{1,6} ", line):
+            headings.append(line)
+        if line == LOCAL_INSTALL_PROMPT:
+            prompts.append(index)
+        if "``" in line or line.count("`") % 2:
+            unsupported_inline = True
+
+    # Unsupported rendering forms reject before either format can be selected.
+    if "<" in source or unsupported_inline or fence is not None:
+        return ["README.md installation guidance uses unsupported rendering syntax"]
+    compact = COMPACT_MARKER in text or "## Release" in headings
+    legacy = "## 📦 Release & Research" in headings
+    invalid = ["README.md installation guidance does not match its supported literal format"]
+    if compact:
+        if text.count(COMPACT_MARKER) != 1 or headings.count("## Release") != 1 or legacy:
+            return invalid
+        if len(prompts) != 1 or source.count("tui/install.sh") != 2:
+            return invalid
+        if re.search(r"\b(?:curl|wget)[ \t]", source):
+            return invalid
+        start = prompts[0]
+        end = next((i for i in range(start + 1, len(lines)) if re.match(r"^#{1,6} ", lines[i])), len(lines))
+        if "\n".join(lines[start:end]).strip() != LOCAL_INSTALL_BLOCK:
+            return invalid
+        return []
+    if not legacy or headings.count("## 📦 Release & Research") != 1:
+        return invalid
+    # Supported legacy command lines are exact bare commands or exact Markdown
+    # table cells. Shell suffixes cannot be accepted as part of a substring.
+    command = f"curl -fsSL {CANONICAL_CURL_URL} | sh"
+    table_command = command.replace("|", "\\|")
+    matches = [line for line in lines if line == command or re.fullmatch(
+        rf"\| `{re.escape(table_command)}` \| [^|]+ \|", line
+    )]
+    if len(matches) != 1 or len(re.findall(r"\b(?:curl|wget)[ \t]", source)) != 1:
+        return invalid
+
+    return []
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=str, default=None,
@@ -87,13 +158,8 @@ def main() -> None:
         if actual != expected:
             errors.append(f"install.sh {key}={actual!r}, expected {expected!r}")
 
-    # --- Parse README ---
-    readme_text = _read(readme)
-    if CANONICAL_CURL_URL not in readme_text:
-        errors.append(f"README.md missing canonical curl URL: {CANONICAL_CURL_URL}")
-
-    if "curl -fsSL" not in readme_text:
-        errors.append("README.md missing 'curl -fsSL' install command")
+    # --- Parse README using one normalized documentation contract ---
+    errors.extend(_validate_installation_guidance(_read(readme)))
 
     # --- Release tag alignment (optional) ---
     if args.expected_tag:
@@ -119,7 +185,7 @@ def main() -> None:
         print(f"{'='*60}")
         print(f"  Cargo.toml  name={cargo_name!r}  version={cargo_ver!r}")
         print(f"  install.sh  REPO=QSOLKCB/QEC  BINARY=qec-tui  DIR=/usr/local/bin")
-        print(f"  README.md   curl URL present")
+        print(f"  README.md   installer command present")
         if args.expected_tag:
             print(f"  Tag         {args.expected_tag!r} aligned")
         print()

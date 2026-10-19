@@ -89,15 +89,18 @@ def main() -> None:
 
     # --- Parse README ---
     readme_text = _read(readme)
-    local_install = re.search(r"(?m)^sh tui/install\.sh$", readme_text) is not None
+    # Hidden comments cannot select either installation-documentation branch.
+    prose = re.sub(r"<!--.*?(?:-->|\Z)", "", readme_text, flags=re.DOTALL)
+    local_install = re.search(r"(?m)^sh tui/install\.sh$", prose) is not None
     if local_install:
         # The review prompt must be prose, not a hidden comment or code example.
         # This is a bounded source check, not a general Markdown renderer.
-        prose = re.sub(r"<!--.*?(?:-->|\Z)", "", readme_text, flags=re.DOTALL)
         # Local-install guidance deliberately supports Markdown prose only.
         # Reject raw HTML rather than attempting visibility/rendering semantics.
         if "<" in prose:
             errors.append("README.md local installer guidance does not support raw HTML")
+        if re.search(r"\b(?:curl|wget)[ \t]", prose):
+            errors.append("README.md local installer guidance must not mix remote download commands")
         visible_lines = []
         fence = None
         for line in prose.splitlines():
@@ -115,9 +118,9 @@ def main() -> None:
         if review_targets != ["tui/install.sh"]:
             errors.append("README.md local installer review link must point exactly to tui/install.sh")
     else:
-        if CANONICAL_CURL_URL not in readme_text:
+        if CANONICAL_CURL_URL not in prose:
             errors.append(f"README.md missing local installer command or canonical curl URL: {CANONICAL_CURL_URL}")
-        if "curl -fsSL" not in readme_text:
+        if "curl -fsSL" not in prose:
             errors.append("README.md missing local installer command or 'curl -fsSL' install command")
 
     # --- Release tag alignment (optional) ---

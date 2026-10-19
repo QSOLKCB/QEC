@@ -91,7 +91,23 @@ def main() -> None:
     readme_text = _read(readme)
     local_install = re.search(r"(?m)^sh tui/install\.sh$", readme_text) is not None
     if local_install:
-        review_targets = re.findall(r"\[installer\]\(([^)]+)\)", readme_text)
+        # The review prompt must be prose, not a hidden comment or code example.
+        # This is a bounded source check, not a general Markdown renderer.
+        prose = re.sub(r"<!--.*?(?:-->|\Z)", "", readme_text, flags=re.DOTALL)
+        visible_lines = []
+        fence = None
+        for line in prose.splitlines():
+            marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+            if marker:
+                run, suffix = marker.groups()
+                if fence is None:
+                    fence = run
+                elif run[0] == fence[0] and len(run) >= len(fence) and not suffix.strip():
+                    fence = None
+                continue
+            if fence is None and not line.startswith(("    ", "\t")):
+                visible_lines.append(re.sub(r"`+[^`]*`+", "", line))
+        review_targets = re.findall(r"\[installer\]\(([^)]+)\)", "\n".join(visible_lines))
         if review_targets != ["tui/install.sh"]:
             errors.append("README.md local installer review link must point exactly to tui/install.sh")
     else:

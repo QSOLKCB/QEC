@@ -22,8 +22,9 @@ Python package metadata, which currently remains `173.0.0`.
 
 Open the browser-native [Qutrit Harmonic Lab](https://qsolkcb.github.io/QEC/) or
 [Ququart Evidence Lab](https://qsolkcb.github.io/QEC/ququart-fer/).
-For local/offline use, see [Qutrit](viz/index.html), [Ququart](viz/ququart-fer/index.html)
-and the [Acoustic Lab guide](docs/ACOUSTIC_OFFLINE_LAB.md).
+For local/offline use, open the [Qutrit lab](viz/index.html) or follow the
+[Acoustic Lab guide](docs/ACOUSTIC_OFFLINE_LAB.md). The hosted Ququart lab includes generated evidence
+that is not bundled in a fresh checkout.
 
 ## Quick start
 
@@ -47,7 +48,7 @@ for additional dependencies, and [Rust TUI usage](USAGE.md) for the operator UI.
 For the optional Rust TUI launcher, review the [installer](tui/install.sh) before running:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
+sh tui/install.sh
 ```
 
 ### Tests

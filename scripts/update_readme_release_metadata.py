@@ -54,8 +54,14 @@ def update_readme(
     active_arc: str | None = None,
     repository_status: str | None = None,
 ) -> str:
-    if "<!-- README-RELEASE:COMPACT -->" in text:
+    headers = [header for header, _ in _split_sections(text)]
+    compact = "<!-- README-RELEASE:COMPACT -->" in text or "## Release" in headers
+    if compact:
+        if "<!-- README-RELEASE:COMPACT -->" not in text or "## 📦 Release & Research" in headers:
+            raise ValueError("README_COMPACT_METADATA_INVALID")
         return _update_compact_readme(text, latest_release)
+    if headers.count("## 📦 Release & Research") != 1:
+        raise ValueError("README_FORMAT_INVALID")
 
     orig = text
     mutable_sections_changed = 0
@@ -160,17 +166,23 @@ def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--readme", type=Path, default=Path("README.md"))
     p.add_argument("--latest-release", required=True)
-    p.add_argument("--frontier", required=True)
-    p.add_argument("--active-arc", required=True)
-    p.add_argument("--completed-arc", required=True)
-    p.add_argument("--repository-status", required=True)
+    p.add_argument("--frontier")
+    p.add_argument("--active-arc")
+    p.add_argument("--completed-arc")
+    p.add_argument("--repository-status")
     args = p.parse_args()
     text = args.readme.read_text(encoding="utf-8")
+    headers = [header for header, _ in _split_sections(text)]
+    if "## 📦 Release & Research" in headers and "## Release" not in headers:
+        missing = [flag for flag in ("frontier", "active_arc", "completed_arc", "repository_status")
+                   if getattr(args, flag) is None]
+        if missing:
+            p.error("legacy README requires " + ", ".join("--" + flag.replace("_", "-") for flag in missing))
     updated = update_readme(
         text,
         args.latest_release,
-        args.frontier,
-        args.completed_arc,
+        args.frontier or "",
+        args.completed_arc or "",
         args.active_arc,
         args.repository_status,
     )

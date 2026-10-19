@@ -150,3 +150,36 @@ def test_compact_readme_rejects_ambiguous_badge_or_section(mutation):
         readme += "\n## Release\nCurrent release line: **v177.1**\n"
     with pytest.raises(ValueError, match="README_COMPACT_METADATA_INVALID"):
         update_readme(readme, "v177.2", "", "")
+
+
+@pytest.mark.parametrize("release", ["v177.2", "v177.2\nINJECTED"])
+def test_compact_marker_drift_does_not_fall_back_to_legacy(release):
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    bad = readme.replace("<!-- README-RELEASE:COMPACT -->", "")
+    with pytest.raises(ValueError, match="README_COMPACT_METADATA_INVALID"):
+        update_readme(bad, release, "", "")
+
+
+def test_unknown_format_is_not_assumed_legacy():
+    with pytest.raises(ValueError, match="README_FORMAT_INVALID"):
+        update_readme("# Other\nCurrent release line: **v177.1**\n", "v177.2", "", "")
+
+
+def test_compact_cli_needs_only_release_and_preserves_legacy_requirements(tmp_path):
+    import subprocess
+    import sys
+
+    readme = tmp_path / "README.md"
+    original = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    readme.write_text(original, encoding="utf-8")
+    command = [sys.executable, str(REPO_ROOT / "scripts/update_readme_release_metadata.py"),
+               "--readme", str(readme), "--latest-release", "v177.2"]
+    result = subprocess.run(command, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert readme.read_text(encoding="utf-8") == update_readme(original, "v177.2", "", "")
+    legacy = (REPO_ROOT / "docs/archive/README_BEFORE_V177_1_CLEANUP.md").read_text(encoding="utf-8")
+    readme.write_text(legacy, encoding="utf-8")
+    result = subprocess.run(command, capture_output=True, text=True)
+    assert result.returncode == 2
+    assert "legacy README requires" in result.stderr
+    assert readme.read_text(encoding="utf-8") == legacy

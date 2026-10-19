@@ -89,11 +89,12 @@ def main() -> None:
 
     # --- Parse README ---
     readme_text = _read(readme)
-    if CANONICAL_CURL_URL not in readme_text:
-        errors.append(f"README.md missing canonical curl URL: {CANONICAL_CURL_URL}")
-
-    if "curl -fsSL" not in readme_text:
-        errors.append("README.md missing 'curl -fsSL' install command")
+    local_install = re.search(r"(?m)^sh tui/install\.sh$", readme_text) is not None
+    if not local_install:
+        if CANONICAL_CURL_URL not in readme_text:
+            errors.append(f"README.md missing local installer command or canonical curl URL: {CANONICAL_CURL_URL}")
+        if "curl -fsSL" not in readme_text:
+            errors.append("README.md missing local installer command or 'curl -fsSL' install command")
 
     # --- Release tag alignment (optional) ---
     if args.expected_tag:
@@ -119,7 +120,7 @@ def main() -> None:
         print(f"{'='*60}")
         print(f"  Cargo.toml  name={cargo_name!r}  version={cargo_ver!r}")
         print(f"  install.sh  REPO=QSOLKCB/QEC  BINARY=qec-tui  DIR=/usr/local/bin")
-        print(f"  README.md   curl URL present")
+        print(f"  README.md   installer command present")
         if args.expected_tag:
             print(f"  Tag         {args.expected_tag!r} aligned")
         print()

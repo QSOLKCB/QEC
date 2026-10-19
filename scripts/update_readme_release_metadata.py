@@ -119,9 +119,19 @@ def update_readme(
 
 
 def _update_compact_readme(text: str, latest_release: str) -> str:
-    """Update only the compact release badge and release line, never its prose."""
+    """Update only the compact release badge and release line, never its prose.
+
+    Supported format: one literal Latest badge and release-line marker, each
+    on its exact canonical line in its unique section. Duplicate markers in
+    prose, comments, quoted text or code fail closed; this is not a general
+    Markdown renderer and does not reinterpret alternate badge syntaxes.
+    """
     if not re.fullmatch(r"v[0-9]+(?:\.[0-9]+)*", latest_release):
         raise ValueError("README_INVALID_RELEASE")
+    # Count metadata markers anywhere, including indented/rendered duplicates.
+    # Exact canonical placement and syntax are checked separately below.
+    if text.count("[![Latest]") != 1 or text.count("Current release line:") != 1:
+        raise ValueError("README_COMPACT_METADATA_INVALID")
     sections = _split_sections(text)
     patterns = {
         "# QSOLKCB / QEC": (

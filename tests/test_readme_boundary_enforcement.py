@@ -192,3 +192,19 @@ def test_compact_metadata_duplicates_outside_canonical_sections_reject(metadata)
     duplicate = next(line for line in readme.splitlines() if line.startswith(prefix))
     with pytest.raises(ValueError, match="README_COMPACT_METADATA_INVALID"):
         update_readme(readme + "\n## Appendix\n" + duplicate + "\n", "v177.2", "", "")
+
+
+@pytest.mark.parametrize("indent", [" ", "  ", "   ", "> ", "<!-- ", "    ", "\t"])
+@pytest.mark.parametrize("metadata", ["badge", "release_line"])
+def test_compact_rendered_duplicates_reject(indent, metadata):
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    prefix = "[![Latest]" if metadata == "badge" else "Current release line:"
+    duplicate = next(line for line in readme.splitlines() if line.startswith(prefix))
+    with pytest.raises(ValueError, match="README_COMPACT_METADATA_INVALID"):
+        update_readme(readme + "\n## Appendix\n" + indent + duplicate + "\n", "v177.2", "", "")
+
+
+def test_historical_overview_routes_installation_to_current_guidance():
+    archive = (REPO_ROOT / "docs/archive/README_BEFORE_V177_1_CLEANUP.md").read_text(encoding="utf-8")
+    assert "https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh" not in archive
+    assert "../../README.md#quick-start" in archive

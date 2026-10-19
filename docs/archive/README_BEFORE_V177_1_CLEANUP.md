@@ -5,6 +5,7 @@ Release/frontier statements below were already stale when this snapshot was
 preserved; they are not current capability or availability claims. Consult the
 [current README](../../README.md), [published releases](https://github.com/QSOLKCB/QEC/releases)
 and [roadmap](../../ROADMAP.md). Relative links have been rebased for this location.
+The obsolete remote installer command has been replaced with current guidance.
 
 ---
 
@@ -366,7 +367,7 @@ Rust TUI Control Surface: see [`USAGE.md`](../../USAGE.md).
 | `qec-exp --help`                                                                     | Shows packaged experiment CLI commands |
 | `pytest -q`                                                                          | Runs the deterministic test suite      |
 | `pytest -q -ra`                                                                      | Shows skip/warning diagnostics         |
-| `curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh \| sh` | Installs the Rust `qec-tui` launcher   |
+| [Current reviewed-checkout installer instructions](../../README.md#quick-start) | Installs the Rust `qec-tui` launcher   |
 
 ## IRC Operator Surface
 

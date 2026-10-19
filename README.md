@@ -1,659 +1,90 @@
-
 # QSOLKCB / QEC
 
-<!-- LAB-LAUNCHER:START -->
-<p align="center">
-  <strong>Deterministic quantum error-correction labs, proof receipts, and reproducible evidence.</strong>
-</p>
+Deterministic quantum error-correction software, replayable evidence, and
+classical syndrome-transport experiments. QEC combines exact finite-code models
+with canonical JSON / SHA-256 receipts and validators that reconstruct results.
 
-<p align="center">
-  <a href="https://qsolkcb.github.io/QEC/"><img alt="Open Qutrit Harmonic Lab" src="https://img.shields.io/badge/OPEN-QUTRIT_HARMONIC_LAB-d4a84b?style=for-the-badge&logo=githubpages&logoColor=111827"></a>
-  <a href="https://qsolkcb.github.io/QEC/ququart-fer/"><img alt="Open Ququart Evidence Lab" src="https://img.shields.io/badge/OPEN-QUQUART_EVIDENCE_LAB-6f9f9b?style=for-the-badge&logo=githubpages&logoColor=111827"></a>
-</p>
+[![Latest](https://img.shields.io/badge/stable-v177.1-success)](https://github.com/QSOLKCB/QEC/releases/tag/v177.1)
+[![Tests](https://github.com/QSOLKCB/QEC/actions/workflows/build-test.yml/badge.svg?branch=main)](https://github.com/QSOLKCB/QEC/actions/workflows/build-test.yml)
+[![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](LICENSE)
 
-<p align="center">
-  <a href="https://github.com/QSOLKCB/QEC/releases/tag/v170.1.1"><img alt="QEC v170.1.1" src="https://img.shields.io/badge/QEC-v170.1.1-6f7f8f?style=flat-square"></a>
-  <img alt="Offline ready" src="https://img.shields.io/badge/LABS-OFFLINE--READY-7f9f88?style=flat-square">
-  <img alt="No install required" src="https://img.shields.io/badge/NO_INSTALL-BROWSER_NATIVE-8b8175?style=flat-square">
-</p>
+## Release
 
-<p align="center">
-  <sub>
-    <a href="https://qsolkcb.github.io/QEC/">Qutrit Harmonic Lab</a>
-    ·
-    <a href="https://qsolkcb.github.io/QEC/ququart-fer/">Ququart FER, replication receipts, and report-claim validation</a>
-  </sub>
-</p>
-<!-- LAB-LAUNCHER:END -->
+<!-- README-RELEASE:COMPACT -->
+Current release line: **v177.1**
 
-QEC is a deterministic, replay-safe proof and systems architecture for quantum
-error correction, canonical hashing, replay validation, decoder governance,
-exact finite-code evidence, replication receipts, and deterministic switching.
-QEC OS runtime and benchmark work remains deferred to the v193.x sequence.
+Includes sparse qutrit construction and opt-in CSS / syndrome-delivery research.
+See the [release history](https://github.com/QSOLKCB/QEC/releases) for changes and
+verification records. Release labels and contract milestones are separate from
+Python package metadata, which currently remains `173.0.0`.
 
-Opt-in research checks for [binary CSS presentation witnesses and classical
-syndrome-delivery replay](docs/research/CSS_AND_DELIVERY_EXPERIMENTS.md) include
-source-bound synthetic fixtures and unchanged-reference-decoder comparisons.
+## Try the labs
 
-It turns computation, evidence, governance, replay validation, adapter-bound
-external systems, quantum-signal claim boundaries, decoder-governance receipts,
-finite-code benchmark evidence, deterministic route state, and deferred runtime
-contracts into canonical JSON / SHA-256 proof artifacts.
+Open the browser-native [Qutrit Harmonic Lab](https://qsolkcb.github.io/QEC/) or
+[Ququart Evidence Lab](https://qsolkcb.github.io/QEC/ququart-fer/).
+For local/offline use, see [Qutrit](viz/index.html), [Ququart](viz/ququart-fer/index.html)
+and the [Acoustic Lab guide](docs/ACOUSTIC_OFFLINE_LAB.md).
 
-The repository began with a Layer 1 QEC decoder and now extends that foundation
-into a broader deterministic proof stack for replay-safe computation,
-provenance validation, bounded semantic reasoning, receipt-chain decoder
-governance, exact ququart FER evidence, NEXUS replication, and the v170.3.0
-Deterministic Strowger Syndrome Exchange.
+## Quick start
 
-The v166.x decoder-governance arc completed through v166.8: it declares the
-existing decoder baseline, registers candidate decoders as adapter-only
-hypotheses, verifies replay and fast-path transcript equivalence, bounds
-implementation and benchmark surfaces, requires rollback readiness, and records
-promotion eligibility as a receipt-chain decision without mutating
-`src/qec/decoder/`.
+Requires Python 3.10+ and Git. From a terminal on Linux or macOS:
 
-v167.0 delivered the deterministic symbolic-sonification runtime skeleton.
-The former v167.1–v167.9 mapping-pack, graph-mapping, MIDI-export, prompt,
-telemetry, CLI and demo-benchmark assignments remain unimplemented historical
-planning boundaries; they are not completed capabilities or the current
-frontier.
-
-The v170.x line adds exact packed-ququart FER analysis, deterministic Monte Carlo
-and harmonic fault batteries, report-claim validation, replication receipts,
-NEXUS evidence boundaries, and deterministic Strowger request routing. These
-software models do not establish hardware thresholds, physical fault tolerance,
-or quantum advantage.
-
-In this README, QEC means the QSOLKCB/QEC software system and release lineage.
-
-**Deterministic Proof Stack • Canonical JSON • SHA-256 Artifacts • Replay Validation • Decoder Governance Complete Through v166.8 • Symbolic Sonification Skeleton v167.0 • Exact Ququart FER Evidence • Replication and Claim Validation • NEXUS Evidence Boundaries • Deterministic Strowger Syndrome Exchange v170.3.0 • Panel Exchange v171.5 • Crossbar Matrix v172.0 • Marker/Common-Control v172.1 • Multi-Stage Selection v172.2 • Contention v172.3 • Continuity v172.4 • Equivalence Battery v172.5 • ESS Skeleton v173.0 Candidate • Planned Digital / Packet Switching Lineage • Deferred v193.x QEC OS Runtime Reset • Adapter Boundaries • Source-Bound Claims**
-
-## 📦 Release & Research
-
-[![Release](https://img.shields.io/github/v/release/QSOLKCB/QEC)](https://github.com/QSOLKCB/QEC/releases)
-[![Latest](https://img.shields.io/badge/stable-v172.5-success)](https://github.com/QSOLKCB/QEC/releases/tag/v172.5)
-[![Branch](https://img.shields.io/badge/branch-v172.5%20canonical-purple)]()
-
-Current release line: **v172.5**
-Current frontier: **v173.0 — Stored-Program Switch Skeleton (unreleased candidate)**
-Active arc: **v171.x–v176.x — Deterministic Telecommunications Switching Lineage**
-Deferred arc: **v193.x — QEC OS Runtime & Benchmark Reset**
-Completed arc: **v172.5 — Strowger/Panel/Crossbar Equivalence Battery**
-
-Repository status is current through **v172.5 → StrowgerPanelCrossbarEquivalenceBattery**.
-
-The published switching contracts are preserved. The v173.0 candidate adds
-separate programme and call stores, a logical event queue and a validated Crossbar
-fabric adapter. See the [ESS skeleton contract](docs/ESS_STORED_PROGRAM_SKELETON.md)
-and [roadmap](ROADMAP.md) for its scope and later phases.
-
-Recent release arcs completed or active:
-
-- **v165.5.x** → Deterministic dataframe / columnar backend receipts.
-- **v165.6.x** → AI-scientist / research automation provenance receipts.
-- **v165.7.x** → LLM inference / parameter-golf / tokenization receipts.
-- **v165.8.x** → Agent observability / skill-library receipts.
-- **v165.9.x** → Quantum memory / QPE / geometry signal receipts.
-- **v166.x** → Canonical decoder baseline, candidate, replay, optimization,
-  fast-path, implementation-boundary, benchmark-ladder, rollback, and
-  promotion receipts.
-- **v167.0** → Executable symbolic-sonification runtime skeleton. The former
-  v167.1–v167.9 assignments remain unimplemented historical plans.
-- **v170.x** → Exact packed-ququart decoding and FER evidence, replication and
-  claim validation, NEXUS evidence boundaries, and deterministic Strowger routing.
-- **v172.0** → Released Crossbar matrix core. **v172.1** adds the released
-  [Marker/Common-Control contract](docs/CROSSBAR_COMMON_CONTROL.md) with sealed
-  inputs, exact-coordinate planning and replayable selection/rejection receipts.
-- **v172.2** → Released [Multi-Stage Link Selection](docs/CROSSBAR_MULTISTAGE_SELECTION.md)
-  with immutable fabrics, bounded look-ahead, complete plans and replay receipts.
-- **v172.3** → Released [Contention and Busy-Link Receipts](docs/CROSSBAR_CONTENTION.md)
-  with exact ordering, owned atomic reservations, release, quarantine and replay.
-- **v172.4** → Released [Crossbar Continuity Verification](docs/CROSSBAR_CONTINUITY.md)
-  with complete forward route checks, source replay and historical lifecycle scope.
-- **v172.5** → Released [Strowger/Panel/Crossbar Equivalence Battery](docs/SWITCH_EQUIVALENCE_BATTERY.md)
-  completing the v172.x implementation with 36 shared cases and five negative controls.
-- **v173.0** → Unreleased [Stored-Program Switch Skeleton](docs/ESS_STORED_PROGRAM_SKELETON.md)
-  with separate stores, bounded logical dispatch and replay-validated native evidence.
-- **v173.1–v176.x** → Planned ESS extensions, digital TDM, packet fabric and broader
-  cross-era equivalence and migration contracts.
-- **v193.x** → Deferred QEC OS runtime skeleton, golden corpus, decoder
-  runtime API, explicit decoder router, GF(2)/stabilizer core, QLDPC
-  construction harness, syndrome/noise runtime, benchmark harness,
-  cross-backend differential tests, and Odin readiness.
-
-Recent preprint: **QSOLKCB/QEC v155.x: Deterministic Entropy and Decay
-Signatures — Hash-Bound Checkpoints, Subsystem Drift Receipts, and
-Replay-Resistant Proof Chains**.
-
-## Qutrit harmonic QEC update
-
-This update adds:
-
-- an opt-in exact \(GF(3)\) stabilizer decoder under
-  `src/qec/decoder/qutrit/`;
-- cyclic \([[5,1,3]]_3\), Shor \([[9,1,3]]_3\), and ternary Golay
-  \([[11,1,5]]_3\) codes;
-- fail-closed H1/H2 syndrome redundancy, an H3 state-dark distortion
-  invariant, collective modes, and ETQ-303 observation addresses;
-- exact finite-code curves, correctable-radius bounds, deterministic
-  false-positive stress tests, and a hash-bound benchmark report;
-- a dependency-free offline [Qutrit Harmonic Lab](viz/index.html).
-
-The historical decoder and byte-identical v3 baseline remain unchanged.
-
-Run:
-
-```bash
-qec-qutrit
-qec-qutrit-bench
-npm test
-```
-
-See the [decoder boundary](docs/QUTRIT_HARMONIC_QEC.md) and
-[benchmark methodology](docs/QUTRIT_DECODER_BENCHMARKS.md).
-
-## 📚 DOIs
-
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19697907-blue)](https://doi.org/10.5281/zenodo.19697907)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19062692-blue)](https://doi.org/10.5281/zenodo.19062692)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19102390-blue)](https://doi.org/10.5281/zenodo.19102390)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19099503-blue)](https://doi.org/10.5281/zenodo.19099503)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19104208-blue)](https://doi.org/10.5281/zenodo.19104208)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19840786-blue)](https://doi.org/10.5281/zenodo.19840786)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20039913-blue)](https://doi.org/10.5281/zenodo.20039913)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20045771-blue)](https://doi.org/10.5281/zenodo.20045771)
-[![ETQ-303](https://img.shields.io/badge/ETQ--303-10.5281%2Fzenodo.21494678-blue)](https://doi.org/10.5281/zenodo.21494678)
-[![Spectral Algebraics](https://img.shields.io/badge/Spectral_Algebraics-10.5281%2Fzenodo.21308248-blue)](https://doi.org/10.5281/zenodo.21308248)
-[![Collective Modes](https://img.shields.io/badge/Collective_Modes-10.5281%2Fzenodo.21293821-blue)](https://doi.org/10.5281/zenodo.21293821)
-[![OSF Registration](https://img.shields.io/badge/OSF-Registration-blue)](https://osf.io/sjk7b)
-
-# ✅ System Properties
-
-| Property | Status |
-|---|---|
-| Deterministic canonical hashing | Stable |
-| Frozen proof artifacts | Stable |
-| Replay-safe validation | Stable |
-| Self-hash exclusion | Stable |
-| Recomputed-hash validation | Stable |
-| Canonical JSON + SHA-256 receipt identity | Stable |
-| Child-before-aggregate validation | Stable |
-| Recompute-not-trust validators | Stable |
-| Source-bound claim enforcement | Stable |
-| Adapter-only external boundary handling | Stable |
-| Hidden runtime execution rejection | Stable |
-| Hidden authority semantic rejection | Stable |
-| Exact bool / int alias rejection | Stable |
-| Forbidden semantic normalization | Stable |
-| Decoder source immutability boundary | Stable |
-| No silent decoder replacement | Stable |
-| GameWorld interaction receipts | Complete through v156.6 |
-| Perturbation/stress contracts | Complete through v157.3 |
-| Substrate constraint receipts | Complete through v158.3 |
-| Bounded recursive proof loops | Complete through v159.3 |
-| Reality-loop composition | Complete through v160.2 |
-| Global validation/truth/replay receipts | Complete through v161.2 |
-| IRC operator replay receipts | Complete through v162.2 |
-| Heavy-dependency invariant discovery | Complete through v163.4 |
-| Invariant-based optimization receipts | Complete through v164.5 |
-| Optimized simulation backend receipts | Complete through v165.4 |
-| Dataframe / columnar backend receipts | Complete through v165.5.4 |
-| Research automation provenance receipts | Complete through v165.6.4 |
-| Inference / tokenization / compression receipts | Complete through v165.7.5 |
-| Agent observability / skill-library receipts | Complete through v165.8.4 |
-| Quantum memory / QPE / geometry signal receipts | Complete through v165.9.4 |
-| Canonical decoder baseline receipts | Complete through v166.0 |
-| Decoder candidate manifests | Complete through v166.1 |
-| Decoder replay equivalence receipts | Complete through v166.2 |
-| Decoder optimization contracts | Complete through v166.3 |
-| Decoder fast-path equivalence receipts | Complete through v166.4 |
-| Decoder implementation boundary receipts | Complete through v166.5 |
-| Decoder benchmark ladder receipts | Complete through v166.6 |
-| Decoder rollback receipts | Complete through v166.7 |
-| Decoder promotion receipts | Complete through v166.8 |
-| Symbolic sonification runtime skeleton | Complete v167.0 |
-| Cosmovirus mapping pack | Unimplemented historical v167.1 plan |
-| Ternary/fuzzy music state engine | Unimplemented historical v167.2 plan |
-| Topological graph music mapper | Unimplemented historical v167.3 plan |
-| Golden-ratio rhythm/pitch engine | Unimplemented historical v167.4 plan |
-| Symbolic event MIDI exporter | Unimplemented historical v167.5 plan |
-| Lyric prompt compiler | Unimplemented historical v167.6 plan |
-| QEC proof telemetry sonifier | Unimplemented historical v167.7 plan |
-| Sonification CLI and fixtures | Unimplemented historical v167.8 plan |
-| Sonification demo corpus and benchmark | Unimplemented historical v167.9 plan |
-| Exact ququart FER evidence | Complete through v170.1.1 |
-| NEXUS replication evidence | Complete through v170.2.1 |
-| Deterministic Strowger routing | Complete v170.3.0 |
-| Telecommunications switching lineage | Planned v171.x–v176.x |
-| QEC OS runtime skeleton | Deferred v193.0 |
-| Golden corpus fixtures | Deferred v193.1 |
-| Baseline decoder runtime API | Deferred v193.2 |
-| Promoted decoder runtime router | Deferred v193.3 |
-| GF(2) / stabilizer core | Deferred v193.4 |
-| QLDPC construction harness | Deferred v193.5 |
-| Syndrome / noise runtime | Deferred v193.6 |
-| Benchmark harness + logical error rate | Deferred v193.7 |
-| Cross-backend differential harness | Deferred v193.8 |
-| Odin port readiness and parity spec | Deferred v193.9 |
-| Release metadata safety tooling | Hardened through v165.3.3 |
-
-# 🧠 What QEC Is
-
-QEC is a deterministic proof-carrying system.
-
-It does three things:
-
-1. Receives structured inputs.
-2. Converts them into canonical, hash-bound proof artifacts.
-3. Revalidates those artifacts by recomputing their canonical hashes.
-
-QEC does not make the world deterministic.
-
-QEC makes boundaries deterministic.
-
-QEC is useful when you need proof objects that are:
-
-- replay-safe
-- tamper-evident
-- deterministic
-- canonical JSON based
-- explicit about failure modes
-- bounded rather than open-ended
-- lineage-preserving across release arcs
-- safe around external backends and heavy dependencies
-- strict around simulation, benchmark, telemetry, and report boundaries
-- explicit about research provenance, citation integrity, and claim scope
-- strict around inference, tokenization, compression, memory, and cache boundaries
-- strict around agent observation, tool dispatch, crawler, and pattern-decision boundaries
-- source-bound around QPE, quantum-memory, quantum-geometry, and graph-universe claims
-- explicit about decoder baseline immutability and candidate-governance boundaries
-- strict about decoder replay equivalence, benchmark ladders, rollback, and promotion receipts
-- capable of exact finite-code FER evidence and deterministic route receipts
-- ready to develop later switching fabrics without treating historical analogy as proof
-
-QEC has completed decoder-governance receipts through v166.8, the symbolic
-sonification skeleton at v167.0, and the v170.x ququart, replication, NEXUS, and
-Strowger evidence line through v170.3.0.
-
-The current planned frontier is v171.0, beginning the deterministic
-telecommunications-switching programme. QEC OS runtime work remains deferred to
-v193.x.
-
-Governance approval is not runtime activation.
-
-v166.8 declares receipt-chain promotion eligibility. It does not replace decoder
-source, activate runtime execution, or mutate `src/qec/decoder/`.
-
-QEC OS runtime activation is deferred to v193.x and will still require a tested
-router plus golden corpus verification.
-
-External tools remain adapters, not authorities.
-
-Generated research is not evidence by default.
-
-A citation is not proof.
-
-Benchmarks are observations, not correctness.
-
-A faster or smaller model is not correctness.
-
-A faster decoder is not automatically a better decoder.
-
-Agent traces are receipts, not dashboards.
-
-Hardware research signals are source-bound claims, not QEC authority.
-
-Odin migration remains deferred behind v193.x golden fixtures and parity tests.
-
-Pipeline:
-
-```text
-input
-→ canonical JSON
-→ stable SHA-256 hash
-→ frozen receipt
-→ validator recomputes hash
-→ replay-safe proof result
-```
-
-Historical v167 sonification plan boundary:
-
-```text
-deterministic event schema skeleton                    (implemented v167.0)
-→ mapping packs / graph-state-rhythm mapping           (not implemented)
-→ MIDI-like export / prompt / telemetry artifacts      (not implemented)
-→ CLI fixtures / demo benchmark                        (not implemented)
-```
-
-## ⚡ Quickstart
-
-```bash
+```sh
 git clone https://github.com/QSOLKCB/QEC.git
 cd QEC
-python -m pip install -e ".[dev,science]"
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install -e '.[dev]'
+qec-qutrit
+python scripts/generate_qec_research_evidence.py --check
 ```
 
-For full setup, environment, and troubleshooting details, see
-[`INSTALL.md`](INSTALL.md).
+On Windows, activate with `.venv\Scripts\Activate.ps1` in PowerShell.
+`qec-qutrit` prints an exact bounded-error certificate; the research check verifies
+the retained synthetic fixture. See [installation and troubleshooting](INSTALL.md)
+for additional dependencies, and [Rust TUI usage](USAGE.md) for the operator UI.
 
-### Testing
+For the optional Rust TUI launcher, review the [installer](tui/install.sh) before running:
 
-```bash
-python -m pip install -e ".[dev,science]"
-pytest -q -ra
+```sh
+curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh
 ```
 
-For full local validation, install the developer/science extras, then run
-`pytest -q -ra`.
+### Tests
 
-Rust TUI Control Surface: see [`USAGE.md`](USAGE.md).
-
-## Commands
-
-| Command                                                                              | Purpose                                |
-| ------------------------------------------------------------------------------------ | -------------------------------------- |
-| `python scripts/sphaera_proof_demo.py`                                               | Runs the SPHAERA proof demo            |
-| `qec-exp --help`                                                                     | Shows packaged experiment CLI commands |
-| `pytest -q`                                                                          | Runs the deterministic test suite      |
-| `pytest -q -ra`                                                                      | Shows skip/warning diagnostics         |
-| `curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh \| sh` | Installs the Rust `qec-tui` launcher   |
-
-## IRC Operator Surface
-
-* v162.x adds a local-only IRC operator surface.
-* v162.0 provides the local IRC server core.
-* v162.1 adds deterministic read-only commands.
-* v162.2 adds replay audit receipts for local IRC command streams.
-* Default bind is `127.0.0.1`.
-* No command execution authority is granted.
-* No LLM/API integration is enabled.
-
-```bash
-python scripts/qec_irc_server.py --host 127.0.0.1 --port 6667
+```sh
+python -m pytest -q
 ```
 
-Example IRC usage:
+Optional scientific/external backends may be skipped unless their extras are
+installed. Use `python -m pytest -q -ra` to inspect skips; see
+[validation boundaries](docs/CI_VALIDATION_BOUNDARIES.md).
 
-```text
-/join #qec
-!help
-!corelaw
-!hashchain
-```
+## What is included
 
-## Why This Matters
+- **Exact qutrit and ququart models:** finite-code correction and FER evidence.
+  [Qutrit](docs/QUTRIT_HARMONIC_QEC.md) · [Ququart](docs/QUQUART_FOUR_STATE_QEC.md)
+- **Replayable receipts:** canonical artifacts, source-bound claims, replication
+  checks and decoder-governance boundaries. [System documentation](DOCUMENTATION.md)
+- **Six classical switching models:** Strowger, Panel, Crossbar, ESS, digital TDM
+  and packet routing, with cross-era replay. [Contracts](docs/CROSS_ERA_MIGRATION_AND_SELECTION.md)
+- **Acoustic syndrome transport:** sampled classical waveforms, receiver checks
+  and exact-model correction. [Bridge and limits](docs/ACOUSTIC_SYNDROME_BRIDGE.md)
+- **Opt-in research:** binary CSS presentation witnesses and synthetic delivery
+  replay using an unchanged reference decoder. [Scope and reproduction](docs/research/CSS_AND_DELIVERY_EXPERIMENTS.md)
 
-QEC matters because deterministic proof artifacts make it possible to:
+These are bounded software models and experiments. They do not establish physical
+fault tolerance, hardware thresholds, quantum-state transfer, or quantum advantage.
+Hashes bind declared bytes; they do not by themselves prove authenticity or
+scientific correctness. Governance receipts do not activate a decoder. QEC OS
+runtime/benchmark work remains deferred to v193.x; see the [roadmap](ROADMAP.md).
 
-* replay validation instead of trusting claims
-* detect tampering through stable hashes
-* represent messy external systems without executing them
-* compare expected and observed proof chains
-* bind long research arcs into a single canonical replay chain
-* separate symbolic language from deterministic artifacts
-* wrap heavy scientific dependencies as adapters rather than authorities
-* prove optimization boundaries before accepting fast paths
-* require replay equivalence before benchmark claims
-* require benchmark receipts before telemetry/report claims
-* produce simulation reports without executing simulations
-* declare dataframe and columnar backend behavior without trusting backend output
-* bind generated research to provenance, human review, citation integrity, and claim scope
-* keep inference, tokenization, compression, bandwidth, and cache policies as declarations rather than truth claims
-* record agent observation traces, tool dispatch, crawler boundaries, and pattern decisions without granting hidden autonomy
-* prevent hidden tool calls, hidden crawler behavior, and agent output from becoming evidence
-* keep quantum-memory, QPE, geometry, and graph-universe signals source-bound and claim-bounded
-* prevent hardware authority, cosmological truth, or QEC advantage claims without source-bound evidence
-* preserve a canonical decoder baseline as sacred replay infrastructure
-* treat decoder candidates as adapter hypotheses before promotion
-* require deterministic replay equivalence before decoder-governance decisions
-* keep benchmark ladders bounded to declared corpus/environment/comparator surfaces
-* require rollback readiness before promotion
-* declare promotion through receipts without mutating decoder source
-* preserve the v167.0 symbolic-sonification schema without claiming unfinished features
-* distinguish exact finite-code evidence from Monte Carlo observations and hardware claims
-* route correction requests through deterministic, replayable switching receipts
-* evolve switching substrates without erasing architecture-specific failures
-* preserve the canonical baseline while keeping QEC OS runtime activation deferred to v193.x
-* require benchmarks before performance claims
-* require differential tests against external adapters without treating adapters as authority when the v193.x QEC OS arc resumes
-* make the future Odin fork less painful by deferring fixture and parity contracts to the v193.x QEC OS sequence
+## Documentation
 
-The world may be chaotic.
-The receipt must not be.
+- [Architecture and safety boundaries](ARCHITECTURE.md) · [Contributor instructions](CLAUDE.md)
+- [Commands and capability metadata](docs/CAPABILITIES.md) · [IRC operator guide](docs/IRC_BOT_GUIDE.md)
+- [Qutrit construction benchmark and limits](docs/QUTRIT_CONSTRUCTION_BENCHMARK.md)
+- [Roadmap](ROADMAP.md) · [Detailed historical overview](docs/archive/README_BEFORE_V177_1_CLEANUP.md)
+- [Citation, DOI records and attribution](docs/CITATION_AND_ATTRIBUTION.md)
 
-## Capability Summary
-
-* v163.0 → HeavyDependencyDiscoveryManifest
-* v163.1 → DependencyImportAndHotPathReceipt
-* v163.2 → BackendInvariantCandidateReceipt
-* v163.3 → CrossBackendEquivalenceReceipt
-* v163.3.1 → Optional Scientific Dependency Test Normalization
-* v163.4 → OptimizationOpportunityIndex
-* v164.0 → OptimizationContract
-* v164.1 → LightweightAdapterSpec
-* v164.2 → CachedCanonicalKernelReceipt
-* v164.3 → FastPathEquivalenceReceipt
-* v164.4 → OptimizationImplementationReceipt
-* v164.5 → DependencyReductionReceipt
-* v165.0 → OptimizedSimulationSpec
-* v165.1 → BackendEquivalenceReplayReceipt
-* v165.2 → OptimizedQECBenchmarkReceipt
-* v165.2.1 → Release Documentation Automation + README Boundary Enforcement
-* v165.3 → OptimizedTelemetryReceipt
-* v165.3.1 → Canonical Release History Reconstruction
-* v165.3.2 → Release Metadata Infrastructure Hardening
-* v165.3.3 → Canonical Release Manifest Infrastructure
-* v165.4 → OptimizedSimulationReport
-* v165.5.0 → DataframeBackendManifest
-* v165.5.1 → LazyPlanCanonicalReceipt
-* v165.5.2 → PolarsPandasEquivalenceReceipt
-* v165.5.3 → SchemaEquivalenceReceipt
-* v165.5.4 → ColumnarOptimizationOpportunityReceipt
-* v165.6.0 → ResearchAutomationManifest
-* v165.6.1 → PaperGenerationProvenanceReceipt
-* v165.6.2 → HumanReviewBoundaryReceipt
-* v165.6.3 → CitationIntegrityReceipt
-* v165.6.4 → ClaimScopeReceipt
-* v165.7.0 → InferenceBackendManifest
-* v165.7.1 → ByteLevelModelBoundaryReceipt
-* v165.7.2 → TokenizationPolicyReceipt
-* v165.7.3 → ParameterGolfCompressionReceipt
-* v165.7.4 → InferenceMemoryBandwidthReceipt
-* v165.7.5 → KVCachePolicyReceipt
-* v165.8.0 → AgentObservationTraceReceipt
-* v165.8.1 → SkillLibraryManifest
-* v165.8.2 → ToolDispatchTelemetryReceipt
-* v165.8.3 → CrawlerBoundaryReceipt
-* v165.8.4 → AgentPatternDecisionReceipt
-* v165.9.0 → QPEToolboxAdapterReceipt
-* v165.9.1 → QuantumMemorySignalReceipt
-* v165.9.2 → SelfCorrectingMemoryClaimBoundaryReceipt
-* v165.9.3 → QuantumGeometrySignalReceipt
-* v165.9.4 → GraphUniverseClaimBoundaryReceipt
-* v166.0 → CanonicalDecoderBaselineReceipt
-* v166.1 → DecoderCandidateManifest
-* v166.2 → DecoderReplayEquivalenceReceipt
-* v166.3 → DecoderOptimizationContract
-* v166.4 → DecoderFastPathEquivalenceReceipt
-* v166.5 → DecoderImplementationBoundaryReceipt
-* v166.6 → DecoderBenchmarkLadderReceipt
-* v166.7 → DecoderRollbackReceipt
-* v166.8 → DecoderPromotionReceipt
-* v167.0 → SymbolicSonificationRuntimeSkeleton
-* v170.0 → ExactPackedQuquartDecoder
-* v170.1.0 → ExactQuquartFEROracleAndHarmonicFaultBattery
-* v170.1.1 → ReplicationReceiptsAndReportClaimValidation
-* v170.2.x → NEXUSExecutionAndReplicationEvidence
-* v170.3.0 → DeterministicStrowgerSyndromeExchange
-* v171.x–v176.x → PlannedDeterministicTelecommunicationsSwitchingLineage
-* v193.0 → QECOSRuntimeSkeleton
-* v193.1 → GoldenCorpusSeed
-* v193.2 → BaselineDecoderRuntimeAPI
-* v193.3 → PromotedDecoderRuntimeRouter
-* v193.4 → GF2AndStabilizerCore
-* v193.5 → QLDPCConstructionHarness
-* v193.6 → SyndromeNoiseRuntime
-* v193.7 → BenchmarkHarnessAndLER
-* v193.8 → CrossBackendDifferentialHarness
-* v193.9 → OdinPortReadinessAndParitySpec
-
-QEC now supports deterministic heavy-dependency discovery, static import /
-hot-path receipts, backend invariant candidates, cross-backend equivalence,
-optimization opportunity indexing, optimization contracts, lightweight adapter
-specs, cached canonical kernel receipts, fast-path equivalence receipts,
-implementation receipts, dependency-reduction receipts, optimized simulation
-specs, backend replay receipts, benchmark receipts, telemetry receipts, final
-optimized simulation reports, dataframe/columnar backend receipts, research
-automation provenance receipts, citation-integrity and claim-scope receipts,
-inference backend manifests, byte-level model boundaries, tokenization policies,
-parameter-golf compression receipts, inference memory-bandwidth receipts, KV
-cache policy receipts, agent observation traces, skill-library manifests, tool
-dispatch telemetry receipts, crawler boundary receipts, agent pattern-decision
-receipts, QPE toolbox adapter receipts, quantum-memory signal receipts,
-self-correcting-memory claim-boundary receipts, quantum-geometry signal
-receipts, graph-universe claim-boundary receipts, full decoder-governance
-receipts from canonical baseline through promotion, exact ququart FER evidence,
-replication and claim-validation receipts, NEXUS evidence boundaries, and
-replayable deterministic Strowger route receipts.
-
-The v163.x arc discovered deterministic invariants in heavy dependencies.
-
-The v164.x arc turned those invariants into replay-safe optimization contracts,
-adapter/cache receipts, fast-path equivalence proofs, implementation receipts,
-and dependency-reduction receipts.
-
-The v165.x arc applied those contracts to optimized QEC simulation backends
-through declarative specs, backend replay equivalence, bounded benchmark
-receipts, telemetry receipts, and final report receipts.
-
-The v165.5.x bridge arc added deterministic dataframe and columnar backend
-receipts.
-
-The v165.6.x bridge arc added deterministic research automation provenance,
-human-review, citation-integrity, and claim-scope receipts.
-
-The v165.7.x bridge arc added deterministic inference, byte-level model,
-tokenization, compression, bandwidth, and KV-cache policy receipts.
-
-The v165.8.x bridge arc added deterministic agent observability, skill-library,
-tool-dispatch, crawler-boundary, and pattern-decision receipts.
-
-The v165.9.x bridge arc added source-bound QPE, quantum-memory,
-self-correcting-memory, quantum-geometry, and graph-universe claim-boundary
-receipts.
-
-The v166.x decoder-governance arc added canonical decoder baseline receipts,
-decoder candidate manifests, replay equivalence receipts, optimization
-contracts, fast-path equivalence receipts, implementation boundary receipts,
-benchmark ladder receipts, rollback receipts, and promotion receipts.
-
-v166.8 completes the QLDPC / Hashing-Bound Code Receipts decoder-governance arc.
-
-v167.0 implements only the symbolic-sonification runtime skeleton. The former
-v167.1–v167.9 assignments remain unimplemented historical plans and must not be
-presented as available capabilities.
-
-v170.x establishes the exact packed-ququart evidence line, replication and
-report-claim validation, NEXUS execution/replication boundaries, and the
-Deterministic Strowger Syndrome Exchange.
-
-v171.x–v176.x is the planned telecommunications-switching lineage. QEC OS
-construction, syndrome/noise runtime, differential testing, and Odin migration
-readiness remain deferred to v193.x.
-
-* External dependencies are adapters, never authorities.
-* Simulation output is not truth.
-* Simulation speed is not proof.
-* Benchmarks require replay equivalence.
-* Telemetry requires benchmark and replay lineage.
-* Reports aggregate receipts; they do not execute systems.
-* Generated research is not evidence by default.
-* Citations are not authority.
-* Claim scope must not exceed evidence scope.
-* Inference output is not semantic proof.
-* Tokenization changes do not prove semantic preservation.
-* Compression and quantization do not prove reasoning equivalence.
-* Agent traces are receipts, not dashboards.
-* Tool dispatch telemetry is not execution authority.
-* Crawler receipts do not grant network authority.
-* Quantum-memory and geometry signals are source-bound claims, not QEC authority.
-* Graph-universe claims are claim boundaries, not cosmological truth.
-* Candidate decoders are adapter hypotheses before promotion.
-* Decoder replay equivalence is required before promotion.
-* Decoder benchmarks are bounded observations, not correctness proofs.
-* Decoder rollback remains required before promotion.
-* Decoder promotion is receipt-chain governance, not source replacement.
-* The decoder source remains untouched.
-* Governance approval is not runtime activation.
-* Exact finite-code FER is not a hardware threshold.
-* Switching receipts route declared requests; they do not validate decoder mathematics.
-* QEC OS runtime activation is deferred to v193.x and still requires an explicit tested router and golden corpus verification.
-* Receipt-only near-term releases are no longer accepted after v166.8.
-* Odin migration must be gated by v193.x golden fixtures and parity tests.
-
-## Proof Artifacts
-
-QEC emits canonical JSON proof artifacts with stable SHA-256 identity and
-validator-backed replay checks.
-
-For full artifact families, schemas, and failure semantics, see
-[`DOCUMENTATION.md`](DOCUMENTATION.md).
-
-# 🧠 Core Law
-
-```text
-same input
-→ same ordering
-→ same canonical JSON
-→ same stable SHA-256 hash
-→ same bytes
-→ same proof artifact
-→ same outcome
-```
-
-Violation:
-
-```text
-SYSTEM INVALID
-```
-
-## 🧾 Attribution
-
-If you build on QEC in publications, software, or research artifacts,
-please cite both the repository and DOI-backed records above.
-
-### Marc Brendecke — QAM / Quantum Sphaera Lineage
-
-Selected QEC releases include informational attribution to work by **Marc Brendecke**.
-
-**ORCID:** [https://orcid.org/0009-0009-4034-598X](https://orcid.org/0009-0009-4034-598X)
-
-Relevant attributed works:
-
-* **Quantum Sphaera Companion v3.30.0**
-  DOI: [https://doi.org/10.5281/zenodo.19682951](https://doi.org/10.5281/zenodo.19682951)
-  License: CC-BY-4.0
-  Applied where relevant to the v143.x release lineage, including v143.5.
-
-* **QAM Version v4.1.0**
-  Informational router/readout architecture lineage attribution.
-  Applied where relevant across the QEC release lineage from **v143.5 through v154.3**.
-
-This attribution is informational only and does not influence canonical identity, hashing, proof semantics, receipt semantics, validation behavior, or release identity within QEC.
-
-## References
-
-* Roadmap and historical progression: [`ROADMAP.md`](ROADMAP.md)
-* Install and test instructions: [`INSTALL.md`](INSTALL.md)
-* Full system documentation: [`DOCUMENTATION.md`](DOCUMENTATION.md)
-* Rust TUI installer/usage: [`USAGE.md`](USAGE.md)
-
-## Author
-
-**Author / Maintainer: Trent Slade, QSOL-IMC**
-
-* ORCID: [https://orcid.org/0009-0002-4515-9237](https://orcid.org/0009-0002-4515-9237)
-* GitHub: [https://github.com/QSOLKCB](https://github.com/QSOLKCB)
-
-```
+Maintained by **Trent Slade, QSOL-IMC**. Licensed under [MPL-2.0](LICENSE).

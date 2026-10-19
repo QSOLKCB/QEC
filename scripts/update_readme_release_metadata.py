@@ -8,6 +8,7 @@ from pathlib import Path
 MUTABLE_HEADERS = {
     "# QSOLKCB / QEC",
     "## 📦 Release & Research",
+    "## Release",
     "# ✅ System Properties",
     "# 🧠 What QEC Is",
     "## Why This Matters",
@@ -53,6 +54,9 @@ def update_readme(
     active_arc: str | None = None,
     repository_status: str | None = None,
 ) -> str:
+    if "<!-- README-RELEASE:COMPACT -->" in text:
+        return _update_compact_readme(text, latest_release)
+
     orig = text
     mutable_sections_changed = 0
 
@@ -106,6 +110,37 @@ def update_readme(
             return new
         raise ValueError("README_UPDATE_NO_EFFECT")
     return new
+
+
+def _update_compact_readme(text: str, latest_release: str) -> str:
+    """Update only the compact release badge and release line, never its prose."""
+    if not re.fullmatch(r"v[0-9]+(?:\.[0-9]+)*", latest_release):
+        raise ValueError("README_INVALID_RELEASE")
+    sections = _split_sections(text)
+    patterns = {
+        "# QSOLKCB / QEC": (
+            (r"(?m)^\[!\[Latest\]\(https://img\.shields\.io/badge/stable-v[\d.]+-success\)\]\(https://github\.com/QSOLKCB/QEC/releases/tag/v[\d.]+\)$",
+             f"[![Latest](https://img.shields.io/badge/stable-{latest_release}-success)](https://github.com/QSOLKCB/QEC/releases/tag/{latest_release})"),
+        ),
+        "## Release": (
+            (r"(?m)^Current release line: \*\*v[\d.]+\*\*$",
+             f"Current release line: **{latest_release}**"),
+        ),
+    }
+    for header, replacements in patterns.items():
+        matching = [i for i, (h, _) in enumerate(sections) if h == header]
+        if len(matching) != 1:
+            raise ValueError("README_COMPACT_METADATA_INVALID")
+        i = matching[0]
+        body = sections[i][1]
+        for pattern, replacement in replacements:
+            body, count = re.subn(pattern, replacement, body)
+            if count != 1:
+                raise ValueError("README_COMPACT_METADATA_INVALID")
+        sections[i] = (header, body)
+    updated = "".join(header + body for header, body in sections)
+    _validate_boundaries(text, updated)
+    return updated
 
 
 def _validate_boundaries(before: str, after: str) -> None:

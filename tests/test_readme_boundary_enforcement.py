@@ -24,7 +24,7 @@ def _run_update(text: str) -> str:
 
 
 def test_readme_updater_byte_identical_when_already_current():
-    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "docs/archive/README_BEFORE_V177_1_CLEANUP.md").read_text(encoding="utf-8")
     out = _run_update(readme)
     assert out == readme
 
@@ -83,14 +83,14 @@ No mutable release metadata tokens are present here.
 
 
 def test_readme_immutable_sections_unchanged():
-    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "docs/archive/README_BEFORE_V177_1_CLEANUP.md").read_text(encoding="utf-8")
     bad = readme.replace("## ⚡ Quickstart", "## ⚡ Quickstart\nMUTATED", 1)
     with pytest.raises(ValueError, match="README_BOUNDARY_VIOLATION"):
         _validate_boundaries(readme, bad)
 
 
 def test_osf_stays_in_dois():
-    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "docs/archive/README_BEFORE_V177_1_CLEANUP.md").read_text(encoding="utf-8")
     out = _run_update(readme)
     dois_idx = out.index("## 📚 DOIs")
     release_idx = out.index("## 📦 Release & Research")
@@ -100,7 +100,53 @@ def test_osf_stays_in_dois():
 
 
 def test_capability_summary_heading_current():
-    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "docs/archive/README_BEFORE_V177_1_CLEANUP.md").read_text(encoding="utf-8")
     out = _run_update(readme)
     assert "## Capability Summary" in out
     assert "## v163.x → v164.x Capability Summary" not in out
+
+
+def test_compact_readme_current_and_next_release():
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    assert update_readme(readme, "v177.1", "unused", "unused") == readme
+    updated = update_readme(readme, "v177.2", "unused", "unused")
+    assert updated == readme.replace("stable-v177.1-success", "stable-v177.2-success").replace(
+        "releases/tag/v177.1", "releases/tag/v177.2"
+    ).replace("Current release line: **v177.1**", "Current release line: **v177.2**")
+    assert update_readme(updated, "v177.2", "unused", "unused") == updated
+
+
+@pytest.mark.parametrize("replacement", ["", "Current release line: **broken**"])
+def test_compact_readme_missing_metadata_fails_closed(replacement):
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    bad = readme.replace("Current release line: **v177.1**", replacement)
+    with pytest.raises(ValueError, match="README_COMPACT_METADATA_INVALID"):
+        update_readme(bad, "v177.2", "unused", "unused")
+
+
+def test_compact_readme_rejects_duplicate_metadata_and_invalid_release():
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    with pytest.raises(ValueError, match="README_COMPACT_METADATA_INVALID"):
+        update_readme(readme.replace("## Release", "## Release\nCurrent release line: **v177.1**"), "v177.2", "", "")
+    with pytest.raises(ValueError, match="README_INVALID_RELEASE"):
+        update_readme(readme, "v177.2\nchanged", "", "")
+
+
+def test_compact_readme_preserves_nonrelease_boundaries():
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    with pytest.raises(ValueError, match="README_BOUNDARY_VIOLATION"):
+        _validate_boundaries(readme, readme.replace("## Quick start", "## Quick start\nMUTATED"))
+
+
+@pytest.mark.parametrize("mutation", ["missing_badge", "duplicate_badge", "duplicate_header"])
+def test_compact_readme_rejects_ambiguous_badge_or_section(mutation):
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    badge = next(line for line in readme.splitlines() if line.startswith("[![Latest]"))
+    if mutation == "missing_badge":
+        readme = readme.replace(badge, "")
+    elif mutation == "duplicate_badge":
+        readme = readme.replace(badge, badge + "\n" + badge)
+    else:
+        readme += "\n## Release\nCurrent release line: **v177.1**\n"
+    with pytest.raises(ValueError, match="README_COMPACT_METADATA_INVALID"):
+        update_readme(readme, "v177.2", "", "")

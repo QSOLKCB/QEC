@@ -90,7 +90,11 @@ def main() -> None:
     # --- Parse README ---
     readme_text = _read(readme)
     local_install = re.search(r"(?m)^sh tui/install\.sh$", readme_text) is not None
-    if not local_install:
+    if local_install:
+        review_targets = re.findall(r"\[installer\]\(([^)]+)\)", readme_text)
+        if review_targets != ["tui/install.sh"]:
+            errors.append("README.md local installer review link must point exactly to tui/install.sh")
+    else:
         if CANONICAL_CURL_URL not in readme_text:
             errors.append(f"README.md missing local installer command or canonical curl URL: {CANONICAL_CURL_URL}")
         if "curl -fsSL" not in readme_text:

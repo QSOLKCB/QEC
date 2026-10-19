@@ -183,3 +183,12 @@ def test_compact_cli_needs_only_release_and_preserves_legacy_requirements(tmp_pa
     assert result.returncode == 2
     assert "legacy README requires" in result.stderr
     assert readme.read_text(encoding="utf-8") == legacy
+
+
+@pytest.mark.parametrize("metadata", ["badge", "release_line"])
+def test_compact_metadata_duplicates_outside_canonical_sections_reject(metadata):
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    prefix = "[![Latest]" if metadata == "badge" else "Current release line:"
+    duplicate = next(line for line in readme.splitlines() if line.startswith(prefix))
+    with pytest.raises(ValueError, match="README_COMPACT_METADATA_INVALID"):
+        update_readme(readme + "\n## Appendix\n" + duplicate + "\n", "v177.2", "", "")

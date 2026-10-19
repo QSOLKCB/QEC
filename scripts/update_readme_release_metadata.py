@@ -140,6 +140,8 @@ def _update_compact_readme(text: str, latest_release: str) -> str:
         i = matching[0]
         body = sections[i][1]
         for pattern, replacement in replacements:
+            if len(re.findall(pattern, text)) != 1:
+                raise ValueError("README_COMPACT_METADATA_INVALID")
             body, count = re.subn(pattern, replacement, body)
             if count != 1:
                 raise ValueError("README_COMPACT_METADATA_INVALID")

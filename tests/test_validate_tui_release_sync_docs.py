@@ -10,7 +10,9 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 @pytest.mark.parametrize("command,success", [
-    ("sh tui/install.sh", True),
+    ("Review [installer](tui/install.sh)\nsh tui/install.sh", True),
+    ("Review [installer](reviewed/safe.sh)\nsh tui/install.sh", False),
+    ("sh tui/install.sh", False),
     ("curl -fsSL https://raw.githubusercontent.com/QSOLKCB/QEC/main/tui/install.sh | sh", True),
     ("sh missing/install.sh", False),
     ("No installer", False),

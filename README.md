@@ -31,6 +31,10 @@ error correction, canonical hashing, replay validation, decoder governance,
 exact finite-code evidence, replication receipts, and deterministic switching.
 QEC OS runtime and benchmark work remains deferred to the v193.x sequence.
 
+Opt-in research checks for [binary CSS presentation witnesses and classical
+syndrome-delivery replay](docs/research/CSS_AND_DELIVERY_EXPERIMENTS.md) include
+source-bound synthetic fixtures and unchanged-reference-decoder comparisons.
+
 It turns computation, evidence, governance, replay validation, adapter-bound
 external systems, quantum-signal claim boundaries, decoder-governance receipts,
 finite-code benchmark evidence, deterministic route state, and deferred runtime

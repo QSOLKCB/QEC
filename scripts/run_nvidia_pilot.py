@@ -54,7 +54,7 @@ def dependency_preflight():
     """Inspect dependencies using only the stdlib; never import NumPy or CUDA."""
     python = tuple(sys.version_info[:2])
     supported = (3, 11) <= python <= (3, 14)
-    profile = 'requirements-memory-py311.txt' if python == (3, 11) else 'requirements-memory.txt'
+    profile = 'requirements/memory-py311.txt' if python == (3, 11) else 'requirements/memory-py312plus.txt'
     available = {}
     for name in DEPENDENCIES:
         try:
@@ -63,9 +63,9 @@ def dependency_preflight():
             available[name] = False
     missing = [name for name, found in available.items() if not found]
     guidance = [
-        f'Use Python 3.11 with requirements-memory-py311.txt, or Python 3.12-3.14 with requirements-memory.txt.',
+        f'Use Python 3.11 with requirements/memory-py311.txt, or Python 3.12-3.14 with requirements/memory-py312plus.txt.',
         f'{sys.executable} -m pip install -r {profile} pytest',
-        f'{sys.executable} -m pip install -r requirements-nvidia.txt',
+        f'{sys.executable} -m pip install -r requirements/nvidia-cu13.txt',
         'GPU execution also requires a compatible NVIDIA driver and visible CUDA device; there is no CPU fallback.',
     ]
     return dict(python='.'.join(map(str, sys.version_info[:3])), supported_python=supported,
@@ -299,7 +299,7 @@ def run(output):
     members = {path.name: path.read_bytes() for path in output.iterdir() if path.is_file()}
     for name in (SOURCE, 'scripts/run_nvidia_pilot.py', 'tests/test_nvidia_coherent_memory.py',
                  'tests/test_nvidia_evidence_bundle.py', 'tests/test_nvidia_gpu_acceptance.py',
-                 'requirements-memory.txt', 'requirements-memory-py311.txt', 'requirements-nvidia.txt',
+                 'requirements/memory-py312plus.txt', 'requirements/memory-py311.txt', 'requirements/nvidia-cu13.txt',
                  'tests/fixtures/nvidia_coherent_memory/cpu_v1.json',
                  'tests/fixtures/nvidia_coherent_memory/source_v1.py',
                  'tests/fixtures/nvidia_coherent_memory/cpu_v2.json'):

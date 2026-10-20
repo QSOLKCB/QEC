@@ -83,7 +83,7 @@ input yields byte-identical hashes and verdicts.
 
 ## Installation
 
-See [`INSTALL.md`](INSTALL.md) for full setup.
+See [`INSTALL.md`](guides/INSTALL.md) for full setup.
 
 Quick command:
 
@@ -108,7 +108,7 @@ python scripts/sphaera_proof_demo.py
 
 Rust TUI control surface:
 
-- install and usage: [`USAGE.md`](USAGE.md)
+- install and usage: [`USAGE.md`](guides/USAGE.md)
 
 ## Working with proof artifacts
 
@@ -139,4 +139,4 @@ Treat all such failures as proof-boundary protection, not recoverable noise.
   unrestricted PyPI dependency resolution for optional dependency gating.
 - Add tests for deterministic replay when changing behavior.
 
-For historical context and release planning lineage, see [`ROADMAP.md`](ROADMAP.md).
+For historical context and release planning lineage, see [`ROADMAP.md`](roadmap/ROADMAP.md).

@@ -9,7 +9,7 @@ This release is intentionally descriptive and additive. It does NOT execute
 actions, enforce policy, or mutate any decoder / supervisory state. It is a
 data-contract + validation primitive only.
 
-Hard constraints (per CLAUDE.md / v137.18.0):
+Hard constraints (per AGENTS.md / v137.18.0):
 
 * no decoder coupling
 * no policy engine

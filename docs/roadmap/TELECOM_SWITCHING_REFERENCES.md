@@ -2,7 +2,7 @@
 # Telecommunications Switching Design References
 
 This document records the historical design lineage that motivates the
-post-v170 QEC switching programme in [`ROADMAP.md`](../../ROADMAP.md).
+post-v170 QEC switching programme in [`ROADMAP.md`](ROADMAP.md).
 
 These references are design context. They are not QEC proof inputs, benchmark
 evidence or authority for decoder correctness.

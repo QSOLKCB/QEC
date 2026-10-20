@@ -22,10 +22,10 @@ from qec.experiments.sonic_batch_analysis import run_sonic_batch_analysis
 
 # Fixed deterministic inputs
 _AUDIO_FILES = [
-    os.path.join(_project_root, "QEC Fault Lines Sonification.mp3"),
-    os.path.join(_project_root, "QSOL Triplet Polymeter - Producer Bounce.mp3"),
+    os.path.join(_project_root, "archive", "sonification", "audio", "QEC Fault Lines Sonification.mp3"),
+    os.path.join(_project_root, "archive", "sonification", "audio", "QSOL Triplet Polymeter - Producer Bounce.mp3"),
     os.path.join(
-        _project_root,
+        _project_root, "archive", "sonification", "audio",
         "Spectral Algebraics Live \u2013 Quantum Nostalgia Ambient.mp3",
     ),
 ]

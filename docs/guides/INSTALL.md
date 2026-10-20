@@ -34,7 +34,7 @@ are required for a full `pytest -q -ra` run without optional-dependency skips.
 
 ## Run tests
 
-Backend-owned command metadata is available through `python -m qec.capabilities` or `qec-capabilities` after installation. See [CAPABILITIES.md](docs/CAPABILITIES.md) for the scalar descriptor contract and its supported commands.
+Backend-owned command metadata is available through `python -m qec.capabilities` or `qec-capabilities` after installation. See [CAPABILITIES.md](../CAPABILITIES.md) for the scalar descriptor contract and its supported commands.
 
 ```bash
 pytest -q

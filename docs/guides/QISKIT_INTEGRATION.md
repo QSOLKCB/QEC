@@ -54,11 +54,11 @@ Set default backend via environment variable:
 
 ```bash
 # Use QuTiP (default)
-python run_bot.py --demo
+python scripts/run_bot.py --demo
 
 # Use Qiskit
 export QEC_BACKEND=qiskit
-python run_bot.py --demo
+python scripts/run_bot.py --demo
 ```
 
 ## Implementation Details

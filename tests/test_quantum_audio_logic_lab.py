@@ -44,8 +44,8 @@ from qec.audio.quantum_audio_logic_lab import (
 # ---------------------------------------------------------------------------
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_V1_PATH = os.path.join(_REPO_ROOT, "Quantum Coherence Threshold (v1).mp3")
-_V2_PATH = os.path.join(_REPO_ROOT, "Quantum Coherence Threshold (v2).mp3")
+_V1_PATH = os.path.join(_REPO_ROOT, "archive", "sonification", "audio", "Quantum Coherence Threshold (v1).mp3")
+_V2_PATH = os.path.join(_REPO_ROOT, "archive", "sonification", "audio", "Quantum Coherence Threshold (v2).mp3")
 
 _HAS_ARTIFACTS = os.path.isfile(_V1_PATH) and os.path.isfile(_V2_PATH)
 
@@ -53,7 +53,7 @@ _SONIC_DIR = os.path.join(_REPO_ROOT, "artifacts", "sonic")
 _BASELINE_JSON = os.path.join(_SONIC_DIR, "sequence_analysis.json")
 
 _LEGACY_PATHS = [
-    os.path.join(_REPO_ROOT, fname) for fname in _LEGACY_STATE_FILES
+    os.path.join(_REPO_ROOT, "archive", "sonification", "audio", fname) for fname in _LEGACY_STATE_FILES
 ]
 _HAS_LEGACY = all(os.path.isfile(p) for p in _LEGACY_PATHS)
 
@@ -568,25 +568,25 @@ class TestLegacyConstants:
 class TestLegacySequenceRegression:
     def test_analyse_returns_report(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         assert isinstance(report, LegacyAudioSequenceReport)
 
     def test_n_states(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         assert report.n_states == 5
 
     def test_transition_count(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         assert len(report.transition_reports) == 4
 
     def test_transition_classifications(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         classes = tuple(t.classification for t in report.transition_reports)
         assert classes == ("divergent", "transition", "collapse", "recovery")
@@ -594,7 +594,7 @@ class TestLegacySequenceRegression:
     def test_transition_state_chain_ordering(self):
         """from_state/to_state pairs must follow the canonical 5-state chain."""
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         chain = [t.from_state for t in report.transition_reports]
         chain.append(report.transition_reports[-1].to_state)
@@ -602,13 +602,13 @@ class TestLegacySequenceRegression:
 
     def test_legacy_similarity_bounded(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         assert 0.0 <= report.legacy_similarity_score <= 1.0
 
     def test_stability_verdict_valid(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         assert report.stability_verdict in (
             "stable_regression", "partial_regression", "degraded_regression",
@@ -616,38 +616,38 @@ class TestLegacySequenceRegression:
 
     def test_best_recovery_match_is_filename(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         valid_names = set(_LEGACY_STATE_FILES)
         assert report.best_recovery_match in valid_names
 
     def test_frozen(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         with pytest.raises(AttributeError):
             report.n_states = 99  # type: ignore[misc]
 
     def test_deterministic_replay(self):
-        a = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
-        b = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        a = analyze_legacy_audio_sequence(os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON)
+        b = analyze_legacy_audio_sequence(os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON)
         assert a == b
 
     def test_transition_psd_similarity_bounded(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         for t in report.transition_reports:
             assert 0.0 <= t.psd_similarity <= 1.0
 
     def test_dependency_health_present(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         assert len(report.dependency_health) > 0
 
     def test_without_baseline(self):
-        report = analyze_legacy_audio_sequence(_REPO_ROOT, None)
+        report = analyze_legacy_audio_sequence(os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), None)
         assert report.n_states == 5
         # Without baseline, centroid_drift should be 0
         for t in report.transition_reports:
@@ -669,14 +669,14 @@ class TestJsonBaselineComparison:
 
     def test_centroid_drift_finite(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         for t in report.transition_reports:
             assert math.isfinite(t.centroid_drift)
 
     def test_legacy_centroid_delta_nonzero(self):
         report = analyze_legacy_audio_sequence(
-            _REPO_ROOT, _BASELINE_JSON,
+            os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON,
         )
         # At least one legacy centroid delta should be non-zero
         any_nonzero = any(
@@ -696,38 +696,38 @@ class TestJsonBaselineComparison:
 )
 class TestCrossEraComparison:
     def test_returns_report(self):
-        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        legacy = analyze_legacy_audio_sequence(os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON)
         result = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
         assert isinstance(result, CrossEraComparisonReport)
 
     def test_best_analogs_are_filenames(self):
-        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        legacy = analyze_legacy_audio_sequence(os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON)
         result = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
         valid = set(_LEGACY_STATE_FILES)
         assert result.best_legacy_analog_v1 in valid
         assert result.best_legacy_analog_v2 in valid
 
     def test_similarity_bounded(self):
-        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        legacy = analyze_legacy_audio_sequence(os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON)
         result = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
         assert 0.0 <= result.collapse_similarity <= 1.0
         assert 0.0 <= result.recovery_similarity <= 1.0
         assert 0.0 <= result.topology_alignment_score <= 1.0
 
     def test_frozen(self):
-        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        legacy = analyze_legacy_audio_sequence(os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON)
         result = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
         with pytest.raises(AttributeError):
             result.collapse_similarity = 0.0  # type: ignore[misc]
 
     def test_deterministic(self):
-        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        legacy = analyze_legacy_audio_sequence(os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON)
         a = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
         b = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
         assert a == b
 
     def test_v2_recovery_flag_is_bool(self):
-        legacy = analyze_legacy_audio_sequence(_REPO_ROOT, _BASELINE_JSON)
+        legacy = analyze_legacy_audio_sequence(os.path.join(_REPO_ROOT, "archive", "sonification", "audio"), _BASELINE_JSON)
         result = compare_legacy_vs_v1366(legacy, _V1_PATH, _V2_PATH)
         assert isinstance(result.v2_resembles_recovery, bool)
 

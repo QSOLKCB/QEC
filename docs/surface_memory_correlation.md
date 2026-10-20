@@ -81,7 +81,7 @@ small lab matching the large simulation's conclusions.
 ## Run and replay
 
 Use Python 3.12 (the CI lane) for the pinned environment (core QEC supports Python >=3.10). Install optional
-packages with `python -m pip install -e '.[dev]' -r requirements-memory.txt`.
+packages with `python -m pip install -e '.[dev]' -r requirements/memory-py312plus.txt`.
 From the repository root:
 
     python -m bench.interop.memory_correlation --shots 2000 --seed 12345 --output artifacts/surface_memory_correlation/local.json

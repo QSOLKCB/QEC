@@ -36,7 +36,7 @@ The `bulk_merge_fork.sh` script automates the process of cloning repositories fr
 ### Basic Usage
 
 ```bash
-./bulk_merge_fork.sh
+./scripts/maintenance/bulk_merge_fork.sh
 ```
 
 ### Directory Structure Created

@@ -2,7 +2,7 @@
 # QEC Switching Safety and Acceptance Rules
 
 This document is the normative safety, validation and release-gate companion to
-[`ROADMAP.md`](../../ROADMAP.md).
+[`ROADMAP.md`](ROADMAP.md).
 
 The roadmap defines the switching phases and deliverables. This document defines
 the rules every phase must obey.

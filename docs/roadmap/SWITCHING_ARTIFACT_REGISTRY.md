@@ -2,7 +2,7 @@
 # QEC Switching Artifact Registry
 
 This registry centralises released, implemented and planned canonical artifacts in the
-telecommunications switching programme in [`ROADMAP.md`](../../ROADMAP.md).
+telecommunications switching programme in [`ROADMAP.md`](ROADMAP.md).
 
 The status sections below distinguish implemented development contracts from
 released schemas and deferred plans. Roadmap phase identifiers are not release

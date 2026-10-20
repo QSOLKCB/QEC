@@ -60,14 +60,16 @@ def test_release_notes_reverse_chronological_order():
 
 
 def test_release_history_json_rejects_duplicates(tmp_path):
-    p = tmp_path / "release_history.json"
+    (tmp_path / "docs" / "releases").mkdir(parents=True)
+    p = tmp_path / "docs" / "releases" / "release_history.json"
     p.write_text(json.dumps([{"tag": "v1.0.0"}, {"tag": "v1.0.0"}]), encoding="utf-8")
     with pytest.raises(ReleaseHistoryError, match="DUPLICATE_RELEASE_ENTRY"):
         load_release_history(tmp_path)
 
 
 def test_release_history_json_rejects_malformed_entries(tmp_path):
-    p = tmp_path / "release_history.json"
+    (tmp_path / "docs" / "releases").mkdir(parents=True)
+    p = tmp_path / "docs" / "releases" / "release_history.json"
     p.write_text("{bad", encoding="utf-8")
     with pytest.raises(ReleaseHistoryError, match="INVALID_RELEASE_HISTORY_JSON"):
         load_release_history(tmp_path)
@@ -88,15 +90,17 @@ def test_release_notes_preserves_full_body():
 
 
 def test_release_notes_generation_from_canonical_archive(tmp_path):
+    (tmp_path / "docs" / "releases").mkdir(parents=True)
     history = [{"tag": "v2.0.0", "title": "T2", "body": "B2"}, {"tag": "v1.0.0"}]
-    (tmp_path / "release_history.json").write_text(json.dumps(history), encoding="utf-8")
+    (tmp_path / "docs" / "releases" / "release_history.json").write_text(json.dumps(history), encoding="utf-8")
     loaded = load_release_history(tmp_path)
     notes = generate_release_notes_from_history(loaded)
     assert _headings(notes) == ["v2.0.0", "v1.0.0"]
 
 
 def test_release_notes_generation_offline(tmp_path):
-    (tmp_path / "release_history.json").write_text(json.dumps([{"tag": "v1.0.0"}]), encoding="utf-8")
+    (tmp_path / "docs" / "releases").mkdir(parents=True)
+    (tmp_path / "docs" / "releases" / "release_history.json").write_text(json.dumps([{"tag": "v1.0.0"}]), encoding="utf-8")
     loaded = load_release_history(tmp_path)
     notes = generate_release_notes_from_history(loaded)
     assert GENERIC_SUMMARY in notes

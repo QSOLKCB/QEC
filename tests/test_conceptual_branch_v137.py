@@ -390,7 +390,7 @@ class TestDocConsistency:
 
     def test_roadmap_contains_v137(self):
         roadmap_path = os.path.join(
-            os.path.dirname(__file__), "..", "ROADMAP.md",
+            os.path.dirname(__file__), "..", "docs", "roadmap", "ROADMAP.md",
         )
         with open(roadmap_path, encoding="utf-8") as f:
             content = f.read()
@@ -399,7 +399,7 @@ class TestDocConsistency:
 
     def test_roadmap_contains_determinism_replay(self):
         roadmap_path = os.path.join(
-            os.path.dirname(__file__), "..", "ROADMAP.md",
+            os.path.dirname(__file__), "..", "docs", "roadmap", "ROADMAP.md",
         )
         with open(roadmap_path, encoding="utf-8") as f:
             content = f.read()
@@ -409,7 +409,7 @@ class TestDocConsistency:
 
     def test_roadmap_contains_replay(self):
         roadmap_path = os.path.join(
-            os.path.dirname(__file__), "..", "ROADMAP.md",
+            os.path.dirname(__file__), "..", "docs", "roadmap", "ROADMAP.md",
         )
         with open(roadmap_path, encoding="utf-8") as f:
             content = f.read()

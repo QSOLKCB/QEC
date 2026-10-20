@@ -181,12 +181,14 @@ releases `cuquantum-python-cu13==26.9.0` and
 2026-10-20: [NVIDIA's cuQuantum Python
 release](https://pypi.org/project/cuquantum-python-cu13/26.9.0/) and
 [CuPy's CUDA-13 release](https://pypi.org/project/cupy-cuda13x/14.2.0/).
-This is **not** a tested GPU environment or a full transitive lockfile.
+The original source has user-supplied local GPU receipts; that evidence does
+not validate a changed source revision or every compatible interpreter.
+This is not a full transitive lockfile.
 Save the resolved package inventory with actual execution evidence.
 
 NVIDIA documents Linux, Python 3.11 or newer, and CUDA-12/13 families for
 this release. The CUDA-13 driver floor listed by NVIDIA is 580.65.06 on
-Linux. Python 3.12 is a conservative common environment for this lane;
+Linux. The original CPU dependency profile requires Python 3.12 or newer;
 inspect the actual machine rather than assuming compatibility from its GPU
 name. Native Windows execution is not established by this recipe.
 Use consistently CUDA-13 binaries; do not mix CUDA-12 and CUDA-13 wheels.
@@ -206,6 +208,21 @@ separate environment for the optional packages:
     python -m pip check
     python -m bench.interop.nvidia_coherent_memory --backend cuquantum --precision complex128 --rounds 1 3 9 --theta .125 --output artifacts/nvidia-coherent-memory/gpu-complex128.json
     python -m bench.interop.nvidia_coherent_memory --backend cuquantum --precision complex64 --rounds 1 3 9 --theta .125 --output artifacts/nvidia-coherent-memory/gpu-complex64.json
+
+For Python 3.11, explicitly substitute `requirements-memory-py311.txt`:
+
+    python -m pip install -e '.[dev]' -r requirements-memory-py311.txt -r requirements-nvidia.txt
+    python -m pip check
+
+This compatibility profile pins NumPy 2.4.6 and SciPy 1.17.1, preserving
+Stim 1.15.0, PyMatching 2.3.1, and both original NVIDIA pins. The original
+`requirements-memory.txt` pins remain unchanged for Python 3.12+.
+Official release metadata lists Python >=3.11 for
+[NumPy 2.4.6](https://pypi.org/project/numpy/2.4.6/) and
+[SciPy 1.17.1](https://pypi.org/project/scipy/1.17.1/), whereas the original
+NumPy 2.5.4 / SciPy 1.18.1 profile requires >=3.12. Available wheels and a
+successful install are dependency compatibility, not proof of GPU execution.
+The dedicated CPU workflow tests both profiles on their stated interpreters.
 
 The local evidence wrapper records a resolved name/version package
 inventory. The CPU requirements ensure that Stim overlap tests do not
@@ -228,7 +245,8 @@ change drivers/system security settings just to obtain a green receipt.
 4. Export the source-bound evidence, verification output and integrity
    manifest as a separate archive for review. After the merged-and-green
    gate, the bounded wrapper runs CPU once, GPU in both precisions, and
-   the dedicated tests while preserving logs and commit/cleanliness data:
+   the dedicated CPU tests and mandatory real-GPU tests while preserving logs
+   and commit/cleanliness data:
 
        python scripts/run_nvidia_pilot.py --output-dir /absolute/path/outside-checkout/new-pilot-run
        python scripts/run_nvidia_pilot.py --verify /absolute/path/outside-checkout/new-pilot-run/evidence.zip
@@ -268,3 +286,52 @@ communication, synchronized wall time, repeated-run variance and scaling
 efficiency. Any tensor-network truncation needs its own convergence tests.
 Three-qubit correctness is necessary for this adapter, but does not
 establish correctness, feasibility, or scientific agreement at 104 sites.
+
+
+## 8. Distinct-gate preparation and historical evidence
+
+The GPU adapter caches host matrix buffers by gate name and angle within a
+single execution. Workspace queries are reused only for the same matrix and
+control count on the same handle and precision. Every original gate remains
+in its original order with its original target/control indices. This changes
+preparation overhead only, not the physical model, recovery, numeric tolerance,
+or synchronized gate timing scope. Buffers stay alive until final stream
+synchronization. No global or cross-device cache is retained.
+
+CPU tests inspect order, buffer identity, dtype, angle separation, control-count
+query separation and per-execution ownership. `tests/test_nvidia_gpu_acceptance.py`
+executes both precisions, zero/non-Clifford/Clifford/boundary angles and 1, 3,
+and 150 rounds on actual hardware. It skips unavailable GPUs in ordinary CPU
+CI; the evidence wrapper sets `QEC_REQUIRE_GPU=1`, making unavailability fail
+instead of skip. CPU mocks are explicitly test doubles, not GPU evidence.
+
+The historical `cpu_v1.json` is preserved byte-for-byte, bound to the inert
+`source_v1.py` snapshot; tests hash but never import or execute that snapshot.
+`cpu_v2.json` binds the current implementation. Historical bundles can still
+be verified as data, but replay requires an exact source match with the trusted
+local checkout. An older GPU receipt is never relabelled as acceptance of the
+new cache implementation. The uploaded candidate was a separate implementation;
+its local timing observations do not establish performance of this integration.
+Fresh merged-source GPU acceptance and replay remain a separate local gate.
+
+Supporting review history: uploaded archive `qec-review-20261020-165641.zip`
+(SHA-256 `77dae10116e4c57192657ef11f7f457bda67bf95e9e67110f1fa625cacfc12e7`)
+contains successful original-source and Python 3.11 compatibility receipts,
+along with separate candidate results. Its original module matches merged
+revision `ea906e3be26390d4303e9d6a56f094819b8f587d`. The review checked receipt,
+configuration, state and source hashes; these are integrity checks, not
+independent hardware attestation. The original archived run used Python
+3.13.14 and the compatibility run used 3.11.15. Neither is a GPU receipt for
+the current module. Private paths and host logs are not copied into fixtures.
+
+Here `cpu_v2.json` means the second source-bound fixture, not a changed
+numerical schema: both fixtures use `qec.nvidia_coherent_memory.v1` because
+the scientific receipt contract is unchanged. Source hashes, rather than the
+schema label alone, distinguish historical and current execution.
+
+`python scripts/run_nvidia_pilot.py --preflight` uses only the standard library
+to report interpreter support and module presence, including when NumPy is
+missing. It selects installation guidance but does not install dependencies,
+enforce version pins, load CUDA, or certify binary/driver compatibility. Follow
+the explicit profile installation and `pip check`; execution failures remain
+failures even when the modules were discoverable.

@@ -259,3 +259,43 @@ def test_cli_cpu_receipt(tmp_path):
     receipt = json.loads(path.read_text())
     assert receipt['status'] == 'completed' and receipt['gpu_verified'] is False
     assert len(receipt['records']) == 6
+
+
+@pytest.mark.parametrize('precision', ['complex64', 'complex128'])
+@pytest.mark.parametrize('kind', ['memory_zero', 'memory_y', 'ghz_phase'])
+def test_gate_plan_reuses_buffers_without_changing_order(kind, precision):
+    gates = pilot.circuit(kind, 150, -.125)
+    queries = []
+    def query(m, controls):
+        queries.append((m, controls))
+        return 128 if controls else 64
+    plan, size = pilot._prepare_gates(gates, np.dtype(precision), query)
+    assert len(plan) == len(gates)
+    assert len(queries) == len({(g[0], g[3], g[2] is not None) for g in gates})
+    assert size == max(128 if g[2] is not None else 64 for g in gates)
+    buffers = {}
+    for gate, (target, control, m) in zip(gates, plan):
+        name, expected_target, expected_control, angle = gate
+        assert (target, control) == (expected_target, expected_control)
+        assert m.dtype == np.dtype(precision) and m.flags.c_contiguous
+        np.testing.assert_array_equal(m, pilot.matrix(name, angle).astype(precision))
+        key = (name, angle)
+        assert buffers.setdefault(key, m) is m
+    assert len(buffers) == len({(g[0], g[3]) for g in gates})
+
+
+def test_gate_plan_separates_angles_controls_and_execution_lifetimes():
+    gates = [('RX', 0, None, .1), ('RX', 2, 1, .1),
+             ('RX', 1, None, -.1), ('RX', 2, None, .1)]
+    queries = []
+    def query(m, controls):
+        queries.append((m, controls))
+        return 32 * controls
+    first, size = pilot._prepare_gates(gates, np.dtype('complex128'), query)
+    assert len(queries) == 3 and size == 32
+    assert first[0][2] is first[1][2] is first[3][2]
+    assert first[0][2] is not first[2][2]
+    second, _ = pilot._prepare_gates(gates, np.dtype('complex64'), query)
+    assert second[0][2] is not first[0][2]
+    assert second[0][2].dtype == np.dtype('complex64')
+    assert pilot._prepare_gates([], np.dtype('complex128'), query) == ([], 0)

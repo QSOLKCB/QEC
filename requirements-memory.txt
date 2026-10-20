@@ -1,0 +1,5 @@
+# Reproducible optional CPU surface-memory physics lane.
+stim==1.15.0
+pymatching==2.3.1
+numpy==2.5.4
+scipy==1.18.1

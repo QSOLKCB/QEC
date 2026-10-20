@@ -37,7 +37,7 @@ def _extract_manifest_tags(history: list[dict[str, object]]) -> list[str]:
 
 
 def load_release_history(repo_root: Path) -> list[dict[str, object]]:
-    path = repo_root / "release_history.json"
+    path = repo_root / "docs" / "releases" / "release_history.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
@@ -103,7 +103,7 @@ def build_release_notes_from_tags(tags: Iterable[str], min_release_count: int = 
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
-    p.add_argument("--output", type=Path, default=Path("RELEASE_NOTES.md"))
+    p.add_argument("--output", type=Path, default=Path("docs/releases/RELEASE_NOTES.md"))
     args = p.parse_args()
     repo_root = args.repo_root.resolve()
     output = (repo_root / args.output).resolve()

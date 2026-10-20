@@ -17,7 +17,7 @@ class TestBulkMergeForkScript(unittest.TestCase):
     def setUpClass(cls):
         """Set up test environment."""
         cls.repo_root = Path(__file__).parent.parent
-        cls.script_path = cls.repo_root / "bulk_merge_fork.sh"
+        cls.script_path = cls.repo_root / "scripts" / "maintenance" / "bulk_merge_fork.sh"
 
     def test_script_exists(self):
         """Test that the script file exists."""
@@ -156,7 +156,7 @@ class TestScriptDryRun(unittest.TestCase):
     def setUpClass(cls):
         """Set up test environment."""
         cls.repo_root = Path(__file__).parent.parent
-        cls.script_path = cls.repo_root / "bulk_merge_fork.sh"
+        cls.script_path = cls.repo_root / "scripts" / "maintenance" / "bulk_merge_fork.sh"
 
     def test_script_help_mode(self):
         """Test script behavior when checking syntax only."""

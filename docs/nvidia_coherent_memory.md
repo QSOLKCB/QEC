@@ -159,7 +159,7 @@ From a checked-out repository root in an isolated Python environment:
     python -m bench.interop.nvidia_coherent_memory --backend cpu --precision complex128 --rounds 1 3 9 --theta .125 --output artifacts/nvidia-coherent-memory/cpu-complex128.json
     python -m pytest -q tests/test_nvidia_coherent_memory.py tests/test_nvidia_evidence_bundle.py
 
-The dedicated CI lane also installs `requirements-memory.txt`, so the
+The dedicated CI lane also installs `requirements/memory-py312plus.txt`, so the
 Stim overlap tests execute rather than skip. They compare complete
 Clifford states up to global phase and sum exact weighted deterministic
 Pauli histories for the twirled logical channel. The independent CPU
@@ -175,7 +175,7 @@ runs and preserve previously published historical fixtures.
 
 ## 6. Optional NVIDIA environment
 
-The proposed CUDA-13 recipe in `requirements-nvidia.txt` pins the top-level
+The proposed CUDA-13 recipe in `requirements/nvidia-cu13.txt` pins the top-level
 releases `cuquantum-python-cu13==26.9.0` and
 `cupy-cuda13x[ctk]==14.2.0`. Their release entries were verified on
 2026-10-20: [NVIDIA's cuQuantum Python
@@ -204,19 +204,19 @@ installation guide](https://docs.cupy.dev/en/v14.2.0/install.html).
 After inspecting the local OS, Python, driver and CUDA visibility, use a
 separate environment for the optional packages:
 
-    python -m pip install -e '.[dev]' -r requirements-memory.txt -r requirements-nvidia.txt
+    python -m pip install -e '.[dev]' -r requirements/memory-py312plus.txt -r requirements/nvidia-cu13.txt
     python -m pip check
     python -m bench.interop.nvidia_coherent_memory --backend cuquantum --precision complex128 --rounds 1 3 9 --theta .125 --output artifacts/nvidia-coherent-memory/gpu-complex128.json
     python -m bench.interop.nvidia_coherent_memory --backend cuquantum --precision complex64 --rounds 1 3 9 --theta .125 --output artifacts/nvidia-coherent-memory/gpu-complex64.json
 
-For Python 3.11, explicitly substitute `requirements-memory-py311.txt`:
+For Python 3.11, explicitly substitute `requirements/memory-py311.txt`:
 
-    python -m pip install -e '.[dev]' -r requirements-memory-py311.txt -r requirements-nvidia.txt
+    python -m pip install -e '.[dev]' -r requirements/memory-py311.txt -r requirements/nvidia-cu13.txt
     python -m pip check
 
 This compatibility profile pins NumPy 2.4.6 and SciPy 1.17.1, preserving
 Stim 1.15.0, PyMatching 2.3.1, and both original NVIDIA pins. The original
-`requirements-memory.txt` pins remain unchanged for Python 3.12+.
+`requirements/memory-py312plus.txt` pins remain unchanged for Python 3.12+.
 Official release metadata lists Python >=3.11 for
 [NumPy 2.4.6](https://pypi.org/project/numpy/2.4.6/) and
 [SciPy 1.17.1](https://pypi.org/project/scipy/1.17.1/), whereas the original

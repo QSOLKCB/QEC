@@ -97,8 +97,8 @@ def verify_install_path_consistency(repo_root: Optional[str] = None) -> Integrit
 
     install_sh = root / "tui" / "install.sh"
     readme = root / "README.md"
-    usage = root / "USAGE.md"
-    install_doc = root / "INSTALL.md"
+    usage = root / "docs" / "guides" / "USAGE.md"
+    install_doc = root / "docs" / "guides" / "INSTALL.md"
 
     # --- install.sh checks ---
     if not install_sh.exists():

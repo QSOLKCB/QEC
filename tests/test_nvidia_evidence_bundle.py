@@ -114,6 +114,9 @@ def test_historical_archive_verifies_without_numpy_or_execution(tmp_path):
         bundle.SOURCE: (FIXTURES / 'source_v1.py').read_bytes(),
         'cpu.json': (FIXTURES / 'cpu_v1.json').read_bytes(),
         'run.json': b'{"verified": false}',
+        # Historical member names remain valid, without restoring root files.
+        'requirements-memory.txt': (ROOT / 'requirements/memory-py312plus.txt').read_bytes(),
+        'requirements-nvidia.txt': (ROOT / 'requirements/nvidia-cu13.txt').read_bytes(),
     })
     code = '''
 import importlib.abc, runpy, sys
@@ -199,11 +202,11 @@ def test_nonfinite_and_ambiguous_json_rejected(data):
 
 
 @pytest.mark.parametrize('version,profile,supported', [
-    ((3, 11, 9), 'requirements-memory-py311.txt', True),
-    ((3, 12, 1), 'requirements-memory.txt', True),
-    ((3, 14, 0), 'requirements-memory.txt', True),
-    ((3, 10, 9), 'requirements-memory.txt', False),
-    ((3, 15, 0), 'requirements-memory.txt', False),
+    ((3, 11, 9), 'requirements/memory-py311.txt', True),
+    ((3, 12, 1), 'requirements/memory-py312plus.txt', True),
+    ((3, 14, 0), 'requirements/memory-py312plus.txt', True),
+    ((3, 10, 9), 'requirements/memory-py312plus.txt', False),
+    ((3, 15, 0), 'requirements/memory-py312plus.txt', False),
 ])
 def test_dependency_preflight_selects_actionable_profile(monkeypatch, version, profile, supported):
     monkeypatch.setattr(bundle.sys, 'version_info', version)
@@ -227,7 +230,8 @@ assert not any(name.split('.')[0] in ('numpy', 'stim', 'cupy', 'cuquantum', 'pyt
                    check=True, capture_output=True, text=True)
 
 
-def test_run_and_replay_wrapper_with_explicit_test_doubles(tmp_path, monkeypatch):
+@pytest.mark.parametrize('legacy_requirement_paths', [False, True])
+def test_run_and_replay_wrapper_with_explicit_test_doubles(tmp_path, monkeypatch, legacy_requirement_paths):
     from bench.interop import nvidia_coherent_memory as pilot
     monkeypatch.setattr(bundle.subprocess, 'check_output', lambda command, **kw: '' if 'status' in command else 'test-commit')
     monkeypatch.setattr(bundle.importlib.util, 'find_spec', lambda name: object())
@@ -259,9 +263,24 @@ def test_run_and_replay_wrapper_with_explicit_test_doubles(tmp_path, monkeypatch
     cpu_tests = [command for command, _ in commands if 'tests/test_nvidia_coherent_memory.py' in command]
     assert len(cpu_tests) == 1 and 'tests/test_nvidia_gpu_acceptance.py' not in cpu_tests[0]
     with zipfile.ZipFile(first / 'evidence.zip') as archive:
-        for member in ('requirements-memory-py311.txt', 'requirements-memory.txt', 'tests/test_nvidia_gpu_acceptance.py'):
+        for member in ('requirements/memory-py311.txt', 'requirements/memory-py312plus.txt',
+                       'requirements/nvidia-cu13.txt', 'tests/test_nvidia_gpu_acceptance.py'):
             assert archive.read(member) == (ROOT / member).read_bytes()
-    assert bundle.replay(first / 'evidence.zip', tmp_path / 'replayed') == 0
+    prior = first / 'evidence.zip'
+    if legacy_requirement_paths:
+        # Only this temporary test bundle uses old names. Retained fixtures and
+        # their hashes stay untouched, and neither path layout executes code.
+        old_paths = {
+            'requirements/memory-py311.txt': 'requirements-memory-py311.txt',
+            'requirements/memory-py312plus.txt': 'requirements-memory.txt',
+            'requirements/nvidia-cu13.txt': 'requirements-nvidia.txt',
+        }
+        with zipfile.ZipFile(prior) as archive:
+            members = {old_paths.get(name, name): archive.read(name)
+                       for name in archive.namelist() if name != 'manifest.json'}
+        prior = write_bundle(tmp_path / 'legacy-paths.zip', members)
+        assert bundle.verify(prior)['science_receipts_passed']
+    assert bundle.replay(prior, tmp_path / 'replayed') == 0
     with pytest.raises(FileExistsError):
         bundle.run(first)
 
@@ -269,7 +288,7 @@ def test_run_and_replay_wrapper_with_explicit_test_doubles(tmp_path, monkeypatch
     assert bundle.run(tmp_path / 'missing-stim') == 1
     missing = json.loads((tmp_path / 'missing-stim' / 'run.json').read_text())
     assert not missing['verified'] and not missing['dependency_preflight_passed']
-    assert 'requirements-memory' in (tmp_path / 'missing-stim' / 'stim-preflight.log').read_text()
+    assert 'requirements/memory-' in (tmp_path / 'missing-stim' / 'stim-preflight.log').read_text()
     assert (tmp_path / 'missing-stim' / 'cpu.json').exists()
 
     def incomplete_run(output):
@@ -292,4 +311,4 @@ def test_missing_numpy_blocks_execution_with_actionable_logs(tmp_path, monkeypat
     assert bundle.run(output) == 1
     assert bundle.verify(output / 'evidence.zip')['science_receipts_passed'] is False
     assert 'numpy' in (output / 'cpu.log').read_text()
-    assert 'requirements-memory-py311.txt' in (output / 'cpu.log').read_text()
+    assert 'requirements/memory-py311.txt' in (output / 'cpu.log').read_text()

@@ -25,7 +25,7 @@ class TestMirrorReposScript:
     def setup_method(self):
         """Set up test environment."""
         self.script_path = os.path.join(os.path.dirname(__file__), '..',
-                                        'mirror_repos.sh')
+                                        'scripts', 'maintenance', 'mirror_repos.sh')
         self.script_path = os.path.abspath(self.script_path)
 
     def test_script_syntax(self):

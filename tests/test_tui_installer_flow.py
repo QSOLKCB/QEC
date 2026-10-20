@@ -151,9 +151,9 @@ class TestReadmeCurlPath:
 
     def _get_docs(self, repo_root: Path) -> list[tuple[Path, str]]:
         """Return list of (path, text) for existing docs."""
-        usage = repo_root / "USAGE.md"
+        usage = repo_root / "docs" / "guides" / "USAGE.md"
         readme = repo_root / "README.md"
-        install_doc = repo_root / "INSTALL.md"
+        install_doc = repo_root / "docs" / "guides" / "INSTALL.md"
         docs = [doc for doc in (readme, usage, install_doc) if doc.exists()]
         return [(doc, doc.read_text(encoding="utf-8")) for doc in docs]
 

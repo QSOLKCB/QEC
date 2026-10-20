@@ -4,7 +4,7 @@ on:
     paths:
       - 'src/bench/interop/**'
       - 'tests/test_surface_memory_correlation.py'
-      - 'requirements-memory.txt'
+      - 'requirements/memory-py312plus.txt'
       - '.github/workflows/surface-memory-correlation.yml'
   workflow_dispatch:
 permissions:
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install -e '.[dev]' -r requirements-memory.txt
+      - run: python -m pip install -e '.[dev]' -r requirements/memory-py312plus.txt
       - run: python -m pytest -q tests/test_surface_memory_correlation.py tests/test_interop_determinism.py tests/test_interop_import_hygiene.py tests/test_interop_schema_v312.py
       - run: python -m bench.interop.memory_correlation --shots 2000 --seed 12345 --output artifacts/surface_memory_correlation/ci.json
       - name: Validate bounded 150-round lane

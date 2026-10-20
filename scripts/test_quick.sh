@@ -7,7 +7,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEV_REQ="${REPO_ROOT}/dev-requirements.txt"
+DEV_REQ="${REPO_ROOT}/requirements/dev.txt"
 DEFAULT_TARGET="tests/test_phase_timeline_engine.py"
 
 # Install dev requirements if pytest is not available

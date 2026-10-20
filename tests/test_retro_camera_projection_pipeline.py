@@ -1011,7 +1011,7 @@ class TestFinalizationHardening:
     def test_roadmap_version_metadata(self) -> None:
         """ROADMAP.md exposes canonical stable-tip metadata for v137.*."""
         import pathlib
-        roadmap = pathlib.Path(__file__).resolve().parent.parent / "ROADMAP.md"
+        roadmap = pathlib.Path(__file__).resolve().parent.parent / "docs" / "roadmap" / "ROADMAP.md"
         assert roadmap.exists(), "ROADMAP.md must exist"
         text = roadmap.read_text(encoding="utf-8")
         assert "stable tip" in text.lower()

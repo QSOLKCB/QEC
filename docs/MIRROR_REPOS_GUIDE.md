@@ -36,28 +36,28 @@ The script uses environment variables for configuration:
 
 ```bash
 # Run with default settings
-./mirror_repos.sh
+./scripts/maintenance/mirror_repos.sh
 ```
 
 ### Dry Run Mode
 
 ```bash
 # Test the script without making changes
-DRY_RUN=1 ./mirror_repos.sh
+DRY_RUN=1 ./scripts/maintenance/mirror_repos.sh
 ```
 
 ### Custom Organizations
 
 ```bash
 # Use custom organizations
-ORG_TEST=my-test-org ORG_DEV=my-dev-org DEST_ORG=my-dest-org ./mirror_repos.sh
+ORG_TEST=my-test-org ORG_DEV=my-dev-org DEST_ORG=my-dest-org ./scripts/maintenance/mirror_repos.sh
 ```
 
 ### CI/CD Usage
 
 ```bash
 # Use HTTPS for CI environments
-USE_HTTPS=1 ./mirror_repos.sh
+USE_HTTPS=1 ./scripts/maintenance/mirror_repos.sh
 ```
 
 ## How It Works

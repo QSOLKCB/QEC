@@ -56,8 +56,8 @@ from qec.analysis.spectral_mesh_resonance_audit import (
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TRAVERSAL_MP3 = os.path.join(REPO_ROOT, "Deterministic Traversal Mesh.mp3")
-E8_MP3 = os.path.join(REPO_ROOT, "E8 Triality Topology.mp3")
+TRAVERSAL_MP3 = os.path.join(REPO_ROOT, "archive", "sonification", "audio", "Deterministic Traversal Mesh.mp3")
+E8_MP3 = os.path.join(REPO_ROOT, "archive", "sonification", "audio", "E8 Triality Topology.mp3")
 
 
 def _mp3_available(path: str) -> bool:

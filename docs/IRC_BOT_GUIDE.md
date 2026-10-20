@@ -14,16 +14,16 @@ The fusion-qec-sim IRC bot is an AI-powered assistant that integrates quantum er
 
 ```bash
 # Demo mode (no IRC connection, default QuTiP backend)
-python run_bot.py --demo
+python scripts/run_bot.py --demo
 
 # Connect to IRC server with QuTiP backend (default)
 export IRC_SERVER=irc.libera.chat
 export IRC_CHANNEL=#qec-sim
-python run_bot.py
+python scripts/run_bot.py
 
 # Use Qiskit backend instead
 export QEC_BACKEND=qiskit
-python run_bot.py
+python scripts/run_bot.py
 ```
 
 ## Backend Selection

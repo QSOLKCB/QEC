@@ -4,7 +4,7 @@ Historical snapshot from commit `ae85f98d877f982525a600f432bfafba71b3a5cc`.
 Release/frontier statements below were already stale when this snapshot was
 preserved; they are not current capability or availability claims. Consult the
 [current README](../../README.md), [published releases](https://github.com/QSOLKCB/QEC/releases)
-and [roadmap](../../ROADMAP.md). Relative links have been rebased for this location.
+and [roadmap](../roadmap/ROADMAP.md). Relative links have been rebased for this location.
 The obsolete remote installer command has been replaced with current guidance.
 
 ---
@@ -96,7 +96,7 @@ Repository status is current through **v172.5 → StrowgerPanelCrossbarEquivalen
 The published switching contracts are preserved. The v173.0 candidate adds
 separate programme and call stores, a logical event queue and a validated Crossbar
 fabric adapter. See the [ESS skeleton contract](../../docs/ESS_STORED_PROGRAM_SKELETON.md)
-and [roadmap](../../ROADMAP.md) for its scope and later phases.
+and [roadmap](../roadmap/ROADMAP.md) for its scope and later phases.
 
 Recent release arcs completed or active:
 
@@ -345,7 +345,7 @@ python -m pip install -e ".[dev,science]"
 ```
 
 For full setup, environment, and troubleshooting details, see
-[`INSTALL.md`](../../INSTALL.md).
+[`INSTALL.md`](../guides/INSTALL.md).
 
 ### Testing
 
@@ -357,7 +357,7 @@ pytest -q -ra
 For full local validation, install the developer/science extras, then run
 `pytest -q -ra`.
 
-Rust TUI Control Surface: see [`USAGE.md`](../../USAGE.md).
+Rust TUI Control Surface: see [`USAGE.md`](../guides/USAGE.md).
 
 ## Commands
 
@@ -608,7 +608,7 @@ QEC emits canonical JSON proof artifacts with stable SHA-256 identity and
 validator-backed replay checks.
 
 For full artifact families, schemas, and failure semantics, see
-[`DOCUMENTATION.md`](../../DOCUMENTATION.md).
+[`DOCUMENTATION.md`](../README.md).
 
 # 🧠 Core Law
 
@@ -654,10 +654,10 @@ This attribution is informational only and does not influence canonical identity
 
 ## References
 
-* Roadmap and historical progression: [`ROADMAP.md`](../../ROADMAP.md)
-* Install and test instructions: [`INSTALL.md`](../../INSTALL.md)
-* Full system documentation: [`DOCUMENTATION.md`](../../DOCUMENTATION.md)
-* Rust TUI installer/usage: [`USAGE.md`](../../USAGE.md)
+* Roadmap and historical progression: [`ROADMAP.md`](../roadmap/ROADMAP.md)
+* Install and test instructions: [`INSTALL.md`](../guides/INSTALL.md)
+* Full system documentation: [`DOCUMENTATION.md`](../README.md)
+* Rust TUI installer/usage: [`USAGE.md`](../guides/USAGE.md)
 
 ## Author
 

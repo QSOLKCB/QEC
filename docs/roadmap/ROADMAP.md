@@ -31,22 +31,22 @@ lineage. Later roadmap programmes may extend those contracts, but must not
 silently reinterpret or remove them.
 
 The pre-v170 planning document is preserved through
-[`docs/archive/ROADMAP_PRE_V170.md`](docs/archive/ROADMAP_PRE_V170.md).
+[`docs/archive/ROADMAP_PRE_V170.md`](../archive/ROADMAP_PRE_V170.md).
 The former extension documents are retained as superseded historical pointers:
-[`ROADMAP_EXTENSION.md`](ROADMAP_EXTENSION.md) and
-[`ROADMAP_EXTENSION_v2.md`](ROADMAP_EXTENSION_v2.md).
+[`ROADMAP_EXTENSION.md`](../../archive/docs/ROADMAP_EXTENSION.md) and
+[`ROADMAP_EXTENSION_v2.md`](../../archive/docs/ROADMAP_EXTENSION_v2.md).
 
 ## Companion documents
 
 | Document | Purpose |
 |---|---|
-| [Switching Safety and Acceptance Rules](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md) | Normative deterministic law, release gates, forbidden behaviours, claim boundaries and phase acceptance criteria |
-| [Switching Artifact Registry](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md) | Central inventory of planned canonical artifacts, receipts and programme-lineage roles |
-| [Telecommunications Switching Design References](docs/roadmap/TELECOM_SWITCHING_REFERENCES.md) | Historical architecture context and citation boundaries |
+| [Switching Safety and Acceptance Rules](SWITCHING_SAFETY_AND_ACCEPTANCE.md) | Normative deterministic law, release gates, forbidden behaviours, claim boundaries and phase acceptance criteria |
+| [Switching Artifact Registry](SWITCHING_ARTIFACT_REGISTRY.md) | Central inventory of planned canonical artifacts, receipts and programme-lineage roles |
+| [Telecommunications Switching Design References](TELECOM_SWITCHING_REFERENCES.md) | Historical architecture context and citation boundaries |
 
 ## Visual overview
 
-[![QEC deterministic switching roadmap mind map](docs/roadmap/QEC_DETERMINISTIC_SWITCHING_MIND_MAP.jpg)](docs/roadmap/QEC_DETERMINISTIC_SWITCHING_MIND_MAP.jpg)
+[![QEC deterministic switching roadmap mind map](QEC_DETERMINISTIC_SWITCHING_MIND_MAP.jpg)](QEC_DETERMINISTIC_SWITCHING_MIND_MAP.jpg)
 
 *NotebookLM-generated visual overview. `ROADMAP.md` and its companion documents
 remain authoritative for release assignments, contracts and acceptance rules.*
@@ -75,7 +75,7 @@ same declared input
 Every phase must produce versioned contracts, canonical artifacts, validation,
 replay tests, explicit failures and claim boundaries. The complete normative
 rules live in the
-[Switching Safety and Acceptance Rules](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md).
+[Switching Safety and Acceptance Rules](SWITCHING_SAFETY_AND_ACCEPTANCE.md).
 
 ---
 
@@ -96,7 +96,7 @@ hardware. Each era contributes a deterministic systems idea that can be
 expressed as a QEC contract.
 
 Historical context and source boundaries are maintained separately in
-[Telecommunications Switching Design References](docs/roadmap/TELECOM_SWITCHING_REFERENCES.md).
+[Telecommunications Switching Design References](TELECOM_SWITCHING_REFERENCES.md).
 
 ---
 
@@ -204,7 +204,7 @@ PROPOSED / NOT IMPLEMENTED OR REGISTERED
 | v176.x | `switch_migration_contract.json` | `cross_era_equivalence_receipt.json` | Explicitly bind declared invariants across architecture migration |
 
 The complete artifact inventory and role definitions live in the
-[Switching Artifact Registry](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md).
+[Switching Artifact Registry](SWITCHING_ARTIFACT_REGISTRY.md).
 
 ---
 
@@ -245,9 +245,9 @@ request intake
   Dependency-free visualisation and sonification labelled as demonstration evidence.
 
 Evidence names are registered under
-[v171.x Panel artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v171x--panel-separated-control-artifacts).
+[v171.x Panel artifacts](SWITCHING_ARTIFACT_REGISTRY.md#v171x--panel-separated-control-artifacts).
 Acceptance criteria are maintained under
-[v171.x Panel separated control](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v171x--panel-separated-control).
+[v171.x Panel separated control](SWITCHING_SAFETY_AND_ACCEPTANCE.md#v171x--panel-separated-control).
 
 ---
 
@@ -280,28 +280,28 @@ canonical request
 - **v172.1 — Marker/Common-Control Contract** — RELEASED
   Exact single-matrix coordinate planning, sealed request/programme binding,
   explicit rejection, marker release, complete event receipts and replay validation.
-  See [the v172.1 contract](docs/CROSSBAR_COMMON_CONTROL.md).
+  See [the v172.1 contract](../CROSSBAR_COMMON_CONTROL.md).
 - **v172.2 — Multi-Stage Link Selection** — RELEASED
   Immutable layered fabrics, bounded reverse reachability and first admissible
   complete path selection with replayable search receipts.
-  See [the v172.2 contract](docs/CROSSBAR_MULTISTAGE_SELECTION.md).
+  See [the v172.2 contract](../CROSSBAR_MULTISTAGE_SELECTION.md).
 - **v172.3 — Contention and Busy-Link Receipts** — RELEASED
   Exact logical ordering, atomic owned reservations, release, quarantine revocation
-  and replay-safe contention evidence. See [the v172.3 contract](docs/CROSSBAR_CONTENTION.md).
+  and replay-safe contention evidence. See [the v172.3 contract](../CROSSBAR_CONTENTION.md).
 - **v172.4 — Crossbar Continuity Verification** — RELEASED
   Independent forward walks prove complete coordinate/wire continuity over replayed
   selections, with reservation lifecycle scope and trusted source bindings.
-  See [the v172.4 contract](docs/CROSSBAR_CONTINUITY.md).
+  See [the v172.4 contract](../CROSSBAR_CONTINUITY.md).
 - **v172.5 — Strowger/Panel/Crossbar Equivalence Battery** — RELEASED
   Shared bounded corpus comparing destination, route admission and selected lane
   with native receipts, continuity evidence and explicit capability differences.
   Thirty-six availability cases agree; five architecture-specific fault controls
-  remain different. See [the v172.5 contract](docs/SWITCH_EQUIVALENCE_BATTERY.md).
+  remain different. See [the v172.5 contract](../SWITCH_EQUIVALENCE_BATTERY.md).
 
 Evidence names are registered under
-[v172.x Crossbar artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v172x--crossbar-artifacts).
+[v172.x Crossbar artifacts](SWITCHING_ARTIFACT_REGISTRY.md#v172x--crossbar-artifacts).
 Acceptance criteria are maintained under
-[v172.x Crossbar coordinate switching](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v172x--crossbar-coordinate-switching).
+[v172.x Crossbar coordinate switching](SWITCHING_SAFETY_AND_ACCEPTANCE.md#v172x--crossbar-coordinate-switching).
 
 ---
 
@@ -333,7 +333,7 @@ immutable programme store
   Separate immutable programme/call stores, a bounded logical event queue and
   Crossbar adapter boundary with complete native replay and continuity evidence.
   Independent planning only; no full call lifecycle or resource mutation.
-  See [the v173.0 contract](docs/ESS_STORED_PROGRAM_SKELETON.md).
+  See [the v173.0 contract](../ESS_STORED_PROGRAM_SKELETON.md).
 - **v173.1 — Immutable Programme Store Manifest**  
   Full source, version and hash identity for routing logic and translation tables.
 - **v173.2 — Deterministic Call-Processing State Machine**  
@@ -347,14 +347,14 @@ immutable programme store
 
 The additive v173.1–v173.5 implementation has source-bound programmes, real native
 reservations/releases, logical scheduling, bounded features and explicitly scoped
-two-fabric equivalence. See [the lifecycle contract](docs/ESS_CALL_PROCESSING.md).
+two-fabric equivalence. See [the lifecycle contract](../ESS_CALL_PROCESSING.md).
 It preserves the v173.0 schemas and package metadata. These additive
 milestones were reviewed, merged and shipped in the combined v176.5 tag.
 
 Evidence names are registered under
-[v173.x ESS artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v173x--ess-stored-program-artifacts).
+[v173.x ESS artifacts](SWITCHING_ARTIFACT_REGISTRY.md#v173x--ess-stored-program-artifacts).
 Acceptance criteria are maintained under
-[v173.x ESS stored-program control](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v173x--ess-stored-program-control).
+[v173.x ESS stored-program control](SWITCHING_SAFETY_AND_ACCEPTANCE.md#v173x--ess-stored-program-control).
 
 ---
 
@@ -397,14 +397,14 @@ canonical correction symbols
 Native frames, deterministic owned slot allocation/release, synchronization,
 interchange, verified payload reassembly and fault evidence are implemented.
 The offline lab and SVG/WAV exports are separately labelled demonstrations.
-See [the Digital contract](docs/DIGITAL_TIME_DIVISION_SWITCHING.md). Native
+See [the Digital contract](../DIGITAL_TIME_DIVISION_SWITCHING.md). Native
 replay and Node interaction tests passed for the combined release; rendered-
 browser and acoustic QA were not claimed.
 
 Evidence names are registered under
-[v174.x Digital artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v174x--digital-time-division-artifacts).
+[v174.x Digital artifacts](SWITCHING_ARTIFACT_REGISTRY.md#v174x--digital-time-division-artifacts).
 Acceptance criteria are maintained under
-[v174.x Digital time-division switching](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v174x--digital-time-division-switching).
+[v174.x Digital time-division switching](SWITCHING_SAFETY_AND_ACCEPTANCE.md#v174x--digital-time-division-switching).
 
 ---
 
@@ -450,14 +450,14 @@ canonical payload
 Immutable envelopes, exact binary-prefix routes, bounded priority queues, hop
 chains, declared failover and verified reassembly are implemented. Softswitch
 observations remain external, offline and non-authoritative. The packet lab is
-a separate demonstration. See [the Packet contract](docs/PACKET_FABRIC_AND_SOFTSWITCH.md).
+a separate demonstration. See [the Packet contract](../PACKET_FABRIC_AND_SOFTSWITCH.md).
 Native replay and offline Node interaction checks accompanied the combined
 release; rendered-browser and acoustic QA were not claimed.
 
 Evidence names are registered under
-[v175.x Packet artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v175x--packet-and-softswitch-artifacts).
+[v175.x Packet artifacts](SWITCHING_ARTIFACT_REGISTRY.md#v175x--packet-and-softswitch-artifacts).
 Acceptance criteria are maintained under
-[v175.x Canonical packet fabric](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v175x--canonical-packet-fabric).
+[v175.x Canonical packet fabric](SWITCHING_SAFETY_AND_ACCEPTANCE.md#v175x--canonical-packet-fabric).
 
 ---
 
@@ -505,12 +505,12 @@ availability cases and 15 architecture-specific fault controls (306 executions).
 Migration binds native inputs and evidence, exact rejection classes remain visible,
 and architecture selection follows declared capabilities/preferences. Strowger’s
 missing native payload capability and all lifecycle differences remain explicit.
-See [the cross-era contract](docs/CROSS_ERA_MIGRATION_AND_SELECTION.md).
+See [the cross-era contract](../CROSS_ERA_MIGRATION_AND_SELECTION.md).
 
 Evidence names are registered under
-[v176.x Cross-era artifacts](docs/roadmap/SWITCHING_ARTIFACT_REGISTRY.md#v176x--cross-era-artifacts).
+[v176.x Cross-era artifacts](SWITCHING_ARTIFACT_REGISTRY.md#v176x--cross-era-artifacts).
 Acceptance criteria are maintained under
-[v176.x Cross-era equivalence and migration](docs/roadmap/SWITCHING_SAFETY_AND_ACCEPTANCE.md#v176x--cross-era-equivalence-and-migration).
+[v176.x Cross-era equivalence and migration](SWITCHING_SAFETY_AND_ACCEPTANCE.md#v176x--cross-era-equivalence-and-migration).
 
 ---
 
@@ -582,7 +582,7 @@ encoded logical quantum information + declared noise
 ### Donor interfaces and preservation
 
 - [QEC](https://github.com/QSOLKCB/QEC) contributes exact
-  [qutrit](docs/QUTRIT_HARMONIC_QEC.md)/ququart harmonic readout, correction,
+  [qutrit](../QUTRIT_HARMONIC_QEC.md)/ququart harmonic readout, correction,
   fault-injection batteries, Digital/Packet switching and canonical receipts.
   The harmonic phase character `r_h(s) = exp(2πihs/3)` already has informative
   and state-dark orders; it has **not** been validated as microphone-based

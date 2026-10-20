@@ -14,7 +14,7 @@ on:
       - 'docs/CROSS_ERA_MIGRATION_AND_SELECTION.md'
       - 'docs/roadmap/**'
       - 'docs/labs/**'
-      - 'ROADMAP.md'
+      - 'docs/roadmap/ROADMAP.md'
       - 'scripts/generate_switching_evidence.py'
       - '.github/workflows/telecom-switching.yml'
   push:
@@ -31,7 +31,7 @@ on:
       - 'docs/CROSS_ERA_MIGRATION_AND_SELECTION.md'
       - 'docs/roadmap/**'
       - 'docs/labs/**'
-      - 'ROADMAP.md'
+      - 'docs/roadmap/ROADMAP.md'
       - 'scripts/generate_switching_evidence.py'
       - '.github/workflows/telecom-switching.yml'
 permissions:

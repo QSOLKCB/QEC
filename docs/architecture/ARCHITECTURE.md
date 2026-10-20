@@ -25,7 +25,7 @@ decoder. A receipt does not authorize runtime activation or future optimization.
 This exception requires scalar-conformance regressions, full repository tests
 and explicitly scoped construction benchmarks. It establishes no FER, physical
 performance or general simulation-throughput claim. See
-[`docs/QUTRIT_CONSTRUCTION_BENCHMARK.md`](docs/QUTRIT_CONSTRUCTION_BENCHMARK.md)
+[`docs/QUTRIT_CONSTRUCTION_BENCHMARK.md`](../QUTRIT_CONSTRUCTION_BENCHMARK.md)
 for measurements and limitations. All other protected-core constraints below
 continue to apply.
 

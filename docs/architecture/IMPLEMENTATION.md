@@ -47,7 +47,7 @@ cd QEC
 
 Install dependencies:
 
-pip install -r requirements.txt
+pip install -r requirements/legacy-full.txt
 
 Or (preferred modern workflow):
 
@@ -129,7 +129,7 @@ Run:
 
 export IRC_SERVER=irc.libera.chat
 export IRC_CHANNEL=#qec-sim
-python run_bot.py
+python scripts/run_bot.py
 
 Purpose:
 

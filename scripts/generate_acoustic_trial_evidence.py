@@ -71,7 +71,7 @@ def _code_manifest():
     for relative in ("src/qec/experiments/acoustic", "src/qec/decoder", "src/qec/sonify",
                      "src/qec/routing/digital", "src/qec/routing/packet"):
         files.extend(sorted((ROOT / relative).rglob("*.py")))
-    for name in ("pyproject.toml", "requirements.txt", "requirements-test.txt", "dev-requirements.txt"):
+    for name in ("pyproject.toml", "requirements/legacy-full.txt", "requirements/test.txt", "requirements/dev.txt"):
         if (ROOT / name).is_file():
             files.append(ROOT / name)
     return [{"path": _portable_relative(path, ROOT), "sha256": _sha(path.read_bytes()), "bytes": path.stat().st_size}

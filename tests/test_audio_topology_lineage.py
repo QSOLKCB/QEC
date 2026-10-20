@@ -46,8 +46,8 @@ from qec.audio.audio_topology_lineage import (
 # ── Paths ───────────────────────────────────────────────────────────────────
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_V1_PATH = os.path.join(_REPO_ROOT, "Quantum Coherence Threshold (v1).mp3")
-_V2_PATH = os.path.join(_REPO_ROOT, "Quantum Coherence Threshold (v2).mp3")
+_V1_PATH = os.path.join(_REPO_ROOT, "archive", "sonification", "audio", "Quantum Coherence Threshold (v1).mp3")
+_V2_PATH = os.path.join(_REPO_ROOT, "archive", "sonification", "audio", "Quantum Coherence Threshold (v2).mp3")
 _HAS_ARTIFACTS = os.path.isfile(_V1_PATH) and os.path.isfile(_V2_PATH)
 
 _DECODER_DIR = os.path.join(_REPO_ROOT, "src", "qec", "decoder")

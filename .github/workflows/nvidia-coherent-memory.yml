@@ -6,8 +6,11 @@ on:
       - 'scripts/run_nvidia_pilot.py'
       - 'tests/test_nvidia_coherent_memory.py'
       - 'tests/test_nvidia_evidence_bundle.py'
+      - 'tests/test_nvidia_gpu_acceptance.py'
       - 'tests/fixtures/nvidia_coherent_memory/**'
       - 'requirements-nvidia.txt'
+      - 'requirements-memory.txt'
+      - 'requirements-memory-py311.txt'
       - '.github/workflows/nvidia-coherent-memory.yml'
   workflow_dispatch:
 permissions:
@@ -16,6 +19,13 @@ jobs:
   cpu-reference:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      matrix:
+        include:
+          - python: '3.11'
+            requirements: requirements-memory-py311.txt
+          - python: '3.12'
+            requirements: requirements-memory.txt
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,12 +33,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - run: python -m pip install -e '.[dev]' -r requirements-memory.txt
-      - run: python -m pytest -q tests/test_nvidia_coherent_memory.py tests/test_nvidia_evidence_bundle.py tests/test_surface_memory_correlation.py tests/test_interop_import_hygiene.py
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -e '.[dev]' -r ${{ matrix.requirements }}
+      - run: python -m pytest -q tests/test_nvidia_coherent_memory.py tests/test_nvidia_evidence_bundle.py tests/test_nvidia_gpu_acceptance.py tests/test_surface_memory_correlation.py tests/test_interop_import_hygiene.py
       - run: python -m bench.interop.nvidia_coherent_memory --backend cpu --output artifacts/nvidia-pilot-cpu.json
       - uses: actions/upload-artifact@v4
         with:
-          name: coherent-memory-cpu-${{ github.event.pull_request.head.sha || github.sha }}
+          name: coherent-memory-cpu-py${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: artifacts/nvidia-pilot-cpu.json
 # No GPU installed or claimed on this hosted CPU runner. GPU receipt comes later.

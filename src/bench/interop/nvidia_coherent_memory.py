@@ -126,6 +126,27 @@ class BackendUnavailable(RuntimeError):
     pass
 
 
+def _prepare_gates(gates, dtype, workspace_query):
+    """Retain distinct host matrices and query each matrix/control-count once.
+
+    All caches are local to one execution, handle and precision. Targets do not
+    enter the workspace query; control count does. The ordered plan keeps every
+    gate application, and owns matrix buffers until final GPU synchronization.
+    """
+    matrices, sizes, plan = {}, {}, []
+    for name, target, control, angle in gates:
+        key = (name, angle)
+        if key not in matrices:
+            matrices[key] = np.ascontiguousarray(matrix(name, angle), dtype=dtype)
+        m = matrices[key]
+        controls = int(control is not None)
+        query_key = (key, controls)
+        if query_key not in sizes:
+            sizes[query_key] = workspace_query(m, controls)
+        plan.append((target, control, m))
+    return plan, max(sizes.values(), default=0)
+
+
 def gpu_state(gates, precision):
     """Low-level cuStateVec apply_matrix on device pointers, with no fallback."""
     try:
@@ -152,16 +173,16 @@ def gpu_state(gates, precision):
         with cp.cuda.Stream.null:
             state = cp.zeros(8, dtype=dtype)
             state[0] = 1
-            matrices = [np.ascontiguousarray(matrix(g[0], g[3]), dtype=dtype) for g in gates]
-            sizes = [sv.apply_matrix_get_workspace_size(handle, data_type, 3, m.ctypes.data, data_type, sv.MatrixLayout.ROW, 0, 1, int(g[2] is not None), compute) for g, m in zip(gates, matrices)]
-            workspace_size = max(sizes, default=0)
+            plan, workspace_size = _prepare_gates(
+                gates, dtype, lambda m, controls: sv.apply_matrix_get_workspace_size(
+                    handle, data_type, 3, m.ctypes.data, data_type,
+                    sv.MatrixLayout.ROW, 0, 1, controls, compute))
             if workspace_size + state.nbytes > min(64*1024**2, free_before//4):
                 raise MemoryError('cuStateVec workspace exceeds conservative 64 MiB/free-memory cap')
             workspace = cp.cuda.alloc(workspace_size) if workspace_size else None
             cp.cuda.Stream.null.synchronize()
             start = time.perf_counter()
-            for gate, m in zip(gates, matrices):
-                _, target, control, _ = gate
+            for target, control, m in plan:
                 controls = [] if control is None else [control]
                 sv.apply_matrix(handle, state.data.ptr, data_type, 3, m.ctypes.data, data_type, sv.MatrixLayout.ROW, 0, [target], 1, controls, [1]*len(controls), len(controls), compute, workspace.ptr if workspace else 0, workspace_size)
             cp.cuda.Stream.null.synchronize()

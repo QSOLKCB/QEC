@@ -72,3 +72,33 @@ def test_sonic_output_stays_outside_archive(monkeypatch):
     monkeypatch.setattr(script, "run_sonic_batch_analysis", fake_run)
     script.main()
     assert Path(seen["output_root"]) == ROOT / "artifacts" / "sonic"
+
+
+def test_historical_overview_migrated_document_links_resolve():
+    """Check only migration targets, not unrelated historical/external links."""
+    import posixpath
+    import re
+    from urllib.parse import unquote, urlsplit
+
+    overview = ROOT / "docs" / "archive" / "README_BEFORE_V177_1_CLEANUP.md"
+    text = overview.read_text(encoding="utf-8")
+    moves = json.loads(MANIFEST.read_text(encoding="utf-8"))["moves"]
+    documents = {
+        item["original_path"]: item["path"]
+        for item in moves if item["original_path"].endswith(".md")
+    }
+    destinations = set(documents.values())
+    seen = set()
+    for target in re.findall(r"\]\(([^\s)]+)\)", text):
+        url = urlsplit(target)
+        if url.scheme or url.netloc or not url.path:
+            continue
+        resolved = posixpath.normpath(posixpath.join("docs/archive", unquote(url.path)))
+        assert resolved not in documents, f"Stale migrated documentation link: {target}"
+        if resolved in destinations:
+            assert (ROOT / resolved).is_file(), f"Missing migrated documentation: {target}"
+            seen.add(resolved)
+    assert {
+        "docs/roadmap/ROADMAP.md", "docs/guides/INSTALL.md",
+        "docs/README.md", "docs/guides/USAGE.md",
+    } <= seen

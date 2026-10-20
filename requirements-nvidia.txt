@@ -1,0 +1,6 @@
+# Optional NVIDIA validation environment, not required by CPU/Stim CI.
+# Verified release names on 2026-10-20; actual GPU execution is still pending.
+# Linux, Python 3.11-3.14, compatible NVIDIA driver; see docs/nvidia_coherent_memory.md.
+# These are top-level pins, not a complete transitive lockfile.
+cuquantum-python-cu13==26.9.0
+cupy-cuda13x[ctk]==14.2.0

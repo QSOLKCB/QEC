@@ -301,3 +301,9 @@ def run_stim_pymatching_baseline(
         rec["determinism"]["artifact_hash"] = artifact_hash(rec)
 
     return records
+
+
+def run_surface_memory_correlation(**kwargs: Any) -> dict[str, Any]:
+    """Run the additive CPU physical-fault correlation lane (separate schema)."""
+    from .memory_correlation import run_experiment
+    return run_experiment(**kwargs)

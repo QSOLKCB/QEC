@@ -90,6 +90,7 @@ def run(output):
     status = git('status', '--porcelain', '--untracked-files=normal')
     output.mkdir(parents=True, exist_ok=False)
     commands = [
+        ('stim-preflight', [sys.executable, '-c', 'import stim; print(stim.__version__)']),
         ('cpu', [sys.executable, '-m', 'bench.interop.nvidia_coherent_memory', '--backend', 'cpu', '--output', str(output/'cpu.json')]),
         *[(f'gpu-{precision}', [sys.executable, '-m', 'bench.interop.nvidia_coherent_memory', '--backend', 'cuquantum', '--precision', precision, '--output', str(output/f'gpu-{precision}.json')]) for precision in ('complex64', 'complex128')],
         ('tests', [sys.executable, '-m', 'pytest', '-q', 'tests/test_nvidia_coherent_memory.py', 'tests/test_nvidia_evidence_bundle.py']),

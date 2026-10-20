@@ -122,9 +122,18 @@ def test_run_and_replay_wrapper_with_explicit_test_doubles(tmp_path, monkeypatch
     first = tmp_path/'first'
     assert bundle.run(first) == 0
     assert bundle.verify(first/'evidence.zip')['science_receipts_passed']
+    metadata = json.loads((first/'run.json').read_text())
+    assert metadata['commands'][0]['name'] == 'stim-preflight'
     assert bundle.replay(first/'evidence.zip', tmp_path/'replayed') == 0
     with pytest.raises(FileExistsError):
         bundle.run(first)
+    def no_stim(command, **kw):
+        if command[1] == '-c':
+            return SimpleNamespace(returncode=1, stdout='TEST DOUBLE: Stim missing')
+        return fake_command(command, **kw)
+    monkeypatch.setattr(bundle.subprocess, 'run', no_stim)
+    assert bundle.run(tmp_path/'missing-stim') == 1
+    assert not json.loads((tmp_path/'missing-stim'/'run.json').read_text())['verified']
     def incomplete_run(output):
         output.mkdir()
         (output/'cpu.json').write_bytes((first/'cpu.json').read_bytes())

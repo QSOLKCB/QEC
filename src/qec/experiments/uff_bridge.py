@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List
 
 import numpy as np
 
-from qec.controller.execution_proof import create_execution_proof
+from qec.controller.execution_proof import create_execution_proof, experiment_result_binding
 from qec.controller.multi_agent_verifier import verify_multi_agent
 from qec.controller.qec_fsm import QECFSM
 from qec.controller.replay_engine import verify_run
@@ -206,25 +206,17 @@ def run_uff_experiment(
         sample_input, history, merged_config, max_steps=20,
     )
 
-    # --- Execution proof ---
-    proof = create_execution_proof(
-        verify_result=verification,
-        signer_id=signer_id,
-        private_key_pem=private_key_pem,
-        public_key_pem=public_key_pem,
-        trusted_signers=trusted_signers,
-        metadata={"theta": theta},
-    )
-
-    # --- Multi-agent consensus ---
+    # Consensus is computed before proof signing; the verifier's proof
+    # argument is currently reserved and does not affect the computation.
+    # This lets the final signature bind the actual consensus and metrics.
     consensus = verify_multi_agent(
         initial_input=sample_input,
         history=history,
         config=merged_config,
-        proof=proof,
+        proof=None,
     )
 
-    return {
+    result = {
         "theta": theta,
         "features": features,
         "probe": copy.deepcopy(fsm_result),
@@ -234,6 +226,21 @@ def run_uff_experiment(
         },
         "trajectory": trajectory,
         "verification": verification,
-        "proof": proof,
         "consensus": consensus,
     }
+
+    proof = create_execution_proof(
+        verify_result=verification,
+        signer_id=signer_id,
+        private_key_pem=private_key_pem,
+        public_key_pem=public_key_pem,
+        trusted_signers=trusted_signers,
+        metadata={
+            **{"theta": theta},
+            "experiment_binding_v1": experiment_result_binding(
+                result, domain="uff", identity=theta
+            ),
+        },
+    )
+    result["proof"] = proof
+    return result

@@ -96,7 +96,7 @@ def valid_bundles():
             action_scope="observe",
             action_payload={"operation": label},
             preconditions=("counter exists",),
-            invariants=("counter deterministic",),
+            invariants=("safety:counter deterministic",),
             proof_obligations=(obligation,),
             validation_flags=("deterministic_only",),
         )

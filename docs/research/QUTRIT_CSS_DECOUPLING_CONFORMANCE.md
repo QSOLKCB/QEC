@@ -13,6 +13,12 @@ The donor is optional fixture-generation tooling, with no new QEC runtime or
 default test dependency. Existing decoders, historical fixtures, governance
 contracts and published release assignments remain unchanged.
 
+This is supplemental coverage for the exact qutrit baseline described in the
+[roadmap's donor interfaces](../roadmap/ROADMAP.md#donor-interfaces-and-preservation).
+It does not advance a release milestone or establish acoustic/physical
+protection. The migrated roadmap remains byte-bound to its preservation
+manifest; this new note carries the research addition separately.
+
 ## Saved cases and independent checks
 
 The [fixture](../../tests/fixtures/research/qutrit-css-decoupling-v1.json)

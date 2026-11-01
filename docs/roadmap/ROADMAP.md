@@ -581,13 +581,6 @@ encoded logical quantum information + declared noise
 
 ### Donor interfaces and preservation
 
-- [css-decoupling](https://github.com/hmx21/css-decoupling) contributes a pinned
-  exact prime-field donor for [qutrit conformance fixtures](../research/QUTRIT_CSS_DECOUPLING_CONFORMANCE.md):
-  SUM/SWAP actions, an actual general-algorithm toric circuit and finite GF(3)
-  checks. This supplemental test coverage does not advance a release milestone
-  or establish acoustic/physical protection. The separate Lean development
-  does not verify Python, and the default backend has no inherited polynomial
-  runtime guarantee.
 - [QEC](https://github.com/QSOLKCB/QEC) contributes exact
   [qutrit](../QUTRIT_HARMONIC_QEC.md)/ququart harmonic readout, correction,
   fault-injection batteries, Digital/Packet switching and canonical receipts.
@@ -812,10 +805,6 @@ software-model results remain separately labelled.
 
 ## Scientific references (inspiration, not QEC validation)
 
-- [Toric codes all the way down (arXiv:2610.40592v1, 29 October 2026)](https://arxiv.org/abs/2610.40592v1):
-  prime-field CSS decoupling and SUM/SWAP construction; source for the bounded
-  [qutrit conformance addition](../research/QUTRIT_CSS_DECOUPLING_CONFORMANCE.md),
-  not a proof of QEC, its Python implementation or its physical roadmap.
 - [Building a Fault-Tolerant Quantum Computer Using Concatenated Cat Codes
   (PRX Quantum, 2022)](https://doi.org/10.1103/PRXQuantum.3.010329):
   architecture proposal involving acoustic resonators and superconducting

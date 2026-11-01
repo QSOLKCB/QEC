@@ -434,8 +434,8 @@ def test_phase621_real_dispatch_emits_one_fixed_notice_after_authentication(vali
         "c1", "PRIVMSG qec-ircd :!trusted-observe"
     )
     assert len(routed) == 1
-    assert routed[0].target_client_id == "c1"
-    assert routed[0].irc_line == (
+    assert routed[0][0] == "c1"
+    assert routed[0][1] == (
         ":qec-ircd NOTICE alice :TRUSTED_OBSERVATION_ACCEPTED"
     )
     assert server.state.channels == {}

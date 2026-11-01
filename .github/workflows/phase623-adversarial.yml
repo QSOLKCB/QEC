@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: MPL-2.0
+name: Phase 623 real-socket adversarial trial
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/phase623-adversarial.yml'
+      - 'tests/test_phase623_end_to_end.py'
+      - 'tests/test_phase623_receipt_verifier.py'
+      - 'scripts/maintenance/verify_phase623_trial.py'
+      - 'tests/test_evidence_trust_composition.py'
+      - 'src/qec/operator/irc_server.py'
+      - 'src/qec/operator/trusted_observation.py'
+      - 'src/qec/operator/observation_replay_ledger.py'
+      - 'src/qec/orchestration/evidence_trust_composition.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/phase623-adversarial.yml'
+      - 'tests/test_phase623_end_to_end.py'
+      - 'tests/test_phase623_receipt_verifier.py'
+      - 'scripts/maintenance/verify_phase623_trial.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-socket:
+    name: Real Ed25519 and loopback socket attack trials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install QEC and required cryptographic verifier
+        run: |
+          python -m pip install -e '.[dev]'
+          python -m pip install 'cryptography>=43,<47'
+      - name: Prove real Ed25519 is usable
+        run: |
+          python - <<'PY'
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+          from qec.controller.execution_proof import _CRYPTO_AVAILABLE
+          assert _CRYPTO_AVAILABLE is True
+          private = Ed25519PrivateKey.generate()
+          message = b"phase623-actual-signature-verified"
+          private.public_key().verify(private.sign(message), message)
+          print("Real Ed25519 sign/verify executed")
+          PY
+      - name: Test trial-inventory verifier's fail-closed behavior
+        run: python -m pytest -q tests/test_phase623_receipt_verifier.py
+      - name: Execute actual signed two-client IRC attack scenarios
+        run: |
+          python -m pytest -q -ra tests/test_phase623_end_to_end.py \
+            --junitxml="$RUNNER_TEMP/phase623-junit.xml"
+      - name: Independently validate executed trial inventory and write receipt
+        run: |
+          python scripts/maintenance/verify_phase623_trial.py \
+            "$RUNNER_TEMP/phase623-junit.xml" \
+            "$RUNNER_TEMP/phase623-inventory.json" \
+            "$(git rev-parse HEAD)"
+          sha256sum "$RUNNER_TEMP/phase623-junit.xml" \
+            "$RUNNER_TEMP/phase623-inventory.json"
+      - name: Retain JUnit result including incomplete/failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase623-junit-${{ github.run_id }}
+          path: ${{ runner.temp }}/phase623-junit.xml
+          if-no-files-found: warn
+      - name: Retain verified per-run inventory (never checked in)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase623-inventory-${{ github.run_id }}
+          path: ${{ runner.temp }}/phase623-inventory.json
+          if-no-files-found: error

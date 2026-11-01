@@ -16,7 +16,6 @@ import re
 from typing import Optional, Callable, Dict
 
 _MAX_IRC_LINE_BYTES = 512
-_MAX_PENDING_BYTES = 2048
 
 def _safe_terminal_text(text: str) -> str:
     """Render untrusted IRC control and bidi text without terminal effects."""
@@ -82,6 +81,9 @@ class IRCBot:
             except Exception:
                 raw_sock.close()
                 raise
+            # create_connection(timeout=20) is a connection deadline, not
+            # a receive-idle deadline. IRC peers may legitimately stay silent.
+            self.sock.settimeout(None)
             self.connected = True
             
             # Send connection info
@@ -250,12 +252,12 @@ class IRCBot:
                     # Neither means "try again immediately".
                     break
 
+                # A legal 512-byte frame may be split across recv() calls.
+                # Extract complete frames before checking the incomplete tail.
+                # recv() is 2048 bytes and the previous tail is <=512 bytes.
                 buffer += data
-                if len(buffer.encode('utf-8')) > _MAX_PENDING_BYTES:
-                    print("IRC receive buffer limit exceeded; disconnecting")
-                    break
                 lines = buffer.split('\r\n')
-                buffer = lines[-1]  # Keep incomplete line in buffer
+                buffer = lines[-1]  # Only the unterminated tail persists.
                 if len(buffer.encode('utf-8')) > _MAX_IRC_LINE_BYTES:
                     print("IRC partial line exceeded 512 bytes; disconnecting")
                     break

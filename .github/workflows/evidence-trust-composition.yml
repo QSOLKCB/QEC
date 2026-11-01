@@ -7,6 +7,9 @@ on:
     paths:
       - '.github/workflows/evidence-trust-composition.yml'
       - 'src/qec/orchestration/evidence_trust_composition.py'
+      - 'src/qec/operator/irc_server.py'
+      - 'src/qec/operator/trusted_observation.py'
+      - 'src/qec/operator/observation_replay_ledger.py'
       - 'tests/test_evidence_trust_composition.py'
       - 'src/qec/controller/execution_proof.py'
       - 'src/qec/analysis/capability_privilege_boundary_engine.py'
@@ -17,6 +20,9 @@ on:
     paths:
       - '.github/workflows/evidence-trust-composition.yml'
       - 'src/qec/orchestration/evidence_trust_composition.py'
+      - 'src/qec/operator/irc_server.py'
+      - 'src/qec/operator/trusted_observation.py'
+      - 'src/qec/operator/observation_replay_ledger.py'
       - 'tests/test_evidence_trust_composition.py'
   workflow_dispatch:
 

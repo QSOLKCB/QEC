@@ -25,6 +25,9 @@ from qec.operator.irc_server import IRCServer
 from qec.operator.trusted_observation import (
     TrustedObservationAuthority, authorize_trusted_observation,
 )
+from qec.operator.observation_replay_ledger import (
+    ObservationReplayLedger, verify_observation_gate_chain,
+)
 from qec.orchestration.deterministic_covenant_engine import (
     build_covenant_rule, execute_covenant_transition,
 )
@@ -568,6 +571,229 @@ def test_phase621_live_socket_approved_notice_is_single_and_bounded(valid_bundle
             # No hidden second reply or additional outbound disclosure.
             with pytest.raises(asyncio.TimeoutError):
                 await asyncio.wait_for(reader.readline(), 0.2)
+        finally:
+            if writer is not None:
+                writer.close()
+                await writer.wait_closed()
+            await server.stop()
+
+    asyncio.run(run())
+
+
+# Phase 622: one-use operations, operator-only revocation and reasoned local
+# receipts. Real Ed25519 fixtures are the same signed Phase 620 controls.
+_OBSERVE_LINE = "PRIVMSG qec-ircd :!trusted-observe"
+_ACCEPTED_NOTICE = ":qec-ircd NOTICE alice :TRUSTED_OBSERVATION_ACCEPTED"
+
+
+def _new_observation_server(bundle, *, ledger=None):
+    server = IRCServer(
+        trusted_observation=_trusted_observe_authority(bundle),
+        observation_ledger=ledger,
+    )
+    _register_irc(server, "c1", "alice")
+    return server
+
+
+def test_phase622_allow_is_single_use_and_deny_has_no_second_notice(valid_bundles):
+    a, _ = valid_bundles
+    server = _new_observation_server(a)
+    before = copy.deepcopy(server.state)
+    assert server._handle_message_routed("c1", _OBSERVE_LINE) == (
+        ("c1", _ACCEPTED_NOTICE),
+    )
+    assert server._handle_message_routed("c1", _OBSERVE_LINE) == ()
+    assert server.state == before
+    receipts = server.observation_gate_receipts
+    assert [x.verdict for x in receipts] == ["ALLOW", "DENY"]
+    assert [x.reason for x in receipts] == [
+        "COMPOSED_TRUST_ACCEPTED", "REPLAYED_OPERATION",
+    ]
+    assert verify_observation_gate_chain(receipts)
+    assert receipts[0].operation_digest == receipts[1].operation_digest
+    assert a["context"].operation_id not in repr(receipts)
+    assert server.observation_gate_receipts == receipts
+
+
+def test_phase622_reused_operation_id_denied_after_new_valid_authority(valid_bundles):
+    a, b = valid_bundles
+    server = _new_observation_server(a)
+    assert server.handle_message("c1", _OBSERVE_LINE) == (_ACCEPTED_NOTICE,)
+    # Both A and B are genuine independently ALLOWing bundles. The operator
+    # rotates the server authority to B but gives it A's *spent* operation ID.
+    repeated = replace(b["context"], operation_id=a["context"].operation_id)
+    authority_b = _trusted_observe_authority(b, context=repeated)
+    assert authorize_trusted_observation(authority_b, "c1")
+    server.install_trusted_observation(authority_b)
+    assert server._handle_message_routed("c1", _OBSERVE_LINE) == ()
+    assert server.observation_gate_receipts[-1].reason == "REPLAYED_OPERATION"
+    # Legitimate brand-new B operation can still be admitted once.
+    server.install_trusted_observation(_trusted_observe_authority(b))
+    assert server.handle_message("c1", _OBSERVE_LINE) == (_ACCEPTED_NOTICE,)
+    assert server.handle_message("c1", _OBSERVE_LINE) == ()
+    assert verify_observation_gate_chain(server.observation_gate_receipts)
+
+
+@pytest.mark.parametrize("dimension,reason", (
+    ("operation", "REVOKED_OPERATION"),
+    ("signer", "REVOKED_SIGNER"),
+    ("capability", "REVOKED_CAPABILITY"),
+    ("policy", "REVOKED_POLICY"),
+))
+def test_phase622_operator_revocation_blocks_first_execution(
+    valid_bundles, dimension, reason,
+):
+    a, _ = valid_bundles
+    ledger = ObservationReplayLedger()
+    if dimension == "operation":
+        ledger.revoke_operation(a["context"].operation_id)
+    elif dimension == "signer":
+        ledger.revoke_signer(a["context"].trusted_signer_id)
+    elif dimension == "capability":
+        ledger.revoke_capability(a["context"].capability_hash)
+    else:
+        ledger.revoke_policy(a["context"].firewall_policy_rules_hash)
+    server = _new_observation_server(a, ledger=ledger)
+    before = copy.deepcopy(server.state)
+    assert server._handle_message_routed("c1", _OBSERVE_LINE) == ()
+    assert server.state == before
+    assert server.observation_gate_receipts[-1].reason == reason
+    # Reinstalling authentic evidence cannot undo an operator revocation.
+    server.install_trusted_observation(_trusted_observe_authority(a))
+    assert server._handle_message_routed("c1", _OBSERVE_LINE) == ()
+    assert server.observation_gate_receipts[-1].reason == reason
+    assert verify_observation_gate_chain(server.observation_gate_receipts)
+
+
+def test_phase622_existing_allow_receipt_cannot_authorize_after_revocation(valid_bundles):
+    a, b = valid_bundles
+    ledger = ObservationReplayLedger()
+    server = _new_observation_server(a, ledger=ledger)
+    assert server.handle_message("c1", _OBSERVE_LINE) == (_ACCEPTED_NOTICE,)
+    old_allow = server.observation_gate_receipts[0]
+    assert old_allow.verdict == "ALLOW"
+    # This second signer/capability belongs to a separately valid operation.
+    # Revocation applies before its first use, regardless of the earlier ALLOW.
+    ledger.revoke_signer(b["context"].trusted_signer_id)
+    server.install_trusted_observation(_trusted_observe_authority(b))
+    assert server._handle_message_routed("c1", _OBSERVE_LINE) == ()
+    assert server.observation_gate_receipts[-1].reason == "REVOKED_SIGNER"
+    assert old_allow == server.observation_gate_receipts[0]
+
+
+def test_phase622_changed_policy_or_signer_does_not_consume_valid_operation(valid_bundles):
+    a, b = valid_bundles
+    for field, value in (
+        ("firewall_policy_rules_hash", b["context"].firewall_policy_rules_hash),
+        ("trusted_signer_id", b["context"].trusted_signer_id),
+    ):
+        server = _new_observation_server(a)
+        changed = replace(a["context"], **{field: value})
+        server.install_trusted_observation(_trusted_observe_authority(a, context=changed))
+        assert server._handle_message_routed("c1", _OBSERVE_LINE) == ()
+        assert server.observation_gate_receipts[-1].reason == "COMPOSITION_DENIED"
+        server.install_trusted_observation(_trusted_observe_authority(a))
+        assert server.handle_message("c1", _OBSERVE_LINE) == (_ACCEPTED_NOTICE,)
+        assert verify_observation_gate_chain(server.observation_gate_receipts)
+
+
+def test_phase622_receipts_reject_tampering_and_invalid_revocations(valid_bundles):
+    a, _ = valid_bundles
+    ledger = ObservationReplayLedger()
+    for method in (
+        ledger.revoke_operation, ledger.revoke_signer,
+        ledger.revoke_capability, ledger.revoke_policy,
+    ):
+        for invalid in ("", " padded ", None, 17):
+            with pytest.raises(ValueError):
+                method(invalid)
+    server = _new_observation_server(a, ledger=ledger)
+    assert server._handle_message_routed("c1", _OBSERVE_LINE)
+    assert not ledger.saturated
+    original = server.observation_gate_receipts
+    assert verify_observation_gate_chain(original)
+    assert not verify_observation_gate_chain(
+        (replace(original[0], reason="FORGED_DENIAL"),)
+    )
+    assert not verify_observation_gate_chain(
+        (replace(original[0], receipt_hash="0" * 64),)
+    )
+
+
+def test_phase622_full_ledger_fails_closed_without_evicting_used_ids(valid_bundles):
+    a, b = valid_bundles
+    ledger = ObservationReplayLedger(max_receipts=1)
+    server = _new_observation_server(a, ledger=ledger)
+    assert server.handle_message("c1", _OBSERVE_LINE) == (_ACCEPTED_NOTICE,)
+    server.install_trusted_observation(_trusted_observe_authority(b))
+    assert server.handle_message("c1", _OBSERVE_LINE) == ()
+    assert ledger.saturated
+    assert len(ledger.receipts) == 1
+    assert verify_observation_gate_chain(ledger.receipts)
+    with pytest.raises(ValueError):
+        ObservationReplayLedger(max_receipts=0)
+
+
+def test_phase622_concurrent_replays_are_serialized_in_one_server(valid_bundles):
+    from concurrent.futures import ThreadPoolExecutor
+
+    a, _ = valid_bundles
+    server = _new_observation_server(a)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        outcomes = list(pool.map(
+            lambda _: server._handle_message_routed("c1", _OBSERVE_LINE),
+            range(16),
+        ))
+    assert outcomes.count((("c1", _ACCEPTED_NOTICE),)) == 1
+    assert outcomes.count(()) == 15
+    assert verify_observation_gate_chain(server.observation_gate_receipts)
+
+
+def test_phase622_shared_in_memory_ledger_blocks_second_server_replay(valid_bundles):
+    a, _ = valid_bundles
+    ledger = ObservationReplayLedger()
+    first = _new_observation_server(a, ledger=ledger)
+    assert first.handle_message("c1", _OBSERVE_LINE) == (_ACCEPTED_NOTICE,)
+    second = _new_observation_server(a, ledger=ledger)
+    assert second.handle_message("c1", _OBSERVE_LINE) == ()
+    assert ledger.receipts[-1].reason == "REPLAYED_OPERATION"
+    # No inference about durable process restart without an external store.
+
+
+def test_phase622_loopback_socket_replayed_notice_suppressed(valid_bundles):
+    a, _ = valid_bundles
+
+    async def run():
+        ledger = ObservationReplayLedger()
+        server = IRCServer(
+            host="127.0.0.1", port=0,
+            trusted_observation=_trusted_observe_authority(
+                a, client_id="client-0001",
+            ),
+            observation_ledger=ledger,
+        )
+        await server.start()
+        writer = None
+        try:
+            port = server._server.sockets[0].getsockname()[1]
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.write(b"NICK alice\r\nUSER u 0 * :r\r\n")
+            await writer.drain()
+            assert b" 001 alice " in await asyncio.wait_for(reader.readline(), 2)
+            writer.write(b"PRIVMSG qec-ircd :!trusted-observe\r\n")
+            await writer.drain()
+            assert await asyncio.wait_for(reader.readline(), 2) == (
+                b":qec-ircd NOTICE alice :TRUSTED_OBSERVATION_ACCEPTED\r\n"
+            )
+            writer.write(b"PRIVMSG qec-ircd :!trusted-observe\r\n")
+            await writer.drain()
+            # There is no second authorized output at the actual socket.
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(reader.readline(), 0.2)
+            assert [r.reason for r in ledger.receipts] == [
+                "COMPOSED_TRUST_ACCEPTED", "REPLAYED_OPERATION",
+            ]
+            assert verify_observation_gate_chain(ledger.receipts)
         finally:
             if writer is not None:
                 writer.close()

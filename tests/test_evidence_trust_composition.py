@@ -758,3 +758,46 @@ def test_phase622_shared_in_memory_ledger_blocks_second_server_replay(valid_bund
     assert second.handle_message("c1", _OBSERVE_LINE) == ()
     assert ledger.receipts[-1].reason == "REPLAYED_OPERATION"
     # No inference about durable process restart without an external store.
+
+
+def test_phase622_loopback_socket_replayed_notice_suppressed(valid_bundles):
+    a, _ = valid_bundles
+
+    async def run():
+        ledger = ObservationReplayLedger()
+        server = IRCServer(
+            host="127.0.0.1", port=0,
+            trusted_observation=_trusted_observe_authority(
+                a, client_id="client-0001",
+            ),
+            observation_ledger=ledger,
+        )
+        await server.start()
+        writer = None
+        try:
+            port = server._server.sockets[0].getsockname()[1]
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.write(b"NICK alice\r\nUSER u 0 * :r\r\n")
+            await writer.drain()
+            assert b" 001 alice " in await asyncio.wait_for(reader.readline(), 2)
+            writer.write(b"PRIVMSG qec-ircd :!trusted-observe\r\n")
+            await writer.drain()
+            assert await asyncio.wait_for(reader.readline(), 2) == (
+                b":qec-ircd NOTICE alice :TRUSTED_OBSERVATION_ACCEPTED\r\n"
+            )
+            writer.write(b"PRIVMSG qec-ircd :!trusted-observe\r\n")
+            await writer.drain()
+            # There is no second authorized output at the actual socket.
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(reader.readline(), 0.2)
+            assert [r.reason for r in ledger.receipts] == [
+                "COMPOSED_TRUST_ACCEPTED", "REPLAYED_OPERATION",
+            ]
+            assert verify_observation_gate_chain(ledger.receipts)
+        finally:
+            if writer is not None:
+                writer.close()
+                await writer.wait_closed()
+            await server.stop()
+
+    asyncio.run(run())

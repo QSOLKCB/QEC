@@ -149,7 +149,7 @@ class IRCBot:
                 raise ValueError("IRC output exceeds 512-byte line limit")
             self.sock.sendall(wire)
     
-    def _receive(self) -> Optional[str]:
+    def _receive(self) -> Optional[bytes]:
         """
         Receive message from IRC server.
         
@@ -158,7 +158,7 @@ class IRCBot:
         """
         try:
             data = self.sock.recv(2048)
-            return data.decode('utf-8', errors='ignore')
+            return data
         except Exception as e:
             print(f"Receive error: {e}")
             return None
@@ -239,7 +239,7 @@ class IRCBot:
             return
         
         self.running = True
-        buffer = ""
+        buffer = b""
         
         print("Bot running. Press Ctrl+C to stop.")
         
@@ -247,8 +247,8 @@ class IRCBot:
             while self.running:
                 # Receive data
                 data = self._receive()
-                if data is None or data == "":
-                    # None: receive failure; empty string: clean peer EOF.
+                if data is None or data == b"":
+                    # None: receive failure; b"": clean peer EOF.
                     # Neither means "try again immediately".
                     break
 
@@ -256,19 +256,21 @@ class IRCBot:
                 # Extract complete frames before checking the incomplete tail.
                 # recv() is 2048 bytes and the previous tail is <=512 bytes.
                 buffer += data
-                lines = buffer.split('\r\n')
+                lines = buffer.split(b'\r\n')
                 buffer = lines[-1]  # Only the unterminated tail persists.
-                if len(buffer.encode('utf-8')) > _MAX_IRC_LINE_BYTES:
+                if len(buffer) > _MAX_IRC_LINE_BYTES:
                     print("IRC partial line exceeded 512 bytes; disconnecting")
                     break
                 
-                for line in lines[:-1]:
-                    if not line:
+                for raw_line in lines[:-1]:
+                    if not raw_line:
                         continue
-                    
-                    if len(line.encode('utf-8')) + 2 > _MAX_IRC_LINE_BYTES:
+                    if len(raw_line) + 2 > _MAX_IRC_LINE_BYTES:
                         self.running = False
                         break
+                    # Only decode complete IRC lines. UTF-8 code points may
+                    # straddle recv boundaries without being an EOF signal.
+                    line = raw_line.decode('utf-8', errors='replace')
                     print(f"<< {_safe_terminal_text(line)}")
                     
                     # Handle PING

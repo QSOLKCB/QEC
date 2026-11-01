@@ -150,3 +150,70 @@ def test_fail_fast_invalid_input_handling() -> None:
         replay_privilege_decision(b"", grant)
     with pytest.raises(ValueError):
         export_capability_audit_bytes(("not-a-decision",))  # type: ignore[arg-type]
+
+
+def test_self_issued_capability_is_not_authority():
+    grant = _grant()
+    denied = authorize_action(grant, "actor-7", "enqueue", ("sys:queue",))
+    assert denied.privilege_verdict == "DENY"
+    assert denied.stable_decision_hash == _sha256_hex_decision(denied)
+    # Even a perfectly self-consistent grant must not be accepted unless
+    # its identity was independently issued by a trusted authority.
+
+
+def _sha256_hex_decision(decision):
+    from qec.analysis.capability_privilege_boundary_engine import _decision_hash_payload, _sha256_hex
+    return _sha256_hex(_decision_hash_payload(
+        decision.capability_id, decision.actor_id, decision.action_id,
+        decision.scope, decision.privilege_verdict,
+        decision.parent_sovereignty_event_hash, decision.schema_version,
+    ))
+
+
+def test_issued_capability_grant_enables_narrow_allow_and_replay():
+    grant = _grant()
+    trusted = frozenset({grant.capability_hash})  # supplied by a trusted registry
+    allowed = authorize_action(
+        grant, "actor-7", "enqueue", ("sys:queue",),
+        trusted_grant_hashes=trusted,
+    )
+    assert allowed.privilege_verdict == "ALLOW"
+    with pytest.raises(ValueError, match="issued grant"):
+        generate_privilege_receipt(allowed)
+    good = generate_privilege_receipt(
+        allowed, grant=grant, trusted_grant_hashes=trusted
+    )
+    assert good.decision_hash == allowed.stable_decision_hash
+    with pytest.raises(ValueError, match="replay"):
+        replay_privilege_decision(allowed.to_canonical_bytes(), grant)
+    assert replay_privilege_decision(
+        allowed.to_canonical_bytes(), grant,
+        trusted_grant_hashes=trusted
+    ) == allowed
+    with pytest.raises(ValueError, match="authenticated receipt provenance"):
+        export_capability_audit_bytes((allowed,))
+    audit = export_capability_audit_bytes(
+        (allowed,), grants={grant.capability_id: grant}, trusted_grant_hashes=trusted
+    )
+    assert json.loads(audit)["decision_count"] == 1
+    assert authorize_action(
+        grant, "other", "enqueue", ("sys:queue",),
+        trusted_grant_hashes=trusted
+    ).privilege_verdict == "DENY"
+
+
+def test_forged_allow_decisions_fail_receipt_and_audit():
+    grant = _grant()
+    allowed = authorize_action(
+        grant, "actor-7", "enqueue", ("sys:queue",),
+        trusted_grant_hashes=(grant.capability_hash,),
+    )
+    fake = dataclasses.replace(allowed, stable_decision_hash="a" * 64)
+    with pytest.raises(ValueError, match="decision hash mismatch"):
+        generate_privilege_receipt(fake)
+    with pytest.raises(ValueError, match="decision hash mismatch"):
+        export_capability_audit_bytes((fake,))
+    with pytest.raises(ValueError, match="issued grant"):
+        generate_privilege_receipt(allowed, grant=grant, trusted_grant_hashes=())
+    with pytest.raises(ValueError, match="independent collection"):
+        authorize_action(grant, "actor-7", "enqueue", ("sys:queue",), trusted_grant_hashes=grant.capability_hash)

@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: MPL-2.0
+name: Composed evidence trust adversarial gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/evidence-trust-composition.yml'
+      - 'src/qec/orchestration/evidence_trust_composition.py'
+      - 'tests/test_evidence_trust_composition.py'
+      - 'src/qec/controller/execution_proof.py'
+      - 'src/qec/analysis/capability_privilege_boundary_engine.py'
+      - 'src/qec/orchestration/policy_execution_firewall_kernel.py'
+      - 'src/qec/orchestration/governance_memory_io_boundary_auditor.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/evidence-trust-composition.yml'
+      - 'src/qec/orchestration/evidence_trust_composition.py'
+      - 'tests/test_evidence_trust_composition.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-adversarial-matrix:
+    name: Real Ed25519 and cross-boundary negative controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install QEC and required real cryptographic verifier
+        run: |
+          python -m pip install -e '.[dev]'
+          python -m pip install 'cryptography>=43,<47'
+      - name: Fail closed if no real Ed25519 verifier is available
+        run: |
+          python - <<'PY'
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+          from qec.controller.execution_proof import _CRYPTO_AVAILABLE
+          assert _CRYPTO_AVAILABLE is True, "Ed25519 verification backend unavailable"
+          k = Ed25519PrivateKey.generate()
+          k.public_key().verify(k.sign(b"qec-composition-gate"), b"qec-composition-gate")
+          print("Real Ed25519 sign/verify executed")
+          PY
+      - name: Run real-signed composition and adjacent verifier tests
+        run: |
+          python -m pytest -q             tests/test_evidence_trust_composition.py             tests/test_authenticated_experiment_result.py             tests/test_capability_privilege_boundary_engine.py             tests/test_policy_execution_firewall_kernel.py

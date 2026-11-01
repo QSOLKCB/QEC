@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 from pathlib import Path
+import io
 import shutil
+import struct
 import zipfile
 
 import pytest
@@ -219,7 +221,10 @@ def test_no_execution_or_import_behavior():
     src = (Path(mod.__file__)).read_text(encoding="utf-8").lower()
     for banned in (".extract(", ".extractall(", "importlib", "__import__(", "runpy", "subprocess", "exec(", "eval("):
         assert banned not in src
-    assert "zipfile.zipfile(path, \"r\")" in src
+    # Security contract: metadata must be parsed from the same bounded bytes
+    # that were hashed, never through a second mutable pathname open.
+    assert "zipfile.zipfile(io.bytesio(archive_bytes), \"r\")" in src
+    assert "zipfile.zipfile(path, \"r\")" not in src
 
 
 def test_corpus_manifest_deep_validates_child_archives(tmp_path):
@@ -321,3 +326,114 @@ def test_private_path_validator_for_null_and_embedded_drive():
         _validate_archive_entry_path("bad\x00name.py")
     with pytest.raises(ValueError, match="UNSAFE_ARCHIVE_PATH"):
         _validate_archive_entry_path("subdir/C:/evil.py")
+
+def test_intake_rejects_oversized_sparse_archive_before_read(tmp_path):
+    path = tmp_path / "large.zip"
+    with path.open("wb") as stream:
+        stream.truncate(mod._MAX_ARCHIVE_BYTES + 1)
+    with pytest.raises(ValueError, match="INVALID_ARCHIVE_FORMAT"):
+        build_game_world_archive(str(path))
+
+
+def test_intake_rejects_zip_with_excess_members(tmp_path):
+    path = tmp_path / "many.zip"
+    with zipfile.ZipFile(path, "w") as archive:
+        for index in range(mod._MAX_ZIP_ENTRIES + 1):
+            archive.writestr(f"f-{index}.txt", b"")
+    with pytest.raises(ValueError, match="INVALID_ARCHIVE_FORMAT"):
+        build_game_world_archive(str(path))
+
+
+def test_intake_uses_original_snapshot_when_path_is_replaced(tmp_path, monkeypatch):
+    target = tmp_path / "change.zip"
+    _make_zip(target, [("first.py", b"original")])
+    original = target.read_bytes()
+    replacement = tmp_path / "replacement.zip"
+    _make_zip(replacement, [("second.py", b"replacement")])
+    real_snapshot = mod._bounded_zip_snapshot
+
+    def snapshot_then_replace(path):
+        captured = real_snapshot(path)
+        replacement.replace(path)
+        return captured
+
+    monkeypatch.setattr(mod, "_bounded_zip_snapshot", snapshot_then_replace)
+    result = build_game_world_archive(str(target))
+    import hashlib
+    assert result.archive_sha256 == hashlib.sha256(original).hexdigest()
+    assert "Python" in result.detected_languages
+    assert result.file_count == 1
+
+
+def test_intake_rejects_duplicate_and_excess_corpus_before_read(monkeypatch):
+    def no_read(*args, **kwargs):
+        raise AssertionError("unexpected archive access")
+    monkeypatch.setattr(mod, "build_game_world_archive", no_read)
+    with pytest.raises(ValueError, match="DUPLICATE_ARCHIVE"):
+        build_game_world_corpus_manifest(["/a/sample.zip", "/b/sample.zip"])
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        build_game_world_corpus_manifest(
+            [f"/a/f{i}.zip" for i in range(mod._MAX_CORPUS_ARCHIVES + 1)]
+        )
+
+
+def _reject_before_zipinfo_allocation(path, monkeypatch):
+    """No ZipFile constructor is permitted for a rejected directory."""
+    def forbidden(*args, **kwargs):
+        raise AssertionError("ZipFile allocated its directory before rejection")
+    with monkeypatch.context() as patcher:
+        patcher.setattr(mod.zipfile, "ZipFile", forbidden)
+        with pytest.raises(ValueError, match="INVALID_ARCHIVE_FORMAT"):
+            build_game_world_archive(str(path))
+
+
+def test_preflight_rejects_zip64_locator_with_forged_small_classic_eocd(tmp_path, monkeypatch):
+    path = tmp_path / "zip64-forgery.zip"
+    _make_zip(path, [(f"entry-{i}.txt", b"content") for i in range(3)])
+    original = path.read_bytes()
+    eocd = len(original) - 22
+    signature, disk, disk_cd, count, total, cd_size, cd_offset, comment = (
+        struct.unpack_from("<4s4H2IH", original, eocd)
+    )
+    assert signature == b"PK\x05\x06" and total == 3 and comment == 0
+    # Python _EndRecData64 uses this locator to replace even non-sentinel
+    # classic EOCD sizes/counts. The old preflight trusted a forged count=1.
+    zip64_end = struct.pack(
+        "<4sQ2H2L4Q", b"PK\x06\x06", 44, 45, 45,
+        0, 0, count, total, cd_size, cd_offset
+    )
+    locator = struct.pack("<4sLQL", b"PK\x06\x07", 0, eocd, 1)
+    forged_eocd = struct.pack(
+        "<4s4H2IH", b"PK\x05\x06", 0, 0, 1, 1, 46, cd_offset, 0
+    )
+    attack = original[:eocd] + zip64_end + locator + forged_eocd
+    # Sanity check: stdlib would trust the ZIP64 count and create 3 objects.
+    with zipfile.ZipFile(io.BytesIO(attack)) as zf:
+        assert len(zf.infolist()) == 3
+    path.write_bytes(attack)
+    _reject_before_zipinfo_allocation(path, monkeypatch)
+
+
+def test_preflight_counts_real_records_not_forged_classic_eocd(tmp_path, monkeypatch):
+    path = tmp_path / "forged-rows.zip"
+    with zipfile.ZipFile(path, "w") as zf:
+        for i in range(mod._MAX_ZIP_ENTRIES + 2):
+            zf.writestr(f"row-{i}.txt", b"")
+    attack = bytearray(path.read_bytes())
+    eocd = len(attack) - 22
+    assert struct.unpack_from("<I", attack, eocd + 12)[0] < mod._MAX_CENTRAL_BYTES
+    struct.pack_into("<HH", attack, eocd + 8, 1, 1)  # false 1-entry claim
+    # A classic ZIP parser ignores that declared count: actual 2050 records.
+    with zipfile.ZipFile(io.BytesIO(attack)) as zf:
+        assert len(zf.infolist()) == mod._MAX_ZIP_ENTRIES + 2
+    path.write_bytes(attack)
+    _reject_before_zipinfo_allocation(path, monkeypatch)
+
+
+def test_preflight_rejects_zip64_per_entry_extra_before_zipfile(tmp_path, monkeypatch):
+    path = tmp_path / "entry-zip64.zip"
+    info = zipfile.ZipInfo("content.txt")
+    info.extra = struct.pack("<HHQ", 0x0001, 8, 8)
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr(info, b"content")
+    _reject_before_zipinfo_allocation(path, monkeypatch)

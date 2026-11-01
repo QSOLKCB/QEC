@@ -228,3 +228,31 @@ def test_zip_traversal_is_rejected(
             archive,
             expected_archive_sha256=digest,
         )
+
+def test_replication_uses_identical_archive_bytes_after_path_swap(tmp_path, monkeypatch):
+    archive, digest = _write_bundle(tmp_path)
+    old = archive.read_bytes()
+    other = tmp_path / "second.zip"
+    other.write_bytes(b"not an archive")
+    original = replication_module._snapshot_archive
+
+    def swap_after_snapshot(path):
+        result = original(path)
+        other.replace(path)
+        return result
+
+    monkeypatch.setattr(replication_module, "_snapshot_archive", swap_after_snapshot)
+    monkeypatch.setattr(replication_module, "EXPECTED_ARCHIVE_SHA256", digest)
+    receipt = validate_qbraid_replication_archive(
+        archive, expected_archive_sha256=digest
+    )
+    assert receipt["archive"]["sha256"] == _sha(old)
+    assert archive.read_bytes() == b"not an archive"
+
+
+def test_replication_rejects_oversized_sparse_file(tmp_path):
+    path = tmp_path / "oversized.zip"
+    with path.open("wb") as stream:
+        stream.truncate(replication_module._MAX_REPLICATION_ARCHIVE_BYTES + 1)
+    with pytest.raises(NexusReplicationError, match="bounded size contract"):
+        replication_module._snapshot_archive(path)

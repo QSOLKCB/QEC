@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import math
+import os
 from pathlib import Path, PurePosixPath
 import re
 import stat
@@ -36,15 +37,26 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _file_sha(path: Path) -> str:
-    h = hashlib.sha256()
+_MAX_REPLICATION_ARCHIVE_BYTES = 128 * 1024 * 1024
+
+
+def _snapshot_archive(path: Path) -> bytes:
+    """Open a bounded regular file once; authenticate and parse these bytes."""
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
-        with path.open("rb") as stream:
-            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                h.update(chunk)
+        fd = os.open(path, flags)
+        with os.fdopen(fd, "rb") as stream:
+            metadata = os.fstat(stream.fileno())
+            if (not stat.S_ISREG(metadata.st_mode)
+                    or metadata.st_size > _MAX_REPLICATION_ARCHIVE_BYTES):
+                raise NexusReplicationError("replication archive exceeds bounded size contract")
+            data = stream.read(_MAX_REPLICATION_ARCHIVE_BYTES + 1)
+        if len(data) > _MAX_REPLICATION_ARCHIVE_BYTES:
+            raise NexusReplicationError("replication archive exceeds bounded size contract")
     except OSError as exc:
         raise NexusReplicationError(f"cannot read replication archive: {exc}") from exc
-    return h.hexdigest()
+    return data
 
 
 def _object(data: bytes, label: str) -> dict[str, object]:
@@ -211,11 +223,12 @@ def validate_qbraid_replication_archive(
         )
     if not _SHA256.fullmatch(expected_archive_sha256):
         raise NexusReplicationError("expected archive hash must be full SHA-256")
-    archive_sha = _file_sha(archive_path)
+    archive_bytes = _snapshot_archive(archive_path)
+    archive_sha = _sha(archive_bytes)
     if archive_sha != expected_archive_sha256:
         raise NexusReplicationError("replication archive SHA-256 mismatch")
     try:
-        zf = zipfile.ZipFile(archive_path)
+        zf = zipfile.ZipFile(io.BytesIO(archive_bytes))
     except (OSError, zipfile.BadZipFile) as exc:
         raise NexusReplicationError(f"cannot open replication archive: {exc}") from exc
     with zf:

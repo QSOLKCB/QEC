@@ -190,12 +190,16 @@ class TestScoreCandidate:
         """Stable target scores lower for low stability_score."""
         low = evaluate_sequence([], _stable_pipeline)
         high = evaluate_sequence([], _chaotic_pipeline)
+        # Isolate scoring arithmetic with explicitly synthetic trusted summaries;
+        # evaluate_sequence itself now rejects self-asserted proof flags.
+        low["verified"] = high["verified"] = True
         assert score_candidate(low, "stable") < score_candidate(high, "stable")
 
     def test_chaotic_prefers_high_instability(self) -> None:
         """Chaotic target scores lower for high stability_score."""
         stable = evaluate_sequence([], _stable_pipeline)
         chaotic = evaluate_sequence([], _chaotic_pipeline)
+        chaotic["verified"] = stable["verified"] = True
         assert score_candidate(chaotic, "chaotic") < score_candidate(stable, "chaotic")
 
     def test_invalid_target_raises(self) -> None:
@@ -300,3 +304,9 @@ class TestRunInverseDesign:
         run_inverse_design("stable", notes, lengths, _stable_pipeline)
         assert notes == notes_copy
         assert lengths == lengths_copy
+
+
+def test_pipeline_cannot_self_assert_authenticated_proof():
+    summary = evaluate_sequence([], _stable_pipeline)
+    assert summary["verified"] is False
+    assert score_candidate(summary, "stable") == _WORST_SCORE

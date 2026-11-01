@@ -205,12 +205,10 @@ class TestRunMidiCubeExperiment:
 
     def test_verified_true(self, midi_path):
         result = run_midi_cube_experiment(midi_path)
-        mode = result["proof"].get("verification_mode", "ed25519")
-        if mode == "ed25519":
-            assert result["proof"]["verified"] is True
-        else:
-            assert mode == "fallback_hash"
-            assert result["proof"]["verified"] is False
+        # Public experiment runs no longer borrow a published demo private
+        # key or self-assert authentication; callers must opt in to signing.
+        assert result["proof"]["verification_mode"] == "unsigned"
+        assert result["proof"]["verified"] is False
 
     def test_finite_outputs(self, midi_path):
         result = run_midi_cube_experiment(midi_path)
@@ -236,19 +234,15 @@ class TestRunMidiCubeExperiment:
     def test_single_event(self, single_event_midi_path):
         result = run_midi_cube_experiment(single_event_midi_path)
         assert result["events"] == 1
-        mode = result["proof"].get("verification_mode", "ed25519")
-        if mode == "ed25519":
-            assert result["proof"]["verified"] is True
-        else:
-            assert mode == "fallback_hash"
-            assert result["proof"]["verified"] is False
+        # Public experiment runs no longer borrow a published demo private
+        # key or self-assert authentication; callers must opt in to signing.
+        assert result["proof"]["verification_mode"] == "unsigned"
+        assert result["proof"]["verified"] is False
 
     def test_corrupt_mode(self, midi_path):
         result = run_midi_cube_experiment(midi_path, corrupt=True)
         assert result["consensus"]["consensus"] is True
-        mode = result["proof"].get("verification_mode", "ed25519")
-        if mode == "ed25519":
-            assert result["proof"]["verified"] is True
-        else:
-            assert mode == "fallback_hash"
-            assert result["proof"]["verified"] is False
+        # Public experiment runs no longer borrow a published demo private
+        # key or self-assert authentication; callers must opt in to signing.
+        assert result["proof"]["verification_mode"] == "unsigned"
+        assert result["proof"]["verified"] is False

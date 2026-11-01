@@ -139,6 +139,58 @@ def _fake_pipeline_chaotic(_seq: int) -> dict:
     )
 
 
+
+@pytest.fixture()
+def _authenticated_hybrid(monkeypatch):
+    """Verifier-owned test trust: exercise real signatures, not stored flags."""
+    pytest.importorskip("cryptography")
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding, PrivateFormat, PublicFormat, NoEncryption,
+    )
+    from qec.controller.execution_proof import (
+        create_execution_proof, experiment_result_binding,
+    )
+    from qec.controller.replay_engine import build_hash_chain
+
+    private = Ed25519PrivateKey.generate()
+    private_pem = private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
+    public_pem = private.public_key().public_bytes(
+        Encoding.PEM, PublicFormat.SubjectPublicKeyInfo
+    )
+    trusted_signers = {"uff-test": public_pem, "sequence-test": public_pem}
+
+    def authenticated_result(result, signer_id, domain, identity):
+        history = result["probe"]["history"]
+        result["verification"] = {
+            "final_hash": build_hash_chain(history)["final_hash"],
+            "steps": len(history),
+            "match": True,
+            "mismatch_index": None,
+        }
+        result["proof"] = create_execution_proof(
+            result["verification"], signer_id, private_pem, public_pem,
+            trusted_signers=trusted_signers,
+            metadata={"experiment_binding_v1": experiment_result_binding(
+                result, domain=domain, identity=identity,
+            )},
+        )
+        assert result["proof"]["verified"] is True
+        return result
+
+    def signed_uff(theta, **kwargs):
+        return authenticated_result(_fake_uff(theta), "uff-test", "uff", theta)
+
+    def signed_pipeline(seq):
+        return authenticated_result(
+            _fake_pipeline(seq), "sequence-test", "sequence", seq,
+        )
+
+    monkeypatch.setattr(
+        "qec.experiments.uff_bridge.run_uff_experiment", signed_uff
+    )
+    return trusted_signers, signed_pipeline
+
 # ---------------------------------------------------------------------------
 # Tests — Target Specification
 # ---------------------------------------------------------------------------
@@ -351,18 +403,29 @@ class TestRunHybridInverseDesign:
         )
         assert result["top_k"][0]["score"] == _WORST_SCORE
 
-    def test_class_preference_works(self, _patch_uff):
-        """Stable target prefers stable-classified pairs."""
+    def test_class_preference_works(self, _authenticated_hybrid):
+        """Stable target prefers authenticated stable-classified pairs."""
+        trusted_signers, signed_pipeline = _authenticated_hybrid
         result = run_hybrid_inverse_design(
             "stable",
             [[1.0, 2.0, 0.5]],
             [0, 1, 2],
-            pipeline_fn=_fake_pipeline,
+            pipeline_fn=signed_pipeline,
+            trusted_signers=trusted_signers,
             top_k=3,
         )
-        # Best pair should not have alignment "invalid"
         best = result["best_pair"]
         assert best["alignment"] != "invalid"
+        assert best["score"] > _WORST_SCORE
+
+    def test_untrusted_reported_verified_scores_worst(self, _patch_uff):
+        # Producer-controlled verified=True is not evidence of authority.
+        result = run_hybrid_inverse_design(
+            "stable", [[1.0, 2.0, 0.5]], [0],
+            pipeline_fn=_fake_pipeline,
+        )
+        assert result["best_pair"]["alignment"] == "invalid"
+        assert result["best_pair"]["score"] == _WORST_SCORE
 
     def test_empty_theta_grid(self, _patch_uff):
         result = run_hybrid_inverse_design(

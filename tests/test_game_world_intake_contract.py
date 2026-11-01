@@ -219,7 +219,10 @@ def test_no_execution_or_import_behavior():
     src = (Path(mod.__file__)).read_text(encoding="utf-8").lower()
     for banned in (".extract(", ".extractall(", "importlib", "__import__(", "runpy", "subprocess", "exec(", "eval("):
         assert banned not in src
-    assert "zipfile.zipfile(path, \"r\")" in src
+    # Security contract: metadata must be parsed from the same bounded bytes
+    # that were hashed, never through a second mutable pathname open.
+    assert "zipfile.zipfile(io.bytesio(archive_bytes), \"r\")" in src
+    assert "zipfile.zipfile(path, \"r\")" not in src
 
 
 def test_corpus_manifest_deep_validates_child_archives(tmp_path):

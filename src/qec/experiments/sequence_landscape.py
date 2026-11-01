@@ -16,7 +16,7 @@ import json
 import os
 from typing import Any, Callable, Dict, List, Optional, Mapping
 
-from qec.controller.execution_proof import authenticate_execution_proof
+from qec.controller.execution_proof import authenticate_experiment_result
 
 
 # ---------------------------------------------------------------------------
@@ -76,11 +76,12 @@ def _extract_sequence_summary(
     consensus_data = result.get("consensus", {})
     consensus = bool(consensus_data.get("consensus", False))
 
-    proof_data = result.get("proof", {})
-    # Saved producer flags are not authentication. Reverify the signed
-    # payload against independently pinned signer public keys on consumption.
+    # A standalone valid proof may belong to a *different* experiment.
+    # Require a signature binding the exact identity, trace and scored data.
     verified = bool(trusted_signers is not None and
-                    authenticate_execution_proof(proof_data, trusted_signers))
+                    authenticate_experiment_result(
+                        result, trusted_signers, domain="sequence", identity=seq
+                    ))
 
     # --- Trajectory class ---
     trajectory_data = result.get("trajectory", {})

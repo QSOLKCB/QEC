@@ -197,6 +197,31 @@ def experiment_result_binding(
     return {"domain": domain, "identity": identity, "result_hash": digest}
 
 
+def _fsm_step_count_matches_history(steps: Any, history: list) -> bool:
+    """Validate the existing QECFSM.run step/terminal-record convention.
+
+    Normal transitions each increment steps and append one record. Convergence
+    and the step limit append one synthetic TERMINATE record without
+    incrementing steps; these are the *only* permitted extra records.
+    """
+    if type(steps) is not int or steps < 0:
+        return False
+    if len(history) == steps:
+        return True
+    if len(history) != steps + 1 or not isinstance(history[-1], dict):
+        return False
+    terminal = history[-1]
+    return (
+        terminal.get("to_state") == "TERMINATE"
+        and terminal.get("decision") == "CONTINUE"
+        and terminal.get("reason") in ("converged", "max_steps_reached")
+        and (steps == 0 or (
+            isinstance(history[-2], dict)
+            and history[-2].get("to_state") == terminal.get("from_state")
+        ))
+    )
+
+
 def authenticate_experiment_result(
     result: dict,
     trusted_signers: Mapping[str, bytes],
@@ -224,8 +249,9 @@ def authenticate_experiment_result(
                 not isinstance(invariant_history, list) or
                 verification.get("match") is not True or
                 verification.get("mismatch_index") is not None or
-                type(verification.get("steps")) is not int or
-                verification["steps"] != len(history)):
+                not _fsm_step_count_matches_history(
+                    verification.get("steps"), history
+                )):
             return False
         for key in ("final_hash", "steps", "match", "mismatch_index"):
             if signed.get(key) != verification.get(key):

@@ -12,6 +12,7 @@ from .irc_protocol import (
     _MAX_CHANNELS_PER_CLIENT,
     _MAX_CLIENTS,
     _MAX_MESSAGE_LENGTH,
+    _MAX_LINE_BYTES,
     _MAX_USERNAME_LENGTH,
     IRCMessage,
     IRCParseError,
@@ -23,6 +24,7 @@ from .irc_protocol import (
 )
 
 _SERVER_NAME = "qec-ircd"
+_SOCKET_IDLE_TIMEOUT_SECONDS = 60
 
 
 class RoutedReply(NamedTuple):
@@ -62,6 +64,8 @@ class IRCServer:
         self._writer_by_client: dict[str, asyncio.StreamWriter] = {}
         self._server: asyncio.base_events.Server | None = None
         self._client_seq = 0
+        # Transport admission is separate from QUIT/registration state.
+        self._socket_clients: set[str] = set()
         self._enable_replay_audit = enable_replay_audit
         self._audit_interactions: list[tuple[str, str, tuple[str, ...]]] = []
         self._audit_truncated = False
@@ -224,7 +228,7 @@ class IRCServer:
         return replay_irc_audit_from_interactions(tuple(self._audit_interactions), truncated=self._audit_truncated)
 
     async def start(self) -> None:
-        self._server = await asyncio.start_server(self._handle_socket_client, self.host, self.port)
+        self._server = await asyncio.start_server(self._handle_socket_client, self.host, self.port, limit=_MAX_LINE_BYTES + 2)
 
     async def stop(self) -> None:
         if self._server is not None:
@@ -235,9 +239,17 @@ class IRCServer:
     async def _handle_socket_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         self._client_seq += 1
         client_id = f"client-{self._client_seq:04d}"
+        if len(self._socket_clients) >= self.max_clients:
+            writer.write((self._make_reply("500", "*", trailing="Server is full") + "\r\n").encode("utf-8"))
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+            return
+        self._socket_clients.add(client_id)
         try:
             self.add_client(client_id)
         except ValueError:
+            self._socket_clients.discard(client_id)
             writer.write((self._make_reply("500", "*", trailing="Server is full") + "\r\n").encode("utf-8"))
             await writer.drain()
             writer.close()
@@ -246,8 +258,15 @@ class IRCServer:
         self._writer_by_client[client_id] = writer
         try:
             while not reader.at_eof():
-                data = await reader.readline()
-                if not data:
+                try:
+                    data = await asyncio.wait_for(
+                        reader.readline(), timeout=_SOCKET_IDLE_TIMEOUT_SECONDS
+                    )
+                except (asyncio.TimeoutError, ValueError):
+                    # Idle peers and lines beyond the stream reader limit
+                    # cannot hold a connection slot indefinitely.
+                    break
+                if not data or len(data) > _MAX_LINE_BYTES:
                     break
                 line = data.decode("utf-8", errors="strict").rstrip("\r\n")
                 replies = self._handle_message_routed(client_id, line)
@@ -265,7 +284,12 @@ class IRCServer:
                     pending_writers.append(target_writer)
                 for target_writer in pending_writers:
                     await target_writer.drain()
+                # A QUIT destroys protocol registration, but only the
+                # transport finally block releases the admission slot.
+                if client_id not in self.state.clients:
+                    break
         finally:
             self.remove_client(client_id)
+            self._socket_clients.discard(client_id)
             writer.close()
             await writer.wait_closed()

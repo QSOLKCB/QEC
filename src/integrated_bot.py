@@ -370,7 +370,7 @@ def main():
     
     # Configuration
     SERVER = os.environ.get('IRC_SERVER', 'irc.libera.chat')
-    PORT = int(os.environ.get('IRC_PORT', '6667'))
+    PORT = int(os.environ.get('IRC_PORT', '6697'))
     CHANNEL = os.environ.get('IRC_CHANNEL', '#qec-sim')
     NICKNAME = os.environ.get('IRC_NICKNAME', 'QECBot')
     BACKEND = os.environ.get('QEC_BACKEND', 'qutip')

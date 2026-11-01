@@ -73,6 +73,8 @@ installed. Use `python -m pytest -q -ra` to inspect skips; see
   and exact-model correction. [Bridge and limits](docs/ACOUSTIC_SYNDROME_BRIDGE.md)
 - **Opt-in research:** binary CSS presentation witnesses and synthetic delivery
   replay using an unchanged reference decoder. [Scope and reproduction](docs/research/CSS_AND_DELIVERY_EXPERIMENTS.md)
+- **Qutrit circuit conformance:** pinned prime-field SUM/SWAP and toric-code
+  fixtures, independently replayed against GF(3) algebra. [Donor and limits](docs/research/QUTRIT_CSS_DECOUPLING_CONFORMANCE.md)
 
 These are bounded software models and experiments. They do not establish physical
 fault tolerance, hardware thresholds, quantum-state transfer, or quantum advantage.

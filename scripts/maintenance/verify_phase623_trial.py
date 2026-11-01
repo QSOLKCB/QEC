@@ -26,6 +26,22 @@ EXPECTED = {
     "test_phase623_ledger_chain_independently_rejects_tampering": 1,
 }
 
+# Exact pytest node names observed in the previously successful Phase 623
+# JUnit artifact (workflow run 41355448547). The revocation matrix requires
+# all four *different* dimensions, not four arbitrary parameter instances.
+REVOCATION_CASE = "test_phase623_wire_each_revocation_denies_before_any_output"
+REVOCATION_PARAMETERS = (
+    "operation-REVOKED_OPERATION",
+    "signer-REVOKED_SIGNER",
+    "capability-REVOKED_CAPABILITY",
+    "policy-REVOKED_POLICY",
+)
+EXPECTED_TEST_NAMES = frozenset(
+    {name for name, count in EXPECTED.items() if count == 1}
+    | {f"{REVOCATION_CASE}[{parameter}]" for parameter in REVOCATION_PARAMETERS}
+)
+assert len(EXPECTED_TEST_NAMES) == sum(EXPECTED.values())
+
 
 def inspect(xml_bytes: bytes, commit: str) -> dict[str, object]:
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
@@ -39,16 +55,16 @@ def inspect(xml_bytes: bytes, commit: str) -> dict[str, object]:
     for case in cases:
         name = case.attrib.get("name", "")
         base = name.split("[", 1)[0]
-        if base not in EXPECTED or name in names:
-            raise ValueError("unrecognized or repeated Phase 623 test")
+        if name not in EXPECTED_TEST_NAMES or name in names:
+            raise ValueError("unrecognized, substituted, or repeated Phase 623 test")
         if not "test_phase623_end_to_end" in case.attrib.get("classname", ""):
             raise ValueError("wrong test module in executed JUnit")
         if any(case.find(tag) is not None for tag in ("failure", "error", "skipped")):
             raise ValueError("failed, errored, or skipped trial cannot pass")
         names.add(name)
         observed[base] += 1
-    if dict(observed) != EXPECTED:
-        raise ValueError("missing or duplicate adversarial scenario")
+    if dict(observed) != EXPECTED or names != EXPECTED_TEST_NAMES:
+        raise ValueError("missing, duplicated, or substituted adversarial scenario")
     return {
         "schema": "qec-phase623-junit-inventory-v1",
         "claim": "pytest_executed_adversarial_trial_inventory",

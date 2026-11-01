@@ -121,6 +121,45 @@ def _fake_pipeline_invalid(seq: int) -> dict:
     return _make_fake_result(consensus=False, verified=False)
 
 
+
+@pytest.fixture()
+def _authenticated_hybrid(monkeypatch):
+    """Verifier-owned test trust: exercise real signatures, not stored flags."""
+    pytest.importorskip("cryptography")
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding, PrivateFormat, PublicFormat, NoEncryption,
+    )
+    from qec.controller.execution_proof import create_execution_proof
+
+    private = Ed25519PrivateKey.generate()
+    private_pem = private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
+    public_pem = private.public_key().public_bytes(
+        Encoding.PEM, PublicFormat.SubjectPublicKeyInfo
+    )
+    trusted_signers = {"uff-test": public_pem, "sequence-test": public_pem}
+
+    def authenticated_result(result, signer_id):
+        result["proof"] = create_execution_proof(
+            {"final_hash": "abc123", "steps": 5,
+             "match": True, "mismatch_index": None},
+            signer_id, private_pem, public_pem,
+            trusted_signers=trusted_signers,
+        )
+        assert result["proof"]["verified"] is True
+        return result
+
+    def signed_uff(theta, **kwargs):
+        return authenticated_result(_fake_uff(theta), "uff-test")
+
+    def signed_pipeline(seq):
+        return authenticated_result(_fake_pipeline(seq), "sequence-test")
+
+    monkeypatch.setattr(
+        "qec.experiments.uff_bridge.run_uff_experiment", signed_uff
+    )
+    return trusted_signers, signed_pipeline
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -228,12 +267,15 @@ class TestRunHybridCodesign:
         run_hybrid_codesign([[1.0, 2.0, 0.5]], seqs, pipeline_fn=_fake_pipeline)
         assert seqs == seqs_copy
 
-    def test_best_worst_present(self, _patch_uff):
+    def test_best_worst_present(self, _authenticated_hybrid):
+        trusted_signers, signed_pipeline = _authenticated_hybrid
         result = run_hybrid_codesign(
-            [[1.0, 2.0, 0.5]], [0, 1], pipeline_fn=_fake_pipeline,
+            [[1.0, 2.0, 0.5]], [0, 1],
+            pipeline_fn=signed_pipeline, trusted_signers=trusted_signers,
         )
         assert "theta" in result["best_pair"]
         assert "theta" in result["worst_pair"]
+        assert result["best_pair"]["alignment"] != "invalid"
 
     def test_counts_sum(self, _patch_uff):
         result = run_hybrid_codesign(
@@ -257,12 +299,23 @@ class TestRunHybridCodesign:
         }
         assert expected_keys <= set(entry.keys())
 
-    def test_single_pair(self, _patch_uff):
+    def test_single_pair(self, _authenticated_hybrid):
+        trusted_signers, signed_pipeline = _authenticated_hybrid
         result = run_hybrid_codesign(
-            [[1.0, 2.0, 0.5]], [0], pipeline_fn=_fake_pipeline,
+            [[1.0, 2.0, 0.5]], [0],
+            pipeline_fn=signed_pipeline, trusted_signers=trusted_signers,
         )
         assert result["n_pairs"] == 1
         assert result["best_pair"] == result["worst_pair"]
+        assert result["best_pair"]["alignment"] != "invalid"
+
+    def test_untrusted_reported_verified_does_not_score(self, _patch_uff):
+        # Legacy mock advertises verified=True but has no authentic signature.
+        result = run_hybrid_codesign(
+            [[1.0, 2.0, 0.5]], [0], pipeline_fn=_fake_pipeline,
+        )
+        assert result["pairs"][0]["alignment"] == "invalid"
+        assert result["best_pair"] == {}
 
     def test_empty_theta_grid(self, _patch_uff):
         result = run_hybrid_codesign([], [0, 1], pipeline_fn=_fake_pipeline)

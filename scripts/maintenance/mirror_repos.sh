@@ -5,7 +5,7 @@ set -euo pipefail
 ORG_TEST="${ORG_TEST:-EmergentMonk}"
 ORG_DEV="${ORG_DEV:-multimodalas}"
 DEST_ORG="${DEST_ORG:-QSOLKCB}"
-MIRROR_WORKDIR=""
+TMPDIR="${TMPDIR:-$HOME/repo_mirror}"
 DRY_RUN="${DRY_RUN:-0}"         # set to 1 to test without pushing
 USE_HTTPS="${USE_HTTPS:-0}"     # set to 1 in CI; locally prefer SSH
 
@@ -19,26 +19,16 @@ need(){ command -v "$1" >/dev/null || { fail "missing dependency: $1"; exit 1; }
 need gh
 need git
 
-# Never reuse caller-shared TMPDIR or any pre-existing clone.
-# In preview mode, do not create worktrees or run mutating Git/gh.
-if [[ "$DRY_RUN" != "1" ]]; then
-  umask 077
-  MIRROR_WORKDIR="$(mktemp -d "${HOME}/.qec-mirror.XXXXXXXX")"
-  chmod 0700 "$MIRROR_WORKDIR"
-  trap 'rm -rf -- "$MIRROR_WORKDIR"' EXIT
-  export GIT_CONFIG_COUNT=1
-  export GIT_CONFIG_KEY_0=core.hooksPath
-  export GIT_CONFIG_VALUE_0=/dev/null
-fi
+mkdir -p "$TMPDIR"
 
 clone_repo() {
-  local org="$1" repo="$2" dest="$MIRROR_WORKDIR/$org/$repo"
-  mkdir -p "$MIRROR_WORKDIR/$org"
-  if [[ -e "$dest" || -L "$dest" ]]; then
-    fail "refusing pre-existing repository worktree: $dest"
-    return 1
+  local org="$1" repo="$2" dest="$TMPDIR/$org/$repo"
+  mkdir -p "$TMPDIR/$org"
+  if [[ -d "$dest/.git" ]]; then
+    (cd "$dest" && git fetch --all --prune)
+  else
+    gh repo clone "$org/$repo" "$dest" -- --filter=blob:none
   fi
-  gh repo clone "$org/$repo" "$dest" -- --filter=blob:none
   echo "$dest"
 }
 
@@ -102,8 +92,8 @@ build_branch_merge() {
   local repo="$1"
   # choose an existing working tree for this repo
   local path=""
-  [[ -d "$MIRROR_WORKDIR/$ORG_TEST/$repo/.git" ]] && path="$MIRROR_WORKDIR/$ORG_TEST/$repo"
-  [[ -z "$path" && -d "$MIRROR_WORKDIR/$ORG_DEV/$repo/.git" ]] && path="$MIRROR_WORKDIR/$ORG_DEV/$repo"
+  [[ -d "$TMPDIR/$ORG_TEST/$repo/.git" ]] && path="$TMPDIR/$ORG_TEST/$repo"
+  [[ -z "$path" && -d "$TMPDIR/$ORG_DEV/$repo/.git" ]] && path="$TMPDIR/$ORG_DEV/$repo"
   [[ -z "$path" ]] && return 0
 
   ( cd "$path"
@@ -134,17 +124,6 @@ build_branch_merge() {
 
 # ======== Main Function ========
 main() {
-  if [[ "$DRY_RUN" == "1" ]]; then
-    log "DRY RUN: read-only preview of proposed repository work."
-    for org in "$ORG_TEST" "$ORG_DEV"; do
-      gh repo list "$org" --limit 200 --json name -q '.[].name' |
-        while IFS= read -r repo; do
-          [[ -n "$repo" ]] && log "[PREVIEW] would clone $org/$repo and mirror branches to $DEST_ORG"
-        done
-    done
-    log "DRY RUN: no clones, hooks, forks, pushes, merges or local mutation."
-    return 0
-  fi
   log "== SYNC TEST from $ORG_TEST =="
   process_org "$ORG_TEST" TEST
 

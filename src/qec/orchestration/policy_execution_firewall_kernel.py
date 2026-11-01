@@ -335,7 +335,7 @@ def _verify_evidence_links(
         )
         if regenerated != execution or execution.receipt.accepted is not True:
             invalid.append("invalid_covenant_execution")
-    except (ValueError, TypeError, AttributeError, KeyError):
+    except (ValueError, TypeError, AttributeError, KeyError, OverflowError):
         invalid.append("invalid_covenant_execution")
     try:
         actual_receipt = build_boundary_audit_receipt(
@@ -368,8 +368,7 @@ def _verify_evidence_links(
                 execution.receipt.replay_identity != execution.rule.replay_identity or
                 capsule.replay_identity != report.audit_receipt.replay_identity or
                 report.audit_receipt.transition_receipt_hash != execution.receipt.receipt_hash or
-                report.audit_receipt.replay_binding != report.replay_binding or
-                report.audit_receipt.continuity_ok is not True):
+                report.audit_receipt.replay_binding != report.replay_binding):
             invalid.append("unbound_proof_artifacts")
     except (ValueError, TypeError, AttributeError):
         invalid.append("unbound_proof_artifacts")

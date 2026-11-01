@@ -556,14 +556,14 @@ def test_phase621_live_socket_approved_notice_is_single_and_bounded(valid_bundle
         try:
             port = server._server.sockets[0].getsockname()[1]
             reader, writer = await asyncio.open_connection("127.0.0.1", port)
-            writer.write(b"NICK alice\\r\\nUSER u 0 * :r\\r\\n")
+            writer.write(b"NICK alice\r\nUSER u 0 * :r\r\n")
             await writer.drain()
             assert b" 001 alice " in await asyncio.wait_for(reader.readline(), 2)
-            writer.write(b"PRIVMSG qec-ircd :!trusted-observe\\r\\n")
+            writer.write(b"PRIVMSG qec-ircd :!trusted-observe\r\n")
             await writer.drain()
             first = await asyncio.wait_for(reader.readline(), 2)
             assert first == (
-                b":qec-ircd NOTICE alice :TRUSTED_OBSERVATION_ACCEPTED\\r\\n"
+                b":qec-ircd NOTICE alice :TRUSTED_OBSERVATION_ACCEPTED\r\n"
             )
             # No hidden second reply or additional outbound disclosure.
             with pytest.raises(asyncio.TimeoutError):

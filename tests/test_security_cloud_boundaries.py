@@ -29,6 +29,8 @@ class FakeSocket:
         self.closed = True
     def sendall(self, bytes_):
         pass
+    def settimeout(self, value):
+        self.timeout = value
 
 
 class LegacyIrcBoundaryTests(unittest.TestCase):
@@ -63,6 +65,33 @@ class LegacyIrcBoundaryTests(unittest.TestCase):
         self.assertNotIn("\u202e", escaped)
         self.assertIn("\\x1b", escaped)
         self.assertIn("\\u202e", escaped)
+
+    def test_valid_frames_survive_arbitrary_tcp_segmentation(self):
+        bot = IRCBot("localhost", use_tls=False)
+        bot.connected = True
+        frames = b"".join(b":server NOTICE #q :" + b"A" * 491 + b"\r\n" for _ in range(5))
+        self.assertEqual(len(frames), 512 * 5)
+        fake = FakeSocket([frames[:100], frames[100:2148], frames[2148:]])
+        bot.sock = fake
+        bot.run()
+        self.assertEqual(fake.chunks, [])
+        self.assertTrue(fake.closed)
+
+    def test_connection_timeout_does_not_become_receive_idle_timeout(self):
+        bot = IRCBot("irc.example", use_tls=True)
+        plain = FakeSocket([])
+        wrapped = FakeSocket([])
+        class Context:
+            def wrap_socket(self, sock, server_hostname):
+                self.assert_hostname = server_hostname
+                return wrapped
+        ctx = Context()
+        with patch("irc_bot.socket.create_connection", return_value=plain), \
+             patch("irc_bot.ssl.create_default_context", return_value=ctx):
+            self.assertTrue(bot.connect())
+        self.assertEqual(wrapped.timeout, None)
+        self.assertEqual(ctx.assert_hostname, "irc.example")
+        bot.disconnect()
 
     def test_invalid_tls_certificate_does_not_fall_back(self):
         bot = IRCBot("irc.example")

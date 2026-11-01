@@ -12,6 +12,8 @@ canonical artifacts or the protected decoder.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 from typing import Any, Collection, Mapping, Sequence
 
 from qec.analysis.capability_privilege_boundary_engine import (
@@ -24,6 +26,7 @@ from qec.controller.execution_proof import (
 from qec.orchestration.deterministic_covenant_engine import DeterministicCovenantExecution
 from qec.orchestration.governance_memory_io_boundary_auditor import (
     BoundaryAuditRule, GovernanceMemoryIOBoundaryAuditReport,
+    _default_boundary_rules,
 )
 from qec.orchestration.policy_execution_firewall_kernel import (
     FirewallPolicyRule, PolicyExecutionFirewallDecision,
@@ -57,6 +60,28 @@ class TrustedOperationContext:
     covenant_execution_hash: str
     boundary_audit_report_hash: str
     firewall_policy_rules_hash: str
+    boundary_rules_hash: str
+
+
+def boundary_rule_configuration_hash(
+    rules: Sequence[BoundaryAuditRule] | None,
+) -> str:
+    """Canonical digest of the independent verifier's complete audit rules.
+
+    None denotes the auditor's default rules; it is *not* an empty rule set.
+    Include rules even when none currently produce findings: otherwise a
+    silently loosened custom threshold can inherit an unrelated ALLOW.
+    """
+    effective = tuple(_default_boundary_rules() if rules is None else rules)
+    if (not effective
+            or any(not isinstance(rule, BoundaryAuditRule) for rule in effective)
+            or len({rule.rule_id for rule in effective}) != len(effective)):
+        raise ValueError("invalid verifier-controlled boundary rule configuration")
+    payload = [rule.to_dict() for rule in sorted(effective, key=lambda rule: rule.rule_id)]
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                   ensure_ascii=True, allow_nan=False).encode("utf-8")
+    ).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -151,6 +176,9 @@ def evaluate_composed_evidence_trust(
                 or covenant_execution.stable_hash() != context.covenant_execution_hash
                 or boundary_audit_report.report_hash != context.boundary_audit_report_hash):
             violations.add("firewall_context_mismatch")
+        if (boundary_rule_configuration_hash(trusted_boundary_rules)
+                != context.boundary_rules_hash):
+            violations.add("boundary_configuration_mismatch")
         recalculated = evaluate_policy_execution_firewall(
             capsule, covenant_execution, boundary_audit_report, tuple(firewall_rules),
             trusted_boundary_rules=trusted_boundary_rules,

@@ -351,3 +351,41 @@ def test_unbound_proof_chain_and_tampered_covenant_deny():
     rejected = evaluate_policy_execution_firewall(capsule, other, report, (rule,))
     assert rejected.decision_value == "deny"
     assert "unbound_proof_artifacts" in rejected.violations
+
+
+def test_policy_permitted_genesis_receipt_does_not_require_continuity():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    # The genesis audit has no predecessor, but its own hashes are still valid.
+    report = audit_governance_memory_io_boundaries(
+        covenant_metadata={"covenant_id": "c1", "capsule_id": capsule.action_id},
+        payload=capsule.action_payload,
+        state=execution.next_state.state_data,
+        proof_chain=tuple(ob.to_dict() for ob in capsule.proof_obligations),
+        action_scope=capsule.action_scope,
+        io_surface="none",
+        replay_identity=capsule.replay_identity,
+        declared_replay_identity=capsule.replay_identity,
+        transition_receipt={"receipt_hash": execution.receipt.receipt_hash},
+        prior_transition_receipt={},
+    )
+    assert report.audit_receipt.continuity_ok is False
+    # Genesis continuity is enforced only when the applicable policy requires it.
+    policy = _sample_rule(require_receipt_continuity=False, require_within_boundary=False)
+    decision = evaluate_policy_execution_firewall(capsule, execution, report, (policy,))
+    assert decision.decision_value == "allow"
+    strict = evaluate_policy_execution_firewall(capsule, execution, report, (_sample_rule(),))
+    assert strict.decision_value == "deny"
+
+
+def test_malformed_large_covenant_integer_returns_deny_not_overflow():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    report = _sample_report(capsule, execution)
+    altered = replace(
+        execution,
+        prior_state=replace(execution.prior_state, state_data={"counter": 10**400}),
+    )
+    denied = evaluate_policy_execution_firewall(capsule, altered, report, (_sample_rule(),))
+    assert denied.decision_value == "deny"
+    assert "invalid_covenant_execution" in denied.violations

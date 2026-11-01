@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any, Sequence, Collection
+from typing import Any, Sequence, Collection, Mapping
 
 CAPABILITY_PRIVILEGE_BOUNDARY_ENGINE_VERSION: str = "v137.4.1"
 
@@ -338,7 +338,11 @@ def replay_privilege_decision(
     return replayed
 
 
-def export_capability_audit_bytes(decisions: Sequence[PrivilegeDecision]) -> bytes:
+def export_capability_audit_bytes(
+    decisions: Sequence[PrivilegeDecision], *,
+    grants: Mapping[str, CapabilityGrant] | None = None,
+    trusted_grant_hashes: Collection[str] | None = None,
+) -> bytes:
     if isinstance(decisions, (str, bytes)):
         raise ValueError("decisions must be a sequence of PrivilegeDecision")
 
@@ -348,9 +352,15 @@ def export_capability_audit_bytes(decisions: Sequence[PrivilegeDecision]) -> byt
             raise ValueError(f"decisions[{idx}] must be a PrivilegeDecision")
         _validate_decision_hash(decision)
         if decision.privilege_verdict == "ALLOW":
-            # Audit export is a representation, not issuance; without an
-            # independently checked grant it must never certify an ALLOW.
-            raise ValueError("ALLOW audit export requires authenticated receipt provenance")
+            grant = grants.get(decision.capability_id) if grants is not None else None
+            if not isinstance(grant, CapabilityGrant) or not _grant_is_trusted(grant, trusted_grant_hashes):
+                raise ValueError("ALLOW audit export requires authenticated receipt provenance")
+            expected = authorize_action(
+                grant, decision.actor_id, decision.action_id, decision.scope,
+                trusted_grant_hashes=trusted_grant_hashes,
+            )
+            if expected != decision:
+                raise ValueError("ALLOW audit decision does not match issued grant")
         normalized.append(decision)
 
     ordered = sorted(

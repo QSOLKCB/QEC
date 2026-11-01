@@ -10,7 +10,7 @@ This script (`mirror_repos.sh`) provides comprehensive repository mirroring and 
 - **Fork Management**: Automatically creates forks in the destination organization
 - **Merge Strategies**: Intelligent merging of TEST and DEV branches into BUILD branch
 - **Flexible Configuration**: Supports both HTTPS and SSH authentication
-- **Dry Run Mode**: Read-only list of intended repository operations; no clones, forks, hooks, pushes or local mutations
+- **Dry Run Mode**: Test the script without actually pushing changes
 
 ## Configuration
 
@@ -21,7 +21,7 @@ The script uses environment variables for configuration:
 | `ORG_TEST` | `EmergentMonk` | Source organization for test repositories |
 | `ORG_DEV` | `multimodalas` | Source organization for development repositories |
 | `DEST_ORG` | `QSOLKCB` | Destination organization for forks |
-| `TMPDIR` | Ignored | Ambient shared temp directories are not used; each live run creates a private 0700 worktree under HOME |
+| `TMPDIR` | `$HOME/repo_mirror` | Directory for local repository clones |
 | `DRY_RUN` | `0` | Set to `1` to test without pushing (dry run mode) |
 | `USE_HTTPS` | `0` | Set to `1` to use HTTPS instead of SSH for git operations |
 
@@ -100,5 +100,5 @@ All operations are logged with timestamps for tracking and debugging:
 
 - The script requires GitHub CLI authentication
 - SSH keys or GitHub tokens must be properly configured
-- Use `DRY_RUN=1` to inspect an entirely read-only plan. Live runs create unique mode-0700 worktrees under HOME, refuse existing clones, disable Git hooks and remove their temporary worktrees on exit
+- Use `DRY_RUN=1` to test before making actual changes
 - Ensure proper permissions on the destination organization

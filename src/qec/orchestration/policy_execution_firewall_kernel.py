@@ -21,7 +21,7 @@ from qec.orchestration.deterministic_covenant_engine import (
 )
 from qec.orchestration.governance_memory_io_boundary_auditor import (
     GovernanceMemoryIOBoundaryAuditReport, build_boundary_audit_receipt,
-    summarize_boundary_findings,
+    audit_governance_memory_io_boundaries, summarize_boundary_findings,
 )
 from qec.orchestration.proof_carrying_agent_action_capsule import (
     ProofCarryingAgentActionCapsule, validate_agent_action_capsule,
@@ -324,7 +324,7 @@ def _verify_evidence_links(
     try:
         if not validate_agent_action_capsule(capsule).is_valid:
             invalid.append("invalid_action_capsule")
-    except (ValueError, TypeError, AttributeError):
+    except (ValueError, TypeError, AttributeError, RecursionError, OverflowError):
         invalid.append("invalid_action_capsule")
     try:
         regenerated = execute_covenant_transition(
@@ -335,7 +335,7 @@ def _verify_evidence_links(
         )
         if regenerated != execution or execution.receipt.accepted is not True:
             invalid.append("invalid_covenant_execution")
-    except (ValueError, TypeError, AttributeError, KeyError, OverflowError):
+    except (ValueError, TypeError, AttributeError, KeyError, OverflowError, RecursionError):
         invalid.append("invalid_covenant_execution")
     try:
         actual_receipt = build_boundary_audit_receipt(
@@ -363,6 +363,41 @@ def _verify_evidence_links(
             invalid.append("invalid_boundary_audit")
     except (ValueError, TypeError, AttributeError, KeyError):
         invalid.append("invalid_boundary_audit")
+    # A valid report hash only authenticates the *report's own bytes*.
+    # Independently re-evaluate every boundary rule whose inputs are carried by
+    # the supplied capsule/execution. Otherwise an audit of payload={} can be
+    # substituted for a large real payload with the same replay identity.
+    try:
+        independently_audited = audit_governance_memory_io_boundaries(
+            covenant_metadata={
+                "covenant_id": execution.rule.rule_id,
+                "capsule_id": capsule.action_id,
+            },
+            payload=capsule.action_payload,
+            state=execution.next_state.state_data,
+            proof_chain=tuple(item.to_dict() for item in capsule.proof_obligations),
+            action_scope=capsule.action_scope,
+            io_surface="none",  # Not carried by capsule/execution; never asserted trusted.
+            replay_identity=capsule.replay_identity,
+            declared_replay_identity=execution.receipt.replay_identity,
+            transition_receipt={"receipt_hash": execution.receipt.receipt_hash},
+            prior_transition_receipt={},
+        )
+        # Compare only rules whose inputs can be independently reconstructed.
+        # Metadata, I/O surface, and predecessor provenance are unavailable in
+        # these historical report types, and are not implicitly authenticated.
+        bound_rules = {
+            "payload_size_max", "state_size_max", "proof_chain_depth_max",
+            "action_scope_allowed", "replay_identity_valid",
+        }
+        expected = tuple(f.to_dict() for f in independently_audited.findings
+                         if f.rule_id in bound_rules)
+        supplied = tuple(f.to_dict() for f in report.findings
+                         if f.rule_id in bound_rules)
+        if expected != supplied:
+            invalid.append("audit_input_mismatch")
+    except (TypeError, ValueError, AttributeError, KeyError, RecursionError, OverflowError):
+        invalid.append("audit_input_mismatch")
     try:
         if (capsule.replay_identity != execution.receipt.replay_identity or
                 execution.receipt.replay_identity != execution.rule.replay_identity or

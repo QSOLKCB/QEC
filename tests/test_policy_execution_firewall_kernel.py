@@ -23,7 +23,7 @@ from qec.orchestration.proof_carrying_agent_action_capsule import (
 )
 
 
-def _sample_capsule(*, action_type: str = "observe", action_scope: str = "observe", replay_identity: str = "ri.alpha"):
+def _sample_capsule(*, action_type: str = "observe", action_scope: str = "observe", replay_identity: str | None = None):
     obligation = AgentActionProofObligation(
         obligation_id="ob.det",
         obligation_kind="determinism",
@@ -41,10 +41,14 @@ def _sample_capsule(*, action_type: str = "observe", action_scope: str = "observ
         proof_obligations=(obligation,),
         validation_flags=("deterministic_only",),
     )
-    return replace(capsule, replay_identity=replay_identity)
+    # Keep the real canonical replay identity. An arbitrary replaced value
+    # invalidates the capsule; use that only for explicit tampering tests.
+    return capsule if replay_identity is None else replace(capsule, replay_identity=replay_identity)
 
 
 def _sample_execution(*, replay_identity: str = "ri.alpha", rule_id: str = "rule.alpha"):
+    if replay_identity is None:
+        replay_identity = _sample_capsule().replay_identity
     rule = build_covenant_rule(
         rule_id=rule_id,
         target_key="counter",
@@ -87,7 +91,7 @@ def _sample_rule(**overrides):
         max_allowed_severity="high",
         disallowed_violated_rule_ids=("io_surface_allowed",),
         require_receipt_continuity=True,
-        required_replay_identity_prefix="ri.",
+        required_replay_identity_prefix="agent-action::",
         required_covenant_rule_id="rule.alpha",
     )
     kwargs.update(overrides)
@@ -295,3 +299,55 @@ def test_firewall_decision_dataclass_surface_methods() -> None:
     assert isinstance(decision.to_dict(), dict)
     assert json.loads(decision.to_canonical_json())["decision_value"] == decision.decision_value
     assert len(decision.stable_hash()) == 64
+
+
+def test_empty_policy_and_no_applicable_explicit_allow_deny():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    report = _sample_report(capsule, execution)
+    missing = evaluate_policy_execution_firewall(capsule, execution, report, ())
+    assert missing.decision_value == "deny"
+    assert "missing_policy_rules" in missing.violations
+    assert "no_applicable_allow_rule" in missing.violations
+    no_explicit = evaluate_policy_execution_firewall(
+        capsule, execution, report,
+        (_sample_rule(allowed_action_types=(), allowed_action_scopes=()),),
+    )
+    assert no_explicit.decision_value == "deny"
+    assert "no_applicable_allow_rule" in no_explicit.violations
+
+
+def test_forged_capsule_hash_and_audit_receipt_cannot_allow():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    report = _sample_report(capsule, execution)
+    rule = _sample_rule()
+    normal = evaluate_policy_execution_firewall(capsule, execution, report, (rule,))
+    assert normal.decision_value == "allow"
+    assert normal.violations == ()
+    forged_capsule = replace(capsule, capsule_hash="a" * 64)
+    decision = evaluate_policy_execution_firewall(forged_capsule, execution, report, (rule,))
+    assert decision.decision_value == "deny"
+    assert "invalid_action_capsule" in decision.violations
+    fake_receipt = replace(report.audit_receipt, receipt_hash="b" * 64)
+    bad_audit = replace(report, audit_receipt=fake_receipt)
+    decision = evaluate_policy_execution_firewall(capsule, execution, bad_audit, (rule,))
+    assert decision.decision_value == "deny"
+    assert "invalid_boundary_audit" in decision.violations
+
+
+def test_unbound_proof_chain_and_tampered_covenant_deny():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    report = _sample_report(capsule, execution)
+    rule = _sample_rule()
+    altered = replace(execution.receipt, next_state_hash="c" * 64)
+    denied = evaluate_policy_execution_firewall(
+        capsule, replace(execution, receipt=altered), report, (rule,)
+    )
+    assert denied.decision_value == "deny"
+    assert "invalid_covenant_execution" in denied.violations
+    other = _sample_execution(replay_identity="other")
+    rejected = evaluate_policy_execution_firewall(capsule, other, report, (rule,))
+    assert rejected.decision_value == "deny"
+    assert "unbound_proof_artifacts" in rejected.violations

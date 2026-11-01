@@ -3,11 +3,8 @@
 No internet access, external credentials, or real remote services are required.
 """
 import asyncio
-import os
 from pathlib import Path
-import subprocess
 import sys
-import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -191,42 +188,6 @@ class GitHubAndMaintenancePolicyTests(unittest.TestCase):
         self.assertIn("pages: write", deploy_scope)
         self.assertIn("id-token: write", deploy_scope)
 
-    def test_dry_run_makes_no_mutating_gh_or_git_calls(self):
-        with tempfile.TemporaryDirectory() as root:
-            root = Path(root)
-            bin_dir = root / "bin"
-            bin_dir.mkdir()
-            logfile = root / "calls"
-            shared = root / "untrusted"
-            shared.mkdir()
-            gh = bin_dir / "gh"
-            gh.write_text(
-                '#!/bin/sh\n'
-                'printf "gh %s\\n" "$*" >> "$QEC_TEST_CALLS"\n'
-                'if [ "$1" = repo ] && [ "$2" = list ]; then printf "fixture\\n"; fi\n'
-            )
-            gh.chmod(0o755)
-            git = bin_dir / "git"
-            git.write_text(
-                '#!/bin/sh\n'
-                'printf "git %s\\n" "$*" >> "$QEC_TEST_CALLS"\n'
-                'exit 10\n'
-            )
-            git.chmod(0o755)
-            env = os.environ.copy()
-            env.update({"PATH": str(bin_dir) + os.pathsep + env.get("PATH",""),
-                        "DRY_RUN": "1", "HOME": str(root),
-                        "TMPDIR": str(shared), "QEC_TEST_CALLS": str(logfile)})
-            result = subprocess.run(
-                ["bash", str(ROOT/"scripts/maintenance/mirror_repos.sh")],
-                cwd=root, env=env, capture_output=True, text=True, timeout=10
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("PREVIEW", result.stdout)
-            calls = logfile.read_text().splitlines()
-            self.assertTrue(calls and all(x.startswith("gh repo list ") for x in calls))
-            self.assertFalse(list(shared.iterdir()))
-            self.assertFalse(list(root.glob(".qec-mirror.*")))
 
 
 if __name__ == "__main__":

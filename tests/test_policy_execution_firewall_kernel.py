@@ -46,7 +46,7 @@ def _sample_capsule(*, action_type: str = "observe", action_scope: str = "observ
     return capsule if replay_identity is None else replace(capsule, replay_identity=replay_identity)
 
 
-def _sample_execution(*, replay_identity: str = "ri.alpha", rule_id: str = "rule.alpha"):
+def _sample_execution(*, replay_identity: str | None = None, rule_id: str = "rule.alpha"):
     if replay_identity is None:
         replay_identity = _sample_capsule().replay_identity
     rule = build_covenant_rule(

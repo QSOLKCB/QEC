@@ -24,7 +24,8 @@ from qec.orchestration.deterministic_covenant_engine import (
     build_covenant_rule, execute_covenant_transition,
 )
 from qec.orchestration.evidence_trust_composition import (
-    TrustedOperationContext, evaluate_composed_evidence_trust,
+    TrustedOperationContext, boundary_rule_configuration_hash,
+    evaluate_composed_evidence_trust,
 )
 from qec.orchestration.governance_memory_io_boundary_auditor import (
     audit_governance_memory_io_boundaries, _default_boundary_rules,
@@ -158,6 +159,7 @@ def valid_bundles():
             covenant_execution_hash=execution.stable_hash(),
             boundary_audit_report_hash=audit.report_hash,
             firewall_policy_rules_hash=wall.execution_receipt.policy_rules_hash,
+            boundary_rules_hash=boundary_rule_configuration_hash(None),
         )
         return {
             "context": context,
@@ -332,4 +334,60 @@ def test_composed_decision_never_changes_immutable_input_artifacts(valid_bundles
         a["experiment"], a["grant"].capability_hash,
         a["firewall_decision"].to_canonical_json(),
         a["boundary_audit_report"].to_canonical_json(),
+    )
+
+
+def test_unpinned_but_nonfailing_custom_boundary_rules_cannot_authorize(valid_bundles):
+    """Changing a threshold with no new findings must still be caught.
+
+    The audit report, original firewall ALLOW receipt, and original context
+    pins all remain byte-for-byte unchanged. The verifier is not entitled to
+    silently replace the original boundary configuration.
+    """
+    a, _ = valid_bundles
+    custom = tuple(
+        replace(rule, max_value=rule.max_value + 1)
+        if rule.rule_id == "payload_size_max" else rule
+        for rule in _default_boundary_rules()
+    )
+    assert boundary_rule_configuration_hash(custom) != a["context"].boundary_rules_hash
+    assert boundary_rule_configuration_hash(tuple(reversed(_default_boundary_rules()))) == (
+        a["context"].boundary_rules_hash
+    )
+    recalculated = evaluate_policy_execution_firewall(
+        a["capsule"], a["covenant_execution"], a["boundary_audit_report"],
+        a["firewall_rules"], trusted_boundary_rules=custom,
+    )
+    assert recalculated == a["firewall_decision"]
+    swapped = evaluate(**{**a, "trusted_boundary_rules": custom})
+    assert swapped.verdict == "DENY"
+    assert "boundary_configuration_mismatch" in swapped.violations
+
+
+def test_malformed_boundary_configuration_fails_closed(valid_bundles):
+    a, _ = valid_bundles
+    for rules in ((), (object(),), _default_boundary_rules() * 2):
+        with pytest.raises((TypeError, ValueError)):
+            boundary_rule_configuration_hash(rules)
+        denied = evaluate(**{**a, "trusted_boundary_rules": rules})
+        assert denied.verdict == "DENY"
+        assert "untrusted_firewall_decision" in denied.violations
+
+
+def test_cross_operation_receipt_cannot_override_context_even_if_prevalidated(valid_bundles):
+    a, b = valid_bundles
+    # The candidate from B was individually accepted by each relevant gate,
+    # but cannot be grafted onto A by laundering its ALLOW decision bytes.
+    assert evaluate(**a).allowed and evaluate(**b).allowed
+    crossed = evaluate(**{
+        **a, "firewall_decision": b["firewall_decision"],
+        "privilege_receipt": b["privilege_receipt"],
+        "experiment": b["experiment"],
+        "trusted_signers": {**a["trusted_signers"], **b["trusted_signers"]},
+    })
+    assert crossed.verdict == "DENY"
+    assert "untrusted_firewall_decision" in crossed.violations
+    assert "unbound_capability_receipt" in crossed.violations
+    assert "experiment_run_mismatch" in crossed.violations or (
+        "unauthenticated_experiment" in crossed.violations
     )

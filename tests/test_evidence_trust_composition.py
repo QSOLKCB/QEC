@@ -537,3 +537,41 @@ def test_phase621_real_socket_no_outbound_notice_without_authority(valid_bundles
             await server.stop()
 
     asyncio.run(run())
+
+
+def test_phase621_live_socket_approved_notice_is_single_and_bounded(valid_bundles):
+    a, _ = valid_bundles
+
+    async def run():
+        # First transport connection gets the server-owned client-0001 ID;
+        # this is NOT a claim of user or human authentication.
+        server = IRCServer(
+            host="127.0.0.1", port=0,
+            trusted_observation=_trusted_observe_authority(
+                a, client_id="client-0001"
+            ),
+        )
+        await server.start()
+        writer = None
+        try:
+            port = server._server.sockets[0].getsockname()[1]
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.write(b"NICK alice\\r\\nUSER u 0 * :r\\r\\n")
+            await writer.drain()
+            assert b" 001 alice " in await asyncio.wait_for(reader.readline(), 2)
+            writer.write(b"PRIVMSG qec-ircd :!trusted-observe\\r\\n")
+            await writer.drain()
+            first = await asyncio.wait_for(reader.readline(), 2)
+            assert first == (
+                b":qec-ircd NOTICE alice :TRUSTED_OBSERVATION_ACCEPTED\\r\\n"
+            )
+            # No hidden second reply or additional outbound disclosure.
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(reader.readline(), 0.2)
+        finally:
+            if writer is not None:
+                writer.close()
+                await writer.wait_closed()
+            await server.stop()
+
+    asyncio.run(run())

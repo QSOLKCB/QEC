@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Mapping
+
+from qec.controller.execution_proof import authenticate_execution_proof
 
 import numpy as np
 
@@ -65,6 +67,8 @@ def generate_theta_grid(
 def _extract_point_summary(
     theta: List[float],
     result: Dict[str, Any],
+    *,
+    trusted_signers: Mapping[str, bytes] | None = None,
 ) -> Dict[str, Any]:
     """Extract a compact invariant/stability summary from an experiment result.
 
@@ -96,7 +100,9 @@ def _extract_point_summary(
         "most_stable": analysis["most_stable"],
         "most_sensitive": analysis["most_sensitive"],
         "consensus": result["consensus"]["consensus"],
-        "verified": result["proof"]["verified"],
+        # A stored producer flag is not proof of signer authorization.
+        "verified": bool(trusted_signers is not None and
+                         authenticate_execution_proof(result["proof"], trusted_signers)),
     }
 
 
@@ -111,6 +117,10 @@ def run_uff_landscape(
     *,
     v_circ_fn: Callable[..., np.ndarray] | None = None,
     output_dir: Optional[str] = None,
+    trusted_signers: Mapping[str, bytes] | None = None,
+    signer_id: str = "uff-bridge",
+    private_key_pem: bytes | None = None,
+    public_key_pem: bytes | None = None,
 ) -> Dict[str, Any]:
     """Run a deterministic parameter sweep and return a landscape map.
 
@@ -154,8 +164,12 @@ def run_uff_landscape(
 
     points: List[Dict[str, Any]] = []
     for theta in grid:
-        result = run_uff_experiment(theta, v_circ_fn=v_circ_fn)
-        summary = _extract_point_summary(theta, result)
+        result = run_uff_experiment(
+            theta, v_circ_fn=v_circ_fn, signer_id=signer_id,
+            private_key_pem=private_key_pem, public_key_pem=public_key_pem,
+            trusted_signers=trusted_signers,
+        )
+        summary = _extract_point_summary(theta, result, trusted_signers=trusted_signers)
         points.append(summary)
 
     # --- Aggregate landscape metrics ---

@@ -125,17 +125,7 @@ def build_sample(features: Dict[str, float]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 # Demo Ed25519 key pair (same as run_execution_proof.py)
-_DEMO_PRIVATE_KEY_PEM = (
-    b"-----BEGIN PRIVATE KEY-----\n"
-    b"MC4CAQAwBQYDK2VwBCIEIO4Nngc2zhyTpxaDALLMVmUQ6OOjMk0eOgLjGnLLY2nN\n"
-    b"-----END PRIVATE KEY-----\n"
-)
-
-_DEMO_PUBLIC_KEY_PEM = (
-    b"-----BEGIN PUBLIC KEY-----\n"
-    b"MCowBQYDK2VwAyEAk5fIB0Cvc5fb2v0wizvCJjQFro2sald9OS1eyUO1soM=\n"
-    b"-----END PUBLIC KEY-----\n"
-)
+# Signing keys are explicit caller input; no published demo private-key default.
 
 _DEFAULT_CONFIG: Dict[str, Any] = {
     "stability_threshold": 0.5,
@@ -154,8 +144,9 @@ def run_uff_experiment(
     R: np.ndarray | None = None,
     config: Dict[str, Any] | None = None,
     signer_id: str = "uff-bridge",
-    private_key_pem: bytes = _DEMO_PRIVATE_KEY_PEM,
-    public_key_pem: bytes = _DEMO_PUBLIC_KEY_PEM,
+    trusted_signers: dict[str, bytes] | None = None,
+    private_key_pem: bytes | None = None,
+    public_key_pem: bytes | None = None,
 ) -> Dict[str, Any]:
     """Run a full UFF→QEC experiment pipeline.
 
@@ -221,6 +212,7 @@ def run_uff_experiment(
         signer_id=signer_id,
         private_key_pem=private_key_pem,
         public_key_pem=public_key_pem,
+        trusted_signers=trusted_signers,
         metadata={"theta": theta},
     )
 

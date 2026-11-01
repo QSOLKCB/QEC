@@ -522,10 +522,10 @@ def test_phase621_real_socket_no_outbound_notice_without_authority(valid_bundles
             reader, writer = await asyncio.open_connection(
                 "127.0.0.1", sock.getsockname()[1]
             )
-            writer.write(b"NICK alice\\r\\nUSER u 0 * :r\\r\\n")
+            writer.write(b"NICK alice\r\nUSER u 0 * :r\r\n")
             await writer.drain()
             assert b" 001 alice " in await asyncio.wait_for(reader.readline(), 2)
-            writer.write(b"PRIVMSG qec-ircd :!trusted-observe\\r\\n")
+            writer.write(b"PRIVMSG qec-ircd :!trusted-observe\r\n")
             await writer.drain()
             # The protected operation has *no external socket output* on DENY.
             with pytest.raises(asyncio.TimeoutError):

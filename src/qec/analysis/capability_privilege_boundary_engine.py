@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any, Sequence, Collection
 
 CAPABILITY_PRIVILEGE_BOUNDARY_ENGINE_VERSION: str = "v137.4.1"
 
@@ -179,11 +179,40 @@ def _decision_hash_payload(
     }
 
 
+def _grant_is_trusted(
+    grant: CapabilityGrant, trusted_grant_hashes: Collection[str] | None
+) -> bool:
+    """Authorization requires a verifier-controlled registry of issued hashes.
+
+    A grant's unkeyed self-hash is deterministic identity, never issuance.
+    Passing a set built from the caller's untrusted grant is NOT a trust root.
+    """
+    if trusted_grant_hashes is None:
+        return False
+    if isinstance(trusted_grant_hashes, (str, bytes)):
+        raise ValueError("trusted_grant_hashes must be an independent collection")
+    return grant.capability_hash in trusted_grant_hashes
+
+
+def _validate_decision_hash(decision: PrivilegeDecision) -> None:
+    if decision.privilege_verdict not in ("ALLOW", "DENY"):
+        raise ValueError("unknown privilege verdict")
+    payload = _decision_hash_payload(
+        decision.capability_id, decision.actor_id, decision.action_id,
+        decision.scope, decision.privilege_verdict,
+        decision.parent_sovereignty_event_hash, decision.schema_version
+    )
+    if _sha256_hex(payload) != decision.stable_decision_hash:
+        raise ValueError("decision hash mismatch")
+
+
 def authorize_action(
     grant: CapabilityGrant,
     actor_id: str,
     action_id: str,
     action_scope: Sequence[str],
+    *,
+    trusted_grant_hashes: Collection[str] | None = None,
 ) -> PrivilegeDecision:
     if not isinstance(grant, CapabilityGrant):
         raise ValueError("grant must be a CapabilityGrant")
@@ -196,7 +225,10 @@ def authorize_action(
     action_allowed = action in grant.allowed_actions
     actor_allowed = actor == grant.actor_id
 
-    verdict = "ALLOW" if (scope_allowed and action_allowed and actor_allowed) else "DENY"
+    # A caller-created CapabilityGrant cannot authorize itself. A canonical
+    # issuance registry must be supplied independently by the verifier.
+    grant_trusted = _grant_is_trusted(grant, trusted_grant_hashes)
+    verdict = "ALLOW" if (scope_allowed and action_allowed and actor_allowed and grant_trusted) else "DENY"
     payload = _decision_hash_payload(
         capability_id=grant.capability_id,
         actor_id=actor,
@@ -220,10 +252,23 @@ def authorize_action(
     )
 
 
-def generate_privilege_receipt(decision: PrivilegeDecision) -> CapabilityReceipt:
+def generate_privilege_receipt(
+    decision: PrivilegeDecision, *,
+    grant: CapabilityGrant | None = None,
+    trusted_grant_hashes: Collection[str] | None = None,
+) -> CapabilityReceipt:
     if not isinstance(decision, PrivilegeDecision):
         raise ValueError("decision must be a PrivilegeDecision")
-
+    _validate_decision_hash(decision)
+    if decision.privilege_verdict == "ALLOW":
+        if not isinstance(grant, CapabilityGrant) or not _grant_is_trusted(grant, trusted_grant_hashes):
+            raise ValueError("ALLOW receipt requires an independently issued grant")
+        observed = authorize_action(
+            grant, decision.actor_id, decision.action_id, decision.scope,
+            trusted_grant_hashes=trusted_grant_hashes,
+        )
+        if observed != decision or observed.privilege_verdict != "ALLOW":
+            raise ValueError("ALLOW receipt disagrees with trusted authorization")
     decision_payload = decision.to_dict()
     receipt_payload = {
         "decision_hash": decision.stable_decision_hash,
@@ -241,7 +286,10 @@ def generate_privilege_receipt(decision: PrivilegeDecision) -> CapabilityReceipt
     )
 
 
-def replay_privilege_decision(decision_bytes: bytes, grant: CapabilityGrant) -> PrivilegeDecision:
+def replay_privilege_decision(
+    decision_bytes: bytes, grant: CapabilityGrant, *,
+    trusted_grant_hashes: Collection[str] | None = None,
+) -> PrivilegeDecision:
     if not isinstance(decision_bytes, bytes) or len(decision_bytes) == 0:
         raise ValueError("decision_bytes must be non-empty bytes")
     if not isinstance(grant, CapabilityGrant):
@@ -278,6 +326,7 @@ def replay_privilege_decision(decision_bytes: bytes, grant: CapabilityGrant) -> 
         actor_id=actor_id,
         action_id=action_id,
         action_scope=scope,
+        trusted_grant_hashes=trusted_grant_hashes,
     )
     if replayed.privilege_verdict != verdict:
         raise ValueError("decision verdict mismatch on replay")
@@ -297,6 +346,11 @@ def export_capability_audit_bytes(decisions: Sequence[PrivilegeDecision]) -> byt
     for idx, decision in enumerate(decisions):
         if not isinstance(decision, PrivilegeDecision):
             raise ValueError(f"decisions[{idx}] must be a PrivilegeDecision")
+        _validate_decision_hash(decision)
+        if decision.privilege_verdict == "ALLOW":
+            # Audit export is a representation, not issuance; without an
+            # independently checked grant it must never certify an ALLOW.
+            raise ValueError("ALLOW audit export requires authenticated receipt provenance")
         normalized.append(decision)
 
     ordered = sorted(

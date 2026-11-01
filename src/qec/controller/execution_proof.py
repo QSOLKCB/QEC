@@ -172,6 +172,78 @@ def authenticate_execution_proof(
         return False
 
 
+
+def experiment_result_binding(
+    result: dict, *, domain: str, identity: Any
+) -> dict:
+    """Canonical v1 binding for the complete scored experiment, excluding proof.
+
+    A digest of *only* a replay receipt cannot authenticate the metrics and
+    history next to it. Bind all non-proof result fields, including consensus,
+    and the verifier-supplied experiment identity under a domain separator.
+    """
+    if not isinstance(result, dict) or not isinstance(domain, str) or not domain:
+        raise ValueError("invalid experiment result or domain")
+    required = ("features", "probe", "invariants", "trajectory",
+                "verification", "consensus")
+    if any(key not in result for key in required):
+        raise ValueError("incomplete experiment result")
+    body = {key: value for key, value in result.items() if key != "proof"}
+    preimage = {"domain": domain, "identity": identity, "result": body}
+    digest = hashlib.sha256(
+        json.dumps(preimage, sort_keys=True, separators=(",", ":"),
+                   ensure_ascii=True, allow_nan=False).encode("utf-8")
+    ).hexdigest()
+    return {"domain": domain, "identity": identity, "result_hash": digest}
+
+
+def authenticate_experiment_result(
+    result: dict,
+    trusted_signers: Mapping[str, bytes],
+    *,
+    domain: str,
+    identity: Any,
+) -> bool:
+    """Require an authorized signature on the *same* result being scored.
+
+    Older replay-only signatures are still verifiable as replay receipts via
+    authenticate_execution_proof, but cannot authenticate experiment metrics.
+    """
+    if not isinstance(result, dict):
+        return False
+    proof = result.get("proof")
+    if not authenticate_execution_proof(proof, trusted_signers):
+        return False
+    try:
+        signed = proof["signed_payload"]
+        verification = result["verification"]
+        history = result["probe"]["history"]
+        invariant_history = result["invariants"]["history"]
+        if (not isinstance(verification, dict) or
+                not isinstance(history, list) or
+                not isinstance(invariant_history, list) or
+                history != invariant_history or
+                verification.get("match") is not True or
+                verification.get("mismatch_index") is not None or
+                type(verification.get("steps")) is not int or
+                verification["steps"] != len(history)):
+            return False
+        for key in ("final_hash", "steps", "match", "mismatch_index"):
+            if signed.get(key) != verification.get(key):
+                return False
+        # Replay success alone must match the supplied trace, not an unrelated
+        # valid run. The historical hash-chain format remains untouched.
+        from qec.controller.replay_engine import build_hash_chain
+        if build_hash_chain(history)["final_hash"] != verification["final_hash"]:
+            return False
+        expected = experiment_result_binding(
+            result, domain=domain, identity=identity
+        )
+        return signed.get("metadata", {}).get("experiment_binding_v1") == expected
+    except (KeyError, TypeError, ValueError, AttributeError, RecursionError, OverflowError):
+        return False
+
+
 # -- Step 5: Main entry ------------------------------------------------------
 
 

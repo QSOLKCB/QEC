@@ -130,7 +130,10 @@ def _authenticated_hybrid(monkeypatch):
     from cryptography.hazmat.primitives.serialization import (
         Encoding, PrivateFormat, PublicFormat, NoEncryption,
     )
-    from qec.controller.execution_proof import create_execution_proof
+    from qec.controller.execution_proof import (
+        create_execution_proof, experiment_result_binding,
+    )
+    from qec.controller.replay_engine import build_hash_chain
 
     private = Ed25519PrivateKey.generate()
     private_pem = private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
@@ -139,21 +142,31 @@ def _authenticated_hybrid(monkeypatch):
     )
     trusted_signers = {"uff-test": public_pem, "sequence-test": public_pem}
 
-    def authenticated_result(result, signer_id):
+    def authenticated_result(result, signer_id, domain, identity):
+        history = result["probe"]["history"]
+        result["verification"] = {
+            "final_hash": build_hash_chain(history)["final_hash"],
+            "steps": len(history),
+            "match": True,
+            "mismatch_index": None,
+        }
         result["proof"] = create_execution_proof(
-            {"final_hash": "abc123", "steps": 5,
-             "match": True, "mismatch_index": None},
-            signer_id, private_pem, public_pem,
+            result["verification"], signer_id, private_pem, public_pem,
             trusted_signers=trusted_signers,
+            metadata={"experiment_binding_v1": experiment_result_binding(
+                result, domain=domain, identity=identity,
+            )},
         )
         assert result["proof"]["verified"] is True
         return result
 
     def signed_uff(theta, **kwargs):
-        return authenticated_result(_fake_uff(theta), "uff-test")
+        return authenticated_result(_fake_uff(theta), "uff-test", "uff", theta)
 
     def signed_pipeline(seq):
-        return authenticated_result(_fake_pipeline(seq), "sequence-test")
+        return authenticated_result(
+            _fake_pipeline(seq), "sequence-test", "sequence", seq,
+        )
 
     monkeypatch.setattr(
         "qec.experiments.uff_bridge.run_uff_experiment", signed_uff

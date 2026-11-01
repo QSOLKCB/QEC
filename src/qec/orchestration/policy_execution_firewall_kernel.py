@@ -20,8 +20,9 @@ from qec.orchestration.deterministic_covenant_engine import (
     DeterministicCovenantExecution, execute_covenant_transition,
 )
 from qec.orchestration.governance_memory_io_boundary_auditor import (
-    GovernanceMemoryIOBoundaryAuditReport, build_boundary_audit_receipt,
-    audit_governance_memory_io_boundaries, summarize_boundary_findings,
+    BoundaryAuditRule, GovernanceMemoryIOBoundaryAuditReport,
+    build_boundary_audit_receipt, audit_governance_memory_io_boundaries,
+    summarize_boundary_findings,
 )
 from qec.orchestration.proof_carrying_agent_action_capsule import (
     ProofCarryingAgentActionCapsule, validate_agent_action_capsule,
@@ -314,6 +315,8 @@ def _verify_evidence_links(
     capsule: ProofCarryingAgentActionCapsule,
     execution: DeterministicCovenantExecution,
     report: GovernanceMemoryIOBoundaryAuditReport,
+    *,
+    trusted_boundary_rules: Sequence[BoundaryAuditRule] | None = None,
 ) -> Tuple[str, ...]:
     """Reject tampered or unbound source artifacts before any ALLOW receipt.
 
@@ -364,10 +367,27 @@ def _verify_evidence_links(
     except (ValueError, TypeError, AttributeError, KeyError):
         invalid.append("invalid_boundary_audit")
     # A valid report hash only authenticates the *report's own bytes*.
+    # Caller-pinned boundary rules (never extracted from the untrusted report)
+    # must also be used by the independent auditor. None means the canonical
+    # defaults; an explicit incomplete/empty custom ruleset cannot quietly
+    # switch off the checks that bind payload, state and proof evidence.
     # Independently re-evaluate every boundary rule whose inputs are carried by
     # the supplied capsule/execution. Otherwise an audit of payload={} can be
     # substituted for a large real payload with the same replay identity.
     try:
+        bound_rules = {
+            "payload_size_max", "state_size_max", "proof_chain_depth_max",
+            "action_scope_allowed", "replay_identity_valid",
+        }
+        if trusted_boundary_rules is not None:
+            rules = tuple(trusted_boundary_rules)
+            if (not all(isinstance(rule, BoundaryAuditRule) for rule in rules)
+                    or len({rule.rule_id for rule in rules}) != len(rules)
+                    or not bound_rules.issubset({rule.rule_id for rule in rules})):
+                raise ValueError("incomplete or invalid trusted boundary rules")
+        else:
+            rules = None
+
         independently_audited = audit_governance_memory_io_boundaries(
             covenant_metadata={
                 "covenant_id": execution.rule.rule_id,
@@ -382,14 +402,11 @@ def _verify_evidence_links(
             declared_replay_identity=execution.receipt.replay_identity,
             transition_receipt={"receipt_hash": execution.receipt.receipt_hash},
             prior_transition_receipt={},
+            boundary_rules=rules,
         )
         # Compare only rules whose inputs can be independently reconstructed.
         # Metadata, I/O surface, and predecessor provenance are unavailable in
         # these historical report types, and are not implicitly authenticated.
-        bound_rules = {
-            "payload_size_max", "state_size_max", "proof_chain_depth_max",
-            "action_scope_allowed", "replay_identity_valid",
-        }
         expected = tuple(f.to_dict() for f in independently_audited.findings
                          if f.rule_id in bound_rules)
         supplied = tuple(f.to_dict() for f in report.findings
@@ -415,7 +432,15 @@ def evaluate_policy_execution_firewall(
     covenant_execution: Any,
     boundary_audit_report: Any,
     policy_rules: Sequence[FirewallPolicyRule],
+    *,
+    trusted_boundary_rules: Sequence[BoundaryAuditRule] | None = None,
 ) -> PolicyExecutionFirewallDecision:
+    """Evaluate with verifier-owned boundary rules, never report-supplied rules.
+
+    None uses the auditor's unchanged default rules. Callers using custom
+    audit boundaries must supply the SAME rules from an independent trusted
+    configuration. Missing, incomplete, or mismatched rules fail closed.
+    """
     reasons: list[FirewallDecisionReason] = []
     violations: list[str] = []
 
@@ -498,7 +523,8 @@ def evaluate_policy_execution_firewall(
         violations.append("no_applicable_allow_rule")
     if not malformed:
         violations.extend(_verify_evidence_links(
-            action_capsule, covenant_execution, boundary_audit_report
+            action_capsule, covenant_execution, boundary_audit_report,
+            trusted_boundary_rules=trusted_boundary_rules,
         ))
 
     for rule in sorted(policy_rules, key=lambda item: (item.rule_id, item.stable_hash())):

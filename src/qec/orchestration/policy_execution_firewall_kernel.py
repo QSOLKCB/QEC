@@ -16,12 +16,15 @@ import hashlib
 import json
 from typing import Any, Dict, Mapping, Sequence, Tuple
 
-from qec.orchestration.deterministic_covenant_engine import DeterministicCovenantExecution
+from qec.orchestration.deterministic_covenant_engine import (
+    DeterministicCovenantExecution, execute_covenant_transition,
+)
 from qec.orchestration.governance_memory_io_boundary_auditor import (
-    GovernanceMemoryIOBoundaryAuditReport,
+    GovernanceMemoryIOBoundaryAuditReport, build_boundary_audit_receipt,
+    summarize_boundary_findings,
 )
 from qec.orchestration.proof_carrying_agent_action_capsule import (
-    ProofCarryingAgentActionCapsule,
+    ProofCarryingAgentActionCapsule, validate_agent_action_capsule,
 )
 
 
@@ -307,6 +310,72 @@ def build_firewall_execution_receipt(
     )
 
 
+def _verify_evidence_links(
+    capsule: ProofCarryingAgentActionCapsule,
+    execution: DeterministicCovenantExecution,
+    report: GovernanceMemoryIOBoundaryAuditReport,
+) -> Tuple[str, ...]:
+    """Reject tampered or unbound source artifacts before any ALLOW receipt.
+
+    No historical hashes/fixtures are rewritten: this validates the original
+    canonical contracts, including the receipt bytes and their dependencies.
+    """
+    invalid: list[str] = []
+    try:
+        if not validate_agent_action_capsule(capsule).is_valid:
+            invalid.append("invalid_action_capsule")
+    except (ValueError, TypeError, AttributeError):
+        invalid.append("invalid_action_capsule")
+    try:
+        regenerated = execute_covenant_transition(
+            execution.prior_state.state_data,
+            {"replay_identity": execution.receipt.replay_identity,
+             "transition_id": execution.receipt.transition_id},
+            execution.rule,
+        )
+        if regenerated != execution or execution.receipt.accepted is not True:
+            invalid.append("invalid_covenant_execution")
+    except (ValueError, TypeError, AttributeError, KeyError):
+        invalid.append("invalid_covenant_execution")
+    try:
+        actual_receipt = build_boundary_audit_receipt(
+            replay_identity=report.audit_receipt.replay_identity,
+            replay_binding=report.replay_binding,
+            transition_receipt_hash=report.audit_receipt.transition_receipt_hash,
+            prior_transition_receipt_hash=report.audit_receipt.prior_transition_receipt_hash,
+            findings=report.findings,
+            continuity_ok=report.audit_receipt.continuity_ok,
+        )
+        preimage = {
+            "audit_receipt": report.audit_receipt.to_dict(),
+            "findings": [finding.to_dict() for finding in report.findings],
+            "replay_binding": report.replay_binding,
+            "severity_summary": report.severity_summary,
+            "violated_rules": report.violated_rules,
+            "within_boundary": report.within_boundary,
+        }
+        expected_report_hash = _sha256_hex(_canonical_json(preimage).encode("utf-8"))
+        if (actual_receipt != report.audit_receipt or
+                expected_report_hash != report.report_hash or
+                report.violated_rules != tuple(sorted({f.rule_id for f in report.findings})) or
+                report.severity_summary != summarize_boundary_findings(report.findings) or
+                report.within_boundary != (len(report.findings) == 0)):
+            invalid.append("invalid_boundary_audit")
+    except (ValueError, TypeError, AttributeError, KeyError):
+        invalid.append("invalid_boundary_audit")
+    try:
+        if (capsule.replay_identity != execution.receipt.replay_identity or
+                execution.receipt.replay_identity != execution.rule.replay_identity or
+                capsule.replay_identity != report.audit_receipt.replay_identity or
+                report.audit_receipt.transition_receipt_hash != execution.receipt.receipt_hash or
+                report.audit_receipt.replay_binding != report.replay_binding or
+                report.audit_receipt.continuity_ok is not True):
+            invalid.append("unbound_proof_artifacts")
+    except (ValueError, TypeError, AttributeError):
+        invalid.append("unbound_proof_artifacts")
+    return tuple(sorted(set(invalid)))
+
+
 def evaluate_policy_execution_firewall(
     action_capsule: Any,
     covenant_execution: Any,
@@ -379,6 +448,24 @@ def evaluate_policy_execution_firewall(
                 message="malformed audit report",
             )
         )
+
+    # An empty set of restrictions is not an authorization policy.
+    if not policy_rules:
+        violations.append("missing_policy_rules")
+    # Explicit authorization requires at least one applicable allowlist rule.
+    applicable = any(
+        isinstance(rule, FirewallPolicyRule)
+        and bool(rule.allowed_action_types) and bool(rule.allowed_action_scopes)
+        and action_type in rule.allowed_action_types
+        and action_scope in rule.allowed_action_scopes
+        for rule in policy_rules
+    )
+    if not applicable:
+        violations.append("no_applicable_allow_rule")
+    if not malformed:
+        violations.extend(_verify_evidence_links(
+            action_capsule, covenant_execution, boundary_audit_report
+        ))
 
     for rule in sorted(policy_rules, key=lambda item: (item.rule_id, item.stable_hash())):
         if rule.allowed_action_types:

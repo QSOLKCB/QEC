@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Mapping
+
+from qec.controller.execution_proof import authenticate_execution_proof
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +26,8 @@ from typing import Any, Callable, Dict, List, Optional
 def _extract_sequence_summary(
     seq: Any,
     result: Dict[str, Any],
+    *,
+    trusted_signers: Mapping[str, bytes] | None = None,
 ) -> Dict[str, Any]:
     """Extract a compact invariant/stability summary from pipeline output.
 
@@ -73,7 +77,10 @@ def _extract_sequence_summary(
     consensus = bool(consensus_data.get("consensus", False))
 
     proof_data = result.get("proof", {})
-    verified = bool(proof_data.get("verified", False))
+    # Saved producer flags are not authentication. Reverify the signed
+    # payload against independently pinned signer public keys on consumption.
+    verified = bool(trusted_signers is not None and
+                    authenticate_execution_proof(proof_data, trusted_signers))
 
     # --- Trajectory class ---
     trajectory_data = result.get("trajectory", {})
@@ -141,6 +148,7 @@ def run_sequence_landscape(
     *,
     pipeline_fn: Callable[..., Dict[str, Any]],
     output_dir: Optional[str] = None,
+    trusted_signers: Mapping[str, bytes] | None = None,
 ) -> Dict[str, Any]:
     """Run a deterministic landscape sweep over sequences.
 
@@ -182,7 +190,7 @@ def run_sequence_landscape(
     points: List[Dict[str, Any]] = []
     for seq in sequences:
         result = pipeline_fn(seq)
-        summary = _extract_sequence_summary(seq, result)
+        summary = _extract_sequence_summary(seq, result, trusted_signers=trusted_signers)
         summary["class"] = classify_sequence(summary)
         points.append(summary)
 

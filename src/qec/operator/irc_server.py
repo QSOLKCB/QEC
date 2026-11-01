@@ -197,7 +197,7 @@ class IRCServer:
             target = msg.params[0]
             if len(msg.trailing) > _MAX_MESSAGE_LENGTH:
                 return [(client_id, self._make_reply("461", "PRIVMSG", trailing="Message too long"))]
-            # Intercept before channel fan-out: even denied requests must never
+            # Intercept before channel fan-out: even denied commands must never
             # leak into other clients' outbound IRC queues.
             command_parts = msg.trailing.strip().split()
             if command_parts and command_parts[0].lower() == _TRUSTED_OBSERVE_COMMAND:

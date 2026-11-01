@@ -18,6 +18,8 @@ python scripts/run_bot.py --demo
 
 # Connect to IRC server with QuTiP backend (default)
 export IRC_SERVER=irc.libera.chat
+# TLS and server certificate validation are enabled by default on 6697.
+# Explicit insecure local testing requires IRCBot(..., use_tls=False).
 export IRC_CHANNEL=#qec-sim
 python scripts/run_bot.py
 

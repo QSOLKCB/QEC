@@ -5,12 +5,14 @@ CI gate runs the signed socket trials first and only then validates JUnit.
 """
 from __future__ import annotations
 
-from collections import Counter
 import xml.etree.ElementTree as ET
 
 import pytest
 
-from scripts.maintenance.verify_phase623_trial import EXPECTED, inspect
+from scripts.maintenance.verify_phase623_trial import (
+    EXPECTED, EXPECTED_TEST_NAMES, REVOCATION_CASE, REVOCATION_PARAMETERS,
+    inspect,
+)
 
 SHA = "a" * 40
 
@@ -21,7 +23,10 @@ def _junit(*, mutate=None) -> bytes:
         for index in range(count):
             testcase = ET.SubElement(root, "testcase", {
                 "classname": "test_phase623_end_to_end",
-                "name": f"{name}[{index}]" if count > 1 else name,
+                "name": (
+                    f"{REVOCATION_CASE}[{REVOCATION_PARAMETERS[index]}]"
+                    if name == REVOCATION_CASE else name
+                ),
             })
             if mutate is not None:
                 mutate(testcase, name, index)
@@ -32,6 +37,7 @@ def test_phase623_verifier_exact_inventory_contract():
     receipt = inspect(_junit(), SHA)
     assert receipt["test_count"] == 11
     assert receipt["scenario_count"] == 8
+    assert frozenset(receipt["tests"]) == EXPECTED_TEST_NAMES
     assert receipt["source_commit"] == SHA
     assert receipt["skipped"] == receipt["errors"] == receipt["failures"] == 0
     assert len(receipt["junit_sha256"]) == 64
@@ -64,3 +70,53 @@ def test_phase623_verifier_refuses_wrong_module_or_commit():
         inspect(ET.tostring(root), SHA)
     with pytest.raises(ValueError):
         inspect(_junit(), "not-a-real-commit")
+
+
+
+def test_phase623_verifier_refuses_four_operation_only_substitutes():
+    # Codex reproduction: all four tests bear distinct labels but each
+    # describes the operation dimension, omitting signer/capability/policy.
+    root = ET.fromstring(_junit())
+    revoked = [
+        case for case in root.iter("testcase")
+        if case.get("name", "").startswith(REVOCATION_CASE + "[")
+    ]
+    assert len(revoked) == 4
+    for index, case in enumerate(revoked):
+        case.set("name", (
+            f"{REVOCATION_CASE}[operation-REVOKED_OPERATION-{index}]"
+        ))
+    assert len({case.get("name") for case in root.iter("testcase")}) == 11
+    with pytest.raises(ValueError, match="substituted"):
+        inspect(ET.tostring(root), SHA)
+
+
+@pytest.mark.parametrize("wrong_suffix", (
+    "operation-REVOKED_SIGNER",
+    "signer-REVOKED_OPERATION",
+    "capability-REVOKED_POLICY",
+    "policy-REVOKED_CAPABILITY",
+    "operation-REVOKED_OPERATION-0",
+    "0",
+    "operation-REVOKED_OPERATION]extra",
+))
+def test_phase623_verifier_rejects_substituted_dimension_or_reason(wrong_suffix):
+    root = ET.fromstring(_junit())
+    target = next(case for case in root.iter("testcase")
+                  if case.get("name", "") ==
+                  f"{REVOCATION_CASE}[{REVOCATION_PARAMETERS[0]}]")
+    target.set("name", f"{REVOCATION_CASE}[{wrong_suffix}]")
+    with pytest.raises(ValueError, match="substituted"):
+        inspect(ET.tostring(root), SHA)
+
+
+def test_phase623_verifier_refuses_missing_revocation_dimension():
+    root = ET.fromstring(_junit())
+    revoked = [
+        case for case in root.iter("testcase")
+        if case.get("name", "").startswith(REVOCATION_CASE + "[")
+    ]
+    assert len(revoked) == 4
+    revoked[-1].set("name", REVOCATION_CASE)
+    with pytest.raises(ValueError, match="substituted"):
+        inspect(ET.tostring(root), SHA)

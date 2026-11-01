@@ -9,6 +9,7 @@ No production keys, I/O, external calls, historical fixtures, or decoder edits.
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import hashlib
 from dataclasses import replace
@@ -20,6 +21,10 @@ from qec.analysis.capability_privilege_boundary_engine import (
 )
 from qec.controller.execution_proof import authenticate_experiment_result, experiment_result_binding
 from qec.experiments.uff_bridge import run_uff_experiment
+from qec.operator.irc_server import IRCServer
+from qec.operator.trusted_observation import (
+    TrustedObservationAuthority, authorize_trusted_observation,
+)
 from qec.orchestration.deterministic_covenant_engine import (
     build_covenant_rule, execute_covenant_transition,
 )
@@ -391,3 +396,182 @@ def test_cross_operation_receipt_cannot_override_context_even_if_prevalidated(va
     assert "experiment_run_mismatch" in crossed.violations or (
         "unauthenticated_experiment" in crossed.violations
     )
+
+
+# Phase 621: the *real* IRC dispatch/sending boundary for one new operation.
+# These reuse the authenticated signed positive controls from Phase 620,
+# rather than inventing ALLOW results or bypassing the composed validator.
+_CANDIDATE_FIELDS = (
+    "experiment", "grant", "privilege_decision", "privilege_receipt",
+    "capsule", "covenant_execution", "boundary_audit_report",
+    "firewall_rules", "firewall_decision",
+)
+
+
+def _trusted_observe_authority(bundle, *, client_id="c1", candidate=None, context=None):
+    return TrustedObservationAuthority(
+        client_id=client_id,
+        context=bundle["context"] if context is None else context,
+        candidate=({key: bundle[key] for key in _CANDIDATE_FIELDS}
+                   if candidate is None else candidate),
+        trusted_signers=bundle["trusted_signers"],
+        trusted_grant_hashes=bundle["trusted_grant_hashes"],
+    )
+
+
+def _register_irc(server, client_id, nick):
+    server.handle_message(client_id, "NICK " + nick)
+    server.handle_message(client_id, "USER u 0 * :r")
+
+
+def test_phase621_real_dispatch_emits_one_fixed_notice_after_authentication(valid_bundles):
+    a, _ = valid_bundles
+    authority = _trusted_observe_authority(a)
+    assert evaluate(**a).allowed
+    server = IRCServer(trusted_observation=authority)
+    _register_irc(server, "c1", "alice")
+    routed = server._handle_message_routed(
+        "c1", "PRIVMSG qec-ircd :!trusted-observe"
+    )
+    assert len(routed) == 1
+    assert routed[0][0] == "c1"
+    assert routed[0][1] == (
+        ":qec-ircd NOTICE alice :TRUSTED_OBSERVATION_ACCEPTED"
+    )
+    assert server.state.channels == {}
+    # Existing commands retain their original behavior and do not use authority.
+    assert any("local-only" in line for line in server.handle_message(
+        "c1", "PRIVMSG qec-ircd :!status"
+    ))
+
+
+def test_phase621_default_deny_has_no_action_or_outbound_effect(valid_bundles):
+    a, _ = valid_bundles
+    for authority in (None, _trusted_observe_authority(a, client_id="c2")):
+        server = IRCServer(trusted_observation=authority)
+        _register_irc(server, "c1", "alice")
+        _register_irc(server, "c2", "bob")
+        server.handle_message("c1", "JOIN #qec")
+        server.handle_message("c2", "JOIN #qec")
+        before = copy.deepcopy(server.state)
+        for raw in (
+            "PRIVMSG qec-ircd :!trusted-observe",
+            "PRIVMSG qec-ircd :!trusted-observe extra",
+            "PRIVMSG #qec :!trusted-observe",
+        ):
+            # Denied messages never reach another channel member or produce
+            # a server-side NOTICE. Legitimate sessions retain their state.
+            assert server._handle_message_routed("c1", raw) == ()
+            assert server.state == before
+
+
+def test_phase621_crossed_valid_bundle_deny_before_dispatch(valid_bundles):
+    a, b = valid_bundles
+    candidate = {key: a[key] for key in _CANDIDATE_FIELDS}
+    candidate["experiment"] = b["experiment"]
+    authority = _trusted_observe_authority(a, candidate=candidate)
+    assert not authorize_trusted_observation(authority, "c1")
+    server = IRCServer(trusted_observation=authority)
+    _register_irc(server, "c1", "alice")
+    assert server._handle_message_routed("c1", "PRIVMSG qec-ircd :!trusted-observe") == ()
+
+
+def test_phase621_malformed_producer_flags_and_untrusted_registry_do_not_emit(valid_bundles):
+    a, _ = valid_bundles
+    candidate = {key: a[key] for key in _CANDIDATE_FIELDS}
+    candidate["context"] = a["context"]  # producer may not send trust roots
+    rejected = _trusted_observe_authority(a, candidate=candidate)
+    assert not authorize_trusted_observation(rejected, "c1")
+    assert not authorize_trusted_observation(None, "c1")
+    forged = copy.deepcopy({key: a[key] for key in _CANDIDATE_FIELDS})
+    forged["experiment"]["proof"]["verified"] = True
+    forged["experiment"]["features"]["energy"] = -17.0
+    assert not authorize_trusted_observation(
+        _trusted_observe_authority(a, candidate=forged), "c1"
+    )
+    revoked = replace(_trusted_observe_authority(a), trusted_grant_hashes=frozenset())
+    assert not authorize_trusted_observation(revoked, "c1")
+    assert not authorize_trusted_observation(
+        replace(_trusted_observe_authority(a), trusted_signers={}), "c1"
+    )
+
+
+def test_phase621_channel_commands_never_leak_even_if_approved(valid_bundles):
+    a, _ = valid_bundles
+    server = IRCServer(trusted_observation=_trusted_observe_authority(a))
+    _register_irc(server, "c1", "alice")
+    _register_irc(server, "c2", "bob")
+    server.handle_message("c1", "JOIN #qec")
+    server.handle_message("c2", "JOIN #qec")
+    before = copy.deepcopy(server.state)
+    assert server._handle_message_routed("c1", "PRIVMSG #qec :!trusted-observe") == ()
+    assert server.state == before
+    assert server._handle_message_routed("c2", "PRIVMSG qec-ircd :!trusted-observe") == ()
+    assert server.state == before
+
+
+def test_phase621_real_socket_no_outbound_notice_without_authority(valid_bundles):
+    a, _ = valid_bundles
+
+    async def run():
+        server = IRCServer(host="127.0.0.1", port=0)
+        await server.start()
+        reader = writer = None
+        try:
+            sock = server._server.sockets[0]
+            reader, writer = await asyncio.open_connection(
+                "127.0.0.1", sock.getsockname()[1]
+            )
+            writer.write(b"NICK alice\r\nUSER u 0 * :r\r\n")
+            await writer.drain()
+            assert b" 001 alice " in await asyncio.wait_for(reader.readline(), 2)
+            writer.write(b"PRIVMSG qec-ircd :!trusted-observe\r\n")
+            await writer.drain()
+            # The protected operation has *no external socket output* on DENY.
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(reader.readline(), 0.2)
+        finally:
+            if writer is not None:
+                writer.close()
+                await writer.wait_closed()
+            await server.stop()
+
+    asyncio.run(run())
+
+
+def test_phase621_live_socket_approved_notice_is_single_and_bounded(valid_bundles):
+    a, _ = valid_bundles
+
+    async def run():
+        # First transport connection gets the server-owned client-0001 ID;
+        # this is NOT a claim of user or human authentication.
+        server = IRCServer(
+            host="127.0.0.1", port=0,
+            trusted_observation=_trusted_observe_authority(
+                a, client_id="client-0001"
+            ),
+        )
+        await server.start()
+        writer = None
+        try:
+            port = server._server.sockets[0].getsockname()[1]
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.write(b"NICK alice\r\nUSER u 0 * :r\r\n")
+            await writer.drain()
+            assert b" 001 alice " in await asyncio.wait_for(reader.readline(), 2)
+            writer.write(b"PRIVMSG qec-ircd :!trusted-observe\r\n")
+            await writer.drain()
+            first = await asyncio.wait_for(reader.readline(), 2)
+            assert first == (
+                b":qec-ircd NOTICE alice :TRUSTED_OBSERVATION_ACCEPTED\r\n"
+            )
+            # No hidden second reply or additional outbound disclosure.
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(reader.readline(), 0.2)
+        finally:
+            if writer is not None:
+                writer.close()
+                await writer.wait_closed()
+            await server.stop()
+
+    asyncio.run(run())

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import NamedTuple
 
 from .irc_commands import format_command_response, parse_operator_command, route_operator_command
+from .trusted_observation import TrustedObservationAuthority, authorize_trusted_observation
 from .irc_replay_audit import _MAX_AUDIT_EVENTS, IRCReplayAuditReceipt, replay_irc_audit_from_interactions, build_irc_replay_audit_receipt, build_irc_replay_audit_event
 from .irc_protocol import (
     _DEFAULT_HOST,
@@ -25,6 +26,9 @@ from .irc_protocol import (
 
 _SERVER_NAME = "qec-ircd"
 _SOCKET_IDLE_TIMEOUT_SECONDS = 60
+# This new operator-only action is intercepted before channel fan-out. It is
+# intentionally absent from the legacy command router and is never broadcast.
+_TRUSTED_OBSERVE_COMMAND = "!trusted-observe"
 
 
 class RoutedReply(NamedTuple):
@@ -56,7 +60,7 @@ class IRCServerState:
 
 
 class IRCServer:
-    def __init__(self, host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT, max_clients: int = _MAX_CLIENTS, *, enable_replay_audit: bool = False) -> None:
+    def __init__(self, host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT, max_clients: int = _MAX_CLIENTS, *, enable_replay_audit: bool = False, trusted_observation: TrustedObservationAuthority | None = None) -> None:
         self.host = host
         self.port = port
         self.max_clients = max_clients
@@ -69,6 +73,9 @@ class IRCServer:
         self._enable_replay_audit = enable_replay_audit
         self._audit_interactions: list[tuple[str, str, tuple[str, ...]]] = []
         self._audit_truncated = False
+        # Independent, operator-supplied precommit; never read from IRC text.
+        # Without it the new observation action is entirely silent.
+        self._trusted_observation = trusted_observation
 
     def _sorted_clients(self) -> list[str]:
         return sorted(self.state.clients)
@@ -190,6 +197,20 @@ class IRCServer:
             target = msg.params[0]
             if len(msg.trailing) > _MAX_MESSAGE_LENGTH:
                 return [(client_id, self._make_reply("461", "PRIVMSG", trailing="Message too long"))]
+            # Intercept before channel fan-out: even denied commands must never
+            # leak into other clients' outbound IRC queues.
+            command_parts = msg.trailing.strip().split()
+            if command_parts and command_parts[0].lower() == _TRUSTED_OBSERVE_COMMAND:
+                if (target != _SERVER_NAME or len(command_parts) != 1
+                        or not authorize_trusted_observation(
+                            self._trusted_observation, client_id
+                        )):
+                    return []
+                # The only side effect of this new narrow action is a fixed,
+                # requester-only NOTICE. Never serialize untrusted proof data.
+                return [(client_id, self._make_reply(
+                    "NOTICE", c.nick or "*", trailing="TRUSTED_OBSERVATION_ACCEPTED"
+                ))]
             if target.startswith("#"):
                 ch = self.state.channels.get(target)
                 if not ch:

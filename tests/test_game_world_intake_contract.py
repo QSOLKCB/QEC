@@ -321,3 +321,52 @@ def test_private_path_validator_for_null_and_embedded_drive():
         _validate_archive_entry_path("bad\x00name.py")
     with pytest.raises(ValueError, match="UNSAFE_ARCHIVE_PATH"):
         _validate_archive_entry_path("subdir/C:/evil.py")
+
+def test_intake_rejects_oversized_sparse_archive_before_read(tmp_path):
+    path = tmp_path / "large.zip"
+    with path.open("wb") as stream:
+        stream.truncate(mod._MAX_ARCHIVE_BYTES + 1)
+    with pytest.raises(ValueError, match="INVALID_ARCHIVE_FORMAT"):
+        build_game_world_archive(str(path))
+
+
+def test_intake_rejects_zip_with_excess_members(tmp_path):
+    path = tmp_path / "many.zip"
+    with zipfile.ZipFile(path, "w") as archive:
+        for index in range(mod._MAX_ZIP_ENTRIES + 1):
+            archive.writestr(f"f-{index}.txt", b"")
+    with pytest.raises(ValueError, match="INVALID_ARCHIVE_FORMAT"):
+        build_game_world_archive(str(path))
+
+
+def test_intake_uses_original_snapshot_when_path_is_replaced(tmp_path, monkeypatch):
+    target = tmp_path / "change.zip"
+    _make_zip(target, [("first.py", b"original")])
+    original = target.read_bytes()
+    replacement = tmp_path / "replacement.zip"
+    _make_zip(replacement, [("second.py", b"replacement")])
+    real_snapshot = mod._bounded_zip_snapshot
+
+    def snapshot_then_replace(path):
+        captured = real_snapshot(path)
+        replacement.replace(path)
+        return captured
+
+    monkeypatch.setattr(mod, "_bounded_zip_snapshot", snapshot_then_replace)
+    result = build_game_world_archive(str(target))
+    import hashlib
+    assert result.archive_sha256 == hashlib.sha256(original).hexdigest()
+    assert "Python" in result.detected_languages
+    assert result.file_count == 1
+
+
+def test_intake_rejects_duplicate_and_excess_corpus_before_read(monkeypatch):
+    def no_read(*args, **kwargs):
+        raise AssertionError("unexpected archive access")
+    monkeypatch.setattr(mod, "build_game_world_archive", no_read)
+    with pytest.raises(ValueError, match="DUPLICATE_ARCHIVE"):
+        build_game_world_corpus_manifest(["/a/sample.zip", "/b/sample.zip"])
+    with pytest.raises(ValueError, match="INVALID_INPUT"):
+        build_game_world_corpus_manifest(
+            [f"/a/f{i}.zip" for i in range(mod._MAX_CORPUS_ARCHIVES + 1)]
+        )

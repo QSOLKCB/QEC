@@ -1,0 +1,36 @@
+name: QEC Security Cloud corrective boundaries
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ququart-fer-pages.yml'
+      - 'src/irc_bot.py'
+      - 'src/integrated_bot.py'
+      - 'src/qec/operator/irc_server.py'
+      - 'scripts/maintenance/mirror_repos.sh'
+      - 'tests/test_security_cloud_boundaries.py'
+      - '.github/workflows/security-cloud-boundaries.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ququart-fer-pages.yml'
+      - 'src/irc_bot.py'
+      - 'src/integrated_bot.py'
+      - 'src/qec/operator/irc_server.py'
+      - 'scripts/maintenance/mirror_repos.sh'
+      - 'tests/test_security_cloud_boundaries.py'
+      - '.github/workflows/security-cloud-boundaries.yml'
+permissions:
+  contents: read
+jobs:
+  python-boundaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_security_cloud_boundaries.py' -v
+      - run: bash -n scripts/maintenance/mirror_repos.sh

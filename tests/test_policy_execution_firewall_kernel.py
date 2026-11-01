@@ -397,3 +397,56 @@ def test_malformed_large_covenant_integer_returns_deny_not_overflow():
     denied = evaluate_policy_execution_firewall(capsule, altered, report, (_sample_rule(),))
     assert denied.decision_value == "deny"
     assert "invalid_covenant_execution" in denied.violations
+
+def test_cannot_substitute_audit_of_different_payload_for_large_capsule():
+    # Correctly constructed capsule/execution: the dishonest report is also
+    # internally hash-consistent, but evaluated an empty payload instead.
+    original = _sample_capsule()
+    capsule = build_proof_carrying_agent_action_capsule(
+        action_id=original.action_id,
+        action_type=original.action_type,
+        action_scope=original.action_scope,
+        action_payload={"data": "x" * 5000},
+        preconditions=original.preconditions,
+        invariants=original.invariants,
+        proof_obligations=original.proof_obligations,
+        validation_flags=original.validation_flags,
+    )
+    execution = _sample_execution(replay_identity=capsule.replay_identity)
+    honest = _sample_report(capsule, execution)
+    assert any(f.finding_code == "payload_too_large" for f in honest.findings)
+    denied = evaluate_policy_execution_firewall(capsule, execution, honest, (_sample_rule(),))
+    assert denied.decision_value == "deny"
+
+    substituted = audit_governance_memory_io_boundaries(
+        covenant_metadata={"covenant_id": "c1", "capsule_id": capsule.action_id},
+        payload={},  # Not the supplied capsule's actual payload.
+        state=execution.next_state.state_data,
+        proof_chain=tuple(ob.to_dict() for ob in capsule.proof_obligations),
+        action_scope=capsule.action_scope,
+        io_surface="none",
+        replay_identity=capsule.replay_identity,
+        declared_replay_identity=capsule.replay_identity,
+        transition_receipt={
+            "receipt_hash": execution.receipt.receipt_hash,
+            "prior_receipt_hash": execution.receipt.receipt_hash,
+        },
+        prior_transition_receipt={"receipt_hash": execution.receipt.receipt_hash},
+    )
+    assert substituted.within_boundary is True
+    result = evaluate_policy_execution_firewall(capsule, execution, substituted, (_sample_rule(),))
+    assert result.decision_value == "deny"
+    assert "audit_input_mismatch" in result.violations
+
+
+def test_deep_capsule_payload_denies_without_recursion_error():
+    nested = {}
+    for _ in range(600):
+        nested = {"x": nested}
+    capsule = replace(_sample_capsule(), action_payload=nested)
+    execution = _sample_execution()
+    report = _sample_report(_sample_capsule(), execution)
+    decision = evaluate_policy_execution_firewall(capsule, execution, report, (_sample_rule(),))
+    assert decision.decision_value == "deny"
+    assert "invalid_action_capsule" in decision.violations
+

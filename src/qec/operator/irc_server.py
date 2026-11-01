@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from typing import NamedTuple
 
 from .irc_commands import format_command_response, parse_operator_command, route_operator_command
-from .trusted_observation import TrustedObservationAuthority, authorize_trusted_observation
+from .trusted_observation import TrustedObservationAuthority
+from .observation_replay_ledger import ObservationReplayLedger
 from .irc_replay_audit import _MAX_AUDIT_EVENTS, IRCReplayAuditReceipt, replay_irc_audit_from_interactions, build_irc_replay_audit_receipt, build_irc_replay_audit_event
 from .irc_protocol import (
     _DEFAULT_HOST,
@@ -60,7 +61,7 @@ class IRCServerState:
 
 
 class IRCServer:
-    def __init__(self, host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT, max_clients: int = _MAX_CLIENTS, *, enable_replay_audit: bool = False, trusted_observation: TrustedObservationAuthority | None = None) -> None:
+    def __init__(self, host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT, max_clients: int = _MAX_CLIENTS, *, enable_replay_audit: bool = False, trusted_observation: TrustedObservationAuthority | None = None, observation_ledger: ObservationReplayLedger | None = None) -> None:
         self.host = host
         self.port = port
         self.max_clients = max_clients
@@ -76,6 +77,25 @@ class IRCServer:
         # Independent, operator-supplied precommit; never read from IRC text.
         # Without it the new observation action is entirely silent.
         self._trusted_observation = trusted_observation
+        if observation_ledger is not None and not isinstance(observation_ledger, ObservationReplayLedger):
+            raise ValueError("invalid observation ledger")
+        self._observation_ledger = observation_ledger if observation_ledger is not None else ObservationReplayLedger()
+
+    def install_trusted_observation(self, authority: TrustedObservationAuthority | None) -> None:
+        """Operator-only configuration, not reachable by a client command.
+
+        Replacing the evidence does not reset spent operation IDs or revocations.
+        This method cannot authenticate the caller; custody belongs to the
+        embedding application, not the IRC protocol.
+        """
+        if authority is not None and not isinstance(authority, TrustedObservationAuthority):
+            raise ValueError("invalid trusted observation authority")
+        self._trusted_observation = authority
+
+    @property
+    def observation_gate_receipts(self):
+        """Immutable snapshot of local diagnostic admissions and denials."""
+        return self._observation_ledger.receipts
 
     def _sorted_clients(self) -> list[str]:
         return sorted(self.state.clients)
@@ -202,7 +222,7 @@ class IRCServer:
             command_parts = msg.trailing.strip().split()
             if command_parts and command_parts[0].lower() == _TRUSTED_OBSERVE_COMMAND:
                 if (target != _SERVER_NAME or len(command_parts) != 1
-                        or not authorize_trusted_observation(
+                        or not self._observation_ledger.admit(
                             self._trusted_observation, client_id
                         )):
                     return []

@@ -17,7 +17,7 @@ import json
 import os
 from typing import Any, Callable, Dict, List, Optional, Mapping
 
-from qec.controller.execution_proof import authenticate_execution_proof
+from qec.controller.execution_proof import authenticate_experiment_result
 
 import numpy as np
 
@@ -100,9 +100,11 @@ def _extract_point_summary(
         "most_stable": analysis["most_stable"],
         "most_sensitive": analysis["most_sensitive"],
         "consensus": result["consensus"]["consensus"],
-        # A stored producer flag is not proof of signer authorization.
+        # The whole result (including metrics) must match a trusted signature.
         "verified": bool(trusted_signers is not None and
-                         authenticate_execution_proof(result["proof"], trusted_signers)),
+                         authenticate_experiment_result(
+                             result, trusted_signers, domain="uff", identity=theta
+                         )),
     }
 
 

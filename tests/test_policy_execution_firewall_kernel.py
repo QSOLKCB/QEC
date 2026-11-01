@@ -8,6 +8,7 @@ from qec.orchestration.deterministic_covenant_engine import (
     execute_covenant_transition,
 )
 from qec.orchestration.governance_memory_io_boundary_auditor import (
+    _default_boundary_rules,
     audit_governance_memory_io_boundaries,
 )
 from qec.orchestration.policy_execution_firewall_kernel import (
@@ -23,7 +24,7 @@ from qec.orchestration.proof_carrying_agent_action_capsule import (
 )
 
 
-def _sample_capsule(*, action_type: str = "observe", action_scope: str = "observe", replay_identity: str = "ri.alpha"):
+def _sample_capsule(*, action_type: str = "observe", action_scope: str = "observe", replay_identity: str | None = None):
     obligation = AgentActionProofObligation(
         obligation_id="ob.det",
         obligation_kind="determinism",
@@ -41,10 +42,14 @@ def _sample_capsule(*, action_type: str = "observe", action_scope: str = "observ
         proof_obligations=(obligation,),
         validation_flags=("deterministic_only",),
     )
-    return replace(capsule, replay_identity=replay_identity)
+    # Keep the real canonical replay identity. An arbitrary replaced value
+    # invalidates the capsule; use that only for explicit tampering tests.
+    return capsule if replay_identity is None else replace(capsule, replay_identity=replay_identity)
 
 
-def _sample_execution(*, replay_identity: str = "ri.alpha", rule_id: str = "rule.alpha"):
+def _sample_execution(*, replay_identity: str | None = None, rule_id: str = "rule.alpha"):
+    if replay_identity is None:
+        replay_identity = _sample_capsule().replay_identity
     rule = build_covenant_rule(
         rule_id=rule_id,
         target_key="counter",
@@ -60,7 +65,7 @@ def _sample_execution(*, replay_identity: str = "ri.alpha", rule_id: str = "rule
     )
 
 
-def _sample_report(capsule, execution):
+def _sample_report(capsule, execution, *, boundary_rules=None):
     return audit_governance_memory_io_boundaries(
         covenant_metadata={"covenant_id": "c1", "capsule_id": capsule.action_id},
         payload=capsule.action_payload,
@@ -75,6 +80,7 @@ def _sample_report(capsule, execution):
             "prior_receipt_hash": execution.receipt.receipt_hash,
         },
         prior_transition_receipt={"receipt_hash": execution.receipt.receipt_hash},
+        boundary_rules=boundary_rules,
     )
 
 
@@ -87,7 +93,7 @@ def _sample_rule(**overrides):
         max_allowed_severity="high",
         disallowed_violated_rule_ids=("io_surface_allowed",),
         require_receipt_continuity=True,
-        required_replay_identity_prefix="ri.",
+        required_replay_identity_prefix="agent-action::",
         required_covenant_rule_id="rule.alpha",
     )
     kwargs.update(overrides)
@@ -295,3 +301,231 @@ def test_firewall_decision_dataclass_surface_methods() -> None:
     assert isinstance(decision.to_dict(), dict)
     assert json.loads(decision.to_canonical_json())["decision_value"] == decision.decision_value
     assert len(decision.stable_hash()) == 64
+
+
+def test_empty_policy_and_no_applicable_explicit_allow_deny():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    report = _sample_report(capsule, execution)
+    missing = evaluate_policy_execution_firewall(capsule, execution, report, ())
+    assert missing.decision_value == "deny"
+    assert "missing_policy_rules" in missing.violations
+    assert "no_applicable_allow_rule" in missing.violations
+    no_explicit = evaluate_policy_execution_firewall(
+        capsule, execution, report,
+        (_sample_rule(allowed_action_types=(), allowed_action_scopes=()),),
+    )
+    assert no_explicit.decision_value == "deny"
+    assert "no_applicable_allow_rule" in no_explicit.violations
+
+
+def test_forged_capsule_hash_and_audit_receipt_cannot_allow():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    report = _sample_report(capsule, execution)
+    rule = _sample_rule()
+    normal = evaluate_policy_execution_firewall(capsule, execution, report, (rule,))
+    assert normal.decision_value == "allow"
+    assert normal.violations == ()
+    forged_capsule = replace(capsule, capsule_hash="a" * 64)
+    decision = evaluate_policy_execution_firewall(forged_capsule, execution, report, (rule,))
+    assert decision.decision_value == "deny"
+    assert "invalid_action_capsule" in decision.violations
+    fake_receipt = replace(report.audit_receipt, receipt_hash="b" * 64)
+    bad_audit = replace(report, audit_receipt=fake_receipt)
+    decision = evaluate_policy_execution_firewall(capsule, execution, bad_audit, (rule,))
+    assert decision.decision_value == "deny"
+    assert "invalid_boundary_audit" in decision.violations
+
+
+def test_unbound_proof_chain_and_tampered_covenant_deny():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    report = _sample_report(capsule, execution)
+    rule = _sample_rule()
+    altered = replace(execution.receipt, next_state_hash="c" * 64)
+    denied = evaluate_policy_execution_firewall(
+        capsule, replace(execution, receipt=altered), report, (rule,)
+    )
+    assert denied.decision_value == "deny"
+    assert "invalid_covenant_execution" in denied.violations
+    other = _sample_execution(replay_identity="other")
+    rejected = evaluate_policy_execution_firewall(capsule, other, report, (rule,))
+    assert rejected.decision_value == "deny"
+    assert "unbound_proof_artifacts" in rejected.violations
+
+
+def test_policy_permitted_genesis_receipt_does_not_require_continuity():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    # The genesis audit has no predecessor, but its own hashes are still valid.
+    report = audit_governance_memory_io_boundaries(
+        covenant_metadata={"covenant_id": "c1", "capsule_id": capsule.action_id},
+        payload=capsule.action_payload,
+        state=execution.next_state.state_data,
+        proof_chain=tuple(ob.to_dict() for ob in capsule.proof_obligations),
+        action_scope=capsule.action_scope,
+        io_surface="none",
+        replay_identity=capsule.replay_identity,
+        declared_replay_identity=capsule.replay_identity,
+        transition_receipt={"receipt_hash": execution.receipt.receipt_hash},
+        prior_transition_receipt={},
+    )
+    assert report.audit_receipt.continuity_ok is False
+    # Genesis continuity is enforced only when the applicable policy requires it.
+    policy = _sample_rule(
+        require_receipt_continuity=False, require_within_boundary=False,
+        max_allowed_severity="critical",
+    )
+    decision = evaluate_policy_execution_firewall(capsule, execution, report, (policy,))
+    assert decision.decision_value == "allow"
+    strict = _sample_rule(
+        require_receipt_continuity=True, require_within_boundary=False,
+        max_allowed_severity="critical",
+    )
+    denied = evaluate_policy_execution_firewall(capsule, execution, report, (strict,))
+    assert denied.decision_value == "deny"
+    assert "receipt_continuity_failure" in denied.violations
+
+
+def test_malformed_large_covenant_integer_returns_deny_not_overflow():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    report = _sample_report(capsule, execution)
+    altered = replace(
+        execution,
+        prior_state=replace(execution.prior_state, state_data={"counter": 10**400}),
+    )
+    denied = evaluate_policy_execution_firewall(capsule, altered, report, (_sample_rule(),))
+    assert denied.decision_value == "deny"
+    assert "invalid_covenant_execution" in denied.violations
+
+def test_cannot_substitute_audit_of_different_payload_for_large_capsule():
+    # Correctly constructed capsule/execution: the dishonest report is also
+    # internally hash-consistent, but evaluated an empty payload instead.
+    original = _sample_capsule()
+    capsule = build_proof_carrying_agent_action_capsule(
+        action_id=original.action_id,
+        action_type=original.action_type,
+        action_scope=original.action_scope,
+        action_payload={"data": "x" * 5000},
+        preconditions=original.preconditions,
+        invariants=original.invariants,
+        proof_obligations=original.proof_obligations,
+        validation_flags=original.validation_flags,
+    )
+    execution = _sample_execution(replay_identity=capsule.replay_identity)
+    honest = _sample_report(capsule, execution)
+    assert any(f.finding_code == "payload_too_large" for f in honest.findings)
+    denied = evaluate_policy_execution_firewall(capsule, execution, honest, (_sample_rule(),))
+    assert denied.decision_value == "deny"
+
+    substituted = audit_governance_memory_io_boundaries(
+        covenant_metadata={"covenant_id": "c1", "capsule_id": capsule.action_id},
+        payload={},  # Not the supplied capsule's actual payload.
+        state=execution.next_state.state_data,
+        proof_chain=tuple(ob.to_dict() for ob in capsule.proof_obligations),
+        action_scope=capsule.action_scope,
+        io_surface="none",
+        replay_identity=capsule.replay_identity,
+        declared_replay_identity=capsule.replay_identity,
+        transition_receipt={
+            "receipt_hash": execution.receipt.receipt_hash,
+            "prior_receipt_hash": execution.receipt.receipt_hash,
+        },
+        prior_transition_receipt={"receipt_hash": execution.receipt.receipt_hash},
+    )
+    assert substituted.within_boundary is True
+    result = evaluate_policy_execution_firewall(capsule, execution, substituted, (_sample_rule(),))
+    assert result.decision_value == "deny"
+    assert "audit_input_mismatch" in result.violations
+
+
+def test_deep_capsule_payload_denies_without_recursion_error():
+    nested = {}
+    for _ in range(600):
+        nested = {"x": nested}
+    capsule = replace(_sample_capsule(), action_payload=nested)
+    execution = _sample_execution()
+    report = _sample_report(_sample_capsule(), execution)
+    decision = evaluate_policy_execution_firewall(capsule, execution, report, (_sample_rule(),))
+    assert decision.decision_value == "deny"
+    assert "invalid_action_capsule" in decision.violations
+
+
+
+
+def test_verifier_pinned_custom_boundary_rules_preserve_authentic_audit():
+    """A custom auditor's legitimate high/medium finding may be policy-allowed.
+
+    The firewall receives rules from the verifier, never from the supplied
+    report. When no trusted custom rules are provided it fails closed against
+    the report instead of silently accepting its unverified settings.
+    """
+    capsule = _sample_capsule()  # canonical JSON payload is 9 bytes
+    execution = _sample_execution()
+    policy = _sample_rule(
+        require_within_boundary=False, max_allowed_severity="high"
+    )
+    default_rules = _default_boundary_rules()
+
+    for severity in ("high", "medium"):
+        custom_rules = tuple(
+            replace(rule, max_value=8, severity=severity)
+            if rule.rule_id == "payload_size_max" else rule
+            for rule in default_rules
+        )
+        report = _sample_report(
+            capsule, execution, boundary_rules=custom_rules
+        )
+        assert report.within_boundary is False
+        findings = [f for f in report.findings if f.rule_id == "payload_size_max"]
+        assert len(findings) == 1
+        assert findings[0].finding_code == "payload_too_large"
+        assert findings[0].severity == severity
+
+        accepted = evaluate_policy_execution_firewall(
+            capsule, execution, report, (policy,),
+            trusted_boundary_rules=custom_rules,
+        )
+        assert accepted.decision_value == "allow"
+        assert accepted.violations == ()
+        assert validate_firewall_decision(accepted) == ()
+
+        # A custom report cannot dictate its own verification rules.
+        missing_trust = evaluate_policy_execution_firewall(
+            capsule, execution, report, (policy,)
+        )
+        assert missing_trust.decision_value == "deny"
+        assert "audit_input_mismatch" in missing_trust.violations
+
+        mismatched_trust = evaluate_policy_execution_firewall(
+            capsule, execution, report, (policy,),
+            trusted_boundary_rules=default_rules,
+        )
+        assert mismatched_trust.decision_value == "deny"
+        assert "audit_input_mismatch" in mismatched_trust.violations
+
+        # A legitimately signed/hashed *clean* default audit must not be
+        # accepted as evidence under these stricter verifier-owned rules.
+        substituted_clean_report = _sample_report(capsule, execution)
+        forged = evaluate_policy_execution_firewall(
+            capsule, execution, substituted_clean_report, (policy,),
+            trusted_boundary_rules=custom_rules,
+        )
+        assert forged.decision_value == "deny"
+        assert "audit_input_mismatch" in forged.violations
+
+
+def test_custom_boundary_rules_must_not_disable_input_binding():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    report = _sample_report(capsule, execution)
+    policy = _sample_rule()
+    for incomplete in ((), _default_boundary_rules()[:1]):
+        denied = evaluate_policy_execution_firewall(
+            capsule, execution, report, (policy,),
+            trusted_boundary_rules=incomplete,
+        )
+        assert denied.decision_value == "deny"
+        assert "audit_input_mismatch" in denied.violations

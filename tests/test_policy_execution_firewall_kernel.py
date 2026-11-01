@@ -8,6 +8,7 @@ from qec.orchestration.deterministic_covenant_engine import (
     execute_covenant_transition,
 )
 from qec.orchestration.governance_memory_io_boundary_auditor import (
+    _default_boundary_rules,
     audit_governance_memory_io_boundaries,
 )
 from qec.orchestration.policy_execution_firewall_kernel import (
@@ -64,7 +65,7 @@ def _sample_execution(*, replay_identity: str | None = None, rule_id: str = "rul
     )
 
 
-def _sample_report(capsule, execution):
+def _sample_report(capsule, execution, *, boundary_rules=None):
     return audit_governance_memory_io_boundaries(
         covenant_metadata={"covenant_id": "c1", "capsule_id": capsule.action_id},
         payload=capsule.action_payload,
@@ -79,6 +80,7 @@ def _sample_report(capsule, execution):
             "prior_receipt_hash": execution.receipt.receipt_hash,
         },
         prior_transition_receipt={"receipt_hash": execution.receipt.receipt_hash},
+        boundary_rules=boundary_rules,
     )
 
 
@@ -450,3 +452,80 @@ def test_deep_capsule_payload_denies_without_recursion_error():
     assert decision.decision_value == "deny"
     assert "invalid_action_capsule" in decision.violations
 
+
+
+
+def test_verifier_pinned_custom_boundary_rules_preserve_authentic_audit():
+    """A custom auditor's legitimate high/medium finding may be policy-allowed.
+
+    The firewall receives rules from the verifier, never from the supplied
+    report. When no trusted custom rules are provided it fails closed against
+    the report instead of silently accepting its unverified settings.
+    """
+    capsule = _sample_capsule()  # canonical JSON payload is 9 bytes
+    execution = _sample_execution()
+    policy = _sample_rule(
+        require_within_boundary=False, max_allowed_severity="high"
+    )
+    default_rules = _default_boundary_rules()
+
+    for severity in ("high", "medium"):
+        custom_rules = tuple(
+            replace(rule, max_value=8, severity=severity)
+            if rule.rule_id == "payload_size_max" else rule
+            for rule in default_rules
+        )
+        report = _sample_report(
+            capsule, execution, boundary_rules=custom_rules
+        )
+        assert report.within_boundary is False
+        findings = [f for f in report.findings if f.rule_id == "payload_size_max"]
+        assert len(findings) == 1
+        assert findings[0].finding_code == "payload_too_large"
+        assert findings[0].severity == severity
+
+        accepted = evaluate_policy_execution_firewall(
+            capsule, execution, report, (policy,),
+            trusted_boundary_rules=custom_rules,
+        )
+        assert accepted.decision_value == "allow"
+        assert accepted.violations == ()
+        assert validate_firewall_decision(accepted) == ()
+
+        # A custom report cannot dictate its own verification rules.
+        missing_trust = evaluate_policy_execution_firewall(
+            capsule, execution, report, (policy,)
+        )
+        assert missing_trust.decision_value == "deny"
+        assert "audit_input_mismatch" in missing_trust.violations
+
+        mismatched_trust = evaluate_policy_execution_firewall(
+            capsule, execution, report, (policy,),
+            trusted_boundary_rules=default_rules,
+        )
+        assert mismatched_trust.decision_value == "deny"
+        assert "audit_input_mismatch" in mismatched_trust.violations
+
+        # A legitimately signed/hashed *clean* default audit must not be
+        # accepted as evidence under these stricter verifier-owned rules.
+        substituted_clean_report = _sample_report(capsule, execution)
+        forged = evaluate_policy_execution_firewall(
+            capsule, execution, substituted_clean_report, (policy,),
+            trusted_boundary_rules=custom_rules,
+        )
+        assert forged.decision_value == "deny"
+        assert "audit_input_mismatch" in forged.violations
+
+
+def test_custom_boundary_rules_must_not_disable_input_binding():
+    capsule = _sample_capsule()
+    execution = _sample_execution()
+    report = _sample_report(capsule, execution)
+    policy = _sample_rule()
+    for incomplete in ((), _default_boundary_rules()[:1]):
+        denied = evaluate_policy_execution_firewall(
+            capsule, execution, report, (policy,),
+            trusted_boundary_rules=incomplete,
+        )
+        assert denied.decision_value == "deny"
+        assert "audit_input_mismatch" in denied.violations

@@ -371,11 +371,19 @@ def test_policy_permitted_genesis_receipt_does_not_require_continuity():
     )
     assert report.audit_receipt.continuity_ok is False
     # Genesis continuity is enforced only when the applicable policy requires it.
-    policy = _sample_rule(require_receipt_continuity=False, require_within_boundary=False)
+    policy = _sample_rule(
+        require_receipt_continuity=False, require_within_boundary=False,
+        max_allowed_severity="critical",
+    )
     decision = evaluate_policy_execution_firewall(capsule, execution, report, (policy,))
     assert decision.decision_value == "allow"
-    strict = evaluate_policy_execution_firewall(capsule, execution, report, (_sample_rule(),))
-    assert strict.decision_value == "deny"
+    strict = _sample_rule(
+        require_receipt_continuity=True, require_within_boundary=False,
+        max_allowed_severity="critical",
+    )
+    denied = evaluate_policy_execution_firewall(capsule, execution, report, (strict,))
+    assert denied.decision_value == "deny"
+    assert "receipt_continuity_failure" in denied.violations
 
 
 def test_malformed_large_covenant_integer_returns_deny_not_overflow():

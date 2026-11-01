@@ -23,12 +23,13 @@ class FakeSocket:
     def __init__(self, chunks):
         self.chunks = list(chunks)
         self.closed = False
+        self.sent = []
     def recv(self, n):
         return self.chunks.pop(0) if self.chunks else b""
     def close(self):
         self.closed = True
     def sendall(self, bytes_):
-        pass
+        self.sent.append(bytes_)
     def settimeout(self, value):
         self.timeout = value
 
@@ -92,6 +93,22 @@ class LegacyIrcBoundaryTests(unittest.TestCase):
         self.assertEqual(wrapped.timeout, None)
         self.assertEqual(ctx.assert_hostname, "irc.example")
         bot.disconnect()
+
+    def test_split_utf8_sequence_is_not_mistaken_for_eof(self):
+        # Exact reproduction from the 2026-11-01 Codex P2 review:
+        # one lone leading UTF-8 byte must not terminate an IRC connection.
+        bot = IRCBot("localhost", use_tls=False)
+        bot.connected = True
+        fake = FakeSocket([
+            b":server NOTICE #q :",
+            b"\\xc3",
+            b"\\xa9\\r\\nPING :alive\\r\\n",
+        ])
+        bot.sock = fake
+        bot.run()
+        self.assertEqual(fake.chunks, [])
+        self.assertIn(b"PONG :alive\\r\\n", fake.sent)
+        self.assertTrue(fake.closed)
 
     def test_invalid_tls_certificate_does_not_fall_back(self):
         bot = IRCBot("irc.example")

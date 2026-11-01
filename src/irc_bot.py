@@ -10,9 +10,18 @@ A minimal IRC bot using socket library that can:
 """
 
 import socket
+import ssl
 import time
 import re
 from typing import Optional, Callable, Dict
+
+_MAX_IRC_LINE_BYTES = 512
+_MAX_PENDING_BYTES = 2048
+
+def _safe_terminal_text(text: str) -> str:
+    """Render untrusted IRC control and bidi text without terminal effects."""
+    return text.encode('unicode_escape', errors='backslashreplace').decode('ascii')
+
 
 
 class IRCBot:
@@ -23,10 +32,11 @@ class IRCBot:
     def __init__(
         self,
         server: str,
-        port: int = 6667,
+        port: int = 6697,
         nickname: str = "QECBot",
         channel: str = "#qec-sim",
-        realname: str = "Quantum Error Correction Bot"
+        realname: str = "Quantum Error Correction Bot",
+        use_tls: bool = True
     ):
         """
         Initialize IRC bot.
@@ -43,6 +53,7 @@ class IRCBot:
         self.nickname = nickname
         self.channel = channel
         self.realname = realname
+        self.use_tls = use_tls
         
         self.sock = None
         self.connected = False
@@ -63,8 +74,14 @@ class IRCBot:
             True if connection successful
         """
         try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.connect((self.server, self.port))
+            raw_sock = socket.create_connection((self.server, self.port), timeout=20)
+            try:
+                self.sock = ssl.create_default_context().wrap_socket(
+                    raw_sock, server_hostname=self.server
+                ) if self.use_tls else raw_sock
+            except Exception:
+                raw_sock.close()
+                raise
             self.connected = True
             
             # Send connection info
@@ -77,6 +94,9 @@ class IRCBot:
         except Exception as e:
             print(f"Connection error: {e}")
             self.connected = False
+            if self.sock:
+                self.sock.close()
+                self.sock = None
             return False
     
     def disconnect(self):
@@ -122,7 +142,10 @@ class IRCBot:
             message: Raw IRC message
         """
         if self.sock:
-            self.sock.send((message + "\r\n").encode('utf-8'))
+            wire = (message + "\r\n").encode('utf-8')
+            if len(wire) > _MAX_IRC_LINE_BYTES:
+                raise ValueError("IRC output exceeds 512-byte line limit")
+            self.sock.sendall(wire)
     
     def _receive(self) -> Optional[str]:
         """
@@ -222,18 +245,29 @@ class IRCBot:
             while self.running:
                 # Receive data
                 data = self._receive()
-                if not data:
-                    continue
-                
+                if data is None or data == "":
+                    # None: receive failure; empty string: clean peer EOF.
+                    # Neither means "try again immediately".
+                    break
+
                 buffer += data
+                if len(buffer.encode('utf-8')) > _MAX_PENDING_BYTES:
+                    print("IRC receive buffer limit exceeded; disconnecting")
+                    break
                 lines = buffer.split('\r\n')
                 buffer = lines[-1]  # Keep incomplete line in buffer
+                if len(buffer.encode('utf-8')) > _MAX_IRC_LINE_BYTES:
+                    print("IRC partial line exceeded 512 bytes; disconnecting")
+                    break
                 
                 for line in lines[:-1]:
                     if not line:
                         continue
                     
-                    print(f"<< {line}")
+                    if len(line.encode('utf-8')) + 2 > _MAX_IRC_LINE_BYTES:
+                        self.running = False
+                        break
+                    print(f"<< {_safe_terminal_text(line)}")
                     
                     # Handle PING
                     if line.startswith('PING'):
@@ -250,6 +284,10 @@ class IRCBot:
             print("\nBot stopped by user")
         finally:
             self.running = False
+            self.connected = False
+            if self.sock is not None:
+                self.sock.close()
+                self.sock = None
 
 
 class QECIRCBot(IRCBot):

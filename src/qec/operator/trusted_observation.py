@@ -79,6 +79,7 @@ def authorize_trusted_observation(
             trusted_boundary_rules=authority.trusted_boundary_rules,
         )
         return decision.allowed is True
-    except (TypeError, ValueError, AttributeError, KeyError, OverflowError,
-            RecursionError):
+    except Exception:
+        # Even a malformed or hostile mapping/receipt must not allow a NOTICE.
+        # Do not trap process-level BaseException (interrupts/termination).
         return False

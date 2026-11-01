@@ -60,21 +60,73 @@ def _bounded_zip_snapshot(path: Path) -> bytes:
 
 
 def _preflight_zip_directory(data: bytes) -> None:
-    # The EOCD occupies the last 22..65557 bytes. Checking counts and central
-    # directory byte size before ZipFile avoids huge ZipInfo-list creation.
-    tail = data[-65557:]
+    """Bound the *effective* central directory before ZipInfo allocation.
+
+    ZIP64 locators override classic EOCD fields in Python's ZipFile even when
+    those fields are not sentinels. This metadata-only intake rejects ZIP64
+    outright and counts real central records, rather than trusting EOCD rows.
+    """
+    tail = data[-65557:]  # maximum EOCD comment plus its 22-byte header
     off = tail.rfind(b"PK\x05\x06")
     if off < 0 or len(tail) - off < 22:
         raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+    eocd = len(data) - len(tail) + off
     signature, disk, disk_cd, disk_rows, rows, cd_bytes, cd_off, comment_len = (
-        struct.unpack_from("<4s4H2IH", tail, off)
+        struct.unpack_from("<4s4H2IH", data, eocd)
     )
+    # CPython honors this ZIP64 locator immediately before the EOCD, replacing
+    # the classic declared directory count/length, even if both look small.
+    if eocd >= 20 and data[eocd - 20:eocd - 16] == b"PK\x06\x07":
+        raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
     if (signature != b"PK\x05\x06" or disk != 0 or disk_cd != 0
             or disk_rows != rows or rows > _MAX_ZIP_ENTRIES
             or rows == 0xffff or cd_bytes == 0xffffffff
             or cd_off == 0xffffffff or cd_bytes > _MAX_CENTRAL_BYTES
-            or len(tail) - off != comment_len + 22
-            or cd_off + cd_bytes > len(data)):
+            or len(data) - eocd != comment_len + 22
+            or cd_bytes < rows * 46):
+        raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+
+    # ZipFile locates a classic central directory at EOCD minus its declared
+    # byte size, allowing a prepended executable prefix via concat adjustment.
+    start = eocd - cd_bytes
+    if start < cd_off or start < 0:
+        raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+
+    pos, actual_rows, total_expanded = start, 0, 0
+    while pos < eocd:
+        if (actual_rows >= _MAX_ZIP_ENTRIES or eocd - pos < 46
+                or data[pos:pos + 4] != b"PK\x01\x02"):
+            raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+        compressed, expanded = struct.unpack_from("<II", data, pos + 20)
+        name_len, extra_len, comment_len = struct.unpack_from("<HHH", data, pos + 28)
+        start_disk = struct.unpack_from("<H", data, pos + 34)[0]
+        local_offset = struct.unpack_from("<I", data, pos + 42)[0]
+        next_pos = pos + 46 + name_len + extra_len + comment_len
+        if (name_len > _MAX_NAME_BYTES or next_pos > eocd
+                or compressed == 0xffffffff or expanded == 0xffffffff
+                or local_offset == 0xffffffff or start_disk != 0
+                or compressed > _MAX_ARCHIVE_BYTES
+                or expanded > _MAX_UNCOMPRESSED_TOTAL):
+            raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+        total_expanded += expanded
+        if total_expanded > _MAX_UNCOMPRESSED_TOTAL:
+            raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+
+        # Disallow ZIP64 per-entry extensions as well as the EOCD locator.
+        # All lengths are already bounded by the central-directory preflight.
+        extra_pos = pos + 46 + name_len
+        extra_end = extra_pos + extra_len
+        while extra_pos < extra_end:
+            if extra_end - extra_pos < 4:
+                raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+            field_id, field_len = struct.unpack_from("<HH", data, extra_pos)
+            extra_pos += 4 + field_len
+            if field_id == 0x0001 or extra_pos > extra_end:
+                raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+        pos = next_pos
+        actual_rows += 1
+
+    if pos != eocd or actual_rows != rows:
         raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
 
 

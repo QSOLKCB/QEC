@@ -223,6 +223,58 @@ class TestSummarizeHybridPair:
         assert summary["distance"] >= 0.0
 
 
+
+def test_signed_proofs_cannot_be_transplanted_to_other_experiment_results(
+    _authenticated_hybrid,
+):
+    """Real Ed25519 receipts do not authorize unrelated scored data."""
+    trusted_signers, signed_pipeline = _authenticated_hybrid
+    theta = [1.0, 2.0, 0.5]
+    raw = run_hybrid_pair(
+        theta, 0, pipeline_fn=signed_pipeline, trusted_signers=trusted_signers
+    )
+    good = summarize_hybrid_pair(
+        theta, raw["theta_result"], 0, raw["seq_result"],
+        trusted_signers=trusted_signers,
+    )
+    assert good["theta_summary"]["verified"] is True
+    assert good["sequence_summary"]["verified"] is True
+
+    altered_sequence = copy.deepcopy(raw["seq_result"])
+    altered_sequence["verification"]["match"] = False
+    altered_sequence["verification"]["final_hash"] = "f" * 64
+    altered_sequence["probe"]["history"][-1]["stability_score"] = 9.0
+    altered_sequence["invariants"]["history"][-1]["invariants"]["strong_invariants"] = []
+    spoof = summarize_hybrid_pair(
+        theta, raw["theta_result"], 0, altered_sequence,
+        trusted_signers=trusted_signers,
+    )
+    assert spoof["sequence_summary"]["verified"] is False
+
+    # The correct, unchanged signed data also fails under the wrong identity.
+    swapped = summarize_hybrid_pair(
+        theta, raw["theta_result"], 1, raw["seq_result"],
+        trusted_signers=trusted_signers,
+    )
+    assert swapped["sequence_summary"]["verified"] is False
+
+    altered_uff = copy.deepcopy(raw["theta_result"])
+    altered_uff["features"]["energy"] = 98765.0
+    uff_spoof = summarize_hybrid_pair(
+        theta, altered_uff, 0, raw["seq_result"],
+        trusted_signers=trusted_signers,
+    )
+    assert uff_spoof["theta_summary"]["verified"] is False
+
+    # Legacy replay-only proofs are not signed attestations of scored metrics.
+    legacy = copy.deepcopy(raw["seq_result"])
+    legacy["proof"]["signed_payload"]["metadata"].pop("experiment_binding_v1")
+    assert summarize_hybrid_pair(
+        theta, raw["theta_result"], 0, legacy,
+        trusted_signers=trusted_signers,
+    )["sequence_summary"]["verified"] is False
+
+
 class TestScoreHybridPair:
     def test_aligned(self):
         scored = score_hybrid_pair({"distance": 0.5})

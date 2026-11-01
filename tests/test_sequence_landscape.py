@@ -173,7 +173,9 @@ class TestExtractSequenceSummary:
         result = _make_fake_result(consensus=True, verified=True)
         summary = _extract_sequence_summary("s", result)
         assert summary["consensus"] is True
-        assert summary["verified"] is True
+        # A producer-supplied verified=True without a trusted signing key
+        # cannot authenticate a proof.
+        assert summary["verified"] is False
 
     def test_trajectory_class_extracted(self):
         result = _make_fake_result(classification="oscillatory")

@@ -15,7 +15,7 @@ from typing import Any, Dict, List
 
 import numpy as np
 
-from qec.controller.execution_proof import create_execution_proof
+from qec.controller.execution_proof import create_execution_proof, experiment_result_binding
 from qec.controller.multi_agent_verifier import verify_multi_agent
 from qec.controller.qec_fsm import QECFSM
 from qec.controller.replay_engine import verify_run
@@ -238,17 +238,7 @@ def build_sample(features: Dict[str, float]) -> Dict[str, Any]:
 # Step 7 — Full pipeline
 # ---------------------------------------------------------------------------
 
-_DEMO_PRIVATE_KEY_PEM = (
-    b"-----BEGIN PRIVATE KEY-----\n"
-    b"MC4CAQAwBQYDK2VwBCIEIO4Nngc2zhyTpxaDALLMVmUQ6OOjMk0eOgLjGnLLY2nN\n"
-    b"-----END PRIVATE KEY-----\n"
-)
-
-_DEMO_PUBLIC_KEY_PEM = (
-    b"-----BEGIN PUBLIC KEY-----\n"
-    b"MCowBQYDK2VwAyEAk5fIB0Cvc5fb2v0wizvCJjQFro2sald9OS1eyUO1soM=\n"
-    b"-----END PUBLIC KEY-----\n"
-)
+# Signing keys are explicit caller input; no published demo private-key default.
 
 _DEFAULT_CONFIG: Dict[str, Any] = {
     "stability_threshold": 0.5,
@@ -266,8 +256,9 @@ def run_midi_cube_experiment(
     corrupt: bool = False,
     config: Dict[str, Any] | None = None,
     signer_id: str = "midi-cube-bridge",
-    private_key_pem: bytes = _DEMO_PRIVATE_KEY_PEM,
-    public_key_pem: bytes = _DEMO_PUBLIC_KEY_PEM,
+    trusted_signers: dict[str, bytes] | None = None,
+    private_key_pem: bytes | None = None,
+    public_key_pem: bytes | None = None,
 ) -> Dict[str, Any]:
     """Run a full MIDI/Cube/DNA → QEC experiment pipeline.
 
@@ -324,24 +315,17 @@ def run_midi_cube_experiment(
         sample_input, history, merged_config, max_steps=20,
     )
 
-    # --- Execution proof ---
-    proof = create_execution_proof(
-        verify_result=verification,
-        signer_id=signer_id,
-        private_key_pem=private_key_pem,
-        public_key_pem=public_key_pem,
-        metadata={"events": len(events), "corrupt": corrupt},
-    )
-
-    # --- Multi-agent consensus ---
+    # Consensus is computed before proof signing; the verifier's proof
+    # argument is currently reserved and does not affect the computation.
+    # This lets the final signature bind the actual consensus and metrics.
     consensus = verify_multi_agent(
         initial_input=sample_input,
         history=history,
         config=merged_config,
-        proof=proof,
+        proof=None,
     )
 
-    return {
+    result = {
         "events": len(events),
         "features": features,
         "probe": copy.deepcopy(fsm_result),
@@ -351,6 +335,21 @@ def run_midi_cube_experiment(
         },
         "trajectory": trajectory,
         "verification": verification,
-        "proof": proof,
         "consensus": consensus,
     }
+
+    proof = create_execution_proof(
+        verify_result=verification,
+        signer_id=signer_id,
+        private_key_pem=private_key_pem,
+        public_key_pem=public_key_pem,
+        trusted_signers=trusted_signers,
+        metadata={
+            **{"events": len(events), "corrupt": corrupt},
+            "experiment_binding_v1": experiment_result_binding(
+                result, domain="sequence", identity=str(midi_path)
+            ),
+        },
+    )
+    result["proof"] = proof
+    return result

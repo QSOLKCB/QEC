@@ -12,7 +12,7 @@ Does not modify decoder internals.  Fully deterministic.  Read-only on inputs.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Mapping
 
 import numpy as np
 
@@ -42,6 +42,10 @@ def run_hybrid_pair(
     *,
     v_circ_fn: Callable[..., np.ndarray] | None = None,
     pipeline_fn: Callable[..., Dict[str, Any]] | None = None,
+    trusted_signers: Mapping[str, bytes] | None = None,
+    uff_signer_id: str = "uff-bridge",
+    uff_private_key_pem: bytes | None = None,
+    uff_public_key_pem: bytes | None = None,
 ) -> Dict[str, Any]:
     """Run UFF and sequence experiments for a single (theta, sequence) pair.
 
@@ -72,7 +76,11 @@ def run_hybrid_pair(
 
     from qec.experiments.uff_bridge import run_uff_experiment
 
-    theta_result = run_uff_experiment(theta, v_circ_fn=v_circ_fn)
+    theta_result = run_uff_experiment(
+        theta, v_circ_fn=v_circ_fn, signer_id=uff_signer_id,
+        private_key_pem=uff_private_key_pem, public_key_pem=uff_public_key_pem,
+        trusted_signers=trusted_signers,
+    )
     seq_result = pipeline_fn(sequence)
 
     return {"theta_result": theta_result, "seq_result": seq_result}
@@ -87,6 +95,8 @@ def summarize_hybrid_pair(
     theta_result: Dict[str, Any],
     sequence: Any,
     seq_result: Dict[str, Any],
+    *,
+    trusted_signers: Mapping[str, bytes] | None = None,
 ) -> Dict[str, Any]:
     """Produce fused invariant summaries for a (theta, sequence) pair.
 
@@ -107,8 +117,8 @@ def summarize_hybrid_pair(
         Fused summary with keys: ``theta_summary``, ``sequence_summary``,
         ``theta_embedding``, ``sequence_embedding``, ``distance``.
     """
-    theta_summary = _extract_point_summary(theta, theta_result)
-    seq_summary = _extract_sequence_summary(sequence, seq_result)
+    theta_summary = _extract_point_summary(theta, theta_result, trusted_signers=trusted_signers)
+    seq_summary = _extract_sequence_summary(sequence, seq_result, trusted_signers=trusted_signers)
     seq_summary["class"] = classify_sequence(seq_summary)
 
     theta_emb = embed_summary(theta_summary)
@@ -166,6 +176,10 @@ def run_hybrid_codesign(
     *,
     v_circ_fn: Callable[..., np.ndarray] | None = None,
     pipeline_fn: Callable[..., Dict[str, Any]] | None = None,
+    trusted_signers: Mapping[str, bytes] | None = None,
+    uff_signer_id: str = "uff-bridge",
+    uff_private_key_pem: bytes | None = None,
+    uff_public_key_pem: bytes | None = None,
 ) -> Dict[str, Any]:
     """Evaluate all (theta, sequence) pairs and return a compatibility map.
 
@@ -197,10 +211,13 @@ def run_hybrid_codesign(
             raw = run_hybrid_pair(
                 theta, seq,
                 v_circ_fn=v_circ_fn, pipeline_fn=pipeline_fn,
+                trusted_signers=trusted_signers, uff_signer_id=uff_signer_id,
+                uff_private_key_pem=uff_private_key_pem,
+                uff_public_key_pem=uff_public_key_pem,
             )
             summary = summarize_hybrid_pair(
                 theta, raw["theta_result"],
-                seq, raw["seq_result"],
+                seq, raw["seq_result"], trusted_signers=trusted_signers,
             )
 
             # --- Validity check ---

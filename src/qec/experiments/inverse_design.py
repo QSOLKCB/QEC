@@ -13,7 +13,7 @@ Does not modify decoder internals.  Fully deterministic.  Read-only on inputs.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Mapping
 
 from qec.experiments.sequence_landscape import (
     _extract_sequence_summary,
@@ -132,6 +132,8 @@ def _build_patterns(
 def evaluate_sequence(
     seq: List[Dict[str, Any]],
     pipeline_fn: Callable[..., Dict[str, Any]],
+    *,
+    trusted_signers: Mapping[str, bytes] | None = None,
 ) -> Dict[str, Any]:
     """Evaluate a single candidate sequence through the pipeline.
 
@@ -151,7 +153,7 @@ def evaluate_sequence(
         ``verified``, ``invariant_strength``.
     """
     result = pipeline_fn(seq)
-    summary = _extract_sequence_summary(seq, result)
+    summary = _extract_sequence_summary(seq, result, trusted_signers=trusted_signers)
     summary["sequence_class"] = classify_sequence(summary)
     return summary
 
@@ -263,6 +265,7 @@ def run_inverse_design(
     pipeline_fn: Callable[..., Dict[str, Any]],
     *,
     top_k: int = 5,
+    trusted_signers: Mapping[str, bytes] | None = None,
 ) -> Dict[str, Any]:
     """Run bounded inverse design search.
 
@@ -297,7 +300,7 @@ def run_inverse_design(
 
     scored: List[Dict[str, Any]] = []
     for seq in candidates:
-        summary = evaluate_sequence(seq, pipeline_fn)
+        summary = evaluate_sequence(seq, pipeline_fn, trusted_signers=trusted_signers)
         s = score_candidate(summary, target)
         scored.append({
             "sequence": seq,

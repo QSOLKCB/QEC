@@ -121,6 +121,58 @@ def _fake_pipeline_invalid(seq: int) -> dict:
     return _make_fake_result(consensus=False, verified=False)
 
 
+
+@pytest.fixture()
+def _authenticated_hybrid(monkeypatch):
+    """Verifier-owned test trust: exercise real signatures, not stored flags."""
+    pytest.importorskip("cryptography")
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding, PrivateFormat, PublicFormat, NoEncryption,
+    )
+    from qec.controller.execution_proof import (
+        create_execution_proof, experiment_result_binding,
+    )
+    from qec.controller.replay_engine import build_hash_chain
+
+    private = Ed25519PrivateKey.generate()
+    private_pem = private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
+    public_pem = private.public_key().public_bytes(
+        Encoding.PEM, PublicFormat.SubjectPublicKeyInfo
+    )
+    trusted_signers = {"uff-test": public_pem, "sequence-test": public_pem}
+
+    def authenticated_result(result, signer_id, domain, identity):
+        history = result["probe"]["history"]
+        result["verification"] = {
+            "final_hash": build_hash_chain(history)["final_hash"],
+            "steps": len(history),
+            "match": True,
+            "mismatch_index": None,
+        }
+        result["proof"] = create_execution_proof(
+            result["verification"], signer_id, private_pem, public_pem,
+            trusted_signers=trusted_signers,
+            metadata={"experiment_binding_v1": experiment_result_binding(
+                result, domain=domain, identity=identity,
+            )},
+        )
+        assert result["proof"]["verified"] is True
+        return result
+
+    def signed_uff(theta, **kwargs):
+        return authenticated_result(_fake_uff(theta), "uff-test", "uff", theta)
+
+    def signed_pipeline(seq):
+        return authenticated_result(
+            _fake_pipeline(seq), "sequence-test", "sequence", seq,
+        )
+
+    monkeypatch.setattr(
+        "qec.experiments.uff_bridge.run_uff_experiment", signed_uff
+    )
+    return trusted_signers, signed_pipeline
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -169,6 +221,58 @@ class TestSummarizeHybridPair:
         result = _make_fake_result()
         summary = summarize_hybrid_pair(theta, result, 0, result)
         assert summary["distance"] >= 0.0
+
+
+
+def test_signed_proofs_cannot_be_transplanted_to_other_experiment_results(
+    _authenticated_hybrid,
+):
+    """Real Ed25519 receipts do not authorize unrelated scored data."""
+    trusted_signers, signed_pipeline = _authenticated_hybrid
+    theta = [1.0, 2.0, 0.5]
+    raw = run_hybrid_pair(
+        theta, 0, pipeline_fn=signed_pipeline, trusted_signers=trusted_signers
+    )
+    good = summarize_hybrid_pair(
+        theta, raw["theta_result"], 0, raw["seq_result"],
+        trusted_signers=trusted_signers,
+    )
+    assert good["theta_summary"]["verified"] is True
+    assert good["sequence_summary"]["verified"] is True
+
+    altered_sequence = copy.deepcopy(raw["seq_result"])
+    altered_sequence["verification"]["match"] = False
+    altered_sequence["verification"]["final_hash"] = "f" * 64
+    altered_sequence["probe"]["history"][-1]["stability_score"] = 9.0
+    altered_sequence["invariants"]["history"][-1]["invariants"]["strong_invariants"] = []
+    spoof = summarize_hybrid_pair(
+        theta, raw["theta_result"], 0, altered_sequence,
+        trusted_signers=trusted_signers,
+    )
+    assert spoof["sequence_summary"]["verified"] is False
+
+    # The correct, unchanged signed data also fails under the wrong identity.
+    swapped = summarize_hybrid_pair(
+        theta, raw["theta_result"], 1, raw["seq_result"],
+        trusted_signers=trusted_signers,
+    )
+    assert swapped["sequence_summary"]["verified"] is False
+
+    altered_uff = copy.deepcopy(raw["theta_result"])
+    altered_uff["features"]["energy"] = 98765.0
+    uff_spoof = summarize_hybrid_pair(
+        theta, altered_uff, 0, raw["seq_result"],
+        trusted_signers=trusted_signers,
+    )
+    assert uff_spoof["theta_summary"]["verified"] is False
+
+    # Legacy replay-only proofs are not signed attestations of scored metrics.
+    legacy = copy.deepcopy(raw["seq_result"])
+    legacy["proof"]["signed_payload"]["metadata"].pop("experiment_binding_v1")
+    assert summarize_hybrid_pair(
+        theta, raw["theta_result"], 0, legacy,
+        trusted_signers=trusted_signers,
+    )["sequence_summary"]["verified"] is False
 
 
 class TestScoreHybridPair:
@@ -228,12 +332,15 @@ class TestRunHybridCodesign:
         run_hybrid_codesign([[1.0, 2.0, 0.5]], seqs, pipeline_fn=_fake_pipeline)
         assert seqs == seqs_copy
 
-    def test_best_worst_present(self, _patch_uff):
+    def test_best_worst_present(self, _authenticated_hybrid):
+        trusted_signers, signed_pipeline = _authenticated_hybrid
         result = run_hybrid_codesign(
-            [[1.0, 2.0, 0.5]], [0, 1], pipeline_fn=_fake_pipeline,
+            [[1.0, 2.0, 0.5]], [0, 1],
+            pipeline_fn=signed_pipeline, trusted_signers=trusted_signers,
         )
         assert "theta" in result["best_pair"]
         assert "theta" in result["worst_pair"]
+        assert result["best_pair"]["alignment"] != "invalid"
 
     def test_counts_sum(self, _patch_uff):
         result = run_hybrid_codesign(
@@ -257,12 +364,23 @@ class TestRunHybridCodesign:
         }
         assert expected_keys <= set(entry.keys())
 
-    def test_single_pair(self, _patch_uff):
+    def test_single_pair(self, _authenticated_hybrid):
+        trusted_signers, signed_pipeline = _authenticated_hybrid
         result = run_hybrid_codesign(
-            [[1.0, 2.0, 0.5]], [0], pipeline_fn=_fake_pipeline,
+            [[1.0, 2.0, 0.5]], [0],
+            pipeline_fn=signed_pipeline, trusted_signers=trusted_signers,
         )
         assert result["n_pairs"] == 1
         assert result["best_pair"] == result["worst_pair"]
+        assert result["best_pair"]["alignment"] != "invalid"
+
+    def test_untrusted_reported_verified_does_not_score(self, _patch_uff):
+        # Legacy mock advertises verified=True but has no authentic signature.
+        result = run_hybrid_codesign(
+            [[1.0, 2.0, 0.5]], [0], pipeline_fn=_fake_pipeline,
+        )
+        assert result["pairs"][0]["alignment"] == "invalid"
+        assert result["best_pair"] == {}
 
     def test_empty_theta_grid(self, _patch_uff):
         result = run_hybrid_codesign([], [0, 1], pipeline_fn=_fake_pipeline)

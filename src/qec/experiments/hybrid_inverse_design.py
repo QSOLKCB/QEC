@@ -15,7 +15,7 @@ Does not modify decoder internals.  Fully deterministic.  Read-only on inputs.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, Mapping
 
 import numpy as np
 
@@ -250,6 +250,10 @@ def run_hybrid_inverse_design(
     v_circ_fn: Callable[..., np.ndarray] | None = None,
     pipeline_fn: Callable[..., Dict[str, Any]] | None = None,
     top_k: int = 5,
+    trusted_signers: Mapping[str, bytes] | None = None,
+    uff_signer_id: str = "uff-bridge",
+    uff_private_key_pem: bytes | None = None,
+    uff_public_key_pem: bytes | None = None,
 ) -> Dict[str, Any]:
     """Run deterministic hybrid inverse design search.
 
@@ -314,10 +318,13 @@ def run_hybrid_inverse_design(
         raw = run_hybrid_pair(
             theta, seq,
             v_circ_fn=v_circ_fn, pipeline_fn=pipeline_fn,
+            trusted_signers=trusted_signers, uff_signer_id=uff_signer_id,
+            uff_private_key_pem=uff_private_key_pem,
+            uff_public_key_pem=uff_public_key_pem,
         )
         summary = summarize_hybrid_pair(
-            theta, raw["theta_result"],
-            seq, raw["seq_result"],
+            theta, raw["theta_result"], seq, raw["seq_result"],
+            trusted_signers=trusted_signers,
         )
 
         # Validity check (same as hybrid_codesign)

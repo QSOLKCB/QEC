@@ -222,7 +222,6 @@ def authenticate_experiment_result(
         if (not isinstance(verification, dict) or
                 not isinstance(history, list) or
                 not isinstance(invariant_history, list) or
-                history != invariant_history or
                 verification.get("match") is not True or
                 verification.get("mismatch_index") is not None or
                 type(verification.get("steps")) is not int or

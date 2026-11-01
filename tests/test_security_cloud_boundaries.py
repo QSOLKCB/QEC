@@ -101,13 +101,13 @@ class LegacyIrcBoundaryTests(unittest.TestCase):
         bot.connected = True
         fake = FakeSocket([
             b":server NOTICE #q :",
-            b"\\xc3",
-            b"\\xa9\\r\\nPING :alive\\r\\n",
+            b"\xc3",
+            b"\xa9\r\nPING :alive\r\n",
         ])
         bot.sock = fake
         bot.run()
         self.assertEqual(fake.chunks, [])
-        self.assertIn(b"PONG :alive\\r\\n", fake.sent)
+        self.assertIn(b"PONG :alive\r\n", fake.sent)
         self.assertTrue(fake.closed)
 
     def test_invalid_tls_certificate_does_not_fall_back(self):

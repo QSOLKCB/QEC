@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 import hashlib
+import io
+import os
 import re
+import stat
+import struct
 import zipfile
 
 from .canonical_hashing import canonical_bytes, canonical_json, sha256_hex
@@ -30,6 +34,49 @@ _ALLOWED_WORLD_FAMILIES = {
     "UNKNOWN",
 }
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+# Intake is metadata-only: reject resource amplification before opening ZIP's
+# central directory or allocating archive-membership objects.
+_MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
+_MAX_CENTRAL_BYTES = 2 * 1024 * 1024
+_MAX_ZIP_ENTRIES = 2048
+_MAX_NAME_BYTES = 4096
+_MAX_UNCOMPRESSED_TOTAL = 512 * 1024 * 1024
+_MAX_CORPUS_ARCHIVES = 128
+
+
+def _bounded_zip_snapshot(path: Path) -> bytes:
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    with os.fdopen(fd, "rb") as source:
+        info = os.fstat(source.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > _MAX_ARCHIVE_BYTES:
+            raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+        raw = source.read(_MAX_ARCHIVE_BYTES + 1)
+    if len(raw) > _MAX_ARCHIVE_BYTES:
+        raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+    return raw
+
+
+def _preflight_zip_directory(data: bytes) -> None:
+    # The EOCD occupies the last 22..65557 bytes. Checking counts and central
+    # directory byte size before ZipFile avoids huge ZipInfo-list creation.
+    tail = data[-65557:]
+    off = tail.rfind(b"PK\x05\x06")
+    if off < 0 or len(tail) - off < 22:
+        raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+    signature, disk, disk_cd, disk_rows, rows, cd_bytes, cd_off, comment_len = (
+        struct.unpack_from("<4s4H2IH", tail, off)
+    )
+    if (signature != b"PK\x05\x06" or disk != 0 or disk_cd != 0
+            or disk_rows != rows or rows > _MAX_ZIP_ENTRIES
+            or rows == 0xffff or cd_bytes == 0xffffffff
+            or cd_off == 0xffffffff or cd_bytes > _MAX_CENTRAL_BYTES
+            or len(tail) - off != comment_len + 22
+            or cd_off + cd_bytes > len(data)):
+        raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
+
 
 _LANGUAGE_BY_EXT = {".py": "Python", ".java": "Java", ".kt": "Kotlin", ".js": "JavaScript", ".ts": "TypeScript", ".c": "C", ".cpp": "C++", ".cs": "C#", ".ipynb": "Jupyter"}
 _EXECUTABLE_ENTRYPOINT_NAMES = {"main.py", "app.py", "run.py", "train.py", "setup.py"}
@@ -306,10 +353,13 @@ def build_game_world_archive(archive_path: str) -> GameWorldArchive:
     if path.suffix.lower() != ".zip":
         raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
     try:
-        archive_bytes = path.read_bytes()
-        with zipfile.ZipFile(path, "r") as zf:
+        archive_bytes = _bounded_zip_snapshot(path)
+        _preflight_zip_directory(archive_bytes)
+        with zipfile.ZipFile(io.BytesIO(archive_bytes), "r") as zf:
             infos = sorted(zf.infolist(), key=lambda zi: zi.filename)
-    except (OSError, zipfile.BadZipFile):
+    except (OSError, zipfile.BadZipFile, struct.error) as error:
+        raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT) from error
+    if len(infos) > _MAX_ZIP_ENTRIES:
         raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
 
     entries: list[str] = []
@@ -320,12 +370,16 @@ def build_game_world_archive(archive_path: str) -> GameWorldArchive:
     total_bytes = 0
     for zi in infos:
         name = zi.filename
+        if len(name.encode("utf-8")) > _MAX_NAME_BYTES or zi.file_size > _MAX_UNCOMPRESSED_TOTAL:
+            raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
         _validate_archive_entry_path(name)
         entries.append(name)
         top_levels.add(name.split("/", 1)[0])
         if zi.is_dir():
             continue
         total_bytes += zi.file_size
+        if total_bytes > _MAX_UNCOMPRESSED_TOTAL:
+            raise ValueError(_ERR_INVALID_ARCHIVE_FORMAT)
         file_name = name.rsplit("/", 1)[-1]
         lower = name.lower()
         for ext, lang in _LANGUAGE_BY_EXT.items():
@@ -369,8 +423,13 @@ def build_game_world_archive(archive_path: str) -> GameWorldArchive:
 
 
 def build_game_world_corpus_manifest(archive_paths: list[str] | tuple[str, ...]) -> GameWorldCorpusManifest:
-    if not isinstance(archive_paths, (list, tuple)):
+    if not isinstance(archive_paths, (list, tuple)) or len(archive_paths) > _MAX_CORPUS_ARCHIVES:
         raise ValueError(_ERR_INVALID_INPUT)
+    if any(not isinstance(p, str) or not p for p in archive_paths):
+        raise ValueError(_ERR_INVALID_INPUT)
+    names_before_read = [Path(p).name for p in archive_paths]
+    if len(set(names_before_read)) != len(names_before_read):
+        raise ValueError(_ERR_DUPLICATE_ARCHIVE)
     archives = tuple(sorted((build_game_world_archive(p) for p in archive_paths), key=lambda a: (a.archive_name, a.archive_sha256)))
     names = [a.archive_name for a in archives]
     if len(names) != len(set(names)):

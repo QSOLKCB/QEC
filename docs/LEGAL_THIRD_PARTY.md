@@ -5,8 +5,9 @@ This QEC-authored document is governed by the Mozilla Public License 2.0
 dependencies and referenced upstream materials retain their own licences and
 notices; their inclusion here does not relicense them.
 
-This document defines the legal and licensing status of all third-party tools
-referenced by the QEC benchmarking interop layer (`bench/interop/`).
+This document defines the legal and licensing status of third-party tools
+referenced by the QEC benchmarking interop layer (`bench/interop/`) and optional
+offline conformance tooling.
 
 ## Categories
 
@@ -43,8 +44,21 @@ in this project. They are listed solely for documentation completeness.
 | Google Matching     | Google      | Internal; not publicly available        |
 | IBM Qiskit-QEC      | IBM         | Not used as a dependency                |
 
-**Note:** Version tested reflects minimum validated version; newer compatible
-versions may be used.
+### Category D — Optional Offline Conformance Donors
+
+| Tool | Pinned revision | Licence | Usage |
+|---|---|---|---|
+| [css-decoupling](https://github.com/hmx21/css-decoupling) | `a48048c1097f4d1b37a55eca9a1796a823f0c124` | MIT, copyright 2026 Mingxin He | Explicit `scripts/generate_qutrit_css_fixtures.py` regeneration only; no core import or default dependency |
+
+The donor's MIT notice is preserved in
+[`THIRD_PARTY_LICENSES/css-decoupling-MIT.txt`](../THIRD_PARTY_LICENSES/css-decoupling-MIT.txt).
+No implementation is vendored. See the
+[conformance scope and reproduction](research/QUTRIT_CSS_DECOUPLING_CONFORMANCE.md)
+for output provenance and the separate Lean/runtime claim boundaries.
+
+**Note:** Versions in Categories A–C reflect minimum validated versions; newer
+compatible versions may be used. Category D fixture regeneration requires the
+exact documented source and dependency pins.
 
 ## Version Audit Procedure
 

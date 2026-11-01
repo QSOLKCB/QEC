@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
 from pathlib import Path
+import io
 import shutil
+import struct
 import zipfile
 
 import pytest
@@ -373,3 +375,65 @@ def test_intake_rejects_duplicate_and_excess_corpus_before_read(monkeypatch):
         build_game_world_corpus_manifest(
             [f"/a/f{i}.zip" for i in range(mod._MAX_CORPUS_ARCHIVES + 1)]
         )
+
+
+def _reject_before_zipinfo_allocation(path, monkeypatch):
+    """No ZipFile constructor is permitted for a rejected directory."""
+    def forbidden(*args, **kwargs):
+        raise AssertionError("ZipFile allocated its directory before rejection")
+    with monkeypatch.context() as patcher:
+        patcher.setattr(mod.zipfile, "ZipFile", forbidden)
+        with pytest.raises(ValueError, match="INVALID_ARCHIVE_FORMAT"):
+            build_game_world_archive(str(path))
+
+
+def test_preflight_rejects_zip64_locator_with_forged_small_classic_eocd(tmp_path, monkeypatch):
+    path = tmp_path / "zip64-forgery.zip"
+    _make_zip(path, [(f"entry-{i}.txt", b"content") for i in range(3)])
+    original = path.read_bytes()
+    eocd = len(original) - 22
+    signature, disk, disk_cd, count, total, cd_size, cd_offset, comment = (
+        struct.unpack_from("<4s4H2IH", original, eocd)
+    )
+    assert signature == b"PK\x05\x06" and total == 3 and comment == 0
+    # Python _EndRecData64 uses this locator to replace even non-sentinel
+    # classic EOCD sizes/counts. The old preflight trusted a forged count=1.
+    zip64_end = struct.pack(
+        "<4sQ2H2L4Q", b"PK\x06\x06", 44, 45, 45,
+        0, 0, count, total, cd_size, cd_offset
+    )
+    locator = struct.pack("<4sLQL", b"PK\x06\x07", 0, eocd, 1)
+    forged_eocd = struct.pack(
+        "<4s4H2IH", b"PK\x05\x06", 0, 0, 1, 1, 46, cd_offset, 0
+    )
+    attack = original[:eocd] + zip64_end + locator + forged_eocd
+    # Sanity check: stdlib would trust the ZIP64 count and create 3 objects.
+    with zipfile.ZipFile(io.BytesIO(attack)) as zf:
+        assert len(zf.infolist()) == 3
+    path.write_bytes(attack)
+    _reject_before_zipinfo_allocation(path, monkeypatch)
+
+
+def test_preflight_counts_real_records_not_forged_classic_eocd(tmp_path, monkeypatch):
+    path = tmp_path / "forged-rows.zip"
+    with zipfile.ZipFile(path, "w") as zf:
+        for i in range(mod._MAX_ZIP_ENTRIES + 2):
+            zf.writestr(f"row-{i}.txt", b"")
+    attack = bytearray(path.read_bytes())
+    eocd = len(attack) - 22
+    assert struct.unpack_from("<I", attack, eocd + 12)[0] < mod._MAX_CENTRAL_BYTES
+    struct.pack_into("<HH", attack, eocd + 8, 1, 1)  # false 1-entry claim
+    # A classic ZIP parser ignores that declared count: actual 2050 records.
+    with zipfile.ZipFile(io.BytesIO(attack)) as zf:
+        assert len(zf.infolist()) == mod._MAX_ZIP_ENTRIES + 2
+    path.write_bytes(attack)
+    _reject_before_zipinfo_allocation(path, monkeypatch)
+
+
+def test_preflight_rejects_zip64_per_entry_extra_before_zipfile(tmp_path, monkeypatch):
+    path = tmp_path / "entry-zip64.zip"
+    info = zipfile.ZipInfo("content.txt")
+    info.extra = struct.pack("<HHQ", 0x0001, 8, 8)
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr(info, b"content")
+    _reject_before_zipinfo_allocation(path, monkeypatch)
